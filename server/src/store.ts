@@ -28,6 +28,13 @@ export interface Store {
   /** Link key changes, oldest first. The last record for a resident is the one that counts. */
   loadLinkKeys(): LinkKeyRecord[];
   saveLinkKey(record: LinkKeyRecord): void;
+  /** Forget every session of one resident, so none of their tokens work again (owner revoke). */
+  revokeSessions(residentId: string): void;
+}
+
+/** A line in sessions.jsonl that ends every earlier session of `residentId`. */
+interface RevocationRecord {
+  revoked: string;
 }
 
 export class MemoryStore implements Store {
@@ -51,6 +58,10 @@ export class MemoryStore implements Store {
   }
   saveLinkKey(record: LinkKeyRecord) {
     this.linkKeys.push(record);
+  }
+  revokeSessions(residentId: string) {
+    const kept = this.sessions.filter((s) => s.residentId !== residentId);
+    this.sessions.splice(0, this.sessions.length, ...kept);
   }
 }
 
@@ -77,7 +88,13 @@ export class JsonlStore implements Store {
     appendFileSync(this.logPath, `${JSON.stringify(input)}\n`);
   }
   loadSessions(): SessionRecord[] {
-    return readJsonl<SessionRecord>(this.sessionsPath);
+    // Append-only: a revocation line drops the sessions before it for that resident.
+    let sessions: SessionRecord[] = [];
+    for (const line of readJsonl<SessionRecord | RevocationRecord>(this.sessionsPath)) {
+      if ("revoked" in line) sessions = sessions.filter((s) => s.residentId !== line.revoked);
+      else sessions.push(line);
+    }
+    return sessions;
   }
   appendSession(session: SessionRecord) {
     appendFileSync(this.sessionsPath, `${JSON.stringify(session)}\n`);
@@ -87,6 +104,10 @@ export class JsonlStore implements Store {
   }
   saveLinkKey(record: LinkKeyRecord) {
     appendFileSync(this.linkKeysPath, `${JSON.stringify(record)}\n`);
+  }
+  revokeSessions(residentId: string) {
+    const line: RevocationRecord = { revoked: residentId };
+    appendFileSync(this.sessionsPath, `${JSON.stringify(line)}\n`);
   }
 }
 

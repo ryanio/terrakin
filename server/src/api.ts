@@ -38,6 +38,7 @@ import { findProposal } from "@terrakin/sim";
 import { IdempotencyStore, type StoredResponse, sha256Hex } from "./idempotency";
 import { BAD_LINK_KEY, DEFAULT_ORIGIN, linkHandlers, linkHelp, REPEAT_NOTE } from "./links";
 import { postMarkdown, profileMarkdown } from "./markdown";
+import { OwnerService } from "./owner-service";
 import { RateLimiters, type Take } from "./rate-limit";
 import type { SocialResult, SocialService } from "./social-service";
 import { anchorPlot, suggestPlots } from "./together";
@@ -96,6 +97,8 @@ const RATE_LIMITED: Record<RateLimitName, string> = {
   xVerifyIp: "Lots of X checks from here. Wait a minute, then try again.",
   letters: "Slow down a little.",
   letterMedia: "Slow down a little.",
+  owner: "Slow down a little.",
+  ownerCodes: "Too many tries with codes from here. Wait a minute.",
 };
 
 const TABLE = ROUTES as readonly RouteSpec[];
@@ -283,6 +286,7 @@ export class Api {
   private readonly skill: string;
   private readonly openapi: string;
   readonly social: SocialService | undefined;
+  readonly owners: OwnerService | undefined;
   private readonly limiters: Record<RateLimitName, RateLimiters>;
   private readonly ipUploads = new Map<string, { day: number; bytes: number }>();
   private uploadsInFlight = 0;
@@ -301,6 +305,9 @@ export class Api {
     this.skill = options.skill;
     this.openapi = options.openapi;
     this.social = options.social;
+    this.owners = options.social
+      ? new OwnerService({ social: options.social, credentials: options.service })
+      : undefined;
     this.ipUploadBytesPerDay = options.ipUploadBytesPerDay ?? 500_000_000;
     this.onResponse = options.onResponse;
     this.now = options.now ?? Date.now;
@@ -323,6 +330,8 @@ export class Api {
       xVerifyIp: bucket("xVerifyIp"),
       letters: bucket("letters"),
       letterMedia: bucket("letterMedia"),
+      owner: bucket("owner"),
+      ownerCodes: bucket("ownerCodes"),
     };
     // Without a social service its routes don't exist, so they answer not_found like any unknown
     // path. The Town Hall needs it too: its notice board and author faces live there.
@@ -332,7 +341,12 @@ export class Api {
         : TABLE.filter(
             (r) =>
               !r.tags.some(
-                (tag) => tag === "Social" || tag === "Site" || tag === "Together" || tag === "Town",
+                (tag) =>
+                  tag === "Social" ||
+                  tag === "Site" ||
+                  tag === "Together" ||
+                  tag === "Town" ||
+                  tag === "Owners",
               ),
           ),
     );
@@ -555,10 +569,17 @@ export class Api {
     return this.social;
   }
 
+  private requireOwners(): OwnerService {
+    // Unreachable: owner routes aren't matched without a social service.
+    if (!this.owners) throw new Error("Owner routes need a SocialService.");
+    return this.owners;
+  }
+
   /** Every REST route's behavior, keyed by the route id from the table. */
   private routeHandlers(): Handlers {
     const { service } = this;
     const social = () => this.requireSocial();
+    const owners = () => this.requireOwners();
     /** One page (from 1) of profile or post URLs. Page 1 always exists, even when empty. */
     const sitemap = (kind: "residents" | "posts", page: number) => {
       const entries = social().sitemapEntries(kind, page - 1, SITEMAP_MAX_URLS);
@@ -910,6 +931,43 @@ export class Api {
       deleteNotice: ({ viewer, params }) =>
         fromResult(social().deleteNotice(viewer, params.id), () => ({ status: 204 as const })),
 
+      // ---------- owners ----------
+      createOwnerClaim: ({ viewer }) =>
+        fromResult(owners().createClaim(viewer), (code) => ({ status: 201 as const, body: code })),
+      acceptOwnerClaim: ({ viewer, body }) =>
+        fromResult(owners().accept(viewer, body.code), (link) => ({
+          status: 200 as const,
+          body: link,
+        })),
+      createOwnerInvite: ({ viewer }) =>
+        fromResult(owners().createInvite(viewer), (invite) => ({
+          status: 201 as const,
+          body: invite,
+        })),
+      getOwnerInvite: ({ params }) =>
+        fromResult(owners().preview(params.code), (invite) => ({
+          status: 200 as const,
+          body: invite,
+        })),
+      confirmOwnerInvite: ({ viewer, body }) =>
+        fromResult(owners().confirm(viewer, body.code), (link) => ({
+          status: 200 as const,
+          body: link,
+        })),
+      declineOwnerInvite: ({ body }) =>
+        fromResult(owners().decline(body.code), () => ({ status: 204 as const })),
+      unlinkOwner: ({ viewer, params }) =>
+        fromResult(owners().unlink(viewer, params.id), () => ({ status: 204 as const })),
+      revokeAgentAccess: ({ viewer, params }) =>
+        fromResult(owners().revoke(viewer, params.id), () => ({ status: 204 as const })),
+      createRekeyCode: ({ viewer, params }) =>
+        fromResult(owners().maintainerRekey(viewer, params.id), (code) => ({
+          status: 201 as const,
+          body: code,
+        })),
+      redeemRekey: ({ body }) =>
+        fromResult(owners().rekey(body.code), (fresh) => ({ status: 200 as const, body: fresh })),
+
       // ---------- docs ----------
       getSkill: () => ({ status: 200, text: this.skill }),
       getOpenApi: () => ({ status: 200, text: this.openapi }),
@@ -999,6 +1057,7 @@ export class Api {
     this.service.tick();
     this.service.sweepIdle();
     this.social?.sweep().catch((err: unknown) => console.error("Social sweep failed", err));
+    this.owners?.sweep();
     const today = Math.floor(Date.now() / 86_400_000);
     for (const [ip, used] of this.ipUploads) if (used.day !== today) this.ipUploads.delete(ip);
     for (const limits of Object.values(this.limiters)) limits.prune();
@@ -1033,6 +1092,7 @@ export interface LiveSocket {
 export class LiveSession {
   private residentId: string | undefined;
   private unsubscribe: (() => void) | undefined;
+  private unwatch: (() => void) | undefined;
   private readonly helloTimer: ReturnType<typeof setTimeout>;
 
   constructor(
@@ -1064,6 +1124,8 @@ export class LiveSession {
     clearTimeout(this.helloTimer);
     this.unsubscribe?.();
     this.unsubscribe = undefined;
+    this.unwatch?.();
+    this.unwatch = undefined;
     if (this.residentId) this.api.service.socketClosed(this.residentId);
     this.residentId = undefined;
   }
@@ -1114,6 +1176,15 @@ export class LiveSession {
       service.socketOpened(id);
       this.send({ type: "welcome", residentId: id, token, world: service.snapshot() });
       this.unsubscribe = service.subscribe(id, (m) => this.send(m));
+      // An owner revoking this agent's tokens ends every connection one of them opened.
+      this.unwatch = service.watchRevocation(id, () => {
+        this.fail(
+          "unauthorized",
+          "Your owner revoked this token. The Terrakin team can help you back in.",
+        );
+        this.onClose();
+        this.socket.close(4003, "token revoked");
+      });
       return;
     }
 

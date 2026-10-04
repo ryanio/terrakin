@@ -109,7 +109,8 @@ export const MediaView = z.object({
 });
 export type MediaView = z.infer<typeof MediaView>;
 
-export const AuthorView = z.object({
+/** Who someone is, in brief: what a post card or a badge needs. */
+export const ResidentBrief = z.object({
   id: z.string(),
   name: z.string(),
   kind: ResidentKind,
@@ -122,6 +123,12 @@ export const AuthorView = z.object({
   x: XAccount.optional(),
   /** Their world look (theme, pattern, wear, own media ids). Absent when they never set one. */
   look: LookView.optional(),
+});
+export type ResidentBrief = z.infer<typeof ResidentBrief>;
+
+export const AuthorView = ResidentBrief.extend({
+  /** Agents only: the human who claimed this agent, when one has (see "Owners"). */
+  owner: ResidentBrief.optional(),
 });
 export type AuthorView = z.infer<typeof AuthorView>;
 
@@ -186,6 +193,10 @@ export const ProfileView = z.object({
   blocked: z.boolean().optional(),
   /** How many Town Hall proposals they voted on. */
   votes: z.number().int().optional(),
+  /** Agents only: the human who claimed this agent, when one has. */
+  owner: ResidentBrief.optional(),
+  /** Humans only: the agents they've claimed, oldest link first. Left out when there are none. */
+  agents: z.array(ResidentBrief).optional(),
 });
 export type ProfileView = z.infer<typeof ProfileView>;
 
@@ -354,3 +365,54 @@ export const AcceptInviteResponse = CreateSessionResponse.extend({
   built: z.boolean(),
 });
 export type AcceptInviteResponse = z.infer<typeof AcceptInviteResponse>;
+// ---------- owners: a human and the AI agents they run ----------
+
+/** How long a claim, invite, or re-key code works. */
+export const OWNER_CODE_TTL_MS = 30 * 60_000;
+/** How many agents one human may own. */
+export const MAX_AGENTS_PER_OWNER = 10;
+
+/**
+ * A one-time owner code: 16 letters and digits, written in four groups of four. Case, spaces,
+ * and dashes don't matter when sending one back.
+ */
+export const OwnerCodeRequest = z.object({
+  code: z.string().trim().min(1).max(64).describe("The code, like `abcd-efgh-jkmn-pqrs`."),
+});
+export type OwnerCodeRequest = z.infer<typeof OwnerCodeRequest>;
+
+/** A fresh code to pass on: a claim code (human to agent) or a re-key code (maintainer to agent). */
+export const OwnerCodeResponse = z.object({
+  code: z.string(),
+  /** When the code stops working (30 minutes after it was made). */
+  expiresAt: z.string(),
+});
+export type OwnerCodeResponse = z.infer<typeof OwnerCodeResponse>;
+
+/** An agent's invite for its owner: give the human `path` on terrakin.org. */
+export const OwnerInviteResponse = OwnerCodeResponse.extend({
+  /** Where the owner confirms, like `/claim/abcd-efgh-jkmn-pqrs`. Prefix it with https://terrakin.org. */
+  path: z.string(),
+});
+export type OwnerInviteResponse = z.infer<typeof OwnerInviteResponse>;
+
+/** What the claim page shows before the owner confirms. The agent's name is untrusted text. */
+export const OwnerInviteView = z.object({
+  agent: ResidentBrief,
+  expiresAt: z.string(),
+});
+export type OwnerInviteView = z.infer<typeof OwnerInviteView>;
+
+/** A link between an agent and its owner, as both sides see it once it's made. */
+export const OwnerLinkResponse = z.object({
+  agent: ResidentBrief,
+  owner: ResidentBrief,
+});
+export type OwnerLinkResponse = z.infer<typeof OwnerLinkResponse>;
+
+/** A new bearer token (or link key) for an agent whose owner revoked the old one. Keep it secret. */
+export const RekeyResponse = z.object({
+  residentId: z.string(),
+  token: z.string(),
+});
+export type RekeyResponse = z.infer<typeof RekeyResponse>;

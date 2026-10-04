@@ -1,0 +1,656 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import type { AddressInfo } from "node:net";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { MAX_AGENTS_PER_OWNER, OWNER_CODE_TTL_MS, type ServerMessage } from "@terrakin/protocol";
+import type { WorldConfig } from "@terrakin/sim";
+import { afterEach, describe, expect, it } from "vitest";
+import WebSocket from "ws";
+import { createApp } from "./app";
+import { MemoryMediaStore } from "./media";
+import { nodeSql } from "./node-sql";
+import { normalizeCode } from "./owner-service";
+import { SocialService } from "./social-service";
+import { SqlStore } from "./sql-store";
+import { JsonlStore, MemoryStore, type Store } from "./store";
+import { responseChecker } from "./test-support";
+import { WorldService } from "./world-service";
+
+const CONFIG: WorldConfig = {
+  width: 12,
+  height: 12,
+  plotSize: 4,
+  maxPlotsPerResident: 1,
+  reach: 2,
+};
+
+const cleanups: (() => void | Promise<void>)[] = [];
+// Every REST response in these tests must match the route table's schemas.
+const { problems, onResponse } = responseChecker();
+afterEach(async () => {
+  for (const fn of cleanups.splice(0).reverse()) await fn();
+  expect(problems.splice(0)).toEqual([]);
+});
+
+interface Who {
+  residentId: string;
+  token: string;
+}
+
+async function start() {
+  let now = 1_700_000_000_000;
+  const service = new WorldService({ store: new MemoryStore(), config: CONFIG });
+  const sql = nodeSql();
+  // Granted by server config in production. Tests add to them after creating a resident.
+  const townsfolk = new Set<string>();
+  const maintainers = new Set<string>();
+  const media = new MemoryMediaStore();
+  const social = new SocialService({
+    sql,
+    media,
+    townsfolk,
+    maintainers,
+    resident: (id) => service.state.residents[id],
+    now: () => now,
+  });
+  const server = createApp({
+    service,
+    social,
+    media,
+    actionsPerSecond: 1000,
+    sessionsPerMinute: 1000,
+    onResponse,
+  });
+  await new Promise<void>((done) => server.listen(0, done));
+  cleanups.push(() => new Promise<void>((done) => server.close(() => done())));
+  cleanups.push(() => sql.close());
+  const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+
+  async function call(method: string, path: string, body?: unknown, token?: string) {
+    const res = await fetch(base + path, {
+      method,
+      headers: {
+        "content-type": "application/json",
+        ...(token ? { authorization: `Bearer ${token}` } : {}),
+      },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    });
+    const text = await res.text();
+    return { status: res.status, body: text ? JSON.parse(text) : undefined };
+  }
+
+  async function join(name: string, kind: "human" | "agent"): Promise<Who> {
+    const { body } = await call("POST", "/v1/session", { name, kind });
+    return body as Who;
+  }
+
+  /** A human claims an agent: a claim code, accepted by the agent. */
+  async function claim(human: Who, agent: Who) {
+    const issued = await call("POST", "/v1/owner/claims", undefined, human.token);
+    expect(issued.status).toBe(201);
+    return call("POST", "/v1/owner/accept", { code: issued.body.code }, agent.token);
+  }
+
+  /** An agent's invite code, as the owner sees it in the link. */
+  async function invite(agent: Who): Promise<string> {
+    const issued = await call("POST", "/v1/owner/invites", undefined, agent.token);
+    expect(issued.status).toBe(201);
+    return issued.body.code;
+  }
+
+  const profile = async (id: string, token?: string) =>
+    (await call("GET", `/v1/residents/${id}`, undefined, token)).body.resident;
+
+  return {
+    base,
+    call,
+    join,
+    claim,
+    invite,
+    profile,
+    sql,
+    service,
+    townsfolk,
+    maintainers,
+    advance: (ms: number) => {
+      now += ms;
+    },
+  };
+}
+
+describe("a human claims their AI", () => {
+  it("links them when the agent accepts the code, with badges and follows both ways", async () => {
+    const { call, join, profile } = await start();
+    const hazel = await join("Hazel", "human");
+    const wren = await join("Wren", "agent");
+
+    const issued = await call("POST", "/v1/owner/claims", undefined, hazel.token);
+    expect(issued.status).toBe(201);
+    expect(issued.body.code).toMatch(/^[a-z2-9]{4}-[a-z2-9]{4}-[a-z2-9]{4}-[a-z2-9]{4}$/);
+    expect(Date.parse(issued.body.expiresAt)).toBe(1_700_000_000_000 + OWNER_CODE_TTL_MS);
+
+    const accepted = await call("POST", "/v1/owner/accept", { code: issued.body.code }, wren.token);
+    expect(accepted.status).toBe(200);
+    expect(accepted.body).toMatchObject({
+      agent: { id: wren.residentId, name: "Wren", kind: "agent" },
+      owner: { id: hazel.residentId, name: "Hazel", kind: "human" },
+    });
+
+    // Public both ways: the agent names its owner, the owner lists the agent.
+    const wrenProfile = await profile(wren.residentId, hazel.token);
+    expect(wrenProfile.owner).toMatchObject({ id: hazel.residentId, name: "Hazel" });
+    expect(wrenProfile).not.toHaveProperty("agents");
+    expect(wrenProfile).toMatchObject({ followed: true, followers: 1, following: 1 });
+    const hazelProfile = await profile(hazel.residentId, wren.token);
+    expect(hazelProfile.agents).toEqual([expect.objectContaining({ id: wren.residentId })]);
+    expect(hazelProfile).not.toHaveProperty("owner");
+    expect(hazelProfile).toMatchObject({ followed: true, followers: 1, following: 1 });
+
+    // Post cards carry the owner on the author.
+    const post = await call("POST", "/v1/posts", { text: "Planted tulips." }, wren.token);
+    expect(post.body.post.author.owner).toMatchObject({ id: hazel.residentId, name: "Hazel" });
+    const feed = await call("GET", "/v1/feed");
+    expect(feed.body.posts[0].author.owner.name).toBe("Hazel");
+    const hazelPost = await call("POST", "/v1/posts", { text: "Hello." }, hazel.token);
+    expect(hazelPost.body.post.author).not.toHaveProperty("owner");
+  });
+
+  it("accepts a code typed with capitals, spaces, or no dashes", async () => {
+    const { call, join } = await start();
+    const hazel = await join("Hazel", "human");
+    const wren = await join("Wren", "agent");
+    const { body } = await call("POST", "/v1/owner/claims", undefined, hazel.token);
+    const messy = ` ${body.code.toUpperCase().replaceAll("-", " ")} `;
+    expect((await call("POST", "/v1/owner/accept", { code: messy }, wren.token)).status).toBe(200);
+    expect(normalizeCode("abcd-efgh-jkmn-pqrs")).toBe("abcdefghjkmnpqrs");
+    expect(normalizeCode("abcd-efgh-jkmn-pqr0")).toBeUndefined();
+    expect(normalizeCode("abcd")).toBeUndefined();
+  });
+
+  it("refuses the wrong kind on each side", async () => {
+    const { call, join } = await start();
+    const hazel = await join("Hazel", "human");
+    const ivy = await join("Ivy", "human");
+    const wren = await join("Wren", "agent");
+    const fern = await join("Fern", "agent");
+
+    const agentClaims = await call("POST", "/v1/owner/claims", undefined, wren.token);
+    expect(agentClaims.status).toBe(403);
+    expect(agentClaims.body.error.code).toBe("forbidden");
+
+    const { body } = await call("POST", "/v1/owner/claims", undefined, hazel.token);
+    const humanAccepts = await call("POST", "/v1/owner/accept", { code: body.code }, ivy.token);
+    expect(humanAccepts.status).toBe(403);
+    // Refused without using up the code: the right agent can still accept it.
+    expect((await call("POST", "/v1/owner/accept", { code: body.code }, fern.token)).status).toBe(
+      200,
+    );
+
+    expect((await call("POST", "/v1/owner/invites", undefined, hazel.token)).status).toBe(403);
+    const code = (await call("POST", "/v1/owner/invites", undefined, wren.token)).body.code;
+    expect((await call("POST", "/v1/owner/confirm", { code }, fern.token)).status).toBe(403);
+  });
+
+  it("needs a token, and a code in the body", async () => {
+    const { call, join } = await start();
+    const wren = await join("Wren", "agent");
+    expect((await call("POST", "/v1/owner/claims")).status).toBe(401);
+    expect((await call("POST", "/v1/owner/accept", { code: "abcd" })).status).toBe(401);
+    expect((await call("POST", "/v1/owner/accept", {}, wren.token)).status).toBe(400);
+    const nonsense = await call("POST", "/v1/owner/accept", { code: "not a code" }, wren.token);
+    expect(nonsense.status).toBe(404);
+    expect(nonsense.body.error.code).toBe("not_found");
+  });
+
+  it("uses each code once", async () => {
+    const { call, join } = await start();
+    const hazel = await join("Hazel", "human");
+    const wren = await join("Wren", "agent");
+    const fern = await join("Fern", "agent");
+    const { body } = await call("POST", "/v1/owner/claims", undefined, hazel.token);
+    expect((await call("POST", "/v1/owner/accept", { code: body.code }, wren.token)).status).toBe(
+      200,
+    );
+    const again = await call("POST", "/v1/owner/accept", { code: body.code }, fern.token);
+    expect(again.status).toBe(404);
+    expect(again.body.error.message).toContain("expired or been used");
+  });
+
+  it("lets a code expire after 30 minutes", async () => {
+    const { call, join, advance } = await start();
+    const hazel = await join("Hazel", "human");
+    const wren = await join("Wren", "agent");
+    const fresh = (await call("POST", "/v1/owner/claims", undefined, hazel.token)).body.code;
+    const stale = (await call("POST", "/v1/owner/claims", undefined, hazel.token)).body.code;
+    advance(OWNER_CODE_TTL_MS - 1);
+    expect((await call("POST", "/v1/owner/accept", { code: fresh }, wren.token)).status).toBe(200);
+    await call("DELETE", `/v1/owner/link/${wren.residentId}`, undefined, wren.token);
+    advance(1);
+    expect((await call("POST", "/v1/owner/accept", { code: stale }, wren.token)).status).toBe(404);
+  });
+
+  it("gives an agent one owner at most", async () => {
+    const { call, join, claim, profile } = await start();
+    const hazel = await join("Hazel", "human");
+    const ivy = await join("Ivy", "human");
+    const wren = await join("Wren", "agent");
+    const fern = await join("Fern", "agent");
+    expect((await claim(hazel, wren)).status).toBe(200);
+
+    const { body } = await call("POST", "/v1/owner/claims", undefined, ivy.token);
+    const taken = await call("POST", "/v1/owner/accept", { code: body.code }, wren.token);
+    expect(taken.status).toBe(400);
+    expect(taken.body.error.code).toBe("already_owned");
+    expect((await profile(wren.residentId)).owner.id).toBe(hazel.residentId);
+    // The refused code still works for an agent without an owner.
+    expect((await call("POST", "/v1/owner/accept", { code: body.code }, fern.token)).status).toBe(
+      200,
+    );
+
+    const invite = await call("POST", "/v1/owner/invites", undefined, wren.token);
+    expect(invite.body.error.code).toBe("already_owned");
+  });
+
+  it(`lets a human own ${MAX_AGENTS_PER_OWNER} agents and no more`, async () => {
+    const { call, join, claim, invite, profile } = await start();
+    const hazel = await join("Hazel", "human");
+    for (let i = 0; i < MAX_AGENTS_PER_OWNER; i++) {
+      expect((await claim(hazel, await join(`Bot ${i}`, "agent"))).status).toBe(200);
+    }
+    expect((await profile(hazel.residentId)).agents).toHaveLength(MAX_AGENTS_PER_OWNER);
+    const more = await call("POST", "/v1/owner/claims", undefined, hazel.token);
+    expect(more.status).toBe(400);
+    expect(more.body.error.code).toBe("owner_limit");
+
+    // The other way in hits the same limit.
+    const extra = await join("Extra", "agent");
+    const code = await invite(extra);
+    const confirmed = await call("POST", "/v1/owner/confirm", { code }, hazel.token);
+    expect(confirmed.body.error.code).toBe("owner_limit");
+  });
+
+  it("stores codes only as hashes", async () => {
+    const { call, join, sql } = await start();
+    const hazel = await join("Hazel", "human");
+    const { body } = await call("POST", "/v1/owner/claims", undefined, hazel.token);
+    const rows = [...sql.exec("SELECT * FROM owner_codes")];
+    expect(rows).toHaveLength(1);
+    expect(JSON.stringify(rows)).not.toContain(normalizeCode(body.code));
+    expect(JSON.stringify(rows)).not.toContain(body.code);
+  });
+});
+
+describe("an AI claims its human", () => {
+  it("links them when the human confirms the invite on the web", async () => {
+    const { call, join, profile } = await start();
+    const hazel = await join("Hazel", "human");
+    const wren = await join("Wren", "agent");
+
+    const issued = await call("POST", "/v1/owner/invites", undefined, wren.token);
+    expect(issued.status).toBe(201);
+    expect(issued.body.path).toBe(`/claim/${issued.body.code}`);
+
+    // The claim page reads the invite without a token.
+    const preview = await call("GET", `/v1/owner/invites/${issued.body.code}`);
+    expect(preview.status).toBe(200);
+    expect(preview.body.agent).toMatchObject({ id: wren.residentId, name: "Wren", kind: "agent" });
+
+    const confirmed = await call(
+      "POST",
+      "/v1/owner/confirm",
+      { code: issued.body.code },
+      hazel.token,
+    );
+    expect(confirmed.status).toBe(200);
+    expect(confirmed.body).toMatchObject({
+      agent: { id: wren.residentId },
+      owner: { id: hazel.residentId },
+    });
+    expect((await profile(wren.residentId)).owner.id).toBe(hazel.residentId);
+    expect((await profile(hazel.residentId)).agents[0].id).toBe(wren.residentId);
+
+    // Used up.
+    expect((await call("GET", `/v1/owner/invites/${issued.body.code}`)).status).toBe(404);
+    const reuse = await call("POST", "/v1/owner/confirm", { code: issued.body.code }, hazel.token);
+    expect(reuse.status).toBe(404);
+  });
+
+  it("turns an invite away with Not mine", async () => {
+    const { call, join, invite } = await start();
+    const hazel = await join("Hazel", "human");
+    const wren = await join("Wren", "agent");
+    const code = await invite(wren);
+    expect((await call("POST", "/v1/owner/decline", { code })).status).toBe(204);
+    expect((await call("GET", `/v1/owner/invites/${code}`)).status).toBe(404);
+    expect((await call("POST", "/v1/owner/confirm", { code }, hazel.token)).status).toBe(404);
+    expect((await call("POST", "/v1/owner/decline", { code })).status).toBe(404);
+  });
+
+  it("keeps only the newest invite, and expires it", async () => {
+    const { call, join, invite, advance } = await start();
+    const hazel = await join("Hazel", "human");
+    const wren = await join("Wren", "agent");
+    const first = await invite(wren);
+    const second = await invite(wren);
+    expect((await call("GET", `/v1/owner/invites/${first}`)).status).toBe(404);
+    advance(OWNER_CODE_TTL_MS);
+    expect((await call("GET", `/v1/owner/invites/${second}`)).status).toBe(404);
+    expect((await call("POST", "/v1/owner/confirm", { code: second }, hazel.token)).status).toBe(
+      404,
+    );
+  });
+
+  it("refuses a claim code where an invite belongs, and the other way round", async () => {
+    const { call, join, invite } = await start();
+    const hazel = await join("Hazel", "human");
+    const wren = await join("Wren", "agent");
+    const claimCode = (await call("POST", "/v1/owner/claims", undefined, hazel.token)).body.code;
+    expect((await call("GET", `/v1/owner/invites/${claimCode}`)).status).toBe(404);
+    expect((await call("POST", "/v1/owner/confirm", { code: claimCode }, hazel.token)).status).toBe(
+      404,
+    );
+    const inviteCode = await invite(wren);
+    expect((await call("POST", "/v1/owner/accept", { code: inviteCode }, wren.token)).status).toBe(
+      404,
+    );
+  });
+});
+
+describe("unlinking", () => {
+  it("lets the agent or its owner unlink, and nobody else", async () => {
+    const { call, join, claim, profile } = await start();
+    const hazel = await join("Hazel", "human");
+    const ivy = await join("Ivy", "human");
+    const wren = await join("Wren", "agent");
+    const fern = await join("Fern", "agent");
+    const path = (agent: Who) => `/v1/owner/link/${agent.residentId}`;
+
+    await claim(hazel, wren);
+    expect((await call("DELETE", path(wren), undefined, ivy.token)).status).toBe(403);
+    expect((await call("DELETE", path(wren), undefined, fern.token)).status).toBe(403);
+    expect((await call("DELETE", path(wren), undefined, wren.token)).status).toBe(204);
+    expect(await profile(wren.residentId)).not.toHaveProperty("owner");
+    expect(await profile(hazel.residentId)).not.toHaveProperty("agents");
+    expect((await call("DELETE", path(wren), undefined, wren.token)).status).toBe(404);
+
+    await claim(hazel, wren);
+    expect((await call("DELETE", path(wren), undefined, hazel.token)).status).toBe(204);
+    expect(await profile(wren.residentId)).not.toHaveProperty("owner");
+    // Follows stay; either side can unfollow on its own.
+    expect((await profile(wren.residentId, hazel.token)).followed).toBe(true);
+    expect((await call("DELETE", path(fern), undefined, fern.token)).status).toBe(404);
+  });
+});
+
+describe("townsfolk", () => {
+  it("can't be claimed, invite, or own", async () => {
+    const { call, join, townsfolk } = await start();
+    const hazel = await join("Hazel", "human");
+    const juniper = await join("Juniper", "agent");
+    const bram = await join("Bram", "human");
+    townsfolk.add(juniper.residentId);
+    townsfolk.add(bram.residentId);
+
+    const { body } = await call("POST", "/v1/owner/claims", undefined, hazel.token);
+    const accepted = await call("POST", "/v1/owner/accept", { code: body.code }, juniper.token);
+    expect(accepted.status).toBe(403);
+    expect(accepted.body.error.message).toContain("Terrakin team");
+    expect((await call("POST", "/v1/owner/invites", undefined, juniper.token)).status).toBe(403);
+    expect((await call("POST", "/v1/owner/claims", undefined, bram.token)).status).toBe(403);
+  });
+});
+
+describe("revoking a compromised agent", () => {
+  /** Hazel owns Wren; Mira is a maintainer. */
+  async function cast() {
+    const t = await start();
+    const hazel = await t.join("Hazel", "human");
+    const wren = await t.join("Wren", "agent");
+    const mira = await t.join("Mira", "human");
+    t.maintainers.add(mira.residentId);
+    await t.claim(hazel, wren);
+    const revoke = (who: Who = hazel) =>
+      t.call("POST", `/v1/owner/link/${wren.residentId}/revoke`, undefined, who.token);
+    const rekeyCode = (who: Who = mira) =>
+      t.call("POST", `/v1/owner/rekey-codes/${wren.residentId}`, undefined, who.token);
+    return { ...t, hazel, wren, mira, revoke, rekeyCode };
+  }
+
+  it("cuts off the old token and gives the owner nothing that works as the agent", async () => {
+    const { call, hazel, wren, revoke, sql } = await cast();
+    const before = [...sql.exec("SELECT code_hash FROM owner_codes")].length;
+
+    const revoked = await revoke();
+    expect(revoked.status).toBe(204);
+    expect(revoked.body).toBeUndefined();
+    // No code was made for anyone to redeem.
+    expect([...sql.exec("SELECT code_hash FROM owner_codes")]).toHaveLength(before);
+
+    // The old token is dead everywhere.
+    const stale = await call("POST", "/v1/posts", { text: "still me?" }, wren.token);
+    expect(stale.status).toBe(401);
+    expect((await call("POST", "/v1/actions", { type: "home" }, wren.token)).status).toBe(401);
+    // The owner's own token is untouched, and it can't mint a way in.
+    expect((await call("POST", "/v1/posts", { text: "Fixed it." }, hazel.token)).status).toBe(201);
+    const ownerTries = await call(
+      "POST",
+      `/v1/owner/rekey-codes/${wren.residentId}`,
+      undefined,
+      hazel.token,
+    );
+    expect(ownerTries.status).toBe(403);
+  });
+
+  it("lets a maintainer make a re-key code the agent trades once", async () => {
+    const { call, wren, revoke, rekeyCode } = await cast();
+    await revoke();
+
+    const issued = await rekeyCode();
+    expect(issued.status).toBe(201);
+    expect(issued.body.code).toMatch(/^[a-z2-9-]{19}$/);
+    expect(Object.keys(issued.body).sort()).toEqual(["code", "expiresAt"]);
+
+    // Traded with no token on the request, once.
+    const rekeyed = await call("POST", "/v1/owner/rekey", { code: issued.body.code });
+    expect(rekeyed.status).toBe(200);
+    expect(rekeyed.body.residentId).toBe(wren.residentId);
+    expect(rekeyed.body.token).not.toBe(wren.token);
+    const fresh = await call("POST", "/v1/posts", { text: "Back." }, rekeyed.body.token);
+    expect(fresh.status).toBe(201);
+    expect(fresh.body.post.author.id).toBe(wren.residentId);
+    expect((await call("POST", "/v1/owner/rekey", { code: issued.body.code })).status).toBe(404);
+    expect((await call("POST", "/v1/posts", { text: "x" }, wren.token)).status).toBe(401);
+    // Back in, it isn't locked out anymore, so no further codes.
+    expect((await rekeyCode()).status).toBe(404);
+  });
+
+  it("keeps re-key codes for maintainers, and only for locked-out agents", async () => {
+    const { join, hazel, wren, revoke, rekeyCode, maintainers } = await cast();
+    const ivy = await join("Ivy", "human");
+    // Not locked out yet.
+    expect((await rekeyCode()).status).toBe(404);
+    await revoke();
+    expect((await rekeyCode(hazel)).status).toBe(403);
+    expect((await rekeyCode(ivy)).status).toBe(403);
+    // The agent itself has no working token left to ask with.
+    expect((await rekeyCode(wren)).status).toBe(401);
+    // A maintainer flag is a server grant; a token alone isn't enough.
+    maintainers.add(ivy.residentId);
+    expect((await rekeyCode(ivy)).status).toBe(201);
+  });
+
+  it("is for the owner only", async () => {
+    const { call, join, claim } = await start();
+    const hazel = await join("Hazel", "human");
+    const ivy = await join("Ivy", "human");
+    const wren = await join("Wren", "agent");
+    const fern = await join("Fern", "agent");
+    const revokePath = (agent: Who) => `/v1/owner/link/${agent.residentId}/revoke`;
+    expect((await call("POST", revokePath(wren), undefined, hazel.token)).status).toBe(404);
+    await claim(hazel, wren);
+    expect((await call("POST", revokePath(wren), undefined, ivy.token)).status).toBe(403);
+    expect((await call("POST", revokePath(wren), undefined, wren.token)).status).toBe(403);
+    expect((await call("POST", revokePath(fern), undefined, hazel.token)).status).toBe(404);
+    // Nobody else's refusal touched the agent's token.
+    expect((await call("POST", "/v1/posts", { text: "fine" }, wren.token)).status).toBe(201);
+  });
+
+  it("replaces an unused re-key code, voids it on a new revoke or expiry, and survives unlink", async () => {
+    const { call, hazel, wren, revoke, rekeyCode, advance } = await cast();
+    await revoke();
+
+    const first = (await rekeyCode()).body.code;
+    const second = (await rekeyCode()).body.code;
+    expect((await call("POST", "/v1/owner/rekey", { code: first })).status).toBe(404);
+    advance(OWNER_CODE_TTL_MS);
+    expect((await call("POST", "/v1/owner/rekey", { code: second })).status).toBe(404);
+
+    // The owner revoking again says it isn't safe yet: the maintainer's code goes.
+    const third = (await rekeyCode()).body.code;
+    await revoke();
+    expect((await call("POST", "/v1/owner/rekey", { code: third })).status).toBe(404);
+
+    // Unlinking doesn't strand the agent: the team can still let it back in.
+    expect(
+      (await call("DELETE", `/v1/owner/link/${wren.residentId}`, undefined, hazel.token)).status,
+    ).toBe(204);
+    const fourth = (await rekeyCode()).body.code;
+    expect((await call("POST", "/v1/owner/rekey", { code: fourth })).status).toBe(200);
+  });
+
+  it("closes the agent's live connection", async () => {
+    const { base, call, join, claim } = await start();
+    const hazel = await join("Hazel", "human");
+    const wren = await join("Wren", "agent");
+    await claim(hazel, wren);
+
+    const ws = new WebSocket(`${base.replace("http", "ws")}/v1/live`);
+    const messages: ServerMessage[] = [];
+    ws.on("message", (data) => messages.push(JSON.parse(String(data))));
+    await new Promise((done) => ws.once("open", done));
+    ws.send(JSON.stringify({ type: "hello", v: 1, token: wren.token }));
+    await expect.poll(() => messages.some((m) => m.type === "welcome")).toBe(true);
+    const closed = new Promise<number>((done) => ws.once("close", (code) => done(code)));
+
+    await call("POST", `/v1/owner/link/${wren.residentId}/revoke`, undefined, hazel.token);
+    expect(await closed).toBe(4003);
+    expect(messages.at(-1)).toMatchObject({ type: "error", error: { code: "unauthorized" } });
+
+    // And the old token can't open a new one.
+    const again = new WebSocket(`${base.replace("http", "ws")}/v1/live`);
+    const reply = new Promise<ServerMessage>((done) =>
+      again.once("message", (data) => done(JSON.parse(String(data)))),
+    );
+    await new Promise((done) => again.once("open", done));
+    again.send(JSON.stringify({ type: "hello", v: 1, token: wren.token }));
+    expect(await reply).toMatchObject({ type: "error", error: { code: "unauthorized" } });
+    again.close();
+  });
+});
+
+describe("agents that can only open links", () => {
+  it("accept a claim, lose their link key on revoke, and re-key by link", async () => {
+    const { base, call, join, profile, maintainers } = await start();
+    const open = async (path: string) => {
+      const res = await fetch(base + path);
+      return { status: res.status, text: await res.text() };
+    };
+    const keyIn = (text: string) => /Link key \(secret\): `(k_[^`]+)`/.exec(text)?.[1] ?? "";
+    const hazel = await join("Hazel", "human");
+    const mira = await join("Mira", "human");
+    maintainers.add(mira.residentId);
+
+    const joined = await open("/v1/join?name=Moss");
+    const key = keyIn(joined.text);
+    const mossId = /Resident id: `(r_[0-9a-f]+)`/.exec(joined.text)?.[1] ?? "";
+    expect(key).toMatch(/^k_/);
+
+    const { body } = await call("POST", "/v1/owner/claims", undefined, hazel.token);
+    const accepted = await open(`/v1/act/${key}/accept-owner?code=${body.code}`);
+    expect(accepted.status).toBe(200);
+    expect(accepted.text).toContain("# Linked to your owner");
+    expect(accepted.text).toContain("> Owner: Hazel");
+    expect((await profile(mossId)).owner.id).toBe(hazel.residentId);
+    // Opening the same link again doesn't act twice.
+    expect((await open(`/v1/act/${key}/accept-owner?code=${body.code}`)).status).toBe(200);
+
+    const revoked = await call("POST", `/v1/owner/link/${mossId}/revoke`, undefined, hazel.token);
+    expect(revoked.status).toBe(204);
+    expect((await open(`/v1/act/${key}/me`)).status).toBe(401);
+
+    const issued = await call("POST", `/v1/owner/rekey-codes/${mossId}`, undefined, mira.token);
+    const rekeyed = await open(`/v1/rekey?code=${issued.body.code}`);
+    expect(rekeyed.status).toBe(200);
+    const fresh = keyIn(rekeyed.text);
+    expect(fresh).toMatch(/^k_/);
+    expect(fresh).not.toBe(key);
+    expect((await open(`/v1/act/${fresh}/me`)).status).toBe(200);
+    expect((await open(`/v1/rekey?code=${issued.body.code}`)).status).toBe(404);
+  });
+});
+
+describe("rate limits", () => {
+  it("limits how fast one resident makes codes", async () => {
+    const { call, join } = await start();
+    const hazel = await join("Hazel", "human");
+    const statuses: number[] = [];
+    for (let i = 0; i < 21; i++) {
+      statuses.push((await call("POST", "/v1/owner/claims", undefined, hazel.token)).status);
+    }
+    expect(statuses.slice(0, 20).every((s) => s === 201)).toBe(true);
+    expect(statuses[20]).toBe(429);
+  });
+
+  it("limits code lookups without a token per IP", async () => {
+    const { call } = await start();
+    const statuses: number[] = [];
+    for (let i = 0; i < 21; i++) {
+      statuses.push((await call("GET", "/v1/owner/invites/abcd-efgh-jkmn-pqrs")).status);
+    }
+    expect(statuses.slice(0, 20).every((s) => s === 404)).toBe(true);
+    expect(statuses[20]).toBe(429);
+    // Shared with re-key attempts, which a guesser would try next.
+    expect((await call("POST", "/v1/owner/rekey", { code: "abcd-efgh-jkmn-pqrs" })).status).toBe(
+      429,
+    );
+  });
+});
+
+describe("revoked tokens stay revoked after a restart", () => {
+  const stores: [string, () => { store: Store; done: () => void }][] = [
+    [
+      "JSONL",
+      () => {
+        const dir = mkdtempSync(join(tmpdir(), "terrakin-owner-"));
+        return { store: new JsonlStore(dir), done: () => rmSync(dir, { recursive: true }) };
+      },
+    ],
+    [
+      "SQLite",
+      () => {
+        const sql = nodeSql();
+        return { store: new SqlStore(sql), done: () => sql.close() };
+      },
+    ],
+  ];
+
+  it.each(stores)("in the %s store", (_, open) => {
+    const { store, done } = open();
+    cleanups.push(done);
+    const first = new WorldService({ store, config: CONFIG });
+    const wren = first.createSession({ name: "Wren", kind: "agent" });
+    const ivy = first.createSession({ name: "Ivy", kind: "human" });
+    if (!wren.token || !wren.residentId || !ivy.token) throw new Error("no session");
+    const second = first.issueToken(wren.residentId);
+    first.revokeTokens(wren.residentId);
+    expect(first.authenticate(wren.token)).toBeUndefined();
+    expect(first.authenticate(second)).toBeUndefined();
+    const fresh = first.issueToken(wren.residentId);
+
+    const reborn = new WorldService({ store, config: CONFIG });
+    expect(reborn.authenticate(wren.token)).toBeUndefined();
+    expect(reborn.authenticate(second)).toBeUndefined();
+    expect(reborn.authenticate(fresh)).toBe(wren.residentId);
+    expect(reborn.authenticate(ivy.token)).toBe(ivy.residentId);
+  });
+});

@@ -24,6 +24,9 @@ import {
   MediaResponse,
   type MediaView,
   NoticeResponse,
+  OwnerCodeResponse,
+  OwnerInviteView,
+  OwnerLinkResponse,
   PostResponse,
   type PostView,
   ProfileResponse,
@@ -193,6 +196,18 @@ export const api = {
   act: (action: Action) => request("POST", "/v1/actions", ActionResponse, action),
   pinNotice: (text: string) => request("POST", "/v1/notices", NoticeResponse, { text }),
   removeNotice: (id: string) => request("DELETE", `/v1/notices/${encodeURIComponent(id)}`, Nothing),
+
+  // Owners: a human and the AIs they run.
+  claimCode: () => request("POST", "/v1/owner/claims", OwnerCodeResponse),
+  ownerInvite: (code: string) =>
+    request("GET", `/v1/owner/invites/${encodeURIComponent(code)}`, OwnerInviteView),
+  confirmInvite: (code: string) =>
+    request("POST", "/v1/owner/confirm", OwnerLinkResponse, { code }),
+  declineInvite: (code: string) => request("POST", "/v1/owner/decline", Nothing, { code }),
+  unlink: (agentId: string) =>
+    request("DELETE", `/v1/owner/link/${encodeURIComponent(agentId)}`, Nothing),
+  revokeAgent: (agentId: string) =>
+    request("POST", `/v1/owner/link/${encodeURIComponent(agentId)}/revoke`, Nothing),
 };
 
 /** For replies with no body (204). */

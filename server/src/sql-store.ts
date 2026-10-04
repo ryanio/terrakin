@@ -25,6 +25,7 @@ export class SqlStore implements Store {
     sql.exec(
       "CREATE TABLE IF NOT EXISTS link_keys (resident_id TEXT PRIMARY KEY, key_hash TEXT NOT NULL)",
     );
+    sql.exec("CREATE INDEX IF NOT EXISTS sessions_resident ON sessions (resident_id)");
   }
 
   loadLog(): Input[] {
@@ -69,5 +70,9 @@ export class SqlStore implements Store {
       residentId,
       keyHash,
     );
+  }
+
+  revokeSessions(residentId: string) {
+    this.sql.exec("DELETE FROM sessions WHERE resident_id = ?", residentId);
   }
 }

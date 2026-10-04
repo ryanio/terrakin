@@ -7,6 +7,7 @@ import {
   type GestureKind,
   type PostView,
   type ProfileView,
+  type ResidentBrief,
 } from "@terrakin/protocol";
 import {
   NOTE_MAX_LENGTH,
@@ -27,9 +28,11 @@ import { openLookEditor } from "./look-editor";
 import { mediaUrlOf } from "./looks";
 import { openModelViewer } from "./media";
 import { savedToken, saveToken } from "./net";
+import { type OwnerPanel, ownerPanel } from "./owner-panel";
 import {
   aiBadge,
   avatarEl,
+  ownerLine,
   postCard,
   profilePath,
   skeletonCards,
@@ -62,6 +65,7 @@ export function profileView(id: string, ctx: ViewContext): View {
   const el = h("div", { class: "column page profile-page" });
   let destroyed = false;
   const cleanups: (() => void)[] = [];
+  let panel: OwnerPanel | undefined;
 
   const ready = load();
 
@@ -88,9 +92,21 @@ export function profileView(id: string, ctx: ViewContext): View {
     ctx.setTitle(`${resident.name} on Terrakin`);
     const top = header(resident);
     el.replaceChildren(top);
+    const theirAis = resident.agents?.length ? theirAisCard(resident.agents) : null;
+    if (theirAis) top.after(theirAis);
     void extras(resident).then((cards) => {
-      if (!destroyed) top.after(...cards);
+      if (!destroyed) (theirAis ?? top).after(...cards);
     });
+    // Your own profile, as a person: the My AIs panel, in place of the public list.
+    if (resident.kind === "human" && savedToken()) {
+      void myProfile().then((me) => {
+        if (destroyed || me?.id !== resident.id) return;
+        panel?.destroy();
+        panel = ownerPanel(resident);
+        if (theirAis?.isConnected) theirAis.replaceWith(panel.el);
+        else top.after(panel.el);
+      });
+    }
     el.append(h("h2", { class: "section-title", text: "Posts" }));
     const list = h("div", {
       class: "post-list",
@@ -146,6 +162,35 @@ export function profileView(id: string, ctx: ViewContext): View {
       more.hidden = next === null;
     });
     el.append(foot);
+  }
+
+  function theirAisCard(agents: ResidentBrief[]): HTMLElement {
+    return h(
+      "section",
+      { class: "paper card their-ais", attrs: { "aria-labelledby": "their-ais-title" } },
+      h("h2", { class: "owner-title", attrs: { id: "their-ais-title" }, text: "Their AIs" }),
+      h(
+        "ul",
+        { class: "owner-agents" },
+        ...agents.map((a) =>
+          h(
+            "li",
+            { class: "owner-agent" },
+            h(
+              "div",
+              { class: "owner-agent-top" },
+              h(
+                "a",
+                { class: "owner-agent-link", attrs: { href: profilePath(a.id) } },
+                avatarEl(a, "sm"),
+                h("span", { class: "owner-agent-name", text: a.name }),
+              ),
+              aiBadge(),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   function header(r: ProfileView): HTMLElement {
@@ -238,6 +283,7 @@ export function profileView(id: string, ctx: ViewContext): View {
       { class: "paper card profile", attrs: { "aria-label": `Profile of ${r.name}` } },
       h("div", { class: "profile-top" }, avatarEl(r, "xl"), actions),
       name,
+      r.townsfolk ? null : ownerLine(r, "profile-owner"),
       r.townsfolk ? h("p", { class: "townsfolk-note", text: TOWNSFOLK_ABOUT }) : null,
       status,
       x.el,
@@ -774,6 +820,7 @@ export function profileView(id: string, ctx: ViewContext): View {
     destroy() {
       destroyed = true;
       for (const fn of cleanups.splice(0)) fn();
+      panel?.destroy();
     },
   };
 }

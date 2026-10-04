@@ -6214,3 +6214,291 @@ html.view3d-open body {
     width: 400px;
   }
 }
+
+/* ---------- owners: "AI of", My AIs, and the claim page ---------- */
+
+/* On a post card the owner line sits under the name, inside the same block. */
+.post-who.has-owner {
+  flex-wrap: wrap;
+  column-gap: 8px;
+  row-gap: 0;
+}
+
+.post-owner {
+  flex-basis: 100%;
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  margin-top: -10px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  text-decoration: none;
+}
+
+.post-owner .owner-name,
+.profile-owner .owner-name {
+  margin-left: 0.25em;
+  color: var(--clay-deep);
+}
+
+a.post-owner:hover .owner-name,
+a.profile-owner:hover .owner-name {
+  text-decoration: underline;
+}
+
+.post-owner.team {
+  color: #3f5a2c;
+}
+
+.profile-owner {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin: -4px 0 2px;
+  font-size: 15.5px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  text-decoration: none;
+}
+
+.owner-panel,
+.their-ais {
+  display: grid;
+  gap: 14px;
+}
+
+.owner-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.owner-title {
+  margin: 2px 0 0;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 600;
+  font-variation-settings:
+    "opsz" 36,
+    "SOFT" 100,
+    "WONK" 0;
+}
+
+.owner-empty {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.owner-agents {
+  list-style: none;
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+}
+
+.owner-agent {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(236, 220, 192, 0.3);
+  border: 1px solid var(--paper-edge);
+}
+
+.owner-agent-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.owner-agent-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 44px;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.owner-agent-name {
+  overflow: hidden;
+  font-weight: 700;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.owner-agent-link:hover .owner-agent-name {
+  text-decoration: underline;
+}
+
+.owner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.owner-ask {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.pill-button.danger {
+  color: #a3361a;
+}
+
+.btn-primary.danger {
+  background: linear-gradient(180deg, #b8432a, #a3361a 55%, #8a2c14);
+}
+
+.code-box {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 14px;
+  background: #fffdf8;
+  border: 1.5px dashed #e2cba3;
+  border-left: 4px solid var(--sun);
+}
+
+.code-lede {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.code-big {
+  margin: 0;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: clamp(17px, 5.2vw, 24px);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  color: var(--ink);
+  user-select: all;
+}
+
+.copy-label {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.code-box .copy-line {
+  margin: 0;
+}
+
+.code-box .copy-text {
+  font-size: 14.5px;
+  font-weight: 500;
+}
+
+.code-wait {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.code-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--sun);
+  animation: pulse 2s ease-out infinite;
+}
+
+.claim-card {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  padding: 26px 20px 22px;
+  text-align: center;
+}
+
+.claim-agent {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.claim-agent-name {
+  font-weight: 700;
+  font-size: 18px;
+  overflow-wrap: anywhere;
+}
+
+.claim-title {
+  overflow-wrap: anywhere;
+}
+
+.claim-lede {
+  max-width: 38ch;
+}
+
+.claim-body {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.claim-as {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.claim-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+.claim-buttons a {
+  text-decoration: none;
+}
+
+.claim-form {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  margin: 4px 0 6px;
+  padding-top: 14px;
+  border-top: 1.5px dashed var(--paper-edge);
+  text-align: left;
+}
+
+.claim-join-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 600;
+}
+
+.claim-help {
+  margin: 0 0 4px;
+  font-size: 14.5px;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}

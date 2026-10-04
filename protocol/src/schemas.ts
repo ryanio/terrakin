@@ -34,6 +34,10 @@ export const PROTOCOL_ERROR_CODES = [
   "internal",
   /** The same Idempotency-Key was sent again with a different request. */
   "idempotency_conflict",
+  /** The agent already has an owner. Unlink first. */
+  "already_owned",
+  /** The human already owns as many agents as allowed. */
+  "owner_limit",
 ] as const;
 
 export const ERROR_CODES = [...REJECTION_CODES, ...PROTOCOL_ERROR_CODES] as const;

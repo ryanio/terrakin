@@ -201,7 +201,7 @@ describe("page meta", () => {
   });
 
   it("keeps letters and invites out of search, with no canonical URL", async () => {
-    for (const path of ["/letters", "/letters/r_abc", "/i/k7Qx2"]) {
+    for (const path of ["/letters", "/letters/r_abc", "/i/k7Qx2", "/claim/abcd-efgh-jkmn-pqrs"]) {
       const page = matchPage(path);
       expect(page.name, path).toBe("private");
       const edits = await editsFor(

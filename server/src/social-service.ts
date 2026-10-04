@@ -14,6 +14,7 @@ import {
   type NoticeView,
   type PostView,
   type ProfileView,
+  type ResidentBrief,
   type UpdateProfileRequest,
   X_CODE_TTL_MS,
   X_HANDLE,
@@ -144,11 +145,12 @@ const POST_COLUMNS = `p.n, p.id, p.author, p.text, p.reply_to, p.created_at,
   (SELECT handle FROM x_links x WHERE x.resident_id = p.author) AS x_handle`;
 
 export class SocialService {
-  private readonly sql: SqlExec;
+  /** Shared with the owner service (owner-service.ts), which keeps its codes next to these tables. */
+  readonly sql: SqlExec;
   private readonly media: MediaStore;
-  private readonly resident: (id: string) => Resident | undefined;
+  readonly resident: (id: string) => Resident | undefined;
   private readonly limits: SocialLimits;
-  private readonly now: () => number;
+  readonly now: () => number;
   private readonly townsfolk: ReadonlySet<string>;
   private readonly readXPost: XPostReader;
   private readonly maintainers: ReadonlySet<string>;
@@ -252,6 +254,11 @@ export class SocialService {
         resident_id TEXT NOT NULL, media_id TEXT NOT NULL, PRIMARY KEY (resident_id, media_id)
       )`,
       "CREATE INDEX IF NOT EXISTS look_media_media ON look_media (media_id)",
+      // An agent and the human who runs it, one owner per agent (owner-service.ts).
+      `CREATE TABLE IF NOT EXISTS owner_links (
+        agent_id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, created_at INTEGER NOT NULL
+      )`,
+      "CREATE INDEX IF NOT EXISTS owner_links_owner ON owner_links (owner_id, created_at)",
     ]) {
       this.sql.exec(statement);
     }
@@ -531,6 +538,7 @@ export class SocialService {
       ...optionalStreak(this.together.longestStreak(r.id)),
       ...(viewerId && this.blocks(viewerId, r.id) ? { blocked: true } : {}),
       ...(this.votesCast ? { votes: this.votesCast(r.id) } : {}),
+      ...this.ownerFields(r.id),
     };
   }
 
@@ -984,6 +992,75 @@ export class SocialService {
     }
   }
 
+  // ---------- owners ----------
+
+  /** The human who owns this agent, if one does. */
+  ownerOf(agentId: string): string | undefined {
+    const row = this.rows("SELECT owner_id FROM owner_links WHERE agent_id = ?", agentId)[0];
+    return row ? String(row.owner_id) : undefined;
+  }
+
+  /** The agents this human owns, oldest link first. */
+  agentsOf(ownerId: string): string[] {
+    return this.rows(
+      "SELECT agent_id FROM owner_links WHERE owner_id = ? ORDER BY created_at, agent_id",
+      ownerId,
+    ).map((row) => String(row.agent_id));
+  }
+
+  /**
+   * Link an agent to its owner, and have each follow the other. The owner service checks the
+   * rules (kinds, limits, consent) before calling this.
+   */
+  link(agentId: string, ownerId: string) {
+    this.sql.exec(
+      "INSERT INTO owner_links (agent_id, owner_id, created_at) VALUES (?, ?, ?)",
+      agentId,
+      ownerId,
+      this.now(),
+    );
+    for (const [follower, followee] of [
+      [agentId, ownerId],
+      [ownerId, agentId],
+    ] as const) {
+      this.sql.exec(
+        "INSERT OR IGNORE INTO follows (follower, followee) VALUES (?, ?)",
+        follower,
+        followee,
+      );
+    }
+  }
+
+  /** End an agent's link. Follows stay. */
+  unlink(agentId: string) {
+    this.sql.exec("DELETE FROM owner_links WHERE agent_id = ?", agentId);
+  }
+
+  /** A resident in brief, with their avatar: what a badge or a link card needs. */
+  ref(residentId: string): ResidentBrief | undefined {
+    const r = this.resident(residentId);
+    if (!r) return undefined;
+    const avatar = this.rows("SELECT avatar FROM profiles WHERE resident_id = ?", residentId)[0];
+    return {
+      id: r.id,
+      name: r.name,
+      kind: r.kind,
+      color: r.color,
+      shape: r.shape,
+      avatar: avatar?.avatar ? mediaUrl(String(avatar.avatar)) : null,
+      ...(this.townsfolk.has(r.id) ? { townsfolk: true } : {}),
+    };
+  }
+
+  /** `owner` for a linked agent, `agents` for a human who owns some. Nothing otherwise. */
+  private ownerFields(residentId: string): { owner?: ResidentBrief; agents?: ResidentBrief[] } {
+    const ownerId = this.ownerOf(residentId);
+    const owner = ownerId === undefined ? undefined : this.ref(ownerId);
+    if (owner) return { owner };
+    const agents = this.agentsOf(residentId).flatMap((id) => this.ref(id) ?? []);
+    return agents.length > 0 ? { agents } : {};
+  }
+
   // ---------- helpers ----------
 
   private visiblePost(postId: string): Row | undefined {
@@ -1079,6 +1156,8 @@ export class SocialService {
   private author(id: string, avatar: unknown, xHandle: unknown): AuthorView | undefined {
     const r = this.resident(id);
     if (!r) return undefined;
+    const ownerId = r.kind === "agent" ? this.ownerOf(r.id) : undefined;
+    const owner = ownerId === undefined ? undefined : this.ref(ownerId);
     return {
       id: r.id,
       name: r.name,
@@ -1089,6 +1168,7 @@ export class SocialService {
       ...(this.townsfolk.has(r.id) ? { townsfolk: true } : {}),
       ...xAccount(xHandle),
       ...lookField(r),
+      ...(owner ? { owner } : {}),
     };
   }
 }

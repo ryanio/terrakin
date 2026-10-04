@@ -107,6 +107,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/r/:id/3d": "Plot in 3D",
   "/gallery/3d": "Gallery in 3D",
   "/p/:id": "Post",
+  "/claim/:code": "Claim",
   "/world": "World",
   "/docs": "Docs",
   "/letters": "Letters",

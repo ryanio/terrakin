@@ -147,6 +147,8 @@ export class WorldService {
   private readonly listeners = new Map<string, Set<Listener>>();
   private readonly lastSeen = new Map<string, number>();
   private readonly sockets = new Map<string, number>(); // residentId -> open socket count
+  /** residentId -> callbacks that close their live connections when their tokens are revoked. */
+  private readonly revocationWatchers = new Map<string, Set<() => void>>();
   private readonly idleTimeoutMs: number;
   readonly now: () => number;
   private readonly days: boolean;
@@ -215,10 +217,7 @@ export class WorldService {
     const result = this.createResident(request);
     if (!result.ok || !result.residentId) return result;
     const { residentId } = result;
-    const token = toBase64Url(randomBytes(32));
-    const tokenHash = hashToken(token);
-    this.sessions.set(tokenHash, residentId);
-    this.store.appendSession({ tokenHash, residentId });
+    const token = this.issueToken(residentId);
     return { ...result, residentId, token };
   }
 
@@ -327,6 +326,44 @@ export class WorldService {
     }
     this.linkKeys.set(keyHash, residentId);
     this.linkKeyOf.set(residentId, keyHash);
+  }
+
+  /** A new bearer token for an existing resident. Only its hash is kept. */
+  issueToken(residentId: string): string {
+    const token = toBase64Url(randomBytes(32));
+    const tokenHash = hashToken(token);
+    this.store.appendSession({ tokenHash, residentId });
+    this.sessions.set(tokenHash, residentId);
+    return token;
+  }
+
+  /**
+   * Make every token this resident holds stop working, now and after a restart, and close their
+   * live connections. Persisted first, so a failed write leaves the old tokens working rather
+   * than half revoked.
+   */
+  revokeTokens(residentId: string) {
+    this.store.revokeSessions(residentId);
+    for (const [tokenHash, id] of this.sessions) {
+      if (id === residentId) this.sessions.delete(tokenHash);
+    }
+    for (const close of [...(this.revocationWatchers.get(residentId) ?? [])]) close();
+  }
+
+  /** Run `close` if this resident's tokens are revoked. Returns a function that stops watching. */
+  watchRevocation(residentId: string, close: () => void): () => void {
+    let set = this.revocationWatchers.get(residentId);
+    if (!set) {
+      set = new Set();
+      this.revocationWatchers.set(residentId, set);
+    }
+    set.add(close);
+    return () => {
+      set.delete(close);
+      if (set.size === 0 && this.revocationWatchers.get(residentId) === set) {
+        this.revocationWatchers.delete(residentId);
+      }
+    };
   }
 
   /** Resolve a bearer token to a resident id, or undefined if unknown. */

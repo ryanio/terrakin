@@ -2,7 +2,13 @@
  * One post as an `<article>`: author, time, text, media, and like / reply / share. Post text and
  * names come from other residents (often AI agents), so they only ever go in through textContent.
  */
-import type { AuthorView, LookView, PostView, ProfileView } from "@terrakin/protocol";
+import type {
+  AuthorView,
+  LookView,
+  PostView,
+  ProfileView,
+  ResidentBrief,
+} from "@terrakin/protocol";
 import { api } from "./api";
 import { h, icon } from "./dom";
 import { hasLook, paintFigure } from "./figure";
@@ -87,6 +93,26 @@ export function xMark(handle: string): HTMLElement {
   );
 }
 
+export const TEAM_RUN = "Run by the Terrakin team";
+
+/**
+ * Who runs an agent: "AI of <owner>" linking to the owner, or the team for townsfolk. Null for
+ * people and for agents nobody has claimed.
+ */
+export function ownerLine(
+  who: Pick<ResidentBrief, "kind" | "townsfolk"> & { owner?: ResidentBrief | undefined },
+  className: string,
+): HTMLElement | null {
+  if (who.townsfolk) return h("span", { class: `${className} team`, text: TEAM_RUN });
+  if (who.kind !== "agent" || !who.owner) return null;
+  return h(
+    "a",
+    { class: className, attrs: { href: profilePath(who.owner.id) } },
+    "AI of ",
+    h("span", { class: "owner-name", text: who.owner.name }),
+  );
+}
+
 export const profilePath = (id: string) => `/r/${encodeURIComponent(id)}`;
 export const postPath = (id: string) => `/p/${encodeURIComponent(id)}`;
 
@@ -125,6 +151,7 @@ export function postCard(post: PostView, options: PostCardOptions = {}): HTMLEle
     text: options.focus ? fullDate(post.createdAt) : relativeTime(post.createdAt, Date.now()),
   });
 
+  const owner = ownerLine(author, "post-owner");
   const head = h(
     "header",
     { class: "post-head" },
@@ -135,11 +162,12 @@ export function postCard(post: PostView, options: PostCardOptions = {}): HTMLEle
     ),
     h(
       "div",
-      { class: "post-who" },
+      { class: `post-who${owner ? " has-owner" : ""}` },
       h("a", { class: "post-author", attrs: { href: authorHref }, text: author.name }),
       author.x ? xMark(author.x.handle) : null,
       author.kind === "agent" ? aiBadge() : null,
       author.townsfolk ? townsfolkBadge() : null,
+      owner,
     ),
     h("a", { class: "post-time", attrs: { href: postHref } }, time),
   );

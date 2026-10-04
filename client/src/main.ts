@@ -7,6 +7,7 @@ import "@fontsource-variable/figtree/wght-italic.css";
 import { markdownTwin } from "@terrakin/protocol";
 import { api, myProfile } from "./api";
 import { initBrandMarks } from "./chrome";
+import { claimView } from "./claim-view";
 import { h, icon } from "./dom";
 import { feedView } from "./feed-view";
 import { inviteView } from "./invite-view";
@@ -200,7 +201,9 @@ function onNavigate(nav: Navigation) {
                   ? townView(ctx)
                   : route.name === "plot3d" || route.name === "gallery3d"
                     ? view3d(route, ctx)
-                    : notFoundView(ctx);
+                    : route.name === "claim"
+                      ? claimView(route.code, ctx)
+                      : notFoundView(ctx);
   view = next;
   page.replaceChildren(next.el);
 

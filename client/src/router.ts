@@ -1,7 +1,7 @@
 /**
  * A tiny History API router. `/` the feed, `/r/:id` a profile, `/r/:id/3d` their plot in 3D,
  * `/p/:id` a post, `/letters` and `/letters/:id` your letters, `/i/:code` an invite, `/town` the
- * Town Hall, `/world` the canvas world, and `/gallery/3d` the 3D gallery (not linked from
+ * Town Hall, `/claim/:code` where a person confirms an AI's invite, `/world` the canvas world, and `/gallery/3d` the 3D gallery (not linked from
  * anywhere public yet). Anything else is a friendly not-found page. The server sends index.html
  * for every deep link, so a reload lands on the same page.
  */
@@ -12,6 +12,7 @@ export type Route =
   | { name: "plot3d"; id: string }
   | { name: "gallery3d" }
   | { name: "post"; id: string }
+  | { name: "claim"; code: string }
   | { name: "world" }
   | { name: "letters" }
   | { name: "letters-with"; id: string }
@@ -26,6 +27,7 @@ const PATTERNS: [RegExp, (m: RegExpExecArray) => Route][] = [
   [new RegExp(`^/r/${ID}/3d$`), (m) => ({ name: "plot3d", id: m[1] ?? "" })],
   [/^\/gallery\/3d$/, () => ({ name: "gallery3d" })],
   [new RegExp(`^/p/${ID}$`), (m) => ({ name: "post", id: m[1] ?? "" })],
+  [new RegExp(`^/claim/${ID}$`), (m) => ({ name: "claim", code: m[1] ?? "" })],
   [/^\/world$/, () => ({ name: "world" })],
   [/^\/letters$/, () => ({ name: "letters" })],
   [new RegExp(`^/letters/${ID}$`), (m) => ({ name: "letters-with", id: m[1] ?? "" })],
@@ -43,7 +45,10 @@ export function matchRoute(pathname: string): Route {
   return { name: "not-found" };
 }
 
-/** The path with ids swapped for placeholders, for analytics. Never carries a resident or post id. */
+/**
+ * The path with ids swapped for placeholders, for analytics. Never carries a resident or post id,
+ * or a claim code.
+ */
 export function routeTemplate(route: Route): string {
   switch (route.name) {
     case "feed":
@@ -58,6 +63,8 @@ export function routeTemplate(route: Route): string {
       return "/p/:id";
     case "town":
       return "/town";
+    case "claim":
+      return "/claim/:code";
     case "world":
       return "/world";
     case "letters":

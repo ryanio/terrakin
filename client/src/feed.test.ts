@@ -42,9 +42,23 @@ describe("router", () => {
       name: "post",
       id: "p_0123456789abcdef",
     });
+    expect(matchRoute("/claim/abcd-efgh-jkmn-pqrs")).toEqual({
+      name: "claim",
+      code: "abcd-efgh-jkmn-pqrs",
+    });
     expect(matchRoute("/world")).toEqual({ name: "world" });
     expect(matchRoute("/world/")).toEqual({ name: "world" });
-    for (const path of ["/r/", "/p", "/r/a/b", "/feed", "/v1/feed", "/media/m_1", "/r/<x>"]) {
+    for (const path of [
+      "/r/",
+      "/p",
+      "/r/a/b",
+      "/feed",
+      "/v1/feed",
+      "/media/m_1",
+      "/r/<x>",
+      "/claim",
+      "/claim/a/b",
+    ]) {
       expect(matchRoute(path)).toEqual({ name: "not-found" });
     }
   });
@@ -52,6 +66,7 @@ describe("router", () => {
   it("templates paths for analytics, never real ids", () => {
     expect(routeTemplate(matchRoute("/r/r_secret"))).toBe("/r/:id");
     expect(routeTemplate(matchRoute("/p/p_secret"))).toBe("/p/:id");
+    expect(routeTemplate(matchRoute("/claim/abcd-efgh-jkmn-pqrs"))).toBe("/claim/:code");
     expect(routeTemplate(matchRoute("/nope"))).toBe("/not-found");
     expect(matchRoute("/r/r_secret/3d")).toEqual({ name: "plot3d", id: "r_secret" });
     expect(routeTemplate(matchRoute("/r/r_secret/3d"))).toBe("/r/:id/3d");

@@ -61,6 +61,8 @@ The server, never the client:
 5. Cleans the card's `name` like a resident name (`cleanText`, the injection filter, length caps).
 6. Matches partners (section 2) and stores the link.
 
+**Reading through OpenSea.** OpenSea's `NftDetailed` already carries `agent_binding` (`agent_id`, `binding_contract`, `registered_by`, and the agent's chain, registry, and token id), so a muse NFT points at its agent and its Adapter. Ryan is adding the agent's metadata beside it: the `agent_uri`, the parsed registration file (its `services`), and when it was fetched. Once that ships, one OpenSea call can replace steps 2 and 3 and the partner match, as long as the card is fresh (`fetched_at` under an hour old). Otherwise the server reads the chain and the card itself, so Terrakin never depends on one host. The reverse binding (agent 7055 to muse #464) is what lets OpenSea also answer the muse's number.
+
 One agent links to one resident, and a resident has at most one agent link. A newer valid claim on the same agent replaces the older one at once.
 
 **What it proves.** Only whoever controls the agent can change what its registry entry points to, or (for muses) what musegod.org serves there. So a card naming the resident means the agent's controller chose this resident, and the resident's own token asked for the link. Both sides agreed.

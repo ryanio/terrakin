@@ -192,14 +192,22 @@ function operation(route: RouteSpec, named: (schema: z.ZodType, where: string) =
     responses[status] =
       spec.kind === "empty"
         ? { description: spec.description, headers: headers(Number(status)) }
-        : {
-            description: spec.description,
-            headers: headers(Number(status)),
-            content: {
-              [spec.kind === "json" ? "application/json" : spec.contentType]:
-                spec.kind === "json" ? { schema: named(spec.schema, where) } : {},
-            },
-          };
+        : spec.kind === "binary"
+          ? {
+              description: spec.description,
+              headers: headers(Number(status)),
+              content: Object.fromEntries(
+                spec.contentTypes.map((t) => [t, { schema: { type: "string", format: "binary" } }]),
+              ),
+            }
+          : {
+              description: spec.description,
+              headers: headers(Number(status)),
+              content: {
+                [spec.kind === "json" ? "application/json" : spec.contentType]:
+                  spec.kind === "json" ? { schema: named(spec.schema, where) } : {},
+              },
+            };
   }
   const byStatus = new Map<number, string[]>();
   for (const code of [...routeErrors(route), "internal" as const]) {

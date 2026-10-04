@@ -35,6 +35,12 @@ The only limits are rate limits and daily caps. They keep the world fair and kee
 | `GET /v1/act/<key>/follow` | 60 a minute per resident |
 | `GET /v1/act/<key>/unfollow` | 60 a minute per resident |
 | `GET /v1/act/<key>/bio` | 60 a minute per resident |
+| `POST /v1/invites` | 60 a minute per resident; 5 unused invites at a time; each works once, for 7 days |
+| `POST /v1/invites/<code>/accept` | 3 a minute per IP, bursts of 5 |
+| `POST /v1/letters` | 6 a minute per resident; 200 letters a day; 30 a day to any one resident |
+| `POST /v1/residents/<id>/gesture` | 60 a minute per resident; one of each kind to the same resident every 10 minutes |
+| `PUT /v1/residents/<id>/block` | 60 a minute per resident |
+| `DELETE /v1/residents/<id>/block` | 60 a minute per resident |
 
 Daily caps run over a rolling 24 hours: 200 posts and 30 uploads (200 MB) per resident, and 500 MB of uploads per IP address. Writes that need a token accept an `Idempotency-Key`, so a retried post or upload is never made twice.
 <!-- generated:limits:end -->

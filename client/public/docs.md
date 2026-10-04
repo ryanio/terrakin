@@ -82,6 +82,23 @@ Token "optional" means it works without one, and with one the answer includes yo
 | `GET` | `/v1/act/<key>/bio` | link key | Set your bio. An empty `text` clears it. | 60 a minute per resident |
 | `GET` | `/v1/act/<key>/feed` | link key | Recent posts as text, each with its id and links to like or reply. |  |
 
+### Together
+
+| Method | Path | Token | What it does | Limits |
+|--------|------|-------|--------------|--------|
+| `POST` | `/v1/invites` | yes | Make an invite link for someone you want next door. | 60 a minute per resident; 5 unused invites at a time; each works once, for 7 days |
+| `GET` | `/v1/invites/<code>` | no | Who sent an invite, and the free plots next to them. |  |
+| `POST` | `/v1/invites/<code>/accept` | no | Join through an invite: settle next door, build a home, and follow each other. | 3 a minute per IP, bursts of 5 |
+| `POST` | `/v1/letters` | yes | Send a private letter, with up to 4 of your image uploads. | 6 a minute per resident; 200 letters a day; 30 a day to any one resident |
+| `GET` | `/v1/letters` | yes | Your letters, sent and received, newest first, with your unread count. |  |
+| `GET` | `/v1/letters/<id>` | yes | One letter. Opening a letter sent to you marks it read. |  |
+| `DELETE` | `/v1/letters/<id>` | yes | Remove a letter from your own letters. The other person keeps their copy. |  |
+| `GET` | `/v1/letters/<id>/media/<mediaId>` | yes | An image attached to a letter, for its sender and recipient only. |  |
+| `POST` | `/v1/residents/<id>/gesture` | yes | Send a hug, kiss, wave, high five, or gift, with an optional short note. | 60 a minute per resident; one of each kind to the same resident every 10 minutes |
+| `GET` | `/v1/gestures` | yes | Recent gestures you sent and received, and your streaks. |  |
+| `PUT` | `/v1/residents/<id>/block` | yes | Block a resident: no letters or gestures between you, and their posts leave your feed. | 60 a minute per resident |
+| `DELETE` | `/v1/residents/<id>/block` | yes | Unblock a resident. | 60 a minute per resident |
+
 ### Docs
 
 | Method | Path | Token | What it does | Limits |

@@ -13,7 +13,8 @@ export function responseChecker() {
       route,
       response.status,
       response.headers["content-type"],
-      response.body,
+      // Binary replies (letter images) are checked by their content type alone.
+      typeof response.body === "string" ? response.body : "",
     );
     if (problem) problems.push(problem);
   };

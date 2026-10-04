@@ -1,18 +1,21 @@
 import { MEDIA_TYPES, type MediaType } from "@terrakin/protocol";
 
 /**
- * Where uploaded files go. R2 on Cloudflare, a directory or memory locally. Serving is the
- * adapter's job (the Worker reads R2 directly), so the service only writes and deletes.
+ * Where uploaded files go. R2 on Cloudflare, a directory or memory locally. Serving public media
+ * is the adapter's job (the Worker reads R2 directly). The service reads files back only to move
+ * letter images to their private key and to serve them to the letter's two residents.
+ *
+ * Keys are a media id (`m_...`, public at `/media/<id>`) or a private key from `privateMediaKey`,
+ * which no public path ever serves.
  */
 export interface MediaStore {
-  put(id: string, bytes: Uint8Array, type: MediaType): Promise<void>;
-  delete(id: string): Promise<void>;
+  put(key: string, bytes: Uint8Array, type: MediaType): Promise<void>;
+  get(key: string): Promise<Uint8Array | undefined>;
+  delete(key: string): Promise<void>;
 }
 
-/** A store the Node server can also read back from, to serve `/media/:id` itself. */
-export interface ReadableMediaStore extends MediaStore {
-  get(id: string): Promise<Uint8Array | undefined>;
-}
+/** Kept for the Node adapter's signature; every store can read now. */
+export type ReadableMediaStore = MediaStore;
 
 export class MemoryMediaStore implements ReadableMediaStore {
   readonly files = new Map<string, Uint8Array>();
@@ -29,6 +32,15 @@ export class MemoryMediaStore implements ReadableMediaStore {
 
 /** Media ids as the server makes them. Anything else in a `/media/` path is refused before any lookup. */
 export const MEDIA_ID = /^m_[0-9a-f]{16}$/;
+
+/**
+ * Where a letter's image lives once attached. The prefix keeps it out of `/media/<id>` on both
+ * runtimes (that path only accepts `MEDIA_ID`), so only the authenticated letter route serves it.
+ */
+export const privateMediaKey = (id: string) => `letter-${id}`;
+
+/** Any key a media store may hold: a public media id or a private letter key. */
+export const STORE_KEY = /^(letter-)?m_[0-9a-f]{16}$/;
 
 /**
  * Headers for serving an upload. The type is the one we checked, `nosniff` stops browsers from

@@ -1,4 +1,5 @@
 import {
+  type AcceptInviteRequest,
   absolute,
   acceptsIdempotencyKey,
   type BinaryBody,
@@ -6,6 +7,7 @@ import {
   compileRoutes,
   type ErrorCode,
   errorStatus,
+  INVITE_PLOT_SUGGESTIONS,
   isBinaryBody,
   LINKS,
   linkHeader,
@@ -37,6 +39,7 @@ import { BAD_LINK_KEY, DEFAULT_ORIGIN, linkHandlers, linkHelp, REPEAT_NOTE } fro
 import { postMarkdown, profileMarkdown } from "./markdown";
 import { RateLimiters, type Take } from "./rate-limit";
 import type { SocialResult, SocialService } from "./social-service";
+import { anchorPlot, suggestPlots } from "./together";
 import type { WorldService } from "./world-service";
 
 /**
@@ -87,6 +90,7 @@ const RATE_LIMITED: Record<RateLimitName, string> = {
   uploads: "Slow down a little.",
   xVerify: "That's a lot of checks. Wait a minute, then send the link again.",
   xVerifyIp: "Lots of X checks from here. Wait a minute, then try again.",
+  letters: "Slow down a little.",
 };
 
 const TABLE = ROUTES as readonly RouteSpec[];
@@ -137,7 +141,8 @@ export interface ApiRequest {
 export interface ApiResponse {
   status: number;
   headers: Record<string, string>;
-  body: string;
+  /** Text, or raw bytes for a binary reply (letter images). */
+  body: string | Uint8Array;
 }
 
 export interface ApiOptions {
@@ -191,6 +196,17 @@ export interface Failure {
 }
 
 type Reply<K extends RouteId> = RouteSuccess<K> | Failure;
+/** Any success reply, as the renderer sees it. */
+interface HandlerReply {
+  status: number;
+  body?: unknown;
+  text?: string;
+  bytes?: Uint8Array;
+  contentType?: string;
+}
+
+/** Unknown, used, and expired invites all answer the same. */
+const INVITE_GONE = "This invite has expired or was already used. Ask for a fresh link.";
 type Handler<K extends RouteId> = (input: HandlerInput<K>) => Reply<K> | Promise<Reply<K>>;
 /** One handler per route id, no more and no fewer. */
 export type Handlers = { [K in RouteId]: Handler<K> };
@@ -203,7 +219,7 @@ type AnyHandler = (input: {
   viewer: string | undefined;
   ip: string;
   origin: string;
-}) => Promise<{ status: number; body?: unknown; text?: string } | Failure>;
+}) => Promise<HandlerReply | Failure>;
 
 const fail = (error: ErrorCode, message: string, retryAfter?: number): Failure => ({
   error,
@@ -296,12 +312,15 @@ export class Api {
       uploads: bucket("uploads"),
       xVerify: bucket("xVerify"),
       xVerifyIp: bucket("xVerifyIp"),
+      letters: bucket("letters"),
     };
     // Without a social service its routes don't exist, so they answer not_found like any unknown path.
     this.match = compileRoutes(
       options.social
         ? TABLE
-        : TABLE.filter((r) => !r.tags.some((tag) => tag === "Social" || tag === "Site")),
+        : TABLE.filter(
+            (r) => !r.tags.some((tag) => tag === "Social" || tag === "Site" || tag === "Together"),
+          ),
     );
     this.handlers = this.routeHandlers();
   }
@@ -681,6 +700,84 @@ export class Api {
 
       // ---------- links (decision 0020), in links.ts ----------
       ...linkHandlers(this),
+      // ---------- together: invites, letters, gestures, blocks ----------
+      createInvite: ({ viewer, body }) => {
+        const share = body.share === true;
+        if (share && !anchorPlot(service.state, viewer)?.owned) {
+          return fail("bad_request", "Settle a plot of your own first, then you can share it.");
+        }
+        return fromResult(social().together.createInvite(viewer, share), (invite) => ({
+          status: 201 as const,
+          body: { invite },
+        }));
+      },
+      getInvite: ({ params }) => {
+        const invite = social().together.openInvite(params.code);
+        const inviter = invite && social().authorView(invite.inviter);
+        if (!invite || !inviter) return fail("not_found", INVITE_GONE);
+        const anchor = anchorPlot(service.state, invite.inviter);
+        const sharedPlot = invite.share && anchor?.owned ? { px: anchor.px, py: anchor.py } : null;
+        return {
+          status: 200,
+          body: {
+            invite: {
+              code: invite.code,
+              inviter,
+              share: sharedPlot !== null,
+              sharedPlot,
+              plots: anchor ? suggestPlots(service.state, anchor, INVITE_PLOT_SUGGESTIONS) : [],
+              expiresAt: invite.expiresAt,
+            },
+          },
+        };
+      },
+      acceptInvite: ({ params, body }) => this.acceptInvite(params.code, body),
+      createLetter: async ({ viewer, body }) =>
+        fromResult(await social().together.createLetter(viewer, body), (letter) => ({
+          status: 201 as const,
+          body: { letter },
+        })),
+      getLetters: ({ viewer, query }) => ({
+        status: 200,
+        body: social().together.letters(viewer, query),
+      }),
+      getLetter: ({ viewer, params }) => {
+        // Not yours and not there look the same, so nobody learns a letter exists.
+        const letter = social().together.openLetter(viewer, params.id);
+        return letter ? { status: 200, body: { letter } } : fail("not_found", "No such letter.");
+      },
+      deleteLetter: async ({ viewer, params }) =>
+        (await social().together.deleteLetter(viewer, params.id))
+          ? { status: 204 }
+          : fail("not_found", "No such letter."),
+      getLetterMedia: async ({ viewer, params }) => {
+        const file = await social().together.letterMedia(viewer, params.id, params.mediaId);
+        return file
+          ? { status: 200, bytes: file.bytes, contentType: file.type }
+          : fail("not_found", "Not found.");
+      },
+      sendGesture: ({ viewer, params, body }) => {
+        const together = social().together;
+        const sent = together.sendGesture(viewer, params.id, body);
+        if (sent.ok) {
+          service.notify(params.id, together.liveGesture(sent.value.gesture, sent.value.streak));
+        }
+        return fromResult(sent, (value) => ({ status: 201 as const, body: value }));
+      },
+      getGestures: ({ viewer, query }) => ({
+        status: 200,
+        body: social().together.gestures(viewer, query),
+      }),
+      blockResident: ({ viewer, params }) =>
+        fromResult(social().setBlock(viewer, params.id, true), (resident) => ({
+          status: 200 as const,
+          body: { resident },
+        })),
+      unblockResident: ({ viewer, params }) =>
+        fromResult(social().setBlock(viewer, params.id, false), (resident) => ({
+          status: 200 as const,
+          body: { resident },
+        })),
 
       // ---------- site: Markdown twins and sitemaps (decision 0023) ----------
       // The twins call the JSON routes' own handlers, so they can't disagree with the API.
@@ -739,6 +836,75 @@ export class Api {
       getOpenApi: () => ({ status: 200, text: this.openapi }),
     };
     return handlers;
+  }
+
+  /**
+   * Join through an invite (decision 0024): a new resident like `POST /v1/session`, then settle
+   * next to the inviter (or share their plot, when they offered it), build the starter home, and
+   * follow each other. Every world change still goes through `service.act`. No awaits between
+   * reading the invite and using it up, so two people can't both accept one code.
+   */
+  private acceptInvite(code: string, body: AcceptInviteRequest): Reply<"acceptInvite"> {
+    const { service } = this;
+    const social = this.requireSocial();
+    const invite = social.together.openInvite(code);
+    if (!invite) return fail("not_found", INVITE_GONE);
+    const { plot: chosen, build, share, ...profile } = body;
+    const created = service.createSession(profile);
+    if (!created.ok) return fail(created.error.code, created.error.message);
+    if (!created.residentId || !created.token) return fail("internal", "No session.");
+    const me = created.residentId;
+    const inviter = invite.inviter;
+    social.together.consumeInvite(code, me);
+
+    const anchor = anchorPlot(service.state, inviter);
+    const wantsBuild = build !== false;
+    let plot: { px: number; py: number } | null = null;
+    let shared = false;
+    let built = false;
+    if (invite.share && share !== false && anchor?.owned) {
+      // The inviter asked for this when they made the invite. Sharing is their action, so they
+      // come online for it and go back to how they were.
+      const wasOnline = service.state.residents[inviter]?.online === true;
+      service.ensureOnline(inviter);
+      shared = service.act(inviter, { type: "share_plot", with: me }).ok;
+      if (!wasOnline) service.leave(inviter);
+      if (shared) {
+        plot = { px: anchor.px, py: anchor.py };
+        if (wantsBuild) {
+          const home = service.act(me, { type: "build_starter_home" });
+          built = home.ok || home.error.code === "already_home";
+          service.act(me, { type: "home" });
+        }
+      }
+    }
+    if (!shared) {
+      const candidates = [
+        ...(chosen ? [chosen] : []),
+        ...(anchor ? suggestPlots(service.state, anchor, INVITE_PLOT_SUGGESTIONS) : []),
+      ];
+      for (const c of candidates) {
+        if (service.act(me, { type: "settle", px: c.px, py: c.py }).ok) {
+          plot = { px: c.px, py: c.py };
+          break;
+        }
+      }
+      if (plot && wantsBuild) built = service.act(me, { type: "build_starter_home" }).ok;
+    }
+    social.setFollow(me, inviter, true);
+    social.setFollow(inviter, me, true);
+    return {
+      status: 201,
+      body: {
+        residentId: me,
+        token: created.token,
+        world: service.snapshot(),
+        inviterId: inviter,
+        plot,
+        shared,
+        built,
+      },
+    };
   }
 
   /** Start the `/v1/live` protocol for one socket. The adapter feeds it text and tells it when the socket closes. */
@@ -920,7 +1086,8 @@ const keepable = (response: ApiResponse) => response.status < 500 && response.st
 const stored = (response: ApiResponse): StoredResponse => ({
   status: response.status,
   contentType: response.headers["content-type"],
-  body: response.body,
+  // Only JSON and text replies are stored: idempotency keys apply to writes, never to file reads.
+  body: typeof response.body === "string" ? response.body : "",
 });
 
 /**
@@ -935,11 +1102,7 @@ const PRIVATE_PAGE = {
 };
 
 /** Turn a handler's reply into HTTP, using the route's declared response for that status. */
-function render(
-  route: RouteSpec,
-  reply: { status: number; body?: unknown; text?: string } | Failure,
-  help?: string,
-): ApiResponse {
+function render(route: RouteSpec, reply: HandlerReply | Failure, help?: string): ApiResponse {
   if ("error" in reply) {
     if (route.format !== "markdown") return error(reply.error, reply.message, reply.retryAfter);
     return {
@@ -954,6 +1117,20 @@ function render(
   if (spec.kind === "empty") return { status: reply.status, headers: {}, body: "" };
   if (route.format === "markdown") {
     return { status: reply.status, headers: PRIVATE_PAGE, body: reply.text ?? "" };
+  }
+  if (spec.kind === "binary") {
+    // Private to the two residents: never cached (a shared browser must not hand it to the next
+    // person), and inert if opened directly.
+    return {
+      status: reply.status,
+      headers: {
+        "content-type": reply.contentType ?? "application/octet-stream",
+        "x-content-type-options": "nosniff",
+        "content-security-policy": "default-src 'none'; sandbox",
+        "cache-control": "no-store",
+      },
+      body: reply.bytes ?? new Uint8Array(0),
+    };
   }
   const type =
     spec.contentType.startsWith("text/") || spec.contentType.endsWith("/xml")

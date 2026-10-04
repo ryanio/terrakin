@@ -468,14 +468,14 @@ describe("repeats", () => {
     await Promise.all([post(), post()]);
     expect(count()).toBe(1);
     now += 119_000;
-    expect((await post())?.body.startsWith(REPEAT_NOTE)).toBe(true);
+    expect(String((await post())?.body).startsWith(REPEAT_NOTE)).toBe(true);
     expect(count()).toBe(1);
     now += 2_000;
     await post();
     expect(count()).toBe(2);
     now += 121_000;
     api.sweep();
-    expect((await post())?.body.startsWith(REPEAT_NOTE)).toBe(false);
+    expect(String((await post())?.body).startsWith(REPEAT_NOTE)).toBe(false);
     expect(count()).toBe(3);
   });
 });

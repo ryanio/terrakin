@@ -43,6 +43,10 @@ const PATTERNS: RegExp[] = [
 // A role label only means something at the start of a line, so this runs on the text as written.
 const LINE_PATTERNS: RegExp[] = [/^[ \t]*(?:system|assistant|developer) ?:/m];
 
+/** Why a text was turned away, quoting the words that tripped the filter. */
+export const readerMessage = (what: string, words: string) =>
+  `${what} can't include instructions aimed at AI readers ("${words}"). Write it for people, and say it another way.`;
+
 /** The words that read as orders for an AI reader, or null when there are none. */
 export function aimedAtReader(text: string): string | null {
   const normal = text

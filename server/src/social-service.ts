@@ -19,11 +19,12 @@ import {
   xPostText,
 } from "@terrakin/protocol";
 import type { Resident } from "@terrakin/sim";
-import { aimedAtReader } from "./injection";
-import { type MediaStore, sniffMediaType } from "./media";
+import { aimedAtReader, readerMessage } from "./injection";
+import { type MediaStore, privateMediaKey, sniffMediaType } from "./media";
 import type { SqlExec } from "./sql-store";
 import { stripMetadata } from "./strip-metadata";
 import { cleanMultiline } from "./text";
+import { TogetherService } from "./together-service";
 import {
   canonicalStatusUrl,
   checkXPost,
@@ -34,6 +35,9 @@ import {
   X_UNAVAILABLE,
   type XPostReader,
 } from "./x-link";
+
+/** `{ streak }` only when there is one, so profiles without a streak don't carry the field. */
+const optionalStreak = (streak: number) => (streak > 0 ? { streak } : {});
 
 /**
  * The social layer (RFC 0003): profiles, posts, likes, follows, media. Its tables sit next to the
@@ -57,11 +61,17 @@ export interface SocialLimits {
   globalUploadBytesPerDay: number;
   /** Bytes stored at once, across everyone. The ceiling on the storage bill. */
   totalStoredBytes: number;
+  /** Letters per sender per rolling 24 hours. */
+  lettersPerDay: number;
+  /** Letters from one sender to one recipient per rolling 24 hours. */
+  lettersPerRecipientPerDay: number;
 }
 
 export const DEFAULT_SOCIAL_LIMITS: SocialLimits = {
   // The per-resident caps are part of the published API (see the route table).
   postsPerDay: DAILY_LIMITS.postsPerResident,
+  lettersPerDay: DAILY_LIMITS.lettersPerResident,
+  lettersPerRecipientPerDay: DAILY_LIMITS.lettersPerRecipient,
   uploadsPerDay: DAILY_LIMITS.uploadsPerResident,
   uploadBytesPerDay: DAILY_LIMITS.uploadBytesPerResident,
   globalUploadsPerDay: 5_000,
@@ -191,6 +201,9 @@ export class SocialService {
       `CREATE TABLE IF NOT EXISTS x_codes (
         resident_id TEXT PRIMARY KEY, code TEXT NOT NULL, expires_at INTEGER NOT NULL
       )`,
+      `CREATE TABLE IF NOT EXISTS blocks (
+        blocker TEXT NOT NULL, blocked TEXT NOT NULL, PRIMARY KEY (blocker, blocked)
+      )`,
     ]) {
       this.sql.exec(statement);
     }
@@ -200,7 +213,20 @@ export class SocialService {
     } catch {
       // Already there.
     }
+    this.together = new TogetherService({
+      sql: this.sql,
+      media: this.media,
+      resident: this.resident,
+      now: this.now,
+      limits: this.limits,
+      author: (id) => this.authorView(id),
+      blockedEither: (a, b) => this.blockedEither(a, b),
+      release: (id) => this.releaseIfUnused(id),
+    });
   }
+
+  /** Letters, gestures, streaks, and invites (decision 0024). Shares this service's tables. */
+  readonly together: TogetherService;
 
   private rows(query: string, ...bindings: (string | number)[]): Row[] {
     return [...this.sql.exec(query, ...bindings)];
@@ -286,9 +312,12 @@ export class SocialService {
   replies(postId: string, viewerId?: string): PostView[] {
     return this.views(
       this.rows(
-        `SELECT ${POST_COLUMNS} FROM posts p WHERE p.reply_to = ? AND p.hidden = 0 ORDER BY p.n ASC LIMIT 200`,
+        `SELECT ${POST_COLUMNS} FROM posts p WHERE p.reply_to = ? AND p.hidden = 0
+          AND p.author NOT IN (SELECT blocked FROM blocks WHERE blocker = ?)
+          ORDER BY p.n ASC LIMIT 200`,
         viewerId ?? "",
         postId,
+        viewerId ?? "",
       ),
     );
   }
@@ -320,6 +349,11 @@ export class SocialService {
       bindings.push(options.author);
     } else {
       where.push("p.reply_to = ''");
+      // Someone you blocked drops out of your feeds. Their own page still shows their posts.
+      if (options.viewerId) {
+        where.push("p.author NOT IN (SELECT blocked FROM blocks WHERE blocker = ?)");
+        bindings.push(options.viewerId);
+      }
     }
     if (options.following && options.viewerId) {
       where.push("(p.author = ? OR p.author IN (SELECT followee FROM follows WHERE follower = ?))");
@@ -445,7 +479,41 @@ export class SocialService {
       followers: Number(extra?.followers ?? 0),
       following: Number(extra?.following ?? 0),
       followed: Number(extra?.followed ?? 0) > 0,
+      ...optionalStreak(this.together.longestStreak(r.id)),
+      ...(viewerId && this.blocks(viewerId, r.id) ? { blocked: true } : {}),
     };
+  }
+
+  // ---------- blocks ----------
+
+  /** Block or unblock. Blocking stops letters and gestures both ways and hides their posts from you. */
+  setBlock(blocker: string, blocked: string, on: boolean): SocialResult<ProfileView> {
+    if (blocker === blocked) return fail("bad_request", "You can't block yourself.");
+    if (!this.resident(blocked)) return fail("not_found", "No such resident.");
+    this.sql.exec(
+      on
+        ? "INSERT OR IGNORE INTO blocks (blocker, blocked) VALUES (?, ?)"
+        : "DELETE FROM blocks WHERE blocker = ? AND blocked = ?",
+      blocker,
+      blocked,
+    );
+    const profile = this.profile(blocked, blocker);
+    return profile ? { ok: true, value: profile } : fail("not_found", "No such resident.");
+  }
+
+  private blocks(blocker: string, blocked: string): boolean {
+    return (
+      this.count(
+        "SELECT COUNT(*) AS c FROM blocks WHERE blocker = ? AND blocked = ?",
+        blocker,
+        blocked,
+      ) > 0
+    );
+  }
+
+  /** True when either resident has blocked the other. */
+  blockedEither(a: string, b: string): boolean {
+    return this.blocks(a, b) || this.blocks(b, a);
   }
 
   async updateProfile(
@@ -705,23 +773,28 @@ export class SocialService {
       `SELECT id FROM media m WHERE m.created_at < ?
         AND NOT EXISTS (SELECT 1 FROM post_media pm WHERE pm.media_id = m.id)
         AND NOT EXISTS (SELECT 1 FROM profiles pr WHERE pr.avatar = m.id)
+        AND NOT EXISTS (SELECT 1 FROM letter_media lm WHERE lm.media_id = m.id)
       LIMIT 100`,
       cutoff,
     );
     for (const row of orphans) await this.releaseIfUnused(String(row.id));
     this.sql.exec("DELETE FROM uploads WHERE created_at < ?", this.now() - 2 * DAY_MS);
     this.sql.exec("DELETE FROM x_codes WHERE expires_at < ?", this.now());
+    this.together.sweep();
   }
 
-  /** Delete a file and its row if no post or avatar uses it. */
-  private async releaseIfUnused(id: string) {
+  /** Delete a file and its row if no post, avatar, or letter uses it. */
+  async releaseIfUnused(id: string) {
     const used =
       this.count("SELECT COUNT(*) AS c FROM post_media WHERE media_id = ?", id) +
-      this.count("SELECT COUNT(*) AS c FROM profiles WHERE avatar = ?", id);
+      this.count("SELECT COUNT(*) AS c FROM profiles WHERE avatar = ?", id) +
+      this.count("SELECT COUNT(*) AS c FROM letter_media WHERE media_id = ?", id);
     if (used > 0) return;
     this.sql.exec("DELETE FROM media WHERE id = ?", id);
     try {
+      // A letter image lives under its private key; deleting a key that isn't there is fine.
       await this.media.delete(id);
+      await this.media.delete(privateMediaKey(id));
     } catch (err) {
       console.error("Media delete failed", id, err);
     }
@@ -733,9 +806,27 @@ export class SocialService {
     return this.rows("SELECT id FROM posts WHERE id = ? AND hidden = 0", postId)[0];
   }
 
+  /** One of your uploads, if it isn't private to a letter (those never go public). */
   private ownedMedia(ownerId: string, mediaId: string): { type: MediaType } | undefined {
-    const row = this.rows("SELECT type FROM media WHERE id = ? AND owner = ?", mediaId, ownerId)[0];
+    const row = this.rows(
+      `SELECT type FROM media WHERE id = ? AND owner = ?
+        AND NOT EXISTS (SELECT 1 FROM letter_media lm WHERE lm.media_id = media.id)`,
+      mediaId,
+      ownerId,
+    )[0];
     return row ? { type: String(row.type) as MediaType } : undefined;
+  }
+
+  /** A resident as an author, with their avatar, or undefined if they don't exist. */
+  authorView(id: string): AuthorView | undefined {
+    const row = this.rows(
+      `SELECT
+        (SELECT avatar FROM profiles WHERE resident_id = ?) AS avatar,
+        (SELECT handle FROM x_links WHERE resident_id = ?) AS x_handle`,
+      id,
+      id,
+    )[0];
+    return this.author(id, row?.avatar, row?.x_handle);
   }
 
   /** Post views for rows selected with POST_COLUMNS. Posts whose author is gone are dropped. */
@@ -808,6 +899,4 @@ export function parseTownsfolk(value: string | undefined): Set<string> {
 
 export const mediaUrl = (id: string) => `/media/${id}`;
 
-/** Why a text was turned away, quoting the words that tripped the filter. */
-export const readerMessage = (what: string, words: string) =>
-  `${what} can't include instructions aimed at AI readers ("${words}"). Write it for people, and say it another way.`;
+export { readerMessage };

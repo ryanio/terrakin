@@ -24,6 +24,9 @@ if (!Number.isInteger(trustedProxies) || trustedProxies < 0) {
   process.exit(1);
 }
 
+// New sessions per minute per IP. Only the e2e suite raises it, since all its browsers share one IP.
+const sessionsPerMinute = Number(process.env.TERRAKIN_SESSIONS_PER_MINUTE ?? 0) || undefined;
+
 const store = dataDir ? new JsonlStore(fromCwd(dataDir)) : new MemoryStore();
 const service = new WorldService({ store });
 const media = dataDir ? new FileMediaStore(fromCwd(`${dataDir}/media`)) : new MemoryMediaStore();
@@ -59,6 +62,7 @@ const server = createApp({
   social,
   media,
   trustedProxies,
+  ...(sessionsPerMinute ? { sessionsPerMinute } : {}),
   ...(staticDir ? { staticDir: fromCwd(staticDir) } : {}),
 });
 

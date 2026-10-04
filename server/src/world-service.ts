@@ -328,6 +328,11 @@ export class WorldService {
     };
   }
 
+  /** Send a message to one resident's open sockets only, like a gesture meant for them. */
+  notify(residentId: string, message: ServerMessage) {
+    for (const listener of this.listeners.get(residentId) ?? []) listener(message);
+  }
+
   private broadcast(message: ServerMessage) {
     for (const set of this.listeners.values()) for (const listener of set) listener(message);
   }

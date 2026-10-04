@@ -86,6 +86,10 @@ export class World extends DurableObject<Env> {
       put: async (id, bytes, type) => {
         await env.MEDIA.put(id, bytes, { httpMetadata: { contentType: type } });
       },
+      get: async (id) => {
+        const object = await env.MEDIA.get(id);
+        return object ? new Uint8Array(await object.arrayBuffer()) : undefined;
+      },
       delete: (id) => env.MEDIA.delete(id),
     };
     const social = new SocialService({

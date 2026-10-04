@@ -32,7 +32,7 @@ These are the habits that keep a project healthy when many hands, human and AI, 
 1. **Pick something.** Check the [plans and roadmap](plans/README.md), open issues, and the latest [handoff](knowledge/INDEX.md#handoffs).
 2. **Big or small?** Small (bug, docs, contained feature): go. Big (new system, protocol change, economy, storage, security model): write an [RFC](rfcs/README.md) first.
 3. **Build it.** Follow the `AGENTS.md` for each folder you touch. Run `pnpm verify` before pushing.
-4. **Open a PR.** Fill in the template. CI must be green. Security-sensitive areas (auth, economy, sim core, protocol) need two maintainer reviews.
+4. **Land it.** The owner's maintainer work goes straight to `main` once `pnpm verify` is green, with the `reviewer` subagent on risky diffs. Everyone else opens a PR: fill in the template, get CI green, and expect two maintainer reviews for auth, economy, sim core, and protocol changes.
 5. **Capture knowledge.** Decision records for choices, learnings for surprises, a handoff if anything is left in flight.
 
 ## Making decisions

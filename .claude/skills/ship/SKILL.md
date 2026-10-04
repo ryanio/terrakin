@@ -14,4 +14,4 @@ Work through the definition of done from the root `AGENTS.md`.
 5. **Docs.** If behavior changed, update the folder `AGENTS.md`, `protocol/SKILL.md` (for API changes), `docs/architecture.md`, and `docs/plans/README.md` as needed.
 6. **Knowledge.** Decisions and learnings from this change go in `docs/knowledge/` (use `capture-knowledge`). Run `pnpm kb`.
 7. **Commit.** Imperative subject under 72 characters ("Add release command to sim"). Body says why.
-8. **PR description.** Follow `.github/pull_request_template.md`: what, why, how tested, AI assistance disclosed.
+8. **Land it.** The owner's work: push to `main`. Anyone else: open a PR following `.github/pull_request_template.md` (what, why, how tested, AI assistance disclosed).

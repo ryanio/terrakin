@@ -21,7 +21,7 @@ node .agents/skills/secrets/1p.mjs run --only OPENSEA_API_KEY -- <cmd>
 
 - Always name keys with `--only`. The whole 1Password account shares 1,000 reads a day across every repo, and resolved values are cached 12 hours in `~/.cache/1p-secrets`.
 - If a read is refused as rate-limited, wait. Retrying spends the budget you are waiting on.
-- The token is `OP_SERVICE_ACCOUNT_TOKEN_TERRAKIN` in the environment (cloud sessions), else `.op-token` in this checkout (gitignored). It reads the `Terrakin` vault.
+- The token is `OP_SERVICE_ACCOUNT_TOKEN_TERRAKIN` in the environment (cloud sessions), else `.env` in this checkout (gitignored). It reads the `Terrakin` vault.
 
 ## The Worker
 
@@ -34,6 +34,6 @@ node .agents/skills/secrets/1p.mjs run --only OPENSEA_API_KEY -- \
 
 | Secret | Used by | Item |
 |--------|---------|------|
-| `OPENSEA_API_KEY` | Holdings checks for partner perks (RFC 0007) | `OpenSea` in the Terrakin vault |
+| `OPENSEA_API_KEY` | Holdings checks for partner perks (RFC 0007) | `opensea` in the Terrakin vault |
 
 Writes (new items, rotations) use `op` itself, which a person approves in the 1Password app. Rotating a secret is a question for Ryan, not a step to take on your own.

@@ -137,6 +137,89 @@ describe("claim", () => {
   });
 });
 
+describe("release", () => {
+  /** Ada and Bob both walk to plot (0,0); Ada claims it. */
+  function claimedPlot() {
+    const state = joined("ada", "bob");
+    walkToPlotZero(state, "ada");
+    walkToPlotZero(state, "bob");
+    run(state, "ada", { type: "claim" });
+    return state;
+  }
+
+  it("releases your plot, clears a hearth on it, and lets someone else claim it", () => {
+    const state = claimedPlot();
+    run(state, "ada", { type: "set_hearth", x: 1, y: 1 });
+    const [released] = run(state, "ada", { type: "release" });
+    expect(released).toMatchObject({
+      ok: true,
+      events: [
+        { type: "plot_released", px: 0, py: 0, ownerId: "ada" },
+        { type: "hearth_cleared", residentId: "ada" },
+      ],
+    });
+    expect(state.residents.ada.hearth).toBeNull();
+    // Bob claims the freed plot.
+    const [claimed] = run(state, "bob", { type: "claim" });
+    expect(claimed).toMatchObject({
+      ok: true,
+      events: [{ type: "plot_claimed", px: 0, py: 0, ownerId: "bob" }],
+    });
+  });
+
+  it("refuses plots you don't own", () => {
+    const state = claimedPlot();
+    expect(rejectionCode(apply(state, { actor: "bob", command: { type: "release" } }))).toBe(
+      "not_your_plot",
+    );
+    // Nothing to release on the unclaimed Commons either.
+    const fresh = joined("ada");
+    expect(rejectionCode(apply(fresh, { actor: "ada", command: { type: "release" } }))).toBe(
+      "not_your_plot",
+    );
+  });
+
+  it("refuses while blocks remain, and rejections change nothing", () => {
+    const state = claimedPlot();
+    run(state, "ada", { type: "place", x: 0, y: 0, block: "stone" });
+    const before = hashWorld(state);
+    expect(rejectionCode(apply(state, { actor: "ada", command: { type: "release" } }))).toBe(
+      "plot_has_blocks",
+    );
+    expect(hashWorld(state)).toBe(before);
+    run(state, "ada", { type: "remove", x: 0, y: 0 });
+    expect(apply(state, { actor: "ada", command: { type: "release" } }).ok).toBe(true);
+  });
+
+  it("replays release-then-claim exactly, like a server restart would", () => {
+    const state = createWorld(CONFIG);
+    const log: Input[] = [];
+    const script: Input[] = [
+      { actor: "ada", command: { type: "join", name: "ada", kind: "human" } },
+      { actor: "bob", command: { type: "join", name: "bob", kind: "human" } },
+      ...Array.from({ length: 4 }, (): Input[] => [
+        { actor: "ada", command: { type: "move", dir: "w" } },
+        { actor: "ada", command: { type: "move", dir: "n" } },
+      ]).flat(),
+      { actor: "ada", command: { type: "claim" } },
+      { actor: "ada", command: { type: "set_hearth", x: 1, y: 1 } },
+      { actor: "ada", command: { type: "release" } },
+      ...Array.from({ length: 4 }, (): Input[] => [
+        { actor: "bob", command: { type: "move", dir: "w" } },
+        { actor: "bob", command: { type: "move", dir: "n" } },
+      ]).flat(),
+      { actor: "bob", command: { type: "claim" } },
+    ];
+    for (const input of script) {
+      const result = apply(state, input);
+      expect(result.ok, JSON.stringify(input)).toBe(true);
+      log.push(input);
+    }
+    expect(state.plots).toMatchObject({ "0,0": { px: 0, py: 0, ownerId: "bob" } });
+    expect(hashWorld(replay(CONFIG, log))).toBe(hashWorld(state));
+  });
+});
+
 describe("place and remove", () => {
   it("builds only on your own plot, within reach, on empty tiles", () => {
     const state = joined("ada", "bob");

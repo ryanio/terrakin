@@ -8,4 +8,5 @@
 | [deploy.md](deploy.md) | Running terrakin.org: container, settings, host checklist. |
 | [handbook.md](handbook.md) | How we work: principles, process, roles, memory. |
 | [rfcs/](rfcs/README.md) | Public proposals for big changes. See the template. |
+| [devlog/](devlog/) | Dated public updates: what shipped, what's next. Snapshots, not kept current. |
 | [knowledge/](knowledge/INDEX.md) | Decisions, learnings, and session handoffs. |

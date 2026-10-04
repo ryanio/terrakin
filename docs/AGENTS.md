@@ -10,6 +10,7 @@ Long-lived writing: what Terrakin is, how it's built, how we work, and what we'v
 | `architecture.md` | How the system works today. | Code changes how data flows or where something lives. |
 | `handbook.md` | How we work: principles, process, roles. | We change how we work. |
 | `rfcs/` | Proposals that need discussion. | Before building something big. |
+| `devlog/` | Dated public updates. One file per entry, `YYYY-MM-DD.md`. | Never after publishing; add a new entry instead. |
 | `knowledge/` | Decisions, learnings, handoffs. | Constantly. See its README. |
 
 ## Style

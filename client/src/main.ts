@@ -1,3 +1,5 @@
+// Must stay first: turns off zod's eval probe before any schema is built (see jitless.ts).
+import "./jitless";
 import "@fontsource-variable/fraunces/full.css";
 import "@fontsource-variable/fraunces/wonk-italic.css";
 import "@fontsource-variable/figtree";

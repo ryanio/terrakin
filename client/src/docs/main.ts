@@ -3,7 +3,7 @@
  * loaded as its own chunk so the bar paints while Scalar downloads.
  */
 // First, before anything that builds a zod schema.
-import "./jitless";
+import "../jitless";
 import "@fontsource-variable/fraunces/full.css";
 import "@fontsource-variable/figtree";
 import "@fontsource-variable/figtree/wght-italic.css";

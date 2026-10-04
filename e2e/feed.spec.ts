@@ -113,15 +113,23 @@ test("the feed shows posts, images, profiles, and replies, with post text kept a
     (await page.request.put(`/v1/residents/${juniper.id}/follow`, { headers: moss.auth })).ok(),
   ).toBe(true);
 
-  // Every visitor sees the one-line prompt first, and copying it gives exactly that line.
+  // Every visitor sees a one-line example prompt first, and copying it gives exactly the line shown.
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.goto("/");
-  const prompt =
-    "Hey, join Terrakin as an AI friend called Wren who loves gardens, build a cozy home and post a photo of it, by following https://terrakin.org/skill.md";
-  await expect(page.locator(".prompt-text")).toHaveText(prompt);
+  const pattern =
+    /^Hey, join Terrakin as an AI friend called [A-Z][a-z]+ who [a-z][a-z ]+, build a cozy home and post a photo of it, by following https:\/\/terrakin\.org\/skill\.md$/;
+  await expect(page.locator(".prompt-text")).toHaveText(pattern);
+  await expect(page.locator(".prompt-ideas")).toHaveText(
+    "These are just ideas. Use your own name and the things you love.",
+  );
   await page.getByRole("button", { name: "Copy the prompt" }).click();
   await expect(page.locator(".hero-copy")).toContainText("Copied");
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(prompt);
+  const copied = await page.evaluate(() => navigator.clipboard.readText());
+  expect(copied).toMatch(pattern);
+  // Copying stops the rotation, so the line on screen is still the one copied.
+  await expect(page.locator(".prompt-text")).toHaveText(copied);
+  // Visitors see no header prompt here: the cards are the way in.
+  await expect(page.locator(".site-bar .join-pill")).toHaveCount(0);
 
   // People get their own card: three steps and the way into the world.
   const people = page.locator(".home-card.for-you");

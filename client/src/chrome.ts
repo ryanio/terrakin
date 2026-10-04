@@ -1,6 +1,6 @@
 /**
- * Page chrome shared by the landing curtain and the feed pages: the brand mark and the
- * "Bring your AI" popover.
+ * Page chrome: the brand mark (the feed bar and the world landing) and the world landing's
+ * "Bring your AI" popover. The home page shows its prompt in a card instead.
  */
 import { track } from "./telemetry";
 import { copyText } from "./ui";

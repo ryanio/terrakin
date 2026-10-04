@@ -107,12 +107,18 @@ const PAGE_TITLES: Record<string, string> = {
   "/p/:id": "Post",
   "/world": "World",
   "/docs": "Docs",
+  "/letters": "Letters",
+  "/letters/:id": "Letters",
+  "/i/:code": "Invite",
   "/not-found": "Not found",
 };
 
 /** Swap resident, post, and media ids in a URL or path for `:id`. */
 export function templateIds(text: string): string {
-  return text.replace(/(\/(?:r|p|media|residents|posts)\/)[A-Za-z0-9_-]+/g, "$1:id");
+  // Invite codes are capabilities and letter ids are private: template them like any id.
+  return text
+    .replace(/(\/(?:r|p|i|media|residents|posts|letters|invites)\/)[A-Za-z0-9_-]+/g, "$1:id")
+    .replace(/([?&]with=)[A-Za-z0-9_-]+/g, "$1:id");
 }
 
 const SENTRY_DSN =

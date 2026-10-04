@@ -1,0 +1,164 @@
+import type { AuthorView, LetterView } from "@terrakin/protocol";
+import { describe, expect, it } from "vitest";
+import { PROMPT_INTERESTS, PROMPT_NAMES, PROMPT_PATTERN, promptAt, promptLine } from "./prompts";
+import { matchRoute, routeTemplate } from "./router";
+import { templateIds } from "./telemetry";
+import {
+  conversations,
+  gestureLine,
+  isLetterMediaUrl,
+  reusableInvite,
+  streakLine,
+  unreadBadge,
+} from "./together";
+
+const person = (id: string, name: string): AuthorView => ({
+  id,
+  name,
+  kind: "human",
+  color: "sun",
+  shape: "round",
+  avatar: null,
+});
+const ME = person("r_me", "Me");
+const ADA = person("r_ada", "Ada");
+const BO = person("r_bo", "Bo");
+
+let n = 0;
+const letter = (from: AuthorView, to: AuthorView, at: string, read = true): LetterView => ({
+  id: `l_${String(n++).padStart(16, "0")}`,
+  trust: "untrusted",
+  from,
+  to,
+  text: `${from.name} to ${to.name}`,
+  media: [],
+  createdAt: at,
+  readAt: read ? at : null,
+});
+
+describe("letters", () => {
+  it("accepts only letter image URLs exactly as the server makes them", () => {
+    expect(isLetterMediaUrl("/v1/letters/l_0123456789abcdef/media/m_0123456789abcdef")).toBe(true);
+    for (const bad of [
+      "/media/m_0123456789abcdef",
+      "https://evil.example/v1/letters/l_0123456789abcdef/media/m_0123456789abcdef",
+      "/v1/letters/l_0123456789abcdef/media/m_0123456789abcdef?x=1",
+      "/v1/letters/../media/m_0123456789abcdef",
+      "/v1/letters/l_0123456789ABCDEF/media/m_0123456789abcdef",
+      42,
+      null,
+    ]) {
+      expect(isLetterMediaUrl(bad)).toBe(false);
+    }
+  });
+
+  it("groups letters by the other person, newest conversation first, counting unread", () => {
+    const letters = [
+      letter(ADA, ME, "2026-10-04T12:00:00Z", false),
+      letter(ME, BO, "2026-10-04T11:00:00Z"),
+      letter(ADA, ME, "2026-10-04T10:00:00Z", false),
+      letter(ME, ADA, "2026-10-04T09:00:00Z"),
+      letter(BO, ME, "2026-10-04T08:00:00Z", false),
+    ];
+    const list = conversations(letters, ME.id);
+    expect(list.map((c) => [c.with.id, c.unread])).toEqual([
+      [ADA.id, 2],
+      [BO.id, 1],
+    ]);
+    expect(list[1]?.last.from.id).toBe(ME.id);
+    // A letter you sent never counts as unread, even before they open it.
+    expect(conversations([letter(ME, ADA, "2026-10-04T12:00:00Z", false)], ME.id)[0]?.unread).toBe(
+      0,
+    );
+  });
+
+  it("keeps the unread badge small", () => {
+    expect(unreadBadge(0)).toBe("");
+    expect(unreadBadge(3)).toBe("3");
+    expect(unreadBadge(12)).toBe("9+");
+  });
+});
+
+describe("gestures and streaks", () => {
+  it("says who sent what, with a gift's note", () => {
+    expect(gestureLine("hug", "Ada", "")).toBe("Ada sent you a hug");
+    expect(gestureLine("high_five", "Bo", "")).toBe("Bo sent you a high five");
+    expect(gestureLine("gift", "Ada", "a jar of honey")).toBe(
+      "Ada sent you a gift: a jar of honey",
+    );
+  });
+
+  it("words the streak plainly", () => {
+    expect(streakLine(0)).toMatch(/^No streak yet/);
+    expect(streakLine(1)).toMatch(/^1 day in a row/);
+    expect(streakLine(4)).toBe("4 days in a row");
+  });
+});
+
+describe("invites", () => {
+  const now = Date.parse("2026-10-04T12:00:00Z");
+  const saved = {
+    code: "abcdefghjkmn",
+    path: "/i/abcdefghjkmn",
+    share: false,
+    createdAt: "2026-10-01T12:00:00Z",
+    expiresAt: "2026-10-08T12:00:00Z",
+  };
+
+  it("reuses a saved invite of the same kind that has time left", () => {
+    expect(reusableInvite(saved, false, now)).toBe(true);
+    expect(reusableInvite(saved, true, now)).toBe(false);
+    expect(reusableInvite(undefined, false, now)).toBe(false);
+    expect(reusableInvite(saved, false, Date.parse("2026-10-08T11:30:00Z"))).toBe(false);
+  });
+
+  it("routes invite and letter pages, and never reports their ids", () => {
+    expect(matchRoute("/i/abcdefghjkmn")).toEqual({ name: "invite", code: "abcdefghjkmn" });
+    expect(matchRoute("/letters")).toEqual({ name: "letters" });
+    expect(matchRoute("/letters/r_0123456789abcdef")).toEqual({
+      name: "letters-with",
+      id: "r_0123456789abcdef",
+    });
+    expect(routeTemplate(matchRoute("/i/abcdefghjkmn"))).toBe("/i/:code");
+    expect(routeTemplate(matchRoute("/letters/r_x"))).toBe("/letters/:id");
+    expect(templateIds("https://terrakin.org/i/abcdefghjkmn")).toBe("https://terrakin.org/i/:id");
+    expect(templateIds("/v1/invites/abcdefghjkmn/accept")).toBe("/v1/invites/:id/accept");
+    expect(templateIds("/v1/letters/l_0123456789abcdef/media/m_0123456789abcdef")).toBe(
+      "/v1/letters/:id/media/:id",
+    );
+    expect(templateIds("/v1/letters?limit=50&with=r_0123456789abcdef")).toBe(
+      "/v1/letters?limit=50&with=:id",
+    );
+  });
+});
+
+describe("example prompts", () => {
+  it("has about thirty names and interests, every line in the same shape", () => {
+    expect(PROMPT_NAMES.length).toBeGreaterThanOrEqual(30);
+    expect(PROMPT_INTERESTS.length).toBeGreaterThanOrEqual(30);
+    expect(new Set(PROMPT_NAMES).size).toBe(PROMPT_NAMES.length);
+    for (const name of PROMPT_NAMES) {
+      for (const interest of PROMPT_INTERESTS) {
+        expect(promptLine(name, interest)).toMatch(PROMPT_PATTERN);
+      }
+    }
+  });
+
+  it("is the same for one page view and moves on each step without repeating", () => {
+    for (const seed of [1, 42, 123_456_789]) {
+      let last = "";
+      for (let step = 0; step < 20; step++) {
+        const line = promptAt(seed, step);
+        expect(promptAt(seed, step)).toBe(line);
+        expect(line).toMatch(PROMPT_PATTERN);
+        const [name, interest] = /called (\w+) who ([a-z ]+),/.exec(line)?.slice(1) ?? [];
+        const [lastName, lastInterest] = /called (\w+) who ([a-z ]+),/.exec(last)?.slice(1) ?? [];
+        expect(name).not.toBe(lastName);
+        expect(interest).not.toBe(lastInterest);
+        last = line;
+      }
+    }
+    const firsts = new Set(Array.from({ length: 40 }, (_, seed) => promptAt(seed, 0)));
+    expect(firsts.size).toBeGreaterThan(20);
+  });
+});

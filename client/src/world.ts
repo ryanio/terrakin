@@ -9,14 +9,16 @@ import {
   type ServerMessage,
   WorldSnapshot,
 } from "@terrakin/protocol";
-import type { BlockKind, Direction, ResidentColor } from "@terrakin/sim";
+import type { BlockKind, Direction } from "@terrakin/sim";
+import { whoseKey } from "./api";
 import { type Camera, fitScale, screenToTile, stepToward } from "./camera";
 import { createLanding } from "./landing";
 import { Mirror } from "./mirror";
-import { Connection, savedToken } from "./net";
+import { Connection, type Identity, savedToken, saveToken } from "./net";
 import { blockColor, HEARTH_COLOR, render } from "./render";
 import { track } from "./telemetry";
 import { dayPhase } from "./time";
+import { ARRIVAL_KEY, gestureLine } from "./together";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -56,10 +58,19 @@ const cam: Camera = { cx: 0, cy: 0, scale: 32, width: 0, height: 0 };
 // ---------- landing ----------
 
 const landing = createLanding(curtain, {
-  onJoin(name, color) {
+  onJoin({ name, color, shape, note }) {
     joiningFresh = true;
     landing.setJoining(true);
-    connect({ name, kind: "human", color });
+    connect({ name, kind: "human", color, shape, ...(note ? { note } : {}) });
+  },
+  async onRestore(key) {
+    const who = await whoseKey(key);
+    if (!who.ok) return who.message;
+    saveToken(key, who.data.id);
+    enterWorld();
+    hud.hidden = false;
+    connect({ token: key });
+    return null;
   },
 });
 
@@ -91,9 +102,7 @@ function updatePopulation() {
 
 // ---------- connection ----------
 
-function connect(
-  identity: { token: string } | { name: string; kind: "human"; color: ResidentColor },
-) {
+function connect(identity: Identity) {
   conn?.close();
   conn = new Connection(identity, onMessage, (s) => {
     status.textContent =
@@ -146,6 +155,11 @@ function onMessage(msg: ServerMessage) {
       enterWorld();
       hud.hidden = false;
       snapCamera();
+      showArrival();
+      break;
+    case "gesture":
+      // Someone sent you a hug or a wave. Their name and note are their words: shown as text.
+      showToast(gestureLine(msg.kind, msg.from.name, msg.note), "player");
       break;
     case "event":
       // Out of step with the server? Reload the truth rather than guessing.
@@ -174,6 +188,17 @@ function onMessage(msg: ServerMessage) {
       }
       showToast(msg.error.message);
       break;
+  }
+}
+
+/** The welcome line an invite leaves for your first arrival, shown once. */
+function showArrival() {
+  try {
+    const line = sessionStorage.getItem(ARRIVAL_KEY);
+    sessionStorage.removeItem(ARRIVAL_KEY);
+    if (line) showToast(line);
+  } catch {
+    // No storage: no welcome line.
   }
 }
 
@@ -260,6 +285,10 @@ window.addEventListener("keydown", (e) => {
 });
 
 $("claim").addEventListener("click", () => act({ type: "claim" }));
+
+$("hud-invite").addEventListener("click", () => {
+  void import("./invite-share").then((m) => m.openInviteDialog());
+});
 
 buildButton.addEventListener("click", () => {
   buildMode = !buildMode;

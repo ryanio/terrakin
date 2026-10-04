@@ -3,9 +3,22 @@
  * that doesn't match is treated as an error, never trusted. Errors carry the server's own words.
  */
 import {
+  type AcceptInviteRequest,
+  AcceptInviteResponse,
+  ActionResponse,
+  type CreateLetterRequest,
   type CreatePostRequest,
+  type CreateSessionRequest,
+  CreateSessionResponse,
   ErrorBody,
   FeedResponse,
+  type GestureRequest,
+  GestureResponse,
+  GesturesResponse,
+  InviteDetailsResponse,
+  InviteResponse,
+  LetterResponse,
+  LettersResponse,
   MediaResponse,
   type MediaView,
   PostResponse,
@@ -14,7 +27,9 @@ import {
   type ProfileView,
   XStartResponse,
 } from "@terrakin/protocol";
+import type { ResidentColor, ResidentShape } from "@terrakin/sim";
 import { savedResidentId, savedToken, saveResidentId } from "./net";
+import { isLetterMediaUrl } from "./together";
 
 export type Result<T> =
   | { ok: true; data: T }
@@ -129,7 +144,88 @@ export const api = {
   xStart: () => request("POST", "/v1/profile/x/start", XStartResponse),
   xVerify: (url: string) => request("POST", "/v1/profile/x/verify", ProfileResponse, { url }),
   xUnlink: () => request("DELETE", "/v1/profile/x", ProfileResponse),
+
+  // ---------- joining ----------
+  createSession: (body: CreateSessionRequest) =>
+    request("POST", "/v1/session", CreateSessionResponse, body),
+  /** Change your color, shape, or note (the world's `profile` action). */
+  setLook: (fields: { color?: ResidentColor; shape?: ResidentShape; note?: string }) =>
+    request("POST", "/v1/actions", ActionResponse, { type: "profile", ...fields }),
+
+  // ---------- together: letters, gestures, blocks, invites ----------
+  letters: (opts: { with?: string; before?: string; limit?: number } = {}) =>
+    request(
+      "GET",
+      `/v1/letters${query({ limit: opts.limit ?? 50, with: opts.with, before: opts.before })}`,
+      LettersResponse,
+    ),
+  letter: (id: string) => request("GET", `/v1/letters/${encodeURIComponent(id)}`, LetterResponse),
+  sendLetter: (body: CreateLetterRequest) => request("POST", "/v1/letters", LetterResponse, body),
+  deleteLetter: (id: string) => request("DELETE", `/v1/letters/${encodeURIComponent(id)}`, Nothing),
+  gestures: (withId?: string) =>
+    request("GET", `/v1/gestures${query({ with: withId })}`, GesturesResponse),
+  gesture: (id: string, body: GestureRequest) =>
+    request("POST", `/v1/residents/${encodeURIComponent(id)}/gesture`, GestureResponse, body),
+  block: (id: string, on: boolean) =>
+    request(
+      on ? "PUT" : "DELETE",
+      `/v1/residents/${encodeURIComponent(id)}/block`,
+      ProfileResponse,
+    ),
+  createInvite: (share: boolean) =>
+    request("POST", "/v1/invites", InviteResponse, share ? { share: true } : {}),
+  invite: (code: string) =>
+    request("GET", `/v1/invites/${encodeURIComponent(code)}`, InviteDetailsResponse),
+  acceptInvite: (code: string, body: AcceptInviteRequest) =>
+    request("POST", `/v1/invites/${encodeURIComponent(code)}/accept`, AcceptInviteResponse, body),
 };
+
+/** For replies with no body (204). */
+const Nothing: Schema<null> = { safeParse: () => ({ success: true, data: null }) };
+
+/**
+ * Who a key belongs to, without saving it: the restore field checks a pasted key this way first.
+ * An empty profile update changes nothing and answers with the key's resident.
+ */
+export async function whoseKey(token: string): Promise<Result<ProfileView>> {
+  let res: Response;
+  try {
+    res = await fetch("/v1/profile", {
+      method: "PUT",
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: "{}",
+    });
+  } catch {
+    return { ok: false, status: 0, code: "offline", message: OFFLINE };
+  }
+  const json: unknown = await res.json().catch(() => undefined);
+  const parsed = ProfileResponse.safeParse(json);
+  if (res.ok && parsed.success) return { ok: true, data: parsed.data.resident };
+  return {
+    ok: false,
+    status: res.status,
+    code: errorOf(json)?.code ?? "unknown",
+    message:
+      res.status === 401
+        ? "That key doesn't open any character here. Check you copied all of it."
+        : "Something went wrong. Try again.",
+  };
+}
+
+/**
+ * A letter's picture as a `blob:` URL. Letter pictures are private, so they come with our token
+ * from the letter's own media URL, never from `/media/`. Revoke the URL when the page goes.
+ */
+export async function letterImage(url: string): Promise<string | null> {
+  if (!isLetterMediaUrl(url)) return null;
+  try {
+    const res = await fetch(url, { headers: authHeaders() });
+    if (!res.ok || !res.headers.get("content-type")?.startsWith("image/")) return null;
+    return URL.createObjectURL(await res.blob());
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Upload one file as raw bytes. XHR rather than fetch so we can show real upload progress.
@@ -218,6 +314,11 @@ export function myProfile(): Promise<ProfileView | null> {
     if (profile === null && me === entry) me = undefined;
   });
   return entry.profile;
+}
+
+/** Drop the cached profile, after you change your look, so the next lookup is fresh. */
+export function forgetMe() {
+  me = undefined;
 }
 
 export type { PostView, ProfileView };

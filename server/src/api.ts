@@ -153,7 +153,7 @@ export interface ApiOptions {
   openapi: string;
   /** Actions per second allowed per resident (burst = 2x). Default from RATE_LIMITS.actions. */
   actionsPerSecond?: number;
-  /** New sessions per minute allowed per IP (burst = 5). Default from RATE_LIMITS.sessions. */
+  /** New sessions per minute allowed per IP (burst = that many, at least 5). Default from RATE_LIMITS.sessions. */
   sessionsPerMinute?: number;
   /** The social layer (RFC 0003). Without it, the social routes answer not_found. */
   social?: SocialService;
@@ -306,7 +306,10 @@ export class Api {
       sessions:
         options.sessionsPerMinute === undefined
           ? bucket("sessions")
-          : new RateLimiters(RATE_LIMITS.sessions.burst, options.sessionsPerMinute / 60),
+          : new RateLimiters(
+              Math.max(RATE_LIMITS.sessions.burst, Math.floor(options.sessionsPerMinute)),
+              options.sessionsPerMinute / 60,
+            ),
       posts: bucket("posts"),
       reactions: bucket("reactions"),
       uploads: bucket("uploads"),

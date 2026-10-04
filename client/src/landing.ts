@@ -3,7 +3,12 @@
  * Self-contained, so a router can show it, skip it, or put it back. It never touches the world
  * or the connection; it reports a join through `onJoin` and the caller decides what happens next.
  */
-import { RESIDENT_COLORS, type ResidentColor } from "@terrakin/sim";
+import {
+  RESIDENT_COLORS,
+  RESIDENT_SHAPES,
+  type ResidentColor,
+  type ResidentShape,
+} from "@terrakin/sim";
 import { initBrandMarks, initBringAi } from "./chrome";
 import { RESIDENT_COLOR_HEX } from "./render";
 
@@ -22,7 +27,9 @@ export interface Landing {
 }
 
 export interface LandingOptions {
-  onJoin(name: string, color: ResidentColor): void;
+  onJoin(choice: { name: string; color: ResidentColor; shape: ResidentShape; note: string }): void;
+  /** Check a pasted key. Resolve with an error message, or null once it is saved. */
+  onRestore(key: string): Promise<string | null>;
 }
 
 /** "12 residents, 3 online now". Pure, so tests can pin the wording. */
@@ -40,8 +47,10 @@ function byId<T extends HTMLElement>(root: ParentNode, id: string): T {
   return el;
 }
 
-export function createLanding(root: HTMLElement, { onJoin }: LandingOptions): Landing {
-  const form = byId<HTMLFormElement>(root, "join");
+export function createLanding(root: HTMLElement, { onJoin, onRestore }: LandingOptions): Landing {
+  const form = byId<HTMLFormElement>(root, "world-join");
+  const note = byId<HTMLInputElement>(root, "join-note");
+  const shapeRow = byId(root, "shape-row");
   const name = byId<HTMLInputElement>(root, "join-name");
   const error = byId(root, "join-error");
   const submit = form.querySelector<HTMLButtonElement>('button[type="submit"]');
@@ -53,9 +62,9 @@ export function createLanding(root: HTMLElement, { onJoin }: LandingOptions): La
   initBrandMarks(root);
   initBringAi(byId(root, "bring-ai"), byId(root, "bring-pop"));
 
-  // Color chips. Names are ours (the fixed color list), not player text.
-  let color: ResidentColor =
-    RESIDENT_COLORS[Math.floor(Math.random() * RESIDENT_COLORS.length)] ?? "sun";
+  // Color chips. Names are ours (the fixed color list), not player text. The first color is
+  // picked to start, every time: a choice that changes on each load reads as a glitch.
+  let color: ResidentColor = RESIDENT_COLORS[0] ?? "sun";
   for (const c of RESIDENT_COLORS) {
     const b = document.createElement("button");
     b.type = "button";
@@ -75,8 +84,54 @@ export function createLanding(root: HTMLElement, { onJoin }: LandingOptions): La
     swatchRow.append(b);
   }
 
+  let shape: ResidentShape = RESIDENT_SHAPES[0] ?? "round";
+  for (const s of RESIDENT_SHAPES) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.setAttribute("aria-label", s);
+    b.setAttribute("aria-pressed", String(s === shape));
+    const dot = document.createElement("span");
+    dot.className = `shape-dot ${s}`;
+    const label = document.createElement("span");
+    label.className = "swatch-name";
+    label.textContent = s;
+    b.append(dot, label);
+    b.addEventListener("click", () => {
+      shape = s;
+      for (const other of shapeRow.children)
+        other.setAttribute("aria-pressed", String(other === b));
+    });
+    shapeRow.append(b);
+  }
+
   name.addEventListener("input", () => {
     error.textContent = "";
+  });
+
+  // Restore with a key: bring a character made in another browser to this one.
+  const restoreKey = byId<HTMLInputElement>(root, "restore-key");
+  const restoreGo = byId<HTMLButtonElement>(root, "restore-go");
+  const restoreError = byId(root, "restore-error");
+  const restore = async () => {
+    const key = restoreKey.value.trim();
+    if (!key) {
+      restoreError.textContent = "Paste your key first.";
+      restoreKey.focus();
+      return;
+    }
+    restoreGo.disabled = true;
+    restoreError.textContent = "";
+    const problem = await onRestore(key);
+    restoreGo.disabled = false;
+    if (problem) restoreError.textContent = problem;
+    else restoreKey.value = "";
+  };
+  restoreGo.addEventListener("click", () => void restore());
+  restoreKey.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      void restore();
+    }
   });
 
   form.addEventListener("submit", (e) => {
@@ -88,7 +143,7 @@ export function createLanding(root: HTMLElement, { onJoin }: LandingOptions): La
       return;
     }
     error.textContent = "";
-    onJoin(value, color);
+    onJoin({ name: value, color, shape, note: note.value.trim() });
   });
 
   let hideTimer: ReturnType<typeof setTimeout> | undefined;

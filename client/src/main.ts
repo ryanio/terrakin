@@ -5,12 +5,19 @@ import "@fontsource-variable/fraunces/wonk-italic.css";
 import "@fontsource-variable/figtree";
 import "@fontsource-variable/figtree/wght-italic.css";
 import { markdownTwin } from "@terrakin/protocol";
-import { initBrandMarks, initBringAi } from "./chrome";
+import { api, myProfile } from "./api";
+import { initBrandMarks } from "./chrome";
+import { h, icon } from "./dom";
 import { feedView } from "./feed-view";
+import { inviteView } from "./invite-view";
+import { lettersView, letterThreadView, UNREAD_EVENT } from "./letters-view";
+import { SESSION_EVENT, savedResidentId, savedToken } from "./net";
+import { avatarEl, profilePath } from "./post-card";
 import { postView } from "./post-view";
 import { profileView } from "./profile-view";
 import { createRouter, matchRoute, type Navigation, type Route, routeTemplate } from "./router";
 import { initErrorReporting, pageView, startAnalytics } from "./telemetry";
+import { unreadBadge } from "./together";
 import { interceptPop } from "./ui";
 import { notFoundView, type View, type ViewContext } from "./view";
 import "./style.css";
@@ -27,7 +34,7 @@ const worldView = $("world-view");
 const root = document.documentElement;
 
 initBrandMarks(site);
-initBringAi($("site-bring"), $("site-bring-pop"));
+const you = $("site-you");
 
 let view: View | undefined;
 let world: Promise<typeof import("./world")> | undefined;
@@ -49,16 +56,101 @@ function paintNav(route: Route) {
   for (const a of document.querySelectorAll<HTMLAnchorElement>("[data-nav]")) {
     const current =
       (a.dataset.nav === "feed" && route.name === "feed") ||
-      (a.dataset.nav === "world" && route.name === "world");
+      (a.dataset.nav === "world" && route.name === "world") ||
+      (a.dataset.nav === "letters" && (route.name === "letters" || route.name === "letters-with"));
     if (current) a.setAttribute("aria-current", "page");
     else a.removeAttribute("aria-current");
   }
 }
 
+/**
+ * The right end of the top bar. Residents get their letters (with an unread count) and their own
+ * avatar, which opens their profile, key, and look. Visitors get a Join pill that leads to the
+ * get-started cards, except on the home page, which already shows them.
+ */
+let unreadCount: HTMLElement | undefined;
+let lettersLink: HTMLAnchorElement | undefined;
+let headerFor: string | null | undefined;
+
+function paintHeader(route: Route) {
+  const token = savedToken();
+  if (!token) {
+    headerFor = null;
+    unreadCount = undefined;
+    lettersLink = undefined;
+    you.replaceChildren(
+      route.name === "feed"
+        ? ""
+        : h(
+            "a",
+            { class: "pill-button small join-pill", attrs: { href: "/#join" } },
+            h("span", { text: "Join" }),
+          ),
+    );
+    return;
+  }
+  if (headerFor === token) {
+    void refreshUnread();
+    return;
+  }
+  headerFor = token;
+  unreadCount = h("span", { class: "unread-badge", attrs: { hidden: true } });
+  lettersLink = h(
+    "a",
+    {
+      class: "pill-button small letters-link",
+      attrs: { href: "/letters", "aria-label": "Letters", "data-nav": "letters" },
+    },
+    icon("mail"),
+    unreadCount,
+  );
+  const savedId = savedResidentId();
+  const me = h(
+    "a",
+    {
+      class: "you-link",
+      attrs: { href: savedId ? profilePath(savedId) : "/letters", "aria-label": "You" },
+    },
+    h("span", { class: "avatar sm you-placeholder", attrs: { "aria-hidden": "true" } }),
+  );
+  you.replaceChildren(lettersLink, me);
+  void myProfile().then((profile) => {
+    if (!profile || headerFor !== token) return;
+    me.setAttribute("href", profilePath(profile.id));
+    me.setAttribute("aria-label", "You: your profile, key, and look");
+    me.replaceChildren(avatarEl(profile, "sm"));
+  });
+  void refreshUnread();
+}
+
+async function refreshUnread() {
+  const badge = unreadCount;
+  const link = lettersLink;
+  if (!badge || !link) return;
+  const r = await api.letters({ limit: 1 });
+  if (!r.ok || badge !== unreadCount) return;
+  const text = unreadBadge(r.data.unread);
+  badge.textContent = text;
+  badge.hidden = text === "";
+  link.setAttribute("aria-label", text ? `Letters, ${r.data.unread} unread` : "Letters");
+}
+
+window.addEventListener(UNREAD_EVENT, () => void refreshUnread());
+// Joining from a page (an invite, or Join and follow) changes who you are without navigating.
+let lastRoute: Route | undefined;
+window.addEventListener(SESSION_EVENT, () => {
+  if (lastRoute) {
+    paintHeader(lastRoute);
+    paintNav(lastRoute);
+  }
+});
+
 function onNavigate(nav: Navigation) {
   const { route } = nav;
   view?.destroy();
   view = undefined;
+  lastRoute = route;
+  paintHeader(route);
   paintNav(route);
   pageView(routeTemplate(route));
   // Agents reading the page find its Markdown twin (the server also sends it as a Link header).
@@ -93,7 +185,13 @@ function onNavigate(nav: Navigation) {
         ? profileView(route.id, ctx)
         : route.name === "post"
           ? postView(route.id, ctx)
-          : notFoundView(ctx);
+          : route.name === "letters"
+            ? lettersView(ctx)
+            : route.name === "letters-with"
+              ? letterThreadView(route.id, ctx)
+              : route.name === "invite"
+                ? inviteView(route.code, ctx)
+                : notFoundView(ctx);
   view = next;
   page.replaceChildren(next.el);
 

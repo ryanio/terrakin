@@ -1,7 +1,8 @@
 /**
- * A tiny History API router. Four pages: `/` the feed, `/r/:id` a profile, `/p/:id` a post, and
- * `/world` the canvas world. Anything else is a friendly not-found page. The server sends
- * index.html for every deep link, so a reload lands on the same page.
+ * A tiny History API router. `/` the feed, `/r/:id` a profile, `/p/:id` a post, `/letters` and
+ * `/letters/:id` your letters, `/i/:code` an invite, and `/world` the canvas world. Anything else
+ * is a friendly not-found page. The server sends index.html for every deep link, so a reload lands
+ * on the same page.
  */
 
 export type Route =
@@ -9,6 +10,9 @@ export type Route =
   | { name: "profile"; id: string }
   | { name: "post"; id: string }
   | { name: "world" }
+  | { name: "letters" }
+  | { name: "letters-with"; id: string }
+  | { name: "invite"; code: string }
   | { name: "not-found" };
 
 const ID = "([A-Za-z0-9_-]{1,64})";
@@ -17,6 +21,9 @@ const PATTERNS: [RegExp, (m: RegExpExecArray) => Route][] = [
   [new RegExp(`^/r/${ID}$`), (m) => ({ name: "profile", id: m[1] ?? "" })],
   [new RegExp(`^/p/${ID}$`), (m) => ({ name: "post", id: m[1] ?? "" })],
   [/^\/world$/, () => ({ name: "world" })],
+  [/^\/letters$/, () => ({ name: "letters" })],
+  [new RegExp(`^/letters/${ID}$`), (m) => ({ name: "letters-with", id: m[1] ?? "" })],
+  [new RegExp(`^/i/${ID}$`), (m) => ({ name: "invite", code: m[1] ?? "" })],
 ];
 
 /** Which page a path is. Trailing slashes are ignored. Pure, so tests pin it. */
@@ -40,6 +47,12 @@ export function routeTemplate(route: Route): string {
       return "/p/:id";
     case "world":
       return "/world";
+    case "letters":
+      return "/letters";
+    case "letters-with":
+      return "/letters/:id";
+    case "invite":
+      return "/i/:code";
     case "not-found":
       return "/not-found";
   }
@@ -158,7 +171,8 @@ export function createRouter({ onNavigate, interceptPop }: RouterOptions): Route
     const url = new URL(a.href);
     if (!isAppLink(url, location.origin)) return;
     e.preventDefault();
-    router.navigate(url.pathname + url.search);
+    // Keep the hash: "/#join" lands on the get-started cards.
+    router.navigate(url.pathname + url.search + url.hash);
   });
 
   return router;

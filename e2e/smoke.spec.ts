@@ -40,7 +40,7 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
   await page.goto("/world");
   await page.fill("#join-name", "Ada");
   await page.click("#join-color button[aria-label=plum]");
-  await page.click("#join button[type=submit]");
+  await page.click("#world-join button[type=submit]");
   await expect(page.locator("#hud")).toBeVisible();
 
   const me = async () => {
@@ -59,10 +59,14 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
   }
   await expect.poll(async () => [(await me()).x, (await me()).y]).toEqual([x, y]);
 
+  // Other tests settle plots in the same world, so look for ours rather than counting.
+  const world = () => page.request.get("/v1/world").then((r) => r.json());
   await page.click("#claim");
   await expect
-    .poll(async () => (await page.request.get("/v1/world").then((r) => r.json())).plots.length)
-    .toBe(1);
+    .poll(async () =>
+      (await world()).plots.some((p: { ownerId: string }) => p.ownerId === start.id),
+    )
+    .toBe(true);
 
   await page.click("#build");
   await page.click('[data-block="stone"]');
@@ -70,7 +74,11 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
   await settleCamera(page);
   await page.mouse.click(vp.width / 2 - scale, vp.height / 2 - scale);
   await expect
-    .poll(async () => (await page.request.get("/v1/world").then((r) => r.json())).blocks)
+    .poll(async () =>
+      (await world()).blocks.filter(
+        (b: { x: number; y: number }) => Math.abs(b.x - x) <= 3 && Math.abs(b.y - y) <= 3,
+      ),
+    )
     .toEqual([{ x: x - 1, y: y - 1, block: "stone" }]);
 
   // Set a hearth where we stand, step away, and come home.

@@ -671,7 +671,8 @@ a {
   color: var(--ink);
 }
 
-.join input {
+.join input,
+.field-input {
   width: 100%;
   min-height: var(--tap);
   padding: 0 16px;
@@ -686,11 +687,13 @@ a {
     box-shadow 0.15s ease;
 }
 
-.join input::placeholder {
+.join input::placeholder,
+.field-input::placeholder {
   color: #9a8d7c;
 }
 
-.join input:focus {
+.join input:focus,
+.field-input:focus {
   outline: none;
   border-color: var(--clay);
   box-shadow:
@@ -1126,21 +1129,6 @@ a {
     clip-path: inset(50%);
     white-space: nowrap;
   }
-}
-
-.site-bring {
-  justify-self: end;
-}
-
-.site-bring .pill-button {
-  min-height: 44px;
-  width: 44px;
-  padding: 0;
-  color: var(--clay-deep);
-}
-
-.site-bring .bring-label {
-  display: none;
 }
 
 .page-root {
@@ -2680,15 +2668,6 @@ dialog.model-viewer {
     padding-block: 8px;
   }
 
-  .site-bring .pill-button {
-    width: auto;
-    padding: 0 16px;
-  }
-
-  .site-bring .bring-label {
-    display: inline;
-  }
-
   .nav-link {
     padding: 0 16px 0 13px;
   }
@@ -3437,6 +3416,724 @@ dialog.sheet::backdrop {
 .x-done .btn-primary {
   margin-top: 12px;
   min-width: 160px;
+}
+
+/* ---------- couples and friends: top bar, onboarding, invites, letters, gestures ---------- */
+
+/* Top bar, right end: letters and your avatar, or a Join pill for visitors. */
+.site-you {
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Links styled as buttons never carry the link underline. */
+a.pill-button,
+a.btn-primary {
+  text-decoration: none;
+}
+
+.join-pill {
+  color: var(--clay-deep);
+}
+
+/* A phone has room for the mark, the nav, and two round buttons, but not the word as well. */
+@media (max-width: 440px) {
+  .site-bar-inner:has(.letters-link) .site-brand .brand-name {
+    display: none;
+  }
+}
+
+.letters-link {
+  position: relative;
+  width: 44px;
+  padding: 0;
+  color: var(--clay-deep);
+}
+
+.letters-link[aria-current="page"] {
+  background: #fff3e2;
+}
+
+.unread-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--clay);
+  color: var(--paper);
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 20px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 0 0 2px var(--paper);
+}
+
+.you-link {
+  text-decoration: none;
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+}
+
+.you-placeholder {
+  --avatar: var(--paper-edge);
+}
+
+/* Home: the rotating example line for your AI. */
+.prompt-text {
+  transition: opacity 0.35s ease;
+}
+
+.prompt-text.fading {
+  opacity: 0;
+}
+
+.prompt-ideas {
+  margin: -4px 0 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+
+.prompt-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Shared form bits. */
+.field-hint {
+  margin: 4px 0 0;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+
+.shape-row {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.shape-dot {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--ink-soft);
+}
+
+.shape-dot.square {
+  border-radius: 4px;
+}
+
+.shape-dot.diamond {
+  border-radius: 3px;
+  transform: rotate(45deg) scale(0.85);
+}
+
+.check-group {
+  display: grid;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.check-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1.5px solid var(--paper-edge);
+  border-radius: 14px;
+  background: #fffdf8;
+  cursor: pointer;
+}
+
+.check-input {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin: 1px 0 0;
+  accent-color: var(--clay);
+}
+
+.check-text {
+  display: grid;
+  gap: 2px;
+}
+
+.check-label {
+  font-size: 15.5px;
+  font-weight: 650;
+}
+
+.check-hint {
+  font-size: 13.5px;
+  line-height: 1.4;
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
+
+.onboard {
+  display: grid;
+  gap: 12px;
+}
+
+.onboard .swatches {
+  margin: 0;
+}
+
+.onboard-name {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+}
+
+.onboard-field {
+  display: grid;
+  flex: 1;
+  gap: 6px;
+}
+
+.onboard .join-submit {
+  margin-top: 6px;
+}
+
+.onboard-foot {
+  margin-top: 12px;
+  text-align: center;
+}
+
+/* `/i/:code` */
+.invite-hero {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 26px 20px 22px;
+  text-align: center;
+}
+
+.invite-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.6rem, 6.6vw, 2.1rem);
+  font-weight: 600;
+  font-variation-settings:
+    "opsz" 72,
+    "SOFT" 100,
+    "WONK" 1;
+  line-height: 1.12;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+
+.invite-name {
+  color: var(--clay-deep);
+}
+
+.invite-lede {
+  max-width: 34em;
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+  text-wrap: pretty;
+}
+
+.state-actions,
+.card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+/* Cards on the profile and elsewhere. */
+.card-title {
+  margin: 4px 0 0;
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.card-body {
+  margin: 8px 0 0;
+  font-size: 15.5px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+  text-wrap: pretty;
+}
+
+.page-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  font-weight: 600;
+}
+
+/* Profile: gestures, streak, letters, the "…" menu. */
+.profile-streak {
+  margin: 6px 0 0;
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--clay-deep);
+}
+
+.together {
+  display: grid;
+  gap: 12px;
+}
+
+.gesture-row {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.gesture {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 2px;
+  min-height: 64px;
+  padding: 6px 2px;
+  border: 1px solid var(--paper-edge);
+  border-radius: 16px;
+  background: var(--paper-fill);
+  box-shadow: var(--shadow-pill);
+  transition: transform 0.15s ease;
+}
+
+.gesture:active {
+  transform: scale(0.94);
+}
+
+.gesture[aria-expanded="true"] {
+  border-color: var(--clay);
+  background: #fff3e2;
+}
+
+.gesture-emoji {
+  font-size: 24px;
+  line-height: 1.1;
+}
+
+.gesture-label {
+  font-size: 12.5px;
+  font-weight: 650;
+  color: var(--ink-soft);
+  text-align: center;
+  line-height: 1.15;
+}
+
+.gesture-float {
+  position: fixed;
+  z-index: 70;
+  font-size: 34px;
+  pointer-events: none;
+  transform: translate(-50%, 0);
+  animation: float-up 1.3s ease-out forwards;
+}
+
+@keyframes float-up {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 0) scale(0.6);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(-50%, -18px) scale(1.15);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -110px) scale(1);
+  }
+}
+
+.gift-form {
+  display: grid;
+  gap: 6px;
+}
+
+.gift-row {
+  display: flex;
+  gap: 8px;
+}
+
+.gift-row .field-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.streak-line {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.streak-line.on {
+  color: var(--clay-deep);
+}
+
+.streak-line.on::before {
+  content: "🔥 ";
+}
+
+.write-letter {
+  justify-self: start;
+}
+
+.more {
+  position: relative;
+}
+
+.more-button {
+  width: 44px;
+  padding: 0;
+}
+
+.menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 20;
+  min-width: 200px;
+  padding: 6px;
+  border-radius: 14px;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  font-size: 15px;
+  font-weight: 600;
+  color: #a3361a;
+  text-align: left;
+}
+
+.menu-item:hover {
+  background: rgba(180, 83, 47, 0.08);
+}
+
+.join-follow {
+  display: grid;
+  gap: 12px;
+}
+
+.join-follow-lede {
+  margin: 0;
+  font-size: 15.5px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.eyebrow.with-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.eyebrow.with-icon .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.key-text {
+  display: block;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #2f2922;
+  color: var(--paper);
+  font-size: 13px;
+  word-break: break-all;
+  user-select: all;
+}
+
+.identity .card-actions,
+.look .card-actions {
+  margin-top: 14px;
+}
+
+.look {
+  display: grid;
+  gap: 12px;
+}
+
+.look-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.look .swatches {
+  margin: 0;
+}
+
+/* `/letters` */
+.conversations {
+  list-style: none;
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+}
+
+.conversation {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 12px 14px;
+  border-radius: var(--r-note);
+  color: inherit;
+  text-decoration: none;
+}
+
+.conversation-main {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  gap: 2px;
+}
+
+.conversation-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.conversation-name {
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conversation-time {
+  flex: none;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.conversation-snippet {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14.5px;
+  color: var(--ink-soft);
+}
+
+.conversation.unread .conversation-snippet {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.unread-dot {
+  flex: none;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--clay);
+  color: var(--paper);
+  font-size: 12.5px;
+  font-weight: 750;
+  line-height: 22px;
+  text-align: center;
+}
+
+/* `/letters/:id` */
+.thread-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--r-note);
+  color: inherit;
+  text-decoration: none;
+}
+
+.thread-who {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.thread-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.thread-sub {
+  font-size: 13.5px;
+  color: var(--ink-soft);
+}
+
+.thread {
+  list-style: none;
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+}
+
+.letter {
+  justify-self: start;
+  max-width: 86%;
+  padding: 12px 14px 6px;
+  border: 1px solid var(--paper-edge);
+  border-radius: 18px 18px 18px 6px;
+  background: var(--paper-fill);
+  box-shadow: var(--shadow-pill);
+}
+
+.letter.mine {
+  justify-self: end;
+  border-radius: 18px 18px 6px 18px;
+  background: #fff1df;
+}
+
+.letter-text {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.letter-pictures {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.letter-img-frame {
+  display: block;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--paper-2);
+}
+
+.letter-img-frame:only-child {
+  grid-column: 1 / -1;
+  aspect-ratio: 4 / 3;
+}
+
+.letter-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.letter-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+}
+
+.letter-remove {
+  min-height: 44px;
+  margin-left: auto;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.thread-empty {
+  margin: 0;
+  padding: 8px 4px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+  text-align: center;
+}
+
+.letter-composer {
+  position: sticky;
+  bottom: calc(10px + env(safe-area-inset-bottom));
+}
+
+.letter-input {
+  width: 100%;
+}
+
+.invite-link {
+  font-size: 15px;
+  user-select: all;
+}
+
+.invite-actions {
+  display: flex;
+  gap: 10px;
+  margin: 12px 0 8px;
+}
+
+.invite-sheet .check-row {
+  margin-top: 8px;
+}
+
+/* World: the invite pill and the restore drawer on the landing. */
+.hud-invite {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top));
+  right: calc(12px + env(safe-area-inset-right));
+  padding: 0 16px 0 12px;
+}
+
+.restore {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1.5px dashed var(--paper-edge);
+}
+
+.restore summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--clay-deep);
+  cursor: pointer;
+}
+
+.restore-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+#restore-key {
+  flex: 1;
+  min-width: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {

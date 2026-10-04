@@ -13,7 +13,8 @@ export default defineConfig({
   use: { baseURL: `http://localhost:${PORT}`, trace: "retain-on-failure" },
   projects: [{ name: "phone", use: { ...devices["iPhone 13"], browserName: "chromium" } }],
   webServer: {
-    command: `pnpm build && PORT=${PORT} TERRAKIN_STATIC_DIR=client/dist TERRAKIN_TEST_X_OEMBED=${FAKE_X} pnpm --filter @terrakin/server start`,
+    // Every browser here shares one IP, so allow more joins a minute than the real server does.
+    command: `pnpm build && PORT=${PORT} TERRAKIN_SESSIONS_PER_MINUTE=60 TERRAKIN_STATIC_DIR=client/dist TERRAKIN_TEST_X_OEMBED=${FAKE_X} pnpm --filter @terrakin/server start`,
     url: `http://localhost:${PORT}/v1/health`,
     reuseExistingServer: false,
     timeout: 120_000,

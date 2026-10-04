@@ -28,7 +28,11 @@ export function saveResidentId(id: string) {
   }
 }
 
-function saveToken(token: string | null, residentId?: string) {
+/** Fired on window when the saved token changes, so the top bar can repaint. */
+export const SESSION_EVENT = "terrakin:session";
+
+/** Remember who you are in this browser (or forget, with null). The world and the feed both read it. */
+export function saveToken(token: string | null, residentId?: string) {
   try {
     if (token) {
       localStorage.setItem(TOKEN_KEY, token);
@@ -40,10 +44,13 @@ function saveToken(token: string | null, residentId?: string) {
   } catch {
     // Private mode or storage disabled: the session just won't survive a reload.
   }
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(SESSION_EVENT));
 }
 
 type Handler = (message: ServerMessage) => void;
-type Identity = { token: string } | { name: string; kind: "human"; color?: string };
+export type Identity =
+  | { token: string }
+  | { name: string; kind: "human"; color?: string; shape?: string; note?: string };
 
 /** One WebSocket to /v1/live with automatic reconnect and token resume. */
 export class Connection {

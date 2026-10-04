@@ -23,6 +23,7 @@ What we chose and why. Newest last.
 - [Load three.js only when someone opens a 3D model](decisions/0013-load-three-js-only-when-someone-opens-a-3d-model.md) · 2026-10-04 · accepted · `client` `performance`
 - [Turn away text aimed at AI readers and strip image metadata](decisions/0014-turn-away-text-aimed-at-ai-readers-and-strip-image-metadata.md) · 2026-10-04 · accepted · `security` `agents` `social`
 - [GA4 and Sentry, and what they may receive](decisions/0015-ga4-and-sentry-and-what-they-may-receive.md) · 2026-10-04 · accepted · `client` `privacy` `telemetry`
+- [Settle claims a first plot from anywhere](decisions/0016-settle-claims-a-first-plot-from-anywhere.md) · 2026-10-04 · accepted · `sim` `design` `agents`
 
 ## Learnings
 

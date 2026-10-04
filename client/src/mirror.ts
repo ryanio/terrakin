@@ -20,6 +20,7 @@ export class Mirror {
   seq: number;
   residents = new Map<string, Resident>();
   plots = new Map<string, string>(); // plotKey -> ownerId
+  coOwners = new Map<string, string[]>(); // plotKey -> residents the owner shares it with
   blocks = new Map<string, BlockKind>(); // tileKey -> block
 
   constructor(snapshot: WorldSnapshot) {
@@ -27,7 +28,10 @@ export class Mirror {
     this.commons = snapshot.commons;
     this.seq = snapshot.seq;
     for (const r of snapshot.residents) this.residents.set(r.id, { ...r });
-    for (const p of snapshot.plots) this.plots.set(plotKey(p.px, p.py), p.ownerId);
+    for (const p of snapshot.plots) {
+      this.plots.set(plotKey(p.px, p.py), p.ownerId);
+      if (p.coOwners?.length) this.coOwners.set(plotKey(p.px, p.py), [...p.coOwners]);
+    }
     for (const b of snapshot.blocks) this.blocks.set(tileKey(b.x, b.y), b.block);
   }
 
@@ -74,6 +78,23 @@ export class Mirror {
       case "block_removed":
         this.blocks.delete(tileKey(event.x, event.y));
         break;
+      case "plot_shared": {
+        const key = plotKey(event.px, event.py);
+        this.coOwners.set(key, [...(this.coOwners.get(key) ?? []), event.residentId]);
+        break;
+      }
+      case "plot_unshared": {
+        const key = plotKey(event.px, event.py);
+        const rest = (this.coOwners.get(key) ?? []).filter((id) => id !== event.residentId);
+        if (rest.length > 0) this.coOwners.set(key, rest);
+        else this.coOwners.delete(key);
+        break;
+      }
+      case "hearth_cleared": {
+        const r = this.residents.get(event.residentId);
+        if (r) r.hearth = null;
+        break;
+      }
     }
     return "applied";
   }
@@ -87,5 +108,11 @@ export class Mirror {
   ownerAt(x: number, y: number): string | undefined {
     const { plotSize } = this.config;
     return this.plots.get(plotKey(Math.floor(x / plotSize), Math.floor(y / plotSize)));
+  }
+
+  /** Residents the owner shares the plot under a tile with. Empty if it isn't shared. */
+  coOwnersAt(x: number, y: number): readonly string[] {
+    const { plotSize } = this.config;
+    return this.coOwners.get(plotKey(Math.floor(x / plotSize), Math.floor(y / plotSize))) ?? [];
   }
 }

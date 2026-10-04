@@ -9,7 +9,14 @@ import {
 } from "@terrakin/sim";
 import { describe, expect, it } from "vitest";
 import { buildOpenApi } from "./openapi";
-import { ACTION_TYPES, Action, ClientMessage, ERROR_CODES, WorldSnapshot } from "./schemas";
+import {
+  ACTION_TYPES,
+  Action,
+  ClientMessage,
+  ERROR_CODES,
+  WorldEvent,
+  WorldSnapshot,
+} from "./schemas";
 
 const skill = readFileSync(new URL("../SKILL.md", import.meta.url), "utf8");
 
@@ -39,6 +46,63 @@ describe("Action", () => {
     expect(Action.safeParse({ type: "place", x: 1.5, y: 2, block: "wood" }).success).toBe(false);
     expect(Action.safeParse({ type: "chat", text: "x".repeat(281) }).success).toBe(false);
     expect(Action.safeParse({ type: "chat", text: "   " }).success).toBe(false);
+  });
+});
+
+describe("settle, starter home, and sharing actions", () => {
+  it("accepts the new actions", () => {
+    expect(Action.parse({ type: "settle", px: 3, py: 2 })).toEqual({
+      type: "settle",
+      px: 3,
+      py: 2,
+    });
+    expect(Action.parse({ type: "build_starter_home" })).toEqual({ type: "build_starter_home" });
+    expect(
+      Action.safeParse({ type: "build_starter_home", walls: "stone", windows: "leaf" }).success,
+    ).toBe(true);
+    expect(Action.safeParse({ type: "share_plot", with: "r_0123456789abcdef" }).success).toBe(true);
+    expect(Action.safeParse({ type: "unshare_plot", with: "r_0123456789abcdef" }).success).toBe(
+      true,
+    );
+  });
+
+  it("rejects bad plot coordinates, materials, and resident ids", () => {
+    const bad = [
+      { type: "settle", px: -1, py: 0 },
+      { type: "settle", px: 1.5, py: 0 },
+      { type: "settle", px: 1 },
+      { type: "build_starter_home", walls: "gold" },
+      { type: "build_starter_home", windows: 3 },
+      { type: "share_plot" },
+      { type: "share_plot", with: "" },
+      { type: "unshare_plot", with: "x".repeat(65) },
+    ];
+    for (const action of bad)
+      expect(Action.safeParse(action).success, JSON.stringify(action)).toBe(false);
+  });
+
+  it("parses the new events, and plots with or without co-owners", () => {
+    for (const event of [
+      { type: "plot_shared", px: 0, py: 0, residentId: "b" },
+      { type: "plot_unshared", px: 0, py: 0, residentId: "b" },
+      { type: "hearth_cleared", residentId: "b" },
+    ]) {
+      expect(WorldEvent.safeParse(event).success).toBe(true);
+    }
+    const snapshot = {
+      v: 1,
+      seq: 0,
+      hash: "x",
+      config: { width: 12, height: 12, plotSize: 4, maxPlotsPerResident: 1, reach: 2 },
+      commons: { px: 1, py: 1 },
+      residents: [],
+      plots: [
+        { px: 0, py: 0, ownerId: "a" },
+        { px: 2, py: 0, ownerId: "c", coOwners: ["a", "b"] },
+      ],
+      blocks: [],
+    };
+    expect(WorldSnapshot.safeParse(snapshot).success).toBe(true);
   });
 });
 
@@ -126,6 +190,48 @@ describe("SKILL.md starter home", () => {
     expect(world.residents.muse).toMatchObject({ x: x0 + 2, y: y0 + 4 });
     act({ type: "home" });
     expect(world.residents.muse).toMatchObject({ x: x0 + 2, y: y0 + 2 });
+  });
+});
+
+describe("build_starter_home", () => {
+  it("builds the same layout as the SKILL.md recipe with glass windows", () => {
+    const S = DEFAULT_CONFIG.plotSize;
+    const [x0, y0] = [2 * S + 1, 1 * S + 1];
+    const actor = (world: ReturnType<typeof createWorld>) => (command: Command) => {
+      const result = apply(world, { actor: "muse", command });
+      expect(result, JSON.stringify(command)).toMatchObject({ ok: true });
+    };
+
+    // By hand: walk, claim, place 15 blocks with windows, set the hearth.
+    const manual = createWorld(DEFAULT_CONFIG);
+    const byHand = actor(manual);
+    byHand({ type: "join", name: "Wren", kind: "agent" });
+    const spawn = spawnTile(DEFAULT_CONFIG);
+    for (let x = spawn.x; x > x0 + 2; x--) byHand({ type: "move", dir: "w" });
+    for (let y = spawn.y; y > y0 + 2; y--) byHand({ type: "move", dir: "n" });
+    byHand({ type: "claim" });
+    for (let x = x0; x <= x0 + 4; x++) {
+      for (let y = y0; y <= y0 + 4; y++) {
+        const edge = x === x0 || x === x0 + 4 || y === y0 || y === y0 + 4;
+        const door = x === x0 + 2 && y === y0 + 4;
+        const window = (x === x0 || x === x0 + 4) && y === y0 + 2;
+        if (edge && !door) byHand({ type: "place", x, y, block: window ? "glass" : "wood" });
+      }
+    }
+    byHand({ type: "set_hearth", x: x0 + 2, y: y0 + 2 });
+
+    // In two actions: settle lands on the hearth tile, then the server builds the rest.
+    const quick = createWorld(DEFAULT_CONFIG);
+    const twoSteps = actor(quick);
+    twoSteps({ type: "join", name: "Wren", kind: "agent" });
+    twoSteps({ type: "settle", px: 2, py: 1 });
+    expect(quick.residents.muse).toMatchObject({ x: 19, y: 11 });
+    twoSteps({ type: "build_starter_home" });
+
+    expect(quick.blocks).toEqual(manual.blocks);
+    expect(Object.keys(quick.blocks)).toHaveLength(15);
+    expect(quick.plots).toEqual(manual.plots);
+    expect(quick.residents.muse).toEqual(manual.residents.muse);
   });
 });
 

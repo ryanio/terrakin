@@ -1,5 +1,5 @@
 import { plotKey, tileKey } from "./keys";
-import type { Plot, ResidentId, Tile, WorldConfig, WorldState } from "./types";
+import type { BlockKind, Plot, ResidentId, Tile, WorldConfig, WorldState } from "./types";
 
 export const DEFAULT_CONFIG: WorldConfig = {
   width: 72,
@@ -82,6 +82,61 @@ export function plotAtTile(state: WorldState, x: number, y: number): Plot | unde
 
 export function plotsOwnedBy(state: WorldState, residentId: ResidentId): Plot[] {
   return Object.values(state.plots).filter((p) => p.ownerId === residentId);
+}
+
+/** Whether a resident may build on a plot: its owner, or someone the owner shared it with. */
+export function canBuildOn(plot: Plot | undefined, residentId: ResidentId): boolean {
+  if (!plot) return false;
+  return plot.ownerId === residentId || (plot.coOwners?.includes(residentId) ?? false);
+}
+
+/** Whether plot coordinates name a plot inside the world. */
+export function plotInBounds(config: WorldConfig, px: number, py: number): boolean {
+  return (
+    Number.isInteger(px) &&
+    Number.isInteger(py) &&
+    px >= 0 &&
+    py >= 0 &&
+    px < config.width / config.plotSize &&
+    py < config.height / config.plotSize
+  );
+}
+
+/**
+ * The center tile of a plot. On an even plot size it's the north-west of the middle four. With the
+ * default plot size of 8 that is also where the starter home puts its hearth.
+ */
+export function plotCenter(config: WorldConfig, px: number, py: number): Tile {
+  const half = Math.floor((config.plotSize - 1) / 2);
+  return { x: px * config.plotSize + half, y: py * config.plotSize + half };
+}
+
+/**
+ * The SKILL.md starter hut on plot (px, py): the outline of the 5x5 square from (x0, y0) to
+ * (x0 + 4, y0 + 4), where x0 = px * plotSize + 1 and y0 = py * plotSize + 1, with a doorway at
+ * (x0 + 2, y0 + 4) and windows at (x0, y0 + 2) and (x0 + 4, y0 + 2). Fifteen blocks, west to east
+ * then north to south within each column. The hearth goes at (x0 + 2, y0 + 2). On plots smaller
+ * than 6 tiles some of these tiles fall off the plot; callers skip those.
+ */
+export function starterHome(
+  config: WorldConfig,
+  px: number,
+  py: number,
+  walls: BlockKind,
+  windows: BlockKind,
+): { blocks: (Tile & { block: BlockKind })[]; hearth: Tile } {
+  const x0 = px * config.plotSize + 1;
+  const y0 = py * config.plotSize + 1;
+  const blocks: (Tile & { block: BlockKind })[] = [];
+  for (let x = x0; x <= x0 + 4; x++) {
+    for (let y = y0; y <= y0 + 4; y++) {
+      const edge = x === x0 || x === x0 + 4 || y === y0 || y === y0 + 4;
+      const door = x === x0 + 2 && y === y0 + 4;
+      const window = (x === x0 || x === x0 + 4) && y === y0 + 2;
+      if (edge && !door) blocks.push({ x, y, block: window ? windows : walls });
+    }
+  }
+  return { blocks, hearth: { x: x0 + 2, y: y0 + 2 } };
 }
 
 export function isSolid(state: WorldState, x: number, y: number): boolean {

@@ -161,6 +161,16 @@ export class WorldService {
       if (aimed) return readerRefusal("Notes", aimed);
       return this.run({ actor: residentId, command: { type, ...cleanProfile(profile) } });
     }
+    if (action.type === "build_starter_home") {
+      // Drop absent fields: the sim's types forbid explicit undefined.
+      const { walls, windows } = action;
+      const command: Command = {
+        type: "build_starter_home",
+        ...(walls ? { walls } : {}),
+        ...(windows ? { windows } : {}),
+      };
+      return this.run({ actor: residentId, command });
+    }
     return this.run({ actor: residentId, command: action satisfies Command });
   }
 

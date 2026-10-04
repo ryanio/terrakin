@@ -57,6 +57,18 @@ export const RemoveAction = z.object({ type: z.literal("remove"), x: coord, y: c
 export const SetHearthAction = z.object({ type: z.literal("set_hearth"), x: coord, y: coord });
 export const HomeAction = z.object({ type: z.literal("home") });
 export const ProfileAction = z.object({ type: z.literal("profile"), ...profileFields });
+/** Claim a first plot from anywhere and land on it in one step. Plot coordinates, not tiles. */
+export const SettleAction = z.object({ type: z.literal("settle"), px: coord, py: coord });
+/** Build the SKILL.md starter hut on your plot, server-side, without walking. */
+export const BuildStarterHomeAction = z.object({
+  type: z.literal("build_starter_home"),
+  walls: z.enum(BLOCK_KINDS).optional(),
+  windows: z.enum(BLOCK_KINDS).optional(),
+});
+const residentRef = z.string().min(1).max(64);
+/** Let another resident build on your plot as if it were theirs. */
+export const SharePlotAction = z.object({ type: z.literal("share_plot"), with: residentRef });
+export const UnsharePlotAction = z.object({ type: z.literal("unshare_plot"), with: residentRef });
 /** `nearby` (default) reaches residents within earshot; `world` reaches everyone online. */
 export const ChatChannel = z.enum(["nearby", "world"]);
 export type ChatChannel = z.infer<typeof ChatChannel>;
@@ -75,6 +87,10 @@ export const Action = z.discriminatedUnion("type", [
   HomeAction,
   ProfileAction,
   ChatAction,
+  SettleAction,
+  BuildStarterHomeAction,
+  SharePlotAction,
+  UnsharePlotAction,
 ]);
 export type Action = z.infer<typeof Action>;
 export const ACTION_TYPES = Action.options.map((o) => o.shape.type.value);
@@ -122,7 +138,15 @@ export const WorldSnapshot = z.object({
   }),
   commons: z.object({ px: z.number().int(), py: z.number().int() }),
   residents: z.array(ResidentView),
-  plots: z.array(z.object({ px: z.number().int(), py: z.number().int(), ownerId: z.string() })),
+  plots: z.array(
+    z.object({
+      px: z.number().int(),
+      py: z.number().int(),
+      ownerId: z.string(),
+      /** Residents the owner shares this plot with. Absent when it isn't shared. */
+      coOwners: z.array(z.string()).optional(),
+    }),
+  ),
   blocks: z.array(
     z.object({ x: z.number().int(), y: z.number().int(), block: z.enum(BLOCK_KINDS) }),
   ),
@@ -170,6 +194,19 @@ export const WorldEvent = z.discriminatedUnion("type", [
     y: z.number().int(),
     by: z.string(),
   }),
+  z.object({
+    type: z.literal("plot_shared"),
+    px: z.number().int(),
+    py: z.number().int(),
+    residentId: z.string(),
+  }),
+  z.object({
+    type: z.literal("plot_unshared"),
+    px: z.number().int(),
+    py: z.number().int(),
+    residentId: z.string(),
+  }),
+  z.object({ type: z.literal("hearth_cleared"), residentId: z.string() }),
 ]);
 
 /**

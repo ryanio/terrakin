@@ -68,6 +68,11 @@ export interface Plot {
   px: number;
   py: number;
   ownerId: ResidentId;
+  /**
+   * Residents the owner shares this plot with (`share_plot`). They build here as if they owned it.
+   * Present only when non-empty, so plots that were never shared hash exactly as they always have.
+   */
+  coOwners?: ResidentId[];
 }
 
 /**
@@ -94,7 +99,11 @@ export type Command =
   | { type: "set_hearth"; x: number; y: number }
   | { type: "home" }
   | { type: "place"; x: number; y: number; block: BlockKind }
-  | { type: "remove"; x: number; y: number };
+  | { type: "remove"; x: number; y: number }
+  | { type: "settle"; px: number; py: number }
+  | { type: "build_starter_home"; walls?: BlockKind; windows?: BlockKind }
+  | { type: "share_plot"; with: ResidentId }
+  | { type: "unshare_plot"; with: ResidentId };
 
 export type CommandType = Command["type"];
 
@@ -118,7 +127,10 @@ export type WorldEvent =
   | { type: "plot_claimed"; px: number; py: number; ownerId: ResidentId }
   | { type: "hearth_set"; residentId: ResidentId; x: number; y: number }
   | { type: "block_placed"; x: number; y: number; block: BlockKind; by: ResidentId }
-  | { type: "block_removed"; x: number; y: number; by: ResidentId };
+  | { type: "block_removed"; x: number; y: number; by: ResidentId }
+  | { type: "plot_shared"; px: number; py: number; residentId: ResidentId }
+  | { type: "plot_unshared"; px: number; py: number; residentId: ResidentId }
+  | { type: "hearth_cleared"; residentId: ResidentId };
 
 export const REJECTION_CODES = [
   "not_joined",
@@ -136,6 +148,11 @@ export const REJECTION_CODES = [
   "no_block",
   "no_hearth",
   "already_home",
+  "no_plot",
+  "unknown_resident",
+  "already_shared",
+  "share_limit",
+  "not_shared",
 ] as const;
 export type RejectionCode = (typeof REJECTION_CODES)[number];
 

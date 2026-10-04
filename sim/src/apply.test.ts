@@ -359,3 +359,291 @@ describe("withinEarshot", () => {
     expect(withinEarshot(at, { x: 20, y: 20 - CHAT_EARSHOT - 1 })).toBe(false);
   });
 });
+
+// 3x3 plots of 8 tiles, big enough for the starter home. Commons is plot (1,1); spawn is (12,12).
+// The starter home on plot (0,0) is the outline of (1,1) to (5,5), door (3,5), hearth (3,3).
+const ROOMY: WorldConfig = { ...CONFIG, width: 24, height: 24, plotSize: 8 };
+
+function roomy(...names: string[]): WorldState {
+  const state = createWorld(ROOMY);
+  for (const name of names) run(state, name, { type: "join", name, kind: "human" });
+  return state;
+}
+
+function walk(state: WorldState, actor: string, dir: "n" | "s" | "e" | "w", steps: number) {
+  const moves = Array.from({ length: steps }, () => ({ type: "move", dir }) as const);
+  expect(run(state, actor, ...moves).every((r) => r.ok)).toBe(true);
+}
+
+const blockAt = (state: WorldState, x: number, y: number) => state.blocks[`${x},${y}`];
+
+describe("settle", () => {
+  it("claims a plot from anywhere and lands on its center", () => {
+    const state = roomy("ada");
+    const [result] = run(state, "ada", { type: "settle", px: 0, py: 2 });
+    expect(result).toEqual({
+      ok: true,
+      seq: 2,
+      events: [
+        { type: "plot_claimed", px: 0, py: 2, ownerId: "ada" },
+        { type: "moved", residentId: "ada", x: 3, y: 19 },
+      ],
+    });
+    expect(state.plots["0,2"]).toEqual({ px: 0, py: 2, ownerId: "ada" });
+  });
+
+  it("rejects bad plots, the Commons, owned plots, a second plot, and strangers", () => {
+    const state = roomy("ada", "bob");
+    run(state, "ada", { type: "settle", px: 0, py: 0 });
+    const before = hashWorld(state);
+    const code = (actor: string, px: number, py: number) =>
+      rejectionCode(apply(state, { actor, command: { type: "settle", px, py } }));
+    expect(code("bob", 3, 0)).toBe("out_of_bounds");
+    expect(code("bob", -1, 0)).toBe("out_of_bounds");
+    expect(code("bob", 0.5, 0)).toBe("out_of_bounds");
+    expect(code("bob", 1, 1)).toBe("plot_is_commons");
+    expect(code("bob", 0, 0)).toBe("plot_owned");
+    expect(code("ada", 2, 2)).toBe("plot_limit");
+    expect(code("eve", 2, 2)).toBe("not_joined");
+    expect(hashWorld(state)).toBe(before);
+  });
+
+  it("lands on the nearest free tile when someone is on the center, ignoring offline residents", () => {
+    const state = roomy("ada", "bob");
+    walk(state, "bob", "w", 9);
+    walk(state, "bob", "n", 9); // Bob stands on (3,3), the center of plot (0,0).
+    const [result] = run(state, "ada", { type: "settle", px: 0, py: 0 });
+    // Ring 1 around (3,3), north to south then west to east, starts at (2,2).
+    expect(result).toMatchObject({ ok: true, events: [{}, { type: "moved", x: 2, y: 2 }] });
+
+    const quiet = roomy("ada", "bob");
+    walk(quiet, "bob", "w", 9);
+    walk(quiet, "bob", "n", 9);
+    run(quiet, "bob", { type: "leave" });
+    run(quiet, "ada", { type: "settle", px: 0, py: 0 });
+    expect(quiet.residents.ada).toMatchObject({ x: 3, y: 3 });
+  });
+});
+
+describe("build_starter_home", () => {
+  function settled() {
+    const state = roomy("ada", "bob");
+    run(state, "ada", { type: "settle", px: 0, py: 0 }); // Ada lands on (3,3), the hearth tile.
+    return state;
+  }
+
+  it("builds the 15-block hut with glass windows and sets the hearth, without walking", () => {
+    const state = settled();
+    const [result] = run(state, "ada", { type: "build_starter_home" });
+    if (!result?.ok) throw new Error("rejected");
+    const placed = result.events.filter((e) => e.type === "block_placed");
+    expect(placed).toHaveLength(15);
+    expect(result.events.at(-1)).toEqual({ type: "hearth_set", residentId: "ada", x: 3, y: 3 });
+    expect(Object.keys(state.blocks)).toHaveLength(15);
+    expect(blockAt(state, 1, 1)).toBe("wood");
+    expect(blockAt(state, 1, 3)).toBe("glass");
+    expect(blockAt(state, 5, 3)).toBe("glass");
+    expect(blockAt(state, 3, 5)).toBeUndefined(); // The doorway.
+    expect(blockAt(state, 3, 3)).toBeUndefined();
+    walk(state, "ada", "s", 3); // Out through the door.
+  });
+
+  it("takes wall and window materials", () => {
+    const state = settled();
+    run(state, "ada", { type: "build_starter_home", walls: "stone", windows: "leaf" });
+    expect(blockAt(state, 5, 5)).toBe("stone");
+    expect(blockAt(state, 1, 3)).toBe("leaf");
+  });
+
+  it("rejects without a plot, when there's nothing left to build, and before joining", () => {
+    const state = settled();
+    const code = (actor: string) =>
+      rejectionCode(apply(state, { actor, command: { type: "build_starter_home" } }));
+    expect(code("bob")).toBe("no_plot");
+    expect(code("eve")).toBe("not_joined");
+    expect(code("ada")).toBeNull();
+    const before = hashWorld(state);
+    expect(code("ada")).toBe("already_home");
+    expect(hashWorld(state)).toBe(before);
+  });
+
+  it("skips blocks, hearths, and anyone standing on a wall, and never moves them", () => {
+    const state = settled();
+    run(state, "ada", { type: "place", x: 1, y: 1, block: "stone" });
+    run(state, "ada", { type: "share_plot", with: "bob" });
+    walk(state, "bob", "w", 7);
+    walk(state, "bob", "n", 8); // Bob stands on (5,4), a wall tile.
+    run(state, "bob", { type: "set_hearth", x: 4, y: 5 }); // Bob's hearth sits on a wall tile too.
+    const [result] = run(state, "ada", { type: "build_starter_home" });
+    if (!result?.ok) throw new Error("rejected");
+    expect(result.events.filter((e) => e.type === "block_placed")).toHaveLength(12);
+    expect(result.events.some((e) => e.type === "moved")).toBe(false);
+    expect(blockAt(state, 1, 1)).toBe("stone");
+    expect(blockAt(state, 5, 4)).toBeUndefined();
+    expect(blockAt(state, 4, 5)).toBeUndefined();
+    expect(state.residents.bob).toMatchObject({ x: 5, y: 4, hearth: { x: 4, y: 5 } });
+  });
+
+  it("moves the builder off a wall onto the hearth first, and builds over their old hearth", () => {
+    const state = settled();
+    run(state, "ada", { type: "set_hearth", x: 1, y: 2 });
+    walk(state, "ada", "w", 2); // Ada stands on (1,3), where a window goes.
+    const [result] = run(state, "ada", { type: "build_starter_home" });
+    if (!result?.ok) throw new Error("rejected");
+    expect(result.events[0]).toEqual({ type: "moved", residentId: "ada", x: 3, y: 3 });
+    expect(result.events.filter((e) => e.type === "block_placed")).toHaveLength(15);
+    expect(blockAt(state, 1, 3)).toBe("glass");
+    expect(blockAt(state, 1, 2)).toBe("wood");
+    expect(state.residents.ada).toMatchObject({ x: 3, y: 3, hearth: { x: 3, y: 3 } });
+  });
+
+  it("leaves the builder's wall open when the hearth tile is blocked", () => {
+    const state = settled();
+    walk(state, "ada", "w", 2);
+    run(state, "ada", { type: "place", x: 3, y: 3, block: "leaf" });
+    const [result] = run(state, "ada", { type: "build_starter_home" });
+    if (!result?.ok) throw new Error("rejected");
+    expect(result.events.map((e) => e.type)).toEqual(Array(14).fill("block_placed"));
+    expect(blockAt(state, 1, 3)).toBeUndefined();
+    expect(state.residents.ada).toMatchObject({ x: 1, y: 3, hearth: null });
+  });
+
+  it("only builds the tiles that fit on a small plot", () => {
+    const state = joined("ada"); // 4-tile plots: only 5 wall tiles of plot (0,0) are on it.
+    run(state, "ada", { type: "settle", px: 0, py: 0 }); // Center (1,1) is a wall tile.
+    expect(state.residents.ada).toMatchObject({ x: 1, y: 1 });
+    run(state, "ada", { type: "build_starter_home" });
+    expect(Object.keys(state.blocks).sort()).toEqual(["1,1", "1,2", "1,3", "2,1", "3,1"]);
+    expect(state.residents.ada).toMatchObject({ x: 3, y: 3, hearth: { x: 3, y: 3 } });
+  });
+});
+
+describe("share_plot and unshare_plot", () => {
+  function couple() {
+    const state = roomy("ada", "bob", "cat");
+    run(state, "ada", { type: "settle", px: 0, py: 0 });
+    const [shared] = run(state, "ada", { type: "share_plot", with: "bob" });
+    expect(shared).toMatchObject({
+      ok: true,
+      events: [{ type: "plot_shared", px: 0, py: 0, residentId: "bob" }],
+    });
+    return state;
+  }
+
+  it("lets a co-owner build, set a hearth, and build the starter home as if it were theirs", () => {
+    const state = couple();
+    expect(state.plots["0,0"]?.coOwners).toEqual(["bob"]);
+    // Bob owns nothing and stands in the Commons; the shared plot is his to build on.
+    expect(run(state, "bob", { type: "build_starter_home" })[0]).toMatchObject({ ok: true });
+    expect(state.residents.bob?.hearth).toEqual({ x: 3, y: 3 });
+    expect(blockAt(state, 1, 1)).toBe("wood");
+    run(state, "bob", { type: "home" });
+    const ok = (command: Command) => apply(state, { actor: "bob", command }).ok;
+    expect(ok({ type: "remove", x: 2, y: 1 })).toBe(true);
+    expect(ok({ type: "place", x: 2, y: 1, block: "glass" })).toBe(true);
+    expect(ok({ type: "set_hearth", x: 4, y: 4 })).toBe(true);
+    // It doesn't count toward Bob's own limit.
+    expect(ok({ type: "settle", px: 2, py: 0 })).toBe(true);
+  });
+
+  it("keeps everyone's hearth clear on a shared plot", () => {
+    const state = couple();
+    run(state, "bob", { type: "build_starter_home" }); // Bob's hearth: (3,3), where Ada stands.
+    walk(state, "ada", "e", 1);
+    const result = apply(state, {
+      actor: "ada",
+      command: { type: "place", x: 3, y: 3, block: "leaf" },
+    });
+    expect(result).toMatchObject({ ok: false, rejection: { code: "tile_occupied" } });
+    expect(result.ok ? "" : result.rejection.message).toContain("someone's hearth");
+  });
+
+  it("doesn't let a co-owner share onward or unshare others", () => {
+    const state = couple();
+    const code = (command: Command) => rejectionCode(apply(state, { actor: "bob", command }));
+    expect(code({ type: "share_plot", with: "cat" })).toBe("not_your_plot");
+    expect(code({ type: "unshare_plot", with: "bob" })).toBe("not_your_plot");
+  });
+
+  it("rejects self, strangers, repeats, a full plot, no plot, and unknown shares", () => {
+    const state = roomy("ada", "bob", "cat", "dan", "eve");
+    const code = (command: Command) => rejectionCode(apply(state, { actor: "ada", command }));
+    expect(code({ type: "share_plot", with: "bob" })).toBe("no_plot");
+    expect(code({ type: "unshare_plot", with: "bob" })).toBe("no_plot");
+    run(state, "ada", { type: "settle", px: 0, py: 0 });
+    const before = hashWorld(state);
+    expect(code({ type: "share_plot", with: "ada" })).toBe("already_shared");
+    expect(code({ type: "share_plot", with: "nobody" })).toBe("unknown_resident");
+    expect(code({ type: "unshare_plot", with: "bob" })).toBe("not_shared");
+    expect(hashWorld(state)).toBe(before);
+    for (const who of ["bob", "cat", "dan"]) {
+      expect(code({ type: "share_plot", with: who })).toBeNull();
+    }
+    expect(code({ type: "share_plot", with: "bob" })).toBe("already_shared");
+    expect(code({ type: "share_plot", with: "eve" })).toBe("share_limit");
+    expect(state.plots["0,0"]?.coOwners).toEqual(["bob", "cat", "dan"]);
+  });
+
+  it("lets the owner revoke a share, which takes the co-owner's rights and hearth with it", () => {
+    const state = couple();
+    run(state, "bob", { type: "build_starter_home" }, { type: "home" });
+    const [revoked] = run(state, "ada", { type: "unshare_plot", with: "bob" });
+    expect(revoked).toMatchObject({
+      ok: true,
+      events: [
+        { type: "plot_unshared", px: 0, py: 0, residentId: "bob" },
+        { type: "hearth_cleared", residentId: "bob" },
+      ],
+    });
+    // No field left behind once the last share goes, so the plot hashes like it was never shared.
+    expect(state.plots["0,0"]).toEqual({ px: 0, py: 0, ownerId: "ada" });
+    expect(state.residents.bob?.hearth).toBeNull();
+    const code = (command: Command) => rejectionCode(apply(state, { actor: "bob", command }));
+    expect(code({ type: "place", x: 4, y: 4, block: "wood" })).toBe("not_your_plot");
+    expect(code({ type: "remove", x: 2, y: 1 })).toBe("not_your_plot");
+    expect(code({ type: "set_hearth", x: 4, y: 4 })).toBe("not_your_plot");
+    expect(code({ type: "build_starter_home" })).toBe("no_plot");
+    expect(code({ type: "home" })).toBe("no_hearth");
+    expect(blockAt(state, 1, 1)).toBe("wood"); // What Bob built stays.
+  });
+
+  it("keeps a revoked co-owner's hearth when it's on their own plot", () => {
+    const state = couple();
+    run(state, "bob", { type: "settle", px: 2, py: 0 }, { type: "build_starter_home" });
+    const [revoked] = run(state, "ada", { type: "unshare_plot", with: "bob" });
+    expect(revoked).toEqual({
+      ok: true,
+      seq: state.seq,
+      events: [{ type: "plot_unshared", px: 0, py: 0, residentId: "bob" }],
+    });
+    expect(state.residents.bob?.hearth).toEqual({ x: 19, y: 3 });
+  });
+});
+
+describe("determinism with settle, sharing, and the starter home", () => {
+  it("replays a log that uses the new commands to the same hash", () => {
+    const state = createWorld(ROOMY);
+    const log: Input[] = [];
+    const script: Input[] = [
+      { actor: "ada", command: { type: "join", name: "ada", kind: "human" } },
+      { actor: "bob", command: { type: "join", name: "bob", kind: "human" } },
+      { actor: "wren", command: { type: "join", name: "Wren", kind: "agent" } },
+      { actor: "ada", command: { type: "settle", px: 0, py: 0 } },
+      { actor: "ada", command: { type: "share_plot", with: "bob" } },
+      { actor: "ada", command: { type: "share_plot", with: "wren" } },
+      { actor: "wren", command: { type: "build_starter_home", walls: "stone" } },
+      { actor: "wren", command: { type: "share_plot", with: "bob" } }, // Rejected: not the owner.
+      { actor: "bob", command: { type: "settle", px: 0, py: 0 } }, // Rejected: owned.
+      { actor: "bob", command: { type: "settle", px: 0, py: 1 } },
+      { actor: "bob", command: { type: "build_starter_home" } },
+      { actor: "ada", command: { type: "unshare_plot", with: "wren" } },
+      { actor: "ada", command: { type: "build_starter_home" } },
+      { actor: "wren", command: { type: "leave" } },
+    ];
+    for (const input of script) if (apply(state, input).ok) log.push(input);
+
+    expect(log).toHaveLength(script.length - 2);
+    expect(state.seq).toBe(log.length);
+    expect(hashWorld(replay(ROOMY, log))).toBe(hashWorld(state));
+  });
+});

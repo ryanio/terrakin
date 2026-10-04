@@ -28,7 +28,10 @@ afterEach(async () => {
   for (const fn of cleanups.splice(0).reverse()) await fn();
 });
 
-async function start(store: Store = new MemoryStore(), extra: { now?: () => number } = {}) {
+async function start(
+  store: Store = new MemoryStore(),
+  extra: { now?: () => number; config?: WorldConfig } = {},
+) {
   const service = new WorldService({ store, config: CONFIG, ...extra });
   const server = createApp({ service, actionsPerSecond: 1000 });
   await new Promise<void>((done) => server.listen(0, done));
@@ -92,6 +95,56 @@ describe("REST", () => {
       ok: false,
       error: { code: "plot_owned" },
     });
+  });
+
+  it("settles, shares, and builds a starter home in a few calls", async () => {
+    // 8-tile plots so the hut fits. Plot (0,0)'s hut: outline (1,1) to (5,5), hearth (3,3).
+    const config = { ...CONFIG, width: 24, height: 24, plotSize: 8 };
+    const { base, service } = await start(new MemoryStore(), { config });
+    const ada = await join_(base, "Ada");
+    const bob = await join_(base, "Bob");
+    const act = (token: string, action: unknown) =>
+      api(base, "POST", "/v1/actions", action, token).then((r) => r.body);
+
+    expect(await act(bob.token, { type: "build_starter_home" })).toMatchObject({
+      ok: false,
+      error: { code: "no_plot" },
+    });
+    expect((await api(base, "POST", "/v1/actions", { type: "settle" }, ada.token)).status).toBe(
+      400,
+    );
+    expect(await act(ada.token, { type: "settle", px: 0, py: 0 })).toMatchObject({
+      ok: true,
+      events: [
+        { type: "plot_claimed", px: 0, py: 0, ownerId: ada.residentId },
+        { type: "moved", residentId: ada.residentId, x: 3, y: 3 },
+      ],
+    });
+    expect(await act(ada.token, { type: "share_plot", with: bob.residentId })).toMatchObject({
+      ok: true,
+      events: [{ type: "plot_shared", px: 0, py: 0, residentId: bob.residentId }],
+    });
+
+    // Bob is still in the Commons, and the shared plot is where his home goes.
+    const built = await act(bob.token, { type: "build_starter_home", walls: "stone" });
+    expect(built.ok).toBe(true);
+    expect(built.events.filter((e: { type: string }) => e.type === "block_placed")).toHaveLength(
+      15,
+    );
+    expect(built.events.at(-1)).toEqual({
+      type: "hearth_set",
+      residentId: bob.residentId,
+      x: 3,
+      y: 3,
+    });
+    expect(service.state.blocks["1,1"]).toBe("stone");
+    expect(service.state.blocks["1,3"]).toBe("glass");
+
+    const world = (await api(base, "GET", "/v1/world")).body;
+    expect(world.plots).toEqual([
+      { px: 0, py: 0, ownerId: ada.residentId, coOwners: [bob.residentId] },
+    ]);
+    expect((await api(base, "GET", "/v1/health")).body.hash).toBe(service.hash());
   });
 
   it("sets a look and note on join and cleans the note", async () => {

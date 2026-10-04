@@ -43,6 +43,28 @@ describe("Mirror", () => {
     expect(m.blocks.get("1,1")).toBe("leaf");
   });
 
+  it("mirrors plot shares and clears a revoked co-owner's hearth", () => {
+    const [ada] = snapshot.residents;
+    if (!ada) throw new Error("fixture");
+    const m = new Mirror({
+      ...snapshot,
+      residents: [ada, { ...ada, id: "b", name: "Bea", hearth: { x: 1, y: 2 } }],
+      plots: [{ px: 0, py: 0, ownerId: "a", coOwners: ["b"] }],
+    });
+    expect(m.coOwnersAt(1, 1)).toEqual(["b"]);
+    const events = [
+      { seq: 4, event: { type: "plot_shared", px: 0, py: 0, residentId: "c" } },
+      { seq: 5, event: { type: "plot_unshared", px: 0, py: 0, residentId: "b" } },
+      { seq: 5, event: { type: "hearth_cleared", residentId: "b" } },
+    ] as const;
+    for (const e of events) expect(m.apply(e)).toBe("applied");
+    expect(m.coOwnersAt(1, 1)).toEqual(["c"]);
+    expect(m.ownerAt(1, 1)).toBe("a");
+    expect(m.residents.get("b")?.hearth).toBeNull();
+    m.apply({ seq: 6, event: { type: "plot_unshared", px: 0, py: 0, residentId: "c" } });
+    expect(m.coOwners.size).toBe(0);
+  });
+
   it("mirrors profile changes and hearths", () => {
     const m = new Mirror(snapshot);
     const events = [

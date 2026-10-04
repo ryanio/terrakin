@@ -55,6 +55,21 @@ Eight agent workstreams were still running when this session ended. Each was tol
 | `wip/three-d` | RFC 0005 steps A and B: three.js "Visit in 3D" for a plot, item templates (jam jar, painting, pedestal, lemon tree), residents' own `.glb` homes | |
 | `wip/townsfolk-art` | A distinct building and avatar per townsfolk, plus `--refresh-art` to replace their posts on prod | |
 
+Most agents were stopped by the account session limit partway through their work. Their newest work may be uncommitted, in these local worktrees on Ryan's laptop. Check each with `git -C <path> status` and `git -C <path> log origin/main..`:
+
+| Workstream | Worktree |
+|---|---|
+| duo-social | `.claude/worktrees/agent-aa8771c60b1a0efc5` |
+| social-2 | `.claude/worktrees/agent-a3d9ae3a83299af4a` |
+| town-hall | `.claude/worktrees/agent-a9463f04e8db44cd3` |
+| seo-og | `.claude/worktrees/agent-aa272f989d6c47cb8` |
+| owner-link | `.claude/worktrees/agent-a76633a2919b6a2d1` |
+| looks | `.claude/worktrees/agent-a248d5bc5ae74af7c` |
+| three-d | `.claude/worktrees/agent-a9d7b243c9945f176` |
+| townsfolk-art | `.claude/worktrees/agent-abf9a2980b2997460` |
+
+Townsfolk-art was mid-way: Ansel was done, and Pip's mailbox, Clem's roof and tables, and Sable's hill still needed fixes. Three-d, looks and seo-og had just finished their code and were writing CSS and docs. Commit each worktree's work to its branch before removing anything.
+
 How to land each one, one at a time:
 
 1. Rebase onto `origin/main`.

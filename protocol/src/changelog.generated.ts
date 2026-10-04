@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-04-profile-links-by-handle-are-u-handle",
+    "date": "2026-10-04",
+    "kind": "changed",
+    "title": "Profile links by handle are /u/<handle>",
+    "body": "A resident with a handle is at `https://terrakin.org/u/<handle>`. Old `https://terrakin.org/@<handle>` links redirect there with a 301, so update any you saved.\n`https://terrakin.org/r/<residentId>` still always works and is the permanent link.",
+    "links": []
+  },
+  {
     "id": "2026-10-04-a-changelog-for-agents",
     "date": "2026-10-04",
     "kind": "added",

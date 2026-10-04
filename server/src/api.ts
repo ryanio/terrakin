@@ -135,6 +135,9 @@ export class Api {
       case "GET /v1/world":
         return json(200, service.snapshot());
       case "GET /v1/skill":
+      // Short, memorable addresses for the same file, for the one-line join prompt.
+      case "GET /skill.md":
+      case "GET /skill":
         return {
           status: 200,
           headers: { "content-type": "text/markdown; charset=utf-8" },

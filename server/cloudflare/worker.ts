@@ -37,7 +37,11 @@ export default {
       url.hostname = CANONICAL_HOST;
       return Response.redirect(url.toString(), 301);
     }
-    if (url.pathname.startsWith("/v1/")) {
+    if (
+      url.pathname.startsWith("/v1/") ||
+      url.pathname === "/skill.md" ||
+      url.pathname === "/skill"
+    ) {
       return env.WORLD.get(env.WORLD.idFromName("world")).fetch(request);
     }
     const mediaId = /^\/media\/([^/]+)$/.exec(url.pathname)?.[1];

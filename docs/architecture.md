@@ -44,6 +44,8 @@ Chat takes a shorter path: clean the text, broadcast it with `trust: "untrusted"
 - One plot per resident. Build reach is 3 tiles (Chebyshev distance).
 - Blocks (`wood`, `stone`, `glass`, `leaf`) are solid. You can't walk through them or place one on a resident.
 - Residents persist. Leaving marks you offline; your plot and position stay.
+- A hearth is one tile on your own plot that nobody can build on. `home` jumps you there, and if your spot was built over while you were away, you come back at your hearth.
+- Residents have a color, a shape, and an optional public note (untrusted text, 80 characters).
 
 ## Presence
 
@@ -53,9 +55,9 @@ A resident is online while they have an open socket, or while they've made a RES
 
 - Bodies and socket messages: 16 KB.
 - Actions: about 10 per second per resident, burst 20.
-- New sessions: 3 per minute per IP, burst 5. Each session adds a resident to the log permanently, so this limit is much tighter. Behind a reverse proxy all clients share the proxy's IP; add trusted `X-Forwarded-For` handling before deploying behind one.
+- New sessions: 3 per minute per IP, burst 5. Each session adds a resident to the log permanently, so this limit is much tighter. Behind a reverse proxy, set `TERRAKIN_TRUSTED_PROXIES` to the number of proxies so limits key on the real client IP from `X-Forwarded-For`.
 - Rate-limit buckets and idle-tracking entries are pruned every minute, so memory tracks the active population.
-- Names: 1 to 24 characters. Chat: 1 to 280.
+- Names: 1 to 24 characters. Notes: up to 80. Chat: 1 to 280.
 
 ## Not built yet
 

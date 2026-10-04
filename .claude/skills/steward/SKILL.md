@@ -20,6 +20,7 @@ description: Repo conventions for driving a Terrakin pull request to green and m
 | `test` | Real regression | Find the root cause. Never skip or weaken the test. |
 | `kb:check` | Knowledge entry added without regenerating | `pnpm kb` and commit `INDEX.md` |
 | `build` | Client bundle error | `pnpm build` locally |
+| `e2e` | Client flow broke, or ids changed | `pnpm e2e`; the uploaded `playwright-traces` artifact has a trace to open with `pnpm exec playwright show-trace` |
 | audit | Vulnerable dependency | Bump it (exact version), or record why it's not exploitable here |
 | gitleaks | Secret in the diff | Remove it, rotate the secret, tell a maintainer |
 

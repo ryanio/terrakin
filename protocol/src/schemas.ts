@@ -1,4 +1,11 @@
-import { BLOCK_KINDS, NAME_MAX_LENGTH, REJECTION_CODES } from "@terrakin/sim";
+import {
+  BLOCK_KINDS,
+  NAME_MAX_LENGTH,
+  NOTE_MAX_LENGTH,
+  REJECTION_CODES,
+  RESIDENT_COLORS,
+  RESIDENT_SHAPES,
+} from "@terrakin/sim";
 import { z } from "zod";
 
 /** Bump only with an RFC. Old versions keep working until a published sunset date. */
@@ -25,6 +32,15 @@ const requestId = z.string().min(1).max(64).optional();
 
 export const ResidentKind = z.enum(["human", "agent"]);
 export const ResidentName = z.string().trim().min(1).max(NAME_MAX_LENGTH);
+export const ResidentColor = z.enum(RESIDENT_COLORS);
+export const ResidentShape = z.enum(RESIDENT_SHAPES);
+export const ResidentNote = z.string().trim().max(NOTE_MAX_LENGTH);
+/** Optional appearance fields, accepted when joining and by the profile action. */
+const profileFields = {
+  color: ResidentColor.optional(),
+  shape: ResidentShape.optional(),
+  note: ResidentNote.optional(),
+};
 
 // ---------- Actions: the only things a resident can do. Same shape over REST and WebSocket. ----------
 
@@ -37,6 +53,9 @@ export const PlaceAction = z.object({
   block: z.enum(BLOCK_KINDS),
 });
 export const RemoveAction = z.object({ type: z.literal("remove"), x: coord, y: coord });
+export const SetHearthAction = z.object({ type: z.literal("set_hearth"), x: coord, y: coord });
+export const HomeAction = z.object({ type: z.literal("home") });
+export const ProfileAction = z.object({ type: z.literal("profile"), ...profileFields });
 export const ChatAction = z.object({
   type: z.literal("chat"),
   text: z.string().trim().min(1).max(CHAT_MAX_LENGTH),
@@ -47,6 +66,9 @@ export const Action = z.discriminatedUnion("type", [
   ClaimAction,
   PlaceAction,
   RemoveAction,
+  SetHearthAction,
+  HomeAction,
+  ProfileAction,
   ChatAction,
 ]);
 export type Action = z.infer<typeof Action>;
@@ -58,9 +80,14 @@ export const ResidentView = z.object({
   id: z.string(),
   name: z.string(),
   kind: ResidentKind,
+  color: ResidentColor,
+  shape: ResidentShape,
+  /** Untrusted text, like chat. */
+  note: z.string(),
   x: z.number().int(),
   y: z.number().int(),
   online: z.boolean(),
+  hearth: z.object({ x: z.number().int(), y: z.number().int() }).nullable(),
 });
 
 export const WorldSnapshot = z.object({
@@ -87,6 +114,13 @@ export const WorldEvent = z.discriminatedUnion("type", [
   z.object({ type: z.literal("joined"), resident: ResidentView }),
   z.object({ type: z.literal("left"), residentId: z.string() }),
   z.object({
+    type: z.literal("profile_changed"),
+    residentId: z.string(),
+    color: ResidentColor,
+    shape: ResidentShape,
+    note: z.string(),
+  }),
+  z.object({
     type: z.literal("moved"),
     residentId: z.string(),
     x: z.number().int(),
@@ -97,6 +131,12 @@ export const WorldEvent = z.discriminatedUnion("type", [
     px: z.number().int(),
     py: z.number().int(),
     ownerId: z.string(),
+  }),
+  z.object({
+    type: z.literal("hearth_set"),
+    residentId: z.string(),
+    x: z.number().int(),
+    y: z.number().int(),
   }),
   z.object({
     type: z.literal("block_placed"),
@@ -129,7 +169,12 @@ export const ErrorBody = z.object({ code: ErrorCode, message: z.string() });
 
 // ---------- REST ----------
 
-export const CreateSessionRequest = z.object({ name: ResidentName, kind: ResidentKind });
+export const CreateSessionRequest = z.object({
+  name: ResidentName,
+  kind: ResidentKind,
+  ...profileFields,
+});
+export type CreateSessionRequest = z.infer<typeof CreateSessionRequest>;
 export const CreateSessionResponse = z.object({
   residentId: z.string(),
   token: z.string(),
@@ -156,6 +201,7 @@ export const ClientMessage = z.union([
     token: z.string().min(1).max(256).optional(),
     name: ResidentName.optional(),
     kind: ResidentKind.optional(),
+    ...profileFields,
   }),
   z.object({ type: z.literal("ping"), id: requestId }),
   z.object({ type: z.literal("action"), id: requestId, action: Action }),

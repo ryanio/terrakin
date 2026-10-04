@@ -6,7 +6,7 @@ import type { ServerMessage } from "@terrakin/protocol";
 import type { WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import WebSocket from "ws";
-import { createApp } from "./app";
+import { clientIp, createApp } from "./app";
 import { RateLimiters } from "./rate-limit";
 import { JsonlStore, MemoryStore, readJsonl, type Store } from "./store";
 import { cleanText } from "./text";
@@ -87,6 +87,37 @@ describe("REST", () => {
     });
   });
 
+  it("sets a look and note on join and cleans the note", async () => {
+    const { base, service } = await start();
+    const { body } = await api(base, "POST", "/v1/session", {
+      name: "Wren",
+      kind: "agent",
+      color: "leaf",
+      shape: "round",
+      note: "loves\u202e gardens",
+    });
+    expect(service.state.residents[body.residentId]).toMatchObject({
+      color: "leaf",
+      note: "loves gardens",
+    });
+    const res = await api(
+      base,
+      "POST",
+      "/v1/actions",
+      { type: "profile", shape: "square" },
+      body.token,
+    );
+    expect(res.body.events[0]).toMatchObject({
+      type: "profile_changed",
+      color: "leaf",
+      shape: "square",
+    });
+    expect(
+      (await api(base, "POST", "/v1/actions", { type: "profile", color: "gold" }, body.token))
+        .status,
+    ).toBe(400);
+  });
+
   it("rejects bad tokens, bad bodies, and bad names", async () => {
     const { base } = await start();
     expect((await api(base, "POST", "/v1/actions", { type: "claim" }, "nope")).status).toBe(401);
@@ -154,6 +185,21 @@ describe("hardening", () => {
     }
     expect(statuses.slice(0, 5)).toEqual([201, 201, 201, 201, 201]);
     expect(statuses.slice(5)).toEqual([429, 429]);
+  });
+
+  it("reads the client IP from X-Forwarded-For only for trusted hops", () => {
+    const req = (xff?: string) =>
+      ({
+        socket: { remoteAddress: "10.0.0.1" },
+        headers: xff ? { "x-forwarded-for": xff } : {},
+      }) as never;
+    expect(clientIp(req("1.2.3.4"), 0)).toBe("10.0.0.1");
+    expect(clientIp(req("spoofed, 1.2.3.4"), 1)).toBe("1.2.3.4");
+    expect(clientIp(req("spoofed, 1.2.3.4, 172.16.0.9"), 2)).toBe("1.2.3.4");
+    expect(clientIp(req(), 1)).toBe("10.0.0.1");
+    expect(clientIp(req("1.2.3.4"), 2)).toBe("10.0.0.1"); // too few hops: ignore the header
+    expect(clientIp(req("1.2.3.4"), Number.NaN)).toBe("10.0.0.1");
+    expect(clientIp(req("1.2.3.4"), 1.5)).toBe("10.0.0.1");
   });
 
   it("forgets rate-limit buckets once they refill", () => {

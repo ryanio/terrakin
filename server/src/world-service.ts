@@ -7,6 +7,7 @@ import {
   DEFAULT_CONFIG,
   hashWorld,
   type Input,
+  type ProfileFields,
   parseKey,
   prepare,
   type ResidentKind,
@@ -33,6 +34,17 @@ export interface WorldServiceOptions {
 }
 
 const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
+
+/** Drop absent fields (the sim's types forbid explicit undefined) and clean the note text. */
+type LooseProfile = { [K in keyof ProfileFields]?: ProfileFields[K] | undefined };
+
+function cleanProfile(fields: LooseProfile): ProfileFields {
+  return {
+    ...(fields.color ? { color: fields.color } : {}),
+    ...(fields.shape ? { shape: fields.shape } : {}),
+    ...(fields.note !== undefined ? { note: cleanText(fields.note) } : {}),
+  };
+}
 
 /**
  * Owns the one authoritative world. Every change goes through `act` or `join`/`leave`,
@@ -63,13 +75,13 @@ export class WorldService {
   // ---------- identity ----------
 
   createSession(
-    name: string,
-    kind: ResidentKind,
+    request: { name: string; kind: ResidentKind } & LooseProfile,
   ): ActResult & { residentId?: string; token?: string } {
     const residentId = `r_${randomBytes(8).toString("hex")}`;
+    const { name, kind, ...profile } = request;
     const result = this.run({
       actor: residentId,
-      command: { type: "join", name: cleanText(name), kind },
+      command: { type: "join", name: cleanText(name), kind, ...cleanProfile(profile) },
     });
     if (!result.ok) return result;
     const token = randomBytes(32).toString("base64url");
@@ -105,6 +117,10 @@ export class WorldService {
   act(residentId: string, action: Action): ActResult {
     this.touch(residentId);
     if (action.type === "chat") return this.chat(residentId, action.text);
+    if (action.type === "profile") {
+      const { type, ...profile } = action;
+      return this.run({ actor: residentId, command: { type, ...cleanProfile(profile) } });
+    }
     return this.run({ actor: residentId, command: action satisfies Command });
   }
 

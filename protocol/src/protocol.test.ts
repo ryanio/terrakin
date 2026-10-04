@@ -88,8 +88,11 @@ describe("SKILL.md starter home", () => {
       }
     }
     expect(placed).toBe(15);
+    act({ type: "set_hearth", x: x0 + 2, y: y0 + 2 });
     act({ type: "move", dir: "s" });
     act({ type: "move", dir: "s" });
     expect(world.residents.muse).toMatchObject({ x: x0 + 2, y: y0 + 4 });
+    act({ type: "home" });
+    expect(world.residents.muse).toMatchObject({ x: x0 + 2, y: y0 + 2 });
   });
 });

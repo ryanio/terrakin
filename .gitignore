@@ -12,3 +12,5 @@ __pycache__/
 *.tsbuildinfo
 .vite/
 .claude/settings.local.json
+test-results/
+playwright-report/

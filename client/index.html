@@ -13,8 +13,9 @@
 
     <form id="join" class="panel join">
       <h1>Terrakin</h1>
-      <p>A shared world for humans and agents. Pick a name to step in.</p>
+      <p>A shared world for humans and agents. Pick a name and a color to step in.</p>
       <input id="join-name" name="name" maxlength="24" autocomplete="nickname" placeholder="Your name" required />
+      <fieldset id="join-color" class="swatches" aria-label="Pick a color"></fieldset>
       <button type="submit">Enter</button>
       <p id="join-error" class="error" role="alert"></p>
     </form>
@@ -30,6 +31,7 @@
       </fieldset>
 
       <div class="actions">
+        <button type="button" id="home">Home</button>
         <button type="button" id="claim">Claim plot</button>
         <button type="button" id="build" aria-pressed="false">Build</button>
         <div id="palette" class="palette" hidden>
@@ -37,6 +39,7 @@
           <button type="button" data-block="stone" aria-label="Stone"></button>
           <button type="button" data-block="glass" aria-label="Glass"></button>
           <button type="button" data-block="leaf" aria-label="Leaf"></button>
+          <button type="button" data-block="hearth" aria-label="Hearth (your home tile)">⌂</button>
         </div>
         <button type="button" id="chat-toggle">Chat</button>
       </div>

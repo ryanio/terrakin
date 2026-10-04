@@ -5,9 +5,7 @@
   "conditions": {
     "ref_name": {
       "exclude": [],
-      "include": [
-        "refs/heads/main"
-      ]
+      "include": ["refs/heads/main"]
     }
   },
   "bypass_actors": [
@@ -33,10 +31,13 @@
         "do_not_enforce_on_create": false,
         "required_status_checks": [
           {
-            "context": "CI / verify"
+            "context": "verify"
           },
           {
-            "context": "CI / secrets"
+            "context": "e2e"
+          },
+          {
+            "context": "secrets"
           }
         ]
       }

@@ -16,18 +16,23 @@ What we chose and why. Newest last.
 - [Core terms are plot, hearth, kindred, the Commons](decisions/0006-plain-words-terminology.md) · 2026-10-02 · accepted · `design` `docs`
 - [Agents can be maintainers](decisions/0007-agents-can-be-maintainers.md) · 2026-10-02 · accepted · `process` `agents` `governance`
 - [Mainstream first, no wallet required](decisions/0008-mainstream-first-no-wallet-required.md) · 2026-10-02 · accepted · `product` `economy` `agents`
+- [Home is an instant jump to your hearth](decisions/0009-home-is-an-instant-jump-to-your-hearth.md) · 2026-10-03 · accepted · `sim` `design` `agents`
 
 ## Learnings
 
 Gotchas, surprises, and things we'd tell our past selves.
 
 - [It takes 5 steps to leave the Commons from spawn](learnings/2026-10-02-leaving-the-commons-from-spawn.md) · 2026-10-02 · `sim` `agents` `testing`
+- [pnpm --filter runs scripts from the package directory](learnings/2026-10-02-pnpm-filter-runs-scripts-from-the-package-directory.md) · 2026-10-02 · `tooling` `server`
 - [The sim can't use host globals like structuredClone](learnings/2026-10-02-sim-has-no-host-globals.md) · 2026-10-02 · `sim` `tooling`
 - [Stop background dev servers by PID, not by pattern](learnings/2026-10-02-stopping-background-servers-in-agent-shells.md) · 2026-10-02 · `tooling` `agents`
 - [Tests are typechecked by the root tsconfig, not the package one](learnings/2026-10-02-tests-typecheck-from-root.md) · 2026-10-02 · `tooling`
+- [After a repo transfer, agent sessions can read but not write](learnings/2026-10-03-after-a-repo-transfer-agent-sessions-can-read-but-not-write.md) · 2026-10-03 · `tooling` `agents` `process`
+- [Defaults derived from random ids make tests flaky](learnings/2026-10-03-defaults-derived-from-random-ids-make-tests-flaky.md) · 2026-10-03 · `testing` `server` `sim`
 
 ## Handoffs
 
 End-of-session notes. Read the latest one before starting work.
 
+- [Repo move, PR cleanup, and the road to terrakin.org](handoffs/2026-10-03-0506-repo-move-pr-cleanup-and-the-road-to-terrakin-org.md) · 2026-10-03 · `process` `server` `protocol` `client` `deploy`
 - [Foundation and Phase 1 prototype](handoffs/2026-10-02-2200-foundation-and-phase-1-prototype.md) · 2026-10-02 · `process` `sim` `protocol` `server` `client`

@@ -291,10 +291,8 @@ export class Api {
         : undefined;
     const reject = (code: ErrorCode, message: string) => render(route, fail(code, message), help);
     // Markdown readers get each problem on its own line instead of zod's JSON.
-    const problem = (e: { message: string; issues: { path: PropertyKey[]; message: string }[] }) =>
-      route.format === "markdown"
-        ? e.issues.map((i) => `${i.path.map(String).join(".") || "input"}: ${i.message}`).join("\n")
-        : e.message;
+    const problem = (e: { message: string; issues: Issue[] }) =>
+      route.format === "markdown" ? e.issues.map(plainIssue).join("\n") : e.message;
 
     if (route.rateLimit) {
       const key =
@@ -720,4 +718,34 @@ function render(
     ? `${spec.contentType}; charset=utf-8`
     : spec.contentType;
   return { status: reply.status, headers: { "content-type": type }, body: reply.text ?? "" };
+}
+
+/** The parts of a zod issue that `plainIssue` reads. */
+interface Issue {
+  path: PropertyKey[];
+  message: string;
+  code?: string;
+  input?: unknown;
+  minimum?: number | bigint;
+  maximum?: number | bigint;
+  values?: readonly unknown[];
+}
+
+/** One validation problem in plain words, for readers that can only open links. */
+export function plainIssue(issue: Issue): string {
+  const field = issue.path.map(String).join(".");
+  const name = field ? `\`${field}\`` : "The input";
+  if (issue.code === "invalid_type" && issue.input === undefined) return `${name} is missing.`;
+  if (issue.code === "too_small" && issue.minimum !== undefined) {
+    return Number(issue.minimum) <= 1
+      ? `${name} can't be empty.`
+      : `${name} is too short. Use at least ${issue.minimum} characters.`;
+  }
+  if (issue.code === "too_big" && issue.maximum !== undefined) {
+    return `${name} is too long. Use at most ${issue.maximum} characters.`;
+  }
+  if (issue.code === "invalid_value" && issue.values?.length) {
+    return `${name} must be one of: ${issue.values.map(String).join(", ")}.`;
+  }
+  return `${name}: ${issue.message}`;
 }

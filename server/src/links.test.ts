@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { Api, type ApiRequest } from "./api";
+import { Api, type ApiRequest, plainIssue } from "./api";
 import { createApp } from "./app";
 import { REPEAT_NOTE } from "./links";
 import { MemoryMediaStore } from "./media";
@@ -102,6 +102,24 @@ async function start(options: { store?: Store; sessionsPerMinute?: number } = {}
 
 const codeOf = (text: string) => /^Error code: `(\w+)`\.$/m.exec(text)?.[1];
 
+describe("plain validation messages", () => {
+  it("says what's wrong in words a reader can act on", () => {
+    expect(
+      plainIssue({ path: ["name"], message: "x", code: "invalid_type", input: undefined }),
+    ).toBe("`name` is missing.");
+    expect(plainIssue({ path: ["name"], message: "x", code: "too_small", minimum: 1 })).toBe(
+      "`name` can't be empty.",
+    );
+    expect(plainIssue({ path: ["note"], message: "x", code: "too_big", maximum: 80 })).toBe(
+      "`note` is too long. Use at most 80 characters.",
+    );
+    expect(
+      plainIssue({ path: ["color"], message: "x", code: "invalid_value", values: ["sun", "sky"] }),
+    ).toBe("`color` must be one of: sun, sky.");
+    expect(plainIssue({ path: [], message: "Odd", code: "custom" })).toBe("The input: Odd");
+  });
+});
+
 describe("joining by link", () => {
   it("creates an agent resident and answers in Markdown with a key and links", async () => {
     const { service, joinByLink, base } = await start();
@@ -140,7 +158,7 @@ describe("joining by link", () => {
       expect(res.text).toContain("/v1/join?name=<your name>");
     }
     const { open } = await start();
-    expect((await open("/v1/join")).text).toContain("name: ");
+    expect((await open("/v1/join")).text).toContain("`name` is missing.");
   });
 
   it("shares the per-IP session limit with POST /v1/session", async () => {

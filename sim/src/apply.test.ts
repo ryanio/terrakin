@@ -3,7 +3,7 @@ import { apply, prepare } from "./apply";
 import { hashWorld } from "./hash";
 import { replay } from "./replay";
 import type { Command, Input, WorldConfig, WorldState } from "./types";
-import { createWorld, spawnTile } from "./world";
+import { CHAT_EARSHOT, createWorld, spawnTile, withinEarshot } from "./world";
 
 // 3x3 plots of 4 tiles. Commons is plot (1,1), tiles 4..7. Spawn is tile (6,6).
 const CONFIG: WorldConfig = {
@@ -205,6 +205,10 @@ describe("determinism", () => {
       ]).flat(),
       { actor: "ada", command: { type: "claim" } },
       { actor: "ada", command: { type: "place", x: 3, y: 3, block: "leaf" } },
+      { actor: "ada", command: { type: "set_hearth", x: 2, y: 2 } },
+      { actor: "ada", command: { type: "move", dir: "e" } },
+      { actor: "ada", command: { type: "home" } },
+      { actor: "ada", command: { type: "profile", color: "plum", note: "x".repeat(80) } },
       { actor: "bot", command: { type: "claim" } }, // Rejected: Commons. Must not enter the log.
       { actor: "bot", command: { type: "leave" } },
     ];
@@ -230,5 +234,128 @@ describe("prepare", () => {
     });
     expect(() => prepared.commit()).toThrow();
     expect(state.seq).toBe(2);
+  });
+});
+
+describe("profile", () => {
+  it("gives new residents a stable default look and accepts one on join", () => {
+    const a = joined("ada");
+    const b = joined("ada");
+    expect(a.residents.ada).toMatchObject({ note: "" });
+    expect(a.residents.ada?.color).toBe(b.residents.ada?.color);
+    const state = createWorld(CONFIG);
+    run(state, "wren", {
+      type: "join",
+      name: "Wren",
+      kind: "agent",
+      color: "plum",
+      shape: "diamond",
+      note: "  Ryan's muse  ",
+    });
+    expect(state.residents.wren).toMatchObject({
+      color: "plum",
+      shape: "diamond",
+      note: "Ryan's muse",
+    });
+  });
+
+  it("changes only the given fields, keeps them across rejoin, and limits note length", () => {
+    const state = joined("ada");
+    const before = state.residents.ada?.shape;
+    const [result] = run(state, "ada", { type: "profile", color: "sky", note: "loves gardens" });
+    expect(result).toMatchObject({
+      ok: true,
+      events: [{ type: "profile_changed", color: "sky", note: "loves gardens" }],
+    });
+    expect(state.residents.ada?.shape).toBe(before);
+    run(state, "ada", { type: "leave" }, { type: "join", name: "ada", kind: "human" });
+    expect(state.residents.ada).toMatchObject({ color: "sky", note: "loves gardens" });
+    expect(
+      rejectionCode(
+        apply(state, { actor: "ada", command: { type: "profile", note: "x".repeat(81) } }),
+      ),
+    ).toBe("invalid_profile");
+    const noop = (command: Command) => rejectionCode(apply(state, { actor: "ada", command }));
+    expect(noop({ type: "profile" })).toBe("invalid_profile");
+    expect(noop({ type: "profile", color: "sky" })).toBe("invalid_profile");
+  });
+});
+
+describe("hearth", () => {
+  function homeowner() {
+    const state = joined("ada");
+    walkToPlotZero(state, "ada");
+    run(state, "ada", { type: "claim" });
+    return state;
+  }
+
+  it("sets a hearth on your own plot and takes you home", () => {
+    const state = homeowner();
+    const [set] = run(state, "ada", { type: "set_hearth", x: 1, y: 1 });
+    expect(set).toMatchObject({ ok: true, events: [{ type: "hearth_set", x: 1, y: 1 }] });
+    run(state, "ada", { type: "move", dir: "e" }, { type: "move", dir: "e" });
+    const [home] = run(state, "ada", { type: "home" });
+    expect(home).toMatchObject({ ok: true, events: [{ type: "moved", x: 1, y: 1 }] });
+  });
+
+  it("rejects hearths off your plot, out of reach, on blocks, and home without one", () => {
+    const state = homeowner();
+    const code = (command: Command) => rejectionCode(apply(state, { actor: "ada", command }));
+    expect(code({ type: "home" })).toBe("no_hearth");
+    expect(code({ type: "set_hearth", x: 4, y: 2 })).toBe("not_your_plot");
+    expect(code({ type: "set_hearth", x: 2, y: 2 + 3 })).toBe("out_of_reach");
+    run(state, "ada", { type: "place", x: 0, y: 0, block: "stone" });
+    expect(code({ type: "set_hearth", x: 0, y: 0 })).toBe("tile_occupied");
+    run(state, "ada", { type: "set_hearth", x: 1, y: 1 });
+    expect(code({ type: "place", x: 1, y: 1, block: "stone" })).toBe("tile_occupied");
+  });
+
+  it("rejects no-ops so they never reach the log, and rejections change nothing", () => {
+    const state = homeowner();
+    run(state, "ada", { type: "set_hearth", x: 1, y: 1 });
+    const before = hashWorld(state);
+    const code = (command: Command) => rejectionCode(apply(state, { actor: "ada", command }));
+    expect(code({ type: "set_hearth", x: 1, y: 1 })).toBe("already_home");
+    expect(code({ type: "set_hearth", x: -1, y: 1 })).toBe("out_of_bounds");
+    run(state, "ada", { type: "home" });
+    const home = hashWorld(state);
+    expect(code({ type: "home" })).toBe("already_home");
+    expect(hashWorld(state)).toBe(home);
+    expect(before).not.toBe(home);
+    run(state, "ada", { type: "leave" });
+    expect(code({ type: "home" })).toBe("not_joined");
+  });
+
+  it("returns a resident to their hearth when their spot was built over", () => {
+    const state = joined("ada", "bob");
+    walkToPlotZero(state, "ada");
+    run(state, "ada", { type: "claim" }, { type: "set_hearth", x: 3, y: 3 });
+    // Bob claims plot (1,0); Ada wanders onto it and logs off; Bob builds where she stood.
+    run(state, "bob", ...Array.from({ length: 3 }, () => ({ type: "move", dir: "n" }) as const), {
+      type: "claim",
+    });
+    run(
+      state,
+      "ada",
+      { type: "move", dir: "e" },
+      { type: "move", dir: "e" },
+      { type: "move", dir: "e" },
+      { type: "leave" },
+    );
+    expect(
+      apply(state, { actor: "bob", command: { type: "place", x: 5, y: 2, block: "wood" } }).ok,
+    ).toBe(true);
+    run(state, "ada", { type: "join", name: "ada", kind: "human" });
+    expect(state.residents.ada).toMatchObject({ x: 3, y: 3 });
+  });
+});
+
+describe("withinEarshot", () => {
+  it("hears at exactly CHAT_EARSHOT tiles, not one more, in any direction", () => {
+    const at = { x: 20, y: 20 };
+    expect(withinEarshot(at, at)).toBe(true);
+    expect(withinEarshot(at, { x: 20 + CHAT_EARSHOT, y: 20 - CHAT_EARSHOT })).toBe(true);
+    expect(withinEarshot(at, { x: 20 + CHAT_EARSHOT + 1, y: 20 })).toBe(false);
+    expect(withinEarshot(at, { x: 20, y: 20 - CHAT_EARSHOT - 1 })).toBe(false);
   });
 });

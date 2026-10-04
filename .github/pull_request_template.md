@@ -12,7 +12,7 @@
 
 ## Checklist
 
-- [ ] `pnpm verify` passes
+- [ ] `pnpm verify` passes (and `pnpm e2e` if the client or server changed)
 - [ ] Tests cover the new behavior at the lowest useful level
 - [ ] Docs updated (folder `AGENTS.md`, `protocol/SKILL.md`, `docs/architecture.md`) if behavior changed
 - [ ] Decision record or learning added if there's a "why" worth keeping

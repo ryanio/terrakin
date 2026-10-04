@@ -150,15 +150,23 @@ input {
   position: absolute;
   right: 16px;
   bottom: calc(16px + env(safe-area-inset-bottom));
+  width: 128px;
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
   gap: 8px;
 }
 
+.actions > button {
+  width: 100%;
+  padding: 0 8px;
+}
+
+/* Pops out to the left of the action column so it never covers the middle of the screen. */
 .palette {
+  position: absolute;
+  right: calc(100% + 8px);
+  bottom: 0;
   display: grid;
-  grid-template-columns: repeat(2, 44px);
   gap: 6px;
 }
 
@@ -169,6 +177,24 @@ input {
   border: 3px solid transparent;
 }
 
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.swatches button {
+  width: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 3px solid transparent;
+}
+
+.swatches button.selected,
 .palette button.selected {
   border-color: var(--accent);
 }
@@ -230,7 +256,19 @@ input {
   opacity: 1;
 }
 
+/* Text another resident wrote. Visibly not from the game itself. */
+.toast.player {
+  border-left: 4px solid var(--muted);
+  font-style: italic;
+}
+
 .hud [hidden],
 .panel[hidden] {
   display: none;
+}
+
+.join button[type="submit"] {
+  background: var(--accent);
+  color: var(--bg);
+  font-weight: 600;
 }

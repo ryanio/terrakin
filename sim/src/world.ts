@@ -9,6 +9,18 @@ export const DEFAULT_CONFIG: WorldConfig = {
   reach: 3,
 };
 
+/**
+ * How far nearby chat travels, in tiles (Chebyshev distance). Chat isn't world state and never
+ * enters the log, so this is a constant: tuning it never changes how logs replay.
+ * See decision 0010.
+ */
+export const CHAT_EARSHOT = 12;
+
+/** Whether `listener` hears nearby chat from `speaker`. Everyone hears themselves. */
+export function withinEarshot(speaker: Tile, listener: Tile): boolean {
+  return chebyshev(speaker, listener) <= CHAT_EARSHOT;
+}
+
 export function validateConfig(config: WorldConfig): void {
   const { width, height, plotSize, maxPlotsPerResident, reach } = config;
   for (const [name, value] of Object.entries({ width, height, plotSize, maxPlotsPerResident })) {

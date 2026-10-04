@@ -1,4 +1,4 @@
-import type { BlockKind } from "@terrakin/sim";
+import type { BlockKind, ResidentColor, ResidentShape } from "@terrakin/sim";
 import { type Camera, tileToScreen } from "./camera";
 import type { Mirror } from "./mirror";
 import { nightAmount } from "./time";
@@ -12,6 +12,37 @@ const BLOCK_COLORS: Record<BlockKind, string> = {
 
 export function blockColor(block: BlockKind): string {
   return BLOCK_COLORS[block];
+}
+
+export const HEARTH_COLOR = "#e07a3f";
+
+export const RESIDENT_COLOR_HEX: Record<ResidentColor, string> = {
+  sun: "#ffd166",
+  sky: "#7ec8e3",
+  leaf: "#8bd17c",
+  rose: "#f28da0",
+  plum: "#b48ee0",
+  sand: "#e8d3a2",
+  coal: "#4a4a4a",
+  snow: "#f7f7f2",
+};
+
+function residentPath(
+  ctx: CanvasRenderingContext2D,
+  shape: ResidentShape,
+  x: number,
+  y: number,
+  r: number,
+) {
+  ctx.beginPath();
+  if (shape === "square") ctx.rect(x - r, y - r, r * 2, r * 2);
+  else if (shape === "diamond") {
+    ctx.moveTo(x, y - r * 1.2);
+    ctx.lineTo(x + r * 1.2, y);
+    ctx.lineTo(x, y + r * 1.2);
+    ctx.lineTo(x - r * 1.2, y);
+    ctx.closePath();
+  } else ctx.arc(x, y, r, 0, Math.PI * 2);
 }
 
 // Stable pastel per owner so neighbors' plots are easy to tell apart.
@@ -74,6 +105,21 @@ export function render(
     ctx.fillRect(sx - half + 1, sy + half - 4, scale - 2, 3);
   }
 
+  // Hearths: a warm square with a roof, drawn under residents.
+  for (const r of mirror.residents.values()) {
+    if (!r.hearth) continue;
+    const { sx, sy } = tileToScreen(cam, r.hearth.x, r.hearth.y);
+    if (sx < -scale || sy < -scale || sx > width + scale || sy > height + scale) continue;
+    ctx.fillStyle = HEARTH_COLOR;
+    ctx.fillRect(sx - half * 0.6, sy - half * 0.2, scale * 0.6, half * 0.8);
+    ctx.beginPath();
+    ctx.moveTo(sx - half * 0.75, sy - half * 0.2);
+    ctx.lineTo(sx, sy - half * 0.8);
+    ctx.lineTo(sx + half * 0.75, sy - half * 0.2);
+    ctx.closePath();
+    ctx.fill();
+  }
+
   const self = me ? mirror.residents.get(me) : undefined;
   if (buildMode && self) {
     ctx.strokeStyle = "rgba(255,255,255,0.7)";
@@ -89,12 +135,11 @@ export function render(
     if (!r.online) continue;
     const { sx, sy } = tileToScreen(cam, r.x, r.y);
     if (sx < -scale || sy < -scale || sx > width + scale || sy > height + scale) continue;
-    ctx.beginPath();
-    ctx.arc(sx, sy, scale * 0.32, 0, Math.PI * 2);
-    ctx.fillStyle = r.id === me ? "#ffd166" : r.kind === "agent" ? "#7ec8e3" : "#f4f1de";
+    residentPath(ctx, r.shape, sx, sy, scale * 0.3);
+    ctx.fillStyle = RESIDENT_COLOR_HEX[r.color];
     ctx.fill();
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = "#1d2b22";
+    ctx.lineWidth = r.id === me ? 4 : 2;
+    ctx.strokeStyle = r.id === me ? "#ffffff" : "#1d2b22";
     ctx.stroke();
     // Canvas text can't execute anything, so names are safe to draw as-is.
     ctx.fillStyle = "#fff";

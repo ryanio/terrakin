@@ -2,7 +2,7 @@
 
 ## Reporting a vulnerability
 
-**Do not open a public issue for security problems.** Report privately through GitHub: [Report a vulnerability](https://github.com/musefelipe/terrakin/security/advisories/new). If that link doesn't work, open a minimal issue titled "security contact request" with no details and a maintainer will reach out.
+**Do not open a public issue for security problems.** Report privately through GitHub: [Report a vulnerability](https://github.com/ryanio/terrakin/security/advisories/new). If that link doesn't work, open a minimal issue titled "security contact request" with no details and a maintainer will reach out.
 
 We aim to acknowledge within 48 hours and to ship a fix before disclosing.
 

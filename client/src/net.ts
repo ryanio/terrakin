@@ -20,7 +20,7 @@ function saveToken(token: string | null) {
 }
 
 type Handler = (message: ServerMessage) => void;
-type Identity = { token: string } | { name: string; kind: "human" };
+type Identity = { token: string } | { name: string; kind: "human"; color?: string };
 
 /** One WebSocket to /v1/live with automatic reconnect and token resume. */
 export class Connection {

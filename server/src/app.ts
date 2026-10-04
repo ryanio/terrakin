@@ -48,6 +48,26 @@ export interface AppOptions {
   actionsPerSecond?: number;
   /** New sessions per minute allowed per IP (burst = 5). Default 3. */
   sessionsPerMinute?: number;
+  /**
+   * Number of reverse proxies in front of this server (default 0). With N > 0, the client IP is
+   * the Nth address from the right of X-Forwarded-For. Never set this without a proxy that
+   * appends to that header, or clients can spoof their IP.
+   */
+  trustedProxies?: number;
+}
+
+/** The client's IP, honoring X-Forwarded-For only for the configured number of trusted hops. */
+export function clientIp(req: IncomingMessage, trustedProxies = 0): string {
+  const direct = req.socket.remoteAddress ?? "unknown";
+  if (!Number.isInteger(trustedProxies) || trustedProxies <= 0) return direct;
+  const header = req.headers["x-forwarded-for"];
+  const hops = (Array.isArray(header) ? header.join(",") : (header ?? ""))
+    .split(",")
+    .map((h) => h.trim())
+    .filter(Boolean);
+  // Fewer hops than trusted proxies means the request didn't come through them all: trust nothing
+  // the client wrote.
+  return hops[hops.length - trustedProxies] ?? direct;
 }
 
 /** HTTP + WebSocket front door. All rules live in the sim; this layer only parses, authenticates, and routes. */
@@ -56,8 +76,7 @@ export function createApp(options: AppOptions): Server {
   const rate = options.actionsPerSecond ?? 10;
   const actionLimits = new RateLimiters(rate * 2, rate);
   // Every session adds a resident to the log forever, so creating them is much more limited.
-  // Note: behind a reverse proxy every client shares the proxy's IP. Add trusted
-  // X-Forwarded-For handling before deploying behind one.
+  // Behind a reverse proxy, set trustedProxies so limits key on the real client IP.
   const sessionLimits = new RateLimiters(5, (options.sessionsPerMinute ?? 3) / 60);
 
   const server = createServer((req, res) => {
@@ -90,12 +109,12 @@ export function createApp(options: AppOptions): Server {
         return res.end(OPENAPI);
 
       case "POST /v1/session": {
-        if (!sessionLimits.take(req.socket.remoteAddress ?? "unknown")) {
+        if (!sessionLimits.take(clientIp(req, options.trustedProxies))) {
           return sendError(res, "rate_limited", "Too many new sessions. Try again in a minute.");
         }
         const parsed = CreateSessionRequest.safeParse(await readJson(req));
         if (!parsed.success) return sendError(res, "bad_request", parsed.error.message);
-        const result = service.createSession(parsed.data.name, parsed.data.kind);
+        const result = service.createSession(parsed.data);
         if (!result.ok)
           return sendError(res, "bad_request", result.error.message, result.error.code);
         return sendJson(res, 201, {
@@ -140,7 +159,7 @@ export function createApp(options: AppOptions): Server {
 
   const wss = new WebSocketServer({ server, path: "/v1/live", maxPayload: MAX_BODY_BYTES });
   wss.on("connection", (socket, req) => {
-    const ip = req.socket.remoteAddress ?? "unknown";
+    const ip = clientIp(req, options.trustedProxies);
     let residentId: string | undefined;
     let unsubscribe: (() => void) | undefined;
     const send = (message: ServerMessage) => {
@@ -192,7 +211,7 @@ export function createApp(options: AppOptions): Server {
           if (!sessionLimits.take(ip)) {
             return fail("rate_limited", "Too many new sessions. Try again in a minute.");
           }
-          const created = service.createSession(msg.name, msg.kind);
+          const created = service.createSession({ ...msg, name: msg.name, kind: msg.kind });
           if (!created.ok) return fail(created.error.code, created.error.message);
           if (!created.residentId || !created.token) return fail("internal", "No session.");
           id = created.residentId;
@@ -203,7 +222,7 @@ export function createApp(options: AppOptions): Server {
         clearTimeout(helloTimer);
         service.socketOpened(id);
         send({ type: "welcome", residentId: id, token, world: service.snapshot() });
-        unsubscribe = service.subscribe(send);
+        unsubscribe = service.subscribe(id, send);
         return;
       }
 

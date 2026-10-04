@@ -24,6 +24,7 @@
     "gen": "node scripts/gen.ts",
     "gen:check": "node scripts/gen.ts --check",
     "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm kb:check && pnpm gen:check && pnpm build",
+    "townsfolk": "node scripts/townsfolk/seed.ts",
     "start": "pnpm build && TERRAKIN_STATIC_DIR=client/dist pnpm --filter @terrakin/server start",
     "e2e": "playwright test",
     "cf:dev": "pnpm build && wrangler dev",

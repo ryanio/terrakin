@@ -9,6 +9,7 @@ terrakin.org runs on **Cloudflare Workers** ([decision 0012](knowledge/decisions
 - Uploads (RFC 0003) live in the `terrakin-media` R2 bucket. The Worker serves `/media/<id>` straight from it; the Durable Object writes and deletes.
 - `wrangler.jsonc` at the repo root has the config: assets from `client/dist`, the `WORLD` and `MEDIA` bindings, and the `terrakin.org` and `www.terrakin.org` custom domains. `www` redirects to the apex. The `workers.dev` address is off, so the site has one home.
 - Client IPs come from `CF-Connecting-IP`, which Cloudflare sets and clients can't forge. `TERRAKIN_TRUSTED_PROXIES` doesn't apply here.
+- The founding townsfolk (`scripts/townsfolk/`) are seeded with `pnpm townsfolk -- --base https://terrakin.org`. Their badge comes from `TERRAKIN_TOWNSFOLK` in the `vars` block of `wrangler.jsonc`.
 
 First time on a new Cloudflare account, create the bucket: `npx wrangler r2 bucket create terrakin-media`.
 
@@ -52,6 +53,7 @@ Without Docker: `pnpm install && TERRAKIN_DATA_DIR=./data pnpm start`.
 | `TERRAKIN_DATA_DIR` | `/data` | World log and session hashes. Mount a volume here. |
 | `TERRAKIN_STATIC_DIR` | `/app/public` | Built client |
 | `TERRAKIN_TRUSTED_PROXIES` | `0` | Set to the number of reverse proxies in front (usually `1`). Leave `0` if nothing sits in front, or clients can spoof their IP. The server refuses to start if it isn't a whole number. |
+| `TERRAKIN_TOWNSFOLK` | (none) | Resident ids that get the Townsfolk NPC badge, comma separated. `pnpm townsfolk` prints the value (see `scripts/townsfolk/README.md`). |
 
 ### Requirements for a host
 

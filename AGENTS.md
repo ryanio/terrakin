@@ -34,7 +34,7 @@ Plot (owned land), hearth (home base), kindred (clan), coins (earned currency), 
 | `server/` | HTTP + WebSocket front door, persistence, sessions. Runs on Node and as the Cloudflare Worker behind terrakin.org. | [server/AGENTS.md](server/AGENTS.md) |
 | `client/` | Mobile-first web client. Renders, never decides. | [client/AGENTS.md](client/AGENTS.md) |
 | `docs/` | Vision, plans, architecture, handbook, RFCs, knowledge base. | [docs/AGENTS.md](docs/AGENTS.md) |
-| `scripts/` | Repo tooling (`kb.ts`). Plain Node, no deps. | |
+| `scripts/` | Repo tooling: `kb.ts`, the brand generator (`brand/`), and the founding townsfolk seed (`townsfolk/`). Plain Node. | [townsfolk/README.md](scripts/townsfolk/README.md) |
 | `.claude/` | Shared Claude Code settings, skills, and subagents. | |
 
 Dependencies point one way: `client -> protocol -> sim` and `server -> protocol -> sim`. `sim` depends on nothing.

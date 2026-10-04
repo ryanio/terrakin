@@ -6,13 +6,15 @@
  *   pnpm brand --preview <dir>      also write preview.png (mark at 512, 64, 32, 16) to <dir>
  *
  * Change BRAND below and rerun. Do not hand-edit the generated files; see README.md here.
+ * Other scripts import the drawing helpers (scripts/townsfolk draws each resident's home with it);
+ * importing this file doesn't regenerate anything.
  *
  * The mark is a small isometric plot of earth (clay sides, a moss top with a scalloped
  * grass lip) with a hearth on it: a house with a lit window and a chimney. Terra + kin.
  */
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, relative } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { inflateSync } from "node:zlib";
 import { Resvg } from "@resvg/resvg-js";
@@ -21,7 +23,7 @@ import { Resvg } from "@resvg/resvg-js";
 // The one place to change the logo.
 // ---------------------------------------------------------------------------
 
-const PALETTE = {
+export const PALETTE = {
   paper: "#fffaf0",
   paperEdge: "#ecdcc0",
   ink: "#2b2620",
@@ -33,10 +35,22 @@ const PALETTE = {
   dusk: "#cdb4f6",
 };
 
+/** Colors for the house alone, so a drawing can repaint the hearth and keep the plot of earth. */
+export interface HouseColors {
+  wall: string;
+  wallEdge: string;
+  roof: string;
+  roofDeep: string;
+  door: string;
+  window: string;
+}
+
+export type Palette = typeof PALETTE & { house?: Partial<HouseColors> };
+
 /** A range along one tile axis, as fractions of the tile (0 to 1). */
 type Span = readonly [number, number];
 
-interface MarkGeometry {
+export interface MarkGeometry {
   /** Half the width of the tile's top diamond, in mark units. Everything scales from it. */
   tile: number;
   /** Depth of the slab of earth, in tile half-widths. */
@@ -63,7 +77,7 @@ interface MarkGeometry {
   outline: number;
 }
 
-const MARK: MarkGeometry = {
+export const MARK: MarkGeometry = {
   tile: 40,
   thickness: 0.46,
   corner: 3.2,
@@ -118,7 +132,7 @@ const BRAND = {
 type Pt = readonly [number, number];
 type V3 = readonly [number, number, number];
 
-const fmt = (n: number) => String(Math.round(n * 100) / 100);
+export const fmt = (n: number) => String(Math.round(n * 100) / 100);
 const pt = (p: Pt) => `${fmt(p[0])} ${fmt(p[1])}`;
 
 function at<T>(list: readonly T[], i: number): T {
@@ -183,8 +197,17 @@ const floor = (z: number, [x0, x1]: Span, [y0, y1]: Span): V3[] => [
   [x0, y1, z],
 ];
 
-function drawMark(g: MarkGeometry, c = PALETTE): Drawing {
+function drawMark(g: MarkGeometry, c: Palette = PALETTE): Drawing {
   const a = g.tile;
+  const hc: HouseColors = {
+    wall: c.paper,
+    wallEdge: c.paperEdge,
+    roof: c.clay,
+    roofDeep: c.clayDeep,
+    door: c.clayDeep,
+    window: c.sun,
+    ...c.house,
+  };
   const iso = (v: V3): Pt => [(v[0] - v[1]) * a, ((v[0] + v[1]) * a) / 2 - v[2] * a];
   const all: Pt[] = [];
   /** Project a polygon, remembering its corners for the bounding box. */
@@ -270,7 +293,7 @@ function drawMark(g: MarkGeometry, c = PALETTE): Drawing {
       ],
       rr,
     ),
-    c.clayDeep,
+    hc.roofDeep,
     true,
   );
   if (g.chimney) {
@@ -291,7 +314,7 @@ function drawMark(g: MarkGeometry, c = PALETTE): Drawing {
       }
     }
   }
-  add(shapes, poly(wallY(y1, [x0, x1], [0, h])), c.paper, true);
+  add(shapes, poly(wallY(y1, [x0, x1], [0, h])), hc.wall, true);
   add(
     shapes,
     poly([
@@ -301,13 +324,13 @@ function drawMark(g: MarkGeometry, c = PALETTE): Drawing {
       [x1, ym, peak],
       [x1, y0, h],
     ]),
-    c.paperEdge,
+    hc.wallEdge,
     true,
   );
   if (g.window) {
     const wx: Span = [x0 + (x1 - x0) * g.window.x[0], x0 + (x1 - x0) * g.window.x[1]];
     const wz = g.window.z;
-    add(shapes, poly(wallY(y1, wx, wz), a * 0.012), c.sun);
+    add(shapes, poly(wallY(y1, wx, wz), a * 0.012), hc.window);
     if (g.window.mullion) {
       const bar = 0.012;
       const wm = (wx[0] + wx[1]) / 2;
@@ -324,12 +347,12 @@ function drawMark(g: MarkGeometry, c = PALETTE): Drawing {
     add(
       shapes,
       `M${p(dy0, 0)}L${p(dy0, dh)}Q${p(dy0, arch)} ${p((dy0 + dy1) / 2, arch)}Q${p(dy1, arch)} ${p(dy1, dh)}L${p(dy1, 0)}Z`,
-      c.clayDeep,
+      hc.door,
     );
   }
   // Front roof plane with rows of tiles, then the verge (the roof's edge on the gable end).
   const slope = (s: number, x: number): V3 => [x, ym + (y1 + e - ym) * s, peak + (ze - peak) * s];
-  add(shapes, poly([slope(0, xa), slope(0, xb), slope(1, xb), slope(1, xa)], rr), c.clay, true);
+  add(shapes, poly([slope(0, xa), slope(0, xb), slope(1, xb), slope(1, xa)], rr), hc.roof, true);
   for (let i = 1; i <= g.roofRows; i++) {
     const f = i / (g.roofRows + 1);
     const w = 0.012;
@@ -337,7 +360,7 @@ function drawMark(g: MarkGeometry, c = PALETTE): Drawing {
     add(
       shapes,
       poly([slope(f - w, l), slope(f - w, r), slope(f + w, r), slope(f + w, l)]),
-      c.clayDeep,
+      hc.roofDeep,
     );
   }
   const vt = 0.07;
@@ -354,7 +377,7 @@ function drawMark(g: MarkGeometry, c = PALETTE): Drawing {
       ],
       rr,
     ),
-    c.clayDeep,
+    hc.roofDeep,
     true,
   );
   if (g.bush) {
@@ -387,18 +410,19 @@ function drawMark(g: MarkGeometry, c = PALETTE): Drawing {
  * The mark's SVG elements (no <svg> wrapper), drawn so its bounding box lands at
  * (x, y) with the given width. `id` keeps clip ids unique when marks share a document.
  */
-function markElements(
+export function markElements(
   g: MarkGeometry,
-  opts: { x: number; y: number; width: number; id: string },
+  opts: { x: number; y: number; width: number; id: string; palette?: Palette },
 ): string {
-  const m = drawMark(g);
+  const palette = opts.palette ?? PALETTE;
+  const m = drawMark(g, palette);
   const s = opts.width / m.bounds.w;
   const tf = `translate(${fmt(opts.x)} ${fmt(opts.y)}) scale(${Math.round(s * 10000) / 10000}) translate(${fmt(-m.bounds.x)} ${fmt(-m.bounds.y)})`;
   const paths = (list: Shape[]) => list.map((p) => `<path d="${p.d}" fill="${p.fill}"/>`).join("");
   let outline = "";
   if (g.outline > 0) {
     const solids = [m.slabClip, ...m.shapes.filter((p) => p.solid).map((p) => p.d)];
-    outline = `<g class="outline" fill="${PALETTE.ink}" stroke="${PALETTE.ink}" stroke-width="${fmt(g.outline * 2)}" stroke-linejoin="round">${solids.map((d) => `<path d="${d}"/>`).join("")}</g>`;
+    outline = `<g class="outline" fill="${palette.ink}" stroke="${palette.ink}" stroke-width="${fmt(g.outline * 2)}" stroke-linejoin="round">${solids.map((d) => `<path d="${d}"/>`).join("")}</g>`;
   }
   const clipId = `${opts.id}-slab`;
   return (
@@ -411,7 +435,7 @@ function markElements(
   );
 }
 
-function markSize(g: MarkGeometry): { w: number; h: number } {
+export function markSize(g: MarkGeometry): { w: number; h: number } {
   const { w, h } = drawMark(g).bounds;
   return { w, h };
 }
@@ -425,10 +449,10 @@ function squareMark(g: MarkGeometry, side: number, inset: number, id: string): s
   return markElements(g, { x: (side - width) / 2, y: (side - height) / 2, width, id });
 }
 
-const esc = (text: string) =>
+export const esc = (text: string) =>
   text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-const svgDoc = (w: number, h: number, body: string, title = BRAND.title) =>
+export const svgDoc = (w: number, h: number, body: string, title = BRAND.title) =>
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${fmt(w)} ${fmt(h)}" width="${fmt(w)}" height="${fmt(h)}"><title>${esc(title)}</title>${body}</svg>\n`;
 
 // ---------------------------------------------------------------------------
@@ -480,7 +504,7 @@ function woffToSfnt(woff: Buffer): Buffer {
   return out;
 }
 
-interface TextPath {
+export interface TextPath {
   d: string;
   x: number;
   y: number;
@@ -491,9 +515,10 @@ interface TextPath {
 function makeTypesetter(fontFiles: string[]) {
   const font = { loadSystemFonts: false, fontFiles, defaultFontFamily: "Fraunces" };
   /** Outline `text` with its baseline at y = 0, starting at x = 0. */
-  return (text: string, weight: number, size: number): TextPath => {
+  return (text: string, weight: number, size: number, italic = false): TextPath => {
     const spacing = BRAND.type.tracking * size;
-    const src = `<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><text font-family="Fraunces" font-weight="${weight}" font-size="${size}" letter-spacing="${fmt(spacing)}">${esc(text)}</text></svg>`;
+    const style = italic ? ' font-style="italic"' : "";
+    const src = `<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><text font-family="Fraunces" font-weight="${weight}"${style} font-size="${size}" letter-spacing="${fmt(spacing)}">${esc(text)}</text></svg>`;
     const flat = new Resvg(src, { font }).toString();
     if (/transform=/.test(flat)) throw new Error("unexpected transform in outlined text");
     const d = [...flat.matchAll(/ d="([^"]+)"/g)].map((m) => m[1]).join(" ");
@@ -510,7 +535,7 @@ function makeTypesetter(fontFiles: string[]) {
 // Assets.
 // ---------------------------------------------------------------------------
 
-type Typeset = ReturnType<typeof makeTypesetter>;
+export type Typeset = ReturnType<typeof makeTypesetter>;
 
 function wordmarkSvg(type: Typeset): string {
   const size = 100;
@@ -579,7 +604,7 @@ function maskableIcon(side: number): string {
  * Paper grain as sparse flecks: most pixels stay exactly paper, so the PNG stays small.
  * (Continuous noise looks the same at card size and costs about eight times the bytes.)
  */
-const GRAIN = `<filter id="grain" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="1" seed="4"/><feColorMatrix type="matrix" values="0 0 0 0 0.56 0 0 0 0 0.45 0 0 0 0 0.3 1 0 0 0 0"/><feComponentTransfer><feFuncA type="discrete" tableValues="0 0 0 0 0 0 0 0.18 0.3 0.3"/></feComponentTransfer></filter>`;
+export const GRAIN = `<filter id="grain" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="1" seed="4"/><feColorMatrix type="matrix" values="0 0 0 0 0.56 0 0 0 0 0.45 0 0 0 0 0.3 1 0 0 0 0"/><feComponentTransfer><feFuncA type="discrete" tableValues="0 0 0 0 0 0 0 0.18 0.3 0.3"/></feComponentTransfer></filter>`;
 
 function ogSvg(type: Typeset): string {
   const W = 1200;
@@ -631,7 +656,7 @@ function ogSvg(type: Typeset): string {
   );
 }
 
-function png(svg: string, width: number): Buffer {
+export function png(svg: string, width: number): Buffer {
   return Buffer.from(
     new Resvg(svg, { fitTo: { mode: "width", value: width }, font: { loadSystemFonts: false } })
       .render()
@@ -717,22 +742,29 @@ function preview(dir: string, assets: Map<string, string | Buffer>): void {
   if (og) writeFileSync(join(dir, "og.png"), og);
 }
 
+/**
+ * Run `fn` with a typesetter for the given Fraunces faces (`600` or `400-italic`, say). The fonts
+ * are unwrapped into a temp directory that's removed afterwards.
+ */
+export function withTypesetter<T>(faces: (number | string)[], fn: (type: Typeset) => T): T {
+  const tmp = mkdtempSync(join(tmpdir(), "terrakin-brand-"));
+  try {
+    const fontFiles = [...new Set(faces.map(String))].map((face) => {
+      const file = join(tmp, `fraunces-${face}.ttf`);
+      const name = face.includes("-") ? face : `${face}-normal`;
+      writeFileSync(file, woffToSfnt(readFileSync(join(FONT_DIR, `fraunces-latin-${name}.woff`))));
+      return file;
+    });
+    return fn(makeTypesetter(fontFiles));
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
 function main(): void {
   const args = process.argv.slice(2);
   const previewAt = args.indexOf("--preview");
-  const tmp = mkdtempSync(join(tmpdir(), "terrakin-brand-"));
-  try {
-    const weights = [BRAND.type.wordmarkWeight, BRAND.type.taglineWeight];
-    const fontFiles = [...new Set(weights)].map((wt) => {
-      const file = join(tmp, `fraunces-${wt}.ttf`);
-      writeFileSync(
-        file,
-        woffToSfnt(readFileSync(join(FONT_DIR, `fraunces-latin-${wt}-normal.woff`))),
-      );
-      return file;
-    });
-    const type = makeTypesetter(fontFiles);
-
+  withTypesetter([BRAND.type.wordmarkWeight, BRAND.type.taglineWeight], (type) => {
     const favPng = faviconSvg(false);
     const assets = new Map<string, string | Buffer>([
       ["brand/mark.svg", markSvg()],
@@ -755,9 +787,7 @@ function main(): void {
     }
     const dir = args[previewAt + 1];
     if (previewAt >= 0 && dir) preview(dir, assets);
-  } finally {
-    rmSync(tmp, { recursive: true, force: true });
-  }
+  });
 }
 
-main();
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();

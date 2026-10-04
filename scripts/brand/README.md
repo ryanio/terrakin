@@ -27,6 +27,10 @@ Do not hand-edit these. Change `logo.ts` and rerun instead.
 | `site.webmanifest` | Web app manifest pointing at the icons above |
 | `og.png` | 1200x630 social card: mark, name and tagline on grained paper |
 
+## Used elsewhere
+
+`logo.ts` also exports its drawing helpers (`markElements` with a `palette` override, `withTypesetter`, `png`). The townsfolk seed (`scripts/townsfolk/art.ts`) uses them to draw each resident's home as the mark's house in that resident's colors. Importing the file doesn't regenerate anything; only running it does. After changing the helpers, run `pnpm brand` and check that `git status` shows nothing new under `client/public`.
+
 ## How it works
 
 Rasterizing uses `@resvg/resvg-js`. Text comes from `@fontsource/fraunces` (static WOFF files): the script unwraps the WOFF into a plain font in a temp directory, has resvg lay the text out and convert it to outlines, and puts those outlines in the SVGs. Nothing is downloaded at run time and no installed system font is used, so the output is the same on any machine.

@@ -255,6 +255,43 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
       };
     }
 
+    case "release": {
+      const { px, py } = plotOf(config, me.x, me.y);
+      const key = plotKey(px, py);
+      const plot = state.plots[key];
+      if (!plot || plot.ownerId !== actor) {
+        return reject("not_your_plot", "You can only release a plot you own.");
+      }
+      // Releasing never demolishes: clear the blocks first. That keeps release a single,
+      // honest change instead of a silent teardown (see decision 0015).
+      const { plotSize } = config;
+      const onPlot = (x: number, y: number) =>
+        x >= px * plotSize &&
+        x < (px + 1) * plotSize &&
+        y >= py * plotSize &&
+        y < (py + 1) * plotSize;
+      for (let x = px * plotSize; x < (px + 1) * plotSize; x++) {
+        for (let y = py * plotSize; y < (py + 1) * plotSize; y++) {
+          if (state.blocks[tileKey(x, y)] !== undefined) {
+            return reject("plot_has_blocks", "Remove every block on the plot first.");
+          }
+        }
+      }
+      // A hearth on the released plot can't stay: it must sit on your own plot, and this
+      // one is about to be nobody's. Refusing isn't an option (there's nowhere else to put
+      // it), so it's cleared with the release.
+      const hearthOnPlot = me.hearth !== null && onPlot(me.hearth.x, me.hearth.y);
+      return () => {
+        delete state.plots[key];
+        const events: WorldEvent[] = [{ type: "plot_released", px, py, ownerId: actor }];
+        if (hearthOnPlot) {
+          me.hearth = null;
+          events.push({ type: "hearth_cleared", residentId: actor });
+        }
+        return events;
+      };
+    }
+
     case "set_hearth": {
       const { x, y } = command;
       if (!inBounds(config, x, y)) return reject("out_of_bounds", "That's outside the world.");

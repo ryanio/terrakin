@@ -11,7 +11,21 @@ export default defineConfig({
   retries: 0,
   reporter: process.env.CI ? "github" : "list",
   use: { baseURL: `http://localhost:${PORT}`, trace: "retain-on-failure" },
-  projects: [{ name: "phone", use: { ...devices["iPhone 13"], browserName: "chromium" } }],
+  projects: [
+    {
+      name: "phone",
+      testIgnore: /town\.spec\.ts/,
+      use: { ...devices["iPhone 13"], browserName: "chromium" },
+    },
+    // town.spec.ts moves the shared server clock a day on, which expires anything time-limited
+    // another spec is holding (an X connect code, say). It runs alone, after the rest.
+    {
+      name: "clock",
+      testMatch: /town\.spec\.ts/,
+      dependencies: ["phone"],
+      use: { ...devices["iPhone 13"], browserName: "chromium" },
+    },
+  ],
   webServer: {
     // Every browser here shares one IP, so allow more joins a minute than the real server does.
     // The test clock lets town.spec.ts move days on.

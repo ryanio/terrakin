@@ -23,6 +23,7 @@ The front door. Parses, authenticates, rate limits, runs the sim, persists, and 
 - `src/store.ts` `Store` interface, `MemoryStore`, `JsonlStore`. `src/sql-store.ts` `SqlStore` for Durable Object SQLite.
 - `src/social-service.ts` the social layer (RFC 0003): posts, likes, follows, profiles, uploads and their cost caps. Its tables never feed the sim.
 - `src/media.ts` upload type sniffing, serving headers, the capped body reader, and R2 serving. `src/file-media-store.ts` uploads on disk for Node. `src/node-sql.ts` `node:sqlite` in the Durable Object's `sql.exec` shape.
+- `src/injection.ts` turns away text written as orders to AI readers (posts, bios, notes, chat). `src/strip-metadata.ts` removes EXIF, XMP, and comments from uploaded images.
 - `src/rate-limit.ts`, `src/text.ts` small utilities.
 - `src/main.ts` entry point. Env: `PORT` (8787), `TERRAKIN_DATA_DIR` (world log as JSONL, plus `social.db` and `media/`), `TERRAKIN_STATIC_DIR` (serve built client), `TERRAKIN_TRUSTED_PROXIES` (reverse proxy hops).
 - Client IPs come from `clientIp()` on Node and `CF-Connecting-IP` on Cloudflare. Never read `X-Forwarded-For` anywhere else.

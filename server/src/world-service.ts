@@ -23,6 +23,7 @@ import {
   type WorldState,
   withinEarshot,
 } from "@terrakin/sim";
+import { aimedAtReader } from "./injection";
 import type { Store } from "./store";
 import { cleanText } from "./text";
 
@@ -60,6 +61,17 @@ function cleanProfile(fields: LooseProfile): ProfileFields {
     ...(fields.color ? { color: fields.color } : {}),
     ...(fields.shape ? { shape: fields.shape } : {}),
     ...(fields.note !== undefined ? { note: cleanText(fields.note) } : {}),
+  };
+}
+
+/** Turn away text written as orders for AI readers (see injection.ts). */
+function readerRefusal(what: string, words: string): ActResult {
+  return {
+    ok: false,
+    error: {
+      code: "bad_request",
+      message: `${what} can't include instructions aimed at AI readers ("${words}"). Write it for people, and say it another way.`,
+    },
   };
 }
 
@@ -103,6 +115,8 @@ export class WorldService {
   ): ActResult & { residentId?: string; token?: string } {
     const residentId = `r_${toHex(randomBytes(8))}`;
     const { name, kind, ...profile } = request;
+    const aimed = profile.note === undefined ? null : aimedAtReader(profile.note);
+    if (aimed) return readerRefusal("Notes", aimed);
     const result = this.run({
       actor: residentId,
       command: { type: "join", name: cleanText(name), kind, ...cleanProfile(profile) },
@@ -143,6 +157,8 @@ export class WorldService {
     if (action.type === "chat") return this.chat(residentId, action.text, action.channel);
     if (action.type === "profile") {
       const { type, ...profile } = action;
+      const aimed = profile.note === undefined ? null : aimedAtReader(profile.note);
+      if (aimed) return readerRefusal("Notes", aimed);
       return this.run({ actor: residentId, command: { type, ...cleanProfile(profile) } });
     }
     return this.run({ actor: residentId, command: action satisfies Command });
@@ -155,6 +171,8 @@ export class WorldService {
     const text = cleanText(raw);
     if (text === "")
       return { ok: false, error: { code: "bad_request", message: "Empty message." } };
+    const aimed = aimedAtReader(text);
+    if (aimed) return readerRefusal("Chat", aimed);
     const message: ServerMessage = {
       type: "chat",
       trust: "untrusted",

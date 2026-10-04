@@ -18,6 +18,9 @@ Mobile-first web client. It shows what the server says. It never decides anythin
 - `src/net.ts` WebSocket with reconnect and token resume (`localStorage`).
 - `src/mirror.ts` local read-only copy of the world.
 - `src/render.ts` canvas drawing. `src/camera.ts` tile/screen math (pure, tested).
+- `src/landing.ts` the landing curtain (join form, "Bring your AI" popover). Self-contained so a router can show or skip it.
+- `src/telemetry.ts` GA4 events and Sentry (production only, lazy `src/sentry.ts`). Never send names, chat, notes, tokens, or resident ids; tests in `telemetry.test.ts` pin the scrubbing.
+- Design system: tokens on `:root` and reusable pieces at the top of `style.css` (`.column`, `.paper`, `.card`, `.pill`, `.pill-button`, `.btn-primary`, `.eyebrow`, `.tag`, `.note`, `.avatar`, `.icon`). Build new views from these.
 
 ## Running
 

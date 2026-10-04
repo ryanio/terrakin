@@ -1,31 +1,41 @@
+import "@fontsource-variable/fraunces/full.css";
+import "@fontsource-variable/fraunces/wonk-italic.css";
+import "@fontsource-variable/figtree";
+import "@fontsource-variable/figtree/wght-italic.css";
 import {
   type Action,
   type ChatChannel,
   type ServerMessage,
   WorldSnapshot,
 } from "@terrakin/protocol";
-import { type BlockKind, type Direction, RESIDENT_COLORS, type ResidentColor } from "@terrakin/sim";
+import type { BlockKind, Direction, ResidentColor } from "@terrakin/sim";
 import { type Camera, fitScale, screenToTile, stepToward } from "./camera";
+import { createLanding } from "./landing";
 import { Mirror } from "./mirror";
 import { Connection, savedToken } from "./net";
-import { blockColor, HEARTH_COLOR, RESIDENT_COLOR_HEX, render } from "./render";
+import { blockColor, HEARTH_COLOR, render } from "./render";
+import { initErrorReporting, track } from "./telemetry";
 import { dayPhase } from "./time";
 import "./style.css";
+
+void initErrorReporting();
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
 const canvas = $<HTMLCanvasElement>("world");
 const ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
-const joinForm = $<HTMLFormElement>("join");
-const joinError = $("join-error");
+const curtain = $("curtain");
 const hud = $("hud");
 const status = $("status");
 const toast = $("toast");
 const chatPanel = $("chat");
 const chatLog = $<HTMLOListElement>("chat-log");
 const chatInput = $<HTMLInputElement>("chat-input");
+const chatToggle = $("chat-toggle");
 const buildButton = $("build");
 const palette = $("palette");
+
+const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
 let conn: Connection | undefined;
 let mirror: Mirror | undefined;
@@ -36,9 +46,47 @@ let block: BlockKind | "hearth" = "wood";
 let walkTarget: { x: number; y: number } | undefined;
 let pendingMove: string | undefined;
 let resyncing = false;
+/** True between pressing "Step inside" and the server's welcome, so we count a join once. */
+let joiningFresh = false;
 /** Server time anchor from the latest snapshot, plus when we received it locally. */
 let dayAnchor: { nowMs: number; dayLengthMs: number; receivedAt: number } | undefined;
 const cam: Camera = { cx: 0, cy: 0, scale: 32, width: 0, height: 0 };
+
+// ---------- landing ----------
+
+const landing = createLanding(curtain, {
+  onJoin(name, color) {
+    joiningFresh = true;
+    landing.setJoining(true);
+    connect({ name, kind: "human", color });
+  },
+});
+
+/** Leave the landing for the world: lift the curtain and bring the world into focus. */
+function enterWorld(instant = false) {
+  canvas.classList.remove("veiled");
+  document.body.classList.add("in-world");
+  landing.hide({ instant });
+}
+
+/** Back to the landing, with the world soft and drifting behind it. */
+function leaveWorld() {
+  joiningFresh = false;
+  canvas.classList.add("veiled");
+  document.body.classList.remove("in-world");
+  landing.show();
+}
+
+function updatePopulation() {
+  if (!mirror) return;
+  let total = 0;
+  let online = 0;
+  for (const r of mirror.residents.values()) {
+    total++;
+    if (r.online) online++;
+  }
+  landing.setPopulation(total, online);
+}
 
 // ---------- connection ----------
 
@@ -49,6 +97,8 @@ function connect(
   conn = new Connection(identity, onMessage, (s) => {
     status.textContent =
       s === "online" ? "" : s === "connecting" ? "Connecting…" : "Offline, retrying…";
+    if (s === "offline" && joiningFresh && !me)
+      landing.setError("Can't reach the world right now. Still trying…");
     if (s !== "online") stopWalking();
   });
 }
@@ -72,6 +122,7 @@ async function resync() {
     if (parsed.success) {
       mirror = new Mirror(parsed.data);
       dayAnchor = anchor(parsed.data.time);
+      updatePopulation();
     } else console.warn("Bad snapshot from server", parsed.error);
   } catch (err) {
     console.warn("Resync failed", err);
@@ -87,7 +138,11 @@ function onMessage(msg: ServerMessage) {
       mirror = new Mirror(msg.world);
       dayAnchor = anchor(msg.world.time);
       stopWalking();
-      joinForm.hidden = true;
+      if (joiningFresh) track("join");
+      joiningFresh = false;
+      landing.setJoining(false);
+      landing.setError("");
+      enterWorld();
       hud.hidden = false;
       snapCamera();
       break;
@@ -108,9 +163,12 @@ function onMessage(msg: ServerMessage) {
       }
       if (msg.error.code === "unauthorized" || msg.error.code === "invalid_name") {
         conn?.close();
+        me = undefined;
         hud.hidden = true;
-        joinForm.hidden = false;
-        joinError.textContent = msg.error.code === "invalid_name" ? msg.error.message : "";
+        leaveWorld();
+        landing.setError(msg.error.code === "invalid_name" ? msg.error.message : "");
+        if (msg.error.code === "invalid_name") landing.focusName();
+        void resync();
         return;
       }
       showToast(msg.error.message);
@@ -143,7 +201,7 @@ function showToast(text: string, source: "system" | "player" = "system") {
   toast.classList.toggle("player", source === "player");
   toast.classList.add("show");
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => toast.classList.remove("show"), 2500);
+  toastTimer = setTimeout(() => toast.classList.remove("show"), source === "player" ? 4000 : 2600);
 }
 
 // ---------- input ----------
@@ -192,7 +250,7 @@ const KEYS: Record<string, Direction> = {
   d: "e",
 };
 window.addEventListener("keydown", (e) => {
-  if (document.activeElement instanceof HTMLInputElement) return;
+  if (!me || document.activeElement instanceof HTMLInputElement) return;
   const dir = KEYS[e.key];
   if (dir) {
     e.preventDefault();
@@ -206,17 +264,19 @@ buildButton.addEventListener("click", () => {
   buildMode = !buildMode;
   buildButton.setAttribute("aria-pressed", String(buildMode));
   palette.hidden = !buildMode;
+  if (buildMode) showToast("Tap a tile to build. Tap a block to remove it.");
 });
 
 for (const button of palette.querySelectorAll<HTMLButtonElement>("button")) {
   const kind = button.dataset.block as BlockKind | "hearth";
-  button.style.background = kind === "hearth" ? HEARTH_COLOR : blockColor(kind);
+  const chip = button.querySelector<HTMLElement>(".chip");
+  if (chip) chip.style.background = kind === "hearth" ? HEARTH_COLOR : blockColor(kind);
+  button.setAttribute("aria-pressed", String(kind === block));
   button.addEventListener("click", () => {
     block = kind;
     for (const b of palette.querySelectorAll("button"))
-      b.classList.toggle("selected", b === button);
+      b.setAttribute("aria-pressed", String(b === button));
   });
-  if (kind === block) button.classList.add("selected");
 }
 
 $("home").addEventListener("click", () => {
@@ -224,9 +284,13 @@ $("home").addEventListener("click", () => {
   act({ type: "home" });
 });
 
-$("chat-toggle").addEventListener("click", () => {
+chatToggle.addEventListener("click", () => {
   chatPanel.hidden = !chatPanel.hidden;
-  if (!chatPanel.hidden) chatInput.focus();
+  chatToggle.setAttribute("aria-pressed", String(!chatPanel.hidden));
+  if (!chatPanel.hidden) {
+    chatLog.scrollTop = chatLog.scrollHeight;
+    chatInput.focus();
+  }
 });
 
 // Nearby by default; tap to switch to everyone online.
@@ -247,43 +311,27 @@ $<HTMLFormElement>("chat-form").addEventListener("submit", (e) => {
   chatInput.value = "";
 });
 
-let color: ResidentColor =
-  RESIDENT_COLORS[Math.floor(Math.random() * RESIDENT_COLORS.length)] ?? "sun";
-const swatches = $("join-color");
-for (const c of RESIDENT_COLORS) {
-  const b = document.createElement("button");
-  b.type = "button";
-  b.setAttribute("aria-label", c);
-  b.style.background = RESIDENT_COLOR_HEX[c];
-  b.classList.toggle("selected", c === color);
-  b.addEventListener("click", () => {
-    color = c;
-    for (const s of swatches.children) s.classList.toggle("selected", s === b);
-  });
-  swatches.append(b);
-}
-
-joinForm.addEventListener("submit", (e) => {
-  e.preventDefault();
-  const name = $<HTMLInputElement>("join-name").value.trim();
-  if (name) connect({ name, kind: "human", color });
-});
-
 // ---------- loop ----------
 
 function resize() {
-  const dpr = window.devicePixelRatio || 1;
+  const dpr = Math.min(window.devicePixelRatio || 1, 3);
   cam.width = window.innerWidth;
   cam.height = window.innerHeight;
-  cam.scale = fitScale(cam.width, cam.height);
+  cam.scale = targetScale();
   canvas.width = Math.floor(cam.width * dpr);
   canvas.height = Math.floor(cam.height * dpr);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 
+/** In the world we show ~13 tiles across; behind the curtain we pull back to show more of it. */
+function targetScale() {
+  return me ? fitScale(cam.width, cam.height) : fitScale(cam.width, cam.height, 17);
+}
+
 function snapCamera() {
   const r = self();
   if (r) Object.assign(cam, { cx: r.x, cy: r.y });
+  cam.scale = targetScale();
 }
 
 let lastWalk = 0;
@@ -299,6 +347,15 @@ function frame(t: number) {
       else walkTarget = undefined;
       lastWalk = t;
     }
+  } else if (mirror) {
+    // Behind the curtain: a slow drift around the Commons.
+    const { plotSize } = mirror.config;
+    const ox = (mirror.commons.px + 0.5) * plotSize - 0.5;
+    const oy = (mirror.commons.py + 0.5) * plotSize - 0.5;
+    const drift = reducedMotion.matches ? 0 : t / 1000;
+    cam.cx = ox + Math.sin(drift / 9) * 4;
+    cam.cy = oy + Math.cos(drift / 13) * 2.5 + 1.5;
+    cam.scale = targetScale();
   }
   // Advance the server's time anchor with our own clock, so every client
   // renders the same night at the same time without asking the server again.
@@ -321,4 +378,15 @@ resize();
 requestAnimationFrame(frame);
 
 const token = savedToken();
-if (token) connect({ token });
+if (token) {
+  // Returning resident: skip the landing and go straight in.
+  enterWorld(true);
+  hud.hidden = false;
+  connect({ token });
+} else {
+  void resync();
+  // Keep the "online now" line fresh while someone reads the landing page.
+  setInterval(() => {
+    if (landing.isUp() && document.visibilityState === "visible") void resync();
+  }, 20_000);
+}

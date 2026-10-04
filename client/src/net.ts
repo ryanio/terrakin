@@ -1,6 +1,8 @@
 import { type Action, PROTOCOL_VERSION, ServerMessage } from "@terrakin/protocol";
 
 const TOKEN_KEY = "terrakin.token";
+/** Our own resident id, saved next to the token so the feed knows which profile is yours. */
+const RESIDENT_KEY = "terrakin.resident";
 
 export function savedToken(): string | null {
   try {
@@ -10,10 +12,31 @@ export function savedToken(): string | null {
   }
 }
 
-function saveToken(token: string | null) {
+export function savedResidentId(): string | null {
   try {
-    if (token) localStorage.setItem(TOKEN_KEY, token);
-    else localStorage.removeItem(TOKEN_KEY);
+    return localStorage.getItem(RESIDENT_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function saveResidentId(id: string) {
+  try {
+    localStorage.setItem(RESIDENT_KEY, id);
+  } catch {
+    // Storage disabled: we just ask the server again next time.
+  }
+}
+
+function saveToken(token: string | null, residentId?: string) {
+  try {
+    if (token) {
+      localStorage.setItem(TOKEN_KEY, token);
+      if (residentId) localStorage.setItem(RESIDENT_KEY, residentId);
+    } else {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(RESIDENT_KEY);
+    }
   } catch {
     // Private mode or storage disabled: the session just won't survive a reload.
   }
@@ -72,7 +95,7 @@ export class Connection {
       if (msg.type === "welcome") {
         this.retry = 0;
         this.identity = { token: msg.token };
-        saveToken(msg.token);
+        saveToken(msg.token, msg.residentId);
         this.onStatus("online");
       }
       if (msg.type === "error" && msg.error.code === "unauthorized") {

@@ -24,10 +24,6 @@ async function settleCamera(page: Page) {
   );
 }
 
-async function health(page: Page) {
-  return (await page.request.get("/v1/health")).json();
-}
-
 test("a human can join, claim, build, and chat safely next to an agent", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
@@ -40,18 +36,23 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
   ).json();
   expect(agent.token).toBeTruthy();
 
-  await page.goto("/");
+  // The world lives at /world; / is the feed.
+  await page.goto("/world");
   await page.fill("#join-name", "Ada");
   await page.click("#join-color button[aria-label=plum]");
   await page.click("#join button[type=submit]");
   await expect(page.locator("#hud")).toBeVisible();
 
-  const startSeq = (await health(page)).seq;
+  const me = async () => {
+    const world = await page.request.get("/v1/world").then((r) => r.json());
+    return world.residents.find((r: { name: string }) => r.name === "Ada");
+  };
+  // Watch our own position rather than the world's event count: other tests may join meanwhile.
   for (let i = 0; i < 5; i++) {
     await page.click('[data-dir="w"]');
     await page.click('[data-dir="n"]');
   }
-  await expect.poll(async () => (await health(page)).seq).toBe(startSeq + 10);
+  await expect.poll(async () => [(await me()).x, (await me()).y]).toEqual([31, 31]);
 
   await page.click("#claim");
   await expect
@@ -71,10 +72,6 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
   await page.click('[data-block="hearth"]');
   await settleCamera(page);
   await page.mouse.click(vp.width / 2, vp.height / 2);
-  const me = async () => {
-    const world = await page.request.get("/v1/world").then((r) => r.json());
-    return world.residents.find((r: { name: string }) => r.name === "Ada");
-  };
   await expect.poll(async () => (await me()).hearth).toEqual({ x: 31, y: 31 });
   await page.click('[data-dir="e"]');
   await expect.poll(async () => (await me()).x).toBe(32);

@@ -473,13 +473,14 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
       );
     },
 
-    linkPost: ({ viewer, params, query, origin }) => {
+    linkPost: ({ viewer, params, query, origin, ip }) => {
       if (PLACEHOLDER.test(query.text)) return placeholderRefusal("text");
       const l = linksFor(origin, params.key);
-      const outcome = social().createPost(viewer, {
-        text: query.text,
-        ...(query.reply ? { replyTo: query.reply } : {}),
-      });
+      const outcome = social().createPost(
+        viewer,
+        { text: query.text, ...(query.reply ? { replyTo: query.reply } : {}) },
+        api.networkOf(ip),
+      );
       if (!outcome.ok) return failed(outcome.code, outcome.message);
       const post = outcome.value;
       const r = resident(viewer);

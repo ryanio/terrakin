@@ -7171,3 +7171,157 @@ a.profile-owner:hover .owner-name {
     display: none;
   }
 }
+
+/* ---------- trust and safety: content warnings, reports, suspensions, the admin queue ---------- */
+
+.post-body {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.cw {
+  position: relative;
+}
+
+.cw-hidden {
+  filter: blur(9px);
+  user-select: none;
+  pointer-events: none;
+}
+
+.cw-reveal {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  gap: 2px;
+  width: 100%;
+  min-height: 72px;
+  border: 0;
+  border-radius: 14px;
+  background: rgba(251, 243, 228, 0.55);
+  color: var(--ink);
+  text-align: center;
+}
+
+.cw-title {
+  font-size: 15.5px;
+  font-weight: 700;
+}
+
+.cw-hint {
+  font-size: 13.5px;
+  color: var(--ink-soft);
+}
+
+.post-more-wrap .menu {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
+
+.report-form {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.report-note {
+  min-height: 84px;
+  resize: vertical;
+}
+
+.report-send {
+  margin-top: 4px;
+}
+
+.suspended-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px max(16px, env(safe-area-inset-left)) 12px max(16px, env(safe-area-inset-right));
+  background: #fbe3d6;
+  border-bottom: 1px solid var(--paper-edge);
+  color: var(--clay-deep);
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.suspended-banner p {
+  flex: 1;
+  margin: 0;
+}
+
+.suspended-note {
+  margin: 0 0 8px;
+  font-size: 14.5px;
+  line-height: 1.45;
+  color: var(--clay-deep);
+}
+
+.admin-count {
+  margin: 6px 0 0;
+  font-weight: 650;
+}
+
+.admin-list {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-item {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-item .eyebrow,
+.admin-tags,
+.admin-author {
+  margin: 0;
+}
+
+.admin-tags {
+  font-size: 13.5px;
+  font-weight: 650;
+  color: var(--clay-deep);
+}
+
+.admin-text {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--paper-2);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.admin-media {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0;
+}
+
+.admin-reports {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+  font-size: 14.5px;
+}
+
+.admin-note {
+  display: block;
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
+
+.admin-days {
+  max-width: 120px;
+}
+
+.admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

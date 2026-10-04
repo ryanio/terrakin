@@ -2,7 +2,7 @@ import { DurableObject } from "cloudflare:workers";
 import { cards } from "@terrakin/cards/worker";
 import { buildOpenApi } from "@terrakin/protocol";
 import SKILL_MD from "@terrakin/protocol/SKILL.md";
-import { votesCast } from "@terrakin/sim";
+import { findProposal, votesCast } from "@terrakin/sim";
 import { Api, ipKey, isApiPath, MAX_BODY_BYTES } from "../src/api";
 import {
   MEDIA_ID,
@@ -11,6 +11,7 @@ import {
   readCapped,
   serveFromBucket,
 } from "../src/media";
+import { Moderation } from "../src/moderation";
 import {
   type CardDeps,
   type CardRoute,
@@ -183,10 +184,16 @@ export class World extends DurableObject<Env> {
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     const townsfolk = parseTownsfolk(env.TERRAKIN_TOWNSFOLK);
+    const maintainers = parseMaintainers(env.TERRAKIN_MAINTAINERS);
+    // One set of edge filters for the world and the social layer (RFC 0006).
+    const moderation = new Moderation({
+      privileged: (id) => townsfolk.has(id) || maintainers.has(id),
+    });
     const service = new WorldService({
       store: new SqlStore(ctx.storage.sql),
       days: true,
       townsfolk,
+      moderation,
     });
     const media: MediaStore = {
       put: async (id, bytes, type) => {
@@ -203,8 +210,11 @@ export class World extends DurableObject<Env> {
       media,
       resident: (id) => service.state.residents[id],
       townsfolk,
-      maintainers: parseMaintainers(env.TERRAKIN_MAINTAINERS),
+      maintainers,
       votesCast: (id) => votesCast(service.state, id),
+      moderation,
+      residentAgeDays: (id) => service.residentAgeDays(id),
+      proposal: (id) => findProposal(service.state, id),
     });
     this.api = new Api({ service, social, skill: SKILL_MD, openapi: OPENAPI });
     // Runs while the object is in memory: idle sweeps and the Town Hall's clock. If it's evicted,

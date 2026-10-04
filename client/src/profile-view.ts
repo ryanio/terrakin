@@ -42,6 +42,7 @@ import {
   TOWNSFOLK_ABOUT,
   townsfolkBadge,
 } from "./post-card";
+import { openReportSheet } from "./report-sheet";
 import { GESTURES, gestureInfo, streakLine } from "./together";
 import { copyText, toast } from "./ui";
 import { errorCard, notFoundCard, type View, type ViewContext } from "./view";
@@ -305,6 +306,12 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       handleLine,
       r.townsfolk ? null : ownerLine(r, "profile-owner"),
       r.townsfolk ? h("p", { class: "townsfolk-note", text: TOWNSFOLK_ABOUT }) : null,
+      r.suspended
+        ? h("p", {
+            class: "suspended-note",
+            text: "A maintainer has paused this account for now. Its posts are hidden.",
+          })
+        : null,
       status,
       x.el,
       r.streak
@@ -588,10 +595,16 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       icon("more"),
     );
     const blockItem = h("button", { class: "menu-item", attrs: { type: "button" } });
+    const reportItem = h("button", {
+      class: "menu-item",
+      attrs: { type: "button" },
+      text: `Report ${r.name}`,
+    });
     const menu = h(
       "div",
       { class: "paper menu", attrs: { id: "profile-more", hidden: true } },
       blockItem,
+      reportItem,
     );
     const paint = () => {
       blockItem.dataset.confirm = "";
@@ -604,6 +617,10 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
     };
     paint();
     button.addEventListener("click", () => setOpen(menu.hidden === true));
+    reportItem.addEventListener("click", () => {
+      setOpen(false);
+      openReportSheet({ kind: "resident", id: r.id, label: "profile" });
+    });
     blockItem.addEventListener("click", async () => {
       if (!r.blocked && blockItem.dataset.confirm !== "1") {
         blockItem.dataset.confirm = "1";

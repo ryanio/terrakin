@@ -11,9 +11,11 @@ import {
   errorStatus,
   INVITE_PLOT_SUGGESTIONS,
   isBinaryBody,
+  isWriteRoute,
   LINKS,
   linkHeader,
   MAX_BODY_BYTES,
+  type ModerationLogEntry,
   markdownError,
   type PostView,
   PROTOCOL_VERSION,
@@ -40,6 +42,7 @@ import { findProposal } from "@terrakin/sim";
 import { IdempotencyStore, type StoredResponse, sha256Hex } from "./idempotency";
 import { BAD_LINK_KEY, DEFAULT_ORIGIN, linkHandlers, linkHelp, REPEAT_NOTE } from "./links";
 import { postMarkdown, profileMarkdown } from "./markdown";
+import { COOL_DOWN_MESSAGE } from "./moderation";
 import { OwnerService } from "./owner-service";
 import { RateLimiters, type Take } from "./rate-limit";
 import type { SocialResult, SocialService } from "./social-service";
@@ -101,6 +104,7 @@ const RATE_LIMITED: Record<RateLimitName, string> = {
   letterMedia: "Slow down a little.",
   owner: "Slow down a little.",
   ownerCodes: "Too many tries with codes from here. Wait a minute.",
+  reports: "That's a lot of reports at once. Wait a minute, then send the rest.",
 };
 
 const TABLE = ROUTES as readonly RouteSpec[];
@@ -215,6 +219,13 @@ interface HandlerReply {
   contentType?: string;
 }
 
+const MAINTAINERS_ONLY = "Only maintainers can do that.";
+
+/** A maintainer action's log line as the reply. */
+function logged(outcome: SocialResult<ModerationLogEntry>) {
+  return fromResult(outcome, (entry) => ({ status: 200 as const, body: { logged: entry } }));
+}
+
 /** Unknown, used, and expired invites all answer the same. */
 const INVITE_GONE = "This invite has expired or was already used. Ask for a fresh link.";
 type Handler<K extends RouteId> = (input: HandlerInput<K>) => Reply<K> | Promise<Reply<K>>;
@@ -249,7 +260,7 @@ function fromResult<T, R>(outcome: SocialResult<T>, ok: (value: T) => R): R | Fa
   return fail(
     outcome.code,
     outcome.message,
-    outcome.code === "rate_limited" ? DAILY_CAP_RETRY_SECONDS : undefined,
+    outcome.code === "rate_limited" ? (outcome.retryAfter ?? DAILY_CAP_RETRY_SECONDS) : undefined,
   );
 }
 
@@ -334,6 +345,7 @@ export class Api {
       letterMedia: bucket("letterMedia"),
       owner: bucket("owner"),
       ownerCodes: bucket("ownerCodes"),
+      reports: bucket("reports"),
     };
     // Without a social service its routes don't exist, so they answer not_found like any unknown
     // path. The Town Hall needs it too: its notice board and author faces live there.
@@ -348,7 +360,8 @@ export class Api {
                   tag === "Site" ||
                   tag === "Together" ||
                   tag === "Town" ||
-                  tag === "Owners",
+                  tag === "Owners" ||
+                  tag === "Moderation",
               ),
           ),
     );
@@ -425,6 +438,12 @@ export class Api {
     // Markdown readers get each problem on its own line instead of zod's JSON.
     const problem = (e: { message: string; issues: Issue[] }) =>
       route.format === "markdown" ? e.issues.map(plainIssue).join("\n") : e.message;
+
+    // Suspended residents can read but not write; a resident whose writes the filters paused waits.
+    if (viewer && isWriteRoute(route)) {
+      const blocked = this.writeBlock(viewer);
+      if (blocked) return reject(blocked.error, blocked.message, blocked.retryAfter);
+    }
 
     let limitHeaders: Record<string, string> = {};
     if (route.rateLimit) {
@@ -641,8 +660,8 @@ export class Api {
           }),
         };
       },
-      createPost: ({ viewer, body }) =>
-        fromResult(social().createPost(viewer, body), (post) => ({
+      createPost: ({ viewer, body, ip }) =>
+        fromResult(social().createPost(viewer, body, ipKey(ip)), (post) => ({
           status: 201 as const,
           body: { post },
         })),
@@ -947,6 +966,13 @@ export class Api {
         if (!findProposal(service.state, params.id)) return fail("not_found", "No such proposal.");
         const result = service.voidProposal(params.id, viewer);
         if (!result.ok) return fail(result.error.code, result.error.message);
+        social().safety.recordAction(
+          viewer,
+          "void_proposal",
+          "proposal",
+          params.id,
+          "Voided by a maintainer",
+        );
         const detail = proposalDetail(service.state, social(), params.id, viewer);
         return detail ? { status: 200, body: detail } : fail("internal", "Proposal vanished.");
       },
@@ -1008,6 +1034,46 @@ export class Api {
         })),
       redeemRekey: ({ body }) =>
         fromResult(owners().rekey(body.code), (fresh) => ({ status: 200 as const, body: fresh })),
+      // ---------- safety: reports, transparency, maintainers (RFC 0006) ----------
+      createReport: ({ viewer, body }) => {
+        const filed = social().safety.report(viewer, body);
+        if (!filed.ok) {
+          return fail(
+            filed.code,
+            filed.message,
+            filed.code === "rate_limited" ? DAILY_CAP_RETRY_SECONDS : undefined,
+          );
+        }
+        const { report, created } = filed.value;
+        return created
+          ? { status: 201 as const, body: { report } }
+          : { status: 200 as const, body: { report } };
+      },
+      getTransparency: () => ({ status: 200, body: social().safety.transparency() }),
+      getReports: ({ viewer, query }) => {
+        if (!social().isMaintainer(viewer)) return fail("forbidden", MAINTAINERS_ONLY);
+        return { status: 200, body: social().safety.queue(query.limit) };
+      },
+      dismissReports: ({ viewer, body }) => {
+        if (!social().isMaintainer(viewer)) return fail("forbidden", MAINTAINERS_ONLY);
+        return logged(social().safety.dismiss(viewer, body.kind, body.id, body.reason));
+      },
+      hidePost: async ({ viewer, params, body }) => {
+        if (!social().isMaintainer(viewer)) return fail("forbidden", MAINTAINERS_ONLY);
+        return logged(await social().safety.hidePost(viewer, params.id, body.reason));
+      },
+      unhidePost: ({ viewer, params, body }) => {
+        if (!social().isMaintainer(viewer)) return fail("forbidden", MAINTAINERS_ONLY);
+        return logged(social().safety.unhidePost(viewer, params.id, body.reason));
+      },
+      suspendResident: ({ viewer, params, body }) => {
+        if (!social().isMaintainer(viewer)) return fail("forbidden", MAINTAINERS_ONLY);
+        return logged(social().safety.suspend(viewer, params.id, body.days, body.reason));
+      },
+      unsuspendResident: ({ viewer, params, body }) => {
+        if (!social().isMaintainer(viewer)) return fail("forbidden", MAINTAINERS_ONLY);
+        return logged(social().safety.unsuspend(viewer, params.id, body.reason));
+      },
 
       // ---------- docs ----------
       getSkill: () => ({ status: 200, text: this.skill }),
@@ -1104,12 +1170,44 @@ export class Api {
     this.service.sweepIdle();
     this.social?.sweep().catch((err: unknown) => console.error("Social sweep failed", err));
     this.owners?.sweep();
+    this.service.moderation.sweep();
+    this.social?.moderation.sweep();
     const today = Math.floor(Date.now() / 86_400_000);
     for (const [ip, used] of this.ipUploads) if (used.day !== today) this.ipUploads.delete(ip);
     for (const limits of Object.values(this.limiters)) limits.prune();
     const cutoff = this.now() - REPEAT_WINDOW_MS;
     for (const [key, { at }] of this.repeats) if (at < cutoff) this.repeats.delete(key);
     this.idempotency.sweep();
+  }
+
+  /**
+   * Why a resident can't write right now, or undefined: a maintainer's suspension, or the filters'
+   * cool-down after repeated refusals (RFC 0006). Maintainers are never paused.
+   */
+  writeBlock(residentId: string): Failure | undefined {
+    const until = this.social?.safety.suspendedUntil(residentId);
+    if (until !== undefined) {
+      return fail(
+        "suspended",
+        `A maintainer suspended this account until ${new Date(until).toUTCString()}. You can still read, and delete your own things.`,
+      );
+    }
+    if (this.social?.isMaintainer(residentId)) return undefined;
+    const filters = new Set([
+      this.service.moderation,
+      ...(this.social ? [this.social.moderation] : []),
+    ]);
+    const wait = Math.max(...[...filters].map((m) => m.coolDown(residentId)));
+    if (wait > 0) {
+      this.service.moderation.pause(wait);
+      return fail("rate_limited", COOL_DOWN_MESSAGE, wait);
+    }
+    return undefined;
+  }
+
+  /** The key a client's address is counted under (see `ipKey`). */
+  networkOf(ip: string): string {
+    return ipKey(ip);
   }
 
   authenticate(authorization: string | undefined): string | undefined {
@@ -1239,6 +1337,8 @@ export class LiveSession {
     if (msg.type === "ping")
       return this.send({ type: "pong", ...(msg.id === undefined ? {} : { id: msg.id }) });
     if (!this.api.takeAction(residentId)) return this.fail("rate_limited", "Slow down.", msg.id);
+    const blocked = this.api.writeBlock(residentId);
+    if (blocked) return this.fail(blocked.error, blocked.message, msg.id);
     // The resident may have been marked offline (DELETE /v1/session from another client).
     // An open socket means they're here, so bring them back.
     service.ensureOnline(residentId);

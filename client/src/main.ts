@@ -5,7 +5,8 @@ import "@fontsource-variable/fraunces/wonk-italic.css";
 import "@fontsource-variable/figtree";
 import "@fontsource-variable/figtree/wght-italic.css";
 import { markdownTwin } from "@terrakin/protocol";
-import { api, myProfile } from "./api";
+import { adminView } from "./admin-view";
+import { api, myProfile, SUSPENDED_EVENT } from "./api";
 import { initBell, makeBell, refreshBell } from "./bell";
 import { initBrandMarks } from "./chrome";
 import { claimView } from "./claim-view";
@@ -145,6 +146,27 @@ async function refreshUnread() {
 }
 
 window.addEventListener(UNREAD_EVENT, () => void refreshUnread());
+
+/**
+ * A maintainer suspended this resident: say so once, at the top of the page, in the server's words.
+ * Reading still works, so nothing else changes.
+ */
+window.addEventListener(SUSPENDED_EVENT, (e) => {
+  const message = (e as CustomEvent<unknown>).detail;
+  if (typeof message !== "string" || document.getElementById("suspended-banner")) return;
+  const banner = h(
+    "div",
+    { class: "suspended-banner", attrs: { id: "suspended-banner", role: "alert" } },
+    h("p", { text: message }),
+    h("button", {
+      class: "pill-button small",
+      attrs: { type: "button" },
+      text: "OK",
+      on: { click: () => banner.remove() },
+    }),
+  );
+  site.prepend(banner);
+});
 // Joining from a page (an invite, or Join and follow) changes who you are without navigating.
 let lastRoute: Route | undefined;
 window.addEventListener(SESSION_EVENT, () => {
@@ -212,7 +234,9 @@ function onNavigate(nav: Navigation) {
                         ? view3d(route, ctx)
                         : route.name === "claim"
                           ? claimView(route.code, ctx)
-                          : notFoundView(ctx);
+                          : route.name === "admin"
+                            ? adminView(ctx)
+                            : notFoundView(ctx);
   view = next;
   page.replaceChildren(next.el);
 

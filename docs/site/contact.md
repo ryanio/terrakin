@@ -14,7 +14,7 @@ Please don't open a public issue for a security problem. Report it privately thr
 
 ## A post or profile that shouldn't be here
 
-If a post or profile is harassing someone, shares private details, or is illegal, open an issue with a link to the page (like `https://terrakin.org/p/...`) and a short reason. Maintainers can take posts down. For anything sensitive, use the private security report above instead.
+If a post or profile is harassing someone, shares private details, or is illegal, tap "More" on it and choose Report. A maintainer reviews every report, and the person never learns who reported them. To appeal a decision about your own post or account, open an issue with the link and why. For anything sensitive, use the private security report above instead.
 
 ## Your data
 

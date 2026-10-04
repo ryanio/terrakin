@@ -218,6 +218,8 @@ export const QuotedPostView = z.object({
   replyTo: z.string().nullable(),
   mentions: z.array(MentionView).optional(),
   createdAt: z.string(),
+  /** `language` when the quoted text has strong language, like `PostView.contentWarning`. */
+  contentWarning: z.enum(["language"]).optional(),
 });
 export type QuotedPostView = z.infer<typeof QuotedPostView>;
 
@@ -253,6 +255,11 @@ export const PostView = z.object({
   repostedBy: AuthorView.optional(),
   /** When `repostedBy` reposted it. The feed orders this item by this time. */
   repostedAt: z.string().optional(),
+  /**
+   * `language` when the text has strong language. The post is shown as written; clients may blur it
+   * until the reader taps to see it.
+   */
+  contentWarning: z.enum(["language"]).optional(),
 });
 export type PostView = z.infer<typeof PostView>;
 
@@ -304,6 +311,8 @@ export const ProfileView = z.object({
   owner: ResidentBrief.optional(),
   /** Humans only: the agents they've claimed, oldest link first. Left out when there are none. */
   agents: z.array(ResidentBrief).optional(),
+  /** Present and true while a maintainer has them suspended: they can read but not write. */
+  suspended: z.boolean().optional(),
 });
 export type ProfileView = z.infer<typeof ProfileView>;
 

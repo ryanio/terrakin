@@ -14,12 +14,12 @@ const span = (from: number, to: number) => `${char(from)}-${char(to)}`;
 // Characters that split a word without showing: soft hyphen, combining grapheme joiner, Mongolian
 // vowel separator, zero-width and bidi marks, word joiners, BOM. Built from code points so the
 // source holds no invisible characters.
-const INVISIBLE = new RegExp(
+export const INVISIBLE = new RegExp(
   `[${char(0xad)}${char(0x34f)}${char(0x180e)}${char(0xfeff)}${span(0x200b, 0x200f)}${span(0x202a, 0x202e)}${span(0x2060, 0x2064)}${span(0x2066, 0x2069)}]`,
   "gu",
 );
 // Unicode tag characters mirror ASCII at U+E0000, render as nothing, and models read them.
-const TAGS = /[\u{e0000}-\u{e007f}]/gu;
+export const TAGS = /[\u{e0000}-\u{e007f}]/gu;
 
 const READER = "(?:ai|llm|(?:large )?language model|model|chatbot|assistant|agent|bot)s?";
 

@@ -28,7 +28,7 @@ import {
   type WorldState,
   withinEarshot,
 } from "@terrakin/sim";
-import { aimedAtReader } from "./injection";
+import { Moderation, type ReviewContext, type Surface } from "./moderation";
 import type { Store } from "./store";
 import { cleanMultiline, cleanText } from "./text";
 
@@ -56,6 +56,11 @@ export interface WorldServiceOptions {
    * every replay. Leave it out to keep whatever the log says.
    */
   townsfolk?: ReadonlySet<string>;
+  /**
+   * The edge filters (RFC 0006). Pass the same one to `SocialService`, so a resident's refusals
+   * add up across chat, posts, and everything else. Default: a fresh one.
+   */
+  moderation?: Moderation;
 }
 
 /** One UTC day. The Town Hall's clock ticks once per day, at midnight UTC. */
@@ -115,15 +120,17 @@ const LOOK_MEDIA_TYPES: Record<LookMediaKey, { types: readonly MediaType[]; what
 /** Look up the type of an upload `owner` made, or undefined if it isn't theirs (or doesn't exist). */
 export type OwnedMediaType = (owner: string, mediaId: string) => MediaType | undefined;
 
-/** Turn away text written as orders for AI readers (see injection.ts). */
-function readerRefusal(what: string, words: string): ActResult {
-  return {
-    ok: false,
-    error: {
-      code: "bad_request",
-      message: `${what} can't include instructions aimed at AI readers ("${words}"). Write it for people, and say it another way.`,
-    },
-  };
+/** Run text through the edge filters (moderation.ts). Undefined when it may go ahead. */
+function filtered(
+  moderation: Moderation,
+  surface: Surface,
+  text: string | undefined,
+  context: ReviewContext,
+): ActResult | undefined {
+  if (text === undefined || text === "") return undefined;
+  const verdict = moderation.review(surface, text, context);
+  if (verdict.ok) return undefined;
+  return { ok: false, error: { code: verdict.code, message: verdict.message } };
 }
 
 /**
@@ -152,13 +159,30 @@ export class WorldService {
   private readonly idleTimeoutMs: number;
   readonly now: () => number;
   private readonly days: boolean;
+  /** The edge filters for names, notes, chat, and proposals. */
+  readonly moderation: Moderation;
+  /**
+   * The UTC day each resident first joined, read from the log (the last `new_day` before their
+   * first `join`; 0 if the world wasn't counting days yet). For report weight, never for the sim.
+   */
+  private readonly joinedDay = new Map<string, number>();
 
   constructor(options: WorldServiceOptions) {
     this.store = options.store;
     this.idleTimeoutMs = options.idleTimeoutMs ?? 10 * 60_000;
     this.now = options.now ?? Date.now;
     this.days = options.days ?? false;
-    this.state = replay(options.config ?? DEFAULT_CONFIG, this.store.loadLog());
+    const grant = options.townsfolk;
+    this.moderation =
+      options.moderation ??
+      new Moderation({ now: this.now, privileged: (id) => grant?.has(id) === true });
+    const log = this.store.loadLog();
+    this.state = replay(options.config ?? DEFAULT_CONFIG, log);
+    let day = 0;
+    for (const { actor, command } of log) {
+      if (command.type === "new_day") day = command.day;
+      if (command.type === "join" && !this.joinedDay.has(actor)) this.joinedDay.set(actor, day);
+    }
     for (const s of this.store.loadSessions()) this.sessions.set(s.tokenHash, s.residentId);
     for (const k of this.store.loadLinkKeys()) this.rememberLinkKey(k.residentId, k.keyHash);
     // Nobody is connected right after a restart. Mark everyone offline so presence is honest.
@@ -209,6 +233,12 @@ export class WorldService {
     return this.run({ actor: TOWN_ACTOR, command: { type: "void_proposal", proposal, by } });
   }
 
+  /** Whole UTC days since a resident first joined. Residents from before days were counted are old. */
+  residentAgeDays(residentId: string): number {
+    const joined = this.joinedDay.get(residentId);
+    return joined === undefined ? 0 : utcDay(this.now()) - joined;
+  }
+
   // ---------- identity ----------
 
   createSession(
@@ -227,8 +257,10 @@ export class WorldService {
   ): ActResult & { residentId?: string } {
     const residentId = `r_${toHex(randomBytes(8))}`;
     const { name, kind, ...profile } = request;
-    const aimed = profile.note === undefined ? null : aimedAtReader(profile.note);
-    if (aimed) return readerRefusal("Notes", aimed);
+    const refused =
+      filtered(this.moderation, "name", cleanText(name), {}) ??
+      filtered(this.moderation, "note", profile.note && cleanText(profile.note), {});
+    if (refused) return refused;
     // A brand-new resident owns no uploads, so any media here is refused.
     const media = this.checkLookMedia(residentId, profile);
     if (media) return media;
@@ -237,6 +269,7 @@ export class WorldService {
       command: { type: "join", name: cleanText(name), kind, ...cleanProfile(profile) },
     });
     if (!result.ok) return result;
+    this.joinedDay.set(residentId, utcDay(this.now()));
     this.touch(residentId);
     return { ...result, residentId };
   }
@@ -390,11 +423,13 @@ export class WorldService {
 
   act(residentId: string, action: Action): ActResult {
     this.touch(residentId);
+    const context = { resident: residentId };
     if (action.type === "chat") return this.chat(residentId, action.text, action.channel);
     if (action.type === "profile") {
       const { type, ...profile } = action;
-      const aimed = profile.note === undefined ? null : aimedAtReader(profile.note);
-      if (aimed) return readerRefusal("Notes", aimed);
+      const note = profile.note && cleanText(profile.note);
+      const refused = filtered(this.moderation, "note", note, context);
+      if (refused) return refused;
       const media = this.checkLookMedia(residentId, profile);
       if (media) return media;
       const result = this.run({ actor: residentId, command: { type, ...cleanProfile(profile) } });
@@ -416,8 +451,10 @@ export class WorldService {
       // as orders to AI readers before it's logged. The sim stores what's logged.
       const title = cleanText(action.title);
       const text = cleanMultiline(action.text ?? "");
-      const aimed = aimedAtReader(title) ?? aimedAtReader(text);
-      if (aimed) return readerRefusal("Proposals", aimed);
+      const refused =
+        filtered(this.moderation, "proposal_title", title, context) ??
+        filtered(this.moderation, "proposal_text", text, context);
+      if (refused) return refused;
       const { blocks, remove } = action;
       const command: Command = {
         type: "propose",
@@ -439,8 +476,8 @@ export class WorldService {
     const text = cleanText(raw);
     if (text === "")
       return { ok: false, error: { code: "bad_request", message: "Empty message." } };
-    const aimed = aimedAtReader(text);
-    if (aimed) return readerRefusal("Chat", aimed);
+    const refused = filtered(this.moderation, "chat", text, { resident: residentId });
+    if (refused) return refused;
     const message: ServerMessage = {
       type: "chat",
       trust: "untrusted",

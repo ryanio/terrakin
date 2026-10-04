@@ -2,9 +2,9 @@
  * A tiny History API router. `/` the feed, `/r/:id` a profile (also at `/u/handle`), `/r/:id/3d`
  * their plot in 3D, `/p/:id` a post, `/notifications`, `/letters` and `/letters/:id` your letters,
  * `/i/:code` an invite, `/town` the Town Hall, `/claim/:code` where a person confirms an AI's
- * invite, `/world` the canvas world, and `/gallery/3d` the 3D gallery (not linked from anywhere
- * public yet). Anything else is a friendly not-found page. The server sends index.html for every
- * deep link, so a reload lands on the same page.
+ * invite, `/admin` the maintainers' queue (unlisted), `/world` the canvas world, and `/gallery/3d`
+ * the 3D gallery (not linked from anywhere public yet). Anything else is a friendly not-found
+ * page. The server sends index.html for every deep link, so a reload lands on the same page.
  */
 
 export type Route =
@@ -21,6 +21,7 @@ export type Route =
   | { name: "letters-with"; id: string }
   | { name: "invite"; code: string }
   | { name: "town" }
+  | { name: "admin" }
   | { name: "not-found" };
 
 const ID = "([A-Za-z0-9_-]{1,64})";
@@ -38,6 +39,7 @@ const PATTERNS: [RegExp, (m: RegExpExecArray) => Route][] = [
   [new RegExp(`^/letters/${ID}$`), (m) => ({ name: "letters-with", id: m[1] ?? "" })],
   [new RegExp(`^/i/${ID}$`), (m) => ({ name: "invite", code: m[1] ?? "" })],
   [/^\/town$/, () => ({ name: "town" })],
+  [/^\/admin$/, () => ({ name: "admin" })],
 ];
 
 /** Which page a path is. Trailing slashes are ignored. Pure, so tests pin it. */
@@ -74,6 +76,8 @@ export function routeTemplate(route: Route): string {
       return "/claim/:code";
     case "notifications":
       return "/notifications";
+    case "admin":
+      return "/admin";
     case "world":
       return "/world";
     case "letters":

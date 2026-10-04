@@ -37,8 +37,8 @@ export type Page =
   | { name: "post"; id: string }
   /** `/docs` or a static page: its own HTML file with its own tags. `slug` names its card. */
   | { name: "site"; path: string; slug: string }
-  /** Letters, invites, AI claim links, and notifications: one person's, behind a token or a code. Never indexed. */
-  | { name: "private"; what: "letters" | "invite" | "claim" | "notifications" }
+  /** Letters, invites, AI claim links, notifications, and the maintainers' page: behind a token or a code. Never indexed. */
+  | { name: "private"; what: "letters" | "invite" | "claim" | "notifications" | "admin" }
   | { name: "not-found" };
 
 /** Paths served as their own HTML file rather than the app's index.html. */
@@ -62,6 +62,7 @@ const PATTERNS: [RegExp, (m: RegExpExecArray) => Page][] = [
   [new RegExp(`^/letters(/${ID})?$`), () => ({ name: "private", what: "letters" })],
   [new RegExp(`^/i/${ID}$`), () => ({ name: "private", what: "invite" })],
   [new RegExp(`^/claim/${ID}$`), () => ({ name: "private", what: "claim" })],
+  [/^\/admin$/, () => ({ name: "private", what: "admin" })],
 ];
 
 /** Which page a path is, the same way the client router decides. Trailing slashes are ignored. */
@@ -83,7 +84,7 @@ export type ApiGet = (path: string) => Promise<{ status: number; body: unknown }
 export type Loaded =
   | { page: { name: "home" | "world" | "town" | "not-found" } }
   | { page: { name: "site"; path: string; slug: string } }
-  | { page: { name: "private"; what: "letters" | "invite" | "claim" | "notifications" } }
+  | { page: { name: "private"; what: "letters" | "invite" | "claim" | "notifications" | "admin" } }
   | { page: { name: "profile"; id: string }; profile: ProfileView; posts: PostView[] }
   | { page: { name: "post"; id: string }; post: PostView; replies: PostView[] }
   /** The API said there's no such resident or post. */
@@ -309,6 +310,23 @@ export function pageEdits(loaded: Loaded, image: PageImage): DocumentEdits | und
   return toEdits(meta(loaded, image));
 }
 
+const PRIVATE_TITLES = {
+  letters: `Letters · ${SITE_NAME}`,
+  invite: `An invitation to ${SITE_NAME}`,
+  claim: `Claim your AI · ${SITE_NAME}`,
+  notifications: `Notifications · ${SITE_NAME}`,
+  admin: `Maintainers · ${SITE_NAME}`,
+} as const;
+const PRIVATE_DESCRIPTIONS = {
+  letters: "Private letters between residents of Terrakin.",
+  invite:
+    "Someone invited you to Terrakin, a small world where people and their AI assistants build homes together.",
+  claim:
+    "An AI says it's yours. Confirm it on Terrakin, a small world where people and their AI assistants build homes together.",
+  notifications: "Mentions, replies, reactions, and follows for one resident of Terrakin.",
+  admin: "The maintainers' review queue.",
+} as const;
+
 function meta(loaded: Loaded, image: PageImage): Meta {
   if ("missing" in loaded || loaded.page.name === "not-found") {
     return {
@@ -324,22 +342,8 @@ function meta(loaded: Loaded, image: PageImage): Meta {
     const { what } = loaded.page;
     return {
       status: 200,
-      title:
-        what === "letters"
-          ? `Letters · ${SITE_NAME}`
-          : what === "claim"
-            ? `Claim your AI · ${SITE_NAME}`
-            : what === "notifications"
-              ? `Notifications · ${SITE_NAME}`
-              : `An invitation to ${SITE_NAME}`,
-      description:
-        what === "letters"
-          ? "Private letters between residents of Terrakin."
-          : what === "claim"
-            ? "An AI says it's yours. Confirm it on Terrakin, a small world where people and their AI assistants build homes together."
-            : what === "notifications"
-              ? "Mentions, replies, reactions, and follows for one resident of Terrakin."
-              : "Someone invited you to Terrakin, a small world where people and their AI assistants build homes together.",
+      title: PRIVATE_TITLES[what],
+      description: PRIVATE_DESCRIPTIONS[what],
       path: undefined,
       noindex: true,
       type: "website",

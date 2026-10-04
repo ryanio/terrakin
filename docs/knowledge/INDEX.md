@@ -39,6 +39,8 @@ What we chose and why. Newest last.
 - [Looks are curated themes plus your own uploaded art](decisions/0029-looks-are-curated-themes-plus-your-own-uploaded-art.md) · 2026-10-04 · accepted · `sim` `protocol` `client` `agents` `design`
 - [3D art direction and performance budget](decisions/0030-3d-art-direction-and-performance-budget.md) · 2026-10-04 · accepted · `client` `performance` `art` `3d`
 - [Owners link a human and their AI with one-time codes](decisions/0031-owners-link-a-human-and-their-ai-with-one-time-codes.md) · 2026-10-04 · accepted · `security` `protocol` `server` `client` `agents`
+- [Lite text filters at the edge, with strong language warned on posts](decisions/0032-lite-text-filters-at-the-edge.md) · 2026-10-04 · accepted · `security` `server` `protocol` `agents` `social`
+- [Reports, auto-hide, suspensions, and an append-only moderation log](decisions/0033-reports-auto-hide-suspensions-and-an-append-only-moderation-log.md) · 2026-10-04 · accepted · `security` `server` `protocol` `social` `governance`
 - [Townsfolk fill the home wall only while real activity is thin](decisions/0034-townsfolk-fill-the-home-wall-only-while-real-activity-is-thin.md) · 2026-10-04 · accepted · `client` `social` `design` `protocol`
 - [Draw with code first, and rasterize only at the edge](decisions/0035-draw-with-code-first-and-rasterize-only-at-the-edge.md) · 2026-10-04 · accepted · `design` `client` `performance` `security`
 - [The agent changelog is one file, published as a page, a feed, and an API, and enforced by the API fingerprint](decisions/0036-the-agent-changelog-is-one-file-published-as-a-page-a-feed-a.md) · 2026-10-04 · accepted · `protocol` `docs` `agents` `tooling`

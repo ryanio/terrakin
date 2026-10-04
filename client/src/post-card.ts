@@ -10,7 +10,7 @@ import { h, icon } from "./dom";
 import { compactCount, fullDate, plural, relativeTime } from "./format";
 import { mediaGrid } from "./media";
 import { appendRichText } from "./mentions";
-import { savedToken } from "./net";
+import { savedResidentId, savedToken } from "./net";
 import { avatarEl, postPath, profilePath, quoteEmbed, who } from "./people";
 import {
   applyReaction,
@@ -21,6 +21,7 @@ import {
   REACTIONS,
   reactionSummary,
 } from "./reactions";
+import { openReportSheet } from "./report-sheet";
 import { openPopover, shareLink, toast } from "./ui";
 
 export {
@@ -132,6 +133,21 @@ export function postCard(post: PostView, options: PostCardOptions = {}): HTMLEle
   if (options.variant) classes.push(options.variant);
   if (reposter) classes.push("is-repost");
   const media = mediaGrid(post.media, author.name);
+  // Strong language: the words and pictures go behind a tap-to-show cover, so a spotlight's
+  // picture moves down into it too.
+  const warned = post.contentWarning !== undefined || Boolean(post.quote?.contentWarning);
+  const lead = options.variant === "spotlight" && !warned ? media : null;
+  const body = h(
+    "div",
+    { class: "post-body" },
+    options.variant === "quote"
+      ? h("span", { class: "quote-mark" }, icon("quote", "icon quote-icon"))
+      : null,
+    text,
+    more,
+    post.quote === undefined ? null : quoteEmbed(post.quote),
+    lead ? null : media,
+  );
   const article = h(
     "article",
     {
@@ -148,21 +164,81 @@ export function postCard(post: PostView, options: PostCardOptions = {}): HTMLEle
         )
       : null,
     // A spotlight leads with its picture; everything else reads top down.
-    options.variant === "spotlight" ? media : null,
+    lead,
     head,
     context,
-    options.variant === "quote"
-      ? h("span", { class: "quote-mark" }, icon("quote", "icon quote-icon"))
-      : null,
-    text,
-    more,
-    post.quote === undefined ? null : quoteEmbed(post.quote),
-    options.variant === "spotlight" ? null : media,
+    warned ? contentWarning(body) : body,
     ...actions(post, options),
   );
   if (options.variant === "quote")
     article.style.setProperty("--avatar", `var(--resident-${author.color})`);
   return article;
+}
+
+/**
+ * A post with strong language (`contentWarning`) starts blurred behind a button. The words are on
+ * the page either way: this only spares readers who'd rather not see them by surprise.
+ */
+function contentWarning(body: HTMLElement): HTMLElement {
+  body.classList.add("cw-hidden");
+  body.setAttribute("aria-hidden", "true");
+  body.inert = true;
+  const reveal = h(
+    "button",
+    { class: "cw-reveal", attrs: { type: "button" } },
+    h("span", { class: "cw-title", text: "Strong language" }),
+    h("span", { class: "cw-hint", text: "Tap to show" }),
+  );
+  const wrap = h("div", { class: "cw" }, body, reveal);
+  reveal.addEventListener("click", () => {
+    body.classList.remove("cw-hidden");
+    body.removeAttribute("aria-hidden");
+    body.inert = false;
+    reveal.remove();
+  });
+  return wrap;
+}
+
+/** "…" with Report, on posts that aren't yours. */
+function moreMenu(post: PostView): HTMLElement | null {
+  if (post.author.id === savedResidentId()) return null;
+  const menuId = `post-more-${post.id}`;
+  const button = h(
+    "button",
+    {
+      class: "post-action post-more-button",
+      attrs: {
+        type: "button",
+        "aria-label": "More",
+        "aria-haspopup": "true",
+        "aria-expanded": "false",
+        "aria-controls": menuId,
+      },
+    },
+    icon("more"),
+  );
+  const report = h("button", {
+    class: "menu-item",
+    attrs: { type: "button" },
+    text: "Report post",
+  });
+  const menu = h("div", { class: "paper menu", attrs: { id: menuId, hidden: true } }, report);
+  const wrap = h("div", { class: "more post-more-wrap" }, button, menu);
+  const outside = (e: PointerEvent) => {
+    if (!(e.target instanceof Node && wrap.contains(e.target))) setOpen(false);
+  };
+  const setOpen = (open: boolean) => {
+    menu.hidden = !open;
+    button.setAttribute("aria-expanded", String(open));
+    if (open) document.addEventListener("pointerdown", outside);
+    else document.removeEventListener("pointerdown", outside);
+  };
+  button.addEventListener("click", () => setOpen(menu.hidden === true));
+  report.addEventListener("click", () => {
+    setOpen(false);
+    openReportSheet({ kind: "post", id: post.id, label: "post" });
+  });
+  return wrap;
 }
 
 /** Long-press this long on the like button to pick another reaction. */
@@ -438,6 +514,8 @@ function actions(post: PostView, options: PostCardOptions): HTMLElement[] {
   paintReactions();
   paintRepost();
   bar.append(like, react, reply, repost, share);
+  const more = moreMenu(post);
+  if (more) bar.append(more);
   return [chips, bar];
 }
 

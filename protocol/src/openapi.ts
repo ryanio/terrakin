@@ -15,6 +15,7 @@ import {
   routeErrors,
   TAGS,
 } from "./routes";
+import * as safety from "./safety";
 import * as schemas from "./schemas";
 import { absolute, LINKS, SITE } from "./site";
 import * as social from "./social";
@@ -91,7 +92,7 @@ const IDEMPOTENCY_KEY = {
 function namedSchemas() {
   const registry = z.registry<{ id: string }>();
   const names = new Map<z.ZodType, string>();
-  for (const [name, value] of Object.entries({ ...schemas, ...social, ...town, ...changelog })) {
+  for (const [name, value] of Object.entries({ ...schemas, ...social, ...town, ...changelog, ...safety })) {
     if (!(value instanceof z.ZodType) || names.has(value)) continue;
     registry.add(value, { id: name });
     names.set(value, name);
@@ -112,7 +113,7 @@ export function buildOpenApi() {
     const name = names.get(schema);
     if (!name)
       throw new Error(
-        `${where} uses a schema that isn't exported from schemas.ts, social.ts, town.ts, or changelog.ts`,
+        `${where} uses a schema that isn't exported from schemas.ts, social.ts, town.ts, changelog.ts, or safety.ts`,
       );
     return ref(name);
   };

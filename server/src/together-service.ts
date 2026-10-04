@@ -18,8 +18,8 @@ import {
   type StreakView,
 } from "@terrakin/protocol";
 import type { Resident } from "@terrakin/sim";
-import { aimedAtReader, readerMessage } from "./injection";
 import { type MediaStore, privateMediaKey } from "./media";
+import { type Moderation, refusal } from "./moderation";
 import type { SocialResult } from "./social-service";
 import type { SqlExec } from "./sql-store";
 import { cleanMultiline, cleanText } from "./text";
@@ -52,6 +52,8 @@ export interface TogetherOptions {
   release: (mediaId: string) => Promise<void>;
   /** Tell the recipient about a new letter or gesture (the social layer's notifications). */
   notify?: (recipient: string, actor: string, type: "letter" | "gesture", detail?: string) => void;
+  /** The edge filters (moderation.ts). */
+  review: Moderation["review"];
 }
 
 type Row = Record<string, unknown>;
@@ -171,8 +173,8 @@ export class TogetherService {
     }
     const text = cleanMultiline(request.text);
     if (text === "") return fail("bad_request", "Empty letter.");
-    const aimed = aimedAtReader(text);
-    if (aimed) return fail("bad_request", readerMessage("Letters", aimed));
+    const refused = refusal(this.o.review("letter", text, { resident: sender }));
+    if (refused) return refused;
 
     const since = this.o.now() - DAY_MS;
     if (
@@ -410,8 +412,10 @@ export class TogetherService {
       return fail("forbidden", "You can't send that to this resident.");
     }
     const note = cleanText(request.note ?? "");
-    const aimed = note ? aimedAtReader(note) : null;
-    if (aimed) return fail("bad_request", readerMessage("Notes", aimed));
+    const refused = note
+      ? refusal(this.o.review("gesture_note", note, { resident: sender }))
+      : undefined;
+    if (refused) return refused;
     if (request.kind === "gift" && note === "") {
       return fail("bad_request", 'Say what the gift is in the note, like "a jar of honey".');
     }

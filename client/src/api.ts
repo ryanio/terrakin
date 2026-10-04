@@ -10,6 +10,7 @@ import {
   ArchiveResponse,
   type CreateLetterRequest,
   type CreatePostRequest,
+  type CreateReportRequest,
   type CreateSessionRequest,
   CreateSessionResponse,
   ErrorBody,
@@ -23,6 +24,7 @@ import {
   LettersResponse,
   MediaResponse,
   type MediaView,
+  ModerationResponse,
   NoticeResponse,
   NotificationsResponse,
   OwnerCodeResponse,
@@ -33,6 +35,9 @@ import {
   ProfileResponse,
   type ProfileView,
   type ReactionKey,
+  type ReportKind,
+  ReportQueueResponse,
+  ReportResponse,
   ResidentListResponse,
   TownResponse,
   UnreadResponse,
@@ -62,6 +67,12 @@ function errorOf(json: unknown) {
 }
 
 const OFFLINE = "Can't reach Terrakin right now. Check your connection and try again.";
+
+/**
+ * Fired on `window` when the server refuses a write because a maintainer suspended this resident.
+ * `detail` is the server's message. The page shows it once, as a banner.
+ */
+export const SUSPENDED_EVENT = "terrakin:suspended";
 
 function authHeaders(): Record<string, string> {
   const token = savedToken();
@@ -102,6 +113,9 @@ async function request<T>(
   }
   if (!res.ok) {
     const err = errorOf(json);
+    if (err?.code === "suspended") {
+      window.dispatchEvent(new CustomEvent(SUSPENDED_EVENT, { detail: err.message }));
+    }
     return {
       ok: false,
       status: res.status,
@@ -234,6 +248,27 @@ export const api = {
       NotificationsResponse,
     ),
   markRead: (upTo: string) => request("POST", "/v1/notifications/read", UnreadResponse, { upTo }),
+  // Trust and safety (RFC 0006)
+  report: (body: CreateReportRequest) => request("POST", "/v1/reports", ReportResponse, body),
+  reports: () => request("GET", "/v1/admin/reports?limit=50", ReportQueueResponse),
+  hidePost: (id: string, reason: string, on: boolean) =>
+    request(
+      "POST",
+      `/v1/admin/posts/${encodeURIComponent(id)}/${on ? "hide" : "unhide"}`,
+      ModerationResponse,
+      { reason },
+    ),
+  suspend: (id: string, days: number, reason: string) =>
+    request("POST", `/v1/admin/residents/${encodeURIComponent(id)}/suspend`, ModerationResponse, {
+      days,
+      reason,
+    }),
+  unsuspend: (id: string, reason: string) =>
+    request("POST", `/v1/admin/residents/${encodeURIComponent(id)}/unsuspend`, ModerationResponse, {
+      reason,
+    }),
+  dismissReports: (kind: ReportKind, id: string, reason: string) =>
+    request("POST", "/v1/admin/reports/dismiss", ModerationResponse, { kind, id, reason }),
 };
 
 /** For replies with no body (204). */

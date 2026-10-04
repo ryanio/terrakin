@@ -1,8 +1,9 @@
 import { resolve } from "node:path";
-import { votesCast } from "@terrakin/sim";
+import { findProposal, votesCast } from "@terrakin/sim";
 import { createApp } from "./app";
 import { FileMediaStore } from "./file-media-store";
 import { MemoryMediaStore } from "./media";
+import { Moderation } from "./moderation";
 import { nodeSql } from "./node-sql";
 import { parseMaintainers, parseTownsfolk, SocialService } from "./social-service";
 import { JsonlStore, MemoryStore } from "./store";
@@ -37,9 +38,15 @@ if (testClock && process.env.NODE_ENV === "production") {
 let offset = 0;
 const now = testClock ? () => Date.now() + offset : Date.now;
 const townsfolk = parseTownsfolk(process.env.TERRAKIN_TOWNSFOLK);
+const maintainers = parseMaintainers(process.env.TERRAKIN_MAINTAINERS);
+// One set of edge filters for the world and the social layer, so refusals add up everywhere.
+const moderation = new Moderation({
+  now,
+  privileged: (id) => townsfolk.has(id) || maintainers.has(id),
+});
 
 const store = dataDir ? new JsonlStore(fromCwd(dataDir)) : new MemoryStore();
-const service = new WorldService({ store, now, days: true, townsfolk });
+const service = new WorldService({ store, now, days: true, townsfolk, moderation });
 const media = dataDir ? new FileMediaStore(fromCwd(`${dataDir}/media`)) : new MemoryMediaStore();
 const social = new SocialService({
   sql: nodeSql(dataDir ? fromCwd(`${dataDir}/social.db`) : ":memory:"),
@@ -48,8 +55,11 @@ const social = new SocialService({
   resident: (id) => service.state.residents[id],
   townsfolk,
   ...testXReader(process.env.TERRAKIN_TEST_X_OEMBED),
-  maintainers: parseMaintainers(process.env.TERRAKIN_MAINTAINERS),
+  maintainers,
   votesCast: (id) => votesCast(service.state, id),
+  moderation,
+  residentAgeDays: (id) => service.residentAgeDays(id),
+  proposal: (id) => findProposal(service.state, id),
 });
 
 /**
@@ -85,6 +95,10 @@ const server = createApp({
             offset += DAY_MS;
             service.tick();
             return service.state.day ?? null;
+          },
+          // The e2e suite needs a maintainer, and resident ids are random, so it names one here.
+          grantMaintainer: (id: string) => {
+            maintainers.add(id);
           },
         },
       }

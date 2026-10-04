@@ -42,6 +42,8 @@ import {
 import { lookOf, type Resident } from "@terrakin/sim";
 import { aimedAtReader, readerMessage } from "./injection";
 import { type MediaStore, privateMediaKey, sniffMediaType } from "./media";
+import { Moderation, type ReviewContext, refusal, type Surface } from "./moderation";
+import { NOT_SUSPENDED, SafetyService } from "./safety-service";
 import type { SqlExec } from "./sql-store";
 import { stripMetadata } from "./strip-metadata";
 import { cleanMultiline, cleanText } from "./text";
@@ -75,7 +77,7 @@ export interface PetitionAnswer {
 
 export type SocialResult<T> =
   | { ok: true; value: T }
-  | { ok: false; code: ErrorCode; message: string };
+  | { ok: false; code: ErrorCode; message: string; retryAfter?: number };
 
 export interface SocialLimits {
   /** Posts (including replies and quotes) per resident per rolling 24 hours. */
@@ -141,6 +143,15 @@ export interface SocialServiceOptions {
   maintainers?: ReadonlySet<string>;
   /** How many Town Hall proposals a resident voted on, from the world. Shown on profiles. */
   votesCast?: (id: string) => number;
+  /**
+   * The edge filters (RFC 0006). Pass the world's (`WorldService.moderation`), so a resident's
+   * refusals add up everywhere. Default: a fresh one.
+   */
+  moderation?: Moderation;
+  /** Whole days since a resident joined (`WorldService.residentAgeDays`). Default: everyone is old. */
+  residentAgeDays?: (id: string) => number;
+  /** A Town Hall proposal, for reports on one. Default: none exist. */
+  proposal?: (id: string) => { author: string; title: string; text: string } | undefined;
 }
 
 type Row = Record<string, unknown>;
@@ -198,6 +209,8 @@ export class SocialService {
   private readonly readXPost: XPostReader;
   private readonly maintainers: ReadonlySet<string>;
   private readonly votesCast: ((id: string) => number) | undefined;
+  /** The edge filters for posts, bios, notices, letters, and gesture notes. */
+  readonly moderation: Moderation;
 
   constructor(options: SocialServiceOptions) {
     this.sql = options.sql;
@@ -209,6 +222,12 @@ export class SocialService {
     this.readXPost = options.readXPost ?? oembedReader();
     this.maintainers = options.maintainers ?? new Set();
     this.votesCast = options.votesCast;
+    this.moderation =
+      options.moderation ??
+      new Moderation({
+        now: this.now,
+        privileged: (id) => this.townsfolk.has(id) || this.maintainers.has(id),
+      });
     for (const statement of [
       `CREATE TABLE IF NOT EXISTS posts (
         n INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -378,11 +397,35 @@ export class SocialService {
       blockedEither: (a, b) => this.blockedEither(a, b),
       release: (id) => this.releaseIfUnused(id),
       notify: (recipient, actor, type, detail) => this.notify(recipient, actor, type, "", detail),
+      review: (surface, text, context) => this.moderation.review(surface, text, context),
+    });
+    this.safety = new SafetyService({
+      sql: this.sql,
+      now: this.now,
+      resident: this.resident,
+      author: (id) => this.authorView(id),
+      isMaintainer: (id) => this.isMaintainer(id),
+      residentAgeDays: options.residentAgeDays ?? (() => Number.POSITIVE_INFINITY),
+      proposal: options.proposal ?? (() => undefined),
+      postMedia: (postId) => this.mediaFor([postId]).get(postId) ?? [],
+      dropPostMedia: async (postId) => {
+        const media = this.rows("SELECT media_id FROM post_media WHERE post_id = ?", postId);
+        this.sql.exec("DELETE FROM post_media WHERE post_id = ?", postId);
+        for (const m of media) await this.releaseIfUnused(String(m.media_id));
+      },
+      moderation: () => [this.moderation],
     });
   }
 
   /** Letters, gestures, streaks, and invites (decision 0024). Shares this service's tables. */
   readonly together: TogetherService;
+  /** Reports, hiding, suspensions, and the moderation log (RFC 0006). Shares this service's tables. */
+  readonly safety: SafetyService;
+
+  /** Review text with the edge filters as one resident. */
+  review(surface: Surface, text: string, context: ReviewContext) {
+    return this.moderation.review(surface, text, context);
+  }
 
   private rows(query: string, ...bindings: Binding[]): Row[] {
     return [...this.sql.exec(query, ...bindings)];
@@ -394,12 +437,23 @@ export class SocialService {
 
   // ---------- posts ----------
 
-  createPost(authorId: string, request: CreatePostRequest): SocialResult<PostView> {
+  /**
+   * Post or reply. `network` is the author's `ipKey()`, for the filters' check on many residents
+   * sending the same words from one place.
+   */
+  createPost(
+    authorId: string,
+    request: CreatePostRequest,
+    network?: string,
+  ): SocialResult<PostView> {
     if (!this.resident(authorId)) return fail("unauthorized", "Unknown resident.");
     const text = cleanMultiline(request.text);
     if (text === "") return fail("bad_request", "Empty post.");
-    const aimed = aimedAtReader(text);
-    if (aimed) return fail("bad_request", readerMessage("Posts", aimed));
+    const verdict = this.moderation.review(request.replyTo ? "reply" : "post", text, {
+      resident: authorId,
+      network,
+    });
+    if (!verdict.ok) return refusal(verdict) ?? fail("bad_request", "Not posted.");
     const since = this.now() - DAY_MS;
     if (
       this.count(
@@ -466,6 +520,7 @@ export class SocialService {
     tell(quoted ? String(quoted.author) : undefined, "quote");
     for (const m of mentions) tell(m.id, "mention");
 
+    verdict.commit();
     const post = this.post(id, authorId);
     return post ? { ok: true, value: post } : fail("internal", "Post vanished.");
   }
@@ -498,9 +553,10 @@ export class SocialService {
   /** One post as `viewerId` sees it, or undefined if it doesn't exist or is hidden. */
   post(postId: string, viewerId?: string): PostView | undefined {
     const rows = this.rows(
-      `SELECT ${POST_COLUMNS} FROM posts p WHERE p.id = ? AND p.hidden = 0`,
+      `SELECT ${POST_COLUMNS} FROM posts p WHERE p.id = ? AND p.hidden = 0 AND ${NOT_SUSPENDED("p.author")}`,
       viewerId ?? "",
       postId,
+      this.now(),
     );
     return this.views(rows, viewerId)[0];
   }
@@ -510,10 +566,12 @@ export class SocialService {
       this.rows(
         `SELECT ${POST_COLUMNS} FROM posts p WHERE p.reply_to = ? AND p.hidden = 0
           AND p.author NOT IN (SELECT blocked FROM blocks WHERE blocker = ?)
+          AND ${NOT_SUSPENDED("p.author")}
           ORDER BY p.n ASC LIMIT 200`,
         viewerId ?? "",
         postId,
         viewerId ?? "",
+        this.now(),
       ),
       viewerId,
     );
@@ -542,8 +600,8 @@ export class SocialService {
       return this.mixedFeed({ authors: "followed", id: options.viewerId }, options, limit);
     }
     const before = Number.parseInt(options.before ?? "", 36);
-    const where = ["p.hidden = 0", "p.reply_to = ''"];
-    const bindings: Binding[] = [options.viewerId ?? ""];
+    const where = ["p.hidden = 0", "p.reply_to = ''", NOT_SUSPENDED("p.author")];
+    const bindings: Binding[] = [options.viewerId ?? "", this.now()];
     if (Number.isFinite(before)) {
       where.push("p.n < ?");
       bindings.push(before);
@@ -629,9 +687,11 @@ export class SocialService {
       this.views(
         ids.length
           ? this.rows(
-              `SELECT ${POST_COLUMNS} FROM posts p WHERE p.id IN (${marks(ids.length)})`,
+              `SELECT ${POST_COLUMNS} FROM posts p WHERE p.id IN (${marks(ids.length)})
+                AND ${NOT_SUSPENDED("p.author")}`,
               options.viewerId ?? "",
               ...ids,
+              this.now(),
             )
           : [],
         options.viewerId,
@@ -641,6 +701,7 @@ export class SocialService {
       const view = views.get(String(row.post_id));
       if (!view) return [];
       if (!row.by) return [view];
+      if (this.safety.suspendedUntil(String(row.by)) !== undefined) return [];
       const by = this.authorById(String(row.by));
       if (!by) return [view];
       return [{ ...view, repostedBy: by, repostedAt: new Date(Number(row.at)).toISOString() }];
@@ -858,6 +919,7 @@ export class SocialService {
       ...(viewerId && this.blocks(viewerId, r.id) ? { blocked: true } : {}),
       ...(this.votesCast ? { votes: this.votesCast(r.id) } : {}),
       ...this.ownerFields(r.id),
+      ...(this.safety.suspendedUntil(r.id) === undefined ? {} : { suspended: true }),
     };
   }
 
@@ -889,8 +951,8 @@ export class SocialService {
     if (!this.resident(authorId)) return fail("unauthorized", "Unknown resident.");
     const text = cleanText(request.text);
     if (text === "") return fail("bad_request", "Empty notice.");
-    const aimed = aimedAtReader(text);
-    if (aimed) return fail("bad_request", readerMessage("Notices", aimed));
+    const verdict = this.moderation.review("notice", text, { resident: authorId });
+    if (!verdict.ok) return refusal(verdict) ?? fail("bad_request", "Not pinned.");
     const now = this.now();
     const up = this.count(
       "SELECT COUNT(*) AS c FROM notices WHERE author = ? AND removed_at IS NULL AND created_at > ?",
@@ -919,6 +981,7 @@ export class SocialService {
       text,
       now,
     );
+    verdict.commit();
     const row = this.rows("SELECT id, author, text, created_at FROM notices WHERE id = ?", id)[0];
     const view = row ? this.noticeView(row, authorId) : undefined;
     return view ? { ok: true, value: view } : fail("internal", "Notice vanished.");
@@ -940,7 +1003,15 @@ export class SocialService {
       callerId,
       noticeId,
     );
-    if (row.author !== callerId) console.info(`Notice ${noticeId} taken down by ${callerId}`);
+    if (row.author !== callerId) {
+      this.safety.recordAction(
+        callerId,
+        "remove_notice",
+        "notice",
+        noticeId,
+        "Taken down by a maintainer",
+      );
+    }
     return { ok: true, value: null };
   }
 
@@ -1049,8 +1120,12 @@ export class SocialService {
         return fail("bad_request", "The avatar must be an image.");
       }
     }
-    const aimed = request.bio === undefined ? null : aimedAtReader(request.bio);
-    if (aimed) return fail("bad_request", readerMessage("Bios", aimed));
+    if (request.bio !== undefined && request.bio.trim() !== "") {
+      const refused = refusal(
+        this.moderation.review("bio", cleanMultiline(request.bio), { resident: residentId }),
+      );
+      if (refused) return refused;
+    }
     const handle =
       request.handle === undefined ? undefined : this.checkHandle(residentId, request.handle);
     if (handle && !handle.ok) return handle;
@@ -1228,6 +1303,8 @@ export class SocialService {
     if (current?.handle === handle) return { ok: true, value: null };
     if (isReservedHandle(handle))
       return fail("bad_request", "That handle is reserved. Pick another.");
+    const refused = refusal(this.moderation.review("handle", handle, { resident: residentId }));
+    if (refused) return refused;
     const taken = this.rows(
       "SELECT resident_id, released_at FROM handles WHERE handle = ?",
       handle,
@@ -1392,15 +1469,23 @@ export class SocialService {
     }
   }
 
-  /** Notifications whose post (if any) is still there. Bind the recipient first. */
+  /**
+   * Notifications whose post (if any) is still there and shown, from residents who aren't
+   * suspended, about posts by residents who aren't suspended. Checked when read, so hiding a post or
+   * suspending someone takes their notifications away at once. Bind the recipient, then `now()`
+   * twice.
+   */
   private static readonly VISIBLE_NOTIFICATIONS =
     `FROM notifications n LEFT JOIN posts p ON p.id = n.post_id
-    WHERE n.recipient = ? AND (n.post_id = '' OR (p.id IS NOT NULL AND p.hidden = 0))`;
+    WHERE n.recipient = ? AND (n.post_id = '' OR (p.id IS NOT NULL AND p.hidden = 0))
+      AND ${NOT_SUSPENDED("n.actor")} AND (p.id IS NULL OR ${NOT_SUSPENDED("p.author")})`;
 
   private unread(recipient: string): number {
     return this.count(
       `SELECT COUNT(*) AS c ${SocialService.VISIBLE_NOTIFICATIONS} AND n.read = 0`,
       recipient,
+      this.now(),
+      this.now(),
     );
   }
 
@@ -1419,6 +1504,8 @@ export class SocialService {
       ${SocialService.VISIBLE_NOTIFICATIONS} ${Number.isFinite(before) ? "AND n.seq < ?" : ""}
       ORDER BY n.seq DESC LIMIT ?`,
       recipient,
+      this.now(),
+      this.now(),
       ...(Number.isFinite(before) ? [before] : []),
       limit + 1,
     );
@@ -1777,6 +1864,12 @@ export class SocialService {
     return out;
   }
 
+  /** `contentWarning` for text with strong language (RFC 0006), or nothing. */
+  private warning(text: string): { contentWarning?: "language" } {
+    const warning = this.moderation.contentWarning(text);
+    return warning ? { contentWarning: warning } : {};
+  }
+
   /** Compact views of quoted posts that are still there. */
   private quotedFor(ids: string[]): Map<string, QuotedPostView> {
     const out = new Map<string, QuotedPostView>();
@@ -1786,8 +1879,10 @@ export class SocialService {
         (SELECT avatar FROM profiles a WHERE a.resident_id = p.author) AS avatar,
         (SELECT handle FROM handles h WHERE h.resident_id = p.author AND h.released_at = 0) AS handle,
         (SELECT handle FROM x_links x WHERE x.resident_id = p.author) AS x_handle
-      FROM posts p WHERE p.hidden = 0 AND p.id IN (${marks(ids.length)})`,
+      FROM posts p WHERE p.hidden = 0 AND p.id IN (${marks(ids.length)})
+        AND ${NOT_SUSPENDED("p.author")}`,
       ...ids,
+      this.now(),
     );
     const found = rows.map((row) => String(row.id));
     const media = this.mediaFor(found);
@@ -1806,6 +1901,7 @@ export class SocialService {
         replyTo: row.reply_to ? String(row.reply_to) : null,
         ...(named?.length ? { mentions: named } : {}),
         createdAt: new Date(Number(row.created_at)).toISOString(),
+        ...this.warning(String(row.text)),
       });
     }
     return out;
@@ -1844,6 +1940,7 @@ export class SocialService {
         repostCount: Number(row.repost_count),
         quoteCount: Number(row.quote_count),
         reposted: Number(row.reposted) > 0,
+        ...this.warning(String(row.text)),
       };
       if (row.quote_of) view.quote = quoted.get(String(row.quote_of)) ?? null;
       return [view];

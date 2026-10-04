@@ -179,6 +179,8 @@ export const ProfileView = z.object({
   streak: z.number().int().optional(),
   /** Present and true when the caller has blocked them. */
   blocked: z.boolean().optional(),
+  /** How many Town Hall proposals they voted on. */
+  votes: z.number().int().optional(),
 });
 export type ProfileView = z.infer<typeof ProfileView>;
 

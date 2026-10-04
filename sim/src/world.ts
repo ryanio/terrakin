@@ -31,6 +31,12 @@ export function validateConfig(config: WorldConfig): void {
   if (!Number.isInteger(reach) || reach < 0) {
     throw new Error(`WorldConfig.reach must be a non-negative integer, got ${reach}`);
   }
+  const { townEligibleAfterDays: eligibleAfter } = config;
+  if (eligibleAfter !== undefined && (!Number.isInteger(eligibleAfter) || eligibleAfter < 0)) {
+    throw new Error(
+      `WorldConfig.townEligibleAfterDays must be a non-negative integer, got ${eligibleAfter}`,
+    );
+  }
   if (width % plotSize !== 0 || height % plotSize !== 0) {
     throw new Error("WorldConfig width and height must be multiples of plotSize");
   }
@@ -73,6 +79,38 @@ export function isCommons(config: WorldConfig, px: number, py: number): boolean 
 /** Where new residents appear: the middle of the Commons. */
 export function spawnTile(config: WorldConfig): Tile {
   return { x: Math.floor(config.width / 2), y: Math.floor(config.height / 2) };
+}
+
+/**
+ * The Town Hall's front door: on the spawn column, one row in from the Commons' north edge.
+ * Clients draw the hall here, and tapping it opens the Town Hall page.
+ */
+export function townHallTile(config: WorldConfig): Tile {
+  const { py } = commonsPlot(config);
+  return { x: spawnTile(config).x, y: py * config.plotSize + Math.min(1, config.plotSize - 1) };
+}
+
+/**
+ * The tiles the Town Hall stands on: three wide, from the row above its door to the door's row,
+ * clipped to the Commons. Nothing is ever built there, by residents or by the town. Residents can
+ * still walk across them, because worlds made before the hall must replay exactly as they did.
+ */
+export function townHallTiles(config: WorldConfig): Tile[] {
+  const door = townHallTile(config);
+  const c = commonsPlot(config);
+  const tiles: Tile[] = [];
+  for (let y = door.y - 1; y <= door.y; y++) {
+    for (let x = door.x - 1; x <= door.x + 1; x++) {
+      const p = plotOf(config, x, y);
+      if (inBounds(config, x, y) && p.px === c.px && p.py === c.py) tiles.push({ x, y });
+    }
+  }
+  return tiles;
+}
+
+/** Whether a tile is part of the Town Hall. */
+export function isTownHallTile(config: WorldConfig, x: number, y: number): boolean {
+  return townHallTiles(config).some((t) => t.x === x && t.y === y);
 }
 
 export function plotAtTile(state: WorldState, x: number, y: number): Plot | undefined {

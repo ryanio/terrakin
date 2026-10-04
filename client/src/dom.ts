@@ -101,6 +101,7 @@ const ICONS = {
     "M3.5 20.5a6.5 6.5 0 0 1 13 0",
     "M19 8v6M16 11h6",
   ],
+  town: ["M3.5 9.5 12 4.5l8.5 5", "M4.5 20h15", "M6.5 11v6.5M10.2 11v6.5M13.8 11v6.5M17.5 11v6.5"],
 } as const;
 
 export type IconName = keyof typeof ICONS;

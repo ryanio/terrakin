@@ -34,12 +34,14 @@ import {
   urlsetXml,
   w3cDatetime,
 } from "@terrakin/protocol";
+import { findProposal } from "@terrakin/sim";
 import { IdempotencyStore, type StoredResponse, sha256Hex } from "./idempotency";
 import { BAD_LINK_KEY, DEFAULT_ORIGIN, linkHandlers, linkHelp, REPEAT_NOTE } from "./links";
 import { postMarkdown, profileMarkdown } from "./markdown";
 import { RateLimiters, type Take } from "./rate-limit";
 import type { SocialResult, SocialService } from "./social-service";
 import { anchorPlot, suggestPlots } from "./together";
+import { archiveView, proposalDetail, townView } from "./town";
 import type { WorldService } from "./world-service";
 
 /**
@@ -322,12 +324,16 @@ export class Api {
       letters: bucket("letters"),
       letterMedia: bucket("letterMedia"),
     };
-    // Without a social service its routes don't exist, so they answer not_found like any unknown path.
+    // Without a social service its routes don't exist, so they answer not_found like any unknown
+    // path. The Town Hall needs it too: its notice board and author faces live there.
     this.match = compileRoutes(
       options.social
         ? TABLE
         : TABLE.filter(
-            (r) => !r.tags.some((tag) => tag === "Social" || tag === "Site" || tag === "Together"),
+            (r) =>
+              !r.tags.some(
+                (tag) => tag === "Social" || tag === "Site" || tag === "Together" || tag === "Town",
+              ),
           ),
     );
     this.handlers = this.routeHandlers();
@@ -337,6 +343,8 @@ export class Api {
   async handle(req: ApiRequest): Promise<ApiResponse | undefined> {
     const match = this.match(req.method, req.pathname);
     if (!match && req.method === "GET" && !isApiPath(req.pathname)) return undefined;
+    // A Durable Object can sleep through midnight. Catch the day up before answering anything.
+    this.service.tick();
     const answer = match
       ? await this.dispatch(match, req)
       : // Never echo a link key back, even to its holder.
@@ -847,6 +855,50 @@ export class Api {
       },
       getResidentSitemap: ({ params }) => sitemap("residents", params.page),
       getPostSitemap: ({ params }) => sitemap("posts", params.page),
+      // ---------- town hall ----------
+      getTown: ({ viewer }) => ({
+        status: 200,
+        body: townView(service.state, social(), viewer),
+      }),
+      getTownArchive: ({ viewer, query }) => ({
+        status: 200,
+        body: archiveView(service.state, social(), query, viewer),
+      }),
+      getProposal: ({ viewer, params }) => {
+        const detail = proposalDetail(service.state, social(), params.id, viewer);
+        return detail ? { status: 200, body: detail } : fail("not_found", "No such proposal.");
+      },
+      voidProposal: ({ viewer, params }) => {
+        if (!social().isMaintainer(viewer)) {
+          return fail("forbidden", "Only maintainers can void a proposal.");
+        }
+        if (!findProposal(service.state, params.id)) return fail("not_found", "No such proposal.");
+        const result = service.voidProposal(params.id, viewer);
+        if (!result.ok) return fail(result.error.code, result.error.message);
+        const detail = proposalDetail(service.state, social(), params.id, viewer);
+        return detail ? { status: 200, body: detail } : fail("internal", "Proposal vanished.");
+      },
+      answerPetition: ({ viewer, params, body }) => {
+        if (!social().isMaintainer(viewer)) {
+          return fail("forbidden", "Only maintainers answer petitions.");
+        }
+        const p = findProposal(service.state, params.id);
+        if (!p) return fail("not_found", "No such proposal.");
+        if (p.kind !== "advisory" || p.status !== "passed") {
+          return fail("bad_request", "Only a passed advisory is a petition to answer.");
+        }
+        const answered = social().answerPetition(viewer, params.id, body.text);
+        if (!answered.ok) return fail(answered.code, answered.message);
+        const detail = proposalDetail(service.state, social(), params.id, viewer);
+        return detail ? { status: 200, body: detail } : fail("internal", "Proposal vanished.");
+      },
+      createNotice: ({ viewer, body }) =>
+        fromResult(social().createNotice(viewer, body), (notice) => ({
+          status: 201 as const,
+          body: { notice },
+        })),
+      deleteNotice: ({ viewer, params }) =>
+        fromResult(social().deleteNotice(viewer, params.id), () => ({ status: 204 as const })),
 
       // ---------- docs ----------
       getSkill: () => ({ status: 200, text: this.skill }),
@@ -934,6 +986,7 @@ export class Api {
 
   /** Housekeeping: mark idle residents offline and forget full rate-limit buckets. Call about once a minute. */
   sweep() {
+    this.service.tick();
     this.service.sweepIdle();
     this.social?.sweep().catch((err: unknown) => console.error("Social sweep failed", err));
     const today = Math.floor(Date.now() / 86_400_000);

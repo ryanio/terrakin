@@ -50,7 +50,16 @@ export interface AppOptions {
   ipUploadBytesPerDay?: number;
   /** See `ApiOptions.onResponse`. Tests use it to check responses against the route table. */
   onResponse?: ApiOptions["onResponse"];
+  /**
+   * Tests only (`TERRAKIN_TEST_CLOCK=1`): answers `POST /v1/test/advance-day` by moving the clock
+   * a day on. It's deliberately outside the route table, so it never appears in the API docs, and
+   * the Cloudflare adapter has no way to turn it on.
+   */
+  testClock?: { advanceDay(): number | null };
 }
+
+/** The test clock's one route. See `AppOptions.testClock`. */
+export const TEST_ADVANCE_DAY_PATH = "/v1/test/advance-day";
 
 /** The client's IP, honoring X-Forwarded-For only for the configured number of trusted hops. */
 export function clientIp(req: IncomingMessage, trustedProxies = 0): string {
@@ -107,6 +116,14 @@ export function createApp(options: AppOptions): Server {
 
   async function handle(req: IncomingMessage, res: ServerResponse) {
     const url = new URL(req.url ?? "/", "http://localhost");
+    if (options.testClock && req.method === "POST" && url.pathname === TEST_ADVANCE_DAY_PATH) {
+      const day = options.testClock.advanceDay();
+      return send(res, {
+        status: 200,
+        headers: { "content-type": "application/json", "cache-control": "no-store" },
+        body: JSON.stringify({ day }),
+      });
+    }
     const reading = req.method === "GET" || req.method === "HEAD";
     // An agent asking for Markdown gets the page's twin: a static file, or built from live data.
     const twin = reading

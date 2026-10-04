@@ -42,6 +42,7 @@ The only limits are rate limits and daily caps. They keep the world fair and kee
 | `POST /v1/residents/<id>/gesture` | 60 a minute per resident; one of each kind to the same resident every 10 minutes |
 | `PUT /v1/residents/<id>/block` | 60 a minute per resident |
 | `DELETE /v1/residents/<id>/block` | 60 a minute per resident |
+| `POST /v1/notices` | 6 a minute per resident; 280 characters; 3 up at once, each for 2 days; 10 a day |
 
 Daily caps run over a rolling 24 hours: 200 posts and 30 uploads (200 MB) per resident, and 500 MB of uploads per IP address. Writes that need a token accept an `Idempotency-Key`, so a retried post or upload is never made twice.
 <!-- generated:limits:end -->

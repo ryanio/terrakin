@@ -228,7 +228,20 @@ export function render(
       ctx.lineTo(left + size * 0.62, top + size * 0.36);
       ctx.stroke();
     }
+    // Built by the town: a little sun-gold rosette in the corner.
+    if (mirror.townBuilt.has(key)) {
+      const r = Math.max(2.5, scale * 0.11);
+      ctx.fillStyle = "#f2b84b";
+      ctx.strokeStyle = PAPER;
+      ctx.lineWidth = Math.max(1, scale / 28);
+      ctx.beginPath();
+      ctx.arc(left + size - r * 1.3, top + r * 1.3, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
   }
+
+  drawTownHall(ctx, mirror, cam);
 
   // ---- hearths: a little house, drawn under residents ----
   for (const r of mirror.residents.values()) {
@@ -270,6 +283,9 @@ export function render(
   // ---- residents: round tokens with a white rim and a soft ground shadow ----
   const tokenR = scale * 0.3;
   const labels: { text: string; x: number; y: number; mine: boolean }[] = [];
+  const hall = hallBox(mirror, cam);
+  if (hall)
+    labels.push({ text: "Town Hall", x: hall.left + hall.w / 2, y: hall.top - 2, mine: false });
   for (const r of mirror.residents.values()) {
     if (!r.online) continue;
     const { sx, sy } = tileToScreen(cam, r.x, r.y);
@@ -392,4 +408,109 @@ export function render(
     ctx.fillText(l.text, l.x, top + tagH / 2 + 0.5);
   }
   ctx.textBaseline = "alphabetic";
+}
+
+/** The Town Hall's footprint on screen, or undefined when it's off screen or unknown. */
+function hallBox(mirror: Mirror, cam: Camera) {
+  const tiles = mirror.townHall;
+  if (tiles.length === 0) return undefined;
+  const xs = tiles.map((t) => t.x);
+  const ys = tiles.map((t) => t.y);
+  const half = cam.scale / 2;
+  const a = tileToScreen(cam, Math.min(...xs), Math.min(...ys));
+  const b = tileToScreen(cam, Math.max(...xs), Math.max(...ys));
+  const left = a.sx - half;
+  const top = a.sy - half;
+  const w = b.sx + half - left;
+  const h = b.sy + half - top;
+  if (left > cam.width || top > cam.height || left + w < 0 || top + h < 0) return undefined;
+  return { left, top, w, h };
+}
+
+/**
+ * The Town Hall: a small storybook civic building on its tiles in the Commons. Columns under a clay
+ * pediment, a gold door, stone steps, and a flag. Residents walk across it (old worlds must replay),
+ * so it's drawn under them, like a hearth.
+ */
+function drawTownHall(ctx: CanvasRenderingContext2D, mirror: Mirror, cam: Camera) {
+  const box = hallBox(mirror, cam);
+  if (!box) return;
+  const { left, top, w, h } = box;
+  const s = cam.scale;
+  const base = top + h - s * 0.12;
+  // Ground shadow.
+  ctx.fillStyle = "rgba(74, 52, 28, 0.22)";
+  ctx.beginPath();
+  ctx.ellipse(left + w / 2, base + s * 0.04, w * 0.46, s * 0.16, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // Steps.
+  ctx.fillStyle = "#c9c2b5";
+  ctx.beginPath();
+  ctx.roundRect(left + w * 0.12, base - s * 0.2, w * 0.76, s * 0.22, s * 0.05);
+  ctx.fill();
+  ctx.fillStyle = "#b3ab9c";
+  ctx.fillRect(left + w * 0.12, base - s * 0.03, w * 0.76, s * 0.05);
+  // Body.
+  const bodyTop = top + h * 0.42;
+  const bodyLeft = left + w * 0.16;
+  const bodyW = w * 0.68;
+  ctx.fillStyle = PAPER;
+  ctx.fillRect(bodyLeft, bodyTop, bodyW, base - s * 0.2 - bodyTop);
+  ctx.strokeStyle = PAPER_EDGE;
+  ctx.lineWidth = 1;
+  ctx.strokeRect(bodyLeft + 0.5, bodyTop + 0.5, bodyW - 1, base - s * 0.2 - bodyTop - 1);
+  // Columns.
+  ctx.fillStyle = "#e8dfcc";
+  const colW = bodyW * 0.07;
+  for (const f of [0.08, 0.3, 0.63, 0.85]) {
+    ctx.fillRect(
+      bodyLeft + bodyW * f,
+      bodyTop + s * 0.06,
+      colW,
+      base - s * 0.26 - bodyTop - s * 0.06,
+    );
+  }
+  // Door: a gold arch in the middle.
+  const doorW = bodyW * 0.2;
+  const doorH = (base - s * 0.2 - bodyTop) * 0.62;
+  ctx.fillStyle = "#f2b84b";
+  ctx.beginPath();
+  ctx.roundRect(left + w / 2 - doorW / 2, base - s * 0.2 - doorH, doorW, doorH, [
+    doorW / 2,
+    doorW / 2,
+    0,
+    0,
+  ]);
+  ctx.fill();
+  // Pediment roof.
+  const roofBase = bodyTop + s * 0.04;
+  ctx.fillStyle = HEARTH_COLOR;
+  ctx.beginPath();
+  ctx.moveTo(left + w * 0.08, roofBase);
+  ctx.lineTo(left + w / 2, top + h * 0.06);
+  ctx.lineTo(left + w * 0.92, roofBase);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = CLAY_DEEP;
+  ctx.fillRect(left + w * 0.08, roofBase - s * 0.02, w * 0.84, s * 0.08);
+  // A round window in the pediment.
+  ctx.fillStyle = PAPER;
+  ctx.beginPath();
+  ctx.arc(left + w / 2, top + h * 0.28, s * 0.1, 0, Math.PI * 2);
+  ctx.fill();
+  // Flag.
+  const poleX = left + w / 2;
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = Math.max(1, s / 30);
+  ctx.beginPath();
+  ctx.moveTo(poleX, top + h * 0.07);
+  ctx.lineTo(poleX, top - s * 0.32);
+  ctx.stroke();
+  ctx.fillStyle = "#5e7f45";
+  ctx.beginPath();
+  ctx.moveTo(poleX, top - s * 0.32);
+  ctx.lineTo(poleX + s * 0.3, top - s * 0.24);
+  ctx.lineTo(poleX, top - s * 0.15);
+  ctx.closePath();
+  ctx.fill();
 }

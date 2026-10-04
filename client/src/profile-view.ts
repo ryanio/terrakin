@@ -12,7 +12,7 @@ import { NOTE_MAX_LENGTH, RESIDENT_COLORS, RESIDENT_SHAPES } from "@terrakin/sim
 import { api, forgetMe, myProfile } from "./api";
 import { h, icon } from "./dom";
 import { syncPost } from "./feed-view";
-import { compactCount } from "./format";
+import { compactCount, plural } from "./format";
 import { openInviteDialog } from "./invite-share";
 import { joinForm, tokenPreview } from "./join-form";
 import { lettersPath } from "./letters-view";
@@ -232,6 +232,14 @@ export function profileView(id: string, ctx: ViewContext): View {
         : null,
       r.bio ? h("p", { class: "profile-bio", text: r.bio }) : null,
       r.note ? h("p", { class: "profile-note", text: r.note }) : null,
+      r.votes
+        ? h(
+            "p",
+            { class: "profile-votes" },
+            `Voted ${plural(r.votes, "time", "times")} in the `,
+            h("a", { attrs: { href: "/town" }, text: "Town Hall" }),
+          )
+        : null,
       h(
         "ul",
         { class: "stats", attrs: { "aria-label": "Counts" } },

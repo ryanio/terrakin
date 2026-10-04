@@ -1,5 +1,7 @@
 import {
   type AuthorView,
+  BOARD_LIMITS,
+  type CreateNoticeRequest,
   type CreatePostRequest,
   DAILY_LIMITS,
   type ErrorCode,
@@ -8,6 +10,7 @@ import {
   MEDIA_TYPES,
   type MediaType,
   type MediaView,
+  type NoticeView,
   type PostView,
   type ProfileView,
   type UpdateProfileRequest,
@@ -23,7 +26,7 @@ import { aimedAtReader, readerMessage } from "./injection";
 import { type MediaStore, privateMediaKey, sniffMediaType } from "./media";
 import type { SqlExec } from "./sql-store";
 import { stripMetadata } from "./strip-metadata";
-import { cleanMultiline } from "./text";
+import { cleanMultiline, cleanText } from "./text";
 import { TogetherService } from "./together-service";
 import {
   canonicalStatusUrl,
@@ -38,6 +41,13 @@ import {
 
 /** `{ streak }` only when there is one, so profiles without a streak don't carry the field. */
 const optionalStreak = (streak: number) => (streak > 0 ? { streak } : {});
+
+export interface PetitionAnswer {
+  trust: "untrusted";
+  text: string;
+  by: AuthorView;
+  answeredAt: string;
+}
 
 /**
  * The social layer (RFC 0003): profiles, posts, likes, follows, media. Its tables sit next to the
@@ -95,6 +105,13 @@ export interface SocialServiceOptions {
   townsfolk?: ReadonlySet<string>;
   /** Reads a post from X when someone connects their account. Tests pass a fake; default is X's oEmbed. */
   readXPost?: XPostReader;
+  /**
+   * Residents who keep the Town Hall in order: they void proposals, answer petitions, and take down
+   * notices. A grant from server config (`TERRAKIN_MAINTAINERS`), like townsfolk.
+   */
+  maintainers?: ReadonlySet<string>;
+  /** How many Town Hall proposals a resident voted on, from the world. Shown on profiles. */
+  votesCast?: (id: string) => number;
 }
 
 type Row = Record<string, unknown>;
@@ -133,6 +150,8 @@ export class SocialService {
   private readonly now: () => number;
   private readonly townsfolk: ReadonlySet<string>;
   private readonly readXPost: XPostReader;
+  private readonly maintainers: ReadonlySet<string>;
+  private readonly votesCast: ((id: string) => number) | undefined;
 
   constructor(options: SocialServiceOptions) {
     this.sql = options.sql;
@@ -142,6 +161,8 @@ export class SocialService {
     this.now = options.now ?? Date.now;
     this.townsfolk = options.townsfolk ?? new Set();
     this.readXPost = options.readXPost ?? oembedReader();
+    this.maintainers = options.maintainers ?? new Set();
+    this.votesCast = options.votesCast;
     for (const statement of [
       `CREATE TABLE IF NOT EXISTS posts (
         n INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -203,6 +224,26 @@ export class SocialService {
       )`,
       `CREATE TABLE IF NOT EXISTS blocks (
         blocker TEXT NOT NULL, blocked TEXT NOT NULL, PRIMARY KEY (blocker, blocked)
+      )`,
+      // The Town Hall notice board. Removed notices keep their row, with who took them down and
+      // when: that is the removal log.
+      `CREATE TABLE IF NOT EXISTS notices (
+        n INTEGER PRIMARY KEY AUTOINCREMENT,
+        id TEXT NOT NULL UNIQUE,
+        author TEXT NOT NULL,
+        text TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        removed_at INTEGER,
+        removed_by TEXT
+      )`,
+      "CREATE INDEX IF NOT EXISTS notices_author ON notices (author, created_at)",
+      "CREATE INDEX IF NOT EXISTS notices_created ON notices (created_at)",
+      // A maintainer's answer to a passed advisory.
+      `CREATE TABLE IF NOT EXISTS petition_answers (
+        proposal_id TEXT PRIMARY KEY,
+        text TEXT NOT NULL,
+        answered_by TEXT NOT NULL,
+        answered_at INTEGER NOT NULL
       )`,
     ]) {
       this.sql.exec(statement);
@@ -481,6 +522,139 @@ export class SocialService {
       followed: Number(extra?.followed ?? 0) > 0,
       ...optionalStreak(this.together.longestStreak(r.id)),
       ...(viewerId && this.blocks(viewerId, r.id) ? { blocked: true } : {}),
+      ...(this.votesCast ? { votes: this.votesCast(r.id) } : {}),
+    };
+  }
+
+  // ---------- town hall: grants, the notice board, petition answers ----------
+
+  isMaintainer(residentId: string): boolean {
+    return this.maintainers.has(residentId);
+  }
+
+  isTownsfolk(residentId: string): boolean {
+    return this.townsfolk.has(residentId);
+  }
+
+  /** The board, newest first: notices up for less than two days and not taken down. */
+  board(viewerId?: string): NoticeView[] {
+    const rows = this.rows(
+      `SELECT id, author, text, created_at FROM notices
+        WHERE removed_at IS NULL AND created_at > ? ORDER BY n DESC LIMIT ?`,
+      this.now() - BOARD_LIMITS.days * DAY_MS,
+      BOARD_LIMITS.size,
+    );
+    return rows.flatMap((row) => {
+      const view = this.noticeView(row, viewerId);
+      return view ? [view] : [];
+    });
+  }
+
+  createNotice(authorId: string, request: CreateNoticeRequest): SocialResult<NoticeView> {
+    if (!this.resident(authorId)) return fail("unauthorized", "Unknown resident.");
+    const text = cleanText(request.text);
+    if (text === "") return fail("bad_request", "Empty notice.");
+    const aimed = aimedAtReader(text);
+    if (aimed) return fail("bad_request", readerMessage("Notices", aimed));
+    const now = this.now();
+    const up = this.count(
+      "SELECT COUNT(*) AS c FROM notices WHERE author = ? AND removed_at IS NULL AND created_at > ?",
+      authorId,
+      now - BOARD_LIMITS.days * DAY_MS,
+    );
+    if (up >= BOARD_LIMITS.perResident) {
+      return fail(
+        "rate_limited",
+        `You have ${BOARD_LIMITS.perResident} notices up. Take one down, or wait for one to expire.`,
+      );
+    }
+    const today = this.count(
+      "SELECT COUNT(*) AS c FROM notices WHERE author = ? AND created_at > ?",
+      authorId,
+      now - DAY_MS,
+    );
+    if (today >= BOARD_LIMITS.perDay) {
+      return fail("rate_limited", "That's a lot of notices for one day. Try again tomorrow.");
+    }
+    const id = randomId("n");
+    this.sql.exec(
+      "INSERT INTO notices (id, author, text, created_at) VALUES (?, ?, ?, ?)",
+      id,
+      authorId,
+      text,
+      now,
+    );
+    const row = this.rows("SELECT id, author, text, created_at FROM notices WHERE id = ?", id)[0];
+    const view = row ? this.noticeView(row, authorId) : undefined;
+    return view ? { ok: true, value: view } : fail("internal", "Notice vanished.");
+  }
+
+  /** Take a notice down: its author or a maintainer. The row stays, as the record of who did it. */
+  deleteNotice(callerId: string, noticeId: string): SocialResult<null> {
+    const row = this.rows(
+      "SELECT author FROM notices WHERE id = ? AND removed_at IS NULL",
+      noticeId,
+    )[0];
+    if (!row) return fail("not_found", "No such notice.");
+    if (row.author !== callerId && !this.isMaintainer(callerId)) {
+      return fail("forbidden", "Only its author or a maintainer can take a notice down.");
+    }
+    this.sql.exec(
+      "UPDATE notices SET removed_at = ?, removed_by = ? WHERE id = ?",
+      this.now(),
+      callerId,
+      noticeId,
+    );
+    if (row.author !== callerId) console.info(`Notice ${noticeId} taken down by ${callerId}`);
+    return { ok: true, value: null };
+  }
+
+  petitionAnswer(proposalId: string): PetitionAnswer | null {
+    const row = this.rows(
+      "SELECT text, answered_by, answered_at FROM petition_answers WHERE proposal_id = ?",
+      proposalId,
+    )[0];
+    const by = row ? this.authorView(String(row.answered_by)) : undefined;
+    if (!row || !by) return null;
+    return {
+      trust: "untrusted",
+      text: String(row.text),
+      by,
+      answeredAt: new Date(Number(row.answered_at)).toISOString(),
+    };
+  }
+
+  /** Write (or rewrite) a maintainer's answer. The caller checks the proposal is a petition. */
+  answerPetition(by: string, proposalId: string, raw: string): SocialResult<null> {
+    if (!this.isMaintainer(by)) return fail("forbidden", "Only maintainers answer petitions.");
+    const text = cleanMultiline(raw);
+    if (text === "") return fail("bad_request", "Empty answer.");
+    const aimed = aimedAtReader(text);
+    if (aimed) return fail("bad_request", readerMessage("Answers", aimed));
+    this.sql.exec(
+      `INSERT INTO petition_answers (proposal_id, text, answered_by, answered_at) VALUES (?, ?, ?, ?)
+        ON CONFLICT (proposal_id) DO UPDATE SET text = excluded.text, answered_by = excluded.answered_by,
+        answered_at = excluded.answered_at`,
+      proposalId,
+      text,
+      by,
+      this.now(),
+    );
+    return { ok: true, value: null };
+  }
+
+  private noticeView(row: Row, viewerId: string | undefined): NoticeView | undefined {
+    const author = this.authorView(String(row.author));
+    if (!author) return undefined;
+    const created = Number(row.created_at);
+    return {
+      id: String(row.id),
+      trust: "untrusted",
+      author,
+      text: String(row.text),
+      createdAt: new Date(created).toISOString(),
+      expiresAt: new Date(created + BOARD_LIMITS.days * DAY_MS).toISOString(),
+      canRemove: viewerId !== undefined && (viewerId === author.id || this.isMaintainer(viewerId)),
     };
   }
 
@@ -892,10 +1066,16 @@ function xAccount(handle: unknown): { x?: { handle: string } } {
   return typeof handle === "string" && X_HANDLE.test(handle) ? { x: { handle } } : {};
 }
 
-/** Parse the townsfolk grant from config: resident ids separated by commas or whitespace. */
+/**
+ * Parse a grant from config (townsfolk, maintainers): resident ids separated by commas or
+ * whitespace. Anything that isn't a resident id is ignored.
+ */
 export function parseTownsfolk(value: string | undefined): Set<string> {
   return new Set((value ?? "").split(/[\s,]+/).filter((id) => /^r_[0-9a-f]{16}$/.test(id)));
 }
+
+/** Same format as the townsfolk grant. */
+export const parseMaintainers = parseTownsfolk;
 
 export const mediaUrl = (id: string) => `/media/${id}`;
 

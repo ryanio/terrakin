@@ -47,6 +47,11 @@ export interface WorldConfig {
   maxPlotsPerResident: number;
   /** Max Chebyshev distance (in tiles) at which a resident can place or remove blocks. */
   reach: number;
+  /**
+   * How many days a plot must have been yours before you can propose and vote in the Town Hall.
+   * Absent means the default (3), so worlds made before the Town Hall hash as they always have.
+   */
+  townEligibleAfterDays?: number;
 }
 
 export interface Resident {
@@ -73,6 +78,79 @@ export interface Plot {
    * Present only when non-empty, so plots that were never shared hash exactly as they always have.
    */
   coOwners?: ResidentId[];
+  /**
+   * The day (UTC days since 1970-01-01, from `new_day`) this plot was claimed. Absent on plots
+   * claimed before the world counted days, which counts as day 0.
+   */
+  claimedDay?: number;
+  /** The day each co-owner got their share, for shares given while the world counted days. */
+  sharedDay?: Record<ResidentId, number>;
+}
+
+export const VOTE_CHOICES = ["yes", "no", "abstain"] as const;
+export type VoteChoice = (typeof VOTE_CHOICES)[number];
+
+export const PROPOSAL_KINDS = ["advisory", "commons_build"] as const;
+export type ProposalKind = (typeof PROPOSAL_KINDS)[number];
+
+/**
+ * `queued` waits for a free slot, `open` takes votes, and the rest are final: `passed`, `failed`
+ * (quorum met, not more yes than no), `no_quorum`, `withdrawn` by its author, `voided` by a
+ * maintainer.
+ */
+export const PROPOSAL_STATUSES = [
+  "queued",
+  "open",
+  "passed",
+  "failed",
+  "no_quorum",
+  "withdrawn",
+  "voided",
+] as const;
+export type ProposalStatus = (typeof PROPOSAL_STATUSES)[number];
+
+/** One block a `commons_build` proposal places in the Commons. */
+export interface PlannedBlock {
+  x: number;
+  y: number;
+  block: BlockKind;
+}
+
+export interface Proposal {
+  /** `t_1`, `t_2`, ... in filing order. */
+  id: string;
+  author: ResidentId;
+  kind: ProposalKind;
+  /** Untrusted text, cleaned by the server before it was logged. */
+  title: string;
+  /** Untrusted text, cleaned by the server before it was logged. */
+  text: string;
+  /** `commons_build` only: blocks to place. */
+  blocks?: PlannedBlock[];
+  /** `commons_build` only: Commons blocks to take away. */
+  remove?: Tile[];
+  status: ProposalStatus;
+  filedDay: number;
+  /** Set when it opens. */
+  openedDay?: number;
+  /** It closes when this day starts (midnight UTC). */
+  closesDay?: number;
+  /** Who may vote, fixed when it opened. Sorted. */
+  electorate?: ResidentId[];
+  votes: Record<ResidentId, VoteChoice>;
+  /** Set when it reaches a final status. */
+  closedDay?: number;
+  /** The maintainer who voided it. */
+  voidedBy?: ResidentId;
+}
+
+export interface TownState {
+  /** The number in the next proposal id. */
+  nextId: number;
+  /** Every proposal ever filed, in filing order. */
+  proposals: Proposal[];
+  /** Commons tiles the town built: tile key -> the proposal that built it. */
+  built: Record<string, string>;
 }
 
 /**
@@ -88,6 +166,17 @@ export interface WorldState {
   plots: Record<string, Plot>;
   /** Placed blocks, keyed by tileKey(x, y). */
   blocks: Record<string, BlockKind>;
+  /**
+   * Today, in UTC days since 1970-01-01, from the server's last `new_day`. Absent until the first
+   * one, like every Town Hall field below, so a world that never saw a day hashes as it always has.
+   */
+  day?: number;
+  /** Residents the team runs. They never vote or propose. Sorted. */
+  townsfolk?: ResidentId[];
+  /** The last day each resident did something in the world (any action but join and leave). */
+  lastActiveDay?: Record<ResidentId, number>;
+  /** The Town Hall (RFC 0004). Absent until the first proposal. */
+  town?: TownState;
 }
 
 export type Command =
@@ -104,9 +193,38 @@ export type Command =
   | { type: "settle"; px: number; py: number }
   | { type: "build_starter_home"; walls?: BlockKind; windows?: BlockKind }
   | { type: "share_plot"; with: ResidentId }
-  | { type: "unshare_plot"; with: ResidentId };
+  | { type: "unshare_plot"; with: ResidentId }
+  | {
+      type: "propose";
+      kind: ProposalKind;
+      title: string;
+      text: string;
+      blocks?: PlannedBlock[];
+      remove?: Tile[];
+    }
+  | { type: "vote"; proposal: string; choice: VoteChoice }
+  | { type: "withdraw"; proposal: string }
+  // Only the server sends these, as TOWN_ACTOR.
+  | { type: "new_day"; day: number }
+  | { type: "set_townsfolk"; ids: ResidentId[] }
+  | { type: "close_proposal"; proposal: string }
+  | { type: "void_proposal"; proposal: string; by: ResidentId };
 
 export type CommandType = Command["type"];
+
+/**
+ * The actor on inputs the server appends itself: day changes, the townsfolk list, closes, and
+ * voids. No resident has this id (the server's ids look like `r_0123456789abcdef`).
+ */
+export const TOWN_ACTOR = "town";
+
+/** Commands only TOWN_ACTOR may send. */
+export const SERVER_COMMANDS = [
+  "new_day",
+  "set_townsfolk",
+  "close_proposal",
+  "void_proposal",
+] as const satisfies readonly CommandType[];
 
 /** A command plus who issued it. This is the unit the server logs and replays. */
 export interface Input {
@@ -132,7 +250,43 @@ export type WorldEvent =
   | { type: "block_removed"; x: number; y: number; by: ResidentId }
   | { type: "plot_shared"; px: number; py: number; residentId: ResidentId }
   | { type: "plot_unshared"; px: number; py: number; residentId: ResidentId }
-  | { type: "hearth_cleared"; residentId: ResidentId };
+  | { type: "hearth_cleared"; residentId: ResidentId }
+  | { type: "day_started"; day: number }
+  | { type: "townsfolk_set"; ids: ResidentId[] }
+  | { type: "proposal_queued"; proposal: string; author: ResidentId; kind: ProposalKind }
+  | {
+      type: "proposal_opened";
+      proposal: string;
+      author: ResidentId;
+      kind: ProposalKind;
+      closesDay: number;
+      electorate: number;
+      quorum: number;
+    }
+  | {
+      type: "vote_cast";
+      proposal: string;
+      residentId: ResidentId;
+      choice: VoteChoice;
+      yes: number;
+      no: number;
+      abstain: number;
+    }
+  | {
+      type: "proposal_closed";
+      proposal: string;
+      status: ProposalStatus;
+      yes: number;
+      no: number;
+      abstain: number;
+    }
+  | {
+      type: "town_built";
+      proposal: string;
+      placed: PlannedBlock[];
+      removed: Tile[];
+      skipped: Tile[];
+    };
 
 export const REJECTION_CODES = [
   "not_joined",
@@ -156,6 +310,15 @@ export const REJECTION_CODES = [
   "already_shared",
   "share_limit",
   "not_shared",
+  "not_eligible",
+  "proposal_limit",
+  "invalid_proposal",
+  "unknown_proposal",
+  "proposal_not_open",
+  "not_your_proposal",
+  "already_voted",
+  "server_only",
+  "not_due",
 ] as const;
 export type RejectionCode = (typeof REJECTION_CODES)[number];
 

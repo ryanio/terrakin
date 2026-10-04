@@ -22,6 +22,9 @@ export class Mirror {
   plots = new Map<string, string>(); // plotKey -> ownerId
   coOwners = new Map<string, string[]>(); // plotKey -> residents the owner shares it with
   blocks = new Map<string, BlockKind>(); // tileKey -> block
+  /** The tiles the Town Hall stands on. Tapping one opens /town. */
+  townHall: { x: number; y: number }[];
+  townBuilt = new Map<string, string>(); // tileKey -> the proposal that built it
 
   constructor(snapshot: WorldSnapshot) {
     this.config = snapshot.config;
@@ -33,6 +36,12 @@ export class Mirror {
       if (p.coOwners?.length) this.coOwners.set(plotKey(p.px, p.py), [...p.coOwners]);
     }
     for (const b of snapshot.blocks) this.blocks.set(tileKey(b.x, b.y), b.block);
+    this.townHall = (snapshot.townHall ?? []).map((t) => ({ ...t }));
+    for (const t of snapshot.townBuilt ?? []) this.townBuilt.set(tileKey(t.x, t.y), t.proposal);
+  }
+
+  isTownHall(x: number, y: number): boolean {
+    return this.townHall.some((t) => t.x === x && t.y === y);
   }
 
   /**
@@ -103,6 +112,11 @@ export class Mirror {
         if (r) r.hearth = null;
         break;
       }
+      // The blocks themselves arrive as block_placed and block_removed just before this.
+      case "town_built":
+        for (const b of event.placed) this.townBuilt.set(tileKey(b.x, b.y), event.proposal);
+        for (const t of event.removed) this.townBuilt.delete(tileKey(t.x, t.y));
+        break;
     }
     return "applied";
   }

@@ -1,10 +1,11 @@
 import { DurableObject } from "cloudflare:workers";
 import { buildOpenApi } from "@terrakin/protocol";
 import SKILL_MD from "@terrakin/protocol/SKILL.md";
+import { votesCast } from "@terrakin/sim";
 import { Api, isApiPath, MAX_BODY_BYTES } from "../src/api";
 import { type MediaBucket, type MediaStore, readCapped, serveFromBucket } from "../src/media";
 import { negotiate, pageHeaders, twinHeaders } from "../src/pages";
-import { parseTownsfolk, SocialService } from "../src/social-service";
+import { parseMaintainers, parseTownsfolk, SocialService } from "../src/social-service";
 import { SqlStore } from "../src/sql-store";
 import { WorldService } from "../src/world-service";
 
@@ -22,6 +23,8 @@ interface Env {
   MEDIA: R2Bucket;
   /** Resident ids of the founding townsfolk (NPC badge), comma separated. Set in wrangler.jsonc vars. */
   TERRAKIN_TOWNSFOLK?: string;
+  /** Resident ids of Town Hall maintainers (void proposals, answer petitions), comma separated. */
+  TERRAKIN_MAINTAINERS?: string;
 }
 
 const OPENAPI = JSON.stringify(buildOpenApi());
@@ -81,7 +84,12 @@ export class World extends DurableObject<Env> {
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
-    const service = new WorldService({ store: new SqlStore(ctx.storage.sql) });
+    const townsfolk = parseTownsfolk(env.TERRAKIN_TOWNSFOLK);
+    const service = new WorldService({
+      store: new SqlStore(ctx.storage.sql),
+      days: true,
+      townsfolk,
+    });
     const media: MediaStore = {
       put: async (id, bytes, type) => {
         await env.MEDIA.put(id, bytes, { httpMetadata: { contentType: type } });
@@ -96,11 +104,14 @@ export class World extends DurableObject<Env> {
       sql: ctx.storage.sql,
       media,
       resident: (id) => service.state.residents[id],
-      townsfolk: parseTownsfolk(env.TERRAKIN_TOWNSFOLK),
+      townsfolk,
+      maintainers: parseMaintainers(env.TERRAKIN_MAINTAINERS),
+      votesCast: (id) => votesCast(service.state, id),
     });
     this.api = new Api({ service, social, skill: SKILL_MD, openapi: OPENAPI });
-    // Runs while the object is in memory. If it's evicted, nobody is connected, and the next
-    // boot marks everyone offline anyway.
+    // Runs while the object is in memory: idle sweeps and the Town Hall's clock. If it's evicted,
+    // nobody is connected; the next boot marks everyone offline, and boot and every request catch
+    // the day up and close what's due.
     setInterval(() => this.api.sweep(), 60_000);
   }
 

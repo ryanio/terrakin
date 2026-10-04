@@ -1,5 +1,6 @@
 import { fnv1a } from "./hash";
 import { plotKey, tileKey } from "./keys";
+import { checkTown, isActivity, isServerCommand, type TownChecked } from "./town";
 import type {
   ApplyResult,
   Command,
@@ -14,7 +15,7 @@ import type {
   WorldEvent,
   WorldState,
 } from "./types";
-import { RESIDENT_COLORS, RESIDENT_SHAPES } from "./types";
+import { RESIDENT_COLORS, RESIDENT_SHAPES, TOWN_ACTOR } from "./types";
 import {
   canBuildOn,
   chebyshev,
@@ -92,7 +93,8 @@ function mergeProfile(
  *   every change, so clients can mirror the world without re-running the rules.
  */
 export function prepare(state: WorldState, input: Input): Prepared {
-  const mutate = check(state, input.actor, input.command);
+  const { actor, command } = input;
+  const mutate = check(state, actor, command);
   if (typeof mutate !== "function") return mutate;
   let done = false;
   return {
@@ -101,6 +103,13 @@ export function prepare(state: WorldState, input: Input): Prepared {
       if (done) throw new Error("Prepared input committed twice");
       done = true;
       const events = mutate();
+      // Town Hall bookkeeping: the last day each resident acted. Only once the world counts days,
+      // so logs from before the Town Hall replay to the same hash. No event: no client draws it,
+      // and /v1/town reports what it means (eligibility).
+      if (state.day !== undefined && state.residents[actor] && isActivity(command)) {
+        state.lastActiveDay ??= {};
+        state.lastActiveDay[actor] = state.day;
+      }
       state.seq += 1;
       return { seq: state.seq, events };
     },
@@ -172,9 +181,23 @@ function landingTile(state: WorldState, actor: string, px: number, py: number): 
   return free ?? center;
 }
 
+/** A Town Hall check's answer in this file's shape. */
+function town(checked: TownChecked): Mutation | Prepared {
+  return typeof checked === "function" ? checked : { ok: false, rejection: checked };
+}
+
+/** `{ claimedDay }` once the world counts days, else nothing, so older worlds hash as before. */
+const stampDay = (state: WorldState) => (state.day === undefined ? {} : { claimedDay: state.day });
+
 function check(state: WorldState, actor: string, command: Command): Mutation | Prepared {
   const { config } = state;
   const me = state.residents[actor];
+
+  // Day changes, the townsfolk list, closes, and voids come from the server itself.
+  if (isServerCommand(command)) {
+    if (actor !== TOWN_ACTOR) return reject("server_only", "Only the server can do that.");
+    return town(checkTown(state, actor, command));
+  }
 
   if (command.type === "join") {
     if (me?.online) return reject("already_joined", "You are already in the world.");
@@ -250,7 +273,7 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
         return reject("plot_limit", `You can own at most ${config.maxPlotsPerResident} plot(s).`);
       }
       return () => {
-        state.plots[plotKey(px, py)] = { px, py, ownerId: actor };
+        state.plots[plotKey(px, py)] = { px, py, ownerId: actor, ...stampDay(state) };
         return [{ type: "plot_claimed", px, py, ownerId: actor }];
       };
     }
@@ -392,7 +415,7 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
       }
       const to = landingTile(state, actor, px, py);
       return () => {
-        state.plots[key] = { px, py, ownerId: actor };
+        state.plots[key] = { px, py, ownerId: actor, ...stampDay(state) };
         const events: WorldEvent[] = [{ type: "plot_claimed", px, py, ownerId: actor }];
         if (!sameTile(me, to)) {
           me.x = to.x;
@@ -482,6 +505,10 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
           const rest = coOwners.filter((id) => id !== target);
           if (rest.length > 0) plot.coOwners = rest;
           else delete plot.coOwners;
+          if (plot.sharedDay) {
+            delete plot.sharedDay[target];
+            if (Object.keys(plot.sharedDay).length === 0) delete plot.sharedDay;
+          }
           const events: WorldEvent[] = [{ type: "plot_unshared", px, py, residentId: target }];
           if (them && hearthHere) {
             them.hearth = null;
@@ -505,8 +532,16 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
       }
       return () => {
         plot.coOwners = [...coOwners, target];
+        // When the share started counts toward the co-owner's Town Hall eligibility, so a new
+        // share on an old plot doesn't make a voter on the spot.
+        if (state.day !== undefined) plot.sharedDay = { ...plot.sharedDay, [target]: state.day };
         return [{ type: "plot_shared", px, py, residentId: target }];
       };
     }
+
+    case "propose":
+    case "vote":
+    case "withdraw":
+      return town(checkTown(state, actor, command));
   }
 }

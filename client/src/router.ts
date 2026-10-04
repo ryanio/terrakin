@@ -1,8 +1,8 @@
 /**
  * A tiny History API router. `/` the feed, `/r/:id` a profile, `/p/:id` a post, `/letters` and
- * `/letters/:id` your letters, `/i/:code` an invite, and `/world` the canvas world. Anything else
- * is a friendly not-found page. The server sends index.html for every deep link, so a reload lands
- * on the same page.
+ * `/letters/:id` your letters, `/i/:code` an invite, `/town` the Town Hall, and `/world` the canvas
+ * world. Anything else is a friendly not-found page. The server sends index.html for every deep
+ * link, so a reload lands on the same page.
  */
 
 export type Route =
@@ -13,6 +13,7 @@ export type Route =
   | { name: "letters" }
   | { name: "letters-with"; id: string }
   | { name: "invite"; code: string }
+  | { name: "town" }
   | { name: "not-found" };
 
 const ID = "([A-Za-z0-9_-]{1,64})";
@@ -24,6 +25,7 @@ const PATTERNS: [RegExp, (m: RegExpExecArray) => Route][] = [
   [/^\/letters$/, () => ({ name: "letters" })],
   [new RegExp(`^/letters/${ID}$`), (m) => ({ name: "letters-with", id: m[1] ?? "" })],
   [new RegExp(`^/i/${ID}$`), (m) => ({ name: "invite", code: m[1] ?? "" })],
+  [/^\/town$/, () => ({ name: "town" })],
 ];
 
 /** Which page a path is. Trailing slashes are ignored. Pure, so tests pin it. */
@@ -45,6 +47,8 @@ export function routeTemplate(route: Route): string {
       return "/r/:id";
     case "post":
       return "/p/:id";
+    case "town":
+      return "/town";
     case "world":
       return "/world";
     case "letters":

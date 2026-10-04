@@ -4247,3 +4247,503 @@ a.btn-primary {
   font-size: 14px;
   color: var(--ink-soft);
 }
+
+/* ---------- town hall (/town) ---------- */
+
+.town-hero {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}
+
+.town-title {
+  font-size: 28px;
+  line-height: 1.15;
+}
+
+.town-lede,
+.town-you,
+.town-next {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.town-you {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.town-next {
+  font-size: 14px;
+}
+
+.proposal-list,
+.archive-list {
+  display: grid;
+  gap: 12px;
+}
+
+.proposal {
+  display: grid;
+  gap: 10px;
+}
+
+.proposal-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.proposal-kind {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: rgba(143, 179, 106, 0.18);
+  color: var(--moss);
+}
+
+.proposal-kind.build {
+  background: rgba(242, 184, 75, 0.22);
+  color: var(--clay-deep);
+}
+
+.proposal-status {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.proposal-status.s-passed {
+  color: var(--moss);
+}
+
+.proposal-status.s-failed,
+.proposal-status.s-voided {
+  color: #a3361a;
+}
+
+.proposal-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 21px;
+  font-weight: 600;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.proposal-text {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.proposal-by,
+.notice-by {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.proposal-by a,
+.notice-by a {
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.notice-by time {
+  margin-left: auto;
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+
+.proposal.compact .proposal-title {
+  font-size: 18px;
+}
+
+.tally {
+  display: grid;
+  gap: 6px;
+}
+
+.tally-bar {
+  display: flex;
+  height: 12px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(236, 220, 192, 0.7);
+  box-shadow: inset 0 1px 2px rgba(92, 60, 30, 0.15);
+}
+
+.tally-yes,
+.tally-no,
+.tally-abstain {
+  transition: width 0.4s ease;
+}
+
+.tally-yes,
+.dot.yes::before {
+  background: var(--moss-light);
+}
+
+.tally-no,
+.dot.no::before {
+  background: var(--clay);
+}
+
+.tally-abstain,
+.dot.abstain::before {
+  background: #cbbfa8;
+}
+
+.tally-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 0;
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+
+.dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dot::before {
+  content: "";
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.tally-quorum {
+  margin-left: auto;
+  font-weight: 600;
+}
+
+.tally-quorum.met {
+  color: var(--moss);
+}
+
+.vote-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.vote-button {
+  min-height: 48px;
+  border: 1px solid var(--paper-edge);
+  border-radius: 999px;
+  background: var(--paper-fill);
+  box-shadow: var(--shadow-pill);
+  font-size: 16px;
+  font-weight: 650;
+  color: var(--ink);
+  transition:
+    transform 0.15s ease,
+    background 0.15s ease;
+}
+
+.vote-button:active {
+  transform: translateY(1px) scale(0.98);
+}
+
+.vote-button.on.v-yes {
+  background: var(--moss);
+  border-color: var(--moss);
+  color: var(--paper);
+}
+
+.vote-button.on.v-no {
+  background: var(--clay);
+  border-color: var(--clay);
+  color: var(--paper);
+}
+
+.vote-button.on.v-abstain {
+  background: var(--ink-soft);
+  border-color: var(--ink-soft);
+  color: var(--paper);
+}
+
+.proposal-why,
+.board-hint,
+.notice-empty {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+
+.text-button {
+  justify-self: start;
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--clay-deep);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.proposal-answer {
+  padding: 10px 14px;
+  border-left: 3px solid var(--sun);
+  border-radius: 0 12px 12px 0;
+  background: rgba(242, 184, 75, 0.12);
+}
+
+.proposal-answer p:last-child {
+  margin: 6px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.profile-votes {
+  margin: 10px 0 0;
+  font-size: 15px;
+  color: var(--ink-soft);
+}
+
+/* A map of the Commons: one cell per tile. */
+.commons-map {
+  --n: 8;
+  display: grid;
+  grid-template-columns: repeat(var(--n), 1fr);
+  gap: 2px;
+  padding: 6px;
+  border-radius: 12px;
+  background: #e8d39f;
+  border: 1px dashed rgba(201, 150, 62, 0.75);
+}
+
+.commons-map.small {
+  max-width: 208px;
+}
+
+.commons-map .tile {
+  aspect-ratio: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: #f2e1b3;
+}
+
+.commons-map.editor .tile {
+  min-height: 36px;
+  cursor: pointer;
+}
+
+.commons-map .tile.hall {
+  background: repeating-linear-gradient(135deg, #e7c9a8 0 4px, rgba(217, 101, 58, 0.35) 4px 8px);
+  cursor: not-allowed;
+}
+
+.commons-map .tile[data-block="wood"] {
+  background: #b8834f;
+}
+
+.commons-map .tile[data-block="stone"] {
+  background: #a39d93;
+}
+
+.commons-map .tile[data-block="glass"] {
+  background: #bfe0ea;
+}
+
+.commons-map .tile[data-block="leaf"] {
+  background: #6b9a4a;
+}
+
+.commons-map .tile.planned {
+  box-shadow:
+    inset 0 0 0 2px var(--paper),
+    0 0 0 2px var(--clay);
+}
+
+.commons-map .tile.removing {
+  opacity: 0.45;
+  box-shadow: inset 0 0 0 2px #a3361a;
+}
+
+/* The Propose sheet: a paper panel that rises from the bottom on phones. */
+dialog.sheet {
+  width: 100%;
+  max-width: 640px;
+  max-height: 100%;
+  margin: auto auto 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  overscroll-behavior: contain;
+}
+
+dialog.sheet::backdrop {
+  background: rgba(43, 38, 32, 0.45);
+}
+
+.sheet-panel {
+  max-height: calc(100dvh - 24px - env(safe-area-inset-top));
+  overflow-y: auto;
+  padding: 16px max(16px, env(safe-area-inset-right)) calc(20px + env(safe-area-inset-bottom))
+    max(16px, env(safe-area-inset-left));
+  border-radius: var(--r-card) var(--r-card) 0 0;
+  animation: rise 0.22s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+@keyframes rise {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+}
+
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.sheet-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.sheet-close {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--paper-edge);
+  border-radius: 50%;
+  background: var(--paper-fill);
+}
+
+.sheet-body {
+  display: grid;
+  gap: 10px;
+}
+
+.kind-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.kind-button {
+  min-height: 48px;
+  border: 1px solid var(--paper-edge);
+  border-radius: 999px;
+  background: var(--paper-fill);
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.kind-button[aria-pressed="true"] {
+  background: var(--clay);
+  border-color: var(--clay);
+  color: var(--paper);
+}
+
+.sheet-input {
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 14px;
+  border: 1px solid var(--paper-edge);
+  border-radius: 14px;
+  background: #fffdf7;
+  font-size: 17px; /* 16px or more stops iOS from zooming on focus. */
+  line-height: 1.4;
+}
+
+.sheet-text {
+  resize: vertical;
+}
+
+.plan-part {
+  display: grid;
+  gap: 8px;
+}
+
+.plan-count,
+.sheet-note {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+
+.sheet-body .btn-primary {
+  justify-self: stretch;
+}
+
+/* The notice board: notes pinned slightly askew. */
+.board {
+  display: grid;
+  gap: 12px;
+}
+
+.notice-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.notice-input {
+  flex: 1;
+  min-width: 0;
+  resize: none;
+}
+
+.notice-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.notice {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: var(--r-note);
+  background: #fffdf3;
+  border: 1px solid var(--paper-edge);
+  box-shadow: 0 6px 14px -10px rgba(92, 60, 30, 0.5);
+}
+
+.notice:nth-child(odd) {
+  transform: rotate(-0.4deg);
+}
+
+.notice:nth-child(even) {
+  transform: rotate(0.4deg);
+}
+
+.notice-text {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}

@@ -17,6 +17,7 @@ import {
 import * as schemas from "./schemas";
 import { absolute, LINKS, SITE } from "./site";
 import * as social from "./social";
+import * as town from "./town";
 
 type Json = Record<string, unknown>;
 
@@ -88,7 +89,7 @@ const IDEMPOTENCY_KEY = {
 function namedSchemas() {
   const registry = z.registry<{ id: string }>();
   const names = new Map<z.ZodType, string>();
-  for (const [name, value] of Object.entries({ ...schemas, ...social })) {
+  for (const [name, value] of Object.entries({ ...schemas, ...social, ...town })) {
     if (!(value instanceof z.ZodType) || names.has(value)) continue;
     registry.add(value, { id: name });
     names.set(value, name);
@@ -108,7 +109,9 @@ export function buildOpenApi() {
   const named = (schema: z.ZodType, where: string) => {
     const name = names.get(schema);
     if (!name)
-      throw new Error(`${where} uses a schema that isn't exported from schemas.ts or social.ts`);
+      throw new Error(
+        `${where} uses a schema that isn't exported from schemas.ts, social.ts, or town.ts`,
+      );
     return ref(name);
   };
 

@@ -2,9 +2,13 @@ import {
   BLOCK_KINDS,
   NAME_MAX_LENGTH,
   NOTE_MAX_LENGTH,
+  PROPOSAL_KINDS,
+  PROPOSAL_STATUSES,
   REJECTION_CODES,
   RESIDENT_COLORS,
   RESIDENT_SHAPES,
+  TOWN_LIMITS,
+  VOTE_CHOICES,
 } from "@terrakin/sim";
 import { z } from "zod";
 
@@ -73,6 +77,36 @@ const residentRef = z.string().min(1).max(64);
 /** Let another resident build on your plot as if it were theirs. */
 export const SharePlotAction = z.object({ type: z.literal("share_plot"), with: residentRef });
 export const UnsharePlotAction = z.object({ type: z.literal("unshare_plot"), with: residentRef });
+// ---------- Town Hall (RFC 0004) ----------
+
+export const ProposalKind = z.enum(PROPOSAL_KINDS);
+export const VoteChoice = z.enum(VOTE_CHOICES);
+export const ProposalStatus = z.enum(PROPOSAL_STATUSES);
+const proposalRef = z.string().min(1).max(32);
+const tile = z.object({ x: coord, y: coord });
+/** One block a build places in the Commons. */
+export const PlannedBlock = z.object({ x: coord, y: coord, block: z.enum(BLOCK_KINDS) });
+/**
+ * Put something to the town. An `advisory` is words only; a `commons_build` places `blocks` (and
+ * takes away `remove`) in the Commons if it passes. Title and text are untrusted text.
+ */
+export const ProposeAction = z.object({
+  type: z.literal("propose"),
+  kind: ProposalKind,
+  title: z.string().trim().min(1).max(TOWN_LIMITS.titleMax),
+  text: z.string().trim().max(TOWN_LIMITS.textMax).optional(),
+  blocks: z.array(PlannedBlock).max(TOWN_LIMITS.buildMax).optional(),
+  remove: z.array(tile).max(TOWN_LIMITS.buildMax).optional(),
+});
+/** Vote on an open proposal. Send again with another choice to change it. */
+export const VoteAction = z.object({
+  type: z.literal("vote"),
+  proposal: proposalRef,
+  choice: VoteChoice,
+});
+/** Take back your own open or queued proposal. */
+export const WithdrawAction = z.object({ type: z.literal("withdraw"), proposal: proposalRef });
+
 /** `nearby` (default) reaches residents within earshot; `world` reaches everyone online. */
 export const ChatChannel = z.enum(["nearby", "world"]);
 export type ChatChannel = z.infer<typeof ChatChannel>;
@@ -96,6 +130,9 @@ export const Action = z.discriminatedUnion("type", [
   BuildStarterHomeAction,
   SharePlotAction,
   UnsharePlotAction,
+  ProposeAction,
+  VoteAction,
+  WithdrawAction,
 ]);
 export type Action = z.infer<typeof Action>;
 export const ACTION_TYPES = Action.options.map((o) => o.shape.type.value);
@@ -150,11 +187,21 @@ export const WorldSnapshot = z.object({
       ownerId: z.string(),
       /** Residents the owner shares this plot with. Absent when it isn't shared. */
       coOwners: z.array(z.string()).optional(),
+      /** The day it was claimed (UTC days since 1970-01-01). Absent if before days were counted. */
+      claimedDay: z.number().int().optional(),
     }),
   ),
   blocks: z.array(
     z.object({ x: z.number().int(), y: z.number().int(), block: z.enum(BLOCK_KINDS) }),
   ),
+  /** Today in UTC days since 1970-01-01, as the world counts it. Absent before the first day. */
+  day: z.number().int().optional(),
+  /** The tiles the Town Hall stands on, in the Commons. Nothing is built there; tap it for /town. */
+  townHall: z.array(z.object({ x: z.number().int(), y: z.number().int() })).optional(),
+  /** Commons blocks the town built, with the proposal that built each. */
+  townBuilt: z
+    .array(z.object({ x: z.number().int(), y: z.number().int(), proposal: z.string() }))
+    .optional(),
 });
 export type WorldSnapshot = z.infer<typeof WorldSnapshot>;
 
@@ -218,6 +265,48 @@ export const WorldEvent = z.discriminatedUnion("type", [
     residentId: z.string(),
   }),
   z.object({ type: z.literal("hearth_cleared"), residentId: z.string() }),
+  // Town Hall. Titles and texts aren't in events: read them from /v1/town.
+  z.object({ type: z.literal("day_started"), day: z.number().int() }),
+  z.object({ type: z.literal("townsfolk_set"), ids: z.array(z.string()) }),
+  z.object({
+    type: z.literal("proposal_queued"),
+    proposal: z.string(),
+    author: z.string(),
+    kind: ProposalKind,
+  }),
+  z.object({
+    type: z.literal("proposal_opened"),
+    proposal: z.string(),
+    author: z.string(),
+    kind: ProposalKind,
+    closesDay: z.number().int(),
+    electorate: z.number().int(),
+    quorum: z.number().int(),
+  }),
+  z.object({
+    type: z.literal("vote_cast"),
+    proposal: z.string(),
+    residentId: z.string(),
+    choice: VoteChoice,
+    yes: z.number().int(),
+    no: z.number().int(),
+    abstain: z.number().int(),
+  }),
+  z.object({
+    type: z.literal("proposal_closed"),
+    proposal: z.string(),
+    status: ProposalStatus,
+    yes: z.number().int(),
+    no: z.number().int(),
+    abstain: z.number().int(),
+  }),
+  z.object({
+    type: z.literal("town_built"),
+    proposal: z.string(),
+    placed: z.array(PlannedBlock),
+    removed: z.array(z.object({ x: z.number().int(), y: z.number().int() })),
+    skipped: z.array(z.object({ x: z.number().int(), y: z.number().int() })),
+  }),
 ]);
 
 /**

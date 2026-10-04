@@ -1,11 +1,12 @@
 import { resolve } from "node:path";
+import { votesCast } from "@terrakin/sim";
 import { createApp } from "./app";
 import { FileMediaStore } from "./file-media-store";
 import { MemoryMediaStore } from "./media";
 import { nodeSql } from "./node-sql";
-import { parseTownsfolk, SocialService } from "./social-service";
+import { parseMaintainers, parseTownsfolk, SocialService } from "./social-service";
 import { JsonlStore, MemoryStore } from "./store";
-import { WorldService } from "./world-service";
+import { DAY_MS, WorldService } from "./world-service";
 import { oembedReader } from "./x-link";
 
 // Resolve relative paths from where the user ran the command. `pnpm --filter` runs this file
@@ -26,16 +27,29 @@ if (!Number.isInteger(trustedProxies) || trustedProxies < 0) {
 
 // New sessions per minute per IP. Only the e2e suite raises it, since all its browsers share one IP.
 const sessionsPerMinute = Number(process.env.TERRAKIN_SESSIONS_PER_MINUTE ?? 0) || undefined;
+// Tests only: a clock that `POST /v1/test/advance-day` moves forward a day at a time, so the e2e
+// suite can watch a proposal open, pass, and build. Never in production.
+const testClock = process.env.TERRAKIN_TEST_CLOCK === "1";
+if (testClock && process.env.NODE_ENV === "production") {
+  console.error("TERRAKIN_TEST_CLOCK is for tests and can't be set when NODE_ENV=production.");
+  process.exit(1);
+}
+let offset = 0;
+const now = testClock ? () => Date.now() + offset : Date.now;
+const townsfolk = parseTownsfolk(process.env.TERRAKIN_TOWNSFOLK);
 
 const store = dataDir ? new JsonlStore(fromCwd(dataDir)) : new MemoryStore();
-const service = new WorldService({ store });
+const service = new WorldService({ store, now, days: true, townsfolk });
 const media = dataDir ? new FileMediaStore(fromCwd(`${dataDir}/media`)) : new MemoryMediaStore();
 const social = new SocialService({
   sql: nodeSql(dataDir ? fromCwd(`${dataDir}/social.db`) : ":memory:"),
   media,
+  now,
   resident: (id) => service.state.residents[id],
-  townsfolk: parseTownsfolk(process.env.TERRAKIN_TOWNSFOLK),
+  townsfolk,
   ...testXReader(process.env.TERRAKIN_TEST_X_OEMBED),
+  maintainers: parseMaintainers(process.env.TERRAKIN_MAINTAINERS),
+  votesCast: (id) => votesCast(service.state, id),
 });
 
 /**
@@ -64,14 +78,26 @@ const server = createApp({
   trustedProxies,
   ...(sessionsPerMinute ? { sessionsPerMinute } : {}),
   ...(staticDir ? { staticDir: fromCwd(staticDir) } : {}),
+  ...(testClock
+    ? {
+        testClock: {
+          advanceDay: () => {
+            offset += DAY_MS;
+            service.tick();
+            return service.state.day ?? null;
+          },
+        },
+      }
+    : {}),
 });
 
 server.listen(port, () => {
   console.log(`terrakin server on http://localhost:${port}`);
-  console.log(`  world seq=${service.state.seq} hash=${service.hash()}`);
+  console.log(`  world seq=${service.state.seq} hash=${service.hash()} day=${service.state.day}`);
   console.log(
     `  storage: ${dataDir ? `jsonl in ${fromCwd(dataDir)}` : "memory (set TERRAKIN_DATA_DIR to persist)"}`,
   );
+  if (testClock) console.log("  test clock: POST /v1/test/advance-day moves the world a day on");
 });
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {

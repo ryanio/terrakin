@@ -33,7 +33,9 @@ describe("relative time", () => {
 });
 
 describe("router", () => {
-  it("matches the four pages and nothing else", () => {
+  it("matches the five pages and nothing else", () => {
+    expect(matchRoute("/town")).toEqual({ name: "town" });
+    expect(routeTemplate(matchRoute("/town/"))).toBe("/town");
     expect(matchRoute("/")).toEqual({ name: "feed" });
     expect(matchRoute("/r/r_0123abcd")).toEqual({ name: "profile", id: "r_0123abcd" });
     expect(matchRoute("/p/p_0123456789abcdef/")).toEqual({

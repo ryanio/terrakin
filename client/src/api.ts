@@ -5,7 +5,9 @@
 import {
   type AcceptInviteRequest,
   AcceptInviteResponse,
+  type Action,
   ActionResponse,
+  ArchiveResponse,
   type CreateLetterRequest,
   type CreatePostRequest,
   type CreateSessionRequest,
@@ -21,10 +23,13 @@ import {
   LettersResponse,
   MediaResponse,
   type MediaView,
+  NoticeResponse,
   PostResponse,
   type PostView,
   ProfileResponse,
   type ProfileView,
+  TownResponse,
+  WorldSnapshot,
   XStartResponse,
 } from "@terrakin/protocol";
 import type { ResidentColor, ResidentShape } from "@terrakin/sim";
@@ -178,6 +183,16 @@ export const api = {
     request("GET", `/v1/invites/${encodeURIComponent(code)}`, InviteDetailsResponse),
   acceptInvite: (code: string, body: AcceptInviteRequest) =>
     request("POST", `/v1/invites/${encodeURIComponent(code)}/accept`, AcceptInviteResponse, body),
+
+  // Town Hall
+  town: () => request("GET", "/v1/town", TownResponse),
+  world: () => request("GET", "/v1/world", WorldSnapshot),
+  archive: (before?: string) =>
+    request("GET", `/v1/town/archive${query({ limit: 10, before })}`, ArchiveResponse),
+  /** A world action. A 200 can still be a refusal by the rules: check `ok` in the body. */
+  act: (action: Action) => request("POST", "/v1/actions", ActionResponse, action),
+  pinNotice: (text: string) => request("POST", "/v1/notices", NoticeResponse, { text }),
+  removeNotice: (id: string) => request("DELETE", `/v1/notices/${encodeURIComponent(id)}`, Nothing),
 };
 
 /** For replies with no body (204). */

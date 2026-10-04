@@ -18,6 +18,8 @@ import {
   prepare,
   type ResidentKind,
   replay,
+  TOWN_ACTOR,
+  townHallTiles,
   type WorldConfig,
   type WorldEvent,
   type WorldState,
@@ -25,7 +27,7 @@ import {
 } from "@terrakin/sim";
 import { aimedAtReader } from "./injection";
 import type { Store } from "./store";
-import { cleanText } from "./text";
+import { cleanMultiline, cleanText } from "./text";
 
 export type ActResult =
   | { ok: true; seq: number; events: WorldEvent[]; heard?: number }
@@ -39,7 +41,25 @@ export interface WorldServiceOptions {
   /** Residents with no live socket and no REST call for this long are marked offline. */
   idleTimeoutMs?: number;
   now?: () => number;
+  /**
+   * Count days for the Town Hall: append `new_day` when a UTC day starts (on boot and on `tick()`),
+   * and `close_proposal` once a proposal's closing day has started. Both adapters turn this on.
+   * Off by default so a test world's log holds only what the test sent.
+   */
+  days?: boolean;
+  /**
+   * The townsfolk grant from config. When it differs from what the world last logged, boot appends
+   * a `set_townsfolk` input, so the sim (which keeps them out of every vote) sees the same list on
+   * every replay. Leave it out to keep whatever the log says.
+   */
+  townsfolk?: ReadonlySet<string>;
 }
+
+/** One UTC day. The Town Hall's clock ticks once per day, at midnight UTC. */
+export const DAY_MS = 86_400_000;
+
+/** UTC days since 1970-01-01. */
+export const utcDay = (ms: number) => Math.floor(ms / DAY_MS);
 
 const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
 
@@ -97,12 +117,14 @@ export class WorldService {
   private readonly lastSeen = new Map<string, number>();
   private readonly sockets = new Map<string, number>(); // residentId -> open socket count
   private readonly idleTimeoutMs: number;
-  private readonly now: () => number;
+  readonly now: () => number;
+  private readonly days: boolean;
 
   constructor(options: WorldServiceOptions) {
     this.store = options.store;
     this.idleTimeoutMs = options.idleTimeoutMs ?? 10 * 60_000;
     this.now = options.now ?? Date.now;
+    this.days = options.days ?? false;
     this.state = replay(options.config ?? DEFAULT_CONFIG, this.store.loadLog());
     for (const s of this.store.loadSessions()) this.sessions.set(s.tokenHash, s.residentId);
     for (const k of this.store.loadLinkKeys()) this.rememberLinkKey(k.residentId, k.keyHash);
@@ -110,6 +132,48 @@ export class WorldService {
     for (const r of Object.values(this.state.residents)) {
       if (r.online) this.run({ actor: r.id, command: { type: "leave" } });
     }
+    if (options.townsfolk) this.syncTownsfolk(options.townsfolk);
+    // A day may have started (and proposals come due) while the server was down.
+    this.tick();
+  }
+
+  // ---------- the town's clock ----------
+
+  /** Log the townsfolk list when config changed it, so the sim keeps them out of votes. */
+  private syncTownsfolk(grant: ReadonlySet<string>) {
+    const ids = [...grant].sort();
+    if (ids.join(",") === (this.state.townsfolk ?? []).join(",")) return;
+    this.run({ actor: TOWN_ACTOR, command: { type: "set_townsfolk", ids } });
+  }
+
+  /**
+   * Move the world's day forward to today (UTC) and close proposals whose closing day has started.
+   * Cheap when nothing is due, so the adapters call it on every request and once a minute. Each
+   * step is a logged input, so replay never needs the clock.
+   */
+  tick() {
+    if (!this.days) return;
+    const today = utcDay(this.now());
+    if (this.state.day === undefined || today > this.state.day) {
+      this.run({ actor: TOWN_ACTOR, command: { type: "new_day", day: today } });
+    }
+    const day = this.state.day;
+    if (day === undefined) return;
+    const due = (this.state.town?.proposals ?? []).filter(
+      (p) => p.status === "open" && p.closesDay !== undefined && p.closesDay <= day,
+    );
+    for (const p of due) {
+      const closed = this.run({
+        actor: TOWN_ACTOR,
+        command: { type: "close_proposal", proposal: p.id },
+      });
+      if (!closed.ok) console.error(`Couldn't close ${p.id}: ${closed.error.message}`);
+    }
+  }
+
+  /** A maintainer voids a proposal. Logged as a world input naming them. */
+  voidProposal(proposal: string, by: string): ActResult {
+    return this.run({ actor: TOWN_ACTOR, command: { type: "void_proposal", proposal, by } });
   }
 
   // ---------- identity ----------
@@ -222,6 +286,24 @@ export class WorldService {
         type: "build_starter_home",
         ...(walls ? { walls } : {}),
         ...(windows ? { windows } : {}),
+      };
+      return this.run({ actor: residentId, command });
+    }
+    if (action.type === "propose") {
+      // Proposal text is read by everyone, agents included: clean it and turn away text written
+      // as orders to AI readers before it's logged. The sim stores what's logged.
+      const title = cleanText(action.title);
+      const text = cleanMultiline(action.text ?? "");
+      const aimed = aimedAtReader(title) ?? aimedAtReader(text);
+      if (aimed) return readerRefusal("Proposals", aimed);
+      const { blocks, remove } = action;
+      const command: Command = {
+        type: "propose",
+        kind: action.kind,
+        title,
+        text,
+        ...(blocks?.length ? { blocks } : {}),
+        ...(remove?.length ? { remove } : {}),
       };
       return this.run({ actor: residentId, command });
     }
@@ -353,14 +435,36 @@ export class WorldService {
       hash: this.hash(),
       // The sim never sees a clock; this is presentation state, anchored by the server.
       time: { nowMs: this.now(), dayLengthMs: DAY_LENGTH_MS },
-      config: { ...state.config },
+      config: {
+        width: state.config.width,
+        height: state.config.height,
+        plotSize: state.config.plotSize,
+        maxPlotsPerResident: state.config.maxPlotsPerResident,
+        reach: state.config.reach,
+      },
       commons: commonsPlot(state.config),
       residents: Object.values(state.residents).map((r) => ({ ...r })),
-      plots: Object.values(state.plots).map((p) => ({ ...p })),
+      plots: Object.values(state.plots).map((p) => ({
+        px: p.px,
+        py: p.py,
+        ownerId: p.ownerId,
+        ...(p.coOwners ? { coOwners: [...p.coOwners] } : {}),
+        ...(p.claimedDay === undefined ? {} : { claimedDay: p.claimedDay }),
+      })),
       blocks: Object.entries(state.blocks).map(([key, block]) => {
         const [x, y] = parseKey(key);
         return { x, y, block };
       }),
+      ...(state.day === undefined ? {} : { day: state.day }),
+      townHall: townHallTiles(state.config),
+      ...(state.town
+        ? {
+            townBuilt: Object.entries(state.town.built).map(([key, proposal]) => {
+              const [x, y] = parseKey(key);
+              return { x, y, proposal };
+            }),
+          }
+        : {}),
     };
   }
 }

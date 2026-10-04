@@ -4,3 +4,4 @@ export * from "./routes";
 export * from "./schemas";
 export * from "./site";
 export * from "./social";
+export * from "./town";

@@ -9,6 +9,19 @@ export {
 export { canonicalJson, fnv1a, hashWorld } from "./hash";
 export { parseKey, plotKey, tileKey } from "./keys";
 export { replay } from "./replay";
+export {
+  type Eligibility,
+  electorate,
+  findProposal,
+  INELIGIBLE_REASONS,
+  type IneligibleReason,
+  quorum,
+  type Tally,
+  TOWN_LIMITS,
+  tally,
+  townEligibility,
+  votesCast,
+} from "./town";
 export * from "./types";
 export {
   CHAT_EARSHOT,
@@ -21,6 +34,7 @@ export {
   inBounds,
   isCommons,
   isSolid,
+  isTownHallTile,
   plotAtTile,
   plotCenter,
   plotInBounds,
@@ -28,6 +42,8 @@ export {
   plotsOwnedBy,
   spawnTile,
   starterHome,
+  townHallTile,
+  townHallTiles,
   validateConfig,
   withinEarshot,
 } from "./world";

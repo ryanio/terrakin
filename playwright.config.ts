@@ -14,7 +14,8 @@ export default defineConfig({
   projects: [{ name: "phone", use: { ...devices["iPhone 13"], browserName: "chromium" } }],
   webServer: {
     // Every browser here shares one IP, so allow more joins a minute than the real server does.
-    command: `pnpm build && PORT=${PORT} TERRAKIN_SESSIONS_PER_MINUTE=60 TERRAKIN_STATIC_DIR=client/dist TERRAKIN_TEST_X_OEMBED=${FAKE_X} pnpm --filter @terrakin/server start`,
+    // The test clock lets town.spec.ts move days on.
+    command: `pnpm build && PORT=${PORT} TERRAKIN_SESSIONS_PER_MINUTE=60 TERRAKIN_STATIC_DIR=client/dist TERRAKIN_TEST_X_OEMBED=${FAKE_X} TERRAKIN_TEST_CLOCK=1 pnpm --filter @terrakin/server start`,
     url: `http://localhost:${PORT}/v1/health`,
     reuseExistingServer: false,
     timeout: 120_000,

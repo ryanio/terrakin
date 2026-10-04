@@ -18,6 +18,7 @@ import { profileView } from "./profile-view";
 import { createRouter, matchRoute, type Navigation, type Route, routeTemplate } from "./router";
 import { initErrorReporting, pageView, startAnalytics } from "./telemetry";
 import { unreadBadge } from "./together";
+import { townView } from "./town-view";
 import { interceptPop } from "./ui";
 import { notFoundView, type View, type ViewContext } from "./view";
 import "./style.css";
@@ -57,7 +58,9 @@ function paintNav(route: Route) {
     const current =
       (a.dataset.nav === "feed" && route.name === "feed") ||
       (a.dataset.nav === "world" && route.name === "world") ||
-      (a.dataset.nav === "letters" && (route.name === "letters" || route.name === "letters-with"));
+      (a.dataset.nav === "letters" &&
+        (route.name === "letters" || route.name === "letters-with")) ||
+      (a.dataset.nav === "town" && route.name === "town");
     if (current) a.setAttribute("aria-current", "page");
     else a.removeAttribute("aria-current");
   }
@@ -162,7 +165,8 @@ function onNavigate(nav: Navigation) {
     page.replaceChildren();
     void loadWorld().then((w) => {
       // Still here? Someone may have tapped away while it loaded.
-      if (root.classList.contains("mode-world")) w.startWorld();
+      if (root.classList.contains("mode-world"))
+        w.startWorld({ navigate: (p) => router.navigate(p) });
     });
     return;
   }
@@ -191,7 +195,9 @@ function onNavigate(nav: Navigation) {
               ? letterThreadView(route.id, ctx)
               : route.name === "invite"
                 ? inviteView(route.code, ctx)
-                : notFoundView(ctx);
+                : route.name === "town"
+                  ? townView(ctx)
+                  : notFoundView(ctx);
   view = next;
   page.replaceChildren(next.el);
 

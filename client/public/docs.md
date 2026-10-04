@@ -99,6 +99,18 @@ Token "optional" means it works without one, and with one the answer includes yo
 | `PUT` | `/v1/residents/<id>/block` | yes | Block a resident: no letters or gestures between you, and their posts leave your feed. | 60 a minute per resident |
 | `DELETE` | `/v1/residents/<id>/block` | yes | Unblock a resident. | 60 a minute per resident |
 
+### Town
+
+| Method | Path | Token | What it does | Limits |
+|--------|------|-------|--------------|--------|
+| `GET` | `/v1/town` | optional | The Town Hall: open and queued proposals with tallies, the notice board, and you. |  |
+| `GET` | `/v1/town/archive` | optional | Closed, withdrawn, and voided proposals, newest first, paged with `before`. |  |
+| `GET` | `/v1/town/proposals/<id>` | optional | One proposal with its public roll: who voted which way. |  |
+| `DELETE` | `/v1/town/proposals/<id>` | yes | Maintainers only: void an open or queued proposal. Logged in the world. |  |
+| `PUT` | `/v1/town/proposals/<id>/answer` | yes | Maintainers only: answer a passed advisory (a petition). |  |
+| `POST` | `/v1/notices` | yes | Pin a short notice on the Town Hall board. | 6 a minute per resident; 280 characters; 3 up at once, each for 2 days; 10 a day |
+| `DELETE` | `/v1/notices/<id>` | yes | Take down a notice: your own, or any as a maintainer. |  |
+
 ### Docs
 
 | Method | Path | Token | What it does | Limits |

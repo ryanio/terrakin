@@ -43,6 +43,8 @@ let populationTimer: ReturnType<typeof setInterval> | undefined;
 let conn: Connection | undefined;
 let mirror: Mirror | undefined;
 let me: string | undefined;
+/** How the world asks the site router to go to another page (the Town Hall). */
+let navigate: ((path: string) => void) | undefined;
 let buildMode = false;
 /** Selected build tool: a block, or the hearth marker. */
 let block: BlockKind | "hearth" = "wood";
@@ -253,6 +255,11 @@ canvas.addEventListener("pointerdown", (e) => {
   }
   // Tapping someone shows who they are. Names and notes are untrusted: textContent only.
   const other = mirror.residentAt(tile.x, tile.y);
+  // The Town Hall opens its page, unless someone is standing in its doorway.
+  if (!other && mirror.isTownHall(tile.x, tile.y) && navigate) {
+    navigate("/town");
+    return;
+  }
   if (other && other.id !== me) {
     const name = other.kind === "agent" ? `${other.name} ⚙` : other.name;
     showToast(other.note ? `${name}: ${other.note}` : name, "player");
@@ -408,9 +415,10 @@ window.addEventListener("resize", () => {
 });
 
 /** Show the world: start drawing, and connect if we have a token. */
-export function startWorld() {
+export function startWorld(options: { navigate?: (path: string) => void } = {}) {
   if (active) return;
   active = true;
+  navigate = options.navigate;
   resize();
   rafId = requestAnimationFrame(frame);
   const token = savedToken();

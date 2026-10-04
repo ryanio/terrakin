@@ -46,5 +46,6 @@ Gotchas, surprises, and things we'd tell our past selves.
 
 End-of-session notes. Read the latest one before starting work.
 
+- [Social MVP live, ten workstreams in flight](handoffs/2026-10-04-2040-social-mvp-live-ten-workstreams-in-flight.md) · 2026-10-04 · `process` `deploy` `social` `client` `server` `protocol` `agents`
 - [Repo move, PR cleanup, and the road to terrakin.org](handoffs/2026-10-03-0506-repo-move-pr-cleanup-and-the-road-to-terrakin-org.md) · 2026-10-03 · `process` `server` `protocol` `client` `deploy`
 - [Foundation and Phase 1 prototype](handoffs/2026-10-02-2200-foundation-and-phase-1-prototype.md) · 2026-10-02 · `process` `sim` `protocol` `server` `client`

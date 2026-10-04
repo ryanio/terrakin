@@ -73,6 +73,7 @@ describe("settle, starter home, and sharing actions", () => {
     expect(Action.safeParse({ type: "unshare_plot", with: "r_0123456789abcdef" }).success).toBe(
       true,
     );
+    expect(Action.parse({ type: "release" })).toEqual({ type: "release" });
   });
 
   it("rejects bad plot coordinates, materials, and resident ids", () => {
@@ -95,6 +96,7 @@ describe("settle, starter home, and sharing actions", () => {
       { type: "plot_shared", px: 0, py: 0, residentId: "b" },
       { type: "plot_unshared", px: 0, py: 0, residentId: "b" },
       { type: "hearth_cleared", residentId: "b" },
+      { type: "plot_released", px: 0, py: 0, ownerId: "a" },
     ]) {
       expect(WorldEvent.safeParse(event).success).toBe(true);
     }

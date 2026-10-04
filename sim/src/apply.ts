@@ -263,28 +263,40 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
         return reject("not_your_plot", "You can only release a plot you own.");
       }
       // Releasing never demolishes: clear the blocks first. That keeps release a single,
-      // honest change instead of a silent teardown (see decision 0015).
+      // honest change instead of a silent teardown (see decision 0018).
       const { plotSize } = config;
-      const onPlot = (x: number, y: number) =>
-        x >= px * plotSize &&
-        x < (px + 1) * plotSize &&
-        y >= py * plotSize &&
-        y < (py + 1) * plotSize;
-      for (let x = px * plotSize; x < (px + 1) * plotSize; x++) {
-        for (let y = py * plotSize; y < (py + 1) * plotSize; y++) {
+      for (let y = py * plotSize; y < (py + 1) * plotSize; y++) {
+        for (let x = px * plotSize; x < (px + 1) * plotSize; x++) {
           if (state.blocks[tileKey(x, y)] !== undefined) {
             return reject("plot_has_blocks", "Remove every block on the plot first.");
           }
         }
       }
-      // A hearth on the released plot can't stay: it must sit on your own plot, and this
-      // one is about to be nobody's. Refusing isn't an option (there's nowhere else to put
-      // it), so it's cleared with the release.
-      const hearthOnPlot = me.hearth !== null && onPlot(me.hearth.x, me.hearth.y);
+      // Every hearth on the plot goes with it: a hearth must sit on a plot its resident can build
+      // on, and this one is about to be nobody's. Co-owners lose their share exactly as if the
+      // owner had sent unshare_plot for each of them, so the events read the same.
+      const hearthHere = (r: Resident | undefined): boolean => {
+        if (!r?.hearth) return false;
+        const p = plotOf(config, r.hearth.x, r.hearth.y);
+        return p.px === px && p.py === py;
+      };
+      const coOwners = (plot.coOwners ?? []).map((id) => {
+        const resident = state.residents[id];
+        return { id, clear: hearthHere(resident) ? resident : undefined };
+      });
+      const clearMyHearth = hearthHere(me);
       return () => {
+        const events: WorldEvent[] = [];
+        for (const { id, clear } of coOwners) {
+          events.push({ type: "plot_unshared", px, py, residentId: id });
+          if (clear) {
+            clear.hearth = null;
+            events.push({ type: "hearth_cleared", residentId: id });
+          }
+        }
         delete state.plots[key];
-        const events: WorldEvent[] = [{ type: "plot_released", px, py, ownerId: actor }];
-        if (hearthOnPlot) {
+        events.push({ type: "plot_released", px, py, ownerId: actor });
+        if (clearMyHearth) {
           me.hearth = null;
           events.push({ type: "hearth_cleared", residentId: actor });
         }

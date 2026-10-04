@@ -703,6 +703,109 @@ describe("share_plot and unshare_plot", () => {
   });
 });
 
+describe("release a shared plot", () => {
+  /**
+   * Ada settles plot (0,0) and shares it with Bob and Cat. Ada and Bob set hearths on it; Cat
+   * settles plot (2,0) and keeps her hearth there.
+   */
+  function sharedAndHomed() {
+    const state = roomy("ada", "bob", "cat", "dan");
+    run(
+      state,
+      "ada",
+      { type: "settle", px: 0, py: 0 },
+      { type: "share_plot", with: "bob" },
+      { type: "share_plot", with: "cat" },
+      { type: "set_hearth", x: 3, y: 3 },
+    );
+    walk(state, "bob", "w", 6);
+    walk(state, "bob", "n", 6);
+    run(state, "bob", { type: "set_hearth", x: 6, y: 6 });
+    run(state, "cat", { type: "settle", px: 2, py: 0 }, { type: "set_hearth", x: 19, y: 3 });
+    expect(state.residents.bob?.hearth).toEqual({ x: 6, y: 6 });
+    expect(state.residents.cat?.hearth).toEqual({ x: 19, y: 3 });
+    return state;
+  }
+
+  it("takes back every share and clears every hearth on the plot, with an event for each", () => {
+    const state = sharedAndHomed();
+    const [released] = run(state, "ada", { type: "release" });
+    expect(released).toEqual({
+      ok: true,
+      seq: state.seq,
+      events: [
+        { type: "plot_unshared", px: 0, py: 0, residentId: "bob" },
+        { type: "hearth_cleared", residentId: "bob" },
+        { type: "plot_unshared", px: 0, py: 0, residentId: "cat" },
+        { type: "plot_released", px: 0, py: 0, ownerId: "ada" },
+        { type: "hearth_cleared", residentId: "ada" },
+      ],
+    });
+    expect(state.plots["0,0"]).toBeUndefined();
+    expect(state.residents.ada?.hearth).toBeNull();
+    expect(state.residents.bob?.hearth).toBeNull();
+    // Cat's hearth is on her own plot, so it stays.
+    expect(state.residents.cat?.hearth).toEqual({ x: 19, y: 3 });
+    // Bob no longer has any rights there.
+    const code = (command: Command) => rejectionCode(apply(state, { actor: "bob", command }));
+    expect(code({ type: "place", x: 5, y: 5, block: "wood" })).toBe("not_your_plot");
+    expect(code({ type: "build_starter_home" })).toBe("no_plot");
+  });
+
+  it("refuses a co-owner, and refusals change nothing", () => {
+    const state = sharedAndHomed();
+    const before = hashWorld(state);
+    expect(rejectionCode(apply(state, { actor: "bob", command: { type: "release" } }))).toBe(
+      "not_your_plot",
+    );
+    expect(hashWorld(state)).toBe(before);
+  });
+
+  it("refuses while a co-owner's blocks stand on the plot", () => {
+    const state = sharedAndHomed();
+    run(state, "bob", { type: "place", x: 7, y: 7, block: "leaf" });
+    expect(rejectionCode(apply(state, { actor: "ada", command: { type: "release" } }))).toBe(
+      "plot_has_blocks",
+    );
+  });
+
+  it("lets anyone settle the released plot, and lets the releaser settle again", () => {
+    const state = sharedAndHomed();
+    run(state, "ada", { type: "release" });
+    const [settled] = run(state, "dan", { type: "settle", px: 0, py: 0 });
+    expect(settled?.ok && settled.events[0]).toEqual({
+      type: "plot_claimed",
+      px: 0,
+      py: 0,
+      ownerId: "dan",
+    });
+    // A fresh plot, not the old one with its shares.
+    expect(state.plots["0,0"]).toEqual({ px: 0, py: 0, ownerId: "dan" });
+    // Ada owns nothing now, so settle counts as her first plot again.
+    expect(run(state, "ada", { type: "settle", px: 0, py: 2 })[0]).toMatchObject({ ok: true });
+  });
+
+  it("replays share, release, and settle to the same hash", () => {
+    const state = createWorld(ROOMY);
+    const log: Input[] = [];
+    const script: Input[] = [
+      { actor: "ada", command: { type: "join", name: "ada", kind: "human" } },
+      { actor: "bob", command: { type: "join", name: "bob", kind: "human" } },
+      { actor: "ada", command: { type: "settle", px: 0, py: 0 } },
+      { actor: "ada", command: { type: "share_plot", with: "bob" } },
+      { actor: "ada", command: { type: "set_hearth", x: 3, y: 3 } },
+      { actor: "ada", command: { type: "release" } },
+      { actor: "bob", command: { type: "settle", px: 0, py: 0 } },
+      { actor: "ada", command: { type: "settle", px: 2, py: 0 } },
+    ];
+    for (const input of script) {
+      expect(apply(state, input).ok, JSON.stringify(input)).toBe(true);
+      log.push(input);
+    }
+    expect(hashWorld(replay(ROOMY, log))).toBe(hashWorld(state));
+  });
+});
+
 describe("determinism with settle, sharing, and the starter home", () => {
   it("replays a log that uses the new commands to the same hash", () => {
     const state = createWorld(ROOMY);

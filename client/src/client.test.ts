@@ -65,6 +65,30 @@ describe("Mirror", () => {
     expect(m.coOwners.size).toBe(0);
   });
 
+  it("mirrors a release of a shared plot", () => {
+    const [ada] = snapshot.residents;
+    if (!ada) throw new Error("fixture");
+    const m = new Mirror({
+      ...snapshot,
+      residents: [
+        { ...ada, hearth: { x: 1, y: 1 } },
+        { ...ada, id: "b", name: "Bea", hearth: { x: 2, y: 2 } },
+      ],
+      plots: [{ px: 0, py: 0, ownerId: "a", coOwners: ["b"] }],
+    });
+    const events = [
+      { seq: 4, event: { type: "plot_unshared", px: 0, py: 0, residentId: "b" } },
+      { seq: 4, event: { type: "hearth_cleared", residentId: "b" } },
+      { seq: 4, event: { type: "plot_released", px: 0, py: 0, ownerId: "a" } },
+      { seq: 4, event: { type: "hearth_cleared", residentId: "a" } },
+    ] as const;
+    for (const e of events) expect(m.apply(e)).toBe("applied");
+    expect(m.ownerAt(1, 1)).toBeUndefined();
+    expect(m.coOwnersAt(1, 1)).toEqual([]);
+    expect(m.residents.get("a")?.hearth).toBeNull();
+    expect(m.residents.get("b")?.hearth).toBeNull();
+  });
+
   it("mirrors profile changes and hearths", () => {
     const m = new Mirror(snapshot);
     const events = [

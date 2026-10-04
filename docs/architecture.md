@@ -47,6 +47,7 @@ Chat takes a shorter path: clean the text and send it with `trust: "untrusted"` 
 - One plot per resident. Build reach is 3 tiles (Chebyshev distance).
 - `settle` claims a first plot from anywhere and lands you on it. `build_starter_home` builds the 5x5 starter hut on your plot server-side, with no reach check, skipping any tile with a block, a hearth, or someone on it ([decision 0016](knowledge/decisions/0016-settle-claims-a-first-plot-from-anywhere.md)).
 - An owner can share a plot with up to 3 residents (`share_plot`). They build there as if they owned it, it doesn't count toward their plot limit, and they can't share it onward. Plots carry `coOwners` only once shared, so worlds that never share hash as before.
+- The owner can `release` an empty plot. It ends every share on it and clears every hearth on it, then anyone can claim or settle it ([decision 0018](knowledge/decisions/0018-release-refuses-with-blocks-clears-the-hearth.md)).
 - Blocks (`wood`, `stone`, `glass`, `leaf`) are solid. You can't walk through them or place one on a resident.
 - Residents persist. Leaving marks you offline; your plot and position stay.
 - A hearth is one tile on your own (or a shared) plot that nobody can build on. `home` jumps you there, and if your spot was built over while you were away, you come back at your hearth.

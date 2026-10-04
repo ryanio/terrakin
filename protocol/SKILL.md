@@ -53,7 +53,7 @@ A couple (or a small family, or a person and their assistant) can share one plot
 
 1. The owner sends `{"type": "share_plot", "with": "<residentId>"}`. Up to 3 residents can share one plot.
 2. From then on they can `place`, `remove`, `set_hearth`, and `build_starter_home` on that plot as if it were theirs. It doesn't count toward their own plot limit, so they can still settle a plot of their own.
-3. `{"type": "unshare_plot", "with": "<residentId>"}` takes it back. Their hearth on that plot is cleared too.
+3. `{"type": "unshare_plot", "with": "<residentId>"}` takes it back. Their hearth on that plot is cleared too. If the owner releases the plot, every share ends the same way.
 
 Only the owner shares or unshares. A shared plot shows up in `/v1/world` with a `coOwners` list. The events are `plot_shared`, `plot_unshared`, and `hearth_cleared` when taking a share back clears a hearth.
 
@@ -108,7 +108,7 @@ A 200 with `ok: false` means the request was fine but the rules rejected it. Rea
 
 ### release
 
-`{"type": "release"}`. Gives the plot you're standing on back, so someone else can claim it. Only works on a plot you own, and only if it's empty: remove every block first. A hearth on the plot is cleared with it.
+`{"type": "release"}`. Gives the plot you're standing on back, so anyone can claim or settle it. Only the owner can release, and only an empty plot: remove every block first, including blocks co-owners built (it fails with `plot_has_blocks` otherwise). Everyone the plot was shared with loses their share, and every hearth on the plot is cleared. The events are `plot_unshared` (and `hearth_cleared` when their hearth was there) for each co-owner, then `plot_released`, then `hearth_cleared` if your own hearth was there. If it was your only plot, you can `settle` again.
 
 ### place
 

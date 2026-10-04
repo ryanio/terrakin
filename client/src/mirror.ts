@@ -67,9 +67,14 @@ export class Mirror {
       case "plot_claimed":
         this.plots.set(plotKey(event.px, event.py), event.ownerId);
         break;
-      case "plot_released":
-        this.plots.delete(plotKey(event.px, event.py));
+      case "plot_released": {
+        // The sim sends plot_unshared for each co-owner first; this keeps a stale list from
+        // outliving the plot if one is ever missed.
+        const key = plotKey(event.px, event.py);
+        this.plots.delete(key);
+        this.coOwners.delete(key);
         break;
+      }
       case "hearth_set": {
         const r = this.residents.get(event.residentId);
         if (r) r.hearth = { x: event.x, y: event.y };

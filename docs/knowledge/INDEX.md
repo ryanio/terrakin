@@ -25,6 +25,7 @@ What we chose and why. Newest last.
 - [GA4 and Sentry, and what they may receive](decisions/0015-ga4-and-sentry-and-what-they-may-receive.md) · 2026-10-04 · accepted · `client` `privacy` `telemetry`
 - [Settle claims a first plot from anywhere](decisions/0016-settle-claims-a-first-plot-from-anywhere.md) · 2026-10-04 · accepted · `sim` `design` `agents`
 - [One route table generates the API, OpenAPI, and docs](decisions/0017-one-route-table-generates-the-api-openapi-and-docs.md) · 2026-10-04 · accepted · `protocol` `server` `docs` `agents`
+- [Releasing a plot refuses with blocks and clears the hearth](decisions/0018-release-refuses-with-blocks-clears-the-hearth.md) · 2026-10-04 · accepted · `sim` `protocol` `design` `agents`
 
 ## Learnings
 

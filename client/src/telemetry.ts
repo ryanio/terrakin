@@ -4,7 +4,7 @@
  * no names, colors, chat, notes, tokens, or resident ids ever leave through here.
  *
  * - Google Analytics is loaded by index.html (skipped on local hosts). We only send page views
- *   plus the two events below.
+ *   (as route templates like "/r/:id", never real ids) plus the two events below.
  * - Sentry reports errors from production builds only, with chat-bearing breadcrumbs dropped and
  *   any token scrubbed.
  */
@@ -26,6 +26,37 @@ export function track(event: GtagEvent) {
   } catch {
     // Analytics must never break the game.
   }
+}
+
+/**
+ * Count a page view. `template` is a route template from the router ("/r/:id"), never a real path,
+ * and the title is fixed per template: page titles carry resident names, so we never send them.
+ * index.html turns off the automatic page view for the same reason.
+ */
+export function pageView(template: string) {
+  try {
+    const location = `${window.location.origin}${template}`;
+    window.gtag?.("event", "page_view", {
+      page_location: location,
+      page_path: template,
+      page_title: PAGE_TITLES[template] ?? "Terrakin",
+    });
+  } catch {
+    // Analytics must never break the game.
+  }
+}
+
+const PAGE_TITLES: Record<string, string> = {
+  "/": "Feed",
+  "/r/:id": "Profile",
+  "/p/:id": "Post",
+  "/world": "World",
+  "/not-found": "Not found",
+};
+
+/** Swap resident, post, and media ids in a URL or path for `:id`. */
+export function templateIds(text: string): string {
+  return text.replace(/(\/(?:r|p|media|residents|posts)\/)[A-Za-z0-9_-]+/g, "$1:id");
 }
 
 const SENTRY_DSN =
@@ -51,14 +82,20 @@ export function scrubEvent<T extends object>(event: T, token: string | null): T 
   let json = JSON.stringify(event);
   if (token) json = json.split(token).join("[redacted]");
   json = json.replace(TOKEN_IN_TEXT, "$1[redacted]");
+  json = templateIds(json);
   return scrubValue(JSON.parse(json), 0) as T;
 }
 
 export function filterBreadcrumb(crumb: Breadcrumb): Breadcrumb | null {
   if (!crumb.category || !SAFE_BREADCRUMBS.has(crumb.category)) return null;
-  const url = crumb.data?.url;
-  if (typeof url === "string" && crumb.data) {
-    crumb.data = { ...crumb.data, url: url.split("?")[0] };
+  if (crumb.data) {
+    const data = { ...crumb.data };
+    // Request URLs and navigation paths carry resident and post ids: template them.
+    for (const key of ["url", "from", "to"]) {
+      const value = data[key];
+      if (typeof value === "string") data[key] = templateIds(value.split("?")[0] ?? "");
+    }
+    crumb.data = data;
   }
   return crumb;
 }

@@ -1,0 +1,105 @@
+/**
+ * DOM helpers for the feed pages. Text always goes in through `textContent` (strings passed as
+ * children become text nodes), so player and agent text can never become markup.
+ */
+
+type Child = Node | string | null | undefined | false;
+type Props = {
+  class?: string;
+  text?: string;
+  attrs?: Record<string, string | number | boolean | null | undefined>;
+  on?: { [K in keyof HTMLElementEventMap]?: (e: HTMLElementEventMap[K]) => void };
+};
+
+export function h<K extends keyof HTMLElementTagNameMap>(
+  tag: K,
+  props: Props = {},
+  ...children: Child[]
+): HTMLElementTagNameMap[K] {
+  const el = document.createElement(tag);
+  if (props.class) el.className = props.class;
+  if (props.text !== undefined) el.textContent = props.text;
+  for (const [k, v] of Object.entries(props.attrs ?? {})) {
+    if (v === null || v === undefined || v === false) continue;
+    el.setAttribute(k, v === true ? "" : String(v));
+  }
+  for (const [k, fn] of Object.entries(props.on ?? {})) {
+    el.addEventListener(k, fn as EventListener);
+  }
+  for (const c of children) {
+    if (c === null || c === undefined || c === false) continue;
+    el.append(typeof c === "string" ? document.createTextNode(c) : c);
+  }
+  return el;
+}
+
+const SVG = "http://www.w3.org/2000/svg";
+
+/** Line icons, 24x24, stroke 1.7 (the `.icon` class). Path data is ours, never player text. */
+const ICONS = {
+  feed: ["M5 6.5h14", "M5 12h14", "M5 17.5h9"],
+  world: [
+    "M12 20.5a8.5 8.5 0 1 0 0-17 8.5 8.5 0 0 0 0 17z",
+    "M3.8 9.5h16.4M3.8 14.5h16.4",
+    "M12 3.5c2.2 2.3 3.2 5.1 3.2 8.5s-1 6.2-3.2 8.5c-2.2-2.3-3.2-5.1-3.2-8.5s1-6.2 3.2-8.5z",
+  ],
+  sparkle: [
+    "M11 3.5c.6 4.3 2.4 6.1 6.5 6.6-4.1.6-5.9 2.4-6.5 6.6-.6-4.2-2.4-6-6.5-6.6 4.1-.5 5.9-2.3 6.5-6.6z",
+    "M18.5 15v5M16 17.5h5",
+  ],
+  heart: [
+    "M12 19.5s-7.5-4.3-7.5-9.6A4.2 4.2 0 0 1 12 7.6a4.2 4.2 0 0 1 7.5 2.3c0 5.3-7.5 9.6-7.5 9.6z",
+  ],
+  reply: ["M20 11.5a7.5 7.5 0 0 1-10.9 6.7L4.5 19.5l1.3-4.2A7.5 7.5 0 1 1 20 11.5z"],
+  share: [
+    "M12 15V4",
+    "M8 7.5 12 3.5l4 4",
+    "M7 11H6a1.5 1.5 0 0 0-1.5 1.5v6A1.5 1.5 0 0 0 6 20h12a1.5 1.5 0 0 0 1.5-1.5v-6A1.5 1.5 0 0 0 18 11h-1",
+  ],
+  copy: [
+    "M10 8.5h8a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5h-8A1.5 1.5 0 0 1 8.5 18v-8A1.5 1.5 0 0 1 10 8.5z",
+    "M15.5 8.5V6a1.5 1.5 0 0 0-1.5-1.5H6A1.5 1.5 0 0 0 4.5 6v8A1.5 1.5 0 0 0 6 15.5h2.5",
+  ],
+  link: [
+    "M10 13.5a4 4 0 0 0 5.7.3l2.8-2.8a4 4 0 0 0-5.7-5.7l-1.3 1.3",
+    "M14 10.5a4 4 0 0 0-5.7-.3l-2.8 2.8a4 4 0 0 0 5.7 5.7l1.3-1.3",
+  ],
+  cube: ["M12 3.5 19.5 7.7v8.6L12 20.5l-7.5-4.2V7.7z", "M4.5 7.7 12 12l7.5-4.3", "M12 12v8.5"],
+  attach: [
+    "M19 11.5 12.2 18.3a4.5 4.5 0 0 1-6.4-6.4l7.1-7.1a3 3 0 0 1 4.2 4.2l-7.1 7.1a1.5 1.5 0 0 1-2.1-2.1L14.4 7.5",
+  ],
+  image: [
+    "M6 4.5h12A1.5 1.5 0 0 1 19.5 6v12a1.5 1.5 0 0 1-1.5 1.5H6A1.5 1.5 0 0 1 4.5 18V6A1.5 1.5 0 0 1 6 4.5z",
+    "M4.5 16l4.5-4.5 4 4 2.5-2.5 4 4",
+    "M15 9.5h.01",
+  ],
+  close: ["M6.5 6.5l11 11M17.5 6.5l-11 11"],
+  back: ["M19 12H6", "M11 6.5 5.5 12l5.5 5.5"],
+  arrow: ["M5 12h13", "M13 6l6 6-6 6"],
+  up: ["M12 19V6", "M6.5 11.5 12 6l5.5 5.5"],
+  chevronLeft: ["M14.5 6.5 9 12l5.5 5.5"],
+  chevronRight: ["M9.5 6.5 15 12l-5.5 5.5"],
+  pin: [
+    "M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z",
+    "M12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z",
+  ],
+  plus: ["M12 5.5v13M5.5 12h13"],
+  check: ["M5.5 12.5l4 4 9-9"],
+  quote: ["M5 18.5V13a5 5 0 0 1 5-5", "M14 18.5V13a5 5 0 0 1 5-5"],
+  play: ["M8 5.5v13l10.5-6.5z"],
+} as const;
+
+export type IconName = keyof typeof ICONS;
+
+export function icon(name: IconName, className = "icon"): SVGSVGElement {
+  const svg = document.createElementNS(SVG, "svg");
+  svg.setAttribute("class", className);
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  for (const d of ICONS[name]) {
+    const path = document.createElementNS(SVG, "path");
+    path.setAttribute("d", d);
+    svg.append(path);
+  }
+  return svg;
+}

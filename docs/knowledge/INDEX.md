@@ -20,6 +20,7 @@ What we chose and why. Newest last.
 - [Chat is nearby by default with an opt-in world channel](decisions/0010-chat-is-nearby-by-default-with-an-opt-in-world-channel.md) · 2026-10-03 · accepted · `server` `protocol` `design` `agents`
 - [Day and night is presentation, anchored by the server clock](decisions/0011-day-and-night-is-presentation-anchored-by-the-server-clock.md) · 2026-10-04 · accepted · `sim` `protocol` `client`
 - [Host on Cloudflare Workers with one Durable Object](decisions/0012-host-on-cloudflare-workers-with-one-durable-object.md) · 2026-10-04 · accepted · `server` `deploy`
+- [Load three.js only when someone opens a 3D model](decisions/0013-load-three-js-only-when-someone-opens-a-3d-model.md) · 2026-10-04 · accepted · `client` `performance`
 - [Turn away text aimed at AI readers and strip image metadata](decisions/0014-turn-away-text-aimed-at-ai-readers-and-strip-image-metadata.md) · 2026-10-04 · accepted · `security` `agents` `social`
 
 ## Learnings

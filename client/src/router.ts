@@ -1,0 +1,149 @@
+/**
+ * A tiny History API router. Four pages: `/` the feed, `/r/:id` a profile, `/p/:id` a post, and
+ * `/world` the canvas world. Anything else is a friendly not-found page. The server sends
+ * index.html for every deep link, so a reload lands on the same page.
+ */
+
+export type Route =
+  | { name: "feed" }
+  | { name: "profile"; id: string }
+  | { name: "post"; id: string }
+  | { name: "world" }
+  | { name: "not-found" };
+
+const ID = "([A-Za-z0-9_-]{1,64})";
+const PATTERNS: [RegExp, (m: RegExpExecArray) => Route][] = [
+  [/^\/$/, () => ({ name: "feed" })],
+  [new RegExp(`^/r/${ID}$`), (m) => ({ name: "profile", id: m[1] ?? "" })],
+  [new RegExp(`^/p/${ID}$`), (m) => ({ name: "post", id: m[1] ?? "" })],
+  [/^\/world$/, () => ({ name: "world" })],
+];
+
+/** Which page a path is. Trailing slashes are ignored. Pure, so tests pin it. */
+export function matchRoute(pathname: string): Route {
+  const path = pathname.length > 1 ? pathname.replace(/\/+$/, "") || "/" : pathname;
+  for (const [pattern, make] of PATTERNS) {
+    const m = pattern.exec(path);
+    if (m) return make(m);
+  }
+  return { name: "not-found" };
+}
+
+/** The path with ids swapped for placeholders, for analytics. Never carries a resident or post id. */
+export function routeTemplate(route: Route): string {
+  switch (route.name) {
+    case "feed":
+      return "/";
+    case "profile":
+      return "/r/:id";
+    case "post":
+      return "/p/:id";
+    case "world":
+      return "/world";
+    case "not-found":
+      return "/not-found";
+  }
+}
+
+/** True for a same-origin link the router should handle itself instead of a full page load. */
+export function isAppLink(url: URL, origin: string): boolean {
+  return url.origin === origin && matchRoute(url.pathname).name !== "not-found";
+}
+
+interface HistoryState {
+  key: string;
+  /** How many entries of this site sit before this one. */
+  idx: number;
+  scroll?: number;
+}
+
+export interface Navigation {
+  route: Route;
+  /** True when we got here with back or forward, so the page may restore its scroll and data. */
+  restoring: boolean;
+  /** Saved scroll position for this history entry, if we have one. */
+  scroll: number | undefined;
+  /** Unique per history entry; stable across back and forward. */
+  key: string;
+}
+
+export interface RouterOptions {
+  onNavigate(nav: Navigation): void;
+  /** Called first on every popstate. Return true to swallow it (for example to close a viewer). */
+  interceptPop?(): boolean;
+}
+
+export interface Router {
+  navigate(path: string, options?: { replace?: boolean }): void;
+  /** Run the current location once, at startup. */
+  start(): void;
+  /** True when there is an earlier page of this site to go back to. */
+  canGoBack(): boolean;
+}
+
+const newKey = () => Math.random().toString(36).slice(2, 10);
+
+export function createRouter({ onNavigate, interceptPop }: RouterOptions): Router {
+  if ("scrollRestoration" in history) history.scrollRestoration = "manual";
+
+  const state = (): HistoryState | undefined => {
+    const s = history.state as Partial<HistoryState> | null;
+    return s && typeof s.key === "string" && typeof s.idx === "number"
+      ? (s as HistoryState)
+      : undefined;
+  };
+
+  /** Remember where this page was scrolled, so back can return there. */
+  const saveScroll = () => {
+    const s = state();
+    if (s) history.replaceState({ ...s, scroll: window.scrollY }, "");
+  };
+
+  const run = (restoring: boolean) => {
+    let s = state();
+    if (!s) {
+      s = { key: newKey(), idx: 0 };
+      history.replaceState(s, "");
+    }
+    onNavigate({
+      route: matchRoute(location.pathname),
+      restoring,
+      scroll: s.scroll,
+      key: s.key,
+    });
+  };
+
+  const router: Router = {
+    navigate(path, { replace = false } = {}) {
+      const target = new URL(path, location.href);
+      saveScroll();
+      const idx = state()?.idx ?? 0;
+      if (replace) history.replaceState({ key: newKey(), idx }, "", target);
+      else history.pushState({ key: newKey(), idx: idx + 1 }, "", target);
+      run(false);
+    },
+    start: () => run(state()?.scroll !== undefined),
+    canGoBack: () => (state()?.idx ?? 0) > 0,
+  };
+
+  window.addEventListener("popstate", () => {
+    if (interceptPop?.()) return;
+    run(true);
+  });
+
+  // Reloads keep their place too.
+  window.addEventListener("pagehide", saveScroll);
+
+  document.addEventListener("click", (e) => {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey)
+      return;
+    const a = e.target instanceof Element ? e.target.closest("a[href]") : null;
+    if (!(a instanceof HTMLAnchorElement) || a.target || a.hasAttribute("download")) return;
+    const url = new URL(a.href);
+    if (!isAppLink(url, location.origin)) return;
+    e.preventDefault();
+    router.navigate(url.pathname + url.search);
+  });
+
+  return router;
+}

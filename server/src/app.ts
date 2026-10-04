@@ -74,6 +74,10 @@ export const TEST_ADVANCE_DAY_PATH = "/v1/test/advance-day";
 /** Tests only, with the test clock: `POST {"residentId"}` makes that resident a maintainer. */
 export const TEST_MAINTAINER_PATH = "/v1/test/maintainer";
 
+/** Whether a socket address is this machine (IPv4, IPv6, or IPv4 mapped into IPv6). */
+export const isLoopback = (address: string | undefined) =>
+  address === "::1" || /^(::ffff:)?127\./.test(address ?? "");
+
 /** The client's IP, honoring X-Forwarded-For only for the configured number of trusted hops. */
 export function clientIp(req: IncomingMessage, trustedProxies = 0): string {
   const direct = req.socket.remoteAddress ?? "unknown";
@@ -186,6 +190,14 @@ export function createApp(options: AppOptions): Server {
     }
     const grant = options.testClock?.grantMaintainer;
     if (grant && req.method === "POST" && url.pathname === TEST_MAINTAINER_PATH) {
+      // Only from this machine, so a self-host that forgot NODE_ENV can't be taken over remotely.
+      if (!isLoopback(req.socket.remoteAddress)) {
+        return send(res, {
+          status: 404,
+          headers: { "content-type": "application/json", "cache-control": "no-store" },
+          body: JSON.stringify({ error: { code: "not_found", message: "Not found." } }),
+        });
+      }
       const body = (await readJson(req)) as { residentId?: unknown } | undefined;
       const id = typeof body?.residentId === "string" ? body.residentId : "";
       const known = /^r_[0-9a-f]{16}$/.test(id) && options.service.state.residents[id];

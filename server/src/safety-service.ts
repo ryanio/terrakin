@@ -20,6 +20,7 @@ import {
   type TransparencyResponse,
 } from "@terrakin/protocol";
 import type { Resident } from "@terrakin/sim";
+import { aimedAtReader, readerMessage } from "./injection";
 import type { Moderation } from "./moderation";
 import type { SocialResult } from "./social-service";
 import type { SqlExec } from "./sql-store";
@@ -37,6 +38,8 @@ export interface SafetyOptions {
   resident: (id: string) => Resident | undefined;
   author: (id: string) => AuthorView | undefined;
   isMaintainer: (id: string) => boolean;
+  /** Maintainers and townsfolk: their posts are never hidden automatically. */
+  isStaff: (id: string) => boolean;
   /** Whole days since a resident joined, for the auto-hide rule. */
   residentAgeDays: (id: string) => number;
   /** A Town Hall proposal from the world, for reports on one. */
@@ -44,7 +47,8 @@ export interface SafetyOptions {
   /** A post's files, as its view shows them. */
   postMedia: (postId: string) => MediaView[];
   /** Detach a post's files and delete the ones nothing else uses. */
-  dropPostMedia: (postId: string) => Promise<void>;
+  /** Take down every file on a post, everywhere it's used. Resolves to how many couldn't be deleted. */
+  dropPostMedia: (postId: string) => Promise<number>;
   /** The edge filters, for their refusal counts. */
   moderation: () => Moderation[];
 }
@@ -144,6 +148,10 @@ export class SafetyService {
   ): SocialResult<{ report: ReportView; created: boolean }> {
     if (!this.o.resident(reporter)) return fail("unauthorized", "Unknown resident.");
     const { kind, id, reason } = request;
+    // Notes skip the other filters, since a fair note may quote what was said. Orders aimed at
+    // an AI reader are still turned away: staff may read the queue through an assistant.
+    const aimed = aimedAtReader(request.note ?? "");
+    if (aimed) return fail("bad_request", readerMessage("A report note", aimed));
     const earlier = this.rows(
       "SELECT * FROM reports WHERE reporter = ? AND kind = ? AND target = ?",
       reporter,
@@ -214,8 +222,10 @@ export class SafetyService {
 
   /** Hide a post once enough residents who've been around a while report it. */
   private maybeAutoHide(postId: string) {
-    const post = this.rows("SELECT hidden FROM posts WHERE id = ?", postId)[0];
+    const post = this.rows("SELECT hidden, author FROM posts WHERE id = ?", postId)[0];
     if (!post || Number(post.hidden) !== HIDDEN.no) return;
+    // Free accounts could gang up on the team's posts. Those wait for a person in the queue.
+    if (this.o.isStaff(String(post.author))) return;
     const reporters = this.rows(
       "SELECT DISTINCT reporter FROM reports WHERE kind = 'post' AND target = ? AND status = 'open'",
       postId,
@@ -320,9 +330,17 @@ export class SafetyService {
       return fail("not_found", "No such post.");
     }
     this.o.sql.exec("UPDATE posts SET hidden = ? WHERE id = ?", HIDDEN.maintainer, postId);
-    await this.o.dropPostMedia(postId);
+    const kept = await this.o.dropPostMedia(postId);
     this.close("post", postId, "actioned", by);
-    return ok(this.log(by, "hide_post", "post", postId, reason));
+    const entry = this.log(by, "hide_post", "post", postId, reason);
+    // Never report a takedown that didn't happen: the file would still be served.
+    if (kept > 0) {
+      return fail(
+        "internal",
+        `The post is hidden, but ${kept === 1 ? "1 of its files" : `${kept} of its files`} couldn't be deleted from storage yet. Hide it again to retry.`,
+      );
+    }
+    return ok(entry);
   }
 
   unhidePost(by: string, postId: string, reason: string): SocialResult<ModerationLogEntry> {

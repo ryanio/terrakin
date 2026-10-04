@@ -477,6 +477,8 @@ export class Moderation {
   private readonly crowd = new Map<string, Map<string, number>>();
   private readonly strikes = new Map<string, number[]>();
   private readonly pausedUntil = new Map<string, number>();
+  /** The pause each resident was last counted for, so one pause counts once. */
+  private readonly pauseCounted = new Map<string, number>();
   private readonly refused: Record<FilterCategory, number>;
   /** When the counts started (the last restart). */
   readonly since: number;
@@ -496,7 +498,7 @@ export class Moderation {
     const { resident } = context;
     if (resident) {
       const wait = this.coolDown(resident);
-      if (wait > 0) return this.pause(wait);
+      if (wait > 0) return this.pause(resident, wait);
     }
     const verdict = this.judge(surface, text, context);
     if (!verdict.ok) {
@@ -519,15 +521,25 @@ export class Moderation {
     const until = this.pausedUntil.get(residentId) ?? 0;
     const left = until - this.now();
     if (left <= 0) {
-      if (until) this.pausedUntil.delete(residentId);
+      if (until) {
+        this.pausedUntil.delete(residentId);
+        this.pauseCounted.delete(residentId);
+      }
       return 0;
     }
     return Math.ceil(left / 1000);
   }
 
-  /** The refusal for a paused resident, counted on the transparency page. */
-  pause(seconds: number): Verdict & { ok: false } {
-    this.refused.cooldown++;
+  /**
+   * The refusal for a paused resident. The transparency page counts each pause once, however many
+   * requests a client sends while it lasts.
+   */
+  pause(residentId: string, seconds: number): Verdict & { ok: false } {
+    const until = this.pausedUntil.get(residentId);
+    if (until !== undefined && this.pauseCounted.get(residentId) !== until) {
+      this.pauseCounted.set(residentId, until);
+      this.refused.cooldown++;
+    }
     return {
       ok: false,
       category: "cooldown",

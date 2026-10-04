@@ -405,13 +405,15 @@ export class SocialService {
       resident: this.resident,
       author: (id) => this.authorView(id),
       isMaintainer: (id) => this.isMaintainer(id),
+      isStaff: (id) => this.isMaintainer(id) || this.isTownsfolk(id),
       residentAgeDays: options.residentAgeDays ?? (() => Number.POSITIVE_INFINITY),
       proposal: options.proposal ?? (() => undefined),
       postMedia: (postId) => this.mediaFor([postId]).get(postId) ?? [],
       dropPostMedia: async (postId) => {
         const media = this.rows("SELECT media_id FROM post_media WHERE post_id = ?", postId);
-        this.sql.exec("DELETE FROM post_media WHERE post_id = ?", postId);
-        for (const m of media) await this.releaseIfUnused(String(m.media_id));
+        let kept = 0;
+        for (const m of media) if (!(await this.purgeMedia(String(m.media_id)))) kept++;
+        return kept;
       },
       moderation: () => [this.moderation],
     });
@@ -1670,6 +1672,27 @@ export class SocialService {
   }
 
   /** Delete a file and its row if no post, avatar, letter, or world look uses it. */
+  /**
+   * Take a file down everywhere: from storage first, then from every post, letter, look, and avatar
+   * that uses it. Only the uploader can attach a file, so everything that goes is theirs. If storage
+   * refuses, nothing changes here and this returns false, so a retry still finds the file.
+   */
+  async purgeMedia(id: string): Promise<boolean> {
+    try {
+      await this.media.delete(id);
+      await this.media.delete(privateMediaKey(id));
+    } catch (err) {
+      console.error("Media takedown failed", id, err);
+      return false;
+    }
+    this.sql.exec("DELETE FROM post_media WHERE media_id = ?", id);
+    this.sql.exec("DELETE FROM letter_media WHERE media_id = ?", id);
+    this.sql.exec("DELETE FROM look_media WHERE media_id = ?", id);
+    this.sql.exec("UPDATE profiles SET avatar = NULL WHERE avatar = ?", id);
+    this.sql.exec("DELETE FROM media WHERE id = ?", id);
+    return true;
+  }
+
   async releaseIfUnused(id: string) {
     const used =
       this.count("SELECT COUNT(*) AS c FROM post_media WHERE media_id = ?", id) +

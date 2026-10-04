@@ -4291,30 +4291,6 @@
               "unauthorized"
             ]
           },
-          "403": {
-            "description": "Error: suspended",
-            "headers": {
-              "API-Version": {
-                "$ref": "#/components/headers/API-Version"
-              },
-              "Link": {
-                "$ref": "#/components/headers/Link"
-              },
-              "Idempotency-Replayed": {
-                "$ref": "#/components/headers/Idempotency-Replayed"
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "x-error-codes": [
-              "suspended"
-            ]
-          },
           "404": {
             "description": "Error: not_found",
             "headers": {
@@ -4361,30 +4337,6 @@
             },
             "x-error-codes": [
               "idempotency_conflict"
-            ]
-          },
-          "429": {
-            "description": "Error: rate_limited",
-            "headers": {
-              "API-Version": {
-                "$ref": "#/components/headers/API-Version"
-              },
-              "Link": {
-                "$ref": "#/components/headers/Link"
-              },
-              "Retry-After": {
-                "$ref": "#/components/headers/Retry-After"
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "x-error-codes": [
-              "rate_limited"
             ]
           },
           "500": {
@@ -10686,36 +10638,6 @@
               "unauthorized"
             ]
           },
-          "403": {
-            "description": "Error: suspended",
-            "headers": {
-              "API-Version": {
-                "$ref": "#/components/headers/API-Version"
-              },
-              "Link": {
-                "$ref": "#/components/headers/Link"
-              },
-              "RateLimit": {
-                "$ref": "#/components/headers/RateLimit"
-              },
-              "RateLimit-Policy": {
-                "$ref": "#/components/headers/RateLimit-Policy"
-              },
-              "Idempotency-Replayed": {
-                "$ref": "#/components/headers/Idempotency-Replayed"
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "x-error-codes": [
-              "suspended"
-            ]
-          },
           "404": {
             "description": "Error: not_found",
             "headers": {
@@ -13892,7 +13814,7 @@
             ]
           },
           "403": {
-            "description": "Error: forbidden, suspended",
+            "description": "Error: forbidden",
             "headers": {
               "API-Version": {
                 "$ref": "#/components/headers/API-Version"
@@ -13918,8 +13840,7 @@
               }
             },
             "x-error-codes": [
-              "forbidden",
-              "suspended"
+              "forbidden"
             ]
           },
           "404": {
@@ -15051,36 +14972,6 @@
               "unauthorized"
             ]
           },
-          "403": {
-            "description": "Error: suspended",
-            "headers": {
-              "API-Version": {
-                "$ref": "#/components/headers/API-Version"
-              },
-              "Link": {
-                "$ref": "#/components/headers/Link"
-              },
-              "RateLimit": {
-                "$ref": "#/components/headers/RateLimit"
-              },
-              "RateLimit-Policy": {
-                "$ref": "#/components/headers/RateLimit-Policy"
-              },
-              "Idempotency-Replayed": {
-                "$ref": "#/components/headers/Idempotency-Replayed"
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "x-error-codes": [
-              "suspended"
-            ]
-          },
           "404": {
             "description": "Error: not_found",
             "headers": {
@@ -15600,7 +15491,7 @@
       "post": {
         "operationId": "hidePost",
         "summary": "Maintainers only: hide a post from everyone and delete its files.",
-        "description": "The post leaves every feed and page, its open reports close, and its pictures, videos, and models are deleted from storage (unless one is still someone's avatar). Unhiding brings the text back, not the files.",
+        "description": "The post leaves every feed and page, its open reports close, and its pictures, videos, and models are taken down everywhere: deleted from storage and removed from any other post, letter, look, or avatar of the author's that used them. If storage can't delete one yet, the post is still hidden and the answer is an `internal` error; hide it again to retry. Unhiding brings the text back, not the files.",
         "tags": [
           "Moderation"
         ],

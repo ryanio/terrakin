@@ -42,7 +42,7 @@ import { findProposal } from "@terrakin/sim";
 import { IdempotencyStore, type StoredResponse, sha256Hex } from "./idempotency";
 import { BAD_LINK_KEY, DEFAULT_ORIGIN, linkHandlers, linkHelp, REPEAT_NOTE } from "./links";
 import { postMarkdown, profileMarkdown } from "./markdown";
-import { COOL_DOWN_MESSAGE } from "./moderation";
+import { COOL_DOWN_MESSAGE, type Moderation } from "./moderation";
 import { OwnerService } from "./owner-service";
 import { RateLimiters, type Take } from "./rate-limit";
 import type { SocialResult, SocialService } from "./social-service";
@@ -1197,9 +1197,14 @@ export class Api {
       this.service.moderation,
       ...(this.social ? [this.social.moderation] : []),
     ]);
-    const wait = Math.max(...[...filters].map((m) => m.coolDown(residentId)));
-    if (wait > 0) {
-      this.service.moderation.pause(wait);
+    let wait = 0;
+    let paused: Moderation | undefined;
+    for (const m of filters) {
+      const left = m.coolDown(residentId);
+      if (left > wait) [wait, paused] = [left, m];
+    }
+    if (paused) {
+      paused.pause(residentId, wait);
       return fail("rate_limited", COOL_DOWN_MESSAGE, wait);
     }
     return undefined;

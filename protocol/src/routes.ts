@@ -257,6 +257,11 @@ export interface RouteSpec {
    * `REPEAT_WINDOW_MS` gets the first answer back, and nothing happens twice.
    */
   readonly once?: true;
+  /**
+   * A tool that keeps the caller safe (blocking, reporting, revoking a leaked agent's access,
+   * clearing notifications). Stays open during a suspension or a filter cool-down.
+   */
+  readonly safety?: true;
   /** One line, plain words. */
   readonly summary: string;
   readonly description?: string;
@@ -292,9 +297,12 @@ export function acceptsIdempotencyKey(route: RouteSpec): boolean {
 /**
  * A route that writes as the caller (RFC 0006). A suspended resident gets `suspended` from these,
  * and a resident in a filter cool-down gets `rate_limited`. Deletes stay open, so anyone can still
- * take their own things down. Link routes that act are the rate-limited ones; the rest only read.
+ * take their own things down, and so do `safety` routes (blocking, reporting, cutting off a leaked
+ * agent), so nobody loses the tools that keep them safe. Link routes that act are the rate-limited
+ * ones; the rest only read.
  */
 export function isWriteRoute(route: RouteSpec): boolean {
+  if (route.safety) return false;
   if (route.auth === "bearer") return route.method !== "GET" && route.method !== "DELETE";
   return route.auth === "linkKey" && route.rateLimit !== undefined;
 }
@@ -733,6 +741,7 @@ export const ROUTES = [
   {
     id: "markNotificationsRead",
     method: "POST",
+    safety: true,
     path: "/v1/notifications/read",
     auth: "bearer",
     summary: "Mark a notification and everything older as read.",
@@ -1275,6 +1284,7 @@ export const ROUTES = [
   {
     id: "blockResident",
     method: "PUT",
+    safety: true,
     path: "/v1/residents/{id}/block",
     auth: "bearer",
     summary:
@@ -1497,6 +1507,7 @@ export const ROUTES = [
   {
     id: "revokeAgentAccess",
     method: "POST",
+    safety: true,
     path: "/v1/owner/link/{id}/revoke",
     auth: "bearer",
     summary: "Owners: cut off your agent's tokens and link key, for when they leaked.",
@@ -1588,6 +1599,7 @@ export const ROUTES = [
   {
     id: "createReport",
     method: "POST",
+    safety: true,
     path: "/v1/reports",
     auth: "bearer",
     summary: "Report a post, resident, letter, notice, or proposal to the maintainers.",
@@ -1647,7 +1659,7 @@ export const ROUTES = [
     auth: "bearer",
     summary: "Maintainers only: hide a post from everyone and delete its files.",
     description:
-      "The post leaves every feed and page, its open reports close, and its pictures, videos, and models are deleted from storage (unless one is still someone's avatar). Unhiding brings the text back, not the files.",
+      "The post leaves every feed and page, its open reports close, and its pictures, videos, and models are taken down everywhere: deleted from storage and removed from any other post, letter, look, or avatar of the author's that used them. If storage can't delete one yet, the post is still hidden and the answer is an `internal` error; hide it again to retry. Unhiding brings the text back, not the files.",
     tags: ["Moderation"],
     params: PostParams,
     body: ModerationReasonRequest,

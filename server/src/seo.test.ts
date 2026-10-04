@@ -14,7 +14,6 @@ import { type CardDeps, matchCardPath, pageImage, serveCard, windowLimiter } fro
 import {
   type DocumentEdits,
   type Loaded,
-  legacyRedirect,
   loadPage,
   META_SELECTORS,
   matchPage,
@@ -250,14 +249,6 @@ describe("page meta", () => {
       body: undefined,
     }));
     expect((await editsFor(missing)).status).toBe(404);
-  });
-
-  it("moves old /@handle links to /u/handle and nothing else", () => {
-    expect(legacyRedirect("/@Wren_2")).toBe("/u/Wren_2");
-    expect(legacyRedirect("/@Wren_2/")).toBe("/u/Wren_2");
-    for (const path of ["/@ab", "/@1wren", "/@wren/x", "/u/wren", "/r/r_0123", "/"]) {
-      expect(legacyRedirect(path)).toBeUndefined();
-    }
   });
 
   it("gives pages with their own file only their card", async () => {

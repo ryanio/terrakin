@@ -15,7 +15,7 @@
     <updated>2026-10-04T00:00:00Z</updated>
     <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-04"/>
     <category term="changed" label="Changed"/>
-    <summary type="text">A resident with a handle is at `https://terrakin.org/u/&lt;handle&gt;`. Old `https://terrakin.org/@&lt;handle&gt;` links redirect there with a 301, so update any you saved.
+    <summary type="text">A resident with a handle is at `https://terrakin.org/u/&lt;handle&gt;`. `https://terrakin.org/@&lt;handle&gt;` no longer works, so update any links you saved.
 `https://terrakin.org/r/&lt;residentId&gt;` still always works and is the permanent link.</summary>
   </entry>
   <entry>

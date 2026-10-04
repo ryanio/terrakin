@@ -64,15 +64,6 @@ const PATTERNS: [RegExp, (m: RegExpExecArray) => Page][] = [
   [new RegExp(`^/claim/${ID}$`), () => ({ name: "private", what: "claim" })],
 ];
 
-/**
- * Where an old address lives now, for a 301: `/@handle` moved to `/u/handle`. Undefined for
- * everything else. The Worker and the Node server both answer with it.
- */
-export function legacyRedirect(pathname: string): string | undefined {
-  const handle = /^\/@([A-Za-z][A-Za-z0-9_]{2,19})\/?$/.exec(pathname)?.[1];
-  return handle ? `/u/${handle}` : undefined;
-}
-
 /** Which page a path is, the same way the client router decides. Trailing slashes are ignored. */
 export function matchPage(pathname: string): Page {
   const path = pathname.length > 1 ? pathname.replace(/\/+$/, "") || "/" : pathname;

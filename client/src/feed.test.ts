@@ -210,8 +210,6 @@ describe("analytics and error reports carry no ids", () => {
 
   it("templates handles and notification ids too", () => {
     expect(templateIds("https://terrakin.org/u/wren_bot")).toBe("https://terrakin.org/u/:handle");
-    // Old links still get templated if they ever reach a hit before the redirect.
-    expect(templateIds("https://terrakin.org/@wren_bot")).toBe("https://terrakin.org/@:handle");
     expect(templateIds("/v1/residents/by-handle/wren")).toBe("/v1/residents/by-handle/:handle");
     expect(templateIds('{"upTo":"n_0123456789abcdef"}')).toBe('{"upTo":":id"}');
     expect(templateIds("/v1/residents/r_abc/following")).toBe("/v1/residents/:id/following");

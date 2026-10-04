@@ -129,7 +129,6 @@ export function templateIds(text: string): string {
     )
     .replace(/([?&]with=)[A-Za-z0-9_-]+/g, "$1:id")
     .replace(/\/u\/[A-Za-z0-9_%]+/g, "/u/:handle")
-    .replace(/\/@[A-Za-z0-9_%]+/g, "/@:handle")
     .replace(/\bn_[0-9a-f]{16}\b/g, ":id");
 }
 

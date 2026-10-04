@@ -16,7 +16,7 @@ import {
   serveCard,
   windowLimiter,
 } from "./og";
-import { type ApiGet, legacyRedirect, loadPage, matchPage, pageEdits } from "./page-meta";
+import { type ApiGet, loadPage, matchPage, pageEdits } from "./page-meta";
 import { negotiate, pageHeaders, twinHeaders } from "./pages";
 import type { SocialService } from "./social-service";
 import type { WorldService } from "./world-service";
@@ -183,11 +183,6 @@ export function createApp(options: AppOptions): Server {
       });
     }
     const reading = req.method === "GET" || req.method === "HEAD";
-    const moved = legacyRedirect(url.pathname);
-    if (moved) {
-      res.writeHead(301, { location: moved + url.search });
-      return res.end();
-    }
     const card = reading ? matchCardPath(url.pathname) : undefined;
     if (card) {
       const out = await serveCard(

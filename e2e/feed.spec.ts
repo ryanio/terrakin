@@ -417,9 +417,8 @@ test("handles, mentions, reactions, reposts, quotes, and notifications", async (
   await page.getByRole("tab", { name: "Following" }).click();
   await expect(page.locator(".post-reposted", { hasText: "Moss reposted" }).first()).toBeVisible();
 
-  // /u/moss is Moss's profile, with /r/<id> as the canonical link. Old /@moss links redirect there.
-  await page.goto("/@moss");
-  await expect(page).toHaveURL("/u/moss");
+  // /u/moss is Moss's profile, with /r/<id> as the canonical link.
+  await page.goto("/u/moss");
   await expect(page.locator(".profile-handle")).toHaveText("@moss");
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
     "href",

@@ -7,13 +7,29 @@ import {
   type ErrorCode,
   FEED_DEFAULT_LIMIT,
   FEED_MAX_LIMIT,
+  findMentions,
+  GESTURE_KINDS,
+  type GestureKind,
+  HANDLE_HOLD_DAYS,
+  HANDLE_PATTERN,
+  HANDLE_RENAME_DAYS,
+  isReservedHandle,
   type LookView,
+  MAX_MENTIONS_PER_POST,
   MEDIA_TYPES,
   type MediaType,
   type MediaView,
+  type MentionView,
   type NoticeView,
+  type NotificationsResponse,
+  type NotificationType,
+  type NotificationView,
   type PostView,
   type ProfileView,
+  type QuotedPostView,
+  REACTION_KEYS,
+  type ReactionCounts,
+  type ReactionKey,
   type ResidentBrief,
   type UpdateProfileRequest,
   X_CODE_TTL_MS,
@@ -52,8 +68,9 @@ export interface PetitionAnswer {
 }
 
 /**
- * The social layer (RFC 0003): profiles, posts, likes, follows, media. Its tables sit next to the
- * world log but never feed the sim. Residents (the accounts) still come from the world.
+ * The social layer (RFC 0003): profiles, handles, posts, mentions, reactions, reposts, quotes,
+ * follows, notifications, and media. Its tables sit next to the world log but never feed the sim.
+ * Residents (the accounts) still come from the world.
  */
 
 export type SocialResult<T> =
@@ -61,7 +78,7 @@ export type SocialResult<T> =
   | { ok: false; code: ErrorCode; message: string };
 
 export interface SocialLimits {
-  /** Posts (including replies) per resident per rolling 24 hours. */
+  /** Posts (including replies and quotes) per resident per rolling 24 hours. */
   postsPerDay: number;
   /** Uploads per resident per rolling 24 hours. */
   uploadsPerDay: number;
@@ -77,6 +94,8 @@ export interface SocialLimits {
   lettersPerDay: number;
   /** Letters from one sender to one recipient per rolling 24 hours. */
   lettersPerRecipientPerDay: number;
+  /** Notifications one resident can cause another per rolling 24 hours. */
+  notificationsPerActorPerDay: number;
 }
 
 export const DEFAULT_SOCIAL_LIMITS: SocialLimits = {
@@ -89,9 +108,17 @@ export const DEFAULT_SOCIAL_LIMITS: SocialLimits = {
   globalUploadsPerDay: 5_000,
   globalUploadBytesPerDay: 5_000_000_000,
   totalStoredBytes: 50_000_000_000,
+  notificationsPerActorPerDay: DAILY_LIMITS.notificationsPerActorPerResident,
 };
 
-const DAY_MS = 24 * 60 * 60_000;
+const HOUR_MS = 60 * 60_000;
+const DAY_MS = 24 * HOUR_MS;
+/** Notifications older than this are pruned by the sweep. */
+const NOTIFICATION_KEEP_MS = 90 * DAY_MS;
+/** How much of a post a notification quotes. */
+const EXCERPT_CHARS = 140;
+/** The most residents `following()` lists. */
+const FOLLOWING_LIST_MAX = 200;
 
 export interface SocialServiceOptions {
   sql: SqlExec;
@@ -117,11 +144,14 @@ export interface SocialServiceOptions {
 }
 
 type Row = Record<string, unknown>;
+type Binding = string | number;
 
 const randomId = (prefix: string) =>
   `${prefix}_${Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) => b.toString(16).padStart(2, "0")).join("")}`;
 
 const fail = (code: ErrorCode, message: string) => ({ ok: false as const, code, message });
+
+const marks = (n: number) => Array.from({ length: n }, () => "?").join(", ");
 
 /**
  * What the sitemaps list, as `(k, id, t)`: a stable sort key, the id, and the newest change in ms.
@@ -136,13 +166,26 @@ const SITEMAP_SOURCES = {
   posts: "SELECT n AS k, id, created_at AS t FROM posts WHERE hidden = 0 AND reply_to = ''",
 } as const;
 
-/** Every column a post view needs, counts included, so a feed page is one query plus one for media. */
+/**
+ * Every column a post view needs except reactions, mentions, media, and the quoted post, which come
+ * in one batch query each. The one `?` is the viewer.
+ */
 const POST_COLUMNS = `p.n, p.id, p.author, p.text, p.reply_to, p.created_at,
   (SELECT COUNT(*) FROM posts r WHERE r.reply_to = p.id AND r.hidden = 0) AS reply_count,
-  (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) AS like_count,
-  (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id AND l.resident_id = ?) AS liked,
+  (SELECT COUNT(*) FROM reposts rp WHERE rp.post_id = p.id) AS repost_count,
+  (SELECT COUNT(*) FROM reposts rp WHERE rp.post_id = p.id AND rp.resident_id = ?) AS reposted,
+  (SELECT COUNT(*) FROM post_quotes q JOIN posts qp ON qp.id = q.post_id AND qp.hidden = 0
+    WHERE q.quote_of = p.id) AS quote_count,
+  (SELECT quote_of FROM post_quotes q WHERE q.post_id = p.id) AS quote_of,
   (SELECT avatar FROM profiles a WHERE a.resident_id = p.author) AS avatar,
+  (SELECT handle FROM handles h WHERE h.resident_id = p.author AND h.released_at = 0) AS handle,
   (SELECT handle FROM x_links x WHERE x.resident_id = p.author) AS x_handle`;
+
+/** A place in a feed that mixes posts and reposts: newest `at` first, then `tb` to break ties. */
+interface FeedKey {
+  at: number;
+  tb: number;
+}
 
 export class SocialService {
   /** Shared with the owner service (owner-service.ts), which keeps its codes next to these tables. */
@@ -202,8 +245,31 @@ export class SocialService {
         PRIMARY KEY (post_id, ord)
       )`,
       "CREATE INDEX IF NOT EXISTS post_media_media ON post_media (media_id)",
+      // Likes from before reactions. Moved into `reactions` as hearts below; kept so old data loads.
       `CREATE TABLE IF NOT EXISTS likes (
         post_id TEXT NOT NULL, resident_id TEXT NOT NULL, PRIMARY KEY (post_id, resident_id)
+      )`,
+      `CREATE TABLE IF NOT EXISTS reactions (
+        post_id TEXT NOT NULL, resident_id TEXT NOT NULL, key TEXT NOT NULL,
+        PRIMARY KEY (post_id, resident_id, key)
+      )`,
+      "INSERT OR IGNORE INTO reactions (post_id, resident_id, key) SELECT post_id, resident_id, 'heart' FROM likes",
+      "DELETE FROM likes",
+      `CREATE TABLE IF NOT EXISTS reposts (
+        n INTEGER PRIMARY KEY AUTOINCREMENT,
+        post_id TEXT NOT NULL,
+        resident_id TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        UNIQUE (post_id, resident_id)
+      )`,
+      "CREATE INDEX IF NOT EXISTS reposts_resident ON reposts (resident_id, created_at)",
+      `CREATE TABLE IF NOT EXISTS post_quotes (
+        post_id TEXT PRIMARY KEY, quote_of TEXT NOT NULL
+      )`,
+      "CREATE INDEX IF NOT EXISTS post_quotes_of ON post_quotes (quote_of)",
+      `CREATE TABLE IF NOT EXISTS post_mentions (
+        post_id TEXT NOT NULL, ord INTEGER NOT NULL, resident_id TEXT NOT NULL, handle TEXT NOT NULL,
+        PRIMARY KEY (post_id, ord)
       )`,
       `CREATE TABLE IF NOT EXISTS follows (
         follower TEXT NOT NULL, followee TEXT NOT NULL, PRIMARY KEY (follower, followee)
@@ -212,6 +278,40 @@ export class SocialService {
       `CREATE TABLE IF NOT EXISTS profiles (
         resident_id TEXT PRIMARY KEY, bio TEXT NOT NULL DEFAULT '', avatar TEXT
       )`,
+      // One row per handle ever claimed. `released_at` is 0 while it's in use. A released row stays
+      // (so old links still find its owner) until someone else claims it after the hold.
+      `CREATE TABLE IF NOT EXISTS handles (
+        handle TEXT PRIMARY KEY,
+        resident_id TEXT NOT NULL,
+        claimed_at INTEGER NOT NULL,
+        released_at INTEGER NOT NULL DEFAULT 0
+      )`,
+      "CREATE INDEX IF NOT EXISTS handles_resident ON handles (resident_id, released_at)",
+      // `seq` orders the list and moves to the top when a grouped notification gains someone.
+      `CREATE TABLE IF NOT EXISTS notifications (
+        id TEXT PRIMARY KEY,
+        recipient TEXT NOT NULL,
+        type TEXT NOT NULL,
+        actor TEXT NOT NULL,
+        post_id TEXT NOT NULL DEFAULT '',
+        detail TEXT NOT NULL DEFAULT '',
+        group_key TEXT NOT NULL DEFAULT '',
+        count INTEGER NOT NULL DEFAULT 1,
+        seq INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        read INTEGER NOT NULL DEFAULT 0
+      )`,
+      "CREATE INDEX IF NOT EXISTS notifications_recipient ON notifications (recipient, seq)",
+      "CREATE INDEX IF NOT EXISTS notifications_seq ON notifications (seq)",
+      "CREATE INDEX IF NOT EXISTS notifications_post ON notifications (post_id)",
+      `CREATE TABLE IF NOT EXISTS notification_actors (
+        notification_id TEXT NOT NULL, actor TEXT NOT NULL, PRIMARY KEY (notification_id, actor)
+      )`,
+      // Every notification event, for the per-actor daily cap. Pruned after two days.
+      `CREATE TABLE IF NOT EXISTS notification_log (
+        actor TEXT NOT NULL, recipient TEXT NOT NULL, created_at INTEGER NOT NULL
+      )`,
+      "CREATE INDEX IF NOT EXISTS notification_log_pair ON notification_log (actor, recipient, created_at)",
       // Connected X accounts (decision 0022): the handle and the proving post's link, nothing else.
       `CREATE TABLE IF NOT EXISTS x_links (
         resident_id TEXT PRIMARY KEY,
@@ -277,17 +377,18 @@ export class SocialService {
       author: (id) => this.authorView(id),
       blockedEither: (a, b) => this.blockedEither(a, b),
       release: (id) => this.releaseIfUnused(id),
+      notify: (recipient, actor, type, detail) => this.notify(recipient, actor, type, "", detail),
     });
   }
 
   /** Letters, gestures, streaks, and invites (decision 0024). Shares this service's tables. */
   readonly together: TogetherService;
 
-  private rows(query: string, ...bindings: (string | number)[]): Row[] {
+  private rows(query: string, ...bindings: Binding[]): Row[] {
     return [...this.sql.exec(query, ...bindings)];
   }
 
-  private count(query: string, ...bindings: (string | number)[]): number {
+  private count(query: string, ...bindings: Binding[]): number {
     return Number(this.rows(query, ...bindings)[0]?.c ?? 0);
   }
 
@@ -309,8 +410,13 @@ export class SocialService {
     ) {
       return fail("rate_limited", "That's a lot of posts for one day. Try again tomorrow.");
     }
-    if (request.replyTo && !this.visiblePost(request.replyTo)) {
+    const parent = request.replyTo ? this.visiblePost(request.replyTo) : undefined;
+    if (request.replyTo && !parent) {
       return fail("not_found", "The post you're replying to doesn't exist.");
+    }
+    const quoted = request.quote ? this.visiblePost(request.quote) : undefined;
+    if (request.quote && !quoted) {
+      return fail("not_found", "The post you're quoting doesn't exist.");
     }
     const mediaIds = [...new Set(request.media ?? [])];
     for (const id of mediaIds) {
@@ -335,6 +441,31 @@ export class SocialService {
         ord,
       );
     });
+    if (request.quote) {
+      this.sql.exec("INSERT INTO post_quotes (post_id, quote_of) VALUES (?, ?)", id, request.quote);
+    }
+    const mentions = this.resolveMentions(text);
+    mentions.forEach((m, ord) => {
+      this.sql.exec(
+        "INSERT INTO post_mentions (post_id, ord, resident_id, handle) VALUES (?, ?, ?, ?)",
+        id,
+        ord,
+        m.id,
+        m.handle,
+      );
+    });
+
+    // One notification per person per post: a reply beats a quote, and either beats a mention.
+    const told = new Set([authorId]);
+    const tell = (recipient: string | undefined, type: NotificationType) => {
+      if (!recipient || told.has(recipient)) return;
+      told.add(recipient);
+      this.notify(recipient, authorId, type, id);
+    };
+    tell(parent ? String(parent.author) : undefined, "reply");
+    tell(quoted ? String(quoted.author) : undefined, "quote");
+    for (const m of mentions) tell(m.id, "mention");
+
     const post = this.post(id, authorId);
     return post ? { ok: true, value: post } : fail("internal", "Post vanished.");
   }
@@ -350,6 +481,16 @@ export class SocialService {
     this.sql.exec("DELETE FROM posts WHERE id = ?", postId);
     this.sql.exec("DELETE FROM post_media WHERE post_id = ?", postId);
     this.sql.exec("DELETE FROM likes WHERE post_id = ?", postId);
+    this.sql.exec("DELETE FROM reactions WHERE post_id = ?", postId);
+    this.sql.exec("DELETE FROM reposts WHERE post_id = ?", postId);
+    this.sql.exec("DELETE FROM post_mentions WHERE post_id = ?", postId);
+    // Quotes of this post keep their row, so they can say the post is gone.
+    this.sql.exec("DELETE FROM post_quotes WHERE post_id = ?", postId);
+    this.sql.exec(
+      "DELETE FROM notification_actors WHERE notification_id IN (SELECT id FROM notifications WHERE post_id = ?)",
+      postId,
+    );
+    this.sql.exec("DELETE FROM notifications WHERE post_id = ?", postId);
     for (const id of media) await this.releaseIfUnused(id);
     return { ok: true, value: null };
   }
@@ -361,7 +502,7 @@ export class SocialService {
       viewerId ?? "",
       postId,
     );
-    return this.views(rows)[0];
+    return this.views(rows, viewerId)[0];
   }
 
   replies(postId: string, viewerId?: string): PostView[] {
@@ -374,12 +515,15 @@ export class SocialService {
         postId,
         viewerId ?? "",
       ),
+      viewerId,
     );
   }
 
   /**
-   * Newest first. `before` is the cursor from the previous page. Top-level posts only, unless it's
-   * one resident's page (`author`), which shows their replies too.
+   * Newest first. `before` is the cursor from the previous page. The main feed is top-level posts
+   * only. The following feed adds reposts by you and the people you follow, and one resident's
+   * page (`author`) shows their posts, replies, and reposts. A post shows up once per page, at its
+   * newest place.
    */
   feed(options: {
     viewerId?: string | undefined;
@@ -392,27 +536,22 @@ export class SocialService {
     const limit = Number.isFinite(asked)
       ? Math.max(1, Math.min(FEED_MAX_LIMIT, asked))
       : FEED_DEFAULT_LIMIT;
+    if (options.author)
+      return this.mixedFeed({ authors: "one", id: options.author }, options, limit);
+    if (options.following && options.viewerId) {
+      return this.mixedFeed({ authors: "followed", id: options.viewerId }, options, limit);
+    }
     const before = Number.parseInt(options.before ?? "", 36);
-    const where = ["p.hidden = 0"];
-    const bindings: (string | number)[] = [options.viewerId ?? ""];
+    const where = ["p.hidden = 0", "p.reply_to = ''"];
+    const bindings: Binding[] = [options.viewerId ?? ""];
     if (Number.isFinite(before)) {
       where.push("p.n < ?");
       bindings.push(before);
     }
-    if (options.author) {
-      where.push("p.author = ?");
-      bindings.push(options.author);
-    } else {
-      where.push("p.reply_to = ''");
-      // Someone you blocked drops out of your feeds. Their own page still shows their posts.
-      if (options.viewerId) {
-        where.push("p.author NOT IN (SELECT blocked FROM blocks WHERE blocker = ?)");
-        bindings.push(options.viewerId);
-      }
-    }
-    if (options.following && options.viewerId) {
-      where.push("(p.author = ? OR p.author IN (SELECT followee FROM follows WHERE follower = ?))");
-      bindings.push(options.viewerId, options.viewerId);
+    // Someone you blocked drops out of your feeds. Their own page still shows their posts.
+    if (options.viewerId) {
+      where.push("p.author NOT IN (SELECT blocked FROM blocks WHERE blocker = ?)");
+      bindings.push(options.viewerId);
     }
     const rows = this.rows(
       `SELECT ${POST_COLUMNS} FROM posts p WHERE ${where.join(" AND ")} ORDER BY p.n DESC LIMIT ?`,
@@ -422,20 +561,180 @@ export class SocialService {
     const page = rows.slice(0, limit);
     const last = page.at(-1);
     return {
-      posts: this.views(page),
+      posts: this.views(page, options.viewerId),
       next: rows.length > limit && last ? Number(last.n).toString(36) : null,
     };
   }
 
-  setLike(residentId: string, postId: string, liked: boolean): SocialResult<PostView> {
-    if (!this.visiblePost(postId)) return fail("not_found", "No such post.");
-    this.sql.exec(
-      liked
-        ? "INSERT OR IGNORE INTO likes (post_id, resident_id) VALUES (?, ?)"
-        : "DELETE FROM likes WHERE post_id = ? AND resident_id = ?",
-      postId,
-      residentId,
+  /**
+   * Posts and reposts in one timeline, ordered by when each was posted or reposted. Ties in time go
+   * by a number that is unique across both tables (posts even, reposts odd).
+   */
+  private mixedFeed(
+    who: { authors: "one" | "followed"; id: string },
+    options: { viewerId?: string | undefined; before?: string | undefined },
+    limit: number,
+  ): { posts: PostView[]; next: string | null } {
+    const people =
+      who.authors === "one"
+        ? { sql: "= ?", bindings: [who.id] }
+        : {
+            sql: "IN (SELECT ? UNION SELECT followee FROM follows WHERE follower = ?)",
+            bindings: [who.id, who.id],
+          };
+    // Someone the viewer blocked drops out: their posts in the following feed, and their posts and
+    // reposts as reposts anywhere. A resident's own page still shows their own posts.
+    const viewer = options.viewerId ?? "";
+    const unblocked = (column: string) =>
+      `${column} NOT IN (SELECT blocked FROM blocks WHERE blocker = ?)`;
+    const cursor = this.feedCursor(options.before);
+    const after = cursor ? "WHERE at < ? OR (at = ? AND tb < ?)" : "";
+    // Duplicates (a post and its reposts) fold into one item, so read ahead a little.
+    const fetch = limit * 3 + 1;
+    const raw = this.rows(
+      `SELECT * FROM (
+        SELECT p.id AS post_id, p.created_at AS at, p.n * 2 AS tb, '' AS by FROM posts p
+          WHERE p.hidden = 0 AND p.author ${people.sql}
+          ${who.authors === "followed" ? `AND p.reply_to = '' AND ${unblocked("p.author")}` : ""}
+        UNION ALL
+        SELECT r.post_id, r.created_at, r.n * 2 + 1, r.resident_id FROM reposts r
+          JOIN posts p ON p.id = r.post_id AND p.hidden = 0
+          WHERE r.resident_id ${people.sql}
+            AND ${unblocked("p.author")} AND ${unblocked("r.resident_id")}
+      ) ${after} ORDER BY at DESC, tb DESC LIMIT ?`,
+      ...people.bindings,
+      ...(who.authors === "followed" ? [viewer] : []),
+      ...people.bindings,
+      viewer,
+      viewer,
+      ...(cursor ? [cursor.at, cursor.at, cursor.tb] : []),
+      fetch,
     );
+    const items: Row[] = [];
+    const seen = new Set<string>();
+    let last: Row | undefined;
+    let used = 0;
+    for (const row of raw) {
+      if (items.length === limit) break;
+      used++;
+      last = row;
+      const id = String(row.post_id);
+      if (seen.has(id)) continue;
+      seen.add(id);
+      items.push(row);
+    }
+    const more = used < raw.length || raw.length === fetch;
+    const ids = items.map((row) => String(row.post_id));
+    const views = new Map(
+      this.views(
+        ids.length
+          ? this.rows(
+              `SELECT ${POST_COLUMNS} FROM posts p WHERE p.id IN (${marks(ids.length)})`,
+              options.viewerId ?? "",
+              ...ids,
+            )
+          : [],
+        options.viewerId,
+      ).map((v) => [v.id, v]),
+    );
+    const posts = items.flatMap((row) => {
+      const view = views.get(String(row.post_id));
+      if (!view) return [];
+      if (!row.by) return [view];
+      const by = this.authorById(String(row.by));
+      if (!by) return [view];
+      return [{ ...view, repostedBy: by, repostedAt: new Date(Number(row.at)).toISOString() }];
+    });
+    return {
+      posts,
+      next: more && last ? `${Number(last.at).toString(36)}.${Number(last.tb).toString(36)}` : null,
+    };
+  }
+
+  /** A mixed-feed cursor, or a plain post cursor from before reposts existed. */
+  private feedCursor(before: string | undefined): FeedKey | undefined {
+    if (!before) return undefined;
+    const pair = /^([0-9a-z]+)\.([0-9a-z]+)$/.exec(before);
+    if (pair) {
+      const at = Number.parseInt(pair[1] ?? "", 36);
+      const tb = Number.parseInt(pair[2] ?? "", 36);
+      return Number.isFinite(at) && Number.isFinite(tb) ? { at, tb } : undefined;
+    }
+    const n = Number.parseInt(before, 36);
+    if (!Number.isFinite(n)) return undefined;
+    const row = this.rows("SELECT created_at FROM posts WHERE n = ?", n)[0];
+    return row ? { at: Number(row.created_at), tb: n * 2 } : undefined;
+  }
+
+  // ---------- reactions and reposts ----------
+
+  /** A like is a heart reaction. */
+  setLike(residentId: string, postId: string, liked: boolean): SocialResult<PostView> {
+    return this.setReaction(residentId, postId, "heart", liked);
+  }
+
+  setReaction(
+    residentId: string,
+    postId: string,
+    key: ReactionKey,
+    on: boolean,
+  ): SocialResult<PostView> {
+    const target = this.visiblePost(postId);
+    if (!target) return fail("not_found", "No such post.");
+    if (on) {
+      const had = this.count(
+        "SELECT COUNT(*) AS c FROM reactions WHERE post_id = ? AND resident_id = ? AND key = ?",
+        postId,
+        residentId,
+        key,
+      );
+      if (!had) {
+        this.sql.exec(
+          "INSERT OR IGNORE INTO reactions (post_id, resident_id, key) VALUES (?, ?, ?)",
+          postId,
+          residentId,
+          key,
+        );
+        this.notify(String(target.author), residentId, "reaction", postId, key);
+      }
+    } else {
+      this.sql.exec(
+        "DELETE FROM reactions WHERE post_id = ? AND resident_id = ? AND key = ?",
+        postId,
+        residentId,
+        key,
+      );
+    }
+    const post = this.post(postId, residentId);
+    return post ? { ok: true, value: post } : fail("not_found", "No such post.");
+  }
+
+  /** Repost or take it back. Reposting your own post is allowed, and tells nobody. */
+  setRepost(residentId: string, postId: string, on: boolean): SocialResult<PostView> {
+    const target = this.visiblePost(postId);
+    if (!target) return fail("not_found", "No such post.");
+    if (on) {
+      const had = this.count(
+        "SELECT COUNT(*) AS c FROM reposts WHERE post_id = ? AND resident_id = ?",
+        postId,
+        residentId,
+      );
+      if (!had) {
+        this.sql.exec(
+          "INSERT OR IGNORE INTO reposts (post_id, resident_id, created_at) VALUES (?, ?, ?)",
+          postId,
+          residentId,
+          this.now(),
+        );
+        this.notify(String(target.author), residentId, "repost", postId);
+      }
+    } else {
+      this.sql.exec(
+        "DELETE FROM reposts WHERE post_id = ? AND resident_id = ?",
+        postId,
+        residentId,
+      );
+    }
     const post = this.post(postId, residentId);
     return post ? { ok: true, value: post } : fail("not_found", "No such post.");
   }
@@ -487,6 +786,11 @@ export class SocialService {
   setFollow(follower: string, followee: string, follow: boolean): SocialResult<ProfileView> {
     if (follower === followee) return fail("bad_request", "You can't follow yourself.");
     if (!this.resident(followee)) return fail("not_found", "No such resident.");
+    const had = this.count(
+      "SELECT COUNT(*) AS c FROM follows WHERE follower = ? AND followee = ?",
+      follower,
+      followee,
+    );
     this.sql.exec(
       follow
         ? "INSERT OR IGNORE INTO follows (follower, followee) VALUES (?, ?)"
@@ -494,8 +798,20 @@ export class SocialService {
       follower,
       followee,
     );
+    if (follow && !had) this.notify(followee, follower, "follow", "");
     const profile = this.profile(followee, follower);
     return profile ? { ok: true, value: profile } : fail("not_found", "No such resident.");
+  }
+
+  /** Who someone follows, most recent first. */
+  following(residentId: string): SocialResult<AuthorView[]> {
+    if (!this.resident(residentId)) return fail("not_found", "No such resident.");
+    const ids = this.rows(
+      "SELECT followee FROM follows WHERE follower = ? ORDER BY rowid DESC LIMIT ?",
+      residentId,
+      FOLLOWING_LIST_MAX,
+    ).map((row) => String(row.followee));
+    return { ok: true, value: ids.flatMap((id) => this.authorById(id) ?? []) };
   }
 
   profile(residentId: string, viewerId?: string): ProfileView | undefined {
@@ -507,12 +823,14 @@ export class SocialService {
         (SELECT COUNT(*) FROM follows WHERE followee = ?) AS followers,
         (SELECT COUNT(*) FROM follows WHERE follower = ?) AS following,
         (SELECT COUNT(*) FROM follows WHERE follower = ? AND followee = ?) AS followed,
+        (SELECT handle FROM handles WHERE resident_id = ? AND released_at = 0) AS handle,
         (SELECT handle FROM x_links WHERE x_links.resident_id = ?) AS x_handle
       FROM (SELECT 1) LEFT JOIN profiles ON resident_id = ?`,
       residentId,
       residentId,
       residentId,
       viewerId ?? "",
+      residentId,
       residentId,
       residentId,
       residentId,
@@ -528,6 +846,7 @@ export class SocialService {
       bio: String(extra?.bio ?? ""),
       avatar: extra?.avatar ? mediaUrl(String(extra.avatar)) : null,
       ...(this.townsfolk.has(r.id) ? { townsfolk: true } : {}),
+      ...(extra?.handle ? { handle: String(extra.handle) } : {}),
       ...xAccount(extra?.x_handle),
       ...lookField(r),
       online: r.online,
@@ -706,11 +1025,23 @@ export class SocialService {
     return this.blocks(a, b) || this.blocks(b, a);
   }
 
+  /**
+   * The profile a handle points at: its current owner, or the last one if they gave it up and
+   * nobody has claimed it since, so old links still work.
+   */
+  profileByHandle(handle: string, viewerId?: string): ProfileView | undefined {
+    const lower = handle.toLowerCase();
+    if (!HANDLE_PATTERN.test(lower)) return undefined;
+    const row = this.rows("SELECT resident_id FROM handles WHERE handle = ?", lower)[0];
+    return row ? this.profile(String(row.resident_id), viewerId) : undefined;
+  }
+
   async updateProfile(
     residentId: string,
     request: UpdateProfileRequest,
   ): Promise<SocialResult<ProfileView>> {
     if (!this.resident(residentId)) return fail("unauthorized", "Unknown resident.");
+    // Check everything before changing anything, so a refusal leaves the profile as it was.
     if (request.avatar) {
       const media = this.ownedMedia(residentId, request.avatar);
       if (!media) return fail("bad_request", "The avatar must be one of your uploads.");
@@ -720,6 +1051,11 @@ export class SocialService {
     }
     const aimed = request.bio === undefined ? null : aimedAtReader(request.bio);
     if (aimed) return fail("bad_request", readerMessage("Bios", aimed));
+    const handle =
+      request.handle === undefined ? undefined : this.checkHandle(residentId, request.handle);
+    if (handle && !handle.ok) return handle;
+
+    if (handle?.value) this.claimHandle(residentId, handle.value);
     this.sql.exec("INSERT OR IGNORE INTO profiles (resident_id) VALUES (?)", residentId);
     this.sql.exec(
       "UPDATE profiles SET updated_at = ? WHERE resident_id = ?",
@@ -867,6 +1203,271 @@ export class SocialService {
     return { ok: true, value: String(row.code) };
   }
 
+  // ---------- handles and mentions ----------
+
+  private currentHandle(residentId: string): Row | undefined {
+    return this.rows(
+      "SELECT handle, claimed_at FROM handles WHERE resident_id = ? AND released_at = 0",
+      residentId,
+    )[0];
+  }
+
+  /**
+   * Whether `residentId` may take `raw` as their handle: the lowercase handle to claim, null when
+   * it's already theirs, or why not.
+   */
+  private checkHandle(residentId: string, raw: string): SocialResult<string | null> {
+    const handle = raw.trim().toLowerCase();
+    if (!HANDLE_PATTERN.test(handle)) {
+      return fail(
+        "bad_request",
+        "A handle is 3 to 20 letters, digits, or underscores, and starts with a letter.",
+      );
+    }
+    const current = this.currentHandle(residentId);
+    if (current?.handle === handle) return { ok: true, value: null };
+    if (isReservedHandle(handle))
+      return fail("bad_request", "That handle is reserved. Pick another.");
+    const taken = this.rows(
+      "SELECT resident_id, released_at FROM handles WHERE handle = ?",
+      handle,
+    )[0];
+    if (taken && Number(taken.released_at) === 0) {
+      return fail("bad_request", "That handle is taken. Pick another.");
+    }
+    if (
+      taken &&
+      taken.resident_id !== residentId &&
+      this.now() - Number(taken.released_at) < HANDLE_HOLD_DAYS * DAY_MS
+    ) {
+      return fail(
+        "bad_request",
+        `That handle was given up recently and is held for its last owner for ${HANDLE_HOLD_DAYS} days. Pick another.`,
+      );
+    }
+    if (current && this.now() - Number(current.claimed_at) < HANDLE_RENAME_DAYS * DAY_MS) {
+      const when = new Date(Number(current.claimed_at) + HANDLE_RENAME_DAYS * DAY_MS);
+      return fail(
+        "rate_limited",
+        `You can change your handle once every ${HANDLE_RENAME_DAYS} days. Try again after ${when.toISOString().slice(0, 16).replace("T", " ")} UTC.`,
+      );
+    }
+    return { ok: true, value: handle };
+  }
+
+  /** Take a handle `checkHandle` approved. The old one is held for its owner. */
+  private claimHandle(residentId: string, handle: string) {
+    const now = this.now();
+    this.sql.exec(
+      "UPDATE handles SET released_at = ? WHERE resident_id = ? AND released_at = 0",
+      now,
+      residentId,
+    );
+    this.sql.exec("DELETE FROM handles WHERE handle = ?", handle);
+    this.sql.exec(
+      "INSERT INTO handles (handle, resident_id, claimed_at, released_at) VALUES (?, ?, ?, 0)",
+      handle,
+      residentId,
+      now,
+    );
+  }
+
+  /** The residents a text mentions, in order, once each, up to MAX_MENTIONS_PER_POST. */
+  private resolveMentions(text: string): MentionView[] {
+    const handles = [...new Set(findMentions(text).map((m) => m.handle))];
+    if (handles.length === 0) return [];
+    const owners = new Map(
+      this.rows(
+        `SELECT handle, resident_id FROM handles WHERE released_at = 0 AND handle IN (${marks(handles.length)})`,
+        ...handles,
+      ).map((row) => [String(row.handle), String(row.resident_id)]),
+    );
+    return handles
+      .flatMap((handle) => {
+        const id = owners.get(handle);
+        return id && this.resident(id) ? [{ handle, id }] : [];
+      })
+      .slice(0, MAX_MENTIONS_PER_POST);
+  }
+
+  // ---------- notifications ----------
+
+  /**
+   * Tell `recipient` that `actor` did something. Nothing happens for yourself, between residents
+   * where either blocked the other, past the daily cap
+   * per actor, or for a second follow from the same person within a day. Reactions and reposts on
+   * one post within one clock hour share a notification, which moves to the top and reads as new.
+   */
+  private notify(
+    recipient: string,
+    actor: string,
+    type: NotificationType,
+    postId: string,
+    detail = "",
+  ) {
+    if (recipient === actor || !this.resident(recipient)) return;
+    // Blocking either way means no notifications either way.
+    if (this.blockedEither(recipient, actor)) return;
+    const now = this.now();
+    const since = now - DAY_MS;
+    if (
+      this.count(
+        "SELECT COUNT(*) AS c FROM notification_log WHERE actor = ? AND recipient = ? AND created_at > ?",
+        actor,
+        recipient,
+        since,
+      ) >= this.limits.notificationsPerActorPerDay
+    ) {
+      return;
+    }
+    if (
+      type === "follow" &&
+      this.count(
+        "SELECT COUNT(*) AS c FROM notifications WHERE recipient = ? AND actor = ? AND type = 'follow' AND created_at > ?",
+        recipient,
+        actor,
+        since,
+      ) > 0
+    ) {
+      return;
+    }
+    const seq = this.count("SELECT COALESCE(MAX(seq), 0) + 1 AS c FROM notifications");
+    this.sql.exec(
+      "INSERT INTO notification_log (actor, recipient, created_at) VALUES (?, ?, ?)",
+      actor,
+      recipient,
+      now,
+    );
+    const groupKey =
+      type === "reaction" || type === "repost"
+        ? `${type}:${postId}:${Math.floor(now / HOUR_MS)}`
+        : "";
+    const existing = groupKey
+      ? this.rows(
+          "SELECT id FROM notifications WHERE recipient = ? AND group_key = ?",
+          recipient,
+          groupKey,
+        )[0]
+      : undefined;
+    if (existing) {
+      const id = String(existing.id);
+      this.sql.exec(
+        "INSERT OR IGNORE INTO notification_actors (notification_id, actor) VALUES (?, ?)",
+        id,
+        actor,
+      );
+      this.sql.exec(
+        `UPDATE notifications SET actor = ?, detail = ?, seq = ?, created_at = ?, read = 0,
+          count = (SELECT COUNT(*) FROM notification_actors WHERE notification_id = ?)
+        WHERE id = ?`,
+        actor,
+        detail,
+        seq,
+        now,
+        id,
+        id,
+      );
+      return;
+    }
+    const id = randomId("n");
+    this.sql.exec(
+      `INSERT INTO notifications (id, recipient, type, actor, post_id, detail, group_key, count, seq, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+      id,
+      recipient,
+      type,
+      actor,
+      postId,
+      detail,
+      groupKey,
+      seq,
+      now,
+    );
+    if (groupKey) {
+      this.sql.exec(
+        "INSERT INTO notification_actors (notification_id, actor) VALUES (?, ?)",
+        id,
+        actor,
+      );
+    }
+  }
+
+  /** Notifications whose post (if any) is still there. Bind the recipient first. */
+  private static readonly VISIBLE_NOTIFICATIONS =
+    `FROM notifications n LEFT JOIN posts p ON p.id = n.post_id
+    WHERE n.recipient = ? AND (n.post_id = '' OR (p.id IS NOT NULL AND p.hidden = 0))`;
+
+  private unread(recipient: string): number {
+    return this.count(
+      `SELECT COUNT(*) AS c ${SocialService.VISIBLE_NOTIFICATIONS} AND n.read = 0`,
+      recipient,
+    );
+  }
+
+  notifications(
+    recipient: string,
+    options: { limit?: number | undefined; before?: string | undefined },
+  ): NotificationsResponse {
+    const asked = Math.floor(Number(options.limit));
+    const limit = Number.isFinite(asked)
+      ? Math.max(1, Math.min(FEED_MAX_LIMIT, asked))
+      : FEED_DEFAULT_LIMIT;
+    const before = Number.parseInt(options.before ?? "", 36);
+    const rows = this.rows(
+      `SELECT n.id, n.type, n.actor, n.post_id, n.detail, n.count, n.seq, n.created_at, n.read,
+        p.text AS post_text
+      ${SocialService.VISIBLE_NOTIFICATIONS} ${Number.isFinite(before) ? "AND n.seq < ?" : ""}
+      ORDER BY n.seq DESC LIMIT ?`,
+      recipient,
+      ...(Number.isFinite(before) ? [before] : []),
+      limit + 1,
+    );
+    const page = rows.slice(0, limit);
+    const last = page.at(-1);
+    const notifications = page.flatMap((row): NotificationView[] => {
+      const actor = this.authorById(String(row.actor));
+      if (!actor) return [];
+      const type = String(row.type) as NotificationType;
+      const detail = String(row.detail);
+      return [
+        {
+          id: String(row.id),
+          type,
+          trust: "untrusted",
+          actor,
+          count: Number(row.count),
+          postId: row.post_id ? String(row.post_id) : null,
+          excerpt: row.post_text ? excerpt(String(row.post_text)) : "",
+          ...(type === "reaction" && isReactionKey(detail) ? { reaction: detail } : {}),
+          ...(type === "gesture" && isGestureKind(detail) ? { gesture: detail } : {}),
+          read: Number(row.read) > 0,
+          createdAt: new Date(Number(row.created_at)).toISOString(),
+        },
+      ];
+    });
+    return {
+      notifications,
+      next: rows.length > limit && last ? Number(last.seq).toString(36) : null,
+      unread: this.unread(recipient),
+    };
+  }
+
+  /** Mark one notification and every older one read. Returns what's still unread. */
+  markRead(recipient: string, upTo: string): SocialResult<number> {
+    const row = this.rows(
+      "SELECT seq FROM notifications WHERE id = ? AND recipient = ?",
+      upTo,
+      recipient,
+    )[0];
+    if (!row) return fail("not_found", "No such notification.");
+    this.sql.exec(
+      "UPDATE notifications SET read = 1 WHERE recipient = ? AND seq <= ?",
+      recipient,
+      Number(row.seq),
+    );
+    return { ok: true, value: this.unread(recipient) };
+  }
+
   // ---------- media ----------
 
   /**
@@ -955,7 +1556,7 @@ export class SocialService {
 
   /**
    * Housekeeping, about once a minute: delete uploads nobody attached within a day (so `/media`
-   * isn't free file hosting) and forget cap records older than two days.
+   * isn't free file hosting), forget cap records older than two days, and drop old notifications.
    */
   async sweep() {
     const cutoff = this.now() - DAY_MS;
@@ -970,8 +1571,15 @@ export class SocialService {
     );
     for (const row of orphans) await this.releaseIfUnused(String(row.id));
     this.sql.exec("DELETE FROM uploads WHERE created_at < ?", this.now() - 2 * DAY_MS);
+    this.sql.exec("DELETE FROM notification_log WHERE created_at < ?", this.now() - 2 * DAY_MS);
     this.sql.exec("DELETE FROM x_codes WHERE expires_at < ?", this.now());
     this.together.sweep();
+    const old = this.now() - NOTIFICATION_KEEP_MS;
+    this.sql.exec(
+      "DELETE FROM notification_actors WHERE notification_id IN (SELECT id FROM notifications WHERE created_at < ?)",
+      old,
+    );
+    this.sql.exec("DELETE FROM notifications WHERE created_at < ?", old);
   }
 
   /** Delete a file and its row if no post, avatar, letter, or world look uses it. */
@@ -1064,7 +1672,7 @@ export class SocialService {
   // ---------- helpers ----------
 
   private visiblePost(postId: string): Row | undefined {
-    return this.rows("SELECT id FROM posts WHERE id = ? AND hidden = 0", postId)[0];
+    return this.rows("SELECT id, author FROM posts WHERE id = ? AND hidden = 0", postId)[0];
   }
 
   /** The type of an upload `ownerId` made, or undefined if it isn't theirs or is gone. */
@@ -1099,26 +1707,18 @@ export class SocialService {
     return row ? { type: String(row.type) as MediaType } : undefined;
   }
 
-  /** A resident as an author, with their avatar, or undefined if they don't exist. */
+  /** A resident as an author, with their avatar and handles, or undefined if they don't exist. */
   authorView(id: string): AuthorView | undefined {
-    const row = this.rows(
-      `SELECT
-        (SELECT avatar FROM profiles WHERE resident_id = ?) AS avatar,
-        (SELECT handle FROM x_links WHERE resident_id = ?) AS x_handle`,
-      id,
-      id,
-    )[0];
-    return this.author(id, row?.avatar, row?.x_handle);
+    return this.authorById(id);
   }
 
-  /** Post views for rows selected with POST_COLUMNS. Posts whose author is gone are dropped. */
-  private views(rows: Row[]): PostView[] {
-    if (rows.length === 0) return [];
-    const ids = rows.map((row) => String(row.id));
+  /** Media for each of these posts, in order. */
+  private mediaFor(ids: string[]): Map<string, MediaView[]> {
     const media = new Map<string, MediaView[]>();
+    if (ids.length === 0) return media;
     for (const m of this.rows(
       `SELECT pm.post_id, m.id, m.type, m.bytes FROM post_media pm JOIN media m ON m.id = pm.media_id
-        WHERE pm.post_id IN (${ids.map(() => "?").join(", ")}) ORDER BY pm.post_id, pm.ord`,
+        WHERE pm.post_id IN (${marks(ids.length)}) ORDER BY pm.post_id, pm.ord`,
       ...ids,
     )) {
       const type = String(m.type) as MediaType;
@@ -1132,28 +1732,143 @@ export class SocialService {
       });
       media.set(String(m.post_id), list);
     }
+    return media;
+  }
+
+  /** Mentions for each of these posts, in the order they appear. */
+  private mentionsFor(ids: string[]): Map<string, MentionView[]> {
+    const mentions = new Map<string, MentionView[]>();
+    if (ids.length === 0) return mentions;
+    for (const m of this.rows(
+      `SELECT post_id, handle, resident_id FROM post_mentions
+        WHERE post_id IN (${marks(ids.length)}) ORDER BY post_id, ord`,
+      ...ids,
+    )) {
+      const list = mentions.get(String(m.post_id)) ?? [];
+      list.push({ handle: String(m.handle), id: String(m.resident_id) });
+      mentions.set(String(m.post_id), list);
+    }
+    return mentions;
+  }
+
+  /** Reaction counts, and the viewer's own reactions, for each of these posts. */
+  private reactionsFor(
+    ids: string[],
+    viewerId: string | undefined,
+  ): Map<string, { counts: ReactionCounts; mine: ReactionKey[] }> {
+    const out = new Map<string, { counts: ReactionCounts; mine: ReactionKey[] }>();
+    if (ids.length === 0) return out;
+    for (const r of this.rows(
+      `SELECT post_id, key, COUNT(*) AS c, SUM(CASE WHEN resident_id = ? THEN 1 ELSE 0 END) AS mine
+        FROM reactions WHERE post_id IN (${marks(ids.length)}) GROUP BY post_id, key`,
+      viewerId ?? "",
+      ...ids,
+    )) {
+      const key = String(r.key);
+      if (!isReactionKey(key)) continue;
+      const entry = out.get(String(r.post_id)) ?? { counts: {}, mine: [] };
+      entry.counts[key] = Number(r.c);
+      if (Number(r.mine) > 0) entry.mine.push(key);
+      out.set(String(r.post_id), entry);
+    }
+    for (const entry of out.values()) {
+      entry.mine.sort((a, b) => REACTION_KEYS.indexOf(a) - REACTION_KEYS.indexOf(b));
+    }
+    return out;
+  }
+
+  /** Compact views of quoted posts that are still there. */
+  private quotedFor(ids: string[]): Map<string, QuotedPostView> {
+    const out = new Map<string, QuotedPostView>();
+    if (ids.length === 0) return out;
+    const rows = this.rows(
+      `SELECT p.id, p.author, p.text, p.reply_to, p.created_at,
+        (SELECT avatar FROM profiles a WHERE a.resident_id = p.author) AS avatar,
+        (SELECT handle FROM handles h WHERE h.resident_id = p.author AND h.released_at = 0) AS handle,
+        (SELECT handle FROM x_links x WHERE x.resident_id = p.author) AS x_handle
+      FROM posts p WHERE p.hidden = 0 AND p.id IN (${marks(ids.length)})`,
+      ...ids,
+    );
+    const found = rows.map((row) => String(row.id));
+    const media = this.mediaFor(found);
+    const mentions = this.mentionsFor(found);
+    for (const row of rows) {
+      const author = this.author(String(row.author), row.avatar, row.handle, row.x_handle);
+      if (!author) continue;
+      const id = String(row.id);
+      const named = mentions.get(id);
+      out.set(id, {
+        id,
+        trust: "untrusted",
+        author,
+        text: String(row.text),
+        media: media.get(id) ?? [],
+        replyTo: row.reply_to ? String(row.reply_to) : null,
+        ...(named?.length ? { mentions: named } : {}),
+        createdAt: new Date(Number(row.created_at)).toISOString(),
+      });
+    }
+    return out;
+  }
+
+  /** Post views for rows selected with POST_COLUMNS. Posts whose author is gone are dropped. */
+  private views(rows: Row[], viewerId: string | undefined): PostView[] {
+    if (rows.length === 0) return [];
+    const ids = rows.map((row) => String(row.id));
+    const media = this.mediaFor(ids);
+    const mentions = this.mentionsFor(ids);
+    const reactions = this.reactionsFor(ids, viewerId);
+    const quoted = this.quotedFor([
+      ...new Set(rows.flatMap((row) => (row.quote_of ? [String(row.quote_of)] : []))),
+    ]);
     return rows.flatMap((row) => {
-      const author = this.author(String(row.author), row.avatar, row.x_handle);
+      const author = this.author(String(row.author), row.avatar, row.handle, row.x_handle);
       if (!author) return [];
       const id = String(row.id);
-      return [
-        {
-          id,
-          trust: "untrusted" as const,
-          author,
-          text: String(row.text),
-          media: media.get(id) ?? [],
-          replyTo: row.reply_to ? String(row.reply_to) : null,
-          replyCount: Number(row.reply_count),
-          likeCount: Number(row.like_count),
-          liked: Number(row.liked) > 0,
-          createdAt: new Date(Number(row.created_at)).toISOString(),
-        },
-      ];
+      const r = reactions.get(id) ?? { counts: {}, mine: [] };
+      const hearts = r.counts.heart ?? 0;
+      const view: PostView = {
+        id,
+        trust: "untrusted" as const,
+        author,
+        text: String(row.text),
+        media: media.get(id) ?? [],
+        replyTo: row.reply_to ? String(row.reply_to) : null,
+        replyCount: Number(row.reply_count),
+        likeCount: hearts,
+        liked: r.mine.includes("heart"),
+        createdAt: new Date(Number(row.created_at)).toISOString(),
+        mentions: mentions.get(id) ?? [],
+        reactions: r.counts,
+        myReactions: r.mine,
+        repostCount: Number(row.repost_count),
+        quoteCount: Number(row.quote_count),
+        reposted: Number(row.reposted) > 0,
+      };
+      if (row.quote_of) view.quote = quoted.get(String(row.quote_of)) ?? null;
+      return [view];
     });
   }
 
-  private author(id: string, avatar: unknown, xHandle: unknown): AuthorView | undefined {
+  /** An author view by id, with their avatar and handle, or undefined if they're gone. */
+  private authorById(id: string): AuthorView | undefined {
+    const extra = this.rows(
+      `SELECT (SELECT avatar FROM profiles WHERE resident_id = ?) AS avatar,
+        (SELECT handle FROM handles WHERE resident_id = ? AND released_at = 0) AS handle,
+        (SELECT handle FROM x_links WHERE resident_id = ?) AS x_handle`,
+      id,
+      id,
+      id,
+    )[0];
+    return this.author(id, extra?.avatar, extra?.handle, extra?.x_handle);
+  }
+
+  private author(
+    id: string,
+    avatar: unknown,
+    handle: unknown,
+    xHandle: unknown,
+  ): AuthorView | undefined {
     const r = this.resident(id);
     if (!r) return undefined;
     const ownerId = r.kind === "agent" ? this.ownerOf(r.id) : undefined;
@@ -1166,6 +1881,7 @@ export class SocialService {
       shape: r.shape,
       avatar: avatar ? mediaUrl(String(avatar)) : null,
       ...(this.townsfolk.has(r.id) ? { townsfolk: true } : {}),
+      ...(handle ? { handle: String(handle) } : {}),
       ...xAccount(xHandle),
       ...lookField(r),
       ...(owner ? { owner } : {}),
@@ -1182,6 +1898,22 @@ function xAccount(handle: unknown): { x?: { handle: string } } {
 function lookField(r: Resident): { look?: LookView } {
   const look = lookOf(r);
   return Object.keys(look).length > 0 ? { look } : {};
+}
+
+const isReactionKey = (key: string): key is ReactionKey =>
+  (REACTION_KEYS as readonly string[]).includes(key);
+
+const isGestureKind = (kind: string): kind is GestureKind =>
+  (GESTURE_KINDS as readonly string[]).includes(kind);
+
+/** The start of a post for a notification: one line, cut at a word near EXCERPT_CHARS. */
+export function excerpt(text: string): string {
+  const flat = text.replace(/\s+/g, " ").trim();
+  const chars = Array.from(flat);
+  if (chars.length <= EXCERPT_CHARS) return flat;
+  const cut = chars.slice(0, EXCERPT_CHARS).join("");
+  const space = cut.lastIndexOf(" ");
+  return `${(space > EXCERPT_CHARS * 0.6 ? cut.slice(0, space) : cut).trimEnd()}…`;
 }
 
 /**

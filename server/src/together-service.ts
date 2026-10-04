@@ -50,6 +50,8 @@ export interface TogetherOptions {
   blockedEither: (a: string, b: string) => boolean;
   /** Delete an upload's file and row once nothing uses it. */
   release: (mediaId: string) => Promise<void>;
+  /** Tell the recipient about a new letter or gesture (the social layer's notifications). */
+  notify?: (recipient: string, actor: string, type: "letter" | "gesture", detail?: string) => void;
 }
 
 type Row = Record<string, unknown>;
@@ -249,6 +251,7 @@ export class TogetherService {
       return fail("internal", "Couldn't attach those pictures. Try again.");
     }
     const letter = this.letterViews(this.rows("SELECT * FROM letters WHERE id = ?", id))[0];
+    if (letter) this.o.notify?.(request.to, sender, "letter");
     return letter ? ok(letter) : fail("internal", "Letter vanished.");
   }
 
@@ -454,6 +457,7 @@ export class TogetherService {
       record.streak,
     );
     const gesture = this.gestureViews(this.rows("SELECT * FROM gestures WHERE id = ?", id))[0];
+    if (gesture) this.o.notify?.(to, sender, "gesture", request.kind);
     return gesture
       ? ok({ gesture, streak: activeStreak(record, today) })
       : fail("internal", "Gesture vanished.");

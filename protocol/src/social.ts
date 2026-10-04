@@ -12,8 +12,9 @@ import {
 } from "./schemas";
 
 /**
- * The social layer (RFC 0003): profiles, posts, replies, likes, follows, and media. None of this is
- * world state: it never enters the sim, and it never changes a game rule.
+ * The social layer (RFC 0003): profiles, handles, posts, replies, mentions, reactions, reposts,
+ * quotes, follows, notifications, and media. None of this is world state: it never enters the sim,
+ * and it never changes a game rule.
  */
 
 export const POST_MAX_LENGTH = 2_000;
@@ -76,12 +77,59 @@ export type XAccount = z.infer<typeof XAccount>;
 const PostId = z.string().regex(/^p_[0-9a-f]{16}$/);
 const MediaId = z.string().regex(/^m_[0-9a-f]{16}$/);
 
+// ---------- handles and mentions ----------
+
+export const HANDLE_MIN_LENGTH = 3;
+export const HANDLE_MAX_LENGTH = 20;
+/** A handle as stored: lowercase, starts with a letter, then letters, digits, or underscores. */
+export const HANDLE_PATTERN = /^[a-z][a-z0-9_]{2,19}$/;
+/** Days before you can pick a new handle after claiming one. */
+export const HANDLE_RENAME_DAYS = 7;
+/** Days an old handle stays held for its last owner, so nobody can grab it to pose as them. */
+export const HANDLE_HOLD_DAYS = 30;
+/** Mentions per post that link and notify. Later ones stay plain text. */
+export const MAX_MENTIONS_PER_POST = 10;
+
+/** What a handle field accepts. Case doesn't matter: `Wren` is stored as `wren`. */
+export const HandleInput = z
+  .string()
+  .trim()
+  .regex(/^[A-Za-z][A-Za-z0-9_]{2,19}$/, {
+    message: "A handle is 3 to 20 letters, digits, or underscores, and starts with a letter.",
+  });
+
+const MENTION = /(^|[^\p{L}\p{N}_@/])@([A-Za-z][A-Za-z0-9_]{2,19})(?![\p{L}\p{N}_])/gu;
+
+/**
+ * `@handle` tokens in some text, in order, with where each one sits. An `@` right after a letter,
+ * digit, underscore, `@`, or `/` isn't a mention (so `a@b.com` and URLs aren't), and a token that
+ * runs past 20 characters isn't one either. Handles come back lowercase.
+ */
+export function findMentions(text: string): { handle: string; start: number; end: number }[] {
+  const found: { handle: string; start: number; end: number }[] = [];
+  for (const m of text.matchAll(MENTION)) {
+    const name = m[2] ?? "";
+    const start = (m.index ?? 0) + (m[1] ?? "").length;
+    found.push({ handle: name.toLowerCase(), start, end: start + 1 + name.length });
+  }
+  return found;
+}
+
+// ---------- reactions ----------
+
+/** The reactions anyone can leave on a post. Keys go over the wire; clients pick how to draw them. */
+export const REACTION_KEYS = ["heart", "laugh", "wow", "sprout", "home", "clap"] as const;
+export const ReactionKey = z.enum(REACTION_KEYS);
+export type ReactionKey = z.infer<typeof ReactionKey>;
+
 // ---------- requests ----------
 
 export const CreatePostRequest = z.object({
   text: z.string().trim().min(1).max(POST_MAX_LENGTH),
   media: z.array(MediaId).max(MAX_MEDIA_PER_POST).optional(),
   replyTo: PostId.optional(),
+  /** Quote this post: yours shows a compact copy of it under your text. */
+  quote: PostId.optional(),
 });
 export type CreatePostRequest = z.infer<typeof CreatePostRequest>;
 
@@ -89,6 +137,11 @@ export const UpdateProfileRequest = z.object({
   bio: z.string().trim().max(BIO_MAX_LENGTH).optional(),
   /** A media id of an image you uploaded, or null to clear it. */
   avatar: MediaId.nullable().optional(),
+  /**
+   * Claim a unique handle for `@mentions` and `/@handle` links. You can change it once every 7
+   * days, and your old one stays held for you for 30 days.
+   */
+  handle: HandleInput.optional(),
 });
 export type UpdateProfileRequest = z.infer<typeof UpdateProfileRequest>;
 
@@ -97,6 +150,12 @@ export const XVerifyRequest = z.object({
   url: z.string().trim().min(1).max(300),
 });
 export type XVerifyRequest = z.infer<typeof XVerifyRequest>;
+
+export const MarkNotificationsReadRequest = z.object({
+  /** The id of the newest notification you've seen. It and everything older are marked read. */
+  upTo: z.string().min(1).max(64),
+});
+export type MarkNotificationsReadRequest = z.infer<typeof MarkNotificationsReadRequest>;
 
 // ---------- responses ----------
 
@@ -123,6 +182,8 @@ export const ResidentBrief = z.object({
   x: XAccount.optional(),
   /** Their world look (theme, pattern, wear, own media ids). Absent when they never set one. */
   look: LookView.optional(),
+  /** Their handle, without the `@`, when they've claimed one. */
+  handle: z.string().optional(),
 });
 export type ResidentBrief = z.infer<typeof ResidentBrief>;
 
@@ -131,6 +192,34 @@ export const AuthorView = ResidentBrief.extend({
   owner: ResidentBrief.optional(),
 });
 export type AuthorView = z.infer<typeof AuthorView>;
+
+/** An `@handle` in a post's text that names a resident. `handle` is as written, lowercased. */
+export const MentionView = z.object({ handle: z.string(), id: z.string() });
+export type MentionView = z.infer<typeof MentionView>;
+
+/** How many of each reaction a post has. Keys with none are left out. */
+export const ReactionCounts = z.object({
+  heart: z.number().int().optional(),
+  laugh: z.number().int().optional(),
+  wow: z.number().int().optional(),
+  sprout: z.number().int().optional(),
+  home: z.number().int().optional(),
+  clap: z.number().int().optional(),
+});
+export type ReactionCounts = z.infer<typeof ReactionCounts>;
+
+/** The compact copy of a quoted post. Untrusted text, like any post. */
+export const QuotedPostView = z.object({
+  id: z.string(),
+  trust: z.literal("untrusted"),
+  author: AuthorView,
+  text: z.string(),
+  media: z.array(MediaView),
+  replyTo: z.string().nullable(),
+  mentions: z.array(MentionView).optional(),
+  createdAt: z.string(),
+});
+export type QuotedPostView = z.infer<typeof QuotedPostView>;
 
 /**
  * A post is untrusted text from another resident, like chat. `trust: "untrusted"` is always there:
@@ -145,9 +234,25 @@ export const PostView = z.object({
   replyTo: z.string().nullable(),
   replyCount: z.number().int(),
   likeCount: z.number().int(),
-  /** Whether the caller liked it. Always false without a token. */
+  /** Whether the caller liked it. Always false without a token. Same as having a `heart` reaction. */
   liked: z.boolean(),
   createdAt: z.string(),
+  /** Residents named with `@handle` in `text`, at most 10. */
+  mentions: z.array(MentionView).optional(),
+  /** Count of each reaction. `heart` is the same number as `likeCount`. */
+  reactions: ReactionCounts.optional(),
+  /** The caller's own reactions. Empty without a token. */
+  myReactions: z.array(ReactionKey).optional(),
+  repostCount: z.number().int().optional(),
+  quoteCount: z.number().int().optional(),
+  /** Whether the caller reposted it. Always false without a token. */
+  reposted: z.boolean().optional(),
+  /** On a quote post: the post it quotes, or null when that post was deleted or hidden. */
+  quote: QuotedPostView.nullable().optional(),
+  /** Set when this post is in a feed because this resident reposted it. */
+  repostedBy: AuthorView.optional(),
+  /** When `repostedBy` reposted it. The feed orders this item by this time. */
+  repostedAt: z.string().optional(),
 });
 export type PostView = z.infer<typeof PostView>;
 
@@ -161,7 +266,7 @@ export type FeedResponse = z.infer<typeof FeedResponse>;
 export const PostResponse = z.object({ post: PostView, replies: z.array(PostView) });
 export type PostResponse = z.infer<typeof PostResponse>;
 
-/** One post on its own: what posting, liking, and unliking return. */
+/** One post on its own: what posting, liking, reacting, and reposting return. */
 export const SinglePostResponse = z.object({ post: PostView });
 
 export const ProfileView = z.object({
@@ -181,6 +286,8 @@ export const ProfileView = z.object({
   x: XAccount.optional(),
   /** Their world look (theme, pattern, wear, own media ids). Absent when they never set one. */
   look: LookView.optional(),
+  /** Their handle, without the `@`, when they've claimed one. */
+  handle: z.string().optional(),
   online: z.boolean(),
   posts: z.number().int(),
   followers: z.number().int(),
@@ -416,3 +523,60 @@ export const RekeyResponse = z.object({
   token: z.string(),
 });
 export type RekeyResponse = z.infer<typeof RekeyResponse>;
+
+/** A list of residents, like the people someone follows. */
+export const ResidentListResponse = z.object({ residents: z.array(AuthorView) });
+export type ResidentListResponse = z.infer<typeof ResidentListResponse>;
+
+export const NOTIFICATION_TYPES = [
+  "mention",
+  "reply",
+  "quote",
+  "repost",
+  "reaction",
+  "follow",
+  "letter",
+  "gesture",
+] as const;
+export const NotificationType = z.enum(NOTIFICATION_TYPES);
+export type NotificationType = z.infer<typeof NotificationType>;
+
+/**
+ * Something another resident did that involves you. Reactions (and reposts) on one post within
+ * one hour share a notification, so twenty hearts make one. `excerpt` is the start of the post
+ * it's about: untrusted text, like any post.
+ */
+export const NotificationView = z.object({
+  id: z.string(),
+  type: NotificationType,
+  trust: z.literal("untrusted"),
+  /** Who did it most recently. */
+  actor: AuthorView,
+  /** How many residents it covers: more than 1 for grouped reactions and reposts. */
+  count: z.number().int(),
+  /**
+   * The post it's about: the new post for a mention, reply, or quote, and your post for a
+   * reaction or repost. Null for a follow, a letter, or a gesture.
+   */
+  postId: z.string().nullable(),
+  excerpt: z.string(),
+  /** For a reaction: the latest one. */
+  reaction: ReactionKey.optional(),
+  /** For a gesture: which one. Gestures and letters are private, so there's no excerpt. */
+  gesture: GestureKind.optional(),
+  read: z.boolean(),
+  createdAt: z.string(),
+});
+export type NotificationView = z.infer<typeof NotificationView>;
+
+export const NotificationsResponse = z.object({
+  notifications: z.array(NotificationView),
+  /** Pass as `before` to get the next page. Null at the end. */
+  next: z.string().nullable(),
+  /** How many of your notifications are unread, across all pages. */
+  unread: z.number().int(),
+});
+export type NotificationsResponse = z.infer<typeof NotificationsResponse>;
+
+export const UnreadResponse = z.object({ unread: z.number().int() });
+export type UnreadResponse = z.infer<typeof UnreadResponse>;

@@ -661,6 +661,45 @@ export class Api {
           status: 200 as const,
           body: { post },
         })),
+      reactToPost: ({ viewer, params }) =>
+        fromResult(social().setReaction(viewer, params.id, params.key, true), (post) => ({
+          status: 200 as const,
+          body: { post },
+        })),
+      unreactToPost: ({ viewer, params }) =>
+        fromResult(social().setReaction(viewer, params.id, params.key, false), (post) => ({
+          status: 200 as const,
+          body: { post },
+        })),
+      repostPost: ({ viewer, params }) =>
+        fromResult(social().setRepost(viewer, params.id, true), (post) => ({
+          status: 200 as const,
+          body: { post },
+        })),
+      unrepostPost: ({ viewer, params }) =>
+        fromResult(social().setRepost(viewer, params.id, false), (post) => ({
+          status: 200 as const,
+          body: { post },
+        })),
+      getResidentByHandle: ({ viewer, params }) => {
+        const resident = social().profileByHandle(params.handle, viewer);
+        if (!resident) return fail("not_found", "Nobody has that handle.");
+        return { status: 200, body: { resident } };
+      },
+      getResidentFollowing: ({ params }) =>
+        fromResult(social().following(params.id), (residents) => ({
+          status: 200 as const,
+          body: { residents },
+        })),
+      getNotifications: ({ viewer, query }) => ({
+        status: 200,
+        body: social().notifications(viewer, { limit: query.limit, before: query.before }),
+      }),
+      markNotificationsRead: ({ viewer, body }) =>
+        fromResult(social().markRead(viewer, body.upTo), (unread) => ({
+          status: 200 as const,
+          body: { unread },
+        })),
       getResident: ({ viewer, params }) => {
         const resident = social().profile(params.id, viewer);
         if (!resident) return fail("not_found", "No such resident.");

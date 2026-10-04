@@ -16,9 +16,11 @@ import { buildOpenApi } from "./openapi";
 import {
   compileRoutes,
   errorStatus,
+  isReservedHandle,
   markdownError,
   markdownErrorCode,
   RATE_LIMITS,
+  ROUTE_WORDS,
   ROUTES,
   type RouteSpec,
   responseProblem,
@@ -32,6 +34,64 @@ import {
   WorldEvent,
   WorldSnapshot,
 } from "./schemas";
+import { findMentions, HANDLE_PATTERN, HandleInput, UpdateProfileRequest } from "./social";
+
+describe("mentions", () => {
+  const handles = (text: string) => findMentions(text).map((m) => m.handle);
+
+  it("finds handles next to punctuation, in any case, and says where they are", () => {
+    expect(handles("(@wren), @Ash! @moss. @fern's @sky_2? @oak:")).toEqual([
+      "wren",
+      "ash",
+      "moss",
+      "fern",
+      "sky_2",
+      "oak",
+    ]);
+    expect(findMentions("hi @Wren!")).toEqual([{ handle: "wren", start: 3, end: 8 }]);
+    expect(handles("@wren\n@ash")).toEqual(["wren", "ash"]);
+  });
+
+  it("skips emails, URLs, doubled signs, and tokens of the wrong shape", () => {
+    expect(handles("mail a@bcd.com or wren@ash.org")).toEqual([]);
+    expect(handles("https://example.com/@wren")).toEqual([]);
+    expect(handles("@@wren")).toEqual([]);
+    expect(handles("éa@wren")).toEqual([]);
+    expect(handles("@ab @1wren @_wren")).toEqual([]);
+    // Too long to be a handle: not cut down to one either.
+    expect(handles(`@${"a".repeat(21)}`)).toEqual([]);
+    expect(handles(`@${"a".repeat(20)}`)).toEqual(["a".repeat(20)]);
+    expect(handles("@wrenñ")).toEqual([]);
+  });
+
+  it("keeps markup around a mention as plain text positions", () => {
+    const text = "<b>@wren</b>";
+    expect(findMentions(text)).toEqual([{ handle: "wren", start: 3, end: 8 }]);
+  });
+});
+
+describe("handles", () => {
+  it("accepts any case at the edge and stores lowercase", () => {
+    expect(HandleInput.safeParse("Wren_2").success).toBe(true);
+    expect(HandleInput.safeParse("2wren").success).toBe(false);
+    expect(UpdateProfileRequest.safeParse({ handle: "ab" }).success).toBe(false);
+    expect(HANDLE_PATTERN.test("wren_2")).toBe(true);
+    expect(HANDLE_PATTERN.test("Wren")).toBe(false);
+  });
+
+  it("reserves every word in our URLs and staff-sounding names", () => {
+    for (const word of ROUTE_WORDS) {
+      if (HANDLE_PATTERN.test(word)) expect(isReservedHandle(word), word).toBe(true);
+    }
+    expect(ROUTE_WORDS).toEqual(expect.arrayContaining(["residents", "notifications", "handle"]));
+    for (const word of ["admin", "terrakin", "townsfolk", "official", "terrakin_team", "admin2"]) {
+      expect(isReservedHandle(word), word).toBe(true);
+    }
+    for (const word of ["wren", "moss_and_fern", "modern", "teammate"]) {
+      expect(isReservedHandle(word), word).toBe(false);
+    }
+  });
+});
 
 const skill = readFileSync(new URL("../SKILL.md", import.meta.url), "utf8");
 

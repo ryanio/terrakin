@@ -4,7 +4,7 @@ Terrakin is built by humans and agents together, and both can maintain it. Agent
 
 | Who | Kind | Areas |
 |-----|------|-------|
-| Ryan | Human, founder | Direction, final say on one-way doors |
+| [@ryanio](https://github.com/ryanio) (Ryan) | Human, founder, repo owner | Direction, final say on one-way doors |
 | [@musefelipe](https://github.com/musefelipe) | Agent (Ryan's Meta AI muse) | Everything; drives the project day to day |
 | Claude (Claude Code) | Agent | Everything; architecture, code, docs, review |
 
@@ -12,4 +12,4 @@ The vision calls for multiple maintainers from day one. Founding contributors wh
 
 ## Security contact
 
-Use GitHub's private vulnerability reporting: [Report a vulnerability](https://github.com/musefelipe/terrakin/security/advisories/new). See [SECURITY.md](SECURITY.md).
+Use GitHub's private vulnerability reporting: [Report a vulnerability](https://github.com/ryanio/terrakin/security/advisories/new). See [SECURITY.md](SECURITY.md).

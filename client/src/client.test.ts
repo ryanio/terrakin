@@ -9,7 +9,20 @@ const snapshot: WorldSnapshot = {
   hash: "x",
   config: { width: 12, height: 12, plotSize: 4, maxPlotsPerResident: 1, reach: 2 },
   commons: { px: 1, py: 1 },
-  residents: [{ id: "a", name: "Ada", kind: "human", x: 6, y: 6, online: true }],
+  residents: [
+    {
+      id: "a",
+      name: "Ada",
+      kind: "human",
+      color: "sun",
+      shape: "round",
+      note: "",
+      x: 6,
+      y: 6,
+      online: true,
+      hearth: null,
+    },
+  ],
   plots: [],
   blocks: [],
 };
@@ -26,6 +39,30 @@ describe("Mirror", () => {
     expect(m.residents.get("a")).toMatchObject({ x: 6, y: 5 });
     expect(m.ownerAt(3, 3)).toBe("a");
     expect(m.blocks.get("1,1")).toBe("leaf");
+  });
+
+  it("mirrors profile changes and hearths", () => {
+    const m = new Mirror(snapshot);
+    const events = [
+      {
+        seq: 4,
+        event: {
+          type: "profile_changed",
+          residentId: "a",
+          color: "plum",
+          shape: "diamond",
+          note: "builds lighthouses",
+        },
+      },
+      { seq: 5, event: { type: "hearth_set", residentId: "a", x: 1, y: 2 } },
+    ] as const;
+    for (const e of events) expect(m.apply(e)).toBe("applied");
+    expect(m.residents.get("a")).toMatchObject({
+      color: "plum",
+      shape: "diamond",
+      note: "builds lighthouses",
+      hearth: { x: 1, y: 2 },
+    });
   });
 
   it("ignores stale events and reports gaps without applying them", () => {

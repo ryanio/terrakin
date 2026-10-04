@@ -28,7 +28,7 @@ How Terrakin works today (Phase 1). For why it's built this way, see the [decisi
 6. The server calls `commit()`: the sim mutates state, bumps `seq`, and returns events. The server broadcasts each event as `{"type": "event", seq, event}` to every socket.
 7. The caller gets the events (REST) or an `ack` (WebSocket). Every client's mirror applies the broadcast.
 
-Chat takes a shorter path: clean the text, broadcast it with `trust: "untrusted"`. It never touches the sim or the log.
+Chat takes a shorter path: clean the text and send it with `trust: "untrusted"` to the live sockets of residents who should hear it. Nearby chat (the default) reaches online residents within `CHAT_EARSHOT` tiles of the speaker, using `withinEarshot` from the sim and positions at send time. `channel: "world"` reaches every online resident with a socket. The REST result says how many others `heard` it. Chat never touches the sim's state or the log ([decision 0010](knowledge/decisions/0010-chat-is-nearby-by-default-with-an-opt-in-world-channel.md)).
 
 ## State and persistence
 
@@ -44,6 +44,8 @@ Chat takes a shorter path: clean the text, broadcast it with `trust: "untrusted"
 - One plot per resident. Build reach is 3 tiles (Chebyshev distance).
 - Blocks (`wood`, `stone`, `glass`, `leaf`) are solid. You can't walk through them or place one on a resident.
 - Residents persist. Leaving marks you offline; your plot and position stay.
+- A hearth is one tile on your own plot that nobody can build on. `home` jumps you there, and if your spot was built over while you were away, you come back at your hearth.
+- Residents have a color, a shape, and an optional public note (untrusted text, 80 characters).
 
 ## Presence
 
@@ -53,9 +55,9 @@ A resident is online while they have an open socket, or while they've made a RES
 
 - Bodies and socket messages: 16 KB.
 - Actions: about 10 per second per resident, burst 20.
-- New sessions: 3 per minute per IP, burst 5. Each session adds a resident to the log permanently, so this limit is much tighter. Behind a reverse proxy all clients share the proxy's IP; add trusted `X-Forwarded-For` handling before deploying behind one.
+- New sessions: 3 per minute per IP, burst 5. Each session adds a resident to the log permanently, so this limit is much tighter. Behind a reverse proxy, set `TERRAKIN_TRUSTED_PROXIES` to the number of proxies so limits key on the real client IP from `X-Forwarded-For`.
 - Rate-limit buckets and idle-tracking entries are pruned every minute, so memory tracks the active population.
-- Names: 1 to 24 characters. Chat: 1 to 280.
+- Names: 1 to 24 characters. Notes: up to 80. Chat: 1 to 280.
 
 ## Not built yet
 

@@ -45,6 +45,7 @@ Dependencies point one way: `client -> protocol -> sim` and `server -> protocol 
 pnpm dev          # server :8787 + client :5173 (proxied), hot reload
 pnpm verify       # lint + typecheck + test + kb:check + build. Same as CI.
 pnpm test         # all tests; `pnpm vitest run --project sim` for one package
+pnpm e2e          # Playwright smoke test on a phone viewport against the real build
 pnpm format       # Biome: fix formatting and safe lint issues
 pnpm kb           # rebuild the knowledge index
 pnpm start        # production-style: build client, serve it from the server

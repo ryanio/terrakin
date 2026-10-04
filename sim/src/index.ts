@@ -1,9 +1,10 @@
-export { apply, NAME_MAX_LENGTH, type Prepared, prepare } from "./apply";
+export { apply, NAME_MAX_LENGTH, NOTE_MAX_LENGTH, type Prepared, prepare } from "./apply";
 export { canonicalJson, fnv1a, hashWorld } from "./hash";
 export { parseKey, plotKey, tileKey } from "./keys";
 export { replay } from "./replay";
 export * from "./types";
 export {
+  CHAT_EARSHOT,
   chebyshev,
   cloneWorld,
   commonsPlot,
@@ -17,4 +18,5 @@ export {
   plotsOwnedBy,
   spawnTile,
   validateConfig,
+  withinEarshot,
 } from "./world";

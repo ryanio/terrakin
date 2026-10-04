@@ -50,6 +50,11 @@ export class Mirror {
         if (r) r.online = false;
         break;
       }
+      case "profile_changed": {
+        const r = this.residents.get(event.residentId);
+        if (r) Object.assign(r, { color: event.color, shape: event.shape, note: event.note });
+        break;
+      }
       case "moved": {
         const r = this.residents.get(event.residentId);
         if (r) Object.assign(r, { x: event.x, y: event.y });
@@ -58,6 +63,11 @@ export class Mirror {
       case "plot_claimed":
         this.plots.set(plotKey(event.px, event.py), event.ownerId);
         break;
+      case "hearth_set": {
+        const r = this.residents.get(event.residentId);
+        if (r) r.hearth = { x: event.x, y: event.y };
+        break;
+      }
       case "block_placed":
         this.blocks.set(tileKey(event.x, event.y), event.block);
         break;
@@ -66,6 +76,12 @@ export class Mirror {
         break;
     }
     return "applied";
+  }
+
+  /** The online resident standing on a tile, if any. */
+  residentAt(x: number, y: number): Resident | undefined {
+    for (const r of this.residents.values()) if (r.online && r.x === x && r.y === y) return r;
+    return undefined;
   }
 
   ownerAt(x: number, y: number): string | undefined {

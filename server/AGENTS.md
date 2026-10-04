@@ -19,7 +19,8 @@ The front door. Parses, authenticates, rate limits, runs the sim, persists, and 
 - `src/app.ts` HTTP routes and the `/v1/live` WebSocket. Thin.
 - `src/store.ts` `Store` interface, `MemoryStore`, `JsonlStore`.
 - `src/rate-limit.ts`, `src/text.ts` small utilities.
-- `src/main.ts` entry point. Env: `PORT` (8787), `TERRAKIN_DATA_DIR` (persist to JSONL), `TERRAKIN_STATIC_DIR` (serve built client).
+- `src/main.ts` entry point. Env: `PORT` (8787), `TERRAKIN_DATA_DIR` (persist to JSONL), `TERRAKIN_STATIC_DIR` (serve built client), `TERRAKIN_TRUSTED_PROXIES` (reverse proxy hops).
+- Client IPs come from `clientIp()`. Never read `X-Forwarded-For` anywhere else.
 
 ## Testing
 

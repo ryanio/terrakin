@@ -1,5 +1,12 @@
 import { readFileSync } from "node:fs";
-import { apply, type Command, createWorld, DEFAULT_CONFIG, spawnTile } from "@terrakin/sim";
+import {
+  apply,
+  CHAT_EARSHOT,
+  type Command,
+  createWorld,
+  DEFAULT_CONFIG,
+  spawnTile,
+} from "@terrakin/sim";
 import { describe, expect, it } from "vitest";
 import { buildOpenApi } from "./openapi";
 import { ACTION_TYPES, Action, ClientMessage, ERROR_CODES } from "./schemas";
@@ -9,6 +16,10 @@ const skill = readFileSync(new URL("../SKILL.md", import.meta.url), "utf8");
 describe("SKILL.md stays in sync with the schemas", () => {
   it.each(ACTION_TYPES)("documents the %s action", (type) => {
     expect(skill).toContain(`### ${type}`);
+  });
+
+  it("states the chat earshot the server uses", () => {
+    expect(skill).toContain(`within ${CHAT_EARSHOT} tiles`);
   });
 
   it.each(ERROR_CODES)("documents the %s error code", (code) => {
@@ -88,8 +99,11 @@ describe("SKILL.md starter home", () => {
       }
     }
     expect(placed).toBe(15);
+    act({ type: "set_hearth", x: x0 + 2, y: y0 + 2 });
     act({ type: "move", dir: "s" });
     act({ type: "move", dir: "s" });
     expect(world.residents.muse).toMatchObject({ x: x0 + 2, y: y0 + 4 });
+    act({ type: "home" });
+    expect(world.residents.muse).toMatchObject({ x: x0 + 2, y: y0 + 2 });
   });
 });

@@ -1,9 +1,14 @@
-import { type Action, type ServerMessage, WorldSnapshot } from "@terrakin/protocol";
-import type { BlockKind, Direction } from "@terrakin/sim";
+import {
+  type Action,
+  type ChatChannel,
+  type ServerMessage,
+  WorldSnapshot,
+} from "@terrakin/protocol";
+import { type BlockKind, type Direction, RESIDENT_COLORS, type ResidentColor } from "@terrakin/sim";
 import { type Camera, fitScale, screenToTile, stepToward } from "./camera";
 import { Mirror } from "./mirror";
 import { Connection, savedToken } from "./net";
-import { blockColor, render } from "./render";
+import { blockColor, HEARTH_COLOR, RESIDENT_COLOR_HEX, render } from "./render";
 import "./style.css";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -25,7 +30,8 @@ let conn: Connection | undefined;
 let mirror: Mirror | undefined;
 let me: string | undefined;
 let buildMode = false;
-let block: BlockKind = "wood";
+/** Selected build tool: a block, or the hearth marker. */
+let block: BlockKind | "hearth" = "wood";
 let walkTarget: { x: number; y: number } | undefined;
 let pendingMove: string | undefined;
 let resyncing = false;
@@ -33,7 +39,9 @@ const cam: Camera = { cx: 0, cy: 0, scale: 32, width: 0, height: 0 };
 
 // ---------- connection ----------
 
-function connect(identity: { token: string } | { name: string; kind: "human" }) {
+function connect(
+  identity: { token: string } | { name: string; kind: "human"; color: ResidentColor },
+) {
   conn?.close();
   conn = new Connection(identity, onMessage, (s) => {
     status.textContent =
@@ -77,7 +85,7 @@ function onMessage(msg: ServerMessage) {
       if (mirror && !resyncing && mirror.apply(msg) === "gap") void resync();
       break;
     case "chat":
-      addChat(msg.from.name, msg.from.kind, msg.text);
+      addChat(msg.from.name, msg.from.kind, msg.text, msg.channel);
       break;
     case "ack":
       if (msg.id === pendingMove) pendingMove = undefined;
@@ -105,20 +113,23 @@ function act(action: Action): string | undefined {
 
 // ---------- chat (untrusted text: textContent only, never innerHTML) ----------
 
-function addChat(name: string, kind: "human" | "agent", text: string) {
+function addChat(name: string, kind: "human" | "agent", text: string, channel: ChatChannel) {
   const li = document.createElement("li");
   const who = document.createElement("b");
-  who.textContent = kind === "agent" ? `${name} ⚙` : name;
+  const label = kind === "agent" ? `${name} ⚙` : name;
+  who.textContent = channel === "world" ? `${label} (to everyone)` : label;
   li.append(who, document.createTextNode(` ${text}`));
   chatLog.append(li);
   while (chatLog.children.length > 100) chatLog.firstElementChild?.remove();
   chatLog.scrollTop = chatLog.scrollHeight;
-  if (chatPanel.hidden) showToast(`${who.textContent}: ${text}`);
+  if (chatPanel.hidden) showToast(`${who.textContent}: ${text}`, "player");
 }
 
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
-function showToast(text: string) {
+/** Player text (chat, names, notes) gets its own style so it can't pass for a system message. */
+function showToast(text: string, source: "system" | "player" = "system") {
   toast.textContent = text;
+  toast.classList.toggle("player", source === "player");
   toast.classList.add("show");
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => toast.classList.remove("show"), 2500);
@@ -141,7 +152,15 @@ canvas.addEventListener("pointerdown", (e) => {
   const tile = screenToTile(cam, e.clientX, e.clientY);
   if (buildMode) {
     const hasBlock = mirror.blocks.has(`${tile.x},${tile.y}`);
-    act(hasBlock ? { type: "remove", ...tile } : { type: "place", ...tile, block });
+    if (block === "hearth") act({ type: "set_hearth", ...tile });
+    else act(hasBlock ? { type: "remove", ...tile } : { type: "place", ...tile, block });
+    return;
+  }
+  // Tapping someone shows who they are. Names and notes are untrusted: textContent only.
+  const other = mirror.residentAt(tile.x, tile.y);
+  if (other && other.id !== me) {
+    const name = other.kind === "agent" ? `${other.name} ⚙` : other.name;
+    showToast(other.note ? `${name}: ${other.note}` : name, "player");
     return;
   }
   walkTarget = tile;
@@ -179,8 +198,8 @@ buildButton.addEventListener("click", () => {
 });
 
 for (const button of palette.querySelectorAll<HTMLButtonElement>("button")) {
-  const kind = button.dataset.block as BlockKind;
-  button.style.background = blockColor(kind);
+  const kind = button.dataset.block as BlockKind | "hearth";
+  button.style.background = kind === "hearth" ? HEARTH_COLOR : blockColor(kind);
   button.addEventListener("click", () => {
     block = kind;
     for (const b of palette.querySelectorAll("button"))
@@ -189,22 +208,54 @@ for (const button of palette.querySelectorAll<HTMLButtonElement>("button")) {
   if (kind === block) button.classList.add("selected");
 }
 
+$("home").addEventListener("click", () => {
+  walkTarget = undefined;
+  act({ type: "home" });
+});
+
 $("chat-toggle").addEventListener("click", () => {
   chatPanel.hidden = !chatPanel.hidden;
   if (!chatPanel.hidden) chatInput.focus();
 });
 
+// Nearby by default; tap to switch to everyone online.
+let channel: ChatChannel = "nearby";
+const channelButton = $<HTMLButtonElement>("chat-channel");
+channelButton.addEventListener("click", () => {
+  channel = channel === "nearby" ? "world" : "nearby";
+  channelButton.textContent = channel === "nearby" ? "Nearby" : "Everyone";
+  chatInput.placeholder =
+    channel === "nearby" ? "Say something to people nearby" : "Say something to everyone";
+  chatInput.focus();
+});
+
 $<HTMLFormElement>("chat-form").addEventListener("submit", (e) => {
   e.preventDefault();
   const text = chatInput.value.trim();
-  if (text) act({ type: "chat", text });
+  if (text) act({ type: "chat", text, channel });
   chatInput.value = "";
 });
+
+let color: ResidentColor =
+  RESIDENT_COLORS[Math.floor(Math.random() * RESIDENT_COLORS.length)] ?? "sun";
+const swatches = $("join-color");
+for (const c of RESIDENT_COLORS) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.setAttribute("aria-label", c);
+  b.style.background = RESIDENT_COLOR_HEX[c];
+  b.classList.toggle("selected", c === color);
+  b.addEventListener("click", () => {
+    color = c;
+    for (const s of swatches.children) s.classList.toggle("selected", s === b);
+  });
+  swatches.append(b);
+}
 
 joinForm.addEventListener("submit", (e) => {
   e.preventDefault();
   const name = $<HTMLInputElement>("join-name").value.trim();
-  if (name) connect({ name, kind: "human" });
+  if (name) connect({ name, kind: "human", color });
 });
 
 // ---------- loop ----------

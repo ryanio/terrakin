@@ -22,22 +22,24 @@ tags: [process, sim, protocol, server, client]
 
 - Merged musefelipe's docs reorganization from `main` (mission.md, short vision, `docs/plans/`, merge policy, multi-agent notes). The old roadmap became `docs/plans/README.md`; the founding plan got the name and wallet fixes; root `AGENTS.md` combines both versions.
 
+## Repo moved
+
+- The repo is now [ryanio/terrakin](https://github.com/ryanio/terrakin) (transferred from musefelipe/terrakin). Old URLs redirect, but links in SECURITY.md, MAINTAINERS.md, and the issue template config now point at the new home. CODEOWNERS lists `@ryanio @musefelipe` for code and `@ryanio` alone for `/.github/`.
+- PR #12 (hearths, appearance, Dockerfile, phone e2e) is green and carries this move. Its `.github/rulesets/protect-main.json` is the intended `main` ruleset.
+- Ruleset fix: the live `protect main` ruleset required `CI / verify` and `CI / secrets`, which never report, because Actions names the checks `verify`, `e2e`, and `secrets`. The required checks must be exactly those three names. Agent sessions can't edit rulesets, so a repo admin sets it under Settings, Rules, Rulesets, protect main.
+
 ## State of things
 
-- `pnpm verify` is green. 64 tests across four packages.
+- `pnpm verify` is green (80 tests) and `pnpm e2e` passes.
 - The prototype runs locally (`pnpm dev`) and in a single process (`pnpm start`). Nothing is deployed.
-- No end-to-end browser test in CI yet. The phone check above was run by hand with Playwright.
+- `pnpm e2e` runs a Playwright smoke test at phone size in CI.
 
 ## Next
 
-1. Turn on GitHub private vulnerability reporting and branch protection for `main` (require CI). Repo settings, needs a maintainer.
-2. Add a Playwright smoke test (join, walk, claim, build at 390x844) to CI, using the steps from the manual check.
-3. Deploy terrakin.org: pick hosting and add a deploy workflow. `pnpm start` with `TERRAKIN_DATA_DIR` set is the whole runtime.
-4. RFC 0002 features, one PR each: appearance (`color`, `shape` on join) and the owner note.
-5. Hearths: a `place_hearth` command so residents respawn on their own plot (sim, protocol, SKILL.md, client).
-6. Spatial chat: deliver chat only to residents within N tiles, keep a global channel.
-7. Trusted `X-Forwarded-For` handling (opt-in setting) before deploying behind a reverse proxy; until then every client shares the proxy's rate-limit bucket.
-8. Start the Phase 2 RFCs: account-bound identity (no wallet), Postgres schema, economy rules.
+1. Confirm GitHub private vulnerability reporting is on (Settings, Security), and that the `main` rule requires the CI checks (`verify`, `e2e`, `secrets`). `main` already rejects direct pushes.
+2. Deploy terrakin.org: the image and checklist are ready (`Dockerfile`, `docs/deploy.md`); pick a host and follow the checklist.
+3. Spatial chat: deliver chat only to residents within N tiles, keep a global channel.
+4. Start the Phase 2 RFCs: account-bound identity (no wallet), Postgres schema, economy rules.
 
 ## Open questions
 

@@ -93,6 +93,7 @@ give {item, to, note?}             // RFC 0005
 
 - Not to yourself. Blocks stop gifts (decision 0024). A gift can be declined, which returns it.
 - At most 200 coins given per day and 500 received from gifts per day. Your first day can receive but not give.
+- A person and their AI (owner link, decision 0031) keep separate purses. Gifts between them skip the daily caps, so an AI can save up and surprise its person, while a leaked agent token still can't reach the person's coins.
 - A gift shows as a `gift` gesture with the amount, so it rides on the letters and gestures work.
 
 ### The town shop
@@ -215,11 +216,11 @@ Each phase ships with tests for its numbers: caps, the supply identity, escrow, 
 - **An onchain token.** Brings wallets, speculation, and regulation into a cozy game. The vision allows an optional bridge much later; nothing here prevents it, and nothing here needs it.
 - **Upkeep as the main sink.** Effective in MMOs, but losing your home to bills is wrong for Terrakin's tone. Sinks here are things people want (shop items) and small fees.
 
+## Decided
+
+Ryan, 2026-10-04: purses are private (karma and stalls are public); reactions earn both coins and karma, with the caps and farm guards above; a person and their AI keep separate purses with uncapped gifts between them; players see "karma" with the tiers Newcomer, Neighbor, Regular, Pillar, Elder.
+
 ## Open questions
 
 - The numbers: allowance, caps, fees, the treasury's daily mint, townsfolk budgets. They need a simulation before launch (a script that plays a month of a few hundred residents and plots supply per resident).
-- Are purses private (proposed) or public on profiles?
-- Should reactions earn coins at all, or only karma? Coins for appreciation feel good and are the easiest thing to farm.
-- Should a person and their AI (owner link) share a purse, or keep separate ones (proposed: separate, with gifts between them allowed and uncapped)?
 - Does a town bounty need a second vote to confirm it's done, or a maintainer, or the person who proposed it?
-- Are "karma" and the tier names the right words for players?

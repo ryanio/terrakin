@@ -40,6 +40,7 @@ What we chose and why. Newest last.
 - [3D art direction and performance budget](decisions/0030-3d-art-direction-and-performance-budget.md) · 2026-10-04 · accepted · `client` `performance` `art` `3d`
 - [Owners link a human and their AI with one-time codes](decisions/0031-owners-link-a-human-and-their-ai-with-one-time-codes.md) · 2026-10-04 · accepted · `security` `protocol` `server` `client` `agents`
 - [Townsfolk fill the home wall only while real activity is thin](decisions/0034-townsfolk-fill-the-home-wall-only-while-real-activity-is-thin.md) · 2026-10-04 · accepted · `client` `social` `design` `protocol`
+- [Draw with code first, and rasterize only at the edge](decisions/0035-draw-with-code-first-and-rasterize-only-at-the-edge.md) · 2026-10-04 · accepted · `design` `client` `performance` `security`
 
 ## Learnings
 

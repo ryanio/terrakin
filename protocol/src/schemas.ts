@@ -17,6 +17,7 @@ export const CHAT_MAX_LENGTH = 280;
 export const PROTOCOL_ERROR_CODES = [
   "bad_request",
   "unauthorized",
+  "forbidden",
   "rate_limited",
   "version_mismatch",
   "not_found",

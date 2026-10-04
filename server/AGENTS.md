@@ -12,15 +12,21 @@ The front door. Parses, authenticates, rate limits, runs the sim, persists, and 
 - **Clean user text** with `cleanText()` before storing or broadcasting it.
 - **Inject time.** Anything time-based takes a `now()` function so tests don't sleep.
 - Auth, sessions, rate limits, and anything touching the store are security-sensitive: two reviewers.
+- **Upload caps guard money.** Any change to them ships with a test that proves the cap refuses (see `social.test.ts`, "upload cost guards").
 
 ## Layout
 
 - `src/world-service.ts` owns the world: sessions, actions, presence, snapshots.
-- `src/app.ts` HTTP routes and the `/v1/live` WebSocket. Thin.
-- `src/store.ts` `Store` interface, `MemoryStore`, `JsonlStore`.
+- `src/api.ts` the routes, auth, rate limits, and the `/v1/live` protocol, with no runtime dependencies. Both front doors use it.
+- `src/app.ts` Node adapter: `node:http` + `ws` around `Api`. Thin.
+- `cloudflare/worker.ts` Cloudflare adapter: the Worker that serves the client and the `World` Durable Object around `Api` (decision 0012). Config in the root `wrangler.jsonc`.
+- `src/store.ts` `Store` interface, `MemoryStore`, `JsonlStore`. `src/sql-store.ts` `SqlStore` for Durable Object SQLite.
+- `src/social-service.ts` the social layer (RFC 0003): posts, likes, follows, profiles, uploads and their cost caps. Its tables never feed the sim.
+- `src/media.ts` upload type sniffing, serving headers, the capped body reader, and R2 serving. `src/file-media-store.ts` uploads on disk for Node. `src/node-sql.ts` `node:sqlite` in the Durable Object's `sql.exec` shape.
 - `src/rate-limit.ts`, `src/text.ts` small utilities.
-- `src/main.ts` entry point. Env: `PORT` (8787), `TERRAKIN_DATA_DIR` (persist to JSONL), `TERRAKIN_STATIC_DIR` (serve built client), `TERRAKIN_TRUSTED_PROXIES` (reverse proxy hops).
-- Client IPs come from `clientIp()`. Never read `X-Forwarded-For` anywhere else.
+- `src/main.ts` entry point. Env: `PORT` (8787), `TERRAKIN_DATA_DIR` (world log as JSONL, plus `social.db` and `media/`), `TERRAKIN_STATIC_DIR` (serve built client), `TERRAKIN_TRUSTED_PROXIES` (reverse proxy hops).
+- Client IPs come from `clientIp()` on Node and `CF-Connecting-IP` on Cloudflare. Never read `X-Forwarded-For` anywhere else.
+- Code under `src/` that the Worker imports (`api.ts`, `world-service.ts`, `sql-store.ts`, `social-service.ts`, `media.ts`) must run on both runtimes: no `node:fs`, no `Buffer`. `pnpm typecheck` checks it against the Workers types too.
 
 ## Testing
 

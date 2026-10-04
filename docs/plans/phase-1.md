@@ -24,7 +24,7 @@ Economy, crafting, combat, clans, seasons, accounts beyond a simple identity. Th
 6. [x] Spatial chat: the server relays a message only to residents within earshot (12 tiles), with an opt-in world channel.
 7. [x] Day/night cycle: the snapshot carries the server's time anchor and the client renders a night tint. The sim never sees a clock, so replay stays deterministic.
 8. [ ] Biomes, simple gathering.
-9. [ ] Deploy at terrakin.org.
+9. [x] Deploy at terrakin.org (Cloudflare Workers, see [deploy.md](../deploy.md)).
 
 ## Done when
 

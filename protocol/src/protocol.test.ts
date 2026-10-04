@@ -61,9 +61,30 @@ describe("OpenAPI", () => {
   it("builds a document that covers every REST path", () => {
     const doc = buildOpenApi();
     expect(Object.keys(doc.paths).sort()).toEqual(
-      ["/v1/actions", "/v1/health", "/v1/session", "/v1/skill", "/v1/world"].sort(),
+      [
+        "/v1/actions",
+        "/v1/feed",
+        "/v1/health",
+        "/v1/media",
+        "/v1/posts",
+        "/v1/posts/{id}",
+        "/v1/posts/{id}/like",
+        "/v1/profile",
+        "/v1/residents/{id}",
+        "/v1/residents/{id}/follow",
+        "/v1/residents/{id}/posts",
+        "/v1/session",
+        "/v1/skill",
+        "/v1/world",
+      ].sort(),
     );
     expect(JSON.stringify(doc)).toContain('"place"');
+  });
+
+  it("documents every REST path in SKILL.md", () => {
+    for (const path of Object.keys(buildOpenApi().paths)) {
+      expect(skill).toContain(path.replace("{id}", "<id>"));
+    }
   });
 });
 

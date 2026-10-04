@@ -14,3 +14,4 @@ __pycache__/
 .claude/settings.local.json
 test-results/
 playwright-report/
+.wrangler/

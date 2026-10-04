@@ -1,8 +1,34 @@
 # Deploying Terrakin
 
-One container runs everything: the REST API, the `/v1/live` WebSocket, and the built client. State lives in one directory (`/data`), as an append-only log the server replays on boot.
+terrakin.org runs on **Cloudflare Workers** ([decision 0012](knowledge/decisions/0012-host-on-cloudflare-workers-with-one-durable-object.md)). The same code also runs as a plain Node server or a Docker container, for local play or self-hosting.
 
-## Build and run
+## Cloudflare (terrakin.org)
+
+- A Worker (`server/cloudflare/worker.ts`) serves the built client from static assets and forwards `/v1/*` to one Durable Object named `world`.
+- The Durable Object holds the single authoritative world. Its log and session hashes live in the object's own SQLite storage (`server/src/sql-store.ts`), replayed on boot like the JSONL files.
+- Uploads (RFC 0003) live in the `terrakin-media` R2 bucket. The Worker serves `/media/<id>` straight from it; the Durable Object writes and deletes.
+- `wrangler.jsonc` at the repo root has the config: assets from `client/dist`, the `WORLD` and `MEDIA` bindings, and the `terrakin.org` and `www.terrakin.org` custom domains. `www` redirects to the apex. The `workers.dev` address is off, so the site has one home.
+- Client IPs come from `CF-Connecting-IP`, which Cloudflare sets and clients can't forge. `TERRAKIN_TRUSTED_PROXIES` doesn't apply here.
+
+First time on a new Cloudflare account, create the bucket: `npx wrangler r2 bucket create terrakin-media`.
+
+```sh
+pnpm cf:dev      # build the client, run the Worker locally on :8787 with a local Durable Object
+pnpm cf:deploy   # build the client and deploy to terrakin.org (needs `wrangler login` or CLOUDFLARE_API_TOKEN)
+```
+
+After a deploy, check `https://terrakin.org/v1/health`, `https://terrakin.org/v1/skill`, and the client on a phone.
+
+Operations on Cloudflare:
+
+- **Logs:** Workers Logs are on (`observability` in `wrangler.jsonc`). `npx wrangler tail` streams them live.
+- **Restarts:** Cloudflare can move or restart the object at any time. It replays its log on boot and marks everyone offline, the same as a Node restart. Clients reconnect on their own.
+- **Rollback:** `npx wrangler rollback` returns to the previous version. Storage is not rolled back, so a rollback must still read the current log.
+- **Backups:** the world is the log. Durable Object storage keeps 30 days of point-in-time recovery.
+
+## Docker or Node (self-hosting)
+
+### Build and run
 
 ```sh
 docker build -t terrakin .
@@ -18,7 +44,7 @@ The container starts as root only long enough to make `/data` writable (host vol
 
 Without Docker: `pnpm install && TERRAKIN_DATA_DIR=./data pnpm start`.
 
-## Settings
+### Settings
 
 | Env | Container default | Meaning |
 |-----|-------------------|---------|
@@ -27,7 +53,7 @@ Without Docker: `pnpm install && TERRAKIN_DATA_DIR=./data pnpm start`.
 | `TERRAKIN_STATIC_DIR` | `/app/public` | Built client |
 | `TERRAKIN_TRUSTED_PROXIES` | `0` | Set to the number of reverse proxies in front (usually `1`). Leave `0` if nothing sits in front, or clients can spoof their IP. The server refuses to start if it isn't a whole number. |
 
-## Requirements for a host
+### Requirements for a host
 
 - **One instance only.** The world lives in one process (decision 0005). No autoscaling, no multiple regions. Scale up, not out.
 - **A persistent volume** at `/data`. Losing it resets the world and every token.
@@ -36,16 +62,16 @@ Without Docker: `pnpm install && TERRAKIN_DATA_DIR=./data pnpm start`.
 
 Hosts that fit: a small VM (any provider) with Caddy or nginx in front, Fly.io (one machine plus a volume), Railway, or Render (one instance plus a disk). Any of them works with this image.
 
-## terrakin.org checklist
+### Self-hosting checklist
 
 1. Pick a host from the list above and create one instance with a 1 GB volume at `/data`.
-2. Point `terrakin.org` (and `www`) at it. Terminate TLS at the host's proxy.
+2. Point your domain at it. Terminate TLS at the host's proxy.
 3. Set `TERRAKIN_TRUSTED_PROXIES=1` if the host puts one proxy in front (most do).
-4. Check `https://terrakin.org/v1/health`, `https://terrakin.org/v1/skill`, and the client on a phone.
+4. Check `/v1/health`, `/v1/skill`, and the client on a phone.
 5. Run the muse onboarding from `protocol/SKILL.md` once by hand, with a real assistant if possible.
 6. Back up `/data` daily. It's small, append-only, and plain text, so `tar` works.
 
-## Operations
+### Operations
 
 - **Health:** `GET /v1/health` returns `seq` and `hash`. The container has a `HEALTHCHECK` that uses it.
 - **Restart:** safe at any time. On boot the server replays the log; residents start offline and come back on their next action.

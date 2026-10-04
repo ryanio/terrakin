@@ -1,0 +1,7 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["@cloudflare/workers-types", "node"]
+  },
+  "include": [".", "../src/api.ts", "../src/sql-store.ts", "../src/world-service.ts"]
+}

@@ -7,7 +7,9 @@ import type { WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import { clientIp, createApp } from "./app";
+import { nodeSql } from "./node-sql";
 import { RateLimiters } from "./rate-limit";
+import { SqlStore } from "./sql-store";
 import { JsonlStore, MemoryStore, readJsonl, type Store } from "./store";
 import { cleanText } from "./text";
 import { DAY_LENGTH_MS, WorldService } from "./world-service";
@@ -437,6 +439,24 @@ describe("persistence", () => {
     expect(
       (await api(second.base, "POST", "/v1/actions", { type: "move", dir: "e" }, token)).body.ok,
     ).toBe(true);
+  });
+});
+
+describe("SqlStore", () => {
+  it("replays the log and sessions from SQLite like the Durable Object does", async () => {
+    const sql = nodeSql();
+    cleanups.push(() => sql.close());
+    const first = await start(new SqlStore(sql));
+    const { token, residentId } = await join_(first.base, "Wren");
+    expect(token).toMatch(/^[A-Za-z0-9_-]{43}$/); // 32 random bytes, base64url
+    expect(residentId).toMatch(/^r_[0-9a-f]{16}$/);
+    await api(first.base, "POST", "/v1/actions", { type: "move", dir: "e" }, token);
+
+    const second = new WorldService({ store: new SqlStore(sql), config: CONFIG });
+    expect(second.state.residents[residentId]).toMatchObject({ x: 7, y: 6, online: false });
+    expect(second.authenticate(token)).toBe(residentId);
+    // Booting appended one `leave` for the resident who was online.
+    expect(second.state.seq).toBe(first.service.state.seq + 1);
   });
 });
 

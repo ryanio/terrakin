@@ -1,5 +1,9 @@
 import { resolve } from "node:path";
 import { createApp } from "./app";
+import { FileMediaStore } from "./file-media-store";
+import { MemoryMediaStore } from "./media";
+import { nodeSql } from "./node-sql";
+import { SocialService } from "./social-service";
 import { JsonlStore, MemoryStore } from "./store";
 import { WorldService } from "./world-service";
 
@@ -21,8 +25,16 @@ if (!Number.isInteger(trustedProxies) || trustedProxies < 0) {
 
 const store = dataDir ? new JsonlStore(fromCwd(dataDir)) : new MemoryStore();
 const service = new WorldService({ store });
+const media = dataDir ? new FileMediaStore(fromCwd(`${dataDir}/media`)) : new MemoryMediaStore();
+const social = new SocialService({
+  sql: nodeSql(dataDir ? fromCwd(`${dataDir}/social.db`) : ":memory:"),
+  media,
+  resident: (id) => service.state.residents[id],
+});
 const server = createApp({
   service,
+  social,
+  media,
   trustedProxies,
   ...(staticDir ? { staticDir: fromCwd(staticDir) } : {}),
 });

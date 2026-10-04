@@ -4,6 +4,7 @@ export { parseKey, plotKey, tileKey } from "./keys";
 export { replay } from "./replay";
 export * from "./types";
 export {
+  CHAT_EARSHOT,
   chebyshev,
   cloneWorld,
   commonsPlot,
@@ -17,4 +18,5 @@ export {
   plotsOwnedBy,
   spawnTile,
   validateConfig,
+  withinEarshot,
 } from "./world";

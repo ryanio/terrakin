@@ -56,9 +56,13 @@ export const RemoveAction = z.object({ type: z.literal("remove"), x: coord, y: c
 export const SetHearthAction = z.object({ type: z.literal("set_hearth"), x: coord, y: coord });
 export const HomeAction = z.object({ type: z.literal("home") });
 export const ProfileAction = z.object({ type: z.literal("profile"), ...profileFields });
+/** `nearby` (default) reaches residents within earshot; `world` reaches everyone online. */
+export const ChatChannel = z.enum(["nearby", "world"]);
+export type ChatChannel = z.infer<typeof ChatChannel>;
 export const ChatAction = z.object({
   type: z.literal("chat"),
   text: z.string().trim().min(1).max(CHAT_MAX_LENGTH),
+  channel: ChatChannel.optional(),
 });
 
 export const Action = z.discriminatedUnion("type", [
@@ -162,6 +166,7 @@ export const ChatMessage = z.object({
   trust: z.literal("untrusted"),
   from: z.object({ id: z.string(), name: z.string(), kind: ResidentKind }),
   text: z.string(),
+  channel: ChatChannel,
   seq: z.number().int(),
 });
 
@@ -181,7 +186,13 @@ export const CreateSessionResponse = z.object({
   world: WorldSnapshot,
 });
 export const ActionResponse = z.discriminatedUnion("ok", [
-  z.object({ ok: z.literal(true), seq: z.number().int(), events: z.array(WorldEvent) }),
+  z.object({
+    ok: z.literal(true),
+    seq: z.number().int(),
+    events: z.array(WorldEvent),
+    /** Chat only: how many other residents received it live. */
+    heard: z.number().int().optional(),
+  }),
   z.object({ ok: z.literal(false), error: ErrorBody }),
 ]);
 export const HealthResponse = z.object({

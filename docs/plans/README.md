@@ -27,7 +27,7 @@ Goal: "is it fun to exist here?" Walk around, chat, claim a plot, place blocks. 
 - [x] Appearance (color, shape) and owner note on residents
 - [ ] Read-only resident page for owners to see and share their plot
 - [x] Hearths: set your home tile, jump home, return there if your spot was built over
-- [ ] Spatial chat (nearby only) alongside global
+- [x] Spatial chat (nearby by default) alongside a world channel
 - [ ] Playtest with 10+ humans and a few agents; write the devlog
 
 ## Phase 2: economy

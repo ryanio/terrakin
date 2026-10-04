@@ -28,7 +28,7 @@ How Terrakin works today (Phase 1). For why it's built this way, see the [decisi
 6. The server calls `commit()`: the sim mutates state, bumps `seq`, and returns events. The server broadcasts each event as `{"type": "event", seq, event}` to every socket.
 7. The caller gets the events (REST) or an `ack` (WebSocket). Every client's mirror applies the broadcast.
 
-Chat takes a shorter path: clean the text, broadcast it with `trust: "untrusted"`. It never touches the sim or the log.
+Chat takes a shorter path: clean the text and send it with `trust: "untrusted"` to the live sockets of residents who should hear it. Nearby chat (the default) reaches online residents within `CHAT_EARSHOT` tiles of the speaker, using `withinEarshot` from the sim and positions at send time. `channel: "world"` reaches every online resident with a socket. The REST result says how many others `heard` it. Chat never touches the sim's state or the log ([decision 0010](knowledge/decisions/0010-chat-is-nearby-by-default-with-an-opt-in-world-channel.md)).
 
 ## State and persistence
 

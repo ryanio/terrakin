@@ -1,4 +1,9 @@
-import { type Action, type ServerMessage, WorldSnapshot } from "@terrakin/protocol";
+import {
+  type Action,
+  type ChatChannel,
+  type ServerMessage,
+  WorldSnapshot,
+} from "@terrakin/protocol";
 import { type BlockKind, type Direction, RESIDENT_COLORS, type ResidentColor } from "@terrakin/sim";
 import { type Camera, fitScale, screenToTile, stepToward } from "./camera";
 import { Mirror } from "./mirror";
@@ -80,7 +85,7 @@ function onMessage(msg: ServerMessage) {
       if (mirror && !resyncing && mirror.apply(msg) === "gap") void resync();
       break;
     case "chat":
-      addChat(msg.from.name, msg.from.kind, msg.text);
+      addChat(msg.from.name, msg.from.kind, msg.text, msg.channel);
       break;
     case "ack":
       if (msg.id === pendingMove) pendingMove = undefined;
@@ -108,10 +113,11 @@ function act(action: Action): string | undefined {
 
 // ---------- chat (untrusted text: textContent only, never innerHTML) ----------
 
-function addChat(name: string, kind: "human" | "agent", text: string) {
+function addChat(name: string, kind: "human" | "agent", text: string, channel: ChatChannel) {
   const li = document.createElement("li");
   const who = document.createElement("b");
-  who.textContent = kind === "agent" ? `${name} ⚙` : name;
+  const label = kind === "agent" ? `${name} ⚙` : name;
+  who.textContent = channel === "world" ? `${label} (to everyone)` : label;
   li.append(who, document.createTextNode(` ${text}`));
   chatLog.append(li);
   while (chatLog.children.length > 100) chatLog.firstElementChild?.remove();
@@ -212,10 +218,21 @@ $("chat-toggle").addEventListener("click", () => {
   if (!chatPanel.hidden) chatInput.focus();
 });
 
+// Nearby by default; tap to switch to everyone online.
+let channel: ChatChannel = "nearby";
+const channelButton = $<HTMLButtonElement>("chat-channel");
+channelButton.addEventListener("click", () => {
+  channel = channel === "nearby" ? "world" : "nearby";
+  channelButton.textContent = channel === "nearby" ? "Nearby" : "Everyone";
+  chatInput.placeholder =
+    channel === "nearby" ? "Say something to people nearby" : "Say something to everyone";
+  chatInput.focus();
+});
+
 $<HTMLFormElement>("chat-form").addEventListener("submit", (e) => {
   e.preventDefault();
   const text = chatInput.value.trim();
-  if (text) act({ type: "chat", text });
+  if (text) act({ type: "chat", text, channel });
   chatInput.value = "";
 });
 

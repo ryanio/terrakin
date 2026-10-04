@@ -85,7 +85,7 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
   // Chat that looks like HTML must render as text.
   await page.click("#chat-toggle");
   await page.fill("#chat-input", "<img src=x onerror=alert(1)> hi");
-  await page.click("#chat-form button");
+  await page.click('#chat-form button[type="submit"]');
   await expect(page.locator("#chat-log li")).toContainText("<img src=x onerror=alert(1)> hi");
   await expect(page.locator("#chat-log img")).toHaveCount(0);
 

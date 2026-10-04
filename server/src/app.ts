@@ -222,7 +222,7 @@ export function createApp(options: AppOptions): Server {
         clearTimeout(helloTimer);
         service.socketOpened(id);
         send({ type: "welcome", residentId: id, token, world: service.snapshot() });
-        unsubscribe = service.subscribe(send);
+        unsubscribe = service.subscribe(id, send);
         return;
       }
 

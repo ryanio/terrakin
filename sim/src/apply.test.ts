@@ -3,7 +3,7 @@ import { apply, prepare } from "./apply";
 import { hashWorld } from "./hash";
 import { replay } from "./replay";
 import type { Command, Input, WorldConfig, WorldState } from "./types";
-import { createWorld, spawnTile } from "./world";
+import { CHAT_EARSHOT, createWorld, spawnTile, withinEarshot } from "./world";
 
 // 3x3 plots of 4 tiles. Commons is plot (1,1), tiles 4..7. Spawn is tile (6,6).
 const CONFIG: WorldConfig = {
@@ -347,5 +347,15 @@ describe("hearth", () => {
     ).toBe(true);
     run(state, "ada", { type: "join", name: "ada", kind: "human" });
     expect(state.residents.ada).toMatchObject({ x: 3, y: 3 });
+  });
+});
+
+describe("withinEarshot", () => {
+  it("hears at exactly CHAT_EARSHOT tiles, not one more, in any direction", () => {
+    const at = { x: 20, y: 20 };
+    expect(withinEarshot(at, at)).toBe(true);
+    expect(withinEarshot(at, { x: 20 + CHAT_EARSHOT, y: 20 - CHAT_EARSHOT })).toBe(true);
+    expect(withinEarshot(at, { x: 20 + CHAT_EARSHOT + 1, y: 20 })).toBe(false);
+    expect(withinEarshot(at, { x: 20, y: 20 - CHAT_EARSHOT - 1 })).toBe(false);
   });
 });

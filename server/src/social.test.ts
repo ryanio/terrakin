@@ -11,7 +11,7 @@ import {
   sniffMediaType,
 } from "./media";
 import { nodeSql } from "./node-sql";
-import { type SocialLimits, SocialService } from "./social-service";
+import { parseTownsfolk, type SocialLimits, SocialService } from "./social-service";
 import { MemoryStore } from "./store";
 import { cleanMultiline } from "./text";
 import { WorldService } from "./world-service";
@@ -240,6 +240,25 @@ describe("likes, follows, and profiles", () => {
     const { post } = (await call("POST", "/v1/posts", { text: "hi" }, wren.token)).body;
     expect(post.author.avatar).toBe(`/media/${image.id}`);
     expect((await call("GET", "/v1/residents/r_nobody")).status).toBe(404);
+  });
+});
+
+describe("townsfolk", () => {
+  it("badges only residents granted by config, never by themselves", async () => {
+    const world = new WorldService({ store: new MemoryStore(), config: CONFIG });
+    const npc = world.createSession({ name: "Juniper", kind: "agent", note: "townsfolk" });
+    const other = world.createSession({ name: "Mal", kind: "agent", note: "Townsfolk NPC" });
+    const social = new SocialService({
+      sql: nodeSql(),
+      media: new MemoryMediaStore(),
+      resident: (id) => world.state.residents[id],
+      townsfolk: parseTownsfolk(`${npc.residentId}, r_nope, ${"x".repeat(5)}`),
+    });
+    expect(social.profile(npc.residentId ?? "")?.townsfolk).toBe(true);
+    expect(social.profile(other.residentId ?? "")).not.toHaveProperty("townsfolk");
+    const post = social.createPost(npc.residentId ?? "", { text: "Welcome, neighbor!" });
+    expect(post.ok && post.value.author.townsfolk).toBe(true);
+    expect(parseTownsfolk(undefined).size).toBe(0);
   });
 });
 

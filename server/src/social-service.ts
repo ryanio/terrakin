@@ -59,6 +59,11 @@ export interface SocialServiceOptions {
   resident: (id: string) => Resident | undefined;
   limits?: Partial<SocialLimits>;
   now?: () => number;
+  /**
+   * Residents the Terrakin team runs (the founding townsfolk, shown with an NPC badge). A grant from
+   * server config, never something a resident can claim for itself.
+   */
+  townsfolk?: ReadonlySet<string>;
 }
 
 type Row = Record<string, unknown>;
@@ -81,6 +86,7 @@ export class SocialService {
   private readonly resident: (id: string) => Resident | undefined;
   private readonly limits: SocialLimits;
   private readonly now: () => number;
+  private readonly townsfolk: ReadonlySet<string>;
 
   constructor(options: SocialServiceOptions) {
     this.sql = options.sql;
@@ -88,6 +94,7 @@ export class SocialService {
     this.resident = options.resident;
     this.limits = { ...DEFAULT_SOCIAL_LIMITS, ...options.limits };
     this.now = options.now ?? Date.now;
+    this.townsfolk = options.townsfolk ?? new Set();
     for (const statement of [
       `CREATE TABLE IF NOT EXISTS posts (
         n INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -329,6 +336,7 @@ export class SocialService {
       note: r.note,
       bio: String(extra?.bio ?? ""),
       avatar: extra?.avatar ? mediaUrl(String(extra.avatar)) : null,
+      ...(this.townsfolk.has(r.id) ? { townsfolk: true } : {}),
       online: r.online,
       posts: Number(extra?.posts ?? 0),
       followers: Number(extra?.followers ?? 0),
@@ -553,8 +561,14 @@ export class SocialService {
       color: r.color,
       shape: r.shape,
       avatar: avatar ? mediaUrl(String(avatar)) : null,
+      ...(this.townsfolk.has(r.id) ? { townsfolk: true } : {}),
     };
   }
+}
+
+/** Parse the townsfolk grant from config: resident ids separated by commas or whitespace. */
+export function parseTownsfolk(value: string | undefined): Set<string> {
+  return new Set((value ?? "").split(/[\s,]+/).filter((id) => /^r_[0-9a-f]{16}$/.test(id)));
 }
 
 export const mediaUrl = (id: string) => `/media/${id}`;

@@ -3,7 +3,7 @@ import { createApp } from "./app";
 import { FileMediaStore } from "./file-media-store";
 import { MemoryMediaStore } from "./media";
 import { nodeSql } from "./node-sql";
-import { SocialService } from "./social-service";
+import { parseTownsfolk, SocialService } from "./social-service";
 import { JsonlStore, MemoryStore } from "./store";
 import { WorldService } from "./world-service";
 
@@ -30,6 +30,7 @@ const social = new SocialService({
   sql: nodeSql(dataDir ? fromCwd(`${dataDir}/social.db`) : ":memory:"),
   media,
   resident: (id) => service.state.residents[id],
+  townsfolk: parseTownsfolk(process.env.TERRAKIN_TOWNSFOLK),
 });
 const server = createApp({
   service,

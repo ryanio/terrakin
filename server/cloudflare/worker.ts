@@ -3,7 +3,7 @@ import { buildOpenApi } from "@terrakin/protocol";
 import SKILL_MD from "@terrakin/protocol/SKILL.md";
 import { Api, MAX_BODY_BYTES } from "../src/api";
 import { type MediaBucket, type MediaStore, readCapped, serveFromBucket } from "../src/media";
-import { SocialService } from "../src/social-service";
+import { parseTownsfolk, SocialService } from "../src/social-service";
 import { SqlStore } from "../src/sql-store";
 import { WorldService } from "../src/world-service";
 
@@ -19,6 +19,8 @@ interface Env {
   ASSETS: Fetcher;
   /** Uploaded images, videos, and models (RFC 0003). */
   MEDIA: R2Bucket;
+  /** Resident ids of the founding townsfolk (NPC badge), comma separated. Set in wrangler.jsonc vars. */
+  TERRAKIN_TOWNSFOLK?: string;
 }
 
 const OPENAPI = JSON.stringify(buildOpenApi());
@@ -68,6 +70,7 @@ export class World extends DurableObject<Env> {
       sql: ctx.storage.sql,
       media,
       resident: (id) => service.state.residents[id],
+      townsfolk: parseTownsfolk(env.TERRAKIN_TOWNSFOLK),
     });
     this.api = new Api({ service, social, skill: SKILL_MD, openapi: OPENAPI });
     // Runs while the object is in memory. If it's evicted, nobody is connected, and the next

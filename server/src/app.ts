@@ -2,10 +2,21 @@ import { readFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { createRequire } from "node:module";
 import { extname, join, normalize, sep } from "node:path";
+import { cards } from "@terrakin/cards/node";
 import { buildOpenApi } from "@terrakin/protocol";
 import { WebSocketServer } from "ws";
-import { Api, type ApiOptions, type ApiResponse, MAX_BODY_BYTES } from "./api";
+import { Api, type ApiOptions, type ApiResponse, ipKey, MAX_BODY_BYTES } from "./api";
 import { MEDIA_ID, mediaHeaders, type ReadableMediaStore, sniffMediaType } from "./media";
+import { applyEdits } from "./meta-html";
+import {
+  type CardDeps,
+  matchCardPath,
+  pageImage,
+  RENDERS_PER_MINUTE,
+  serveCard,
+  windowLimiter,
+} from "./og";
+import { type ApiGet, loadPage, matchPage, pageEdits } from "./page-meta";
 import { negotiate, pageHeaders, twinHeaders } from "./pages";
 import type { SocialService } from "./social-service";
 import type { WorldService } from "./world-service";
@@ -114,6 +125,53 @@ export function createApp(options: AppOptions): Server {
     });
   });
 
+  /** A GET against our own API, for page meta and cards: the same data every client sees. */
+  const get: ApiGet = async (path) => {
+    const url = new URL(path, "http://localhost");
+    const response = await api.handle({
+      method: "GET",
+      pathname: url.pathname,
+      ip: "internal",
+      authorization: undefined,
+      query: url.searchParams,
+      readJson: async () => undefined,
+      readBytes: async () => undefined,
+      contentLength: undefined,
+    });
+    if (!response) return { status: 404, body: undefined };
+    const json =
+      response.headers["content-type"]?.startsWith("application/json") &&
+      typeof response.body === "string";
+    return {
+      status: response.status,
+      body: json ? JSON.parse(response.body as string) : undefined,
+    };
+  };
+
+  // Cards drawn here stay in memory, the most recent few dozen.
+  const rendered = new Map<string, Uint8Array>();
+  const allowRender = windowLimiter(RENDERS_PER_MINUTE, 60_000);
+  const cardDeps: CardDeps = {
+    get,
+    loadMedia: async (id) => options.media?.get(id),
+    render: (card) => cards.render(card),
+    cache: {
+      get: async (key) => rendered.get(key),
+      put: (key, png) => {
+        rendered.set(key, png);
+        if (rendered.size > 64) rendered.delete(rendered.keys().next().value ?? key);
+      },
+    },
+    allowRender: (ip) => allowRender(ipKey(ip)),
+  };
+
+  /** A page's HTML with its title, meta tags, JSON-LD and noscript copy filled in. */
+  const decorate = async (pathname: string, html: string) => {
+    const loaded = await loadPage(matchPage(pathname), get);
+    const edits = pageEdits(loaded, await pageImage(loaded));
+    return edits ? { status: edits.status, html: applyEdits(html, edits) } : { status: 200, html };
+  };
+
   async function handle(req: IncomingMessage, res: ServerResponse) {
     const url = new URL(req.url ?? "/", "http://localhost");
     if (options.testClock && req.method === "POST" && url.pathname === TEST_ADVANCE_DAY_PATH) {
@@ -125,6 +183,20 @@ export function createApp(options: AppOptions): Server {
       });
     }
     const reading = req.method === "GET" || req.method === "HEAD";
+    const card = reading ? matchCardPath(url.pathname) : undefined;
+    if (card) {
+      const out = await serveCard(
+        {
+          route: card,
+          version: url.searchParams.get("v"),
+          ifNoneMatch: req.headers["if-none-match"] ?? null,
+          ip: clientIp(req, options.trustedProxies),
+        },
+        cardDeps,
+      );
+      res.writeHead(out.status, out.headers);
+      return res.end(req.method === "HEAD" ? undefined : out.body);
+    }
     // An agent asking for Markdown gets the page's twin: a static file, or built from live data.
     const twin = reading
       ? negotiate(url.pathname, url.searchParams, req.headers.accept)
@@ -140,7 +212,9 @@ export function createApp(options: AppOptions): Server {
     if (req.method === "GET" && mediaId !== undefined && options.media) {
       return serveMedia(options.media, mediaId, req, res);
     }
-    if (options.staticDir) return serveStatic(options.staticDir, url.pathname, res);
+    if (options.staticDir) {
+      return serveStatic(options.staticDir, url.pathname, res, {}, reading ? decorate : undefined);
+    }
     return send(res, apiError("not_found", `No route for ${req.method} ${url.pathname}.`));
   }
 
@@ -247,11 +321,15 @@ function apiError(code: "internal" | "not_found", message: string): ApiResponse 
   };
 }
 
-function serveStatic(
+/** Rewrites a page's HTML before it's sent (`page-meta.ts`), and may change its status. */
+type Decorate = (pathname: string, html: string) => Promise<{ status: number; html: string }>;
+
+async function serveStatic(
   root: string,
   pathname: string,
   res: ServerResponse,
   extra: Record<string, string> = {},
+  decorate?: Decorate,
 ) {
   let decoded: string;
   try {
@@ -280,6 +358,12 @@ function serveStatic(
   }
   if (!body) return send(res, apiError("not_found", "Not found."));
   const type = MIME[extname(file)] ?? "application/octet-stream";
-  res.writeHead(200, { "content-type": type, ...pageHeaders(pathname, type), ...extra });
+  const headers = { "content-type": type, ...pageHeaders(pathname, type), ...extra };
+  if (decorate && extname(file) === ".html") {
+    const page = await decorate(pathname, body.toString("utf8"));
+    res.writeHead(page.status, { ...headers, "cache-control": "no-cache" });
+    return res.end(page.html);
+  }
+  res.writeHead(200, headers);
   res.end(body);
 }

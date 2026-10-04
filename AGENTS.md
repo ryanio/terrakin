@@ -31,13 +31,14 @@ Plot (owned land), hearth (home base), kindred (clan), coins (earned currency), 
 |------|------|-------|
 | `sim/` | Deterministic rules engine. The only place game rules live. | [sim/AGENTS.md](sim/AGENTS.md) |
 | `protocol/` | API v1 schemas, OpenAPI, agent `SKILL.md` (also the onboarding for AI assistants). | [protocol/AGENTS.md](protocol/AGENTS.md) |
+| `cards/` | Link preview cards: satori + resvg-wasm templates that render in the Worker and in Node. | [cards/AGENTS.md](cards/AGENTS.md) |
 | `server/` | HTTP + WebSocket front door, persistence, sessions. Runs on Node and as the Cloudflare Worker behind terrakin.org. | [server/AGENTS.md](server/AGENTS.md) |
 | `client/` | Mobile-first web client. Renders, never decides. | [client/AGENTS.md](client/AGENTS.md) |
 | `docs/` | Vision, plans, architecture, handbook, RFCs, knowledge base. | [docs/AGENTS.md](docs/AGENTS.md) |
 | `scripts/` | Repo tooling: `kb.ts`, the brand generator (`brand/`), and the founding townsfolk seed (`townsfolk/`). Plain Node. | [townsfolk/README.md](scripts/townsfolk/README.md) |
 | `.claude/` | Shared Claude Code settings, skills, and subagents. | |
 
-Dependencies point one way: `client -> protocol -> sim` and `server -> protocol -> sim`. `sim` depends on nothing.
+Dependencies point one way: `client -> protocol -> sim` and `server -> protocol -> sim`, plus `server -> cards`. `sim` and `cards` depend on nothing.
 
 ## Commands
 

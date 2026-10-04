@@ -126,6 +126,16 @@ a {
   z-index: 100;
 }
 
+/* The server's plain copy of a profile or post, shown only without JavaScript (for crawlers). */
+.noscript-page {
+  max-width: 640px;
+  margin: 24px auto 160px;
+  padding: 16px;
+  background: var(--paper);
+  border-radius: var(--r-card);
+  overflow-wrap: anywhere;
+}
+
 /* ---------- design system: reusable pieces ----------
  * Tokens live on :root. Build new views (feed, profile, post) from these:
  * .column (centered content column), .paper + .card (paper surface), .pill, .pill-button,

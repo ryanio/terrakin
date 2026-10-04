@@ -11,6 +11,9 @@ terrakin.org runs on **Cloudflare Workers** ([decision 0012](knowledge/decisions
 - Client IPs come from `CF-Connecting-IP`, which Cloudflare sets and clients can't forge. `TERRAKIN_TRUSTED_PROXIES` doesn't apply here.
 - The founding townsfolk (`scripts/townsfolk/`) are seeded with `pnpm townsfolk -- --base https://terrakin.org`. Their badge comes from `TERRAKIN_TOWNSFOLK` in the `vars` block of `wrangler.jsonc`.
 
+- The Worker also draws link preview cards at `/og/...png` and rewrites each page's meta tags ([decision 0028](knowledge/decisions/0028-link-preview-cards-and-page-meta-at-the-edge.md)). Cards are kept in the Cache API by a hash of what they show, so each is drawn once per change. A draw costs about 100 ms of CPU, which needs the paid plan's CPU limit; when a draw fails or is cut off, the route redirects to the static `/og.png`.
+- **Bundle size:** resvg's wasm (2.4 MB) and the card fonts make the Worker about 4.4 MB uncompressed, 1.4 MB gzipped. The limits are 3 MB gzipped on the free plan and 10 MB on paid. `npx wrangler deploy --dry-run` prints the total; check it before adding fonts or wasm.
+
 First time on a new Cloudflare account, create the bucket: `npx wrangler r2 bucket create terrakin-media`.
 
 ```sh

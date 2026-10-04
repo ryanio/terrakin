@@ -1,5 +1,6 @@
 packages:
   - sim
   - protocol
+  - cards
   - server
   - client

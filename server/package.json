@@ -10,6 +10,7 @@
     "typecheck": "tsc -p tsconfig.json && tsc -p cloudflare/tsconfig.json"
   },
   "dependencies": {
+    "@terrakin/cards": "workspace:*",
     "@terrakin/protocol": "workspace:*",
     "@terrakin/sim": "workspace:*",
     "tsx": "4.23.15",

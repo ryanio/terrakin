@@ -1,13 +1,31 @@
 import { DurableObject } from "cloudflare:workers";
+import { cards } from "@terrakin/cards/worker";
 import { buildOpenApi } from "@terrakin/protocol";
 import SKILL_MD from "@terrakin/protocol/SKILL.md";
 import { votesCast } from "@terrakin/sim";
-import { Api, isApiPath, MAX_BODY_BYTES } from "../src/api";
-import { type MediaBucket, type MediaStore, readCapped, serveFromBucket } from "../src/media";
+import { Api, ipKey, isApiPath, MAX_BODY_BYTES } from "../src/api";
+import {
+  MEDIA_ID,
+  type MediaBucket,
+  type MediaStore,
+  readCapped,
+  serveFromBucket,
+} from "../src/media";
+import {
+  type CardDeps,
+  type CardRoute,
+  matchCardPath,
+  pageImage,
+  RENDERS_PER_MINUTE,
+  serveCard,
+  windowLimiter,
+} from "../src/og";
+import { type ApiGet, loadPage, matchPage, pageEdits } from "../src/page-meta";
 import { negotiate, pageHeaders, twinHeaders } from "../src/pages";
 import { parseMaintainers, parseTownsfolk, SocialService } from "../src/social-service";
 import { SqlStore } from "../src/sql-store";
 import { WorldService } from "../src/world-service";
+import { rewritePage } from "./meta-rewriter";
 
 /**
  * Cloudflare adapter. The Worker serves the built client from static assets, serves uploads
@@ -48,8 +66,75 @@ function withHeaders(response: Response, headers: Record<string, string>): Respo
   return copy;
 }
 
+/** Card renders one IP (or IPv6 /64) may cause per minute, counted per isolate. */
+const allowRender = windowLimiter(RENDERS_PER_MINUTE, 60_000);
+
+/** A GET against the world's API from inside the Worker: the same data every client sees. */
+function apiGet(env: Env, origin: string): ApiGet {
+  return async (path) => {
+    const res = await env.WORLD.get(env.WORLD.idFromName("world")).fetch(
+      new Request(new URL(path, origin)),
+    );
+    const json = res.ok && res.headers.get("content-type")?.startsWith("application/json");
+    return { status: res.status, body: json ? await res.json() : undefined };
+  };
+}
+
+/** `/og/...png`: a link preview card, from the edge cache or drawn here (never in the world object). */
+async function card(
+  request: Request,
+  env: Env,
+  ctx: ExecutionContext,
+  route: CardRoute,
+): Promise<Response> {
+  const url = new URL(request.url);
+  const cache = caches.default;
+  const cacheUrl = (key: string) => `${url.origin}/og-cache/${key}.png`;
+  const deps: CardDeps = {
+    get: apiGet(env, url.origin),
+    loadMedia: async (id) => {
+      if (!MEDIA_ID.test(id)) return undefined;
+      const object = await env.MEDIA.get(id);
+      return object ? new Uint8Array(await object.arrayBuffer()) : undefined;
+    },
+    render: (c) => cards.render(c),
+    cache: {
+      get: async (key) => {
+        const hit = await cache.match(cacheUrl(key)).catch(() => undefined);
+        return hit ? new Uint8Array(await hit.arrayBuffer()) : undefined;
+      },
+      put: (key, png) => {
+        const stored = new Response(png.slice(), {
+          headers: { "content-type": "image/png", "cache-control": "public, max-age=31536000" },
+        });
+        ctx.waitUntil(cache.put(cacheUrl(key), stored).catch(() => {}));
+      },
+    },
+    allowRender: (ip) => allowRender(ipKey(ip)),
+  };
+  const out = await serveCard(
+    {
+      route,
+      version: url.searchParams.get("v"),
+      ifNoneMatch: request.headers.get("if-none-match"),
+      ip: request.headers.get("cf-connecting-ip") ?? "unknown",
+    },
+    deps,
+  );
+  const body = request.method === "HEAD" || !out.body ? null : out.body.slice();
+  return new Response(body, { status: out.status, headers: out.headers });
+}
+
+/** A page's HTML with its title, meta tags, JSON-LD and noscript copy filled in. */
+async function page(request: Request, env: Env, asset: Response): Promise<Response> {
+  const url = new URL(request.url);
+  const loaded = await loadPage(matchPage(url.pathname), apiGet(env, url.origin));
+  const edits = pageEdits(loaded, await pageImage(loaded));
+  return edits ? rewritePage(asset, edits, new HTMLRewriter()) : asset;
+}
+
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (url.hostname === `www.${CANONICAL_HOST}`) {
       url.hostname = CANONICAL_HOST;
@@ -71,11 +156,24 @@ export default {
     if (mediaId !== undefined && reading) {
       return serveFromBucket(env.MEDIA as unknown as MediaBucket, mediaId, request);
     }
-    const response = await env.ASSETS.fetch(request);
-    return withHeaders(
-      response,
-      response.ok ? pageHeaders(url.pathname, response.headers.get("content-type")) : {},
-    );
+    const route = reading ? matchCardPath(url.pathname) : undefined;
+    if (route) return card(request, env, ctx, route);
+    // Page paths have no extension. Their HTML is rewritten per request, so ask the assets for
+    // the whole file rather than a 304 against an ETag the rewritten page never carries.
+    const pagePath = reading && !/\.[a-z0-9]+$/i.test(url.pathname);
+    const assetRequest = pagePath ? new Request(request) : request;
+    if (pagePath) {
+      assetRequest.headers.delete("if-none-match");
+      assetRequest.headers.delete("if-modified-since");
+    }
+    let response = await env.ASSETS.fetch(assetRequest);
+    const type = response.headers.get("content-type");
+    // A page path answered with HTML is index.html (an app page, or the single-page fallback for
+    // a path that doesn't exist) or a page with its own file, like /docs.
+    if (pagePath && response.status === 200 && type?.startsWith("text/html")) {
+      response = await page(request, env, response);
+    }
+    return withHeaders(response, response.ok ? pageHeaders(url.pathname, type) : {});
   },
 } satisfies ExportedHandler<Env>;
 

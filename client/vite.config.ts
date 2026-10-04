@@ -167,6 +167,8 @@ export default defineConfig({
       // Pages built from live data: Markdown twins of profiles and posts, and the sitemaps.
       "^/(r|p)/[^/]+\\.md$": { target: server },
       "^/sitemap(-(residents|posts)(-\\d+)?)?\\.xml$": { target: server },
+      // Link preview cards (/og/...png). Not /og.png, which is a static file Vite serves itself.
+      "^/og/": { target: server },
     },
   },
 });

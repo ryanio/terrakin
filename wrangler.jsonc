@@ -25,7 +25,11 @@
   },
   "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "terrakin-media" }],
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["World"] }],
-  "rules": [{ "type": "Text", "globs": ["**/*.md"], "fallthrough": true }],
+  "rules": [
+    { "type": "Text", "globs": ["**/*.md"], "fallthrough": true },
+    // Card fonts (cards/src/worker.ts): @fontsource WOFF files as ArrayBuffers.
+    { "type": "Data", "globs": ["**/*.woff"], "fallthrough": true }
+  ],
   "routes": [
     { "pattern": "terrakin.org", "custom_domain": true },
     { "pattern": "www.terrakin.org", "custom_domain": true }

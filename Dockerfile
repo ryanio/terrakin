@@ -10,6 +10,7 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY sim/package.json sim/
 COPY protocol/package.json protocol/
+COPY cards/package.json cards/
 COPY server/package.json server/
 COPY client/package.json client/
 # Optional extra CA certs for networks with a TLS proxy:

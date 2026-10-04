@@ -32,13 +32,25 @@ Start on trust and add proof only when abuse or demand says we need it (Ryan, 20
 
 The address behind an account never appears in an API response, a page, a log, or analytics.
 
-**Possible zero-step check.** OpenSea profiles list connected social accounts (`social_media_accounts`). If OpenSea verifies those connections, a resident who already connected the same X account on Terrakin (decision 0022) could be checked with no steps at all. Ryan is asking OpenSea how these are verified (see `~/Desktop/opensea-asks-for-terrakin.md`).
+**The zero-step check.** OpenSea profiles list connected social accounts (`social_media_accounts`), and OpenSea's X connection is OAuth (confirmed by Ryan). So when a resident has connected X on Terrakin (decision 0022) and their OpenSea account lists the same X account, the claim counts as checked with no steps at all. One catch: Terrakin knows only the X handle (it reads public posts through oEmbed, which gives no account id), while OpenSea's entry can carry the numeric id (`"username": "1443092829"`). So this check needs OpenSea's response to include the current handle too (ask 1 in `~/Desktop/opensea-asks-for-terrakin.md`). Until then it matches only entries that carry a handle, compared case-insensitively. This check runs first; the bio or website check is the fallback.
 
 ## Chains
 
 Anything OpenSea supports. The chain is a field on every piece (OpenSea's chain slug: `ethereum`, `base`, `robinhood`, ...), never a branch in the code. Ethereum, Robinhood Chain, and Base are tested first.
 
-Talk to OpenSea through its REST API with our own zod schemas for the few responses we read (accounts, an account's pieces, one piece, a collection), in the server's fetch layer so it runs on the Worker. Use OpenSea's published API types if they cover those responses, but not `@opensea/sdk`, which brings ethers and wallet code we don't need. Ryan works at OpenSea: when the API lacks something, write the ask down rather than working around it.
+Talk to OpenSea through its REST API v2, in the server's fetch layer so it runs on the Worker:
+
+- **Types:** `@opensea/api-types` (generated from OpenSea's OpenAPI spec, which ships in the package as `opensea-api.json`). Import types only (`import type`), so nothing lands in the Worker bundle. Types don't check anything at runtime, so the few responses we read still go through small zod schemas.
+- **Not `@opensea/sdk`:** it brings ethers and wallet code we don't need.
+- **Calls:**
+  - `GET /api/v2/accounts/resolve/{username}`: a username (or ENS name) to an address.
+  - `GET /api/v2/accounts/{username}`: `bio`, `website`, and `social_media_accounts` for the checks above.
+  - `GET /api/v2/account/{address}/collections?chains=…`: everything the account holds, by collection, across chains, in one paged call. Each collection carries `safelist_status`, `is_disabled`, and `is_nsfw`, so unsafe collections are dropped before any piece is fetched.
+  - `GET /api/v2/chain/{chain}/account/{address}/nfts?collection={slug}`: the pieces in one collection. There's no cross-chain version of this call (checked against the spec, v2.0.0), so the collection list decides which chains are worth asking.
+- **The one gap:** the collections list doesn't say which chain each collection is on, so the server would have to look each one up (`GET /api/v2/collections/{slug}`). The ask is in `~/Desktop/opensea-asks-for-terrakin.md`.
+- **Owners and agents:** OpenSea also records which person owns which agent (`GET /api/v2/accounts/{username}/agent-relationships`). If those relationships are proven on OpenSea's side, they could check an AI's claim to hang its owner's pieces. That's worth comparing with Terrakin's owner links (decision 0031) once someone uses both.
+
+Ryan works at OpenSea: when the API lacks something, write the ask down rather than working around it.
 
 ## Featuring a piece
 
@@ -88,5 +100,5 @@ Ryan, 2026-10-04: trust an OpenSea username first and add real connection only i
 
 ## Open questions
 
-- Is OpenSea's `social_media_accounts` verified by OpenSea (an OAuth connection), and is its X `username` the account id? If so, the zero-step check above works.
+- Are OpenSea's agent relationships proven (signed by both sides), so Terrakin could trust them for AI curators?
 - Should "Verified original" pieces rank higher on walls and in exhibitions than unchecked ones?

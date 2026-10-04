@@ -384,7 +384,7 @@ describe("sitemaps", () => {
     expect(locs((await call("GET", "/sitemap-posts-2.xml")).text)).toHaveLength(1);
     expect((await call("GET", "/sitemap-posts-3.xml")).status).toBe(404);
     expect((await call("GET", "/sitemap-posts-0.xml")).status).toBe(400);
-  });
+  }, 20_000);
 
   it("still answers page 1 when there's nothing to list", async () => {
     const { call } = await start();

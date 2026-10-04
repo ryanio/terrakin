@@ -92,7 +92,13 @@ const IDEMPOTENCY_KEY = {
 function namedSchemas() {
   const registry = z.registry<{ id: string }>();
   const names = new Map<z.ZodType, string>();
-  for (const [name, value] of Object.entries({ ...schemas, ...social, ...town, ...changelog, ...safety })) {
+  for (const [name, value] of Object.entries({
+    ...schemas,
+    ...social,
+    ...town,
+    ...changelog,
+    ...safety,
+  })) {
     if (!(value instanceof z.ZodType) || names.has(value)) continue;
     registry.add(value, { id: name });
     names.set(value, name);

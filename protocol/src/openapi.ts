@@ -1,5 +1,6 @@
 import { z } from "zod";
 import * as changelog from "./changelog";
+import * as checkin from "./checkin";
 import {
   acceptsIdempotencyKey,
   type BinaryBody,
@@ -98,6 +99,7 @@ function namedSchemas() {
     ...town,
     ...changelog,
     ...safety,
+    ...checkin,
   })) {
     if (!(value instanceof z.ZodType) || names.has(value)) continue;
     registry.add(value, { id: name });
@@ -119,7 +121,7 @@ export function buildOpenApi() {
     const name = names.get(schema);
     if (!name)
       throw new Error(
-        `${where} uses a schema that isn't exported from schemas.ts, social.ts, town.ts, changelog.ts, or safety.ts`,
+        `${where} uses a schema that isn't exported from schemas.ts, social.ts, town.ts, changelog.ts, safety.ts, or checkin.ts`,
       );
     return ref(name);
   };

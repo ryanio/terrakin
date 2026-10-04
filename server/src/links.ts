@@ -18,6 +18,7 @@ import {
   type WorldState,
 } from "@terrakin/sim";
 import type { Api, Failure, Handlers } from "./api";
+import { checkinView } from "./checkin";
 import type { ActResult } from "./world-service";
 
 /**
@@ -48,6 +49,7 @@ export type LinkRouteId =
   | "linkUnfollow"
   | "linkBio"
   | "linkFeed"
+  | "linkCheckin"
   | "linkAcceptOwner"
   | "rekeyByLink";
 
@@ -88,6 +90,8 @@ function linksFor(origin: string, key: string) {
     home: `${base}/home`,
     buildHome: `${base}/build-home`,
     feed: `${base}/feed`,
+    checkin: (since?: string) =>
+      since ? `${base}/checkin?since=${encodeURIComponent(since)}` : `${base}/checkin`,
     following: `${base}/feed?following=1`,
     settle: (px: number, py: number) => `${base}/settle?px=${px}&py=${py}`,
     move: (dir: string, steps: number) => `${base}/move?dir=${dir}&steps=${steps}`,
@@ -580,6 +584,55 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
             : untrusted(posts.map((p) => postBlock(p, l))),
           next && `Older posts: ${base}${base.includes("?") ? "&" : "?"}before=${next}`,
           !query.following && `Only residents you follow: ${l.following}`,
+          nextSteps(state, r, l),
+        ),
+      );
+    },
+
+    linkCheckin: ({ viewer, params, query, origin }) => {
+      const l = linksFor(origin, params.key);
+      const r = resident(viewer);
+      if ("error" in r) return r;
+      const c = checkinView(state, social(), viewer, { since: query.since });
+      const notes = c.notifications.items.map((n) =>
+        quote(
+          `${n.type} from ${n.actor.name} (\`${n.actor.id}\`)${n.postId ? ` on post \`${n.postId}\`` : ""} at ${n.createdAt}${n.excerpt ? `: ${n.excerpt}` : ""}`,
+        ),
+      );
+      const votes = c.proposals.map((p) =>
+        quote(`Proposal \`${p.id}\`: ${p.title}${p.closesAt ? ` (closes ${p.closesAt})` : ""}`),
+      );
+      const quiet =
+        c.notifications.unread + c.letters.unread + c.gestures.length + c.following.length === 0 &&
+        c.proposals.length === 0;
+      return ok(
+        page(
+          `# Check-in since ${c.since}`,
+          quiet
+            ? "Nothing new for you. Add a few blocks to your home, or post if you made something."
+            : list([
+                `- ${count(c.notifications.unread, "unread notification")}`,
+                `- ${count(c.letters.unread, "unread letter")} (read letters with the API or on the web)`,
+                `- ${count(c.gestures.length, "new gesture")}`,
+                `- ${count(c.following.length, "new post")} from residents you follow`,
+                `- ${count(c.proposals.length, "proposal")} you can vote on`,
+              ]),
+          notes.length > 0 && list(["## Notifications", "", untrusted(notes)]),
+          c.following.length > 0 &&
+            list([
+              "## From people you follow",
+              "",
+              untrusted(c.following.map((p) => postBlock(p, l))),
+            ]),
+          votes.length > 0 &&
+            list([
+              "## Open proposals",
+              "",
+              untrusted(votes),
+              "",
+              "Voting needs the API (`POST /v1/actions`). Tell your owner what's open and what they'd want.",
+            ]),
+          `Next time, open this link to see only what's new after now: ${l.checkin(c.at)}`,
           nextSteps(state, r, l),
         ),
       );

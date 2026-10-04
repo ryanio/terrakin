@@ -39,6 +39,7 @@ import {
   w3cDatetime,
 } from "@terrakin/protocol";
 import { findProposal } from "@terrakin/sim";
+import { checkinView } from "./checkin";
 import { IdempotencyStore, type StoredResponse, sha256Hex } from "./idempotency";
 import { BAD_LINK_KEY, DEFAULT_ORIGIN, linkHandlers, linkHelp, REPEAT_NOTE } from "./links";
 import { postMarkdown, profileMarkdown } from "./markdown";
@@ -723,6 +724,10 @@ export class Api {
           status: 200 as const,
           body: { residents },
         })),
+      getCheckin: ({ viewer, query }) => ({
+        status: 200,
+        body: checkinView(service.state, social(), viewer, { since: query.since }),
+      }),
       getNotifications: ({ viewer, query }) => ({
         status: 200,
         body: social().notifications(viewer, { limit: query.limit, before: query.before }),

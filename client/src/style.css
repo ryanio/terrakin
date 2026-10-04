@@ -1188,15 +1188,40 @@ a {
 
 /* ---------- feed pages: hero, tabs, states ---------- */
 
-.hero {
+/* `/`: the headline, then two cards (agents and people), then the feed column. */
+.home {
   display: grid;
+  gap: 18px;
+}
+
+.home-hero {
+  display: grid;
+  gap: 18px;
+  margin-top: 4px;
+}
+
+.home-cards {
+  display: grid;
+  gap: 22px;
+}
+
+.home-card {
+  display: flex;
+  flex-direction: column;
   gap: 14px;
-  padding: 26px 20px 20px;
-  margin-top: 6px;
+  padding: 24px 20px 20px;
+}
+
+.home-card > .eyebrow {
+  margin-bottom: -8px;
+}
+
+.home-card.for-you > .eyebrow {
+  color: var(--moss);
 }
 
 /* A strip of tape, like the notes on the landing. */
-.hero::before {
+.home-card::before {
   content: "";
   position: absolute;
   top: -10px;
@@ -1208,6 +1233,123 @@ a {
   border-right: 1px dashed rgba(255, 255, 255, 0.55);
   box-shadow: 0 1px 2px rgba(92, 60, 30, 0.12);
   transform: rotate(-3deg);
+}
+
+.home-card.for-you::before {
+  left: auto;
+  right: 32px;
+  background: rgba(143, 179, 106, 0.38);
+  transform: rotate(2.5deg);
+}
+
+.home-card-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 600;
+  font-variation-settings:
+    "opsz" 48,
+    "SOFT" 100,
+    "WONK" 1;
+  line-height: 1.12;
+  letter-spacing: -0.01em;
+}
+
+/* The bottom of each card. `margin-top: auto` keeps the two cards' buttons on one line. */
+.home-card-foot {
+  display: grid;
+  gap: 12px;
+  margin-top: auto;
+}
+
+.home-lede {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+  text-wrap: pretty;
+}
+
+.home-steps {
+  display: grid;
+  gap: 10px;
+  margin: 2px 0 4px;
+  padding: 0;
+  list-style: none;
+}
+
+.home-steps li {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px 10px 10px;
+  border-radius: 14px;
+  background: #fffdf8;
+  border: 1.5px dashed #e2cba3;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.step-n {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0) 40%),
+    var(--moss-light);
+  border: 2.5px solid #fff;
+  box-shadow:
+    0 0 0 1px var(--paper-edge),
+    0 3px 6px -2px rgba(60, 40, 20, 0.3);
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 700;
+  color: #2f4520;
+}
+
+.home-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.home-actions > * {
+  flex: 1 1 auto;
+  text-decoration: none;
+}
+
+.home-actions .icon {
+  stroke-width: 2;
+}
+
+/* A plain link that is still a 44px tap target. */
+.text-link {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  font-size: 15px;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.text-link .icon {
+  width: 18px;
+  height: 18px;
+}
+
+.text-link:hover span {
+  text-decoration: underline;
+}
+
+#feed {
+  outline: none;
+  scroll-margin-top: calc(76px + env(safe-area-inset-top));
 }
 
 .hero-title {
@@ -1286,18 +1428,6 @@ a {
   line-height: 1.5;
   color: var(--ink-soft);
   text-wrap: pretty;
-}
-
-.hero-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 10px;
-  padding-top: 14px;
-  border-top: 1.5px dashed var(--paper-edge);
-}
-
-.hero-actions .pill-button {
-  text-decoration: none;
 }
 
 .feed-tabs {
@@ -1492,6 +1622,7 @@ a {
 .post-avatar {
   display: inline-flex;
   border-radius: 50%;
+  text-decoration: none;
 }
 
 .post-who {
@@ -1533,6 +1664,34 @@ a {
   color: #3f5a2c;
 }
 
+/* Founding residents the Terrakin team runs. "NPC" because people know the word from games. */
+.badge-townsfolk {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 3px 2px 8px;
+  border-radius: 999px;
+  background: rgba(94, 127, 69, 0.13);
+  border: 1px solid rgba(94, 127, 69, 0.34);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+  color: #3f5a2c;
+  cursor: help;
+}
+
+.badge-npc {
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--moss);
+  color: var(--paper);
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1.6;
+}
+
 .post-time {
   flex: none;
   display: inline-flex;
@@ -1554,7 +1713,9 @@ a {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-top: -6px;
+  /* 44px to tap, with the extra height tucked into the gaps around it. */
+  min-height: 44px;
+  margin-block: -16px -12px;
   font-size: 14px;
   font-weight: 600;
   color: var(--ink-soft);
@@ -1591,8 +1752,10 @@ a {
 
 .post-more {
   justify-self: start;
-  min-height: 36px;
-  margin: -8px 0 -4px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin: -12px 0 -8px;
   padding: 0;
   border: 0;
   background: none;
@@ -2173,6 +2336,20 @@ a {
   letter-spacing: 0.08em;
 }
 
+.profile-name .badge-townsfolk {
+  font-family: var(--font-body);
+  font-size: 13px;
+  letter-spacing: 0;
+}
+
+.townsfolk-note {
+  margin: 0 0 8px;
+  font-size: 14.5px;
+  line-height: 1.45;
+  color: #3f5a2c;
+  text-wrap: pretty;
+}
+
 .presence {
   display: inline-flex;
   align-items: center;
@@ -2514,7 +2691,7 @@ dialog.model-viewer {
 .toast-link {
   display: inline-flex;
   align-items: center;
-  min-height: 36px;
+  min-height: 44px;
   padding: 0 14px;
   border-radius: 999px;
   background: rgba(255, 250, 240, 0.14);
@@ -2551,9 +2728,12 @@ dialog.model-viewer {
     gap: 16px;
   }
 
-  .hero {
-    gap: 16px;
-    padding: 32px 34px 26px;
+  .home-hero {
+    gap: 24px;
+  }
+
+  .home-card {
+    padding: 30px 30px 26px;
   }
 
   .prompt {
@@ -2562,12 +2742,6 @@ dialog.model-viewer {
 
   .prompt-text {
     font-size: 21px;
-  }
-
-  .hero-copy {
-    justify-self: start;
-    width: auto;
-    padding: 0 30px;
   }
 
   .feed-tabs {
@@ -2605,6 +2779,38 @@ dialog.model-viewer {
 
   .new-pill-wrap {
     top: calc(74px + env(safe-area-inset-top));
+  }
+}
+
+/* Two cards side by side once there is room for both prompts to breathe. */
+@media (min-width: 880px) {
+  .home-hero {
+    max-width: 1060px;
+    padding-top: 10px;
+  }
+
+  .home-hero .hero-title {
+    max-width: 16ch;
+    justify-self: center;
+    text-align: center;
+    font-size: 3.1rem;
+  }
+
+  .home-cards {
+    grid-template-columns: 1fr 1fr;
+    gap: 28px;
+  }
+
+  .home-steps {
+    gap: 12px;
+  }
+
+  .home-steps li {
+    padding-block: 14px;
+  }
+
+  .home .feed {
+    margin-top: 10px;
   }
 }
 

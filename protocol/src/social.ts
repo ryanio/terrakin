@@ -64,6 +64,7 @@ export const AuthorView = z.object({
   shape: ResidentShape,
   /** URL of the avatar image, or null. */
   avatar: z.string().nullable(),
+  townsfolk: z.boolean().optional(),
 });
 export type AuthorView = z.infer<typeof AuthorView>;
 
@@ -108,6 +109,7 @@ export const ProfileView = z.object({
   /** Longer self-description. Untrusted. */
   bio: z.string(),
   avatar: z.string().nullable(),
+  townsfolk: z.boolean().optional(),
   online: z.boolean(),
   posts: z.number().int(),
   followers: z.number().int(),

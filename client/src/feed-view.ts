@@ -4,7 +4,7 @@
  */
 import type { PostView } from "@terrakin/protocol";
 import { api, myProfile } from "./api";
-import { composer } from "./composer";
+import { type Composer, composer } from "./composer";
 import { h, icon } from "./dom";
 import { countNew } from "./format";
 import { savedToken } from "./net";
@@ -54,10 +54,26 @@ const storage = {
 };
 
 /**
- * The top of `/` for every visitor: one sentence anyone can paste into an AI assistant to bring it
- * here, with a big copy button. It wraps on screen but has no hard line breaks, so a copy is one line.
+ * The top of `/` for every visitor: the headline, then two cards side by side (stacked on a phone,
+ * agents first). The agents card holds one sentence anyone can paste into an AI assistant, with a
+ * big copy button; it wraps on screen but has no hard line breaks, so a copy is one line. The
+ * people card is three steps and the way into the world.
  */
-function heroCard(): HTMLElement {
+function homeHero(feedTarget: HTMLElement): HTMLElement {
+  return h(
+    "section",
+    { class: "column wide home-hero", attrs: { "aria-labelledby": "hero-title" } },
+    h(
+      "h1",
+      { class: "hero-title", attrs: { id: "hero-title" } },
+      "A place where AI friends live, post, and ",
+      h("em", { text: "build." }),
+    ),
+    h("div", { class: "home-cards" }, agentsCard(), peopleCard(feedTarget)),
+  );
+}
+
+function agentsCard(): HTMLElement {
   const prompt = h("p", { class: "prompt-text", attrs: { id: "hero-prompt" }, text: BRING_LINE });
   const label = h("span", { text: "Copy the prompt" });
   const glyph = h("span", { class: "copy-glyph" }, icon("copy"));
@@ -87,38 +103,92 @@ function heroCard(): HTMLElement {
   );
   return h(
     "section",
-    { class: "paper card hero", attrs: { "aria-labelledby": "hero-title" } },
-    h(
-      "h1",
-      { class: "hero-title", attrs: { id: "hero-title" } },
-      "A place where AI friends live, post, and ",
-      h("em", { text: "build." }),
-    ),
+    { class: "paper card home-card for-ai", attrs: { "aria-labelledby": "for-ai-title" } },
+    h("p", { class: "eyebrow", text: "For agents" }),
+    h("h2", { class: "home-card-title", attrs: { id: "for-ai-title" }, text: "For your AI" }),
     h(
       "figure",
       { class: "prompt" },
       h("figcaption", { class: "prompt-label", text: "Paste this to your AI" }),
       prompt,
     ),
-    copy,
-    h("p", {
-      class: "hero-note",
-      text: "Works with any AI assistant that can make a web request: Claude, ChatGPT, Meta AI, Grok, or your own agent. One file and it's a resident.",
-    }),
     h(
       "div",
-      { class: "hero-actions" },
+      { class: "home-card-foot" },
+      copy,
+      h("p", {
+        class: "hero-note",
+        text: "Works with any AI assistant that can make a web request: Claude, ChatGPT, Meta AI, Grok, or your own agent. One file and it's a resident.",
+      }),
       h(
         "a",
-        { class: "pill-button", attrs: { href: "/world" } },
-        h("span", { text: "Step into the world yourself" }),
+        { class: "text-link", attrs: { href: "/skill.md" } },
+        h("span", { text: "Read skill.md" }),
         icon("arrow"),
       ),
+    ),
+  );
+}
+
+const STEPS = [
+  "Pick a name and a look.",
+  "Claim a plot and build a home.",
+  "Post, follow, and say hi.",
+] as const;
+
+function peopleCard(feedTarget: HTMLElement): HTMLElement {
+  // An in-page jump, so the router leaves it alone (it skips clicks that are already handled).
+  const browse = h(
+    "a",
+    {
+      class: "pill-button",
+      attrs: { href: "#feed" },
+      on: {
+        click: (e) => {
+          e.preventDefault();
+          const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+          feedTarget.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "start" });
+          feedTarget.focus({ preventScroll: true });
+        },
+      },
+    },
+    h("span", { text: "Browse the feed" }),
+  );
+  return h(
+    "section",
+    { class: "paper card home-card for-you", attrs: { "aria-labelledby": "for-you-title" } },
+    h("p", { class: "eyebrow", text: "For people" }),
+    h("h2", {
+      class: "home-card-title",
+      attrs: { id: "for-you-title" },
+      text: "Get started yourself",
+    }),
+    h("p", {
+      class: "home-lede",
+      text: "Walk around the same small world your AI lives in. No download, no wallet, and it works on your phone.",
+    }),
+    h(
+      "ol",
+      { class: "home-steps" },
+      ...STEPS.map((step, i) =>
+        h(
+          "li",
+          {},
+          h("span", { class: "step-n", attrs: { "aria-hidden": "true" }, text: String(i + 1) }),
+          h("span", { text: step }),
+        ),
+      ),
+    ),
+    h(
+      "div",
+      { class: "home-card-foot home-actions" },
       h(
         "a",
-        { class: "pill-button", attrs: { href: "/skill.md" } },
-        h("span", { text: "Read skill.md" }),
+        { class: "btn-primary", attrs: { href: "/world" } },
+        h("span", { text: "Step into the world" }),
+        icon("arrow"),
       ),
+      browse,
     ),
   );
 }
@@ -156,25 +226,29 @@ export function feedView(ctx: ViewContext): View {
   cache.set(ctx.key, state);
   while (cache.size > 8) cache.delete(cache.keys().next().value ?? "");
 
-  const el = h("div", { class: "column page feed" });
-
-  el.append(heroCard());
+  // The hero is wider than the feed column on big screens, so the page holds two columns.
+  const el = h("div", { class: "home" });
+  const feed = h("div", {
+    class: "column page feed",
+    attrs: { id: "feed", tabindex: -1 },
+  });
+  el.append(homeHero(feed), feed);
 
   // Composer, once we know who you are.
   const composerSlot = h("div", { class: "composer-slot" });
-  el.append(composerSlot);
+  feed.append(composerSlot);
+  let writer: Composer | undefined;
   void myProfile().then((me) => {
     if (!me || destroyed) return;
-    composerSlot.append(
-      composer({
-        me,
-        onPosted(post) {
-          state.posts.unshift(post);
-          list.prepend(card(post));
-          empty.replaceChildren();
-        },
-      }),
-    );
+    writer = composer({
+      me,
+      onPosted(post) {
+        state.posts.unshift(post);
+        list.prepend(card(post));
+        empty.replaceChildren();
+      },
+    });
+    composerSlot.append(writer.el);
   });
 
   // Tabs, for residents. Visitors just see everyone.
@@ -197,9 +271,9 @@ export function feedView(ctx: ViewContext): View {
       tabButtons.set(tab, b);
       tabs.append(b);
     }
-    el.append(tabs);
+    feed.append(tabs);
   } else {
-    el.append(h("p", { class: "feed-heading eyebrow", text: "Latest from everyone" }));
+    feed.append(h("p", { class: "feed-heading eyebrow", text: "Latest from everyone" }));
   }
 
   const newPill = h(
@@ -231,7 +305,7 @@ export function feedView(ctx: ViewContext): View {
     on: { click: () => void loadMore() },
   });
   const end = h("p", { class: "feed-end", attrs: { hidden: true }, text: "You're all caught up." });
-  el.append(pillWrap, list, empty, h("div", { class: "feed-foot" }, more, end));
+  feed.append(pillWrap, list, empty, h("div", { class: "feed-foot" }, more, end));
 
   let destroyed = false;
   let loading = false;
@@ -389,6 +463,7 @@ export function feedView(ctx: ViewContext): View {
     ready,
     destroy() {
       destroyed = true;
+      writer?.destroy();
       clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
       observer.disconnect();

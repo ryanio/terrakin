@@ -179,27 +179,41 @@ export function uploadMedia(
   return { promise, abort: () => xhr.abort() };
 }
 
-let me: Promise<ProfileView | null> | undefined;
+/** The profile lookup for one token. A new token (or none) starts a fresh lookup. */
+let me: { token: string; profile: Promise<ProfileView | null> } | undefined;
 
 /**
  * The visitor's own profile, when they have a saved token (from joining the world). We know our id
  * from the world's welcome; older sessions ask the server with an empty profile update, which
- * changes nothing and answers with who we are.
+ * changes nothing and answers with who we are. A failed lookup isn't kept, so the next page asks
+ * again.
  */
 export function myProfile(): Promise<ProfileView | null> {
-  if (!savedToken()) return Promise.resolve(null);
-  me ??= (async () => {
-    const id = savedResidentId();
-    if (id) {
-      const r = await api.profile(id);
-      if (r.ok) return r.data.resident;
-    }
-    const r = await request("PUT", "/v1/profile", ProfileResponse, {});
-    if (!r.ok) return null;
-    saveResidentId(r.data.resident.id);
-    return r.data.resident;
-  })();
-  return me;
+  const token = savedToken();
+  if (!token) {
+    me = undefined;
+    return Promise.resolve(null);
+  }
+  if (me?.token === token) return me.profile;
+  const entry = {
+    token,
+    profile: (async () => {
+      const id = savedResidentId();
+      if (id) {
+        const r = await api.profile(id);
+        if (r.ok) return r.data.resident;
+      }
+      const r = await request("PUT", "/v1/profile", ProfileResponse, {});
+      if (!r.ok) return null;
+      saveResidentId(r.data.resident.id);
+      return r.data.resident;
+    })(),
+  };
+  me = entry;
+  void entry.profile.then((profile) => {
+    if (profile === null && me === entry) me = undefined;
+  });
+  return entry.profile;
 }
 
 export type { PostView, ProfileView };

@@ -5,7 +5,7 @@
 import type { AuthorView, PostView, ProfileView } from "@terrakin/protocol";
 import { api } from "./api";
 import { h, icon } from "./dom";
-import { compactCount, fullDate, initial, plural, relativeTime } from "./format";
+import { compactCount, fullDate, initial, isMediaUrl, plural, relativeTime } from "./format";
 import { mediaGrid } from "./media";
 import { savedToken } from "./net";
 import { shareLink, toast } from "./ui";
@@ -22,7 +22,8 @@ export function avatarEl(person: Person, size: "sm" | "md" | "lg" | "xl" = "md")
     attrs: { "data-color": person.color, "aria-hidden": "true" },
   });
   el.style.setProperty("--avatar", `var(--resident-${person.color})`);
-  if (person.avatar) {
+  // A picture only when its URL is one of ours; anything else falls back to the initial.
+  if (isMediaUrl(person.avatar)) {
     el.classList.add("has-image");
     el.append(
       h("img", { attrs: { src: person.avatar, alt: "", loading: "lazy", decoding: "async" } }),
@@ -35,6 +36,18 @@ export function avatarEl(person: Person, size: "sm" | "md" | "lg" | "xl" = "md")
 
 export function aiBadge(): HTMLElement {
   return h("span", { class: "badge-ai", attrs: { title: "An AI agent" }, text: "AI" });
+}
+
+export const TOWNSFOLK_ABOUT = "A founding resident run by the Terrakin team, here to welcome you.";
+
+/** For founding residents the Terrakin team runs. */
+export function townsfolkBadge(): HTMLElement {
+  return h(
+    "span",
+    { class: "badge-townsfolk", attrs: { title: TOWNSFOLK_ABOUT } },
+    "Townsfolk",
+    h("span", { class: "badge-npc", text: "NPC" }),
+  );
 }
 
 export const profilePath = (id: string) => `/r/${encodeURIComponent(id)}`;
@@ -80,6 +93,7 @@ export function postCard(post: PostView, options: PostCardOptions = {}): HTMLEle
       { class: "post-who" },
       h("a", { class: "post-author", attrs: { href: authorHref }, text: author.name }),
       author.kind === "agent" ? aiBadge() : null,
+      author.townsfolk ? townsfolkBadge() : null,
     ),
     h("a", { class: "post-time", attrs: { href: postHref } }, time),
   );

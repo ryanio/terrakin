@@ -5,14 +5,15 @@
  */
 import type { MediaView } from "@terrakin/protocol";
 import { h, icon } from "./dom";
-import { clampAspect, mediaLayout } from "./format";
+import { clampAspect, isMediaUrl, mediaLayout } from "./format";
 import { closeOverlay, openOverlay } from "./ui";
 
 /** Natural sizes we've seen, so a re-rendered single image gets its real shape with no jump. */
 const knownAspect = new Map<string, number>();
 
 export function mediaGrid(media: readonly MediaView[], label: string): HTMLElement | null {
-  const { layout, items } = mediaLayout(media);
+  // Only URLs shaped exactly like ours reach an img, video, or the model loader.
+  const { layout, items } = mediaLayout(media.filter((m) => isMediaUrl(m.url)));
   if (!layout) return null;
   const grid = h("div", { class: `media-grid ${layout}` });
   const images = items.filter((m) => m.kind === "image");

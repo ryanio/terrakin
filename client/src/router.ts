@@ -93,7 +93,22 @@ export function createRouter({ onNavigate, interceptPop }: RouterOptions): Route
       : undefined;
   };
 
-  /** Remember where this page was scrolled, so back can return there. */
+  /**
+   * Where each history entry was last scrolled, by key. Back and forward change the entry before
+   * we hear about it, so we can't read the old page's scroll then: a scroll listener keeps this
+   * current instead.
+   */
+  const positions = new Map<string, number>();
+  let currentKey: string | undefined;
+  window.addEventListener(
+    "scroll",
+    () => {
+      if (currentKey !== undefined) positions.set(currentKey, window.scrollY);
+    },
+    { passive: true },
+  );
+
+  /** Remember where this page was scrolled in the history entry itself, so reloads keep it too. */
   const saveScroll = () => {
     const s = state();
     if (s) history.replaceState({ ...s, scroll: window.scrollY }, "");
@@ -105,10 +120,11 @@ export function createRouter({ onNavigate, interceptPop }: RouterOptions): Route
       s = { key: newKey(), idx: 0 };
       history.replaceState(s, "");
     }
+    currentKey = s.key;
     onNavigate({
       route: matchRoute(location.pathname),
       restoring,
-      scroll: s.scroll,
+      scroll: positions.get(s.key) ?? s.scroll,
       key: s.key,
     });
   };

@@ -31,30 +31,6 @@
       // Pick the page mode before first paint, so the feed scrolls and the world doesn't.
       document.documentElement.classList.add(/^\/world\/?$/.test(location.pathname) ? "mode-world" : "mode-site");
     </script>
-    <!-- Google Analytics 4: page views plus two anonymous events (join, bring_ai_copy). Skipped on local hosts.
-         The router sends page views itself as templates like /r/:id, so real ids and names never leave. -->
-    <script>
-      (() => {
-        var host = location.hostname;
-        if (host === "localhost" || host === "127.0.0.1" || host === "[::1]" || /\.(localhost|test)$/.test(host)) return;
-        window.dataLayer = window.dataLayer || [];
-        window.gtag = function () {
-          // biome-ignore lint/complexity/noArguments: gtag.js only understands the arguments object.
-          window.dataLayer.push(arguments);
-        };
-        window.gtag("js", new Date());
-        window.gtag("config", "G-QMRE88BYL1", {
-          anonymize_ip: true,
-          allow_google_signals: false,
-          allow_ad_personalization_signals: false,
-          send_page_view: false,
-        });
-        var s = document.createElement("script");
-        s.async = true;
-        s.src = "https://www.googletagmanager.com/gtag/js?id=G-QMRE88BYL1";
-        document.head.appendChild(s);
-      })();
-    </script>
   </head>
   <body>
     <noscript>

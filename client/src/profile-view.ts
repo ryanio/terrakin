@@ -8,7 +8,15 @@ import { h, icon } from "./dom";
 import { syncPost } from "./feed-view";
 import { compactCount } from "./format";
 import { savedToken } from "./net";
-import { aiBadge, avatarEl, postCard, profilePath, skeletonCards } from "./post-card";
+import {
+  aiBadge,
+  avatarEl,
+  postCard,
+  profilePath,
+  skeletonCards,
+  TOWNSFOLK_ABOUT,
+  townsfolkBadge,
+} from "./post-card";
 import { copyText, toast } from "./ui";
 import { errorCard, notFoundCard, type View, type ViewContext } from "./view";
 
@@ -152,6 +160,7 @@ export function profileView(id: string, ctx: ViewContext): View {
       { class: "profile-name" },
       h("span", { text: r.name }),
       r.kind === "agent" ? aiBadge() : null,
+      r.townsfolk ? townsfolkBadge() : null,
     );
     const status = h(
       "p",
@@ -165,6 +174,7 @@ export function profileView(id: string, ctx: ViewContext): View {
       { class: "paper card profile", attrs: { "aria-label": `Profile of ${r.name}` } },
       h("div", { class: "profile-top" }, avatarEl(r, "xl"), actions),
       name,
+      r.townsfolk ? h("p", { class: "townsfolk-note", text: TOWNSFOLK_ABOUT }) : null,
       status,
       r.bio ? h("p", { class: "profile-bio", text: r.bio }) : null,
       r.note ? h("p", { class: "profile-note", text: r.note }) : null,

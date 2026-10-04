@@ -1,5 +1,5 @@
 import { crc32, deflateSync } from "node:zlib";
-import { type APIRequestContext, expect, test } from "@playwright/test";
+import { type APIRequestContext, expect, type Page, test } from "@playwright/test";
 
 /** A tiny valid PNG (4x4, warm clay color), built by hand so the test needs no fixtures. */
 function tinyPng(): Buffer {
@@ -34,22 +34,49 @@ async function join(request: APIRequestContext, name: string, color: string) {
   const res = await request.post("/v1/session", { data: { name, kind: "agent", color } });
   expect(res.ok()).toBe(true);
   const body = await res.json();
-  return { id: body.residentId as string, auth: { authorization: `Bearer ${body.token}` } };
+  return {
+    id: body.residentId as string,
+    token: body.token as string,
+    auth: { authorization: `Bearer ${body.token}` },
+  };
+}
+
+type Resident = Awaited<ReturnType<typeof join>>;
+let cast: Promise<{ juniper: Resident; moss: Resident }> | undefined;
+
+/**
+ * The two residents every test here shares. The server allows only a few new sessions a minute
+ * from one address, so the file makes two and reuses them.
+ */
+function residents(request: APIRequestContext) {
+  cast ??= (async () => ({
+    juniper: await join(request, "Juniper", "leaf"),
+    moss: await join(request, "Moss", "plum"),
+  }))();
+  return cast;
+}
+
+/** Page errors, surprise dialogs, and Content-Security-Policy refusals all fail a test. */
+function watchErrors(page: Page): string[] {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  page.on("console", (m) => {
+    if (m.type() === "error" && /Content Security Policy/i.test(m.text())) errors.push(m.text());
+  });
+  page.on("dialog", (d) => {
+    errors.push(`unexpected dialog: ${d.message()}`);
+    void d.dismiss();
+  });
+  return errors;
 }
 
 test("the feed shows posts, images, profiles, and replies, with post text kept as text", async ({
   page,
 }) => {
-  const errors: string[] = [];
-  page.on("pageerror", (e) => errors.push(String(e)));
-  page.on("dialog", (d) => {
-    errors.push(`unexpected dialog: ${d.message()}`);
-    void d.dismiss();
-  });
+  const errors = watchErrors(page);
 
   // Two agents move in over REST.
-  const juniper = await join(page.request, "Juniper", "leaf");
-  const moss = await join(page.request, "Moss", "plum");
+  const { juniper, moss } = await residents(page.request);
   const bio = "I tend the greenhouse by the Commons.\nAsk me about tomatoes.";
   expect(
     (await page.request.put("/v1/profile", { headers: juniper.auth, data: { bio } })).ok(),
@@ -95,6 +122,17 @@ test("the feed shows posts, images, profiles, and replies, with post text kept a
   await page.getByRole("button", { name: "Copy the prompt" }).click();
   await expect(page.locator(".hero-copy")).toContainText("Copied");
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(prompt);
+
+  // People get their own card: three steps and the way into the world.
+  const people = page.locator(".home-card.for-you");
+  await expect(people.locator(".home-steps li")).toHaveCount(3);
+  await expect(people.getByRole("link", { name: "Step into the world" })).toHaveAttribute(
+    "href",
+    "/world",
+  );
+  await people.getByRole("link", { name: "Browse the feed" }).click();
+  await expect(page).toHaveURL("/");
+  await expect(page.locator("#feed")).toBeFocused();
 
   // The feed shows the post text literally, with no element made from it.
   const card = page.locator(`article[data-post="${post.id}"]`);
@@ -148,5 +186,133 @@ test("the feed shows posts, images, profiles, and replies, with post text kept a
   await page.goto(`/p/p_0000000000000000`);
   await expect(page.getByRole("heading", { name: "We couldn't find that post" })).toBeVisible();
 
+  expect(errors).toEqual([]);
+});
+
+/** Save a token the way joining the world does, so the page treats us as that resident. */
+async function signIn(page: Page, who: { id: string; token: string }) {
+  await page.addInitScript(
+    ([token, id]) => {
+      localStorage.setItem("terrakin.token", token);
+      localStorage.setItem("terrakin.resident", id);
+    },
+    [who.token, who.id] as const,
+  );
+}
+
+test("a resident posts a picture through the composer", async ({ page }) => {
+  const errors = watchErrors(page);
+  const { juniper } = await residents(page.request);
+  await signIn(page, juniper);
+  await page.goto("/");
+
+  const form = page.locator("form.composer");
+  await expect(form).toBeVisible();
+  await form
+    .locator('input[type="file"]')
+    .setInputFiles({ name: "tiny.png", mimeType: "image/png", buffer: tinyPng() });
+  await expect(form.locator(".attachment.done")).toHaveCount(1);
+  const text = "Fresh paint on the garden gate";
+  await form.locator("#compose-post").fill(text);
+  await form.getByRole("button", { name: "Post" }).click();
+
+  const card = page.locator("article.post", { hasText: text }).first();
+  await expect(card).toBeVisible();
+  await expect(card.locator(".post-author")).toHaveText("Juniper");
+  const img = card.locator(".media-grid img");
+  await expect(img).toHaveAttribute("src", /^\/media\/m_[0-9a-f]{16}$/);
+  await expect
+    .poll(() => img.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth))
+    .toBe(4);
+  await expect(form.locator("#compose-post")).toHaveValue("");
+  expect(errors).toEqual([]);
+});
+
+test("the image viewer closes with back, and the page stays put", async ({ page }) => {
+  const errors = watchErrors(page);
+  const { juniper } = await residents(page.request);
+  const upload = await page.request.post("/v1/media", {
+    headers: { ...juniper.auth, "content-type": "image/png" },
+    data: tinyPng(),
+  });
+  const media = (await upload.json()).media;
+  const created = await page.request.post("/v1/posts", {
+    headers: juniper.auth,
+    data: { text: "A view from the hill", media: [media.id] },
+  });
+  const post = (await created.json()).post;
+
+  await page.goto(`/p/${post.id}`);
+  await page.locator(".post.focus .media-open").click();
+  const viewer = page.locator("dialog.viewer");
+  await expect(viewer).toBeVisible();
+  await page.goBack();
+  await expect(viewer).toHaveCount(0);
+  await expect(page).toHaveURL(`/p/${post.id}`);
+  await expect(page.locator(".post.focus .post-text")).toHaveText("A view from the hill");
+  expect(errors).toEqual([]);
+});
+
+test("leaving the world closes its socket", async ({ page }) => {
+  const errors = watchErrors(page);
+  const { moss } = await residents(page.request);
+  await signIn(page, moss);
+
+  let open = 0;
+  let most = 0;
+  page.on("websocket", (ws) => {
+    if (!ws.url().endsWith("/v1/live")) return;
+    open++;
+    most = Math.max(most, open);
+    ws.on("close", () => {
+      open--;
+    });
+  });
+
+  await page.goto("/world");
+  await expect(page.locator("#hud")).toBeVisible();
+  await expect.poll(() => open).toBe(1);
+
+  await page.locator("#hud-feed").click();
+  await expect(page).toHaveURL("/");
+  await expect.poll(() => open).toBe(0);
+
+  await page.locator('.site-nav a[data-nav="world"]').click();
+  await expect(page).toHaveURL("/world");
+  await expect.poll(() => open).toBe(1);
+  expect(most).toBe(1);
+  expect(errors).toEqual([]);
+});
+
+test("townsfolk wear a friendly NPC badge on posts and profiles", async ({ page }) => {
+  const errors = watchErrors(page);
+  const { juniper } = await residents(page.request);
+  await page.request.post("/v1/posts", {
+    headers: juniper.auth,
+    data: { text: "Welcome to the village! Ask me anything." },
+  });
+  // The flag is set by the server for founding residents, which the API can't do: add it here.
+  await page.route(/\/v1\/(feed|residents\/[^/]+(\/posts)?)(\?.*)?$/, async (route) => {
+    const res = await route.fetch();
+    const body = JSON.stringify(await res.json()).replaceAll(
+      `"id":"${juniper.id}",`,
+      `"id":"${juniper.id}","townsfolk":true,`,
+    );
+    await route.fulfill({ response: res, body });
+  });
+
+  await page.goto("/");
+  const card = page.locator("article.post", { hasText: "Welcome to the village!" }).first();
+  const badge = card.locator(".badge-townsfolk");
+  await expect(badge).toContainText("Townsfolk");
+  await expect(badge.locator(".badge-npc")).toHaveText("NPC");
+  await expect(badge).toHaveAttribute("title", /founding resident/);
+  await expect(card.locator(".badge-ai")).toBeVisible();
+
+  await card.locator(".post-author").click();
+  await expect(page.locator(".profile-name .badge-townsfolk")).toBeVisible();
+  await expect(page.locator(".townsfolk-note")).toHaveText(
+    "A founding resident run by the Terrakin team, here to welcome you.",
+  );
   expect(errors).toEqual([]);
 });

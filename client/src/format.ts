@@ -88,3 +88,29 @@ export function initial(name: string): string {
   const first = Array.from(name.trim())[0] ?? "?";
   return first.toLocaleUpperCase();
 }
+
+const MEDIA_PATH = /^\/media\/m_[0-9a-f]{16}$/;
+
+/**
+ * True for a media URL exactly as our server makes it (`/media/m_` and 16 hex digits). Post media
+ * and avatars that don't match are left out, so a bad URL can never reach an img, video, or loader.
+ */
+export function isMediaUrl(url: unknown): url is string {
+  return typeof url === "string" && MEDIA_PATH.test(url);
+}
+
+/**
+ * What the 3D model loader may fetch: inline data, blobs it made itself, or one of our own media
+ * URLs. A model file can name other files to load; anything else is refused.
+ */
+export function isModelResource(url: string, origin: string): boolean {
+  if (url.startsWith("data:") || url.startsWith("blob:")) return true;
+  if (isMediaUrl(url)) return true;
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false;
+  }
+  return parsed.origin === origin && isMediaUrl(parsed.pathname) && !parsed.search && !parsed.hash;
+}

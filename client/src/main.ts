@@ -6,12 +6,14 @@ import { initBrandMarks, initBringAi } from "./chrome";
 import { feedView } from "./feed-view";
 import { postView } from "./post-view";
 import { profileView } from "./profile-view";
-import { createRouter, type Navigation, type Route, routeTemplate } from "./router";
-import { initErrorReporting, pageView } from "./telemetry";
+import { createRouter, matchRoute, type Navigation, type Route, routeTemplate } from "./router";
+import { initErrorReporting, pageView, startAnalytics } from "./telemetry";
 import { interceptPop } from "./ui";
 import { notFoundView, type View, type ViewContext } from "./view";
 import "./style.css";
 
+// Analytics first, with the page set as a template before gtag.js can send anything.
+startAnalytics(routeTemplate(matchRoute(location.pathname)));
 void initErrorReporting();
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;

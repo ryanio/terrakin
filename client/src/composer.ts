@@ -37,7 +37,13 @@ interface Attachment {
   abort(): void;
 }
 
-export function composer({ me, replyTo, onPosted }: ComposerOptions): HTMLElement {
+export interface Composer {
+  el: HTMLElement;
+  /** Stop any uploads still running and free the preview images. Call when the page goes away. */
+  destroy(): void;
+}
+
+export function composer({ me, replyTo, onPosted }: ComposerOptions): Composer {
   const reply = replyTo !== undefined;
   const fieldId = `compose-${reply ? "reply" : "post"}`;
   const textarea = h("textarea", {
@@ -100,6 +106,7 @@ export function composer({ me, replyTo, onPosted }: ComposerOptions): HTMLElemen
 
   let attachments: Attachment[] = [];
   let posting = false;
+  let destroyed = false;
 
   const update = () => {
     const left = POST_MAX_LENGTH - textarea.value.length;
@@ -189,7 +196,7 @@ export function composer({ me, replyTo, onPosted }: ComposerOptions): HTMLElemen
     });
     a.abort = upload.abort;
     void upload.promise.then((r) => {
-      if (!attachments.includes(a)) return;
+      if (destroyed || !attachments.includes(a)) return;
       if (r.ok) {
         a.media = r.data;
         el.classList.remove("uploading");
@@ -224,6 +231,7 @@ export function composer({ me, replyTo, onPosted }: ComposerOptions): HTMLElemen
       ...(media.length ? { media } : {}),
       ...(replyTo ? { replyTo } : {}),
     });
+    if (destroyed) return;
     posting = false;
     submit.removeAttribute("aria-busy");
     if (!r.ok) {
@@ -244,5 +252,15 @@ export function composer({ me, replyTo, onPosted }: ComposerOptions): HTMLElemen
   });
 
   update();
-  return form;
+  return {
+    el: form,
+    destroy() {
+      destroyed = true;
+      for (const a of attachments) {
+        a.abort();
+        if (a.preview) URL.revokeObjectURL(a.preview);
+      }
+      attachments = [];
+    },
+  };
 }

@@ -1,7 +1,7 @@
 /** `/p/:id` one post, its replies (oldest first), and a reply box for residents. */
 import type { PostView } from "@terrakin/protocol";
 import { api, myProfile } from "./api";
-import { composer } from "./composer";
+import { type Composer, composer } from "./composer";
 import { h, icon } from "./dom";
 import { syncPost } from "./feed-view";
 import { plural } from "./format";
@@ -12,6 +12,7 @@ export function postView(id: string, ctx: ViewContext): View {
   ctx.setTitle("Post · Terrakin");
   const el = h("div", { class: "column page post-page" });
   let destroyed = false;
+  let writer: Composer | undefined;
 
   const back = h(
     "button",
@@ -75,22 +76,22 @@ export function postView(id: string, ctx: ViewContext): View {
 
     void myProfile().then((me) => {
       if (destroyed || !me) return;
-      el.append(
-        composer({
-          me,
-          replyTo: post.id,
-          onPosted(reply) {
-            addReply(reply);
-            empty.hidden = true;
-            post.replyCount++;
-            paintHeading();
-            const count = main.querySelector(".post-action.reply .count");
-            if (count) count.textContent = String(post.replyCount);
-            syncPost(post);
-            list.lastElementChild?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-          },
-        }),
-      );
+      writer?.destroy();
+      writer = composer({
+        me,
+        replyTo: post.id,
+        onPosted(reply) {
+          addReply(reply);
+          empty.hidden = true;
+          post.replyCount++;
+          paintHeading();
+          const count = main.querySelector(".post-action.reply .count");
+          if (count) count.textContent = String(post.replyCount);
+          syncPost(post);
+          list.lastElementChild?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        },
+      });
+      el.append(writer.el);
     });
   }
 
@@ -99,6 +100,7 @@ export function postView(id: string, ctx: ViewContext): View {
     ready,
     destroy() {
       destroyed = true;
+      writer?.destroy();
     },
   };
 }

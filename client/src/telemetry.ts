@@ -3,12 +3,14 @@
  * Analytics and error reporting. Neither carries anything personal:
  * no names, colors, chat, notes, tokens, or resident ids ever leave through here.
  *
- * - Google Analytics is loaded by index.html (skipped on local hosts). We only send page views
- *   (as route templates like "/r/:id", never real ids) plus the two events below.
- * - Sentry reports errors from production builds only, with chat-bearing breadcrumbs dropped and
- *   any token scrubbed.
+ * - Google Analytics starts from `startAnalytics` (skipped on local hosts). Every hit, including
+ *   the ones gtag.js sends on its own (user_engagement, scroll, outbound clicks), inherits a
+ *   templated page ("/r/:id"), a fixed title, and an empty referrer, because we `set` them before
+ *   any event and again on every route change. We send page views plus the two events below.
+ * - Sentry reports errors from production builds only, with chat-bearing breadcrumbs dropped,
+ *   clicks reduced to tag, id, and classes, and any token scrubbed.
  */
-import type { Breadcrumb, ErrorEvent } from "@sentry/browser";
+import type { Breadcrumb, BreadcrumbHint, ErrorEvent } from "@sentry/browser";
 import { savedToken } from "./net";
 
 type GtagEvent = "join" | "bring_ai_copy";
@@ -16,6 +18,62 @@ type GtagEvent = "join" | "bring_ai_copy";
 declare global {
   interface Window {
     gtag?: (...args: unknown[]) => void;
+    dataLayer?: unknown[];
+  }
+}
+
+const GA_ID = "G-QMRE88BYL1";
+
+/** Hosts where we never load analytics: local development and tests. */
+export function isLocalHost(host: string): boolean {
+  return (
+    host === "localhost" ||
+    host === "127.0.0.1" ||
+    host === "[::1]" ||
+    /\.(localhost|test)$/.test(host)
+  );
+}
+
+/**
+ * The page fields every analytics hit carries. `template` is a route template from the router
+ * ("/r/:id"), never a real path. The title is fixed per template, because page titles carry
+ * resident names, and the referrer is always empty, because it can hold a real profile or post URL.
+ */
+export function pageFields(origin: string, template: string) {
+  return {
+    page_location: `${origin}${template}`,
+    page_title: PAGE_TITLES[template] ?? "Terrakin",
+    page_referrer: "",
+  };
+}
+
+/**
+ * Load gtag.js, with the page fields set before anything else so no hit can carry the real URL.
+ * `template` is the route template of the page we started on.
+ */
+export function startAnalytics(template: string) {
+  try {
+    if (isLocalHost(window.location.hostname)) return;
+    const layer: unknown[] = window.dataLayer ?? [];
+    window.dataLayer = layer;
+    window.gtag = function gtag() {
+      // biome-ignore lint/complexity/noArguments: gtag.js only understands the arguments object.
+      layer.push(arguments);
+    };
+    window.gtag("js", new Date());
+    window.gtag("set", pageFields(window.location.origin, template));
+    window.gtag("config", GA_ID, {
+      anonymize_ip: true,
+      allow_google_signals: false,
+      allow_ad_personalization_signals: false,
+      send_page_view: false,
+    });
+    const s = document.createElement("script");
+    s.async = true;
+    s.src = `https://www.googletagmanager.com/gtag/js?id=${GA_ID}`;
+    document.head.append(s);
+  } catch {
+    // Analytics must never break the game.
   }
 }
 
@@ -29,18 +87,16 @@ export function track(event: GtagEvent) {
 }
 
 /**
- * Count a page view. `template` is a route template from the router ("/r/:id"), never a real path,
- * and the title is fixed per template: page titles carry resident names, so we never send them.
- * index.html turns off the automatic page view for the same reason.
+ * Count a page view. `set` comes first so every later hit (engagement, scroll, clicks) reports the
+ * same template instead of the real address.
  */
 export function pageView(template: string) {
   try {
-    const location = `${window.location.origin}${template}`;
-    window.gtag?.("event", "page_view", {
-      page_location: location,
-      page_path: template,
-      page_title: PAGE_TITLES[template] ?? "Terrakin",
-    });
+    const gtag = window.gtag;
+    if (!gtag) return;
+    const fields = pageFields(window.location.origin, template);
+    gtag("set", fields);
+    gtag("event", "page_view", fields);
   } catch {
     // Analytics must never break the game.
   }
@@ -86,8 +142,42 @@ export function scrubEvent<T extends object>(event: T, token: string | null): T 
   return scrubValue(JSON.parse(json), 0) as T;
 }
 
-export function filterBreadcrumb(crumb: Breadcrumb): Breadcrumb | null {
+/** Class names and ids we keep in a click breadcrumb: plain identifiers only. */
+const SAFE_TOKEN = /^[A-Za-z][\w-]{0,40}$/;
+
+interface ElementLike {
+  tagName?: unknown;
+  id?: unknown;
+  className?: unknown;
+}
+
+/**
+ * Describe a clicked element as `tag#id.class.class`, and nothing else. Sentry's own click message
+ * adds attributes like aria-label and title, which hold resident names and file names.
+ */
+export function describeElement(target: unknown): string | null {
+  if (!target || typeof target !== "object") return null;
+  const el = target as ElementLike;
+  if (typeof el.tagName !== "string" || !el.tagName) return null;
+  let out = el.tagName.toLowerCase();
+  if (typeof el.id === "string" && SAFE_TOKEN.test(el.id)) out += `#${el.id}`;
+  // SVG elements have an SVGAnimatedString here, not a string: skip their classes.
+  if (typeof el.className === "string") {
+    for (const c of el.className.split(/\s+/)) if (SAFE_TOKEN.test(c)) out += `.${c}`;
+  }
+  return out;
+}
+
+export function filterBreadcrumb(crumb: Breadcrumb, hint?: BreadcrumbHint): Breadcrumb | null {
   if (!crumb.category || !SAFE_BREADCRUMBS.has(crumb.category)) return null;
+  if (crumb.category === "ui.click") {
+    // Rebuild the message from the element itself. No element, no breadcrumb.
+    const event = hint?.event as { target?: unknown } | undefined;
+    const message = describeElement(event?.target);
+    if (!message) return null;
+    const { data: _data, ...rest } = crumb;
+    return { ...rest, message };
+  }
   if (crumb.data) {
     const data = { ...crumb.data };
     // Request URLs and navigation paths carry resident and post ids: template them.
@@ -120,7 +210,7 @@ export async function initErrorReporting() {
         genAI: { inputs: false, outputs: false },
       },
       tracesSampleRate: 0,
-      beforeBreadcrumb: (crumb) => filterBreadcrumb(crumb),
+      beforeBreadcrumb: (crumb, hint) => filterBreadcrumb(crumb, hint),
       beforeSend: (event: ErrorEvent) => scrubEvent(event, savedToken()),
     });
   } catch {

@@ -48,11 +48,16 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
     return world.residents.find((r: { name: string }) => r.name === "Ada");
   };
   // Watch our own position rather than the world's event count: other tests may join meanwhile.
+  // Everything below is relative to where we started, so a moved spawn doesn't break the test.
+  await expect.poll(async () => (await me()) !== undefined).toBe(true);
+  const start = await me();
+  const x = start.x - 5;
+  const y = start.y - 5;
   for (let i = 0; i < 5; i++) {
     await page.click('[data-dir="w"]');
     await page.click('[data-dir="n"]');
   }
-  await expect.poll(async () => [(await me()).x, (await me()).y]).toEqual([31, 31]);
+  await expect.poll(async () => [(await me()).x, (await me()).y]).toEqual([x, y]);
 
   await page.click("#claim");
   await expect
@@ -66,17 +71,17 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
   await page.mouse.click(vp.width / 2 - scale, vp.height / 2 - scale);
   await expect
     .poll(async () => (await page.request.get("/v1/world").then((r) => r.json())).blocks)
-    .toEqual([{ x: 30, y: 30, block: "stone" }]);
+    .toEqual([{ x: x - 1, y: y - 1, block: "stone" }]);
 
   // Set a hearth where we stand, step away, and come home.
   await page.click('[data-block="hearth"]');
   await settleCamera(page);
   await page.mouse.click(vp.width / 2, vp.height / 2);
-  await expect.poll(async () => (await me()).hearth).toEqual({ x: 31, y: 31 });
+  await expect.poll(async () => (await me()).hearth).toEqual({ x, y });
   await page.click('[data-dir="e"]');
-  await expect.poll(async () => (await me()).x).toBe(32);
+  await expect.poll(async () => (await me()).x).toBe(x + 1);
   await page.click("#home");
-  await expect.poll(async () => [(await me()).x, (await me()).y]).toEqual([31, 31]);
+  await expect.poll(async () => [(await me()).x, (await me()).y]).toEqual([x, y]);
   await page.screenshot({ path: "test-results/hearth.png" });
 
   // Chat that looks like HTML must render as text.

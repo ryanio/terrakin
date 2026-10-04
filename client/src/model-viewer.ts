@@ -7,6 +7,7 @@ import {
   Box3,
   DirectionalLight,
   HemisphereLight,
+  LoadingManager,
   type Material,
   Mesh,
   type Object3D,
@@ -19,6 +20,7 @@ import {
 } from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { isModelResource } from "./format";
 
 export interface ModelViewerOptions {
   onLoaded?(): void;
@@ -81,7 +83,12 @@ export function showModel(host: HTMLElement, url: string, options: ModelViewerOp
   };
   tick();
 
-  new GLTFLoader().load(
+  // A .glb can point at other files (buffers, textures) by URL. Only inline data, the loader's own
+  // blobs, and our own media may load; anything else becomes an empty data URL and fails quietly.
+  const manager = new LoadingManager();
+  manager.setURLModifier((u) => (isModelResource(u, location.origin) ? u : "data:,"));
+
+  new GLTFLoader(manager).load(
     url,
     (gltf) => {
       if (disposed) {

@@ -1,6 +1,15 @@
 import type { MediaView, PostView } from "@terrakin/protocol";
 import { describe, expect, it } from "vitest";
-import { clampAspect, countNew, initial, mediaLayout, plural, relativeTime } from "./format";
+import {
+  clampAspect,
+  countNew,
+  initial,
+  isMediaUrl,
+  isModelResource,
+  mediaLayout,
+  plural,
+  relativeTime,
+} from "./format";
 import { isAppLink, matchRoute, routeTemplate } from "./router";
 import { filterBreadcrumb, scrubEvent, templateIds } from "./telemetry";
 
@@ -71,6 +80,43 @@ describe("media grid", () => {
     const five = mediaLayout(media(5));
     expect(five.layout).toBe("quad");
     expect(five.items).toHaveLength(4);
+  });
+
+  it("accepts only media URLs shaped exactly like the server's", () => {
+    expect(isMediaUrl("/media/m_0123456789abcdef")).toBe(true);
+    for (const bad of [
+      "javascript:alert(1)",
+      "//evil.example/media/m_0123456789abcdef",
+      "https://evil.example/media/m_0123456789abcdef",
+      "/media/../x",
+      "/media/m_0123456789abcdef/../../x",
+      "/media/m_0123456789ABCDEF",
+      "/media/m_0123456789abcdef?x=1",
+      "data:image/png;base64,AAAA",
+      "",
+      null,
+      undefined,
+    ]) {
+      expect(isMediaUrl(bad)).toBe(false);
+    }
+  });
+
+  it("lets the model loader fetch only inline data, blobs, and our own media", () => {
+    const origin = "https://terrakin.org";
+    expect(isModelResource("/media/m_0123456789abcdef", origin)).toBe(true);
+    expect(isModelResource("https://terrakin.org/media/m_0123456789abcdef", origin)).toBe(true);
+    expect(isModelResource("data:application/octet-stream;base64,AAAA", origin)).toBe(true);
+    expect(isModelResource("blob:https://terrakin.org/3f2a", origin)).toBe(true);
+    for (const bad of [
+      "https://evil.example/media/m_0123456789abcdef",
+      "//evil.example/texture.png",
+      "https://terrakin.org/media/texture.png",
+      "https://terrakin.org/v1/feed",
+      "https://terrakin.org/media/m_0123456789abcdef?track=1",
+      "javascript:alert(1)",
+    ]) {
+      expect(isModelResource(bad, origin)).toBe(false);
+    }
   });
 
   it("keeps a lone image between a gentle portrait and a wide banner", () => {

@@ -52,6 +52,7 @@ export class Connection {
   private retry = 0;
   private identity: Identity;
   private closed = false;
+  private reconnect: ReturnType<typeof setTimeout> | undefined;
 
   constructor(
     identity: Identity,
@@ -70,12 +71,17 @@ export class Connection {
     return id;
   }
 
+  /** Close for good: no reconnect, including one already waiting to fire. */
   close() {
     this.closed = true;
+    clearTimeout(this.reconnect);
+    this.reconnect = undefined;
     this.ws?.close();
   }
 
   private open() {
+    this.reconnect = undefined;
+    if (this.closed) return;
     this.onStatus("connecting");
     const proto = location.protocol === "https:" ? "wss" : "ws";
     const ws = new WebSocket(`${proto}://${location.host}/v1/live`);
@@ -109,7 +115,7 @@ export class Connection {
       this.onStatus("offline");
       if (this.closed) return;
       const delay = Math.min(10_000, 500 * 2 ** this.retry++);
-      setTimeout(() => this.open(), delay);
+      this.reconnect = setTimeout(() => this.open(), delay);
     });
   }
 }

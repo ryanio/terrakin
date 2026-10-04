@@ -5,7 +5,6 @@ import {
   aroundNow,
   arrangeWall,
   hourlyCounts,
-  interleave,
   namesLine,
   phaseName,
   pickGallery,
@@ -152,21 +151,6 @@ describe("arranging the wall", () => {
       "real1",
     ]);
     expect(announceable(posts.slice(0, 2), "fill", known)).toHaveLength(2);
-  });
-});
-
-describe("interleave", () => {
-  it("puts extras at their slots, or at the end of a short list", () => {
-    expect(interleave(["a", "b", "c", "d"], ["X", "Y"], [1, 3])).toEqual([
-      "a",
-      "X",
-      "b",
-      "Y",
-      "c",
-      "d",
-    ]);
-    expect(interleave(["a"], ["X", "Y"], [1, 3])).toEqual(["a", "X", "Y"]);
-    expect(interleave([], ["X"], [1])).toEqual(["X"]);
   });
 });
 

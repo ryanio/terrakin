@@ -5,7 +5,7 @@
  */
 import type { PostView, TownResponse, WorldSnapshot } from "@terrakin/protocol";
 import { h, icon } from "./dom";
-import { compactCount, plural } from "./format";
+import { compactCount, fullDate, plural, relativeTime } from "./format";
 import { avatarEl, postPath, profilePath, TOWNSFOLK_ABOUT, townsfolkBadge } from "./post-card";
 import { type PulseStats, phaseName, type WallItem } from "./pulse";
 import { dayPhase, nightAmount } from "./time";
@@ -100,6 +100,76 @@ export function statsCard() {
       // Say so plainly while townsfolk are doing a lot of the talking.
       fill.hidden = !(stats.townsfolk > 0 && stats.online < 6);
       fill.textContent = `Plus ${stats.townsfolk} townsfolk, run by the Terrakin team, who keep the place warm until more neighbors arrive.`;
+    },
+  };
+}
+
+// ---------- live activity ----------
+
+type Person = Parameters<typeof avatarEl>[0];
+
+export interface ActivityEntry {
+  /** Stable, so the same event never shows twice. */
+  key: string;
+  who: Person;
+  /** Shown in gradient, usually the name. */
+  lead: string;
+  rest: string;
+  href: string;
+  at: string;
+  tone: "post" | "join" | "home" | "town";
+}
+
+const ACTIVITY_MAX = 8;
+
+/** A running timeline of what just happened in town, newest on top. */
+export function activityCard() {
+  const list = h("ol", { class: "activity-list" });
+  const seen = new Set<string>();
+  const el = pulseShell(
+    "pulse-activity",
+    "Live activity",
+    h(
+      "p",
+      { class: "eyebrow pulse-eyebrow" },
+      h("span", { class: "live-dot", attrs: { "aria-hidden": "true" } }),
+      "Live",
+    ),
+    h("h2", { class: "pulse-title", text: "Happening now" }),
+    list,
+  );
+  const row = (e: ActivityEntry, fresh: boolean) =>
+    h(
+      "li",
+      { class: `activity-row tone-${e.tone}${fresh ? " arrive" : ""}` },
+      h(
+        "a",
+        { class: "activity-link", attrs: { href: e.href } },
+        avatarEl(e.who, "sm"),
+        h(
+          "span",
+          { class: "activity-text" },
+          h("span", { class: "activity-lead", text: e.lead }),
+          ` ${e.rest}`,
+        ),
+        h("time", {
+          class: "activity-time",
+          attrs: { datetime: e.at, title: fullDate(e.at), "data-rel": e.at },
+          text: relativeTime(e.at, Date.now()),
+        }),
+      ),
+    );
+  return {
+    el,
+    /** Add entries, newest first. `fresh` ones arrive with a glow. */
+    add(entries: ActivityEntry[], fresh = false) {
+      const added = entries.filter((e) => !seen.has(e.key));
+      if (added.length === 0) return;
+      for (const e of added) seen.add(e.key);
+      if (fresh) list.prepend(...added.map((e) => row(e, true)));
+      else list.append(...added.map((e) => row(e, false)));
+      while (list.children.length > ACTIVITY_MAX) list.lastElementChild?.remove();
+      el.hidden = false;
     },
   };
 }
@@ -297,7 +367,7 @@ export function townCard() {
 export function galleryCard() {
   const grid = h("div", { class: "mosaic" });
   const el = pulseShell(
-    "pulse-gallery wide",
+    "pulse-gallery",
     "Recent pictures",
     h("p", { class: "eyebrow pulse-eyebrow" }, icon("image", "icon pulse-icon"), "Recent pictures"),
     grid,

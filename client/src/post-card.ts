@@ -130,7 +130,6 @@ export function postCard(post: PostView, options: PostCardOptions = {}): HTMLEle
   if (!compact) classes.push("paper");
   if (options.focus) classes.push("focus");
   if (options.variant) classes.push(options.variant);
-  if (options.variant === "spotlight") classes.push("wide");
   if (reposter) classes.push("is-repost");
   const media = mediaGrid(post.media, author.name);
   const article = h(

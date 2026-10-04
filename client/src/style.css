@@ -5820,16 +5820,27 @@ html.view3d-open body {
   }
 }
 
-/* ---------- the home wall: full width, mixed cards, live notices ----------
- * `.wall` is the feed under the hero. `.wall-grid` is a CSS grid; with more than one column
- * `masonry.ts` adds `.masonry` and sets each card's row span from its height (rows are 8px).
+/* ---------- the home wall: a main column of posts and a sidebar of the town's pulse ----------
+ * Below 1000px there is one column and the pulse cards sit among the posts (`placePulse` in
+ * feed-view.ts). From 1000px the sidebar holds them and stays in view while the posts scroll.
  */
 
 .wall {
   width: 100%;
-  max-width: 1680px;
+  max-width: 1240px;
   margin-inline: auto;
   padding-inline: max(16px, env(safe-area-inset-left)) max(16px, env(safe-area-inset-right));
+}
+
+.wall-main {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  min-width: 0;
+}
+
+.wall-side:empty {
+  display: none;
 }
 
 .wall-top {
@@ -5837,8 +5848,35 @@ html.view3d-open body {
   gap: 12px;
 }
 
-.wall-top .composer-slot {
-  max-width: 720px;
+.wall-title {
+  margin: 8px 4px 0;
+  font-family: var(--font-display);
+  font-size: clamp(28px, 5vw, 40px);
+  font-weight: 650;
+  line-height: 1.05;
+  font-variation-settings:
+    "opsz" 72,
+    "SOFT" 100,
+    "WONK" 1;
+  background: linear-gradient(
+    100deg,
+    var(--clay-deep) 0%,
+    var(--clay) 30%,
+    #e0913a 50%,
+    var(--clay) 70%,
+    var(--clay-deep) 100%
+  );
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: title-shimmer 9s ease-in-out infinite;
+}
+
+@keyframes title-shimmer {
+  50% {
+    background-position: 100% 0;
+  }
 }
 
 .wall-head {
@@ -5862,10 +5900,14 @@ html.view3d-open body {
   align-items: center;
   gap: 8px;
   margin: 0 4px 0 0;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(143, 179, 106, 0.16);
   font-size: 12px;
   font-weight: 750;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
+  white-space: nowrap;
   color: var(--moss);
 }
 
@@ -5889,29 +5931,15 @@ html.view3d-open body {
 }
 
 .wall-grid {
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr));
-  column-gap: 14px;
-  row-gap: 12px;
-  align-items: start;
+  gap: 14px;
 }
 
 .wall-grid > * {
-  align-self: start;
   min-width: 0;
 }
 
-.wall-grid.masonry {
-  grid-auto-rows: 8px;
-  grid-auto-flow: row dense;
-  row-gap: 0;
-}
-
-.wall-grid.masonry > .wide {
-  grid-column: span 2;
-}
-
 /* New cards arrive with a warm glow that fades. */
-.wall-grid > .arrive {
+.arrive {
   animation: arrive 1.4s cubic-bezier(0.2, 0.9, 0.25, 1) both;
 }
 
@@ -5931,6 +5959,138 @@ html.view3d-open body {
   100% {
     box-shadow: var(--shadow-paper);
   }
+}
+
+@media (min-width: 1000px) {
+  .wall {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    column-gap: 28px;
+    align-items: start;
+  }
+
+  .wall-side {
+    position: sticky;
+    top: calc(84px + env(safe-area-inset-top));
+    display: grid;
+    grid-auto-rows: max-content;
+    gap: 14px;
+    max-height: calc(100dvh - 100px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 4px 4px 12px;
+    margin: -4px;
+    scrollbar-width: none;
+  }
+
+  .wall-side::-webkit-scrollbar {
+    display: none;
+  }
+
+  .wall-side .pulse-sky {
+    min-height: 210px;
+  }
+}
+
+/* ---------- live activity timeline ---------- */
+
+.activity-list {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The line the timeline hangs on. */
+.activity-list::before {
+  content: "";
+  position: absolute;
+  top: 14px;
+  bottom: 14px;
+  left: 13px;
+  width: 2px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, var(--sun), var(--dusk) 60%, transparent);
+  opacity: 0.6;
+}
+
+.activity-row {
+  position: relative;
+  border-radius: 12px;
+}
+
+.activity-row.arrive {
+  animation: activity-in 1.6s cubic-bezier(0.2, 0.9, 0.25, 1) both;
+}
+
+@keyframes activity-in {
+  0% {
+    opacity: 0;
+    transform: translateX(-10px);
+    background: rgba(242, 184, 75, 0.35);
+  }
+  25% {
+    opacity: 1;
+    transform: none;
+    background: rgba(242, 184, 75, 0.28);
+  }
+}
+
+.activity-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 4px 6px 4px 0;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.activity-link .avatar {
+  flex: none;
+  position: relative;
+  box-shadow: 0 0 0 3px var(--paper);
+}
+
+.activity-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 14.5px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activity-lead {
+  font-weight: 750;
+  background: linear-gradient(90deg, var(--clay-deep), var(--clay));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.tone-join .activity-lead {
+  background-image: linear-gradient(90deg, #4c7a32, var(--moss));
+}
+
+.tone-town .activity-lead {
+  background-image: linear-gradient(90deg, #6b4fa8, #9b6fd0);
+}
+
+.activity-time {
+  flex: none;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+}
+
+.activity-link:hover .activity-text {
+  text-decoration: underline;
+  text-decoration-color: var(--paper-edge);
+  text-underline-offset: 3px;
 }
 
 /* ---------- post formats on the wall ---------- */
@@ -6733,10 +6893,6 @@ html.view3d-open body {
 
   .wall-head .feed-tabs {
     flex: none;
-  }
-
-  .wall-grid {
-    column-gap: 16px;
   }
 
   .post.spotlight > .media-grid:first-child {

@@ -10,7 +10,6 @@ import { type Composer, composer } from "./composer";
 import { h, icon } from "./dom";
 import { countNew } from "./format";
 import { clearLiveToasts, liveToast, liveToastHost, snippet } from "./live-toast";
-import { masonry } from "./masonry";
 import { savedToken } from "./net";
 import { postCard, postPath, profilePath, refreshTimes, skeletonCards } from "./post-card";
 import { promptAt } from "./prompts";
@@ -19,7 +18,6 @@ import {
   aroundNow,
   arrangeWall,
   hourlyCounts,
-  interleave,
   namesLine,
   PULSE_SLOTS,
   pickGallery,
@@ -31,6 +29,8 @@ import {
   worldNews,
 } from "./pulse";
 import {
+  type ActivityEntry,
+  activityCard,
   aroundCard,
   burstCard,
   galleryCard,
@@ -366,12 +366,16 @@ export function feedView(ctx: ViewContext): View {
   cache.set(ctx.key, state);
   while (cache.size > 8) cache.delete(cache.keys().next().value ?? "");
 
-  // The hero keeps its own width; the wall below takes the whole screen.
+  // The hero keeps its own width. Below it, the wall: posts in the main column, and the town's
+  // pulse in a sidebar on wide screens (woven into the posts on a phone).
   const el = h("div", { class: "home" });
   const feed = h("div", {
     class: "page feed wall",
     attrs: { id: "feed", tabindex: -1 },
   });
+  const main = h("div", { class: "wall-main" });
+  const side = h("aside", { class: "wall-side", attrs: { "aria-label": "Around town" } });
+  feed.append(main, side);
   const hero = homeHero(feed);
   el.append(hero.el, feed);
   // The top bar's Join pill links to "/#join": bring the get-started cards into view.
@@ -389,11 +393,12 @@ export function feedView(ctx: ViewContext): View {
     attrs: { role: "tablist", "aria-label": "Which posts" },
   });
   const tabButtons = new Map<Tab, HTMLButtonElement>();
+  const liveCount = h("span", { text: "Live" });
   const live = h(
     "p",
     { class: "wall-live" },
     h("span", { class: "live-dot", attrs: { "aria-hidden": "true" } }),
-    h("span", { text: "Live" }),
+    liveCount,
   );
   const wallHead = h("div", { class: "wall-head" });
   if (hasToken) {
@@ -417,7 +422,15 @@ export function feedView(ctx: ViewContext): View {
 
   // Composer, once we know who you are.
   const composerSlot = h("div", { class: "composer-slot" });
-  feed.append(h("div", { class: "wall-top" }, wallHead, composerSlot));
+  main.append(
+    h(
+      "div",
+      { class: "wall-top" },
+      h("h2", { class: "wall-title", text: "Fresh from the town" }),
+      wallHead,
+      composerSlot,
+    ),
+  );
   let writer: Composer | undefined;
   void myProfile().then((me) => {
     if (!me || destroyed) return;
@@ -461,8 +474,7 @@ export function feedView(ctx: ViewContext): View {
     on: { click: () => void loadMore() },
   });
   const end = h("p", { class: "feed-end", attrs: { hidden: true }, text: "You're all caught up." });
-  feed.append(pillWrap, list, empty, h("div", { class: "feed-foot" }, more, end));
-  const layout = masonry(list);
+  main.append(pillWrap, list, empty, h("div", { class: "feed-foot" }, more, end));
   liveToastHost();
 
   let destroyed = false;
@@ -480,7 +492,62 @@ export function feedView(ctx: ViewContext): View {
   const sky = skyCard();
   const town = townCard();
   const gallery = galleryCard();
-  const pulseEls = [stats.el, gallery.el, around.el, town.el, sky.el];
+  const activity = activityCard();
+  const pulseEls = [stats.el, activity.el, gallery.el, around.el, town.el, sky.el];
+  const wide = window.matchMedia("(min-width: 1000px)");
+
+  /**
+   * Where the pulse cards go: the sidebar on a wide screen, or among the posts on a phone. Only
+   * the pulse cards move, so posts keep their place and their animations.
+   */
+  function placePulse() {
+    const show = state.tab === "everyone";
+    for (const card of pulseEls) card.remove();
+    if (wide.matches) {
+      if (show) side.prepend(...pulseEls);
+    } else if (show) {
+      PULSE_SLOTS.forEach((slot, i) => {
+        const card = pulseEls[i];
+        if (card) list.insertBefore(card, list.children[slot] ?? null);
+      });
+    }
+    placeRoll();
+  }
+
+  /** The townsfolk card sits last in the sidebar on a wide screen, and among the posts otherwise. */
+  function placeRoll() {
+    if (!roll) return;
+    if (wide.matches) side.append(roll.el);
+    else if (roll.el.parentElement !== list) list.insertBefore(roll.el, list.children[3] ?? null);
+  }
+  wide.addEventListener("change", placePulse);
+
+  // ---------- live activity ----------
+
+  const postEntry = (p: PostView): ActivityEntry =>
+    p.repostedBy
+      ? {
+          key: `r:${p.id}:${p.repostedBy.id}`,
+          who: p.repostedBy,
+          lead: p.repostedBy.name,
+          rest: `reposted ${p.author.name}`,
+          href: postPath(p.id),
+          at: p.repostedAt ?? p.createdAt,
+          tone: "post",
+        }
+      : {
+          key: `p:${p.id}`,
+          who: p.author,
+          lead: p.author.name,
+          rest: p.media.some((m) => m.kind === "image") ? "shared a picture" : "posted",
+          href: postPath(p.id),
+          at: p.createdAt,
+          tone: "post",
+        };
+
+  /** Posts as timeline entries, leaving out townsfolk once real residents carry the page. */
+  const postEntries = (posts: PostView[]) =>
+    announceable(posts, state.mode, known()).map(postEntry);
 
   const known = () => townsfolkIds(pulse.world, state.posts);
 
@@ -501,6 +568,7 @@ export function feedView(ctx: ViewContext): View {
       );
       const a = aroundNow(world, ids);
       around.update(a.shown, a.more, ids);
+      liveCount.textContent = s.online > 0 ? `Live · ${s.online} around` : "Live";
       sky.update(world, s.online);
     }
     if (pulse.town) town.update(pulse.town);
@@ -535,6 +603,19 @@ export function feedView(ctx: ViewContext): View {
         const people = news.filter((n) => n.kind === g.kind).map((n) => n.resident);
         const first = people[0];
         if (!first) continue;
+        const at = new Date().toISOString();
+        activity.add(
+          people.map((r) => ({
+            key: `${g.kind}:${r.id}`,
+            who: { ...r, avatar: null },
+            lead: r.name,
+            rest: g.rest.replace("just ", ""),
+            href: profilePath(r.id),
+            at,
+            tone: g.tone,
+          })),
+          true,
+        );
         liveToast({
           people: people.map((r) => ({ ...r, avatar: null })),
           lead: namesLine(people.map((r) => r.name)),
@@ -547,6 +628,20 @@ export function feedView(ctx: ViewContext): View {
     if (townBefore && pulse.town) {
       const had = new Set(townBefore.open.map((p) => p.id));
       for (const p of pulse.town.open.filter((p) => !had.has(p.id)).slice(0, 2)) {
+        activity.add(
+          [
+            {
+              key: `v:${p.id}`,
+              who: p.author,
+              lead: p.author.name,
+              rest: `opened a vote: ${snippet(p.title, 60)}`,
+              href: "/town",
+              at: new Date().toISOString(),
+              tone: "town",
+            },
+          ],
+          true,
+        );
         liveToast({
           people: [p.author],
           lead: "New vote",
@@ -589,7 +684,15 @@ export function feedView(ctx: ViewContext): View {
         node = roll.el;
       } else if (item.kind === "burst") node = burstCard(item, card);
       else node = card(item.post, item.format === "plain" ? undefined : item.format);
-      if (arrive) node.classList.add("arrive");
+      if (arrive) {
+        node.classList.add("arrive");
+        const done = (e: AnimationEvent) => {
+          if (e.target !== node) return;
+          node.classList.remove("arrive");
+          node.removeEventListener("animationend", done);
+        };
+        node.addEventListener("animationend", done);
+      }
       out.push(node);
     }
     return out;
@@ -598,9 +701,9 @@ export function feedView(ctx: ViewContext): View {
   /** The whole list from `state.posts`, with the pulse cards in their slots on Everyone. */
   function paintAll() {
     roll = undefined;
-    const items = render(arrangeWall(state.posts, state.mode, known()));
-    const extras = state.tab === "everyone" ? pulseEls : [];
-    list.replaceChildren(...interleave(items, extras, PULSE_SLOTS));
+    list.replaceChildren(...render(arrangeWall(state.posts, state.mode, known())));
+    placePulse();
+    activity.add(postEntries(state.posts.slice(0, 6)));
     paintPulse();
   }
 
@@ -661,6 +764,7 @@ export function feedView(ctx: ViewContext): View {
     state.posts.push(...added);
     state.next = r.data.next;
     list.append(...render(arrangeWall(added, state.mode, known())));
+    placeRoll();
     paintFoot();
     paintPulse();
   }
@@ -720,9 +824,10 @@ export function feedView(ctx: ViewContext): View {
     const gen = generation;
     const r = await api.feed({ following: state.tab === "following" });
     if (destroyed || gen !== generation || !r.ok) return;
-    refreshTimes(list);
+    refreshTimes(feed);
     fresh = countNew(state.posts, r.data.posts);
     freshPage = r.data;
+    activity.add(postEntries(fresh), true);
     if (fresh.length === 0) {
       newPill.hidden = true;
       return;
@@ -750,7 +855,17 @@ export function feedView(ctx: ViewContext): View {
       paintAll();
     } else {
       state.posts.unshift(...fresh);
-      const items = arrangeWall(fresh, state.mode, known());
+      // New posts are arranged on their own, so don't let the last one repeat the format of the
+      // card it lands on top of (two big quotes in a row, say).
+      const below = list.querySelector(":scope > .post");
+      const items = arrangeWall(fresh, state.mode, known()).map((item, i, all) =>
+        i === all.length - 1 &&
+        item.kind === "post" &&
+        (item.format === "quote" || item.format === "spotlight") &&
+        below?.classList.contains(item.format)
+          ? { ...item, format: "plain" as const }
+          : item,
+      );
       list.prepend(
         ...render(
           items.filter((i) => i.kind !== "townsfolk"),
@@ -766,6 +881,7 @@ export function feedView(ctx: ViewContext): View {
           roll = townsfolkCard(item, card);
           roll.el.classList.add("arrive");
           list.insertBefore(roll.el, list.children[3] ?? null);
+          placeRoll();
         }
       }
       paintPulse();
@@ -812,7 +928,7 @@ export function feedView(ctx: ViewContext): View {
       hero.destroy();
       writer?.destroy();
       sky.destroy();
-      layout.destroy();
+      wide.removeEventListener("change", placePulse);
       clearLiveToasts();
       clearInterval(timer);
       clearInterval(pulseTimer);

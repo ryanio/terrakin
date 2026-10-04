@@ -141,22 +141,8 @@ export function arrangeWall(
   return items;
 }
 
-/** Which item positions the pulse cards take, in order, on the first page. */
-export const PULSE_SLOTS = [1, 3, 6, 9, 12] as const;
-
-/** Put each extra card at its slot among `items`, or at the end when the list is shorter. */
-export function interleave<T>(
-  items: readonly T[],
-  extras: readonly T[],
-  slots: readonly number[],
-): T[] {
-  const out = [...items];
-  extras.forEach((extra, i) => {
-    const slot = slots[i] ?? out.length;
-    out.splice(Math.min(slot, out.length), 0, extra);
-  });
-  return out;
-}
+/** Where the pulse cards sit among the posts on a phone, in order. */
+export const PULSE_SLOTS = [1, 3, 6, 9, 12, 15] as const;
 
 /** The townsfolk ids a snapshot names, plus any learned from post authors. */
 export function townsfolkIds(

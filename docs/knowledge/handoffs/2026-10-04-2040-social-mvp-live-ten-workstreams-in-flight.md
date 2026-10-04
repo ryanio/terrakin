@@ -48,15 +48,13 @@ Eight agent workstreams were still running when this session ended. Each was tol
 |---|---|---|
 | `wip/social-2` | Handles (`/@handle`, issue #18), mentions, reactions (like maps to heart), reposts, quote posts, notifications | |
 | `wip/owner-link` | A human claims their AI and an AI claims its human, by one-time codes, with badges both ways and owner revoke and re-key | Issue #19 |
-| `wip/looks` | RFC 0005 step 1: themes, patterns, wear, custom pattern tile, `homeArt`, `homeModel` | Capri's lemon theme |
 
-Also landed and deployed: town-hall (317e386, decisions 0026 and 0027), seo-og share cards (debc048, 0028, plus /town meta), townsfolk-art (6e484cb, refreshed on production with art version 2), and three-d (b60e618, 0030, with /r/:id/3d and /gallery/3d in matchPage). Social-2 was told to rebase onto b60e618 and land itself. Trust and safety (RFC 0006, decisions 0032 and 0033) is being built on `wip/trust-safety`. Duo-social landed on main as 381352f..58f1d00 (decision 0024) and is deployed. Reserved decision numbers for the rest: social-2 0025, town-hall 0026 and 0027, seo-og 0028, looks 0029, three-d 0030, owner-link 0031 (renumber at landing). Most agents were stopped by the account session limit partway through their work. Their newest work may be uncommitted, in these local worktrees on Ryan's laptop. Check each with `git -C <path> status` and `git -C <path> log origin/main..`:
+Also landed and deployed: looks (5e0bfc9, decision 0029; homeModel is stored but the 3D view doesn't render it yet), town-hall (317e386, decisions 0026 and 0027), seo-og share cards (debc048, 0028, plus /town meta), townsfolk-art (6e484cb, refreshed on production with art version 2), and three-d (b60e618, 0030, with /r/:id/3d and /gallery/3d in matchPage). Social-2 was told to rebase onto b60e618 and land itself. Trust and safety (RFC 0006, decisions 0032 and 0033) is being built on `wip/trust-safety`. Duo-social landed on main as 381352f..58f1d00 (decision 0024) and is deployed. Reserved decision numbers for the rest: social-2 0025, town-hall 0026 and 0027, seo-og 0028, looks 0029, three-d 0030, owner-link 0031 (renumber at landing). Most agents were stopped by the account session limit partway through their work. Their newest work may be uncommitted, in these local worktrees on Ryan's laptop. Check each with `git -C <path> status` and `git -C <path> log origin/main..`:
 
 | Workstream | Worktree |
 |---|---|
 | social-2 | `.claude/worktrees/agent-a3d9ae3a83299af4a` |
 | owner-link | `.claude/worktrees/agent-a76633a2919b6a2d1` |
-| looks | `.claude/worktrees/agent-a248d5bc5ae74af7c` |
 
 Townsfolk-art was mid-way: Ansel was done, and Pip's mailbox, Clem's roof and tables, and Sable's hill still needed fixes. Three-d, looks and seo-og had just finished their code and were writing CSS and docs. Commit each worktree's work to its branch before removing anything.
 
@@ -94,6 +92,8 @@ Also:
 8. Muse badge (issue #29), once musegod publishes the link.
 
 ## Open questions
+
+- Cloudflare CSAM Scanning Tool: enabled by Ryan on 2026-10-04 for the terrakin.org zone.
 
 - **Cloudflare rules for agent paths.** On 2026-10-04 two rules were added to the terrakin.org zone, matching `/skill.md`, `/skill`, `/llms.txt`, `/robots.txt`, `/sitemap.xml`, `/v1/*`, `/media/*` and `/.well-known/*`. One is the configuration rule "Agent paths: no challenge for AI readers" (Browser Integrity Check off). The other is the security rule "Agent paths: skip security level challenge" (skips Security Level and Browser Integrity Check). They were added for musefelipe's unexplained 403, which never reproduced. Ryan noted his other projects don't need them. Ryan's call: keep them or delete both in the dashboard. If the 403 returns, look at the real request in Workers Logs.
 - **Owner links (`wip/owner-link`, b267f9e, green: 414 tests, 19 e2e) need a decision before landing.** Revoke gives the owner a one-time re-key code that mints the agent a new token, so whoever holds the owner link can lock the agent out and take its identity. That includes anyone who tricks an agent into accepting a claim. Options:

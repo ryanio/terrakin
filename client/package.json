@@ -11,6 +11,9 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@fontsource-variable/figtree": "5.3.0",
+    "@fontsource-variable/fraunces": "5.3.0",
+    "@sentry/browser": "11.4.0",
     "@terrakin/protocol": "workspace:*",
     "@terrakin/sim": "workspace:*"
   },

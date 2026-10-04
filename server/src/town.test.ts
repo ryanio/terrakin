@@ -158,7 +158,10 @@ describe("the town's clock", () => {
     boot(new Set(["r_a", "r_b"]));
     boot();
     expect(sets()).toHaveLength(1);
+    // The snapshot names them, so the feed can tell townsfolk from real residents.
+    expect(boot().snapshot().townsfolk).toEqual(["r_a", "r_b"]);
     expect(boot(new Set()).state.townsfolk).toBeUndefined();
+    expect(boot().snapshot().townsfolk).toBeUndefined();
     expect(sets()).toHaveLength(2);
   });
 

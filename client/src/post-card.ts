@@ -97,11 +97,19 @@ export interface PostCardOptions {
   inThread?: boolean;
   /** Called after a like settles, so other views can keep their copy in step. */
   onChange?(post: PostView): void;
+  /**
+   * How the home wall shows it: `spotlight` a wide card led by its picture, `quote` short text set
+   * large on the author's color, `hot` the most talked-about post, `compact` a row inside a rollup.
+   */
+  variant?: "spotlight" | "quote" | "hot" | "compact";
 }
 
 /** Long posts fold in the feed past this many characters or lines. */
 const FOLD_CHARS = 520;
 const FOLD_LINES = 9;
+/** Rows inside a rollup fold sooner. */
+const COMPACT_FOLD_CHARS = 220;
+const COMPACT_FOLD_LINES = 4;
 
 export function postCard(post: PostView, options: PostCardOptions = {}): HTMLElement {
   const { author } = post;
@@ -138,8 +146,11 @@ export function postCard(post: PostView, options: PostCardOptions = {}): HTMLEle
 
   const text = h("p", { class: "post-text", text: post.text });
   const lines = post.text.split("\n").length;
+  const compact = options.variant === "compact";
+  const foldChars = compact ? COMPACT_FOLD_CHARS : FOLD_CHARS;
+  const foldLines = compact ? COMPACT_FOLD_LINES : FOLD_LINES;
   let more: HTMLElement | null = null;
-  if (!options.focus && (post.text.length > FOLD_CHARS || lines > FOLD_LINES)) {
+  if (!options.focus && (post.text.length > foldChars || lines > foldLines)) {
     text.classList.add("folded");
     more = h("button", {
       class: "post-more",
@@ -165,19 +176,40 @@ export function postCard(post: PostView, options: PostCardOptions = {}): HTMLEle
         )
       : null;
 
+  const classes = ["post"];
+  if (!compact) classes.push("paper");
+  if (options.focus) classes.push("focus");
+  if (options.variant) classes.push(options.variant);
+  if (options.variant === "spotlight") classes.push("wide");
+  const media = mediaGrid(post.media, author.name);
   const article = h(
     "article",
     {
-      class: `post paper${options.focus ? " focus" : ""}`,
+      class: classes.join(" "),
       attrs: { "aria-label": `Post by ${author.name}`, "data-post": post.id },
     },
+    options.variant === "hot"
+      ? h(
+          "p",
+          { class: "post-flag" },
+          icon("sparkle", "icon post-flag-icon"),
+          h("span", { class: "post-flag-text", text: "Most talked about" }),
+        )
+      : null,
+    // A spotlight leads with its picture; everything else reads top down.
+    options.variant === "spotlight" ? media : null,
     head,
     context,
+    options.variant === "quote"
+      ? h("span", { class: "quote-mark" }, icon("quote", "icon quote-icon"))
+      : null,
     text,
     more,
-    mediaGrid(post.media, author.name),
+    options.variant === "spotlight" ? null : media,
     actions(post, options),
   );
+  if (options.variant === "quote")
+    article.style.setProperty("--avatar", `var(--resident-${author.color})`);
   return article;
 }
 

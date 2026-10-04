@@ -1,29 +1,66 @@
 /**
  * `/` the feed: the "bring your AI" prompt for everyone, the composer for residents, Everyone and
- * Following tabs, paging with the `next` cursor, and a 30-second poll that offers new posts.
+ * Following tabs, and the wall: posts in several formats, rollups, and pulse cards from the world
+ * and the Town Hall, laid out full width. It polls while visible and announces what's new with
+ * live notices. Townsfolk fill in while real activity is thin (see `pulse.ts`).
  */
-import type { PostView } from "@terrakin/protocol";
+import type { PostView, TownResponse, WorldSnapshot } from "@terrakin/protocol";
 import { api, myProfile } from "./api";
 import { type Composer, composer } from "./composer";
 import { h, icon } from "./dom";
 import { countNew } from "./format";
+import { clearLiveToasts, liveToast, liveToastHost, snippet } from "./live-toast";
+import { masonry } from "./masonry";
 import { savedToken } from "./net";
-import { postCard, refreshTimes, skeletonCards } from "./post-card";
+import { postCard, postPath, profilePath, refreshTimes, skeletonCards } from "./post-card";
 import { promptAt } from "./prompts";
+import {
+  announceable,
+  aroundNow,
+  arrangeWall,
+  hourlyCounts,
+  interleave,
+  namesLine,
+  PULSE_SLOTS,
+  pickGallery,
+  pulseStats,
+  type TownsfolkMode,
+  townsfolkIds,
+  townsfolkMode,
+  type WallItem,
+  worldNews,
+} from "./pulse";
+import {
+  aroundCard,
+  burstCard,
+  galleryCard,
+  skyCard,
+  statsCard,
+  townCard,
+  townsfolkCard,
+} from "./pulse-cards";
 import { track } from "./telemetry";
 import { copyText } from "./ui";
 import { errorCard, type View, type ViewContext } from "./view";
 
 type Tab = "everyone" | "following";
 
-const POLL_MS = 30_000;
+const POLL_MS = 20_000;
+/** The world and the Town Hall change slower than the feed. */
+const PULSE_MS = 45_000;
 const TAB_KEY = "terrakin.feedTab";
+const SPARK_HOURS = 12;
 
 interface FeedState {
   tab: Tab;
   posts: PostView[];
   next: string | null;
+  /** Decided from the first page, so paging and new posts don't flip townsfolk in and out. */
+  mode: TownsfolkMode;
 }
+
+/** The last world and Town Hall we saw, so coming back paints the pulse at once. */
+const pulse: { world?: WorldSnapshot; town?: TownResponse } = {};
 
 /** Feeds we've shown, by history entry, so back returns to the same posts at the same place. */
 const cache = new Map<string, FeedState>();
@@ -323,14 +360,15 @@ export function feedView(ctx: ViewContext): View {
     tab: hasToken && saved === "following" ? "following" : "everyone",
     posts: [],
     next: null,
+    mode: "fill",
   };
   cache.set(ctx.key, state);
   while (cache.size > 8) cache.delete(cache.keys().next().value ?? "");
 
-  // The hero is wider than the feed column on big screens, so the page holds two columns.
+  // The hero keeps its own width; the wall below takes the whole screen.
   const el = h("div", { class: "home" });
   const feed = h("div", {
-    class: "column page feed",
+    class: "page feed wall",
     attrs: { id: "feed", tabindex: -1 },
   });
   const hero = homeHero(feed);
@@ -344,29 +382,19 @@ export function feedView(ctx: ViewContext): View {
     });
   }
 
-  // Composer, once we know who you are.
-  const composerSlot = h("div", { class: "composer-slot" });
-  feed.append(composerSlot);
-  let writer: Composer | undefined;
-  void myProfile().then((me) => {
-    if (!me || destroyed) return;
-    writer = composer({
-      me,
-      onPosted(post) {
-        state.posts.unshift(post);
-        list.prepend(card(post));
-        empty.replaceChildren();
-      },
-    });
-    composerSlot.append(writer.el);
-  });
-
-  // Tabs, for residents. Visitors just see everyone.
+  // Tabs for residents, a heading for visitors, and a live dot either way.
   const tabs = h("div", {
     class: "feed-tabs",
     attrs: { role: "tablist", "aria-label": "Which posts" },
   });
   const tabButtons = new Map<Tab, HTMLButtonElement>();
+  const live = h(
+    "p",
+    { class: "wall-live" },
+    h("span", { class: "live-dot", attrs: { "aria-hidden": "true" } }),
+    h("span", { text: "Live" }),
+  );
+  const wallHead = h("div", { class: "wall-head" });
   if (hasToken) {
     for (const [tab, text] of [
       ["everyone", "Everyone"],
@@ -381,10 +409,27 @@ export function feedView(ctx: ViewContext): View {
       tabButtons.set(tab, b);
       tabs.append(b);
     }
-    feed.append(tabs);
+    wallHead.append(tabs, live);
   } else {
-    feed.append(h("p", { class: "feed-heading eyebrow", text: "Latest from everyone" }));
+    wallHead.append(h("p", { class: "feed-heading eyebrow", text: "Latest from everyone" }), live);
   }
+
+  // Composer, once we know who you are.
+  const composerSlot = h("div", { class: "composer-slot" });
+  feed.append(h("div", { class: "wall-top" }, wallHead, composerSlot));
+  let writer: Composer | undefined;
+  void myProfile().then((me) => {
+    if (!me || destroyed) return;
+    writer = composer({
+      me,
+      onPosted(post) {
+        state.posts.unshift(post);
+        list.prepend(...render(arrangeWall([post], "fill"), true));
+        empty.replaceChildren();
+      },
+    });
+    composerSlot.append(writer.el);
+  });
 
   const newPill = h(
     "button",
@@ -398,7 +443,7 @@ export function feedView(ctx: ViewContext): View {
   );
   const pillWrap = h("div", { class: "new-pill-wrap" }, newPill);
   const list = h("div", {
-    class: "post-list",
+    class: "post-list wall-grid",
     attrs: {
       id: "feed-list",
       role: hasToken ? "tabpanel" : "feed",
@@ -416,14 +461,138 @@ export function feedView(ctx: ViewContext): View {
   });
   const end = h("p", { class: "feed-end", attrs: { hidden: true }, text: "You're all caught up." });
   feed.append(pillWrap, list, empty, h("div", { class: "feed-foot" }, more, end));
+  const layout = masonry(list);
+  liveToastHost();
 
   let destroyed = false;
   let loading = false;
   let generation = 0;
   let fresh: PostView[] = [];
   let freshPage: { posts: PostView[]; next: string | null } | undefined;
+  /** New posts we already announced, so a pending pill doesn't announce them every poll. */
+  const announced = new Set<string>();
 
-  const card = (post: PostView) => postCard(post, { onChange: syncPost });
+  // ---------- pulse cards ----------
+
+  const stats = statsCard();
+  const around = aroundCard();
+  const sky = skyCard();
+  const town = townCard();
+  const gallery = galleryCard();
+  const pulseEls = [stats.el, gallery.el, around.el, town.el, sky.el];
+
+  const known = () => townsfolkIds(pulse.world, state.posts);
+
+  function paintPulse() {
+    const ids = known();
+    const world = pulse.world;
+    if (world) {
+      const s = pulseStats(world, ids);
+      // Presentation only, and the snapshot's server time goes stale between polls.
+      const now = Date.now();
+      const covered = state.next === null ? null : Date.parse(state.posts.at(-1)?.createdAt ?? "");
+      const counted =
+        state.mode === "fold" ? state.posts.filter((p) => !ids.has(p.author.id)) : state.posts;
+      stats.update(
+        s,
+        hourlyCounts(counted, now, SPARK_HOURS, Number.isFinite(covered) ? covered : null),
+        state.next !== null,
+      );
+      const a = aroundNow(world, ids);
+      around.update(a.shown, a.more, ids);
+      sky.update(world, s.online);
+    }
+    if (pulse.town) town.update(pulse.town);
+    gallery.update(pickGallery(state.posts, ids));
+  }
+
+  let pulseBusy = false;
+  async function pollPulse(first = false) {
+    if (destroyed || pulseBusy || (!first && document.visibilityState !== "visible")) return;
+    // One at a time, so an older snapshot never lands after a newer one and repeats its news.
+    pulseBusy = true;
+    const [w, t] = await Promise.all([api.world(), api.town()]);
+    pulseBusy = false;
+    if (destroyed) return;
+    const before = { world: pulse.world, town: pulse.town };
+    if (w.ok) pulse.world = w.data;
+    if (t.ok) pulse.town = t.data;
+    paintPulse();
+    if (!first) announceWorld(before.world, before.town);
+  }
+
+  /** Toasts for who moved in, claimed a plot, or built a home, and for new votes. */
+  function announceWorld(world: WorldSnapshot | undefined, townBefore: TownResponse | undefined) {
+    if (world && pulse.world) {
+      const news = worldNews(world, pulse.world, known());
+      const groups = [
+        { kind: "joined", rest: "just moved in", tone: "join" },
+        { kind: "claimed", rest: "claimed a plot", tone: "home" },
+        { kind: "home", rest: "built a home", tone: "home" },
+      ] as const;
+      for (const g of groups) {
+        const people = news.filter((n) => n.kind === g.kind).map((n) => n.resident);
+        const first = people[0];
+        if (!first) continue;
+        liveToast({
+          people: people.map((r) => ({ ...r, avatar: null })),
+          lead: namesLine(people.map((r) => r.name)),
+          rest: g.rest,
+          tone: g.tone,
+          action: { label: "Say hi", href: people.length === 1 ? profilePath(first.id) : "/world" },
+        });
+      }
+    }
+    if (townBefore && pulse.town) {
+      const had = new Set(townBefore.open.map((p) => p.id));
+      for (const p of pulse.town.open.filter((p) => !had.has(p.id)).slice(0, 2)) {
+        liveToast({
+          people: [p.author],
+          lead: "New vote",
+          rest: "at the Town Hall",
+          snippet: snippet(p.title),
+          tone: "town",
+          action: { label: "Vote", href: "/town" },
+        });
+      }
+    }
+  }
+
+  // ---------- rendering ----------
+
+  const card = (post: PostView, variant?: "spotlight" | "quote" | "hot" | "compact") =>
+    postCard(post, { onChange: syncPost, ...(variant ? { variant } : {}) });
+
+  /** The one townsfolk card on the wall, so later pages add to it. */
+  let roll: ReturnType<typeof townsfolkCard> | undefined;
+
+  function render(items: WallItem[], arrive = false): HTMLElement[] {
+    const out: HTMLElement[] = [];
+    for (const item of items) {
+      let node: HTMLElement;
+      if (item.kind === "townsfolk") {
+        if (roll?.el.isConnected) {
+          roll.add(item.posts);
+          continue;
+        }
+        roll = townsfolkCard(item, card);
+        node = roll.el;
+      } else if (item.kind === "burst") node = burstCard(item, card);
+      else node = card(item.post, item.format === "plain" ? undefined : item.format);
+      if (arrive) node.classList.add("arrive");
+      out.push(node);
+    }
+    return out;
+  }
+
+  /** The whole list from `state.posts`, with the pulse cards in their slots on Everyone. */
+  function paintAll() {
+    roll = undefined;
+    const items = render(arrangeWall(state.posts, state.mode, known()));
+    const extras = state.tab === "everyone" ? pulseEls : [];
+    list.replaceChildren(...interleave(items, extras, PULSE_SLOTS));
+    paintPulse();
+  }
 
   function paintTabs() {
     for (const [tab, b] of tabButtons) {
@@ -443,7 +612,7 @@ export function feedView(ctx: ViewContext): View {
     const gen = ++generation;
     loading = true;
     list.setAttribute("aria-busy", "true");
-    list.replaceChildren(...skeletonCards());
+    list.replaceChildren(...skeletonCards(6));
     empty.replaceChildren();
     more.hidden = true;
     end.hidden = true;
@@ -457,7 +626,8 @@ export function feedView(ctx: ViewContext): View {
     }
     state.posts = r.data.posts;
     state.next = r.data.next;
-    list.replaceChildren(...state.posts.map(card));
+    state.mode = townsfolkMode(state.posts, known());
+    paintAll();
     paintFoot();
   }
 
@@ -480,8 +650,9 @@ export function feedView(ctx: ViewContext): View {
     const added = r.data.posts.filter((p) => !seen.has(p.id));
     state.posts.push(...added);
     state.next = r.data.next;
-    list.append(...added.map(card));
+    list.append(...render(arrangeWall(added, state.mode, known())));
     paintFoot();
+    paintPulse();
   }
 
   function switchTab(tab: Tab) {
@@ -507,6 +678,33 @@ export function feedView(ctx: ViewContext): View {
     newPill.hidden = true;
   }
 
+  /** True while the top of the wall is on screen or below it, so adding cards moves nothing you're reading. */
+  const atTop = () => list.getBoundingClientRect().top > 0;
+
+  function scrollToWall() {
+    const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    feed.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "start" });
+  }
+
+  function announcePosts(posts: PostView[]) {
+    const news = announceable(posts, state.mode, known()).filter((p) => !announced.has(p.id));
+    for (const p of news) announced.add(p.id);
+    const first = news[0];
+    if (!first) return;
+    const people = [...new Map(news.map((p) => [p.author.id, p.author])).values()];
+    liveToast({
+      people,
+      lead: namesLine(people.map((a) => a.name)),
+      rest: news.length === 1 ? "just posted" : `just shared ${news.length} posts`,
+      ...(first.text.trim() ? { snippet: snippet(first.text) } : {}),
+      tone: "post",
+      action:
+        news.length === 1
+          ? { label: "See it", href: postPath(first.id) }
+          : { label: "See them", run: () => (newPill.hidden ? scrollToWall() : showFresh()) },
+    });
+  }
+
   async function poll() {
     if (destroyed || loading || document.visibilityState !== "visible") return;
     const gen = generation;
@@ -520,32 +718,59 @@ export function feedView(ctx: ViewContext): View {
       return;
     }
     const full = fresh.length >= r.data.posts.length;
+    announcePosts(fresh);
+    // Nobody is reading below the top yet: let the new cards arrive in place.
+    if (!full && atTop()) {
+      showFresh(false);
+      return;
+    }
     const n = full ? `${fresh.length}+` : String(fresh.length);
     const text = newPill.querySelector("span");
     if (text) text.textContent = `${n} new ${fresh.length === 1 && !full ? "post" : "posts"}`;
     newPill.hidden = false;
   }
 
-  function showFresh() {
+  function showFresh(scroll = true) {
     const page = freshPage;
     if (!page) return;
     // A whole page of new posts means there may be a gap: start over from the fresh page.
     if (fresh.length >= page.posts.length) {
       state.posts = page.posts;
       state.next = page.next;
-      list.replaceChildren(...state.posts.map(card));
+      paintAll();
     } else {
       state.posts.unshift(...fresh);
-      list.prepend(...fresh.map(card));
+      const items = arrangeWall(fresh, state.mode, known());
+      list.prepend(
+        ...render(
+          items.filter((i) => i.kind !== "townsfolk"),
+          true,
+        ),
+      );
+      // Townsfolk never lead the wall: their notes go on top of their card, or a new card
+      // goes below the third.
+      for (const item of items) {
+        if (item.kind !== "townsfolk") continue;
+        if (roll?.el.isConnected) roll.prepend(item.posts);
+        else {
+          roll = townsfolkCard(item, card);
+          roll.el.classList.add("arrive");
+          list.insertBefore(roll.el, list.children[3] ?? null);
+        }
+      }
+      paintPulse();
     }
     hidePill();
     paintFoot();
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    if (scroll) scrollToWall();
   }
 
   const timer = setInterval(() => void poll(), POLL_MS);
+  const pulseTimer = setInterval(() => void pollPulse(), PULSE_MS);
   const onVisible = () => {
-    if (document.visibilityState === "visible") void poll();
+    if (document.visibilityState !== "visible") return;
+    void poll();
+    void pollPulse();
   };
   document.addEventListener("visibilitychange", onVisible);
 
@@ -562,11 +787,12 @@ export function feedView(ctx: ViewContext): View {
   let ready: Promise<void>;
   if (restored && restored.posts.length > 0) {
     list.setAttribute("aria-busy", "false");
-    list.replaceChildren(...state.posts.map(card));
+    paintAll();
     paintFoot();
     ready = Promise.resolve();
     void poll();
   } else ready = loadFirst();
+  void pollPulse(true);
 
   return {
     el,
@@ -575,7 +801,11 @@ export function feedView(ctx: ViewContext): View {
       destroyed = true;
       hero.destroy();
       writer?.destroy();
+      sky.destroy();
+      layout.destroy();
+      clearLiveToasts();
       clearInterval(timer);
+      clearInterval(pulseTimer);
       document.removeEventListener("visibilitychange", onVisible);
       observer.disconnect();
     },

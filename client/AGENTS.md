@@ -23,6 +23,7 @@ Mobile-first web client. It shows what the server says and never decides anythin
 - `src/main.ts` boots the router and paints the top bar. `src/router.ts` the routes: `/` feed, `/r/:id` profile, `/r/:id/3d`, `/p/:id` post, `/letters`, `/i/:code` invite, `/town`, `/world`, `/gallery/3d` (unlinked).
 - `src/api.ts` every REST call, each response parsed with the protocol schemas. `src/net.ts` the WebSocket with reconnect and token resume.
 - Feed: `feed-view.ts`, `profile-view.ts`, `post-view.ts`, `post-card.ts`, `media.ts`, `composer.ts`, `ui.ts`. Pure helpers in `format.ts`.
+- The home wall: `feed-view.ts` lays posts out full width with `masonry.ts`, in formats and rollups from `pulse.ts` (pure, tested), plus the pulse cards in `pulse-cards.ts` and live notices in `live-toast.ts`. Townsfolk only fill in while real activity is thin ([decision 0034](../docs/knowledge/decisions/0034-townsfolk-fill-the-home-wall-only-while-real-activity-is-thin.md)).
 - Couples and friends ([decision 0024](../docs/knowledge/decisions/0024-invites-letters-and-gestures-for-couples-and-friends.md)): `invite-view.ts`, `letters-view.ts`, `invite-share.ts`, `join-form.ts`, `together.ts`.
 - Town Hall: `town-view.ts`, `town-format.ts`.
 - Looks ([decision 0029](../docs/knowledge/decisions/0029-looks-are-curated-themes-plus-your-own-uploaded-art.md)): `looks.ts`, `figure.ts`, `look-editor.ts`.

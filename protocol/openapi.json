@@ -12376,6 +12376,12 @@
                 "proposal"
               ]
             }
+          },
+          "townsfolk": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [

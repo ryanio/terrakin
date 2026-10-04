@@ -550,6 +550,7 @@ export class WorldService {
             }),
           }
         : {}),
+      ...(state.townsfolk?.length ? { townsfolk: [...state.townsfolk] } : {}),
     };
   }
 }

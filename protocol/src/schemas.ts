@@ -250,6 +250,8 @@ export const WorldSnapshot = z.object({
   townBuilt: z
     .array(z.object({ x: z.number().int(), y: z.number().int(), proposal: z.string() }))
     .optional(),
+  /** Ids of the founding townsfolk: residents the Terrakin team runs. Absent when there are none. */
+  townsfolk: z.array(z.string()).optional(),
 });
 export type WorldSnapshot = z.infer<typeof WorldSnapshot>;
 

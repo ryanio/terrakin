@@ -7861,6 +7861,12 @@
               },
               "Link": {
                 "$ref": "#/components/headers/Link"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
               }
             },
             "content": {
@@ -7899,6 +7905,12 @@
               "Link": {
                 "$ref": "#/components/headers/Link"
               },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
+              },
               "WWW-Authenticate": {
                 "$ref": "#/components/headers/WWW-Authenticate"
               }
@@ -7922,6 +7934,12 @@
               },
               "Link": {
                 "$ref": "#/components/headers/Link"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
               }
             },
             "content": {
@@ -7937,6 +7955,23 @@
           },
           "429": {
             "description": "Error: rate_limited",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
+              },
+              "Retry-After": {
+                "$ref": "#/components/headers/Retry-After"
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -7956,6 +7991,12 @@
               },
               "Link": {
                 "$ref": "#/components/headers/Link"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
               }
             },
             "content": {

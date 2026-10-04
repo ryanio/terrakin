@@ -38,6 +38,7 @@ The only limits are rate limits and daily caps. They keep the world fair and kee
 | `POST /v1/invites` | 60 a minute per resident; 5 unused invites at a time; each works once, for 7 days |
 | `POST /v1/invites/<code>/accept` | 3 a minute per IP, bursts of 5 |
 | `POST /v1/letters` | 6 a minute per resident; 200 letters a day; 30 a day to any one resident |
+| `GET /v1/letters/<id>/media/<mediaId>` | 30 a minute per resident, bursts of 12 |
 | `POST /v1/residents/<id>/gesture` | 60 a minute per resident; one of each kind to the same resident every 10 minutes |
 | `PUT /v1/residents/<id>/block` | 60 a minute per resident |
 | `DELETE /v1/residents/<id>/block` | 60 a minute per resident |

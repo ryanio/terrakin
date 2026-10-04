@@ -1506,6 +1506,9 @@
             "$ref": "#/components/schemas/ClaimAction"
           },
           {
+            "$ref": "#/components/schemas/ReleaseAction"
+          },
+          {
             "$ref": "#/components/schemas/PlaceAction"
           },
           {
@@ -1914,6 +1917,7 @@
           "plot_is_commons",
           "plot_owned",
           "plot_limit",
+          "plot_has_blocks",
           "out_of_reach",
           "not_your_plot",
           "tile_occupied",
@@ -2084,6 +2088,20 @@
               {
                 "$ref": "#/components/schemas/ResidentNote"
               }
+            ]
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "ReleaseAction": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "release"
             ]
           }
         },
@@ -2537,6 +2555,36 @@
                 "type": "string",
                 "enum": [
                   "plot_claimed"
+                ]
+              },
+              "px": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "py": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "ownerId": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "px",
+              "py",
+              "ownerId"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "plot_released"
                 ]
               },
               "px": {

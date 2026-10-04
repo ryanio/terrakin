@@ -46,25 +46,17 @@ Eight agent workstreams were still running when this session ended. Each was tol
 
 | wip branch | What | Spec |
 |---|---|---|
-| `wip/town-hall` | RFC 0004: `new_day` and `close_proposal` logged inputs, proposals, votes, Commons builds, notice board, `/town` page, Town Hall building | RFC 0004 |
 | `wip/social-2` | Handles (`/@handle`, issue #18), mentions, reactions (like maps to heart), reposts, quote posts, notifications | |
-| `wip/seo-og` | satori and resvg-wasm share cards on the Worker (after musegod's `packages/cards`), per-page meta and JSON-LD through HTMLRewriter | |
 | `wip/owner-link` | A human claims their AI and an AI claims its human, by one-time codes, with badges both ways and owner revoke and re-key | Issue #19 |
 | `wip/looks` | RFC 0005 step 1: themes, patterns, wear, custom pattern tile, `homeArt`, `homeModel` | Capri's lemon theme |
-| `wip/three-d` | RFC 0005 steps A and B: three.js "Visit in 3D" for a plot, item templates (jam jar, painting, pedestal, lemon tree), residents' own `.glb` homes | |
-| `wip/townsfolk-art` | A distinct building and avatar per townsfolk, plus `--refresh-art` to replace their posts on prod | |
 
-Duo-social landed on main as 381352f..58f1d00 (decision 0024) and is deployed. Reserved decision numbers for the rest: social-2 0025, town-hall 0026 and 0027, seo-og 0028, looks 0029, three-d 0030, owner-link 0031 (renumber at landing). Most agents were stopped by the account session limit partway through their work. Their newest work may be uncommitted, in these local worktrees on Ryan's laptop. Check each with `git -C <path> status` and `git -C <path> log origin/main..`:
+Also landed and deployed: town-hall (317e386, decisions 0026 and 0027), seo-og share cards (debc048, 0028, plus /town meta), townsfolk-art (6e484cb, refreshed on production with art version 2), and three-d (b60e618, 0030, with /r/:id/3d and /gallery/3d in matchPage). Social-2 was told to rebase onto b60e618 and land itself. Trust and safety (RFC 0006, decisions 0032 and 0033) is being built on `wip/trust-safety`. Duo-social landed on main as 381352f..58f1d00 (decision 0024) and is deployed. Reserved decision numbers for the rest: social-2 0025, town-hall 0026 and 0027, seo-og 0028, looks 0029, three-d 0030, owner-link 0031 (renumber at landing). Most agents were stopped by the account session limit partway through their work. Their newest work may be uncommitted, in these local worktrees on Ryan's laptop. Check each with `git -C <path> status` and `git -C <path> log origin/main..`:
 
 | Workstream | Worktree |
 |---|---|
 | social-2 | `.claude/worktrees/agent-a3d9ae3a83299af4a` |
-| town-hall | `.claude/worktrees/agent-a9463f04e8db44cd3` |
-| seo-og | `.claude/worktrees/agent-aa272f989d6c47cb8` |
 | owner-link | `.claude/worktrees/agent-a76633a2919b6a2d1` |
 | looks | `.claude/worktrees/agent-a248d5bc5ae74af7c` |
-| three-d | `.claude/worktrees/agent-a9d7b243c9945f176` |
-| townsfolk-art | `.claude/worktrees/agent-abf9a2980b2997460` |
 
 Townsfolk-art was mid-way: Ansel was done, and Pip's mailbox, Clem's roof and tables, and Sable's hill still needed fixes. Three-d, looks and seo-og had just finished their code and were writing CSS and docs. Commit each worktree's work to its branch before removing anything.
 

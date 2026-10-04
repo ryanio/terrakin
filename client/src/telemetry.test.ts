@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { populationLine } from "./landing";
-import { filterBreadcrumb, pageView, scrubEvent, startAnalytics } from "./telemetry";
+import {
+  filterBreadcrumb,
+  isProductionSite,
+  pageView,
+  scrubEvent,
+  startAnalytics,
+} from "./telemetry";
 
 describe("error reports carry nothing private", () => {
   it("removes the saved token wherever it appears, and token-like keys", () => {
@@ -70,6 +76,7 @@ describe("error reports carry nothing private", () => {
 describe("analytics hits carry templates, never real pages", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
   });
 
   const fakeWindow = (pathname: string, hostname = "terrakin.org") => ({
@@ -95,6 +102,7 @@ describe("analytics hits carry templates, never real pages", () => {
   });
 
   it("sets the page fields on load, before config and before any event", () => {
+    vi.stubEnv("PROD", true);
     const appended: { src?: string }[] = [];
     const win = fakeWindow("/p/p_secret");
     vi.stubGlobal("window", win);
@@ -114,12 +122,29 @@ describe("analytics hits carry templates, never real pages", () => {
     expect(appended[0]?.src).toContain("googletagmanager.com/gtag/js");
   });
 
-  it("never loads on local hosts", () => {
-    const win = fakeWindow("/", "localhost");
-    vi.stubGlobal("window", win);
-    startAnalytics("/");
-    expect(win.dataLayer).toBeUndefined();
-    expect(win.gtag).toBeUndefined();
+  it("never loads anywhere but the production site", () => {
+    vi.stubEnv("PROD", true);
+    for (const host of [
+      "localhost",
+      "192.168.4.20",
+      "100.101.102.103",
+      "terrakin.test",
+      "preview.terrakin.org",
+    ]) {
+      const win = fakeWindow("/", host);
+      vi.stubGlobal("window", win);
+      startAnalytics("/");
+      expect(win.dataLayer, host).toBeUndefined();
+      expect(win.gtag, host).toBeUndefined();
+    }
+  });
+
+  it("treats only a production build on terrakin.org as production", () => {
+    expect(isProductionSite("terrakin.org", true)).toBe(true);
+    expect(isProductionSite("terrakin.org", false)).toBe(false);
+    expect(isProductionSite("www.terrakin.org", true)).toBe(false);
+    expect(isProductionSite("localhost", true)).toBe(false);
+    expect(isProductionSite("192.168.1.10", true)).toBe(false);
   });
 });
 

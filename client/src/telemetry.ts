@@ -3,7 +3,7 @@
  * Analytics and error reporting. Neither carries anything personal:
  * no names, colors, chat, notes, tokens, or resident ids ever leave through here.
  *
- * - Google Analytics starts from `startAnalytics` (skipped on local hosts). Every hit, including
+ * - Google Analytics starts from `startAnalytics`, only on the production site. Every hit, including
  *   the ones gtag.js sends on its own (user_engagement, scroll, outbound clicks), inherits a
  *   templated page ("/r/:id"), a fixed title, and an empty referrer, because we `set` them before
  *   any event and again on every route change. We send page views plus the two events below.
@@ -24,14 +24,13 @@ declare global {
 
 const GA_ID = "G-QMRE88BYL1";
 
-/** Hosts where we never load analytics: local development and tests. */
-export function isLocalHost(host: string): boolean {
-  return (
-    host === "localhost" ||
-    host === "127.0.0.1" ||
-    host === "[::1]" ||
-    /\.(localhost|test)$/.test(host)
-  );
+/** The only hosts that report to GA and Sentry. An allowlist, so dev servers on a LAN address, a
+ * phone, Tailscale, `pnpm start`, previews, and tests never send anything. */
+const PRODUCTION_HOSTS = new Set(["terrakin.org"]);
+
+/** True only for a production build served from the real site. */
+export function isProductionSite(host: string, prodBuild: boolean = import.meta.env.PROD): boolean {
+  return prodBuild && PRODUCTION_HOSTS.has(host);
 }
 
 /**
@@ -53,7 +52,7 @@ export function pageFields(origin: string, template: string) {
  */
 export function startAnalytics(template: string) {
   try {
-    if (isLocalHost(window.location.hostname)) return;
+    if (!isProductionSite(window.location.hostname)) return;
     const layer: unknown[] = window.dataLayer ?? [];
     window.dataLayer = layer;
     window.gtag = function gtag() {
@@ -192,7 +191,7 @@ export function filterBreadcrumb(crumb: Breadcrumb, hint?: BreadcrumbHint): Brea
 
 /** Start error reporting in production builds. Loaded as its own chunk so it never delays the first paint. */
 export async function initErrorReporting() {
-  if (!import.meta.env.PROD) return;
+  if (!isProductionSite(window.location.hostname)) return;
   try {
     const { startSentry } = await import("./sentry");
     startSentry({

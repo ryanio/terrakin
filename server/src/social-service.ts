@@ -94,6 +94,19 @@ const randomId = (prefix: string) =>
 
 const fail = (code: ErrorCode, message: string) => ({ ok: false as const, code, message });
 
+/**
+ * What the sitemaps list, as `(k, id, t)`: a stable sort key, the id, and the newest change in ms.
+ * Never anything hidden.
+ */
+const SITEMAP_SOURCES = {
+  residents: `SELECT id AS k, id, MAX(t) AS t FROM (
+      SELECT author AS id, created_at AS t FROM posts WHERE hidden = 0
+      UNION ALL
+      SELECT resident_id AS id, updated_at AS t FROM profiles
+    ) GROUP BY id`,
+  posts: "SELECT n AS k, id, created_at AS t FROM posts WHERE hidden = 0 AND reply_to = ''",
+} as const;
+
 /** Every column a post view needs, counts included, so a feed page is one query plus one for media. */
 const POST_COLUMNS = `p.n, p.id, p.author, p.text, p.reply_to, p.created_at,
   (SELECT COUNT(*) FROM posts r WHERE r.reply_to = p.id AND r.hidden = 0) AS reply_count,
@@ -180,6 +193,12 @@ export class SocialService {
       )`,
     ]) {
       this.sql.exec(statement);
+    }
+    // Added after launch: when the profile last changed, for sitemap lastmod. Older rows stay null.
+    try {
+      this.sql.exec("ALTER TABLE profiles ADD COLUMN updated_at INTEGER");
+    } catch {
+      // Already there.
     }
   }
 
@@ -332,6 +351,48 @@ export class SocialService {
     return post ? { ok: true, value: post } : fail("not_found", "No such post.");
   }
 
+  // ---------- sitemaps ----------
+
+  /**
+   * Sitemap pages of `size` URLs: how many URLs each holds and its newest change (ms, or null).
+   * Residents count once they have a visible post or have set up a profile; posts are top-level and
+   * visible. Hidden posts never count: a resident whose only posts are hidden is listed only if they
+   * set up a profile, and then dated by that.
+   */
+  sitemapPages(
+    kind: "residents" | "posts",
+    size: number,
+  ): { count: number; lastmod: number | null }[] {
+    const rows = this.rows(
+      `SELECT page, COUNT(*) AS c, MAX(t) AS t FROM (
+        SELECT CAST((ROW_NUMBER() OVER (ORDER BY k) - 1) / ? AS INTEGER) AS page, t FROM (${SITEMAP_SOURCES[kind]})
+      ) GROUP BY page ORDER BY page`,
+      size,
+    );
+    return rows.map((row) => ({
+      count: Number(row.c),
+      lastmod: row.t === null || row.t === undefined ? null : Number(row.t),
+    }));
+  }
+
+  /** One sitemap page (from 0): ids with their newest change (ms, or null). */
+  sitemapEntries(
+    kind: "residents" | "posts",
+    page: number,
+    size: number,
+  ): { id: string; lastmod: number | null }[] {
+    return this.rows(
+      `SELECT id, t FROM (${SITEMAP_SOURCES[kind]}) ORDER BY k LIMIT ? OFFSET ?`,
+      size,
+      page * size,
+    )
+      .filter((row) => kind === "posts" || this.resident(String(row.id)))
+      .map((row) => ({
+        id: String(row.id),
+        lastmod: row.t === null || row.t === undefined ? null : Number(row.t),
+      }));
+  }
+
   // ---------- people ----------
 
   setFollow(follower: string, followee: string, follow: boolean): SocialResult<ProfileView> {
@@ -402,6 +463,11 @@ export class SocialService {
     const aimed = request.bio === undefined ? null : aimedAtReader(request.bio);
     if (aimed) return fail("bad_request", readerMessage("Bios", aimed));
     this.sql.exec("INSERT OR IGNORE INTO profiles (resident_id) VALUES (?)", residentId);
+    this.sql.exec(
+      "UPDATE profiles SET updated_at = ? WHERE resident_id = ?",
+      this.now(),
+      residentId,
+    );
     if (request.bio !== undefined) {
       this.sql.exec(
         "UPDATE profiles SET bio = ? WHERE resident_id = ?",

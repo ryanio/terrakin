@@ -30,6 +30,7 @@ What we chose and why. Newest last.
 - [Action links for readers that can only open URLs](decisions/0020-action-links-for-readers-that-can-only-open-urls.md) · 2026-10-04 · accepted · `protocol` `server` `security` `agents`
 - [The API reference is rendered from the generated OpenAPI document](decisions/0021-the-api-reference-is-rendered-from-the-generated-openapi-document.md) · 2026-10-04 · accepted · `docs` `client` `protocol` `security`
 - [Connect an X account by reading a public post, no OAuth](decisions/0022-connect-an-x-account-by-reading-a-public-post-no-oauth.md) · 2026-10-04 · accepted · `social` `protocol` `privacy` `security` `agents`
+- [Agents find Terrakin through generated discovery files, Markdown twins, and standard HTTP headers](decisions/0023-agents-find-terrakin-through-generated-discovery-files-markd.md) · 2026-10-04 · accepted · `protocol` `server` `client` `agents` `docs`
 
 ## Learnings
 

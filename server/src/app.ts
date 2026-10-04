@@ -6,6 +6,7 @@ import { buildOpenApi } from "@terrakin/protocol";
 import { WebSocketServer } from "ws";
 import { Api, type ApiOptions, type ApiResponse, MAX_BODY_BYTES } from "./api";
 import { MEDIA_ID, mediaHeaders, type ReadableMediaStore, sniffMediaType } from "./media";
+import { negotiate, pageHeaders, twinHeaders } from "./pages";
 import type { SocialService } from "./social-service";
 import type { WorldService } from "./world-service";
 
@@ -24,6 +25,8 @@ const MIME: Record<string, string> = {
   ".ico": "image/x-icon",
   ".woff2": "font/woff2",
   ".webmanifest": "application/manifest+json",
+  ".md": "text/markdown; charset=utf-8",
+  ".xml": "application/xml; charset=utf-8",
 };
 
 export interface AppOptions {
@@ -104,20 +107,17 @@ export function createApp(options: AppOptions): Server {
 
   async function handle(req: IncomingMessage, res: ServerResponse) {
     const url = new URL(req.url ?? "/", "http://localhost");
-    const response = await api.handle({
-      method: req.method ?? "GET",
-      pathname: url.pathname,
-      ip: clientIp(req, options.trustedProxies),
-      authorization: req.headers.authorization,
-      query: url.searchParams,
-      readJson: () => readJson(req),
-      readBytes: (max) => readBytes(req, max),
-      contentLength:
-        req.headers["content-length"] === undefined
-          ? undefined
-          : Number(req.headers["content-length"]),
-      ...requestOrigin(req, options.trustedProxies),
-    });
+    const reading = req.method === "GET" || req.method === "HEAD";
+    // An agent asking for Markdown gets the page's twin: a static file, or built from live data.
+    const twin = reading
+      ? negotiate(url.pathname, url.searchParams, req.headers.accept)
+      : undefined;
+    if (twin) {
+      const live = await callApi(req, twin, url.searchParams);
+      if (live) return send(res, { ...live, headers: { ...live.headers, ...twinHeaders() } });
+      if (options.staticDir) return serveStatic(options.staticDir, twin, res, twinHeaders());
+    }
+    const response = await callApi(req, url.pathname, url.searchParams);
     if (response) return send(res, response);
     const mediaId = /^\/media\/([^/]+)$/.exec(url.pathname)?.[1];
     if (req.method === "GET" && mediaId !== undefined && options.media) {
@@ -125,6 +125,25 @@ export function createApp(options: AppOptions): Server {
     }
     if (options.staticDir) return serveStatic(options.staticDir, url.pathname, res);
     return send(res, apiError("not_found", `No route for ${req.method} ${url.pathname}.`));
+  }
+
+  function callApi(req: IncomingMessage, pathname: string, query: URLSearchParams) {
+    const key = req.headers["idempotency-key"];
+    return api.handle({
+      method: req.method ?? "GET",
+      pathname,
+      ip: clientIp(req, options.trustedProxies),
+      authorization: req.headers.authorization,
+      query,
+      readJson: () => readJson(req),
+      readBytes: (max) => readBytes(req, max),
+      contentLength:
+        req.headers["content-length"] === undefined
+          ? undefined
+          : Number(req.headers["content-length"]),
+      idempotencyKey: Array.isArray(key) ? key[0] : key,
+      ...requestOrigin(req, options.trustedProxies),
+    });
   }
 
   const wss = new WebSocketServer({ server, path: "/v1/live", maxPayload: MAX_BODY_BYTES });
@@ -211,7 +230,12 @@ function apiError(code: "internal" | "not_found", message: string): ApiResponse 
   };
 }
 
-function serveStatic(root: string, pathname: string, res: ServerResponse) {
+function serveStatic(
+  root: string,
+  pathname: string,
+  res: ServerResponse,
+  extra: Record<string, string> = {},
+) {
   let decoded: string;
   try {
     decoded = decodeURIComponent(pathname);
@@ -238,6 +262,7 @@ function serveStatic(root: string, pathname: string, res: ServerResponse) {
     }
   }
   if (!body) return send(res, apiError("not_found", "Not found."));
-  res.writeHead(200, { "content-type": MIME[extname(file)] ?? "application/octet-stream" });
+  const type = MIME[extname(file)] ?? "application/octet-stream";
+  res.writeHead(200, { "content-type": type, ...pageHeaders(pathname, type), ...extra });
   res.end(body);
 }

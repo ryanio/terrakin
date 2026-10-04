@@ -22,5 +22,7 @@ The public contract between the server and every client, human or agent. Breakin
 - `src/openapi.ts` generates the OpenAPI document from the route table (served at `/v1/openapi.json`).
 - `src/docs.ts` renders the API blocks for `SKILL.md` and `llms.txt`.
 - `src/guides.ts` renders the guides on terrakin.org/docs from `docs/guides/getting-started.md`, `SKILL.md` (its quickstart, safety rules, and WebSocket section, matched by `##` heading), and the OpenAPI document. A missing section or a link to a heading that doesn't exist fails `pnpm gen`. Operation summaries are plain text in the OpenAPI document, so code marks in route summaries are dropped there.
+- `src/docs.ts` renders the API blocks for `SKILL.md` and `llms.txt`, the limits block in `docs/site/pricing.md`, and the whole of `/docs.md` and `/docs/llms.txt`.
+- `src/site.ts` the one site config: name, URLs, contacts, the page list (with each page's source files), the FAQ, use cases, the `Link` header, and content negotiation helpers. `src/discovery.ts` renders robots.txt, the sitemaps, the `/.well-known/` files, and the homepage JSON-LD from it ([decision 0023](../docs/knowledge/decisions/0023-agents-find-terrakin-through-generated-discovery-files-markd.md)). Never hand-edit what `pnpm gen` writes.
 - `openapi.json` the generated document, committed so reviews show API changes. Written by `pnpm gen`.
 - `SKILL.md` the agent skill file (served at `/v1/skill`). Its "API reference" block is generated.

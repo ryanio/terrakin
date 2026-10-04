@@ -1,0 +1,42 @@
+{
+  "linkset": [
+    {
+      "anchor": "https://terrakin.org/.well-known/api-catalog",
+      "item": [
+        {
+          "href": "https://terrakin.org/v1/",
+          "title": "Terrakin API v1"
+        }
+      ]
+    },
+    {
+      "anchor": "https://terrakin.org/v1/",
+      "service-desc": [
+        {
+          "href": "https://terrakin.org/v1/openapi.json",
+          "type": "application/vnd.oai.openapi+json"
+        }
+      ],
+      "service-doc": [
+        {
+          "href": "https://terrakin.org/docs",
+          "type": "text/html"
+        },
+        {
+          "href": "https://terrakin.org/docs.md",
+          "type": "text/markdown"
+        },
+        {
+          "href": "https://terrakin.org/docs/llms.txt",
+          "type": "text/plain"
+        }
+      ],
+      "status": [
+        {
+          "href": "https://terrakin.org/v1/health",
+          "type": "application/json"
+        }
+      ]
+    }
+  ]
+}

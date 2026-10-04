@@ -3,6 +3,7 @@ import { buildOpenApi } from "@terrakin/protocol";
 import SKILL_MD from "@terrakin/protocol/SKILL.md";
 import { Api, isApiPath, MAX_BODY_BYTES } from "../src/api";
 import { type MediaBucket, type MediaStore, readCapped, serveFromBucket } from "../src/media";
+import { negotiate, pageHeaders, twinHeaders } from "../src/pages";
 import { parseTownsfolk, SocialService } from "../src/social-service";
 import { SqlStore } from "../src/sql-store";
 import { WorldService } from "../src/world-service";
@@ -29,8 +30,20 @@ const CANONICAL_HOST = "terrakin.org";
 const jsonError = (status: number, code: string, message: string) =>
   new Response(JSON.stringify({ error: { code, message } }), {
     status,
-    headers: { "content-type": "application/json", "cache-control": "no-store" },
+    headers: {
+      "content-type": "application/json",
+      "cache-control": "no-store",
+      "api-version": "1",
+    },
   });
+
+/** A copy of `response` with `headers` set on top of its own. */
+function withHeaders(response: Response, headers: Record<string, string>): Response {
+  if (Object.keys(headers).length === 0) return response;
+  const copy = new Response(response.body, response);
+  for (const [name, value] of Object.entries(headers)) copy.headers.set(name, value);
+  return copy;
+}
 
 export default {
   async fetch(request, env) {
@@ -39,14 +52,27 @@ export default {
       url.hostname = CANONICAL_HOST;
       return Response.redirect(url.toString(), 301);
     }
-    if (isApiPath(url.pathname)) {
-      return env.WORLD.get(env.WORLD.idFromName("world")).fetch(request);
+    const world = () => env.WORLD.get(env.WORLD.idFromName("world"));
+    const reading = request.method === "GET" || request.method === "HEAD";
+    // An agent asking for Markdown gets the page's twin: a static file, or built from live data.
+    const twin = reading
+      ? negotiate(url.pathname, url.searchParams, request.headers.get("accept"))
+      : undefined;
+    if (twin) {
+      const target = new Request(new URL(twin, url), request);
+      const response = await (isApiPath(twin) ? world().fetch(target) : env.ASSETS.fetch(target));
+      return withHeaders(response, response.ok ? twinHeaders() : { vary: "Accept" });
     }
+    if (isApiPath(url.pathname)) return world().fetch(request);
     const mediaId = /^\/media\/([^/]+)$/.exec(url.pathname)?.[1];
-    if (mediaId !== undefined && (request.method === "GET" || request.method === "HEAD")) {
+    if (mediaId !== undefined && reading) {
       return serveFromBucket(env.MEDIA as unknown as MediaBucket, mediaId, request);
     }
-    return env.ASSETS.fetch(request);
+    const response = await env.ASSETS.fetch(request);
+    return withHeaders(
+      response,
+      response.ok ? pageHeaders(url.pathname, response.headers.get("content-type")) : {},
+    );
   },
 } satisfies ExportedHandler<Env>;
 
@@ -134,6 +160,7 @@ export class World extends DurableObject<Env> {
       // Links in Markdown answers always point at https on the real domain, even for a plain
       // http request; anywhere else (local dev), at whatever the request used.
       origin: url.hostname === CANONICAL_HOST ? `https://${CANONICAL_HOST}` : url.origin,
+      idempotencyKey: request.headers.get("idempotency-key") ?? undefined,
     });
     if (!response) return jsonError(404, "not_found", "Not found.");
     return new Response(response.status === 204 ? null : response.body, {

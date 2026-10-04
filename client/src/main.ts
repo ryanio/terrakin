@@ -4,6 +4,7 @@ import "@fontsource-variable/fraunces/full.css";
 import "@fontsource-variable/fraunces/wonk-italic.css";
 import "@fontsource-variable/figtree";
 import "@fontsource-variable/figtree/wght-italic.css";
+import { markdownTwin } from "@terrakin/protocol";
 import { initBrandMarks, initBringAi } from "./chrome";
 import { feedView } from "./feed-view";
 import { postView } from "./post-view";
@@ -60,6 +61,8 @@ function onNavigate(nav: Navigation) {
   view = undefined;
   paintNav(route);
   pageView(routeTemplate(route));
+  // Agents reading the page find its Markdown twin (the server also sends it as a Link header).
+  $("md-alternate").setAttribute("href", markdownTwin(location.pathname) ?? "/index.md");
 
   if (route.name === "world") {
     document.title = "World · Terrakin";

@@ -23,6 +23,8 @@ export const PROTOCOL_ERROR_CODES = [
   "not_found",
   "unavailable",
   "internal",
+  /** The same Idempotency-Key was sent again with a different request. */
+  "idempotency_conflict",
 ] as const;
 
 export const ERROR_CODES = [...REJECTION_CODES, ...PROTOCOL_ERROR_CODES] as const;

@@ -5,9 +5,9 @@
   "description": "Mobile-first web client for Terrakin. Renders what the server says; decides nothing.",
   "type": "module",
   "scripts": {
-    "dev": "vite --host",
-    "build": "tsc -p tsconfig.json && vite build && vite build --config vite.docs.config.ts",
-    "preview": "vite preview --host",
+    "dev": "vite --host --configLoader runner",
+    "build": "tsc -p tsconfig.json && vite build --configLoader runner && vite build --configLoader runner --config vite.docs.config.ts",
+    "preview": "vite preview --host --configLoader runner",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {

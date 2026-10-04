@@ -1,3 +1,14 @@
+/** What one `take` saw: whether it was allowed, and the numbers for the RateLimit headers. */
+export interface Take {
+  allowed: boolean;
+  /** Whole requests left right now. */
+  remaining: number;
+  /** Seconds until the bucket is full again. */
+  reset: number;
+  /** Seconds until the next request would be allowed (0 if one would be now). */
+  retryAfter: number;
+}
+
 /** Token bucket. `capacity` actions burst, refilled at `perSecond`. Clock is injected for tests. */
 export class RateLimiter {
   private tokens: number;
@@ -13,10 +24,19 @@ export class RateLimiter {
   }
 
   take(): boolean {
+    return this.takeInfo().allowed;
+  }
+
+  takeInfo(): Take {
     this.refill();
-    if (this.tokens < 1) return false;
-    this.tokens -= 1;
-    return true;
+    const allowed = this.tokens >= 1;
+    if (allowed) this.tokens -= 1;
+    return {
+      allowed,
+      remaining: Math.floor(this.tokens),
+      reset: Math.ceil((this.capacity - this.tokens) / this.perSecond),
+      retryAfter: this.tokens >= 1 ? 0 : Math.ceil((1 - this.tokens) / this.perSecond),
+    };
   }
 
   /** True when the bucket has refilled completely, so forgetting it changes nothing. */
@@ -37,18 +57,22 @@ export class RateLimiters {
   private readonly buckets = new Map<string, RateLimiter>();
 
   constructor(
-    private readonly capacity: number,
-    private readonly perSecond: number,
+    readonly capacity: number,
+    readonly perSecond: number,
     private readonly now: () => number = Date.now,
   ) {}
 
   take(key: string): boolean {
+    return this.takeInfo(key).allowed;
+  }
+
+  takeInfo(key: string): Take {
     let bucket = this.buckets.get(key);
     if (!bucket) {
       bucket = new RateLimiter(this.capacity, this.perSecond, this.now);
       this.buckets.set(key, bucket);
     }
-    return bucket.take();
+    return bucket.takeInfo();
   }
 
   prune() {

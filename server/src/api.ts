@@ -1,13 +1,19 @@
 import {
+  absolute,
+  acceptsIdempotencyKey,
   type BinaryBody,
   ClientMessage,
   compileRoutes,
   type ErrorCode,
   errorStatus,
   isBinaryBody,
+  LINKS,
+  linkHeader,
   MAX_BODY_BYTES,
   markdownError,
+  type PostView,
   PROTOCOL_VERSION,
+  type ProfileView,
   RATE_LIMITS,
   type RateLimitName,
   REPEAT_WINDOW_MS,
@@ -21,9 +27,15 @@ import {
   type RouteSuccess,
   type RouteViewer,
   type ServerMessage,
+  SITEMAP_MAX_URLS,
+  sitemapIndexXml,
+  urlsetXml,
+  w3cDatetime,
 } from "@terrakin/protocol";
+import { IdempotencyStore, type StoredResponse, sha256Hex } from "./idempotency";
 import { BAD_LINK_KEY, DEFAULT_ORIGIN, linkHandlers, linkHelp, REPEAT_NOTE } from "./links";
-import { RateLimiters } from "./rate-limit";
+import { postMarkdown, profileMarkdown } from "./markdown";
+import { RateLimiters, type Take } from "./rate-limit";
 import type { SocialResult, SocialService } from "./social-service";
 import type { WorldService } from "./world-service";
 
@@ -79,14 +91,24 @@ const RATE_LIMITED: Record<RateLimitName, string> = {
 
 const TABLE = ROUTES as readonly RouteSpec[];
 
-/** Paths outside `/v1/` that the API answers (aliases like `/skill.md`). Adapters forward these too. */
-const ROOT_PATHS = new Set<string>(
-  TABLE.flatMap((r) => [r.path, ...(r.aliases ?? [])]).filter((p) => !p.startsWith("/v1/")),
+/**
+ * Routes outside `/v1/` that the API answers (aliases like `/skill.md`, Markdown twins like
+ * `/r/{id}.md`, the sitemaps). Adapters forward these too, whatever the method.
+ */
+const matchRoot = compileRoutes(
+  TABLE.flatMap((route) =>
+    [route.path, ...(route.aliases ?? [])]
+      .filter((path) => !path.startsWith("/v1/"))
+      .map((path) => ({ ...route, path, aliases: [] })),
+  ),
 );
 
 /** Whether a request for this path belongs to the API rather than to static files or media. */
 export function isApiPath(pathname: string): boolean {
-  return pathname.startsWith("/v1/") || ROOT_PATHS.has(pathname);
+  return (
+    pathname.startsWith("/v1/") ||
+    (["GET", "POST", "PUT", "DELETE"] as const).some((m) => matchRoot(m, pathname))
+  );
 }
 
 export interface ApiRequest {
@@ -108,6 +130,8 @@ export interface ApiRequest {
    * answers. Defaults to https://terrakin.org.
    */
   origin?: string;
+  /** The Idempotency-Key header, if the client sent one. */
+  idempotencyKey?: string | undefined;
 }
 
 export interface ApiResponse {
@@ -162,6 +186,8 @@ export interface HandlerInput<K extends RouteId> {
 export interface Failure {
   error: ErrorCode;
   message: string;
+  /** For `rate_limited`: seconds until trying again makes sense. */
+  retryAfter?: number;
 }
 
 type Reply<K extends RouteId> = RouteSuccess<K> | Failure;
@@ -179,11 +205,47 @@ type AnyHandler = (input: {
   origin: string;
 }) => Promise<{ status: number; body?: unknown; text?: string } | Failure>;
 
-const fail = (error: ErrorCode, message: string): Failure => ({ error, message });
+const fail = (error: ErrorCode, message: string, retryAfter?: number): Failure => ({
+  error,
+  message,
+  ...(retryAfter === undefined ? {} : { retryAfter }),
+});
 const unauthorized = () => fail("unauthorized", "Missing or unknown bearer token.");
 
+/**
+ * The social layer's own refusals are its rolling 24-hour caps, which free up as old posts and
+ * uploads age out, so an hour is an honest first wait.
+ */
+const DAILY_CAP_RETRY_SECONDS = 3600;
+
 function fromResult<T, R>(outcome: SocialResult<T>, ok: (value: T) => R): R | Failure {
-  return outcome.ok ? ok(outcome.value) : fail(outcome.code, outcome.message);
+  if (outcome.ok) return ok(outcome.value);
+  return fail(
+    outcome.code,
+    outcome.message,
+    outcome.code === "rate_limited" ? DAILY_CAP_RETRY_SECONDS : undefined,
+  );
+}
+
+/** Seconds until the next UTC day, when per-IP daily upload bytes reset. */
+const secondsToTomorrow = (now: number) => Math.ceil((86_400_000 - (now % 86_400_000)) / 1000);
+
+/** A valid Idempotency-Key: 1 to 255 visible ASCII characters (a UUID is typical). */
+const IDEMPOTENCY_KEY = /^[\x21-\x7e]{1,255}$/;
+
+/** Headers every API response carries. */
+const API_HEADERS = {
+  "api-version": String(PROTOCOL_VERSION),
+  link: linkHeader(),
+} as const;
+
+/** `RateLimit-Policy` and `RateLimit` (IETF httpapi-ratelimit-headers), from one bucket's take. */
+function rateLimitHeaders(name: RateLimitName, limiter: RateLimiters, take: Take) {
+  const window = Math.ceil(limiter.capacity / limiter.perSecond);
+  return {
+    "ratelimit-policy": `"${name}";q=${limiter.capacity};w=${window}`,
+    ratelimit: `"${name}";r=${take.remaining};t=${take.reset}`,
+  };
 }
 
 /** The first value of each query key, as the route's query schema expects. */
@@ -210,6 +272,7 @@ export class Api {
   private readonly now: () => number;
   /** Answers to `once` links, by route, resident, and query, for REPEAT_WINDOW_MS. */
   private readonly repeats = new Map<string, { at: number; response: Promise<ApiResponse> }>();
+  private readonly idempotency = new IdempotencyStore();
 
   constructor(options: ApiOptions) {
     this.service = options.service;
@@ -236,7 +299,9 @@ export class Api {
     };
     // Without a social service its routes don't exist, so they answer not_found like any unknown path.
     this.match = compileRoutes(
-      options.social ? TABLE : TABLE.filter((r) => !r.tags.includes("Social")),
+      options.social
+        ? TABLE
+        : TABLE.filter((r) => !r.tags.some((tag) => tag === "Social" || tag === "Site")),
     );
     this.handlers = this.routeHandlers();
   }
@@ -245,13 +310,14 @@ export class Api {
   async handle(req: ApiRequest): Promise<ApiResponse | undefined> {
     const match = this.match(req.method, req.pathname);
     if (!match && req.method === "GET" && !isApiPath(req.pathname)) return undefined;
-    const response = match
+    const answer = match
       ? await this.dispatch(match, req)
       : // Never echo a link key back, even to its holder.
         error(
           "not_found",
           `No route for ${req.method} ${req.pathname.replace(/^\/v1\/act\/[^/]+/, "/v1/act/<key>")}.`,
         );
+    const response = { ...answer, headers: { ...API_HEADERS, ...answer.headers } };
     this.onResponse?.(match?.route, response);
     return response;
   }
@@ -293,16 +359,24 @@ export class Api {
       route.format === "markdown"
         ? linkHelp(origin, route.auth === "linkKey" ? rawParams.key : undefined)
         : undefined;
-    const reject = (code: ErrorCode, message: string) => render(route, fail(code, message), help);
+    const reject = (code: ErrorCode, message: string, retryAfter?: number) =>
+      render(route, fail(code, message, retryAfter), help);
     // Markdown readers get each problem on its own line instead of zod's JSON.
     const problem = (e: { message: string; issues: Issue[] }) =>
       route.format === "markdown" ? e.issues.map(plainIssue).join("\n") : e.message;
 
+    let limitHeaders: Record<string, string> = {};
     if (route.rateLimit) {
       const key =
         RATE_LIMITS[route.rateLimit].scope === "resident" && viewer ? viewer : ipKey(req.ip);
-      if (!this.limiters[route.rateLimit].take(key)) {
-        return reject("rate_limited", RATE_LIMITED[route.rateLimit]);
+      const limiter = this.limiters[route.rateLimit];
+      const take = limiter.takeInfo(key);
+      limitHeaders = rateLimitHeaders(route.rateLimit, limiter, take);
+      if (!take.allowed) {
+        return withHeaders(
+          reject("rate_limited", RATE_LIMITED[route.rateLimit], take.retryAfter),
+          limitHeaders,
+        );
       }
     }
 
@@ -339,15 +413,61 @@ export class Api {
     }
 
     const handler = this.handlers[route.id as RouteId] as unknown as AnyHandler;
-    const reply = await handler({
-      params,
-      query,
-      body,
-      viewer,
-      ip: req.ip,
-      origin,
-    });
-    return render(route, reply, help);
+    const run = async () =>
+      render(route, await handler({ params, query, body, viewer, ip: req.ip, origin }), help);
+    return withHeaders(
+      await this.idempotent(route, req.idempotencyKey, viewer, [params, query, body], run),
+      limitHeaders,
+    );
+  }
+
+  /**
+   * Run a write once per `Idempotency-Key` (writes that need a token): the same resident, key, and
+   * request within 24 hours gets the first response back with `Idempotency-Replayed: true`. A
+   * different request with the same key gets `idempotency_conflict`.
+   */
+  private async idempotent(
+    route: RouteSpec,
+    key: string | undefined,
+    viewer: string | undefined,
+    [params, query, body]: unknown[],
+    run: () => Promise<ApiResponse>,
+  ): Promise<ApiResponse> {
+    if (key === undefined || !viewer || !acceptsIdempotencyKey(route)) return run();
+    if (!IDEMPOTENCY_KEY.test(key)) {
+      return error("bad_request", "Idempotency-Key must be 1 to 255 visible ASCII characters.");
+    }
+    // A raw upload is matched on its size: its bytes aren't read until the handler runs.
+    const shape = isBinaryBody(route.body) ? { length: (body as Upload).length } : body;
+    const fingerprint = await sha256Hex(JSON.stringify([route.id, params, query, shape]));
+    const lookup = this.idempotency.begin(viewer, key, fingerprint);
+    if (lookup.kind === "conflict") {
+      return error(
+        "idempotency_conflict",
+        "That Idempotency-Key was already used for a different request. Use a new key for a new request.",
+      );
+    }
+    if (lookup.kind === "replay") {
+      const first = await lookup.response;
+      // The first try wasn't kept (it failed in a way worth retrying), so this one runs for real.
+      if (!first) return run();
+      return {
+        status: first.status,
+        headers: {
+          ...(first.contentType ? { "content-type": first.contentType } : {}),
+          "cache-control": "no-store",
+          "idempotency-replayed": "true",
+        },
+        body: first.body,
+      };
+    }
+    let response: ApiResponse | undefined;
+    try {
+      response = await run();
+      return response;
+    } finally {
+      lookup.finish(response && keepable(response) ? stored(response) : undefined);
+    }
   }
 
   /**
@@ -394,7 +514,22 @@ export class Api {
   private routeHandlers(): Handlers {
     const { service } = this;
     const social = () => this.requireSocial();
-    return {
+    /** One page (from 1) of profile or post URLs. Page 1 always exists, even when empty. */
+    const sitemap = (kind: "residents" | "posts", page: number) => {
+      const entries = social().sitemapEntries(kind, page - 1, SITEMAP_MAX_URLS);
+      if (entries.length === 0 && page > 1) return fail("not_found", "No such sitemap page.");
+      const prefix = kind === "residents" ? "/r/" : "/p/";
+      return {
+        status: 200 as const,
+        text: urlsetXml(
+          entries.map(({ id, lastmod }) => ({
+            loc: absolute(`${prefix}${id}`),
+            lastmod: lastmod === null ? undefined : w3cDatetime(lastmod),
+          })),
+        ),
+      };
+    };
+    const handlers: Handlers = {
       // ---------- world ----------
       getHealth: () => ({
         status: 200,
@@ -519,11 +654,12 @@ export class Api {
           return fail(
             "rate_limited",
             "That's all the uploads from here for today. Try again tomorrow.",
+            secondsToTomorrow(Date.now()),
           );
         }
         // The world object has one memory budget for everyone, so only a couple of bodies at once.
         if (this.uploadsInFlight >= MAX_UPLOADS_IN_FLIGHT) {
-          return fail("rate_limited", "Lots of uploads right now. Try again in a moment.");
+          return fail("rate_limited", "Lots of uploads right now. Try again in a moment.", 5);
         }
         this.uploadsInFlight++;
         try {
@@ -546,10 +682,63 @@ export class Api {
       // ---------- links (decision 0020), in links.ts ----------
       ...linkHandlers(this),
 
+      // ---------- site: Markdown twins and sitemaps (decision 0023) ----------
+      // The twins call the JSON routes' own handlers, so they can't disagree with the API.
+      getResidentMarkdown: async (input) => {
+        const anonymous = { ...input, query: undefined, body: undefined, viewer: undefined };
+        const profile = await handlers.getResident(anonymous);
+        if ("error" in profile) return profile;
+        const posts = await handlers.getResidentPosts({
+          ...anonymous,
+          query: { limit: undefined, before: undefined },
+        });
+        if ("error" in posts) return posts;
+        return {
+          status: 200,
+          text: profileMarkdown(
+            profile.body.resident as ProfileView,
+            posts.body.posts as PostView[],
+          ),
+        };
+      },
+      getPostMarkdown: async (input) => {
+        const found = await handlers.getPost({
+          ...input,
+          query: undefined,
+          body: undefined,
+          viewer: undefined,
+        });
+        if ("error" in found) return found;
+        return {
+          status: 200,
+          text: postMarkdown(found.body.post as PostView, found.body.replies as PostView[]),
+        };
+      },
+      getSitemapIndex: () => {
+        const pages = (kind: "residents" | "posts") =>
+          social()
+            .sitemapPages(kind, SITEMAP_MAX_URLS)
+            .map(({ lastmod }, i) => ({
+              loc: absolute(`/sitemap-${kind}-${i + 1}.xml`),
+              lastmod: lastmod === null ? undefined : w3cDatetime(lastmod),
+            }));
+        return {
+          status: 200,
+          text: sitemapIndexXml([
+            { loc: absolute(LINKS.sitemapPages) },
+            ...pages("residents"),
+            ...pages("posts"),
+          ]),
+        };
+      },
+      getResidentSitemap: ({ params }) => sitemap("residents", params.page),
+      getPostSitemap: ({ params }) => sitemap("posts", params.page),
+
       // ---------- docs ----------
       getSkill: () => ({ status: 200, text: this.skill }),
       getOpenApi: () => ({ status: 200, text: this.openapi }),
     };
+    return handlers;
   }
 
   /** Start the `/v1/live` protocol for one socket. The adapter feeds it text and tells it when the socket closes. */
@@ -566,6 +755,7 @@ export class Api {
     for (const limits of Object.values(this.limiters)) limits.prune();
     const cutoff = this.now() - REPEAT_WINDOW_MS;
     for (const [key, { at }] of this.repeats) if (at < cutoff) this.repeats.delete(key);
+    this.idempotency.sweep();
   }
 
   authenticate(authorization: string | undefined): string | undefined {
@@ -700,9 +890,38 @@ function json(status: number, body: unknown): ApiResponse {
   };
 }
 
-function error(code: ErrorCode, message: string): ApiResponse {
-  return json(errorStatus(code), { error: { code, message } });
+/** How long a 429 tells the client to wait when nothing more precise is known. */
+const DEFAULT_RETRY_SECONDS = 60;
+
+/** The headers every error carries: how to authenticate on a 401, when to come back on a 429. */
+function errorHeaders(code: ErrorCode, retryAfter?: number): Record<string, string> {
+  const status = errorStatus(code);
+  if (status === 401) return { "www-authenticate": 'Bearer realm="terrakin"' };
+  if (status === 429) {
+    return { "retry-after": String(Math.max(1, retryAfter ?? DEFAULT_RETRY_SECONDS)) };
+  }
+  return {};
 }
+
+function error(code: ErrorCode, message: string, retryAfter?: number): ApiResponse {
+  return withHeaders(
+    json(errorStatus(code), { error: { code, message } }),
+    errorHeaders(code, retryAfter),
+  );
+}
+
+function withHeaders(response: ApiResponse, headers: Record<string, string>): ApiResponse {
+  return { ...response, headers: { ...response.headers, ...headers } };
+}
+
+/** Replay a first response, unless it's one the client should be free to simply retry. */
+const keepable = (response: ApiResponse) => response.status < 500 && response.status !== 429;
+
+const stored = (response: ApiResponse): StoredResponse => ({
+  status: response.status,
+  contentType: response.headers["content-type"],
+  body: response.body,
+});
 
 /**
  * Headers on every answer of a Markdown link route. These pages can hold a link key, so nothing
@@ -722,10 +941,10 @@ function render(
   help?: string,
 ): ApiResponse {
   if ("error" in reply) {
-    if (route.format !== "markdown") return error(reply.error, reply.message);
+    if (route.format !== "markdown") return error(reply.error, reply.message, reply.retryAfter);
     return {
       status: errorStatus(reply.error),
-      headers: PRIVATE_PAGE,
+      headers: { ...PRIVATE_PAGE, ...errorHeaders(reply.error, reply.retryAfter) },
       body: markdownError(reply.error, reply.message, help),
     };
   }
@@ -736,10 +955,17 @@ function render(
   if (route.format === "markdown") {
     return { status: reply.status, headers: PRIVATE_PAGE, body: reply.text ?? "" };
   }
-  const type = spec.contentType.startsWith("text/")
-    ? `${spec.contentType}; charset=utf-8`
-    : spec.contentType;
-  return { status: reply.status, headers: { "content-type": type }, body: reply.text ?? "" };
+  const type =
+    spec.contentType.startsWith("text/") || spec.contentType.endsWith("/xml")
+      ? `${spec.contentType}; charset=utf-8`
+      : spec.contentType;
+  const cache =
+    spec.maxAge === undefined ? {} : { "cache-control": `public, max-age=${spec.maxAge}` };
+  return {
+    status: reply.status,
+    headers: { "content-type": type, ...cache },
+    body: reply.text ?? "",
+  };
 }
 
 /** The parts of a zod issue that `plainIssue` reads. */

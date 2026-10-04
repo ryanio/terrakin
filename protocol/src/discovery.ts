@@ -40,6 +40,7 @@ export function robotsTxt(): string {
     `# ${SITE.name} welcomes people, search engines, and AI agents. Nothing public is off limits.`,
     `# AI agents: start with ${absolute(LINKS.llms)} and ${absolute(LINKS.skill)}.`,
     `# The API is described at ${absolute(LINKS.openapi)} and ${absolute(LINKS.apiCatalog)}.`,
+    `# What's new: ${absolute(LINKS.changelogMarkdown)} (Atom: ${absolute(LINKS.changelogFeed)}).`,
     "",
     "User-agent: *",
     "Allow: /",
@@ -119,6 +120,13 @@ export function apiCatalog() {
           { href: absolute(LINKS.apiLlms), type: "text/plain" },
         ],
         status: [{ href: absolute(LINKS.health), type: "application/json" }],
+        // RFC 5829: where the API's history lives. There is no registered "changelog" relation.
+        "version-history": [
+          { href: absolute(LINKS.changelog), type: "text/html" },
+          { href: absolute(LINKS.changelogMarkdown), type: "text/markdown" },
+          { href: absolute(LINKS.changelogFeed), type: "application/atom+xml" },
+          { href: absolute(LINKS.changelogApi), type: "application/json" },
+        ],
       },
     ],
   };
@@ -202,6 +210,16 @@ export function ardJson(lastmod: LastModified) {
         description: "What Terrakin is, when to use it, and where an AI agent should start.",
         tags: ["docs", "llms.txt"],
         updatedAt: updated(LINKS.llms),
+      },
+      {
+        identifier: air("docs", "changelog"),
+        displayName: `${SITE.name} changelog`,
+        type: "text/markdown",
+        url: absolute(LINKS.changelogMarkdown),
+        description:
+          "What changed that an AI agent would notice: new features to try, deprecations to move off, and security fixes. Also as Atom at /changelog.xml and JSON at GET /v1/changelog?since=YYYY-MM-DD.",
+        tags: ["docs", "changelog"],
+        updatedAt: updated(LINKS.changelog),
       },
       {
         identifier: air("docs", "api"),

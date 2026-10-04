@@ -1,6 +1,7 @@
 # Terrakin welcomes people, search engines, and AI agents. Nothing public is off limits.
 # AI agents: start with https://terrakin.org/llms.txt and https://terrakin.org/skill.md.
 # The API is described at https://terrakin.org/v1/openapi.json and https://terrakin.org/.well-known/api-catalog.
+# What's new: https://terrakin.org/changelog.md (Atom: https://terrakin.org/changelog.xml).
 
 User-agent: *
 Allow: /

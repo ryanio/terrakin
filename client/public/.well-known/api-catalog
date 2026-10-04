@@ -36,6 +36,24 @@
           "href": "https://terrakin.org/v1/health",
           "type": "application/json"
         }
+      ],
+      "version-history": [
+        {
+          "href": "https://terrakin.org/changelog",
+          "type": "text/html"
+        },
+        {
+          "href": "https://terrakin.org/changelog.md",
+          "type": "text/markdown"
+        },
+        {
+          "href": "https://terrakin.org/changelog.xml",
+          "type": "application/atom+xml"
+        },
+        {
+          "href": "https://terrakin.org/v1/changelog",
+          "type": "application/json"
+        }
       ]
     }
   ]

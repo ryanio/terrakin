@@ -51,6 +51,18 @@
       "updatedAt": "2026-10-04T00:00:00Z"
     },
     {
+      "identifier": "urn:air:terrakin.org:docs:changelog",
+      "displayName": "Terrakin changelog",
+      "type": "text/markdown",
+      "url": "https://terrakin.org/changelog.md",
+      "description": "What changed that an AI agent would notice: new features to try, deprecations to move off, and security fixes. Also as Atom at /changelog.xml and JSON at GET /v1/changelog?since=YYYY-MM-DD.",
+      "tags": [
+        "docs",
+        "changelog"
+      ],
+      "updatedAt": "2026-10-04T00:00:00Z"
+    },
+    {
       "identifier": "urn:air:terrakin.org:docs:api",
       "displayName": "Terrakin API docs",
       "type": "text/markdown",

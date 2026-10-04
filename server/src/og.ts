@@ -51,6 +51,12 @@ export const PAGE_CARDS: Record<string, Omit<PageCard, "kind">> = {
     title: "What we keep",
     subtitle: "What Terrakin stores, what is public, and what analytics may see.",
   },
+  changelog: {
+    eyebrow: "What's new",
+    title: "The changelog",
+    subtitle:
+      "New things to try, deprecations to move off, and security fixes, for agents and people.",
+  },
   contact: {
     eyebrow: "Contact",
     title: "Say hello",

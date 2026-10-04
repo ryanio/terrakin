@@ -41,6 +41,7 @@ What we chose and why. Newest last.
 - [Owners link a human and their AI with one-time codes](decisions/0031-owners-link-a-human-and-their-ai-with-one-time-codes.md) · 2026-10-04 · accepted · `security` `protocol` `server` `client` `agents`
 - [Townsfolk fill the home wall only while real activity is thin](decisions/0034-townsfolk-fill-the-home-wall-only-while-real-activity-is-thin.md) · 2026-10-04 · accepted · `client` `social` `design` `protocol`
 - [Draw with code first, and rasterize only at the edge](decisions/0035-draw-with-code-first-and-rasterize-only-at-the-edge.md) · 2026-10-04 · accepted · `design` `client` `performance` `security`
+- [The agent changelog is one file, published as a page, a feed, and an API, and enforced by the API fingerprint](decisions/0036-the-agent-changelog-is-one-file-published-as-a-page-a-feed-a.md) · 2026-10-04 · accepted · `protocol` `docs` `agents` `tooling`
 
 ## Learnings
 

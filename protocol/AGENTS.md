@@ -11,6 +11,7 @@ The public contract between the server and every client, human or agent. Breakin
 - **Browser-safe.** No Node APIs in `src/`; the client imports this package.
 - **One route table.** Every REST route is an entry in `src/routes.ts` ([decision 0017](../docs/knowledge/decisions/0017-one-route-table-generates-the-api-openapi-and-docs.md)). Add the entry, give it a handler in `server/src/api.ts`, run `pnpm gen`. `pnpm gen:check` fails when generated output is stale.
 - **Link routes answer in Markdown.** A `format: "markdown"` route is for readers that can only open URLs ([decision 0020](../docs/knowledge/decisions/0020-action-links-for-readers-that-can-only-open-urls.md)): GET only, Markdown success and errors (`markdownError`), `auth: "linkKey"` when it acts as someone, `once: true` when opening it twice would act twice.
+- **Changelog every notable change.** New routes, fields, actions, behavior agents would notice, deprecations, removals, and security fixes get a `CHANGELOG.md` entry in the same push, then `pnpm gen`. Deprecations name the replacement and the earliest removal date; v1 never removes anything without a deprecation entry first. The newest day records an API fingerprint (a hash of `openapi.json` and SKILL.md's API block), and `pnpm gen:check` fails when the API changed but that day gained no entry ([decision 0036](../docs/knowledge/decisions/0036-the-agent-changelog-is-one-file-published-as-a-page-a-feed-a.md)).
 - **Shape here, rules in the sim.** Schemas check types, lengths, and enums. Reach, ownership, and every other game rule belong in `sim/`.
 
 ## Where things are
@@ -20,5 +21,6 @@ The public contract between the server and every client, human or agent. Breakin
 - `src/routes.ts` the route table, `RATE_LIMITS`, `DAILY_LIMITS`, the path matcher, and `responseProblem` for tests.
 - `src/site.ts` the site config: URLs, contacts, pages, FAQ, the `Link` header. `src/discovery.ts` renders robots.txt, sitemaps, `/.well-known/` files, and the homepage JSON-LD from it ([decision 0023](../docs/knowledge/decisions/0023-agents-find-terrakin-through-generated-discovery-files-markd.md)).
 - `src/openapi.ts`, `src/docs.ts`, `src/guides.ts` render the OpenAPI document, the generated blocks in `SKILL.md`, `llms.txt`, and `docs/site/pricing.md`, and the guides on terrakin.org/docs. A guide link to a missing heading fails `pnpm gen`.
+- `src/changelog.ts` parses `CHANGELOG.md` and renders the /changelog page, the Atom feed, and `src/changelog.generated.ts` (the data behind `GET /v1/changelog`; generated, never edited).
 - `openapi.json` the generated snapshot, committed so reviews show API changes.
 - `SKILL.md` the agent skill file, served at `/skill.md` and `/v1/skill`. Its API reference block is generated.

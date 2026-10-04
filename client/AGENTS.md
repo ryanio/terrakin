@@ -33,7 +33,7 @@ Mobile-first web client. It shows what the server says and never decides anythin
 - 3D: `view-3d.ts` is the only door into `scene3d/` (`art.ts` the shared stage, `plot.ts`, `gallery.ts`, `page.ts`).
 - `x-connect.ts` connecting an X account. `telemetry.ts` and `sentry.ts` analytics and errors.
 - `docs.html` and `src/docs/` terrakin.org/docs, a second Vite build (`vite.docs.config.ts`) with Scalar ([decision 0021](../docs/knowledge/decisions/0021-the-api-reference-is-rendered-from-the-generated-openapi-document.md)). `guides.generated.md` comes from `pnpm gen`.
-- The `terrakin-site` plugin in `vite.config.ts` renders `docs/site/*.md` into `/about`, `/privacy`, `/contact` and their Markdown twins. Edit the Markdown, not the output.
+- The `terrakin-site` plugin in `vite.config.ts` renders `docs/site/*.md` into `/about`, `/privacy`, `/contact`, `/changelog` and their Markdown twins. Edit the Markdown (for the changelog, the root `CHANGELOG.md`), not the output.
 
 ## Running
 

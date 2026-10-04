@@ -13,6 +13,12 @@
  * Dates are deterministic: lastmod.json stores a hash of each page's sources, and a page's date
  * moves to today only when that hash changes. Check mode compares hashes, never dates.
  *
+ * The changelog (decision 0036): CHANGELOG.md becomes docs/site/changelog.md (the /changelog page
+ * and its twin), client/public/changelog.xml (Atom), and protocol/src/changelog.generated.ts (the
+ * data behind GET /v1/changelog). Its newest day carries the API fingerprint, a hash of
+ * openapi.json and SKILL.md's API block. When the API changes, gen restamps it only if that day
+ * has gained an entry since the last stamp, and gen:check fails until it has.
+ *
  * Plain Node (type stripping), no dependencies beyond the workspace packages it renders.
  */
 import { createHash } from "node:crypto";
@@ -43,6 +49,7 @@ const docs = await import("../protocol/src/docs.ts");
 const discovery = await import("../protocol/src/discovery.ts");
 const { docsGuides } = await import("../protocol/src/guides.ts");
 const { PAGES } = await import("../protocol/src/site.ts");
+const changelog = await import("../protocol/src/changelog.ts");
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const LASTMOD = "docs/site/lastmod.json";
@@ -68,6 +75,20 @@ function read(file: string): string {
   return current.get(file) as string;
 }
 
+/** Messages that fail the run, like an API change with no changelog entry. */
+const errors: string[] = [];
+const check = process.argv.includes("--check");
+
+/**
+ * The API fingerprint: 12 hex characters of SHA-256 over the OpenAPI snapshot and SKILL.md's
+ * generated API block, as this run will write them.
+ */
+const apiFingerprint = () =>
+  sha256(`${read("protocol/openapi.json")}\0${docs.skillApiBlock()}`).slice(0, 12);
+
+/** CHANGELOG.md, parsed. Throws a ChangelogError naming the bad line. */
+const changelogLog = () => changelog.parseChangelog(read("CHANGELOG.md"));
+
 type LastmodFile = Record<string, { sha256: string; lastmod: string }>;
 const lastmods = (): Record<string, string> =>
   Object.fromEntries(
@@ -92,6 +113,24 @@ const TARGETS: { file: string; render: (current: string) => string }[] = [
   },
   { file: "protocol/openapi.json", render: () => json(buildOpenApi()) },
   {
+    // After openapi.json and SKILL.md, so the fingerprint covers what this run writes.
+    file: "CHANGELOG.md",
+    render: (text) => {
+      const hash = apiFingerprint();
+      if (check && changelog.apiChangedSinceStamp(text, hash)) {
+        errors.push(changelog.API_CHANGED_MESSAGE);
+        return text;
+      }
+      return changelog.stampFingerprint(text, hash);
+    },
+  },
+  { file: "docs/site/changelog.md", render: () => changelog.changelogPage(changelogLog()) },
+  {
+    file: "protocol/src/changelog.generated.ts",
+    render: () => changelog.changelogModule(changelogLog()),
+  },
+  { file: "client/public/changelog.xml", render: () => changelog.changelogAtom(changelogLog()) },
+  {
     file: "docs/site/index.md",
     render: (text) =>
       docs.replaceGenerated(
@@ -113,6 +152,7 @@ const TARGETS: { file: string; render: (current: string) => string }[] = [
         gettingStarted: read("docs/guides/getting-started.md"),
         skill: read("protocol/SKILL.md"),
         openapi: buildOpenApi(),
+        changelog: changelogLog(),
       }),
   },
   { file: "client/public/docs/llms.txt", render: () => docs.apiLlmsTxt() },
@@ -149,11 +189,16 @@ const TARGETS: { file: string; render: (current: string) => string }[] = [
   { file: "client/public/.well-known/ard.json", render: () => json(discovery.ardJson(lastmods())) },
 ];
 
-const check = process.argv.includes("--check");
 const stale: string[] = [];
 for (const { file, render } of TARGETS) {
   const before = read(file);
-  const after = render(before);
+  let after = before;
+  try {
+    after = render(before);
+  } catch (err) {
+    if (!(err instanceof changelog.ChangelogError)) throw err;
+    errors.push(err.message);
+  }
   next.set(file, after);
   if (after === before) continue;
   stale.push(file);
@@ -163,9 +208,13 @@ for (const { file, render } of TARGETS) {
   }
 }
 
+if (errors.length > 0) {
+  console.error([...new Set(errors)].join("\n"));
+  process.exit(1);
+}
 if (check && stale.length > 0) {
   console.error(
-    `Generated files are out of date with protocol/src/routes.ts or protocol/src/site.ts:\n${stale.map((f) => `  ${f}`).join("\n")}\nRun \`pnpm gen\` and commit the result.`,
+    `Generated files are out of date with protocol/src/routes.ts, protocol/src/site.ts, or CHANGELOG.md:\n${stale.map((f) => `  ${f}`).join("\n")}\nRun \`pnpm gen\` and commit the result.`,
   );
   process.exit(1);
 }

@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { API_CATALOG_TYPE, SITEMAP_MAX_URLS } from "@terrakin/protocol";
+import { API_CATALOG_TYPE, CHANGELOG_ENTRIES, SITEMAP_MAX_URLS } from "@terrakin/protocol";
 import type { WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
@@ -18,7 +18,7 @@ import { WorldService } from "./world-service";
 /**
  * What agents rely on beyond the JSON bodies: standard headers (rate limits, Retry-After,
  * WWW-Authenticate, API-Version, Link), Idempotency-Key, Markdown twins and content negotiation,
- * the discovery files' content types, and the live sitemaps.
+ * the discovery files' content types, the live sitemaps, and the changelog.
  */
 
 const CONFIG: WorldConfig = {
@@ -46,6 +46,9 @@ function staticDir() {
   writeFileSync(join(dir, "about.html"), "<!doctype html><title>About</title>");
   writeFileSync(join(dir, "about.md"), "# About Terrakin\n");
   writeFileSync(join(dir, ".well-known", "api-catalog"), '{"linkset":[]}');
+  writeFileSync(join(dir, "changelog.html"), "<!doctype html><title>What's new</title>");
+  writeFileSync(join(dir, "changelog.md"), "# What's new in Terrakin\n");
+  writeFileSync(join(dir, "changelog.xml"), '<feed xmlns="http://www.w3.org/2005/Atom"></feed>');
   return dir;
 }
 
@@ -388,5 +391,64 @@ describe("sitemaps", () => {
     const empty = await call("GET", "/sitemap-posts-1.xml");
     expect(empty.status).toBe(200);
     expect(locs(empty.text)).toEqual([]);
+  });
+});
+
+describe("the changelog", () => {
+  const latest = CHANGELOG_ENTRIES.reduce((max, e) => (e.date > max ? e.date : max), "");
+  type Entry = { date: string; kind: string; removal?: string };
+
+  it("answers GET /v1/changelog with every entry and the newest day, no token needed", async () => {
+    const { call } = await start();
+    const res = await call("GET", "/v1/changelog");
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ entries: CHANGELOG_ENTRIES, latest });
+    expect(res.body.entries.length).toBeGreaterThan(10);
+  });
+
+  it("filters by since (inclusive) and kind", async () => {
+    const { call } = await start();
+    const since = await call("GET", `/v1/changelog?since=${latest}`);
+    expect(since.body.entries.length).toBeGreaterThan(0);
+    expect(since.body.entries.every((e: Entry) => e.date === latest)).toBe(true);
+
+    const later = await call("GET", "/v1/changelog?since=2999-01-01");
+    expect(later.body).toEqual({ entries: [], latest });
+
+    const security = await call("GET", "/v1/changelog?kind=security&since=2026-10-01");
+    expect(security.body.entries.length).toBeGreaterThan(0);
+    expect(security.body.entries.every((e: Entry) => e.kind === "security")).toBe(true);
+
+    const deprecated = await call("GET", "/v1/changelog?kind=deprecated");
+    expect(deprecated.status).toBe(200);
+    for (const e of deprecated.body.entries as Entry[]) {
+      expect(e.removal).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    }
+  });
+
+  it("turns away a malformed since or an unknown kind", async () => {
+    const { call } = await start();
+    for (const query of ["since=yesterday", "since=2026-10-4", "kind=updated"]) {
+      const res = await call("GET", `/v1/changelog?${query}`);
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe("bad_request");
+    }
+  });
+
+  it("serves the Atom feed as Atom and links it from every page", async () => {
+    const { call } = await start();
+    const feed = await call("GET", "/changelog.xml");
+    expect(feed.headers.get("content-type")).toBe("application/atom+xml; charset=utf-8");
+
+    const page = await call("GET", "/changelog", { headers: { accept: "text/html" } });
+    expect(page.text).toContain("<title>What's new</title>");
+    const link = page.headers.get("link") ?? "";
+    expect(link).toContain('</changelog.md>; rel="alternate"; type="text/markdown"');
+    expect(link).toContain('</changelog.xml>; rel="alternate"; type="application/atom+xml"');
+    const about = await call("GET", "/about", { headers: { accept: "text/html" } });
+    expect(about.headers.get("link")).toContain('</changelog.xml>; rel="alternate"');
+
+    const twin = await call("GET", "/changelog", { headers: { accept: "text/markdown" } });
+    expect(twin.text).toBe("# What's new in Terrakin\n");
   });
 });

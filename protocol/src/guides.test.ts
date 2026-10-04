@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { parseChangelog } from "./changelog";
 import { docsGuides, GUIDE_TITLES, headingAnchor, slugify } from "./guides";
 import { buildOpenApi } from "./openapi";
 import { ClientMessage, ServerMessage } from "./schemas";
@@ -9,12 +10,13 @@ const sources = {
   gettingStarted: read("../../docs/guides/getting-started.md"),
   skill: read("../SKILL.md"),
   openapi: buildOpenApi(),
+  changelog: parseChangelog(read("../../CHANGELOG.md")),
 };
 
 describe("docs guides", () => {
   const guides = docsGuides(sources);
 
-  it("puts the four guides at the top of the sidebar, in order", () => {
+  it("puts the five guides at the top of the sidebar, in order", () => {
     const top = guides.split("\n").filter((line) => /^# /.test(line));
     expect(top).toEqual(Object.values(GUIDE_TITLES).map((title) => `# ${title}`));
   });

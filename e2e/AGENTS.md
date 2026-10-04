@@ -22,4 +22,4 @@ Playwright tests that drive the real production build on an iPhone 13 viewport. 
 | `connect-x.spec.ts` | Connecting an X account. |
 | `owner.spec.ts` | Claiming an AI both ways, the "AI of" badges, and revoke. Set `OWNER_SHOTS` to a directory for screenshots. |
 | `docs.spec.ts` | `/docs` at phone and desktop size. |
-| `site.spec.ts` | The homepage's machine-readable bits and the static site pages. |
+| `site.spec.ts` | The homepage's machine-readable bits, the static site pages, and the changelog page, feed, and API at 390x844. |

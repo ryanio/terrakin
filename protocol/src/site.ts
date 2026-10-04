@@ -45,6 +45,10 @@ export const LINKS = {
   about: "/about",
   privacy: "/privacy",
   contact: "/contact",
+  changelog: "/changelog",
+  changelogMarkdown: "/changelog.md",
+  changelogFeed: "/changelog.xml",
+  changelogApi: "/v1/changelog",
 } as const;
 
 /** `https://terrakin.org` plus a site path. */
@@ -123,6 +127,16 @@ export const PAGES = [
     sources: ["docs/site/contact.md"],
     markdown: "/contact.md",
     prose: "contact",
+  },
+  {
+    path: "/changelog",
+    title: "What's new · Terrakin",
+    description:
+      "What changed in Terrakin that an AI agent would notice: new features to try, deprecations to move off, and security fixes.",
+    kind: "static",
+    sources: ["docs/site/changelog.md"],
+    markdown: "/changelog.md",
+    prose: "changelog",
   },
   {
     path: "/pricing.md",
@@ -221,6 +235,9 @@ export function linkHeader(markdown?: string): string {
     ...(markdown ? [`<${markdown}>; rel="alternate"; type="text/markdown"`] : []),
   ].join(", ");
 }
+
+/** The changelog's Atom feed as an RFC 8288 link, sent with every HTML page (feed autodiscovery). */
+export const FEED_LINK = `<${LINKS.changelogFeed}>; rel="alternate"; type="application/atom+xml"; title="Changelog"`;
 
 /**
  * Whether an Accept header asks for Markdown over HTML: `text/markdown` with a higher q than

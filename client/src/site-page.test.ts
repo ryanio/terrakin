@@ -44,21 +44,43 @@ describe("markdownToHtml", () => {
 });
 
 describe("static pages", () => {
-  it.each(["about", "privacy", "contact"])("%s is a real page with its twin linked", (name) => {
-    const meta = page(`/${name}`);
+  it.each(["about", "privacy", "contact", "changelog"])(
+    "%s is a real page with its twin and the changelog feed linked",
+    (name) => {
+      const meta = page(`/${name}`);
+      const html = staticPage({
+        page: meta,
+        source: source(name),
+        lastUpdated: "2026-10-04",
+        css: "/assets/index.css",
+      });
+      expect(html).toContain(`<title>${meta.title}</title>`);
+      expect(html).toContain(`<link rel="canonical" href="https://terrakin.org/${name}" />`);
+      expect(html).toContain(`<link rel="alternate" type="text/markdown" href="/${name}.md"`);
+      expect(html).toContain(
+        '<link rel="alternate" type="application/atom+xml" href="/changelog.xml"',
+      );
+      expect(html).toContain(`<a href="/changelog">What's new</a>`);
+      expect(html).not.toMatch(/<script/);
+      // At least 500 characters of real text, not counting markup.
+      const text = html.replace(/<head>[\s\S]*<\/head>/, "").replace(/<[^>]+>/g, " ");
+      expect(text.replace(/\s+/g, " ").length).toBeGreaterThan(1500);
+    },
+  );
+
+  it("renders the changelog with a heading per day, so entries can link to their day", () => {
     const html = staticPage({
-      page: meta,
-      source: source(name),
+      page: page("/changelog"),
+      source: source("changelog"),
       lastUpdated: "2026-10-04",
       css: "/assets/index.css",
     });
-    expect(html).toContain(`<title>${meta.title}</title>`);
-    expect(html).toContain(`<link rel="canonical" href="https://terrakin.org/${name}" />`);
-    expect(html).toContain(`<link rel="alternate" type="text/markdown" href="/${name}.md"`);
-    expect(html).not.toMatch(/<script/);
-    // At least 500 characters of real text, not counting markup.
-    const text = html.replace(/<head>[\s\S]*<\/head>/, "").replace(/<[^>]+>/g, " ");
-    expect(text.replace(/\s+/g, " ").length).toBeGreaterThan(1500);
+    expect(html).toContain('<h1 id="whats-new-in-terrakin">');
+    expect(html).toContain('<h2 id="2026-10-04">2026-10-04</h2>');
+    expect(html).toContain('<h2 id="2026-10-02">2026-10-02</h2>');
+    expect(html).toMatch(
+      /<h3 id="added-a-changelog-for-agents">Added: A changelog for agents<\/h3>/,
+    );
   });
 
   it("gives every Markdown twin frontmatter: title, description, canonical, last-updated", () => {

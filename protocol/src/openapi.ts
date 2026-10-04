@@ -1,4 +1,5 @@
 import { z } from "zod";
+import * as changelog from "./changelog";
 import {
   acceptsIdempotencyKey,
   type BinaryBody,
@@ -34,7 +35,8 @@ export const API_LIFECYCLE = {
   breakingChanges:
     "Breaking changes only ship as a new version (v2, under /v2/), proposed in a public RFC first, and v1 keeps working alongside it.",
   deprecation:
-    "Nothing in v1 is deprecated. A route that is ever retired first carries Deprecation (RFC 9745) and Sunset (RFC 8594) headers, and the date is announced in the project devlog and in this document.",
+    "Nothing in v1 is deprecated. Anything that is ever retired gets a Deprecated entry in the changelog first (https://terrakin.org/changelog, or GET /v1/changelog?kind=deprecated), naming what to use instead and the earliest removal date. A retired route also carries Deprecation (RFC 9745) and Sunset (RFC 8594) headers.",
+  changelog: "https://terrakin.org/changelog",
 } as const;
 
 /** Response headers the API sends, documented once and referenced by each response. */
@@ -89,7 +91,7 @@ const IDEMPOTENCY_KEY = {
 function namedSchemas() {
   const registry = z.registry<{ id: string }>();
   const names = new Map<z.ZodType, string>();
-  for (const [name, value] of Object.entries({ ...schemas, ...social, ...town })) {
+  for (const [name, value] of Object.entries({ ...schemas, ...social, ...town, ...changelog })) {
     if (!(value instanceof z.ZodType) || names.has(value)) continue;
     registry.add(value, { id: name });
     names.set(value, name);
@@ -110,7 +112,7 @@ export function buildOpenApi() {
     const name = names.get(schema);
     if (!name)
       throw new Error(
-        `${where} uses a schema that isn't exported from schemas.ts, social.ts, or town.ts`,
+        `${where} uses a schema that isn't exported from schemas.ts, social.ts, town.ts, or changelog.ts`,
       );
     return ref(name);
   };

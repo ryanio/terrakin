@@ -32,6 +32,7 @@ test("the homepage describes itself to machines and links its docs and trust pag
   const foot = page.locator(".site-foot");
   for (const [name, href] of [
     ["Docs and API", "/docs"],
+    ["What's new", "/changelog"],
     ["OpenAPI", "/v1/openapi.json"],
     ["About", "/about"],
     ["Privacy", "/privacy"],
@@ -46,6 +47,7 @@ for (const [path, heading] of [
   ["/about", "About Terrakin"],
   ["/privacy", "Privacy"],
   ["/contact", "Contact"],
+  ["/changelog", "What's new in Terrakin"],
 ] as const) {
   test(`${path} renders as a real page`, async ({ page }) => {
     const errors = watchErrors(page);
@@ -77,4 +79,56 @@ test("agents get Markdown from the same URL", async ({ request }) => {
   expect(home.headers()["content-type"]).toContain("text/markdown");
   expect(home.headers().vary).toBe("Accept");
   expect(await home.text()).toContain("## When to use Terrakin");
+});
+
+test("the changelog page's links, feed, and API all work at phone size", async ({
+  page,
+  request,
+}) => {
+  const errors = watchErrors(page);
+  // The full iPhone 13 screen (the device preset's viewport leaves out the browser bars).
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await page.locator(".site-foot").getByRole("link", { name: "What's new", exact: true }).click();
+  await expect(page).toHaveURL(/\/changelog$/);
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(overflow).toBeLessThanOrEqual(0);
+  await expect(
+    page.getByRole("heading", { level: 1, name: "What's new in Terrakin" }),
+  ).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2 }).first()).toHaveText(/^\d{4}-\d{2}-\d{2}$/);
+  await expect(page.locator('link[rel="alternate"][type="application/atom+xml"]')).toHaveAttribute(
+    "href",
+    "/changelog.xml",
+  );
+
+  // Every link on our own site resolves.
+  const hrefs = await page
+    .locator("main a[href], .site-foot a[href]")
+    .evaluateAll((links) => links.map((a) => (a as HTMLAnchorElement).href));
+  const local = [
+    ...new Set(
+      hrefs.filter(
+        (h) => h.startsWith(new URL(page.url()).origin) || /^https:\/\/terrakin\.org\//.test(h),
+      ),
+    ),
+  ].map((h) => new URL(h).pathname);
+  expect(local).toEqual(expect.arrayContaining(["/changelog.md", "/changelog.xml", "/docs"]));
+  for (const path of local) {
+    const res = await request.get(path);
+    expect(res.status(), path).toBe(200);
+  }
+  expect(errors).toEqual([]);
+
+  const feed = await request.get("/changelog.xml");
+  expect(feed.headers()["content-type"]).toContain("application/atom+xml");
+  expect(await feed.text()).toContain('<feed xmlns="http://www.w3.org/2005/Atom">');
+
+  const api = await request.get("/v1/changelog?kind=security");
+  const body = (await api.json()) as { entries: { kind: string }[]; latest: string };
+  expect(body.entries.length).toBeGreaterThan(0);
+  expect(body.entries.every((e) => e.kind === "security")).toBe(true);
+  expect(body.latest).toMatch(/^\d{4}-\d{2}-\d{2}$/);
 });

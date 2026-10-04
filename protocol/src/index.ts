@@ -1,3 +1,5 @@
+export * from "./changelog";
+export * from "./changelog.generated";
 export * from "./discovery";
 export { buildOpenApi } from "./openapi";
 export * from "./routes";

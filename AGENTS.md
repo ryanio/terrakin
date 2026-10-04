@@ -60,5 +60,6 @@ pnpm cf:deploy    # deploy to terrakin.org (docs/deploy.md)
 1. `pnpm verify` passes (and `pnpm e2e` for client changes).
 2. New behavior has a test at the lowest level that catches the bug: sim rule in `sim/`, wire format in `protocol/`, routing and auth in `server/`, a user flow in `e2e/`.
 3. Docs that describe the behavior change in the same commit: the folder `AGENTS.md`, `SKILL.md`, `docs/architecture.md`, `docs/plans/README.md`.
-4. A choice someone could question has a decision record (`pnpm kb new decision "..."`).
-5. Work left in flight has a handoff (`pnpm kb new handoff "..."`).
+4. Notable changes (new routes, fields, actions, behavior agents would notice, deprecations, removals, security fixes) get a `CHANGELOG.md` entry in the same push. Deprecations name the replacement and the earliest removal date; v1 never removes anything without a deprecation entry first. `pnpm gen:check` fails when the API changed and the changelog didn't ([decision 0036](docs/knowledge/decisions/0036-the-agent-changelog-is-one-file-published-as-a-page-a-feed-a.md)).
+5. A choice someone could question has a decision record (`pnpm kb new decision "..."`).
+6. Work left in flight has a handoff (`pnpm kb new handoff "..."`).

@@ -85,6 +85,7 @@ describe("discovery files", () => {
     expect(robots).not.toMatch(/^Disallow:/m);
     expect(robots).toContain("Sitemap: https://terrakin.org/sitemap.xml");
     expect(robots).toContain("https://terrakin.org/llms.txt");
+    expect(robots).toContain("https://terrakin.org/changelog.md");
   });
 
   it("writes sitemaps the protocol accepts, escaped", () => {
@@ -115,6 +116,10 @@ describe("discovery files", () => {
         { href: "https://terrakin.org/docs", type: "text/html" },
       ]),
       status: [{ href: "https://terrakin.org/v1/health", type: "application/json" }],
+      "version-history": expect.arrayContaining([
+        { href: "https://terrakin.org/changelog.xml", type: "application/atom+xml" },
+        { href: "https://terrakin.org/v1/changelog", type: "application/json" },
+      ]),
     });
   });
 

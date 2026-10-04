@@ -3,7 +3,9 @@ import {
   absolute,
   acceptsIdempotencyKey,
   type BinaryBody,
+  CHANGELOG_ENTRIES,
   ClientMessage,
+  changelogResponse,
   compileRoutes,
   type ErrorCode,
   errorStatus,
@@ -1010,6 +1012,11 @@ export class Api {
       // ---------- docs ----------
       getSkill: () => ({ status: 200, text: this.skill }),
       getOpenApi: () => ({ status: 200, text: this.openapi }),
+      // Built into the bundle by `pnpm gen` from CHANGELOG.md, so no file is read at run time.
+      getChangelog: ({ query }) => ({
+        status: 200,
+        body: changelogResponse(CHANGELOG_ENTRIES, query),
+      }),
     };
     return handlers;
   }

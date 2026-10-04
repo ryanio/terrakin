@@ -120,11 +120,11 @@ describe("WorldSnapshot time anchor", () => {
     blocks: [],
   };
 
-  it("requires the time anchor and rejects a non-positive day length", () => {
+  it("accepts a snapshot without a time anchor and rejects a non-positive day length", () => {
     const good = { ...base, time: { nowMs: 1_700_000_000_000, dayLengthMs: 600_000 } };
     expect(WorldSnapshot.safeParse(good).success).toBe(true);
     const { time, ...noTime } = good;
-    expect(WorldSnapshot.safeParse(noTime).success).toBe(false);
+    expect(WorldSnapshot.safeParse(noTime).success).toBe(true);
     expect(WorldSnapshot.safeParse({ ...good, time: { nowMs: 1, dayLengthMs: 0 } }).success).toBe(
       false,
     );

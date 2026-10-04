@@ -129,21 +129,19 @@ export function render(
     ctx.strokeRect(sx - half, sy - half, scale * (2 * r + 1), scale * (2 * r + 1));
   }
 
-  ctx.textAlign = "center";
-  ctx.font = `${Math.max(11, Math.floor(scale / 3))}px system-ui, sans-serif`;
-  for (const r of mirror.residents.values()) {
-    if (!r.online) continue;
+  const visible = [...mirror.residents.values()].filter((r) => {
+    if (!r.online) return false;
     const { sx, sy } = tileToScreen(cam, r.x, r.y);
-    if (sx < -scale || sy < -scale || sx > width + scale || sy > height + scale) continue;
+    return sx >= -scale && sy >= -scale && sx <= width + scale && sy <= height + scale;
+  });
+  for (const r of visible) {
+    const { sx, sy } = tileToScreen(cam, r.x, r.y);
     residentPath(ctx, r.shape, sx, sy, scale * 0.3);
     ctx.fillStyle = RESIDENT_COLOR_HEX[r.color];
     ctx.fill();
     ctx.lineWidth = r.id === me ? 4 : 2;
     ctx.strokeStyle = r.id === me ? "#ffffff" : "#1d2b22";
     ctx.stroke();
-    // Canvas text can't execute anything, so names are safe to draw as-is.
-    ctx.fillStyle = "#fff";
-    ctx.fillText(r.kind === "agent" ? `${r.name} ⚙` : r.name, sx, sy - scale * 0.45);
   }
 
   // Night falls over the whole canvas. Capped so the world stays readable at midnight.
@@ -153,5 +151,15 @@ export function render(
       ctx.fillStyle = `rgba(10, 14, 44, ${(0.45 * night).toFixed(3)})`;
       ctx.fillRect(0, 0, width, height);
     }
+  }
+
+  // Names go on top of the night tint so they stay readable at midnight.
+  ctx.textAlign = "center";
+  ctx.font = `${Math.max(11, Math.floor(scale / 3))}px system-ui, sans-serif`;
+  ctx.fillStyle = "#fff";
+  for (const r of visible) {
+    const { sx, sy } = tileToScreen(cam, r.x, r.y);
+    // Canvas text can't execute anything, so names are safe to draw as-is.
+    ctx.fillText(r.kind === "agent" ? `${r.name} ⚙` : r.name, sx, sy - scale * 0.45);
   }
 }

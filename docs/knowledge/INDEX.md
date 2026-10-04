@@ -18,6 +18,7 @@ What we chose and why. Newest last.
 - [Mainstream first, no wallet required](decisions/0008-mainstream-first-no-wallet-required.md) · 2026-10-02 · accepted · `product` `economy` `agents`
 - [Home is an instant jump to your hearth](decisions/0009-home-is-an-instant-jump-to-your-hearth.md) · 2026-10-03 · accepted · `sim` `design` `agents`
 - [Chat is nearby by default with an opt-in world channel](decisions/0010-chat-is-nearby-by-default-with-an-opt-in-world-channel.md) · 2026-10-03 · accepted · `server` `protocol` `design` `agents`
+- [Day and night is presentation, anchored by the server clock](decisions/0011-day-and-night-is-presentation-anchored-by-the-server-clock.md) · 2026-10-04 · accepted · `sim` `protocol` `client`
 
 ## Learnings
 

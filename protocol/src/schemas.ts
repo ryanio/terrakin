@@ -110,7 +110,8 @@ export const WorldSnapshot = z.object({
   v: z.literal(PROTOCOL_VERSION),
   seq: z.number().int(),
   hash: z.string(),
-  time: WorldTime,
+  /** Optional so a client works against a server that predates day and night. */
+  time: WorldTime.optional(),
   config: z.object({
     width: z.number().int(),
     height: z.number().int(),

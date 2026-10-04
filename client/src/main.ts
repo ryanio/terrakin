@@ -58,6 +58,11 @@ function stopWalking() {
   pendingMove = undefined;
 }
 
+/** Remember the server's day/night anchor and when it arrived. No anchor means no night. */
+function anchor(time: WorldSnapshot["time"]) {
+  return time ? { ...time, receivedAt: performance.now() } : undefined;
+}
+
 /** Reload the world from the server. One at a time; events are ignored until it lands. */
 async function resync() {
   if (resyncing) return;
@@ -66,7 +71,7 @@ async function resync() {
     const parsed = WorldSnapshot.safeParse(await (await fetch("/v1/world")).json());
     if (parsed.success) {
       mirror = new Mirror(parsed.data);
-      dayAnchor = { ...parsed.data.time, receivedAt: performance.now() };
+      dayAnchor = anchor(parsed.data.time);
     } else console.warn("Bad snapshot from server", parsed.error);
   } catch (err) {
     console.warn("Resync failed", err);
@@ -80,7 +85,7 @@ function onMessage(msg: ServerMessage) {
     case "welcome":
       me = msg.residentId;
       mirror = new Mirror(msg.world);
-      dayAnchor = { ...msg.world.time, receivedAt: performance.now() };
+      dayAnchor = anchor(msg.world.time);
       stopWalking();
       joinForm.hidden = true;
       hud.hidden = false;

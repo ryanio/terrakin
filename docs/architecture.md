@@ -15,7 +15,7 @@ How Terrakin works today (Phase 1). For why it's built this way, see the [decisi
 
 - **sim** knows the rules and nothing else. `apply(state, { actor, command })` returns events or a rejection.
 - **protocol** defines every message on the wire with zod. Server and client both import it, so they can't drift.
-- **server** turns HTTP and WebSocket traffic into sim inputs, persists accepted inputs, and broadcasts events.
+- **server** turns HTTP and WebSocket traffic into sim inputs, persists accepted inputs, and broadcasts events. On terrakin.org it runs inside one Cloudflare Durable Object; locally it's a Node process. Both wrap the same `Api` ([deploy.md](deploy.md)).
 - **client** keeps a read-only mirror of the world built from the snapshot plus events, and draws it.
 - **Day and night** is presentation only. The snapshot carries `time { nowMs, dayLengthMs }` from the server clock, the client advances it with `performance.now()`, and the sim never sees it ([decision 0011](knowledge/decisions/0011-day-and-night-is-presentation-anchored-by-the-server-clock.md)).
 

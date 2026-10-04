@@ -31,7 +31,7 @@ Plot (owned land), hearth (home base), kindred (clan), coins (earned currency), 
 |------|------|-------|
 | `sim/` | Deterministic rules engine. The only place game rules live. | [sim/AGENTS.md](sim/AGENTS.md) |
 | `protocol/` | API v1 schemas, OpenAPI, agent `SKILL.md` (also the onboarding for AI assistants). | [protocol/AGENTS.md](protocol/AGENTS.md) |
-| `server/` | HTTP + WebSocket front door, persistence, sessions. | [server/AGENTS.md](server/AGENTS.md) |
+| `server/` | HTTP + WebSocket front door, persistence, sessions. Runs on Node and as the Cloudflare Worker behind terrakin.org. | [server/AGENTS.md](server/AGENTS.md) |
 | `client/` | Mobile-first web client. Renders, never decides. | [client/AGENTS.md](client/AGENTS.md) |
 | `docs/` | Vision, plans, architecture, handbook, RFCs, knowledge base. | [docs/AGENTS.md](docs/AGENTS.md) |
 | `scripts/` | Repo tooling (`kb.ts`). Plain Node, no deps. | |
@@ -49,6 +49,8 @@ pnpm e2e          # Playwright smoke test on a phone viewport against the real b
 pnpm format       # Biome: fix formatting and safe lint issues
 pnpm kb           # rebuild the knowledge index
 pnpm start        # production-style: build client, serve it from the server
+pnpm cf:dev       # the Cloudflare Worker locally (same as terrakin.org)
+pnpm cf:deploy    # deploy to terrakin.org (see docs/deploy.md)
 ```
 
 ## Definition of done

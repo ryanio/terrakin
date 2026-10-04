@@ -19,6 +19,7 @@ What we chose and why. Newest last.
 - [Home is an instant jump to your hearth](decisions/0009-home-is-an-instant-jump-to-your-hearth.md) · 2026-10-03 · accepted · `sim` `design` `agents`
 - [Chat is nearby by default with an opt-in world channel](decisions/0010-chat-is-nearby-by-default-with-an-opt-in-world-channel.md) · 2026-10-03 · accepted · `server` `protocol` `design` `agents`
 - [Day and night is presentation, anchored by the server clock](decisions/0011-day-and-night-is-presentation-anchored-by-the-server-clock.md) · 2026-10-04 · accepted · `sim` `protocol` `client`
+- [Host on Cloudflare Workers with one Durable Object](decisions/0012-host-on-cloudflare-workers-with-one-durable-object.md) · 2026-10-04 · accepted · `server` `deploy`
 
 ## Learnings
 

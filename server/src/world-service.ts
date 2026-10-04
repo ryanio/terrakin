@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash } from "node:crypto";
 import type {
   Action,
   ChatChannel,
@@ -41,6 +41,16 @@ export interface WorldServiceOptions {
 }
 
 const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
+
+/** Web Crypto randomness, so this file runs the same on Node and Cloudflare Workers. */
+const randomBytes = (n: number) => crypto.getRandomValues(new Uint8Array(n));
+const toHex = (bytes: Uint8Array) =>
+  Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+const toBase64Url = (bytes: Uint8Array) =>
+  btoa(String.fromCharCode(...bytes))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
 
 /** Drop absent fields (the sim's types forbid explicit undefined) and clean the note text. */
 type LooseProfile = { [K in keyof ProfileFields]?: ProfileFields[K] | undefined };
@@ -91,14 +101,14 @@ export class WorldService {
   createSession(
     request: { name: string; kind: ResidentKind } & LooseProfile,
   ): ActResult & { residentId?: string; token?: string } {
-    const residentId = `r_${randomBytes(8).toString("hex")}`;
+    const residentId = `r_${toHex(randomBytes(8))}`;
     const { name, kind, ...profile } = request;
     const result = this.run({
       actor: residentId,
       command: { type: "join", name: cleanText(name), kind, ...cleanProfile(profile) },
     });
     if (!result.ok) return result;
-    const token = randomBytes(32).toString("base64url");
+    const token = toBase64Url(randomBytes(32));
     const tokenHash = hashToken(token);
     this.sessions.set(tokenHash, residentId);
     this.store.appendSession({ tokenHash, residentId });

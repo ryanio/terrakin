@@ -16,11 +16,14 @@ The front door. Parses, authenticates, rate limits, runs the sim, persists, and 
 ## Layout
 
 - `src/world-service.ts` owns the world: sessions, actions, presence, snapshots.
-- `src/app.ts` HTTP routes and the `/v1/live` WebSocket. Thin.
-- `src/store.ts` `Store` interface, `MemoryStore`, `JsonlStore`.
+- `src/api.ts` the routes, auth, rate limits, and the `/v1/live` protocol, with no runtime dependencies. Both front doors use it.
+- `src/app.ts` Node adapter: `node:http` + `ws` around `Api`. Thin.
+- `cloudflare/worker.ts` Cloudflare adapter: the Worker that serves the client and the `World` Durable Object around `Api` (decision 0012). Config in the root `wrangler.jsonc`.
+- `src/store.ts` `Store` interface, `MemoryStore`, `JsonlStore`. `src/sql-store.ts` `SqlStore` for Durable Object SQLite.
 - `src/rate-limit.ts`, `src/text.ts` small utilities.
 - `src/main.ts` entry point. Env: `PORT` (8787), `TERRAKIN_DATA_DIR` (persist to JSONL), `TERRAKIN_STATIC_DIR` (serve built client), `TERRAKIN_TRUSTED_PROXIES` (reverse proxy hops).
-- Client IPs come from `clientIp()`. Never read `X-Forwarded-For` anywhere else.
+- Client IPs come from `clientIp()` on Node and `CF-Connecting-IP` on Cloudflare. Never read `X-Forwarded-For` anywhere else.
+- Code under `src/` that the Worker imports (`api.ts`, `world-service.ts`, `sql-store.ts`) must run on both runtimes: no `node:fs`, no `Buffer`. `pnpm typecheck` checks it against the Workers types too.
 
 ## Testing
 

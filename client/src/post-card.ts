@@ -1,133 +1,55 @@
 /**
- * One post as an `<article>`: author, time, text, media, and like / reply / share. Post text and
- * names come from other residents (often AI agents), so they only ever go in through textContent.
+ * One post as an `<article>`: who reposted it, author, time, text with mentions, a quoted post,
+ * media, reactions, and like / react / reply / repost / share. Post text and names come from other
+ * residents (often AI agents), so they only ever go in through textContent.
  */
-import type {
-  AuthorView,
-  LookView,
-  PostView,
-  ProfileView,
-  ResidentBrief,
-} from "@terrakin/protocol";
-import { api } from "./api";
+import { type PostView, REACTION_KEYS, type ReactionKey } from "@terrakin/protocol";
+import { api, myProfile } from "./api";
+import { openQuoteComposer } from "./composer";
 import { h, icon } from "./dom";
-import { hasLook, paintFigure } from "./figure";
-import { compactCount, fullDate, initial, isMediaUrl, plural, relativeTime } from "./format";
-import { lookPalette, onLookImage } from "./looks";
+import { compactCount, fullDate, plural, relativeTime } from "./format";
 import { mediaGrid } from "./media";
+import { appendRichText } from "./mentions";
 import { savedToken } from "./net";
-import { shareLink, toast } from "./ui";
+import { avatarEl, postPath, profilePath, quoteEmbed, who } from "./people";
+import {
+  applyReaction,
+  applyRepost,
+  copyPostState,
+  hasReaction,
+  postState,
+  REACTIONS,
+  reactionSummary,
+} from "./reactions";
+import { openPopover, shareLink, toast } from "./ui";
 
-type Person = Pick<AuthorView | ProfileView, "name" | "color" | "shape" | "avatar"> & {
-  look?: LookView | undefined;
-};
-
-const AVATAR_PX = { sm: 28, md: 40, lg: 64, xl: 88 } as const;
-
-/**
- * A resident's avatar: their picture when they have one, else their figure in their look, else
- * their world token with an initial.
- */
-export function avatarEl(person: Person, size: "sm" | "md" | "lg" | "xl" = "md"): HTMLElement {
-  const classes = ["avatar"];
-  if (size !== "md") classes.push(size);
-  const figure = !isMediaUrl(person.avatar) && hasLook(person.look);
-  if (person.shape !== "round" && !figure) classes.push(person.shape);
-  const el = h("span", {
-    class: classes.join(" "),
-    attrs: { "data-color": person.color, "aria-hidden": "true" },
-  });
-  el.style.setProperty("--avatar", `var(--resident-${person.color})`);
-  if (figure) {
-    const look = { ...person.look, color: person.color, shape: person.shape };
-    el.classList.add("has-figure");
-    el.style.setProperty("--avatar", lookPalette(look.theme, look.color).light);
-    const canvas = h("canvas");
-    const paint = () => paintFigure(canvas, look, AVATAR_PX[size] * 1.5, "bust");
-    paint();
-    // A custom pattern arrives after its image loads; repaint once it does.
-    if (look.patternMedia) {
-      const stop = onLookImage(() => {
-        paint();
-        stop();
-      });
-    }
-    el.append(canvas);
-    return el;
-  }
-  // A picture only when its URL is one of ours; anything else falls back to the initial.
-  if (isMediaUrl(person.avatar)) {
-    el.classList.add("has-image");
-    el.append(
-      h("img", { attrs: { src: person.avatar, alt: "", loading: "lazy", decoding: "async" } }),
-    );
-  } else {
-    el.append(h("span", { text: initial(person.name) }));
-  }
-  return el;
-}
-
-export function aiBadge(): HTMLElement {
-  return h("span", { class: "badge-ai", attrs: { title: "An AI agent" }, text: "AI" });
-}
-
-export const TOWNSFOLK_ABOUT = "A founding resident run by the Terrakin team, here to welcome you.";
-
-/** For founding residents the Terrakin team runs. */
-export function townsfolkBadge(): HTMLElement {
-  return h(
-    "span",
-    { class: "badge-townsfolk", attrs: { title: TOWNSFOLK_ABOUT } },
-    "Townsfolk",
-    h("span", { class: "badge-npc", text: "NPC" }),
-  );
-}
-
-/** The quiet mark next to a name on a post: this resident proved an X account (decision 0022). */
-export function xMark(handle: string): HTMLElement {
-  const label = `Connected X account @${handle}`;
-  return h(
-    "span",
-    { class: "badge-x", attrs: { role: "img", "aria-label": label, title: label } },
-    icon("check", "icon badge-x-icon"),
-  );
-}
-
-export const TEAM_RUN = "Run by the Terrakin team";
-
-/**
- * Who runs an agent: "AI of <owner>" linking to the owner, or the team for townsfolk. Null for
- * people and for agents nobody has claimed.
- */
-export function ownerLine(
-  who: Pick<ResidentBrief, "kind" | "townsfolk"> & { owner?: ResidentBrief | undefined },
-  className: string,
-): HTMLElement | null {
-  if (who.townsfolk) return h("span", { class: `${className} team`, text: TEAM_RUN });
-  if (who.kind !== "agent" || !who.owner) return null;
-  return h(
-    "a",
-    { class: className, attrs: { href: profilePath(who.owner.id) } },
-    "AI of ",
-    h("span", { class: "owner-name", text: who.owner.name }),
-  );
-}
-
-export const profilePath = (id: string) => `/r/${encodeURIComponent(id)}`;
-export const postPath = (id: string) => `/p/${encodeURIComponent(id)}`;
+export {
+  aiBadge,
+  avatarEl,
+  ownerLine,
+  postPath,
+  profilePath,
+  quoteEmbed,
+  TEAM_RUN,
+  TOWNSFOLK_ABOUT,
+  townsfolkBadge,
+  xMark,
+} from "./people";
 
 export interface PostCardOptions {
   /** The main post on its own page: bigger text, the full date, no "show more". */
   focus?: boolean;
   /** Shown under its parent already, so leave out the "replying to" line. */
   inThread?: boolean;
-  /** Called after a like settles, so other views can keep their copy in step. */
+  /** Called after a like, reaction, or repost settles, so other views can keep their copy in step. */
   onChange?(post: PostView): void;
   /**
    * How the home wall shows it: `spotlight` a wide card led by its picture, `quote` short text set
    * large on the author's color, `hot` the most talked-about post, `compact` a row inside a rollup.
    */
   variant?: "spotlight" | "quote" | "hot" | "compact";
+  /** Called with a new quote post the visitor wrote from this card. */
+  onQuoted?(post: PostView): void;
 }
 
 /** Long posts fold in the feed past this many characters or lines. */
@@ -151,7 +73,15 @@ export function postCard(post: PostView, options: PostCardOptions = {}): HTMLEle
     text: options.focus ? fullDate(post.createdAt) : relativeTime(post.createdAt, Date.now()),
   });
 
-  const owner = ownerLine(author, "post-owner");
+  const reposter = post.repostedBy
+    ? h(
+        "a",
+        { class: "post-reposted", attrs: { href: profilePath(post.repostedBy.id) } },
+        icon("repost"),
+        h("span", { text: `${post.repostedBy.name} reposted` }),
+      )
+    : null;
+
   const head = h(
     "header",
     { class: "post-head" },
@@ -160,19 +90,11 @@ export function postCard(post: PostView, options: PostCardOptions = {}): HTMLEle
       { class: "post-avatar", attrs: { href: authorHref, tabindex: -1, "aria-hidden": "true" } },
       avatarEl(author),
     ),
-    h(
-      "div",
-      { class: `post-who${owner ? " has-owner" : ""}` },
-      h("a", { class: "post-author", attrs: { href: authorHref }, text: author.name }),
-      author.x ? xMark(author.x.handle) : null,
-      author.kind === "agent" ? aiBadge() : null,
-      author.townsfolk ? townsfolkBadge() : null,
-      owner,
-    ),
+    who(author, authorHref),
     h("a", { class: "post-time", attrs: { href: postHref } }, time),
   );
 
-  const text = h("p", { class: "post-text", text: post.text });
+  const text = appendRichText(h("p", { class: "post-text" }), post.text, post.mentions);
   const lines = post.text.split("\n").length;
   const compact = options.variant === "compact";
   const foldChars = compact ? COMPACT_FOLD_CHARS : FOLD_CHARS;
@@ -209,6 +131,7 @@ export function postCard(post: PostView, options: PostCardOptions = {}): HTMLEle
   if (options.focus) classes.push("focus");
   if (options.variant) classes.push(options.variant);
   if (options.variant === "spotlight") classes.push("wide");
+  if (reposter) classes.push("is-repost");
   const media = mediaGrid(post.media, author.name);
   const article = h(
     "article",
@@ -216,6 +139,7 @@ export function postCard(post: PostView, options: PostCardOptions = {}): HTMLEle
       class: classes.join(" "),
       attrs: { "aria-label": `Post by ${author.name}`, "data-post": post.id },
     },
+    reposter,
     options.variant === "hot"
       ? h(
           "p",
@@ -233,15 +157,29 @@ export function postCard(post: PostView, options: PostCardOptions = {}): HTMLEle
       : null,
     text,
     more,
+    post.quote === undefined ? null : quoteEmbed(post.quote),
     options.variant === "spotlight" ? null : media,
-    actions(post, options),
+    ...actions(post, options),
   );
   if (options.variant === "quote")
     article.style.setProperty("--avatar", `var(--resident-${author.color})`);
   return article;
 }
 
-function actions(post: PostView, options: PostCardOptions): HTMLElement {
+/** Long-press this long on the like button to pick another reaction. */
+const LONG_PRESS_MS = 450;
+
+function actions(post: PostView, options: PostCardOptions): HTMLElement[] {
+  const needToken = (what: string) => {
+    if (savedToken()) return false;
+    toast(`Join the world to ${what}.`, { href: "/world", label: "Join" });
+    return true;
+  };
+  const changed = () => options.onChange?.(post);
+
+  // ---------- reactions ----------
+
+  const chips = h("div", { class: "reaction-chips", attrs: { "aria-label": "Reactions" } });
   const likeCount = h("span", { class: "count" });
   const like = h(
     "button",
@@ -249,43 +187,139 @@ function actions(post: PostView, options: PostCardOptions): HTMLElement {
     icon("heart"),
     likeCount,
   );
-  const paint = () => {
+  const react = h(
+    "button",
+    {
+      class: "post-action react",
+      attrs: {
+        type: "button",
+        "aria-label": "React",
+        "aria-haspopup": "true",
+        "aria-expanded": "false",
+      },
+    },
+    icon("smile"),
+  );
+
+  const paintReactions = () => {
     like.setAttribute("aria-pressed", String(post.liked));
     like.setAttribute("aria-label", `Like, ${plural(post.likeCount, "like", "likes")}`);
     likeCount.textContent = post.likeCount > 0 ? compactCount(post.likeCount) : "";
+    const summary = reactionSummary(post, { skipHeart: true });
+    chips.hidden = summary.length === 0;
+    chips.replaceChildren(
+      ...summary.map((r) =>
+        h(
+          "button",
+          {
+            class: "reaction-chip",
+            attrs: {
+              type: "button",
+              "data-reaction": r.key,
+              "aria-pressed": String(r.mine),
+              "aria-label": `${REACTIONS[r.key].label}, ${r.count}`,
+            },
+            on: { click: () => void toggle(r.key, !r.mine) },
+          },
+          h(
+            "span",
+            { class: "chip-face" },
+            h("span", {
+              class: "chip-emoji",
+              attrs: { "aria-hidden": "true" },
+              text: REACTIONS[r.key].emoji,
+            }),
+            h("span", { class: "chip-count", text: compactCount(r.count) }),
+          ),
+        ),
+      ),
+    );
   };
-  paint();
 
   let busy = false;
-  like.addEventListener("click", async () => {
-    if (!savedToken()) {
-      toast("Join the world to like posts.", { href: "/world", label: "Join" });
-      return;
-    }
-    if (busy) return;
+  async function toggle(key: ReactionKey, on: boolean) {
+    if (needToken(key === "heart" ? "like posts" : "react to posts") || busy) return;
     busy = true;
-    // Optimistic: flip it now, put it back if the server says no.
-    const before = { liked: post.liked, likeCount: post.likeCount };
-    post.liked = !before.liked;
-    post.likeCount = Math.max(0, before.likeCount + (post.liked ? 1 : -1));
-    paint();
-    if (post.liked) {
+    // Optimistic: change it now, put it back if the server says no.
+    const before = postState(post);
+    applyReaction(post, key, on);
+    paintReactions();
+    if (key === "heart" && on) {
       like.classList.remove("pop");
       void like.offsetWidth;
       like.classList.add("pop");
     }
-    const r = await api.like(post.id, post.liked);
+    // Hearts go through the like route, so older servers understand them too.
+    const r = key === "heart" ? await api.like(post.id, on) : await api.react(post.id, key, on);
     busy = false;
-    if (r.ok) {
-      post.liked = r.data.post.liked;
-      post.likeCount = r.data.post.likeCount;
-    } else {
-      Object.assign(post, before);
+    if (r.ok) copyPostState(r.data.post, post);
+    else {
+      copyPostState(before, post);
       toast(r.message);
     }
-    paint();
-    options.onChange?.(post);
+    paintReactions();
+    changed();
+  }
+
+  // Tap: like. Long-press, or the smile button: the picker.
+  let pressTimer: ReturnType<typeof setTimeout> | undefined;
+  let longPressed = false;
+  like.addEventListener("pointerdown", () => {
+    longPressed = false;
+    clearTimeout(pressTimer);
+    pressTimer = setTimeout(() => {
+      longPressed = true;
+      openPicker(like);
+    }, LONG_PRESS_MS);
   });
+  for (const end of ["pointerup", "pointerleave", "pointercancel"] as const) {
+    like.addEventListener(end, () => clearTimeout(pressTimer));
+  }
+  like.addEventListener("contextmenu", (e) => e.preventDefault());
+  like.addEventListener("click", () => {
+    if (longPressed) {
+      longPressed = false;
+      return;
+    }
+    void toggle("heart", !post.liked);
+  });
+  react.addEventListener("click", () => openPicker(react));
+
+  const bar = h("footer", { class: "post-actions" });
+
+  function openPicker(opener: HTMLElement) {
+    if (needToken("react to posts")) return;
+    let close = () => {};
+    const picker = h(
+      "div",
+      { class: "reaction-picker paper", attrs: { role: "group", "aria-label": "Pick a reaction" } },
+      ...REACTION_KEYS.map((key) =>
+        h(
+          "button",
+          {
+            class: "reaction-pick",
+            attrs: {
+              type: "button",
+              "data-reaction": key,
+              "aria-label": REACTIONS[key].label,
+              "aria-pressed": String(hasReaction(post, key)),
+            },
+            on: {
+              click: () => {
+                close();
+                void toggle(key, !hasReaction(post, key));
+                opener.focus({ preventScroll: true });
+              },
+            },
+          },
+          h("span", { attrs: { "aria-hidden": "true" }, text: REACTIONS[key].emoji }),
+        ),
+      ),
+    );
+    close = openPopover(bar, picker, opener);
+  }
+
+  // ---------- reply ----------
 
   const reply = h(
     "a",
@@ -300,6 +334,96 @@ function actions(post: PostView, options: PostCardOptions): HTMLElement {
     h("span", { class: "count", text: post.replyCount > 0 ? compactCount(post.replyCount) : "" }),
   );
 
+  // ---------- repost and quote ----------
+
+  const repostCount = h("span", { class: "count" });
+  const repost = h(
+    "button",
+    {
+      class: "post-action repost",
+      attrs: { type: "button", "aria-haspopup": "true", "aria-expanded": "false" },
+    },
+    icon("repost"),
+    repostCount,
+  );
+  const paintRepost = () => {
+    const n = post.repostCount ?? 0;
+    repost.setAttribute("aria-pressed", String(post.reposted ?? false));
+    repost.setAttribute("aria-label", `Repost or quote, ${plural(n, "repost", "reposts")}`);
+    repostCount.textContent = n > 0 ? compactCount(n) : "";
+  };
+
+  let reposting = false;
+  async function setRepost(on: boolean) {
+    if (reposting) return;
+    reposting = true;
+    const before = postState(post);
+    applyRepost(post, on);
+    paintRepost();
+    const r = await api.repost(post.id, on);
+    reposting = false;
+    if (r.ok) {
+      copyPostState(r.data.post, post);
+      toast(on ? "Reposted" : "Repost removed");
+    } else {
+      copyPostState(before, post);
+      toast(r.message);
+    }
+    paintRepost();
+    changed();
+  }
+
+  repost.addEventListener("click", () => {
+    if (needToken("repost")) return;
+    let close = () => {};
+    const sheet = h(
+      "div",
+      { class: "repost-menu paper", attrs: { role: "group", "aria-label": "Repost" } },
+      h(
+        "button",
+        {
+          class: "repost-item repost-toggle",
+          attrs: { type: "button" },
+          on: {
+            click: () => {
+              close();
+              void setRepost(!post.reposted);
+            },
+          },
+        },
+        icon("repost"),
+        h("span", { text: post.reposted ? "Undo repost" : "Repost" }),
+      ),
+      h(
+        "button",
+        {
+          class: "repost-item quote-open",
+          attrs: { type: "button" },
+          on: {
+            click: () => {
+              close();
+              void myProfile().then((me) => {
+                if (!me) {
+                  toast("Join the world to quote posts.", { href: "/world", label: "Join" });
+                  return;
+                }
+                openQuoteComposer(me, post, (quote) => {
+                  post.quoteCount = (post.quoteCount ?? 0) + 1;
+                  changed();
+                  options.onQuoted?.(quote);
+                  toast("Quote posted", { href: postPath(quote.id), label: "View" });
+                });
+              });
+            },
+          },
+        },
+        icon("quote"),
+        h("span", { text: "Quote" }),
+      ),
+    );
+    close = openPopover(bar, sheet, repost);
+  });
+
   const share = h(
     "button",
     {
@@ -312,7 +436,10 @@ function actions(post: PostView, options: PostCardOptions): HTMLElement {
     icon("share"),
   );
 
-  return h("footer", { class: "post-actions" }, like, reply, share);
+  paintReactions();
+  paintRepost();
+  bar.append(like, react, reply, repost, share);
+  return [chips, bar];
 }
 
 /** Refresh every relative time on the page, for example after a poll. */
@@ -320,7 +447,7 @@ export function refreshTimes(root: ParentNode = document) {
   const now = Date.now();
   for (const t of root.querySelectorAll<HTMLTimeElement>("time[data-rel]")) {
     const iso = t.dataset.rel;
-    if (iso && !t.closest(".post.focus")) t.textContent = relativeTime(iso, now);
+    if (iso && !t.closest(".post.focus > .post-head")) t.textContent = relativeTime(iso, now);
   }
 }
 

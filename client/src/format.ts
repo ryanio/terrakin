@@ -73,14 +73,14 @@ export function clampAspect(width: number, height: number): number {
 
 /**
  * How many posts in a fresh first page are new to us: not already shown, and newer than the top
- * post we have. Feeds come newest first.
+ * post we have. Feeds come newest first, a repost at the time it was reposted.
  */
 export function countNew(current: readonly PostView[], fresh: readonly PostView[]): PostView[] {
   const top = current[0];
   if (!top) return [...fresh];
   const seen = new Set(current.map((p) => p.id));
-  const topTime = Date.parse(top.createdAt);
-  return fresh.filter((p) => !seen.has(p.id) && Date.parse(p.createdAt) >= topTime);
+  const topTime = Date.parse(top.repostedAt ?? top.createdAt);
+  return fresh.filter((p) => !seen.has(p.id) && Date.parse(p.repostedAt ?? p.createdAt) >= topTime);
 }
 
 /** The first letter of a name, for an avatar with no picture. Handles emoji and accents. */

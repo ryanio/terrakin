@@ -24,6 +24,7 @@ import {
   MediaResponse,
   type MediaView,
   NoticeResponse,
+  NotificationsResponse,
   OwnerCodeResponse,
   OwnerInviteView,
   OwnerLinkResponse,
@@ -31,7 +32,11 @@ import {
   type PostView,
   ProfileResponse,
   type ProfileView,
+  type ReactionKey,
+  ResidentListResponse,
   TownResponse,
+  UnreadResponse,
+  type UpdateProfileRequest,
   WorldSnapshot,
   XStartResponse,
 } from "@terrakin/protocol";
@@ -208,6 +213,27 @@ export const api = {
     request("DELETE", `/v1/owner/link/${encodeURIComponent(agentId)}`, Nothing),
   revokeAgent: (agentId: string) =>
     request("POST", `/v1/owner/link/${encodeURIComponent(agentId)}/revoke`, Nothing),
+  react: (id: string, key: ReactionKey, on: boolean) =>
+    request(
+      on ? "PUT" : "DELETE",
+      `/v1/posts/${encodeURIComponent(id)}/reactions/${key}`,
+      PostOnly,
+    ),
+  repost: (id: string, on: boolean) =>
+    request(on ? "PUT" : "DELETE", `/v1/posts/${encodeURIComponent(id)}/repost`, PostOnly),
+  byHandle: (handle: string) =>
+    request("GET", `/v1/residents/by-handle/${encodeURIComponent(handle)}`, ProfileResponse),
+  following: (id: string) =>
+    request("GET", `/v1/residents/${encodeURIComponent(id)}/following`, ResidentListResponse),
+  updateProfile: (body: UpdateProfileRequest) =>
+    request("PUT", "/v1/profile", ProfileResponse, body),
+  notifications: (opts: { before?: string; limit?: number } = {}) =>
+    request(
+      "GET",
+      `/v1/notifications${query({ limit: opts.limit ?? 20, before: opts.before })}`,
+      NotificationsResponse,
+    ),
+  markRead: (upTo: string) => request("POST", "/v1/notifications/read", UnreadResponse, { upTo }),
 };
 
 /** For replies with no body (204). */
@@ -349,6 +375,12 @@ export function myProfile(): Promise<ProfileView | null> {
 /** Drop the cached profile, after you change your look, so the next lookup is fresh. */
 export function forgetMe() {
   me = undefined;
+}
+
+/** After the visitor changes their own profile, keep the cached copy in step. */
+export function rememberMyProfile(profile: ProfileView) {
+  const token = savedToken();
+  if (token) me = { token, profile: Promise.resolve(profile) };
 }
 
 export type { PostView, ProfileView };

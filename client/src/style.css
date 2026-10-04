@@ -2683,6 +2683,545 @@ dialog.model-viewer {
   text-decoration: none;
 }
 
+/* ---------- reposts, handles, mentions ---------- */
+
+.post-reposted {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  margin: -10px 0 -14px;
+  font-size: 13.5px;
+  font-weight: 650;
+  color: var(--ink-soft);
+  text-decoration: none;
+}
+
+.post-reposted .icon {
+  width: 16px;
+  height: 16px;
+  color: var(--moss);
+}
+
+.post-reposted:hover {
+  color: var(--clay-deep);
+}
+
+.post-handle {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 14px;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.post-who .post-author {
+  flex: 0 1 auto;
+}
+
+.mention {
+  font-weight: 650;
+  color: var(--clay-deep);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.mention:hover {
+  text-decoration: underline;
+}
+
+/* ---------- quoted post ---------- */
+
+.quote-card {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 4px 12px 10px;
+  border: 1px solid var(--paper-edge);
+  border-radius: 14px;
+  background: rgba(255, 253, 247, 0.7);
+  cursor: pointer;
+}
+
+.quote-card:hover {
+  border-color: #dcc6a0;
+}
+
+.quote-card.gone {
+  padding: 12px;
+  cursor: default;
+}
+
+.quote-gone {
+  margin: 0;
+  font-size: 15px;
+  font-style: italic;
+  color: var(--ink-soft);
+}
+
+.quote-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.quote-head .post-author {
+  font-size: 15px;
+}
+
+.quote-text {
+  margin: 0;
+  font-size: 15.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
+  line-clamp: 5;
+  overflow: hidden;
+}
+
+.quote-card .media-grid.single {
+  max-height: 240px;
+}
+
+/* ---------- reactions ---------- */
+
+.reaction-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 6px;
+  margin: -8px 0 -10px;
+}
+
+.reaction-chips[hidden] {
+  display: none;
+}
+
+/* The pill is small; the button around it is a full 44px target. */
+.reaction-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.chip-face {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 30px;
+  padding: 0 10px 0 8px;
+  border: 1px solid var(--paper-edge);
+  border-radius: 999px;
+  background: var(--paper);
+  font-size: 14px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.12s ease;
+}
+
+.chip-emoji {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.reaction-chip[aria-pressed="true"] .chip-face {
+  border-color: rgba(180, 83, 47, 0.45);
+  background: rgba(242, 184, 75, 0.18);
+  color: var(--clay-deep);
+}
+
+.reaction-chip:active .chip-face {
+  transform: scale(0.94);
+}
+
+.post-actions {
+  position: relative;
+}
+
+.post-action.repost[aria-pressed="true"] {
+  color: var(--moss);
+}
+
+.reaction-picker,
+.repost-menu {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 6px;
+  z-index: 5;
+  border-radius: 999px;
+  animation: pop-in 0.16s ease-out;
+  transform-origin: bottom left;
+}
+
+.reaction-picker {
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+}
+
+.reaction-pick {
+  display: inline-grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  font-size: 25px;
+  line-height: 1;
+  transition:
+    transform 0.12s ease,
+    background 0.12s ease;
+}
+
+.reaction-pick:hover,
+.reaction-pick:focus-visible {
+  background: rgba(236, 220, 192, 0.6);
+  transform: translateY(-2px) scale(1.08);
+}
+
+.reaction-pick[aria-pressed="true"] {
+  background: rgba(242, 184, 75, 0.28);
+}
+
+.repost-menu {
+  left: auto;
+  right: 56px;
+  display: grid;
+  min-width: 190px;
+  padding: 6px;
+  border-radius: 16px;
+  transform-origin: bottom right;
+}
+
+.repost-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  font-size: 16px;
+  font-weight: 650;
+  text-align: left;
+}
+
+.repost-item:hover,
+.repost-item:focus-visible {
+  background: rgba(236, 220, 192, 0.55);
+}
+
+.repost-item .icon {
+  color: var(--moss);
+}
+
+/* ---------- mention suggestions ---------- */
+
+.mention-suggest {
+  display: grid;
+  margin: 6px 0 2px;
+  padding: 4px;
+  list-style: none;
+  border: 1px solid var(--paper-edge);
+  border-radius: 14px;
+  background: var(--paper);
+}
+
+.mention-suggest[hidden] {
+  display: none;
+}
+
+.mention-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 10px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.mention-option[aria-selected="true"],
+.mention-option:hover {
+  background: rgba(236, 220, 192, 0.55);
+}
+
+.mention-name {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 650;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.mention-handle {
+  margin-left: auto;
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+
+.composer.quoting .quote-card {
+  margin: 8px 0 4px;
+  cursor: default;
+}
+
+/* ---------- quote sheet ---------- */
+
+dialog.quote-dialog {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  overscroll-behavior: contain;
+  animation: fade-in 0.2s ease-out;
+}
+
+dialog.quote-dialog::backdrop {
+  background: rgba(43, 38, 32, 0.45);
+}
+
+.quote-sheet {
+  display: grid;
+  gap: 10px;
+  width: min(600px, 100%);
+  max-height: 100%;
+  overflow-y: auto;
+  margin: 0 auto;
+  padding: max(12px, env(safe-area-inset-top)) 14px max(16px, env(safe-area-inset-bottom));
+  background: var(--paper-fill);
+  border-radius: 0 0 var(--r-card) var(--r-card);
+  box-shadow: var(--shadow-paper);
+}
+
+.quote-sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.quote-sheet-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.quote-close {
+  width: 44px;
+  padding: 0;
+}
+
+.quote-sheet .composer {
+  box-shadow: none;
+}
+
+/* ---------- profile handle ---------- */
+
+.profile-handle {
+  margin: -6px 0 0;
+  font-size: 15.5px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.handle-form {
+  display: grid;
+  gap: 6px;
+  padding-top: 4px;
+}
+
+.handle-form[hidden] {
+  display: none;
+}
+
+.handle-label {
+  font-weight: 700;
+}
+
+.handle-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.handle-at {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.handle-input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--paper-edge);
+  border-radius: 12px;
+  background: #fffdf8;
+  font-size: 16px;
+}
+
+.handle-hint {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--ink-soft);
+}
+
+/* ---------- notifications ---------- */
+
+.page-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 600;
+}
+
+.notifs {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.notif {
+  display: flex;
+  gap: 12px;
+  min-height: 44px;
+  padding: 12px 14px;
+  border-radius: var(--r-card);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.notif.unread {
+  border-color: rgba(180, 83, 47, 0.4);
+  background:
+    linear-gradient(90deg, rgba(242, 184, 75, 0.16), rgba(242, 184, 75, 0) 70%), var(--paper-fill);
+}
+
+.notif-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(143, 179, 106, 0.2);
+  color: var(--moss);
+}
+
+.notif-icon.reaction {
+  background: rgba(194, 65, 45, 0.12);
+  color: #c2412d;
+}
+
+.notif-icon.mention,
+.notif-icon.reply {
+  background: rgba(124, 185, 221, 0.22);
+  color: #2f6f95;
+}
+
+.notif-icon .icon {
+  width: 18px;
+  height: 18px;
+}
+
+.notif-body {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.notif-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.notif-time {
+  font-size: 13.5px;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.notif-line {
+  font-size: 15.5px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.notif-excerpt {
+  font-size: 14.5px;
+  line-height: 1.45;
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+/* ---------- bell ---------- */
+
+/* Sits in the top bar next to letters, and looks like it. */
+.site-bell {
+  position: relative;
+  width: 44px;
+  padding: 0;
+  color: var(--clay-deep);
+}
+
+.site-bell[aria-current="page"] {
+  background: #fff3e2;
+}
+
+.bell-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--clay);
+  color: var(--paper);
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 20px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 0 0 2px var(--paper);
+}
+
+.bell-badge[hidden] {
+  display: none;
+}
+
 /* ---------- feed pages: larger screens ---------- */
 
 @media (min-width: 640px) {
@@ -6501,4 +7040,42 @@ a.profile-owner:hover .owner-name {
   font-size: 14.5px;
   line-height: 1.45;
   color: var(--ink-soft);
+}
+
+/*
+ * Phones, signed in: the bell makes three round buttons on the right, so the current page's nav
+ * link drops its label too (screen readers still hear it) and the gaps tighten. Below 380px the
+ * mark steps aside as well; the Feed link still goes home.
+ */
+@media (max-width: 479px) {
+  .site-bar-inner:has(.site-bell) {
+    gap: 4px;
+  }
+
+  .site-bar-inner:has(.site-bell) .site-nav {
+    gap: 0;
+  }
+
+  .site-bar-inner:has(.site-bell) .site-you {
+    gap: 2px;
+  }
+
+  .site-bar-inner:has(.site-bell) .nav-link[aria-current="page"] {
+    padding: 0 13px;
+  }
+
+  .site-bar-inner:has(.site-bell) .nav-link[aria-current="page"] span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 379px) {
+  .site-bar-inner:has(.site-bell) .site-brand {
+    display: none;
+  }
 }

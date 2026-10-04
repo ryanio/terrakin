@@ -39,6 +39,7 @@ import {
   townCard,
   townsfolkCard,
 } from "./pulse-cards";
+import { copyPostState } from "./reactions";
 import { track } from "./telemetry";
 import { copyText } from "./ui";
 import { errorCard, type View, type ViewContext } from "./view";
@@ -68,7 +69,7 @@ const cache = new Map<string, FeedState>();
 /** Keep every cached copy of a post in step after a like somewhere else. */
 export function syncPost(post: PostView) {
   for (const state of cache.values()) {
-    for (const p of state.posts) if (p.id === post.id && p !== post) Object.assign(p, post);
+    for (const p of state.posts) if (p.id === post.id && p !== post) copyPostState(post, p);
   }
 }
 
@@ -560,8 +561,17 @@ export function feedView(ctx: ViewContext): View {
 
   // ---------- rendering ----------
 
-  const card = (post: PostView, variant?: "spotlight" | "quote" | "hot" | "compact") =>
-    postCard(post, { onChange: syncPost, ...(variant ? { variant } : {}) });
+  const card = (post: PostView, variant?: "spotlight" | "quote" | "hot" | "compact"): HTMLElement =>
+    postCard(post, {
+      onChange: syncPost,
+      ...(variant ? { variant } : {}),
+      // A quote written from a card lands at the top, like a new post.
+      onQuoted(quote) {
+        state.posts.unshift(quote);
+        list.prepend(...render(arrangeWall([quote], "fill"), true));
+        empty.replaceChildren();
+      },
+    });
 
   /** The one townsfolk card on the wall, so later pages add to it. */
   let roll: ReturnType<typeof townsfolkCard> | undefined;

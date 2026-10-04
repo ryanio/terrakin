@@ -1,9 +1,11 @@
 /**
- * Write a post or a reply. Shown only to visitors with a saved token (from joining the world).
- * Files upload as soon as they're picked, with progress, so posting is instant once they're up.
- * The server judges everything; we show its words when it says no.
+ * Write a post, a reply, or a quote. Shown only to visitors with a saved token (from joining the
+ * world). Files upload as soon as they're picked, with progress, so posting is instant once they're
+ * up. Typing `@` suggests handles of people you follow. The server judges everything; we show its
+ * words when it says no.
  */
 import {
+  type AuthorView,
   MAX_MEDIA_PER_POST,
   MEDIA_TYPES,
   type MediaView,
@@ -13,7 +15,9 @@ import {
 } from "@terrakin/protocol";
 import { api, uploadMedia } from "./api";
 import { h, icon } from "./dom";
-import { avatarEl } from "./post-card";
+import { activeMention, insertMention, suggestHandles } from "./mentions";
+import { avatarEl, quoteEmbed } from "./people";
+import { closeOverlay, openOverlay } from "./ui";
 
 const ACCEPT =
   "image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,.glb,model/gltf-binary";
@@ -25,6 +29,8 @@ export interface ComposerOptions {
   me: ProfileView;
   /** Reply to this post instead of starting a new one. */
   replyTo?: string;
+  /** Quote this post: it shows under the box and goes along with the new post. */
+  quote?: PostView;
   onPosted(post: PostView): void;
 }
 
@@ -51,24 +57,32 @@ export function queueAttachment(file: File) {
   queued = [...queued, file].slice(-MAX_MEDIA_PER_POST);
 }
 
-export function composer({ me, replyTo, onPosted }: ComposerOptions): Composer {
+export function composer({ me, replyTo, quote, onPosted }: ComposerOptions): Composer {
   const reply = replyTo !== undefined;
-  const fieldId = `compose-${reply ? "reply" : "post"}`;
+  const mode = reply ? "reply" : quote ? "quote" : "post";
+  const fieldId = `compose-${mode}`;
   const textarea = h("textarea", {
     class: "composer-input",
     attrs: {
       id: fieldId,
       rows: reply ? 2 : 3,
       maxlength: POST_MAX_LENGTH,
-      placeholder: reply ? "Write a reply" : "Share something you made",
+      placeholder: reply
+        ? "Write a reply"
+        : quote
+          ? "Add your thoughts"
+          : "Share something you made",
       enterkeyhint: "enter",
       autocomplete: "off",
+      autocapitalize: "sentences",
+      "aria-autocomplete": "list",
+      "aria-controls": `${fieldId}-people`,
     },
   });
   const label = h("label", {
     class: "visually-hidden",
     attrs: { for: fieldId },
-    text: reply ? "Your reply" : "Your post",
+    text: reply ? "Your reply" : quote ? "Your quote post" : "Your post",
   });
   const fileInput = h("input", {
     class: "visually-hidden",
@@ -89,16 +103,30 @@ export function composer({ me, replyTo, onPosted }: ComposerOptions): Composer {
     { class: "btn-primary small composer-submit", attrs: { type: "submit" } },
     h("span", { text: reply ? "Reply" : "Post" }),
   );
+  const suggest = h("ul", {
+    class: "mention-suggest",
+    attrs: {
+      id: `${fieldId}-people`,
+      role: "listbox",
+      "aria-label": "People you follow",
+      hidden: true,
+    },
+  });
   const list = h("ul", { class: "attachments", attrs: { "aria-label": "Attached files" } });
   const error = h("p", { class: "composer-error", attrs: { role: "alert" } });
 
   const form = h(
     "form",
     {
-      class: `composer paper${reply ? " reply" : ""}`,
-      attrs: { "aria-label": reply ? "Write a reply" : "Write a post", novalidate: true },
+      class: `composer paper${reply ? " reply" : ""}${quote ? " quoting" : ""}`,
+      attrs: {
+        "aria-label": reply ? "Write a reply" : quote ? "Quote a post" : "Write a post",
+        novalidate: true,
+      },
     },
     h("div", { class: "composer-row" }, avatarEl(me, reply ? "sm" : "md"), label, textarea),
+    suggest,
+    quote ? quoteEmbed(quote) : null,
     list,
     error,
     h(
@@ -136,6 +164,102 @@ export function composer({ me, replyTo, onPosted }: ComposerOptions): Composer {
     error.textContent = "";
     autosize();
     update();
+    refreshSuggest();
+  });
+
+  // ---------- @handle suggestions from people you follow ----------
+
+  let people: AuthorView[] | undefined;
+  let loadingPeople: Promise<void> | undefined;
+  let options: (AuthorView & { handle: string })[] = [];
+  let active = 0;
+  const loadPeople = () => {
+    loadingPeople ??= api.following(me.id).then((r) => {
+      people = r.ok ? r.data.residents : [];
+    });
+    return loadingPeople;
+  };
+  const caret = () => textarea.selectionStart ?? textarea.value.length;
+
+  function hideSuggest() {
+    options = [];
+    suggest.hidden = true;
+    suggest.replaceChildren();
+    textarea.removeAttribute("aria-activedescendant");
+  }
+
+  function paintSuggest() {
+    suggest.replaceChildren(
+      ...options.map((p, i) =>
+        h(
+          "li",
+          {
+            class: "mention-option",
+            attrs: {
+              id: `${fieldId}-person-${i}`,
+              role: "option",
+              "aria-selected": String(i === active),
+            },
+            on: {
+              // Keep focus (and the phone keyboard) in the text box.
+              pointerdown: (e) => e.preventDefault(),
+              click: () => choose(p.handle),
+            },
+          },
+          avatarEl(p, "sm"),
+          h("span", { class: "mention-name", text: p.name }),
+          h("span", { class: "mention-handle", text: `@${p.handle}` }),
+        ),
+      ),
+    );
+    suggest.hidden = options.length === 0;
+    if (options.length)
+      textarea.setAttribute("aria-activedescendant", `${fieldId}-person-${active}`);
+    else textarea.removeAttribute("aria-activedescendant");
+  }
+
+  function refreshSuggest() {
+    if (!activeMention(textarea.value, caret())) return hideSuggest();
+    void loadPeople().then(() => {
+      if (destroyed) return;
+      const typed = activeMention(textarea.value, caret());
+      if (!typed || !people) return hideSuggest();
+      options = suggestHandles(people, typed.query);
+      active = 0;
+      paintSuggest();
+    });
+  }
+
+  function choose(handle: string) {
+    const typed = activeMention(textarea.value, caret());
+    if (!typed) return hideSuggest();
+    const next = insertMention(textarea.value, typed.start, caret(), handle);
+    textarea.value = next.text;
+    textarea.setSelectionRange(next.caret, next.caret);
+    textarea.focus();
+    hideSuggest();
+    autosize();
+    update();
+  }
+
+  textarea.addEventListener("click", () => refreshSuggest());
+  textarea.addEventListener("blur", () => setTimeout(hideSuggest, 150));
+  textarea.addEventListener("keydown", (e) => {
+    if (options.length === 0) return;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      active = (active + (e.key === "ArrowDown" ? 1 : options.length - 1)) % options.length;
+      paintSuggest();
+    } else if (e.key === "Enter" || e.key === "Tab") {
+      const pick = options[active];
+      if (!pick || e.metaKey || e.ctrlKey) return;
+      e.preventDefault();
+      choose(pick.handle);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      hideSuggest();
+    }
   });
   textarea.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
@@ -238,6 +362,7 @@ export function composer({ me, replyTo, onPosted }: ComposerOptions): Composer {
       text,
       ...(media.length ? { media } : {}),
       ...(replyTo ? { replyTo } : {}),
+      ...(quote ? { quote: quote.id } : {}),
     });
     if (destroyed) return;
     posting = false;
@@ -259,7 +384,7 @@ export function composer({ me, replyTo, onPosted }: ComposerOptions): Composer {
     onPosted(r.data.post);
   });
 
-  if (!reply && queued.length > 0) {
+  if (mode === "post" && queued.length > 0) {
     const files = queued;
     queued = [];
     for (const file of files) add(file);
@@ -277,4 +402,45 @@ export function composer({ me, replyTo, onPosted }: ComposerOptions): Composer {
       attachments = [];
     },
   };
+}
+
+/** A full-screen sheet to quote `post`. Back, Escape, or the close button dismisses it. */
+export function openQuoteComposer(
+  me: ProfileView,
+  post: PostView,
+  onPosted: (post: PostView) => void,
+) {
+  const writer = composer({
+    me,
+    quote: post,
+    onPosted(quoted) {
+      closeOverlay();
+      onPosted(quoted);
+    },
+  });
+  const dialog = h(
+    "dialog",
+    { class: "quote-dialog", attrs: { "aria-labelledby": "quote-title" } },
+    h(
+      "div",
+      { class: "quote-sheet" },
+      h(
+        "header",
+        { class: "quote-sheet-head" },
+        h("h2", { class: "quote-sheet-title", attrs: { id: "quote-title" }, text: "Quote post" }),
+        h(
+          "button",
+          {
+            class: "pill-button small quote-close",
+            attrs: { type: "button", "aria-label": "Close" },
+            on: { click: () => closeOverlay() },
+          },
+          icon("close"),
+        ),
+      ),
+      writer.el,
+    ),
+  );
+  openOverlay(dialog, () => writer.destroy());
+  dialog.querySelector("textarea")?.focus();
 }

@@ -54,12 +54,16 @@ for (const size of SIZES) {
       }
       await expect(sidebar.getByRole("link", { name: "World", exact: true })).toBeVisible();
       await sidebar.getByRole("button", { name: "Open Group - Social" }).click();
-      await sidebar.getByRole("link", { name: /^Post, or reply to a post with replyTo\./ }).click();
+      await sidebar
+        .getByRole("link", { name: /^Post, reply with replyTo, or quote a post with quote\./ })
+        .click();
 
       await expect(page).toHaveURL(/#tag\/social\/POST\/v1\/posts$/);
       const operation = page.locator('[id$="tag/social/POST/v1/posts"]').first();
       await expect(
-        operation.getByRole("heading", { name: "Post, or reply to a post with replyTo." }),
+        operation.getByRole("heading", {
+          name: "Post, reply with replyTo, or quote a post with quote.",
+        }),
       ).toBeVisible();
       await expect(operation.getByText("CreatePostRequest").first()).toBeVisible();
       await expect(operation.getByRole("button", { name: /Test Request/ })).toBeVisible();

@@ -106,8 +106,10 @@ const PAGE_TITLES: Record<string, string> = {
   "/r/:id": "Profile",
   "/r/:id/3d": "Plot in 3D",
   "/gallery/3d": "Gallery in 3D",
+  "/@:handle": "Profile",
   "/p/:id": "Post",
   "/claim/:code": "Claim",
+  "/notifications": "Notifications",
   "/world": "World",
   "/docs": "Docs",
   "/letters": "Letters",
@@ -116,12 +118,18 @@ const PAGE_TITLES: Record<string, string> = {
   "/not-found": "Not found",
 };
 
-/** Swap resident, post, and media ids in a URL or path for `:id`. */
+/** Swap resident, post, notification, and media ids, and handles, in a URL or path for placeholders. */
 export function templateIds(text: string): string {
-  // Invite codes are capabilities and letter ids are private: template them like any id.
+  // Invite codes are capabilities, letter ids are private, and handles name people: template them.
   return text
-    .replace(/(\/(?:r|p|i|media|residents|posts|letters|invites)\/)[A-Za-z0-9_-]+/g, "$1:id")
-    .replace(/([?&]with=)[A-Za-z0-9_-]+/g, "$1:id");
+    .replace(/(\/by-handle\/)[^/?#\s"]+/g, "$1:handle")
+    .replace(
+      /(\/(?:r|p|i|media|residents|posts|letters|invites)\/)(?!by-handle\/)[A-Za-z0-9_-]+/g,
+      "$1:id",
+    )
+    .replace(/([?&]with=)[A-Za-z0-9_-]+/g, "$1:id")
+    .replace(/\/@[A-Za-z0-9_%]+/g, "/@:handle")
+    .replace(/\bn_[0-9a-f]{16}\b/g, ":id");
 }
 
 const SENTRY_DSN =

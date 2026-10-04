@@ -1,10 +1,13 @@
 /**
- * `/r/:id` a resident's profile: who they are, their counts, follow, and their posts with paging.
- * Name, bio, and note are their own words (often an AI agent's): textContent only.
+ * `/r/:id` (or `/@handle`) a resident's profile: who they are, their counts, follow, and their
+ * posts and reposts with paging. On your own profile, pick or change your handle. Name, bio, and
+ * note are their own words (often an AI agent's): textContent only. `/r/:id` is the canonical URL.
  */
 import {
   GESTURE_NOTE_MAX_LENGTH,
   type GestureKind,
+  HANDLE_RENAME_DAYS,
+  HandleInput,
   type PostView,
   type ProfileView,
   type ResidentBrief,
@@ -17,7 +20,7 @@ import {
   THEME_INFO,
   WEAR_INFO,
 } from "@terrakin/sim";
-import { api, forgetMe, myProfile } from "./api";
+import { api, forgetMe, myProfile, rememberMyProfile } from "./api";
 import { h, icon } from "./dom";
 import { syncPost } from "./feed-view";
 import { compactCount, plural } from "./format";
@@ -60,12 +63,17 @@ function floatUp(from: HTMLElement, emoji: string) {
   setTimeout(() => el.remove(), 2000);
 }
 
-export function profileView(id: string, ctx: ViewContext): View {
+const canonical = () => document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+/** What index.html ships. The server may have set a page-specific one for the first page. */
+const DEFAULT_CANONICAL = "https://terrakin.org/";
+
+export function profileView(target: { id: string } | { handle: string }, ctx: ViewContext): View {
   ctx.setTitle("Profile · Terrakin");
   const el = h("div", { class: "column page profile-page" });
   let destroyed = false;
   const cleanups: (() => void)[] = [];
   let panel: OwnerPanel | undefined;
+  let id = "id" in target ? target.id : "";
 
   const ready = load();
 
@@ -74,7 +82,10 @@ export function profileView(id: string, ctx: ViewContext): View {
       h("div", { class: "paper card profile skeleton-profile", attrs: { "aria-hidden": "true" } }),
       ...skeletonCards(2),
     );
-    const [profile, posts] = await Promise.all([api.profile(id), api.residentPosts(id)]);
+    const [profile, early] =
+      "id" in target
+        ? await Promise.all([api.profile(target.id), api.residentPosts(target.id)])
+        : [await api.byHandle(target.handle), undefined];
     if (destroyed) return;
     if (!profile.ok) {
       if (profile.status === 404) {
@@ -89,6 +100,11 @@ export function profileView(id: string, ctx: ViewContext): View {
       return;
     }
     const resident = profile.data.resident;
+    id = resident.id;
+    const link = canonical();
+    if (link) link.href = new URL(profilePath(id), location.origin).href;
+    const posts = early ?? (await api.residentPosts(id));
+    if (destroyed) return;
     ctx.setTitle(`${resident.name} on Terrakin`);
     const top = header(resident);
     el.replaceChildren(top);
@@ -257,6 +273,7 @@ export function profileView(id: string, ctx: ViewContext): View {
             ),
           );
           x.paint(true);
+          actions.prepend(handleButton(r, handleLine, card));
           return;
         }
         actions.prepend(followButton(r, paintCounts));
@@ -271,6 +288,8 @@ export function profileView(id: string, ctx: ViewContext): View {
       r.kind === "agent" ? aiBadge() : null,
       r.townsfolk ? townsfolkBadge() : null,
     );
+    const handleLine = h("p", { class: "profile-handle", text: r.handle ? `@${r.handle}` : "" });
+    handleLine.hidden = !r.handle;
     const status = h(
       "p",
       { class: `presence${r.online ? " online" : ""}` },
@@ -278,11 +297,12 @@ export function profileView(id: string, ctx: ViewContext): View {
       r.online ? "In the world now" : "Away from the world",
     );
 
-    return h(
+    const card = h(
       "section",
       { class: "paper card profile", attrs: { "aria-label": `Profile of ${r.name}` } },
       h("div", { class: "profile-top" }, avatarEl(r, "xl"), actions),
       name,
+      handleLine,
       r.townsfolk ? null : ownerLine(r, "profile-owner"),
       r.townsfolk ? h("p", { class: "townsfolk-note", text: TOWNSFOLK_ABOUT }) : null,
       status,
@@ -313,6 +333,7 @@ export function profileView(id: string, ctx: ViewContext): View {
       ),
       homeSection(r),
     );
+    return card;
   }
 
   /** "Lemon · Citrus slices · Straw hat, Basket". Names are ours (the catalog), not player text. */
@@ -355,6 +376,88 @@ export function profileView(id: string, ctx: ViewContext): View {
           )
         : null,
     );
+  }
+
+  /** On your own profile: pick a handle, or change it (the server enforces the weekly limit). */
+  function handleButton(r: ProfileView, line: HTMLElement, card: HTMLElement): HTMLElement {
+    const label = h("span", { text: r.handle ? "Change handle" : "Pick a handle" });
+    const b = h(
+      "button",
+      {
+        class: "pill-button small handle-edit",
+        attrs: { type: "button", "aria-expanded": "false", "aria-controls": "handle-form" },
+      },
+      h("span", { attrs: { "aria-hidden": "true" }, text: "@" }),
+      label,
+    );
+    const input = h("input", {
+      class: "handle-input",
+      attrs: {
+        id: "handle-input",
+        type: "text",
+        inputmode: "text",
+        autocapitalize: "none",
+        autocomplete: "off",
+        spellcheck: "false",
+        maxlength: 20,
+        value: r.handle ?? "",
+        "aria-describedby": "handle-hint handle-error",
+      },
+    });
+    const error = h("p", { class: "composer-error", attrs: { id: "handle-error", role: "alert" } });
+    const save = h("button", {
+      class: "btn-primary small",
+      attrs: { type: "submit" },
+      text: "Save",
+    });
+    const form = h(
+      "form",
+      { class: "handle-form", attrs: { id: "handle-form", novalidate: true, hidden: true } },
+      h("label", { class: "handle-label", attrs: { for: "handle-input" }, text: "Your handle" }),
+      h("div", { class: "handle-row" }, h("span", { class: "handle-at", text: "@" }), input, save),
+      h("p", {
+        class: "handle-hint",
+        attrs: { id: "handle-hint" },
+        text: `3 to 20 letters, numbers, or underscores, starting with a letter. You can change it once every ${HANDLE_RENAME_DAYS} days.`,
+      }),
+      error,
+    );
+    card.append(form);
+    b.addEventListener("click", () => {
+      form.hidden = !form.hidden;
+      b.setAttribute("aria-expanded", String(!form.hidden));
+      if (!form.hidden) input.focus();
+    });
+    input.addEventListener("input", () => {
+      error.textContent = "";
+    });
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const parsed = HandleInput.safeParse(input.value);
+      if (!parsed.success) {
+        error.textContent =
+          "A handle is 3 to 20 letters, numbers, or underscores, and starts with a letter.";
+        return;
+      }
+      save.disabled = true;
+      const res = await api.updateProfile({ handle: parsed.data });
+      save.disabled = false;
+      if (destroyed) return;
+      if (!res.ok) {
+        error.textContent = res.message;
+        return;
+      }
+      const updated = res.data.resident;
+      r.handle = updated.handle;
+      rememberMyProfile(updated);
+      line.textContent = updated.handle ? `@${updated.handle}` : "";
+      line.hidden = !updated.handle;
+      label.textContent = "Change handle";
+      form.hidden = true;
+      b.setAttribute("aria-expanded", "false");
+      toast("Handle saved");
+    });
+    return b;
   }
 
   /** The cards under the profile: who you are to them decides which. */
@@ -821,6 +924,8 @@ export function profileView(id: string, ctx: ViewContext): View {
       destroyed = true;
       for (const fn of cleanups.splice(0)) fn();
       panel?.destroy();
+      const link = canonical();
+      if (link) link.href = DEFAULT_CANONICAL;
     },
   };
 }

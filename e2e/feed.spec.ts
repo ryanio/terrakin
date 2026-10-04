@@ -324,3 +324,105 @@ test("townsfolk wear a friendly NPC badge on posts and profiles", async ({ page 
   );
   expect(errors).toEqual([]);
 });
+
+test("handles, mentions, reactions, reposts, quotes, and notifications", async ({ page }) => {
+  const errors = watchErrors(page);
+  const { juniper, moss } = await residents(page.request);
+
+  // Moss has a handle and a post; Juniper follows Moss, so Moss shows up in suggestions.
+  expect(
+    (await page.request.put("/v1/profile", { headers: moss.auth, data: { handle: "moss" } })).ok(),
+  ).toBe(true);
+  expect(
+    (await page.request.put(`/v1/residents/${moss.id}/follow`, { headers: juniper.auth })).ok(),
+  ).toBe(true);
+  const seeded = await page.request.post("/v1/posts", {
+    headers: moss.auth,
+    data: { text: "Planted sprouts by the pond today." },
+  });
+  const mossPost = (await seeded.json()).post;
+
+  // Juniper claims a handle on their own profile.
+  await signIn(page, juniper);
+  await page.goto(`/r/${juniper.id}`);
+  await page.getByRole("button", { name: "Pick a handle" }).click();
+  await page.locator("#handle-input").fill("Juniper_J");
+  await page.locator("#handle-form").getByRole("button", { name: "Save" }).click();
+  await expect(page.locator(".profile-handle")).toHaveText("@juniper_j");
+
+  // On the feed: a reaction from the picker, a like, and a repost.
+  await page.goto("/");
+  const card = page.locator(`article[data-post="${mossPost.id}"]`).first();
+  await expect(card.locator(".post-handle")).toHaveText("@moss");
+  await card.locator(".react").click();
+  await card.locator('.reaction-pick[data-reaction="sprout"]').click();
+  const sprout = card.locator('.reaction-chip[data-reaction="sprout"]');
+  await expect(sprout).toHaveAttribute("aria-pressed", "true");
+  await expect(sprout.locator(".chip-count")).toHaveText("1");
+  await card.locator(".like").click();
+  await expect(card.locator(".like")).toHaveAttribute("aria-pressed", "true");
+  await card.locator(".repost").click();
+  await card.locator(".repost-toggle").click();
+  await expect(card.locator(".repost")).toHaveAttribute("aria-pressed", "true");
+  await expect(card.locator(".repost .count")).toHaveText("1");
+
+  // Quote it, mentioning Moss through the suggestions, with markup that must stay text.
+  await card.locator(".repost").click();
+  await card.locator(".quote-open").click();
+  const sheet = page.locator("dialog.quote-dialog");
+  await expect(sheet.locator(".quote-card")).toContainText("Planted sprouts");
+  const box = sheet.locator("#compose-quote");
+  await box.pressSequentially("So good, @mo");
+  await sheet.locator(".mention-option", { hasText: "@moss" }).click();
+  await expect(box).toHaveValue("So good, @moss ");
+  await box.pressSequentially("<b>bold</b>");
+  await sheet.getByRole("button", { name: "Post" }).click();
+  await expect(sheet).toHaveCount(0);
+  const quote = page.locator("article.post", { hasText: "So good," }).first();
+  await expect(quote.locator(".quote-card")).toContainText("Planted sprouts by the pond today.");
+  await expect(quote.locator("a.mention")).toHaveAttribute("href", `/r/${moss.id}`);
+  await expect(quote.locator(".post-text")).toHaveText("So good, @moss <b>bold</b>");
+  await expect(quote.locator(".post-text b")).toHaveCount(0);
+  const quoteId = await quote.getAttribute("data-post");
+
+  // Moss answers: a heart, a repost, and a mention.
+  await page.request.put(`/v1/posts/${quoteId}/reactions/heart`, { headers: moss.auth });
+  await page.request.put(`/v1/posts/${quoteId}/repost`, { headers: moss.auth });
+  await page.request.post("/v1/posts", {
+    headers: moss.auth,
+    data: { text: "Thanks @juniper_j!" },
+  });
+
+  // The bell counts them, and the page lists them and marks them read.
+  await page.reload();
+  const badge = page.locator("#site-bell .bell-badge");
+  // Three from Moss just now, plus any from earlier tests.
+  const inbox = await page.request.get("/v1/notifications?limit=1", { headers: juniper.auth });
+  const { unread } = await inbox.json();
+  expect(unread).toBeGreaterThanOrEqual(3);
+  await expect(badge).toHaveText(String(unread));
+  await page.locator("#site-bell").click();
+  await expect(page).toHaveURL("/notifications");
+  const mention = page.locator('.notif[data-type="mention"]');
+  await expect(mention).toContainText("Moss mentioned you");
+  await expect(mention.locator(".notif-excerpt")).toHaveText("Thanks @juniper_j!");
+  await expect(page.locator('.notif[data-type="reaction"]').first()).toContainText("reacted");
+  await expect(page.locator('.notif[data-type="repost"]').first()).toContainText(
+    "reposted your post",
+  );
+  await expect(badge).toBeHidden();
+
+  // Following shows Moss's repost of the quote, with a header.
+  await page.goto("/");
+  await page.getByRole("tab", { name: "Following" }).click();
+  await expect(page.locator(".post-reposted", { hasText: "Moss reposted" }).first()).toBeVisible();
+
+  // /@moss is Moss's profile, with /r/<id> as the canonical link.
+  await page.goto("/@moss");
+  await expect(page.locator(".profile-handle")).toHaveText("@moss");
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+    "href",
+    new RegExp(`/r/${moss.id}$`),
+  );
+  expect(errors).toEqual([]);
+});

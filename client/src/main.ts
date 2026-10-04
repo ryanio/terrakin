@@ -6,6 +6,7 @@ import "@fontsource-variable/figtree";
 import "@fontsource-variable/figtree/wght-italic.css";
 import { markdownTwin } from "@terrakin/protocol";
 import { api, myProfile } from "./api";
+import { initBell, makeBell, refreshBell } from "./bell";
 import { initBrandMarks } from "./chrome";
 import { claimView } from "./claim-view";
 import { h, icon } from "./dom";
@@ -13,6 +14,7 @@ import { feedView } from "./feed-view";
 import { inviteView } from "./invite-view";
 import { lettersView, letterThreadView, UNREAD_EVENT } from "./letters-view";
 import { SESSION_EVENT, savedResidentId, savedToken } from "./net";
+import { notificationsView } from "./notifications-view";
 import { avatarEl, profilePath } from "./post-card";
 import { postView } from "./post-view";
 import { profileView } from "./profile-view";
@@ -38,6 +40,7 @@ const root = document.documentElement;
 
 initBrandMarks(site);
 const you = $("site-you");
+initBell();
 
 let view: View | undefined;
 let world: Promise<typeof import("./world")> | undefined;
@@ -62,7 +65,8 @@ function paintNav(route: Route) {
       (a.dataset.nav === "world" && route.name === "world") ||
       (a.dataset.nav === "letters" &&
         (route.name === "letters" || route.name === "letters-with")) ||
-      (a.dataset.nav === "town" && route.name === "town");
+      (a.dataset.nav === "town" && route.name === "town") ||
+      (a.dataset.nav === "notifications" && route.name === "notifications");
     if (current) a.setAttribute("aria-current", "page");
     else a.removeAttribute("aria-current");
   }
@@ -118,7 +122,7 @@ function paintHeader(route: Route) {
     },
     h("span", { class: "avatar sm you-placeholder", attrs: { "aria-hidden": "true" } }),
   );
-  you.replaceChildren(lettersLink, me);
+  you.replaceChildren(makeBell(), lettersLink, me);
   void myProfile().then((profile) => {
     if (!profile || headerFor !== token) return;
     me.setAttribute("href", profilePath(profile.id));
@@ -174,6 +178,7 @@ function onNavigate(nav: Navigation) {
   }
 
   void world?.then((w) => w.stopWorld());
+  refreshBell();
   setMode("site");
   const ctx: ViewContext = {
     restoring: nav.restoring,
@@ -188,22 +193,26 @@ function onNavigate(nav: Navigation) {
     route.name === "feed"
       ? feedView(ctx)
       : route.name === "profile"
-        ? profileView(route.id, ctx)
-        : route.name === "post"
-          ? postView(route.id, ctx)
-          : route.name === "letters"
-            ? lettersView(ctx)
-            : route.name === "letters-with"
-              ? letterThreadView(route.id, ctx)
-              : route.name === "invite"
-                ? inviteView(route.code, ctx)
-                : route.name === "town"
-                  ? townView(ctx)
-                  : route.name === "plot3d" || route.name === "gallery3d"
-                    ? view3d(route, ctx)
-                    : route.name === "claim"
-                      ? claimView(route.code, ctx)
-                      : notFoundView(ctx);
+        ? profileView({ id: route.id }, ctx)
+        : route.name === "handle"
+          ? profileView({ handle: route.handle }, ctx)
+          : route.name === "notifications"
+            ? notificationsView(ctx)
+            : route.name === "post"
+              ? postView(route.id, ctx)
+              : route.name === "letters"
+                ? lettersView(ctx)
+                : route.name === "letters-with"
+                  ? letterThreadView(route.id, ctx)
+                  : route.name === "invite"
+                    ? inviteView(route.code, ctx)
+                    : route.name === "town"
+                      ? townView(ctx)
+                      : route.name === "plot3d" || route.name === "gallery3d"
+                        ? view3d(route, ctx)
+                        : route.name === "claim"
+                          ? claimView(route.code, ctx)
+                          : notFoundView(ctx);
   view = next;
   page.replaceChildren(next.el);
 

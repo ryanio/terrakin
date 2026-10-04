@@ -81,6 +81,45 @@ export function interceptPop(): boolean {
   return true;
 }
 
+// ---------- small popover ----------
+
+let openPop: { el: HTMLElement; close(): void } | undefined;
+
+/**
+ * Show a small menu inside `host` (which is position: relative). It closes on a tap outside, on
+ * Escape (focus goes back to `opener`), or when the caller calls the returned function. One at a
+ * time: opening another closes this one.
+ */
+export function openPopover(host: HTMLElement, el: HTMLElement, opener: HTMLElement): () => void {
+  openPop?.close();
+  host.append(el);
+  opener.setAttribute("aria-expanded", "true");
+  const onDown = (e: PointerEvent) => {
+    if (e.target instanceof Node && (el.contains(e.target) || opener.contains(e.target))) return;
+    close();
+  };
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key !== "Escape") return;
+    close();
+    opener.focus({ preventScroll: true });
+  };
+  let closed = false;
+  function close() {
+    if (closed) return;
+    closed = true;
+    el.remove();
+    opener.setAttribute("aria-expanded", "false");
+    document.removeEventListener("pointerdown", onDown, true);
+    document.removeEventListener("keydown", onKey, true);
+    if (openPop?.el === el) openPop = undefined;
+  }
+  document.addEventListener("pointerdown", onDown, true);
+  document.addEventListener("keydown", onKey, true);
+  openPop = { el, close };
+  el.querySelector<HTMLElement>("button")?.focus({ preventScroll: true });
+  return close;
+}
+
 // ---------- copy ----------
 
 /** Copy text, or select `fallback` so a long-press copy works. Returns true when it copied. */

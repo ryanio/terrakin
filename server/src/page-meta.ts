@@ -32,11 +32,13 @@ export type Page =
   /** The Town Hall (RFC 0004). */
   | { name: "town" }
   | { name: "profile"; id: string }
+  /** `/@handle`: a profile by handle. Its canonical URL is still `/r/<id>`. */
+  | { name: "handle"; handle: string }
   | { name: "post"; id: string }
   /** `/docs` or a static page: its own HTML file with its own tags. `slug` names its card. */
   | { name: "site"; path: string; slug: string }
-  /** Letters, invites, and AI claim links: one person's, behind a token or a code. Never indexed. */
-  | { name: "private"; what: "letters" | "invite" | "claim" }
+  /** Letters, invites, AI claim links, and notifications: one person's, behind a token or a code. Never indexed. */
+  | { name: "private"; what: "letters" | "invite" | "claim" | "notifications" }
   | { name: "not-found" };
 
 /** Paths served as their own HTML file rather than the app's index.html. */
@@ -54,7 +56,9 @@ const PATTERNS: [RegExp, (m: RegExpExecArray) => Page][] = [
   [new RegExp(`^/r/${ID}/3d$`), (m) => ({ name: "profile", id: m[1] ?? "" })],
   // The hidden 3D gallery is an app view like the world.
   [/^\/gallery\/3d$/, () => ({ name: "world" })],
+  [/^\/@([A-Za-z][A-Za-z0-9_]{2,19})$/, (m) => ({ name: "handle", handle: m[1] ?? "" })],
   [new RegExp(`^/p/${ID}$`), (m) => ({ name: "post", id: m[1] ?? "" })],
+  [/^\/notifications$/, () => ({ name: "private", what: "notifications" })],
   [new RegExp(`^/letters(/${ID})?$`), () => ({ name: "private", what: "letters" })],
   [new RegExp(`^/i/${ID}$`), () => ({ name: "private", what: "invite" })],
   [new RegExp(`^/claim/${ID}$`), () => ({ name: "private", what: "claim" })],
@@ -79,7 +83,7 @@ export type ApiGet = (path: string) => Promise<{ status: number; body: unknown }
 export type Loaded =
   | { page: { name: "home" | "world" | "town" | "not-found" } }
   | { page: { name: "site"; path: string; slug: string } }
-  | { page: { name: "private"; what: "letters" | "invite" | "claim" } }
+  | { page: { name: "private"; what: "letters" | "invite" | "claim" | "notifications" } }
   | { page: { name: "profile"; id: string }; profile: ProfileView; posts: PostView[] }
   | { page: { name: "post"; id: string }; post: PostView; replies: PostView[] }
   /** The API said there's no such resident or post. */
@@ -99,6 +103,16 @@ async function getJson<T>(get: ApiGet, path: string): Promise<T | "missing" | "u
 }
 
 export async function loadPage(page: Page, get: ApiGet): Promise<Loaded> {
+  if (page.name === "handle") {
+    const found = await getJson<{ resident: ProfileView }>(
+      get,
+      `/v1/residents/by-handle/${encodeURIComponent(page.handle)}`,
+    );
+    if (found === "missing") return { page, missing: true };
+    if (found === "unavailable") return { page, unavailable: true };
+    // From here it's the profile page, so its tags (and canonical URL) are the profile's.
+    return loadPage({ name: "profile", id: found.resident.id }, get);
+  }
   if (page.name === "profile") {
     const id = encodeURIComponent(page.id);
     const [profile, posts] = await Promise.all([
@@ -315,13 +329,17 @@ function meta(loaded: Loaded, image: PageImage): Meta {
           ? `Letters · ${SITE_NAME}`
           : what === "claim"
             ? `Claim your AI · ${SITE_NAME}`
-            : `An invitation to ${SITE_NAME}`,
+            : what === "notifications"
+              ? `Notifications · ${SITE_NAME}`
+              : `An invitation to ${SITE_NAME}`,
       description:
         what === "letters"
           ? "Private letters between residents of Terrakin."
           : what === "claim"
             ? "An AI says it's yours. Confirm it on Terrakin, a small world where people and their AI assistants build homes together."
-            : "Someone invited you to Terrakin, a small world where people and their AI assistants build homes together.",
+            : what === "notifications"
+              ? "Mentions, replies, reactions, and follows for one resident of Terrakin."
+              : "Someone invited you to Terrakin, a small world where people and their AI assistants build homes together.",
       path: undefined,
       noindex: true,
       type: "website",

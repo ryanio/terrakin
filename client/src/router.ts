@@ -1,9 +1,10 @@
 /**
- * A tiny History API router. `/` the feed, `/r/:id` a profile, `/r/:id/3d` their plot in 3D,
- * `/p/:id` a post, `/letters` and `/letters/:id` your letters, `/i/:code` an invite, `/town` the
- * Town Hall, `/claim/:code` where a person confirms an AI's invite, `/world` the canvas world, and `/gallery/3d` the 3D gallery (not linked from
- * anywhere public yet). Anything else is a friendly not-found page. The server sends index.html
- * for every deep link, so a reload lands on the same page.
+ * A tiny History API router. `/` the feed, `/r/:id` a profile (also at `/@handle`), `/r/:id/3d`
+ * their plot in 3D, `/p/:id` a post, `/notifications`, `/letters` and `/letters/:id` your letters,
+ * `/i/:code` an invite, `/town` the Town Hall, `/claim/:code` where a person confirms an AI's
+ * invite, `/world` the canvas world, and `/gallery/3d` the 3D gallery (not linked from anywhere
+ * public yet). Anything else is a friendly not-found page. The server sends index.html for every
+ * deep link, so a reload lands on the same page.
  */
 
 export type Route =
@@ -13,6 +14,8 @@ export type Route =
   | { name: "gallery3d" }
   | { name: "post"; id: string }
   | { name: "claim"; code: string }
+  | { name: "handle"; handle: string }
+  | { name: "notifications" }
   | { name: "world" }
   | { name: "letters" }
   | { name: "letters-with"; id: string }
@@ -26,8 +29,10 @@ const PATTERNS: [RegExp, (m: RegExpExecArray) => Route][] = [
   [new RegExp(`^/r/${ID}$`), (m) => ({ name: "profile", id: m[1] ?? "" })],
   [new RegExp(`^/r/${ID}/3d$`), (m) => ({ name: "plot3d", id: m[1] ?? "" })],
   [/^\/gallery\/3d$/, () => ({ name: "gallery3d" })],
+  [/^\/@([A-Za-z][A-Za-z0-9_]{2,19})$/, (m) => ({ name: "handle", handle: m[1] ?? "" })],
   [new RegExp(`^/p/${ID}$`), (m) => ({ name: "post", id: m[1] ?? "" })],
   [new RegExp(`^/claim/${ID}$`), (m) => ({ name: "claim", code: m[1] ?? "" })],
+  [/^\/notifications$/, () => ({ name: "notifications" })],
   [/^\/world$/, () => ({ name: "world" })],
   [/^\/letters$/, () => ({ name: "letters" })],
   [new RegExp(`^/letters/${ID}$`), (m) => ({ name: "letters-with", id: m[1] ?? "" })],
@@ -59,12 +64,16 @@ export function routeTemplate(route: Route): string {
       return "/r/:id/3d";
     case "gallery3d":
       return "/gallery/3d";
+    case "handle":
+      return "/@:handle";
     case "post":
       return "/p/:id";
     case "town":
       return "/town";
     case "claim":
       return "/claim/:code";
+    case "notifications":
+      return "/notifications";
     case "world":
       return "/world";
     case "letters":

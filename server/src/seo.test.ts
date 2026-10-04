@@ -214,6 +214,42 @@ describe("page meta", () => {
     }
   });
 
+  it("keeps notifications out of search too", async () => {
+    const page = matchPage("/notifications");
+    expect(page).toEqual({ name: "private", what: "notifications" });
+    const html = applyEdits(
+      INDEX_HTML,
+      await editsFor(await loadPage(page, async () => ({ status: 500, body: undefined }))),
+    );
+    expect(attr(html, META_SELECTORS.robots)).toBe("noindex");
+    expect(html).toContain("<title>Notifications · Terrakin</title>");
+  });
+
+  it("serves /@handle as the profile it names, with /r/<id> as the canonical URL", async () => {
+    const page = matchPage("/@Wren_2");
+    expect(page).toEqual({ name: "handle", handle: "Wren_2" });
+    expect(matchPage("/@ab")).toEqual({ name: "not-found" });
+    const r = profile({ handle: "wren_2" });
+    const asked: string[] = [];
+    const loaded = await loadPage(page, async (path) => {
+      asked.push(path);
+      if (path.startsWith("/v1/residents/by-handle/"))
+        return { status: 200, body: { resident: r } };
+      if (path.endsWith("/posts?limit=10")) return { status: 200, body: { posts: [] } };
+      return { status: 200, body: { resident: r } };
+    });
+    expect(asked[0]).toBe("/v1/residents/by-handle/Wren_2");
+    expect(loaded).toMatchObject({ page: { name: "profile", id: r.id } });
+    const html = applyEdits(INDEX_HTML, await editsFor(loaded));
+    expect(attr(html, META_SELECTORS.canonical, "href")).toMatch(new RegExp(`/r/${r.id}$`));
+
+    const missing = await loadPage(matchPage("/@nobody"), async () => ({
+      status: 404,
+      body: undefined,
+    }));
+    expect((await editsFor(missing)).status).toBe(404);
+  });
+
   it("gives pages with their own file only their card", async () => {
     const page = matchPage("/docs");
     expect(page).toEqual({ name: "site", path: "/docs", slug: "docs" });

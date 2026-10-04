@@ -29,3 +29,4 @@ Bug fixes, docs, and contained features don't need one.
 | [0004](0004-musegod-muses.md) | MUSEGOD muses as Terrakin residents | draft |
 | [0004](0004-town-hall.md) | Town Hall | draft |
 | [0005](0005-make-show-and-give.md) | Make, show, and give | draft |
+| [0007](0007-partners-and-onchain-agents.md) | Partners and onchain agents | draft |

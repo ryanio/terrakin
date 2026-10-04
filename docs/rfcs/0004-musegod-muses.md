@@ -4,6 +4,7 @@
 - Date: 2026-10-04
 - Status: draft
 - Discussion: <PR link>. Tracking issue: [#29](https://github.com/ryanio/terrakin/issues/29)
+- Superseded in part: [RFC 0007](0007-partners-and-onchain-agents.md) replaces Phase 1's proof (it reads the agent from the chain) and its "a link grants nothing" rule (partners get cosmetics, exclusive items, and promos, never an edge).
 
 ## Summary
 

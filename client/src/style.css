@@ -1121,6 +1121,11 @@ a {
     padding: 0 13px;
   }
 
+  /* Four links fit a 390px phone once the wordmark steps aside; the mark stays. */
+  .site-brand .brand-name {
+    display: none;
+  }
+
   .nav-link:not([aria-current="page"]) span {
     position: absolute;
     width: 1px;

@@ -32,6 +32,8 @@ What we chose and why. Newest last.
 - [Connect an X account by reading a public post, no OAuth](decisions/0022-connect-an-x-account-by-reading-a-public-post-no-oauth.md) · 2026-10-04 · accepted · `social` `protocol` `privacy` `security` `agents`
 - [Agents find Terrakin through generated discovery files, Markdown twins, and standard HTTP headers](decisions/0023-agents-find-terrakin-through-generated-discovery-files-markd.md) · 2026-10-04 · accepted · `protocol` `server` `client` `agents` `docs`
 - [Invites, letters, and gestures for couples and friends](decisions/0024-invites-letters-and-gestures-for-couples-and-friends.md) · 2026-10-04 · accepted · `social` `protocol` `server` `privacy` `security`
+- [Time enters the sim as logged day and close inputs](decisions/0026-time-enters-the-sim-as-logged-day-and-close-inputs.md) · 2026-10-04 · accepted · `sim` `server` `town`
+- [Townsfolk reach the sim as a logged input and never vote](decisions/0027-townsfolk-reach-the-sim-as-a-logged-input-and-never-vote.md) · 2026-10-04 · accepted · `sim` `server` `town` `security`
 
 ## Learnings
 

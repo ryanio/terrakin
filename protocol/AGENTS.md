@@ -18,6 +18,7 @@ The public contract between the server and every client, human or agent. Breakin
 
 - `src/schemas.ts` world messages, requests, responses, and error codes.
 - `src/social.ts` the social layer (RFC 0003): posts, profiles, media, and their limits.
+- `src/town.ts` the Town Hall views (RFC 0004): proposals with tallies, the roll, the archive, notices, and the board's limits. Propose, vote, and withdraw are `Action`s in `schemas.ts`.
 - `src/routes.ts` the route table: every REST route with its auth, schemas, responses, errors, and limits, plus `RATE_LIMITS`, `DAILY_LIMITS`, the path matcher, and `responseProblem` for tests.
 - `src/openapi.ts` generates the OpenAPI document from the route table (served at `/v1/openapi.json`).
 - `src/docs.ts` renders the API blocks for `SKILL.md` and `llms.txt`.

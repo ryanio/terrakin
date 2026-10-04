@@ -18,6 +18,7 @@ The rules engine. If a rule decides what's allowed in the world, it lives here a
 - `src/world.ts` geometry helpers and `DEFAULT_CONFIG`.
 - `src/hash.ts` canonical JSON + FNV-1a fingerprint.
 - `src/replay.ts` rebuild state from a log.
+- `src/town.ts` the Town Hall (RFC 0004): eligibility, proposals, votes, closes, builds, and `TOWN_LIMITS`. Commands the server sends itself (`new_day`, `set_townsfolk`, `close_proposal`, `void_proposal`) must come from `TOWN_ACTOR`. Day bookkeeping (`claimedDay`, `sharedDay`, `lastActiveDay`) starts only at the first `new_day` and has no event, so old logs keep their hash ([decision 0026](../docs/knowledge/decisions/0026-time-enters-the-sim-as-logged-day-and-close-inputs.md)). `src/fixtures/pre-town-log.ts` pins one such log's hash.
 
 ## Adding a command
 

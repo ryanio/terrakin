@@ -11,7 +11,8 @@
       "**",
       "!protocol/openapi.json",
       "!client/public/.well-known",
-      "!docs/site/lastmod.json"
+      "!docs/site/lastmod.json",
+      "!.agents/skills/secrets"
     ]
   },
   "formatter": {

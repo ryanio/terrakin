@@ -96,7 +96,7 @@ export type Command =
   | { type: "leave" }
   | { type: "move"; dir: Direction }
   | { type: "claim" }
-| { type: "release" }
+  | { type: "release" }
   | { type: "set_hearth"; x: number; y: number }
   | { type: "home" }
   | { type: "place"; x: number; y: number; block: BlockKind }
@@ -128,7 +128,6 @@ export type WorldEvent =
   | { type: "plot_claimed"; px: number; py: number; ownerId: ResidentId }
   | { type: "plot_released"; px: number; py: number; ownerId: ResidentId }
   | { type: "hearth_set"; residentId: ResidentId; x: number; y: number }
-  | { type: "hearth_cleared"; residentId: ResidentId }
   | { type: "block_placed"; x: number; y: number; block: BlockKind; by: ResidentId }
   | { type: "block_removed"; x: number; y: number; by: ResidentId }
   | { type: "plot_shared"; px: number; py: number; residentId: ResidentId }

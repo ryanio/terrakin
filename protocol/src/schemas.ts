@@ -190,10 +190,6 @@ export const WorldEvent = z.discriminatedUnion("type", [
     y: z.number().int(),
   }),
   z.object({
-    type: z.literal("hearth_cleared"),
-    residentId: z.string(),
-  }),
-  z.object({
     type: z.literal("block_placed"),
     x: z.number().int(),
     y: z.number().int(),

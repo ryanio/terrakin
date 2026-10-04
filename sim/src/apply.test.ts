@@ -158,7 +158,7 @@ describe("release", () => {
         { type: "hearth_cleared", residentId: "ada" },
       ],
     });
-    expect(state.residents.ada.hearth).toBeNull();
+    expect(state.residents.ada?.hearth).toBeNull();
     // Bob claims the freed plot.
     const [claimed] = run(state, "bob", { type: "claim" });
     expect(claimed).toMatchObject({

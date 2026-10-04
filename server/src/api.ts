@@ -73,6 +73,8 @@ const RATE_LIMITED: Record<RateLimitName, string> = {
   posts: "Slow down a little.",
   reactions: "Slow down a little.",
   uploads: "Slow down a little.",
+  xVerify: "That's a lot of checks. Wait a minute, then send the link again.",
+  xVerifyIp: "Lots of X checks from here. Wait a minute, then try again.",
 };
 
 const TABLE = ROUTES as readonly RouteSpec[];
@@ -229,6 +231,8 @@ export class Api {
       posts: bucket("posts"),
       reactions: bucket("reactions"),
       uploads: bucket("uploads"),
+      xVerify: bucket("xVerify"),
+      xVerifyIp: bucket("xVerifyIp"),
     };
     // Without a social service its routes don't exist, so they answer not_found like any unknown path.
     this.match = compileRoutes(
@@ -485,6 +489,24 @@ export class Api {
         })),
       updateProfile: async ({ viewer, body }) =>
         fromResult(await social().updateProfile(viewer, body), (resident) => ({
+          status: 200 as const,
+          body: { resident },
+        })),
+      startXLink: ({ viewer }) =>
+        fromResult(social().startXLink(viewer), (start) => ({ status: 200 as const, body: start })),
+      verifyXLink: async ({ viewer, body, ip }) => {
+        // The route's own limit is per resident. Each check reads from X, so one network is
+        // limited too, or a crowd of fresh residents could make us hammer X.
+        if (!this.limiters.xVerifyIp.take(ipKey(ip))) {
+          return fail("rate_limited", RATE_LIMITED.xVerifyIp);
+        }
+        return fromResult(await social().verifyXLink(viewer, body.url), (resident) => ({
+          status: 200 as const,
+          body: { resident },
+        }));
+      },
+      unlinkX: ({ viewer }) =>
+        fromResult(social().unlinkX(viewer), (resident) => ({
           status: 200 as const,
           body: { resident },
         })),

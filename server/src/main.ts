@@ -6,6 +6,7 @@ import { nodeSql } from "./node-sql";
 import { parseTownsfolk, SocialService } from "./social-service";
 import { JsonlStore, MemoryStore } from "./store";
 import { WorldService } from "./world-service";
+import { oembedReader } from "./x-link";
 
 // Resolve relative paths from where the user ran the command. `pnpm --filter` runs this file
 // from server/, but pnpm records the original directory in INIT_CWD.
@@ -31,7 +32,28 @@ const social = new SocialService({
   media,
   resident: (id) => service.state.residents[id],
   townsfolk: parseTownsfolk(process.env.TERRAKIN_TOWNSFOLK),
+  ...testXReader(process.env.TERRAKIN_TEST_X_OEMBED),
 });
+
+/**
+ * End-to-end tests point X checks at a local fake oEmbed server with TERRAKIN_TEST_X_OEMBED. Only
+ * a loopback http URL, and never with NODE_ENV=production (the Docker image sets it). The Worker
+ * has no such switch.
+ */
+function testXReader(endpoint: string | undefined) {
+  if (!endpoint) return {};
+  const url = URL.canParse(endpoint) ? new URL(endpoint) : undefined;
+  if (
+    process.env.NODE_ENV === "production" ||
+    url?.protocol !== "http:" ||
+    !["127.0.0.1", "localhost", "[::1]"].includes(url.hostname)
+  ) {
+    console.error("TERRAKIN_TEST_X_OEMBED must be a loopback http URL, and never in production.");
+    process.exit(1);
+  }
+  console.log(`  X checks read from the test endpoint ${url.href}`);
+  return { readXPost: oembedReader({ endpoint: url.href }) };
+}
 const server = createApp({
   service,
   social,

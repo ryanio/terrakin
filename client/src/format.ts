@@ -1,5 +1,5 @@
 /** Small pure helpers for the feed pages: times, counts, and the media grid. Tests pin them. */
-import type { MediaView, PostView } from "@terrakin/protocol";
+import { type MediaView, type PostView, xIntentUrl } from "@terrakin/protocol";
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
@@ -113,4 +113,12 @@ export function isModelResource(url: string, origin: string): boolean {
     return false;
   }
   return parsed.origin === origin && isMediaUrl(parsed.pathname) && !parsed.search && !parsed.hash;
+}
+
+/**
+ * The "Open X" link for the connect sheet: X's post intent with exactly `text` filled in, or
+ * undefined when the server's link is anything else. One line of text, so the post pastes whole.
+ */
+export function xIntentHref(intentUrl: string, text: string): string | undefined {
+  return intentUrl === xIntentUrl(text) && !/[\r\n]/.test(text) ? intentUrl : undefined;
 }

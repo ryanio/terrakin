@@ -19,6 +19,7 @@ import {
 } from "./post-card";
 import { copyText, toast } from "./ui";
 import { errorCard, notFoundCard, type View, type ViewContext } from "./view";
+import { xRow } from "./x-connect";
 
 export function profileView(id: string, ctx: ViewContext): View {
   ctx.setTitle("Profile · Terrakin");
@@ -144,11 +145,13 @@ export function profileView(id: string, ctx: ViewContext): View {
     );
     actions.append(copy);
 
+    const x = xRow(r);
     if (savedToken()) {
       void myProfile().then((me) => {
         if (destroyed || !me) return;
         if (me.id === r.id) {
           actions.prepend(h("span", { class: "you-tag", text: "This is you" }));
+          x.paint(true);
           return;
         }
         actions.prepend(followButton(r, paintCounts));
@@ -176,6 +179,7 @@ export function profileView(id: string, ctx: ViewContext): View {
       name,
       r.townsfolk ? h("p", { class: "townsfolk-note", text: TOWNSFOLK_ABOUT }) : null,
       status,
+      x.el,
       r.bio ? h("p", { class: "profile-bio", text: r.bio }) : null,
       r.note ? h("p", { class: "profile-note", text: r.note }) : null,
       h(

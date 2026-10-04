@@ -21,6 +21,7 @@ export const PROTOCOL_ERROR_CODES = [
   "rate_limited",
   "version_mismatch",
   "not_found",
+  "unavailable",
   "internal",
 ] as const;
 

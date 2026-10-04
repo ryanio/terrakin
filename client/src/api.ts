@@ -12,6 +12,7 @@ import {
   type PostView,
   ProfileResponse,
   type ProfileView,
+  XStartResponse,
 } from "@terrakin/protocol";
 import { savedResidentId, savedToken, saveResidentId } from "./net";
 
@@ -125,6 +126,9 @@ export const api = {
       ProfileResponse,
     ),
   createPost: (body: CreatePostRequest) => request("POST", "/v1/posts", PostOnly, body),
+  xStart: () => request("POST", "/v1/profile/x/start", XStartResponse),
+  xVerify: (url: string) => request("POST", "/v1/profile/x/verify", ProfileResponse, { url }),
+  xUnlink: () => request("DELETE", "/v1/profile/x", ProfileResponse),
 };
 
 /**

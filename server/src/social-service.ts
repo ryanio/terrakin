@@ -11,6 +11,12 @@ import {
   type PostView,
   type ProfileView,
   type UpdateProfileRequest,
+  X_CODE_TTL_MS,
+  X_HANDLE,
+  X_LINKS_PER_HANDLE,
+  type XStartResponse,
+  xIntentUrl,
+  xPostText,
 } from "@terrakin/protocol";
 import type { Resident } from "@terrakin/sim";
 import { aimedAtReader } from "./injection";
@@ -18,6 +24,16 @@ import { type MediaStore, sniffMediaType } from "./media";
 import type { SqlExec } from "./sql-store";
 import { stripMetadata } from "./strip-metadata";
 import { cleanMultiline } from "./text";
+import {
+  canonicalStatusUrl,
+  checkXPost,
+  newXCode,
+  oembedReader,
+  parseXStatusUrl,
+  X_POST_MISSING,
+  X_UNAVAILABLE,
+  type XPostReader,
+} from "./x-link";
 
 /**
  * The social layer (RFC 0003): profiles, posts, likes, follows, media. Its tables sit next to the
@@ -67,6 +83,8 @@ export interface SocialServiceOptions {
    * server config, never something a resident can claim for itself.
    */
   townsfolk?: ReadonlySet<string>;
+  /** Reads a post from X when someone connects their account. Tests pass a fake; default is X's oEmbed. */
+  readXPost?: XPostReader;
 }
 
 type Row = Record<string, unknown>;
@@ -81,7 +99,8 @@ const POST_COLUMNS = `p.n, p.id, p.author, p.text, p.reply_to, p.created_at,
   (SELECT COUNT(*) FROM posts r WHERE r.reply_to = p.id AND r.hidden = 0) AS reply_count,
   (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) AS like_count,
   (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id AND l.resident_id = ?) AS liked,
-  (SELECT avatar FROM profiles a WHERE a.resident_id = p.author) AS avatar`;
+  (SELECT avatar FROM profiles a WHERE a.resident_id = p.author) AS avatar,
+  (SELECT handle FROM x_links x WHERE x.resident_id = p.author) AS x_handle`;
 
 export class SocialService {
   private readonly sql: SqlExec;
@@ -90,6 +109,7 @@ export class SocialService {
   private readonly limits: SocialLimits;
   private readonly now: () => number;
   private readonly townsfolk: ReadonlySet<string>;
+  private readonly readXPost: XPostReader;
 
   constructor(options: SocialServiceOptions) {
     this.sql = options.sql;
@@ -98,6 +118,7 @@ export class SocialService {
     this.limits = { ...DEFAULT_SOCIAL_LIMITS, ...options.limits };
     this.now = options.now ?? Date.now;
     this.townsfolk = options.townsfolk ?? new Set();
+    this.readXPost = options.readXPost ?? oembedReader();
     for (const statement of [
       `CREATE TABLE IF NOT EXISTS posts (
         n INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -143,6 +164,19 @@ export class SocialService {
       "CREATE INDEX IF NOT EXISTS follows_followee ON follows (followee)",
       `CREATE TABLE IF NOT EXISTS profiles (
         resident_id TEXT PRIMARY KEY, bio TEXT NOT NULL DEFAULT '', avatar TEXT
+      )`,
+      // Connected X accounts (decision 0022): the handle and the proving post's link, nothing else.
+      `CREATE TABLE IF NOT EXISTS x_links (
+        resident_id TEXT PRIMARY KEY,
+        handle TEXT NOT NULL,
+        handle_key TEXT NOT NULL,
+        status_url TEXT NOT NULL,
+        verified_at INTEGER NOT NULL
+      )`,
+      "CREATE INDEX IF NOT EXISTS x_links_handle ON x_links (handle_key)",
+      // One pending code per resident, gone once used, unlinked, or an hour old.
+      `CREATE TABLE IF NOT EXISTS x_codes (
+        resident_id TEXT PRIMARY KEY, code TEXT NOT NULL, expires_at INTEGER NOT NULL
       )`,
     ]) {
       this.sql.exec(statement);
@@ -322,12 +356,14 @@ export class SocialService {
         (SELECT COUNT(*) FROM posts WHERE author = ? AND hidden = 0) AS posts,
         (SELECT COUNT(*) FROM follows WHERE followee = ?) AS followers,
         (SELECT COUNT(*) FROM follows WHERE follower = ?) AS following,
-        (SELECT COUNT(*) FROM follows WHERE follower = ? AND followee = ?) AS followed
+        (SELECT COUNT(*) FROM follows WHERE follower = ? AND followee = ?) AS followed,
+        (SELECT handle FROM x_links WHERE x_links.resident_id = ?) AS x_handle
       FROM (SELECT 1) LEFT JOIN profiles ON resident_id = ?`,
       residentId,
       residentId,
       residentId,
       viewerId ?? "",
+      residentId,
       residentId,
       residentId,
     )[0];
@@ -342,6 +378,7 @@ export class SocialService {
       bio: String(extra?.bio ?? ""),
       avatar: extra?.avatar ? mediaUrl(String(extra.avatar)) : null,
       ...(this.townsfolk.has(r.id) ? { townsfolk: true } : {}),
+      ...xAccount(extra?.x_handle),
       online: r.online,
       posts: Number(extra?.posts ?? 0),
       followers: Number(extra?.followers ?? 0),
@@ -384,6 +421,126 @@ export class SocialService {
     }
     const profile = this.profile(residentId, residentId);
     return profile ? { ok: true, value: profile } : fail("internal", "Profile vanished.");
+  }
+
+  // ---------- X accounts (decision 0022) ----------
+
+  /**
+   * The line to post on X, with a one-time code. One code per resident: a fresh one is handed back
+   * again, so opening the sheet twice doesn't break a post already sent. Past a quarter of its life
+   * it's replaced, so a code never runs out moments after it's shown.
+   */
+  startXLink(residentId: string): SocialResult<XStartResponse> {
+    const r = this.resident(residentId);
+    if (!r) return fail("unauthorized", "Unknown resident.");
+    const now = this.now();
+    const pending = this.rows(
+      "SELECT code, expires_at FROM x_codes WHERE resident_id = ?",
+      residentId,
+    )[0];
+    let code = pending ? String(pending.code) : "";
+    let expiresAt = Number(pending?.expires_at ?? 0);
+    if (!pending || expiresAt - now < X_CODE_TTL_MS * 0.75) {
+      code = newXCode();
+      expiresAt = now + X_CODE_TTL_MS;
+      this.sql.exec(
+        "INSERT OR REPLACE INTO x_codes (resident_id, code, expires_at) VALUES (?, ?, ?)",
+        residentId,
+        code,
+        expiresAt,
+      );
+    }
+    const text = xPostText(r.name, r.id, code);
+    return {
+      ok: true,
+      value: {
+        code,
+        text,
+        intentUrl: xIntentUrl(text),
+        expiresAt: new Date(expiresAt).toISOString(),
+      },
+    };
+  }
+
+  /**
+   * Connect the X account that wrote the post at `url`, if the post carries this resident's code.
+   * X's answer is untrusted: only the author's handle and the post's link are kept.
+   */
+  async verifyXLink(residentId: string, url: string): Promise<SocialResult<ProfileView>> {
+    if (!this.resident(residentId)) return fail("unauthorized", "Unknown resident.");
+    const code = this.pendingXCode(residentId);
+    if (!code.ok) return fail("bad_request", code.message);
+    const status = parseXStatusUrl(url);
+    if (!status.ok) return fail("bad_request", status.message);
+
+    const read = await this.readXPost(status.value);
+    if (!read.ok) {
+      return read.missing
+        ? fail("bad_request", X_POST_MISSING)
+        : fail("unavailable", X_UNAVAILABLE);
+    }
+    const problem = checkXPost(read.post, status.value, code.value);
+    if (problem) return fail("bad_request", problem);
+    // The read took a while. The code must still be the one we checked against.
+    const still = this.pendingXCode(residentId);
+    if (!still.ok || still.value !== code.value)
+      return fail("bad_request", "Start again: that code was replaced.");
+
+    const { handle } = read.post;
+    const key = handle.toLowerCase();
+    const others = this.count(
+      "SELECT COUNT(*) AS c FROM x_links WHERE handle_key = ? AND resident_id != ?",
+      key,
+      residentId,
+    );
+    if (others >= X_LINKS_PER_HANDLE) {
+      return fail(
+        "bad_request",
+        `@${handle} is already connected to ${X_LINKS_PER_HANDLE} residents, the most one X account can have. Disconnect it from one of them first.`,
+      );
+    }
+    this.sql.exec(
+      `INSERT OR REPLACE INTO x_links (resident_id, handle, handle_key, status_url, verified_at)
+        VALUES (?, ?, ?, ?, ?)`,
+      residentId,
+      handle,
+      key,
+      canonicalStatusUrl(handle, status.value.id),
+      this.now(),
+    );
+    this.sql.exec("DELETE FROM x_codes WHERE resident_id = ?", residentId);
+    const profile = this.profile(residentId, residentId);
+    return profile ? { ok: true, value: profile } : fail("internal", "Profile vanished.");
+  }
+
+  /** Disconnect X: the handle, the post link, and any pending code are deleted. */
+  unlinkX(residentId: string): SocialResult<ProfileView> {
+    this.sql.exec("DELETE FROM x_links WHERE resident_id = ?", residentId);
+    this.sql.exec("DELETE FROM x_codes WHERE resident_id = ?", residentId);
+    const profile = this.profile(residentId, residentId);
+    return profile ? { ok: true, value: profile } : fail("unauthorized", "Unknown resident.");
+  }
+
+  private pendingXCode(
+    residentId: string,
+  ): { ok: true; value: string } | { ok: false; message: string } {
+    const row = this.rows(
+      "SELECT code, expires_at FROM x_codes WHERE resident_id = ?",
+      residentId,
+    )[0];
+    if (!row) {
+      return {
+        ok: false,
+        message: "Get a code to post first (POST /v1/profile/x/start), then send the post's link.",
+      };
+    }
+    if (Number(row.expires_at) <= this.now()) {
+      return {
+        ok: false,
+        message: "That code expired. Get a new one, post it, and send the new post's link.",
+      };
+    }
+    return { ok: true, value: String(row.code) };
   }
 
   // ---------- media ----------
@@ -487,6 +644,7 @@ export class SocialService {
     );
     for (const row of orphans) await this.releaseIfUnused(String(row.id));
     this.sql.exec("DELETE FROM uploads WHERE created_at < ?", this.now() - 2 * DAY_MS);
+    this.sql.exec("DELETE FROM x_codes WHERE expires_at < ?", this.now());
   }
 
   /** Delete a file and its row if no post or avatar uses it. */
@@ -536,7 +694,7 @@ export class SocialService {
       media.set(String(m.post_id), list);
     }
     return rows.flatMap((row) => {
-      const author = this.author(String(row.author), row.avatar);
+      const author = this.author(String(row.author), row.avatar, row.x_handle);
       if (!author) return [];
       const id = String(row.id);
       return [
@@ -556,7 +714,7 @@ export class SocialService {
     });
   }
 
-  private author(id: string, avatar: unknown): AuthorView | undefined {
+  private author(id: string, avatar: unknown, xHandle: unknown): AuthorView | undefined {
     const r = this.resident(id);
     if (!r) return undefined;
     return {
@@ -567,8 +725,14 @@ export class SocialService {
       shape: r.shape,
       avatar: avatar ? mediaUrl(String(avatar)) : null,
       ...(this.townsfolk.has(r.id) ? { townsfolk: true } : {}),
+      ...xAccount(xHandle),
     };
   }
+}
+
+/** The `x` field for a stored handle, or nothing. A handle that somehow isn't valid is left out. */
+function xAccount(handle: unknown): { x?: { handle: string } } {
+  return typeof handle === "string" && X_HANDLE.test(handle) ? { x: { handle } } : {};
 }
 
 /** Parse the townsfolk grant from config: resident ids separated by commas or whitespace. */

@@ -29,6 +29,9 @@ import {
   ProfileResponse,
   SinglePostResponse,
   UpdateProfileRequest,
+  X_LINKS_PER_HANDLE,
+  XStartResponse,
+  XVerifyRequest,
 } from "./social";
 
 /**
@@ -63,6 +66,9 @@ export const RATE_LIMITS = {
   posts: { scope: "resident", perSecond: 6 / 60, burst: 6 },
   reactions: { scope: "resident", perSecond: 1, burst: 60 },
   uploads: { scope: "resident", perSecond: 10 / 60, burst: 10 },
+  // Each X check makes the server read a post from X, so both the resident and the IP are limited.
+  xVerify: { scope: "resident", perSecond: 1 / 60, burst: 5 },
+  xVerifyIp: { scope: "ip", perSecond: 5 / 60, burst: 10 },
 } as const satisfies Record<string, RateLimit>;
 export type RateLimitName = keyof typeof RATE_LIMITS;
 
@@ -94,6 +100,7 @@ const PROTOCOL_ERROR_STATUS: Partial<Record<ErrorCode, number>> = {
   not_found: 404,
   rate_limited: 429,
   internal: 500,
+  unavailable: 503,
 };
 
 /** The HTTP status for an error code. World rule rejections (like `invalid_name`) are 400. */
@@ -455,6 +462,48 @@ export const ROUTES = [
     body: UpdateProfileRequest,
     responses: { 200: json(ProfileResponse) },
     errors: ["bad_request", "unauthorized", "rate_limited"],
+    rateLimit: "reactions",
+  },
+  {
+    id: "startXLink",
+    method: "POST",
+    path: "/v1/profile/x/start",
+    auth: "bearer",
+    summary: "Get a line to post from your X account, to show it on your profile.",
+    description:
+      "Optional and public. Returns the exact text to post (with a one-time code) and a link that opens X with it filled in. The code lasts an hour; asking again while it is fresh returns the same one.",
+    tags: ["Social"],
+    responses: { 200: json(XStartResponse) },
+    errors: ["unauthorized", "rate_limited"],
+    rateLimit: "reactions",
+  },
+  {
+    id: "verifyXLink",
+    method: "POST",
+    path: "/v1/profile/x/verify",
+    auth: "bearer",
+    summary: "Check the X post with your code and connect that X account to your profile.",
+    description:
+      "Send the post's link. The server reads the public post from X, checks it holds your code, and shows the author's handle on your profile as `x`. Only the handle and the post's link are kept.",
+    tags: ["Social"],
+    body: XVerifyRequest,
+    responses: { 200: json(ProfileResponse, "Connected") },
+    errors: ["bad_request", "unauthorized", "rate_limited", "unavailable"],
+    rateLimit: "xVerify",
+    limits: [
+      describeRateLimit(RATE_LIMITS.xVerifyIp),
+      `one X account on at most ${X_LINKS_PER_HANDLE} residents`,
+    ],
+  },
+  {
+    id: "unlinkX",
+    method: "DELETE",
+    path: "/v1/profile/x",
+    auth: "bearer",
+    summary: "Disconnect your X account. Its handle and post link are deleted.",
+    tags: ["Social"],
+    responses: { 200: json(ProfileResponse, "Disconnected, or nothing was connected") },
+    errors: ["unauthorized", "rate_limited"],
     rateLimit: "reactions",
   },
   {

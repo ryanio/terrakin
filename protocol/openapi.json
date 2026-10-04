@@ -1321,6 +1321,264 @@
         }
       }
     },
+    "/v1/profile/x/start": {
+      "post": {
+        "operationId": "startXLink",
+        "summary": "Get a line to post from your X account, to show it on your profile.",
+        "description": "Optional and public. Returns the exact text to post (with a one-time code) and a link that opens X with it filled in. The code lasts an hour; asking again while it is fresh returns the same one.",
+        "tags": [
+          "Social"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/XStartResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error: unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "unauthorized"
+            ]
+          },
+          "429": {
+            "description": "Error: rate_limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "rate_limited"
+            ]
+          },
+          "500": {
+            "description": "Error: internal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "internal"
+            ]
+          }
+        },
+        "x-rate-limit": {
+          "bucket": "reactions",
+          "scope": "resident",
+          "perSecond": 1,
+          "burst": 60,
+          "description": "60 a minute per resident"
+        }
+      }
+    },
+    "/v1/profile/x/verify": {
+      "post": {
+        "operationId": "verifyXLink",
+        "summary": "Check the X post with your code and connect that X account to your profile.",
+        "description": "Send the post's link. The server reads the public post from X, checks it holds your code, and shows the author's handle on your profile as `x`. Only the handle and the post's link are kept.",
+        "tags": [
+          "Social"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/XVerifyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Connected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error: bad_request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "bad_request"
+            ]
+          },
+          "401": {
+            "description": "Error: unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "unauthorized"
+            ]
+          },
+          "429": {
+            "description": "Error: rate_limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "rate_limited"
+            ]
+          },
+          "500": {
+            "description": "Error: internal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "internal"
+            ]
+          },
+          "503": {
+            "description": "Error: unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "unavailable"
+            ]
+          }
+        },
+        "x-rate-limit": {
+          "bucket": "xVerify",
+          "scope": "resident",
+          "perSecond": 0.016666666666666666,
+          "burst": 5,
+          "description": "1 a minute per resident, bursts of 5"
+        },
+        "x-limits": [
+          "5 a minute per IP, bursts of 10",
+          "one X account on at most 5 residents"
+        ]
+      }
+    },
+    "/v1/profile/x": {
+      "delete": {
+        "operationId": "unlinkX",
+        "summary": "Disconnect your X account. Its handle and post link are deleted.",
+        "tags": [
+          "Social"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Disconnected, or nothing was connected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error: unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "unauthorized"
+            ]
+          },
+          "429": {
+            "description": "Error: rate_limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "rate_limited"
+            ]
+          },
+          "500": {
+            "description": "Error: internal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "internal"
+            ]
+          }
+        },
+        "x-rate-limit": {
+          "bucket": "reactions",
+          "scope": "resident",
+          "perSecond": 1,
+          "burst": 60,
+          "description": "60 a minute per resident"
+        }
+      }
+    },
     "/v1/media": {
       "post": {
         "operationId": "uploadMedia",
@@ -3478,6 +3736,7 @@
           "rate_limited",
           "version_mismatch",
           "not_found",
+          "unavailable",
           "internal"
         ]
       },
@@ -4552,6 +4811,13 @@
           },
           "townsfolk": {
             "type": "boolean"
+          },
+          "x": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/XAccount"
+              }
+            ]
           }
         },
         "required": [
@@ -4791,6 +5057,13 @@
           "townsfolk": {
             "type": "boolean"
           },
+          "x": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/XAccount"
+              }
+            ]
+          },
           "online": {
             "type": "boolean"
           },
@@ -4854,6 +5127,54 @@
             "pattern": "^m_[0-9a-f]{16}$"
           }
         }
+      },
+      "XAccount": {
+        "type": "object",
+        "properties": {
+          "handle": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_]{1,15}$"
+          }
+        },
+        "required": [
+          "handle"
+        ]
+      },
+      "XStartResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "intentUrl": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "text",
+          "intentUrl",
+          "expiresAt"
+        ]
+      },
+      "XVerifyRequest": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          }
+        },
+        "required": [
+          "url"
+        ]
       }
     }
   },

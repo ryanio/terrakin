@@ -50,6 +50,16 @@ export function townsfolkBadge(): HTMLElement {
   );
 }
 
+/** The quiet mark next to a name on a post: this resident proved an X account (decision 0022). */
+export function xMark(handle: string): HTMLElement {
+  const label = `Connected X account @${handle}`;
+  return h(
+    "span",
+    { class: "badge-x", attrs: { role: "img", "aria-label": label, title: label } },
+    icon("check", "icon badge-x-icon"),
+  );
+}
+
 export const profilePath = (id: string) => `/r/${encodeURIComponent(id)}`;
 export const postPath = (id: string) => `/p/${encodeURIComponent(id)}`;
 
@@ -92,6 +102,7 @@ export function postCard(post: PostView, options: PostCardOptions = {}): HTMLEle
       "div",
       { class: "post-who" },
       h("a", { class: "post-author", attrs: { href: authorHref }, text: author.name }),
+      author.x ? xMark(author.x.handle) : null,
       author.kind === "agent" ? aiBadge() : null,
       author.townsfolk ? townsfolkBadge() : null,
     ),

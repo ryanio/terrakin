@@ -26,11 +26,12 @@ The front door. Parses, authenticates, rate limits, runs the sim, persists, and 
 - `src/store.ts` `Store` interface, `MemoryStore`, `JsonlStore`. `src/sql-store.ts` `SqlStore` for Durable Object SQLite.
 - `src/social-service.ts` the social layer (RFC 0003): posts, likes, follows, profiles, uploads and their cost caps. Its tables never feed the sim.
 - `src/media.ts` upload type sniffing, serving headers, the capped body reader, and R2 serving. `src/file-media-store.ts` uploads on disk for Node. `src/node-sql.ts` `node:sqlite` in the Durable Object's `sql.exec` shape.
+- `src/x-link.ts` connecting an X account (decision 0022): strict status-link parsing, the oEmbed reader (X's own redirects only, 5 second timeout), and the author and code check. Everything X sends is untrusted; only the handle and the post's link are stored, and its HTML is never stored, logged, or shown. The reader is injected (`readXPost`) so tests never touch the network.
 - `src/injection.ts` turns away text written as orders to AI readers (posts, bios, notes, chat). `src/strip-metadata.ts` removes EXIF, XMP, and comments from uploaded images.
 - `src/rate-limit.ts`, `src/text.ts` small utilities.
-- `src/main.ts` entry point. Env: `PORT` (8787), `TERRAKIN_DATA_DIR` (world log as JSONL, plus `social.db` and `media/`), `TERRAKIN_STATIC_DIR` (serve built client), `TERRAKIN_TRUSTED_PROXIES` (reverse proxy hops).
+- `src/main.ts` entry point. Env: `PORT` (8787), `TERRAKIN_DATA_DIR` (world log as JSONL, plus `social.db` and `media/`), `TERRAKIN_STATIC_DIR` (serve built client), `TERRAKIN_TRUSTED_PROXIES` (reverse proxy hops), `TERRAKIN_TEST_X_OEMBED` (end-to-end tests only: a loopback URL for a fake X oEmbed endpoint; refused with `NODE_ENV=production`).
 - Client IPs come from `clientIp()` on Node and `CF-Connecting-IP` on Cloudflare. Never read `X-Forwarded-For` anywhere else.
-- Code under `src/` that the Worker imports (`api.ts`, `links.ts`, `world-service.ts`, `sql-store.ts`, `social-service.ts`, `media.ts`) must run on both runtimes: no `node:fs`, no `Buffer`. `pnpm typecheck` checks it against the Workers types too.
+- Code under `src/` that the Worker imports (`api.ts`, `links.ts`, `world-service.ts`, `sql-store.ts`, `social-service.ts`, `x-link.ts`, `media.ts`) must run on both runtimes: no `node:fs`, no `Buffer`. `pnpm typecheck` checks it against the Workers types too.
 
 ## Testing
 

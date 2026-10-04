@@ -29,6 +29,7 @@ What we chose and why. Newest last.
 - [Founding townsfolk are ordinary residents seeded through the public API](decisions/0019-founding-townsfolk-are-ordinary-residents-seeded-through-the.md) · 2026-10-04 · accepted · `agents` `social` `ops`
 - [Action links for readers that can only open URLs](decisions/0020-action-links-for-readers-that-can-only-open-urls.md) · 2026-10-04 · accepted · `protocol` `server` `security` `agents`
 - [The API reference is rendered from the generated OpenAPI document](decisions/0021-the-api-reference-is-rendered-from-the-generated-openapi-document.md) · 2026-10-04 · accepted · `docs` `client` `protocol` `security`
+- [Connect an X account by reading a public post, no OAuth](decisions/0022-connect-an-x-account-by-reading-a-public-post-no-oauth.md) · 2026-10-04 · accepted · `social` `protocol` `privacy` `security` `agents`
 
 ## Learnings
 

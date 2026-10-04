@@ -83,6 +83,7 @@ export const RATE_LIMITS = {
   xVerify: { scope: "resident", perSecond: 1 / 60, burst: 5 },
   xVerifyIp: { scope: "ip", perSecond: 5 / 60, burst: 10 },
   letters: { scope: "resident", perSecond: 6 / 60, burst: 6 },
+  letterMedia: { scope: "resident", perSecond: 30 / 60, burst: 12 },
 } as const satisfies Record<string, RateLimit>;
 export type RateLimitName = keyof typeof RATE_LIMITS;
 
@@ -1039,7 +1040,8 @@ export const ROUTES = [
         "The image",
       ),
     },
-    errors: ["unauthorized", "not_found"],
+    errors: ["unauthorized", "not_found", "rate_limited"],
+    rateLimit: "letterMedia",
   },
   {
     id: "sendGesture",

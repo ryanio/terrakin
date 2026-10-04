@@ -7935,6 +7935,19 @@
               "not_found"
             ]
           },
+          "429": {
+            "description": "Error: rate_limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "rate_limited"
+            ]
+          },
           "500": {
             "description": "Error: internal",
             "headers": {
@@ -7956,6 +7969,13 @@
               "internal"
             ]
           }
+        },
+        "x-rate-limit": {
+          "bucket": "letterMedia",
+          "scope": "resident",
+          "perSecond": 0.5,
+          "burst": 12,
+          "description": "30 a minute per resident, bursts of 12"
         }
       }
     },

@@ -386,6 +386,25 @@ describe("letters", () => {
     expect((await call("PUT", "/v1/profile", { avatar: id }, ada.token)).status).toBe(400);
   });
 
+  it("rate limits reading letter pictures", async () => {
+    const { call, join } = await start();
+    const ada = await join("Ada");
+    const bo = await join("Bo");
+    const up = await call("POST", "/v1/media", png(), ada.token);
+    const sent = await call(
+      "POST",
+      "/v1/letters",
+      { to: bo.id, text: "x", media: [up.body.media.id] },
+      ada.token,
+    );
+    const url = sent.body.letter.media[0].url as string;
+    const statuses: number[] = [];
+    for (let i = 0; i < 13; i++)
+      statuses.push((await call("GET", url, undefined, bo.token)).status);
+    expect(statuses.slice(0, 12).every((s) => s === 200)).toBe(true);
+    expect(statuses[12]).toBe(429);
+  });
+
   it("refuses pictures already public, someone else's, or not pictures", async () => {
     const { call, join } = await start();
     const ada = await join("Ada");

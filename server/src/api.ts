@@ -80,6 +80,8 @@ const MAX_REPEATS = 2_000;
 
 /** Uploads the one world object will buffer at once. Each can be up to 25 MB. */
 const MAX_UPLOADS_IN_FLIGHT = 2;
+/** Letter pictures (up to 5 MB each) the world object will hold in memory at once. */
+const MAX_LETTER_READS_IN_FLIGHT = 4;
 
 /** What each rate limit says when it refuses. */
 const RATE_LIMITED: Record<RateLimitName, string> = {
@@ -91,6 +93,7 @@ const RATE_LIMITED: Record<RateLimitName, string> = {
   xVerify: "That's a lot of checks. Wait a minute, then send the link again.",
   xVerifyIp: "Lots of X checks from here. Wait a minute, then try again.",
   letters: "Slow down a little.",
+  letterMedia: "Slow down a little.",
 };
 
 const TABLE = ROUTES as readonly RouteSpec[];
@@ -281,6 +284,7 @@ export class Api {
   private readonly limiters: Record<RateLimitName, RateLimiters>;
   private readonly ipUploads = new Map<string, { day: number; bytes: number }>();
   private uploadsInFlight = 0;
+  private letterReadsInFlight = 0;
   private readonly ipUploadBytesPerDay: number;
   private readonly match: (method: string, pathname: string) => RouteMatch<RouteSpec> | undefined;
   private readonly handlers: Handlers;
@@ -316,6 +320,7 @@ export class Api {
       xVerify: bucket("xVerify"),
       xVerifyIp: bucket("xVerifyIp"),
       letters: bucket("letters"),
+      letterMedia: bucket("letterMedia"),
     };
     // Without a social service its routes don't exist, so they answer not_found like any unknown path.
     this.match = compileRoutes(
@@ -754,10 +759,19 @@ export class Api {
           ? { status: 204 }
           : fail("not_found", "No such letter."),
       getLetterMedia: async ({ viewer, params }) => {
-        const file = await social().together.letterMedia(viewer, params.id, params.mediaId);
-        return file
-          ? { status: 200, bytes: file.bytes, contentType: file.type }
-          : fail("not_found", "Not found.");
+        // Each read holds a whole picture in the one world object's memory, so only a few at once.
+        if (this.letterReadsInFlight >= MAX_LETTER_READS_IN_FLIGHT) {
+          return fail("rate_limited", "Lots of pictures loading right now. Try again in a moment.");
+        }
+        this.letterReadsInFlight++;
+        try {
+          const file = await social().together.letterMedia(viewer, params.id, params.mediaId);
+          return file
+            ? { status: 200, bytes: file.bytes, contentType: file.type }
+            : fail("not_found", "Not found.");
+        } finally {
+          this.letterReadsInFlight--;
+        }
       },
       sendGesture: ({ viewer, params, body }) => {
         const together = social().together;
@@ -870,10 +884,13 @@ export class Api {
       // come online for it and go back to how they were.
       const wasOnline = service.state.residents[inviter]?.online === true;
       service.ensureOnline(inviter);
-      shared = service.act(inviter, { type: "share_plot", with: me }).ok;
+      const result = service.act(inviter, { type: "share_plot", with: me });
       if (!wasOnline) service.leave(inviter);
-      if (shared) {
-        plot = { px: anchor.px, py: anchor.py };
+      // The plot the sim actually shared, from its event.
+      const event = result.ok ? result.events.find((e) => e.type === "plot_shared") : undefined;
+      shared = event?.type === "plot_shared";
+      if (event?.type === "plot_shared") {
+        plot = { px: event.px, py: event.py };
         if (wantsBuild) {
           const home = service.act(me, { type: "build_starter_home" });
           built = home.ok || home.error.code === "already_home";
@@ -1130,6 +1147,7 @@ function render(route: RouteSpec, reply: HandlerReply | Failure, help?: string):
         "content-type": reply.contentType ?? "application/octet-stream",
         "x-content-type-options": "nosniff",
         "content-security-policy": "default-src 'none'; sandbox",
+        // no-store: a shared browser must not hand one person's letter picture to the next.
         "cache-control": "no-store",
       },
       body: reply.bytes ?? new Uint8Array(0),

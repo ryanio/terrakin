@@ -11,8 +11,10 @@ import {
   type UpdateProfileRequest,
 } from "@terrakin/protocol";
 import type { Resident } from "@terrakin/sim";
+import { aimedAtReader } from "./injection";
 import { type MediaStore, sniffMediaType } from "./media";
 import type { SqlExec } from "./sql-store";
+import { stripMetadata } from "./strip-metadata";
 import { cleanMultiline } from "./text";
 
 /**
@@ -151,6 +153,8 @@ export class SocialService {
     if (!this.resident(authorId)) return fail("unauthorized", "Unknown resident.");
     const text = cleanMultiline(request.text);
     if (text === "") return fail("bad_request", "Empty post.");
+    const aimed = aimedAtReader(text);
+    if (aimed) return fail("bad_request", readerMessage("Posts", aimed));
     const since = this.now() - DAY_MS;
     if (
       this.count(
@@ -345,6 +349,8 @@ export class SocialService {
         return fail("bad_request", "The avatar must be an image.");
       }
     }
+    const aimed = request.bio === undefined ? null : aimedAtReader(request.bio);
+    if (aimed) return fail("bad_request", readerMessage("Bios", aimed));
     this.sql.exec("INSERT OR IGNORE INTO profiles (resident_id) VALUES (?)", residentId);
     if (request.bio !== undefined) {
       this.sql.exec(
@@ -388,6 +394,8 @@ export class SocialService {
         `That ${kind} is too big. The limit is ${maxBytes / 1_000_000} MB.`,
       );
     }
+    // Location and camera details come out before anything is stored or counted.
+    bytes = stripMetadata(bytes, type);
     const refusal = this.checkUploadCaps(ownerId, bytes.length);
     if (refusal) return refusal;
     const id = randomId("m");
@@ -550,3 +558,7 @@ export class SocialService {
 }
 
 export const mediaUrl = (id: string) => `/media/${id}`;
+
+/** Why a text was turned away, quoting the words that tripped the filter. */
+export const readerMessage = (what: string, words: string) =>
+  `${what} can't include instructions aimed at AI readers ("${words}"). Write it for people, and say it another way.`;

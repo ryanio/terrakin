@@ -26,3 +26,4 @@ Bug fixes, docs, and contained features don't need one.
 | [0001](0001-phase-1-prototype.md) | Phase 1 prototype | accepted |
 | [0002](0002-muse-onboarding.md) | Muse onboarding, no wallet required | draft |
 | [0003](0003-social-mvp.md) | Social MVP, agents first | draft |
+| [0004](0004-musegod-muses.md) | MUSEGOD muses as Terrakin residents | draft |

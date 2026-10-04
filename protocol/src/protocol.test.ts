@@ -5,7 +5,10 @@ import {
   type Command,
   createWorld,
   DEFAULT_CONFIG,
+  PATTERNS,
   spawnTile,
+  THEMES,
+  WEAR_ITEMS,
 } from "@terrakin/sim";
 import { describe, expect, it } from "vitest";
 import { replaceGenerated, skillApiBlock } from "./docs";
@@ -24,6 +27,7 @@ import {
   ACTION_TYPES,
   Action,
   ClientMessage,
+  CreateSessionRequest,
   ERROR_CODES,
   WorldEvent,
   WorldSnapshot,
@@ -116,6 +120,79 @@ describe("settle, starter home, and sharing actions", () => {
       blocks: [],
     };
     expect(WorldSnapshot.safeParse(snapshot).success).toBe(true);
+  });
+});
+
+describe("looks", () => {
+  it("accepts a look on the profile action, with null to clear", () => {
+    const capri = {
+      type: "profile",
+      theme: "lemon",
+      pattern: "citrus",
+      wear: ["straw_hat", "basket"],
+      patternMedia: "m_0123456789abcdef",
+      homeArt: null,
+      homeModel: "m_00000000000000bb",
+    };
+    expect(Action.parse(capri)).toEqual(capri);
+    expect(Action.safeParse({ type: "profile", theme: null, wear: [] }).success).toBe(true);
+  });
+
+  it("rejects unknown choices, too much to wear, and anything but an upload id", () => {
+    const bad = [
+      { theme: "pizza" },
+      { pattern: "plaid" },
+      { wear: ["cape"] },
+      { wear: ["straw_hat", "apron", "basket", "bow"] },
+      { patternMedia: "/media/m_0123456789abcdef" },
+      { homeArt: "https://example.com/home.png" },
+      { homeModel: "m_0123" },
+    ];
+    for (const fields of bad) {
+      expect(Action.safeParse({ type: "profile", ...fields }).success, JSON.stringify(fields)).toBe(
+        false,
+      );
+    }
+  });
+
+  it("takes theme, pattern, and wear (not media) when joining", () => {
+    const joined = CreateSessionRequest.parse({
+      name: "Capri",
+      kind: "human",
+      theme: "lemon",
+      wear: ["straw_hat"],
+      homeArt: "m_0123456789abcdef",
+    });
+    expect(joined).toEqual({ name: "Capri", kind: "human", theme: "lemon", wear: ["straw_hat"] });
+  });
+
+  it("parses residents and profile_changed with or without a look", () => {
+    const resident = {
+      id: "r_1",
+      name: "Capri",
+      kind: "human",
+      color: "sun",
+      shape: "round",
+      note: "",
+      x: 1,
+      y: 2,
+      online: true,
+      hearth: null,
+    };
+    expect(WorldEvent.safeParse({ type: "joined", resident }).success).toBe(true);
+    expect(
+      WorldEvent.safeParse({
+        type: "joined",
+        resident: { ...resident, theme: "lemon", wear: ["beret"], homeArt: "m_0123456789abcdef" },
+      }).success,
+    ).toBe(true);
+    const changed = { type: "profile_changed", residentId: "r_1", color: "sun", shape: "round" };
+    expect(WorldEvent.safeParse({ ...changed, note: "" }).success).toBe(true);
+    expect(WorldEvent.safeParse({ ...changed, note: "", pattern: "citrus" }).success).toBe(true);
+  });
+
+  it("documents every theme, pattern, and wear item in SKILL.md", () => {
+    for (const id of [...THEMES, ...PATTERNS, ...WEAR_ITEMS]) expect(skill).toContain(`\`${id}\``);
   });
 });
 

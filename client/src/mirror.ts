@@ -1,14 +1,21 @@
-import type { WorldSnapshot } from "@terrakin/protocol";
+import type { ResidentView, WorldEvent, WorldSnapshot } from "@terrakin/protocol";
 import {
   type BlockKind,
+  LOOK_KEYS,
+  lookOf,
   plotKey,
   type Resident,
   tileKey,
   type WorldConfig,
-  type WorldEvent,
 } from "@terrakin/sim";
 
 type EventMessage = { seq: number; event: WorldEvent };
+
+/** A resident from the wire, with unset look fields left out rather than undefined. */
+export function residentFrom(view: ResidentView): Resident {
+  const { theme, pattern, wear, patternMedia, homeArt, homeModel, ...rest } = view;
+  return { ...rest, ...lookOf({ theme, pattern, wear, patternMedia, homeArt, homeModel }) };
+}
 
 /**
  * The client's read-only copy of the world. It never runs game rules: it only applies the events
@@ -30,7 +37,7 @@ export class Mirror {
     this.config = snapshot.config;
     this.commons = snapshot.commons;
     this.seq = snapshot.seq;
-    for (const r of snapshot.residents) this.residents.set(r.id, { ...r });
+    for (const r of snapshot.residents) this.residents.set(r.id, residentFrom(r));
     for (const p of snapshot.plots) {
       this.plots.set(plotKey(p.px, p.py), p.ownerId);
       if (p.coOwners?.length) this.coOwners.set(plotKey(p.px, p.py), [...p.coOwners]);
@@ -56,7 +63,7 @@ export class Mirror {
     this.seq = seq;
     switch (event.type) {
       case "joined":
-        this.residents.set(event.resident.id, { ...event.resident });
+        this.residents.set(event.resident.id, residentFrom(event.resident));
         break;
       case "left": {
         const r = this.residents.get(event.residentId);
@@ -65,7 +72,11 @@ export class Mirror {
       }
       case "profile_changed": {
         const r = this.residents.get(event.residentId);
-        if (r) Object.assign(r, { color: event.color, shape: event.shape, note: event.note });
+        if (!r) break;
+        Object.assign(r, { color: event.color, shape: event.shape, note: event.note });
+        // The event carries the whole look: anything it leaves out is unset.
+        for (const key of LOOK_KEYS) delete r[key];
+        Object.assign(r, lookOf(event));
         break;
       }
       case "moved": {

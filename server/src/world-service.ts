@@ -3,6 +3,7 @@ import type {
   Action,
   ChatChannel,
   ErrorCode,
+  MediaType,
   ServerMessage,
   WorldSnapshot,
 } from "@terrakin/protocol";
@@ -13,6 +14,8 @@ import {
   DEFAULT_CONFIG,
   hashWorld,
   type Input,
+  LOOK_MEDIA_KEYS,
+  type LookMediaKey,
   type ProfileFields,
   parseKey,
   prepare,
@@ -77,12 +80,40 @@ const toBase64Url = (bytes: Uint8Array) =>
 type LooseProfile = { [K in keyof ProfileFields]?: ProfileFields[K] | undefined };
 
 function cleanProfile(fields: LooseProfile): ProfileFields {
-  return {
+  const out: ProfileFields = {
     ...(fields.color ? { color: fields.color } : {}),
     ...(fields.shape ? { shape: fields.shape } : {}),
     ...(fields.note !== undefined ? { note: cleanText(fields.note) } : {}),
   };
+  // Look fields: absent stays absent, null (clear) is kept.
+  if (fields.theme !== undefined) out.theme = fields.theme;
+  if (fields.pattern !== undefined) out.pattern = fields.pattern;
+  if (fields.wear !== undefined) out.wear = [...fields.wear];
+  for (const key of LOOK_MEDIA_KEYS) {
+    const value = fields[key];
+    if (value !== undefined) out[key] = value;
+  }
+  return out;
 }
+
+/** What each look media field may be: still images for art and patterns, `.glb` for models. */
+const LOOK_MEDIA_TYPES: Record<LookMediaKey, { types: readonly MediaType[]; what: string }> = {
+  patternMedia: {
+    types: ["image/png", "image/jpeg", "image/webp"],
+    what: "Your pattern must be one of your PNG, JPEG, or WebP uploads.",
+  },
+  homeArt: {
+    types: ["image/png", "image/jpeg", "image/webp"],
+    what: "Your home picture must be one of your PNG, JPEG, or WebP uploads.",
+  },
+  homeModel: {
+    types: ["model/gltf-binary"],
+    what: "Your home model must be one of your .glb uploads.",
+  },
+};
+
+/** Look up the type of an upload `owner` made, or undefined if it isn't theirs (or doesn't exist). */
+export type OwnedMediaType = (owner: string, mediaId: string) => MediaType | undefined;
 
 /** Turn away text written as orders for AI readers (see injection.ts). */
 function readerRefusal(what: string, words: string): ActResult {
@@ -199,6 +230,9 @@ export class WorldService {
     const { name, kind, ...profile } = request;
     const aimed = profile.note === undefined ? null : aimedAtReader(profile.note);
     if (aimed) return readerRefusal("Notes", aimed);
+    // A brand-new resident owns no uploads, so any media here is refused.
+    const media = this.checkLookMedia(residentId, profile);
+    if (media) return media;
     const result = this.run({
       actor: residentId,
       command: { type: "join", name: cleanText(name), kind, ...cleanProfile(profile) },
@@ -206,6 +240,53 @@ export class WorldService {
     if (!result.ok) return result;
     this.touch(residentId);
     return { ...result, residentId };
+  }
+
+  // ---------- look media (RFC 0005) ----------
+
+  private mediaType: OwnedMediaType | undefined;
+  private onLookMedia: ((residentId: string, mediaIds: string[]) => void) | undefined;
+
+  /**
+   * Connect the uploads the look fields may name. `type` answers which of a resident's uploads
+   * exist and what they are; `pinned` hears a resident's look media after each accepted change,
+   * so the upload sweep never deletes media the world still shows. Without this, look media are
+   * refused.
+   */
+  useMedia(type: OwnedMediaType, pinned: (residentId: string, mediaIds: string[]) => void) {
+    this.mediaType = type;
+    this.onLookMedia = pinned;
+  }
+
+  /** The upload ids a resident's look names. */
+  lookMedia(residentId: string): string[] {
+    const r = this.state.residents[residentId];
+    if (!r) return [];
+    return LOOK_MEDIA_KEYS.flatMap((key) => (r[key] ? [r[key]] : []));
+  }
+
+  /** Every resident's look media, for pinning them all after a restart. */
+  allLookMedia(): Map<string, string[]> {
+    const all = new Map<string, string[]>();
+    for (const id of Object.keys(this.state.residents)) {
+      const media = this.lookMedia(id);
+      if (media.length > 0) all.set(id, media);
+    }
+    return all;
+  }
+
+  /** Refuse look media that aren't the resident's own uploads of the right kind. */
+  private checkLookMedia(residentId: string, fields: LooseProfile): ActResult | undefined {
+    for (const key of LOOK_MEDIA_KEYS) {
+      const id = fields[key];
+      if (id === undefined || id === null) continue;
+      const rule = LOOK_MEDIA_TYPES[key];
+      const type = this.mediaType?.(residentId, id);
+      if (!type || !rule.types.includes(type)) {
+        return { ok: false, error: { code: "bad_request", message: rule.what } };
+      }
+    }
+    return undefined;
   }
 
   // ---------- link keys (decision 0020) ----------
@@ -277,7 +358,11 @@ export class WorldService {
       const { type, ...profile } = action;
       const aimed = profile.note === undefined ? null : aimedAtReader(profile.note);
       if (aimed) return readerRefusal("Notes", aimed);
-      return this.run({ actor: residentId, command: { type, ...cleanProfile(profile) } });
+      const media = this.checkLookMedia(residentId, profile);
+      if (media) return media;
+      const result = this.run({ actor: residentId, command: { type, ...cleanProfile(profile) } });
+      if (result.ok) this.onLookMedia?.(residentId, this.lookMedia(residentId));
+      return result;
     }
     if (action.type === "build_starter_home") {
       // Drop absent fields: the sim's types forbid explicit undefined.

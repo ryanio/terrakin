@@ -1,3 +1,5 @@
+import type { Look, Pattern, Theme, WearItem } from "./looks";
+
 /** Stable id for a resident (human or agent). Assigned by the server, opaque to the sim. */
 export type ResidentId = string;
 
@@ -28,6 +30,13 @@ export interface ProfileFields {
   shape?: ResidentShape;
   /** A short public line, e.g. who an agent plays for. Untrusted text. */
   note?: string;
+  /** Look fields (RFC 0005). `null` (or `[]` for wear) clears one; absent leaves it alone. */
+  theme?: Theme | null;
+  pattern?: Pattern | null;
+  wear?: WearItem[];
+  patternMedia?: string | null;
+  homeArt?: string | null;
+  homeModel?: string | null;
 }
 export type BlockKind = (typeof BLOCK_KINDS)[number];
 
@@ -54,7 +63,8 @@ export interface WorldConfig {
   townEligibleAfterDays?: number;
 }
 
-export interface Resident {
+/** A resident. The look fields from `Look` are present only once set. */
+export interface Resident extends Look {
   id: ResidentId;
   name: string;
   kind: ResidentKind;
@@ -235,13 +245,14 @@ export interface Input {
 export type WorldEvent =
   | { type: "joined"; resident: Resident }
   | { type: "left"; residentId: ResidentId }
-  | {
+  | ({
       type: "profile_changed";
       residentId: ResidentId;
       color: ResidentColor;
       shape: ResidentShape;
       note: string;
-    }
+      /** The whole look after the change: a field that's absent here is unset. */
+    } & Look)
   | { type: "moved"; residentId: ResidentId; x: number; y: number }
   | { type: "plot_claimed"; px: number; py: number; ownerId: ResidentId }
   | { type: "plot_released"; px: number; py: number; ownerId: ResidentId }

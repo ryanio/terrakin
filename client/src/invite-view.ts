@@ -91,6 +91,7 @@ export function inviteView(code: string, ctx: ViewContext): View {
           color: choice.color,
           shape: choice.shape,
           ...(choice.note ? { note: choice.note } : {}),
+          ...(choice.theme ? { theme: choice.theme } : {}),
           build: build.input.checked,
           ...(share ? { share: share.input.checked } : {}),
         });

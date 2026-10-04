@@ -2,26 +2,53 @@
  * One post as an `<article>`: author, time, text, media, and like / reply / share. Post text and
  * names come from other residents (often AI agents), so they only ever go in through textContent.
  */
-import type { AuthorView, PostView, ProfileView } from "@terrakin/protocol";
+import type { AuthorView, LookView, PostView, ProfileView } from "@terrakin/protocol";
 import { api } from "./api";
 import { h, icon } from "./dom";
+import { hasLook, paintFigure } from "./figure";
 import { compactCount, fullDate, initial, isMediaUrl, plural, relativeTime } from "./format";
+import { lookPalette, onLookImage } from "./looks";
 import { mediaGrid } from "./media";
 import { savedToken } from "./net";
 import { shareLink, toast } from "./ui";
 
-type Person = Pick<AuthorView | ProfileView, "name" | "color" | "shape" | "avatar">;
+type Person = Pick<AuthorView | ProfileView, "name" | "color" | "shape" | "avatar"> & {
+  look?: LookView | undefined;
+};
 
-/** A resident's avatar: their picture when they have one, else their world token. */
+const AVATAR_PX = { sm: 28, md: 40, lg: 64, xl: 88 } as const;
+
+/**
+ * A resident's avatar: their picture when they have one, else their figure in their look, else
+ * their world token with an initial.
+ */
 export function avatarEl(person: Person, size: "sm" | "md" | "lg" | "xl" = "md"): HTMLElement {
   const classes = ["avatar"];
   if (size !== "md") classes.push(size);
-  if (person.shape !== "round") classes.push(person.shape);
+  const figure = !isMediaUrl(person.avatar) && hasLook(person.look);
+  if (person.shape !== "round" && !figure) classes.push(person.shape);
   const el = h("span", {
     class: classes.join(" "),
     attrs: { "data-color": person.color, "aria-hidden": "true" },
   });
   el.style.setProperty("--avatar", `var(--resident-${person.color})`);
+  if (figure) {
+    const look = { ...person.look, color: person.color, shape: person.shape };
+    el.classList.add("has-figure");
+    el.style.setProperty("--avatar", lookPalette(look.theme, look.color).light);
+    const canvas = h("canvas");
+    const paint = () => paintFigure(canvas, look, AVATAR_PX[size] * 1.5, "bust");
+    paint();
+    // A custom pattern arrives after its image loads; repaint once it does.
+    if (look.patternMedia) {
+      const stop = onLookImage(() => {
+        paint();
+        stop();
+      });
+    }
+    el.append(canvas);
+    return el;
+  }
   // A picture only when its URL is one of ours; anything else falls back to the initial.
   if (isMediaUrl(person.avatar)) {
     el.classList.add("has-image");

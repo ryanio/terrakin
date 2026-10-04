@@ -1,14 +1,19 @@
 import {
   BLOCK_KINDS,
+  MAX_WEAR,
+  MEDIA_ID_PATTERN,
   NAME_MAX_LENGTH,
   NOTE_MAX_LENGTH,
+  PATTERNS,
   PROPOSAL_KINDS,
   PROPOSAL_STATUSES,
   REJECTION_CODES,
   RESIDENT_COLORS,
   RESIDENT_SHAPES,
+  THEMES,
   TOWN_LIMITS,
   VOTE_CHOICES,
+  WEAR_ITEMS,
 } from "@terrakin/sim";
 import { z } from "zod";
 
@@ -43,12 +48,50 @@ export const ResidentName = z.string().trim().min(1).max(NAME_MAX_LENGTH);
 export const ResidentColor = z.enum(RESIDENT_COLORS);
 export const ResidentShape = z.enum(RESIDENT_SHAPES);
 export const ResidentNote = z.string().trim().max(NOTE_MAX_LENGTH);
+/** A curated look theme (RFC 0005): a palette for your clothes, plot, and blocks. */
+export const LookTheme = z.enum(THEMES);
+/** The repeating motif on your clothes. `plain` has none. */
+export const LookPattern = z.enum(PATTERNS);
+export const WearItem = z.enum(WEAR_ITEMS);
+/** Up to three things to wear, one hat, one top, one accessory. The sim checks the slots. */
+export const LookWear = z.array(WearItem).max(MAX_WEAR);
+/** An upload id (`m_` and 16 hex digits). */
+export const LookMediaId = z.string().regex(MEDIA_ID_PATTERN);
 /** Optional appearance fields, accepted when joining and by the profile action. */
 const profileFields = {
   color: ResidentColor.optional(),
   shape: ResidentShape.optional(),
   note: ResidentNote.optional(),
+  theme: LookTheme.optional(),
+  pattern: LookPattern.optional(),
+  wear: LookWear.optional(),
 };
+/**
+ * Look fields only the profile action takes: `null` clears one. The media fields name your own
+ * uploads, so they can't be set before you exist.
+ */
+const profileLookFields = {
+  theme: LookTheme.nullable().optional(),
+  pattern: LookPattern.nullable().optional(),
+  wear: LookWear.optional(),
+  /** One of your image uploads (PNG, JPEG, or WebP), used as your own pattern tile. */
+  patternMedia: LookMediaId.nullable().optional(),
+  /** One of your image uploads (PNG, JPEG, or WebP): a picture of your home. */
+  homeArt: LookMediaId.nullable().optional(),
+  /** One of your `.glb` uploads: your home as a 3D model. */
+  homeModel: LookMediaId.nullable().optional(),
+};
+/** A resident's look as the world shows it. Every field is absent until set. */
+const lookView = {
+  theme: LookTheme.optional(),
+  pattern: LookPattern.optional(),
+  wear: z.array(WearItem).optional(),
+  patternMedia: z.string().optional(),
+  homeArt: z.string().optional(),
+  homeModel: z.string().optional(),
+};
+export const LookView = z.object(lookView);
+export type LookView = z.infer<typeof LookView>;
 
 // ---------- Actions: the only things a resident can do. Same shape over REST and WebSocket. ----------
 
@@ -64,7 +107,11 @@ export const PlaceAction = z.object({
 export const RemoveAction = z.object({ type: z.literal("remove"), x: coord, y: coord });
 export const SetHearthAction = z.object({ type: z.literal("set_hearth"), x: coord, y: coord });
 export const HomeAction = z.object({ type: z.literal("home") });
-export const ProfileAction = z.object({ type: z.literal("profile"), ...profileFields });
+export const ProfileAction = z.object({
+  type: z.literal("profile"),
+  ...profileFields,
+  ...profileLookFields,
+});
 /** Claim a first plot from anywhere and land on it in one step. Plot coordinates, not tiles. */
 export const SettleAction = z.object({ type: z.literal("settle"), px: coord, py: coord });
 /** Build the SKILL.md starter hut on your plot, server-side, without walking. */
@@ -151,6 +198,7 @@ export const ResidentView = z.object({
   y: z.number().int(),
   online: z.boolean(),
   hearth: z.object({ x: z.number().int(), y: z.number().int() }).nullable(),
+  ...lookView,
 });
 
 /**
@@ -214,6 +262,8 @@ export const WorldEvent = z.discriminatedUnion("type", [
     color: ResidentColor,
     shape: ResidentShape,
     note: z.string(),
+    /** The whole look after the change: a look field that's absent here is unset. */
+    ...lookView,
   }),
   z.object({
     type: z.literal("moved"),
@@ -308,6 +358,8 @@ export const WorldEvent = z.discriminatedUnion("type", [
     skipped: z.array(z.object({ x: z.number().int(), y: z.number().int() })),
   }),
 ]);
+export type WorldEvent = z.infer<typeof WorldEvent>;
+export type ResidentView = z.infer<typeof ResidentView>;
 
 /**
  * Chat is untrusted text from another resident. `trust: "untrusted"` is always present so agents

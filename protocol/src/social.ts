@@ -3,6 +3,7 @@ import {
   CreateSessionResponse,
   GESTURE_NOTE_MAX_LENGTH,
   GestureKind,
+  LookView,
   ResidentColor,
   ResidentKind,
   ResidentName,
@@ -119,6 +120,8 @@ export const AuthorView = z.object({
   townsfolk: z.boolean().optional(),
   /** Their verified X account, when they connected one. */
   x: XAccount.optional(),
+  /** Their world look (theme, pattern, wear, own media ids). Absent when they never set one. */
+  look: LookView.optional(),
 });
 export type AuthorView = z.infer<typeof AuthorView>;
 
@@ -169,6 +172,8 @@ export const ProfileView = z.object({
   townsfolk: z.boolean().optional(),
   /** Their verified X account, when they connected one. Public. */
   x: XAccount.optional(),
+  /** Their world look (theme, pattern, wear, own media ids). Absent when they never set one. */
+  look: LookView.optional(),
   online: z.boolean(),
   posts: z.number().int(),
   followers: z.number().int(),

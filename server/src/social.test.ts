@@ -607,6 +607,90 @@ describe("serving from R2", () => {
   });
 });
 
+describe("look media", () => {
+  const GLB = [0x67, 0x6c, 0x54, 0x46, 2, 0, 0, 0];
+  const act = (call: Awaited<ReturnType<typeof start>>["call"], token: string, body: object) =>
+    call("POST", "/v1/actions", { type: "profile", ...body }, token);
+
+  it("sets a theme, own pattern, home picture, and home model, and shows them on the profile", async () => {
+    const { call, join } = await start();
+    const capri = await join("Capri");
+    const upload = async (bytes: Uint8Array) =>
+      (await call("POST", "/v1/media", bytes, capri.token)).body.media.id as string;
+    const tile = await upload(file(PNG));
+    const home = await upload(file("RIFF\0\0\0\0WEBP"));
+    const model = await upload(file(GLB));
+    const result = await act(call, capri.token, {
+      theme: "lemon",
+      pattern: "citrus",
+      wear: ["basket", "straw_hat"],
+      patternMedia: tile,
+      homeArt: home,
+      homeModel: model,
+    });
+    expect(result.body).toMatchObject({ ok: true });
+    const look = {
+      theme: "lemon",
+      pattern: "citrus",
+      wear: ["straw_hat", "basket"],
+      patternMedia: tile,
+      homeArt: home,
+      homeModel: model,
+    };
+    expect((await call("GET", `/v1/residents/${capri.residentId}`)).body.resident.look).toEqual(
+      look,
+    );
+    const { post } = (await call("POST", "/v1/posts", { text: "lemons!" }, capri.token)).body;
+    expect(post.author.look).toEqual(look);
+    const world = (await call("GET", "/v1/world")).body;
+    expect(world.residents.find((r: { id: string }) => r.id === capri.residentId)).toMatchObject(
+      look,
+    );
+  });
+
+  it("refuses someone else's upload, the wrong kind of file, and unknown ids", async () => {
+    const { call, join } = await start();
+    const capri = await join("Capri");
+    const ash = await join("Ash");
+    const upload = async (token: string, bytes: Uint8Array) =>
+      (await call("POST", "/v1/media", bytes, token)).body.media.id as string;
+    const ashes = await upload(ash.token, file(PNG));
+    const gif = await upload(capri.token, file("GIF89a"));
+    const png = await upload(capri.token, file(PNG));
+    const glb = await upload(capri.token, file(GLB));
+    const refused = [
+      [{ patternMedia: ashes }, "someone else's image"],
+      [{ homeArt: ashes }, "someone else's image"],
+      [{ patternMedia: gif }, "a GIF"],
+      [{ homeArt: glb }, "a model as a picture"],
+      [{ homeModel: png }, "a picture as a model"],
+      [{ homeModel: "m_0000000000000000" }, "an id that doesn't exist"],
+    ] as const;
+    for (const [fields, why] of refused) {
+      const { body } = await act(call, capri.token, fields);
+      expect(body, why).toMatchObject({ ok: false, error: { code: "bad_request" } });
+    }
+    const bad = await act(call, capri.token, { homeArt: "/media/m_0000000000000000" });
+    expect(bad.status, "not an id at all").toBe(400);
+    expect(
+      (await call("GET", `/v1/residents/${capri.residentId}`)).body.resident,
+    ).not.toHaveProperty("look");
+  });
+
+  it("keeps uploads a look uses through the sweep, and lets them go once cleared", async () => {
+    const { call, join, social, media, advance } = await start();
+    const capri = await join("Capri");
+    const tile = (await call("POST", "/v1/media", file(PNG), capri.token)).body.media.id;
+    await act(call, capri.token, { patternMedia: tile });
+    advance(24 * 60 * 60_000 + 1);
+    await social.sweep();
+    expect(media.files.has(tile)).toBe(true);
+    await act(call, capri.token, { patternMedia: null });
+    await social.sweep();
+    expect(media.files.has(tile)).toBe(false);
+  });
+});
+
 describe("cleanMultiline", () => {
   it("keeps line breaks, strips control and bidi characters, and caps blank lines", () => {
     expect(cleanMultiline(" a\u0000b\r\nc‮d\n\n\n\ne  ")).toBe("a b\nc d\n\ne");

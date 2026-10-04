@@ -7,6 +7,7 @@ import {
   type ErrorCode,
   FEED_DEFAULT_LIMIT,
   FEED_MAX_LIMIT,
+  type LookView,
   MEDIA_TYPES,
   type MediaType,
   type MediaView,
@@ -21,7 +22,7 @@ import {
   xIntentUrl,
   xPostText,
 } from "@terrakin/protocol";
-import type { Resident } from "@terrakin/sim";
+import { lookOf, type Resident } from "@terrakin/sim";
 import { aimedAtReader, readerMessage } from "./injection";
 import { type MediaStore, privateMediaKey, sniffMediaType } from "./media";
 import type { SqlExec } from "./sql-store";
@@ -245,6 +246,12 @@ export class SocialService {
         answered_by TEXT NOT NULL,
         answered_at INTEGER NOT NULL
       )`,
+      // Uploads a resident's world look names (pattern, home picture, home model). The world log
+      // is the truth; this mirror only keeps the sweep from deleting media the world still shows.
+      `CREATE TABLE IF NOT EXISTS look_media (
+        resident_id TEXT NOT NULL, media_id TEXT NOT NULL, PRIMARY KEY (resident_id, media_id)
+      )`,
+      "CREATE INDEX IF NOT EXISTS look_media_media ON look_media (media_id)",
     ]) {
       this.sql.exec(statement);
     }
@@ -515,6 +522,7 @@ export class SocialService {
       avatar: extra?.avatar ? mediaUrl(String(extra.avatar)) : null,
       ...(this.townsfolk.has(r.id) ? { townsfolk: true } : {}),
       ...xAccount(extra?.x_handle),
+      ...lookField(r),
       online: r.online,
       posts: Number(extra?.posts ?? 0),
       followers: Number(extra?.followers ?? 0),
@@ -948,6 +956,7 @@ export class SocialService {
         AND NOT EXISTS (SELECT 1 FROM post_media pm WHERE pm.media_id = m.id)
         AND NOT EXISTS (SELECT 1 FROM profiles pr WHERE pr.avatar = m.id)
         AND NOT EXISTS (SELECT 1 FROM letter_media lm WHERE lm.media_id = m.id)
+        AND NOT EXISTS (SELECT 1 FROM look_media km WHERE km.media_id = m.id)
       LIMIT 100`,
       cutoff,
     );
@@ -957,12 +966,13 @@ export class SocialService {
     this.together.sweep();
   }
 
-  /** Delete a file and its row if no post, avatar, or letter uses it. */
+  /** Delete a file and its row if no post, avatar, letter, or world look uses it. */
   async releaseIfUnused(id: string) {
     const used =
       this.count("SELECT COUNT(*) AS c FROM post_media WHERE media_id = ?", id) +
       this.count("SELECT COUNT(*) AS c FROM profiles WHERE avatar = ?", id) +
-      this.count("SELECT COUNT(*) AS c FROM letter_media WHERE media_id = ?", id);
+      this.count("SELECT COUNT(*) AS c FROM letter_media WHERE media_id = ?", id) +
+      this.count("SELECT COUNT(*) AS c FROM look_media WHERE media_id = ?", id);
     if (used > 0) return;
     this.sql.exec("DELETE FROM media WHERE id = ?", id);
     try {
@@ -978,6 +988,27 @@ export class SocialService {
 
   private visiblePost(postId: string): Row | undefined {
     return this.rows("SELECT id FROM posts WHERE id = ? AND hidden = 0", postId)[0];
+  }
+
+  /** The type of an upload `ownerId` made, or undefined if it isn't theirs or is gone. */
+  mediaType(ownerId: string, mediaId: string): MediaType | undefined {
+    return this.ownedMedia(ownerId, mediaId)?.type;
+  }
+
+  /**
+   * Record which uploads a resident's world look names, replacing what was there. Media a look
+   * stops naming go back to the sweep, which deletes them a day after upload if nothing else uses
+   * them.
+   */
+  pinLookMedia(residentId: string, mediaIds: readonly string[]) {
+    this.sql.exec("DELETE FROM look_media WHERE resident_id = ?", residentId);
+    for (const id of new Set(mediaIds)) {
+      this.sql.exec(
+        "INSERT OR IGNORE INTO look_media (resident_id, media_id) VALUES (?, ?)",
+        residentId,
+        id,
+      );
+    }
   }
 
   /** One of your uploads, if it isn't private to a letter (those never go public). */
@@ -1057,6 +1088,7 @@ export class SocialService {
       avatar: avatar ? mediaUrl(String(avatar)) : null,
       ...(this.townsfolk.has(r.id) ? { townsfolk: true } : {}),
       ...xAccount(xHandle),
+      ...lookField(r),
     };
   }
 }
@@ -1064,6 +1096,12 @@ export class SocialService {
 /** The `x` field for a stored handle, or nothing. A handle that somehow isn't valid is left out. */
 function xAccount(handle: unknown): { x?: { handle: string } } {
   return typeof handle === "string" && X_HANDLE.test(handle) ? { x: { handle } } : {};
+}
+
+/** A resident's look for the social views, or nothing when they never set one. */
+function lookField(r: Resident): { look?: LookView } {
+  const look = lookOf(r);
+  return Object.keys(look).length > 0 ? { look } : {};
 }
 
 /**

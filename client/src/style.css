@@ -227,6 +227,13 @@ a {
   border-width: 2px;
 }
 
+/* No picture, but a look: their world figure, head and shoulders, on their theme's light color. */
+.avatar > canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 .avatar.lg {
   --size: 64px;
   border-width: 4px;
@@ -4149,6 +4156,341 @@ a.btn-primary {
 #restore-key {
   flex: 1;
   min-width: 0;
+}
+
+/* ---------- your look (look-editor.ts) ---------- */
+
+dialog.look-editor {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  background: transparent;
+  overscroll-behavior: contain;
+  animation: fade-in 0.2s ease-out;
+}
+
+dialog.look-editor::backdrop {
+  background: rgba(43, 38, 32, 0.45);
+}
+
+.look-sheet {
+  display: flex;
+  flex-direction: column;
+  width: min(560px, 100%);
+  height: 100%;
+  margin: 0 auto;
+  border-radius: 0;
+  background: var(--paper-fill);
+}
+
+@media (min-width: 640px) {
+  .look-sheet {
+    height: calc(100% - 48px);
+    margin-top: 24px;
+    border-radius: var(--r-card);
+    box-shadow: var(--shadow-paper);
+  }
+}
+
+.look-editor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: calc(10px + env(safe-area-inset-top)) 16px 6px 20px;
+}
+
+.look-editor-head h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.look-close {
+  width: 44px;
+  padding: 0;
+}
+
+.look-top {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 4px 20px 12px;
+  border-bottom: 1px solid var(--paper-edge);
+}
+
+.look-preview {
+  flex: none;
+  width: 112px;
+  height: 112px;
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 50% 30%, #fffdf7, rgba(255, 253, 247, 0) 70%), var(--paper-2);
+  box-shadow: inset 0 0 0 1px var(--paper-edge);
+}
+
+.look-preview-figure {
+  display: block;
+  width: 112px;
+  height: 112px;
+}
+
+.look-summary {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--ink-soft);
+}
+
+.look-form {
+  flex: 1;
+  /* Let the form shrink and scroll inside the sheet, so the save button stays put. */
+  min-height: 0;
+  /* Holds the hidden file inputs, so they scroll with the form instead of stretching the dialog. */
+  position: relative;
+  overflow-y: auto;
+  padding: 4px 20px 24px;
+  overscroll-behavior: contain;
+}
+
+.look-section {
+  min-width: 0;
+  margin: 22px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.look-section:first-child {
+  margin-top: 16px;
+}
+
+.look-legend {
+  padding: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--clay);
+}
+
+.look-help {
+  margin: 4px 0 10px;
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+
+.look-sub {
+  margin: 10px 0 6px;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.look-themes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 8px;
+}
+
+.look-theme {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-height: 76px;
+  padding: 8px 6px;
+  border: 1px solid var(--paper-edge);
+  border-radius: 16px;
+  background: #fffdf7;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.look-swatch {
+  width: 40px;
+  height: 40px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--paper-edge);
+}
+
+.look-theme-name {
+  line-height: 1.15;
+  text-align: center;
+}
+
+.look-theme[aria-pressed="true"],
+.look-chip[aria-pressed="true"] {
+  border-color: var(--clay);
+  background: #fff3e6;
+  box-shadow: 0 0 0 2px var(--clay);
+}
+
+.look-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.look-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 14px 0 8px;
+  border: 1px solid var(--paper-edge);
+  border-radius: 999px;
+  background: #fffdf7;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.look-chip.text {
+  padding: 0 16px;
+}
+
+.look-chip-thumb {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
+}
+
+.look-media {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  align-items: center;
+  padding: 12px 0;
+  border-top: 1px dashed var(--paper-edge);
+}
+
+.look-media:first-of-type {
+  border-top: 0;
+}
+
+.look-media-thumb {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  grid-row: span 2;
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--paper-2);
+  box-shadow: inset 0 0 0 1px var(--paper-edge);
+}
+
+.look-media-thumb[hidden] {
+  display: none;
+}
+
+.look-media .look-media-thumb > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.look-media-text {
+  min-width: 0;
+}
+
+.look-media-title {
+  margin: 0;
+  font-weight: 650;
+}
+
+.look-media-help,
+.look-media-status {
+  margin: 2px 0 0;
+  font-size: 13.5px;
+  color: var(--ink-soft);
+}
+
+.look-media-status:empty {
+  display: none;
+}
+
+.look-media-actions {
+  display: flex;
+  gap: 8px;
+  grid-column: 1 / -1;
+}
+
+.look-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 20px calc(12px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--paper-edge);
+  background: var(--paper);
+}
+
+.look-foot .error:empty {
+  display: none;
+}
+
+.look-save {
+  width: 100%;
+}
+
+.look-dress {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 14px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--paper-edge);
+}
+
+.look-dress-text {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  min-width: 0;
+}
+
+.look-dress-now {
+  font-size: 14.5px;
+  color: var(--ink-soft);
+}
+
+.profile-look {
+  margin: 12px 0 0;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.profile-home {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--paper-edge);
+}
+
+.profile-home-title {
+  margin: 0 0 10px;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.profile-home-art {
+  display: block;
+  max-width: 100%;
+  max-height: 320px;
+  margin: 0 auto 12px;
+  border-radius: 14px;
+  object-fit: contain;
 }
 
 @media (prefers-reduced-motion: reduce) {

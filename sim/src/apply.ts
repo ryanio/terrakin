@@ -1,5 +1,16 @@
-import { fnv1a } from "./hash";
+import { canonicalJson, fnv1a } from "./hash";
 import { plotKey, tileKey } from "./keys";
+import {
+  LOOK_KEYS,
+  LOOK_MEDIA_KEYS,
+  type Look,
+  lookOf,
+  MEDIA_ID_PATTERN,
+  PATTERNS,
+  sortWear,
+  THEMES,
+  wearProblem,
+} from "./looks";
 import { checkTown, isActivity, isServerCommand, type TownChecked } from "./town";
 import type {
   ApplyResult,
@@ -62,11 +73,10 @@ function defaultLook(id: string): Pick<Resident, "color" | "shape"> {
   };
 }
 
-/** Validate profile fields and merge them over `base`. Returns a rejection or the merged look. */
-function mergeProfile(
-  base: Pick<Resident, "color" | "shape" | "note">,
-  fields: ProfileFields,
-): Pick<Resident, "color" | "shape" | "note"> | Prepared {
+type Profile = Pick<Resident, "color" | "shape" | "note"> & Look;
+
+/** Validate profile fields and merge them over `base`. Returns a rejection or the merged profile. */
+function mergeProfile(base: Profile, fields: ProfileFields): Profile | Prepared {
   const note = fields.note === undefined ? base.note : fields.note.trim();
   if (note.length > NOTE_MAX_LENGTH) {
     return reject("invalid_profile", `Notes can be at most ${NOTE_MAX_LENGTH} characters.`);
@@ -77,8 +87,64 @@ function mergeProfile(
   if (fields.shape !== undefined && !RESIDENT_SHAPES.includes(fields.shape)) {
     return reject("invalid_profile", "Unknown shape.");
   }
-  return { color: fields.color ?? base.color, shape: fields.shape ?? base.shape, note };
+  const look = mergeLook(base, fields);
+  if ("ok" in look) return look;
+  return { color: fields.color ?? base.color, shape: fields.shape ?? base.shape, note, ...look };
 }
+
+/**
+ * The look after applying `fields` over `base`. Absent means keep, `null` (or an empty wear list)
+ * means clear. Only fields that end up set appear in the result, so a world that never used looks
+ * hashes exactly as before.
+ */
+function mergeLook(base: Look, fields: ProfileFields): Look | Prepared {
+  const pick = <K extends keyof Look>(key: K): Look[K] | null => {
+    const value = fields[key];
+    return value === undefined ? (base[key] ?? null) : (value as Look[K] | null);
+  };
+  const out: Look = {};
+  const theme = pick("theme");
+  if (theme !== null && theme !== undefined) {
+    if (!THEMES.includes(theme)) return reject("invalid_profile", "Unknown theme.");
+    out.theme = theme;
+  }
+  const pattern = pick("pattern");
+  if (pattern !== null && pattern !== undefined) {
+    if (!PATTERNS.includes(pattern)) return reject("invalid_profile", "Unknown pattern.");
+    out.pattern = pattern;
+  }
+  const wear = pick("wear");
+  if (wear !== null && wear !== undefined) {
+    if (!Array.isArray(wear)) return reject("invalid_profile", "Wear is a list.");
+    const problem = wearProblem(wear);
+    if (problem) return reject("invalid_profile", problem);
+    if (wear.length > 0) out.wear = sortWear(wear);
+  }
+  for (const key of LOOK_MEDIA_KEYS) {
+    const id = pick(key);
+    if (id === null || id === undefined) continue;
+    if (typeof id !== "string" || !MEDIA_ID_PATTERN.test(id)) {
+      return reject("invalid_profile", "Media must be an upload id like m_0123456789abcdef.");
+    }
+    out[key] = id;
+  }
+  return out;
+}
+
+/** Set a resident's profile: every look key in `profile`, and none of the ones it leaves out. */
+function setProfile(r: Resident, profile: Profile) {
+  r.color = profile.color;
+  r.shape = profile.shape;
+  r.note = profile.note;
+  for (const key of LOOK_KEYS) delete r[key];
+  Object.assign(r, lookOf(profile));
+}
+
+const sameProfile = (a: Profile, b: Profile) =>
+  a.color === b.color &&
+  a.shape === b.shape &&
+  a.note === b.note &&
+  canonicalJson(lookOf(a)) === canonicalJson(lookOf(b));
 
 /**
  * Check an input against the rules without changing anything.
@@ -223,7 +289,7 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
     };
     return () => {
       state.residents[actor] = resident;
-      return [{ type: "joined", resident: { ...resident } }];
+      return [{ type: "joined", resident: { ...resident, ...lookOf(resident) } }];
     };
   }
 
@@ -240,12 +306,13 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
       const look = mergeProfile(me, command);
       if ("ok" in look) return look;
       // A no-op would still cost a permanent log line and a broadcast.
-      if (look.color === me.color && look.shape === me.shape && look.note === me.note) {
-        return reject("invalid_profile", "Nothing to change.");
-      }
+      if (sameProfile(look, me)) return reject("invalid_profile", "Nothing to change.");
       return () => {
-        Object.assign(me, look);
-        return [{ type: "profile_changed", residentId: actor, ...look }];
+        setProfile(me, look);
+        const { color, shape, note } = look;
+        return [
+          { type: "profile_changed", residentId: actor, color, shape, note, ...lookOf(look) },
+        ];
       };
     }
 

@@ -10398,6 +10398,27 @@
                     "$ref": "#/components/schemas/ResidentNote"
                   }
                 ]
+              },
+              "theme": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/LookTheme"
+                  }
+                ]
+              },
+              "pattern": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/LookPattern"
+                  }
+                ]
+              },
+              "wear": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/LookWear"
+                  }
+                ]
               }
             },
             "required": [
@@ -10476,6 +10497,27 @@
             "allOf": [
               {
                 "$ref": "#/components/schemas/ResidentNote"
+              }
+            ]
+          },
+          "theme": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LookTheme"
+              }
+            ]
+          },
+          "pattern": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LookPattern"
+              }
+            ]
+          },
+          "wear": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LookWear"
               }
             ]
           }
@@ -10713,6 +10755,83 @@
           "menu"
         ]
       },
+      "LookMediaId": {
+        "type": "string",
+        "pattern": "^m_[0-9a-f]{16}$"
+      },
+      "LookPattern": {
+        "type": "string",
+        "enum": [
+          "plain",
+          "dots",
+          "stripes",
+          "gingham",
+          "florals",
+          "citrus",
+          "stars",
+          "waves",
+          "hearts",
+          "leaves"
+        ]
+      },
+      "LookTheme": {
+        "type": "string",
+        "enum": [
+          "lemon",
+          "berry",
+          "ocean",
+          "forest",
+          "sunset",
+          "night",
+          "candy",
+          "autumn",
+          "meadow",
+          "rose_garden",
+          "lavender",
+          "frost"
+        ]
+      },
+      "LookView": {
+        "type": "object",
+        "properties": {
+          "theme": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LookTheme"
+              }
+            ]
+          },
+          "pattern": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LookPattern"
+              }
+            ]
+          },
+          "wear": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WearItem"
+            }
+          },
+          "patternMedia": {
+            "type": "string"
+          },
+          "homeArt": {
+            "type": "string"
+          },
+          "homeModel": {
+            "type": "string"
+          }
+        }
+      },
+      "LookWear": {
+        "maxItems": 3,
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/WearItem"
+        }
+      },
       "MoveAction": {
         "type": "object",
         "properties": {
@@ -10829,6 +10948,53 @@
             "allOf": [
               {
                 "$ref": "#/components/schemas/ResidentNote"
+              }
+            ]
+          },
+          "theme": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LookTheme"
+              }
+            ]
+          },
+          "pattern": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LookPattern"
+              }
+            ]
+          },
+          "wear": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LookWear"
+              }
+            ]
+          },
+          "patternMedia": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LookMediaId"
+              }
+            ]
+          },
+          "homeArt": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LookMediaId"
+              }
+            ]
+          },
+          "homeModel": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LookMediaId"
               }
             ]
           }
@@ -11044,6 +11210,35 @@
               "x",
               "y"
             ]
+          },
+          "theme": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LookTheme"
+              }
+            ]
+          },
+          "pattern": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LookPattern"
+              }
+            ]
+          },
+          "wear": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WearItem"
+            }
+          },
+          "patternMedia": {
+            "type": "string"
+          },
+          "homeArt": {
+            "type": "string"
+          },
+          "homeModel": {
+            "type": "string"
           }
         },
         "required": [
@@ -11304,6 +11499,23 @@
           "abstain"
         ]
       },
+      "WearItem": {
+        "type": "string",
+        "enum": [
+          "straw_hat",
+          "beret",
+          "flower_crown",
+          "beanie",
+          "apron",
+          "scarf",
+          "cardigan",
+          "overalls",
+          "basket",
+          "satchel",
+          "glasses",
+          "bow"
+        ]
+      },
       "WithdrawAction": {
         "type": "object",
         "properties": {
@@ -11381,6 +11593,35 @@
                 "$ref": "#/components/schemas/ResidentShape"
               },
               "note": {
+                "type": "string"
+              },
+              "theme": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/LookTheme"
+                  }
+                ]
+              },
+              "pattern": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/LookPattern"
+                  }
+                ]
+              },
+              "wear": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/WearItem"
+                }
+              },
+              "patternMedia": {
+                "type": "string"
+              },
+              "homeArt": {
+                "type": "string"
+              },
+              "homeModel": {
                 "type": "string"
               }
             },
@@ -12288,6 +12529,13 @@
                 "$ref": "#/components/schemas/XAccount"
               }
             ]
+          },
+          "look": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LookView"
+              }
+            ]
           }
         },
         "required": [
@@ -12846,6 +13094,13 @@
             "allOf": [
               {
                 "$ref": "#/components/schemas/XAccount"
+              }
+            ]
+          },
+          "look": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LookView"
               }
             ]
           },

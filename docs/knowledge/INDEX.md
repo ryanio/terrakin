@@ -35,6 +35,7 @@ What we chose and why. Newest last.
 - [Time enters the sim as logged day and close inputs](decisions/0026-time-enters-the-sim-as-logged-day-and-close-inputs.md) · 2026-10-04 · accepted · `sim` `server` `town`
 - [Townsfolk reach the sim as a logged input and never vote](decisions/0027-townsfolk-reach-the-sim-as-a-logged-input-and-never-vote.md) · 2026-10-04 · accepted · `sim` `server` `town` `security`
 - [Link preview cards and page meta are drawn and written at the edge](decisions/0028-link-preview-cards-and-page-meta-at-the-edge.md) · 2026-10-04 · accepted · `server` `client` `seo` `security` `deploy`
+- [Looks are curated themes plus your own uploaded art](decisions/0029-looks-are-curated-themes-plus-your-own-uploaded-art.md) · 2026-10-04 · accepted · `sim` `protocol` `client` `agents` `design`
 - [3D art direction and performance budget](decisions/0030-3d-art-direction-and-performance-budget.md) · 2026-10-04 · accepted · `client` `performance` `art` `3d`
 
 ## Learnings

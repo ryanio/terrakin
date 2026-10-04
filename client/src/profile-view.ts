@@ -8,7 +8,14 @@ import {
   type PostView,
   type ProfileView,
 } from "@terrakin/protocol";
-import { NOTE_MAX_LENGTH, RESIDENT_COLORS, RESIDENT_SHAPES } from "@terrakin/sim";
+import {
+  NOTE_MAX_LENGTH,
+  PATTERN_LABELS,
+  RESIDENT_COLORS,
+  RESIDENT_SHAPES,
+  THEME_INFO,
+  WEAR_INFO,
+} from "@terrakin/sim";
 import { api, forgetMe, myProfile } from "./api";
 import { h, icon } from "./dom";
 import { syncPost } from "./feed-view";
@@ -16,6 +23,9 @@ import { compactCount, plural } from "./format";
 import { openInviteDialog } from "./invite-share";
 import { joinForm, tokenPreview } from "./join-form";
 import { lettersPath } from "./letters-view";
+import { openLookEditor } from "./look-editor";
+import { mediaUrlOf } from "./looks";
+import { openModelViewer } from "./media";
 import { savedToken, saveToken } from "./net";
 import {
   aiBadge,
@@ -247,6 +257,7 @@ export function profileView(id: string, ctx: ViewContext): View {
             h("a", { attrs: { href: "/town" }, text: "Town Hall" }),
           )
         : null,
+      lookLine(r.look),
       h(
         "ul",
         { class: "stats", attrs: { "aria-label": "Counts" } },
@@ -254,6 +265,49 @@ export function profileView(id: string, ctx: ViewContext): View {
         stat(counts.followers, r.followers === 1 ? "follower" : "followers"),
         stat(counts.following, "following"),
       ),
+      homeSection(r),
+    );
+  }
+
+  /** "Lemon · Citrus slices · Straw hat, Basket". Names are ours (the catalog), not player text. */
+  function lookLine(look: ProfileView["look"]): HTMLElement | null {
+    if (!look) return null;
+    const parts = [
+      look.theme ? THEME_INFO[look.theme].label : null,
+      look.patternMedia ? "Own pattern" : look.pattern ? PATTERN_LABELS[look.pattern] : null,
+      look.wear?.length ? look.wear.map((w) => WEAR_INFO[w].label).join(", ") : null,
+    ].filter((p): p is string => p !== null);
+    if (parts.length === 0) return null;
+    return h("p", { class: "profile-look", attrs: { "data-look": "" }, text: parts.join(" · ") });
+  }
+
+  /** Their own picture of their home, and a way into its 3D model. */
+  function homeSection(r: ProfileView): HTMLElement | null {
+    const art = mediaUrlOf(r.look?.homeArt);
+    const model = mediaUrlOf(r.look?.homeModel);
+    if (!art && !model) return null;
+    return h(
+      "section",
+      { class: "profile-home", attrs: { "aria-label": "Home" } },
+      h("h2", { class: "profile-home-title", text: "Home" }),
+      art
+        ? h("img", {
+            class: "profile-home-art",
+            attrs: { src: art, alt: `${r.name}'s home`, loading: "lazy", decoding: "async" },
+          })
+        : null,
+      model
+        ? h(
+            "button",
+            {
+              class: "pill-button small",
+              attrs: { type: "button" },
+              on: { click: () => void openModelViewer(model) },
+            },
+            icon("cube"),
+            h("span", { text: "See it in 3D" }),
+          )
+        : null,
     );
   }
 
@@ -460,6 +514,7 @@ export function profileView(id: string, ctx: ViewContext): View {
             color: choice.color,
             shape: choice.shape,
             ...(choice.note ? { note: choice.note } : {}),
+            ...(choice.theme ? { theme: choice.theme } : {}),
           });
           if (!made.ok) return made.message;
           saveToken(made.data.token, made.data.residentId);
@@ -537,7 +592,7 @@ export function profileView(id: string, ctx: ViewContext): View {
   function lookCard(r: ProfileView): HTMLElement {
     let color = r.color;
     let shape = r.shape;
-    const preview = tokenPreview(color, shape, r.name);
+    const preview = tokenPreview(color, shape, r.name, r.look);
     const pick = <T extends string>(
       options: readonly T[],
       current: T,
@@ -555,7 +610,7 @@ export function profileView(id: string, ctx: ViewContext): View {
         b.addEventListener("click", () => {
           set(value);
           for (const other of row.children) other.setAttribute("aria-pressed", String(other === b));
-          preview.paint(color, shape, r.name);
+          preview.paint(color, shape, r.name, r.look);
         });
         row.append(b);
       }
@@ -622,6 +677,36 @@ export function profileView(id: string, ctx: ViewContext): View {
       ),
       h("div", { class: "card-actions" }, save),
       error,
+      h(
+        "div",
+        { class: "look-dress" },
+        h(
+          "p",
+          { class: "look-dress-text" },
+          h("span", { class: "field-label", text: "Theme, pattern, and things to wear" }),
+          h("span", {
+            class: "look-dress-now",
+            text: lookLine(r.look)?.textContent || "Pick a theme like Lemon or Ocean, and a hat.",
+          }),
+        ),
+        h(
+          "button",
+          {
+            class: "pill-button small look-open",
+            attrs: { type: "button" },
+            on: {
+              click: () =>
+                openLookEditor({ color, shape, look: r.look }, (look) => {
+                  r.look = look;
+                  forgetMe();
+                  void load();
+                }),
+            },
+          },
+          icon("sparkle"),
+          h("span", { text: "Dress up" }),
+        ),
+      ),
     );
     form.addEventListener("submit", async (e) => {
       e.preventDefault();

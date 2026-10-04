@@ -8,6 +8,7 @@ export {
 } from "./apply";
 export { canonicalJson, fnv1a, hashWorld } from "./hash";
 export { parseKey, plotKey, tileKey } from "./keys";
+export * from "./looks";
 export { replay } from "./replay";
 export {
   type Eligibility,

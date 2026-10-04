@@ -81,7 +81,7 @@ function modelTile(item: MediaView) {
     {
       class: "model-tile",
       attrs: { type: "button", "aria-label": "3D model, tap to view" },
-      on: { click: () => void openModelViewer(item) },
+      on: { click: () => void openModelViewer(item.url) },
     },
     h("span", { class: "model-cube" }, icon("cube")),
     h("span", { class: "model-label", text: "3D model" }),
@@ -166,7 +166,8 @@ function openImageViewer(images: MediaView[], start: number, label: string) {
 
 // ---------- 3D model viewer ----------
 
-async function openModelViewer(item: MediaView) {
+/** Open a 3D model from one of our media URLs in a full-screen viewer. */
+export async function openModelViewer(url: string) {
   const host = h("div", { class: "model-stage" });
   const status = h("p", {
     class: "model-status",
@@ -201,7 +202,7 @@ async function openModelViewer(item: MediaView) {
   try {
     const { showModel } = await import("./model-viewer");
     if (closed) return;
-    dispose = showModel(host, item.url, {
+    dispose = showModel(host, url, {
       onLoaded: () => {
         status.textContent = "";
       },

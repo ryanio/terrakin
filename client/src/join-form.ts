@@ -3,6 +3,8 @@
  * the invite page and by "Join and follow" on a profile. The world's own landing has the same
  * fields in static markup (see landing.ts).
  */
+
+import type { LookView } from "@terrakin/protocol";
 import {
   NAME_MAX_LENGTH,
   NOTE_MAX_LENGTH,
@@ -10,15 +12,22 @@ import {
   RESIDENT_SHAPES,
   type ResidentColor,
   type ResidentShape,
+  THEME_INFO,
+  THEMES,
+  type Theme,
 } from "@terrakin/sim";
 import { h, icon } from "./dom";
+import { hasLook, paintFigure } from "./figure";
 import { initial } from "./format";
+import { lookPalette } from "./looks";
 
 export interface JoinChoice {
   name: string;
   color: ResidentColor;
   shape: ResidentShape;
   note: string;
+  /** A look theme (RFC 0005). Absent for just your color. */
+  theme?: Theme;
 }
 
 export interface JoinFormOptions {
@@ -70,15 +79,29 @@ function chips<T extends string>(
 }
 
 /** A small resident token (the same as an avatar) in a color and shape. */
-export function tokenPreview(color: ResidentColor, shape: ResidentShape, name: string) {
+export function tokenPreview(
+  color: ResidentColor,
+  shape: ResidentShape,
+  name: string,
+  look?: LookView,
+) {
   const el = h("span", { class: "avatar lg", attrs: { "aria-hidden": "true" } });
-  const paint = (c: ResidentColor, s: ResidentShape, n: string) => {
-    el.className = `avatar lg${s === "round" ? "" : ` ${s}`}`;
+  const paint = (c: ResidentColor, s: ResidentShape, n: string, l?: LookView) => {
     el.dataset.color = c;
+    if (l && hasLook(l)) {
+      // With a look, the preview is your figure in it, like your avatar on the feed.
+      el.className = "avatar lg has-figure";
+      el.style.setProperty("--avatar", lookPalette(l.theme, c).light);
+      const canvas = h("canvas");
+      paintFigure(canvas, { ...l, color: c, shape: s }, 96, "bust");
+      el.replaceChildren(canvas);
+      return;
+    }
+    el.className = `avatar lg${s === "round" ? "" : ` ${s}`}`;
     el.style.setProperty("--avatar", `var(--resident-${c})`);
     el.replaceChildren(h("span", { text: n.trim() ? initial(n) : "?" }));
   };
-  paint(color, shape, name);
+  paint(color, shape, name, look);
   return { el, paint };
 }
 
@@ -113,7 +136,15 @@ export function joinForm(options: JoinFormOptions) {
     },
   });
   const preview = tokenPreview(firstColor, firstShape, "");
-  const repaint = () => preview.paint(color.value(), shape.value(), name.value);
+  const repaint = () => {
+    const t = theme.value();
+    preview.paint(
+      color.value(),
+      shape.value(),
+      name.value,
+      t === "none" ? undefined : { theme: t },
+    );
+  };
 
   const color = chips(
     RESIDENT_COLORS,
@@ -136,6 +167,22 @@ export function joinForm(options: JoinFormOptions) {
     repaint,
   );
   shape.row.classList.add("shape-row");
+  // Optional: a theme dresses you from the first step. Pattern, wear, and your own art come later.
+  const theme = chips<Theme | "none">(
+    ["none", ...THEMES],
+    "none",
+    (t) => {
+      const dot = h("span", { class: "swatch-dot" });
+      dot.style.background =
+        t === "none"
+          ? "var(--paper-2)"
+          : `linear-gradient(135deg, ${THEME_INFO[t].palette.main} 55%, ${THEME_INFO[t].palette.accent} 55%)`;
+      const label = t === "none" ? "None" : THEME_INFO[t].label;
+      return [dot, h("span", { class: "swatch-name", text: label })];
+    },
+    repaint,
+  );
+  theme.row.setAttribute("aria-label", "Themes");
   name.addEventListener("input", () => {
     error.textContent = "";
     repaint();
@@ -177,6 +224,12 @@ export function joinForm(options: JoinFormOptions) {
       shape.row,
     ),
     h(
+      "fieldset",
+      { class: "swatches", attrs: { id: `${id}-theme` } },
+      h("legend", { class: "field-label", text: "A theme (optional)" }),
+      theme.row,
+    ),
+    h(
       "div",
       { class: "onboard-field" },
       h("label", {
@@ -205,6 +258,7 @@ export function joinForm(options: JoinFormOptions) {
       name.focus();
       return;
     }
+    const chosenTheme = theme.value();
     busy = true;
     submit.disabled = true;
     label.textContent = options.busyLabel;
@@ -214,6 +268,7 @@ export function joinForm(options: JoinFormOptions) {
       color: color.value(),
       shape: shape.value(),
       note: note.value.trim(),
+      ...(chosenTheme === "none" ? {} : { theme: chosenTheme }),
     });
     busy = false;
     submit.disabled = false;

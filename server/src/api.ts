@@ -337,6 +337,16 @@ export class Api {
           ),
     );
     this.handlers = this.routeHandlers();
+    // Look media (RFC 0005) are the resident's own uploads, checked and kept by the social layer.
+    const social = options.social;
+    if (social) {
+      this.service.useMedia(
+        (owner, id) => social.mediaType(owner, id),
+        (resident, ids) => social.pinLookMedia(resident, ids),
+      );
+      // The world log is the truth: after a restart, pin whatever the replayed looks name.
+      for (const [resident, ids] of this.service.allLookMedia()) social.pinLookMedia(resident, ids);
+    }
   }
 
   /** Handle a REST request. Returns undefined for paths outside the API so the adapter can serve files. */

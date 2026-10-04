@@ -1,7 +1,26 @@
-import { type BlockKind, plotKey, type ResidentColor, type ResidentShape } from "@terrakin/sim";
+import {
+  type BlockKind,
+  plotKey,
+  type Resident,
+  THEME_INFO,
+  type Theme,
+  type ThemePalette,
+} from "@terrakin/sim";
 import { type Camera, tileToScreen } from "./camera";
+import { drawFigure, FIGURE_BOX } from "./figure";
+import {
+  lookImage,
+  lookPalette,
+  mix,
+  PatternCache,
+  paintMotif,
+  patternMotifs as patternMotifsFor,
+  withAlpha,
+} from "./looks";
 import type { Mirror } from "./mirror";
 import { nightAmount } from "./time";
+
+export { RESIDENT_COLOR_HEX } from "./looks";
 
 // Storybook palette. Matches the tokens in style.css.
 const PAPER = "#fffaf0";
@@ -23,16 +42,167 @@ export function blockColor(block: BlockKind): string {
 
 export const HEARTH_COLOR = "#d9653a";
 
-export const RESIDENT_COLOR_HEX: Record<ResidentColor, string> = {
-  sun: "#f2b84b",
-  sky: "#7cb9dd",
-  leaf: "#86b65f",
-  rose: "#ea8a9d",
-  plum: "#a98bd8",
-  sand: "#e2c993",
-  coal: "#4a443d",
-  snow: "#fbf7ee",
-};
+// ---------- sprites: looks drawn once, then stamped every frame ----------
+
+const patterns = new PatternCache();
+const sprites = new Map<string, HTMLCanvasElement>();
+
+/** A cached offscreen drawing, `w` by `h` device pixels. Cleared when it grows too big. */
+function sprite(
+  key: string,
+  w: number,
+  h: number,
+  draw: (ctx: CanvasRenderingContext2D) => void,
+): HTMLCanvasElement {
+  let canvas = sprites.get(key);
+  if (!canvas) {
+    if (sprites.size > 400) sprites.clear();
+    canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.ceil(w));
+    canvas.height = Math.max(1, Math.ceil(h));
+    draw(canvas.getContext("2d") as CanvasRenderingContext2D);
+    sprites.set(key, canvas);
+  }
+  return canvas;
+}
+
+/** The pattern a resident wears: their own uploaded tile once it loads, else the named one. */
+function clothesPattern(
+  ctx: CanvasRenderingContext2D,
+  r: Pick<Resident, "pattern" | "patternMedia" | "theme" | "color">,
+  u: number,
+): { pattern: CanvasPattern | null; key: string } {
+  const img = lookImage(r.patternMedia);
+  if (img && r.patternMedia) {
+    return { pattern: patterns.image(ctx, r.patternMedia, img, u * 0.42), key: r.patternMedia };
+  }
+  const name = r.pattern ?? "plain";
+  return { pattern: patterns.named(ctx, name, lookPalette(r.theme, r.color), u * 0.36), key: name };
+}
+
+/**
+ * A resident's figure as a sprite at `scale` CSS pixels per tile. Returns the canvas and where its
+ * top-left sits relative to the feet, in CSS pixels.
+ */
+export function figureSprite(
+  r: Pick<Resident, "color" | "shape" | "theme" | "pattern" | "patternMedia" | "wear">,
+  scale: number,
+  dpr: number,
+): { canvas: HTMLCanvasElement; dx: number; dy: number; w: number; h: number } {
+  const u = scale * dpr;
+  const w = (FIGURE_BOX.right - FIGURE_BOX.left) * u;
+  const h = (FIGURE_BOX.bottom - FIGURE_BOX.top) * u;
+  const probe = lookImage(r.patternMedia) ? r.patternMedia : (r.pattern ?? "plain");
+  const key = `fig|${r.color}|${r.shape}|${r.theme ?? ""}|${probe}|${(r.wear ?? []).join(",")}|${u.toFixed(2)}`;
+  const canvas = sprite(key, w, h, (ctx) => {
+    ctx.translate(-FIGURE_BOX.left * u, -FIGURE_BOX.top * u);
+    drawFigure(ctx, u, r, clothesPattern(ctx, r, u).pattern);
+  });
+  return {
+    canvas,
+    dx: FIGURE_BOX.left * scale,
+    dy: FIGURE_BOX.top * scale,
+    w: w / dpr,
+    h: h / dpr,
+  };
+}
+
+/** How a themed plot dresses its blocks. */
+interface BlockSkin {
+  theme?: Theme;
+  palette?: ThemePalette;
+  /** The owner's uploaded pattern, used as the face of wood and stone. */
+  image?: HTMLImageElement;
+  imageId?: string;
+}
+
+/** The color of a block on a plot with this skin. */
+function skinnedColor(block: BlockKind, skin: BlockSkin | undefined): string {
+  const p = skin?.palette;
+  if (!p) return BLOCK_COLORS[block];
+  if (block === "wood") return mix(p.light, p.main, 0.45);
+  if (block === "stone") return mix(BLOCK_COLORS.stone, p.light, 0.35);
+  if (block === "leaf") return mix(BLOCK_COLORS.leaf, p.deep, 0.18);
+  return BLOCK_COLORS.glass;
+}
+
+/** One raised block with its ground shadow, at (left, top), `size` across. */
+function paintBlock(
+  ctx: CanvasRenderingContext2D,
+  block: BlockKind,
+  left: number,
+  top: number,
+  size: number,
+  scale: number,
+  skin?: BlockSkin,
+) {
+  const inset = Math.max(1, Math.round(scale * 0.05));
+  const radius = Math.max(2, scale * 0.14);
+  const lip = Math.max(2, Math.round(scale * 0.16));
+  ctx.fillStyle = "rgba(74, 52, 28, 0.2)";
+  ctx.beginPath();
+  ctx.roundRect(left + 1, top + lip * 0.6, size, size, radius);
+  ctx.fill();
+  ctx.fillStyle = skinnedColor(block, skin);
+  ctx.beginPath();
+  ctx.roundRect(left, top, size, size, radius);
+  ctx.fill();
+  const walls = block === "wood" || block === "stone";
+  if (skin?.image && walls) {
+    // The owner's own pattern as the face of the wall, cropped square.
+    const img = skin.image;
+    const side = Math.min(img.naturalWidth, img.naturalHeight);
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect(left, top, size, size, radius);
+    ctx.clip();
+    ctx.globalAlpha = block === "stone" ? 0.7 : 0.9;
+    ctx.drawImage(
+      img,
+      (img.naturalWidth - side) / 2,
+      (img.naturalHeight - side) / 2,
+      side,
+      side,
+      left,
+      top,
+      size,
+      size,
+    );
+    ctx.restore();
+  } else if (skin?.theme && block === "wood") {
+    // A tiny motif from the theme: a lemon slice on lemon wood, a star on night wood.
+    const info = THEME_INFO[skin.theme];
+    const m = info.motif === "stripes" || info.motif === "gingham" ? "dots" : info.motif;
+    const [motif] = patternMotifsFor(m);
+    if (motif) {
+      ctx.save();
+      ctx.globalAlpha = 0.9;
+      // Scale the first motif of the pattern so it sits in the middle of the block.
+      const u = size * 0.9;
+      const cx = "x" in motif ? motif.x : 0.5;
+      const cy = "y" in motif ? motif.y : 0.5;
+      paintMotif(ctx, motif, info.palette, left + size / 2 - cx * u, top + size * 0.45 - cy * u, u);
+      ctx.restore();
+    }
+  }
+  // Bottom shade, then top highlight, both inset so the rounded corners stay clean.
+  ctx.fillStyle = "rgba(70, 40, 18, 0.22)";
+  ctx.beginPath();
+  ctx.roundRect(left, top + size - lip, size, lip, [0, 0, radius, radius]);
+  ctx.fill();
+  ctx.fillStyle = block === "glass" ? "rgba(255,255,255,0.6)" : "rgba(255, 250, 235, 0.32)";
+  ctx.beginPath();
+  ctx.roundRect(left + radius * 0.5, top + inset, size - radius, Math.max(2, lip * 0.55), 2);
+  ctx.fill();
+  if (block === "glass") {
+    ctx.strokeStyle = "rgba(255,255,255,0.75)";
+    ctx.lineWidth = Math.max(1, scale / 22);
+    ctx.beginPath();
+    ctx.moveTo(left + size * 0.3, top + size * 0.68);
+    ctx.lineTo(left + size * 0.62, top + size * 0.36);
+    ctx.stroke();
+  }
+}
 
 /** Soft meadow and sandy Commons tones. Picked per tile by a fixed hash, so the ground has texture. */
 const GRASS = ["#a5c682", "#a1c27d", "#a9c986", "#9dbe79"];
@@ -51,25 +221,6 @@ function ownerHue(id: string): number {
   let h = 0;
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 360;
   return h;
-}
-
-function residentPath(
-  ctx: CanvasRenderingContext2D,
-  shape: ResidentShape,
-  x: number,
-  y: number,
-  r: number,
-) {
-  ctx.beginPath();
-  if (shape === "square") ctx.roundRect(x - r, y - r, r * 2, r * 2, r * 0.35);
-  else if (shape === "diamond") {
-    const d = r * 1.22;
-    ctx.moveTo(x, y - d);
-    ctx.lineTo(x + d, y);
-    ctx.lineTo(x, y + d);
-    ctx.lineTo(x - d, y);
-    ctx.closePath();
-  } else ctx.arc(x, y, r, 0, Math.PI * 2);
 }
 
 const labelWidths = new Map<string, number>();
@@ -170,9 +321,13 @@ export function render(
       ctx.setLineDash([]);
       if (owner) {
         const mine = owner === me;
-        ctx.fillStyle = mine
-          ? "rgba(255, 238, 196, 0.32)"
-          : `hsla(${ownerHue(owner)}, 65%, 72%, 0.2)`;
+        const theme = mirror.residents.get(owner)?.theme;
+        // A theme tints the whole plot; otherwise a stable hue per owner tells neighbors apart.
+        ctx.fillStyle = theme
+          ? withAlpha(THEME_INFO[theme].palette.ground, 0.34)
+          : mine
+            ? "rgba(255, 238, 196, 0.32)"
+            : `hsla(${ownerHue(owner)}, 65%, 72%, 0.2)`;
         ctx.fillRect(left, top, plotPx, plotPx);
         ctx.setLineDash([scale * 0.28, scale * 0.2]);
         ctx.lineWidth = mine ? 2.5 : 1.75;
@@ -193,9 +348,28 @@ export function render(
   ctx.setLineDash([]);
 
   // ---- blocks: raised tiles with a ground shadow, top highlight and bottom shade ----
+  // Blocks on a themed plot (or one with its owner's own pattern) are drawn once into a sprite.
+  const dpr = ctx.getTransform().a || 1;
   const inset = Math.max(1, Math.round(scale * 0.05));
-  const radius = Math.max(2, scale * 0.14);
   const lip = Math.max(2, Math.round(scale * 0.16));
+  const skins = new Map<string, BlockSkin | null>();
+  const skinOf = (owner: string | undefined): BlockSkin | null => {
+    if (!owner) return null;
+    let skin = skins.get(owner);
+    if (skin === undefined) {
+      const r = mirror.residents.get(owner);
+      const image = lookImage(r?.patternMedia);
+      skin =
+        r?.theme || image
+          ? {
+              ...(r?.theme ? { theme: r.theme, palette: THEME_INFO[r.theme].palette } : {}),
+              ...(image && r?.patternMedia ? { image, imageId: r.patternMedia } : {}),
+            }
+          : null;
+      skins.set(owner, skin);
+    }
+    return skin;
+  };
   for (const [key, block] of mirror.blocks) {
     const [x, y] = key.split(",").map(Number) as [number, number];
     if (x < x0 || x > x1 || y < y0 || y > y1) continue;
@@ -203,30 +377,21 @@ export function render(
     const left = Math.round(sx - half) + inset;
     const top = Math.round(sy - half) + inset;
     const size = Math.round(scale) - inset * 2;
-    ctx.fillStyle = "rgba(74, 52, 28, 0.2)";
-    ctx.beginPath();
-    ctx.roundRect(left + 1, top + lip * 0.6, size, size, radius);
-    ctx.fill();
-    ctx.fillStyle = BLOCK_COLORS[block];
-    ctx.beginPath();
-    ctx.roundRect(left, top, size, size, radius);
-    ctx.fill();
-    // Bottom shade, then top highlight, both inset so the rounded corners stay clean.
-    ctx.fillStyle = "rgba(70, 40, 18, 0.22)";
-    ctx.beginPath();
-    ctx.roundRect(left, top + size - lip, size, lip, [0, 0, radius, radius]);
-    ctx.fill();
-    ctx.fillStyle = block === "glass" ? "rgba(255,255,255,0.6)" : "rgba(255, 250, 235, 0.32)";
-    ctx.beginPath();
-    ctx.roundRect(left + radius * 0.5, top + inset, size - radius, Math.max(2, lip * 0.55), 2);
-    ctx.fill();
-    if (block === "glass") {
-      ctx.strokeStyle = "rgba(255,255,255,0.75)";
-      ctx.lineWidth = Math.max(1, scale / 22);
-      ctx.beginPath();
-      ctx.moveTo(left + size * 0.3, top + size * 0.68);
-      ctx.lineTo(left + size * 0.62, top + size * 0.36);
-      ctx.stroke();
+    const skin = block === "glass" ? null : skinOf(mirror.ownerAt(x, y));
+    if (!skin) paintBlock(ctx, block, left, top, size, scale);
+    else {
+      const w = size + 2;
+      const h = size + lip + 2;
+      const art = sprite(
+        `blk|${block}|${skin.theme ?? ""}|${skin.imageId ?? ""}|${size}|${scale.toFixed(2)}|${dpr}`,
+        w * dpr,
+        h * dpr,
+        (c) => {
+          c.scale(dpr, dpr);
+          paintBlock(c, block, 0, 0, size, scale, skin);
+        },
+      );
+      ctx.drawImage(art, left, top, w, h);
     }
     // Built by the town: a little sun-gold rosette in the corner.
     if (mirror.townBuilt.has(key)) {
@@ -267,6 +432,33 @@ export function render(
     ctx.fill();
   }
 
+  // ---- home pictures: a resident's own art of their home, standing over their hearth ----
+  for (const [key, owner] of mirror.plots) {
+    const r = mirror.residents.get(owner);
+    const img = lookImage(r?.homeArt);
+    if (!r?.homeArt || !img) continue;
+    const [px, py] = key.split(",").map(Number) as [number, number];
+    const onPlot =
+      r.hearth && Math.floor(r.hearth.x / S) === px && Math.floor(r.hearth.y / S) === py;
+    const middle = Math.floor((S - 1) / 2);
+    const anchor = onPlot && r.hearth ? r.hearth : { x: px * S + middle, y: py * S + middle };
+    const { sx, sy } = tileToScreen(cam, anchor.x, anchor.y);
+    const max = scale * Math.min(3.6, S - 1);
+    const fit = Math.min(max / img.naturalWidth, max / img.naturalHeight);
+    const w = img.naturalWidth * fit;
+    const h = img.naturalHeight * fit;
+    const bottom = sy + half * 0.95;
+    if (sx + w / 2 < 0 || sx - w / 2 > width || bottom < 0 || bottom - h > height) continue;
+    ctx.fillStyle = "rgba(74, 52, 28, 0.22)";
+    ctx.beginPath();
+    ctx.ellipse(sx, bottom, w * 0.42, Math.max(3, scale * 0.16), 0, 0, Math.PI * 2);
+    ctx.fill();
+    const art = sprite(`home|${r.homeArt}|${Math.round(w)}|${dpr}`, w * dpr, h * dpr, (c) =>
+      c.drawImage(img, 0, 0, w * dpr, h * dpr),
+    );
+    ctx.drawImage(art, sx - w / 2, bottom - h, w, h);
+  }
+
   const self = me ? mirror.residents.get(me) : undefined;
   if (buildMode && self) {
     const r = config.reach;
@@ -280,48 +472,39 @@ export function render(
     ctx.setLineDash([]);
   }
 
-  // ---- residents: round tokens with a white rim and a soft ground shadow ----
-  const tokenR = scale * 0.3;
+  // ---- residents: little figures in their looks, each a cached sprite, north to south ----
   const labels: { text: string; x: number; y: number; mine: boolean }[] = [];
   const hall = hallBox(mirror, cam);
   if (hall)
     labels.push({ text: "Town Hall", x: hall.left + hall.w / 2, y: hall.top - 2, mine: false });
+  const shown: Resident[] = [];
   for (const r of mirror.residents.values()) {
     if (!r.online) continue;
     const { sx, sy } = tileToScreen(cam, r.x, r.y);
-    if (sx < -scale || sy < -scale || sx > width + scale || sy > height + scale) continue;
+    if (sx < -scale || sy < -scale || sx > width + scale || sy > height + scale * 1.5) continue;
+    shown.push(r);
+  }
+  shown.sort((a, b) => a.y - b.y || a.x - b.x);
+  for (const r of shown) {
+    const { sx, sy } = tileToScreen(cam, r.x, r.y);
+    const feet = sy + scale * 0.38;
     const mine = r.id === me;
-    ctx.fillStyle = "rgba(60, 40, 20, 0.24)";
-    ctx.beginPath();
-    ctx.ellipse(sx, sy + tokenR * 1.05, tokenR * 0.95, tokenR * 0.32, 0, 0, Math.PI * 2);
-    ctx.fill();
     if (mine) {
       ctx.fillStyle = "rgba(242, 184, 75, 0.45)";
       ctx.beginPath();
-      ctx.arc(sx, sy, tokenR * 1.6, 0, Math.PI * 2);
+      ctx.ellipse(sx, feet - scale * 0.02, scale * 0.42, scale * 0.17, 0, 0, Math.PI * 2);
       ctx.fill();
     }
-    residentPath(ctx, r.shape, sx, sy, tokenR);
-    ctx.fillStyle = RESIDENT_COLOR_HEX[r.color];
-    ctx.fill();
-    ctx.lineWidth = Math.max(2, scale * 0.075);
-    ctx.strokeStyle = "#ffffff";
-    ctx.stroke();
-    if (mine) {
-      residentPath(ctx, r.shape, sx, sy, tokenR + ctx.lineWidth);
-      ctx.lineWidth = 1.5;
-      ctx.strokeStyle = CLAY;
-      ctx.stroke();
-    }
-    // Small shine so the token reads as round and raised.
-    ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+    ctx.fillStyle = "rgba(60, 40, 20, 0.24)";
     ctx.beginPath();
-    ctx.ellipse(sx - tokenR * 0.32, sy - tokenR * 0.36, tokenR * 0.28, tokenR * 0.16, -0.6, 0, 7);
+    ctx.ellipse(sx, feet, scale * 0.27, scale * 0.085, 0, 0, Math.PI * 2);
     ctx.fill();
+    const fig = figureSprite(r, scale, dpr);
+    ctx.drawImage(fig.canvas, sx + fig.dx, feet + fig.dy, fig.w, fig.h);
     labels.push({
       text: r.kind === "agent" ? `${r.name} ⚙` : r.name,
       x: sx,
-      y: sy - tokenR * 1.45,
+      y: feet + fig.dy - 1,
       mine,
     });
   }

@@ -14,6 +14,7 @@ import { type CardDeps, matchCardPath, pageImage, serveCard, windowLimiter } fro
 import {
   type DocumentEdits,
   type Loaded,
+  legacyRedirect,
   loadPage,
   META_SELECTORS,
   matchPage,
@@ -225,10 +226,11 @@ describe("page meta", () => {
     expect(html).toContain("<title>Notifications · Terrakin</title>");
   });
 
-  it("serves /@handle as the profile it names, with /r/<id> as the canonical URL", async () => {
-    const page = matchPage("/@Wren_2");
+  it("serves /u/handle as the profile it names, with /r/<id> as the canonical URL", async () => {
+    const page = matchPage("/u/Wren_2");
     expect(page).toEqual({ name: "handle", handle: "Wren_2" });
-    expect(matchPage("/@ab")).toEqual({ name: "not-found" });
+    expect(matchPage("/u/ab")).toEqual({ name: "not-found" });
+    expect(matchPage("/@Wren_2")).toEqual({ name: "not-found" });
     const r = profile({ handle: "wren_2" });
     const asked: string[] = [];
     const loaded = await loadPage(page, async (path) => {
@@ -243,11 +245,19 @@ describe("page meta", () => {
     const html = applyEdits(INDEX_HTML, await editsFor(loaded));
     expect(attr(html, META_SELECTORS.canonical, "href")).toMatch(new RegExp(`/r/${r.id}$`));
 
-    const missing = await loadPage(matchPage("/@nobody"), async () => ({
+    const missing = await loadPage(matchPage("/u/nobody"), async () => ({
       status: 404,
       body: undefined,
     }));
     expect((await editsFor(missing)).status).toBe(404);
+  });
+
+  it("moves old /@handle links to /u/handle and nothing else", () => {
+    expect(legacyRedirect("/@Wren_2")).toBe("/u/Wren_2");
+    expect(legacyRedirect("/@Wren_2/")).toBe("/u/Wren_2");
+    for (const path of ["/@ab", "/@1wren", "/@wren/x", "/u/wren", "/r/r_0123", "/"]) {
+      expect(legacyRedirect(path)).toBeUndefined();
+    }
   });
 
   it("gives pages with their own file only their card", async () => {

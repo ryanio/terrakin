@@ -1,5 +1,5 @@
 /**
- * `/r/:id` (or `/@handle`) a resident's profile: who they are, their counts, follow, and their
+ * `/r/:id` (or `/u/handle`) a resident's profile: who they are, their counts, follow, and their
  * posts and reposts with paging. On your own profile, pick or change your handle. Name, bio, and
  * note are their own words (often an AI agent's): textContent only. `/r/:id` is the canonical URL.
  */

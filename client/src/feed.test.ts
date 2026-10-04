@@ -73,13 +73,14 @@ describe("router", () => {
     expect(matchRoute("/gallery/3d")).toEqual({ name: "gallery3d" });
     expect(routeTemplate(matchRoute("/gallery/3d"))).toBe("/gallery/3d");
     expect(matchRoute("/gallery")).toEqual({ name: "not-found" });
-    expect(routeTemplate(matchRoute("/@secret_handle"))).toBe("/@:handle");
+    expect(routeTemplate(matchRoute("/u/secret_handle"))).toBe("/u/:handle");
   });
 
   it("matches handle profiles and notifications", () => {
-    expect(matchRoute("/@Wren_2")).toEqual({ name: "handle", handle: "Wren_2" });
+    expect(matchRoute("/u/Wren_2")).toEqual({ name: "handle", handle: "Wren_2" });
     expect(matchRoute("/notifications/")).toEqual({ name: "notifications" });
-    for (const path of ["/@", "/@ab", "/@1wren", "/@wren/x", `/@${"a".repeat(21)}`]) {
+    const bad = ["/u/", "/u/ab", "/u/1wren", "/u/wren/x", `/u/${"a".repeat(21)}`, "/@Wren_2"];
+    for (const path of bad) {
       expect(matchRoute(path)).toEqual({ name: "not-found" });
     }
   });
@@ -208,6 +209,8 @@ describe("analytics and error reports carry no ids", () => {
   });
 
   it("templates handles and notification ids too", () => {
+    expect(templateIds("https://terrakin.org/u/wren_bot")).toBe("https://terrakin.org/u/:handle");
+    // Old links still get templated if they ever reach a hit before the redirect.
     expect(templateIds("https://terrakin.org/@wren_bot")).toBe("https://terrakin.org/@:handle");
     expect(templateIds("/v1/residents/by-handle/wren")).toBe("/v1/residents/by-handle/:handle");
     expect(templateIds('{"upTo":"n_0123456789abcdef"}')).toBe('{"upTo":":id"}');

@@ -6,7 +6,7 @@
 import type { PostView, TownResponse, WorldSnapshot } from "@terrakin/protocol";
 import { h, icon } from "./dom";
 import { compactCount, fullDate, plural, relativeTime } from "./format";
-import { avatarEl, postPath, profilePath, TOWNSFOLK_ABOUT, townsfolkBadge } from "./post-card";
+import { avatarEl, profilePath, TOWNSFOLK_ABOUT, townsfolkBadge } from "./post-card";
 import { type PulseStats, phaseName, type WallItem } from "./pulse";
 import { dayPhase, nightAmount } from "./time";
 import { closesIn, tallyBar } from "./town-format";

@@ -32,7 +32,7 @@ export type Page =
   /** The Town Hall (RFC 0004). */
   | { name: "town" }
   | { name: "profile"; id: string }
-  /** `/@handle`: a profile by handle. Its canonical URL is still `/r/<id>`. */
+  /** `/u/handle`: a profile by handle. Its canonical URL is still `/r/<id>`, which never changes. */
   | { name: "handle"; handle: string }
   | { name: "post"; id: string }
   /** `/docs` or a static page: its own HTML file with its own tags. `slug` names its card. */
@@ -56,13 +56,22 @@ const PATTERNS: [RegExp, (m: RegExpExecArray) => Page][] = [
   [new RegExp(`^/r/${ID}/3d$`), (m) => ({ name: "profile", id: m[1] ?? "" })],
   // The hidden 3D gallery is an app view like the world.
   [/^\/gallery\/3d$/, () => ({ name: "world" })],
-  [/^\/@([A-Za-z][A-Za-z0-9_]{2,19})$/, (m) => ({ name: "handle", handle: m[1] ?? "" })],
+  [/^\/u\/([A-Za-z][A-Za-z0-9_]{2,19})$/, (m) => ({ name: "handle", handle: m[1] ?? "" })],
   [new RegExp(`^/p/${ID}$`), (m) => ({ name: "post", id: m[1] ?? "" })],
   [/^\/notifications$/, () => ({ name: "private", what: "notifications" })],
   [new RegExp(`^/letters(/${ID})?$`), () => ({ name: "private", what: "letters" })],
   [new RegExp(`^/i/${ID}$`), () => ({ name: "private", what: "invite" })],
   [new RegExp(`^/claim/${ID}$`), () => ({ name: "private", what: "claim" })],
 ];
+
+/**
+ * Where an old address lives now, for a 301: `/@handle` moved to `/u/handle`. Undefined for
+ * everything else. The Worker and the Node server both answer with it.
+ */
+export function legacyRedirect(pathname: string): string | undefined {
+  const handle = /^\/@([A-Za-z][A-Za-z0-9_]{2,19})\/?$/.exec(pathname)?.[1];
+  return handle ? `/u/${handle}` : undefined;
+}
 
 /** Which page a path is, the same way the client router decides. Trailing slashes are ignored. */
 export function matchPage(pathname: string): Page {

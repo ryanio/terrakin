@@ -20,7 +20,7 @@ import {
   serveCard,
   windowLimiter,
 } from "../src/og";
-import { type ApiGet, loadPage, matchPage, pageEdits } from "../src/page-meta";
+import { type ApiGet, legacyRedirect, loadPage, matchPage, pageEdits } from "../src/page-meta";
 import { negotiate, pageHeaders, twinHeaders } from "../src/pages";
 import { parseMaintainers, parseTownsfolk, SocialService } from "../src/social-service";
 import { SqlStore } from "../src/sql-store";
@@ -140,6 +140,8 @@ export default {
       url.hostname = CANONICAL_HOST;
       return Response.redirect(url.toString(), 301);
     }
+    const moved = legacyRedirect(url.pathname);
+    if (moved) return Response.redirect(new URL(moved + url.search, url).toString(), 301);
     const world = () => env.WORLD.get(env.WORLD.idFromName("world"));
     const reading = request.method === "GET" || request.method === "HEAD";
     // An agent asking for Markdown gets the page's twin: a static file, or built from live data.

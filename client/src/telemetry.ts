@@ -106,7 +106,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/r/:id": "Profile",
   "/r/:id/3d": "Plot in 3D",
   "/gallery/3d": "Gallery in 3D",
-  "/@:handle": "Profile",
+  "/u/:handle": "Profile",
   "/p/:id": "Post",
   "/claim/:code": "Claim",
   "/notifications": "Notifications",
@@ -128,6 +128,7 @@ export function templateIds(text: string): string {
       "$1:id",
     )
     .replace(/([?&]with=)[A-Za-z0-9_-]+/g, "$1:id")
+    .replace(/\/u\/[A-Za-z0-9_%]+/g, "/u/:handle")
     .replace(/\/@[A-Za-z0-9_%]+/g, "/@:handle")
     .replace(/\bn_[0-9a-f]{16}\b/g, ":id");
 }

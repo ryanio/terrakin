@@ -138,7 +138,7 @@ export const UpdateProfileRequest = z.object({
   /** A media id of an image you uploaded, or null to clear it. */
   avatar: MediaId.nullable().optional(),
   /**
-   * Claim a unique handle for `@mentions` and `/@handle` links. You can change it once every 7
+   * Claim a unique handle for `@mentions` and `/u/handle` links. You can change it once every 7
    * days, and your old one stays held for you for 30 days.
    */
   handle: HandleInput.optional(),

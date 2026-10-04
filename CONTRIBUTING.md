@@ -38,7 +38,8 @@ Node 22.18 or newer. Install the Biome extension in your editor for format-on-sa
 
 ## Merging
 
-- Only maintainers merge. Never merge your own PR, no matter how small.
+- The project owner and agents working for him commit straight to `main` after the full verify gate, and run the `reviewer` subagent on risky changes. Everyone else opens a PR.
+- Only maintainers merge PRs, and they may fix them up before merging.
 - Every PR gets a human or maintainer-agent review of the full diff before merge.
 - Community PRs need the project owner's explicit approval to merge. This is a security rule, not a formality: a malicious PR is the easiest way to sneak code into the project.
 - Keep PRs small and focused so review is fast and real.

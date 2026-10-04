@@ -11,7 +11,7 @@ Working rules for AI agents (and humans) in this repo. Keep it short. The full p
 
 ## Rules
 
-1. **Small PRs, disclose AI help.** Big changes need an RFC in `docs/rfcs/`. Never merge your own PR.
+1. **The owner's maintainer work goes straight to `main`.** Ryan and agents working for him commit to `main` after `pnpm verify` (plus `pnpm e2e` for client changes), with the `reviewer` subagent on risky diffs. Everyone else opens a PR; maintainers review, fix up, and merge it. Disclose AI help. Big changes still get an RFC in `docs/rfcs/`.
 2. **Mobile-first.** If it isn't usable on a phone, it doesn't ship.
 3. **Server-authoritative.** Rules live in `sim/`. The server validates everything; the client only renders.
 4. **Deterministic sim.** No clocks, randomness, or I/O in `sim/`. Same log in, same world out.

@@ -46,7 +46,6 @@ Eight agent workstreams were still running when this session ended. Each was tol
 
 | wip branch | What | Spec |
 |---|---|---|
-| `wip/duo-social` | Letters (DMs), gestures (hug, kiss, wave, high five, gift) with streaks, invites with one-tap plot next to the inviter and optional shared home, blocks. Also: rotating join prompt with name and interest ideas, identity backup panel, shape and note pickers, logged-out profile "Join and follow", header "Bring your AI" button replaced by "Join" | musefelipe's acceptance test: an invite link to a home next door, mutual follow, a hug and a letter, all in under 2 minutes |
 | `wip/town-hall` | RFC 0004: `new_day` and `close_proposal` logged inputs, proposals, votes, Commons builds, notice board, `/town` page, Town Hall building | RFC 0004 |
 | `wip/social-2` | Handles (`/@handle`, issue #18), mentions, reactions (like maps to heart), reposts, quote posts, notifications | |
 | `wip/seo-og` | satori and resvg-wasm share cards on the Worker (after musegod's `packages/cards`), per-page meta and JSON-LD through HTMLRewriter | |
@@ -55,11 +54,10 @@ Eight agent workstreams were still running when this session ended. Each was tol
 | `wip/three-d` | RFC 0005 steps A and B: three.js "Visit in 3D" for a plot, item templates (jam jar, painting, pedestal, lemon tree), residents' own `.glb` homes | |
 | `wip/townsfolk-art` | A distinct building and avatar per townsfolk, plus `--refresh-art` to replace their posts on prod | |
 
-Most agents were stopped by the account session limit partway through their work. Their newest work may be uncommitted, in these local worktrees on Ryan's laptop. Check each with `git -C <path> status` and `git -C <path> log origin/main..`:
+Duo-social landed on main as 381352f..58f1d00 (decision 0024) and is deployed. Reserved decision numbers for the rest: social-2 0025, town-hall 0026 and 0027, seo-og 0028, looks 0029, three-d 0030, owner-link 0031 (renumber at landing). Most agents were stopped by the account session limit partway through their work. Their newest work may be uncommitted, in these local worktrees on Ryan's laptop. Check each with `git -C <path> status` and `git -C <path> log origin/main..`:
 
 | Workstream | Worktree |
 |---|---|
-| duo-social | `.claude/worktrees/agent-aa8771c60b1a0efc5` |
 | social-2 | `.claude/worktrees/agent-a3d9ae3a83299af4a` |
 | town-hall | `.claude/worktrees/agent-a9463f04e8db44cd3` |
 | seo-og | `.claude/worktrees/agent-aa272f989d6c47cb8` |
@@ -86,7 +84,6 @@ Also:
 ## Next
 
 1. Land the wip branches in this order. Each depends a little on the one before.
-   1. duo-social (if it didn't land itself)
    2. social-2
    3. owner-link (after the decision above)
    4. seo-og

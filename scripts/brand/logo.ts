@@ -129,7 +129,7 @@ const BRAND = {
 // Geometry. Points are projected 2:1 isometric: x runs down-right, y down-left, z up.
 // ---------------------------------------------------------------------------
 
-type Pt = readonly [number, number];
+export type Pt = readonly [number, number];
 type V3 = readonly [number, number, number];
 
 export const fmt = (n: number) => String(Math.round(n * 100) / 100);
@@ -142,7 +142,7 @@ function at<T>(list: readonly T[], i: number): T {
 }
 
 /** Closed polygon with every corner rounded by up to `r` (quadratic corners). */
-function rounded(points: readonly Pt[], r: number): string {
+export function rounded(points: readonly Pt[], r: number): string {
   if (r <= 0) return `M${points.map(pt).join("L")}Z`;
   let d = "";
   points.forEach((p, i) => {

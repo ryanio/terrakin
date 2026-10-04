@@ -4,10 +4,14 @@
  * missing.
  *
  *   pnpm townsfolk -- --base http://localhost:8787
- *   node scripts/townsfolk/seed.ts --base <url> [--dry-run] [--creds <file>] [--images <dir>] [--pace <ms>]
+ *   node scripts/townsfolk/seed.ts --base <url> [--dry-run] [--refresh-art] [--creds <file>] [--images <dir>] [--pace <ms>]
  *
- *   --base     server to seed (required)
- *   --dry-run  check the cast, draw the images, read the world and print the plan; change nothing
+ *   --base         server to seed (required)
+ *   --dry-run      check the cast, draw the images, read the world and print the plan; change nothing
+ *   --refresh-art  replace avatars and postcard posts drawn with an older ART_VERSION (art.ts):
+ *                  new avatars, the old postcard posts deleted and posted again in the same order,
+ *                  the townsfolk replies and likes on them made again, and any new signature
+ *                  blocks placed. Does nothing once the credentials file records the current version.
  *   --creds    where to keep tokens (default ~/.config/terrakin/townsfolk.<host>.json, mode 0600)
  *   --images   also write the postcards and avatars to this directory
  *   --pace     pause between social writes, in ms (default 800)
@@ -26,7 +30,7 @@ import type {
   ProfileView,
   WorldSnapshot,
 } from "../../protocol/src/index";
-import { type Images, renderAll } from "./art.ts";
+import { ART_VERSION, type Images, renderAll } from "./art.ts";
 import { checkPersonas, PERSONAS, type Persona } from "./personas.ts";
 import { choosePlot, describePlace, type Plot, plotKey } from "./plan.ts";
 
@@ -40,6 +44,7 @@ const { values: args } = parseArgs({
   options: {
     base: { type: "string" },
     "dry-run": { type: "boolean", default: false },
+    "refresh-art": { type: "boolean", default: false },
     creds: { type: "string" },
     images: { type: "string" },
     pace: { type: "string", default: "800" },
@@ -52,6 +57,7 @@ if (!args.base) {
 }
 const BASE = new URL(args.base).origin;
 const DRY = args["dry-run"];
+const REFRESH = args["refresh-art"];
 const PACE = Math.max(0, Number(args.pace) || 0);
 const CREDS =
   args.creds !== undefined
@@ -75,11 +81,17 @@ interface Stored {
   token: string;
   /** Post ids we made: "post:0", "reply:clem", ... */
   posts: Record<string, string>;
+  /** ART_VERSION of the avatar we set. Missing means it predates versioning. */
+  avatarArt?: number;
+  /** ART_VERSION of the postcards on each post we made with postcards, by slot. */
+  postArt?: Record<string, number>;
 }
 
 interface Creds {
   base: string;
   residents: Record<string, Stored>;
+  /** Set once every resident's avatar and postcards are this ART_VERSION. */
+  artVersion?: number;
 }
 
 function loadCreds(): Creds {
@@ -261,10 +273,12 @@ async function ensureProfile(p: Persona, s: Stored, images: Images): Promise<voi
     await call("PUT", "/v1/profile", { token: s.token, json: { bio: p.bio }, bucket: "social" });
     say(p.name, "wrote bio");
   }
-  if (!resident.avatar) {
+  const stale = s.avatarArt !== ART_VERSION;
+  if (!resident.avatar || (REFRESH && stale)) {
     const media = await upload(s, images.avatar);
     await call("PUT", "/v1/profile", { token: s.token, json: { avatar: media }, bucket: "social" });
-    say(p.name, "set avatar");
+    s.avatarArt = ART_VERSION;
+    say(p.name, resident.avatar ? "set the new avatar" : "set avatar");
   }
 }
 
@@ -313,18 +327,11 @@ async function ensureHome(p: Persona, s: Stored, plot: Plot, snap: WorldSnapshot
   }
 
   const now = await world();
-  const { plotSize, reach } = now.config;
-  const blocks = new Set(now.blocks.map((b) => `${b.x},${b.y}`));
   const self = now.residents.find((r) => r.id === s.residentId);
-  const hearth = self?.hearth;
-  if (!self || !hearth) return;
-  const missing = p.home.decor
-    .filter((d) => d.dx < plotSize && d.dy < plotSize)
-    .map((d) => ({ x: plot.px * plotSize + d.dx, y: plot.py * plotSize + d.dy, block: d.block }))
-    .filter((d) => Math.max(Math.abs(d.x - hearth.x), Math.abs(d.y - hearth.y)) <= reach)
-    .filter((d) => !blocks.has(`${d.x},${d.y}`));
+  if (!self?.hearth) return;
+  const { missing } = decorPlan(p, s, plot, now);
   if (missing.length === 0) return;
-  if (self.x !== hearth.x || self.y !== hearth.y) await act(s.token, { type: "home" });
+  if (self.x !== self.hearth.x || self.y !== self.hearth.y) await act(s.token, { type: "home" });
   let placed = 0;
   for (const d of missing) {
     const result = await act(s.token, { type: "place", ...d });
@@ -332,7 +339,29 @@ async function ensureHome(p: Persona, s: Stored, plot: Plot, snap: WorldSnapshot
     else say(p.name, `place at (${d.x}, ${d.y}): ${result.error.message}`);
     await sleep(150);
   }
-  if (placed) say(p.name, `placed ${placed} decorative block${placed === 1 ? "" : "s"}`);
+  if (placed) say(p.name, `placed ${placed} signature block${placed === 1 ? "" : "s"}`);
+}
+
+/**
+ * The persona's signature blocks on its plot: the ones still to place, and how many are skipped
+ * because the tile is already taken (by its own block or anything else) or out of reach.
+ */
+function decorPlan(p: Persona, s: Stored, plot: Plot, snap: WorldSnapshot) {
+  const { plotSize, reach } = snap.config;
+  const blocks = new Set(snap.blocks.map((b) => `${b.x},${b.y}`));
+  const hearths = new Set(
+    snap.residents.flatMap((r) => (r.hearth ? [`${r.hearth.x},${r.hearth.y}`] : [])),
+  );
+  const hearth = snap.residents.find((r) => r.id === s.residentId)?.hearth ?? {
+    x: plot.px * plotSize + 3,
+    y: plot.py * plotSize + 3,
+  };
+  const all = p.home.decor
+    .filter((d) => d.dx < plotSize && d.dy < plotSize)
+    .map((d) => ({ x: plot.px * plotSize + d.dx, y: plot.py * plotSize + d.dy, block: d.block }))
+    .filter((d) => Math.max(Math.abs(d.x - hearth.x), Math.abs(d.y - hearth.y)) <= reach);
+  const missing = all.filter((d) => !blocks.has(`${d.x},${d.y}`) && !hearths.has(`${d.x},${d.y}`));
+  return { missing, taken: all.length - missing.length };
 }
 
 /** Post (or reply) unless it's already there. Returns the post id. */
@@ -366,6 +395,7 @@ async function ensurePost(
     bucket: "social",
   });
   s.posts[slot] = post.id;
+  if (ids.length) s.postArt = { ...s.postArt, [slot]: ART_VERSION };
   say(
     p.name,
     replyTo
@@ -392,6 +422,143 @@ function postMedia(live: Live, index: number, images: Map<string, Images>) {
 }
 
 // ---------------------------------------------------------------------------
+// Refreshing the art. Postcards can't be swapped on a post, so a postcard post drawn with an older
+// ART_VERSION is deleted (its own author's post, through DELETE /v1/posts/{id}) along with the
+// townsfolk replies under it, and the normal seed run then posts both again with the new images.
+// ---------------------------------------------------------------------------
+
+interface StalePost {
+  persona: Persona;
+  slot: string;
+  id: string;
+  /** Townsfolk replies under it: [author key, reply id, slot]. */
+  ours: [string, string, string | undefined][];
+  /** Replies from residents who aren't townsfolk; these go with the post. */
+  others: number;
+  likes: number;
+}
+
+/** Every postcard post the stored townsfolk made with older art. Reads only. */
+async function stalePosts(creds: Creds): Promise<StalePost[]> {
+  const keyById = new Map(Object.entries(creds.residents).map(([k, r]) => [r.residentId, k]));
+  const out: StalePost[] = [];
+  for (const p of PERSONAS) {
+    const s = creds.residents[p.key];
+    if (!s) continue;
+    let mine: PostView[] | null = null;
+    for (const [i, post] of p.posts.entries()) {
+      if (!post.postcards?.length) continue;
+      const slot = `post:${i}`;
+      if (s.postArt?.[slot] === ART_VERSION) continue;
+      let id = s.posts[slot];
+      let thread = id
+        ? await call<PostResponse>("GET", `/v1/posts/${id}`).catch((err: unknown) => {
+            if (err instanceof ApiError && err.status === 404) return null;
+            throw err;
+          })
+        : null;
+      if (!thread) {
+        // Not where the credentials say: look for it by its text, as the seed does.
+        mine ??= await postsBy(s.residentId);
+        const found = mine.filter((m) => !m.replyTo && m.media.length > 0);
+        const text = post.text.split("{where}");
+        id = found.find((m) => text.every((part) => m.text.includes(part.trim())))?.id;
+        thread = id ? await call<PostResponse>("GET", `/v1/posts/${id}`) : null;
+      }
+      if (!thread || !id) continue;
+      const ours: StalePost["ours"] = [];
+      let others = 0;
+      for (const reply of thread.replies) {
+        const key = keyById.get(reply.author.id);
+        if (!key) {
+          others++;
+          continue;
+        }
+        const slots = creds.residents[key]?.posts ?? {};
+        ours.push([key, reply.id, Object.keys(slots).find((k) => slots[k] === reply.id)]);
+      }
+      out.push({ persona: p, slot, id, ours, others, likes: thread.post.likeCount });
+    }
+  }
+  return out;
+}
+
+async function deleteStale(creds: Creds, stale: StalePost[]): Promise<void> {
+  for (const st of stale) {
+    for (const [key, replyId, slot] of st.ours) {
+      const author = creds.residents[key];
+      if (!author) continue;
+      await call("DELETE", `/v1/posts/${replyId}`, { token: author.token, bucket: "social" });
+      if (slot) delete author.posts[slot];
+      saveCreds(creds);
+    }
+    const s = creds.residents[st.persona.key];
+    if (!s) continue;
+    await call("DELETE", `/v1/posts/${st.id}`, { token: s.token, bucket: "social" });
+    delete s.posts[st.slot];
+    if (s.postArt) delete s.postArt[st.slot];
+    saveCreds(creds);
+    say(
+      st.persona.name,
+      `deleted the old ${st.slot} postcard post${st.ours.length ? ` and ${st.ours.length} townsfolk repl${st.ours.length === 1 ? "y" : "ies"} under it` : ""}`,
+    );
+  }
+}
+
+async function printRefreshPlan(creds: Creds): Promise<void> {
+  const stale = await stalePosts(creds);
+  const snap = await world();
+  for (const p of PERSONAS) {
+    const s = creds.residents[p.key];
+    if (!s) {
+      say(p.name, "isn't seeded yet; a normal run creates it with the new art");
+      continue;
+    }
+    if (s.avatarArt !== ART_VERSION) say(p.name, `would upload and set a new avatar`);
+    for (const st of stale.filter((x) => x.persona.key === p.key)) {
+      // Townsfolk like the introductions of those they follow; the seed likes them again.
+      const ours =
+        st.slot === "post:0" ? PERSONAS.filter((q) => q.follows.includes(p.key)).length : 0;
+      const likes = Math.max(0, st.likes - ours);
+      const lost = [
+        st.others ? `${st.others} repl${st.others === 1 ? "y" : "ies"}` : "",
+        likes ? `${likes} like${likes === 1 ? "" : "s"}` : "",
+      ].filter(Boolean);
+      say(
+        p.name,
+        `would delete ${st.slot} (${st.id}) and post it again with new postcards` +
+          (st.ours.length
+            ? `, re-making ${st.ours.length} townsfolk repl${st.ours.length === 1 ? "y" : "ies"}`
+            : "") +
+          (lost.length ? `; lost with it: ${lost.join(" and ")} from other residents` : ""),
+      );
+    }
+    const owned = snap.plots.find((plot) => plot.ownerId === s.residentId);
+    if (owned) {
+      const { missing, taken } = decorPlan(p, s, { px: owned.px, py: owned.py }, snap);
+      if (missing.length || taken) {
+        say(
+          p.name,
+          `would place ${missing.length} signature block${missing.length === 1 ? "" : "s"}` +
+            (taken ? ` (${taken} already there or taken, skipped)` : ""),
+        );
+      }
+    }
+  }
+}
+
+/** Whether every stored resident's avatar and postcard posts are the current art. */
+function artIsCurrent(creds: Creds): boolean {
+  return PERSONAS.every((p) => {
+    const s = creds.residents[p.key];
+    if (!s || s.avatarArt !== ART_VERSION) return false;
+    return p.posts.every(
+      (post, i) => !post.postcards?.length || s.postArt?.[`post:${i}`] === ART_VERSION,
+    );
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -412,8 +579,21 @@ async function main(): Promise<void> {
   }
 
   const creds = loadCreds();
-  console.log(`seeding ${PERSONAS.length} townsfolk into ${BASE}${DRY ? " (dry run)" : ""}`);
+  console.log(
+    `${REFRESH ? "refreshing the art of" : "seeding"} ${PERSONAS.length} townsfolk ${REFRESH ? "on" : "into"} ${BASE}${DRY ? " (dry run)" : ""}`,
+  );
   console.log(`credentials: ${CREDS}`);
+
+  if (REFRESH && creds.artVersion === ART_VERSION) {
+    console.log(`The art is already version ${ART_VERSION} here. Nothing to do.`);
+    return;
+  }
+  if (REFRESH && DRY) {
+    console.log(`art version ${creds.artVersion ?? 1} -> ${ART_VERSION}`);
+    await printRefreshPlan(creds);
+    return;
+  }
+  if (REFRESH) await deleteStale(creds, await stalePosts(creds));
 
   if (DRY) {
     const snap = await world();
@@ -503,6 +683,11 @@ async function main(): Promise<void> {
       if (!live.persona.posts[i]) continue;
       await ensurePost(live, `post:${i}`, postText(live, i), postMedia(live, i, images));
     }
+    saveCreds(creds);
+  }
+
+  if (artIsCurrent(creds)) {
+    creds.artVersion = ART_VERSION;
     saveCreds(creds);
   }
 

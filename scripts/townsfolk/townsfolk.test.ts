@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_IMAGE_BYTES, renderAll } from "./art.ts";
+import { homeDrawing, MAX_IMAGE_BYTES, POSTCARD, placeHome, renderAll, SAFE } from "./art.ts";
 import { checkPersonas, PERSONAS } from "./personas.ts";
 import { choosePlot, describePlace, plotKey, type WorldShape } from "./plan.ts";
 
@@ -26,9 +26,38 @@ describe("townsfolk personas", () => {
     expect(checkPersonas([bad]).join("\n")).toMatch(/refused/);
   });
 
+  it("each have their own building and their own hat", () => {
+    expect(new Set(PERSONAS.map((p) => p.home.building)).size).toBe(PERSONAS.length);
+    expect(new Set(PERSONAS.map((p) => p.scene.prop)).size).toBe(PERSONAS.length);
+  });
+
+  it("keep each home inside the part of the postcard the feed's 2x2 grid shows", () => {
+    for (const p of PERSONAS) {
+      const at = placeHome(homeDrawing(p).bounds);
+      expect(at.x0, p.name).toBeGreaterThanOrEqual(SAFE.x0);
+      expect(at.x1, p.name).toBeLessThanOrEqual(510);
+      expect(at.y0, p.name).toBeGreaterThanOrEqual(30);
+      expect(at.y1, p.name).toBeLessThanOrEqual(POSTCARD.height - 30);
+    }
+  });
+
+  it("catch signature blocks that would block the way in", () => {
+    const [first] = PERSONAS;
+    if (!first) throw new Error("no personas");
+    const bad = (dx: number, dy: number) =>
+      checkPersonas([{ ...first, home: { ...first.home, decor: [{ dx, dy, block: "wood" }] } }]);
+    expect(bad(3, 6).join("\n")).toMatch(/doorway/);
+    expect(bad(3, 4).join("\n")).toMatch(/hearth to the door/);
+    expect(bad(3, 3).join("\n")).toMatch(/hearth/);
+    expect(bad(7, 7).join("\n")).toMatch(/out of reach/);
+    expect(bad(6, 6).filter((line) => line.includes("decor"))).toEqual([]);
+  });
+
   it("render small images", () => {
     const images = renderAll(PERSONAS);
     expect(images.size).toBe(PERSONAS.length);
+    const postcards = new Set([...images.values()].map((art) => art.postcard.toString("base64")));
+    expect(postcards.size).toBe(PERSONAS.length);
     for (const art of images.values()) {
       for (const png of [art.postcard, art.avatar]) {
         expect(png.subarray(1, 4).toString("ascii")).toBe("PNG");

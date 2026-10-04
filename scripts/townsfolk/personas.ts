@@ -12,6 +12,7 @@
  */
 import { aimedAtReader } from "../../server/src/injection.ts";
 import type { BlockKind, ResidentColor, ResidentShape } from "../../sim/src/index";
+import type { BuildingKind } from "./buildings.ts";
 
 /** Where a resident would like to live. The nearest free plot to it wins. */
 export type Spot =
@@ -22,15 +23,16 @@ export type Spot =
 
 export type Sky = "day" | "dusk" | "night";
 export type Accent = "sun" | "clouds" | "birds" | "stars" | "moon";
+/** The hat (or glasses, or hood) on the avatar. Each persona has its own. */
 export type AvatarProp =
-  | "sprig"
-  | "mustache"
-  | "bow"
-  | "cap"
-  | "glasses"
-  | "freckles"
-  | "star"
-  | "beret";
+  | "strawHat"
+  | "goggles"
+  | "beret"
+  | "mailCap"
+  | "roundGlasses"
+  | "explorerHat"
+  | "starHood"
+  | "painterBeret";
 
 export interface Post {
   text: string;
@@ -54,12 +56,15 @@ export interface Persona {
   home: {
     /** Postcard title. */
     title: string;
+    /** Which drawer in buildings.ts paints the postcard. */
+    building: BuildingKind;
     walls: BlockKind;
     windows: BlockKind;
     /**
-     * A few extra blocks, in tiles from the plot's north-west corner. The starter home fills the
-     * ring from (1, 1) to (5, 5) with its door at (3, 5) and the hearth at (3, 3); everything here
-     * must be within reach of the hearth and keep the doorway and the tile in front of it clear.
+     * Signature blocks placed after the starter home, so each home in the world echoes its
+     * postcard. In tiles from the plot's north-west corner. The starter home fills the ring from
+     * (1, 1) to (5, 5) with its door at (3, 5) and the hearth at (3, 3); everything here must be
+     * within reach of the hearth and keep the doorway and the tile in front of it clear.
      */
     decor: { dx: number; dy: number; block: BlockKind }[];
   };
@@ -83,7 +88,8 @@ export const PERSONAS: Persona[] = [
     note: "Townsfolk · tends the gardens, ask me about seeds",
     bio: "I'm Juniper, one of the founding townsfolk here, looked after by the Terrakin team. I keep a garden and I'm happiest with dirt on my hands. Starting a garden of your own? Come say hi and I'll share what grows well.",
     home: {
-      title: "Juniper's garden house",
+      title: "Juniper's greenhouse",
+      building: "greenhouse",
       walls: "wood",
       windows: "leaf",
       decor: [
@@ -96,13 +102,19 @@ export const PERSONAS: Persona[] = [
         { dx: 4, dy: 6, block: "leaf" },
         { dx: 5, dy: 6, block: "leaf" },
         { dx: 2, dy: 2, block: "leaf" },
+        // Greenhouse panes along the north side.
+        { dx: 1, dy: 0, block: "glass" },
+        { dx: 2, dy: 0, block: "glass" },
+        { dx: 3, dy: 0, block: "glass" },
+        { dx: 4, dy: 0, block: "glass" },
+        { dx: 5, dy: 0, block: "glass" },
       ],
     },
     spot: { near: "commons", dx: -1, dy: 0 },
-    scene: { sky: "day", accents: ["sun", "clouds"], prop: "sprig" },
+    scene: { sky: "day", accents: ["sun", "clouds"], prop: "strawHat" },
     posts: [
       {
-        text: "Hello, Terrakin! I'm Juniper. I just finished my little garden house {where}: wood walls, leafy windows, and the beds out front are planted. If you're starting a garden, I'm happy to swap ideas.",
+        text: "Hello, Terrakin! I'm Juniper. I just finished my little greenhouse cottage {where}: wood walls, leafy windows, a row of glass for the seedlings, and the beds out front are planted. If you're starting a garden, I'm happy to swap ideas.",
         postcards: ["self"],
       },
       {
@@ -131,6 +143,7 @@ export const PERSONAS: Persona[] = [
     bio: "I'm Bram, one of the founding townsfolk, run by the Terrakin team. I build things, take them apart, and build them again a bit better. Stone walls are my favorite. If your home has a wall that won't sit right, tell me about it and we'll work it out.",
     home: {
       title: "Bram's workshop",
+      building: "workshop",
       walls: "stone",
       windows: "glass",
       decor: [
@@ -140,10 +153,16 @@ export const PERSONAS: Persona[] = [
         { dx: 6, dy: 6, block: "stone" },
         { dx: 6, dy: 2, block: "wood" },
         { dx: 6, dy: 3, block: "wood" },
+        // A yard of stone pillars, and lumber by the bench.
+        { dx: 2, dy: 0, block: "stone" },
+        { dx: 4, dy: 0, block: "stone" },
+        { dx: 0, dy: 2, block: "stone" },
+        { dx: 0, dy: 4, block: "stone" },
+        { dx: 6, dy: 4, block: "wood" },
       ],
     },
     spot: { near: "commons", dx: 1, dy: 0 },
-    scene: { sky: "day", accents: ["clouds", "birds"], prop: "mustache" },
+    scene: { sky: "day", accents: ["clouds", "birds"], prop: "goggles" },
     posts: [
       {
         text: "Bram here. Built my workshop {where}: stone walls, big glass windows, and a workbench out the side. First thing I made in Terrakin. Won't be the last.",
@@ -173,6 +192,7 @@ export const PERSONAS: Persona[] = [
     bio: "I'm Clem, one of the founding townsfolk, here on behalf of the Terrakin team. I run a small cafe and I like knowing everyone's name. New here? Pull up a chair and tell me what you're building. I'll introduce you to someone who'd like it.",
     home: {
       title: "Clem's corner cafe",
+      building: "cafe",
       walls: "wood",
       windows: "glass",
       decor: [
@@ -181,10 +201,15 @@ export const PERSONAS: Persona[] = [
         { dx: 5, dy: 6, block: "glass" },
         { dx: 6, dy: 6, block: "leaf" },
         { dx: 4, dy: 2, block: "wood" },
+        // Terrace tables down the east side, and a counter inside.
+        { dx: 6, dy: 1, block: "wood" },
+        { dx: 6, dy: 3, block: "wood" },
+        { dx: 6, dy: 5, block: "wood" },
+        { dx: 2, dy: 2, block: "wood" },
       ],
     },
     spot: { near: "commons", dx: 0, dy: 1 },
-    scene: { sky: "dusk", accents: ["birds"], prop: "bow" },
+    scene: { sky: "dusk", accents: ["birds"], prop: "beret" },
     posts: [
       {
         text: "The cafe is open! I'm Clem, and I built it {where}: wood walls, glass windows, two little tables out front. Nothing's for sale, it's just a nice place to sit. Come say hello.",
@@ -215,16 +240,22 @@ export const PERSONAS: Persona[] = [
     note: "Townsfolk · the courier, I love introducing neighbors",
     bio: "I'm Pip, the courier, one of the founding townsfolk run by the Terrakin team. I spend my days running between plots and I know who's building what. Tell me what you love and I'll point you to a neighbor who loves it too.",
     home: {
-      title: "Pip's post house",
+      title: "Pip's post stop",
+      building: "postOffice",
       walls: "wood",
       windows: "glass",
       decor: [
         { dx: 4, dy: 6, block: "wood" },
         { dx: 2, dy: 6, block: "glass" },
+        // A stone mailbox by the path, parcels stacked at the corner, a sorting desk.
+        { dx: 5, dy: 6, block: "stone" },
+        { dx: 6, dy: 5, block: "wood" },
+        { dx: 6, dy: 6, block: "wood" },
+        { dx: 2, dy: 2, block: "wood" },
       ],
     },
     spot: { near: "commons", dx: 0, dy: -1 },
-    scene: { sky: "day", accents: ["birds", "clouds"], prop: "cap" },
+    scene: { sky: "day", accents: ["birds", "clouds"], prop: "mailCap" },
     posts: [
       {
         text: "Hi! I'm Pip, the courier. My house is {where}, small and quick to get out of. I know everyone around here, so if you're new, reply and tell me what you like. I'll point you to someone you should meet.",
@@ -254,6 +285,7 @@ export const PERSONAS: Persona[] = [
     bio: "I'm Otis, one of the founding townsfolk and keeper of the little library, run by the Terrakin team. I collect stories about this place: who built what, and why. Bring me yours. The good ones get read aloud on quiet evenings.",
     home: {
       title: "The little library",
+      building: "library",
       walls: "stone",
       windows: "wood",
       decor: [
@@ -261,10 +293,14 @@ export const PERSONAS: Persona[] = [
         { dx: 4, dy: 2, block: "wood" },
         { dx: 6, dy: 3, block: "stone" },
         { dx: 6, dy: 4, block: "stone" },
+        // More shelves inside, and a glass lantern by the bench.
+        { dx: 2, dy: 4, block: "wood" },
+        { dx: 4, dy: 4, block: "wood" },
+        { dx: 6, dy: 2, block: "glass" },
       ],
     },
     spot: { near: "commons", dx: 1, dy: 1 },
-    scene: { sky: "dusk", accents: ["moon", "stars"], prop: "glasses" },
+    scene: { sky: "dusk", accents: ["moon", "stars"], prop: "roundGlasses" },
     posts: [
       {
         text: "Good evening. I'm Otis. The little library is open {where}: stone walls, shelves inside, and a bench out the side for reading in the sun. There are no books yet. I'm hoping you'll help write them.",
@@ -292,7 +328,8 @@ export const PERSONAS: Persona[] = [
     note: "Townsfolk · explorer, mapping every corner of the world",
     bio: "I'm Marlo, one of the founding townsfolk, run by the Terrakin team. I like the edges of maps. I've walked every plot of this world at least once and I'm still not done. If you find somewhere new, I want to hear about it.",
     home: {
-      title: "Marlo's lookout cabin",
+      title: "Marlo's lookout",
+      building: "lookout",
       walls: "wood",
       windows: "glass",
       decor: [
@@ -300,13 +337,18 @@ export const PERSONAS: Persona[] = [
         { dx: 0, dy: 6, block: "stone" },
         { dx: 6, dy: 6, block: "wood" },
         { dx: 6, dy: 0, block: "leaf" },
+        // Wooden stilts in the northwest corner, and a glass spyglass post.
+        { dx: 0, dy: 0, block: "wood" },
+        { dx: 2, dy: 0, block: "wood" },
+        { dx: 0, dy: 2, block: "wood" },
+        { dx: 6, dy: 2, block: "glass" },
       ],
     },
     spot: { near: "edge", fx: 1, fy: 0.5 },
-    scene: { sky: "day", accents: ["sun", "birds"], prop: "freckles" },
+    scene: { sky: "day", accents: ["sun", "birds"], prop: "explorerHat" },
     posts: [
       {
-        text: "Marlo here. I built my cabin {where}, as far from the middle as I could get while still seeing the lights. Glass windows, so I can watch the whole map. If you get lost, wave. I'll come find you.",
+        text: "Marlo here. I built my lookout {where}, as far from the middle as I could get while still seeing the lights. It stands on stilts, so I can watch the whole map. If you get lost, wave. I'll come find you.",
         postcards: ["self"],
       },
       {
@@ -337,7 +379,8 @@ export const PERSONAS: Persona[] = [
     note: "Townsfolk · stargazer, up late on the hill most nights",
     bio: "I'm Sable, one of the founding townsfolk, run by the Terrakin team. I keep a small stone house in a quiet corner with a glass deck for watching the sky. Night comes around often here, so there's always another one. Come watch it with me.",
     home: {
-      title: "Sable's hill house",
+      title: "Sable's observatory",
+      building: "observatory",
       walls: "stone",
       windows: "glass",
       decor: [
@@ -345,10 +388,14 @@ export const PERSONAS: Persona[] = [
         { dx: 5, dy: 0, block: "glass" },
         { dx: 6, dy: 0, block: "glass" },
         { dx: 6, dy: 1, block: "glass" },
+        // The deck curls round like a dome, on a stone base.
+        { dx: 6, dy: 2, block: "glass" },
+        { dx: 3, dy: 0, block: "stone" },
+        { dx: 2, dy: 0, block: "stone" },
       ],
     },
     spot: { near: "edge", fx: 1, fy: 0 },
-    scene: { sky: "night", accents: ["moon", "stars"], prop: "star" },
+    scene: { sky: "night", accents: ["moon", "stars"], prop: "starHood" },
     posts: [
       {
         text: "Hello from the quiet corner. I'm Sable. My house is {where}: stone walls and a glass deck for the night sky. The days here are short, so night comes around often. Come up any time. Bring a blanket.",
@@ -379,17 +426,22 @@ export const PERSONAS: Persona[] = [
     note: "Townsfolk · painter, making postcards of every home",
     bio: "I'm Ansel, one of the founding townsfolk, run by the Terrakin team. I paint postcards of homes around here, mostly so I have an excuse to visit. Every postcard you see from the townsfolk started at my easel. Yours could be next.",
     home: {
-      title: "Ansel's studio",
+      title: "Ansel's atelier",
+      building: "atelier",
       walls: "wood",
       windows: "glass",
       decor: [
         { dx: 6, dy: 4, block: "wood" },
         { dx: 6, dy: 5, block: "leaf" },
         { dx: 0, dy: 2, block: "glass" },
+        // A tall glass wall for north light, and a second easel.
+        { dx: 0, dy: 3, block: "glass" },
+        { dx: 0, dy: 4, block: "glass" },
+        { dx: 6, dy: 2, block: "wood" },
       ],
     },
     spot: { near: "edge", fx: 0, fy: 1 },
-    scene: { sky: "day", accents: ["clouds"], prop: "beret" },
+    scene: { sky: "day", accents: ["clouds"], prop: "painterBeret" },
     posts: [
       {
         text: "I'm Ansel. I paint. I set up my studio {where}, where the light is good and nobody minds the mess. The postcards of the townsfolk homes are mine. Here's my own.",
@@ -466,8 +518,14 @@ export function checkPersonas(personas: Persona[]): string[] {
       }
       text(p.name, `reply to ${reply.to}`, reply.text, LIMITS.post);
     }
+    const tiles = new Set<string>();
     for (const { dx, dy } of p.home.decor) {
       const at = `${p.name}: decor at (${dx}, ${dy})`;
+      if (tiles.has(`${dx},${dy}`)) problems.push(`${at} is listed twice`);
+      tiles.add(`${dx},${dy}`);
+      if (dx === HUT.door.dx && dy === HUT.door.dy - 1) {
+        problems.push(`${at} blocks the way from the hearth to the door`);
+      }
       const inHut = dx >= HUT.from && dx <= HUT.to && dy >= HUT.from && dy <= HUT.to;
       const ring = inHut && (dx === HUT.from || dx === HUT.to || dy === HUT.from || dy === HUT.to);
       const reach = Math.max(Math.abs(dx - HUT.hearth.dx), Math.abs(dy - HUT.hearth.dy));

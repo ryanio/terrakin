@@ -117,7 +117,7 @@ export interface ActivityEntry {
   rest: string;
   href: string;
   at: string;
-  tone: "post" | "join" | "home" | "town";
+  tone: "join" | "home" | "town";
 }
 
 const ACTIVITY_MAX = 8;
@@ -238,11 +238,18 @@ export function skyCard() {
   const orb = h("span", { class: "sky-orb", attrs: { "aria-hidden": "true" } });
   const name = h("h2", { class: "pulse-title sky-name" });
   const line = h("p", { class: "sky-line" });
+  // The sun and moon arc across their own strip, so they never cross the words.
+  const scene = h(
+    "div",
+    { class: "sky-scene", attrs: { "aria-hidden": "true" } },
+    h("span", { class: "sky-stars" }),
+    orb,
+    h("span", { class: "sky-hill" }),
+  );
   const el = pulseShell(
     "pulse-sky",
     "The sky over Terrakin",
-    h("span", { class: "sky-stars", attrs: { "aria-hidden": "true" } }),
-    orb,
+    scene,
     h("p", { class: "eyebrow pulse-eyebrow sky-eyebrow", text: "In the world" }),
     name,
     line,
@@ -266,8 +273,8 @@ export function skyCard() {
     const up = phase < 0.5;
     const x = (up ? phase : phase - 0.5) / 0.5;
     orb.classList.toggle("moon", !up);
-    orb.style.left = `${8 + x * 78}%`;
-    orb.style.bottom = `${10 + Math.sin(Math.PI * x) * 58}%`;
+    orb.style.left = `${10 + x * 80}%`;
+    orb.style.bottom = `${18 + Math.sin(Math.PI * x) * 50}%`;
     el.classList.toggle("is-night", night > 0.55);
     name.textContent = `${phaseName(phase)} in Terrakin`;
     const minutes = Math.round(anchor.dayMs / 60_000);
@@ -358,43 +365,6 @@ export function townCard() {
           h("p", { class: "pulse-foot", text: `Pinned by ${notice.author.name}` }),
         );
       }
-    },
-  };
-}
-
-// ---------- recent pictures ----------
-
-export function galleryCard() {
-  const grid = h("div", { class: "mosaic" });
-  const el = pulseShell(
-    "pulse-gallery",
-    "Recent pictures",
-    h("p", { class: "eyebrow pulse-eyebrow" }, icon("image", "icon pulse-icon"), "Recent pictures"),
-    grid,
-  );
-  return {
-    el,
-    update(items: { post: PostView; url: string }[]) {
-      el.hidden = items.length < 3;
-      grid.dataset.count = String(items.length);
-      grid.replaceChildren(
-        ...items.map(({ post, url }) =>
-          h(
-            "a",
-            { class: "mosaic-tile", attrs: { href: postPath(post.id) } },
-            h("img", {
-              class: "mosaic-img",
-              attrs: {
-                src: url,
-                alt: `Picture by ${post.author.name}`,
-                loading: "lazy",
-                decoding: "async",
-              },
-            }),
-            h("span", { class: "mosaic-who", text: post.author.name }),
-          ),
-        ),
-      );
     },
   };
 }

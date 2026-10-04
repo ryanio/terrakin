@@ -5895,22 +5895,6 @@ html.view3d-open body {
   margin: 0 4px;
 }
 
-.wall-live {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0 4px 0 0;
-  padding: 6px 12px;
-  border-radius: 999px;
-  background: rgba(143, 179, 106, 0.16);
-  font-size: 12px;
-  font-weight: 750;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  color: var(--moss);
-}
-
 .live-dot {
   flex: none;
   width: 9px;
@@ -5985,10 +5969,6 @@ html.view3d-open body {
 
   .wall-side::-webkit-scrollbar {
     display: none;
-  }
-
-  .wall-side .pulse-sky {
-    min-height: 210px;
   }
 }
 
@@ -6459,15 +6439,9 @@ html.view3d-open body {
 /* The sky over the world, from the server's clock. */
 .pulse-sky {
   position: relative;
-  min-height: 250px;
   align-content: start;
   border-color: rgba(255, 255, 255, 0.4);
   background: linear-gradient(180deg, var(--sky-top, #8ec9ea), var(--sky-low, #fdf3dc));
-}
-
-.pulse-sky > :not(.sky-orb, .sky-stars) {
-  position: relative;
-  z-index: 1;
 }
 
 .sky-eyebrow {
@@ -6496,13 +6470,31 @@ html.view3d-open body {
   text-decoration: none;
 }
 
+/* The strip the sun and moon cross, above the words. */
+.sky-scene {
+  position: relative;
+  height: 92px;
+  margin: -6px -6px 0;
+  overflow: hidden;
+  border-radius: 14px;
+}
+
+.sky-hill {
+  position: absolute;
+  inset: auto -12% -34px;
+  height: 58px;
+  border-radius: 50% 50% 0 0;
+  background: color-mix(in oklab, #7fa860, #1d2140 calc(var(--night, 0) * 72%));
+  box-shadow: 0 -2px 0 rgba(255, 255, 255, 0.18);
+}
+
 .sky-orb {
   position: absolute;
-  width: 46px;
-  height: 46px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   background: radial-gradient(circle at 35% 35%, #fff6c8, #f2b84b 60%, #e08a2b);
-  box-shadow: 0 0 34px 12px rgba(242, 184, 75, 0.5);
+  box-shadow: 0 0 22px 6px rgba(242, 184, 75, 0.45);
   transform: translate(-50%, 50%);
   transition:
     left 2s linear,
@@ -6512,7 +6504,7 @@ html.view3d-open body {
 
 .sky-orb.moon {
   background: radial-gradient(circle at 40% 40%, #fffdf3, #e6e1f7 60%, #c3b9e6);
-  box-shadow: 0 0 28px 8px rgba(205, 180, 246, 0.45);
+  box-shadow: 0 0 18px 5px rgba(205, 180, 246, 0.4);
 }
 
 .sky-stars {
@@ -6564,62 +6556,6 @@ html.view3d-open body {
   line-height: 1.5;
   white-space: pre-line;
   overflow-wrap: anywhere;
-}
-
-.mosaic {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  grid-auto-rows: 110px;
-  gap: 6px;
-}
-
-.mosaic-tile:first-child {
-  grid-column: span 2;
-  grid-row: span 2;
-}
-
-.mosaic[data-count="4"] .mosaic-tile:nth-child(4) {
-  grid-column: span 3;
-}
-
-.mosaic[data-count="5"] .mosaic-tile:nth-child(5) {
-  grid-column: span 2;
-}
-
-.mosaic-tile {
-  position: relative;
-  display: block;
-  overflow: hidden;
-  border-radius: 12px;
-  background: var(--paper-2);
-}
-
-.mosaic-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.5s ease;
-}
-
-.mosaic-tile:hover .mosaic-img {
-  transform: scale(1.05);
-}
-
-.mosaic-who {
-  position: absolute;
-  left: 8px;
-  bottom: 8px;
-  max-width: calc(100% - 16px);
-  overflow: hidden;
-  padding: 2px 9px;
-  border-radius: 999px;
-  background: rgba(43, 38, 32, 0.62);
-  color: var(--paper);
-  font-size: 12px;
-  font-weight: 650;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  backdrop-filter: blur(4px);
 }
 
 /* ---------- live notices ---------- */

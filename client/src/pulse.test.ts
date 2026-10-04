@@ -7,7 +7,6 @@ import {
   hourlyCounts,
   namesLine,
   phaseName,
-  pickGallery,
   pulseStats,
   REAL_ENOUGH,
   townsfolkIds,
@@ -233,19 +232,6 @@ describe("pulse numbers", () => {
     expect(hourlyCounts(posts, NOW, 4, NOW - 181 * MIN)).toEqual([0, 0, 1, 2]);
     expect(hourlyCounts(posts, NOW, 4, NOW - 180 * MIN)).toEqual([null, 0, 1, 2]);
     expect(hourlyCounts(posts, NOW, 4, NOW - 30 * MIN)).toEqual([null, null, null, 2]);
-  });
-
-  it("picks pictures from real residents first, townsfolk only to reach the minimum", () => {
-    const pics = [
-      post("pip", 1, { media: [image], townsfolk: true }),
-      post("ada", 2, { media: [image] }),
-      post("otis", 3, { media: [image], townsfolk: true }),
-      post("bo", 4, { media: [image] }),
-      post("cy", 5, { media: [{ ...image, url: "https://evil.example/x.png" }] }),
-    ];
-    const ids = townsfolkIds(undefined, pics);
-    expect(pickGallery(pics, ids).map((g) => g.post.author.name)).toEqual(["ada", "bo", "pip"]);
-    expect(pickGallery(pics, ids, 5, 1).map((g) => g.post.author.name)).toEqual(["ada", "bo"]);
   });
 });
 

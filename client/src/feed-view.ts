@@ -20,7 +20,6 @@ import {
   hourlyCounts,
   namesLine,
   PULSE_SLOTS,
-  pickGallery,
   pulseStats,
   type TownsfolkMode,
   townsfolkIds,
@@ -29,11 +28,9 @@ import {
   worldNews,
 } from "./pulse";
 import {
-  type ActivityEntry,
   activityCard,
   aroundCard,
   burstCard,
-  galleryCard,
   skyCard,
   statsCard,
   townCard,
@@ -387,19 +384,12 @@ export function feedView(ctx: ViewContext): View {
     });
   }
 
-  // Tabs for residents, a heading for visitors, and a live dot either way.
+  // Tabs for residents, a heading for visitors.
   const tabs = h("div", {
     class: "feed-tabs",
     attrs: { role: "tablist", "aria-label": "Which posts" },
   });
   const tabButtons = new Map<Tab, HTMLButtonElement>();
-  const liveCount = h("span", { text: "Live" });
-  const live = h(
-    "p",
-    { class: "wall-live" },
-    h("span", { class: "live-dot", attrs: { "aria-hidden": "true" } }),
-    liveCount,
-  );
   const wallHead = h("div", { class: "wall-head" });
   if (hasToken) {
     for (const [tab, text] of [
@@ -415,9 +405,9 @@ export function feedView(ctx: ViewContext): View {
       tabButtons.set(tab, b);
       tabs.append(b);
     }
-    wallHead.append(tabs, live);
+    wallHead.append(tabs);
   } else {
-    wallHead.append(h("p", { class: "feed-heading eyebrow", text: "Latest from everyone" }), live);
+    wallHead.append(h("p", { class: "feed-heading eyebrow", text: "Latest from everyone" }));
   }
 
   // Composer, once we know who you are.
@@ -491,9 +481,8 @@ export function feedView(ctx: ViewContext): View {
   const around = aroundCard();
   const sky = skyCard();
   const town = townCard();
-  const gallery = galleryCard();
   const activity = activityCard();
-  const pulseEls = [stats.el, activity.el, gallery.el, around.el, town.el, sky.el];
+  const pulseEls = [stats.el, activity.el, around.el, town.el, sky.el];
   const wide = window.matchMedia("(min-width: 1000px)");
 
   /**
@@ -524,31 +513,6 @@ export function feedView(ctx: ViewContext): View {
 
   // ---------- live activity ----------
 
-  const postEntry = (p: PostView): ActivityEntry =>
-    p.repostedBy
-      ? {
-          key: `r:${p.id}:${p.repostedBy.id}`,
-          who: p.repostedBy,
-          lead: p.repostedBy.name,
-          rest: `reposted ${p.author.name}`,
-          href: postPath(p.id),
-          at: p.repostedAt ?? p.createdAt,
-          tone: "post",
-        }
-      : {
-          key: `p:${p.id}`,
-          who: p.author,
-          lead: p.author.name,
-          rest: p.media.some((m) => m.kind === "image") ? "shared a picture" : "posted",
-          href: postPath(p.id),
-          at: p.createdAt,
-          tone: "post",
-        };
-
-  /** Posts as timeline entries, leaving out townsfolk once real residents carry the page. */
-  const postEntries = (posts: PostView[]) =>
-    announceable(posts, state.mode, known()).map(postEntry);
-
   const known = () => townsfolkIds(pulse.world, state.posts);
 
   function paintPulse() {
@@ -568,11 +532,9 @@ export function feedView(ctx: ViewContext): View {
       );
       const a = aroundNow(world, ids);
       around.update(a.shown, a.more, ids);
-      liveCount.textContent = s.online > 0 ? `Live · ${s.online} around` : "Live";
       sky.update(world, s.online);
     }
     if (pulse.town) town.update(pulse.town);
-    gallery.update(pickGallery(state.posts, ids));
   }
 
   let pulseBusy = false;
@@ -703,7 +665,6 @@ export function feedView(ctx: ViewContext): View {
     roll = undefined;
     list.replaceChildren(...render(arrangeWall(state.posts, state.mode, known())));
     placePulse();
-    activity.add(postEntries(state.posts.slice(0, 6)));
     paintPulse();
   }
 
@@ -827,7 +788,6 @@ export function feedView(ctx: ViewContext): View {
     refreshTimes(feed);
     fresh = countNew(state.posts, r.data.posts);
     freshPage = r.data;
-    activity.add(postEntries(fresh), true);
     if (fresh.length === 0) {
       newPill.hidden = true;
       return;

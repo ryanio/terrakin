@@ -219,25 +219,6 @@ export function hourlyCounts(
   return counts;
 }
 
-/** Up to `max` recent pictures, one per post, real residents first; townsfolk only to reach `min`. */
-export function pickGallery(
-  posts: readonly PostView[],
-  townsfolk: ReadonlySet<string>,
-  max = 5,
-  min = 3,
-): { post: PostView; url: string }[] {
-  const firstImage = (p: PostView) =>
-    p.media.find((m) => m.kind === "image" && isMediaUrl(m.url))?.url;
-  const real: { post: PostView; url: string }[] = [];
-  const fill: { post: PostView; url: string }[] = [];
-  for (const p of posts) {
-    const url = firstImage(p);
-    if (!url) continue;
-    (isTownsfolk(p.author, townsfolk) ? fill : real).push({ post: p, url });
-  }
-  return [...real, ...fill.slice(0, Math.max(0, min - real.length))].slice(0, max);
-}
-
 /** Which new posts to announce: none of the townsfolk's once real residents carry the page. */
 export function announceable(
   fresh: readonly PostView[],

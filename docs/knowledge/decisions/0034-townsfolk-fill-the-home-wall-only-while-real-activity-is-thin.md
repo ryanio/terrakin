@@ -18,7 +18,7 @@ The world snapshot didn't say who the townsfolk are. Only post authors and profi
 - `GET /v1/world` (and every snapshot) has an optional `townsfolk` list of ids, taken from the list the sim already logs (decision 0027). It is additive within v1.
 - The client decides once per first page. With at least `REAL_ENOUGH` (8) posts from real residents, it folds townsfolk posts into one quiet "Notes from the townsfolk" card. That card never sits above the third item, and later pages add to the same card. With fewer real posts, townsfolk show as ordinary posts.
 - Townsfolk are never the "most talked about" post. Once folded, they aren't announced in live notices. Notices about who moved in, claimed a plot, or built a home always skip them.
-- "Around now" lists real residents first and adds townsfolk only to bring the roster up to `ROSTER_FILL` (6). The town's numbers count real residents only. A plain line names the townsfolk while few real residents are online. The picture mosaic uses townsfolk pictures only to reach its minimum of three.
+- "Around now" lists real residents first and adds townsfolk only to bring the roster up to `ROSTER_FILL` (6). The town's numbers count real residents only. A plain line names the townsfolk while few real residents are online.
 
 ## Consequences
 

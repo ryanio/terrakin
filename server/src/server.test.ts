@@ -1,4 +1,4 @@
-import { appendFileSync, mkdtempSync, rmSync } from "node:fs";
+import { appendFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -223,6 +223,31 @@ describe("REST", () => {
       (await api(base, "POST", "/v1/actions", { type: "move", dir: "n" }, token)).body.ok,
     ).toBe(true);
     expect(service.state.residents[residentId]?.online).toBe(true);
+  });
+});
+
+describe("static files", () => {
+  it("serves /docs as docs.html and every other deep link as the app", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "terrakin-static-"));
+    cleanups.push(() => rmSync(dir, { recursive: true, force: true }));
+    writeFileSync(join(dir, "index.html"), "app");
+    writeFileSync(join(dir, "docs.html"), "docs");
+    mkdirSync(join(dir, "assets"));
+    const service = new WorldService({ store: new MemoryStore(), config: CONFIG });
+    const server = createApp({ service, staticDir: dir, onResponse });
+    await new Promise<void>((done) => server.listen(0, done));
+    cleanups.push(() => new Promise<void>((done) => server.close(() => done())));
+    const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    const get = async (path: string) => {
+      const res = await fetch(base + path);
+      return [res.headers.get("content-type"), await res.text()];
+    };
+
+    expect(await get("/docs")).toEqual(["text/html; charset=utf-8", "docs"]);
+    expect(await get("/docs/")).toEqual(["text/html; charset=utf-8", "docs"]);
+    for (const path of ["/", "/world", "/r/r_abc", "/assets", "/nope"]) {
+      expect(await get(path)).toEqual(["text/html; charset=utf-8", "app"]);
+    }
   });
 });
 

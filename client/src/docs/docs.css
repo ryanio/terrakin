@@ -1,0 +1,154 @@
+/*
+ * The docs page: a slim Terrakin bar over Scalar's reference, themed through Scalar's own CSS
+ * variables (theme: "none" in main.ts). Values come from the storybook tokens.
+ */
+@import "../tokens.css";
+
+:root {
+  --docs-bar: 56px;
+  --docs-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--paper);
+}
+
+/* ---------- the bar ---------- */
+
+.docs-bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: var(--docs-bar);
+  padding: 0 max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
+  background: var(--paper-fill);
+  border-bottom: 1px solid var(--paper-edge);
+}
+
+.docs-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.docs-brand-name {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.docs-label {
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--clay) 12%, var(--paper));
+  color: var(--clay-deep);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.docs-nav {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.docs-nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 10px;
+  border-radius: 12px;
+  color: var(--ink-soft);
+  font-weight: 600;
+  font-size: 0.95rem;
+  text-decoration: none;
+}
+
+.docs-nav a:hover {
+  color: var(--ink);
+  background: var(--paper-2);
+}
+
+@media (max-width: 520px) {
+  .docs-nav a.docs-nav-wide {
+    display: none;
+  }
+}
+
+.docs-noscript {
+  max-width: 40rem;
+  margin: 32px auto;
+  padding: 0 16px;
+  font-family: var(--font-body);
+}
+
+/* ---------- Scalar, in storybook colors ---------- */
+
+:root {
+  --scalar-custom-header-height: var(--docs-bar);
+  --scalar-font: var(--font-body);
+  --scalar-font-code: var(--docs-mono);
+  --scalar-radius: 10px;
+  --scalar-radius-lg: 14px;
+  --scalar-radius-xl: 18px;
+}
+
+.light-mode,
+.light-mode .scalar-app {
+  --scalar-background-1: var(--paper);
+  --scalar-background-2: var(--paper-2);
+  --scalar-background-3: #f3e6cf;
+  --scalar-background-accent: color-mix(in srgb, var(--clay) 10%, transparent);
+
+  --scalar-color-1: var(--ink);
+  --scalar-color-2: var(--ink-soft);
+  --scalar-color-3: #857a6c;
+  --scalar-color-accent: var(--clay);
+  --scalar-border-color: var(--paper-edge);
+
+  --scalar-color-green: var(--moss);
+  --scalar-color-red: #b23a2e;
+  --scalar-color-yellow: #b7860f;
+  --scalar-color-blue: #3a6f98;
+  --scalar-color-orange: var(--clay);
+  --scalar-color-purple: #7656b0;
+
+  --scalar-link-color: var(--clay-deep);
+  --scalar-link-color-hover: var(--clay);
+
+  --scalar-button-1: var(--clay);
+  --scalar-button-1-hover: var(--clay-deep);
+  --scalar-button-1-color: #fffaf0;
+
+  --scalar-sidebar-background-1: var(--paper-2);
+  --scalar-sidebar-color-1: var(--ink);
+  --scalar-sidebar-color-2: var(--ink-soft);
+  --scalar-sidebar-border-color: var(--paper-edge);
+  --scalar-sidebar-item-hover-background: color-mix(in srgb, var(--paper-edge) 45%, transparent);
+  --scalar-sidebar-item-hover-color: var(--ink);
+  --scalar-sidebar-item-active-background: color-mix(in srgb, var(--clay) 12%, transparent);
+  --scalar-sidebar-color-active: var(--clay-deep);
+  --scalar-sidebar-search-background: var(--paper);
+  --scalar-sidebar-search-color: var(--ink-soft);
+  --scalar-sidebar-search-border-color: var(--paper-edge);
+}
+
+/* Field and message names in the guides' tables stay whole instead of breaking mid-word. */
+.scalar-app .markdown td code {
+  white-space: nowrap;
+}
+
+/* Headings in the display face, like the rest of the site. */
+.scalar-app :is(h1, h2, h3, .section-header-label) {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+}

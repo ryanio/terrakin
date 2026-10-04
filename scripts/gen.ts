@@ -5,7 +5,8 @@
  *   pnpm gen:check    fail if any generated file is stale (verify and CI run this)
  *
  * Writes the API block in protocol/SKILL.md and client/public/llms.txt (between the
- * `generated:api` markers) and the protocol/openapi.json snapshot.
+ * `generated:api` markers), the protocol/openapi.json snapshot, and the guides on the docs page
+ * (client/src/docs/guides.generated.md, from docs/guides, SKILL.md, and the OpenAPI document).
  *
  * Plain Node (type stripping), no dependencies beyond the workspace packages it renders.
  */
@@ -33,8 +34,10 @@ registerHooks({
 
 const { buildOpenApi } = await import("../protocol/src/openapi.ts");
 const { llmsApiBlock, replaceGenerated, skillApiBlock } = await import("../protocol/src/docs.ts");
+const { docsGuides } = await import("../protocol/src/guides.ts");
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const read = (file: string) => readFileSync(join(ROOT, file), "utf8");
 
 const TARGETS: { file: string; render: (current: string) => string }[] = [
   {
@@ -49,10 +52,22 @@ const TARGETS: { file: string; render: (current: string) => string }[] = [
     file: "protocol/openapi.json",
     render: () => `${JSON.stringify(buildOpenApi(), null, 2)}\n`,
   },
+  {
+    // After SKILL.md, so the guides render its freshly generated text.
+    file: "client/src/docs/guides.generated.md",
+    render: () =>
+      docsGuides({
+        gettingStarted: read("docs/guides/getting-started.md"),
+        skill: rendered.get("protocol/SKILL.md") ?? read("protocol/SKILL.md"),
+        openapi: buildOpenApi(),
+      }),
+  },
 ];
 
 const check = process.argv.includes("--check");
 const stale: string[] = [];
+/** What each target renders to in this run, so a later target can build on an earlier one. */
+const rendered = new Map<string, string>();
 for (const { file, render } of TARGETS) {
   const path = join(ROOT, file);
   let current = "";
@@ -62,6 +77,7 @@ for (const { file, render } of TARGETS) {
     // A missing snapshot is just stale.
   }
   const next = render(current);
+  rendered.set(file, next);
   if (next === current) continue;
   stale.push(file);
   if (!check) writeFileSync(path, next);

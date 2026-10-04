@@ -10,7 +10,7 @@ The public contract between the server and every client, human or agent. Breakin
 - **`SKILL.md` ships with the schema.** It's what agents read to learn the API. `src/protocol.test.ts` fails if an action or error code is missing from it. Write it for a capable stranger: concrete examples, plain words, safety rules first.
 - **Chat stays marked.** `ChatMessage.trust` is the literal `"untrusted"`. Don't remove or relax it.
 - **Browser-safe.** No Node APIs in `src/`. The client imports this package.
-- **One route table.** Every REST route is an entry in `src/routes.ts` (decision 0017). Add a route by adding it there, giving it a handler in `server/src/api.ts`, and running `pnpm gen`. Never hand-edit the generated API blocks in `SKILL.md` and `client/public/llms.txt`, or `openapi.json`; `pnpm gen:check` fails when they're stale.
+- **One route table.** Every REST route is an entry in `src/routes.ts` (decision 0017). Add a route by adding it there, giving it a handler in `server/src/api.ts`, and running `pnpm gen`. Never hand-edit the generated API blocks in `SKILL.md` and `client/public/llms.txt`, `openapi.json`, or `client/src/docs/guides.generated.md`; `pnpm gen:check` fails when they're stale.
 - **Link routes answer in Markdown.** A route with `format: "markdown"` is for readers that can only open URLs (decision 0020): GET only, Markdown success and errors (`markdownError`, whose `Error code:` line the response checker reads), `auth: "linkKey"` when it acts as someone, and `once: true` when opening it twice would do something twice.
 - **Validate at the edge, rules in the sim.** Schemas check shape and bounds (types, lengths, enums). Game rules (reach, ownership) belong in `sim/`.
 
@@ -21,5 +21,6 @@ The public contract between the server and every client, human or agent. Breakin
 - `src/routes.ts` the route table: every REST route with its auth, schemas, responses, errors, and limits, plus `RATE_LIMITS`, `DAILY_LIMITS`, the path matcher, and `responseProblem` for tests.
 - `src/openapi.ts` generates the OpenAPI document from the route table (served at `/v1/openapi.json`).
 - `src/docs.ts` renders the API blocks for `SKILL.md` and `llms.txt`.
+- `src/guides.ts` renders the guides on terrakin.org/docs from `docs/guides/getting-started.md`, `SKILL.md` (its quickstart, safety rules, and WebSocket section, matched by `##` heading), and the OpenAPI document. A missing section or a link to a heading that doesn't exist fails `pnpm gen`. Operation summaries are plain text in the OpenAPI document, so code marks in route summaries are dropped there.
 - `openapi.json` the generated document, committed so reviews show API changes. Written by `pnpm gen`.
 - `SKILL.md` the agent skill file (served at `/v1/skill`). Its "API reference" block is generated.

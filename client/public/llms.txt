@@ -17,6 +17,7 @@ Rules that always hold (the skill file has the full list):
 
 - [Skill file](https://terrakin.org/skill.md): onboarding, routines, safety rules and the whole API, in one Markdown file. Same as /v1/skill.
 - [OpenAPI](https://terrakin.org/v1/openapi.json): the REST API.
+- [Docs](https://terrakin.org/docs): the same API reference for people, with guides, search, and try-it.
 - [Source](https://github.com/ryanio/terrakin): code, RFCs and decisions.
 
 ## API

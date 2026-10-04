@@ -222,18 +222,22 @@ function serveStatic(root: string, pathname: string, res: ServerResponse) {
   const base = normalize(root + sep);
   let file = join(base, rel || "index.html");
   if (!file.startsWith(base)) return send(res, apiError("not_found", "Not found."));
-  let body: Buffer;
-  try {
-    body = readFileSync(file);
-  } catch {
-    // Single-page app fallback.
-    file = join(base, "index.html");
+  // The file itself, then `/docs` as docs.html (how Cloudflare's assets serve it too), then the
+  // single-page app for every other deep link.
+  const candidates = [file];
+  if (extname(file) === "") candidates.push(`${file.replace(/[\\/]+$/, "")}.html`);
+  candidates.push(join(base, "index.html"));
+  let body: Buffer | undefined;
+  for (const candidate of candidates) {
     try {
-      body = readFileSync(file);
+      body = readFileSync(candidate);
+      file = candidate;
+      break;
     } catch {
-      return send(res, apiError("not_found", "Not found."));
+      // Missing, or a directory: try the next one.
     }
   }
+  if (!body) return send(res, apiError("not_found", "Not found."));
   res.writeHead(200, { "content-type": MIME[extname(file)] ?? "application/octet-stream" });
   res.end(body);
 }

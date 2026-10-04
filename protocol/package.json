@@ -6,7 +6,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./SKILL.md": "./SKILL.md"
+    "./SKILL.md": "./SKILL.md",
+    "./openapi.json": "./openapi.json"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json"

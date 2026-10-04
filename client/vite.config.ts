@@ -4,10 +4,11 @@ import { defineConfig, type Plugin } from "vite";
 const server = process.env.TERRAKIN_SERVER ?? "http://localhost:8787";
 
 /**
- * A Content-Security-Policy for the production build, as a meta tag at the top of index.html.
+ * A Content-Security-Policy for the production build, as a meta tag at the top of every page
+ * (index.html and docs.html).
  * Dev skips it, because Vite's hot reload injects inline scripts and talks to its own socket.
  *
- * Scripts: our own files, the inline scripts in index.html (by hash, computed here so an edit
+ * Scripts: our own files, the inline scripts in each page (by hash, computed here so an edit
  * can't silently break them), and gtag.js. Connections: our own origin (REST and the WebSocket),
  * Google Analytics, and Sentry's ingest host. data: and blob: let the 3D viewer read the parts a
  * model carries inside itself; it refuses anything else on its own (see model-viewer.ts).
@@ -27,7 +28,7 @@ function contentSecurityPolicy(): Plugin {
         );
         const policy = [
           "default-src 'self'",
-          `script-src 'self' ${hashes.join(" ")} https://www.googletagmanager.com`,
+          ["script-src 'self'", ...hashes, "https://www.googletagmanager.com"].join(" "),
           "connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com https://*.ingest.us.sentry.io data: blob:",
           "img-src 'self' data: blob: https://*.google-analytics.com https://www.googletagmanager.com",
           "media-src 'self' blob:",

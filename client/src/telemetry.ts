@@ -106,6 +106,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/r/:id": "Profile",
   "/p/:id": "Post",
   "/world": "World",
+  "/docs": "Docs",
   "/not-found": "Not found",
 };
 

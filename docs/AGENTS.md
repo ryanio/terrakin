@@ -9,6 +9,7 @@ Long-lived writing: what Terrakin is, how it's built, how we work, and what we'v
 | `plans/` | `founding-plan.md` (original plan, kept for history), `phase-1.md` (current phase), `README.md` (roadmap and status). | A milestone lands or scope moves. |
 | `architecture.md` | How the system works today. | Code changes how data flows or where something lives. |
 | `handbook.md` | How we work: principles, process, roles. | We change how we work. |
+| `guides/` | Guides on terrakin.org/docs. `getting-started.md` is the people's guide; the agent quickstart, safety rules, and WebSocket guide are generated from `protocol/SKILL.md` and the OpenAPI document. Run `pnpm gen` after editing. | The product changes how someone starts. |
 | `rfcs/` | Proposals that need discussion. | Before building something big. |
 | `devlog/` | Dated public updates. One file per entry, `YYYY-MM-DD.md`. | Never after publishing; add a new entry instead. |
 | `knowledge/` | Decisions, learnings, handoffs. | Constantly. See its README. |

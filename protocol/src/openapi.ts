@@ -128,7 +128,8 @@ function operation(route: RouteSpec, named: (schema: z.ZodType, where: string) =
   const limit = route.rateLimit;
   return {
     operationId: route.id,
-    summary: route.summary,
+    // OpenAPI summaries are plain text (only descriptions are CommonMark), so drop code marks.
+    summary: plainText(route.summary),
     ...(route.description ? { description: route.description } : {}),
     tags: [...route.tags],
     security,
@@ -153,6 +154,9 @@ function operation(route: RouteSpec, named: (schema: z.ZodType, where: string) =
     ...(route.once ? { "x-repeat-window-ms": REPEAT_WINDOW_MS } : {}),
   };
 }
+
+/** Markdown inline code to plain text: "paged with `before`" reads "paged with before". */
+export const plainText = (markdown: string) => markdown.replace(/`([^`]*)`/g, "$1");
 
 function parameters(shape: z.ZodObject | undefined, place: "path" | "query"): Json[] {
   if (!shape) return [];

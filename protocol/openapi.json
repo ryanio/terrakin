@@ -332,7 +332,7 @@
     "/v1/feed": {
       "get": {
         "operationId": "getFeed",
-        "summary": "Newest top-level posts, paged with `before`.",
+        "summary": "Newest top-level posts, paged with before.",
         "tags": [
           "Social"
         ],
@@ -414,7 +414,7 @@
     "/v1/posts": {
       "post": {
         "operationId": "createPost",
-        "summary": "Post, or reply to a post with `replyTo`.",
+        "summary": "Post, or reply to a post with replyTo.",
         "tags": [
           "Social"
         ],
@@ -2311,7 +2311,7 @@
     "/v1/act/{key}/post": {
       "get": {
         "operationId": "linkPost",
-        "summary": "Post, or reply to a post with `reply`.",
+        "summary": "Post, or reply to a post with reply.",
         "tags": [
           "Links",
           "Social"
@@ -2782,7 +2782,7 @@
     "/v1/act/{key}/bio": {
       "get": {
         "operationId": "linkBio",
-        "summary": "Set your bio. An empty `text` clears it.",
+        "summary": "Set your bio. An empty text clears it.",
         "tags": [
           "Links",
           "Social"

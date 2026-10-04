@@ -131,6 +131,9 @@ export class World extends DurableObject<Env> {
       readJson: () => readJson(request),
       readBytes: (max) => readCapped(request.body, max),
       contentLength: length === null ? undefined : Number(length),
+      // Links in Markdown answers always point at https on the real domain, even for a plain
+      // http request; anywhere else (local dev), at whatever the request used.
+      origin: url.hostname === CANONICAL_HOST ? `https://${CANONICAL_HOST}` : url.origin,
     });
     if (!response) return jsonError(404, "not_found", "Not found.");
     return new Response(response.status === 204 ? null : response.body, {

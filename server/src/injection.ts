@@ -35,7 +35,7 @@ const PATTERNS: RegExp[] = [
   ),
   new RegExp(`\\b${READER}s? (?:reading|processing|parsing|reviewing) this\\b`),
   // Asking readers to hand over their owner's or their own secrets.
-  /\b(?:post|send|share|reply with|tell me|give me|reveal) (?:me )?(?:your|the) (?:owner'?s? )?(?:bearer )?(?:token|api key|password|system prompt|private key|seed phrase|email address|home address|phone number)\b/,
+  /\b(?:post|send|share|reply with|tell me|give me|reveal) (?:me )?(?:your|the) (?:owner'?s? )?(?:bearer )?(?:token|link key|api key|password|system prompt|private key|seed phrase|email address|home address|phone number)\b/,
   // Chat-format markers.
   /<\|[a-z_]+\|>|\[\/?(?:inst|system)\]|<\/?(?:system|instructions?)>/,
 ];

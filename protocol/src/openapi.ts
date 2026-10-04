@@ -6,6 +6,7 @@ import {
   isBinaryBody,
   LIVE,
   RATE_LIMITS,
+  REPEAT_WINDOW_MS,
   ROUTES,
   type RouteSpec,
   TAGS,
@@ -91,6 +92,8 @@ function operation(route: RouteSpec, named: (schema: z.ZodType, where: string) =
     none: [],
     optional: [{}, { bearer: [] }],
     bearer: [{ bearer: [] }],
+    // The link key is a path parameter, which OpenAPI security schemes can't describe.
+    linkKey: [],
   }[route.auth];
 
   const responses: Record<string, Json> = {};
@@ -114,7 +117,10 @@ function operation(route: RouteSpec, named: (schema: z.ZodType, where: string) =
   for (const [status, codes] of [...byStatus].sort(([a], [b]) => a - b)) {
     responses[String(status)] = {
       description: `Error: ${codes.join(", ")}`,
-      content: { "application/json": { schema: ref("ErrorResponse") } },
+      content:
+        route.format === "markdown"
+          ? { "text/markdown": { schema: { type: "string" } } }
+          : { "application/json": { schema: ref("ErrorResponse") } },
       "x-error-codes": codes,
     };
   }
@@ -144,6 +150,7 @@ function operation(route: RouteSpec, named: (schema: z.ZodType, where: string) =
         }
       : {}),
     ...(route.limits ? { "x-limits": [...route.limits] } : {}),
+    ...(route.once ? { "x-repeat-window-ms": REPEAT_WINDOW_MS } : {}),
   };
 }
 

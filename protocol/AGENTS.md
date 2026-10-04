@@ -11,6 +11,7 @@ The public contract between the server and every client, human or agent. Breakin
 - **Chat stays marked.** `ChatMessage.trust` is the literal `"untrusted"`. Don't remove or relax it.
 - **Browser-safe.** No Node APIs in `src/`. The client imports this package.
 - **One route table.** Every REST route is an entry in `src/routes.ts` (decision 0017). Add a route by adding it there, giving it a handler in `server/src/api.ts`, and running `pnpm gen`. Never hand-edit the generated API blocks in `SKILL.md` and `client/public/llms.txt`, or `openapi.json`; `pnpm gen:check` fails when they're stale.
+- **Link routes answer in Markdown.** A route with `format: "markdown"` is for readers that can only open URLs (decision 0020): GET only, Markdown success and errors (`markdownError`, whose `Error code:` line the response checker reads), `auth: "linkKey"` when it acts as someone, and `once: true` when opening it twice would do something twice.
 - **Validate at the edge, rules in the sim.** Schemas check shape and bounds (types, lengths, enums). Game rules (reach, ownership) belong in `sim/`.
 
 ## Layout

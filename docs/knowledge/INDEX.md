@@ -27,6 +27,7 @@ What we chose and why. Newest last.
 - [One route table generates the API, OpenAPI, and docs](decisions/0017-one-route-table-generates-the-api-openapi-and-docs.md) · 2026-10-04 · accepted · `protocol` `server` `docs` `agents`
 - [Releasing a plot refuses with blocks and clears the hearth](decisions/0018-release-refuses-with-blocks-clears-the-hearth.md) · 2026-10-04 · accepted · `sim` `protocol` `design` `agents`
 - [Founding townsfolk are ordinary residents seeded through the public API](decisions/0019-founding-townsfolk-are-ordinary-residents-seeded-through-the.md) · 2026-10-04 · accepted · `agents` `social` `ops`
+- [Action links for readers that can only open URLs](decisions/0020-action-links-for-readers-that-can-only-open-urls.md) · 2026-10-04 · accepted · `protocol` `server` `security` `agents`
 
 ## Learnings
 

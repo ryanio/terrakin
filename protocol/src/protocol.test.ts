@@ -13,6 +13,8 @@ import { buildOpenApi } from "./openapi";
 import {
   compileRoutes,
   errorStatus,
+  markdownError,
+  markdownErrorCode,
   RATE_LIMITS,
   ROUTES,
   type RouteSpec,
@@ -146,10 +148,25 @@ describe("route table", () => {
   it.each(table)("$id declares what its auth, limits, and inputs can return", (route) => {
     const declared = [...(route.path.matchAll(/\{(\w+)\}/g) ?? [])].map((m) => m[1]);
     expect(Object.keys(route.params?.shape ?? {})).toEqual(declared);
-    if (route.auth === "bearer") expect(route.errors).toContain("unauthorized");
+    if (route.auth === "bearer" || route.auth === "linkKey") {
+      expect(route.errors).toContain("unauthorized");
+    }
     if (route.rateLimit) expect(route.errors).toContain("rate_limited");
     if (route.rateLimit && RATE_LIMITS[route.rateLimit].scope === "resident") {
-      expect(route.auth).toBe("bearer");
+      expect(["bearer", "linkKey"]).toContain(route.auth);
+    }
+    // A link key travels in the path, and only Markdown link routes take one.
+    if (route.auth === "linkKey") {
+      expect(declared[0]).toBe("key");
+      expect(route.format).toBe("markdown");
+    }
+    // Repeats are recognized by resident, so a `once` route needs to know who's calling.
+    if (route.once) expect(route.auth).toBe("linkKey");
+    if (route.format === "markdown") {
+      expect(route.method).toBe("GET");
+      for (const spec of Object.values(route.responses)) {
+        expect(spec).toMatchObject({ kind: "text", contentType: "text/markdown" });
+      }
     }
     if (route.body) expect(route.errors).toContain("bad_request");
     // A required query parameter is refused with bad_request when it's missing.
@@ -175,6 +192,11 @@ describe("route table", () => {
     expect(match("GET", "/v1/posts/")).toBeUndefined();
     expect(match("GET", "/v1/posts/a/b")).toBeUndefined();
     expect(match("PATCH", "/v1/profile")).toBeUndefined();
+    expect(match("GET", "/v1/act/k_abc/settle")).toMatchObject({
+      route: { id: "linkSettle" },
+      params: { key: "k_abc" },
+    });
+    expect(match("GET", "/v1/act/k_abc/nope")).toBeUndefined();
   });
 
   it("flags responses that drift from the table", () => {
@@ -189,6 +211,23 @@ describe("route table", () => {
     expect(check(500, { error: { code: "internal", message: "x" } })).toBeUndefined();
     expect(check(404, { error: { code: "not_found", message: "x" } })).toMatch(/undeclared/);
     expect(check(400, { error: { code: "not_found", message: "x" } })).toMatch(/should be 404/);
+  });
+
+  it("checks Markdown errors by their code line", () => {
+    const settle = table.find((r) => r.id === "linkSettle");
+    const md = "text/markdown; charset=utf-8";
+    const check = (status: number, body: string, type = md) =>
+      responseProblem(settle, status, type, body);
+    expect(check(400, markdownError("bad_request", "px: Use a whole number."))).toBeUndefined();
+    expect(check(401, markdownError("unauthorized", "x", "help"))).toBeUndefined();
+    expect(check(404, markdownError("not_found", "x"))).toMatch(/undeclared error code/);
+    expect(check(429, markdownError("bad_request", "x"))).toMatch(/should be 400/);
+    expect(check(400, "# Not done\n\nno code")).toMatch(/no error code line/);
+    expect(check(400, markdownError("bad_request", "x"), "application/json")).toMatch(
+      /content type/,
+    );
+    expect(check(200, "# Settled\n")).toBeUndefined();
+    expect(markdownErrorCode(markdownError("plot_owned", "Taken."))).toBe("plot_owned");
   });
 });
 
@@ -213,7 +252,9 @@ describe("OpenAPI", () => {
         expect(statuses).toContain(String(errorStatus(code)));
       }
       expect(op?.security).toEqual(
-        route.auth === "none" ? [] : expect.arrayContaining([{ bearer: [] }]),
+        route.auth === "none" || route.auth === "linkKey"
+          ? []
+          : expect.arrayContaining([{ bearer: [] }]),
       );
     }
   });

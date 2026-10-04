@@ -89,6 +89,9 @@ export class WorldService {
   readonly state: WorldState;
   private readonly store: Store;
   private readonly sessions = new Map<string, string>(); // tokenHash -> residentId
+  /** Link keys (decision 0020): at most one per resident. keyHash -> residentId, and back. */
+  private readonly linkKeys = new Map<string, string>();
+  private readonly linkKeyOf = new Map<string, string>();
   /** residentId -> their live listeners. Chat goes only to residents within earshot. */
   private readonly listeners = new Map<string, Set<Listener>>();
   private readonly lastSeen = new Map<string, number>();
@@ -102,6 +105,7 @@ export class WorldService {
     this.now = options.now ?? Date.now;
     this.state = replay(options.config ?? DEFAULT_CONFIG, this.store.loadLog());
     for (const s of this.store.loadSessions()) this.sessions.set(s.tokenHash, s.residentId);
+    for (const k of this.store.loadLinkKeys()) this.rememberLinkKey(k.residentId, k.keyHash);
     // Nobody is connected right after a restart. Mark everyone offline so presence is honest.
     for (const r of Object.values(this.state.residents)) {
       if (r.online) this.run({ actor: r.id, command: { type: "leave" } });
@@ -113,6 +117,20 @@ export class WorldService {
   createSession(
     request: { name: string; kind: ResidentKind } & LooseProfile,
   ): ActResult & { residentId?: string; token?: string } {
+    const result = this.createResident(request);
+    if (!result.ok || !result.residentId) return result;
+    const { residentId } = result;
+    const token = toBase64Url(randomBytes(32));
+    const tokenHash = hashToken(token);
+    this.sessions.set(tokenHash, residentId);
+    this.store.appendSession({ tokenHash, residentId });
+    return { ...result, residentId, token };
+  }
+
+  /** A new resident in the world, with no bearer token. `GET /v1/join` gives it a link key instead. */
+  createResident(
+    request: { name: string; kind: ResidentKind } & LooseProfile,
+  ): ActResult & { residentId?: string } {
     const residentId = `r_${toHex(randomBytes(8))}`;
     const { name, kind, ...profile } = request;
     const aimed = profile.note === undefined ? null : aimedAtReader(profile.note);
@@ -122,12 +140,48 @@ export class WorldService {
       command: { type: "join", name: cleanText(name), kind, ...cleanProfile(profile) },
     });
     if (!result.ok) return result;
-    const token = toBase64Url(randomBytes(32));
-    const tokenHash = hashToken(token);
-    this.sessions.set(tokenHash, residentId);
-    this.store.appendSession({ tokenHash, residentId });
     this.touch(residentId);
-    return { ...result, residentId, token };
+    return { ...result, residentId };
+  }
+
+  // ---------- link keys (decision 0020) ----------
+
+  /**
+   * Make a new link key for a resident and turn off the one they had. Returns the key, which is
+   * shown once and never stored or logged; only its hash is kept.
+   */
+  mintLinkKey(residentId: string): string {
+    const key = `k_${toBase64Url(randomBytes(32))}`;
+    const keyHash = hashToken(key);
+    // Save first: a key that isn't saved must not work, or it would stop working on restart.
+    this.store.saveLinkKey({ residentId, keyHash });
+    this.rememberLinkKey(residentId, keyHash);
+    return key;
+  }
+
+  /** Turn off a resident's link key. Returns whether there was one. */
+  revokeLinkKey(residentId: string): boolean {
+    if (!this.linkKeyOf.has(residentId)) return false;
+    this.store.saveLinkKey({ residentId, keyHash: null });
+    this.rememberLinkKey(residentId, null);
+    return true;
+  }
+
+  /** Resolve a link key to a resident id, or undefined if it's unknown or turned off. */
+  authenticateLinkKey(key: string): string | undefined {
+    if (!key.startsWith("k_")) return undefined;
+    return this.linkKeys.get(hashToken(key));
+  }
+
+  private rememberLinkKey(residentId: string, keyHash: string | null) {
+    const old = this.linkKeyOf.get(residentId);
+    if (old !== undefined) this.linkKeys.delete(old);
+    if (keyHash === null) {
+      this.linkKeyOf.delete(residentId);
+      return;
+    }
+    this.linkKeys.set(keyHash, residentId);
+    this.linkKeyOf.set(residentId, keyHash);
   }
 
   /** Resolve a bearer token to a resident id, or undefined if unknown. */

@@ -8,6 +8,13 @@ export interface SessionRecord {
   residentId: string;
 }
 
+/** A resident's link key (decision 0020), or `keyHash: null` once it's turned off. */
+export interface LinkKeyRecord {
+  residentId: string;
+  /** sha256 of the link key. The raw key is never stored. */
+  keyHash: string | null;
+}
+
 /**
  * Durable storage for the world. The world itself is never stored, only the log of accepted
  * inputs: on boot the server replays the log through the sim. That keeps one source of truth
@@ -18,6 +25,9 @@ export interface Store {
   appendInput(input: Input): void;
   loadSessions(): SessionRecord[];
   appendSession(session: SessionRecord): void;
+  /** Link key changes, oldest first. The last record for a resident is the one that counts. */
+  loadLinkKeys(): LinkKeyRecord[];
+  saveLinkKey(record: LinkKeyRecord): void;
 }
 
 export class MemoryStore implements Store {
@@ -35,6 +45,13 @@ export class MemoryStore implements Store {
   appendSession(session: SessionRecord) {
     this.sessions.push(session);
   }
+  readonly linkKeys: LinkKeyRecord[] = [];
+  loadLinkKeys() {
+    return [...this.linkKeys];
+  }
+  saveLinkKey(record: LinkKeyRecord) {
+    this.linkKeys.push(record);
+  }
 }
 
 /**
@@ -44,11 +61,13 @@ export class MemoryStore implements Store {
 export class JsonlStore implements Store {
   private readonly logPath: string;
   private readonly sessionsPath: string;
+  private readonly linkKeysPath: string;
 
   constructor(dir: string) {
     mkdirSync(dir, { recursive: true });
     this.logPath = join(dir, "world.log.jsonl");
     this.sessionsPath = join(dir, "sessions.jsonl");
+    this.linkKeysPath = join(dir, "link-keys.jsonl");
   }
 
   loadLog(): Input[] {
@@ -62,6 +81,12 @@ export class JsonlStore implements Store {
   }
   appendSession(session: SessionRecord) {
     appendFileSync(this.sessionsPath, `${JSON.stringify(session)}\n`);
+  }
+  loadLinkKeys(): LinkKeyRecord[] {
+    return readJsonl<LinkKeyRecord>(this.linkKeysPath);
+  }
+  saveLinkKey(record: LinkKeyRecord) {
+    appendFileSync(this.linkKeysPath, `${JSON.stringify(record)}\n`);
   }
 }
 

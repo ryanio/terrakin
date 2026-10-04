@@ -6,9 +6,11 @@ import {
   errorStatus,
   isBinaryBody,
   MAX_BODY_BYTES,
+  markdownError,
   PROTOCOL_VERSION,
   RATE_LIMITS,
   type RateLimitName,
+  REPEAT_WINDOW_MS,
   ROUTES,
   type RouteBody,
   type RouteId,
@@ -20,6 +22,7 @@ import {
   type RouteViewer,
   type ServerMessage,
 } from "@terrakin/protocol";
+import { BAD_LINK_KEY, DEFAULT_ORIGIN, linkHandlers, linkHelp, REPEAT_NOTE } from "./links";
 import { RateLimiters } from "./rate-limit";
 import type { SocialResult, SocialService } from "./social-service";
 import type { WorldService } from "./world-service";
@@ -56,6 +59,9 @@ export function ipKey(ip: string): string {
     .map((g) => g.toLowerCase().replace(/^0+(?=.)/, ""))
     .join(":")}::/64`;
 }
+
+/** Most `once` answers kept in memory: a short Markdown page each, keyed by a URL up to a few KB. */
+const MAX_REPEATS = 2_000;
 
 /** Uploads the one world object will buffer at once. Each can be up to 25 MB. */
 const MAX_UPLOADS_IN_FLIGHT = 2;
@@ -95,6 +101,11 @@ export interface ApiRequest {
   readBytes: (maxBytes: number) => Promise<Uint8Array | undefined>;
   /** The Content-Length header as a number, if the client sent one. */
   contentLength: number | undefined;
+  /**
+   * Scheme and host the client used, like `https://terrakin.org`, for absolute links in Markdown
+   * answers. Defaults to https://terrakin.org.
+   */
+  origin?: string;
 }
 
 export interface ApiResponse {
@@ -122,6 +133,8 @@ export interface ApiOptions {
    * Tests use it to check each response against the route table.
    */
   onResponse?: (route: RouteSpec | undefined, response: ApiResponse) => void;
+  /** Clock for the repeat window of `once` links. Default Date.now. */
+  now?: () => number;
 }
 
 // ---------- handler types, all derived from the route table ----------
@@ -139,6 +152,8 @@ export interface HandlerInput<K extends RouteId> {
   body: RouteBody<K> extends BinaryBody ? Upload : RouteBody<K>;
   viewer: RouteViewer<K>;
   ip: string;
+  /** See `ApiRequest.origin`. */
+  origin: string;
 }
 
 /** An error reply. The code must be one the route declares (tests check it). */
@@ -159,6 +174,7 @@ type AnyHandler = (input: {
   body: unknown;
   viewer: string | undefined;
   ip: string;
+  origin: string;
 }) => Promise<{ status: number; body?: unknown; text?: string } | Failure>;
 
 const fail = (error: ErrorCode, message: string): Failure => ({ error, message });
@@ -189,6 +205,9 @@ export class Api {
   private readonly match: (method: string, pathname: string) => RouteMatch<RouteSpec> | undefined;
   private readonly handlers: Handlers;
   private readonly onResponse: ApiOptions["onResponse"];
+  private readonly now: () => number;
+  /** Answers to `once` links, by route, resident, and query, for REPEAT_WINDOW_MS. */
+  private readonly repeats = new Map<string, { at: number; response: Promise<ApiResponse> }>();
 
   constructor(options: ApiOptions) {
     this.service = options.service;
@@ -197,6 +216,7 @@ export class Api {
     this.social = options.social;
     this.ipUploadBytesPerDay = options.ipUploadBytesPerDay ?? 500_000_000;
     this.onResponse = options.onResponse;
+    this.now = options.now ?? Date.now;
     const bucket = (name: RateLimitName) =>
       new RateLimiters(RATE_LIMITS[name].burst, RATE_LIMITS[name].perSecond);
     const actions = options.actionsPerSecond;
@@ -223,37 +243,77 @@ export class Api {
     if (!match && req.method === "GET" && !isApiPath(req.pathname)) return undefined;
     const response = match
       ? await this.dispatch(match, req)
-      : error("not_found", `No route for ${req.method} ${req.pathname}.`);
+      : // Never echo a link key back, even to its holder.
+        error(
+          "not_found",
+          `No route for ${req.method} ${req.pathname.replace(/^\/v1\/act\/[^/]+/, "/v1/act/<key>")}.`,
+        );
     this.onResponse?.(match?.route, response);
     return response;
   }
 
-  /** Authenticate, rate limit, and parse, in that order, then run the route's handler. */
-  private async dispatch(
+  /**
+   * Authenticate, rate limit, and parse, in that order, then run the route's handler. A `once`
+   * link opened again within the repeat window gets its first answer back before any of that.
+   */
+  private async dispatch(match: RouteMatch<RouteSpec>, req: ApiRequest): Promise<ApiResponse> {
+    const { route, params: rawParams } = match;
+    const origin = req.origin ?? DEFAULT_ORIGIN;
+    const viewer =
+      route.auth === "none"
+        ? undefined
+        : route.auth === "linkKey"
+          ? this.service.authenticateLinkKey(rawParams.key ?? "")
+          : this.authenticate(req.authorization);
+    if (route.auth === "linkKey" && !viewer) {
+      return render(route, fail("unauthorized", BAD_LINK_KEY), linkHelp(origin, undefined));
+    }
+    if (route.auth === "bearer" && !viewer) return render(route, unauthorized());
+    if (route.once && viewer) {
+      const query = new URLSearchParams(req.query);
+      query.sort();
+      return this.once(`${route.id} ${viewer} ${query}`, () =>
+        this.run(match, req, viewer, origin),
+      );
+    }
+    return this.run(match, req, viewer, origin);
+  }
+
+  private async run(
     { route, params: rawParams }: RouteMatch<RouteSpec>,
     req: ApiRequest,
+    viewer: string | undefined,
+    origin: string,
   ): Promise<ApiResponse> {
-    const viewer = route.auth === "none" ? undefined : this.authenticate(req.authorization);
-    if (route.auth === "bearer" && !viewer) return render(route, unauthorized());
+    const help =
+      route.format === "markdown"
+        ? linkHelp(origin, route.auth === "linkKey" ? rawParams.key : undefined)
+        : undefined;
+    const reject = (code: ErrorCode, message: string) => render(route, fail(code, message), help);
+    // Markdown readers get each problem on its own line instead of zod's JSON.
+    const problem = (e: { message: string; issues: { path: PropertyKey[]; message: string }[] }) =>
+      route.format === "markdown"
+        ? e.issues.map((i) => `${i.path.map(String).join(".") || "input"}: ${i.message}`).join("\n")
+        : e.message;
 
     if (route.rateLimit) {
       const key =
         RATE_LIMITS[route.rateLimit].scope === "resident" && viewer ? viewer : ipKey(req.ip);
       if (!this.limiters[route.rateLimit].take(key)) {
-        return error("rate_limited", RATE_LIMITED[route.rateLimit]);
+        return reject("rate_limited", RATE_LIMITED[route.rateLimit]);
       }
     }
 
     let params: unknown;
     if (route.params) {
       const parsed = route.params.safeParse(rawParams);
-      if (!parsed.success) return error("bad_request", parsed.error.message);
+      if (!parsed.success) return reject("bad_request", problem(parsed.error));
       params = parsed.data;
     }
     let query: unknown;
     if (route.query) {
       const parsed = route.query.safeParse(firstValues(req.query));
-      if (!parsed.success) return error("bad_request", parsed.error.message);
+      if (!parsed.success) return reject("bad_request", problem(parsed.error));
       query = parsed.data;
     }
 
@@ -261,10 +321,10 @@ export class Api {
     if (isBinaryBody(route.body)) {
       const size = req.contentLength;
       if (size === undefined || !Number.isInteger(size) || size < 0) {
-        return error("bad_request", "Send the file with a Content-Length header.");
+        return reject("bad_request", "Send the file with a Content-Length header.");
       }
       if (size > route.body.maxBytes) {
-        return error(
+        return reject(
           "bad_request",
           `That file is too big. The largest allowed is ${mb(route.body.maxBytes)}.`,
         );
@@ -272,7 +332,7 @@ export class Api {
       body = { length: size, read: () => req.readBytes(size) } satisfies Upload;
     } else if (route.body) {
       const parsed = route.body.safeParse(await req.readJson());
-      if (!parsed.success) return error("bad_request", parsed.error.message);
+      if (!parsed.success) return reject("bad_request", problem(parsed.error));
       body = parsed.data;
     }
 
@@ -283,8 +343,43 @@ export class Api {
       body,
       viewer,
       ip: req.ip,
+      origin,
     });
-    return render(route, reply);
+    return render(route, reply, help);
+  }
+
+  /**
+   * Run `act` once per `key` per REPEAT_WINDOW_MS. The pending answer is remembered before it
+   * settles, so a prefetch and a real open arriving together still act once. Only successes are
+   * kept: a refusal (rate limited, bad input) can be retried right away.
+   */
+  private async once(key: string, act: () => Promise<ApiResponse>): Promise<ApiResponse> {
+    const now = this.now();
+    const earlier = this.repeats.get(key);
+    if (earlier && now - earlier.at < REPEAT_WINDOW_MS) {
+      const first = await earlier.response;
+      return first.status < 300 ? { ...first, body: REPEAT_NOTE + first.body } : first;
+    }
+    const entry = { at: now, response: act() };
+    this.repeats.delete(key);
+    this.repeats.set(key, entry);
+    // Bounded: the oldest answers go first. Losing one only means a repeat acts again.
+    while (this.repeats.size > MAX_REPEATS) {
+      const oldest = this.repeats.keys().next().value;
+      if (oldest === undefined) break;
+      this.repeats.delete(oldest);
+    }
+    const forget = () => {
+      if (this.repeats.get(key) === entry) this.repeats.delete(key);
+    };
+    try {
+      const response = await entry.response;
+      if (response.status >= 300) forget();
+      return response;
+    } catch (err) {
+      forget();
+      throw err;
+    }
   }
 
   private requireSocial(): SocialService {
@@ -428,6 +523,9 @@ export class Api {
         }
       },
 
+      // ---------- links (decision 0020), in links.ts ----------
+      ...linkHandlers(this),
+
       // ---------- docs ----------
       getSkill: () => ({ status: 200, text: this.skill }),
       getOpenApi: () => ({ status: 200, text: this.openapi }),
@@ -446,6 +544,8 @@ export class Api {
     const today = Math.floor(Date.now() / 86_400_000);
     for (const [ip, used] of this.ipUploads) if (used.day !== today) this.ipUploads.delete(ip);
     for (const limits of Object.values(this.limiters)) limits.prune();
+    const cutoff = this.now() - REPEAT_WINDOW_MS;
+    for (const [key, { at }] of this.repeats) if (at < cutoff) this.repeats.delete(key);
   }
 
   authenticate(authorization: string | undefined): string | undefined {
@@ -584,16 +684,38 @@ function error(code: ErrorCode, message: string): ApiResponse {
   return json(errorStatus(code), { error: { code, message } });
 }
 
+/**
+ * Headers on every answer of a Markdown link route. These pages can hold a link key, so nothing
+ * may cache them, index them, or pass their URL on as a referrer.
+ */
+const PRIVATE_PAGE = {
+  "content-type": "text/markdown; charset=utf-8",
+  "cache-control": "no-store",
+  "x-robots-tag": "noindex, nofollow",
+  "referrer-policy": "no-referrer",
+};
+
 /** Turn a handler's reply into HTTP, using the route's declared response for that status. */
 function render(
   route: RouteSpec,
   reply: { status: number; body?: unknown; text?: string } | Failure,
+  help?: string,
 ): ApiResponse {
-  if ("error" in reply) return error(reply.error, reply.message);
+  if ("error" in reply) {
+    if (route.format !== "markdown") return error(reply.error, reply.message);
+    return {
+      status: errorStatus(reply.error),
+      headers: PRIVATE_PAGE,
+      body: markdownError(reply.error, reply.message, help),
+    };
+  }
   const spec = route.responses[reply.status];
   if (!spec) throw new Error(`Route ${route.id} declares no ${reply.status} response.`);
   if (spec.kind === "json") return json(reply.status, reply.body);
   if (spec.kind === "empty") return { status: reply.status, headers: {}, body: "" };
+  if (route.format === "markdown") {
+    return { status: reply.status, headers: PRIVATE_PAGE, body: reply.text ?? "" };
+  }
   const type = spec.contentType.startsWith("text/")
     ? `${spec.contentType}; charset=utf-8`
     : spec.contentType;

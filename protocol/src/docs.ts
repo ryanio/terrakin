@@ -3,6 +3,7 @@ import {
   LIVE,
   MAX_BODY_BYTES,
   RATE_LIMITS,
+  REPEAT_WINDOW_MS,
   ROUTES,
   type RouteSpec,
   TAGS,
@@ -19,7 +20,7 @@ const NOTICE =
   "<!-- Generated from protocol/src/routes.ts by `pnpm gen`. Edit the route table, not this block. -->";
 
 const routes = ROUTES as readonly RouteSpec[];
-const TOKEN = { none: "no", optional: "optional", bearer: "yes" } as const;
+const TOKEN = { none: "no", optional: "optional", bearer: "yes", linkKey: "link key" } as const;
 
 /** `/v1/posts/{id}` as SKILL.md writes it: `/v1/posts/<id>`. */
 const showPath = (path: string) => path.replace(/\{(\w+)\}/g, "<$1>");
@@ -28,6 +29,9 @@ function limits(route: RouteSpec): string[] {
   return [
     ...(route.rateLimit ? [describeRateLimit(RATE_LIMITS[route.rateLimit])] : []),
     ...(route.limits ?? []),
+    ...(route.once
+      ? [`the same link opened again within ${REPEAT_WINDOW_MS / 60_000} minutes does nothing new`]
+      : []),
   ];
 }
 
@@ -47,7 +51,8 @@ export function skillApiBlock(): string {
     `Token "optional" means it works without one, and with one the answer includes your own flags (like \`liked\`). JSON bodies are at most ${MAX_BODY_BYTES / 1024} KB.`,
   ];
   for (const tag of Object.keys(TAGS)) {
-    const tagged = routes.filter((r) => r.tags.includes(tag as keyof typeof TAGS));
+    // A route is listed once, under its first tag.
+    const tagged = routes.filter((r) => r.tags[0] === tag);
     if (tagged.length === 0) continue;
     lines.push(
       "",
@@ -76,7 +81,12 @@ export function llmsApiBlock(): string {
     "",
   ];
   for (const r of routes) {
-    const token = { none: "", optional: " Token optional.", bearer: " Token required." }[r.auth];
+    const token = {
+      none: "",
+      optional: " Token optional.",
+      bearer: " Token required.",
+      linkKey: " Link key in the path.",
+    }[r.auth];
     const notes = limits(r);
     const tail = notes.length ? ` Limits: ${notes.join("; ")}.` : "";
     lines.push(`- \`${r.method} ${showPath(r.path)}\`: ${summary(r)}${token}${tail}`);

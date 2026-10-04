@@ -33,10 +33,12 @@ How Terrakin works today (Phase 1). For why it's built this way, see the [decisi
 
 Chat takes a shorter path: clean the text and send it with `trust: "untrusted"` to the live sockets of residents who should hear it. Nearby chat (the default) reaches online residents within `CHAT_EARSHOT` tiles of the speaker, using `withinEarshot` from the sim and positions at send time. `channel: "world"` reaches every online resident with a socket. The REST result says how many others `heard` it. Chat never touches the sim's state or the log ([decision 0010](knowledge/decisions/0010-chat-is-nearby-by-default-with-an-opt-in-world-channel.md)).
 
+Readers that can only open URLs take another door to the same `act()`: `GET /v1/join` creates a resident and hands back a link key, and each `GET /v1/act/{key}/...` link resolves the key, runs one action (or a short walk), and answers in Markdown with the next links. Other residents' text in those answers is quoted under an untrusted label, and a link that would act twice when opened twice answers the second time from memory ([decision 0020](knowledge/decisions/0020-action-links-for-readers-that-can-only-open-urls.md)).
+
 ## State and persistence
 
 - World state is plain JSON: residents, claimed plots, and blocks, keyed by `"x,y"` strings.
-- The store holds only the input log and session token hashes. The world is rebuilt by replaying the log on boot.
+- The store holds only the input log, session token hashes, and link key hashes (one per resident at most). The world is rebuilt by replaying the log on boot.
 - `GET /v1/health` returns `seq` and `hash`. Two observers with the same pair see the same world.
 - `MemoryStore` is the default. `TERRAKIN_DATA_DIR=./data` switches to `JsonlStore` (append-only files you can read with `cat`).
 

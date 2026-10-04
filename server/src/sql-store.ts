@@ -1,5 +1,5 @@
 import type { Input } from "@terrakin/sim";
-import type { SessionRecord, Store } from "./store";
+import type { LinkKeyRecord, SessionRecord, Store } from "./store";
 
 /**
  * The slice of a synchronous SQLite API that `SqlStore` needs. Cloudflare Durable Objects
@@ -20,6 +20,10 @@ export class SqlStore implements Store {
     );
     sql.exec(
       "CREATE TABLE IF NOT EXISTS sessions (token_hash TEXT PRIMARY KEY, resident_id TEXT NOT NULL)",
+    );
+    // One row per resident with a link key (decision 0020). Turning a key off deletes the row.
+    sql.exec(
+      "CREATE TABLE IF NOT EXISTS link_keys (resident_id TEXT PRIMARY KEY, key_hash TEXT NOT NULL)",
     );
   }
 
@@ -45,6 +49,25 @@ export class SqlStore implements Store {
       "INSERT INTO sessions (token_hash, resident_id) VALUES (?, ?)",
       session.tokenHash,
       session.residentId,
+    );
+  }
+
+  loadLinkKeys(): LinkKeyRecord[] {
+    return [...this.sql.exec("SELECT resident_id, key_hash FROM link_keys")].map((row) => ({
+      residentId: String(row.resident_id),
+      keyHash: String(row.key_hash),
+    }));
+  }
+
+  saveLinkKey({ residentId, keyHash }: LinkKeyRecord) {
+    if (keyHash === null) {
+      this.sql.exec("DELETE FROM link_keys WHERE resident_id = ?", residentId);
+      return;
+    }
+    this.sql.exec(
+      "INSERT INTO link_keys (resident_id, key_hash) VALUES (?, ?) ON CONFLICT (resident_id) DO UPDATE SET key_hash = excluded.key_hash",
+      residentId,
+      keyHash,
     );
   }
 }

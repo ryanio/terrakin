@@ -63,6 +63,19 @@ export function clientIp(req: IncomingMessage, trustedProxies = 0): string {
   return hops[hops.length - trustedProxies] ?? direct;
 }
 
+/**
+ * The scheme and host the client used, for absolute links in Markdown answers. Only a plain
+ * host[:port] is accepted, so a strange Host header can't put anything else into a page. Behind
+ * trusted proxies, `X-Forwarded-Proto` says whether the client used https.
+ */
+export function requestOrigin(req: IncomingMessage, trustedProxies = 0): { origin?: string } {
+  const host = req.headers.host ?? "";
+  if (!/^[a-z0-9.-]+(:\d{1,5})?$/i.test(host)) return {};
+  const forwarded = trustedProxies > 0 ? req.headers["x-forwarded-proto"] : undefined;
+  const scheme = forwarded === "https" ? "https" : "http";
+  return { origin: `${scheme}://${host}` };
+}
+
 /** Node adapter: HTTP + WebSocket around the runtime-neutral `Api`. */
 export function createApp(options: AppOptions): Server {
   const api = new Api({
@@ -103,6 +116,7 @@ export function createApp(options: AppOptions): Server {
         req.headers["content-length"] === undefined
           ? undefined
           : Number(req.headers["content-length"]),
+      ...requestOrigin(req, options.trustedProxies),
     });
     if (response) return send(res, response);
     const mediaId = /^\/media\/([^/]+)$/.exec(url.pathname)?.[1];

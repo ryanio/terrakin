@@ -257,6 +257,13 @@ export const ActionResponse = z.discriminatedUnion("ok", [
   }),
   z.object({ ok: z.literal(false), error: ErrorBody }),
 ]);
+/** A link key for assistants that can only open links (decision 0020). Shown once. */
+export const LinkKeyResponse = z.object({
+  /** `k_...`. Secret, like a token, but it can only do what the action links do. */
+  key: z.string(),
+  /** The link that lists everything the key can do. Contains the key, so keep it private too. */
+  menu: z.string(),
+});
 export const HealthResponse = z.object({
   ok: z.literal(true),
   v: z.literal(PROTOCOL_VERSION),

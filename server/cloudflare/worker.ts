@@ -1,4 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
+import { instrumentDurableObjectWithSentry, withSentry } from "@sentry/cloudflare";
 import { cards } from "@terrakin/cards/worker";
 import { buildOpenApi } from "@terrakin/protocol";
 import SKILL_MD from "@terrakin/protocol/SKILL.md";
@@ -25,6 +26,7 @@ import { type ApiGet, loadPage, matchPage, pageEdits } from "../src/page-meta";
 import { negotiate, pageHeaders, twinHeaders } from "../src/pages";
 import { parseMaintainers, parseTownsfolk, SocialService } from "../src/social-service";
 import { SqlStore } from "../src/sql-store";
+import { report, sentryOptions, span } from "../src/telemetry";
 import { WorldService } from "../src/world-service";
 import { rewritePage } from "./meta-rewriter";
 
@@ -36,7 +38,7 @@ import { rewritePage } from "./meta-rewriter";
  */
 
 interface Env {
-  WORLD: DurableObjectNamespace<World>;
+  WORLD: DurableObjectNamespace<WorldObject>;
   ASSETS: Fetcher;
   /** Uploaded images, videos, and models (RFC 0003). */
   MEDIA: R2Bucket;
@@ -44,7 +46,14 @@ interface Env {
   TERRAKIN_TOWNSFOLK?: string;
   /** Resident ids of Town Hall maintainers (void proposals, answer petitions), comma separated. */
   TERRAKIN_MAINTAINERS?: string;
+  /** Where error reports, traces, and logs go (decision 0037). Unset means none are sent. */
+  SENTRY_DSN?: string;
+  /** Which deploy is running, so a report names its release. */
+  CF_VERSION_METADATA?: WorkerVersionMetadata;
 }
+
+/** The same Sentry setup for the Worker and the World object. */
+const sentry = (env: Env) => sentryOptions(env.SENTRY_DSN, env.CF_VERSION_METADATA?.id);
 
 const OPENAPI = JSON.stringify(buildOpenApi());
 const CANONICAL_HOST = "terrakin.org";
@@ -113,14 +122,16 @@ async function card(
     },
     allowRender: (ip) => allowRender(ipKey(ip)),
   };
-  const out = await serveCard(
-    {
-      route,
-      version: url.searchParams.get("v"),
-      ifNoneMatch: request.headers.get("if-none-match"),
-      ip: request.headers.get("cf-connecting-ip") ?? "unknown",
-    },
-    deps,
+  const out = await span("card", "card.serve", () =>
+    serveCard(
+      {
+        route,
+        version: url.searchParams.get("v"),
+        ifNoneMatch: request.headers.get("if-none-match"),
+        ip: request.headers.get("cf-connecting-ip") ?? "unknown",
+      },
+      deps,
+    ),
   );
   const body = request.method === "HEAD" || !out.body ? null : out.body.slice();
   return new Response(body, { status: out.status, headers: out.headers });
@@ -129,12 +140,20 @@ async function card(
 /** A page's HTML with its title, meta tags, JSON-LD and noscript copy filled in. */
 async function page(request: Request, env: Env, asset: Response): Promise<Response> {
   const url = new URL(request.url);
-  const loaded = await loadPage(matchPage(url.pathname), apiGet(env, url.origin));
-  const edits = pageEdits(loaded, await pageImage(loaded));
-  return edits ? rewritePage(asset, edits, new HTMLRewriter()) : asset;
+  const matched = matchPage(url.pathname);
+  return span(
+    "page.meta",
+    "page.meta",
+    async () => {
+      const loaded = await loadPage(matched, apiGet(env, url.origin));
+      const edits = pageEdits(loaded, await pageImage(loaded));
+      return edits ? rewritePage(asset, edits, new HTMLRewriter()) : asset;
+    },
+    { page: matched.name },
+  );
 }
 
-export default {
+const handler = {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (url.hostname === `www.${CANONICAL_HOST}`) {
@@ -178,7 +197,9 @@ export default {
   },
 } satisfies ExportedHandler<Env>;
 
-export class World extends DurableObject<Env> {
+export default withSentry(sentry, handler);
+
+class WorldObject extends DurableObject<Env> {
   private readonly api: Api;
 
   constructor(ctx: DurableObjectState, env: Env) {
@@ -229,6 +250,7 @@ export class World extends DurableObject<Env> {
     } catch (err) {
       // Same contract as the Node server: errors are always JSON, never Cloudflare's HTML page.
       console.error(err);
+      report(err, "world.fetch");
       return jsonError(500, "internal", "Something broke on our side.");
     }
   }
@@ -292,6 +314,9 @@ export class World extends DurableObject<Env> {
     });
   }
 }
+
+/** The single authoritative world. Its name is the class name in wrangler.jsonc. */
+export const World = instrumentDurableObjectWithSentry(sentry, WorldObject);
 
 async function readJson(request: Request): Promise<unknown> {
   const bytes = await readCapped(request.body, MAX_BODY_BYTES);

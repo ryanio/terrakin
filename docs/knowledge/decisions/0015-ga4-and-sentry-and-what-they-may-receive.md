@@ -25,8 +25,10 @@ GA4 may receive:
 Sentry may receive, from production builds only:
 
 - Error events: exception type, message, stack trace, browser and OS, environment, and the page URL with ids templated.
-- Breadcrumbs for navigation (paths templated, query strings removed), fetch and XHR (URL templated, no query string, method, status), and clicks reduced to `tag#id.class` built from the element itself. Every other breadcrumb kind is dropped, including console and input.
-- Nothing from `dataCollection`: user info, cookies, headers, bodies, query parameters, and local variables are all off. No tracing, no replay.
+- Breadcrumbs for navigation (paths templated, query strings removed), fetch and XHR (URL templated, no query string, method, status), clicks reduced to `tag#id.class` built from the element itself, and our own `api` and `live` crumbs (route template, status, error code, socket state). Every other breadcrumb kind is dropped, including console and input.
+- Traces for a fifth of page loads, named by route template, with span URLs templated and query strings removed. Trace headers go only to our own `/v1/` paths ([decision 0037](0037-server-error-reports-traces-and-breadcrumbs-carry-templates-.md)).
+- A warning when an API response fails its schema, naming the route template and the failing field names, never values.
+- Nothing from `dataCollection`: user info, cookies, headers, bodies, query parameters, and local variables are all off. No replay.
 
 Neither may ever receive resident names, resident, post, or media ids, chat, notes, bios, post text, file names, real page URLs or titles, referrers, or tokens. `scrubEvent` removes the saved token anywhere in a Sentry event and redacts any value under a key that looks like a token, authorization header, or cookie.
 

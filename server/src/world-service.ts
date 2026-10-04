@@ -30,6 +30,7 @@ import {
 } from "@terrakin/sim";
 import { Moderation, type ReviewContext, type Surface } from "./moderation";
 import type { Store } from "./store";
+import { count, crumb, report, span } from "./telemetry";
 import { cleanMultiline, cleanText } from "./text";
 
 export type ActResult =
@@ -504,12 +505,29 @@ export class WorldService {
    * write fails, the world is untouched, so memory never gets ahead of the log.
    */
   private run(input: Input): ActResult {
+    const command = input.command.type;
+    return span(
+      "world.run",
+      "sim",
+      () => {
+        const result = this.runTraced(input);
+        const outcome = result.ok ? "ok" : result.error.code;
+        crumb("world", command, { outcome });
+        count("world.command", { command, outcome });
+        return result;
+      },
+      { command },
+    );
+  }
+
+  private runTraced(input: Input): ActResult {
     const prepared = prepare(this.state, input);
     if (!prepared.ok) return { ok: false, error: prepared.rejection };
     try {
       this.store.appendInput(input);
     } catch (err) {
       console.error("Failed to persist input; world unchanged", err);
+      report(err, "world.persist", { command: input.command.type });
       return { ok: false, error: { code: "internal", message: "Couldn't save that. Try again." } };
     }
     const { seq, events } = prepared.commit();

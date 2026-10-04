@@ -46,6 +46,7 @@ import { COOL_DOWN_MESSAGE, type Moderation } from "./moderation";
 import { OwnerService } from "./owner-service";
 import { RateLimiters, type Take } from "./rate-limit";
 import type { SocialResult, SocialService } from "./social-service";
+import { count, crumb, nameRequest, report, span, task } from "./telemetry";
 import { anchorPlot, suggestPlots } from "./together";
 import { archiveView, proposalDetail, townView } from "./town";
 import type { WorldService } from "./world-service";
@@ -382,6 +383,7 @@ export class Api {
   async handle(req: ApiRequest): Promise<ApiResponse | undefined> {
     const match = this.match(req.method, req.pathname);
     if (!match && req.method === "GET" && !isApiPath(req.pathname)) return undefined;
+    if (match) nameRequest(match.route);
     // A Durable Object can sleep through midnight. Catch the day up before answering anything.
     this.service.tick();
     const answer = match
@@ -392,6 +394,13 @@ export class Api {
           `No route for ${req.method} ${req.pathname.replace(/^\/v1\/act\/[^/]+/, "/v1/act/<key>")}.`,
         );
     const response = { ...answer, headers: { ...API_HEADERS, ...answer.headers } };
+    const route = match ? match.route.id : "unmatched";
+    const code = errorCode(response);
+    crumb("api", match ? `${match.route.method} ${match.route.path}` : req.method, {
+      status: response.status,
+      ...(code ? { code } : {}),
+    });
+    count("api.response", { route, status: response.status, ...(code ? { code } : {}) });
     this.onResponse?.(match?.route, response);
     return response;
   }
@@ -493,8 +502,10 @@ export class Api {
     }
 
     const handler = this.handlers[route.id as RouteId] as unknown as AnyHandler;
-    const run = async () =>
-      render(route, await handler({ params, query, body, viewer, ip: req.ip, origin }), help);
+    const run = () =>
+      span(route.id, "api.handler", async () =>
+        render(route, await handler({ params, query, body, viewer, ip: req.ip, origin }), help),
+      );
     return withHeaders(
       await this.idempotent(route, req.idempotencyKey, viewer, [params, query, body], run),
       limitHeaders,
@@ -1166,9 +1177,16 @@ export class Api {
 
   /** Housekeeping: mark idle residents offline and forget full rate-limit buckets. Call about once a minute. */
   sweep() {
+    task("world.sweep", () => this.sweepNow());
+  }
+
+  private sweepNow() {
     this.service.tick();
     this.service.sweepIdle();
-    this.social?.sweep().catch((err: unknown) => console.error("Social sweep failed", err));
+    this.social?.sweep().catch((err: unknown) => {
+      console.error("Social sweep failed", err);
+      report(err, "social.sweep");
+    });
     this.owners?.sweep();
     this.service.moderation.sweep();
     this.social?.moderation.sweep();
@@ -1265,6 +1283,7 @@ export class LiveSession {
       this.handle(text);
     } catch (err) {
       console.error(err);
+      report(err, "live.message");
       this.fail("internal", "Something broke on our side.");
     }
   }
@@ -1383,6 +1402,18 @@ function error(code: ErrorCode, message: string, retryAfter?: number): ApiRespon
 
 function withHeaders(response: ApiResponse, headers: Record<string, string>): ApiResponse {
   return { ...response, headers: { ...response.headers, ...headers } };
+}
+
+/** The `error.code` of a JSON error reply, for traces and metrics. Markdown errors carry none. */
+function errorCode(response: ApiResponse): string | undefined {
+  if (response.status < 400 || typeof response.body !== "string") return undefined;
+  if (!response.headers["content-type"]?.startsWith("application/json")) return undefined;
+  try {
+    const code = (JSON.parse(response.body) as { error?: { code?: unknown } }).error?.code;
+    return typeof code === "string" ? code : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /** Replay a first response, unless it's one the client should be free to simply retry. */

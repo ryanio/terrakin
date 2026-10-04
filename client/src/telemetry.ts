@@ -8,7 +8,8 @@
  *   templated page ("/r/:id"), a fixed title, and an empty referrer, because we `set` them before
  *   any event and again on every route change. We send page views plus the two events below.
  * - Sentry reports errors from production builds only, with chat-bearing breadcrumbs dropped,
- *   clicks reduced to tag, id, and classes, and any token scrubbed.
+ *   clicks reduced to tag, id, and classes, and any token scrubbed. It traces a sample of page
+ *   loads and API calls, named by route template, so an error links to the server's trace.
  */
 import type { Breadcrumb, BreadcrumbHint, ErrorEvent } from "@sentry/browser";
 import { savedToken } from "./net";
@@ -121,22 +122,66 @@ const PAGE_TITLES: Record<string, string> = {
 /** Swap resident, post, notification, and media ids, and handles, in a URL or path for placeholders. */
 export function templateIds(text: string): string {
   // Invite codes are capabilities, letter ids are private, and handles name people: template them.
-  return text
-    .replace(/(\/by-handle\/)[^/?#\s"]+/g, "$1:handle")
-    .replace(
-      /(\/(?:r|p|i|media|residents|posts|letters|invites)\/)(?!by-handle\/)[A-Za-z0-9_-]+/g,
-      "$1:id",
-    )
-    .replace(/([?&]with=)[A-Za-z0-9_-]+/g, "$1:id")
-    .replace(/\/u\/[A-Za-z0-9_%]+/g, "/u/:handle")
-    .replace(/\bn_[0-9a-f]{16}\b/g, ":id");
+  return (
+    text
+      .replace(/(\/by-handle\/)[^/?#\s"]+/g, "$1:handle")
+      .replace(
+        /(\/(?:r|p|i|claim|media|residents|posts|letters|invites)\/)(?!by-handle\/)[A-Za-z0-9_-]+/g,
+        "$1:id",
+      )
+      .replace(/([?&]with=)[A-Za-z0-9_-]+/g, "$1:id")
+      .replace(/\/u\/[A-Za-z0-9_%]+/g, "/u/:handle")
+      // Any server id left (r_, p_, n_, m_, l_, g_), wherever it sits, like /v1/owner/link/r_....
+      .replace(/\b[a-z]_[0-9a-f]{16}\b/g, ":id")
+  );
 }
 
 const SENTRY_DSN =
   "https://30d8206b7ef3de8e82039fbb7b9b347c@o4512190538514432.ingest.us.sentry.io/4512199441252352";
 
 /** Breadcrumb kinds that can't carry chat, names, or notes. Everything else is dropped. */
-const SAFE_BREADCRUMBS = new Set(["navigation", "fetch", "xhr", "ui.click"]);
+const SAFE_BREADCRUMBS = new Set(["navigation", "fetch", "xhr", "ui.click", "api", "live"]);
+
+/** Share of page loads traced, with the API calls they make. */
+export const TRACES_SAMPLE_RATE = 0.2;
+
+let sentry: import("./sentry").SentryHandle | undefined;
+
+/**
+ * Leave a breadcrumb of our own. `message` is a fixed word or an error code, never text a person
+ * wrote: `api` crumbs say which route template failed with which code, `live` crumbs say how the
+ * socket is doing.
+ */
+export function appCrumb(category: "api" | "live", message: string) {
+  try {
+    sentry?.crumb({ category, message, level: "info" });
+  } catch {
+    // Error reporting must never break the game.
+  }
+}
+
+/**
+ * Report a server answer that didn't match its schema: the client and server disagree, which is
+ * a bug. Only the route template and the schema paths that failed go out, never values.
+ */
+export function reportBadResponse(path: string, error: unknown) {
+  try {
+    const issues = (error as { issues?: unknown } | null)?.issues;
+    const where = (Array.isArray(issues) ? issues : [])
+      .slice(0, 5)
+      .map((issue: { path?: unknown; code?: unknown }) => {
+        const at = Array.isArray(issue.path)
+          ? // Field names only: an index or a key with digits (a record keyed by id) becomes #.
+            issue.path.map((p) => (typeof p === "string" && !/\d/.test(p) ? p : "#")).join(".")
+          : "";
+        return `${at}:${typeof issue.code === "string" ? issue.code : "?"}`;
+      })
+      .join(", ");
+    sentry?.message(`Unexpected response from ${templateIds(path.split("?")[0] ?? "")}: ${where}`);
+  } catch {
+    // Error reporting must never break the game.
+  }
+}
 const SECRET_KEY = /token|authorization|cookie/i;
 const TOKEN_IN_TEXT = /(token\\?"?\s*[:=]\s*\\?"?)[\w.~+/-]{6,}/gi;
 
@@ -157,6 +202,40 @@ export function scrubEvent<T extends object>(event: T, token: string | null): T 
   json = json.replace(TOKEN_IN_TEXT, "$1[redacted]");
   json = templateIds(json);
   return scrubValue(JSON.parse(json), 0) as T;
+}
+
+/** Span attributes that hold a URL. Their query strings go; the rest is templated by `scrubEvent`. */
+const SPAN_URL_KEYS = ["url", "url.full", "http.url", "http.target"];
+
+/**
+ * An attribute selector in an element description, like `[alt="Wren's home"]`. Sentry writes
+ * aria-label, title, and alt into them, and those hold names and file names.
+ */
+const ATTRIBUTE_SELECTOR = /\[[\w:-]+[~|^$*]?=(?:"[^"]*"|'[^']*'|[^\]]*)\]/g;
+/** Web vital attributes that describe the element involved: dropped, since they quote its labels. */
+const ELEMENT_ATTRIBUTE = /^browser\.web_vital\..*\.(element|target|source(\.\d+)?|url)$/;
+
+/** A span with ids templated, the token scrubbed, no element labels, and no query strings. */
+export function scrubSpan<T extends { name: string; attributes?: Record<string, unknown> }>(
+  span: T,
+  token: string | null,
+): T {
+  const out = scrubEvent(span, token);
+  out.name = out.name.replace(/\?\S*/, "").replace(ATTRIBUTE_SELECTOR, "");
+  const attributes = out.attributes;
+  if (attributes) {
+    delete attributes["url.query"];
+    delete attributes["http.query"];
+    for (const [key, value] of Object.entries(attributes)) {
+      if (ELEMENT_ATTRIBUTE.test(key)) delete attributes[key];
+      else if (typeof value === "string") attributes[key] = value.replace(ATTRIBUTE_SELECTOR, "");
+    }
+    for (const key of SPAN_URL_KEYS) {
+      const value = attributes[key];
+      if (typeof value === "string") attributes[key] = value.split("?")[0];
+    }
+  }
+  return out;
 }
 
 /** Class names and ids we keep in a click breadcrumb: plain identifiers only. */
@@ -187,6 +266,11 @@ export function describeElement(target: unknown): string | null {
 
 export function filterBreadcrumb(crumb: Breadcrumb, hint?: BreadcrumbHint): Breadcrumb | null {
   if (!crumb.category || !SAFE_BREADCRUMBS.has(crumb.category)) return null;
+  if (crumb.category === "api" || crumb.category === "live") {
+    const { data: _data, ...rest } = crumb;
+    // Query strings can hold search text: drop them before templating ids.
+    return { ...rest, message: templateIds((crumb.message ?? "").replace(/\?\S*/g, "")) };
+  }
   if (crumb.category === "ui.click") {
     // Rebuild the message from the element itself. No element, no breadcrumb.
     const event = hint?.event as { target?: unknown } | undefined;
@@ -212,7 +296,7 @@ export async function initErrorReporting() {
   if (!isProductionSite(window.location.hostname)) return;
   try {
     const { startSentry } = await import("./sentry");
-    startSentry({
+    sentry = startSentry({
       dsn: SENTRY_DSN,
       environment: import.meta.env.MODE,
       // Sentry 11 replaced `sendDefaultPii` with per-category switches. All of them off: no user
@@ -226,9 +310,15 @@ export async function initErrorReporting() {
         stackFrameVariables: false,
         genAI: { inputs: false, outputs: false },
       },
-      tracesSampleRate: 0,
+      tracesSampleRate: TRACES_SAMPLE_RATE,
+      // Our own API only, so the server's trace continues the page's. Never third parties.
+      tracePropagationTargets: [
+        /^\/v1\//,
+        new RegExp(`^${window.location.origin.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/v1/`),
+      ],
       beforeBreadcrumb: (crumb, hint) => filterBreadcrumb(crumb, hint),
       beforeSend: (event: ErrorEvent) => scrubEvent(event, savedToken()),
+      beforeSendSpan: (span) => scrubSpan(span, savedToken()),
     });
   } catch {
     // A blocked or failed load just means no error reports.

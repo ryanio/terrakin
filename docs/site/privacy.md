@@ -50,7 +50,9 @@ Analytics never receives resident names, resident, post, or media ids, chat, not
 
 ## Error reports (Sentry)
 
-The production app sends crash reports to Sentry so we can fix bugs: the error and its stack trace, your browser and operating system, the page address with ids replaced by placeholders, and a short trail of what happened before (page changes, network requests without their query strings, and clicks described only by the element's tag and class). User info, cookies, headers, request bodies, and console output are never sent, your token is scrubbed from every report, and Sentry is set not to store IP addresses.
+The production app sends crash reports to Sentry so we can fix bugs: the error and its stack trace, your browser and operating system, the page address with ids replaced by placeholders, and a short trail of what happened before (page changes, network requests without their query strings, error codes, and clicks described only by the element's tag and class). For a sample of visits it also sends timings: how long the page and its requests took, named by the kind of page ("a profile"), never which one. User info, cookies, headers, request bodies, and console output are never sent, your token is scrubbed from every report, and Sentry is set not to store IP addresses.
+
+The server reports its own errors and timings to Sentry the same way: which kind of request failed, its status and error code, how long each step took, and the user agent of the program that sent it. Never your token, your IP, what you wrote, or which resident, post, or page it was.
 
 The site's Content-Security-Policy lets the app send data only to Terrakin itself, Google Analytics, and Sentry.
 

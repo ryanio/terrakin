@@ -1,4 +1,5 @@
 import { type Action, PROTOCOL_VERSION, ServerMessage } from "@terrakin/protocol";
+import { appCrumb } from "./telemetry";
 
 const TOKEN_KEY = "terrakin.token";
 /** Our own resident id, saved next to the token so the feed knows which profile is yours. */
@@ -90,6 +91,7 @@ export class Connection {
     this.reconnect = undefined;
     if (this.closed) return;
     this.onStatus("connecting");
+    appCrumb("live", "connecting");
     const proto = location.protocol === "https:" ? "wss" : "ws";
     const ws = new WebSocket(`${proto}://${location.host}/v1/live`);
     this.ws = ws;
@@ -110,7 +112,9 @@ export class Connection {
         this.identity = { token: msg.token };
         saveToken(msg.token, msg.residentId);
         this.onStatus("online");
+        appCrumb("live", "online");
       }
+      if (msg.type === "error") appCrumb("live", `error ${msg.error.code}`);
       if (msg.type === "error" && msg.error.code === "unauthorized") {
         // Stale token (for example, the server's data was reset). Start fresh.
         saveToken(null);
@@ -118,8 +122,9 @@ export class Connection {
       this.onMessage(msg);
     });
 
-    ws.addEventListener("close", () => {
+    ws.addEventListener("close", (e) => {
       this.onStatus("offline");
+      appCrumb("live", `closed ${e.code}`);
       if (this.closed) return;
       const delay = Math.min(10_000, 500 * 2 ** this.retry++);
       this.reconnect = setTimeout(() => this.open(), delay);

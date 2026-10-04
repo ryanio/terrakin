@@ -27,7 +27,7 @@
     "townsfolk": "node scripts/townsfolk/seed.ts",
     "start": "pnpm build && TERRAKIN_STATIC_DIR=client/dist pnpm --filter @terrakin/server start",
     "e2e": "playwright test",
-    "cf:dev": "pnpm build && wrangler dev",
+    "cf:dev": "pnpm build && wrangler dev --var SENTRY_DSN:",
     "cf:deploy": "pnpm build && wrangler deploy"
   },
   "devDependencies": {

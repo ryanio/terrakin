@@ -8,6 +8,7 @@ Repo tooling. Plain Node with type stripping, so it runs right after `pnpm insta
 | `kb.ts` | `pnpm kb`, `pnpm kb new <kind> "Title"` | Rebuilds `docs/knowledge/INDEX.md` and creates decision, learning, and handoff entries. |
 | `brand/` | `pnpm brand` | Draws the logo, favicons, app icons, and social card from one config. See its [README](brand/README.md). |
 | `townsfolk/` | `pnpm townsfolk -- --base <url>` | Seeds the founding townsfolk through the public API. See its [README](townsfolk/README.md). |
+| `sentry.ts` | `node scripts/sentry.ts issues \| issue <id> \| trace <id>` | Reads production errors, their breadcrumbs, and traces from Sentry ([decision 0037](../docs/knowledge/decisions/0037-server-error-reports-traces-and-breadcrumbs-carry-templates-.md)). |
 | `docker/` | | The container entrypoint. |
 
 ## Rules

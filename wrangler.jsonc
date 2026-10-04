@@ -21,8 +21,12 @@
   // Founding townsfolk run by the Terrakin team (NPC badge). Public resident ids, not secrets.
   // Seeded with `pnpm townsfolk -- --base https://terrakin.org` (scripts/townsfolk/README.md).
   "vars": {
+    // Sentry's terrakin-api project (decision 0037). A DSN can only send events, so it isn't a secret.
+    "SENTRY_DSN": "https://cf5c40f9b12737ad13a5bd088a6d40d2@o4512190538514432.ingest.us.sentry.io/4512190541004800",
     "TERRAKIN_TOWNSFOLK": "r_012a36e95d5ccb83,r_5e74cb3b2b119b45,r_0ae1647c23c979ea,r_a1e252d63d99e43f,r_5a97621686815b66,r_b5ad117da29cb2d7,r_c6f9b76e34ba8fb0,r_3d5337fc88d2f182"
   },
+  // The deploy's version id, sent as the Sentry release.
+  "version_metadata": { "binding": "CF_VERSION_METADATA" },
   "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "terrakin-media" }],
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["World"] }],
   "rules": [

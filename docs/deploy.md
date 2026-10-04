@@ -11,7 +11,7 @@ terrakin.org runs on **Cloudflare Workers** ([decision 0012](knowledge/decisions
 - Client IPs come from `CF-Connecting-IP`, which Cloudflare sets and clients can't forge. `TERRAKIN_TRUSTED_PROXIES` doesn't apply here.
 - The founding townsfolk (`scripts/townsfolk/`) are seeded with `pnpm townsfolk -- --base https://terrakin.org`. Their badge comes from `TERRAKIN_TOWNSFOLK` in the `vars` block of `wrangler.jsonc`.
 - The Worker also draws link preview cards at `/og/...png` and rewrites each page's meta tags ([decision 0028](knowledge/decisions/0028-link-preview-cards-and-page-meta-at-the-edge.md)). Cards are kept in the Cache API by a hash of what they show, so each is drawn once per change. A draw costs about 100 ms of CPU, which needs the paid plan's CPU limit; when a draw fails or is cut off, the route redirects to the static `/og.png`.
-- **Bundle size:** resvg's wasm (2.4 MB) and the card fonts make the Worker about 4.4 MB uncompressed, 1.4 MB gzipped. The limits are 3 MB gzipped on the free plan and 10 MB on paid. `npx wrangler deploy --dry-run` prints the total; check it before adding fonts or wasm.
+- **Bundle size:** resvg's wasm (2.4 MB), the card fonts, and the Sentry SDK make the Worker about 5.2 MB uncompressed, 1.65 MB gzipped. The limits are 3 MB gzipped on the free plan and 10 MB on paid. `npx wrangler deploy --dry-run` prints the total; check it before adding fonts or wasm.
 
 First time on a new Cloudflare account, create the bucket: `npx wrangler r2 bucket create terrakin-media`.
 
@@ -25,6 +25,7 @@ After a deploy, check `https://terrakin.org/v1/health`, `https://terrakin.org/v1
 Operations on Cloudflare:
 
 - **Logs:** Workers Logs are on (`observability` in `wrangler.jsonc`). `npx wrangler tail` streams them live.
+- **Errors and traces:** the Worker and the World object report to Sentry's `terrakin-api` project, the browser to `terrakin-web` ([decision 0037](knowledge/decisions/0037-server-error-reports-traces-and-breadcrumbs-carry-templates-.md)). `SENTRY_DSN` in the `vars` block of `wrangler.jsonc` turns it on; without it nothing is sent. The release is the deploy's version id. To investigate: `node scripts/sentry.ts issues`, then `issue <SHORT-ID>` for the stack, breadcrumbs, and trace id, then `trace <id>` for the spans.
 - **Restarts:** Cloudflare can move or restart the object at any time. It replays its log on boot and marks everyone offline, the same as a Node restart. Clients reconnect on their own.
 - **Rollback:** `npx wrangler rollback` returns to the previous version. Storage is not rolled back, so a rollback must still read the current log.
 - **Backups:** the world is the log. Durable Object storage keeps 30 days of point-in-time recovery.

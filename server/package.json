@@ -10,6 +10,8 @@
     "typecheck": "tsc -p tsconfig.json && tsc -p cloudflare/tsconfig.json"
   },
   "dependencies": {
+    "@sentry/cloudflare": "11.4.0",
+    "@sentry/core": "11.4.0",
     "@terrakin/cards": "workspace:*",
     "@terrakin/protocol": "workspace:*",
     "@terrakin/sim": "workspace:*",

@@ -5,7 +5,9 @@ import {
   isProductionSite,
   pageView,
   scrubEvent,
+  scrubSpan,
   startAnalytics,
+  templateIds,
 } from "./telemetry";
 
 describe("error reports carry nothing private", () => {
@@ -64,6 +66,69 @@ describe("error reports carry nothing private", () => {
       { event: { target: { tagName: "BUTTON", id: "claim", className: "" } } },
     );
     expect(withId?.message).toBe("button#claim");
+  });
+
+  it("keeps our api and live crumbs as a templated message with no data", () => {
+    const crumb = filterBreadcrumb({
+      category: "api",
+      message: "POST /v1/posts/p_0123456789abcdef/like?q=secret 429 rate_limited",
+      data: { text: "hi" },
+    });
+    expect(crumb).toEqual({
+      category: "api",
+      message: "POST /v1/posts/:id/like 429 rate_limited",
+    });
+  });
+
+  it("templates claim codes and invite codes in paths", () => {
+    expect(templateIds("/claim/abcd-efgh-jkmn-pqrs")).toBe("/claim/:id");
+    expect(templateIds("/i/x7y8z9")).toBe("/i/:id");
+  });
+
+  it("names spans by template and drops query strings from them", () => {
+    const span = {
+      name: "GET /v1/residents/r_0123456789abcdef?with=r_fedcba9876543210",
+      attributes: {
+        "url.full": "https://terrakin.org/r/r_0123456789abcdef?ref=x",
+        "url.query": "ref=x",
+        "http.request.header.authorization": "Bearer abc",
+      },
+    };
+    const out = scrubSpan(span, null);
+    expect(out.name).toBe("GET /v1/residents/:id");
+    expect(out.attributes).toEqual({
+      "url.full": "https://terrakin.org/r/:id",
+      "http.request.header.authorization": "[redacted]",
+    });
+  });
+
+  it("never lets an element's labels or a resident id into a span", () => {
+    const span = {
+      name: 'click div.home > img[alt="Wren Ashby\'s home"]',
+      attributes: {
+        "browser.web_vital.lcp.element": 'div.home > img[alt="Wren Ashby\'s home"]',
+        "browser.web_vital.inp.target": 'article[aria-label="Post by Wren"]',
+        "browser.web_vital.cls.source.1": 'button[title="Remove photo.png"]',
+        "sentry.op": "ui.interaction.click",
+        "url.full": "https://terrakin.org/v1/owner/link/r_0123456789abcdef",
+      },
+    };
+    const out = scrubSpan(span, null);
+    const json = JSON.stringify(out);
+    for (const secret of ["Wren", "photo.png", "r_0123456789abcdef"]) {
+      expect(json).not.toContain(secret);
+    }
+    expect(out.name).toBe("click div.home > img");
+    expect(out.attributes).toEqual({
+      "sentry.op": "ui.interaction.click",
+      "url.full": "https://terrakin.org/v1/owner/link/:id",
+    });
+  });
+
+  it("templates a server id wherever it appears", () => {
+    expect(templateIds("DELETE /v1/owner/link/r_0123456789abcdef 500 internal")).toBe(
+      "DELETE /v1/owner/link/:id 500 internal",
+    );
   });
 
   it("drops a click it can't describe, rather than keep Sentry's message", () => {

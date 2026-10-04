@@ -47,6 +47,7 @@ import {
 } from "@terrakin/protocol";
 import type { ResidentColor, ResidentShape } from "@terrakin/sim";
 import { savedResidentId, savedToken, saveResidentId } from "./net";
+import { appCrumb, reportBadResponse } from "./telemetry";
 import { isLetterMediaUrl } from "./together";
 
 export type Result<T> =
@@ -103,6 +104,7 @@ async function request<T>(
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
   } catch {
+    appCrumb("api", `${method} ${path} offline`);
     return { ok: false, status: 0, code: "offline", message: OFFLINE };
   }
   let json: unknown;
@@ -113,6 +115,7 @@ async function request<T>(
   }
   if (!res.ok) {
     const err = errorOf(json);
+    appCrumb("api", `${method} ${path} ${res.status} ${err?.code ?? "unknown"}`);
     if (err?.code === "suspended") {
       window.dispatchEvent(new CustomEvent(SUSPENDED_EVENT, { detail: err.message }));
     }
@@ -126,6 +129,7 @@ async function request<T>(
   const parsed = schema.safeParse(json);
   if (!parsed.success) {
     console.warn("Unexpected response from", path, parsed.error);
+    reportBadResponse(path, parsed.error);
     return {
       ok: false,
       status: res.status,

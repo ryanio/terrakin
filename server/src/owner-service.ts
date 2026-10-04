@@ -176,7 +176,10 @@ export class OwnerService {
   preview(input: string): SocialResult<OwnerInviteView> {
     const code = this.find("invite", input);
     const agent = code && this.social.ref(code.residentId);
-    if (!code || !agent) return fail("not_found", NO_CODE.invite);
+    // An agent that got an owner some other way has nothing left to invite to.
+    if (!code || !agent || this.social.ownerOf(agent.id) !== undefined) {
+      return fail("not_found", NO_CODE.invite);
+    }
     return { ok: true, value: { agent, expiresAt: new Date(code.expiresAt).toISOString() } };
   }
 
@@ -241,7 +244,8 @@ export class OwnerService {
   /**
    * A maintainer's way back in for a revoked agent: a one-time re-key code, which the maintainer
    * hands to the agent out of band. Only for agents still locked out by a revoke. A new code
-   * replaces an unused one.
+   * replaces an unused one. It also ends the owner link, so whoever locked the agent out can't
+   * revoke again or void the code: the agent and its real owner relink afterwards if they want.
    */
   maintainerRekey(callerId: string, agentId: string): SocialResult<OwnerCodeResponse> {
     if (!this.social.isMaintainer(callerId)) {
@@ -253,6 +257,7 @@ export class OwnerService {
     if (!locked || !this.social.resident(agentId)) {
       return fail("not_found", "That AI isn't locked out by a revoke.");
     }
+    this.social.unlink(agentId);
     this.drop("rekey", agentId);
     return { ok: true, value: this.issue("rekey", agentId, callerId) };
   }

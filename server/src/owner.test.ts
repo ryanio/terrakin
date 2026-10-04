@@ -315,6 +315,15 @@ describe("an AI claims its human", () => {
     expect(reuse.status).toBe(404);
   });
 
+  it("stops showing an invite once the agent has an owner another way", async () => {
+    const { call, join, invite, claim } = await start();
+    const hazel = await join("Hazel", "human");
+    const wren = await join("Wren", "agent");
+    const code = await invite(wren);
+    await claim(hazel, wren);
+    expect((await call("GET", `/v1/owner/invites/${code}`)).status).toBe(404);
+  });
+
   it("turns an invite away with Not mine", async () => {
     const { call, join, invite } = await start();
     const hazel = await join("Hazel", "human");
@@ -495,27 +504,31 @@ describe("revoking a compromised agent", () => {
     expect((await call("POST", "/v1/posts", { text: "fine" }, wren.token)).status).toBe(201);
   });
 
-  it("replaces an unused re-key code, voids it on a new revoke or expiry, and survives unlink", async () => {
-    const { call, hazel, wren, revoke, rekeyCode, advance } = await cast();
+  it("replaces an unused re-key code, and lets a code expire", async () => {
+    const { call, revoke, rekeyCode, advance } = await cast();
     await revoke();
-
     const first = (await rekeyCode()).body.code;
     const second = (await rekeyCode()).body.code;
     expect((await call("POST", "/v1/owner/rekey", { code: first })).status).toBe(404);
     advance(OWNER_CODE_TTL_MS);
     expect((await call("POST", "/v1/owner/rekey", { code: second })).status).toBe(404);
-
-    // The owner revoking again says it isn't safe yet: the maintainer's code goes.
     const third = (await rekeyCode()).body.code;
-    await revoke();
-    expect((await call("POST", "/v1/owner/rekey", { code: third })).status).toBe(404);
+    expect((await call("POST", "/v1/owner/rekey", { code: third })).status).toBe(200);
+  });
 
-    // Unlinking doesn't strand the agent: the team can still let it back in.
-    expect(
-      (await call("DELETE", `/v1/owner/link/${wren.residentId}`, undefined, hazel.token)).status,
-    ).toBe(204);
-    const fourth = (await rekeyCode()).body.code;
-    expect((await call("POST", "/v1/owner/rekey", { code: fourth })).status).toBe(200);
+  it("ends the owner link when the team steps in, so a hostile owner can't lock it out again", async () => {
+    const { call, wren, revoke, rekeyCode, profile } = await cast();
+    await revoke();
+    const code = (await rekeyCode()).body.code;
+    expect(await profile(wren.residentId)).not.toHaveProperty("owner");
+    // No longer the owner: can't revoke again, and can't void the code.
+    expect((await revoke()).status).toBe(404);
+    const back = await call("POST", "/v1/owner/rekey", { code });
+    expect(back.status).toBe(200);
+    expect((await call("POST", "/v1/posts", { text: "Mine again." }, back.body.token)).status).toBe(
+      201,
+    );
+    expect((await revoke()).status).toBe(404);
   });
 
   it("closes the agent's live connection", async () => {
@@ -579,13 +592,20 @@ describe("agents that can only open links", () => {
     expect((await open(`/v1/act/${key}/me`)).status).toBe(401);
 
     const issued = await call("POST", `/v1/owner/rekey-codes/${mossId}`, undefined, mira.token);
-    const rekeyed = await open(`/v1/rekey?code=${issued.body.code}`);
+    // Opened as given (or by a link preview), the link uses nothing up.
+    const first = await open(`/v1/rekey?code=${issued.body.code}`);
+    expect(first.status).toBe(200);
+    expect(keyIn(first.text)).toBe("");
+    expect(first.text).toContain("confirm=yes");
+    const again = await open(`/v1/rekey?code=${issued.body.code}`);
+    expect(again.text).toContain("confirm=yes");
+    const rekeyed = await open(`/v1/rekey?code=${issued.body.code}&confirm=yes`);
     expect(rekeyed.status).toBe(200);
     const fresh = keyIn(rekeyed.text);
     expect(fresh).toMatch(/^k_/);
     expect(fresh).not.toBe(key);
     expect((await open(`/v1/act/${fresh}/me`)).status).toBe(200);
-    expect((await open(`/v1/rekey?code=${issued.body.code}`)).status).toBe(404);
+    expect((await open(`/v1/rekey?code=${issued.body.code}&confirm=yes`)).status).toBe(404);
   });
 });
 

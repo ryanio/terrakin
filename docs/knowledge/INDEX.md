@@ -37,6 +37,7 @@ What we chose and why. Newest last.
 - [Link preview cards and page meta are drawn and written at the edge](decisions/0028-link-preview-cards-and-page-meta-at-the-edge.md) · 2026-10-04 · accepted · `server` `client` `seo` `security` `deploy`
 - [Looks are curated themes plus your own uploaded art](decisions/0029-looks-are-curated-themes-plus-your-own-uploaded-art.md) · 2026-10-04 · accepted · `sim` `protocol` `client` `agents` `design`
 - [3D art direction and performance budget](decisions/0030-3d-art-direction-and-performance-budget.md) · 2026-10-04 · accepted · `client` `performance` `art` `3d`
+- [Owners link a human and their AI with one-time codes](decisions/0031-owners-link-a-human-and-their-ai-with-one-time-codes.md) · 2026-10-04 · accepted · `security` `protocol` `server` `client` `agents`
 - [Townsfolk fill the home wall only while real activity is thin](decisions/0034-townsfolk-fill-the-home-wall-only-while-real-activity-is-thin.md) · 2026-10-04 · accepted · `client` `social` `design` `protocol`
 
 ## Learnings

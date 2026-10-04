@@ -602,6 +602,17 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
     },
 
     rekeyByLink: ({ query, origin }) => {
+      if (!query.confirm) {
+        // Link previews open URLs too. Use nothing up until the reader opens the second link.
+        const next = `${origin}/v1/rekey?code=${encodeURIComponent(query.code)}&confirm=yes`;
+        return ok(
+          page(
+            "# Get your new link key",
+            "This trades your one-time re-key code for a new link key. The code works once, so open the link below yourself, and don't share it.",
+            `Open: ${next}`,
+          ),
+        );
+      }
       const outcome = owners().rekey(query.code, "linkKey");
       if (!outcome.ok) return failed(outcome.code, outcome.message);
       const { residentId, token: key } = outcome.value;

@@ -53,6 +53,11 @@ describe("router", () => {
     expect(routeTemplate(matchRoute("/r/r_secret"))).toBe("/r/:id");
     expect(routeTemplate(matchRoute("/p/p_secret"))).toBe("/p/:id");
     expect(routeTemplate(matchRoute("/nope"))).toBe("/not-found");
+    expect(matchRoute("/r/r_secret/3d")).toEqual({ name: "plot3d", id: "r_secret" });
+    expect(routeTemplate(matchRoute("/r/r_secret/3d"))).toBe("/r/:id/3d");
+    expect(matchRoute("/gallery/3d")).toEqual({ name: "gallery3d" });
+    expect(routeTemplate(matchRoute("/gallery/3d"))).toBe("/gallery/3d");
+    expect(matchRoute("/gallery")).toEqual({ name: "not-found" });
   });
 
   it("handles only our own page links", () => {

@@ -43,6 +43,14 @@ export interface Composer {
   destroy(): void;
 }
 
+/** Files waiting for the next new-post composer (for example a photo taken in the 3D view). */
+let queued: File[] = [];
+
+/** Attach `file` to the next new-post composer that opens. */
+export function queueAttachment(file: File) {
+  queued = [...queued, file].slice(-MAX_MEDIA_PER_POST);
+}
+
 export function composer({ me, replyTo, onPosted }: ComposerOptions): Composer {
   const reply = replyTo !== undefined;
   const fieldId = `compose-${reply ? "reply" : "post"}`;
@@ -250,6 +258,12 @@ export function composer({ me, replyTo, onPosted }: ComposerOptions): Composer {
     update();
     onPosted(r.data.post);
   });
+
+  if (!reply && queued.length > 0) {
+    const files = queued;
+    queued = [];
+    for (const file of files) add(file);
+  }
 
   update();
   return {

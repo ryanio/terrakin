@@ -17,7 +17,7 @@ Both tools get an allowlist, enforced in `client/src/telemetry.ts` and pinned by
 
 GA4 may receive:
 
-- `page_view` with `page_location` set to the origin plus a route template (`/`, `/r/:id`, `/p/:id`, `/world`, `/docs`, `/not-found`), `page_title` fixed per template (Feed, Profile, Post, World, Docs, Not found), and `page_referrer` empty. The docs page always sends `/docs`, whatever section its address points at.
+- `page_view` with `page_location` set to the origin plus a route template (`/`, `/r/:id`, `/r/:id/3d`, `/p/:id`, `/world`, `/gallery/3d`, `/docs`, `/not-found`), `page_title` fixed per template (Feed, Profile, Plot in 3D, Post, World, Gallery in 3D, Docs, Not found), and `page_referrer` empty. The docs page always sends `/docs`, whatever section its address points at.
 - Two events with no parameters: `join` and `bring_ai_copy`.
 - The hits gtag.js sends on its own (`user_engagement`, `scroll`, outbound clicks, file downloads). They inherit the same templated page fields, because `startAnalytics` calls `gtag("set", ...)` before `config` and `pageView` calls it again before every page view.
 - gtag.js's own client data: the `_ga` cookie id, browser, screen size, and language. Google signals and ad personalization are off, and analytics never loads on local hosts.

@@ -104,6 +104,8 @@ export function pageView(template: string) {
 const PAGE_TITLES: Record<string, string> = {
   "/": "Feed",
   "/r/:id": "Profile",
+  "/r/:id/3d": "Plot in 3D",
+  "/gallery/3d": "Gallery in 3D",
   "/p/:id": "Post",
   "/world": "World",
   "/docs": "Docs",

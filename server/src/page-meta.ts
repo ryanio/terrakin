@@ -50,6 +50,10 @@ const PATTERNS: [RegExp, (m: RegExpExecArray) => Page][] = [
   [/^\/world$/, () => ({ name: "world" })],
   [/^\/town$/, () => ({ name: "town" })],
   [new RegExp(`^/r/${ID}$`), (m) => ({ name: "profile", id: m[1] ?? "" })],
+  // The plot in 3D shares its profile's meta and canonical.
+  [new RegExp(`^/r/${ID}/3d$`), (m) => ({ name: "profile", id: m[1] ?? "" })],
+  // The hidden 3D gallery is an app view like the world.
+  [/^\/gallery\/3d$/, () => ({ name: "world" })],
   [new RegExp(`^/p/${ID}$`), (m) => ({ name: "post", id: m[1] ?? "" })],
   [new RegExp(`^/letters(/${ID})?$`), () => ({ name: "private", what: "letters" })],
   [new RegExp(`^/i/${ID}$`), () => ({ name: "private", what: "invite" })],

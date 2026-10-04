@@ -21,6 +21,7 @@ import { unreadBadge } from "./together";
 import { townView } from "./town-view";
 import { interceptPop } from "./ui";
 import { notFoundView, type View, type ViewContext } from "./view";
+import { view3d } from "./view-3d";
 import "./style.css";
 
 // Analytics first, with the page set as a template before gtag.js can send anything.
@@ -197,7 +198,9 @@ function onNavigate(nav: Navigation) {
                 ? inviteView(route.code, ctx)
                 : route.name === "town"
                   ? townView(ctx)
-                  : notFoundView(ctx);
+                  : route.name === "plot3d" || route.name === "gallery3d"
+                    ? view3d(route, ctx)
+                    : notFoundView(ctx);
   view = next;
   page.replaceChildren(next.el);
 

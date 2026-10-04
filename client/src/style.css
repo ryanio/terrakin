@@ -4762,3 +4762,179 @@ dialog.sheet::backdrop {
   line-height: 1.45;
   overflow-wrap: anywhere;
 }
+
+/* ---------- 3D views: a plot in 3D and the gallery (scene3d/) ----------
+ * Full screen over the site chrome. The scene draws its own paper sky; the bar and the foot float
+ * on top in the same paper pills as the rest of the site. */
+
+html.view3d-open,
+html.view3d-open body {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+.view3d-root {
+  min-height: 60vh;
+}
+
+.view3d-loading {
+  margin: 40px auto;
+  text-align: center;
+  color: var(--ink-soft);
+}
+
+.view3d {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: linear-gradient(180deg, #f6ecd8 0%, #efe0c2 70%);
+}
+
+.view3d-stage {
+  position: absolute;
+  inset: 0;
+  touch-action: none;
+}
+
+.view3d-stage canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  outline: none;
+}
+
+.view3d-bar {
+  position: absolute;
+  top: calc(10px + env(safe-area-inset-top));
+  left: calc(12px + env(safe-area-inset-left));
+  right: calc(12px + env(safe-area-inset-right));
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.view3d-bar > * {
+  pointer-events: auto;
+}
+
+.view3d-back {
+  width: 44px;
+  padding: 0;
+  flex: none;
+}
+
+.view3d-title {
+  min-width: 0;
+  margin: 0 auto 0 0;
+  padding: 7px 16px;
+  border-radius: 999px;
+  background: rgba(255, 250, 240, 0.85);
+  border: 1px solid var(--paper-edge);
+  box-shadow: var(--shadow-pill);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.view3d-photo {
+  flex: none;
+}
+
+.view3d-foot {
+  position: absolute;
+  left: 50%;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  width: min(100% - 32px, 420px);
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+  pointer-events: none;
+  text-align: center;
+}
+
+.view3d-status,
+.view3d-note,
+.view3d-help {
+  margin: 0;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(255, 250, 240, 0.82);
+  border: 1px solid var(--paper-edge);
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+
+.view3d-status:empty,
+.view3d-note:empty {
+  display: none;
+}
+
+.view3d-note {
+  border-radius: var(--r-note);
+  color: var(--ink);
+}
+
+.view3d[data-ready] .view3d-help {
+  animation: view3d-fade 0.6s ease 5s forwards;
+}
+
+@keyframes view3d-fade {
+  to {
+    opacity: 0;
+  }
+}
+
+.view3d-sheet {
+  position: absolute;
+  left: 50%;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  width: min(100% - 32px, 380px);
+  padding: 14px;
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow-paper);
+  display: grid;
+  gap: 12px;
+}
+
+.view3d-sheet[hidden] {
+  display: none;
+}
+
+.view3d-shot {
+  display: block;
+  width: 100%;
+  max-height: 46vh;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 1px solid var(--paper-edge);
+}
+
+.view3d-sheet-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.view3d-sheet .view3d-sheet-close {
+  top: 22px;
+  right: 22px;
+  width: 44px;
+  height: 44px;
+  background: rgba(43, 38, 32, 0.45);
+  z-index: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .view3d[data-ready] .view3d-help {
+    animation: none;
+  }
+}

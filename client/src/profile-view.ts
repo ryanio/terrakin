@@ -174,7 +174,14 @@ export function profileView(id: string, ctx: ViewContext): View {
       icon("link"),
       copyLabel,
     );
-    actions.append(copy);
+    // Their plot in 3D. The page says so kindly if they haven't settled one yet.
+    const visit = h(
+      "a",
+      { class: "pill-button small", attrs: { href: `/r/${encodeURIComponent(r.id)}/3d` } },
+      icon("cube"),
+      h("span", { text: "Visit in 3D" }),
+    );
+    actions.append(visit, copy);
 
     const x = xRow(r);
     if (savedToken()) {

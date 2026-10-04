@@ -43,7 +43,7 @@ let populationTimer: ReturnType<typeof setInterval> | undefined;
 let conn: Connection | undefined;
 let mirror: Mirror | undefined;
 let me: string | undefined;
-/** How the world asks the site router to go to another page (the Town Hall). */
+/** How the world asks the site router to go to another page (the Town Hall, your plot in 3D). */
 let navigate: ((path: string) => void) | undefined;
 let buildMode = false;
 /** Selected build tool: a block, or the hearth marker. */
@@ -251,6 +251,11 @@ canvas.addEventListener("pointerdown", (e) => {
     const hasBlock = mirror.blocks.has(`${tile.x},${tile.y}`);
     if (block === "hearth") act({ type: "set_hearth", ...tile });
     else act(hasBlock ? { type: "remove", ...tile } : { type: "place", ...tile, block });
+    return;
+  }
+  // Tapping yourself while you stand on your own plot opens it in 3D.
+  if (tile.x === r.x && tile.y === r.y && mirror.ownerAt(r.x, r.y) === r.id && navigate) {
+    navigate(`/r/${encodeURIComponent(r.id)}/3d`);
     return;
   }
   // Tapping someone shows who they are. Names and notes are untrusted: textContent only.

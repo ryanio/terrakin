@@ -85,6 +85,8 @@ describe("page meta", () => {
     expect(matchPage("/")).toEqual({ name: "home" });
     expect(matchPage("/world/")).toEqual({ name: "world" });
     expect(matchPage("/town")).toEqual({ name: "town" });
+    expect(matchPage("/r/r_0123456789abcdef/3d")).toEqual({ name: "profile", id: "r_0123456789abcdef" });
+    expect(matchPage("/gallery/3d")).toEqual({ name: "world" });
     expect(matchPage("/r/r_abc")).toEqual({ name: "profile", id: "r_abc" });
     expect(matchPage("/p/p_abc/")).toEqual({ name: "post", id: "p_abc" });
     expect(matchPage("/r/a.b")).toEqual({ name: "not-found" });

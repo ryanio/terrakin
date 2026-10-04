@@ -1,13 +1,16 @@
 /**
- * A tiny History API router. `/` the feed, `/r/:id` a profile, `/p/:id` a post, `/letters` and
- * `/letters/:id` your letters, `/i/:code` an invite, `/town` the Town Hall, and `/world` the canvas
- * world. Anything else is a friendly not-found page. The server sends index.html for every deep
- * link, so a reload lands on the same page.
+ * A tiny History API router. `/` the feed, `/r/:id` a profile, `/r/:id/3d` their plot in 3D,
+ * `/p/:id` a post, `/letters` and `/letters/:id` your letters, `/i/:code` an invite, `/town` the
+ * Town Hall, `/world` the canvas world, and `/gallery/3d` the 3D gallery (not linked from
+ * anywhere public yet). Anything else is a friendly not-found page. The server sends index.html
+ * for every deep link, so a reload lands on the same page.
  */
 
 export type Route =
   | { name: "feed" }
   | { name: "profile"; id: string }
+  | { name: "plot3d"; id: string }
+  | { name: "gallery3d" }
   | { name: "post"; id: string }
   | { name: "world" }
   | { name: "letters" }
@@ -20,6 +23,8 @@ const ID = "([A-Za-z0-9_-]{1,64})";
 const PATTERNS: [RegExp, (m: RegExpExecArray) => Route][] = [
   [/^\/$/, () => ({ name: "feed" })],
   [new RegExp(`^/r/${ID}$`), (m) => ({ name: "profile", id: m[1] ?? "" })],
+  [new RegExp(`^/r/${ID}/3d$`), (m) => ({ name: "plot3d", id: m[1] ?? "" })],
+  [/^\/gallery\/3d$/, () => ({ name: "gallery3d" })],
   [new RegExp(`^/p/${ID}$`), (m) => ({ name: "post", id: m[1] ?? "" })],
   [/^\/world$/, () => ({ name: "world" })],
   [/^\/letters$/, () => ({ name: "letters" })],
@@ -45,6 +50,10 @@ export function routeTemplate(route: Route): string {
       return "/";
     case "profile":
       return "/r/:id";
+    case "plot3d":
+      return "/r/:id/3d";
+    case "gallery3d":
+      return "/gallery/3d";
     case "post":
       return "/p/:id";
     case "town":

@@ -1,7 +1,9 @@
 import {
   type AuthorView,
   type CreatePostRequest,
+  DAILY_LIMITS,
   type ErrorCode,
+  FEED_DEFAULT_LIMIT,
   FEED_MAX_LIMIT,
   MEDIA_TYPES,
   type MediaType,
@@ -42,9 +44,10 @@ export interface SocialLimits {
 }
 
 export const DEFAULT_SOCIAL_LIMITS: SocialLimits = {
-  postsPerDay: 200,
-  uploadsPerDay: 30,
-  uploadBytesPerDay: 200_000_000,
+  // The per-resident caps are part of the published API (see the route table).
+  postsPerDay: DAILY_LIMITS.postsPerResident,
+  uploadsPerDay: DAILY_LIMITS.uploadsPerResident,
+  uploadBytesPerDay: DAILY_LIMITS.uploadBytesPerResident,
   globalUploadsPerDay: 5_000,
   globalUploadBytesPerDay: 5_000_000_000,
   totalStoredBytes: 50_000_000_000,
@@ -242,14 +245,16 @@ export class SocialService {
    * one resident's page (`author`), which shows their replies too.
    */
   feed(options: {
-    viewerId?: string;
-    limit?: number;
-    before?: string;
+    viewerId?: string | undefined;
+    limit?: number | undefined;
+    before?: string | undefined;
     following?: boolean;
     author?: string;
   }): { posts: PostView[]; next: string | null } {
     const asked = Math.floor(Number(options.limit));
-    const limit = Number.isFinite(asked) ? Math.max(1, Math.min(FEED_MAX_LIMIT, asked)) : 20;
+    const limit = Number.isFinite(asked)
+      ? Math.max(1, Math.min(FEED_MAX_LIMIT, asked))
+      : FEED_DEFAULT_LIMIT;
     const before = Number.parseInt(options.before ?? "", 36);
     const where = ["p.hidden = 0"];
     const bindings: (string | number)[] = [options.viewerId ?? ""];

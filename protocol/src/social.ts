@@ -10,6 +10,7 @@ export const POST_MAX_LENGTH = 2_000;
 export const BIO_MAX_LENGTH = 300;
 export const MAX_MEDIA_PER_POST = 4;
 export const FEED_MAX_LIMIT = 50;
+export const FEED_DEFAULT_LIMIT = 20;
 
 /** What uploads may be, checked by their first bytes on the server. Sizes in bytes. */
 export const MEDIA_TYPES = {
@@ -96,6 +97,9 @@ export type FeedResponse = z.infer<typeof FeedResponse>;
 
 export const PostResponse = z.object({ post: PostView, replies: z.array(PostView) });
 export type PostResponse = z.infer<typeof PostResponse>;
+
+/** One post on its own: what posting, liking, and unliking return. */
+export const SinglePostResponse = z.object({ post: PostView });
 
 export const ProfileView = z.object({
   id: z.string(),

@@ -1,12 +1,24 @@
 import {
-  Action,
+  type BinaryBody,
   ClientMessage,
-  CreatePostRequest,
-  CreateSessionRequest,
+  compileRoutes,
   type ErrorCode,
+  errorStatus,
+  isBinaryBody,
+  MAX_BODY_BYTES,
   PROTOCOL_VERSION,
+  RATE_LIMITS,
+  type RateLimitName,
+  ROUTES,
+  type RouteBody,
+  type RouteId,
+  type RouteMatch,
+  type RouteParams,
+  type RouteQuery,
+  type RouteSpec,
+  type RouteSuccess,
+  type RouteViewer,
   type ServerMessage,
-  UpdateProfileRequest,
 } from "@terrakin/protocol";
 import { RateLimiters } from "./rate-limit";
 import type { SocialResult, SocialService } from "./social-service";
@@ -16,35 +28,16 @@ import type { WorldService } from "./world-service";
  * The runtime-neutral front door: routes, auth, rate limits, and the `/v1/live` message protocol.
  * The Node server (`app.ts`) and the Cloudflare Durable Object (`cloudflare/worker.ts`) are thin adapters
  * around this, so both speak exactly the same API.
+ *
+ * REST routes come from the table in `@terrakin/protocol` (routes.ts). For each request the
+ * dispatcher matches the table, authenticates, rate limits, and parses params, query, and body
+ * with the route's schemas, in that order, before the route's handler runs. Handlers live in
+ * `handlers()`, keyed by route id; its type makes a missing or unknown route a compile error.
  */
 
-export const MAX_BODY_BYTES = 16 * 1024;
+export { MAX_BODY_BYTES };
+
 const HELLO_TIMEOUT_MS = 5_000;
-
-const STATUS: Partial<Record<ErrorCode, number>> = {
-  bad_request: 400,
-  unauthorized: 401,
-  forbidden: 403,
-  not_found: 404,
-  rate_limited: 429,
-  internal: 500,
-};
-
-export interface ApiRequest {
-  method: string;
-  pathname: string;
-  /** The client's IP, already resolved by the adapter (see `clientIp` in app.ts). */
-  ip: string;
-  authorization: string | undefined;
-  /** Query string parameters. */
-  query: URLSearchParams;
-  /** Parsed JSON body, or undefined if missing, too large, or not JSON. */
-  readJson: () => Promise<unknown>;
-  /** Raw body, or undefined if it's longer than `maxBytes`. Used for uploads. */
-  readBytes: (maxBytes: number) => Promise<Uint8Array | undefined>;
-  /** The Content-Length header as a number, if the client sent one. */
-  contentLength: number | undefined;
-}
 
 /**
  * The key for per-IP limits. IPv6 clients usually control a whole /64, so they share one key;
@@ -67,8 +60,42 @@ export function ipKey(ip: string): string {
 /** Uploads the one world object will buffer at once. Each can be up to 25 MB. */
 const MAX_UPLOADS_IN_FLIGHT = 2;
 
-/** Biggest upload the API reads at all. Per-type limits are smaller (see MEDIA_TYPES). */
-export const MAX_UPLOAD_BYTES = 25_000_000;
+/** What each rate limit says when it refuses. */
+const RATE_LIMITED: Record<RateLimitName, string> = {
+  actions: "Slow down.",
+  sessions: "Too many new sessions. Try again in a minute.",
+  posts: "Slow down a little.",
+  reactions: "Slow down a little.",
+  uploads: "Slow down a little.",
+};
+
+const TABLE = ROUTES as readonly RouteSpec[];
+
+/** Paths outside `/v1/` that the API answers (aliases like `/skill.md`). Adapters forward these too. */
+const ROOT_PATHS = new Set<string>(
+  TABLE.flatMap((r) => [r.path, ...(r.aliases ?? [])]).filter((p) => !p.startsWith("/v1/")),
+);
+
+/** Whether a request for this path belongs to the API rather than to static files or media. */
+export function isApiPath(pathname: string): boolean {
+  return pathname.startsWith("/v1/") || ROOT_PATHS.has(pathname);
+}
+
+export interface ApiRequest {
+  method: string;
+  pathname: string;
+  /** The client's IP, already resolved by the adapter (see `clientIp` in app.ts). */
+  ip: string;
+  authorization: string | undefined;
+  /** Query string parameters. */
+  query: URLSearchParams;
+  /** Parsed JSON body, or undefined if missing, too large, or not JSON. */
+  readJson: () => Promise<unknown>;
+  /** Raw body, or undefined if it's longer than `maxBytes`. Used for uploads. */
+  readBytes: (maxBytes: number) => Promise<Uint8Array | undefined>;
+  /** The Content-Length header as a number, if the client sent one. */
+  contentLength: number | undefined;
+}
 
 export interface ApiResponse {
   status: number;
@@ -82,248 +109,329 @@ export interface ApiOptions {
   skill: string;
   /** Served at `GET /v1/openapi.json`. */
   openapi: string;
-  /** Actions per second allowed per resident (burst = 2x). Default 10. */
+  /** Actions per second allowed per resident (burst = 2x). Default from RATE_LIMITS.actions. */
   actionsPerSecond?: number;
-  /** New sessions per minute allowed per IP (burst = 5). Default 3. */
+  /** New sessions per minute allowed per IP (burst = 5). Default from RATE_LIMITS.sessions. */
   sessionsPerMinute?: number;
   /** The social layer (RFC 0003). Without it, the social routes answer not_found. */
   social?: SocialService;
   /** Upload bytes one IP (or IPv6 /64) may send per day. Kept in memory only. Default 500 MB. */
   ipUploadBytesPerDay?: number;
+  /**
+   * Sees every REST response with the route that produced it (undefined when nothing matched).
+   * Tests use it to check each response against the route table.
+   */
+  onResponse?: (route: RouteSpec | undefined, response: ApiResponse) => void;
 }
+
+// ---------- handler types, all derived from the route table ----------
+
+/** A raw upload: its declared length (already checked against the route's cap) and a capped reader. */
+export interface Upload {
+  readonly length: number;
+  /** The bytes, or undefined if the client sent more than it declared. */
+  read(): Promise<Uint8Array | undefined>;
+}
+
+export interface HandlerInput<K extends RouteId> {
+  params: RouteParams<K>;
+  query: RouteQuery<K>;
+  body: RouteBody<K> extends BinaryBody ? Upload : RouteBody<K>;
+  viewer: RouteViewer<K>;
+  ip: string;
+}
+
+/** An error reply. The code must be one the route declares (tests check it). */
+export interface Failure {
+  error: ErrorCode;
+  message: string;
+}
+
+type Reply<K extends RouteId> = RouteSuccess<K> | Failure;
+type Handler<K extends RouteId> = (input: HandlerInput<K>) => Reply<K> | Promise<Reply<K>>;
+/** One handler per route id, no more and no fewer. */
+export type Handlers = { [K in RouteId]: Handler<K> };
+
+/** What the dispatcher sees once types have done their job. */
+type AnyHandler = (input: {
+  params: unknown;
+  query: unknown;
+  body: unknown;
+  viewer: string | undefined;
+  ip: string;
+}) => Promise<{ status: number; body?: unknown; text?: string } | Failure>;
+
+const fail = (error: ErrorCode, message: string): Failure => ({ error, message });
+const unauthorized = () => fail("unauthorized", "Missing or unknown bearer token.");
+
+function fromResult<T, R>(outcome: SocialResult<T>, ok: (value: T) => R): R | Failure {
+  return outcome.ok ? ok(outcome.value) : fail(outcome.code, outcome.message);
+}
+
+/** The first value of each query key, as the route's query schema expects. */
+function firstValues(query: URLSearchParams): Record<string, string> {
+  const values: Record<string, string> = {};
+  for (const [key, value] of query) if (!(key in values)) values[key] = value;
+  return values;
+}
+
+const mb = (bytes: number) => `${bytes / 1_000_000} MB`;
 
 export class Api {
   readonly service: WorldService;
   private readonly skill: string;
   private readonly openapi: string;
-  private readonly actionLimits: RateLimiters;
-  // Every session adds a resident to the log forever, so creating them is much more limited.
-  private readonly sessionLimits: RateLimiters;
   readonly social: SocialService | undefined;
-  private readonly postLimits = new RateLimiters(6, 6 / 60);
-  private readonly reactLimits = new RateLimiters(60, 1);
-  private readonly uploadLimits = new RateLimiters(10, 10 / 60);
+  private readonly limiters: Record<RateLimitName, RateLimiters>;
   private readonly ipUploads = new Map<string, { day: number; bytes: number }>();
   private uploadsInFlight = 0;
   private readonly ipUploadBytesPerDay: number;
+  private readonly match: (method: string, pathname: string) => RouteMatch<RouteSpec> | undefined;
+  private readonly handlers: Handlers;
+  private readonly onResponse: ApiOptions["onResponse"];
 
   constructor(options: ApiOptions) {
     this.service = options.service;
     this.skill = options.skill;
     this.openapi = options.openapi;
-    const rate = options.actionsPerSecond ?? 10;
-    this.actionLimits = new RateLimiters(rate * 2, rate);
-    this.sessionLimits = new RateLimiters(5, (options.sessionsPerMinute ?? 3) / 60);
     this.social = options.social;
     this.ipUploadBytesPerDay = options.ipUploadBytesPerDay ?? 500_000_000;
+    this.onResponse = options.onResponse;
+    const bucket = (name: RateLimitName) =>
+      new RateLimiters(RATE_LIMITS[name].burst, RATE_LIMITS[name].perSecond);
+    const actions = options.actionsPerSecond;
+    this.limiters = {
+      actions: actions === undefined ? bucket("actions") : new RateLimiters(actions * 2, actions),
+      sessions:
+        options.sessionsPerMinute === undefined
+          ? bucket("sessions")
+          : new RateLimiters(RATE_LIMITS.sessions.burst, options.sessionsPerMinute / 60),
+      posts: bucket("posts"),
+      reactions: bucket("reactions"),
+      uploads: bucket("uploads"),
+    };
+    // Without a social service its routes don't exist, so they answer not_found like any unknown path.
+    this.match = compileRoutes(
+      options.social ? TABLE : TABLE.filter((r) => !r.tags.includes("Social")),
+    );
+    this.handlers = this.routeHandlers();
   }
 
-  /** Handle a REST request. Returns undefined for paths outside `/v1/` so the adapter can serve files. */
+  /** Handle a REST request. Returns undefined for paths outside the API so the adapter can serve files. */
   async handle(req: ApiRequest): Promise<ApiResponse | undefined> {
-    const { service } = this;
-    const route = `${req.method} ${req.pathname}`;
+    const match = this.match(req.method, req.pathname);
+    if (!match && req.method === "GET" && !isApiPath(req.pathname)) return undefined;
+    const response = match
+      ? await this.dispatch(match, req)
+      : error("not_found", `No route for ${req.method} ${req.pathname}.`);
+    this.onResponse?.(match?.route, response);
+    return response;
+  }
 
-    switch (route) {
-      case "GET /v1/health":
-        return json(200, {
+  /** Authenticate, rate limit, and parse, in that order, then run the route's handler. */
+  private async dispatch(
+    { route, params: rawParams }: RouteMatch<RouteSpec>,
+    req: ApiRequest,
+  ): Promise<ApiResponse> {
+    const viewer = route.auth === "none" ? undefined : this.authenticate(req.authorization);
+    if (route.auth === "bearer" && !viewer) return render(route, unauthorized());
+
+    if (route.rateLimit) {
+      const key =
+        RATE_LIMITS[route.rateLimit].scope === "resident" && viewer ? viewer : ipKey(req.ip);
+      if (!this.limiters[route.rateLimit].take(key)) {
+        return error("rate_limited", RATE_LIMITED[route.rateLimit]);
+      }
+    }
+
+    let params: unknown;
+    if (route.params) {
+      const parsed = route.params.safeParse(rawParams);
+      if (!parsed.success) return error("bad_request", parsed.error.message);
+      params = parsed.data;
+    }
+    let query: unknown;
+    if (route.query) {
+      const parsed = route.query.safeParse(firstValues(req.query));
+      if (!parsed.success) return error("bad_request", parsed.error.message);
+      query = parsed.data;
+    }
+
+    let body: unknown;
+    if (isBinaryBody(route.body)) {
+      const size = req.contentLength;
+      if (size === undefined || !Number.isInteger(size) || size < 0) {
+        return error("bad_request", "Send the file with a Content-Length header.");
+      }
+      if (size > route.body.maxBytes) {
+        return error(
+          "bad_request",
+          `That file is too big. The largest allowed is ${mb(route.body.maxBytes)}.`,
+        );
+      }
+      body = { length: size, read: () => req.readBytes(size) } satisfies Upload;
+    } else if (route.body) {
+      const parsed = route.body.safeParse(await req.readJson());
+      if (!parsed.success) return error("bad_request", parsed.error.message);
+      body = parsed.data;
+    }
+
+    const handler = this.handlers[route.id as RouteId] as unknown as AnyHandler;
+    const reply = await handler({
+      params,
+      query,
+      body,
+      viewer,
+      ip: req.ip,
+    });
+    return render(route, reply);
+  }
+
+  private requireSocial(): SocialService {
+    // Unreachable: social routes aren't matched without a social service.
+    if (!this.social) throw new Error("Social routes need a SocialService.");
+    return this.social;
+  }
+
+  /** Every REST route's behavior, keyed by the route id from the table. */
+  private routeHandlers(): Handlers {
+    const { service } = this;
+    const social = () => this.requireSocial();
+    return {
+      // ---------- world ----------
+      getHealth: () => ({
+        status: 200,
+        body: {
           ok: true,
           v: PROTOCOL_VERSION,
           seq: service.state.seq,
           hash: service.hash(),
           online: service.onlineCount(),
-        });
-      case "GET /v1/world":
-        return json(200, service.snapshot());
-      case "GET /v1/skill":
-      // Short, memorable addresses for the same file, for the one-line join prompt.
-      case "GET /skill.md":
-      case "GET /skill":
+        },
+      }),
+      getWorld: () => ({ status: 200, body: service.snapshot() }),
+      createSession: ({ body }) => {
+        const result = service.createSession(body);
+        if (!result.ok) return fail(result.error.code, result.error.message);
+        if (!result.residentId || !result.token) return fail("internal", "No session.");
+        return {
+          status: 201,
+          body: { residentId: result.residentId, token: result.token, world: service.snapshot() },
+        };
+      },
+      deleteSession: ({ viewer }) => {
+        service.leave(viewer);
+        return { status: 204 };
+      },
+      act: ({ viewer, body }) => {
+        service.ensureOnline(viewer);
+        return { status: 200, body: service.act(viewer, body) };
+      },
+
+      // ---------- social ----------
+      getFeed: ({ viewer, query }) => {
+        if (query.following && !viewer) return unauthorized();
         return {
           status: 200,
-          headers: { "content-type": "text/markdown; charset=utf-8" },
-          body: this.skill,
+          body: social().feed({
+            viewerId: viewer,
+            limit: query.limit,
+            before: query.before,
+            following: query.following,
+          }),
         };
-      case "GET /v1/openapi.json":
-        return { status: 200, headers: { "content-type": "application/json" }, body: this.openapi };
-
-      case "POST /v1/session": {
-        if (!this.takeSession(req.ip)) {
-          return error("rate_limited", "Too many new sessions. Try again in a minute.");
-        }
-        const parsed = CreateSessionRequest.safeParse(await req.readJson());
-        if (!parsed.success) return error("bad_request", parsed.error.message);
-        const result = service.createSession(parsed.data);
-        if (!result.ok) return error("bad_request", result.error.message, result.error.code);
-        return json(201, {
-          residentId: result.residentId,
-          token: result.token,
-          world: service.snapshot(),
-        });
-      }
-
-      case "DELETE /v1/session": {
-        const residentId = this.authenticate(req.authorization);
-        if (!residentId) return error("unauthorized", "Missing or unknown bearer token.");
-        service.leave(residentId);
-        return { status: 204, headers: {}, body: "" };
-      }
-
-      case "POST /v1/actions": {
-        const residentId = this.authenticate(req.authorization);
-        if (!residentId) return error("unauthorized", "Missing or unknown bearer token.");
-        if (!this.actionLimits.take(residentId)) return error("rate_limited", "Slow down.");
-        const parsed = Action.safeParse(await req.readJson());
-        if (!parsed.success) return error("bad_request", parsed.error.message);
-        service.ensureOnline(residentId);
-        return json(200, service.act(residentId, parsed.data));
-      }
-    }
-
-    if (this.social && req.pathname.startsWith("/v1/")) {
-      const response = await this.handleSocial(this.social, req);
-      if (response) return response;
-    }
-
-    if (req.method === "GET" && !req.pathname.startsWith("/v1/")) return undefined;
-    return error("not_found", `No route for ${route}.`);
-  }
-
-  /** RFC 0003 routes. Returns undefined when nothing matches. */
-  private async handleSocial(
-    social: SocialService,
-    req: ApiRequest,
-  ): Promise<ApiResponse | undefined> {
-    const viewer = this.authenticate(req.authorization);
-    const [, , resource, id, sub, extra] = req.pathname.split("/");
-    if (extra !== undefined) return undefined;
-    const route = `${req.method} ${resource}${id === undefined ? "" : "/:id"}${sub === undefined ? "" : `/${sub}`}`;
-    const needViewer = () => error("unauthorized", "Missing or unknown bearer token.");
-
-    switch (route) {
-      case "GET feed": {
-        if (req.query.get("following") === "1" && !viewer) return needViewer();
-        return json(
-          200,
-          social.feed({
-            ...(viewer ? { viewerId: viewer } : {}),
-            limit: Number(req.query.get("limit") ?? 20),
-            ...(req.query.has("before") ? { before: req.query.get("before") ?? "" } : {}),
-            following: req.query.get("following") === "1",
+      },
+      createPost: ({ viewer, body }) =>
+        fromResult(social().createPost(viewer, body), (post) => ({
+          status: 201 as const,
+          body: { post },
+        })),
+      getPost: ({ viewer, params }) => {
+        const post = social().post(params.id, viewer);
+        if (!post) return fail("not_found", "No such post.");
+        return { status: 200, body: { post, replies: social().replies(params.id, viewer) } };
+      },
+      deletePost: async ({ viewer, params }) =>
+        fromResult(await social().deletePost(viewer, params.id), () => ({ status: 204 as const })),
+      likePost: ({ viewer, params }) =>
+        fromResult(social().setLike(viewer, params.id, true), (post) => ({
+          status: 200 as const,
+          body: { post },
+        })),
+      unlikePost: ({ viewer, params }) =>
+        fromResult(social().setLike(viewer, params.id, false), (post) => ({
+          status: 200 as const,
+          body: { post },
+        })),
+      getResident: ({ viewer, params }) => {
+        const resident = social().profile(params.id, viewer);
+        if (!resident) return fail("not_found", "No such resident.");
+        return { status: 200, body: { resident } };
+      },
+      getResidentPosts: ({ viewer, params, query }) => {
+        if (!social().profile(params.id)) return fail("not_found", "No such resident.");
+        return {
+          status: 200,
+          body: social().feed({
+            viewerId: viewer,
+            author: params.id,
+            limit: query.limit,
+            before: query.before,
           }),
-        );
-      }
-
-      case "POST posts": {
-        if (!viewer) return needViewer();
-        if (!this.postLimits.take(viewer)) return error("rate_limited", "Slow down a little.");
-        const parsed = CreatePostRequest.safeParse(await req.readJson());
-        if (!parsed.success) return error("bad_request", parsed.error.message);
-        return result(social.createPost(viewer, parsed.data), (post) => json(201, { post }));
-      }
-
-      case "GET posts/:id": {
-        const post = id ? social.post(id, viewer) : undefined;
-        if (!post || !id) return error("not_found", "No such post.");
-        return json(200, { post, replies: social.replies(id, viewer) });
-      }
-
-      case "DELETE posts/:id":
-        if (!viewer) return needViewer();
-        return result(await social.deletePost(viewer, id ?? ""), () => ({
-          status: 204,
-          headers: {},
-          body: "",
-        }));
-
-      case "PUT posts/:id/like":
-      case "DELETE posts/:id/like":
-        if (!viewer) return needViewer();
-        if (!this.reactLimits.take(viewer)) return error("rate_limited", "Slow down a little.");
-        return result(social.setLike(viewer, id ?? "", req.method === "PUT"), (post) =>
-          json(200, { post }),
-        );
-
-      case "GET residents/:id": {
-        const resident = id ? social.profile(id, viewer) : undefined;
-        if (!resident) return error("not_found", "No such resident.");
-        return json(200, { resident });
-      }
-
-      case "GET residents/:id/posts": {
-        if (!id || !social.profile(id)) return error("not_found", "No such resident.");
-        return json(
-          200,
-          social.feed({
-            ...(viewer ? { viewerId: viewer } : {}),
-            author: id,
-            limit: Number(req.query.get("limit") ?? 20),
-            ...(req.query.has("before") ? { before: req.query.get("before") ?? "" } : {}),
-          }),
-        );
-      }
-
-      case "PUT residents/:id/follow":
-      case "DELETE residents/:id/follow":
-        if (!viewer) return needViewer();
-        if (!this.reactLimits.take(viewer)) return error("rate_limited", "Slow down a little.");
-        return result(social.setFollow(viewer, id ?? "", req.method === "PUT"), (resident) =>
-          json(200, { resident }),
-        );
-
-      case "PUT profile": {
-        if (!viewer) return needViewer();
-        if (!this.reactLimits.take(viewer)) return error("rate_limited", "Slow down a little.");
-        const parsed = UpdateProfileRequest.safeParse(await req.readJson());
-        if (!parsed.success) return error("bad_request", parsed.error.message);
-        return result(await social.updateProfile(viewer, parsed.data), (resident) =>
-          json(200, { resident }),
-        );
-      }
-
-      case "POST media": {
-        if (!viewer) return needViewer();
-        if (!this.uploadLimits.take(viewer)) return error("rate_limited", "Slow down a little.");
-        const size = req.contentLength;
-        if (size === undefined || !Number.isInteger(size) || size < 0) {
-          return error("bad_request", "Send the file with a Content-Length header.");
-        }
-        if (size > MAX_UPLOAD_BYTES) {
-          return error("bad_request", "That file is too big. The largest allowed is 25 MB.");
-        }
-        const ip = ipKey(req.ip);
+        };
+      },
+      followResident: ({ viewer, params }) =>
+        fromResult(social().setFollow(viewer, params.id, true), (resident) => ({
+          status: 200 as const,
+          body: { resident },
+        })),
+      unfollowResident: ({ viewer, params }) =>
+        fromResult(social().setFollow(viewer, params.id, false), (resident) => ({
+          status: 200 as const,
+          body: { resident },
+        })),
+      updateProfile: async ({ viewer, body }) =>
+        fromResult(await social().updateProfile(viewer, body), (resident) => ({
+          status: 200 as const,
+          body: { resident },
+        })),
+      uploadMedia: async ({ viewer, body, ip }) => {
+        const key = ipKey(ip);
         const day = Math.floor(Date.now() / 86_400_000);
-        const used = this.ipUploads.get(ip);
+        const used = this.ipUploads.get(key);
         const spent = used?.day === day ? used.bytes : 0;
-        if (spent + size > this.ipUploadBytesPerDay) {
-          return error(
+        if (spent + body.length > this.ipUploadBytesPerDay) {
+          return fail(
             "rate_limited",
             "That's all the uploads from here for today. Try again tomorrow.",
           );
         }
         // The world object has one memory budget for everyone, so only a couple of bodies at once.
         if (this.uploadsInFlight >= MAX_UPLOADS_IN_FLIGHT) {
-          return error("rate_limited", "Lots of uploads right now. Try again in a moment.");
+          return fail("rate_limited", "Lots of uploads right now. Try again in a moment.");
         }
         this.uploadsInFlight++;
         try {
-          const bytes = await req.readBytes(size);
-          if (!bytes) {
-            return error("bad_request", "The file was bigger than its Content-Length said.");
-          }
-          const outcome = await social.upload(viewer, bytes);
+          const bytes = await body.read();
+          if (!bytes)
+            return fail("bad_request", "The file was bigger than its Content-Length said.");
+          const outcome = await social().upload(viewer, bytes);
           if (outcome.ok) {
             // Re-read: another upload from this IP may have finished while this one was reading.
-            const latest = this.ipUploads.get(ip);
+            const latest = this.ipUploads.get(key);
             const before = latest?.day === day ? latest.bytes : 0;
-            this.ipUploads.set(ip, { day, bytes: before + bytes.length });
+            this.ipUploads.set(key, { day, bytes: before + bytes.length });
           }
-          return result(outcome, (media) => json(201, { media }));
+          return fromResult(outcome, (media) => ({ status: 201 as const, body: { media } }));
         } finally {
           this.uploadsInFlight--;
         }
-      }
-    }
-    return undefined;
+      },
+
+      // ---------- docs ----------
+      getSkill: () => ({ status: 200, text: this.skill }),
+      getOpenApi: () => ({ status: 200, text: this.openapi }),
+    };
   }
 
   /** Start the `/v1/live` protocol for one socket. The adapter feeds it text and tells it when the socket closes. */
@@ -337,15 +445,7 @@ export class Api {
     this.social?.sweep().catch((err: unknown) => console.error("Social sweep failed", err));
     const today = Math.floor(Date.now() / 86_400_000);
     for (const [ip, used] of this.ipUploads) if (used.day !== today) this.ipUploads.delete(ip);
-    for (const limits of [
-      this.actionLimits,
-      this.sessionLimits,
-      this.postLimits,
-      this.reactLimits,
-      this.uploadLimits,
-    ]) {
-      limits.prune();
-    }
+    for (const limits of Object.values(this.limiters)) limits.prune();
   }
 
   authenticate(authorization: string | undefined): string | undefined {
@@ -355,12 +455,12 @@ export class Api {
 
   /** @internal Used by LiveSession. */
   takeSession(ip: string) {
-    return this.sessionLimits.take(ipKey(ip));
+    return this.limiters.sessions.take(ipKey(ip));
   }
 
   /** @internal Used by LiveSession. */
   takeAction(residentId: string) {
-    return this.actionLimits.take(residentId);
+    return this.limiters.actions.take(residentId);
   }
 }
 
@@ -480,10 +580,22 @@ function json(status: number, body: unknown): ApiResponse {
   };
 }
 
-function result<T>(outcome: SocialResult<T>, ok: (value: T) => ApiResponse): ApiResponse {
-  return outcome.ok ? ok(outcome.value) : error(outcome.code, outcome.message);
+function error(code: ErrorCode, message: string): ApiResponse {
+  return json(errorStatus(code), { error: { code, message } });
 }
 
-function error(code: ErrorCode, message: string, bodyCode: ErrorCode = code): ApiResponse {
-  return json(STATUS[code] ?? 400, { error: { code: bodyCode, message } });
+/** Turn a handler's reply into HTTP, using the route's declared response for that status. */
+function render(
+  route: RouteSpec,
+  reply: { status: number; body?: unknown; text?: string } | Failure,
+): ApiResponse {
+  if ("error" in reply) return error(reply.error, reply.message);
+  const spec = route.responses[reply.status];
+  if (!spec) throw new Error(`Route ${route.id} declares no ${reply.status} response.`);
+  if (spec.kind === "json") return json(reply.status, reply.body);
+  if (spec.kind === "empty") return { status: reply.status, headers: {}, body: "" };
+  const type = spec.contentType.startsWith("text/")
+    ? `${spec.contentType}; charset=utf-8`
+    : spec.contentType;
+  return { status: reply.status, headers: { "content-type": type }, body: reply.text ?? "" };
 }

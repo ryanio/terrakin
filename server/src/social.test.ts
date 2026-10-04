@@ -13,6 +13,7 @@ import {
 import { nodeSql } from "./node-sql";
 import { parseTownsfolk, type SocialLimits, SocialService } from "./social-service";
 import { MemoryStore } from "./store";
+import { responseChecker } from "./test-support";
 import { cleanMultiline } from "./text";
 import { WorldService } from "./world-service";
 
@@ -25,8 +26,11 @@ const CONFIG: WorldConfig = {
 };
 
 const cleanups: (() => void | Promise<void>)[] = [];
+// Every REST response in these tests must match the route table's schemas.
+const { problems, onResponse } = responseChecker();
 afterEach(async () => {
   for (const fn of cleanups.splice(0).reverse()) await fn();
+  expect(problems.splice(0)).toEqual([]);
 });
 
 // Smallest valid headers for each format the server accepts, padded to a given size.
@@ -58,6 +62,7 @@ async function start(
     media,
     actionsPerSecond: 1000,
     sessionsPerMinute: 1000,
+    onResponse,
     ...(ipUploadBytesPerDay === undefined ? {} : { ipUploadBytesPerDay }),
   });
   await new Promise<void>((done) => server.listen(0, done));

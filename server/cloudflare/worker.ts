@@ -1,7 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
 import { buildOpenApi } from "@terrakin/protocol";
 import SKILL_MD from "@terrakin/protocol/SKILL.md";
-import { Api, MAX_BODY_BYTES } from "../src/api";
+import { Api, isApiPath, MAX_BODY_BYTES } from "../src/api";
 import { type MediaBucket, type MediaStore, readCapped, serveFromBucket } from "../src/media";
 import { parseTownsfolk, SocialService } from "../src/social-service";
 import { SqlStore } from "../src/sql-store";
@@ -39,11 +39,7 @@ export default {
       url.hostname = CANONICAL_HOST;
       return Response.redirect(url.toString(), 301);
     }
-    if (
-      url.pathname.startsWith("/v1/") ||
-      url.pathname === "/skill.md" ||
-      url.pathname === "/skill"
-    ) {
+    if (isApiPath(url.pathname)) {
       return env.WORLD.get(env.WORLD.idFromName("world")).fetch(request);
     }
     const mediaId = /^\/media\/([^/]+)$/.exec(url.pathname)?.[1];

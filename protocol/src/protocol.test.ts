@@ -8,7 +8,16 @@ import {
   spawnTile,
 } from "@terrakin/sim";
 import { describe, expect, it } from "vitest";
+import { replaceGenerated, skillApiBlock } from "./docs";
 import { buildOpenApi } from "./openapi";
+import {
+  compileRoutes,
+  errorStatus,
+  RATE_LIMITS,
+  ROUTES,
+  type RouteSpec,
+  responseProblem,
+} from "./routes";
 import {
   ACTION_TYPES,
   Action,
@@ -121,34 +130,112 @@ describe("ClientMessage", () => {
   });
 });
 
-describe("OpenAPI", () => {
-  it("builds a document that covers every REST path", () => {
-    const doc = buildOpenApi();
-    expect(Object.keys(doc.paths).sort()).toEqual(
-      [
-        "/v1/actions",
-        "/v1/feed",
-        "/v1/health",
-        "/v1/media",
-        "/v1/posts",
-        "/v1/posts/{id}",
-        "/v1/posts/{id}/like",
-        "/v1/profile",
-        "/v1/residents/{id}",
-        "/v1/residents/{id}/follow",
-        "/v1/residents/{id}/posts",
-        "/v1/session",
-        "/v1/skill",
-        "/v1/world",
-      ].sort(),
+describe("route table", () => {
+  const table = ROUTES as readonly RouteSpec[];
+
+  it("has unique ids and unique method + path pairs", () => {
+    expect(new Set(table.map((r) => r.id)).size).toBe(table.length);
+    const keys = table.flatMap((r) =>
+      [r.path, ...(r.aliases ?? [])].map((p) => `${r.method} ${p}`),
     );
-    expect(JSON.stringify(doc)).toContain('"place"');
+    expect(new Set(keys).size).toBe(keys.length);
   });
 
-  it("documents every REST path in SKILL.md", () => {
-    for (const path of Object.keys(buildOpenApi().paths)) {
-      expect(skill).toContain(path.replace("{id}", "<id>"));
+  it.each(table)("$id declares what its auth, limits, and inputs can return", (route) => {
+    const declared = [...(route.path.matchAll(/\{(\w+)\}/g) ?? [])].map((m) => m[1]);
+    expect(Object.keys(route.params?.shape ?? {})).toEqual(declared);
+    if (route.auth === "bearer") expect(route.errors).toContain("unauthorized");
+    if (route.rateLimit) expect(route.errors).toContain("rate_limited");
+    if (route.rateLimit && RATE_LIMITS[route.rateLimit].scope === "resident") {
+      expect(route.auth).toBe("bearer");
     }
+    if (route.body) expect(route.errors).toContain("bad_request");
+    // A required query parameter is refused with bad_request when it's missing.
+    const required = Object.values(route.query?.shape ?? {}).some(
+      (field) =>
+        !(field as { safeParse: (v: unknown) => { success: boolean } }).safeParse(undefined)
+          .success,
+    );
+    if (required) expect(route.errors).toContain("bad_request");
+    expect(route.summary).not.toMatch(/[\u2013\u2014]/);
+    expect(route.description ?? "").not.toMatch(/[\u2013\u2014]/);
+  });
+
+  it("matches paths, aliases, and parameters", () => {
+    const match = compileRoutes(table);
+    expect(match("GET", "/v1/posts/p_1")).toMatchObject({
+      route: { id: "getPost" },
+      params: { id: "p_1" },
+    });
+    expect(match("GET", "/skill.md")?.route.id).toBe("getSkill");
+    expect(match("GET", "/v1/openapi.json")?.route.id).toBe("getOpenApi");
+    expect(match("GET", "/v1/openapiXjson")).toBeUndefined();
+    expect(match("GET", "/v1/posts/")).toBeUndefined();
+    expect(match("GET", "/v1/posts/a/b")).toBeUndefined();
+    expect(match("PATCH", "/v1/profile")).toBeUndefined();
+  });
+
+  it("flags responses that drift from the table", () => {
+    const health = table.find((r) => r.id === "getHealth");
+    const ok = { ok: true, v: 1, seq: 0, hash: "x", online: 0 };
+    const check = (status: number, body: unknown, type = "application/json") =>
+      responseProblem(health, status, type, JSON.stringify(body));
+    expect(check(200, ok)).toBeUndefined();
+    expect(check(200, { ...ok, extra: 1 })).toMatch(/field \$\.extra/);
+    expect(check(200, { ...ok, seq: "0" })).toBeDefined();
+    expect(check(201, ok)).toMatch(/undeclared status/);
+    expect(check(500, { error: { code: "internal", message: "x" } })).toBeUndefined();
+    expect(check(404, { error: { code: "not_found", message: "x" } })).toMatch(/undeclared/);
+    expect(check(400, { error: { code: "not_found", message: "x" } })).toMatch(/should be 404/);
+  });
+});
+
+describe("OpenAPI", () => {
+  const doc = buildOpenApi();
+  const ops = Object.entries(doc.paths).flatMap(([path, methods]) =>
+    Object.entries(methods).map(([method, op]) => ({ path, method, op })),
+  );
+
+  it("has exactly one operation per route, named by its id", () => {
+    expect(
+      ops.map((o) => `${o.method.toUpperCase()} ${o.path} ${o.op.operationId}`).sort(),
+    ).toEqual(ROUTES.map((r) => `${r.method} ${r.path} ${r.id}`).sort());
+  });
+
+  it("documents every declared response and error status", () => {
+    for (const route of ROUTES as readonly RouteSpec[]) {
+      const op = doc.paths[route.path]?.[route.method.toLowerCase()];
+      const statuses = Object.keys(op?.responses as object);
+      for (const status of Object.keys(route.responses)) expect(statuses).toContain(status);
+      for (const code of [...route.errors, "internal" as const]) {
+        expect(statuses).toContain(String(errorStatus(code)));
+      }
+      expect(op?.security).toEqual(
+        route.auth === "none" ? [] : expect.arrayContaining([{ bearer: [] }]),
+      );
+    }
+  });
+
+  it("names every schema it references and describes the WebSocket", () => {
+    const text = JSON.stringify(doc);
+    for (const [, name] of text.matchAll(/"#\/components\/schemas\/(\w+)"/g)) {
+      expect(doc.components.schemas).toHaveProperty(name as string);
+    }
+    expect(doc.components.schemas).toHaveProperty("ClientMessage");
+    expect(doc.components.schemas).toHaveProperty("ServerMessage");
+    expect(doc["x-websocket"].path).toBe("/v1/live");
+    expect(text).toContain('"place"');
+  });
+
+  it("matches the committed snapshot (run `pnpm gen` if not)", () => {
+    const snapshot = readFileSync(new URL("../openapi.json", import.meta.url), "utf8");
+    expect(JSON.parse(snapshot)).toEqual(JSON.parse(JSON.stringify(doc)));
+  });
+});
+
+describe("generated API reference", () => {
+  it("is current in SKILL.md (run `pnpm gen` if not)", () => {
+    expect(replaceGenerated(skill, skillApiBlock(), "SKILL.md")).toBe(skill);
   });
 });
 

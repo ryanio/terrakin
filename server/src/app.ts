@@ -4,7 +4,7 @@ import { createRequire } from "node:module";
 import { extname, join, normalize, sep } from "node:path";
 import { buildOpenApi } from "@terrakin/protocol";
 import { WebSocketServer } from "ws";
-import { Api, type ApiResponse, MAX_BODY_BYTES } from "./api";
+import { Api, type ApiOptions, type ApiResponse, MAX_BODY_BYTES } from "./api";
 import { MEDIA_ID, mediaHeaders, type ReadableMediaStore, sniffMediaType } from "./media";
 import type { SocialService } from "./social-service";
 import type { WorldService } from "./world-service";
@@ -45,6 +45,8 @@ export interface AppOptions {
   media?: ReadableMediaStore;
   /** See `ApiOptions.ipUploadBytesPerDay`. */
   ipUploadBytesPerDay?: number;
+  /** See `ApiOptions.onResponse`. Tests use it to check responses against the route table. */
+  onResponse?: ApiOptions["onResponse"];
 }
 
 /** The client's IP, honoring X-Forwarded-For only for the configured number of trusted hops. */
@@ -77,6 +79,7 @@ export function createApp(options: AppOptions): Server {
     ...(options.ipUploadBytesPerDay === undefined
       ? {}
       : { ipUploadBytesPerDay: options.ipUploadBytesPerDay }),
+    ...(options.onResponse ? { onResponse: options.onResponse } : {}),
   });
 
   const server = createServer((req, res) => {

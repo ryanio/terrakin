@@ -223,6 +223,8 @@ export const ChatMessage = z.object({
 });
 
 export const ErrorBody = z.object({ code: ErrorCode, message: z.string() });
+/** Every REST error: a code from ERROR_CODES and a message a player could read. */
+export const ErrorResponse = z.object({ error: ErrorBody });
 
 // ---------- REST ----------
 

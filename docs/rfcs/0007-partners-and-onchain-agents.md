@@ -112,10 +112,10 @@ A partner is config in the repo, reviewed like code (`server/src/partners.ts`, w
 
 Two ways to recognize members:
 
-- **`agentOwner`:** the agent is held by the partner's contract. This fits collections whose characters are agents held by an adapter, like MUSEGOD. It's one `ownerOf` call and can't be faked by a lookalike card, because the check is on who holds the agent, not on what the card says.
+- **`agentOwner`:** the agent is held by the partner's contract. The subject (the muse's number) is read from the partner's contract on the chain too: for MUSEGOD, a view on Adapter8004 that maps an agent to its muse, confirmed against the contract's verified source before we rely on it. Nothing depends on the partner's site being up. This fits collections whose characters are agents held by an adapter, like MUSEGOD. It's one `ownerOf` call and can't be faked by a lookalike card, because the check is on who holds the agent, not on what the card says.
 - **`holds`:** the agent's owner holds at least one token of the partner's collection, checked through OpenSea (`GET /api/v2/chain/{chain}/account/{owner}/nfts?collection={slug}`, with `OPENSEA_API_KEY` as a Worker secret). This fits collections whose holders register their own agent. Their own registered agent naming the resident ties the holdings to the resident.
 
-A link with no partner match is still a verified agent link. What it shows is an open question.
+A link with no partner match is still a verified agent link. It shows a small "verified agent" mark on the profile only, never in the feed, so it rewards linking without looking like a partner.
 
 ### 3. Perks
 
@@ -132,13 +132,15 @@ Every perk is presentation or a bound cosmetic. The catalog of kinds is closed: 
 
 Everything shown comes from our config and our own copies of partner art, never from the card. The card contributes only its name.
 
+**Owners.** A person who owns a partner character's resident (decision 0031) gets a small flair naming it ("Keeper of Saddlebag", linking to the character). The border and profile design stay the character's, so two residents never look like the same character.
+
 **Exclusive items go through the sim.** Wear items are validated by the sim ([decision 0029](../knowledge/decisions/0029-looks-are-curated-themes-plus-your-own-uploaded-art.md)), so an item only some residents may wear has to be known to the sim the same way on every replay. The server appends `set_entitlements {residentId, items}` as its own actor (like `set_townsfolk`, [decision 0027](../knowledge/decisions/0027-townsfolk-reach-the-sim-as-a-logged-input-and-never-vote.md)) when a link adds or drops items, or a promo starts or ends. Catalog entries carry `exclusive: true`, and the sim refuses wearing an exclusive item without an entitlement and takes it off when the entitlement goes.
 
 **Never:** coins, plots, build speed, reach, votes or quorum, rank, rate-limit relief on anything that touches other people, or anything for sale. A "convenience" perk (for example more uploads a day) needs its own decision, because upload caps are cost guards and each raise needs a test that proves the guard still holds.
 
 ### 4. Copy
 
-Players see partner words: "Verified Muse #464", "Partner", the partner's name, "Linked on musegod.org". No "NFT", "wallet", "token", "holder", "chain", or "onchain" in the client, error codes, or OpenAPI descriptions. `SKILL.md` may say "ERC-8004 agent" in its linking section, because that's what an assistant needs to find and do the work (open question). The partners page lists partners and their perks; it never links to a marketplace or suggests buying anything.
+Players see partner words: "Verified Muse #464", "Partner", the partner's name, "Linked on musegod.org". No "NFT", "wallet", "token", "holder", "chain", or "onchain" in the client, error codes, or OpenAPI descriptions. `SKILL.md` says "ERC-8004 agent" in its linking how-to, because that's what an assistant needs to find and do the work. Its other sections stay plain. The partners page lists partners and their perks; it never links to a marketplace or suggests buying anything.
 
 ### 5. API
 
@@ -204,14 +206,11 @@ Old clients ignore the new fields. RFC 0004's open question about shipping befor
 - **A partner admin panel with perks in the database.** Faster to change, but unreviewed, and it would invite one-off deals in production. Config in the repo keeps every partner and perk in history.
 - **Gameplay boosts (an extra plot, faster builds).** Ryan chose cosmetics, items, and promos. An edge for holders would make Terrakin something you buy your way ahead in.
 
+## Decided
+
+Ryan, 2026-10-04: a verified agent with no partner shows a small mark on its profile only; a partner character's owner gets flair only; SKILL.md may name ERC-8004 in its how-to; the muse's number comes from the Adapter contract on the chain.
+
 ## Open questions
-
-For Ryan:
-
-- Should a verified agent with no partner show anything (a small "verified" mark), or only partner badges?
-- Should a person who owns a muse's resident (decision 0031) also wear the muse's border and flair?
-- Can SKILL.md say "ERC-8004 agent", given RFC 0004 kept every crypto word out of it?
-- How does Terrakin read the muse id from an agent: a view on the Adapter (to confirm against its verified source), or musegod.org's API?
 
 For the maintainers:
 

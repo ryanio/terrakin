@@ -4,6 +4,7 @@ Each phase ends with a playable milestone and a public devlog. This page tracks 
 
 - [founding-plan.md](founding-plan.md): the original full plan (phase details in section 13).
 - [phase-1.md](phase-1.md): the current phase in detail.
+- [RFC 0008](../rfcs/0008-coins-karma-and-the-market.md): the economy (coins, the town shop, the market, gifts, karma, the treasury), in five phases.
 - [digital-art-gallery.md](digital-art-gallery.md): featuring collected digital art on profiles, in homes, and in 3D (proposed).
 
 ## Phase 0: foundation (done)

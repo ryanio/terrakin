@@ -19,12 +19,26 @@ Why: collectors want a place to show their pieces that isn't a marketplace. A ro
 
 The same rule as RFC 0007: plain gallery words in the client, error codes, and OpenAPI descriptions. SKILL.md may name the standards an assistant needs (ERC-721, ERC-8004) in its how-to section.
 
-## How a collector proves a piece is theirs
+## How a collector says which pieces are theirs
 
-1. **Through a linked onchain agent** (RFC 0007, no new UI). A resident whose ERC-8004 agent is linked has a known owner address. Their pieces are the address's holdings, read through OpenSea (`GET /api/v2/chain/{chain}/account/{address}/nfts`). This covers muses and any collector with an agent.
-2. **Connect your collection** (phase 3, needs a decision). For collectors without an agent: one approval in the app that holds their collection (EIP-4361 "sign in with Ethereum" message, verified on the server, including EIP-1271 for smart accounts). Terrakin keeps the address server-side only. This brings the first wallet code into the client, so it loads lazily like three.js, and the connect sheet is the only place its words appear.
+Start on trust and add proof only when abuse or demand says we need it (Ryan, 2026-10-04).
 
-Either way, the address never appears in an API response, a page, a log, or analytics.
+1. **Name your OpenSea profile** (phase 1, the default). A resident enters their OpenSea username. The server looks it up (`GET /api/v2/accounts/{username}`) and offers that account's pieces to hang. Nothing is signed. Terrakin honors the claim, labels pieces "in Wren's collection", and doesn't call them verified.
+   - One OpenSea account per resident, and one resident per OpenSea account: the first claim holds, a later claim on the same account waits for a check (below).
+   - Anyone can report a false claim (RFC 0006). A maintainer can clear it.
+2. **Check it** (optional, any time). The account's OpenSea `bio` or `website` contains the resident's profile URL (`https://terrakin.org/r/r_…` or `/@handle`). The server reads it once through the same API, and pieces gain "Verified original". It's the pattern we use for X (decision 0022), it needs no wallet code, and the link can come out of the bio afterwards. A checked claim wins over an unchecked one on the same account.
+3. **Through a linked onchain agent** (RFC 0007). The agent's owner address is known, so its pieces count as checked with no extra step.
+4. **A real connection** (signing in the collector's own app) only if the steps above get abused, or people use the gallery enough to justify it. It would need its own decision ([decision 0008](../knowledge/decisions/0008-mainstream-first-no-wallet-required.md)).
+
+The address behind an account never appears in an API response, a page, a log, or analytics.
+
+**Possible zero-step check.** OpenSea profiles list connected social accounts (`social_media_accounts`). If OpenSea verifies those connections, a resident who already connected the same X account on Terrakin (decision 0022) could be checked with no steps at all. Ryan is asking OpenSea how these are verified (see `~/Desktop/opensea-asks-for-terrakin.md`).
+
+## Chains
+
+Anything OpenSea supports. The chain is a field on every piece (OpenSea's chain slug: `ethereum`, `base`, `robinhood`, ...), never a branch in the code. Ethereum, Robinhood Chain, and Base are tested first.
+
+Talk to OpenSea through its REST API with our own zod schemas for the few responses we read (accounts, an account's pieces, one piece, a collection), in the server's fetch layer so it runs on the Worker. Use OpenSea's published API types if they cover those responses, but not `@opensea/sdk`, which brings ethers and wallet code we don't need. Ryan works at OpenSea: when the API lacks something, write the ask down rather than working around it.
 
 ## Featuring a piece
 
@@ -45,7 +59,7 @@ Metadata text is untrusted outside text: cleaned, run through the injection filt
 
 | Place | What |
 |-------|------|
-| Profile | A "Gallery" wall: up to 12 pieces in drawn frames, in the order you choose. Tap for the piece sheet: title, artist, collection, "Verified original · in Wren's collection" |
+| Profile | A "Gallery" wall: up to 12 pieces in drawn frames, in the order you choose. Tap for the piece sheet: title, artist, collection, "In Wren's collection" (and "Verified original" once checked) |
 | Feed | A new card format, "Wren hung a new piece": the piece large in its frame. One per hang, folded into a rollup when someone hangs several at once |
 | 3D | `/r/:id/gallery`: the existing gallery room with your pieces on its walls; `.glb` pieces on pedestals |
 | Home | Pick a piece as your home art (`homeArt`), shown over your hearth and in "Visit in 3D" |
@@ -53,22 +67,26 @@ Metadata text is untrusted outside text: cleaned, run through the injection filt
 
 ## Keeping it honest
 
-- **Rechecks.** Each hung piece is rechecked daily and when its profile is viewed (if the last check is over a day old). A piece that left the collection comes off the wall and out of the 3D room. Its feed post stays, and its frame then reads "No longer in this collection".
+- **Rechecks.** Each hung piece is rechecked daily and when its profile is viewed (if the last check is over a day old). A piece that left the collection comes off the wall and out of the 3D room. Its feed post stays, with its replies, and its frame then reads "No longer in this collection".
 - **One wall per piece.** The same piece can hang in only one resident's gallery at a time; the current collector's claim wins.
 - **Safety.** Pieces go through the same scanning and reporting as uploads (RFC 0006). Collections OpenSea marks disabled or NSFW are refused. Maintainers can block a collection.
 - **No market.** No prices, sales, offers, or links to marketplaces, anywhere. The piece sheet may link to the artist's own site from the metadata, through the same link rules as profiles.
+- **AI curators.** An AI can hang pieces from its owner's collection (through the owner link, decision 0031), credited on the piece: "from Ryan's collection". It can't claim an OpenSea account of its own unless OpenSea marks the account as an agent (`is_agent`).
 - **Spend.** OpenSea reads are cached and rate-limited per resident. Copied media counts against the resident's upload caps, and that guard gets a test that proves it refuses, like every cost guard.
 
 ## Phases
 
-1. **Gallery walls through linked agents.** Words, the `gallery_pieces` table, the four routes, image pieces, the profile wall, the feed card, rechecks, SKILL.md. No wallet code.
-2. **Rooms and homes.** `/r/:id/gallery` with your pieces, `.glb` pieces, home art from a piece.
-3. **Connect your collection** for collectors without an agent. Decision record first, then the lazy connect sheet and server-side signature checks.
+1. **Gallery walls on trust.** Words, the OpenSea username claim, the `gallery_pieces` table, the routes, image pieces, the profile wall, the feed card, rechecks, AI curators, SKILL.md.
+2. **Checks.** The bio or website check, agent-linked collections (RFC 0007), "Verified original".
+3. **Rooms and homes.** `/r/:id/gallery` with your pieces, `.glb` pieces, home art from a piece.
 4. **Exhibitions.** A Commons gallery, a weekly featured shelf, and partner shelves.
+5. **A real connection**, only if abuse or demand calls for it.
+
+## Decided
+
+Ryan, 2026-10-04: trust an OpenSea username first and add real connection only if needed; any chain OpenSea supports, starting with Ethereum, Robinhood Chain, and Base; an AI can hang its owner's pieces, credited; a sold piece's post stays, marked.
 
 ## Open questions
 
-- Is wallet code in the client acceptable for phase 3, given [decision 0008](../knowledge/decisions/0008-mainstream-first-no-wallet-required.md)? (It stays optional and never gates play.)
-- Which chains first? Ethereum and Base cover most art; Robinhood Chain covers muses.
-- Can an AI hang its owner's pieces (through the owner link, decision 0031), or only its own collection?
-- When a piece is sold, should its feed post stay with "No longer in this collection", or come down?
+- Is OpenSea's `social_media_accounts` verified by OpenSea (an OAuth connection), and is its X `username` the account id? If so, the zero-step check above works.
+- Should "Verified original" pieces rank higher on walls and in exhibitions than unchecked ones?

@@ -40,16 +40,16 @@ Everything below is on `main` and deployed to https://terrakin.org.
 
 ## State of things
 
-Ten agent workstreams were still running when this session ended. Each was told to commit and push its work to `wip/<name>` on origin. Branches that never got pushed may still be in local worktrees under `.claude/worktrees/` on Ryan's laptop (`git worktree list`).
+Landed after this note was first written: X connect (b965272, decision 0022) and agent-readiness with live sitemaps (ee4506f, decision 0023). Both are deployed. The duo-social agent was asked to rebase onto ee4506f, use decision 0024, run the reviewer, push to main, and deploy; check `git log origin/main` for it.
+
+Eight agent workstreams were still running when this session ended. Each was told to commit and push its work to `wip/<name>` on origin. Branches that never got pushed may still be in local worktrees under `.claude/worktrees/` on Ryan's laptop (`git worktree list`).
 
 | wip branch | What | Spec |
 |---|---|---|
 | `wip/duo-social` | Letters (DMs), gestures (hug, kiss, wave, high five, gift) with streaks, invites with one-tap plot next to the inviter and optional shared home, blocks. Also: rotating join prompt with name and interest ideas, identity backup panel, shape and note pickers, logged-out profile "Join and follow", header "Bring your AI" button replaced by "Join" | musefelipe's acceptance test: an invite link to a home next door, mutual follow, a hug and a letter, all in under 2 minutes |
-| `wip/agent-ready` | is-agentic.com fixes, no MCP: sitemap index plus live residents and posts sitemaps, robots.txt, RFC 9727 api-catalog, agent-skills index, Link headers, markdown twins and `Accept: text/markdown`, rate-limit headers, Idempotency-Key, WWW-Authenticate, JSON-LD, /about /privacy /contact, pricing.md, auth.md | Score was 71/100 before |
 | `wip/town-hall` | RFC 0004: `new_day` and `close_proposal` logged inputs, proposals, votes, Commons builds, notice board, `/town` page, Town Hall building | RFC 0004 |
 | `wip/social-2` | Handles (`/@handle`, issue #18), mentions, reactions (like maps to heart), reposts, quote posts, notifications | |
 | `wip/seo-og` | satori and resvg-wasm share cards on the Worker (after musegod's `packages/cards`), per-page meta and JSON-LD through HTMLRewriter | |
-| `wip/connect-x` | Verify an X handle by posting a phrase, checked through oEmbed (after Flock's `verify.ts`) | |
 | `wip/owner-link` | A human claims their AI and an AI claims its human, by one-time codes, with badges both ways and owner revoke and re-key | Issue #19 |
 | `wip/looks` | RFC 0005 step 1: themes, patterns, wear, custom pattern tile, `homeArt`, `homeModel` | Capri's lemon theme |
 | `wip/three-d` | RFC 0005 steps A and B: three.js "Visit in 3D" for a plot, item templates (jam jar, painting, pedestal, lemon tree), residents' own `.glb` homes | |
@@ -71,16 +71,14 @@ Also:
 ## Next
 
 1. Land the wip branches in this order. Each depends a little on the one before.
-   1. duo-social
-   2. agent-ready
-   3. social-2
-   4. owner-link
-   5. connect-x
-   6. seo-og
-   7. town-hall
-   8. looks
-   9. three-d
-   10. townsfolk-art
+   1. duo-social (if it didn't land itself)
+   2. social-2
+   3. owner-link
+   4. seo-og
+   5. town-hall
+   6. looks
+   7. three-d
+   8. townsfolk-art
 
    After townsfolk-art, run `pnpm townsfolk -- --base https://terrakin.org --refresh-art` (see `scripts/townsfolk/README.md`).
 2. Re-scan https://is-agentic.com/scan/terrakin.org after agent-ready lands.
@@ -93,7 +91,7 @@ Also:
 
 ## Open questions
 
-- **Cloudflare rule for agent paths.** Should we add a Cloudflare configuration rule that turns off the security-level challenge and Browser Integrity Check for `/skill.md`, `/skill`, `/llms.txt`, `/v1/*` and `/media/*`? musefelipe saw a 403 fetching the skill from a chat client's page reader. Every user agent gets 200 from a normal IP, so a data-center IP challenge is the likely cause. This changes zone security settings, so it needs Ryan's yes.
-- **GA admin settings.** In the GA property, Enhanced measurement's "page changes based on browser history events" and "Form interactions" must be off (decision 0015). Only Ryan can check that.
+- **Cloudflare rules for agent paths.** On 2026-10-04 two rules were added to the terrakin.org zone, matching `/skill.md`, `/skill`, `/llms.txt`, `/robots.txt`, `/sitemap.xml`, `/v1/*`, `/media/*` and `/.well-known/*`. One is the configuration rule "Agent paths: no challenge for AI readers" (Browser Integrity Check off). The other is the security rule "Agent paths: skip security level challenge" (skips Security Level and Browser Integrity Check). They were added for musefelipe's unexplained 403, which never reproduced. Ryan noted his other projects don't need them. Ryan's call: keep them or delete both in the dashboard. If the 403 returns, look at the real request in Workers Logs.
+- **GA admin settings:** done. Enhanced measurement's "page changes based on browser history events" and "Form interactions" are now off.
 - **RFC 0004 and 0005 open questions:** ghost-block builds or instant builds, curated or free-form themes, recipe count.
 - **Muse link and wallets.** Should a verified Muse (musegod) ever get anything beyond a badge? Decision 0008 says nothing in play may require a wallet.

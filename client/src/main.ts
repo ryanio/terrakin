@@ -9,6 +9,7 @@ import { type Camera, fitScale, screenToTile, stepToward } from "./camera";
 import { Mirror } from "./mirror";
 import { Connection, savedToken } from "./net";
 import { blockColor, HEARTH_COLOR, RESIDENT_COLOR_HEX, render } from "./render";
+import { dayPhase } from "./time";
 import "./style.css";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -35,6 +36,8 @@ let block: BlockKind | "hearth" = "wood";
 let walkTarget: { x: number; y: number } | undefined;
 let pendingMove: string | undefined;
 let resyncing = false;
+/** Server time anchor from the latest snapshot, plus when we received it locally. */
+let dayAnchor: { nowMs: number; dayLengthMs: number; receivedAt: number } | undefined;
 const cam: Camera = { cx: 0, cy: 0, scale: 32, width: 0, height: 0 };
 
 // ---------- connection ----------
@@ -55,14 +58,21 @@ function stopWalking() {
   pendingMove = undefined;
 }
 
+/** Remember the server's day/night anchor and when it arrived. No anchor means no night. */
+function anchor(time: WorldSnapshot["time"]) {
+  return time ? { ...time, receivedAt: performance.now() } : undefined;
+}
+
 /** Reload the world from the server. One at a time; events are ignored until it lands. */
 async function resync() {
   if (resyncing) return;
   resyncing = true;
   try {
     const parsed = WorldSnapshot.safeParse(await (await fetch("/v1/world")).json());
-    if (parsed.success) mirror = new Mirror(parsed.data);
-    else console.warn("Bad snapshot from server", parsed.error);
+    if (parsed.success) {
+      mirror = new Mirror(parsed.data);
+      dayAnchor = anchor(parsed.data.time);
+    } else console.warn("Bad snapshot from server", parsed.error);
   } catch (err) {
     console.warn("Resync failed", err);
   } finally {
@@ -75,6 +85,7 @@ function onMessage(msg: ServerMessage) {
     case "welcome":
       me = msg.residentId;
       mirror = new Mirror(msg.world);
+      dayAnchor = anchor(msg.world.time);
       stopWalking();
       joinForm.hidden = true;
       hud.hidden = false;
@@ -289,7 +300,19 @@ function frame(t: number) {
       lastWalk = t;
     }
   }
-  if (mirror) render(ctx, { mirror, me, cam, buildMode });
+  // Advance the server's time anchor with our own clock, so every client
+  // renders the same night at the same time without asking the server again.
+  const phase = dayAnchor
+    ? dayPhase(dayAnchor.nowMs + (performance.now() - dayAnchor.receivedAt), dayAnchor.dayLengthMs)
+    : undefined;
+  if (mirror)
+    render(ctx, {
+      mirror,
+      me,
+      cam,
+      buildMode,
+      ...(phase === undefined ? {} : { dayPhase: phase }),
+    });
   requestAnimationFrame(frame);
 }
 

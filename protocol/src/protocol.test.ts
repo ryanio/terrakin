@@ -9,7 +9,7 @@ import {
 } from "@terrakin/sim";
 import { describe, expect, it } from "vitest";
 import { buildOpenApi } from "./openapi";
-import { ACTION_TYPES, Action, ClientMessage, ERROR_CODES } from "./schemas";
+import { ACTION_TYPES, Action, ClientMessage, ERROR_CODES, WorldSnapshot } from "./schemas";
 
 const skill = readFileSync(new URL("../SKILL.md", import.meta.url), "utf8");
 
@@ -105,5 +105,28 @@ describe("SKILL.md starter home", () => {
     expect(world.residents.muse).toMatchObject({ x: x0 + 2, y: y0 + 4 });
     act({ type: "home" });
     expect(world.residents.muse).toMatchObject({ x: x0 + 2, y: y0 + 2 });
+  });
+});
+
+describe("WorldSnapshot time anchor", () => {
+  const base = {
+    v: 1,
+    seq: 0,
+    hash: "x",
+    config: { width: 12, height: 12, plotSize: 4, maxPlotsPerResident: 1, reach: 2 },
+    commons: { px: 1, py: 1 },
+    residents: [],
+    plots: [],
+    blocks: [],
+  };
+
+  it("accepts a snapshot without a time anchor and rejects a non-positive day length", () => {
+    const good = { ...base, time: { nowMs: 1_700_000_000_000, dayLengthMs: 600_000 } };
+    expect(WorldSnapshot.safeParse(good).success).toBe(true);
+    const { time, ...noTime } = good;
+    expect(WorldSnapshot.safeParse(noTime).success).toBe(true);
+    expect(WorldSnapshot.safeParse({ ...good, time: { nowMs: 1, dayLengthMs: 0 } }).success).toBe(
+      false,
+    );
   });
 });

@@ -2,11 +2,13 @@ import type { WorldSnapshot } from "@terrakin/protocol";
 import { describe, expect, it } from "vitest";
 import { type Camera, screenToTile, stepToward, tileToScreen } from "./camera";
 import { Mirror } from "./mirror";
+import { dayPhase, nightAmount } from "./time";
 
 const snapshot: WorldSnapshot = {
   v: 1,
   seq: 3,
   hash: "x",
+  time: { nowMs: 1_700_000_000_000, dayLengthMs: 600_000 },
   config: { width: 12, height: 12, plotSize: 4, maxPlotsPerResident: 1, reach: 2 },
   commons: { px: 1, py: 1 },
   residents: [
@@ -92,5 +94,25 @@ describe("camera", () => {
     expect(stepToward({ x: 0, y: 0 }, { x: 3, y: 1 })).toBe("e");
     expect(stepToward({ x: 0, y: 0 }, { x: 1, y: -4 })).toBe("n");
     expect(stepToward({ x: 2, y: 2 }, { x: 2, y: 2 })).toBeUndefined();
+  });
+});
+
+describe("day and night", () => {
+  const D = 600_000;
+
+  it("maps server time to a phase of the day", () => {
+    expect(dayPhase(0, D)).toBe(0); // dawn
+    expect(dayPhase(D / 4, D)).toBe(0.25); // noon
+    expect(dayPhase(D / 2, D)).toBe(0.5); // dusk
+    expect(dayPhase(D * 0.75, D)).toBe(0.75); // midnight
+    expect(dayPhase(D + 1000, D)).toBeCloseTo(1000 / D, 10); // wraps
+    expect(dayPhase(-1000, D)).toBeCloseTo(1 - 1000 / D, 10); // negative handled
+  });
+
+  it("is darkest at midnight and bright at noon", () => {
+    expect(nightAmount(0.25)).toBe(0);
+    expect(nightAmount(0.75)).toBe(1);
+    expect(nightAmount(0)).toBeCloseTo(0.5, 10);
+    expect(nightAmount(0)).toBe(nightAmount(0.5));
   });
 });

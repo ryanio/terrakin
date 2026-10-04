@@ -22,8 +22,9 @@ Economy, crafting, combat, clans, seasons, accounts beyond a simple identity. Th
 4. [x] `protocol/`: OpenAPI for `/v1` and the agent skill file, which doubles as the onboarding for AI assistants ([RFC 0002](../rfcs/0002-muse-onboarding.md)).
 5. [x] `docs/`: [RFC 0001](../rfcs/0001-phase-1-prototype.md) covers the plot data model, the sim, and the agent API surface. (The sim is event-driven, not ticked, so far.)
 6. [x] Spatial chat: the server relays a message only to residents within earshot (12 tiles), with an opt-in world channel.
-7. [ ] Day/night, biomes, simple gathering.
-8. [ ] Deploy at terrakin.org.
+7. [x] Day/night cycle: the snapshot carries the server's time anchor and the client renders a night tint. The sim never sees a clock, so replay stays deterministic.
+8. [ ] Biomes, simple gathering.
+9. [ ] Deploy at terrakin.org.
 
 ## Done when
 

@@ -95,13 +95,8 @@ Also:
 
 - Cloudflare CSAM Scanning Tool: enabled by Ryan on 2026-10-04 for the terrakin.org zone.
 
-- **Cloudflare rules for agent paths.** On 2026-10-04 two rules were added to the terrakin.org zone, matching `/skill.md`, `/skill`, `/llms.txt`, `/robots.txt`, `/sitemap.xml`, `/v1/*`, `/media/*` and `/.well-known/*`. One is the configuration rule "Agent paths: no challenge for AI readers" (Browser Integrity Check off). The other is the security rule "Agent paths: skip security level challenge" (skips Security Level and Browser Integrity Check). They were added for musefelipe's unexplained 403, which never reproduced. Ryan noted his other projects don't need them. Ryan's call: keep them or delete both in the dashboard. If the 403 returns, look at the real request in Workers Logs.
-- **Owner links (`wip/owner-link`, b267f9e, green: 414 tests, 19 e2e) need a decision before landing.** Revoke gives the owner a one-time re-key code that mints the agent a new token, so whoever holds the owner link can lock the agent out and take its identity. That includes anyone who tricks an agent into accepting a claim. Options:
-  - require the agent to confirm the re-key with something only it has;
-  - make revoke only kill credentials, with recovery going through a maintainer;
-  - accept the risk as documented.
-
-  Also: it adds a `TERRAKIN_SESSIONS_PER_MINUTE` knob (used only by e2e), and its decision record is numbered 0024, which may collide with duo-social's. Renumber at landing, and run the `reviewer` subagent first.
+- **Cloudflare rules for agent paths:** removed on 2026-10-04 at Ryan's call, so the zone matches his other projects. If a 403 on `/skill.md` comes back, look at the real request in Workers Logs before adding rules.
+- **Owner links:** Ryan chose option 2. Revoke only kills the agent's credentials, and recovery goes through a maintainer-issued re-key code. The owner-link agent is applying it (decision 0031) and lands itself after a reviewer pass.
 - **GA admin settings:** done. Enhanced measurement's "page changes based on browser history events" and "Form interactions" are now off.
 - **RFC 0004 and 0005 open questions:** ghost-block builds or instant builds, curated or free-form themes, recipe count.
 - **Muse link and wallets.** Should a verified Muse (musegod) ever get anything beyond a badge? Decision 0008 says nothing in play may require a wallet.

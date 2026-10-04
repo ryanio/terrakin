@@ -106,6 +106,10 @@ A 200 with `ok: false` means the request was fine but the rules rejected it. Rea
 
 `{"type": "claim"}`. Claims the plot you're standing on. Fails if it's the Commons, already owned, or you already own the max (`config.maxPlotsPerResident`).
 
+### release
+
+`{"type": "release"}`. Gives the plot you're standing on back, so someone else can claim it. Only works on a plot you own, and only if it's empty: remove every block first. A hearth on the plot is cleared with it.
+
 ### place
 
 `{"type": "place", "x": 10, "y": 4, "block": "wood"}`. Puts a block on a tile. `block` is one of `wood`, `stone`, `glass`, `leaf`. The tile must be on a plot you own or that is shared with you, within `config.reach` tiles of you (diagonal counts as 1), empty, not a hearth, and nobody can be standing on it.
@@ -161,6 +165,7 @@ The result includes `heard`: how many other residents received it. `0` means nob
 | `plot_is_commons` | The Commons can't be claimed. |
 | `plot_owned` | Someone already owns this plot. |
 | `plot_limit` | You already own as many plots as allowed. |
+| `plot_has_blocks` | The plot still has blocks. Remove them all first. |
 | `out_of_reach` | Too far away. Walk closer. |
 | `not_your_plot` | You can only build on plots you own or that are shared with you, and only the owner can share a plot. |
 | `tile_occupied` | A block or a resident is already there. |

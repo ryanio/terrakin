@@ -1,17 +1,17 @@
 import { DurableObject } from "cloudflare:workers";
-import { buildOpenApi, MEDIA_TYPES, type MediaType } from "@terrakin/protocol";
+import { buildOpenApi } from "@terrakin/protocol";
 import SKILL_MD from "@terrakin/protocol/SKILL.md";
 import { Api, MAX_BODY_BYTES } from "../src/api";
-import { MEDIA_ID, type MediaStore, mediaHeaders } from "../src/media";
+import { type MediaBucket, type MediaStore, readCapped, serveFromBucket } from "../src/media";
 import { SocialService } from "../src/social-service";
 import { SqlStore } from "../src/sql-store";
 import { WorldService } from "../src/world-service";
 
 /**
- * Cloudflare adapter. The Worker serves the built client from static assets and forwards `/v1/*`
- * to one Durable Object, which holds the single authoritative world (decision 0005) and keeps its
- * log in the object's SQLite storage. The routes and the live protocol are the same `Api` the
- * Node server uses.
+ * Cloudflare adapter. The Worker serves the built client from static assets, serves uploads
+ * straight from R2, and forwards `/v1/*` to one Durable Object, which holds the single
+ * authoritative world (decision 0005) and keeps its log and social tables in the object's SQLite
+ * storage. The routes and the live protocol are the same `Api` the Node server uses.
  */
 
 interface Env {
@@ -23,6 +23,12 @@ interface Env {
 
 const OPENAPI = JSON.stringify(buildOpenApi());
 const CANONICAL_HOST = "terrakin.org";
+
+const jsonError = (status: number, code: string, message: string) =>
+  new Response(JSON.stringify({ error: { code, message } }), {
+    status,
+    headers: { "content-type": "application/json", "cache-control": "no-store" },
+  });
 
 export default {
   async fetch(request, env) {
@@ -36,7 +42,7 @@ export default {
     }
     const mediaId = /^\/media\/([^/]+)$/.exec(url.pathname)?.[1];
     if (mediaId !== undefined && (request.method === "GET" || request.method === "HEAD")) {
-      return serveMedia(env.MEDIA, mediaId, request);
+      return serveFromBucket(env.MEDIA as unknown as MediaBucket, mediaId, request);
     }
     return env.ASSETS.fetch(request);
   },
@@ -52,6 +58,7 @@ export class World extends DurableObject<Env> {
       put: async (id, bytes, type) => {
         await env.MEDIA.put(id, bytes, { httpMetadata: { contentType: type } });
       },
+      delete: (id) => env.MEDIA.delete(id),
     };
     const social = new SocialService({
       sql: ctx.storage.sql,
@@ -65,13 +72,23 @@ export class World extends DurableObject<Env> {
   }
 
   override async fetch(request: Request): Promise<Response> {
+    try {
+      return await this.route(request);
+    } catch (err) {
+      // Same contract as the Node server: errors are always JSON, never Cloudflare's HTML page.
+      console.error(err);
+      return jsonError(500, "internal", "Something broke on our side.");
+    }
+  }
+
+  private async route(request: Request): Promise<Response> {
     const url = new URL(request.url);
     // Set by Cloudflare's edge and not spoofable by the client, unlike X-Forwarded-For.
     const ip = request.headers.get("cf-connecting-ip") ?? "unknown";
 
     if (url.pathname === "/v1/live") {
       if (request.headers.get("upgrade")?.toLowerCase() !== "websocket") {
-        return new Response("Expected a WebSocket upgrade.", { status: 426 });
+        return jsonError(426, "bad_request", "Connect to /v1/live with a WebSocket.");
       }
       const [client, server] = Object.values(new WebSocketPair()) as [WebSocket, WebSocket];
       server.accept();
@@ -101,6 +118,7 @@ export class World extends DurableObject<Env> {
       return new Response(null, { status: 101, webSocket: client });
     }
 
+    const length = request.headers.get("content-length");
     const response = await this.api.handle({
       method: request.method,
       pathname: url.pathname,
@@ -108,9 +126,10 @@ export class World extends DurableObject<Env> {
       authorization: request.headers.get("authorization") ?? undefined,
       query: url.searchParams,
       readJson: () => readJson(request),
-      readBytes: (max) => readBytes(request, max),
+      readBytes: (max) => readCapped(request.body, max),
+      contentLength: length === null ? undefined : Number(length),
     });
-    if (!response) return new Response("Not found.", { status: 404 });
+    if (!response) return jsonError(404, "not_found", "Not found.");
     return new Response(response.status === 204 ? null : response.body, {
       status: response.status,
       headers: response.headers,
@@ -118,40 +137,11 @@ export class World extends DurableObject<Env> {
   }
 }
 
-async function readBytes(request: Request, maxBytes: number): Promise<Uint8Array | undefined> {
-  if (Number(request.headers.get("content-length") ?? 0) > maxBytes) return undefined;
-  const bytes = new Uint8Array(await request.arrayBuffer());
-  return bytes.length > maxBytes ? undefined : bytes;
-}
-
-/** Serve an upload straight from R2, with byte ranges so phones can stream video. */
-async function serveMedia(bucket: R2Bucket, id: string, request: Request): Promise<Response> {
-  if (!MEDIA_ID.test(id)) return new Response("Not found.", { status: 404 });
-  const object = await bucket.get(id, { range: request.headers, onlyIf: request.headers });
-  if (!object) return new Response("Not found.", { status: 404 });
-  const type = object.httpMetadata?.contentType;
-  // Only types we wrote ourselves after checking the bytes.
-  if (!type || !(type in MEDIA_TYPES)) return new Response("Not found.", { status: 404 });
-  const headers = new Headers(mediaHeaders(type as MediaType));
-  headers.set("accept-ranges", "bytes");
-  headers.set("etag", object.httpEtag);
-  if (!("body" in object)) return new Response(null, { status: 304, headers });
-  const range = object.range as { offset?: number; length?: number } | undefined;
-  if (request.headers.has("range") && range) {
-    const offset = range.offset ?? 0;
-    const length = range.length ?? object.size - offset;
-    headers.set("content-range", `bytes ${offset}-${offset + length - 1}/${object.size}`);
-    return new Response(request.method === "HEAD" ? null : object.body, { status: 206, headers });
-  }
-  return new Response(request.method === "HEAD" ? null : object.body, { headers });
-}
-
 async function readJson(request: Request): Promise<unknown> {
-  if (Number(request.headers.get("content-length") ?? 0) > MAX_BODY_BYTES) return undefined;
-  const text = await request.text();
-  if (text.length > MAX_BODY_BYTES) return undefined;
+  const bytes = await readCapped(request.body, MAX_BODY_BYTES);
+  if (!bytes) return undefined;
   try {
-    return JSON.parse(text);
+    return JSON.parse(new TextDecoder().decode(bytes));
   } catch {
     return undefined;
   }

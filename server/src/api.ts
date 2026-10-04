@@ -14,7 +14,7 @@ import type { WorldService } from "./world-service";
 
 /**
  * The runtime-neutral front door: routes, auth, rate limits, and the `/v1/live` message protocol.
- * The Node server (`app.ts`) and the Cloudflare Durable Object (`cloudflare.ts`) are thin adapters
+ * The Node server (`app.ts`) and the Cloudflare Durable Object (`cloudflare/worker.ts`) are thin adapters
  * around this, so both speak exactly the same API.
  */
 
@@ -24,6 +24,7 @@ const HELLO_TIMEOUT_MS = 5_000;
 const STATUS: Partial<Record<ErrorCode, number>> = {
   bad_request: 400,
   unauthorized: 401,
+  forbidden: 403,
   not_found: 404,
   rate_limited: 429,
   internal: 500,
@@ -41,7 +42,30 @@ export interface ApiRequest {
   readJson: () => Promise<unknown>;
   /** Raw body, or undefined if it's longer than `maxBytes`. Used for uploads. */
   readBytes: (maxBytes: number) => Promise<Uint8Array | undefined>;
+  /** The Content-Length header as a number, if the client sent one. */
+  contentLength: number | undefined;
 }
+
+/**
+ * The key for per-IP limits. IPv6 clients usually control a whole /64, so they share one key;
+ * otherwise one person could rotate addresses forever.
+ */
+export function ipKey(ip: string): string {
+  if (!ip.includes(":") || ip.startsWith("::ffff:")) return ip.replace(/^::ffff:/, "");
+  const [head = "", tail = ""] = ip.split("::");
+  const left = head ? head.split(":") : [];
+  const right = tail ? tail.split(":") : [];
+  const groups = ip.includes("::")
+    ? [...left, ...Array(Math.max(0, 8 - left.length - right.length)).fill("0"), ...right]
+    : left;
+  return `${groups
+    .slice(0, 4)
+    .map((g) => g.toLowerCase().replace(/^0+(?=.)/, ""))
+    .join(":")}::/64`;
+}
+
+/** Uploads the one world object will buffer at once. Each can be up to 25 MB. */
+const MAX_UPLOADS_IN_FLIGHT = 2;
 
 /** Biggest upload the API reads at all. Per-type limits are smaller (see MEDIA_TYPES). */
 export const MAX_UPLOAD_BYTES = 25_000_000;
@@ -64,6 +88,8 @@ export interface ApiOptions {
   sessionsPerMinute?: number;
   /** The social layer (RFC 0003). Without it, the social routes answer not_found. */
   social?: SocialService;
+  /** Upload bytes one IP (or IPv6 /64) may send per day. Kept in memory only. Default 500 MB. */
+  ipUploadBytesPerDay?: number;
 }
 
 export class Api {
@@ -77,6 +103,9 @@ export class Api {
   private readonly postLimits = new RateLimiters(6, 6 / 60);
   private readonly reactLimits = new RateLimiters(60, 1);
   private readonly uploadLimits = new RateLimiters(10, 10 / 60);
+  private readonly ipUploads = new Map<string, { day: number; bytes: number }>();
+  private uploadsInFlight = 0;
+  private readonly ipUploadBytesPerDay: number;
 
   constructor(options: ApiOptions) {
     this.service = options.service;
@@ -86,6 +115,7 @@ export class Api {
     this.actionLimits = new RateLimiters(rate * 2, rate);
     this.sessionLimits = new RateLimiters(5, (options.sessionsPerMinute ?? 3) / 60);
     this.social = options.social;
+    this.ipUploadBytesPerDay = options.ipUploadBytesPerDay ?? 500_000_000;
   }
 
   /** Handle a REST request. Returns undefined for paths outside `/v1/` so the adapter can serve files. */
@@ -114,7 +144,7 @@ export class Api {
         return { status: 200, headers: { "content-type": "application/json" }, body: this.openapi };
 
       case "POST /v1/session": {
-        if (!this.sessionLimits.take(req.ip)) {
+        if (!this.takeSession(req.ip)) {
           return error("rate_limited", "Too many new sessions. Try again in a minute.");
         }
         const parsed = CreateSessionRequest.safeParse(await req.readJson());
@@ -196,7 +226,7 @@ export class Api {
 
       case "DELETE posts/:id":
         if (!viewer) return needViewer();
-        return result(social.deletePost(viewer, id ?? ""), () => ({
+        return result(await social.deletePost(viewer, id ?? ""), () => ({
           status: 204,
           headers: {},
           body: "",
@@ -242,7 +272,7 @@ export class Api {
         if (!this.reactLimits.take(viewer)) return error("rate_limited", "Slow down a little.");
         const parsed = UpdateProfileRequest.safeParse(await req.readJson());
         if (!parsed.success) return error("bad_request", parsed.error.message);
-        return result(social.updateProfile(viewer, parsed.data), (resident) =>
+        return result(await social.updateProfile(viewer, parsed.data), (resident) =>
           json(200, { resident }),
         );
       }
@@ -250,10 +280,44 @@ export class Api {
       case "POST media": {
         if (!viewer) return needViewer();
         if (!this.uploadLimits.take(viewer)) return error("rate_limited", "Slow down a little.");
-        const bytes = await req.readBytes(MAX_UPLOAD_BYTES);
-        if (!bytes)
+        const size = req.contentLength;
+        if (size === undefined || !Number.isInteger(size) || size < 0) {
+          return error("bad_request", "Send the file with a Content-Length header.");
+        }
+        if (size > MAX_UPLOAD_BYTES) {
           return error("bad_request", "That file is too big. The largest allowed is 25 MB.");
-        return result(await social.upload(viewer, bytes), (media) => json(201, { media }));
+        }
+        const ip = ipKey(req.ip);
+        const day = Math.floor(Date.now() / 86_400_000);
+        const used = this.ipUploads.get(ip);
+        const spent = used?.day === day ? used.bytes : 0;
+        if (spent + size > this.ipUploadBytesPerDay) {
+          return error(
+            "rate_limited",
+            "That's all the uploads from here for today. Try again tomorrow.",
+          );
+        }
+        // The world object has one memory budget for everyone, so only a couple of bodies at once.
+        if (this.uploadsInFlight >= MAX_UPLOADS_IN_FLIGHT) {
+          return error("rate_limited", "Lots of uploads right now. Try again in a moment.");
+        }
+        this.uploadsInFlight++;
+        try {
+          const bytes = await req.readBytes(size);
+          if (!bytes) {
+            return error("bad_request", "The file was bigger than its Content-Length said.");
+          }
+          const outcome = await social.upload(viewer, bytes);
+          if (outcome.ok) {
+            // Re-read: another upload from this IP may have finished while this one was reading.
+            const latest = this.ipUploads.get(ip);
+            const before = latest?.day === day ? latest.bytes : 0;
+            this.ipUploads.set(ip, { day, bytes: before + bytes.length });
+          }
+          return result(outcome, (media) => json(201, { media }));
+        } finally {
+          this.uploadsInFlight--;
+        }
       }
     }
     return undefined;
@@ -267,6 +331,9 @@ export class Api {
   /** Housekeeping: mark idle residents offline and forget full rate-limit buckets. Call about once a minute. */
   sweep() {
     this.service.sweepIdle();
+    this.social?.sweep().catch((err: unknown) => console.error("Social sweep failed", err));
+    const today = Math.floor(Date.now() / 86_400_000);
+    for (const [ip, used] of this.ipUploads) if (used.day !== today) this.ipUploads.delete(ip);
     for (const limits of [
       this.actionLimits,
       this.sessionLimits,
@@ -285,7 +352,7 @@ export class Api {
 
   /** @internal Used by LiveSession. */
   takeSession(ip: string) {
-    return this.sessionLimits.take(ip);
+    return this.sessionLimits.take(ipKey(ip));
   }
 
   /** @internal Used by LiveSession. */

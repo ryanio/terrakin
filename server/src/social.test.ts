@@ -1,8 +1,15 @@
 import type { AddressInfo } from "node:net";
 import type { WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
+import { ipKey } from "./api";
 import { createApp } from "./app";
-import { MemoryMediaStore, sniffMediaType } from "./media";
+import {
+  type MediaBucket,
+  MemoryMediaStore,
+  readCapped,
+  serveFromBucket,
+  sniffMediaType,
+} from "./media";
 import { nodeSql } from "./node-sql";
 import { type SocialLimits, SocialService } from "./social-service";
 import { MemoryStore } from "./store";
@@ -30,7 +37,11 @@ const file = (head: number[] | string, size = 64) => {
   return bytes;
 };
 
-async function start(limits: Partial<SocialLimits> = {}, media = new MemoryMediaStore()) {
+async function start(
+  limits: Partial<SocialLimits> = {},
+  media = new MemoryMediaStore(),
+  ipUploadBytesPerDay?: number,
+) {
   let now = 1_700_000_000_000;
   const service = new WorldService({ store: new MemoryStore(), config: CONFIG });
   const sql = nodeSql();
@@ -41,7 +52,14 @@ async function start(limits: Partial<SocialLimits> = {}, media = new MemoryMedia
     resident: (id) => service.state.residents[id],
     now: () => now,
   });
-  const server = createApp({ service, social, media, actionsPerSecond: 1000 });
+  const server = createApp({
+    service,
+    social,
+    media,
+    actionsPerSecond: 1000,
+    sessionsPerMinute: 1000,
+    ...(ipUploadBytesPerDay === undefined ? {} : { ipUploadBytesPerDay }),
+  });
   await new Promise<void>((done) => server.listen(0, done));
   cleanups.push(() => new Promise<void>((done) => server.close(() => done())));
   cleanups.push(() => sql.close());
@@ -70,7 +88,7 @@ async function start(limits: Partial<SocialLimits> = {}, media = new MemoryMedia
     return body as { residentId: string; token: string };
   }
 
-  return { base, call, join, social, advance: (ms: number) => (now += ms) };
+  return { base, call, join, social, media, advance: (ms: number) => (now += ms) };
 }
 
 describe("posts and the feed", () => {
@@ -141,7 +159,9 @@ describe("posts and the feed", () => {
     const wren = await join("Wren");
     const ash = await join("Ash");
     const { post } = (await call("POST", "/v1/posts", { text: "mine" }, wren.token)).body;
-    expect((await call("DELETE", `/v1/posts/${post.id}`, undefined, ash.token)).status).toBe(401);
+    const refused = await call("DELETE", `/v1/posts/${post.id}`, undefined, ash.token);
+    expect(refused.status).toBe(403);
+    expect(refused.body.error.code).toBe("forbidden");
     expect((await call("DELETE", `/v1/posts/${post.id}`, undefined, wren.token)).status).toBe(204);
     expect((await call("GET", `/v1/posts/${post.id}`)).status).toBe(404);
   });
@@ -231,6 +251,10 @@ describe("media", () => {
     expect(sniffMediaType(file("RIFF\0\0\0\0WEBP"))).toBe("image/webp");
     expect(sniffMediaType(file("\0\0\0\x18ftypisom"))).toBe("video/mp4");
     expect(sniffMediaType(file("\0\0\0\x14ftypqt  "))).toBeUndefined();
+    expect(
+      sniffMediaType(file("\0\0\0\x18ftypheic")),
+      "iPhone photos aren't video",
+    ).toBeUndefined();
     expect(
       sniffMediaType(file([0x1a, 0x45, 0xdf, 0xa3, 0x42, 0x82, 0x84, 0x77, 0x65, 0x62, 0x6d])),
     ).toBe("video/webm");
@@ -343,6 +367,219 @@ describe("upload cost guards", () => {
     // The failed upload doesn't use up the day's only slot.
     failing = false;
     expect((await social.upload(residentId, file(PNG))).ok).toBe(true);
+  });
+});
+
+describe("hardening", () => {
+  it("falls back to a normal page size for a garbage limit", async () => {
+    const { call, join } = await start();
+    const { token } = await join("Wren");
+    await call("POST", "/v1/posts", { text: "hi" }, token);
+    const res = await call("GET", "/v1/feed?limit=abc&before=zz!");
+    expect(res.status).toBe(200);
+    expect(res.body.posts).toHaveLength(1);
+  });
+
+  it("refuses a post flood with rate_limited", async () => {
+    const { call, join } = await start();
+    const { token } = await join("Wren");
+    const statuses: number[] = [];
+    for (let i = 0; i < 8; i++)
+      statuses.push((await call("POST", "/v1/posts", { text: `${i}` }, token)).status);
+    expect(statuses.slice(0, 6).every((s) => s === 201)).toBe(true);
+    expect(statuses.at(-1)).toBe(429);
+  });
+
+  it("refuses an upload without a Content-Length instead of buffering it", async () => {
+    const { base, join } = await start();
+    const { token } = await join("Wren");
+    const body = new ReadableStream({
+      start(controller) {
+        controller.enqueue(file(PNG));
+        controller.close();
+      },
+    });
+    const res = await fetch(`${base}/v1/media`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}` },
+      body,
+      duplex: "half",
+    } as RequestInit);
+    expect(res.status).toBe(400);
+  });
+
+  it("stops reading a stream as soon as it passes the cap", async () => {
+    let pulled = 0;
+    const endless = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pulled++;
+        controller.enqueue(new Uint8Array(1_000));
+      },
+    });
+    expect(await readCapped(endless, 5_000)).toBeUndefined();
+    expect(pulled).toBeLessThan(10);
+    const small = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array([1, 2]));
+        controller.enqueue(new Uint8Array([3]));
+        controller.close();
+      },
+    });
+    expect(await readCapped(small, 5_000)).toEqual(new Uint8Array([1, 2, 3]));
+  });
+
+  it("buffers at most two uploads at once", async () => {
+    let release = () => {};
+    const gate = new Promise<void>((done) => {
+      release = done;
+    });
+    const media = new MemoryMediaStore();
+    media.put = async (id, bytes) => {
+      await gate;
+      media.files.set(id, bytes);
+    };
+    const { call, join } = await start({}, media);
+    const { token } = await join("Wren");
+    const uploads = [1, 2, 3].map(() => call("POST", "/v1/media", file(PNG), token));
+    await new Promise((done) => setTimeout(done, 50));
+    release();
+    expect((await Promise.all(uploads)).map((r) => r.status).sort()).toEqual([201, 201, 429]);
+  });
+
+  it("deletes a post's files with it, and serving them stops", async () => {
+    const { base, call, join, media } = await start();
+    const { token } = await join("Wren");
+    const image = (await call("POST", "/v1/media", file(PNG), token)).body.media;
+    const { post } = (await call("POST", "/v1/posts", { text: "look", media: [image.id] }, token))
+      .body;
+    expect((await fetch(base + image.url)).status).toBe(200);
+    await call("DELETE", `/v1/posts/${post.id}`, undefined, token);
+    expect(media.files.has(image.id)).toBe(false);
+    expect((await fetch(base + image.url)).status).toBe(404);
+  });
+
+  it("keeps a file that an avatar still uses when its post is deleted", async () => {
+    const { call, join, media } = await start();
+    const { token } = await join("Wren");
+    const image = (await call("POST", "/v1/media", file(PNG), token)).body.media;
+    await call("PUT", "/v1/profile", { avatar: image.id }, token);
+    const { post } = (await call("POST", "/v1/posts", { text: "me", media: [image.id] }, token))
+      .body;
+    await call("DELETE", `/v1/posts/${post.id}`, undefined, token);
+    expect(media.files.has(image.id)).toBe(true);
+    // Replacing the avatar lets it go.
+    await call("PUT", "/v1/profile", { avatar: null }, token);
+    expect(media.files.has(image.id)).toBe(false);
+  });
+
+  it("sweeps uploads nobody attached within a day", async () => {
+    const { call, join, social, media, advance } = await start();
+    const { token } = await join("Wren");
+    const orphan = (await call("POST", "/v1/media", file(PNG), token)).body.media;
+    const used = (await call("POST", "/v1/media", file(PNG), token)).body.media;
+    await call("POST", "/v1/posts", { text: "x", media: [used.id] }, token);
+    await social.sweep();
+    expect(media.files.has(orphan.id)).toBe(true);
+    advance(24 * 60 * 60_000 + 1);
+    await social.sweep();
+    expect(media.files.has(orphan.id)).toBe(false);
+    expect(media.files.has(used.id)).toBe(true);
+  });
+
+  it("doesn't give back the day's upload quota when files are deleted", async () => {
+    const { call, join } = await start({ uploadsPerDay: 1 });
+    const { token } = await join("Wren");
+    const image = (await call("POST", "/v1/media", file(PNG), token)).body.media;
+    const { post } = (await call("POST", "/v1/posts", { text: "x", media: [image.id] }, token))
+      .body;
+    await call("DELETE", `/v1/posts/${post.id}`, undefined, token);
+    expect((await call("POST", "/v1/media", file(PNG), token)).status).toBe(429);
+  });
+
+  it("caps upload bytes per IP across residents", async () => {
+    const { call, join } = await start({}, new MemoryMediaStore(), 1_500);
+    const wren = await join("Wren");
+    const ash = await join("Ash");
+    expect((await call("POST", "/v1/media", file(PNG, 1_000), wren.token)).status).toBe(201);
+    expect((await call("POST", "/v1/media", file(PNG, 1_000), ash.token)).status).toBe(429);
+  });
+
+  it("caps uploads per day across everyone, and total storage", async () => {
+    const perDay = await start({ globalUploadsPerDay: 1 });
+    const a = await perDay.join("Wren");
+    expect((await perDay.call("POST", "/v1/media", file(PNG), a.token)).status).toBe(201);
+    expect((await perDay.call("POST", "/v1/media", file(PNG), a.token)).status).toBe(429);
+
+    const stored = await start({ totalStoredBytes: 1_500 });
+    const b = await stored.join("Wren");
+    expect((await stored.call("POST", "/v1/media", file(PNG, 1_000), b.token)).status).toBe(201);
+    stored.advance(3 * 24 * 60 * 60_000);
+    // A new day, but the bytes are still stored.
+    expect((await stored.call("POST", "/v1/media", file(PNG, 1_000), b.token)).status).toBe(429);
+  });
+
+  it("keys IPv6 limits on the /64", () => {
+    expect(ipKey("203.0.113.7")).toBe("203.0.113.7");
+    expect(ipKey("::ffff:203.0.113.7")).toBe("203.0.113.7");
+    expect(ipKey("2001:db8:1:2:aaaa::1")).toBe("2001:db8:1:2::/64");
+    expect(ipKey("2001:0db8:0001:0002:ffff:ffff:ffff:ffff")).toBe("2001:db8:1:2::/64");
+    expect(ipKey("2001:db8::1")).toBe("2001:db8:0:0::/64");
+  });
+});
+
+describe("serving from R2", () => {
+  const body = new Uint8Array(1_000);
+  const bucket: MediaBucket = {
+    async get(_key, options) {
+      const range = options.range?.get("range");
+      if (options.onlyIf?.get("if-none-match") === '"e1"') {
+        return { size: 1_000, httpEtag: '"e1"', httpMetadata: { contentType: "video/mp4" } };
+      }
+      if (range === "bytes=5000-") throw new Error("range not satisfiable");
+      const suffix = /^bytes=-(\d+)$/.exec(range ?? "")?.[1];
+      const span = /^bytes=(\d+)-(\d+)$/.exec(range ?? "");
+      return {
+        size: 1_000,
+        httpEtag: '"e1"',
+        httpMetadata: { contentType: "video/mp4" },
+        ...(suffix ? { range: { suffix: Number(suffix) } } : {}),
+        ...(span
+          ? { range: { offset: Number(span[1]), length: Number(span[2]) - Number(span[1]) + 1 } }
+          : {}),
+        body: new Blob([body]).stream(),
+      };
+    },
+    async head() {
+      return { size: 1_000 };
+    },
+  };
+  const get = (headers: Record<string, string> = {}, id = "m_0123456789abcdef") =>
+    serveFromBucket(bucket, id, new Request(`https://terrakin.org/media/${id}`, { headers }));
+
+  it("serves the whole file with safe headers", async () => {
+    const res = await get();
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("video/mp4");
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(res.headers.get("cache-control")).not.toContain("immutable");
+  });
+
+  it("handles ranges, suffix ranges, impossible ranges, and revalidation", async () => {
+    const part = await get({ range: "bytes=0-99" });
+    expect([
+      part.status,
+      part.headers.get("content-range"),
+      part.headers.get("content-length"),
+    ]).toEqual([206, "bytes 0-99/1000", "100"]);
+    const tail = await get({ range: "bytes=-500" });
+    expect([tail.status, tail.headers.get("content-range")]).toEqual([206, "bytes 500-999/1000"]);
+    const impossible = await get({ range: "bytes=5000-" });
+    expect([impossible.status, impossible.headers.get("content-range")]).toEqual([
+      416,
+      "bytes */1000",
+    ]);
+    expect((await get({ "if-none-match": '"e1"' })).status).toBe(304);
+    expect((await get({}, "m_../../secret")).status).toBe(404);
   });
 });
 

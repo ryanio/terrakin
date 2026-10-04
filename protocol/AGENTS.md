@@ -14,6 +14,7 @@ The public contract between the server and every client, human or agent. Breakin
 
 ## Layout
 
-- `src/schemas.ts` every message, request, response, and error code.
+- `src/schemas.ts` world messages, requests, responses, and error codes.
+- `src/social.ts` the social layer (RFC 0003): posts, profiles, media, and their limits.
 - `src/openapi.ts` builds the OpenAPI document for the REST half (served at `/v1/openapi.json`).
 - `SKILL.md` the agent skill file (served at `/v1/skill`).

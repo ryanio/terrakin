@@ -1,5 +1,5 @@
 import { mkdirSync } from "node:fs";
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { MEDIA_ID, type ReadableMediaStore } from "./media";
 
@@ -12,6 +12,10 @@ export class FileMediaStore implements ReadableMediaStore {
   async put(id: string, bytes: Uint8Array) {
     if (!MEDIA_ID.test(id)) throw new Error(`Bad media id ${id}`);
     await writeFile(join(this.dir, id), bytes);
+  }
+
+  async delete(id: string) {
+    if (MEDIA_ID.test(id)) await rm(join(this.dir, id), { force: true });
   }
 
   async get(id: string) {

@@ -40,6 +40,8 @@ export interface AppOptions {
   /** The social layer (RFC 0003). Pass `media` too so uploads can be served at `/media/:id`. */
   social?: SocialService;
   media?: ReadableMediaStore;
+  /** See `ApiOptions.ipUploadBytesPerDay`. */
+  ipUploadBytesPerDay?: number;
 }
 
 /** The client's IP, honoring X-Forwarded-For only for the configured number of trusted hops. */
@@ -69,6 +71,9 @@ export function createApp(options: AppOptions): Server {
       ? {}
       : { sessionsPerMinute: options.sessionsPerMinute }),
     ...(options.social ? { social: options.social } : {}),
+    ...(options.ipUploadBytesPerDay === undefined
+      ? {}
+      : { ipUploadBytesPerDay: options.ipUploadBytesPerDay }),
   });
 
   const server = createServer((req, res) => {
@@ -88,6 +93,10 @@ export function createApp(options: AppOptions): Server {
       query: url.searchParams,
       readJson: () => readJson(req),
       readBytes: (max) => readBytes(req, max),
+      contentLength:
+        req.headers["content-length"] === undefined
+          ? undefined
+          : Number(req.headers["content-length"]),
     });
     if (response) return send(res, response);
     const mediaId = /^\/media\/([^/]+)$/.exec(url.pathname)?.[1];

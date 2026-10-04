@@ -6,8 +6,11 @@ terrakin.org runs on **Cloudflare Workers** ([decision 0012](knowledge/decisions
 
 - A Worker (`server/cloudflare/worker.ts`) serves the built client from static assets and forwards `/v1/*` to one Durable Object named `world`.
 - The Durable Object holds the single authoritative world. Its log and session hashes live in the object's own SQLite storage (`server/src/sql-store.ts`), replayed on boot like the JSONL files.
-- `wrangler.jsonc` at the repo root has the config: assets from `client/dist`, the `WORLD` binding, and the `terrakin.org` and `www.terrakin.org` custom domains. `www` redirects to the apex.
+- Uploads (RFC 0003) live in the `terrakin-media` R2 bucket. The Worker serves `/media/<id>` straight from it; the Durable Object writes and deletes.
+- `wrangler.jsonc` at the repo root has the config: assets from `client/dist`, the `WORLD` and `MEDIA` bindings, and the `terrakin.org` and `www.terrakin.org` custom domains. `www` redirects to the apex. The `workers.dev` address is off, so the site has one home.
 - Client IPs come from `CF-Connecting-IP`, which Cloudflare sets and clients can't forge. `TERRAKIN_TRUSTED_PROXIES` doesn't apply here.
+
+First time on a new Cloudflare account, create the bucket: `npx wrangler r2 bucket create terrakin-media`.
 
 ```sh
 pnpm cf:dev      # build the client, run the Worker locally on :8787 with a local Durable Object

@@ -395,9 +395,43 @@ export interface MoreMenuOptions {
 }
 
 /**
- * A "…" button with a small menu under it. It closes on a tap outside, on Escape (focus goes back
- * to the button), or when the caller calls `close`, which an item does after it acts.
+ * Make `button` open and close `panel`, a small menu or popover inside `container`. It closes on a
+ * tap outside `container`, on Escape (focus goes back to the button), or when the caller calls
+ * `close`. The listeners only exist while it's open.
  */
+export function dropdown(
+  button: HTMLElement,
+  panel: HTMLElement,
+  container: HTMLElement,
+  onClose?: () => void,
+) {
+  const onDown = (e: PointerEvent) => {
+    if (!(e.target instanceof Node && container.contains(e.target))) setOpen(false);
+  };
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key !== "Escape") return;
+    setOpen(false);
+    button.focus({ preventScroll: true });
+  };
+  function setOpen(open: boolean) {
+    if (open === !panel.hidden) return;
+    panel.hidden = !open;
+    button.setAttribute("aria-expanded", String(open));
+    if (open) {
+      document.addEventListener("pointerdown", onDown, true);
+      document.addEventListener("keydown", onKey, true);
+      return;
+    }
+    document.removeEventListener("pointerdown", onDown, true);
+    document.removeEventListener("keydown", onKey, true);
+    onClose?.();
+  }
+  button.setAttribute("aria-expanded", "false");
+  button.addEventListener("click", () => setOpen(Boolean(panel.hidden)));
+  return { close: () => setOpen(false) };
+}
+
+/** A "…" button with a small menu under it, built on `dropdown`. An item calls `close` after it acts. */
 export function moreMenu(o: MoreMenuOptions) {
   const button = h(
     "button",
@@ -407,7 +441,6 @@ export function moreMenu(o: MoreMenuOptions) {
         type: "button",
         "aria-label": "More",
         "aria-haspopup": "true",
-        "aria-expanded": "false",
         "aria-controls": o.id,
       },
     },
@@ -415,29 +448,33 @@ export function moreMenu(o: MoreMenuOptions) {
   );
   const menu = h("div", { class: "paper menu", attrs: { id: o.id, hidden: true } }, ...o.items);
   const el = h("div", { class: ["more", o.className].filter(Boolean).join(" ") }, button, menu);
-  const onDown = (e: PointerEvent) => {
-    if (!(e.target instanceof Node && el.contains(e.target))) setOpen(false);
-  };
-  const onKey = (e: KeyboardEvent) => {
-    if (e.key !== "Escape") return;
-    setOpen(false);
-    button.focus({ preventScroll: true });
-  };
-  function setOpen(open: boolean) {
-    if (open === !menu.hidden) return;
-    menu.hidden = !open;
+  const { close } = dropdown(button, menu, el, o.onClose);
+  return { el, close };
+}
+
+// ---------- disclosure ----------
+
+/**
+ * A button that shows and hides `panel` (a small form under it), with `aria-expanded` kept in step.
+ * Opening focuses `focus`, usually the panel's first field. `onToggle` runs after each change, for
+ * example to relabel the button. `close` hides it, for example after the form sends.
+ */
+export function disclosure(
+  button: HTMLButtonElement,
+  panel: HTMLElement,
+  focus?: HTMLElement,
+  onToggle?: (open: boolean) => void,
+) {
+  if (panel.id) button.setAttribute("aria-controls", panel.id);
+  const set = (open: boolean) => {
+    panel.hidden = !open;
     button.setAttribute("aria-expanded", String(open));
-    if (open) {
-      document.addEventListener("pointerdown", onDown, true);
-      document.addEventListener("keydown", onKey, true);
-      return;
-    }
-    document.removeEventListener("pointerdown", onDown, true);
-    document.removeEventListener("keydown", onKey, true);
-    o.onClose?.();
-  }
-  button.addEventListener("click", () => setOpen(Boolean(menu.hidden)));
-  return { el, close: () => setOpen(false) };
+    if (open) focus?.focus();
+    onToggle?.(open);
+  };
+  button.setAttribute("aria-expanded", String(!panel.hidden));
+  button.addEventListener("click", () => set(Boolean(panel.hidden)));
+  return { close: () => set(false) };
 }
 
 // ---------- copy ----------

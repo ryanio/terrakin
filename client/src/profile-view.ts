@@ -23,6 +23,7 @@ import { avatarEl, badges, ownerLine, TOWNSFOLK_ABOUT } from "@terrakin/ui/peopl
 import {
   confirmTwice,
   copyButton,
+  disclosure,
   emptyNote,
   errorLine,
   moreButton,
@@ -472,7 +473,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       "button",
       {
         class: "pill-button small handle-edit",
-        attrs: { type: "button", "aria-expanded": "false", "aria-controls": "handle-form" },
+        attrs: { type: "button" },
       },
       h("span", { attrs: { "aria-hidden": "true" }, text: "@" }),
       label,
@@ -510,11 +511,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       error,
     );
     wrap.after(form);
-    b.addEventListener("click", () => {
-      form.hidden = !form.hidden;
-      b.setAttribute("aria-expanded", String(!form.hidden));
-      if (!form.hidden) input.focus();
-    });
+    const toggle = disclosure(b, form, input);
     input.addEventListener("input", () => {
       error.textContent = "";
     });
@@ -538,8 +535,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       line.textContent = updated.handle ? `@${updated.handle}` : "";
       line.hidden = !updated.handle;
       label.textContent = "Change handle";
-      form.hidden = true;
-      b.setAttribute("aria-expanded", "false");
+      toggle.close();
       toast("Handle saved");
     });
     return b;
@@ -579,7 +575,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
     });
     const giftForm = h(
       "form",
-      { class: "gift-form", attrs: { hidden: true, novalidate: true } },
+      { class: "gift-form", attrs: { id: "gift-form", hidden: true, novalidate: true } },
       h("label", { class: "field-label", attrs: { for: "gift-note" }, text: "What's the gift?" }),
       h(
         "div",
@@ -603,6 +599,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
     };
 
     const row = h("div", { class: "gesture-row", attrs: { role: "group", "aria-label": "Send" } });
+    let giftToggle: { close(): void } | undefined;
     for (const g of GESTURES) {
       const b = h(
         "button",
@@ -613,18 +610,10 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
         h("span", { class: "gesture-emoji", attrs: { "aria-hidden": "true" }, text: g.emoji }),
         h("span", { class: "gesture-label", text: g.label }),
       );
-      b.addEventListener("click", async () => {
-        if (g.kind === "gift") {
-          giftForm.hidden = !giftForm.hidden;
-          b.setAttribute("aria-expanded", String(!giftForm.hidden));
-          if (!giftForm.hidden) giftNote.focus();
-          return;
-        }
-        b.disabled = true;
-        await send(g.kind, b);
-        b.disabled = false;
-      });
       row.append(b);
+      // The gift button opens a note form; the others send straight away.
+      if (g.kind === "gift") giftToggle = disclosure(b, giftForm, giftNote);
+      else b.addEventListener("click", () => void whileBusy(b, () => send(g.kind, b)));
     }
     giftForm.addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -636,7 +625,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       const button = row.querySelector<HTMLElement>('[data-kind="gift"]') ?? giftForm;
       if (await send("gift", button, note)) {
         giftNote.value = "";
-        giftForm.hidden = true;
+        giftToggle?.close();
       }
     });
 
@@ -722,17 +711,13 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       "button",
       {
         class: "pill-button coin-open",
-        attrs: { type: "button", "aria-expanded": "false", "aria-controls": "coin-form" },
+        attrs: { type: "button" },
       },
       icon("coin"),
       h("span", { text: "Give coins" }),
     );
     form.id = "coin-form";
-    open.addEventListener("click", () => {
-      form.hidden = !form.hidden;
-      open.setAttribute("aria-expanded", String(!form.hidden));
-      if (!form.hidden) amount.focus();
-    });
+    const toggle = disclosure(open, form, amount);
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
       const n = Number(amount.value);
@@ -751,8 +736,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       floatUp(open, "🪙");
       toast(`You gave ${coins(n)} to ${r.name}`);
       note.value = "";
-      form.hidden = true;
-      open.setAttribute("aria-expanded", "false");
+      toggle.close();
       open.focus();
       refreshPurse(true);
     });
@@ -860,14 +844,9 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       text: token,
     });
     const showLabel = h("span", { text: "Show key" });
-    const show = h(
-      "button",
-      { class: "pill-button small", attrs: { type: "button", "aria-controls": "my-key" } },
-      showLabel,
-    );
-    show.addEventListener("click", () => {
-      key.hidden = !key.hidden;
-      showLabel.textContent = key.hidden ? "Show key" : "Hide key";
+    const show = h("button", { class: "pill-button small", attrs: { type: "button" } }, showLabel);
+    disclosure(show, key, undefined, (open) => {
+      showLabel.textContent = open ? "Hide key" : "Show key";
     });
     const copyLabel = h("span", { text: "Copy key" });
     const copy = h(

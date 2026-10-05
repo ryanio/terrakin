@@ -150,7 +150,7 @@ function openImageViewer(images: { url: string }[], start: number, label: string
   const stage = h("div", { class: "viewer-stage" }, img);
   const dialog = h(
     "dialog",
-    { class: "viewer", attrs: { "aria-label": `Image by ${label}` } },
+    { class: "fullscreen viewer", attrs: { "aria-label": `Image by ${label}` } },
     stage,
     closeBtn,
   );
@@ -211,7 +211,7 @@ export async function openModelViewer(url: string) {
   );
   const dialog = h(
     "dialog",
-    { class: "viewer model-viewer", attrs: { "aria-label": "3D model" } },
+    { class: "fullscreen viewer model-viewer", attrs: { "aria-label": "3D model" } },
     host,
     status,
     hint,

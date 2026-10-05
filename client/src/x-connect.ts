@@ -73,7 +73,7 @@ export function xRow(profile: ProfileView): { el: HTMLElement; paint(mine: boole
 
   function disconnectButton() {
     const b = h("button", {
-      class: "x-disconnect",
+      class: "text-button quiet x-disconnect",
       attrs: { type: "button" },
       text: "Disconnect",
     });

@@ -4,6 +4,7 @@
  * template and a flavor. Every texture is drawn on a canvas here; a painting may take one of our
  * own media images instead (loaded by the caller through the same-origin guard).
  */
+import { BRAND_HEX } from "@terrakin/ui/brand";
 import {
   CylinderGeometry,
   DoubleSide,
@@ -166,7 +167,7 @@ function labelTexture(flavor: Flavor): Texture {
   const H = 272;
   const [c, g] = canvas(W, H);
   const look = flavorLook(flavor);
-  g.fillStyle = "#fffaf0";
+  g.fillStyle = BRAND_HEX.paper;
   g.fillRect(0, 0, W, H);
   g.strokeStyle = look.gingham;
   g.lineWidth = 6;
@@ -179,7 +180,7 @@ function labelTexture(flavor: Flavor): Texture {
   }
   g.setLineDash([]);
   drawFruit(g, flavor, W / 2, 112, 150);
-  g.fillStyle = "#2b2620";
+  g.fillStyle = BRAND_HEX.ink;
   g.font = 'italic 600 50px "Fraunces Variable", Georgia, serif';
   g.textAlign = "center";
   g.textBaseline = "middle";
@@ -189,7 +190,7 @@ function labelTexture(flavor: Flavor): Texture {
 
 function ginghamTexture(color: string): Texture {
   const [c, g] = canvas(64, 64);
-  g.fillStyle = "#fffaf0";
+  g.fillStyle = BRAND_HEX.paper;
   g.fillRect(0, 0, 64, 64);
   g.globalAlpha = 0.55;
   g.fillStyle = color;
@@ -352,14 +353,14 @@ export function landscapeTexture(
     g.ellipse(W / 2 + 30, H * 0.44, 40, 12, -0.6, 0, Math.PI * 2);
     g.fill();
   } else {
-    const sunColor = variant === "dusk" ? "#fffaf0" : "#f2b84b";
+    const sunColor = variant === "dusk" ? BRAND_HEX.paper : BRAND_HEX.sun;
     g.fillStyle = sunColor;
     g.beginPath();
     g.arc(W * 0.74, H * 0.28, variant === "dusk" ? 26 : 40, 0, Math.PI * 2);
     g.fill();
     if (variant === "dusk") {
       for (let i = 0; i < 24; i++)
-        dab((i * 131) % W, ((i * 71) % (H * 0.45)) + 10, 2.2, "#fffaf0", 0.9);
+        dab((i * 131) % W, ((i * 71) % (H * 0.45)) + 10, 2.2, BRAND_HEX.paper, 0.9);
     }
     const hills =
       variant === "sea"
@@ -392,13 +393,13 @@ export function landscapeTexture(
       // The cottage from our brand mark.
       const hx = W * 0.32;
       const hy = H * 0.66;
-      g.fillStyle = "#fffaf0";
+      g.fillStyle = BRAND_HEX.paper;
       g.fillRect(hx - 34, hy - 24, 68, 52);
-      g.fillStyle = variant === "dusk" ? "#ffb35c" : "#f2b84b";
+      g.fillStyle = variant === "dusk" ? "#ffb35c" : BRAND_HEX.sun;
       g.beginPath();
       g.roundRect(hx - 10, hy, 20, 28, 5);
       g.fill();
-      g.fillStyle = "#b4532f";
+      g.fillStyle = BRAND_HEX.clay;
       g.beginPath();
       g.moveTo(hx - 46, hy - 20);
       g.lineTo(hx, hy - 62);
@@ -407,14 +408,14 @@ export function landscapeTexture(
       g.fill();
     } else {
       // A little sailboat.
-      g.fillStyle = "#b4532f";
+      g.fillStyle = BRAND_HEX.clay;
       g.beginPath();
       g.moveTo(W * 0.3, H * 0.66);
       g.lineTo(W * 0.42, H * 0.66);
       g.lineTo(W * 0.4, H * 0.7);
       g.lineTo(W * 0.32, H * 0.7);
       g.fill();
-      g.fillStyle = "#fffaf0";
+      g.fillStyle = BRAND_HEX.paper;
       g.beginPath();
       g.moveTo(W * 0.36, H * 0.64);
       g.lineTo(W * 0.36, H * 0.48);

@@ -11,6 +11,7 @@ import type {
   ThemePalette,
   WearItem,
 } from "@terrakin/sim";
+import { BRAND_HEX } from "./brand";
 import { lookImage, lookPalette, mix, PatternCache, RESIDENT_COLOR_HEX } from "./looks";
 
 export interface FigureLook {
@@ -56,7 +57,7 @@ export function paintFigure(
   const u = crop === "bust" ? px * 0.92 : px * 0.78;
   const feet = crop === "bust" ? px * 1.02 : px * 0.9;
   if (crop === "full") {
-    ctx.fillStyle = mix(p.ground, "#fffaf0", 0.35);
+    ctx.fillStyle = mix(p.ground, BRAND_HEX.paper, 0.35);
     ctx.beginPath();
     ctx.ellipse(px / 2, feet, px * 0.36, px * 0.09, 0, 0, Math.PI * 2);
     ctx.fill();
@@ -78,7 +79,7 @@ export function paintFigure(
 /** The figure's box around its feet, in tile units: how big a sprite must be. */
 export const FIGURE_BOX = { left: -0.5, right: 0.5, top: -1.06, bottom: 0.12 };
 
-const INK = "#2b2620";
+const INK = BRAND_HEX.ink;
 const RIM = "#ffffff";
 const STRAW = "#e8c878";
 const STRAW_DEEP = "#c49a4c";
@@ -190,7 +191,7 @@ export function drawFigure(
   ctx.beginPath();
   ctx.ellipse(-0.08 * u, -0.74 * u, 0.06 * u, 0.035 * u, -0.6, 0, Math.PI * 2);
   ctx.fill();
-  const eye = look.color === "coal" ? "#fffaf0" : INK;
+  const eye = look.color === "coal" ? BRAND_HEX.paper : INK;
   ctx.fillStyle = eye;
   ctx.beginPath();
   ctx.arc(-0.075 * u, -0.64 * u, 0.026 * u, 0, Math.PI * 2);
@@ -313,7 +314,7 @@ function drawTop(ctx: CanvasRenderingContext2D, u: number, wear: Set<WearItem>, 
     ctx.fill();
   }
   if (wear.has("scarf")) {
-    const scarf = p.accent === "#ffffff" || p.accent === "#fffaf0" ? p.deep : p.accent;
+    const scarf = p.accent === "#ffffff" || p.accent === BRAND_HEX.paper ? p.deep : p.accent;
     ctx.fillStyle = scarf;
     ctx.beginPath();
     ctx.roundRect(-0.22 * u, -0.52 * u, 0.44 * u, 0.09 * u, 0.04 * u);

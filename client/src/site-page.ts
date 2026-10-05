@@ -3,7 +3,9 @@
  * docs/site/*.md by the `terrakin-site` plugin in vite.config.ts. Pure functions, so tests pin
  * them. These pages load no scripts: no app, no analytics.
  */
+
 import { absolute, LINKS, SITE, type SitePage } from "@terrakin/protocol";
+import { BRAND_HEX } from "@terrakin/ui/brand";
 import { markdownToHtml } from "./markdown";
 
 /** The footer links every page shows. index.html carries the same list for the app's pages. */
@@ -59,7 +61,7 @@ export function staticPage(options: {
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>${attr(page.title)}</title>
     <meta name="description" content="${attr(page.description)}" />
-    <meta name="theme-color" content="#fffaf0" />
+    <meta name="theme-color" content="${BRAND_HEX.paper}" />
     <meta name="color-scheme" content="light" />
     <link rel="canonical" href="${absolute(page.path)}" />
     <link rel="alternate" type="text/markdown" href="${markdown}" title="This page as Markdown" />

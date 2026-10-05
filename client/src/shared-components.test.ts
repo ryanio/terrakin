@@ -49,6 +49,17 @@ const HAND_BUILT: { pattern: RegExp; use: string; home?: string }[] = [
     home: "client/src/purse.ts",
   },
   { pattern: /dataset\.confirm/, use: "confirmTwice (ui.ts)" },
+  {
+    pattern: /"#(fffaf0|fbf3e4|ecdcc0|2b2620|5a5146|b4532f|8f3d20|5e7f45|a3361a)"/i,
+    use: "BRAND_HEX (brand.ts)",
+  },
+  {
+    pattern: /(\w+)\.hidden = !\1\.hidden/,
+    use: "disclosure (ui.ts)",
+    // The world's HUD buttons are pressed toggles, styled by aria-pressed.
+    home: "client/src/world.ts",
+  },
+  { pattern: /document\.addEventListener\("pointerdown"/, use: "dropdown or moreMenu (ui.ts)" },
   { pattern: /"[^"]*\bload-more\b/, use: "moreButton (ui.ts)" },
   {
     pattern: /"swatch-dot"|createElement\("button"\)/,

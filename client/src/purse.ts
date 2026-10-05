@@ -7,12 +7,11 @@
 import type { PurseLine, PurseResponse, PurseView } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { countTo, reducedMotion, replay, showNumber } from "@terrakin/ui/motion";
+import { visiblePoll } from "@terrakin/ui/poll";
 import { api } from "./api";
 import { liveToast, snippet } from "./live-toast";
 import { savedResidentId, savedToken } from "./net";
 
-const POLL_MS = 60_000;
-const MIN_GAP_MS = 15_000;
 const COUNT_MS = 700;
 const GLOW_MS = 1_600;
 /** At most this many notices for one refresh, so a long absence doesn't flood the screen. */
@@ -62,10 +61,6 @@ let amount: HTMLElement | undefined;
 let label: HTMLElement | undefined;
 let shown = 0;
 let lastSeq: number | undefined;
-let lastAsked = 0;
-let asking = false;
-/** A forced refresh asked for while another was in flight: run it when that one lands. */
-let again = false;
 
 /**
  * The newest purse line this browser has announced, kept per resident, so a gift that came in
@@ -164,32 +159,16 @@ export function makePurse(): HTMLAnchorElement {
   return pill;
 }
 
-/** Ask for the purse if there's a token and it's time. `force` skips the 15 second gap. */
-export function refreshPurse(force = false) {
-  if (!pill || !savedToken()) return;
-  if (asking) {
-    if (force) again = true;
-    return;
-  }
-  if (!force && Date.now() - lastAsked < MIN_GAP_MS) return;
-  lastAsked = Date.now();
-  asking = true;
-  const target = pill;
-  void api.purse().then((r) => {
-    asking = false;
+const poll = visiblePoll(
+  async () => {
+    const target = pill;
+    const r = await api.purse();
     if (r.ok && target === pill) paint(r.data, true);
-    if (again) {
-      again = false;
-      refreshPurse(true);
-    }
-  });
-}
+  },
+  { everyMs: 60_000, minGapMs: 15_000, ready: () => Boolean(pill && savedToken()) },
+);
 
-export function initPurse() {
-  setInterval(() => {
-    if (document.visibilityState === "visible") refreshPurse(true);
-  }, POLL_MS);
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") refreshPurse();
-  });
-}
+/** Ask for the purse if there's a token and it's time. `force` skips the 15 second gap. */
+export const refreshPurse = (force = false) => poll.refresh(force);
+
+export const initPurse = poll.start;

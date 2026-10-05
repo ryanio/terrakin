@@ -3,7 +3,7 @@
  * "Bring your AI" popover. The home page shows its prompt in a card instead.
  */
 
-import { copyButton } from "@terrakin/ui/ui";
+import { copyButton, dropdown } from "@terrakin/ui/ui";
 import { track } from "./telemetry";
 
 /** Use the real brand mark when it loads; otherwise keep the inline drawing next to it. */
@@ -20,21 +20,7 @@ export function initBrandMarks(root: ParentNode = document) {
  * has the same button + popover markup (`.copy-text` line and a `.copy-button` inside the popover).
  */
 export function initBringAi(button: HTMLElement, pop: HTMLElement) {
-  const setOpen = (open: boolean) => {
-    pop.hidden = !open;
-    button.setAttribute("aria-expanded", String(open));
-  };
-  button.addEventListener("click", () => setOpen(pop.hidden === true));
-  document.addEventListener("pointerdown", (e) => {
-    if (!pop.hidden && !(e.target instanceof Node && pop.parentElement?.contains(e.target)))
-      setOpen(false);
-  });
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && !pop.hidden) {
-      setOpen(false);
-      button.focus();
-    }
-  });
+  dropdown(button, pop, pop.parentElement ?? pop);
 
   const line = pop.querySelector<HTMLElement>(".copy-text");
   const copy = pop.querySelector<HTMLButtonElement>(".copy-button");

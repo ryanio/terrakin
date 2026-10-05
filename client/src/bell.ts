@@ -6,17 +6,13 @@
 
 import { h, icon } from "@terrakin/ui/dom";
 import { badgeText } from "@terrakin/ui/format";
+import { visiblePoll } from "@terrakin/ui/poll";
 import { api } from "./api";
 import { savedToken } from "./net";
-
-const POLL_MS = 60_000;
-const MIN_GAP_MS = 15_000;
 
 let link: HTMLAnchorElement | undefined;
 let badge: HTMLElement | undefined;
 let label: HTMLElement | undefined;
-let lastAsked = 0;
-let asking = false;
 
 export function setUnread(unread: number) {
   if (!badge) return;
@@ -44,29 +40,21 @@ export function makeBell(): HTMLAnchorElement {
   return link;
 }
 
-/** Ask for the unread count if there's a token and it's time. */
-export function refreshBell(force = false) {
-  if (!link || !savedToken() || asking) return;
-  if (!force && Date.now() - lastAsked < MIN_GAP_MS) return;
-  lastAsked = Date.now();
-  asking = true;
-  const target = badge;
-  void api.notifications({ limit: 1 }).then((r) => {
-    asking = false;
+const poll = visiblePoll(
+  async () => {
+    const target = badge;
+    const r = await api.notifications({ limit: 1 });
     if (r.ok && target === badge) setUnread(r.data.unread);
-  });
-}
+  },
+  {
+    everyMs: 60_000,
+    minGapMs: 15_000,
+    ready: () => Boolean(link && savedToken()),
+    when: () => document.documentElement.classList.contains("mode-site"),
+  },
+);
 
-export function initBell() {
-  setInterval(() => {
-    if (
-      document.visibilityState === "visible" &&
-      document.documentElement.classList.contains("mode-site")
-    ) {
-      refreshBell(true);
-    }
-  }, POLL_MS);
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") refreshBell();
-  });
-}
+/** Ask for the unread count if there's a token and it's time. `force` skips the 15 second gap. */
+export const refreshBell = (force = false) => poll.refresh(force);
+
+export const initBell = poll.start;

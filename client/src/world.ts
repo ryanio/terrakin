@@ -13,6 +13,7 @@ import {
 import type { BlockKind, Direction } from "@terrakin/sim";
 import { REDUCED_MOTION } from "@terrakin/ui/motion";
 import { plot3dPath } from "@terrakin/ui/paths";
+import { everyVisible } from "@terrakin/ui/poll";
 import { whoseKey } from "./api";
 import { type Camera, fitScale, screenToTile, stepToward } from "./camera";
 import { createLanding } from "./landing";
@@ -42,7 +43,7 @@ const motionQuery = window.matchMedia(REDUCED_MOTION);
 
 let active = false;
 let rafId = 0;
-let populationTimer: ReturnType<typeof setInterval> | undefined;
+let stopPopulation: (() => void) | undefined;
 let conn: Connection | undefined;
 let mirror: Mirror | undefined;
 let me: string | undefined;
@@ -438,9 +439,9 @@ export function startWorld(options: { navigate?: (path: string) => void } = {}) 
   } else {
     void resync();
     // Keep the "online now" line fresh while someone reads the landing page.
-    populationTimer = setInterval(() => {
-      if (landing.isUp() && document.visibilityState === "visible") void resync();
-    }, 20_000);
+    stopPopulation = everyVisible(20_000, () => {
+      if (landing.isUp()) void resync();
+    });
   }
 }
 
@@ -449,8 +450,8 @@ export function stopWorld() {
   if (!active) return;
   active = false;
   cancelAnimationFrame(rafId);
-  clearInterval(populationTimer);
-  populationTimer = undefined;
+  stopPopulation?.();
+  stopPopulation = undefined;
   conn?.close();
   conn = undefined;
   me = undefined;

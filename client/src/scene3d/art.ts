@@ -10,6 +10,7 @@
  *
  * Loaded only through `import()` (decision 0013): nothing in the main bundle imports this file.
  */
+import { BRAND_HEX } from "@terrakin/ui/brand";
 import { reducedMotion } from "@terrakin/ui/motion";
 import {
   BufferAttribute,
@@ -599,14 +600,14 @@ export function nameTag(text: string, mine: boolean): { texture: CanvasTexture; 
   g.beginPath();
   g.roundRect(2 * scale, 3.5 * scale, w, h, h / 2);
   g.fill();
-  g.fillStyle = "#fffaf0";
-  g.strokeStyle = mine ? "#b4532f" : "#ecdcc0";
+  g.fillStyle = BRAND_HEX.paper;
+  g.strokeStyle = mine ? BRAND_HEX.clay : BRAND_HEX.paperEdge;
   g.lineWidth = 1.5 * scale;
   g.beginPath();
   g.roundRect(2 * scale, 2 * scale, w, h, h / 2);
   g.fill();
   g.stroke();
-  g.fillStyle = mine ? "#8f3d20" : "#2b2620";
+  g.fillStyle = mine ? BRAND_HEX.clayDeep : BRAND_HEX.ink;
   g.font = font;
   g.textAlign = "center";
   g.textBaseline = "middle";

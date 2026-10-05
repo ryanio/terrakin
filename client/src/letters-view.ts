@@ -239,7 +239,7 @@ export function letterThreadView(otherId: string, ctx: ViewContext): View {
       pictures,
     );
     const remove = h("button", {
-      class: "letter-remove",
+      class: "text-button quiet letter-remove",
       attrs: { type: "button" },
       text: "Remove",
     });

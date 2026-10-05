@@ -4,6 +4,7 @@
  * and the 2D and 3D worlds keep one look.
  */
 import type { BlockKind, ResidentColor } from "@terrakin/sim";
+import { BRAND_HEX } from "@terrakin/ui/brand";
 
 /** `#rrggbb` to a number three.js takes as a color. */
 export function hex(color: string): number {
@@ -13,16 +14,16 @@ export function hex(color: string): number {
 
 /** Brand tokens (tokens.css `:root`). */
 export const BRAND = {
-  paper: hex("#fffaf0"),
-  paper2: hex("#fbf3e4"),
-  paperEdge: hex("#ecdcc0"),
-  ink: hex("#2b2620"),
-  clay: hex("#b4532f"),
-  clayDeep: hex("#8f3d20"),
-  moss: hex("#5e7f45"),
-  mossLight: hex("#8fb36a"),
-  sun: hex("#f2b84b"),
-  dusk: hex("#cdb4f6"),
+  paper: hex(BRAND_HEX.paper),
+  paper2: hex(BRAND_HEX.paper2),
+  paperEdge: hex(BRAND_HEX.paperEdge),
+  ink: hex(BRAND_HEX.ink),
+  clay: hex(BRAND_HEX.clay),
+  clayDeep: hex(BRAND_HEX.clayDeep),
+  moss: hex(BRAND_HEX.moss),
+  mossLight: hex(BRAND_HEX.mossLight),
+  sun: hex(BRAND_HEX.sun),
+  dusk: hex(BRAND_HEX.dusk),
   /** The meadow and earth the 2D map uses around plots. */
   grass: hex("#a5c682"),
   grassDeep: hex("#8fb36a"),

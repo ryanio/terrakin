@@ -8,6 +8,7 @@ import {
   type Theme,
   type ThemePalette,
 } from "@terrakin/sim";
+import { BRAND_HEX } from "@terrakin/ui/brand";
 import { drawFigure, FIGURE_BOX } from "@terrakin/ui/figure";
 import {
   lookImage,
@@ -25,11 +26,11 @@ import { nightAmount } from "./time";
 export { RESIDENT_COLOR_HEX } from "@terrakin/ui/looks";
 
 // Storybook palette. Matches the tokens in ui/src/tokens.css.
-const PAPER = "#fffaf0";
-const PAPER_EDGE = "#ecdcc0";
-const INK = "#2b2620";
-const CLAY = "#b4532f";
-const CLAY_DEEP = "#8f3d20";
+const PAPER = BRAND_HEX.paper;
+const PAPER_EDGE = BRAND_HEX.paperEdge;
+const INK = BRAND_HEX.ink;
+const CLAY = BRAND_HEX.clay;
+const CLAY_DEEP = BRAND_HEX.clayDeep;
 
 const BLOCK_COLORS: Record<BlockKind, string> = {
   wood: "#b8834f",
@@ -316,7 +317,7 @@ export function render(
   ctx.stroke(tufts);
   ctx.fillStyle = "#fff4d6";
   ctx.fill(flowers[0]);
-  ctx.fillStyle = "#f2b84b";
+  ctx.fillStyle = BRAND_HEX.sun;
   ctx.fill(flowers[1]);
 
   // ---- plots: owner tint plus a dashed clay border; faint lines between unclaimed plots ----
@@ -410,7 +411,7 @@ export function render(
     // Built by the town: a little sun-gold rosette in the corner.
     if (mirror.townBuilt.has(key)) {
       const r = Math.max(2.5, scale * 0.11);
-      ctx.fillStyle = "#f2b84b";
+      ctx.fillStyle = BRAND_HEX.sun;
       ctx.strokeStyle = PAPER;
       ctx.lineWidth = Math.max(1, scale / 28);
       ctx.beginPath();
@@ -433,7 +434,7 @@ export function render(
     ctx.fill();
     ctx.fillStyle = PAPER;
     ctx.fillRect(sx - half * 0.52, sy - half * 0.2, half * 1.04, half * 0.78);
-    ctx.fillStyle = "#f2b84b";
+    ctx.fillStyle = BRAND_HEX.sun;
     ctx.beginPath();
     ctx.roundRect(sx - half * 0.14, sy + half * 0.12, half * 0.28, half * 0.46, half * 0.08);
     ctx.fill();
@@ -670,7 +671,7 @@ function drawTownHall(ctx: CanvasRenderingContext2D, mirror: Mirror, cam: Camera
   // Door: a gold arch in the middle.
   const doorW = bodyW * 0.2;
   const doorH = (base - s * 0.2 - bodyTop) * 0.62;
-  ctx.fillStyle = "#f2b84b";
+  ctx.fillStyle = BRAND_HEX.sun;
   ctx.beginPath();
   ctx.roundRect(left + w / 2 - doorW / 2, base - s * 0.2 - doorH, doorW, doorH, [
     doorW / 2,
@@ -703,7 +704,7 @@ function drawTownHall(ctx: CanvasRenderingContext2D, mirror: Mirror, cam: Camera
   ctx.moveTo(poleX, top + h * 0.07);
   ctx.lineTo(poleX, top - s * 0.32);
   ctx.stroke();
-  ctx.fillStyle = "#5e7f45";
+  ctx.fillStyle = BRAND_HEX.moss;
   ctx.beginPath();
   ctx.moveTo(poleX, top - s * 0.32);
   ctx.lineTo(poleX + s * 0.3, top - s * 0.24);

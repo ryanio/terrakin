@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { WorldSnapshot } from "@terrakin/protocol";
 import { BLOCK_KINDS, RESIDENT_COLORS } from "@terrakin/sim";
+import { BRAND_HEX } from "@terrakin/ui/brand";
 import { describe, expect, it } from "vitest";
 import { blockColor, RESIDENT_COLOR_HEX } from "./render";
 import { parseGallery } from "./scene3d/catalog";
@@ -156,11 +157,12 @@ describe("palette", () => {
       if (!m?.[1]) throw new Error(`no --${name}`);
       return hex(m[1]);
     };
+    for (const [name, value] of Object.entries(BRAND_HEX)) {
+      const kebab = name.replace(/[A-Z0-9]/g, (c) => `-${c.toLowerCase()}`);
+      expect(hex(value), name).toBe(token(kebab));
+    }
     expect(BRAND.paper).toBe(token("paper"));
     expect(BRAND.ink).toBe(token("ink"));
-    expect(BRAND.clay).toBe(token("clay"));
-    expect(BRAND.moss).toBe(token("moss"));
-    expect(BRAND.sun).toBe(token("sun"));
   });
 
   it("mixes and shades colors channel by channel", () => {

@@ -15,6 +15,7 @@ import type { BlockKind } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
 import { plural } from "@terrakin/ui/format";
 import { personLink } from "@terrakin/ui/people";
+import { everyVisible } from "@terrakin/ui/poll";
 import {
   chips,
   closeOverlay,
@@ -88,9 +89,9 @@ export function townView(ctx: ViewContext): View {
   let archiveNext: string | null = null;
 
   const ready = load();
-  const timer = setInterval(() => {
-    if (document.visibilityState === "visible" && !sheetOpen && !busy) void refresh();
-  }, REFRESH_MS);
+  const stopRefresh = everyVisible(REFRESH_MS, () => {
+    if (!sheetOpen && !busy) void refresh();
+  });
 
   async function load(): Promise<void> {
     el.replaceChildren(...skeletonCards(2));
@@ -622,7 +623,7 @@ export function townView(ctx: ViewContext): View {
     ready,
     destroy() {
       destroyed = true;
-      clearInterval(timer);
+      stopRefresh();
     },
   };
 }

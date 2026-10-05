@@ -16,6 +16,7 @@ import {
   TOWNSFOLK_ABOUT,
   townsfolkBadge,
 } from "@terrakin/ui/people";
+import { everyVisible } from "@terrakin/ui/poll";
 import { timeAgo } from "@terrakin/ui/when";
 import { type PulseStats, phaseName, type WallItem } from "./pulse";
 import { dayPhase, nightAmount } from "./time";
@@ -280,9 +281,7 @@ export function skyCard() {
         : `${plural(online, "resident is", "residents are")} out right now.`
     }`;
   };
-  const timer = setInterval(() => {
-    if (document.visibilityState === "visible") paint();
-  }, 2_000);
+  const stop = everyVisible(2_000, paint);
   return {
     el,
     update(snapshot: WorldSnapshot, onlineNow: number) {
@@ -297,7 +296,7 @@ export function skyCard() {
       paint();
     },
     destroy() {
-      clearInterval(timer);
+      stop();
     },
   };
 }

@@ -396,7 +396,7 @@ export function openLookEditor(owner: LookOwner, onSaved: (look: LookView) => vo
   );
   const dialog = h(
     "dialog",
-    { class: "look-editor", attrs: { "aria-labelledby": "look-title" } },
+    { class: "fullscreen look-editor", attrs: { "aria-labelledby": "look-title" } },
     h(
       "div",
       { class: "look-sheet paper" },

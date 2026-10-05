@@ -601,6 +601,26 @@ a {
   overflow-wrap: anywhere;
 }
 
+/* A dialog that covers the whole screen: the image viewer, the quote composer, the look editor. */
+dialog.fullscreen {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  overscroll-behavior: contain;
+  animation: fade-in 0.2s ease-out;
+}
+
+dialog.fullscreen::backdrop {
+  background: rgba(43, 38, 32, 0.45);
+}
+
 /* ---------- sheet (ui.ts sheet) ----------
  * Rises from the bottom on a phone, a centered card on a wide screen. */
 
@@ -700,6 +720,24 @@ dialog.sheet::backdrop {
 .sheet-body {
   display: grid;
   gap: 10px;
+}
+
+/* A button that reads like a link: small, underlined, no pill. `.quiet` for the soft ink color. */
+.text-button {
+  justify-self: start;
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--clay-deep);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.text-button.quiet {
+  color: var(--ink-soft);
 }
 
 /* ---------- "More" menu (ui.ts moreMenu) ---------- */

@@ -420,7 +420,7 @@ export function openQuoteComposer(
   });
   const dialog = h(
     "dialog",
-    { class: "quote-dialog", attrs: { "aria-labelledby": "quote-title" } },
+    { class: "fullscreen quote-dialog", attrs: { "aria-labelledby": "quote-title" } },
     h(
       "div",
       { class: "quote-sheet" },

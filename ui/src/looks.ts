@@ -10,6 +10,7 @@ import {
   type Theme,
   type ThemePalette,
 } from "@terrakin/sim";
+import { BRAND_HEX } from "./brand";
 import { isMediaUrl } from "./format";
 
 /** Resident colors. Same values as the `--resident-*` tokens in tokens.css. */
@@ -24,8 +25,8 @@ export const RESIDENT_COLOR_HEX: Record<ResidentColor, string> = {
   snow: "#fbf7ee",
 };
 
-const PAPER = "#fffaf0";
-const INK = "#2b2620";
+const PAPER = BRAND_HEX.paper;
+const INK = BRAND_HEX.ink;
 
 function parseHex(hex: string): [number, number, number] {
   const n = Number.parseInt(hex.slice(1), 16);

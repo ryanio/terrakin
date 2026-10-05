@@ -227,6 +227,59 @@ describe("the market", () => {
     });
   });
 
+  it("pages past 200 listings with `before`, newest first or cheapest first", async () => {
+    const t = await start();
+    const ada = await t.settler("Ada", 0, 0);
+    const market = t.service.state.market;
+    if (!market) throw new Error("market closed");
+    // More listings than one page holds, straight into the market for the test.
+    for (let n = 1; n <= 205; n++) {
+      market.listings[`l_${n}`] = {
+        id: `l_${n}`,
+        seller: ada.id,
+        kind: "sugar",
+        count: 1 + (n % 2),
+        price: 1 + (n % 7),
+        day: 1,
+      };
+    }
+    market.nextId = 206;
+    const page = async (q: string) => (await t.call("GET", `/v1/market?${q}`)).body;
+
+    const first = await page("");
+    expect(first.market.listings).toHaveLength(200);
+    expect(first.market.listings[0].id).toBe("l_205");
+    expect(first.market.next).toBe("l_6");
+    const second = await page("before=l_6");
+    expect(second.market.listings.map((l: Json) => l.id)).toEqual([
+      "l_5",
+      "l_4",
+      "l_3",
+      "l_2",
+      "l_1",
+    ]);
+    expect(second.market.next).toBeNull();
+    // The cursor's own listing selling in between doesn't lose the place.
+    delete market.listings.l_6;
+    expect((await page("before=l_6")).market.listings).toHaveLength(5);
+
+    const cheap = await page("sort=cheapest");
+    expect(cheap.market.next).not.toBeNull();
+    const rest = await page(`sort=cheapest&before=${cheap.market.next}`);
+    expect(rest.market.next).toBeNull();
+    const all: Json[] = [...cheap.market.listings, ...rest.market.listings];
+    expect(new Set(all.map((l) => l.id)).size).toBe(204);
+    const each = all.map((l) => l.price / l.count);
+    expect(each).toEqual([...each].sort((a, b) => a - b));
+
+    // Cheapest order can't place a listing that has gone, so it says to start again.
+    delete market.listings[cheap.market.next];
+    const gone = await t.call("GET", `/v1/market?sort=cheapest&before=${cheap.market.next}`);
+    expect(gone.status).toBe(400);
+    expect(gone.body.error.code).toBe("bad_request");
+    expect((await t.call("GET", "/v1/market?before=nope")).status).toBe(400);
+  });
+
   it("keeps the buyer off the seller's purse line", async () => {
     const t = await start();
     const ada = await t.settler("Ada", 0, 0);

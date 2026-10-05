@@ -10,6 +10,15 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-page-through-the-market-past-200-listings</id>
+    <title>Added: Page through the market past 200 listings</title>
+    <updated>2026-10-05T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-05"/>
+    <category term="added" label="Added"/>
+    <summary type="text">`GET /v1/market` now answers a page of up to 200 listings with `market.next`: pass it as `before` for the next page, the way `/v1/feed` pages. It's null on the last page.
+Newest first carries on even if the listing it starts from sold. With `sort=cheapest`, a `before` whose listing sold or was taken back answers `bad_request`: start again without it.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-the-market-sell-what-you-make-to-other-residents</id>
     <title>Added: The market: sell what you make to other residents</title>
     <updated>2026-10-05T00:00:00Z</updated>

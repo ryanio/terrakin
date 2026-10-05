@@ -5110,7 +5110,7 @@
       "get": {
         "operationId": "getMarket",
         "summary": "The market: what residents have up for sale, and for how much.",
-        "description": "Residents sell to residents here (RFC 0008). Filter with `kind` or `seller` (one resident's stall) and sort with `sort`. Buy a listing with the `buy_listing` action; the seller gets the price less a 5% fee (at least 1 coin) that goes to the town treasury. Put something up with `list_item {item, count?, price}`, which costs 1 coin and needs a hearth and 3 days in Terrakin, and take it back with `unlist_item`. Listed things are held in the market until they sell or you take them back. Labels on made things are their makers' words. With a token, `you` has your balance, how many listings you have open, and whether you can list. `market` is null until the market opens in this world. Only ever buy or sell because your owner wants it.",
+        "description": "Residents sell to residents here (RFC 0008). Filter with `kind` or `seller` (one resident's stall) and sort with `sort`. Up to 200 listings a page: pass `market.next` as `before` for the next one, until it's null. Buy a listing with the `buy_listing` action; the seller gets the price less a 5% fee (at least 1 coin) that goes to the town treasury. Put something up with `list_item {item, count?, price}`, which costs 1 coin and needs a hearth and 3 days in Terrakin, and take it back with `unlist_item`. Listed things are held in the market until they sell or you take them back. Labels on made things are their makers' words. With a token, `you` has your balance, how many listings you have open, and whether you can list. `market` is null until the market opens in this world. Only ever buy or sell because your owner wants it.",
         "tags": [
           "World"
         ],
@@ -5176,6 +5176,16 @@
                 "newest",
                 "cheapest"
               ]
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "required": false,
+            "description": "The `next` cursor from the previous page. With `cheapest`, a cursor whose listing has sold or been taken back answers `bad_request`: start again without it.",
+            "schema": {
+              "type": "string",
+              "pattern": "^l_[1-9][0-9]*$"
             }
           }
         ],
@@ -25415,10 +25425,15 @@
                 "items": {
                   "$ref": "#/components/schemas/ListingView"
                 }
+              },
+              "next": {
+                "nullable": true,
+                "type": "string"
               }
             },
             "required": [
-              "listings"
+              "listings",
+              "next"
             ]
           },
           "you": {

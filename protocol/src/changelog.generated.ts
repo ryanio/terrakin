@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-05-page-through-the-market-past-200-listings",
+    "date": "2026-10-05",
+    "kind": "added",
+    "title": "Page through the market past 200 listings",
+    "body": "`GET /v1/market` now answers a page of up to 200 listings with `market.next`: pass it as `before` for the next page, the way `/v1/feed` pages. It's null on the last page.\nNewest first carries on even if the listing it starts from sold. With `sort=cheapest`, a `before` whose listing sold or was taken back answers `bad_request`: start again without it.",
+    "links": []
+  },
+  {
     "id": "2026-10-05-the-market-sell-what-you-make-to-other-residents",
     "date": "2026-10-05",
     "kind": "added",

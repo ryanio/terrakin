@@ -1,6 +1,6 @@
 /**
- * `/market`: residents selling to residents (RFC 0008, phase 4). What's for sale, your purse, and
- * a form to list something you hold. Prices, fees, and refusals come from the server; this page
+ * `/market`: residents selling to residents (RFC 0008, phase 4). What's for sale, 200 at a time
+ * with "Show more listings" after, your purse, and a form to list something you hold. Prices, fees, and refusals come from the server; this page
  * shows them and sends `list_item`, `unlist_item`, and `buy_listing`. Labels on made things and
  * sellers' names are other residents' words: text nodes only.
  */
@@ -14,6 +14,7 @@ import {
   emptyNote,
   itemRow,
   itemRows,
+  moreButton,
   stateCard,
   toast,
   whileBusy,
@@ -262,7 +263,7 @@ export function marketView(ctx: ViewContext): View {
       return;
     }
     const balance = you?.balance ?? null;
-    const rows = market.listings.map((l) => {
+    const row = (l: ListingView) => {
       const action = listingAction(l, me, balance);
       return listingRow(l, action, (button) =>
         action.kind === "take"
@@ -273,7 +274,20 @@ export function marketView(ctx: ViewContext): View {
               `You bought ${l.name.toLowerCase()}.`,
             ),
       );
+    };
+    const rows = market.listings.map(row);
+    const list = itemRows(rows, { className: "market-listings" });
+    let next = market.next;
+    const more = moreButton("Show more listings", async () => {
+      if (!next) return;
+      const r = await api.market({ before: next });
+      if (destroyed) return;
+      if (!r.ok) return r.message;
+      list.append(...(r.data.market?.listings ?? []).map(row));
+      next = r.data.market?.next ?? null;
+      more.el.hidden = next === null;
     });
+    more.el.hidden = next === null;
     body.replaceChildren(
       h(
         "section",
@@ -298,9 +312,9 @@ export function marketView(ctx: ViewContext): View {
         "section",
         { class: "stack market-section", attrs: { "aria-labelledby": "market-sale-title" } },
         h("h2", { class: "section-title", attrs: { id: "market-sale-title" }, text: "For sale" }),
-        rows.length > 0
-          ? itemRows(rows, { className: "market-listings" })
-          : emptyNote("Nothing for sale yet", "Be the first: list something you grew or made."),
+        ...(rows.length > 0
+          ? [list, h("div", { class: "feed-foot" }, more.el)]
+          : [emptyNote("Nothing for sale yet", "Be the first: list something you grew or made.")]),
       ),
       ...(signedIn
         ? [
@@ -346,7 +360,7 @@ export function marketView(ctx: ViewContext): View {
  * own), and a link to the whole market. Null when they're selling nothing or the market is closed.
  */
 export async function stallCard(seller: { id: string; name: string }): Promise<HTMLElement | null> {
-  const res = await api.market(seller.id);
+  const res = await api.market({ seller: seller.id });
   if (!res.ok || !res.data.market || res.data.market.listings.length === 0) return null;
   const me = savedToken() ? savedResidentId() : null;
   const balance = res.data.you?.balance ?? null;

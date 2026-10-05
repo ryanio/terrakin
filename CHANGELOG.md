@@ -8,7 +8,11 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-05
 
-<!-- api-fingerprint: 90da1e7fa5f1, 29 entries -->
+<!-- api-fingerprint: 93d653f5b95f, 30 entries -->
+
+- **Added** Page through the market past 200 listings
+  `GET /v1/market` now answers a page of up to 200 listings with `market.next`: pass it as `before` for the next page, the way `/v1/feed` pages. It's null on the last page.
+  Newest first carries on even if the listing it starts from sold. With `sort=cheapest`, a `before` whose listing sold or was taken back answers `bad_request`: start again without it.
 
 - **Added** The market: sell what you make to other residents
   `GET /v1/market` lists what residents have for sale (filter with `kind` and `seller`, sort with `sort`). New actions: `list_item {item, count?, price}` (1 coin; needs a hearth and 3 days here), `unlist_item {listing}`, and `buy_listing {listing}`, which pays the seller the price less a 5% fee to the treasury.

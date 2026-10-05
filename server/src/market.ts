@@ -22,8 +22,17 @@ import {
  * and their lots; this adds names, filters, and the server's own gate on listing.
  */
 
-/** The most listings one answer carries. */
+/** The most listings one page carries. */
 const LISTINGS_SHOWN = 200;
+
+/** The number in a listing's id, `l_<n>`. Higher is newer. */
+const listingNumber = (id: string) => Number(id.slice(2));
+
+/** Newest first: the higher number comes first. */
+const newer = (a: Listing, b: Listing) => listingNumber(b.id) - listingNumber(a.id);
+
+/** Cheapest first by price per item (compared without dividing), then newest. */
+const cheaper = (a: Listing, b: Listing) => a.price * b.count - b.price * a.count || newer(a, b);
 
 /** "6 lemons", or the thing's name for one. */
 export function lotName(kind: ItemKind, count: number): string {
@@ -88,11 +97,16 @@ export interface MarketQuery {
   kind?: ItemKind | undefined;
   seller?: string | undefined;
   sort?: "newest" | "cheapest" | undefined;
+  /** The `next` cursor from the previous page: the last listing it showed. */
+  before?: string | undefined;
 }
 
 /**
- * `GET /v1/market`. `hidden` leaves out sellers the viewer shouldn't see (blocks either way,
- * suspensions), and `lister` gives the gate's facts about the viewer.
+ * `GET /v1/market`, a page at a time like the feed: `before` is the last listing of the page
+ * before, and `next` is null on the last page. `hidden` leaves out sellers the viewer shouldn't see
+ * (blocks either way, suspensions), and `lister` gives the gate's facts about the viewer. Returns
+ * `{ error }` when a `cheapest` page starts from a listing that has gone, since its price is what
+ * placed it.
  */
 export function marketView(
   state: WorldState,
@@ -101,20 +115,36 @@ export function marketView(
   author: (id: string) => AuthorView | undefined,
   hidden: (seller: string) => boolean,
   lister: (id: string) => ListerFacts,
-): MarketResponse {
+): MarketResponse | { error: string } {
   if (!state.market) return { market: null, you: null, rules: MARKET_RULES };
-  let listings = listingsOf(state).filter(
-    (l) =>
-      (query.kind === undefined || l.kind === query.kind) &&
-      (query.seller === undefined || l.seller === query.seller) &&
-      !hidden(l.seller),
-  );
-  // Newest first by default; cheapest by price per item, then newest.
-  listings.reverse();
-  if (query.sort === "cheapest") {
-    listings = [...listings].sort((a, b) => a.price / a.count - b.price / b.count);
+  const cheapest = query.sort === "cheapest";
+  const before = query.before;
+  let after = (_: Listing) => true;
+  if (before !== undefined && cheapest) {
+    const cursor = state.market.listings[before];
+    if (!cursor) {
+      return {
+        error:
+          "That listing has sold or been taken back, so the cheapest order can't carry on from it. Start again without `before`.",
+      };
+    }
+    after = (l) => cheaper(cursor, l) < 0;
+  } else if (before !== undefined) {
+    // Newest pages need only the id, so they carry on past a listing that sold in between.
+    after = (l) => listingNumber(l.id) < listingNumber(before);
   }
-  const views = listings.slice(0, LISTINGS_SHOWN).flatMap((l) => listingView(l, author) ?? []);
+  const listings = listingsOf(state)
+    .filter(
+      (l) =>
+        (query.kind === undefined || l.kind === query.kind) &&
+        (query.seller === undefined || l.seller === query.seller) &&
+        after(l) &&
+        !hidden(l.seller),
+    )
+    .sort(cheapest ? cheaper : newer);
+  const page = listings.slice(0, LISTINGS_SHOWN);
+  const last = page.at(-1);
+  const views = page.flatMap((l) => listingView(l, author) ?? []);
   let you: MarketResponse["you"] = null;
   if (viewer && state.residents[viewer]) {
     const why = listingRefusal(state, viewer, lister(viewer));
@@ -125,5 +155,12 @@ export function marketView(
       ...(why === null ? {} : { why }),
     };
   }
-  return { market: { listings: views }, you, rules: MARKET_RULES };
+  return {
+    market: {
+      listings: views,
+      next: listings.length > LISTINGS_SHOWN && last ? last.id : null,
+    },
+    you,
+    rules: MARKET_RULES,
+  };
 }

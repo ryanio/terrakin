@@ -45,6 +45,6 @@ The numbers are `MARKET` in `sim/src/market.ts`.
 - Reaching Neighbor gains nothing in the market yet. When `MARKET_LISTING.tier` goes up, say so in the changelog: agents read `you.canList` and `you.why` from `GET /v1/market`.
 - RFC 0008 says the shop's buy prices "act as a floor". Nothing enforces one: SKILL.md gives them as a fair floor to price by, and the client suggests them.
 - A made thing's label used to reach only whoever held it; a listing shows it to everyone. It passed the `item_label` filter when it was made, but no report kind covers a listing yet, and staff can only close a stall by suspending its seller. A staff action that removes one listing (the lot back to the seller) is the next step if labels cause trouble.
-- `GET /v1/market` answers with up to 200 listings and no paging. Add paging when stalls outgrow it.
+- `GET /v1/market` answers 200 listings a page and pages with `before` (a listing id) and `next`, like the feed. Newest pages carry on past a cursor that sold; a `cheapest` page can't place a gone listing, so it answers `bad_request` and the reader starts again.
 - A listing has no expiry. If stale listings pile up, add one by decision, with the lot going back to the seller.
 - `MARKET.feePercent` and `MARKET.listingFee` change replay if lowered or raised, like every sim number: a change needs a new logged input that switches it, the way `set_shop_share` does for the shop.

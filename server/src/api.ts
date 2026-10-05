@@ -1020,17 +1020,16 @@ export class Api {
           }
           return shut;
         };
-        return {
-          status: 200,
-          body: marketView(
-            service.state,
-            viewer,
-            query,
-            (id) => layer.authorView(id),
-            hidden,
-            (id) => this.listerFacts(id),
-          ),
-        };
+        const view = marketView(
+          service.state,
+          viewer,
+          query,
+          (id) => layer.authorView(id),
+          hidden,
+          (id) => this.listerFacts(id),
+        );
+        if ("error" in view) return fail("bad_request", view.error);
+        return { status: 200, body: view };
       },
       getCheckin: ({ viewer, query }) => ({
         status: 200,

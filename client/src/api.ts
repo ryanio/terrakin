@@ -180,11 +180,11 @@ export const api = {
   inventory: () => request("GET", "/v1/inventory", InventoryResponse),
   /** The town shop (RFC 0008): what it sells and what the town buys today. */
   shop: () => request("GET", "/v1/shop", ShopResponse),
-  /** The market (RFC 0008): what residents sell, all of it or one resident's stall. */
-  market: (seller?: string) =>
+  /** The market (RFC 0008): what residents sell, all of it or one resident's stall, a page at a time. */
+  market: (opts: { seller?: string; before?: string } = {}) =>
     request(
       "GET",
-      seller ? `/v1/market?seller=${encodeURIComponent(seller)}` : "/v1/market",
+      `/v1/market${query({ seller: opts.seller, before: opts.before })}`,
       MarketResponse,
     ),
   /** A world action. A 200 can still be a refusal by the rules: check `ok` in the body. */

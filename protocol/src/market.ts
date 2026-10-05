@@ -70,6 +70,9 @@ export const MarketQuery = {
     .enum(["newest", "cheapest"])
     .optional()
     .describe("`newest` (the default) or `cheapest` first, by price per item."),
+  before: ListingId.optional().describe(
+    "The `next` cursor from the previous page. With `cheapest`, a cursor whose listing has sold or been taken back answers `bad_request`: start again without it.",
+  ),
 };
 
 export const MarketYouView = z.object({
@@ -82,8 +85,14 @@ export const MarketYouView = z.object({
 });
 
 export const MarketResponse = z.object({
-  /** Null until the market opens in this world. Up to 200 listings. */
-  market: z.object({ listings: z.array(ListingView) }).nullable(),
+  /** Null until the market opens in this world. Up to 200 listings a page. */
+  market: z
+    .object({
+      listings: z.array(ListingView),
+      /** Pass as `before` to get the next page. Null at the end. */
+      next: z.string().nullable(),
+    })
+    .nullable(),
   /** With a token. */
   you: MarketYouView.nullable(),
   rules: MarketRules,

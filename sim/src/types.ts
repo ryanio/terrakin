@@ -187,6 +187,88 @@ export interface WorldState {
   lastActiveDay?: Record<ResidentId, number>;
   /** The Town Hall (RFC 0004). Absent until the first proposal. */
   town?: TownState;
+  /**
+   * Owner-linked pairs (a person and their AI, decision 0031), from `set_owner_pairs`. Each pair
+   * is sorted and the list is sorted. Absent until set, and when empty.
+   */
+  ownerPairs?: [ResidentId, ResidentId][];
+  /** Maintainers, from `set_maintainers`. Sorted. Absent until set, and when empty. */
+  maintainers?: ResidentId[];
+  /**
+   * Coins (RFC 0008). Absent until `open_economy`, so worlds from before coins hash as they
+   * always have. Purses are private: only the treasury is public.
+   */
+  economy?: EconomyState;
+}
+
+/** Why coins moved. Every ledger line and coin event carries one. */
+export const COIN_REASONS = [
+  /** The treasury's opening balance, minted by `open_economy`. */
+  "opening",
+  /** The treasury's daily mint at `new_day`. */
+  "mint",
+  /** Minted the first time each day a resident stands on their own hearth. */
+  "allowance",
+  /** Minted on top of the allowance on a streak of days in a row. */
+  "streak",
+  /** From the treasury, for a resident's first plot. */
+  "welcome",
+  "gift_in",
+  "gift_out",
+  /** A townsfolk resident's daily budget, from the treasury. */
+  "budget",
+  /** A townsfolk resident's unspent coins, back to the treasury at `new_day`. */
+  "budget_return",
+] as const;
+export type CoinReason = (typeof COIN_REASONS)[number];
+
+/** One movement in a purse or the treasury. */
+export interface LedgerLine {
+  /** The `seq` of the input that moved the coins. */
+  seq: number;
+  day: number;
+  /** Positive in, negative out. */
+  amount: number;
+  reason: CoinReason;
+  /** The other resident: who gave or got the gift, or who the treasury paid. */
+  with?: ResidentId;
+  /** A gift's note. Untrusted text, cleaned by the server before it was logged. */
+  note?: string;
+}
+
+export interface EconomyState {
+  /** The town's own coins. Never negative. */
+  treasury: number;
+  /** Every coin ever made. `sum(coins) + treasury == minted - burned`, always. */
+  minted: number;
+  /** Every coin ever destroyed. Phase 1 has no sinks, so this stays 0 for now. */
+  burned: number;
+  /** Each resident's purse. Absent means 0. */
+  coins: Record<ResidentId, number>;
+  /** Each resident's last `ledgerMax` ledger lines, oldest first. */
+  ledgers: Record<ResidentId, LedgerLine[]>;
+  /** The treasury's last `ledgerMax` ledger lines, oldest first. */
+  treasuryLedger: LedgerLine[];
+  /** The last day each resident got their allowance, and how many days in a row that makes. */
+  allowance: Record<ResidentId, { day: number; streak: number }>;
+  /**
+   * Residents who had their welcome gift, or a plot when the economy opened, so they never get
+   * one. Sorted.
+   */
+  welcomed: ResidentId[];
+  /** Today's counters for the gift caps. Reset at each `new_day`. */
+  today: EconomyToday;
+}
+
+export interface EconomyToday {
+  /** Coins each resident gave today, outside owner pairs. */
+  given: Record<ResidentId, number>;
+  /** Coins each resident received in gifts today, outside owner pairs. */
+  received: Record<ResidentId, number>;
+  /** Coins each resident got from townsfolk today. */
+  fromTownsfolk: Record<ResidentId, number>;
+  /** Residents who first joined the world today. They can receive gifts but not give. Sorted. */
+  newcomers: ResidentId[];
 }
 
 export type Command =
@@ -214,17 +296,22 @@ export type Command =
     }
   | { type: "vote"; proposal: string; choice: VoteChoice }
   | { type: "withdraw"; proposal: string }
+  /** `note` is untrusted text the server cleaned before logging it. */
+  | { type: "give_coins"; to: ResidentId; amount: number; note?: string }
   // Only the server sends these, as TOWN_ACTOR.
   | { type: "new_day"; day: number }
   | { type: "set_townsfolk"; ids: ResidentId[] }
   | { type: "close_proposal"; proposal: string }
-  | { type: "void_proposal"; proposal: string; by: ResidentId };
+  | { type: "void_proposal"; proposal: string; by: ResidentId }
+  | { type: "open_economy" }
+  | { type: "set_owner_pairs"; pairs: [ResidentId, ResidentId][] }
+  | { type: "set_maintainers"; ids: ResidentId[] };
 
 export type CommandType = Command["type"];
 
 /**
- * The actor on inputs the server appends itself: day changes, the townsfolk list, closes, and
- * voids. No resident has this id (the server's ids look like `r_0123456789abcdef`).
+ * The actor on inputs the server appends itself: day changes, the townsfolk list, closes, voids,
+ * opening the economy, and the owner-pair and maintainer lists. No resident has this id (the server's ids look like `r_0123456789abcdef`).
  */
 export const TOWN_ACTOR = "town";
 
@@ -234,6 +321,9 @@ export const SERVER_COMMANDS = [
   "set_townsfolk",
   "close_proposal",
   "void_proposal",
+  "open_economy",
+  "set_owner_pairs",
+  "set_maintainers",
 ] as const satisfies readonly CommandType[];
 
 /** A command plus who issued it. This is the unit the server logs and replays. */
@@ -297,7 +387,36 @@ export type WorldEvent =
       placed: PlannedBlock[];
       removed: Tile[];
       skipped: Tile[];
-    };
+    }
+  | { type: "economy_opened"; treasury: number }
+  /**
+   * Coins moved in or out of one resident's purse. Private: it belongs to `residentId` alone, and
+   * the server sends it only to them. A gift makes two, one for each side.
+   */
+  | {
+      type: "coins";
+      residentId: ResidentId;
+      /** Positive in, negative out. */
+      amount: number;
+      /** The purse after the move. */
+      balance: number;
+      reason: CoinReason;
+      /** The other side of a gift. */
+      with?: ResidentId;
+      note?: string;
+    }
+  /** Coins moved in or out of the treasury. Public, like the treasury's history. */
+  | {
+      type: "treasury";
+      amount: number;
+      /** The treasury after the move. */
+      balance: number;
+      reason: CoinReason;
+      /** Who the treasury paid, or whose unspent budget came back. */
+      residentId?: ResidentId;
+    }
+  | { type: "owner_pairs_set"; pairs: [ResidentId, ResidentId][] }
+  | { type: "maintainers_set"; ids: ResidentId[] };
 
 export const REJECTION_CODES = [
   "not_joined",
@@ -330,6 +449,12 @@ export const REJECTION_CODES = [
   "already_voted",
   "server_only",
   "not_due",
+  "economy_closed",
+  "already_open",
+  "invalid_amount",
+  "invalid_gift",
+  "not_enough_coins",
+  "gift_limit",
 ] as const;
 export type RejectionCode = (typeof REJECTION_CODES)[number];
 

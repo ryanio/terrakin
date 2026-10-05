@@ -6,6 +6,17 @@ export {
   type Prepared,
   prepare,
 } from "./apply";
+export {
+  allowanceDue,
+  coinsOf,
+  ECONOMY,
+  isMaintainer,
+  isTownsfolk,
+  ownerPaired,
+  type Purse,
+  purseOf,
+  treasuryOf,
+} from "./economy";
 export { canonicalJson, fnv1a, hashWorld } from "./hash";
 export { parseKey, plotKey, tileKey } from "./keys";
 export * from "./looks";

@@ -9,8 +9,9 @@
  *   --residents  residents who arrive over those days, not counting the townsfolk (default 300)
  *   --set        try a different number from ECONOMY without editing it, e.g. --set allowance=8
  *
- * The numbers come from ECONOMY in sim/src/economy.ts, so the script and the sim can't drift.
- * Change a number there, rerun this, and record why in a decision (decision 0037).
+ * Every step is an input to the real sim (apply), and the numbers are ECONOMY in
+ * sim/src/economy.ts, so the script and the rules can't drift. Change a number there, rerun this,
+ * and record why in a decision (decision 0037).
  */
 import { registerHooks } from "node:module";
 import { parseArgs } from "node:util";
@@ -27,7 +28,11 @@ registerHooks({
   },
 });
 
-const { ECONOMY } = await import("../sim/src/economy.ts");
+import type { Command } from "../sim/src/index.ts";
+
+const { apply, coinsOf, createWorld, ECONOMY, isCommons, TOWN_ACTOR } = await import(
+  "../sim/src/index.ts"
+);
 
 type Numbers = { -readonly [K in keyof typeof ECONOMY]: number };
 
@@ -40,7 +45,8 @@ const { values: args } = parseArgs({
   },
 });
 
-const N: Numbers = { ...ECONOMY };
+// `--set` changes the sim's own ECONOMY for this run only, so the rules play the trial numbers.
+const N = ECONOMY as Numbers;
 for (const pair of args.set ?? []) {
   const [key, value] = pair.split("=");
   if (!key || !(key in N) || !value || !Number.isInteger(Number(value))) {
@@ -74,7 +80,7 @@ function pick<T>(list: readonly T[]): T | undefined {
 
 // ---------- the rules ----------
 
-/** What the population needs from the economy. One implementation follows the RFC's rules. */
+/** What the population below does in the world. */
 interface Rules {
   open(): void;
   newDay(day: number): void;
@@ -92,101 +98,50 @@ interface Rules {
   burned(): number;
 }
 
-/** The phase 1 rules, as RFC 0008 and decision 0037 describe them. */
-function modelRules(): Rules {
-  let day = 0;
-  let treasury = 0;
-  let minted = 0;
-  const burned = 0;
-  const coins = new Map<string, number>();
-  const streaks = new Map<string, { day: number; streak: number }>();
-  const welcomed = new Set<string>();
-  const hasHearth = new Set<string>();
-  const known = new Set<string>();
-  let newcomers = new Set<string>();
-  let given = new Map<string, number>();
-  let received = new Map<string, number>();
-  let fromTownsfolk = new Map<string, number>();
-  let townsfolk: string[] = [];
-  let pairs = new Set<string>();
-  const add = (id: string, n: number) => coins.set(id, (coins.get(id) ?? 0) + n);
-  const isTownsfolk = (id: string) => townsfolk.includes(id);
+/** The real rules: every step is an input to the sim, exactly as the server would log it. */
+function simRules(): Rules {
+  // A square of 8-tile plots with room for every resident, less the Commons.
+  const side = Math.ceil(Math.sqrt(RESIDENTS + 1)) + 1;
+  const state = createWorld({
+    width: side * 8,
+    height: side * 8,
+    plotSize: 8,
+    maxPlotsPerResident: 1,
+    reach: 3,
+  });
+  const free: [number, number][] = [];
+  for (let py = 0; py < side; py++) {
+    for (let px = 0; px < side; px++) if (!isCommons(state.config, px, py)) free.push([px, py]);
+  }
+  const DAY0 = 20_000;
+  const send = (actor: string, command: Command) => apply(state, { actor, command }).ok;
+  const must = (actor: string, command: Command) => {
+    const result = apply(state, { actor, command });
+    if (!result.ok) throw new Error(`${actor} ${command.type}: ${result.rejection.message}`);
+  };
   return {
     open() {
-      treasury += N.treasuryOpening;
-      minted += N.treasuryOpening;
+      must(TOWN_ACTOR, { type: "new_day", day: DAY0 });
+      must(TOWN_ACTOR, { type: "open_economy" });
     },
-    newDay(d) {
-      day = d;
-      for (const id of townsfolk) {
-        treasury += coins.get(id) ?? 0;
-        coins.delete(id);
-      }
-      treasury += N.treasuryMint;
-      minted += N.treasuryMint;
-      newcomers = new Set();
-      given = new Map();
-      received = new Map();
-      fromTownsfolk = new Map();
-      for (const id of [...townsfolk].sort()) {
-        const pay = Math.min(N.townsfolkBudget, treasury - N.budgetReserve);
-        if (pay <= 0) break;
-        treasury -= pay;
-        add(id, pay);
-      }
-    },
-    join(id) {
-      if (!known.has(id)) newcomers.add(id);
-      known.add(id);
-    },
+    newDay: (d) => must(TOWN_ACTOR, { type: "new_day", day: DAY0 + d }),
+    join: (id) => must(id, { type: "join", name: id, kind: "human" }),
     settle(id) {
-      hasHearth.add(id);
-      if (welcomed.has(id) || isTownsfolk(id)) return;
-      welcomed.add(id);
-      const pay = Math.min(N.welcomeGift, treasury);
-      treasury -= pay;
-      add(id, pay);
+      const plot = free.shift();
+      if (!plot) throw new Error("The simulated world ran out of plots.");
+      must(id, { type: "settle", px: plot[0], py: plot[1] });
+      // Settling lands on the plot's center, where the starter home puts the hearth.
+      must(id, { type: "build_starter_home" });
     },
-    home(id) {
-      if (!hasHearth.has(id) || isTownsfolk(id)) return;
-      const last = streaks.get(id);
-      if (last?.day === day) return;
-      const streak = last?.day === day - 1 ? last.streak + 1 : 1;
-      streaks.set(id, { day, streak });
-      const pay = N.allowance + (streak >= N.streakDays ? N.streakBonus : 0);
-      add(id, pay);
-      minted += pay;
-    },
-    give(from, to, amount) {
-      if (from === to || newcomers.has(from) || (coins.get(from) ?? 0) < amount) return false;
-      const paired = pairs.has([from, to].sort().join(">"));
-      if (!paired) {
-        if ((given.get(from) ?? 0) + amount > N.giveCap) return false;
-        if ((received.get(to) ?? 0) + amount > N.receiveCap) return false;
-      }
-      if (isTownsfolk(from)) {
-        if (isTownsfolk(to)) return false;
-        if ((fromTownsfolk.get(to) ?? 0) + amount > N.townsfolkPerResident) return false;
-        fromTownsfolk.set(to, (fromTownsfolk.get(to) ?? 0) + amount);
-      }
-      if (!paired) {
-        given.set(from, (given.get(from) ?? 0) + amount);
-        received.set(to, (received.get(to) ?? 0) + amount);
-      }
-      add(from, -amount);
-      add(to, amount);
-      return true;
-    },
-    setTownsfolk(ids) {
-      townsfolk = [...ids];
-    },
-    setOwnerPairs(list) {
-      pairs = new Set(list.map((p) => [...p].sort().join(">")));
-    },
-    balance: (id) => coins.get(id) ?? 0,
-    treasury: () => treasury,
-    minted: () => minted,
-    burned: () => burned,
+    // Refused as already_home once today's allowance is paid, like a real second `home`.
+    home: (id) => void send(id, { type: "home" }),
+    give: (from, to, amount) => send(from, { type: "give_coins", to, amount }),
+    setTownsfolk: (ids) => must(TOWN_ACTOR, { type: "set_townsfolk", ids }),
+    setOwnerPairs: (pairs) => must(TOWN_ACTOR, { type: "set_owner_pairs", pairs }),
+    balance: (id) => coinsOf(state, id),
+    treasury: () => state.economy?.treasury ?? 0,
+    minted: () => state.economy?.minted ?? 0,
+    burned: () => state.economy?.burned ?? 0,
   };
 }
 
@@ -435,4 +390,4 @@ function report(rules: Rules) {
   }
 }
 
-report(modelRules());
+report(simRules());

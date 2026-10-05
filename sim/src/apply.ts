@@ -1,3 +1,15 @@
+import {
+  allowanceDue,
+  checkEconomyServer,
+  checkGive,
+  type EconomyChecked,
+  economyNewDay,
+  economyTownsfolkChange,
+  markNewcomer,
+  payAllowance,
+  payWelcome,
+  welcomeDue,
+} from "./economy";
 import { canonicalJson, fnv1a } from "./hash";
 import { plotKey, tileKey } from "./keys";
 import {
@@ -162,6 +174,11 @@ export function prepare(state: WorldState, input: Input): Prepared {
   const { actor, command } = input;
   const mutate = check(state, actor, command);
   if (typeof mutate !== "function") return mutate;
+  // Coin bookkeeping worked out against the state as it is now (RFC 0008). All of it is a no-op
+  // until the economy opens.
+  const seq = state.seq + 1;
+  const welcome = welcomeDue(state, actor, command);
+  const newcomer = command.type === "join" && !state.residents[actor];
   let done = false;
   return {
     ok: true,
@@ -169,6 +186,12 @@ export function prepare(state: WorldState, input: Input): Prepared {
       if (done) throw new Error("Prepared input committed twice");
       done = true;
       const events = mutate();
+      if (newcomer) markNewcomer(state, actor);
+      if (welcome !== null) events.push(...payWelcome(state, actor, welcome, seq));
+      // The allowance: whatever the resident did, if it leaves them on their own hearth.
+      if (state.residents[actor] && isActivity(command)) {
+        events.push(...payAllowance(state, actor, seq));
+      }
       // Town Hall bookkeeping: the last day each resident acted. Only once the world counts days,
       // so logs from before the Town Hall replay to the same hash. No event: no client draws it,
       // and /v1/town reports what it means (eligibility).
@@ -247,8 +270,8 @@ function landingTile(state: WorldState, actor: string, px: number, py: number): 
   return free ?? center;
 }
 
-/** A Town Hall check's answer in this file's shape. */
-function town(checked: TownChecked): Mutation | Prepared {
+/** A Town Hall or coins check's answer in this file's shape. */
+function town(checked: TownChecked | EconomyChecked): Mutation | Prepared {
   return typeof checked === "function" ? checked : { ok: false, rejection: checked };
 }
 
@@ -259,10 +282,27 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
   const { config } = state;
   const me = state.residents[actor];
 
-  // Day changes, the townsfolk list, closes, and voids come from the server itself.
+  // Day changes, the townsfolk list, closes, voids, and the coin lists come from the server.
   if (isServerCommand(command)) {
     if (actor !== TOWN_ACTOR) return reject("server_only", "Only the server can do that.");
-    return town(checkTown(state, actor, command));
+    switch (command.type) {
+      case "open_economy":
+      case "set_owner_pairs":
+      case "set_maintainers":
+        return town(checkEconomyServer(state, command));
+      case "new_day":
+      case "set_townsfolk": {
+        const checked = checkTown(state, actor, command);
+        if (typeof checked !== "function") return town(checked);
+        const coins =
+          command.type === "new_day"
+            ? economyNewDay(state, command.day)
+            : economyTownsfolkChange(state, [...new Set(command.ids)]);
+        return coins ? () => [...checked(), ...coins()] : checked;
+      }
+      default:
+        return town(checkTown(state, actor, command));
+    }
   }
 
   if (command.type === "join") {
@@ -417,8 +457,11 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
     case "home": {
       const hearth = me.hearth;
       if (!hearth) return reject("no_hearth", "Set a hearth on your plot first.");
-      if (me.x === hearth.x && me.y === hearth.y)
+      if (me.x === hearth.x && me.y === hearth.y) {
+        // Already home is fine when it collects today's allowance (paid in prepare's commit).
+        if (allowanceDue(state, actor)) return () => [];
         return reject("already_home", "You're already home.");
+      }
       return () => {
         me.x = hearth.x;
         me.y = hearth.y;
@@ -610,5 +653,8 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
     case "vote":
     case "withdraw":
       return town(checkTown(state, actor, command));
+
+    case "give_coins":
+      return town(checkGive(state, actor, command));
   }
 }

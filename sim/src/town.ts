@@ -164,7 +164,19 @@ export type TownChecked = TownMutation | Rejection;
 const refuse = (code: RejectionCode, message: string): Rejection => ({ code, message });
 
 type ServerCommand = Extract<Command, { type: (typeof SERVER_COMMANDS)[number] }>;
-type TownCommand = ServerCommand | Extract<Command, { type: "propose" | "vote" | "withdraw" }>;
+type TownCommand = Extract<
+  Command,
+  {
+    type:
+      | "new_day"
+      | "set_townsfolk"
+      | "close_proposal"
+      | "void_proposal"
+      | "propose"
+      | "vote"
+      | "withdraw";
+  }
+>;
 
 export function isServerCommand(command: Command): command is ServerCommand {
   return (SERVER_COMMANDS as readonly string[]).includes(command.type);

@@ -5,8 +5,9 @@
 import type { PurseLine, PurseResponse } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { compactCount } from "@terrakin/ui/format";
-import { avatarEl, profilePath } from "@terrakin/ui/people";
-import { toast } from "@terrakin/ui/ui";
+import { profilePath } from "@terrakin/ui/paths";
+import { avatarEl } from "@terrakin/ui/people";
+import { stateCard, toast } from "@terrakin/ui/ui";
 import { api } from "./api";
 import { savedToken } from "./net";
 import { coins, refreshPurse } from "./purse";
@@ -79,21 +80,18 @@ export function purseView(ctx: ViewContext): View {
 
   if (!savedToken()) {
     el.append(
-      h(
-        "section",
-        { class: "paper card state-card" },
-        h("h2", { class: "state-title", text: "Join to earn coins" }),
-        h("p", {
-          class: "state-body",
-          text: "Residents earn coins by coming home each day, and give them to friends. Coins are earned by playing, never bought.",
-        }),
-        h(
-          "a",
-          { class: "btn-primary", attrs: { href: "/#join" } },
-          h("span", { text: "Join" }),
-          icon("arrow"),
-        ),
-      ),
+      stateCard({
+        title: "Join to earn coins",
+        body: "Residents earn coins by coming home each day, and give them to friends. Coins are earned by playing, never bought.",
+        actions: [
+          h(
+            "a",
+            { class: "btn-primary", attrs: { href: "/#join" } },
+            h("span", { text: "Join" }),
+            icon("arrow"),
+          ),
+        ],
+      }),
     );
     return { el, ready: Promise.resolve(), destroy() {} };
   }
@@ -104,14 +102,7 @@ export function purseView(ctx: ViewContext): View {
   function paint(data: PurseResponse) {
     const { purse, rules } = data;
     if (!purse) {
-      body.replaceChildren(
-        h(
-          "section",
-          { class: "paper card state-card" },
-          h("h2", { class: "state-title", text: "Coins aren't open yet" }),
-          h("p", { class: "state-body", text: "Check back soon." }),
-        ),
-      );
+      body.replaceChildren(stateCard({ title: "Coins aren't open yet", body: "Check back soon." }));
       return;
     }
     const home = h("button", {
@@ -154,6 +145,12 @@ export function purseView(ctx: ViewContext): View {
           : null,
         purse.allowanceToday
           ? h("p", { class: "purse-hint", text: "You've had today's coins. See you tomorrow." })
+          : null,
+        purse.welcomeWaiting
+          ? h("p", {
+              class: "purse-hint",
+              text: `Your welcome gift of ${coins(rules.welcomeGift)} is waiting: the town treasury pays it at the start of a coming day.`,
+            })
           : null,
         purse.firstDay
           ? h("p", {

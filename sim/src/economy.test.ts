@@ -727,11 +727,12 @@ describe("give_coins", () => {
   it("skips the caps only from the day after a pair first appears", () => {
     const w = neighbors();
     w.settle("cy", 2);
-    // The first list ever counts as linked since day 0, so links from before this rule work.
+    // Coins are open, so even the first list ever sent waits a day: a world with no links when
+    // coins opened mustn't let its first new pair skip the caps on the day it links.
     w.ok(TOWN_ACTOR, { type: "set_owner_pairs", pairs: [["bob", "ada"]] });
-    expect(w.state.ownerPairDays).toEqual({ ada: { bob: 0 } });
+    expect(w.state.ownerPairDays).toEqual({ ada: { bob: DAY + 1 } });
     fund(w.state, "ada", 2_000);
-    expect(w.giveCode("ada", "bob", 300)).toBeNull();
+    expect(w.giveCode("ada", "bob", 300)).toBe("gift_limit");
 
     // A pair new today is capped like anyone else until tomorrow.
     w.ok(TOWN_ACTOR, {
@@ -741,7 +742,7 @@ describe("give_coins", () => {
         ["ada", "cy"],
       ],
     });
-    expect(w.state.ownerPairDays).toEqual({ ada: { bob: 0, cy: DAY + 1 } });
+    expect(w.state.ownerPairDays).toEqual({ ada: { bob: DAY + 1, cy: DAY + 1 } });
     expect(w.giveCode("ada", "cy", 201)).toBe("gift_limit");
     expect(w.giveCode("ada", "cy", 200)).toBeNull();
     w.day(DAY + 2);
@@ -757,17 +758,24 @@ describe("give_coins", () => {
         ["cy", "ada"],
       ],
     });
-    expect(w.state.ownerPairDays).toEqual({ ada: { bob: 0, cy: DAY + 2 } });
+    expect(w.state.ownerPairDays).toEqual({ ada: { bob: DAY + 1, cy: DAY + 2 } });
     expect(w.giveCode("ada", "cy", 201)).toBe("gift_limit");
     w.day(DAY + 3);
     expect(w.giveCode("ada", "cy", 201)).toBeNull();
 
-    // An empty list keeps the record (empty), so the next pair isn't mistaken for a first list.
+    // An empty list clears the record; a later pair is stamped the day it appears.
     w.ok(TOWN_ACTOR, { type: "set_owner_pairs", pairs: [] });
     expect(w.state.ownerPairs).toBeUndefined();
     expect(w.state.ownerPairDays).toEqual({});
     w.ok(TOWN_ACTOR, { type: "set_owner_pairs", pairs: [["ada", "bob"]] });
     expect(w.state.ownerPairDays).toEqual({ ada: { bob: DAY + 3 } });
+  });
+
+  it("counts pairs set before coins open as day 0, so links from before this rule work", () => {
+    const w = world();
+    w.ok(TOWN_ACTOR, { type: "new_day", day: DAY });
+    w.ok(TOWN_ACTOR, { type: "set_owner_pairs", pairs: [["ada", "bob"]] });
+    expect(w.state.ownerPairDays).toEqual({ ada: { bob: 0 } });
   });
 
   it("counts pairs set before the world counts days as day 0", () => {

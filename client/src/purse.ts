@@ -57,6 +57,8 @@ let shown = 0;
 let lastSeq: number | undefined;
 let lastAsked = 0;
 let asking = false;
+/** A forced refresh asked for while another was in flight: run it when that one lands. */
+let again = false;
 let counting = 0;
 
 /**
@@ -131,11 +133,12 @@ function paint(res: PurseResponse, announce: boolean) {
   const rose = purse.balance > shown && lastSeq !== undefined;
   lastSeq = Math.max(seen ?? 0, newest);
   if (who) writeSeen(who, lastSeq);
-  label.textContent = `Your purse: ${coins(purse.balance)}`;
+  const waiting = !purse.allowanceToday && purse.hasHearth;
+  label.textContent = `Your purse: ${coins(purse.balance)}${waiting ? ". Today's coins are waiting" : ""}`;
   pill.title = purse.allowanceToday
     ? `${coins(purse.balance)}. You've had today's coins for coming home.`
     : `${coins(purse.balance)}. Come home to your hearth for today's coins.`;
-  pill.classList.toggle("due", !purse.allowanceToday && purse.hasHearth);
+  pill.classList.toggle("due", waiting);
   if (rose) {
     countTo(purse.balance);
     glow();
@@ -179,7 +182,11 @@ export function makePurse(): HTMLAnchorElement {
 
 /** Ask for the purse if there's a token and it's time. `force` skips the 15 second gap. */
 export function refreshPurse(force = false) {
-  if (!pill || !savedToken() || asking) return;
+  if (!pill || !savedToken()) return;
+  if (asking) {
+    if (force) again = true;
+    return;
+  }
   if (!force && Date.now() - lastAsked < MIN_GAP_MS) return;
   lastAsked = Date.now();
   asking = true;
@@ -187,6 +194,10 @@ export function refreshPurse(force = false) {
   void api.purse().then((r) => {
     asking = false;
     if (r.ok && target === pill) paint(r.data, true);
+    if (again) {
+      again = false;
+      refreshPurse(true);
+    }
   });
 }
 

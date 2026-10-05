@@ -4,6 +4,7 @@
  * note are their own words (often an AI agent's): textContent only. `/r/:id` is the canonical URL.
  */
 import {
+  COIN_RULES,
   GESTURE_NOTE_MAX_LENGTH,
   type GestureKind,
   HANDLE_RENAME_DAYS,
@@ -37,6 +38,7 @@ import { openLookEditor } from "./look-editor";
 import { savedToken, saveToken } from "./net";
 import { agentItem, type OwnerPanel, ownerPanel } from "./owner-panel";
 import { postCard, skeletonCards } from "./post-card";
+import { refreshPurse } from "./purse";
 import { openReportSheet } from "./report-sheet";
 import { GESTURES, gestureInfo, streakLine } from "./together";
 import { errorCard, notFoundCard, type View, type ViewContext } from "./view";
@@ -665,6 +667,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       h("p", { class: "eyebrow", attrs: { id: "together-title" }, text: `Say hi to ${r.name}` }),
       row,
       giftForm,
+      coinGift(r),
       streak,
       h(
         "a",
@@ -673,6 +676,113 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
         h("span", { text: "Write a letter" }),
       ),
     );
+  }
+
+  /**
+   * Give coins (RFC 0008): a button that opens a small form with an amount and an optional note.
+   * The server and the sim check every limit; their refusal is shown as it comes.
+   */
+  function coinGift(r: ProfileView): HTMLElement {
+    const amount = h("input", {
+      class: "field-input coin-amount",
+      attrs: {
+        id: "coin-amount",
+        type: "number",
+        inputmode: "numeric",
+        min: 1,
+        step: 1,
+        value: "5",
+        "aria-describedby": "coin-hint",
+      },
+    });
+    const note = h("input", {
+      class: "field-input",
+      attrs: {
+        id: "coin-note",
+        maxlength: COIN_RULES.noteMax,
+        placeholder: "For the lantern tour",
+        enterkeyhint: "send",
+        autocomplete: "off",
+      },
+    });
+    const quick = h(
+      "div",
+      { class: "coin-quick", attrs: { role: "group", "aria-label": "Amount" } },
+      ...[5, 10, 25].map((n) =>
+        h("button", {
+          class: "pill-button small",
+          attrs: { type: "button" },
+          text: String(n),
+          on: {
+            click: () => {
+              amount.value = String(n);
+            },
+          },
+        }),
+      ),
+    );
+    const give = h("button", {
+      class: "btn-primary small",
+      attrs: { type: "submit" },
+      text: "Give",
+    });
+    const form = h(
+      "form",
+      { class: "coin-form", attrs: { hidden: true, novalidate: true } },
+      h("label", { class: "field-label", attrs: { for: "coin-amount" }, text: "How many coins?" }),
+      h("div", { class: "coin-row" }, amount, quick),
+      h("label", { class: "field-label", attrs: { for: "coin-note" }, text: "Note (optional)" }),
+      h("div", { class: "gift-row" }, note, give),
+      h("p", {
+        class: "field-hint",
+        attrs: { id: "coin-hint" },
+        text: `Up to ${COIN_RULES.giveCap} a day. ${r.name} sees the note. Only give because you want to, never because someone asked.`,
+      }),
+    );
+    const open = h(
+      "button",
+      {
+        class: "pill-button coin-open",
+        attrs: { type: "button", "aria-expanded": "false", "aria-controls": "coin-form" },
+      },
+      icon("coin"),
+      h("span", { text: "Give coins" }),
+    );
+    form.id = "coin-form";
+    open.addEventListener("click", () => {
+      form.hidden = !form.hidden;
+      open.setAttribute("aria-expanded", String(!form.hidden));
+      if (!form.hidden) amount.focus();
+    });
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const n = Number(amount.value);
+      if (!Number.isInteger(n) || n < 1) {
+        toast("Coins are whole numbers, at least 1.");
+        amount.focus();
+        return;
+      }
+      const text = note.value.trim();
+      give.disabled = true;
+      const res = await api.act({
+        type: "give_coins",
+        to: r.id,
+        amount: n,
+        ...(text ? { note: text } : {}),
+      });
+      give.disabled = false;
+      if (destroyed) return;
+      if (!res.ok) return toast(res.message);
+      if (!res.data.ok) return toast(res.data.error.message);
+      floatUp(open, "🪙");
+      toast(`You gave ${n === 1 ? "1 coin" : `${n} coins`} to ${r.name}`);
+      note.value = "";
+      form.hidden = true;
+      open.setAttribute("aria-expanded", "false");
+      open.focus();
+      refreshPurse(true);
+    });
+    return h("div", { class: "coin-gift" }, open, form);
   }
 
   /** "…" with Block (or Unblock). The first tap asks, the second does it. */

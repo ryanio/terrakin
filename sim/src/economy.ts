@@ -277,9 +277,9 @@ export function checkEconomyServer(
       }
       const order = (x: string, y: string) => (x < y ? -1 : x > y ? 1 : 0);
       const pairs = [...byKey.values()].sort((p, q) => order(p[0], q[0]) || order(p[1], q[1]));
-      // A pair keeps the day it first appeared. A new one is stamped today, except in the first
-      // list ever sent or before the world counts days: those links predate this rule, so day 0.
-      const first = state.ownerPairDays === undefined;
+      // A pair keeps the day it first appeared. A new one is stamped today, except before coins
+      // open or before the world counts days: those links predate this rule, so day 0.
+      const first = state.economy === undefined;
       const days: Record<ResidentId, Record<ResidentId, number>> = {};
       for (const [a, b] of pairs) {
         const kept = state.ownerPairDays?.[a]?.[b];

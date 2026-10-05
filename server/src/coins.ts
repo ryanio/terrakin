@@ -69,7 +69,8 @@ export function todaysLines(state: WorldState, viewer: string, author: Authors) 
 
 /**
  * Recent gifts between residents, read from the givers' ledgers: who, to whom, and when. Never the
- * amount or the note, and never anyone the author lookup hides (suspended, gone).
+ * amount or the note, never a gift with townsfolk on either side, and never anyone the author
+ * lookup hides (suspended, gone).
  */
 export function recentGifts(
   state: WorldState,
@@ -77,9 +78,13 @@ export function recentGifts(
   limit = PUBLIC_GIFTS,
 ): PublicGift[] {
   const gifts: { seq: number; day: number; from: string; to: string }[] = [];
+  // Gifts with townsfolk on either side stay private: townsfolk purses reset to the budget each
+  // day, so the public treasury lines would give their amounts away.
+  const townsfolk = new Set(state.townsfolk ?? []);
   for (const [id, lines] of Object.entries(state.economy?.ledgers ?? {})) {
+    if (townsfolk.has(id)) continue;
     for (const l of lines) {
-      if (l.reason === "gift_out" && l.with !== undefined) {
+      if (l.reason === "gift_out" && l.with !== undefined && !townsfolk.has(l.with)) {
         gifts.push({ seq: l.seq, day: l.day, from: id, to: l.with });
       }
     }

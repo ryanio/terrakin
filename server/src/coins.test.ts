@@ -294,6 +294,40 @@ describe("coins", () => {
     expect(again.hash()).toBe(first.hash());
   });
 
+  it("keep gifts to and from townsfolk out of public view", async () => {
+    const t = await start();
+    const ash = t.join("Ash");
+    const clem = t.join("Clem");
+    const moss = t.join("Moss");
+    t.service.syncTownsfolk(new Set([clem.id]));
+    await t.act(ash.token, { type: "settle", px: 1, py: 1 });
+    t.nextDay();
+    const others = t.listen(moss.id);
+    const gave = await t.act(ash.token, { type: "give_coins", to: clem.id, amount: 7 });
+    expect(gave.ok).toBe(true);
+    expect(gave.events.map((e: Json) => e.type)).toEqual(["coins"]);
+    expect(others.flatMap((m) => (m.type === "event" ? [m.event] : []))).toEqual([
+      { type: "quiet" },
+    ]);
+    const town = (await t.call("GET", "/v1/town")).body;
+    expect(town.treasury.gifts).toEqual([]);
+  });
+
+  it("tell a newcomer their welcome gift is waiting when the treasury is short", async () => {
+    const t = await start();
+    const wren = t.join("Wren");
+    const econ = t.service.state.economy;
+    if (!econ) throw new Error("coins should be open");
+    // A test shortcut: empty the treasury so the gift has to wait for a coming day.
+    econ.treasury = 0;
+    await t.act(wren.token, { type: "settle", px: 1, py: 1 });
+    expect((await t.purse(wren.token)).purse).toMatchObject({ balance: 0, welcomeWaiting: true });
+    t.nextDay();
+    const p = (await t.purse(wren.token)).purse;
+    expect(p.balance).toBe(ECONOMY.welcomeGift);
+    expect(p).not.toHaveProperty("welcomeWaiting");
+  });
+
   it("stay closed in a world that never opened them", async () => {
     const t = await start(false);
     const wren = t.join("Wren");

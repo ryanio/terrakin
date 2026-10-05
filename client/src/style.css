@@ -6717,6 +6717,15 @@ a.profile-owner:hover .owner-name {
  * Below 380px, letters leave the bar as well; the bell still announces them.
  */
 @media (max-width: 479px) {
+  /* Without the mark, the bar is two columns, so the buttons stay flush right. */
+  .site-bar-inner:has(.site-purse:not([hidden])) {
+    grid-template-columns: auto 1fr;
+  }
+
+  .site-bar-inner:has(.site-purse:not([hidden])) .site-you {
+    justify-self: end;
+  }
+
   .site-bar-inner:has(.site-purse:not([hidden])) .site-brand,
   .site-bar-inner:has(.site-purse:not([hidden])) .nav-link[href="/docs"] {
     display: none;

@@ -112,7 +112,6 @@ test("a newcomer earns coins, comes home for more, and gives a friend some", asy
 
   // Pip's purse ticks up and a notice says who gave it, with the note as plain text.
   await pipPage.bringToFront();
-  await pipPage.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
   await pipPage.goto("/notifications");
   const notice = pipPage.locator(".live-toast.tone-coins");
   await expect(notice).toContainText("Juno");
@@ -121,10 +120,10 @@ test("a newcomer earns coins, comes home for more, and gives a friend some", asy
   await expect(pipPage.locator("#site-purse .purse-amount")).toHaveText(/^\d+$/);
   await pipPage.screenshot({ path: "test-results/coins-notice.png" });
 
-  // The home wall's Happening now never shows the amount.
+  // The town's public gift list (behind Happening now) says who and whom, never how much.
   const town = await (await page.request.get("/v1/town")).json();
   expect(town.treasury.gifts[0]).toMatchObject({ from: { id: juno.id }, to: { id: pip.id } });
-  expect(JSON.stringify(town.treasury.gifts)).not.toContain("12");
+  expect(Object.keys(town.treasury.gifts[0]).sort()).toEqual(["day", "from", "seq", "to"]);
 
   await pipPage.close();
   expect(errors).toEqual([]);

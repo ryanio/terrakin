@@ -609,7 +609,7 @@ export function feedView(ctx: ViewContext): View {
                 key: `welcome:${n.line.seq}`,
                 who: r,
                 lead: r.name,
-                rest: `got a welcome gift of ${n.line.amount === 1 ? "1 coin" : `${Math.abs(n.line.amount)} coins`}`,
+                rest: `got a welcome gift of ${Math.abs(n.line.amount) === 1 ? "1 coin" : `${Math.abs(n.line.amount)} coins`}`,
                 href: profilePath(r.id),
                 at,
                 tone: "coins",

@@ -77,14 +77,22 @@ export interface WorldServiceOptions {
 
 /**
  * What an input's sim events look like on the wire. Owner-pair and maintainer lists stay on the
- * server. A gift also shows as a public `gift` event, without the amount or note.
+ * server. A gift also shows as a public `gift` event, without the amount or note, unless
+ * townsfolk are on either side: their purses reset to the budget each day, so the public
+ * treasury lines would give the amount away.
  */
-function toWire(events: WorldEvent[]): WireEvent[] {
+function toWire(events: WorldEvent[], townsfolk: readonly string[] = []): WireEvent[] {
   const out: WireEvent[] = [];
   for (const e of events) {
     if (e.type === "owner_pairs_set" || e.type === "maintainers_set") continue;
     out.push(e.type === "coins" && e.note ? { ...e, trust: "untrusted" } : e);
-    if (e.type === "coins" && e.reason === "gift_out" && e.with) {
+    if (
+      e.type === "coins" &&
+      e.reason === "gift_out" &&
+      e.with &&
+      !townsfolk.includes(e.residentId) &&
+      !townsfolk.includes(e.with)
+    ) {
       out.push({ type: "gift", from: e.residentId, to: e.with });
     }
   }
@@ -263,7 +271,7 @@ export class WorldService {
   // ---------- the town's clock ----------
 
   /** Log the townsfolk list when config changed it, so the sim keeps them out of votes. */
-  private syncTownsfolk(grant: ReadonlySet<string>) {
+  syncTownsfolk(grant: ReadonlySet<string>) {
     const ids = [...grant].sort();
     if (ids.join(",") === (this.state.townsfolk ?? []).join(",")) return;
     this.run({ actor: TOWN_ACTOR, command: { type: "set_townsfolk", ids } });
@@ -619,7 +627,7 @@ export class WorldService {
       return { ok: false, error: { code: "internal", message: "Couldn't save that. Try again." } };
     }
     const { seq, events } = prepared.commit();
-    const wire = toWire(events);
+    const wire = toWire(events, this.state.townsfolk);
     for (const event of publicEvents(wire)) this.broadcast({ type: "event", seq, event });
     // Purse moves go only to the purse's owner (RFC 0008: purses are private).
     for (const event of wire) {

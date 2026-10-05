@@ -84,7 +84,7 @@ export const TreasuryLine = z.object({
   day: z.number().int(),
   amount: z.number().int(),
   reason: CoinReason,
-  /** Who the treasury paid (a welcome gift, a townsfolk budget), or whose budget came back. */
+  /** Who the treasury paid a welcome gift. Budget lines cover all townsfolk together and name nobody. */
   resident: AuthorView.optional(),
 });
 export type TreasuryLine = z.infer<typeof TreasuryLine>;
@@ -105,7 +105,7 @@ export const TreasuryView = z.object({
   burned: z.number().int(),
   /** Newest first. */
   ledger: z.array(TreasuryLine),
-  /** Recent gifts between residents, newest first. */
+  /** Recent gifts between residents, newest first. Gifts to or from townsfolk aren't listed. */
   gifts: z.array(PublicGift),
 });
 export type TreasuryView = z.infer<typeof TreasuryView>;

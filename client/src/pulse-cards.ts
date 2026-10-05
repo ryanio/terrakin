@@ -9,6 +9,7 @@ import { compactCount, plural } from "@terrakin/ui/format";
 import { profilePath } from "@terrakin/ui/paths";
 import {
   avatarEl,
+  avatarPlaceholder,
   type Person,
   residentPerson,
   TOWNSFOLK_ABOUT,
@@ -114,6 +115,12 @@ export function statsCard() {
 
 // ---------- live activity ----------
 
+/** A placeholder avatar with an icon inside, for entries about the town itself. */
+const withIcon = (el: HTMLElement, mark: SVGSVGElement) => {
+  el.append(mark);
+  return el;
+};
+
 export interface ActivityEntry {
   /** Stable, so the same event never shows twice. */
   key: string;
@@ -154,11 +161,7 @@ export function activityCard() {
         { class: "activity-link", attrs: { href: e.href } },
         e.who
           ? avatarEl(e.who, "sm")
-          : h(
-              "span",
-              { class: "avatar sm activity-coin", attrs: { "aria-hidden": "true" } },
-              icon("coin"),
-            ),
+          : withIcon(avatarPlaceholder("sm", "activity-coin"), icon("coin")),
         h(
           "span",
           { class: "activity-text" },

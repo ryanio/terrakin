@@ -92,7 +92,7 @@ export interface WorldServiceOptions {
    */
   economy?: boolean;
   /**
-   * Growing and making (RFC 0005): once the world counts days, append `open_items` if it never
+   * Growing, making, and gathering (RFC 0005, phase 1 item 9): once the world counts days, append `open_items` if it never
    * has. Both adapters turn this on. Off by default so a test world's log holds only what the
    * test sent.
    */
@@ -506,7 +506,7 @@ export class WorldService {
   listingRefusal: (residentId: string) => string | null = (id) =>
     listingRefusal(this.state, id, { ageDays: this.residentAgeDays(id), tier: "newcomer" });
 
-  /** Hears each admire as it happens, for karma (decision 0059): who admired whose work, and when. */
+  /** Hears each admire as it happens, for karma (decision 0063): who admired whose work, and when. */
   onAdmired: ((admirer: string, maker: string, day: number) => void) | undefined;
 
   /** Whether a resident is suspended, from the social layer. Their stall can't sell meanwhile. */
@@ -1433,6 +1433,14 @@ export class WorldService {
             crops: Object.entries(state.items.crops).map(([key, c]) => {
               const [x, y] = parseKey(key);
               return { x, y, crop: c.crop, plantedDay: c.plantedDay, readyDay: c.readyDay };
+            }),
+          }
+        : {}),
+      ...(state.items?.gathered && Object.keys(state.items.gathered).length > 0
+        ? {
+            gathered: Object.keys(state.items.gathered).map((key) => {
+              const [x, y] = parseKey(key);
+              return { x, y };
             }),
           }
         : {}),

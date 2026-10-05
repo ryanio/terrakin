@@ -2,6 +2,7 @@ import type { ResidentView, WorldEvent, WorldSnapshot } from "@terrakin/protocol
 import {
   type BlockKind,
   type Crop,
+  type Direction,
   LOOK_KEYS,
   lookOf,
   plotKey,
@@ -11,6 +12,13 @@ import {
 } from "@terrakin/sim";
 
 type EventMessage = { seq: number; event: WorldEvent };
+
+/** The way someone faces after moving by (dx, dy): the bigger axis wins. Undefined for no move. */
+export function facingFrom(dx: number, dy: number): Direction | undefined {
+  if (dx === 0 && dy === 0) return undefined;
+  if (Math.abs(dx) >= Math.abs(dy)) return dx > 0 ? "e" : "w";
+  return dy > 0 ? "s" : "n";
+}
 
 /** A resident from the wire, with unset look fields left out rather than undefined. */
 export function residentFrom(view: ResidentView): Resident {
@@ -37,6 +45,8 @@ export class Mirror {
   crops = new Map<string, { crop: Crop; plantedDay: number; readyDay: number }>();
   /** Today, as the world counts it. A crop is ready once this reaches its `readyDay`. */
   day: number | undefined;
+  /** Which way each resident last walked. Only for drawing; nobody faces anywhere in the sim. */
+  facing = new Map<string, Direction>();
 
   constructor(snapshot: WorldSnapshot) {
     this.config = snapshot.config;
@@ -94,7 +104,10 @@ export class Mirror {
       }
       case "moved": {
         const r = this.residents.get(event.residentId);
-        if (r) Object.assign(r, { x: event.x, y: event.y });
+        if (!r) break;
+        const dir = facingFrom(event.x - r.x, event.y - r.y);
+        if (dir) this.facing.set(r.id, dir);
+        Object.assign(r, { x: event.x, y: event.y });
         break;
       }
       case "plot_claimed":

@@ -3,6 +3,7 @@ import {
   type BlockKind,
   blockFill,
   type Crop,
+  type Direction,
   FLOWER_TONES,
   groundTile,
   HEARTH_COLOR,
@@ -105,15 +106,16 @@ export function figureSprite(
   r: Pick<Resident, "color" | "shape" | "theme" | "pattern" | "patternMedia" | "wear">,
   scale: number,
   dpr: number,
+  facing: Direction = "s",
 ): { canvas: HTMLCanvasElement; dx: number; dy: number; w: number; h: number } {
   const u = scale * dpr;
   const w = (FIGURE_BOX.right - FIGURE_BOX.left) * u;
   const h = (FIGURE_BOX.bottom - FIGURE_BOX.top) * u;
   const probe = lookImage(r.patternMedia) ? r.patternMedia : (r.pattern ?? "plain");
-  const key = `fig|${r.color}|${r.shape}|${r.theme ?? ""}|${probe}|${(r.wear ?? []).join(",")}|${u.toFixed(2)}`;
+  const key = `fig|${r.color}|${r.shape}|${r.theme ?? ""}|${probe}|${(r.wear ?? []).join(",")}|${facing}|${u.toFixed(2)}`;
   const canvas = sprite(key, w, h, (ctx) => {
     ctx.translate(-FIGURE_BOX.left * u, -FIGURE_BOX.top * u);
-    drawFigure(ctx, u, r, clothesPattern(ctx, r, u).pattern);
+    drawFigure(ctx, u, r, clothesPattern(ctx, r, u).pattern, facing);
   });
   return {
     canvas,
@@ -610,7 +612,7 @@ export function render(
     ctx.beginPath();
     ctx.ellipse(sx, feet, scale * 0.27, scale * 0.085, 0, 0, Math.PI * 2);
     ctx.fill();
-    const fig = figureSprite(r, scale, dpr);
+    const fig = figureSprite(r, scale, dpr, mirror.facing.get(r.id));
     ctx.drawImage(fig.canvas, sx + fig.dx, feet + fig.dy, fig.w, fig.h);
     labels.push({
       text: r.kind === "agent" ? `${r.name} ⚙` : r.name,

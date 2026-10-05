@@ -113,6 +113,24 @@ describe("Mirror", () => {
     });
   });
 
+  it("turns residents the way they walk, facing south until they move", () => {
+    const m = new Mirror(snapshot);
+    expect(m.facing.get("a")).toBeUndefined();
+    const steps = [
+      [6, 5, "n"],
+      [7, 5, "e"],
+      [7, 6, "s"],
+      [6, 6, "w"],
+      // A long jump (going home) faces along the bigger axis.
+      [2, 4, "w"],
+    ] as const;
+    let seq = 4;
+    for (const [x, y, dir] of steps) {
+      m.apply({ seq: seq++, event: { type: "moved", residentId: "a", x, y } });
+      expect(m.facing.get("a")).toBe(dir);
+    }
+  });
+
   it("ignores stale events and reports gaps without applying them", () => {
     const m = new Mirror(snapshot);
     expect(m.apply({ seq: 2, event: { type: "left", residentId: "a" } })).toBe("stale");

@@ -4,6 +4,7 @@
  * into a cached sprite (see render.ts), so the world stays cheap at 60fps on a phone.
  */
 import type {
+  Direction,
   Pattern,
   ResidentColor,
   ResidentShape,
@@ -112,18 +113,25 @@ const HEAD_R = 0.21;
 
 /**
  * Draw a figure with its feet at (0, 0) of the current transform. `u` is one tile in pixels.
- * `pattern` fills the clothes over the main color (null for plain).
+ * `pattern` fills the clothes over the main color (null for plain). `facing` is the way they look:
+ * south (the default) shows the face, north their back, east and west a three-quarter turn.
  */
 export function drawFigure(
   ctx: CanvasRenderingContext2D,
   u: number,
   look: FigureLook,
   pattern: CanvasPattern | null,
+  facing: Direction = "s",
 ) {
   const p = lookPalette(look.theme, look.color);
   const head = RESIDENT_COLOR_HEX[look.color] ?? RESIDENT_COLOR_HEX.sun;
   const wear = new Set(look.wear ?? []);
   const rim = Math.max(1.5, u * 0.06);
+  const back = facing === "n";
+  // Turned sideways, front details slide toward the way they face.
+  const side = facing === "e" ? 1 : facing === "w" ? -1 : 0;
+  // Which side things carried in the right hand show on.
+  const hand = side || (back ? -1 : 1);
 
   // White rim behind everything, so the figure reads on any ground.
   ctx.lineJoin = "round";
@@ -138,8 +146,9 @@ export function drawFigure(
   // Feet.
   ctx.fillStyle = p.deep;
   ctx.beginPath();
-  ctx.ellipse(-0.1 * u, -0.02 * u, 0.075 * u, 0.045 * u, 0, 0, Math.PI * 2);
-  ctx.ellipse(0.1 * u, -0.02 * u, 0.075 * u, 0.045 * u, 0, 0, Math.PI * 2);
+  const [footA, footB] = side ? [-0.03 * side, 0.1 * side] : [-0.1, 0.1];
+  ctx.ellipse(footA * u, -0.02 * u, 0.075 * u, 0.045 * u, 0, 0, Math.PI * 2);
+  ctx.ellipse(footB * u, -0.02 * u, 0.075 * u, 0.045 * u, 0, 0, Math.PI * 2);
   ctx.fill();
 
   // Clothes: main color, then the pattern, clipped to the body.
@@ -153,17 +162,21 @@ export function drawFigure(
     ctx.fillStyle = pattern;
     ctx.fillRect(-0.5 * u, -0.6 * u, u, 0.6 * u);
   }
-  drawTop(ctx, u, wear, p);
+  drawTop(ctx, u, wear, p, back, side);
   // Soft shade at the hem so the body feels round.
   ctx.fillStyle = "rgba(70, 40, 18, 0.14)";
   ctx.fillRect(-0.5 * u, -0.12 * u, u, 0.12 * u);
   ctx.restore();
 
-  // Little arms.
+  // Little arms. Sideways, the near arm hangs over the body and the far one is hidden.
   ctx.fillStyle = mix(p.main, p.deep, 0.18);
   ctx.beginPath();
-  ctx.ellipse(-0.27 * u, -0.3 * u, 0.06 * u, 0.1 * u, 0.35, 0, Math.PI * 2);
-  ctx.ellipse(0.27 * u, -0.3 * u, 0.06 * u, 0.1 * u, -0.35, 0, Math.PI * 2);
+  if (side) {
+    ctx.ellipse(-0.03 * side * u, -0.29 * u, 0.065 * u, 0.11 * u, 0.25 * side, 0, Math.PI * 2);
+  } else {
+    ctx.ellipse(-0.27 * u, -0.3 * u, 0.06 * u, 0.1 * u, 0.35, 0, Math.PI * 2);
+    ctx.ellipse(0.27 * u, -0.3 * u, 0.06 * u, 0.1 * u, -0.35, 0, Math.PI * 2);
+  }
   ctx.fill();
 
   if (wear.has("satchel")) {
@@ -171,15 +184,16 @@ export function drawFigure(
     ctx.lineWidth = 0.04 * u;
     ctx.lineCap = "round";
     ctx.beginPath();
-    ctx.moveTo(-0.16 * u, -0.48 * u);
-    ctx.lineTo(0.18 * u, -0.16 * u);
+    ctx.moveTo(-0.16 * hand * u, -0.48 * u);
+    ctx.lineTo(0.18 * hand * u, -0.16 * u);
     ctx.stroke();
+    const bag = hand > 0 ? 0.13 : -0.3;
     ctx.fillStyle = LEATHER;
     ctx.beginPath();
-    ctx.roundRect(0.13 * u, -0.22 * u, 0.17 * u, 0.13 * u, 0.03 * u);
+    ctx.roundRect(bag * u, -0.22 * u, 0.17 * u, 0.13 * u, 0.03 * u);
     ctx.fill();
     ctx.fillStyle = mix(LEATHER, "#000000", 0.25);
-    ctx.fillRect(0.13 * u, -0.22 * u, 0.17 * u, 0.04 * u);
+    ctx.fillRect(bag * u, -0.22 * u, 0.17 * u, 0.04 * u);
   }
 
   // Head and face.
@@ -191,34 +205,13 @@ export function drawFigure(
   ctx.beginPath();
   ctx.ellipse(-0.08 * u, -0.74 * u, 0.06 * u, 0.035 * u, -0.6, 0, Math.PI * 2);
   ctx.fill();
-  const eye = look.color === "coal" ? BRAND_HEX.paper : INK;
-  ctx.fillStyle = eye;
-  ctx.beginPath();
-  ctx.arc(-0.075 * u, -0.64 * u, 0.026 * u, 0, Math.PI * 2);
-  ctx.arc(0.075 * u, -0.64 * u, 0.026 * u, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = "rgba(234, 110, 120, 0.4)";
-  ctx.beginPath();
-  ctx.ellipse(-0.13 * u, -0.585 * u, 0.04 * u, 0.025 * u, 0, 0, Math.PI * 2);
-  ctx.ellipse(0.13 * u, -0.585 * u, 0.04 * u, 0.025 * u, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  if (wear.has("glasses")) {
-    ctx.strokeStyle = INK;
-    ctx.lineWidth = Math.max(1, 0.022 * u);
-    ctx.beginPath();
-    ctx.arc(-0.075 * u, -0.64 * u, 0.055 * u, 0, Math.PI * 2);
-    ctx.moveTo(0.13 * u, -0.64 * u);
-    ctx.arc(0.075 * u, -0.64 * u, 0.055 * u, 0, Math.PI * 2);
-    ctx.moveTo(-0.02 * u, -0.645 * u);
-    ctx.lineTo(0.02 * u, -0.645 * u);
-    ctx.stroke();
-  }
+  if (!back) drawFace(ctx, u, look.color === "coal" ? BRAND_HEX.paper : INK, wear, side * 0.07);
 
   drawHat(ctx, u, wear, p);
 
   if (wear.has("bow")) {
-    const x = 0.15 * u;
+    // Sideways it sits toward the back of the head.
+    const x = 0.15 * (side ? -side : back ? -1 : 1) * u;
     const y = -0.82 * u;
     ctx.fillStyle = p.accent === "#ffffff" ? p.deep : p.accent;
     ctx.beginPath();
@@ -237,7 +230,7 @@ export function drawFigure(
   }
 
   if (wear.has("basket")) {
-    const x = 0.3 * u;
+    const x = 0.3 * hand * u;
     const y = -0.2 * u;
     // Handle, fruit, then the basket in front.
     ctx.strokeStyle = WICKER;
@@ -269,49 +262,97 @@ export function drawFigure(
   }
 }
 
-/** Tops draw inside the body clip. */
-function drawTop(ctx: CanvasRenderingContext2D, u: number, wear: Set<WearItem>, p: ThemePalette) {
-  if (wear.has("apron")) {
+/** Eyes, cheeks, and glasses, slid `turn` tiles sideways when the figure faces east or west. */
+function drawFace(
+  ctx: CanvasRenderingContext2D,
+  u: number,
+  eye: string,
+  wear: Set<WearItem>,
+  turn: number,
+) {
+  const t = turn * u;
+  ctx.fillStyle = eye;
+  ctx.beginPath();
+  ctx.arc(t - 0.075 * u, -0.64 * u, 0.026 * u, 0, Math.PI * 2);
+  ctx.arc(t + 0.075 * u, -0.64 * u, 0.026 * u, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "rgba(234, 110, 120, 0.4)";
+  ctx.beginPath();
+  ctx.ellipse(t * 0.5 - 0.13 * u, -0.585 * u, 0.04 * u, 0.025 * u, 0, 0, Math.PI * 2);
+  ctx.ellipse(t * 0.5 + 0.13 * u, -0.585 * u, 0.04 * u, 0.025 * u, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  if (wear.has("glasses")) {
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = Math.max(1, 0.022 * u);
+    ctx.beginPath();
+    ctx.arc(t - 0.075 * u, -0.64 * u, 0.055 * u, 0, Math.PI * 2);
+    ctx.moveTo(t + 0.13 * u, -0.64 * u);
+    ctx.arc(t + 0.075 * u, -0.64 * u, 0.055 * u, 0, Math.PI * 2);
+    ctx.moveTo(t - 0.02 * u, -0.645 * u);
+    ctx.lineTo(t + 0.02 * u, -0.645 * u);
+    ctx.stroke();
+  }
+}
+
+/**
+ * Tops draw inside the body clip. From behind, only what wraps around shows (cardigan panels,
+ * overall legs, the scarf's band); sideways, the front pieces slide toward the way they face.
+ */
+function drawTop(
+  ctx: CanvasRenderingContext2D,
+  u: number,
+  wear: Set<WearItem>,
+  p: ThemePalette,
+  back: boolean,
+  side: number,
+) {
+  const t = side * 0.1 * u;
+  if (wear.has("apron") && !back) {
     ctx.fillStyle = p.light;
     ctx.beginPath();
-    ctx.roundRect(-0.15 * u, -0.42 * u, 0.3 * u, 0.4 * u, 0.06 * u);
+    ctx.roundRect(t - 0.15 * u, -0.42 * u, 0.3 * u, 0.4 * u, 0.06 * u);
     ctx.fill();
     ctx.strokeStyle = p.deep;
     ctx.lineWidth = Math.max(0.8, 0.018 * u);
     ctx.beginPath();
-    ctx.roundRect(-0.07 * u, -0.22 * u, 0.14 * u, 0.08 * u, 0.02 * u);
+    ctx.roundRect(t - 0.07 * u, -0.22 * u, 0.14 * u, 0.08 * u, 0.02 * u);
     ctx.stroke();
   }
   if (wear.has("cardigan")) {
     ctx.fillStyle = p.deep;
-    ctx.fillRect(-0.4 * u, -0.6 * u, 0.27 * u, 0.6 * u);
-    ctx.fillRect(0.13 * u, -0.6 * u, 0.27 * u, 0.6 * u);
-    ctx.fillStyle = p.light;
-    for (const y of [-0.38, -0.26, -0.14]) {
-      ctx.beginPath();
-      ctx.arc(0.1 * u, y * u, 0.022 * u, 0, Math.PI * 2);
-      ctx.fill();
+    if (back) {
+      ctx.fillRect(-0.4 * u, -0.6 * u, 0.8 * u, 0.6 * u);
+    } else {
+      ctx.fillRect(t - 0.4 * u, -0.6 * u, 0.27 * u, 0.6 * u);
+      ctx.fillRect(t + 0.13 * u, -0.6 * u, 0.27 * u, 0.6 * u);
+      ctx.fillStyle = p.light;
+      for (const y of [-0.38, -0.26, -0.14]) {
+        ctx.beginPath();
+        ctx.arc(t + 0.1 * u, y * u, 0.022 * u, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
   }
   if (wear.has("overalls")) {
     ctx.fillStyle = p.deep;
     ctx.fillRect(-0.4 * u, -0.22 * u, 0.8 * u, 0.22 * u);
-    ctx.beginPath();
-    ctx.roundRect(-0.12 * u, -0.38 * u, 0.24 * u, 0.18 * u, 0.03 * u);
-    ctx.fill();
-    ctx.strokeStyle = p.deep;
-    ctx.lineWidth = 0.04 * u;
-    ctx.beginPath();
-    ctx.moveTo(-0.1 * u, -0.37 * u);
-    ctx.lineTo(-0.16 * u, -0.52 * u);
-    ctx.moveTo(0.1 * u, -0.37 * u);
-    ctx.lineTo(0.16 * u, -0.52 * u);
-    ctx.stroke();
-    ctx.fillStyle = p.light;
-    ctx.beginPath();
-    ctx.arc(-0.08 * u, -0.34 * u, 0.02 * u, 0, Math.PI * 2);
-    ctx.arc(0.08 * u, -0.34 * u, 0.02 * u, 0, Math.PI * 2);
-    ctx.fill();
+    if (back) {
+      // The straps cross between the shoulder blades.
+      ctx.strokeStyle = p.deep;
+      ctx.lineWidth = 0.04 * u;
+      ctx.beginPath();
+      ctx.moveTo(-0.16 * u, -0.52 * u);
+      ctx.lineTo(0.1 * u, -0.22 * u);
+      ctx.moveTo(0.16 * u, -0.52 * u);
+      ctx.lineTo(-0.1 * u, -0.22 * u);
+      ctx.stroke();
+    } else {
+      ctx.save();
+      ctx.translate(t, 0);
+      drawBib(ctx, u, p);
+      ctx.restore();
+    }
   }
   if (wear.has("scarf")) {
     const scarf = p.accent === "#ffffff" || p.accent === BRAND_HEX.paper ? p.deep : p.accent;
@@ -319,12 +360,35 @@ function drawTop(ctx: CanvasRenderingContext2D, u: number, wear: Set<WearItem>, 
     ctx.beginPath();
     ctx.roundRect(-0.22 * u, -0.52 * u, 0.44 * u, 0.09 * u, 0.04 * u);
     ctx.fill();
-    ctx.beginPath();
-    ctx.roundRect(0.05 * u, -0.48 * u, 0.08 * u, 0.2 * u, 0.03 * u);
-    ctx.fill();
-    ctx.fillStyle = "rgba(255,255,255,0.3)";
-    ctx.fillRect(0.05 * u, -0.34 * u, 0.08 * u, 0.02 * u);
+    if (!back) {
+      ctx.beginPath();
+      ctx.roundRect(t + 0.05 * u, -0.48 * u, 0.08 * u, 0.2 * u, 0.03 * u);
+      ctx.fill();
+      ctx.fillStyle = "rgba(255,255,255,0.3)";
+      ctx.fillRect(t + 0.05 * u, -0.34 * u, 0.08 * u, 0.02 * u);
+    }
   }
+}
+
+/** The overalls' bib, straps, and buttons. */
+function drawBib(ctx: CanvasRenderingContext2D, u: number, p: ThemePalette) {
+  ctx.fillStyle = p.deep;
+  ctx.beginPath();
+  ctx.roundRect(-0.12 * u, -0.38 * u, 0.24 * u, 0.18 * u, 0.03 * u);
+  ctx.fill();
+  ctx.strokeStyle = p.deep;
+  ctx.lineWidth = 0.04 * u;
+  ctx.beginPath();
+  ctx.moveTo(-0.1 * u, -0.37 * u);
+  ctx.lineTo(-0.16 * u, -0.52 * u);
+  ctx.moveTo(0.1 * u, -0.37 * u);
+  ctx.lineTo(0.16 * u, -0.52 * u);
+  ctx.stroke();
+  ctx.fillStyle = p.light;
+  ctx.beginPath();
+  ctx.arc(-0.08 * u, -0.34 * u, 0.02 * u, 0, Math.PI * 2);
+  ctx.arc(0.08 * u, -0.34 * u, 0.02 * u, 0, Math.PI * 2);
+  ctx.fill();
 }
 
 function drawHat(ctx: CanvasRenderingContext2D, u: number, wear: Set<WearItem>, p: ThemePalette) {

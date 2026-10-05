@@ -55,6 +55,15 @@ let buildMode = false;
 let block: BlockKind | "hearth" = "wood";
 let walkTarget: { x: number; y: number } | undefined;
 let pendingMove: string | undefined;
+/** Steps asked for by key presses and d-pad taps, sent in order as the pace allows. */
+const queuedSteps: Direction[] = [];
+/** Walk keys held down, newest last. Holding one keeps walking that way. */
+const heldKeys: Direction[] = [];
+/**
+ * The fastest we walk: one step per server ack, and no more often than this. Keeps a held key
+ * under the action rate limit (10 a second) instead of bursting into "Slow down."
+ */
+const STEP_MS = 110;
 let resyncing = false;
 /** True between pressing "Step inside" and the server's welcome, so we count a join once. */
 let joiningFresh = false;
@@ -123,6 +132,8 @@ function connect(identity: Identity) {
 function stopWalking() {
   walkTarget = undefined;
   pendingMove = undefined;
+  queuedSteps.length = 0;
+  heldKeys.length = 0;
 }
 
 /** Remember the server's day/night anchor and when it arrived. No anchor means no night. */
@@ -185,8 +196,8 @@ function onMessage(msg: ServerMessage) {
       break;
     case "error":
       if (msg.id === pendingMove) {
-        pendingMove = undefined;
-        walkTarget = undefined;
+        // Walked into something: stop, rather than bumping it every step until the key comes up.
+        stopWalking();
       }
       if (msg.error.code === "unauthorized" || msg.error.code === "invalid_name") {
         conn?.close();
@@ -246,7 +257,9 @@ function showToast(text: string, source: "system" | "player" = "system") {
 
 function step(dir: Direction) {
   walkTarget = undefined;
-  act({ type: "move", dir });
+  queuedSteps.push(dir);
+  // Turn right away, even if the step is refused. Only how you're drawn; the server moves you.
+  if (me) mirror?.facing.set(me, dir);
 }
 
 function self() {
@@ -318,11 +331,27 @@ const KEYS: Record<string, Direction> = {
 window.addEventListener("keydown", (e) => {
   if (!active || !me || document.activeElement instanceof HTMLInputElement) return;
   const dir = KEYS[e.key];
-  if (dir) {
-    e.preventDefault();
-    step(dir);
-  }
+  if (!dir) return;
+  e.preventDefault();
+  // Key repeat is ignored: the frame loop walks a held key at its own steady pace.
+  if (e.repeat) return;
+  releaseKey(dir);
+  heldKeys.push(dir);
+  step(dir);
 });
+window.addEventListener("keyup", (e) => {
+  const dir = KEYS[e.key];
+  if (dir) releaseKey(dir);
+});
+// A key released while the page is in the background never sends keyup.
+window.addEventListener("blur", () => {
+  heldKeys.length = 0;
+});
+
+function releaseKey(dir: Direction) {
+  const i = heldKeys.indexOf(dir);
+  if (i >= 0) heldKeys.splice(i, 1);
+}
 
 $("claim").addEventListener("click", () => act({ type: "claim" }));
 
@@ -410,12 +439,15 @@ function frame(t: number) {
   if (r) {
     cam.cx += (r.x - cam.cx) * 0.2;
     cam.cy += (r.y - cam.cy) * 0.2;
-    // Tap-to-walk: one step at a time, each waiting for the server to confirm the last.
-    if (walkTarget && !pendingMove && t - lastWalk > 110) {
-      const dir = stepToward(r, walkTarget);
-      if (dir) pendingMove = act({ type: "move", dir });
-      else walkTarget = undefined;
-      lastWalk = t;
+    // Walking: one step at a time, each waiting for the server to confirm the last. Presses and
+    // taps go first, then a held key, then a tapped destination.
+    if (!pendingMove && t - lastWalk >= STEP_MS) {
+      const dir =
+        queuedSteps.shift() ?? heldKeys.at(-1) ?? (walkTarget && stepToward(r, walkTarget));
+      if (dir) {
+        pendingMove = act({ type: "move", dir });
+        lastWalk = t;
+      } else walkTarget = undefined;
     }
   } else if (mirror) {
     // Behind the curtain: a slow drift around the Commons.

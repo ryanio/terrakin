@@ -33,6 +33,7 @@ import {
   welcomeDue,
 } from "./economy";
 import { checkSetEntitlements, unentitled } from "./entitlements";
+import { checkGather } from "./gather";
 import { canonicalJson, fnv1a } from "./hash";
 import {
   checkCraft,
@@ -986,6 +987,8 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
       return town(checkPlant(state, actor, command));
     case "harvest":
       return town(checkHarvest(state, actor, command));
+    case "gather":
+      return town(checkGather(state, actor, command));
     case "craft":
       return town(checkCraft(state, actor, command));
     case "give":

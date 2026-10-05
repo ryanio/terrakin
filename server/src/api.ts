@@ -1,5 +1,6 @@
 import {
   type AcceptInviteRequest,
+  Action,
   absolute,
   acceptsIdempotencyKey,
   type BinaryBody,
@@ -37,6 +38,7 @@ import {
   SITEMAP_MAX_URLS,
   type StaffRole,
   sitemapIndexXml,
+  suggestFor,
   urlsetXml,
   w3cDatetime,
 } from "@terrakin/protocol";
@@ -561,7 +563,14 @@ export class Api {
       }
       body = { length: size, read: () => req.readBytes(size) } satisfies Upload;
     } else if (route.body) {
-      const parsed = route.body.safeParse(await req.readJson());
+      const raw = await req.readJson();
+      const parsed = route.body.safeParse(raw);
+      // A typo in an action type or field name gets the real name back (`did_you_mean`). Actions
+      // refuse a near-miss field even when the rest parses: a dropped `dyr` would act for real.
+      if (!parsed.success || route.body === Action) {
+        const hint = suggestFor(route.body, raw);
+        if (hint) return error("bad_request", hint.message, undefined, hint.didYouMean);
+      }
       if (!parsed.success) return reject("bad_request", problem(parsed.error));
       body = parsed.data;
     }
@@ -719,7 +728,8 @@ export class Api {
         return { status: 204 };
       },
       act: ({ viewer, body }) => {
-        service.ensureOnline(viewer);
+        // A dry run changes nothing, not even presence: `act` checks it as if they were online.
+        if (!body.dry) service.ensureOnline(viewer);
         return { status: 200, body: service.act(viewer, body) };
       },
 
@@ -1468,8 +1478,9 @@ export class LiveSession {
     this.socket.send(JSON.stringify(message));
   }
 
-  private fail(code: ErrorCode, message: string, id?: string) {
-    this.send({ type: "error", ...(id === undefined ? {} : { id }), error: { code, message } });
+  private fail(code: ErrorCode, message: string, id?: string, didYouMean?: string) {
+    const error = { code, message, ...(didYouMean ? { did_you_mean: didYouMean } : {}) };
+    this.send({ type: "error", ...(id === undefined ? {} : { id }), error });
   }
 
   onMessage(text: string) {
@@ -1502,6 +1513,8 @@ export class LiveSession {
       return this.fail("bad_request", "Messages must be JSON.");
     }
     const parsed = ClientMessage.safeParse(raw);
+    const hint = actionHint(raw);
+    if (hint) return this.fail("bad_request", hint.message, hint.id, hint.didYouMean);
     if (!parsed.success) return this.fail("bad_request", parsed.error.message);
     const msg = parsed.data;
 
@@ -1558,12 +1571,33 @@ export class LiveSession {
     const blocked = this.api.writeBlock(residentId);
     if (blocked) return this.fail(blocked.error, blocked.message, msg.id);
     // The resident may have been marked offline (DELETE /v1/session from another client).
-    // An open socket means they're here, so bring them back.
-    service.ensureOnline(residentId);
+    // An open socket means they're here, so bring them back. A dry run changes nothing.
+    if (!msg.action.dry) service.ensureOnline(residentId);
     const result = service.act(residentId, msg.action);
     if (!result.ok) return this.fail(result.error.code, result.error.message, msg.id);
-    this.send({ type: "ack", ...(msg.id === undefined ? {} : { id: msg.id }), seq: result.seq });
+    this.send({
+      type: "ack",
+      ...(msg.id === undefined ? {} : { id: msg.id }),
+      seq: result.seq,
+      ...(result.dry ? { dry: true } : {}),
+    });
   }
+}
+
+/**
+ * A typo in a socket action's type or field names, with the message's `id` when it has a usable
+ * one. Like `POST /v1/actions`, a near-miss field is refused even when the rest parses.
+ */
+function actionHint(
+  raw: unknown,
+): { message: string; didYouMean: string; id?: string } | undefined {
+  if (typeof raw !== "object" || raw === null) return undefined;
+  const { type, id, action } = raw as Record<string, unknown>;
+  if (type !== "action") return undefined;
+  const hint = suggestFor(Action, action);
+  if (!hint) return undefined;
+  const usableId = typeof id === "string" && id.length >= 1 && id.length <= 64 ? id : undefined;
+  return { ...hint, ...(usableId === undefined ? {} : { id: usableId }) };
 }
 
 function json(status: number, body: unknown): ApiResponse {
@@ -1587,11 +1621,14 @@ function errorHeaders(code: ErrorCode, retryAfter?: number): Record<string, stri
   return {};
 }
 
-function error(code: ErrorCode, message: string, retryAfter?: number): ApiResponse {
-  return withHeaders(
-    json(errorStatus(code), { error: { code, message } }),
-    errorHeaders(code, retryAfter),
-  );
+function error(
+  code: ErrorCode,
+  message: string,
+  retryAfter?: number,
+  didYouMean?: string,
+): ApiResponse {
+  const body = { code, message, ...(didYouMean ? { did_you_mean: didYouMean } : {}) };
+  return withHeaders(json(errorStatus(code), { error: body }), errorHeaders(code, retryAfter));
 }
 
 function withHeaders(response: ApiResponse, headers: Record<string, string>): ApiResponse {

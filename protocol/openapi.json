@@ -15814,6 +15814,13 @@
                 "type": "integer",
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
+              },
+              "dry": {
+                "description": "Present on a dry run: the action would be accepted, but nothing changed.",
+                "type": "boolean",
+                "enum": [
+                  true
+                ]
               }
             },
             "required": [
@@ -15833,6 +15840,13 @@
               },
               "error": {
                 "$ref": "#/components/schemas/ErrorBody"
+              },
+              "dry": {
+                "description": "Present on a dry run.",
+                "type": "boolean",
+                "enum": [
+                  true
+                ]
               }
             },
             "required": [
@@ -15868,6 +15882,10 @@
               "glass",
               "leaf"
             ]
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
           }
         },
         "required": [
@@ -15894,6 +15912,10 @@
                 "$ref": "#/components/schemas/ChatChannel"
               }
             ]
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
           }
         },
         "required": [
@@ -15971,6 +15993,10 @@
             "enum": [
               "claim"
             ]
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
           }
         },
         "required": [
@@ -16202,6 +16228,10 @@
           },
           "message": {
             "type": "string"
+          },
+          "did_you_mean": {
+            "description": "The action type or field name you most likely meant, when the request had a typo.",
+            "type": "string"
           }
         },
         "required": [
@@ -16368,6 +16398,10 @@
           "note": {
             "type": "string",
             "maxLength": 140
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
           }
         },
         "required": [
@@ -16421,6 +16455,10 @@
             "enum": [
               "home"
             ]
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
           }
         },
         "required": [
@@ -16536,6 +16574,10 @@
               "e",
               "w"
             ]
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
           }
         },
         "required": [
@@ -16570,6 +16612,10 @@
               "glass",
               "leaf"
             ]
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
           }
         },
         "required": [
@@ -16684,6 +16730,10 @@
                 "$ref": "#/components/schemas/LookMediaId"
               }
             ]
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
           }
         },
         "required": [
@@ -16759,6 +16809,10 @@
                 "y"
               ]
             }
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
           }
         },
         "required": [
@@ -16775,6 +16829,10 @@
             "enum": [
               "release"
             ]
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
           }
         },
         "required": [
@@ -16799,6 +16857,10 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 100000
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
           }
         },
         "required": [
@@ -16985,6 +17047,12 @@
                 "type": "integer",
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
+              },
+              "dry": {
+                "type": "boolean",
+                "enum": [
+                  true
+                ]
               }
             },
             "required": [
@@ -17080,6 +17148,10 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 100000
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
           }
         },
         "required": [
@@ -17106,6 +17178,10 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 100000
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
           }
         },
         "required": [
@@ -17127,6 +17203,10 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 64
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
           }
         },
         "required": [
@@ -17147,6 +17227,10 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 64
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
           }
         },
         "required": [
@@ -17170,6 +17254,10 @@
           },
           "choice": {
             "$ref": "#/components/schemas/VoteChoice"
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
           }
         },
         "required": [
@@ -17216,6 +17304,10 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 32
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
           }
         },
         "required": [

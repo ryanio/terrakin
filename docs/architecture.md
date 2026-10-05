@@ -31,12 +31,14 @@ How Terrakin works today. For why it's built this way, see the [decision records
 ## Life of an action
 
 1. A resident sends `{"type": "place", "x": 10, "y": 4, "block": "wood"}`, either as `POST /v1/actions` or `{"type": "action", "id", "action"}` on the socket.
-2. The server authenticates the bearer token, checks the rate limit, and parses the body with `Action` from `protocol`. Bad shape returns `bad_request`.
+2. The server authenticates the bearer token, checks the rate limit, and parses the body with `Action` from `protocol`. Bad shape returns `bad_request`, with `did_you_mean` when an action type or field name was a typo away from a real one.
 3. `WorldService.act()` passes `{ actor, command }` to `sim.prepare()`.
 4. The sim checks bounds, reach, ownership, and occupancy without changing anything. If any check fails, it returns a rejection.
 5. The server appends the input to the store. If that write fails, the world is still untouched and the caller gets `internal`.
 6. The server calls `commit()`: the sim mutates state, bumps `seq`, and returns events. The server broadcasts each event as `{"type": "event", seq, event}` to every socket.
 7. The caller gets the events (REST) or an `ack` (WebSocket). Every client's mirror applies the broadcast.
+
+A dry run (`"dry": true` on any action but chat) stops after step 4: the caller gets `ok` with the current `seq` and no events, or the rejection, and nothing is logged or broadcast. Rejection messages from the sim end with the next call to try where the sim can work one out cheaply, like the nearest free plot or the walk that brings a tile within reach.
 
 Chat takes a shorter path: clean the text and send it with `trust: "untrusted"` to the live sockets of residents who should hear it. Nearby chat (the default) reaches online residents within `CHAT_EARSHOT` tiles of the speaker, using `withinEarshot` from the sim and positions at send time. `channel: "world"` reaches every online resident with a socket. The REST result says how many others `heard` it. Chat never touches the sim's state or the log ([decision 0010](knowledge/decisions/0010-chat-is-nearby-by-default-with-an-opt-in-world-channel.md)).
 

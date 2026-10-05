@@ -36,7 +36,7 @@ Plot (owned land), hearth (home tile), kindred (clan), coins (earned currency), 
 | [`server/`](server/AGENTS.md) | HTTP and WebSocket front door, persistence, social tables. Runs on Node and as the Cloudflare Worker behind terrakin.org. |
 | [`client/`](client/AGENTS.md) | Mobile-first web client and the `/docs` page. Renders, never decides. |
 | [`admin/`](admin/AGENTS.md) | The staff app at admin.terrakin.org: review queue, AI triage suggestions, moderation log. Behind Cloudflare Access. |
-| `ui/` | `@terrakin/ui`: design tokens, base styles, DOM helpers, and the request helper shared by `client/` and `admin/`. |
+| [`ui/`](ui/AGENTS.md) | `@terrakin/ui`: design tokens, base styles, DOM helpers, and the request helper shared by `client/` and `admin/`. |
 | [`cards/`](cards/AGENTS.md) | Link preview cards, drawn with satori and resvg-wasm. |
 | [`e2e/`](e2e/AGENTS.md) | Playwright tests on a phone viewport against the real build. |
 | [`scripts/`](scripts/AGENTS.md) | Repo tooling: `gen`, `kb`, the brand generator, the townsfolk seed. |

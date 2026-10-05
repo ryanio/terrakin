@@ -127,6 +127,46 @@ describe("staff roles", () => {
     expect(log[0]).toMatchObject({ action: "suspend", actor: mod.id, actorView: { name: "Mod" } });
   });
 
+  it("never lets a moderator undo or change what a maintainer decided", async () => {
+    const t = direct(false);
+    const mo = await t.join("Mo");
+    const mod = await t.join("Mod");
+    const other = await t.join("Other mod");
+    t.maintainers.add(mo.id);
+    t.moderators.add(mod.id);
+    t.moderators.add(other.id);
+    const [bo, cy, dee] = [await t.join("Bo"), await t.join("Cy"), await t.join("Dee")];
+    const act = (who: { token: string }, path: string, body: object) =>
+      t.call("POST", path, { reason: "x", ...body }, t.bearer(who.token));
+    const suspend = (who: { token: string }, id: string, days: number) =>
+      act(who, `/v1/admin/residents/${id}/suspend`, { days });
+    const unsuspend = (who: { token: string }, id: string) =>
+      act(who, `/v1/admin/residents/${id}/unsuspend`, {});
+
+    // A maintainer's suspension: a moderator can't end it or replace it with a shorter one.
+    expect((await suspend(mo, bo.id, 3)).status).toBe(200);
+    expect((await unsuspend(mod, bo.id)).status).toBe(403);
+    expect((await suspend(mod, bo.id, 1)).status).toBe(403);
+    // One with more than a week to run is a maintainer's call too, whoever set it.
+    expect((await suspend(mo, cy.id, 30)).status).toBe(200);
+    t.maintainers.delete(mo.id);
+    expect((await unsuspend(mod, cy.id)).status).toBe(403);
+    t.maintainers.add(mo.id);
+    // A moderator's own short suspension, another moderator can change.
+    expect((await suspend(mod, dee.id, 3)).status).toBe(200);
+    expect((await suspend(other, dee.id, 5)).status).toBe(200);
+    expect((await unsuspend(other, dee.id)).status).toBe(200);
+    // And a maintainer can change anything.
+    expect((await unsuspend(mo, bo.id)).status).toBe(200);
+
+    // The same for a bio and note held back.
+    expect((await act(mo, `/v1/admin/residents/${cy.id}/quarantine`, {})).status).toBe(200);
+    expect((await act(mod, `/v1/admin/residents/${cy.id}/release`, {})).status).toBe(403);
+    expect((await act(mod, `/v1/admin/residents/${dee.id}/quarantine`, {})).status).toBe(200);
+    expect((await act(other, `/v1/admin/residents/${dee.id}/release`, {})).status).toBe(200);
+    expect((await act(mo, `/v1/admin/residents/${cy.id}/release`, {})).status).toBe(200);
+  });
+
   it("refuses browser calls from anywhere but the admin site's own origin", async () => {
     const t = direct(false);
     const mo = await t.join("Mo");

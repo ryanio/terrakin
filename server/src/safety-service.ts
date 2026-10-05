@@ -872,6 +872,23 @@ export class SafetyService {
     return row ? Number(row.until) : undefined;
   }
 
+  /** A suspension in force: who set it and how long it has left. */
+  currentSuspension(residentId: string): { by: string; remainingMs: number } | undefined {
+    const now = this.o.now();
+    const row = this.rows(
+      "SELECT until, by FROM suspensions WHERE resident_id = ? AND until > ?",
+      residentId,
+      now,
+    )[0];
+    return row ? { by: String(row.by), remainingMs: Number(row.until) - now } : undefined;
+  }
+
+  /** Who held back a resident's bio and note, if anyone did. */
+  quarantinedBy(residentId: string): string | undefined {
+    const row = this.rows("SELECT by FROM quarantine WHERE resident_id = ?", residentId)[0];
+    return row ? String(row.by) : undefined;
+  }
+
   /** Whether a resident's bio and note are held back from view. */
   isQuarantined(residentId: string): boolean {
     return this.count("SELECT COUNT(*) AS c FROM quarantine WHERE resident_id = ?", residentId) > 0;

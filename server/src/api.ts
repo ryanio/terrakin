@@ -1145,14 +1145,25 @@ export class Api {
             `Moderators can suspend for up to ${MODERATOR_SUSPEND_MAX_DAYS} days. Ask a maintainer for longer.`,
           );
         }
+        const locked = this.maintainersSuspension(viewer, params.id);
+        if (locked) return locked;
         return logged(social().safety.suspend(viewer, params.id, body.days, body.reason));
       },
       unsuspendResident: ({ viewer, params, body }) =>
+        this.maintainersSuspension(viewer, params.id) ??
         logged(social().safety.unsuspend(viewer, params.id, body.reason)),
       quarantineResident: ({ viewer, params, body }) =>
         logged(social().safety.quarantine(viewer, params.id, body.reason)),
-      releaseResident: ({ viewer, params, body }) =>
-        logged(social().safety.release(viewer, params.id, body.reason)),
+      releaseResident: ({ viewer, params, body }) => {
+        const by = social().safety.quarantinedBy(params.id);
+        if (by && this.staffRole(viewer) !== "maintainer" && this.staffRole(by) === "maintainer") {
+          return fail(
+            "forbidden",
+            "A maintainer held these back. Ask a maintainer to release them.",
+          );
+        }
+        return logged(social().safety.release(viewer, params.id, body.reason));
+      },
 
       // ---------- docs ----------
       getSkill: () => ({ status: 200, text: this.skill }),
@@ -1338,6 +1349,22 @@ export class Api {
     }
     if (!this.staffRole(actor)) return fail("forbidden", STAFF_ONLY);
     return { actor };
+  }
+
+  /**
+   * A moderator may not shorten, lengthen, or end a suspension a maintainer set, or one with more
+   * than a moderator's own limit still to run. The refusal, or undefined when they may.
+   */
+  private maintainersSuspension(viewer: string, residentId: string): Failure | undefined {
+    if (this.staffRole(viewer) === "maintainer") return undefined;
+    const current = this.social?.safety.currentSuspension(residentId);
+    if (!current) return undefined;
+    const long = current.remainingMs > MODERATOR_SUSPEND_MAX_DAYS * 86_400_000;
+    if (!long && this.staffRole(current.by) !== "maintainer") return undefined;
+    return fail(
+      "forbidden",
+      "A maintainer set this suspension, or it has more than a week to run. Ask a maintainer to change it.",
+    );
   }
 
   /** A staff member's role: by Access email, or by resident id from the server's grants. */

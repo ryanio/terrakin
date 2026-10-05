@@ -1,5 +1,4 @@
 import { mkdtempSync, rmSync } from "node:fs";
-import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { MAX_AGENTS_PER_OWNER, OWNER_CODE_TTL_MS, type ServerMessage } from "@terrakin/protocol";
@@ -13,7 +12,7 @@ import { normalizeCode } from "./owner-service";
 import { SocialService } from "./social-service";
 import { SqlStore } from "./sql-store";
 import { JsonlStore, MemoryStore, type Store } from "./store";
-import { responseChecker } from "./test-support";
+import { jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
 import { WorldService } from "./world-service";
 
 const CONFIG: WorldConfig = {
@@ -61,23 +60,10 @@ async function start() {
     sessionsPerMinute: 1000,
     onResponse,
   });
-  await new Promise<void>((done) => server.listen(0, done));
-  cleanups.push(() => new Promise<void>((done) => server.close(() => done())));
+  const base = await listenOnFreePort(server, cleanups);
   cleanups.push(() => sql.close());
-  const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 
-  async function call(method: string, path: string, body?: unknown, token?: string) {
-    const res = await fetch(base + path, {
-      method,
-      headers: {
-        "content-type": "application/json",
-        ...(token ? { authorization: `Bearer ${token}` } : {}),
-      },
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-    });
-    const text = await res.text();
-    return { status: res.status, body: text ? JSON.parse(text) : undefined };
-  }
+  const call = jsonCaller(base);
 
   async function join(name: string, kind: "human" | "agent"): Promise<Who> {
     const { body } = await call("POST", "/v1/session", { name, kind });

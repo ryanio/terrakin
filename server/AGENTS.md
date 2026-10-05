@@ -51,4 +51,4 @@ The front door. Parses, authenticates, rate limits, runs the sim, persists, and 
 
 ## Testing
 
-`src/server.test.ts` starts a real server on port 0 and talks to it over `fetch` and `ws`. Every new route or message type gets an integration test. Use `MemoryStore` unless you're testing persistence. Pass `onResponse` from `responseChecker()` (`src/test-support.ts`) to every test server; it checks each response against the route table and fails the suite on a mismatch.
+`src/server.test.ts` starts a real server on port 0 and talks to it over `fetch` and `ws`. Every new route or message type gets an integration test. Use `MemoryStore` unless you're testing persistence. Pass `onResponse` from `responseChecker()` (`src/test-support.ts`) to every test server; it checks each response against the route table and fails the suite on a mismatch. The same file has `listenOnFreePort` (start a test server and close it with the test's cleanups) and `jsonCaller` (the `call(method, path, body?, token?)` most tests use); use them instead of writing another.

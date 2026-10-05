@@ -1,5 +1,4 @@
 import { mkdtempSync, rmSync } from "node:fs";
-import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { WorldConfig } from "@terrakin/sim";
@@ -12,7 +11,7 @@ import { nodeSql } from "./node-sql";
 import { SocialService } from "./social-service";
 import { SqlStore } from "./sql-store";
 import { JsonlStore, MemoryStore, type Store } from "./store";
-import { responseChecker } from "./test-support";
+import { listenOnFreePort, responseChecker } from "./test-support";
 import { WorldService } from "./world-service";
 
 // 3x3 plots of 8 tiles, so the starter home fits. The Commons is plot (1, 1); spawn is (12, 12).
@@ -52,10 +51,8 @@ async function start(options: { store?: Store; sessionsPerMinute?: number } = {}
     sessionsPerMinute: options.sessionsPerMinute ?? 1000,
     onResponse,
   });
-  await new Promise<void>((done) => server.listen(0, done));
-  cleanups.push(() => new Promise<void>((done) => server.close(() => done())));
+  const base = await listenOnFreePort(server, cleanups);
   cleanups.push(() => sql.close());
-  const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 
   /** Open a link the way a reader that can only GET would. */
   async function open(path: string) {

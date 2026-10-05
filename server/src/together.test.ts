@@ -1,4 +1,3 @@
-import type { AddressInfo } from "node:net";
 import type { ServerMessage } from "@terrakin/protocol";
 import { createWorld, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
@@ -9,7 +8,7 @@ import { tinyGlb } from "./media-fixtures";
 import { nodeSql } from "./node-sql";
 import { type SocialLimits, SocialService } from "./social-service";
 import { MemoryStore } from "./store";
-import { responseChecker } from "./test-support";
+import { jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
 import {
   activeStreak,
   anchorPlot,
@@ -72,33 +71,10 @@ async function start(limits: Partial<SocialLimits> = {}) {
     sessionsPerMinute: 1000,
     onResponse,
   });
-  await new Promise<void>((done) => server.listen(0, done));
-  cleanups.push(() => new Promise<void>((done) => server.close(() => done())));
+  const base = await listenOnFreePort(server, cleanups);
   cleanups.push(() => sql.close());
-  const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 
-  async function call(method: string, path: string, body?: unknown, token?: string) {
-    const isBytes = body instanceof Uint8Array;
-    const res = await fetch(base + path, {
-      method,
-      headers: {
-        "content-type": isBytes ? "application/octet-stream" : "application/json",
-        ...(token ? { authorization: `Bearer ${token}` } : {}),
-      },
-      ...(body === undefined
-        ? {}
-        : { body: isBytes ? new Blob([body as Uint8Array<ArrayBuffer>]) : JSON.stringify(body) }),
-    });
-    const text = await res.text();
-    let json: unknown;
-    try {
-      json = text ? JSON.parse(text) : undefined;
-    } catch {
-      json = text;
-    }
-    // biome-ignore lint/suspicious/noExplicitAny: test responses are checked against the route table.
-    return { status: res.status, body: json as any, headers: res.headers };
-  }
+  const call = jsonCaller(base);
 
   async function join(name: string) {
     const { body } = await call("POST", "/v1/session", { name, kind: "human" });

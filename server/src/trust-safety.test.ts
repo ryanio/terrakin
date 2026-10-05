@@ -1,4 +1,3 @@
-import type { AddressInfo } from "node:net";
 import { DAILY_LIMITS, type ServerMessage } from "@terrakin/protocol";
 import { findProposal, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
@@ -10,7 +9,7 @@ import { THRESHOLDS } from "./moderation-lists";
 import { nodeSql } from "./node-sql";
 import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
-import { responseChecker } from "./test-support";
+import { jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
 import { DAY_MS, WorldService } from "./world-service";
 
 /** Test words are ROT13 here too, so the file doesn't spell slurs out. */
@@ -61,31 +60,10 @@ async function start() {
     sessionsPerMinute: 1000,
     onResponse,
   });
-  await new Promise<void>((done) => server.listen(0, done));
-  cleanups.push(() => new Promise<void>((done) => server.close(() => done())));
+  const base = await listenOnFreePort(server, cleanups);
   cleanups.push(() => sql.close());
-  const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 
-  async function call(method: string, path: string, body?: unknown, token?: string) {
-    const isBytes = body instanceof Uint8Array;
-    const res = await fetch(base + path, {
-      method,
-      headers: {
-        "content-type": isBytes ? "application/octet-stream" : "application/json",
-        ...(token ? { authorization: `Bearer ${token}` } : {}),
-      },
-      ...(body === undefined
-        ? {}
-        : { body: isBytes ? new Blob([body as Uint8Array<ArrayBuffer>]) : JSON.stringify(body) }),
-    });
-    const text = await res.text();
-    const type = res.headers.get("content-type") ?? "";
-    return {
-      status: res.status,
-      body: text && type.includes("json") ? JSON.parse(text) : text,
-      headers: res.headers,
-    };
-  }
+  const call = jsonCaller(base);
   async function join(name: string) {
     const { body, status } = await call("POST", "/v1/session", { name, kind: "agent" });
     expect(status).toBe(201);

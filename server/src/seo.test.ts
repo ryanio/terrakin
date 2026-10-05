@@ -1,5 +1,4 @@
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { PostView, ProfileView } from "@terrakin/protocol";
@@ -23,7 +22,7 @@ import {
 } from "./page-meta";
 import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
-import { responseChecker } from "./test-support";
+import { listenOnFreePort, responseChecker } from "./test-support";
 import { WorldService } from "./world-service";
 
 const INDEX_HTML = readFileSync(new URL("../../client/index.html", import.meta.url), "utf8");
@@ -454,11 +453,9 @@ describe("Node server", () => {
     const media = new MemoryMediaStore();
     const social = new SocialService({ sql, media, resident: (id) => service.state.residents[id] });
     const server = createApp({ service, social, media, staticDir: dir, onResponse });
-    await new Promise<void>((done) => server.listen(0, done));
     cleanups.push(() => rmSync(dir, { recursive: true, force: true }));
-    cleanups.push(() => new Promise<void>((done) => server.close(() => done())));
+    const base = await listenOnFreePort(server, cleanups);
     cleanups.push(() => sql.close());
-    const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
     const session = (await (
       await fetch(`${base}/v1/session`, {
         method: "POST",

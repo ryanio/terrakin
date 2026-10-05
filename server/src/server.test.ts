@@ -1,5 +1,4 @@
 import { appendFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ServerMessage } from "@terrakin/protocol";
@@ -11,7 +10,7 @@ import { nodeSql } from "./node-sql";
 import { RateLimiters } from "./rate-limit";
 import { SqlStore } from "./sql-store";
 import { JsonlStore, MemoryStore, readJsonl, type Store } from "./store";
-import { responseChecker } from "./test-support";
+import { listenOnFreePort, responseChecker } from "./test-support";
 import { cleanText } from "./text";
 import { DAY_LENGTH_MS, WorldService } from "./world-service";
 
@@ -38,9 +37,7 @@ async function start(
 ) {
   const service = new WorldService({ store, config: CONFIG, ...extra });
   const server = createApp({ service, actionsPerSecond: 1000, onResponse });
-  await new Promise<void>((done) => server.listen(0, done));
-  cleanups.push(() => new Promise<void>((done) => server.close(() => done())));
-  const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  const base = await listenOnFreePort(server, cleanups);
   return { service, server, base };
 }
 
@@ -202,9 +199,7 @@ describe("REST", () => {
   it("rate limits per resident", async () => {
     const service = new WorldService({ store: new MemoryStore(), config: CONFIG });
     const server = createApp({ service, actionsPerSecond: 1, onResponse });
-    await new Promise<void>((done) => server.listen(0, done));
-    cleanups.push(() => new Promise<void>((done) => server.close(() => done())));
-    const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    const base = await listenOnFreePort(server, cleanups);
     const { token } = await join_(base, "Wren");
     const codes = [];
     for (let i = 0; i < 4; i++)
@@ -343,9 +338,7 @@ describe("dry runs", () => {
   it("still counts against the rate limit", async () => {
     const service = new WorldService({ store: new MemoryStore(), config: CONFIG });
     const server = createApp({ service, actionsPerSecond: 1, onResponse });
-    await new Promise<void>((done) => server.listen(0, done));
-    cleanups.push(() => new Promise<void>((done) => server.close(() => done())));
-    const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    const base = await listenOnFreePort(server, cleanups);
     const { token } = await join_(base, "Wren");
     const codes = [];
     for (let i = 0; i < 4; i++) {
@@ -365,9 +358,7 @@ describe("static files", () => {
     mkdirSync(join(dir, "assets"));
     const service = new WorldService({ store: new MemoryStore(), config: CONFIG });
     const server = createApp({ service, staticDir: dir, onResponse });
-    await new Promise<void>((done) => server.listen(0, done));
-    cleanups.push(() => new Promise<void>((done) => server.close(() => done())));
-    const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    const base = await listenOnFreePort(server, cleanups);
     const get = async (path: string) => {
       const res = await fetch(base + path);
       return [res.headers.get("content-type"), await res.text()];
@@ -399,9 +390,7 @@ describe("hardening", () => {
   it("limits new sessions per IP much harder than actions", async () => {
     const service = new WorldService({ store: new MemoryStore(), config: CONFIG });
     const server = createApp({ service, sessionsPerMinute: 1, onResponse });
-    await new Promise<void>((done) => server.listen(0, done));
-    cleanups.push(() => new Promise<void>((done) => server.close(() => done())));
-    const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    const base = await listenOnFreePort(server, cleanups);
     const statuses = [];
     for (let i = 0; i < 7; i++) {
       statuses.push(

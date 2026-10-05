@@ -1,4 +1,3 @@
-import type { AddressInfo } from "node:net";
 import type { WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
@@ -6,7 +5,7 @@ import { MemoryMediaStore } from "./media";
 import { nodeSql } from "./node-sql";
 import { excerpt, type SocialLimits, SocialService } from "./social-service";
 import { MemoryStore } from "./store";
-import { responseChecker } from "./test-support";
+import { jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
 import { WorldService } from "./world-service";
 
 /**
@@ -55,23 +54,10 @@ async function start(limits: Partial<SocialLimits> = {}) {
     sessionsPerMinute: 1000,
     onResponse,
   });
-  await new Promise<void>((done) => server.listen(0, done));
-  cleanups.push(() => new Promise<void>((done) => server.close(() => done())));
+  const base = await listenOnFreePort(server, cleanups);
   cleanups.push(() => sql.close());
-  const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 
-  async function call(method: string, path: string, body?: unknown, token?: string) {
-    const res = await fetch(base + path, {
-      method,
-      headers: {
-        "content-type": "application/json",
-        ...(token ? { authorization: `Bearer ${token}` } : {}),
-      },
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-    });
-    const text = await res.text();
-    return { status: res.status, body: (text ? JSON.parse(text) : undefined) as Json };
-  }
+  const call = jsonCaller(base);
 
   /** A new resident, made directly so the per-IP session limit doesn't get in the way. */
   async function join(name: string, handle?: string) {

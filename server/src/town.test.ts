@@ -1,5 +1,4 @@
 import { readFileSync } from "node:fs";
-import type { AddressInfo } from "node:net";
 import type { ServerMessage } from "@terrakin/protocol";
 import { hashWorld, replay, TOWN_ACTOR, votesCast, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
@@ -10,7 +9,7 @@ import { MemoryMediaStore } from "./media";
 import { nodeSql } from "./node-sql";
 import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
-import { responseChecker } from "./test-support";
+import { jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
 import { DAY_MS, utcDay, WorldService } from "./world-service";
 
 // 3x3 plots of 8 tiles. The Commons is plot (1,1), tiles 8..15; the Town Hall stands on
@@ -65,23 +64,10 @@ async function start(options: { townsfolk?: ReadonlySet<string> } = {}) {
     sessionsPerMinute: 1000,
     onResponse,
   });
-  await new Promise<void>((done) => server.listen(0, done));
-  cleanups.push(() => new Promise<void>((done) => server.close(() => done())));
+  const base = await listenOnFreePort(server, cleanups);
   cleanups.push(() => sql.close());
-  const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 
-  async function call(method: string, path: string, body?: unknown, token?: string) {
-    const res = await fetch(base + path, {
-      method,
-      headers: {
-        "content-type": "application/json",
-        ...(token ? { authorization: `Bearer ${token}` } : {}),
-      },
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-    });
-    const text = await res.text();
-    return { status: res.status, body: text ? JSON.parse(text) : undefined };
-  }
+  const call = jsonCaller(base);
   const act = async (token: string, action: unknown) =>
     (await call("POST", "/v1/actions", action, token)).body;
 
@@ -527,9 +513,7 @@ describe("the test clock", () => {
     };
     for (const testClock of [{ advanceDay }, undefined]) {
       const server = createApp({ service, onResponse, ...(testClock ? { testClock } : {}) });
-      await new Promise<void>((done) => server.listen(0, done));
-      cleanups.push(() => new Promise<void>((done) => server.close(() => done())));
-      const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+      const base = await listenOnFreePort(server, cleanups);
       const res = await fetch(base + TEST_ADVANCE_DAY_PATH, { method: "POST" });
       if (testClock) {
         expect(await res.json()).toEqual({ day: utcDay(START) + 1 });

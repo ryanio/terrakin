@@ -312,6 +312,13 @@ export const HarvestAction = z.object({
   y: coord,
   ...dry,
 });
+/** Pick up a fallen branch or a loose stone on (x, y), within reach, into your inventory. */
+export const GatherAction = z.object({
+  type: z.literal("gather"),
+  x: coord,
+  y: coord,
+  ...dry,
+});
 /**
  * Make something at the station on (x, y), within reach: a `kitchen` or a `workbench`. `label` is
  * your own name for it, untrusted text that travels with it.
@@ -582,6 +589,7 @@ export const Action = z.discriminatedUnion("type", [
   GiveCoinsAction,
   PlantAction,
   HarvestAction,
+  GatherAction,
   CraftAction,
   GiveAction,
   DeclineGiftAction,
@@ -703,6 +711,11 @@ export const WorldSnapshot = z.object({
       }),
     )
     .optional(),
+  /**
+   * Tiles picked clean today, so clients don't draw a pickup that's gone. Absent when there are
+   * none. `new_day` clears it: each tile grows one pickup back a day.
+   */
+  gathered: z.array(z.object({ x: z.number().int(), y: z.number().int() })).optional(),
 });
 export type WorldSnapshot = z.infer<typeof WorldSnapshot>;
 
@@ -931,6 +944,14 @@ export const WorldEvent = z.discriminatedUnion("type", [
     x: z.number().int(),
     y: z.number().int(),
     crop: CropKind,
+    by: z.string(),
+  }),
+  /** Someone picked up a fallen branch or a loose stone. Public, like a harvest. */
+  z.object({
+    type: z.literal("gathered"),
+    x: z.number().int(),
+    y: z.number().int(),
+    kind: z.enum(["wood", "stone"]),
     by: z.string(),
   }),
   /** Someone gave someone a thing. Public, without the count or the note. */

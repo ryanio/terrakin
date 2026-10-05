@@ -50,13 +50,15 @@ describe("cards", () => {
     await cards.render({ kind: "site" }); // boot the wasm once
     const photo = await picture();
     for (const [name, card] of samples({ avatar: photo, photo })) {
-      const started = performance.now();
+      // CPU time, not wall time: on a busy machine (a full test run, say) a card can wait seconds
+      // for a core, and that says nothing about what drawing it costs.
+      const started = process.cpuUsage();
       const out = await cards.render(card);
-      const took = performance.now() - started;
+      const { user, system } = process.cpuUsage(started);
       expect(pngSize(out.bytes), name).toEqual({ width: 1200, height: 630 });
       expect(out.type).toBe("image/png");
       // About 100 ms on a laptop; the budget leaves room for a slow CI machine.
-      expect(took, name).toBeLessThan(2_000);
+      expect((user + system) / 1000, name).toBeLessThan(2_000);
     }
   }, 60_000);
 

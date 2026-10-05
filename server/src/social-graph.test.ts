@@ -53,6 +53,8 @@ async function start(limits: Partial<SocialLimits> = {}) {
     actionsPerSecond: 1000,
     sessionsPerMinute: 1000,
     onResponse,
+    // Rate limits refill on this clock too, so a slow machine never refills a bucket mid-test.
+    now: () => now,
   });
   const base = await listenOnFreePort(server, cleanups);
   cleanups.push(() => sql.close());

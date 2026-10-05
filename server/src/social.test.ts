@@ -413,12 +413,12 @@ describe("upload cost guards", () => {
     });
     const { call, join } = await start({ uploadBytesPerDay: 1_500 }, slow);
     const { token } = await join("Wren");
-    const first = call("POST", "/v1/media", file(PNG, 1_000), token);
-    const second = call("POST", "/v1/media", file(PNG, 1_000), token);
-    await new Promise((done) => setTimeout(done, 50));
+    const uploads = [1, 2].map(() => call("POST", "/v1/media", file(PNG, 1_000), token));
+    // One upload waits at the gate, so the first answer is the other one, refused while the
+    // first is still being written.
+    expect((await Promise.race(uploads)).status).toBe(429);
     release();
-    const statuses = [(await first).status, (await second).status].sort();
-    expect(statuses).toEqual([201, 429]);
+    expect((await Promise.all(uploads)).map((r) => r.status).sort()).toEqual([201, 429]);
     expect(media.files.size).toBe(1);
   });
 
@@ -518,7 +518,8 @@ describe("hardening", () => {
     const { call, join } = await start({}, media);
     const { token } = await join("Wren");
     const uploads = [1, 2, 3].map(() => call("POST", "/v1/media", file(PNG), token));
-    await new Promise((done) => setTimeout(done, 50));
+    // Two uploads wait at the gate, so the first answer is the third one, turned away.
+    expect((await Promise.race(uploads)).status).toBe(429);
     release();
     expect((await Promise.all(uploads)).map((r) => r.status).sort()).toEqual([201, 201, 429]);
   });

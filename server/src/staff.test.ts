@@ -1,6 +1,5 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { request as httpRequest } from "node:http";
-import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { WorldConfig } from "@terrakin/sim";
@@ -12,7 +11,7 @@ import { nodeSql } from "./node-sql";
 import { ADMIN_PAGE_HEADERS, STAFF_EMAIL_HEADER, toWorld } from "./pages";
 import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
-import { responseChecker } from "./test-support";
+import { listenOnFreePort, responseChecker } from "./test-support";
 import { WorldService } from "./world-service";
 
 const CONFIG: WorldConfig = {
@@ -338,9 +337,7 @@ describe("the admin host on the Node server", () => {
       resident: (id) => service.state.residents[id],
     });
     const server = createApp({ service, social, staticDir: dir, onResponse });
-    await new Promise<void>((done) => server.listen(0, done));
-    cleanups.push(() => new Promise<void>((done) => server.close(() => done())));
-    const port = (server.address() as AddressInfo).port;
+    const port = Number(new URL(await listenOnFreePort(server, cleanups)).port);
 
     const page = await get(port, `admin.localhost:${port}`, "/queue");
     expect(page.body).toContain("<title>admin</title>");

@@ -79,6 +79,8 @@ export interface AppOptions {
   onResponse?: ApiOptions["onResponse"];
   /** See `ApiOptions.staff`. Node has no Cloudflare Access, so staff sign in with a token. */
   staff?: ApiOptions["staff"];
+  /** See `ApiOptions.now`. Default Date.now. */
+  now?: ApiOptions["now"];
   /** See `ApiOptions.photos`. Default: drawn in this process with the cards renderer. `false`: none. */
   photos?: ApiOptions["photos"] | false;
   /**
@@ -146,6 +148,7 @@ export function createApp(options: AppOptions): Server {
       : { ipUploadBytesPerDay: options.ipUploadBytesPerDay }),
     ...(options.onResponse ? { onResponse: options.onResponse } : {}),
     ...(options.staff ? { staff: options.staff } : {}),
+    ...(options.now ? { now: options.now } : {}),
     ...(options.maxWatchers === undefined ? {} : { maxWatchers: options.maxWatchers }),
     ...(options.maxWatchersPerNetwork === undefined
       ? {}

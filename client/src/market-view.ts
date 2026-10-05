@@ -6,7 +6,7 @@
  * "More" menu. Labels on made things and sellers' names are other residents' words: text nodes
  * only.
  */
-import type { InventoryResponse, ListingView, MarketResponse } from "@terrakin/protocol";
+import type { Action, InventoryResponse, ListingView, MarketResponse } from "@terrakin/protocol";
 import { BUY_ORDERS, type ItemKind, isShopSku, type SellKind, SHOP_CATALOG } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
 import { thingPicture } from "@terrakin/ui/item-art";
@@ -20,11 +20,11 @@ import {
   moreMenu,
   stateCard,
   toast,
-  whileBusy,
 } from "@terrakin/ui/ui";
-import { actProblem, api } from "./api";
+import { actFromButton } from "./act";
+import { api } from "./api";
 import { savedResidentId, savedToken } from "./net";
-import { balanceLine, coins, refreshPurse } from "./purse";
+import { balanceLine, coins } from "./purse";
 import { openReportSheet } from "./report-sheet";
 import { thingName } from "./things";
 import { errorCard, type View, type ViewContext } from "./view";
@@ -153,19 +153,8 @@ export function marketView(ctx: ViewContext): View {
   const signedIn = savedToken() !== null;
   const me = signedIn ? savedResidentId() : null;
 
-  async function act(
-    button: HTMLButtonElement,
-    action: Parameters<typeof api.act>[0],
-    done: string,
-  ): Promise<void> {
-    const r = await whileBusy(button, () => api.act(action));
-    if (destroyed) return;
-    const problem = actProblem(r);
-    toast(problem ?? done);
-    if (problem) return;
-    refreshPurse(true);
-    await load();
-  }
+  const act = (button: HTMLButtonElement, action: Action, done: string) =>
+    actFromButton(button, action, done, { gone: () => destroyed, after: load });
 
   function sellForm(data: MarketResponse, inv: InventoryResponse | null): HTMLElement {
     const you = data.you;
@@ -421,20 +410,14 @@ export async function stallCard(seller: { id: string; name: string }): Promise<H
     class: "stack paper card stall-card",
     attrs: { "aria-labelledby": "stall-title" },
   });
-  const act = async (
-    button: HTMLButtonElement,
-    action: Parameters<typeof api.act>[0],
-    done: string,
-  ) => {
-    const r = await whileBusy(button, () => api.act(action));
-    const problem = actProblem(r);
-    toast(problem ?? done);
-    if (problem) return;
-    refreshPurse(true);
-    const next = await stallCard(seller);
-    if (next) card.replaceWith(next);
-    else card.remove();
-  };
+  const act = (button: HTMLButtonElement, action: Action, done: string) =>
+    actFromButton(button, action, done, {
+      after: async () => {
+        const next = await stallCard(seller);
+        if (next) card.replaceWith(next);
+        else card.remove();
+      },
+    });
   const rows = res.data.market.listings.map((l) => {
     const action = listingAction(l, me, balance);
     return listingRow(l, action, (button) =>

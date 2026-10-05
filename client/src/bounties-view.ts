@@ -4,21 +4,14 @@
  * server: a bounty's `moves` say which buttons to show, from the sim's own checks. Titles, texts,
  * and names are other residents' words: text nodes only.
  */
-import type { BountiesResponse, BountyView } from "@terrakin/protocol";
+import type { Action, BountiesResponse, BountyView } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { personLink } from "@terrakin/ui/people";
-import {
-  confirmTwice,
-  emptyNote,
-  itemRow,
-  itemRows,
-  stateCard,
-  toast,
-  whileBusy,
-} from "@terrakin/ui/ui";
-import { actProblem, api } from "./api";
+import { confirmTwice, emptyNote, itemRow, itemRows, stateCard, toast } from "@terrakin/ui/ui";
+import { actFromButton } from "./act";
+import { api } from "./api";
 import { savedResidentId, savedToken } from "./net";
-import { balanceLine, coins, refreshPurse } from "./purse";
+import { balanceLine, coins } from "./purse";
 import { openReportSheet } from "./report-sheet";
 import { errorCard, type View, type ViewContext } from "./view";
 
@@ -100,20 +93,8 @@ export function bountiesView(ctx: ViewContext): View {
   const signedIn = savedToken() !== null;
   const me = signedIn ? savedResidentId() : null;
 
-  async function act(
-    button: HTMLButtonElement,
-    action: Parameters<typeof api.act>[0],
-    done: string,
-  ): Promise<boolean> {
-    const r = await whileBusy(button, () => api.act(action));
-    if (destroyed) return false;
-    const problem = actProblem(r);
-    toast(problem ?? done);
-    if (problem) return false;
-    refreshPurse(true);
-    await load();
-    return true;
-  }
+  const act = (button: HTMLButtonElement, action: Action, done: string) =>
+    actFromButton(button, action, done, { gone: () => destroyed, after: load });
 
   function moves(b: BountyView): HTMLElement | null {
     if (b.moves.length === 0) return null;
@@ -132,7 +113,7 @@ export function bountiesView(ctx: ViewContext): View {
         move === "confirm_bounty"
           ? { type: move, bounty: b.id, to: b.claimant?.id ?? "" }
           : { type: move, bounty: b.id };
-      const go = () => void act(button, action as Parameters<typeof api.act>[0], m.done);
+      const go = () => void act(button, action as Action, m.done);
       if (m.again) confirmTwice(button, m.again, go);
       else button.addEventListener("click", go);
       row.append(button);

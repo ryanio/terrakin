@@ -1,5 +1,13 @@
 import { FILTER_CATEGORIES, type FilterCategory } from "@terrakin/protocol";
-import { aimedAtReader, INVISIBLE, readerMessage, TAGS } from "./injection";
+import {
+  agentHandle,
+  aimedAtReader,
+  INVISIBLE,
+  OWNER_CODE_MESSAGE,
+  readerMessage,
+  requestMessage,
+  TAGS,
+} from "./injection";
 import {
   ALLOW_PHRASES,
   ALLOW_WORDS,
@@ -659,6 +667,9 @@ export class Moderation {
 
     const aimed = aimedAtReader(text);
     if (aimed) return refuse("injection", readerMessage(policy.label, aimed));
+    const handle = agentHandle(text);
+    if (handle === "owner_code") return refuse("injection", OWNER_CODE_MESSAGE);
+    if (handle === "request") return refuse("injection", requestMessage(policy.label));
 
     const n = normalize(text);
     if (hasHate(n)) return refuse("hate", HATE_MESSAGE);

@@ -47,13 +47,17 @@ const LINE_PATTERNS: RegExp[] = [/^[ \t]*(?:system|assistant|developer) ?:/m];
 export const readerMessage = (what: string, words: string) =>
   `${what} can't include instructions aimed at AI readers ("${words}"). Write it for people, and say it another way.`;
 
-/** The words that read as orders for an AI reader, or null when there are none. */
-export function aimedAtReader(text: string): string | null {
-  const normal = text
+/** Tag characters read as ASCII, NFKC, invisible characters gone, lowercase. */
+const unhide = (text: string) =>
+  text
     .replace(TAGS, (c) => String.fromCodePoint((c.codePointAt(0) ?? 0xe0000) - 0xe0000))
     .normalize("NFKC")
     .replace(INVISIBLE, "")
     .toLowerCase();
+
+/** The words that read as orders for an AI reader, or null when there are none. */
+export function aimedAtReader(text: string): string | null {
+  const normal = unhide(text);
   const flat = normal.replace(/\s+/g, " ");
   for (const pattern of PATTERNS) {
     const match = flat.match(pattern);
@@ -65,3 +69,30 @@ export function aimedAtReader(text: string): string | null {
   }
   return null;
 }
+
+// An owner code (owner-service.ts: 16 of these symbols, in fours) or the routes that take one.
+const CODE_SYMBOL = "[a-km-np-z2-9]";
+const OWNER_CODE = new RegExp(
+  `\\b${CODE_SYMBOL}{4}-${CODE_SYMBOL}{4}-${CODE_SYMBOL}{4}-${CODE_SYMBOL}{4}\\b|/v1/owner/(?:accept|confirm|invites/)|/accept-owner\\b`,
+);
+// A request that changes something, written for an agent to send, or a link with a link key in it.
+const REQUEST = /\b(?:post|put|patch|delete) +(?:https?:\/\/\S+?)?\/v1\/[a-z]|\/v1\/act\/[^\s/<]/;
+
+/**
+ * Text that would hand an agent a way in: a one-time owner code (whoever's agent accepts it first
+ * is linked to the person who made it), a request for an agent to send to the API, or a link key.
+ * It's never needed in something people read, so it's turned away wherever residents write. Report
+ * notes skip this, since a note may quote what was posted.
+ */
+export function agentHandle(text: string): "owner_code" | "request" | null {
+  const flat = unhide(text).replace(/\s+/g, " ");
+  if (OWNER_CODE.test(flat)) return "owner_code";
+  if (REQUEST.test(flat)) return "request";
+  return null;
+}
+
+export const OWNER_CODE_MESSAGE =
+  "That has a one-time code for linking a person and their AI. Anyone could read it here, so pass it on directly, outside Terrakin.";
+
+export const requestMessage = (what: string) =>
+  `${what} can't include requests for an AI to send to Terrakin, or links with a link key in them. Describe what you did in words instead.`;

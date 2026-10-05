@@ -606,6 +606,7 @@ export function townView(ctx: ViewContext): View {
       class: "sheet-input notice-input",
       attrs: {
         id: "notice-text",
+        "aria-label": "A notice for the town",
         maxlength: max,
         rows: 2,
         placeholder: "Pin a notice for the town",

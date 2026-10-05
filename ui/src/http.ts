@@ -49,6 +49,11 @@ export interface RequestOptions {
   breadcrumb?: (text: string) => void;
   /** A response that didn't match its schema. */
   onBadResponse?: (path: string, error: unknown) => void;
+  /**
+   * What to tell someone whose key the server doesn't know (a 401), in the app's own words. The
+   * server's message is for developers ("bearer token") and says nothing about what to do.
+   */
+  unauthorized?: string;
 }
 
 /** A `request(method, path, schema, body?)` function for one app. */
@@ -87,7 +92,10 @@ export function makeRequest(options: RequestOptions) {
         ok: false,
         status: res.status,
         code: err?.code ?? "unknown",
-        message: friendlyMessage(err?.message ?? "", "Something went wrong. Try again."),
+        message:
+          res.status === 401 && options.unauthorized
+            ? options.unauthorized
+            : friendlyMessage(err?.message ?? "", "Something went wrong. Try again."),
       };
     }
     const parsed = schema.safeParse(json);

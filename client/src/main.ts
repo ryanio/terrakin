@@ -46,6 +46,13 @@ const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as 
 
 const site = $("site");
 const page = $("page");
+
+// "Skip to content" moves focus past the top bar. Handled here, so the router doesn't treat it
+// as a navigation to the same page.
+document.querySelector(".skip-link")?.addEventListener("click", (e) => {
+  e.preventDefault();
+  page.focus();
+});
 const worldView = $("world-view");
 const root = document.documentElement;
 

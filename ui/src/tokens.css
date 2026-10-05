@@ -16,6 +16,8 @@
   --moss-deep: #3f5a2c;
   /* The fill of a text field, a shade lighter than paper. */
   --field: #fffdf8;
+  /* Example text in an empty field: quieter than a value, still 4.5:1 on --field. */
+  --placeholder: #7d7163;
   /* A pressed or open control's warm fill. */
   --pressed: #fff3e2;
   /* Behind a sheet or dialog. */
@@ -85,6 +87,9 @@
   --weight-semibold: 600;
   --weight-bold: 700;
   --weight-heavy: 800;
+
+  /* How far a control shrinks while pressed: enough to feel, never a lurch. */
+  --press: 0.96;
 
   /* Corners. 50% for circles; everything else is one of these. */
   --r-xs: 4px;

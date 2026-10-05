@@ -213,7 +213,10 @@ export function purseView(ctx: ViewContext): View {
         h("h2", { class: "section-title", attrs: { id: "purse-ledger-title" }, text: "Recent" }),
         purse.ledger.length > 0
           ? itemRows(purse.ledger.map(lineItem), { ordered: true, className: "purse-lines" })
-          : h("p", { class: "purse-hint", text: "Nothing yet." }),
+          : h("p", {
+              class: "purse-hint",
+              text: "Nothing yet. Come home to your hearth each day to start earning.",
+            }),
       ),
     );
   }

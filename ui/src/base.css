@@ -142,6 +142,7 @@ a {
     "SOFT" 100,
     "WONK" 0;
   color: var(--ink);
+  text-wrap: balance;
 }
 
 .stack.cards > :is(.section-title, :has(> .section-title:first-child)):not(:first-child) {
@@ -295,7 +296,7 @@ a {
 }
 
 .pill-button:not(:disabled):active {
-  transform: translateY(1px) scale(0.98);
+  transform: translateY(1px) scale(var(--press));
 }
 
 .pill-button:disabled {
@@ -342,7 +343,7 @@ a {
 }
 
 .btn-primary:not(:disabled):active {
-  transform: translateY(1px) scale(0.985);
+  transform: translateY(1px) scale(var(--press));
 }
 
 .btn-primary:disabled {
@@ -650,7 +651,7 @@ a {
 }
 
 .field-input::placeholder {
-  color: #9a8d7c;
+  color: var(--placeholder);
 }
 
 .field-input:focus {

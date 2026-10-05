@@ -280,7 +280,7 @@ body {
 }
 
 .triage .eyebrow {
-  color: var(--moss);
+  color: var(--moss-deep);
 }
 
 .triage-suggestion {

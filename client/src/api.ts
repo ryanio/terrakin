@@ -87,8 +87,13 @@ function authHeaders(): Record<string, string> {
 
 export { friendlyMessage };
 
+/** What a page says when this browser's saved key no longer opens a character. */
+export const UNKNOWN_KEY =
+  "This browser's key doesn't open a character anymore. Open the World and choose Restore with a key, or join again.";
+
 const request = makeRequest({
   headers: authHeaders,
+  unauthorized: UNKNOWN_KEY,
   breadcrumb: (text) => appCrumb("api", text),
   onBadResponse: reportBadResponse,
   onError: (code, message) => {

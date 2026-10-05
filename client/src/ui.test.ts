@@ -1,3 +1,4 @@
+import { makeRequest } from "@terrakin/ui/http";
 import { confirmTwice, toastMs } from "@terrakin/ui/ui";
 import { describe, expect, it, vi } from "vitest";
 
@@ -55,5 +56,23 @@ describe("toasts", () => {
       "Thanks. A maintainer will look soon. If someone is in danger right now, call local emergency services.";
     expect(toastMs(long)).toBeGreaterThan(6000);
     expect(toastMs("Posted.", true)).toBeGreaterThanOrEqual(8000);
+  });
+});
+
+describe("request errors", () => {
+  it("tells someone whose key is unknown what to do, not the server's words", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json(
+          { error: { code: "unauthorized", message: "Missing or unknown bearer token." } },
+          { status: 401 },
+        ),
+      ),
+    );
+    const request = makeRequest({ headers: () => ({}), unauthorized: "Restore your key." });
+    const r = await request("GET", "/v1/purse", { safeParse: () => ({ success: true }) } as never);
+    expect(r).toMatchObject({ ok: false, status: 401, message: "Restore your key." });
+    vi.unstubAllGlobals();
   });
 });

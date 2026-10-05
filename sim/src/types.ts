@@ -745,12 +745,23 @@ export type Command =
   | { type: "set_shop_share"; percent: number }
   | { type: "open_market" }
   | { type: "open_bounties" }
-  /** A maintainer confirms a town bounty is done and pays `to`, who must be the claimant. */
-  | { type: "confirm_town_bounty"; bounty: string; to: ResidentId; by: string }
+  /**
+   * A maintainer confirms a town bounty is done and pays `to`, who must be the claimant. In these
+   * three, `by` is who the maintainer is in the log (a resident id, or an opaque `staff_` id), and
+   * `resident`, when the server knows it, is the resident they also are, checked against the
+   * bounty's household rule (decision 0062).
+   */
+  | {
+      type: "confirm_town_bounty";
+      bounty: string;
+      to: ResidentId;
+      by: string;
+      resident?: ResidentId;
+    }
   /** A maintainer cancels a bounty that hasn't paid. Its reward goes back where it came from. */
-  | { type: "void_bounty"; bounty: string; by: string }
+  | { type: "void_bounty"; bounty: string; by: string; resident?: ResidentId }
   /** A maintainer sends a town bounty's claimant back: it isn't done. It's open again. */
-  | { type: "reopen_bounty"; bounty: string; by: string }
+  | { type: "reopen_bounty"; bounty: string; by: string; resident?: ResidentId }
   /** Coins the server counted for a day that has ended, minted once per day (decision 0055). */
   | { type: "daily_awards"; day: number; awards: DailyAward[] }
   /** The partner wear a resident may put on now (RFC 0007). Replaces their whole list. */

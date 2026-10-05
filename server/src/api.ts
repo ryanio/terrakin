@@ -244,6 +244,11 @@ export interface StaffOptions {
   access: boolean;
   maintainerEmails?: ReadonlySet<string>;
   moderatorEmails?: ReadonlySet<string>;
+  /**
+   * Which resident an Access sign-in email also is (`TERRAKIN_STAFF_RESIDENTS`), so the sim can
+   * keep a maintainer out of bounties their own household is in on (decision 0062).
+   */
+  staffResidents?: ReadonlyMap<string, string>;
 }
 
 /**
@@ -1495,10 +1500,17 @@ export class Api {
         const role = this.staffRole(viewer);
         if (!role) return fail("forbidden", STAFF_ONLY);
         const via = viewer.startsWith("access:") ? ("access" as const) : ("token" as const);
+        // An Access sign-in shows the resident it's mapped to, so staff can see the mapping took.
+        const resident = this.staffResident(viewer);
         return {
           status: 200,
           body: {
-            me: { actor: viewer, role, via, resident: social().authorView(viewer) ?? null },
+            me: {
+              actor: viewer,
+              role,
+              via,
+              resident: resident === undefined ? null : (social().authorView(resident) ?? null),
+            },
             triage: social().safety.triageStatus(),
           },
         };
@@ -1680,7 +1692,12 @@ export class Api {
       confirmTownBounty: async ({ viewer, params, body }) => {
         if (this.staffRole(viewer) !== "maintainer") return fail("forbidden", MAINTAINERS_ONLY);
         if (!findBounty(service.state, params.id)) return fail("not_found", "No such bounty.");
-        const done = service.confirmTownBounty(params.id, body.to, await worldStaffId(viewer));
+        const done = service.confirmTownBounty(
+          params.id,
+          body.to,
+          await worldStaffId(viewer),
+          this.staffResident(viewer),
+        );
         if (!done.ok) return fail(done.error.code, done.error.message);
         social().safety.recordNote(
           viewer,
@@ -1694,7 +1711,11 @@ export class Api {
       reopenTownBounty: async ({ viewer, params, body }) => {
         if (this.staffRole(viewer) !== "maintainer") return fail("forbidden", MAINTAINERS_ONLY);
         if (!findBounty(service.state, params.id)) return fail("not_found", "No such bounty.");
-        const done = service.reopenBounty(params.id, await worldStaffId(viewer));
+        const done = service.reopenBounty(
+          params.id,
+          await worldStaffId(viewer),
+          this.staffResident(viewer),
+        );
         if (!done.ok) return fail(done.error.code, done.error.message);
         social().safety.recordAction(viewer, "reopen_bounty", "bounty", params.id, body.reason);
         return this.staffBounty(params.id);
@@ -1702,7 +1723,11 @@ export class Api {
       voidBounty: async ({ viewer, params, body }) => {
         if (this.staffRole(viewer) !== "maintainer") return fail("forbidden", MAINTAINERS_ONLY);
         if (!findBounty(service.state, params.id)) return fail("not_found", "No such bounty.");
-        const done = service.voidBounty(params.id, await worldStaffId(viewer));
+        const done = service.voidBounty(
+          params.id,
+          await worldStaffId(viewer),
+          this.staffResident(viewer),
+        );
         if (!done.ok) return fail(done.error.code, done.error.message);
         social().safety.recordAction(viewer, "void_bounty", "bounty", params.id, body.reason);
         return this.staffBounty(params.id);
@@ -2048,6 +2073,16 @@ export class Api {
     if (this.social?.isMaintainer(actor)) return "maintainer";
     if (this.social?.isModerator(actor)) return "moderator";
     return undefined;
+  }
+
+  /**
+   * The resident a staff member also is, for the sim's household checks (decision 0062): their own
+   * id when they signed in with a resident token, else the one `TERRAKIN_STAFF_RESIDENTS` maps
+   * their Access email to, else none.
+   */
+  staffResident(actor: string): string | undefined {
+    if (!actor.startsWith("access:")) return actor;
+    return this.staffOptions.staffResidents?.get(actor.slice("access:".length));
   }
 
   authenticate(authorization: string | undefined): string | undefined {

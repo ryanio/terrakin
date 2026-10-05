@@ -1,7 +1,7 @@
 import type { ServerMessage, WorldEvent } from "@terrakin/protocol";
-import type { WorldConfig } from "@terrakin/sim";
+import { apply, createWorld, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
-import { worldStaffId } from "./api";
+import { Api, type ApiRequest, worldStaffId } from "./api";
 import { createApp } from "./app";
 import { bountyWords } from "./bounties";
 import { MemoryMediaStore } from "./media";
@@ -460,5 +460,225 @@ describe("town money", () => {
       ["void_bounty", "bounty", "b_2"],
       ["void_bounty", "bounty", "b_1"],
     ]);
+  });
+
+  it("refuses a token maintainer who would take back their own reward or send back their own job", async () => {
+    const w = await town();
+    const { t, ada, bob, cy, dee } = w;
+    t.maintainers.add(ada.id);
+    const why = { reason: "Mine" };
+    // Ada proposes a town bounty, and it passes.
+    await t.act(ada.token, {
+      type: "propose",
+      kind: "bounty",
+      title: "A well",
+      text: "",
+      amount: 50,
+    });
+    const proposal = t.service.state.town?.proposals.at(-1)?.id ?? "";
+    for (const r of [bob, cy, dee]) await t.act(r.token, { type: "vote", proposal, choice: "yes" });
+    t.days(2);
+    await t.act(cy.token, { type: "claim_bounty", bounty: "b_1" });
+    await t.act(cy.token, { type: "complete_bounty", bounty: "b_1" });
+    const reopen = await t.call("POST", "/v1/admin/bounties/b_1/reopen", why, ada.token);
+    expect(reopen.body.error.code).toBe("not_eligible");
+    // Ada posts a bounty from her own purse; Bob does it; she can't void it to keep the coins.
+    await t.act(ada.token, post);
+    await t.act(bob.token, { type: "claim_bounty", bounty: "b_2" });
+    await t.act(bob.token, { type: "complete_bounty", bounty: "b_2" });
+    const voided = await t.call("POST", "/v1/admin/bounties/b_2/void", why, ada.token);
+    expect(voided.body.error.code).toBe("not_eligible");
+    expect(t.service.state.bounties?.list.map((b) => b.status)).toEqual(["done", "done"]);
+  });
+});
+
+describe("maintainers signed in through Access", () => {
+  /**
+   * A town where staff sign in through Cloudflare Access, called the way the Worker calls it once
+   * it has verified the sign-in. Bob proposes a town bounty that passes; Cy claims it and says it's
+   * done. Dee is Cy's AI. `mapped` is TERRAKIN_STAFF_RESIDENTS.
+   */
+  async function accessTown() {
+    let now = Date.UTC(2026, 9, 5, 9);
+    const store = new MemoryStore();
+    const service = new WorldService({
+      store,
+      config: CONFIG,
+      now: () => now,
+      days: true,
+      economy: true,
+      bounties: true,
+    });
+    const sql = nodeSql();
+    cleanups.push(() => sql.close());
+    const social = new SocialService({
+      sql,
+      media: new MemoryMediaStore(),
+      resident: (id: string) => service.state.residents[id],
+      now: () => now,
+      residentAgeDays: (id) => service.residentAgeDays(id),
+      bounty: (id) => bountyWords(service.state, id),
+    });
+    const mapped = new Map<string, string>();
+    const api = new Api({
+      service,
+      social,
+      skill: "",
+      openapi: "",
+      actionsPerSecond: 1000,
+      sessionsPerMinute: 1000,
+      now: () => now,
+      onResponse,
+      staff: {
+        access: true,
+        maintainerEmails: new Set(["ryan@example.com", "ana@example.com", "other@example.com"]),
+        staffResidents: mapped,
+      },
+    });
+    async function call(
+      method: string,
+      pathname: string,
+      body?: unknown,
+      extra: Partial<ApiRequest> = {},
+    ) {
+      const res = await api.handle({
+        method,
+        pathname,
+        ip: "127.0.0.1",
+        authorization: undefined,
+        query: new URLSearchParams(),
+        readJson: async () => body,
+        readBytes: async () => undefined,
+        contentLength: undefined,
+        ...(body === undefined ? {} : { contentType: "application/json" }),
+        ...extra,
+      });
+      const text = typeof res?.body === "string" ? res.body : "";
+      return { status: res?.status ?? 0, body: text ? JSON.parse(text) : undefined };
+    }
+    const act = async (token: string, action: Json) =>
+      (await call("POST", "/v1/actions", action, { authorization: `Bearer ${token}` })).body;
+    const days = (n: number) => {
+      now += n * DAY_MS;
+      service.tick();
+    };
+    const settle = async (name: string, px: number, py: number) => {
+      const made = service.createSession({ name, kind: "agent" });
+      if (!made.ok || !made.residentId || !made.token) throw new Error(`Couldn't join ${name}`);
+      const r = { id: made.residentId, token: made.token };
+      await act(r.token, { type: "settle", px, py });
+      await act(r.token, { type: "build_starter_home" });
+      return r;
+    };
+    const [ada, bob, cy, dee] = [
+      await settle("Ada", 0, 0),
+      await settle("Bob", 2, 0),
+      await settle("Cy", 0, 2),
+      await settle("Dee", 2, 2),
+    ] as const;
+    days(3);
+    for (const r of [ada, bob, cy, dee]) await act(r.token, { type: "home" });
+    const proposed = await act(bob.token, {
+      type: "propose",
+      kind: "bounty",
+      title: "A bridge",
+      text: "",
+      amount: 100,
+    });
+    expect(proposed).toMatchObject({ ok: true });
+    const proposal = service.state.town?.proposals.at(-1)?.id ?? "";
+    for (const r of [ada, cy, dee]) await act(r.token, { type: "vote", proposal, choice: "yes" });
+    days(2);
+    const finish = async () => {
+      await act(cy.token, { type: "claim_bounty", bounty: "b_1" });
+      expect(await act(cy.token, { type: "complete_bounty", bounty: "b_1" })).toMatchObject({
+        ok: true,
+      });
+    };
+    await finish();
+    service.addOwnerPair(cy.id, dee.id);
+    const as = (email: string) => ({ staffEmail: email });
+    return { call, as, mapped, store, service, finish, ada, bob, cy, dee };
+  }
+
+  it("refuses one mapped into the claimant's or the proposer's household, and lets the rest act", async () => {
+    const t = await accessTown();
+    // Ryan is Dee, the claimant's AI; Ana is Ada, outside the deal; nobody maps other@.
+    t.mapped.set("ryan@example.com", t.dee.id);
+    t.mapped.set("ana@example.com", t.ada.id);
+    const ryan = t.as("Ryan@Example.com");
+    const overview = await t.call("GET", "/v1/admin/overview", undefined, ryan);
+    expect(overview.body.me).toMatchObject({
+      via: "access",
+      resident: expect.objectContaining({ id: t.dee.id }),
+    });
+    const why = { reason: "Checked it" };
+    const asDee = await t.call("POST", "/v1/admin/bounties/b_1/confirm", { to: t.cy.id }, ryan);
+    expect(asDee.body.error.code).toBe("not_eligible");
+    // As the proposer, once Ryan is Bob instead, he can't confirm, send back, or void it either.
+    t.mapped.set("ryan@example.com", t.bob.id);
+    const refused = [
+      await t.call("POST", "/v1/admin/bounties/b_1/confirm", { to: t.cy.id }, ryan),
+      await t.call("POST", "/v1/admin/bounties/b_1/reopen", why, ryan),
+      await t.call("POST", "/v1/admin/bounties/b_1/void", why, ryan),
+    ];
+    for (const r of refused) expect(r.body.error.code).toBe("not_eligible");
+    expect(t.service.state.bounties?.list[0]?.status).toBe("done");
+    // Nothing refused reached the moderation log.
+    const ana = t.as("ana@example.com");
+    expect((await t.call("GET", "/v1/admin/log", undefined, ana)).body.entries).toEqual([]);
+
+    // Ana, mapped outside the deal, sends it back; Cy does it again.
+    const back = await t.call("POST", "/v1/admin/bounties/b_1/reopen", why, ana);
+    expect(back.body.bounty).toMatchObject({ status: "open" });
+    await t.finish();
+    // An unmapped maintainer works as before: logged by an opaque id, no resident.
+    const other = t.as("other@example.com");
+    const paid = await t.call("POST", "/v1/admin/bounties/b_1/confirm", { to: t.cy.id }, other);
+    expect(paid.status).toBe(200);
+    expect(paid.body.bounty).toMatchObject({ status: "paid" });
+    const staff = t.store.log.filter((i) =>
+      ["confirm_town_bounty", "reopen_bounty", "void_bounty"].includes(i.command.type),
+    );
+    expect(staff.map((i) => i.command)).toEqual([
+      {
+        type: "reopen_bounty",
+        bounty: "b_1",
+        by: await worldStaffId("access:ana@example.com"),
+        resident: t.ada.id,
+      },
+      {
+        type: "confirm_town_bounty",
+        bounty: "b_1",
+        to: t.cy.id,
+        by: await worldStaffId("access:other@example.com"),
+      },
+    ]);
+  });
+
+  it("never puts a sign-in email in the world log or its events", async () => {
+    const t = await accessTown();
+    t.mapped.set("ryan@example.com", t.ada.id);
+    const ryan = t.as("ryan@example.com");
+    const other = t.as("other@example.com");
+    const why = { reason: "Not done" };
+    expect((await t.call("POST", "/v1/admin/bounties/b_1/reopen", why, ryan)).status).toBe(200);
+    await t.finish();
+    expect(
+      (await t.call("POST", "/v1/admin/bounties/b_1/confirm", { to: t.cy.id }, other)).status,
+    ).toBe(200);
+    // Replay the whole log, keeping every event the sim made along the way.
+    const world = createWorld(CONFIG);
+    const events: unknown[] = [];
+    for (const input of t.store.log) {
+      const done = apply(world, input);
+      if (!done.ok) throw new Error(`replay refused ${input.command.type}`);
+      events.push(...done.events);
+    }
+    for (const text of [JSON.stringify(t.store.log), JSON.stringify(events)]) {
+      expect(text).not.toContain("@");
+      expect(text).not.toContain("example.com");
+      expect(text).not.toContain("access:");
+    }
   });
 });

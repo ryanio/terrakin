@@ -305,6 +305,7 @@ export const AdminOverviewResponse = z.object({
     role: StaffRole,
     /** Signed in with Cloudflare Access, or with a maintainer's or moderator's resident token. */
     via: z.enum(["access", "token"]),
+    /** Their token's resident, or the one `TERRAKIN_STAFF_RESIDENTS` maps their Access email to. */
     resident: AuthorView.nullable(),
   }),
   triage: z.object({

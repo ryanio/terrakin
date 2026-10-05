@@ -119,11 +119,31 @@ function finish(bounties: BountiesState, b: Bounty, status: BountyStatus, day: n
 export const treasurySpare = (econ: EconomyState) =>
   Math.max(0, econ.treasury - ECONOMY.budgetReserve);
 
+/** Whether `who` is one of `ids`, or in one of their owner-linked households. */
+const inHousehold = (state: WorldState, who: string, ids: readonly (string | undefined)[]) =>
+  ids.some((id) => id !== undefined && (id === who || ownerPaired(state, who, id)));
+
 /** Whether a maintainer acting as `by` is in on a bounty: its claimant, its poster, or either's household. */
 const inOnIt = (state: WorldState, by: string, b: Bounty) =>
-  [b.claimant, b.poster].some(
-    (id) => id !== undefined && (id === by || ownerPaired(state, by, id)),
-  );
+  inHousehold(state, by, [b.claimant, b.poster]);
+
+/**
+ * Whether a staff input's `resident`, the resident the maintainer also is when the server knows
+ * it, is one of `ids` or in their household. Inputs logged before it existed don't have it, so they
+ * replay as they did.
+ */
+function residentIn(
+  state: WorldState,
+  command: { resident?: unknown },
+  ids: readonly (string | undefined)[],
+): boolean | Rejection {
+  const { resident } = command;
+  if (resident === undefined) return false;
+  if (typeof resident !== "string" || resident === "") {
+    return refuse("server_only", "A maintainer's resident is a resident id.");
+  }
+  return inHousehold(state, resident, ids);
+}
 
 /** Give a bounty's reward back to where it came from: its poster's purse, or the treasury. */
 function giveBack(econ: EconomyState, b: Bounty, at: { seq: number; day: number }): WorldEvent {
@@ -153,9 +173,10 @@ export function checkOpenBounties(state: WorldState): BountiesChecked {
 }
 
 /**
- * `confirm_town_bounty {bounty, to, by}`, which only TOWN_ACTOR sends for a maintainer: a town
- * bounty its claimant marked done, or a passed grant, pays them from what it holds. The confirmer
- * can't be the claimant or the proposer, or in either's household.
+ * `confirm_town_bounty {bounty, to, by, resident?}`, which only TOWN_ACTOR sends for a maintainer: a
+ * town bounty its claimant marked done, or a passed grant, pays them from what it holds. The
+ * confirmer (`by`, and `resident` when given) can't be the claimant or the proposer, or in either's
+ * household.
  */
 export function checkConfirmTownBounty(
   state: WorldState,
@@ -177,7 +198,9 @@ export function checkConfirmTownBounty(
     return refuse("bounty_not_open", "Its claimant hasn't said it's done yet.");
   }
   if (to !== b.claimant) return refuse("invalid_bounty", "That isn't who did it.");
-  if (inOnIt(state, by, b)) {
+  const theirs = residentIn(state, command, [b.claimant, b.poster]);
+  if (typeof theirs !== "boolean") return theirs;
+  if (theirs || inOnIt(state, by, b)) {
     return refuse(
       "not_eligible",
       "A maintainer can't confirm a bounty they, or their own AI or person, claimed or proposed.",
@@ -201,9 +224,9 @@ export function checkConfirmTownBounty(
 }
 
 /**
- * `reopen_bounty {bounty, by}`, which only TOWN_ACTOR sends for a maintainer: a town bounty's
- * claimant is sent back, because it isn't done. It's open again. Not for grants, which have no job
- * to reopen.
+ * `reopen_bounty {bounty, by, resident?}`, which only TOWN_ACTOR sends for a maintainer: a town
+ * bounty's claimant is sent back, because it isn't done. It's open again. Not for grants, which have
+ * no job to reopen. A `resident` who is the proposer, or in their household, is refused.
  */
 export function checkReopenBounty(
   state: WorldState,
@@ -221,6 +244,15 @@ export function checkReopenBounty(
   }
   const claimant = b.claimant;
   if (claimant === undefined) return refuse("bounty_not_open", "Nobody has claimed it.");
+  // Only the proposer's side gains by it. Sending back their own household's claim costs it.
+  const theirs = residentIn(state, command, [b.poster]);
+  if (typeof theirs !== "boolean") return theirs;
+  if (theirs) {
+    return refuse(
+      "not_eligible",
+      "A maintainer can't send back a bounty they, or their own AI or person, proposed.",
+    );
+  }
   return () => {
     b.status = "open";
     clearClaim(b);
@@ -229,8 +261,9 @@ export function checkReopenBounty(
 }
 
 /**
- * `void_bounty {bounty, by}`, which only TOWN_ACTOR sends for a maintainer: any bounty that hasn't
- * paid is cancelled, and its reward goes back to its poster or the treasury.
+ * `void_bounty {bounty, by, resident?}`, which only TOWN_ACTOR sends for a maintainer: any bounty
+ * that hasn't paid is cancelled, and its reward goes back to its poster or the treasury. A
+ * `resident` who is the poster, or in their household, is refused.
  */
 export function checkVoidBounty(
   state: WorldState,
@@ -244,6 +277,16 @@ export function checkVoidBounty(
   const { by } = command;
   if (typeof by !== "string" || by === "") {
     return refuse("server_only", "Say which maintainer voided it.");
+  }
+  // Only the poster's side gains by it, when a resident's reward goes back to them. A bounty their
+  // household claimed can still be taken down, which costs that claim.
+  const theirs = residentIn(state, command, [b.poster]);
+  if (typeof theirs !== "boolean") return theirs;
+  if (theirs) {
+    return refuse(
+      "not_eligible",
+      "A maintainer can't void a bounty they, or their own AI or person, posted.",
+    );
   }
   const at = { seq: state.seq + 1, day };
   return () => {

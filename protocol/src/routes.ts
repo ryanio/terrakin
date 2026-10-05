@@ -2201,7 +2201,8 @@ export const ROUTES = [
     internal: true,
     summary:
       "Maintainers: send a town bounty's claimant back because it isn't done. It's open again.",
-    description: "Not for grants. Logged in the world and in the moderation log with the reason.",
+    description:
+      "Not for grants, and not for a maintainer who claimed or proposed it, or is in either's household. Logged in the world and in the moderation log with the reason.",
     tags: ["Moderation"],
     params: BountyParams,
     body: ModerationReasonRequest,
@@ -2224,12 +2225,19 @@ export const ROUTES = [
     summary:
       "Maintainers: cancel a bounty that hasn't paid. Its reward goes back to its poster or the treasury.",
     description:
-      "Logged in the world and in the moderation log with the reason, and its open reports close. Its words are no longer shown.",
+      "Not for a maintainer who posted or claimed it, or is in either's household. Logged in the world and in the moderation log with the reason, and its open reports close. Its words are no longer shown.",
     tags: ["Moderation"],
     params: BountyParams,
     body: ModerationReasonRequest,
     responses: { 200: json(StaffBountyResponse) },
-    errors: ["bad_request", "unauthorized", "forbidden", "not_found", "bounty_not_open"],
+    errors: [
+      "bad_request",
+      "unauthorized",
+      "forbidden",
+      "not_found",
+      "bounty_not_open",
+      "not_eligible",
+    ],
   },
 
   // ---------- docs ----------

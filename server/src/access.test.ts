@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { AccessVerifier, accessConfig, accessToken, parseEmails } from "./access";
+import {
+  AccessVerifier,
+  accessConfig,
+  accessToken,
+  parseEmails,
+  parseStaffResidents,
+} from "./access";
 import {
   ACCESS_NOT_SET_UP,
   ACCESS_SIGN_IN,
@@ -129,6 +135,50 @@ describe("Cloudflare Access sign-ins", () => {
     });
     expect(accessConfig("team.cloudflareaccess.com", "")).toBeUndefined();
     expect([...parseEmails(" A@b.com,c@d.org  nope ")]).toEqual(["a@b.com", "c@d.org"]);
+  });
+});
+
+describe("staff residents", () => {
+  it("maps lowercased emails to resident ids, and ignores what's malformed without naming it", () => {
+    const warned: string[] = [];
+    const warn = (message: string) => warned.push(message);
+    const map = parseStaffResidents(
+      " Ryan@Example.com=r_0123456789abcdef ,\nmod@example.com=r_fedcba9876543210,, ",
+      { warn },
+    );
+    expect([...map]).toEqual([
+      ["ryan@example.com", "r_0123456789abcdef"],
+      ["mod@example.com", "r_fedcba9876543210"],
+    ]);
+    expect(warned).toEqual([]);
+
+    const bad = parseStaffResidents(
+      [
+        "nope=r_0123456789abcdef", // no @
+        "a@example.com", // no id
+        "=r_0123456789abcdef", // no email
+        "b@example.com=ryan", // not a resident id
+        "c@example.com=R_0123456789ABCDEF", // not how ids are written
+        "d@example.com=r_0123", // too short
+        "e@example.com = r_0123456789abcdef", // spaces split it into three bad pairs
+        "f@example.com=r_0123456789abcdef",
+        "F@example.com=r_1111111111111111", // the same email again
+        "g@example.com=r_2222222222222222",
+      ].join(","),
+      { warn, isResident: (id) => id !== "r_2222222222222222" },
+    );
+    expect([...bad]).toEqual([
+      ["f@example.com", "r_0123456789abcdef"],
+      ["g@example.com", "r_2222222222222222"],
+    ]);
+    expect(warned).toHaveLength(1);
+    expect(warned[0]).toContain("ignored 9 malformed");
+    expect(warned[0]).toContain("ignored 1 repeating");
+    expect(warned[0]).toContain("1 map to an id that isn't a resident");
+    expect(warned[0]).not.toMatch(/@|example|r_[0-9a-f]/);
+    expect(parseStaffResidents(undefined, { warn }).size).toBe(0);
+    expect(parseStaffResidents("", { warn }).size).toBe(0);
+    expect(warned).toHaveLength(1);
   });
 });
 

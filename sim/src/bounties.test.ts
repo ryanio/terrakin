@@ -611,6 +611,54 @@ describe("town bounties", () => {
     w.town(confirm("staff_1"));
   });
 
+  it("refuse a maintainer whose resident is in on it, whatever id they're logged by", () => {
+    const w = done();
+    const by = "staff_0123456789abcdef";
+    // `resident` as the server could send it, or as nothing should.
+    const confirmAs = (resident: unknown) =>
+      ({ type: "confirm_town_bounty", bounty: "b_1", to: "bob", by, resident }) as Command;
+    const reopenAs = (resident: unknown) =>
+      ({ type: "reopen_bounty", bounty: "b_1", by, resident }) as Command;
+    const voidAs = (resident: unknown) =>
+      ({ type: "void_bounty", bounty: "b_1", by, resident }) as Command;
+    // Dee is Bob's (the claimant's) AI; Eve is Ada's (the proposer's) person.
+    w.town({ type: "add_owner_pair", pair: ["bob", "dee"] });
+    w.town({ type: "add_owner_pair", pair: ["ada", "eve"] });
+    // Confirming pays the claimant, so neither side of the deal may.
+    for (const resident of ["bob", "dee", "ada", "eve"]) {
+      expect(w.code(TOWN_ACTOR, confirmAs(resident))).toBe("not_eligible");
+    }
+    // Sending back or voiding helps only the proposer's side.
+    for (const resident of ["ada", "eve"]) {
+      expect(w.code(TOWN_ACTOR, reopenAs(resident))).toBe("not_eligible");
+      expect(w.code(TOWN_ACTOR, voidAs(resident))).toBe("not_eligible");
+    }
+    for (const resident of ["", 7, null]) {
+      for (const as of [confirmAs, reopenAs, voidAs]) {
+        expect(w.code(TOWN_ACTOR, as(resident))).toBe("server_only");
+      }
+    }
+    // Someone outside the deal can, and so can a maintainer with no resident given.
+    done().town(confirmAs("cy"));
+    done().town(confirm(by));
+    // The claimant's household can send back or take down its own claim.
+    w.town(reopenAs("dee"));
+    w.ok("bob", { type: "claim_bounty", ...id("b_1") });
+    w.town(voidAs("dee"));
+    expect(w.bounty("b_1")).toMatchObject({ status: "cancelled", by });
+  });
+
+  it("keep a resident's bounty from being voided by a maintainer who posted it", () => {
+    const w = bounties();
+    w.ok("ada", w.post("ada", 40));
+    w.ok("bob", { type: "claim_bounty", ...id("b_1") });
+    w.ok("bob", { type: "complete_bounty", ...id("b_1") });
+    const voidAs = (resident: string) =>
+      w.code(TOWN_ACTOR, { type: "void_bounty", bounty: "b_1", by: "staff_1", resident });
+    expect(voidAs("ada")).toBe("not_eligible");
+    expect(voidAs("bob")).toBeNull();
+  });
+
   it("can be sent back to open by a maintainer when it isn't done", () => {
     const w = done();
     expect(w.code("ada", { type: "reopen_bounty", bounty: "b_1", by: "cy" })).toBe("server_only");

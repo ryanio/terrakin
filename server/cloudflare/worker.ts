@@ -4,7 +4,7 @@ import { cards } from "@terrakin/cards/worker";
 import { buildOpenApi } from "@terrakin/protocol";
 import SKILL_MD from "@terrakin/protocol/SKILL.md";
 import { entitledTo, findProposal, residentById, votesCast } from "@terrakin/sim";
-import { AccessVerifier, accessConfig, parseEmails } from "../src/access";
+import { AccessVerifier, accessConfig, parseEmails, parseStaffResidents } from "../src/access";
 import { adminAssetPath, adminGate, isMissingAdminFile } from "../src/admin-host";
 import { nextRecheckAt, parseDailyReads } from "../src/agent-links";
 import { Api, ipKey, isApiPath, MAX_BODY_BYTES } from "../src/api";
@@ -80,6 +80,8 @@ interface Env {
   /** Access emails with each staff role, comma separated. */
   TERRAKIN_MAINTAINER_EMAILS?: string;
   TERRAKIN_MODERATOR_EMAILS?: string;
+  /** Which resident each staff email also is, as `email=residentId` pairs. A secret. */
+  TERRAKIN_STAFF_RESIDENTS?: string;
   /** AI triage (decision 0040). A Worker secret; without it, triage is off. */
   ANTHROPIC_API_KEY?: string;
   TERRAKIN_TRIAGE_MODEL?: string;
@@ -359,6 +361,9 @@ class WorldObject extends DurableObject<Env> {
         access: accessConfig(env.TERRAKIN_ACCESS_TEAM, env.TERRAKIN_ACCESS_AUD) !== undefined,
         maintainerEmails: parseEmails(env.TERRAKIN_MAINTAINER_EMAILS),
         moderatorEmails: parseEmails(env.TERRAKIN_MODERATOR_EMAILS),
+        staffResidents: parseStaffResidents(env.TERRAKIN_STAFF_RESIDENTS, {
+          isResident: (id) => residentById(service.state, id) !== undefined,
+        }),
       },
     });
     // Runs while the object is in memory: idle sweeps and the Town Hall's clock. If it's evicted,

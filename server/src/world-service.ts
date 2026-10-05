@@ -657,22 +657,31 @@ export class WorldService {
     }
   }
 
-  /** A maintainer confirms a town bounty is done. Logged as a world input naming them. */
-  confirmTownBounty(bounty: string, to: string, by: string): ActResult {
+  /**
+   * A maintainer confirms a town bounty is done. Logged as a world input naming them, with the
+   * resident they also are when the server knows it, for the sim's household check.
+   */
+  confirmTownBounty(bounty: string, to: string, by: string, resident?: string): ActResult {
     return this.run({
       actor: TOWN_ACTOR,
-      command: { type: "confirm_town_bounty", bounty, to, by },
+      command: { type: "confirm_town_bounty", bounty, to, by, ...(resident ? { resident } : {}) },
     });
   }
 
-  /** A maintainer sends a town bounty's claimant back. Logged as a world input naming them. */
-  reopenBounty(bounty: string, by: string): ActResult {
-    return this.run({ actor: TOWN_ACTOR, command: { type: "reopen_bounty", bounty, by } });
+  /** A maintainer sends a town bounty's claimant back. Logged like `confirmTownBounty`. */
+  reopenBounty(bounty: string, by: string, resident?: string): ActResult {
+    return this.run({
+      actor: TOWN_ACTOR,
+      command: { type: "reopen_bounty", bounty, by, ...(resident ? { resident } : {}) },
+    });
   }
 
-  /** A maintainer cancels a bounty that hasn't paid. Logged as a world input naming them. */
-  voidBounty(bounty: string, by: string): ActResult {
-    return this.run({ actor: TOWN_ACTOR, command: { type: "void_bounty", bounty, by } });
+  /** A maintainer cancels a bounty that hasn't paid. Logged like `confirmTownBounty`. */
+  voidBounty(bounty: string, by: string, resident?: string): ActResult {
+    return this.run({
+      actor: TOWN_ACTOR,
+      command: { type: "void_bounty", bounty, by, ...(resident ? { resident } : {}) },
+    });
   }
 
   /** A maintainer voids a proposal. Logged as a world input naming them. */

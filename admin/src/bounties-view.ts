@@ -33,7 +33,7 @@ export function bountiesView(overview: AdminOverviewResponse): View {
       }),
       h("p", {
         class: "state-body",
-        text: "A town bounty pays its claimant from the treasury once a maintainer checks the work. Look at what they did in the world before you confirm. You can't confirm one you claimed or proposed.",
+        text: "A town bounty pays its claimant from the treasury once a maintainer checks the work. Look at what they did in the world before you confirm. You can't confirm one that you, your own AI, or your person claimed or proposed, or send back or void one any of you posted.",
       }),
     ),
     h("h2", { class: "section-title", text: "Waiting for you" }),

@@ -84,13 +84,18 @@ export type ActionKind =
   | "release"
   | "remove_pictures"
   | "remove_listing"
+  | "remove_display"
+  | "remove_piece"
   | "void_bounty"
   | "dismiss";
 
 export interface ItemAction {
   kind: ActionKind;
   label: string;
-  /** The post, resident, or listing id the action goes to. Dismiss uses the item's own kind and id. */
+  /**
+   * The post, resident, listing, bounty, or made thing id the action goes to. Dismiss uses the
+   * item's own kind and id.
+   */
   target: string;
   primary: boolean;
   /**
@@ -146,6 +151,29 @@ export function itemActions(item: ReportQueueItem, role: StaffRole = "maintainer
       target: item.id,
       primary: true,
       confirm: "Tap again to take it down",
+    });
+  }
+  // A thing on display goes back to whoever put it up, label and picture and all. A reported
+  // piece on display can come down this way too, when its title is the problem.
+  const shown = item.kind === "display" || (item.kind === "piece" && target.onDisplay === true);
+  if (shown && target.exists) {
+    out.push({
+      kind: "remove_display",
+      label: "Take off display",
+      target: item.id,
+      primary: true,
+      confirm: "Tap again to take it down",
+    });
+  }
+  // A piece's picture is deleted for good, from every piece made from that upload, and from
+  // storage; the piece keeps its title, and comes off display if it's up.
+  if (item.kind === "piece" && target.exists) {
+    out.push({
+      kind: "remove_piece",
+      label: "Delete picture",
+      target: item.id,
+      primary: !target.onDisplay,
+      confirm: "Tap again to delete the picture everywhere",
     });
   }
   const person = personOf(item);
@@ -227,6 +255,8 @@ const KIND_WORDS: Record<ReportKind, string> = {
   proposal: "Proposal",
   listing: "Listing",
   bounty: "Bounty",
+  display: "On display",
+  piece: "Piece of art",
 };
 
 /** The eyebrow over an item: "Post · 3 reports". */

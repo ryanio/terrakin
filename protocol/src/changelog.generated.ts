@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-05-report-a-thing-on-display-or-a-piece-of-art",
+    "date": "2026-10-05",
+    "kind": "added",
+    "title": "Report a thing on display or a piece of art",
+    "body": "`POST /v1/reports` takes two new kinds, both with a made thing's id (`i_7`): `display` (something on a pedestal or frame) and `piece` (a piece of art, wherever it is). If the team takes one down, everyone sees `display_removed {x, y, item, by}`, and it goes back to whoever put it up (reason `taken_down`).\nIf the team removes a piece's picture, everyone sees `picture_removed {items}`: every piece made from that upload keeps its title and loses its picture, and the upload is deleted.\nSomething taken down while its owner's things are full waits under a new field, `heldAside` in `GET /v1/inventory`, and comes back (new inventory reason `held`) with their first action that leaves room. The check-in says so too.",
+    "links": []
+  },
+  {
     "id": "2026-10-05-galleries",
     "date": "2026-10-05",
     "kind": "added",

@@ -61,6 +61,8 @@ export interface SafetyOptions {
   postMedia: (postId: string) => MediaView[];
   /** A resident's avatar and banner files, so a profile report shows its pictures. */
   profileMedia: (residentId: string) => MediaView[];
+  /** One upload as a file view, so a report on a piece shows its picture. Default: none. */
+  uploadMedia?: ((mediaId: string) => MediaView[]) | undefined;
   /** Take down every file on a post, everywhere it's used. Resolves to how many couldn't be deleted. */
   dropPostMedia: (postId: string) => Promise<number>;
   /** Take one file down everywhere, storage first. False when storage refused and nothing changed. */
@@ -133,6 +135,8 @@ const AGREES: Record<TriageAction, ReadonlySet<ModerationAction> | "any"> = {
     "void_proposal",
     "remove_listing",
     "void_bounty",
+    "remove_display",
+    "remove_piece",
     "suspend",
   ]),
   suspend: new Set(["suspend"]),
@@ -261,6 +265,17 @@ export class SafetyService {
    */
   listing: (id: string) => { seller: string; text: string } | undefined = () => undefined;
 
+  /**
+   * A made thing on display, or a piece, for reports on one (decision 0059): whose it is, its name
+   * and label as text, and the upload a piece shows. `Api` wires it to the world; without it,
+   * neither can be reported.
+   */
+  madeThing: (
+    kind: "display" | "piece",
+    id: string,
+  ) => { owner: string; text: string; media?: string; onDisplay: boolean } | undefined = () =>
+    undefined;
+
   private rows(query: string, ...bindings: (string | number)[]): Row[] {
     return [...this.o.sql.exec(query, ...bindings)];
   }
@@ -335,6 +350,7 @@ export class SafetyService {
     if (kind === "resident") return this.o.resident(id) ? id : undefined;
     if (kind === "proposal") return this.o.proposal(id)?.author;
     if (kind === "listing") return this.listing(id)?.seller;
+    if (kind === "display" || kind === "piece") return this.madeThing(kind, id)?.owner;
     if (kind === "bounty") return this.o.bounty?.(id)?.author;
     if (kind === "post") {
       const row = this.rows("SELECT author FROM posts WHERE id = ?", id)[0];
@@ -795,6 +811,15 @@ export class SafetyService {
       const l = this.listing(id);
       return l ? base(l.seller, l.text) : gone;
     }
+    if (kind === "display" || kind === "piece") {
+      // A display is gone once it's taken down; a piece once it shows no picture.
+      const t = this.madeThing(kind, id);
+      if (!t) return gone;
+      return base(t.owner, t.text, {
+        media: t.media ? (this.o.uploadMedia?.(t.media) ?? []) : [],
+        onDisplay: t.onDisplay,
+      });
+    }
     const p = kind === "bounty" ? this.o.bounty?.(id) : this.o.proposal(id);
     return p ? base(p.author, [p.title, p.text].filter(Boolean).join("\n")) : gone;
   }
@@ -950,20 +975,34 @@ export class SafetyService {
           WHEN 'notice' THEN (SELECT author FROM notices WHERE id = target)
           WHEN 'letter' THEN (SELECT sender FROM letters WHERE id = target)
           WHEN 'listing' THEN owner
+          WHEN 'display' THEN owner
+          WHEN 'piece' THEN owner
         END AS against
         FROM reports WHERE status = 'actioned' AND closed_at >= ? AND closed_at < ?`,
       fromMs,
       toMs,
     );
-    return rows.flatMap((row) => {
-      const against =
-        row.kind === "proposal"
-          ? this.o.proposal(String(row.target))?.author
-          : row.kind === "bounty"
-            ? this.o.bounty?.(String(row.target))?.author
-            : row.against;
-      return typeof against === "string" && against !== "" ? [against] : [];
-    });
+    // A made thing reported as a display and as a piece is one thing, counted once: against its
+    // maker when it was reported as a piece, since the picture and title are theirs.
+    const thing = new Map<string, string>();
+    for (const row of rows) {
+      if (row.kind !== "display" && row.kind !== "piece") continue;
+      const target = String(row.target);
+      if (row.kind === "piece" || !thing.has(target)) thing.set(target, String(row.against ?? ""));
+    }
+    const made = [...thing.values()].filter((a) => a !== "");
+    return rows
+      .flatMap((row) => {
+        if (row.kind === "display" || row.kind === "piece") return [];
+        const against =
+          row.kind === "proposal"
+            ? this.o.proposal(String(row.target))?.author
+            : row.kind === "bounty"
+              ? this.o.bounty?.(String(row.target))?.author
+              : row.against;
+        return typeof against === "string" && against !== "" ? [against] : [];
+      })
+      .concat(made);
   }
 
   /** Close the open reports on something without acting on it. */
@@ -983,7 +1022,10 @@ export class SafetyService {
     return ok(this.act(by, "dismiss_reports", kind, id, reason));
   }
 
-  /** Staff acted through another route (removed a notice, voided a proposal, took a listing down). */
+  /**
+   * Staff acted through another route (removed a notice, voided a proposal, took a listing or a
+   * display down, deleted a piece's picture).
+   */
   recordAction(
     by: string,
     action: ModerationAction,
@@ -993,6 +1035,24 @@ export class SafetyService {
   ): ModerationLogEntry {
     this.close(kind, id, "actioned", by);
     return this.act(by, action, kind, id, reason);
+  }
+
+  /**
+   * Take one upload down everywhere, storage first (a piece's picture, decision 0059). False when
+   * storage refused and nothing changed, so a retry still finds the file.
+   */
+  purgeUpload(mediaId: string): Promise<boolean> {
+    return this.o.purgeMedia(mediaId);
+  }
+
+  /** Staff and townsfolk whose things staff can't act on through the queue, like their pictures. */
+  protects(residentId: string): boolean {
+    return this.o.cannotBeSuspended(residentId);
+  }
+
+  /** Close the open reports of another kind on the same thing, when one action settles both. */
+  closeReports(by: string, kind: ReportKind, id: string) {
+    this.close(kind, id, "actioned", by);
   }
 
   /**
@@ -1179,6 +1239,8 @@ const NOT_FOUND: Record<ReportKind, string> = {
   proposal: "No such proposal.",
   listing: "That listing isn't in the market.",
   bounty: "No such bounty.",
+  display: "That isn't on display.",
+  piece: "No piece with that id shows a picture.",
 };
 
 function reportView(row: Row): ReportView {

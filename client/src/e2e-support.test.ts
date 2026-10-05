@@ -18,6 +18,7 @@ const SHARED = [
   "watchErrors",
   "overflowsSideways",
   "tinyPng",
+  "tapTile",
 ];
 const COPY = new RegExp(`^(?:async )?function (${SHARED.join("|")})\\(`);
 

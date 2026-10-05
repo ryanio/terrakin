@@ -17,6 +17,10 @@ export const REPORT_KINDS = [
   "proposal",
   "listing",
   "bounty",
+  /** A made thing on display on a pedestal or a frame, by its id (`i_7`). */
+  "display",
+  /** A piece of art, by its id (`i_7`), wherever it is: its picture and its title. */
+  "piece",
 ] as const;
 export const ReportKind = z.enum(REPORT_KINDS);
 export type ReportKind = z.infer<typeof ReportKind>;
@@ -53,7 +57,7 @@ export const CreateReportRequest = z.object({
   kind: ReportKind,
   /**
    * The id of what you're reporting: `p_...`, `r_...`, `l_...` (a letter to or from you, or a
-   * listing in the market), `n_...`, or `t_...`.
+   * listing in the market), `n_...`, `t_...`, `b_...`, or `i_...` (a thing on display, or a piece).
    */
   id: z.string().min(1).max(64),
   reason: ReportReason,
@@ -98,8 +102,8 @@ export const ReportEntry = z.object({
 
 /**
  * What a report points at, as staff see it right now. `text` is untrusted: a post's text, a
- * resident's name, note and bio, a letter, a notice, a proposal's title and text, or a listing's
- * lot with its labels.
+ * resident's name, note and bio, a letter, a notice, a proposal's title and text, a listing's
+ * lot with its labels, or a made thing's name and label (a piece's title).
  */
 export const ReportTarget = z.object({
   trust: z.literal("untrusted"),
@@ -108,7 +112,7 @@ export const ReportTarget = z.object({
   /** Who wrote it, or who the resident is. */
   author: AuthorView.nullable(),
   text: z.string(),
-  /** A post's files, or a resident's avatar and banner. */
+  /** A post's files, a resident's avatar and banner, or the upload a piece shows. */
   media: z.array(MediaView),
   /** Posts only: hidden from everyone, by staff or automatically. */
   hidden: z.enum(["no", "auto", "maintainer"]),
@@ -120,6 +124,8 @@ export const ReportTarget = z.object({
   suspensionLocked: z.boolean().optional(),
   /** Only a maintainer may release the held-back bio and note: a maintainer held them back. */
   holdBackLocked: z.boolean().optional(),
+  /** A made thing (a `display` or `piece` report): whether it's on display right now. */
+  onDisplay: z.boolean().optional(),
 });
 export type ReportTarget = z.infer<typeof ReportTarget>;
 
@@ -234,6 +240,10 @@ export const MODERATION_ACTIONS = [
   "confirm_bounty",
   /** A maintainer sent a town bounty's claimant back: it wasn't done. */
   "reopen_bounty",
+  /** Staff took a made thing off display; it went back to whoever put it up. */
+  "remove_display",
+  /** Staff deleted a piece's picture, from every piece showing that upload and from storage. */
+  "remove_piece",
 ] as const;
 export const ModerationAction = z.enum(MODERATION_ACTIONS);
 export type ModerationAction = z.infer<typeof ModerationAction>;

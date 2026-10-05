@@ -484,6 +484,12 @@ export interface ItemsState {
   nextGift?: number;
   /** Made things on display, keyed by tileKey(x, y). Absent until the first `display`. */
   displays?: Record<string, Display>;
+  /**
+   * Things taken down from display while whoever put them up had no room for them, oldest first.
+   * Each waits for `by` and comes back with their first input that leaves room for it. Absent
+   * until the first one.
+   */
+  heldAside?: Display[];
 }
 
 /** Why an inventory changed. */
@@ -511,7 +517,7 @@ export const INVENTORY_REASONS = [
   "unlisted",
   /** Bought from another resident in the market. */
   "market",
-  /** Back from the market because staff took the listing down. */
+  /** Back because staff took a listing or a display down. */
   "taken_down",
   /** A gift you sent back to its giver. */
   "declined",
@@ -521,6 +527,8 @@ export const INVENTORY_REASONS = [
   "displayed",
   /** Taken down from display, back into your things. */
   "off_display",
+  /** Held aside for you while your things were full, and back now that they have room. */
+  "held",
 ] as const;
 export type InventoryReason = (typeof INVENTORY_REASONS)[number];
 
@@ -699,6 +707,13 @@ export type Command =
    * market out of view when their things are full. Who did it is in the moderation log, not here.
    */
   | { type: "remove_listing"; listing: string }
+  /**
+   * Staff took a made thing off display, by its id (decision 0059). It goes back to whoever put it
+   * up, or is held aside for them when their things are full. With `picture`, the thing is a piece
+   * and its picture goes too, from every piece that shows the same upload, wherever it is (and the
+   * piece needn't be on display). Who did it is in the moderation log, not here.
+   */
+  | { type: "remove_display"; item: string; picture?: true }
   | { type: "open_economy" }
   | { type: "set_owner_pairs"; pairs: [ResidentId, ResidentId][] }
   /** One owner pair linked or unlinked, so the log grows by one pair per change, not the list. */
@@ -757,6 +772,7 @@ export const SERVER_COMMANDS = [
   "daily_awards",
   "open_market",
   "remove_listing",
+  "remove_display",
   "set_entitlements",
   "open_bounties",
   "confirm_town_bounty",
@@ -921,6 +937,10 @@ export type WorldEvent =
   | { type: "displayed"; x: number; y: number; good: Good; by: ResidentId }
   /** A displayed thing was taken down by `by`. Public. */
   | { type: "taken_down"; x: number; y: number; by: ResidentId }
+  /** Staff took a made thing off display. `by` put it up. Public, like the display was. */
+  | { type: "display_removed"; x: number; y: number; item: string; by: ResidentId }
+  /** Staff removed these pieces' picture: they keep their titles and show none. Public. */
+  | { type: "picture_removed"; items: string[] }
   /** A plot was marked a gallery, or stopped being one, by `by`. Public. */
   | { type: "gallery_set"; px: number; py: number; open: boolean; by: ResidentId }
   /** `by` admired what's on display: the thing, its maker, and its count after. Public. */

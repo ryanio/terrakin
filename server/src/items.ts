@@ -9,6 +9,7 @@ import {
 import {
   canBuildOn,
   type Good,
+  heldAsideOf,
   inventoryOf,
   isReady,
   lastDeclineDay,
@@ -68,6 +69,7 @@ export function inventoryView(
   author: Authors,
 ): InventoryResponse {
   const read = inventoryOf(state, viewer);
+  const held = heldAsideOf(state, viewer).map((d) => goodView(d.good, author));
   // The pantry gives less once the town shop sells sugar and jars.
   const { pantry, stapleMax } = pantryNumbers(state);
   const rules = { ...ITEM_RULES, pantrySugar: pantry.sugar, pantryJars: pantry.jar, stapleMax };
@@ -98,6 +100,7 @@ export function inventoryView(
           lastDay: lastDeclineDay(g.day),
         };
       }),
+      ...(held.length > 0 ? { heldAside: held } : {}),
     },
     ...base,
   };

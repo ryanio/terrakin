@@ -3,7 +3,7 @@ import { type APIRequestContext, expect, type Page } from "@playwright/test";
 
 /**
  * Helpers specs share: joining and acting over the REST API, signing a page in, finding free
- * plots in the shared world, and watching for errors a user would hit. New specs use these
+ * plots in the shared world, tapping a tile on the map, and watching for errors a user would hit. New specs use these
  * instead of writing their own.
  */
 
@@ -116,6 +116,27 @@ export async function settler(request: APIRequestContext, name: string) {
   );
   expect((await act(request, who.token, { type: "build_starter_home" })).ok).toBe(true);
   return who;
+}
+
+/** The camera eases toward you; wait enough frames for it to land before tapping tiles. */
+async function settleCamera(page: Page) {
+  await page.evaluate(
+    () =>
+      new Promise<void>((done) => {
+        let frames = 40;
+        const tick = () => (--frames <= 0 ? done() : requestAnimationFrame(tick));
+        requestAnimationFrame(tick);
+      }),
+  );
+}
+
+/** On the 2D map at /world, tap the tile `dx`, `dy` from where you stand (the middle of the screen). */
+export async function tapTile(page: Page, dx: number, dy: number) {
+  const vp = page.viewportSize();
+  if (!vp) throw new Error("no viewport");
+  const scale = Math.max(16, Math.floor(Math.min(vp.width, vp.height) / 13));
+  await settleCamera(page);
+  await page.mouse.click(vp.width / 2 + dx * scale, vp.height / 2 + dy * scale);
 }
 
 /** Move the shared test clock to the next UTC day. Only for specs in their own project. */

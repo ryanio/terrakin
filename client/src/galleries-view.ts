@@ -1,8 +1,8 @@
 /**
  * Galleries (RFC 0005 step 3): plots their residents opened as galleries, and what's on display in
  * each. `/galleries` lists them all; `galleryCards` is the same card on a resident's profile. Anyone
- * signed in can admire a piece once a day, never their own. Titles, labels, and names are other
- * residents' words: text only.
+ * signed in can admire a piece once a day, never their own, and report it from its "More" menu.
+ * Titles, labels, and names are other residents' words: text only.
  */
 import type { GalleryPieceView, GalleryView } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
@@ -10,8 +10,9 @@ import { thingPicture } from "@terrakin/ui/item-art";
 import { personLink } from "@terrakin/ui/people";
 import { itemRow, itemRows, stateCard, toast, whileBusy } from "@terrakin/ui/ui";
 import { actProblem, api } from "./api";
-import { shownName } from "./display-sheet";
+import { displayReport, shownName } from "./display-sheet";
 import { savedResidentId, savedToken } from "./net";
+import { reportMenu } from "./report-sheet";
 import { admiredLine } from "./things";
 import { errorCard, type View, type ViewContext } from "./view";
 
@@ -43,6 +44,13 @@ function pieceRow(piece: GalleryPieceView, me: string | null): HTMLLIElement {
     admire.disabled = true;
     toast("You admired it. Its maker will be glad.");
   });
+  // Anyone who could admire it can report it too.
+  const more = canAdmire(piece, me)
+    ? reportMenu(displayReport(piece.good), {
+        id: `piece-more-${piece.good.id}`,
+        text: piece.good.kind === "piece" ? "Report piece" : "Report",
+      })
+    : null;
   return itemRow({
     className: "gallery-piece",
     attrs: { "data-item": piece.good.id },
@@ -57,7 +65,7 @@ function pieceRow(piece: GalleryPieceView, me: string | null): HTMLLIElement {
       ),
       count,
     ],
-    trail: admire,
+    trail: more ? h("div", { class: "cluster gallery-actions" }, admire, more) : admire,
   });
 }
 

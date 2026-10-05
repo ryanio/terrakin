@@ -191,6 +191,19 @@ export interface SocialServiceOptions {
 }
 
 type Row = Record<string, unknown>;
+
+/** A `media` row (id, type, bytes, width, height) as a file view. */
+function mediaRowView(m: Row): MediaView {
+  const type = String(m.type) as MediaType;
+  return {
+    id: String(m.id),
+    kind: MEDIA_TYPES[type].kind,
+    type,
+    url: mediaUrl(String(m.id)),
+    bytes: Number(m.bytes),
+    ...sizeFields(m),
+  };
+}
 type Binding = string | number;
 
 const randomId = (prefix: string) =>
@@ -493,6 +506,7 @@ export class SocialService {
       bounty: options.bounty,
       postMedia: (postId) => this.mediaFor([postId]).get(postId) ?? [],
       profileMedia: (residentId) => this.profileMedia(residentId),
+      uploadMedia: (mediaId) => this.uploadMedia(mediaId),
       dropPostMedia: async (postId) => {
         const media = this.rows("SELECT media_id FROM post_media WHERE post_id = ?", postId);
         let kept = 0;
@@ -2174,17 +2188,14 @@ export class SocialService {
         FROM profiles pr JOIN media m ON m.id IN (pr.avatar, pr.banner)
         WHERE pr.resident_id = ? ORDER BY m.id = pr.banner`,
       residentId,
-    ).map((m) => {
-      const type = String(m.type) as MediaType;
-      return {
-        id: String(m.id),
-        kind: MEDIA_TYPES[type].kind,
-        type,
-        url: mediaUrl(String(m.id)),
-        bytes: Number(m.bytes),
-        ...sizeFields(m),
-      };
-    });
+    ).map(mediaRowView);
+  }
+
+  /** One upload as a file view, if it's still stored. For staff reading a report on a piece. */
+  private uploadMedia(mediaId: string): MediaView[] {
+    return this.rows("SELECT id, type, bytes, width, height FROM media WHERE id = ?", mediaId).map(
+      mediaRowView,
+    );
   }
 
   /** Mentions for each of these posts, in the order they appear. */

@@ -1,5 +1,5 @@
-import { type APIRequestContext, expect, type Page, test } from "@playwright/test";
-import { act, freePlots, join, settler, signIn, tinyPng, watchErrors } from "./support";
+import { type APIRequestContext, expect, test } from "@playwright/test";
+import { act, freePlots, join, settler, signIn, tapTile, tinyPng, watchErrors } from "./support";
 
 /**
  * Growing, making, and giving (RFC 0005) on a phone: a resident taps a planter in the world and
@@ -11,27 +11,6 @@ import { act, freePlots, join, settler, signIn, tinyPng, watchErrors } from "./s
 async function inventory(request: APIRequestContext, token: string) {
   const res = await request.get("/v1/inventory", { headers: { authorization: `Bearer ${token}` } });
   return (await res.json()).inventory;
-}
-
-/** The camera eases toward you; wait enough frames for it to land before tapping tiles. */
-async function settleCamera(page: Page) {
-  await page.evaluate(
-    () =>
-      new Promise<void>((done) => {
-        let frames = 40;
-        const tick = () => (--frames <= 0 ? done() : requestAnimationFrame(tick));
-        requestAnimationFrame(tick);
-      }),
-  );
-}
-
-/** Tap the tile `dx`, `dy` from where you stand (the middle of the screen). */
-async function tapTile(page: Page, dx: number, dy: number) {
-  const vp = page.viewportSize();
-  if (!vp) throw new Error("no viewport");
-  const scale = Math.max(16, Math.floor(Math.min(vp.width, vp.height) / 13));
-  await settleCamera(page);
-  await page.mouse.click(vp.width / 2 + dx * scale, vp.height / 2 + dy * scale);
 }
 
 test("grow herbs, make tea, and give it to a friend", async ({ page }) => {

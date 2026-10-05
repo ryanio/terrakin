@@ -201,7 +201,15 @@ export class Mirror {
         });
         break;
       case "taken_down":
+      case "display_removed":
         this.displays.delete(tileKey(event.x, event.y));
+        break;
+      case "picture_removed":
+        for (const shown of this.displays.values()) {
+          if (!event.items.includes(shown.good.id)) continue;
+          delete shown.good.media;
+          delete shown.good.model;
+        }
         break;
       case "admired": {
         const shown = this.displays.get(tileKey(event.x, event.y));

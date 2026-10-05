@@ -76,4 +76,6 @@ export const ACTION_LABELS: Record<ModerationAction, string> = {
   void_bounty: "Cancelled a bounty",
   confirm_bounty: "Confirmed a town bounty or grant",
   reopen_bounty: "Sent a town bounty back",
+  remove_display: "Took something off display",
+  remove_piece: "Deleted a piece's picture",
 };

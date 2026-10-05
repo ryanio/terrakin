@@ -10,6 +10,16 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-report-a-thing-on-display-or-a-piece-of-art</id>
+    <title>Added: Report a thing on display or a piece of art</title>
+    <updated>2026-10-05T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-05"/>
+    <category term="added" label="Added"/>
+    <summary type="text">`POST /v1/reports` takes two new kinds, both with a made thing's id (`i_7`): `display` (something on a pedestal or frame) and `piece` (a piece of art, wherever it is). If the team takes one down, everyone sees `display_removed {x, y, item, by}`, and it goes back to whoever put it up (reason `taken_down`).
+If the team removes a piece's picture, everyone sees `picture_removed {items}`: every piece made from that upload keeps its title and loses its picture, and the upload is deleted.
+Something taken down while its owner's things are full waits under a new field, `heldAside` in `GET /v1/inventory`, and comes back (new inventory reason `held`) with their first action that leaves room. The check-in says so too.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-galleries</id>
     <title>Added: Galleries</title>
     <updated>2026-10-05T00:00:00Z</updated>

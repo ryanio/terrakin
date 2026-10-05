@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { apply } from "./apply";
-import { displayAt } from "./display";
+import { displayAt, heldAsideOf } from "./display";
 import { hashWorld } from "./hash";
 import { ITEMS, inventorySize } from "./items";
 import { replay } from "./replay";
@@ -190,6 +190,147 @@ describe("display and take_down", () => {
     w.ok("ada", { type: "make_piece", media: ART, title: "A" });
     w.ok("ada", { type: "make_piece", media: ART, title: "B", model: true });
     w.ok("ada", { type: "display", item: "i_2", x: 2, y: 2 });
+    expect(hashWorld(replay(CONFIG, w.log))).toBe(hashWorld(w.state));
+  });
+});
+
+describe("remove_display", () => {
+  const remove = (item: string, picture?: true): Command => ({
+    type: "remove_display",
+    item,
+    ...(picture ? { picture } : {}),
+  });
+  const ART2 = "m_fedcba9876543210";
+
+  it("only comes from the server", () => {
+    const w = gallery();
+    w.ok("ada", { type: "make_piece", media: ART, title: "A" });
+    w.ok("ada", { type: "display", item: "i_1", x: 2, y: 2 });
+    w.settle("bob", 2, 0);
+    expect(w.code("ada", remove("i_1"))).toBe("server_only");
+    expect(w.code("bob", remove("i_1", true))).toBe("server_only");
+    expect(displayAt(w.state, 2, 2)?.good.id).toBe("i_1");
+  });
+
+  it("gives a displayed thing back to whoever put it up, label and picture and all", () => {
+    const w = gallery();
+    w.ok("ada", { type: "make_piece", media: ART, title: "Rude words" });
+    const [piece] = w.goods("ada");
+    w.ok("ada", { type: "display", item: "i_1", x: 4, y: 2 });
+    expect(w.ok(TOWN_ACTOR, remove("i_1"))).toEqual([
+      { type: "display_removed", x: 4, y: 2, item: "i_1", by: "ada" },
+      { type: "inventory", residentId: "ada", reason: "taken_down", gained: [piece] },
+    ]);
+    expect(w.goods("ada")).toEqual([piece]);
+    expect(w.state.items?.displays).toEqual({});
+    // The frame is free again.
+    w.ok("ada", { type: "remove", x: 4, y: 2 });
+  });
+
+  it("holds the thing aside when their things are full, and gives it back once there's room", () => {
+    const w = gallery();
+    w.ok("ada", { type: "make_piece", media: ART, title: "A" });
+    w.ok("ada", { type: "display", item: "i_1", x: 2, y: 2 });
+    const room = ITEMS.inventoryMax - inventorySize(w.state.items?.inventories.ada);
+    stock(w.state, "ada", { tomato: room });
+    expect(w.ok(TOWN_ACTOR, remove("i_1"))).toEqual([
+      { type: "display_removed", x: 2, y: 2, item: "i_1", by: "ada" },
+    ]);
+    // Nothing went past the cap, and nothing was lost: it waits for Ada alone.
+    expect(inventorySize(w.state.items?.inventories.ada)).toBe(ITEMS.inventoryMax);
+    expect(heldAsideOf(w.state, "ada").map((d) => d.good.id)).toEqual(["i_1"]);
+    expect(heldAsideOf(w.state, "bob")).toEqual([]);
+    expect(displayAt(w.state, 2, 2)).toBeUndefined();
+    // The pedestal is free, and an input that leaves her full brings nothing back.
+    expect(w.ok("ada", { type: "remove", x: 2, y: 2 })).not.toContainEqual(
+      expect.objectContaining({ reason: "held" }),
+    );
+    expect(heldAsideOf(w.state, "ada")).toHaveLength(1);
+    // Making room brings it back with the same input.
+    w.settle("bob", 2, 0);
+    const events = w.ok("ada", { type: "give", item: "tomato", to: "bob", count: 1 });
+    expect(events).toContainEqual({
+      type: "inventory",
+      residentId: "ada",
+      reason: "held",
+      gained: [expect.objectContaining({ id: "i_1", label: "A", media: ART })],
+    });
+    expect(w.state.items?.heldAside).toBeUndefined();
+    expect(w.goods("ada").map((g) => g.id)).toEqual(["i_1"]);
+  });
+
+  it("with picture, takes the picture off every piece made from that upload, wherever it is", () => {
+    const w = gallery();
+    w.settle("bob", 2, 0);
+    w.ok("ada", { type: "make_piece", media: ART, title: "One" });
+    w.ok("ada", { type: "make_piece", media: ART, title: "Two", model: true });
+    w.ok("ada", { type: "make_piece", media: ART, title: "Three" });
+    w.ok("ada", { type: "make_piece", media: ART2, title: "Other" });
+    w.ok("ada", { type: "display", item: "i_1", x: 2, y: 2 });
+    w.ok("ada", { type: "give", item: "i_3", to: "bob" });
+    expect(w.ok(TOWN_ACTOR, remove("i_1", true))).toEqual([
+      { type: "picture_removed", items: expect.arrayContaining(["i_1", "i_2", "i_3"]) },
+      { type: "display_removed", x: 2, y: 2, item: "i_1", by: "ada" },
+      {
+        type: "inventory",
+        residentId: "ada",
+        reason: "taken_down",
+        gained: [{ id: "i_1", kind: "piece", maker: "ada", madeDay: DAY, label: "One" }],
+      },
+    ]);
+    const all = [...w.goods("ada"), ...w.goods("bob")];
+    expect(all.filter((g) => g.media === ART)).toEqual([]);
+    expect(all.filter((g) => g.model)).toEqual([]);
+    // Titles stay, and a piece from another upload keeps its picture.
+    expect(all.map((g) => g.label).sort()).toEqual(["One", "Other", "Three", "Two"]);
+    expect(all.find((g) => g.id === "i_4")?.media).toBe(ART2);
+  });
+
+  it("with picture, works on a piece that isn't on display", () => {
+    const w = gallery();
+    w.ok("ada", { type: "make_piece", media: ART, title: "One" });
+    expect(w.ok(TOWN_ACTOR, remove("i_1", true))).toEqual([
+      { type: "picture_removed", items: ["i_1"] },
+    ]);
+    expect(w.goods("ada")[0]).not.toHaveProperty("media");
+    // Nothing left to remove.
+    expect(w.code(TOWN_ACTOR, remove("i_1", true))).toBe("unknown_item");
+  });
+
+  it("refuses what isn't on display, a picture that isn't there, a bad id, and before items open", () => {
+    const w = gallery();
+    w.ok("ada", { type: "make_piece", media: ART, title: "A" });
+    stock(w.state, "ada", { lemon: 3, sugar: 1, jar: 1 });
+    expect(w.code(TOWN_ACTOR, remove("i_1"))).toBe("nothing_displayed");
+    expect(w.code(TOWN_ACTOR, remove("i_9"))).toBe("nothing_displayed");
+    expect(w.code(TOWN_ACTOR, remove("i_9", true))).toBe("unknown_item");
+    expect(w.code(TOWN_ACTOR, remove("lemon"))).toBe("unknown_item");
+    expect(
+      w.code(TOWN_ACTOR, { type: "remove_display", item: "i_1", picture: false } as never),
+    ).toBe("unknown_item");
+    // A made thing that isn't a piece has no picture to take.
+    w.ok("ada", { type: "place", x: 3, y: 2, block: "kitchen" });
+    w.ok("ada", { type: "craft", recipe: "lemon_jam", x: 3, y: 2, label: "Jam" });
+    const jam = w.goods("ada").find((g) => g.kind === "lemon_jam")?.id ?? "";
+    w.ok("ada", { type: "display", item: jam, x: 2, y: 2 });
+    expect(w.code(TOWN_ACTOR, remove(jam, true))).toBe("unknown_item");
+    w.ok(TOWN_ACTOR, remove(jam));
+    const fresh = world();
+    expect(fresh.code(TOWN_ACTOR, remove("i_1"))).toBe("items_closed");
+  });
+
+  it("replays to the same world", () => {
+    const w = world();
+    w.ok(TOWN_ACTOR, { type: "new_day", day: DAY });
+    w.ok(TOWN_ACTOR, { type: "open_items" });
+    w.settle("ada", 0, 0);
+    w.ok("ada", { type: "place", x: 2, y: 2, block: "pedestal" });
+    w.ok("ada", { type: "make_piece", media: ART, title: "A" });
+    w.ok("ada", { type: "make_piece", media: ART, title: "B" });
+    w.ok("ada", { type: "display", item: "i_1", x: 2, y: 2 });
+    w.ok(TOWN_ACTOR, remove("i_1"));
+    w.ok("ada", { type: "display", item: "i_2", x: 2, y: 2 });
+    w.ok(TOWN_ACTOR, remove("i_2", true));
     expect(hashWorld(replay(CONFIG, w.log))).toBe(hashWorld(w.state));
   });
 });

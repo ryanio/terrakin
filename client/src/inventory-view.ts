@@ -305,6 +305,26 @@ export function inventoryView(ctx: ViewContext): View {
             ),
           ]
         : []),
+      // Taken down from display while these things were full: they come back with the next
+      // action that leaves room.
+      ...(inv.heldAside?.length
+        ? [
+            h(
+              "section",
+              { class: "stack things-section", attrs: { "aria-labelledby": "things-held-title" } },
+              h("h2", {
+                class: "section-title",
+                attrs: { id: "things-held-title" },
+                text: "Held for you",
+              }),
+              itemRows(inv.heldAside.map(goodItem), { className: "things-held" }),
+              h("p", {
+                class: "purse-hint",
+                text: "These came off display while your things were full. Make room, and they come back with the next thing you do.",
+              }),
+            ),
+          ]
+        : []),
       h(
         "section",
         { class: "stack things-section", attrs: { "aria-labelledby": "things-made-title" } },

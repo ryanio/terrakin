@@ -41,6 +41,18 @@ const CONFIG: WorldConfig = {
 
 const REGISTRY = "0x8004a169fb4a3325136eb29fa0ceb6d2e539a432";
 const ADAPTER = MUSEGOD.match.owner;
+/** A promo for tests. MUSEGOD's real config runs none. */
+const WITH_LANTERN = {
+  ...MUSEGOD,
+  promos: [
+    {
+      id: "muse-lantern-2026",
+      from: "2026-11-01",
+      until: "2026-12-01",
+      perks: { items: ["muse_lantern" as const], flair: "Lantern night" },
+    },
+  ],
+};
 const MUSES = MUSEGOD.match.collection;
 const SOMEONE = "0x00a839de7922491683f547a67795204763ff8237";
 const KEEPER = "0x68f3767fe53e9cbd5702167bb84844a79f1c23a8";
@@ -407,7 +419,7 @@ describe("linking a muse", () => {
   });
 
   it("lists the partners, with nothing a client could mistake for a purchase", async () => {
-    const { call } = await start();
+    const { call } = await start({ partners: [WITH_LANTERN] });
     const res = await call("GET", "/v1/partners");
     expect(res.status).toBe(200);
     expect(res.body.partners).toEqual([
@@ -1163,7 +1175,9 @@ describe("partner wear (RFC 0007 phase 3)", () => {
   });
 
   it("adds the promo's lantern and flair while it runs, on the server's clock", async () => {
-    const { link, join, chain, profile, service, advance } = await start();
+    const { link, join, chain, profile, service, advance } = await start({
+      partners: [WITH_LANTERN],
+    });
     const wren = join("Wren");
     chain.addMuse(464, [wren.residentId]);
     await link(muse(464), wren.token);

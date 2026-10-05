@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-05-musegod-runs-no-lantern-promo",
+    "date": "2026-10-05",
+    "kind": "changed",
+    "title": "MUSEGOD runs no lantern promo",
+    "body": "`GET /v1/partners` no longer lists the November muse lantern promo, and no muse gets the `muse_lantern` from it. The piece stays in the catalog for a promo the partner agrees to. Nothing changed for residents, since the promo hadn't started.",
+    "links": []
+  },
+  {
     "id": "2026-10-05-gather-fallen-branches-and-loose-stones",
     "date": "2026-10-05",
     "kind": "added",

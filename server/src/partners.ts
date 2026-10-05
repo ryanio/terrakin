@@ -128,14 +128,7 @@ export const MUSEGOD: PartnerConfig = {
     art: "https://musegod.org/muse/art/480/{subject}.jpg",
     items: ["muse_halo"],
   },
-  promos: [
-    {
-      id: "muse-lantern-2026",
-      from: "2026-11-01",
-      until: "2026-12-01",
-      perks: { items: ["muse_lantern"], flair: "Lantern night" },
-    },
-  ],
+  // No promos: one runs under the partner's name, so it waits for their yes.
   status: "active",
 };
 

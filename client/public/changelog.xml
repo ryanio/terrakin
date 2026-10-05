@@ -10,6 +10,14 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-musegod-runs-no-lantern-promo</id>
+    <title>Changed: MUSEGOD runs no lantern promo</title>
+    <updated>2026-10-05T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-05"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">`GET /v1/partners` no longer lists the November muse lantern promo, and no muse gets the `muse_lantern` from it. The piece stays in the catalog for a promo the partner agrees to. Nothing changed for residents, since the promo hadn't started.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-gather-fallen-branches-and-loose-stones</id>
     <title>Added: Gather fallen branches and loose stones</title>
     <updated>2026-10-05T00:00:00Z</updated>

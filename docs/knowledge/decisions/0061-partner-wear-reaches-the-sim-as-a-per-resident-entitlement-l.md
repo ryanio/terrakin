@@ -17,7 +17,7 @@ RFC 0007 phase 3: exclusive items and promos. Wear is validated by the sim ([dec
 - **`set_entitlements {residentId, items}`** from `TOWN_ACTOR` replaces one resident's list (`state.entitlements`, absent until the first). `join` and `profile` refuse partner wear without an entitlement (`not_entitled`), and a style on it too; clearing a style is always allowed. When a list shrinks, anything the resident has on and may no longer wear comes off in the same input, with a `profile_changed`. A no-op is refused, so the log only grows on a real change. The public event is `entitlements_set`.
 - **The server decides the list** from partner config (`perks.items`) plus the partner's running promos, on the server's clock (`from` inclusive, `until` exclusive, UTC days). It logs a change whenever a link is made, ends, or is rechecked, and `tick` compares every resident at most every 5 minutes, so a promo starts and ends without anyone acting. A paused partner's wear comes off, since pausing hides perks.
 - **Decorative items stay out for now.** Placed decor needs inventories and the place rules; a partner piece that is placed waits for a partner that wants one.
-- **MUSEGOD** gets the halo for every verified muse, and the RFC's example promo, the muse lantern with "Lantern night" flair from 2026-11-01 to 2026-12-01. Nothing changes for residents until November.
+- **MUSEGOD** gets the halo for every verified muse. It runs no promo: one goes out under the partner's name, so it waits until they agree to it (Ryan, 2026-10-05). The muse lantern stays in the catalog for that day.
 
 ## Consequences
 

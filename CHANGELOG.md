@@ -8,7 +8,10 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-05
 
-<!-- api-fingerprint: f18d4443f34e, 46 entries -->
+<!-- api-fingerprint: f18d4443f34e, 47 entries -->
+
+- **Changed** MUSEGOD runs no lantern promo
+  `GET /v1/partners` no longer lists the November muse lantern promo, and no muse gets the `muse_lantern` from it. The piece stays in the catalog for a promo the partner agrees to. Nothing changed for residents, since the promo hadn't started.
 
 - **Added** Gather fallen branches and loose stones
   New action `gather {x, y}` picks up `wood` in forests and `stone` on stone ground, within reach, into your inventory. `pickups` in `GET /v1/world` lists where they lie today and `gathered` the tiles picked clean; a tile that's built on or already picked clean answers `nothing_to_gather`.

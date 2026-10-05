@@ -43,8 +43,8 @@ import type {
  * `shop_buy`, and `sell_to_town`.
  *
  * Nothing here runs until the server sends `open_shop`, which needs coins and items open, so
- * worlds from before the shop replay to the hash they always had. Half of every purchase goes to
- * the treasury and the rest is burned. What the town pays for goods is minted, and the town buys
+ * worlds from before the shop replay to the hash they always had. A small share of every purchase
+ * goes to the treasury and the rest is burned. What the town pays for goods is minted, and the town buys
  * only a few kinds a day, each up to a daily count per resident, so a garden can't print coins.
  */
 
@@ -68,6 +68,12 @@ export interface ShopEntry {
 export const SHOP = {
   /** The most of one thing in a single `shop_buy` or `sell_to_town`. */
   countMax: 20,
+  /**
+   * The treasury's share of shop spending, in percent; the rest is burned. The server logs
+   * `set_shop_share` when the world's share differs, so purchases before a change keep the share
+   * they were made at. A world that never logged one uses `SHOP_SHARE_BEFORE`.
+   */
+  treasuryShare: 5,
   /** Kinds of made things the town buys each day. */
   goodsPerDay: 3,
   /** Kinds of produce the town buys each day. */
@@ -176,6 +182,13 @@ export function shopFor(
 export const ownsWear = (state: WorldState, id: ResidentId, wear: ShopWear) =>
   state.shop?.wardrobe[id]?.includes(wear) ?? false;
 
+/** The share the shop opened with, before any `set_shop_share` (decision 0052). */
+export const SHOP_SHARE_BEFORE = 50;
+
+/** The treasury's share of shop spending in this world right now, in percent. */
+export const treasuryShareOf = (state: WorldState) =>
+  state.shop?.treasuryShare ?? SHOP_SHARE_BEFORE;
+
 // ---------- changing ----------
 
 type Mutation = () => WorldEvent[];
@@ -192,6 +205,26 @@ export function checkOpenShop(state: WorldState): ShopChecked {
   return () => {
     state.shop = { wardrobe: {}, today: emptyToday() };
     return [{ type: "shop_opened" }];
+  };
+}
+
+/** `set_shop_share {percent}`, which only TOWN_ACTOR sends: the treasury's share from now on. */
+export function checkSetShopShare(
+  state: WorldState,
+  command: Extract<Command, { type: "set_shop_share" }>,
+): ShopChecked {
+  const shop = state.shop;
+  if (!shop) return refuse("shop_closed", "The town shop hasn't opened in this world yet.");
+  const { percent } = command;
+  if (!isWhole(percent) || percent < 0 || percent > 100) {
+    return refuse("server_only", "The treasury's share is a whole percent, 0 to 100.");
+  }
+  if (percent === treasuryShareOf(state)) {
+    return refuse("server_only", `The treasury's share is already ${percent}%.`);
+  }
+  return () => {
+    shop.treasuryShare = percent;
+    return [{ type: "shop_share_set", percent }];
   };
 }
 
@@ -268,10 +301,10 @@ export function checkShopBuy(
     );
   }
   const at = { seq: state.seq + 1, day };
-  const toTreasury = Math.floor(total / 2);
+  const toTreasury = Math.floor((total * treasuryShareOf(state)) / 100);
   return () => {
     const events: WorldEvent[] = [movePurse(econ, actor, -total, "shop", at)];
-    // The treasury's history is public, so its half is a line that doesn't say who bought.
+    // The treasury's history is public, so its share is a line that doesn't say who bought.
     if (toTreasury > 0) events.push(moveTreasury(econ, toTreasury, "shop", at));
     econ.burned += total - toTreasury;
     if (wear) {

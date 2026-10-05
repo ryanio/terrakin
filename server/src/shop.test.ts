@@ -1,5 +1,13 @@
 import type { ServerMessage, WorldEvent } from "@terrakin/protocol";
-import { BUY_ORDERS, ITEMS, townBuys, type WorldConfig } from "@terrakin/sim";
+import {
+  BUY_ORDERS,
+  type Input,
+  ITEMS,
+  SHOP,
+  TOWN_ACTOR,
+  townBuys,
+  type WorldConfig,
+} from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
 import { MemoryMediaStore } from "./media";
@@ -141,14 +149,16 @@ describe("the town shop", () => {
     expect(bought.ok).toBe(true);
     const mine = (await w.call("GET", "/v1/shop", undefined, ada.token)).body;
     expect(mine.you).toEqual({ balance: before - 60, wardrobe: ["umbrella"] });
-    // Ada hears her purse and her new wear; Bob hears neither, only the treasury's half.
+    // Ada hears her purse and her new wear; Bob hears neither, only the treasury's share.
     expect(adaHears().map((e) => e.type)).toEqual(
       expect.arrayContaining(["coins", "treasury", "wear_bought"]),
     );
     const bobGot = bobHears();
     expect(bobGot.some((e) => e.type === "coins" || e.type === "wear_bought")).toBe(false);
+    // The shop opened at 50% and the server moved it to 5% on the same tick: 3 of the 60.
+    expect(w.service.state.shop?.treasuryShare).toBe(5);
     expect(bobGot).toContainEqual(
-      expect.objectContaining({ type: "treasury", amount: 30, reason: "shop" }),
+      expect.objectContaining({ type: "treasury", amount: 3, reason: "shop" }),
     );
     expect(JSON.stringify(bobGot)).not.toContain(ada.id);
     // Wearing it is the profile action; Bob hasn't bought one.
@@ -206,5 +216,50 @@ describe("the town shop", () => {
     expect(inv.rules.pantrySugar).toBe(ITEMS.shopPantry.sugar);
     expect(inv.rules.pantryJars).toBe(ITEMS.shopPantry.jar);
     expect(inv.rules.stapleMax).toBe(ITEMS.shopStapleMax);
+  });
+
+  it("switches a live log's share once, keeping earlier purchases at 50%, and never again", () => {
+    const now = Date.UTC(2026, 9, 5, 9);
+    const town = (command: Input["command"]): Input => ({ actor: TOWN_ACTOR, command });
+    const store = new MemoryStore();
+    // A world that opened its shop at 50% and sold a lantern before the share changed.
+    store.log.push(
+      town({ type: "new_day", day: utcDay(now) }),
+      town({ type: "open_economy" }),
+      town({ type: "open_items" }),
+      town({ type: "open_shop" }),
+      { actor: "ada", command: { type: "join", name: "Ada", kind: "human" } },
+      { actor: "ada", command: { type: "settle", px: 0, py: 0 } },
+      { actor: "ada", command: { type: "build_starter_home" } },
+      { actor: "ada", command: { type: "shop_buy", sku: "lantern" } },
+    );
+    const before = store.log.length;
+    const boot = () =>
+      new WorldService({
+        store,
+        config: CONFIG,
+        now: () => now,
+        days: true,
+        economy: true,
+        items: true,
+        shop: true,
+      });
+    const first = boot();
+    first.tick();
+    // Booting also logs `leave` for anyone left online; the town adds only the switch.
+    const byTown = (log: Input[]) => log.filter((i) => i.actor === TOWN_ACTOR);
+    expect(byTown(store.log.slice(before))).toEqual([
+      town({ type: "set_shop_share", percent: SHOP.treasuryShare }),
+    ]);
+    const booted = store.log.length;
+    const shopLines = (first.state.economy?.treasuryLedger ?? []).filter(
+      (l) => l.reason === "shop",
+    );
+    expect(shopLines.map((l) => l.amount)).toEqual([20]);
+    // A restart replays the log, switch included, and logs nothing more.
+    const second = boot();
+    second.tick();
+    expect(store.log).toHaveLength(booted);
+    expect(second.state.shop?.treasuryShare).toBe(SHOP.treasuryShare);
   });
 });

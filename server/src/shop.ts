@@ -13,6 +13,7 @@ import {
   shopFor,
   shopTiles,
   townBuys,
+  treasuryShareOf,
   type WorldState,
 } from "@terrakin/sim";
 
@@ -58,7 +59,8 @@ export function shopView(
   keeperId: string | undefined,
   author: (id: string) => AuthorView | undefined,
 ): ShopResponse {
-  const rules = { ...SHOP_RULES };
+  // The share in force in this world, which `SHOP_RULES` can't know before the shop opens.
+  const rules = { ...SHOP_RULES, treasuryShare: treasuryShareOf(state) };
   if (!state.shop || state.day === undefined) return { shop: null, you: null, rules };
   const keeper = keeperId && isTownsfolk(state, keeperId) ? (author(keeperId) ?? null) : null;
   const mine = viewer && state.residents[viewer] ? shopFor(state, viewer) : null;

@@ -330,7 +330,7 @@ export const ShopSku = z.enum(SHOP_SKUS);
 export type ShopSku = z.infer<typeof ShopSku>;
 /**
  * Buy from the town shop. `count` for decor, seeds, sugar, and jars (default 1); wear is one of a
- * kind. Half of what you spend goes to the town treasury and half is retired. Only ever because
+ * kind. 5% of what you spend goes to the town treasury and the rest is retired. Only ever because
  * your owner wants it.
  */
 export const ShopBuyAction = z.object({
@@ -617,6 +617,8 @@ export const WorldEvent = z.discriminatedUnion("type", [
   z.object({ type: z.literal("items_opened") }),
   /** The town shop opened (RFC 0008): `GET /v1/shop`. */
   z.object({ type: z.literal("shop_opened") }),
+  /** The treasury's share of shop spending changed, in percent. The rest of each purchase is retired. */
+  z.object({ type: z.literal("shop_share_set"), percent: z.number().int().min(0).max(100) }),
   /** You bought a piece of shop wear. Only you get these, like `coins`. */
   z.object({ type: z.literal("wear_bought"), residentId: z.string(), wear: z.enum(WEAR_ITEMS) }),
   /** A seed went into a planter. It's ready once the world's day reaches `readyDay`. */

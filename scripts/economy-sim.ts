@@ -51,6 +51,7 @@ const {
   RECIPES,
   SHOP,
   SHOP_CATALOG,
+  SHOP_SHARE_BEFORE,
   TOWN_ACTOR,
   tileKey,
   townBuys,
@@ -180,6 +181,11 @@ function simRules(): Rules {
       if (SHOP_OPEN) {
         must(TOWN_ACTOR, { type: "open_items" });
         must(TOWN_ACTOR, { type: "open_shop" });
+        // As the server does: log the share when it isn't the one the shop opened with (`--set`
+        // can change it, so compare as numbers).
+        if ((SHOP.treasuryShare as number) !== SHOP_SHARE_BEFORE) {
+          must(TOWN_ACTOR, { type: "set_shop_share", percent: SHOP.treasuryShare });
+        }
       }
     },
     newDay: (d) => must(TOWN_ACTOR, { type: "new_day", day: DAY0 + d }),

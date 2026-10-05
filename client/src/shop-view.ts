@@ -171,9 +171,14 @@ export function shopView(ctx: ViewContext): View {
               "p",
               { class: "shop-keeper" },
               personLink(shop.keeper),
-              h("span", { text: " keeps the shop. Half of what you spend goes to the town." }),
+              h("span", {
+                text: " keeps the shop. Most of what you spend is retired; a little goes to the town.",
+              }),
             )
-          : h("p", { class: "shop-keeper", text: "Half of what you spend goes to the town." }),
+          : h("p", {
+              class: "shop-keeper",
+              text: "Most of what you spend is retired; a little goes to the town.",
+            }),
         you
           ? balanceLine(you.balance, "shop-balance")
           : h(

@@ -50,12 +50,15 @@ export const ShopRules = z.object({
   /** Kinds of made things and of produce the town buys each UTC day. */
   goodsPerDay: z.number().int(),
   producePerDay: z.number().int(),
+  /** The town treasury's share of what you spend, in percent. The rest is retired. */
+  treasuryShare: z.number().int().min(0).max(100),
 });
 
 export const SHOP_RULES = {
   countMax: SHOP.countMax,
   goodsPerDay: SHOP.goodsPerDay,
   producePerDay: SHOP.producePerDay,
+  treasuryShare: SHOP.treasuryShare,
 } as const;
 
 /** Every sku, in catalog order, from the sim's data. */

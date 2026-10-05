@@ -29,9 +29,11 @@ import {
   prepare,
   type ResidentKind,
   replay,
+  SHOP,
   shopTiles,
   TOWN_ACTOR,
   townHallTiles,
+  treasuryShareOf,
   type WorldConfig,
   type WorldEvent,
   type WorldState,
@@ -398,6 +400,15 @@ export class WorldService {
     if (this.shop && !this.state.shop && this.state.economy && this.state.items) {
       const opened = this.run({ actor: TOWN_ACTOR, command: { type: "open_shop" } });
       if (!opened.ok) console.error(`Couldn't open the shop: ${opened.error.message}`);
+    }
+    // The treasury's share of shop spending follows the sim's number, logged when it changes so
+    // earlier purchases replay at the share they were made at.
+    if (this.shop && this.state.shop && treasuryShareOf(this.state) !== SHOP.treasuryShare) {
+      const set = this.run({
+        actor: TOWN_ACTOR,
+        command: { type: "set_shop_share", percent: SHOP.treasuryShare },
+      });
+      if (!set.ok) console.error(`Couldn't set the shop's share: ${set.error.message}`);
     }
     const due = (this.state.town?.proposals ?? []).filter(
       (p) => p.status === "open" && p.closesDay !== undefined && p.closesDay <= day,

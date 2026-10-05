@@ -43,7 +43,7 @@ The rules engine. If a rule decides what's allowed in the world, it lives here a
 - Nothing about the shop runs until `open_shop`, which needs coins and items open and creates `state.shop`. Until then old logs replay exactly; `src/fixtures/shop-log.ts` pins a log with the shop open, and `shop.test.ts` pins every price.
 - Decor (`DECOR_BLOCKS`: `lantern`, `frame`, `fence`, `bench`) is both a block kind and a stack kind. `place` takes one from the placer's things and `remove` gives it to whoever takes it up; free blocks touch nobody's things. A starter home is never built from decor.
 - Shop wear (`SHOP_WEAR` in `looks.ts`) is bought once into `shop.wardrobe` and kept. `join` and `profile` refuse shop wear the resident doesn't own (`not_owned`).
-- A purchase moves the price out of the purse, half (rounded down) into the treasury with a line that names nobody, and burns the rest. A sale to the town mints the price. The town buys only `townBuys(day)`, each kind up to its `perDay` per resident, counted in `shop.today` and reset at `new_day`.
+- A purchase moves the price out of the purse, the treasury's share (`treasuryShareOf`, rounded down) into the treasury with a line that names nobody, and burns the rest. The share is `shop.treasuryShare`, absent (50%) until the server logs `set_shop_share` to match `SHOP.treasuryShare` (5%), so purchases replay at the share they were made at. A sale to the town mints the price. The town buys only `townBuys(day)`, each kind up to its `perDay` per resident, counted in `shop.today` and reset at `new_day`.
 - Once the shop is open the pantry uses `ITEMS.shopPantry` and `ITEMS.shopStapleMax`. Read it through `pantryNumbers(state)`.
 - Townsfolk never shop (`not_eligible`).
 

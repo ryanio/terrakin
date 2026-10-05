@@ -168,6 +168,10 @@ describe("the catalog", () => {
     expect(Object.keys(SHOP_CATALOG).sort()).toEqual([...SHOP_SKUS].sort());
   });
 
+  it("sends 5% of shop spending to the treasury, as decision 0052 records", () => {
+    expect(SHOP.treasuryShare).toBe(5);
+  });
+
   it("has the prices decision 0052 records", () => {
     const prices = Object.fromEntries(SHOP_SKUS.map((s) => [s, SHOP_CATALOG[s].price]));
     expect(prices).toEqual({
@@ -274,6 +278,42 @@ describe("shop_buy", () => {
     w.ok("ada", { type: "shop_buy", sku: "sugar" }); // 3 coins: 1 to the treasury, 2 burned
     expect(w.state.economy?.treasury).toBe(treasury + 5);
     expect(w.state.economy?.burned).toBe(7);
+  });
+
+  it("switches to the share set_shop_share logs, leaving earlier purchases as they were", () => {
+    const w = shop();
+    fund(w.state, "ada", 200);
+    const econ = () => w.state.economy;
+    const treasury = econ()?.treasury ?? 0;
+    w.ok("ada", { type: "shop_buy", sku: "lantern" }); // 40 at the opening share: 20 and 20
+    expect(econ()?.treasury).toBe(treasury + 20);
+    expect(econ()?.burned).toBe(20);
+    expect(w.town({ type: "set_shop_share", percent: SHOP.treasuryShare })).toEqual([
+      { type: "shop_share_set", percent: SHOP.treasuryShare },
+    ]);
+    w.ok("ada", { type: "shop_buy", sku: "lantern" }); // 40 at 5%: 2 to the treasury, 38 burned
+    expect(econ()?.treasury).toBe(treasury + 22);
+    expect(econ()?.burned).toBe(58);
+    // Under 20 coins, 5% rounds down to nothing: all of it is burned, and no treasury line.
+    const events = w.ok("ada", { type: "shop_buy", sku: "fence", count: 3 });
+    expect(events.some((e) => e.type === "treasury")).toBe(false);
+    expect(econ()?.burned).toBe(67);
+  });
+
+  it("takes set_shop_share only from the server, once the shop is open, as a new whole percent", () => {
+    const w = world();
+    w.town({ type: "new_day", day: DAY });
+    expect(w.code(TOWN_ACTOR, { type: "set_shop_share", percent: 5 })).toBe("shop_closed");
+    w.town({ type: "open_economy" });
+    w.town({ type: "open_items" });
+    w.town({ type: "open_shop" });
+    expect(w.code("ada", { type: "set_shop_share", percent: 5 })).toBe("server_only");
+    expect(w.code(TOWN_ACTOR, { type: "set_shop_share", percent: 50 })).toBe("server_only");
+    for (const percent of [-1, 101, 2.5]) {
+      expect(w.code(TOWN_ACTOR, { type: "set_shop_share", percent })).toBe("server_only");
+    }
+    w.town({ type: "set_shop_share", percent: 0 });
+    expect(w.state.shop?.treasuryShare).toBe(0);
   });
 
   it("refuses what it can't sell, odd counts, and empty purses", () => {

@@ -21,7 +21,7 @@ tags: [sim, economy, numbers, protocol, server, client]
 
 **What the shop sells is new.** Four decor blocks (`lantern`, `frame`, `fence`, `bench`) are block kinds that also stack in your things: `place` uses one you hold, `remove` puts it back, and a starter home can't be built from them. Three pieces of wear (`top_hat`, `raincoat`, `umbrella`) are bought once and kept for good in `shop.wardrobe`; wearing one you don't own is refused. The free blocks and wear stay free. The shop also sells seeds, sugar, and jars. The catalog is data keyed by item kind and wear name (`SHOP_CATALOG` in `sim/src/shop.ts`).
 
-**Half of every purchase goes to the treasury and the rest is burned.** The treasury's half rounds down. Its ledger line says `shop` and never who bought, because purses are private and the treasury's history is public.
+**5% of every purchase goes to the treasury and the rest is burned.** The treasury's share rounds down, so a purchase under 20 coins is all burned. Its ledger line says `shop` and never who bought, because purses are private and the treasury's history is public. The shop opened at 50% and moved to 5% the same day, once the simulated treasury showed half was far more than it needs. The share is `SHOP.treasuryShare`; the server logs `set_shop_share` whenever the world's share differs, so the live log's first purchases replay at 50% and everything after at 5%.
 
 **The town buys a few kinds a day, one or three of each per resident.** `townBuys(day)` is a fixed rotation over the day number: three of the eight made things and one of the five crops each UTC day, every kind coming up within eight days. Everything else is refused as `not_buying`. What the town pays is minted, like the allowance. The day's whole offer is worth at most 17 coins to one resident, however big their garden.
 
@@ -76,7 +76,8 @@ Why these values:
 
 ## Consequences
 
-- The treasury now gains half of all shop spending. In the default run it ends the month near 11,300 instead of 3,000. That is room for RFC 0008 phase 5's grants and bounties; if they don't arrive soon, lowering `treasuryMint` is the lever, by a later decision with its own replay rule.
+- At 5% the treasury ends the default month at 3,367, against 11,409 at 50% and 2,690 with no shop, and supply per active resident is unchanged (335): the share only decides whether spent coins sit in the treasury or leave the world. At 600 residents the treasury runs near empty and welcome gifts wait for a `new_day` (355 waited in the month, 16 at its end), as decision 0039 found without the shop (358 and 36); at 50% none would have waited, which is the reason to raise the share if the town grows that fast. If grants and bounties (RFC 0008 phase 5) need more, raise the share with `set_shop_share` by a decision, not the mint.
+- Changing the share is a logged input, so it never changes how an earlier purchase replays. A new share is a change to `SHOP.treasuryShare` and a deploy.
 - The script's spending is a floor: simulated residents stop at a short wish list, real ones won't. If supply per active resident grows faster than the default run, lower a buy order's price or count first.
 - Changing `SHOP_CATALOG`, `BUY_ORDERS`, `SHOP`, or `townBuys` changes how a log with the shop replays, and `shop.test.ts` pins both the prices and the shop log's hash. Such a change needs a decision that says how old logs replay (for example, a new logged input that switches to the new numbers).
 - Selling to the town is a faucet with a fixed daily ceiling per resident, so it scales with active residents like the allowance. The market (phase 4) will price goods against the town's buy prices.

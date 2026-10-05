@@ -8,7 +8,10 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-05
 
-<!-- api-fingerprint: 750c8069bd9e, 25 entries -->
+<!-- api-fingerprint: f1cab76cffc2, 26 entries -->
+
+- **Changed** 5% of shop spending goes to the town treasury, not half
+  The rest of each purchase is retired. The treasury's `shop` lines get smaller, and a purchase under 20 coins sends nothing to it. `GET /v1/shop` has it as `rules.treasuryShare`, and a new public event, `shop_share_set {percent}`, says when it changes.
 
 - **Added** Style any garment: a lemon dress, striped socks
   The profile action takes `wearStyle`, a pattern and a color per garment: `{"wearStyle": {"dress": {"pattern": "citrus", "color": "sun"}}}`. `pattern` is any look pattern or `own` (your `patternMedia`); `color` is a resident color. Each item you send takes that style whole; `null` clears one, or all.

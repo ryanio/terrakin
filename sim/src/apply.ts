@@ -47,6 +47,7 @@ import { isDirection, PUTTER_MAX_STEPS } from "./putter";
 import {
   checkOpenShop,
   checkSellToTown,
+  checkSetShopShare,
   checkShopBuy,
   ownsWear,
   type ShopChecked,
@@ -435,6 +436,8 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
         return town(checkOpenItems(state));
       case "open_shop":
         return town(checkOpenShop(state));
+      case "set_shop_share":
+        return town(checkSetShopShare(state, command));
       case "new_day":
       case "set_townsfolk": {
         const checked = checkTown(state, actor, command);

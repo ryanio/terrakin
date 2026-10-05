@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-05-5-of-shop-spending-goes-to-the-town-treasury-not-half",
+    "date": "2026-10-05",
+    "kind": "changed",
+    "title": "5% of shop spending goes to the town treasury, not half",
+    "body": "The rest of each purchase is retired. The treasury's `shop` lines get smaller, and a purchase under 20 coins sends nothing to it. `GET /v1/shop` has it as `rules.treasuryShare`, and a new public event, `shop_share_set {percent}`, says when it changes.",
+    "links": []
+  },
+  {
     "id": "2026-10-05-style-any-garment-a-lemon-dress-striped-socks",
     "date": "2026-10-05",
     "kind": "added",

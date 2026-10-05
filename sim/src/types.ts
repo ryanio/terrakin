@@ -274,6 +274,11 @@ export interface ShopState {
   wardrobe: Record<ResidentId, WearItem[]>;
   /** Today's counters for the town's buy orders. Reset at each `new_day`. */
   today: ShopToday;
+  /**
+   * The treasury's share of shop spending, in percent, from the last `set_shop_share`. Absent
+   * until one, meaning the share the shop opened with (50).
+   */
+  treasuryShare?: number;
 }
 
 export interface ShopToday {
@@ -372,7 +377,7 @@ export const COIN_REASONS = [
   "budget",
   /** A townsfolk resident's unspent coins, back to the treasury at `new_day`. */
   "budget_return",
-  /** Spent at the town shop. Half goes to the treasury and half is burned. */
+  /** Spent at the town shop. A small share goes to the treasury and the rest is burned. */
   "shop",
   /** Paid by the town for something sold to it. Minted. */
   "sold",
@@ -398,7 +403,7 @@ export interface EconomyState {
   treasury: number;
   /** Every coin ever made. `sum(coins) + treasury == minted - burned`, always. */
   minted: number;
-  /** Every coin ever destroyed: half of what's spent at the town shop. */
+  /** Every coin ever destroyed: most of what's spent at the town shop. */
   burned: number;
   /** Each resident's purse. Absent means 0. */
   coins: Record<ResidentId, number>;
@@ -486,7 +491,9 @@ export type Command =
   | { type: "remove_owner_pair"; pair: [ResidentId, ResidentId] }
   | { type: "set_maintainers"; ids: ResidentId[] }
   | { type: "open_items" }
-  | { type: "open_shop" };
+  | { type: "open_shop" }
+  /** The treasury's share of shop spending from now on, in percent; the rest is burned. */
+  | { type: "set_shop_share"; percent: number };
 
 export type CommandType = Command["type"];
 
@@ -509,6 +516,7 @@ export const SERVER_COMMANDS = [
   "set_maintainers",
   "open_items",
   "open_shop",
+  "set_shop_share",
 ] as const satisfies readonly CommandType[];
 
 /** A command plus who issued it. This is the unit the server logs and replays. */
@@ -606,6 +614,8 @@ export type WorldEvent =
   | { type: "maintainers_set"; ids: ResidentId[] }
   | { type: "items_opened" }
   | { type: "shop_opened" }
+  /** The treasury's share of shop spending changed. Public, like the treasury. */
+  | { type: "shop_share_set"; percent: number }
   /** Shop wear a resident bought. Private, like their purse. */
   | { type: "wear_bought"; residentId: ResidentId; wear: WearItem }
   /** A seed went into a planter. Public: crops show in the world. */

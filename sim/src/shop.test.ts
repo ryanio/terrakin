@@ -10,7 +10,16 @@ import { PRE_ECONOMY_CONFIG, PRE_ECONOMY_HASH, PRE_ECONOMY_LOG } from "./fixture
 import { PRE_TOWN_CONFIG, PRE_TOWN_HASH, PRE_TOWN_LOG } from "./fixtures/pre-town-log";
 import { SHOP_CONFIG, SHOP_HASH, SHOP_LOG } from "./fixtures/shop-log";
 import { hashWorld } from "./hash";
-import { CROPS, GOOD_KINDS, ITEMS, inventorySize, isCrop, RECIPES, type StackKind } from "./items";
+import {
+  CROPS,
+  GOOD_KINDS,
+  ITEMS,
+  inventorySize,
+  isCrop,
+  RECIPES,
+  RESOURCE_KINDS,
+  type StackKind,
+} from "./items";
 import { SHOP_WEAR } from "./looks";
 import { replay } from "./replay";
 import {
@@ -489,6 +498,19 @@ describe("sell_to_town", () => {
     expect(w.code("ada", { type: "sell_to_town", item: notToday })).toBe("not_buying");
     expect(w.code("ada", { type: "sell_to_town", item: "fence" })).toBe("not_buying");
     expect(w.code("ada", { type: "sell_to_town", item: "nonsense" })).toBe("unknown_item");
+  });
+
+  it("never buys gathered wood or stone, so gathering mints no coins (decision 0063)", () => {
+    for (const kind of RESOURCE_KINDS) expect(Object.keys(BUY_ORDERS)).not.toContain(kind);
+    for (let d = DAY; d < DAY + 60; d++) {
+      for (const kind of RESOURCE_KINDS) expect(townBuys(d)).not.toContain(kind);
+    }
+    const w = shop();
+    stock(w.state, "ada", { wood: 3, stone: 3 });
+    const before = w.coins("ada");
+    expect(w.code("ada", { type: "sell_to_town", item: "wood" })).toBe("not_buying");
+    expect(w.code("ada", { type: "sell_to_town", item: "stone", count: 2 })).toBe("not_buying");
+    expect(w.coins("ada")).toBe(before);
   });
 
   it("buys up to each kind's daily count, then again after new_day", () => {

@@ -26,6 +26,7 @@ import {
   REJECTION_CODES,
   RESIDENT_COLORS,
   RESIDENT_SHAPES,
+  RESOURCE_KINDS,
   SHOP,
   SHOP_SKUS,
   STACK_KINDS,
@@ -731,6 +732,13 @@ export const WorldSnapshot = z.object({
    * none. `new_day` clears it: each tile grows one pickup back a day.
    */
   gathered: z.array(z.object({ x: z.number().int(), y: z.number().int() })).optional(),
+  /**
+   * The fallen branches and loose stones lying in the world today, ready to `gather`. Absent until
+   * growing, making, and gathering open.
+   */
+  pickups: z
+    .array(z.object({ x: z.number().int(), y: z.number().int(), kind: z.enum(RESOURCE_KINDS) }))
+    .optional(),
 });
 export type WorldSnapshot = z.infer<typeof WorldSnapshot>;
 
@@ -966,7 +974,7 @@ export const WorldEvent = z.discriminatedUnion("type", [
     type: z.literal("gathered"),
     x: z.number().int(),
     y: z.number().int(),
-    kind: z.enum(["wood", "stone"]),
+    kind: z.enum(RESOURCE_KINDS),
     by: z.string(),
   }),
   /** Someone gave someone a thing. Public, without the count or the note. */

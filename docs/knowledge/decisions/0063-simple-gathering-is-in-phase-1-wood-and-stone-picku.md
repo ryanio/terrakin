@@ -16,10 +16,12 @@ tags: [sim, protocol, server, client, agents]
 - **Gathering ships in Phase 1.** New action `gather {x, y}`: fallen branches (`wood`) in forests and loose stones (`stone`) on stone ground, within reach, into the gatherer's inventory.
 - **The spawn is a pure function of tile and day** (`gatherableAt` in `sim/src/gather.ts`), like `biomeAt`: every client draws the same sticks and stones, and the log never carries them. One pickup per tile per UTC day; `new_day` forgets yesterday's pickups.
 - **No coins move.** Wood and stone are `resource` stack kinds: they count toward the 200-thing cap, can be given and traded in the market, and neither cost nor mint coins. Picking up what the town buys is untouched: the town doesn't buy them.
+- **Biomes now have a gameplay effect** ([decision 0045](0045-biomes-are-a-pure-function-of-position-presentation-only.md) said they had none). Where pickups fall reads `biomeAt`, so a change to `biomeAt`, `BIOME_REGION`, the spawn hash, or `GATHER`'s chances changes which logged `gather`s replay. That change needs an RFC. `gather.test.ts` pins the spawn and a gather log's hash.
+- **Anyone can gather on any tile within reach, on any plot.** Unlike `harvest`, it needs no build rights: a pickup belongs to whoever gets there.
 - **RFC 0001's "Economy impact" now reads "no coins in Phase 1"** instead of "no coins or resources". Blocks stay free and unlimited.
 
 ## Consequences
 
-- `GET /v1/inventory`'s catalog gains `wood` and `stone`; `GET /v1/world` gains the day's picked-clean tiles (`gathered`), and there's a public `gathered {x, y, kind, by}` event plus a private `inventory` event with reason `gather`. New error code `nothing_to_gather`.
+- `GET /v1/inventory`'s catalog gains `wood` and `stone`; `GET /v1/world` gains the day's pickups (`pickups`) and picked-clean tiles (`gathered`), and there's a public `gathered {x, y, kind, by}` event plus a private `inventory` event with reason `gather`. New error code `nothing_to_gather`.
 - Old logs replay to the hash they always had: `items.gathered` is absent until the first `gather`, and `new_day` only prunes it when it's there.
 - Crafting recipes don't take wood or stone yet; that's a later phase's call.

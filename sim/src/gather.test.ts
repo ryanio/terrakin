@@ -70,12 +70,46 @@ function walkTo(w: ReturnType<typeof world>, kind: "wood" | "stone") {
 }
 
 describe("the spawn", () => {
-  it("is a pure function of the tile and the day", () => {
-    for (let y = 0; y < CONFIG.height; y++) {
-      for (let x = 0; x < CONFIG.width; x++) {
-        expect(gatherableAt(CONFIG, x, y, DAY)).toBe(gatherableAt(CONFIG, x, y, DAY));
+  it("is pinned: logged gathers replay only while the spawn stays the same", () => {
+    // Changing biomeAt, its regions, the hash, or GATHER's chances moves these, and a logged
+    // `gather` on a tile that no longer spawns stops replaying. That change needs an RFC.
+    const lying = (day: number) => {
+      const out: string[] = [];
+      for (let y = 0; y < CONFIG.height; y++) {
+        for (let x = 0; x < CONFIG.width; x++) {
+          const kind = gatherableAt(CONFIG, x, y, day);
+          if (kind) out.push(`${x},${y}:${kind}`);
+        }
       }
-    }
+      return out;
+    };
+    expect(lying(DAY)).toEqual([
+      "5,0:wood",
+      "21,4:wood",
+      "0,5:stone",
+      "7,5:stone",
+      "15,8:wood",
+      "15,9:wood",
+      "0,10:wood",
+      "2,10:wood",
+      "1,11:wood",
+      "4,15:wood",
+    ]);
+    expect(lying(DAY + 1)).toEqual([
+      "7,1:wood",
+      "2,6:stone",
+      "3,6:stone",
+      "7,6:stone",
+      "20,7:wood",
+      "3,10:wood",
+      "2,13:wood",
+      "0,14:wood",
+      "2,14:wood",
+      "5,14:wood",
+      "4,15:wood",
+      "3,17:wood",
+      "0,19:wood",
+    ]);
   });
 
   it("only falls in forests and on stone ground", () => {
@@ -200,13 +234,14 @@ describe("gather", () => {
     w.ok("ada", { type: "gather", x: t.x, y: t.y });
     expect(Object.keys(w.state.items?.gathered ?? {}).length).toBe(1);
     w.day(DAY + 1);
-    // Yesterday's pickup is forgotten, even if the tile has nothing today.
+    // Yesterday's pickup is forgotten, whether or not the tile has one today.
     expect(w.state.items?.gathered?.[`${t.x},${t.y}`]).toBeUndefined();
-    // And if the tile grew one back, it gathers again.
-    if (gatherableAt(CONFIG, t.x, t.y, DAY + 1) === "wood") {
-      w.ok("ada", { type: "gather", x: t.x, y: t.y });
-      expect(w.has("ada", "wood")).toBe(GATHER.perPickup * 2);
-    }
+    // On the next day a branch falls there again, it gathers again.
+    let again = DAY + 2;
+    while (gatherableAt(CONFIG, t.x, t.y, again) !== "wood") again++;
+    w.day(again);
+    w.ok("ada", { type: "gather", x: t.x, y: t.y });
+    expect(w.has("ada", "wood")).toBe(GATHER.perPickup * 2);
   });
 
   it("refuses when the inventory is full", () => {
@@ -231,6 +266,8 @@ describe("gather", () => {
     w.day(DAY + 1);
     const hash = hashWorld(w.state);
     expect(hashWorld(replay(CONFIG, w.log))).toBe(hash);
+    // Pinned, so a change to the spawn or to what a gather stores shows up here.
+    expect(hash).toBe("565a8ad8");
   });
 
   it("leaves resources in the catalog as stack kinds", () => {

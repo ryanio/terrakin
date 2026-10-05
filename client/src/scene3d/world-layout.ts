@@ -134,12 +134,13 @@ export function readChunk(
         homes.push({ x, y });
         parts.push(`${key}:hearth`);
       }
-      if (block || hearths.has(key)) continue;
+      // Same rule as the map and the sim: a pickup lies anywhere not built on, hearths too.
       const pickup = source.pickupAt(x, y);
       if (pickup) {
         pickups.push({ x, y, kind: pickup });
         parts.push(`${key}:${pickup}`);
       }
+      if (block || hearths.has(key)) continue;
       const scenery: Scenery | null = groundTile(source.config, x, y, inCommons).scenery;
       if (scenery?.kind === "tuft")
         tufts.push({ x: x + scenery.fx - 0.5, y: y + 0.2, turn: ((x * 7 + y * 13) % 63) / 10 });
@@ -180,7 +181,6 @@ export function chunkSignature(
       const block = source.blocks.get(key);
       if (block) parts.push(`${key}:${block}`);
       if (hearths.has(key)) parts.push(`${key}:hearth`);
-      if (block || hearths.has(key)) continue;
       const pickup = source.pickupAt(x, y);
       if (pickup) parts.push(`${key}:${pickup}`);
     }

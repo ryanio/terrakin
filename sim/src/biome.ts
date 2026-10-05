@@ -1,12 +1,14 @@
 import type { WorldConfig } from "./types";
 
 /**
- * The ground biomes. A biome is a pure function of position: it is never world state, never
- * enters the input log, and never affects replay. Same coordinates, same biome, on every client
- * and on every replay of every log.
+ * The ground biomes. A biome is a pure function of position: it is never world state and never
+ * enters the input log. Same coordinates, same biome, on every client and on every replay.
+ *
+ * Gathering reads it (decision 0063): branches fall in forests, stones on stone ground. So a
+ * change to the map changes which logged `gather`s replay, and needs an RFC.
  *
  * `config` is taken so a future world seed can key the map. Today the map is fixed by
- * coordinates alone, which keeps phase 1 honest: scenery that can't desync.
+ * coordinates alone.
  */
 export type Biome = "meadow" | "forest" | "stone" | "sand";
 

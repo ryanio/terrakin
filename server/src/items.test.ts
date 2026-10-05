@@ -187,6 +187,44 @@ describe("items", () => {
     );
   });
 
+  it("list today's pickups in the world, and the tiles picked clean", async () => {
+    const t = await start();
+    const before = (await t.call("GET", "/v1/world")).body;
+    expect(before.gathered).toBeUndefined();
+    const lying: Json[] = before.pickups;
+    expect(lying.length).toBeGreaterThan(0);
+    // A plot whose hearth, at (3, 3) inside it, has a pickup within reach outside the hut.
+    const S = CONFIG.plotSize;
+    const commons = before.commons as Json;
+    const reachable = (px: number, py: number) =>
+      lying.find((p) => {
+        const dx = Math.abs(p.x - (px * S + 3));
+        const dy = Math.abs(p.y - (py * S + 3));
+        const inHut =
+          p.x >= px * S + 1 && p.x <= px * S + 5 && p.y >= py * S + 1 && p.y <= py * S + 5;
+        return Math.max(dx, dy) <= CONFIG.reach && !inHut;
+      });
+    const plots = [0, 1, 2]
+      .flatMap((py) => [0, 1, 2].map((px) => ({ px, py })))
+      .filter((p) => !(p.px === commons.px && p.py === commons.py));
+    const home = plots.find((p) => reachable(p.px, p.py));
+    if (!home) throw new Error("no pickup within reach of any hearth today");
+    const target = reachable(home.px, home.py) as Json;
+    const ash = t.join("Ash");
+    await t.act(ash.token, { type: "settle", px: home.px, py: home.py });
+    await t.act(ash.token, { type: "build_starter_home" });
+    const built: Json[] = (await t.call("GET", "/v1/world")).body.pickups;
+    expect(built).toContainEqual(target);
+    const got = await t.act(ash.token, { type: "gather", x: target.x, y: target.y });
+    expect(got.ok).toBe(true);
+    const after = (await t.call("GET", "/v1/world")).body;
+    expect(after.gathered).toEqual([{ x: target.x, y: target.y }]);
+    expect(after.pickups).toEqual(built.filter((p) => p.x !== target.x || p.y !== target.y));
+    // A new day grows them back and forgets what was picked.
+    t.nextDay();
+    expect((await t.call("GET", "/v1/world")).body.gathered).toBeUndefined();
+  });
+
   it("filter labels, and mark them as someone's words", async () => {
     const t = await start();
     const ash = await t.gardener("Ash", 0, 0);

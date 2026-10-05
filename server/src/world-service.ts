@@ -29,9 +29,11 @@ import {
   ownerPaired,
   type ProfileFields,
   parseKey,
+  pickupLeft,
   planPutter,
   prepare,
   type ResidentKind,
+  type ResourceKind,
   replay,
   SHOP,
   shopTiles,
@@ -1445,6 +1447,19 @@ export class WorldService {
             }),
           }
         : {}),
+      ...(state.items && state.day !== undefined ? { pickups: pickupsToday(state) } : {}),
     };
   }
+}
+
+/** Every fallen branch and loose stone still lying in the world today, row by row. */
+function pickupsToday(state: WorldState): { x: number; y: number; kind: ResourceKind }[] {
+  const out: { x: number; y: number; kind: ResourceKind }[] = [];
+  for (let y = 0; y < state.config.height; y++) {
+    for (let x = 0; x < state.config.width; x++) {
+      const kind = pickupLeft(state, x, y);
+      if (kind) out.push({ x, y, kind });
+    }
+  }
+  return out;
 }

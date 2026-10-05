@@ -22991,6 +22991,36 @@
                 "y"
               ]
             }
+          },
+          "pickups": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "y": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "wood",
+                    "stone"
+                  ]
+                }
+              },
+              "required": [
+                "x",
+                "y",
+                "kind"
+              ]
+            }
           }
         },
         "required": [

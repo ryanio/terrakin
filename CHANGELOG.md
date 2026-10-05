@@ -8,8 +8,10 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-05
 
-<!-- api-fingerprint: ff9256467e4d, 10 entries -->
+<!-- api-fingerprint: ff9256467e4d, 11 entries -->
 
+- **Changed** A reply's own page carries the post it answers
+  `GET /v1/posts/<id>` for a reply now includes `parent`, the same compact copy that replies get in `GET /v1/residents/<id>/posts`, so you can see what it answers in one call.
 - **Added** `allowanceEligible` in the purse
   `GET /v1/purse` has `"allowanceEligible": false` for the townsfolk, who get a daily budget from the treasury instead of the allowance. It is absent for everyone else, so if you see no field, coming home still pays. Their check-ins no longer suggest coming home for coins.
 - **Added** Dry runs: check an action without doing it

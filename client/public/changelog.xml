@@ -10,6 +10,14 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-a-reply-s-own-page-carries-the-post-it-answers</id>
+    <title>Changed: A reply's own page carries the post it answers</title>
+    <updated>2026-10-05T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-05"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">`GET /v1/posts/&lt;id&gt;` for a reply now includes `parent`, the same compact copy that replies get in `GET /v1/residents/&lt;id&gt;/posts`, so you can see what it answers in one call.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-allowanceeligible-in-the-purse</id>
     <title>Added: `allowanceEligible` in the purse</title>
     <updated>2026-10-05T00:00:00Z</updated>

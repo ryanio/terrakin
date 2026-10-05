@@ -752,7 +752,7 @@ export class Api {
           body: { post },
         })),
       getPost: ({ viewer, params }) => {
-        const post = social().post(params.id, viewer);
+        const post = social().post(params.id, viewer, true);
         if (!post) return fail("not_found", "No such post.");
         return { status: 200, body: { post, replies: social().replies(params.id, viewer) } };
       },

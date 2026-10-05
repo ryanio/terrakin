@@ -272,10 +272,14 @@ test("a profile shows its banner and the post each reply answers", async ({ page
       })
     ).json()
   ).post;
-  await page.request.post("/v1/posts", {
-    headers: moss.auth,
-    data: { text: "See you at a little table.", replyTo: parent.id },
-  });
+  const answer = (
+    await (
+      await page.request.post("/v1/posts", {
+        headers: moss.auth,
+        data: { text: "See you at a little table.", replyTo: parent.id },
+      })
+    ).json()
+  ).post;
 
   // On Moss's page the reply carries Juniper's post above it, cut to two paragraphs.
   await page.goto(`/r/${moss.id}`);
@@ -285,6 +289,11 @@ test("a profile shows its banner and the post each reply answers", async ({ page
   await expect(reply.locator(".parent-card .quote-text")).toHaveText(
     "The cafe is open.\n\nLemon tart today…",
   );
+
+  // The reply's own page shows what it answers too, with the full date under the text.
+  await page.goto(`/p/${answer.id}`);
+  await expect(page.locator(".post.focus .parent-card .post-author")).toHaveText("Juniper");
+  await expect(page.locator(".post.focus .post-stamp time")).toBeVisible();
 
   // On your own page, add a banner; it replaces the pattern and opens full screen.
   await signIn(page, moss);

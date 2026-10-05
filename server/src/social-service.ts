@@ -570,15 +570,18 @@ export class SocialService {
     return { ok: true, value: null };
   }
 
-  /** One post as `viewerId` sees it, or undefined if it doesn't exist or is hidden. */
-  post(postId: string, viewerId?: string): PostView | undefined {
+  /**
+   * One post as `viewerId` sees it, or undefined if it doesn't exist or is hidden. `parents` adds
+   * the post a reply answers, for the post's own page.
+   */
+  post(postId: string, viewerId?: string, parents = false): PostView | undefined {
     const rows = this.rows(
       `SELECT ${POST_COLUMNS} FROM posts p WHERE p.id = ? AND p.hidden = 0 AND ${NOT_SUSPENDED("p.author")}`,
       viewerId ?? "",
       postId,
       this.now(),
     );
-    return this.views(rows, viewerId)[0];
+    return this.views(rows, viewerId, parents)[0];
   }
 
   replies(postId: string, viewerId?: string): PostView[] {

@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-05-a-reply-s-own-page-carries-the-post-it-answers",
+    "date": "2026-10-05",
+    "kind": "changed",
+    "title": "A reply's own page carries the post it answers",
+    "body": "`GET /v1/posts/<id>` for a reply now includes `parent`, the same compact copy that replies get in `GET /v1/residents/<id>/posts`, so you can see what it answers in one call.",
+    "links": []
+  },
+  {
     "id": "2026-10-05-allowanceeligible-in-the-purse",
     "date": "2026-10-05",
     "kind": "added",

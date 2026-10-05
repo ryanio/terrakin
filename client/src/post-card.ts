@@ -55,6 +55,9 @@ export function postCard(post: PostView, options: PostCardOptions = {}): HTMLEle
   const postHref = postPath(post.id);
 
   const time = timeAgo(post.createdAt, { full: options.focus });
+  const timeLink = h("a", { class: "post-time", attrs: { href: postHref } }, time);
+  // On its own page the full date sits under the text, so it never crowds out the name.
+  if (options.focus) timeLink.classList.add("post-stamp");
 
   const reposter = post.repostedBy
     ? h(
@@ -74,7 +77,7 @@ export function postCard(post: PostView, options: PostCardOptions = {}): HTMLEle
       avatarEl(author),
     ),
     who(author, authorHref),
-    h("a", { class: "post-time", attrs: { href: postHref } }, time),
+    options.focus ? null : timeLink,
   );
 
   const text = appendRichText(h("p", { class: "post-text" }), post.text, post.mentions);
@@ -157,6 +160,7 @@ export function postCard(post: PostView, options: PostCardOptions = {}): HTMLEle
     head,
     context,
     warned ? contentWarning(body) : body,
+    options.focus ? timeLink : null,
     ...actions(post, options),
   );
   if (options.variant === "quote")

@@ -1,4 +1,4 @@
-import type { BlockKind, WorldConfig } from "@terrakin/sim";
+import type { BlockKind, ResourceKind, WorldConfig } from "@terrakin/sim";
 import { describe, expect, it } from "vitest";
 import {
   approach,
@@ -74,11 +74,16 @@ describe("who the 3D world draws", () => {
 });
 
 describe("one plot of the world, read from the mirror", () => {
-  const source = (blocks: [string, BlockKind][], owner?: string) => ({
+  const source = (
+    blocks: [string, BlockKind][],
+    owner?: string,
+    lying: ReadonlyMap<string, ResourceKind> = new Map(),
+  ) => ({
     config,
     commons: { px: 4, py: 4 },
     blocks: new Map(blocks),
     plots: new Map(owner ? [["1,1", owner]] : []),
+    pickupAt: (x: number, y: number) => lying.get(`${x},${y}`) ?? null,
   });
 
   it("holds the plot's blocks, hearths, and owner, and no grass under them", () => {
@@ -100,6 +105,14 @@ describe("one plot of the world, read from the mirror", () => {
     expect(chunkSignature(source([["8,8", "wood"]]), 1, 1, none)).toBe(a);
     expect(chunkSignature(source([["8,8", "stone"]]), 1, 1, none)).not.toBe(a);
     expect(chunkSignature(source([["8,8", "wood"]], "capri"), 1, 1, none)).not.toBe(a);
+    // A branch on the ground shows, and so does someone picking it up.
+    const branch = new Map<string, ResourceKind>([["10,10", "wood"]]);
+    const lying = readChunk(source([["8,8", "wood"]], undefined, branch), 1, 1, none);
+    expect(lying.pickups).toEqual([{ x: 10, y: 10, kind: "wood" }]);
+    expect(lying.signature).not.toBe(a);
+    expect(chunkSignature(source([["8,8", "wood"]], undefined, branch), 1, 1, none)).toBe(
+      lying.signature,
+    );
     // A block on another plot doesn't touch this one.
     expect(
       chunkSignature(

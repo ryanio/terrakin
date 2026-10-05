@@ -92,9 +92,9 @@ export interface WorldServiceOptions {
    */
   economy?: boolean;
   /**
-   * Growing, making, and gathering (RFC 0005, phase 1 item 9): once the world counts days, append `open_items` if it never
-   * has. Both adapters turn this on. Off by default so a test world's log holds only what the
-   * test sent.
+   * Growing, making, and gathering (RFC 0005, phase 1 item 9): once the world counts days,
+   * append `open_items` if it never has. Both adapters turn this on. Off by default so a test
+   * world's log holds only what the test sent.
    */
   items?: boolean;
   /**
@@ -506,7 +506,7 @@ export class WorldService {
   listingRefusal: (residentId: string) => string | null = (id) =>
     listingRefusal(this.state, id, { ageDays: this.residentAgeDays(id), tier: "newcomer" });
 
-  /** Hears each admire as it happens, for karma (decision 0063): who admired whose work, and when. */
+  /** Hears each admire as it happens, for karma (decision 0059): who admired whose work, and when. */
   onAdmired: ((admirer: string, maker: string, day: number) => void) | undefined;
 
   /** Whether a resident is suspended, from the social layer. Their stall can't sell meanwhile. */
@@ -1402,6 +1402,7 @@ export class WorldService {
         ownerId: p.ownerId,
         ...(p.coOwners ? { coOwners: [...p.coOwners] } : {}),
         ...(p.claimedDay === undefined ? {} : { claimedDay: p.claimedDay }),
+        ...(p.gallery ? { gallery: true as const } : {}),
       })),
       blocks: Object.entries(state.blocks).map(([key, block]) => {
         const [x, y] = parseKey(key);

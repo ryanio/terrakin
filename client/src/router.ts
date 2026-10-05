@@ -1,7 +1,7 @@
 /**
  * A tiny History API router. `/` the feed, `/r/:id` a profile (also at `/u/handle`), `/r/:id/3d`
  * their plot in 3D, `/p/:id` a post, `/notifications`, `/purse` your coins, `/inventory` your things, `/letters` and `/letters/:id` your letters,
- * `/i/:code` an invite, `/town` the Town Hall, `/shop` the town shop, `/market` the market, `/bounties` bounties, `/claim/:code` where a person confirms an AI's
+ * `/i/:code` an invite, `/town` the Town Hall, `/shop` the town shop, `/market` the market, `/bounties` bounties, `/galleries` galleries, `/claim/:code` where a person confirms an AI's
  * invite, `/world` the canvas world, and `/gallery/3d`
  * the 3D gallery (not linked from anywhere public yet). Anything else is a friendly not-found
  * page. The server sends index.html for every deep link, so a reload lands on the same page.
@@ -27,6 +27,7 @@ export type Route =
   | { name: "shop" }
   | { name: "market" }
   | { name: "bounties" }
+  | { name: "galleries" }
   | { name: "not-found" };
 
 const ID = "([A-Za-z0-9_-]{1,64})";
@@ -57,6 +58,7 @@ const PATTERNS: [RegExp, (m: RegExpExecArray) => Route][] = [
   [/^\/shop$/, () => ({ name: "shop" })],
   [/^\/market$/, () => ({ name: "market" })],
   [/^\/bounties$/, () => ({ name: "bounties" })],
+  [/^\/galleries$/, () => ({ name: "galleries" })],
 ];
 
 /** Which page a path is. Trailing slashes are ignored. Pure, so tests pin it. */
@@ -97,6 +99,8 @@ export function routeTemplate(route: Route): string {
       return "/market";
     case "bounties":
       return "/bounties";
+    case "galleries":
+      return "/galleries";
     case "claim":
       return "/claim/:code";
     case "notifications":

@@ -46,6 +46,7 @@ Token "optional" means it works without one, and with one the answer includes yo
 | `GET` | `/v1/shop` | optional | The town shop: what it sells, what the town buys today and for how much, and who keeps it. |  |
 | `GET` | `/v1/market` | optional | The market: what residents have up for sale, and for how much. |  |
 | `GET` | `/v1/bounties` | optional | Bounties: jobs residents and the town pay coins for, who is on them, and who was paid. |  |
+| `GET` | `/v1/galleries` | no | Galleries: plots their residents opened as galleries, and what's on display in each. |  |
 
 ### Social
 

@@ -8,6 +8,7 @@ import {
   type Direction,
   groundTile,
   type Resident,
+  type ResourceKind,
   type Scenery,
   tileKey,
   type WorldConfig,
@@ -89,6 +90,8 @@ export interface PlotChunk {
   /** Grass tufts and flowers on open ground, from the same palette the 2D map draws with. */
   tufts: { x: number; y: number; turn: number }[];
   flowers: { x: number; y: number; warm: boolean }[];
+  /** Today's fallen branches and loose stones still lying there, from the sim's own spawn. */
+  pickups: { x: number; y: number; kind: ResourceKind }[];
   /** Equal for two reads exactly when what's drawn is the same. */
   signature: string;
 }
@@ -99,6 +102,8 @@ export interface ChunkSource {
   commons: { px: number; py: number };
   blocks: ReadonlyMap<string, BlockKind>;
   plots: ReadonlyMap<string, string>;
+  /** What lies on a tile to pick up today (`Mirror.pickupAt`). */
+  pickupAt(x: number, y: number): ResourceKind | null;
 }
 
 /** Read one plot from the mirror. `hearths` holds every resident's hearth tile key. */
@@ -115,6 +120,7 @@ export function readChunk(
   const homes: Tile[] = [];
   const tufts: PlotChunk["tufts"] = [];
   const flowers: PlotChunk["flowers"] = [];
+  const pickups: PlotChunk["pickups"] = [];
   const parts: string[] = [owner ?? ""];
   for (let y = bounds.y0; y <= bounds.y1; y++) {
     for (let x = bounds.x0; x <= bounds.x1; x++) {
@@ -129,6 +135,11 @@ export function readChunk(
         parts.push(`${key}:hearth`);
       }
       if (block || hearths.has(key)) continue;
+      const pickup = source.pickupAt(x, y);
+      if (pickup) {
+        pickups.push({ x, y, kind: pickup });
+        parts.push(`${key}:${pickup}`);
+      }
       const scenery: Scenery | null = groundTile(source.config, x, y, inCommons).scenery;
       if (scenery?.kind === "tuft")
         tufts.push({ x: x + scenery.fx - 0.5, y: y + 0.2, turn: ((x * 7 + y * 13) % 63) / 10 });
@@ -149,6 +160,7 @@ export function readChunk(
     hearths: homes,
     tufts,
     flowers,
+    pickups,
     signature: parts.join("|"),
   };
 }
@@ -168,6 +180,9 @@ export function chunkSignature(
       const block = source.blocks.get(key);
       if (block) parts.push(`${key}:${block}`);
       if (hearths.has(key)) parts.push(`${key}:hearth`);
+      if (block || hearths.has(key)) continue;
+      const pickup = source.pickupAt(x, y);
+      if (pickup) parts.push(`${key}:${pickup}`);
     }
   }
   return parts.join("|");

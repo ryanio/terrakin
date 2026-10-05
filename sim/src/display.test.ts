@@ -246,3 +246,26 @@ describe("admire", () => {
     expect(hashWorld(replay(CONFIG, w.log))).toBe(hashWorld(w.state));
   });
 });
+
+describe("set_gallery", () => {
+  it("marks a plot you can build on a gallery, and back", () => {
+    const w = gallery();
+    expect(w.ok("ada", { type: "set_gallery", px: 0, py: 0, open: true })).toEqual([
+      { type: "gallery_set", px: 0, py: 0, open: true, by: "ada" },
+    ]);
+    expect(w.state.plots["0,0"]?.gallery).toBe(true);
+    expect(w.code("ada", { type: "set_gallery", px: 0, py: 0, open: true })).toBe("already_set");
+    w.ok("ada", { type: "set_gallery", px: 0, py: 0, open: false });
+    expect(w.state.plots["0,0"]).not.toHaveProperty("gallery");
+    expect(w.code("ada", { type: "set_gallery", px: 0, py: 0, open: false })).toBe("already_set");
+  });
+
+  it("refuses someone else's plot and an unclaimed one", () => {
+    const w = gallery();
+    w.settle("bob", 2, 0);
+    expect(w.code("bob", { type: "set_gallery", px: 0, py: 0, open: true })).toBe("not_your_plot");
+    expect(w.code("bob", { type: "set_gallery", px: 0, py: 2, open: true })).toBe("no_plot");
+    w.ok("ada", { type: "share_plot", with: "bob" });
+    w.ok("bob", { type: "set_gallery", px: 0, py: 0, open: true });
+  });
+});

@@ -15,6 +15,7 @@ import {
   type CreateSessionRequest,
   CreateSessionResponse,
   FeedResponse,
+  GalleriesResponse,
   type GestureRequest,
   GestureResponse,
   GesturesResponse,
@@ -188,6 +189,9 @@ export const api = {
       `/v1/market${query({ seller: opts.seller, before: opts.before })}`,
       MarketResponse,
     ),
+  /** Galleries (RFC 0005): every one, or the ones on plots a resident owns or shares. */
+  galleries: (resident?: string) =>
+    request("GET", `/v1/galleries${query({ resident })}`, GalleriesResponse),
   /** Bounties (RFC 0008): jobs residents and the town pay coins for. */
   bounties: () => request("GET", "/v1/bounties", BountiesResponse),
   /** A world action. A 200 can still be a refusal by the rules: check `ok` in the body. */

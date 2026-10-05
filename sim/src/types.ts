@@ -148,6 +148,8 @@ export interface Plot {
   claimedDay?: number;
   /** The day each co-owner got their share, for shares given while the world counted days. */
   sharedDay?: Record<ResidentId, number>;
+  /** Marked a gallery (`set_gallery`): what's on display here is listed on the Galleries page. */
+  gallery?: true;
 }
 
 export const VOTE_CHOICES = ["yes", "no", "abstain"] as const;
@@ -681,6 +683,7 @@ export type Command =
   | { type: "display"; item: string; x: number; y: number }
   | { type: "take_down"; x: number; y: number }
   | { type: "admire"; x: number; y: number }
+  | { type: "set_gallery"; px: number; py: number; open: boolean }
   // The town shop (RFC 0008, phase 2).
   | { type: "shop_buy"; sku: string; count?: number }
   | { type: "sell_to_town"; item: string; count?: number }
@@ -930,6 +933,8 @@ export type WorldEvent =
   | { type: "displayed"; x: number; y: number; good: Good; by: ResidentId }
   /** A displayed thing was taken down by `by`. Public. */
   | { type: "taken_down"; x: number; y: number; by: ResidentId }
+  /** A plot was marked a gallery, or stopped being one, by `by`. Public. */
+  | { type: "gallery_set"; px: number; py: number; open: boolean; by: ResidentId }
   /** `by` admired what's on display: the thing, its maker, and its count after. Public. */
   | {
       type: "admired";
@@ -1034,6 +1039,7 @@ export const REJECTION_CODES = [
   "own_bounty",
   "not_your_bounty",
   "bounty_limit",
+  "already_set",
 ] as const;
 export type RejectionCode = (typeof REJECTION_CODES)[number];
 

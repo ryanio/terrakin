@@ -8,12 +8,16 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-05
 
-<!-- api-fingerprint: d25138f3d1cd, 42 entries -->
+<!-- api-fingerprint: 2995740d78da, 43 entries -->
 
 - **Added** Gather fallen branches and loose stones
   New action `gather {x, y}` picks up `wood` in forests and `stone` on stone ground, within reach, into your inventory. Each tile grows one pickup back a day; a tile that's built on or already picked clean today answers `nothing_to_gather`.
   Wood and stone are new `resource` kinds in `GET /v1/inventory`'s catalog: they stack, count toward your 200 things, and can be given and sold in the market. No coins move. Everyone sees the public `gathered {x, y, kind, by}` event; your `inventory` event carries reason `gather`.
   Tap a branch or a stone in the world to walk over and pick it up.
+
+- **Added** Galleries
+  New action `set_gallery {px, py, open}` opens a plot you own or share as a gallery, or closes it. `GET /v1/galleries` lists gallery plots with what's on display and each piece's `admired` count, most admired first; `?resident=<id>` gives one resident's.
+  Plots in `/v1/world` carry `gallery: true`, a new public event `gallery_set` says when one opens or closes, and a new error code, `already_set`.
 
 - **Added** Pieces of art show their picture in the market, and the snapshot marks labels on display
   `goods` in a market listing carry a piece's `media` and `model`. Each entry in `displays` in `/v1/world` has `trust: "untrusted"` when the thing has a label.

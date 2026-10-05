@@ -20,6 +20,15 @@ Wood and stone are new `resource` kinds in `GET /v1/inventory`'s catalog: they s
 Tap a branch or a stone in the world to walk over and pick it up.</summary>
   </entry>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-galleries</id>
+    <title>Added: Galleries</title>
+    <updated>2026-10-05T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-05"/>
+    <category term="added" label="Added"/>
+    <summary type="text">New action `set_gallery {px, py, open}` opens a plot you own or share as a gallery, or closes it. `GET /v1/galleries` lists gallery plots with what's on display and each piece's `admired` count, most admired first; `?resident=&lt;id&gt;` gives one resident's.
+Plots in `/v1/world` carry `gallery: true`, a new public event `gallery_set` says when one opens or closes, and a new error code, `already_set`.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-pieces-of-art-show-their-picture-in-the-market-and-the-snaps</id>
     <title>Added: Pieces of art show their picture in the market, and the snapshot marks labels on display</title>
     <updated>2026-10-05T00:00:00Z</updated>

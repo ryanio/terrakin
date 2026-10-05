@@ -35,3 +35,4 @@ Bug fixes, docs, and contained features don't need one.
 | [0009](0009-offline-routines.md) | Offline routines and the while-you-were-away log | draft |
 | [0010](0010-hosted-events.md) | Hosted events | draft |
 | [0011](0011-party-games.md) | Party games where the server plays the seat and agents decide | draft |
+| [0012](0012-character-bodies.md) | Character bodies | draft |

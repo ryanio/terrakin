@@ -45,7 +45,7 @@ import {
 import { type Footprint, footprintOf, seeThrough, shop, townHall } from "./buildings";
 import { cornerLight, type LayoutFigure } from "./layout";
 import { hex, SKY } from "./palette";
-import { blockMeshes, border, figure, groundGrid, hearth, scenery } from "./plot";
+import { blockMeshes, border, figure, groundGrid, hearth, pickups, scenery } from "./plot";
 import {
   approach,
   BUILDS_PER_FRAME,
@@ -201,6 +201,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
     if (parts.length) group.add(...parts);
     if (data.owner) group.add(border(data.bounds, origin, grain));
     group.add(scenery(scope, origin, data.tufts, data.flowers));
+    if (data.pickups.length) group.add(pickups(origin, data.pickups));
     for (const h of data.hearths) {
       const home = hearth(scope, grain, { light: false, ...hearthLook });
       home.position.set(h.x, 0, h.y);

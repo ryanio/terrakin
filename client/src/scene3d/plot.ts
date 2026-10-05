@@ -6,7 +6,7 @@
  * when they have one, stands on the plot too.
  */
 
-import { BLOCK_KINDS, DECOR_KINDS, isDecorKind } from "@terrakin/sim";
+import { BLOCK_KINDS, DECOR_KINDS, isDecorKind, type ResourceKind } from "@terrakin/sim";
 import { isModelResource } from "@terrakin/ui/format";
 import {
   Box3,
@@ -14,6 +14,7 @@ import {
   type BufferGeometry,
   type Color,
   CylinderGeometry,
+  DodecahedronGeometry,
   Group,
   IcosahedronGeometry,
   InstancedMesh,
@@ -521,6 +522,55 @@ export function scenery(
       mesh.setColorAt(i, lin(f.warm ? BRAND.sun : 0xfff4d6));
     });
     group.add(mesh);
+  }
+  return group;
+}
+
+// ---------- fallen branches and loose stones ----------
+
+/**
+ * Today's pickups lying on the ground (phase 1 gathering): a fallen branch as two crossed sticks,
+ * a loose stone as a low pebble, in the wood and stone block colors. Each kind is one instanced
+ * draw, turned by tile so neighbors don't look stamped.
+ */
+export function pickups(
+  origin: { x: number; y: number },
+  items: readonly { x: number; y: number; kind: ResourceKind }[],
+): Group {
+  const group = new Group();
+  const m = new Matrix4();
+  const q = new Quaternion();
+  const up = new Vector3(0, 1, 0);
+  const one = new Vector3(1, 1, 1);
+  const place = (mesh: InstancedMesh, list: typeof items) => {
+    list.forEach((p, i) => {
+      q.setFromAxisAngle(up, ((p.x * 7 + p.y * 13) % 63) / 10);
+      m.compose(new Vector3(p.x - origin.x, 0, p.y - origin.y + 0.05), q, one);
+      mesh.setMatrixAt(i, m);
+    });
+    group.add(mesh);
+  };
+  const wood = items.filter((p) => p.kind === "wood");
+  if (wood.length) {
+    const sticks = [0.5, -0.6].map((turn, i) => {
+      const g = new CylinderGeometry(0.025, 0.03, 0.42 - i * 0.08, 5);
+      g.rotateZ(Math.PI / 2);
+      g.rotateY(turn);
+      g.translate(0, 0.03 + i * 0.03, 0);
+      return g.toNonIndexed();
+    });
+    const geo = bakeShade(mergeGeometries(sticks), 0.7, 1);
+    for (const g of sticks) g.dispose();
+    const mat = new MeshLambertMaterial({ color: blockLook("wood").color, vertexColors: true });
+    place(new InstancedMesh(geo, mat, wood.length), wood);
+  }
+  const stone = items.filter((p) => p.kind === "stone");
+  if (stone.length) {
+    const geo = new DodecahedronGeometry(0.14, 0);
+    geo.scale(1.1, 0.6, 0.9);
+    geo.translate(0, 0.07, 0);
+    const mat = new MeshLambertMaterial({ color: blockLook("stone").color, flatShading: true });
+    place(new InstancedMesh(geo, mat, stone.length), stone);
   }
   return group;
 }

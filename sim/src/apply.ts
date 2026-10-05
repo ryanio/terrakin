@@ -16,6 +16,7 @@ import {
   checkAdmire,
   checkDisplay,
   checkMakePiece,
+  checkSetGallery,
   checkTakeDown,
   displayRemoveProblem,
 } from "./display";
@@ -1004,6 +1005,8 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
       return town(checkTakeDown(state, actor, command));
     case "admire":
       return town(checkAdmire(state, actor, command));
+    case "set_gallery":
+      return town(checkSetGallery(state, actor, command));
 
     case "shop_buy":
       return town(checkShopBuy(state, actor, command));

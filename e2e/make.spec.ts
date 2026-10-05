@@ -1,5 +1,5 @@
 import { type APIRequestContext, expect, type Page, test } from "@playwright/test";
-import { act, freePlots, join, settler, signIn, tinyPng, watchErrors } from "./support";
+import { act, freePlots, join, settler, signIn, tapTile, tinyPng, watchErrors } from "./support";
 
 /**
  * Growing, making, and giving (RFC 0005) on a phone: a resident taps a planter in the world and
@@ -11,27 +11,6 @@ import { act, freePlots, join, settler, signIn, tinyPng, watchErrors } from "./s
 async function inventory(request: APIRequestContext, token: string) {
   const res = await request.get("/v1/inventory", { headers: { authorization: `Bearer ${token}` } });
   return (await res.json()).inventory;
-}
-
-/** The camera eases toward you; wait enough frames for it to land before tapping tiles. */
-async function settleCamera(page: Page) {
-  await page.evaluate(
-    () =>
-      new Promise<void>((done) => {
-        let frames = 40;
-        const tick = () => (--frames <= 0 ? done() : requestAnimationFrame(tick));
-        requestAnimationFrame(tick);
-      }),
-  );
-}
-
-/** Tap the tile `dx`, `dy` from where you stand (the middle of the screen). */
-async function tapTile(page: Page, dx: number, dy: number) {
-  const vp = page.viewportSize();
-  if (!vp) throw new Error("no viewport");
-  const scale = Math.max(16, Math.floor(Math.min(vp.width, vp.height) / 13));
-  await settleCamera(page);
-  await page.mouse.click(vp.width / 2 + dx * scale, vp.height / 2 + dy * scale);
 }
 
 test("grow herbs, make tea, and give it to a friend", async ({ page }) => {
@@ -205,6 +184,13 @@ test("make a piece of art and put it on a pedestal", async ({ page }) => {
     );
   await page.screenshot({ path: "test-results/show-displayed.png" });
 
+  // From the same sheet, Iris opens her plot as a gallery.
+  await tapTile(page, -1, -1);
+  await sheet.locator("#display-gallery").click();
+  await expect
+    .poll(async () => (await world()).plots)
+    .toContainEqual(expect.objectContaining({ ownerId: iris.id, gallery: true }));
+
   // A neighbor admires it from wherever they are. Tapping it again shows it large, with its
   // maker and how often it was admired, and lets Iris take it down. She can't admire her own.
   const juno = await join(page.request, "Juno");
@@ -216,7 +202,14 @@ test("make a piece of art and put it on a pedestal", async ({ page }) => {
   await expect(sheet.locator("#display-admire")).toHaveCount(0);
   await page.screenshot({ path: "test-results/show-sheet.png" });
   await sheet.getByRole("button", { name: "Take down" }).click();
-  await expect.poll(async () => (await world()).displays).toBeUndefined();
+  // Other specs share the world, so look for this pedestal only.
+  await expect
+    .poll(async () =>
+      ((await world()).displays ?? []).filter(
+        (d: { x: number; y: number }) => d.x === me.x - 1 && d.y === me.y - 1,
+      ),
+    )
+    .toEqual([]);
   expect((await inventory(page.request, iris.token)).goods).toContainEqual(
     expect.objectContaining({ id: piece.id }),
   );

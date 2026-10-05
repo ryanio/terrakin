@@ -1,12 +1,14 @@
 import {
   type AuthorView,
   type GardenView,
+  type GoodView,
   type InventoryResponse,
   ITEM_CATALOG,
   ITEM_RULES,
 } from "@terrakin/protocol";
 import {
   canBuildOn,
+  type Good,
   inventoryOf,
   isReady,
   lastDeclineDay,
@@ -42,6 +44,23 @@ export function gardenOf(state: WorldState, viewer: string): GardenView[] {
   return out.sort((a, b) => a.readyDay - b.readyDay || a.y - b.y || a.x - b.x);
 }
 
+/** A made thing as the API shows it, with its maker's name. Its label is untrusted text. */
+export function goodView(g: Good, author: Authors): GoodView {
+  const maker = author(g.maker);
+  return {
+    id: g.id,
+    kind: g.kind,
+    ...(maker ? { maker } : {}),
+    makerId: g.maker,
+    madeDay: g.madeDay,
+    ...(g.label === undefined ? {} : { label: g.label }),
+    ...(g.media === undefined ? {} : { media: g.media }),
+    ...(g.model ? { model: true as const } : {}),
+    ...(g.admired ? { admired: g.admired } : {}),
+    trust: "untrusted",
+  };
+}
+
 /** `GET /v1/inventory`: the viewer's own things, their garden, the rules, and the catalog. */
 export function inventoryView(
   state: WorldState,
@@ -58,21 +77,7 @@ export function inventoryView(
     inventory: {
       day: state.day ?? 0,
       stacks: read.stacks,
-      goods: read.goods.map((g) => {
-        const maker = author(g.maker);
-        return {
-          id: g.id,
-          kind: g.kind,
-          ...(maker ? { maker } : {}),
-          makerId: g.maker,
-          madeDay: g.madeDay,
-          ...(g.label === undefined ? {} : { label: g.label }),
-          ...(g.media === undefined ? {} : { media: g.media }),
-          ...(g.model ? { model: true as const } : {}),
-          ...(g.admired ? { admired: g.admired } : {}),
-          trust: "untrusted" as const,
-        };
-      }),
+      goods: read.goods.map((g) => goodView(g, author)),
       size: read.size,
       pantryToday: read.pantryToday,
       hasHearth: state.residents[viewer]?.hearth != null,

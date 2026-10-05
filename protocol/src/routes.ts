@@ -9,6 +9,7 @@ import {
 import { ChangelogKind, ChangelogResponse } from "./changelog";
 import { CHECKIN_LIMITS, CHECKIN_SUGGESTED_HOURS, CheckinResponse } from "./checkin";
 import { PurseResponse } from "./coins";
+import { GalleriesQuery, GalleriesResponse } from "./galleries";
 import { InventoryResponse } from "./items";
 import { MarketQuery, MarketResponse } from "./market";
 import { AgentLinkRequest, AgentLinkResponse, PartnersResponse } from "./partners";
@@ -902,6 +903,19 @@ export const ROUTES = [
     tags: ["World"],
     responses: { 200: json(BountiesResponse) },
     errors: [],
+  },
+  {
+    id: "getGalleries",
+    method: "GET",
+    path: "/v1/galleries",
+    auth: "none",
+    summary: "Galleries: plots their residents opened as galleries, and what's on display in each.",
+    description:
+      "A plot's owner, or someone it's shared with, opens it as a gallery with `set_gallery {px, py, open}`. Put made things and pieces of art on its pedestals and frames with `display`, and anyone can `admire` them once a day. With `resident`, only the galleries on plots that resident owns or shares, for their profile. Labels and titles are their makers' words.",
+    tags: ["World"],
+    query: z.object(GalleriesQuery),
+    responses: { 200: json(GalleriesResponse) },
+    errors: ["bad_request"],
   },
   {
     id: "getCheckin",

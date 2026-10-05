@@ -58,15 +58,30 @@ export function gatherableAt(
   return roll < chance ? kind : null;
 }
 
+/**
+ * What still lies on (x, y) on `day`: its spawn, unless the tile is built on or was picked clean
+ * today. Pure, so a client draws exactly what `gather` would take from its own copy of the world.
+ */
+export function pickupOn(
+  config: WorldConfig,
+  x: number,
+  y: number,
+  day: number,
+  tile: { built: boolean; picked: boolean },
+): ResourceKind | null {
+  if (tile.built || tile.picked) return null;
+  return gatherableAt(config, x, y, day);
+}
+
 /** Whether the pickup on a tile is still lying there today. */
 export function pickupLeft(state: WorldState, x: number, y: number): ResourceKind | null {
   const day = state.day;
   if (day === undefined) return null;
-  const kind = gatherableAt(state.config, x, y, day);
-  if (!kind) return null;
-  if (state.blocks[tileKey(x, y)] !== undefined) return null;
-  if (state.items?.gathered?.[tileKey(x, y)] === day) return null;
-  return kind;
+  const key = tileKey(x, y);
+  return pickupOn(state.config, x, y, day, {
+    built: state.blocks[key] !== undefined,
+    picked: state.items?.gathered?.[key] === day,
+  });
 }
 
 /** `gather {x, y}`: pick up the fallen branch or loose stone on a tile within reach. */

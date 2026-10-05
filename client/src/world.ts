@@ -15,10 +15,8 @@ import {
   canBuildOn,
   type DecorKind,
   type Direction,
-  gatherableAt,
   ITEM_INFO,
   isDecorKind,
-  tileKey,
 } from "@terrakin/sim";
 import { REDUCED_MOTION } from "@terrakin/ui/motion";
 import { plot3dPath } from "@terrakin/ui/paths";
@@ -414,12 +412,16 @@ function openStation(x: number, y: number) {
   const ownerName = ownerId ? m.residents.get(ownerId)?.name : undefined;
   if (here === "pedestal" || here === "frame") {
     const shown = m.displays.get(`${x},${y}`);
+    const { plotSize } = m.config;
+    const px = Math.floor(x / plotSize);
+    const py = Math.floor(y / plotSize);
     void import("./display-sheet").then((d) =>
       d.openDisplaySheet({
         block: here,
         x,
         y,
         ...(shown ? { shown } : {}),
+        plot: { px, py, gallery: m.galleries.has(`${px},${py}`) },
         yours,
         me,
         nameOf: (id) => m.residents.get(id)?.name,
@@ -482,16 +484,9 @@ function tapTile(tile: { x: number; y: number }) {
     return;
   }
   // A fallen branch or a loose stone: tap to pick it up (phase 1 gathering). One farther off is
-  // somewhere to walk to: you stop once it's in reach, since walking onto it only bumps, and it
-  // picks up then. The sim has the last word; its `nothing_to_gather` says it went already.
-  const key = tileKey(tile.x, tile.y);
-  const pickup =
-    !other &&
-    !here &&
-    mirror.day !== undefined &&
-    !mirror.gathered.has(key) &&
-    gatherableAt(mirror.config, tile.x, tile.y, mirror.day) !== null;
-  if (pickup) {
+  // somewhere to walk to: you stop once it's in reach and pick it up then. The sim has the last
+  // word; its `nothing_to_gather` says someone got there first.
+  if (!other && mirror.pickupAt(tile.x, tile.y)) {
     if (inReach(r, tile)) tryAct({ type: "gather", x: tile.x, y: tile.y });
     else walkTarget = { ...tile, pickup: true };
     return;

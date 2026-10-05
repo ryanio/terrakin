@@ -31,7 +31,7 @@ export {
   treasuryOf,
 } from "./economy";
 export * from "./entitlements";
-export { checkGather, GATHER, gatherableAt, pickupLeft } from "./gather";
+export { checkGather, GATHER, gatherableAt, pickupLeft, pickupOn } from "./gather";
 export { canonicalJson, fnv1a, hashWorld } from "./hash";
 export {
   CROP_INFO,

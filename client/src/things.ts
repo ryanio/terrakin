@@ -190,6 +190,11 @@ export function newsLine(event: WorldEvent, me: string): string | null {
       return event.residentId === me ? coinsLine(event) : null;
     case "inventory":
       return event.residentId === me ? inventoryLine(event) : null;
+    case "gallery_set":
+      if (event.by !== me) return null;
+      return event.open
+        ? "Your plot is a gallery now. See it on the Galleries page."
+        : "Your plot isn't a gallery anymore.";
     case "admired":
       if (event.by === me) return "You admired it. Its maker will be glad.";
       return event.maker === me ? "Someone admired something you made." : null;

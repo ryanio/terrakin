@@ -511,6 +511,37 @@ describe("pieces on display", () => {
       ok: false,
       error: { code: "not_eligible" },
     });
+    // Ash opens his plot as a gallery, and it's listed with what's on display and its admires.
+    expect((await t.call("GET", "/v1/galleries")).body.galleries).toEqual([]);
+    const opened = await t.act(ash.token, { type: "set_gallery", px: 0, py: 0, open: true });
+    expect(opened.events).toEqual([{ type: "gallery_set", px: 0, py: 0, open: true, by: ash.id }]);
+    expect(
+      await t.act(wren.token, { type: "set_gallery", px: 0, py: 0, open: false }),
+    ).toMatchObject({ ok: false, error: { code: "not_your_plot" } });
+    const listed = (await t.call("GET", "/v1/galleries")).body.galleries;
+    expect(listed).toEqual([
+      {
+        px: 0,
+        py: 0,
+        owner: expect.objectContaining({ id: ash.id }),
+        coOwners: [],
+        pieces: [
+          expect.objectContaining({
+            ...at,
+            good: expect.objectContaining({ id: piece.id, media: art.id, admired: 1 }),
+            by: expect.objectContaining({ id: ash.id }),
+          }),
+        ],
+        admired: 1,
+      },
+    ]);
+    expect((await t.call("GET", `/v1/galleries?resident=${ash.id}`)).body.galleries).toHaveLength(
+      1,
+    );
+    expect((await t.call("GET", `/v1/galleries?resident=${wren.id}`)).body.galleries).toEqual([]);
+    expect((await t.call("GET", "/v1/world")).body.plots).toContainEqual(
+      expect.objectContaining({ px: 0, py: 0, gallery: true }),
+    );
     const karma = async () =>
       (await t.call("GET", `/v1/residents/${ash.id}`)).body.resident.karma.score;
     expect(await karma()).toBe(0);

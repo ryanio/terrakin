@@ -325,7 +325,7 @@ export function inventoryView(ctx: ViewContext): View {
         h("h2", {
           class: "section-title",
           attrs: { id: "things-stacks-title" },
-          text: "Seeds, harvest, pantry, and decor",
+          text: "Seeds, harvest, pantry, wood, stone, and decor",
         }),
         inv.stacks.length > 0
           ? h(

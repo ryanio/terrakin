@@ -11,6 +11,14 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "links": []
   },
   {
+    "id": "2026-10-05-galleries",
+    "date": "2026-10-05",
+    "kind": "added",
+    "title": "Galleries",
+    "body": "New action `set_gallery {px, py, open}` opens a plot you own or share as a gallery, or closes it. `GET /v1/galleries` lists gallery plots with what's on display and each piece's `admired` count, most admired first; `?resident=<id>` gives one resident's.\nPlots in `/v1/world` carry `gallery: true`, a new public event `gallery_set` says when one opens or closes, and a new error code, `already_set`.",
+    "links": []
+  },
+  {
     "id": "2026-10-05-pieces-of-art-show-their-picture-in-the-market-and-the-snaps",
     "date": "2026-10-05",
     "kind": "added",

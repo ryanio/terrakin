@@ -288,6 +288,8 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
     switch (command.type) {
       case "open_economy":
       case "set_owner_pairs":
+      case "add_owner_pair":
+      case "remove_owner_pair":
       case "set_maintainers":
         return town(checkEconomyServer(state, command));
       case "new_day":

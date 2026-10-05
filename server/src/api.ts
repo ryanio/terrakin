@@ -372,7 +372,10 @@ export class Api {
     const layer = options.social;
     if (layer) {
       this.service.blockedEither = (a, b) => layer.blockedEither(a, b);
-      layer.onOwnerLinks = (pairs) => this.service.syncOwnerPairs(pairs);
+      layer.onOwnerLink = (change, agentId, ownerId) =>
+        change === "link"
+          ? this.service.addOwnerPair(agentId, ownerId)
+          : this.service.removeOwnerPair(agentId, ownerId);
       this.service.syncOwnerPairs(layer.ownerPairs());
     }
     this.ipUploadBytesPerDay = options.ipUploadBytesPerDay ?? 500_000_000;

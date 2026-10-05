@@ -17,6 +17,7 @@ import {
   type Input,
   LOOK_MEDIA_KEYS,
   type LookMediaKey,
+  ownerPaired,
   type ProfileFields,
   parseKey,
   prepare,
@@ -84,7 +85,14 @@ export interface WorldServiceOptions {
 function toWire(events: WorldEvent[], townsfolk: readonly string[] = []): WireEvent[] {
   const out: WireEvent[] = [];
   for (const e of events) {
-    if (e.type === "owner_pairs_set" || e.type === "maintainers_set") continue;
+    if (
+      e.type === "owner_pairs_set" ||
+      e.type === "owner_pair_added" ||
+      e.type === "owner_pair_removed" ||
+      e.type === "maintainers_set"
+    ) {
+      continue;
+    }
     out.push(e.type === "coins" && e.note ? { ...e, trust: "untrusted" } : e);
     if (
       e.type === "coins" &&
@@ -253,8 +261,10 @@ export class WorldService {
   }
 
   /**
-   * Log the owner-linked pairs when they changed (decision 0031), so gifts between a person and
-   * their AI skip the daily caps. The social service calls this on boot and on every link change.
+   * Log the whole owner-linked pair list when it differs from the world's (decision 0031), so
+   * gifts between a person and their AI skip the daily caps. `Api` calls this once at boot, to
+   * catch up on any change the log missed; each link and unlink after that logs just its own pair
+   * with `addOwnerPair` and `removeOwnerPair` (decision 0042).
    */
   syncOwnerPairs(links: readonly [string, string][]) {
     const pairs = links
@@ -263,6 +273,23 @@ export class WorldService {
     const key = (list: readonly (readonly string[])[]) => list.map((p) => p.join("+")).join(",");
     if (key(pairs) === key(this.state.ownerPairs ?? [])) return;
     this.run({ actor: TOWN_ACTOR, command: { type: "set_owner_pairs", pairs } });
+  }
+
+  /** Log one new owner pair. Nothing is logged when the world already has it. */
+  addOwnerPair(a: string, b: string) {
+    if (a === b || ownerPaired(this.state, a, b)) return;
+    const done = this.run({ actor: TOWN_ACTOR, command: { type: "add_owner_pair", pair: [a, b] } });
+    if (!done.ok) console.error(`Couldn't add an owner pair: ${done.error.message}`);
+  }
+
+  /** Log one owner pair ending. Nothing is logged when the world doesn't have it. */
+  removeOwnerPair(a: string, b: string) {
+    if (!ownerPaired(this.state, a, b)) return;
+    const done = this.run({
+      actor: TOWN_ACTOR,
+      command: { type: "remove_owner_pair", pair: [a, b] },
+    });
+    if (!done.ok) console.error(`Couldn't remove an owner pair: ${done.error.message}`);
   }
 
   /** Whether two residents block each other, from the social layer. Gifts can't cross a block. */

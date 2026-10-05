@@ -220,10 +220,47 @@ function insertSorted(list: ResidentId[], id: ResidentId) {
 
 type EconomyServerCommand = Extract<
   Command,
-  { type: "open_economy" | "set_owner_pairs" | "set_maintainers" }
+  {
+    type:
+      | "open_economy"
+      | "set_owner_pairs"
+      | "add_owner_pair"
+      | "remove_owner_pair"
+      | "set_maintainers";
+  }
 >;
 
-/** `open_economy`, `set_owner_pairs`, and `set_maintainers`, which only TOWN_ACTOR sends. */
+/** Two different, non-empty ids. */
+const isPair = (p: unknown): p is [ResidentId, ResidentId] =>
+  Array.isArray(p) &&
+  p.length === 2 &&
+  p.every((id) => typeof id === "string" && id !== "") &&
+  p[0] !== p[1];
+
+const sortPair = (a: ResidentId, b: ResidentId): [ResidentId, ResidentId] =>
+  a < b ? [a, b] : [b, a];
+
+const order = (x: string, y: string) => (x < y ? -1 : x > y ? 1 : 0);
+const comparePairs = (p: [ResidentId, ResidentId], q: [ResidentId, ResidentId]) =>
+  order(p[0], q[0]) || order(p[1], q[1]);
+
+/**
+ * The day a pair new in this input is stamped with: today, except before coins open or before
+ * the world counts days. Those links predate the wait-a-day rule, so they count from day 0.
+ */
+const pairStamp = (state: WorldState) =>
+  state.economy === undefined || state.day === undefined ? 0 : state.day;
+
+/** A copy of the pair days to change in a check, so nothing is touched until commit. */
+function copyPairDays(state: WorldState): Record<ResidentId, Record<ResidentId, number>> {
+  const days: Record<ResidentId, Record<ResidentId, number>> = {};
+  for (const [a, inner] of Object.entries(state.ownerPairDays ?? {})) days[a] = { ...inner };
+  return days;
+}
+
+/**
+ * `open_economy`, the owner-pair commands, and `set_maintainers`, which only TOWN_ACTOR sends.
+ */
 export function checkEconomyServer(
   state: WorldState,
   command: EconomyServerCommand,
@@ -258,32 +295,20 @@ export function checkEconomyServer(
     }
 
     case "set_owner_pairs": {
-      const valid =
-        Array.isArray(command.pairs) &&
-        command.pairs.every(
-          (p) =>
-            Array.isArray(p) &&
-            p.length === 2 &&
-            p.every((id) => typeof id === "string" && id !== "") &&
-            p[0] !== p[1],
-        );
+      const valid = Array.isArray(command.pairs) && command.pairs.every(isPair);
       if (!valid) {
         return refuse("server_only", "Owner pairs are a list of pairs of two different ids.");
       }
       const byKey = new Map<string, [ResidentId, ResidentId]>();
       for (const [a, b] of command.pairs) {
-        const pair: [ResidentId, ResidentId] = a < b ? [a, b] : [b, a];
+        const pair = sortPair(a, b);
         byKey.set(JSON.stringify(pair), pair);
       }
-      const order = (x: string, y: string) => (x < y ? -1 : x > y ? 1 : 0);
-      const pairs = [...byKey.values()].sort((p, q) => order(p[0], q[0]) || order(p[1], q[1]));
-      // A pair keeps the day it first appeared. A new one is stamped today, except before coins
-      // open or before the world counts days: those links predate this rule, so day 0.
-      const first = state.economy === undefined;
+      const pairs = [...byKey.values()].sort(comparePairs);
+      // A pair keeps the day it first appeared. A new one is stamped with `pairStamp`.
       const days: Record<ResidentId, Record<ResidentId, number>> = {};
       for (const [a, b] of pairs) {
-        const kept = state.ownerPairDays?.[a]?.[b];
-        const since = kept ?? (first || state.day === undefined ? 0 : state.day);
+        const since = state.ownerPairDays?.[a]?.[b] ?? pairStamp(state);
         days[a] = { ...days[a], [b]: since };
       }
       return () => {
@@ -291,6 +316,49 @@ export function checkEconomyServer(
         else delete state.ownerPairs;
         state.ownerPairDays = days;
         return [{ type: "owner_pairs_set", pairs: pairs.map(([a, b]) => [a, b]) }];
+      };
+    }
+
+    // One pair at a time, so each link or unlink logs one small input. They leave the world
+    // exactly as `set_owner_pairs` with the whole new list would, day stamps included.
+    case "add_owner_pair": {
+      if (!isPair(command.pair)) {
+        return refuse("server_only", "An owner pair is two different ids.");
+      }
+      const [a, b] = sortPair(command.pair[0], command.pair[1]);
+      if (ownerPaired(state, a, b)) {
+        return refuse("server_only", "Those two are already an owner pair.");
+      }
+      const pairs = [...(state.ownerPairs ?? []), [a, b] as [ResidentId, ResidentId]].sort(
+        comparePairs,
+      );
+      const days = copyPairDays(state);
+      days[a] = { ...days[a], [b]: pairStamp(state) };
+      return () => {
+        state.ownerPairs = pairs;
+        state.ownerPairDays = days;
+        return [{ type: "owner_pair_added", pair: [a, b] }];
+      };
+    }
+
+    case "remove_owner_pair": {
+      if (!isPair(command.pair)) {
+        return refuse("server_only", "An owner pair is two different ids.");
+      }
+      const [a, b] = sortPair(command.pair[0], command.pair[1]);
+      if (!ownerPaired(state, a, b)) {
+        return refuse("server_only", "Those two aren't an owner pair.");
+      }
+      const pairs = (state.ownerPairs ?? []).filter(([p, q]) => p !== a || q !== b);
+      // Unlinking forgets the day, so linking again starts the wait over.
+      const days = copyPairDays(state);
+      delete days[a]?.[b];
+      if (Object.keys(days[a] ?? {}).length === 0) delete days[a];
+      return () => {
+        if (pairs.length > 0) state.ownerPairs = pairs;
+        else delete state.ownerPairs;
+        state.ownerPairDays = days;
+        return [{ type: "owner_pair_removed", pair: [a, b] }];
       };
     }
 

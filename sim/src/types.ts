@@ -188,14 +188,15 @@ export interface WorldState {
   /** The Town Hall (RFC 0004). Absent until the first proposal. */
   town?: TownState;
   /**
-   * Owner-linked pairs (a person and their AI, decision 0031), from `set_owner_pairs`. Each pair
-   * is sorted and the list is sorted. Absent until set, and when empty.
+   * Owner-linked pairs (a person and their AI, decision 0031), from `set_owner_pairs`,
+   * `add_owner_pair`, and `remove_owner_pair`. Each pair is sorted and the list is sorted. Absent
+   * until set, and when empty.
    */
   ownerPairs?: [ResidentId, ResidentId][];
   /**
    * The day each current owner pair first appeared, as `[a][b]` with `a < b`. A pair skips the
    * gift caps only from the day after. Pairs from the first `set_owner_pairs`, or set before the
-   * world counted days, are day 0. Present (maybe empty) once `set_owner_pairs` has run.
+   * world counted days, are day 0. Present (maybe empty) once any owner-pair command has run.
    */
   ownerPairDays?: Record<ResidentId, Record<ResidentId, number>>;
   /** Maintainers, from `set_maintainers`. Sorted. Absent until set, and when empty. */
@@ -316,6 +317,9 @@ export type Command =
   | { type: "void_proposal"; proposal: string; by: ResidentId }
   | { type: "open_economy" }
   | { type: "set_owner_pairs"; pairs: [ResidentId, ResidentId][] }
+  /** One owner pair linked or unlinked, so the log grows by one pair per change, not the list. */
+  | { type: "add_owner_pair"; pair: [ResidentId, ResidentId] }
+  | { type: "remove_owner_pair"; pair: [ResidentId, ResidentId] }
   | { type: "set_maintainers"; ids: ResidentId[] };
 
 export type CommandType = Command["type"];
@@ -334,6 +338,8 @@ export const SERVER_COMMANDS = [
   "void_proposal",
   "open_economy",
   "set_owner_pairs",
+  "add_owner_pair",
+  "remove_owner_pair",
   "set_maintainers",
 ] as const satisfies readonly CommandType[];
 
@@ -427,6 +433,8 @@ export type WorldEvent =
       residentId?: ResidentId;
     }
   | { type: "owner_pairs_set"; pairs: [ResidentId, ResidentId][] }
+  | { type: "owner_pair_added"; pair: [ResidentId, ResidentId] }
+  | { type: "owner_pair_removed"; pair: [ResidentId, ResidentId] }
   | { type: "maintainers_set"; ids: ResidentId[] };
 
 export const REJECTION_CODES = [

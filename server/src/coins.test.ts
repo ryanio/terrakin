@@ -1,6 +1,6 @@
 import type { AddressInfo } from "node:net";
 import type { ServerMessage } from "@terrakin/protocol";
-import { ECONOMY, type WorldConfig } from "@terrakin/sim";
+import { ECONOMY, TOWN_ACTOR, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
 import { MemoryMediaStore } from "./media";
@@ -35,8 +35,9 @@ type Json = Record<string, any>;
 
 async function start(economy = true) {
   let now = Date.UTC(2026, 9, 5, 9);
+  const store = new MemoryStore();
   const service = new WorldService({
-    store: new MemoryStore(),
+    store,
     config: CONFIG,
     now: () => now,
     days: true,
@@ -96,7 +97,7 @@ async function start(economy = true) {
     service.tick();
   };
 
-  return { call, join, act, purse, listen, nextDay, service };
+  return { call, join, act, purse, listen, nextDay, service, store };
 }
 
 describe("coins", () => {
@@ -270,6 +271,42 @@ describe("coins", () => {
     expect(after.coins.allowanceToday).toBe(true);
     expect(after.coins.today[0]).toMatchObject({ reason: "allowance" });
     expect(after.todo.join("\n")).not.toContain("Come home");
+  });
+
+  it("log one small input per link and unlink, not the whole list of pairs", async () => {
+    const t = await start();
+    const link = async (human: { token: string }, agent: { token: string }) => {
+      const claim = (await t.call("POST", "/v1/owner/claims", undefined, human.token)).body;
+      const accepted = await t.call("POST", "/v1/owner/accept", { code: claim.code }, agent.token);
+      expect(accepted.status).toBe(200);
+    };
+    const ryan = t.join("Ryan", "human");
+    const juno = t.join("Juno", "human");
+    const pell = t.join("Pell", "human");
+    const wren = t.join("Wren");
+    const moss = t.join("Moss");
+    const fern = t.join("Fern");
+    await link(ryan, wren);
+    await link(juno, moss);
+    const before = t.store.loadLog().length;
+    const others = t.listen(wren.id);
+
+    await link(pell, fern);
+    expect(t.store.loadLog().slice(before)).toEqual([
+      { actor: TOWN_ACTOR, command: { type: "add_owner_pair", pair: [fern.id, pell.id] } },
+    ]);
+    expect(t.service.state.ownerPairs).toHaveLength(3);
+
+    await t.call("DELETE", `/v1/owner/link/${moss.id}`, undefined, juno.token);
+    expect(t.store.loadLog().slice(before + 1)).toEqual([
+      { actor: TOWN_ACTOR, command: { type: "remove_owner_pair", pair: [moss.id, juno.id] } },
+    ]);
+    expect(t.service.state.ownerPairs).toEqual(
+      [[wren.id, ryan.id].sort(), [fern.id, pell.id].sort()].sort(),
+    );
+    // The pairs stay on the server: everyone else sees only that the seq moved.
+    const seen = others.flatMap((m) => (m.type === "event" ? [m.event] : []));
+    expect(seen).toEqual([{ type: "quiet" }, { type: "quiet" }]);
   });
 
   it("append nothing when the server boots again over a world that has them", async () => {

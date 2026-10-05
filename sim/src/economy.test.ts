@@ -894,6 +894,152 @@ describe("set_owner_pairs and set_maintainers", () => {
   });
 });
 
+describe("add_owner_pair and remove_owner_pair", () => {
+  const add = (a: string, b: string): Command => ({ type: "add_owner_pair", pair: [a, b] });
+  const remove = (a: string, b: string): Command => ({ type: "remove_owner_pair", pair: [a, b] });
+
+  it("only come from the server, and change one pair with an event naming it", () => {
+    const w = world();
+    w.join("ada");
+    expect(w.code("ada", add("ada", "bob"))).toBe("server_only");
+    expect(w.code("ada", remove("ada", "bob"))).toBe("server_only");
+    expect(w.ok(TOWN_ACTOR, add("r_b", "r_a"))).toEqual([
+      { type: "owner_pair_added", pair: ["r_a", "r_b"] },
+    ]);
+    w.ok(TOWN_ACTOR, add("r_d", "r_c"));
+    w.ok(TOWN_ACTOR, add("r_a", "r_c"));
+    expect(w.state.ownerPairs).toEqual([
+      ["r_a", "r_b"],
+      ["r_a", "r_c"],
+      ["r_c", "r_d"],
+    ]);
+    expect(w.ok(TOWN_ACTOR, remove("r_b", "r_a"))).toEqual([
+      { type: "owner_pair_removed", pair: ["r_a", "r_b"] },
+    ]);
+    expect(w.state.ownerPairs).toEqual([
+      ["r_a", "r_c"],
+      ["r_c", "r_d"],
+    ]);
+    w.ok(TOWN_ACTOR, remove("r_a", "r_c"));
+    w.ok(TOWN_ACTOR, remove("r_c", "r_d"));
+    expect(w.state.ownerPairs).toBeUndefined();
+    expect(w.state.ownerPairDays).toEqual({});
+    expect(w.state.economy).toBeUndefined();
+  });
+
+  it("refuse a malformed pair, a pair that's already linked, and one that isn't", () => {
+    const w = world();
+    for (const pair of [["r_a", "r_a"], ["r_a"], ["r_a", "r_b", "r_c"], ["r_a", ""], "r_a", null]) {
+      for (const type of ["add_owner_pair", "remove_owner_pair"]) {
+        const bad = { type, pair } as unknown as Command;
+        expect(w.code(TOWN_ACTOR, bad)).toBe("server_only");
+      }
+    }
+    w.ok(TOWN_ACTOR, add("r_a", "r_b"));
+    expect(w.code(TOWN_ACTOR, add("r_b", "r_a"))).toBe("server_only");
+    expect(w.messages.at(-1)).toBe("Those two are already an owner pair.");
+    expect(w.code(TOWN_ACTOR, remove("r_a", "r_c"))).toBe("server_only");
+    expect(w.messages.at(-1)).toBe("Those two aren't an owner pair.");
+  });
+
+  it("stamp a new pair with today once coins are open, and day 0 before", () => {
+    const w = world();
+    w.ok(TOWN_ACTOR, add("ada", "bob"));
+    w.day(DAY);
+    w.ok(TOWN_ACTOR, add("ada", "cy"));
+    expect(w.state.ownerPairDays).toEqual({ ada: { bob: 0, cy: 0 } });
+    w.open();
+    w.day(DAY + 4);
+    w.ok(TOWN_ACTOR, add("dee", "cy"));
+    expect(w.state.ownerPairDays).toEqual({ ada: { bob: 0, cy: 0 }, cy: { dee: DAY + 4 } });
+    // Unlinking forgets the day, so linking again starts the wait over.
+    w.ok(TOWN_ACTOR, remove("bob", "ada"));
+    w.day(DAY + 5);
+    w.ok(TOWN_ACTOR, add("ada", "bob"));
+    expect(w.state.ownerPairDays).toEqual({
+      ada: { bob: DAY + 5, cy: 0 },
+      cy: { dee: DAY + 4 },
+    });
+  });
+
+  it("let a pair skip the gift caps only from the day after it's added", () => {
+    const w = opened();
+    w.settle("ada", 0);
+    w.settle("bob", 1);
+    w.day(DAY + 1);
+    fund(w.state, "ada", 2_000);
+    w.ok(TOWN_ACTOR, add("bob", "ada"));
+    expect(w.giveCode("ada", "bob", ECONOMY.giveCap + 1)).toBe("gift_limit");
+    w.day(DAY + 2);
+    expect(w.giveCode("ada", "bob", ECONOMY.giveCap + 1)).toBeNull();
+    w.ok(TOWN_ACTOR, remove("ada", "bob"));
+    expect(w.giveCode("ada", "bob", ECONOMY.giveCap + 1)).toBe("gift_limit");
+  });
+
+  it("leave the world as set_owner_pairs with the same list would, and replay", () => {
+    // The same links made one at a time, and as whole lists, across the opening of coins.
+    const steps: [Command, Command][] = [
+      [add("ada", "bob"), { type: "set_owner_pairs", pairs: [["ada", "bob"]] }],
+      [
+        { type: "new_day", day: DAY },
+        { type: "new_day", day: DAY },
+      ],
+      [{ type: "open_economy" }, { type: "open_economy" }],
+      [
+        add("cy", "ada"),
+        {
+          type: "set_owner_pairs",
+          pairs: [
+            ["ada", "bob"],
+            ["ada", "cy"],
+          ],
+        },
+      ],
+      [
+        { type: "new_day", day: DAY + 1 },
+        { type: "new_day", day: DAY + 1 },
+      ],
+      [remove("ada", "bob"), { type: "set_owner_pairs", pairs: [["ada", "cy"]] }],
+      [
+        add("bob", "ada"),
+        {
+          type: "set_owner_pairs",
+          pairs: [
+            ["ada", "bob"],
+            ["ada", "cy"],
+          ],
+        },
+      ],
+      [remove("ada", "cy"), { type: "set_owner_pairs", pairs: [["ada", "bob"]] }],
+      [remove("ada", "bob"), { type: "set_owner_pairs", pairs: [] }],
+      [add("dee", "eve"), { type: "set_owner_pairs", pairs: [["dee", "eve"]] }],
+    ];
+    const deltas = world();
+    const lists = world();
+    for (const [delta, list] of steps) {
+      deltas.ok(TOWN_ACTOR, delta);
+      lists.ok(TOWN_ACTOR, list);
+      expect(deltas.state.ownerPairs).toEqual(lists.state.ownerPairs);
+      expect(deltas.state.ownerPairDays).toEqual(lists.state.ownerPairDays);
+      expect(hashWorld(deltas.state)).toBe(hashWorld(lists.state));
+    }
+    expect(hashWorld(replay(CONFIG, deltas.log))).toBe(hashWorld(deltas.state));
+  });
+
+  it("change nothing until commit", () => {
+    const w = opened();
+    w.ok(TOWN_ACTOR, add("ada", "bob"));
+    for (const command of [add("ada", "cy"), remove("ada", "bob")]) {
+      const before = hashWorld(w.state);
+      const prepared = prepare(w.state, { actor: TOWN_ACTOR, command });
+      expect(prepared.ok).toBe(true);
+      expect(hashWorld(w.state)).toBe(before);
+      if (prepared.ok) prepared.commit();
+      expect(hashWorld(w.state)).not.toBe(before);
+    }
+  });
+});
+
 describe("ledgers", () => {
   it("keep the last 50 lines for each resident and for the treasury", () => {
     const w = opened();

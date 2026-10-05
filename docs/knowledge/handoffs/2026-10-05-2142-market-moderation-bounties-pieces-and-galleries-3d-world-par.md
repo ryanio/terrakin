@@ -46,10 +46,11 @@ Follows [Open follow-ups after karma, the market, 3D wear, and deploy on green](
 - Staff takedowns send the owner a notice from Terrakin naming the rule (`acd9e5c`, decision 0064).
 - MUSEGOD runs no promo until it agrees to one (`ab6a2c5`, decision 0061).
 - Kept as built: a maintainer confirms town bounties and releases grants; the first partner designs; muse art as avatar only when there's none; admiring from anywhere, karma only; the 3D toggle hidden on low-end phones; the shop's facing left alone. Check the grant cap against the treasury before a big grant.
+- Pillar and Elder praise counts 3, like reactions (`7bac79f`, decision 0055).
+- A cheapest-order market page whose cursor sold keeps answering `bad_request`. If the market passes 200 listings, make the cursor price plus id so it never fails.
+- `MARKET_LISTING.tier` goes to `neighbor` on a trigger, not a date: about 25 active Neighbors, or the market's first real abuse case, whichever comes first.
 
 ## Open questions
 
 - Who approves a new partner (Ryan for now; the bar is a takedown contact and an art license, to write into RFC 0007 when a second partner asks).
-- Karma: should Pillar and Elder praise weigh 3, like reactions? It stays 2.
-- Market: a cheapest-order page whose cursor sold answers `bad_request`. Start over instead?
-- From before: when `MARKET_LISTING.tier` goes to `neighbor`; RFCs 0009 to 0011 and ryanio/terrakin#40.
+- From before: RFCs 0009 to 0011 and ryanio/terrakin#40.

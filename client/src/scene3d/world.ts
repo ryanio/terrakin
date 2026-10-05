@@ -59,6 +59,7 @@ import {
 import {
   approach,
   BUILDS_PER_FRAME,
+  cameraQuarter,
   chunkSignature,
   faceAngle,
   figuresAround,
@@ -69,6 +70,7 @@ import {
   KEEP_SLACK,
   nearbyLabel,
   plotsAround,
+  type Quarter,
   readChunk,
   type Tile,
   tileAtPoint,
@@ -94,6 +96,8 @@ export interface World3dFrame {
 export interface World3d {
   /** Bring the scene up to date with the mirror. Called every frame by the world loop. */
   sync(frame: World3dFrame): void;
+  /** Which way is away from the camera, snapped to a direction: what "up" on the d-pad means. */
+  heading(): Quarter;
   dispose(): void;
 }
 
@@ -609,6 +613,13 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       if (mine) follow(mine.group.position);
       placeReach(mirror, self, buildMode);
       if (moved || changed || walked || buildMode) stage.invalidate();
+    },
+    heading() {
+      if (!started) return 0;
+      return cameraQuarter(
+        camera.position.x - controls.target.x,
+        camera.position.z - controls.target.z,
+      );
     },
     dispose() {
       canvas.removeEventListener("webglcontextlost", onLost);

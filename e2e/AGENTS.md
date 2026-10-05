@@ -20,7 +20,7 @@ Playwright tests that drive the real production build on an iPhone 13 viewport. 
 | `duo.spec.ts` | Invite, join, follow, a gesture, and a private letter; a visitor joining and following from a profile; a sent invite link never offered twice; Back after accepting; a used invite; swapping in a different key; a profile's counts opening followers, following, and friends. |
 | `looks.spec.ts` | The look editor, the profile, and the figure in the world; at 390x844, a dress styled citrus in sun yellow and striped socks, saved and read back from the API, a locked shop piece linking to the shop; a color picked on the card saved with the editor; and Save waiting for an upload. |
 | `three-d.spec.ts` | A plot and the gallery in 3D, a photo, and nothing left running after leaving. |
-| `world-3d.spec.ts` | The world's 3D view at 390x844: turning it on, a neighbor named nearby, walking by tapping the 3D ground, the choice remembered after a reload, back to the map, and nothing left drawing after leaving for the feed. |
+| `world-3d.spec.ts` | The world's 3D view at 390x844: turning it on, a neighbor named nearby, walking by tapping the 3D ground, the d-pad walking the way a turned camera looks, the choice remembered after a reload, back to the map, and nothing left drawing after leaving for the feed. |
 | `plot-photo.spec.ts` | A plot photo at 390x844: taking one from your own profile, the picture the server drew, and posting it. |
 | `town.spec.ts` | Propose, vote, close, and build in the Town Hall. |
 | `coins.spec.ts` | Coins at 390x844: the welcome gift in the top bar purse, the purse page, coming home for the allowance the next day, giving a friend coins from their profile, and their live notice. |

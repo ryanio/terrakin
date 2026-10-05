@@ -257,6 +257,30 @@ export function faceAngle(dir: Direction | undefined): number {
   }
 }
 
+/** Quarter turns clockwise from north, seen from above: 0 north, 1 east, 2 south, 3 west. */
+export type Quarter = 0 | 1 | 2 | 3;
+
+const CLOCKWISE: readonly Direction[] = ["n", "e", "s", "w"];
+
+/**
+ * Which way is "away from the camera", snapped to the nearest of the four directions, given where
+ * the camera stands relative to what it looks at (scene x and z). Exactly between two directions
+ * (45 degrees off), it takes the clockwise one.
+ */
+export function cameraQuarter(dx: number, dz: number): Quarter {
+  // Away from the camera is (-dx, -dz). North is -z and east +x, so this is the angle from north.
+  const turns = Math.atan2(-dx, dz) / (Math.PI / 2);
+  return (((Math.floor(turns + 0.5) % 4) + 4) % 4) as Quarter;
+}
+
+/**
+ * A d-pad or arrow-key direction (up is "n") turned to the world direction it means when "up" is
+ * `quarter`. The 2D map passes 0, so up stays north.
+ */
+export function turnDir(dir: Direction, quarter: Quarter): Direction {
+  return CLOCKWISE[(CLOCKWISE.indexOf(dir) + quarter) % 4] ?? dir;
+}
+
 /** The shortest turn from angle `a` to angle `b`, in (-PI, PI]. */
 export function turnBetween(a: number, b: number): number {
   let d = (b - a) % (Math.PI * 2);

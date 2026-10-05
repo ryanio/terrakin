@@ -42,6 +42,8 @@ Figures in the world cast blob shadows only, since a real shadow per figure doub
 
 **How it falls back.** If frames still take longer than 1/15 s (the median over about two seconds) after the stage has stepped down, or the scene code fails to load, the world goes back to the map with a short note and remembers the map for this device. If the WebGL context is lost (a phone can reclaim it while the app is in the background), it goes back to the map for this visit only. Turning 3D back on is one tap.
 
+**Input in 3D.** The camera orbits around you, so in 3D the d-pad and the arrow keys (and WASD) walk relative to it: up is away from the camera, snapped to the nearest of the four directions (`cameraQuarter` and `turnDir` in `scene3d/world-layout.ts`; exactly 45 degrees off takes the clockwise one). A held key follows the camera as it turns. Each button's label names the direction it walks now, and the hub shows a small needle pointing north. Only the input turns: `move` still sends n, e, s, or w, and the map keeps up as north.
+
 **Motion and leaving.** With `prefers-reduced-motion`, figures and the camera jump to their tile instead of gliding, idle motion stops, and the stage draws only when something changes. Rendering pauses while the tab is hidden, and leaving the world, turning 3D off, or falling back frees the whole scene and the WebGL context.
 
 ## Consequences
@@ -50,4 +52,3 @@ Figures in the world cast blob shadows only, since a real shadow per figure doub
 - The plot builders now take an origin instead of a whole plot layout, and the stage has scopes (`scoped` in `scene3d/art.ts`) so a chunk or a figure can stop its own animations when it leaves. Planters, kitchens, workbenches, and pedestals are drawn in 3D now, as plain voxels, in the plot view too.
 - The measured numbers are from headless Chromium. Measuring on a real mid-range phone is still to do, and if it runs under budget the view radius is the first number to raise.
 - A resident's own home model and day and night are drawn on the map but not yet in the 3D world. Crops in planters and what's on display are drawn in both 3D views.
-- The camera orbits around you, so the d-pad stays in world directions (north is up on the map, away from the camera only until you turn it).

@@ -3439,6 +3439,18 @@ dialog.model-viewer {
   background: var(--paper);
   border: 1px solid var(--paper-edge);
   box-shadow: var(--shadow-pill);
+  position: relative;
+  rotate: var(--north, 0deg);
+  transition: rotate 0.25s ease;
+}
+
+/* In 3D the d-pad walks the way the camera looks, so the hub carries a needle pointing north. */
+.dpad[data-compass] .dpad-hub::before {
+  content: "";
+  position: absolute;
+  inset: 1px calc(50% - 3px) 50%;
+  background: var(--clay);
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
 }
 
 .actions {

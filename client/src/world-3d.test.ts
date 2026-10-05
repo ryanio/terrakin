@@ -2,6 +2,7 @@ import type { BlockKind, ResourceKind, WorldConfig } from "@terrakin/sim";
 import { describe, expect, it } from "vitest";
 import {
   approach,
+  cameraQuarter,
   chunkSignature,
   faceAngle,
   figuresAround,
@@ -15,6 +16,7 @@ import {
   tileAtPoint,
   tileOfHit,
   turnBetween,
+  turnDir,
   VIEW_RADIUS,
 } from "./scene3d/world-layout";
 import { lowEnd, offer3d, startMode } from "./world-mode";
@@ -181,6 +183,35 @@ describe("motion in the 3D world", () => {
     expect(faceAngle("e")).toBeCloseTo(Math.PI / 2);
     expect(faceAngle("n")).toBeCloseTo(Math.PI);
     expect(faceAngle("w")).toBeCloseTo(-Math.PI / 2);
+  });
+
+  it("snaps away-from-the-camera to the nearest direction, clockwise on a tie", () => {
+    // The camera starts south of you, looking north.
+    expect(cameraQuarter(0, 12)).toBe(0);
+    expect(cameraQuarter(12, 0)).toBe(3); // east of you, looking west
+    expect(cameraQuarter(0, -12)).toBe(2); // north of you, looking south
+    expect(cameraQuarter(-12, 0)).toBe(1); // west of you, looking east
+    // Exactly 45 degrees off goes clockwise: NE is east, SE south, SW west, NW north.
+    expect(cameraQuarter(-1, 1)).toBe(1);
+    expect(cameraQuarter(-1, -1)).toBe(2);
+    expect(cameraQuarter(1, -1)).toBe(3);
+    expect(cameraQuarter(1, 1)).toBe(0);
+    // Just either side of a boundary.
+    expect(cameraQuarter(-0.999, 1)).toBe(0);
+    expect(cameraQuarter(-1.001, 1)).toBe(1);
+    expect(cameraQuarter(0.999, 1)).toBe(0);
+    expect(cameraQuarter(1.001, 1)).toBe(3);
+    // Right where the camera sits on the target, up stays north.
+    expect(cameraQuarter(0, 0)).toBe(0);
+  });
+
+  it("turns the d-pad's directions by the camera's quarter", () => {
+    const pad = ["n", "e", "s", "w"] as const;
+    expect(pad.map((d) => turnDir(d, 0))).toEqual(["n", "e", "s", "w"]);
+    // Looking east: up walks east, right walks south, down west, left north.
+    expect(pad.map((d) => turnDir(d, 1))).toEqual(["e", "s", "w", "n"]);
+    expect(pad.map((d) => turnDir(d, 2))).toEqual(["s", "w", "n", "e"]);
+    expect(pad.map((d) => turnDir(d, 3))).toEqual(["w", "n", "e", "s"]);
   });
 
   it("turns the short way round", () => {

@@ -3,8 +3,8 @@ import { act, countFrames, framesWhileIdle, join, read, signIn, watchErrors } fr
 
 /**
  * The world in 3D at phone size (decision 0060): the toggle, a neighbor drawn nearby, walking by
- * tapping the 3D ground, the choice remembered, back to the map, and nothing left drawing after
- * leaving. WebGL runs on Chromium's SwiftShader here.
+ * tapping the 3D ground, the d-pad following the camera, the choice remembered, back to the map,
+ * and nothing left drawing after leaving. WebGL runs on Chromium's SwiftShader here.
  */
 test("the world switches to 3D, walks by tapping, and stops drawing when you leave", async ({
   page,
@@ -59,6 +59,25 @@ test("the world switches to 3D, walks by tapping, and stops drawing when you lea
     await expect.poll(async () => (await me()).x, { timeout: 2_000 }).toBeLessThan(start.x);
   }).toPass({ timeout: 10_000 });
 
+  // The d-pad walks the way the camera looks. As the camera starts, up is north.
+  const up = page.locator('.dpad [data-dir="n"]');
+  await expect(up).toHaveAttribute("aria-label", "North");
+  await expect(page.locator(".dpad")).toHaveAttribute("data-compass", "");
+  // Drag across the scene to turn the camera about a quarter turn: now it looks east.
+  await page.mouse.move(vp.width * 0.1, vp.height * 0.45);
+  await page.mouse.down();
+  await page.mouse.move(vp.width * 0.85, vp.height * 0.45, { steps: 12 });
+  await page.mouse.up();
+  await expect(up).toHaveAttribute("aria-label", "East");
+  await expect(page.locator('.dpad [data-dir="e"]')).toHaveAttribute("aria-label", "South");
+  // Up walks east now. A step of the tap's walk may still land first, so look again if it does.
+  await expect(async () => {
+    const before = await me();
+    await up.click();
+    await expect.poll(async () => (await me()).x, { timeout: 2_000 }).toBeGreaterThan(before.x);
+    expect((await me()).y).toBe(before.y);
+  }).toPass({ timeout: 10_000 });
+
   // The choice is remembered on this device.
   await page.reload();
   await expect(page.locator("#hud")).toBeVisible();
@@ -69,6 +88,9 @@ test("the world switches to 3D, walks by tapping, and stops drawing when you lea
   await expect(toggle).toHaveAttribute("aria-pressed", "false");
   await expect(scene.locator("canvas")).toHaveCount(0);
   await expect(page.locator("canvas#world")).toBeVisible();
+  // On the map, up is north again.
+  await expect(up).toHaveAttribute("aria-label", "North");
+  await expect(page.locator(".dpad")).not.toHaveAttribute("data-compass");
 
   // On again, then leave for the feed: nothing keeps drawing.
   await toggle.click();

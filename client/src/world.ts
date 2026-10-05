@@ -35,6 +35,7 @@ import { Mirror } from "./mirror";
 import { Connection, type Identity, savedToken, saveToken } from "./net";
 import { blockColor, HEARTH_COLOR, render } from "./render";
 import type { World3d } from "./scene3d/world";
+import { type Quarter, turnDir } from "./scene3d/world-layout";
 import { track } from "./telemetry";
 import { NO_PLOT_LINE, newsLine, toastMs, worldProblem } from "./things";
 import { dayPhase } from "./time";
@@ -81,9 +82,9 @@ let walkTarget: { x: number; y: number; station?: boolean; pickup?: boolean } | 
 let pendingMove: string | undefined;
 /** The chat line waiting for the server's answer: its text leaves the input only once accepted. */
 let pendingChat: { id: string; text: string } | undefined;
-/** Steps asked for by key presses and d-pad taps, sent in order as the pace allows. */
+/** Steps asked for by key presses and d-pad taps (world directions), sent as the pace allows. */
 const queuedSteps: Direction[] = [];
-/** Walk keys held down, newest last. Holding one keeps walking that way. */
+/** Walk keys held down, newest last, as the key's own direction (up is "n"). Holding walks on. */
 const heldKeys: Direction[] = [];
 /**
  * The fastest we walk: one step per server ack, and no more often than this. Keeps a held key
@@ -376,6 +377,36 @@ function showToast(text: string, source: "system" | "player" = "system") {
 
 // ---------- input ----------
 
+const pad = document.querySelector<HTMLElement>(".dpad");
+const padButtons = [...document.querySelectorAll<HTMLButtonElement>(".dpad button")];
+const DIR_NAMES: Record<Direction, string> = { n: "North", e: "East", s: "South", w: "West" };
+/** What "up" on the d-pad and arrow keys means: north on the map, away from the camera in 3D. */
+let padQuarter: Quarter = 0;
+let padIn3d = false;
+/** The north needle's angle in degrees, kept running so it always turns the short way. */
+let padNorth = 0;
+
+/** A d-pad or key direction (up is "n") as the world direction it walks. */
+function steer(dir: Direction): Direction {
+  return turnDir(dir, padQuarter);
+}
+
+/**
+ * Follow the 3D camera: each button walks the way its arrow points on screen and says so to
+ * screen readers, and in 3D the hub's needle points north. Only the input changes; `move` doesn't.
+ */
+function paintPad(quarter: Quarter, in3d: boolean) {
+  if (quarter === padQuarter && in3d === padIn3d) return;
+  const turn = (((padQuarter - quarter) % 4) + 4) % 4;
+  padNorth += (turn === 3 ? -1 : turn) * 90;
+  padQuarter = quarter;
+  padIn3d = in3d;
+  pad?.toggleAttribute("data-compass", in3d);
+  pad?.style.setProperty("--north", `${padNorth}deg`);
+  for (const button of padButtons)
+    button.setAttribute("aria-label", DIR_NAMES[steer(button.dataset.dir as Direction)]);
+}
+
 function step(dir: Direction) {
   walkTarget = undefined;
   queuedSteps.push(dir);
@@ -562,8 +593,8 @@ function fallBack(reason: "slow" | "lost" | "failed") {
   );
 }
 
-for (const button of document.querySelectorAll<HTMLButtonElement>(".dpad button")) {
-  button.addEventListener("click", () => step(button.dataset.dir as Direction));
+for (const button of padButtons) {
+  button.addEventListener("click", () => step(steer(button.dataset.dir as Direction)));
 }
 
 const KEYS: Record<string, Direction> = {
@@ -597,7 +628,7 @@ window.addEventListener("keydown", (e) => {
   if (e.repeat) return;
   releaseKey(dir);
   heldKeys.push(dir);
-  step(dir);
+  step(steer(dir));
 });
 window.addEventListener("keyup", (e) => {
   const dir = KEYS[e.key];
@@ -762,8 +793,10 @@ function frame(t: number) {
         tryAct({ type: "gather", x: walkTarget.x, y: walkTarget.y });
         walkTarget = undefined;
       }
+      // A held key walks the way it points now, so it follows the camera as it turns.
+      const held = heldKeys.at(-1);
       const dir =
-        queuedSteps.shift() ?? heldKeys.at(-1) ?? (walkTarget && stepToward(r, walkTarget));
+        queuedSteps.shift() ?? (held && steer(held)) ?? (walkTarget && stepToward(r, walkTarget));
       if (dir) {
         pendingMove = act({ type: "move", dir });
         lastWalk = t;
@@ -784,6 +817,7 @@ function frame(t: number) {
   const phase = dayAnchor
     ? dayPhase(dayAnchor.nowMs + (performance.now() - dayAnchor.receivedAt), dayAnchor.dayLengthMs)
     : undefined;
+  paintPad(world3d?.heading() ?? 0, world3d !== undefined);
   if (world3d && mirror && me) world3d.sync({ mirror, me, buildMode });
   else if (mirror)
     render(ctx, {

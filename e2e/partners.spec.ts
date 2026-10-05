@@ -15,6 +15,7 @@ const ADAPTER = "0x000000009d62675362a58911e3f32fecf46f5e18";
 const MUSES = "0x13ea3072b7215d4c9c2ec4f498a08c5825129836";
 const AGENT = 7055;
 const MUSE = 464;
+const KEEPER = "0x68f3767fe53e9cbd5702167bb84844a79f1c23a8";
 
 const word = (n: number | bigint) => BigInt(n).toString(16).padStart(64, "0");
 const addressWord = (a: string) => a.slice(2).padStart(64, "0");
@@ -31,6 +32,8 @@ function answer(to: string, data: string): string | undefined {
   const selector = data.slice(0, 10);
   const id = Number(BigInt(`0x${data.slice(10)}`));
   if (to === MUSES && selector === "0x6cb75a1e" && id === MUSE) return `0x${word(1)}${word(AGENT)}`;
+  // Who keeps the muse itself (ERC-721 ownerOf on the Muses contract).
+  if (to === MUSES && selector === "0x6352211e" && id === MUSE) return `0x${addressWord(KEEPER)}`;
   if (to === REGISTRY && selector === "0xc87b56dd" && id === AGENT) {
     return abiString(`${ORIGIN}/card/${MUSE}.json`);
   }

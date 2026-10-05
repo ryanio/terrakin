@@ -6,7 +6,7 @@ import SKILL_MD from "@terrakin/protocol/SKILL.md";
 import { findProposal, votesCast } from "@terrakin/sim";
 import { AccessVerifier, accessConfig, parseEmails } from "../src/access";
 import { adminAssetPath, adminGate, isMissingAdminFile } from "../src/admin-host";
-import { AGENT_RECHECK_EVERY_MS } from "../src/agent-links";
+import { nextRecheckAt, parseDailyReads } from "../src/agent-links";
 import { Api, ipKey, isApiPath, MAX_BODY_BYTES } from "../src/api";
 import { parseRpcUrls } from "../src/chain";
 import {
@@ -333,7 +333,7 @@ class WorldObject extends DurableObject<Env> {
       triage: new TriageClient(triageConfig(env), ctx.storage.sql),
       agentLinks: {
         rpcUrls: parseRpcUrls(env.TERRAKIN_CHAIN_RPC),
-        ...dailyReads(env.TERRAKIN_CHAIN_DAILY_READS),
+        ...parseDailyReads(env.TERRAKIN_CHAIN_DAILY_READS),
         onLinked: () => {
           void this.armRecheck();
         },
@@ -362,12 +362,19 @@ class WorldObject extends DurableObject<Env> {
 
   /**
    * Agent links are rechecked from the object's alarm (RFC 0007), which wakes it even when nobody
-   * is connected. The alarm is set only while links exist.
+   * is connected. The alarm is set only while links exist, for when the next one is due, and never
+   * sooner than AGENT_RECHECK_EVERY_MS from now.
    */
+  private nextRecheck(): number | undefined {
+    return nextRecheckAt(Date.now(), this.api.nextAgentRecheckAt());
+  }
+
   private async armRecheck(): Promise<void> {
-    if (!this.api.hasAgentLinks()) return;
-    if ((await this.ctx.storage.getAlarm()) !== null) return;
-    await this.ctx.storage.setAlarm(Date.now() + AGENT_RECHECK_EVERY_MS);
+    const when = this.nextRecheck();
+    if (when === undefined) return;
+    const set = await this.ctx.storage.getAlarm();
+    if (set !== null && set <= when) return;
+    await this.ctx.storage.setAlarm(when);
   }
 
   override async alarm(): Promise<void> {
@@ -377,9 +384,8 @@ class WorldObject extends DurableObject<Env> {
       console.error(err);
       report(err, "agent_link.recheck");
     } finally {
-      if (this.api.hasAgentLinks()) {
-        await this.ctx.storage.setAlarm(Date.now() + AGENT_RECHECK_EVERY_MS);
-      }
+      const when = this.nextRecheck();
+      if (when !== undefined) await this.ctx.storage.setAlarm(when);
     }
   }
 
@@ -472,10 +478,6 @@ export class PlotPhotos extends WorkerEntrypoint<Env> {
     });
     return (await cards.render(card)).bytes;
   }
-/** The agent link read cap from config, when it is a whole number. */
-function dailyReads(value: string | undefined): { readsPerDay?: number } {
-  const n = Number(value);
-  return value?.trim() && Number.isInteger(n) && n >= 0 ? { readsPerDay: n } : {};
 }
 
 /** The single authoritative world. Its name is the class name in wrangler.jsonc. */

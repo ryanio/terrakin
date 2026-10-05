@@ -55,6 +55,11 @@ export function count(name: string, attributes: Attributes) {
   metrics.count(name, 1, { attributes });
 }
 
+/** Record a level, like how far behind a queue is. Attribute values must be templates or codes. */
+export function gauge(name: string, value: number, attributes: Attributes = {}) {
+  metrics.gauge(name, value, { attributes });
+}
+
 /**
  * Name the request's root span after its route template (`GET /v1/posts/{id}`), so traces group by
  * route and the real path, which can hold a link key, never becomes the name.

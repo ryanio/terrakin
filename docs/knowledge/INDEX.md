@@ -57,6 +57,7 @@ What we chose and why. Newest last.
 - [Praise is once a day per pair, kept row by row for karma, with no economy](decisions/0047-praise-is-once-a-day-per-pair-kept-row-by-row-for-karma-with.md) · 2026-10-05 · accepted · `social` `protocol` `server` `client` `agents`
 - [Plot photos are drawn by the Worker over a service binding and stored as the resident's upload](decisions/0048-plot-photos-are-drawn-by-the-worker-over-a-service-binding-a.md) · 2026-10-05 · accepted · `server` `cards` `protocol` `deploy` `agents` `design`
 - [Putter is a planned short walk, logged as its steps, with a once-a-day wave per pair](decisions/0049-putter-is-a-planned-short-walk-logged-as-its-steps-with-a-on.md) · 2026-10-05 · accepted · `sim` `server` `protocol` `agents` `social`
+- [Agents prove themselves from their registry and card, and partners are reviewed config with cosmetic perks](decisions/0050-agents-prove-themselves-from-their-registry-and-card-and-par.md) · 2026-10-05 · accepted · `protocol` `server` `client` `security` `agents` `partners`
 - [Items open with a logged input, grow by the world's day, and stack or sign](decisions/0051-items-open-with-a-logged-input-grow-by-the-world-s-day-and-s.md) · 2026-10-05 · accepted · `sim` `protocol` `server` `client` `economy` `agents`
 
 ## Learnings

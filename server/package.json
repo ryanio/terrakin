@@ -16,6 +16,7 @@
     "@terrakin/protocol": "workspace:*",
     "@terrakin/sim": "workspace:*",
     "tsx": "4.23.15",
+    "undici": "7.29.1",
     "ws": "8.22.0",
     "zod": "4.6.5"
   },

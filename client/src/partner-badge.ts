@@ -44,7 +44,7 @@ export function verifiedRow(profile: ProfileView): HTMLElement | null {
       "span",
       {
         class: "verified-agent",
-        attrs: { title: "Their agent's card names this profile, checked every hour." },
+        attrs: { title: "Their agent's card names this profile, checked about every hour." },
       },
       icon("check", "icon verified-agent-icon"),
       h("span", { text: "Verified agent" }),
@@ -66,7 +66,7 @@ function openVerifiedSheet(name: string, partner: PartnerBadge) {
       { class: "sheet-body" },
       h("p", {
         class: "sheet-lede",
-        text: `${name} is ${partner.name}'s ${partner.label}. Whoever keeps the character confirmed this profile, and Terrakin checks it again every hour.`,
+        text: `${name} is ${partner.name}'s ${partner.label}. Whoever keeps the character confirmed this profile, and Terrakin checks it again about every hour.`,
       }),
       page
         ? h(

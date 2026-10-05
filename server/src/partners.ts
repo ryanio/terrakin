@@ -16,7 +16,8 @@ import type { PartnerBadge, PartnerBorder, PartnerView } from "@terrakin/protoco
 /**
  * How to recognize a member: the agent is held by the partner's binding contract (ERC-8217), and
  * that contract's `bindingOf(agentId)` names an ERC-721 item in the partner's collection. The
- * item's number is the subject (a muse's number).
+ * item's number is the subject (a muse's number). The collection's `ownerOf(subject)` says who
+ * holds the character; a change there (a sale) ends the link.
  */
 export interface AgentOwnerMatch {
   kind: "agentOwner";
@@ -59,8 +60,8 @@ export interface PartnerConfig {
  * source on robin.etherscan.io (decision record for RFC 0007 phase 1): the Adapter is an
  * ERC1967Proxy (exact match) over AdapterImplementation 0x3d74ff0c...5231 (exact match), whose
  * `bindingOf(7055)` answers (0 = ERC721, the Muses contract, 464); MusegodMuses (exact match)
- * answers `agentOf(464)` = (true, 7055). The Adapter is upgradeable by a 2-of-4 Safe, so its
- * answers are trusted only as far as that Safe is.
+ * answers `agentOf(464)` = (true, 7055) and ERC-721 `ownerOf(464)` (ERC721A). The Adapter is
+ * upgradeable by a 2-of-4 Safe, so its answers are trusted only as far as that Safe is.
  */
 export const MUSEGOD: PartnerConfig = {
   id: "musegod",

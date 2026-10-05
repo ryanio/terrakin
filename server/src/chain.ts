@@ -12,6 +12,8 @@
  * Runs on Node and in the Worker: plain `fetch`, no Node APIs.
  */
 
+import { readCapped } from "./media";
+
 /** A network we read agents from, and its one registry. */
 export interface ChainConfig {
   chainId: number;
@@ -51,8 +53,12 @@ export const SELECTORS = {
   agentOf: "0x6cb75a1e",
 } as const;
 
-/** What a read returns: a value, or why not. `missing` means the contract said no (it reverted). */
-export type ChainRead<T> = { ok: true; value: T } | { ok: false; missing: boolean };
+/**
+ * What a read returns: a value, or why not. `missing` means the contract said no (it reverted).
+ * `bad` means an answer came and can't be used (too big, or not the shape asked for): asking again
+ * won't help, so it isn't a failure to reach the network.
+ */
+export type ChainRead<T> = { ok: true; value: T } | { ok: false; missing: boolean; bad?: true };
 
 /**
  * One `eth_call` against the latest block, returning the raw hex answer. `missing` is a revert;
@@ -69,7 +75,7 @@ export interface RpcReaderOptions {
 
 const RPC_TIMEOUT_MS = 5_000;
 /** The longest answer we read. A card inlined as a data URI is the big case; the card cap is 64 KB. */
-const MAX_RPC_ANSWER_CHARS = 200_000;
+const MAX_RPC_ANSWER_BYTES = 200_000;
 
 /** The real reader: JSON-RPC `eth_call` over `fetch`, with a timeout and no redirects. */
 export function rpcReader(options: RpcReaderOptions = {}): ChainCall {
@@ -96,9 +102,9 @@ export function rpcReader(options: RpcReaderOptions = {}): ChainCall {
         signal: AbortSignal.timeout(timeoutMs),
       });
       if (!res.ok) return { ok: false, missing: false };
-      const text = await res.text();
-      if (text.length > MAX_RPC_ANSWER_CHARS) return { ok: false, missing: false };
-      return parseRpcAnswer(safeJson(text));
+      const bytes = await readCapped(res.body, MAX_RPC_ANSWER_BYTES);
+      if (!bytes) return { ok: false, missing: false, bad: true };
+      return parseRpcAnswer(safeJson(new TextDecoder().decode(bytes)));
     } catch {
       return { ok: false, missing: false };
     }
@@ -222,7 +228,7 @@ async function read<T>(
   const raw = await call(chainId, to, data);
   if (!raw.ok) return raw;
   const value = decode(raw.value);
-  return value === undefined ? { ok: false, missing: false } : { ok: true, value };
+  return value === undefined ? { ok: false, missing: false, bad: true } : { ok: true, value };
 }
 
 export const readTokenUri = (call: ChainCall, chainId: number, registry: string, agentId: string) =>
@@ -236,24 +242,36 @@ export const readOwner = (call: ChainCall, chainId: number, registry: string, ag
 export const readBinding = (call: ChainCall, chainId: number, contract: string, agentId: string) =>
   read(call, chainId, contract, encodeUintCall(SELECTORS.bindingOf, agentId), decodeBinding);
 
+/** ERC-721 `ownerOf` on a partner's collection: who holds the character itself. */
+export const readItemHolder = (
+  call: ChainCall,
+  chainId: number,
+  collection: string,
+  tokenId: string,
+) => read(call, chainId, collection, encodeUintCall(SELECTORS.ownerOf, tokenId), decodeAddress);
+
 export const readAgentOf = (call: ChainCall, chainId: number, contract: string, subject: string) =>
   read(call, chainId, contract, encodeUintCall(SELECTORS.agentOf, subject), decodeAgentOf);
 
 /**
  * `call` with a short memory: the same read within `ttlMs` is answered from it. Only successes are
  * kept, so a failed read is tried again next time. Bounded: the oldest entries go first.
+ *
+ * Returns a maker of readers: each reader tells its `onRead` about every read that really went out
+ * (a miss), so a caller can charge exactly what it spent. Hits are free.
  */
 export function cachedCall(
   call: ChainCall,
   options: { now: () => number; ttlMs: number; max?: number },
-): ChainCall {
+): (onRead?: () => void) => ChainCall {
   const max = options.max ?? 500;
   const memory = new Map<string, { at: number; value: string }>();
-  return async (chainId, to, data) => {
+  return (onRead) => async (chainId, to, data) => {
     const key = `${chainId} ${to.toLowerCase()} ${data}`;
     const now = options.now();
     const hit = memory.get(key);
     if (hit && now - hit.at < options.ttlMs) return { ok: true, value: hit.value };
+    onRead?.();
     const answer = await call(chainId, to, data);
     if (answer.ok) {
       memory.delete(key);

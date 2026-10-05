@@ -8,7 +8,7 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-05
 
-<!-- api-fingerprint: 1cce873d8566, 18 entries -->
+<!-- api-fingerprint: 3c9de2dc857c, 19 entries -->
 
 - **Added** Grow, make, and give things
   New blocks `planter`, `kitchen`, and `workbench`, and four actions: `plant {x, y, seed}`, `harvest {x, y}`, `craft {recipe, x, y, label?}`, and `give {item, to, count?, note?}`. Crops grow only as UTC days start; the `planted` event and the snapshot's new `crops` say each one's `readyDay`.

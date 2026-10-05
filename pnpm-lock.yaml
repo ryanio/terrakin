@@ -146,6 +146,9 @@ importers:
       tsx:
         specifier: 4.23.15
         version: 4.23.15
+      undici:
+        specifier: 7.29.1
+        version: 7.29.1
       ws:
         specifier: 8.22.0
         version: 8.22.0

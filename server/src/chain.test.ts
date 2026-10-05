@@ -109,32 +109,41 @@ describe("the RPC reader", () => {
     expect(await answer(new Response("{}"))(1, "0xabc", "0x")).toEqual(failed);
     expect(await answer(new Response("", { status: 502 }))(4663, "0xabc", "0x")).toEqual(failed);
     expect(await answer(new Response("<html>"))(4663, "0xabc", "0x")).toEqual(failed);
-    expect(await answer(new Response("x".repeat(300_000)))(4663, "0xabc", "0x")).toEqual(failed);
+    // An answer too big to use is bad, not a network that is down: asking again won't help.
+    expect(await answer(new Response("x".repeat(300_000)))(4663, "0xabc", "0x")).toEqual({
+      ok: false,
+      missing: false,
+      bad: true,
+    });
     expect(await answer(new Error("timeout"))(4663, "0xabc", "0x")).toEqual(failed);
   });
 
-  it("remembers successes for a while, never failures", async () => {
+  it("remembers successes for a while, never failures, and reports only real reads", async () => {
     let now = 0;
     let calls = 0;
     let answer: { ok: true; value: string } | { ok: false; missing: boolean } = {
       ok: false,
       missing: false,
     };
-    const call = cachedCall(
+    const reader = cachedCall(
       async () => {
         calls++;
         return answer;
       },
       { now: () => now, ttlMs: 60_000 },
     );
+    let reads = 0;
+    const call = reader(() => reads++);
     await call(4663, "0xA", "0x1");
     answer = { ok: true, value: "0x2" };
     expect(await call(4663, "0xa", "0x1")).toEqual(answer);
-    expect(await call(4663, "0xA", "0x1")).toEqual(answer);
+    expect(await reader()(4663, "0xA", "0x1")).toEqual(answer);
     expect(calls).toBe(2);
+    expect(reads).toBe(2);
     now += 60_000;
     await call(4663, "0xA", "0x1");
     expect(calls).toBe(3);
+    expect(reads).toBe(3);
   });
 
   it("takes RPC URLs from config only for allowlisted networks, over https", () => {
@@ -163,6 +172,10 @@ describe("the card reader", () => {
     "https://localhost/card.json",
     "https://printer.local/card.json",
     "https://metadata.internal/card.json",
+    "https://localhost./card.json",
+    "https://localhost../card.json",
+    "https://metadata.google.internal./computeMetadata",
+    "https://printer.local./card.json",
     "ftp://musegod.org/card.json",
   ])("refuses %s before fetching", async (uri) => {
     let fetched = 0;
@@ -287,6 +300,15 @@ describe("the card reader", () => {
     expect(cardUrlProblem(url, "http://127.0.0.1:8792")).toBeUndefined();
   });
 
+  it("reads `terrakin` from `endpoints` too, the older name for the list", () => {
+    expect(
+      parseCard({
+        name: "Old",
+        endpoints: [{ name: "terrakin", endpoint: "https://terrakin.org/r/r_0123456789abcdef" }],
+      }),
+    ).toEqual({ name: "Old", terrakin: ["https://terrakin.org/r/r_0123456789abcdef"] });
+  });
+
   it("parses only registration-file shapes", () => {
     expect(parseCard({ name: 5, services: "x" })).toEqual({ name: "", terrakin: [] });
     expect(parseCard(null)).toBeUndefined();
@@ -305,6 +327,9 @@ describe("the card reader", () => {
     ["fd00::1", true],
     ["fe80::1", true],
     ["::ffff:10.0.0.1", true],
+    ["192.0.0.8", true],
+    ["192.0.1.1", false],
+    ["fec0::1", true],
     ["8.8.8.8", false],
     ["172.32.0.1", false],
     ["2606:4700::1111", false],

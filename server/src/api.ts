@@ -51,8 +51,8 @@ import { BAD_LINK_KEY, DEFAULT_ORIGIN, linkHandlers, linkHelp, REPEAT_NOTE } fro
 import { postMarkdown, profileMarkdown } from "./markdown";
 import { COOL_DOWN_MESSAGE, type Moderation } from "./moderation";
 import { OwnerService } from "./owner-service";
-import { type PlotPhotoRenderer, plotPhotoSpec } from "./plot-photo";
 import { partnerViews } from "./partners";
+import { type PlotPhotoRenderer, plotPhotoSpec } from "./plot-photo";
 import { RateLimiters, type Take } from "./rate-limit";
 import type { SocialResult, SocialService } from "./social-service";
 import { count, crumb, nameRequest, report, span, task } from "./telemetry";
@@ -1582,9 +1582,12 @@ export class Api {
     return task("agent_link.recheck", () => links.recheckDue());
   }
 
-  /** Whether any agent links exist, so the Worker only keeps its recheck alarm while they do. */
-  hasAgentLinks(): boolean {
-    return this.social?.agentLinks.hasLinks() ?? false;
+  /**
+   * When the next agent link recheck is due (ms), or undefined when there are no links, so the
+   * Worker keeps its alarm only while they exist.
+   */
+  nextAgentRecheckAt(): number | undefined {
+    return this.social?.agentLinks.nextDueAt();
   }
 
   private sweepNow() {

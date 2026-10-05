@@ -6,8 +6,11 @@
  *
  * The rules for fetching: `https:` only (or an inline `data:application/json` URI), the default
  * port, a host name rather than an IP address, at most 3 redirects and each one held to the same
- * rules, a 64 KB cap, a 5 second timeout, and JSON only. On Node, the server also refuses host names
- * that resolve to private addresses (`allowHost`, set in main.ts); the Worker can't reach private
+ * rules, a 64 KB cap, and a 5 second timeout for the whole read, DNS checks included. The body must
+ * parse as JSON (whatever its Content-Type says, since IPFS gateways often send text/plain), and an
+ * HTML answer is refused outright. On Node, the server also refuses host names
+ * that resolve to private addresses, both before asking (`allowHost`) and on the address it really
+ * connects to (`publicLookup` in node-net.ts, set in main.ts); the Worker can't reach private
  * networks at all.
  *
  * Runs on Node and in the Worker: plain `fetch`, no Node APIs.
@@ -67,7 +70,8 @@ export function cardUrlProblem(url: URL, testOrigin?: string): string | undefine
   if (testOrigin && url.origin === testOrigin) return undefined;
   if (url.protocol !== "https:") return BAD_URL;
   if (url.username !== "" || url.password !== "" || url.port !== "") return BAD_URL;
-  const host = url.hostname.toLowerCase();
+  // Trailing dots name the same host (`localhost.`), so it is checked without them.
+  const host = url.hostname.toLowerCase().replace(/\.+$/, "");
   // IP addresses (v4 or [v6]) and names that only mean something on a private network.
   if (/^[\d.]+$/.test(host) || host.startsWith("[") || !host.includes(".")) return BAD_URL;
   if (/\.(?:local|localhost|internal|home|lan|intranet|corp|test)$/.test(host)) return BAD_URL;
@@ -90,7 +94,9 @@ export function httpCardReader(options: CardReaderOptions = {}): CardReader {
       for (let hop = 0; ; hop++) {
         const problem = cardUrlProblem(url, testOrigin);
         if (problem) return bad(problem);
-        if (url.origin !== testOrigin && !(await allowHost(url.hostname))) return bad(BAD_URL);
+        if (url.origin !== testOrigin && !(await withinTime(allowHost(url.hostname), signal))) {
+          return bad(BAD_URL);
+        }
         const res = await get(url.href, {
           headers: { accept: "application/json" },
           redirect: "manual",
@@ -124,6 +130,22 @@ export function httpCardReader(options: CardReaderOptions = {}): CardReader {
       return down;
     }
   };
+}
+
+/** `promise`, or false once `signal` aborts: a slow DNS answer counts against the same 5 seconds. */
+function withinTime(promise: Promise<boolean>, signal: AbortSignal): Promise<boolean> {
+  if (signal.aborted) return Promise.resolve(false);
+  return new Promise((resolve) => {
+    const stop = () => resolve(false);
+    signal.addEventListener("abort", stop, { once: true });
+    promise.then(
+      (ok) => {
+        signal.removeEventListener("abort", stop);
+        resolve(ok);
+      },
+      () => resolve(false),
+    );
+  });
 }
 
 /** `data:application/json[;charset=utf-8][;base64],...` */
@@ -162,10 +184,16 @@ function parsed(bytes: Uint8Array): CardRead {
 /** The two things we read from a registration file, or undefined when it isn't one. */
 export function parseCard(body: unknown): AgentCard | undefined {
   if (!body || typeof body !== "object" || Array.isArray(body)) return undefined;
-  const { name, services } = body as { name?: unknown; services?: unknown };
+  const { name, services, endpoints } = body as {
+    name?: unknown;
+    services?: unknown;
+    endpoints?: unknown;
+  };
   const terrakin: string[] = [];
-  if (Array.isArray(services)) {
-    for (const service of services.slice(0, 100)) {
+  // `services` is the current ERC-8004 name; earlier registration files call the list `endpoints`.
+  for (const list of [services, endpoints]) {
+    if (!Array.isArray(list)) continue;
+    for (const service of list.slice(0, 100)) {
       if (!service || typeof service !== "object") continue;
       const { name: serviceName, endpoint } = service as { name?: unknown; endpoint?: unknown };
       if (serviceName === "terrakin" && typeof endpoint === "string" && endpoint.length <= 200) {
@@ -196,6 +224,7 @@ export function isPrivateAddress(ip: string): boolean {
       (a === 169 && b === 254) ||
       (a === 172 && b >= 16 && b <= 31) ||
       (a === 192 && b === 168) ||
+      (a === 192 && b === 0 && Number(v4[3]) === 0) ||
       (a === 198 && (b === 18 || b === 19)) ||
       a >= 224
     );
@@ -207,6 +236,7 @@ export function isPrivateAddress(ip: string): boolean {
     v6 === "::1" ||
     /^f[cd]/.test(v6) ||
     /^fe[89ab]/.test(v6) ||
+    /^fe[c-f]/.test(v6) ||
     /^ff/.test(v6) ||
     v6.startsWith("::ffff:") ||
     v6.startsWith("64:ff9b:")

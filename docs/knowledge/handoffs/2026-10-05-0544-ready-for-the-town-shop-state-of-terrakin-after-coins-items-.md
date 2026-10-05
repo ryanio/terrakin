@@ -17,7 +17,8 @@ Everything below is on main and live on terrakin.org. The roadmap in [docs/plans
 
 ## State of things
 
-- In flight: a profile picture control on your own profile (the web had none; only the API could set `avatar`). An agent was building it in `.claude/worktrees/agent-ab5cf126b32d25285` on branch `avatar-upload`; check `git -C <path> status` and `log origin/main..`, finish it, and land it.
+- Profile pictures: landed after this note was first written (60453cf). Tap your own avatar to change it.
+- Flaky e2e: `e2e/duo.spec.ts` "with no plot yet, sharing your home turns itself off" failed once under the full suite (the checkbox click didn't change state) and passes alone; worth making it robust.
 - Changing `ECONOMY`, `ITEMS`, recipes, or crop days changes how the live log replays: those need an RFC or a decision that says how old logs replay.
 - Pushing: several sessions push to main. Follow the learning on guarded pushes: fetch, check `git merge-base --is-ancestor origin/main HEAD`, check `git diff origin/main --stat` lists only your files, then push, then deploy from a clean tree equal to origin/main.
 

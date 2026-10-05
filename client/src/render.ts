@@ -1,4 +1,6 @@
 import {
+  biomeAt,
+  type Biome,
   type BlockKind,
   plotKey,
   type Resident,
@@ -204,8 +206,16 @@ function paintBlock(
   }
 }
 
-/** Soft meadow and sandy Commons tones. Picked per tile by a fixed hash, so the ground has texture. */
-const GRASS = ["#a5c682", "#a1c27d", "#a9c986", "#9dbe79"];
+/**
+ * Ground tones per biome, plus the Commons' sandy tones. Picked per tile by a fixed hash, so
+ * the ground has texture. Biomes come from the sim's pure biomeAt: scenery that can't desync.
+ */
+const GROUND: Record<Biome, string[]> = {
+  meadow: ["#a5c682", "#a1c27d", "#a9c986", "#9dbe79"],
+  forest: ["#8fb26a", "#8aab64", "#93b56e", "#86a660"],
+  stone: ["#b3ab9b", "#afa798", "#b7afa0", "#aba394"],
+  sand: ["#e3cf9e", "#dfc996", "#e7d3a4", "#dbc294"],
+};
 const COMMONS = ["#efdcab", "#ebd7a4", "#f2e1b3", "#e8d39f"];
 const OUTSIDE = "#e6d6b6";
 
@@ -273,9 +283,11 @@ export function render(
       const h = Math.round(sy + half) - top;
       const inCommons = Math.floor(x / S) === commons.px && Math.floor(y / S) === commons.py;
       const n = tileHash(x, y);
-      ctx.fillStyle = (inCommons ? COMMONS : GRASS)[n & 3] as string;
+      const biome = biomeAt(config, x, y);
+      ctx.fillStyle = (inCommons ? COMMONS : GROUND[biome])[n & 3] as string;
       ctx.fillRect(left, top, w, h);
-      if (inCommons) continue;
+      // The Commons plaza and bare biomes stay clean; only meadow and forest grow decoration.
+      if (inCommons || biome === "stone" || biome === "sand") continue;
       const deco = (n >>> 4) % 17;
       if (deco === 0 || deco === 7) {
         // A little tuft of grass.

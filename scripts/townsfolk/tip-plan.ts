@@ -85,6 +85,8 @@ export interface TipInput {
   /** Every townsfolk id in the world (`GET /v1/world`). */
   townsfolk: string[];
   welcomes: WelcomeLine[];
+  /** The seq of the oldest line the treasury ledger still holds, of any kind. */
+  oldestTreasurySeq?: number;
   posts: FeedPost[];
   state: TipState;
 }
@@ -121,6 +123,11 @@ export interface TipPlan {
   noPostTip?: string;
   /** A starting point for `welcomedThrough` on a first run, so older welcomes are never revisited. */
   baseline?: number;
+  /**
+   * True when the treasury ledger (its last 50 lines) no longer reaches back to the last run, so
+   * some newcomers in between may have dropped off it unwelcomed.
+   */
+  gap?: boolean;
 }
 
 /** What all townsfolk gave each resident today, from their ledgers. */
@@ -172,6 +179,11 @@ export function planTips(input: TipInput): TipPlan {
     posts: [],
     ...(since === undefined && baseline !== undefined ? { baseline } : {}),
   };
+  // The ledger is cut to its newest lines. If its oldest line comes after the last one handled
+  // plus one, lines in between may be gone, welcomes among them.
+  if (since !== undefined && input.oldestTreasurySeq !== undefined) {
+    if (input.oldestTreasurySeq > since + 1) plan.gap = true;
+  }
 
   // Each newcomer goes to the next townsfolk in turn, starting somewhere new each day.
   let turn = givers.length > 0 ? today % givers.length : 0;
@@ -202,7 +214,10 @@ export function planTips(input: TipInput): TipPlan {
       }
     }
     if (!giver) {
-      plan.unfunded = fresh.length - i;
+      // Count only the ones still to welcome, not those a later look would skip.
+      plan.unfunded = fresh
+        .slice(i)
+        .filter((l) => !townsfolk.has(l.residentId) && !welcomedBefore.has(l.residentId)).length;
       break;
     }
     balance.set(giver.key, (balance.get(giver.key) ?? 0) - amount);

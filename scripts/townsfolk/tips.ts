@@ -233,6 +233,9 @@ async function main(): Promise<void> {
     givers,
     townsfolk: world.townsfolk ?? [],
     welcomes,
+    ...(town.treasury.ledger.length > 0
+      ? { oldestTreasurySeq: Math.min(...town.treasury.ledger.map((l) => l.seq)) }
+      : {}),
     posts,
     state,
   });
@@ -247,6 +250,10 @@ async function main(): Promise<void> {
     else console.log(`  skip ${step.name}: ${step.skip}`);
   }
   if (plan.unfunded > 0) console.log(`  ${plan.unfunded} more wait for tomorrow's budgets`);
+  if (plan.gap) {
+    console.log("  Note: the treasury's history no longer reaches back to the last run, so some");
+    console.log("  newcomers since then may have been missed. Run this daily to avoid that.");
+  }
   console.log("");
   console.log("Best post of the last day:");
   if (plan.noPostTip) console.log(`  none: ${plan.noPostTip}`);

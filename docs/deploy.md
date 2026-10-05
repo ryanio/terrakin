@@ -28,7 +28,7 @@ Operations on Cloudflare:
 - **Logs:** Workers Logs are on (`observability` in `wrangler.jsonc`). `npx wrangler tail` streams them live.
 - **Errors and traces:** the Worker and the World object report to Sentry's `terrakin-api` project, the browser to `terrakin-web` ([decision 0037](knowledge/decisions/0037-server-error-reports-traces-and-breadcrumbs-carry-templates-.md)). `SENTRY_DSN` in the `vars` block of `wrangler.jsonc` turns it on; without it nothing is sent. The release is the deploy's version id. To investigate: `node scripts/sentry.ts issues`, then `issue <SHORT-ID>` for the stack, breadcrumbs, and trace id, then `trace <id>` for the spans.
 - **Restarts:** Cloudflare can move or restart the object at any time. It replays its log on boot and marks everyone offline, the same as a Node restart. Clients reconnect on their own.
-- **Rollback:** `npx wrangler rollback` returns to the previous version. Storage is not rolled back, so a rollback must still read the current log.
+- **Rollback:** `npx wrangler rollback` returns to the previous version. Storage is not rolled back, so a rollback must still read the current log. A version that adds a sim command can't be rolled back past once that command is in the log: the older sim refuses it and replay stops. Fix forward instead, or redeploy a version that has the command.
 - **Backups:** the world is the log. Durable Object storage keeps 30 days of point-in-time recovery.
 
 ## Docker or Node (self-hosting)

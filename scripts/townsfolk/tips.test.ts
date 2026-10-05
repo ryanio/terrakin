@@ -127,6 +127,23 @@ describe("townsfolk tips", () => {
     ]);
   });
 
+  it("notice when the treasury's history no longer reaches the last run", () => {
+    const state = { welcomedThrough: 40, tippedPosts: [] };
+    expect(planTips(input({ state, oldestTreasurySeq: 41 })).gap).toBeUndefined();
+    expect(planTips(input({ state, oldestTreasurySeq: 60 })).gap).toBe(true);
+  });
+
+  it("count only the newcomers still to welcome as waiting", () => {
+    const plan = planTips(
+      input({
+        givers: [giver("clem", 0), giver("pip", 0)],
+        welcomes: [welcome(1, "r_a"), welcome(2, "t_pip"), welcome(3, "r_b")],
+        state: { welcomedThrough: 0, tippedPosts: [] },
+      }),
+    );
+    expect(plan.unfunded).toBe(2);
+  });
+
   it("give less than 10 when the newcomer is near the day's townsfolk limit", () => {
     const pip = giver("pip");
     pip.ledger.push({ day: DAY, amount: -20, reason: "gift_out", with: "r_ada", note: "hi" });

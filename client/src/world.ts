@@ -15,8 +15,10 @@ import {
   canBuildOn,
   type DecorKind,
   type Direction,
+  gatherableAt,
   ITEM_INFO,
   isDecorKind,
+  tileKey,
 } from "@terrakin/sim";
 import { REDUCED_MOTION } from "@terrakin/ui/motion";
 import { plot3dPath } from "@terrakin/ui/paths";
@@ -77,7 +79,7 @@ let decor: DecorCounts = new Map();
 /** Decor shown since the palette opened, kept (greyed out) when you run out. */
 let decorShown = new Set<DecorKind>();
 /** Where a tap sent you. `station` is a planter, kitchen, or workbench to open once in reach. */
-let walkTarget: { x: number; y: number; station?: boolean } | undefined;
+let walkTarget: { x: number; y: number; station?: boolean; pickup?: boolean } | undefined;
 let pendingMove: string | undefined;
 /** The chat line waiting for the server's answer: its text leaves the input only once accepted. */
 let pendingChat: { id: string; text: string } | undefined;
@@ -479,6 +481,21 @@ function tapTile(tile: { x: number; y: number }) {
     else walkTarget = { ...tile, station: true };
     return;
   }
+  // A fallen branch or a loose stone: tap to pick it up (phase 1 gathering). One farther off is
+  // somewhere to walk to: you stop once it's in reach, since walking onto it only bumps, and it
+  // picks up then. The sim has the last word; its `nothing_to_gather` says it went already.
+  const key = tileKey(tile.x, tile.y);
+  const pickup =
+    !other &&
+    !here &&
+    mirror.day !== undefined &&
+    !mirror.gathered.has(key) &&
+    gatherableAt(mirror.config, tile.x, tile.y, mirror.day) !== null;
+  if (pickup) {
+    if (inReach(r, tile)) tryAct({ type: "gather", x: tile.x, y: tile.y });
+    else walkTarget = { ...tile, pickup: true };
+    return;
+  }
   if (other && other.id !== me) {
     const name = other.kind === "agent" ? `${other.name} ⚙` : other.name;
     showToast(other.note ? `${name}: ${other.note}` : name, "player");
@@ -743,6 +760,11 @@ function frame(t: number) {
         inReach(r, walkTarget)
       ) {
         openStation(walkTarget.x, walkTarget.y);
+        walkTarget = undefined;
+      }
+      // Walking to a pickup: stop once it's in reach, and pick it up.
+      if (walkTarget?.pickup && !queuedSteps.length && !heldKeys.length && inReach(r, walkTarget)) {
+        tryAct({ type: "gather", x: walkTarget.x, y: walkTarget.y });
         walkTarget = undefined;
       }
       const dir =

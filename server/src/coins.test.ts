@@ -350,6 +350,30 @@ describe("coins", () => {
     expect(town.treasury.gifts).toEqual([]);
   });
 
+  it("tell townsfolk the allowance isn't theirs, and never nudge them to come home", async () => {
+    const t = await start();
+    const clem = t.join("Clem");
+    const wren = t.join("Wren");
+    for (const who of [clem, wren]) {
+      await t.act(who.token, { type: "settle", px: who === clem ? 1 : 5, py: 1 });
+      await t.act(who.token, { type: "build_starter_home" });
+    }
+    t.service.syncTownsfolk(new Set([clem.id]));
+    t.nextDay();
+    const theirs = (await t.purse(clem.token)).purse;
+    expect(theirs).toMatchObject({
+      hasHearth: true,
+      allowanceToday: false,
+      allowanceEligible: false,
+    });
+    const checkin = (await t.call("GET", "/v1/checkin", undefined, clem.token)).body;
+    expect(checkin.todo.join("\n")).not.toContain("Come home");
+    // Everyone else's purse leaves the field out and still gets the nudge.
+    expect((await t.purse(wren.token)).purse).not.toHaveProperty("allowanceEligible");
+    const nudge = (await t.call("GET", "/v1/checkin", undefined, wren.token)).body;
+    expect(nudge.todo.join("\n")).toContain("Come home");
+  });
+
   it("tell a newcomer their welcome gift is waiting when the treasury is short", async () => {
     const t = await start();
     const wren = t.join("Wren");

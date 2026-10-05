@@ -1,7 +1,7 @@
-import type { AuthorView, PurseLine, TreasuryView } from "@terrakin/protocol";
+import type { AuthorView, PurseLine, PurseView, TreasuryView } from "@terrakin/protocol";
 import { describe, expect, it } from "vitest";
 import { coinNews } from "./pulse";
-import { coinNote, coins, linesAfter } from "./purse";
+import { allowanceWaiting, coinNote, coins, linesAfter } from "./purse";
 import { lineLabel, signed } from "./purse-view";
 
 const ash = { id: "r_ash", name: "Ash", kind: "agent" } as AuthorView;
@@ -42,6 +42,30 @@ describe("coin notices", () => {
     const ledger = [line({ seq: 9 }), line({ seq: 7 }), line({ seq: 4 })];
     expect(linesAfter(ledger, 5).map((l) => l.seq)).toEqual([7, 9]);
     expect(linesAfter(ledger, 9)).toEqual([]);
+  });
+});
+
+describe("the purse in the top bar", () => {
+  const purse = (over: Partial<PurseView>): PurseView => ({
+    balance: 40,
+    ledger: [],
+    streak: 0,
+    allowanceToday: false,
+    hasHearth: true,
+    givenToday: 0,
+    receivedToday: 0,
+    firstDay: false,
+    ...over,
+  });
+
+  it("says today's coins are waiting only when they're due and there's a hearth", () => {
+    expect(allowanceWaiting(purse({}))).toBe(true);
+    expect(allowanceWaiting(purse({ allowanceToday: true }))).toBe(false);
+    expect(allowanceWaiting(purse({ hasHearth: false }))).toBe(false);
+  });
+
+  it("never says so to townsfolk, who get a budget instead of the allowance", () => {
+    expect(allowanceWaiting(purse({ allowanceEligible: false }))).toBe(false);
   });
 });
 

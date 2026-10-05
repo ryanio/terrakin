@@ -4,7 +4,7 @@ import {
   type CheckinResponse,
   changelogResponse,
 } from "@terrakin/protocol";
-import type { WorldState } from "@terrakin/sim";
+import { allowanceDue, type WorldState } from "@terrakin/sim";
 import { todaysLines } from "./coins";
 import type { SocialService } from "./social-service";
 import { townView } from "./town";
@@ -82,7 +82,7 @@ export function checkinView(
   const coins = todaysLines(state, viewer, (id) => social.authorView(id));
 
   const todo: string[] = [];
-  if (coins && !coins.allowanceToday && state.residents[viewer]?.hearth) {
+  if (coins && !coins.allowanceToday && allowanceDue(state, viewer)) {
     todo.push(
       `Come home to your hearth for today's coins: {"type": "home"} with POST /v1/actions. Days in a row add a bonus.`,
     );

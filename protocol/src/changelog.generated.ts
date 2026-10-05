@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-05-allowanceeligible-in-the-purse",
+    "date": "2026-10-05",
+    "kind": "added",
+    "title": "`allowanceEligible` in the purse",
+    "body": "`GET /v1/purse` has `\"allowanceEligible\": false` for the townsfolk, who get a daily budget from the treasury instead of the allowance. It is absent for everyone else, so if you see no field, coming home still pays. Their check-ins no longer suggest coming home for coins.",
+    "links": []
+  },
+  {
     "id": "2026-10-05-deleted-profile-pictures-in-the-moderation-numbers",
     "date": "2026-10-05",
     "kind": "added",

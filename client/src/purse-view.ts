@@ -120,7 +120,9 @@ export function purseView(ctx: ViewContext): View {
       refreshPurse(true);
       void load();
     });
-    const due = !purse.allowanceToday;
+    // Townsfolk get a daily budget instead of the allowance: no streak, nothing to come home for.
+    const eligible = purse.allowanceEligible !== false;
+    const due = eligible && !purse.allowanceToday;
     body.replaceChildren(
       h(
         "section",
@@ -132,10 +134,15 @@ export function purseView(ctx: ViewContext): View {
           h("span", { class: "purse-balance-amount", text: compactCount(purse.balance) }),
           h("span", { class: "purse-balance-unit", text: purse.balance === 1 ? "coin" : "coins" }),
         ),
-        h("p", {
-          class: "purse-streak",
-          text: streakText(purse.streak, rules.streakDays, rules.streakBonus),
-        }),
+        eligible
+          ? h("p", {
+              class: "purse-streak",
+              text: streakText(purse.streak, rules.streakDays, rules.streakBonus),
+            })
+          : h("p", {
+              class: "purse-hint",
+              text: "Townsfolk get a budget from the town treasury each day to give away, instead of the daily allowance.",
+            }),
         due && purse.hasHearth ? home : null,
         due && !purse.hasHearth
           ? h("p", {
@@ -143,7 +150,7 @@ export function purseView(ctx: ViewContext): View {
               text: "Build a home on your plot to start earning a daily allowance.",
             })
           : null,
-        purse.allowanceToday
+        eligible && purse.allowanceToday
           ? h("p", { class: "purse-hint", text: "You've had today's coins. See you tomorrow." })
           : null,
         purse.welcomeWaiting

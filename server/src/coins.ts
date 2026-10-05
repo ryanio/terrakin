@@ -6,7 +6,7 @@ import {
   type PurseResponse,
   type TreasuryView,
 } from "@terrakin/protocol";
-import { type LedgerLine, purseOf, treasuryOf, type WorldState } from "@terrakin/sim";
+import { isTownsfolk, type LedgerLine, purseOf, treasuryOf, type WorldState } from "@terrakin/sim";
 
 /**
  * Coins (RFC 0008) as the API shows them. The sim keeps the ledgers; this adds names. A purse is
@@ -43,6 +43,8 @@ export function purseView(state: WorldState, viewer: string, author: Authors): P
       streak: purse.streak,
       allowanceToday: purse.allowanceToday,
       hasHearth: state.residents[viewer]?.hearth != null,
+      // Townsfolk get a daily budget, never the allowance, so nothing waits for them at home.
+      ...(isTownsfolk(state, viewer) ? { allowanceEligible: false as const } : {}),
       givenToday: purse.givenToday,
       receivedToday: purse.receivedToday,
       firstDay: purse.firstDay,

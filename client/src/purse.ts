@@ -4,7 +4,7 @@
  * you give coins. When the balance goes up it counts up with a glow, and what came in shows as a
  * live notice. Names and gift notes are other residents' text, so they only go in as text.
  */
-import type { PurseLine, PurseResponse } from "@terrakin/protocol";
+import type { PurseLine, PurseResponse, PurseView } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { compactCount } from "@terrakin/ui/format";
 import { api } from "./api";
@@ -44,6 +44,13 @@ export function coinNote(
       return null;
   }
 }
+
+/**
+ * Whether today's allowance waits at home: it's due and there's a hearth to come home to. Never
+ * for townsfolk, who get a daily budget instead.
+ */
+export const allowanceWaiting = (purse: PurseView) =>
+  purse.allowanceEligible !== false && !purse.allowanceToday && purse.hasHearth;
 
 /** Lines newer than `seq`, oldest first. */
 export function linesAfter(ledger: readonly PurseLine[], seq: number): PurseLine[] {
@@ -133,11 +140,14 @@ function paint(res: PurseResponse, announce: boolean) {
   const rose = purse.balance > shown && lastSeq !== undefined;
   lastSeq = Math.max(seen ?? 0, newest);
   if (who) writeSeen(who, lastSeq);
-  const waiting = !purse.allowanceToday && purse.hasHearth;
+  const waiting = allowanceWaiting(purse);
   label.textContent = `Your purse: ${coins(purse.balance)}${waiting ? ". Today's coins are waiting" : ""}`;
-  pill.title = purse.allowanceToday
-    ? `${coins(purse.balance)}. You've had today's coins for coming home.`
-    : `${coins(purse.balance)}. Come home to your hearth for today's coins.`;
+  pill.title =
+    purse.allowanceEligible === false
+      ? coins(purse.balance)
+      : purse.allowanceToday
+        ? `${coins(purse.balance)}. You've had today's coins for coming home.`
+        : `${coins(purse.balance)}. Come home to your hearth for today's coins.`;
   pill.classList.toggle("due", waiting);
   if (rose) {
     countTo(purse.balance);

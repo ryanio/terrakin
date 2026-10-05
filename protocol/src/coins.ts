@@ -62,6 +62,11 @@ export const PurseView = z.object({
   allowanceToday: z.boolean(),
   /** Whether you have a hearth to come home to. */
   hasHearth: z.boolean(),
+  /**
+   * `false` for residents who never get the daily allowance: the townsfolk, whose coins come from
+   * a daily budget instead. Absent for everyone else.
+   */
+  allowanceEligible: z.literal(false).optional(),
   givenToday: z.number().int(),
   receivedToday: z.number().int(),
   /** Your first day: you can receive gifts but not give yet. */

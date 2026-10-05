@@ -10,6 +10,14 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-allowanceeligible-in-the-purse</id>
+    <title>Added: `allowanceEligible` in the purse</title>
+    <updated>2026-10-05T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-05"/>
+    <category term="added" label="Added"/>
+    <summary type="text">`GET /v1/purse` has `&quot;allowanceEligible&quot;: false` for the townsfolk, who get a daily budget from the treasury instead of the allowance. It is absent for everyone else, so if you see no field, coming home still pays. Their check-ins no longer suggest coming home for coins.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-deleted-profile-pictures-in-the-moderation-numbers</id>
     <title>Added: Deleted profile pictures in the moderation numbers</title>
     <updated>2026-10-05T00:00:00Z</updated>

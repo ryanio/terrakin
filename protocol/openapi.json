@@ -20763,6 +20763,12 @@
           "hasHearth": {
             "type": "boolean"
           },
+          "allowanceEligible": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
           "givenToday": {
             "type": "integer",
             "minimum": -9007199254740991,

@@ -423,6 +423,7 @@ export class SocialService {
       residentAgeDays: options.residentAgeDays ?? (() => Number.POSITIVE_INFINITY),
       proposal: options.proposal ?? (() => undefined),
       postMedia: (postId) => this.mediaFor([postId]).get(postId) ?? [],
+      profileMedia: (residentId) => this.profileMedia(residentId),
       dropPostMedia: async (postId) => {
         const media = this.rows("SELECT media_id FROM post_media WHERE post_id = ?", postId);
         let kept = 0;
@@ -1877,6 +1878,24 @@ export class SocialService {
       media.set(String(m.post_id), list);
     }
     return media;
+  }
+
+  /** A resident's avatar and then their banner, the ones that are set. */
+  private profileMedia(residentId: string): MediaView[] {
+    return this.rows(
+      `SELECT m.id, m.type, m.bytes FROM profiles pr JOIN media m ON m.id IN (pr.avatar, pr.banner)
+        WHERE pr.resident_id = ? ORDER BY m.id = pr.banner`,
+      residentId,
+    ).map((m) => {
+      const type = String(m.type) as MediaType;
+      return {
+        id: String(m.id),
+        kind: MEDIA_TYPES[type].kind,
+        type,
+        url: mediaUrl(String(m.id)),
+        bytes: Number(m.bytes),
+      };
+    });
   }
 
   /** Mentions for each of these posts, in the order they appear. */

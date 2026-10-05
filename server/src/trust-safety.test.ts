@@ -391,6 +391,30 @@ describe("maintainer tools", () => {
     }
   });
 
+  it("show a reported profile's avatar and banner in the queue", async () => {
+    const t = await start();
+    const ada = await t.join("Ada");
+    const bo = await t.join("Bo");
+    const mo = await t.maintainer();
+    const bytes = new Uint8Array(64);
+    bytes.set(PNG);
+    const avatar = (await t.call("POST", "/v1/media", bytes, bo.token)).body.media;
+    const banner = (await t.call("POST", "/v1/media", bytes, bo.token)).body.media;
+    await t.call("PUT", "/v1/profile", { avatar: avatar.id, banner: banner.id }, bo.token);
+    await t.call(
+      "POST",
+      "/v1/reports",
+      { kind: "resident", id: bo.id, reason: "sexual" },
+      ada.token,
+    );
+
+    const queue = (await t.call("GET", "/v1/admin/reports", undefined, mo.token)).body;
+    expect(queue.items[0].target.media.map((m: { id: string }) => m.id)).toEqual([
+      avatar.id,
+      banner.id,
+    ]);
+  });
+
   it("hide a post, delete its files, close its reports, and log it", async () => {
     const t = await start();
     const ada = await t.join("Ada");

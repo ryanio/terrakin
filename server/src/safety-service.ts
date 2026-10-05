@@ -55,6 +55,8 @@ export interface SafetyOptions {
   proposal: (id: string) => { author: string; title: string; text: string } | undefined;
   /** A post's files, as its view shows them. */
   postMedia: (postId: string) => MediaView[];
+  /** A resident's avatar and banner files, so a profile report shows its pictures. */
+  profileMedia: (residentId: string) => MediaView[];
   /** Detach a post's files and delete the ones nothing else uses. */
   /** Take down every file on a post, everywhere it's used. Resolves to how many couldn't be deleted. */
   dropPostMedia: (postId: string) => Promise<number>;
@@ -742,7 +744,9 @@ export class SafetyService {
       const r = this.o.resident(id);
       if (!r) return gone;
       const bio = this.rows("SELECT bio FROM profiles WHERE resident_id = ?", id)[0]?.bio;
-      return base(id, [r.name, r.note, String(bio ?? "")].filter(Boolean).join("\n"));
+      return base(id, [r.name, r.note, String(bio ?? "")].filter(Boolean).join("\n"), {
+        media: this.o.profileMedia(id),
+      });
     }
     if (kind === "letter") {
       const row = this.rows("SELECT sender, text FROM letters WHERE id = ?", id)[0];

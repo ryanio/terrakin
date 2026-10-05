@@ -96,6 +96,7 @@ export const ReportTarget = z.object({
   /** Who wrote it, or who the resident is. */
   author: AuthorView.nullable(),
   text: z.string(),
+  /** A post's files, or a resident's avatar and banner. */
   media: z.array(MediaView),
   /** Posts only: hidden from everyone, by staff or automatically. */
   hidden: z.enum(["no", "auto", "maintainer"]),

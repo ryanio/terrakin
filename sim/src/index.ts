@@ -6,7 +6,7 @@ export {
   type Prepared,
   prepare,
 } from "./apply";
-export { BIOME_REGION, biomeAt, type Biome } from "./biome";
+export { BIOME_REGION, type Biome, biomeAt } from "./biome";
 export { canonicalJson, fnv1a, hashWorld } from "./hash";
 export { parseKey, plotKey, tileKey } from "./keys";
 export * from "./looks";

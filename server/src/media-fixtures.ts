@@ -15,7 +15,7 @@ export const asText = (b: Uint8Array) => {
   return out;
 };
 
-type Part = Uint8Array | number[] | string;
+export type Part = Uint8Array | number[] | string;
 
 export function cat(...parts: Part[]): Uint8Array {
   const arrays = parts.map((p) =>
@@ -197,6 +197,7 @@ export function webmWithTags() {
       el([0x4d, 0x80], "MuxerApp"),
       el([0x57, 0x41], "WriterApp"),
       el([0x7b, 0xa9], "Ryan at 12 Oak St"),
+      el([0x73, 0x84], "party at Oak St.webm"),
       el([0x44, 0x61], [1, 2, 3, 4, 5, 6, 7, 8]),
     ),
     el(

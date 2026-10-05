@@ -397,6 +397,15 @@ describe("upload cost guards", () => {
     expect(media.files.size).toBe(1);
   });
 
+  it("turns away someone out of uploads before reading their file", async () => {
+    const { call, join } = await start({ uploadsPerDay: 1 });
+    const { token } = await join("Wren");
+    expect((await call("POST", "/v1/media", file(PNG), token)).status).toBe(201);
+    // A video that can't be read would be a 400 if it were parsed; the cap answers first.
+    const second = await call("POST", "/v1/media", file("\0\0\0\x18ftypisom"), token);
+    expect(second.status).toBe(429);
+  });
+
   it("releases the reservation when the write fails", async () => {
     const media = new MemoryMediaStore();
     let failing = true;

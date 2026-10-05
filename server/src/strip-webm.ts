@@ -1,6 +1,6 @@
 /**
  * Remove free-form metadata from a WebM (Matroska) file: tags, attachments, chapters, the segment
- * title and recording date, and track names. Decision 0043 says what goes and why.
+ * title, recording date, and file names, and track names. Decision 0043 says what goes and why.
  *
  * Like MP4, every change is made in place and keeps the file's length: a removed element becomes
  * a Void element of the same size with a zeroed payload, so nothing moves and every position the
@@ -36,6 +36,19 @@ const CHAPTERS = 0x1043a770;
 const TITLE = 0x7ba9;
 const DATE_UTC = 0x4461;
 const NAME = 0x536e;
+const SEGMENT_FILENAME = 0x7384;
+const PREV_FILENAME = 0x3c83ab;
+const NEXT_FILENAME = 0x3e83bb;
+
+/** Info children that can say who, where, or when. Mux and writing app names stay (they're required). */
+const INFO_DROP = new Set([TITLE, DATE_UTC, SEGMENT_FILENAME, PREV_FILENAME, NEXT_FILENAME, CRC32]);
+
+/**
+ * The most elements one file may make us look at, outside clusters. Real files have a few hundred
+ * (one per cluster, plus headers); a hostile file of millions of 2-byte elements stops here instead
+ * of filling the isolate's memory. Blocks inside clusters aren't counted or stored.
+ */
+export const MAX_WEBM_ELEMENTS = 50_000;
 
 /** Segment children a player needs. Tags, attachments, chapters, and anything unknown are voided. */
 const SEGMENT_KEEP = new Set([SEEK_HEAD, INFO, TRACKS, CLUSTER, CUES, VOID]);
@@ -99,15 +112,24 @@ function voidOut(b: Uint8Array, from: number, to: number) {
 
 interface Edits {
   voids: [number, number][];
+  /** Elements left to read before the file is refused. */
+  budget: number;
+}
+
+/** Read an element and count it against the budget. */
+function take(b: Uint8Array, at: number, limit: number, edits: Edits): Element | undefined {
+  if (--edits.budget < 0) return undefined;
+  return readElement(b, at, limit);
 }
 
 function strip(b: Uint8Array): Uint8Array | undefined {
-  const edits: Edits = { voids: [] };
+  const edits: Edits = { voids: [], budget: MAX_WEBM_ELEMENTS };
   let segments = 0;
   let at = 0;
   let end = b.length;
   while (at < b.length) {
-    const el = readElement(b, at, b.length);
+    if (edits.budget <= 0) return undefined;
+    const el = take(b, at, b.length, edits);
     if (!el) {
       if (segments === 0) return undefined;
       end = at;
@@ -132,7 +154,7 @@ function walkSegment(b: Uint8Array, from: number, to: number, edits: Edits): boo
   const seekHeads: Element[] = [];
   let at = from;
   while (at < to) {
-    const el = readElement(b, at, to);
+    const el = take(b, at, to, edits);
     if (!el) return false;
     if (el.end === undefined) {
       // Only clusters may have an unknown size (browsers' MediaRecorder writes them that way).
@@ -146,7 +168,7 @@ function walkSegment(b: Uint8Array, from: number, to: number, edits: Edits): boo
     } else if (el.id === SEEK_HEAD) {
       seekHeads.push(el);
     } else if (el.id === INFO) {
-      if (!voidChildren(b, el, new Set([TITLE, DATE_UTC, CRC32]), edits)) return false;
+      if (!voidChildren(b, el, INFO_DROP, edits)) return false;
     } else if (el.id === TRACKS) {
       if (!walkTracks(b, el, edits)) return false;
     }
@@ -176,7 +198,7 @@ function voidChildren(b: Uint8Array, parent: Element, drop: Set<number>, edits: 
   const end = parent.end ?? parent.body;
   let at = parent.body;
   while (at < end) {
-    const el = readElement(b, at, end);
+    const el = take(b, at, end, edits);
     if (!el || el.end === undefined) return false;
     if (drop.has(el.id)) edits.voids.push([el.start, el.end]);
     at = el.end;
@@ -188,7 +210,7 @@ function walkTracks(b: Uint8Array, tracks: Element, edits: Edits): boolean {
   const end = tracks.end ?? tracks.body;
   let at = tracks.body;
   while (at < end) {
-    const el = readElement(b, at, end);
+    const el = take(b, at, end, edits);
     if (!el || el.end === undefined) return false;
     if (el.id === TRACK_ENTRY && !voidChildren(b, el, new Set([NAME, CRC32]), edits)) return false;
     if (el.id === CRC32) edits.voids.push([el.start, el.end]);
@@ -202,17 +224,20 @@ function walkSeekHead(b: Uint8Array, head: Element, edits: Edits): boolean {
   const end = head.end ?? head.body;
   let at = head.body;
   while (at < end) {
-    const seek = readElement(b, at, end);
+    const seek = take(b, at, end, edits);
     if (!seek || seek.end === undefined) return false;
     if (seek.id === CRC32) edits.voids.push([seek.start, seek.end]);
     if (seek.id === SEEK) {
       let inner = seek.body;
       while (inner < seek.end) {
-        const el = readElement(b, inner, seek.end);
+        const el = take(b, inner, seek.end, edits);
         if (!el || el.end === undefined) return false;
         if (el.id === SEEK_ID) {
           const target = vint(b, el.body, el.end, true, 4);
-          if (!target || !SEGMENT_KEEP.has(target.value)) edits.voids.push([seek.start, seek.end]);
+          if (!target || !SEGMENT_KEEP.has(target.value)) {
+            edits.voids.push([seek.start, seek.end]);
+            break;
+          }
         }
         inner = el.end;
       }

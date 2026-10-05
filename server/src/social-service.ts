@@ -1616,12 +1616,23 @@ export class SocialService {
         `That ${kind} is too big. The limit is ${maxBytes / 1_000_000} MB.`,
       );
     }
+    // Someone with no uploads left today is turned away before the file is parsed. Stripping can
+    // shrink a file, so the exact byte check waits until after it.
+    const early = this.checkUploadCaps(ownerId, 1);
+    if (early) return early;
     // Location and camera details come out before anything is stored or counted.
     const stripped = stripMetadata(bytes, type);
     if (!stripped) {
       return fail(
         "bad_request",
         `Couldn't read that ${kind} to remove hidden details like its location. Save or export it again and retry.`,
+      );
+    }
+    // A model's rewritten JSON can come out a little longer than it went in.
+    if (stripped.length > maxBytes) {
+      return fail(
+        "bad_request",
+        `That ${kind} is too big. The limit is ${maxBytes / 1_000_000} MB.`,
       );
     }
     bytes = stripped;

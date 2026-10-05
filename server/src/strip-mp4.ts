@@ -1,6 +1,7 @@
 /**
- * Remove location and free-form metadata from an ISO base media file (MP4, and QuickTime MOV,
- * which shares the box layout). Decision 0043 says what goes and why.
+ * Remove location and free-form metadata from an ISO base media file (MP4). QuickTime MOV shares
+ * the box layout and this handles it, though `sniffMediaType` refuses MOV uploads today. Decision
+ * 0043 says what goes and why.
  *
  * Every change is made in place and keeps the file's length: a removed box becomes a `free` box of
  * the same size with a zeroed payload. Nothing moves, so the chunk offsets in `stco` and `co64`
@@ -9,6 +10,9 @@
  * The input is changed in place and returned. A file that can't be walked safely comes back
  * undefined, and the upload is refused: a file we can't read is a file we can't vouch for. Bytes
  * after the last whole top-level box (some phones append vendor trailers) are cut off.
+ *
+ * The work is linear in the file's size and the memory is bounded: at most MAX_MP4_BOXES boxes are
+ * read, and timed metadata sample ranges are checked and zeroed as they're read, never stored.
  */
 export function stripMp4(b: Uint8Array): Uint8Array | undefined {
   try {
@@ -71,6 +75,12 @@ const TRAK_KEEP = new Set([
  */
 const DROP = new Set(["udta", "meta", "\xa9xyz", "loci", "XMP_"]);
 
+/**
+ * Padding. Its payload is zeroed wherever we find it, because QuickTime saves in place by turning
+ * the old `moov`, location and all, into a `free` box.
+ */
+const PADDING = new Set(["free", "skip", "wide"]);
+
 /** Containers we walk into below `moov` and `trak`. */
 const WALK = new Set(["mdia", "minf", "stbl", "edts", "dinf", "mvex", "moof", "traf"]);
 
@@ -106,8 +116,15 @@ function readBox(view: DataView, b: Uint8Array, at: number, limit: number): Box 
   return { type: fourcc(b, at + 4), start: at, body, end: at + size };
 }
 
-/** The children of a container, or undefined if they don't tile it exactly. */
-function children(view: DataView, b: Uint8Array, parent: Box): Box[] | undefined {
+/**
+ * The most boxes one file may make us look at. A real moov tree is a few hundred boxes and a
+ * 25 MB fragmented file a few thousand; a hostile file of millions of 8-byte boxes stops here
+ * instead of filling the isolate's memory.
+ */
+export const MAX_MP4_BOXES = 50_000;
+
+/** The children of a container, or undefined if they don't tile it exactly or the budget runs out. */
+function children(view: DataView, b: Uint8Array, parent: Box, edits: Edits): Box[] | undefined {
   const out: Box[] = [];
   let at = parent.body;
   while (at < parent.end) {
@@ -117,6 +134,7 @@ function children(view: DataView, b: Uint8Array, parent: Box): Box[] | undefined
       if (parent.end - at < 8 && b.subarray(at, parent.end).every((x) => x === 0)) break;
       return undefined;
     }
+    if (--edits.budget < 0) return undefined;
     out.push(box);
     at = box.end;
   }
@@ -141,14 +159,22 @@ function zeroTimes(b: Uint8Array, box: Box) {
 interface Edits {
   wipe: Box[];
   times: Box[];
-  /** Byte ranges of timed metadata samples, zeroed once we know they sit inside `mdat`. */
-  samples: [number, number][];
+  /** Sample tables of timed metadata tracks, whose samples are zeroed once they check out. */
+  sampleTables: Box[];
   metadataTracks: number;
+  /** Boxes left to read before the file is refused. */
+  budget: number;
 }
 
 function strip(b: Uint8Array): Uint8Array | undefined {
   const view = new DataView(b.buffer, b.byteOffset, b.byteLength);
-  const edits: Edits = { wipe: [], times: [], samples: [], metadataTracks: 0 };
+  const edits: Edits = {
+    wipe: [],
+    times: [],
+    sampleTables: [],
+    metadataTracks: 0,
+    budget: MAX_MP4_BOXES,
+  };
   const mdats: Box[] = [];
   let moov = false;
   let fragmented = false;
@@ -168,6 +194,7 @@ function strip(b: Uint8Array): Uint8Array | undefined {
       end = at;
       break;
     }
+    if (--edits.budget < 0) return undefined;
     if (box.type === "moov") {
       if (moov) return undefined;
       moov = true;
@@ -177,7 +204,7 @@ function strip(b: Uint8Array): Uint8Array | undefined {
     } else if (box.type === "moof") {
       fragmented = true;
       if (!walk(view, b, box, "moof", edits)) return undefined;
-    } else if (!TOP_KEEP.has(box.type)) {
+    } else if (!TOP_KEEP.has(box.type) || PADDING.has(box.type)) {
       edits.wipe.push(box);
     }
     at = box.end;
@@ -186,25 +213,53 @@ function strip(b: Uint8Array): Uint8Array | undefined {
   // Samples of a metadata track in a fragmented file live in `moof` runs we don't trace. Refuse
   // rather than keep them.
   if (fragmented && edits.metadataTracks > 0) return undefined;
-  for (const [from, to] of edits.samples) {
-    if (!mdats.some((m) => from >= m.body && to <= Math.min(m.end, end))) return undefined;
+  // Every sample range must sit inside one `mdat`, and together they can't cover more bytes than
+  // the file has, so zeroing them is linear in the file's size.
+  let total = 0;
+  for (const stbl of edits.sampleTables) {
+    const ok = eachSampleRange(view, stbl, (from, to) => {
+      total += to - from;
+      const mdat = mdatAt(mdats, from);
+      return total <= b.length && !!mdat && to <= Math.min(mdat.end, end);
+    });
+    if (!ok) return undefined;
   }
   // Every check passed. Now change the bytes.
   for (const box of edits.times) zeroTimes(b, box);
-  for (const [from, to] of edits.samples) b.fill(0, from, to);
+  for (const stbl of edits.sampleTables) {
+    eachSampleRange(view, stbl, (from, to) => {
+      b.fill(0, from, to);
+      return true;
+    });
+  }
   for (const box of edits.wipe) wipe(view, b, box);
   return end === b.length ? b : b.subarray(0, end);
 }
 
+/** The `mdat` whose payload holds `offset`, by binary search (top-level boxes are in file order). */
+function mdatAt(mdats: Box[], offset: number): Box | undefined {
+  let lo = 0;
+  let hi = mdats.length - 1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    const m = mdats[mid] as Box;
+    if (offset < m.body) hi = mid - 1;
+    else if (offset >= m.end) lo = mid + 1;
+    else return m;
+  }
+  return undefined;
+}
+
 /** Walk a container, noting what to wipe. False if the structure is broken. */
 function walk(view: DataView, b: Uint8Array, parent: Box, kind: string, edits: Edits): boolean {
-  const kids = children(view, b, parent);
+  const kids = children(view, b, parent, edits);
   if (!kids) return false;
   const keep = kind === "moov" ? MOOV_KEEP : kind === "trak" ? TRAK_KEEP : undefined;
   for (const box of kids) {
     if (TIMES.has(box.type)) edits.times.push(box);
     if (
       DROP.has(box.type) ||
+      PADDING.has(box.type) ||
       (keep && !keep.has(box.type)) ||
       (box.type === "uuid" && !FRAGMENT.has(kind))
     ) {
@@ -223,11 +278,12 @@ function walkTrack(view: DataView, b: Uint8Array, trak: Box, edits: Edits): bool
   const before = { wipe: edits.wipe.length, times: edits.times.length };
   if (!walk(view, b, trak, "trak", edits)) return false;
   const find = (parent: Box | undefined, type: string) =>
-    parent ? children(view, b, parent)?.find((box) => box.type === type) : undefined;
+    parent ? children(view, b, parent, edits)?.find((box) => box.type === type) : undefined;
   const mdia = find(trak, "mdia");
   const hdlr = find(mdia, "hdlr");
   const stbl = find(find(mdia, "minf"), "stbl");
   const stsd = find(stbl, "stsd");
+  if (edits.budget < 0) return false;
   const handler = hdlr && hdlr.body + 12 <= hdlr.end ? fourcc(b, hdlr.body + 8) : "";
   const entry = stsd && stsd.body + 16 <= stsd.end ? fourcc(b, stsd.body + 12) : "";
   if (!METADATA_HANDLERS.has(handler) && !METADATA_ENTRIES.has(entry)) return true;
@@ -236,74 +292,80 @@ function walkTrack(view: DataView, b: Uint8Array, trak: Box, edits: Edits): bool
   edits.wipe.length = before.wipe;
   edits.times.length = before.times;
   edits.wipe.push(trak);
-  if (!stbl) return true;
-  const ranges = sampleRanges(view, b, stbl);
-  if (!ranges) return false;
-  edits.samples.push(...ranges);
+  if (stbl) edits.sampleTables.push(stbl);
   return true;
 }
 
 /**
- * Where a track's samples are, chunk by chunk, from its sample table. Every count is checked
- * against the size of the box that holds it before anything loops over it.
+ * Call `visit` with each chunk's byte range, from a track's sample table, without storing them.
+ * Every count is checked against the size of the box that holds it before anything loops over it,
+ * so the work is linear in the table's size. False if the table is broken or `visit` says stop.
  */
-function sampleRanges(view: DataView, b: Uint8Array, stbl: Box): [number, number][] | undefined {
-  const kids = children(view, b, stbl);
-  if (!kids) return undefined;
+function eachSampleRange(
+  view: DataView,
+  stbl: Box,
+  visit: (from: number, to: number) => boolean,
+): boolean {
+  const kids: Box[] = [];
+  for (let at = stbl.body; at + 8 <= stbl.end; ) {
+    const size = view.getUint32(at);
+    if (size < 8 || at + size > stbl.end) break;
+    const type = String.fromCharCode(
+      view.getUint8(at + 4),
+      view.getUint8(at + 5),
+      view.getUint8(at + 6),
+      view.getUint8(at + 7),
+    );
+    kids.push({ type, start: at, body: at + 8, end: at + size });
+    at += size;
+  }
   const get = (type: string) => kids.find((box) => box.type === type);
   const stsz = get("stsz");
   const stsc = get("stsc");
   const stco = get("stco");
   const co64 = get("co64");
-  if (!stsz && !stsc && !stco && !co64) return [];
-  if (!stsz || !stsc || !(stco || co64)) return undefined;
+  if (!stsz && !stsc && !stco && !co64) return true;
+  if (!stsz || !stsc || !(stco || co64)) return false;
 
   // Chunk offsets.
-  const offsets: number[] = [];
   const table = (stco ?? co64) as Box;
   const wide = !stco;
-  if (table.body + 8 > table.end) return undefined;
+  if (table.body + 8 > table.end) return false;
   const chunks = view.getUint32(table.body + 4);
-  if (chunks > (table.end - table.body - 8) / (wide ? 8 : 4)) return undefined;
-  for (let i = 0; i < chunks; i++) {
-    const at = table.body + 8 + i * (wide ? 8 : 4);
-    offsets.push(
-      wide ? view.getUint32(at) * 0x100000000 + view.getUint32(at + 4) : view.getUint32(at),
-    );
-  }
+  if (chunks > (table.end - table.body - 8) / (wide ? 8 : 4)) return false;
+  const offset = (chunk: number) => {
+    const at = table.body + 8 + chunk * (wide ? 8 : 4);
+    return wide ? view.getUint32(at) * 0x100000000 + view.getUint32(at + 4) : view.getUint32(at);
+  };
 
   // Sample sizes: one size for all, or a table.
-  if (stsz.body + 12 > stsz.end) return undefined;
+  if (stsz.body + 12 > stsz.end) return false;
   const fixed = view.getUint32(stsz.body + 4);
   const samples = view.getUint32(stsz.body + 8);
-  if (fixed === 0 && samples > (stsz.end - stsz.body - 12) / 4) return undefined;
-  const sizeOf = (i: number) => (fixed !== 0 ? fixed : view.getUint32(stsz.body + 12 + i * 4));
+  if (fixed === 0 && samples > (stsz.end - stsz.body - 12) / 4) return false;
 
   // Samples per chunk, as runs of chunks.
-  if (stsc.body + 8 > stsc.end) return undefined;
+  if (stsc.body + 8 > stsc.end) return false;
   const runs = view.getUint32(stsc.body + 4);
-  if (runs > (stsc.end - stsc.body - 8) / 12) return undefined;
-  const run = (i: number) => ({
-    first: view.getUint32(stsc.body + 8 + i * 12),
-    perChunk: view.getUint32(stsc.body + 12 + i * 12),
-  });
+  if (runs > (stsc.end - stsc.body - 8) / 12) return false;
+  const first = (i: number) => view.getUint32(stsc.body + 8 + i * 12);
+  const perChunk = (i: number) => view.getUint32(stsc.body + 12 + i * 12);
 
-  const ranges: [number, number][] = [];
   let sample = 0;
   let r = 0;
   for (let chunk = 1; chunk <= chunks && sample < samples; chunk++) {
-    while (r + 1 < runs && run(r + 1).first <= chunk) r++;
-    if (runs === 0 || run(r).first > chunk) return undefined;
-    const count = Math.min(run(r).perChunk, samples - sample);
+    while (r + 1 < runs && first(r + 1) <= chunk) r++;
+    if (runs === 0 || first(r) > chunk) return false;
+    const count = Math.min(perChunk(r), samples - sample);
     let bytes = 0;
     if (fixed !== 0) {
       bytes = count * fixed;
     } else {
-      for (let k = 0; k < count; k++) bytes += sizeOf(sample + k);
+      for (let k = 0; k < count; k++) bytes += view.getUint32(stsz.body + 12 + (sample + k) * 4);
     }
     sample += count;
-    const from = offsets[chunk - 1] ?? 0;
-    ranges.push([from, from + bytes]);
+    const from = offset(chunk - 1);
+    if (!visit(from, from + bytes)) return false;
   }
-  return ranges;
+  return true;
 }

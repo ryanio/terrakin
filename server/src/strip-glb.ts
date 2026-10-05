@@ -1,9 +1,9 @@
 /**
  * Remove free-form metadata from a binary glTF (.glb) model: every `extras` object, XMP
- * extensions (`KHR_xmp_json_ld`, the older `KHR_xmp`), chunks after the binary one, and EXIF, XMP,
- * and comments in embedded JPEG, PNG, and WebP textures. `asset.copyright` and `asset.generator`
- * stay: the first is the author's attribution, the second names the exporting tool. Decision 0043
- * says why.
+ * extensions (`KHR_xmp_json_ld`, the older `KHR_xmp`), chunks after the binary one, folders in
+ * external file paths, and EXIF, XMP, and comments in embedded JPEG, PNG, and WebP textures.
+ * `asset.copyright` and `asset.generator` stay: the first is the author's attribution, the second
+ * names the exporting tool. Decision 0043 says why.
  *
  * The JSON chunk is rewritten only when something comes out of it. If the new JSON fits in the old
  * chunk it's written in place and padded with spaces, which glTF allows, so the binary chunk
@@ -65,7 +65,7 @@ function strip(b: Uint8Array): Uint8Array | undefined {
   const doc = JSON.parse(text) as Json;
   if (!isObject(doc)) return undefined;
   let changed = removeMetadata(doc);
-  const textures = scrubTextures(doc, bin);
+  const textures = scrubTextures(doc, bin, b.length);
   if (textures === undefined) return undefined;
   changed ||= textures;
 
@@ -131,18 +131,42 @@ function removeMetadata(doc: JsonObject): boolean {
   return changed;
 }
 
+/** A file name without the folders before it, which can hold a user name. */
+const basename = (uri: string) =>
+  uri.slice(Math.max(uri.lastIndexOf("/"), uri.lastIndexOf("\\")) + 1);
+
 /**
  * Scrub every embedded image: in the binary chunk, in a base64 `data:` buffer, or in a base64
  * `data:` image URI. True if the JSON changed, undefined if an image points somewhere impossible.
- * Images in external files aren't in the upload, so there's nothing to scrub.
+ * Images in external files aren't in the upload, so there's nothing to scrub, but their paths are
+ * cut to the file name (`C:/Users/ryan/Pictures/a.jpg` names a person).
+ *
+ * Each byte range is scrubbed once however many images point at it, and the bytes scanned in all
+ * are capped at twice the file's size, so a list of a million images over one texture is cheap.
  */
-function scrubTextures(doc: JsonObject, bin: Uint8Array | undefined): boolean | undefined {
+function scrubTextures(
+  doc: JsonObject,
+  bin: Uint8Array | undefined,
+  fileLength: number,
+): boolean | undefined {
   const images = Array.isArray(doc.images) ? doc.images : [];
   const views = Array.isArray(doc.bufferViews) ? doc.bufferViews : [];
   const buffers = Array.isArray(doc.buffers) ? doc.buffers : [];
   const decoded = new Map<number, Uint8Array>();
   const dirty = new Set<number>();
+  const done = new Set<string>();
+  let budget = 2 * fileLength;
   let changed = false;
+
+  for (const buffer of buffers) {
+    if (isObject(buffer) && typeof buffer.uri === "string" && !buffer.uri.startsWith("data:")) {
+      const name = basename(buffer.uri);
+      if (name !== buffer.uri) {
+        buffer.uri = name;
+        changed = true;
+      }
+    }
+  }
 
   const bufferBytes = (index: number): Uint8Array | null | undefined => {
     const buffer = buffers[index];
@@ -158,9 +182,19 @@ function scrubTextures(doc: JsonObject, bin: Uint8Array | undefined): boolean | 
 
   for (const image of images) {
     if (!isObject(image)) continue;
-    if (typeof image.uri === "string" && image.uri.startsWith("data:")) {
+    if (typeof image.uri === "string") {
+      if (!image.uri.startsWith("data:")) {
+        const name = basename(image.uri);
+        if (name !== image.uri) {
+          image.uri = name;
+          changed = true;
+        }
+        continue;
+      }
       const bytes = fromDataUri(image.uri);
       if (!bytes) return undefined;
+      budget -= bytes.length;
+      if (budget < 0) return undefined;
       if (scrubImage(bytes)) {
         image.uri = toDataUri(image.uri, bytes);
         changed = true;
@@ -173,10 +207,15 @@ function scrubTextures(doc: JsonObject, bin: Uint8Array | undefined): boolean | 
     if (!isObject(bv) || !isIndex(bv.buffer) || !isIndex(bv.byteLength)) return undefined;
     const offset = bv.byteOffset ?? 0;
     if (!isIndex(offset)) return undefined;
+    const key = `${bv.buffer}:${offset}:${bv.byteLength}`;
+    if (done.has(key)) continue;
+    done.add(key);
     const bytes = bufferBytes(bv.buffer);
     // An external buffer file isn't part of the upload.
     if (bytes === null) continue;
     if (!bytes || offset + bv.byteLength > bytes.length) return undefined;
+    budget -= bv.byteLength;
+    if (budget < 0) return undefined;
     if (scrubImage(bytes.subarray(offset, offset + bv.byteLength)) && decoded.has(bv.buffer)) {
       dirty.add(bv.buffer);
     }

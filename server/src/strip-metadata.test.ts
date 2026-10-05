@@ -12,6 +12,7 @@ import {
   MP4_VIDEO,
   mp4Boxes,
   mp4WithGps,
+  type Part,
   readGlb,
   tinyGlb,
   u32,
@@ -20,6 +21,8 @@ import {
 } from "./media-fixtures";
 import { MAX_GLB_JSON_BYTES, scrubImage } from "./strip-glb";
 import { stripMetadata } from "./strip-metadata";
+import { MAX_MP4_BOXES } from "./strip-mp4";
+import { MAX_WEBM_ELEMENTS } from "./strip-webm";
 
 /** A small seeded generator, so a failing mutation can be replayed. */
 function random(seed: number) {
@@ -197,6 +200,84 @@ describe("MP4 metadata", () => {
     expect(stripMetadata(file, "video/mp4")).toBeUndefined();
   });
 
+  it("zeroes padding, where QuickTime leaves an old moov behind", () => {
+    const old = box("moov", box("udta", box("\xa9xyz", [0, 18, 0x15, 0xc7], MP4_GPS)));
+    const file = cat(mp4WithGps(), box("free", old));
+    const out = stripMetadata(file, "video/mp4");
+    expect(out?.length).toBe(file.length);
+    expect(asText(out ?? new Uint8Array())).not.toContain("37.7749");
+  });
+
+  // A hostile file must cost memory and time in proportion to its size, never more.
+  it("refuses a file of more tiny boxes than any real video has", () => {
+    const head = cat(box("ftyp", "isom", u32(0)), box("moov", box("mvhd", Array(100).fill(0))));
+    const tiny = new Uint8Array((MAX_MP4_BOXES + 10) * 8);
+    for (let i = 0; i < tiny.length; i += 8) tiny.set([0, 0, 0, 8, 0x6a, 0x75, 0x6e, 0x6b], i);
+    expect(stripMetadata(cat(head, tiny), "video/mp4")).toBeUndefined();
+  });
+
+  const metadataTrack = (stsz: Part, stsc: Part, stco: Part) =>
+    box(
+      "trak",
+      box(
+        "mdia",
+        box("hdlr", [0, 0, 0, 0], u32(0), "meta"),
+        box(
+          "minf",
+          box(
+            "stbl",
+            box("stsz", [0, 0, 0, 0], stsz),
+            box("stsc", [0, 0, 0, 0], stsc),
+            box("stco", [0, 0, 0, 0], stco),
+          ),
+        ),
+      ),
+    );
+
+  it("finds sample ranges among many mdat boxes in linear time", () => {
+    const mdats = 40_000;
+    const ftyp = box("ftyp", "isom", u32(0));
+    const chunks = 20_000;
+    const build = (lastMdat: number) =>
+      box(
+        "moov",
+        metadataTrack(
+          [...u32(1), ...u32(chunks)],
+          [...u32(1), ...u32(1), ...u32(1), ...u32(1)],
+          [...u32(chunks), ...Array.from({ length: chunks }, () => u32(lastMdat)).flat()],
+        ),
+      );
+    const moovLength = build(0).length;
+    const last = ftyp.length + moovLength + (mdats - 1) * 9 + 8;
+    const tiny = new Uint8Array(mdats * 9);
+    for (let i = 0; i < tiny.length; i += 9)
+      tiny.set([0, 0, 0, 9, 0x6d, 0x64, 0x61, 0x74, 0x47], i);
+    const file = cat(ftyp, build(last), tiny);
+    const started = performance.now();
+    const out = stripMetadata(file, "video/mp4");
+    expect(performance.now() - started).toBeLessThan(1500);
+    expect(out).toBeDefined();
+    expect(out?.[last]).toBe(0);
+  });
+
+  it("refuses sample ranges that add up to more than the file", () => {
+    const ftyp = box("ftyp", "isom", u32(0));
+    const chunks = 1000;
+    const build = (at: number) =>
+      box(
+        "moov",
+        metadataTrack(
+          [...u32(1000), ...u32(chunks)],
+          [...u32(1), ...u32(1), ...u32(1), ...u32(1)],
+          [...u32(chunks), ...Array.from({ length: chunks }, () => u32(at)).flat()],
+        ),
+      );
+    const at = ftyp.length + build(0).length + 8;
+    expect(
+      stripMetadata(cat(ftyp, build(at), box("mdat", new Uint8Array(1000))), "video/mp4"),
+    ).toBeUndefined();
+  });
+
   it("survives truncated and corrupted files without throwing", () => {
     const file = mp4WithGps();
     fuzz(
@@ -216,7 +297,7 @@ describe("WebM metadata", () => {
     if (!out) return;
     expect(out.length).toBe(input.length);
     const text = asText(out);
-    for (const secret of ["Oak St", "37.7749", "home.jpg", "Kitchen", "LOCATION", "Ry"]) {
+    for (const secret of ["Oak St", "37.7749", "home.jpg", "Kitchen", "LOCATION", "Ry", "party"]) {
       expect(text, secret).not.toContain(secret);
     }
     expect(text).toContain(WEBM_FRAME);
@@ -278,6 +359,16 @@ describe("WebM metadata", () => {
     for (const [why, file] of refused) {
       expect(stripMetadata(file.slice(), "video/webm"), why).toBeUndefined();
     }
+  });
+
+  it("refuses a segment of more tiny elements than any real video has", () => {
+    const header = el([0x1a, 0x45, 0xdf, 0xa3], el([0x42, 0x82], "webm"));
+    const tiny = new Uint8Array((MAX_WEBM_ELEMENTS + 10) * 2);
+    for (let i = 0; i < tiny.length; i += 2) tiny.set([0xa0, 0x80], i);
+    const unknown = [0x01, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff];
+    expect(
+      stripMetadata(cat(header, [0x18, 0x53, 0x80, 0x67], unknown, tiny), "video/webm"),
+    ).toBeUndefined();
   });
 
   it("survives truncated and corrupted files without throwing", () => {
@@ -440,6 +531,41 @@ describe("GLB metadata", () => {
     }
     // Deep nesting is walked without recursion, so it's cleaned, not a crash.
     expect(stripMetadata(glbText(deep), "model/gltf-binary")).toBeDefined();
+  });
+
+  it("scrubs a texture once however many images point at it", () => {
+    // A PNG of many empty chunks, slow to walk, behind a hundred thousand image entries.
+    const chunks = Array.from({ length: 20_000 }, () => [
+      0, 0, 0, 0, 0x61, 0x62, 0x43, 0x64, 0, 0, 0, 0,
+    ]).flat();
+    const texture = cat([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], chunks);
+    const file = glb(
+      {
+        asset: { version: "2.0" },
+        buffers: [{ byteLength: texture.length }],
+        bufferViews: [{ buffer: 0, byteLength: texture.length }],
+        images: Array.from({ length: 100_000 }, () => ({ bufferView: 0 })),
+      },
+      texture,
+    );
+    const started = performance.now();
+    expect(stripMetadata(file, "model/gltf-binary")).toBeDefined();
+    expect(performance.now() - started).toBeLessThan(1500);
+  });
+
+  it("cuts external file paths down to the file name", () => {
+    const out = stripMetadata(
+      glb({
+        asset: { version: "2.0" },
+        buffers: [{ uri: "/home/ryan/scans/mesh.bin", byteLength: 4 }],
+        images: [{ uri: "C:\\Users\\ryan\\Pictures\\IMG_1234.jpg" }],
+      }),
+      "model/gltf-binary",
+    );
+    if (!out) throw new Error("refused");
+    const { json } = readGlb(out);
+    expect(json.buffers[0].uri).toBe("mesh.bin");
+    expect(json.images[0].uri).toBe("IMG_1234.jpg");
   });
 
   it("survives truncated and corrupted models without throwing", () => {

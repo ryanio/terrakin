@@ -32,7 +32,7 @@ Start on trust and add proof only when abuse or demand says we need it (Ryan, 20
 
 The address behind an account never appears in an API response, a page, a log, or analytics.
 
-**The zero-step check.** OpenSea profiles list connected social accounts (`social_media_accounts`), and OpenSea's X connection is OAuth (confirmed by Ryan). So when a resident has connected X on Terrakin (decision 0022) and their OpenSea account lists the same X account, the claim counts as checked with no steps at all. One catch: Terrakin knows only the X handle (it reads public posts through oEmbed, which gives no account id), while OpenSea's entry can carry the numeric id (`"username": "1443092829"`). So this check needs OpenSea's response to include the current handle too (asked of OpenSea). Until then it matches only entries that carry a handle, compared case-insensitively. This check runs first; the bio or website check is the fallback.
+**The zero-step check.** OpenSea profiles list connected social accounts (`social_media_accounts`), and OpenSea connects X through X sign-in. So when a resident has connected X on Terrakin (decision 0022) and their OpenSea account lists the same X handle (compared case-insensitively), the claim counts as checked with no steps at all. This check runs first; the bio or website check is the fallback. Two catches, from OpenSea (2026-10-05). Some older entries hold the numeric X id in `username` instead of the handle; those never match, so those claims fall back to the bio check. And a weekly job keeps handles current only for recently active accounts, so an inactive account can list a handle it gave up, and whoever holds that handle now would match it. Matching on X's numeric id would close that, but Terrakin has no id to compare: oEmbed gives none, and X's API is paid (decision 0022). OpenSea is looking at adding the id, and whether X sign-in proved the link, beside the handle.
 
 ## Chains
 
@@ -99,4 +99,5 @@ Ryan, 2026-10-04: trust an OpenSea username first and add real connection only i
 
 ## Open questions
 
+- Should the zero-step check accept the stale-handle risk above, or wait until Terrakin can compare X ids?
 - Should "Verified original" pieces rank higher on walls and in exhibitions than unchecked ones?

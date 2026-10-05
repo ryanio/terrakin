@@ -17,3 +17,5 @@ git fetch -q && git merge-base --is-ancestor origin/main HEAD && git push origin
 ```
 
 Check `git status` shows no rebase in progress first. Deploy only after confirming `git rev-parse HEAD` equals `git rev-parse origin/main`, from a clean tree. When resolving rebase conflicts with a script, take a side only for generated files; a hand-written file that conflicts needs reading, or the change in it is silently dropped.
+
+**The same day, the other way round:** a session squashed with `git reset --soft origin/main` in a worktree whose files were based on an older main, after another session's fetch had moved the shared `origin/main` ref. The commit recorded the old tree on top of the new main, so it deleted everything landed in between (938a564, repaired in 7ec6535). `origin/main` is shared by every worktree of the repo, so it can move under you at any moment. Squash against your branch's own base (`git reset --soft $(git merge-base HEAD origin/main)`), then rebase, and before every push check that `git diff origin/main --stat` lists only your own files.

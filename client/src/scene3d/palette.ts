@@ -58,7 +58,7 @@ export function blockLook(block: BlockKind): BlockLook {
   return BLOCK_LOOKS[block];
 }
 
-/** Same values as RESIDENT_COLOR_HEX in render.ts and `--resident-*` in tokens.css. */
+/** Same values as RESIDENT_COLOR_HEX in ui/src/looks.ts and `--resident-*` in tokens.css. */
 const RESIDENT_HEX: Record<ResidentColor, number> = {
   sun: hex("#f2b84b"),
   sky: hex("#7cb9dd"),

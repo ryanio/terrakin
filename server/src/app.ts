@@ -55,7 +55,7 @@ export interface AppOptions {
   staticDir?: string;
   /** Actions per second allowed per resident (burst = 2x). Default 10. */
   actionsPerSecond?: number;
-  /** New sessions per minute allowed per IP (burst = 5). Default 3. */
+  /** New sessions per minute allowed per IP (burst = 5, or this many when higher). Default 3. */
   sessionsPerMinute?: number;
   /**
    * Number of reverse proxies in front of this server (default 0). With N > 0, the client IP is
@@ -84,7 +84,7 @@ export interface AppOptions {
   testClock?: { advanceDay(): number | null; grantMaintainer?(residentId: string): void };
 }
 
-/** The test clock's one route. See `AppOptions.testClock`. */
+/** The test clock's route that moves the world to the next day. See `AppOptions.testClock`. */
 export const TEST_ADVANCE_DAY_PATH = "/v1/test/advance-day";
 /** Tests only, with the test clock: `POST {"residentId"}` makes that resident a maintainer. */
 export const TEST_MAINTAINER_PATH = "/v1/test/maintainer";

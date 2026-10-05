@@ -12,7 +12,7 @@ import {
 } from "@terrakin/sim";
 import { isMediaUrl } from "./format";
 
-/** Resident colors. Same values as the `--resident-*` tokens in style.css. */
+/** Resident colors. Same values as the `--resident-*` tokens in tokens.css. */
 export const RESIDENT_COLOR_HEX: Record<ResidentColor, string> = {
   sun: "#f2b84b",
   sky: "#7cb9dd",

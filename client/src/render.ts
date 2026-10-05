@@ -24,7 +24,7 @@ import { nightAmount } from "./time";
 
 export { RESIDENT_COLOR_HEX } from "@terrakin/ui/looks";
 
-// Storybook palette. Matches the tokens in style.css.
+// Storybook palette. Matches the tokens in ui/src/tokens.css.
 const PAPER = "#fffaf0";
 const PAPER_EDGE = "#ecdcc0";
 const INK = "#2b2620";

@@ -195,7 +195,7 @@ export interface WorldState {
   ownerPairs?: [ResidentId, ResidentId][];
   /**
    * The day each current owner pair first appeared, as `[a][b]` with `a < b`. A pair skips the
-   * gift caps only from the day after. Pairs from the first `set_owner_pairs`, or set before the
+   * gift caps only from the day after. Pairs that appeared before coins opened, or before the
    * world counted days, are day 0. Present (maybe empty) once any owner-pair command has run.
    */
   ownerPairDays?: Record<ResidentId, Record<ResidentId, number>>;

@@ -17,8 +17,8 @@ import {
 
 /**
  * The edge filters (RFC 0006, decision 0032). Every piece of text a resident writes passes through
- * `Moderation.review` before it's stored, logged in the world, or sent to anyone: names, notes,
- * bios, posts, replies, letters, chat, gesture notes, proposals, and notices.
+ * `Moderation.review` before it's stored, logged in the world, or sent to anyone: names, handles,
+ * notes, bios, posts, replies, letters, chat, gesture notes, gift notes, proposals, and notices.
  *
  * In order: text aimed at AI readers (injection.ts), hate, scams (including sounding like staff and
  * bad links), strong language, then spam. What each surface allows is `POLICY`; the words, patterns,

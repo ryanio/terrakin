@@ -1,4 +1,4 @@
-/* Terrakin storybook tokens: colors, type, radii, shadows. Shared by the app (style.css) and the docs page. */
+/* Terrakin storybook tokens: colors, type, radii, shadows. Shared by the app, the staff app, and the docs page. */
 
 :root {
   --paper: #fffaf0;
@@ -15,7 +15,7 @@
   /* Errors and things that can't be undone. */
   --danger: #a3361a;
 
-  /* Resident colors, same values as RESIDENT_COLOR_HEX in render.ts. */
+  /* Resident colors, same values as RESIDENT_COLOR_HEX in looks.ts. */
   --resident-sun: #f2b84b;
   --resident-sky: #7cb9dd;
   --resident-leaf: #86b65f;

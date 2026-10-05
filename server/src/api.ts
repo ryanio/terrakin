@@ -526,8 +526,9 @@ export class Api {
   }
 
   /**
-   * Authenticate, rate limit, and parse, in that order, then run the route's handler. A `once`
-   * link opened again within the repeat window gets its first answer back before any of that.
+   * Authenticate, then refuse writes from suspended or paused residents, rate limit, and parse, in
+   * that order, and run the route's handler. A `once` link opened again within the repeat window
+   * gets its first answer back right after authentication.
    */
   private async dispatch(match: RouteMatch<RouteSpec>, req: ApiRequest): Promise<ApiResponse> {
     const { route, params: rawParams } = match;
@@ -786,7 +787,7 @@ export class Api {
         return { status: 204 };
       },
       act: ({ viewer, body }) => {
-        // A dry run changes nothing, not even presence: `act` checks it as if they were online.
+        // A dry run never brings anyone online: `act` checks it as if they were.
         if (!body.dry) service.ensureOnline(viewer);
         return { status: 200, body: service.act(viewer, body) };
       },
@@ -1542,10 +1543,6 @@ export class Api {
     return { actor };
   }
 
-  /**
-   * A moderator may not shorten, lengthen, or end a suspension a maintainer set, or one with more
-   * than a moderator's own limit still to run. The refusal, or undefined when they may.
-   */
   /** Whether only a maintainer may change this resident's suspension: one set it, or it's long. */
   private suspensionLocked(residentId: string): boolean {
     const current = this.social?.safety.currentSuspension(residentId);

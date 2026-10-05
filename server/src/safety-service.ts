@@ -57,7 +57,6 @@ export interface SafetyOptions {
   postMedia: (postId: string) => MediaView[];
   /** A resident's avatar and banner files, so a profile report shows its pictures. */
   profileMedia: (residentId: string) => MediaView[];
-  /** Detach a post's files and delete the ones nothing else uses. */
   /** Take down every file on a post, everywhere it's used. Resolves to how many couldn't be deleted. */
   dropPostMedia: (postId: string) => Promise<number>;
   /** Take one file down everywhere, storage first. False when storage refused and nothing changed. */

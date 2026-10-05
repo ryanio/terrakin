@@ -8,7 +8,7 @@ import { nodeSql } from "./node-sql";
 import { parseMaintainers, parseTownsfolk, SocialService } from "./social-service";
 import { JsonlStore, MemoryStore } from "./store";
 import { TriageClient, triageConfig } from "./triage";
-import { DAY_MS, WorldService } from "./world-service";
+import { DAY_LENGTH_MS, DAY_MS, WorldService } from "./world-service";
 import { oembedReader } from "./x-link";
 
 // Resolve relative paths from where the user ran the command. `pnpm --filter` runs this file
@@ -36,7 +36,12 @@ if (testClock && process.env.NODE_ENV === "production") {
   console.error("TERRAKIN_TEST_CLOCK is for tests and can't be set when NODE_ENV=production.");
   process.exit(1);
 }
-let offset = 0;
+// The test clock also starts in the world's morning (day and night are presentation, decision
+// 0011), so a picture of the world in e2e doesn't depend on the hour the suite runs.
+const MORNING = 0.15;
+let offset = testClock
+  ? (((MORNING * DAY_LENGTH_MS - Date.now()) % DAY_LENGTH_MS) + DAY_LENGTH_MS) % DAY_LENGTH_MS
+  : 0;
 const now = testClock ? () => Date.now() + offset : Date.now;
 const townsfolk = parseTownsfolk(process.env.TERRAKIN_TOWNSFOLK);
 const maintainers = parseMaintainers(process.env.TERRAKIN_MAINTAINERS);

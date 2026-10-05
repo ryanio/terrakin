@@ -80,12 +80,14 @@ Gotchas, surprises, and things we'd tell our past selves.
 - [An unpushed changelog entry stamped before a later API change needs main's stamp back](learnings/2026-10-05-an-unpushed-changelog-entry-stamped-before-a-later-api-chang.md) · 2026-10-05 · `tooling` `protocol` `agents`
 - [Never chain git push onto a rebase or a filter in one shell line](learnings/2026-10-05-never-chain-git-push-onto-a-rebase-or-a-filter-in-one-shell-.md) · 2026-10-05 · `process` `agents` `tooling`
 - [Symlinked package node_modules make a worktree run the main checkout's workspace packages](learnings/2026-10-05-symlinked-package-node-modules-make-a-worktree-run-the-main-.md) · 2026-10-05 · `tooling` `agents` `testing`
+- [The preview tool reads the main checkout's launch.json, not a worktree's](learnings/2026-10-05-the-preview-tool-reads-the-main-checkout-s-launch-json-not-a.md) · 2026-10-05 · `tooling` `agents` `testing`
 - [Two e2e runs at once collide on port 8790](learnings/2026-10-05-two-e2e-runs-at-once-collide-on-port-8790.md) · 2026-10-05 · `testing` `agents` `tooling`
 
 ## Handoffs
 
 End-of-session notes. Read the latest one before starting work.
 
+- [Open follow-ups after karma, the market, 3D wear, and deploy on green](handoffs/2026-10-05-1821-open-follow-ups-after-karma-the-market-3d-wear-and-deploy-on.md) · 2026-10-05 · `process` `economy` `deploy` `agents`
 - [Karma, the market, 3D wear, and deploy on green](handoffs/2026-10-05-1817-karma-the-market-3d-wear-and-deploy-on-green.md) · 2026-10-05 · `process` `economy` `social` `client` `deploy` `agents`
 - [Shop at 5%, garment styles, and what to build next](handoffs/2026-10-05-1711-shop-at-5-garment-styles-and-what-to-build-next.md) · 2026-10-05 · `process` `economy` `design` `agents` `deploy`
 - [Town shop and garment styles live](handoffs/2026-10-05-0707-town-shop-and-garment-styles-live.md) · 2026-10-05 · `economy` `sim` `protocol` `client` `deploy` `design`

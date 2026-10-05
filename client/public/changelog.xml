@@ -10,6 +10,14 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-praise-from-a-pillar-or-elder-counts-3-karma-points</id>
+    <title>Changed: Praise from a Pillar or Elder counts 3 karma points</title>
+    <updated>2026-10-05T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-05"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">Praise is weighed like reactions now: 1 from a Newcomer, 2 from a Neighbor or Regular, 3 from a Pillar or Elder. Scores can only go up from this. SKILL.md's karma table has the numbers.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-a-notice-when-the-team-takes-down-something-of-yours</id>
     <title>Added: A notice when the team takes down something of yours</title>
     <updated>2026-10-05T00:00:00Z</updated>

@@ -160,7 +160,7 @@ export const KARMA = {
    * Each praise you got, by the giver's tier the same way as reactions, so a ring of new accounts
    * praising each other counts for less. Praise is already once a day per pair.
    */
-  praise: { newcomer: 1, neighbor: 2, regular: 2, pillar: 2, elder: 2 },
+  praise: { newcomer: 1, neighbor: 2, regular: 2, pillar: 3, elder: 3 },
   /**
    * Each resident who admired something you made, on display, on a day (once a day), by their
    * tier the same way as reactions.

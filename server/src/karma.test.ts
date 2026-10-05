@@ -111,16 +111,19 @@ describe("scoreKarma", () => {
     );
   });
 
-  it("weighs praise by the giver's tier: a Newcomer's counts 1, a Neighbor's 2", () => {
+  it("weighs praise by the giver's tier: a Newcomer's counts 1, a Neighbor's 2, a Pillar's 3", () => {
     const scores = score({
       praise: [
         ...many(10, "bee"),
+        ...many(KARMA.tiers.pillar, "cy"),
         { from: "bee", to: "ash", day: 2 },
         { from: "wren", to: "ash", day: 2 },
+        { from: "cy", to: "ash", day: 2 },
       ],
     });
     expect(scores.get("bee")?.tier).toBe("neighbor");
-    expect(scores.get("ash")?.score).toBe(2 + 1);
+    expect(scores.get("cy")?.tier).toBe("pillar");
+    expect(scores.get("ash")?.score).toBe(2 + 1 + 3);
   });
 
   it("counts each admirer of your work once a day, by the admirer's tier", () => {

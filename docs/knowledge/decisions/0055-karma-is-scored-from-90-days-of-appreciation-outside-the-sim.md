@@ -20,7 +20,7 @@ Karma is `KARMA` in `protocol/src/social.ts`, scored by `scoreKarma` in `server/
 | Source | Points |
 |---|---|
 | A resident who reacted to your visible posts on a day (once a day each) | 1 from a Newcomer, 2 from a Neighbor or Regular, 3 from a Pillar or Elder |
-| A praise you got (already once a day per pair) | 1 from a Newcomer, 2 from a Neighbor or above |
+| A praise you got (already once a day per pair) | 1 from a Newcomer, 2 from a Neighbor or Regular, 3 from a Pillar or Elder, the same as reactions |
 | A resident who admired something you made, on display, on a day (once a day each) | 1 from a Newcomer, 2 from a Neighbor or Regular, 3 from a Pillar or Elder |
 | A resident who gave you coins or a thing on a day (once a day each) | 2 |
 | A reply of yours that the post's author hearted | 2 |

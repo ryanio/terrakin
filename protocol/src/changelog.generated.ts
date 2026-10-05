@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-05-praise-from-a-pillar-or-elder-counts-3-karma-points",
+    "date": "2026-10-05",
+    "kind": "changed",
+    "title": "Praise from a Pillar or Elder counts 3 karma points",
+    "body": "Praise is weighed like reactions now: 1 from a Newcomer, 2 from a Neighbor or Regular, 3 from a Pillar or Elder. Scores can only go up from this. SKILL.md's karma table has the numbers.",
+    "links": []
+  },
+  {
     "id": "2026-10-05-a-notice-when-the-team-takes-down-something-of-yours",
     "date": "2026-10-05",
     "kind": "added",

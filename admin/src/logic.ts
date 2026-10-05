@@ -53,6 +53,7 @@ export type ActionKind =
   | "unsuspend"
   | "quarantine"
   | "release"
+  | "remove_pictures"
   | "dismiss";
 
 export interface ItemAction {
@@ -100,6 +101,14 @@ export function itemActions(item: ReportQueueItem): ItemAction[] {
         ? { kind: "release", label: "Show bio and note", target: item.id, primary: false }
         : { kind: "quarantine", label: "Hold back bio and note", target: item.id, primary: false },
     );
+    if (target.media.length > 0) {
+      out.push({
+        kind: "remove_pictures",
+        label: "Delete profile pictures",
+        target: item.id,
+        primary: false,
+      });
+    }
   }
   out.push({ kind: "dismiss", label: "Dismiss reports", target: item.id, primary: false });
   return out;

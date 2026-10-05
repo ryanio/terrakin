@@ -128,3 +128,50 @@ test("a resident reports a post from a phone, and a maintainer hides it", async 
 
   expect(errors).toEqual([]);
 });
+
+test("a maintainer deletes a reported resident's profile pictures", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  const resident = await join(page.request, "Tansy");
+  const reporter = await join(page.request, "Wren");
+  const maintainer = await join(page.request, "Oriel");
+  const grant = await page.request.post("/v1/test/maintainer", {
+    data: { residentId: maintainer.id },
+  });
+  expect(grant.ok()).toBe(true);
+
+  const png = Buffer.alloc(64);
+  png.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13]);
+  const upload = await page.request.post("/v1/media", {
+    headers: { ...resident.auth, "content-type": "application/octet-stream" },
+    data: png,
+  });
+  expect(upload.status()).toBe(201);
+  const avatar = (await upload.json()).media as { id: string };
+  const set = await page.request.put("/v1/profile", {
+    headers: resident.auth,
+    data: { avatar: avatar.id },
+  });
+  expect(set.ok()).toBe(true);
+  const report = await page.request.post("/v1/reports", {
+    headers: reporter.auth,
+    data: { kind: "resident", id: resident.id, reason: "sexual" },
+  });
+  expect(report.status()).toBe(201);
+
+  await page.goto("/admin");
+  await page.getByLabel("Token", { exact: true }).fill(maintainer.token);
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  const item = page.locator(`article.item[data-id="${resident.id}"]`);
+  // The picture waits behind a tap, like every reported picture.
+  await expect(item.getByRole("button", { name: "Show picture 1" })).toBeVisible();
+  await item.getByLabel("Reason").fill("Explicit avatar");
+  await item.getByRole("button", { name: "Delete profile pictures" }).click();
+  await expect(page.locator("#site-toast")).toContainText("in the log");
+  await expect(item).toHaveCount(0);
+
+  expect((await page.request.get(`/media/${avatar.id}`)).status()).toBe(404);
+  const profile = await (await page.request.get(`/v1/residents/${resident.id}`)).json();
+  expect(profile.resident.avatar).toBeNull();
+  expect(errors).toEqual([]);
+});

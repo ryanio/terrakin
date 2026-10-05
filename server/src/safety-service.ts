@@ -60,6 +60,8 @@ export interface SafetyOptions {
   /** Detach a post's files and delete the ones nothing else uses. */
   /** Take down every file on a post, everywhere it's used. Resolves to how many couldn't be deleted. */
   dropPostMedia: (postId: string) => Promise<number>;
+  /** Take one file down everywhere, storage first. False when storage refused and nothing changed. */
+  purgeMedia: (mediaId: string) => Promise<boolean>;
   /** The edge filters, for their refusal counts and strikes. */
   moderation: () => Moderation[];
   /** AI triage. Without it (or without a key), reports wait for people as before. */
@@ -120,7 +122,14 @@ const REASON_FOR: Record<TriageCategory, ReportReason> = {
 
 /** Which staff actions count as following each triage suggestion, for the agreement numbers. */
 const AGREES: Record<TriageAction, ReadonlySet<ModerationAction> | "any"> = {
-  hide: new Set(["hide_post", "quarantine", "remove_notice", "void_proposal", "suspend"]),
+  hide: new Set([
+    "hide_post",
+    "quarantine",
+    "remove_pictures",
+    "remove_notice",
+    "void_proposal",
+    "suspend",
+  ]),
   suspend: new Set(["suspend"]),
   dismiss: new Set(["dismiss_reports", "unhide_post", "release"]),
   warn: new Set(["dismiss_reports", "unhide_post", "release"]),
@@ -856,6 +865,47 @@ export class SafetyService {
     this.o.sql.exec("DELETE FROM quarantine WHERE resident_id = ?", residentId);
     this.close("resident", residentId, "dismissed", by);
     return ok(this.act(by, "release", "resident", residentId, reason));
+  }
+
+  /**
+   * Take a resident's avatar and banner down everywhere, storage first. Like hiding a post, it never
+   * reports success while a file is still stored; one that storage refused stays on the profile, so
+   * calling again retries it.
+   */
+  async removePictures(
+    by: string,
+    residentId: string,
+    reason: string,
+  ): Promise<SocialResult<ModerationLogEntry>> {
+    if (!this.o.resident(residentId)) return fail("not_found", "No such resident.");
+    if (this.o.cannotBeSuspended(residentId)) {
+      return fail(
+        "bad_request",
+        "Staff's pictures can't be removed. Take them off the staff list first.",
+      );
+    }
+    const row = this.rows(
+      "SELECT avatar, banner FROM profiles WHERE resident_id = ?",
+      residentId,
+    )[0];
+    const files = [...new Set([row?.avatar, row?.banner].filter((id) => id != null).map(String))];
+    if (files.length === 0) return fail("bad_request", "They have no avatar or banner.");
+    let kept = 0;
+    for (const id of files) if (!(await this.o.purgeMedia(id))) kept++;
+    // Logged only when a file actually went. A picture storage refused is still on the profile, so
+    // its reports stay open and the item stays in the queue, where the retry is.
+    const entry =
+      kept < files.length
+        ? this.act(by, "remove_pictures", "resident", residentId, reason)
+        : undefined;
+    if (kept > 0 || !entry) {
+      return fail(
+        "internal",
+        `${kept === 1 ? "1 picture" : `${kept} pictures`} couldn't be deleted from storage yet. Remove them again to retry.`,
+      );
+    }
+    this.close("resident", residentId, "actioned", by);
+    return ok(entry);
   }
 
   /** Close the open reports on something without acting on it. */

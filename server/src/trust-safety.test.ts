@@ -384,6 +384,7 @@ describe("maintainer tools", () => {
       ["POST", `/v1/admin/posts/${p.id}/unhide`, reason],
       ["POST", `/v1/admin/residents/${bo.id}/suspend`, { days: 1, ...reason }],
       ["POST", `/v1/admin/residents/${bo.id}/unsuspend`, reason],
+      ["POST", `/v1/admin/residents/${bo.id}/remove-pictures`, reason],
     ];
     for (const [method, path, body] of routes) {
       expect((await t.call(method, path, body)).status, path).toBe(401);
@@ -522,6 +523,120 @@ describe("maintainer tools", () => {
     );
     expect(second.status).toBe(200);
     expect(t.media.files.has(upload.id)).toBe(false);
+  });
+
+  it("remove a resident's avatar and banner, close their reports, and log it", async () => {
+    const t = await start();
+    const ada = await t.join("Ada");
+    const bo = await t.join("Bo");
+    const mo = await t.maintainer();
+    const bytes = new Uint8Array(64);
+    bytes.set(PNG);
+    const avatar = (await t.call("POST", "/v1/media", bytes, bo.token)).body.media;
+    const banner = (await t.call("POST", "/v1/media", bytes, bo.token)).body.media;
+    await t.call("PUT", "/v1/profile", { avatar: avatar.id, banner: banner.id }, bo.token);
+    const p = (await t.post(bo.token, "Same picture", { media: [avatar.id] })).body.post;
+    await t.call(
+      "POST",
+      "/v1/reports",
+      { kind: "resident", id: bo.id, reason: "sexual" },
+      ada.token,
+    );
+    const path = `/v1/admin/residents/${bo.id}/remove-pictures`;
+
+    expect((await t.call("POST", path, {}, mo.token)).status).toBe(400);
+    const removed = await t.call("POST", path, { reason: "Explicit avatar" }, mo.token);
+    expect(removed.status).toBe(200);
+    expect(removed.body.logged).toMatchObject({
+      action: "remove_pictures",
+      kind: "resident",
+      id: bo.id,
+      reason: "Explicit avatar",
+    });
+    for (const file of [avatar, banner]) {
+      expect(t.media.files.has(file.id)).toBe(false);
+      expect((await t.call("GET", `/media/${file.id}`)).status).toBe(404);
+    }
+    const profile = (await t.call("GET", `/v1/residents/${bo.id}`)).body.resident;
+    expect(profile.avatar).toBeNull();
+    expect(profile.banner).toBeUndefined();
+    // Taken down everywhere, like a hidden post's files.
+    expect((await t.call("GET", `/v1/posts/${p.id}`)).body.post.media).toEqual([]);
+    expect((await t.call("GET", "/v1/admin/reports", undefined, mo.token)).body.open).toBe(0);
+    const rows = [...t.sql.exec("SELECT actor, action, target, reason FROM moderation_log")];
+    expect(rows).toEqual([
+      { actor: mo.id, action: "remove_pictures", target: bo.id, reason: "Explicit avatar" },
+    ]);
+
+    // Nothing left to remove, and staff's own pictures aren't removed this way.
+    expect((await t.call("POST", path, { reason: "Again" }, mo.token)).status).toBe(400);
+    await t.call(
+      "PUT",
+      "/v1/profile",
+      { avatar: (await t.call("POST", "/v1/media", bytes, mo.token)).body.media.id },
+      mo.token,
+    );
+    const staff = await t.call(
+      "POST",
+      `/v1/admin/residents/${mo.id}/remove-pictures`,
+      { reason: "x" },
+      mo.token,
+    );
+    expect(staff.status).toBe(400);
+  });
+
+  it("never reports pictures removed while storage still holds one, and retries", async () => {
+    const t = await start();
+    const ada = await t.join("Ada");
+    const bo = await t.join("Bo");
+    const mo = await t.maintainer();
+    const bytes = new Uint8Array(64);
+    bytes.set(PNG);
+    const avatar = (await t.call("POST", "/v1/media", bytes, bo.token)).body.media;
+    const banner = (await t.call("POST", "/v1/media", bytes, bo.token)).body.media;
+    await t.call("PUT", "/v1/profile", { avatar: avatar.id, banner: banner.id }, bo.token);
+    await t.call("POST", "/v1/reports", { kind: "resident", id: bo.id, reason: "hate" }, ada.token);
+    const path = `/v1/admin/residents/${bo.id}/remove-pictures`;
+    const open = async () =>
+      (await t.call("GET", "/v1/admin/reports", undefined, mo.token)).body.open;
+    const logged = () => [...t.sql.exec("SELECT action FROM moderation_log")].length;
+    const realDelete = t.media.delete.bind(t.media);
+
+    // Storage is down: nothing goes, nothing is logged, and the report stays in the queue.
+    t.media.delete = async () => {
+      throw new Error("storage is down");
+    };
+    const down = await t.call("POST", path, { reason: "Hate symbol" }, mo.token);
+    expect(down.status).toBe(500);
+    expect(down.body.error.message).toContain("2 pictures couldn't be deleted");
+    expect(t.media.files.has(avatar.id) && t.media.files.has(banner.id)).toBe(true);
+    expect(logged()).toBe(0);
+    expect(await open()).toBe(1);
+
+    // Storage refuses the banner only: the avatar goes and is logged, the banner stays on the
+    // profile, and the report stays open for the retry.
+    t.media.delete = async (key: string) => {
+      if (key.includes(banner.id)) throw new Error("storage is down");
+      return realDelete(key);
+    };
+    const partial = await t.call("POST", path, { reason: "Hate symbol" }, mo.token);
+    expect(partial.status).toBe(500);
+    expect(partial.body.error.message).toContain("1 picture couldn't be deleted");
+    expect(t.media.files.has(avatar.id)).toBe(false);
+    expect(t.media.files.has(banner.id)).toBe(true);
+    const profile = (await t.call("GET", `/v1/residents/${bo.id}`)).body.resident;
+    expect(profile.avatar).toBeNull();
+    expect(profile.banner).toContain(banner.id);
+    expect(logged()).toBe(1);
+    expect(await open()).toBe(1);
+
+    t.media.delete = realDelete;
+    const retry = await t.call("POST", path, { reason: "Hate symbol" }, mo.token);
+    expect(retry.status).toBe(200);
+    expect(t.media.files.has(banner.id)).toBe(false);
+    expect((await t.call("GET", `/v1/residents/${bo.id}`)).body.resident.banner).toBeUndefined();
+    expect(logged()).toBe(2);
+    expect(await open()).toBe(0);
   });
 
   it("never hides a maintainer's or townsfolk's post automatically", async () => {

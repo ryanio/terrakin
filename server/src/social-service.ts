@@ -430,6 +430,7 @@ export class SocialService {
         for (const m of media) if (!(await this.purgeMedia(String(m.media_id)))) kept++;
         return kept;
       },
+      purgeMedia: (mediaId) => this.purgeMedia(mediaId),
       moderation: () => [this.moderation],
       triage: options.triage,
     });

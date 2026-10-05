@@ -1164,6 +1164,8 @@ export class Api {
         }
         return logged(social().safety.release(viewer, params.id, body.reason));
       },
+      removeResidentPictures: async ({ viewer, params, body }) =>
+        logged(await social().safety.removePictures(viewer, params.id, body.reason)),
 
       // ---------- docs ----------
       getSkill: () => ({ status: 200, text: this.skill }),

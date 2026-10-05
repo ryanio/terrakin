@@ -109,6 +109,7 @@ export function queueView(overview: AdminOverviewResponse): View {
         unsuspend: () => api.unsuspend(action.target, why),
         quarantine: () => api.quarantine(action.target, why),
         release: () => api.release(action.target, why),
+        remove_pictures: () => api.removePictures(action.target, why),
         dismiss: () => api.dismiss(item.kind, item.id, why),
       };
       return calls[action.kind]();

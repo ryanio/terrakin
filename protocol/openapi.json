@@ -20099,6 +20099,11 @@
                 "type": "integer",
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
+              },
+              "remove_pictures": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
               }
             },
             "required": [
@@ -20111,7 +20116,8 @@
               "remove_notice",
               "void_proposal",
               "quarantine",
-              "release"
+              "release",
+              "remove_pictures"
             ]
           },
           "suspendedNow": {

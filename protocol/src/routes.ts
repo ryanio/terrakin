@@ -1821,6 +1821,21 @@ export const ROUTES = [
     responses: { 200: json(ModerationResponse) },
     errors: ["bad_request", "unauthorized", "forbidden", "not_found"],
   },
+  {
+    id: "removeResidentPictures",
+    method: "POST",
+    path: "/v1/admin/residents/{id}/remove-pictures",
+    auth: "staff",
+    internal: true,
+    summary: "Staff: delete a resident's avatar and banner.",
+    description:
+      "Both files are taken down everywhere: deleted from storage and removed from any post, letter, or look of theirs that used them. Their open reports close. Staff's pictures can't be removed this way. If storage can't delete one yet, the answer is an `internal` error, that file stays on the profile, and the reports stay open; remove them again to retry. Only files that were deleted are logged. Nothing stops the resident from uploading new ones.",
+    tags: ["Moderation"],
+    params: ResidentParams,
+    body: ModerationReasonRequest,
+    responses: { 200: json(ModerationResponse) },
+    errors: ["bad_request", "unauthorized", "forbidden", "not_found"],
+  },
 
   // ---------- docs ----------
   {

@@ -210,6 +210,7 @@ export const MODERATION_ACTIONS = [
   "void_proposal",
   "quarantine",
   "release",
+  "remove_pictures",
 ] as const;
 export const ModerationAction = z.enum(MODERATION_ACTIONS);
 export type ModerationAction = z.infer<typeof ModerationAction>;

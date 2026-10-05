@@ -87,6 +87,23 @@ describe("the actions an item offers", () => {
     expect(kinds(held)).toContain(`release:${author.id}`);
   });
 
+  it("offers to delete a reported resident's avatar and banner only when they have one", () => {
+    const picture = {
+      id: "m_1",
+      kind: "image",
+      type: "image/png",
+      url: "/media/m_1",
+      bytes: 64,
+    } as const;
+    const resident = item({ kind: "resident", id: author.id }, { media: [picture] });
+    expect(kinds(resident)).toContain(`remove_pictures:${author.id}`);
+    expect(kinds(item({ kind: "resident", id: author.id }))).not.toContain(
+      `remove_pictures:${author.id}`,
+    );
+    // A post's files go with the post, never through this.
+    expect(kinds(item({}, { media: [picture] }))).not.toContain(`remove_pictures:${author.id}`);
+  });
+
   it("never offers anything for a letter but the author's suspension and dismiss", () => {
     expect(kinds(item({ kind: "letter", id: "l_1" }))).toEqual([
       `suspend:${author.id}`,

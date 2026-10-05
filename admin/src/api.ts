@@ -79,6 +79,10 @@ export const api = {
     }),
   release: (id: string, reason: string) =>
     request("POST", path("/v1/admin/residents/{id}/release", id), ModerationResponse, { reason }),
+  removePictures: (id: string, reason: string) =>
+    request("POST", path("/v1/admin/residents/{id}/remove-pictures", id), ModerationResponse, {
+      reason,
+    }),
   dismiss: (kind: ReportKind, id: string, reason: string) =>
     request("POST", "/v1/admin/reports/dismiss", ModerationResponse, { kind, id, reason }),
 };

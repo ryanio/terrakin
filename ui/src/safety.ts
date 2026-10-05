@@ -71,4 +71,5 @@ export const ACTION_LABELS: Record<ModerationAction, string> = {
   void_proposal: "Voided a proposal",
   quarantine: "Held back a bio and note",
   release: "Released a bio and note",
+  remove_pictures: "Deleted profile pictures",
 };

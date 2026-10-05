@@ -122,6 +122,11 @@ describe("staff roles", () => {
       t.bearer(mo.token),
     );
     expect(back.status).toBe(400);
+    // Moderators can remove pictures too, but never staff's.
+    const pictures = (id: string) =>
+      t.call("POST", `/v1/admin/residents/${id}/remove-pictures`, { reason: "x" }, as);
+    expect((await pictures(bo.id)).body.error.message).toBe("They have no avatar or banner.");
+    expect((await pictures(mo.id)).body.error.message).toMatch(/^Staff's pictures/);
     // Every action records who did it.
     const log = (await t.call("GET", "/v1/admin/log", undefined, as)).body.entries;
     expect(log[0]).toMatchObject({ action: "suspend", actor: mod.id, actorView: { name: "Mod" } });

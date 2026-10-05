@@ -45,6 +45,7 @@ import { lookOf, type Resident } from "@terrakin/sim";
 import { type AgentLinkOptions, AgentLinkService } from "./agent-links";
 import { imageSize, sizeFields } from "./image-size";
 import { aimedAtReader, readerMessage } from "./injection";
+import { KarmaService } from "./karma";
 import { type MediaStore, privateMediaKey, sniffMediaType } from "./media";
 import { Moderation, type ReviewContext, refusal, type Surface } from "./moderation";
 import { PraiseService } from "./praise";
@@ -54,6 +55,7 @@ import { stripMetadata } from "./strip-metadata";
 import { cleanMultiline, cleanText } from "./text";
 import { TogetherService } from "./together-service";
 import type { TriageClient } from "./triage";
+import type { WorldCredit } from "./world-service";
 import {
   canonicalStatusUrl,
   checkXPost,
@@ -177,6 +179,8 @@ export interface SocialServiceOptions {
   moderators?: ReadonlySet<string>;
   /** AI triage for the review queue. Without it (or without a key), reports wait for people. */
   triage?: TriageClient | undefined;
+  /** Gifts and Town Hall votes from the world's log, for karma (`WorldService.credits`). */
+  credits?: ((sinceDay: number) => readonly WorldCredit[]) | undefined;
 }
 
 type Row = Record<string, unknown>;
@@ -297,6 +301,7 @@ export class SocialService {
       )`,
       `CREATE TABLE IF NOT EXISTS reactions (
         post_id TEXT NOT NULL, resident_id TEXT NOT NULL, key TEXT NOT NULL,
+        created_at INTEGER NOT NULL DEFAULT 0,
         PRIMARY KEY (post_id, resident_id, key)
       )`,
       "INSERT OR IGNORE INTO reactions (post_id, resident_id, key) SELECT post_id, resident_id, 'heart' FROM likes",
@@ -417,6 +422,20 @@ export class SocialService {
         // Already there.
       }
     }
+    // Added with karma (decision 0055): when each reaction was left. Reactions from before then
+    // take their post's time, the closest thing on record.
+    try {
+      this.sql.exec("ALTER TABLE reactions ADD COLUMN created_at INTEGER NOT NULL DEFAULT 0");
+    } catch {
+      // Already there.
+    }
+    this.sql.exec("CREATE INDEX IF NOT EXISTS reactions_created ON reactions (created_at)");
+    // Every boot, so a backfill that stopped partway finishes. Only undated rows are touched.
+    this.sql.exec(
+      `UPDATE reactions SET created_at =
+        COALESCE((SELECT created_at FROM posts WHERE posts.id = reactions.post_id), 0)
+        WHERE created_at = 0`,
+    );
     // Added later: an image's size in pixels, read from its header at upload. Null for older
     // uploads, videos, models, and images whose header we couldn't read.
     for (const column of ["width INTEGER", "height INTEGER"]) {
@@ -468,6 +487,17 @@ export class SocialService {
       moderation: () => [this.moderation],
       triage: options.triage,
     });
+    this.karma = new KarmaService({
+      sql: this.sql,
+      now: this.now,
+      townsfolk: this.townsfolk,
+      suspended: (id) => this.safety.suspendedUntil(id) !== undefined,
+      ownerPairs: () => this.ownerPairs(),
+      credits: options.credits,
+      upheldAgainst: (from, to) => this.safety.upheldAgainst(from, to),
+      resident: this.resident,
+      ageDays: options.residentAgeDays ?? (() => Number.POSITIVE_INFINITY),
+    });
     this.agentLinks = new AgentLinkService(
       { sql: this.sql, now: this.now, moderation: this.moderation },
       options.agentLinks,
@@ -483,6 +513,8 @@ export class SocialService {
   readonly safety: SafetyService;
   /** Praise (issue #36): once a UTC day per pair, a count on profiles, no economy. */
   readonly praise: PraiseService;
+  /** Karma (decision 0055): standing over 90 days, on profiles, and the daily appreciation coins. */
+  readonly karma: KarmaService;
 
   /** Review text with the edge filters as one resident. */
   review(surface: Surface, text: string, context: ReviewContext) {
@@ -826,10 +858,11 @@ export class SocialService {
       );
       if (!had) {
         this.sql.exec(
-          "INSERT OR IGNORE INTO reactions (post_id, resident_id, key) VALUES (?, ?, ?)",
+          "INSERT OR IGNORE INTO reactions (post_id, resident_id, key, created_at) VALUES (?, ?, ?, ?)",
           postId,
           residentId,
           key,
+          this.now(),
         );
         this.notify(String(target.author), residentId, "reaction", postId, key);
       }
@@ -1011,6 +1044,7 @@ export class SocialService {
       ...(viewerId && viewerId !== r.id && this.praise.givenToday(viewerId, r.id)
         ? { praisedToday: true }
         : {}),
+      karma: this.karma.of(r.id),
       ...(viewerId && this.blocks(viewerId, r.id) ? { blocked: true } : {}),
       ...(this.votesCast ? { votes: this.votesCast(r.id) } : {}),
       ...this.ownerFields(r.id),

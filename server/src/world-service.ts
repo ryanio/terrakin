@@ -8,13 +8,14 @@ import type {
   WorldEvent as WireEvent,
   WorldSnapshot,
 } from "@terrakin/protocol";
-import { PROTOCOL_VERSION, PUTTER_LIMITS } from "@terrakin/protocol";
+import { KARMA, PROTOCOL_VERSION, PUTTER_LIMITS } from "@terrakin/protocol";
 import {
   apply,
   type Command,
   chebyshev,
   cloneWorld,
   commonsPlot,
+  type DailyAward,
   DEFAULT_CONFIG,
   exactWearStyles,
   hashWorld,
@@ -170,6 +171,27 @@ export const DAY_MS = 86_400_000;
 /** UTC days since 1970-01-01. */
 export const utcDay = (ms: number) => Math.floor(ms / DAY_MS);
 
+/**
+ * A gift or a Town Hall vote, read from the log for karma (decision 0055). `to` is who got a
+ * gift; `proposal` is what a vote was on.
+ */
+export type WorldCredit =
+  | { kind: "gift"; from: string; to: string; day: number }
+  | { kind: "vote"; from: string; proposal: string; day: number };
+
+/** The most ended days `tick` pays appreciation for at once, after a stretch with no requests. */
+const AWARD_CATCH_UP = 7;
+
+/** The credit an accepted input earns, if any, on `day`. */
+function creditFor(actor: string, command: Command, day: number): WorldCredit | undefined {
+  if (command.type === "give_coins" || command.type === "give") {
+    return { kind: "gift", from: actor, to: command.to, day };
+  }
+  if (command.type === "vote")
+    return { kind: "vote", from: actor, proposal: command.proposal, day };
+  return undefined;
+}
+
 const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
 
 /** Web Crypto randomness, so this file runs the same on Node and Cloudflare Workers. */
@@ -281,6 +303,10 @@ export class WorldService {
    * count is read back from the log at boot, so a restart doesn't reset the daily cap.
    */
   private readonly putters = new Map<string, { at: number; day: number; count: number }>();
+  /** Gifts and votes over karma's window, oldest first (`credits`). Read from the log at boot. */
+  private creditLog: WorldCredit[] = [];
+  /** The last day `tick` counted awards up to, so it counts each day once per boot. */
+  private awardsChecked: number | undefined;
 
   constructor(options: WorldServiceOptions) {
     this.store = options.store;
@@ -295,9 +321,12 @@ export class WorldService {
     this.state = replay(options.config ?? DEFAULT_CONFIG, log);
     let day = 0;
     const today = utcDay(this.now());
+    const creditsFrom = today - KARMA.windowDays;
     for (const { actor, command } of log) {
       if (command.type === "new_day") day = command.day;
       if (command.type === "join" && !this.joinedDay.has(actor)) this.joinedDay.set(actor, day);
+      const credit = day >= creditsFrom ? creditFor(actor, command, day) : undefined;
+      if (credit) this.creditLog.push(credit);
       if (command.type === "putter" && day === today) {
         const count = (this.putters.get(actor)?.count ?? 0) + 1;
         this.putters.set(actor, { at: 0, day, count });
@@ -367,6 +396,17 @@ export class WorldService {
    */
   greet: (from: string, to: string) => boolean = () => false;
 
+  /**
+   * Appreciation coins for a day that has ended (decision 0055), counted by the social layer.
+   * `tick` logs them once a day as `daily_awards`. Without a social layer nothing is logged.
+   */
+  dailyAwards: ((day: number) => DailyAward[]) | undefined;
+
+  /** Gifts and votes from `sinceDay` on, for karma. */
+  credits(sinceDay: number): WorldCredit[] {
+    return this.creditLog.filter((c) => c.day >= sinceDay);
+  }
+
   // ---------- the town's clock ----------
 
   /** Log the townsfolk list when config changed it, so the sim keeps them out of votes. */
@@ -410,6 +450,7 @@ export class WorldService {
       });
       if (!set.ok) console.error(`Couldn't set the shop's share: ${set.error.message}`);
     }
+    this.awardDays(day);
     const due = (this.state.town?.proposals ?? []).filter(
       (p) => p.status === "open" && p.closesDay !== undefined && p.closesDay <= day,
     );
@@ -419,6 +460,44 @@ export class WorldService {
         command: { type: "close_proposal", proposal: p.id },
       });
       if (!closed.ok) console.error(`Couldn't close ${p.id}: ${closed.error.message}`);
+    }
+  }
+
+  /**
+   * Log appreciation coins for yesterday, and for any day since the last one paid that had no
+   * request after it ended (at most `AWARD_CATCH_UP` days back). Counted once per boot; a day
+   * with nothing to pay logs nothing. Before the first award ever, only yesterday is counted.
+   */
+  private awardDays(today: number) {
+    const econ = this.state.economy;
+    const last = today - 1;
+    if (!econ || !this.dailyAwards || this.awardsChecked === last) return;
+    if (econ.awardedDay !== undefined && econ.awardedDay >= last) return;
+    this.awardsChecked = last;
+    const first = Math.max(
+      last - AWARD_CATCH_UP + 1,
+      econ.awardedDay === undefined ? last : econ.awardedDay + 1,
+    );
+    for (let day = first; day <= last; day++) this.awardDay(day);
+  }
+
+  private awardDay(day: number) {
+    const count = this.dailyAwards;
+    if (!count) return;
+    let awards: DailyAward[];
+    try {
+      awards = count(day);
+    } catch (err) {
+      report(err, "world.daily_awards", { command: "daily_awards" });
+      return;
+    }
+    if (awards.length === 0) return;
+    const done = this.run({ actor: TOWN_ACTOR, command: { type: "daily_awards", day, awards } });
+    if (!done.ok) {
+      // A refused list pays nobody that day, so it has to reach someone.
+      report(new Error(`daily_awards refused: ${done.error.code}`), "world.daily_awards", {
+        command: "daily_awards",
+      });
     }
   }
 
@@ -915,6 +994,8 @@ export class WorldService {
       return { ok: false, error: { code: "internal", message: "Couldn't save that. Try again." } };
     }
     const { seq, events } = prepared.commit();
+    const credit = creditFor(input.actor, input.command, this.state.day ?? 0);
+    if (credit) this.creditLog.push(credit);
     const wire = toWire(events, this.state.townsfolk);
     for (const event of publicEvents(wire)) this.broadcast({ type: "event", seq, event });
     // Purse moves and inventory changes go only to their owner (purses and inventories are
@@ -956,6 +1037,11 @@ export class WorldService {
     // Putters from before today no longer limit anything.
     const today = utcDay(this.now());
     for (const [id, used] of this.putters) if (used.day < today) this.putters.delete(id);
+    // Gifts and votes older than karma's window no longer count.
+    const from = today - KARMA.windowDays;
+    if ((this.creditLog[0]?.day ?? from) < from) {
+      this.creditLog = this.creditLog.filter((c) => c.day >= from);
+    }
   }
 
   private touch(residentId: string) {

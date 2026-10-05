@@ -16,7 +16,7 @@ import {
 } from "@terrakin/protocol";
 import { NOTE_MAX_LENGTH, PATTERN_LABELS, THEME_INFO } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
-import { compactCount, isMediaUrl, plural } from "@terrakin/ui/format";
+import { compactCount, isMediaUrl, karmaLine, plural } from "@terrakin/ui/format";
 import { garmentName, mediaUrlOf } from "@terrakin/ui/looks";
 import { openImage, openModelViewer } from "@terrakin/ui/media";
 import { plot3dPath, profilePath } from "@terrakin/ui/paths";
@@ -336,6 +336,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
     // The small facts about them, as one row of chips.
     const facts = [
       r.streak ? h("span", { class: "profile-streak", text: `${r.streak} day streak` }) : null,
+      karmaChip(r),
       r.votes
         ? h(
             "a",
@@ -1462,6 +1463,17 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
    * Praise (issue #36): a small public thank-you, once a UTC day per person. No coins come with it.
    * The server decides every limit; this shows its answer.
    */
+  /** Their karma, with what it means on hover and for screen readers. */
+  function karmaChip(r: ProfileView): HTMLElement | null {
+    const line = karmaLine(r.karma);
+    if (!line) return null;
+    return h("span", {
+      class: "profile-karma",
+      text: line,
+      attrs: { title: "Karma: appreciation from other residents over the last 90 days" },
+    });
+  }
+
   function praiseButton(r: ProfileView, repaint: () => void): HTMLElement {
     const label = h("span");
     const star = icon("star", "icon praise-star");

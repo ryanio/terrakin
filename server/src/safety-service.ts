@@ -907,6 +907,30 @@ export class SafetyService {
     return ok(entry);
   }
 
+  /**
+   * Who each report staff upheld between two times was against: one entry per reported thing,
+   * named by its author (the resident, for a profile). For karma (decision 0055).
+   */
+  upheldAgainst(fromMs: number, toMs: number): string[] {
+    const rows = this.rows(
+      `SELECT DISTINCT kind, target,
+        CASE kind
+          WHEN 'resident' THEN target
+          WHEN 'post' THEN (SELECT author FROM posts WHERE id = target)
+          WHEN 'notice' THEN (SELECT author FROM notices WHERE id = target)
+          WHEN 'letter' THEN (SELECT sender FROM letters WHERE id = target)
+        END AS against
+        FROM reports WHERE status = 'actioned' AND closed_at >= ? AND closed_at < ?`,
+      fromMs,
+      toMs,
+    );
+    return rows.flatMap((row) => {
+      const against =
+        row.kind === "proposal" ? this.o.proposal(String(row.target))?.author : row.against;
+      return typeof against === "string" && against !== "" ? [against] : [];
+    });
+  }
+
   /** Close the open reports on something without acting on it. */
   dismiss(
     by: string,

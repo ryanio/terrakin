@@ -126,6 +126,8 @@ export function coinsLine(e: CoinsEvent): string | null {
       return e.amount > 0 ? `+${coins(n)} for coming home days in a row.` : null;
     case "welcome":
       return e.amount > 0 ? `+${coins(n)} to welcome you to your first plot.` : null;
+    case "appreciation":
+      return `+${coins(n)} from neighbors who liked your posts.`;
     case "gift_in":
       return `A gift of ${coins(n)} arrived.`;
     case "gift_out":

@@ -327,6 +327,7 @@ class WorldObject extends DurableObject<Env> {
       townsfolk,
       maintainers,
       votesCast: (id) => votesCast(service.state, id),
+      credits: (since) => service.credits(since),
       moderation,
       residentAgeDays: (id) => service.residentAgeDays(id),
       proposal: (id) => findProposal(service.state, id),

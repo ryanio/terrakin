@@ -466,6 +466,8 @@ export class Api {
         this.service.notify(to, layer.together.liveGesture(sent.value.gesture, sent.value.streak));
         return true;
       };
+      // Appreciation coins (decision 0055): counted from reactions, logged once a day by `tick`.
+      this.service.dailyAwards = (day) => layer.karma.awards(day);
       this.service.syncOwnerPairs(layer.ownerPairs());
     }
     this.ipUploadBytesPerDay = options.ipUploadBytesPerDay ?? 500_000_000;

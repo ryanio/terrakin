@@ -56,6 +56,12 @@ export const ECONOMY = {
   receiveCap: 500,
   /** Gift notes, in characters. */
   noteMax: 140,
+  /**
+   * The most appreciation coins one resident gets for one day: one for each resident who reacted
+   * to their posts that day, counted by the server (decision 0055) and logged as `daily_awards`.
+   * It may go up, never down: replay checks every logged award against it.
+   */
+  appreciationCap: 20,
   /** Ledger lines kept for each resident and for the treasury. */
   ledgerMax: 50,
 } as const;
@@ -222,7 +228,8 @@ type EconomyServerCommand = Extract<
       | "set_owner_pairs"
       | "add_owner_pair"
       | "remove_owner_pair"
-      | "set_maintainers";
+      | "set_maintainers"
+      | "daily_awards";
   }
 >;
 
@@ -255,7 +262,8 @@ function copyPairDays(state: WorldState): Record<ResidentId, Record<ResidentId, 
 }
 
 /**
- * `open_economy`, the owner-pair commands, and `set_maintainers`, which only TOWN_ACTOR sends.
+ * `open_economy`, the owner-pair commands, `set_maintainers`, and `daily_awards`, which only
+ * TOWN_ACTOR sends.
  */
 export function checkEconomyServer(
   state: WorldState,
@@ -369,7 +377,57 @@ export function checkEconomyServer(
         return [{ type: "maintainers_set", ids: [...ids] }];
       };
     }
+
+    case "daily_awards":
+      return checkDailyAwards(state, command);
   }
+}
+
+/**
+ * `daily_awards {day, awards}`: coins the server counted from social data for one past day
+ * (decision 0055), minted into each resident's purse. Each day is awarded at most once, in order,
+ * so a restart can't pay a day twice. An empty list still marks the day as done.
+ */
+function checkDailyAwards(
+  state: WorldState,
+  command: Extract<Command, { type: "daily_awards" }>,
+): EconomyChecked {
+  const econ = state.economy;
+  const today = state.day;
+  if (!econ || today === undefined) return refuse("economy_closed", "Coins aren't open yet.");
+  const { day, awards } = command;
+  if (!isWhole(day) || day >= today) {
+    return refuse("server_only", "Awards are for a day that has ended.");
+  }
+  if (econ.awardedDay !== undefined && day <= econ.awardedDay) {
+    return refuse("server_only", `Awards are already done through day ${econ.awardedDay}.`);
+  }
+  if (!Array.isArray(awards)) return refuse("server_only", "Awards are a list.");
+  const seen = new Set<ResidentId>();
+  for (const award of awards) {
+    const { to, amount, reason } = award ?? {};
+    if (reason !== "appreciation") return refuse("server_only", "Unknown award reason.");
+    if (typeof to !== "string" || !state.residents[to] || seen.has(to)) {
+      return refuse("server_only", "Each award goes to a different resident who exists.");
+    }
+    if (isTownsfolk(state, to)) return refuse("server_only", "Townsfolk don't get awards.");
+    if (!isWhole(amount) || amount < 1 || amount > ECONOMY.appreciationCap) {
+      return refuse(
+        "server_only",
+        `An appreciation award is 1 to ${ECONOMY.appreciationCap} coins.`,
+      );
+    }
+    seen.add(to);
+  }
+  const at = { seq: state.seq + 1, day: today };
+  const paid = awards.map(({ to, amount }) => [to, amount] as const);
+  return () => {
+    econ.awardedDay = day;
+    return paid.map(([to, amount]) => {
+      econ.minted += amount;
+      return movePurse(econ, to, amount, "appreciation", at);
+    });
+  };
 }
 
 /**

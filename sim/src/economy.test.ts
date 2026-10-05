@@ -173,6 +173,14 @@ describe("prepare with coins", () => {
       { actor: "ada", command: { type: "give_coins", to: "bob", amount: 5, note: "hi" } },
       { actor: "bob", command: { type: "settle", px: 1, py: 0 } },
       { actor: TOWN_ACTOR, command: { type: "set_townsfolk", ids: [] } },
+      {
+        actor: TOWN_ACTOR,
+        command: {
+          type: "daily_awards",
+          day: DAY,
+          awards: [{ to: "bob", amount: 2, reason: "appreciation" }],
+        },
+      },
     ];
     for (const input of inputs) {
       const before = hashWorld(w.state);
@@ -1104,5 +1112,92 @@ describe("a long scripted month", () => {
 
     const replayed = replay(w.state.config, w.log);
     expect(hashWorld(replayed)).toBe(hashWorld(w.state));
+  });
+});
+
+describe("daily_awards", () => {
+  const awards = (day: number, list: [string, number][]): Command => ({
+    type: "daily_awards",
+    day,
+    awards: list.map(([to, amount]) => ({ to, amount, reason: "appreciation" })),
+  });
+
+  it("mints each award into its resident's purse, with a private event and a ledger line", () => {
+    const w = opened();
+    w.join("ada");
+    w.join("bob");
+    w.day(DAY + 1);
+    const minted = w.state.economy?.minted ?? 0;
+    const treasury = w.treasury();
+    const events = w.ok(
+      TOWN_ACTOR,
+      awards(DAY, [
+        ["ada", 3],
+        ["bob", 20],
+      ]),
+    );
+    expect(events).toEqual([
+      { type: "coins", residentId: "ada", amount: 3, balance: 3, reason: "appreciation" },
+      { type: "coins", residentId: "bob", amount: 20, balance: 20, reason: "appreciation" },
+    ]);
+    expect(w.state.economy?.minted).toBe(minted + 23);
+    expect(w.treasury()).toBe(treasury);
+    expect(purseOf(w.state, "ada")?.ledger.at(-1)).toMatchObject({
+      day: DAY + 1,
+      amount: 3,
+      reason: "appreciation",
+    });
+    expect(w.state.economy?.awardedDay).toBe(DAY);
+  });
+
+  it("pays each day once, only for a day that has ended, and only in order", () => {
+    const w = opened();
+    w.join("ada");
+    expect(w.code(TOWN_ACTOR, awards(DAY, []))).toBe("server_only");
+    w.day(DAY + 3);
+    // An empty list still marks the day as done.
+    expect(w.ok(TOWN_ACTOR, awards(DAY + 1, []))).toEqual([]);
+    expect(w.code(TOWN_ACTOR, awards(DAY + 1, [["ada", 1]]))).toBe("server_only");
+    expect(w.code(TOWN_ACTOR, awards(DAY, [["ada", 1]]))).toBe("server_only");
+    w.ok(TOWN_ACTOR, awards(DAY + 2, [["ada", 1]]));
+    expect(w.coins("ada")).toBe(1);
+  });
+
+  it("refuses residents, strangers, townsfolk, repeats, and amounts outside 1 to the cap", () => {
+    const w = opened();
+    w.join("ada");
+    w.join("clem");
+    w.ok(TOWN_ACTOR, { type: "set_townsfolk", ids: ["clem"] });
+    w.day(DAY + 1);
+    expect(w.code("ada", awards(DAY, [["ada", 1]]))).toBe("server_only");
+    for (const list of [
+      [["nobody", 1]],
+      [["clem", 1]],
+      [
+        ["ada", 1],
+        ["ada", 1],
+      ],
+      [["ada", 0]],
+      [["ada", ECONOMY.appreciationCap + 1]],
+      [["ada", 1.5]],
+    ] as [string, number][][]) {
+      expect(w.code(TOWN_ACTOR, awards(DAY, list)), JSON.stringify(list)).toBe("server_only");
+    }
+    const otherReason = {
+      type: "daily_awards",
+      day: DAY,
+      awards: [{ to: "ada", amount: 1, reason: "bounty" }],
+    } as unknown as Command;
+    expect(w.code(TOWN_ACTOR, otherReason)).toBe("server_only");
+    w.ok(TOWN_ACTOR, awards(DAY, [["ada", ECONOMY.appreciationCap]]));
+    expect(w.coins("ada")).toBe(ECONOMY.appreciationCap);
+  });
+
+  it("needs coins open", () => {
+    const w = world();
+    w.day(DAY);
+    w.join("ada");
+    w.day(DAY + 1);
+    expect(w.code(TOWN_ACTOR, awards(DAY, [["ada", 1]]))).toBe("economy_closed");
   });
 });

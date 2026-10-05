@@ -1,5 +1,5 @@
 /** Small pure helpers for the feed pages: times, counts, and the media grid. Tests pin them. */
-import { type MediaView, type PostView, xIntentUrl } from "@terrakin/protocol";
+import { type KarmaView, type MediaView, type PostView, xIntentUrl } from "@terrakin/protocol";
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
@@ -54,6 +54,13 @@ export function badgeText(n: number): string {
 /** "1 reply", "3 replies". */
 export function plural(n: number, one: string, many: string): string {
   return `${compactCount(n)} ${n === 1 ? one : many}`;
+}
+
+/** "Neighbor · 24 karma", or null at 0, so a newcomer's profile doesn't show an empty score. */
+export function karmaLine(karma: KarmaView | undefined): string | null {
+  if (!karma || karma.score <= 0) return null;
+  const tier = karma.tier.charAt(0).toUpperCase() + karma.tier.slice(1);
+  return `${tier} · ${compactCount(karma.score)} karma`;
 }
 
 /** "lemons", "lemons and jam", "lemons, jam, and tea". */

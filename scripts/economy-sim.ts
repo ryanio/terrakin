@@ -3,12 +3,13 @@
  * world whose economy, items, and town shop have just opened, and prints supply per active
  * resident each day.
  *
- *   node scripts/economy-sim.ts [--seed 1] [--days 30] [--residents 300] [--no-shop] [--set key=value ...]
+ *   node scripts/economy-sim.ts [--seed 1] [--days 30] [--residents 300] [--no-shop] [--no-appreciation] [--set key=value ...]
  *
  *   --seed       PRNG seed, so a run repeats exactly (default 1)
  *   --days       days to play (default 30)
  *   --residents  residents who arrive over those days, not counting the townsfolk (default 300)
  *   --no-shop    play phase 1 only: coins, no gardens, no shop (the decision 0039 baseline)
+ *   --no-appreciation  no posts, reactions, or appreciation coins (the decision 0052 baseline)
  *   --set        try a different number without editing it: a key of ECONOMY (`allowance=8`), a
  *                shop price (`price.lantern=50`), what the town pays (`buy.lemon_jam=5`), its daily
  *                count (`perDay.lemon_jam=3`), a key of SHOP (`goodsPerDay=2`), or the pantry once
@@ -16,8 +17,9 @@
  *
  * Every step is an input to the real sim (apply), and the numbers are the sim's own (ECONOMY in
  * sim/src/economy.ts, ITEMS in sim/src/items.ts, the catalog and buy orders in sim/src/shop.ts),
- * so the script and the rules can't drift. Change a number there, rerun this, and record why in a
- * decision (decisions 0039 and 0052).
+ * so the script and the rules can't drift. Karma is scored by the server's own `scoreKarma` with
+ * `KARMA` from the protocol. Change a number there, rerun this, and record why in a decision
+ * (decisions 0039, 0052, and 0055).
  */
 import { registerHooks } from "node:module";
 import { parseArgs } from "node:util";
@@ -34,7 +36,16 @@ registerHooks({
   },
 });
 
-import type { Command, Crop, GoodKind, ShopSku, StackKind, WorldState } from "../sim/src/index.ts";
+import type { KarmaFacts } from "../server/src/karma.ts";
+import type {
+  Command,
+  Crop,
+  DailyAward,
+  GoodKind,
+  ShopSku,
+  StackKind,
+  WorldState,
+} from "../sim/src/index.ts";
 
 const {
   apply,
@@ -56,6 +67,8 @@ const {
   tileKey,
   townBuys,
 } = await import("../sim/src/index.ts");
+const { KARMA, KARMA_TIERS, tierAtLeast } = await import("../protocol/src/social.ts");
+const { scoreKarma } = await import("../server/src/karma.ts");
 
 type Numbers = { -readonly [K in keyof typeof ECONOMY]: number };
 type Mutable = Record<string, number | Record<string, number | Record<string, number>>>;
@@ -66,6 +79,7 @@ const { values: args } = parseArgs({
     days: { type: "string", default: "30" },
     residents: { type: "string", default: "300" },
     "no-shop": { type: "boolean", default: false },
+    "no-appreciation": { type: "boolean", default: false },
     set: { type: "string", multiple: true, default: [] },
   },
 });
@@ -95,6 +109,7 @@ for (const pair of args.set ?? []) {
   } else throw new Error(`--set: unknown key ${key}`);
 }
 const SHOP_OPEN = !args["no-shop"];
+const APPRECIATION = !args["no-appreciation"];
 const SEED = Number(args.seed);
 const DAYS = Number(args.days);
 const RESIDENTS = Number(args.residents);
@@ -126,6 +141,8 @@ const random = mulberry32(SEED);
 const { chance, between, pick } = draws(random);
 // Gardens and shopping draw from their own stream, so they never shift the one above.
 const taste = draws(mulberry32(SEED ^ 0x5eed));
+// Posts and reactions too, so turning appreciation on or off leaves the rest of the month alone.
+const social = draws(mulberry32(SEED ^ 0xa11ce));
 
 // ---------- the rules ----------
 
@@ -141,6 +158,8 @@ interface Rules {
   give(from: string, to: string, amount: number): boolean;
   setTownsfolk(ids: string[]): void;
   setOwnerPairs(pairs: [string, string][]): void;
+  /** Log appreciation coins for day `d`, as the server does early on day `d + 1`. */
+  award(d: number, awards: DailyAward[]): void;
   balance(id: string): number;
   treasury(): number;
   minted(): number;
@@ -202,6 +221,7 @@ function simRules(): Rules {
     give: (from, to, amount) => send(from, { type: "give_coins", to, amount }),
     setTownsfolk: (ids) => must(TOWN_ACTOR, { type: "set_townsfolk", ids }),
     setOwnerPairs: (pairs) => must(TOWN_ACTOR, { type: "set_owner_pairs", pairs }),
+    award: (d, awards) => must(TOWN_ACTOR, { type: "daily_awards", day: DAY0 + d, awards }),
     balance: (id) => coinsOf(state, id),
     treasury: () => state.economy?.treasury ?? 0,
     minted: () => state.economy?.minted ?? 0,
@@ -408,6 +428,43 @@ const TOWNSFOLK_SPEND = 0.8;
 /** Owner-linked pairs among the arrivals: a person and their AI. */
 const PAIRS = 20;
 
+// ---------- posts, reactions, and karma ----------
+
+/** Chance of posting on a day they're around. Newcomers post to say hello. */
+const POSTS: Record<Kind, number> = { regular: 0.5, visitor: 0.35, drifter: 0.25, oneday: 0.5 };
+/** The most of the day's posts one resident reacts to. */
+const REACTS_UP_TO = 4;
+
+/**
+ * Appreciation coins for day `d`, the way `KarmaService.awards` counts them: one for each other
+ * resident who reacted to your posts that day, if they're a Neighbor by karma up to that day, have
+ * a hearth, and were old enough, and aren't your own AI or person. Townsfolk don't post here.
+ */
+function appreciationFor(
+  d: number,
+  facts: KarmaFacts,
+  byId: Map<string, Person>,
+  settled: Set<string>,
+  paired: (a: string, b: string) => boolean,
+): DailyAward[] {
+  const scores = scoreKarma(facts, { counts: (id) => !id.startsWith("t_"), paired });
+  const counted = new Map<string, Set<string>>();
+  for (const { from, to, day } of facts.reactions) {
+    if (day !== d || from === to || paired(from, to) || !settled.has(from)) continue;
+    const tier = scores.get(from)?.tier ?? "newcomer";
+    if (!tierAtLeast(tier, KARMA.appreciationTier)) continue;
+    if (d - (byId.get(from)?.arrives ?? d) < KARMA.appreciationMinAgeDays) continue;
+    counted.set(to, (counted.get(to) ?? new Set()).add(from));
+  }
+  return [...counted.entries()]
+    .sort(([a], [b]) => (a < b ? -1 : 1))
+    .map(([to, set]) => ({
+      to,
+      amount: Math.min(set.size, N.appreciationCap),
+      reason: "appreciation" as const,
+    }));
+}
+
 function population(): Person[] {
   const people: Person[] = [];
   for (let i = 0; i < RESIDENTS; i++) {
@@ -442,6 +499,7 @@ function population(): Person[] {
 // ---------- the month ----------
 
 interface Row {
+  appreciation: number;
   sold: number;
   spent: number;
   burned: number;
@@ -472,6 +530,16 @@ function play(rules: Rules) {
   for (const id of TOWNSFOLK) rules.join(id);
   rules.setTownsfolk(TOWNSFOLK);
   rules.setOwnerPairs(pairs);
+  const pairKeys = new Set(pairs.map(([a, b]) => [a, b].sort().join(" ")));
+  const paired = (a: string, b: string) => pairKeys.has([a, b].sort().join(" "));
+  const facts: KarmaFacts = {
+    reactions: [],
+    praise: [],
+    gifts: [],
+    heartedReplies: [],
+    votes: [],
+    upheld: [],
+  };
 
   const rows: Row[] = [];
   let shortWelcomes = 0;
@@ -492,6 +560,13 @@ function play(rules: Rules) {
     tally.spent = 0;
     // The economy opens partway through day 0, so day 0 has no new_day of its own.
     if (day > 0) rules.newDay(day);
+    // Yesterday's appreciation, paid early today.
+    let appreciation = 0;
+    if (APPRECIATION && day > 0) {
+      const awards = appreciationFor(day - 1, facts, byId, settled, paired);
+      if (awards.length > 0) rules.award(day - 1, awards);
+      appreciation = awards.reduce((sum, a) => sum + a.amount, 0);
+    }
     const townMint = day > 0 ? N.treasuryMint : 0;
 
     const active: string[] = [];
@@ -524,13 +599,25 @@ function play(rules: Rules) {
       if (!p || !chance(p.giving)) continue;
       const to = pick(active.filter((other) => other !== id));
       const amount = Math.min(rules.balance(id), between(5, 30));
-      if (to && amount > 0) rules.give(id, to, amount);
+      if (to && amount > 0 && rules.give(id, to, amount)) facts.gifts.push({ from: id, to, day });
     }
     // An AI saving up for its person, or the other way round. Pairs skip the daily caps.
     for (const [a, b] of pairs) {
       if (!active.includes(a) || !chance(0.1)) continue;
       const amount = Math.min(rules.balance(a), between(10, 60));
       if (amount > 0) rules.give(a, b, amount);
+    }
+    // Some post, and everyone around reacts to a few of today's posts by others.
+    if (APPRECIATION) {
+      const posters = active.filter((id) => social.chance(POSTS[byId.get(id)?.kind ?? "oneday"]));
+      for (const id of active) {
+        const others = posters.filter((p) => p !== id);
+        const reacts = Math.min(others.length, social.between(0, REACTS_UP_TO));
+        for (let i = 0; i < reacts; i++) {
+          const [to] = others.splice(social.between(0, others.length - 1), 1);
+          if (to) facts.reactions.push({ from: id, to, day });
+        }
+      }
     }
 
     // Townsfolk scripts: a welcome tip for each newcomer, then tips for active residents.
@@ -558,6 +645,7 @@ function play(rules: Rules) {
     for (const p of people) held += rules.balance(p.id);
     const supply = rules.minted() - rules.burned();
     rows.push({
+      appreciation,
       sold: tally.sold,
       spent: tally.spent,
       burned: rules.burned() - burnedBefore,
@@ -581,7 +669,7 @@ function play(rules: Rules) {
       );
     }
   }
-  return { rows, people, shortWelcomes };
+  return { rows, people, shortWelcomes, facts, paired };
 }
 
 // ---------- report ----------
@@ -591,7 +679,7 @@ const percentile = (sorted: number[], q: number) =>
   sorted.length ? (sorted[Math.min(sorted.length - 1, Math.floor(q * sorted.length))] ?? 0) : 0;
 
 function report(rules: Rules) {
-  const { rows, people, shortWelcomes } = play(rules);
+  const { rows, people, shortWelcomes, facts, paired } = play(rules);
   console.log(
     `Economy simulation: seed ${SEED}, ${DAYS} days, ${RESIDENTS} residents + 8 townsfolk`,
   );
@@ -602,7 +690,7 @@ function report(rules: Rules) {
   );
   console.log("");
   console.log(
-    "day  new  active   supply  treasury  held(res)  per active  minted today  town paid   sold  spent  burned",
+    "day  new  active   supply  treasury  held(res)  per active  minted today  town paid   sold  spent  burned  apprec",
   );
   for (const r of rows) {
     console.log(
@@ -619,6 +707,7 @@ function report(rules: Rules) {
         pad(r.sold, 5),
         pad(r.spent, 5),
         pad(r.burned, 6),
+        pad(r.appreciation, 6),
       ].join("  "),
     );
   }
@@ -656,6 +745,22 @@ function report(rules: Rules) {
       console.log(
         `Gardeners who arrived in the first week (n=${g.length}): month-end purse median ${percentile(g, 0.5)}, p90 ${percentile(g, 0.9)}, max ${g.at(-1) ?? 0}.`,
       );
+    }
+    if (APPRECIATION) {
+      console.log(
+        `Last 7 days: appreciation minted ${avg((r) => r.appreciation)} a day, ${(
+          week.reduce((s, r) => s + r.appreciation, 0) /
+            Math.max(
+              1,
+              week.reduce((s, r) => s + r.active, 0),
+            )
+        ).toFixed(1)} per active resident.`,
+      );
+      const scores = scoreKarma(facts, { counts: (id) => !id.startsWith("t_"), paired });
+      const tiers = KARMA_TIERS.map(
+        (t) => `${t} ${people.filter((p) => (scores.get(p.id)?.tier ?? "newcomer") === t).length}`,
+      );
+      console.log(`Month-end karma tiers: ${tiers.join(", ")}.`);
     }
     console.log(
       `Welcome gifts that had to wait for a new_day because the treasury ran low: ${shortWelcomes}, still waiting at month end: ${rules.owed()}.`,

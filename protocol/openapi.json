@@ -17923,7 +17923,8 @@
           "budget",
           "budget_return",
           "shop",
-          "sold"
+          "sold",
+          "appreciation"
         ]
       },
       "CraftAction": {
@@ -21768,6 +21769,33 @@
           "expiresAt"
         ]
       },
+      "KarmaTier": {
+        "type": "string",
+        "enum": [
+          "newcomer",
+          "neighbor",
+          "regular",
+          "pillar",
+          "elder"
+        ]
+      },
+      "KarmaView": {
+        "type": "object",
+        "properties": {
+          "score": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "tier": {
+            "$ref": "#/components/schemas/KarmaTier"
+          }
+        },
+        "required": [
+          "score",
+          "tier"
+        ]
+      },
       "LetterResponse": {
         "type": "object",
         "properties": {
@@ -22395,6 +22423,13 @@
           },
           "praisedToday": {
             "type": "boolean"
+          },
+          "karma": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/KarmaView"
+              }
+            ]
           },
           "blocked": {
             "type": "boolean"
@@ -23809,6 +23844,11 @@
             "type": "integer",
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
+          },
+          "appreciationCap": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           }
         },
         "required": [
@@ -23818,7 +23858,8 @@
           "welcomeGift",
           "giveCap",
           "receiveCap",
-          "noteMax"
+          "noteMax",
+          "appreciationCap"
         ]
       },
       "PublicGift": {

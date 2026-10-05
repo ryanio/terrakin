@@ -35,6 +35,8 @@ export function lineLabel(line: Pick<PurseLine, "reason" | "with">): string {
       return "At the town shop";
     case "sold":
       return "Sold to the town";
+    case "appreciation":
+      return "Neighbors who liked your posts";
     default:
       return "Coins";
   }

@@ -79,6 +79,7 @@ const social = new SocialService({
   ...testXReader(process.env.TERRAKIN_TEST_X_OEMBED),
   maintainers,
   votesCast: (id) => votesCast(service.state, id),
+  credits: (since) => service.credits(since),
   moderation,
   residentAgeDays: (id) => service.residentAgeDays(id),
   proposal: (id) => findProposal(service.state, id),

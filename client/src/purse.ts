@@ -46,6 +46,8 @@ export function coinNote(
       return { lead: `+${coins(line.amount)}`, rest: "to welcome you to your first plot" };
     case "sold":
       return { lead: `+${coins(line.amount)}`, rest: "from the town for what you sold" };
+    case "appreciation":
+      return { lead: `+${coins(line.amount)}`, rest: "from neighbors who liked your posts" };
     case "gift_in":
       return {
         lead: line.with?.name ?? "Someone",

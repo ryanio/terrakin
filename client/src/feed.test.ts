@@ -6,6 +6,7 @@ import {
   initial,
   isMediaUrl,
   isModelResource,
+  karmaLine,
   mediaLayout,
   plural,
   relativeTime,
@@ -202,6 +203,13 @@ describe("words", () => {
     expect(initial("élan")).toBe("É");
     expect(initial("🌱 sprout")).toBe("🌱");
     expect(initial("")).toBe("?");
+  });
+
+  it("names a karma tier with its score, and leaves out a score of 0", () => {
+    expect(karmaLine({ score: 24, tier: "neighbor" })).toBe("Neighbor · 24 karma");
+    expect(karmaLine({ score: 1200, tier: "elder" })).toBe("Elder · 1.2K karma");
+    expect(karmaLine({ score: 0, tier: "newcomer" })).toBeNull();
+    expect(karmaLine(undefined)).toBeNull();
   });
 });
 

@@ -129,6 +129,66 @@ export const PRAISE_LIMITS = {
   minAgeDays: 1,
 } as const;
 
+// ---------- karma (standing from other residents, never spent) ----------
+
+/** Karma tiers, lowest first. Clients show them capitalized: Newcomer, Neighbor, and so on. */
+export const KARMA_TIERS = ["newcomer", "neighbor", "regular", "pillar", "elder"] as const;
+export const KarmaTier = z.enum(KARMA_TIERS);
+export type KarmaTier = z.infer<typeof KarmaTier>;
+
+/**
+ * How karma is counted (decision 0055). It covers the last `windowDays` whole UTC days, up to and
+ * including yesterday, so it changes once a day. Nothing a resident or their own AI does for
+ * themselves counts, and neither does anything from the townsfolk or a suspended resident.
+ */
+export const KARMA = {
+  /** Whole UTC days counted, ending yesterday. */
+  windowDays: 90,
+  /** The score each tier starts at. */
+  tiers: { newcomer: 0, neighbor: 10, regular: 50, pillar: 150, elder: 400 },
+  /**
+   * Each resident who reacted to your posts on a day, once a day, by their own tier (read from
+   * their score with every reaction counted as 1, so one pass settles it).
+   */
+  reaction: { newcomer: 1, neighbor: 2, regular: 2, pillar: 3, elder: 3 },
+  /** Each praise you got. Praise is already once a day per pair. */
+  praise: 2,
+  /** Each resident who gave you coins or a thing on a day, once a day. */
+  gift: 2,
+  /** Each reply of yours that the post's author hearted. */
+  heartedReply: 2,
+  /** Each Town Hall proposal you voted on. */
+  vote: 1,
+  /** Taken off for each post, letter, or profile of yours that staff acted on after a report. */
+  upheldReport: 10,
+  /** Reactions count toward appreciation coins only from residents at this tier or above. */
+  appreciationTier: "neighbor",
+  /** ...and only from residents at least this many whole UTC days old on the day they reacted. */
+  appreciationMinAgeDays: 3,
+} as const satisfies {
+  tiers: Record<KarmaTier, number>;
+  reaction: Record<KarmaTier, number>;
+  appreciationTier: KarmaTier;
+} & Record<string, unknown>;
+
+/** The tier a score reaches. */
+export function karmaTier(score: number): KarmaTier {
+  let tier: KarmaTier = "newcomer";
+  for (const t of KARMA_TIERS) if (score >= KARMA.tiers[t]) tier = t;
+  return tier;
+}
+
+/** Whether `tier` is `floor` or above. */
+export const tierAtLeast = (tier: KarmaTier, floor: KarmaTier) =>
+  KARMA_TIERS.indexOf(tier) >= KARMA_TIERS.indexOf(floor);
+
+export const KarmaView = z.object({
+  /** Points over the last 90 days, up to yesterday. Never below 0. */
+  score: z.number().int(),
+  tier: KarmaTier,
+});
+export type KarmaView = z.infer<typeof KarmaView>;
+
 // ---------- reactions ----------
 
 /** The reactions anyone can leave on a post. Keys go over the wire; clients pick how to draw them. */
@@ -341,6 +401,11 @@ export const ProfileView = z.object({
   praise: z.number().int().optional(),
   /** Present and true when the caller already praised them today (UTC). */
   praisedToday: z.boolean().optional(),
+  /**
+   * Their standing from other residents' appreciation over the last 90 days (decision 0055).
+   * Public, changes once a day, and can't be spent, given, or bought.
+   */
+  karma: KarmaView.optional(),
   /** Present and true when the caller has blocked them. */
   blocked: z.boolean().optional(),
   /** How many Town Hall proposals they voted on. */

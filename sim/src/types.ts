@@ -381,6 +381,8 @@ export const COIN_REASONS = [
   "shop",
   /** Paid by the town for something sold to it. Minted. */
   "sold",
+  /** Minted for residents who reacted to your posts on a day, logged by `daily_awards`. */
+  "appreciation",
 ] as const;
 export type CoinReason = (typeof COIN_REASONS)[number];
 
@@ -425,6 +427,8 @@ export interface EconomyState {
   owed: ResidentId[];
   /** Today's counters for the gift caps. Reset at each `new_day`. */
   today: EconomyToday;
+  /** The last day `daily_awards` paid for. Absent until the first. */
+  awardedDay?: number;
 }
 
 export interface EconomyToday {
@@ -493,7 +497,16 @@ export type Command =
   | { type: "open_items" }
   | { type: "open_shop" }
   /** The treasury's share of shop spending from now on, in percent; the rest is burned. */
-  | { type: "set_shop_share"; percent: number };
+  | { type: "set_shop_share"; percent: number }
+  /** Coins the server counted for a day that has ended, minted once per day (decision 0055). */
+  | { type: "daily_awards"; day: number; awards: DailyAward[] };
+
+/** One resident's award in `daily_awards`. */
+export interface DailyAward {
+  to: ResidentId;
+  amount: number;
+  reason: "appreciation";
+}
 
 export type CommandType = Command["type"];
 
@@ -517,6 +530,7 @@ export const SERVER_COMMANDS = [
   "open_items",
   "open_shop",
   "set_shop_share",
+  "daily_awards",
 ] as const satisfies readonly CommandType[];
 
 /** A command plus who issued it. This is the unit the server logs and replays. */

@@ -17,6 +17,7 @@ export const COIN_RULES = {
   giveCap: ECONOMY.giveCap,
   receiveCap: ECONOMY.receiveCap,
   noteMax: ECONOMY.noteMax,
+  appreciationCap: ECONOMY.appreciationCap,
 } as const;
 
 export const CoinRules = z.object({
@@ -33,6 +34,11 @@ export const CoinRules = z.object({
   /** The most you can receive in gifts in a UTC day. */
   receiveCap: z.number().int(),
   noteMax: z.number().int(),
+  /**
+   * The most appreciation coins you get for one day: 1 for each resident at Neighbor karma or above
+   * who reacted to your posts that day. Paid the next day.
+   */
+  appreciationCap: z.number().int(),
 });
 
 /** One movement in your purse. */

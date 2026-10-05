@@ -431,6 +431,7 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
       case "add_owner_pair":
       case "remove_owner_pair":
       case "set_maintainers":
+      case "daily_awards":
         return town(checkEconomyServer(state, command));
       case "open_items":
         return town(checkOpenItems(state));

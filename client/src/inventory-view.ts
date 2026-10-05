@@ -35,9 +35,15 @@ function goodItem(g: GoodView): HTMLLIElement {
 
 /**
  * A gift you can still send back, with a Send back button that asks once more before it goes.
- * The giver's name is a link; nothing they wrote shows here.
+ * The giver's name is a link; nothing they wrote shows here. A piece shows its own picture, found
+ * among your made things, the way the market shows one.
  */
-function giftItem(g: GiftView, today: number, sent: () => void): HTMLLIElement {
+function giftItem(
+  g: GiftView,
+  today: number,
+  goods: ReadonlyMap<string, GoodView>,
+  sent: () => void,
+): HTMLLIElement {
   const back = h("button", {
     class: "pill-button small",
     attrs: { type: "button" },
@@ -55,7 +61,7 @@ function giftItem(g: GiftView, today: number, sent: () => void): HTMLLIElement {
   return itemRow({
     className: "things-gift",
     attrs: { "data-gift": g.id },
-    lead: itemArt(g.kind, { size: 32 }),
+    lead: thingPicture({ kind: g.kind, ...goods.get(g.goods?.[0] ?? "") }, { size: 32 }),
     name: g.count === 1 ? thingName(g.kind) : thingCount(g.kind, g.count),
     lines: [
       h(
@@ -228,6 +234,7 @@ export function inventoryView(ctx: ViewContext): View {
       return;
     }
     const held = (kind: string) => stackCount(inv.stacks, kind);
+    const goodsById = new Map(inv.goods.map((g) => [g.id, g]));
     const staplesFull = held("sugar") >= rules.stapleMax && held("jar") >= rules.stapleMax;
     // Today's pantry waits at home: the same "come home" the purse page has.
     const pantryDue = inv.hasHearth && !inv.pantryToday && !staplesFull;
@@ -285,7 +292,7 @@ export function inventoryView(ctx: ViewContext): View {
               }),
               itemRows(
                 inv.gifts.map((g) =>
-                  giftItem(g, inv.day, () => {
+                  giftItem(g, inv.day, goodsById, () => {
                     if (!destroyed) void load();
                   }),
                 ),

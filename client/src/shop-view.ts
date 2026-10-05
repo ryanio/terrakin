@@ -4,6 +4,7 @@
  * `shop_buy` and `sell_to_town`.
  */
 import type {
+  Action,
   BuyOrderView,
   InventoryResponse,
   ShopItemView,
@@ -12,10 +13,11 @@ import type {
 import { h, icon } from "@terrakin/ui/dom";
 import { itemArt } from "@terrakin/ui/item-art";
 import { personLink } from "@terrakin/ui/people";
-import { itemRow, itemRows, stateCard, toast, whileBusy } from "@terrakin/ui/ui";
-import { actProblem, api } from "./api";
+import { itemRow, itemRows, stateCard } from "@terrakin/ui/ui";
+import { actFromButton } from "./act";
+import { api } from "./api";
 import { savedToken } from "./net";
-import { balanceLine, coins, refreshPurse } from "./purse";
+import { balanceLine, coins } from "./purse";
 import { stackCount } from "./things";
 import { errorCard, type View, type ViewContext } from "./view";
 
@@ -71,19 +73,8 @@ export function shopView(ctx: ViewContext): View {
   let destroyed = false;
   const signedIn = savedToken() !== null;
 
-  async function act(
-    button: HTMLButtonElement,
-    action: Parameters<typeof api.act>[0],
-    done: string,
-  ): Promise<void> {
-    const r = await whileBusy(button, () => api.act(action));
-    if (destroyed) return;
-    const problem = actProblem(r);
-    toast(problem ?? done);
-    if (problem) return;
-    refreshPurse(true);
-    await load();
-  }
+  const act = (button: HTMLButtonElement, action: Action, done: string) =>
+    actFromButton(button, action, done, { gone: () => destroyed, after: load });
 
   function shelfItem(item: ShopItemView, data: ShopResponse, inv: InventoryResponse | null) {
     const balance = data.you?.balance ?? null;

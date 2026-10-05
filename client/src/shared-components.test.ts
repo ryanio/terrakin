@@ -74,6 +74,11 @@ const HAND_BUILT: { pattern: RegExp; use: string; home?: string }[] = [
     use: "actProblem (client/src/api.ts)",
     home: "client/src/api.ts",
   },
+  {
+    pattern: /toast\(problem \?\? \w+\)|whileBusy\(\w+, \(\) => api\.act\(action\)\)/,
+    use: "actFromButton (client/src/act.ts)",
+    home: "client/src/act.ts",
+  },
   { pattern: /`\/[rp]\/\$\{/, use: "profilePath, postPath, or plot3dPath (paths.ts)" },
   { pattern: /class: "sheet[ "]|class: "sheet-(card|head|title|close)"/, use: "sheet (ui.ts)" },
   { pattern: /["'`]item-art\b|CROP_COLORS/, use: "itemArt or CROP_HEX (item-art.ts)" },

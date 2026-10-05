@@ -334,8 +334,10 @@ test("on your own profile, tap your picture to change it, and the top bar follow
   await expect(change.locator(".profile-avatar-badge")).toBeVisible();
   const box = await change.boundingBox();
   expect(box?.width).toBeGreaterThanOrEqual(44);
-  const remove = page.getByRole("button", { name: "Remove picture" });
-  await expect(remove).toBeHidden();
+  // Remove picture waits in the "…" menu, and only while there's a picture to remove.
+  const more = page.getByRole("button", { name: "More for this profile" });
+  const remove = page.locator(".avatar-remove");
+  await expect(remove).toHaveJSProperty("hidden", true);
 
   // Tapping the picture opens the file picker; the upload becomes the avatar.
   const chooser = page.waitForEvent("filechooser");
@@ -345,15 +347,16 @@ test("on your own profile, tap your picture to change it, and the top bar follow
   await expect(picture).toHaveAttribute("src", /^\/media\/m_[0-9a-f]{16}$/);
   const src = await picture.getAttribute("src");
   await expect(page.locator(".site-bar .you-link .avatar img")).toHaveAttribute("src", src ?? "");
-  await expect(remove).toBeVisible();
+  await expect(remove).toHaveJSProperty("hidden", false);
 
   // It stays after a reload, and Remove picture puts the letter back everywhere.
   await page.reload();
   await expect(change.locator(".avatar img")).toHaveAttribute("src", src ?? "");
+  await more.click();
   await remove.click();
   await expect(change.locator(".avatar img")).toHaveCount(0);
   await expect(page.locator(".site-bar .you-link .avatar img")).toHaveCount(0);
-  await expect(remove).toBeHidden();
+  await expect(remove).toHaveJSProperty("hidden", true);
   expect(errors).toEqual([]);
 });
 

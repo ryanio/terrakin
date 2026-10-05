@@ -99,7 +99,8 @@ test("a plot opens in 3D, takes a photo, and stops drawing when you leave", asyn
   const after = await page.evaluate(() => (window as unknown as { __frames: number }).__frames);
   expect(after - before).toBe(0);
 
-  // The profile links back into 3D.
+  // The profile links back into 3D, from its "…" menu.
+  await page.getByRole("button", { name: "More for this profile" }).click();
   await expect(page.getByRole("link", { name: "Visit in 3D" })).toHaveAttribute(
     "href",
     `/r/${session.residentId}/3d`,

@@ -57,6 +57,8 @@ test("a resident takes a photo of their home and posts it", async ({ page }) => 
 
   await signIn(page, rue);
   await page.goto(`/r/${rue.id}`);
+  // It lives in the profile's "…" menu.
+  await page.getByRole("button", { name: "More for this profile" }).click();
   const take = page.locator(".plot-photo-open");
   await expect(take).toBeVisible();
   await take.click();

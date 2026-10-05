@@ -240,26 +240,40 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
     };
     paintCounts();
 
+    // One row beside the avatar: the main action or two, and everything else in the "…" menu.
     const actions = h("div", { class: "profile-actions" });
     const copyLabel = h("span", { text: "Copy link" });
-    const copy = h(
+    const copyItem = h(
       "button",
-      { class: "pill-button small", attrs: { type: "button" } },
+      { class: "menu-item calm", attrs: { type: "button" } },
       icon("link"),
       copyLabel,
     );
-    copyButton(copy, copyLabel, () => new URL(profilePath(r.id), location.origin).href, {
+    copyButton(copyItem, copyLabel, () => new URL(profilePath(r.id), location.origin).href, {
       idle: "Copy link",
       failed: "Couldn't copy the link",
     });
     // Their plot in 3D. The page says so kindly if they haven't settled one yet.
-    const visit = h(
+    const visitItem = h(
       "a",
-      { class: "pill-button small", attrs: { href: plot3dPath(r.id) } },
+      { class: "menu-item calm", attrs: { href: plot3dPath(r.id) } },
       icon("cube"),
       h("span", { text: "Visit in 3D" }),
     );
-    actions.append(visit, copy);
+    let current: { close(): void } | undefined;
+    const mount = (lead: HTMLElement[], items: HTMLElement[], onClose?: () => void) => {
+      current?.close();
+      const menu = moreMenu({
+        id: "profile-more",
+        items,
+        ...(onClose ? { onClose } : {}),
+      });
+      menu.el.querySelector(".more-button")?.setAttribute("aria-label", "More for this profile");
+      current = menu;
+      cleanups.push(menu.close);
+      actions.replaceChildren(...lead, menu.el);
+    };
+    mount([], [copyItem, visitItem]);
 
     const x = xRow(r);
     const banner = profileBanner(r);
@@ -270,29 +284,40 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
         if (me.id === r.id) {
           banner.editable();
           name.append(h("span", { class: "you-tag", text: "This is you" }));
-          actions.prepend(
-            h(
-              "button",
-              {
-                class: "btn-primary small invite-open",
-                attrs: { type: "button" },
-                on: { click: () => openInviteDialog() },
-              },
-              icon("userPlus"),
-              h("span", { text: "Invite someone" }),
-            ),
-          );
           x.paint(true);
-          handleWrap.append(handleButton(r, handleLine, handleWrap));
-          actions.append(plotPhotoButton(), avatar.editable());
+          const invite = h(
+            "button",
+            {
+              class: "btn-primary small invite-open",
+              attrs: { type: "button" },
+              on: { click: () => openInviteDialog() },
+            },
+            icon("userPlus"),
+            h("span", { text: "Invite someone" }),
+          );
+          // Picking a handle is worth a prompt on the line; changing one can wait in the menu.
+          const handle = handleButton(r, handleLine, handleWrap);
+          const photo = plotPhotoButton();
+          photo.className = "menu-item calm plot-photo-open";
+          const remove = avatar.editable();
+          remove.className = "menu-item avatar-remove";
+          const items: HTMLElement[] = [copyItem, visitItem, photo];
+          if (r.handle) {
+            handle.className = "menu-item calm handle-edit";
+            handle.addEventListener("click", () => current?.close());
+            items.push(handle);
+          } else {
+            handleWrap.append(handle);
+          }
+          items.push(remove);
+          mount([invite], items);
           return;
         }
         // The server never takes praise across a block, so don't offer it.
-        actions.prepend(
-          followButton(r, paintCounts),
-          ...(r.blocked ? [] : [praiseButton(r, paintCounts)]),
-        );
-        actions.append(profileMore(r));
+        const lead = [followButton(r, paintCounts)];
+        if (!r.blocked) lead.push(praiseButton(r, paintCounts));
+        const more = profileMore(r, () => current?.close());
+        mount(lead, [copyItem, visitItem, ...more.items], more.onClose);
       });
     }
 
@@ -308,13 +333,27 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       r.online ? "In the world now" : "Away from the world",
     );
 
+    // The small facts about them, as one row of chips.
+    const facts = [
+      r.streak ? h("span", { class: "profile-streak", text: `${r.streak} day streak` }) : null,
+      r.votes
+        ? h(
+            "a",
+            { class: "profile-votes", attrs: { href: "/town" } },
+            `Voted ${plural(r.votes, "time", "times")} in the Town Hall`,
+          )
+        : null,
+      lookLine(r.look),
+    ].filter((f): f is HTMLElement => f !== null);
+
     const card = h(
       "section",
       { class: "paper card profile", attrs: { "aria-label": `Profile of ${r.name}` } },
       banner.el,
       h("div", { class: "profile-top" }, avatar.el, actions),
       name,
-      handleWrap,
+      // Who they are at a glance: handle, whether they're in the world, and their X account.
+      h("div", { class: "profile-meta" }, handleWrap, status, x.el),
       verifiedRow(r),
       r.townsfolk ? null : ownerLine(r, "profile-owner"),
       r.townsfolk ? h("p", { class: "townsfolk-note", text: TOWNSFOLK_ABOUT }) : null,
@@ -324,25 +363,9 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
             text: "A maintainer has paused this account for now. Its posts are hidden.",
           })
         : null,
-      status,
-      x.el,
-      r.streak
-        ? h("p", {
-            class: "profile-streak",
-            text: `On a ${r.streak} day gesture streak`,
-          })
-        : null,
       r.bio ? h("p", { class: "profile-bio", text: r.bio }) : null,
       r.note ? h("p", { class: "profile-note", text: r.note }) : null,
-      r.votes
-        ? h(
-            "p",
-            { class: "profile-votes" },
-            `Voted ${plural(r.votes, "time", "times")} in the `,
-            h("a", { attrs: { href: "/town" }, text: "Town Hall" }),
-          )
-        : null,
-      lookLine(r.look),
+      facts.length ? h("div", { class: "profile-facts" }, ...facts) : null,
       h(
         "ul",
         { class: "stats", attrs: { "aria-label": "Counts" } },
@@ -1070,8 +1093,14 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
     return { open, form };
   }
 
-  /** "…" with Block (or Unblock). The first tap asks, the second does it. */
-  function profileMore(r: ProfileView): HTMLElement {
+  /**
+   * Block (or Unblock) and Report, for the "…" menu on someone else's profile. Blocking asks first:
+   * the first tap arms it, the second does it, and closing the menu disarms it.
+   */
+  function profileMore(
+    r: ProfileView,
+    close: () => void,
+  ): { items: HTMLElement[]; onClose: () => void } {
     const blockItem = h("button", { class: "menu-item", attrs: { type: "button" } });
     const reportItem = h("button", {
       class: "menu-item",
@@ -1079,11 +1108,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       text: `Report ${r.name}`,
     });
     blockItem.textContent = r.blocked ? `Unblock ${r.name}` : `Block ${r.name}`;
-    const menu = moreMenu({
-      id: "profile-more",
-      items: [blockItem, reportItem],
-      onClose: () => disarm(),
-    });
+    const menu = { close };
     reportItem.addEventListener("click", () => {
       menu.close();
       openReportSheet({ kind: "resident", id: r.id, label: "profile" });
@@ -1109,8 +1134,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       );
       void load();
     };
-    cleanups.push(menu.close);
-    return menu.el;
+    return { items: [blockItem, reportItem], onClose: () => disarm() };
   }
 
   // ---------- visitors: join and follow ----------

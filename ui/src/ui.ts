@@ -505,7 +505,8 @@ export function confirmTwice(
 export interface MoreMenuOptions {
   /** The menu's id, for `aria-controls`. Unique on the page. */
   id: string;
-  items: HTMLButtonElement[];
+  /** Buttons, or links for items that go somewhere. */
+  items: HTMLElement[];
   /** Classes for the "…" button. */
   buttonClass?: string;
   /** Added to the `more` wrapper. */

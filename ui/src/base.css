@@ -822,6 +822,7 @@ dialog.sheet::backdrop {
 .menu-item {
   display: flex;
   align-items: center;
+  gap: 10px;
   width: 100%;
   min-height: 44px;
   padding: 0 12px;
@@ -832,6 +833,20 @@ dialog.sheet::backdrop {
   font-weight: 600;
   color: var(--danger);
   text-align: left;
+}
+
+/* Items that don't destroy anything read in ink; a link item looks like the buttons. */
+.menu-item.calm {
+  color: var(--ink);
+}
+
+a.menu-item {
+  text-decoration: none;
+}
+
+.menu-item .icon {
+  flex: none;
+  color: var(--ink-soft);
 }
 
 .menu-item:not(:disabled):hover {

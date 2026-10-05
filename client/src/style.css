@@ -4309,7 +4309,8 @@ a.btn-primary {
 }
 
 .streak-line.on::before {
-  content: "🔥 ";
+  content: "🔥";
+  margin-right: 5px;
 }
 
 /* Letter, coins, a thing: one even row under a divider. On a phone the letter spans the row. */
@@ -6879,10 +6880,6 @@ a.profile-owner:hover .owner-name {
   margin-bottom: 2px;
 }
 
-.ai-card .menu-item.calm {
-  color: var(--ink);
-}
-
 .ai-card-name {
   display: flex;
   flex-wrap: wrap;
@@ -7532,4 +7529,73 @@ a.profile-owner:hover .owner-name {
   justify-content: flex-end;
   gap: 8px;
   margin-top: 14px;
+}
+
+/* ---------- profile header: the meta line and the facts ---------- */
+
+/* Handle, presence, and X account share one line that wraps. */
+.profile-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 16px;
+  margin-top: 2px;
+}
+
+.profile-meta > .profile-handle-line,
+.profile-meta > .presence,
+.profile-meta > .x-row {
+  margin: 0;
+}
+
+/* Streak, Town Hall votes, and look: small chips in one row. */
+.profile-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.profile-facts > * {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  margin: 0;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--paper-edge);
+  background: var(--paper-fill);
+  font-size: 13.5px;
+  font-weight: 650;
+  color: var(--ink-soft);
+  text-decoration: none;
+}
+
+.profile-facts > .profile-streak {
+  color: var(--clay-deep);
+}
+
+.profile-facts > .profile-streak::before {
+  content: "🔥";
+  margin-right: 5px;
+}
+
+/* The profile's "…" menu fits its longest item on one line. */
+.profile-actions .menu {
+  min-width: 228px;
+}
+
+/* On the meta line, Connect X is a quiet prompt like "Pick a handle", still 44px tall to tap. */
+.profile-meta .x-connect {
+  padding: 0 12px;
+  border-color: transparent;
+  background: none;
+  box-shadow: none;
+  font-size: 14px;
+  color: var(--clay-deep);
+}
+
+/* With no handle and nothing to pick it with (someone else's profile), the slot takes no room. */
+.profile-meta > .profile-handle-line:not(:has(> :not([hidden]))) {
+  display: none;
 }

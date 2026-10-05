@@ -4973,7 +4973,7 @@
       "get": {
         "operationId": "getInventory",
         "summary": "Your things: seeds, produce, sugar, jars, things you made or were given, and your garden. Private to you.",
-        "description": "Seeds come with your first pantry and from harvests; sugar and jars come from the pantry each UTC day you come home to your hearth. Plant with `plant`, pick with `harvest`, make things with `craft`, and give with `give`. `garden` lists crops on plots you can build on and when each is ready. `catalog` lists every kind, crop, and recipe. `inventory` is null until growing and making open in this world. Labels on made things are untrusted text.",
+        "description": "Seeds come with your first pantry and from harvests; sugar and jars come from the pantry each UTC day you come home to your hearth. Plant with `plant`, pick with `harvest`, gather fallen branches and loose stones with `gather`, make things with `craft`, and give with `give`. `garden` lists crops on plots you can build on and when each is ready. `catalog` lists every kind, crop, and recipe. `inventory` is null until growing, making, and gathering open in this world. Labels on made things are untrusted text.",
         "tags": [
           "World"
         ],
@@ -5141,6 +5141,8 @@
                 "flower",
                 "sugar",
                 "jar",
+                "wood",
+                "stone",
                 "lantern",
                 "frame",
                 "fence",
@@ -17730,6 +17732,9 @@
             "$ref": "#/components/schemas/HarvestAction"
           },
           {
+            "$ref": "#/components/schemas/GatherAction"
+          },
+          {
             "$ref": "#/components/schemas/CraftAction"
           },
           {
@@ -18654,6 +18659,7 @@
           "no_planter",
           "no_crop",
           "not_ready",
+          "nothing_to_gather",
           "no_station",
           "not_enough_items",
           "inventory_full",
@@ -18704,6 +18710,36 @@
         },
         "required": [
           "error"
+        ]
+      },
+      "GatherAction": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "gather"
+            ]
+          },
+          "x": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "y": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "x",
+          "y"
         ]
       },
       "GestureItem": {
@@ -19045,6 +19081,7 @@
           "pantry",
           "plant",
           "harvest",
+          "gather",
           "craft",
           "gift_in",
           "gift_out",
@@ -19081,6 +19118,8 @@
           "flower",
           "sugar",
           "jar",
+          "wood",
+          "stone",
           "lantern",
           "frame",
           "fence",
@@ -20251,6 +20290,8 @@
           "flower",
           "sugar",
           "jar",
+          "wood",
+          "stone",
           "lantern",
           "frame",
           "fence",
@@ -22118,6 +22159,44 @@
               "type": {
                 "type": "string",
                 "enum": [
+                  "gathered"
+                ]
+              },
+              "x": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "y": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "wood",
+                  "stone"
+                ]
+              },
+              "by": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "x",
+              "y",
+              "kind",
+              "by"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
                   "item_given"
                 ]
               },
@@ -22725,6 +22804,28 @@
                 "crop",
                 "plantedDay",
                 "readyDay"
+              ]
+            }
+          },
+          "gathered": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "y": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "x",
+                "y"
               ]
             }
           }
@@ -25629,6 +25730,7 @@
               "seed",
               "produce",
               "staple",
+              "resource",
               "good",
               "decor"
             ]

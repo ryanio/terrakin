@@ -1,6 +1,6 @@
 /**
  * What to do about one townsfolk resident's handle, from what the server says now. Pure, so the
- * tests feed it fixtures; handles.ts and seed.ts do the reading and the writing.
+ * tests feed it fixtures; seed.ts does the reading and the writing.
  */
 
 /** What a handle step should do. */

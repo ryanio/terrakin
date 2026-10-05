@@ -46,7 +46,7 @@ export interface Persona {
   /** 1 to 24 characters. */
   name: string;
   /**
-   * The `@handle` seed.ts and handles.ts claim, for mentions and the `/u/<handle>` link. 3 to 20
+   * The `@handle` seed.ts claims (in a full seed, or alone with `--handles`), for mentions and the `/u/<handle>` link. 3 to 20
    * lowercase letters, digits, or underscores, starting with a letter, and not a reserved word.
    */
   handle: string;

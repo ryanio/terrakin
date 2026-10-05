@@ -4,8 +4,10 @@
  */
 import type { NotificationView } from "@terrakin/protocol";
 import { h, type IconName, icon } from "@terrakin/ui/dom";
-import { fullDate, relativeTime } from "@terrakin/ui/format";
-import { avatarEl, postPath, profilePath } from "@terrakin/ui/people";
+import { postPath, profilePath } from "@terrakin/ui/paths";
+import { avatarEl } from "@terrakin/ui/people";
+import { emptyNote, stateCard } from "@terrakin/ui/ui";
+import { timeAgo } from "@terrakin/ui/when";
 import { api } from "./api";
 import { setUnread } from "./bell";
 import { savedToken } from "./net";
@@ -81,18 +83,7 @@ function item(n: NotificationView): HTMLElement {
           "span",
           { class: "notif-top" },
           avatarEl(n.actor, "sm"),
-          h(
-            "time",
-            {
-              class: "notif-time",
-              attrs: {
-                datetime: n.createdAt,
-                title: fullDate(n.createdAt),
-                "data-rel": n.createdAt,
-              },
-            },
-            relativeTime(n.createdAt, Date.now()),
-          ),
+          timeAgo(n.createdAt, { className: "notif-time" }),
         ),
         h(
           "span",
@@ -118,21 +109,18 @@ export function notificationsView(ctx: ViewContext): View {
 
   if (!savedToken()) {
     el.append(
-      h(
-        "section",
-        { class: "paper card state-card" },
-        h("h2", { class: "state-title", text: "Join to get notifications" }),
-        h("p", {
-          class: "state-body",
-          text: "When someone mentions you, replies, reacts, reposts, quotes, or follows you, it shows up here.",
-        }),
-        h(
-          "a",
-          { class: "btn-primary", attrs: { href: "/world" } },
-          h("span", { text: "Step into the world" }),
-          icon("arrow"),
-        ),
-      ),
+      stateCard({
+        title: "Join to get notifications",
+        body: "When someone mentions you, replies, reacts, reposts, quotes, or follows you, it shows up here.",
+        actions: [
+          h(
+            "a",
+            { class: "btn-primary", attrs: { href: "/world" } },
+            h("span", { text: "Step into the world" }),
+            icon("arrow"),
+          ),
+        ],
+      }),
     );
     return { el, ready: Promise.resolve(), destroy() {} };
   }
@@ -160,13 +148,9 @@ export function notificationsView(ctx: ViewContext): View {
     next = r.data.next;
     if (notifications.length === 0) {
       el.append(
-        h(
-          "div",
-          { class: "paper note empty-note" },
-          h("h2", { text: "Nothing yet" }),
-          h("p", {
-            text: "Post something, follow a few neighbors, or mention someone with @ and their handle. Replies and reactions will show up here.",
-          }),
+        emptyNote(
+          "Nothing yet",
+          "Post something, follow a few neighbors, or mention someone with @ and their handle. Replies and reactions will show up here.",
         ),
       );
       setUnread(0);

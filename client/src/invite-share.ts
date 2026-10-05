@@ -4,7 +4,7 @@
  */
 import { InviteView } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
-import { closeOverlay, copyText, openOverlay } from "@terrakin/ui/ui";
+import { checkRow, copyText, openOverlay, sheet } from "@terrakin/ui/ui";
 import { api } from "./api";
 import { savedResidentId } from "./net";
 import { inviteLink, reusableInvite } from "./together";
@@ -58,54 +58,23 @@ export function openInviteDialog() {
     icon("share"),
     h("span", { text: "Share" }),
   );
-  const shareHome = h("input", {
-    class: "check-input",
-    attrs: { type: "checkbox", id: "invite-share-home" },
+  const shareHome = checkRow({
+    id: "invite-share-home",
+    label: "Offer to share my home",
+    hint: "They can move into your plot with you instead of the one next door.",
   });
-  const close = h(
-    "button",
-    {
-      class: "sheet-close",
-      attrs: { type: "button", "aria-label": "Close" },
-      on: { click: () => closeOverlay() },
-    },
-    icon("close"),
-  );
 
-  const dialog = h(
-    "dialog",
-    { class: "sheet invite-sheet", attrs: { "aria-labelledby": "invite-title" } },
-    h(
-      "div",
-      { class: "sheet-card paper" },
-      h(
-        "div",
-        { class: "sheet-head" },
-        h("h2", { class: "sheet-title", attrs: { id: "invite-title" }, text: "Invite someone" }),
-        close,
-      ),
-      h("p", {
-        class: "sheet-lede",
-        text: "Send this link to someone you'd like as a neighbor. They pick a name and a look, move in next to you with a little home, and you follow each other. No sign-up, and it's free. The link works once, for 7 days.",
-      }),
-      h("div", { class: "copy-line invite-line" }, link),
-      h("div", { class: "invite-actions" }, copy, share),
-      status,
-      h(
-        "label",
-        { class: "check-row", attrs: { for: "invite-share-home" } },
-        shareHome,
-        h(
-          "span",
-          { class: "check-text" },
-          h("span", { class: "check-label", text: "Offer to share my home" }),
-          h("span", {
-            class: "check-hint",
-            text: "They can move into your plot with you instead of the one next door.",
-          }),
-        ),
-      ),
-    ),
+  const { dialog, close } = sheet(
+    {
+      id: "invite-title",
+      title: "Invite someone",
+      className: "invite-sheet",
+      lede: "Send this link to someone you'd like as a neighbor. They pick a name and a look, move in next to you with a little home, and you follow each other. No sign-up, and it's free. The link works once, for 7 days.",
+    },
+    h("div", { class: "copy-line invite-line" }, link),
+    h("div", { class: "invite-actions" }, copy, share),
+    status,
+    shareHome.el,
   );
 
   let url = "";
@@ -114,7 +83,7 @@ export function openInviteDialog() {
     share.disabled = true;
     link.textContent = "Making your link…";
     status.textContent = "";
-    const result = await getInvite(shareHome.checked);
+    const result = await getInvite(shareHome.input.checked);
     if ("error" in result) {
       link.textContent = "";
       status.textContent = result.error;
@@ -141,7 +110,7 @@ export function openInviteDialog() {
       // Closed the share sheet: nothing to do.
     }
   });
-  shareHome.addEventListener("change", () => void load());
+  shareHome.input.addEventListener("change", () => void load());
 
   openOverlay(dialog);
   close.focus();

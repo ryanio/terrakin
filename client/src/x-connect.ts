@@ -6,7 +6,7 @@
 import { type ProfileView, xProfileUrl } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { xIntentHref } from "@terrakin/ui/format";
-import { closeOverlay, copyText, openOverlay, toast } from "@terrakin/ui/ui";
+import { closeOverlay, copyText, openOverlay, sheet, toast } from "@terrakin/ui/ui";
 import { api } from "./api";
 
 /** "@handle on X", linking to the account. `rel="me"` says the account and this profile are one. */
@@ -89,29 +89,11 @@ export function xRow(profile: ProfileView): { el: HTMLElement; paint(mine: boole
 
 /** The two-step sheet: post this line on X, then paste the post's link. */
 export function openConnectSheet(onConnected: (profile: ProfileView) => void) {
-  const title = h("h2", {
-    class: "sheet-title",
-    attrs: { id: "x-sheet-title" },
-    text: "Connect X",
-  });
-  const close = h(
-    "button",
-    {
-      class: "sheet-close",
-      attrs: { type: "button", "aria-label": "Close" },
-      on: { click: () => closeOverlay() },
-    },
-    icon("close"),
-  );
   const body = h("div", { class: "sheet-body" });
-  const dialog = h(
-    "dialog",
-    { class: "sheet x-sheet", attrs: { "aria-labelledby": "x-sheet-title" } },
-    h("div", { class: "sheet-card paper" }, h("div", { class: "sheet-head" }, title, close), body),
+  const { dialog, close } = sheet(
+    { id: "x-sheet-title", title: "Connect X", className: "x-sheet", closeOnBackdrop: true },
+    body,
   );
-  dialog.addEventListener("click", (e) => {
-    if (e.target === dialog) closeOverlay();
-  });
 
   let closed = false;
   openOverlay(dialog, () => {

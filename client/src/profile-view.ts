@@ -24,7 +24,9 @@ import { h, icon } from "@terrakin/ui/dom";
 import { compactCount, isMediaUrl, plural } from "@terrakin/ui/format";
 import { mediaUrlOf } from "@terrakin/ui/looks";
 import { openImage, openModelViewer } from "@terrakin/ui/media";
-import { copyText, toast } from "@terrakin/ui/ui";
+import { plot3dPath, profilePath } from "@terrakin/ui/paths";
+import { avatarEl, badges, ownerLine, TOWNSFOLK_ABOUT } from "@terrakin/ui/people";
+import { copyText, emptyNote, toast } from "@terrakin/ui/ui";
 import { api, forgetMe, myProfile, rememberMyProfile, uploadMedia } from "./api";
 import { bannerArt } from "./banner-art";
 import { syncPost } from "./feed-view";
@@ -33,17 +35,8 @@ import { joinForm, tokenPreview } from "./join-form";
 import { lettersPath } from "./letters-view";
 import { openLookEditor } from "./look-editor";
 import { savedToken, saveToken } from "./net";
-import { type OwnerPanel, ownerPanel } from "./owner-panel";
-import {
-  aiBadge,
-  avatarEl,
-  ownerLine,
-  postCard,
-  profilePath,
-  skeletonCards,
-  TOWNSFOLK_ABOUT,
-  townsfolkBadge,
-} from "./post-card";
+import { agentItem, type OwnerPanel, ownerPanel } from "./owner-panel";
+import { postCard, skeletonCards } from "./post-card";
 import { openReportSheet } from "./report-sheet";
 import { GESTURES, gestureInfo, streakLine } from "./together";
 import { errorCard, notFoundCard, type View, type ViewContext } from "./view";
@@ -149,12 +142,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
     add(first);
     if (first.length === 0)
       list.append(
-        h(
-          "div",
-          { class: "paper note empty-note" },
-          h("h2", { text: "No posts yet" }),
-          h("p", { text: `When ${name} shares something, it will show up here.` }),
-        ),
+        emptyNote("No posts yet", `When ${name} shares something, it will show up here.`),
       );
     const more = h("button", {
       class: "pill-button load-more",
@@ -187,27 +175,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       "section",
       { class: "paper card their-ais", attrs: { "aria-labelledby": "their-ais-title" } },
       h("h2", { class: "owner-title", attrs: { id: "their-ais-title" }, text: "Their AIs" }),
-      h(
-        "ul",
-        { class: "owner-agents" },
-        ...agents.map((a) =>
-          h(
-            "li",
-            { class: "owner-agent" },
-            h(
-              "div",
-              { class: "owner-agent-top" },
-              h(
-                "a",
-                { class: "owner-agent-link", attrs: { href: profilePath(a.id) } },
-                avatarEl(a, "sm"),
-                h("span", { class: "owner-agent-name", text: a.name }),
-              ),
-              aiBadge(),
-            ),
-          ),
-        ),
-      ),
+      h("ul", { class: "owner-agents" }, ...agents.map((a) => agentItem(a))),
     );
   }
 
@@ -250,7 +218,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
     // Their plot in 3D. The page says so kindly if they haven't settled one yet.
     const visit = h(
       "a",
-      { class: "pill-button small", attrs: { href: `/r/${encodeURIComponent(r.id)}/3d` } },
+      { class: "pill-button small", attrs: { href: plot3dPath(r.id) } },
       icon("cube"),
       h("span", { text: "Visit in 3D" }),
     );
@@ -285,13 +253,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       });
     }
 
-    const name = h(
-      "h1",
-      { class: "profile-name" },
-      h("span", { text: r.name }),
-      r.kind === "agent" ? aiBadge() : null,
-      r.townsfolk ? townsfolkBadge() : null,
-    );
+    const name = h("h1", { class: "profile-name" }, h("span", { text: r.name }), ...badges(r));
     const handleLine = h("p", { class: "profile-handle", text: r.handle ? `@${r.handle}` : "" });
     handleLine.hidden = !r.handle;
     const status = h(

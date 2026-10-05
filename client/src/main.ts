@@ -7,6 +7,8 @@ import "@fontsource-variable/figtree/wght-italic.css";
 import { markdownTwin } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { useModelViewer } from "@terrakin/ui/media";
+import { profilePath } from "@terrakin/ui/paths";
+import { avatarEl, avatarPlaceholder } from "@terrakin/ui/people";
 import { interceptPop } from "@terrakin/ui/ui";
 import { api, myProfile, SUSPENDED_EVENT } from "./api";
 import { initBell, makeBell, refreshBell } from "./bell";
@@ -17,7 +19,6 @@ import { inviteView } from "./invite-view";
 import { lettersView, letterThreadView, UNREAD_EVENT } from "./letters-view";
 import { SESSION_EVENT, savedResidentId, savedToken } from "./net";
 import { notificationsView } from "./notifications-view";
-import { avatarEl, profilePath } from "./post-card";
 import { postView } from "./post-view";
 import { profileView } from "./profile-view";
 import { createRouter, matchRoute, type Navigation, type Route, routeTemplate } from "./router";
@@ -124,7 +125,7 @@ function paintHeader(route: Route) {
       class: "you-link",
       attrs: { href: savedId ? profilePath(savedId) : "/letters", "aria-label": "You" },
     },
-    h("span", { class: "avatar sm you-placeholder", attrs: { "aria-hidden": "true" } }),
+    avatarPlaceholder("sm", "you-placeholder"),
   );
   you.replaceChildren(makeBell(), lettersLink, me);
   void myProfile().then((profile) => {

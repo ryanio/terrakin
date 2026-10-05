@@ -5,11 +5,13 @@
  */
 import { type PostView, REACTION_KEYS, type ReactionKey } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
-import { compactCount, fullDate, plural, relativeTime } from "@terrakin/ui/format";
+import { compactCount, plural } from "@terrakin/ui/format";
 import { mediaGrid } from "@terrakin/ui/media";
 import { appendRichText } from "@terrakin/ui/mentions";
-import { avatarEl, postPath, profilePath, quoteEmbed, who } from "@terrakin/ui/people";
+import { postPath, profilePath } from "@terrakin/ui/paths";
+import { avatarEl, quoteEmbed, who } from "@terrakin/ui/people";
 import { openPopover, shareLink, toast } from "@terrakin/ui/ui";
+import { timeAgo } from "@terrakin/ui/when";
 import { api, myProfile } from "./api";
 import { openQuoteComposer } from "./composer";
 import { savedResidentId, savedToken } from "./net";
@@ -23,19 +25,6 @@ import {
   reactionSummary,
 } from "./reactions";
 import { openReportSheet } from "./report-sheet";
-
-export {
-  aiBadge,
-  avatarEl,
-  ownerLine,
-  postPath,
-  profilePath,
-  quoteEmbed,
-  TEAM_RUN,
-  TOWNSFOLK_ABOUT,
-  townsfolkBadge,
-  xMark,
-} from "@terrakin/ui/people";
 
 export interface PostCardOptions {
   /** The main post on its own page: bigger text, the full date, no "show more". */
@@ -65,14 +54,7 @@ export function postCard(post: PostView, options: PostCardOptions = {}): HTMLEle
   const authorHref = profilePath(author.id);
   const postHref = postPath(post.id);
 
-  const time = h("time", {
-    attrs: {
-      datetime: post.createdAt,
-      title: fullDate(post.createdAt),
-      "data-rel": post.createdAt,
-    },
-    text: options.focus ? fullDate(post.createdAt) : relativeTime(post.createdAt, Date.now()),
-  });
+  const time = timeAgo(post.createdAt, { full: options.focus });
 
   const reposter = post.repostedBy
     ? h(
@@ -524,15 +506,6 @@ function actions(post: PostView, options: PostCardOptions): HTMLElement[] {
   const more = moreMenu(post);
   if (more) bar.append(more);
   return [chips, bar];
-}
-
-/** Refresh every relative time on the page, for example after a poll. */
-export function refreshTimes(root: ParentNode = document) {
-  const now = Date.now();
-  for (const t of root.querySelectorAll<HTMLTimeElement>("time[data-rel]")) {
-    const iso = t.dataset.rel;
-    if (iso && !t.closest(".post.focus > .post-head")) t.textContent = relativeTime(iso, now);
-  }
 }
 
 /** Grey placeholder cards while a page loads. */

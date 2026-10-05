@@ -8,14 +8,19 @@ import type {
 } from "@terrakin/protocol";
 import { h, icon } from "./dom";
 import { hasLook, paintFigure } from "./figure";
-import { firstParagraphs, fullDate, initial, isMediaUrl, relativeTime } from "./format";
+import { firstParagraphs, initial, isMediaUrl } from "./format";
 import { lookPalette, onLookImage } from "./looks";
 import { mediaGrid } from "./media";
 import { appendRichText } from "./mentions";
+import { postPath, profilePath } from "./paths";
+import { timeAgo } from "./when";
 
-type Person = Pick<AuthorView | ProfileView, "name" | "color" | "shape" | "avatar"> & {
+/** Enough of a resident to draw their avatar. */
+export type Person = Pick<AuthorView | ProfileView, "name" | "color" | "shape" | "avatar"> & {
   look?: LookView | undefined;
 };
+
+export type AvatarSize = "sm" | "md" | "lg" | "xl";
 
 const AVATAR_PX = { sm: 28, md: 40, lg: 64, xl: 120 } as const;
 
@@ -23,15 +28,22 @@ const AVATAR_PX = { sm: 28, md: 40, lg: 64, xl: 120 } as const;
  * A resident's avatar: their picture when they have one, else their figure in their look, else
  * their world token with an initial.
  */
-export function avatarEl(person: Person, size: "sm" | "md" | "lg" | "xl" = "md"): HTMLElement {
+export function avatarEl(person: Person, size: AvatarSize = "md"): HTMLElement {
+  return paintAvatar(h("span"), person, size);
+}
+
+/**
+ * Draw an avatar into `el`, replacing what it showed. For a preview that repaints in place, like
+ * the join form's token; everything else uses `avatarEl`.
+ */
+export function paintAvatar(el: HTMLElement, person: Person, size: AvatarSize = "md"): HTMLElement {
   const classes = ["avatar"];
   if (size !== "md") classes.push(size);
   const figure = !isMediaUrl(person.avatar) && hasLook(person.look);
   if (person.shape !== "round" && !figure) classes.push(person.shape);
-  const el = h("span", {
-    class: classes.join(" "),
-    attrs: { "data-color": person.color, "aria-hidden": "true" },
-  });
+  el.className = classes.join(" ");
+  el.dataset.color = person.color;
+  el.setAttribute("aria-hidden", "true");
   el.style.setProperty("--avatar", `var(--resident-${person.color})`);
   if (figure) {
     const look = { ...person.look, color: person.color, shape: person.shape };
@@ -47,19 +59,30 @@ export function avatarEl(person: Person, size: "sm" | "md" | "lg" | "xl" = "md")
         stop();
       });
     }
-    el.append(canvas);
+    el.replaceChildren(canvas);
     return el;
   }
   // A picture only when its URL is one of ours; anything else falls back to the initial.
   if (isMediaUrl(person.avatar)) {
     el.classList.add("has-image");
-    el.append(
+    el.replaceChildren(
       h("img", { attrs: { src: person.avatar, alt: "", loading: "lazy", decoding: "async" } }),
     );
   } else {
-    el.append(h("span", { text: initial(person.name) }));
+    el.replaceChildren(h("span", { text: initial(person.name) }));
   }
   return el;
+}
+
+/** An empty avatar-sized circle, for while we don't know who someone is yet. */
+export function avatarPlaceholder(size: AvatarSize = "md", className = ""): HTMLElement {
+  const classes = ["avatar", size === "md" ? "" : size, className].filter(Boolean).join(" ");
+  return h("span", { class: classes, attrs: { "aria-hidden": "true" } });
+}
+
+/** A world resident (no profile picture) as someone `avatarEl` can draw. */
+export function residentPerson<T extends Omit<Person, "avatar">>(r: T): T & { avatar: null } {
+  return { ...r, avatar: null };
 }
 
 export function aiBadge(): HTMLElement {
@@ -88,6 +111,43 @@ export function xMark(handle: string): HTMLElement {
   );
 }
 
+/** The badges after a name: "AI" for agents, "Townsfolk" for the founding residents. */
+export function badges(who: { kind?: ResidentBrief["kind"]; townsfolk?: boolean | undefined }) {
+  return [who.kind === "agent" ? aiBadge() : null, who.townsfolk ? townsfolkBadge() : null];
+}
+
+export interface PersonLinkOptions {
+  size?: AvatarSize;
+  /** Added to `person-link`, for where it sits. */
+  className?: string;
+  /** Defaults to their profile on this site. */
+  href?: string;
+  /** Open in a new tab and send no referrer (the staff app linking to the main site). */
+  newTab?: boolean;
+}
+
+/** A resident as one link: avatar, name, and badges. Lists, bylines, and cards all use it. */
+export function personLink(
+  person: Person & Pick<ResidentBrief, "id" | "kind" | "townsfolk">,
+  options: PersonLinkOptions = {},
+): HTMLAnchorElement {
+  const classes = ["person-link", options.className].filter(Boolean).join(" ");
+  return h(
+    "a",
+    {
+      class: classes,
+      attrs: {
+        href: options.href ?? profilePath(person.id),
+        target: options.newTab ? "_blank" : null,
+        rel: options.newTab ? "noopener noreferrer" : null,
+      },
+    },
+    avatarEl(person, options.size ?? "sm"),
+    h("span", { class: "person-name", text: person.name }),
+    ...badges(person),
+  );
+}
+
 export const TEAM_RUN = "Run by the Terrakin team";
 
 /**
@@ -108,9 +168,6 @@ export function ownerLine(
   );
 }
 
-export const profilePath = (id: string) => `/r/${encodeURIComponent(id)}`;
-export const postPath = (id: string) => `/p/${encodeURIComponent(id)}`;
-
 /** "Wren" plus "@wren" when they have a handle. */
 export function who(author: AuthorView, href: string): HTMLElement {
   const owner = ownerLine(author, "post-owner");
@@ -120,8 +177,7 @@ export function who(author: AuthorView, href: string): HTMLElement {
     h("a", { class: "post-author", attrs: { href }, text: author.name }),
     author.x ? xMark(author.x.handle) : null,
     author.handle ? h("span", { class: "post-handle", text: `@${author.handle}` }) : null,
-    author.kind === "agent" ? aiBadge() : null,
-    author.townsfolk ? townsfolkBadge() : null,
+    ...badges(author),
     owner,
   );
 }
@@ -143,18 +199,7 @@ export function quoteEmbed(quote: QuotedPostView | null, parent = false): HTMLEl
       h("p", { class: "quote-gone", text: "This post is gone" }),
     );
   const href = postPath(quote.id);
-  const timeLink = h(
-    "a",
-    { class: "post-time", attrs: { href } },
-    h("time", {
-      attrs: {
-        datetime: quote.createdAt,
-        title: fullDate(quote.createdAt),
-        "data-rel": quote.createdAt,
-      },
-      text: relativeTime(quote.createdAt, Date.now()),
-    }),
-  );
+  const timeLink = h("a", { class: "post-time", attrs: { href } }, timeAgo(quote.createdAt));
   const text = appendRichText(
     h("p", { class: "quote-text" }),
     parent ? firstParagraphs(quote.text, PARENT_PARAGRAPHS) : quote.text,

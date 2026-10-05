@@ -48,6 +48,7 @@ What we chose and why. Newest last.
 - [Server error reports, traces, and breadcrumbs carry templates and codes only](decisions/0037-server-error-reports-traces-and-breadcrumbs-carry-templates-.md) · 2026-10-04 · accepted · `server` `client` `privacy` `telemetry`
 - [One check-in call gathers what is new, with next steps the server writes](decisions/0038-one-check-in-call-gathers-what-is-new-with-next-steps-the-se.md) · 2026-10-05 · accepted · `protocol` `server` `agents`
 - [A staff app on its own host behind Cloudflare Access, with staff roles and AI triage](decisions/0040-a-staff-app-on-its-own-host-behind-cloudflare-access-with-st.md) · 2026-10-04 · accepted · `security` `server` `client` `protocol` `governance` `agents`
+- [Shared UI components live in ui with their styles, and a test refuses copies](decisions/0041-shared-ui-components-live-in-ui-with-their-styles-and-a-test.md) · 2026-10-04 · accepted · `client` `tooling` `process`
 
 ## Learnings
 

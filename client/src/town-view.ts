@@ -13,11 +13,13 @@ import type {
 } from "@terrakin/protocol";
 import type { BlockKind } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
-import { plural, relativeTime } from "@terrakin/ui/format";
-import { closeOverlay, openOverlay, toast } from "@terrakin/ui/ui";
+import { plural } from "@terrakin/ui/format";
+import { personLink } from "@terrakin/ui/people";
+import { closeOverlay, emptyNote, openOverlay, sheet, toast } from "@terrakin/ui/ui";
+import { timeAgo } from "@terrakin/ui/when";
 import { api } from "./api";
 import { savedToken } from "./net";
-import { aiBadge, avatarEl, profilePath, skeletonCards, townsfolkBadge } from "./post-card";
+import { skeletonCards } from "./post-card";
 import { closesIn, nextCell, type PlanCell, statusWord, tallyBar } from "./town-format";
 import { errorCard, type View, type ViewContext } from "./view";
 
@@ -174,15 +176,11 @@ export function townView(ctx: ViewContext): View {
       ...(town.open.length > 0
         ? town.open.map((p) => proposalCard(p))
         : [
-            h(
-              "div",
-              { class: "paper note empty-note" },
-              h("h2", { text: "Nothing on the table" }),
-              h("p", {
-                text: you?.eligible
-                  ? "Have an idea for the Commons? Propose it."
-                  : "When someone proposes something, it shows up here.",
-              }),
+            emptyNote(
+              "Nothing on the table",
+              you?.eligible
+                ? "Have an idea for the Commons? Propose it."
+                : "When someone proposes something, it shows up here.",
             ),
           ]),
     );
@@ -207,14 +205,7 @@ export function townView(ctx: ViewContext): View {
             : statusWord(p.status),
       }),
     );
-    const byline = h(
-      "p",
-      { class: "proposal-by" },
-      avatarEl(p.author, "sm"),
-      h("a", { attrs: { href: profilePath(p.author.id) }, text: p.author.name }),
-      p.author.kind === "agent" ? aiBadge() : null,
-      p.author.townsfolk ? townsfolkBadge() : null,
-    );
+    const byline = h("p", { class: "proposal-by" }, personLink(p.author));
     const card = h(
       "article",
       {
@@ -518,29 +509,7 @@ export function townView(ctx: ViewContext): View {
       void refresh();
     });
 
-    const dialog = h(
-      "dialog",
-      { class: "sheet", attrs: { "aria-labelledby": "sheet-title" } },
-      h(
-        "div",
-        { class: "sheet-panel paper" },
-        h(
-          "header",
-          { class: "sheet-head" },
-          h("h2", { class: "sheet-title", attrs: { id: "sheet-title" }, text: "Propose" }),
-          h(
-            "button",
-            {
-              class: "sheet-close",
-              attrs: { type: "button", "aria-label": "Close" },
-              on: { click: () => closeOverlay() },
-            },
-            icon("close"),
-          ),
-        ),
-        form,
-      ),
-    );
+    const { dialog } = sheet({ id: "propose-sheet-title", title: "Propose" }, form);
     sheetOpen = true;
     openOverlay(dialog, () => {
       sheetOpen = false;
@@ -618,17 +587,7 @@ export function townView(ctx: ViewContext): View {
     return h(
       "li",
       { class: "notice", attrs: { "data-notice": n.id } },
-      h(
-        "p",
-        { class: "notice-by" },
-        avatarEl(n.author, "sm"),
-        h("a", { attrs: { href: profilePath(n.author.id) }, text: n.author.name }),
-        n.author.kind === "agent" ? aiBadge() : null,
-        h("time", {
-          attrs: { datetime: n.createdAt },
-          text: relativeTime(n.createdAt, Date.now()),
-        }),
-      ),
+      h("p", { class: "notice-by" }, personLink(n.author), timeAgo(n.createdAt)),
       h("p", { class: "notice-text", text: n.text }),
       n.canRemove
         ? h("button", {

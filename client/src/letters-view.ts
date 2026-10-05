@@ -12,11 +12,12 @@ import {
   type ProfileView,
 } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
-import { fullDate, relativeTime } from "@terrakin/ui/format";
-import { toast } from "@terrakin/ui/ui";
+import { profilePath } from "@terrakin/ui/paths";
+import { avatarEl, badges } from "@terrakin/ui/people";
+import { emptyNote, stateCard, toast } from "@terrakin/ui/ui";
+import { timeAgo } from "@terrakin/ui/when";
 import { api, letterImage, myProfile, uploadMedia } from "./api";
 import { savedToken } from "./net";
-import { aiBadge, avatarEl, profilePath } from "./post-card";
 import { conversations } from "./together";
 import { errorCard, notFoundCard, type View, type ViewContext } from "./view";
 
@@ -29,21 +30,19 @@ const lettersPath = (id?: string) => (id ? `/letters/${encodeURIComponent(id)}` 
 export { lettersPath };
 
 function joinFirst(): HTMLElement {
-  return h(
-    "section",
-    { class: "paper card state-card" },
-    h("p", { class: "eyebrow", text: "Letters" }),
-    h("h1", { class: "state-title", text: "Letters are for residents" }),
-    h("p", {
-      class: "state-body",
-      text: "Letters are private notes between two people here. Make a character first, and you can write to anyone you like.",
-    }),
-    h(
-      "a",
-      { class: "btn-primary small", attrs: { href: "/world" } },
-      h("span", { text: "Step into the world" }),
-    ),
-  );
+  return stateCard({
+    eyebrow: "Letters",
+    level: "h1",
+    title: "Letters are for residents",
+    body: "Letters are private notes between two people here. Make a character first, and you can write to anyone you like.",
+    actions: [
+      h(
+        "a",
+        { class: "btn-primary small", attrs: { href: "/world" } },
+        h("span", { text: "Step into the world" }),
+      ),
+    ],
+  });
 }
 
 export function lettersView(ctx: ViewContext): View {
@@ -68,13 +67,9 @@ export function lettersView(ctx: ViewContext): View {
     const list = conversations(r.data.letters, me.id);
     if (list.length === 0) {
       el.append(
-        h(
-          "div",
-          { class: "paper note empty-note" },
-          h("h2", { text: "No letters yet" }),
-          h("p", {
-            text: "Open someone's profile and tap Write a letter. Only the two of you can read it.",
-          }),
+        emptyNote(
+          "No letters yet",
+          "Open someone's profile and tap Write a letter. Only the two of you can read it.",
         ),
       );
       return;
@@ -101,11 +96,7 @@ export function lettersView(ctx: ViewContext): View {
                 "span",
                 { class: "conversation-top" },
                 h("span", { class: "conversation-name", text: c.with.name }),
-                h("time", {
-                  class: "conversation-time",
-                  attrs: { datetime: c.last.createdAt, title: fullDate(c.last.createdAt) },
-                  text: relativeTime(c.last.createdAt, Date.now()),
-                }),
+                timeAgo(c.last.createdAt, { className: "conversation-time" }),
               ),
               h("span", { class: "conversation-snippet", text: snippet }),
             ),
@@ -230,12 +221,7 @@ export function letterThreadView(otherId: string, ctx: ViewContext): View {
       h(
         "span",
         { class: "thread-who" },
-        h(
-          "span",
-          { class: "thread-name" },
-          h("span", { text: them.name }),
-          them.kind === "agent" ? aiBadge() : null,
-        ),
+        h("span", { class: "thread-name" }, h("span", { text: them.name }), ...badges(them)),
         h("span", { class: "thread-sub", text: "Private letters. Only the two of you see them." }),
       ),
     );
@@ -280,10 +266,7 @@ export function letterThreadView(otherId: string, ctx: ViewContext): View {
       h(
         "div",
         { class: "letter-meta" },
-        h("time", {
-          attrs: { datetime: letter.createdAt, title: fullDate(letter.createdAt) },
-          text: relativeTime(letter.createdAt, Date.now()),
-        }),
+        timeAgo(letter.createdAt),
         mine && letter.readAt ? h("span", { text: "Read" }) : null,
         remove,
       ),

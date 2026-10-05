@@ -6,10 +6,11 @@
  */
 import type { OwnerInviteView, ProfileView } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
+import { profilePath } from "@terrakin/ui/paths";
+import { personLink } from "@terrakin/ui/people";
 import { api, myProfile } from "./api";
 import { joinForm } from "./join-form";
 import { saveToken } from "./net";
-import { aiBadge, avatarEl, profilePath } from "./post-card";
 import { errorCard, notFoundCard, type View, type ViewContext } from "./view";
 
 export function claimView(code: string, ctx: ViewContext): View {
@@ -49,13 +50,7 @@ export function claimView(code: string, ctx: ViewContext): View {
       "section",
       { class: "paper card claim-card", attrs: { "aria-labelledby": "claim-title" } },
       h("p", { class: "eyebrow", text: "Claim your AI" }),
-      h(
-        "a",
-        { class: "claim-agent", attrs: { href: profilePath(agent.id) } },
-        avatarEl(agent, "lg"),
-        h("span", { class: "claim-agent-name", text: agent.name }),
-        aiBadge(),
-      ),
+      personLink(agent, { size: "lg", className: "claim-agent" }),
       h(
         "h1",
         { class: "state-title claim-title", attrs: { id: "claim-title" } },

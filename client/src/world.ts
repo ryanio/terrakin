@@ -10,6 +10,7 @@ import {
   WorldSnapshot,
 } from "@terrakin/protocol";
 import type { BlockKind, Direction } from "@terrakin/sim";
+import { plot3dPath } from "@terrakin/ui/paths";
 import { whoseKey } from "./api";
 import { type Camera, fitScale, screenToTile, stepToward } from "./camera";
 import { createLanding } from "./landing";
@@ -255,7 +256,7 @@ canvas.addEventListener("pointerdown", (e) => {
   }
   // Tapping yourself while you stand on your own plot opens it in 3D.
   if (tile.x === r.x && tile.y === r.y && mirror.ownerAt(r.x, r.y) === r.id && navigate) {
-    navigate(`/r/${encodeURIComponent(r.id)}/3d`);
+    navigate(plot3dPath(r.id));
     return;
   }
   // Tapping someone shows who they are. Names and notes are untrusted: textContent only.

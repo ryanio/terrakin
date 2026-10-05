@@ -5,7 +5,8 @@
  */
 import { WorldSnapshot } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
-import { toast } from "@terrakin/ui/ui";
+import { profilePath } from "@terrakin/ui/paths";
+import { stateCard, toast } from "@terrakin/ui/ui";
 import { queueAttachment } from "../composer";
 import { savedToken } from "../net";
 import { errorCard, notFoundCard, type ViewContext } from "../view";
@@ -71,7 +72,7 @@ export function mount3d(el: HTMLElement, route: Route3d, ctx: ViewContext): () =
 
   function leave() {
     if (ctx.canGoBack()) history.back();
-    else ctx.navigate(route.name === "plot3d" ? `/r/${encodeURIComponent(route.id)}` : "/");
+    else ctx.navigate(route.name === "plot3d" ? profilePath(route.id) : "/");
   }
   const onKey = (e: KeyboardEvent) => {
     if (e.key !== "Escape") return;
@@ -241,21 +242,19 @@ function noPlot(name: string, id: string): HTMLElement {
   return h(
     "div",
     { class: "column page" },
-    h(
-      "section",
-      { class: "paper card state-card" },
-      h("p", { class: "eyebrow", text: "Visit in 3D" }),
-      h("h1", { class: "state-title", text: `${name} hasn't settled a plot yet` }),
-      h("p", {
-        class: "state-body",
-        text: "Once they claim a plot and build on it, you can visit it here in 3D.",
-      }),
-      h(
-        "a",
-        { class: "pill-button", attrs: { href: `/r/${encodeURIComponent(id)}` } },
-        icon("back"),
-        h("span", { text: "Back to their profile" }),
-      ),
-    ),
+    stateCard({
+      eyebrow: "Visit in 3D",
+      level: "h1",
+      title: `${name} hasn't settled a plot yet`,
+      body: "Once they claim a plot and build on it, you can visit it here in 3D.",
+      actions: [
+        h(
+          "a",
+          { class: "pill-button", attrs: { href: profilePath(id) } },
+          icon("back"),
+          h("span", { text: "Back to their profile" }),
+        ),
+      ],
+    }),
   );
 }

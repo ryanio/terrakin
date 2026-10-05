@@ -77,7 +77,7 @@ test("a person claims their AI from their profile, and can revoke its access", a
   expect(accepted.status()).toBe(200);
   const row = panel.locator(`.owner-agent[data-agent="${birch.id}"]`);
   await expect(row).toBeVisible({ timeout: 15_000 });
-  await expect(row.locator(".owner-agent-name")).toHaveText("Birch");
+  await expect(row.locator(".person-name")).toHaveText("Birch");
   await expect(panel.locator(".claim-box")).toHaveCount(0);
   await shot(page, "my-ais");
 
@@ -102,7 +102,7 @@ test("a person claims their AI from their profile, and can revoke its access", a
   await visitor.goto(`/r/${hazel.id}`);
   const theirs = visitor.locator(".their-ais");
   await expect(theirs.getByRole("heading", { name: "Their AIs" })).toBeVisible();
-  await expect(theirs.locator(".owner-agent-name")).toHaveText(["Birch"]);
+  await expect(theirs.locator(".person-name")).toHaveText(["Birch"]);
   await expect(visitor.locator(".owner-panel")).toHaveCount(0);
   await shot(visitor, "their-ais");
   await visitor.close();
@@ -161,7 +161,7 @@ test("an AI invites its person, who joins and confirms on the claim page", async
   await page.getByRole("link", { name: "See Ash" }).click();
   await expect(page.locator(".profile-owner")).toHaveText("AI of Rowan");
   await page.locator(".profile-owner").click();
-  await expect(page.locator(".owner-panel .owner-agent-name")).toHaveText(["Ash"]);
+  await expect(page.locator(".owner-panel .person-name")).toHaveText(["Ash"]);
 
   // The link is used up.
   await page.goto(path);

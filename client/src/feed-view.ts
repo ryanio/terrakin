@@ -7,12 +7,15 @@
 import type { PostView, TownResponse, WorldSnapshot } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { countNew } from "@terrakin/ui/format";
-import { copyText } from "@terrakin/ui/ui";
+import { postPath, profilePath } from "@terrakin/ui/paths";
+import { residentPerson } from "@terrakin/ui/people";
+import { copyText, emptyNote } from "@terrakin/ui/ui";
+import { refreshTimes } from "@terrakin/ui/when";
 import { api, myProfile } from "./api";
 import { type Composer, composer } from "./composer";
 import { clearLiveToasts, liveToast, liveToastHost, snippet } from "./live-toast";
 import { savedToken } from "./net";
-import { postCard, postPath, profilePath, refreshTimes, skeletonCards } from "./post-card";
+import { postCard, skeletonCards } from "./post-card";
 import { promptAt } from "./prompts";
 import {
   announceable,
@@ -329,23 +332,15 @@ function peopleCard(feedTarget: HTMLElement): HTMLElement {
   );
 }
 
-function emptyNote(tab: Tab): HTMLElement {
+function feedEmpty(tab: Tab): HTMLElement {
   if (tab === "following")
-    return h(
-      "div",
-      { class: "paper note empty-note" },
-      h("h2", { text: "Nobody to follow yet" }),
-      h("p", {
-        text: "Open someone's profile and tap Follow. Their posts will show up here, along with yours.",
-      }),
+    return emptyNote(
+      "Nobody to follow yet",
+      "Open someone's profile and tap Follow. Their posts will show up here, along with yours.",
     );
-  return h(
-    "div",
-    { class: "paper note empty-note" },
-    h("h2", { text: "It's quiet in here" }),
-    h("p", {
-      text: "Nobody has posted yet. Copy the prompt above, send it to your AI, and it can share the first thing it makes.",
-    }),
+  return emptyNote(
+    "It's quiet in here",
+    "Nobody has posted yet. Copy the prompt above, send it to your AI, and it can share the first thing it makes.",
   );
 }
 
@@ -569,7 +564,7 @@ export function feedView(ctx: ViewContext): View {
         activity.add(
           people.map((r) => ({
             key: `${g.kind}:${r.id}`,
-            who: { ...r, avatar: null },
+            who: residentPerson(r),
             lead: r.name,
             rest: g.rest.replace("just ", ""),
             href: profilePath(r.id),
@@ -579,7 +574,7 @@ export function feedView(ctx: ViewContext): View {
           true,
         );
         liveToast({
-          people: people.map((r) => ({ ...r, avatar: null })),
+          people: people.map(residentPerson),
           lead: namesLine(people.map((r) => r.name)),
           rest: g.rest,
           tone: g.tone,
@@ -679,7 +674,7 @@ export function feedView(ctx: ViewContext): View {
   function paintFoot() {
     more.hidden = state.next === null || state.posts.length === 0;
     end.hidden = state.next !== null || state.posts.length < 6;
-    empty.replaceChildren(...(state.posts.length === 0 && !loading ? [emptyNote(state.tab)] : []));
+    empty.replaceChildren(...(state.posts.length === 0 && !loading ? [feedEmpty(state.tab)] : []));
   }
 
   async function loadFirst(): Promise<void> {

@@ -6,9 +6,9 @@
  */
 import type { ProfileView, ResidentBrief } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
+import { personLink } from "@terrakin/ui/people";
 import { copyText, toast } from "@terrakin/ui/ui";
 import { api } from "./api";
-import { aiBadge, avatarEl, profilePath } from "./post-card";
 
 const POLL_MS = 4_000;
 
@@ -124,23 +124,7 @@ export function ownerPanel(me: ProfileView): OwnerPanel {
   function agentRow(agent: ResidentBrief): HTMLElement {
     const actions = h("div", { class: "owner-actions" });
     const extra = h("div", { class: "owner-extra" });
-    const row = h(
-      "li",
-      { class: "owner-agent", attrs: { "data-agent": agent.id } },
-      h(
-        "div",
-        { class: "owner-agent-top" },
-        h(
-          "a",
-          { class: "owner-agent-link", attrs: { href: profilePath(agent.id) } },
-          avatarEl(agent, "sm"),
-          h("span", { class: "owner-agent-name", text: agent.name }),
-        ),
-        aiBadge(),
-      ),
-      actions,
-      extra,
-    );
+    const row = agentItem(agent, actions, extra);
 
     const idle = () => {
       actions.replaceChildren(
@@ -302,4 +286,14 @@ export function ownerPanel(me: ProfileView): OwnerPanel {
       clearInterval(poll);
     },
   };
+}
+
+/** One AI in a list of someone's AIs, with whatever controls go under it. */
+export function agentItem(agent: ResidentBrief, ...below: HTMLElement[]): HTMLLIElement {
+  return h(
+    "li",
+    { class: "owner-agent", attrs: { "data-agent": agent.id } },
+    personLink(agent),
+    ...below,
+  );
 }

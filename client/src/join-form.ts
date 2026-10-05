@@ -17,9 +17,7 @@ import {
   type Theme,
 } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
-import { hasLook, paintFigure } from "@terrakin/ui/figure";
-import { initial } from "@terrakin/ui/format";
-import { lookPalette } from "@terrakin/ui/looks";
+import { paintAvatar } from "@terrakin/ui/people";
 
 export interface JoinChoice {
   name: string;
@@ -85,22 +83,10 @@ export function tokenPreview(
   name: string,
   look?: LookView,
 ) {
-  const el = h("span", { class: "avatar lg", attrs: { "aria-hidden": "true" } });
-  const paint = (c: ResidentColor, s: ResidentShape, n: string, l?: LookView) => {
-    el.dataset.color = c;
-    if (l && hasLook(l)) {
-      // With a look, the preview is your figure in it, like your avatar on the feed.
-      el.className = "avatar lg has-figure";
-      el.style.setProperty("--avatar", lookPalette(l.theme, c).light);
-      const canvas = h("canvas");
-      paintFigure(canvas, { ...l, color: c, shape: s }, 96, "bust");
-      el.replaceChildren(canvas);
-      return;
-    }
-    el.className = `avatar lg${s === "round" ? "" : ` ${s}`}`;
-    el.style.setProperty("--avatar", `var(--resident-${c})`);
-    el.replaceChildren(h("span", { text: n.trim() ? initial(n) : "?" }));
-  };
+  const el = h("span");
+  // With a look, the preview is your figure in it, like your avatar on the feed.
+  const paint = (c: ResidentColor, s: ResidentShape, n: string, l?: LookView) =>
+    paintAvatar(el, { name: n, color: c, shape: s, avatar: null, look: l }, "lg");
   paint(color, shape, name, look);
   return { el, paint };
 }
@@ -277,21 +263,4 @@ export function joinForm(options: JoinFormOptions) {
   });
 
   return { el: form, focus: () => name.focus({ preventScroll: true }) };
-}
-
-/** A labeled checkbox row with a 44px tap target. */
-export function checkRow(id: string, text: string, hint: string | null, checked: boolean) {
-  const input = h("input", { class: "check-input", attrs: { type: "checkbox", id, checked } });
-  const el = h(
-    "label",
-    { class: "check-row", attrs: { for: id } },
-    input,
-    h(
-      "span",
-      { class: "check-text" },
-      h("span", { class: "check-label", text }),
-      hint ? h("span", { class: "check-hint", text: hint }) : null,
-    ),
-  );
-  return { el, input };
 }

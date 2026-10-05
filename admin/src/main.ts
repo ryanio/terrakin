@@ -4,11 +4,12 @@ import "@fontsource-variable/fraunces";
 import "@fontsource-variable/figtree";
 import type { AdminOverviewResponse } from "@terrakin/protocol";
 import { h } from "@terrakin/ui/dom";
+import { stateCard } from "@terrakin/ui/ui";
 import { api, SIGNED_OUT_EVENT, savedToken, saveToken } from "./api";
 import { logView } from "./log-view";
 import { pathFor, type Screen, screenFor, signedInAs } from "./logic";
 import { queueView } from "./queue-view";
-import { button, notice, type View } from "./view";
+import { button, type View } from "./view";
 import "./style.css";
 
 /**
@@ -143,11 +144,11 @@ function signIn(message?: string) {
     h(
       "div",
       { class: "sign-in" },
-      notice(
-        "Sign in",
-        "On admin.terrakin.org, Cloudflare Access signs you in. If your sign-in ran out, reload the page.",
-        button("Reload", () => location.reload(), true),
-      ),
+      stateCard({
+        title: "Sign in",
+        body: "On admin.terrakin.org, Cloudflare Access signs you in. If your sign-in ran out, reload the page.",
+        actions: [button("Reload", () => location.reload(), true)],
+      }),
       h("section", { class: "paper card" }, form),
     ),
   );
@@ -164,7 +165,7 @@ function notStaff(message: string) {
         }),
       ]
     : [];
-  show(notice("Staff only", message, ...actions));
+  show(stateCard({ title: "Staff only", body: message, actions }));
 }
 
 async function boot() {
@@ -187,11 +188,11 @@ async function boot() {
   } else {
     paintTop(undefined);
     show(
-      notice(
-        "Couldn't reach Terrakin",
-        res.message,
-        button("Try again", () => void boot()),
-      ),
+      stateCard({
+        title: "Couldn't reach Terrakin",
+        body: res.message,
+        actions: [button("Try again", () => void boot())],
+      }),
     );
   }
 }

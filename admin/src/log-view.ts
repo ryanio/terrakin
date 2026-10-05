@@ -2,9 +2,10 @@
 import type { ModerationLogView } from "@terrakin/protocol";
 import { h } from "@terrakin/ui/dom";
 import { fullDate, relativeTime } from "@terrakin/ui/format";
+import { stateCard } from "@terrakin/ui/ui";
 import { api } from "./api";
 import { actorLabel, logHeadline } from "./logic";
-import { button, notice, type View } from "./view";
+import { button, type View } from "./view";
 
 export function logView(): View {
   const list = h("ol", { class: "log-list", attrs: { "aria-label": "Moderation log" } });
@@ -33,17 +34,19 @@ export function logView(): View {
     if (!res.ok) {
       if (res.code !== "unauthorized") {
         more.replaceChildren(
-          notice(
-            "Couldn't load the log",
-            res.message,
-            button("Try again", () => void load(before)),
-          ),
+          stateCard({
+            title: "Couldn't load the log",
+            body: res.message,
+            actions: [button("Try again", () => void load(before))],
+          }),
         );
       }
       return;
     }
     if (!before && res.data.entries.length === 0) {
-      more.replaceChildren(notice("Nothing yet", "No moderation actions so far."));
+      more.replaceChildren(
+        stateCard({ title: "Nothing yet", body: "No moderation actions so far." }),
+      );
       return;
     }
     list.append(...res.data.entries.map(entryRow));

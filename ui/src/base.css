@@ -67,6 +67,10 @@ a {
  * .column (centered content column), .paper + .card (paper surface), .pill, .pill-button,
  * .btn-primary, .eyebrow, .tag (rotated label), .note (taped note), .avatar (resident token),
  * .icon (inline line icons, stroke 1.7).
+ *
+ * Below them, the styles for the components in this package (people.ts, ui.ts, when.ts): badges,
+ * .person-link, .state-card, .empty-note, fields, .check-row, sheets, and the toast. A component's
+ * styles live here with it, never in one app's stylesheet, so both apps draw it the same way.
  */
 
 .paper {
@@ -97,7 +101,7 @@ a {
 /*
  * Resident token as an avatar, matching the world: a colored disc with a white rim and a soft
  * shadow. Set --avatar to a resident color (for example var(--resident-plum)). Optional image
- * inside. Shapes: .square, .diamond. Sizes: .sm (28px), default (40px), .lg (64px).
+ * inside. Shapes: .square, .diamond. Sizes: .sm (28px), default (40px), .lg (64px), .xl (88px).
  */
 .avatar {
   --avatar: var(--resident-sun);
@@ -162,6 +166,11 @@ a {
 
 .avatar.lg {
   --size: 64px;
+  border-width: 4px;
+}
+
+.avatar.xl {
+  --size: 88px;
   border-width: 4px;
 }
 
@@ -278,4 +287,460 @@ a {
 
 .mark img + .mark-fallback {
   display: none;
+}
+
+/* ---------- badges (people.ts) ---------- */
+
+.badge-ai {
+  flex: none;
+  padding: 2px 7px 2px;
+  border-radius: 999px;
+  background: rgba(143, 179, 106, 0.2);
+  border: 1px solid rgba(94, 127, 69, 0.28);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1.4;
+  color: #3f5a2c;
+}
+
+/* Founding residents the Terrakin team runs. "NPC" because people know the word from games. */
+.badge-townsfolk {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 3px 2px 8px;
+  border-radius: 999px;
+  background: rgba(94, 127, 69, 0.13);
+  border: 1px solid rgba(94, 127, 69, 0.34);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+  color: #3f5a2c;
+  cursor: help;
+}
+
+.badge-npc {
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--moss);
+  color: var(--paper);
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1.6;
+}
+
+/* A connected X account (decision 0022). */
+.badge-x {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  margin-left: -3px;
+  border-radius: 50%;
+  background: rgba(94, 127, 69, 0.14);
+  color: var(--moss);
+}
+
+.badge-x-icon {
+  width: 12px;
+  height: 12px;
+  stroke-width: 2.6;
+}
+
+/* ---------- a resident as a link: avatar, name, badges (people.ts personLink) ---------- */
+
+.person-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 44px;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.person-name {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 700;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.person-link:hover .person-name {
+  text-decoration: underline;
+}
+
+/* ---------- state card and empty note (ui.ts) ---------- */
+
+.state-card {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 32px 22px 26px;
+  text-align: center;
+}
+
+.state-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 600;
+  font-variation-settings:
+    "opsz" 48,
+    "SOFT" 100,
+    "WONK" 0;
+  line-height: 1.12;
+  text-wrap: balance;
+}
+
+.state-body {
+  max-width: 34ch;
+  margin: 0 0 6px;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+.state-card .pill-button {
+  text-decoration: none;
+}
+
+.note {
+  position: relative;
+  padding: 20px 16px 16px;
+  border-radius: var(--r-note);
+  transform: rotate(-1.1deg);
+}
+
+.note:nth-child(2n) {
+  transform: rotate(1deg);
+}
+
+.note:nth-child(3n) {
+  transform: rotate(-0.4deg);
+}
+
+/* A strip of tape holding the note down. */
+.note::before {
+  content: "";
+  position: absolute;
+  top: -9px;
+  left: 50%;
+  width: 66px;
+  height: 20px;
+  margin-left: -33px;
+  background: rgba(242, 184, 75, 0.38);
+  border-left: 1px dashed rgba(255, 255, 255, 0.5);
+  border-right: 1px dashed rgba(255, 255, 255, 0.5);
+  box-shadow: 0 1px 2px rgba(92, 60, 30, 0.12);
+  transform: rotate(-2deg);
+}
+
+.note:nth-child(2n)::before {
+  background: rgba(205, 180, 246, 0.42);
+  transform: rotate(3deg);
+}
+
+.note:nth-child(3n)::before {
+  background: rgba(143, 179, 106, 0.36);
+  transform: rotate(-4deg);
+}
+
+.note h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 8px;
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 600;
+  font-variation-settings:
+    "opsz" 36,
+    "SOFT" 100,
+    "WONK" 0;
+  line-height: 1.15;
+  letter-spacing: -0.005em;
+  color: var(--ink);
+}
+
+.note p {
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.empty-note {
+  margin: 14px 4px 0;
+  padding: 24px 20px 20px;
+  transform: rotate(-0.6deg);
+}
+
+.empty-note h2 {
+  font-size: 21px;
+}
+
+.empty-note p {
+  font-size: 15.5px;
+  margin-bottom: 14px;
+}
+
+.empty-note p:last-child {
+  margin-bottom: 0;
+}
+
+/* ---------- fields and checkbox rows (ui.ts checkRow) ---------- */
+
+.field-label {
+  display: block;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--ink);
+}
+
+.field-input {
+  width: 100%;
+  min-height: var(--tap);
+  padding: 0 16px;
+  border: 1.5px solid var(--paper-edge);
+  border-radius: 14px;
+  background: #fffdf8;
+  box-shadow: inset 0 1px 2px rgba(92, 60, 30, 0.08);
+  font-size: 17px; /* 16px or more stops iOS from zooming on focus. */
+  color: var(--ink);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.field-input::placeholder {
+  color: #9a8d7c;
+}
+
+.field-input:focus {
+  outline: none;
+  border-color: var(--clay);
+  box-shadow:
+    0 0 0 4px rgba(242, 184, 75, 0.3),
+    inset 0 1px 2px rgba(92, 60, 30, 0.08);
+}
+
+.field-hint {
+  margin: 4px 0 0;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+
+.check-group {
+  display: grid;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.check-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1.5px solid var(--paper-edge);
+  border-radius: 14px;
+  background: #fffdf8;
+  cursor: pointer;
+}
+
+.check-input {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin: 1px 0 0;
+  accent-color: var(--clay);
+}
+
+.check-text {
+  display: grid;
+  gap: 2px;
+}
+
+.check-label {
+  font-size: 15.5px;
+  font-weight: 650;
+}
+
+.check-hint {
+  font-size: 13.5px;
+  line-height: 1.4;
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
+
+/* ---------- sheet (ui.ts sheet) ----------
+ * Rises from the bottom on a phone, a centered card on a wide screen. */
+
+dialog.sheet {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: 640px;
+  max-height: 100%;
+  margin: auto auto 0;
+  padding: 0;
+  border: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: transparent;
+  overscroll-behavior: contain;
+  animation: fade-in 0.2s ease-out;
+}
+
+dialog.sheet::backdrop {
+  background: rgba(43, 38, 32, 0.45);
+}
+
+.sheet-card {
+  width: 100%;
+  max-width: 520px;
+  max-height: calc(100% - 24px - env(safe-area-inset-top));
+  overflow-y: auto;
+  padding: 18px max(20px, env(safe-area-inset-left)) calc(22px + env(safe-area-inset-bottom))
+    max(20px, env(safe-area-inset-right));
+  border-radius: var(--r-card) var(--r-card) 0 0;
+  animation: sheet-up 0.28s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+@media (min-width: 640px) {
+  dialog.sheet {
+    align-items: center;
+  }
+
+  .sheet-card {
+    border-radius: var(--r-card);
+    padding-bottom: 24px;
+  }
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.sheet-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.15;
+}
+
+.sheet-close {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-right: -10px;
+  border: 1px solid var(--paper-edge);
+  border-radius: 50%;
+  background: var(--paper-fill);
+  color: var(--ink-soft);
+}
+
+.sheet-lede {
+  margin: 6px 0 0;
+  font-size: 15.5px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+  text-wrap: pretty;
+}
+
+.sheet-body {
+  display: grid;
+  gap: 10px;
+}
+
+/* ---------- toast (ui.ts toast) ---------- */
+
+.site-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(20px + env(safe-area-inset-bottom));
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  min-height: 48px;
+  padding: 6px 6px 6px 18px;
+  border-radius: 999px;
+  background: #2f2922;
+  color: var(--paper);
+  font-size: 15px;
+  font-weight: 600;
+  box-shadow: 0 14px 32px -12px rgba(40, 25, 10, 0.55);
+  opacity: 0;
+  transform: translate(-50%, 10px);
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+  pointer-events: none;
+}
+
+.site-toast:not(:has(a)) {
+  padding-right: 18px;
+}
+
+.site-toast.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  pointer-events: auto;
+}
+
+.toast-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: rgba(255, 250, 240, 0.14);
+  color: var(--sun);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-toast {
+    transition: none;
+  }
 }

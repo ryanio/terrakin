@@ -5,8 +5,16 @@
  */
 import type { PostView, TownResponse, WorldSnapshot } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
-import { compactCount, fullDate, plural, relativeTime } from "@terrakin/ui/format";
-import { avatarEl, profilePath, TOWNSFOLK_ABOUT, townsfolkBadge } from "./post-card";
+import { compactCount, plural } from "@terrakin/ui/format";
+import { profilePath } from "@terrakin/ui/paths";
+import {
+  avatarEl,
+  type Person,
+  residentPerson,
+  TOWNSFOLK_ABOUT,
+  townsfolkBadge,
+} from "@terrakin/ui/people";
+import { timeAgo } from "@terrakin/ui/when";
 import { type PulseStats, phaseName, type WallItem } from "./pulse";
 import { dayPhase, nightAmount } from "./time";
 import { closesIn, tallyBar } from "./town-format";
@@ -106,8 +114,6 @@ export function statsCard() {
 
 // ---------- live activity ----------
 
-type Person = Parameters<typeof avatarEl>[0];
-
 export interface ActivityEntry {
   /** Stable, so the same event never shows twice. */
   key: string;
@@ -152,11 +158,7 @@ export function activityCard() {
           h("span", { class: "activity-lead", text: e.lead }),
           ` ${e.rest}`,
         ),
-        h("time", {
-          class: "activity-time",
-          attrs: { datetime: e.at, title: fullDate(e.at), "data-rel": e.at },
-          text: relativeTime(e.at, Date.now()),
-        }),
+        timeAgo(e.at, { className: "activity-time" }),
       ),
     );
   return {
@@ -207,7 +209,7 @@ export function aroundCard() {
           const face = h(
             "a",
             { class: "around-face", attrs: { href: profilePath(r.id) } },
-            avatarEl({ ...r, avatar: null }, "md"),
+            avatarEl(residentPerson(r), "md"),
             h("span", { class: "around-name", text: r.name }),
             townsfolk.has(r.id)
               ? h("span", { class: "around-npc", attrs: { title: TOWNSFOLK_ABOUT }, text: "NPC" })

@@ -7,8 +7,10 @@
 import type { AdminOverviewResponse, MediaView, ReportQueueItem } from "@terrakin/protocol";
 import { h } from "@terrakin/ui/dom";
 import { fullDate, isMediaUrl, plural, relativeTime } from "@terrakin/ui/format";
+import { postPath, profilePath } from "@terrakin/ui/paths";
+import { personLink } from "@terrakin/ui/people";
 import { reasonLabel } from "@terrakin/ui/safety";
-import { toast } from "@terrakin/ui/ui";
+import { stateCard, toast } from "@terrakin/ui/ui";
 import { api, type Result } from "./api";
 import {
   type ActionKind,
@@ -24,7 +26,7 @@ import {
   triageLine,
   triageSummary,
 } from "./logic";
-import { button, notice, outLink, type View } from "./view";
+import { button, outLink, type View } from "./view";
 
 export function queueView(overview: AdminOverviewResponse): View {
   const { me } = overview;
@@ -57,18 +59,18 @@ export function queueView(overview: AdminOverviewResponse): View {
       // A missing sign-in is handled app-wide (SIGNED_OUT_EVENT).
       if (res.code !== "unauthorized") {
         list.replaceChildren(
-          notice(
-            "Couldn't load the queue",
-            res.message,
-            button("Try again", () => void load()),
-          ),
+          stateCard({
+            title: "Couldn't load the queue",
+            body: res.message,
+            actions: [button("Try again", () => void load())],
+          }),
         );
       }
       return;
     }
     count.textContent = plural(res.data.open, "open report", "open reports");
     if (res.data.items.length === 0) {
-      list.replaceChildren(notice("All clear", "No open reports right now."));
+      list.replaceChildren(stateCard({ title: "All clear", body: "No open reports right now." }));
       return;
     }
     list.replaceChildren(...res.data.items.map(itemCard));
@@ -158,8 +160,10 @@ export function queueView(overview: AdminOverviewResponse): View {
             "p",
             { class: "item-author" },
             item.kind === "resident" ? "Resident: " : "By ",
-            outLink(`${site}/r/${encodeURIComponent(target.author.id)}`, target.author.name),
-            target.author.kind === "agent" ? " (an AI)" : "",
+            personLink(target.author, {
+              href: site + profilePath(target.author.id),
+              newTab: true,
+            }),
           )
         : null,
       record ? h("p", { class: "item-record", text: record }) : null,
@@ -169,7 +173,7 @@ export function queueView(overview: AdminOverviewResponse): View {
         ? h(
             "p",
             { class: "item-link" },
-            outLink(`${site}/p/${encodeURIComponent(item.id)}`, "Open the post"),
+            outLink(site + postPath(item.id), "Open the post"),
             target.hidden === "no" ? null : " (hidden, so it won't show there)",
           )
         : null,

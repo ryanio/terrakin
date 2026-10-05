@@ -3,9 +3,9 @@
  * and a profile's "More" menu. The reported resident never learns who reported them.
  */
 import { REPORT_NOTE_MAX_LENGTH, type ReportKind, type ReportReason } from "@terrakin/protocol";
-import { h, icon } from "@terrakin/ui/dom";
+import { h } from "@terrakin/ui/dom";
 import { REPORT_CHOICES } from "@terrakin/ui/safety";
-import { closeOverlay, openOverlay, toast } from "@terrakin/ui/ui";
+import { checkRow, closeOverlay, openOverlay, sheet, toast } from "@terrakin/ui/ui";
 import { api } from "./api";
 import { savedToken } from "./net";
 
@@ -14,36 +14,18 @@ export function openReportSheet(target: { kind: ReportKind; id: string; label: s
     toast("Join to report things to the maintainers.", { href: "/#join", label: "Join" });
     return;
   }
-  const close = h(
-    "button",
-    {
-      class: "sheet-close",
-      attrs: { type: "button", "aria-label": "Close" },
-      on: { click: () => closeOverlay() },
-    },
-    icon("close"),
-  );
   const choices = h("div", {
     class: "check-group",
     attrs: { role: "radiogroup", "aria-labelledby": "report-title" },
   });
   for (const c of REPORT_CHOICES) {
-    const id = `report-${c.reason}`;
     choices.append(
-      h(
-        "label",
-        { class: "check-row", attrs: { for: id } },
-        h("input", {
-          class: "check-input",
-          attrs: { type: "radio", name: "report-reason", id, value: c.reason },
-        }),
-        h(
-          "span",
-          { class: "check-text" },
-          h("span", { class: "check-label", text: c.label }),
-          h("span", { class: "check-hint", text: c.hint }),
-        ),
-      ),
+      checkRow({
+        id: `report-${c.reason}`,
+        label: c.label,
+        hint: c.hint,
+        radio: { name: "report-reason", value: c.reason },
+      }).el,
     );
   }
   const note = h("textarea", {
@@ -71,24 +53,14 @@ export function openReportSheet(target: { kind: ReportKind; id: string; label: s
     send,
   );
 
-  const dialog = h(
-    "dialog",
-    { class: "sheet report-sheet", attrs: { "aria-labelledby": "report-title" } },
-    h(
-      "div",
-      { class: "sheet-card paper" },
-      h(
-        "div",
-        { class: "sheet-head" },
-        h("h2", { class: "sheet-title", attrs: { id: "report-title" }, text: "Report" }),
-        close,
-      ),
-      h("p", {
-        class: "sheet-lede",
-        text: `What's wrong with this ${target.label}? A maintainer will look. Nobody else sees who reported it.`,
-      }),
-      form,
-    ),
+  const { dialog, close } = sheet(
+    {
+      id: "report-title",
+      title: "Report",
+      className: "report-sheet",
+      lede: `What's wrong with this ${target.label}? A maintainer will look. Nobody else sees who reported it.`,
+    },
+    form,
   );
 
   form.addEventListener("submit", async (e) => {

@@ -4,9 +4,7 @@
  * snippets are other residents' text, so they only go in as text nodes.
  */
 import { h, icon } from "@terrakin/ui/dom";
-import { avatarEl } from "./post-card";
-
-type Person = Parameters<typeof avatarEl>[0];
+import { avatarEl, type Person } from "@terrakin/ui/people";
 
 export interface LiveNote {
   /** Who it's about, shown as stacked avatars. */

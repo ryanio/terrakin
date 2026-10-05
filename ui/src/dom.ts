@@ -5,7 +5,7 @@
 
 type Child = Node | string | null | undefined | false;
 type Props = {
-  class?: string;
+  class?: string | undefined;
   text?: string;
   attrs?: Record<string, string | number | boolean | null | undefined>;
   on?: { [K in keyof HTMLElementEventMap]?: (e: HTMLElementEventMap[K]) => void };

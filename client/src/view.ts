@@ -1,5 +1,6 @@
 /** What every feed page gives the router, plus a few shared page pieces. */
 import { h, icon } from "@terrakin/ui/dom";
+import { stateCard } from "@terrakin/ui/ui";
 
 export interface View {
   el: HTMLElement;
@@ -23,35 +24,38 @@ export function notFoundCard(
   heading = "We couldn't find that page",
   body = "It may have been deleted, or the link has a typo. The feed is a good place to start again.",
 ): HTMLElement {
-  return h(
-    "section",
-    { class: "paper card state-card", attrs: { "aria-labelledby": "nf-title" } },
-    h("p", { class: "eyebrow", text: "Not found" }),
-    h("h1", { class: "state-title", attrs: { id: "nf-title" }, text: heading }),
-    h("p", { class: "state-body", text: body }),
-    h(
-      "a",
-      { class: "pill-button", attrs: { href: "/" } },
-      icon("feed"),
-      h("span", { text: "Go to the feed" }),
-    ),
-  );
+  return stateCard({
+    eyebrow: "Not found",
+    level: "h1",
+    titleId: "nf-title",
+    title: heading,
+    body,
+    actions: [
+      h(
+        "a",
+        { class: "pill-button", attrs: { href: "/" } },
+        icon("feed"),
+        h("span", { text: "Go to the feed" }),
+      ),
+    ],
+  });
 }
 
 /** A card for when a load fails, with a retry button. */
 export function errorCard(message: string, retry: () => void): HTMLElement {
-  return h(
-    "section",
-    { class: "paper card state-card", attrs: { role: "alert" } },
-    h("h2", { class: "state-title", text: "That didn't load" }),
-    h("p", { class: "state-body", text: message }),
-    h("button", {
-      class: "pill-button",
-      attrs: { type: "button" },
-      text: "Try again",
-      on: { click: retry },
-    }),
-  );
+  return stateCard({
+    role: "alert",
+    title: "That didn't load",
+    body: message,
+    actions: [
+      h("button", {
+        class: "pill-button",
+        attrs: { type: "button" },
+        text: "Try again",
+        on: { click: retry },
+      }),
+    ],
+  });
 }
 
 export function notFoundView(ctx: ViewContext): View {

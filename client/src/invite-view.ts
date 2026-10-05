@@ -5,11 +5,12 @@
  */
 import type { InviteDetails } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
-import { toast } from "@terrakin/ui/ui";
+import { profilePath } from "@terrakin/ui/paths";
+import { avatarEl } from "@terrakin/ui/people";
+import { checkRow, stateCard, toast } from "@terrakin/ui/ui";
 import { api, myProfile } from "./api";
-import { checkRow, joinForm } from "./join-form";
+import { joinForm } from "./join-form";
 import { savedToken, saveToken } from "./net";
-import { avatarEl, profilePath } from "./post-card";
 import { ARRIVAL_KEY } from "./together";
 import { errorCard, notFoundCard, type View, type ViewContext } from "./view";
 
@@ -65,19 +66,19 @@ export function inviteView(code: string, ctx: ViewContext): View {
   }
 
   function onboarding(invite: InviteDetails): HTMLElement {
-    const build = checkRow(
-      "invite-build",
-      "Build my starter home",
-      "A cozy hut with a door and windows, ready when you arrive.",
-      true,
-    );
+    const build = checkRow({
+      id: "invite-build",
+      label: "Build my starter home",
+      hint: "A cozy hut with a door and windows, ready when you arrive.",
+      checked: true,
+    });
     const share = invite.share
-      ? checkRow(
-          "invite-share",
-          "Share their home",
-          `Move into ${invite.inviter.name}'s plot instead of the one next door.`,
-          true,
-        )
+      ? checkRow({
+          id: "invite-share",
+          label: "Share their home",
+          hint: `Move into ${invite.inviter.name}'s plot instead of the one next door.`,
+          checked: true,
+        })
       : undefined;
     const form = joinForm({
       id: "invite",
@@ -124,16 +125,6 @@ export function inviteView(code: string, ctx: ViewContext): View {
 
   /** Someone who already has a character here: offer to follow instead. */
   function alreadyHere(invite: InviteDetails): HTMLElement {
-    const card = h(
-      "section",
-      { class: "paper card state-card" },
-      h("h2", { class: "state-title", text: "You already live in Terrakin" }),
-      h("p", {
-        class: "state-body",
-        text: "This link is for someone new. You can still follow them from here.",
-      }),
-    );
-    const actions = h("div", { class: "state-actions" });
     const follow = h(
       "button",
       { class: "btn-primary small", attrs: { type: "button" } },
@@ -149,23 +140,25 @@ export function inviteView(code: string, ctx: ViewContext): View {
         toast(r.message);
       }
     });
-    actions.append(
-      follow,
-      h(
-        "a",
-        { class: "pill-button small", attrs: { href: profilePath(invite.inviter.id) } },
-        icon("arrow"),
-        h("span", { text: "See their profile" }),
-      ),
-    );
-    card.append(actions);
+    const card = stateCard({
+      title: "You already live in Terrakin",
+      body: "This link is for someone new. You can still follow them from here.",
+      actions: [
+        follow,
+        h(
+          "a",
+          { class: "pill-button small", attrs: { href: profilePath(invite.inviter.id) } },
+          icon("arrow"),
+          h("span", { text: "See their profile" }),
+        ),
+      ],
+    });
     void myProfile().then((me) => {
       if (me?.id === invite.inviter.id) {
-        card.replaceChildren(
-          h("h2", { class: "state-title", text: "This is your own invite" }),
-          h("p", {
-            class: "state-body",
-            text: "Send the link to the person you want next door. It works once, for 7 days.",
+        card.replaceWith(
+          stateCard({
+            title: "This is your own invite",
+            body: "Send the link to the person you want next door. It works once, for 7 days.",
           }),
         );
       }

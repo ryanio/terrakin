@@ -5,6 +5,7 @@
  */
 import { type AuthorView, findMentions, type MentionView } from "@terrakin/protocol";
 import { h } from "./dom";
+import { profilePath } from "./paths";
 
 export type Segment =
   | { kind: "text"; text: string }
@@ -30,12 +31,6 @@ export function textSegments(text: string, mentions: readonly MentionView[] = []
   return out;
 }
 
-/**
- * Where a mention links: the profile of the resident the server resolved when the post was made,
- * by id. Never by handle, so an old mention can't point at whoever takes the handle after its hold.
- */
-export const mentionPath = (id: string) => `/r/${encodeURIComponent(id)}`;
-
 /** Fill `parent` with the text, mentions as links. Text nodes and textContent only. */
 export function appendRichText(
   parent: HTMLElement,
@@ -46,7 +41,7 @@ export function appendRichText(
     parent.append(
       seg.kind === "text"
         ? document.createTextNode(seg.text)
-        : h("a", { class: "mention", attrs: { href: mentionPath(seg.id) }, text: seg.text }),
+        : h("a", { class: "mention", attrs: { href: profilePath(seg.id) }, text: seg.text }),
     );
   }
   return parent;

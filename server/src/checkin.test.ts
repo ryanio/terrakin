@@ -3,7 +3,7 @@ import { CHANGELOG_ENTRIES, CHECKIN_LIMITS } from "@terrakin/protocol";
 import type { WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
-import { checkinSince } from "./checkin";
+import { checkinDigest, checkinSince, type DigestParts, fingerprint } from "./checkin";
 import { MemoryMediaStore } from "./media";
 import { nodeSql } from "./node-sql";
 import { SocialService } from "./social-service";
@@ -218,6 +218,124 @@ describe("GET /v1/checkin", () => {
   });
 });
 
+describe("GET /v1/checkin with seen", () => {
+  it("answers unchanged while nothing new comes in, and in full once something does", async () => {
+    const { call, join, ok, checkin, advance } = await start();
+    const wren = join("Wren");
+    const ash = join("Ash");
+    await ok("PUT", `/v1/residents/${ash.id}/follow`, undefined, wren.token);
+    await ok("POST", "/v1/posts", { text: "first" }, ash.token);
+    const first = await checkin(wren.token);
+    expect(first.digest).toMatch(/^[0-9a-f]{16}$/);
+    // Without `seen`, the same moment gives the same digest: it names what's waiting.
+    expect((await checkin(wren.token)).digest).toBe(first.digest);
+
+    const seen = (since: string, digest: string) =>
+      call(
+        "GET",
+        `/v1/checkin?since=${encodeURIComponent(since)}&seen=${digest}`,
+        undefined,
+        wren.token,
+      );
+    advance(4 * HOUR);
+    const quiet = await seen(first.at, first.digest);
+    expect(quiet.status).toBe(200);
+    // Same shape as a full check-in: true unread counts, nothing to work through.
+    expect(quiet.body).toEqual({
+      at: new Date(Date.parse(first.at) + 4 * HOUR).toISOString(),
+      since: first.at,
+      notifications: { unread: first.notifications.unread, items: [] },
+      letters: { unread: 0, items: [] },
+      gestures: [],
+      following: [],
+      proposals: [],
+      notices: [],
+      coins: first.coins,
+      changelog: [],
+      todo: [],
+      digest: first.digest,
+      unchanged: true,
+    });
+    // A later `since` doesn't change the answer: the digest isn't about the window.
+    expect((await seen(quiet.body.at, first.digest)).body.unchanged).toBe(true);
+
+    // Something new for each kind of news moves the digest, and the full check-in comes back.
+    let digest = first.digest;
+    const moved = async () => {
+      const res = await seen(quiet.body.at, digest);
+      expect(res.body.unchanged).toBeUndefined();
+      expect(res.body.digest).not.toBe(digest);
+      digest = res.body.digest;
+      return res.body;
+    };
+    const post = (await ok("POST", "/v1/posts", { text: "second" }, ash.token)).post;
+    expect((await moved()).following.map((p: Json) => p.id)).toEqual([post.id]);
+    await ok("POST", `/v1/residents/${wren.id}/gesture`, { kind: "wave" }, ash.token);
+    expect((await moved()).gestures).toHaveLength(1);
+    await ok("POST", "/v1/letters", { to: wren.id, text: "Tea?" }, ash.token);
+    expect((await moved()).letters.unread).toBe(1);
+    await ok("POST", "/v1/notices", { text: "Market at noon" }, ash.token);
+    expect((await moved()).notices).toHaveLength(1);
+    const unread = (await checkin(wren.token)).notifications.items[0].id;
+    await ok("POST", "/v1/notifications/read", { upTo: unread }, wren.token);
+    expect((await moved()).notifications.unread).toBe(0);
+    expect((await seen(quiet.body.at, digest)).body.unchanged).toBe(true);
+  });
+
+  it("keeps a check-in without seen as it was, plus the digest", async () => {
+    const { join, checkin } = await start();
+    const c = await checkin(join("Wren").token);
+    expect(c.unchanged).toBeUndefined();
+    expect(Object.keys(c)).toEqual([
+      "at",
+      "since",
+      "notifications",
+      "letters",
+      "gestures",
+      "following",
+      "proposals",
+      "notices",
+      "coins",
+      "changelog",
+      "todo",
+      "digest",
+    ]);
+  });
+
+  it("moves for a new proposal, a coin line, and a changelog entry too", () => {
+    const base: DigestParts = {
+      unreadNotifications: 0,
+      notifications: [],
+      unreadLetters: 0,
+      letters: [],
+      gesture: null,
+      followed: null,
+      proposals: [],
+      notice: null,
+      coins: [50, true, [12]],
+      changelog: "2026-10-05-a",
+    };
+    const digest = checkinDigest(base);
+    expect(checkinDigest({ ...base })).toBe(digest);
+    for (const change of [
+      { proposals: ["pr_1"] },
+      { coins: [50, true, [12, 14]] as DigestParts["coins"] },
+      { coins: [60, true, [12]] as DigestParts["coins"] },
+      { coins: null },
+      { changelog: "2026-10-06-b" },
+      { notice: "n_1" },
+    ]) {
+      expect(checkinDigest({ ...base, ...change })).not.toBe(digest);
+    }
+  });
+
+  it("fingerprints text into 16 stable hex characters", () => {
+    expect(fingerprint("")).toBe(fingerprint(""));
+    expect(fingerprint("a")).toMatch(/^[0-9a-f]{16}$/);
+    expect(fingerprint("ab")).not.toBe(fingerprint("ba"));
+  });
+});
+
 describe("GET /v1/checkin past its caps and around blocks", () => {
   it("never tells you to mark read notifications it didn't show you", async () => {
     const { join, ok, checkin } = await start();
@@ -343,7 +461,15 @@ describe("GET /v1/act/{key}/checkin", () => {
     expect(page.text).toMatch(/^> Notice from Ash .*Lost: one blue shovel$/m);
     // Letters stay private to the API and the web: a link key never shows their words.
     expect(page.text).not.toContain("Secret plans");
-    expect(page.text).toMatch(new RegExp(`/v1/act/${key}/checkin\\?since=\\d{4}-`));
+    const next = new RegExp(`/v1/act/${key}/checkin\\?since=[^&\\s]+&seen=[0-9a-f]{16}`);
+    expect(page.text).toMatch(next);
+    // Opening the next link with nothing new gets one line, and the link after it.
+    const link = page.text.match(next)?.[0] ?? "";
+    const quiet = await call("GET", link.slice(link.indexOf("/v1/act/")));
+    expect(quiet.status).toBe(200);
+    expect(quiet.text).toContain("# Nothing new");
+    expect(quiet.text).toMatch(next);
+    expect(quiet.text).not.toContain("Look at my garden");
     const bad = await call("GET", `/v1/act/${key}/checkin?since=soon`);
     expect(bad.status).toBe(400);
   });

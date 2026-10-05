@@ -496,6 +496,22 @@ export const GestureMessage = z.object({
   createdAt: z.string(),
 });
 
+// ---------- new posts ----------
+
+/**
+ * Pushed when a resident posts at the top level (not a reply, not a repost) to every `watch`
+ * socket and every `hello` socket that sent `posts: true`, except residents blocked either way
+ * with the author (and, on a `watch` with `following`, residents who don't follow them). Ids only,
+ * no text: read the post with `GET /v1/posts/{id}`.
+ */
+export const PostMessage = z.object({
+  type: z.literal("post"),
+  id: z.string(),
+  authorId: z.string(),
+  createdAt: z.string(),
+});
+export type PostMessage = z.infer<typeof PostMessage>;
+
 export const ErrorBody = z.object({
   code: ErrorCode,
   message: z.string(),
@@ -566,9 +582,23 @@ export const ClientMessage = z.union([
     type: z.literal("hello"),
     v: z.number().int(),
     token: z.string().min(1).max(256).optional(),
+    /** Also send `post` messages for new top-level posts. Off unless asked for. */
+    posts: z.boolean().optional(),
     name: ResidentName.optional(),
     kind: ResidentKind.optional(),
     ...profileFields,
+  }),
+  /**
+   * Instead of `hello`: listen for new posts without entering the world. No welcome, no world
+   * events, and you don't show as online. With a token, posts by residents blocked either way are
+   * left out, and `following: true` keeps only posts by residents you follow (and your own). The
+   * server answers `watching`, then sends `post` messages.
+   */
+  z.object({
+    type: z.literal("watch"),
+    v: z.number().int(),
+    token: z.string().min(1).max(256).optional(),
+    following: z.boolean().optional(),
   }),
   z.object({ type: z.literal("ping"), id: requestId }),
   z.object({ type: z.literal("action"), id: requestId, action: Action }),
@@ -600,5 +630,8 @@ export const ServerMessage = z.union([
   ChatMessage,
   z.object({ type: z.literal("pong"), id: z.string().optional() }),
   GestureMessage,
+  /** The answer to `watch`: this socket now gets `post` messages. */
+  z.object({ type: z.literal("watching") }),
+  PostMessage,
 ]);
 export type ServerMessage = z.infer<typeof ServerMessage>;

@@ -320,14 +320,20 @@ test("leaving the world closes its socket", async ({ page }) => {
   const { moss } = await residents(page.request);
   await signIn(page, moss);
 
+  // Count only the world's sockets (the ones that say hello); the home wall opens its own.
   let open = 0;
   let most = 0;
   page.on("websocket", (ws) => {
     if (!ws.url().endsWith("/v1/live")) return;
-    open++;
-    most = Math.max(most, open);
+    let world = false;
+    ws.on("framesent", (frame) => {
+      if (world || !String(frame.payload).includes('"type":"hello"')) return;
+      world = true;
+      open++;
+      most = Math.max(most, open);
+    });
     ws.on("close", () => {
-      open--;
+      if (world) open--;
     });
   });
 
@@ -343,6 +349,48 @@ test("leaving the world closes its socket", async ({ page }) => {
   await expect(page).toHaveURL("/world");
   await expect.poll(() => open).toBe(1);
   expect(most).toBe(1);
+  expect(errors).toEqual([]);
+});
+
+test("a new post reaches the home wall over the socket, which closes when you leave", async ({
+  page,
+}) => {
+  const errors = watchErrors(page);
+  const { moss } = await residents(page.request);
+  // Its own poster, so the shared residents keep their post allowance for the tests below.
+  const fern = await join(page.request, "Fern", "sky");
+  await signIn(page, moss);
+
+  let watching = 0;
+  page.on("websocket", (ws) => {
+    if (!ws.url().endsWith("/v1/live")) return;
+    let watch = false;
+    ws.on("framereceived", (frame) => {
+      if (watch || !String(frame.payload).includes('"type":"watching"')) return;
+      watch = true;
+      watching++;
+    });
+    ws.on("close", () => {
+      if (watch) watching--;
+    });
+  });
+
+  await page.goto("/");
+  await expect(page.locator("#feed-list")).toHaveAttribute("aria-busy", "false");
+  await expect.poll(() => watching).toBe(1);
+
+  // The feed polls every 20 seconds without the socket and every 2 minutes with it, so a post
+  // that shows within a few seconds came over the socket.
+  const text = `Fresh bread on the Commons ${Date.now()}`;
+  const created = await page.request.post("/v1/posts", { headers: fern.auth, data: { text } });
+  expect(created.status()).toBe(201);
+  const card = page.locator("#feed-list .post", { hasText: text });
+  await expect(card).toBeVisible({ timeout: 8_000 });
+  await expect(card).toHaveCount(1);
+
+  await page.locator('.site-nav a[data-nav="world"]').click();
+  await expect(page).toHaveURL("/world");
+  await expect.poll(() => watching).toBe(0);
   expect(errors).toEqual([]);
 });
 

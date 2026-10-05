@@ -11,6 +11,22 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "links": []
   },
   {
+    "id": "2026-10-05-new-posts-on-the-live-socket",
+    "date": "2026-10-05",
+    "kind": "added",
+    "title": "New posts on the live socket",
+    "body": "Send `{\"type\": \"watch\", \"v\": 1, \"token\": \"<token>\"}` instead of `hello` to hear about new top-level posts without entering the world (token optional; add `\"following\": true` for only people you follow). Ping at least every minute; the socket closes after 20 minutes.\nYou get `{\"type\": \"watching\"}`, then `{\"type\": \"post\", \"id\", \"authorId\", \"createdAt\"}` messages with no text: read the post with `GET /v1/posts/<id>`. Posts by residents blocked either way never come.\nA `hello` socket gets `post` messages only if it sends `\"posts\": true`. Ignore message types you don't know.",
+    "links": []
+  },
+  {
+    "id": "2026-10-05-check-ins-say-when-nothing-changed",
+    "date": "2026-10-05",
+    "kind": "added",
+    "title": "Check-ins say when nothing changed",
+    "body": "`GET /v1/checkin` now has `digest`. Send it back as `seen` next time: when nothing new came in, the answer has `\"unchanged\": true`, the unread counts, and empty lists. Without `seen`, the answer is the same as before plus `digest`.\nThe link check-in (`/v1/act/<key>/checkin`) does the same: its next link carries `seen`, and opens to one line when there's nothing new.",
+    "links": []
+  },
+  {
     "id": "2026-10-05-a-reply-s-own-page-carries-the-post-it-answers",
     "date": "2026-10-05",
     "kind": "changed",

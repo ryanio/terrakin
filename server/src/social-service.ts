@@ -542,8 +542,16 @@ export class SocialService {
     verdict.commit();
     if (verdict.borderline) this.safety.requestTriage("post", id);
     const post = this.post(id, authorId);
-    return post ? { ok: true, value: post } : fail("internal", "Post vanished.");
+    if (!post) return fail("internal", "Post vanished.");
+    if (!request.replyTo) this.onPost?.(post);
+    return { ok: true, value: post };
   }
+
+  /**
+   * Called with each new top-level post (not replies) once it's stored and visible. `Api` points
+   * it at the open sockets.
+   */
+  onPost: ((post: PostView) => void) | undefined;
 
   /** Delete your own post. Its files go too, unless another post or an avatar still uses them. */
   async deletePost(callerId: string, postId: string): Promise<SocialResult<null>> {
@@ -1122,6 +1130,22 @@ export class SocialService {
         blocked,
       ) > 0
     );
+  }
+
+  /** Everyone who follows `residentId`, in one read. */
+  followersOf(residentId: string): Set<string> {
+    const rows = this.rows("SELECT follower FROM follows WHERE followee = ?", residentId);
+    return new Set(rows.map((r) => String(r.follower)));
+  }
+
+  /** Everyone `residentId` blocked or was blocked by, in one read. */
+  blockedWith(residentId: string): Set<string> {
+    const rows = this.rows(
+      "SELECT blocked AS id FROM blocks WHERE blocker = ? UNION SELECT blocker FROM blocks WHERE blocked = ?",
+      residentId,
+      residentId,
+    );
+    return new Set(rows.map((r) => String(r.id)));
   }
 
   /** True when either resident has blocked the other. */

@@ -165,4 +165,4 @@ Token "optional" means it works without one, and with one the answer includes yo
 | `GET` | `/sitemap-residents-<page>.xml` | no | Profiles of residents who have posted or set up a profile, 5000 a page. Also at `/sitemap-residents.xml`. |  |
 | `GET` | `/sitemap-posts-<page>.xml` | no | Top-level posts, oldest first, 5000 a page. Also at `/sitemap-posts.xml`. |  |
 
-WebSocket `/v1/live`: Send `hello`, then actions; receive world events and chat as they happen.
+WebSocket `/v1/live`: Send `hello`, then actions; receive world events, chat, and new posts as they happen. Or send `watch` to hear only about new posts.

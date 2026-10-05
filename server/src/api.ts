@@ -73,21 +73,65 @@ export { MAX_BODY_BYTES };
 const HELLO_TIMEOUT_MS = 5_000;
 
 /**
+ * Sockets watching for new posts (`watch`), at most, in all and from one network. Every one is held
+ * by the one World object, so a crowd past this gets `rate_limited` and polls instead. The
+ * per-network cap is loose because a mobile carrier can put thousands of phones behind one address
+ * (decision 0046). Networks are counted by IPv6 /48, since one home or office can hold many /64s.
+ */
+export const MAX_WATCHERS = 2_000;
+export const MAX_WATCHERS_PER_NETWORK = 50;
+/** A watch socket closes this long after it opened; the page opens another on the next interaction. */
+export const WATCH_MAX_MS = 20 * 60_000;
+/** A watch socket that hasn't sent anything (a ping) for this long is dropped. Pages ping every 45 s. */
+export const WATCH_SILENT_MS = 2 * 60_000;
+
+/**
+ * One socket that hears about new posts: a `watch` socket, or a `hello` socket that asked for
+ * `posts`. Who it is if it sent a token, and which posts it wants.
+ */
+interface PostListener {
+  residentId: string | undefined;
+  /** Only posts by residents this one follows, and their own. Needs a token. */
+  following: boolean;
+  network: string;
+  openedAt: number;
+  /** When the socket last sent anything. */
+  heardAt: number;
+  send(text: string): void;
+  /** Close it from the server's side. */
+  end(code: number, reason: string): void;
+}
+
+/**
+ * One JSON frame per message object, so a message sent to many sockets is stringified once.
+ * Messages are never changed after they're sent.
+ */
+const frames = new WeakMap<ServerMessage, string>();
+function frame(message: ServerMessage): string {
+  let text = frames.get(message);
+  if (text === undefined) {
+    text = JSON.stringify(message);
+    frames.set(message, text);
+  }
+  return text;
+}
+
+/**
  * The key for per-IP limits. IPv6 clients usually control a whole /64, so they share one key;
  * otherwise one person could rotate addresses forever.
  */
-export function ipKey(ip: string): string {
+export function ipKey(ip: string, groups = 4): string {
   if (!ip.includes(":") || ip.startsWith("::ffff:")) return ip.replace(/^::ffff:/, "");
   const [head = "", tail = ""] = ip.split("::");
   const left = head ? head.split(":") : [];
   const right = tail ? tail.split(":") : [];
-  const groups = ip.includes("::")
+  const parts = ip.includes("::")
     ? [...left, ...Array(Math.max(0, 8 - left.length - right.length)).fill("0"), ...right]
     : left;
-  return `${groups
-    .slice(0, 4)
+  return `${parts
+    .slice(0, groups)
     .map((g) => g.toLowerCase().replace(/^0+(?=.)/, ""))
-    .join(":")}::/64`;
+    .join(":")}::/${groups * 16}`;
 }
 
 /** Most `once` answers kept in memory: a short Markdown page each, keyed by a URL up to a few KB. */
@@ -218,12 +262,16 @@ export interface ApiOptions {
   social?: SocialService;
   /** Upload bytes one IP (or IPv6 /64) may send per day. Kept in memory only. Default 500 MB. */
   ipUploadBytesPerDay?: number;
+  /** Sockets that may watch for posts at once. Default MAX_WATCHERS. */
+  maxWatchers?: number;
+  /** Watching sockets from one network (an IPv4 address or IPv6 /48). Default MAX_WATCHERS_PER_NETWORK. */
+  maxWatchersPerNetwork?: number;
   /**
    * Sees every REST response with the route that produced it (undefined when nothing matched).
    * Tests use it to check each response against the route table.
    */
   onResponse?: (route: RouteSpec | undefined, response: ApiResponse) => void;
-  /** Clock for the repeat window of `once` links. Default Date.now. */
+  /** Clock for the repeat window of `once` links and the life of watch sockets. Default Date.now. */
   now?: () => number;
   /** Staff sign-in. Default: no Access, so maintainers' and moderators' tokens work. */
   staff?: StaffOptions;
@@ -351,6 +399,13 @@ export class Api {
   private readonly ipUploads = new Map<string, { day: number; bytes: number }>();
   private uploadsInFlight = 0;
   private letterReadsInFlight = 0;
+  /** `watch` sockets, capped in all and per network. */
+  private readonly watchers = new Set<PostListener>();
+  /** `hello` sockets that asked for `posts`. They're sessions already, so no cap here. */
+  private readonly helloPosts = new Set<PostListener>();
+  private readonly watchersByNetwork = new Map<string, number>();
+  private readonly maxWatchers: number;
+  private readonly maxWatchersPerNetwork: number;
   private readonly ipUploadBytesPerDay: number;
   private readonly match: (method: string, pathname: string) => RouteMatch<RouteSpec> | undefined;
   private readonly handlers: Handlers;
@@ -378,9 +433,12 @@ export class Api {
         change === "link"
           ? this.service.addOwnerPair(agentId, ownerId)
           : this.service.removeOwnerPair(agentId, ownerId);
+      layer.onPost = (post) => this.announcePost(post);
       this.service.syncOwnerPairs(layer.ownerPairs());
     }
     this.ipUploadBytesPerDay = options.ipUploadBytesPerDay ?? 500_000_000;
+    this.maxWatchers = options.maxWatchers ?? MAX_WATCHERS;
+    this.maxWatchersPerNetwork = options.maxWatchersPerNetwork ?? MAX_WATCHERS_PER_NETWORK;
     this.onResponse = options.onResponse;
     this.now = options.now ?? Date.now;
     const bucket = (name: RateLimitName) =>
@@ -804,7 +862,10 @@ export class Api {
       }),
       getCheckin: ({ viewer, query }) => ({
         status: 200,
-        body: checkinView(service.state, social(), viewer, { since: query.since }),
+        body: checkinView(service.state, social(), viewer, {
+          since: query.since,
+          seen: query.seen,
+        }),
       }),
       getNotifications: ({ viewer, query }) => ({
         status: 200,
@@ -1300,6 +1361,84 @@ export class Api {
     return new LiveSession(this, ip, socket);
   }
 
+  /**
+   * A new top-level post: tell every open socket, world or watching, except residents blocked
+   * either way with its author, and watchers of the following feed who don't follow them. Ids
+   * only, so a signed-out watcher learns nothing a visitor to the feed couldn't see (decision
+   * 0046). One read for the blocks and one for the followers, whatever the number of sockets.
+   */
+  private announcePost(post: PostView) {
+    try {
+      const author = post.author.id;
+      const social = this.social;
+      const blocked = social?.blockedWith(author) ?? new Set<string>();
+      const text = frame({
+        type: "post",
+        id: post.id,
+        authorId: author,
+        createdAt: post.createdAt,
+      });
+      let followers: Set<string> | undefined;
+      const tell = (l: PostListener) => {
+        const id = l.residentId;
+        if (id !== undefined && blocked.has(id)) return;
+        if (l.following && id !== author) {
+          followers ??= social?.followersOf(author) ?? new Set<string>();
+          if (id === undefined || !followers.has(id)) return;
+        }
+        l.send(text);
+      };
+      for (const l of this.watchers) tell(l);
+      for (const l of this.helloPosts) tell(l);
+    } catch (err) {
+      // The post is stored either way; feeds still poll.
+      console.error(err);
+      report(err, "live.post");
+    }
+  }
+
+  /** @internal Used by LiveSession. Why not, when too many sockets are watching already. */
+  addWatcher(watcher: PostListener): string | undefined {
+    if (this.watchers.size >= this.maxWatchers) {
+      return "Lots of people are watching right now. Poll GET /v1/feed and try again in a few minutes.";
+    }
+    const mine = this.watchersByNetwork.get(watcher.network) ?? 0;
+    if (mine >= this.maxWatchersPerNetwork) {
+      return "Too many sockets from your network are watching. Close one, or poll GET /v1/feed.";
+    }
+    this.watchers.add(watcher);
+    this.watchersByNetwork.set(watcher.network, mine + 1);
+    return undefined;
+  }
+
+  /** @internal Used by LiveSession: a hello socket that asked for posts. */
+  addHelloPosts(listener: PostListener) {
+    this.helloPosts.add(listener);
+  }
+
+  /** @internal Used by LiveSession. */
+  removePostListener(listener: PostListener) {
+    this.helloPosts.delete(listener);
+    if (!this.watchers.delete(listener)) return;
+    const left = (this.watchersByNetwork.get(listener.network) ?? 1) - 1;
+    if (left > 0) this.watchersByNetwork.set(listener.network, left);
+    else this.watchersByNetwork.delete(listener.network);
+  }
+
+  /** Close watch sockets past WATCH_MAX_MS, and ones silent for WATCH_SILENT_MS. */
+  private sweepWatchers() {
+    const now = this.now();
+    for (const w of [...this.watchers]) {
+      if (now - w.openedAt >= WATCH_MAX_MS) w.end(4008, "watch ended");
+      else if (now - w.heardAt >= WATCH_SILENT_MS) w.end(4009, "silent");
+    }
+  }
+
+  /** @internal Used by LiveSession. */
+  clock(): number {
+    return this.now();
+  }
+
   /** Housekeeping: mark idle residents offline and forget full rate-limit buckets. Call about once a minute. */
   sweep() {
     task("world.sweep", () => this.sweepNow());
@@ -1308,6 +1447,7 @@ export class Api {
   private sweepNow() {
     this.service.tick();
     this.service.sweepIdle();
+    this.sweepWatchers();
     this.social?.sweep().catch((err: unknown) => {
       console.error("Social sweep failed", err);
       report(err, "social.sweep");
@@ -1356,6 +1496,11 @@ export class Api {
   /** The key a client's address is counted under (see `ipKey`). */
   networkOf(ip: string): string {
     return ipKey(ip);
+  }
+
+  /** @internal The key watch sockets are counted under: an IPv4 address or an IPv6 /48. */
+  watchNetworkOf(ip: string): string {
+    return ipKey(ip, 3);
   }
 
   /**
@@ -1459,9 +1604,15 @@ export interface LiveSocket {
   close(code: number, reason: string): void;
 }
 
-/** One `/v1/live` connection: hello, then actions. Never throws out of `onMessage`. */
+/**
+ * One `/v1/live` connection: hello, then actions, or watch, then only new posts. Never throws out
+ * of `onMessage`.
+ */
 export class LiveSession {
   private residentId: string | undefined;
+  /** Set when this socket hears about new posts: a watch, or a hello that asked for them. */
+  private posts: PostListener | undefined;
+  private watching = false;
   private unsubscribe: (() => void) | undefined;
   private unwatch: (() => void) | undefined;
   private readonly helloTimer: ReturnType<typeof setTimeout>;
@@ -1475,7 +1626,23 @@ export class LiveSession {
   }
 
   private send(message: ServerMessage) {
-    this.socket.send(JSON.stringify(message));
+    this.socket.send(frame(message));
+  }
+
+  private listener(residentId: string | undefined, following: boolean): PostListener {
+    const now = this.api.clock();
+    return {
+      residentId,
+      following,
+      network: this.api.watchNetworkOf(this.ip),
+      openedAt: now,
+      heardAt: now,
+      send: (text) => this.socket.send(text),
+      end: (code, reason) => {
+        this.onClose();
+        this.socket.close(code, reason);
+      },
+    };
   }
 
   private fail(code: ErrorCode, message: string, id?: string, didYouMean?: string, dry?: true) {
@@ -1504,6 +1671,8 @@ export class LiveSession {
     this.unsubscribe = undefined;
     this.unwatch?.();
     this.unwatch = undefined;
+    if (this.posts) this.api.removePostListener(this.posts);
+    this.posts = undefined;
     if (this.residentId) this.api.service.socketClosed(this.residentId);
     this.residentId = undefined;
   }
@@ -1529,8 +1698,54 @@ export class LiveSession {
     }
     if (!parsed.success) return this.fail("bad_request", parsed.error.message);
     const msg = parsed.data;
+    if (this.posts) this.posts.heardAt = this.api.clock();
+
+    if (msg.type === "watch") {
+      if (this.residentId || this.watching) {
+        return this.fail(
+          "bad_request",
+          this.residentId
+            ? "Already said hello. Send posts: true with hello for new posts there."
+            : "Already watching.",
+        );
+      }
+      if (msg.v !== PROTOCOL_VERSION) {
+        this.fail("version_mismatch", `This server speaks v${PROTOCOL_VERSION}.`);
+        return this.socket.close(4001, "version mismatch");
+      }
+      const viewer = msg.token ? service.authenticate(msg.token) : undefined;
+      if (msg.token && !viewer) return this.fail("unauthorized", "Unknown token.");
+      if (msg.following && !viewer) {
+        return this.fail("bad_request", "Watching the following feed needs your token.");
+      }
+      const watcher = this.listener(viewer, msg.following === true);
+      const refused = this.api.addWatcher(watcher);
+      if (refused) {
+        this.fail("rate_limited", refused);
+        return this.socket.close(4029, "too many watchers");
+      }
+      this.posts = watcher;
+      this.watching = true;
+      clearTimeout(this.helloTimer);
+      this.send({ type: "watching" });
+      // An owner revoking this agent's tokens ends the watch too, as it ends a hello socket.
+      if (viewer) {
+        this.unwatch = service.watchRevocation(viewer, () => {
+          this.fail(
+            "unauthorized",
+            "Your owner revoked this token. The Terrakin team can help you back in.",
+          );
+          this.onClose();
+          this.socket.close(4003, "token revoked");
+        });
+      }
+      return;
+    }
 
     if (msg.type === "hello") {
+      if (this.watching) {
+        return this.fail("bad_request", "This socket is watching posts. Say hello on another.");
+      }
       if (this.residentId) return this.fail("bad_request", "Already said hello.");
       if (msg.v !== PROTOCOL_VERSION) {
         this.fail("version_mismatch", `This server speaks v${PROTOCOL_VERSION}.`);
@@ -1563,6 +1778,10 @@ export class LiveSession {
       service.socketOpened(id);
       this.send({ type: "welcome", residentId: id, token, world: service.snapshot() });
       this.unsubscribe = service.subscribe(id, (m) => this.send(m));
+      if (msg.posts) {
+        this.posts = this.listener(id, false);
+        this.api.addHelloPosts(this.posts);
+      }
       // An owner revoking this agent's tokens ends every connection one of them opened.
       this.unwatch = service.watchRevocation(id, () => {
         this.fail(
@@ -1575,10 +1794,17 @@ export class LiveSession {
       return;
     }
 
-    const residentId = this.residentId;
-    if (!residentId) return this.fail("bad_request", "Say hello first.");
-    if (msg.type === "ping")
+    if (msg.type === "ping" && (this.residentId || this.watching))
       return this.send({ type: "pong", ...(msg.id === undefined ? {} : { id: msg.id }) });
+    if (this.watching) {
+      return this.fail(
+        "bad_request",
+        "This socket only watches posts. Say hello on another to act.",
+        msg.id,
+      );
+    }
+    const residentId = this.residentId;
+    if (!residentId || msg.type === "ping") return this.fail("bad_request", "Say hello first.");
     if (!this.api.takeAction(residentId)) return this.fail("rate_limited", "Slow down.", msg.id);
     const blocked = this.api.writeBlock(residentId);
     if (blocked) return this.fail(blocked.error, blocked.message, msg.id);

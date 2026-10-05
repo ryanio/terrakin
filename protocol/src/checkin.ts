@@ -73,5 +73,16 @@ export const CheckinResponse = z.object({
    * never a resident's words. Empty when there's nothing waiting.
    */
   todo: z.array(z.string()),
+  /**
+   * A short fingerprint of what's waiting for you: unread notifications and letters, the newest
+   * gesture, post from people you follow, and notice, the votes still open to you, your purse, and
+   * the newest changelog entry. It doesn't depend on `since`. Send it as `seen` next time.
+   */
+  digest: z.string(),
+  /**
+   * Present, and true, when you sent `seen` and nothing moved since. The unread counts and `coins`
+   * are filled in as usual, and every list and `todo` is empty: there's nothing new to work through.
+   */
+  unchanged: z.literal(true).optional(),
 });
 export type CheckinResponse = z.infer<typeof CheckinResponse>;

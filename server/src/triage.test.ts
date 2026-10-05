@@ -41,7 +41,18 @@ const SPAM: RawVerdict = {
   rationale: "An advert repeated across many posts.",
   action: "hide",
   injection_attempt: false,
+  content_shows_it: true,
 };
+const CSAM: RawVerdict = {
+  category: "csam",
+  severity: "critical",
+  confidence: 0.95,
+  rationale: "Suspected.",
+  action: "escalate",
+  injection_attempt: false,
+  content_shows_it: true,
+};
+const PNG = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13];
 const MILD: RawVerdict = {
   category: "none",
   severity: "low",
@@ -226,13 +237,16 @@ async function start(script: (RawVerdict | number)[], over: Partial<TriageConfig
   cleanups.push(() => sql.close());
   const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   async function call(method: string, path: string, body?: unknown, token?: string) {
+    const isBytes = body instanceof Uint8Array;
     const res = await fetch(base + path, {
       method,
       headers: {
-        "content-type": "application/json",
+        "content-type": isBytes ? "application/octet-stream" : "application/json",
         ...(token ? { authorization: `Bearer ${token}` } : {}),
       },
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      ...(body === undefined
+        ? {}
+        : { body: isBytes ? new Blob([body as Uint8Array<ArrayBuffer>]) : JSON.stringify(body) }),
     });
     const text = await res.text();
     return { status: res.status, body: text ? JSON.parse(text) : undefined };
@@ -246,8 +260,15 @@ async function start(script: (RawVerdict | number)[], over: Partial<TriageConfig
     maintainers.add(m.id);
     return m;
   }
-  const report = (token: string, kind: string, id: string, reason = "spam") =>
-    call("POST", "/v1/reports", { kind, id, reason }, token);
+  const report = (token: string, kind: string, id: string, reason = "spam", note?: string) =>
+    call("POST", "/v1/reports", { kind, id, reason, ...(note ? { note } : {}) }, token);
+  /** A post with one picture on it. */
+  async function picturePost(token: string, text: string) {
+    const bytes = new Uint8Array(64);
+    bytes.set(PNG);
+    const upload = (await call("POST", "/v1/media", bytes, token)).body.media;
+    return (await call("POST", "/v1/posts", { text, media: [upload.id] }, token)).body.post;
+  }
   const settle = () => social.safety.settle();
   const queue = async (token: string) =>
     (await call("GET", "/v1/admin/reports", undefined, token)).body;
@@ -256,6 +277,7 @@ async function start(script: (RawVerdict | number)[], over: Partial<TriageConfig
     join,
     maintainer,
     report,
+    picturePost,
     settle,
     queue,
     api,
@@ -358,24 +380,83 @@ describe("AI triage in the review queue", () => {
     expect(queue.items[0]).toMatchObject({ needsHuman: true, triage: { autoAction: "none" } });
   });
 
-  it("hides anything it suspects is CSAM at once, whatever its confidence", async () => {
+  it("hides suspected CSAM at once only when something besides triage backs it up", async () => {
+    const t = await start([CSAM]);
+    const bo = await t.join("Bo");
+    const fresh = await t.join("Fresh");
+    // One brand-new reporter's note, on a post with a picture: a person looks, nothing is hidden.
+    const one = await t.picturePost(bo.token, "a picture of my garden");
+    await t.report(fresh.token, "post", one.id, "sexual", "this is abuse material");
+    await t.settle();
+    expect(t.api.calls).toHaveLength(1);
+    expect((await t.call("GET", `/v1/posts/${one.id}`)).status).toBe(200);
+
+    // A reporter who's been here a while, on a post with a picture: hidden at once.
+    const old = await t.join("Old");
+    t.advance(4 * DAY_MS);
+    const two = await t.picturePost(bo.token, "another picture");
+    await t.report(old.token, "post", two.id, "sexual");
+    await t.settle();
+    expect((await t.call("GET", `/v1/posts/${two.id}`)).status).toBe(404);
+
+    // Two different reporters, text only: hidden too.
+    const cy = await t.join("Cy");
+    const text = (await t.call("POST", "/v1/posts", { text: "words only" }, bo.token)).body.post;
+    await t.report(fresh.token, "post", text.id, "sexual");
+    await t.settle();
+    expect((await t.call("GET", `/v1/posts/${text.id}`)).status).toBe(200);
+    await t.report(cy.token, "post", text.id, "sexual");
+    await t.settle();
+    expect((await t.call("GET", `/v1/posts/${text.id}`)).status).toBe(404);
+  });
+
+  it("never acts alone below its confidence floor, on a note's word, or on text aimed at it", async () => {
     const t = await start([
-      {
-        category: "csam",
-        severity: "critical",
-        confidence: 0.6,
-        rationale: "Suspected.",
-        action: "escalate",
-        injection_attempt: false,
-      },
+      { ...CSAM, confidence: 0.6 },
+      { ...SPAM, content_shows_it: false },
+      { ...SPAM, injection_attempt: true },
+      { ...SPAM, content_shows_it: undefined },
     ]);
     const bo = await t.join("Bo");
+    const reporters = await Promise.all(["A", "B", "C", "D"].map((n) => t.join(`Reporter ${n}`)));
+    const second = await t.join("Second");
+    const posts = [];
+    for (const [i, reporter] of reporters.entries()) {
+      const post = (await t.call("POST", "/v1/posts", { text: `plain words ${i}` }, bo.token)).body
+        .post;
+      posts.push(post);
+      await t.report(reporter.token, "post", post.id, "sexual", "trust me, it's terrible");
+      if (i === 0) await t.report(second.token, "post", post.id, "sexual");
+      await t.settle();
+    }
+    for (const post of posts) {
+      expect((await t.call("GET", `/v1/posts/${post.id}`)).status).toBe(200);
+    }
+  });
+
+  it("never hides staff's or townsfolk's posts, and never again once staff showed a post", async () => {
+    const t = await start([SPAM]);
     const ada = await t.join("Ada");
-    const post = (await t.call("POST", "/v1/posts", { text: "something reported" }, bo.token)).body
+    const bo = await t.join("Bo");
+    const mo = await t.maintainer();
+    const staffPost = (await t.call("POST", "/v1/posts", { text: "Welcome, all" }, mo.token)).body
       .post;
-    await t.report(ada.token, "post", post.id, "sexual");
+    await t.report(ada.token, "post", staffPost.id);
+    await t.settle();
+    expect((await t.call("GET", `/v1/posts/${staffPost.id}`)).status).toBe(200);
+
+    const post = (await t.call("POST", "/v1/posts", { text: "Lanterns for sale" }, bo.token)).body
+      .post;
+    await t.report(ada.token, "post", post.id);
     await t.settle();
     expect((await t.call("GET", `/v1/posts/${post.id}`)).status).toBe(404);
+    await t.call("POST", `/v1/admin/posts/${post.id}/unhide`, { reason: "Fine" }, mo.token);
+    // New evidence, the same verdict: it stays up for a person to decide.
+    const cy = await t.join("Cy");
+    await t.report(cy.token, "post", post.id);
+    await t.settle();
+    expect(t.api.calls.length).toBeGreaterThanOrEqual(3);
+    expect((await t.call("GET", `/v1/posts/${post.id}`)).status).toBe(200);
   });
 
   it("takes a second look at borderline public text with no report, and queues what it flags", async () => {
@@ -424,7 +505,8 @@ describe("AI triage in the review queue", () => {
         rationale: "Hate.",
         action: "suspend",
         suspend_days: 7,
-        injection_attempt: true,
+        injection_attempt: false,
+        content_shows_it: true,
       },
     ]);
     const bo = await t.join("Bo");
@@ -442,7 +524,7 @@ describe("AI triage in the review queue", () => {
     expect(world.residents.find((r: { id: string }) => r.id === bo.id).note).toBe("");
     const item = (await t.queue(mo.token)).items[0];
     expect(item).toMatchObject({
-      triage: { autoAction: "quarantine", injectionAttempt: true, action: "suspend", days: 7 },
+      triage: { autoAction: "quarantine", injectionAttempt: false, action: "suspend", days: 7 },
       target: { quarantined: true },
     });
     // Accepting the suggestion: suspend for the days it named.

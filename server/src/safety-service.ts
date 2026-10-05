@@ -90,6 +90,11 @@ const AUTO_CATEGORIES: ReadonlySet<TriageCategory> = new Set(["spam", "scam", "h
 /** Categories a person must see today, and triage never acts on against the person. */
 const NEEDS_HUMAN: ReadonlySet<TriageCategory> = new Set(["minors", "csam", "self_harm"]);
 const AUTO_CONFIDENCE = 0.9;
+/**
+ * Suspected CSAM is hidden at once when triage is at least this sure and something besides triage
+ * backs it up (see `corroborated`). A person still has to look the same day.
+ */
+const CSAM_CONFIDENCE = 0.7;
 
 /** The report reason a triage-raised item is filed under. */
 const REASON_FOR: Record<TriageCategory, ReportReason> = {
@@ -415,6 +420,59 @@ export class SafetyService {
     ];
   }
 
+  /**
+   * Whether triage may take its reversible step (hide a post, hold back a bio and note) without a
+   * person. Every one of these must hold:
+   *
+   * - the content still exists, and the model saw the problem in the content itself, not only in
+   *   what a report note claims, and didn't flag the text as aimed at an AI reader;
+   * - the author isn't staff or townsfolk, who wait for a person instead;
+   * - staff haven't already undone a step on it (unhid the post, released the bio and note);
+   * - spam, scams, hate, or sexual content at high or critical severity and at least 90% sure; or
+   *   suspected CSAM at least 70% sure and backed by something besides triage (`corroborated`).
+   */
+  private mayActAlone(kind: ReportKind, id: string, target: ReportTarget, v: RawVerdict): boolean {
+    if (!target.exists || v.injection_attempt || v.content_shows_it !== true) return false;
+    if (kind !== "post" && kind !== "resident") return false;
+    const author = kind === "resident" ? id : target.author?.id;
+    if (!author || this.o.neverAutoHidden(author)) return false;
+    const undo = kind === "post" ? "unhide_post" : "release";
+    const undone = this.count(
+      "SELECT COUNT(*) AS c FROM moderation_log WHERE action = ? AND kind = ? AND target = ? AND actor <> ?",
+      undo,
+      kind,
+      id,
+      TRIAGE_ACTOR,
+    );
+    if (undone > 0) return false;
+    if (v.category === "csam") {
+      return v.confidence >= CSAM_CONFIDENCE && this.corroborated(kind, id, target);
+    }
+    return (
+      v.confidence >= AUTO_CONFIDENCE &&
+      AUTO_CATEGORIES.has(v.category) &&
+      (v.severity === "high" || v.severity === "critical")
+    );
+  }
+
+  /**
+   * Something besides triage backs a report up: two or more residents reported it, or a resident
+   * who's been here a while reported a post that has files.
+   */
+  private corroborated(kind: ReportKind, id: string, target: ReportTarget): boolean {
+    const reporters = this.rows(
+      "SELECT DISTINCT reporter FROM reports WHERE kind = ? AND target = ? AND status = 'open' AND reporter <> ?",
+      kind,
+      id,
+      TRIAGE_ACTOR,
+    ).map((r) => String(r.reporter));
+    if (reporters.length >= 2) return true;
+    return (
+      target.media.length > 0 &&
+      reporters.some((r) => this.o.residentAgeDays(r) >= AUTO_HIDE.reporterAgeDays)
+    );
+  }
+
   /** Store a verdict and take the automatic, reversible actions RFC 0006 allows. */
   private applyVerdict(
     kind: ReportKind,
@@ -426,18 +484,13 @@ export class SafetyService {
   ) {
     const target = this.target(kind, id);
     let autoAction: TriageVerdictView["autoAction"] = "none";
-    const critical = v.category === "csam";
-    const sure =
-      v.confidence >= AUTO_CONFIDENCE &&
-      AUTO_CATEGORIES.has(v.category) &&
-      (v.severity === "high" || v.severity === "critical");
     const reason = `AI triage: ${v.category}, ${v.severity}, confidence ${v.confidence.toFixed(2)}`;
-    if ((critical || sure) && target.exists) {
+    if (this.mayActAlone(kind, id, target, v)) {
       if (kind === "post" && target.hidden === "no") {
         this.o.sql.exec("UPDATE posts SET hidden = ? WHERE id = ?", HIDDEN.auto, id);
         this.log(TRIAGE_ACTOR, "auto_hide_post", "post", id, reason);
         autoAction = "hide_post";
-      } else if (kind === "resident" && !target.quarantined && !this.o.cannotBeSuspended(id)) {
+      } else if (kind === "resident" && !target.quarantined) {
         this.o.sql.exec(
           "INSERT OR IGNORE INTO quarantine (resident_id, by, at) VALUES (?, ?, ?)",
           id,

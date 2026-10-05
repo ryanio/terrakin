@@ -152,8 +152,6 @@ const KIND_WORDS: Record<ReportKind, string> = {
   proposal: "Proposal",
 };
 
-export const kindWord = (kind: ReportKind) => KIND_WORDS[kind];
-
 /** The eyebrow over an item: "Post · 3 reports". */
 export function itemHeading(item: ReportQueueItem): string {
   return `${KIND_WORDS[item.kind]} · ${plural(item.reports.length, "report", "reports")}`;

@@ -3,7 +3,7 @@
  * resident color, and jam flavor looks in 3D. Plain numbers, no three.js, so tests can pin them
  * and the 2D and 3D worlds keep one look.
  */
-import { BLOCK_KINDS, type BlockKind, RESIDENT_COLORS, type ResidentColor } from "@terrakin/sim";
+import type { BlockKind, ResidentColor } from "@terrakin/sim";
 
 /** `#rrggbb` to a number three.js takes as a color. */
 export function hex(color: string): number {
@@ -58,8 +58,6 @@ export function blockLook(block: BlockKind): BlockLook {
   return BLOCK_LOOKS[block];
 }
 
-export const ALL_BLOCKS: readonly BlockKind[] = BLOCK_KINDS;
-
 /** Same values as RESIDENT_COLOR_HEX in render.ts and `--resident-*` in tokens.css. */
 const RESIDENT_HEX: Record<ResidentColor, number> = {
   sun: hex("#f2b84b"),
@@ -75,8 +73,6 @@ const RESIDENT_HEX: Record<ResidentColor, number> = {
 export function residentHex(color: ResidentColor): number {
   return RESIDENT_HEX[color];
 }
-
-export const ALL_RESIDENT_COLORS: readonly ResidentColor[] = RESIDENT_COLORS;
 
 export const FLAVORS = ["lemon", "strawberry", "berry", "apricot"] as const;
 export type Flavor = (typeof FLAVORS)[number];

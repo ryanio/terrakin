@@ -3,7 +3,7 @@
  * Pure, so tests pin it. RFC 0005 crafting will name these templates on inventory items.
  */
 import { mediaRef } from "./layout";
-import { FLAVORS, type Flavor } from "./palette";
+import { type Flavor, isFlavor } from "./palette";
 
 export const ITEM_TEMPLATES = [
   "jam-lemon",
@@ -23,7 +23,7 @@ export function isItemTemplate(value: unknown): value is ItemTemplate {
 /** The jam flavor a template holds, if it's a jar. */
 export function jamFlavor(t: ItemTemplate): Flavor | undefined {
   const f = t.startsWith("jam-") ? t.slice(4) : "";
-  return (FLAVORS as readonly string[]).includes(f) ? (f as Flavor) : undefined;
+  return isFlavor(f) ? f : undefined;
 }
 
 export interface GalleryRequest {

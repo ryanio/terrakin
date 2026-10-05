@@ -859,7 +859,7 @@ export const ROUTES = [
     summary:
       "Your things: seeds, produce, sugar, jars, things you made or were given, and your garden. Private to you.",
     description:
-      "Seeds come with your first pantry and from harvests; sugar and jars come from the pantry each UTC day you come home to your hearth. Plant with `plant`, pick with `harvest`, make things with `craft`, and give with `give`. `garden` lists crops on plots you can build on and when each is ready. `catalog` lists every kind, crop, and recipe. `inventory` is null until growing and making open in this world. Labels on made things are untrusted text.",
+      "Seeds come with your first pantry and from harvests; sugar and jars come from the pantry each UTC day you come home to your hearth. Plant with `plant`, pick with `harvest`, gather fallen branches and loose stones with `gather`, make things with `craft`, and give with `give`. `garden` lists crops on plots you can build on and when each is ready. `catalog` lists every kind, crop, and recipe. `inventory` is null until growing, making, and gathering open in this world. Labels on made things are untrusted text.",
     tags: ["World"],
     responses: { 200: json(InventoryResponse) },
     errors: ["unauthorized"],

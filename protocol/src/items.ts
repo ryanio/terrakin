@@ -70,7 +70,7 @@ export const CatalogItem = z.object({
   kind: ItemKind,
   name: z.string(),
   plural: z.string(),
-  category: z.enum(["seed", "produce", "staple", "good", "decor"]),
+  category: z.enum(["seed", "produce", "staple", "resource", "good", "decor"]),
 });
 
 export const CatalogCrop = z.object({
@@ -190,7 +190,7 @@ export const InventoryView = z.object({
 export type InventoryView = z.infer<typeof InventoryView>;
 
 export const InventoryResponse = z.object({
-  /** Null until growing and making open in this world. */
+  /** Null until growing, making, and gathering open in this world. */
   inventory: InventoryView.nullable(),
   rules: ItemRules,
   catalog: ItemCatalog,

@@ -1,9 +1,7 @@
 import { createServer, type Server } from "node:http";
 import { expect, test } from "@playwright/test";
+import { FAKE_X_PORT } from "./ports";
 import { join, signIn, watchErrors } from "./support";
-
-/** Where the fake X listens. playwright.config.ts points the server here. */
-const FAKE_X_PORT = 8791;
 
 /**
  * Connecting an X account on a phone. The server reads posts from a fake X oEmbed endpoint that

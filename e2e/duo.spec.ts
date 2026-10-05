@@ -176,7 +176,9 @@ test("with no plot yet, sharing your home turns itself off and the plain link st
   const plain = await link.textContent();
 
   const option = page.locator("#invite-share-home");
-  await option.check();
+  // click, not check: the sheet unticks the box once the server answers, and check() fails
+  // whenever that answer lands before it reads the box back.
+  await option.click();
   await expect(option).not.toBeChecked();
   await expect(option).toBeDisabled();
   await expect(page.locator(".invite-sheet .check-hint")).toHaveText(

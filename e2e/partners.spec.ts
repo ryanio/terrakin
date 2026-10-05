@@ -1,6 +1,7 @@
 import { createServer, type Server } from "node:http";
 import { join as joinPath } from "node:path";
 import { expect, type Page, test } from "@playwright/test";
+import { FAKE_CHAIN_PORT } from "./ports";
 import { join, watchErrors } from "./support";
 
 /**
@@ -8,7 +9,6 @@ import { join, watchErrors } from "./support";
  * cards from a fake host, both run by this file (TERRAKIN_TEST_CHAIN in playwright.config.ts), so
  * no test touches a real network.
  */
-const FAKE_CHAIN_PORT = 8792;
 const ORIGIN = `http://127.0.0.1:${FAKE_CHAIN_PORT}`;
 
 const REGISTRY = "0x8004a169fb4a3325136eb29fa0ceb6d2e539a432";

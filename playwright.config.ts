@@ -1,10 +1,10 @@
 import { defineConfig, devices } from "@playwright/test";
+import { FAKE_CHAIN_PORT, FAKE_X_PORT, E2E_PORT as PORT } from "./e2e/ports";
 
-const PORT = 8790;
 /** The fake X oEmbed endpoint that e2e/connect-x.spec.ts runs. Test servers only (decision 0022). */
-const FAKE_X = "http://127.0.0.1:8791/oembed";
+const FAKE_X = `http://127.0.0.1:${FAKE_X_PORT}/oembed`;
 /** The fake network and card host that e2e/partners.spec.ts runs (RFC 0007). Test servers only. */
-const FAKE_CHAIN = "http://127.0.0.1:8792";
+const FAKE_CHAIN = `http://127.0.0.1:${FAKE_CHAIN_PORT}`;
 
 /** Phone-first smoke test of the real build: client served by the real server. */
 export default defineConfig({

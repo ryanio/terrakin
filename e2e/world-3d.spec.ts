@@ -9,6 +9,9 @@ import { act, countFrames, framesWhileIdle, join, read, signIn, watchErrors } fr
 test("the world switches to 3D, walks by tapping, and stops drawing when you leave", async ({
   page,
 }) => {
+  // Every step here waits on frames drawn on the CPU, and the walk, the camera turn, two
+  // toggles, and a reload don't fit a CI runner's 30 s even when this spec runs alone.
+  test.slow();
   await countFrames(page);
   const errors = watchErrors(page, { console: "all" });
 

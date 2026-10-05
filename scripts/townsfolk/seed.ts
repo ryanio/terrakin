@@ -4,6 +4,7 @@
  * missing.
  *
  *   pnpm townsfolk -- --base http://localhost:8787
+ *   pnpm townsfolk -- --base http://localhost:8787 --handles [--send]
  *   node scripts/townsfolk/seed.ts --base <url> [--dry-run] [--refresh-art] [--creds <file>] [--images <dir>] [--pace <ms>]
  *
  *   --base         server to seed (required)
@@ -12,6 +13,9 @@
  *                  new avatars, the old postcard posts deleted and posted again in the same order,
  *                  the townsfolk replies and likes on them made again, and any new signature
  *                  blocks placed. Does nothing once the credentials file records the current version.
+ *   --handles      only claim each stored resident's handle (`handle` in personas.ts) and change
+ *                  nothing else. A dry run that prints the plan unless --send is given too.
+ *   --send     with --handles: claim them
  *   --creds    where to keep tokens (default ~/.config/terrakin/townsfolk.<host>.json, mode 0600)
  *   --images   also write the postcards and avatars to this directory
  *   --pace     pause between social writes, in ms (default 800)
@@ -31,6 +35,7 @@ import type {
 } from "../../protocol/src/index";
 import { ART_VERSION, type Images, renderAll } from "./art.ts";
 import { type Creds, defaultCredsPath, type Stored, writePrivateJson } from "./creds.ts";
+import { describeStep, planHandle } from "./handle-plan.ts";
 import { checkPersonas, PERSONAS, type Persona } from "./personas.ts";
 import { choosePlot, describePlace, type Plot, plotKey } from "./plan.ts";
 
@@ -45,6 +50,8 @@ const { values: args } = parseArgs({
     base: { type: "string" },
     "dry-run": { type: "boolean", default: false },
     "refresh-art": { type: "boolean", default: false },
+    handles: { type: "boolean", default: false },
+    send: { type: "boolean", default: false },
     creds: { type: "string" },
     images: { type: "string" },
     pace: { type: "string", default: "800" },
@@ -58,6 +65,17 @@ if (!args.base) {
 const BASE = new URL(args.base).origin;
 const DRY = args["dry-run"];
 const REFRESH = args["refresh-art"];
+const HANDLES = args.handles;
+if (args.send && !HANDLES) {
+  console.error("--send goes with --handles. A full seed has --dry-run instead.");
+  process.exit(2);
+}
+if (HANDLES && (DRY || REFRESH)) {
+  console.error(
+    "--handles is a dry run unless you add --send; leave out --dry-run and --refresh-art.",
+  );
+  process.exit(2);
+}
 const PACE = Math.max(0, Number(args.pace) || 0);
 const CREDS = args.creds !== undefined ? resolve(args.creds) : defaultCredsPath(BASE);
 
@@ -78,7 +96,7 @@ function loadCreds(): Creds {
 }
 
 function saveCreds(creds: Creds): void {
-  if (DRY) return;
+  if (DRY || HANDLES) return;
   writePrivateJson(CREDS, creds);
 }
 
@@ -243,6 +261,7 @@ async function ensureProfile(p: Persona, s: Stored, images: Images): Promise<voi
     await call("PUT", "/v1/profile", { token: s.token, json: { bio: p.bio }, bucket: "social" });
     say(p.name, "wrote bio");
   }
+  await ensureHandle(p, s, resident.handle, true);
   const stale = s.avatarArt !== ART_VERSION;
   if (!resident.avatar || (REFRESH && stale)) {
     const media = await upload(s, images.avatar);
@@ -250,6 +269,62 @@ async function ensureProfile(p: Persona, s: Stored, images: Images): Promise<voi
     s.avatarArt = ART_VERSION;
     say(p.name, resident.avatar ? "set the new avatar" : "set avatar");
   }
+}
+
+/**
+ * Claim the persona's handle unless it already has it. `current` is the handle on its profile now.
+ * With `send` false it only prints what it would do. A handle someone else holds is skipped, and so
+ * is a refusal from the server (like a rename too soon after the last one): neither stops the run.
+ */
+async function ensureHandle(
+  p: Persona,
+  s: Stored,
+  current: string | undefined,
+  send: boolean,
+): Promise<void> {
+  const holder = await call<{ resident: ProfileView }>(
+    "GET",
+    `/v1/residents/by-handle/${p.handle}`,
+  ).then(
+    (found) => found.resident.id,
+    (err: unknown) => {
+      if (err instanceof ApiError && err.status === 404) return null;
+      throw err;
+    },
+  );
+  const step = planHandle(s.residentId, p.handle, current, holder);
+  if (step.kind === "done" && !HANDLES) return;
+  say(p.name, describeStep(step, send));
+  if (step.kind !== "claim" || !send) return;
+  const res = await fetch(`${BASE}/v1/profile`, {
+    method: "PUT",
+    headers: { authorization: `Bearer ${s.token}`, "content-type": "application/json" },
+    body: JSON.stringify({ handle: step.handle }),
+  });
+  if (res.ok) return;
+  // Not call(): it waits out a 429, and a rename too soon after the last one is a `rate_limited`
+  // that lasts days.
+  const data = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
+  if (res.status >= 500) throw new Error(`PUT /v1/profile failed: ${res.status}`);
+  say(p.name, `handle refused: ${res.status} ${data.error?.message ?? ""}`.trim());
+}
+
+/** `--handles`: each stored resident's handle and nothing else. */
+async function handlesOnly(creds: Creds): Promise<void> {
+  for (const p of PERSONAS) {
+    const s = creds.residents[p.key];
+    if (!s) {
+      say(p.name, "isn't seeded here yet; a full seed creates it and claims its handle");
+      continue;
+    }
+    const { resident } = await call<{ resident: ProfileView }>(
+      "GET",
+      `/v1/residents/${s.residentId}`,
+    );
+    await ensureHandle(p, s, resident.handle, args.send);
+    if (args.send) await sleep(PACE);
+  }
+  if (!args.send) console.log("\nDry run: nothing changed. Add --send to claim them.");
 }
 
 async function upload(s: Stored, png: Buffer): Promise<string> {
@@ -549,6 +624,14 @@ async function main(): Promise<void> {
   }
 
   const creds = loadCreds();
+  if (HANDLES) {
+    console.log(
+      `claiming handles for ${PERSONAS.length} townsfolk on ${BASE}${args.send ? "" : " (dry run)"}`,
+    );
+    console.log(`credentials: ${CREDS}`);
+    await handlesOnly(creds);
+    return;
+  }
   console.log(
     `${REFRESH ? "refreshing the art of" : "seeding"} ${PERSONAS.length} townsfolk ${REFRESH ? "on" : "into"} ${BASE}${DRY ? " (dry run)" : ""}`,
   );
@@ -573,6 +656,11 @@ async function main(): Promise<void> {
       const owned = stored && snap.plots.find((plot) => plot.ownerId === stored.residentId);
       if (owned) {
         say(p.name, `exists as ${stored.residentId} on plot (${owned.px}, ${owned.py})`);
+        const { resident } = await call<{ resident: ProfileView }>(
+          "GET",
+          `/v1/residents/${stored.residentId}`,
+        );
+        await ensureHandle(p, stored, resident.handle, false);
         continue;
       }
       const plot = choosePlot(p.spot, snap, reserved);

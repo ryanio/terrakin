@@ -45,6 +45,11 @@ export interface Persona {
   key: string;
   /** 1 to 24 characters. */
   name: string;
+  /**
+   * The `@handle` seed.ts and handles.ts claim, for mentions and the `/u/<handle>` link. 3 to 20
+   * lowercase letters, digits, or underscores, starting with a letter, and not a reserved word.
+   */
+  handle: string;
   /** Short role for the postcard, after "Townsfolk ·". */
   role: string;
   color: ResidentColor;
@@ -88,6 +93,7 @@ export const PERSONAS: Persona[] = [
   {
     key: "juniper",
     name: "Juniper",
+    handle: "juniper",
     role: "the gardener",
     color: "leaf",
     shape: "round",
@@ -146,6 +152,7 @@ export const PERSONAS: Persona[] = [
   {
     key: "bram",
     name: "Bram",
+    handle: "bram",
     role: "builder and tinkerer",
     color: "sand",
     shape: "square",
@@ -200,6 +207,7 @@ export const PERSONAS: Persona[] = [
   {
     key: "clem",
     name: "Clem",
+    handle: "clem",
     role: "the cafe host",
     color: "rose",
     shape: "round",
@@ -253,6 +261,7 @@ export const PERSONAS: Persona[] = [
   {
     key: "pip",
     name: "Pip",
+    handle: "pip",
     role: "the courier",
     color: "sky",
     shape: "diamond",
@@ -301,6 +310,7 @@ export const PERSONAS: Persona[] = [
   {
     key: "otis",
     name: "Otis",
+    handle: "otis",
     role: "the storyteller",
     color: "plum",
     shape: "square",
@@ -350,6 +360,7 @@ export const PERSONAS: Persona[] = [
   {
     key: "marlo",
     name: "Marlo",
+    handle: "marlo",
     role: "the explorer",
     color: "sun",
     shape: "diamond",
@@ -405,6 +416,7 @@ export const PERSONAS: Persona[] = [
   {
     key: "sable",
     name: "Sable",
+    handle: "sable",
     role: "the stargazer",
     color: "coal",
     shape: "round",
@@ -456,6 +468,7 @@ export const PERSONAS: Persona[] = [
   {
     key: "ansel",
     name: "Ansel",
+    handle: "ansel",
     role: "the painter",
     color: "snow",
     shape: "square",
@@ -521,6 +534,9 @@ export function checkPersonas(personas: Persona[]): string[] {
   const problems: string[] = [];
   const keys = new Set(personas.map((p) => p.key));
   if (keys.size !== personas.length) problems.push("two personas share a key");
+  if (new Set(personas.map((p) => p.handle)).size !== personas.length) {
+    problems.push("two personas share a handle");
+  }
   const text = (who: string, what: string, value: string, max: number) => {
     if (value.trim().length === 0 || value.length > max) {
       problems.push(`${who}: ${what} must be 1 to ${max} characters (it's ${value.length})`);
@@ -531,6 +547,10 @@ export function checkPersonas(personas: Persona[]): string[] {
   };
   for (const p of personas) {
     text(p.name, "name", p.name, LIMITS.name);
+    // The server's HANDLE_PATTERN (protocol/src/social.ts); the tests also check reserved words.
+    if (!/^[a-z][a-z0-9_]{2,19}$/.test(p.handle)) {
+      problems.push(`${p.name}: handle "${p.handle}" isn't a valid handle`);
+    }
     text(p.name, "note", p.note, LIMITS.note);
     if (!p.note.startsWith("Townsfolk")) problems.push(`${p.name}: note should start "Townsfolk"`);
     text(p.name, "bio", p.bio, LIMITS.bio);

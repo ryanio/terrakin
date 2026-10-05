@@ -305,6 +305,8 @@ describe("three.js stays out of the main bundle", () => {
     "scene3d/gallery.ts",
     "scene3d/page.ts",
     "scene3d/wear.ts",
+    "scene3d/buildings.ts",
+    "scene3d/world.ts",
   ]);
 
   it("imports three only from the lazy 3D files", () => {

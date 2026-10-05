@@ -3,7 +3,7 @@
  * matte materials in the brand palette, shade baked into vertex colors, a soft ground disc that
  * melts into a paper sky, and small idle motions that stop for prefers-reduced-motion.
  *
- * Performance budget (decision 0021): device pixel ratio capped at 2, one shadow-casting sun
+ * Performance budget (decision 0030): device pixel ratio capped at 2, one shadow-casting sun
  * (2048 soft on desktop, 1024 on phones, dropped if frames run slow), Lambert materials, instanced
  * meshes for repeated things, no post-processing. Rendering pauses while the tab is hidden, and
  * `dispose()` frees every geometry, material, texture, and the WebGL context.
@@ -64,8 +64,8 @@ export interface Stage {
   sun: DirectionalLight;
   quality: Quality;
   reducedMotion: boolean;
-  /** Run every frame (only while motion is allowed). */
-  animate(fn: (f: FrameInfo) => void): void;
+  /** Run every frame (only while motion is allowed). Returns a function that stops it. */
+  animate(fn: (f: FrameInfo) => void): () => void;
   /** Free this with the stage even though it isn't in the scene (shared textures, say). */
   keep<T extends { dispose(): void }>(thing: T): T;
   /** Point the camera at a sphere so it fills the view, from a direction (from the target). */
@@ -82,6 +82,43 @@ export interface Stage {
 export interface StageOptions {
   /** Turn slowly until someone touches it. */
   autoRotate?: boolean;
+  /**
+   * Called once if frames still run slower than 1/15 s (the median over ~2 seconds) after the
+   * stage has stepped down. The world view goes back to the 2D map then.
+   */
+  onSlow?: () => void;
+  /** Vertical field of view in degrees on tall screens and on wide ones. Default 44 and 34. */
+  fov?: { tall: number; wide: number };
+}
+
+/**
+ * A part of a stage that comes and goes on its own (a chunk of the world, one figure): what it
+ * animates and keeps is tracked, so `release()` stops and frees just that part. Hand the scope to
+ * the shared builders in place of the stage.
+ */
+export interface Scope extends Stage {
+  release(): void;
+}
+
+export function scoped(stage: Stage): Scope {
+  const stops: (() => void)[] = [];
+  const kept: { dispose(): void }[] = [];
+  return {
+    ...stage,
+    animate(fn) {
+      const stop = stage.animate(fn);
+      stops.push(stop);
+      return stop;
+    },
+    keep(thing) {
+      kept.push(thing);
+      return thing;
+    },
+    release() {
+      for (const stop of stops.splice(0)) stop();
+      for (const k of kept.splice(0)) k.dispose();
+    },
+  };
 }
 
 export function createStage(host: HTMLElement, options: StageOptions = {}): Stage {
@@ -183,7 +220,7 @@ export function createStage(host: HTMLElement, options: StageOptions = {}): Stag
     renderer.setSize(w, hgt, false);
     camera.aspect = w / hgt;
     // A wider lens on tall screens keeps the scene from feeling like a keyhole.
-    camera.fov = camera.aspect < 0.8 ? 44 : 34;
+    camera.fov = camera.aspect < 0.8 ? (options.fov?.tall ?? 44) : (options.fov?.wide ?? 34);
     camera.updateProjectionMatrix();
     // Until someone moves the camera, keep the whole scene framed as the window changes shape.
     if (!touched) fit();
@@ -199,6 +236,7 @@ export function createStage(host: HTMLElement, options: StageOptions = {}): Stag
   let clock = 0;
   const slow: number[] = [];
   let downgraded = false;
+  let gaveUp = false;
 
   const loop = (now: number) => {
     raf = 0;
@@ -223,12 +261,20 @@ export function createStage(host: HTMLElement, options: StageOptions = {}): Stag
    * and a smaller, cheaper shadow. Phones that keep 60 fps never notice.
    */
   const watchSpeed = (dt: number) => {
-    if (downgraded || dt <= 0) return;
+    if (gaveUp || dt <= 0) return;
+    if (downgraded && !options.onSlow) return;
     slow.push(dt);
     if (slow.length < 120) return;
     const sorted = [...slow].sort((a, b) => a - b);
     const median = sorted[sorted.length >> 1] ?? 0;
     slow.length = 0;
+    if (downgraded) {
+      if (median > 1 / 15) {
+        gaveUp = true;
+        options.onSlow?.();
+      }
+      return;
+    }
     if (median > 1 / 40) {
       downgraded = true;
       renderer.setPixelRatio(Math.min(maxRatio, 1.25));
@@ -266,6 +312,10 @@ export function createStage(host: HTMLElement, options: StageOptions = {}): Stag
     reducedMotion: still,
     animate(fn) {
       animators.push(fn);
+      return () => {
+        const i = animators.indexOf(fn);
+        if (i >= 0) animators.splice(i, 1);
+      };
     },
     keep,
     frame(center, radius, from = new Vector3(0.62, 0.62, 1)) {
@@ -335,14 +385,17 @@ export function createStage(host: HTMLElement, options: StageOptions = {}): Stag
   return stage;
 }
 
-/** Free every geometry, material, and texture under `root`. */
-export function disposeTree(root: Object3D) {
+/**
+ * Free every geometry, material, and texture under `root`. Textures in `spare` are shared with
+ * things still on stage, so they're left alone.
+ */
+export function disposeTree(root: Object3D, spare?: ReadonlySet<Texture>) {
   root.traverse((obj) => {
     const mesh = obj as Partial<Mesh> & { dispose?: () => void };
     mesh.geometry?.dispose();
     if (mesh.material) {
       const list: Material[] = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-      for (const m of list) disposeMaterial(m);
+      for (const m of list) disposeMaterial(m, spare);
     }
     // InstancedMesh frees its instance buffers here.
     if (obj !== root && typeof mesh.dispose === "function" && "isInstancedMesh" in obj)
@@ -351,8 +404,9 @@ export function disposeTree(root: Object3D) {
   if (root instanceof Scene && root.background instanceof Texture) root.background.dispose();
 }
 
-export function disposeMaterial(m: Material) {
-  for (const value of Object.values(m)) if (value instanceof Texture) value.dispose();
+export function disposeMaterial(m: Material, spare?: ReadonlySet<Texture>) {
+  for (const value of Object.values(m))
+    if (value instanceof Texture && !spare?.has(value)) value.dispose();
   m.dispose();
 }
 
@@ -517,6 +571,11 @@ export function bakeShade(geometry: BufferGeometry, bottom = 0.68, top = 1): Buf
   }
   geometry.setAttribute("color", new BufferAttribute(colors, 3));
   return geometry;
+}
+
+/** The geometry without an index, for merging. Many shapes (rounded boxes, extrusions) have none. */
+export function unindexed(geometry: BufferGeometry): BufferGeometry {
+  return geometry.index ? geometry.toNonIndexed() : geometry;
 }
 
 /** Plain white vertex colors, for geometry that should show its material color as is. */

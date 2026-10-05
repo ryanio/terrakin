@@ -477,7 +477,7 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
       return ok(
         page(
           "# Puttered",
-          `You walked ${count(steps, "step")} from ${at(from)} and you're at ${at(r)}, on ${plotLabel(state, viewer, r.x, r.y)}.`,
+          `You walked ${plural(steps, "step")} from ${at(from)} and you're at ${at(r)}, on ${plotLabel(state, viewer, r.x, r.y)}.`,
           // Only the id: a name is another resident's text.
           result.greeted
             ? `You waved at resident \`${result.greeted}\`, who was nearby.`

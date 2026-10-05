@@ -1,4 +1,3 @@
-import type { AddressInfo } from "node:net";
 import { PUTTER_LIMITS, type ServerMessage } from "@terrakin/protocol";
 import { TOWN_ACTOR, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
@@ -9,7 +8,7 @@ import { MemoryMediaStore } from "./media";
 import { nodeSql } from "./node-sql";
 import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
-import { responseChecker } from "./test-support";
+import { type Cleanup, jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
 import { DAY_MS, utcDay, WorldService } from "./world-service";
 
 // 6x6 plots of 8 tiles. The Commons is plot (3,3); everyone joins at (24,24).
@@ -21,7 +20,7 @@ const CONFIG: WorldConfig = {
   reach: 3,
 };
 
-const cleanups: (() => void | Promise<void>)[] = [];
+const cleanups: Cleanup[] = [];
 // Every REST response in these tests must match the route table's schemas.
 const { problems, onResponse } = responseChecker();
 afterEach(async () => {
@@ -54,24 +53,9 @@ async function start() {
     sessionsPerMinute: 1000,
     onResponse,
   });
-  await new Promise<void>((done) => server.listen(0, done));
-  cleanups.push(() => new Promise<void>((done) => server.close(() => done())));
+  const base = await listenOnFreePort(server, cleanups);
   cleanups.push(() => sql.close());
-  const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
-
-  async function call(method: string, path: string, body?: unknown, token?: string) {
-    const res = await fetch(base + path, {
-      method,
-      headers: {
-        "content-type": "application/json",
-        ...(token ? { authorization: `Bearer ${token}` } : {}),
-      },
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-    });
-    const text = await res.text();
-    // biome-ignore lint/suspicious/noExplicitAny: test responses are checked against the route table.
-    return { status: res.status, body: (text ? JSON.parse(text) : undefined) as any };
-  }
+  const call = jsonCaller(base);
 
   async function join(name: string, kind: "human" | "agent" = "agent") {
     const { body } = await call("POST", "/v1/session", { name, kind });

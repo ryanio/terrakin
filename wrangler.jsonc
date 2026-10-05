@@ -27,6 +27,9 @@
     // Neither is a secret: the tag is in every Access token. Staff emails are Worker secrets.
     "TERRAKIN_ACCESS_TEAM": "ryan-coral.cloudflareaccess.com",
     "TERRAKIN_ACCESS_AUD": "8f44a95659485659be59919db4aaf310d48e84171460f66794f90605c24795bc",
+    // Town Hall maintainers by resident id (void proposals, answer petitions; townsfolk never tip
+    // them). Public ids, not secrets. Staff on admin.terrakin.org are by Access email instead.
+    "TERRAKIN_MAINTAINERS": "r_abf2279860f9ce4f",
     "TERRAKIN_TOWNSFOLK": "r_012a36e95d5ccb83,r_5e74cb3b2b119b45,r_0ae1647c23c979ea,r_a1e252d63d99e43f,r_5a97621686815b66,r_b5ad117da29cb2d7,r_c6f9b76e34ba8fb0,r_3d5337fc88d2f182"
   },
   // The deploy's version id, sent as the Sentry release.

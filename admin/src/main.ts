@@ -118,7 +118,7 @@ function signIn(message?: string) {
   const status = h("p", { class: "field-hint", attrs: { role: "status" }, text: message ?? "" });
   const form = h(
     "form",
-    { class: "token-form", attrs: { "aria-labelledby": "token-title" } },
+    { class: "stack token-form", attrs: { "aria-labelledby": "token-title" } },
     h("h2", { class: "section-title", attrs: { id: "token-title" }, text: "Sign in with a token" }),
     h("p", {
       class: "field-hint",
@@ -143,7 +143,7 @@ function signIn(message?: string) {
   show(
     h(
       "div",
-      { class: "sign-in" },
+      { class: "stack sign-in" },
       stateCard({
         title: "Sign in",
         body: "On admin.terrakin.org, Cloudflare Access signs you in. If your sign-in ran out, reload the page.",

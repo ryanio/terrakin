@@ -87,10 +87,83 @@ a {
   box-shadow: var(--shadow-paper);
 }
 
+/*
+ * Layout primitives. Put them in a view's class list next to its own class
+ * (`stack paper card things-card`) instead of writing `display: grid; gap: ...` again. They sit
+ * inside :where(), so they weigh nothing: any rule of the component's own wins over them.
+ *
+ * .stack            a column, var(--space-md) apart: the pieces inside a card or form.
+ * .stack.tight      var(--space-sm) apart: fields, rows of a list.
+ * .stack.cards      a column of cards and sections, as far apart as the page's own
+ *                   (var(--gap-page)), so a view's body inside `.page` never lets two cards
+ *                   touch. A `.section-title` adds var(--gap-section-head) above itself, so a
+ *                   heading sits closer to what it names than to what came before.
+ * .stack.start      children keep their own width instead of stretching: a card of text and a
+ *                   button or two.
+ * .cluster          a wrapping row of chips or buttons, var(--space-sm) apart.
+ * .plain-list       a ul or ol with no bullets or indent.
+ */
+:where(.stack) {
+  display: grid;
+  gap: var(--space-md);
+  align-content: start;
+  min-width: 0;
+}
+
+:where(.stack.tight) {
+  gap: var(--space-sm);
+}
+
+:where(.stack.start) {
+  justify-items: start;
+}
+
+/* An empty list or slot waiting for content takes no room, so it adds no gap. */
+:where(.stack, .cluster):empty {
+  display: none;
+}
+
+:where(.stack.cards) {
+  gap: var(--gap-page);
+}
+
+/*
+ * A heading over the cards or rows it names. In a column of cards it gets extra room above it
+ * (and so does a section that opens with one), so it sits closer to what it names than to what
+ * came before. This rule outweighs a component's own margins on purpose: it is the page's rhythm.
+ */
+.section-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  font-variation-settings:
+    "opsz" 36,
+    "SOFT" 100,
+    "WONK" 0;
+  color: var(--ink);
+}
+
+.stack.cards > :is(.section-title, :has(> .section-title:first-child)):not(:first-child) {
+  margin-top: var(--gap-section-head);
+}
+
+:where(.cluster) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+:where(.plain-list) {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
 /* A paper card: rounded, padded. Feed posts, profiles and the landing card all use it. */
 .card {
   position: relative;
-  padding: 20px;
+  padding: var(--space-xl);
   border-radius: var(--r-card);
 }
 
@@ -99,7 +172,8 @@ a {
   width: 100%;
   max-width: 640px;
   margin-inline: auto;
-  padding-inline: max(16px, env(safe-area-inset-left)) max(16px, env(safe-area-inset-right));
+  padding-inline: max(var(--space-lg), env(safe-area-inset-left))
+    max(var(--space-lg), env(safe-area-inset-right));
 }
 
 .column.wide {
@@ -193,8 +267,8 @@ a {
 .pill {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  border-radius: 999px;
+  gap: var(--space-sm);
+  border-radius: var(--r-pill);
   background: var(--paper-fill);
   border: 1px solid var(--paper-edge);
   box-shadow: var(--shadow-pill);
@@ -204,15 +278,15 @@ a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: var(--space-sm);
   min-height: 44px;
-  padding: 0 16px;
+  padding: 0 var(--space-lg);
   border: 1px solid var(--paper-edge);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--paper-fill);
   box-shadow: var(--shadow-pill);
   font-weight: 600;
-  font-size: 15px;
+  font-size: var(--text-base);
   color: var(--ink);
   white-space: nowrap;
   transition:
@@ -231,23 +305,23 @@ a {
 
 .pill-button.small {
   min-height: 44px;
-  padding: 0 14px;
-  font-size: 14px;
+  padding: 0 var(--space-lg);
+  font-size: var(--text-md);
 }
 
 .btn-primary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: var(--space-md);
   min-height: var(--tap);
-  padding: 0 26px;
+  padding: 0 var(--space-2xl);
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: linear-gradient(180deg, #c15e38, var(--clay) 55%, #a64a28);
   color: var(--paper);
   font-weight: 650;
-  font-size: 17px;
+  font-size: var(--text-xl);
   letter-spacing: 0.01em;
   box-shadow:
     0 0 0 5px rgba(242, 184, 75, 0.32),
@@ -278,7 +352,7 @@ a {
 .btn-primary.small {
   min-height: 44px;
   min-width: 44px;
-  padding: 0 12px;
+  padding: 0 var(--space-md);
   box-shadow:
     0 0 0 3px rgba(242, 184, 75, 0.3),
     0 6px 14px -6px rgba(143, 61, 32, 0.6);
@@ -286,7 +360,7 @@ a {
 
 .eyebrow {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -314,15 +388,15 @@ a {
 
 .badge-ai {
   flex: none;
-  padding: 2px 7px 2px;
-  border-radius: 999px;
+  padding: 2px var(--space-sm) 2px;
+  border-radius: var(--r-pill);
   background: rgba(143, 179, 106, 0.2);
   border: 1px solid rgba(94, 127, 69, 0.28);
-  font-size: 11px;
+  font-size: var(--text-2xs);
   font-weight: 800;
   letter-spacing: 0.08em;
   line-height: 1.4;
-  color: #3f5a2c;
+  color: var(--moss-deep);
 }
 
 /* Founding residents the Terrakin team runs. "NPC" because people know the word from games. */
@@ -330,24 +404,24 @@ a {
   flex: none;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 2px 3px 2px 8px;
-  border-radius: 999px;
+  gap: var(--space-xs);
+  padding: 2px 3px 2px var(--space-sm);
+  border-radius: var(--r-pill);
   background: rgba(94, 127, 69, 0.13);
   border: 1px solid rgba(94, 127, 69, 0.34);
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 700;
   line-height: 1.4;
-  color: #3f5a2c;
+  color: var(--moss-deep);
   cursor: help;
 }
 
 .badge-npc {
-  padding: 0 5px;
-  border-radius: 999px;
+  padding: 0 var(--space-xs);
+  border-radius: var(--r-pill);
   background: var(--moss);
   color: var(--paper);
-  font-size: 9.5px;
+  font-size: var(--text-2xs);
   font-weight: 800;
   letter-spacing: 0.08em;
   line-height: 1.6;
@@ -390,11 +464,11 @@ a {
 .badge-flair {
   font-family: var(--font-body);
   flex: none;
-  padding: 2px 7px;
-  border-radius: 999px;
+  padding: 2px var(--space-sm);
+  border-radius: var(--r-pill);
   background: rgba(185, 138, 214, 0.18);
   border: 1px solid rgba(129, 82, 160, 0.32);
-  font-size: 11px;
+  font-size: var(--text-2xs);
   font-weight: 750;
   line-height: 1.4;
   color: #5f3a78;
@@ -405,7 +479,7 @@ a {
 .person-link {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-md);
   min-width: 0;
   min-height: 44px;
   color: var(--ink);
@@ -429,15 +503,15 @@ a {
 .state-card {
   display: grid;
   justify-items: center;
-  gap: 10px;
-  padding: 32px 22px 26px;
+  gap: var(--space-md);
+  padding: var(--space-3xl) var(--space-2xl) var(--space-2xl);
   text-align: center;
 }
 
 .state-title {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 26px;
+  font-size: var(--text-3xl);
   font-weight: 600;
   font-variation-settings:
     "opsz" 48,
@@ -449,8 +523,8 @@ a {
 
 .state-body {
   max-width: 34ch;
-  margin: 0 0 6px;
-  font-size: 16px;
+  margin: 0 0 var(--space-xs);
+  font-size: var(--text-lg);
   line-height: 1.5;
   color: var(--ink-soft);
 }
@@ -459,7 +533,7 @@ a {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 10px;
+  gap: var(--space-md);
 }
 
 .state-card .pill-button {
@@ -468,7 +542,7 @@ a {
 
 .note {
   position: relative;
-  padding: 20px 16px 16px;
+  padding: var(--space-xl) var(--space-lg) var(--space-lg);
   border-radius: var(--r-note);
   transform: rotate(-1.1deg);
 }
@@ -489,7 +563,7 @@ a {
   left: 50%;
   width: 66px;
   height: 20px;
-  margin-left: -33px;
+  translate: -50% 0;
   background: rgba(242, 184, 75, 0.38);
   border-left: 1px dashed rgba(255, 255, 255, 0.5);
   border-right: 1px dashed rgba(255, 255, 255, 0.5);
@@ -510,10 +584,10 @@ a {
 .note h2 {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin: 0 0 8px;
+  gap: var(--space-md);
+  margin: 0 0 var(--space-sm);
   font-family: var(--font-display);
-  font-size: 19px;
+  font-size: var(--text-xl);
   font-weight: 600;
   font-variation-settings:
     "opsz" 36,
@@ -526,24 +600,24 @@ a {
 
 .note p {
   margin: 0;
-  font-size: 14.5px;
+  font-size: var(--text-base);
   line-height: 1.5;
   color: var(--ink-soft);
 }
 
 .empty-note {
-  margin: 14px 4px 0;
-  padding: 24px 20px 20px;
+  margin: var(--space-lg) var(--space-2xs) 0;
+  padding: var(--space-2xl) var(--space-xl) var(--space-xl);
   transform: rotate(-0.6deg);
 }
 
 .empty-note h2 {
-  font-size: 21px;
+  font-size: var(--text-2xl);
 }
 
 .empty-note p {
-  font-size: 15.5px;
-  margin-bottom: 14px;
+  font-size: var(--text-lg);
+  margin-bottom: var(--space-lg);
 }
 
 .empty-note p:last-child {
@@ -555,7 +629,7 @@ a {
 .field-label {
   display: block;
   padding: 0;
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 650;
   color: var(--ink);
 }
@@ -563,12 +637,12 @@ a {
 .field-input {
   width: 100%;
   min-height: var(--tap);
-  padding: 0 16px;
+  padding: 0 var(--space-lg);
   border: 1.5px solid var(--paper-edge);
-  border-radius: 14px;
-  background: #fffdf8;
+  border-radius: var(--r-note);
+  background: var(--field);
   box-shadow: inset 0 1px 2px rgba(92, 60, 30, 0.08);
-  font-size: 17px; /* 16px or more stops iOS from zooming on focus. */
+  font-size: var(--text-input);
   color: var(--ink);
   transition:
     border-color 0.15s ease,
@@ -589,8 +663,8 @@ a {
 
 /* A form's error line (ui.ts errorLine). Takes no room until it has words. */
 .form-error {
-  margin: 8px 0 0;
-  font-size: 14px;
+  margin: var(--space-sm) 0 0;
+  font-size: var(--text-md);
   font-weight: 600;
   line-height: 1.4;
   color: var(--danger);
@@ -601,27 +675,27 @@ a {
 }
 
 .field-hint {
-  margin: 4px 0 0;
-  font-size: 13.5px;
+  margin: var(--space-2xs) 0 0;
+  font-size: var(--text-md);
   line-height: 1.45;
   color: var(--ink-soft);
 }
 
 .check-group {
   display: grid;
-  gap: 8px;
-  margin-top: 6px;
+  gap: var(--space-sm);
+  margin-top: var(--space-xs);
 }
 
 .check-row {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
+  gap: var(--space-md);
   min-height: 44px;
-  padding: 10px 12px;
+  padding: var(--space-md) var(--space-md);
   border: 1.5px solid var(--paper-edge);
-  border-radius: 14px;
-  background: #fffdf8;
+  border-radius: var(--r-note);
+  background: var(--field);
   cursor: pointer;
 }
 
@@ -644,12 +718,12 @@ a {
 }
 
 .check-label {
-  font-size: 15.5px;
+  font-size: var(--text-lg);
   font-weight: 650;
 }
 
 .check-hint {
-  font-size: 13.5px;
+  font-size: var(--text-md);
   line-height: 1.4;
   color: var(--ink-soft);
   overflow-wrap: anywhere;
@@ -672,7 +746,7 @@ dialog.fullscreen {
 }
 
 dialog.fullscreen::backdrop {
-  background: rgba(43, 38, 32, 0.45);
+  background: var(--scrim);
 }
 
 /* ---------- sheet (ui.ts sheet) ----------
@@ -697,7 +771,7 @@ dialog.sheet {
 }
 
 dialog.sheet::backdrop {
-  background: rgba(43, 38, 32, 0.45);
+  background: var(--scrim);
 }
 
 .sheet-card {
@@ -718,7 +792,7 @@ dialog.sheet::backdrop {
 
   .sheet-card {
     border-radius: var(--r-card);
-    padding-bottom: 24px;
+    padding-bottom: var(--space-2xl);
   }
 }
 
@@ -739,14 +813,14 @@ dialog.sheet::backdrop {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 8px;
+  gap: var(--space-md);
+  margin-bottom: var(--space-sm);
 }
 
 .sheet-title {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 24px;
+  font-size: var(--text-3xl);
   font-weight: 600;
   line-height: 1.15;
 }
@@ -756,7 +830,7 @@ dialog.sheet::backdrop {
   place-items: center;
   width: 44px;
   height: 44px;
-  margin-right: -10px;
+  margin-right: calc(var(--space-md) * -1);
   border: 1px solid var(--paper-edge);
   border-radius: 50%;
   background: var(--paper-fill);
@@ -764,8 +838,8 @@ dialog.sheet::backdrop {
 }
 
 .sheet-lede {
-  margin: 6px 0 0;
-  font-size: 15.5px;
+  margin: var(--space-xs) 0 0;
+  font-size: var(--text-lg);
   line-height: 1.5;
   color: var(--ink-soft);
   text-wrap: pretty;
@@ -773,17 +847,17 @@ dialog.sheet::backdrop {
 
 .sheet-body {
   display: grid;
-  gap: 10px;
+  gap: var(--space-md);
 }
 
 /* A button that reads like a link: small, underlined, no pill. `.quiet` for the soft ink color. */
 .text-button {
   justify-self: start;
   min-height: 44px;
-  padding: 0 4px;
+  padding: 0 var(--space-2xs);
   border: 0;
   background: none;
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 600;
   color: var(--clay-deep);
   text-decoration: underline;
@@ -815,21 +889,21 @@ dialog.sheet::backdrop {
   top: calc(100% + 6px);
   z-index: 20;
   min-width: 200px;
-  padding: 6px;
-  border-radius: 14px;
+  padding: var(--space-xs);
+  border-radius: var(--r-note);
 }
 
 .menu-item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-md);
   width: 100%;
   min-height: 44px;
-  padding: 0 12px;
+  padding: 0 var(--space-md);
   border: 0;
-  border-radius: 10px;
+  border-radius: var(--r-md);
   background: none;
-  font-size: 15px;
+  font-size: var(--text-base);
   font-weight: 600;
   color: var(--danger);
   text-align: left;
@@ -861,9 +935,9 @@ a.menu-item {
 
 .copy-line {
   display: grid;
-  gap: 10px;
-  padding: 12px;
-  border-radius: 12px;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  border-radius: var(--r-md);
   background: rgba(236, 220, 192, 0.35);
   border: 1px dashed var(--paper-edge);
 }
@@ -871,7 +945,7 @@ a.menu-item {
 /* One line of text with no hard breaks: it wraps on screen, and copying it gives one line. */
 .copy-text {
   margin: 0;
-  font-size: 15px;
+  font-size: var(--text-base);
   font-weight: 600;
   line-height: 1.5;
   color: var(--ink);
@@ -886,7 +960,7 @@ a.menu-item {
 
 .copy-caption {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -902,15 +976,15 @@ a.menu-item {
   z-index: 60;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-md);
   width: max-content;
   max-width: calc(100% - 32px);
   min-height: 48px;
-  padding: 6px 6px 6px 18px;
-  border-radius: 999px;
+  padding: var(--space-xs) var(--space-xs) var(--space-xs) var(--space-xl);
+  border-radius: var(--r-pill);
   background: #2f2922;
   color: var(--paper);
-  font-size: 15px;
+  font-size: var(--text-base);
   font-weight: 600;
   box-shadow: 0 14px 32px -12px rgba(40, 25, 10, 0.55);
   opacity: 0;
@@ -922,7 +996,7 @@ a.menu-item {
 }
 
 .site-toast:not(:has(a)) {
-  padding-right: 18px;
+  padding-right: var(--space-xl);
 }
 
 .site-toast.show {
@@ -935,8 +1009,8 @@ a.menu-item {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
-  padding: 0 14px;
-  border-radius: 999px;
+  padding: 0 var(--space-lg);
+  border-radius: var(--r-pill);
   background: rgba(255, 250, 240, 0.14);
   color: var(--sun);
   font-weight: 700;
@@ -953,4 +1027,47 @@ a.menu-item {
     /* biome-ignore lint/complexity/noImportantStyles: same. */
     transition-duration: 0.01ms !important;
   }
+}
+
+/*
+ * itemRow (ui.ts): a picture, a name with a line or two under it, and an amount or a button.
+ * Framed on the page; `.plain` inside a sheet or card that is already a frame.
+ */
+.item-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  min-height: var(--tap);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--paper-edge);
+  border-radius: var(--r-note);
+  background: var(--paper);
+}
+
+.item-row.plain {
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.item-row-body {
+  flex: 1;
+  display: grid;
+  min-width: 0;
+}
+
+.item-row-name {
+  font-weight: 650;
+}
+
+.item-row-line {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow-wrap: anywhere;
+  color: var(--ink-soft);
+  font-size: var(--text-md);
+  font-variant-numeric: tabular-nums;
 }

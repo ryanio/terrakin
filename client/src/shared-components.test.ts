@@ -77,6 +77,7 @@ const HAND_BUILT: { pattern: RegExp; use: string; home?: string }[] = [
   { pattern: /`\/[rp]\/\$\{/, use: "profilePath, postPath, or plot3dPath (paths.ts)" },
   { pattern: /class: "sheet[ "]|class: "sheet-(card|head|title|close)"/, use: "sheet (ui.ts)" },
   { pattern: /["'`]item-art\b|CROP_COLORS/, use: "itemArt or CROP_HEX (item-art.ts)" },
+  { pattern: /class: "[^"]*-(row|line|good|order)-body\b/, use: "itemRow and itemRows (ui.ts)" },
   {
     pattern: /history\.state as \{ overlay/,
     use: "the router, which closes an open overlay as it navigates (leaveOverlay in ui.ts)",
@@ -161,6 +162,29 @@ function cssRules(css: string): { top: string[]; nested: string[] } {
   return { top, nested };
 }
 
+/** A stylesheet with its @media, @supports and @keyframes blocks taken out. */
+function topLevel(text: string): string {
+  let out = "";
+  let depth = 0;
+  let inAt = 0;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === "@" && depth === 0) inAt = 1;
+    // A statement like @import ends at its semicolon, not a block.
+    if (ch === ";" && depth === 0) inAt = 0;
+    if (ch === "{") depth++;
+    if (!inAt) out += ch;
+    if (ch === "}") {
+      depth--;
+      if (depth === 0 && inAt) {
+        inAt = 0;
+        out += "}";
+      }
+    }
+  }
+  return out;
+}
+
 /** Each selector of a list on its own: ".a, .b" is ".a" and ".b". */
 const selectors = (lists: string[]) => lists.flatMap((l) => l.split(",").map((x) => x.trim()));
 
@@ -198,6 +222,82 @@ describe("one definition per rule", () => {
     );
     expect(tokens.size).toBeGreaterThan(10);
     expect(spelled).toEqual([]);
+  });
+
+  it("spacing, type and corners come from the token scales", () => {
+    // 4px and up in a gap, padding, margin, font-size or radius is a token. Under 4px is a
+    // hairline or a nudge. A calc() is geometry tied to a fixed size, and a clamp() font-size is a
+    // fluid headline; both say what they measure, so they're left alone.
+    const scaled =
+      /^\s*(gap|row-gap|column-gap|padding[\w-]*|margin[\w-]*|font-size|border[\w-]*radius)\s*:\s*(.+?);/;
+    const off = [
+      "ui/src/base.css",
+      "client/src/style.css",
+      "admin/src/style.css",
+      "client/src/docs/docs.css",
+    ].flatMap((path) =>
+      read(path)
+        .split("\n")
+        .flatMap((line, i) => {
+          const m = line.match(scaled);
+          if (!m?.[2] || /calc\(|clamp\(/.test(m[2])) return [];
+          const raw = [...m[2].matchAll(/(\d+(?:\.\d+)?)(px|rem)\b/g)].filter(
+            ([, n, unit]) => unit === "rem" || Number(n) >= 4,
+          );
+          return raw.length ? [`${path}:${i + 1} ${m[1]}: ${m[2]}`] : [];
+        }),
+    );
+    expect(off).toEqual([]);
+  });
+
+  it("app stylesheets use the layout primitives instead of restating them", () => {
+    // A rule made only of what .stack, .cluster and .plain-list already say is a copy of them:
+    // put the primitive in the view's class list instead (base.css lists them).
+    const primitive = new Set([
+      "display: grid",
+      "gap: var(--space-md)",
+      "gap: var(--space-sm)",
+      "gap: var(--gap-page)",
+      "align-content: start",
+      "min-width: 0",
+      "justify-items: start",
+      "margin: 0",
+      "padding: 0",
+      "list-style: none",
+    ]);
+    const cluster = "display: flex; flex-wrap: wrap; gap: var(--space-sm)";
+    const copies = ["client/src/style.css", "admin/src/style.css"].flatMap((path) =>
+      [
+        ...topLevel(read(path).replace(/\/\*[\s\S]*?\*\//g, "")).matchAll(
+          /(?:^|\})\s*([^{}@]+?)\s*\{([^{}]*)\}/g,
+        ),
+      ].flatMap(([, selector, body]) => {
+        const decls = (body ?? "")
+          .split(";")
+          .map((d) => d.trim().replace(/\s+/g, " "))
+          .filter(Boolean);
+        const list = ["margin: 0", "padding: 0", "list-style: none"];
+        const restates =
+          decls.length > 0 &&
+          ((decls.includes("display: grid") && decls.every((d) => primitive.has(d))) ||
+            [...decls].sort().join("; ") === cluster ||
+            (decls.length === 3 && list.every((d) => decls.includes(d))));
+        return restates ? [`${path}: ${selector?.trim()} { ${decls.join("; ")} }`] : [];
+      }),
+    );
+    expect(copies).toEqual([]);
+  });
+
+  it("the scales the stylesheets use are all defined", () => {
+    const defined = new Set(
+      [...read("ui/src/tokens.css").matchAll(/(--[\w-]+):/g)].map((m) => m[1]),
+    );
+    const used = ["ui/src/base.css", "client/src/style.css", "admin/src/style.css"].flatMap(
+      (path) =>
+        [...read(path).matchAll(/var\((--(?:space|text|r|gap)-[\w-]+)\)/g)].map((m) => m[1]),
+    );
+    expect(used.length).toBeGreaterThan(500);
+    expect([...new Set(used)].filter((t) => !defined.has(t))).toEqual([]);
   });
 
   for (const path of ["client/src/style.css", "admin/src/style.css"]) {

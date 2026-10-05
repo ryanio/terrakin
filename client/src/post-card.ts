@@ -144,7 +144,7 @@ export function postCard(post: PostView, options: PostCardOptions = {}): HTMLEle
   const lead = options.variant === "spotlight" && !warned ? media : null;
   const body = h(
     "div",
-    { class: "post-body" },
+    { class: "stack post-body" },
     parent,
     options.variant === "quote"
       ? h("span", { class: "quote-mark" }, icon("quote", "icon quote-icon"))

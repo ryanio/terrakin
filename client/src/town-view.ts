@@ -70,7 +70,7 @@ function commonsOf(world: WorldSnapshot): Commons {
 
 export function townView(ctx: ViewContext): View {
   ctx.setTitle("Town Hall · Terrakin");
-  const el = h("div", { class: "column page town-page" });
+  const el = h("div", { class: "column stack cards page town-page" });
   let destroyed = false;
   let town: TownResponse | undefined;
   let commons: Commons | undefined;
@@ -78,17 +78,17 @@ export function townView(ctx: ViewContext): View {
   let busy = false;
 
   const hero = h("section", {
-    class: "paper card town-hero",
+    class: "stack start paper card town-hero",
     attrs: { "aria-labelledby": "town-title" },
   });
-  const openList = h("div", { class: "proposal-list" });
+  const openList = h("div", { class: "stack proposal-list" });
   const queuedTitle = h("h2", { class: "section-title", text: "Waiting in line" });
-  const queuedList = h("div", { class: "proposal-list" });
+  const queuedList = h("div", { class: "stack proposal-list" });
   const board = h("section", {
-    class: "paper card board",
+    class: "stack paper card board",
     attrs: { "aria-labelledby": "board-title" },
   });
-  const archiveList = h("div", { class: "archive-list" });
+  const archiveList = h("div", { class: "stack archive-list" });
   const more = moreButton("Show more results", async () => {
     if (!archiveNext) return;
     const r = await api.archive(archiveNext);
@@ -245,7 +245,7 @@ export function townView(ctx: ViewContext): View {
     const card = h(
       "article",
       {
-        class: `paper card proposal${compact ? " compact" : ""}`,
+        class: `stack paper card proposal${compact ? " compact" : ""}`,
         attrs: { "data-proposal": p.id },
       },
       head,
@@ -459,7 +459,7 @@ export function townView(ctx: ViewContext): View {
     paintCount();
     const buildPart = h(
       "div",
-      { class: "plan-part" },
+      { class: "stack tight plan-part" },
       h("p", { class: "field-label", text: "Draw it on the Commons" }),
       grid,
       count,
@@ -552,7 +552,7 @@ export function townView(ctx: ViewContext): View {
   function shopCard(shop: NonNullable<TownResponse["shop"]>): HTMLElement {
     return h(
       "section",
-      { class: "paper card town-shop", attrs: { "aria-label": "The town shop" } },
+      { class: "stack start paper card town-shop", attrs: { "aria-label": "The town shop" } },
       h("h2", { class: "card-title", text: "The town shop" }),
       h("p", {
         class: "town-lede",
@@ -573,7 +573,7 @@ export function townView(ctx: ViewContext): View {
     if (!town) return;
     let list = board.querySelector<HTMLElement>(".notice-list");
     if (withComposer || !list) {
-      list = h("ol", { class: "notice-list" });
+      list = h("ol", { class: "stack plain-list notice-list" });
       board.replaceChildren(savedToken() ? noticeComposer() : boardHint(), list);
     }
     const notices = town.board;

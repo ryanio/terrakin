@@ -13,6 +13,7 @@ import {
   avatarPlaceholder,
   type Person,
   residentPerson,
+  TEAM_RUN,
   TOWNSFOLK_ABOUT,
   townsfolkBadge,
 } from "@terrakin/ui/people";
@@ -304,7 +305,7 @@ export function skyCard() {
 // ---------- Town Hall ----------
 
 export function townCard() {
-  const body = h("div", { class: "town-pulse-body" });
+  const body = h("div", { class: "stack town-pulse-body" });
   const el = pulseShell(
     "pulse-town",
     "At the Town Hall",
@@ -456,7 +457,7 @@ export function townsfolkCard(item: Extract<WallItem, { kind: "townsfolk" }>, ca
   const names = new Set(item.posts.map((p) => p.author.name));
   const sub = h("p", { class: "roll-sub" });
   const paintNames = () => {
-    sub.textContent = [...names].slice(0, 4).join(", ");
+    sub.textContent = `${[...names].slice(0, 4).join(", ")}. ${TEAM_RUN}.`;
   };
   paintNames();
   const list = rows(item.posts, card, 2);

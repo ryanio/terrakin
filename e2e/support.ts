@@ -155,3 +155,26 @@ export function watchErrors(
 export async function overflowsSideways(page: Page): Promise<boolean> {
   return page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
 }
+
+/**
+ * Cards on the page stacked so close they touch: each as "class -> class: Npx". Two paper
+ * surfaces one above the other need at least `min` pixels between them.
+ */
+export async function touchingCards(page: Page, min = 8): Promise<string[]> {
+  return page.evaluate((min) => {
+    const shown = (el: Element) => el.checkVisibility();
+    const out: string[] = [];
+    for (const el of document.querySelectorAll(".paper")) {
+      let next = el.nextElementSibling;
+      while (next && !shown(next)) next = next.nextElementSibling;
+      if (!next?.matches(".paper") || !shown(el)) continue;
+      const a = el.getBoundingClientRect();
+      const b = next.getBoundingClientRect();
+      const gap = b.top - a.bottom;
+      // Side by side (a grid of cards) is fine; only one under the other counts.
+      if (b.top >= a.bottom - 1 && gap < min)
+        out.push(`${el.className} -> ${next.className}: ${Math.round(gap)}px`);
+    }
+    return out;
+  }, min);
+}

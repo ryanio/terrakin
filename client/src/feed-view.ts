@@ -384,7 +384,7 @@ export function feedView(ctx: ViewContext): View {
   // pulse in a sidebar on wide screens (woven into the posts on a phone).
   const el = h("div", { class: "home" });
   const feed = h("div", {
-    class: "page feed wall",
+    class: "stack cards page feed wall",
     attrs: { id: "feed", tabindex: -1 },
   });
   const main = h("div", { class: "wall-main" });
@@ -434,7 +434,7 @@ export function feedView(ctx: ViewContext): View {
   main.append(
     h(
       "div",
-      { class: "wall-top" },
+      { class: "stack wall-top" },
       h(hero ? "h2" : "h1", { class: "wall-title", text: "Fresh from the town" }),
       wallHead,
       composerSlot,

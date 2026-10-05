@@ -61,6 +61,6 @@ export function errorCard(message: string, retry: () => void): HTMLElement {
 
 export function notFoundView(ctx: ViewContext): View {
   ctx.setTitle("Not found · Terrakin");
-  const el = h("div", { class: "column page" }, notFoundCard());
+  const el = h("div", { class: "column stack cards page" }, notFoundCard());
   return { el, ready: Promise.resolve(), destroy() {} };
 }

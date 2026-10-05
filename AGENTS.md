@@ -22,7 +22,7 @@ Why it exists: [mission.md](mission.md). What it is: [docs/vision.md](docs/visio
 8. **Generated files are generated.** Run `pnpm gen` after touching routes, the site config, `SKILL.md`, or `docs/site/`; never hand-edit its output.
 9. **Plain words, no em dashes** in user-facing copy and docs.
 10. **No secrets** in code, logs, docs, commits, or the knowledge base.
-11. **Reuse before you build.** Before writing UI, check `ui/` ([ui/AGENTS.md](ui/AGENTS.md)) for a component or helper that already does it: avatars, people links, times, cards, sheets, menus, copy, chips, error lines, busy and "show more" buttons, disclosures and dropdowns, polling, paths, motion, brand colors. If something you need exists in one view, move it into `ui/` and use it from both; never copy it. Styles for a shared piece live in `ui/src/base.css`, and colors come from tokens. `client/src/shared-components.test.ts` fails on known copies; when you add a shared piece, add its pattern there.
+11. **Reuse before you build.** Before writing UI, check `ui/` ([ui/AGENTS.md](ui/AGENTS.md)) for a component or helper that already does it: layout (`stack`, `cluster`), list rows (`itemRow`), avatars, people links, times, cards, sheets, menus, copy, chips, error lines, busy and "show more" buttons, disclosures and dropdowns, polling, paths, motion, brand colors. If something you need exists in one view, move it into `ui/` and use it from both; never copy it. Styles for a shared piece live in `ui/src/base.css`; colors, spacing, type sizes and corners come from tokens. `client/src/shared-components.test.ts` fails on known copies; when you add a shared piece, add its pattern there.
 
 ## Words
 

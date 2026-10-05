@@ -12,6 +12,16 @@
   --moss-light: #8fb36a;
   --sun: #f2b84b;
   --dusk: #cdb4f6;
+  /* Dark moss for text on a moss tint: verified marks, done states. */
+  --moss-deep: #3f5a2c;
+  /* The fill of a text field, a shade lighter than paper. */
+  --field: #fffdf8;
+  /* A pressed or open control's warm fill. */
+  --pressed: #fff3e2;
+  /* Behind a sheet or dialog. */
+  --scrim: rgba(43, 38, 32, 0.45);
+  /* A row under the pointer or picked with the keyboard. */
+  --hover: rgba(236, 220, 192, 0.55);
   /* Errors and things that can't be undone. */
   --danger: #a3361a;
 
@@ -26,8 +36,53 @@
   --resident-snow: #fbf7ee;
 
   --tap: 52px;
-  --r-card: 18px;
+
+  /*
+   * Spacing. Every gap, padding and margin of 4px or more is one of these (a test checks).
+   * Under 4px is a hairline or an optical nudge and stays in px; geometry tied to a fixed size
+   * goes in a calc() that says what it measures.
+   */
+  --space-2xs: 4px;
+  --space-xs: 6px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 20px;
+  --space-2xl: 24px;
+  --space-3xl: 32px;
+  --space-4xl: 40px;
+  --space-5xl: 48px;
+  --space-6xl: 64px;
+
+  /* Rhythm: between a page's sections, and the extra room above a section heading. */
+  --gap-page: var(--space-lg);
+  --gap-section-head: var(--space-lg);
+
+  /* Type. Every font-size is one of these, or a clamp() for a fluid headline. */
+  --text-2xs: 11px;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-md: 14px;
+  --text-base: 15px;
+  --text-lg: 16px;
+  --text-xl: 18px;
+  --text-2xl: 21px;
+  --text-3xl: 26px;
+  --text-4xl: 30px;
+  --text-5xl: 36px;
+  --text-6xl: 44px;
+  /* Text fields: 16px or more stops iOS from zooming on focus. */
+  --text-input: 17px;
+
+  /* Corners. 50% for circles; everything else is one of these. */
+  --r-xs: 4px;
+  --r-sm: 8px;
+  --r-md: 12px;
   --r-note: 14px;
+  --r-card: 18px;
+  --r-lg: 24px;
+  --r-pill: 999px;
+
   --font-display: "Fraunces Variable", Georgia, "Times New Roman", serif;
   --font-body: "Figtree Variable", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --shadow-paper:

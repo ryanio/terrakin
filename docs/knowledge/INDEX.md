@@ -62,6 +62,7 @@ What we chose and why. Newest last.
 - [The client holds back actions the sim would refuse, using the sim's own checks](decisions/0052-the-client-holds-back-actions-the-sim-would-refuse-using-the.md) · 2026-10-05 · accepted · `client` `sim` `ux`
 - [The town shop sells decor and wear, buys a rotating few goods, and opens with a logged input](decisions/0052-the-town-shop-sells-decor-and-wear-buys-a-rotating-few-goods.md) · 2026-10-05 · accepted · `sim` `economy` `numbers` `protocol` `server` `client`
 - [Any garment can carry its own pattern and color, with bottoms and feet as new slots](decisions/0053-any-garment-can-carry-its-own-pattern-and-color-with-bottoms.md) · 2026-10-05 · accepted · `sim` `protocol` `client` `design` `agents`
+- [Sizes come from token scales and layout from primitives in the class list](decisions/0054-sizes-come-from-token-scales-and-layout-from-primitives-in-t.md) · 2026-10-05 · accepted · `client` `tooling` `process`
 
 ## Learnings
 

@@ -7,38 +7,36 @@ import type { GoodView, InventoryResponse } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { itemArt } from "@terrakin/ui/item-art";
 import { personLink } from "@terrakin/ui/people";
-import { stateCard } from "@terrakin/ui/ui";
+import { itemRow, itemRows, stateCard } from "@terrakin/ui/ui";
 import { api } from "./api";
 import { savedToken } from "./net";
 import { comeHomeButton } from "./purse-view";
 import { growthLine, stackCount, thingCount, thingName } from "./things";
 import { errorCard, type View, type ViewContext } from "./view";
 
-function goodItem(g: GoodView): HTMLElement {
-  return h(
-    "li",
-    { class: "things-good has-art", attrs: { "data-item": g.id } },
-    itemArt(g.kind),
-    h(
-      "span",
-      { class: "things-good-body" },
-      h("span", { class: "things-good-name", text: thingName(g.kind) }),
-      g.label ? h("span", { class: "things-good-label", text: `“${g.label}”` }) : null,
+function goodItem(g: GoodView): HTMLLIElement {
+  return itemRow({
+    className: "things-good",
+    attrs: { "data-item": g.id },
+    lead: itemArt(g.kind, { size: 32 }),
+    name: thingName(g.kind),
+    lines: [
+      g.label ? `“${g.label}”` : null,
       h(
         "span",
         { class: "things-good-maker" },
         h("span", { text: "Made by " }),
         g.maker ? personLink(g.maker) : h("span", { text: "a former resident" }),
       ),
-    ),
-  );
+    ],
+  });
 }
 
 export function inventoryView(ctx: ViewContext): View {
   ctx.setTitle("Your things · Terrakin");
   const el = h(
     "div",
-    { class: "column page things-page" },
+    { class: "column stack cards page things-page" },
     h("h1", { class: "page-title", text: "Your things" }),
   );
   let destroyed = false;
@@ -61,7 +59,7 @@ export function inventoryView(ctx: ViewContext): View {
     return { el, ready: Promise.resolve(), destroy() {} };
   }
 
-  const body = h("div", { class: "things-body" });
+  const body = h("div", { class: "stack cards things-body" });
   el.append(body);
 
   function paint(data: InventoryResponse) {
@@ -79,12 +77,15 @@ export function inventoryView(ctx: ViewContext): View {
     body.replaceChildren(
       h(
         "section",
-        { class: "paper card things-card", attrs: { "aria-labelledby": "things-garden-title" } },
+        {
+          class: "stack paper card things-card",
+          attrs: { "aria-labelledby": "things-garden-title" },
+        },
         h("h2", { class: "card-title", attrs: { id: "things-garden-title" }, text: "Your garden" }),
         inv.garden.length > 0
           ? h(
               "ul",
-              { class: "things-garden" },
+              { class: "stack tight things-garden" },
               ...inv.garden.map((c) =>
                 h(
                   "li",
@@ -117,14 +118,14 @@ export function inventoryView(ctx: ViewContext): View {
       ),
       h(
         "section",
-        { class: "things-section", attrs: { "aria-labelledby": "things-made-title" } },
+        { class: "stack things-section", attrs: { "aria-labelledby": "things-made-title" } },
         h("h2", {
           class: "section-title",
           attrs: { id: "things-made-title" },
           text: "Made things",
         }),
         inv.goods.length > 0
-          ? h("ul", { class: "things-goods" }, ...inv.goods.map(goodItem))
+          ? itemRows(inv.goods.map(goodItem), { className: "things-goods" })
           : h("p", {
               class: "purse-hint",
               text: "Nothing yet. Tap a kitchen or a workbench in the world to make something.",
@@ -132,7 +133,7 @@ export function inventoryView(ctx: ViewContext): View {
       ),
       h(
         "section",
-        { class: "things-section", attrs: { "aria-labelledby": "things-stacks-title" } },
+        { class: "stack things-section", attrs: { "aria-labelledby": "things-stacks-title" } },
         h("h2", {
           class: "section-title",
           attrs: { id: "things-stacks-title" },
@@ -141,7 +142,7 @@ export function inventoryView(ctx: ViewContext): View {
         inv.stacks.length > 0
           ? h(
               "ul",
-              { class: "things-stacks" },
+              { class: "cluster plain-list things-stacks" },
               ...inv.stacks.map((s) =>
                 h(
                   "li",

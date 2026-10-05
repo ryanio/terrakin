@@ -16,7 +16,7 @@ import { errorCard, type View, type ViewContext } from "./view";
 
 export function inviteView(code: string, ctx: ViewContext): View {
   ctx.setTitle("You're invited · Terrakin");
-  const el = h("div", { class: "column page invite-page" });
+  const el = h("div", { class: "column stack cards page invite-page" });
   let destroyed = false;
 
   const ready = load();

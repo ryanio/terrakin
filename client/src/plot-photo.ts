@@ -62,7 +62,7 @@ function openPhotoSheet(mediaId: string, url: string) {
   );
   const form = h(
     "form",
-    { class: "plot-photo-form" },
+    { class: "stack plot-photo-form" },
     isMediaUrl(url)
       ? h("img", {
           class: "plot-photo-img",

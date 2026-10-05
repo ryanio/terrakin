@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { watchErrors } from "./support";
+import { settler, signIn, touchingCards, watchErrors } from "./support";
 
 test("the homepage describes itself to machines and links its docs and trust pages", async ({
   page,
@@ -122,4 +122,26 @@ test("the changelog page's links, feed, and API all work at phone size", async (
   expect(body.entries.length).toBeGreaterThan(0);
   expect(body.entries.every((e) => e.kind === "security")).toBe(true);
   expect(body.latest).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+});
+
+test("cards on a resident's pages never touch at phone size", async ({ page, request }) => {
+  const errors = watchErrors(page);
+  const who = await settler(request, "Ledger Wren");
+  await signIn(page, who);
+  await page.setViewportSize({ width: 390, height: 844 });
+  for (const path of [
+    "/",
+    "/purse",
+    "/inventory",
+    "/shop",
+    "/town",
+    "/notifications",
+    "/letters",
+  ]) {
+    await page.goto(path);
+    await expect(page.locator(".page h1, .page .paper").first()).toBeVisible();
+    await page.waitForLoadState("networkidle");
+    expect(await touchingCards(page), path).toEqual([]);
+  }
+  expect(errors).toEqual([]);
 });

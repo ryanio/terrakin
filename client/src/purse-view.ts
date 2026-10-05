@@ -7,7 +7,7 @@ import { h, icon } from "@terrakin/ui/dom";
 import { plural } from "@terrakin/ui/format";
 import { profilePath } from "@terrakin/ui/paths";
 import { avatarEl } from "@terrakin/ui/people";
-import { stateCard, toast, whileBusy } from "@terrakin/ui/ui";
+import { itemRow, itemRows, stateCard, toast, whileBusy } from "@terrakin/ui/ui";
 import { actProblem, api } from "./api";
 import { savedToken } from "./net";
 import { balanceLine, coins, refreshPurse } from "./purse";
@@ -44,26 +44,21 @@ export function lineLabel(line: Pick<PurseLine, "reason" | "with">): string {
 export const signed = (n: number) =>
   n > 0 ? `+${n.toLocaleString("en-US")}` : `−${Math.abs(n).toLocaleString("en-US")}`;
 
-function lineItem(line: PurseLine): HTMLElement {
+function lineItem(line: PurseLine): HTMLLIElement {
   const other = line.with;
-  return h(
-    "li",
-    { class: `purse-line ${line.amount > 0 ? "in" : "out"}` },
-    other
+  return itemRow({
+    className: `purse-line ${line.amount > 0 ? "in" : "out"}`,
+    lead: other
       ? h(
           "a",
           { class: "purse-line-who", attrs: { href: profilePath(other.id) } },
           avatarEl(other, "sm"),
         )
       : h("span", { class: "purse-line-mark", attrs: { "aria-hidden": "true" } }, icon("coin")),
-    h(
-      "span",
-      { class: "purse-line-body" },
-      h("span", { class: "purse-line-label", text: lineLabel(line) }),
-      line.note ? h("span", { class: "purse-line-note", text: line.note }) : null,
-    ),
-    h("span", { class: "purse-line-amount", text: signed(line.amount) }),
-  );
+    name: lineLabel(line),
+    lines: [line.note ?? null],
+    trail: h("span", { class: "purse-line-amount", text: signed(line.amount) }),
+  });
 }
 
 /**
@@ -98,7 +93,7 @@ export function purseView(ctx: ViewContext): View {
   ctx.setTitle("Your purse · Terrakin");
   const el = h(
     "div",
-    { class: "column page purse-page" },
+    { class: "column stack cards page purse-page" },
     h("h1", { class: "page-title", text: "Your purse" }),
   );
   let destroyed = false;
@@ -121,7 +116,7 @@ export function purseView(ctx: ViewContext): View {
     return { el, ready: Promise.resolve(), destroy() {} };
   }
 
-  const body = h("div", { class: "purse-body" });
+  const body = h("div", { class: "stack cards purse-body" });
   el.append(body);
 
   function paint(data: PurseResponse) {
@@ -139,7 +134,10 @@ export function purseView(ctx: ViewContext): View {
     body.replaceChildren(
       h(
         "section",
-        { class: "paper card purse-card", attrs: { "aria-labelledby": "purse-balance" } },
+        {
+          class: "stack start paper card purse-card",
+          attrs: { "aria-labelledby": "purse-balance" },
+        },
         balanceLine(purse.balance, "purse-balance"),
         eligible
           ? h("p", {
@@ -175,7 +173,10 @@ export function purseView(ctx: ViewContext): View {
       ),
       h(
         "section",
-        { class: "paper card purse-how", attrs: { "aria-labelledby": "purse-how-title" } },
+        {
+          class: "stack start paper card purse-how",
+          attrs: { "aria-labelledby": "purse-how-title" },
+        },
         h("h2", {
           class: "card-title",
           attrs: { id: "purse-how-title" },
@@ -206,10 +207,10 @@ export function purseView(ctx: ViewContext): View {
       ),
       h(
         "section",
-        { class: "purse-ledger", attrs: { "aria-labelledby": "purse-ledger-title" } },
+        { class: "stack purse-ledger", attrs: { "aria-labelledby": "purse-ledger-title" } },
         h("h2", { class: "section-title", attrs: { id: "purse-ledger-title" }, text: "Recent" }),
         purse.ledger.length > 0
-          ? h("ol", { class: "purse-lines" }, ...purse.ledger.map(lineItem))
+          ? itemRows(purse.ledger.map(lineItem), { ordered: true, className: "purse-lines" })
           : h("p", { class: "purse-hint", text: "Nothing yet." }),
       ),
     );

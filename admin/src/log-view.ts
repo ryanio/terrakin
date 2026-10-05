@@ -8,11 +8,14 @@ import { actorLabel, logHeadline } from "./logic";
 import { button, type View } from "./view";
 
 export function logView(): View {
-  const list = h("ol", { class: "log-list", attrs: { "aria-label": "Moderation log" } });
+  const list = h("ol", {
+    class: "stack plain-list log-list",
+    attrs: { "aria-label": "Moderation log" },
+  });
   const more = h("div", { class: "log-more" });
   const el = h(
     "div",
-    { class: "log" },
+    { class: "stack log" },
     h(
       "section",
       { class: "paper card hero", attrs: { "aria-labelledby": "log-title" } },

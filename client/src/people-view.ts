@@ -51,7 +51,7 @@ export function tabCount(
 export function peopleView(id: string, tab: PeopleTab, ctx: ViewContext): View {
   ctx.setTitle(`${LABELS[tab]} · Terrakin`);
   let destroyed = false;
-  const el = h("div", { class: "column page people-page" });
+  const el = h("div", { class: "column stack cards page people-page" });
   const list = h("ul", { class: "people-list", attrs: { id: "people-list" } });
 
   function row(person: AuthorView): HTMLElement {

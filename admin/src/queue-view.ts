@@ -39,14 +39,14 @@ export function queueView(overview: AdminOverviewResponse): View {
   const count = h("p", { class: "queue-count", attrs: { role: "status" } });
   const list = h(
     "div",
-    { class: "queue-list" },
+    { class: "stack queue-list" },
     h("p", { class: "field-hint", attrs: { role: "status" }, text: "Loading the queue…" }),
   );
   /** Reasons and lengths typed so far, by item, so a reload of the list keeps them. */
   const drafts = new Map<string, { reason: string; days: string }>();
   const el = h(
     "div",
-    { class: "queue" },
+    { class: "stack queue" },
     h(
       "section",
       { class: "paper card hero", attrs: { "aria-labelledby": "queue-title" } },
@@ -212,7 +212,7 @@ export function queueView(overview: AdminOverviewResponse): View {
         );
       }
     }
-    const actionsRow = h("div", { class: "item-actions" }, ...buttons);
+    const actionsRow = h("div", { class: "cluster item-actions" }, ...buttons);
     // Arming one button puts the others back.
     actionsRow.addEventListener(
       "click",
@@ -229,7 +229,7 @@ export function queueView(overview: AdminOverviewResponse): View {
     const card = h(
       "article",
       {
-        class: `paper card item${item.needsHuman ? " urgent" : ""}`,
+        class: `stack paper card item${item.needsHuman ? " urgent" : ""}`,
         attrs: {
           "data-kind": item.kind,
           "data-id": item.id,
@@ -333,7 +333,7 @@ function mediaList(media: readonly MediaView[]): HTMLElement | null {
   if (ours.length === 0) return null;
   return h(
     "div",
-    { class: "item-media" },
+    { class: "cluster item-media" },
     ...ours.map((m, i) => {
       if (m.kind !== "image") {
         return outLink(m.url, `Open ${m.kind} ${i + 1}`);

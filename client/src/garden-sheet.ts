@@ -8,7 +8,7 @@
 import { type Action, type InventoryResponse, ITEM_CATALOG, ITEM_RULES } from "@terrakin/protocol";
 import { type BlockKind, type Crop, harvestFits, isReady } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
-import { closeOverlay, errorLine, openOverlay, sheet } from "@terrakin/ui/ui";
+import { closeOverlay, errorLine, itemRow, itemRows, openOverlay, sheet } from "@terrakin/ui/ui";
 import { api } from "./api";
 import {
   cropOfSeed,
@@ -39,22 +39,12 @@ const title = (block: BlockKind) =>
   block === "planter" ? "Planter" : block === "kitchen" ? "Kitchen" : "Workbench";
 
 /** A row with a name, a line under it, and one button (none on someone else's planter). */
-function row(name: string, line: string, button: HTMLButtonElement | null): HTMLElement {
-  return h(
-    "li",
-    { class: "workshop-row" },
-    h(
-      "span",
-      { class: "workshop-row-body" },
-      h("span", { class: "workshop-row-name", text: name }),
-      h("span", { class: "workshop-row-line", text: line }),
-    ),
-    button,
-  );
+function row(name: string, line: string, button: HTMLButtonElement | null): HTMLLIElement {
+  return itemRow({ className: "workshop-row", plain: true, name, lines: [line], trail: button });
 }
 
 export function openTileSheet(o: TileSheetOptions) {
-  const list = h("ul", { class: "workshop-list" });
+  const list = itemRows([], { className: "workshop-list" });
   const hint = h("p", { class: "sheet-lede workshop-hint", text: "Looking in your things…" });
   const things = h(
     "a",

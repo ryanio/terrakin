@@ -15,7 +15,7 @@ Mobile-first web client. It shows what the server says and never decides anythin
 - **A new route needs a case in `matchPage`** (`server/src/page-meta.ts`).
 - **The e2e suite is the contract.** Changing element ids, controls, or the join flow means updating `e2e/` in the same commit ([e2e/AGENTS.md](../e2e/AGENTS.md)).
 - **Keep it light.** Plain DOM and canvas. A UI framework needs a decision record.
-- **Build from the design system.** Tokens are on `:root` in `ui/src/tokens.css`; shared pieces (`.column`, `.paper`, `.card`, `.pill`, `.btn-primary`, `.avatar`, ...) are in `ui/src/base.css`, which `src/style.css` imports. The staff app (`admin/`) uses the same two files.
+- **Build from the design system.** Tokens are on `:root` in `ui/src/tokens.css`, sizes come from its scales, and layout from the primitives (`stack`, `cluster`, `plain-list`) in the class list ([ui/AGENTS.md](../ui/AGENTS.md)); shared pieces (`.column`, `.paper`, `.card`, `.pill`, `.btn-primary`, `.avatar`, ...) are in `ui/src/base.css`, which `src/style.css` imports. The staff app (`admin/`) uses the same two files.
 - **Use the shared components.** Root rule 11. Avatars, a resident as a link (`personLink`), badges, times (`timeAgo`), state cards, empty notes, checkbox rows, sheets, and profile and post paths come from `ui/` ([ui/AGENTS.md](../ui/AGENTS.md)), with their styles in `base.css`. Also `actProblem` (`src/api.ts`) for action results and `colorChips`/`shapeChips` (`src/join-form.ts`). Don't build one by hand or restyle it here; `src/shared-components.test.ts` fails if you do, and on a selector defined twice in `src/style.css`.
 
 ## Where things are

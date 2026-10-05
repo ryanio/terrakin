@@ -85,7 +85,7 @@ const DEFAULT_CANONICAL = "https://terrakin.org/";
 
 export function profileView(target: { id: string } | { handle: string }, ctx: ViewContext): View {
   ctx.setTitle("Profile · Terrakin");
-  const el = h("div", { class: "column page profile-page" });
+  const el = h("div", { class: "column stack cards page profile-page" });
   let destroyed = false;
   const cleanups: (() => void)[] = [];
   let panel: OwnerPanel | undefined;
@@ -200,7 +200,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       "section",
       { class: "paper card their-ais", attrs: { "aria-labelledby": "their-ais-title" } },
       h("h2", { class: "owner-title", attrs: { id: "their-ais-title" }, text: "Their AIs" }),
-      h("ul", { class: "owner-agents" }, ...agents.map((a) => agentItem(a))),
+      h("ul", { class: "stack plain-list owner-agents" }, ...agents.map((a) => agentItem(a))),
     );
   }
 
@@ -829,7 +829,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
     // one even row, and whichever of their forms is open below it.
     return h(
       "section",
-      { class: "paper card together", attrs: { "aria-labelledby": "together-title" } },
+      { class: "stack paper card together", attrs: { "aria-labelledby": "together-title" } },
       h("p", { class: "eyebrow", attrs: { id: "together-title" }, text: `Say hi to ${r.name}` }),
       row,
       giftForm,
@@ -915,7 +915,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
     });
     const form = h(
       "form",
-      { class: "coin-form", attrs: { hidden: true, novalidate: true } },
+      { class: "stack tight coin-form", attrs: { hidden: true, novalidate: true } },
       h("label", { class: "field-label", attrs: { for: "coin-amount" }, text: "How many coins?" }),
       h("div", { class: "coin-row" }, amount, quick),
       h("label", { class: "field-label", attrs: { for: "coin-note" }, text: "Note (optional)" }),
@@ -1009,7 +1009,10 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
     );
     const form = h(
       "form",
-      { class: "thing-form", attrs: { id: "thing-form", hidden: true, novalidate: true } },
+      {
+        class: "stack tight thing-form",
+        attrs: { id: "thing-form", hidden: true, novalidate: true },
+      },
       h("label", { class: "field-label", attrs: { for: "thing-pick" }, text: "What to give" }),
       pick,
       countRow,
@@ -1140,7 +1143,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
   // ---------- visitors: join and follow ----------
 
   function joinAndFollow(r: ProfileView): HTMLElement {
-    const card = h("section", { class: "paper card join-follow" });
+    const card = h("section", { class: "stack paper card join-follow" });
     const open = h(
       "button",
       { class: "btn-primary join-follow-open", attrs: { type: "button" } },
@@ -1338,7 +1341,10 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
     });
     const form = h(
       "form",
-      { class: "paper card look", attrs: { novalidate: true, "aria-labelledby": "look-title" } },
+      {
+        class: "stack paper card look",
+        attrs: { novalidate: true, "aria-labelledby": "look-title" },
+      },
       h(
         "div",
         { class: "look-head" },

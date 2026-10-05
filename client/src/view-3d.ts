@@ -28,7 +28,7 @@ export function view3d(route: Route3d, ctx: ViewContext): View {
         el.replaceChildren(
           h(
             "div",
-            { class: "column page" },
+            { class: "column stack cards page" },
             errorCard("The 3D view didn't load. Check your connection and try again.", mount),
           ),
         );

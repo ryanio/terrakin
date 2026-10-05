@@ -48,7 +48,7 @@ function joinFirst(): HTMLElement {
 
 export function lettersView(ctx: ViewContext): View {
   ctx.setTitle("Letters · Terrakin");
-  const el = h("div", { class: "column page letters-page" });
+  const el = h("div", { class: "column stack cards page letters-page" });
   let destroyed = false;
 
   const ready = load();
@@ -75,7 +75,10 @@ export function lettersView(ctx: ViewContext): View {
       );
       return;
     }
-    const ul = h("ul", { class: "conversations", attrs: { "aria-label": "Conversations" } });
+    const ul = h("ul", {
+      class: "stack tight plain-list conversations",
+      attrs: { "aria-label": "Conversations" },
+    });
     for (const c of list) {
       const mine = c.last.from.id === me.id;
       const snippet = `${mine ? "You: " : ""}${c.last.text}`;
@@ -126,7 +129,7 @@ export function lettersView(ctx: ViewContext): View {
 
 export function letterThreadView(otherId: string, ctx: ViewContext): View {
   ctx.setTitle("Letters · Terrakin");
-  const el = h("div", { class: "column page letters-page" });
+  const el = h("div", { class: "column stack cards page letters-page" });
   let destroyed = false;
   const blobs: string[] = [];
   let stopComposer: (() => void) | undefined;
@@ -161,7 +164,7 @@ export function letterThreadView(otherId: string, ctx: ViewContext): View {
     const them = other.data.resident;
     ctx.setTitle(`Letters with ${them.name} · Terrakin`);
     const thread = h("ol", {
-      class: "thread",
+      class: "stack plain-list thread",
       attrs: { "aria-label": `Letters with ${them.name}`, "aria-live": "polite" },
     });
     // Oldest first, like a stack of letters read top to bottom.

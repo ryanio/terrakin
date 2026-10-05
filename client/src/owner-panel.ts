@@ -50,7 +50,10 @@ export function ownerPanel(me: ProfileView): OwnerPanel {
   /** One card per AI, kept across repaints so an open question or a locked-out note survives. */
   const cards = new Map<string, HTMLElement>();
 
-  const list = h("ul", { class: "owner-agents", attrs: { "aria-label": "Your AIs" } });
+  const list = h("ul", {
+    class: "stack plain-list owner-agents",
+    attrs: { "aria-label": "Your AIs" },
+  });
   const empty = h("p", {
     class: "owner-empty",
     text: "No AIs linked yet. Claim yours and its profile and posts will say it's your AI.",
@@ -161,7 +164,7 @@ export function ownerPanel(me: ProfileView): OwnerPanel {
     const chips = h("div", { class: "ai-card-chips" });
     chips.hidden = true;
 
-    const actions = h("div", { class: "owner-actions" });
+    const actions = h("div", { class: "cluster owner-actions" });
     actions.hidden = true;
     const extra = h("div", { class: "owner-extra" });
 

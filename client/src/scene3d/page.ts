@@ -125,7 +125,7 @@ export function mount3d(
           el.replaceChildren(
             h(
               "div",
-              { class: "column page" },
+              { class: "column stack cards page" },
               notFoundCard(
                 "We couldn't find that resident",
                 "They may have moved out, or the link has a typo.",
@@ -161,7 +161,7 @@ export function mount3d(
       el.replaceChildren(
         h(
           "div",
-          { class: "column page" },
+          { class: "column stack cards page" },
           errorCard("The 3D view couldn't be set up on this device or connection.", retry),
         ),
       );
@@ -253,7 +253,7 @@ function fontsReady(): Promise<unknown> {
 function noPlot(name: string, id: string, yours: boolean): HTMLElement {
   return h(
     "div",
-    { class: "column page" },
+    { class: "column stack cards page" },
     yours
       ? stateCard({
           eyebrow: "Visit in 3D",

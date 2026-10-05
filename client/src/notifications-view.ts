@@ -104,7 +104,7 @@ export function notificationsView(ctx: ViewContext): View {
   ctx.setTitle("Notifications · Terrakin");
   const el = h(
     "div",
-    { class: "column page notifications-page" },
+    { class: "column stack cards page notifications-page" },
     h("h1", { class: "page-title", text: "Notifications" }),
   );
   let destroyed = false;
@@ -127,7 +127,10 @@ export function notificationsView(ctx: ViewContext): View {
     return { el, ready: Promise.resolve(), destroy() {} };
   }
 
-  const list = h("ol", { class: "notifs", attrs: { "aria-label": "Notifications" } });
+  const list = h("ol", {
+    class: "stack plain-list notifs",
+    attrs: { "aria-label": "Notifications" },
+  });
   const more = moreButton("Show more", async () => {
     if (!next) return;
     const r = await api.notifications({ before: next });

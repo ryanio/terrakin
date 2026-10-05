@@ -109,6 +109,59 @@ export function errorLine(id?: string): HTMLParagraphElement {
   return h("p", { class: "form-error", attrs: { id, role: "alert" } });
 }
 
+// ---------- item rows ----------
+
+export interface ItemRowOptions {
+  /** A picture or mark before the text, about 32px: `itemArt`, an avatar, a coin. */
+  lead?: Node | null;
+  name: string;
+  /** Lines under the name in the soft color, each held to two lines. */
+  lines?: readonly (string | Node | null)[];
+  /** One thing after the text: an amount or a button. */
+  trail?: Node | null;
+  /** No frame of its own, for rows inside a sheet or card. */
+  plain?: boolean;
+  /** Added to `item-row`, so a view can still find and color its rows. */
+  className?: string;
+  attrs?: Record<string, string>;
+}
+
+/**
+ * One line in a list of things: a picture, a name with a line or two under it, and an amount or a
+ * button at the end. The purse's ledger, your things, the shop's buy orders and a workshop's
+ * choices are all these. Put them in `itemRows`.
+ */
+export function itemRow(o: ItemRowOptions): HTMLLIElement {
+  return h(
+    "li",
+    {
+      class: ["item-row", o.plain ? "plain" : "", o.className].filter(Boolean).join(" "),
+      attrs: o.attrs ?? {},
+    },
+    o.lead ?? null,
+    h(
+      "span",
+      { class: "item-row-body" },
+      h("span", { class: "item-row-name", text: o.name }),
+      ...(o.lines ?? []).map((line) =>
+        line === null ? null : h("span", { class: "item-row-line" }, line),
+      ),
+    ),
+    o.trail ?? null,
+  );
+}
+
+/** The list `itemRow`s go in. `ordered` for a list whose order means something, like a ledger. */
+export function itemRows(
+  rows: readonly HTMLLIElement[],
+  o: { ordered?: boolean; className?: string } = {},
+): HTMLOListElement | HTMLUListElement {
+  const className = ["stack tight plain-list item-rows", o.className].filter(Boolean).join(" ");
+  return o.ordered
+    ? h("ol", { class: className }, ...rows)
+    : h("ul", { class: className }, ...rows);
+}
+
 // ---------- chips ----------
 
 /**

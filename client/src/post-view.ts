@@ -11,7 +11,7 @@ import { errorCard, notFoundCard, type View, type ViewContext } from "./view";
 
 export function postView(id: string, ctx: ViewContext): View {
   ctx.setTitle("Post · Terrakin");
-  const el = h("div", { class: "column page post-page" });
+  const el = h("div", { class: "column stack cards page post-page" });
   let destroyed = false;
   let writer: Composer | undefined;
 

@@ -12,7 +12,7 @@ import type {
 import { h, icon } from "@terrakin/ui/dom";
 import { itemArt } from "@terrakin/ui/item-art";
 import { personLink } from "@terrakin/ui/people";
-import { stateCard, toast, whileBusy } from "@terrakin/ui/ui";
+import { itemRow, itemRows, stateCard, toast, whileBusy } from "@terrakin/ui/ui";
 import { actProblem, api } from "./api";
 import { savedToken } from "./net";
 import { balanceLine, coins, refreshPurse } from "./purse";
@@ -61,10 +61,10 @@ function heldOf(inv: InventoryResponse["inventory"], kind: string): number {
 
 export function shopView(ctx: ViewContext): View {
   ctx.setTitle("The town shop · Terrakin");
-  const body = h("div", { class: "shop-body" });
+  const body = h("div", { class: "stack cards shop-body" });
   const el = h(
     "div",
-    { class: "column page shop-page" },
+    { class: "column stack cards page shop-page" },
     h("h1", { class: "page-title", text: "The town shop" }),
     body,
   );
@@ -140,18 +140,14 @@ export function shopView(ctx: ViewContext): View {
         : order.left === 0
           ? "sold out for you today"
           : `${order.left} more today${held > 0 ? `, you have ${held}` : ""}`;
-    return h(
-      "li",
-      { class: "shop-order", attrs: { "data-kind": order.kind } },
-      itemArt(order.kind, { size: 32 }),
-      h(
-        "span",
-        { class: "shop-order-body" },
-        h("span", { class: "shop-order-name", text: order.name }),
-        h("span", { class: "shop-order-meta", text: `${coins(order.price)} each, ${left}` }),
-      ),
-      signedIn ? sell : null,
-    );
+    return itemRow({
+      className: "shop-order",
+      attrs: { "data-kind": order.kind },
+      lead: itemArt(order.kind, { size: 32 }),
+      name: order.name,
+      lines: [`${coins(order.price)} each, ${left}`],
+      trail: signedIn ? sell : null,
+    });
   }
 
   function paint(data: ShopResponse, inv: InventoryResponse | null) {
@@ -165,7 +161,7 @@ export function shopView(ctx: ViewContext): View {
     body.replaceChildren(
       h(
         "section",
-        { class: "paper card shop-card", attrs: { "aria-label": "The shop and your purse" } },
+        { class: "stack paper card shop-card", attrs: { "aria-label": "The shop and your purse" } },
         shop.keeper
           ? h(
               "p",
@@ -190,13 +186,16 @@ export function shopView(ctx: ViewContext): View {
       ),
       h(
         "section",
-        { class: "shop-section", attrs: { "aria-labelledby": "shop-buying-title" } },
+        { class: "stack shop-section", attrs: { "aria-labelledby": "shop-buying-title" } },
         h("h2", {
           class: "section-title",
           attrs: { id: "shop-buying-title" },
           text: "The town buys today",
         }),
-        h("ul", { class: "shop-orders" }, ...shop.buying.map((o) => buyingRow(o, inv))),
+        itemRows(
+          shop.buying.map((o) => buyingRow(o, inv)),
+          { className: "shop-orders" },
+        ),
         h("p", {
           class: "purse-hint",
           text: "It buys different things each day, at midnight UTC. Make something at a kitchen or a workbench to sell.",
@@ -205,12 +204,12 @@ export function shopView(ctx: ViewContext): View {
       ...SHELVES.map(({ section, title, hint }) =>
         h(
           "section",
-          { class: "shop-section", attrs: { "aria-labelledby": `shop-${section}-title` } },
+          { class: "stack shop-section", attrs: { "aria-labelledby": `shop-${section}-title` } },
           h("h2", { class: "section-title", attrs: { id: `shop-${section}-title` }, text: title }),
           h("p", { class: "purse-hint", text: hint }),
           h(
             "ul",
-            { class: "shop-shelf" },
+            { class: "stack plain-list shop-shelf" },
             ...shop.items.filter((i) => i.section === section).map((i) => shelfItem(i, data, inv)),
           ),
         ),

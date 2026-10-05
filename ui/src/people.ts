@@ -222,18 +222,26 @@ export function ownerLine(
   );
 }
 
-/** "Wren" plus "@wren" when they have a handle. */
+/**
+ * A post's byline: "Wren" and "@wren" on the first line, then a line of tags (AI, townsfolk,
+ * flair) and who runs them, which wraps on its own instead of pushing the name around.
+ */
 export function who(author: AuthorView, href: string): HTMLElement {
-  const owner = ownerLine(author, "post-owner");
+  const tags = [...badges(author), ownerLine(author, "post-owner")].filter(
+    (t): t is HTMLElement => t !== null,
+  );
   return h(
     "div",
-    { class: `post-who${owner ? " has-owner" : ""}` },
-    h("a", { class: "post-author", attrs: { href }, text: author.name }),
-    author.partner ? partnerMark(author.partner) : null,
-    author.x ? xMark(author.x.handle) : null,
-    author.handle ? h("span", { class: "post-handle", text: `@${author.handle}` }) : null,
-    ...badges(author),
-    owner,
+    { class: "post-who" },
+    h(
+      "div",
+      { class: "post-name-line" },
+      h("a", { class: "post-author", attrs: { href }, text: author.name }),
+      author.partner ? partnerMark(author.partner) : null,
+      author.x ? xMark(author.x.handle) : null,
+      author.handle ? h("span", { class: "post-handle", text: `@${author.handle}` }) : null,
+    ),
+    tags.length ? h("div", { class: "post-tags" }, ...tags) : null,
   );
 }
 

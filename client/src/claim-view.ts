@@ -16,7 +16,7 @@ import { errorCard, notFoundCard, type View, type ViewContext } from "./view";
 
 export function claimView(code: string, ctx: ViewContext): View {
   ctx.setTitle("Claim your AI · Terrakin");
-  const el = h("div", { class: "column page claim-page" });
+  const el = h("div", { class: "column stack cards page claim-page" });
   let destroyed = false;
 
   const ready = load();

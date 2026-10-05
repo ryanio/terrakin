@@ -296,7 +296,7 @@ export function openLookEditor(owner: LookOwner, onSaved: (look: LookView) => vo
     }
   }
 
-  const patternRow = h("div", { class: "look-chips" });
+  const patternRow = h("div", { class: "cluster look-chips" });
   const patternButtons = new Map<Pattern, HTMLButtonElement>();
   for (const pattern of PATTERNS) {
     const b = patternChip(
@@ -333,7 +333,7 @@ export function openLookEditor(owner: LookOwner, onSaved: (look: LookView) => vo
   const worn = (slot: WearSlot) => draft.wear.find((w) => WEAR_INFO[w].slot === slot);
 
   const wearRows = WEAR_SLOTS.map((slot) => {
-    const row = h("div", { class: "look-chips", attrs: { "data-slot": slot } });
+    const row = h("div", { class: "cluster look-chips", attrs: { "data-slot": slot } });
     chipRows.set(slot, row);
     const holder = h("div", {
       class: "look-styler-slot",
@@ -499,7 +499,7 @@ export function openLookEditor(owner: LookOwner, onSaved: (look: LookView) => vo
     const patternThumbs: Thumb[] = [];
     const patternChips = new Map<GarmentPattern | "usual", HTMLElement>();
     const patterns = h("div", {
-      class: "look-chips",
+      class: "cluster look-chips",
       attrs: { role: "group", "aria-label": `Pattern of your ${name}` },
     });
     const usual = h("button", {

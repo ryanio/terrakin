@@ -192,7 +192,7 @@ export function joinForm(options: JoinFormOptions) {
 
   const form = h(
     "form",
-    { class: "onboard", attrs: { novalidate: true, id: `${id}-form` } },
+    { class: "stack onboard", attrs: { novalidate: true, id: `${id}-form` } },
     h(
       "div",
       { class: "onboard-name" },

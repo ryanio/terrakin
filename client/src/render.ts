@@ -1,7 +1,7 @@
 import {
-  biomeAt,
   type Biome,
   type BlockKind,
+  biomeAt,
   plotKey,
   type Resident,
   THEME_INFO,

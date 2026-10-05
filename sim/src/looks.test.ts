@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { apply } from "./apply";
+import { LOOKS_CONFIG, LOOKS_HASH, LOOKS_LOG } from "./fixtures/looks-log";
 import { hashWorld } from "./hash";
 import {
+  exactWearStyles,
   LOOK_KEYS,
+  lookOf,
   MAX_WEAR,
   PATTERNS,
   sortWear,
@@ -53,16 +56,134 @@ describe("looks catalog", () => {
     for (const slot of WEAR_SLOTS) {
       expect(WEAR_ITEMS.filter((w) => WEAR_INFO[w].slot === slot).length).toBeGreaterThan(1);
     }
-    expect(MAX_WEAR).toBe(3);
+    expect(MAX_WEAR).toBe(5);
   });
 
-  it("allows one of each slot, in any order, and sorts to hat, top, accessory", () => {
+  it("allows one of each slot, in any order, and sorts to hat, top, accessory, bottom, feet", () => {
     expect(wearProblem(["basket", "apron", "straw_hat"])).toBeNull();
     expect(sortWear(["basket", "apron", "straw_hat"])).toEqual(["straw_hat", "apron", "basket"]);
+    expect(sortWear(["socks", "skirt", "basket", "cardigan", "beret"])).toEqual([
+      "beret",
+      "cardigan",
+      "basket",
+      "skirt",
+      "socks",
+    ]);
     expect(wearProblem(["beret", "beanie"])).toMatch(/one hat/);
-    expect(wearProblem(["straw_hat", "apron", "basket", "bow"])).toMatch(/at most 3/);
+    expect(wearProblem(["socks", "boots"])).toMatch(/one feet/);
+    expect(wearProblem(["straw_hat", "apron", "basket", "skirt", "socks", "bow"])).toMatch(
+      /at most 5/,
+    );
+    // A dress covers the bottom half.
+    expect(wearProblem(["dress", "socks", "flower_crown"])).toBeNull();
+    expect(wearProblem(["dress", "skirt"])).toMatch(/covers the bottom half/);
     expect(wearProblem(["cape"])).toMatch(/Unknown/);
     expect(wearProblem(["toString"])).toMatch(/Unknown/);
+  });
+});
+
+describe("garment styles", () => {
+  it("replay the looks log to its pinned hash, in catalog order", () => {
+    const state = replay(LOOKS_CONFIG, LOOKS_LOG);
+    expect(hashWorld(state)).toBe(LOOKS_HASH);
+    expect(state.residents.ada?.wear).toEqual(["straw_hat", "dress", "socks"]);
+    expect(state.residents.ada?.wearStyle).toEqual({
+      dress: { pattern: "citrus", color: "sun" },
+      socks: { color: "sky" },
+    });
+    expect(Object.keys(state.residents.ada?.wearStyle ?? {})).toEqual(["dress", "socks"]);
+    expect(state.residents.bob?.wearStyle).toEqual({ skirt: { color: "plum" } });
+  });
+
+  it("give one garment its own pattern and color, and keep the rest of the look", () => {
+    const state = joined();
+    const r = profile(state, {
+      theme: "lemon",
+      wear: ["dress", "socks"],
+      wearStyle: { dress: { pattern: "citrus", color: "sun" }, socks: { pattern: "stripes" } },
+    });
+    expect(r).toMatchObject({
+      ok: true,
+      events: [
+        {
+          type: "profile_changed",
+          wearStyle: { dress: { pattern: "citrus", color: "sun" }, socks: { pattern: "stripes" } },
+        },
+      ],
+    });
+    // One garment at a time: the socks change, the dress stays.
+    expect(profile(state, { wearStyle: { socks: { color: "rose" } } }).ok).toBe(true);
+    expect(state.residents.capri?.wearStyle).toEqual({
+      dress: { pattern: "citrus", color: "sun" },
+      socks: { color: "rose" },
+    });
+    // A style stays with its garment while it's off, so it comes back styled.
+    expect(profile(state, { wear: ["socks"] }).ok).toBe(true);
+    expect(state.residents.capri?.wearStyle?.dress).toEqual({ pattern: "citrus", color: "sun" });
+    // null on an item clears that one; null on the field clears them all.
+    expect(profile(state, { wearStyle: { socks: null } }).ok).toBe(true);
+    expect(Object.keys(state.residents.capri?.wearStyle ?? {})).toEqual(["dress"]);
+    expect(profile(state, { wearStyle: null }).ok).toBe(true);
+    expect(state.residents.capri && "wearStyle" in state.residents.capri).toBe(false);
+  });
+
+  it("refuses unknown garments, patterns, colors, and fields, changing nothing", () => {
+    const state = joined();
+    const before = hashWorld(state);
+    const bad = [
+      { cape: { pattern: "dots" } },
+      { dress: { pattern: "plaid" } },
+      { dress: { color: "teal" } },
+      { dress: { size: "large" } },
+      { dress: "citrus" },
+    ];
+    for (const wearStyle of bad) {
+      expect(code(profile(state, { wearStyle } as never))).toBe("invalid_profile");
+    }
+    expect(code(profile(state, { wearStyle: [] as never }))).toBe("invalid_profile");
+    expect(hashWorld(state)).toBe(before);
+  });
+
+  it("takes your own pattern only when you have one", () => {
+    const state = joined();
+    expect(code(profile(state, { wearStyle: { skirt: { pattern: "own" } } }))).toBe(
+      "invalid_profile",
+    );
+    const ok = profile(state, {
+      patternMedia: "m_00000000000000aa",
+      wearStyle: { skirt: { pattern: "own" } },
+    });
+    expect(ok.ok).toBe(true);
+    // Clearing the tile while a garment still uses it is refused, and changes nothing.
+    const before = hashWorld(state);
+    expect(code(profile(state, { patternMedia: null }))).toBe("invalid_profile");
+    expect(hashWorld(state)).toBe(before);
+    // Clearing both in one call works.
+    expect(profile(state, { patternMedia: null, wearStyle: { skirt: null } }).ok).toBe(true);
+  });
+
+  it("drop undefined fields and empty styles coming off the wire", () => {
+    expect(
+      exactWearStyles({
+        dress: { pattern: "citrus", color: undefined },
+        socks: null,
+        boots: undefined,
+      }),
+    ).toEqual({ dress: { pattern: "citrus" }, socks: null });
+    expect(
+      lookOf({ wearStyle: { dress: { pattern: undefined }, skirt: { color: "sky" } } }),
+    ).toEqual({
+      wearStyle: { skirt: { color: "sky" } },
+    });
+  });
+
+  it("refuses an empty style: clearing one is null", () => {
+    const state = joined();
+    profile(state, { wearStyle: { dress: { color: "sky" } } });
+    const before = hashWorld(state);
+    expect(code(profile(state, { wearStyle: { dress: {} } }))).toBe("invalid_profile");
+    expect(hashWorld(state)).toBe(before);
+    expect(state.residents.capri?.wearStyle).toEqual({ dress: { color: "sky" } });
   });
 });
 

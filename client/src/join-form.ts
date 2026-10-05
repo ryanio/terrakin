@@ -46,19 +46,27 @@ const SHAPE_LABELS: Record<ResidentShape, string> = {
   diamond: "Diamond",
 };
 
-/** The resident colors as chips: a dot in the color and its name. */
-export function colorChips(
-  first: ResidentColor,
-  onPick?: (c: ResidentColor) => void,
+/**
+ * The resident colors as chips: a dot in the color and its name. With `none`, a first chip that
+ * picks no color at all (a garment keeping its usual color, in the look editor).
+ */
+export function colorChips<N extends string = never>(
+  first: ResidentColor | N,
+  onPick?: (c: ResidentColor | N) => void,
   row?: HTMLElement,
+  none?: { value: N; label: string },
 ) {
+  const options: readonly (ResidentColor | N)[] = none
+    ? [none.value, ...RESIDENT_COLORS]
+    : RESIDENT_COLORS;
   const picker = chips(
-    RESIDENT_COLORS,
+    options,
     first,
     (c) => {
       const dot = h("span", { class: "swatch-dot", attrs: { "aria-hidden": "true" } });
-      dot.style.background = `var(--resident-${c})`;
-      return [dot, h("span", { class: "swatch-name", text: c })];
+      const blank = none !== undefined && c === none.value;
+      dot.style.background = blank ? "var(--paper-2)" : `var(--resident-${c})`;
+      return [dot, h("span", { class: "swatch-name", text: blank ? none.label : c })];
     },
     onPick,
     row,

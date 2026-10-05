@@ -18315,11 +18315,18 @@
           },
           "homeModel": {
             "type": "string"
+          },
+          "wearStyle": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyles"
+              }
+            ]
           }
         }
       },
       "LookWear": {
-        "maxItems": 3,
+        "maxItems": 5,
         "type": "array",
         "items": {
           "$ref": "#/components/schemas/WearItem"
@@ -18563,6 +18570,14 @@
             "allOf": [
               {
                 "$ref": "#/components/schemas/LookMediaId"
+              }
+            ]
+          },
+          "wearStyle": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyleChanges"
               }
             ]
           },
@@ -18841,6 +18856,13 @@
           },
           "homeModel": {
             "type": "string"
+          },
+          "wearStyle": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyles"
+              }
+            ]
           }
         },
         "required": [
@@ -19272,8 +19294,413 @@
           "bow",
           "top_hat",
           "raincoat",
-          "umbrella"
+          "umbrella",
+          "dress",
+          "skirt",
+          "trousers",
+          "shorts",
+          "socks",
+          "boots",
+          "sneakers"
         ]
+      },
+      "WearStyle": {
+        "type": "object",
+        "properties": {
+          "pattern": {
+            "type": "string",
+            "enum": [
+              "plain",
+              "dots",
+              "stripes",
+              "gingham",
+              "florals",
+              "citrus",
+              "stars",
+              "waves",
+              "hearts",
+              "leaves",
+              "own"
+            ]
+          },
+          "color": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ResidentColor"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "WearStyleChanges": {
+        "type": "object",
+        "properties": {
+          "straw_hat": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyle"
+              }
+            ]
+          },
+          "beret": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyle"
+              }
+            ]
+          },
+          "flower_crown": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyle"
+              }
+            ]
+          },
+          "beanie": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyle"
+              }
+            ]
+          },
+          "apron": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyle"
+              }
+            ]
+          },
+          "scarf": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyle"
+              }
+            ]
+          },
+          "cardigan": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyle"
+              }
+            ]
+          },
+          "overalls": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyle"
+              }
+            ]
+          },
+          "basket": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyle"
+              }
+            ]
+          },
+          "satchel": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyle"
+              }
+            ]
+          },
+          "glasses": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyle"
+              }
+            ]
+          },
+          "bow": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyle"
+              }
+            ]
+          },
+          "top_hat": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyle"
+              }
+            ]
+          },
+          "raincoat": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyle"
+              }
+            ]
+          },
+          "umbrella": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyle"
+              }
+            ]
+          },
+          "dress": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyle"
+              }
+            ]
+          },
+          "skirt": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyle"
+              }
+            ]
+          },
+          "trousers": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyle"
+              }
+            ]
+          },
+          "shorts": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyle"
+              }
+            ]
+          },
+          "socks": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyle"
+              }
+            ]
+          },
+          "boots": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyle"
+              }
+            ]
+          },
+          "sneakers": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyle"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "WearStyleView": {
+        "type": "object",
+        "properties": {
+          "pattern": {
+            "type": "string",
+            "enum": [
+              "plain",
+              "dots",
+              "stripes",
+              "gingham",
+              "florals",
+              "citrus",
+              "stars",
+              "waves",
+              "hearts",
+              "leaves",
+              "own"
+            ]
+          },
+          "color": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ResidentColor"
+              }
+            ]
+          }
+        }
+      },
+      "WearStyles": {
+        "type": "object",
+        "properties": {
+          "straw_hat": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyleView"
+              }
+            ]
+          },
+          "beret": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyleView"
+              }
+            ]
+          },
+          "flower_crown": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyleView"
+              }
+            ]
+          },
+          "beanie": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyleView"
+              }
+            ]
+          },
+          "apron": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyleView"
+              }
+            ]
+          },
+          "scarf": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyleView"
+              }
+            ]
+          },
+          "cardigan": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyleView"
+              }
+            ]
+          },
+          "overalls": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyleView"
+              }
+            ]
+          },
+          "basket": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyleView"
+              }
+            ]
+          },
+          "satchel": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyleView"
+              }
+            ]
+          },
+          "glasses": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyleView"
+              }
+            ]
+          },
+          "bow": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyleView"
+              }
+            ]
+          },
+          "top_hat": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyleView"
+              }
+            ]
+          },
+          "raincoat": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyleView"
+              }
+            ]
+          },
+          "umbrella": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyleView"
+              }
+            ]
+          },
+          "dress": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyleView"
+              }
+            ]
+          },
+          "skirt": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyleView"
+              }
+            ]
+          },
+          "trousers": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyleView"
+              }
+            ]
+          },
+          "shorts": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyleView"
+              }
+            ]
+          },
+          "socks": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyleView"
+              }
+            ]
+          },
+          "boots": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyleView"
+              }
+            ]
+          },
+          "sneakers": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyleView"
+              }
+            ]
+          }
+        }
       },
       "WithdrawAction": {
         "type": "object",
@@ -19386,6 +19813,13 @@
               },
               "homeModel": {
                 "type": "string"
+              },
+              "wearStyle": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/WearStyles"
+                  }
+                ]
               }
             },
             "required": [
@@ -20058,7 +20492,14 @@
                   "bow",
                   "top_hat",
                   "raincoat",
-                  "umbrella"
+                  "umbrella",
+                  "dress",
+                  "skirt",
+                  "trousers",
+                  "shorts",
+                  "socks",
+                  "boots",
+                  "sneakers"
                 ]
               }
             },
@@ -23973,7 +24414,9 @@
             "enum": [
               "hat",
               "top",
-              "accessory"
+              "accessory",
+              "bottom",
+              "feet"
             ]
           }
         },

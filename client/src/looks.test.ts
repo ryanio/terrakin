@@ -1,5 +1,16 @@
-import { PATTERNS, THEME_INFO, THEMES, type ThemePalette } from "@terrakin/sim";
+import type { LookView } from "@terrakin/protocol";
 import {
+  PATTERNS,
+  RESIDENT_COLORS,
+  THEME_INFO,
+  THEMES,
+  type ThemePalette,
+  type WearItem,
+  type WearStyles,
+} from "@terrakin/sim";
+import {
+  COLOR_WORDS,
+  garmentName,
   lookPalette,
   type MakeCanvas,
   mediaUrlOf,
@@ -12,7 +23,7 @@ import {
   waveY,
 } from "@terrakin/ui/looks";
 import { describe, expect, it } from "vitest";
-import { lookChanges, mediaProblem } from "./look-editor";
+import { lookChanges, mediaProblem, wearWith, withoutOwnPattern } from "./look-editor";
 import { Mirror } from "./mirror";
 
 describe("mirror looks", () => {
@@ -58,6 +69,53 @@ describe("mirror looks", () => {
     expect(after?.pattern).toBe("citrus");
     expect(after && "theme" in after).toBe(false);
     expect(after && "wear" in after).toBe(false);
+  });
+
+  it("keeps garment styles from the snapshot and from profile_changed", () => {
+    const mirror = new Mirror({
+      v: 1,
+      seq: 1,
+      hash: "x",
+      config: { width: 8, height: 8, plotSize: 4, maxPlotsPerResident: 1, reach: 2 },
+      commons: { px: 1, py: 1 },
+      residents: [
+        {
+          id: "a",
+          name: "Capri",
+          kind: "human",
+          color: "sun",
+          shape: "round",
+          note: "",
+          x: 1,
+          y: 1,
+          online: true,
+          hearth: null,
+          wear: ["dress"],
+          wearStyle: { dress: { pattern: "citrus", color: "sun" } },
+        },
+      ],
+      plots: [],
+      blocks: [],
+    });
+    expect(mirror.residents.get("a")?.wearStyle).toEqual({
+      dress: { pattern: "citrus", color: "sun" },
+    });
+    mirror.apply({
+      seq: 2,
+      event: {
+        type: "profile_changed",
+        residentId: "a",
+        color: "sun",
+        shape: "round",
+        note: "",
+        wear: ["dress", "socks"],
+        wearStyle: { dress: { pattern: "citrus", color: "sun" }, socks: { pattern: "stripes" } },
+      },
+    });
+    expect(mirror.residents.get("a")?.wearStyle).toEqual({
+      dress: { pattern: "citrus", color: "sun" },
+      socks: { pattern: "stripes" },
+    });
   });
 });
 
@@ -205,6 +263,7 @@ describe("look media", () => {
       patternMedia: null,
       homeArt: null,
       homeModel: null,
+      wearStyle: {},
     } as const;
     expect(
       lookChanges({ ...before, wear: [...before.wear] }, { ...same, wear: [...same.wear] }),
@@ -215,5 +274,70 @@ describe("look media", () => {
         { ...same, theme: null, wear: [], pattern: "citrus" },
       ),
     ).toEqual({ theme: null, wear: [], pattern: "citrus" });
+  });
+
+  it("sends garment styles item by item: the new style for a change, null for a cleared one", () => {
+    const before: LookView = {
+      wear: ["dress"],
+      wearStyle: { dress: { pattern: "citrus", color: "sun" }, socks: { pattern: "stripes" } },
+    };
+    const draft = (wear: WearItem[], wearStyle: WearStyles) => ({
+      theme: null,
+      pattern: null,
+      wear,
+      patternMedia: null,
+      homeArt: null,
+      homeModel: null,
+      wearStyle,
+    });
+    const kept: WearStyles = {
+      dress: { pattern: "citrus", color: "sun" },
+      socks: { pattern: "stripes" },
+    };
+    expect(lookChanges(before, draft(["dress"], kept))).toEqual({});
+    expect(
+      lookChanges(
+        before,
+        draft(["dress", "socks"], { dress: { pattern: "citrus", color: "sky" } }),
+      ),
+    ).toEqual({
+      wear: ["dress", "socks"],
+      wearStyle: { dress: { pattern: "citrus", color: "sky" }, socks: null },
+    });
+    // A style with nothing left in it clears the garment's style.
+    expect(lookChanges(before, draft(["dress"], { socks: {} }))).toEqual({
+      wearStyle: { dress: null, socks: null },
+    });
+  });
+
+  it("takes the bottom off for a dress, and the dress off for a bottom", () => {
+    expect(wearWith(["straw_hat", "skirt"], "top", "dress")).toEqual(["straw_hat", "dress"]);
+    expect(wearWith(["dress", "socks"], "bottom", "trousers")).toEqual(["socks", "trousers"]);
+    expect(wearWith(["apron", "skirt"], "top", "cardigan")).toEqual(["skirt", "cardigan"]);
+    expect(wearWith(["dress", "boots"], "feet", null)).toEqual(["dress"]);
+  });
+
+  it("names a styled garment in plain words from the catalogs", () => {
+    expect(garmentName("dress", { pattern: "citrus", color: "sun" })).toBe(
+      "Citrus dress in sun yellow",
+    );
+    expect(garmentName("socks", { pattern: "stripes" })).toBe("Striped socks");
+    expect(garmentName("straw_hat", { color: "plum" })).toBe("Straw hat in plum purple");
+    expect(garmentName("beret", { pattern: "plain", color: "coal" })).toBe("Beret in coal black");
+    expect(garmentName("skirt", { pattern: "own" })).toBe("Own pattern skirt");
+    expect(garmentName("boots")).toBe("Boots");
+    for (const color of RESIDENT_COLORS) expect(COLOR_WORDS[color]).toMatch(/^[a-z ]+$/);
+  });
+});
+
+describe("removing your own pattern", () => {
+  it("takes it off every garment, keeping colors and other patterns", () => {
+    expect(
+      withoutOwnPattern({
+        skirt: { pattern: "own", color: "plum" },
+        socks: { pattern: "own" },
+        dress: { pattern: "citrus" },
+      }),
+    ).toEqual({ skirt: { color: "plum" }, dress: { pattern: "citrus" } });
   });
 });

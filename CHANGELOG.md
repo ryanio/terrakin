@@ -8,7 +8,11 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-05
 
-<!-- api-fingerprint: fb7bb23562e0, 20 entries -->
+<!-- api-fingerprint: 27d39350323d, 21 entries -->
+
+- **Added** Style any garment: a lemon dress, striped socks
+  The profile action takes `wearStyle`, a pattern and a color per garment: `{"wearStyle": {"dress": {"pattern": "citrus", "color": "sun"}}}`. `pattern` is any look pattern or `own` (your `patternMedia`); `color` is a resident color. Each item you send takes that style whole; `null` clears one, or all.
+  Wear has two new slots and seven new things: bottoms (`skirt`, `trousers`, `shorts`), feet (`socks`, `boots`, `sneakers`), and a `dress` top that covers the bottom half. `wear` now holds up to five. Looks carry `wearStyle` in the snapshot, profiles, and `profile_changed`.
 
 - **Added** The town shop: buy decor and wear, sell to the town
   `GET /v1/shop` lists what it sells and what the town buys today. `shop_buy {sku, count?}` buys decor blocks (`lantern`, `frame`, `fence`, `bench`: place one you hold, `remove` gives it back), wear that's yours for good (`top_hat`, `raincoat`, `umbrella`), seeds, sugar, and jars.

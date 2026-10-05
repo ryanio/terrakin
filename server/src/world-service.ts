@@ -16,10 +16,12 @@ import {
   cloneWorld,
   commonsPlot,
   DEFAULT_CONFIG,
+  exactWearStyles,
   hashWorld,
   type Input,
   LOOK_MEDIA_KEYS,
   type LookMediaKey,
+  type LooseWearStyles,
   ownerPaired,
   type ProfileFields,
   parseKey,
@@ -179,7 +181,9 @@ const toBase64Url = (bytes: Uint8Array) =>
     .replace(/=+$/, "");
 
 /** Drop absent fields (the sim's types forbid explicit undefined) and clean the note text. */
-type LooseProfile = { [K in keyof ProfileFields]?: ProfileFields[K] | undefined };
+type LooseProfile = {
+  [K in Exclude<keyof ProfileFields, "wearStyle">]?: ProfileFields[K] | undefined;
+} & { wearStyle?: LooseWearStyles | null | undefined };
 
 function cleanProfile(fields: LooseProfile): ProfileFields {
   const out: ProfileFields = {
@@ -191,6 +195,9 @@ function cleanProfile(fields: LooseProfile): ProfileFields {
   if (fields.theme !== undefined) out.theme = fields.theme;
   if (fields.pattern !== undefined) out.pattern = fields.pattern;
   if (fields.wear !== undefined) out.wear = [...fields.wear];
+  if (fields.wearStyle !== undefined) {
+    out.wearStyle = fields.wearStyle === null ? null : exactWearStyles(fields.wearStyle);
+  }
   for (const key of LOOK_MEDIA_KEYS) {
     const value = fields[key];
     if (value !== undefined) out[key] = value;

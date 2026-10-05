@@ -1,4 +1,4 @@
-import type { ResidentView, WorldEvent, WorldSnapshot } from "@terrakin/protocol";
+import type { LookView, ResidentView, WorldEvent, WorldSnapshot } from "@terrakin/protocol";
 import {
   type BlockKind,
   type Crop,
@@ -23,8 +23,9 @@ export function facingFrom(dx: number, dy: number): Direction | undefined {
 
 /** A resident from the wire, with unset look fields left out rather than undefined. */
 export function residentFrom(view: ResidentView): Resident {
-  const { theme, pattern, wear, patternMedia, homeArt, homeModel, ...rest } = view;
-  return { ...rest, ...lookOf({ theme, pattern, wear, patternMedia, homeArt, homeModel }) };
+  const { theme, pattern, wear, patternMedia, homeArt, homeModel, wearStyle, ...rest } = view;
+  const look = { theme, pattern, wear, patternMedia, homeArt, homeModel, wearStyle };
+  return { ...rest, ...lookOf(look) };
 }
 
 /**

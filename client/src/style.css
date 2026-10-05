@@ -7095,3 +7095,76 @@ a.profile-owner:hover .owner-name {
 .shop-sell {
   min-height: 44px;
 }
+
+/* Garment styles */
+
+.look-slot-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  margin-top: 6px;
+}
+
+.look-slot-head .look-sub {
+  margin: 0;
+}
+
+.look-style[hidden] {
+  display: none;
+}
+
+.look-style[aria-expanded="true"] {
+  border-color: var(--clay);
+  color: var(--clay-deep);
+}
+
+.look-chip.wear {
+  padding: 0 14px 0 6px;
+}
+
+.look-chip.locked {
+  color: var(--ink-soft);
+  text-decoration: none;
+  border-style: dashed;
+  background: var(--paper-2);
+}
+
+.look-chip.locked .look-chip-art {
+  opacity: 0.6;
+}
+
+.look-chip-price {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 13px;
+  color: var(--clay-deep);
+}
+
+.look-styler {
+  margin-top: 10px;
+  padding: 4px 14px 14px;
+  border: 1px solid var(--paper-edge);
+  border-radius: 18px;
+  background: var(--paper-2);
+}
+
+.look-styler-title {
+  margin: 10px 0 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.look-styler .swatch-row {
+  margin-bottom: 4px;
+}
+
+.look-styler-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}

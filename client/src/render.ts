@@ -101,7 +101,10 @@ function clothesPattern(
  * top-left sits relative to the feet, in CSS pixels.
  */
 export function figureSprite(
-  r: Pick<Resident, "color" | "shape" | "theme" | "pattern" | "patternMedia" | "wear">,
+  r: Pick<
+    Resident,
+    "color" | "shape" | "theme" | "pattern" | "patternMedia" | "wear" | "wearStyle"
+  >,
   scale: number,
   dpr: number,
   facing: Direction = "s",
@@ -110,10 +113,15 @@ export function figureSprite(
   const w = (FIGURE_BOX.right - FIGURE_BOX.left) * u;
   const h = (FIGURE_BOX.bottom - FIGURE_BOX.top) * u;
   const probe = lookImage(r.patternMedia) ? r.patternMedia : (r.pattern ?? "plain");
-  const key = `fig|${r.color}|${r.shape}|${r.theme ?? ""}|${probe}|${(r.wear ?? []).join(",")}|${facing}|${u.toFixed(2)}`;
+  // Styles only matter for what's worn, so a style kept for a garment in the drawer costs nothing.
+  const styles = (r.wear ?? []).map((w) => {
+    const s = r.wearStyle?.[w];
+    return s ? `${w}:${s.pattern ?? ""}:${s.color ?? ""}` : "";
+  });
+  const key = `fig|${r.color}|${r.shape}|${r.theme ?? ""}|${probe}|${(r.wear ?? []).join(",")}|${styles.join(",")}|${facing}|${u.toFixed(2)}`;
   const canvas = sprite(key, w, h, (ctx) => {
     ctx.translate(-FIGURE_BOX.left * u, -FIGURE_BOX.top * u);
-    drawFigure(ctx, u, r, clothesPattern(ctx, r, u).pattern, facing);
+    drawFigure(ctx, u, r, clothesPattern(ctx, r, u).pattern, facing, patterns);
   });
   return {
     canvas,

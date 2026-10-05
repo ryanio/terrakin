@@ -36,10 +36,12 @@ import {
   type Look,
   lookOf,
   MEDIA_ID_PATTERN,
+  mergeWearStyles,
   PATTERNS,
   sortWear,
   THEMES,
   wearProblem,
+  wearStyleProblem,
 } from "./looks";
 import { isDirection, PUTTER_MAX_STEPS } from "./putter";
 import {
@@ -135,7 +137,7 @@ function mergeProfile(base: Profile, fields: ProfileFields): Profile | Prepared 
  * hashes exactly as before.
  */
 function mergeLook(base: Look, fields: ProfileFields): Look | Prepared {
-  const pick = <K extends keyof Look>(key: K): Look[K] | null => {
+  const pick = <K extends Exclude<keyof Look, "wearStyle">>(key: K): Look[K] | null => {
     const value = fields[key];
     return value === undefined ? (base[key] ?? null) : (value as Look[K] | null);
   };
@@ -164,6 +166,22 @@ function mergeLook(base: Look, fields: ProfileFields): Look | Prepared {
       return reject("invalid_profile", "Media must be an upload id like m_0123456789abcdef.");
     }
     out[key] = id;
+  }
+  // Garment styles merge item by item: null clears them all, and an item set to null clears its own.
+  const changes = fields.wearStyle;
+  if (changes !== undefined) {
+    if (changes !== null) {
+      const problem = wearStyleProblem(changes, RESIDENT_COLORS);
+      if (problem) return reject("invalid_profile", problem);
+    }
+    const styles = changes === null ? undefined : mergeWearStyles(base.wearStyle, changes);
+    if (styles) out.wearStyle = styles;
+  } else if (base.wearStyle) {
+    out.wearStyle = base.wearStyle;
+  }
+  const own = Object.values(out.wearStyle ?? {}).some((s) => s.pattern === "own");
+  if (own && !out.patternMedia) {
+    return reject("invalid_profile", "A garment in your own pattern needs patternMedia set.");
   }
   return out;
 }

@@ -5,12 +5,15 @@
  */
 import {
   alphaHex,
+  type GarmentPattern,
   mixHex,
   type Pattern,
   type ResidentColor,
   THEME_INFO,
   type Theme,
   type ThemePalette,
+  WEAR_INFO,
+  type WearItem,
 } from "@terrakin/sim";
 import { BRAND_HEX } from "./brand";
 import { isMediaUrl } from "./format";
@@ -410,4 +413,50 @@ export function lookImage(id: string | undefined): HTMLImageElement | undefined 
     img.src = url;
   }
   return entry.ready ? entry.img : undefined;
+}
+
+// ---------- garments in words ----------
+
+/** Resident colors in plain words, for "Citrus dress in sun yellow". */
+export const COLOR_WORDS: Record<ResidentColor, string> = {
+  sun: "sun yellow",
+  sky: "sky blue",
+  leaf: "leaf green",
+  rose: "rose pink",
+  plum: "plum purple",
+  sand: "sand",
+  coal: "coal black",
+  snow: "snow white",
+};
+
+/** A pattern as a word before a garment: a citrus dress, striped socks. */
+const PATTERN_WORDS: Record<GarmentPattern, string> = {
+  plain: "plain",
+  dots: "dotted",
+  stripes: "striped",
+  gingham: "gingham",
+  florals: "floral",
+  citrus: "citrus",
+  stars: "starry",
+  waves: "wavy",
+  hearts: "heart print",
+  leaves: "leafy",
+  own: "own pattern",
+};
+
+/**
+ * A garment in plain words, from our catalogs only: "Citrus dress in sun yellow", "Striped
+ * socks", "Beret in plum purple", or just "Dress" with no style.
+ */
+export function garmentName(
+  item: WearItem,
+  style?: { pattern?: GarmentPattern | undefined; color?: ResidentColor | undefined },
+): string {
+  const noun = WEAR_INFO[item]?.label ?? item;
+  const pattern =
+    style?.pattern && style.pattern !== "plain" ? PATTERN_WORDS[style.pattern] : undefined;
+  const color = style?.color ? COLOR_WORDS[style.color] : undefined;
+  const name = pattern ? `${pattern} ${noun.toLowerCase()}` : noun;
+  const out = color ? `${name} in ${color}` : name;
+  return out.charAt(0).toUpperCase() + out.slice(1);
 }

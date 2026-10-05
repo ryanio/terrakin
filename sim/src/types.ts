@@ -1,5 +1,5 @@
 import type { Crop, GoodKind, ItemKind, StackKind } from "./items";
-import type { Look, Pattern, Theme, WearItem } from "./looks";
+import type { Look, Pattern, Theme, WearItem, WearStyle } from "./looks";
 
 /** Stable id for a resident (human or agent). Assigned by the server, opaque to the sim. */
 export type ResidentId = string;
@@ -86,6 +86,8 @@ export interface ProfileFields {
   patternMedia?: string | null;
   homeArt?: string | null;
   homeModel?: string | null;
+  /** A style per garment. `null` clears every style; an item set to `null` clears its own. */
+  wearStyle?: Partial<Record<WearItem, WearStyle | null>> | null;
 }
 export type BlockKind = (typeof BLOCK_KINDS)[number];
 

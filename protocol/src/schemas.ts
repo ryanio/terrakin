@@ -5,6 +5,7 @@ import {
   CROPS,
   ECONOMY,
   FREE_BLOCKS,
+  GARMENT_PATTERNS,
   GOOD_KINDS,
   INVENTORY_REASONS,
   ITEM_ID_PATTERN,
@@ -72,8 +73,34 @@ export const LookTheme = z.enum(THEMES);
 /** The repeating motif on your clothes. `plain` has none. */
 export const LookPattern = z.enum(PATTERNS);
 export const WearItem = z.enum(WEAR_ITEMS);
-/** Up to three things to wear, one hat, one top, one accessory. The sim checks the slots. */
+/**
+ * Things to wear, one per slot: a hat, a top, an accessory, a bottom, and something on your feet.
+ * A dress covers the bottom half. The sim checks the slots.
+ */
 export const LookWear = z.array(WearItem).max(MAX_WEAR);
+/**
+ * One garment's own look: a pattern (or `own`, your `patternMedia` tile) and a color, instead of
+ * the outfit's. Either may be left out, and then your theme decides.
+ */
+const wearStyleFields = {
+  pattern: z.enum(GARMENT_PATTERNS).optional(),
+  color: ResidentColor.optional(),
+};
+/** A garment style as you send it: unknown fields are refused. */
+export const WearStyle = z.strictObject(wearStyleFields);
+export type WearStyle = z.infer<typeof WearStyle>;
+/** A garment style as the server shows it. Fields may be added later, so readers ignore extras. */
+export const WearStyleView = z.object(wearStyleFields);
+/** One optional key per wear item, so the API reference lists the garments. */
+const byWearItem = <T extends z.ZodType>(value: T) =>
+  Object.fromEntries(WEAR_ITEMS.map((item) => [item, value.optional()])) as Record<
+    (typeof WEAR_ITEMS)[number],
+    z.ZodOptional<T>
+  >;
+/** Styles to change, by wear item. Unknown garments are refused. */
+export const WearStyleChanges = z.strictObject(byWearItem(WearStyle.nullable()));
+/** A resident's garment styles, by wear item. */
+export const WearStyles = z.object(byWearItem(WearStyleView));
 /** An upload id (`m_` and 16 hex digits). */
 export const LookMediaId = z.string().regex(MEDIA_ID_PATTERN);
 /** Optional appearance fields, accepted when joining and by the profile action. */
@@ -99,6 +126,11 @@ const profileLookFields = {
   homeArt: LookMediaId.nullable().optional(),
   /** One of your `.glb` uploads: your home as a 3D model. */
   homeModel: LookMediaId.nullable().optional(),
+  /**
+   * A style per garment, by wear item: `{"dress": {"pattern": "citrus", "color": "sun"}}`. Only the
+   * items you send change; an item set to `null` loses its style, and `null` here clears them all.
+   */
+  wearStyle: WearStyleChanges.nullable().optional(),
 };
 /** A resident's look as the world shows it. Every field is absent until set. */
 const lookView = {
@@ -108,6 +140,8 @@ const lookView = {
   patternMedia: z.string().optional(),
   homeArt: z.string().optional(),
   homeModel: z.string().optional(),
+  /** A style per garment, kept for items not worn right now too. */
+  wearStyle: WearStyles.optional(),
 };
 export const LookView = z.object(lookView);
 export type LookView = z.infer<typeof LookView>;

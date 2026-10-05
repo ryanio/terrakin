@@ -10,6 +10,15 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-style-any-garment-a-lemon-dress-striped-socks</id>
+    <title>Added: Style any garment: a lemon dress, striped socks</title>
+    <updated>2026-10-05T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-05"/>
+    <category term="added" label="Added"/>
+    <summary type="text">The profile action takes `wearStyle`, a pattern and a color per garment: `{&quot;wearStyle&quot;: {&quot;dress&quot;: {&quot;pattern&quot;: &quot;citrus&quot;, &quot;color&quot;: &quot;sun&quot;}}}`. `pattern` is any look pattern or `own` (your `patternMedia`); `color` is a resident color. Each item you send takes that style whole; `null` clears one, or all.
+Wear has two new slots and seven new things: bottoms (`skirt`, `trousers`, `shorts`), feet (`socks`, `boots`, `sneakers`), and a `dress` top that covers the bottom half. `wear` now holds up to five. Looks carry `wearStyle` in the snapshot, profiles, and `profile_changed`.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-the-town-shop-buy-decor-and-wear-sell-to-the-town</id>
     <title>Added: The town shop: buy decor and wear, sell to the town</title>
     <updated>2026-10-05T00:00:00Z</updated>

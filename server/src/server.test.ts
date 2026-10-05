@@ -179,6 +179,31 @@ describe("REST", () => {
     ).toBe(400);
   });
 
+  it("styles one garment at a time, and shows the styles in the snapshot", async () => {
+    const { base, service } = await start();
+    const { body } = await api(base, "POST", "/v1/session", { name: "Lula", kind: "agent" });
+    const style = (fields: Record<string, unknown>) =>
+      api(base, "POST", "/v1/actions", { type: "profile", ...fields }, body.token);
+    const dressed = await style({
+      wear: ["dress", "socks"],
+      wearStyle: { dress: { pattern: "citrus", color: "sun" }, socks: { pattern: "stripes" } },
+    });
+    expect(dressed.body.events[0]).toMatchObject({
+      type: "profile_changed",
+      wear: ["dress", "socks"],
+      wearStyle: { dress: { pattern: "citrus", color: "sun" }, socks: { pattern: "stripes" } },
+    });
+    expect((await style({ wearStyle: { socks: null } })).body.ok).toBe(true);
+    const world = (await api(base, "GET", "/v1/world")).body;
+    const lula = world.residents.find((r: { id: string }) => r.id === body.residentId);
+    expect(lula.wearStyle).toEqual({ dress: { pattern: "citrus", color: "sun" } });
+    // The sim refuses what the schema can't see: a dress with a skirt.
+    expect((await style({ wear: ["dress", "skirt"] })).body.error.code).toBe("invalid_profile");
+    // The schema refuses fields a style doesn't have, before the sim.
+    expect((await style({ wearStyle: { dress: { size: "large" } } })).status).toBe(400);
+    expect(service.state.residents[body.residentId]?.wearStyle?.dress?.pattern).toBe("citrus");
+  });
+
   it("anchors day/night time in the world snapshot", async () => {
     const { base } = await start(new MemoryStore(), { now: () => 1_700_000_000_000 });
     const world = (await api(base, "GET", "/v1/world")).body;

@@ -1,19 +1,11 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import { join, overflowsSideways, signIn, watchErrors } from "./support";
 
 /**
  * RFC 0005 looks: Capri loves lemons. She opens the look editor from her profile, picks the lemon
- * theme, citrus slices, and a straw hat, saves, and sees it on her profile and in the world.
+ * theme, citrus slices, and a straw hat, saves, and sees it on her profile and in the world. Then
+ * someone styles single garments: a citrus dress in sun yellow and striped socks.
  */
-
-/** Page errors and Content-Security-Policy refusals fail the test. */
-function watchErrors(page: Page): string[] {
-  const errors: string[] = [];
-  page.on("pageerror", (e) => errors.push(String(e)));
-  page.on("console", (m) => {
-    if (m.type() === "error" && /Content Security Policy/i.test(m.text())) errors.push(m.text());
-  });
-  return errors;
-}
 
 test("pick lemon, citrus, and a straw hat, and see it on the profile and in the world", async ({
   page,
@@ -86,5 +78,89 @@ test("pick lemon, citrus, and a straw hat, and see it on the profile and in the 
       { timeout: 5000 },
     )
     .toBeGreaterThan(20);
+  expect(errors).toEqual([]);
+});
+
+test("style a garment: a citrus dress in sun yellow and striped socks, at 390x844", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const errors = watchErrors(page);
+  const who = await join(page.request, "Lemony");
+  await signIn(page, who);
+
+  await page.goto(`/r/${who.id}`);
+  await page.getByRole("button", { name: "Dress up" }).click();
+  const editor = page.getByRole("dialog", { name: "Your look" });
+  await expect(editor).toBeVisible();
+
+  // Every slot has a row, each with a None chip.
+  for (const slot of ["hat", "top", "accessory", "bottom", "feet"]) {
+    await expect(editor.locator(`[data-wear="none-${slot}"]`)).toBeVisible();
+  }
+  // Shop wear you don't own is a link to the shop, not something to put on.
+  await expect(editor.locator('a[data-wear="top_hat"]')).toHaveAttribute("href", "/shop");
+
+  // A skirt, then a dress: the dress takes the skirt off, so the world never refuses it.
+  await editor.locator('[data-wear="skirt"]').click();
+  await editor.locator('[data-wear="dress"]').click();
+  await expect(editor.locator('[data-wear="dress"]')).toHaveAttribute("aria-pressed", "true");
+  await expect(editor.locator('[data-wear="none-bottom"]')).toHaveAttribute("aria-pressed", "true");
+
+  // Style it: citrus in sun yellow.
+  await editor.getByRole("button", { name: "Style your dress" }).click();
+  const dress = editor.getByRole("group", { name: "Style your dress" });
+  await expect(dress).toBeVisible();
+  await dress.locator('[data-garment-pattern="citrus"]').click();
+  await dress.locator('[data-value="sun"]').click();
+  await expect(dress.locator('[data-garment-pattern="citrus"]')).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await dress.getByRole("button", { name: "Done" }).click();
+  await expect(dress).toBeHidden();
+
+  // Socks, then tap them again to style them: stripes.
+  await editor.locator('[data-wear="socks"]').click();
+  await editor.locator('[data-wear="socks"]').click();
+  const socks = editor.getByRole("group", { name: "Style your socks" });
+  await socks.locator('[data-garment-pattern="stripes"]').click();
+  await expect(editor.locator(".look-summary")).toHaveText(
+    "Your color, plain, citrus dress in sun yellow, striped socks",
+  );
+
+  // Nothing scrolls sideways, in the page or in the sheet.
+  expect(await overflowsSideways(page)).toBe(false);
+  const sheetOverflows = await editor
+    .locator(".look-form")
+    .evaluate((el) => el.scrollWidth > el.clientWidth);
+  expect(sheetOverflows).toBe(false);
+  await socks.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: "test-results/looks-garment-styler.png" });
+
+  await editor.getByRole("button", { name: "Save my look" }).click();
+  await expect(editor).toBeHidden();
+
+  // The world has the styles, as the profile action sent them.
+  const world = await (await page.request.get("/v1/world")).json();
+  const me = world.residents.find((r: { id: string }) => r.id === who.id);
+  expect(me).toMatchObject({
+    wear: ["dress", "socks"],
+    wearStyle: { dress: { pattern: "citrus", color: "sun" }, socks: { pattern: "stripes" } },
+  });
+
+  // The profile says it in words and draws the figure.
+  await expect(page.locator(".profile [data-look]")).toHaveText(
+    "Citrus dress in sun yellow, Striped socks",
+  );
+  await expect(page.locator(".profile .avatar.has-figure canvas")).toBeVisible();
+  expect(await overflowsSideways(page)).toBe(false);
+  await page.screenshot({ path: "test-results/looks-garment-profile.png" });
+
+  // A locked piece of shop wear takes you to the shop, and the editor closes behind you.
+  await page.getByRole("button", { name: "Dress up" }).click();
+  await editor.locator('a[data-wear="top_hat"]').click();
+  await expect(page).toHaveURL(/\/shop$/);
+  await expect(editor).toBeHidden();
   expect(errors).toEqual([]);
 });

@@ -14,10 +14,10 @@ import {
   type ProfileView,
   type ResidentBrief,
 } from "@terrakin/protocol";
-import { NOTE_MAX_LENGTH, PATTERN_LABELS, THEME_INFO, WEAR_INFO } from "@terrakin/sim";
+import { NOTE_MAX_LENGTH, PATTERN_LABELS, THEME_INFO } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
 import { compactCount, isMediaUrl, plural } from "@terrakin/ui/format";
-import { mediaUrlOf } from "@terrakin/ui/looks";
+import { garmentName, mediaUrlOf } from "@terrakin/ui/looks";
 import { openImage, openModelViewer } from "@terrakin/ui/media";
 import { plot3dPath, profilePath } from "@terrakin/ui/paths";
 import { avatarEl, badges, ownerLine, paintAvatar, TOWNSFOLK_ABOUT } from "@terrakin/ui/people";
@@ -539,7 +539,9 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
     const parts = [
       look.theme ? THEME_INFO[look.theme].label : null,
       look.patternMedia ? "Own pattern" : look.pattern ? PATTERN_LABELS[look.pattern] : null,
-      look.wear?.length ? look.wear.map((w) => WEAR_INFO[w].label).join(", ") : null,
+      look.wear?.length
+        ? look.wear.map((w) => garmentName(w, look.wearStyle?.[w])).join(", ")
+        : null,
     ].filter((p): p is string => p !== null);
     if (parts.length === 0) return null;
     return h("p", { class: "profile-look", attrs: { "data-look": "" }, text: parts.join(" · ") });
@@ -1187,11 +1189,15 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
             attrs: { type: "button" },
             on: {
               click: () =>
-                openLookEditor({ color, shape, look: r.look }, (look) => {
-                  r.look = look;
-                  forgetMe();
-                  void load();
-                }),
+                openLookEditor(
+                  { color, shape, look: r.look },
+                  (look) => {
+                    r.look = look;
+                    forgetMe();
+                    void load();
+                  },
+                  ctx.navigate,
+                ),
             },
           },
           icon("sparkle"),

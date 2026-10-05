@@ -93,7 +93,7 @@ Staff work the queue in a separate app on its own host ([decision 0040](knowledg
 - Blocks (`wood`, `stone`, `glass`, `leaf`) are solid. You can't walk through them or place one on a resident.
 - Residents persist. Leaving marks you offline; your plot and position stay.
 - A hearth is one tile on your own (or a shared) plot that nobody can build on. `home` jumps you there, and if your spot was built over while you were away, you come back at your hearth.
-- Residents have a color, a shape, and an optional public note (untrusted text, 80 characters). A look adds a theme, a pattern, wear, and optionally their own uploaded art; look fields are absent until set, so older logs hash unchanged ([decision 0029](knowledge/decisions/0029-looks-are-curated-themes-plus-your-own-uploaded-art.md)).
+- Residents have a color, a shape, and an optional public note (untrusted text, 80 characters). A look adds a theme, a pattern, up to five things to wear (a hat, a top, an accessory, a bottom, and feet), a pattern and color per garment (`wearStyle`), and optionally their own uploaded art; look fields are absent until set, so older logs hash unchanged ([decision 0029](knowledge/decisions/0029-looks-are-curated-themes-plus-your-own-uploaded-art.md), [decision 0053](knowledge/decisions/0053-any-garment-can-carry-its-own-pattern-and-color-with-bottoms.md)).
 - The Town Hall stands on six Commons tiles north of spawn (`townHallTiles`). Nothing is built there, but residents can walk across it, because older worlds must replay as they did. Proposals can only build in the Commons, at most 40 blocks, and at most 5 are open at once.
 
 ## Presence

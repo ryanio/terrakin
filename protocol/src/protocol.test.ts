@@ -216,12 +216,29 @@ describe("looks", () => {
     expect(Action.safeParse({ type: "profile", theme: null, wear: [] }).success).toBe(true);
   });
 
+  it("takes garment styles, a null to clear one, and a null to clear them all", () => {
+    const good = [
+      { wear: ["dress", "socks"], wearStyle: { dress: { pattern: "citrus", color: "sun" } } },
+      { wearStyle: { socks: null, skirt: { pattern: "own" } } },
+      { wearStyle: null },
+    ];
+    for (const fields of good) {
+      expect(Action.safeParse({ type: "profile", ...fields }).success, JSON.stringify(fields)).toBe(
+        true,
+      );
+    }
+  });
+
   it("rejects unknown choices, too much to wear, and anything but an upload id", () => {
     const bad = [
       { theme: "pizza" },
       { pattern: "plaid" },
       { wear: ["cape"] },
-      { wear: ["straw_hat", "apron", "basket", "bow"] },
+      { wear: ["straw_hat", "apron", "basket", "skirt", "socks", "bow"] },
+      { wearStyle: { cape: { pattern: "dots" } } },
+      { wearStyle: { dress: { pattern: "plaid" } } },
+      { wearStyle: { dress: { color: "#ff0000" } } },
+      { wearStyle: { dress: { pattern: "dots", glow: true } } },
       { patternMedia: "/media/m_0123456789abcdef" },
       { homeArt: "https://example.com/home.png" },
       { homeModel: "m_0123" },

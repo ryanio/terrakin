@@ -17,7 +17,7 @@ Playwright tests that drive the real production build on an iPhone 13 viewport. 
 | `smoke.spec.ts` | The world at `/world`: join, claim, build, chat next to an agent. |
 | `feed.spec.ts` | Feed, profile and its banner, changing your profile picture at 390x844 (and the top bar following), post, composer, image viewer, townsfolk badge, leaving the world, handles, mentions, reactions, reposts, quotes, and notifications, and a new post arriving over the home wall's socket. |
 | `duo.spec.ts` | Invite, join, follow, a gesture, and a private letter; a visitor joining and following from a profile. |
-| `looks.spec.ts` | The look editor, the profile, and the figure in the world. |
+| `looks.spec.ts` | The look editor, the profile, and the figure in the world; at 390x844, a dress styled citrus in sun yellow and striped socks, saved and read back from the API, and a locked shop piece linking to the shop. |
 | `three-d.spec.ts` | A plot and the gallery in 3D, a photo, and nothing left running after leaving. |
 | `plot-photo.spec.ts` | A plot photo at 390x844: taking one from your own profile, the picture the server drew, and posting it. |
 | `town.spec.ts` | Propose, vote, close, and build in the Town Hall. |

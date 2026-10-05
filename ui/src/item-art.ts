@@ -717,6 +717,89 @@ function umbrella(): ArtShape[] {
   ];
 }
 
+// ---------- bottoms, dresses, and feet ----------
+
+function dress(): ArtShape[] {
+  return [
+    shadow(17, 44),
+    line("M19 5.5l1 7M29 5.5l-1 7", "#d87189", 2),
+    path("M18.5 12h11l1.5 9h-14z", ROSE, out()),
+    path("M17 21h14l9.5 18.5c-6 3.2-26.5 3.2-33 0z", ROSE, out()),
+    rect(16, 19.5, 16, 3.6, 1.6, CLAY, out({ "stroke-width": 1 })),
+    circle(17, 31, 1.5, PAPER),
+    circle(24, 27.5, 1.5, PAPER),
+    circle(31, 31, 1.5, PAPER),
+    circle(13.5, 37.5, 1.5, PAPER),
+    circle(24, 36.5, 1.5, PAPER),
+    circle(34.5, 37.5, 1.5, PAPER),
+  ];
+}
+
+function skirt(): ArtShape[] {
+  return [
+    shadow(17, 43),
+    path("M15 15h18l8 22c-7 3.5-27 3.5-34 0z", PLUM, out()),
+    rect(14, 11, 20, 5, 2, "#8a6bc0", out()),
+    line("M20 17l-3 20M24 17v21M28 17l3 20", "#8a6bc0", 1.1, { opacity: 0.8 }),
+    shine(13.5, 27, 1.6, 5, 18),
+  ];
+}
+
+function trousers(): ArtShape[] {
+  return [
+    shadow(13, 44),
+    path("M14 11h20l2 31h-8l-4-21-4 21h-8z", MOSS, out()),
+    rect(13.5, 9, 21, 5, 1.5, "#4c6a37", out()),
+    line("M24 14v6M18 16v24M30 16v24", MOSS_LIGHT, 1, { opacity: 0.55 }),
+    rect(22.5, 10, 3, 3, 0.8, SUN),
+  ];
+}
+
+function shorts(): ArtShape[] {
+  return [
+    shadow(15, 39),
+    path("M12 14h24l3 20h-12l-3-10-3 10H9z", SUN, out()),
+    rect(11.5, 11, 25, 5, 1.8, CLAY, out()),
+    path("M9.3 30.5h11.6l-.5 3.5H9z", "#e2a338", out({ "stroke-width": 1 })),
+    path("M27.1 30.5h11.6l.3 3.5H27.6z", "#e2a338", out({ "stroke-width": 1 })),
+    line("M24 16v8", LINE, 1, { opacity: 0.6 }),
+  ];
+}
+
+function socks(): ArtShape[] {
+  return [
+    shadow(17, 43),
+    path("M8 7h9v20l4 5c2 3 0 8-4 8h-6c-4 0-6-3-5-6l2-7z", PAPER, out()),
+    path("M27 7h9v20l4 5c2 3 0 8-4 8h-6c-4 0-6-3-5-6l2-7z", PAPER, out()),
+    rect(7.6, 7, 9.8, 4, 1, ROSE, out({ "stroke-width": 1 })),
+    rect(26.6, 7, 9.8, 4, 1, ROSE, out({ "stroke-width": 1 })),
+    line("M8.5 16h8M8.5 21h8M27.5 16h8M27.5 21h8", ROSE, 2),
+  ];
+}
+
+function boots(): ArtShape[] {
+  return [
+    shadow(18, 43),
+    path("M7 8h10v22l6 3c2 1 2 7 0 7H6c-1 0-1.5-1-1.5-2z", LEATHER, out()),
+    path("M27 8h10v22l6 3c2 1 2 7 0 7H26c-1 0-1.5-1-1.5-2z", LEATHER, out()),
+    line("M5 37.5h18.5M25 37.5h18.5", WOOD_DARK, 2.4),
+    line("M6.5 12h11M26.5 12h11", "#b47d4b", 2.2),
+    line("M10 17h4M10 21h4M30 17h4M30 21h4", WOOD_DARK, 1, { opacity: 0.7 }),
+  ];
+}
+
+function sneakers(): ArtShape[] {
+  return [
+    shadow(19, 41),
+    path("M4 34c0-6 2-12 6-13 3 3 8 4 12 6 2 1 2.5 4 2.5 7z", PAPER, out()),
+    path("M24 34c0-6 2-12 6-13 3 3 8 4 12 6 2 1 2.5 4 2.5 7z", PAPER, out()),
+    rect(3.5, 33, 21.5, 4, 1.8, PAPER2, out()),
+    rect(23.5, 33, 21.5, 4, 1.8, PAPER2, out()),
+    line("M9 28c3 1 6 0 9-2M29 28c3 1 6 0 9-2", SKY, 2.2),
+    line("M11 23.5l2 2M31 23.5l2 2", LINE, 1),
+  ];
+}
+
 // ---------- the catalog ----------
 
 const ART: Record<ArtKind, () => ArtShape[]> = {
@@ -759,6 +842,13 @@ const ART: Record<ArtKind, () => ArtShape[]> = {
   top_hat: topHat,
   raincoat,
   umbrella,
+  dress,
+  skirt,
+  trousers,
+  shorts,
+  socks,
+  boots,
+  sneakers,
 };
 
 /** The shapes of one picture, back to front, in a 48 by 48 box. Pure. */

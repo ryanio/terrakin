@@ -4,6 +4,8 @@
  * (which draws them). Colors here are presentation only: no rule ever reads them.
  */
 
+import type { ResidentColor } from "./types";
+
 /** Roles a theme's colors play when a resident or their plot is drawn. */
 export interface ThemePalette {
   /** Clothes: the body of the figure. */
@@ -49,7 +51,8 @@ export const PATTERNS = [
 ] as const;
 export type Pattern = (typeof PATTERNS)[number];
 
-export const WEAR_SLOTS = ["hat", "top", "accessory"] as const;
+/** Slots, in drawing and sorting order. New slots go on the end, so older wear lists sort the same. */
+export const WEAR_SLOTS = ["hat", "top", "accessory", "bottom", "feet"] as const;
 export type WearSlot = (typeof WEAR_SLOTS)[number];
 
 export const WEAR_ITEMS = [
@@ -68,6 +71,13 @@ export const WEAR_ITEMS = [
   "top_hat",
   "raincoat",
   "umbrella",
+  "dress",
+  "skirt",
+  "trousers",
+  "shorts",
+  "socks",
+  "boots",
+  "sneakers",
 ] as const;
 export type WearItem = (typeof WEAR_ITEMS)[number];
 
@@ -258,7 +268,33 @@ export const WEAR_INFO: Record<WearItem, { slot: WearSlot; label: string }> = {
   top_hat: { slot: "hat", label: "Top hat" },
   raincoat: { slot: "top", label: "Raincoat" },
   umbrella: { slot: "accessory", label: "Umbrella" },
+  dress: { slot: "top", label: "Dress" },
+  skirt: { slot: "bottom", label: "Skirt" },
+  trousers: { slot: "bottom", label: "Trousers" },
+  shorts: { slot: "bottom", label: "Shorts" },
+  socks: { slot: "feet", label: "Socks" },
+  boots: { slot: "feet", label: "Boots" },
+  sneakers: { slot: "feet", label: "Sneakers" },
 };
+
+/** Wear that covers the bottom half too, so nothing goes in the bottom slot with it. */
+export const FULL_LENGTH: readonly WearItem[] = ["dress"];
+
+/** `own` means the resident's own uploaded pattern tile (`patternMedia`). */
+export const GARMENT_PATTERNS = [...PATTERNS, "own"] as const;
+export type GarmentPattern = (typeof GARMENT_PATTERNS)[number];
+
+/**
+ * How one garment looks on its own: a pattern and a color of its own instead of the outfit's.
+ * Either may be absent, and then the theme decides, as before.
+ */
+export interface WearStyle {
+  pattern?: GarmentPattern;
+  color?: ResidentColor;
+}
+
+/** A style per garment, keyed by wear item. Kept for items not worn now, so they come back styled. */
+export type WearStyles = Partial<Record<WearItem, WearStyle>>;
 
 /** A media id exactly as the server makes them: `m_` and 16 hex digits. */
 export const MEDIA_ID_PATTERN = /^m_[0-9a-f]{16}$/;
@@ -275,6 +311,8 @@ export interface Look {
   homeArt?: string;
   /** A `.glb` model the resident uploaded of their home, for the 3D views. */
   homeModel?: string;
+  /** A pattern or color per garment ("a lemon dress"). Absent until set, and when empty. */
+  wearStyle?: WearStyles;
 }
 
 export const LOOK_KEYS = [
@@ -284,6 +322,7 @@ export const LOOK_KEYS = [
   "patternMedia",
   "homeArt",
   "homeModel",
+  "wearStyle",
 ] as const satisfies readonly (keyof Look)[];
 
 /** The look media fields, which hold upload ids. */
@@ -310,11 +349,93 @@ export function wearProblem(items: readonly string[]): string | null {
     if (slots.has(info.slot)) return `Only one ${info.slot} at a time.`;
     slots.add(info.slot);
   }
+  const full = items.find((w) => FULL_LENGTH.includes(w as WearItem));
+  if (full && slots.has("bottom")) {
+    return `A ${WEAR_INFO[full as WearItem].label.toLowerCase()} covers the bottom half: leave out the ${WEAR_SLOTS[3]} piece.`;
+  }
   return null;
 }
 
+/** Why a set of garment styles isn't allowed, or null when it is. Values may be null (clear). */
+export function wearStyleProblem(styles: unknown, colors: readonly string[]): string | null {
+  if (typeof styles !== "object" || styles === null || Array.isArray(styles)) {
+    return "wearStyle is an object from a wear item to its style.";
+  }
+  for (const [item, style] of Object.entries(styles)) {
+    if (!(WEAR_ITEMS as readonly string[]).includes(item)) return `Unknown thing to wear: ${item}.`;
+    if (style === null) continue;
+    if (typeof style !== "object" || Array.isArray(style)) return `The ${item} style is an object.`;
+    if (Object.keys(style).length === 0) {
+      return `The ${item} style needs a pattern or a color. Send null to clear it.`;
+    }
+    for (const [key, value] of Object.entries(style as Record<string, unknown>)) {
+      if (key === "pattern") {
+        if (!(GARMENT_PATTERNS as readonly unknown[]).includes(value)) return "Unknown pattern.";
+      } else if (key === "color") {
+        if (!colors.includes(value as string)) return "Unknown color.";
+      } else return `A garment's style has a pattern and a color, not ${key}.`;
+    }
+  }
+  return null;
+}
+
+/** Garment styles as a parser hands them over, where an optional field may be explicitly undefined. */
+export type LooseWearStyles = Partial<
+  Record<
+    WearItem,
+    { pattern?: GarmentPattern | undefined; color?: ResidentColor | undefined } | null | undefined
+  >
+>;
+
+/**
+ * The same styles with every undefined dropped, as the sim's types want them. Nulls (clears) stay.
+ * Server and client both use it at the edge where parsed data becomes a command or a look.
+ */
+export function exactWearStyles(
+  loose: LooseWearStyles,
+): Partial<Record<WearItem, WearStyle | null>> {
+  const out: Partial<Record<WearItem, WearStyle | null>> = {};
+  for (const [item, style] of Object.entries(loose) as [WearItem, LooseWearStyles[WearItem]][]) {
+    if (style === undefined) continue;
+    if (style === null) {
+      out[item] = null;
+      continue;
+    }
+    out[item] = {
+      ...(style.pattern === undefined ? {} : { pattern: style.pattern }),
+      ...(style.color === undefined ? {} : { color: style.color }),
+    };
+  }
+  return out;
+}
+
+/**
+ * Garment styles after `changes` (already checked) over `base`: an item set to null loses its
+ * style, an item set to a style takes it whole, and an empty style is dropped. Keys come out in
+ * catalog order, so the same styles always serialize the same.
+ */
+export function mergeWearStyles(
+  base: WearStyles | undefined,
+  changes: Partial<Record<WearItem, WearStyle | null>>,
+): WearStyles | undefined {
+  const out: WearStyles = {};
+  for (const item of WEAR_ITEMS) {
+    const next = item in changes ? changes[item] : base?.[item];
+    if (!next) continue;
+    const style: WearStyle = {};
+    if (next.pattern !== undefined) style.pattern = next.pattern;
+    if (next.color !== undefined) style.color = next.color;
+    if (style.pattern !== undefined || style.color !== undefined) out[item] = style;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
 /** Copy only the look fields a resident actually has. */
-export function lookOf(source: { [K in keyof Look]?: Look[K] | undefined }): Look {
+export function lookOf(
+  source: { [K in Exclude<keyof Look, "wearStyle">]?: Look[K] | undefined } & {
+    wearStyle?: LooseWearStyles | undefined;
+  },
+): Look {
   const out: Look = {};
   if (source.theme !== undefined) out.theme = source.theme;
   if (source.pattern !== undefined) out.pattern = source.pattern;
@@ -322,5 +443,9 @@ export function lookOf(source: { [K in keyof Look]?: Look[K] | undefined }): Loo
   if (source.patternMedia !== undefined) out.patternMedia = source.patternMedia;
   if (source.homeArt !== undefined) out.homeArt = source.homeArt;
   if (source.homeModel !== undefined) out.homeModel = source.homeModel;
+  if (source.wearStyle !== undefined) {
+    const copy = mergeWearStyles(undefined, exactWearStyles(source.wearStyle));
+    if (copy) out.wearStyle = copy;
+  }
   return out;
 }

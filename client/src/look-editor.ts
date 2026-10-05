@@ -1,10 +1,14 @@
 /**
- * "Your look": pick a theme, a pattern, and up to three things to wear, with a live preview, or
- * bring your own pattern, home picture, and home model as uploads. Saves with the `profile`
- * action; the server checks every choice and every upload.
+ * "Your look": pick a theme, a pattern, and one thing to wear in each slot (hat, top, carry,
+ * bottom, feet), give any of them its own color and pattern, with a live preview, or bring your
+ * own pattern, home picture, and home model as uploads. Saves with the `profile` action; the
+ * server checks every choice and every upload.
  */
 import type { LookView, MediaView } from "@terrakin/protocol";
 import {
+  FULL_LENGTH,
+  type GarmentPattern,
+  isShopWear,
   PATTERN_LABELS,
   PATTERNS,
   type Pattern,
@@ -15,14 +19,27 @@ import {
   type Theme,
   WEAR_INFO,
   WEAR_ITEMS,
+  WEAR_SLOTS,
   type WearItem,
   type WearSlot,
+  type WearStyle,
+  type WearStyles,
 } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
-import { type FullLook, paintFigure } from "@terrakin/ui/figure";
-import { lookImage, lookPalette, mediaUrlOf, onLookImage, PatternCache } from "@terrakin/ui/looks";
+import { type FullLook, garmentLook, paintFigure } from "@terrakin/ui/figure";
+import { itemArt } from "@terrakin/ui/item-art";
+import {
+  garmentName,
+  lookImage,
+  lookPalette,
+  mediaUrlOf,
+  onLookImage,
+  PatternCache,
+} from "@terrakin/ui/looks";
 import { closeOverlay, errorLine, openOverlay, toast, whileBusy } from "@terrakin/ui/ui";
 import { actProblem, api, uploadMedia } from "./api";
+import { colorChips } from "./join-form";
+import { coins } from "./purse";
 
 export interface LookOwner {
   color: ResidentColor;
@@ -30,7 +47,13 @@ export interface LookOwner {
   look?: LookView | undefined;
 }
 
-const SLOT_LABELS: Record<WearSlot, string> = { hat: "Hat", top: "Top", accessory: "Carry" };
+const SLOT_LABELS: Record<WearSlot, string> = {
+  hat: "Hat",
+  top: "Top",
+  accessory: "Carry",
+  bottom: "Bottom",
+  feet: "Feet",
+};
 const IMAGE_TYPES = "image/png,image/jpeg,image/webp";
 
 type MediaKey = "patternMedia" | "homeArt" | "homeModel";
@@ -41,9 +64,51 @@ type Draft = {
   patternMedia: string | null;
   homeArt: string | null;
   homeModel: string | null;
+  /** A style per garment, kept for pieces not worn too, as the world keeps them. */
+  wearStyle: WearStyles;
+};
+
+/** The profile action's fields for a look: garment styles go as a partial map, null to clear. */
+type LookChanges = Partial<Omit<Draft, "wearStyle">> & {
+  wearStyle?: Partial<Record<WearItem, WearStyle | null>>;
 };
 
 const thumbs = new PatternCache();
+
+/** A garment style with only the fields it has, or undefined when it has none. */
+/**
+ * Styles with `own` taken off every garment (keeping its color), for when your own pattern goes:
+ * the sim refuses a look whose garments use a pattern you no longer have. Pure, so tests pin it.
+ */
+export function withoutOwnPattern(styles: WearStyles): WearStyles {
+  const out: WearStyles = {};
+  for (const item of WEAR_ITEMS) {
+    const style = styles[item];
+    if (!style) continue;
+    const kept = style.pattern === "own" ? cleanStyle({ color: style.color }) : style;
+    if (kept) out[item] = kept;
+  }
+  return out;
+}
+
+function cleanStyle(
+  style: { pattern?: GarmentPattern | undefined; color?: ResidentColor | undefined } | undefined,
+): WearStyle | undefined {
+  if (!style) return undefined;
+  const out: WearStyle = {};
+  if (style.pattern) out.pattern = style.pattern;
+  if (style.color) out.color = style.color;
+  return out.pattern || out.color ? out : undefined;
+}
+
+function stylesOf(view: LookView["wearStyle"]): WearStyles {
+  const out: WearStyles = {};
+  for (const item of WEAR_ITEMS) {
+    const style = cleanStyle(view?.[item]);
+    if (style) out[item] = style;
+  }
+  return out;
+}
 
 function draftOf(look: LookView | undefined): Draft {
   return {
@@ -53,24 +118,51 @@ function draftOf(look: LookView | undefined): Draft {
     patternMedia: look?.patternMedia ?? null,
     homeArt: look?.homeArt ?? null,
     homeModel: look?.homeModel ?? null,
+    wearStyle: stylesOf(look?.wearStyle),
   };
 }
 
+const sameStyle = (a: WearStyle | undefined, b: WearStyle | undefined) =>
+  a?.pattern === b?.pattern && a?.color === b?.color;
+
 /** Only the fields that changed, ready for the profile action. */
-export function lookChanges(before: LookView | undefined, after: Draft): Partial<Draft> {
+export function lookChanges(before: LookView | undefined, after: Draft): LookChanges {
   const old = draftOf(before);
-  const out: Partial<Draft> = {};
+  const out: LookChanges = {};
   if (old.theme !== after.theme) out.theme = after.theme;
   if (old.pattern !== after.pattern) out.pattern = after.pattern;
   if ([...old.wear].sort().join() !== [...after.wear].sort().join()) out.wear = after.wear;
   for (const key of ["patternMedia", "homeArt", "homeModel"] as const) {
     if (old[key] !== after[key]) out[key] = after[key];
   }
+  const styles: Partial<Record<WearItem, WearStyle | null>> = {};
+  for (const item of WEAR_ITEMS) {
+    const next = cleanStyle(after.wearStyle[item]);
+    if (!sameStyle(old.wearStyle[item], next)) styles[item] = next ?? null;
+  }
+  if (Object.keys(styles).length > 0) out.wearStyle = styles;
+  return out;
+}
+
+/**
+ * Put on `item` (or take off what's in `slot` when it's null). A dress covers the bottom half, so
+ * putting one on takes off the bottom, and putting on a bottom takes off the dress.
+ */
+export function wearWith(
+  wear: readonly WearItem[],
+  slot: WearSlot,
+  item: WearItem | null,
+): WearItem[] {
+  let out = wear.filter((w) => WEAR_INFO[w].slot !== slot);
+  if (item && FULL_LENGTH.includes(item)) out = out.filter((w) => WEAR_INFO[w].slot !== "bottom");
+  if (item && slot === "bottom") out = out.filter((w) => !FULL_LENGTH.includes(w));
+  if (item) out.push(item);
   return out;
 }
 
 /** The look as a view: unset fields left out. */
 function viewOf(d: Draft): LookView {
+  const styles = stylesOf(d.wearStyle);
   return {
     ...(d.theme ? { theme: d.theme } : {}),
     ...(d.pattern ? { pattern: d.pattern } : {}),
@@ -78,11 +170,35 @@ function viewOf(d: Draft): LookView {
     ...(d.patternMedia ? { patternMedia: d.patternMedia } : {}),
     ...(d.homeArt ? { homeArt: d.homeArt } : {}),
     ...(d.homeModel ? { homeModel: d.homeModel } : {}),
+    ...(Object.keys(styles).length ? { wearStyle: styles } : {}),
   };
 }
 
-/** Open the look editor. `onSaved` gets the new look once the world accepts it. */
-export function openLookEditor(owner: LookOwner, onSaved: (look: LookView) => void) {
+/** The town shop's wear: what you own, and what the rest costs. Unknown until the shop answers. */
+interface Wardrobe {
+  owned: ReadonlySet<WearItem>;
+  prices: ReadonlyMap<string, number>;
+}
+
+/**
+ * Open the look editor. `onSaved` gets the new look once the world accepts it. `navigate` is the
+ * router's, for the links to the shop.
+ */
+export function openLookEditor(
+  owner: LookOwner,
+  onSaved: (look: LookView) => void,
+  navigate: (path: string) => void,
+) {
+  /**
+   * Close the editor, then go to `path`. Closing steps back past the editor's history entry, so
+   * the page changes only once that step lands; otherwise it would undo the navigation.
+   */
+  const leaveFor = (path: string) => {
+    const overlay = (history.state as { overlay?: boolean } | null)?.overlay;
+    if (overlay) window.addEventListener("popstate", () => navigate(path), { once: true });
+    closeOverlay();
+    if (!overlay) navigate(path);
+  };
   const draft = draftOf(owner.look);
   const figureLook = (): FullLook => ({
     color: owner.color,
@@ -91,7 +207,13 @@ export function openLookEditor(owner: LookOwner, onSaved: (look: LookView) => vo
     ...(draft.pattern ? { pattern: draft.pattern } : {}),
     wear: draft.wear,
     ...(draft.patternMedia ? { patternMedia: draft.patternMedia } : {}),
+    wearStyle: draft.wearStyle,
   });
+  // Shop wear you have on is yours; the rest waits for the shop to say.
+  let wardrobe: Wardrobe = {
+    owned: new Set((owner.look?.wear ?? []).filter(isShopWear)),
+    prices: new Map(),
+  };
 
   // ---- preview ----
   const preview = h("canvas", { class: "look-preview-figure", attrs: { "aria-hidden": "true" } });
@@ -134,64 +256,349 @@ export function openLookEditor(owner: LookOwner, onSaved: (look: LookView) => vo
   };
   themeRow.append(themeButton(null), ...THEMES.map(themeButton));
 
-  // ---- pattern ----
+  // ---- pattern chips, for the outfit and for one garment ----
+  type Thumb = { canvas: HTMLCanvasElement; pattern: Pattern | "own" };
+  const outfitThumbs: Thumb[] = [];
+
+  /** A chip with a round swatch of the pattern, painted by `paintThumb`. */
+  function patternChip(
+    pattern: Pattern | "own",
+    label: string,
+    data: Record<string, string>,
+    onClick: () => void,
+    into: Thumb[],
+  ) {
+    const canvas = h("canvas", { class: "look-chip-thumb", attrs: { "aria-hidden": "true" } });
+    into.push({ canvas, pattern });
+    return h(
+      "button",
+      { class: "look-chip", attrs: { type: "button", ...data }, on: { click: onClick } },
+      canvas,
+      h("span", { text: label }),
+    );
+  }
+
+  /** Paint a pattern swatch: the base color, then the motif, or your own tile once it loads. */
+  function paintThumb(t: Thumb, base: string, palette: ReturnType<typeof lookPalette>) {
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    const px = Math.round(28 * dpr);
+    t.canvas.width = px;
+    t.canvas.height = px;
+    const ctx = t.canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.fillStyle = base;
+    ctx.fillRect(0, 0, px, px);
+    const img = t.pattern === "own" ? lookImage(draft.patternMedia ?? undefined) : undefined;
+    const fill =
+      t.pattern === "own"
+        ? img && draft.patternMedia
+          ? thumbs.image(ctx, draft.patternMedia, img, px)
+          : null
+        : thumbs.named(ctx, t.pattern, palette, px / 2);
+    if (fill) {
+      ctx.fillStyle = fill;
+      ctx.fillRect(0, 0, px, px);
+    }
+  }
+
   const patternRow = h("div", { class: "look-chips" });
-  const patternThumbs = new Map<Pattern, HTMLCanvasElement>();
   const patternButtons = new Map<Pattern, HTMLButtonElement>();
   for (const pattern of PATTERNS) {
-    const canvas = h("canvas", { class: "look-chip-thumb", attrs: { "aria-hidden": "true" } });
-    patternThumbs.set(pattern, canvas);
-    const b = h(
-      "button",
-      {
-        class: "look-chip",
-        attrs: { type: "button", "data-pattern": pattern },
-        on: {
-          click: () => {
-            draft.pattern = pattern;
-            draft.patternMedia = null;
-            paint();
-          },
-        },
+    const b = patternChip(
+      pattern,
+      PATTERN_LABELS[pattern],
+      { "data-pattern": pattern },
+      () => {
+        draft.pattern = pattern;
+        setPatternMedia(null);
+        paint();
       },
-      canvas,
-      h("span", { text: PATTERN_LABELS[pattern] }),
+      outfitThumbs,
     );
     patternButtons.set(pattern, b);
     patternRow.append(b);
   }
 
+  /** Change your own pattern. Without one, no garment can wear it, so those lose that pattern. */
+  function setPatternMedia(id: string | null) {
+    draft.patternMedia = id;
+    if (id) return;
+    draft.wearStyle = withoutOwnPattern(draft.wearStyle);
+    if (styling) openStyler(styling);
+  }
+
   // ---- wear ----
-  const wearButtons = new Map<string, HTMLButtonElement>();
-  const wearRows = (["hat", "top", "accessory"] as const).map((slot) => {
-    const row = h("div", { class: "look-chips" });
-    const items: (WearItem | null)[] = [
-      null,
-      ...WEAR_ITEMS.filter((w) => WEAR_INFO[w].slot === slot),
-    ];
-    for (const item of items) {
-      const b = h("button", {
-        class: "look-chip text",
-        attrs: { type: "button", "data-wear": item ?? `none-${slot}` },
-        text: item ? WEAR_INFO[item].label : "None",
-        on: {
-          click: () => {
-            draft.wear = draft.wear.filter((w) => WEAR_INFO[w].slot !== slot);
-            if (item) draft.wear.push(item);
-            paint();
-          },
+  const wearButtons = new Map<string, HTMLElement>();
+  const styleButtons = new Map<WearSlot, HTMLButtonElement>();
+  const stylerSlots = new Map<WearSlot, HTMLElement>();
+  const chipRows = new Map<WearSlot, HTMLElement>();
+  /** The slot whose garment the styler is open for, if any. */
+  let styling: WearSlot | null = null;
+
+  const worn = (slot: WearSlot) => draft.wear.find((w) => WEAR_INFO[w].slot === slot);
+
+  const wearRows = WEAR_SLOTS.map((slot) => {
+    const row = h("div", { class: "look-chips", attrs: { "data-slot": slot } });
+    chipRows.set(slot, row);
+    const holder = h("div", {
+      class: "look-styler-slot",
+      attrs: { id: `look-styler-${slot}`, "data-styler": slot },
+    });
+    stylerSlots.set(slot, holder);
+    const style = h(
+      "button",
+      {
+        class: "pill-button small look-style",
+        attrs: {
+          type: "button",
+          "aria-expanded": "false",
+          "aria-controls": `look-styler-${slot}`,
+          "data-style": slot,
         },
-      });
-      wearButtons.set(item ?? `none-${slot}`, b);
-      row.append(b);
-    }
+        on: { click: () => (styling === slot ? closeStyler() : openStyler(slot)) },
+      },
+      icon("sparkle"),
+      h("span", { text: "Style" }),
+    );
+    styleButtons.set(slot, style);
     return h(
       "div",
       { class: "look-wear-row" },
-      h("p", { class: "look-sub", text: SLOT_LABELS[slot] }),
+      h(
+        "div",
+        { class: "look-slot-head" },
+        h("p", { class: "look-sub", text: SLOT_LABELS[slot] }),
+        style,
+      ),
       row,
+      holder,
     );
   });
+
+  /** One slot's chips: none, then each piece, with shop wear you don't own locked at its price. */
+  function fillWearRow(slot: WearSlot) {
+    const row = chipRows.get(slot);
+    if (!row) return;
+    row.replaceChildren();
+    const none = h("button", {
+      class: "look-chip text",
+      attrs: { type: "button", "data-wear": `none-${slot}` },
+      text: "None",
+      on: { click: () => pick(slot, null) },
+    });
+    wearButtons.set(`none-${slot}`, none);
+    row.append(none);
+    for (const item of WEAR_ITEMS.filter((w) => WEAR_INFO[w].slot === slot)) {
+      const art = itemArt(item, { size: 28, className: "look-chip-art" });
+      const name = h("span", { text: WEAR_INFO[item].label });
+      if (isShopWear(item) && !wardrobe.owned.has(item)) {
+        const price = wardrobe.prices.get(item);
+        const cost = price === undefined ? "sold" : coins(price);
+        const link = h(
+          "a",
+          {
+            class: "look-chip locked",
+            attrs: {
+              href: "/shop",
+              "data-wear": item,
+              "aria-label": `${WEAR_INFO[item].label}, ${cost} at the town shop`,
+            },
+          },
+          art,
+          name,
+          h(
+            "span",
+            { class: "look-chip-price" },
+            icon("coin"),
+            h("span", { text: price === undefined ? "Shop" : String(price) }),
+          ),
+        );
+        link.addEventListener("click", (e) => {
+          e.preventDefault();
+          leaveFor("/shop");
+        });
+        wearButtons.set(item, link);
+        row.append(link);
+        continue;
+      }
+      const b = h(
+        "button",
+        {
+          class: "look-chip wear",
+          attrs: { type: "button", "data-wear": item },
+          on: {
+            // Tapping what you have on opens its styler.
+            click: () => (worn(slot) === item ? openStyler(slot) : pick(slot, item)),
+          },
+        },
+        art,
+        name,
+      );
+      wearButtons.set(item, b);
+      row.append(b);
+    }
+  }
+  for (const slot of WEAR_SLOTS) fillWearRow(slot);
+
+  function pick(slot: WearSlot, item: WearItem | null) {
+    draft.wear = wearWith(draft.wear, slot, item);
+    if (styling) {
+      // Keep the styler on the slot, now for what's in it; close it once the slot is empty.
+      if (worn(styling)) openStyler(styling);
+      else closeStyler();
+    }
+    paint();
+  }
+
+  // The shop says what you own and what the rest costs. Until then shop wear shows locked.
+  void api.shop().then((result) => {
+    if (!result.ok) return;
+    const owned = new Set<WearItem>([...wardrobe.owned, ...(result.data.you?.wardrobe ?? [])]);
+    const prices = new Map((result.data.shop?.items ?? []).map((i) => [i.sku as string, i.price]));
+    wardrobe = { owned, prices };
+    for (const slot of WEAR_SLOTS) fillWearRow(slot);
+    paint();
+  });
+
+  // ---- the styler: one garment's own color and pattern ----
+  type StylerPaint = () => void;
+  let paintStyler: StylerPaint = () => {};
+
+  function setStyle(
+    item: WearItem,
+    change: { pattern?: GarmentPattern | undefined; color?: ResidentColor | undefined },
+  ) {
+    const next = cleanStyle({ ...draft.wearStyle[item], ...change });
+    if (next) draft.wearStyle[item] = next;
+    else delete draft.wearStyle[item];
+  }
+
+  function closeStyler() {
+    if (styling) stylerSlots.get(styling)?.replaceChildren();
+    styling = null;
+    paintStyler = () => {};
+    paint();
+  }
+
+  function openStyler(slot: WearSlot) {
+    const item = worn(slot);
+    if (styling && styling !== slot) stylerSlots.get(styling)?.replaceChildren();
+    if (!item) {
+      closeStyler();
+      return;
+    }
+    styling = slot;
+    const holder = stylerSlots.get(slot);
+    if (!holder) return;
+    const style = () => draft.wearStyle[item];
+    const name = WEAR_INFO[item].label.toLowerCase();
+
+    const colors = colorChips<"usual">(
+      style()?.color ?? "usual",
+      (c) => {
+        setStyle(item, { color: c === "usual" ? undefined : c });
+        paint();
+      },
+      undefined,
+      { value: "usual", label: "Usual" },
+    );
+    colors.row.setAttribute("aria-label", `Color of your ${name}`);
+
+    const patternThumbs: Thumb[] = [];
+    const patternChips = new Map<GarmentPattern | "usual", HTMLElement>();
+    const patterns = h("div", {
+      class: "look-chips",
+      attrs: { role: "group", "aria-label": `Pattern of your ${name}` },
+    });
+    const usual = h("button", {
+      class: "look-chip text",
+      attrs: { type: "button", "data-garment-pattern": "usual" },
+      text: "Usual",
+      on: {
+        click: () => {
+          setStyle(item, { pattern: undefined });
+          paint();
+        },
+      },
+    });
+    patternChips.set("usual", usual);
+    patterns.append(usual);
+    const choices: (Pattern | "own")[] = draft.patternMedia ? [...PATTERNS, "own"] : [...PATTERNS];
+    for (const pattern of choices) {
+      const label = pattern === "own" ? "Your own pattern" : PATTERN_LABELS[pattern];
+      const b = patternChip(
+        pattern,
+        label,
+        { "data-garment-pattern": pattern },
+        () => {
+          setStyle(item, { pattern });
+          paint();
+        },
+        patternThumbs,
+      );
+      patternChips.set(pattern, b);
+      patterns.append(b);
+    }
+
+    const clear = h("button", {
+      class: "pill-button small",
+      attrs: { type: "button", "data-clear-style": item },
+      text: "Clear style",
+      on: {
+        click: () => {
+          delete draft.wearStyle[item];
+          openStyler(slot);
+          paint();
+          // The styler was rebuilt: keep focus on the same control, not the top of the sheet.
+          stylerSlots
+            .get(slot)
+            ?.querySelector<HTMLElement>(`[data-clear-style="${item}"]`)
+            ?.focus();
+        },
+      },
+    });
+    const done = h("button", {
+      class: "pill-button small",
+      attrs: { type: "button" },
+      text: "Done",
+      on: {
+        click: () => {
+          const back = styleButtons.get(slot);
+          closeStyler();
+          back?.focus();
+        },
+      },
+    });
+
+    paintStyler = () => {
+      const g = garmentLook(figureLook(), item);
+      const base = g.color ?? g.palette.main;
+      for (const t of patternThumbs) paintThumb(t, base, g.palette);
+      const chosen = style()?.pattern ?? "usual";
+      for (const [value, b] of patternChips)
+        b.setAttribute("aria-pressed", String(value === chosen));
+    };
+    holder.replaceChildren(
+      h(
+        "div",
+        {
+          class: "look-styler",
+          attrs: { role: "group", "aria-labelledby": `look-styler-title-${slot}` },
+        },
+        h("h3", {
+          class: "look-styler-title",
+          attrs: { id: `look-styler-title-${slot}` },
+          text: `Style your ${name}`,
+        }),
+        h("p", { class: "look-sub", text: "Color" }),
+        colors.row,
+        h("p", { class: "look-sub", text: "Pattern" }),
+        patterns,
+        h("div", { class: "look-styler-actions" }, clear, done),
+      ),
+    );
+    paint();
+  }
 
   // ---- bring your own ----
   const mediaRows = (
@@ -235,7 +642,8 @@ export function openLookEditor(owner: LookOwner, onSaved: (look: LookView) => vo
       text: "Remove",
       on: {
         click: () => {
-          draft[key] = null;
+          if (key === "patternMedia") setPatternMedia(null);
+          else draft[key] = null;
           paint();
         },
       },
@@ -261,7 +669,11 @@ export function openLookEditor(owner: LookOwner, onSaved: (look: LookView) => vo
       }
       status.textContent = "";
       draft[key] = result.data.id;
-      if (key === "patternMedia") draft.pattern = null;
+      if (key === "patternMedia") {
+        draft.pattern = null;
+        // The styler offers your own pattern now.
+        if (styling) openStyler(styling);
+      }
       paint();
     });
     const repaint = () => {
@@ -303,36 +715,27 @@ export function openLookEditor(owner: LookOwner, onSaved: (look: LookView) => vo
       const on = !draft.patternMedia && (draft.pattern ?? "plain") === pattern;
       b.setAttribute("aria-pressed", String(on));
     }
-    for (const [pattern, canvas] of patternThumbs) {
-      const dpr = Math.min(window.devicePixelRatio || 1, 3);
-      const px = Math.round(28 * dpr);
-      canvas.width = px;
-      canvas.height = px;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) continue;
-      ctx.fillStyle = palette.main;
-      ctx.fillRect(0, 0, px, px);
-      const fill = thumbs.named(ctx, pattern, palette, px / 2);
-      if (fill) {
-        ctx.fillStyle = fill;
-        ctx.fillRect(0, 0, px, px);
-      }
-    }
+    for (const t of outfitThumbs) paintThumb(t, palette.main, palette);
     for (const [key, b] of wearButtons) {
+      // A locked chip is a link to the shop, never pressed.
+      if (!(b instanceof HTMLButtonElement)) continue;
       const on = key.startsWith("none-")
         ? !draft.wear.some((w) => WEAR_INFO[w].slot === key.slice(5))
         : draft.wear.includes(key as WearItem);
       b.setAttribute("aria-pressed", String(on));
     }
+    for (const [slot, b] of styleButtons) {
+      const item = worn(slot);
+      b.hidden = !item;
+      b.setAttribute("aria-expanded", String(styling === slot));
+      b.setAttribute(
+        "aria-label",
+        item ? `Style your ${WEAR_INFO[item].label.toLowerCase()}` : "Style",
+      );
+    }
+    paintStyler();
     for (const row of mediaRows) row.repaint();
-    const parts = [
-      draft.theme ? THEME_INFO[draft.theme].label : "Your color",
-      draft.patternMedia
-        ? "your own pattern"
-        : PATTERN_LABELS[draft.pattern ?? "plain"].toLowerCase(),
-      ...draft.wear.map((w) => WEAR_INFO[w].label.toLowerCase()),
-    ];
-    summary.textContent = parts.join(", ");
+    summary.textContent = lookSummary(draft);
   }
   const stopImages = onLookImage(paint);
   // Start loading a custom pattern so the preview can show it.
@@ -351,7 +754,11 @@ export function openLookEditor(owner: LookOwner, onSaved: (look: LookView) => vo
     { class: "look-form", attrs: { novalidate: true } },
     section("Theme", "Colors for your clothes, your plot, and your blocks.", themeRow),
     section("Pattern", null, patternRow),
-    section("Wear", "Up to three, one of each.", ...wearRows),
+    section(
+      "Wear",
+      "One of each. Tap Style, or what you have on, to give it its own color and pattern.",
+      ...wearRows,
+    ),
     section(
       "Make it yours",
       "Bring your own art. Uploads are public, like a post.",
@@ -417,6 +824,16 @@ export function openLookEditor(owner: LookOwner, onSaved: (look: LookView) => vo
   paint();
   openOverlay(dialog, stopImages);
   closeBtn.focus();
+}
+
+/** The look in a line under the preview: "Lemon, citrus slices, citrus dress in sun yellow". */
+function lookSummary(d: Draft): string {
+  const parts = [
+    d.theme ? THEME_INFO[d.theme].label : "Your color",
+    d.patternMedia ? "your own pattern" : PATTERN_LABELS[d.pattern ?? "plain"].toLowerCase(),
+    ...d.wear.map((w) => garmentName(w, d.wearStyle[w]).toLowerCase()),
+  ];
+  return parts.join(", ");
 }
 
 function section(title: string, help: string | null, ...children: HTMLElement[]) {

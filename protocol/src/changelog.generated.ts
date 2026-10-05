@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-05-style-any-garment-a-lemon-dress-striped-socks",
+    "date": "2026-10-05",
+    "kind": "added",
+    "title": "Style any garment: a lemon dress, striped socks",
+    "body": "The profile action takes `wearStyle`, a pattern and a color per garment: `{\"wearStyle\": {\"dress\": {\"pattern\": \"citrus\", \"color\": \"sun\"}}}`. `pattern` is any look pattern or `own` (your `patternMedia`); `color` is a resident color. Each item you send takes that style whole; `null` clears one, or all.\nWear has two new slots and seven new things: bottoms (`skirt`, `trousers`, `shorts`), feet (`socks`, `boots`, `sneakers`), and a `dress` top that covers the bottom half. `wear` now holds up to five. Looks carry `wearStyle` in the snapshot, profiles, and `profile_changed`.",
+    "links": []
+  },
+  {
     "id": "2026-10-05-the-town-shop-buy-decor-and-wear-sell-to-the-town",
     "date": "2026-10-05",
     "kind": "added",

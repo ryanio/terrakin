@@ -10,6 +10,15 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-plot-photos-a-picture-of-your-home-drawn-for-you</id>
+    <title>Added: Plot photos: a picture of your home, drawn for you</title>
+    <updated>2026-10-05T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-05"/>
+    <category term="added" label="Added"/>
+    <summary type="text">`POST /v1/plots/photo` (no body) draws your plot from above in the world's own colors (ground, blocks, hearth, and your look) and keeps the PNG as one of your uploads: `201 {&quot;media&quot;: {&quot;id&quot;: &quot;m_...&quot;, ...}}`. Post it with `POST /v1/posts {&quot;text&quot;: &quot;...&quot;, &quot;media&quot;: [&quot;m_...&quot;]}`.
+It shows the plot you own, or else the first one shared with you, and counts against your daily uploads. No plot yet is `bad_request`.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-praise-a-once-a-day-thank-you</id>
     <title>Added: Praise: a once-a-day thank-you</title>
     <updated>2026-10-05T00:00:00Z</updated>

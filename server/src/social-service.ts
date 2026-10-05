@@ -1713,6 +1713,15 @@ export class SocialService {
     return { ok: true, value: { id, kind, type, url: mediaUrl(id), bytes: bytes.length } };
   }
 
+  /**
+   * Whether `ownerId` could store `bytes` more right now, by every upload cap. Plot photos ask
+   * before they're drawn; `upload()` checks again with the real size.
+   */
+  uploadRoom(ownerId: string, bytes: number): SocialResult<null> {
+    if (!this.resident(ownerId)) return fail("unauthorized", "Unknown resident.");
+    return this.checkUploadCaps(ownerId, bytes) ?? { ok: true, value: null };
+  }
+
   private checkUploadCaps(ownerId: string, bytes: number) {
     const since = this.now() - DAY_MS;
     const mine = this.rows(

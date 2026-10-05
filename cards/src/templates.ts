@@ -11,6 +11,7 @@
 
 import { GRAIN_FILTER, MARK_SIZE, MARK_SVG, PALETTE } from "./brand";
 import { div, type El, img, type Style, svg, text } from "./h";
+import { homeArtBox, type PlotCard, plotSvg } from "./plot";
 import { clip, count, day, drawable, fit, plural } from "./text";
 
 export const W = 1200;
@@ -80,7 +81,9 @@ export interface PostCard {
   reply?: boolean | undefined;
 }
 
-export type Card = SiteCard | PageCard | ProfileCard | PostCard;
+export type { PlotCard };
+
+export type Card = SiteCard | PageCard | ProfileCard | PostCard | PlotCard;
 
 /** Pictures the renderer prepares once per process: the grained paper as a PNG data URI. */
 export interface Art {
@@ -549,6 +552,83 @@ function post(c: PostCard, art: Art): El {
   );
 }
 
+/** "Wren's home", or "A resident's home" when nothing in the name can be drawn. */
+function homeTitle(name: string): string {
+  const drawn = drawable(name, 24);
+  return drawn ? `${drawn}'s home` : "A resident's home";
+}
+
+/**
+ * A plot photo (issue #34): the plot from above in an instant-photo frame in the middle of the
+ * card, with the owner's name on the frame. Everything that matters sits in the middle 800 pixels,
+ * so the feed's 4:3 crop keeps it.
+ */
+function plot(c: PlotCard, art: Art): El {
+  const photo = 420;
+  const pad = 22;
+  const frameW = photo + pad * 2;
+  const caption = 112;
+  const frameH = pad + photo + caption;
+  const title = homeTitle(c.name);
+  const homeArt = c.homeArt ? homeArtBox(c, photo) : undefined;
+  return stage(
+    art,
+    div(
+      abs({
+        left: (W - frameW) / 2,
+        top: (H - frameH) / 2,
+        width: frameW,
+        height: frameH,
+        transform: "rotate(-1.2deg)",
+      }),
+      div(
+        abs({
+          left: 6,
+          top: 12,
+          width: frameW,
+          height: frameH,
+          borderRadius: 10,
+          backgroundColor: SHADOW,
+        }),
+      ),
+      div(
+        abs({
+          left: 0,
+          top: 0,
+          width: frameW,
+          height: frameH,
+          borderRadius: 10,
+          backgroundColor: "#ffffff",
+          flexDirection: "column",
+          alignItems: "center",
+        }),
+        div(
+          { position: "relative", width: photo, height: photo, marginTop: pad, overflow: "hidden" },
+          svg(plotSvg(c, photo), photo, photo, abs({ left: 0, top: 0 })),
+          homeArt && c.homeArt
+            ? img(c.homeArt.src, homeArt.width, homeArt.height, abs({ ...homeArt }))
+            : null,
+        ),
+        text(
+          {
+            fontFamily: SERIF,
+            fontWeight: 600,
+            fontSize: fit(title, photo, 40, SERIF_ADVANCE, 26),
+            lineHeight: 1.1,
+            marginTop: 16,
+          },
+          title,
+        ),
+        text(
+          { fontSize: 22, fontWeight: 600, color: INK_SOFT, marginTop: 6 },
+          clip([c.place, ...c.facts].join("  ·  "), 60),
+        ),
+      ),
+    ),
+    signature(),
+  );
+}
+
 /** The element tree for a card. */
 export function element(card: Card, art: Art = {}): El {
   switch (card.kind) {
@@ -560,5 +640,7 @@ export function element(card: Card, art: Art = {}): El {
       return profile(card, art);
     case "post":
       return post(card, art);
+    case "plot":
+      return plot(card, art);
   }
 }

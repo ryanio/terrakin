@@ -1,19 +1,25 @@
 import {
-  type Biome,
+  BLOCK_COLORS,
   type BlockKind,
-  biomeAt,
+  blockFill,
+  FLOWER_TONES,
+  groundTile,
+  HEARTH_COLOR,
+  HEARTH_DOOR,
+  OUTSIDE_GROUND,
   plotKey,
   type Resident,
   THEME_INFO,
+  THEME_TINT_ALPHA,
   type Theme,
   type ThemePalette,
+  TUFT_STROKE,
 } from "@terrakin/sim";
 import { BRAND_HEX } from "@terrakin/ui/brand";
 import { drawFigure, FIGURE_BOX } from "@terrakin/ui/figure";
 import {
   lookImage,
   lookPalette,
-  mix,
   PatternCache,
   paintMotif,
   patternMotifs as patternMotifsFor,
@@ -25,25 +31,19 @@ import { nightAmount } from "./time";
 
 export { RESIDENT_COLOR_HEX } from "@terrakin/ui/looks";
 
-// Storybook palette. Matches the tokens in ui/src/tokens.css.
+// Storybook palette. Matches the tokens in ui/src/tokens.css. The world's own colors (ground,
+// blocks, the hearth) are in the sim's palette, shared with the plot photos drawn at the edge.
 const PAPER = BRAND_HEX.paper;
 const PAPER_EDGE = BRAND_HEX.paperEdge;
 const INK = BRAND_HEX.ink;
 const CLAY = BRAND_HEX.clay;
 const CLAY_DEEP = BRAND_HEX.clayDeep;
 
-const BLOCK_COLORS: Record<BlockKind, string> = {
-  wood: "#b8834f",
-  stone: "#a39d93",
-  glass: "#bfe0ea",
-  leaf: "#6b9a4a",
-};
-
 export function blockColor(block: BlockKind): string {
   return BLOCK_COLORS[block];
 }
 
-export const HEARTH_COLOR = "#d9653a";
+export { HEARTH_COLOR };
 
 // ---------- sprites: looks drawn once, then stamped every frame ----------
 
@@ -121,12 +121,7 @@ interface BlockSkin {
 
 /** The color of a block on a plot with this skin. */
 function skinnedColor(block: BlockKind, skin: BlockSkin | undefined): string {
-  const p = skin?.palette;
-  if (!p) return BLOCK_COLORS[block];
-  if (block === "wood") return mix(p.light, p.main, 0.45);
-  if (block === "stone") return mix(BLOCK_COLORS.stone, p.light, 0.35);
-  if (block === "leaf") return mix(BLOCK_COLORS.leaf, p.deep, 0.18);
-  return BLOCK_COLORS.glass;
+  return blockFill(block, skin?.palette);
 }
 
 /** One raised block with its ground shadow, at (left, top), `size` across. */
@@ -207,28 +202,6 @@ function paintBlock(
   }
 }
 
-/**
- * Ground tones per biome, plus the Commons' sandy tones. Picked per tile by a fixed hash, so
- * the ground has texture. Biomes come from the sim's pure biomeAt: scenery that can't desync.
- */
-const GROUND: Record<Biome, string[]> = {
-  meadow: ["#a5c682", "#a1c27d", "#a9c986", "#9dbe79"],
-  forest: ["#8fb26a", "#8aab64", "#93b56e", "#86a660"],
-  stone: ["#b3ab9b", "#afa798", "#b7afa0", "#aba394"],
-  // A little deeper and greener than the Commons plaza and the area outside the world, so a
-  // sand patch never blends into either.
-  sand: ["#d6c08a", "#d2bb84", "#dac590", "#cdb67f"],
-};
-const COMMONS = ["#efdcab", "#ebd7a4", "#f2e1b3", "#e8d39f"];
-const OUTSIDE = "#e6d6b6";
-
-/** Cheap integer hash for visual variety only. Not game state: the sim never sees it. */
-function tileHash(x: number, y: number): number {
-  let h = Math.imul(x, 374761393) + Math.imul(y, 668265263);
-  h = Math.imul(h ^ (h >>> 13), 1274126177);
-  return (h ^ (h >>> 16)) >>> 0;
-}
-
 // Stable hue per owner so neighbors' plots are easy to tell apart.
 function ownerHue(id: string): number {
   let h = 0;
@@ -264,7 +237,7 @@ export function render(
   const { width, height, scale } = cam;
   const { config, commons } = mirror;
   const S = config.plotSize;
-  ctx.fillStyle = OUTSIDE;
+  ctx.fillStyle = OUTSIDE_GROUND;
   ctx.fillRect(0, 0, width, height);
 
   // Visible tile range.
@@ -285,16 +258,14 @@ export function render(
       const w = Math.round(sx + half) - left;
       const h = Math.round(sy + half) - top;
       const inCommons = Math.floor(x / S) === commons.px && Math.floor(y / S) === commons.py;
-      const n = tileHash(x, y);
-      const biome = biomeAt(config, x, y);
-      ctx.fillStyle = (inCommons ? COMMONS : GROUND[biome])[n & 3] as string;
+      // Tone and scenery come from the sim's palette, shared with the plot photos.
+      const ground = groundTile(config, x, y, inCommons);
+      ctx.fillStyle = ground.fill;
       ctx.fillRect(left, top, w, h);
-      // The Commons plaza and bare biomes stay clean; only meadow and forest grow decoration.
-      if (inCommons || biome === "stone" || biome === "sand") continue;
-      const deco = (n >>> 4) % 17;
-      if (deco === 0 || deco === 7) {
+      const deco = ground.scenery;
+      if (deco?.kind === "tuft") {
         // A little tuft of grass.
-        const bx = left + w * (0.3 + ((n >>> 9) & 7) / 20);
+        const bx = left + w * deco.fx;
         const by = top + h * 0.72;
         tufts.moveTo(bx - w * 0.08, by);
         tufts.lineTo(bx - w * 0.12, by - h * 0.14);
@@ -302,10 +273,10 @@ export function render(
         tufts.lineTo(bx, by - h * 0.2);
         tufts.moveTo(bx + w * 0.08, by);
         tufts.lineTo(bx + w * 0.13, by - h * 0.13);
-      } else if (deco === 3) {
-        const fx = left + w * (0.25 + ((n >>> 12) & 7) / 14);
-        const fy = top + h * (0.25 + ((n >>> 15) & 7) / 14);
-        const path = flowers[(n >>> 20) & 1] as Path2D;
+      } else if (deco?.kind === "flower") {
+        const fx = left + w * deco.fx;
+        const fy = top + h * deco.fy;
+        const path = flowers[deco.tone] as Path2D;
         path.moveTo(fx + scale * 0.06, fy);
         path.arc(fx, fy, scale * 0.06, 0, Math.PI * 2);
       }
@@ -313,11 +284,11 @@ export function render(
   }
   ctx.lineCap = "round";
   ctx.lineWidth = Math.max(1, scale / 24);
-  ctx.strokeStyle = "rgba(78, 112, 54, 0.45)";
+  ctx.strokeStyle = TUFT_STROKE;
   ctx.stroke(tufts);
-  ctx.fillStyle = "#fff4d6";
+  ctx.fillStyle = FLOWER_TONES[0];
   ctx.fill(flowers[0]);
-  ctx.fillStyle = BRAND_HEX.sun;
+  ctx.fillStyle = FLOWER_TONES[1];
   ctx.fill(flowers[1]);
 
   // ---- plots: owner tint plus a dashed clay border; faint lines between unclaimed plots ----
@@ -339,7 +310,7 @@ export function render(
         const theme = mirror.residents.get(owner)?.theme;
         // A theme tints the whole plot; otherwise a stable hue per owner tells neighbors apart.
         ctx.fillStyle = theme
-          ? withAlpha(THEME_INFO[theme].palette.ground, 0.34)
+          ? withAlpha(THEME_INFO[theme].palette.ground, THEME_TINT_ALPHA)
           : mine
             ? "rgba(255, 238, 196, 0.32)"
             : `hsla(${ownerHue(owner)}, 65%, 72%, 0.2)`;
@@ -434,7 +405,7 @@ export function render(
     ctx.fill();
     ctx.fillStyle = PAPER;
     ctx.fillRect(sx - half * 0.52, sy - half * 0.2, half * 1.04, half * 0.78);
-    ctx.fillStyle = BRAND_HEX.sun;
+    ctx.fillStyle = HEARTH_DOOR;
     ctx.beginPath();
     ctx.roundRect(sx - half * 0.14, sy + half * 0.12, half * 0.28, half * 0.46, half * 0.08);
     ctx.fill();

@@ -3,7 +3,59 @@
  * Tests render them all; to look at them, run `pnpm --filter @terrakin/cards samples <dir>`.
  */
 
+import type { PlotBlock, PlotCard, PlotGround } from "./plot";
 import type { Card } from "./templates";
+
+/** A plot like a starter home on meadow and forest, with a few signature blocks. */
+export function samplePlot(name: string, homeArt?: PlotCard["homeArt"]): PlotCard {
+  const size = 8;
+  const meadow = ["#a5c682", "#a1c27d", "#a9c986", "#9dbe79"];
+  const forest = ["#8fb26a", "#8aab64", "#93b56e", "#86a660"];
+  const ground: PlotGround[] = [];
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const tones = x < 4 ? meadow : forest;
+      const n = (x * 7 + y * 13) % 17;
+      ground.push({
+        fill: tones[(x + y) % 4] ?? "#a5c682",
+        ...(n === 0 || n === 7 ? { tuft: 0.4 } : {}),
+        ...(n === 3 ? { flower: { fx: 0.5, fy: 0.4, fill: "#fff4d6" } } : {}),
+      });
+    }
+  }
+  const blocks: PlotBlock[] = [];
+  for (let i = 1; i <= 5; i++) {
+    for (const [x, y] of [
+      [i, 1],
+      [i, 5],
+      [1, i],
+      [5, i],
+    ] as const) {
+      if (x === 3 && y === 5) continue;
+      if (blocks.some((b) => b.x === x && b.y === y)) continue;
+      const glass = (x === 3 && y === 1) || (y === 3 && (x === 1 || x === 5));
+      blocks.push({ x, y, glass, fill: glass ? "#bfe0ea" : "#b8834f" });
+    }
+  }
+  for (let x = 1; x <= 5; x++) blocks.push({ x, y: 0, glass: true, fill: "#bfe0ea" });
+  blocks.push(
+    { x: 6, y: 2, glass: false, fill: "#6b9a4a" },
+    { x: 6, y: 4, glass: false, fill: "#6b9a4a" },
+  );
+  return {
+    kind: "plot",
+    name,
+    place: "Plot 3, 4",
+    facts: ["Meadow and forest", `${blocks.length} blocks`],
+    size,
+    ground,
+    tint: "rgba(242, 184, 75, 0.34)",
+    blocks,
+    hearth: { x: 3, y: 3 },
+    ...(homeArt ? { homeArt } : {}),
+    ink: { roof: "#d9653a", door: "#f2b84b", walls: "#fffaf0", tuft: "rgba(78, 112, 54, 0.45)" },
+  };
+}
 
 /** Picture slots a sample can fill (tests pass generated PNGs). */
 export interface SampleImages {
@@ -101,6 +153,14 @@ export function samples(images: SampleImages = {}): [string, Card][] {
         date: "2026-10-03T22:00:00.000Z",
         reply: true,
       },
+    ],
+    ["plot", samplePlot("Juniper")],
+    [
+      "plot-hostile-name",
+      samplePlot(
+        '"><script>alert(1)</script> 🎉🎉',
+        images.photo ? { src: images.photo, width: 1200, height: 630 } : undefined,
+      ),
     ],
     [
       "post-emoji-only",

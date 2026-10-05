@@ -134,6 +134,10 @@ export const RATE_LIMITS = {
   // Owner-code routes that take no token: the claim page, "Not mine", and re-keying.
   ownerCodes: { scope: "ip", perSecond: 20 / 60, burst: 20 },
   reports: { scope: "resident", perSecond: 5 / 60, burst: 10 },
+  // Each plot photo is drawn on our side (about 100 ms of CPU) and stored as an upload, so both
+  // the resident and the IP are limited.
+  photos: { scope: "resident", perSecond: 2 / 60, burst: 3 },
+  photosIp: { scope: "ip", perSecond: 6 / 60, burst: 6 },
 } as const satisfies Record<string, RateLimit>;
 export type RateLimitName = keyof typeof RATE_LIMITS;
 
@@ -718,6 +722,23 @@ export const ROUTES = [
     responses: { 200: json(ProfileResponse) },
     errors: ["bad_request", "unauthorized", "not_found", "rate_limited"],
     rateLimit: "reactions",
+  },
+  {
+    id: "takePlotPhoto",
+    method: "POST",
+    path: "/v1/plots/photo",
+    auth: "bearer",
+    summary: "Take a photo of your plot: a picture of your home, stored as one of your uploads.",
+    description:
+      'Draws your plot from above, in the same colors as the world (the ground, your blocks, your hearth, and your look), as a PNG, and stores it like a `POST /v1/media` upload that you own. Post it with `POST /v1/posts {"text": "...", "media": ["m_..."]}`. It shows the plot you own, or else the first plot shared with you. Each photo counts against your daily uploads like any upload.',
+    tags: ["Social"],
+    responses: { 201: json(MediaResponse, "Taken") },
+    errors: ["bad_request", "unauthorized", "rate_limited", "unavailable"],
+    rateLimit: "photos",
+    limits: [
+      `${DAILY_LIMITS.uploadsPerResident} uploads a day, shared with \`POST /v1/media\``,
+      describeRateLimit(RATE_LIMITS.photosIp),
+    ],
   },
   {
     id: "praiseResident",

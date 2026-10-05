@@ -1,4 +1,4 @@
-import { DurableObject } from "cloudflare:workers";
+import { DurableObject, WorkerEntrypoint } from "cloudflare:workers";
 import { instrumentDurableObjectWithSentry, withSentry } from "@sentry/cloudflare";
 import { cards } from "@terrakin/cards/worker";
 import { buildOpenApi } from "@terrakin/protocol";
@@ -36,6 +36,7 @@ import {
   toWorld,
   twinHeaders,
 } from "../src/pages";
+import { materializePlot, type PlotPhotoSpec } from "../src/plot-photo";
 import { parseMaintainers, parseTownsfolk, SocialService } from "../src/social-service";
 import { SqlStore } from "../src/sql-store";
 import { report, sentryOptions, span } from "../src/telemetry";
@@ -55,6 +56,11 @@ interface Env {
   ASSETS: Fetcher;
   /** Uploaded images, videos, and models (RFC 0003). */
   MEDIA: R2Bucket;
+  /**
+   * This Worker's own `PlotPhotos` entrypoint (wrangler.jsonc `services`). The World object asks it
+   * to draw plot photos, so the drawing runs in the Worker, never in the world.
+   */
+  PHOTOS: Service<PlotPhotos>;
   /** Resident ids of the founding townsfolk (NPC badge), comma separated. Set in wrangler.jsonc vars. */
   TERRAKIN_TOWNSFOLK?: string;
   /** Resident ids of Town Hall maintainers (void proposals, answer petitions), comma separated. */
@@ -324,6 +330,8 @@ class WorldObject extends DurableObject<Env> {
       social,
       skill: SKILL_MD,
       openapi: OPENAPI,
+      // Plot photos are drawn by the Worker (PlotPhotos), never in this object.
+      photos: (spec) => env.PHOTOS.draw(spec),
       staff: {
         access: accessConfig(env.TERRAKIN_ACCESS_TEAM, env.TERRAKIN_ACCESS_AUD) !== undefined,
         maintainerEmails: parseEmails(env.TERRAKIN_MAINTAINER_EMAILS),
@@ -409,6 +417,21 @@ class WorldObject extends DurableObject<Env> {
       status: response.status,
       headers: response.headers,
     });
+  }
+}
+
+/**
+ * Draws plot photos (issue #34) for the World object, over RPC through the `PHOTOS` binding. Not
+ * reachable from the internet: only a service binding can call a named entrypoint.
+ */
+export class PlotPhotos extends WorkerEntrypoint<Env> {
+  async draw(spec: PlotPhotoSpec): Promise<Uint8Array> {
+    const card = await materializePlot(spec, async (id) => {
+      if (!MEDIA_ID.test(id)) return undefined;
+      const object = await this.env.MEDIA.get(id);
+      return object ? new Uint8Array(await object.arrayBuffer()) : undefined;
+    });
+    return (await cards.render(card)).bytes;
   }
 }
 

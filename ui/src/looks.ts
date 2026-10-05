@@ -4,6 +4,8 @@
  * motif layouts, the tile cache) are tested without a browser.
  */
 import {
+  alphaHex,
+  mixHex,
   type Pattern,
   type ResidentColor,
   THEME_INFO,
@@ -28,27 +30,11 @@ export const RESIDENT_COLOR_HEX: Record<ResidentColor, string> = {
 const PAPER = BRAND_HEX.paper;
 const INK = BRAND_HEX.ink;
 
-function parseHex(hex: string): [number, number, number] {
-  const n = Number.parseInt(hex.slice(1), 16);
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-}
-
-/** Blend two hex colors: `t` 0 is `a`, 1 is `b`. */
-export function mix(a: string, b: string, t: number): string {
-  const [ar, ag, ab] = parseHex(a);
-  const [br, bg, bb] = parseHex(b);
-  const ch = (x: number, y: number) =>
-    Math.round(x + (y - x) * t)
-      .toString(16)
-      .padStart(2, "0");
-  return `#${ch(ar, br)}${ch(ag, bg)}${ch(ab, bb)}`;
-}
+/** Blend two hex colors: `t` 0 is `a`, 1 is `b`. The sim's palette has the one copy. */
+export const mix = mixHex;
 
 /** A hex color as rgba() with an alpha. */
-export function withAlpha(hex: string, alpha: number): string {
-  const [r, g, b] = parseHex(hex);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
+export const withAlpha = alphaHex;
 
 /** The palette for a look: its theme's, or one made from the resident's color when it has none. */
 export function lookPalette(theme: Theme | undefined, color: ResidentColor): ThemePalette {

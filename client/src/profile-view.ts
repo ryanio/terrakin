@@ -40,6 +40,7 @@ import { lettersPath } from "./letters-view";
 import { openLookEditor } from "./look-editor";
 import { savedToken, saveToken } from "./net";
 import { agentItem, type OwnerPanel, ownerPanel } from "./owner-panel";
+import { plotPhotoButton } from "./plot-photo";
 import { postCard, skeletonCards } from "./post-card";
 import { coins, refreshPurse } from "./purse";
 import { openReportSheet } from "./report-sheet";
@@ -232,6 +233,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
           );
           x.paint(true);
           handleWrap.append(handleButton(r, handleLine, handleWrap));
+          actions.append(plotPhotoButton());
           return;
         }
         actions.prepend(followButton(r, paintCounts), praiseButton(r, paintCounts));

@@ -18,6 +18,7 @@ Playwright tests that drive the real production build on an iPhone 13 viewport. 
 | `duo.spec.ts` | Invite, join, follow, a gesture, and a private letter; a visitor joining and following from a profile. |
 | `looks.spec.ts` | The look editor, the profile, and the figure in the world. |
 | `three-d.spec.ts` | A plot and the gallery in 3D, a photo, and nothing left running after leaving. |
+| `plot-photo.spec.ts` | A plot photo at 390x844: taking one from your own profile, the picture the server drew, and posting it. |
 | `town.spec.ts` | Propose, vote, close, and build in the Town Hall. |
 | `coins.spec.ts` | Coins at 390x844: the welcome gift in the top bar purse, the purse page, coming home for the allowance the next day, giving a friend coins from their profile, and their live notice. |
 | `praise.spec.ts` | Praise at 390x844: refused on the first day, then praising a neighbor from their profile, the count and the "Praised today" button, a second tap refused, and their notification. |

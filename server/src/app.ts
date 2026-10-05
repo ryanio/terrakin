@@ -27,6 +27,7 @@ import {
   pageHeaders,
   twinHeaders,
 } from "./pages";
+import { materializePlot } from "./plot-photo";
 import type { SocialService } from "./social-service";
 import type { WorldService } from "./world-service";
 
@@ -76,6 +77,8 @@ export interface AppOptions {
   onResponse?: ApiOptions["onResponse"];
   /** See `ApiOptions.staff`. Node has no Cloudflare Access, so staff sign in with a token. */
   staff?: ApiOptions["staff"];
+  /** See `ApiOptions.photos`. Default: drawn in this process with the cards renderer. `false`: none. */
+  photos?: ApiOptions["photos"] | false;
   /**
    * Tests only (`TERRAKIN_TEST_CLOCK=1`): answers `POST /v1/test/advance-day` by moving the clock
    * a day on. It's deliberately outside the route table, so it never appears in the API docs, and
@@ -145,6 +148,19 @@ export function createApp(options: AppOptions): Server {
     ...(options.maxWatchersPerNetwork === undefined
       ? {}
       : { maxWatchersPerNetwork: options.maxWatchersPerNetwork }),
+    // Node has one process, so plot photos are drawn here, like the link cards.
+    ...(options.photos === false
+      ? {}
+      : {
+          photos:
+            options.photos ??
+            (async (spec) => {
+              const card = await materializePlot(spec, async (id) =>
+                MEDIA_ID.test(id) ? options.media?.get(id) : undefined,
+              );
+              return (await cards.render(card)).bytes;
+            }),
+        }),
   });
 
   const server = createServer((req, res) => {

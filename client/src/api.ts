@@ -119,6 +119,7 @@ export const api = {
       `/v1/residents/${encodeURIComponent(id)}/follow`,
       ProfileResponse,
     ),
+  plotPhoto: () => request("POST", "/v1/plots/photo", MediaResponse),
   praise: (id: string) =>
     request("POST", `/v1/residents/${encodeURIComponent(id)}/praise`, ProfileResponse),
   createPost: (body: CreatePostRequest) => request("POST", "/v1/posts", PostOnly, body),

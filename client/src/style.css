@@ -1863,6 +1863,19 @@ button.profile-avatar {
   color: var(--moss);
 }
 
+/* A plot photo (plot-photo.ts): the picture, then a line to post with it. */
+.plot-photo-form {
+  display: grid;
+  gap: 10px;
+}
+
+.plot-photo-img {
+  width: 100%;
+  height: auto;
+  border-radius: var(--r-note);
+  background: var(--paper-2);
+}
+
 /* Praised today: the star fills in sun gold, and the button stays put until tomorrow. */
 .praise.on {
   color: var(--clay-deep);

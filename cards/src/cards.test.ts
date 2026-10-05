@@ -5,8 +5,9 @@ import { describe, expect, it } from "vitest";
 import { FONTS } from "./fonts";
 import { imageDataUri, MAX_IMAGE_PIXELS, probeImage } from "./images";
 import { cards } from "./node";
+import { plotSvg, safeColor } from "./plot";
 import { unmask } from "./render";
-import { samples } from "./samples";
+import { samplePlot, samples } from "./samples";
 import { type Card, element, H, W } from "./templates";
 import { cardText, clip, count, drawable } from "./text";
 
@@ -234,5 +235,38 @@ describe("renderer", () => {
     const worker = readFileSync(new URL("./worker.ts", import.meta.url), "utf8");
     const imported = [...worker.matchAll(/from "(@fontsource\/[^"]+\.woff)"/g)].map((m) => m[1]);
     expect(imported.sort()).toEqual(FONTS.map((f) => f.file).sort());
+  });
+
+  it("keeps a plot photo's SVG our own: only palette colors and coordinates on the plot", () => {
+    const hostile = '"/><script>x</script><image href="https://example.com/x.png';
+    expect(safeColor(hostile)).toBe("#b3ab9b");
+    expect(safeColor("#a5c682")).toBe("#a5c682");
+    expect(safeColor("rgba(242, 184, 75, 0.34)")).toBe("rgba(242, 184, 75, 0.34)");
+    const base = samplePlot("Wren");
+    const svg = plotSvg(
+      {
+        ...base,
+        ground: base.ground.map((g) => ({
+          ...g,
+          fill: hostile,
+          ...(g.flower ? { flower: { ...g.flower, fill: hostile } } : {}),
+        })),
+        tint: hostile,
+        blocks: [
+          ...base.blocks.map((b) => ({ ...b, fill: hostile })),
+          { x: Number.NaN, y: 1, glass: false, fill: "#b8834f" },
+          { x: 99, y: 1, glass: false, fill: "#b8834f" },
+        ],
+        hearth: { x: -1, y: 3 },
+        ink: { roof: hostile, door: hostile, walls: hostile, tuft: hostile },
+      },
+      420,
+    );
+    expect(svg).not.toMatch(/<script|<image|href|example\.com/);
+    expect(svg).not.toContain("NaN");
+    expect(svg).not.toContain('x="99');
+    // No hearth off the plot: its roof is the only path that closes with "z" and a fill.
+    expect(svg).not.toMatch(/<ellipse/);
+    expect(svg.match(/<svg/g)).toHaveLength(1);
   });
 });

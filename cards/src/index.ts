@@ -4,6 +4,15 @@
  */
 
 export { imageDataUri, MAX_IMAGE_BYTES, MAX_IMAGE_PIXELS, probeImage } from "./images";
+export {
+  homeArtBox,
+  type PlotBlock,
+  type PlotCard,
+  type PlotGround,
+  type PlotInk,
+  plotSvg,
+  safeColor,
+} from "./plot";
 export type { Cards, Rendered } from "./render";
 export {
   CARDS_VERSION,

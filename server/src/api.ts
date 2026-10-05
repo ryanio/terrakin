@@ -50,6 +50,7 @@ import { BAD_LINK_KEY, DEFAULT_ORIGIN, linkHandlers, linkHelp, REPEAT_NOTE } fro
 import { postMarkdown, profileMarkdown } from "./markdown";
 import { COOL_DOWN_MESSAGE, type Moderation } from "./moderation";
 import { OwnerService } from "./owner-service";
+import { type PlotPhotoRenderer, plotPhotoSpec } from "./plot-photo";
 import { RateLimiters, type Take } from "./rate-limit";
 import type { SocialResult, SocialService } from "./social-service";
 import { count, crumb, nameRequest, report, span, task } from "./telemetry";
@@ -139,6 +140,13 @@ const MAX_REPEATS = 2_000;
 
 /** Uploads the one world object will buffer at once. Each can be up to 25 MB. */
 const MAX_UPLOADS_IN_FLIGHT = 2;
+/** Plot photos being drawn at once. Each waits on the renderer and then holds a PNG in memory. */
+const MAX_PHOTOS_IN_FLIGHT = 2;
+/**
+ * Bytes a plot photo is assumed to take before it's drawn, for the cost guards that run first. A
+ * drawn photo is about 100 to 300 KB; the exact size is checked again when it's stored.
+ */
+const PHOTO_RESERVE_BYTES = 1_000_000;
 /** Letter pictures (up to 5 MB each) the world object will hold in memory at once. */
 const MAX_LETTER_READS_IN_FLIGHT = 4;
 
@@ -156,6 +164,8 @@ const RATE_LIMITED: Record<RateLimitName, string> = {
   owner: "Slow down a little.",
   ownerCodes: "Too many tries with codes from here. Wait a minute.",
   reports: "That's a lot of reports at once. Wait a minute, then send the rest.",
+  photos: "That's a lot of photos. Wait a minute, then take another.",
+  photosIp: "Lots of photos from here. Wait a minute, then try again.",
 };
 
 const TABLE = ROUTES as readonly RouteSpec[];
@@ -278,6 +288,11 @@ export interface ApiOptions {
   now?: () => number;
   /** Staff sign-in. Default: no Access, so maintainers' and moderators' tokens work. */
   staff?: StaffOptions;
+  /**
+   * Draws plot photos (issue #34). Node draws in-process; the World object calls the Worker, so a
+   * drawing never runs in the world. Without it, `POST /v1/plots/photo` answers `unavailable`.
+   */
+  photos?: PlotPhotoRenderer;
 }
 
 // ---------- handler types, all derived from the route table ----------
@@ -401,6 +416,8 @@ export class Api {
   private readonly limiters: Record<RateLimitName, RateLimiters>;
   private readonly ipUploads = new Map<string, { day: number; bytes: number }>();
   private uploadsInFlight = 0;
+  private photosInFlight = 0;
+  private readonly photos: PlotPhotoRenderer | undefined;
   private letterReadsInFlight = 0;
   /** `watch` sockets, capped in all and per network. */
   private readonly watchers = new Set<PostListener>();
@@ -440,6 +457,7 @@ export class Api {
       this.service.syncOwnerPairs(layer.ownerPairs());
     }
     this.ipUploadBytesPerDay = options.ipUploadBytesPerDay ?? 500_000_000;
+    this.photos = options.photos;
     this.maxWatchers = options.maxWatchers ?? MAX_WATCHERS;
     this.maxWatchersPerNetwork = options.maxWatchersPerNetwork ?? MAX_WATCHERS_PER_NETWORK;
     this.onResponse = options.onResponse;
@@ -466,6 +484,8 @@ export class Api {
       owner: bucket("owner"),
       ownerCodes: bucket("ownerCodes"),
       reports: bucket("reports"),
+      photos: bucket("photos"),
+      photosIp: bucket("photosIp"),
     };
     // Without a social service its routes don't exist, so they answer not_found like any unknown
     // path. The Town Hall needs it too: its notice board and author faces live there.
@@ -743,6 +763,82 @@ export class Api {
     return this.owners;
   }
 
+  /** The per-IP daily upload bytes, refused when `bytes` more would go over. */
+  private ipUploadRefusal(key: string, bytes: number): Failure | undefined {
+    const now = this.now();
+    const day = utcDay(now);
+    const used = this.ipUploads.get(key);
+    const spent = used?.day === day ? used.bytes : 0;
+    if (spent + bytes <= this.ipUploadBytesPerDay) return undefined;
+    return fail(
+      "rate_limited",
+      "That's all the uploads from here for today. Try again tomorrow.",
+      secondsToTomorrow(now),
+    );
+  }
+
+  /** Count a stored upload against its IP's day. Read again: another may have finished meanwhile. */
+  private countIpUpload(key: string, day: number, bytes: number) {
+    const latest = this.ipUploads.get(key);
+    const before = latest?.day === day ? latest.bytes : 0;
+    this.ipUploads.set(key, { day, bytes: before + bytes });
+  }
+
+  /**
+   * `POST /v1/plots/photo` (issue #34). Every cost guard runs before the drawing: the route's own
+   * limit (in the dispatcher), the per-IP limit, the upload caps with room for a photo, and the
+   * photos in flight. The drawn PNG then goes through `upload()`, which checks the caps again
+   * against its real size, so a photo is a normal upload owned by the resident.
+   */
+  private async takePlotPhoto(viewer: string, ip: string): Promise<Reply<"takePlotPhoto">> {
+    const social = this.requireSocial();
+    if (!this.photos) return fail("unavailable", "Photos aren't available on this server.");
+    const key = ipKey(ip);
+    if (!this.limiters.photosIp.take(key)) return fail("rate_limited", RATE_LIMITED.photosIp);
+    const spec = plotPhotoSpec(this.service.state, viewer);
+    if (!spec) {
+      return fail(
+        "bad_request",
+        'You have no plot to photograph yet. Settle one first: {"type": "settle", "px": ..., "py": ...} with POST /v1/actions.',
+      );
+    }
+    const overIp = this.ipUploadRefusal(key, PHOTO_RESERVE_BYTES);
+    if (overIp) return overIp;
+    const room = social.uploadRoom(viewer, PHOTO_RESERVE_BYTES);
+    if (!room.ok) {
+      return fail(
+        room.code,
+        room.message,
+        room.code === "rate_limited" ? (room.retryAfter ?? DAILY_CAP_RETRY_SECONDS) : undefined,
+      );
+    }
+    if (this.photosInFlight >= MAX_PHOTOS_IN_FLIGHT) {
+      return fail(
+        "rate_limited",
+        "Lots of photos being taken right now. Try again in a moment.",
+        5,
+      );
+    }
+    this.photosInFlight++;
+    try {
+      let png: Uint8Array;
+      try {
+        png = await span("photo", "photo.render", () => (this.photos as PlotPhotoRenderer)(spec));
+      } catch (err) {
+        report(err, "photo.render");
+        return fail("unavailable", "Couldn't take the photo right now. Try again in a minute.");
+      }
+      const day = utcDay(this.now());
+      const overIpNow = this.ipUploadRefusal(key, png.length);
+      if (overIpNow) return overIpNow;
+      const outcome = await social.upload(viewer, png);
+      if (outcome.ok) this.countIpUpload(key, day, png.length);
+      return fromResult(outcome, (media) => ({ status: 201 as const, body: { media } }));
+    } finally {
+      this.photosInFlight--;
+    }
+  }
+
   /** Every REST route's behavior, keyed by the route id from the table. */
   private routeHandlers(): Handlers {
     const { service } = this;
@@ -935,19 +1031,12 @@ export class Api {
           status: 200 as const,
           body: { resident },
         })),
+      takePlotPhoto: ({ viewer, ip }) => this.takePlotPhoto(viewer, ip),
       uploadMedia: async ({ viewer, body, ip }) => {
         const key = ipKey(ip);
-        const now = this.now();
-        const day = utcDay(now);
-        const used = this.ipUploads.get(key);
-        const spent = used?.day === day ? used.bytes : 0;
-        if (spent + body.length > this.ipUploadBytesPerDay) {
-          return fail(
-            "rate_limited",
-            "That's all the uploads from here for today. Try again tomorrow.",
-            secondsToTomorrow(now),
-          );
-        }
+        const day = utcDay(this.now());
+        const overIp = this.ipUploadRefusal(key, body.length);
+        if (overIp) return overIp;
         // The world object has one memory budget for everyone, so only a couple of bodies at once.
         if (this.uploadsInFlight >= MAX_UPLOADS_IN_FLIGHT) {
           return fail("rate_limited", "Lots of uploads right now. Try again in a moment.", 5);
@@ -958,12 +1047,7 @@ export class Api {
           if (!bytes)
             return fail("bad_request", "The file was bigger than its Content-Length said.");
           const outcome = await social().upload(viewer, bytes);
-          if (outcome.ok) {
-            // Re-read: another upload from this IP may have finished while this one was reading.
-            const latest = this.ipUploads.get(key);
-            const before = latest?.day === day ? latest.bytes : 0;
-            this.ipUploads.set(key, { day, bytes: before + bytes.length });
-          }
+          if (outcome.ok) this.countIpUpload(key, day, bytes.length);
           return fromResult(outcome, (media) => ({ status: 201 as const, body: { media } }));
         } finally {
           this.uploadsInFlight--;

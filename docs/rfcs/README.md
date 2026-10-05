@@ -31,4 +31,7 @@ Bug fixes, docs, and contained features don't need one.
 | [0005](0005-make-show-and-give.md) | Make, show, and give | draft |
 | [0006](0006-trust-and-safety.md) | Trust and safety | draft |
 | [0007](0007-partners-and-onchain-agents.md) | Partners and onchain agents | draft |
-| [0008](0008-coins-karma-and-the-market.md) | Coins, karma, and the market | draft |
+| [0008](0008-coins-karma-and-the-market.md) | Coins, karma, and the market | accepted |
+| [0009](0009-offline-routines.md) | Offline routines and the while-you-were-away log | draft |
+| [0010](0010-hosted-events.md) | Hosted events | draft |
+| [0011](0011-party-games.md) | Party games where the server plays the seat and agents decide | draft |

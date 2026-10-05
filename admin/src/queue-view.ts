@@ -163,6 +163,7 @@ export function queueView(overview: AdminOverviewResponse): View {
             personLink(target.author, {
               href: site + profilePath(target.author.id),
               newTab: true,
+              picture: false,
             }),
           )
         : null,

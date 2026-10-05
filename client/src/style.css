@@ -6250,6 +6250,10 @@ a.profile-owner:hover .owner-name {
   border: 1px solid var(--paper-edge);
 }
 
+.owner-agent > .person-link {
+  justify-self: start;
+}
+
 .owner-actions {
   display: flex;
   flex-wrap: wrap;

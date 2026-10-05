@@ -63,6 +63,22 @@ describe("views use the shared components", () => {
     });
   }
 
+  it("the staff app never shows a resident's picture outside the tap-to-reveal", () => {
+    const admin = files.filter((f) => f.path.startsWith("admin/"));
+    const calls = admin.flatMap((f) => [
+      ...f.text.matchAll(/(avatarEl|paintAvatar|personLink)\(/g),
+    ]);
+    const unblurred = admin.flatMap((f) =>
+      [
+        ...f.text.matchAll(
+          /(avatarEl|paintAvatar)\(|personLink\((?:(?!picture: false)[\s\S])*?\}\)/g,
+        ),
+      ].map((m) => `${f.path}: ${m[0].slice(0, 60)}`),
+    );
+    expect(calls.length).toBeGreaterThan(0);
+    expect(unblurred).toEqual([]);
+  });
+
   it("people helpers come from @terrakin/ui/people, not through another view", () => {
     const reexports = files.filter((f) =>
       /export \{[^}]*\} from "@terrakin\/ui\/people"/.test(f.text),

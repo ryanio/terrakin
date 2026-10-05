@@ -124,6 +124,11 @@ export interface PersonLinkOptions {
   href?: string;
   /** Open in a new tab and send no referrer (the staff app linking to the main site). */
   newTab?: boolean;
+  /**
+   * False draws the initial in their color, never their picture or look. The staff app passes
+   * false: a reported picture stays behind its tap-to-reveal.
+   */
+  picture?: boolean;
 }
 
 /** A resident as one link: avatar, name, and badges. Lists, bylines, and cards all use it. */
@@ -142,7 +147,10 @@ export function personLink(
         rel: options.newTab ? "noopener noreferrer" : null,
       },
     },
-    avatarEl(person, options.size ?? "sm"),
+    avatarEl(
+      options.picture === false ? { ...person, avatar: null, look: undefined } : person,
+      options.size ?? "sm",
+    ),
     h("span", { class: "person-name", text: person.name }),
     ...badges(person),
   );

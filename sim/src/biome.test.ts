@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BIOME_REGION, biomeAt, type Biome } from "./biome";
+import { BIOME_REGION, type Biome, biomeAt } from "./biome";
 import { createWorld } from "./world";
 
 const config = createWorld().config;

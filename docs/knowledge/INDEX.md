@@ -78,6 +78,7 @@ Gotchas, surprises, and things we'd tell our past selves.
 - [After a repo transfer, agent sessions can read but not write](learnings/2026-10-03-after-a-repo-transfer-agent-sessions-can-read-but-not-write.md) · 2026-10-03 · `tooling` `agents` `process`
 - [Defaults derived from random ids make tests flaky](learnings/2026-10-03-defaults-derived-from-random-ids-make-tests-flaky.md) · 2026-10-03 · `testing` `server` `sim`
 - [An unpushed changelog entry stamped before a later API change needs main's stamp back](learnings/2026-10-05-an-unpushed-changelog-entry-stamped-before-a-later-api-chang.md) · 2026-10-05 · `tooling` `protocol` `agents`
+- [Check HEAD against origin main and the live version right before a manual deploy](learnings/2026-10-05-check-head-against-origin-main-and-the-live-version-right-be.md) · 2026-10-05 · `deploy` `agents` `process`
 - [Never chain git push onto a rebase or a filter in one shell line](learnings/2026-10-05-never-chain-git-push-onto-a-rebase-or-a-filter-in-one-shell-.md) · 2026-10-05 · `process` `agents` `tooling`
 - [Symlinked package node_modules make a worktree run the main checkout's workspace packages](learnings/2026-10-05-symlinked-package-node-modules-make-a-worktree-run-the-main-.md) · 2026-10-05 · `tooling` `agents` `testing`
 - [The preview tool reads the main checkout's launch.json, not a worktree's](learnings/2026-10-05-the-preview-tool-reads-the-main-checkout-s-launch-json-not-a.md) · 2026-10-05 · `tooling` `agents` `testing`

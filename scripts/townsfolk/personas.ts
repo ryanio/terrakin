@@ -76,6 +76,12 @@ export interface Persona {
   follows: string[];
   /** Replies to another persona's introduction. */
   replies: { to: string; text: string }[];
+  /**
+   * Notes on the coins this persona gives from its daily budget (tips.ts): one to a newcomer, one
+   * to the author of the day's most-loved post. Both are public to the receiver, so the same rules
+   * apply as for posts. tips.ts also uses them to recognize its own gifts in the purse ledger.
+   */
+  tips: { welcome: string; post: string };
 }
 
 export const PERSONAS: Persona[] = [
@@ -132,6 +138,10 @@ export const PERSONAS: Persona[] = [
         text: "Bram, if you have spare stone, my garden beds could use a proper edge.",
       },
     ],
+    tips: {
+      welcome: "Welcome to the neighborhood! A little something to get your garden started.",
+      post: "Your post brightened my morning in the garden. A small thank you from me.",
+    },
   },
   {
     key: "bram",
@@ -181,6 +191,11 @@ export const PERSONAS: Persona[] = [
       },
       { to: "sable", text: "Sable, if you ever want a taller lookout, I've got plans drawn up." },
     ],
+    tips: {
+      welcome:
+        "Welcome, neighbor. A few coins toward your first build. Come find me if a wall gives you trouble.",
+      post: "Good work on that post. Here's a tip from the workshop.",
+    },
   },
   {
     key: "clem",
@@ -230,6 +245,10 @@ export const PERSONAS: Persona[] = [
       },
       { to: "otis", text: "Otis, I'll save the corner table for story night." },
     ],
+    tips: {
+      welcome: "Welcome to town! Think of this as your first cup on the house.",
+      post: "Everyone at the cafe was talking about your post. This one's on me.",
+    },
   },
   {
     key: "pip",
@@ -274,6 +293,10 @@ export const PERSONAS: Persona[] = [
       },
       { to: "ansel", text: "Ansel, can you paint me running? I'm always running." },
     ],
+    tips: {
+      welcome: "Special delivery: a welcome gift for the newest neighbor.",
+      post: "Delivering a small thank you for the post that made my whole round.",
+    },
   },
   {
     key: "otis",
@@ -318,6 +341,11 @@ export const PERSONAS: Persona[] = [
       { to: "clem", text: "Clem, I'll bring a story if you bring the tea." },
       { to: "juniper", text: "Juniper, every library needs a plant. Could I borrow one?" },
     ],
+    tips: {
+      welcome:
+        "Every good story starts with someone arriving. Welcome, and here's a little something.",
+      post: "Your post was the best thing I read today. A small tip from the library.",
+    },
   },
   {
     key: "marlo",
@@ -369,6 +397,10 @@ export const PERSONAS: Persona[] = [
         text: "Sable, I can see your lamp from my place. Good to know someone else is up late.",
       },
     ],
+    tips: {
+      welcome: "Welcome to Terrakin! A few coins for the road while you explore.",
+      post: "Came across your post on my rounds and it made my day. A tip for you.",
+    },
   },
   {
     key: "sable",
@@ -416,6 +448,10 @@ export const PERSONAS: Persona[] = [
       },
       { to: "bram", text: "Bram, a taller lookout sounds perfect. No rush." },
     ],
+    tips: {
+      welcome: "Welcome under our sky. A few coins for your first night here.",
+      post: "Your post shone brightest today. A small tip from the observatory.",
+    },
   },
   {
     key: "ansel",
@@ -463,6 +499,10 @@ export const PERSONAS: Persona[] = [
       },
       { to: "clem", text: "Clem, are you saving that window seat for me too?" },
     ],
+    tips: {
+      welcome: "Welcome! A few coins for paint, or whatever your new home needs first.",
+      post: "Your post was a lovely picture of the day. A tip from the atelier.",
+    },
   },
 ];
 
@@ -471,7 +511,7 @@ export const PERSONAS: Persona[] = [
 // ---------------------------------------------------------------------------
 
 /** The server's limits (sim NAME_MAX_LENGTH and NOTE_MAX_LENGTH, protocol BIO and POST limits). */
-export const LIMITS = { name: 24, note: 80, bio: 300, post: 2_000 };
+export const LIMITS = { name: 24, note: 80, bio: 300, post: 2_000, giftNote: 140 };
 
 /** The starter home's footprint and reach, for plots of 8 tiles with reach 3 (the defaults). */
 const HUT = { from: 1, to: 5, door: { dx: 3, dy: 5 }, hearth: { dx: 3, dy: 3 }, reach: 3, size: 8 };
@@ -518,6 +558,8 @@ export function checkPersonas(personas: Persona[]): string[] {
       }
       text(p.name, `reply to ${reply.to}`, reply.text, LIMITS.post);
     }
+    text(p.name, "welcome tip note", p.tips.welcome, LIMITS.giftNote);
+    text(p.name, "post tip note", p.tips.post, LIMITS.giftNote);
     const tiles = new Set<string>();
     for (const { dx, dy } of p.home.decor) {
       const at = `${p.name}: decor at (${dx}, ${dy})`;

@@ -26,6 +26,7 @@
     "gen:check": "node scripts/gen.ts --check",
     "verify": "node .agents/skills/secrets/check-vendored.mjs && pnpm lint && pnpm typecheck && pnpm test && pnpm kb:check && pnpm gen:check && pnpm build",
     "townsfolk": "node scripts/townsfolk/seed.ts",
+    "townsfolk:tips": "node scripts/townsfolk/tips.ts",
     "start": "pnpm build && TERRAKIN_STATIC_DIR=client/dist pnpm --filter @terrakin/server start",
     "e2e": "playwright test",
     "cf:dev": "pnpm build && wrangler dev --var SENTRY_DSN:",

@@ -20,7 +20,6 @@
  * the TERRAKIN_TOWNSFOLK value that turns on the townsfolk badge (see README.md).
  */
 import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import type {
@@ -31,6 +30,7 @@ import type {
   WorldSnapshot,
 } from "../../protocol/src/index";
 import { ART_VERSION, type Images, renderAll } from "./art.ts";
+import { type Creds, defaultCredsPath, type Stored } from "./creds.ts";
 import { checkPersonas, PERSONAS, type Persona } from "./personas.ts";
 import { choosePlot, describePlace, type Plot, plotKey } from "./plan.ts";
 
@@ -59,15 +59,7 @@ const BASE = new URL(args.base).origin;
 const DRY = args["dry-run"];
 const REFRESH = args["refresh-art"];
 const PACE = Math.max(0, Number(args.pace) || 0);
-const CREDS =
-  args.creds !== undefined
-    ? resolve(args.creds)
-    : join(
-        homedir(),
-        ".config",
-        "terrakin",
-        `townsfolk.${new URL(BASE).host.replace(/[^a-z0-9.-]/gi, "_")}.json`,
-      );
+const CREDS = args.creds !== undefined ? resolve(args.creds) : defaultCredsPath(BASE);
 
 const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
 const say = (who: string, message: string) => console.log(`${who.padEnd(8)} ${message}`);
@@ -75,24 +67,6 @@ const say = (who: string, message: string) => console.log(`${who.padEnd(8)} ${me
 // ---------------------------------------------------------------------------
 // Credentials: one file per server, readable only by you. Never in the repo, never printed.
 // ---------------------------------------------------------------------------
-
-interface Stored {
-  residentId: string;
-  token: string;
-  /** Post ids we made: "post:0", "reply:clem", ... */
-  posts: Record<string, string>;
-  /** ART_VERSION of the avatar we set. Missing means it predates versioning. */
-  avatarArt?: number;
-  /** ART_VERSION of the postcards on each post we made with postcards, by slot. */
-  postArt?: Record<string, number>;
-}
-
-interface Creds {
-  base: string;
-  residents: Record<string, Stored>;
-  /** Set once every resident's avatar and postcards are this ART_VERSION. */
-  artVersion?: number;
-}
 
 function loadCreds(): Creds {
   if (!existsSync(CREDS)) return { base: BASE, residents: {} };

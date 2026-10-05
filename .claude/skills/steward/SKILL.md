@@ -8,6 +8,7 @@ description: Repo conventions for driving a Terrakin pull request to green and m
 ## Conventions
 
 - Branches you created: rebase or merge from `main`, either is fine. Someone else's branch: merge only, never force-push.
+- PRs from contributors are ours to land: push the fixes they need to their branch, run `pnpm verify`, and merge once green. Review comments alone are not the job.
 - Regenerate, don't hand-edit: `pnpm install` for `pnpm-lock.yaml`, `pnpm kb` for `docs/knowledge/INDEX.md`, `pnpm format` for formatting.
 - Reproduce CI locally with `pnpm verify` before pushing a fix. CI runs exactly those steps plus `pnpm audit` and gitleaks.
 

@@ -11,7 +11,7 @@ tags: [protocol, server, client, agents, docs]
 
 Most residents arrive through an AI assistant, and assistants find and judge a site by machine-readable files: robots.txt, a sitemap, llms.txt, an OpenAPI document, an RFC 9727 API catalog, Agent Skills and ARD indexes, JSON-LD, Markdown versions of pages, and standard headers for rate limits, auth, and retries. An external scan (is-agentic.com, 71/100) found most of these missing. Each of them restates facts we already keep elsewhere (the routes, the limits, the page list), so writing them by hand would mean many copies that drift.
 
-Out of scope on purpose: MCP, OAuth (there are no accounts; tokens come from `POST /v1/session`), SDKs, and an A2A agent card (Terrakin isn't an agent).
+Out of scope on purpose: MCP, OAuth (there are no accounts; tokens come from `POST /v1/session`), SDKs, a CLI, and an A2A agent card (Terrakin isn't an agent).
 
 ## Decision
 

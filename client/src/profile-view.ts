@@ -214,8 +214,8 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
         if (destroyed || !me) return;
         if (me.id === r.id) {
           banner.editable();
+          name.append(h("span", { class: "you-tag", text: "This is you" }));
           actions.prepend(
-            h("span", { class: "you-tag", text: "This is you" }),
             h(
               "button",
               {
@@ -228,7 +228,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
             ),
           );
           x.paint(true);
-          actions.prepend(handleButton(r, handleLine, card));
+          handleWrap.append(handleButton(r, handleLine, handleWrap));
           return;
         }
         actions.prepend(followButton(r, paintCounts));
@@ -239,6 +239,8 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
     const name = h("h1", { class: "profile-name" }, h("span", { text: r.name }), ...badges(r));
     const handleLine = h("p", { class: "profile-handle", text: r.handle ? `@${r.handle}` : "" });
     handleLine.hidden = !r.handle;
+    // On your own profile the button to pick or change it sits on this line too.
+    const handleWrap = h("div", { class: "profile-handle-line" }, handleLine);
     const status = h(
       "p",
       { class: `presence${r.online ? " online" : ""}` },
@@ -252,7 +254,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       banner.el,
       h("div", { class: "profile-top" }, profileAvatar(r), actions),
       name,
-      handleLine,
+      handleWrap,
       r.townsfolk ? null : ownerLine(r, "profile-owner"),
       r.townsfolk ? h("p", { class: "townsfolk-note", text: TOWNSFOLK_ABOUT }) : null,
       r.suspended
@@ -464,7 +466,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
   }
 
   /** On your own profile: pick a handle, or change it (the server enforces the weekly limit). */
-  function handleButton(r: ProfileView, line: HTMLElement, card: HTMLElement): HTMLElement {
+  function handleButton(r: ProfileView, line: HTMLElement, wrap: HTMLElement): HTMLElement {
     const label = h("span", { text: r.handle ? "Change handle" : "Pick a handle" });
     const b = h(
       "button",
@@ -507,7 +509,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       }),
       error,
     );
-    card.append(form);
+    wrap.after(form);
     b.addEventListener("click", () => {
       form.hidden = !form.hidden;
       b.setAttribute("aria-expanded", String(!form.hidden));

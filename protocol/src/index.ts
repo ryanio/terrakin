@@ -9,4 +9,5 @@ export * from "./safety";
 export * from "./schemas";
 export * from "./site";
 export * from "./social";
+export * from "./suggest";
 export * from "./town";

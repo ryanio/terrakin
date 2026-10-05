@@ -1,13 +1,11 @@
 /**
  * `/` the feed: the "bring your AI" prompt for everyone, the composer for residents, Everyone and
  * Following tabs, and the wall: posts in several formats, rollups, and pulse cards from the world
- * and the Town Hall, laid out full width. It polls while visible and announces what's new with
- * live notices. Townsfolk fill in while real activity is thin (see `pulse.ts`).
+ * and the Town Hall, laid out full width. New posts arrive over a light socket while you're here
+ * (`feed-live.ts`), with polling as the fallback, and live notices announce what's new. Townsfolk fill in while real activity is thin (see `pulse.ts`).
  */
-
-import type { PostView, TownResponse, WorldSnapshot } from "@terrakin/protocol";
+import type { PostMessage, PostView, TownResponse, WorldSnapshot } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
-import { countNew } from "@terrakin/ui/format";
 import { REDUCED_MOTION, reducedMotion } from "@terrakin/ui/motion";
 import { postPath, profilePath } from "@terrakin/ui/paths";
 import { residentPerson } from "@terrakin/ui/people";
@@ -15,8 +13,18 @@ import { copyButton, emptyNote, moreButton } from "@terrakin/ui/ui";
 import { refreshTimes } from "@terrakin/ui/when";
 import { api, myProfile } from "./api";
 import { type Composer, composer } from "./composer";
+import {
+  EVERYONE_GAP_MS,
+  FOLLOWING_GAP_MS,
+  liveFeed,
+  newPosts,
+  PUSH_JITTER_MS,
+  pollDue,
+  refreshDelay,
+  wantsRefresh,
+} from "./feed-live";
 import { clearLiveToasts, liveToast, liveToastHost, snippet } from "./live-toast";
-import { savedToken } from "./net";
+import { savedResidentId, savedToken } from "./net";
 import { postCard, skeletonCards } from "./post-card";
 import { promptAt } from "./prompts";
 import {
@@ -461,8 +469,13 @@ export function feedView(ctx: ViewContext): View {
   let destroyed = false;
   let loading = false;
   let generation = 0;
+  /** New posts waiting above the wall, newest first. */
   let fresh: PostView[] = [];
-  let freshPage: { posts: PostView[]; next: string | null } | undefined;
+  /** Set when a poll found a whole page of new posts: there may be a gap, so start over from it. */
+  let restart: { posts: PostView[]; next: string | null } | undefined;
+  let lastPoll = 0;
+  /** The one refresh pushes asked for, if it's waiting. Pushes meanwhile ride along with it. */
+  let pendingPoll: ReturnType<typeof setTimeout> | undefined;
   /** New posts we already announced, so a pending pill doesn't announce them every poll. */
   const announced = new Set<string>();
 
@@ -759,6 +772,7 @@ export function feedView(ctx: ViewContext): View {
     if (tab === state.tab) return;
     state.tab = tab;
     storage.set(TAB_KEY, tab);
+    live.follow(tab === "following");
     hidePill();
     paintTabs();
     tabButtons.get(tab)?.focus();
@@ -774,7 +788,7 @@ export function feedView(ctx: ViewContext): View {
 
   function hidePill() {
     fresh = [];
-    freshPage = undefined;
+    restart = undefined;
     newPill.hidden = true;
   }
 
@@ -807,36 +821,56 @@ export function feedView(ctx: ViewContext): View {
 
   async function poll() {
     if (destroyed || loading || document.visibilityState !== "visible") return;
+    lastPoll = Date.now();
     const gen = generation;
     const r = await api.feed({ following: state.tab === "following" });
     if (destroyed || gen !== generation || !r.ok) return;
     refreshTimes(feed);
-    fresh = countNew(state.posts, r.data.posts);
-    freshPage = r.data;
+    fresh = newPosts(state.posts, r.data.posts);
+    restart = fresh.length > 0 && fresh.length >= r.data.posts.length ? r.data : undefined;
+    present();
+  }
+
+  /** Show what's in `fresh`: in place while you're at the top, or behind the "new posts" pill. */
+  function present() {
     if (fresh.length === 0) {
       newPill.hidden = true;
       return;
     }
-    const full = fresh.length >= r.data.posts.length;
     announcePosts(fresh);
     // Nobody is reading below the top yet: let the new cards arrive in place.
-    if (!full && atTop()) {
+    if (!restart && atTop()) {
       showFresh(false);
       return;
     }
-    const n = full ? `${fresh.length}+` : String(fresh.length);
+    const n = restart ? `${fresh.length}+` : String(fresh.length);
     const text = newPill.querySelector("span");
-    if (text) text.textContent = `${n} new ${fresh.length === 1 && !full ? "post" : "posts"}`;
+    if (text) text.textContent = `${n} new ${fresh.length === 1 && !restart ? "post" : "posts"}`;
     newPill.hidden = false;
   }
 
+  /**
+   * A `post` message from the socket: refresh the feed once, after a short random wait and not too
+   * soon after the last poll, however many posts arrive meanwhile. The feed comes back in order
+   * and with your blocks applied, so nothing is fetched one post at a time.
+   */
+  function onPush(message: PostMessage) {
+    if (destroyed || pendingPoll) return;
+    const shown = new Set([...state.posts, ...fresh].map((p) => p.id));
+    if (!wantsRefresh(message, shown, savedResidentId())) return;
+    const gap = state.tab === "following" ? FOLLOWING_GAP_MS : EVERYONE_GAP_MS;
+    const wait = refreshDelay(lastPoll, Date.now(), Math.random() * PUSH_JITTER_MS, gap);
+    pendingPoll = setTimeout(() => {
+      pendingPoll = undefined;
+      void poll();
+    }, wait);
+  }
+
   function showFresh(scroll = true) {
-    const page = freshPage;
-    if (!page) return;
-    // A whole page of new posts means there may be a gap: start over from the fresh page.
-    if (fresh.length >= page.posts.length) {
-      state.posts = page.posts;
-      state.next = page.next;
+    if (fresh.length === 0) return;
+    if (restart) {
+      state.posts = restart.posts;
+      state.next = restart.next;
       paintAll();
     } else {
       state.posts.unshift(...fresh);
@@ -876,7 +910,11 @@ export function feedView(ctx: ViewContext): View {
     if (scroll) scrollToWall();
   }
 
-  const timer = setInterval(() => void poll(), POLL_MS);
+  const live = liveFeed(onPush);
+  live.follow(state.tab === "following");
+  const timer = setInterval(() => {
+    if (pollDue(live.live(), lastPoll, Date.now())) void poll();
+  }, POLL_MS);
   const pulseTimer = setInterval(() => void pollPulse(), PULSE_MS);
   const onVisible = () => {
     if (document.visibilityState !== "visible") return;
@@ -915,6 +953,8 @@ export function feedView(ctx: ViewContext): View {
       sky.destroy();
       wide.removeEventListener("change", placePulse);
       clearLiveToasts();
+      live.destroy();
+      clearTimeout(pendingPoll);
       clearInterval(timer);
       clearInterval(pulseTimer);
       document.removeEventListener("visibilitychange", onVisible);

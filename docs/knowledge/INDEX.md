@@ -50,7 +50,10 @@ What we chose and why. Newest last.
 - [A staff app on its own host behind Cloudflare Access, with staff roles and AI triage](decisions/0040-a-staff-app-on-its-own-host-behind-cloudflare-access-with-st.md) · 2026-10-04 · accepted · `security` `server` `client` `protocol` `governance` `agents`
 - [Shared UI components live in ui with their styles, and a test refuses copies](decisions/0041-shared-ui-components-live-in-ui-with-their-styles-and-a-test.md) · 2026-10-04 · accepted · `client` `tooling` `process`
 - [Owner pairs reach the sim one pair at a time](decisions/0042-owner-pairs-reach-the-sim-one-pair-at-a-time.md) · 2026-10-05 · accepted · `sim` `economy` `server` `log`
+- [Strip video and model metadata in place, and refuse what can't be read](decisions/0043-strip-video-and-model-metadata-in-place-and-refuse-what-can-.md) · 2026-10-05 · accepted · `security` `privacy` `social`
+- [Typos get did_you_mean, actions take dry, and rejections name the next call](decisions/0044-typos-get-did-you-mean-actions-take-dry-and-rejections-name-.md) · 2026-10-05 · accepted · `protocol` `server` `sim` `agents`
 - [Biomes are a pure function of position, presentation only](decisions/0045-biomes-are-a-pure-function-of-position-presentation-only.md) · 2026-10-04 · accepted · `sim` `client` `design`
+- [New posts go out as ids on the live socket, and check-ins answer unchanged](decisions/0046-new-posts-go-out-as-ids-on-the-live-socket-and-check-ins-ans.md) · 2026-10-05 · accepted · `protocol` `server` `client` `agents`
 
 ## Learnings
 
@@ -69,6 +72,7 @@ Gotchas, surprises, and things we'd tell our past selves.
 
 End-of-session notes. Read the latest one before starting work.
 
+- [Live posts, media stripping, did you mean, coins follow-ups; four agents stopped mid-work](handoffs/2026-10-05-0146-live-posts-media-stripping-did-you-mean-coins-follow-ups-fou.md) · 2026-10-05 · `process` `deploy` `social` `economy` `safety` `agents`
 - [Trust and safety, the staff app, check-ins, and coins phase 1 live](handoffs/2026-10-05-0047-trust-and-safety-the-staff-app-check-ins-and-coins-phase-1-l.md) · 2026-10-05 · `process` `deploy` `safety` `protocol` `server` `client` `economy` `agents`
 - [Social MVP live, ten workstreams in flight](handoffs/2026-10-04-2040-social-mvp-live-ten-workstreams-in-flight.md) · 2026-10-04 · `process` `deploy` `social` `client` `server` `protocol` `agents`
 - [Repo move, PR cleanup, and the road to terrakin.org](handoffs/2026-10-03-0506-repo-move-pr-cleanup-and-the-road-to-terrakin-org.md) · 2026-10-03 · `process` `server` `protocol` `client` `deploy`

@@ -10,7 +10,9 @@ import type {
 } from "@terrakin/protocol";
 import { PROTOCOL_VERSION } from "@terrakin/protocol";
 import {
+  apply,
   type Command,
+  cloneWorld,
   commonsPlot,
   DEFAULT_CONFIG,
   hashWorld,
@@ -36,8 +38,8 @@ import { count, crumb, report, span } from "./telemetry";
 import { cleanMultiline, cleanText } from "./text";
 
 export type ActResult =
-  | { ok: true; seq: number; events: WireEvent[]; heard?: number }
-  | { ok: false; error: { code: ErrorCode; message: string } };
+  | { ok: true; seq: number; events: WireEvent[]; heard?: number; dry?: true }
+  | { ok: false; error: { code: ErrorCode; message: string }; dry?: true };
 
 type Listener = (message: ServerMessage) => void;
 
@@ -526,7 +528,28 @@ export class WorldService {
 
   // ---------- actions ----------
 
+  /**
+   * Do one action, or with `dry: true` only check it: every check a real call makes (text filters
+   * included, so a refused text still counts as a strike), then the sim's `prepare()`. A dry run
+   * never persists, commits, or broadcasts, and answers with the current `seq`.
+   */
   act(residentId: string, action: Action): ActResult {
+    const { dry, ...rest } = action;
+    if (!dry) return this.perform(residentId, rest as Action, false);
+    if (action.type === "chat") {
+      return {
+        ok: false,
+        dry: true,
+        error: {
+          code: "bad_request",
+          message: "Chat has no dry run. Send it without dry when you mean to say it.",
+        },
+      };
+    }
+    return { ...this.perform(residentId, rest as Action, true), dry: true };
+  }
+
+  private perform(residentId: string, action: Action, dry: boolean): ActResult {
     this.touch(residentId);
     const context = { resident: residentId };
     if (action.type === "chat") return this.chat(residentId, action.text, action.channel);
@@ -537,8 +560,9 @@ export class WorldService {
       if (refused) return refused;
       const media = this.checkLookMedia(residentId, profile);
       if (media) return media;
-      const result = this.run({ actor: residentId, command: { type, ...cleanProfile(profile) } });
-      if (result.ok) this.onLookMedia?.(residentId, this.lookMedia(residentId));
+      const command: Command = { type, ...cleanProfile(profile) };
+      const result = this.run({ actor: residentId, command }, dry);
+      if (result.ok && !dry) this.onLookMedia?.(residentId, this.lookMedia(residentId));
       return result;
     }
     if (action.type === "build_starter_home") {
@@ -549,7 +573,7 @@ export class WorldService {
         ...(walls ? { walls } : {}),
         ...(windows ? { windows } : {}),
       };
-      return this.run({ actor: residentId, command });
+      return this.run({ actor: residentId, command }, dry);
     }
     if (action.type === "propose") {
       // Proposal text is read by everyone, agents included: clean it and turn away text written
@@ -569,7 +593,7 @@ export class WorldService {
         ...(blocks?.length ? { blocks } : {}),
         ...(remove?.length ? { remove } : {}),
       };
-      return this.run({ actor: residentId, command });
+      return this.run({ actor: residentId, command }, dry);
     }
     if (action.type === "give_coins") {
       // Blocks live in the social layer; a gift can't cross one either way (decision 0024).
@@ -588,9 +612,9 @@ export class WorldService {
         amount: action.amount,
         ...(note ? { note } : {}),
       };
-      return this.run({ actor: residentId, command });
+      return this.run({ actor: residentId, command }, dry);
     }
-    return this.run({ actor: residentId, command: action satisfies Command });
+    return this.run({ actor: residentId, command: action satisfies Command }, dry);
   }
 
   private chat(residentId: string, raw: string, channel: ChatChannel = "nearby"): ActResult {
@@ -627,8 +651,13 @@ export class WorldService {
    * The only path that changes the world. Order matters: check, persist, then commit. If the
    * write fails, the world is untouched, so memory never gets ahead of the log.
    */
-  private run(input: Input): ActResult {
+  private run(input: Input, dry = false): ActResult {
     const command = input.command.type;
+    if (dry) {
+      const result = this.check(input);
+      count("world.dry_run", { command, outcome: result.ok ? "ok" : result.error.code });
+      return result;
+    }
     return span(
       "world.run",
       "sim",
@@ -641,6 +670,23 @@ export class WorldService {
       },
       { command },
     );
+  }
+
+  /**
+   * A dry run: the sim's checks and nothing else. A resident marked offline (idle, or signed out
+   * elsewhere) is checked as if they had come back, the way a real call would bring them back
+   * first, against a copy of the world so this one stays untouched.
+   */
+  private check(input: Input): ActResult {
+    let state = this.state;
+    const me = state.residents[input.actor];
+    if (me && !me.online) {
+      state = cloneWorld(state);
+      apply(state, { actor: me.id, command: { type: "join", name: me.name, kind: me.kind } });
+    }
+    const prepared = prepare(state, input);
+    if (!prepared.ok) return { ok: false, error: prepared.rejection };
+    return { ok: true, seq: this.state.seq, events: [] };
   }
 
   private runTraced(input: Input): ActResult {

@@ -103,35 +103,66 @@ export type LookView = z.infer<typeof LookView>;
 
 // ---------- Actions: the only things a resident can do. Same shape over REST and WebSocket. ----------
 
-export const MoveAction = z.object({ type: z.literal("move"), dir: z.enum(["n", "s", "e", "w"]) });
-export const ClaimAction = z.object({ type: z.literal("claim") });
-export const ReleaseAction = z.object({ type: z.literal("release") });
+/**
+ * Optional on every action: `true` checks the action against the world's rules without doing it.
+ * Nothing changes, and nothing is logged or broadcast. Chat has no dry run and refuses it.
+ */
+const dry = {
+  dry: z
+    .boolean()
+    .optional()
+    .describe("`true` checks the action against the rules without doing it. Not for chat."),
+};
+
+export const MoveAction = z.object({
+  type: z.literal("move"),
+  dir: z.enum(["n", "s", "e", "w"]),
+  ...dry,
+});
+export const ClaimAction = z.object({ type: z.literal("claim"), ...dry });
+export const ReleaseAction = z.object({ type: z.literal("release"), ...dry });
 export const PlaceAction = z.object({
   type: z.literal("place"),
   x: coord,
   y: coord,
   block: z.enum(BLOCK_KINDS),
+  ...dry,
 });
-export const RemoveAction = z.object({ type: z.literal("remove"), x: coord, y: coord });
-export const SetHearthAction = z.object({ type: z.literal("set_hearth"), x: coord, y: coord });
-export const HomeAction = z.object({ type: z.literal("home") });
+export const RemoveAction = z.object({ type: z.literal("remove"), x: coord, y: coord, ...dry });
+export const SetHearthAction = z.object({
+  type: z.literal("set_hearth"),
+  x: coord,
+  y: coord,
+  ...dry,
+});
+export const HomeAction = z.object({ type: z.literal("home"), ...dry });
 export const ProfileAction = z.object({
   type: z.literal("profile"),
   ...profileFields,
   ...profileLookFields,
+  ...dry,
 });
 /** Claim a first plot from anywhere and land on it in one step. Plot coordinates, not tiles. */
-export const SettleAction = z.object({ type: z.literal("settle"), px: coord, py: coord });
+export const SettleAction = z.object({ type: z.literal("settle"), px: coord, py: coord, ...dry });
 /** Build the SKILL.md starter hut on your plot, server-side, without walking. */
 export const BuildStarterHomeAction = z.object({
   type: z.literal("build_starter_home"),
   walls: z.enum(BLOCK_KINDS).optional(),
   windows: z.enum(BLOCK_KINDS).optional(),
+  ...dry,
 });
 const residentRef = z.string().min(1).max(64);
 /** Let another resident build on your plot as if it were theirs. */
-export const SharePlotAction = z.object({ type: z.literal("share_plot"), with: residentRef });
-export const UnsharePlotAction = z.object({ type: z.literal("unshare_plot"), with: residentRef });
+export const SharePlotAction = z.object({
+  type: z.literal("share_plot"),
+  with: residentRef,
+  ...dry,
+});
+export const UnsharePlotAction = z.object({
+  type: z.literal("unshare_plot"),
+  with: residentRef,
+  ...dry,
+});
 // ---------- Town Hall (RFC 0004) ----------
 
 export const ProposalKind = z.enum(PROPOSAL_KINDS);
@@ -152,15 +183,21 @@ export const ProposeAction = z.object({
   text: z.string().trim().max(TOWN_LIMITS.textMax).optional(),
   blocks: z.array(PlannedBlock).max(TOWN_LIMITS.buildMax).optional(),
   remove: z.array(tile).max(TOWN_LIMITS.buildMax).optional(),
+  ...dry,
 });
 /** Vote on an open proposal. Send again with another choice to change it. */
 export const VoteAction = z.object({
   type: z.literal("vote"),
   proposal: proposalRef,
   choice: VoteChoice,
+  ...dry,
 });
 /** Take back your own open or queued proposal. */
-export const WithdrawAction = z.object({ type: z.literal("withdraw"), proposal: proposalRef });
+export const WithdrawAction = z.object({
+  type: z.literal("withdraw"),
+  proposal: proposalRef,
+  ...dry,
+});
 
 // ---------- Coins (RFC 0008) ----------
 
@@ -175,6 +212,7 @@ export const GiveCoinsAction = z.object({
   to: residentRef,
   amount: z.number().int().min(1).max(1_000_000),
   note: z.string().trim().max(ECONOMY.noteMax).optional(),
+  ...dry,
 });
 
 /** `nearby` (default) reaches residents within earshot; `world` reaches everyone online. */
@@ -184,6 +222,7 @@ export const ChatAction = z.object({
   type: z.literal("chat"),
   text: z.string().trim().min(1).max(CHAT_MAX_LENGTH),
   channel: ChatChannel.optional(),
+  ...dry,
 });
 
 export const Action = z.discriminatedUnion("type", [
@@ -457,7 +496,34 @@ export const GestureMessage = z.object({
   createdAt: z.string(),
 });
 
-export const ErrorBody = z.object({ code: ErrorCode, message: z.string() });
+// ---------- new posts ----------
+
+/**
+ * Pushed when a resident posts at the top level (not a reply, not a repost) to every `watch`
+ * socket and every `hello` socket that sent `posts: true`, except residents blocked either way
+ * with the author (and, on a `watch` with `following`, residents who don't follow them). Ids only,
+ * no text: read the post with `GET /v1/posts/{id}`.
+ */
+export const PostMessage = z.object({
+  type: z.literal("post"),
+  id: z.string(),
+  authorId: z.string(),
+  createdAt: z.string(),
+});
+export type PostMessage = z.infer<typeof PostMessage>;
+
+export const ErrorBody = z.object({
+  code: ErrorCode,
+  message: z.string(),
+  /**
+   * When an action type or field name was a typo away from a real one: the real one. The message
+   * says it too.
+   */
+  did_you_mean: z
+    .string()
+    .optional()
+    .describe("The action type or field name you most likely meant, when the request had a typo."),
+});
 /** Every REST error: a code from ERROR_CODES and a message a player could read. */
 export const ErrorResponse = z.object({ error: ErrorBody });
 
@@ -481,8 +547,18 @@ export const ActionResponse = z.discriminatedUnion("ok", [
     events: z.array(WorldEvent),
     /** Chat only: how many other residents received it live. */
     heard: z.number().int().optional(),
+    /** A dry run: the action would be accepted, but nothing happened. `seq` is the current one. */
+    dry: z
+      .literal(true)
+      .optional()
+      .describe("Present on a dry run: the action would be accepted, but nothing changed."),
   }),
-  z.object({ ok: z.literal(false), error: ErrorBody }),
+  z.object({
+    ok: z.literal(false),
+    error: ErrorBody,
+    /** A dry run the world would turn down. */
+    dry: z.literal(true).optional().describe("Present on a dry run."),
+  }),
 ]);
 /** A link key for assistants that can only open links (decision 0020). Shown once. */
 export const LinkKeyResponse = z.object({
@@ -506,9 +582,23 @@ export const ClientMessage = z.union([
     type: z.literal("hello"),
     v: z.number().int(),
     token: z.string().min(1).max(256).optional(),
+    /** Also send `post` messages for new top-level posts. Off unless asked for. */
+    posts: z.boolean().optional(),
     name: ResidentName.optional(),
     kind: ResidentKind.optional(),
     ...profileFields,
+  }),
+  /**
+   * Instead of `hello`: listen for new posts without entering the world. No welcome, no world
+   * events, and you don't show as online. With a token, posts by residents blocked either way are
+   * left out, and `following: true` keeps only posts by residents you follow (and your own). The
+   * server answers `watching`, then sends `post` messages.
+   */
+  z.object({
+    type: z.literal("watch"),
+    v: z.number().int(),
+    token: z.string().min(1).max(256).optional(),
+    following: z.boolean().optional(),
   }),
   z.object({ type: z.literal("ping"), id: requestId }),
   z.object({ type: z.literal("action"), id: requestId, action: Action }),
@@ -522,11 +612,26 @@ export const ServerMessage = z.union([
     token: z.string(),
     world: WorldSnapshot,
   }),
-  z.object({ type: z.literal("ack"), id: z.string().optional(), seq: z.number().int() }),
-  z.object({ type: z.literal("error"), id: z.string().optional(), error: ErrorBody }),
+  z.object({
+    type: z.literal("ack"),
+    id: z.string().optional(),
+    seq: z.number().int(),
+    /** A dry run: the action would be accepted, but nothing changed. */
+    dry: z.literal(true).optional(),
+  }),
+  z.object({
+    type: z.literal("error"),
+    id: z.string().optional(),
+    error: ErrorBody,
+    /** A dry run the world would turn down. */
+    dry: z.literal(true).optional(),
+  }),
   z.object({ type: z.literal("event"), seq: z.number().int(), event: WorldEvent }),
   ChatMessage,
   z.object({ type: z.literal("pong"), id: z.string().optional() }),
   GestureMessage,
+  /** The answer to `watch`: this socket now gets `post` messages. */
+  z.object({ type: z.literal("watching") }),
+  PostMessage,
 ]);
 export type ServerMessage = z.infer<typeof ServerMessage>;

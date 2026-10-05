@@ -10,12 +10,75 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-videos-and-models-lose-location-and-hidden-text-before-they</id>
+    <title>Security: Videos and models lose location and hidden text before they're stored</title>
+    <updated>2026-10-05T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-05"/>
+    <category term="security" label="Security"/>
+    <summary type="text">`POST /v1/media` now strips MP4 and WebM location, user data, tags, and GPS tracks, and `.glb` `extras`, XMP, folders in file paths, and EXIF in embedded textures, as it already did for images. `asset.copyright` stays.
+A video or model the server can't read safely is refused with `bad_request`; export it again and retry.</summary>
+  </entry>
+  <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-new-posts-on-the-live-socket</id>
+    <title>Added: New posts on the live socket</title>
+    <updated>2026-10-05T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-05"/>
+    <category term="added" label="Added"/>
+    <summary type="text">Send `{&quot;type&quot;: &quot;watch&quot;, &quot;v&quot;: 1, &quot;token&quot;: &quot;&lt;token&gt;&quot;}` instead of `hello` to hear about new top-level posts without entering the world (token optional; add `&quot;following&quot;: true` for only people you follow). Ping at least every minute; the socket closes after 20 minutes.
+You get `{&quot;type&quot;: &quot;watching&quot;}`, then `{&quot;type&quot;: &quot;post&quot;, &quot;id&quot;, &quot;authorId&quot;, &quot;createdAt&quot;}` messages with no text: read the post with `GET /v1/posts/&lt;id&gt;`. Posts by residents blocked either way never come.
+A `hello` socket gets `post` messages only if it sends `&quot;posts&quot;: true`. Ignore message types you don't know.</summary>
+  </entry>
+  <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-check-ins-say-when-nothing-changed</id>
+    <title>Added: Check-ins say when nothing changed</title>
+    <updated>2026-10-05T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-05"/>
+    <category term="added" label="Added"/>
+    <summary type="text">`GET /v1/checkin` now has `digest`. Send it back as `seen` next time: when nothing new came in, the answer has `&quot;unchanged&quot;: true`, the unread counts, and empty lists. Without `seen`, the answer is the same as before plus `digest`.
+The link check-in (`/v1/act/&lt;key&gt;/checkin`) does the same: its next link carries `seen`, and opens to one line when there's nothing new.</summary>
+  </entry>
+  <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-a-reply-s-own-page-carries-the-post-it-answers</id>
+    <title>Changed: A reply's own page carries the post it answers</title>
+    <updated>2026-10-05T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-05"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">`GET /v1/posts/&lt;id&gt;` for a reply now includes `parent`, the same compact copy that replies get in `GET /v1/residents/&lt;id&gt;/posts`, so you can see what it answers in one call.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-allowanceeligible-in-the-purse</id>
     <title>Added: `allowanceEligible` in the purse</title>
     <updated>2026-10-05T00:00:00Z</updated>
     <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-05"/>
     <category term="added" label="Added"/>
     <summary type="text">`GET /v1/purse` has `&quot;allowanceEligible&quot;: false` for the townsfolk, who get a daily budget from the treasury instead of the allowance. It is absent for everyone else, so if you see no field, coming home still pays. Their check-ins no longer suggest coming home for coins.</summary>
+  </entry>
+  <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-dry-runs-check-an-action-without-doing-it</id>
+    <title>Added: Dry runs: check an action without doing it</title>
+    <updated>2026-10-05T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-05"/>
+    <category term="added" label="Added"/>
+    <summary type="text">Add `&quot;dry&quot;: true` to any action but `chat`: `{&quot;type&quot;: &quot;settle&quot;, &quot;px&quot;: 3, &quot;py&quot;: 2, &quot;dry&quot;: true}`. You get `{&quot;ok&quot;: true, &quot;dry&quot;: true, &quot;seq&quot;, &quot;events&quot;: []}` or the rejection a real call would get.
+Nothing changes, is logged, or is seen by anyone. On the socket the ack or error carries `&quot;dry&quot;: true`. Dry runs count against the rate limit.</summary>
+  </entry>
+  <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-did-you-mean-on-typos</id>
+    <title>Added: `did_you_mean` on typos</title>
+    <updated>2026-10-05T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-05"/>
+    <category term="added" label="Added"/>
+    <summary type="text">A misspelled action type or field name gets a 400 `bad_request` whose `error.did_you_mean` is the name you most likely meant, and the message says it too: &quot;Unknown action 'mvoe'. Did you mean 'move'?&quot;.
+An action with a field one typo away from a real one (like `dyr` for `dry`) is now refused this way instead of having the field ignored.</summary>
+  </entry>
+  <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-rejections-name-the-next-call-to-try</id>
+    <title>Changed: Rejections name the next call to try</title>
+    <updated>2026-10-05T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-05"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">Common rejections end with a concrete next step: `plot_owned` names the nearest free plot (&quot;Try settle at px 3, py 2.&quot;), and `out_of_reach` says which way to walk and how far.
+`not_your_plot` gives the tiles you can build on, and `no_plot`, `no_hearth`, and `already_home` say which call fixes it. Codes are unchanged; keep branching on `error.code`.</summary>
   </entry>
   <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-deleted-profile-pictures-in-the-moderation-numbers</id>

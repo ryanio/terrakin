@@ -5,6 +5,7 @@ import {
   type EconomyChecked,
   economyNewDay,
   economyTownsfolkChange,
+  isTownsfolk,
   markNewcomer,
   payAllowance,
   payWelcome,
@@ -270,6 +271,76 @@ function landingTile(state: WorldState, actor: string, px: number, py: number): 
   return free ?? center;
 }
 
+// ---------- next steps: a rejection names the call that would work ----------
+
+/**
+ * The unclaimed plot nearest to plot (px, py), not the Commons: by Chebyshev distance in plots,
+ * then north to south, then west to east. Undefined when every plot is taken.
+ */
+function nearestFreePlot(
+  state: WorldState,
+  px: number,
+  py: number,
+): { px: number; py: number } | undefined {
+  const { config } = state;
+  const across = config.width / config.plotSize;
+  const down = config.height / config.plotSize;
+  let best: { px: number; py: number; d: number } | undefined;
+  for (let y = 0; y < down; y++) {
+    for (let x = 0; x < across; x++) {
+      if (isCommons(config, x, y) || state.plots[plotKey(x, y)]) continue;
+      const d = Math.max(Math.abs(x - px), Math.abs(y - py));
+      if (!best || d < best.d) best = { px: x, py: y, d };
+    }
+  }
+  return best && { px: best.px, py: best.py };
+}
+
+/** Where to settle or claim next: the free plot nearest to plot (px, py), as a call to make. */
+function freePlotHint(state: WorldState, actor: string, px: number, py: number): string {
+  const owned = plotsOwnedBy(state, actor).length;
+  // Pointing at a free plot would only lead to plot_limit.
+  if (owned >= state.config.maxPlotsPerResident) {
+    return " You already own as many plots as you can.";
+  }
+  const free = nearestFreePlot(state, px, py);
+  if (!free) return " Every plot is taken right now.";
+  // `settle` is only for a first plot; with one already, the way to another is to walk and claim.
+  return owned === 0
+    ? ` Try settle at px ${free.px}, py ${free.py}.`
+    : ` The nearest free plot is px ${free.px}, py ${free.py}: walk there and claim.`;
+}
+
+/** The same, from the plot a resident is standing in. */
+const settleHint = (state: WorldState, me: Resident) => {
+  const { px, py } = plotOf(state.config, me.x, me.y);
+  return freePlotHint(state, me.id, px, py);
+};
+
+const times = (n: number) => (n === 1 ? "once" : `${n} times`);
+
+/** The walk that brings `target` within reach of `me`, as move calls. */
+function walkHint(me: Tile, target: Tile, reach: number): string {
+  const dx = target.x - me.x;
+  const dy = target.y - me.y;
+  const steps: string[] = [];
+  const across = Math.abs(dx) - reach;
+  const down = Math.abs(dy) - reach;
+  if (across > 0) steps.push(`move ${dx > 0 ? "e" : "w"} ${times(across)}`);
+  if (down > 0) steps.push(`move ${dy > 0 ? "s" : "n"} ${times(down)}`);
+  return steps.length ? ` Walk closer first: ${steps.join(", then ")}.` : "";
+}
+
+/** Where a resident may build: the tiles of their working plot, or how to get one. */
+function buildHint(state: WorldState, me: Resident): string {
+  const plot = workingPlot(state, me, true);
+  if (!plot) return ` You have no plot yet.${settleHint(state, me)}`;
+  const { plotSize } = state.config;
+  const x = plot.px * plotSize;
+  const y = plot.py * plotSize;
+  return ` You can build on x ${x} to ${x + plotSize - 1}, y ${y} to ${y + plotSize - 1}.`;
+}
+
 /** A Town Hall or coins check's answer in this file's shape. */
 function town(checked: TownChecked | EconomyChecked): Mutation | Prepared {
   return typeof checked === "function" ? checked : { ok: false, rejection: checked };
@@ -376,8 +447,12 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
       if (isCommons(config, px, py)) {
         return reject("plot_is_commons", "The Commons belongs to everyone.");
       }
-      if (state.plots[plotKey(px, py)])
-        return reject("plot_owned", "This plot is already claimed.");
+      if (state.plots[plotKey(px, py)]) {
+        return reject(
+          "plot_owned",
+          `This plot is already claimed.${freePlotHint(state, actor, px, py)}`,
+        );
+      }
       if (plotsOwnedBy(state, actor).length >= config.maxPlotsPerResident) {
         return reject("plot_limit", `You can own at most ${config.maxPlotsPerResident} plot(s).`);
       }
@@ -440,15 +515,26 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
       const { x, y } = command;
       if (!inBounds(config, x, y)) return reject("out_of_bounds", "That's outside the world.");
       if (chebyshev(me, { x, y }) > config.reach) {
-        return reject("out_of_reach", `You can only build within ${config.reach} tiles.`);
+        return reject(
+          "out_of_reach",
+          `You can only build within ${config.reach} tiles.${walkHint(me, { x, y }, config.reach)}`,
+        );
       }
       if (!canBuildOn(plotAtTile(state, x, y), actor)) {
-        return reject("not_your_plot", "Your hearth has to be on your own plot.");
+        return reject(
+          "not_your_plot",
+          `Your hearth has to be on your own plot.${buildHint(state, me)}`,
+        );
       }
       if (isSolid(state, x, y)) return reject("tile_occupied", "A block is there.");
       // Like profile, a no-op would still cost a permanent log line and a broadcast.
       if (me.hearth?.x === x && me.hearth.y === y) {
-        return reject("already_home", "That's already your hearth.");
+        return reject(
+          "already_home",
+          sameTile(me, me.hearth)
+            ? "That's already your hearth, and you're on it."
+            : "That's already your hearth. Try home to go there.",
+        );
       }
       return () => {
         me.hearth = { x, y };
@@ -458,11 +544,23 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
 
     case "home": {
       const hearth = me.hearth;
-      if (!hearth) return reject("no_hearth", "Set a hearth on your plot first.");
+      if (!hearth) {
+        return reject(
+          "no_hearth",
+          workingPlot(state, me, true)
+            ? "Set a hearth on your plot first. Try build_starter_home, which sets one for you."
+            : `Set a hearth on your plot first. You have no plot yet.${settleHint(state, me)}`,
+        );
+      }
       if (me.x === hearth.x && me.y === hearth.y) {
         // Already home is fine when it collects today's allowance (paid in prepare's commit).
         if (allowanceDue(state, actor)) return () => [];
-        return reject("already_home", "You're already home.");
+        return reject(
+          "already_home",
+          state.economy && state.day !== undefined && !isTownsfolk(state, actor)
+            ? "You're already home, and today's allowance is paid. Come back tomorrow."
+            : "You're already home.",
+        );
       }
       return () => {
         me.x = hearth.x;
@@ -476,10 +574,16 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
       const { x, y } = command;
       if (!inBounds(config, x, y)) return reject("out_of_bounds", "That's outside the world.");
       if (chebyshev(me, { x, y }) > config.reach) {
-        return reject("out_of_reach", `You can only build within ${config.reach} tiles.`);
+        return reject(
+          "out_of_reach",
+          `You can only build within ${config.reach} tiles.${walkHint(me, { x, y }, config.reach)}`,
+        );
       }
       if (!canBuildOn(plotAtTile(state, x, y), actor)) {
-        return reject("not_your_plot", "You can only build on your own plot.");
+        return reject(
+          "not_your_plot",
+          `You can only build on your own plot.${buildHint(state, me)}`,
+        );
       }
       const key = tileKey(x, y);
       if (command.type === "remove") {
@@ -518,7 +622,12 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
         return reject("plot_is_commons", "The Commons belongs to everyone.");
       }
       const key = plotKey(px, py);
-      if (state.plots[key]) return reject("plot_owned", "This plot is already claimed.");
+      if (state.plots[key]) {
+        return reject(
+          "plot_owned",
+          `This plot is already claimed.${freePlotHint(state, actor, px, py)}`,
+        );
+      }
       if (plotsOwnedBy(state, actor).length > 0) {
         return reject(
           "plot_limit",
@@ -540,7 +649,7 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
 
     case "build_starter_home": {
       const plot = workingPlot(state, me, true);
-      if (!plot) return reject("no_plot", "You need a plot first. Try settle.");
+      if (!plot) return reject("no_plot", `You need a plot first.${settleHint(state, me)}`);
       const onPlot = (t: Tile) => {
         const p = plotOf(config, t.x, t.y);
         return inBounds(config, t.x, t.y) && p.px === plot.px && p.py === plot.py;
@@ -570,7 +679,7 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
         else blocks = blocks.filter((b) => !sameTile(b, me));
       }
       if (blocks.length === 0 && !moveTo && !setHearth) {
-        return reject("already_home", "Your starter home is already built.");
+        return reject("already_home", "Your starter home is already built. Add to it with place.");
       }
       return () => {
         const events: WorldEvent[] = [];
@@ -598,7 +707,7 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
       if (!plot) {
         return workingPlot(state, me, true)
           ? reject("not_your_plot", "Only a plot's owner can share it.")
-          : reject("no_plot", "You need a plot of your own first. Try settle.");
+          : reject("no_plot", `You need a plot of your own first.${settleHint(state, me)}`);
       }
       const { px, py } = plot;
       const target = command.with;

@@ -542,8 +542,16 @@ export class SocialService {
     verdict.commit();
     if (verdict.borderline) this.safety.requestTriage("post", id);
     const post = this.post(id, authorId);
-    return post ? { ok: true, value: post } : fail("internal", "Post vanished.");
+    if (!post) return fail("internal", "Post vanished.");
+    if (!request.replyTo) this.onPost?.(post);
+    return { ok: true, value: post };
   }
+
+  /**
+   * Called with each new top-level post (not replies) once it's stored and visible. `Api` points
+   * it at the open sockets.
+   */
+  onPost: ((post: PostView) => void) | undefined;
 
   /** Delete your own post. Its files go too, unless another post or an avatar still uses them. */
   async deletePost(callerId: string, postId: string): Promise<SocialResult<null>> {
@@ -570,15 +578,18 @@ export class SocialService {
     return { ok: true, value: null };
   }
 
-  /** One post as `viewerId` sees it, or undefined if it doesn't exist or is hidden. */
-  post(postId: string, viewerId?: string): PostView | undefined {
+  /**
+   * One post as `viewerId` sees it, or undefined if it doesn't exist or is hidden. `parents` adds
+   * the post a reply answers, for the post's own page.
+   */
+  post(postId: string, viewerId?: string, parents = false): PostView | undefined {
     const rows = this.rows(
       `SELECT ${POST_COLUMNS} FROM posts p WHERE p.id = ? AND p.hidden = 0 AND ${NOT_SUSPENDED("p.author")}`,
       viewerId ?? "",
       postId,
       this.now(),
     );
-    return this.views(rows, viewerId)[0];
+    return this.views(rows, viewerId, parents)[0];
   }
 
   replies(postId: string, viewerId?: string): PostView[] {
@@ -1121,6 +1132,22 @@ export class SocialService {
     );
   }
 
+  /** Everyone who follows `residentId`, in one read. */
+  followersOf(residentId: string): Set<string> {
+    const rows = this.rows("SELECT follower FROM follows WHERE followee = ?", residentId);
+    return new Set(rows.map((r) => String(r.follower)));
+  }
+
+  /** Everyone `residentId` blocked or was blocked by, in one read. */
+  blockedWith(residentId: string): Set<string> {
+    const rows = this.rows(
+      "SELECT blocked AS id FROM blocks WHERE blocker = ? UNION SELECT blocker FROM blocks WHERE blocked = ?",
+      residentId,
+      residentId,
+    );
+    return new Set(rows.map((r) => String(r.id)));
+  }
+
   /** True when either resident has blocked the other. */
   blockedEither(a: string, b: string): boolean {
     return this.blocks(a, b) || this.blocks(b, a);
@@ -1613,8 +1640,26 @@ export class SocialService {
         `That ${kind} is too big. The limit is ${maxBytes / 1_000_000} MB.`,
       );
     }
+    // Someone with no uploads left today is turned away before the file is parsed. Stripping can
+    // shrink a file, so the exact byte check waits until after it.
+    const early = this.checkUploadCaps(ownerId, 1);
+    if (early) return early;
     // Location and camera details come out before anything is stored or counted.
-    bytes = stripMetadata(bytes, type);
+    const stripped = stripMetadata(bytes, type);
+    if (!stripped) {
+      return fail(
+        "bad_request",
+        `Couldn't read that ${kind} to remove hidden details like its location. Save or export it again and retry.`,
+      );
+    }
+    // A model's rewritten JSON can come out a little longer than it went in.
+    if (stripped.length > maxBytes) {
+      return fail(
+        "bad_request",
+        `That ${kind} is too big. The limit is ${maxBytes / 1_000_000} MB.`,
+      );
+    }
+    bytes = stripped;
     const refusal = this.checkUploadCaps(ownerId, bytes.length);
     if (refusal) return refusal;
     const id = randomId("m");

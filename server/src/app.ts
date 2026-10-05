@@ -68,6 +68,10 @@ export interface AppOptions {
   media?: ReadableMediaStore;
   /** See `ApiOptions.ipUploadBytesPerDay`. */
   ipUploadBytesPerDay?: number;
+  /** See `ApiOptions.maxWatchers`. */
+  maxWatchers?: number;
+  /** See `ApiOptions.maxWatchersPerNetwork`. */
+  maxWatchersPerNetwork?: number;
   /** See `ApiOptions.onResponse`. Tests use it to check responses against the route table. */
   onResponse?: ApiOptions["onResponse"];
   /** See `ApiOptions.staff`. Node has no Cloudflare Access, so staff sign in with a token. */
@@ -137,6 +141,10 @@ export function createApp(options: AppOptions): Server {
       : { ipUploadBytesPerDay: options.ipUploadBytesPerDay }),
     ...(options.onResponse ? { onResponse: options.onResponse } : {}),
     ...(options.staff ? { staff: options.staff } : {}),
+    ...(options.maxWatchers === undefined ? {} : { maxWatchers: options.maxWatchers }),
+    ...(options.maxWatchersPerNetwork === undefined
+      ? {}
+      : { maxWatchersPerNetwork: options.maxWatchersPerNetwork }),
   });
 
   const server = createServer((req, res) => {

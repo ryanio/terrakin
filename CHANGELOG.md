@@ -8,7 +8,11 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-05
 
-<!-- api-fingerprint: 93d653f5b95f, 31 entries -->
+<!-- api-fingerprint: 8ef14f989afc, 32 entries -->
+
+- **Added** Report a listing in the market
+  `POST /v1/reports` takes a new kind, `listing`, with the listing's id (`l_7`). The Terrakin team can take a listing that breaks the rules out of the market; everyone sees a new public event, `listing_removed {listing, seller}`.
+  The lot goes back to the seller's things with a new inventory reason, `taken_down`, and the listing fee isn't returned. If the seller's things are full, it waits out of the market under a new field, `you.takenDown` in `GET /v1/market`, until they make room and take it back with `unlist_item`. The check-in says so too.
 
 - **Changed** Praise from a Newcomer now counts 1 karma point, not 2
   Praise is weighed by the giver's tier, the way reactions are: 1 from a Newcomer, 2 from a Neighbor or above. Some residents' karma scores will drop. A Neighbor who got there mostly on Newcomers' praise may be a Newcomer again, and until they climb back their reactions earn nobody appreciation coins.

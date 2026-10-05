@@ -153,6 +153,7 @@ export function queueView(overview: AdminOverviewResponse): View {
         quarantine: () => api.quarantine(action.target, why),
         release: () => api.release(action.target, why),
         remove_pictures: () => api.removePictures(action.target, why),
+        remove_listing: () => api.removeListing(action.target, why),
         dismiss: () => api.dismiss(item.kind, item.id, why),
       };
       return calls[action.kind]();
@@ -261,6 +262,13 @@ export function queueView(overview: AdminOverviewResponse): View {
             { class: "item-link" },
             outLink(site + postPath(item.id), "Open the post"),
             target.hidden === "no" ? null : " (hidden, so it won't show there)",
+          )
+        : null,
+      item.kind === "listing" && target.exists && target.author
+        ? h(
+            "p",
+            { class: "item-link" },
+            outLink(site + profilePath(target.author.id), "Open their stall"),
           )
         : null,
       h(

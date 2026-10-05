@@ -5,7 +5,7 @@ import { MARKET_CONFIG, MARKET_HASH, MARKET_LOG } from "./fixtures/market-log";
 import { SHOP_CONFIG, SHOP_HASH, SHOP_LOG } from "./fixtures/shop-log";
 import { hashWorld } from "./hash";
 import { type GoodKind, ITEMS, inventorySize } from "./items";
-import { listingsOf, MARKET, marketFee, stallOf } from "./market";
+import { listingsOf, MARKET, marketFee, stallOf, takenDownOf } from "./market";
 import { replay } from "./replay";
 import { expectSupplyHolds, fund, stock } from "./test-support";
 import {
@@ -431,6 +431,100 @@ describe("the market and the gift caps", () => {
   });
 });
 
+describe("remove_listing", () => {
+  const remove = (listing: string): Command => ({ type: "remove_listing", listing });
+
+  it("only comes from the server", () => {
+    const w = market();
+    stock(w.state, "ada", { lemon: 1 });
+    w.ok("ada", list("lemon", 3));
+    expect(w.code("ada", remove("l_1"))).toBe("server_only");
+    expect(w.code("bob", remove("l_1"))).toBe("server_only");
+    expect(listingsOf(w.state)).toHaveLength(1);
+  });
+
+  it("gives the lot back to its seller with its labels, and keeps the listing fee burned", () => {
+    const w = market();
+    stock(w.state, "ada", { lemon: 4 });
+    const jam = make(w.state, "ada", "lemon_jam", "Rude words");
+    w.ok("ada", list("lemon", 10, 4));
+    w.ok("ada", list(jam.id, 10));
+    const coins = w.coins("ada");
+    const burned = w.state.economy?.burned;
+    const treasury = w.state.economy?.treasury;
+    expect(w.town(remove("l_2"))).toEqual([
+      { type: "inventory", residentId: "ada", reason: "taken_down", gained: [jam] },
+      { type: "listing_removed", listing: "l_2", seller: "ada" },
+    ]);
+    expect(w.goods("ada")).toEqual([jam]);
+    expect(w.town(remove("l_1"))).toEqual([
+      {
+        type: "inventory",
+        residentId: "ada",
+        reason: "taken_down",
+        changes: [{ kind: "lemon", amount: 4, count: 4 }],
+      },
+      { type: "listing_removed", listing: "l_1", seller: "ada" },
+    ]);
+    expect(w.has("ada", "lemon")).toBe(4);
+    expect(listingsOf(w.state)).toEqual([]);
+    expect(w.state.market?.listings).toEqual({});
+    // No coins move: the fee stays burned and the seller's purse is as it was.
+    expect(w.coins("ada")).toBe(coins);
+    expect(w.state.economy?.burned).toBe(burned);
+    expect(w.state.economy?.treasury).toBe(treasury);
+  });
+
+  it("holds the lot out of the market when the seller's things are full, until they take it back", () => {
+    const w = market();
+    stock(w.state, "ada", { lemon: 5 });
+    w.ok("ada", list("lemon", 10, 5));
+    stock(w.state, "ada", {
+      herb: ITEMS.inventoryMax - inventorySize(w.state.items?.inventories.ada),
+    });
+    const size = inventorySize(w.state.items?.inventories.ada);
+    expect(w.town(remove("l_1"))).toEqual([
+      { type: "listing_removed", listing: "l_1", seller: "ada" },
+    ]);
+    // Nothing went past the cap, and nothing was lost: the lot waits for Ada alone.
+    expect(inventorySize(w.state.items?.inventories.ada)).toBe(size);
+    expect(listingsOf(w.state)).toEqual([]);
+    expect(stallOf(w.state, "ada")).toEqual([]);
+    expect(takenDownOf(w.state, "ada")).toEqual([
+      expect.objectContaining({ id: "l_1", kind: "lemon", count: 5, takenDown: true }),
+    ]);
+    expect(takenDownOf(w.state, "bob")).toEqual([]);
+    fund(w.state, "bob", 50);
+    expect(w.code("bob", { type: "buy_listing", listing: "l_1" })).toBe("unknown_listing");
+    expect(w.code(TOWN_ACTOR, remove("l_1"))).toBe("unknown_listing");
+    expect(w.code("bob", { type: "unlist_item", listing: "l_1" })).toBe("not_eligible");
+    expect(w.code("ada", { type: "unlist_item", listing: "l_1" })).toBe("inventory_full");
+    // A held lot isn't a listing: it doesn't count toward the 20 Ada may have open.
+    w.ok("ada", list("herb", 1, 5));
+    w.ok("ada", { type: "unlist_item", listing: "l_2" });
+    // Made room, Ada takes it back.
+    w.ok("ada", { type: "give", item: "herb", to: "bob", count: 5 });
+    w.ok("ada", { type: "unlist_item", listing: "l_1" });
+    expect(w.has("ada", "lemon")).toBe(5);
+    expect(w.state.market?.listings).toEqual({});
+  });
+
+  it("refuses an unknown listing, a sold one, and a closed market", () => {
+    const w = market();
+    stock(w.state, "ada", { lemon: 1 });
+    w.ok("ada", list("lemon", 3));
+    fund(w.state, "bob", 10);
+    w.ok("bob", { type: "buy_listing", listing: "l_1" });
+    expect(w.code(TOWN_ACTOR, remove("l_1"))).toBe("unknown_listing");
+    expect(w.code(TOWN_ACTOR, remove("l_9"))).toBe("unknown_listing");
+    const closed = createWorld(CONFIG);
+    expect(apply(closed, { actor: TOWN_ACTOR, command: remove("l_1") })).toMatchObject({
+      ok: false,
+      rejection: { code: "market_closed" },
+    });
+  });
+});
+
 describe("the market and replay", () => {
   it("changes nothing until commit, for every market input", () => {
     const w = market();
@@ -441,6 +535,8 @@ describe("the market and replay", () => {
       { actor: "ada", command: list("lemon", 10, 2) },
       { actor: "ada", command: { type: "unlist_item", listing: "l_2" } },
       { actor: "bob", command: { type: "buy_listing", listing: "l_1" } },
+      { actor: "ada", command: list("lemon", 10, 1) },
+      { actor: TOWN_ACTOR, command: { type: "remove_listing", listing: "l_3" } },
     ];
     for (const input of inputs) {
       const before = hashWorld(w.state);
@@ -450,6 +546,6 @@ describe("the market and replay", () => {
       if (prepared.ok) prepared.commit();
       expectSupplyHolds(w.state);
     }
-    expect(w.state.market?.nextId).toBe(3);
+    expect(w.state.market?.nextId).toBe(4);
   });
 });

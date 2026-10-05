@@ -89,11 +89,11 @@ function opened(
   return { market, econ, items, day };
 }
 
-/** Open listings, oldest first. */
+/** Open listings, oldest first. Lots staff took down and are holding for their sellers aren't. */
 export function listingsOf(state: WorldState): Listing[] {
-  return Object.values(state.market?.listings ?? {}).sort(
-    (a, b) => listingNumber(a) - listingNumber(b),
-  );
+  return Object.values(state.market?.listings ?? {})
+    .filter((l) => !l.takenDown)
+    .sort((a, b) => listingNumber(a) - listingNumber(b));
 }
 
 const listingNumber = (l: Listing) => Number(l.id.slice(2));
@@ -101,6 +101,15 @@ const listingNumber = (l: Listing) => Number(l.id.slice(2));
 /** One resident's open listings, oldest first. */
 export const stallOf = (state: WorldState, id: ResidentId) =>
   listingsOf(state).filter((l) => l.seller === id);
+
+/**
+ * A resident's lots that staff took down while their things were full, oldest first. Theirs to
+ * take back with `unlist_item` once they have room; nobody else sees them.
+ */
+export const takenDownOf = (state: WorldState, id: ResidentId) =>
+  Object.values(state.market?.listings ?? {})
+    .filter((l) => l.takenDown && l.seller === id)
+    .sort((a, b) => listingNumber(a) - listingNumber(b));
 
 const copyListing = (l: Listing): Listing => ({
   ...l,
@@ -168,7 +177,9 @@ export function checkListItem(
   } else {
     return refuse("unknown_item", "That isn't something you can hold. Check GET /v1/inventory.");
   }
-  const selling = Object.values(market.listings).filter((l) => l.seller === actor).length;
+  const selling = Object.values(market.listings).filter(
+    (l) => l.seller === actor && !l.takenDown,
+  ).length;
   if (selling >= MARKET.listingsMax) {
     return refuse(
       "listing_limit",
@@ -223,7 +234,7 @@ function receive(
   items: ItemsState,
   id: ResidentId,
   listing: Listing,
-  reason: "unlisted" | "market",
+  reason: "unlisted" | "market" | "taken_down",
 ) {
   const theirs = inventory(items, id);
   if (isStackKind(listing.kind)) {
@@ -234,7 +245,10 @@ function receive(
   return inventoryEvent(id, reason, [], { gained: goods });
 }
 
-/** `unlist_item {listing}`: take your own listing back. The listing fee isn't returned. */
+/**
+ * `unlist_item {listing}`: take your own listing back. The listing fee isn't returned. It also
+ * collects a lot staff took down while your things were full.
+ */
 export function checkUnlistItem(
   state: WorldState,
   actor: ResidentId,
@@ -271,7 +285,9 @@ export function checkBuyListing(
   if ("code" in open) return open;
   const { market, econ, items, day } = open;
   const listing = market.listings[command.listing];
-  if (!listing) return refuse("unknown_listing", "That listing isn't open. See GET /v1/market.");
+  if (!listing || listing.takenDown) {
+    return refuse("unknown_listing", "That listing isn't open. See GET /v1/market.");
+  }
   if (listing.seller === actor) {
     return refuse("own_listing", "That's your own listing. Take it back with unlist_item.");
   }
@@ -335,5 +351,39 @@ export function checkBuyListing(
       price,
     });
     return events;
+  };
+}
+
+// ---------- staff ----------
+
+/**
+ * `remove_listing {listing}`, which only TOWN_ACTOR sends: staff took a listing down (decision
+ * 0056). The lot goes back to its seller with their makers and labels. When their things are too
+ * full for it, it stays in the market out of view (`takenDown`) until they take it back with
+ * `unlist_item`, so nothing is lost and nothing goes past `inventoryMax`. The listing fee stays
+ * burned, and no other coins move.
+ */
+export function checkRemoveListing(
+  state: WorldState,
+  command: Extract<Command, { type: "remove_listing" }>,
+): MarketChecked {
+  const { market, items } = state;
+  if (!market || !items) {
+    return refuse("market_closed", "The market hasn't opened in this world yet.");
+  }
+  const listing = market.listings[command.listing];
+  if (!listing || listing.takenDown) {
+    return refuse("unknown_listing", "That listing isn't open.");
+  }
+  const { seller } = listing;
+  const room = fits(items, seller, listing);
+  return () => {
+    const removed: WorldEvent = { type: "listing_removed", listing: listing.id, seller };
+    if (!room) {
+      listing.takenDown = true;
+      return [removed];
+    }
+    delete market.listings[listing.id];
+    return [receive(items, seller, listing, "taken_down"), removed];
   };
 }

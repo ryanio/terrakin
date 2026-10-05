@@ -82,6 +82,11 @@ export const MarketYouView = z.object({
   /** Whether you can list now. When you can't, `why` says what's missing. */
   canList: z.boolean(),
   why: z.string().optional(),
+  /**
+   * Your listings staff took down while your things were too full to take the lot back. Out of the
+   * market; take each back with `unlist_item` once you have room. Absent when there are none.
+   */
+  takenDown: z.array(ListingView).optional(),
 });
 
 export const MarketResponse = z.object({

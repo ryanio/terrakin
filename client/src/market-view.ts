@@ -1,8 +1,10 @@
 /**
  * `/market`: residents selling to residents (RFC 0008, phase 4). What's for sale, 200 at a time
- * with "Show more listings" after, your purse, and a form to list something you hold. Prices, fees, and refusals come from the server; this page
- * shows them and sends `list_item`, `unlist_item`, and `buy_listing`. Labels on made things and
- * sellers' names are other residents' words: text nodes only.
+ * with "Show more listings" after, your purse, and a form to list something you hold. Prices,
+ * fees, and refusals come from the server; this page shows them and sends `list_item`,
+ * `unlist_item`, and `buy_listing`, and anyone's listing but your own can be reported from its
+ * "More" menu. Labels on made things and sellers' names are other residents' words: text nodes
+ * only.
  */
 import type { InventoryResponse, ListingView, MarketResponse } from "@terrakin/protocol";
 import { BUY_ORDERS, type ItemKind, isShopSku, type SellKind, SHOP_CATALOG } from "@terrakin/sim";
@@ -15,6 +17,7 @@ import {
   itemRow,
   itemRows,
   moreButton,
+  moreMenu,
   stateCard,
   toast,
   whileBusy,
@@ -22,6 +25,7 @@ import {
 import { actProblem, api } from "./api";
 import { savedResidentId, savedToken } from "./net";
 import { balanceLine, coins, refreshPurse } from "./purse";
+import { openReportSheet } from "./report-sheet";
 import { thingName } from "./things";
 import { errorCard, type View, type ViewContext } from "./view";
 
@@ -51,7 +55,25 @@ export function listingAction(
   return { kind: "buy", text: `Buy for ${coins(l.price)}`, can: true };
 }
 
-/** One listing as a row: the thing, who sells it, and a button when there's something to do. */
+/** "…" with Report, on listings that aren't yours. */
+function listingMore(l: ListingView): HTMLElement {
+  const report = h("button", {
+    class: "menu-item",
+    attrs: { type: "button" },
+    text: "Report listing",
+  });
+  const menu = moreMenu({ id: `listing-more-${l.id}`, items: [report] });
+  report.addEventListener("click", () => {
+    menu.close();
+    openReportSheet({ kind: "listing", id: l.id, label: "listing" });
+  });
+  return menu.el;
+}
+
+/**
+ * One listing as a row: the thing, who sells it, a button when there's something to do, and a
+ * "More" menu to report it when it isn't yours.
+ */
 export function listingRow(
   l: ListingView,
   action: ReturnType<typeof listingAction>,
@@ -83,13 +105,14 @@ export function listingRow(
       confirmTwice(button, `Tap again to pay ${coins(l.price)}`, () => onPress(button));
     else button.addEventListener("click", () => onPress(button));
   }
+  const more = action.kind === "take" ? null : listingMore(l);
   return itemRow({
     className: "market-listing",
     attrs: { "data-listing": l.id },
     lead: itemArt(l.kind, { size: 32 }),
     name: l.name,
     lines,
-    trail,
+    trail: more ? h("span", { class: "cluster listing-trail" }, trail, more) : trail,
   });
 }
 
@@ -288,6 +311,14 @@ export function marketView(ctx: ViewContext): View {
       more.el.hidden = next === null;
     });
     more.el.hidden = next === null;
+    const held = (you?.takenDown ?? []).map((l) =>
+      listingRow(
+        l,
+        { kind: "take", text: "Take back", can: true },
+        (button) =>
+          void act(button, { type: "unlist_item", listing: l.id }, "It's back in your things."),
+      ),
+    );
     body.replaceChildren(
       h(
         "section",
@@ -308,6 +339,27 @@ export function marketView(ctx: ViewContext): View {
               icon("arrow"),
             ),
       ),
+      ...(held.length > 0
+        ? [
+            h(
+              "section",
+              {
+                class: "stack market-section",
+                attrs: { "aria-labelledby": "market-held-title" },
+              },
+              h("h2", {
+                class: "section-title",
+                attrs: { id: "market-held-title" },
+                text: "Taken down",
+              }),
+              h("p", {
+                class: "purse-hint",
+                text: "Staff took these out of the market while your things were full. Make room, then take them back.",
+              }),
+              itemRows(held, { className: "market-listings market-held" }),
+            ),
+          ]
+        : []),
       h(
         "section",
         { class: "stack market-section", attrs: { "aria-labelledby": "market-sale-title" } },

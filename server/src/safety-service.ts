@@ -127,6 +127,7 @@ const AGREES: Record<TriageAction, ReadonlySet<ModerationAction> | "any"> = {
     "remove_pictures",
     "remove_notice",
     "void_proposal",
+    "remove_listing",
     "suspend",
   ]),
   suspend: new Set(["suspend"]),
@@ -166,6 +167,7 @@ export class SafetyService {
         status TEXT NOT NULL DEFAULT 'open',
         closed_at INTEGER,
         closed_by TEXT,
+        owner TEXT,
         UNIQUE (reporter, kind, target)
       )`,
       "CREATE INDEX IF NOT EXISTS reports_target ON reports (kind, target, status)",
@@ -227,6 +229,14 @@ export class SafetyService {
     ]) {
       this.o.sql.exec(statement);
     }
+    // Added with listing reports: whose the reported thing was when it was reported. A listing
+    // leaves the world when it's taken down, so karma reads its seller from here. Older rows stay
+    // null.
+    try {
+      this.o.sql.exec("ALTER TABLE reports ADD COLUMN owner TEXT");
+    } catch {
+      // Already there.
+    }
     // The database refuses to change or delete a log row, so a code mistake can't either.
     for (const verb of ["UPDATE", "DELETE"]) {
       try {
@@ -239,6 +249,12 @@ export class SafetyService {
       }
     }
   }
+
+  /**
+   * An open listing in the market, for reports on one: its seller, and its lot and labels as text.
+   * `Api` wires it to the world; without it, listings can't be reported.
+   */
+  listing: (id: string) => { seller: string; text: string } | undefined = () => undefined;
 
   private rows(query: string, ...bindings: (string | number)[]): Row[] {
     return [...this.o.sql.exec(query, ...bindings)];
@@ -287,8 +303,8 @@ export class SafetyService {
 
     const reportId = randomId("rp");
     this.o.sql.exec(
-      `INSERT INTO reports (id, kind, target, reporter, reason, note, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO reports (id, kind, target, reporter, reason, note, created_at, owner)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       reportId,
       kind,
       id,
@@ -296,6 +312,7 @@ export class SafetyService {
       reason,
       cleanMultiline(request.note ?? ""),
       this.o.now(),
+      owner,
     );
     if (kind === "post") this.maybeAutoHide(id);
     this.requestTriage(kind, id, reporter);
@@ -312,6 +329,7 @@ export class SafetyService {
   private targetOwner(reporter: string, kind: ReportKind, id: string): string | undefined {
     if (kind === "resident") return this.o.resident(id) ? id : undefined;
     if (kind === "proposal") return this.o.proposal(id)?.author;
+    if (kind === "listing") return this.listing(id)?.seller;
     if (kind === "post") {
       const row = this.rows("SELECT author FROM posts WHERE id = ?", id)[0];
       return row ? String(row.author) : undefined;
@@ -542,8 +560,8 @@ export class SafetyService {
     );
     if (flagged && open === 0) {
       this.o.sql.exec(
-        `INSERT INTO reports (id, kind, target, reporter, reason, note, created_at)
-          VALUES (?, ?, ?, ?, ?, '', ?)
+        `INSERT INTO reports (id, kind, target, reporter, reason, note, created_at, owner)
+          VALUES (?, ?, ?, ?, ?, '', ?, ?)
           ON CONFLICT (reporter, kind, target) DO UPDATE SET status = 'open', reason = excluded.reason,
           created_at = excluded.created_at, closed_at = NULL, closed_by = NULL`,
         randomId("rp"),
@@ -552,6 +570,7 @@ export class SafetyService {
         TRIAGE_ACTOR,
         REASON_FOR[v.category],
         this.o.now(),
+        (kind === "resident" ? id : target.author?.id) ?? "",
       );
     }
   }
@@ -765,6 +784,11 @@ export class SafetyService {
       if (!row) return gone;
       return base(String(row.author), String(row.text), { exists: row.removed_at === null });
     }
+    if (kind === "listing") {
+      // Gone once it sells, is taken back, or is taken down.
+      const l = this.listing(id);
+      return l ? base(l.seller, l.text) : gone;
+    }
     const p = this.o.proposal(id);
     return p ? base(p.author, [p.title, p.text].filter(Boolean).join("\n")) : gone;
   }
@@ -919,6 +943,7 @@ export class SafetyService {
           WHEN 'post' THEN (SELECT author FROM posts WHERE id = target)
           WHEN 'notice' THEN (SELECT author FROM notices WHERE id = target)
           WHEN 'letter' THEN (SELECT sender FROM letters WHERE id = target)
+          WHEN 'listing' THEN owner
         END AS against
         FROM reports WHERE status = 'actioned' AND closed_at >= ? AND closed_at < ?`,
       fromMs,
@@ -948,10 +973,16 @@ export class SafetyService {
     return ok(this.act(by, "dismiss_reports", kind, id, reason));
   }
 
-  /** Staff acted through another route (removed a notice, voided a proposal). */
-  recordAction(by: string, action: ModerationAction, kind: ReportKind, id: string, reason: string) {
+  /** Staff acted through another route (removed a notice, voided a proposal, took a listing down). */
+  recordAction(
+    by: string,
+    action: ModerationAction,
+    kind: ReportKind,
+    id: string,
+    reason: string,
+  ): ModerationLogEntry {
     this.close(kind, id, "actioned", by);
-    this.act(by, action, kind, id, reason);
+    return this.act(by, action, kind, id, reason);
   }
 
   /** When a resident's suspension ends (ms), or undefined if they aren't suspended. */
@@ -1128,6 +1159,7 @@ const NOT_FOUND: Record<ReportKind, string> = {
   letter: "No such letter.",
   notice: "No such notice.",
   proposal: "No such proposal.",
+  listing: "That listing isn't in the market.",
 };
 
 function reportView(row: Row): ReportView {

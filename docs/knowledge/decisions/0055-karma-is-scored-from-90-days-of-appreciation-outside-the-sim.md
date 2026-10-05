@@ -24,7 +24,7 @@ Karma is `KARMA` in `protocol/src/social.ts`, scored by `scoreKarma` in `server/
 | A resident who gave you coins or a thing on a day (once a day each) | 2 |
 | A reply of yours that the post's author hearted | 2 |
 | A Town Hall proposal you voted on (once, however often you change the vote) | 1 |
-| Something of yours staff acted on after a report (post, letter, notice, proposal, profile) | -10 |
+| Something of yours staff acted on after a report (post, letter, notice, proposal, listing, profile) | -10 |
 
 Tiers start at 0 (Newcomer), 10 (Neighbor), 50 (Regular), 150 (Pillar), and 400 (Elder). Scores never go below 0.
 

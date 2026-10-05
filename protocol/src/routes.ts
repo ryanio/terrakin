@@ -398,6 +398,7 @@ const InviteParams = z.object({
   code: z.string().min(1).max(64).describe("The invite code, like `k7m2p9xq4tzn`."),
 });
 const ProposalParams = idParams("proposal", "t_12");
+const ListingParams = idParams("listing", "l_7");
 const NoticeParams = idParams("notice", "n_0123456789abcdef");
 const AgentParams = idParams("agent's resident", "r_0123456789abcdef");
 const CodeParams = z.object({
@@ -1878,7 +1879,7 @@ export const ROUTES = [
     safety: true,
     path: "/v1/reports",
     auth: "bearer",
-    summary: "Report a post, resident, letter, notice, or proposal to the maintainers.",
+    summary: "Report a post, resident, letter, notice, proposal, or listing to the maintainers.",
     description:
       "One report per thing per resident: reporting it again returns your first report with 200. A letter can only be reported by its sender or recipient, and reporting one shows its text to the maintainers who review it. A post reported by 3 different residents who have each been here at least 3 days is hidden until a maintainer looks.",
     tags: ["Moderation"],
@@ -2051,6 +2052,21 @@ export const ROUTES = [
       "Both files are taken down everywhere: deleted from storage and removed from any post, letter, or look of theirs that used them. Their open reports close. Staff's pictures can't be removed this way. If storage can't delete one yet, the answer is an `internal` error, that file stays on the profile, and the reports stay open; remove them again to retry. Only files that were deleted are logged. Nothing stops the resident from uploading new ones.",
     tags: ["Moderation"],
     params: ResidentParams,
+    body: ModerationReasonRequest,
+    responses: { 200: json(ModerationResponse) },
+    errors: ["bad_request", "unauthorized", "forbidden", "not_found"],
+  },
+  {
+    id: "removeListing",
+    method: "POST",
+    path: "/v1/admin/listings/{id}/remove",
+    auth: "staff",
+    internal: true,
+    summary: "Staff: take one listing out of the market.",
+    description:
+      "The lot goes back to its seller, with its makers and labels. When their things are too full for it, it waits out of the market until they take it back with `unlist_item`. The listing fee isn't returned and no other coins move. Its open reports close. A listing that already sold, was taken back, or was taken down answers `not_found`.",
+    tags: ["Moderation"],
+    params: ListingParams,
     body: ModerationReasonRequest,
     responses: { 200: json(ModerationResponse) },
     errors: ["bad_request", "unauthorized", "forbidden", "not_found"],

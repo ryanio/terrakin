@@ -535,6 +535,14 @@ export class WorldService {
     return this.run({ actor: TOWN_ACTOR, command: { type: "void_proposal", proposal, by } });
   }
 
+  /**
+   * Staff take a listing down (decision 0056). Logged as a world input without who did it: that's
+   * in the moderation log, which staff's sign-in emails never leave.
+   */
+  removeListing(listing: string): ActResult {
+    return this.run({ actor: TOWN_ACTOR, command: { type: "remove_listing", listing } });
+  }
+
   /** Whole UTC days since a resident first joined. Residents from before days were counted are old. */
   residentAgeDays(residentId: string): number {
     const joined = this.joinedDay.get(residentId);

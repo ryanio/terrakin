@@ -54,12 +54,13 @@ export type ActionKind =
   | "quarantine"
   | "release"
   | "remove_pictures"
+  | "remove_listing"
   | "dismiss";
 
 export interface ItemAction {
   kind: ActionKind;
   label: string;
-  /** The post or resident id the action goes to. Dismiss uses the item's own kind and id. */
+  /** The post, resident, or listing id the action goes to. Dismiss uses the item's own kind and id. */
   target: string;
   primary: boolean;
   /**
@@ -106,6 +107,16 @@ export function itemActions(item: ReportQueueItem, role: StaffRole = "maintainer
       }
       out.push({ kind: "unhide", label: "Show post again", target: item.id, primary: false });
     }
+  }
+  // Taking a listing down sends the lot back to its seller; it can't be put back in the market.
+  if (item.kind === "listing" && target.exists) {
+    out.push({
+      kind: "remove_listing",
+      label: "Take down listing",
+      target: item.id,
+      primary: true,
+      confirm: "Tap again to take it down",
+    });
   }
   const person = personOf(item);
   if (person) {
@@ -174,6 +185,7 @@ const KIND_WORDS: Record<ReportKind, string> = {
   letter: "Letter",
   notice: "Notice",
   proposal: "Proposal",
+  listing: "Listing",
 };
 
 /** The eyebrow over an item: "Post · 3 reports". */

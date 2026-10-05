@@ -7278,3 +7278,10 @@ a.profile-owner:hover .owner-name {
 .profile-meta > .profile-handle-line:not(:has(> :not([hidden]))) {
   display: none;
 }
+
+/* A listing's button and its "More" menu, side by side at the end of its row. */
+.listing-trail {
+  flex: none;
+  flex-wrap: nowrap;
+  align-items: center;
+}

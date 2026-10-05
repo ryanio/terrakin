@@ -58,6 +58,20 @@ describe("the actions an item offers", () => {
     expect(kinds(item())).toEqual(["hide:p_1", `suspend:${author.id}`, "dismiss:p_1"]);
   });
 
+  it("takes down a listing that's still in the market, or suspends its seller", () => {
+    const listing = item({ kind: "listing", id: "l_7" });
+    expect(kinds(listing)).toEqual(["remove_listing:l_7", `suspend:${author.id}`, "dismiss:l_7"]);
+    expect(itemActions(listing, "moderator")[0]).toMatchObject({
+      kind: "remove_listing",
+      label: "Take down listing",
+      confirm: "Tap again to take it down",
+    });
+    // Sold or taken back since: nothing left to take down.
+    expect(kinds(item({ kind: "listing", id: "l_7" }, { exists: false }))).not.toContain(
+      "remove_listing:l_7",
+    );
+  });
+
   it("offers to confirm or undo an automatic hide, and only to undo a staff hide", () => {
     expect(kinds(item({}, { hidden: "auto" }))).toEqual([
       "hide:p_1",

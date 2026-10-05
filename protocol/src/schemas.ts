@@ -679,6 +679,11 @@ export const WorldEvent = z.discriminatedUnion("type", [
   }),
   /** A listing was taken back unsold. */
   z.object({ type: z.literal("unlisted"), listing: z.string(), seller: z.string() }),
+  /**
+   * Staff took a listing down. The lot goes back to the seller's things, or, when those are full,
+   * waits for them under `you.takenDown` in `GET /v1/market`.
+   */
+  z.object({ type: z.literal("listing_removed"), listing: z.string(), seller: z.string() }),
   /** A listing sold. Who bought it isn't said. */
   z.object({
     type: z.literal("listing_sold"),

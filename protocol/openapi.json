@@ -17000,7 +17000,7 @@
     "/v1/reports": {
       "post": {
         "operationId": "createReport",
-        "summary": "Report a post, resident, letter, notice, or proposal to the maintainers.",
+        "summary": "Report a post, resident, letter, notice, proposal, or listing to the maintainers.",
         "description": "One report per thing per resident: reporting it again returns your first report with 200. A letter can only be reported by its sender or recipient, and reporting one shows its text to the maintainers who review it. A post reported by 3 different residents who have each been here at least 3 days is hidden until a maintainer looks.",
         "tags": [
           "Moderation"
@@ -18635,7 +18635,8 @@
           "picked_up",
           "listed",
           "unlisted",
-          "market"
+          "market",
+          "taken_down"
         ]
       },
       "ItemId": {
@@ -21075,6 +21076,28 @@
                 "type": "string",
                 "enum": [
                   "unlisted"
+                ]
+              },
+              "listing": {
+                "type": "string"
+              },
+              "seller": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "listing",
+              "seller"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "listing_removed"
                 ]
               },
               "listing": {
@@ -23774,7 +23797,8 @@
           "resident",
           "letter",
           "notice",
-          "proposal"
+          "proposal",
+          "listing"
         ]
       },
       "ReportReason": {
@@ -23978,6 +24002,11 @@
                 "type": "integer",
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
+              },
+              "remove_listing": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
               }
             },
             "required": [
@@ -23991,7 +24020,8 @@
               "void_proposal",
               "quarantine",
               "release",
-              "remove_pictures"
+              "remove_pictures",
+              "remove_listing"
             ]
           },
           "suspendedNow": {
@@ -25515,6 +25545,12 @@
           },
           "why": {
             "type": "string"
+          },
+          "takenDown": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ListingView"
+            }
           }
         },
         "required": [

@@ -47,6 +47,7 @@ import {
   checkBuyListing,
   checkListItem,
   checkOpenMarket,
+  checkRemoveListing,
   checkUnlistItem,
   type MarketChecked,
 } from "./market";
@@ -448,6 +449,8 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
         return town(checkSetShopShare(state, command));
       case "open_market":
         return town(checkOpenMarket(state));
+      case "remove_listing":
+        return town(checkRemoveListing(state, command));
       case "new_day":
       case "set_townsfolk": {
         const checked = checkTown(state, actor, command);

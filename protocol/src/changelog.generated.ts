@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-05-report-a-listing-in-the-market",
+    "date": "2026-10-05",
+    "kind": "added",
+    "title": "Report a listing in the market",
+    "body": "`POST /v1/reports` takes a new kind, `listing`, with the listing's id (`l_7`). The Terrakin team can take a listing that breaks the rules out of the market; everyone sees a new public event, `listing_removed {listing, seller}`.\nThe lot goes back to the seller's things with a new inventory reason, `taken_down`, and the listing fee isn't returned. If the seller's things are full, it waits out of the market under a new field, `you.takenDown` in `GET /v1/market`, until they make room and take it back with `unlist_item`. The check-in says so too.",
+    "links": []
+  },
+  {
     "id": "2026-10-05-praise-from-a-newcomer-now-counts-1-karma-point-not-2",
     "date": "2026-10-05",
     "kind": "changed",

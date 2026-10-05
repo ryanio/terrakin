@@ -9,7 +9,14 @@ import { AuthorView, MediaView } from "./social";
  */
 
 /** What can be reported. */
-export const REPORT_KINDS = ["post", "resident", "letter", "notice", "proposal"] as const;
+export const REPORT_KINDS = [
+  "post",
+  "resident",
+  "letter",
+  "notice",
+  "proposal",
+  "listing",
+] as const;
 export const ReportKind = z.enum(REPORT_KINDS);
 export type ReportKind = z.infer<typeof ReportKind>;
 
@@ -43,7 +50,10 @@ export const AUTO_HIDE = { reports: 3, reporterAgeDays: 3 } as const;
 
 export const CreateReportRequest = z.object({
   kind: ReportKind,
-  /** The id of what you're reporting: `p_...`, `r_...`, `l_...` (a letter to or from you), `n_...`, or `t_...`. */
+  /**
+   * The id of what you're reporting: `p_...`, `r_...`, `l_...` (a letter to or from you, or a
+   * listing in the market), `n_...`, or `t_...`.
+   */
   id: z.string().min(1).max(64),
   reason: ReportReason,
   /** Anything that helps staff understand. Only staff (and the AI that helps them) see it. */
@@ -87,7 +97,8 @@ export const ReportEntry = z.object({
 
 /**
  * What a report points at, as staff see it right now. `text` is untrusted: a post's text, a
- * resident's name, note and bio, a letter, a notice, or a proposal's title and text.
+ * resident's name, note and bio, a letter, a notice, a proposal's title and text, or a listing's
+ * lot with its labels.
  */
 export const ReportTarget = z.object({
   trust: z.literal("untrusted"),
@@ -215,6 +226,7 @@ export const MODERATION_ACTIONS = [
   "quarantine",
   "release",
   "remove_pictures",
+  "remove_listing",
 ] as const;
 export const ModerationAction = z.enum(MODERATION_ACTIONS);
 export type ModerationAction = z.infer<typeof ModerationAction>;

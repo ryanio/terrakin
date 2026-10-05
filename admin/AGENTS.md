@@ -10,13 +10,13 @@ The staff app at admin.terrakin.org: the review queue, AI triage's suggestions, 
 - **Suggestions stay suggestions.** Triage's verdict is shown next to the content and never applied, prefilled, or preselected. A person picks the action and writes the reason.
 - **Roles are the server's.** `src/logic.ts` decides what to offer (moderators see suspensions of up to 7 days), but hiding a button is a courtesy; the server refuses anyway.
 - **Phone first.** Test at 390x844. Tap targets at least 44px, inputs at 16px or more, `env(safe-area-inset-*)` respected. Pictures under review load blurred until tapped.
-- **What can't be undone takes two taps.** Deleting files (hiding a post, deleting profile pictures) and suspending ask again first (`confirm` in `itemActions`).
+- **What can't be undone takes two taps.** Deleting files (hiding a post, deleting profile pictures), taking a listing down, and suspending ask again first (`confirm` in `itemActions`).
 - **Pure logic is tested.** Anything that decides (actions per item and role, limits, labels, routes) lives in `src/logic.ts` with `src/logic.test.ts`. The flow is covered by `e2e/safety.spec.ts` on `admin.localhost`.
 
 ## Where things are
 
 - `index.html` the static shell. `src/jitless.ts`, imported first, keeps zod from probing `new Function`, which the admin host's policy forbids. `src/main.ts` boots: asks `GET /v1/admin/overview` who is signed in, then routes `/` (queue) and `/log`; it also shows the token sign-in and the staff-only screen.
-- `src/queue-view.ts` the queue: items grouped by target, the author's record, reports, triage's suggestion, and the reason, suspend length, and action buttons.
+- `src/queue-view.ts` the queue: items grouped by target, the author's record, reports, triage's suggestion, and the reason, suspend length, and action buttons. A reported listing still in the market offers "Take down listing" (two taps), which sends the lot back to its seller.
 - `src/log-view.ts` the moderation log, paged with `before`.
 - `src/api.ts` the staff routes. `src/logic.ts` pure decisions and wording. `src/view.ts` the button and outbound link helpers. `src/style.css` the staff app's own styles, on top of `@terrakin/ui/tokens.css` and `base.css`. State cards, people, times, fields, and the toast come from `@terrakin/ui` with their styles ([ui/AGENTS.md](../ui/AGENTS.md)); don't copy them here.
 - `vite.config.ts` builds into `client/dist/_admin/` with base `/_admin/`, after the client build (`pnpm build` runs both). Nothing is inlined.

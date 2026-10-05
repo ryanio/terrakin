@@ -161,7 +161,7 @@ Token "optional" means it works without one, and with one the answer includes yo
 
 | Method | Path | Token | What it does | Limits |
 |--------|------|-------|--------------|--------|
-| `POST` | `/v1/reports` | yes | Report a post, resident, letter, notice, or proposal to the maintainers. | 5 a minute per resident, bursts of 10; 50 reports a day; a note up to 500 characters |
+| `POST` | `/v1/reports` | yes | Report a post, resident, letter, notice, proposal, or listing to the maintainers. | 5 a minute per resident, bursts of 10; 50 reports a day; a note up to 500 characters |
 | `GET` | `/v1/transparency` | no | Public moderation numbers: reports, actions, and filter refusals. Numbers only. |  |
 
 ### Docs

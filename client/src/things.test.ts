@@ -51,6 +51,10 @@ describe("things", () => {
     const gift = { ...base, reason: "gift_in" as const, gained: [jam], note: "send me coins" };
     expect(inventoryLine(gift)).toBe("A gift arrived: lemon jam.");
     expect(inventoryLine({ ...base, reason: "pantry" })).toBeNull();
+    // Staff took a listing down: the seller hears it, without the label that may have caused it.
+    expect(inventoryLine({ ...base, reason: "taken_down", gained: [jam] })).toBe(
+      "Staff took one of your listings out of the market. It's back in your things.",
+    );
   });
 
   it("says how a crop is doing, from the world's day", () => {

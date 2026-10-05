@@ -127,6 +127,12 @@ describe("staff roles", () => {
       t.call("POST", `/v1/admin/residents/${id}/remove-pictures`, { reason: "x" }, as);
     expect((await pictures(bo.id)).body.error.message).toBe("They have no avatar or banner.");
     expect((await pictures(mo.id)).body.error.message).toMatch(/^Staff's pictures/);
+    // Moderators can take a listing down; a resident can't even ask whether one exists.
+    const takeDown = (headers: Partial<ApiRequest>) =>
+      t.call("POST", "/v1/admin/listings/l_1/remove", { reason: "x" }, headers);
+    expect((await takeDown(as)).status).toBe(404);
+    expect((await takeDown(t.bearer(bo.token))).status).toBe(403);
+    expect((await takeDown({})).status).toBe(401);
     // Every action records who did it.
     const log = (await t.call("GET", "/v1/admin/log", undefined, as)).body.entries;
     expect(log[0]).toMatchObject({ action: "suspend", actor: mod.id, actorView: { name: "Mod" } });
@@ -286,6 +292,12 @@ describe("with Cloudflare Access set up", () => {
         )
       ).status,
     ).toBe(200);
+    // A resident's token is no staff sign-in, even for a listing.
+    const takeDown = { reason: "x" };
+    expect(
+      (await t.call("POST", "/v1/admin/listings/l_1/remove", takeDown, t.bearer(bo.token))).status,
+    ).toBe(401);
+    expect((await t.call("POST", "/v1/admin/listings/l_1/remove", takeDown, mod)).status).toBe(404);
     const log = (await t.call("GET", "/v1/admin/log", undefined, ryan)).body.entries;
     expect(log[0]).toMatchObject({ actor: "access:ryan@example.com", actorView: null });
   });

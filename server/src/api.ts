@@ -49,7 +49,7 @@ import { IdempotencyStore, type StoredResponse, sha256Hex } from "./idempotency"
 import { inventoryView } from "./items";
 import { BAD_LINK_KEY, DEFAULT_ORIGIN, linkHandlers, linkHelp, REPEAT_NOTE } from "./links";
 import { postMarkdown, profileMarkdown } from "./markdown";
-import { type ListerFacts, listingRefusal, marketView } from "./market";
+import { type ListerFacts, listingForReport, listingRefusal, marketView } from "./market";
 import { COOL_DOWN_MESSAGE, type Moderation } from "./moderation";
 import { OwnerService } from "./owner-service";
 import { partnerViews } from "./partners";
@@ -471,6 +471,8 @@ export class Api {
       this.service.listingRefusal = (id) =>
         listingRefusal(this.service.state, id, this.listerFacts(id));
       this.service.suspended = (id) => layer.safety.suspendedUntil(id) !== undefined;
+      // Reports on a listing (decision 0056) read it from the world.
+      layer.safety.listing = (id) => listingForReport(this.service.state, id);
       // Appreciation coins (decision 0055): counted from reactions, logged once a day by `tick`.
       this.service.dailyAwards = (day) => layer.karma.awards(day);
       this.service.syncOwnerPairs(layer.ownerPairs());
@@ -1456,6 +1458,23 @@ export class Api {
       },
       removeResidentPictures: async ({ viewer, params, body }) =>
         logged(await social().safety.removePictures(viewer, params.id, body.reason)),
+      // Decision 0056: the lot goes back to its seller, or waits out of view when they're full.
+      removeListing: ({ viewer, params, body }) => {
+        const listing = service.state.market?.listings[params.id];
+        if (!listing || listing.takenDown) {
+          return fail("not_found", "That listing isn't in the market any more.");
+        }
+        const done = service.removeListing(params.id);
+        if (!done.ok) return fail(done.error.code, done.error.message);
+        const entry = social().safety.recordAction(
+          viewer,
+          "remove_listing",
+          "listing",
+          params.id,
+          body.reason,
+        );
+        return { status: 200, body: { logged: entry } };
+      },
 
       // ---------- docs ----------
       getSkill: () => ({ status: 200, text: this.skill }),

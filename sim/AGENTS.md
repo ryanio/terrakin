@@ -27,7 +27,7 @@ The rules engine. If a rule decides what's allowed in the world, it lives here a
 - `src/economy.ts` coins (RFC 0008): `ECONOMY` (every number, tuned with `scripts/economy-sim.ts`, [decision 0039](../docs/knowledge/decisions/0039-phase-1-coin-numbers-tuned-with-a-simulated-month.md)), the treasury, purses and ledgers, the daily allowance and streak, the welcome gift, townsfolk budgets, and `give_coins` with its caps. The server-only `open_economy`, `set_owner_pairs`, `add_owner_pair`, `remove_owner_pair`, `set_maintainers`, and `daily_awards` come from `TOWN_ACTOR`.
 - `src/items.ts` growing, making, and giving (RFC 0005 step 2): the catalog as data (`ITEM_INFO`, `CROP_INFO`, `RECIPES`), `ITEMS` (every number, [decision 0051](../docs/knowledge/decisions/0051-items-open-with-a-logged-input-grow-by-the-world-s-day-and-s.md)), inventories, `plant`, `harvest`, `craft`, `give` with its caps, the daily pantry (`pantryNumbers`), and placing and taking up decor. The server-only `open_items` comes from `TOWN_ACTOR`.
 - `src/shop.ts` the town shop (RFC 0008 phase 2, [decision 0052](../docs/knowledge/decisions/0052-the-town-shop-sells-decor-and-wear-buys-a-rotating-few-goods.md)): `SHOP_CATALOG`, `BUY_ORDERS`, `SHOP`, the daily rotation `townBuys(day)`, `shop_buy`, `sell_to_town`, and the read helpers `shopOf` and `shopFor`. The server-only `open_shop` comes from `TOWN_ACTOR`.
-- `src/market.ts` the market (RFC 0008 phase 4, [decision 0056](../docs/knowledge/decisions/0056-the-market-holds-listings-in-escrow-in-the-sim-burns-a-listi.md)): `MARKET`, `marketFee`, `list_item`, `unlist_item`, `buy_listing`, and the read helpers `listingsOf` and `stallOf`. The server-only `open_market` comes from `TOWN_ACTOR`.
+- `src/market.ts` the market (RFC 0008 phase 4, [decision 0056](../docs/knowledge/decisions/0056-the-market-holds-listings-in-escrow-in-the-sim-burns-a-listi.md)): `MARKET`, `marketFee`, `list_item`, `unlist_item`, `buy_listing`, and the read helpers `listingsOf`, `stallOf`, and `takenDownOf`. The server-only `open_market` and `remove_listing` come from `TOWN_ACTOR`.
 - `src/check.ts` `refuse`, `isWhole`, and `coinCount`, which the rule modules share. `src/test-support.ts` the helpers tests share: `expectSupplyHolds`, `fund`, `stock`.
 
 ## Items
@@ -52,7 +52,8 @@ The rules engine. If a rule decides what's allowed in the world, it lives here a
 
 - Nothing about the market runs until `open_market`, which needs the shop open and creates `state.market`. Until then old logs replay exactly; `src/fixtures/market-log.ts` pins a log with trades.
 - A listed lot leaves the seller's things and lives in `market.listings` (escrow) until `unlist_item` gives it back (if there's room) or `buy_listing` moves it to the buyer. Listing needs a hearth and burns `MARKET.listingFee`. A sale pays the seller the price less `marketFee(price)`, which goes to the treasury in a line that names nobody.
-- `listed`, `unlisted`, and `listing_sold` are public; `listing_sold` never names the buyer. Coin and inventory events stay private.
+- `listed`, `unlisted`, `listing_sold`, and `listing_removed` are public; `listing_sold` never names the buyer. Coin and inventory events stay private.
+- `remove_listing` (staff, after a report) gives the lot back to its seller, or, when their things are full, marks the listing `takenDown` and keeps it out of `listingsOf` and `stallOf` until the seller collects it with `unlist_item`. Nothing goes past `inventoryMax`, and no coins move.
 - Townsfolk never trade (`not_eligible`). The server adds two gates the sim can't see: time in Terrakin and karma for listing, and blocks for buying.
 
 ## Coins

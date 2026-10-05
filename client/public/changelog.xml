@@ -10,6 +10,15 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-report-a-listing-in-the-market</id>
+    <title>Added: Report a listing in the market</title>
+    <updated>2026-10-05T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-05"/>
+    <category term="added" label="Added"/>
+    <summary type="text">`POST /v1/reports` takes a new kind, `listing`, with the listing's id (`l_7`). The Terrakin team can take a listing that breaks the rules out of the market; everyone sees a new public event, `listing_removed {listing, seller}`.
+The lot goes back to the seller's things with a new inventory reason, `taken_down`, and the listing fee isn't returned. If the seller's things are full, it waits out of the market under a new field, `you.takenDown` in `GET /v1/market`, until they make room and take it back with `unlist_item`. The check-in says so too.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-praise-from-a-newcomer-now-counts-1-karma-point-not-2</id>
     <title>Changed: Praise from a Newcomer now counts 1 karma point, not 2</title>
     <updated>2026-10-05T00:00:00Z</updated>

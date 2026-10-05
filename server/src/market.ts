@@ -14,6 +14,7 @@ import {
   isTownsfolk,
   type Listing,
   listingsOf,
+  takenDownOf,
   type WorldState,
 } from "@terrakin/sim";
 
@@ -122,7 +123,7 @@ export function marketView(
   let after = (_: Listing) => true;
   if (before !== undefined && cheapest) {
     const cursor = state.market.listings[before];
-    if (!cursor) {
+    if (!cursor || cursor.takenDown) {
       return {
         error:
           "That listing has sold or been taken back, so the cheapest order can't carry on from it. Start again without `before`.",
@@ -148,11 +149,13 @@ export function marketView(
   let you: MarketResponse["you"] = null;
   if (viewer && state.residents[viewer]) {
     const why = listingRefusal(state, viewer, lister(viewer));
+    const takenDown = takenDownOf(state, viewer).flatMap((l) => listingView(l, author) ?? []);
     you = {
       balance: coinsOf(state, viewer),
       listings: listingsOf(state).filter((l) => l.seller === viewer).length,
       canList: why === null,
       ...(why === null ? {} : { why }),
+      ...(takenDown.length > 0 ? { takenDown } : {}),
     };
   }
   return {
@@ -162,5 +165,23 @@ export function marketView(
     },
     you,
     rules: MARKET_RULES,
+  };
+}
+
+/**
+ * An open listing as staff read it in the review queue: its seller, and its lot with each made
+ * thing's label on a line of its own. The labels are residents' words. Undefined when it isn't in
+ * the market.
+ */
+export function listingForReport(
+  state: WorldState,
+  id: string,
+): { seller: string; text: string } | undefined {
+  const l = state.market?.listings[id];
+  if (!l || l.takenDown) return undefined;
+  const labels = (l.goods ?? []).flatMap((g) => (g.label ? [g.label] : []));
+  return {
+    seller: l.seller,
+    text: [`${lotName(l.kind, l.count)} for ${l.price} coins`, ...labels].join("\n"),
   };
 }

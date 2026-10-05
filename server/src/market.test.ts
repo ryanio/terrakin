@@ -46,12 +46,14 @@ async function start() {
     market: true,
   });
   const sql = nodeSql();
+  const maintainers = new Set<string>();
   const social = new SocialService({
     sql,
     media: new MemoryMediaStore(),
     resident: (id: string) => service.state.residents[id],
     now: () => now,
     residentAgeDays: (id) => service.residentAgeDays(id),
+    maintainers,
   });
   const server = createApp({
     service,
@@ -83,7 +85,40 @@ async function start() {
     now += n * DAY_MS;
     service.tick();
   };
-  return { call, act, settler, listen, days, service, social, sql, now: () => now };
+  /** A maintainer, who works the staff routes with their token (no Access on this server). */
+  function staff() {
+    const made = service.createSession({ name: "Marlo", kind: "human" });
+    if (!made.ok || !made.residentId || !made.token) throw new Error("Couldn't join Marlo");
+    maintainers.add(made.residentId);
+    return { id: made.residentId, token: made.token };
+  }
+  /** A made thing straight into someone's things, as crafting would. */
+  function make(id: string, label: string) {
+    const items = service.state.items;
+    if (!items) throw new Error("items closed");
+    const good = {
+      id: `i_${items.nextId++}`,
+      kind: "lemon_jam" as const,
+      maker: id,
+      madeDay: 1,
+      label,
+    };
+    items.inventories[id]?.goods.push(good);
+    return good;
+  }
+  return {
+    call,
+    act,
+    settler,
+    listen,
+    days,
+    staff,
+    make,
+    service,
+    social,
+    sql,
+    now: () => now,
+  };
 }
 
 describe("the market", () => {
@@ -292,5 +327,121 @@ describe("the market", () => {
     expect(sale).toBeDefined();
     expect(sale.with).toBeUndefined();
     expect(JSON.stringify(purse)).not.toContain(bob.id);
+  });
+});
+
+describe("taking a listing down", () => {
+  it("lets residents report a listing, and staff take it down from the queue", async () => {
+    const t = await start();
+    const ada = await t.settler("Ada", 0, 0);
+    const bob = await t.settler("Bob", 2, 0);
+    const marlo = t.staff();
+    t.days(3);
+    const jam = t.make(ada.id, "Rude words");
+    await t.act(ada.token, { type: "list_item", item: jam.id, price: 12 });
+
+    // Bob reports it, once. Ada can't report her own, and nobody can report one that isn't there.
+    const report = { kind: "listing", id: "l_1", reason: "hate", note: "The label" };
+    expect((await t.call("POST", "/v1/reports", report, bob.token)).status).toBe(201);
+    expect((await t.call("POST", "/v1/reports", report, ada.token)).status).toBe(400);
+    const missing = { ...report, id: "l_9" };
+    expect((await t.call("POST", "/v1/reports", missing, bob.token)).status).toBe(404);
+
+    // It reaches the review queue like any report, with the lot, its label, and its seller.
+    const queue = (await t.call("GET", "/v1/admin/reports", undefined, marlo.token)).body;
+    expect(queue.items).toEqual([
+      expect.objectContaining({
+        kind: "listing",
+        id: "l_1",
+        target: expect.objectContaining({
+          exists: true,
+          trust: "untrusted",
+          text: "Lemon jam for 12 coins\nRude words",
+          author: expect.objectContaining({ id: ada.id }),
+        }),
+      }),
+    ]);
+
+    // Only staff may take it down.
+    const why = { reason: "Slur in the label" };
+    const path = "/v1/admin/listings/l_1/remove";
+    expect((await t.call("POST", path, why)).status).toBe(401);
+    expect((await t.call("POST", path, why, bob.token)).status).toBe(403);
+    expect((await t.call("POST", path, why, ada.token)).status).toBe(403);
+    expect(t.service.state.market?.listings.l_1).toBeDefined();
+
+    const adaHeard = t.listen(ada.id);
+    const bobHeard = t.listen(bob.id);
+    const coins = t.service.state.economy?.coins[ada.id];
+    const done = await t.call("POST", path, why, marlo.token);
+    expect(done.status).toBe(200);
+    expect(done.body.logged).toMatchObject({
+      action: "remove_listing",
+      kind: "listing",
+      id: "l_1",
+      reason: "Slur in the label",
+    });
+    // The lot is back with Ada, the fee stays spent, and she hears both; Bob only that it went.
+    expect(t.service.state.items?.inventories[ada.id]?.goods).toContainEqual(jam);
+    expect(t.service.state.economy?.coins[ada.id]).toBe(coins);
+    const heard = adaHeard();
+    expect(heard).toHaveLength(2);
+    expect(heard).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "inventory", residentId: ada.id, reason: "taken_down" }),
+        { type: "listing_removed", listing: "l_1", seller: ada.id },
+      ]),
+    );
+    expect(bobHeard()).toEqual([{ type: "listing_removed", listing: "l_1", seller: ada.id }]);
+    expect((await t.call("GET", "/v1/market")).body.market.listings).toEqual([]);
+
+    // The report closed, the log has it, and it counts against Ada's karma like any upheld report.
+    expect((await t.call("GET", "/v1/admin/reports", undefined, marlo.token)).body.items).toEqual(
+      [],
+    );
+    const log = (await t.call("GET", "/v1/admin/log", undefined, marlo.token)).body.entries;
+    expect(log[0]).toMatchObject({ action: "remove_listing", id: "l_1", actor: marlo.id });
+    expect(t.social.safety.upheldAgainst(0, t.now() + 1)).toEqual([ada.id]);
+    expect((await t.call("GET", "/v1/transparency")).body.actions.remove_listing).toBe(1);
+    // Twice is not found.
+    expect((await t.call("POST", path, why, marlo.token)).status).toBe(404);
+  });
+
+  it("holds the lot for a seller whose things are full, and the check-in says so", async () => {
+    const t = await start();
+    const ada = await t.settler("Ada", 0, 0);
+    const marlo = t.staff();
+    t.days(3);
+    await t.act(ada.token, { type: "list_item", item: "jar", price: 3 });
+    const inv = t.service.state.items?.inventories[ada.id];
+    if (!inv) throw new Error("no things");
+    const size = (inv.stacks.herb ?? 0) + 200;
+    inv.stacks.herb = size;
+    // Over the cap now, as far as the sim can tell: no room for the jar.
+    const done = await t.call(
+      "POST",
+      "/v1/admin/listings/l_1/remove",
+      { reason: "Spam" },
+      marlo.token,
+    );
+    expect(done.status).toBe(200);
+    expect(inv.stacks.herb).toBe(size);
+    expect((await t.call("GET", "/v1/market")).body.market.listings).toEqual([]);
+    const mine = (await t.call("GET", "/v1/market", undefined, ada.token)).body.you;
+    expect(mine.listings).toBe(0);
+    expect(mine.takenDown).toEqual([expect.objectContaining({ id: "l_1", kind: "jar" })]);
+    expect((await t.call("GET", "/v1/market")).body.you).toBeNull();
+    const checkin = (await t.call("GET", "/v1/checkin", undefined, ada.token)).body;
+    expect(checkin.todo.join(" ")).toContain('{"type": "unlist_item", "listing": "l_1"}');
+    // Made room, Ada takes it back, and the check-in lets it go.
+    inv.stacks.herb = 1;
+    expect(await t.act(ada.token, { type: "unlist_item", listing: "l_1" })).toMatchObject({
+      ok: true,
+    });
+    expect((await t.call("GET", "/v1/market", undefined, ada.token)).body.you.takenDown).toBe(
+      undefined,
+    );
+    const after = (await t.call("GET", "/v1/checkin", undefined, ada.token)).body;
+    expect(after.todo.join(" ")).not.toContain("unlist_item");
   });
 });

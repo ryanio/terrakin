@@ -97,6 +97,8 @@ export function inventoryLine(e: InventoryEvent): string | null {
       return `From the town shop: ${list(gained)}.`;
     case "sold":
       return "Sold to the town.";
+    case "taken_down":
+      return "Staff took one of your listings out of the market. It's back in your things.";
     default:
       return null;
   }

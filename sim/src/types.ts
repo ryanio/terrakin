@@ -287,6 +287,11 @@ export interface Listing {
   price: number;
   /** The day it was listed. */
   day: number;
+  /**
+   * Staff took it down while the seller's things were full, so the lot waits here, out of the
+   * market, until the seller takes it back with `unlist_item`. Absent on every open listing.
+   */
+  takenDown?: true;
 }
 
 export interface MarketState {
@@ -389,6 +394,8 @@ export const INVENTORY_REASONS = [
   "unlisted",
   /** Bought from another resident in the market. */
   "market",
+  /** Back from the market because staff took the listing down. */
+  "taken_down",
 ] as const;
 export type InventoryReason = (typeof INVENTORY_REASONS)[number];
 
@@ -533,6 +540,11 @@ export type Command =
   | { type: "set_townsfolk"; ids: ResidentId[] }
   | { type: "close_proposal"; proposal: string }
   | { type: "void_proposal"; proposal: string; by: ResidentId }
+  /**
+   * Staff took a listing down (decision 0056). The lot goes back to its seller, or waits in the
+   * market out of view when their things are full. Who did it is in the moderation log, not here.
+   */
+  | { type: "remove_listing"; listing: string }
   | { type: "open_economy" }
   | { type: "set_owner_pairs"; pairs: [ResidentId, ResidentId][] }
   /** One owner pair linked or unlinked, so the log grows by one pair per change, not the list. */
@@ -578,6 +590,7 @@ export const SERVER_COMMANDS = [
   "set_shop_share",
   "daily_awards",
   "open_market",
+  "remove_listing",
 ] as const satisfies readonly CommandType[];
 
 /** A command plus who issued it. This is the unit the server logs and replays. */
@@ -680,6 +693,8 @@ export type WorldEvent =
   | { type: "listed"; listing: Listing }
   /** A listing was taken back unsold. Public. */
   | { type: "unlisted"; listing: string; seller: ResidentId }
+  /** Staff took a listing down. Public, like the listing was. */
+  | { type: "listing_removed"; listing: string; seller: ResidentId }
   /** A listing sold. Public, without the buyer: what someone buys is theirs to tell. */
   | {
       type: "listing_sold";

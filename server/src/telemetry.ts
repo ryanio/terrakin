@@ -149,7 +149,7 @@ export function scrubText(text: string): string {
 
 /** Keys whose values never leave, whatever they hold. */
 const DROP_KEY =
-  /authorization|cookie|token|secret|password|^ip$|ip_address|client\.address|forwarded|cf-connecting|cf-access-jwt-assertion|cf_authorization|x-terrakin-staff-email|staff_?email|query_string|^headers$|^body$/i;
+  /authorization|cookie|token|secret|password|^ip$|ip_address|client\.address|forwarded|cf-connecting|cf-access-jwt-assertion|cf_authorization|x-terrakin-staff-email|staff_?email|api[-_]?key|query_string|^headers$|^body$|^(request|response)_?body$|^(request|response)\.body$/i;
 /** Keys Sentry needs untouched to link an event to its trace. */
 const KEEP_KEY = /^(trace_id|span_id|parent_span_id|event_id|segment_id)$/;
 /** Keys that hold a URL or a path: templated rather than scrubbed. */

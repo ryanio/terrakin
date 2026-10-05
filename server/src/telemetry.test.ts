@@ -242,6 +242,30 @@ describe("sentryOptions", () => {
     });
   });
 
+  it("leaves only a templated breadcrumb of triage's call to Anthropic", () => {
+    const fetch = {
+      category: "fetch",
+      type: "http",
+      data: {
+        method: "POST",
+        url: `https://api.anthropic.com/v1/messages?key=${TOKEN}`,
+        status_code: 200,
+        request_body_size: 4100,
+        "http.request.header.x-api-key": "sk-ant-test-not-real",
+        "x-api-key": "sk-ant-test-not-real",
+        request_body: '{"messages":[{"content":"the reported words"}]}',
+        response_body: '{"content":[{"input":{"rationale":"quoted"}}]}',
+      },
+    } as Breadcrumb;
+    const out = options.beforeBreadcrumb?.(fetch);
+    expect(out?.data).toEqual({
+      method: "POST",
+      url: "https://api.anthropic.com/v1/messages",
+      status_code: 200,
+      request_body_size: 4100,
+    });
+  });
+
   it("scrubs logs", () => {
     const log = {
       level: "error" as const,

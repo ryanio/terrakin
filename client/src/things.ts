@@ -10,6 +10,7 @@ import {
   type GoodKind,
   ITEM_INFO,
   type ItemKind,
+  OTHERS_PLOT_GATHER,
   RECIPES,
 } from "@terrakin/sim";
 import { coins } from "./purse";
@@ -209,6 +210,15 @@ export function newsLine(event: WorldEvent, me: string): string | null {
 export const NO_PLOT_LINE =
   "You don't have a plot yet. Walk out of the Commons onto an empty plot and tap Claim plot.";
 
+/**
+ * Why a pickup on someone else's plot isn't yours to take. `name` is the owner's, untrusted text:
+ * it only ever reaches the page through `textContent`.
+ */
+export function othersPickupLine(name?: string): string {
+  const whose = name ? `${name}'s plot` : "someone else's plot";
+  return `That's ${whose}, so it's theirs to gather. Your own plot, the Commons, and open land are free.`;
+}
+
 /** The first sentence of a server message, without the hint for agents that follows it. */
 const firstSentence = (message: string) => message.match(/^.*?[.!?](?=\s|$)/)?.[0] ?? message;
 
@@ -236,6 +246,8 @@ export function worldProblem(
     case "plot_limit":
       return "You already have as many plots as you can own.";
     case "not_your_plot":
+      // A gather on someone else's plot: the sim's message names them by id, so say it our way.
+      if (message.includes(OTHERS_PLOT_GATHER)) return othersPickupLine();
       return you.hasPlot === false ? NO_PLOT_LINE : firstSentence(message);
     case "out_of_reach":
       return "That's too far away. Walk closer first.";

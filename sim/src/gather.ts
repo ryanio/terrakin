@@ -12,7 +12,17 @@ import {
   reachProblem,
 } from "./items";
 import { tileKey } from "./keys";
-import type { Command, ItemsState, ResidentId, WorldConfig, WorldEvent, WorldState } from "./types";
+import type {
+  Command,
+  ItemsState,
+  Plot,
+  ResidentId,
+  Tile,
+  WorldConfig,
+  WorldEvent,
+  WorldState,
+} from "./types";
+import { canBuildOn, inBounds, plotAtTile } from "./world";
 
 /**
  * Simple gathering (phase 1, item 9; decision 0063): fallen branches in forests and loose stones
@@ -23,6 +33,10 @@ import type { Command, ItemsState, ResidentId, WorldConfig, WorldEvent, WorldSta
  * same sticks and stones without the log carrying them. Only the day's pickups live in state
  * (`items.gathered`, tile to day), and `new_day` forgets yesterday's, so old logs replay to the
  * hash they always had.
+ *
+ * Once the server logs `own_plot_pickups`, a claimed plot's pickups are for its owner and
+ * co-owners only. The Commons and unclaimed land stay open to everyone. Gathers logged before the
+ * switch replay as they were made.
  */
 
 /** The numbers. Every count is a whole number of pickups. */
@@ -84,6 +98,52 @@ export function pickupLeft(state: WorldState, x: number, y: number): ResourceKin
   });
 }
 
+/**
+ * Whether a resident may gather on a tile of `plot` (undefined for the Commons and unclaimed
+ * land). Pure, so clients ask it the same question the sim does: with `ownersOnly` off (before
+ * `own_plot_pickups`), anyone may gather anywhere.
+ */
+export function mayGatherOn(
+  plot: Pick<Plot, "ownerId" | "coOwners"> | undefined,
+  residentId: ResidentId,
+  ownersOnly: boolean,
+): boolean {
+  return !ownersOnly || !plot || canBuildOn(plot, residentId);
+}
+
+/** Whether the owners-only rule is on in this world (`own_plot_pickups` was logged). */
+export function plotPickupsOwned(state: WorldState): boolean {
+  return state.items?.plotPickupsOwned === true;
+}
+
+/**
+ * The words in every refusal of a gather on someone else's plot, so clients can tell it from a
+ * build refusal with the same code and say it their own way.
+ */
+export const OTHERS_PLOT_GATHER =
+  "only its owner and the people they share it with can gather there";
+
+/** How far around a refused gather the hint looks for one the resident may take. */
+const HINT_RADIUS = 12;
+
+/**
+ * The nearest pickup lying today that `actor` may take, within `HINT_RADIUS` of `from`: nearest by
+ * Chebyshev distance, then north to south, then west to east. For a refusal's next step only.
+ */
+function nearestOpenPickup(state: WorldState, actor: ResidentId, from: Tile): Tile | null {
+  const ownersOnly = plotPickupsOwned(state);
+  for (let d = 0; d <= HINT_RADIUS; d++) {
+    for (let y = from.y - d; y <= from.y + d; y++) {
+      for (let x = from.x - d; x <= from.x + d; x++) {
+        if (Math.max(Math.abs(x - from.x), Math.abs(y - from.y)) !== d) continue;
+        if (!inBounds(state.config, x, y) || !pickupLeft(state, x, y)) continue;
+        if (mayGatherOn(plotAtTile(state, x, y), actor, ownersOnly)) return { x, y };
+      }
+    }
+  }
+  return null;
+}
+
 /** `gather {x, y}`: pick up the fallen branch or loose stone on a tile within reach. */
 export function checkGather(
   state: WorldState,
@@ -106,6 +166,15 @@ export function checkGather(
       "Nothing to pick up there. Fallen branches lie in forests, loose stones on stone ground, and each tile grows one back a day.",
     );
   }
+  const plot = plotAtTile(state, x, y);
+  if (!mayGatherOn(plot, actor, plotPickupsOwned(state))) {
+    const near = nearestOpenPickup(state, actor, me);
+    const hint = near ? ` The nearest one you may take is at x ${near.x}, y ${near.y}.` : "";
+    return refuse(
+      "not_your_plot",
+      `That's ${plot?.ownerId}'s plot: ${OTHERS_PLOT_GATHER}. The Commons and unclaimed land are free to gather, and so is your own plot.${hint}`,
+    );
+  }
   if (inventorySize(items.inventories[actor]) + GATHER.perPickup > ITEMS.inventoryMax) {
     return refuse(
       "inventory_full",
@@ -122,5 +191,19 @@ export function checkGather(
       inventoryEvent(actor, "gather", [change]),
     ];
     return events;
+  };
+}
+
+/** `own_plot_pickups`, which only TOWN_ACTOR sends: from now on, a plot's pickups are its owners'. */
+export function checkOwnPlotPickups(state: WorldState): ItemsChecked {
+  const shut = closed(state);
+  if (shut) return shut;
+  const items = state.items as ItemsState;
+  if (items.plotPickupsOwned) {
+    return refuse("already_open", "Pickups on a plot are already for its owners only.");
+  }
+  return () => {
+    items.plotPickupsOwned = true;
+    return [{ type: "plot_pickups_owned" }];
   };
 }

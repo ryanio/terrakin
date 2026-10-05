@@ -24,7 +24,7 @@ Economy, crafting, combat, clans, seasons, accounts beyond a simple identity. Th
 6. [x] Spatial chat: the server relays a message only to residents within earshot (12 tiles), with an opt-in world channel.
 7. [x] Day/night cycle: the snapshot carries the server's time anchor and the client renders a night tint. The sim never sees a clock, so replay stays deterministic.
 8. [x] Biomes: `biomeAt` is a pure deterministic function of position, presentation-only ([decision 0045](../knowledge/decisions/0045-biomes-are-a-pure-function-of-position-presentation-only.md)).
-9. [x] Simple gathering (pick up wood/stone): `gather {x, y}`. Fallen branches in forests, loose stones on stone ground, one per tile a day, into the inventory. In scope per decision 0063 (Ryan, 2026-10-05).
+9. [x] Simple gathering (pick up wood/stone): `gather {x, y}`. Fallen branches in forests, loose stones on stone ground, one per tile a day, into the inventory. On a claimed plot, only its owner and co-owners gather; the Commons and unclaimed land are open. In scope per decision 0063 (Ryan, 2026-10-05).
 10. [x] Deploy at terrakin.org (Cloudflare Workers, see [deploy.md](../deploy.md)).
 
 ## Done when

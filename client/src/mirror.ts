@@ -5,6 +5,7 @@ import {
   type Direction,
   LOOK_KEYS,
   lookOf,
+  mayGatherOn,
   pickupOn,
   plotKey,
   type Resident,
@@ -58,6 +59,8 @@ export class Mirror {
   displays = new Map<string, DisplayView>();
   /** Tiles picked clean today, so a pickup that's gone isn't drawn (phase 1 gathering). */
   gathered = new Set<string>();
+  /** Whether a claimed plot's pickups are for its owner and co-owners only (`plot_pickups_owned`). */
+  plotPickupsOwned = false;
   /** Today, as the world counts it. A crop is ready once this reaches its `readyDay`. */
   day: number | undefined;
   /** Which way each resident last walked. Only for drawing; nobody faces anywhere in the sim. */
@@ -88,6 +91,7 @@ export class Mirror {
       this.displays.set(tileKey(d.x, d.y), { good: { ...d.good }, by: d.by, day: d.day });
     }
     for (const t of snapshot.gathered ?? []) this.gathered.add(tileKey(t.x, t.y));
+    this.plotPickupsOwned = snapshot.plotPickupsOwned === true;
     this.day = snapshot.day;
   }
 
@@ -226,6 +230,9 @@ export class Mirror {
       case "gathered":
         this.gathered.add(tileKey(event.x, event.y));
         break;
+      case "plot_pickups_owned":
+        this.plotPickupsOwned = true;
+        break;
       // The blocks themselves arrive as block_placed and block_removed just before this.
       case "town_built":
         for (const b of event.placed) this.townBuilt.set(tileKey(b.x, b.y), event.proposal);
@@ -249,6 +256,13 @@ export class Mirror {
       built: this.blocks.has(key),
       picked: this.gathered.has(key),
     });
+  }
+
+  /** Whether a resident may pick up what lies on a tile: the sim's own rule, asked of this copy. */
+  mayGatherAt(x: number, y: number, residentId: string): boolean {
+    const ownerId = this.ownerAt(x, y);
+    const plot = ownerId ? { ownerId, coOwners: [...this.coOwnersAt(x, y)] } : undefined;
+    return mayGatherOn(plot, residentId, this.plotPickupsOwned);
   }
 
   ownerAt(x: number, y: number): string | undefined {

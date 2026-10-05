@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { apply } from "./apply";
 import { biomeAt } from "./biome";
-import { GATHER, gatherableAt, pickupLeft } from "./gather";
+import { GATHER, gatherableAt, mayGatherOn, pickupLeft } from "./gather";
 import { hashWorld } from "./hash";
 import { ITEM_INFO, ITEMS, RESOURCE_KINDS, STACK_KINDS, type StackKind } from "./items";
 import { replay } from "./replay";
@@ -276,5 +276,139 @@ describe("gather", () => {
     expect(STACK_KINDS).toContain("stone");
     expect(ITEM_INFO.wood).toMatchObject({ category: "resource" });
     expect(ITEM_INFO.stone).toMatchObject({ category: "resource" });
+  });
+});
+
+/** Walk a resident, one tile at a time, until (x, y) is within reach. No blocks in these worlds. */
+function walkNear(w: ReturnType<typeof world>, id: string, to: { x: number; y: number }) {
+  const at = () => w.state.residents[id] as { x: number; y: number };
+  const far = () => Math.max(Math.abs(at().x - to.x), Math.abs(at().y - to.y)) > CONFIG.reach;
+  while (far() && Math.abs(at().x - to.x) > CONFIG.reach) {
+    w.ok(id, { type: "move", dir: at().x < to.x ? "e" : "w" });
+  }
+  while (far()) w.ok(id, { type: "move", dir: at().y < to.y ? "s" : "n" });
+}
+
+describe("gathering on someone's plot", () => {
+  // On DAY, plot (0, 0) has a branch at 5,0 and stones at 0,5 and 7,5; the Commons (1, 1) has a
+  // branch at 15,8; plot (0, 1), left unclaimed, has a branch at 0,10. The spawn test pins them.
+  const MINE = { x: 5, y: 0 };
+  const COMMONS = { x: 15, y: 8 };
+  const OPEN = { x: 0, y: 10 };
+
+  /** Ada settles plot (0, 0) and shares it with Cy; Bob is a stranger to it. */
+  function neighbors() {
+    const w = world();
+    w.day(DAY);
+    w.open();
+    for (const id of ["ada", "bob", "cy"]) w.join(id);
+    w.ok("ada", { type: "settle", px: 0, py: 0 });
+    w.ok("ada", { type: "share_plot", with: "cy" });
+    return w;
+  }
+  const gather = (t: { x: number; y: number }) => ({ type: "gather" as const, ...t });
+  const switchOn = (w: ReturnType<typeof world>) =>
+    expect(w.ok(TOWN_ACTOR, { type: "own_plot_pickups" })).toEqual([
+      { type: "plot_pickups_owned" },
+    ]);
+
+  it("is open to anyone before the server logs own_plot_pickups, as logs from then replay", () => {
+    const w = neighbors();
+    walkNear(w, "bob", MINE);
+    w.ok("bob", gather(MINE));
+    expect(w.has("bob", "wood")).toBe(GATHER.perPickup);
+  });
+
+  it("after the switch, is for the plot's owner and co-owners only", () => {
+    const w = neighbors();
+    switchOn(w);
+    walkNear(w, "bob", MINE);
+    const refused = w.send("bob", gather(MINE));
+    expect(refused).toMatchObject({ ok: false, rejection: { code: "not_your_plot" } });
+    const message = refused.ok ? "" : refused.rejection.message;
+    expect(message).toContain("That's ada's plot");
+    expect(message).toContain("The Commons and unclaimed land are free to gather");
+    // The next step names the nearest pickup Bob may take: here, unclaimed land.
+    expect(message).toMatch(/The nearest one you may take is at x \d+, y \d+\./);
+    expect(w.has("bob", "wood")).toBe(0);
+    expect(pickupLeft(w.state, MINE.x, MINE.y)).toBe("wood");
+
+    // The owner may, and so may a co-owner on another of the plot's tiles.
+    walkNear(w, "ada", MINE);
+    w.ok("ada", gather(MINE));
+    expect(w.has("ada", "wood")).toBe(GATHER.perPickup);
+    walkNear(w, "cy", { x: 7, y: 5 });
+    w.ok("cy", gather({ x: 7, y: 5 }));
+    expect(w.has("cy", "stone")).toBe(GATHER.perPickup);
+  });
+
+  it("after the switch, leaves the Commons and unclaimed land open to everyone", () => {
+    const w = neighbors();
+    switchOn(w);
+    walkNear(w, "bob", COMMONS);
+    w.ok("bob", gather(COMMONS));
+    walkNear(w, "bob", OPEN);
+    w.ok("bob", gather(OPEN));
+    expect(w.has("bob", "wood")).toBe(GATHER.perPickup * 2);
+  });
+
+  it("follows the plot: a share opens it, an unshare or a release changes it back", () => {
+    const w = neighbors();
+    switchOn(w);
+    walkNear(w, "bob", MINE);
+    expect(w.code("bob", gather(MINE))).toBe("not_your_plot");
+    w.ok("ada", { type: "share_plot", with: "bob" });
+    w.ok("bob", gather(MINE));
+    w.ok("ada", { type: "unshare_plot", with: "bob" });
+    walkNear(w, "bob", { x: 0, y: 5 });
+    expect(w.code("bob", gather({ x: 0, y: 5 }))).toBe("not_your_plot");
+    // Released, the plot is unclaimed land again.
+    w.ok("ada", { type: "release" });
+    w.ok("bob", gather({ x: 0, y: 5 }));
+  });
+
+  it("answers nothing_to_gather first where nothing lies, mine or not", () => {
+    const w = neighbors();
+    switchOn(w);
+    walkNear(w, "bob", MINE);
+    // 6,0 is on Ada's plot, within reach, with nothing on it today.
+    expect(gatherableAt(CONFIG, 6, 0, DAY)).toBeNull();
+    expect(w.code("bob", gather({ x: 6, y: 0 }))).toBe("nothing_to_gather");
+  });
+
+  it("is a pure question clients can ask", () => {
+    const plot = { ownerId: "ada", coOwners: ["cy"] };
+    expect(mayGatherOn(plot, "bob", false)).toBe(true);
+    expect(mayGatherOn(plot, "bob", true)).toBe(false);
+    expect(mayGatherOn(plot, "ada", true)).toBe(true);
+    expect(mayGatherOn(plot, "cy", true)).toBe(true);
+    expect(mayGatherOn(undefined, "bob", true)).toBe(true);
+  });
+
+  it("is switched on only by the server, once, after items open", () => {
+    const w = world();
+    w.day(DAY);
+    expect(w.code("ada", { type: "own_plot_pickups" })).toBe("server_only");
+    expect(w.code(TOWN_ACTOR, { type: "own_plot_pickups" })).toBe("items_closed");
+    w.open();
+    switchOn(w);
+    expect(w.state.items?.plotPickupsOwned).toBe(true);
+    expect(w.code(TOWN_ACTOR, { type: "own_plot_pickups" })).toBe("already_open");
+  });
+
+  it("replays a log with a stranger's gather before the switch, and refuses it after", () => {
+    const w = neighbors();
+    walkNear(w, "bob", MINE);
+    w.ok("bob", gather(MINE));
+    switchOn(w);
+    walkNear(w, "bob", { x: 7, y: 5 });
+    const before = hashWorld(w.state);
+    expect(w.code("bob", gather({ x: 7, y: 5 }))).toBe("not_your_plot");
+    expect(hashWorld(w.state)).toBe(before);
+    w.day(DAY + 1);
+    const hash = hashWorld(w.state);
+    expect(hashWorld(replay(CONFIG, w.log))).toBe(hash);
+    // Pinned, so a change to the rule or to where it starts shows up here.
+    expect(hash).toBe("de0e7cd5");
   });
 });

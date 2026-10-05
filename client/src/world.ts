@@ -37,7 +37,7 @@ import { blockColor, HEARTH_COLOR, render } from "./render";
 import type { World3d } from "./scene3d/world";
 import { type Quarter, turnDir } from "./scene3d/world-layout";
 import { track } from "./telemetry";
-import { NO_PLOT_LINE, newsLine, toastMs, worldProblem } from "./things";
+import { NO_PLOT_LINE, newsLine, othersPickupLine, toastMs, worldProblem } from "./things";
 import { dayPhase } from "./time";
 import { ARRIVAL_KEY, gestureLine } from "./together";
 import { offer3d, readSignals, savedMode, saveMode, startMode, type WorldMode } from "./world-mode";
@@ -516,8 +516,14 @@ function tapTile(tile: { x: number; y: number }) {
   }
   // A fallen branch or a loose stone: tap to pick it up (phase 1 gathering). One farther off is
   // somewhere to walk to: you stop once it's in reach and pick it up then. The sim has the last
-  // word; its `nothing_to_gather` says someone got there first.
+  // word; its `nothing_to_gather` says someone got there first. One on someone else's plot is
+  // theirs: say so rather than walk there for nothing.
   if (!other && mirror.pickupAt(tile.x, tile.y)) {
+    if (!mirror.mayGatherAt(tile.x, tile.y, r.id)) {
+      const owner = mirror.ownerAt(tile.x, tile.y);
+      showToast(othersPickupLine(owner ? mirror.residents.get(owner)?.name : undefined));
+      return;
+    }
     if (inReach(r, tile)) tryAct({ type: "gather", x: tile.x, y: tile.y });
     else walkTarget = { ...tile, pickup: true };
     return;
@@ -788,9 +794,13 @@ function frame(t: number) {
         openStation(walkTarget.x, walkTarget.y);
         walkTarget = undefined;
       }
-      // Walking to a pickup: stop once it's in reach, and pick it up.
+      // Walking to a pickup: stop once it's in reach, and pick it up, unless its plot was claimed
+      // by someone else on the way.
       if (walkTarget?.pickup && !queuedSteps.length && !heldKeys.length && inReach(r, walkTarget)) {
-        tryAct({ type: "gather", x: walkTarget.x, y: walkTarget.y });
+        const { x, y } = walkTarget;
+        const m = mirror;
+        if (!m || m.mayGatherAt(x, y, r.id)) tryAct({ type: "gather", x, y });
+        else showToast(othersPickupLine(m.residents.get(m.ownerAt(x, y) ?? "")?.name));
         walkTarget = undefined;
       }
       // A held key walks the way it points now, so it follows the camera as it turns.

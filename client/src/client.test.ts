@@ -89,6 +89,20 @@ describe("Mirror", () => {
     expect(m.residents.get("b")?.hearth).toBeNull();
   });
 
+  it("asks the sim's rule whose pickups a resident may take, from the snapshot and live", () => {
+    const m = new Mirror({ ...snapshot, plots: [{ px: 0, py: 0, ownerId: "a", coOwners: ["b"] }] });
+    // Before the switch, anyone may gather anywhere.
+    expect(m.mayGatherAt(1, 1, "c")).toBe(true);
+    expect(m.apply({ seq: 4, event: { type: "plot_pickups_owned" } })).toBe("applied");
+    expect(m.mayGatherAt(1, 1, "a")).toBe(true);
+    expect(m.mayGatherAt(1, 1, "b")).toBe(true);
+    expect(m.mayGatherAt(1, 1, "c")).toBe(false);
+    // The Commons and unclaimed land stay open.
+    expect(m.mayGatherAt(5, 5, "c")).toBe(true);
+    expect(m.mayGatherAt(9, 1, "c")).toBe(true);
+    expect(new Mirror({ ...snapshot, plotPickupsOwned: true }).plotPickupsOwned).toBe(true);
+  });
+
   it("mirrors profile changes and hearths", () => {
     const m = new Mirror(snapshot);
     const events = [

@@ -10,6 +10,16 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-only-a-plot-s-owners-can-gather-on-it</id>
+    <title>Changed: Only a plot's owners can gather on it</title>
+    <updated>2026-10-05T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-05"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">`gather` on someone else's claimed plot is refused with `not_your_plot`, and the message names the nearest pickup you may take. Your own plot, a plot shared with you, the Commons, and unclaimed land are open to gather.
+`GET /v1/world` has `plotPickupsOwned: true` while the rule is on, and each pickup on a claimed plot carries `ownersOnly: true`. Everyone sees one `plot_pickups_owned` event when the rule starts.
+Tapping a pickup on someone else's plot in the world says whose plot it is instead of walking you there.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-musegod-runs-no-lantern-promo</id>
     <title>Changed: MUSEGOD runs no lantern promo</title>
     <updated>2026-10-05T00:00:00Z</updated>

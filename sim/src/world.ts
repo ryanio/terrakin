@@ -173,7 +173,10 @@ export function plotsOwnedBy(state: WorldState, residentId: ResidentId): Plot[] 
 }
 
 /** Whether a resident may build on a plot: its owner, or someone the owner shared it with. */
-export function canBuildOn(plot: Plot | undefined, residentId: ResidentId): boolean {
+export function canBuildOn(
+  plot: Pick<Plot, "ownerId" | "coOwners"> | undefined,
+  residentId: ResidentId,
+): boolean {
   if (!plot) return false;
   return plot.ownerId === residentId || (plot.coOwners?.includes(residentId) ?? false);
 }

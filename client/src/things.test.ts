@@ -1,3 +1,4 @@
+import { apply, type Command, createWorld, TOWN_ACTOR } from "@terrakin/sim";
 import { growth } from "@terrakin/ui/item-art";
 import { describe, expect, it } from "vitest";
 import {
@@ -11,11 +12,35 @@ import {
   needsLine,
   newsLine,
   noSeedsHint,
+  othersPickupLine,
   sendBackLine,
   thingCount,
   toastMs,
   worldProblem,
 } from "./things";
+
+/** The sim's own refusal of a gather on someone else's plot, so a reworded one breaks this test. */
+function gatherRefusal(): string {
+  const state = createWorld({
+    width: 24,
+    height: 24,
+    plotSize: 8,
+    maxPlotsPerResident: 1,
+    reach: 3,
+  });
+  const send = (actor: string, command: Command) => apply(state, { actor, command });
+  send(TOWN_ACTOR, { type: "new_day", day: 20_000 });
+  send(TOWN_ACTOR, { type: "open_items" });
+  send(TOWN_ACTOR, { type: "own_plot_pickups" });
+  for (const id of ["ada", "bob"]) send(id, { type: "join", name: id, kind: "human" });
+  send("ada", { type: "settle", px: 0, py: 0 });
+  // Bob walks from the spawn at 12,12 to within reach of Ada's branch at 5,0.
+  for (let i = 0; i < 4; i++) send("bob", { type: "move", dir: "w" });
+  for (let i = 0; i < 9; i++) send("bob", { type: "move", dir: "n" });
+  const refused = send("bob", { type: "gather", x: 5, y: 0 });
+  if (refused.ok || refused.rejection.code !== "not_your_plot") throw new Error("no refusal");
+  return refused.rejection.message;
+}
 
 describe("things", () => {
   it("counts in plain words", () => {
@@ -215,6 +240,12 @@ describe("things", () => {
     }
     expect(worldProblem("no_plot", "Try settle at px 3, py 3.")).toBe(NO_PLOT_LINE);
     expect(worldProblem("not_your_plot", "x", { hasPlot: false })).toBe(NO_PLOT_LINE);
+    // A gather on someone else's plot says whose it is in plain words, plot or no plot.
+    const gather = gatherRefusal();
+    for (const hasPlot of [true, false]) {
+      expect(worldProblem("not_your_plot", gather, { hasPlot })).toBe(othersPickupLine());
+    }
+    expect(othersPickupLine("Bo")).toMatch(/^That's Bo's plot, so it's theirs to gather\./);
     expect(
       worldProblem("not_your_plot", "You can only build on your own plot. You can build on x 30.", {
         hasPlot: true,

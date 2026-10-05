@@ -491,6 +491,11 @@ export interface ItemsState {
    */
   gathered?: Record<string, number>;
   /**
+   * On a claimed plot, only its owner and co-owners may `gather`. Absent until the server logs
+   * `own_plot_pickups`, so gathers logged before it replay as they were made.
+   */
+  plotPickupsOwned?: true;
+  /**
    * Things taken down from display while whoever put them up had no room for them, oldest first.
    * Each waits for `by` and comes back with their first input that leaves room for it. Absent
    * until the first one.
@@ -733,6 +738,8 @@ export type Command =
   | { type: "open_items" }
   /** From now on, every gift is kept for a few days so its recipient can send it back. */
   | { type: "open_gifts" }
+  /** From now on, only a claimed plot's owner and co-owners may gather on it. */
+  | { type: "own_plot_pickups" }
   | { type: "open_shop" }
   /** The treasury's share of shop spending from now on, in percent; the rest is burned. */
   | { type: "set_shop_share"; percent: number }
@@ -777,6 +784,7 @@ export const SERVER_COMMANDS = [
   "set_maintainers",
   "open_items",
   "open_gifts",
+  "own_plot_pickups",
   "open_shop",
   "set_shop_share",
   "daily_awards",
@@ -885,6 +893,7 @@ export type WorldEvent =
   | { type: "maintainers_set"; ids: ResidentId[] }
   | { type: "items_opened" }
   | { type: "gifts_opened" }
+  | { type: "plot_pickups_owned" }
   | { type: "shop_opened" }
   | { type: "market_opened" }
   /** Something went up for sale. Public: the market is. Made things carry their makers' labels. */

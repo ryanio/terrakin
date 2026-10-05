@@ -21759,6 +21759,20 @@
               "type": {
                 "type": "string",
                 "enum": [
+                  "plot_pickups_owned"
+                ]
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
                   "shop_opened"
                 ]
               }
@@ -23069,6 +23083,12 @@
                     "wood",
                     "stone"
                   ]
+                },
+                "ownersOnly": {
+                  "type": "boolean",
+                  "enum": [
+                    true
+                  ]
                 }
               },
               "required": [
@@ -23077,6 +23097,12 @@
                 "kind"
               ]
             }
+          },
+          "plotPickupsOwned": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
           }
         },
         "required": [

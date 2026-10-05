@@ -32,6 +32,8 @@ import {
   parseKey,
   pickupLeft,
   planPutter,
+  plotAtTile,
+  plotPickupsOwned,
   prepare,
   type ResidentKind,
   type ResourceKind,
@@ -105,6 +107,12 @@ export interface WorldServiceOptions {
    * never has. Both adapters turn this on. Off by default, like `items`.
    */
   gifts?: boolean;
+  /**
+   * Pickups on a claimed plot for its owner and co-owners only: once items are open, append
+   * `own_plot_pickups` if it never has, so gathers logged before the rule replay as they were
+   * made. Both adapters turn this on. Off by default, like `items`.
+   */
+  plotPickups?: boolean;
   /**
    * The town shop (RFC 0008, phase 2): once coins and items are open, append `open_shop` if it
    * never has. Both adapters turn this on. Off by default, like `items`.
@@ -356,6 +364,7 @@ export class WorldService {
   private readonly economy: boolean;
   private readonly items: boolean;
   private readonly gifts: boolean;
+  private readonly plotPickups: boolean;
   private readonly shop: boolean;
   private readonly market: boolean;
   private readonly bounties: boolean;
@@ -411,6 +420,7 @@ export class WorldService {
     this.economy = options.economy ?? false;
     this.items = options.items ?? false;
     this.gifts = options.gifts ?? false;
+    this.plotPickups = options.plotPickups ?? false;
     this.shop = options.shop ?? false;
     this.market = options.market ?? false;
     this.bounties = options.bounties ?? false;
@@ -570,6 +580,10 @@ export class WorldService {
     if (this.gifts && this.state.items && !this.state.items.gifts) {
       const opened = this.run({ actor: TOWN_ACTOR, command: { type: "open_gifts" } });
       if (!opened.ok) console.error(`Couldn't open gift returns: ${opened.error.message}`);
+    }
+    if (this.plotPickups && this.state.items && !this.state.items.plotPickupsOwned) {
+      const owned = this.run({ actor: TOWN_ACTOR, command: { type: "own_plot_pickups" } });
+      if (!owned.ok) console.error(`Couldn't keep plot pickups for owners: ${owned.error.message}`);
     }
     if (this.shop && !this.state.shop && this.state.economy && this.state.items) {
       const opened = this.run({ actor: TOWN_ACTOR, command: { type: "open_shop" } });
@@ -1458,17 +1472,27 @@ export class WorldService {
           }
         : {}),
       ...(state.items && state.day !== undefined ? { pickups: pickupsToday(state) } : {}),
+      ...(plotPickupsOwned(state) ? { plotPickupsOwned: true as const } : {}),
     };
   }
 }
 
-/** Every fallen branch and loose stone still lying in the world today, row by row. */
-function pickupsToday(state: WorldState): { x: number; y: number; kind: ResourceKind }[] {
-  const out: { x: number; y: number; kind: ResourceKind }[] = [];
+/**
+ * Every fallen branch and loose stone still lying in the world today, row by row. Once the
+ * owners-only rule is on, one on a claimed plot says so.
+ */
+function pickupsToday(
+  state: WorldState,
+): { x: number; y: number; kind: ResourceKind; ownersOnly?: true }[] {
+  const owned = plotPickupsOwned(state);
+  const out: { x: number; y: number; kind: ResourceKind; ownersOnly?: true }[] = [];
   for (let y = 0; y < state.config.height; y++) {
     for (let x = 0; x < state.config.width; x++) {
       const kind = pickupLeft(state, x, y);
-      if (kind) out.push({ x, y, kind });
+      if (!kind) continue;
+      out.push(
+        owned && plotAtTile(state, x, y) ? { x, y, kind, ownersOnly: true } : { x, y, kind },
+      );
     }
   }
   return out;

@@ -1,5 +1,5 @@
 import { KARMA, type ServerMessage, type WorldEvent } from "@terrakin/protocol";
-import { CROP_INFO, ITEMS, type WorldConfig } from "@terrakin/sim";
+import { CROP_INFO, ITEMS, TOWN_ACTOR, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
 import { MemoryMediaStore } from "./media";
@@ -35,16 +35,18 @@ afterEach(async () => {
 // biome-ignore lint/suspicious/noExplicitAny: the response checker already holds every body to its schema.
 type Json = Record<string, any>;
 
-async function start(items = true, economy = true, gifts = false) {
+async function start(items = true, economy = true, gifts = false, plotPickups = false) {
   let now = Date.UTC(2026, 9, 5, 9);
+  const store = new MemoryStore();
   const service = new WorldService({
-    store: new MemoryStore(),
+    store,
     config: CONFIG,
     now: () => now,
     days: true,
     economy,
     items,
     gifts,
+    plotPickups,
   });
   const sql = nodeSql();
   const media = new MemoryMediaStore();
@@ -124,7 +126,20 @@ async function start(items = true, economy = true, gifts = false) {
     }
     return { ...r, x0, y0 };
   }
-  return { call, join, act, inventory, listen, nextDay, advance, gardener, service, upload, sql };
+  return {
+    call,
+    join,
+    act,
+    inventory,
+    listen,
+    nextDay,
+    advance,
+    gardener,
+    service,
+    store,
+    upload,
+    sql,
+  };
 }
 
 describe("items", () => {
@@ -220,6 +235,29 @@ describe("items", () => {
     // A new day grows them back and forgets what was picked.
     t.nextDay();
     expect((await t.call("GET", "/v1/world")).body.gathered).toBeUndefined();
+  });
+
+  it("keep a plot's pickups for its owners once the server logs the switch, once", async () => {
+    const before = await start();
+    expect((await before.call("GET", "/v1/world")).body.plotPickupsOwned).toBeUndefined();
+    const t = await start(true, true, false, true);
+    const switches = () =>
+      t.store.log.filter((i) => i.command.type === "own_plot_pickups").map((i) => i.actor);
+    expect(switches()).toEqual([TOWN_ACTOR]);
+    t.nextDay();
+    expect(switches()).toEqual([TOWN_ACTOR]);
+    const ash = t.join("Ash");
+    await t.act(ash.token, { type: "settle", px: 0, py: 0 });
+    const world = (await t.call("GET", "/v1/world")).body;
+    expect(world.plotPickupsOwned).toBe(true);
+    // Pickups on Ash's plot say only its owners may take them; the rest say nothing.
+    const S = CONFIG.plotSize;
+    const pickups: Json[] = world.pickups;
+    expect(pickups.some((p) => p.ownersOnly)).toBe(true);
+    for (const p of pickups) {
+      const onAsh = p.x < S && p.y < S;
+      expect(p.ownersOnly, `${p.x},${p.y}`).toBe(onAsh ? true : undefined);
+    }
   });
 
   it("filter labels, and mark them as someone's words", async () => {

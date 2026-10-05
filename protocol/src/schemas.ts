@@ -734,11 +734,24 @@ export const WorldSnapshot = z.object({
   gathered: z.array(z.object({ x: z.number().int(), y: z.number().int() })).optional(),
   /**
    * The fallen branches and loose stones lying in the world today, ready to `gather`. Absent until
-   * growing, making, and gathering open.
+   * growing, making, and gathering open. `ownersOnly: true` marks one on a claimed plot once
+   * `plotPickupsOwned` is on: only that plot's owner and co-owners can take it.
    */
   pickups: z
-    .array(z.object({ x: z.number().int(), y: z.number().int(), kind: z.enum(RESOURCE_KINDS) }))
+    .array(
+      z.object({
+        x: z.number().int(),
+        y: z.number().int(),
+        kind: z.enum(RESOURCE_KINDS),
+        ownersOnly: z.literal(true).optional(),
+      }),
+    )
     .optional(),
+  /**
+   * Present once only a claimed plot's owner and co-owners can gather on it. The Commons and
+   * unclaimed land are open to everyone. Absent in worlds where anyone may gather anywhere.
+   */
+  plotPickupsOwned: z.literal(true).optional(),
 });
 export type WorldSnapshot = z.infer<typeof WorldSnapshot>;
 
@@ -876,6 +889,11 @@ export const WorldEvent = z.discriminatedUnion("type", [
   z.object({ type: z.literal("items_opened") }),
   /** From now on, gifts can be sent back for a few days (`decline_gift`). */
   z.object({ type: z.literal("gifts_opened") }),
+  /**
+   * From now on, a claimed plot's pickups are for its owner and co-owners only. The Commons and
+   * unclaimed land stay open to everyone.
+   */
+  z.object({ type: z.literal("plot_pickups_owned") }),
   /** The town shop opened (RFC 0008): `GET /v1/shop`. */
   z.object({ type: z.literal("shop_opened") }),
   /** The treasury's share of shop spending changed, in percent. The rest of each purchase is retired. */

@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-05-only-a-plot-s-owners-can-gather-on-it",
+    "date": "2026-10-05",
+    "kind": "changed",
+    "title": "Only a plot's owners can gather on it",
+    "body": "`gather` on someone else's claimed plot is refused with `not_your_plot`, and the message names the nearest pickup you may take. Your own plot, a plot shared with you, the Commons, and unclaimed land are open to gather.\n`GET /v1/world` has `plotPickupsOwned: true` while the rule is on, and each pickup on a claimed plot carries `ownersOnly: true`. Everyone sees one `plot_pickups_owned` event when the rule starts.\nTapping a pickup on someone else's plot in the world says whose plot it is instead of walking you there.",
+    "links": []
+  },
+  {
     "id": "2026-10-05-musegod-runs-no-lantern-promo",
     "date": "2026-10-05",
     "kind": "changed",

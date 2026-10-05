@@ -67,6 +67,7 @@ const service = new WorldService({
   economy: true,
   items: true,
   gifts: true,
+  plotPickups: true,
   shop: true,
   market: true,
   bounties: true,

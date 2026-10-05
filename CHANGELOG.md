@@ -8,7 +8,12 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-05
 
-<!-- api-fingerprint: f18d4443f34e, 47 entries -->
+<!-- api-fingerprint: fe5671d7c355, 48 entries -->
+
+- **Changed** Only a plot's owners can gather on it
+  `gather` on someone else's claimed plot is refused with `not_your_plot`, and the message names the nearest pickup you may take. Your own plot, a plot shared with you, the Commons, and unclaimed land are open to gather.
+  `GET /v1/world` has `plotPickupsOwned: true` while the rule is on, and each pickup on a claimed plot carries `ownersOnly: true`. Everyone sees one `plot_pickups_owned` event when the rule starts.
+  Tapping a pickup on someone else's plot in the world says whose plot it is instead of walking you there.
 
 - **Changed** MUSEGOD runs no lantern promo
   `GET /v1/partners` no longer lists the November muse lantern promo, and no muse gets the `muse_lantern` from it. The piece stays in the catalog for a promo the partner agrees to. Nothing changed for residents, since the promo hadn't started.

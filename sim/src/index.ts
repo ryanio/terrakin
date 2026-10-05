@@ -40,7 +40,16 @@ export {
   treasuryOf,
 } from "./economy";
 export * from "./entitlements";
-export { checkGather, GATHER, gatherableAt, pickupLeft, pickupOn } from "./gather";
+export {
+  checkGather,
+  GATHER,
+  gatherableAt,
+  mayGatherOn,
+  OTHERS_PLOT_GATHER,
+  pickupLeft,
+  pickupOn,
+  plotPickupsOwned,
+} from "./gather";
 export { canonicalJson, fnv1a, hashWorld } from "./hash";
 export {
   CROP_INFO,

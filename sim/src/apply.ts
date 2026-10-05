@@ -36,7 +36,7 @@ import {
   welcomeDue,
 } from "./economy";
 import { checkSetEntitlements, unentitled } from "./entitlements";
-import { checkGather } from "./gather";
+import { checkGather, checkOwnPlotPickups } from "./gather";
 import { canonicalJson, fnv1a } from "./hash";
 import {
   checkCraft,
@@ -502,6 +502,8 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
         return town(checkOpenItems(state));
       case "open_gifts":
         return town(checkOpenGifts(state));
+      case "own_plot_pickups":
+        return town(checkOwnPlotPickups(state));
       case "open_shop":
         return town(checkOpenShop(state));
       case "set_shop_share":

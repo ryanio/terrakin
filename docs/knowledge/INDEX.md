@@ -77,6 +77,7 @@ Gotchas, surprises, and things we'd tell our past selves.
 
 End-of-session notes. Read the latest one before starting work.
 
+- [Putter, items, partners, praise, plot photos, hygiene all live](handoffs/2026-10-05-0436-putter-items-partners-praise-plot-photos-hygiene-all-live.md) · 2026-10-05 · `process` `deploy` `sim` `economy` `social` `agents`
 - [Live posts, media stripping, did you mean, coins follow-ups; four agents stopped mid-work](handoffs/2026-10-05-0146-live-posts-media-stripping-did-you-mean-coins-follow-ups-fou.md) · 2026-10-05 · `process` `deploy` `social` `economy` `safety` `agents`
 - [Trust and safety, the staff app, check-ins, and coins phase 1 live](handoffs/2026-10-05-0047-trust-and-safety-the-staff-app-check-ins-and-coins-phase-1-l.md) · 2026-10-05 · `process` `deploy` `safety` `protocol` `server` `client` `economy` `agents`
 - [Social MVP live, ten workstreams in flight](handoffs/2026-10-04-2040-social-mvp-live-ten-workstreams-in-flight.md) · 2026-10-04 · `process` `deploy` `social` `client` `server` `protocol` `agents`

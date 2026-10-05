@@ -58,6 +58,7 @@ const service = new WorldService({
   now,
   days: true,
   economy: true,
+  items: true,
   townsfolk,
   maintainers,
   moderation,

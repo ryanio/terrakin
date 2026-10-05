@@ -298,6 +298,7 @@ class WorldObject extends DurableObject<Env> {
       store: new SqlStore(ctx.storage.sql),
       days: true,
       economy: true,
+      items: true,
       townsfolk,
       maintainers,
       moderation,

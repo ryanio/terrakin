@@ -21,6 +21,7 @@ import { Mirror } from "./mirror";
 import { Connection, type Identity, savedToken, saveToken } from "./net";
 import { blockColor, HEARTH_COLOR, render } from "./render";
 import { track } from "./telemetry";
+import { inventoryLine } from "./things";
 import { dayPhase } from "./time";
 import { ARRIVAL_KEY, gestureLine } from "./together";
 
@@ -170,6 +171,11 @@ function onMessage(msg: ServerMessage) {
     case "event":
       // Out of step with the server? Reload the truth rather than guessing.
       if (mirror && !resyncing && mirror.apply(msg) === "gap") void resync();
+      // Your own things changed: say what, in plain words. Notes and labels stay out of it.
+      if (msg.event.type === "inventory" && msg.event.residentId === me) {
+        const line = inventoryLine(msg.event);
+        if (line) showToast(line);
+      }
       break;
     case "chat":
       addChat(msg.from.name, msg.from.kind, msg.text, msg.channel);
@@ -267,6 +273,24 @@ canvas.addEventListener("pointerdown", (e) => {
   // The Town Hall opens its page, unless someone is standing in its doorway.
   if (!other && mirror.isTownHall(tile.x, tile.y) && navigate) {
     navigate("/town");
+    return;
+  }
+  // A planter, kitchen, or workbench opens what you can do there (RFC 0005).
+  const here = mirror.blocks.get(`${tile.x},${tile.y}`);
+  // Only within reach: a station farther off is somewhere to walk to, as any tile is.
+  const near = Math.max(Math.abs(tile.x - r.x), Math.abs(tile.y - r.y)) <= mirror.config.reach;
+  if (!other && near && (here === "planter" || here === "kitchen" || here === "workbench")) {
+    const planting = mirror.crops.get(`${tile.x},${tile.y}`);
+    const day = mirror.day;
+    void import("./garden-sheet").then((m) =>
+      m.openTileSheet({
+        block: here,
+        ...tile,
+        ...(planting ? { planting } : {}),
+        day,
+        act: (action) => act(action),
+      }),
+    );
     return;
   }
   if (other && other.id !== me) {

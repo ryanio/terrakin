@@ -135,6 +135,8 @@ describe("the edge filters on every surface", () => {
       { type: "profile", note: bad },
       { type: "propose", kind: "advisory", title: bad, text: "More benches" },
       { type: "propose", kind: "advisory", title: "Benches", text: bad },
+      { type: "give", item: "jar", to: bo.id, note: bad },
+      { type: "craft", recipe: "bouquet", x: 0, y: 0, label: bad },
     ]) {
       const res = await t.call("POST", "/v1/actions", action, await fresh());
       expect(res.body, action.type).toMatchObject({

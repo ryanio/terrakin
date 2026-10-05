@@ -82,6 +82,12 @@ export interface WorldServiceOptions {
    */
   economy?: boolean;
   /**
+   * Growing and making (RFC 0005): once the world counts days, append `open_items` if it never
+   * has. Both adapters turn this on. Off by default so a test world's log holds only what the
+   * test sent.
+   */
+  items?: boolean;
+  /**
    * Maintainers' resident ids from config. Logged as `set_maintainers` when they differ from the
    * log, so the sim keeps townsfolk budgets away from them.
    */
@@ -105,6 +111,12 @@ function toWire(events: WorldEvent[], townsfolk: readonly string[] = []): WireEv
     ) {
       continue;
     }
+    if (e.type === "inventory") {
+      // A gift's note and a made thing's label are another resident's words.
+      const words = e.note !== undefined || e.gained?.some((g) => g.label !== undefined);
+      out.push(words ? { ...e, trust: "untrusted" } : e);
+      continue;
+    }
     out.push(e.type === "coins" && e.note ? { ...e, trust: "untrusted" } : e);
     if (
       e.type === "coins" &&
@@ -119,15 +131,22 @@ function toWire(events: WorldEvent[], townsfolk: readonly string[] = []): WireEv
   return out;
 }
 
-/** What everyone may see: no purse moves. Never empty, so every client's `seq` keeps counting. */
+/** Purse moves and inventory changes: each belongs to one resident alone. */
+const isPrivate = (e: WireEvent): e is Extract<WireEvent, { type: "coins" | "inventory" }> =>
+  e.type === "coins" || e.type === "inventory";
+
+/**
+ * What everyone may see: no purse moves and no inventory changes. Never empty, so every client's
+ * `seq` keeps counting.
+ */
 function publicEvents(events: WireEvent[]): WireEvent[] {
-  const shown = events.filter((e) => e.type !== "coins");
+  const shown = events.filter((e) => !isPrivate(e));
   return shown.length > 0 ? shown : [{ type: "quiet" }];
 }
 
-/** What one resident may see: everything public, plus their own purse moves. */
+/** What one resident may see: everything public, plus their own purse and inventory changes. */
 export function eventsFor(events: WireEvent[], viewer: string): WireEvent[] {
-  return events.filter((e) => e.type !== "coins" || e.residentId === viewer);
+  return events.filter((e) => !isPrivate(e) || e.residentId === viewer);
 }
 
 /** How many residents within earshot a putter tries to wave at before it gives up. */
@@ -231,6 +250,7 @@ export class WorldService {
   readonly now: () => number;
   private readonly days: boolean;
   private readonly economy: boolean;
+  private readonly items: boolean;
   /** The edge filters for names, notes, chat, and proposals. */
   readonly moderation: Moderation;
   /**
@@ -274,6 +294,7 @@ export class WorldService {
     if (options.townsfolk) this.syncTownsfolk(options.townsfolk);
     if (options.maintainers) this.syncMaintainers(options.maintainers);
     this.economy = options.economy ?? false;
+    this.items = options.items ?? false;
     // A day may have started (and proposals come due) while the server was down.
     this.tick();
   }
@@ -352,6 +373,10 @@ export class WorldService {
     if (this.economy && !this.state.economy) {
       const opened = this.run({ actor: TOWN_ACTOR, command: { type: "open_economy" } });
       if (!opened.ok) console.error(`Couldn't open coins: ${opened.error.message}`);
+    }
+    if (this.items && !this.state.items) {
+      const opened = this.run({ actor: TOWN_ACTOR, command: { type: "open_items" } });
+      if (!opened.ok) console.error(`Couldn't open items: ${opened.error.message}`);
     }
     const due = (this.state.town?.proposals ?? []).filter(
       (p) => p.status === "open" && p.closesDay !== undefined && p.closesDay <= day,
@@ -645,6 +670,40 @@ export class WorldService {
       };
       return this.run({ actor: residentId, command }, dry);
     }
+    if (action.type === "give") {
+      // Like coins, a gift can't cross a block either way (decision 0024).
+      if (this.blockedEither(residentId, action.to)) {
+        return {
+          ok: false,
+          error: { code: "forbidden", message: "You can't give things to this resident." },
+        };
+      }
+      const note = action.note === undefined ? "" : cleanText(action.note);
+      const refused = filtered(this.moderation, "gift_note", note, context);
+      if (refused) return refused;
+      const command: Command = {
+        type: "give",
+        item: action.item,
+        to: action.to,
+        ...(action.count === undefined ? {} : { count: action.count }),
+        ...(note ? { note } : {}),
+      };
+      return this.run({ actor: residentId, command }, dry);
+    }
+    if (action.type === "craft") {
+      // A label travels with the thing to everyone who holds it: clean it and filter it first.
+      const label = action.label === undefined ? "" : cleanText(action.label);
+      const refused = filtered(this.moderation, "item_label", label, context);
+      if (refused) return refused;
+      const command: Command = {
+        type: "craft",
+        recipe: action.recipe,
+        x: action.x,
+        y: action.y,
+        ...(label ? { label } : {}),
+      };
+      return this.run({ actor: residentId, command }, dry);
+    }
     return this.run({ actor: residentId, command: action satisfies Command }, dry);
   }
 
@@ -818,9 +877,10 @@ export class WorldService {
     const { seq, events } = prepared.commit();
     const wire = toWire(events, this.state.townsfolk);
     for (const event of publicEvents(wire)) this.broadcast({ type: "event", seq, event });
-    // Purse moves go only to the purse's owner (RFC 0008: purses are private).
+    // Purse moves and inventory changes go only to their owner (purses and inventories are
+    // private).
     for (const event of wire) {
-      if (event.type === "coins") this.notify(event.residentId, { type: "event", seq, event });
+      if (isPrivate(event)) this.notify(event.residentId, { type: "event", seq, event });
     }
     return { ok: true, seq, events: eventsFor(wire, input.actor) };
   }
@@ -941,6 +1001,14 @@ export class WorldService {
           }
         : {}),
       ...(state.townsfolk?.length ? { townsfolk: [...state.townsfolk] } : {}),
+      ...(state.items && Object.keys(state.items.crops).length > 0
+        ? {
+            crops: Object.entries(state.items.crops).map(([key, c]) => {
+              const [x, y] = parseKey(key);
+              return { x, y, crop: c.crop, plantedDay: c.plantedDay, readyDay: c.readyDay };
+            }),
+          }
+        : {}),
     };
   }
 }

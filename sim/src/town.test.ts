@@ -325,6 +325,9 @@ describe("propose", () => {
       "invalid_proposal",
     );
     expect(code([{ x: 10, y: 10, block: "gold" as never }])).toBe("invalid_proposal");
+    // Builds use the four building blocks; planters and stations go on residents' own plots.
+    expect(code([{ x: 10, y: 10, block: "kitchen" as never }])).toBe("invalid_proposal");
+    expect(code([{ x: 10, y: 10, block: "planter" as never }])).toBe("invalid_proposal");
     expect(code([], [{ x: 10, y: 10 }])).toBe("invalid_proposal"); // nothing to take away
     const many = Array.from({ length: 41 }, (_, i) => ({
       x: 8 + (i % 8),

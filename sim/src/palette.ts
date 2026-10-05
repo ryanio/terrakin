@@ -29,6 +29,9 @@ export const BLOCK_COLORS: Readonly<Record<BlockKind, string>> = {
   stone: "#a39d93",
   glass: "#bfe0ea",
   leaf: "#6b9a4a",
+  planter: "#8a5a36",
+  kitchen: "#c8674a",
+  workbench: "#9a6b43",
 };
 
 /** The hearth's roof (and the Town Hall's). */
@@ -119,7 +122,10 @@ export function alphaHex(hex: string, alpha: number): string {
 
 /** A block's color, dressed in its plot owner's theme when they have one. */
 export function blockFill(block: BlockKind, palette?: ThemePalette): string {
-  if (!palette) return BLOCK_COLORS[block];
+  // Planters and stations (RFC 0005) keep their own look on a themed plot.
+  if (!palette || block === "planter" || block === "kitchen" || block === "workbench") {
+    return BLOCK_COLORS[block];
+  }
   if (block === "wood") return mixHex(palette.light, palette.main, 0.45);
   if (block === "stone") return mixHex(BLOCK_COLORS.stone, palette.light, 0.35);
   if (block === "leaf") return mixHex(BLOCK_COLORS.leaf, palette.deep, 0.18);

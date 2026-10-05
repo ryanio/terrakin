@@ -13,7 +13,7 @@ import type {
   WorldEvent,
   WorldState,
 } from "./types";
-import { BLOCK_KINDS, PROPOSAL_KINDS, SERVER_COMMANDS, VOTE_CHOICES } from "./types";
+import { BUILDING_BLOCKS, PROPOSAL_KINDS, SERVER_COMMANDS, VOTE_CHOICES } from "./types";
 import { commonsPlot, inBounds, isTownHallTile, plotOf } from "./world";
 
 /**
@@ -257,7 +257,9 @@ function checkPlan(state: WorldState, blocks: PlannedBlock[], remove: Tile[]): s
     seen.add(key);
   }
   for (const b of blocks) {
-    if (!BLOCK_KINDS.includes(b.block)) return `Unknown block at (${b.x}, ${b.y}).`;
+    if (!(BUILDING_BLOCKS as readonly string[]).includes(b.block)) {
+      return `(${b.x}, ${b.y}) needs wood, stone, glass, or leaf. Builds in the Commons use those.`;
+    }
     const key = tileKey(b.x, b.y);
     if (state.blocks[key] !== undefined) return `(${b.x}, ${b.y}) already has a block.`;
     if (standing.has(key)) return `Someone is standing on (${b.x}, ${b.y}).`;

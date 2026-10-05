@@ -12,6 +12,18 @@ import {
   welcomeDue,
 } from "./economy";
 import { canonicalJson, fnv1a } from "./hash";
+import {
+  checkCraft,
+  checkGiveItem,
+  checkHarvest,
+  checkOpenItems,
+  checkPlant,
+  cropAt,
+  type ItemsChecked,
+  itemsNewDay,
+  pantryDue,
+  payPantry,
+} from "./items";
 import { plotKey, tileKey } from "./keys";
 import {
   LOOK_KEYS,
@@ -191,6 +203,8 @@ export function prepare(state: WorldState, input: Input): Prepared {
       // The allowance: whatever the resident did, if it leaves them on their own hearth.
       if (state.residents[actor] && isActivity(command)) {
         events.push(...payAllowance(state, actor, seq));
+        // The pantry (RFC 0005), on the same terms: a no-op until items open.
+        events.push(...payPantry(state, actor));
       }
       // Town Hall bookkeeping: the last day each resident acted. Only once the world counts days,
       // so logs from before the Town Hall replay to the same hash. No event: no client draws it,
@@ -355,7 +369,7 @@ function buildHint(state: WorldState, me: Resident): string {
 }
 
 /** A Town Hall or coins check's answer in this file's shape. */
-function town(checked: TownChecked | EconomyChecked): Mutation | Prepared {
+function town(checked: TownChecked | EconomyChecked | ItemsChecked): Mutation | Prepared {
   return typeof checked === "function" ? checked : { ok: false, rejection: checked };
 }
 
@@ -376,6 +390,8 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
       case "remove_owner_pair":
       case "set_maintainers":
         return town(checkEconomyServer(state, command));
+      case "open_items":
+        return town(checkOpenItems(state));
       case "new_day":
       case "set_townsfolk": {
         const checked = checkTown(state, actor, command);
@@ -384,7 +400,9 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
           command.type === "new_day"
             ? economyNewDay(state, command.day)
             : economyTownsfolkChange(state, [...new Set(command.ids)]);
-        return coins ? () => [...checked(), ...coins()] : checked;
+        const items = command.type === "new_day" ? itemsNewDay(state) : null;
+        if (!coins && !items) return checked;
+        return () => [...checked(), ...(coins ? coins() : []), ...(items ? items() : [])];
       }
       default:
         return town(checkTown(state, actor, command));
@@ -596,8 +614,9 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
         );
       }
       if (me.x === hearth.x && me.y === hearth.y) {
-        // Already home is fine when it collects today's allowance (paid in prepare's commit).
-        if (allowanceDue(state, actor)) return () => [];
+        // Already home is fine when it collects today's allowance or pantry (paid in prepare's
+        // commit).
+        if (allowanceDue(state, actor) || pantryDue(state, actor)) return () => [];
         return reject(
           "already_home",
           state.economy && state.day !== undefined && !isTownsfolk(state, actor)
@@ -631,6 +650,9 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
       const key = tileKey(x, y);
       if (command.type === "remove") {
         if (state.blocks[key] === undefined) return reject("no_block", "Nothing to remove there.");
+        if (cropAt(state, x, y)) {
+          return reject("tile_occupied", "Something is growing in that planter. Harvest it first.");
+        }
         return () => {
           delete state.blocks[key];
           return [{ type: "block_removed", x, y, by: actor }];
@@ -810,5 +832,14 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
 
     case "give_coins":
       return town(checkGive(state, actor, command));
+
+    case "plant":
+      return town(checkPlant(state, actor, command));
+    case "harvest":
+      return town(checkHarvest(state, actor, command));
+    case "craft":
+      return town(checkCraft(state, actor, command));
+    case "give":
+      return town(checkGiveItem(state, actor, command));
   }
 }

@@ -16,6 +16,7 @@ import { initBell, makeBell, refreshBell } from "./bell";
 import { initBrandMarks } from "./chrome";
 import { claimView } from "./claim-view";
 import { feedView } from "./feed-view";
+import { inventoryView } from "./inventory-view";
 import { inviteView } from "./invite-view";
 import { lettersView, letterThreadView, UNREAD_EVENT } from "./letters-view";
 import { SESSION_EVENT, savedResidentId, savedToken } from "./net";
@@ -231,21 +232,23 @@ function onNavigate(nav: Navigation) {
             ? notificationsView(ctx)
             : route.name === "purse"
               ? purseView(ctx)
-              : route.name === "post"
-                ? postView(route.id, ctx)
-                : route.name === "letters"
-                  ? lettersView(ctx)
-                  : route.name === "letters-with"
-                    ? letterThreadView(route.id, ctx)
-                    : route.name === "invite"
-                      ? inviteView(route.code, ctx)
-                      : route.name === "town"
-                        ? townView(ctx)
-                        : route.name === "plot3d" || route.name === "gallery3d"
-                          ? view3d(route, ctx)
-                          : route.name === "claim"
-                            ? claimView(route.code, ctx)
-                            : notFoundView(ctx);
+              : route.name === "inventory"
+                ? inventoryView(ctx)
+                : route.name === "post"
+                  ? postView(route.id, ctx)
+                  : route.name === "letters"
+                    ? lettersView(ctx)
+                    : route.name === "letters-with"
+                      ? letterThreadView(route.id, ctx)
+                      : route.name === "invite"
+                        ? inviteView(route.code, ctx)
+                        : route.name === "town"
+                          ? townView(ctx)
+                          : route.name === "plot3d" || route.name === "gallery3d"
+                            ? view3d(route, ctx)
+                            : route.name === "claim"
+                              ? claimView(route.code, ctx)
+                              : notFoundView(ctx);
   view = next;
   page.replaceChildren(next.el);
 

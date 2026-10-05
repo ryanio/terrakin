@@ -4,7 +4,7 @@
  */
 
 import type { TallyView } from "@terrakin/protocol";
-import { BLOCK_KINDS, type BlockKind } from "@terrakin/sim";
+import { BUILDING_BLOCKS, type BuildingBlock } from "@terrakin/sim";
 import { plural } from "@terrakin/ui/format";
 
 export interface TallyBar {
@@ -63,7 +63,7 @@ export function closesIn(closesAt: string, now: number): string {
 }
 
 /** What one tile of the build editor holds. */
-export type PlanCell = BlockKind | "remove" | null;
+export type PlanCell = BuildingBlock | "remove" | null;
 
 /**
  * Tapping a tile in the build editor. An empty tile cycles through the block kinds and back to
@@ -71,9 +71,9 @@ export type PlanCell = BlockKind | "remove" | null;
  */
 export function nextCell(current: PlanCell, hasBlock: boolean): PlanCell {
   if (hasBlock) return current === "remove" ? null : "remove";
-  if (current === null || current === "remove") return BLOCK_KINDS[0];
-  const i = BLOCK_KINDS.indexOf(current);
-  return i + 1 < BLOCK_KINDS.length ? (BLOCK_KINDS[i + 1] ?? null) : null;
+  if (current === null || current === "remove") return BUILDING_BLOCKS[0];
+  const i = BUILDING_BLOCKS.indexOf(current);
+  return i + 1 < BUILDING_BLOCKS.length ? (BUILDING_BLOCKS[i + 1] ?? null) : null;
 }
 
 const STATUS_WORDS = {

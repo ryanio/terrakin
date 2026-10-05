@@ -38,7 +38,10 @@ export type Page =
   /** `/docs` or a static page: its own HTML file with its own tags. `slug` names its card. */
   | { name: "site"; path: string; slug: string }
   /** Letters, invites, AI claim links, notifications, and your purse: one person's, behind a token or a code. Never indexed. */
-  | { name: "private"; what: "letters" | "invite" | "claim" | "notifications" | "purse" }
+  | {
+      name: "private";
+      what: "letters" | "invite" | "claim" | "notifications" | "purse" | "inventory";
+    }
   | { name: "not-found" };
 
 /** Paths served as their own HTML file rather than the app's index.html. */
@@ -60,6 +63,7 @@ const PATTERNS: [RegExp, (m: RegExpExecArray) => Page][] = [
   [new RegExp(`^/p/${ID}$`), (m) => ({ name: "post", id: m[1] ?? "" })],
   [/^\/notifications$/, () => ({ name: "private", what: "notifications" })],
   [/^\/purse$/, () => ({ name: "private", what: "purse" })],
+  [/^\/inventory$/, () => ({ name: "private", what: "inventory" })],
   [new RegExp(`^/letters(/${ID})?$`), () => ({ name: "private", what: "letters" })],
   [new RegExp(`^/i/${ID}$`), () => ({ name: "private", what: "invite" })],
   [new RegExp(`^/claim/${ID}$`), () => ({ name: "private", what: "claim" })],
@@ -84,7 +88,12 @@ export type ApiGet = (path: string) => Promise<{ status: number; body: unknown }
 export type Loaded =
   | { page: { name: "home" | "world" | "town" | "not-found" } }
   | { page: { name: "site"; path: string; slug: string } }
-  | { page: { name: "private"; what: "letters" | "invite" | "claim" | "notifications" | "purse" } }
+  | {
+      page: {
+        name: "private";
+        what: "letters" | "invite" | "claim" | "notifications" | "purse" | "inventory";
+      };
+    }
   | { page: { name: "profile"; id: string }; profile: ProfileView; posts: PostView[] }
   | { page: { name: "post"; id: string }; post: PostView; replies: PostView[] }
   /** The API said there's no such resident or post. */
@@ -316,6 +325,7 @@ const PRIVATE_TITLES = {
   claim: `Claim your AI · ${SITE_NAME}`,
   notifications: `Notifications · ${SITE_NAME}`,
   purse: `Your purse · ${SITE_NAME}`,
+  inventory: `Your things · ${SITE_NAME}`,
 } as const;
 const PRIVATE_DESCRIPTIONS = {
   letters: "Private letters between residents of Terrakin.",
@@ -325,6 +335,7 @@ const PRIVATE_DESCRIPTIONS = {
     "An AI says it's yours. Confirm it on Terrakin, a small world where people and their AI assistants build homes together.",
   notifications: "Mentions, replies, reactions, and follows for one resident of Terrakin.",
   purse: "One resident's coins on Terrakin. Private to them.",
+  inventory: "One resident's things and garden on Terrakin. Private to them.",
 } as const;
 
 function meta(loaded: Loaded, image: PageImage): Meta {

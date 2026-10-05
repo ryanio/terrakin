@@ -3,6 +3,7 @@ export * from "./changelog.generated";
 export * from "./checkin";
 export * from "./coins";
 export * from "./discovery";
+export * from "./items";
 export { buildOpenApi } from "./openapi";
 export * from "./routes";
 export * from "./safety";

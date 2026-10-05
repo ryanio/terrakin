@@ -42,6 +42,7 @@ Token "optional" means it works without one, and with one the answer includes yo
 | `DELETE` | `/v1/session` | yes | Go offline. Your plot and token stay; your next action brings you back. |  |
 | `POST` | `/v1/actions` | yes | Do one action in the world. | 10 a second per resident, bursts of 20 |
 | `GET` | `/v1/purse` | yes | Your coins: balance, the last 50 ins and outs, your streak, and today's gifts. Private to you. |  |
+| `GET` | `/v1/inventory` | yes | Your things: seeds, produce, sugar, jars, things you made or were given, and your garden. Private to you. |  |
 
 ### Social
 

@@ -2945,29 +2945,163 @@ dialog.model-viewer {
   color: var(--ink-soft);
 }
 
-/* Give coins on a profile. */
-.coin-gift {
+/* The /inventory page (RFC 0005): your garden, made things, and stacks. */
+.things-body {
+  display: grid;
+  gap: 18px;
+}
+
+.things-card {
+  display: grid;
+  gap: 10px;
+}
+
+.things-section {
+  display: grid;
+  gap: 10px;
+}
+
+.things-garden,
+.things-goods,
+.things-stacks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.things-garden,
+.things-goods {
+  display: grid;
+  gap: 8px;
+}
+
+.things-stacks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.things-crop {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  color: var(--ink-soft);
+}
+
+.things-crop .icon {
+  color: var(--moss);
+}
+
+.things-crop-name {
+  color: var(--ink);
+  font-weight: 650;
+}
+
+.things-crop.ready .things-crop-when {
+  color: var(--moss);
+  font-weight: 650;
+}
+
+.things-good {
+  display: grid;
+  min-height: 52px;
+  padding: 8px 14px;
+  border-radius: 16px;
+  background: var(--paper);
+  border: 1px solid var(--paper-edge);
+}
+
+.things-good-body {
+  display: grid;
+  min-width: 0;
+}
+
+.things-good-name {
+  font-weight: 650;
+}
+
+.things-good-label,
+.things-good-maker {
+  overflow: hidden;
+  color: var(--ink-soft);
+  font-size: 14.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The sheet a planter, kitchen, or workbench opens in the world. */
+.workshop-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.workshop-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+}
+
+.workshop-row-body {
+  display: grid;
+  min-width: 0;
+}
+
+.workshop-row-name {
+  font-weight: 650;
+}
+
+.workshop-row-line {
+  color: var(--ink-soft);
+  font-size: 14.5px;
+}
+
+.workshop-label {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.workshop-things {
+  justify-self: start;
+  margin-top: 14px;
+  text-decoration: none;
+}
+
+/* Give coins, or a thing, on a profile. */
+.coin-gift,
+.thing-gift {
   display: grid;
   gap: 10px;
   margin-top: 4px;
 }
 
-.coin-open {
+.coin-open,
+.thing-open {
   justify-self: start;
   gap: 6px;
   color: var(--coin-deep);
 }
 
-.coin-open .icon {
+.coin-open .icon,
+.thing-open .icon {
   color: var(--coin);
 }
 
-.coin-form {
+.coin-form,
+.thing-form {
   display: grid;
   gap: 8px;
 }
 
-.coin-form[hidden] {
+.coin-form[hidden],
+.thing-form[hidden] {
   display: none;
 }
 
@@ -3315,13 +3449,18 @@ dialog.model-viewer {
   min-width: 0;
   right: 0;
   bottom: calc(100% + 12px);
+  /* One row, so it covers no more of the world than it must; on a narrow phone it scrolls. */
   display: flex;
+  max-width: calc(100vw - 28px - env(safe-area-inset-left) - env(safe-area-inset-right));
+  overflow-x: auto;
+  scrollbar-width: none;
   gap: 4px;
   padding: 5px;
   border-radius: 999px;
 }
 
 .palette button {
+  flex: none;
   display: grid;
   place-items: center;
   width: 44px;

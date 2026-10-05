@@ -1,6 +1,7 @@
 import type { ResidentView, WorldEvent, WorldSnapshot } from "@terrakin/protocol";
 import {
   type BlockKind,
+  type Crop,
   LOOK_KEYS,
   lookOf,
   plotKey,
@@ -32,6 +33,10 @@ export class Mirror {
   /** The tiles the Town Hall stands on. Tapping one opens /town. */
   townHall: { x: number; y: number }[];
   townBuilt = new Map<string, string>(); // tileKey -> the proposal that built it
+  /** Crops growing in planters (RFC 0005). */
+  crops = new Map<string, { crop: Crop; plantedDay: number; readyDay: number }>();
+  /** Today, as the world counts it. A crop is ready once this reaches its `readyDay`. */
+  day: number | undefined;
 
   constructor(snapshot: WorldSnapshot) {
     this.config = snapshot.config;
@@ -45,6 +50,14 @@ export class Mirror {
     for (const b of snapshot.blocks) this.blocks.set(tileKey(b.x, b.y), b.block);
     this.townHall = (snapshot.townHall ?? []).map((t) => ({ ...t }));
     for (const t of snapshot.townBuilt ?? []) this.townBuilt.set(tileKey(t.x, t.y), t.proposal);
+    for (const c of snapshot.crops ?? []) {
+      this.crops.set(tileKey(c.x, c.y), {
+        crop: c.crop,
+        plantedDay: c.plantedDay,
+        readyDay: c.readyDay,
+      });
+    }
+    this.day = snapshot.day;
   }
 
   isTownHall(x: number, y: number): boolean {
@@ -123,6 +136,19 @@ export class Mirror {
         if (r) r.hearth = null;
         break;
       }
+      case "day_started":
+        this.day = event.day;
+        break;
+      case "planted":
+        this.crops.set(tileKey(event.x, event.y), {
+          crop: event.crop,
+          plantedDay: event.plantedDay,
+          readyDay: event.readyDay,
+        });
+        break;
+      case "harvested":
+        this.crops.delete(tileKey(event.x, event.y));
+        break;
       // The blocks themselves arrive as block_placed and block_removed just before this.
       case "town_built":
         for (const b of event.placed) this.townBuilt.set(tileKey(b.x, b.y), event.proposal);

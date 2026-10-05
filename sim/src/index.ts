@@ -20,6 +20,36 @@ export {
   treasuryOf,
 } from "./economy";
 export { canonicalJson, fnv1a, hashWorld } from "./hash";
+export {
+  CROP_INFO,
+  CROPS,
+  type Crop,
+  type CropInfo,
+  countOf,
+  GOOD_KINDS,
+  type GoodKind,
+  type InventoryRead,
+  ITEM_ID_PATTERN,
+  ITEM_INFO,
+  ITEM_KINDS,
+  ITEMS,
+  type ItemCategory,
+  type ItemInfo,
+  type ItemKind,
+  inventoryOf,
+  inventorySize,
+  isReady,
+  pantryDue,
+  RECIPES,
+  type Recipe,
+  SEED_KINDS,
+  type SeedKind,
+  STACK_KINDS,
+  STAPLE_KINDS,
+  STATIONS,
+  type StackKind,
+  type Station,
+} from "./items";
 export { parseKey, plotKey, tileKey } from "./keys";
 export * from "./looks";
 export * from "./palette";

@@ -17,6 +17,7 @@ import {
   type GestureRequest,
   GestureResponse,
   GesturesResponse,
+  InventoryResponse,
   InviteDetailsResponse,
   InviteResponse,
   LetterResponse,
@@ -168,6 +169,8 @@ export const api = {
     request("GET", `/v1/town/archive${query({ limit: 10, before })}`, ArchiveResponse),
   /** Your coins (RFC 0008). Private to you. */
   purse: () => request("GET", "/v1/purse", PurseResponse),
+  /** Your things, your garden, and the catalog (RFC 0005). Private to you. */
+  inventory: () => request("GET", "/v1/inventory", InventoryResponse),
   /** A world action. A 200 can still be a refusal by the rules: check `ok` in the body. */
   act: (action: Action) => request("POST", "/v1/actions", ActionResponse, action),
   pinNotice: (text: string) => request("POST", "/v1/notices", NoticeResponse, { text }),

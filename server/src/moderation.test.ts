@@ -224,6 +224,7 @@ describe("Moderation.review", () => {
       "proposal_title",
       "proposal_text",
       "notice",
+      "item_label",
     ] as const) {
       expect(review(surface, `big ${SWEAR}`), surface).toMatchObject({
         ok: false,

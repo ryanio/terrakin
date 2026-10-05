@@ -53,6 +53,9 @@ const BLOCK_LOOKS: Record<BlockKind, BlockLook> = {
   stone: { color: hex("#a39d93"), height: 1.25, opacity: 1, form: "voxel" },
   glass: { color: hex("#bfe0ea"), height: 1.25, opacity: 0.42, form: "voxel" },
   leaf: { color: hex("#6b9a4a"), height: 0.95, opacity: 1, form: "clump" },
+  planter: { color: hex("#8a5a36"), height: 0.5, opacity: 1, form: "voxel" },
+  kitchen: { color: hex("#c8674a"), height: 0.95, opacity: 1, form: "voxel" },
+  workbench: { color: hex("#9a6b43"), height: 0.8, opacity: 1, form: "voxel" },
 };
 
 export function blockLook(block: BlockKind): BlockLook {

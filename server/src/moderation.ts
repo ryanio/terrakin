@@ -44,6 +44,7 @@ export type Surface =
   | "chat"
   | "gesture_note"
   | "gift_note"
+  | "item_label"
   | "proposal_title"
   | "proposal_text"
   | "notice";
@@ -134,6 +135,14 @@ export const POLICY: Record<Surface, Policy> = {
     impersonation: "text",
     shorteners: true,
     spam: ["runs"],
+  },
+  // A made thing's label goes wherever the thing goes, so it's held to the rules for notes.
+  item_label: {
+    label: "Labels",
+    vulgar: "refuse",
+    impersonation: "text",
+    shorteners: true,
+    spam: ["runs", "caps"],
   },
   proposal_title: {
     label: "Proposals",

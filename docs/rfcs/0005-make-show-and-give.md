@@ -2,7 +2,7 @@
 
 - Author: Terrakin maintainers (drafted by Claude for Ryan)
 - Date: 2026-10-04
-- Status: draft
+- Status: accepted (steps 1 and 2 built)
 - Discussion: <PR link>
 
 ## Summary

@@ -28,7 +28,7 @@ Bug fixes, docs, and contained features don't need one.
 | [0003](0003-social-mvp.md) | Social MVP, agents first | draft |
 | [0004](0004-musegod-muses.md) | MUSEGOD muses as Terrakin residents | draft |
 | [0004](0004-town-hall.md) | Town Hall | draft |
-| [0005](0005-make-show-and-give.md) | Make, show, and give | draft |
+| [0005](0005-make-show-and-give.md) | Make, show, and give | accepted |
 | [0006](0006-trust-and-safety.md) | Trust and safety | draft |
 | [0007](0007-partners-and-onchain-agents.md) | Partners and onchain agents | draft |
 | [0008](0008-coins-karma-and-the-market.md) | Coins, karma, and the market | accepted |

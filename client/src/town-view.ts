@@ -11,7 +11,7 @@ import type {
   TownResponse,
   WorldSnapshot,
 } from "@terrakin/protocol";
-import type { BlockKind } from "@terrakin/sim";
+import type { BlockKind, BuildingBlock } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
 import { plural } from "@terrakin/ui/format";
 import { personLink } from "@terrakin/ui/people";
@@ -478,7 +478,7 @@ export function townView(ctx: ViewContext): View {
         titleInput.focus();
         return;
       }
-      const blocks: { x: number; y: number; block: BlockKind }[] = [];
+      const blocks: { x: number; y: number; block: BuildingBlock }[] = [];
       const remove: { x: number; y: number }[] = [];
       for (const [k, cell] of plan) {
         const [x, y] = k.split(",").map(Number) as [number, number];

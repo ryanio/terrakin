@@ -25,6 +25,16 @@ The rules engine. If a rule decides what's allowed in the world, it lives here a
 - `src/biome.ts` `biomeAt`: the ground biome of a tile, a pure function of its position. Presentation only: never state, never in the log ([decision 0045](../docs/knowledge/decisions/0045-biomes-are-a-pure-function-of-position-presentation-only.md)). `biome.test.ts` pins the map.
 - `src/palette.ts` the world's colors: ground per biome, blocks (and how a theme dresses them), the hearth, and each tile's tuft or flower (`groundTile`). Presentation only, like the looks catalog. `client/src/render.ts` and the plot photos (`server/src/plot-photo.ts`, drawn by `cards/`) both read it, so a photo looks like the world.
 - `src/economy.ts` coins (RFC 0008): `ECONOMY` (every number, tuned with `scripts/economy-sim.ts`, [decision 0039](../docs/knowledge/decisions/0039-phase-1-coin-numbers-tuned-with-a-simulated-month.md)), the treasury, purses and ledgers, the daily allowance and streak, the welcome gift, townsfolk budgets, and `give_coins` with its caps. The server-only `open_economy`, `set_owner_pairs`, `add_owner_pair`, `remove_owner_pair`, and `set_maintainers` come from `TOWN_ACTOR`.
+- `src/items.ts` growing, making, and giving (RFC 0005 step 2): the catalog as data (`ITEM_INFO`, `CROP_INFO`, `RECIPES`), `ITEMS` (every number, [decision 0051](../docs/knowledge/decisions/0051-items-open-with-a-logged-input-grow-by-the-world-s-day-and-s.md)), inventories, `plant`, `harvest`, `craft`, `give` with its caps, and the daily pantry. The server-only `open_items` comes from `TOWN_ACTOR`.
+
+## Items
+
+- Nothing about items runs until `open_items`, which creates `state.items`. Until then old logs replay exactly; `src/fixtures/items-log.ts` pins a log with crops, crafting, and gifts on top of the post-economy one.
+- Growth reads only `state.day`: a crop stores `plantedDay` and `readyDay` and is ready once the day reaches `readyDay`. `new_day` changes nothing about crops (it resets the daily counters), so a skipped day counts like any other and there is nothing to replay per crop.
+- The pantry is bookkeeping in `prepare()`'s commit, like the allowance: it pays when a resident's own input leaves them on their hearth, once a day, only when it has something to add (so it never changes state without an event), and never to townsfolk. The first one brings the starter seeds. `home` while already home is accepted when the allowance or the pantry is due.
+- Seeds, produce, and staples stack as counts (absent at 0). A made thing has an id from `items.nextId`, its maker, and its made day, and keeps them wherever it goes. Every unit counts toward `inventoryMax`.
+- Inventories are private, like purses. An `inventory` event belongs to its `residentId` alone; a gift makes two. `planted`, `harvested`, and `item_given` (no count, no note) are public. Use `inventoryOf` for `GET /v1/inventory`.
+- A planter with a crop in it can't be removed. Anyone who can build on the plot may harvest it into their own inventory.
 
 ## Coins
 

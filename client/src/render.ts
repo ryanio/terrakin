@@ -2,6 +2,7 @@ import {
   BLOCK_COLORS,
   type BlockKind,
   blockFill,
+  type Crop,
   FLOWER_TONES,
   groundTile,
   HEARTH_COLOR,
@@ -27,6 +28,7 @@ import {
 } from "@terrakin/ui/looks";
 import { type Camera, tileToScreen } from "./camera";
 import type { Mirror } from "./mirror";
+import { growth } from "./things";
 import { nightAmount } from "./time";
 
 export { RESIDENT_COLOR_HEX } from "@terrakin/ui/looks";
@@ -38,6 +40,18 @@ const PAPER_EDGE = BRAND_HEX.paperEdge;
 const INK = BRAND_HEX.ink;
 const CLAY = BRAND_HEX.clay;
 const CLAY_DEEP = BRAND_HEX.clayDeep;
+
+/** Blocks you grow or make things at (RFC 0005). */
+const WORKSHOP_BLOCKS: ReadonlySet<BlockKind> = new Set(["planter", "kitchen", "workbench"]);
+
+/** The color of each crop when it's ready to pick. */
+const CROP_COLORS: Record<Crop, string> = {
+  lemon: "#f2d04b",
+  strawberry: "#d9434f",
+  tomato: "#e0573a",
+  herb: "#4f8a3a",
+  flower: "#e58fb6",
+};
 
 export function blockColor(block: BlockKind): string {
   return BLOCK_COLORS[block];
@@ -192,6 +206,7 @@ function paintBlock(
   ctx.beginPath();
   ctx.roundRect(left + radius * 0.5, top + inset, size - radius, Math.max(2, lip * 0.55), 2);
   ctx.fill();
+  if (WORKSHOP_BLOCKS.has(block)) paintWorkshop(ctx, block, left, top, size, scale);
   if (block === "glass") {
     ctx.strokeStyle = "rgba(255,255,255,0.75)";
     ctx.lineWidth = Math.max(1, scale / 22);
@@ -200,6 +215,104 @@ function paintBlock(
     ctx.lineTo(left + size * 0.62, top + size * 0.36);
     ctx.stroke();
   }
+}
+
+/** The face of a planter (dark soil), a kitchen (two burners), or a workbench (planks). */
+function paintWorkshop(
+  ctx: CanvasRenderingContext2D,
+  block: BlockKind,
+  left: number,
+  top: number,
+  size: number,
+  scale: number,
+) {
+  ctx.save();
+  if (block === "planter") {
+    const pad = size * 0.16;
+    ctx.fillStyle = "#4a3222";
+    ctx.beginPath();
+    ctx.roundRect(
+      left + pad,
+      top + pad,
+      size - pad * 2,
+      size - pad * 2.4,
+      Math.max(2, scale * 0.08),
+    );
+    ctx.fill();
+  } else if (block === "kitchen") {
+    ctx.fillStyle = "#3d2a22";
+    for (const cx of [0.32, 0.68]) {
+      ctx.beginPath();
+      ctx.arc(left + size * cx, top + size * 0.42, size * 0.13, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.strokeStyle = "rgba(255, 196, 120, 0.85)";
+    ctx.lineWidth = Math.max(1, scale / 30);
+    for (const cx of [0.32, 0.68]) {
+      ctx.beginPath();
+      ctx.arc(left + size * cx, top + size * 0.42, size * 0.07, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  } else {
+    ctx.strokeStyle = "rgba(70, 40, 18, 0.45)";
+    ctx.lineWidth = Math.max(1, scale / 28);
+    for (const fy of [0.32, 0.54]) {
+      ctx.beginPath();
+      ctx.moveTo(left + size * 0.12, top + size * fy);
+      ctx.lineTo(left + size * 0.88, top + size * fy);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
+/**
+ * A crop in a planter, drawn from how far along it is (0 to 1): a sprout that grows, then the
+ * crop's color in small fruit or petals once it's ready.
+ */
+function paintCrop(
+  ctx: CanvasRenderingContext2D,
+  crop: Crop,
+  done: number,
+  left: number,
+  top: number,
+  size: number,
+) {
+  const cx = left + size / 2;
+  const base = top + size * 0.66;
+  const tall = size * (0.18 + 0.32 * done);
+  ctx.save();
+  ctx.strokeStyle = "#5f9a43";
+  ctx.lineCap = "round";
+  ctx.lineWidth = Math.max(1.5, size / 14);
+  ctx.beginPath();
+  ctx.moveTo(cx, base);
+  ctx.lineTo(cx, base - tall);
+  ctx.stroke();
+  ctx.fillStyle = "#6fae4c";
+  const leaf = size * (0.08 + 0.08 * done);
+  for (const side of [-1, 1]) {
+    ctx.beginPath();
+    ctx.ellipse(cx + side * leaf, base - tall * 0.55, leaf, leaf * 0.5, side * 0.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  if (done >= 1) {
+    ctx.fillStyle = CROP_COLORS[crop];
+    ctx.strokeStyle = "rgba(43, 38, 32, 0.35)";
+    ctx.lineWidth = 1;
+    const r = size * 0.09;
+    for (const [dx, dy] of [
+      [-0.16, -0.05],
+      [0.16, -0.1],
+      [0, -0.2],
+    ] as const) {
+      ctx.beginPath();
+      ctx.arc(cx + dx * size, base - tall + dy * size + tall * 0.4, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
 }
 
 // Stable hue per owner so neighbors' plots are easy to tell apart.
@@ -378,6 +491,18 @@ export function render(
         },
       );
       ctx.drawImage(art, left, top, w, h);
+    }
+    // Something growing in a planter: drawn from the world's day, so it grows at midnight UTC.
+    const planting = block === "planter" ? mirror.crops.get(key) : undefined;
+    if (planting) {
+      paintCrop(
+        ctx,
+        planting.crop,
+        growth(planting.plantedDay, planting.readyDay, mirror.day),
+        left,
+        top,
+        size,
+      );
     }
     // Built by the town: a little sun-gold rosette in the corner.
     if (mirror.townBuilt.has(key)) {

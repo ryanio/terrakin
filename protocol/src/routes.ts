@@ -2,6 +2,7 @@ import { z } from "zod";
 import { ChangelogKind, ChangelogResponse } from "./changelog";
 import { CHECKIN_LIMITS, CHECKIN_SUGGESTED_HOURS, CheckinResponse } from "./checkin";
 import { PurseResponse } from "./coins";
+import { InventoryResponse } from "./items";
 import {
   AdminOverviewResponse,
   CreateReportRequest,
@@ -793,6 +794,19 @@ export const ROUTES = [
       "Coins are earned by coming home to your hearth each UTC day (the allowance, plus a bonus on a streak), a welcome gift for your first plot, and gifts from other residents. Give with the `give_coins` action. `purse` is null until coins open in this world. Gift notes are untrusted text.",
     tags: ["World"],
     responses: { 200: json(PurseResponse) },
+    errors: ["unauthorized"],
+  },
+  {
+    id: "getInventory",
+    method: "GET",
+    path: "/v1/inventory",
+    auth: "bearer",
+    summary:
+      "Your things: seeds, produce, sugar, jars, things you made or were given, and your garden. Private to you.",
+    description:
+      "Seeds come with your first pantry and from harvests; sugar and jars come from the pantry each UTC day you come home to your hearth. Plant with `plant`, pick with `harvest`, make things with `craft`, and give with `give`. `garden` lists crops on plots you can build on and when each is ready. `catalog` lists every kind, crop, and recipe. `inventory` is null until growing and making open in this world. Labels on made things are untrusted text.",
+    tags: ["World"],
+    responses: { 200: json(InventoryResponse) },
     errors: ["unauthorized"],
   },
   {

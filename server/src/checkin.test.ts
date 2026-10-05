@@ -305,6 +305,7 @@ describe("GET /v1/checkin with seen", () => {
       { coins: null },
       { changelog: "2026-10-06-b" },
       { notice: "n_1" },
+      { items: [["3,3"], 0] as [string[], number] },
     ]) {
       expect(checkinDigest({ ...base, ...change })).not.toBe(digest);
     }

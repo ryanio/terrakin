@@ -1,3 +1,4 @@
+import type { Crop, GoodKind, ItemKind, StackKind } from "./items";
 import type { Look, Pattern, Theme, WearItem } from "./looks";
 
 /** Stable id for a resident (human or agent). Assigned by the server, opaque to the sim. */
@@ -7,7 +8,28 @@ export type ResidentKind = "human" | "agent";
 
 export type Direction = "n" | "s" | "e" | "w";
 
-export const BLOCK_KINDS = ["wood", "stone", "glass", "leaf"] as const;
+/**
+ * What can be placed. The first four are building blocks. `planter` holds a crop, and `kitchen`
+ * and `workbench` are stations to craft at (RFC 0005). All are placed for free, like any block.
+ */
+export const BLOCK_KINDS = [
+  "wood",
+  "stone",
+  "glass",
+  "leaf",
+  "planter",
+  "kitchen",
+  "workbench",
+] as const;
+
+/** The blocks a Town Hall `commons_build` may place: the four building blocks, no stations. */
+export const BUILDING_BLOCKS = [
+  "wood",
+  "stone",
+  "glass",
+  "leaf",
+] as const satisfies readonly (typeof BLOCK_KINDS)[number][];
+export type BuildingBlock = (typeof BUILDING_BLOCKS)[number];
 
 /** How a resident looks. Plain color words so agents and humans can pick without a palette. */
 export const RESIDENT_COLORS = [
@@ -123,7 +145,7 @@ export type ProposalStatus = (typeof PROPOSAL_STATUSES)[number];
 export interface PlannedBlock {
   x: number;
   y: number;
-  block: BlockKind;
+  block: BuildingBlock;
 }
 
 export interface Proposal {
@@ -206,7 +228,77 @@ export interface WorldState {
    * always have. Purses are private: only the treasury is public.
    */
   economy?: EconomyState;
+  /**
+   * Growing, making, and giving (RFC 0005). Absent until `open_items`, so worlds from before items
+   * hash as they always have. Inventories are private, like purses; crops are public.
+   */
+  items?: ItemsState;
 }
+
+/** A made thing. It keeps its maker and the day it was made wherever it goes. */
+export interface Good {
+  /** `i_1`, `i_2`, ... from the world's counter. */
+  id: string;
+  kind: GoodKind;
+  maker: ResidentId;
+  madeDay: number;
+  /** The maker's label. Untrusted text, cleaned by the server before it was logged. */
+  label?: string;
+}
+
+/** What one resident holds. */
+export interface Inventory {
+  /** Counts of things that stack. A kind at 0 is absent. */
+  stacks: Partial<Record<StackKind, number>>;
+  /** Made things, in the order they arrived. */
+  goods: Good[];
+}
+
+/** A crop in a planter. */
+export interface Planting {
+  crop: Crop;
+  /** Who planted it. Anyone who can build on the plot may harvest it. */
+  by: ResidentId;
+  plantedDay: number;
+  /** It's ready once this day starts. */
+  readyDay: number;
+}
+
+export interface ItemsToday {
+  /** Things each resident gave today, outside owner pairs. */
+  given: Record<ResidentId, number>;
+  /** Things each resident received in gifts today, outside owner pairs. */
+  received: Record<ResidentId, number>;
+  /** Things each resident made today. */
+  crafted: Record<ResidentId, number>;
+}
+
+export interface ItemsState {
+  /** The number in the next made thing's id. */
+  nextId: number;
+  /** Each resident's things. Absent until they first hold something. */
+  inventories: Record<ResidentId, Inventory>;
+  /** Crops growing in planters, keyed by tileKey(x, y). */
+  crops: Record<string, Planting>;
+  /** The last day each resident had the pantry. Absent until their first. */
+  pantry: Record<ResidentId, number>;
+  /** Today's counters for the daily caps. Reset at each `new_day`. */
+  today: ItemsToday;
+}
+
+/** Why an inventory changed. */
+export const INVENTORY_REASONS = [
+  /** The first pantry: starter seeds and staples. */
+  "starter",
+  /** The daily pantry: sugar and jars. */
+  "pantry",
+  "plant",
+  "harvest",
+  "craft",
+  "gift_in",
+  "gift_out",
+] as const;
+export type InventoryReason = (typeof INVENTORY_REASONS)[number];
 
 /** Why coins moved. Every ledger line and coin event carries one. */
 export const COIN_REASONS = [
@@ -315,6 +407,12 @@ export type Command =
   | { type: "withdraw"; proposal: string }
   /** `note` is untrusted text the server cleaned before logging it. */
   | { type: "give_coins"; to: ResidentId; amount: number; note?: string }
+  // Growing, making, and giving (RFC 0005). `label` and `note` are untrusted text the server
+  // cleaned before logging it.
+  | { type: "plant"; x: number; y: number; seed: Crop }
+  | { type: "harvest"; x: number; y: number }
+  | { type: "craft"; recipe: GoodKind; x: number; y: number; label?: string }
+  | { type: "give"; item: string; to: ResidentId; count?: number; note?: string }
   // Only the server sends these, as TOWN_ACTOR.
   | { type: "new_day"; day: number }
   | { type: "set_townsfolk"; ids: ResidentId[] }
@@ -325,7 +423,8 @@ export type Command =
   /** One owner pair linked or unlinked, so the log grows by one pair per change, not the list. */
   | { type: "add_owner_pair"; pair: [ResidentId, ResidentId] }
   | { type: "remove_owner_pair"; pair: [ResidentId, ResidentId] }
-  | { type: "set_maintainers"; ids: ResidentId[] };
+  | { type: "set_maintainers"; ids: ResidentId[] }
+  | { type: "open_items" };
 
 export type CommandType = Command["type"];
 
@@ -346,6 +445,7 @@ export const SERVER_COMMANDS = [
   "add_owner_pair",
   "remove_owner_pair",
   "set_maintainers",
+  "open_items",
 ] as const satisfies readonly CommandType[];
 
 /** A command plus who issued it. This is the unit the server logs and replays. */
@@ -440,7 +540,40 @@ export type WorldEvent =
   | { type: "owner_pairs_set"; pairs: [ResidentId, ResidentId][] }
   | { type: "owner_pair_added"; pair: [ResidentId, ResidentId] }
   | { type: "owner_pair_removed"; pair: [ResidentId, ResidentId] }
-  | { type: "maintainers_set"; ids: ResidentId[] };
+  | { type: "maintainers_set"; ids: ResidentId[] }
+  | { type: "items_opened" }
+  /** A seed went into a planter. Public: crops show in the world. */
+  | {
+      type: "planted";
+      x: number;
+      y: number;
+      crop: Crop;
+      by: ResidentId;
+      plantedDay: number;
+      readyDay: number;
+    }
+  /** A crop came out of a planter. Public. */
+  | { type: "harvested"; x: number; y: number; crop: Crop; by: ResidentId }
+  /** Someone gave someone a thing. Public, without the count or the note. */
+  | { type: "item_given"; from: ResidentId; to: ResidentId; kind: ItemKind }
+  /**
+   * One resident's things changed. Private: it belongs to `residentId` alone, and the server sends
+   * it only to them. A gift makes two, one for each side.
+   */
+  | {
+      type: "inventory";
+      residentId: ResidentId;
+      reason: InventoryReason;
+      /** Stacks that changed: signed `amount`, and the `count` held after. */
+      changes?: { kind: StackKind; amount: number; count: number }[];
+      /** Made things that arrived. */
+      gained?: Good[];
+      /** Ids of made things that left. */
+      lost?: string[];
+      /** The other side of a gift. */
+      with?: ResidentId;
+      note?: string;
+    };
 
 export const REJECTION_CODES = [
   "not_joined",
@@ -480,6 +613,16 @@ export const REJECTION_CODES = [
   "not_enough_coins",
   "gift_limit",
   "nowhere_to_go",
+  "items_closed",
+  "unknown_item",
+  "no_planter",
+  "no_crop",
+  "not_ready",
+  "no_station",
+  "not_enough_items",
+  "inventory_full",
+  "craft_limit",
+  "invalid_label",
 ] as const;
 export type RejectionCode = (typeof REJECTION_CODES)[number];
 

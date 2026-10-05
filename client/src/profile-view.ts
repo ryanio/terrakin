@@ -9,6 +9,7 @@ import {
   type GestureKind,
   HANDLE_RENAME_DAYS,
   HandleInput,
+  ITEM_RULES,
   type PostView,
   type ProfileView,
   type ResidentBrief,
@@ -44,6 +45,7 @@ import { plotPhotoButton } from "./plot-photo";
 import { postCard, skeletonCards } from "./post-card";
 import { coins, refreshPurse } from "./purse";
 import { openReportSheet } from "./report-sheet";
+import { thingCount, thingName } from "./things";
 import { GESTURES, gestureInfo, streakLine } from "./together";
 import { errorCard, notFoundCard, type View, type ViewContext } from "./view";
 import { xRow } from "./x-connect";
@@ -641,6 +643,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       row,
       giftForm,
       coinGift(r),
+      thingGift(r),
       streak,
       h(
         "a",
@@ -746,6 +749,130 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       refreshPurse(true);
     });
     return h("div", { class: "coin-gift" }, open, form);
+  }
+
+  /**
+   * Give a thing (RFC 0005): a button that opens a small form listing what you hold, with a count
+   * for things that stack and an optional note. The server and the sim check every limit.
+   */
+  function thingGift(r: ProfileView): HTMLElement {
+    const pick = h("select", { class: "field-input", attrs: { id: "thing-pick" } });
+    const count = h("input", {
+      class: "field-input coin-amount",
+      attrs: {
+        id: "thing-count",
+        type: "number",
+        inputmode: "numeric",
+        min: 1,
+        max: ITEM_RULES.giveCountMax,
+        step: 1,
+        value: "1",
+      },
+    });
+    const note = h("input", {
+      class: "field-input",
+      attrs: {
+        id: "thing-note",
+        maxlength: ITEM_RULES.noteMax,
+        placeholder: "Picked this morning",
+        enterkeyhint: "send",
+        autocomplete: "off",
+      },
+    });
+    const give = h("button", {
+      class: "btn-primary small",
+      attrs: { type: "submit" },
+      text: "Give",
+    });
+    const status = h("p", { class: "field-hint", attrs: { id: "thing-hint" } });
+    const countRow = h(
+      "div",
+      { class: "coin-row" },
+      h("label", { class: "field-label", attrs: { for: "thing-count" }, text: "How many?" }),
+      count,
+    );
+    const form = h(
+      "form",
+      { class: "thing-form", attrs: { id: "thing-form", hidden: true, novalidate: true } },
+      h("label", { class: "field-label", attrs: { for: "thing-pick" }, text: "What to give" }),
+      pick,
+      countRow,
+      h("label", { class: "field-label", attrs: { for: "thing-note" }, text: "Note (optional)" }),
+      h("div", { class: "gift-row" }, note, give),
+      status,
+    );
+    const open = h(
+      "button",
+      {
+        class: "pill-button thing-open",
+        attrs: {
+          type: "button",
+          id: "thing-open",
+          "aria-expanded": "false",
+          "aria-controls": "thing-form",
+        },
+      },
+      icon("gift"),
+      h("span", { text: "Give a thing" }),
+    );
+    /** Made things go by id; stacks by kind, with a count. */
+    const stacked = new Set<string>();
+    const syncCount = () => {
+      countRow.hidden = !stacked.has(pick.value);
+    };
+    pick.addEventListener("change", syncCount);
+    async function fill() {
+      pick.replaceChildren();
+      stacked.clear();
+      status.textContent = "Looking in your things…";
+      const res = await api.inventory();
+      if (destroyed) return;
+      if (!res.ok) {
+        status.textContent = res.message;
+        return;
+      }
+      const inv = res.data.inventory;
+      for (const g of inv?.goods ?? []) {
+        // A label is someone's words: it goes in as text.
+        const text = g.label ? `${thingName(g.kind)} “${g.label}”` : thingName(g.kind);
+        pick.append(h("option", { attrs: { value: g.id }, text }));
+      }
+      for (const s of inv?.stacks ?? []) {
+        stacked.add(s.kind);
+        pick.append(h("option", { attrs: { value: s.kind }, text: thingCount(s.kind, s.count) }));
+      }
+      const empty = pick.options.length === 0;
+      give.toggleAttribute("disabled", empty);
+      status.textContent = empty
+        ? "You have nothing to give yet. Grow or make something first."
+        : `Up to ${ITEM_RULES.giveCap} things a day. ${r.name} sees the note. Only give because you want to.`;
+      syncCount();
+    }
+    // What you hold is read fresh each time the form opens.
+    const toggle = disclosure(open, form, pick, (shown) => {
+      if (shown) void fill().then(() => pick.focus());
+    });
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const item = pick.value;
+      if (!item) return;
+      const n = Number(count.value);
+      const many = stacked.has(item) && Number.isInteger(n) && n > 1 ? { count: n } : {};
+      const text = note.value.trim();
+      const res = await whileBusy(give, () =>
+        api.act({ type: "give", item, to: r.id, ...many, ...(text ? { note: text } : {}) }),
+      );
+      if (destroyed) return;
+      const problem = actProblem(res);
+      if (problem) return toast(problem);
+      floatUp(open, "🎁");
+      toast(`You gave ${r.name} a gift`);
+      note.value = "";
+      count.value = "1";
+      toggle.close();
+      open.focus();
+    });
+    return h("div", { class: "thing-gift" }, open, form);
   }
 
   /** "…" with Block (or Unblock). The first tap asks, the second does it. */

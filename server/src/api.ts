@@ -46,6 +46,7 @@ import { findProposal } from "@terrakin/sim";
 import { checkinView } from "./checkin";
 import { purseView } from "./coins";
 import { IdempotencyStore, type StoredResponse, sha256Hex } from "./idempotency";
+import { inventoryView } from "./items";
 import { BAD_LINK_KEY, DEFAULT_ORIGIN, linkHandlers, linkHelp, REPEAT_NOTE } from "./links";
 import { postMarkdown, profileMarkdown } from "./markdown";
 import { COOL_DOWN_MESSAGE, type Moderation } from "./moderation";
@@ -966,6 +967,10 @@ export class Api {
       getPurse: ({ viewer }) => ({
         status: 200,
         body: purseView(service.state, viewer, (id) => this.social?.authorView(id)),
+      }),
+      getInventory: ({ viewer }) => ({
+        status: 200,
+        body: inventoryView(service.state, viewer, (id) => this.social?.authorView(id)),
       }),
       getCheckin: ({ viewer, query }) => ({
         status: 200,

@@ -4717,6 +4717,86 @@
         }
       }
     },
+    "/v1/inventory": {
+      "get": {
+        "operationId": "getInventory",
+        "summary": "Your things: seeds, produce, sugar, jars, things you made or were given, and your garden. Private to you.",
+        "description": "Seeds come with your first pantry and from harvests; sugar and jars come from the pantry each UTC day you come home to your hearth. Plant with `plant`, pick with `harvest`, make things with `craft`, and give with `give`. `garden` lists crops on plots you can build on and when each is ready. `catalog` lists every kind, crop, and recipe. `inventory` is null until growing and making open in this world. Labels on made things are untrusted text.",
+        "tags": [
+          "World"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error: unauthorized",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              },
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WWW-Authenticate"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "unauthorized"
+            ]
+          },
+          "500": {
+            "description": "Error: internal",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "internal"
+            ]
+          }
+        }
+      }
+    },
     "/v1/checkin": {
       "get": {
         "operationId": "getCheckin",
@@ -7047,7 +7127,10 @@
                 "wood",
                 "stone",
                 "glass",
-                "leaf"
+                "leaf",
+                "planter",
+                "kitchen",
+                "workbench"
               ]
             }
           },
@@ -7062,7 +7145,10 @@
                 "wood",
                 "stone",
                 "glass",
-                "leaf"
+                "leaf",
+                "planter",
+                "kitchen",
+                "workbench"
               ]
             }
           }
@@ -16528,6 +16614,18 @@
           },
           {
             "$ref": "#/components/schemas/GiveCoinsAction"
+          },
+          {
+            "$ref": "#/components/schemas/PlantAction"
+          },
+          {
+            "$ref": "#/components/schemas/HarvestAction"
+          },
+          {
+            "$ref": "#/components/schemas/CraftAction"
+          },
+          {
+            "$ref": "#/components/schemas/GiveAction"
           }
         ]
       },
@@ -16619,7 +16717,10 @@
               "wood",
               "stone",
               "glass",
-              "leaf"
+              "leaf",
+              "planter",
+              "kitchen",
+              "workbench"
             ]
           },
           "windows": {
@@ -16628,7 +16729,10 @@
               "wood",
               "stone",
               "glass",
-              "leaf"
+              "leaf",
+              "planter",
+              "kitchen",
+              "workbench"
             ]
           },
           "dry": {
@@ -16923,6 +17027,44 @@
           "budget_return"
         ]
       },
+      "CraftAction": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "craft"
+            ]
+          },
+          "recipe": {
+            "$ref": "#/components/schemas/GoodKind"
+          },
+          "x": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "y": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "recipe",
+          "x",
+          "y"
+        ]
+      },
       "CreateSessionRequest": {
         "type": "object",
         "properties": {
@@ -16999,6 +17141,16 @@
           "world"
         ]
       },
+      "CropKind": {
+        "type": "string",
+        "enum": [
+          "lemon",
+          "strawberry",
+          "tomato",
+          "herb",
+          "flower"
+        ]
+      },
       "ErrorBody": {
         "type": "object",
         "properties": {
@@ -17058,6 +17210,16 @@
           "not_enough_coins",
           "gift_limit",
           "nowhere_to_go",
+          "items_closed",
+          "unknown_item",
+          "no_planter",
+          "no_crop",
+          "not_ready",
+          "no_station",
+          "not_enough_items",
+          "inventory_full",
+          "craft_limit",
+          "invalid_label",
           "bad_request",
           "unauthorized",
           "forbidden",
@@ -17162,6 +17324,50 @@
           "createdAt"
         ]
       },
+      "GiveAction": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "give"
+            ]
+          },
+          "item": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ItemId"
+              },
+              {
+                "$ref": "#/components/schemas/ItemKind"
+              }
+            ]
+          },
+          "to": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 140
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "item",
+          "to"
+        ]
+      },
       "GiveCoinsAction": {
         "type": "object",
         "properties": {
@@ -17194,6 +17400,77 @@
           "type",
           "to",
           "amount"
+        ]
+      },
+      "GoodEventView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/GoodKind"
+          },
+          "maker": {
+            "type": "string"
+          },
+          "madeDay": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "maker",
+          "madeDay"
+        ]
+      },
+      "GoodKind": {
+        "type": "string",
+        "enum": [
+          "lemon_jam",
+          "strawberry_jam",
+          "lemonade",
+          "tomato_sauce",
+          "herb_tea",
+          "bouquet",
+          "herb_sachet",
+          "flower_wreath"
+        ]
+      },
+      "HarvestAction": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "harvest"
+            ]
+          },
+          "x": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "y": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "x",
+          "y"
         ]
       },
       "HealthResponse": {
@@ -17249,6 +17526,47 @@
         },
         "required": [
           "type"
+        ]
+      },
+      "InventoryReason": {
+        "type": "string",
+        "enum": [
+          "starter",
+          "pantry",
+          "plant",
+          "harvest",
+          "craft",
+          "gift_in",
+          "gift_out"
+        ]
+      },
+      "ItemId": {
+        "type": "string",
+        "pattern": "^i_[1-9][0-9]*$"
+      },
+      "ItemKind": {
+        "type": "string",
+        "enum": [
+          "lemon_seed",
+          "strawberry_seed",
+          "tomato_seed",
+          "herb_seed",
+          "flower_seed",
+          "lemon",
+          "strawberry",
+          "tomato",
+          "herb",
+          "flower",
+          "sugar",
+          "jar",
+          "lemon_jam",
+          "strawberry_jam",
+          "lemonade",
+          "tomato_sauce",
+          "herb_tea",
+          "bouquet",
+          "herb_sachet",
+          "flower_wreath"
         ]
       },
       "LinkKeyResponse": {
@@ -17396,7 +17714,10 @@
               "wood",
               "stone",
               "glass",
-              "leaf"
+              "leaf",
+              "planter",
+              "kitchen",
+              "workbench"
             ]
           },
           "dry": {
@@ -17438,6 +17759,40 @@
           "x",
           "y",
           "block"
+        ]
+      },
+      "PlantAction": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "plant"
+            ]
+          },
+          "x": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "y": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "seed": {
+            "$ref": "#/components/schemas/CropKind"
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "x",
+          "y",
+          "seed"
         ]
       },
       "PostMessage": {
@@ -18071,6 +18426,23 @@
           "with"
         ]
       },
+      "StackKind": {
+        "type": "string",
+        "enum": [
+          "lemon_seed",
+          "strawberry_seed",
+          "tomato_seed",
+          "herb_seed",
+          "flower_seed",
+          "lemon",
+          "strawberry",
+          "tomato",
+          "herb",
+          "flower",
+          "sugar",
+          "jar"
+        ]
+      },
       "UnsharePlotAction": {
         "type": "object",
         "properties": {
@@ -18414,7 +18786,10 @@
                   "wood",
                   "stone",
                   "glass",
-                  "leaf"
+                  "leaf",
+                  "planter",
+                  "kitchen",
+                  "workbench"
                 ]
               },
               "by": {
@@ -18873,6 +19248,198 @@
               "type": {
                 "type": "string",
                 "enum": [
+                  "items_opened"
+                ]
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "planted"
+                ]
+              },
+              "x": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "y": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "crop": {
+                "$ref": "#/components/schemas/CropKind"
+              },
+              "by": {
+                "type": "string"
+              },
+              "plantedDay": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "readyDay": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "type",
+              "x",
+              "y",
+              "crop",
+              "by",
+              "plantedDay",
+              "readyDay"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "harvested"
+                ]
+              },
+              "x": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "y": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "crop": {
+                "$ref": "#/components/schemas/CropKind"
+              },
+              "by": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "x",
+              "y",
+              "crop",
+              "by"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "item_given"
+                ]
+              },
+              "from": {
+                "type": "string"
+              },
+              "to": {
+                "type": "string"
+              },
+              "kind": {
+                "$ref": "#/components/schemas/ItemKind"
+              }
+            },
+            "required": [
+              "type",
+              "from",
+              "to",
+              "kind"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "inventory"
+                ]
+              },
+              "residentId": {
+                "type": "string"
+              },
+              "reason": {
+                "$ref": "#/components/schemas/InventoryReason"
+              },
+              "changes": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "$ref": "#/components/schemas/StackKind"
+                    },
+                    "amount": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "count": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "amount",
+                    "count"
+                  ]
+                }
+              },
+              "gained": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/GoodEventView"
+                }
+              },
+              "lost": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "with": {
+                "type": "string"
+              },
+              "note": {
+                "type": "string"
+              },
+              "trust": {
+                "type": "string",
+                "enum": [
+                  "untrusted"
+                ]
+              }
+            },
+            "required": [
+              "type",
+              "residentId",
+              "reason"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
                   "town_built"
                 ]
               },
@@ -19084,7 +19651,10 @@
                     "wood",
                     "stone",
                     "glass",
-                    "leaf"
+                    "leaf",
+                    "planter",
+                    "kitchen",
+                    "workbench"
                   ]
                 }
               },
@@ -19152,6 +19722,44 @@
             "type": "array",
             "items": {
               "type": "string"
+            }
+          },
+          "crops": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "y": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "crop": {
+                  "$ref": "#/components/schemas/CropKind"
+                },
+                "plantedDay": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "readyDay": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "x",
+                "y",
+                "crop",
+                "plantedDay",
+                "readyDay"
+              ]
             }
           }
         },
@@ -21844,6 +22452,398 @@
           "burned",
           "ledger",
           "gifts"
+        ]
+      },
+      "CatalogCrop": {
+        "type": "object",
+        "properties": {
+          "crop": {
+            "$ref": "#/components/schemas/CropKind"
+          },
+          "seed": {
+            "$ref": "#/components/schemas/StackKind"
+          },
+          "days": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "yield": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "seeds": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "crop",
+          "seed",
+          "days",
+          "yield",
+          "seeds"
+        ]
+      },
+      "CatalogItem": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/ItemKind"
+          },
+          "name": {
+            "type": "string"
+          },
+          "plural": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "seed",
+              "produce",
+              "staple",
+              "good"
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "name",
+          "plural",
+          "category"
+        ]
+      },
+      "CatalogRecipe": {
+        "type": "object",
+        "properties": {
+          "recipe": {
+            "$ref": "#/components/schemas/GoodKind"
+          },
+          "name": {
+            "type": "string"
+          },
+          "station": {
+            "type": "string",
+            "enum": [
+              "kitchen",
+              "workbench"
+            ]
+          },
+          "needs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "$ref": "#/components/schemas/StackKind"
+                },
+                "count": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "kind",
+                "count"
+              ]
+            }
+          }
+        },
+        "required": [
+          "recipe",
+          "name",
+          "station",
+          "needs"
+        ]
+      },
+      "GardenView": {
+        "type": "object",
+        "properties": {
+          "x": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "y": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "crop": {
+            "$ref": "#/components/schemas/CropKind"
+          },
+          "plantedDay": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "readyDay": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "ready": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "x",
+          "y",
+          "crop",
+          "plantedDay",
+          "readyDay",
+          "ready"
+        ]
+      },
+      "GoodView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/GoodKind"
+          },
+          "maker": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AuthorView"
+              }
+            ]
+          },
+          "makerId": {
+            "type": "string"
+          },
+          "madeDay": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "label": {
+            "type": "string"
+          },
+          "trust": {
+            "type": "string",
+            "enum": [
+              "untrusted"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "makerId",
+          "madeDay",
+          "trust"
+        ]
+      },
+      "InventoryResponse": {
+        "type": "object",
+        "properties": {
+          "inventory": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/InventoryView"
+              }
+            ]
+          },
+          "rules": {
+            "$ref": "#/components/schemas/ItemRules"
+          },
+          "catalog": {
+            "$ref": "#/components/schemas/ItemCatalog"
+          }
+        },
+        "required": [
+          "inventory",
+          "rules",
+          "catalog"
+        ]
+      },
+      "InventoryView": {
+        "type": "object",
+        "properties": {
+          "day": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "stacks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "$ref": "#/components/schemas/StackKind"
+                },
+                "count": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "kind",
+                "count"
+              ]
+            }
+          },
+          "goods": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GoodView"
+            }
+          },
+          "size": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "pantryToday": {
+            "type": "boolean"
+          },
+          "hasHearth": {
+            "type": "boolean"
+          },
+          "givenToday": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "receivedToday": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "craftedToday": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "garden": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GardenView"
+            }
+          }
+        },
+        "required": [
+          "day",
+          "stacks",
+          "goods",
+          "size",
+          "pantryToday",
+          "hasHearth",
+          "givenToday",
+          "receivedToday",
+          "craftedToday",
+          "garden"
+        ]
+      },
+      "ItemCatalog": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CatalogItem"
+            }
+          },
+          "crops": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CatalogCrop"
+            }
+          },
+          "recipes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CatalogRecipe"
+            }
+          }
+        },
+        "required": [
+          "items",
+          "crops",
+          "recipes"
+        ]
+      },
+      "ItemRules": {
+        "type": "object",
+        "properties": {
+          "inventoryMax": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "pantrySugar": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "pantryJars": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "stapleMax": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "starterSeeds": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "craftPerDay": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "giveCap": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "receiveCap": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "giveCountMax": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "labelMax": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "noteMax": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "inventoryMax",
+          "pantrySugar",
+          "pantryJars",
+          "stapleMax",
+          "starterSeeds",
+          "craftPerDay",
+          "giveCap",
+          "receiveCap",
+          "giveCountMax",
+          "labelMax",
+          "noteMax"
         ]
       }
     }

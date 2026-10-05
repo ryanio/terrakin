@@ -1,7 +1,14 @@
 import {
   BLOCK_KINDS,
+  BUILDING_BLOCKS,
   COIN_REASONS,
+  CROPS,
   ECONOMY,
+  GOOD_KINDS,
+  INVENTORY_REASONS,
+  ITEM_ID_PATTERN,
+  ITEM_KINDS,
+  ITEMS,
   MAX_WEAR,
   MEDIA_ID_PATTERN,
   NAME_MAX_LENGTH,
@@ -12,6 +19,7 @@ import {
   REJECTION_CODES,
   RESIDENT_COLORS,
   RESIDENT_SHAPES,
+  STACK_KINDS,
   THEMES,
   TOWN_LIMITS,
   VOTE_CHOICES,
@@ -178,7 +186,8 @@ export const ProposalStatus = z.enum(PROPOSAL_STATUSES);
 const proposalRef = z.string().min(1).max(32);
 const tile = z.object({ x: coord, y: coord });
 /** One block a build places in the Commons. */
-export const PlannedBlock = z.object({ x: coord, y: coord, block: z.enum(BLOCK_KINDS) });
+/** One block a build places in the Commons: wood, stone, glass, or leaf. */
+export const PlannedBlock = z.object({ x: coord, y: coord, block: z.enum(BUILDING_BLOCKS) });
 /**
  * Put something to the town. An `advisory` is words only; a `commons_build` places `blocks` (and
  * takes away `remove`) in the Commons if it passes. Title and text are untrusted text.
@@ -222,6 +231,70 @@ export const GiveCoinsAction = z.object({
   ...dry,
 });
 
+// ---------- Growing, making, and giving (RFC 0005) ----------
+
+/** What grows in a planter. */
+export const CropKind = z.enum(CROPS);
+export type CropKind = z.infer<typeof CropKind>;
+/** Everything a resident can hold. */
+export const ItemKind = z.enum(ITEM_KINDS);
+/** Things that stack: seeds, produce, sugar, and jars. */
+export const StackKind = z.enum(STACK_KINDS);
+/** Made things, one recipe each. */
+export const GoodKind = z.enum(GOOD_KINDS);
+export const InventoryReason = z.enum(INVENTORY_REASONS);
+/** A made thing's id: `i_` and a number. */
+export const ItemId = z.string().regex(ITEM_ID_PATTERN);
+
+/** Put one of your seeds into an empty planter on your plot (or one shared with you), within reach. */
+export const PlantAction = z.object({
+  type: z.literal("plant"),
+  x: coord,
+  y: coord,
+  seed: CropKind,
+  ...dry,
+});
+/** Pick a ready crop from a planter on your plot (or one shared with you), within reach. */
+export const HarvestAction = z.object({
+  type: z.literal("harvest"),
+  x: coord,
+  y: coord,
+  ...dry,
+});
+/**
+ * Make something at the station on (x, y), within reach: a `kitchen` or a `workbench`. `label` is
+ * your own name for it, untrusted text that travels with it.
+ */
+export const CraftAction = z.object({
+  type: z.literal("craft"),
+  recipe: GoodKind,
+  x: coord,
+  y: coord,
+  label: z.string().trim().max(ITEMS.labelMax).optional(),
+  ...dry,
+});
+/**
+ * Give something to another resident: a made thing by id, or by kind (`count` of a stack, or your
+ * oldest `count` of a made kind). Only ever because your owner wants it.
+ */
+export const GiveAction = z.object({
+  type: z.literal("give"),
+  item: z.union([ItemId, ItemKind]),
+  to: residentRef,
+  count: z.number().int().min(1).max(ITEMS.giveCountMax).optional(),
+  note: z.string().trim().max(ITEMS.noteMax).optional(),
+  ...dry,
+});
+
+/** A made thing as an event carries it. `label` is the maker's words: untrusted text. */
+export const GoodEventView = z.object({
+  id: z.string(),
+  kind: GoodKind,
+  maker: z.string(),
+  madeDay: z.number().int(),
+  label: z.string().optional(),
+});
+
 /** `nearby` (default) reaches residents within earshot; `world` reaches everyone online. */
 export const ChatChannel = z.enum(["nearby", "world"]);
 export type ChatChannel = z.infer<typeof ChatChannel>;
@@ -251,6 +324,10 @@ export const Action = z.discriminatedUnion("type", [
   VoteAction,
   WithdrawAction,
   GiveCoinsAction,
+  PlantAction,
+  HarvestAction,
+  CraftAction,
+  GiveAction,
 ]);
 export type Action = z.infer<typeof Action>;
 export const ACTION_TYPES = Action.options.map((o) => o.shape.type.value);
@@ -323,6 +400,18 @@ export const WorldSnapshot = z.object({
     .optional(),
   /** Ids of the founding townsfolk: residents the Terrakin team runs. Absent when there are none. */
   townsfolk: z.array(z.string()).optional(),
+  /** Crops growing in planters. Ready once `day` reaches `readyDay`. Absent when there are none. */
+  crops: z
+    .array(
+      z.object({
+        x: z.number().int(),
+        y: z.number().int(),
+        crop: CropKind,
+        plantedDay: z.number().int(),
+        readyDay: z.number().int(),
+      }),
+    )
+    .optional(),
 });
 export type WorldSnapshot = z.infer<typeof WorldSnapshot>;
 
@@ -456,6 +545,46 @@ export const WorldEvent = z.discriminatedUnion("type", [
    * else; there's nothing to draw.
    */
   z.object({ type: z.literal("quiet") }),
+  // Growing, making, and giving (RFC 0005). Crops are public; inventories are private.
+  z.object({ type: z.literal("items_opened") }),
+  /** A seed went into a planter. It's ready once the world's day reaches `readyDay`. */
+  z.object({
+    type: z.literal("planted"),
+    x: z.number().int(),
+    y: z.number().int(),
+    crop: CropKind,
+    by: z.string(),
+    plantedDay: z.number().int(),
+    readyDay: z.number().int(),
+  }),
+  z.object({
+    type: z.literal("harvested"),
+    x: z.number().int(),
+    y: z.number().int(),
+    crop: CropKind,
+    by: z.string(),
+  }),
+  /** Someone gave someone a thing. Public, without the count or the note. */
+  z.object({ type: z.literal("item_given"), from: z.string(), to: z.string(), kind: ItemKind }),
+  /**
+   * Your things changed. Only you get these, like `coins`. `changes` are stacks (signed `amount`,
+   * and the `count` you hold after), `gained` made things that arrived, `lost` ids that left.
+   * `note` (a gift's note) and the `label` on a made thing are another resident's words.
+   */
+  z.object({
+    type: z.literal("inventory"),
+    residentId: z.string(),
+    reason: InventoryReason,
+    changes: z
+      .array(z.object({ kind: StackKind, amount: z.number().int(), count: z.number().int() }))
+      .optional(),
+    gained: z.array(GoodEventView).optional(),
+    lost: z.array(z.string()).optional(),
+    with: z.string().optional(),
+    note: z.string().optional(),
+    /** Present with a `note` or a label: it's another resident's words. */
+    trust: z.literal("untrusted").optional(),
+  }),
   z.object({
     type: z.literal("town_built"),
     proposal: z.string(),

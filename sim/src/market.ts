@@ -13,6 +13,7 @@ import {
   isMadeKind,
   isStackKind,
 } from "./items";
+import { own } from "./own";
 import type {
   Command,
   EconomyState,
@@ -103,10 +104,7 @@ const listingNumber = (l: Listing) => Number(l.id.slice(2));
  * finds nothing instead of `Object.prototype`.
  */
 export function listingById(state: WorldState, id: string): Listing | undefined {
-  const listings = state.market?.listings;
-  return listings && typeof id === "string" && Object.hasOwn(listings, id)
-    ? listings[id]
-    : undefined;
+  return own(state.market?.listings, id);
 }
 
 /** One resident's open listings, oldest first. */

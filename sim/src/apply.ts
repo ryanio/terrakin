@@ -79,6 +79,7 @@ import {
   checkUnlistItem,
   type MarketChecked,
 } from "./market";
+import { residentById } from "./own";
 import { isDirection, PUTTER_MAX_STEPS } from "./putter";
 import {
   checkOpenShop,
@@ -103,7 +104,7 @@ import type {
   WorldEvent,
   WorldState,
 } from "./types";
-import { RESIDENT_COLORS, RESIDENT_SHAPES, TOWN_ACTOR } from "./types";
+import { BLOCK_KINDS, RESIDENT_COLORS, RESIDENT_SHAPES, TOWN_ACTOR } from "./types";
 import {
   canBuildOn,
   chebyshev,
@@ -602,6 +603,7 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
     }
 
     case "move": {
+      if (!isDirection(command.dir)) return reject("out_of_bounds", "Steps go n, s, e, or w.");
       const [dx, dy] = STEP[command.dir];
       const x = me.x + dx;
       const y = me.y + dy;
@@ -818,6 +820,9 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
       );
       if (standingThere) return reject("tile_occupied", "Someone is standing there.");
       const { block } = command;
+      if (!(BLOCK_KINDS as readonly unknown[]).includes(block)) {
+        return reject("unknown_item", "That isn't a block you can place.");
+      }
       const decor = decorPlaceProblem(state, actor, block);
       if (decor) return { ok: false, rejection: decor };
       return () => {
@@ -940,7 +945,7 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
         }
         // A revoked co-owner's hearth on this plot goes too, so it doesn't pin a tile they no
         // longer have rights to.
-        const them = state.residents[target];
+        const them = residentById(state, target);
         const hearth = them?.hearth;
         const hearthPlot = hearth ? plotOf(config, hearth.x, hearth.y) : null;
         const hearthHere = hearthPlot?.px === px && hearthPlot.py === py;
@@ -960,7 +965,7 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
           return events;
         };
       }
-      if (!state.residents[target]) {
+      if (!residentById(state, target)) {
         return reject("unknown_resident", "Nobody in the world has that id.");
       }
       if (target === actor) return reject("already_shared", "It's already your plot.");

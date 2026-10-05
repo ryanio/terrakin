@@ -11,6 +11,14 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "links": []
   },
   {
+    "id": "2026-10-05-ids-that-name-what-every-javascript-object-has-are-refused-e",
+    "date": "2026-10-05",
+    "kind": "security",
+    "title": "Ids that name what every JavaScript object has are refused everywhere",
+    "body": "An id like `__proto__`, `constructor`, or `toString` in a path, query, report, or action (`to`, `with`, `gift`, `proposal`, `listing`, `bounty`, `item`) now finds nobody: `not_found`, `unknown_resident`, or the action's own refusal.\nBefore, some reached the world and failed with `internal` (`GET /v1/residents/__proto__` did).",
+    "links": []
+  },
+  {
     "id": "2026-10-05-taking-down-someone-else-s-thing-no-longer-waits-for-their-r",
     "date": "2026-10-05",
     "kind": "changed",

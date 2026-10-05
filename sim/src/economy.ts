@@ -1,4 +1,5 @@
 import { coinCount as coins, isWhole, refuse } from "./check";
+import { residentById } from "./own";
 import type {
   CoinReason,
   Command,
@@ -407,7 +408,7 @@ function checkDailyAwards(
   for (const award of awards) {
     const { to, amount, reason } = award ?? {};
     if (reason !== "appreciation") return refuse("server_only", "Unknown award reason.");
-    if (typeof to !== "string" || !state.residents[to] || seen.has(to)) {
+    if (!residentById(state, to) || seen.has(to as ResidentId)) {
       return refuse("server_only", "Each award goes to a different resident who exists.");
     }
     if (isTownsfolk(state, to)) return refuse("server_only", "Townsfolk don't get awards.");
@@ -532,7 +533,7 @@ export function checkGive(
   if (note !== undefined && (typeof note !== "string" || note.length > ECONOMY.noteMax)) {
     return refuse("invalid_gift", `A note is text, at most ${ECONOMY.noteMax} characters.`);
   }
-  if (typeof to !== "string" || !state.residents[to]) {
+  if (!residentById(state, to)) {
     return refuse("unknown_resident", "Nobody in the world has that id.");
   }
   if (to === actor) return refuse("invalid_gift", "You can't give coins to yourself.");

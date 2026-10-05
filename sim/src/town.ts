@@ -1,6 +1,7 @@
 import { townMoneyOnPass, townMoneyProblem } from "./bounties";
 import { refuse } from "./check";
 import { tileKey } from "./keys";
+import { own } from "./own";
 import type {
   Command,
   PlannedBlock,
@@ -142,7 +143,7 @@ export function electorate(state: WorldState): ResidentId[] {
 
 /** How many proposals a resident has voted on. */
 export function votesCast(state: WorldState, id: ResidentId): number {
-  return state.town?.proposals.filter((p) => p.votes[id] !== undefined).length ?? 0;
+  return state.town?.proposals.filter((p) => own(p.votes, id) !== undefined).length ?? 0;
 }
 
 export function findProposal(state: WorldState, id: string): Proposal | undefined {

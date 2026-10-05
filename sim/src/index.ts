@@ -98,6 +98,7 @@ export {
   stallOf,
   takenDownOf,
 } from "./market";
+export { isOwnableKey, own, residentById } from "./own";
 export * from "./palette";
 export { isDirection, PUTTER, PUTTER_MAX_STEPS, planPutter } from "./putter";
 export { replay } from "./replay";

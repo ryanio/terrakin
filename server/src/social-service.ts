@@ -42,7 +42,7 @@ import {
   xIntentUrl,
   xPostText,
 } from "@terrakin/protocol";
-import { isExclusiveWear, lookOf, type Resident } from "@terrakin/sim";
+import { isExclusiveWear, isOwnableKey, lookOf, type Resident } from "@terrakin/sim";
 import { type AgentLinkOptions, AgentLinkService } from "./agent-links";
 import { imageSize, sizeFields } from "./image-size";
 import { aimedAtReader, readerMessage } from "./injection";
@@ -266,7 +266,9 @@ export class SocialService {
   constructor(options: SocialServiceOptions) {
     this.sql = options.sql;
     this.media = options.media;
-    this.resident = options.resident;
+    // Ids come from routes and bodies: one that every object inherits (`__proto__`, `toString`)
+    // is nobody, however the world's lookup is wired.
+    this.resident = (id) => (isOwnableKey(id) ? options.resident(id) : undefined);
     this.entitledTo = options.entitledTo ?? (() => []);
     this.limits = { ...DEFAULT_SOCIAL_LIMITS, ...options.limits };
     this.now = options.now ?? Date.now;

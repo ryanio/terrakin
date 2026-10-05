@@ -10,6 +10,7 @@ The rules engine. If a rule decides what's allowed in the world, it lives here a
 - **Events describe every change.** Clients mirror the world from events alone, without re-running rules. If you change state, emit an event for it.
 - **State is plain JSON data.** Records, arrays, numbers, strings. No `Map`, classes, or `undefined` values, so `canonicalJson`/`hashWorld`/`cloneWorld` stay exact.
 - **Replay must reproduce.** An accepted log replays to the same hash forever. Changing a rule that would change how existing logs replay needs an RFC ([decision 0003](../docs/knowledge/decisions/0003-deterministic-sim-with-input-log.md)).
+- **Ids from inputs are own keys.** Look a record up by an id from a command with `own(record, id)` or `residentById(state, id)` (`src/own.ts`), never `record[id]` or `id in record`: `__proto__`, `constructor`, or `toString` would find what every object inherits, and since inputs are logged, the damage would replay on every restart. Write under such an id only after it was found, or after `isOwnableKey`. `own.test.ts` throws those ids at every input that takes one.
 - **New state is absent until used.** A new field stays off old records until an input sets it, and bookkeeping without an event starts only after a new input (like the first `new_day`), so old logs keep their hash. `src/fixtures/pre-town-log.ts` pins one such hash.
 
 ## Where things are

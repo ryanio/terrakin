@@ -55,7 +55,7 @@ import type { SocialResult, SocialService } from "./social-service";
 import { count, crumb, nameRequest, report, span, task } from "./telemetry";
 import { anchorPlot, suggestPlots } from "./together";
 import { archiveView, proposalDetail, townView } from "./town";
-import type { WorldService } from "./world-service";
+import { DAY_MS, utcDay, type WorldService } from "./world-service";
 
 /**
  * The runtime-neutral front door: routes, auth, rate limits, and the `/v1/live` message protocol.
@@ -271,7 +271,10 @@ export interface ApiOptions {
    * Tests use it to check each response against the route table.
    */
   onResponse?: (route: RouteSpec | undefined, response: ApiResponse) => void;
-  /** Clock for the repeat window of `once` links and the life of watch sockets. Default Date.now. */
+  /**
+   * Clock for the repeat window of `once` links, the life of watch sockets, and the day of the
+   * per-IP upload bytes. Default Date.now.
+   */
   now?: () => number;
   /** Staff sign-in. Default: no Access, so maintainers' and moderators' tokens work. */
   staff?: StaffOptions;
@@ -360,7 +363,7 @@ function fromResult<T, R>(outcome: SocialResult<T>, ok: (value: T) => R): R | Fa
 }
 
 /** Seconds until the next UTC day, when per-IP daily upload bytes reset. */
-const secondsToTomorrow = (now: number) => Math.ceil((86_400_000 - (now % 86_400_000)) / 1000);
+const secondsToTomorrow = (now: number) => Math.ceil((DAY_MS - (now % DAY_MS)) / 1000);
 
 /** A valid Idempotency-Key: 1 to 255 visible ASCII characters (a UUID is typical). */
 const IDEMPOTENCY_KEY = /^[\x21-\x7e]{1,255}$/;
@@ -929,14 +932,15 @@ export class Api {
         })),
       uploadMedia: async ({ viewer, body, ip }) => {
         const key = ipKey(ip);
-        const day = Math.floor(Date.now() / 86_400_000);
+        const now = this.now();
+        const day = utcDay(now);
         const used = this.ipUploads.get(key);
         const spent = used?.day === day ? used.bytes : 0;
         if (spent + body.length > this.ipUploadBytesPerDay) {
           return fail(
             "rate_limited",
             "That's all the uploads from here for today. Try again tomorrow.",
-            secondsToTomorrow(Date.now()),
+            secondsToTomorrow(now),
           );
         }
         // The world object has one memory budget for everyone, so only a couple of bodies at once.
@@ -1456,7 +1460,7 @@ export class Api {
     this.owners?.sweep();
     this.service.moderation.sweep();
     this.social?.moderation.sweep();
-    const today = Math.floor(Date.now() / 86_400_000);
+    const today = utcDay(this.now());
     for (const [ip, used] of this.ipUploads) if (used.day !== today) this.ipUploads.delete(ip);
     for (const limits of Object.values(this.limiters)) limits.prune();
     const cutoff = this.now() - REPEAT_WINDOW_MS;
@@ -1547,7 +1551,7 @@ export class Api {
   private suspensionLocked(residentId: string): boolean {
     const current = this.social?.safety.currentSuspension(residentId);
     if (!current) return false;
-    const long = current.remainingMs > MODERATOR_SUSPEND_MAX_DAYS * 86_400_000;
+    const long = current.remainingMs > MODERATOR_SUSPEND_MAX_DAYS * DAY_MS;
     return long || this.staffRole(current.by) === "maintainer";
   }
 

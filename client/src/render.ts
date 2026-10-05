@@ -6,6 +6,7 @@ import {
   type DecorKind,
   type Direction,
   FLOWER_TONES,
+  gatherableAt,
   groundTile,
   HEARTH_COLOR,
   HEARTH_DOOR,
@@ -721,6 +722,10 @@ export function render(
   // ---- ground: one fillRect per tile, edges rounded so neighbors share pixels (no seams) ----
   const tufts = new Path2D();
   const flowers: [Path2D, Path2D] = [new Path2D(), new Path2D()];
+  // Phase 1 gathering: fallen branches and loose stones, from the sim's own spawn function.
+  const sticks = new Path2D();
+  const pebbles = new Path2D();
+  const showPickups = mirror.day !== undefined;
   for (let y = y0; y <= y1; y++) {
     for (let x = x0; x <= x1; x++) {
       const { sx, sy } = tileToScreen(cam, x, y);
@@ -751,6 +756,28 @@ export function render(
         path.moveTo(fx + scale * 0.06, fy);
         path.arc(fx, fy, scale * 0.06, 0, Math.PI * 2);
       }
+      if (showPickups) {
+        const key = tileKey(x, y);
+        const pickup =
+          !mirror.blocks.has(key) && !mirror.gathered.has(key)
+            ? gatherableAt(config, x, y, mirror.day as number)
+            : null;
+        if (pickup) {
+          const px = left + w * 0.5;
+          const py = top + h * 0.55;
+          if (pickup === "wood") {
+            // A fallen branch: two crossed sticks.
+            sticks.moveTo(px - w * 0.13, py + h * 0.07);
+            sticks.lineTo(px + w * 0.13, py - h * 0.07);
+            sticks.moveTo(px - w * 0.1, py - h * 0.09);
+            sticks.lineTo(px + w * 0.11, py + h * 0.1);
+          } else {
+            // A loose stone: one pebble.
+            pebbles.moveTo(px + scale * 0.07, py);
+            pebbles.arc(px, py, scale * 0.07, 0, Math.PI * 2);
+          }
+        }
+      }
     }
   }
   ctx.lineCap = "round";
@@ -761,6 +788,11 @@ export function render(
   ctx.fill(flowers[0]);
   ctx.fillStyle = FLOWER_TONES[1];
   ctx.fill(flowers[1]);
+  ctx.lineWidth = Math.max(1.5, scale / 18);
+  ctx.strokeStyle = blockFill("wood");
+  ctx.stroke(sticks);
+  ctx.fillStyle = blockFill("stone");
+  ctx.fill(pebbles);
 
   // ---- plots: owner tint plus a dashed clay border; faint lines between unclaimed plots ----
   const px0 = Math.floor(x0 / S);

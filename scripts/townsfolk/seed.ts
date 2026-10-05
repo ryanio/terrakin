@@ -19,8 +19,8 @@
  * Tokens are written only to the credentials file and never printed. The last line of output is
  * the TERRAKIN_TOWNSFOLK value that turns on the townsfolk badge (see README.md).
  */
-import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import type {
   FeedResponse,
@@ -30,7 +30,7 @@ import type {
   WorldSnapshot,
 } from "../../protocol/src/index";
 import { ART_VERSION, type Images, renderAll } from "./art.ts";
-import { type Creds, defaultCredsPath, type Stored } from "./creds.ts";
+import { type Creds, defaultCredsPath, type Stored, writePrivateJson } from "./creds.ts";
 import { checkPersonas, PERSONAS, type Persona } from "./personas.ts";
 import { choosePlot, describePlace, type Plot, plotKey } from "./plan.ts";
 
@@ -79,11 +79,7 @@ function loadCreds(): Creds {
 
 function saveCreds(creds: Creds): void {
   if (DRY) return;
-  mkdirSync(dirname(CREDS), { recursive: true, mode: 0o700 });
-  const tmp = `${CREDS}.tmp`;
-  writeFileSync(tmp, `${JSON.stringify(creds, null, 2)}\n`, { mode: 0o600 });
-  chmodSync(tmp, 0o600);
-  renameSync(tmp, CREDS);
+  writePrivateJson(CREDS, creds);
 }
 
 // ---------------------------------------------------------------------------

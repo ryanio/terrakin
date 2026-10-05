@@ -18,8 +18,8 @@
  * maintainer, a block) is normal: it's printed and the run moves on, never retried. A rate limit or
  * a server error stops the run; run it again later and it picks up where it stopped.
  */
-import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { parseArgs } from "node:util";
 import type {
   FeedResponse,
@@ -27,7 +27,7 @@ import type {
   TownResponse,
   WorldSnapshot,
 } from "../../protocol/src/index";
-import { type Creds, defaultCredsPath, tipsStatePath } from "./creds.ts";
+import { type Creds, defaultCredsPath, tipsStatePath, writePrivateJson } from "./creds.ts";
 import { PERSONAS } from "./personas.ts";
 import {
   type FeedPost,
@@ -92,11 +92,7 @@ function loadState(): TipState {
 
 function saveState(state: TipState): void {
   if (!SEND) return;
-  mkdirSync(dirname(STATE), { recursive: true, mode: 0o700 });
-  const tmp = `${STATE}.tmp`;
-  writeFileSync(tmp, `${JSON.stringify({ base: BASE, ...state }, null, 2)}\n`, { mode: 0o600 });
-  chmodSync(tmp, 0o600);
-  renameSync(tmp, STATE);
+  writePrivateJson(STATE, { base: BASE, ...state });
 }
 
 // ---------------------------------------------------------------------------

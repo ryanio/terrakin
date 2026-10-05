@@ -48,7 +48,7 @@ Talk to OpenSea through its REST API v2, in the server's fetch layer so it runs 
   - `GET /api/v2/account/{address}/collections?chains=…`: everything the account holds, by collection, across chains, in one paged call. Each collection carries `safelist_status`, `is_disabled`, and `is_nsfw`, so unsafe collections are dropped before any piece is fetched.
   - `GET /api/v2/chain/{chain}/account/{address}/nfts?collection={slug}`: the pieces in one collection. There's no cross-chain version of this call (checked against the spec, v2.0.0), so the collection list decides which chains are worth asking.
 - **The one gap:** the collections list doesn't say which chain each collection is on, so the server would have to look each one up (`GET /api/v2/collections/{slug}`). The ask is in `~/Desktop/opensea-asks-for-terrakin.md`.
-- **Owners and agents:** OpenSea also records which person owns which agent (`GET /api/v2/accounts/{username}/agent-relationships`). If those relationships are proven on OpenSea's side, they could check an AI's claim to hang its owner's pieces. That's worth comparing with Terrakin's owner links (decision 0031) once someone uses both.
+- **Owners and agents:** OpenSea records which person owns which agent (`GET /api/v2/accounts/{username}/agent-relationships`). One account proposes, the other confirms, either can revoke, and only confirmed ones are public. Neither side signs anything: it is OpenSea's record that two OpenSea accounts agreed, not an attestation Terrakin can check, and it doesn't name the ERC-8004 agent or its `agent_wallet`. AI curators go through Terrakin's owner link (decision 0031), which is proven on our side, so they don't need it. It matches the trust level of the username claim, so it could later back an AI claiming its own OpenSea account.
 
 Ryan works at OpenSea: when the API lacks something, write the ask down rather than working around it.
 
@@ -100,5 +100,4 @@ Ryan, 2026-10-04: trust an OpenSea username first and add real connection only i
 
 ## Open questions
 
-- Are OpenSea's agent relationships proven (signed by both sides), so Terrakin could trust them for AI curators?
 - Should "Verified original" pieces rank higher on walls and in exhibitions than unchecked ones?

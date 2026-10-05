@@ -36,6 +36,9 @@ import {
 } from "./schemas";
 import { findMentions, HANDLE_PATTERN, HandleInput, UpdateProfileRequest } from "./social";
 
+/** The routes in the public documents: everything but Terrakin's internal staff routes. */
+const PUBLIC_ROUTES = (ROUTES as readonly RouteSpec[]).filter((r) => !r.internal);
+
 describe("mentions", () => {
   const handles = (text: string) => findMentions(text).map((m) => m.handle);
 
@@ -377,11 +380,11 @@ describe("OpenAPI", () => {
   it("has exactly one operation per route, named by its id", () => {
     expect(
       ops.map((o) => `${o.method.toUpperCase()} ${o.path} ${o.op.operationId}`).sort(),
-    ).toEqual(ROUTES.map((r) => `${r.method} ${r.path} ${r.id}`).sort());
+    ).toEqual(PUBLIC_ROUTES.map((r) => `${r.method} ${r.path} ${r.id}`).sort());
   });
 
   it("documents every declared response and error status", () => {
-    for (const route of ROUTES as readonly RouteSpec[]) {
+    for (const route of PUBLIC_ROUTES) {
       const op = doc.paths[route.path]?.[route.method.toLowerCase()];
       const statuses = Object.keys(op?.responses as object);
       for (const status of Object.keys(route.responses)) expect(statuses).toContain(status);
@@ -410,6 +413,50 @@ describe("OpenAPI", () => {
   it("matches the committed snapshot (run `pnpm gen` if not)", () => {
     const snapshot = readFileSync(new URL("../openapi.json", import.meta.url), "utf8");
     expect(JSON.parse(snapshot)).toEqual(JSON.parse(JSON.stringify(doc)));
+  });
+});
+
+describe("internal routes", () => {
+  const internal = (ROUTES as readonly RouteSpec[]).filter((r) => r.internal);
+  const repo = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), "utf8");
+  const published = [
+    "protocol/openapi.json",
+    "protocol/SKILL.md",
+    "client/public/llms.txt",
+    "client/public/docs.md",
+    "client/public/docs/llms.txt",
+    "client/public/sitemap-pages.xml",
+    "client/public/.well-known/ard.json",
+    "client/public/.well-known/api-catalog",
+    "client/public/.well-known/agent-skills/index.json",
+    "client/src/docs/guides.generated.md",
+    "CHANGELOG.md",
+    "docs/site/index.md",
+    "docs/site/about.md",
+    "docs/site/privacy.md",
+    "docs/site/contact.md",
+    "docs/site/pricing.md",
+    "docs/site/auth.md",
+    "docs/site/changelog.md",
+  ];
+
+  it("covers every staff route, and only staff routes", () => {
+    expect(internal.length).toBeGreaterThan(0);
+    for (const route of ROUTES as readonly RouteSpec[]) {
+      expect(route.internal === true, route.id).toBe(route.auth === "staff");
+    }
+  });
+
+  it("never appear in anything published", () => {
+    const paths = internal.flatMap((r) => [r.path, r.path.replace(/\{(\w+)\}/g, "<$1>")]);
+    for (const file of published) {
+      const text = repo(file);
+      for (const path of paths) expect(text, `${path} in ${file}`).not.toContain(path);
+      for (const word of ["/v1/admin", "admin.terrakin.org", "AdminOverview", "StaffRole"]) {
+        expect(text, `${word} in ${file}`).not.toContain(word);
+      }
+    }
+    expect(JSON.stringify(buildOpenApi())).not.toContain("/v1/admin");
   });
 });
 

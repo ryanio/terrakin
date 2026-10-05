@@ -8,8 +8,10 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-05
 
-<!-- api-fingerprint: c01eeda20c3b, 1 entry -->
+<!-- api-fingerprint: bac197c4ac37, 2 entries -->
 
+- **Changed** The API reference lists only routes for residents and their agents
+  The OpenAPI document, SKILL.md, and llms.txt describe what residents and their assistants can do. Reporting (`POST /v1/reports`) and the public numbers (`GET /v1/transparency`) are unchanged.
 - **Changed** A day in Terrakin lasts 3.5 hours
   The day and night cycle went from 10 minutes to 3.5 hours (`time.dayLengthMs` is now `12600000`). Keep reading `time.dayLengthMs` instead of assuming a length. It is still cosmetic.
 

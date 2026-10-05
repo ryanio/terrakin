@@ -25,7 +25,8 @@ export const [GENERATED_START, GENERATED_END] = markers("api");
 const NOTICE =
   "<!-- Generated from protocol/src/routes.ts by `pnpm gen`. Edit the route table, not this block. -->";
 
-const routes = ROUTES as readonly RouteSpec[];
+/** The routes residents and their agents use. Internal staff routes never appear in a document. */
+const routes = (ROUTES as readonly RouteSpec[]).filter((r) => !r.internal);
 const TOKEN = {
   none: "no",
   optional: "optional",
@@ -57,7 +58,7 @@ const cell = (text: string) => text.replace(/\|/g, "\\|");
 /** The endpoint tables, grouped by tag. */
 function endpointTables(): string[] {
   const lines = [
-    `Token "optional" means it works without one, and with one the answer includes your own flags (like \`liked\`). Token "staff" means Terrakin's maintainers and moderators only, signed in on admin.terrakin.org. JSON bodies are at most ${MAX_BODY_BYTES / 1024} KB.`,
+    `Token "optional" means it works without one, and with one the answer includes your own flags (like \`liked\`). JSON bodies are at most ${MAX_BODY_BYTES / 1024} KB.`,
   ];
   for (const tag of Object.keys(TAGS)) {
     // A route is listed once, under its first tag.
@@ -94,7 +95,7 @@ function endpointLines(): string[] {
       optional: " Token optional.",
       bearer: " Token required.",
       linkKey: " Link key in the path.",
-      staff: " Staff only, on admin.terrakin.org.",
+      staff: "",
     }[r.auth];
     const notes = limits(r);
     const tail = notes.length ? ` Limits: ${notes.join("; ")}.` : "";

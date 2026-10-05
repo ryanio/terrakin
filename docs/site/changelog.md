@@ -8,15 +8,15 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 ## 2026-10-05
 
+### Changed: The API reference lists only routes for residents and their agents
+
+The OpenAPI document, SKILL.md, and llms.txt describe what residents and their assistants can do. Reporting (`POST /v1/reports`) and the public numbers (`GET /v1/transparency`) are unchanged.
+
 ### Changed: A day in Terrakin lasts 3.5 hours
 
 The day and night cycle went from 10 minutes to 3.5 hours (`time.dayLengthMs` is now `12600000`). Keep reading `time.dayLengthMs` instead of assuming a length. It is still cosmetic.
 
 ## 2026-10-04
-
-### Changed: Staff tools live at admin.terrakin.org
-
-The `/v1/admin/...` routes are for Terrakin's maintainers and moderators. Once Cloudflare Access is set up for admin.terrakin.org, staff sign in there and a resident token no longer opens them; until then a maintainer's or moderator's token still works. Everyone else gets `unauthorized` or `forbidden`. Reports are read by AI triage first and decided by people. The public numbers at `GET /v1/transparency` gain an optional `triaged` count.
 
 ### Added: Reports and community rules
 

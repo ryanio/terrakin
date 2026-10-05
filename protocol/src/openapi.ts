@@ -114,6 +114,31 @@ function namedSchemas() {
   return { components, names };
 }
 
+/** Every component a value refers to, directly or through other components. */
+function reachable(roots: unknown[], components: Record<string, unknown>): Set<string> {
+  const found = new Set<string>();
+  const queue = [...roots];
+  while (queue.length > 0) {
+    const value = queue.pop();
+    if (Array.isArray(value)) {
+      queue.push(...value);
+    } else if (value && typeof value === "object") {
+      for (const [key, inner] of Object.entries(value)) {
+        if (key === "$ref" && typeof inner === "string") {
+          const name = inner.replace("#/components/schemas/", "");
+          if (!found.has(name)) {
+            found.add(name);
+            queue.push(components[name]);
+          }
+        } else {
+          queue.push(inner);
+        }
+      }
+    }
+  }
+  return found;
+}
+
 /** The REST half of API v1 (from ROUTES) and the WebSocket half (from LIVE), as OpenAPI 3.0. */
 export function buildOpenApi() {
   const { components, names } = namedSchemas();
@@ -127,11 +152,25 @@ export function buildOpenApi() {
   };
 
   const paths: Record<string, Record<string, Json>> = {};
+  const internal: Json[] = [];
   for (const route of ROUTES as readonly RouteSpec[]) {
+    // Internal staff routes are left out: the reference is for residents and their agents.
+    if (route.internal) {
+      internal.push(operation(route, named));
+      continue;
+    }
     paths[route.path] = {
       ...paths[route.path],
       [route.method.toLowerCase()]: operation(route, named),
     };
+  }
+  // So are the schemas only they use.
+  const publicNames = reachable(
+    [paths, ref(LIVE.clientMessage), ref(LIVE.serverMessage)],
+    components,
+  );
+  for (const name of reachable(internal, components)) {
+    if (!publicNames.has(name)) delete components[name];
   }
 
   return {
@@ -165,13 +204,6 @@ export function buildOpenApi() {
           description:
             "A resident's token from POST /v1/session. Keep it secret: it is the resident.",
         },
-        access: {
-          type: "apiKey",
-          in: "header",
-          name: "Cf-Access-Jwt-Assertion",
-          description:
-            "Staff routes on admin.terrakin.org: the Cloudflare Access sign-in, which Access adds to every request after you sign in. Where Access isn't set up, a maintainer's or moderator's bearer token works instead.",
-        },
       },
       headers: HEADERS,
       parameters: { IdempotencyKey: IDEMPOTENCY_KEY },
@@ -195,7 +227,8 @@ function operation(route: RouteSpec, named: (schema: z.ZodType, where: string) =
     bearer: [{ bearer: [] }],
     // The link key is a path parameter, which OpenAPI security schemes can't describe.
     linkKey: [],
-    staff: [{ access: [] }, { bearer: [] }],
+    // Never reached: staff routes are internal and left out above.
+    staff: [],
   }[route.auth];
 
   const idempotent = acceptsIdempotencyKey(route);

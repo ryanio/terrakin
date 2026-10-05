@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-05-the-api-reference-lists-only-routes-for-residents-and-their",
+    "date": "2026-10-05",
+    "kind": "changed",
+    "title": "The API reference lists only routes for residents and their agents",
+    "body": "The OpenAPI document, SKILL.md, and llms.txt describe what residents and their assistants can do. Reporting (`POST /v1/reports`) and the public numbers (`GET /v1/transparency`) are unchanged.",
+    "links": []
+  },
+  {
     "id": "2026-10-05-a-day-in-terrakin-lasts-3-5-hours",
     "date": "2026-10-05",
     "kind": "changed",

@@ -58,7 +58,7 @@ interface FakeAgent {
  * A fake network and card host. Agents by number; muses map to agents through `agentOf` and have
  * holders (`ownerOf` on the Muses contract). Cards by URI. `down` makes every network read fail,
  * `cardDown` every card fetch, and `gone` makes the registry revert. `reads` counts what went out.
- * `gate` holds card fetches until it is opened, to catch a check halfway.
+ * `hold` holds card fetches until it is opened, to catch a check halfway.
  */
 function fakeChain() {
   const agents = new Map<number, FakeAgent>();
@@ -66,7 +66,7 @@ function fakeChain() {
   const holders = new Map<number, string>();
   const cards = new Map<string, AgentCard | "bad">();
   const state = { down: false, cardDown: false, gone: false, reads: 0 };
-  const gates = new Map<string, Promise<void>>();
+  const gates = new Map<string, { opened: Promise<void>; arrive: () => void }>();
   const word = (data: string) => Number(BigInt(`0x${data.slice(10)}`));
   const call: ChainCall = async (chainId, to, data) => {
     state.reads++;
@@ -101,7 +101,10 @@ function fakeChain() {
   const readCard = async (uri: string): Promise<CardRead> => {
     state.reads++;
     const gate = gates.get(uri) ?? gates.get("*");
-    if (gate) await gate;
+    if (gate) {
+      gate.arrive();
+      await gate.opened;
+    }
     if (state.cardDown) return { ok: false, bad: false, message: "down" };
     const card = cards.get(uri);
     if (card === "bad" || !card) return { ok: false, bad: true, message: "The card isn't there." };
@@ -125,19 +128,24 @@ function fakeChain() {
     const card = cards.get(uri);
     if (card && card !== "bad") card.terrakin = ids.map((id) => `https://terrakin.org/r/${id}`);
   };
-  /** Hold card fetches (for one URI, or all) until the returned function is called. */
+  /**
+   * Hold card fetches (for one URI, or all) until the returned function is called. Its `reached`
+   * resolves once a fetch is waiting at the gate, so the check has reserved its reads by then.
+   */
   const hold = (uri = "*") => {
     let open = () => {};
-    gates.set(
-      uri,
-      new Promise<void>((resolve) => {
-        open = () => {
-          gates.delete(uri);
-          resolve();
-        };
-      }),
-    );
-    return open;
+    let arrive = () => {};
+    const reached = new Promise<void>((resolve) => {
+      arrive = resolve;
+    });
+    const opened = new Promise<void>((resolve) => {
+      open = () => {
+        gates.delete(uri);
+        resolve();
+      };
+    });
+    gates.set(uri, { opened, arrive });
+    return Object.assign(() => open(), { reached });
   };
   return { agents, muses, holders, cards, state, call, readCard, addMuse, setNames, hold };
 }
@@ -463,7 +471,7 @@ describe("the read cap", () => {
     advance(12 * 60 * 60_000 - 1_000);
     const open = chain.hold();
     const pending = link(muse(60), join("Wren").token);
-    await new Promise((r) => setTimeout(r, 10));
+    await open.reached;
     advance(2_000);
     open();
     expect((await pending).status).toBe(200);
@@ -653,13 +661,12 @@ describe("rechecks", () => {
     chain.addMuse(31, [wren.residentId]);
     await link(muse(30), wren.token);
     advance(RECHECK_MS);
-    const tick = () => new Promise((r) => setTimeout(r, 10));
 
     // The recheck of muse #30 is reading its card when Wren links muse #31 instead, and #30's
     // card drops Wren. The newer link stands.
     let open = chain.hold(uri);
     const running = links.recheckDue();
-    await tick();
+    await open.reached;
     expect((await link(muse(31), wren.token)).status).toBe(201);
     chain.setNames(uri, []);
     open();
@@ -670,7 +677,7 @@ describe("rechecks", () => {
     advance(RECHECK_MS);
     open = chain.hold();
     const later = links.recheckDue();
-    await tick();
+    await open.reached;
     await call("DELETE", "/v1/agent-link", undefined, wren.token);
     open();
     await later;

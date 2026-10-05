@@ -34,6 +34,14 @@ a {
   outline-offset: 2px;
 }
 
+/* A drawn picture of a thing (item-art.ts). Its size comes from its width and height. */
+.item-art {
+  flex: none;
+  display: inline-block;
+  vertical-align: middle;
+  overflow: visible;
+}
+
 .icon {
   width: 20px;
   height: 20px;

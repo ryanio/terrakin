@@ -15,6 +15,10 @@ import {
 /** "Lemon", "Bunch of herbs". */
 export const thingName = (kind: ItemKind) => ITEM_INFO[kind].name;
 
+/** How many of a stack kind are in a list of stacks: 0 when it's absent. */
+export const stackCount = (stacks: readonly { kind: string; count: number }[], kind: string) =>
+  stacks.find((s) => s.kind === kind)?.count ?? 0;
+
 /** "1 lemon", "3 lemons", "2 bunches of herbs". */
 export function thingCount(kind: ItemKind, n: number): string {
   const info = ITEM_INFO[kind];
@@ -72,6 +76,10 @@ export function inventoryLine(e: InventoryEvent): string | null {
     }
     case "gift_out":
       return "Your gift is on its way.";
+    case "bought":
+      return `From the town shop: ${list(gained)}.`;
+    case "sold":
+      return "Sold to the town.";
     default:
       return null;
   }

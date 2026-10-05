@@ -1,3 +1,4 @@
+import { coinCount as coins, isWhole, refuse } from "./check";
 import type {
   CoinReason,
   Command,
@@ -5,7 +6,6 @@ import type {
   EconomyToday,
   LedgerLine,
   Rejection,
-  RejectionCode,
   ResidentId,
   WorldEvent,
   WorldState,
@@ -62,10 +62,6 @@ export const ECONOMY = {
 
 type Mutation = () => WorldEvent[];
 export type EconomyChecked = Mutation | Rejection;
-
-const refuse = (code: RejectionCode, message: string): Rejection => ({ code, message });
-const isWhole = (n: unknown): n is number => typeof n === "number" && Number.isSafeInteger(n);
-const coins = (n: number) => (n === 1 ? "1 coin" : `${n} coins`);
 
 export const isTownsfolk = (state: WorldState, id: ResidentId) =>
   state.townsfolk?.includes(id) ?? false;
@@ -167,13 +163,13 @@ interface Other {
 }
 
 /** Where and when a movement happens: the input's seq and the day. */
-interface At {
+export interface At {
   seq: number;
   day: number;
 }
 
 /** Move coins in (positive) or out of a resident's purse, with a ledger line and a private event. */
-function movePurse(
+export function movePurse(
   econ: EconomyState,
   id: ResidentId,
   amount: number,
@@ -191,7 +187,7 @@ function movePurse(
 }
 
 /** Move coins in (positive) or out of the treasury, with a ledger line and a public event. */
-function moveTreasury(
+export function moveTreasury(
   econ: EconomyState,
   amount: number,
   reason: CoinReason,

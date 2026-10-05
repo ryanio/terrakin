@@ -8,7 +8,7 @@
 
 import { type Biome, biomeAt } from "./biome";
 import type { ThemePalette } from "./looks";
-import type { BlockKind, WorldConfig } from "./types";
+import { type BlockKind, BUILDING_BLOCKS, type WorldConfig } from "./types";
 
 /** Ground tones per biome, picked per tile by `tileHash`, so the ground has texture. */
 export const GROUND: Readonly<Record<Biome, readonly string[]>> = {
@@ -32,6 +32,11 @@ export const BLOCK_COLORS: Readonly<Record<BlockKind, string>> = {
   planter: "#8a5a36",
   kitchen: "#c8674a",
   workbench: "#9a6b43",
+  // Town shop decor (RFC 0008): the main color each is drawn around.
+  lantern: "#f2b544",
+  frame: "#c9a25a",
+  fence: "#e8dcc4",
+  bench: "#7a8f5a",
 };
 
 /** The hearth's roof (and the Town Hall's). */
@@ -122,8 +127,9 @@ export function alphaHex(hex: string, alpha: number): string {
 
 /** A block's color, dressed in its plot owner's theme when they have one. */
 export function blockFill(block: BlockKind, palette?: ThemePalette): string {
-  // Planters and stations (RFC 0005) keep their own look on a themed plot.
-  if (!palette || block === "planter" || block === "kitchen" || block === "workbench") {
+  // Only the four building blocks take a theme. Planters, stations (RFC 0005), and decor from the
+  // town shop (RFC 0008) keep their own look on a themed plot.
+  if (!palette || !(BUILDING_BLOCKS as readonly BlockKind[]).includes(block)) {
     return BLOCK_COLORS[block];
   }
   if (block === "wood") return mixHex(palette.light, palette.main, 0.45);

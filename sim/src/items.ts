@@ -1,18 +1,20 @@
+import { isWhole, refuse } from "./check";
 import { isTownsfolk, pairSkipsCaps } from "./economy";
 import { tileKey } from "./keys";
-import type {
-  Command,
-  Good,
-  Inventory,
-  InventoryReason,
-  ItemsState,
-  ItemsToday,
-  Rejection,
-  RejectionCode,
-  ResidentId,
-  Tile,
-  WorldEvent,
-  WorldState,
+import {
+  type Command,
+  DECOR_BLOCKS,
+  type DecorBlock,
+  type Good,
+  type Inventory,
+  type InventoryReason,
+  type ItemsState,
+  type ItemsToday,
+  type Rejection,
+  type ResidentId,
+  type Tile,
+  type WorldEvent,
+  type WorldState,
 } from "./types";
 import { canBuildOn, chebyshev, inBounds, plotAtTile } from "./world";
 
@@ -44,8 +46,12 @@ export type SeedKind = (typeof SEED_KINDS)[number];
 export const STAPLE_KINDS = ["sugar", "jar"] as const;
 export type StapleKind = (typeof STAPLE_KINDS)[number];
 
+/** Decor from the town shop, held until you place it (RFC 0008). Same names as the blocks. */
+export const DECOR_KINDS = DECOR_BLOCKS;
+export type DecorKind = DecorBlock;
+
 /** Things that stack: you hold a count of each, not separate items. */
-export const STACK_KINDS = [...SEED_KINDS, ...CROPS, ...STAPLE_KINDS] as const;
+export const STACK_KINDS = [...SEED_KINDS, ...CROPS, ...STAPLE_KINDS, ...DECOR_KINDS] as const;
 export type StackKind = (typeof STACK_KINDS)[number];
 
 /** Made things. Each one is its own item with an id, its maker, and the day it was made. */
@@ -64,7 +70,7 @@ export type GoodKind = (typeof GOOD_KINDS)[number];
 export const ITEM_KINDS = [...STACK_KINDS, ...GOOD_KINDS] as const;
 export type ItemKind = (typeof ITEM_KINDS)[number];
 
-export type ItemCategory = "seed" | "produce" | "staple" | "good";
+export type ItemCategory = "seed" | "produce" | "staple" | "good" | "decor";
 
 export interface ItemInfo {
   /** One of it, in plain words. */
@@ -87,6 +93,10 @@ export const ITEM_INFO: Record<ItemKind, ItemInfo> = {
   flower: { name: "Flower", plural: "Flowers", category: "produce" },
   sugar: { name: "Bag of sugar", plural: "Bags of sugar", category: "staple" },
   jar: { name: "Jar", plural: "Jars", category: "staple" },
+  lantern: { name: "Paper lantern", plural: "Paper lanterns", category: "decor" },
+  frame: { name: "Picture frame", plural: "Picture frames", category: "decor" },
+  fence: { name: "Fence post", plural: "Fence posts", category: "decor" },
+  bench: { name: "Garden bench", plural: "Garden benches", category: "decor" },
   lemon_jam: { name: "Lemon jam", plural: "Jars of lemon jam", category: "good" },
   strawberry_jam: { name: "Strawberry jam", plural: "Jars of strawberry jam", category: "good" },
   lemonade: { name: "Lemonade", plural: "Jars of lemonade", category: "good" },
@@ -147,6 +157,12 @@ export const ITEMS = {
   pantry: { sugar: 2, jar: 2 } as Readonly<Record<StapleKind, number>>,
   /** The pantry stops topping up a staple once you hold this many. */
   stapleMax: 10,
+  /**
+   * The pantry once the town shop is open (`open_shop`), which sells sugar and jars: decision
+   * 0052. Before it opens, `pantry` and `stapleMax` above, so older logs replay as they did.
+   */
+  shopPantry: { sugar: 1, jar: 1 } as Readonly<Record<StapleKind, number>>,
+  shopStapleMax: 6,
   /** With your very first pantry: this many of every seed. */
   starterSeeds: 2,
   /** Things you can make in a UTC day. */
@@ -172,6 +188,8 @@ export const isStackKind = (k: unknown): k is StackKind =>
   typeof k === "string" && (STACK_KINDS as readonly string[]).includes(k);
 export const isGoodKind = (k: unknown): k is GoodKind =>
   typeof k === "string" && (GOOD_KINDS as readonly string[]).includes(k);
+export const isDecorKind = (k: unknown): k is DecorKind =>
+  typeof k === "string" && (DECOR_KINDS as readonly string[]).includes(k);
 export const isCrop = (k: unknown): k is Crop =>
   typeof k === "string" && (CROPS as readonly string[]).includes(k);
 
@@ -191,7 +209,8 @@ export function inventorySize(inv: Inventory | undefined): number {
   return n;
 }
 
-const held = (inv: Inventory | undefined, kind: StackKind) => inv?.stacks[kind] ?? 0;
+/** How many of a stack a resident holds. */
+export const held = (inv: Inventory | undefined, kind: StackKind) => inv?.stacks[kind] ?? 0;
 
 /** A crop's state on a given day. */
 export const isReady = (readyDay: number, day: number | undefined) =>
@@ -232,9 +251,6 @@ export function inventoryOf(state: WorldState, id: ResidentId): InventoryRead | 
 type Mutation = () => WorldEvent[];
 export type ItemsChecked = Mutation | Rejection;
 
-const refuse = (code: RejectionCode, message: string): Rejection => ({ code, message });
-const isWhole = (n: unknown): n is number => typeof n === "number" && Number.isSafeInteger(n);
-
 const emptyToday = (): ItemsToday => ({ given: {}, received: {}, crafted: {} });
 
 /** One stack's change in an `inventory` event: signed `amount`, and the `count` held after it. */
@@ -244,7 +260,8 @@ interface StackChange {
   count: number;
 }
 
-function inventory(items: ItemsState, id: ResidentId): Inventory {
+/** A resident's inventory, made empty on first use. Call only when committing. */
+export function inventory(items: ItemsState, id: ResidentId): Inventory {
   let inv = items.inventories[id];
   if (!inv) {
     inv = { stacks: {}, goods: [] };
@@ -254,7 +271,7 @@ function inventory(items: ItemsState, id: ResidentId): Inventory {
 }
 
 /** Add (or with a negative amount, take) units of a stack. A stack at 0 is dropped. */
-function addStack(inv: Inventory, kind: StackKind, amount: number): StackChange {
+export function addStack(inv: Inventory, kind: StackKind, amount: number): StackChange {
   const count = (inv.stacks[kind] ?? 0) + amount;
   if (count === 0) delete inv.stacks[kind];
   else inv.stacks[kind] = count;
@@ -262,7 +279,7 @@ function addStack(inv: Inventory, kind: StackKind, amount: number): StackChange 
 }
 
 /** The private event for one resident's inventory change. Absent parts stay absent. */
-function inventoryEvent(
+export function inventoryEvent(
   id: ResidentId,
   reason: InventoryReason,
   changes: StackChange[],
@@ -600,6 +617,16 @@ export function checkGiveItem(
 
 // ---------- the pantry: bookkeeping on residents' own inputs ----------
 
+/** The pantry's numbers: smaller once the town shop is open, since it sells sugar and jars. */
+export function pantryNumbers(state: WorldState): {
+  pantry: Readonly<Record<StapleKind, number>>;
+  stapleMax: number;
+} {
+  return state.shop
+    ? { pantry: ITEMS.shopPantry, stapleMax: ITEMS.shopStapleMax }
+    : { pantry: ITEMS.pantry, stapleMax: ITEMS.stapleMax };
+}
+
 /**
  * What today's pantry would add for `id`, in order: the starter seeds the first time ever, then
  * sugar and jars, never past `stapleMax` of each or `inventoryMax` in all. Empty when nothing is
@@ -620,8 +647,9 @@ function pantryAdds(state: WorldState, id: ResidentId): [StackKind, number][] {
     }
   };
   if (items.pantry[id] === undefined) for (const seed of SEED_KINDS) add(seed, ITEMS.starterSeeds);
+  const { pantry, stapleMax } = pantryNumbers(state);
   for (const staple of STAPLE_KINDS) {
-    add(staple, Math.min(ITEMS.pantry[staple], Math.max(0, ITEMS.stapleMax - held(inv, staple))));
+    add(staple, Math.min(pantry[staple], Math.max(0, stapleMax - held(inv, staple))));
   }
   return adds;
 }
@@ -647,4 +675,59 @@ export function payPantry(state: WorldState, id: ResidentId): WorldEvent[] {
   const inv = inventory(items, id);
   const changes = adds.map(([kind, n]) => addStack(inv, kind, n));
   return [inventoryEvent(id, first ? "starter" : "pantry", changes)];
+}
+
+// ---------- decor from the town shop ----------
+
+/**
+ * Whether `actor` can place a decor block: items open and one in their things. A free block is
+ * always fine here. Read in `place`'s check.
+ */
+export function decorPlaceProblem(
+  state: WorldState,
+  actor: ResidentId,
+  block: string,
+): Rejection | null {
+  if (!isDecorKind(block)) return null;
+  const shut = closed(state);
+  if (shut) return shut;
+  if (held(state.items?.inventories[actor], block) < 1) {
+    return refuse(
+      "not_enough_items",
+      `You have no ${ITEM_INFO[block].plural.toLowerCase()}. Buy one at the town shop with shop_buy.`,
+    );
+  }
+  return null;
+}
+
+/** Whether `actor` has room to take a decor block back up. Read in `remove`'s check. */
+export function decorRemoveProblem(
+  state: WorldState,
+  actor: ResidentId,
+  block: string | undefined,
+): Rejection | null {
+  if (!isDecorKind(block)) return null;
+  if (inventorySize(state.items?.inventories[actor]) + 1 > ITEMS.inventoryMax) {
+    return refuse(
+      "inventory_full",
+      `You can hold ${ITEMS.inventoryMax} things, and taking this up needs room for one more.`,
+    );
+  }
+  return null;
+}
+
+/**
+ * Commit side of placing or removing a block: a decor block leaves (`-1`) or comes back to (`+1`)
+ * the actor's things, with its private event. Free blocks change nothing.
+ */
+export function moveDecor(
+  state: WorldState,
+  actor: ResidentId,
+  block: string | undefined,
+  amount: 1 | -1,
+): WorldEvent[] {
+  const items = state.items;
+  if (!items || !isDecorKind(block)) return [];
+  const change = addStack(inventory(items, actor), block, amount);
+  return [inventoryEvent(actor, amount < 0 ? "placed" : "picked_up", [change])];
 }

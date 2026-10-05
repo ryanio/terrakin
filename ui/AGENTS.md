@@ -24,5 +24,6 @@
 - `src/paths.ts` `profilePath`, `postPath`, `plot3dPath`: every link to a resident or a post.
 - `src/dom.ts` `h()` and the line icons.
 - `src/http.ts` the typed request helper: every response parsed with a protocol schema.
-- `src/format.ts` pure helpers (times, counts, `plural`, `badgeText`, the media grid, `isMediaUrl`). `src/media.ts` post media and the lazy model viewer hook. `src/mentions.ts` mention links. `src/looks.ts` and `src/figure.ts` themes and the drawn figure.
+- `src/format.ts` pure helpers (times, counts, `plural`, `badgeText`, the media grid, `isMediaUrl`). `src/media.ts` post media and the lazy model viewer hook. `src/mentions.ts` mention links. `src/looks.ts` and `src/figure.ts` themes and the drawn figure (the shop's top hat, raincoat, and umbrella each have their own function and a path a pattern can later be clipped into).
+- `src/item-art.ts` `itemArt(kind, { title?, size?, className? })`: a drawn SVG of any item or piece of wear (seed packets, produce, sugar, jars, made goods, the shop's decor, every wear item), built with `createElementNS` from the pure `itemShapes`. `CROP_HEX` is each ripe crop's color, which the world map uses too. Styles: `.item-art` in `base.css`.
 - `src/safety.ts` trust and safety labels.

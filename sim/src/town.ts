@@ -1,3 +1,4 @@
+import { refuse } from "./check";
 import { tileKey } from "./keys";
 import type {
   Command,
@@ -5,7 +6,6 @@ import type {
   Proposal,
   ProposalStatus,
   Rejection,
-  RejectionCode,
   ResidentId,
   Tile,
   TownState,
@@ -14,7 +14,7 @@ import type {
   WorldState,
 } from "./types";
 import { BUILDING_BLOCKS, PROPOSAL_KINDS, SERVER_COMMANDS, VOTE_CHOICES } from "./types";
-import { commonsPlot, inBounds, isTownHallTile, plotOf } from "./world";
+import { commonsPlot, inBounds, isShopTile, isTownHallTile, plotOf } from "./world";
 
 /**
  * The Town Hall (RFC 0004): who may take part, proposals, votes, closes, and Commons builds.
@@ -161,8 +161,6 @@ export function isActivity(command: Command): boolean {
 type TownMutation = () => WorldEvent[];
 export type TownChecked = TownMutation | Rejection;
 
-const refuse = (code: RejectionCode, message: string): Rejection => ({ code, message });
-
 type ServerCommand = Extract<Command, { type: (typeof SERVER_COMMANDS)[number] }>;
 type TownCommand = Extract<
   Command,
@@ -257,6 +255,11 @@ function checkPlan(state: WorldState, blocks: PlannedBlock[], remove: Tile[]): s
     seen.add(key);
   }
   for (const b of blocks) {
+    // Only once the shop is open, so builds from before it replay as they did. Taking away a block
+    // that was already there stays allowed, so the town can clear the shop's ground.
+    if (state.shop && isShopTile(config, b.x, b.y)) {
+      return `(${b.x}, ${b.y}) is where the town shop stands. Keep it clear.`;
+    }
     if (!(BUILDING_BLOCKS as readonly string[]).includes(b.block)) {
       return `(${b.x}, ${b.y}) needs wood, stone, glass, or leaf. Builds in the Commons use those.`;
     }
@@ -510,7 +513,8 @@ function planBuild(
   for (const b of p.blocks ?? []) {
     const key = tileKey(b.x, b.y);
     const free = state.blocks[key] === undefined && !taken.has(key);
-    if (free && !isTownHallTile(state.config, b.x, b.y)) placed.push({ ...b });
+    const shop = state.shop !== undefined && isShopTile(state.config, b.x, b.y);
+    if (free && !shop && !isTownHallTile(state.config, b.x, b.y)) placed.push({ ...b });
     else skipped.push({ x: b.x, y: b.y });
   }
   return { placed, removed, skipped };

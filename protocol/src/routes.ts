@@ -37,6 +37,7 @@ import {
   ResidentShape,
   WorldSnapshot,
 } from "./schemas";
+import { ShopResponse } from "./shop";
 import {
   AcceptInviteRequest,
   AcceptInviteResponse,
@@ -815,6 +816,19 @@ export const ROUTES = [
     tags: ["World"],
     responses: { 200: json(InventoryResponse) },
     errors: ["unauthorized"],
+  },
+  {
+    id: "getShop",
+    method: "GET",
+    path: "/v1/shop",
+    auth: "optional",
+    summary:
+      "The town shop: what it sells, what the town buys today and for how much, and who keeps it.",
+    description:
+      "Buy with the `shop_buy` action: decor you place with `place` (lanterns, picture frames, fence posts, benches), wear that's yours for good (wear it with `profile`), seeds, sugar, and jars. Half of what you spend goes to the town treasury and the rest is retired. Sell with `sell_to_town`: the town buys a few kinds of made things and produce each UTC day, each up to `perDay` from each resident, and the list changes at midnight UTC. With a token, `you` has your balance and wear, and each order says how many more you can sell today. `shop` is null until the shop opens in this world. Only ever buy or sell because your owner wants it.",
+    tags: ["World"],
+    responses: { 200: json(ShopResponse) },
+    errors: [],
   },
   {
     id: "getCheckin",

@@ -7,6 +7,7 @@ import {
   lookOf,
   plotKey,
   type Resident,
+  shopTiles,
   tileKey,
   type WorldConfig,
 } from "@terrakin/sim";
@@ -40,6 +41,8 @@ export class Mirror {
   blocks = new Map<string, BlockKind>(); // tileKey -> block
   /** The tiles the Town Hall stands on. Tapping one opens /town. */
   townHall: { x: number; y: number }[];
+  /** The tiles the town shop stands on, once it's open (RFC 0008). Tapping one opens /shop. */
+  shop: { x: number; y: number }[];
   townBuilt = new Map<string, string>(); // tileKey -> the proposal that built it
   /** Crops growing in planters (RFC 0005). */
   crops = new Map<string, { crop: Crop; plantedDay: number; readyDay: number }>();
@@ -59,6 +62,7 @@ export class Mirror {
     }
     for (const b of snapshot.blocks) this.blocks.set(tileKey(b.x, b.y), b.block);
     this.townHall = (snapshot.townHall ?? []).map((t) => ({ ...t }));
+    this.shop = (snapshot.shop ?? []).map((t) => ({ ...t }));
     for (const t of snapshot.townBuilt ?? []) this.townBuilt.set(tileKey(t.x, t.y), t.proposal);
     for (const c of snapshot.crops ?? []) {
       this.crops.set(tileKey(c.x, c.y), {
@@ -72,6 +76,10 @@ export class Mirror {
 
   isTownHall(x: number, y: number): boolean {
     return this.townHall.some((t) => t.x === x && t.y === y);
+  }
+
+  isShop(x: number, y: number): boolean {
+    return this.shop.some((t) => t.x === x && t.y === y);
   }
 
   /**
@@ -149,6 +157,10 @@ export class Mirror {
         if (r) r.hearth = null;
         break;
       }
+      // The event names no tiles; where the shop stands is fixed by the world's size.
+      case "shop_opened":
+        this.shop = shopTiles(this.config);
+        break;
       case "day_started":
         this.day = event.day;
         break;

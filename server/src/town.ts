@@ -19,6 +19,7 @@ import {
   type WorldState,
 } from "@terrakin/sim";
 import { treasuryView } from "./coins";
+import { townShopView } from "./shop";
 import type { SocialService } from "./social-service";
 import { DAY_MS } from "./world-service";
 
@@ -105,6 +106,7 @@ export function townView(state: WorldState, social: SocialService, viewer?: stri
     hall: townHallTiles(state.config),
     limits: { ...TOWN_VIEW_LIMITS },
     treasury: treasuryView(state, (id) => social.authorView(id)),
+    shop: townShopView(state),
   };
 }
 

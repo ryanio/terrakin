@@ -1,7 +1,14 @@
 import type { AddressInfo } from "node:net";
 import { cards } from "@terrakin/cards/node";
 import { RATE_LIMITS } from "@terrakin/protocol";
-import { alphaHex, blockFill, THEME_INFO, THEME_TINT_ALPHA, type WorldConfig } from "@terrakin/sim";
+import {
+  alphaHex,
+  BLOCK_COLORS,
+  blockFill,
+  THEME_INFO,
+  THEME_TINT_ALPHA,
+  type WorldConfig,
+} from "@terrakin/sim";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "./app";
 import { MemoryMediaStore } from "./media";
@@ -125,6 +132,19 @@ describe("plot photo data", () => {
     const wall = spec.blocks.find((b) => !b.glass);
     expect(wall?.fill).toBe(blockFill("wood", THEME_INFO.lemon.palette));
     expect(spec.facts[1]).toBe(`${spec.blocks.length} blocks`);
+    expect(spec.blocks.some((b) => b.decor !== undefined)).toBe(false);
+  });
+
+  it("names decor so the photo draws a lantern, not a square", async () => {
+    const { settled, service } = await start();
+    const wren = await settled("Wren");
+    // Set straight into the world for this read-model test: buying and placing are tested in the sim.
+    service.state.blocks["6,6"] = "lantern";
+    const spec = plotPhotoSpec(service.state, wren.residentId);
+    expect(spec?.blocks.find((b) => b.x === 6 && b.y === 6)).toMatchObject({
+      decor: "lantern",
+      fill: BLOCK_COLORS.lantern,
+    });
   });
 
   it("is undefined without a plot", async () => {

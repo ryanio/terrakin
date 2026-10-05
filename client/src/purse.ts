@@ -6,6 +6,7 @@
  */
 import type { PurseLine, PurseResponse, PurseView } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
+import { compactCount } from "@terrakin/ui/format";
 import { countTo, reducedMotion, replay, showNumber } from "@terrakin/ui/motion";
 import { visiblePoll } from "@terrakin/ui/poll";
 import { api } from "./api";
@@ -20,6 +21,17 @@ const NOTICES_MAX = 3;
 /** "1 coin", "12 coins". Players see coins, never tokens. */
 export const coins = (n: number) => `${n.toLocaleString("en-US")} ${n === 1 ? "coin" : "coins"}`;
 
+/** A balance, large, with the coin mark: the purse page and the shop. */
+export function balanceLine(balance: number, id: string): HTMLElement {
+  return h(
+    "p",
+    { class: "purse-balance", attrs: { id } },
+    icon("coin", "icon purse-balance-coin"),
+    h("span", { class: "purse-balance-amount", text: compactCount(balance) }),
+    h("span", { class: "purse-balance-unit", text: balance === 1 ? "coin" : "coins" }),
+  );
+}
+
 /** What a purse line says as a live notice, or null for lines that don't get one. */
 export function coinNote(
   line: PurseLine,
@@ -32,6 +44,8 @@ export function coinNote(
       return { lead: `+${coins(line.amount)}`, rest: "for coming home days in a row" };
     case "welcome":
       return { lead: `+${coins(line.amount)}`, rest: "to welcome you to your first plot" };
+    case "sold":
+      return { lead: `+${coins(line.amount)}`, rest: "from the town for what you sold" };
     case "gift_in":
       return {
         lead: line.with?.name ?? "Someone",

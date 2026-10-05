@@ -13,7 +13,7 @@ import type {
 } from "@terrakin/protocol";
 import type { BlockKind, BuildingBlock } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
-import { plural } from "@terrakin/ui/format";
+import { listOf, plural } from "@terrakin/ui/format";
 import { personLink } from "@terrakin/ui/people";
 import { everyVisible } from "@terrakin/ui/poll";
 import {
@@ -111,6 +111,7 @@ export function townView(ctx: ViewContext): View {
       queuedList,
       h("h2", { class: "section-title", attrs: { id: "board-title" }, text: "Notice board" }),
       board,
+      ...(town.shop ? [shopCard(town.shop)] : []),
       h("h2", { class: "section-title", text: "Past results" }),
       archiveList,
       h("div", { class: "feed-foot" }, more.el),
@@ -514,6 +515,27 @@ export function townView(ctx: ViewContext): View {
       sheetOpen = false;
     });
     titleInput.focus();
+  }
+
+  // ---------- the town shop ----------
+
+  /** Across the Commons from the hall: what the town buys today, and the way in. */
+  function shopCard(shop: NonNullable<TownResponse["shop"]>): HTMLElement {
+    return h(
+      "section",
+      { class: "paper card town-shop", attrs: { "aria-label": "The town shop" } },
+      h("h2", { class: "card-title", text: "The town shop" }),
+      h("p", {
+        class: "town-lede",
+        text: `Across the Commons. Today the town buys ${listOf(shop.buying.map((b) => b.name.toLowerCase()))}.`,
+      }),
+      h(
+        "a",
+        { class: "pill-button", attrs: { href: "/shop" } },
+        h("span", { text: "Visit the shop" }),
+        icon("arrow"),
+      ),
+    );
   }
 
   // ---------- notice board ----------

@@ -1,17 +1,23 @@
 /**
  * Coins numbers simulation (RFC 0008). Plays a month of a few hundred residents arriving in a
- * world whose economy has just opened, and prints supply per active resident each day.
+ * world whose economy, items, and town shop have just opened, and prints supply per active
+ * resident each day.
  *
- *   node scripts/economy-sim.ts [--seed 1] [--days 30] [--residents 300] [--set key=value ...]
+ *   node scripts/economy-sim.ts [--seed 1] [--days 30] [--residents 300] [--no-shop] [--set key=value ...]
  *
  *   --seed       PRNG seed, so a run repeats exactly (default 1)
  *   --days       days to play (default 30)
  *   --residents  residents who arrive over those days, not counting the townsfolk (default 300)
- *   --set        try a different number from ECONOMY without editing it, e.g. --set allowance=8
+ *   --no-shop    play phase 1 only: coins, no gardens, no shop (the decision 0039 baseline)
+ *   --set        try a different number without editing it: a key of ECONOMY (`allowance=8`), a
+ *                shop price (`price.lantern=50`), what the town pays (`buy.lemon_jam=5`), its daily
+ *                count (`perDay.lemon_jam=3`), a key of SHOP (`goodsPerDay=2`), or the pantry once
+ *                the shop is open (`shopPantry.jar=2`, `shopStapleMax=8`)
  *
- * Every step is an input to the real sim (apply), and the numbers are ECONOMY in
- * sim/src/economy.ts, so the script and the rules can't drift. Change a number there, rerun this,
- * and record why in a decision (decision 0039).
+ * Every step is an input to the real sim (apply), and the numbers are the sim's own (ECONOMY in
+ * sim/src/economy.ts, ITEMS in sim/src/items.ts, the catalog and buy orders in sim/src/shop.ts),
+ * so the script and the rules can't drift. Change a number there, rerun this, and record why in a
+ * decision (decisions 0039 and 0052).
  */
 import { registerHooks } from "node:module";
 import { parseArgs } from "node:util";
@@ -28,32 +34,66 @@ registerHooks({
   },
 });
 
-import type { Command } from "../sim/src/index.ts";
+import type { Command, Crop, GoodKind, ShopSku, StackKind, WorldState } from "../sim/src/index.ts";
 
-const { apply, coinsOf, createWorld, ECONOMY, isCommons, TOWN_ACTOR } = await import(
-  "../sim/src/index.ts"
-);
+const {
+  apply,
+  BUY_ORDERS,
+  CROP_INFO,
+  CROPS,
+  coinsOf,
+  createWorld,
+  ECONOMY,
+  ITEMS,
+  isCommons,
+  isGoodKind,
+  isReady,
+  RECIPES,
+  SHOP,
+  SHOP_CATALOG,
+  TOWN_ACTOR,
+  tileKey,
+  townBuys,
+} = await import("../sim/src/index.ts");
 
 type Numbers = { -readonly [K in keyof typeof ECONOMY]: number };
+type Mutable = Record<string, number | Record<string, number | Record<string, number>>>;
 
 const { values: args } = parseArgs({
   options: {
     seed: { type: "string", default: "1" },
     days: { type: "string", default: "30" },
     residents: { type: "string", default: "300" },
+    "no-shop": { type: "boolean", default: false },
     set: { type: "string", multiple: true, default: [] },
   },
 });
 
-// `--set` changes the sim's own ECONOMY for this run only, so the rules play the trial numbers.
+// `--set` changes the sim's own numbers for this run only, so the rules play the trial numbers.
 const N = ECONOMY as Numbers;
 for (const pair of args.set ?? []) {
-  const [key, value] = pair.split("=");
-  if (!key || !(key in N) || !value || !Number.isInteger(Number(value))) {
-    throw new Error(`--set wants key=whole-number with a key from ECONOMY, got ${pair}`);
-  }
-  N[key as keyof Numbers] = Number(value);
+  const [key = "", value = ""] = pair.split("=");
+  const n = Number(value);
+  if (!Number.isInteger(n) || value === "") throw new Error(`--set wants a whole number: ${pair}`);
+  const [head = "", tail] = key.split(".");
+  const where: Record<string, Mutable> = {
+    price: SHOP_CATALOG as unknown as Mutable,
+    buy: BUY_ORDERS as unknown as Mutable,
+    perDay: BUY_ORDERS as unknown as Mutable,
+  };
+  if (key in N) N[key as keyof Numbers] = n;
+  else if (key in SHOP) (SHOP as unknown as Mutable)[key] = n;
+  else if (key === "shopStapleMax") (ITEMS as unknown as Mutable).shopStapleMax = n;
+  else if (tail && head === "shopPantry" && tail in ITEMS.shopPantry) {
+    (ITEMS.shopPantry as Record<string, number>)[tail] = n;
+  } else if (tail && (head === "price" || head === "buy" || head === "perDay")) {
+    const entry = (where[head] as Record<string, Record<string, number>>)[tail];
+    if (!entry)
+      throw new Error(`--set ${head}.${tail}: no such ${head === "price" ? "sku" : "buy order"}`);
+    entry[head === "perDay" ? "perDay" : "price"] = n;
+  } else throw new Error(`--set: unknown key ${key}`);
 }
+const SHOP_OPEN = !args["no-shop"];
 const SEED = Number(args.seed);
 const DAYS = Number(args.days);
 const RESIDENTS = Number(args.residents);
@@ -71,12 +111,20 @@ function mulberry32(seed: number) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-const random = mulberry32(SEED);
-const chance = (p: number) => random() < p;
-const between = (lo: number, hi: number) => lo + Math.floor(random() * (hi - lo + 1));
-function pick<T>(list: readonly T[]): T | undefined {
-  return list[Math.floor(random() * list.length)];
+/** Draws from one seeded stream. */
+function draws(random: () => number) {
+  return {
+    chance: (p: number) => random() < p,
+    between: (lo: number, hi: number) => lo + Math.floor(random() * (hi - lo + 1)),
+    pick: <T>(list: readonly T[]): T | undefined => list[Math.floor(random() * list.length)],
+  };
 }
+// Who arrives and when they visit and give: the same stream as decision 0039, so `--no-shop`
+// plays that month exactly and both runs have the same people on the same days.
+const random = mulberry32(SEED);
+const { chance, between, pick } = draws(random);
+// Gardens and shopping draw from their own stream, so they never shift the one above.
+const taste = draws(mulberry32(SEED ^ 0x5eed));
 
 // ---------- the rules ----------
 
@@ -98,6 +146,10 @@ interface Rules {
   burned(): number;
   /** Residents still waiting for a welcome gift the treasury couldn't pay in full. */
   owed(): number;
+  /** Any resident input. True when accepted. */
+  send(actor: string, command: Command): boolean;
+  /** The world, read-only, for residents deciding what to do. */
+  readonly state: WorldState;
 }
 
 /** The real rules: every step is an input to the sim, exactly as the server would log it. */
@@ -125,6 +177,10 @@ function simRules(): Rules {
     open() {
       must(TOWN_ACTOR, { type: "new_day", day: DAY0 });
       must(TOWN_ACTOR, { type: "open_economy" });
+      if (SHOP_OPEN) {
+        must(TOWN_ACTOR, { type: "open_items" });
+        must(TOWN_ACTOR, { type: "open_shop" });
+      }
     },
     newDay: (d) => must(TOWN_ACTOR, { type: "new_day", day: DAY0 + d }),
     join: (id) => must(id, { type: "join", name: id, kind: "human" }),
@@ -145,7 +201,172 @@ function simRules(): Rules {
     minted: () => state.economy?.minted ?? 0,
     burned: () => state.economy?.burned ?? 0,
     owed: () => state.economy?.owed.length ?? 0,
+    send,
+    state,
   };
+}
+
+// ---------- gardens and the shop ----------
+
+/** What a resident does with their plot and purse, beyond coming home. */
+interface Habits {
+  /** Keeps a garden: plants, harvests, makes things, and sells what the town buys today. */
+  gardens: boolean;
+  /** How many planters they grow to, buying seeds as they go. */
+  planters: number;
+  /** Chance on an active day of buying the next thing they want, once they can afford it. */
+  shops: number;
+  /** What they'd like from the shop, in order. */
+  wants: ShopSku[];
+}
+
+const WISHES: ShopSku[][] = [
+  ["lantern", "bench", "top_hat"],
+  ["fence", "fence", "fence", "fence", "fence", "fence", "frame", "lantern"],
+  ["umbrella", "lantern", "lantern", "frame"],
+  ["bench", "raincoat", "lantern"],
+  ["frame", "frame", "top_hat", "bench"],
+];
+
+/** The free tiles on a resident's plot within reach of their hearth, nearest first. */
+function gardenTiles(state: WorldState, id: string): { x: number; y: number }[] {
+  const me = state.residents[id];
+  const hearth = me?.hearth;
+  if (!me || !hearth) return [];
+  const { plotSize, reach } = state.config;
+  const px = Math.floor(hearth.x / plotSize);
+  const py = Math.floor(hearth.y / plotSize);
+  const tiles: { x: number; y: number; d: number }[] = [];
+  for (let dy = -reach; dy <= reach; dy++) {
+    for (let dx = -reach; dx <= reach; dx++) {
+      const x = hearth.x + dx;
+      const y = hearth.y + dy;
+      if (Math.floor(x / plotSize) !== px || Math.floor(y / plotSize) !== py) continue;
+      if ((dx === 0 && dy === 0) || state.blocks[tileKey(x, y)] !== undefined) continue;
+      tiles.push({ x, y, d: Math.abs(dx) + Math.abs(dy) });
+    }
+  }
+  return tiles.sort((a, b) => a.d - b.d || a.y - b.y || a.x - b.x).map(({ x, y }) => ({ x, y }));
+}
+
+const holds = (state: WorldState, id: string, kind: StackKind) =>
+  state.items?.inventories[id]?.stacks[kind] ?? 0;
+const goodsOf = (state: WorldState, id: string, kind: GoodKind) =>
+  (state.items?.inventories[id]?.goods ?? []).filter((g) => g.kind === kind).length;
+
+/** Counts for the report, kept per day. */
+const tally = { sold: 0, spent: 0 };
+
+/** A gardener's day at home: harvest, replant, make and sell what the town buys, and grow. */
+function tendGarden(rules: Rules, id: string, habits: Habits, planters: Map<string, Set<string>>) {
+  const { state } = rules;
+  const day = state.day ?? 0;
+  let mine = planters.get(id);
+  if (!mine) {
+    // Moving in: a kitchen, a workbench, and a planter for each starter seed.
+    mine = new Set();
+    planters.set(id, mine);
+    const [kitchen, bench] = gardenTiles(state, id);
+    if (kitchen) rules.send(id, { type: "place", ...kitchen, block: "kitchen" });
+    if (bench) rules.send(id, { type: "place", ...bench, block: "workbench" });
+  }
+  /** Their own kitchen or workbench, within reach of their hearth. */
+  const station = (block: "kitchen" | "workbench") => {
+    const h = state.residents[id]?.hearth;
+    for (const [key, b] of Object.entries(state.blocks)) {
+      const [x = 0, y = 0] = key.split(",").map(Number);
+      if (
+        b === block &&
+        h &&
+        Math.max(Math.abs(x - h.x), Math.abs(y - h.y)) <= state.config.reach
+      ) {
+        return { x, y };
+      }
+    }
+    return undefined;
+  };
+  // Harvest what's ready.
+  for (const key of mine) {
+    const crop = state.items?.crops[key];
+    const [x = 0, y = 0] = key.split(",").map(Number);
+    if (crop && isReady(crop.readyDay, day)) rules.send(id, { type: "harvest", x, y });
+  }
+  // Grow: buy seeds for a new planter while short of the plan and the purse allows.
+  if (SHOP_OPEN && mine.size >= 10 && mine.size < habits.planters && taste.chance(0.5)) {
+    const crop = taste.pick(CROPS) as Crop;
+    const seed = CROP_INFO[crop].seed;
+    if (coinsOf(state, id) >= SHOP_CATALOG[seed].price * 2 + 20) buy(rules, id, seed, 2);
+  }
+  // Plant every empty planter, and new ones while there are seeds and room.
+  const plant = (x: number, y: number) => {
+    const crop = [...CROPS].sort(
+      (a, b) => holds(state, id, CROP_INFO[b].seed) - holds(state, id, CROP_INFO[a].seed),
+    )[0] as Crop;
+    if (holds(state, id, CROP_INFO[crop].seed) > 0) {
+      rules.send(id, { type: "plant", x, y, seed: crop });
+    }
+  };
+  for (const key of mine) {
+    if (!state.items?.crops[key]) {
+      const [x = 0, y = 0] = key.split(",").map(Number);
+      plant(x, y);
+    }
+  }
+  const seeds = () => CROPS.reduce((n, c) => n + holds(state, id, CROP_INFO[c].seed), 0);
+  while (seeds() > 0 && mine.size < habits.planters) {
+    const tile = gardenTiles(state, id)[0];
+    if (!tile || !rules.send(id, { type: "place", ...tile, block: "planter" })) break;
+    mine.add(tileKey(tile.x, tile.y));
+    plant(tile.x, tile.y);
+  }
+  if (!SHOP_OPEN) return;
+  // Make and sell what the town buys today, up to its daily counts.
+  for (const kind of townBuys(day)) {
+    const { perDay } = BUY_ORDERS[kind];
+    if (isGoodKind(kind)) {
+      const at = station(RECIPES[kind].station);
+      if (!at) continue;
+      const { x, y } = at;
+      for (let i = goodsOf(state, id, kind); i < perDay; i++) {
+        if (!rules.send(id, { type: "craft", recipe: kind, x, y })) break;
+      }
+      const have = Math.min(perDay, goodsOf(state, id, kind));
+      if (have > 0) sell(rules, id, kind, have);
+    } else {
+      // Keep a few for the kitchen and the workbench; sell the rest.
+      const spare = Math.min(perDay, holds(state, id, kind) - 4);
+      if (spare > 0) sell(rules, id, kind, spare);
+    }
+  }
+}
+
+/** Buy at the shop, counting what was spent. True when the sim took it. */
+function buy(rules: Rules, id: string, sku: ShopSku, count = 1): boolean {
+  const ok = rules.send(id, { type: "shop_buy", sku, count });
+  if (ok) tally.spent += SHOP_CATALOG[sku].price * count;
+  return ok;
+}
+
+function sell(rules: Rules, id: string, item: string, count: number) {
+  const before = coinsOf(rules.state, id);
+  if (rules.send(id, { type: "sell_to_town", item, count })) {
+    tally.sold += coinsOf(rules.state, id) - before;
+  }
+}
+
+/** Maybe buy the next wanted thing, and place it if it's decor. */
+function goShopping(rules: Rules, id: string, habits: Habits) {
+  const { state } = rules;
+  const next = habits.wants[0];
+  if (!SHOP_OPEN || !next || !taste.chance(habits.shops)) return;
+  // Everyone keeps a little back.
+  if (coinsOf(state, id) < SHOP_CATALOG[next].price + 10) return;
+  if (!buy(rules, id, next)) return;
+  habits.wants.shift();
+  if (next === "lantern" || next === "frame" || next === "fence" || next === "bench") {
+    const tile = gardenTiles(state, id)[0];
+    if (tile) rules.send(id, { type: "place", ...tile, block: next });
+  }
 }
 
 // ---------- the population ----------
@@ -169,7 +390,11 @@ interface Person {
   settles: boolean;
   /** A generous resident gives small gifts more often. */
   giving: number;
+  habits: Habits;
 }
+
+/** Regulars garden most, and AI residents (a third of them) tend a garden as a daily routine. */
+const GARDENS: Record<Kind, number> = { regular: 0.7, visitor: 0.45, drifter: 0.3, oneday: 0 };
 
 const TOWNSFOLK = ["t_bram", "t_clem", "t_dot", "t_fern", "t_hale", "t_ivy", "t_juno", "t_moss"];
 /** Share of each townsfolk budget their scripts actually hand out on a typical day. */
@@ -197,6 +422,12 @@ function population(): Person[] {
       arrives: Math.min(DAYS - 1, Math.floor(DAYS * random() ** 1.4)),
       settles: chance(0.85),
       giving: chance(0.2) ? 0.3 : 0.06,
+      habits: {
+        gardens: taste.chance(GARDENS[kind]),
+        planters: taste.between(10, 22),
+        shops: taste.chance(0.3) ? 0.6 : 0.25,
+        wants: [...(taste.pick(WISHES) ?? [])],
+      },
     });
   }
   return people;
@@ -205,6 +436,9 @@ function population(): Person[] {
 // ---------- the month ----------
 
 interface Row {
+  sold: number;
+  spent: number;
+  burned: number;
   day: number;
   arrived: number;
   active: number;
@@ -236,12 +470,20 @@ function play(rules: Rules) {
   const rows: Row[] = [];
   let shortWelcomes = 0;
   const settled = new Set<string>();
+  const planters = new Map<string, Set<string>>();
+  const atHome = (p: Person) => {
+    if (p.habits.gardens) tendGarden(rules, p.id, p.habits, planters);
+    goShopping(rules, p.id, p.habits);
+  };
   rules.open();
   for (let day = 0; day < DAYS; day++) {
     const mintedBefore = rules.minted();
     // The town's coins are the treasury plus the townsfolk purses it funds. What they lose in a
     // day, beyond the mint, went to residents as welcome gifts and townsfolk tips.
     const townBefore = townCoins(rules);
+    const burnedBefore = rules.burned();
+    tally.sold = 0;
+    tally.spent = 0;
     // The economy opens partway through day 0, so day 0 has no new_day of its own.
     if (day > 0) rules.newDay(day);
     const townMint = day > 0 ? N.treasuryMint : 0;
@@ -258,10 +500,14 @@ function play(rules: Rules) {
           if (rules.balance(p.id) < N.welcomeGift) shortWelcomes++;
           settled.add(p.id);
           rules.home(p.id);
+          atHome(p);
         }
       } else if (p.arrives < day && chance(KINDS[p.kind].visit(day - p.arrives))) {
         active.push(p.id);
-        if (settled.has(p.id)) rules.home(p.id);
+        if (settled.has(p.id)) {
+          rules.home(p.id);
+          atHome(p);
+        }
       }
     }
 
@@ -306,6 +552,9 @@ function play(rules: Rules) {
     for (const p of people) held += rules.balance(p.id);
     const supply = rules.minted() - rules.burned();
     rows.push({
+      sold: tally.sold,
+      spent: tally.spent,
+      burned: rules.burned() - burnedBefore,
       day,
       arrived: arrived.length,
       active: active.length,
@@ -347,7 +596,7 @@ function report(rules: Rules) {
   );
   console.log("");
   console.log(
-    "day  new  active   supply  treasury  held(res)  per active  minted today  town paid",
+    "day  new  active   supply  treasury  held(res)  per active  minted today  town paid   sold  spent  burned",
   );
   for (const r of rows) {
     console.log(
@@ -361,6 +610,9 @@ function report(rules: Rules) {
         pad(r.perActive, 11),
         pad(r.mint, 13),
         pad(r.townPaid, 10),
+        pad(r.sold, 5),
+        pad(r.spent, 5),
+        pad(r.burned, 6),
       ].join("  "),
     );
   }
@@ -389,6 +641,16 @@ function report(rules: Rules) {
     console.log(
       `Month end: supply ${last.supply}, treasury ${last.treasury}, ${last.perActive} coins per active resident.`,
     );
+    if (SHOP_OPEN) {
+      console.log(
+        `Last 7 days at the shop: residents sold ${avg((r) => r.sold)} a day to the town (minted) and spent ${avg((r) => r.spent)} a day (${avg((r) => r.burned)} burned, the rest to the treasury).`,
+      );
+      const gardeners = people.filter((p) => p.habits.gardens && p.settles && p.arrives <= 6);
+      const g = gardeners.map((p) => rules.balance(p.id)).sort((a, b) => a - b);
+      console.log(
+        `Gardeners who arrived in the first week (n=${g.length}): month-end purse median ${percentile(g, 0.5)}, p90 ${percentile(g, 0.9)}, max ${g.at(-1) ?? 0}.`,
+      );
+    }
     console.log(
       `Welcome gifts that had to wait for a new_day because the treasury ran low: ${shortWelcomes}, still waiting at month end: ${rules.owed()}.`,
     );

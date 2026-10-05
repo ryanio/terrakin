@@ -2,6 +2,7 @@ import { INELIGIBLE_REASONS, TOWN_LIMITS } from "@terrakin/sim";
 import { z } from "zod";
 import { TreasuryView } from "./coins";
 import { PlannedBlock, ProposalKind, ProposalStatus, VoteChoice } from "./schemas";
+import { TownShopView } from "./shop";
 import { AuthorView, FEED_DEFAULT_LIMIT, FEED_MAX_LIMIT } from "./social";
 
 /**
@@ -134,6 +135,8 @@ export const TownResponse = z.object({
   limits: TownLimits,
   /** The town's purse and recent gifts between residents. Null until coins open. */
   treasury: TreasuryView.nullable(),
+  /** The town shop: where it stands and what the town buys today. Null until it opens. */
+  shop: TownShopView.nullable(),
 });
 export type TownResponse = z.infer<typeof TownResponse>;
 

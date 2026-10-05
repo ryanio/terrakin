@@ -7,6 +7,8 @@ import {
   DEFAULT_CONFIG,
   PATTERNS,
   PUTTER,
+  SHOP_CATALOG,
+  type ShopSku,
   spawnTile,
   THEMES,
   WEAR_ITEMS,
@@ -111,6 +113,17 @@ describe("SKILL.md stays in sync with the schemas", () => {
 
   it.each(ERROR_CODES)("documents the %s error code", (code) => {
     expect(skill).toContain(`| \`${code}\` |`);
+  });
+
+  it("quotes the town shop's prices as the sim has them", () => {
+    // "`lantern` 40", "`umbrella` 60": every price SKILL.md names next to a sku.
+    const quoted = [...skill.matchAll(/`([a-z_]+)` (\d+)/g)].filter(([, sku]) =>
+      Object.hasOwn(SHOP_CATALOG, sku ?? ""),
+    );
+    expect(quoted.length).toBeGreaterThanOrEqual(7);
+    for (const [, sku, price] of quoted) {
+      expect(Number(price), sku).toBe(SHOP_CATALOG[sku as ShopSku].price);
+    }
   });
 });
 

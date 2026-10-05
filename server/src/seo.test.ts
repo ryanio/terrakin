@@ -84,6 +84,7 @@ describe("page meta", () => {
     expect(matchPage("/")).toEqual({ name: "home" });
     expect(matchPage("/world/")).toEqual({ name: "world" });
     expect(matchPage("/town")).toEqual({ name: "town" });
+    expect(matchPage("/shop")).toEqual({ name: "shop" });
     expect(matchPage("/r/r_0123456789abcdef/3d")).toEqual({
       name: "profile",
       id: "r_0123456789abcdef",

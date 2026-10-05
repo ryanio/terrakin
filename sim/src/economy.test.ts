@@ -10,6 +10,7 @@ import { PRE_ECONOMY_CONFIG, PRE_ECONOMY_HASH, PRE_ECONOMY_LOG } from "./fixture
 import { PRE_TOWN_CONFIG, PRE_TOWN_HASH, PRE_TOWN_LOG } from "./fixtures/pre-town-log";
 import { hashWorld } from "./hash";
 import { replay } from "./replay";
+import { expectSupplyHolds, fund } from "./test-support";
 import {
   type Command,
   type Input,
@@ -40,19 +41,6 @@ const PLOTS = [
   [2, 2],
 ] as const;
 const DAY = 20_000;
-
-/** Every coin is in a purse or the treasury, and every amount is a whole number. */
-function expectSupplyHolds(state: WorldState) {
-  const econ = state.economy;
-  if (!econ) return;
-  let held = 0;
-  for (const n of Object.values(econ.coins)) {
-    expect(Number.isInteger(n) && n > 0).toBe(true);
-    held += n;
-  }
-  expect(Number.isInteger(econ.treasury) && econ.treasury >= 0).toBe(true);
-  expect(held + econ.treasury).toBe(econ.minted - econ.burned);
-}
 
 /**
  * A world and its log. Every input checks the supply identity afterwards, and every rejection
@@ -138,17 +126,6 @@ function setTreasury(state: WorldState, n: number) {
   if (!econ) throw new Error("open the economy first");
   econ.minted += n - econ.treasury;
   econ.treasury = n;
-}
-
-/**
- * Put coins straight into a purse for a test, minting them so the supply identity still holds.
- * Never part of a replayed log.
- */
-function fund(state: WorldState, id: string, n: number) {
-  const econ = state.economy;
-  if (!econ) throw new Error("open the economy first");
-  econ.coins[id] = (econ.coins[id] ?? 0) + n;
-  econ.minted += n;
 }
 
 const coinEvents = (events: WorldEvent[]) =>

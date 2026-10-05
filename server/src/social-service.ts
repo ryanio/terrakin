@@ -1209,10 +1209,16 @@ export class SocialService {
    * nobody has claimed it since, so old links still work.
    */
   profileByHandle(handle: string, viewerId?: string): ProfileView | undefined {
+    const id = this.residentIdByHandle(handle);
+    return id === undefined ? undefined : this.profile(id, viewerId);
+  }
+
+  /** The resident id a handle points at, on the same terms as `profileByHandle`. */
+  residentIdByHandle(handle: string): string | undefined {
     const lower = handle.toLowerCase();
     if (!HANDLE_PATTERN.test(lower)) return undefined;
     const row = this.rows("SELECT resident_id FROM handles WHERE handle = ?", lower)[0];
-    return row ? this.profile(String(row.resident_id), viewerId) : undefined;
+    return row ? String(row.resident_id) : undefined;
   }
 
   async updateProfile(

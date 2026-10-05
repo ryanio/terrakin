@@ -65,8 +65,20 @@ export const WEAR_ITEMS = [
   "satchel",
   "glasses",
   "bow",
+  "top_hat",
+  "raincoat",
+  "umbrella",
 ] as const;
 export type WearItem = (typeof WEAR_ITEMS)[number];
+
+/**
+ * Wear sold at the town shop (RFC 0008). The rest stays free. Wearing one of these takes having
+ * bought it, and once bought it's yours for good.
+ */
+export const SHOP_WEAR = ["top_hat", "raincoat", "umbrella"] as const satisfies readonly WearItem[];
+export type ShopWear = (typeof SHOP_WEAR)[number];
+export const isShopWear = (w: unknown): w is ShopWear =>
+  typeof w === "string" && (SHOP_WEAR as readonly string[]).includes(w);
 
 /** One item per slot, so at most this many at once. */
 export const MAX_WEAR = WEAR_SLOTS.length;
@@ -243,6 +255,9 @@ export const WEAR_INFO: Record<WearItem, { slot: WearSlot; label: string }> = {
   satchel: { slot: "accessory", label: "Satchel" },
   glasses: { slot: "accessory", label: "Glasses" },
   bow: { slot: "accessory", label: "Bow" },
+  top_hat: { slot: "hat", label: "Top hat" },
+  raincoat: { slot: "top", label: "Raincoat" },
+  umbrella: { slot: "accessory", label: "Umbrella" },
 };
 
 /** A media id exactly as the server makes them: `m_` and 16 hex digits. */

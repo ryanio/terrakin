@@ -244,6 +244,8 @@ describe("gallery requests", () => {
     expect(parseGallery("")).toEqual({});
     expect(parseGallery("?item=jam-apricot")).toEqual({ item: "jam-apricot" });
     expect(parseGallery("?item=bomb")).toEqual({});
+    for (const decor of ["lantern", "frame", "fence", "bench"])
+      expect(parseGallery(`?item=${decor}`)).toEqual({ item: decor });
     expect(parseGallery("?item=painting&media=m_0123456789abcdef")).toEqual({
       item: "painting",
       media: "/media/m_0123456789abcdef",
@@ -269,6 +271,7 @@ describe("three.js stays out of the main bundle", () => {
     "model-viewer.ts",
     "scene3d/art.ts",
     "scene3d/items.ts",
+    "scene3d/decor.ts",
     "scene3d/plot.ts",
     "scene3d/gallery.ts",
     "scene3d/page.ts",

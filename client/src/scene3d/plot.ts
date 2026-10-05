@@ -6,6 +6,7 @@
  * when they have one, stands on the plot too.
  */
 
+import { DECOR_KINDS, isDecorKind } from "@terrakin/sim";
 import { isModelResource } from "@terrakin/ui/format";
 import {
   Box3,
@@ -53,6 +54,7 @@ import {
   spotTexture,
   stoneTexture,
 } from "./art";
+import { decorInstances } from "./decor";
 import { painting } from "./items";
 import {
   cornerLight,
@@ -358,11 +360,34 @@ function blockMeshes(
     mesh.receiveShadow = true;
     out.push(mesh);
   }
+
+  // Decor from the town shop: real little models, fence rails reaching the fences beside them.
+  const fences = new Set(blocks.filter((b) => b.block === "fence").map((b) => `${b.x},${b.y}`));
+  const fenceAt = (x: number, y: number) => fences.has(`${x},${y}`);
+  for (const kind of DECOR_KINDS) {
+    const list = blocks.filter((b) => b.block === kind);
+    const places = list.map((b) => ({
+      x: toX(b.x),
+      z: toZ(b.y),
+      tint: mix(0xffffff, fogColor, b.own ? 0 : 0.25 + b.fade * 0.6),
+      ...(kind === "fence"
+        ? {
+            joins: {
+              n: fenceAt(b.x, b.y - 1),
+              e: fenceAt(b.x + 1, b.y),
+              s: fenceAt(b.x, b.y + 1),
+              w: fenceAt(b.x - 1, b.y),
+            },
+          }
+        : {}),
+    }));
+    out.push(...decorInstances(stage, kind, grain, places));
+  }
   return out;
 }
 
 function solidAt(blocks: PlotLayout["blocks"], x: number, y: number): boolean {
-  return blocks.some((b) => b.x === x && b.y === y && b.block !== "leaf");
+  return blocks.some((b) => b.x === x && b.y === y && b.block !== "leaf" && !isDecorKind(b.block));
 }
 
 // ---------- tufts and flowers ----------

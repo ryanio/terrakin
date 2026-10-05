@@ -13,6 +13,7 @@ import {
   groundTile,
   HEARTH_COLOR,
   HEARTH_DOOR,
+  isDecorKind,
   PAPER,
   THEME_INFO,
   THEME_TINT_ALPHA,
@@ -109,6 +110,7 @@ export function plotPhotoSpec(state: WorldState, residentId: string): PlotPhotoS
         y,
         glass: block === "glass",
         fill: blockFill(block, block === "glass" ? undefined : palette),
+        ...(isDecorKind(block) ? { decor: block } : {}),
       });
     }
   }

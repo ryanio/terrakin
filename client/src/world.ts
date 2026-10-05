@@ -10,11 +10,24 @@ import {
   type ServerMessage,
   WorldSnapshot,
 } from "@terrakin/protocol";
-import type { BlockKind, Direction } from "@terrakin/sim";
+import {
+  type BlockKind,
+  type DecorKind,
+  type Direction,
+  ITEM_INFO,
+  isDecorKind,
+} from "@terrakin/sim";
 import { REDUCED_MOTION } from "@terrakin/ui/motion";
 import { plot3dPath } from "@terrakin/ui/paths";
 import { everyVisible } from "@terrakin/ui/poll";
-import { whoseKey } from "./api";
+import { api, whoseKey } from "./api";
+import {
+  type DecorCounts,
+  decorChoices,
+  decorFromStacks,
+  paintDecorChoices,
+  withDecorChanges,
+} from "./build-palette";
 import { type Camera, fitScale, screenToTile, stepToward } from "./camera";
 import { createLanding } from "./landing";
 import { Mirror } from "./mirror";
@@ -53,6 +66,10 @@ let navigate: ((path: string) => void) | undefined;
 let buildMode = false;
 /** Selected build tool: a block, or the hearth marker. */
 let block: BlockKind | "hearth" = "wood";
+/** Decor from the town shop you hold, shown in the palette while you have some. */
+let decor: DecorCounts = new Map();
+/** Decor shown since the palette opened, kept (greyed out) when you run out. */
+let decorShown = new Set<DecorKind>();
 let walkTarget: { x: number; y: number } | undefined;
 let pendingMove: string | undefined;
 /** Steps asked for by key presses and d-pad taps, sent in order as the pace allows. */
@@ -174,6 +191,7 @@ function onMessage(msg: ServerMessage) {
       hud.hidden = false;
       snapCamera();
       showArrival();
+      void loadDecor();
       break;
     case "gesture":
       // Someone sent you a hug or a wave. Their name and note are their words: shown as text.
@@ -186,6 +204,15 @@ function onMessage(msg: ServerMessage) {
       if (msg.event.type === "inventory" && msg.event.residentId === me) {
         const line = inventoryLine(msg.event);
         if (line) showToast(line);
+        const next = withDecorChanges(decor, msg.event.changes);
+        if (next !== decor) {
+          decor = next;
+          if (isDecorKind(block) && !decor.has(block)) {
+            showToast(`That was your last ${ITEM_INFO[block].name.toLowerCase()}.`);
+            selectBlock("wood");
+          }
+          paintPalette();
+        }
       }
       break;
     case "chat":
@@ -283,9 +310,13 @@ canvas.addEventListener("pointerdown", (e) => {
   }
   // Tapping someone shows who they are. Names and notes are untrusted: textContent only.
   const other = mirror.residentAt(tile.x, tile.y);
-  // The Town Hall opens its page, unless someone is standing in its doorway.
+  // The Town Hall opens its page, unless someone is standing in its doorway. So does the shop.
   if (!other && mirror.isTownHall(tile.x, tile.y) && navigate) {
     navigate("/town");
+    return;
+  }
+  if (!other && mirror.isShop(tile.x, tile.y) && navigate) {
+    navigate("/shop");
     return;
   }
   // A planter, kitchen, or workbench opens what you can do there (RFC 0005).
@@ -364,6 +395,9 @@ buildButton.addEventListener("click", () => {
   buildButton.setAttribute("aria-pressed", String(buildMode));
   palette.hidden = !buildMode;
   if (buildMode) showToast("Tap a tile to build. Tap a block to remove it.");
+  // A fresh start: only the decor you hold now.
+  decorShown = new Set(decor.keys());
+  paintPalette();
 });
 
 for (const button of palette.querySelectorAll<HTMLButtonElement>("button")) {
@@ -371,11 +405,33 @@ for (const button of palette.querySelectorAll<HTMLButtonElement>("button")) {
   const chip = button.querySelector<HTMLElement>(".chip");
   if (chip) chip.style.background = kind === "hearth" ? HEARTH_COLOR : blockColor(kind);
   button.setAttribute("aria-pressed", String(kind === block));
-  button.addEventListener("click", () => {
-    block = kind;
-    for (const b of palette.querySelectorAll("button"))
-      b.setAttribute("aria-pressed", String(b === button));
-  });
+}
+
+// One listener for every choice, including the decor buttons painted in and out as counts change.
+palette.addEventListener("click", (e) => {
+  const button = (e.target as Element).closest<HTMLButtonElement>("button[data-block]");
+  if (button && !button.disabled) selectBlock(button.dataset.block as BlockKind | "hearth");
+});
+
+function selectBlock(kind: BlockKind | "hearth") {
+  block = kind;
+  for (const b of palette.querySelectorAll<HTMLButtonElement>("button"))
+    b.setAttribute("aria-pressed", String(b.dataset.block === kind));
+}
+
+/** Redraw the decor choices. A decor you no longer hold can't stay picked: back to wood. */
+function paintPalette() {
+  if (isDecorKind(block) && !decor.has(block)) selectBlock("wood");
+  for (const kind of decor.keys()) decorShown.add(kind);
+  paintDecorChoices(palette, decorChoices(decor, decorShown), block);
+}
+
+/** Ask what decor you hold. Quietly nothing when items aren't open or the request fails. */
+async function loadDecor() {
+  const r = await api.inventory();
+  if (!active || !r.ok) return;
+  decor = decorFromStacks(r.data.inventory?.stacks ?? []);
+  paintPalette();
 }
 
 $("home").addEventListener("click", () => {
@@ -512,6 +568,9 @@ export function stopWorld() {
   conn = undefined;
   me = undefined;
   joiningFresh = false;
+  decor = new Map();
+  decorShown = new Set();
+  paintPalette();
   stopWalking();
   hud.hidden = true;
   landing.setJoining(false);

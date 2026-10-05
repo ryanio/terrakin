@@ -10,7 +10,9 @@ export type Direction = "n" | "s" | "e" | "w";
 
 /**
  * What can be placed. The first four are building blocks. `planter` holds a crop, and `kitchen`
- * and `workbench` are stations to craft at (RFC 0005). All are placed for free, like any block.
+ * and `workbench` are stations to craft at (RFC 0005). Those are placed for free. The rest are
+ * decor from the town shop (RFC 0008): placing one uses one from your things, and removing it puts
+ * it back.
  */
 export const BLOCK_KINDS = [
   "wood",
@@ -20,7 +22,32 @@ export const BLOCK_KINDS = [
   "planter",
   "kitchen",
   "workbench",
+  "lantern",
+  "frame",
+  "fence",
+  "bench",
 ] as const;
+
+/** Blocks bought at the town shop. Each one placed is one fewer in your things. */
+export const DECOR_BLOCKS = [
+  "lantern",
+  "frame",
+  "fence",
+  "bench",
+] as const satisfies readonly (typeof BLOCK_KINDS)[number][];
+export type DecorBlock = (typeof DECOR_BLOCKS)[number];
+
+/** The blocks anyone can place without holding one: everything but decor. */
+export const FREE_BLOCKS = [
+  "wood",
+  "stone",
+  "glass",
+  "leaf",
+  "planter",
+  "kitchen",
+  "workbench",
+] as const satisfies readonly (typeof BLOCK_KINDS)[number][];
+export type FreeBlock = (typeof FREE_BLOCKS)[number];
 
 /** The blocks a Town Hall `commons_build` may place: the four building blocks, no stations. */
 export const BUILDING_BLOCKS = [
@@ -233,6 +260,23 @@ export interface WorldState {
    * hash as they always have. Inventories are private, like purses; crops are public.
    */
   items?: ItemsState;
+  /**
+   * The town shop (RFC 0008, phase 2). Absent until `open_shop`, so worlds from before the shop
+   * hash as they always have.
+   */
+  shop?: ShopState;
+}
+
+export interface ShopState {
+  /** Shop wear each resident bought. Theirs to wear for good. Sorted. Absent until their first. */
+  wardrobe: Record<ResidentId, WearItem[]>;
+  /** Today's counters for the town's buy orders. Reset at each `new_day`. */
+  today: ShopToday;
+}
+
+export interface ShopToday {
+  /** What each resident sold to the town today, by kind. */
+  sold: Record<ResidentId, Partial<Record<ItemKind, number>>>;
 }
 
 /** A made thing. It keeps its maker and the day it was made wherever it goes. */
@@ -297,6 +341,14 @@ export const INVENTORY_REASONS = [
   "craft",
   "gift_in",
   "gift_out",
+  /** Bought at the town shop. */
+  "bought",
+  /** Sold to the town. */
+  "sold",
+  /** A decor block placed in the world. */
+  "placed",
+  /** A decor block taken back up. */
+  "picked_up",
 ] as const;
 export type InventoryReason = (typeof INVENTORY_REASONS)[number];
 
@@ -318,6 +370,10 @@ export const COIN_REASONS = [
   "budget",
   /** A townsfolk resident's unspent coins, back to the treasury at `new_day`. */
   "budget_return",
+  /** Spent at the town shop. Half goes to the treasury and half is burned. */
+  "shop",
+  /** Paid by the town for something sold to it. Minted. */
+  "sold",
 ] as const;
 export type CoinReason = (typeof COIN_REASONS)[number];
 
@@ -340,7 +396,7 @@ export interface EconomyState {
   treasury: number;
   /** Every coin ever made. `sum(coins) + treasury == minted - burned`, always. */
   minted: number;
-  /** Every coin ever destroyed. Phase 1 has no sinks, so this stays 0 for now. */
+  /** Every coin ever destroyed: half of what's spent at the town shop. */
   burned: number;
   /** Each resident's purse. Absent means 0. */
   coins: Record<ResidentId, number>;
@@ -413,6 +469,9 @@ export type Command =
   | { type: "harvest"; x: number; y: number }
   | { type: "craft"; recipe: GoodKind; x: number; y: number; label?: string }
   | { type: "give"; item: string; to: ResidentId; count?: number; note?: string }
+  // The town shop (RFC 0008, phase 2).
+  | { type: "shop_buy"; sku: string; count?: number }
+  | { type: "sell_to_town"; item: string; count?: number }
   // Only the server sends these, as TOWN_ACTOR.
   | { type: "new_day"; day: number }
   | { type: "set_townsfolk"; ids: ResidentId[] }
@@ -424,7 +483,8 @@ export type Command =
   | { type: "add_owner_pair"; pair: [ResidentId, ResidentId] }
   | { type: "remove_owner_pair"; pair: [ResidentId, ResidentId] }
   | { type: "set_maintainers"; ids: ResidentId[] }
-  | { type: "open_items" };
+  | { type: "open_items" }
+  | { type: "open_shop" };
 
 export type CommandType = Command["type"];
 
@@ -446,6 +506,7 @@ export const SERVER_COMMANDS = [
   "remove_owner_pair",
   "set_maintainers",
   "open_items",
+  "open_shop",
 ] as const satisfies readonly CommandType[];
 
 /** A command plus who issued it. This is the unit the server logs and replays. */
@@ -542,6 +603,9 @@ export type WorldEvent =
   | { type: "owner_pair_removed"; pair: [ResidentId, ResidentId] }
   | { type: "maintainers_set"; ids: ResidentId[] }
   | { type: "items_opened" }
+  | { type: "shop_opened" }
+  /** Shop wear a resident bought. Private, like their purse. */
+  | { type: "wear_bought"; residentId: ResidentId; wear: WearItem }
   /** A seed went into a planter. Public: crops show in the world. */
   | {
       type: "planted";
@@ -623,6 +687,11 @@ export const REJECTION_CODES = [
   "inventory_full",
   "craft_limit",
   "invalid_label",
+  "shop_closed",
+  "not_buying",
+  "sell_limit",
+  "already_have",
+  "not_owned",
 ] as const;
 export type RejectionCode = (typeof REJECTION_CODES)[number];
 

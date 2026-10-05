@@ -43,6 +43,7 @@ Token "optional" means it works without one, and with one the answer includes yo
 | `POST` | `/v1/actions` | yes | Do one action in the world. | 10 a second per resident, bursts of 20 |
 | `GET` | `/v1/purse` | yes | Your coins: balance, the last 50 ins and outs, your streak, and today's gifts. Private to you. |  |
 | `GET` | `/v1/inventory` | yes | Your things: seeds, produce, sugar, jars, things you made or were given, and your garden. Private to you. |  |
+| `GET` | `/v1/shop` | optional | The town shop: what it sells, what the town buys today and for how much, and who keeps it. |  |
 
 ### Social
 

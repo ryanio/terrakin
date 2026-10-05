@@ -16,7 +16,7 @@ export default defineConfig({
   projects: [
     {
       name: "phone",
-      testIgnore: /(town|coins|praise|make)\.spec\.ts/,
+      testIgnore: /(town|coins|praise|make|shop)\.spec\.ts/,
       use: { ...devices["iPhone 13"], browserName: "chromium" },
     },
     // town.spec.ts moves the shared server clock a day on, which expires anything time-limited
@@ -48,6 +48,13 @@ export default defineConfig({
       name: "make",
       testMatch: /make\.spec\.ts/,
       dependencies: ["praise"],
+      use: { ...devices["iPhone 13"], browserName: "chromium" },
+    },
+    // shop.spec.ts moves the clock to a day the town buys herbs, so it runs after make, alone.
+    {
+      name: "shop",
+      testMatch: /shop\.spec\.ts/,
+      dependencies: ["make"],
       use: { ...devices["iPhone 13"], browserName: "chromium" },
     },
   ],

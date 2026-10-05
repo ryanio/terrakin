@@ -5,7 +5,7 @@ import { hashWorld } from "./hash";
 import { replay } from "./replay";
 import { electorate, quorum, TOWN_LIMITS, townEligibility, votesCast } from "./town";
 import { type Command, type Input, type PlannedBlock, TOWN_ACTOR, type WorldConfig } from "./types";
-import { createWorld, townHallTiles } from "./world";
+import { createWorld, shopTiles, townHallTiles } from "./world";
 
 // 3x3 plots of 8 tiles. The Commons is plot (1,1), tiles 8..15; spawn is (12,12). The Town Hall
 // stands on (11..13, 8..9).
@@ -336,6 +336,23 @@ describe("propose", () => {
     }));
     expect(code(many)).toBe("invalid_proposal");
     expect(code(many.slice(0, 40).filter((b) => !(b.x === 9 && b.y === 13)))).toBeNull();
+  });
+
+  it("keeps new builds off the town shop once it's open, but can clear its ground", () => {
+    const w = town("ada", "bob");
+    const [tile] = shopTiles(CONFIG);
+    if (!tile) throw new Error("no shop tiles");
+    const build = (who: string, extra: Partial<Extract<Command, { type: "propose" }>>) =>
+      w.code(who, { type: "propose", kind: "commons_build", title: "Shop", text: "", ...extra });
+    // Before the shop opens, its ground is ordinary Commons.
+    expect(build("ada", { blocks: [{ ...tile, block: "stone" }] })).toBeNull();
+    // A block a past build left there (set directly: how it got there isn't the point).
+    w.state.blocks[`${tile.x},${tile.y}`] = "stone";
+    w.ok(TOWN_ACTOR, { type: "open_economy" });
+    w.ok(TOWN_ACTOR, { type: "open_items" });
+    w.ok(TOWN_ACTOR, { type: "open_shop" });
+    expect(build("bob", { blocks: [{ ...tile, block: "wood" }] })).toBe("invalid_proposal");
+    expect(build("bob", { remove: [tile] })).toBeNull();
   });
 
   it("allows one open or queued proposal per resident, and one new one a week", () => {

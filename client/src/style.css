@@ -6935,3 +6935,163 @@ a.profile-owner:hover .owner-name {
   line-height: 1.45;
   color: var(--clay-deep);
 }
+
+/* Shop art */
+.things-good.has-art {
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: center;
+  column-gap: 12px;
+}
+
+.things-stack.has-art {
+  gap: 6px;
+  padding: 4px 12px 4px 6px;
+}
+
+.palette .decor-choice {
+  position: relative;
+}
+
+.palette .decor-choice:disabled {
+  opacity: 0.45;
+}
+
+.palette .decor-chip {
+  background: var(--paper-2);
+}
+
+.palette .decor-count {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--clay);
+  color: var(--paper);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.palette-divider {
+  flex: none;
+  align-self: center;
+  width: 1px;
+  height: 28px;
+  margin: 0 2px;
+  background: var(--paper-edge);
+}
+
+/* The town shop page (/shop) */
+.shop-body {
+  display: grid;
+  gap: 20px;
+}
+
+.shop-card {
+  display: grid;
+  gap: 12px;
+}
+
+.shop-keeper {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.shop-keeper .person-link {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.shop-section {
+  display: grid;
+  gap: 10px;
+}
+
+.shop-section .purse-hint {
+  margin: 0;
+}
+
+.shop-orders,
+.shop-shelf {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.shop-order {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--tap);
+  padding: 8px 10px 8px 12px;
+  border: 1px solid var(--paper-edge);
+  border-radius: var(--r-note);
+  background: var(--paper);
+}
+
+.shop-order-body {
+  display: grid;
+  min-width: 0;
+}
+
+.shop-order-name {
+  font-weight: 700;
+}
+
+.shop-order-meta,
+.shop-item-meta {
+  color: var(--ink-soft);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Two to a row on a phone, more as the screen allows. */
+.shop-shelf {
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+
+.shop-item {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 4px;
+  padding: 14px 10px 12px;
+  border-radius: var(--r-card);
+  text-align: center;
+}
+
+.shop-item-name {
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.shop-item-3d {
+  font-size: 14px;
+  color: var(--clay-deep);
+}
+
+.shop-buy {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 6px;
+  justify-content: center;
+}
+
+.shop-buy:disabled {
+  opacity: 1;
+  color: var(--ink-soft);
+  background: var(--paper-2);
+  cursor: default;
+}
+
+.shop-sell {
+  min-height: 44px;
+}

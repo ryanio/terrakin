@@ -17,12 +17,18 @@ export interface PlotGround {
   flower?: { fx: number; fy: number; fill: string } | undefined;
 }
 
+/** Decor from the town shop, drawn as itself rather than a square. Same names as the sim's. */
+export const PLOT_DECOR = ["lantern", "frame", "fence", "bench"] as const;
+export type PlotDecor = (typeof PLOT_DECOR)[number];
+
 export interface PlotBlock {
   /** Tiles from the plot's top left corner. */
   x: number;
   y: number;
   glass: boolean;
   fill: string;
+  /** Set for a lantern, frame, fence post, or bench; `fill` is then its main color. */
+  decor?: PlotDecor | undefined;
 }
 
 /** The colors the drawing needs beyond the ground and blocks, from the sim's palette. */
@@ -101,8 +107,21 @@ export function plotSvg(c: PlotCard, px: number): string {
   if (c.tint) parts.push(`<rect width="${S}" height="${S}" fill="${safeColor(c.tint)}"/>`);
 
   // Blocks: a ground shadow, the block, a bottom shade, and a top highlight, as in the world.
+  const fences = new Set(c.blocks.filter((b) => b.decor === "fence").map((b) => `${b.x},${b.y}`));
   for (const b of c.blocks) {
     if (!inPlot(b.x, S) || !inPlot(b.y, S)) continue;
+    if (b.decor && (PLOT_DECOR as readonly string[]).includes(b.decor)) {
+      const at = (dx: number, dy: number) => fences.has(`${b.x + dx},${b.y + dy}`);
+      parts.push(
+        ...decorSvg(b.decor, b.x, b.y, safeColor(b.fill), {
+          n: at(0, -1),
+          e: at(1, 0),
+          s: at(0, 1),
+          w: at(-1, 0),
+        }),
+      );
+      continue;
+    }
     const left = b.x + 0.05;
     const top = b.y + 0.05;
     const size = 0.9;
@@ -135,6 +154,83 @@ export function plotSvg(c: PlotCard, px: number): string {
     );
   }
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="0 0 ${S} ${S}" shape-rendering="geometricPrecision">${parts.join("")}</svg>`;
+}
+
+const WOOD_DARK = "#6e4a2c";
+const EDGE = "rgba(70, 40, 18, 0.5)";
+
+/**
+ * One decor block on tile (x, y), following `client/src/render.ts`: a paper lantern on a hook, a
+ * picture on an easel, a fence post with rails to the fences beside it, or a garden bench. Only
+ * numbers and checked colors go in. No ellipses, so the tests can tell the hearth's shadow apart.
+ */
+function decorSvg(
+  kind: PlotDecor,
+  x: number,
+  y: number,
+  fill: string,
+  joins: { n: boolean; e: boolean; s: boolean; w: boolean },
+): string[] {
+  const X = (f: number) => n(x + f);
+  const Y = (f: number) => n(y + f);
+  const stroke = `stroke="${EDGE}" stroke-width="0.035" stroke-linejoin="round"`;
+  const shade = `<rect x="${X(0.16)}" y="${Y(0.86)}" width="0.68" height="0.1" rx="0.05" fill="rgba(74, 52, 28, 0.2)"/>`;
+  if (kind === "lantern") {
+    return [
+      shade,
+      `<path d="M${X(0.33)} ${Y(0.92)}V${Y(0.16)}Q${X(0.34)} ${Y(0.06)} ${X(0.58)} ${Y(0.08)}Q${X(0.66)} ${Y(0.1)} ${X(0.66)} ${Y(0.2)}" fill="none" stroke="${WOOD_DARK}" stroke-width="0.065" stroke-linecap="round"/>`,
+      `<circle cx="${X(0.66)}" cy="${Y(0.44)}" r="0.24" fill="rgba(242, 181, 68, 0.28)"/>`,
+      `<rect x="${X(0.48)}" y="${Y(0.24)}" width="0.36" height="0.4" rx="0.17" fill="${fill}" ${stroke}/>`,
+      `<rect x="${X(0.56)}" y="${Y(0.2)}" width="0.2" height="0.06" rx="0.02" fill="${WOOD_DARK}"/>`,
+      `<rect x="${X(0.56)}" y="${Y(0.62)}" width="0.2" height="0.06" rx="0.02" fill="${WOOD_DARK}"/>`,
+    ];
+  }
+  if (kind === "frame") {
+    return [
+      shade,
+      `<path d="M${X(0.22)} ${Y(0.92)}L${X(0.42)} ${Y(0.1)}M${X(0.78)} ${Y(0.92)}L${X(0.58)} ${Y(0.1)}" stroke="${WOOD_DARK}" stroke-width="0.06" stroke-linecap="round"/>`,
+      `<rect x="${X(0.15)}" y="${Y(0.14)}" width="0.7" height="0.52" rx="0.04" fill="${fill}" ${stroke}/>`,
+      `<rect x="${X(0.22)}" y="${Y(0.21)}" width="0.56" height="0.38" fill="#cfe6ee"/>`,
+      `<circle cx="${X(0.62)}" cy="${Y(0.32)}" r="0.06" fill="#f2b84b"/>`,
+      `<path d="M${X(0.22)} ${Y(0.59)}V${Y(0.46)}Q${X(0.4)} ${Y(0.36)} ${X(0.56)} ${Y(0.48)}Q${X(0.68)} ${Y(0.42)} ${X(0.78)} ${Y(0.46)}V${Y(0.59)}z" fill="#5e7f45"/>`,
+      `<rect x="${X(0.13)}" y="${Y(0.65)}" width="0.74" height="0.06" fill="${WOOD_DARK}"/>`,
+    ];
+  }
+  if (kind === "fence") {
+    const rails: string[] = [];
+    for (const [on, from, to] of [
+      [joins.w, 0, 0.5],
+      [joins.e, 0.5, 1],
+    ] as const) {
+      if (!on) continue;
+      for (const fy of [0.34, 0.62]) {
+        rails.push(
+          `<rect x="${X(from)}" y="${Y(fy)}" width="${to - from}" height="0.09" fill="${fill}" ${stroke}/>`,
+        );
+      }
+    }
+    if (joins.n) {
+      rails.push(
+        `<rect x="${X(0.43)}" y="${Y(0)}" width="0.14" height="0.2" fill="${fill}" ${stroke}/>`,
+      );
+    }
+    if (joins.s) {
+      rails.push(
+        `<rect x="${X(0.43)}" y="${Y(0.82)}" width="0.14" height="0.18" fill="${fill}" ${stroke}/>`,
+      );
+    }
+    return [
+      ...rails,
+      `<path d="M${X(0.39)} ${Y(0.92)}V${Y(0.24)}L${X(0.5)} ${Y(0.12)}L${X(0.61)} ${Y(0.24)}V${Y(0.92)}z" fill="${fill}" ${stroke}/>`,
+    ];
+  }
+  return [
+    shade,
+    `<path d="M${X(0.18)} ${Y(0.6)}V${Y(0.92)}M${X(0.82)} ${Y(0.6)}V${Y(0.92)}M${X(0.24)} ${Y(0.2)}V${Y(0.6)}M${X(0.76)} ${Y(0.2)}V${Y(0.6)}" stroke="${WOOD_DARK}" stroke-width="0.06" stroke-linecap="round"/>`,
+    `<rect x="${X(0.11)}" y="${Y(0.16)}" width="0.78" height="0.12" rx="0.03" fill="${fill}" ${stroke}/>`,
+    `<rect x="${X(0.11)}" y="${Y(0.33)}" width="0.78" height="0.12" rx="0.03" fill="${fill}" ${stroke}/>`,
+    `<rect x="${X(0.06)}" y="${Y(0.52)}" width="0.88" height="0.14" rx="0.04" fill="${fill}" ${stroke}/>`,
+  ];
 }
 
 /**

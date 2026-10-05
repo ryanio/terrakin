@@ -33,8 +33,16 @@ describe("coin notices", () => {
     }
   });
 
+  it("say what the town paid for what you sold", () => {
+    expect(coinNote(line({ amount: 5, reason: "sold" }))).toEqual({
+      lead: "+5 coins",
+      rest: "from the town for what you sold",
+    });
+  });
+
   it("stay quiet about coins going out and about townsfolk budgets", () => {
     expect(coinNote(line({ amount: -5, reason: "gift_out", with: wren }))).toBeNull();
+    expect(coinNote(line({ amount: -40, reason: "shop" }))).toBeNull();
     expect(coinNote(line({ amount: 50, reason: "budget" }))).toBeNull();
   });
 
@@ -74,6 +82,8 @@ describe("the purse page", () => {
     expect(lineLabel({ reason: "gift_in", with: ash })).toBe("A gift from Ash");
     expect(lineLabel({ reason: "gift_out", with: wren })).toBe("Your gift to Wren");
     expect(lineLabel({ reason: "welcome" })).toContain("first plot");
+    expect(lineLabel({ reason: "shop" })).toBe("At the town shop");
+    expect(lineLabel({ reason: "sold" })).toBe("Sold to the town");
     expect(signed(10)).toBe("+10");
     expect(signed(-1500)).toBe("−1,500");
   });

@@ -37,6 +37,7 @@ import {
   type ReactionKey,
   ReportResponse,
   ResidentListResponse,
+  ShopResponse,
   TownResponse,
   UnreadResponse,
   type UpdateProfileRequest,
@@ -171,6 +172,8 @@ export const api = {
   purse: () => request("GET", "/v1/purse", PurseResponse),
   /** Your things, your garden, and the catalog (RFC 0005). Private to you. */
   inventory: () => request("GET", "/v1/inventory", InventoryResponse),
+  /** The town shop (RFC 0008): what it sells and what the town buys today. */
+  shop: () => request("GET", "/v1/shop", ShopResponse),
   /** A world action. A 200 can still be a refusal by the rules: check `ok` in the body. */
   act: (action: Action) => request("POST", "/v1/actions", ActionResponse, action),
   pinNotice: (text: string) => request("POST", "/v1/notices", NoticeResponse, { text }),

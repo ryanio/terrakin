@@ -26,6 +26,7 @@ import { profileView } from "./profile-view";
 import { initPurse, makePurse, refreshPurse } from "./purse";
 import { purseView } from "./purse-view";
 import { createRouter, matchRoute, type Navigation, type Route, routeTemplate } from "./router";
+import { shopView } from "./shop-view";
 import { initErrorReporting, pageView, startAnalytics } from "./telemetry";
 import { townView } from "./town-view";
 import { notFoundView, type View, type ViewContext } from "./view";
@@ -256,11 +257,13 @@ function onNavigate(nav: Navigation) {
                         ? inviteView(route.code, ctx)
                         : route.name === "town"
                           ? townView(ctx)
-                          : route.name === "plot3d" || route.name === "gallery3d"
-                            ? view3d(route, ctx)
-                            : route.name === "claim"
-                              ? claimView(route.code, ctx)
-                              : notFoundView(ctx);
+                          : route.name === "shop"
+                            ? shopView(ctx)
+                            : route.name === "plot3d" || route.name === "gallery3d"
+                              ? view3d(route, ctx)
+                              : route.name === "claim"
+                                ? claimView(route.code, ctx)
+                                : notFoundView(ctx);
   view = next;
   page.replaceChildren(next.el);
 

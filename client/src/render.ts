@@ -3,11 +3,13 @@ import {
   type BlockKind,
   blockFill,
   type Crop,
+  type DecorKind,
   type Direction,
   FLOWER_TONES,
   groundTile,
   HEARTH_COLOR,
   HEARTH_DOOR,
+  isDecorKind,
   OUTSIDE_GROUND,
   plotKey,
   type Resident,
@@ -16,9 +18,11 @@ import {
   type Theme,
   type ThemePalette,
   TUFT_STROKE,
+  tileKey,
 } from "@terrakin/sim";
 import { BRAND_HEX } from "@terrakin/ui/brand";
 import { drawFigure, FIGURE_BOX } from "@terrakin/ui/figure";
+import { CROP_HEX } from "@terrakin/ui/item-art";
 import {
   lookImage,
   lookPalette,
@@ -45,14 +49,8 @@ const CLAY_DEEP = BRAND_HEX.clayDeep;
 /** Blocks you grow or make things at (RFC 0005). */
 const WORKSHOP_BLOCKS: ReadonlySet<BlockKind> = new Set(["planter", "kitchen", "workbench"]);
 
-/** The color of each crop when it's ready to pick. */
-const CROP_COLORS: Record<Crop, string> = {
-  lemon: "#f2d04b",
-  strawberry: "#d9434f",
-  tomato: "#e0573a",
-  herb: "#4f8a3a",
-  flower: "#e58fb6",
-};
+/** Dark wood for posts, legs, and lantern caps. */
+const WOOD_DARK = "#6e4a2c";
 
 export function blockColor(block: BlockKind): string {
   return BLOCK_COLORS[block];
@@ -299,7 +297,7 @@ function paintCrop(
     ctx.fill();
   }
   if (done >= 1) {
-    ctx.fillStyle = CROP_COLORS[crop];
+    ctx.fillStyle = CROP_HEX[crop];
     ctx.strokeStyle = "rgba(43, 38, 32, 0.35)";
     ctx.lineWidth = 1;
     const r = size * 0.09;
@@ -315,6 +313,256 @@ function paintCrop(
     }
   }
   ctx.restore();
+}
+
+// ---------- decor from the town shop (RFC 0008) ----------
+
+/** Which neighbors a fence post joins: the four sides that hold a fence too. */
+interface Joins {
+  n: boolean;
+  e: boolean;
+  s: boolean;
+  w: boolean;
+}
+
+/**
+ * A decor block on its tile, drawn as itself rather than a square: a paper lantern on a hook, a
+ * picture on an easel, a fence post with rails out to the fences beside it, or a garden bench.
+ * `left`, `top`, and `size` are the block's box; `edge` is the gap to the tile's edge, so fence
+ * rails reach their neighbors' rails.
+ */
+function paintDecor(
+  ctx: CanvasRenderingContext2D,
+  kind: DecorKind,
+  left: number,
+  top: number,
+  size: number,
+  scale: number,
+  edge: number,
+  joins: Joins,
+) {
+  ctx.save();
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  const cx = left + size / 2;
+  const base = top + size * 0.9;
+  if (kind !== "fence") {
+    ctx.fillStyle = "rgba(74, 52, 28, 0.2)";
+    ctx.beginPath();
+    ctx.ellipse(cx, base, size * 0.36, size * 0.09, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  const outline = Math.max(1, scale / 30);
+  ctx.strokeStyle = "rgba(70, 40, 18, 0.55)";
+  ctx.lineWidth = outline;
+  if (kind === "lantern") paintLantern(ctx, left, top, size);
+  else if (kind === "frame") paintEasel(ctx, left, top, size, outline);
+  else if (kind === "fence") paintFence(ctx, left, top, size, edge, joins);
+  else paintBench(ctx, left, top, size);
+  ctx.restore();
+}
+
+/** A paper lantern hanging from a shepherd's hook. */
+function paintLantern(ctx: CanvasRenderingContext2D, left: number, top: number, size: number) {
+  const postX = left + size * 0.3;
+  const base = top + size * 0.9;
+  const hangX = left + size * 0.64;
+  ctx.strokeStyle = WOOD_DARK;
+  ctx.lineWidth = Math.max(1.5, size * 0.07);
+  ctx.beginPath();
+  ctx.moveTo(postX, base);
+  ctx.lineTo(postX, top + size * 0.14);
+  ctx.quadraticCurveTo(
+    postX + size * 0.02,
+    top + size * 0.04,
+    hangX - size * 0.06,
+    top + size * 0.06,
+  );
+  ctx.quadraticCurveTo(hangX, top + size * 0.08, hangX, top + size * 0.16);
+  ctx.stroke();
+  // The paper shade: round, ribbed, with dark caps.
+  const ly = top + size * 0.42;
+  const rx = size * 0.19;
+  const ry = size * 0.21;
+  ctx.fillStyle = BLOCK_COLORS.lantern;
+  ctx.strokeStyle = "rgba(70, 40, 18, 0.55)";
+  ctx.lineWidth = Math.max(1, size / 30);
+  ctx.beginPath();
+  ctx.ellipse(hangX, ly, rx, ry, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.strokeStyle = "rgba(255, 250, 235, 0.55)";
+  ctx.beginPath();
+  for (const f of [-0.45, 0.45]) {
+    ctx.moveTo(hangX + rx * f, ly - ry * 0.85);
+    ctx.quadraticCurveTo(hangX + rx * f * 1.6, ly, hangX + rx * f, ly + ry * 0.85);
+  }
+  ctx.stroke();
+  ctx.fillStyle = WOOD_DARK;
+  ctx.beginPath();
+  ctx.roundRect(hangX - rx * 0.55, ly - ry - size * 0.03, rx * 1.1, size * 0.07, size * 0.02);
+  ctx.roundRect(hangX - rx * 0.55, ly + ry - size * 0.04, rx * 1.1, size * 0.07, size * 0.02);
+  ctx.fill();
+  ctx.fillStyle = CLAY;
+  ctx.beginPath();
+  ctx.arc(hangX, ly + ry + size * 0.08, size * 0.03, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+/** A picture in a gold frame, standing on a little easel. */
+function paintEasel(
+  ctx: CanvasRenderingContext2D,
+  left: number,
+  top: number,
+  size: number,
+  outline: number,
+) {
+  const cx = left + size / 2;
+  const base = top + size * 0.9;
+  ctx.strokeStyle = WOOD_DARK;
+  ctx.lineWidth = Math.max(1.5, size * 0.06);
+  ctx.beginPath();
+  ctx.moveTo(cx - size * 0.28, base);
+  ctx.lineTo(cx - size * 0.08, top + size * 0.08);
+  ctx.moveTo(cx + size * 0.28, base);
+  ctx.lineTo(cx + size * 0.08, top + size * 0.08);
+  ctx.moveTo(cx, base - size * 0.06);
+  ctx.lineTo(cx, top + size * 0.62);
+  ctx.stroke();
+  const w = size * 0.7;
+  const h = size * 0.52;
+  const x = cx - w / 2;
+  const y = top + size * 0.12;
+  const border = Math.max(2, size * 0.08);
+  ctx.fillStyle = BLOCK_COLORS.frame;
+  ctx.strokeStyle = "rgba(70, 40, 18, 0.55)";
+  ctx.lineWidth = outline;
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, size * 0.04);
+  ctx.fill();
+  ctx.stroke();
+  // The picture: sky, a sun, and two hills.
+  const ix = x + border;
+  const iy = y + border;
+  const iw = w - border * 2;
+  const ih = h - border * 2;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(ix, iy, iw, ih);
+  ctx.clip();
+  ctx.fillStyle = "#cfe6ee";
+  ctx.fillRect(ix, iy, iw, ih);
+  ctx.fillStyle = BRAND_HEX.sun;
+  ctx.beginPath();
+  ctx.arc(ix + iw * 0.72, iy + ih * 0.3, ih * 0.18, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = BRAND_HEX.mossLight;
+  ctx.beginPath();
+  ctx.ellipse(ix + iw * 0.25, iy + ih * 1.05, iw * 0.55, ih * 0.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = BRAND_HEX.moss;
+  ctx.beginPath();
+  ctx.ellipse(ix + iw * 0.85, iy + ih * 1.1, iw * 0.5, ih * 0.4, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+  // The easel's ledge.
+  ctx.fillStyle = WOOD_DARK;
+  ctx.fillRect(x - size * 0.02, y + h - size * 0.01, w + size * 0.04, Math.max(2, size * 0.06));
+}
+
+/** A white fence post, with rails out to each side that holds a fence too. */
+function paintFence(
+  ctx: CanvasRenderingContext2D,
+  left: number,
+  top: number,
+  size: number,
+  edge: number,
+  joins: Joins,
+) {
+  const cx = left + size / 2;
+  const postW = size * 0.22;
+  const postTop = top + size * 0.12;
+  const base = top + size * 0.92;
+  const railH = Math.max(2, size * 0.1);
+  const color = BLOCK_COLORS.fence;
+  const line = "rgba(70, 40, 18, 0.5)";
+  ctx.fillStyle = "rgba(74, 52, 28, 0.18)";
+  ctx.beginPath();
+  ctx.ellipse(cx, base, size * 0.18, size * 0.06, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = color;
+  ctx.strokeStyle = line;
+  // Rails east and west: two boards from the post to the tile's edge, where the next one meets.
+  for (const [on, from, to] of [
+    [joins.w, left - edge, cx],
+    [joins.e, cx, left + size + edge],
+  ] as const) {
+    if (!on) continue;
+    for (const fy of [0.32, 0.62]) {
+      ctx.beginPath();
+      ctx.rect(from, top + size * fy, to - from, railH);
+      ctx.fill();
+      ctx.stroke();
+    }
+  }
+  // North and south, the rails run away from us: one board up or down the middle.
+  const boardW = size * 0.14;
+  if (joins.n) {
+    ctx.beginPath();
+    ctx.rect(cx - boardW / 2, top - edge, boardW, postTop - top + edge);
+    ctx.fill();
+    ctx.stroke();
+  }
+  if (joins.s) {
+    ctx.beginPath();
+    ctx.rect(cx - boardW / 2, base - size * 0.1, boardW, top + size + edge - base + size * 0.1);
+    ctx.fill();
+    ctx.stroke();
+  }
+  // The post, pointed on top, with a little shade down one side.
+  ctx.beginPath();
+  ctx.moveTo(cx - postW / 2, base);
+  ctx.lineTo(cx - postW / 2, postTop + postW * 0.5);
+  ctx.lineTo(cx, postTop);
+  ctx.lineTo(cx + postW / 2, postTop + postW * 0.5);
+  ctx.lineTo(cx + postW / 2, base);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = "rgba(70, 40, 18, 0.14)";
+  ctx.fillRect(
+    cx + postW * 0.12,
+    postTop + postW * 0.5,
+    postW * 0.38,
+    base - postTop - postW * 0.5,
+  );
+}
+
+/** A garden bench from the front: two backrest slats, a seat, legs, and arms. */
+function paintBench(ctx: CanvasRenderingContext2D, left: number, top: number, size: number) {
+  const green = BLOCK_COLORS.bench;
+  const x = left + size * 0.06;
+  const w = size * 0.88;
+  const base = top + size * 0.9;
+  ctx.fillStyle = WOOD_DARK;
+  for (const fx of [0.14, 0.82])
+    ctx.fillRect(x + w * fx, top + size * 0.55, size * 0.07, base - top - size * 0.55);
+  for (const fx of [0.18, 0.78])
+    ctx.fillRect(x + w * fx, top + size * 0.2, size * 0.05, size * 0.4);
+  ctx.fillStyle = green;
+  for (const fy of [0.16, 0.33]) {
+    ctx.beginPath();
+    ctx.roundRect(x + w * 0.06, top + size * fy, w * 0.88, size * 0.12, size * 0.03);
+    ctx.fill();
+    ctx.stroke();
+  }
+  ctx.beginPath();
+  ctx.roundRect(x, top + size * 0.52, w, size * 0.14, size * 0.04);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = "rgba(255, 250, 235, 0.35)";
+  for (const fy of [0.17, 0.34, 0.53])
+    ctx.fillRect(x + w * 0.1, top + size * fy, w * 0.8, Math.max(1, size * 0.03));
 }
 
 // Stable hue per owner so neighbors' plots are easy to tell apart.
@@ -471,6 +719,9 @@ export function render(
     }
     return skin;
   };
+  /** Lanterns on screen, which glow after dark. */
+  const lanterns: { sx: number; sy: number }[] = [];
+  const isFence = (x: number, y: number) => mirror.blocks.get(tileKey(x, y)) === "fence";
   for (const [key, block] of mirror.blocks) {
     const [x, y] = key.split(",").map(Number) as [number, number];
     if (x < x0 || x > x1 || y < y0 || y > y1) continue;
@@ -478,6 +729,17 @@ export function render(
     const left = Math.round(sx - half) + inset;
     const top = Math.round(sy - half) + inset;
     const size = Math.round(scale) - inset * 2;
+    if (isDecorKind(block)) {
+      const joins = {
+        n: isFence(x, y - 1),
+        e: isFence(x + 1, y),
+        s: isFence(x, y + 1),
+        w: isFence(x - 1, y),
+      };
+      paintDecor(ctx, block, left, top, size, scale, inset, joins);
+      if (block === "lantern") lanterns.push({ sx: left + size * 0.64, sy: top + size * 0.42 });
+      continue;
+    }
     const skin = block === "glass" ? null : skinOf(mirror.ownerAt(x, y));
     if (!skin) paintBlock(ctx, block, left, top, size, scale);
     else {
@@ -520,6 +782,7 @@ export function render(
   }
 
   drawTownHall(ctx, mirror, cam);
+  drawShop(ctx, mirror, cam);
 
   // ---- hearths: a little house, drawn under residents ----
   for (const r of mirror.residents.values()) {
@@ -587,9 +850,11 @@ export function render(
 
   // ---- residents: little figures in their looks, each a cached sprite, north to south ----
   const labels: { text: string; x: number; y: number; mine: boolean }[] = [];
-  const hall = hallBox(mirror, cam);
+  const hall = tilesBox(mirror.townHall, cam);
   if (hall)
     labels.push({ text: "Town Hall", x: hall.left + hall.w / 2, y: hall.top - 2, mine: false });
+  const shop = tilesBox(mirror.shop, cam);
+  if (shop) labels.push({ text: "Shop", x: shop.left + shop.w / 2, y: shop.top - 2, mine: false });
   const shown: Resident[] = [];
   for (const r of mirror.residents.values()) {
     if (!r.online) continue;
@@ -660,6 +925,26 @@ export function render(
       }
       ctx.globalCompositeOperation = "source-over";
     }
+    // Paper lanterns and the shop's windows light up a little before the hearths do.
+    if (night > 0.15) {
+      ctx.globalCompositeOperation = "lighter";
+      const strength = Math.min(1, (night - 0.15) / 0.6);
+      const glow = (sx: number, sy: number, reach: number, alpha: number) => {
+        const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, reach);
+        g.addColorStop(0, `rgba(255, 196, 92, ${(alpha * strength).toFixed(3)})`);
+        g.addColorStop(0.25, `rgba(242, 181, 68, ${(alpha * 0.55 * strength).toFixed(3)})`);
+        g.addColorStop(1, "rgba(242, 170, 80, 0)");
+        ctx.fillStyle = g;
+        ctx.fillRect(sx - reach, sy - reach, reach * 2, reach * 2);
+      };
+      for (const l of lanterns) glow(l.sx, l.sy, scale * 2, 0.62);
+      const box = tilesBox(mirror.shop, cam);
+      if (box) {
+        for (const f of [0.255, 0.745])
+          glow(box.left + box.w * f, box.top + box.h * 0.7, scale * 1.1, 0.4);
+      }
+      ctx.globalCompositeOperation = "source-over";
+    }
   }
 
   // ---- name labels on little paper tags, above the night so they stay readable ----
@@ -706,9 +991,8 @@ export function render(
   ctx.textBaseline = "alphabetic";
 }
 
-/** The Town Hall's footprint on screen, or undefined when it's off screen or unknown. */
-function hallBox(mirror: Mirror, cam: Camera) {
-  const tiles = mirror.townHall;
+/** A building's footprint on screen, or undefined when it's off screen or unknown. */
+function tilesBox(tiles: readonly { x: number; y: number }[], cam: Camera) {
   if (tiles.length === 0) return undefined;
   const xs = tiles.map((t) => t.x);
   const ys = tiles.map((t) => t.y);
@@ -729,7 +1013,7 @@ function hallBox(mirror: Mirror, cam: Camera) {
  * so it's drawn under them, like a hearth.
  */
 function drawTownHall(ctx: CanvasRenderingContext2D, mirror: Mirror, cam: Camera) {
-  const box = hallBox(mirror, cam);
+  const box = tilesBox(mirror.townHall, cam);
   if (!box) return;
   const { left, top, w, h } = box;
   const s = cam.scale;
@@ -809,4 +1093,209 @@ function drawTownHall(ctx: CanvasRenderingContext2D, mirror: Mirror, cam: Camera
   ctx.lineTo(poleX, top - s * 0.15);
   ctx.closePath();
   ctx.fill();
+}
+
+/**
+ * The town shop (RFC 0008): a small storybook shop on its tiles on the Commons' south edge. Cream
+ * walls under a moss roof, a striped awning, two windows with jars and fruit on the sill, a door,
+ * and a sign hanging from a bracket. Like the Town Hall, residents walk across it, so it's drawn
+ * under them.
+ */
+function drawShop(ctx: CanvasRenderingContext2D, mirror: Mirror, cam: Camera) {
+  const box = tilesBox(mirror.shop, cam);
+  if (!box) return;
+  const { left, top, w, h } = box;
+  const s = cam.scale;
+  const base = top + h - s * 0.1;
+  const line = Math.max(1, s / 30);
+  ctx.save();
+  ctx.lineJoin = "round";
+  // Ground shadow.
+  ctx.fillStyle = "rgba(74, 52, 28, 0.22)";
+  ctx.beginPath();
+  ctx.ellipse(left + w / 2, base + s * 0.03, w * 0.48, s * 0.16, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // Walls, on a stone footing.
+  const bodyL = left + w * 0.07;
+  const bodyR = left + w * 0.93;
+  const bodyTop = top + h * 0.34;
+  ctx.fillStyle = PAPER;
+  ctx.strokeStyle = PAPER_EDGE;
+  ctx.lineWidth = line;
+  ctx.fillRect(bodyL, bodyTop, bodyR - bodyL, base - bodyTop);
+  ctx.strokeRect(bodyL + 0.5, bodyTop + 0.5, bodyR - bodyL - 1, base - bodyTop - 1);
+  ctx.fillStyle = "#c9c2b5";
+  ctx.fillRect(bodyL, base - s * 0.1, bodyR - bodyL, s * 0.1);
+  // A chimney, then the roof over it.
+  ctx.fillStyle = CLAY;
+  ctx.fillRect(left + w * 0.74, top + h * 0.02, w * 0.07, h * 0.2);
+  ctx.fillStyle = CLAY_DEEP;
+  ctx.fillRect(left + w * 0.73, top + h * 0.01, w * 0.09, h * 0.04);
+  ctx.fillStyle = BRAND_HEX.moss;
+  ctx.beginPath();
+  ctx.moveTo(left + w * 0.02, bodyTop + s * 0.04);
+  ctx.lineTo(left + w * 0.15, top + h * 0.1);
+  ctx.lineTo(left + w * 0.85, top + h * 0.1);
+  ctx.lineTo(left + w * 0.98, bodyTop + s * 0.04);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = "rgba(43, 38, 32, 0.22)";
+  ctx.lineWidth = line;
+  ctx.beginPath();
+  for (const f of [0.35, 0.65]) {
+    const y = top + h * 0.1 + (bodyTop - top - h * 0.1) * f;
+    const inset = w * 0.13 * (1 - f);
+    ctx.moveTo(left + w * 0.02 + inset, y);
+    ctx.lineTo(left + w * 0.98 - inset, y);
+  }
+  ctx.stroke();
+  ctx.fillStyle = BRAND_HEX.mossLight;
+  ctx.fillRect(left + w * 0.15, top + h * 0.08, w * 0.7, h * 0.035);
+  // The striped awning, scalloped along its edge.
+  const awnL = left + w * 0.05;
+  const awnR = left + w * 0.95;
+  const awnTop = bodyTop + s * 0.06;
+  const awnBottom = bodyTop + s * 0.3;
+  const stripes = 9;
+  const sw = (awnR - awnL) / stripes;
+  // Its shade on the wall first, so the pale stripes stand off the pale wall.
+  ctx.fillStyle = "rgba(74, 52, 28, 0.16)";
+  ctx.fillRect(bodyL, awnBottom, bodyR - bodyL, sw * 0.75);
+  ctx.strokeStyle = "rgba(143, 61, 32, 0.55)";
+  ctx.lineWidth = line;
+  for (let i = 0; i < stripes; i++) {
+    ctx.fillStyle = i % 2 === 0 ? CLAY : BRAND_HEX.paper2;
+    ctx.beginPath();
+    ctx.moveTo(awnL + i * sw, awnTop);
+    ctx.lineTo(awnL + (i + 1) * sw, awnTop);
+    ctx.lineTo(awnL + (i + 1) * sw, awnBottom);
+    ctx.arc(awnL + (i + 0.5) * sw, awnBottom, sw / 2, 0, Math.PI);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  }
+  ctx.fillStyle = CLAY_DEEP;
+  ctx.fillRect(awnL, awnTop - s * 0.03, awnR - awnL, s * 0.05);
+  // Two windows with things on the sill: jars on the left, fruit on the right.
+  const winTop = awnBottom + s * 0.26;
+  const winH = base - s * 0.22 - winTop;
+  const windowAt = (fx: number, things: "jars" | "fruit") => {
+    const ww = w * 0.24;
+    const wx = left + w * fx - ww / 2;
+    ctx.fillStyle = PAPER_EDGE;
+    ctx.fillRect(wx - s * 0.04, winTop - s * 0.04, ww + s * 0.08, winH + s * 0.08);
+    ctx.fillStyle = "#cfe6ee";
+    ctx.fillRect(wx, winTop, ww, winH);
+    ctx.fillStyle = "rgba(255, 255, 255, 0.55)";
+    ctx.beginPath();
+    ctx.moveTo(wx + ww * 0.1, winTop + winH * 0.55);
+    ctx.lineTo(wx + ww * 0.45, winTop + winH * 0.05);
+    ctx.lineTo(wx + ww * 0.6, winTop + winH * 0.05);
+    ctx.lineTo(wx + ww * 0.25, winTop + winH * 0.55);
+    ctx.fill();
+    const sill = winTop + winH;
+    ctx.fillStyle = WOOD_DARK;
+    ctx.fillRect(wx - s * 0.06, sill - s * 0.02, ww + s * 0.12, s * 0.06);
+    if (things === "jars") {
+      const fills = [BRAND_HEX.sun, CLAY, BRAND_HEX.moss];
+      fills.forEach((fill, i) => {
+        const jx = wx + ww * (0.2 + i * 0.3);
+        const jw = ww * 0.2;
+        const jh = winH * 0.42;
+        ctx.fillStyle = fill;
+        ctx.beginPath();
+        ctx.roundRect(jx - jw / 2, sill - s * 0.02 - jh, jw, jh, jw * 0.25);
+        ctx.fill();
+        ctx.fillStyle = PAPER;
+        ctx.fillRect(jx - jw * 0.32, sill - s * 0.02 - jh * 0.62, jw * 0.64, jh * 0.3);
+        ctx.fillStyle = "#c9a25a";
+        ctx.fillRect(jx - jw * 0.55, sill - s * 0.02 - jh - jh * 0.16, jw * 1.1, jh * 0.18);
+      });
+    } else {
+      const fruit = [CROP_HEX.lemon, CROP_HEX.tomato, CROP_HEX.lemon, CROP_HEX.strawberry];
+      fruit.forEach((fill, i) => {
+        ctx.fillStyle = fill;
+        ctx.beginPath();
+        ctx.arc(
+          wx + ww * (0.18 + i * 0.21),
+          sill - s * 0.02 - winH * 0.13,
+          winH * 0.13,
+          0,
+          Math.PI * 2,
+        );
+        ctx.fill();
+      });
+    }
+    // A box of flowers under the window.
+    ctx.fillStyle = "#9a6b43";
+    ctx.fillRect(wx, sill + s * 0.04, ww, s * 0.09);
+    ctx.fillStyle = CROP_HEX.flower;
+    for (let i = 0; i < 4; i++) {
+      ctx.beginPath();
+      ctx.arc(wx + ww * (0.14 + i * 0.24), sill + s * 0.04, s * 0.045, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  };
+  windowAt(0.255, "jars");
+  windowAt(0.745, "fruit");
+  // The door, with a round window and a gold knob, over a stone step.
+  const doorW = w * 0.15;
+  const doorTop = awnBottom + s * 0.18;
+  const doorL = left + w / 2 - doorW / 2;
+  ctx.fillStyle = "#c9c2b5";
+  ctx.beginPath();
+  ctx.roundRect(doorL - s * 0.08, base - s * 0.08, doorW + s * 0.16, s * 0.12, s * 0.03);
+  ctx.fill();
+  ctx.fillStyle = BRAND_HEX.moss;
+  ctx.beginPath();
+  ctx.roundRect(doorL, doorTop, doorW, base - s * 0.06 - doorTop, [
+    doorW * 0.45,
+    doorW * 0.45,
+    0,
+    0,
+  ]);
+  ctx.fill();
+  ctx.fillStyle = "#cfe6ee";
+  ctx.beginPath();
+  ctx.arc(left + w / 2, doorTop + doorW * 0.5, doorW * 0.24, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = BRAND_HEX.sun;
+  ctx.beginPath();
+  ctx.arc(
+    doorL + doorW * 0.78,
+    doorTop + (base - doorTop) * 0.6,
+    Math.max(1.2, s * 0.035),
+    0,
+    Math.PI * 2,
+  );
+  ctx.fill();
+  // A sign hanging from a bracket on the corner: a jar on a paper board.
+  const armY = bodyTop + s * 0.42;
+  const armX = bodyR + w * 0.06;
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = Math.max(1, s / 26);
+  ctx.beginPath();
+  ctx.moveTo(bodyR, armY);
+  ctx.lineTo(armX, armY);
+  ctx.moveTo(armX - w * 0.04, armY);
+  ctx.lineTo(armX - w * 0.04, armY + s * 0.08);
+  ctx.stroke();
+  const signW = s * 0.42;
+  const signH = s * 0.36;
+  const signX = armX - w * 0.04 - signW / 2;
+  const signY = armY + s * 0.08;
+  ctx.fillStyle = PAPER;
+  ctx.strokeStyle = CLAY;
+  ctx.lineWidth = Math.max(1, s / 22);
+  ctx.beginPath();
+  ctx.roundRect(signX, signY, signW, signH, s * 0.06);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = BRAND_HEX.sun;
+  ctx.beginPath();
+  ctx.roundRect(signX + signW * 0.32, signY + signH * 0.3, signW * 0.36, signH * 0.5, signW * 0.08);
+  ctx.fill();
+  ctx.fillStyle = CLAY;
+  ctx.fillRect(signX + signW * 0.28, signY + signH * 0.2, signW * 0.44, signH * 0.14);
+  ctx.restore();
 }

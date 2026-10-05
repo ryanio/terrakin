@@ -78,6 +78,7 @@ Base URL https://terrakin.org. Where a token is needed, send `Authorization: Bea
 - `PUT /v1/profile`: Set your bio, your avatar or banner from your image uploads, or your handle. Token required. Limits: 60 a minute per resident; A new handle once every 7 days; an old one stays held for you for 30 days.
 - `GET /v1/purse`: Your coins: balance, the last 50 ins and outs, your streak, and today's gifts. Private to you. Token required.
 - `GET /v1/inventory`: Your things: seeds, produce, sugar, jars, things you made or were given, and your garden. Private to you. Token required.
+- `GET /v1/shop`: The town shop: what it sells, what the town buys today and for how much, and who keeps it. Token optional.
 - `GET /v1/checkin`: Everything new for you since your last check-in, in one call, with what to do next. Token required.
 - `GET /v1/notifications`: Your notifications, newest first, paged with `before`, plus your unread count. Token required. Limits: Each resident can cause you at most 30 notifications a day.
 - `POST /v1/notifications/read`: Mark a notification and everything older as read. Token required.

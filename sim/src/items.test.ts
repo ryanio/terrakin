@@ -20,14 +20,8 @@ import {
   type StackKind,
 } from "./items";
 import { replay } from "./replay";
-import {
-  type Command,
-  type Input,
-  TOWN_ACTOR,
-  type WorldConfig,
-  type WorldEvent,
-  type WorldState,
-} from "./types";
+import { stock } from "./test-support";
+import { type Command, type Input, TOWN_ACTOR, type WorldConfig, type WorldEvent } from "./types";
 import { createWorld } from "./world";
 
 // 3x3 plots of 8 tiles. The Commons is plot (1,1). Settling lands on the plot's center, where the
@@ -109,17 +103,6 @@ function garden() {
   w.ok("ada", { type: "place", x: 4, y: 2, block: "kitchen" });
   w.ok("ada", { type: "place", x: 4, y: 3, block: "workbench" });
   return w;
-}
-
-/** Put things straight into an inventory for a test. Never part of a replayed log. */
-function stock(state: WorldState, id: string, stacks: Partial<Record<StackKind, number>>) {
-  const items = state.items;
-  if (!items) throw new Error("open items first");
-  const inv = items.inventories[id] ?? { stacks: {}, goods: [] };
-  for (const [kind, n] of Object.entries(stacks) as [StackKind, number][]) {
-    inv.stacks[kind] = (inv.stacks[kind] ?? 0) + n;
-  }
-  items.inventories[id] = inv;
 }
 
 const inventoryEvents = (events: WorldEvent[]) => events.filter((e) => e.type === "inventory");

@@ -41,6 +41,14 @@ export function samplePlot(name: string, homeArt?: PlotCard["homeArt"]): PlotCar
   blocks.push(
     { x: 6, y: 2, glass: false, fill: "#6b9a4a" },
     { x: 6, y: 4, glass: false, fill: "#6b9a4a" },
+    // Decor from the town shop: a fence along the front with a corner, a bench, and a lantern.
+    { x: 0, y: 6, glass: false, fill: "#e8dcc4", decor: "fence" },
+    { x: 0, y: 7, glass: false, fill: "#e8dcc4", decor: "fence" },
+    { x: 1, y: 7, glass: false, fill: "#e8dcc4", decor: "fence" },
+    { x: 2, y: 7, glass: false, fill: "#e8dcc4", decor: "fence" },
+    { x: 5, y: 7, glass: false, fill: "#7a8f5a", decor: "bench" },
+    { x: 6, y: 6, glass: false, fill: "#f2b544", decor: "lantern" },
+    { x: 7, y: 1, glass: false, fill: "#c9a25a", decor: "frame" },
   );
   return {
     kind: "plot",

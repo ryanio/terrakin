@@ -56,6 +56,12 @@ export function plural(n: number, one: string, many: string): string {
   return `${compactCount(n)} ${n === 1 ? one : many}`;
 }
 
+/** "lemons", "lemons and jam", "lemons, jam, and tea". */
+export function listOf(items: readonly string[]): string {
+  if (items.length <= 2) return items.join(" and ");
+  return `${items.slice(0, -1).join(", ")}, and ${items.at(-1)}`;
+}
+
 /**
  * The first `max` paragraphs of `text`, with "…" when there was more. Any line break starts a
  * paragraph, and blank lines between them don't count extra.

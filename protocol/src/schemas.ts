@@ -4,6 +4,7 @@ import {
   COIN_REASONS,
   CROPS,
   ECONOMY,
+  FREE_BLOCKS,
   GOOD_KINDS,
   INVENTORY_REASONS,
   ITEM_ID_PATTERN,
@@ -19,6 +20,8 @@ import {
   REJECTION_CODES,
   RESIDENT_COLORS,
   RESIDENT_SHAPES,
+  SHOP,
+  SHOP_SKUS,
   STACK_KINDS,
   THEMES,
   TOWN_LIMITS,
@@ -162,8 +165,8 @@ export const SettleAction = z.object({ type: z.literal("settle"), px: coord, py:
 /** Build the SKILL.md starter hut on your plot, server-side, without walking. */
 export const BuildStarterHomeAction = z.object({
   type: z.literal("build_starter_home"),
-  walls: z.enum(BLOCK_KINDS).optional(),
-  windows: z.enum(BLOCK_KINDS).optional(),
+  walls: z.enum(FREE_BLOCKS).optional(),
+  windows: z.enum(FREE_BLOCKS).optional(),
   ...dry,
 });
 const residentRef = z.string().min(1).max(64);
@@ -286,6 +289,33 @@ export const GiveAction = z.object({
   ...dry,
 });
 
+// ---------- The town shop (RFC 0008, phase 2) ----------
+
+/** What the town shop sells: decor, wear, seeds, sugar, and jars. See `GET /v1/shop`. */
+export const ShopSku = z.enum(SHOP_SKUS);
+export type ShopSku = z.infer<typeof ShopSku>;
+/**
+ * Buy from the town shop. `count` for decor, seeds, sugar, and jars (default 1); wear is one of a
+ * kind. Half of what you spend goes to the town treasury and half is retired. Only ever because
+ * your owner wants it.
+ */
+export const ShopBuyAction = z.object({
+  type: z.literal("shop_buy"),
+  sku: ShopSku,
+  count: z.number().int().min(1).max(SHOP.countMax).optional(),
+  ...dry,
+});
+/**
+ * Sell to the town: produce or a made kind (your oldest `count` of it), or a made thing by id. The
+ * town buys a few kinds each UTC day, each up to a daily count per resident (`GET /v1/shop`).
+ */
+export const SellToTownAction = z.object({
+  type: z.literal("sell_to_town"),
+  item: z.union([ItemId, ItemKind]),
+  count: z.number().int().min(1).max(SHOP.countMax).optional(),
+  ...dry,
+});
+
 /** A made thing as an event carries it. `label` is the maker's words: untrusted text. */
 export const GoodEventView = z.object({
   id: z.string(),
@@ -328,6 +358,8 @@ export const Action = z.discriminatedUnion("type", [
   HarvestAction,
   CraftAction,
   GiveAction,
+  ShopBuyAction,
+  SellToTownAction,
 ]);
 export type Action = z.infer<typeof Action>;
 export const ACTION_TYPES = Action.options.map((o) => o.shape.type.value);
@@ -394,6 +426,8 @@ export const WorldSnapshot = z.object({
   day: z.number().int().optional(),
   /** The tiles the Town Hall stands on, in the Commons. Nothing is built there; tap it for /town. */
   townHall: z.array(z.object({ x: z.number().int(), y: z.number().int() })).optional(),
+  /** The tiles the town shop stands on, in the Commons, once it's open. Tap it for /shop. */
+  shop: z.array(z.object({ x: z.number().int(), y: z.number().int() })).optional(),
   /** Commons blocks the town built, with the proposal that built each. */
   townBuilt: z
     .array(z.object({ x: z.number().int(), y: z.number().int(), proposal: z.string() }))
@@ -547,6 +581,10 @@ export const WorldEvent = z.discriminatedUnion("type", [
   z.object({ type: z.literal("quiet") }),
   // Growing, making, and giving (RFC 0005). Crops are public; inventories are private.
   z.object({ type: z.literal("items_opened") }),
+  /** The town shop opened (RFC 0008): `GET /v1/shop`. */
+  z.object({ type: z.literal("shop_opened") }),
+  /** You bought a piece of shop wear. Only you get these, like `coins`. */
+  z.object({ type: z.literal("wear_bought"), residentId: z.string(), wear: z.enum(WEAR_ITEMS) }),
   /** A seed went into a planter. It's ready once the world's day reaches `readyDay`. */
   z.object({
     type: z.literal("planted"),

@@ -63,6 +63,7 @@ const service = new WorldService({
   days: true,
   economy: true,
   items: true,
+  shop: true,
   townsfolk,
   maintainers,
   moderation,

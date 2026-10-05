@@ -9,6 +9,7 @@ import {
   canBuildOn,
   inventoryOf,
   isReady,
+  pantryNumbers,
   parseKey,
   plotAtTile,
   type WorldState,
@@ -47,7 +48,10 @@ export function inventoryView(
   author: Authors,
 ): InventoryResponse {
   const read = inventoryOf(state, viewer);
-  const base = { rules: { ...ITEM_RULES }, catalog: ITEM_CATALOG };
+  // The pantry gives less once the town shop sells sugar and jars.
+  const { pantry, stapleMax } = pantryNumbers(state);
+  const rules = { ...ITEM_RULES, pantrySugar: pantry.sugar, pantryJars: pantry.jar, stapleMax };
+  const base = { rules, catalog: ITEM_CATALOG };
   if (!read) return { inventory: null, ...base };
   return {
     inventory: {

@@ -4,13 +4,13 @@
  */
 import type { PurseLine, PurseResponse } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
-import { compactCount, plural } from "@terrakin/ui/format";
+import { plural } from "@terrakin/ui/format";
 import { profilePath } from "@terrakin/ui/paths";
 import { avatarEl } from "@terrakin/ui/people";
 import { stateCard, toast, whileBusy } from "@terrakin/ui/ui";
 import { actProblem, api } from "./api";
 import { savedToken } from "./net";
-import { coins, refreshPurse } from "./purse";
+import { balanceLine, coins, refreshPurse } from "./purse";
 import { errorCard, type View, type ViewContext } from "./view";
 
 /** What a purse line was, in plain words. Pure, so tests pin it. */
@@ -31,6 +31,10 @@ export function lineLabel(line: Pick<PurseLine, "reason" | "with">): string {
       return "Today's townsfolk budget";
     case "budget_return":
       return "Unspent budget back to the town";
+    case "shop":
+      return "At the town shop";
+    case "sold":
+      return "Sold to the town";
     default:
       return "Coins";
   }
@@ -125,13 +129,7 @@ export function purseView(ctx: ViewContext): View {
       h(
         "section",
         { class: "paper card purse-card", attrs: { "aria-labelledby": "purse-balance" } },
-        h(
-          "p",
-          { class: "purse-balance", attrs: { id: "purse-balance" } },
-          icon("coin", "icon purse-balance-coin"),
-          h("span", { class: "purse-balance-amount", text: compactCount(purse.balance) }),
-          h("span", { class: "purse-balance-unit", text: purse.balance === 1 ? "coin" : "coins" }),
-        ),
+        balanceLine(purse.balance, "purse-balance"),
         eligible
           ? h("p", {
               class: "purse-streak",
@@ -182,6 +180,13 @@ export function purseView(ctx: ViewContext): View {
           h("li", {
             text: `Gifts from friends. You can give up to ${coins(rules.giveCap)} a day from a profile.`,
           }),
+          h("li", { text: "Selling the town what it buys each day: jam, bouquets, a few lemons." }),
+        ),
+        h(
+          "a",
+          { class: "pill-button", attrs: { href: "/shop" } },
+          icon("coin"),
+          h("span", { text: "Spend them at the town shop" }),
         ),
         h("p", {
           class: "purse-hint",

@@ -54,6 +54,7 @@ import { OwnerService } from "./owner-service";
 import { partnerViews } from "./partners";
 import { type PlotPhotoRenderer, plotPhotoSpec } from "./plot-photo";
 import { RateLimiters, type Take } from "./rate-limit";
+import { SHOP_KEEPER_HANDLE, shopView } from "./shop";
 import type { SocialResult, SocialService } from "./social-service";
 import { count, crumb, nameRequest, report, span, task } from "./telemetry";
 import { anchorPlot, suggestPlots } from "./together";
@@ -978,6 +979,15 @@ export class Api {
       getInventory: ({ viewer }) => ({
         status: 200,
         body: inventoryView(service.state, viewer, (id) => this.social?.authorView(id)),
+      }),
+      getShop: ({ viewer }) => ({
+        status: 200,
+        body: shopView(
+          service.state,
+          viewer,
+          social().residentIdByHandle(SHOP_KEEPER_HANDLE),
+          (id) => social().authorView(id),
+        ),
       }),
       getCheckin: ({ viewer, query }) => ({
         status: 200,

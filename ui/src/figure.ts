@@ -86,6 +86,10 @@ const STRAW = "#e8c878";
 const STRAW_DEEP = "#c49a4c";
 const WICKER = "#c9925a";
 const LEATHER = "#9c6a3e";
+const SLICKER = "#f4c534";
+const SLICKER_DEEP = "#d9a21c";
+/** The umbrella's color when the theme's accent is too pale to read. */
+const CANOPY = "#e0604a";
 
 /** Body outline for each shape: a bean, a soft block, or an A-line smock. Origin at the feet. */
 function bodyPath(ctx: CanvasRenderingContext2D, shape: ResidentShape, u: number) {
@@ -163,6 +167,7 @@ export function drawFigure(
     ctx.fillRect(-0.5 * u, -0.6 * u, u, 0.6 * u);
   }
   drawTop(ctx, u, wear, p, back, side);
+  if (wear.has("raincoat")) drawRaincoat(ctx, u, look.shape, back, side);
   // Soft shade at the hem so the body feels round.
   ctx.fillStyle = "rgba(70, 40, 18, 0.14)";
   ctx.fillRect(-0.5 * u, -0.12 * u, u, 0.12 * u);
@@ -260,6 +265,8 @@ export function drawFigure(
     ctx.lineTo(x + 0.1 * u, y + 0.085 * u);
     ctx.stroke();
   }
+
+  if (wear.has("umbrella")) drawUmbrella(ctx, u, p, hand);
 }
 
 /** Eyes, cheeks, and glasses, slid `turn` tiles sideways when the figure faces east or west. */
@@ -429,6 +436,8 @@ function drawHat(ctx: CanvasRenderingContext2D, u: number, wear: Set<WearItem>, 
     ctx.beginPath();
     ctx.arc(0, top - 0.04 * u, 0.055 * u, 0, Math.PI * 2);
     ctx.fill();
+  } else if (wear.has("top_hat")) {
+    drawTopHat(ctx, u, p);
   } else if (wear.has("flower_crown")) {
     for (let i = 0; i < 5; i++) {
       const a = Math.PI + 0.35 + (i * (Math.PI - 0.7)) / 4;
@@ -448,4 +457,146 @@ function drawHat(ctx: CanvasRenderingContext2D, u: number, wear: Set<WearItem>, 
       ctx.fill();
     }
   }
+}
+
+// ---------- shop wear (RFC 0008) ----------
+// Each garment is a path builder plus a function that paints it, so a pattern can later be clipped
+// into the path the same way the clothes' pattern is clipped into the body.
+
+/** The top hat's crown and brim, as one path. */
+function topHatPath(ctx: CanvasRenderingContext2D, u: number) {
+  const brim = (HEAD_Y - HEAD_R + 0.05) * u;
+  ctx.beginPath();
+  ctx.ellipse(0, brim, 0.27 * u, 0.05 * u, 0, 0, Math.PI * 2);
+  ctx.moveTo(-0.15 * u, brim);
+  ctx.lineTo(-0.16 * u, -1.03 * u);
+  ctx.quadraticCurveTo(0, -1.06 * u, 0.16 * u, -1.03 * u);
+  ctx.lineTo(0.15 * u, brim);
+  ctx.closePath();
+}
+
+/** A tall dark top hat with a band in the theme's accent. */
+function drawTopHat(ctx: CanvasRenderingContext2D, u: number, p: ThemePalette) {
+  const brim = (HEAD_Y - HEAD_R + 0.05) * u;
+  topHatPath(ctx, u);
+  ctx.fillStyle = INK;
+  ctx.fill();
+  ctx.fillStyle =
+    p.accent === "#ffffff" || p.accent === BRAND_HEX.paper ? BRAND_HEX.clay : p.accent;
+  ctx.fillRect(-0.15 * u, brim - 0.08 * u, 0.3 * u, 0.055 * u);
+  ctx.fillStyle = "rgba(255, 255, 255, 0.16)";
+  ctx.fillRect(-0.11 * u, -1.0 * u, 0.04 * u, 0.12 * u);
+}
+
+/** The raincoat covers the whole body, so its path is the body's own. */
+function raincoatPath(ctx: CanvasRenderingContext2D, u: number, shape: ResidentShape) {
+  bodyPath(ctx, shape, u);
+}
+
+/**
+ * A yellow slicker over the body, drawn inside the body's clip: a collar, and from the front a
+ * placket with dark toggles and two pockets. Sideways the front slides the way they face.
+ */
+function drawRaincoat(
+  ctx: CanvasRenderingContext2D,
+  u: number,
+  shape: ResidentShape,
+  back: boolean,
+  side: number,
+) {
+  raincoatPath(ctx, u, shape);
+  ctx.fillStyle = SLICKER;
+  ctx.fill();
+  const t = side * 0.1 * u;
+  // Collar.
+  ctx.fillStyle = SLICKER_DEEP;
+  ctx.beginPath();
+  ctx.roundRect(-0.24 * u, -0.53 * u, 0.48 * u, 0.08 * u, 0.04 * u);
+  ctx.fill();
+  // A shine down one side, so it reads as rubbery.
+  ctx.fillStyle = "rgba(255, 255, 255, 0.28)";
+  ctx.beginPath();
+  ctx.ellipse(-0.17 * u, -0.28 * u, 0.035 * u, 0.13 * u, 0.15, 0, Math.PI * 2);
+  ctx.fill();
+  if (back) return;
+  ctx.strokeStyle = SLICKER_DEEP;
+  ctx.lineWidth = Math.max(0.8, 0.02 * u);
+  ctx.beginPath();
+  ctx.moveTo(t, -0.46 * u);
+  ctx.lineTo(t, -0.03 * u);
+  ctx.stroke();
+  ctx.fillStyle = INK;
+  for (const y of [-0.38, -0.27, -0.16]) {
+    ctx.beginPath();
+    ctx.roundRect(t + 0.012 * u, y * u, 0.07 * u, 0.025 * u, 0.012 * u);
+    ctx.fill();
+  }
+  ctx.fillStyle = SLICKER_DEEP;
+  for (const x of [-0.19, 0.07]) {
+    ctx.beginPath();
+    ctx.roundRect(t + x * u, -0.15 * u, 0.12 * u, 0.07 * u, 0.02 * u);
+    ctx.fill();
+  }
+}
+
+/** An open umbrella's canopy over (cx, cy): a dome with a scalloped edge. */
+function canopyPath(ctx: CanvasRenderingContext2D, u: number, cx: number, cy: number) {
+  const r = 0.3 * u;
+  const scallops = 4;
+  ctx.beginPath();
+  ctx.moveTo(cx - r, cy);
+  ctx.quadraticCurveTo(cx - r, cy - r * 0.62, cx, cy - r * 0.66);
+  ctx.quadraticCurveTo(cx + r, cy - r * 0.62, cx + r, cy);
+  for (let i = scallops; i > 0; i--) {
+    const x1 = cx - r + ((i - 1) * 2 * r) / scallops;
+    const mid = (x1 + cx - r + (i * 2 * r) / scallops) / 2;
+    ctx.quadraticCurveTo(mid, cy - r * 0.16, x1, cy);
+  }
+  ctx.closePath();
+}
+
+/**
+ * An open umbrella held in the carrying hand, its canopy over the head on that side, in the
+ * theme's accent (or a cheerful coral when the accent is too pale) with paper panels.
+ */
+function drawUmbrella(ctx: CanvasRenderingContext2D, u: number, p: ThemePalette, hand: number) {
+  const pale = p.accent === "#ffffff" || p.accent === BRAND_HEX.paper;
+  const color = pale ? CANOPY : p.accent;
+  // Kept inside the figure's box (FIGURE_BOX), which is all its sprite has room for.
+  const cx = 0.17 * hand * u;
+  const cy = -0.86 * u;
+  // Shaft and the hooked handle, from the hand up into the canopy.
+  ctx.strokeStyle = INK;
+  ctx.lineCap = "round";
+  ctx.lineWidth = Math.max(1, 0.03 * u);
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - 0.17 * u);
+  ctx.lineTo(0.3 * hand * u, -0.2 * u);
+  ctx.quadraticCurveTo(0.31 * hand * u, -0.12 * u, 0.36 * hand * u, -0.15 * u);
+  ctx.stroke();
+  canopyPath(ctx, u, cx, cy);
+  ctx.fillStyle = color;
+  ctx.fill();
+  // Two paper panels between the ribs.
+  ctx.save();
+  canopyPath(ctx, u, cx, cy);
+  ctx.clip();
+  ctx.fillStyle = mix(color, BRAND_HEX.paper, 0.7);
+  for (const f of [-0.5, 0.5]) {
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - 0.2 * u);
+    ctx.lineTo(cx + (f - 0.12) * 0.6 * u, cy + 0.02 * u);
+    ctx.lineTo(cx + (f + 0.12) * 0.6 * u, cy + 0.02 * u);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+  ctx.strokeStyle = mix(color, INK, 0.35);
+  ctx.lineWidth = Math.max(0.8, 0.018 * u);
+  canopyPath(ctx, u, cx, cy);
+  ctx.stroke();
+  ctx.fillStyle = INK;
+  ctx.beginPath();
+  ctx.arc(cx, cy - 0.18 * u, 0.02 * u, 0, Math.PI * 2);
+  ctx.fill();
 }

@@ -269,4 +269,43 @@ describe("renderer", () => {
     expect(svg).not.toMatch(/<ellipse/);
     expect(svg.match(/<svg/g)).toHaveLength(1);
   });
+
+  it("draws the shop's decor as itself, with fence rails only toward other fences", () => {
+    const one = (decor: "lantern" | "frame" | "fence" | "bench", x = 1) =>
+      plotSvg(
+        { ...samplePlot("Wren"), blocks: [{ x, y: 1, glass: false, fill: "#e8dcc4", decor }] },
+        420,
+      );
+    const square = plotSvg(
+      { ...samplePlot("Wren"), blocks: [{ x: 1, y: 1, glass: false, fill: "#e8dcc4" }] },
+      420,
+    );
+    for (const kind of ["lantern", "frame", "fence", "bench"] as const) {
+      expect(one(kind)).not.toBe(square);
+      expect(one(kind)).toContain('fill="#e8dcc4"');
+    }
+    const rails = (svg: string) => (svg.match(/height="0\.09"/g) ?? []).length;
+    expect(rails(one("fence"))).toBe(0);
+    const pair = plotSvg(
+      {
+        ...samplePlot("Wren"),
+        blocks: [
+          { x: 1, y: 1, glass: false, fill: "#e8dcc4", decor: "fence" },
+          { x: 2, y: 1, glass: false, fill: "#e8dcc4", decor: "fence" },
+        ],
+      },
+      420,
+    );
+    // Two rails east from the first post and two west from the second.
+    expect(rails(pair)).toBe(4);
+    // Anything else in `decor` is drawn as a plain block, never as markup.
+    const odd = plotSvg(
+      {
+        ...samplePlot("Wren"),
+        blocks: [{ x: 1, y: 1, glass: false, fill: "#e8dcc4", decor: '"/><script>' as "fence" }],
+      },
+      420,
+    );
+    expect(odd).toBe(square);
+  });
 });

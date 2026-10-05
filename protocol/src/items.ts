@@ -60,7 +60,7 @@ export const CatalogItem = z.object({
   kind: ItemKind,
   name: z.string(),
   plural: z.string(),
-  category: z.enum(["seed", "produce", "staple", "good"]),
+  category: z.enum(["seed", "produce", "staple", "good", "decor"]),
 });
 
 export const CatalogCrop = z.object({

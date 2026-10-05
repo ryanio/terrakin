@@ -3,7 +3,7 @@
  * resident color, and jam flavor looks in 3D. Plain numbers, no three.js, so tests can pin them
  * and the 2D and 3D worlds keep one look.
  */
-import type { BlockKind, ResidentColor } from "@terrakin/sim";
+import { BLOCK_COLORS, type BlockKind, type ResidentColor } from "@terrakin/sim";
 import { BRAND_HEX } from "@terrakin/ui/brand";
 
 /** `#rrggbb` to a number three.js takes as a color. */
@@ -43,8 +43,11 @@ export interface BlockLook {
   height: number;
   /** 0 for solid; otherwise how see-through it is. */
   opacity: number;
-  /** "voxel" is a rounded box; "clump" is a leafy cluster that sways. */
-  form: "voxel" | "clump";
+  /**
+   * "voxel" is a rounded box; "clump" is a leafy cluster that sways; "decor" is one of the town
+   * shop's models in `decor.ts`, and `height` is how tall it stands.
+   */
+  form: "voxel" | "clump" | "decor";
 }
 
 /** Same base colors as the 2D renderer (render.ts BLOCK_COLORS). */
@@ -56,6 +59,10 @@ const BLOCK_LOOKS: Record<BlockKind, BlockLook> = {
   planter: { color: hex("#8a5a36"), height: 0.5, opacity: 1, form: "voxel" },
   kitchen: { color: hex("#c8674a"), height: 0.95, opacity: 1, form: "voxel" },
   workbench: { color: hex("#9a6b43"), height: 0.8, opacity: 1, form: "voxel" },
+  lantern: { color: hex(BLOCK_COLORS.lantern), height: 1.45, opacity: 1, form: "decor" },
+  frame: { color: hex(BLOCK_COLORS.frame), height: 1.25, opacity: 1, form: "decor" },
+  fence: { color: hex(BLOCK_COLORS.fence), height: 0.8, opacity: 1, form: "decor" },
+  bench: { color: hex(BLOCK_COLORS.bench), height: 0.78, opacity: 1, form: "decor" },
 };
 
 export function blockLook(block: BlockKind): BlockLook {

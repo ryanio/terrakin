@@ -27,6 +27,7 @@ import {
   prepare,
   type ResidentKind,
   replay,
+  shopTiles,
   TOWN_ACTOR,
   townHallTiles,
   type WorldConfig,
@@ -88,6 +89,11 @@ export interface WorldServiceOptions {
    */
   items?: boolean;
   /**
+   * The town shop (RFC 0008, phase 2): once coins and items are open, append `open_shop` if it
+   * never has. Both adapters turn this on. Off by default, like `items`.
+   */
+  shop?: boolean;
+  /**
    * Maintainers' resident ids from config. Logged as `set_maintainers` when they differ from the
    * log, so the sim keeps townsfolk budgets away from them.
    */
@@ -131,9 +137,11 @@ function toWire(events: WorldEvent[], townsfolk: readonly string[] = []): WireEv
   return out;
 }
 
-/** Purse moves and inventory changes: each belongs to one resident alone. */
-const isPrivate = (e: WireEvent): e is Extract<WireEvent, { type: "coins" | "inventory" }> =>
-  e.type === "coins" || e.type === "inventory";
+/** Purse moves, inventory changes, and wear bought at the shop: each belongs to one resident alone. */
+const isPrivate = (
+  e: WireEvent,
+): e is Extract<WireEvent, { type: "coins" | "inventory" | "wear_bought" }> =>
+  e.type === "coins" || e.type === "inventory" || e.type === "wear_bought";
 
 /**
  * What everyone may see: no purse moves and no inventory changes. Never empty, so every client's
@@ -251,6 +259,7 @@ export class WorldService {
   private readonly days: boolean;
   private readonly economy: boolean;
   private readonly items: boolean;
+  private readonly shop: boolean;
   /** The edge filters for names, notes, chat, and proposals. */
   readonly moderation: Moderation;
   /**
@@ -295,6 +304,7 @@ export class WorldService {
     if (options.maintainers) this.syncMaintainers(options.maintainers);
     this.economy = options.economy ?? false;
     this.items = options.items ?? false;
+    this.shop = options.shop ?? false;
     // A day may have started (and proposals come due) while the server was down.
     this.tick();
   }
@@ -377,6 +387,10 @@ export class WorldService {
     if (this.items && !this.state.items) {
       const opened = this.run({ actor: TOWN_ACTOR, command: { type: "open_items" } });
       if (!opened.ok) console.error(`Couldn't open items: ${opened.error.message}`);
+    }
+    if (this.shop && !this.state.shop && this.state.economy && this.state.items) {
+      const opened = this.run({ actor: TOWN_ACTOR, command: { type: "open_shop" } });
+      if (!opened.ok) console.error(`Couldn't open the shop: ${opened.error.message}`);
     }
     const due = (this.state.town?.proposals ?? []).filter(
       (p) => p.status === "open" && p.closesDay !== undefined && p.closesDay <= day,
@@ -704,6 +718,14 @@ export class WorldService {
       };
       return this.run({ actor: residentId, command }, dry);
     }
+    if (action.type === "shop_buy" || action.type === "sell_to_town") {
+      const count = action.count === undefined ? {} : { count: action.count };
+      const command: Command =
+        action.type === "shop_buy"
+          ? { type: "shop_buy", sku: action.sku, ...count }
+          : { type: "sell_to_town", item: action.item, ...count };
+      return this.run({ actor: residentId, command }, dry);
+    }
     return this.run({ actor: residentId, command: action satisfies Command }, dry);
   }
 
@@ -992,6 +1014,7 @@ export class WorldService {
       }),
       ...(state.day === undefined ? {} : { day: state.day }),
       townHall: townHallTiles(state.config),
+      ...(state.shop ? { shop: shopTiles(state.config) } : {}),
       ...(state.town
         ? {
             townBuilt: Object.entries(state.town.built).map(([key, proposal]) => {

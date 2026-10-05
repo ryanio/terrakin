@@ -45,11 +45,14 @@ describe("the world palette", () => {
     expect(tileHash(3, 7)).toBe(260_807_386);
   });
 
-  it("dresses blocks in a theme, except glass", () => {
+  it("dresses blocks in a theme, except glass, stations, and decor", () => {
     const lemon = THEME_INFO.lemon.palette;
     expect(blockFill("wood")).toBe(BLOCK_COLORS.wood);
     expect(blockFill("wood", lemon)).toBe(mixHex(lemon.light, lemon.main, 0.45));
     expect(blockFill("glass", lemon)).toBe(BLOCK_COLORS.glass);
+    expect(blockFill("kitchen", lemon)).toBe(BLOCK_COLORS.kitchen);
+    expect(blockFill("lantern", lemon)).toBe(BLOCK_COLORS.lantern);
+    expect(blockFill("fence", lemon)).toBe(BLOCK_COLORS.fence);
   });
 
   it("mixes and fades hex colors", () => {

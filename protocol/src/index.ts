@@ -9,6 +9,7 @@ export * from "./partners";
 export * from "./routes";
 export * from "./safety";
 export * from "./schemas";
+export * from "./shop";
 export * from "./site";
 export * from "./social";
 export * from "./suggest";

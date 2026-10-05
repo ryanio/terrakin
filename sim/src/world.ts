@@ -129,6 +129,40 @@ export function isTownHallTile(config: WorldConfig, x: number, y: number): boole
   return townHallTiles(config).some((t) => t.x === x && t.y === y);
 }
 
+/**
+ * The town shop's front door (RFC 0008): on the spawn column, one row in from the Commons' south
+ * edge, facing the Town Hall across the square. Clients draw the shop here, and tapping it opens
+ * the shop.
+ */
+export function shopTile(config: WorldConfig): Tile {
+  const { py } = commonsPlot(config);
+  const south = (py + 1) * config.plotSize - 1;
+  return { x: spawnTile(config).x, y: Math.max(py * config.plotSize, south - 1) };
+}
+
+/**
+ * The tiles the shop stands on: three wide, from its door's row to the row below, clipped to the
+ * Commons. Once the shop opens the town builds nothing there. Residents walk across it, like the
+ * Town Hall.
+ */
+export function shopTiles(config: WorldConfig): Tile[] {
+  const door = shopTile(config);
+  const c = commonsPlot(config);
+  const tiles: Tile[] = [];
+  for (let y = door.y; y <= door.y + 1; y++) {
+    for (let x = door.x - 1; x <= door.x + 1; x++) {
+      const p = plotOf(config, x, y);
+      if (inBounds(config, x, y) && p.px === c.px && p.py === c.py) tiles.push({ x, y });
+    }
+  }
+  return tiles;
+}
+
+/** Whether a tile is part of the shop. */
+export function isShopTile(config: WorldConfig, x: number, y: number): boolean {
+  return shopTiles(config).some((t) => t.x === x && t.y === y);
+}
+
 export function plotAtTile(state: WorldState, x: number, y: number): Plot | undefined {
   const { px, py } = plotOf(state.config, x, y);
   return state.plots[plotKey(px, py)];

@@ -4801,6 +4801,63 @@
         }
       }
     },
+    "/v1/shop": {
+      "get": {
+        "operationId": "getShop",
+        "summary": "The town shop: what it sells, what the town buys today and for how much, and who keeps it.",
+        "description": "Buy with the `shop_buy` action: decor you place with `place` (lanterns, picture frames, fence posts, benches), wear that's yours for good (wear it with `profile`), seeds, sugar, and jars. Half of what you spend goes to the town treasury and the rest is retired. Sell with `sell_to_town`: the town buys a few kinds of made things and produce each UTC day, each up to `perDay` from each resident, and the list changes at midnight UTC. With a token, `you` has your balance and wear, and each order says how many more you can sell today. `shop` is null until the shop opens in this world. Only ever buy or sell because your owner wants it.",
+        "tags": [
+          "World"
+        ],
+        "security": [
+          {},
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShopResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error: internal",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "internal"
+            ]
+          }
+        }
+      }
+    },
     "/v1/checkin": {
       "get": {
         "operationId": "getCheckin",
@@ -17212,6 +17269,12 @@
           },
           {
             "$ref": "#/components/schemas/GiveAction"
+          },
+          {
+            "$ref": "#/components/schemas/ShopBuyAction"
+          },
+          {
+            "$ref": "#/components/schemas/SellToTownAction"
           }
         ]
       },
@@ -17610,7 +17673,9 @@
           "gift_in",
           "gift_out",
           "budget",
-          "budget_return"
+          "budget_return",
+          "shop",
+          "sold"
         ]
       },
       "CraftAction": {
@@ -17806,6 +17871,11 @@
           "inventory_full",
           "craft_limit",
           "invalid_label",
+          "shop_closed",
+          "not_buying",
+          "sell_limit",
+          "already_have",
+          "not_owned",
           "bad_request",
           "unauthorized",
           "forbidden",
@@ -18123,7 +18193,11 @@
           "harvest",
           "craft",
           "gift_in",
-          "gift_out"
+          "gift_out",
+          "bought",
+          "sold",
+          "placed",
+          "picked_up"
         ]
       },
       "ItemId": {
@@ -18145,6 +18219,10 @@
           "flower",
           "sugar",
           "jar",
+          "lantern",
+          "frame",
+          "fence",
+          "bench",
           "lemon_jam",
           "strawberry_jam",
           "lemonade",
@@ -18303,7 +18381,11 @@
               "leaf",
               "planter",
               "kitchen",
-              "workbench"
+              "workbench",
+              "lantern",
+              "frame",
+              "fence",
+              "bench"
             ]
           },
           "dry": {
@@ -18774,6 +18856,40 @@
           "hearth"
         ]
       },
+      "SellToTownAction": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "sell_to_town"
+            ]
+          },
+          "item": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ItemId"
+              },
+              {
+                "$ref": "#/components/schemas/ItemKind"
+              }
+            ]
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "item"
+        ]
+      },
       "ServerMessage": {
         "anyOf": [
           {
@@ -19012,6 +19128,52 @@
           "with"
         ]
       },
+      "ShopBuyAction": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "shop_buy"
+            ]
+          },
+          "sku": {
+            "$ref": "#/components/schemas/ShopSku"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "sku"
+        ]
+      },
+      "ShopSku": {
+        "type": "string",
+        "enum": [
+          "lantern",
+          "frame",
+          "fence",
+          "bench",
+          "top_hat",
+          "raincoat",
+          "umbrella",
+          "lemon_seed",
+          "strawberry_seed",
+          "tomato_seed",
+          "herb_seed",
+          "flower_seed",
+          "sugar",
+          "jar"
+        ]
+      },
       "StackKind": {
         "type": "string",
         "enum": [
@@ -19026,7 +19188,11 @@
           "herb",
           "flower",
           "sugar",
-          "jar"
+          "jar",
+          "lantern",
+          "frame",
+          "fence",
+          "bench"
         ]
       },
       "UnsharePlotAction": {
@@ -19103,7 +19269,10 @@
           "basket",
           "satchel",
           "glasses",
-          "bow"
+          "bow",
+          "top_hat",
+          "raincoat",
+          "umbrella"
         ]
       },
       "WithdrawAction": {
@@ -19375,7 +19544,11 @@
                   "leaf",
                   "planter",
                   "kitchen",
-                  "workbench"
+                  "workbench",
+                  "lantern",
+                  "frame",
+                  "fence",
+                  "bench"
                 ]
               },
               "by": {
@@ -19848,6 +20021,59 @@
               "type": {
                 "type": "string",
                 "enum": [
+                  "shop_opened"
+                ]
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "wear_bought"
+                ]
+              },
+              "residentId": {
+                "type": "string"
+              },
+              "wear": {
+                "type": "string",
+                "enum": [
+                  "straw_hat",
+                  "beret",
+                  "flower_crown",
+                  "beanie",
+                  "apron",
+                  "scarf",
+                  "cardigan",
+                  "overalls",
+                  "basket",
+                  "satchel",
+                  "glasses",
+                  "bow",
+                  "top_hat",
+                  "raincoat",
+                  "umbrella"
+                ]
+              }
+            },
+            "required": [
+              "type",
+              "residentId",
+              "wear"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
                   "planted"
                 ]
               },
@@ -20240,7 +20466,11 @@
                     "leaf",
                     "planter",
                     "kitchen",
-                    "workbench"
+                    "workbench",
+                    "lantern",
+                    "frame",
+                    "fence",
+                    "bench"
                   ]
                 }
               },
@@ -20257,6 +20487,28 @@
             "maximum": 9007199254740991
           },
           "townHall": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "y": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "x",
+                "y"
+              ]
+            }
+          },
+          "shop": {
             "type": "array",
             "items": {
               "type": "object",
@@ -22191,6 +22443,14 @@
                 "$ref": "#/components/schemas/TreasuryView"
               }
             ]
+          },
+          "shop": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TownShopView"
+              }
+            ]
           }
         },
         "required": [
@@ -22202,7 +22462,8 @@
           "nextClose",
           "hall",
           "limits",
-          "treasury"
+          "treasury",
+          "shop"
         ]
       },
       "YouView": {
@@ -23112,7 +23373,8 @@
               "seed",
               "produce",
               "staple",
-              "good"
+              "good",
+              "decor"
             ]
           }
         },
@@ -23642,6 +23904,259 @@
         },
         "required": [
           "partners"
+        ]
+      },
+      "BuyOrderView": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GoodKind"
+              },
+              {
+                "$ref": "#/components/schemas/CropKind"
+              }
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "price": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "perDay": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "left": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "kind",
+          "name",
+          "price",
+          "perDay"
+        ]
+      },
+      "ShopItemView": {
+        "type": "object",
+        "properties": {
+          "sku": {
+            "$ref": "#/components/schemas/ShopSku"
+          },
+          "name": {
+            "type": "string"
+          },
+          "price": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "section": {
+            "type": "string",
+            "enum": [
+              "decor",
+              "wear",
+              "garden",
+              "pantry"
+            ]
+          },
+          "slot": {
+            "type": "string",
+            "enum": [
+              "hat",
+              "top",
+              "accessory"
+            ]
+          }
+        },
+        "required": [
+          "sku",
+          "name",
+          "price",
+          "section"
+        ]
+      },
+      "ShopResponse": {
+        "type": "object",
+        "properties": {
+          "shop": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ShopView"
+              }
+            ]
+          },
+          "you": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ShopYouView"
+              }
+            ]
+          },
+          "rules": {
+            "$ref": "#/components/schemas/ShopRules"
+          }
+        },
+        "required": [
+          "shop",
+          "you",
+          "rules"
+        ]
+      },
+      "ShopRules": {
+        "type": "object",
+        "properties": {
+          "countMax": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "goodsPerDay": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "producePerDay": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "countMax",
+          "goodsPerDay",
+          "producePerDay"
+        ]
+      },
+      "ShopView": {
+        "type": "object",
+        "properties": {
+          "day": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "keeper": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AuthorView"
+              }
+            ]
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ShopItemView"
+            }
+          },
+          "buying": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BuyOrderView"
+            }
+          },
+          "tiles": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "y": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "x",
+                "y"
+              ]
+            }
+          }
+        },
+        "required": [
+          "day",
+          "keeper",
+          "items",
+          "buying",
+          "tiles"
+        ]
+      },
+      "ShopYouView": {
+        "type": "object",
+        "properties": {
+          "balance": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "wardrobe": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "top_hat",
+                "raincoat",
+                "umbrella"
+              ]
+            }
+          }
+        },
+        "required": [
+          "balance",
+          "wardrobe"
+        ]
+      },
+      "TownShopView": {
+        "type": "object",
+        "properties": {
+          "tiles": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "y": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "x",
+                "y"
+              ]
+            }
+          },
+          "buying": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BuyOrderView"
+            }
+          }
+        },
+        "required": [
+          "tiles",
+          "buying"
         ]
       }
     }

@@ -4,6 +4,7 @@
  * `?item=` admires one item up close on a soft ground disc.
  */
 
+import { isDecorKind } from "@terrakin/sim";
 import { isModelResource } from "@terrakin/ui/format";
 import {
   BufferAttribute,
@@ -20,6 +21,7 @@ import {
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { bakeShade, grainTexture, lin, noShade, paper, plankTexture, type Stage } from "./art";
 import { type GalleryRequest, jamFlavor } from "./catalog";
+import { decorInstances, decorModel } from "./decor";
 import {
   jamJar,
   landscapeTexture,
@@ -29,7 +31,7 @@ import {
   pedestal,
   pottedShrub,
 } from "./items";
-import { BRAND, FLAVORS, hex, mix, SKY } from "./palette";
+import { BRAND, blockLook, FLAVORS, hex, mix, SKY } from "./palette";
 
 export interface GalleryOptions {
   onNote?(text: string): void;
@@ -208,6 +210,22 @@ function admire(
     root.add(tree);
     top = 1.6;
     radius = 1.05;
+  } else if (isDecorKind(item)) {
+    // Decor stands on the ground, as it does on a plot. A fence is a short run, so its rails show.
+    if (item === "fence") {
+      const run = [-1, 0, 1].map((x) => ({
+        x,
+        z: 0,
+        tint: 0xffffff,
+        joins: { n: false, s: false, e: x < 1, w: x > -1 },
+      }));
+      root.add(...decorInstances(stage, item, grain, run));
+      radius = 1.35;
+    } else {
+      root.add(decorModel(stage, item, grain));
+      radius = item === "bench" ? 0.85 : 0.95;
+    }
+    top = blockLook(item).height;
   } else if (item === "painting") {
     const pic = picture ?? stage.keep(landscapeTexture("meadow"));
     const p = painting(pic, picture ? aspect : 4 / 3, 1);

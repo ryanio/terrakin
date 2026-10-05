@@ -13,6 +13,11 @@ export const ITEM_TEMPLATES = [
   "painting",
   "pedestal",
   "lemon-tree",
+  // Decor from the town shop (RFC 0008), named as the blocks are. The shop links to these.
+  "lantern",
+  "frame",
+  "fence",
+  "bench",
 ] as const;
 export type ItemTemplate = (typeof ITEM_TEMPLATES)[number];
 

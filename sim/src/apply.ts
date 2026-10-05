@@ -19,13 +19,18 @@ import {
   checkOpenItems,
   checkPlant,
   cropAt,
+  decorPlaceProblem,
+  decorRemoveProblem,
   type ItemsChecked,
+  isDecorKind,
   itemsNewDay,
+  moveDecor,
   pantryDue,
   payPantry,
 } from "./items";
 import { plotKey, tileKey } from "./keys";
 import {
+  isShopWear,
   LOOK_KEYS,
   LOOK_MEDIA_KEYS,
   type Look,
@@ -37,6 +42,14 @@ import {
   wearProblem,
 } from "./looks";
 import { isDirection, PUTTER_MAX_STEPS } from "./putter";
+import {
+  checkOpenShop,
+  checkSellToTown,
+  checkShopBuy,
+  ownsWear,
+  type ShopChecked,
+  shopNewDay,
+} from "./shop";
 import { checkTown, isActivity, isServerCommand, type TownChecked } from "./town";
 import type {
   ApplyResult,
@@ -153,6 +166,14 @@ function mergeLook(base: Look, fields: ProfileFields): Look | Prepared {
     out[key] = id;
   }
   return out;
+}
+
+/** Shop wear in `fields` that `actor` hasn't bought, as a rejection, or null. */
+function unownedWear(state: WorldState, actor: string, fields: ProfileFields): Prepared | null {
+  if (!Array.isArray(fields.wear)) return null;
+  const missing = fields.wear.find((w) => isShopWear(w) && !ownsWear(state, actor, w));
+  if (missing === undefined) return null;
+  return reject("not_owned", "That's from the town shop. Buy it there with shop_buy first.");
 }
 
 /** Set a resident's profile: every look key in `profile`, and none of the ones it leaves out. */
@@ -369,7 +390,9 @@ function buildHint(state: WorldState, me: Resident): string {
 }
 
 /** A Town Hall or coins check's answer in this file's shape. */
-function town(checked: TownChecked | EconomyChecked | ItemsChecked): Mutation | Prepared {
+function town(
+  checked: TownChecked | EconomyChecked | ItemsChecked | ShopChecked,
+): Mutation | Prepared {
   return typeof checked === "function" ? checked : { ok: false, rejection: checked };
 }
 
@@ -392,6 +415,8 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
         return town(checkEconomyServer(state, command));
       case "open_items":
         return town(checkOpenItems(state));
+      case "open_shop":
+        return town(checkOpenShop(state));
       case "new_day":
       case "set_townsfolk": {
         const checked = checkTown(state, actor, command);
@@ -401,8 +426,14 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
             ? economyNewDay(state, command.day)
             : economyTownsfolkChange(state, [...new Set(command.ids)]);
         const items = command.type === "new_day" ? itemsNewDay(state) : null;
-        if (!coins && !items) return checked;
-        return () => [...checked(), ...(coins ? coins() : []), ...(items ? items() : [])];
+        const shop = command.type === "new_day" ? shopNewDay(state) : null;
+        if (!coins && !items && !shop) return checked;
+        return () => [
+          ...checked(),
+          ...(coins ? coins() : []),
+          ...(items ? items() : []),
+          ...(shop ? shop() : []),
+        ];
       }
       default:
         return town(checkTown(state, actor, command));
@@ -419,6 +450,8 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
     // to their hearth, or to the Commons if they have none.
     const keepSpot = me !== undefined && !isSolid(state, me.x, me.y);
     const spawn = me?.hearth ?? spawnTile(config);
+    const unowned = unownedWear(state, actor, command);
+    if (unowned) return unowned;
     const look = mergeProfile(me ?? { ...defaultLook(actor), note: "" }, command);
     if ("ok" in look) return look;
     const resident: Resident = {
@@ -447,6 +480,8 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
       };
 
     case "profile": {
+      const unowned = unownedWear(state, actor, command);
+      if (unowned) return unowned;
       const look = mergeProfile(me, command);
       if ("ok" in look) return look;
       // A no-op would still cost a permanent log line and a broadcast.
@@ -653,9 +688,12 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
         if (cropAt(state, x, y)) {
           return reject("tile_occupied", "Something is growing in that planter. Harvest it first.");
         }
+        const taken = state.blocks[key];
+        const full = decorRemoveProblem(state, actor, taken);
+        if (full) return { ok: false, rejection: full };
         return () => {
           delete state.blocks[key];
-          return [{ type: "block_removed", x, y, by: actor }];
+          return [{ type: "block_removed", x, y, by: actor }, ...moveDecor(state, actor, taken, 1)];
         };
       }
       if (state.blocks[key] !== undefined)
@@ -672,9 +710,14 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
       );
       if (standingThere) return reject("tile_occupied", "Someone is standing there.");
       const { block } = command;
+      const decor = decorPlaceProblem(state, actor, block);
+      if (decor) return { ok: false, rejection: decor };
       return () => {
         state.blocks[key] = block;
-        return [{ type: "block_placed", x, y, block, by: actor }];
+        return [
+          { type: "block_placed", x, y, block, by: actor },
+          ...moveDecor(state, actor, block, -1),
+        ];
       };
     }
 
@@ -719,6 +762,12 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
         const p = plotOf(config, t.x, t.y);
         return inBounds(config, t.x, t.y) && p.px === plot.px && p.py === plot.py;
       };
+      if (isDecorKind(command.walls) || isDecorKind(command.windows)) {
+        return reject(
+          "unknown_item",
+          "A starter home is built from free blocks. Place decor yourself with place.",
+        );
+      }
       const home = starterHome(
         config,
         plot.px,
@@ -841,5 +890,10 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
       return town(checkCraft(state, actor, command));
     case "give":
       return town(checkGiveItem(state, actor, command));
+
+    case "shop_buy":
+      return town(checkShopBuy(state, actor, command));
+    case "sell_to_town":
+      return town(checkSellToTown(state, actor, command));
   }
 }

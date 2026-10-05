@@ -5,17 +5,19 @@
  */
 import type { GoodView, InventoryResponse } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
+import { itemArt } from "@terrakin/ui/item-art";
 import { personLink } from "@terrakin/ui/people";
 import { stateCard } from "@terrakin/ui/ui";
 import { api } from "./api";
 import { savedToken } from "./net";
-import { growthLine, thingCount, thingName } from "./things";
+import { growthLine, stackCount, thingCount, thingName } from "./things";
 import { errorCard, type View, type ViewContext } from "./view";
 
 function goodItem(g: GoodView): HTMLElement {
   return h(
     "li",
-    { class: "things-good", attrs: { "data-item": g.id } },
+    { class: "things-good has-art", attrs: { "data-item": g.id } },
+    itemArt(g.kind),
     h(
       "span",
       { class: "things-good-body" },
@@ -69,7 +71,7 @@ export function inventoryView(ctx: ViewContext): View {
       );
       return;
     }
-    const held = (kind: string) => inv.stacks.find((s) => s.kind === kind)?.count ?? 0;
+    const held = (kind: string) => stackCount(inv.stacks, kind);
     const staplesFull = held("sugar") >= rules.stapleMax && held("jar") >= rules.stapleMax;
     body.replaceChildren(
       h(
@@ -84,7 +86,7 @@ export function inventoryView(ctx: ViewContext): View {
                 h(
                   "li",
                   { class: `things-crop${c.ready ? " ready" : ""}` },
-                  icon("sprout"),
+                  itemArt(c.crop),
                   h("span", { class: "things-crop-name", text: thingName(c.crop) }),
                   h("span", { class: "things-crop-when", text: growthLine(c.readyDay, inv.day) }),
                 ),
@@ -126,14 +128,19 @@ export function inventoryView(ctx: ViewContext): View {
         h("h2", {
           class: "section-title",
           attrs: { id: "things-stacks-title" },
-          text: "Seeds, harvest, and pantry",
+          text: "Seeds, harvest, pantry, and decor",
         }),
         inv.stacks.length > 0
           ? h(
               "ul",
               { class: "things-stacks" },
               ...inv.stacks.map((s) =>
-                h("li", { class: "pill things-stack", text: thingCount(s.kind, s.count) }),
+                h(
+                  "li",
+                  { class: "pill things-stack has-art" },
+                  itemArt(s.kind, { size: 24 }),
+                  h("span", { text: thingCount(s.kind, s.count) }),
+                ),
               ),
             )
           : h("p", {

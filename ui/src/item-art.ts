@@ -1,0 +1,810 @@
+/**
+ * Little storybook pictures of things: every item you can hold (seeds as packets with their crop
+ * on the front, produce, sugar, a jar, each made good, and the town shop's decor) and every piece
+ * of wear. Drawn with code (decision 0035): `itemShapes` is pure data, so tests can check it, and
+ * `itemArt` builds it into an SVG with `createElementNS`, never markup from a string.
+ *
+ * Each picture sits in a 48 by 48 box on a soft ground shadow. Colors come from the brand tokens
+ * and the sim's palette, so a lantern here is the lantern in the world.
+ */
+import {
+  BLOCK_COLORS,
+  type Crop,
+  ITEM_KINDS,
+  type ItemKind,
+  WEAR_ITEMS,
+  type WearItem,
+} from "@terrakin/sim";
+import { BRAND_HEX } from "./brand";
+import { RESIDENT_COLOR_HEX } from "./looks";
+
+/** Anything `itemArt` can draw: an item kind or a piece of wear. */
+export type ArtKind = ItemKind | WearItem;
+
+/** Every kind `itemArt` draws, items first. */
+export const ART_KINDS: readonly ArtKind[] = [...ITEM_KINDS, ...WEAR_ITEMS];
+
+export function isArtKind(value: unknown): value is ArtKind {
+  return typeof value === "string" && (ART_KINDS as readonly string[]).includes(value);
+}
+
+/** One shape of a picture: an SVG element by tag, its attributes, and a group's children. */
+export interface ArtShape {
+  tag: "path" | "circle" | "ellipse" | "rect" | "g";
+  attrs: Record<string, string | number>;
+  children?: ArtShape[];
+}
+
+/** The side of the box every picture is drawn in. */
+export const ART_BOX = 48;
+
+/** Each crop's color when it's ready to pick. The 2D map draws ripe crops in these too. */
+export const CROP_HEX: Readonly<Record<Crop, string>> = {
+  lemon: "#f2d04b",
+  strawberry: "#d9434f",
+  tomato: "#e0573a",
+  herb: "#4f8a3a",
+  flower: "#e58fb6",
+};
+
+// ---------- colors ----------
+
+const INK = BRAND_HEX.ink;
+const LINE = BRAND_HEX.inkSoft;
+const PAPER = BRAND_HEX.paper;
+const PAPER2 = BRAND_HEX.paper2;
+const CLAY = BRAND_HEX.clay;
+const CLAY_DEEP = BRAND_HEX.clayDeep;
+const MOSS = BRAND_HEX.moss;
+const MOSS_LIGHT = BRAND_HEX.mossLight;
+const SUN = BRAND_HEX.sun;
+const LEAF = "#6b9a4a";
+const STEM = "#5f9a43";
+const KRAFT = "#e6cfa3";
+const GLASS = "#dcefee";
+const LID = "#c9a25a";
+const WOOD = "#9a6b43";
+const WOOD_DARK = "#6e4a2c";
+const STRAW = "#e8c878";
+const STRAW_DEEP = "#c49a4c";
+const WICKER = "#c9925a";
+const LEATHER = "#9c6a3e";
+const DENIM = "#5f86b5";
+const SLICKER = "#f4c534";
+const SLICKER_DEEP = "#d9a21c";
+const CANOPY = "#e0604a";
+const SKY = RESIDENT_COLOR_HEX.sky;
+const ROSE = RESIDENT_COLOR_HEX.rose;
+const PLUM = RESIDENT_COLOR_HEX.plum;
+
+// ---------- shape builders ----------
+
+type Extra = Record<string, string | number>;
+
+/** A soft brown outline, thin enough to stay crisp at 28px. */
+const OUT: Extra = { stroke: LINE, "stroke-width": 1.4, "stroke-linejoin": "round" };
+const out = (more: Extra = {}): Extra => ({ ...OUT, ...more });
+
+const path = (d: string, fill: string, extra: Extra = {}): ArtShape => ({
+  tag: "path",
+  attrs: { d, fill, ...extra },
+});
+const line = (d: string, stroke: string, width = 1.4, extra: Extra = {}): ArtShape => ({
+  tag: "path",
+  attrs: {
+    d,
+    fill: "none",
+    stroke,
+    "stroke-width": width,
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round",
+    ...extra,
+  },
+});
+const circle = (cx: number, cy: number, r: number, fill: string, extra: Extra = {}): ArtShape => ({
+  tag: "circle",
+  attrs: { cx, cy, r, fill, ...extra },
+});
+const ellipse = (
+  cx: number,
+  cy: number,
+  rx: number,
+  ry: number,
+  fill: string,
+  extra: Extra = {},
+): ArtShape => ({ tag: "ellipse", attrs: { cx, cy, rx, ry, fill, ...extra } });
+const rect = (
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+  fill: string,
+  extra: Extra = {},
+): ArtShape => ({ tag: "rect", attrs: { x, y, width: w, height: h, rx: r, fill, ...extra } });
+const group = (transform: string, children: ArtShape[], extra: Extra = {}): ArtShape => ({
+  tag: "g",
+  attrs: { transform, ...extra },
+  children,
+});
+
+/** The soft shadow every picture stands on. */
+const shadow = (rx = 14, cy = 43): ArtShape => ellipse(24, cy, rx, 2.6, INK, { opacity: 0.13 });
+/** A white shine. */
+const shine = (cx: number, cy: number, rx: number, ry: number, turn = -30): ArtShape =>
+  ellipse(cx, cy, rx, ry, "#ffffff", { opacity: 0.55, transform: `rotate(${turn} ${cx} ${cy})` });
+/** A leaf from (x, y), `len` long, turned `turn` degrees (0 points right). */
+const leaf = (x: number, y: number, len: number, turn: number, fill = LEAF): ArtShape =>
+  path(
+    `M${x} ${y}q${len * 0.5} ${-len * 0.38} ${len} 0q${-len * 0.5} ${len * 0.38} ${-len} 0z`,
+    fill,
+    { transform: `rotate(${turn} ${x} ${y})`, ...out({ "stroke-width": 1.1 }) },
+  );
+
+// ---------- produce ----------
+
+function lemon(): ArtShape[] {
+  return [
+    leaf(25, 15, 11, -40),
+    path("M8 28c0-8 7-13.5 16-13.5S40 20 40 28s-7 11.5-16 11.5S8 36 8 28z", CROP_HEX.lemon, out()),
+    path("M8.2 27.2 5.5 28l2.8 1.1M39.8 27.2l2.7.8-2.7 1.1", CROP_HEX.lemon, out()),
+    shine(18, 22, 5, 2.2),
+    circle(31, 33, 0.9, SUN),
+    circle(27, 35, 0.9, SUN),
+  ];
+}
+
+function strawberry(): ArtShape[] {
+  const seeds: [number, number][] = [
+    [19, 24],
+    [25, 23],
+    [30, 26],
+    [17, 30],
+    [23, 29],
+    [29, 32],
+    [21, 35],
+    [26, 37],
+  ];
+  return [
+    path(
+      "M24 41.5c-9-4-14-11-13-18 .7-5 5.5-7.5 13-7 7.5-.5 12.3 2 13 7 1 7-4 14-13 18z",
+      CROP_HEX.strawberry,
+      out(),
+    ),
+    ...seeds.map(([x, y]) => ellipse(x, y, 0.9, 1.3, "#ffe7a3")),
+    shine(17.5, 22, 3.2, 1.6),
+    path("M24 17.5 19 13l4.2 1.4L24 10l.8 4.4L29 13z", LEAF, out({ "stroke-width": 1.1 })),
+    path(
+      "M14.5 19.5c3-1.5 5.5-2 9.5-2s6.5.5 9.5 2l-3.4 1-2.8-.9-3.3 1.3-3.3-1.3-2.8.9z",
+      LEAF,
+      out({ "stroke-width": 1.1 }),
+    ),
+  ];
+}
+
+function tomato(): ArtShape[] {
+  return [
+    path(
+      "M24 16c9.5 0 15 5.5 15 12.5S33 41 24 41 9 35.5 9 28.5 14.5 16 24 16z",
+      CROP_HEX.tomato,
+      out(),
+    ),
+    line("M18 18.5c-1 4 0 8 2 11M30 18.5c1 4 0 8-2 11", "#c4462c", 1, { opacity: 0.6 }),
+    shine(16.5, 23.5, 3.6, 1.8),
+    path(
+      "M24 19.5 18 17.5l4-1.2-2.6-3.3 4.6 1.6 4.6-1.6-2.6 3.3 4 1.2z",
+      LEAF,
+      out({ "stroke-width": 1.1 }),
+    ),
+    line("M24 14.5V10.5", STEM, 1.8),
+  ];
+}
+
+function herb(): ArtShape[] {
+  return [
+    line("M24 41C24 33 23 24 25 12", STEM, 1.8),
+    leaf(24.5, 35, 11, -150),
+    leaf(24, 34, 11, -30),
+    leaf(24.5, 27, 10, -145),
+    leaf(24.2, 26, 10, -35),
+    leaf(25, 19, 8.5, -140),
+    leaf(25, 18.5, 8.5, -40),
+    leaf(25, 12.5, 6, -90, MOSS_LIGHT),
+  ];
+}
+
+function flower(): ArtShape[] {
+  const petals = [0, 72, 144, 216, 288].map((a) =>
+    ellipse(24, 12, 4.2, 6, CROP_HEX.flower, {
+      transform: `rotate(${a} 24 19)`,
+      ...out({ "stroke-width": 1.1 }),
+    }),
+  );
+  return [
+    line("M24 24c0 6-1 11 0 18", STEM, 1.8),
+    leaf(23.5, 34, 9, -150),
+    leaf(24.3, 31, 9, -25),
+    ...petals,
+    circle(24, 19, 3.6, SUN, out({ "stroke-width": 1.1 })),
+  ];
+}
+
+const CROP_ART: Record<Crop, () => ArtShape[]> = { lemon, strawberry, tomato, herb, flower };
+
+const produce = (crop: Crop) => (): ArtShape[] => [shadow(13), ...CROP_ART[crop]()];
+
+// ---------- seeds, sugar, and jars ----------
+
+/** A paper seed packet with its crop on the front. */
+const seedPacket = (crop: Crop) => (): ArtShape[] => [
+  shadow(12, 44),
+  rect(11, 6, 26, 37, 3, KRAFT, out()),
+  path("M11 12.5h26V9a3 3 0 0 0-3-3H14a3 3 0 0 0-3 3z", CROP_HEX[crop], out()),
+  line("M14 9.3h20", PAPER, 1, { "stroke-dasharray": "1.6 1.6", opacity: 0.8 }),
+  rect(14, 15.5, 20, 20, 2.5, PAPER, { opacity: 0.85 }),
+  group("translate(24 25.5) scale(0.5) translate(-24 -26)", CROP_ART[crop]()),
+  ellipse(19, 39.3, 1, 1.5, WOOD, { transform: "rotate(30 19 39.3)" }),
+  ellipse(24, 39.6, 1, 1.5, WOOD),
+  ellipse(29, 39.3, 1, 1.5, WOOD, { transform: "rotate(-30 29 39.3)" }),
+];
+
+function sugar(): ArtShape[] {
+  return [
+    shadow(13),
+    path(
+      "M15 19c-1.5 6-3.5 13-2 19 .6 2.5 3 3.8 11 3.8s10.4-1.3 11-3.8c1.5-6-.5-13-2-19z",
+      PAPER2,
+      out(),
+    ),
+    path("M16.5 19.5 14 9.5l5 3 2.5-4.5 2.5 4 2.5-4 2.5 4.5 5-3-2.5 10z", PAPER2, out()),
+    line("M15.5 19.5c5 1.4 12 1.4 17 0", CLAY, 2.2),
+    rect(17, 26, 14, 9.5, 2, PAPER, out({ "stroke-width": 1 })),
+    rect(19.5, 29.5, 3.6, 3.6, 0.6, "#ffffff", out({ "stroke-width": 0.8 })),
+    rect(24.9, 29.5, 3.6, 3.6, 0.6, "#ffffff", out({ "stroke-width": 0.8 })),
+    rect(22.2, 26.6, 3.6, 3.2, 0.6, "#ffffff", out({ "stroke-width": 0.8 })),
+  ];
+}
+
+/** A glass jar. `fill` is what's inside (none for empty), `top` the lid or cloth. */
+function jarBody(fill: string | undefined, level = 0.75): ArtShape[] {
+  const shapes: ArtShape[] = [rect(13, 14, 22, 28, 6, GLASS, out())];
+  if (fill) {
+    const h = 26 * level;
+    shapes.push(
+      path(`M14.4 ${41 - h}h19.2V36a4.6 4.6 0 0 1-4.6 4.6H19A4.6 4.6 0 0 1 14.4 36z`, fill),
+    );
+  }
+  shapes.push(line("M17 19v15", "#ffffff", 2, { opacity: 0.7 }));
+  return shapes;
+}
+
+/** A gingham cloth tied over a jar's lid. */
+function cloth(color: string): ArtShape[] {
+  return [
+    path("M10.5 15.5 13 8.5h22l2.5 7-3 1.5H13.5z", color, out()),
+    line("M17 9v7.5M24 9v7.5M31 9v7.5", "#ffffff", 1.6, { opacity: 0.55 }),
+    line("M12 12.5h24", "#ffffff", 1.6, { opacity: 0.55 }),
+    line("M13.5 16.5c7 1.4 14 1.4 21 0", CLAY_DEEP, 1.4),
+  ];
+}
+
+/** A paper label on a jar with a little picture of what's in it. */
+function label(crop: Crop): ArtShape[] {
+  return [
+    rect(16.5, 24, 15, 12, 2, PAPER, out({ "stroke-width": 1 })),
+    group("translate(24 30) scale(0.3) translate(-24 -27)", CROP_ART[crop]()),
+  ];
+}
+
+function jar(): ArtShape[] {
+  return [shadow(12), ...jarBody(undefined), rect(12.5, 9, 23, 6, 2.2, LID, out())];
+}
+
+const jam = (crop: Crop, color: string, gingham: string) => (): ArtShape[] => [
+  shadow(12),
+  ...jarBody(color, 0.85),
+  ...cloth(gingham),
+  ...label(crop),
+];
+
+function lemonade(): ArtShape[] {
+  return [
+    shadow(11),
+    line("M28 4.5 25 22", CLAY, 2.2),
+    rect(14, 13, 20, 29, 5, GLASS, out()),
+    path("M15.4 18h17.2v18.5a4 4 0 0 1-4 4h-9.2a4 4 0 0 1-4-4z", "#f7e27a"),
+    circle(20, 25, 1.3, "#ffffff", { opacity: 0.8 }),
+    circle(27, 31, 1, "#ffffff", { opacity: 0.8 }),
+    circle(22, 34, 0.9, "#ffffff", { opacity: 0.8 }),
+    line("M17.5 20v13", "#ffffff", 1.8, { opacity: 0.6 }),
+    circle(33.5, 13.5, 5.5, CROP_HEX.lemon, out()),
+    circle(33.5, 13.5, 3.6, "#fff1a8"),
+    line("M33.5 10v7M30 13.5h7M31 11l5 5M36 11l-5 5", CROP_HEX.lemon, 0.8),
+  ];
+}
+
+function tomatoSauce(): ArtShape[] {
+  return [
+    shadow(12),
+    ...jarBody("#b8322a", 0.85),
+    rect(12.5, 9, 23, 6, 2.2, CLAY, out()),
+    line("M15 12h18", "#ffffff", 1, { opacity: 0.4 }),
+    ...label("tomato"),
+    leaf(31, 21, 6, -30),
+  ];
+}
+
+function herbTea(): ArtShape[] {
+  return [
+    shadow(16, 42),
+    ellipse(24, 39.5, 16, 3.5, PAPER2, out()),
+    path("M11 22h26c0 9-5 16-13 16s-13-7-13-16z", PAPER, out()),
+    ellipse(24, 22, 13, 3, "#a8b860", out({ "stroke-width": 1.1 })),
+    path("M36.5 25c4 0 5 2.5 4 4.5s-3.5 3-5.8 2.6", "none", out({ "stroke-width": 2.2 })),
+    line("M17 29h14", MOSS_LIGHT, 2.2, { opacity: 0.8 }),
+    line("M19 16c-2-2 2-3.5 0-6M25 16c-2-2 2-3.5 0-6", LINE, 1.2, { opacity: 0.5 }),
+    line("M29 21 32 12", LINE, 0.8),
+    rect(30.5, 8, 4.5, 5, 1, CLAY, out({ "stroke-width": 0.9 })),
+  ];
+}
+
+function bouquet(): ArtShape[] {
+  const bloom = (x: number, y: number, fill: string) => [
+    ...[0, 72, 144, 216, 288].map((a) =>
+      circle(x, y - 3.2, 2.6, fill, { transform: `rotate(${a} ${x} ${y})` }),
+    ),
+    circle(x, y, 1.8, SUN),
+  ];
+  return [
+    shadow(10, 44),
+    line("M24 32 17 14M24 32V11M24 32l8-17", STEM, 1.6),
+    leaf(22, 22, 7, -150),
+    leaf(26, 21, 7, -30),
+    ...bloom(16, 13, CROP_HEX.flower),
+    ...bloom(32, 14, PLUM),
+    ...bloom(24, 10, ROSE),
+    path("M14 24h20l-7 19h-6z", PAPER2, out()),
+    line("M19.5 24 23 43M28.5 24 25 43", "#d9c7a4", 1, { opacity: 0.8 }),
+    path(
+      "M20 30.5c2.5 1.2 5.5 1.2 8 0l2 3.5-2.5-.5-3.5 3.5-3.5-3.5-2.5.5z",
+      CLAY,
+      out({ "stroke-width": 1 }),
+    ),
+  ];
+}
+
+function herbSachet(): ArtShape[] {
+  return [
+    shadow(12),
+    leaf(24, 16, 9, -120),
+    leaf(24, 16, 9, -60),
+    line("M24 18V9", STEM, 1.4),
+    path(
+      "M18.5 19c-4 4-6.5 10-5.5 16 .6 4 4 6.5 11 6.5s10.4-2.5 11-6.5c1-6-1.5-12-5.5-16z",
+      "#c8d8b2",
+      out(),
+    ),
+    path("M18 16.5c2 2.5 10 2.5 12 0l.5 3c-2.5 2-10.5 2-13 0z", "#c8d8b2", out()),
+    line("M17.5 20.5c4 1.5 9 1.5 13 0", PLUM, 2),
+    path(
+      "M24 21.5c-3-3-6-1.5-4.5.5M24 21.5c3-3 6-1.5 4.5.5",
+      "none",
+      out({ stroke: PLUM, "stroke-width": 1.6 }),
+    ),
+    circle(19.5, 31, 1.2, "#ffffff", { opacity: 0.7 }),
+    circle(27, 34, 1.2, "#ffffff", { opacity: 0.7 }),
+    circle(24, 28, 1.2, "#ffffff", { opacity: 0.7 }),
+  ];
+}
+
+function flowerWreath(): ArtShape[] {
+  const flowers: ArtShape[] = [];
+  const tones = [CROP_HEX.flower, SUN, ROSE, PAPER, PLUM, CROP_HEX.flower];
+  tones.forEach((fill, i) => {
+    const a = (i / tones.length) * Math.PI * 2 - Math.PI / 2;
+    const x = 24 + Math.cos(a) * 12;
+    const y = 25 + Math.sin(a) * 12;
+    flowers.push(circle(x, y, 3.3, fill, out({ "stroke-width": 1 })), circle(x, y, 1.2, SUN));
+  });
+  const leaves: ArtShape[] = [];
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * 360 + 15;
+    leaves.push(
+      group(`rotate(${a} 24 25)`, [leaf(24, 13, 7, i % 2 ? -20 : 200, i % 3 ? LEAF : MOSS)]),
+    );
+  }
+  return [
+    shadow(15, 42),
+    circle(24, 25, 12, "none", { stroke: MOSS, "stroke-width": 6.5 }),
+    circle(24, 25, 12, "none", { stroke: LEAF, "stroke-width": 4 }),
+    ...leaves,
+    ...flowers,
+    path("M21 37.5h6l2 5-3-1.5-2 2-2-2-3 1.5z", CLAY, out({ "stroke-width": 1 })),
+  ];
+}
+
+// ---------- decor from the town shop ----------
+
+function lantern(): ArtShape[] {
+  const glow = BLOCK_COLORS.lantern;
+  return [
+    shadow(9, 44),
+    circle(24, 25, 17, glow, { opacity: 0.18 }),
+    line("M24 3.5v5", WOOD_DARK, 1.6),
+    rect(19, 8, 10, 4, 1.5, WOOD_DARK, out({ "stroke-width": 1 })),
+    ellipse(24, 24.5, 12, 13, glow, out()),
+    path(
+      "M24 11.5c-6 3-6 23 0 26M24 11.5c6 3 6 23 0 26",
+      "none",
+      out({ "stroke-width": 1, opacity: 0.6 }),
+    ),
+    line("M12.5 20.5h23M12.5 28.5h23", "#ffffff", 1, { opacity: 0.45 }),
+    shine(18, 18, 3, 1.5, -60),
+    rect(19, 36.5, 10, 3.5, 1.4, WOOD_DARK, out({ "stroke-width": 1 })),
+    line("M24 40v3.5", CLAY, 1.6),
+    circle(24, 44, 1.4, CLAY),
+  ];
+}
+
+function frame(): ArtShape[] {
+  return [
+    shadow(15),
+    rect(7.5, 8, 33, 33, 2.5, BLOCK_COLORS.frame, out()),
+    rect(12, 12.5, 24, 24, 1, "#f6e7c4", out({ "stroke-width": 1 })),
+    rect(13, 13.5, 22, 22, 0.5, "#cfe6ee"),
+    circle(29, 19.5, 3, SUN),
+    path("M13 30c4-5 8-6 12-3s7 1 10-1v9.5H13z", MOSS_LIGHT),
+    path("M13 33c5-3 11-3.5 22-1.5v3.5H13z", MOSS),
+    path("M17 29v-3l2-2 2 2v3z", PAPER, { stroke: CLAY_DEEP, "stroke-width": 0.6 }),
+    path("M16.5 26.3 19 23.7l2.5 2.6z", CLAY),
+    line("M9.5 10.5h29", "#ffffff", 1, { opacity: 0.5 }),
+  ];
+}
+
+function fence(): ArtShape[] {
+  const post = (x: number) => path(`M${x - 4} 42V14l4-5 4 5v28z`, BLOCK_COLORS.fence, out());
+  return [
+    shadow(18, 43),
+    rect(3, 18, 42, 5, 1.5, BLOCK_COLORS.fence, out()),
+    rect(3, 30, 42, 5, 1.5, BLOCK_COLORS.fence, out()),
+    post(14),
+    post(34),
+    line("M12 16v24M32 16v24", "#ffffff", 1.2, { opacity: 0.6 }),
+    circle(14, 20.5, 0.8, LINE),
+    circle(34, 20.5, 0.8, LINE),
+    circle(14, 32.5, 0.8, LINE),
+    circle(34, 32.5, 0.8, LINE),
+  ];
+}
+
+function bench(): ArtShape[] {
+  const green = BLOCK_COLORS.bench;
+  return [
+    shadow(19, 43),
+    rect(10, 30, 3.5, 12, 1, WOOD_DARK, out({ "stroke-width": 1 })),
+    rect(34.5, 30, 3.5, 12, 1, WOOD_DARK, out({ "stroke-width": 1 })),
+    rect(8, 10, 32, 5, 1.6, green, out()),
+    rect(8, 17, 32, 5, 1.6, green, out()),
+    rect(12, 22, 2.5, 6, 0.8, WOOD_DARK),
+    rect(33.5, 22, 2.5, 6, 0.8, WOOD_DARK),
+    rect(5, 27, 38, 5.5, 1.8, green, out()),
+    line("M7 28.7h34M10 11.6h28M10 18.6h28", "#ffffff", 1, { opacity: 0.4 }),
+    path("M5 27c-1-4 1-7 4-7h1v7z", green, out({ "stroke-width": 1.1 })),
+    path("M43 27c1-4-1-7-4-7h-1v7z", green, out({ "stroke-width": 1.1 })),
+  ];
+}
+
+// ---------- wear ----------
+
+function strawHat(): ArtShape[] {
+  return [
+    shadow(17, 42),
+    ellipse(24, 32, 20, 6.5, STRAW, out({ stroke: STRAW_DEEP })),
+    path("M14 31.5c0-9 4-15 10-15s10 6 10 15c-6 2-14 2-20 0z", STRAW, out({ stroke: STRAW_DEEP })),
+    path("M14.3 27c6 1.8 13.4 1.8 19.4 0l.3 4.3c-6 2-14 2-20 0z", CLAY, out({ "stroke-width": 1 })),
+    line("M17 22.5c4 1 10 1 14 0", STRAW_DEEP, 0.9, { opacity: 0.7 }),
+  ];
+}
+
+function beret(): ArtShape[] {
+  return [
+    shadow(15, 41),
+    path("M6 29c0-8 9-14 19-14s17 5 17 11c0 4-6 7-17 8S6 35 6 29z", CLAY, out()),
+    path("M12 32c4 3 18 3 23 0l-.5 3.5c-5 3-17 3-22 0z", CLAY_DEEP, out({ "stroke-width": 1.1 })),
+    line("M26 15v-4", CLAY_DEEP, 2.2),
+    shine(17, 21, 5, 1.8),
+  ];
+}
+
+function flowerCrown(): ArtShape[] {
+  const r = (n: number) => Math.round(n * 10) / 10;
+  // A ring of stems seen from the front, with flowers all along the near side.
+  const bloom = (a: number, fill: string, size: number): ArtShape[] => {
+    const x = r(24 + Math.cos(a) * 17);
+    const y = r(25 + Math.sin(a) * 7);
+    return [
+      leaf(x, y, size * 1.4, Math.sin(a) > 0 ? 160 : 20),
+      ...[0, 72, 144, 216, 288].map((t) =>
+        circle(x, r(y - size * 0.55), r(size * 0.5), fill, { transform: `rotate(${t} ${x} ${y})` }),
+      ),
+      circle(x, y, r(size * 0.38), fill === SUN ? CLAY : SUN, out({ "stroke-width": 0.8 })),
+    ];
+  };
+  return [
+    shadow(17, 40),
+    ellipse(24, 25, 17, 7, "none", { stroke: MOSS, "stroke-width": 2.6 }),
+    ...bloom(-Math.PI * 0.62, PAPER, 3.4),
+    ...bloom(-Math.PI * 0.38, CROP_HEX.flower, 3.4),
+    ...bloom(Math.PI * 1.02, ROSE, 4.4),
+    ...bloom(Math.PI * 0.8, SUN, 4.6),
+    ...bloom(Math.PI * 0.5, CROP_HEX.flower, 5),
+    ...bloom(Math.PI * 0.2, PLUM, 4.6),
+    ...bloom(-Math.PI * 0.02, ROSE, 4.4),
+  ];
+}
+
+function beanie(): ArtShape[] {
+  return [
+    shadow(14, 42),
+    path("M10 33c0-12 6-19 14-19s14 7 14 19z", SKY, out()),
+    line("M17 17c-1.5 5-2 10-2 15M24 14.5V32M31 17c1.5 5 2 10 2 15", "#5a98be", 1, {
+      opacity: 0.7,
+    }),
+    rect(8.5, 30, 31, 9, 3, "#5a98be", out()),
+    line("M13 31v7M18 31v7M23 31v7M28 31v7M33 31v7", SKY, 1.2, { opacity: 0.8 }),
+    circle(24, 11, 4.5, PAPER, out()),
+  ];
+}
+
+function apron(): ArtShape[] {
+  return [
+    shadow(13, 44),
+    line("M17 9c2 3 12 3 14 0", LINE, 1.6),
+    line("M12 20c-3 0-5 1-6 3M36 20c3 0 5 1 6 3", LINE, 1.4),
+    path(
+      "M17 9h14v9c3 0 5 1 5 3l-1 18c0 2-2 3-4 3H17c-2 0-4-1-4-3l-1-18c0-2 2-3 5-3z",
+      "#f6e3b4",
+      out(),
+    ),
+    rect(18, 28, 12, 7, 1.5, ROSE, out({ "stroke-width": 1.1 })),
+    line("M24 28v7", LINE, 0.9, { opacity: 0.6 }),
+    line("M15 40.5h18", CLAY, 1.4, { "stroke-dasharray": "2 2" }),
+  ];
+}
+
+function scarf(): ArtShape[] {
+  return [
+    shadow(13, 44),
+    path("M10 15c4-5 24-5 28 0 1 3-1 6-4 7-6 2-14 2-20 0-3-1-5-4-4-7z", CLAY, out()),
+    path("M27 20l4 18h-8l-1-17z", CLAY, out()),
+    line("M24.5 26h6.5M25.5 32h6.5", SUN, 2.2),
+    line(
+      "M14 14.5c1 2.5 1 4.5 0 6.5M20 13c1 3 1 6 0 8.5M28 13c1 3 1 6 0 8.5M34 14.5c1 2.5 1 4.5 0 6.5",
+      SUN,
+      2.2,
+    ),
+    line("M23.5 38.5v4M26 38.5v4M28.5 38.5v4M31 38.5v4", CLAY_DEEP, 1.2),
+  ];
+}
+
+function cardigan(): ArtShape[] {
+  return [
+    shadow(17, 44),
+    path("M17 8l7 6 7-6 9 4 5 14-6 2-2-6v17H11V22l-2 6-6-2 5-14z", MOSS, out()),
+    path("M17 8l7 12 7-12", "none", out({ "stroke-width": 1.2 })),
+    line("M24 20v19", LINE, 1, { opacity: 0.7 }),
+    circle(26, 24, 1.2, PAPER),
+    circle(26, 29, 1.2, PAPER),
+    circle(26, 34, 1.2, PAPER),
+    rect(11, 37, 26, 3, 1, "#4c6a37"),
+    rect(3, 25, 6, 2.5, 1, "#4c6a37", { transform: "rotate(18 6 26)" }),
+    rect(39, 25, 6, 2.5, 1, "#4c6a37", { transform: "rotate(-18 42 26)" }),
+  ];
+}
+
+function overalls(): ArtShape[] {
+  return [
+    shadow(14, 44),
+    line("M17 7l1 13M31 7l-1 13", DENIM, 2.6),
+    path("M16 18h16v6l3 1v17h-8l-3-10-3 10h-8V25l3-1z", DENIM, out()),
+    rect(19, 19, 10, 6, 1.2, "#7aa0cc", out({ "stroke-width": 1 })),
+    circle(18, 21, 1.3, SUN),
+    circle(30, 21, 1.3, SUN),
+    line("M14 31h7M27 31h7", "#7aa0cc", 1, { "stroke-dasharray": "1.5 1.5" }),
+  ];
+}
+
+function basket(): ArtShape[] {
+  return [
+    shadow(16, 43),
+    path("M12 24c0-12 24-12 24 0", "none", {
+      stroke: WICKER,
+      "stroke-width": 3,
+      "stroke-linecap": "round",
+    }),
+    circle(19, 22, 5, CROP_HEX.lemon, out()),
+    circle(28, 21.5, 5, CROP_HEX.strawberry, out()),
+    leaf(27, 17, 5, -40),
+    path("M8 24h32l-3.5 16c-.4 1.5-1.6 2.5-3.2 2.5H14.7c-1.6 0-2.8-1-3.2-2.5z", WICKER, out()),
+    line("M9.5 30h29M10.8 36h26.4", "#a8743f", 1.2),
+    line("M16 24.5l1.5 18M24 24.5v18M32 24.5l-1.5 18", "#a8743f", 1.2),
+  ];
+}
+
+function satchel(): ArtShape[] {
+  return [
+    shadow(14, 44),
+    path("M14 22C14 10 20 5 24 5s10 5 10 17", "none", { stroke: LEATHER, "stroke-width": 2.6 }),
+    rect(9, 20, 30, 22, 4, LEATHER, out()),
+    path("M9 24a4 4 0 0 1 4-4h22a4 4 0 0 1 4 4v6c0 2-2 4-4 4H13c-2 0-4-2-4-4z", "#b47d4b", out()),
+    rect(21.5, 30, 5, 6, 1.2, SUN, out({ "stroke-width": 1 })),
+    line("M12 23.5h24", "#ffffff", 1, { opacity: 0.3 }),
+  ];
+}
+
+function glasses(): ArtShape[] {
+  return [
+    shadow(16, 38),
+    circle(15, 25, 7.5, "#eaf4f6", out({ stroke: INK, "stroke-width": 2.2 })),
+    circle(33, 25, 7.5, "#eaf4f6", out({ stroke: INK, "stroke-width": 2.2 })),
+    line("M22.5 24c1-1.5 2-1.5 3 0", INK, 2),
+    line("M7.5 23.5 3.5 20M40.5 23.5l4-3.5", INK, 2),
+    line("M11.5 22.5l3-3M29.5 22.5l3-3", "#ffffff", 1.4),
+  ];
+}
+
+function bow(): ArtShape[] {
+  return [
+    shadow(15, 40),
+    path("M24 24 8 15c-3 2-3 16 0 18z", ROSE, out()),
+    path("M24 24l16-9c3 2 3 16 0 18z", ROSE, out()),
+    path(
+      "M22 26l-4 12 4-2 2 3 1-13zM26 26l4 12-4-2-2 3-1-13z",
+      "#d87189",
+      out({ "stroke-width": 1.1 }),
+    ),
+    rect(20.5, 20, 7, 8, 2.5, "#d87189", out()),
+    line("M12 19.5c3 1 5 3 7 4.5M36 19.5c-3 1-5 3-7 4.5", "#ffffff", 1, { opacity: 0.5 }),
+  ];
+}
+
+function topHat(): ArtShape[] {
+  return [
+    shadow(16, 42),
+    ellipse(24, 36, 18, 5, INK, out({ stroke: "#000000" })),
+    path(
+      "M13 35V10c0-1.5 5-3 11-3s11 1.5 11 3v25c-3 1.5-19 1.5-22 0z",
+      INK,
+      out({ stroke: "#000000" }),
+    ),
+    ellipse(24, 10, 11, 3, "#3d362e"),
+    path("M13 28c3 1.5 19 1.5 22 0v4.5c-3 1.5-19 1.5-22 0z", CLAY, out({ "stroke-width": 1 })),
+    line("M17 12.5v12", "#ffffff", 1.4, { opacity: 0.25 }),
+  ];
+}
+
+function raincoat(): ArtShape[] {
+  return [
+    shadow(17, 44),
+    path("M16 9c2-4 14-4 16 0l9 5 4 15-6 2-2-6v17H11V25l-2 6-6-2 4-15z", SLICKER, out()),
+    path("M16 9c2 6 14 6 16 0", "none", out({ stroke: SLICKER_DEEP })),
+    line("M24 13v26", SLICKER_DEEP, 1.2),
+    rect(26, 18, 5, 2, 1, INK),
+    rect(26, 24, 5, 2, 1, INK),
+    rect(26, 30, 5, 2, 1, INK),
+    line("M24 19h2M24 25h2M24 31h2", INK, 0.8),
+    path("M13 30h7v5h-7z", SLICKER_DEEP, { opacity: 0.6 }),
+    path("M28 33h7v4h-7z", SLICKER_DEEP, { opacity: 0.6 }),
+    line("M14 14c-1 6-1 14 0 20", "#ffffff", 1.4, { opacity: 0.45 }),
+  ];
+}
+
+function umbrella(): ArtShape[] {
+  return [
+    shadow(9, 44),
+    line("M24 22v16c0 3 5 3 5 0", WOOD_DARK, 2.4),
+    path(
+      "M4 23C5 13 14 6 24 6s19 7 20 17c-2.2-2-5.5-2-7.7 0-2-2-6.2-2-8.2 0-2-2-6.2-2-8.2 0-2-2-6.2-2-8.2 0C9.5 21 6.2 21 4 23z",
+      CANOPY,
+      out(),
+    ),
+    path("M24 6c-4 4-5.5 10-4.1 17M24 6c4 4 5.5 10 4.1 17", "none", out({ "stroke-width": 1 })),
+    path("M24 6c-4 4-5.5 10-4.1 17C17.9 21 15.7 21 15.7 21 15 14 18 9 24 6z", PAPER, {
+      opacity: 0.85,
+    }),
+    path("M24 6c8 3 12 9 12.3 17-2 0-4 0-4 0C32 16 29 10 24 6z", PAPER, { opacity: 0.85 }),
+    circle(24, 5, 1.6, WOOD_DARK),
+  ];
+}
+
+// ---------- the catalog ----------
+
+const ART: Record<ArtKind, () => ArtShape[]> = {
+  lemon_seed: seedPacket("lemon"),
+  strawberry_seed: seedPacket("strawberry"),
+  tomato_seed: seedPacket("tomato"),
+  herb_seed: seedPacket("herb"),
+  flower_seed: seedPacket("flower"),
+  lemon: produce("lemon"),
+  strawberry: produce("strawberry"),
+  tomato: produce("tomato"),
+  herb: produce("herb"),
+  flower: produce("flower"),
+  sugar,
+  jar,
+  lantern,
+  frame,
+  fence,
+  bench,
+  lemon_jam: jam("lemon", "#f2c53d", "#e2b23a"),
+  strawberry_jam: jam("strawberry", "#c8344a", ROSE),
+  lemonade,
+  tomato_sauce: tomatoSauce,
+  herb_tea: herbTea,
+  bouquet,
+  herb_sachet: herbSachet,
+  flower_wreath: flowerWreath,
+  straw_hat: strawHat,
+  beret,
+  flower_crown: flowerCrown,
+  beanie,
+  apron,
+  scarf,
+  cardigan,
+  overalls,
+  basket,
+  satchel,
+  glasses,
+  bow,
+  top_hat: topHat,
+  raincoat,
+  umbrella,
+};
+
+/** The shapes of one picture, back to front, in a 48 by 48 box. Pure. */
+export function itemShapes(kind: ArtKind): ArtShape[] {
+  return ART[kind]();
+}
+
+export interface ItemArtOptions {
+  /** Read out for screen readers. Without one the picture is decorative and hidden from them. */
+  title?: string;
+  /** Width and height in CSS pixels. 28 by default. */
+  size?: number;
+  /** Extra classes beside `item-art`. */
+  className?: string;
+}
+
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+function build(shape: ArtShape): SVGElement {
+  const el = document.createElementNS(SVG_NS, shape.tag);
+  for (const [k, v] of Object.entries(shape.attrs)) el.setAttribute(k, String(v));
+  for (const child of shape.children ?? []) el.append(build(child));
+  return el;
+}
+
+/**
+ * A picture of a thing as an inline SVG. Decorative (`aria-hidden`) unless `title` is given, in
+ * which case it's an image with that name. The title goes in as text, never as markup.
+ */
+export function itemArt(kind: ArtKind, opts: ItemArtOptions = {}): SVGSVGElement {
+  const svg = document.createElementNS(SVG_NS, "svg");
+  const size = opts.size ?? 28;
+  svg.setAttribute("viewBox", `0 0 ${ART_BOX} ${ART_BOX}`);
+  svg.setAttribute("width", String(size));
+  svg.setAttribute("height", String(size));
+  svg.setAttribute("class", opts.className ? `item-art ${opts.className}` : "item-art");
+  svg.setAttribute("focusable", "false");
+  svg.setAttribute("data-kind", kind);
+  if (opts.title) {
+    svg.setAttribute("role", "img");
+    const title = document.createElementNS(SVG_NS, "title");
+    title.textContent = opts.title;
+    svg.append(title);
+  } else {
+    svg.setAttribute("aria-hidden", "true");
+  }
+  for (const shape of itemShapes(kind)) svg.append(build(shape));
+  return svg;
+}

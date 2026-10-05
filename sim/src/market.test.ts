@@ -517,6 +517,13 @@ describe("remove_listing", () => {
     w.ok("bob", { type: "buy_listing", listing: "l_1" });
     expect(w.code(TOWN_ACTOR, remove("l_1"))).toBe("unknown_listing");
     expect(w.code(TOWN_ACTOR, remove("l_9"))).toBe("unknown_listing");
+    // Ids that name what every object inherits find nothing, and touch nothing.
+    for (const id of ["__proto__", "constructor", "toString"]) {
+      expect(w.code(TOWN_ACTOR, remove(id))).toBe("unknown_listing");
+      expect(w.code("bob", { type: "buy_listing", listing: id })).toBe("unknown_listing");
+      expect(w.code("ada", { type: "unlist_item", listing: id })).toBe("unknown_listing");
+    }
+    expect(({} as { takenDown?: true }).takenDown).toBeUndefined();
     const closed = createWorld(CONFIG);
     expect(apply(closed, { actor: TOWN_ACTOR, command: remove("l_1") })).toMatchObject({
       ok: false,

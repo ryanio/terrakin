@@ -31,6 +31,7 @@ import {
   ErrorResponse,
   HealthResponse,
   LinkKeyResponse,
+  ListingId,
   MoveAction,
   ResidentColor,
   ResidentName,
@@ -398,7 +399,7 @@ const InviteParams = z.object({
   code: z.string().min(1).max(64).describe("The invite code, like `k7m2p9xq4tzn`."),
 });
 const ProposalParams = idParams("proposal", "t_12");
-const ListingParams = idParams("listing", "l_7");
+const ListingParams = z.object({ id: ListingId.describe("The listing id, like `l_7`.") });
 const NoticeParams = idParams("notice", "n_0123456789abcdef");
 const AgentParams = idParams("agent's resident", "r_0123456789abcdef");
 const CodeParams = z.object({

@@ -58,7 +58,14 @@ export {
 } from "./items";
 export { parseKey, plotKey, tileKey } from "./keys";
 export * from "./looks";
-export { listingsOf, MARKET, marketFee, stallOf, takenDownOf } from "./market";
+export {
+  listingById,
+  listingsOf,
+  MARKET,
+  marketFee,
+  stallOf,
+  takenDownOf,
+} from "./market";
 export * from "./palette";
 export { isDirection, PUTTER, PUTTER_MAX_STEPS, planPutter } from "./putter";
 export { replay } from "./replay";

@@ -42,7 +42,7 @@ import {
   urlsetXml,
   w3cDatetime,
 } from "@terrakin/protocol";
-import { findProposal } from "@terrakin/sim";
+import { findProposal, listingById } from "@terrakin/sim";
 import { checkinView } from "./checkin";
 import { purseView } from "./coins";
 import { IdempotencyStore, type StoredResponse, sha256Hex } from "./idempotency";
@@ -1460,7 +1460,7 @@ export class Api {
         logged(await social().safety.removePictures(viewer, params.id, body.reason)),
       // Decision 0056: the lot goes back to its seller, or waits out of view when they're full.
       removeListing: ({ viewer, params, body }) => {
-        const listing = service.state.market?.listings[params.id];
+        const listing = listingById(service.state, params.id);
         if (!listing || listing.takenDown) {
           return fail("not_found", "That listing isn't in the market any more.");
         }

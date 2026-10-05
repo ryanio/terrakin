@@ -13,6 +13,7 @@ import {
   type ItemKind,
   isTownsfolk,
   type Listing,
+  listingById,
   listingsOf,
   takenDownOf,
   type WorldState,
@@ -122,7 +123,7 @@ export function marketView(
   const before = query.before;
   let after = (_: Listing) => true;
   if (before !== undefined && cheapest) {
-    const cursor = state.market.listings[before];
+    const cursor = listingById(state, before);
     if (!cursor || cursor.takenDown) {
       return {
         error:
@@ -177,7 +178,7 @@ export function listingForReport(
   state: WorldState,
   id: string,
 ): { seller: string; text: string } | undefined {
-  const l = state.market?.listings[id];
+  const l = listingById(state, id);
   if (!l || l.takenDown) return undefined;
   const labels = (l.goods ?? []).flatMap((g) => (g.label ? [g.label] : []));
   return {

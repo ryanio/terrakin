@@ -98,6 +98,17 @@ export function listingsOf(state: WorldState): Listing[] {
 
 const listingNumber = (l: Listing) => Number(l.id.slice(2));
 
+/**
+ * The listing with this id, open or taken down. An own-property lookup, so an id like `__proto__`
+ * finds nothing instead of `Object.prototype`.
+ */
+export function listingById(state: WorldState, id: string): Listing | undefined {
+  const listings = state.market?.listings;
+  return listings && typeof id === "string" && Object.hasOwn(listings, id)
+    ? listings[id]
+    : undefined;
+}
+
 /** One resident's open listings, oldest first. */
 export const stallOf = (state: WorldState, id: ResidentId) =>
   listingsOf(state).filter((l) => l.seller === id);
@@ -257,7 +268,7 @@ export function checkUnlistItem(
   const open = opened(state, actor, { townsfolk: true });
   if ("code" in open) return open;
   const { market, items } = open;
-  const listing = market.listings[command.listing];
+  const listing = listingById(state, command.listing);
   if (!listing) return refuse("unknown_listing", "That listing isn't open. See GET /v1/market.");
   if (listing.seller !== actor) return refuse("not_eligible", "That's someone else's listing.");
   if (!fits(items, actor, listing)) {
@@ -284,7 +295,7 @@ export function checkBuyListing(
   const open = opened(state, actor);
   if ("code" in open) return open;
   const { market, econ, items, day } = open;
-  const listing = market.listings[command.listing];
+  const listing = listingById(state, command.listing);
   if (!listing || listing.takenDown) {
     return refuse("unknown_listing", "That listing isn't open. See GET /v1/market.");
   }
@@ -371,7 +382,7 @@ export function checkRemoveListing(
   if (!market || !items) {
     return refuse("market_closed", "The market hasn't opened in this world yet.");
   }
-  const listing = market.listings[command.listing];
+  const listing = listingById(state, command.listing);
   if (!listing || listing.takenDown) {
     return refuse("unknown_listing", "That listing isn't open.");
   }

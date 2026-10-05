@@ -131,6 +131,8 @@ describe("staff roles", () => {
     const takeDown = (headers: Partial<ApiRequest>) =>
       t.call("POST", "/v1/admin/listings/l_1/remove", { reason: "x" }, headers);
     expect((await takeDown(as)).status).toBe(404);
+    const odd = await t.call("POST", "/v1/admin/listings/__proto__/remove", { reason: "x" }, as);
+    expect(odd.status).toBe(400);
     expect((await takeDown(t.bearer(bo.token))).status).toBe(403);
     expect((await takeDown({})).status).toBe(401);
     // Every action records who did it.

@@ -563,7 +563,7 @@ export class SafetyService {
         `INSERT INTO reports (id, kind, target, reporter, reason, note, created_at, owner)
           VALUES (?, ?, ?, ?, ?, '', ?, ?)
           ON CONFLICT (reporter, kind, target) DO UPDATE SET status = 'open', reason = excluded.reason,
-          created_at = excluded.created_at, closed_at = NULL, closed_by = NULL`,
+          created_at = excluded.created_at, closed_at = NULL, closed_by = NULL, owner = excluded.owner`,
         randomId("rp"),
         kind,
         id,

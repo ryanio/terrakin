@@ -73,7 +73,6 @@ test("a neighbor reports a listing, and a maintainer takes it down", async ({ pa
     (await read(page.request, juno.token, "/v1/inventory")).inventory.stacks.find(
       (s: { kind: string }) => s.kind === "jar",
     )?.count ?? 0;
-  const held = await jars();
   const listed = await act(page.request, juno.token, {
     type: "list_item",
     item: "jar",
@@ -81,7 +80,8 @@ test("a neighbor reports a listing, and a maintainer takes it down", async ({ pa
   });
   expect(listed.ok).toBe(true);
   const id = listed.events.find((e: { type: string }) => e.type === "listed").listing.id as string;
-  expect(await jars()).toBe(held - 1);
+  // Counted after listing, since listing at home may also bring today's pantry.
+  const held = await jars();
 
   // Pell reports it from the listing's More menu on /market.
   await signIn(page, pell);
@@ -129,7 +129,7 @@ test("a neighbor reports a listing, and a maintainer takes it down", async ({ pa
   // Out of the market, and the jar is back with Juno. The listing fee stays spent.
   const market = (await (await page.request.get("/v1/market")).json()).market;
   expect(market.listings.map((l: { id: string }) => l.id)).not.toContain(id);
-  expect(await jars()).toBe(held);
+  expect(await jars()).toBe(held + 1);
   const ledger = (await read(page.request, juno.token, "/v1/purse")).purse.ledger;
   expect(ledger).toContainEqual(expect.objectContaining({ amount: -1, reason: "listing_fee" }));
   expect(errors).toEqual([]);

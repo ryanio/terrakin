@@ -23,6 +23,7 @@ import {
   LOOK_MEDIA_KEYS,
   type LookMediaKey,
   type LooseWearStyles,
+  listingById,
   ownerPaired,
   type ProfileFields,
   parseKey,
@@ -865,7 +866,7 @@ export class WorldService {
     }
     if (action.type === "buy_listing") {
       // Like a gift, a sale can't cross a block either way.
-      const seller = this.state.market?.listings[action.listing]?.seller;
+      const seller = listingById(this.state, action.listing)?.seller;
       if (seller && this.blockedEither(residentId, seller)) {
         return {
           ok: false,

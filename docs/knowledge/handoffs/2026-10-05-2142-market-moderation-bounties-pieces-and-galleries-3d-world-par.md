@@ -39,14 +39,17 @@ Follows [Open follow-ups after karma, the market, 3D wear, and deploy on green](
 5. Partners: the RFC's owner flair ("Keeper of Saddlebag"), placed partner decor, and a `kept` flag for promo items.
 6. 3D: draw `.glb` pieces as models under a per-piece budget, or keep the framed placeholder; measure on a real phone.
 
+## Decided after this note (Ryan, 2026-10-05)
+
+- Only a plot's owners gather on it; the Commons and open land stay open (`9c7a3cf`, decision 0063). It switched on at a logged point, so earlier gathers replay.
+- In 3D the d-pad walks the way the camera looks (`e62fa6e`, decision 0060).
+- Staff takedowns send the owner a notice from Terrakin naming the rule (`acd9e5c`, decision 0064).
+- MUSEGOD runs no promo until it agrees to one (`ab6a2c5`, decision 0061).
+- Kept as built: a maintainer confirms town bounties and releases grants; the first partner designs; muse art as avatar only when there's none; admiring from anywhere, karma only; the 3D toggle hidden on low-end phones; the shop's facing left alone. Check the grant cap against the treasury before a big grant.
+
 ## Open questions
 
-- Bounties (0062): a maintainer confirms town bounties, and grants wait for a maintainer instead of paying on the vote. Caps: 200 coins per resident bounty, 1,000 per grant or town bounty, 30-day expiry, 1,000 kept back in the treasury.
+- Who approves a new partner (Ryan for now; the bar is a takedown contact and an art license, to write into RFC 0007 when a second partner asks).
 - Karma: should Pillar and Elder praise weigh 3, like reactions? It stays 2.
 - Market: a cheapest-order page whose cursor sold answers `bad_request`. Start over instead?
-- Moderation: should a takedown notify the owner? Should deleting a piece's picture also pull it from the maker's avatar and posts (it does now, like hiding a post)?
-- Admiring works from anywhere. Require being near? Should admiration earn appreciation coins too?
-- Partners: keep the first set (borders `plush`, `gilded`, `aurora`; designs `velvet`, `lantern`, `grove`)? Keep MUSEGOD's November lantern promo? Muse art becomes the avatar only when the resident has none. Who approves a new partner?
-- 3D: offer it on low-end phones and rely on the slow fallback? Should the d-pad follow the camera? The shop faces away from the default camera.
-- Gathering: anyone can gather on anyone's plot. Should owners get first pick?
 - From before: when `MARKET_LISTING.tier` goes to `neighbor`; RFCs 0009 to 0011 and ryanio/terrakin#40.

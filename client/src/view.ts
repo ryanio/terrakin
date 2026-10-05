@@ -16,7 +16,8 @@ export interface ViewContext {
   key: string;
   setTitle(title: string): void;
   canGoBack(): boolean;
-  navigate(path: string): void;
+  /** Go to a page. `replace` swaps the current history entry, so Back skips it. */
+  navigate(path: string, options?: { replace?: boolean }): void;
 }
 
 /** A friendly card for a page that doesn't exist. */

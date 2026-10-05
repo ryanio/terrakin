@@ -5,9 +5,20 @@
 import { REPORT_NOTE_MAX_LENGTH, type ReportKind, type ReportReason } from "@terrakin/protocol";
 import { h } from "@terrakin/ui/dom";
 import { REPORT_CHOICES } from "@terrakin/ui/safety";
-import { checkRow, closeOverlay, openOverlay, sheet, toast, whileBusy } from "@terrakin/ui/ui";
+import {
+  checkRow,
+  closeOverlay,
+  openOverlay,
+  overlayShowing,
+  sheet,
+  toast,
+  whileBusy,
+} from "@terrakin/ui/ui";
 import { api } from "./api";
 import { savedToken } from "./net";
+
+const CRISIS_LINE =
+  "Thanks. A maintainer will look soon. If someone is in danger right now, call local emergency services.";
 
 export function openReportSheet(target: { kind: ReportKind; id: string; label: string }) {
   if (!savedToken()) {
@@ -53,7 +64,7 @@ export function openReportSheet(target: { kind: ReportKind; id: string; label: s
     send,
   );
 
-  const { dialog, close } = sheet(
+  const { dialog, title, close } = sheet(
     {
       id: "report-title",
       title: "Report",
@@ -76,16 +87,36 @@ export function openReportSheet(target: { kind: ReportKind; id: string; label: s
     const res = await whileBusy(send, () =>
       api.report({ kind: target.kind, id: target.id, reason, ...(text ? { note: text } : {}) }),
     );
+    // Closed while it sent: say it in a toast, since the sheet is gone.
+    const showing = overlayShowing(dialog);
     if (!res.ok) {
-      status.textContent = res.message;
+      if (showing) status.textContent = res.message;
+      else toast(res.message);
       return;
     }
-    closeOverlay();
-    toast(
-      reason === "self_harm"
-        ? "Thanks. A maintainer will look soon. If someone is in danger right now, call local emergency services."
-        : "Thanks. A maintainer will take a look.",
+    if (reason !== "self_harm" || !showing) {
+      closeOverlay(dialog);
+      toast(reason === "self_harm" ? CRISIS_LINE : "Thanks. A maintainer will take a look.");
+      return;
+    }
+    // The crisis line stays until they close it, instead of a toast that goes by.
+    const done = h("button", {
+      class: "btn-primary",
+      attrs: { type: "button" },
+      text: "Done",
+      on: { click: () => closeOverlay(dialog) },
+    });
+    title.textContent = "Report sent";
+    dialog.querySelector(".sheet-lede")?.remove();
+    form.replaceWith(
+      h(
+        "div",
+        { class: "sheet-body" },
+        h("p", { class: "sheet-lede", attrs: { role: "status" }, text: CRISIS_LINE }),
+        done,
+      ),
     );
+    done.focus();
   });
 
   openOverlay(dialog);

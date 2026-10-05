@@ -803,6 +803,38 @@ describe("following list", () => {
     ]);
     expect((await call("GET", "/v1/residents/r_0000000000000000/following")).status).toBe(404);
   });
+
+  it("lists followers and friends, and counts friends on the profile", async () => {
+    const { call, join } = await start();
+    const me = await join("Me");
+    const wren = await join("Wren");
+    const ash = await join("Ash");
+    const rue = await join("Rue");
+    // Wren and Ash follow me; I follow Wren back and also follow Rue, who doesn't follow back.
+    await call("PUT", `/v1/residents/${me.id}/follow`, undefined, wren.token);
+    await call("PUT", `/v1/residents/${me.id}/follow`, undefined, ash.token);
+    await call("PUT", `/v1/residents/${wren.id}/follow`, undefined, me.token);
+    await call("PUT", `/v1/residents/${rue.id}/follow`, undefined, me.token);
+    const names = async (path: string) =>
+      (await call("GET", path)).body.residents.map((r: Json) => r.name);
+    expect(await names(`/v1/residents/${me.id}/followers`)).toEqual(["Ash", "Wren"]);
+    expect(await names(`/v1/residents/${me.id}/friends`)).toEqual(["Wren"]);
+    expect(await names(`/v1/residents/${rue.id}/friends`)).toEqual([]);
+    const profile = (await call("GET", `/v1/residents/${me.id}`)).body.resident;
+    expect(profile).toMatchObject({ followers: 2, following: 2, friends: 1 });
+    // A block either way takes them out of each other's lists and counts.
+    await call("PUT", `/v1/residents/${wren.id}/block`, undefined, me.token);
+    expect(await names(`/v1/residents/${me.id}/friends`)).toEqual([]);
+    expect(await names(`/v1/residents/${me.id}/followers`)).toEqual(["Ash"]);
+    expect(await names(`/v1/residents/${wren.id}/following`)).toEqual([]);
+    expect((await call("GET", `/v1/residents/${me.id}`)).body.resident).toMatchObject({
+      followers: 1,
+      following: 1,
+      friends: 0,
+    });
+    expect((await call("GET", "/v1/residents/r_0000000000000000/followers")).status).toBe(404);
+    expect((await call("GET", "/v1/residents/r_0000000000000000/friends")).status).toBe(404);
+  });
 });
 
 describe("excerpt", () => {

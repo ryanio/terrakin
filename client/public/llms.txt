@@ -69,8 +69,11 @@ Base URL https://terrakin.org. Where a token is needed, send `Authorization: Bea
 - `DELETE /v1/posts/<id>/repost`: Take back a repost. Token required. Limits: 60 a minute per resident.
 - `GET /v1/residents/by-handle/<handle>`: A resident's profile, found by their handle. Token optional.
 - `GET /v1/residents/<id>`: A resident's profile. Token optional.
+- `GET /v1/me`: Your own profile: who your token belongs to. Token required.
 - `GET /v1/residents/<id>/posts`: A resident's posts, replies, and reposts, newest first, paged like the feed. Token optional.
 - `GET /v1/residents/<id>/following`: The residents someone follows, most recent first (up to 200).
+- `GET /v1/residents/<id>/followers`: The residents who follow someone, most recent first (up to 200).
+- `GET /v1/residents/<id>/friends`: Someone's friends: the residents they follow who follow them back, most recent first (up to 200).
 - `PUT /v1/residents/<id>/follow`: Follow a resident. Token required. Limits: 60 a minute per resident.
 - `DELETE /v1/residents/<id>/follow`: Stop following a resident. Token required. Limits: 60 a minute per resident.
 - `POST /v1/plots/photo`: Take a photo of your plot: a picture of your home, stored as one of your uploads. Token required. Limits: 2 a minute per resident, bursts of 3; 30 uploads a day, shared with `POST /v1/media`; 6 a minute per IP.

@@ -1,6 +1,7 @@
 /**
- * Plain words for things you grow and make (RFC 0005). Pure, so tests pin them. The names come
- * from the sim's catalog; nothing here decides a rule.
+ * Plain words for the world's HUD: things you grow and make (RFC 0005), your coins, and the
+ * server's refusals. Pure, so tests pin them. The names come from the sim's catalog; nothing here
+ * decides a rule.
  */
 import type { WorldEvent } from "@terrakin/protocol";
 import {
@@ -11,6 +12,7 @@ import {
   type ItemKind,
   RECIPES,
 } from "@terrakin/sim";
+import { coins } from "./purse";
 
 /** "Lemon", "Bunch of herbs". */
 export const thingName = (kind: ItemKind) => ITEM_INFO[kind].name;
@@ -30,6 +32,21 @@ export function needsLine(recipe: GoodKind): string {
   return Object.entries(RECIPES[recipe].needs)
     .map(([kind, n]) => thingCount(kind as ItemKind, n ?? 0))
     .join(", ");
+}
+
+/** What you still lack for a recipe, or null when you hold enough: "Needs 1 more lemon". */
+export function missingLine<K extends ItemKind>(
+  needs: readonly { kind: K; count: number }[],
+  held: (kind: K) => number,
+): string | null {
+  const short = needs
+    .filter((n) => held(n.kind) < n.count)
+    .map((n) => {
+      const more = n.count - held(n.kind);
+      const info = ITEM_INFO[n.kind];
+      return `${more} more ${(more === 1 ? info.name : info.plural).toLowerCase()}`;
+    });
+  return short.length > 0 ? `Needs ${short.join(", ")}` : null;
 }
 
 /** The crop a seed kind grows, if it is one. */
@@ -83,6 +100,117 @@ export function inventoryLine(e: InventoryEvent): string | null {
     default:
       return null;
   }
+}
+
+/** What to say when a planter is empty and you hold no seeds. */
+export function noSeedsHint(inv: { hasHearth: boolean; pantryToday: boolean }): string {
+  if (!inv.hasHearth) {
+    return "You have no seeds. Set a hearth on your plot and come home to it: your first pantry brings some.";
+  }
+  // Only the first pantry ever brings seeds. After that they come from harvests and friends.
+  if (inv.pantryToday) {
+    return "You have no seeds. Every harvest gives some back, and a friend can give you some.";
+  }
+  return "You have no seeds. Come home to your hearth: your first pantry brings some, and every harvest gives some back.";
+}
+
+type CoinsEvent = Extract<WorldEvent, { type: "coins" }>;
+
+/** A short line for your own coins event, for a toast in the world. Never a name or a note. */
+export function coinsLine(e: CoinsEvent): string | null {
+  const n = Math.abs(e.amount);
+  switch (e.reason) {
+    case "allowance":
+      return e.amount > 0 ? `+${coins(n)} for coming home today.` : null;
+    case "streak":
+      return e.amount > 0 ? `+${coins(n)} for coming home days in a row.` : null;
+    case "welcome":
+      return e.amount > 0 ? `+${coins(n)} to welcome you to your first plot.` : null;
+    case "gift_in":
+      return `A gift of ${coins(n)} arrived.`;
+    case "gift_out":
+      return `You gave ${coins(n)}.`;
+    default:
+      return null;
+  }
+}
+
+/**
+ * A toast line for one of your own events in the world: a plot claimed, a hearth set, coins, or
+ * things. Null for everyone else's events and for ones that go without saying.
+ */
+export function newsLine(event: WorldEvent, me: string): string | null {
+  switch (event.type) {
+    case "plot_claimed":
+      return event.ownerId === me ? "This plot is yours. Tap Build to start." : null;
+    case "hearth_set":
+      return event.residentId === me
+        ? "Your hearth is set. Tap Home to come back here from anywhere."
+        : null;
+    case "coins":
+      return event.residentId === me ? coinsLine(event) : null;
+    case "inventory":
+      return event.residentId === me ? inventoryLine(event) : null;
+    default:
+      return null;
+  }
+}
+
+/** The line for having no plot, wherever the HUD needs it. */
+export const NO_PLOT_LINE =
+  "You don't have a plot yet. Walk out of the Commons onto an empty plot and tap Claim plot.";
+
+/** The first sentence of a server message, without the hint for agents that follows it. */
+const firstSentence = (message: string) => message.match(/^.*?[.!?](?=\s|$)/)?.[0] ?? message;
+
+/**
+ * The server's refusal in HUD words. Its messages are written for agents ("Try settle at px 3,
+ * py 3."), so codes with agent hints get our own line, and the rest keep the server's text.
+ * `you` is what the mirror shows about you; it only picks the wording.
+ */
+export function worldProblem(
+  code: string,
+  message: string,
+  you: { hasPlot?: boolean } = {},
+): string {
+  switch (code) {
+    case "no_plot":
+      return NO_PLOT_LINE;
+    case "no_hearth":
+      return you.hasPlot === false
+        ? NO_PLOT_LINE
+        : "You don't have a hearth yet. Tap Build, pick the hearth, and tap a tile on your plot.";
+    case "plot_owned":
+      return "Someone already lives on this plot. Walk to an empty one and tap Claim plot.";
+    case "plot_is_commons":
+      return "The Commons belongs to everyone. Walk out of it onto an empty plot to claim one.";
+    case "plot_limit":
+      return "You already have as many plots as you can own.";
+    case "not_your_plot":
+      return you.hasPlot === false ? NO_PLOT_LINE : firstSentence(message);
+    case "out_of_reach":
+      return "That's too far away. Walk closer first.";
+    case "nowhere_to_go":
+      return "There's nowhere to walk from here. Tap Home, or remove a block next to you.";
+    case "already_home":
+      if (message.includes("Try home")) return "That's already your hearth. Tap Home to go there.";
+      if (message.includes("starter home")) return "Your home is already built.";
+      return message;
+    case "not_ready":
+      return "It isn't ready to pick yet.";
+    case "no_planter":
+      return "Seeds go in a planter. Tap Build and pick the planter to place one.";
+    case "no_station":
+      return `${firstSentence(message)} Tap Build to place one.`;
+    default:
+      return message;
+  }
+}
+
+/** How long a HUD toast stays up: longer for longer lines, so they can be read. */
+export function toastMs(text: string, source: "system" | "player" = "system"): number {
+  const base = source === "player" ? 4000 : 2600;
+  return Math.min(7000, Math.max(base, 2600 + 40 * text.length));
 }
 
 /** How far along a crop is, 0 to 1, for drawing it. */

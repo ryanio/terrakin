@@ -172,9 +172,15 @@ export function joinForm(options: JoinFormOptions) {
   theme.row.setAttribute("aria-label", "Themes");
   name.addEventListener("input", () => {
     error.textContent = "";
+    nameError.textContent = "";
+    name.removeAttribute("aria-invalid");
     repaint();
   });
 
+  // A missing name is said under the name field; anything the server says sits above the button,
+  // inside its sticky bar, so a phone shows it without scrolling.
+  const nameError = errorLine(`${id}-name-error`);
+  name.setAttribute("aria-describedby", nameError.id);
   const error = errorLine();
   const label = h("span", { text: options.submitLabel });
   const submit = h(
@@ -196,6 +202,7 @@ export function joinForm(options: JoinFormOptions) {
         { class: "onboard-field" },
         h("label", { class: "field-label", attrs: { for: `${id}-name` }, text: "Your name" }),
         name,
+        nameError,
       ),
     ),
     h(
@@ -231,8 +238,7 @@ export function joinForm(options: JoinFormOptions) {
       }),
     ),
     ...(options.extras ?? []),
-    h("div", { class: "join-submit" }, submit),
-    error,
+    h("div", { class: "join-submit" }, error, submit),
   );
 
   let busy = false;
@@ -241,7 +247,8 @@ export function joinForm(options: JoinFormOptions) {
     if (busy) return;
     const value = name.value.trim();
     if (!value) {
-      error.textContent = `Pick a name first. Anything you like, up to ${NAME_MAX_LENGTH} letters.`;
+      nameError.textContent = `Pick a name first. Anything you like, up to ${NAME_MAX_LENGTH} letters.`;
+      name.setAttribute("aria-invalid", "true");
       name.focus();
       return;
     }

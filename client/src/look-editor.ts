@@ -36,7 +36,14 @@ import {
   onLookImage,
   PatternCache,
 } from "@terrakin/ui/looks";
-import { closeOverlay, errorLine, openOverlay, toast, whileBusy } from "@terrakin/ui/ui";
+import {
+  closeOverlay,
+  errorLine,
+  openOverlay,
+  overlayShowing,
+  toast,
+  whileBusy,
+} from "@terrakin/ui/ui";
 import { actProblem, api, uploadMedia } from "./api";
 import { colorChips } from "./join-form";
 import { coins } from "./purse";
@@ -45,6 +52,11 @@ export interface LookOwner {
   color: ResidentColor;
   shape: ResidentShape;
   look?: LookView | undefined;
+  /**
+   * Changes picked elsewhere and not saved yet, like a new color on the profile's look card. The
+   * preview shows them, so Save saves them too.
+   */
+  pending?: { color?: ResidentColor; shape?: ResidentShape; note?: string };
 }
 
 const SLOT_LABELS: Record<WearSlot, string> = {
@@ -601,6 +613,9 @@ export function openLookEditor(
   }
 
   // ---- bring your own ----
+  // Uploads still on their way. Save waits for them (or the upload would be lost), and closing
+  // the sheet stops them.
+  const uploads = new Set<{ abort(): void }>();
   const mediaRows = (
     [
       [
@@ -654,10 +669,17 @@ export function openLookEditor(
       if (!file) return;
       add.disabled = true;
       status.textContent = "Uploading…";
-      const result = await uploadMedia(file, (f) => {
+      const upload = uploadMedia(file, (f) => {
         status.textContent = `Uploading ${Math.round(f * 100)}%`;
-      }).promise;
+      });
+      uploads.add(upload);
+      paintSave();
+      const result = await upload.promise;
+      uploads.delete(upload);
+      paintSave();
       add.disabled = false;
+      // Closed while it uploaded: the sheet is gone, and the upload was stopped.
+      if (!overlayShowing(dialog)) return;
       if (!result.ok) {
         status.textContent = result.message;
         return;
@@ -749,6 +771,10 @@ export function openLookEditor(
     { class: "btn-primary look-save", attrs: { type: "button" } },
     saveLabel,
   );
+  function paintSave() {
+    save.disabled = uploads.size > 0;
+    saveLabel.textContent = uploads.size > 0 ? "Uploading…" : "Save my look";
+  }
   const form = h(
     "form",
     { class: "look-form", attrs: { novalidate: true } },
@@ -767,7 +793,8 @@ export function openLookEditor(
   );
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const changes = lookChanges(owner.look, draft);
+    if (uploads.size > 0) return;
+    const changes = { ...owner.pending, ...lookChanges(owner.look, draft) };
     if (Object.keys(changes).length === 0) {
       closeOverlay();
       return;
@@ -782,14 +809,16 @@ export function openLookEditor(
     // A 200 can still be the world saying no (an unknown theme, an upload that isn't yours).
     const problem = actProblem(result);
     if (problem) {
-      error.textContent = problem;
+      // Closed while it saved: the error line is gone with it.
+      if (overlayShowing(dialog)) error.textContent = problem;
+      else toast(problem);
       return;
     }
     const look = viewOf(draft);
     owner.look = look;
     toast("Look saved");
     onSaved(look);
-    closeOverlay();
+    closeOverlay(dialog);
   });
 
   const closeBtn = h(
@@ -822,7 +851,11 @@ export function openLookEditor(
   save.addEventListener("click", () => form.requestSubmit());
 
   paint();
-  openOverlay(dialog, stopImages);
+  openOverlay(dialog, () => {
+    stopImages();
+    for (const upload of uploads) upload.abort();
+    uploads.clear();
+  });
   closeBtn.focus();
 }
 

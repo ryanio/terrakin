@@ -225,3 +225,155 @@ test("with no plot yet, sharing your home turns itself off and the plain link st
 
   expect(errors).toEqual([]);
 });
+
+test("Use a different key checks the key, then swaps the character in this browser", async ({
+  page,
+}) => {
+  const errors = watchErrors(page);
+  const sol = await join(page.request, "Sol", "sun");
+  const tam = await join(page.request, "Tam", "leaf");
+  const saved = () =>
+    page.evaluate(() => ({
+      token: localStorage.getItem("terrakin.token"),
+      id: localStorage.getItem("terrakin.resident"),
+    }));
+  await page.goto("/");
+  await page.evaluate(
+    ([token, id]) => {
+      localStorage.setItem("terrakin.token", token);
+      localStorage.setItem("terrakin.resident", id);
+    },
+    [sol.token, sol.id] as const,
+  );
+  await page.goto(`/r/${sol.id}`);
+  await page.getByText("Use a different key").click();
+
+  await page.locator("#switch-key").fill("not-a-real-key");
+  await page.getByRole("button", { name: "Use this key" }).click();
+  await expect(page.locator("#switch-key-error")).toContainText("doesn't open any character");
+  expect(await saved()).toEqual({ token: sol.token, id: sol.id });
+
+  await page.locator("#switch-key").fill(tam.token);
+  await page.getByRole("button", { name: "Use this key" }).click();
+  await expect(page).toHaveURL("/world");
+  expect(await saved()).toEqual({ token: tam.token, id: tam.id });
+
+  expect(errors).toEqual([]);
+});
+
+test("a link that went out is never offered again, and Make a new link makes one", async ({
+  page,
+}) => {
+  const errors = watchErrors(page);
+  const me = await join(page.request, "Ines", "plum");
+  await page.addInitScript(
+    ([token, id]) => {
+      localStorage.setItem("terrakin.token", token);
+      localStorage.setItem("terrakin.resident", id);
+    },
+    [me.token, me.id] as const,
+  );
+  await page.goto(`/r/${me.id}`);
+  const link = page.locator("#invite-link");
+  const openSheet = async () => {
+    await page.getByRole("button", { name: "Invite someone" }).click();
+    await expect(link).toContainText("/i/");
+    return (await link.textContent()) ?? "";
+  };
+  const closeSheet = async () => {
+    await page.locator(".invite-sheet").getByRole("button", { name: "Close" }).click();
+    await expect(page.locator(".invite-sheet")).toHaveCount(0);
+  };
+
+  // Never copied: the same link comes back.
+  const first = await openSheet();
+  await closeSheet();
+  expect(await openSheet()).toBe(first);
+
+  // Copied: the next open makes a fresh one, since each link works once.
+  await page.locator(".invite-copy").click();
+  await closeSheet();
+  const second = await openSheet();
+  expect(second).not.toBe(first);
+
+  await page.getByRole("button", { name: "Make a new link" }).click();
+  await expect(link).not.toHaveText(second);
+  await expect(link).toContainText("/i/");
+  await expect(page.locator(".invite-sheet [role=status]")).toHaveText(
+    "Here's a new link. Links you already sent still work.",
+  );
+
+  expect(errors).toEqual([]);
+});
+
+test("Back from the world after accepting skips the invite, and a used invite offers a way in", async ({
+  page,
+  browser,
+}) => {
+  const errors = watchErrors(page);
+  const host = await join(page.request, "Odile", "sand");
+  const invite = async () => {
+    const made = await page.request.post("/v1/invites", { headers: host.auth, data: {} });
+    expect(made.status()).toBe(201);
+    return (await made.json()).invite as { code: string; path: string };
+  };
+
+  // Accepting replaces the invite in history: Back goes to the page before it.
+  const first = await invite();
+  await page.goto("/town");
+  await page.goto(first.path);
+  await page.fill("#invite-name", "Pim");
+  await page.getByRole("button", { name: "Move in" }).click();
+  await expect(page).toHaveURL("/world");
+  await page.goBack();
+  await expect(page).toHaveURL("/town");
+
+  // Someone else uses the link while the form is open: the expired card, with the way in.
+  const other = await browser.newPage();
+  const second = await invite();
+  await other.goto(second.path);
+  await other.fill("#invite-name", "Quill");
+  const used = await page.request.post(`/v1/invites/${second.code}/accept`, {
+    data: { name: "Rue", kind: "human" },
+  });
+  expect(used.ok()).toBe(true);
+  await other.getByRole("button", { name: "Move in" }).click();
+  await expect(
+    other.getByRole("heading", { name: "This invite has expired or was already used" }),
+  ).toBeVisible();
+  await expect(other.getByRole("link", { name: "Step into the world" })).toHaveAttribute(
+    "href",
+    "/world",
+  );
+  await other.close();
+
+  expect(errors).toEqual([]);
+});
+
+test("a profile's counts open its followers, following, and friends", async ({ page }) => {
+  const errors = watchErrors(page);
+  const me = await join(page.request, "Lark", "sky");
+  const wren = await join(page.request, "Wren", "leaf");
+  const rue = await join(page.request, "Rue", "rose");
+  const follow = (who: { auth: Record<string, string> }, id: string) =>
+    page.request.put(`/v1/residents/${id}/follow`, { headers: who.auth });
+  // Wren and Lark follow each other; Rue follows Lark, who doesn't follow back.
+  await follow(wren, me.id);
+  await follow(rue, me.id);
+  await follow(me, wren.id);
+
+  await page.goto(`/r/${me.id}`);
+  await page.locator(".profile .stat-link", { hasText: "followers" }).click();
+  await expect(page).toHaveURL(`/r/${me.id}/followers`);
+  await expect(page.locator(".people-row .person-name")).toHaveText(["Rue", "Wren"]);
+
+  await page.locator(".people-tab", { hasText: "Friends" }).click();
+  await expect(page).toHaveURL(`/r/${me.id}/friends`);
+  await expect(page.locator(".people-row .person-name")).toHaveText(["Wren"]);
+  await expect(page.locator(".people-tab[aria-current=page]")).toContainText("1");
+
+  // Tabs swap the history entry, so Back returns to the profile.
+  await page.goBack();
+  await expect(page).toHaveURL(`/r/${me.id}`);
+  expect(errors).toEqual([]);
+});

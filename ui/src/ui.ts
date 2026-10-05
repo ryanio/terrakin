@@ -8,8 +8,22 @@ import { h, icon } from "./dom";
 // ---------- toast ----------
 
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
+let toastHeld = false;
+let toastFor = 0;
+const toastWired = new WeakSet<HTMLElement>();
 
-/** A short message at the bottom of the screen, with an optional link (for example "Join"). */
+/**
+ * How long a toast stays up: longer for longer words, and longer with a link, so someone on a
+ * keyboard has time to reach it.
+ */
+export function toastMs(text: string, link = false): number {
+  return Math.max(link ? 8000 : 4000, text.length * 60);
+}
+
+/**
+ * A short message at the bottom of the screen, with an optional link (for example "Join"). It
+ * waits while the pointer is on it or focus is in it.
+ */
 export function toast(text: string, link?: { href: string; label: string }) {
   const el = document.getElementById("site-toast");
   if (!el) return;
@@ -17,8 +31,32 @@ export function toast(text: string, link?: { href: string; label: string }) {
   if (link)
     el.append(h("a", { class: "toast-link", text: link.label, attrs: { href: link.href } }));
   el.classList.add("show");
+  if (!toastWired.has(el)) {
+    toastWired.add(el);
+    const hold = () => {
+      toastHeld = true;
+      clearTimeout(toastTimer);
+    };
+    const release = () => {
+      // Still pointed at or focused: keep holding.
+      if (el.matches(":hover, :focus-within")) return;
+      toastHeld = false;
+      if (el.classList.contains("show")) hideToastIn(el, toastFor);
+    };
+    el.addEventListener("pointerenter", hold);
+    el.addEventListener("pointerleave", release);
+    el.addEventListener("focusin", hold);
+    el.addEventListener("focusout", release);
+  }
+  toastFor = toastMs(text, Boolean(link));
+  // Replacing a focused link sends no focusout, so ask again rather than trust the old hold.
+  toastHeld = el.matches(":hover, :focus-within");
+  if (!toastHeld) hideToastIn(el, toastFor);
+}
+
+function hideToastIn(el: HTMLElement, ms: number) {
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove("show"), link ? 4200 : 2600);
+  toastTimer = setTimeout(() => el.classList.remove("show"), ms);
 }
 
 // ---------- state card ----------
@@ -111,6 +149,20 @@ export function chips<T extends string>(
 // ---------- busy buttons ----------
 
 /**
+ * Disabling a focused button drops keyboard focus to the page. Call this before disabling it, and
+ * the returned function (called once it's enabled again) puts focus back, unless something else
+ * took focus meanwhile.
+ */
+export function holdFocus(button: HTMLElement): () => void {
+  const had = document.activeElement === button;
+  return () => {
+    const now = document.activeElement;
+    if (had && button.isConnected && (now === null || now === document.body))
+      button.focus({ preventScroll: true });
+  };
+}
+
+/**
  * Run `work` with `button` disabled and marked busy, so a second tap can't send it twice. With
  * `busyText`, `label` (the button itself unless given) says it until the work settles.
  */
@@ -121,6 +173,7 @@ export async function whileBusy<T>(
   label: HTMLElement = button,
 ): Promise<T> {
   const idle = label.textContent;
+  const refocus = holdFocus(button);
   button.disabled = true;
   button.setAttribute("aria-busy", "true");
   if (busyText) label.textContent = busyText;
@@ -130,6 +183,7 @@ export async function whileBusy<T>(
     button.disabled = false;
     button.removeAttribute("aria-busy");
     if (busyText) label.textContent = idle;
+    refocus();
   }
 }
 
@@ -150,12 +204,15 @@ export function moreButton(label: string, next: () => Promise<string | undefined
   const run = async () => {
     if (busy) return;
     busy = true;
+    const refocus = holdFocus(el);
     el.disabled = true;
     el.textContent = "Loading…";
     const problem = await next();
     busy = false;
     el.disabled = false;
     el.textContent = problem ? "Couldn't load more. Try again" : label;
+    // Hidden at the end of the list: focus stays with the page then.
+    if (!el.hidden) refocus();
   };
   el.addEventListener("click", () => void run());
   return { el, run };
@@ -203,53 +260,106 @@ export function checkRow(o: CheckRowOptions) {
 interface Open {
   dialog: HTMLDialogElement;
   onClosed: () => void;
-  opener: Element | null;
+  /** Where focus goes when it closes, in order: the first one still on screen. */
+  focusBack: (Element | null | undefined)[];
 }
 
 let current: Open | undefined;
 let swallowNextPop = false;
+/** The open overlay has no history entry yet: it opened while a step back was on its way. */
+let entryOwed = false;
 
-function teardown(o: Open) {
+const onOverlayEntry = () => Boolean((history.state as { overlay?: boolean } | null)?.overlay);
+const pushOverlayEntry = () => history.pushState({ ...(history.state ?? {}), overlay: true }, "");
+
+/** On the page and drawn: a menu item in a closed menu isn't, so focus can't go back to it. */
+const onScreen = (el: Element | null | undefined): el is HTMLElement =>
+  el instanceof HTMLElement && el.isConnected && el.getClientRects().length > 0;
+
+function teardown(o: Open, refocus = true) {
   if (o.dialog.open) o.dialog.close();
   o.dialog.remove();
   document.documentElement.classList.remove("overlay-open");
   o.onClosed();
-  if (o.opener instanceof HTMLElement) o.opener.focus({ preventScroll: true });
+  if (refocus) o.focusBack.find(onScreen)?.focus({ preventScroll: true });
 }
 
 /**
  * Show a full-screen dialog. It closes with its close button, Escape, or the back gesture: we push
- * a history entry for it, so back pops the overlay instead of leaving the page.
+ * a history entry for it, so back pops the overlay instead of leaving the page. Closing puts focus
+ * back on whatever had it, or on `returnTo` when given (say, the "…" button whose menu item opened
+ * it, since the item is gone once the menu closes).
  */
-export function openOverlay(dialog: HTMLDialogElement, onClosed: () => void = () => {}) {
-  if (current) closeOverlay();
-  const opener = document.activeElement;
+export function openOverlay(
+  dialog: HTMLDialogElement,
+  onClosed: () => void = () => {},
+  returnTo?: HTMLElement,
+) {
+  const prev = current;
+  const focusBack = [returnTo, document.activeElement];
+  if (prev) {
+    // One overlay replaces another in the same history entry. Going back and pushing in the same
+    // tick races, and the browser can drop the new entry.
+    current = undefined;
+    teardown(prev, false);
+    focusBack.push(...prev.focusBack);
+  }
   document.body.append(dialog);
   dialog.showModal();
   document.documentElement.classList.add("overlay-open");
-  history.pushState({ ...(history.state ?? {}), overlay: true }, "");
-  current = { dialog, onClosed, opener };
+  current = { dialog, onClosed, focusBack };
+  // A step back still on its way: push once it lands (interceptPop), never in the same tick.
+  if (swallowNextPop) entryOwed = true;
+  else if (!(prev && onOverlayEntry())) pushOverlayEntry();
   dialog.addEventListener("cancel", (e) => {
     e.preventDefault();
-    closeOverlay();
+    closeOverlay(dialog);
   });
 }
 
-export function closeOverlay() {
-  const o = current;
-  if (!o) return;
+/** True while `dialog` is the overlay on screen. */
+export function overlayShowing(dialog: HTMLDialogElement): boolean {
+  return current?.dialog === dialog;
+}
+
+/**
+ * Close the overlay on top, or only `dialog` when given, so a sheet finishing after an await
+ * can't close one opened since. With `leaving`, the page is about to change: the overlay goes
+ * without stepping back, and the router replaces its history entry (see `leaveOverlay`).
+ */
+export function closeOverlay(dialog?: HTMLDialogElement, o: { leaving?: boolean } = {}) {
+  const open = current;
+  if (!open || (dialog && open.dialog !== dialog)) return;
   current = undefined;
-  teardown(o);
-  if ((history.state as { overlay?: boolean } | null)?.overlay) {
+  teardown(open, !o.leaving);
+  if (entryOwed) {
+    // It never got an entry, so there is nothing to step back from.
+    entryOwed = false;
+    return;
+  }
+  if (!o.leaving && onOverlayEntry()) {
     swallowNextPop = true;
     history.back();
   }
+}
+
+/**
+ * For the router, just before it goes to another page: closes any overlay without stepping back,
+ * and says whether this history entry is an overlay's. The router then replaces that entry with
+ * the new page instead of pushing after it. Stepping back and pushing in the same tick races, and
+ * the browser can drop the pushed entry, leaving the new page under the old URL.
+ */
+export function leaveOverlay(): boolean {
+  closeOverlay(undefined, { leaving: true });
+  return !swallowNextPop && onOverlayEntry();
 }
 
 /** For the router: true when a popstate belonged to an overlay (and we handled it). */
 export function interceptPop(): boolean {
   if (swallowNextPop) {
     swallowNextPop = false;
+    if (entryOwed && current) pushOverlayEntry();
+    entryOwed = false;
     return true;
   }
   const o = current;
@@ -269,7 +379,7 @@ export interface SheetOptions {
   className?: string;
   /** A line of plain words under the title. */
   lede?: string;
-  /** A tap outside the card closes it. Leave off where closing would lose typing. */
+  /** A tap outside the card closes it, until something is typed in one of its fields. */
   closeOnBackdrop?: boolean;
 }
 
@@ -283,7 +393,7 @@ export function sheet(o: SheetOptions, ...body: (Node | null)[]) {
     {
       class: "sheet-close",
       attrs: { type: "button", "aria-label": "Close" },
-      on: { click: () => closeOverlay() },
+      on: { click: () => closeOverlay(dialog) },
     },
     icon("close"),
   );
@@ -303,8 +413,18 @@ export function sheet(o: SheetOptions, ...body: (Node | null)[]) {
     ),
   );
   if (o.closeOnBackdrop) {
+    // Only a tap that starts and ends outside the card: a drag that selects text in a field and
+    // lets go outside is not a tap out. And never once something is typed, so nothing is lost.
+    let downOutside = false;
+    dialog.addEventListener("pointerdown", (e) => {
+      downOutside = e.target === dialog;
+    });
+    const typed = () =>
+      [...dialog.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>("input, textarea")].some(
+        (f) => f.value !== f.defaultValue,
+      );
     dialog.addEventListener("click", (e) => {
-      if (e.target === dialog) closeOverlay();
+      if (e.target === dialog && downOutside && !typed()) closeOverlay(dialog);
     });
   }
   return { dialog, title, close };
@@ -374,7 +494,7 @@ export function confirmTwice(
       button.textContent = again;
       return;
     }
-    idle = null;
+    disarm();
     void act();
   });
   return disarm;
@@ -397,7 +517,8 @@ export interface MoreMenuOptions {
 /**
  * Make `button` open and close `panel`, a small menu or popover inside `container`. It closes on a
  * tap outside `container`, on Escape (focus goes back to the button), or when the caller calls
- * `close`. The listeners only exist while it's open.
+ * `close` (focus goes back to the button if it was in the panel, which is about to vanish). The
+ * listeners only exist while it's open.
  */
 export function dropdown(
   button: HTMLElement,
@@ -415,6 +536,7 @@ export function dropdown(
   };
   function setOpen(open: boolean) {
     if (open === !panel.hidden) return;
+    if (!open && panel.contains(document.activeElement)) button.focus({ preventScroll: true });
     panel.hidden = !open;
     button.setAttribute("aria-expanded", String(open));
     if (open) {
@@ -482,6 +604,28 @@ export function disclosure(
 /** How long a copy button says "Copied" before it goes back. */
 const COPIED_MS = 2600;
 
+let announcer: HTMLElement | undefined;
+
+/**
+ * Say `text` to screen readers without showing it, for a result that only changes a label. The
+ * live region sits in `near`'s dialog when it has one, since an open modal hides the rest of the
+ * page from them.
+ */
+export function announce(text: string, near?: Element) {
+  const host = near?.closest("dialog") ?? document.body;
+  if (announcer?.parentElement !== host) {
+    announcer?.remove();
+    announcer = h("p", { class: "visually-hidden", attrs: { role: "status" } });
+    host.append(announcer);
+  }
+  const el = announcer;
+  el.textContent = "";
+  // A live region reads what changes in it, so the words go in a moment after it's ready.
+  setTimeout(() => {
+    el.textContent = text;
+  }, 100);
+}
+
 export interface CopyButtonOptions {
   /** The label at rest, like "Copy" or "Copy link". */
   idle: string;
@@ -518,6 +662,8 @@ export function copyButton(
           ? (o.selected ?? "Selected")
           : o.idle;
     o.onChange?.(state);
+    // A changed label isn't read out, so say it. A failure already said so in the toast.
+    if (state !== "failed") announce(label.textContent ?? "", button);
     clearTimeout(timer);
     timer = setTimeout(() => {
       label.textContent = o.idle;
@@ -533,14 +679,14 @@ export function copyButton(
 export function copyBlock(caption: string, text: string, className = ""): HTMLElement {
   const body = h("p", { class: "copy-text", text });
   const label = h("span", { text: "Copy" });
+  // The caption is in the button's name as hidden words, not an aria-label, so the name follows
+  // the label when it says "Copied".
   const button = h(
     "button",
-    {
-      class: "pill-button small copy-button",
-      attrs: { type: "button", "aria-label": `Copy: ${caption}` },
-    },
+    { class: "pill-button small copy-button", attrs: { type: "button" } },
     icon("copy"),
     label,
+    h("span", { class: "visually-hidden", text: `: ${caption}` }),
   );
   copyButton(button, label, () => body.textContent ?? text, { idle: "Copy", fallback: body });
   return h(

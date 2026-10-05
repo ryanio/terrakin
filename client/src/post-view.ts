@@ -2,6 +2,7 @@
 import type { PostView } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { plural } from "@terrakin/ui/format";
+import { toast } from "@terrakin/ui/ui";
 import { api, myProfile } from "./api";
 import { type Composer, composer } from "./composer";
 import { syncPost } from "./feed-view";
@@ -55,7 +56,17 @@ export function postView(id: string, ctx: ViewContext): View {
     }
     const { post, replies } = r.data;
     ctx.setTitle(`Post by ${post.author.name} on Terrakin`);
-    const main = postCard(post, { focus: true, onChange: syncPost });
+    // The reply box is right here, so Reply takes you to it instead of reloading this page.
+    const main = postCard(post, {
+      focus: true,
+      onChange: syncPost,
+      onReply: () =>
+        void myProfile().then((me) => {
+          if (destroyed) return;
+          if (me) writer?.focus();
+          else toast("Join the world to reply.", { href: "/world", label: "Join" });
+        }),
+    });
 
     const heading = h("h2", { class: "section-title", attrs: { id: "replies-title" } });
     const paintHeading = () => {

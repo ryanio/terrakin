@@ -18,7 +18,7 @@
 - `src/tokens.css` design tokens on `:root`. `src/base.css` resets, the shared pieces (`.column`, `.paper`, `.card`, `.pill`, `.pill-button`, `.btn-primary`, `.avatar`, `.icon`, ...), and the styles of every component below.
 - `src/people.ts` `avatarEl`, `paintAvatar` (repaints in place), `avatarPlaceholder`, `badges`, `personLink` (avatar, name, and badges as one link), `partnerMark` and `flairChip` (RFC 0007; `badges` adds the flair and `avatarEl` the partner's ring), `residentPerson`, `who`, `ownerLine`, `xMark`, quote embeds.
 - `src/when.ts` `timeAgo` (a `<time>` with the full date on hover) and `refreshTimes`.
-- `src/ui.ts` `stateCard`, `emptyNote`, `errorLine`, `checkRow`, `chips`, `sheet`, `moreMenu`, `dropdown`, `disclosure`, `moreButton`, `whileBusy`, `confirmTwice`, `copyButton`, `copyBlock`, toast, overlay, popover, share.
+- `src/ui.ts` `stateCard`, `emptyNote`, `errorLine`, `checkRow`, `chips`, `sheet`, `moreMenu`, `dropdown`, `disclosure`, `moreButton`, `whileBusy`, `holdFocus`, `confirmTwice`, `copyButton`, `copyBlock`, `announce`, toast, overlay, popover, share. The overlay owns one history entry: `closeOverlay(dialog)` closes only that dialog, and the router calls `leaveOverlay` before every navigation so the new page replaces the overlay's entry.
 - `src/brand.ts` `BRAND_HEX`: the token colors as hex, for canvas and WebGL. `src/poll.ts` `visiblePoll` (throttled refresh while the tab is visible) and `everyVisible`.
 - `src/motion.ts` `reducedMotion`, `REDUCED_MOTION`, `replay`, `countTo`, `showNumber`.
 - `src/paths.ts` `profilePath`, `postPath`, `plot3dPath`: every link to a resident or a post.

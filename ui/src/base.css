@@ -220,8 +220,13 @@ a {
     box-shadow 0.15s ease;
 }
 
-.pill-button:active {
+.pill-button:not(:disabled):active {
   transform: translateY(1px) scale(0.98);
+}
+
+.pill-button:disabled {
+  opacity: 0.5;
+  box-shadow: none;
 }
 
 .pill-button.small {
@@ -254,7 +259,7 @@ a {
     background 0.2s ease;
 }
 
-.btn-primary:hover {
+.btn-primary:not(:disabled):hover {
   background: linear-gradient(180deg, #b5552f, var(--clay-deep));
   box-shadow:
     0 0 0 7px rgba(242, 184, 75, 0.38),
@@ -262,12 +267,12 @@ a {
     0 12px 24px -8px rgba(143, 61, 32, 0.7);
 }
 
-.btn-primary:active {
+.btn-primary:not(:disabled):active {
   transform: translateY(1px) scale(0.985);
 }
 
 .btn-primary:disabled {
-  opacity: 0.75;
+  opacity: 0.5;
 }
 
 .btn-primary.small {
@@ -789,6 +794,10 @@ dialog.sheet::backdrop {
   color: var(--ink-soft);
 }
 
+.text-button:disabled {
+  opacity: 0.5;
+}
+
 /* ---------- "More" menu (ui.ts moreMenu) ---------- */
 
 .more {
@@ -825,8 +834,12 @@ dialog.sheet::backdrop {
   text-align: left;
 }
 
-.menu-item:hover {
+.menu-item:not(:disabled):hover {
   background: rgba(180, 83, 47, 0.08);
+}
+
+.menu-item:disabled {
+  opacity: 0.5;
 }
 
 /* ---------- copy (ui.ts copyBlock) ---------- */

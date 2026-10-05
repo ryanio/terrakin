@@ -83,8 +83,12 @@ test("a plot opens in 3D, takes a photo, and stops drawing when you leave", asyn
   expect(await photoColors(page)).toBeGreaterThan(12);
   await expect(page.getByRole("link", { name: "Save" })).toHaveAttribute("download", /\.png$/);
 
-  // Back goes to the profile, and nothing keeps drawing.
+  // Closing the photo puts focus back on the button that took it.
   await page.keyboard.press("Escape");
+  await expect(page.locator(".view3d-shot")).toBeHidden();
+  await expect(page.getByRole("button", { name: "Take a photo" })).toBeFocused();
+
+  // Back goes to the profile, and nothing keeps drawing.
   await page.getByRole("button", { name: "Back" }).click();
   await expect(page).toHaveURL(new RegExp(`/r/${session.residentId}$`));
   await expect(page.locator("canvas.stage-canvas")).toHaveCount(0);
@@ -102,6 +106,25 @@ test("a plot opens in 3D, takes a photo, and stops drawing when you leave", asyn
   );
 
   expect(errors).toEqual([]);
+});
+
+test("your own plot in 3D, before you have one, points you to the world", async ({ page }) => {
+  const session = await (
+    await page.request.post("/v1/session", { data: { name: "Sorrel", kind: "human" } })
+  ).json();
+  await page.addInitScript(
+    ([token, id]) => {
+      localStorage.setItem("terrakin.token", token);
+      localStorage.setItem("terrakin.resident", id);
+    },
+    [session.token, session.residentId] as const,
+  );
+  await page.goto(`/r/${session.residentId}/3d`);
+  await expect(page.getByRole("heading", { name: "You haven't claimed a plot yet" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Go to the world" })).toHaveAttribute(
+    "href",
+    "/world",
+  );
 });
 
 test("the 3D gallery and one item up close render without errors", async ({ page }) => {

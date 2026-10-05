@@ -12,6 +12,7 @@ import {
 } from "@terrakin/protocol";
 import {
   type BlockKind,
+  canBuildOn,
   type DecorKind,
   type Direction,
   ITEM_INFO,
@@ -34,7 +35,7 @@ import { Mirror } from "./mirror";
 import { Connection, type Identity, savedToken, saveToken } from "./net";
 import { blockColor, HEARTH_COLOR, render } from "./render";
 import { track } from "./telemetry";
-import { inventoryLine } from "./things";
+import { NO_PLOT_LINE, newsLine, toastMs, worldProblem } from "./things";
 import { dayPhase } from "./time";
 import { ARRIVAL_KEY, gestureLine } from "./together";
 
@@ -46,6 +47,7 @@ const curtain = $("curtain");
 const hud = $("hud");
 const status = $("status");
 const toast = $("toast");
+const worldWait = $("world-wait");
 const chatPanel = $("chat");
 const chatLog = $<HTMLOListElement>("chat-log");
 const chatInput = $<HTMLInputElement>("chat-input");
@@ -70,8 +72,11 @@ let block: BlockKind | "hearth" = "wood";
 let decor: DecorCounts = new Map();
 /** Decor shown since the palette opened, kept (greyed out) when you run out. */
 let decorShown = new Set<DecorKind>();
-let walkTarget: { x: number; y: number } | undefined;
+/** Where a tap sent you. `station` is a planter, kitchen, or workbench to open once in reach. */
+let walkTarget: { x: number; y: number; station?: boolean } | undefined;
 let pendingMove: string | undefined;
+/** The chat line waiting for the server's answer: its text leaves the input only once accepted. */
+let pendingChat: { id: string; text: string } | undefined;
 /** Steps asked for by key presses and d-pad taps, sent in order as the pace allows. */
 const queuedSteps: Direction[] = [];
 /** Walk keys held down, newest last. Holding one keeps walking that way. */
@@ -117,6 +122,7 @@ function enterWorld(instant = false) {
 /** Back to the landing, with the world soft and drifting behind it. */
 function leaveWorld() {
   joiningFresh = false;
+  worldWait.hidden = true;
   canvas.classList.add("veiled");
   document.body.classList.remove("in-world");
   landing.show();
@@ -133,6 +139,13 @@ function updatePopulation() {
   landing.setPopulation(total, online);
 }
 
+/** Keep the "online now" line fresh while someone reads the landing page. */
+function watchPopulation() {
+  stopPopulation ??= everyVisible(20_000, () => {
+    if (landing.isUp()) void resync();
+  });
+}
+
 // ---------- connection ----------
 
 function connect(identity: Identity) {
@@ -142,8 +155,44 @@ function connect(identity: Identity) {
       s === "online" ? "" : s === "connecting" ? "Connecting…" : "Offline, retrying…";
     if (s === "offline" && joiningFresh && !me)
       landing.setError("Can't reach the world right now. Still trying…");
+    // Coming back with a saved key and no answer yet: say so, rather than show an empty world.
+    if (s === "offline" && !me && !hud.hidden) worldWait.hidden = false;
     if (s !== "online") stopWalking();
   });
+}
+
+/** The server turned a new character away (a name it refuses, too many joins): back to the form. */
+function joinRefused(code: string, message: string) {
+  joiningFresh = false;
+  conn?.close();
+  conn = undefined;
+  landing.setJoining(false);
+  landing.setError(message);
+  if (code === "invalid_profile") landing.focusNote();
+  else landing.focusName();
+}
+
+/** The saved key doesn't match anyone (the world was reset, or the key was revoked). */
+function keyNotFound() {
+  conn?.close();
+  conn = undefined;
+  me = undefined;
+  hud.hidden = true;
+  leaveWorld();
+  landing.setError(
+    "We couldn't find your character in this browser. If you saved your key, restore it below, or make a new one.",
+  );
+  landing.openRestore();
+  watchPopulation();
+  void resync();
+}
+
+/** Whether you own a plot, or share one, as far as the mirror shows. */
+function hasPlot(): boolean {
+  if (!mirror || !me) return false;
+  for (const owner of mirror.plots.values()) if (owner === me) return true;
+  for (const shared of mirror.coOwners.values()) if (shared.includes(me)) return true;
+  return false;
 }
 
 function stopWalking() {
@@ -162,8 +211,11 @@ function anchor(time: WorldSnapshot["time"]) {
 async function resync() {
   if (resyncing) return;
   resyncing = true;
+  const wasIn = me !== undefined;
   try {
     const parsed = WorldSnapshot.safeParse(await (await fetch("/v1/world")).json());
+    // A welcome that landed meanwhile brought its own world, and its events build on that one.
+    if (!wasIn && me) return;
     if (parsed.success) {
       mirror = new Mirror(parsed.data);
       dayAnchor = anchor(parsed.data.time);
@@ -189,6 +241,7 @@ function onMessage(msg: ServerMessage) {
       landing.setError("");
       enterWorld();
       hud.hidden = false;
+      worldWait.hidden = true;
       snapCamera();
       showArrival();
       void loadDecor();
@@ -197,13 +250,14 @@ function onMessage(msg: ServerMessage) {
       // Someone sent you a hug or a wave. Their name and note are their words: shown as text.
       showToast(gestureLine(msg.kind, msg.from.name, msg.note, msg.putter), "player");
       break;
-    case "event":
+    case "event": {
       // Out of step with the server? Reload the truth rather than guessing.
       if (mirror && !resyncing && mirror.apply(msg) === "gap") void resync();
-      // Your own things changed: say what, in plain words. Notes and labels stay out of it.
+      // Your own news, in plain words. Notes, labels, and names stay out of it.
+      const line = me ? newsLine(msg.event, me) : null;
+      if (line) showToast(line);
+      // Decor from the town shop you hold changes the palette.
       if (msg.event.type === "inventory" && msg.event.residentId === me) {
-        const line = inventoryLine(msg.event);
-        if (line) showToast(line);
         const next = withDecorChanges(decor, msg.event.changes);
         if (next !== decor) {
           decor = next;
@@ -215,29 +269,35 @@ function onMessage(msg: ServerMessage) {
         }
       }
       break;
+    }
     case "chat":
       addChat(msg.from.name, msg.from.kind, msg.text, msg.channel);
       break;
     case "ack":
       if (msg.id === pendingMove) pendingMove = undefined;
+      if (pendingChat && msg.id === pendingChat.id) {
+        // Sent: clear the line, unless you've started another one meanwhile.
+        if (chatInput.value.trim() === pendingChat.text) chatInput.value = "";
+        pendingChat = undefined;
+      }
       break;
-    case "error":
+    case "error": {
+      const { code, message } = msg.error;
       if (msg.id === pendingMove) {
         // Walked into something: stop, rather than bumping it every step until the key comes up.
         stopWalking();
       }
-      if (msg.error.code === "unauthorized" || msg.error.code === "invalid_name") {
-        conn?.close();
-        me = undefined;
-        hud.hidden = true;
-        leaveWorld();
-        landing.setError(msg.error.code === "invalid_name" ? msg.error.message : "");
-        if (msg.error.code === "invalid_name") landing.focusName();
-        void resync();
-        return;
-      }
-      showToast(msg.error.message);
+      // Before the welcome, any refusal is about joining: the form says why.
+      if (joiningFresh && !me) return joinRefused(code, message);
+      if (code === "unauthorized") return keyNotFound();
+      // A refused chat line stays in the input, so it isn't lost.
+      if (pendingChat && msg.id === pendingChat.id) pendingChat = undefined;
+      // A second tap on Claim lands after the first made the plot yours: nothing went wrong.
+      const r = self();
+      if (code === "plot_owned" && r && mirror?.ownerAt(r.x, r.y) === me) return;
+      showToast(worldProblem(code, message, { hasPlot: hasPlot() }));
       break;
+    }
   }
 }
 
@@ -256,6 +316,15 @@ function act(action: Action): string | undefined {
   return conn?.send(action);
 }
 
+const OFFLINE_LINE = "Not connected yet. Try again in a moment.";
+
+/** Send something you tapped for. With the socket down, say so rather than drop it. */
+function tryAct(action: Action): string | undefined {
+  const id = act(action);
+  if (id === undefined) showToast(OFFLINE_LINE);
+  return id;
+}
+
 // ---------- chat (untrusted text: textContent only, never innerHTML) ----------
 
 function addChat(name: string, kind: "human" | "agent", text: string, channel: ChatChannel) {
@@ -271,13 +340,26 @@ function addChat(name: string, kind: "human" | "agent", text: string, channel: C
 }
 
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
+let toastAt = 0;
+/** System lines this close together came from one action (home: coins and the pantry). */
+const TOAST_JOIN_MS = 400;
 /** Player text (chat, names, notes) gets its own style so it can't pass for a system message. */
 function showToast(text: string, source: "system" | "player" = "system") {
-  toast.textContent = text;
+  const now = performance.now();
+  const shown = toast.textContent ?? "";
+  // Show lines from one action together, rather than the last one wiping out the rest.
+  const join =
+    source === "system" &&
+    now - toastAt < TOAST_JOIN_MS &&
+    toast.classList.contains("show") &&
+    !toast.classList.contains("player");
+  const line = !join ? text : shown.includes(text) ? shown : `${shown} ${text}`;
+  toastAt = now;
+  toast.textContent = line;
   toast.classList.toggle("player", source === "player");
   toast.classList.add("show");
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => toast.classList.remove("show"), source === "player" ? 4000 : 2600);
+  toastTimer = setTimeout(() => toast.classList.remove("show"), toastMs(line, source));
 }
 
 // ---------- input ----------
@@ -293,14 +375,47 @@ function self() {
   return me ? mirror?.residents.get(me) : undefined;
 }
 
+const STATIONS: readonly BlockKind[] = ["planter", "kitchen", "workbench"];
+
+/** Whether a tile is within the world's reach of where you stand. Only a hint: the server checks. */
+function inReach(r: { x: number; y: number }, tile: { x: number; y: number }): boolean {
+  const reach = mirror?.config.reach ?? 0;
+  return Math.max(Math.abs(tile.x - r.x), Math.abs(tile.y - r.y)) <= reach;
+}
+
+/** Open the sheet for the planter, kitchen, or workbench on a tile (RFC 0005), if one is there. */
+function openStation(x: number, y: number) {
+  const m = mirror;
+  const here = m?.blocks.get(`${x},${y}`);
+  if (!m || !here || !STATIONS.includes(here)) return;
+  const planting = m.crops.get(`${x},${y}`);
+  const ownerId = m.ownerAt(x, y);
+  // The sim's rule for whose plot this is to work on.
+  const plot = ownerId ? { px: 0, py: 0, ownerId, coOwners: [...m.coOwnersAt(x, y)] } : undefined;
+  const yours = !!me && canBuildOn(plot, me);
+  const ownerName = ownerId ? m.residents.get(ownerId)?.name : undefined;
+  void import("./garden-sheet").then((g) =>
+    g.openTileSheet({
+      block: here,
+      x,
+      y,
+      ...(planting ? { planting } : {}),
+      day: m.day,
+      yours,
+      ...(ownerName ? { ownerName } : {}),
+      act: (action) => act(action),
+    }),
+  );
+}
+
 canvas.addEventListener("pointerdown", (e) => {
   const r = self();
   if (!mirror || !r) return;
   const tile = screenToTile(cam, e.clientX, e.clientY);
   if (buildMode) {
     const hasBlock = mirror.blocks.has(`${tile.x},${tile.y}`);
-    if (block === "hearth") act({ type: "set_hearth", ...tile });
-    else act(hasBlock ? { type: "remove", ...tile } : { type: "place", ...tile, block });
+    if (block === "hearth") tryAct({ type: "set_hearth", ...tile });
+    else tryAct(hasBlock ? { type: "remove", ...tile } : { type: "place", ...tile, block });
     return;
   }
   // Tapping yourself while you stand on your own plot opens it in 3D.
@@ -319,22 +434,13 @@ canvas.addEventListener("pointerdown", (e) => {
     navigate("/shop");
     return;
   }
-  // A planter, kitchen, or workbench opens what you can do there (RFC 0005).
+  // A planter, kitchen, or workbench opens what you can do there (RFC 0005). One farther off is
+  // somewhere to walk to: you stop once it's in reach, since walking into it only bumps, and it
+  // opens then.
   const here = mirror.blocks.get(`${tile.x},${tile.y}`);
-  // Only within reach: a station farther off is somewhere to walk to, as any tile is.
-  const near = Math.max(Math.abs(tile.x - r.x), Math.abs(tile.y - r.y)) <= mirror.config.reach;
-  if (!other && near && (here === "planter" || here === "kitchen" || here === "workbench")) {
-    const planting = mirror.crops.get(`${tile.x},${tile.y}`);
-    const day = mirror.day;
-    void import("./garden-sheet").then((m) =>
-      m.openTileSheet({
-        block: here,
-        ...tile,
-        ...(planting ? { planting } : {}),
-        day,
-        act: (action) => act(action),
-      }),
-    );
+  if (!other && here && STATIONS.includes(here)) {
+    if (inReach(r, tile)) openStation(tile.x, tile.y);
+    else walkTarget = { ...tile, station: true };
     return;
   }
   if (other && other.id !== me) {
@@ -359,8 +465,20 @@ const KEYS: Record<string, Direction> = {
   a: "w",
   d: "e",
 };
+/** Keys belong to a sheet that's open, or to whatever you're typing in, not to walking. */
+function keysTaken(): boolean {
+  if (document.documentElement.classList.contains("overlay-open")) return true;
+  const el = document.activeElement;
+  return (
+    el instanceof HTMLInputElement ||
+    el instanceof HTMLTextAreaElement ||
+    el instanceof HTMLSelectElement ||
+    (el instanceof HTMLElement && (el.isContentEditable || el.closest("dialog") !== null))
+  );
+}
+
 window.addEventListener("keydown", (e) => {
-  if (!active || !me || document.activeElement instanceof HTMLInputElement) return;
+  if (!active || !me || keysTaken()) return;
   const dir = KEYS[e.key];
   if (!dir) return;
   e.preventDefault();
@@ -384,13 +502,25 @@ function releaseKey(dir: Direction) {
   if (i >= 0) heldKeys.splice(i, 1);
 }
 
-$("claim").addEventListener("click", () => act({ type: "claim" }));
+$("claim").addEventListener("click", () => {
+  const r = self();
+  if (r && mirror?.ownerAt(r.x, r.y) === me) {
+    showToast("This plot is already yours. Tap Build to start.");
+    return;
+  }
+  tryAct({ type: "claim" });
+});
 
 $("hud-invite").addEventListener("click", () => {
   void import("./invite-share").then((m) => m.openInviteDialog());
 });
 
 buildButton.addEventListener("click", () => {
+  // With no plot there's nowhere to build: say how to get one instead.
+  if (!buildMode && self() && !hasPlot()) {
+    showToast(NO_PLOT_LINE);
+    return;
+  }
   buildMode = !buildMode;
   buildButton.setAttribute("aria-pressed", String(buildMode));
   palette.hidden = !buildMode;
@@ -436,7 +566,13 @@ async function loadDecor() {
 
 $("home").addEventListener("click", () => {
   walkTarget = undefined;
-  act({ type: "home" });
+  // No hearth is nowhere to go: say how to set one now, rather than after a round trip.
+  const r = self();
+  if (r && !r.hearth) {
+    showToast(worldProblem("no_hearth", "", { hasPlot: hasPlot() }));
+    return;
+  }
+  tryAct({ type: "home" });
 });
 
 chatToggle.addEventListener("click", () => {
@@ -462,8 +598,10 @@ channelButton.addEventListener("click", () => {
 $<HTMLFormElement>("chat-form").addEventListener("submit", (e) => {
   e.preventDefault();
   const text = chatInput.value.trim();
-  if (text) act({ type: "chat", text, channel });
-  chatInput.value = "";
+  if (!text) return;
+  // The text stays until the server takes it, so a dropped or refused line isn't lost.
+  const id = tryAct({ type: "chat", text, channel });
+  if (id) pendingChat = { id, text };
 });
 
 // ---------- loop ----------
@@ -498,6 +636,16 @@ function frame(t: number) {
     // Walking: one step at a time, each waiting for the server to confirm the last. Presses and
     // taps go first, then a held key, then a tapped destination.
     if (!pendingMove && t - lastWalk >= STEP_MS) {
+      // Walking to a planter or a kitchen: stop once it's in reach, and open it.
+      if (
+        walkTarget?.station &&
+        !queuedSteps.length &&
+        !heldKeys.length &&
+        inReach(r, walkTarget)
+      ) {
+        openStation(walkTarget.x, walkTarget.y);
+        walkTarget = undefined;
+      }
       const dir =
         queuedSteps.shift() ?? heldKeys.at(-1) ?? (walkTarget && stepToward(r, walkTarget));
       if (dir) {
@@ -544,16 +692,15 @@ export function startWorld(options: { navigate?: (path: string) => void } = {}) 
   rafId = requestAnimationFrame(frame);
   const token = savedToken();
   if (token) {
-    // Returning resident: skip the landing and go straight in.
+    // Returning resident: skip the landing and go straight in. The snapshot draws the world while
+    // the socket says hello, and if the server is down, "Can't reach the world" says why it's empty.
     enterWorld(true);
     hud.hidden = false;
     connect({ token });
+    void resync();
   } else {
     void resync();
-    // Keep the "online now" line fresh while someone reads the landing page.
-    stopPopulation = everyVisible(20_000, () => {
-      if (landing.isUp()) void resync();
-    });
+    watchPopulation();
   }
 }
 
@@ -571,7 +718,9 @@ export function stopWorld() {
   decor = new Map();
   decorShown = new Set();
   paintPalette();
+  pendingChat = undefined;
   stopWalking();
   hud.hidden = true;
+  worldWait.hidden = true;
   landing.setJoining(false);
 }

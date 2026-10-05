@@ -138,22 +138,22 @@ export function notificationsView(ctx: ViewContext): View {
     more.el.hidden = next === null;
   });
   let next: string | null = null;
+  const foot = h("div", { class: "feed-foot" }, more.el);
+  // The list, its foot, and the empty and error states take turns in here, so a retry after an
+  // error puts the list back on the page before anything is marked read.
+  const body = h("div", {});
 
   async function load(): Promise<void> {
-    list.replaceChildren();
     const r = await api.notifications();
     if (destroyed) return;
     if (!r.ok) {
-      el.replaceChildren(
-        el.firstChild ?? "",
-        errorCard(r.message, () => void load()),
-      );
+      body.replaceChildren(errorCard(r.message, () => void load()));
       return;
     }
     const { notifications, unread } = r.data;
     next = r.data.next;
     if (notifications.length === 0) {
-      el.append(
+      body.replaceChildren(
         emptyNote(
           "Nothing yet",
           "Post something, follow a few neighbors, or mention someone with @ and their handle. Replies and reactions will show up here.",
@@ -162,8 +162,9 @@ export function notificationsView(ctx: ViewContext): View {
       setUnread(0);
       return;
     }
-    list.append(...notifications.map(item));
+    list.replaceChildren(...notifications.map(item));
     more.el.hidden = next === null;
+    body.replaceChildren(list, foot);
     const newest = notifications[0];
     if (unread > 0 && newest) {
       const marked = await api.markRead(newest.id);
@@ -171,7 +172,7 @@ export function notificationsView(ctx: ViewContext): View {
     } else setUnread(unread);
   }
 
-  el.append(list, h("div", { class: "feed-foot" }, more.el));
+  el.append(body);
   return {
     el,
     ready: load(),

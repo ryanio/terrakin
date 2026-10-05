@@ -8,7 +8,7 @@ import { h, icon } from "@terrakin/ui/dom";
 import { profilePath } from "@terrakin/ui/paths";
 import { stateCard, toast } from "@terrakin/ui/ui";
 import { queueAttachment } from "../composer";
-import { savedToken } from "../net";
+import { savedResidentId, savedToken } from "../net";
 import { errorCard, notFoundCard, type ViewContext } from "../view";
 import { createStage, type Stage } from "./art";
 import { parseGallery } from "./catalog";
@@ -18,8 +18,16 @@ import { buildPlot } from "./plot";
 
 export type Route3d = { name: "plot3d"; id: string } | { name: "gallery3d" };
 
-/** Fill `el` with the 3D page. Returns the teardown, which frees the whole scene. */
-export function mount3d(el: HTMLElement, route: Route3d, ctx: ViewContext): () => void {
+/**
+ * Fill `el` with the 3D page. Returns the teardown, which frees the whole scene. `retry` is what
+ * "Try again" does after a failure: mount it afresh, without a new history entry.
+ */
+export function mount3d(
+  el: HTMLElement,
+  route: Route3d,
+  ctx: ViewContext,
+  retry: () => void,
+): () => void {
   let stage: Stage | undefined;
   let gone = false;
   const urls: string[] = [];
@@ -74,9 +82,14 @@ export function mount3d(el: HTMLElement, route: Route3d, ctx: ViewContext): () =
     if (ctx.canGoBack()) history.back();
     else ctx.navigate(route.name === "plot3d" ? profilePath(route.id) : "/");
   }
+  /** Close the photo panel and put focus back on the button that opened it. */
+  function closeSheet() {
+    sheet.hidden = true;
+    photoBtn.focus();
+  }
   const onKey = (e: KeyboardEvent) => {
     if (e.key !== "Escape") return;
-    if (!sheet.hidden) sheet.hidden = true;
+    if (!sheet.hidden) closeSheet();
     else leave();
   };
   document.addEventListener("keydown", onKey);
@@ -126,7 +139,7 @@ export function mount3d(el: HTMLElement, route: Route3d, ctx: ViewContext): () =
         title.textContent = `${resident.name}'s home`;
         const layout = plotLayout(snapshot, route.id);
         if (!layout) {
-          el.replaceChildren(noPlot(resident.name, route.id));
+          el.replaceChildren(noPlot(resident.name, route.id, route.id === savedResidentId()));
           cleanup();
           return;
         }
@@ -149,9 +162,7 @@ export function mount3d(el: HTMLElement, route: Route3d, ctx: ViewContext): () =
         h(
           "div",
           { class: "column page" },
-          errorCard("The 3D view couldn't be set up on this device or connection.", () => {
-            ctx.navigate(location.pathname + location.search);
-          }),
+          errorCard("The 3D view couldn't be set up on this device or connection.", retry),
         ),
       );
       cleanup();
@@ -176,7 +187,7 @@ export function mount3d(el: HTMLElement, route: Route3d, ctx: ViewContext): () =
       {
         class: "viewer-close view3d-sheet-close",
         attrs: { type: "button", "aria-label": "Close" },
-        on: { click: () => (sheet.hidden = true) },
+        on: { click: closeSheet },
       },
       icon("close"),
     );
@@ -238,23 +249,39 @@ function fontsReady(): Promise<unknown> {
   ]);
 }
 
-function noPlot(name: string, id: string): HTMLElement {
+/** No plot to show. On your own id it's you, and the way to a plot is the world. */
+function noPlot(name: string, id: string, yours: boolean): HTMLElement {
   return h(
     "div",
     { class: "column page" },
-    stateCard({
-      eyebrow: "Visit in 3D",
-      level: "h1",
-      title: `${name} hasn't settled a plot yet`,
-      body: "Once they claim a plot and build on it, you can visit it here in 3D.",
-      actions: [
-        h(
-          "a",
-          { class: "pill-button", attrs: { href: profilePath(id) } },
-          icon("back"),
-          h("span", { text: "Back to their profile" }),
-        ),
-      ],
-    }),
+    yours
+      ? stateCard({
+          eyebrow: "Visit in 3D",
+          level: "h1",
+          title: "You haven't claimed a plot yet",
+          body: "Walk out of the Commons onto an empty plot and tap Claim plot. Once you build on it, you can visit it here in 3D.",
+          actions: [
+            h(
+              "a",
+              { class: "btn-primary", attrs: { href: "/world" } },
+              h("span", { text: "Go to the world" }),
+              icon("arrow"),
+            ),
+          ],
+        })
+      : stateCard({
+          eyebrow: "Visit in 3D",
+          level: "h1",
+          title: `${name} hasn't claimed a plot yet`,
+          body: "Once they claim a plot and build on it, you can visit it here in 3D.",
+          actions: [
+            h(
+              "a",
+              { class: "pill-button", attrs: { href: profilePath(id) } },
+              icon("back"),
+              h("span", { text: "Back to their profile" }),
+            ),
+          ],
+        }),
   );
 }

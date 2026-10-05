@@ -10,7 +10,7 @@ import { badgeText } from "@terrakin/ui/format";
 import { useModelViewer } from "@terrakin/ui/media";
 import { profilePath } from "@terrakin/ui/paths";
 import { avatarEl, avatarPlaceholder } from "@terrakin/ui/people";
-import { interceptPop } from "@terrakin/ui/ui";
+import { interceptPop, leaveOverlay } from "@terrakin/ui/ui";
 import { api, MY_PROFILE_EVENT, myProfile, SUSPENDED_EVENT } from "./api";
 import { initBell, makeBell, refreshBell } from "./bell";
 import { initBrandMarks } from "./chrome";
@@ -21,6 +21,7 @@ import { inviteView } from "./invite-view";
 import { lettersView, letterThreadView, UNREAD_EVENT } from "./letters-view";
 import { SESSION_EVENT, savedResidentId, savedToken } from "./net";
 import { notificationsView } from "./notifications-view";
+import { peopleView } from "./people-view";
 import { postView } from "./post-view";
 import { profileView } from "./profile-view";
 import { initPurse, makePurse, refreshPurse } from "./purse";
@@ -55,11 +56,46 @@ initPurse();
 let view: View | undefined;
 let world: Promise<typeof import("./world")> | undefined;
 
-/** The world is its own chunk: fetched the first time someone goes to /world. */
+/**
+ * The world is its own chunk: fetched the first time someone goes to /world. The landing form's
+ * controls start disabled in the HTML, so Enter can't submit it natively (with the key in the URL)
+ * before the world's handlers are attached; they come on once the chunk has run.
+ */
 const loadWorld = () => {
-  world ??= import("./world");
+  world ??= import("./world").then(
+    (w) => {
+      for (const el of document.querySelectorAll<HTMLInputElement | HTMLButtonElement>(
+        "[data-until-ready]",
+      ))
+        el.disabled = false;
+      return w;
+    },
+    (err: unknown) => {
+      showWorldReload();
+      throw err;
+    },
+  );
   return world;
 };
+
+/** The world's chunk didn't load, usually because a new version went out since this page opened. */
+function showWorldReload() {
+  const form = document.getElementById("world-join");
+  if (!form || form.querySelector(".world-reload")) return;
+  form.prepend(
+    h(
+      "div",
+      { class: "world-reload", attrs: { role: "alert" } },
+      h("p", { text: "Terrakin was updated. Reload to continue." }),
+      h("button", {
+        class: "pill-button small",
+        attrs: { type: "button" },
+        text: "Reload",
+        on: { click: () => location.reload() },
+      }),
+    ),
+  );
+}
 
 function setMode(mode: "site" | "world") {
   root.classList.toggle("mode-world", mode === "world");
@@ -213,15 +249,23 @@ function onNavigate(nav: Navigation) {
     document.title = "World · Terrakin";
     setMode("world");
     page.replaceChildren();
-    void loadWorld().then((w) => {
-      // Still here? Someone may have tapped away while it loaded.
-      if (root.classList.contains("mode-world"))
-        w.startWorld({ navigate: (p) => router.navigate(p) });
-    });
+    loadWorld().then(
+      (w) => {
+        // Still here? Someone may have tapped away while it loaded.
+        if (root.classList.contains("mode-world"))
+          w.startWorld({ navigate: (p) => router.navigate(p) });
+      },
+      () => {
+        // showWorldReload already put up the notice.
+      },
+    );
     return;
   }
 
-  void world?.then((w) => w.stopWorld());
+  void world?.then(
+    (w) => w.stopWorld(),
+    () => {},
+  );
   refreshBell();
   refreshPurse();
   setMode("site");
@@ -232,7 +276,7 @@ function onNavigate(nav: Navigation) {
       document.title = t;
     },
     canGoBack: () => router.canGoBack(),
-    navigate: (path) => router.navigate(path),
+    navigate: (path, options) => router.navigate(path, options),
   };
   const next =
     route.name === "feed"
@@ -259,11 +303,13 @@ function onNavigate(nav: Navigation) {
                           ? townView(ctx)
                           : route.name === "shop"
                             ? shopView(ctx)
-                            : route.name === "plot3d" || route.name === "gallery3d"
-                              ? view3d(route, ctx)
-                              : route.name === "claim"
-                                ? claimView(route.code, ctx)
-                                : notFoundView(ctx);
+                            : route.name === "people"
+                              ? peopleView(route.id, route.tab, ctx)
+                              : route.name === "plot3d" || route.name === "gallery3d"
+                                ? view3d(route, ctx)
+                                : route.name === "claim"
+                                  ? claimView(route.code, ctx)
+                                  : notFoundView(ctx);
   view = next;
   page.replaceChildren(next.el);
 
@@ -282,5 +328,5 @@ function onNavigate(nav: Navigation) {
 
 let firstRun = true;
 
-const router = createRouter({ onNavigate, interceptPop });
+const router = createRouter({ onNavigate, interceptPop, leaveOverlay });
 router.start();

@@ -216,6 +216,10 @@ export const held = (inv: Inventory | undefined, kind: StackKind) => inv?.stacks
 export const isReady = (readyDay: number, day: number | undefined) =>
   day !== undefined && day >= readyDay;
 
+/** Whether a crop's harvest (its yield and its seeds back) fits next to `held` things. */
+export const harvestFits = (held: number, crop: Crop) =>
+  held + CROP_INFO[crop].yield + CROP_INFO[crop].seeds <= ITEMS.inventoryMax;
+
 /** What `GET /v1/inventory` shows a resident. Private to them. */
 export interface InventoryRead {
   stacks: { kind: StackKind; count: number }[];
@@ -429,9 +433,7 @@ export function checkHarvest(
     );
   }
   const info = CROP_INFO[planting.crop];
-  const inv = items.inventories[actor];
-  const room = ITEMS.inventoryMax - inventorySize(inv);
-  if (info.yield + info.seeds > room) {
+  if (!harvestFits(inventorySize(items.inventories[actor]), planting.crop)) {
     return refuse(
       "inventory_full",
       `You can hold ${ITEMS.inventoryMax} things, and this harvest needs room for ${info.yield + info.seeds}. Make or give something first.`,

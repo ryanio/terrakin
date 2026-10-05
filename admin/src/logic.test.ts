@@ -128,6 +128,28 @@ describe("the actions an item offers", () => {
       "dismiss:l_1",
     ]);
   });
+
+  it("asks a second tap for what deletes files or suspends, and only for that", () => {
+    const picture = {
+      id: "m_1",
+      kind: "image",
+      type: "image/png",
+      url: "/media/m_1",
+      bytes: 64,
+    } as const;
+    const asked = (i: ReportQueueItem) =>
+      itemActions(i)
+        .filter((a) => a.confirm)
+        .map((a) => a.label);
+    expect(asked(item())).toEqual(["Hide post", "Suspend"]);
+    expect(asked(item({}, { hidden: "auto", suspended: true }))).toEqual(["Confirm hide"]);
+    expect(
+      asked(item({ kind: "resident", id: author.id }, { media: [picture], quarantined: true })),
+    ).toEqual(["Suspend", "Delete profile pictures"]);
+    for (const a of itemActions(item())) {
+      if (a.confirm) expect(a.confirm).toMatch(/^Tap again to /);
+    }
+  });
 });
 
 describe("what each role may do", () => {

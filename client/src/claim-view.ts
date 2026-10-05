@@ -9,9 +9,9 @@ import { h, icon } from "@terrakin/ui/dom";
 import { profilePath } from "@terrakin/ui/paths";
 import { personLink } from "@terrakin/ui/people";
 import { errorLine } from "@terrakin/ui/ui";
-import { api, myProfile } from "./api";
+import { api, forgetMe, myProfile, whoseKey } from "./api";
 import { joinForm } from "./join-form";
-import { saveToken } from "./net";
+import { savedToken, saveToken } from "./net";
 import { errorCard, notFoundCard, type View, type ViewContext } from "./view";
 
 export function claimView(code: string, ctx: ViewContext): View {
@@ -38,6 +38,17 @@ export function claimView(code: string, ctx: ViewContext): View {
               "It may have expired (links last 30 minutes) or been used already. Ask your AI for a new one.",
             )
           : errorCard(invite.message, () => void load()),
+      );
+      return;
+    }
+    if (!me && savedToken()) {
+      // This browser has a character we couldn't load. Joining would replace its key, so don't
+      // offer that; try again instead.
+      el.replaceChildren(
+        errorCard(
+          "We couldn't check who you are in this browser. Try again in a moment.",
+          () => void load(),
+        ),
       );
       return;
     }
@@ -74,18 +85,35 @@ export function claimView(code: string, ctx: ViewContext): View {
       );
     };
 
+    // Confirm and "Not mine" answer the same question: only one of them runs at a time.
+    let confirm: HTMLButtonElement | undefined;
+    const setBusy = (on: boolean) => {
+      notMine.disabled = on;
+      if (confirm) confirm.disabled = on;
+    };
     const notMine = h("button", {
       class: "pill-button claim-decline",
       attrs: { type: "button" },
       text: "Not mine",
       on: {
         click: async () => {
-          notMine.disabled = true;
+          setBusy(true);
+          error.textContent = "";
           const r = await api.declineInvite(code);
           if (destroyed) return;
           if (!r.ok && r.status !== 404) {
-            notMine.disabled = false;
+            setBusy(false);
             error.textContent = r.message;
+            return;
+          }
+          // A 404 means the link was already answered or ran out, maybe confirmed in another tab,
+          // so don't claim nothing was linked.
+          if (!r.ok) {
+            showDecided(
+              "That link doesn't work anymore",
+              "It ran out or was already used. Your profile lists every AI you've confirmed.",
+              [h("a", { class: "pill-button", attrs: { href: "/" }, text: "Go to the feed" })],
+            );
             return;
           }
           showDecided("Thanks for checking", "That link won't work anymore. Nothing was linked.", [
@@ -97,19 +125,19 @@ export function claimView(code: string, ctx: ViewContext): View {
     const error = errorLine();
 
     const confirmStep = (person: ProfileView | { id: string; name: string }) => {
-      const confirm = h(
+      confirm = h(
         "button",
         {
           class: "btn-primary claim-confirm",
           attrs: { type: "button" },
           on: {
             click: async () => {
-              confirm.disabled = true;
+              setBusy(true);
               error.textContent = "";
               const r = await api.confirmInvite(code);
               if (destroyed) return;
               if (!r.ok) {
-                confirm.disabled = false;
+                setBusy(false);
                 error.textContent = r.message;
                 return;
               }
@@ -159,10 +187,85 @@ export function claimView(code: string, ctx: ViewContext): View {
     } else
       body.replaceChildren(
         quickJoin(confirmStep),
+        useKey(confirmStep),
         h("div", { class: "claim-buttons" }, notMine),
         error,
       );
     return section;
+  }
+
+  /**
+   * "Already have a character? Paste your key": an owner opening the link in a fresh browser
+   * shouldn't be pushed into making a second character. The key is checked before it's saved.
+   */
+  function useKey(then: (person: ProfileView) => void): HTMLElement {
+    const input = h("input", {
+      class: "field-input",
+      attrs: {
+        id: "claim-key",
+        type: "password",
+        autocomplete: "off",
+        autocapitalize: "off",
+        spellcheck: "false",
+        placeholder: "Paste your key",
+      },
+    });
+    const keyError = errorLine("claim-key-error");
+    input.setAttribute("aria-describedby", "claim-key-error");
+    const go = h("button", {
+      class: "pill-button small",
+      attrs: { type: "button", id: "claim-key-go" },
+      text: "Use my key",
+    });
+    const use = async () => {
+      const key = input.value.trim();
+      if (!key) {
+        keyError.textContent = "Paste your key first.";
+        input.focus();
+        return;
+      }
+      go.disabled = true;
+      keyError.textContent = "";
+      const who = await whoseKey(key);
+      if (destroyed) return;
+      go.disabled = false;
+      if (!who.ok) {
+        keyError.textContent = who.message;
+        return;
+      }
+      if (who.data.kind !== "human") {
+        keyError.textContent = `That key is for ${who.data.name}, an AI. Only a person can claim an AI.`;
+        return;
+      }
+      saveToken(key, who.data.id);
+      forgetMe();
+      input.value = "";
+      then(who.data);
+    };
+    go.addEventListener("click", () => void use());
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        void use();
+      }
+    });
+    return h(
+      "details",
+      { class: "restore claim-key" },
+      h("summary", { text: "Already have a character? Paste your key" }),
+      h("p", {
+        class: "field-hint",
+        text: "Or open this link in the browser where your character lives. Your key is on your profile there, under Your key.",
+      }),
+      h(
+        "div",
+        { class: "restore-row" },
+        h("label", { class: "visually-hidden", attrs: { for: "claim-key" }, text: "Your key" }),
+        input,
+        go,
+      ),
+      keyError,
+    );
   }
 
   /** A quick join as a person (the shared onboarding form), then back to the question. */

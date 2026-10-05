@@ -32,16 +32,25 @@ import {
   toast,
   whileBusy,
 } from "@terrakin/ui/ui";
-import { actProblem, api, forgetMe, myProfile, rememberMyProfile, uploadMedia } from "./api";
+import {
+  actProblem,
+  api,
+  forgetMe,
+  myProfile,
+  rememberMyProfile,
+  uploadMedia,
+  whoseKey,
+} from "./api";
 import { bannerArt } from "./banner-art";
 import { syncPost } from "./feed-view";
 import { openInviteDialog } from "./invite-share";
 import { colorChips, joinForm, shapeChips, tokenPreview } from "./join-form";
 import { lettersPath } from "./letters-view";
 import { openLookEditor } from "./look-editor";
-import { savedToken, saveToken } from "./net";
+import { savedResidentId, savedToken, saveToken } from "./net";
 import { agentItem, type OwnerPanel, ownerPanel } from "./owner-panel";
 import { verifiedRow } from "./partner-badge";
+import { type PeopleTab, peoplePath } from "./people-view";
 import { plotPhotoButton } from "./plot-photo";
 import { postCard, skeletonCards } from "./post-card";
 import { coins, refreshPurse } from "./purse";
@@ -66,6 +75,9 @@ function floatUp(from: HTMLElement, emoji: string) {
   // Backstop for reduced motion or a missed event.
   setTimeout(() => el.remove(), 2000);
 }
+
+/** Makes a disclosure's onToggle that keeps it the only send form open on the card. */
+type Only = (self: () => { close(): void } | undefined) => (shown: boolean) => void;
 
 const canonical = () => document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
 /** What index.html ships. The server may have set a page-specific one for the first page. */
@@ -149,10 +161,26 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       list.append(...fresh.map((p) => postCard(p, { onChange: syncPost })));
     };
     add(first);
-    if (first.length === 0)
-      list.append(
-        emptyNote("No posts yet", `When ${name} shares something, it will show up here.`),
-      );
+    if (first.length === 0) {
+      // On your own profile it speaks to you and points at the feed, where you write posts.
+      const own = () => {
+        const note = emptyNote(
+          "No posts yet",
+          "When you post something, it shows up here. Write your first one on the feed.",
+        );
+        note.append(h("a", { class: "pill-button", attrs: { href: "/" }, text: "Go to the feed" }));
+        return note;
+      };
+      const mine = savedToken() !== null && savedResidentId() === id;
+      const note = mine
+        ? own()
+        : emptyNote("No posts yet", `When ${name} shares something, it will show up here.`);
+      list.append(note);
+      if (!mine && savedToken())
+        void myProfile().then((me) => {
+          if (!destroyed && me?.id === id && note.isConnected) note.replaceWith(own());
+        });
+    }
     const more = moreButton("Show more posts", async () => {
       if (!next) return;
       const r = await api.residentPosts(id, next);
@@ -181,15 +209,34 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       posts: h("span", { class: "stat-n" }),
       followers: h("span", { class: "stat-n" }),
       following: h("span", { class: "stat-n" }),
+      friends: h("span", { class: "stat-n" }),
       praise: h("span", { class: "stat-n" }),
     };
-    const stat = (n: HTMLElement, label: string) =>
-      h("li", { class: "stat" }, n, h("span", { class: "stat-label", text: label }));
+    const labels = {
+      posts: h("span", { class: "stat-label" }),
+      followers: h("span", { class: "stat-label" }),
+      following: h("span", { class: "stat-label", text: "following" }),
+      friends: h("span", { class: "stat-label" }),
+      praise: h("span", { class: "stat-label", text: "praise" }),
+    };
+    const stat = (n: HTMLElement, label: HTMLElement) => h("li", { class: "stat" }, n, label);
+    // Followers, following, and friends open the list of those people.
+    const peopleStat = (n: HTMLElement, label: HTMLElement, tab: PeopleTab) =>
+      h(
+        "li",
+        { class: "stat" },
+        h("a", { class: "stat-link", attrs: { href: peoplePath(r.id, tab) } }, n, label),
+      );
+    // Follow and Praise change these in place, so the words follow the numbers.
     const paintCounts = () => {
       counts.posts.textContent = compactCount(r.posts);
       counts.followers.textContent = compactCount(r.followers);
       counts.following.textContent = compactCount(r.following);
+      counts.friends.textContent = compactCount(r.friends ?? 0);
+      labels.friends.textContent = r.friends === 1 ? "friend" : "friends";
       counts.praise.textContent = compactCount(r.praise ?? 0);
+      labels.posts.textContent = r.posts === 1 ? "post" : "posts";
+      labels.followers.textContent = r.followers === 1 ? "follower" : "followers";
     };
     paintCounts();
 
@@ -240,7 +287,11 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
           actions.append(plotPhotoButton(), avatar.editable());
           return;
         }
-        actions.prepend(followButton(r, paintCounts), praiseButton(r, paintCounts));
+        // The server never takes praise across a block, so don't offer it.
+        actions.prepend(
+          followButton(r, paintCounts),
+          ...(r.blocked ? [] : [praiseButton(r, paintCounts)]),
+        );
         actions.append(profileMore(r));
       });
     }
@@ -295,10 +346,11 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       h(
         "ul",
         { class: "stats", attrs: { "aria-label": "Counts" } },
-        stat(counts.posts, r.posts === 1 ? "post" : "posts"),
-        stat(counts.followers, r.followers === 1 ? "follower" : "followers"),
-        stat(counts.following, "following"),
-        r.praise === undefined ? null : stat(counts.praise, "praise"),
+        stat(counts.posts, labels.posts),
+        peopleStat(counts.followers, labels.followers, "followers"),
+        peopleStat(counts.following, labels.following, "following"),
+        r.friends === undefined ? null : peopleStat(counts.friends, labels.friends, "friends"),
+        r.praise === undefined ? null : stat(counts.praise, labels.praise),
       ),
       homeSection(r),
     );
@@ -684,16 +736,16 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
         autocomplete: "off",
       },
     });
+    const giftGive = h("button", {
+      class: "btn-primary small",
+      attrs: { type: "submit" },
+      text: "Give",
+    });
     const giftForm = h(
       "form",
       { class: "gift-form", attrs: { id: "gift-form", hidden: true, novalidate: true } },
       h("label", { class: "field-label", attrs: { for: "gift-note" }, text: "What's the gift?" }),
-      h(
-        "div",
-        { class: "gift-row" },
-        giftNote,
-        h("button", { class: "btn-primary small", attrs: { type: "submit" }, text: "Give" }),
-      ),
+      h("div", { class: "gift-row" }, giftNote, giftGive),
     );
 
     const send = async (kind: GestureKind, from: HTMLElement, note?: string) => {
@@ -723,7 +775,13 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       );
       row.append(b);
       // The gift button opens a note form; the others send straight away.
-      if (g.kind === "gift") giftToggle = disclosure(b, giftForm, giftNote);
+      if (g.kind === "gift")
+        giftToggle = disclosure(
+          b,
+          giftForm,
+          giftNote,
+          only(() => giftToggle),
+        );
       else b.addEventListener("click", () => void whileBusy(b, () => send(g.kind, b)));
     }
     giftForm.addEventListener("submit", async (e) => {
@@ -733,36 +791,62 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
         giftNote.focus();
         return;
       }
+      // Enter twice, or a double tap on Give, sends once.
+      if (giftGive.disabled) return;
       const button = row.querySelector<HTMLElement>('[data-kind="gift"]') ?? giftForm;
-      if (await send("gift", button, note)) {
+      if (await whileBusy(giftGive, () => send("gift", button, note))) {
         giftNote.value = "";
         giftToggle?.close();
       }
     });
 
+    const coin = coinGift(r, only);
+    const thing = thingGift(r, only);
+    // Quick hellos up top, with the streak they build right under them. Then the bigger sends in
+    // one even row, and whichever of their forms is open below it.
     return h(
       "section",
       { class: "paper card together", attrs: { "aria-labelledby": "together-title" } },
       h("p", { class: "eyebrow", attrs: { id: "together-title" }, text: `Say hi to ${r.name}` }),
       row,
       giftForm,
-      coinGift(r),
-      thingGift(r),
       streak,
       h(
-        "a",
-        { class: "pill-button write-letter", attrs: { href: lettersPath(r.id) } },
-        icon("mail"),
-        h("span", { text: "Write a letter" }),
+        "div",
+        { class: "together-sends" },
+        h(
+          "a",
+          { class: "pill-button write-letter", attrs: { href: lettersPath(r.id) } },
+          icon("mail"),
+          h("span", { text: "Write a letter" }),
+        ),
+        coin.open,
+        thing.open,
       ),
+      coin.form,
+      thing.form,
     );
+  }
+
+  /** One send form open at a time: opening one closes whichever was open before. */
+  let openPanel: { close(): void } | undefined;
+  function only(self: () => { close(): void } | undefined) {
+    return (shown: boolean) => {
+      const me = self();
+      if (!shown) {
+        if (openPanel === me) openPanel = undefined;
+        return;
+      }
+      if (openPanel && openPanel !== me) openPanel.close();
+      openPanel = me;
+    };
   }
 
   /**
    * Give coins (RFC 0008): a button that opens a small form with an amount and an optional note.
    * The server and the sim check every limit; their refusal is shown as it comes.
    */
-  function coinGift(r: ProfileView): HTMLElement {
+  function coinGift(r: ProfileView, only: Only) {
     const amount = h("input", {
       class: "field-input coin-amount",
       attrs: {
@@ -829,7 +913,12 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       h("span", { text: "Give coins" }),
     );
     form.id = "coin-form";
-    const toggle = disclosure(open, form, amount);
+    const toggle = disclosure(
+      open,
+      form,
+      amount,
+      only(() => toggle),
+    );
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
       const n = Number(amount.value);
@@ -852,14 +941,14 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       open.focus();
       refreshPurse(true);
     });
-    return h("div", { class: "coin-gift" }, open, form);
+    return { open, form };
   }
 
   /**
    * Give a thing (RFC 0005): a button that opens a small form listing what you hold, with a count
    * for things that stack and an optional note. The server and the sim check every limit.
    */
-  function thingGift(r: ProfileView): HTMLElement {
+  function thingGift(r: ProfileView, only: Only) {
     const pick = h("select", { class: "field-input", attrs: { id: "thing-pick" } });
     const count = h("input", {
       class: "field-input coin-amount",
@@ -953,7 +1042,9 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       syncCount();
     }
     // What you hold is read fresh each time the form opens.
+    const exclusive = only(() => toggle);
     const toggle = disclosure(open, form, pick, (shown) => {
+      exclusive(shown);
       if (shown) void fill().then(() => pick.focus());
     });
     form.addEventListener("submit", async (e) => {
@@ -976,7 +1067,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       toggle.close();
       open.focus();
     });
-    return h("div", { class: "thing-gift" }, open, form);
+    return { open, form };
   }
 
   /** "…" with Block (or Unblock). The first tap asks, the second does it. */
@@ -1115,6 +1206,80 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       }),
       key,
       h("div", { class: "card-actions" }, copy, show),
+      switchKey(),
+    );
+  }
+
+  /**
+   * "Use a different key": bring another character into this browser in place of this one. The
+   * key is checked before it's saved, and the page reloads so nothing keeps the old character.
+   */
+  function switchKey(): HTMLElement {
+    const input = h("input", {
+      class: "field-input",
+      attrs: {
+        id: "switch-key",
+        type: "password",
+        autocomplete: "off",
+        autocapitalize: "off",
+        spellcheck: "false",
+        placeholder: "Paste the other key",
+        "aria-describedby": "switch-key-error",
+      },
+    });
+    const error = errorLine("switch-key-error");
+    const go = h("button", {
+      class: "pill-button small",
+      attrs: { type: "button", id: "switch-key-go" },
+      text: "Use this key",
+    });
+    const use = async () => {
+      const value = input.value.trim();
+      if (!value) {
+        error.textContent = "Paste a key first.";
+        input.focus();
+        return;
+      }
+      if (value === savedToken()) {
+        error.textContent = "That's the key this browser already uses.";
+        return;
+      }
+      go.disabled = true;
+      error.textContent = "";
+      const who = await whoseKey(value);
+      if (destroyed) return;
+      go.disabled = false;
+      if (!who.ok) {
+        error.textContent = who.message;
+        return;
+      }
+      saveToken(value, who.data.id);
+      forgetMe();
+      location.assign("/world");
+    };
+    go.addEventListener("click", () => void use());
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        void use();
+      }
+    });
+    return h(
+      "details",
+      { class: "restore identity-switch" },
+      h("summary", { text: "Use a different key" }),
+      h("p", {
+        class: "field-hint",
+        text: "This browser will hold the character that key opens instead of this one. Copy your current key first and keep it safe, or you can't bring this character back.",
+      }),
+      h(
+        "div",
+        { class: "restore-row" },
+        h("label", { class: "visually-hidden", attrs: { for: "switch-key" }, text: "Other key" }),
+        input,
+        go,
+      ),
+      error,
     );
   }
 
@@ -1135,6 +1300,12 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       attrs: { id: "look-note", maxlength: NOTE_MAX_LENGTH, autocomplete: "off" },
     });
     note.value = r.note;
+    /** What this card changed and hasn't saved yet. */
+    const cardChanges = () => ({
+      ...(color !== r.color ? { color } : {}),
+      ...(shape !== r.shape ? { shape } : {}),
+      ...(note.value.trim() !== r.note ? { note: note.value.trim() } : {}),
+    });
     const error = errorLine();
     const save = h("button", {
       class: "btn-primary small",
@@ -1188,9 +1359,11 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
             class: "pill-button small look-open",
             attrs: { type: "button" },
             on: {
+              // The editor previews the color and shape picked here, so its Save saves them too,
+              // along with a changed note.
               click: () =>
                 openLookEditor(
-                  { color, shape, look: r.look },
+                  { color, shape, look: r.look, pending: cardChanges() },
                   (look) => {
                     r.look = look;
                     forgetMe();
@@ -1207,11 +1380,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
     );
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const changes = {
-        ...(color !== r.color ? { color } : {}),
-        ...(shape !== r.shape ? { shape } : {}),
-        ...(note.value.trim() !== r.note ? { note: note.value.trim() } : {}),
-      };
+      const changes = cardChanges();
       if (Object.keys(changes).length === 0) {
         error.textContent = "Nothing to change yet. Pick a new color, shape, or note.";
         return;

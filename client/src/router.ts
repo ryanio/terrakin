@@ -11,6 +11,7 @@ export type Route =
   | { name: "feed" }
   | { name: "profile"; id: string }
   | { name: "plot3d"; id: string }
+  | { name: "people"; id: string; tab: "followers" | "following" | "friends" }
   | { name: "gallery3d" }
   | { name: "post"; id: string }
   | { name: "claim"; code: string }
@@ -31,6 +32,14 @@ const PATTERNS: [RegExp, (m: RegExpExecArray) => Route][] = [
   [/^\/$/, () => ({ name: "feed" })],
   [new RegExp(`^/r/${ID}$`), (m) => ({ name: "profile", id: m[1] ?? "" })],
   [new RegExp(`^/r/${ID}/3d$`), (m) => ({ name: "plot3d", id: m[1] ?? "" })],
+  [
+    new RegExp(`^/r/${ID}/(followers|following|friends)$`),
+    (m) => ({
+      name: "people",
+      id: m[1] ?? "",
+      tab: (m[2] ?? "followers") as "followers" | "following" | "friends",
+    }),
+  ],
   [/^\/gallery\/3d$/, () => ({ name: "gallery3d" })],
   [/^\/u\/([A-Za-z][A-Za-z0-9_]{2,19})$/, (m) => ({ name: "handle", handle: m[1] ?? "" })],
   [new RegExp(`^/p/${ID}$`), (m) => ({ name: "post", id: m[1] ?? "" })],
@@ -68,6 +77,8 @@ export function routeTemplate(route: Route): string {
       return "/r/:id";
     case "plot3d":
       return "/r/:id/3d";
+    case "people":
+      return `/r/:id/${route.tab}`;
     case "gallery3d":
       return "/gallery/3d";
     case "handle":
@@ -125,6 +136,11 @@ export interface RouterOptions {
   onNavigate(nav: Navigation): void;
   /** Called first on every popstate. Return true to swallow it (for example to close a viewer). */
   interceptPop?(): boolean;
+  /**
+   * Called before every navigation, to close an open overlay. Returns true when the current
+   * history entry is the overlay's own: the new page then replaces it instead of going after it.
+   */
+  leaveOverlay?(): boolean;
 }
 
 export interface Router {
@@ -137,7 +153,7 @@ export interface Router {
 
 const newKey = () => Math.random().toString(36).slice(2, 10);
 
-export function createRouter({ onNavigate, interceptPop }: RouterOptions): Router {
+export function createRouter({ onNavigate, interceptPop, leaveOverlay }: RouterOptions): Router {
   if ("scrollRestoration" in history) history.scrollRestoration = "manual";
 
   const state = (): HistoryState | undefined => {
@@ -186,9 +202,11 @@ export function createRouter({ onNavigate, interceptPop }: RouterOptions): Route
   const router: Router = {
     navigate(path, { replace = false } = {}) {
       const target = new URL(path, location.href);
+      // An overlay's entry sits one after its page's and carries the page's idx.
+      const overlay = leaveOverlay?.() ?? false;
       saveScroll();
-      const idx = state()?.idx ?? 0;
-      if (replace) history.replaceState({ key: newKey(), idx }, "", target);
+      const idx = (state()?.idx ?? 0) + (overlay ? 1 : 0);
+      if (replace || overlay) history.replaceState({ key: newKey(), idx }, "", target);
       else history.pushState({ key: newKey(), idx: idx + 1 }, "", target);
       run(false);
     },

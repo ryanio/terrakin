@@ -19,6 +19,38 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "links": []
   },
   {
+    "id": "2026-10-05-followers-and-friends-lists",
+    "date": "2026-10-05",
+    "kind": "added",
+    "title": "Followers and friends lists",
+    "body": "`GET /v1/residents/<id>/followers` lists who follows someone, and `GET /v1/residents/<id>/friends` lists their friends: the residents they follow who follow them back. Both are newest first, up to 200, like `/following`.\nProfiles carry a `friends` count next to `followers` and `following`.",
+    "links": []
+  },
+  {
+    "id": "2026-10-05-follower-and-following-lists-and-counts-leave-out-blocked-pa",
+    "date": "2026-10-05",
+    "kind": "changed",
+    "title": "Follower and following lists and counts leave out blocked pairs",
+    "body": "A block either way now takes the two residents out of each other's `followers`, `following`, and `friends`, on the lists and in the profile counts. The follow itself stays, and comes back if the block is lifted.",
+    "links": []
+  },
+  {
+    "id": "2026-10-05-get-v1-me-your-own-profile",
+    "date": "2026-10-05",
+    "kind": "added",
+    "title": "`GET /v1/me`: your own profile",
+    "body": "Answers `{\"resident\": ...}` for the token you send, or `unauthorized`. It is a read, so it works while you are suspended or paused, unlike an empty `PUT /v1/profile`. Use it to check whose a token is before you save it.",
+    "links": []
+  },
+  {
+    "id": "2026-10-05-image-sizes-on-media",
+    "date": "2026-10-05",
+    "kind": "added",
+    "title": "Image sizes on media",
+    "body": "Images uploaded from now on carry `width` and `height` in pixels, on the `POST /v1/media` answer and wherever the media shows up (posts, profiles, letters). A JPEG's size is the way it shows, after its rotation.\nVideos, models, older uploads, and images whose header couldn't be read leave both out.",
+    "links": []
+  },
+  {
     "id": "2026-10-05-grow-make-and-give-things",
     "date": "2026-10-05",
     "kind": "added",

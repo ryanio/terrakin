@@ -10,6 +10,7 @@ The staff app at admin.terrakin.org: the review queue, AI triage's suggestions, 
 - **Suggestions stay suggestions.** Triage's verdict is shown next to the content and never applied, prefilled, or preselected. A person picks the action and writes the reason.
 - **Roles are the server's.** `src/logic.ts` decides what to offer (moderators see suspensions of up to 7 days), but hiding a button is a courtesy; the server refuses anyway.
 - **Phone first.** Test at 390x844. Tap targets at least 44px, inputs at 16px or more, `env(safe-area-inset-*)` respected. Pictures under review load blurred until tapped.
+- **What can't be undone takes two taps.** Deleting files (hiding a post, deleting profile pictures) and suspending ask again first (`confirm` in `itemActions`).
 - **Pure logic is tested.** Anything that decides (actions per item and role, limits, labels, routes) lives in `src/logic.ts` with `src/logic.test.ts`. The flow is covered by `e2e/safety.spec.ts` on `admin.localhost`.
 
 ## Where things are

@@ -19,10 +19,12 @@ import { everyVisible } from "@terrakin/ui/poll";
 import {
   chips,
   closeOverlay,
+  confirmTwice,
   emptyNote,
   errorLine,
   moreButton,
   openOverlay,
+  overlayShowing,
   sheet,
   toast,
   whileBusy,
@@ -31,7 +33,15 @@ import { timeAgo } from "@terrakin/ui/when";
 import { actProblem, api } from "./api";
 import { savedToken } from "./net";
 import { skeletonCards } from "./post-card";
-import { closesIn, nextCell, type PlanCell, statusWord, tallyBar } from "./town-format";
+import {
+  closedQuorum,
+  closesIn,
+  nextCell,
+  type PlanCell,
+  statusWord,
+  tallyBar,
+  townPaintKey,
+} from "./town-format";
 import { errorCard, type View, type ViewContext } from "./view";
 
 /** How often the page asks for fresh tallies while it's on screen. */
@@ -71,7 +81,7 @@ export function townView(ctx: ViewContext): View {
     class: "paper card town-hero",
     attrs: { "aria-labelledby": "town-title" },
   });
-  const openList = h("div", { class: "proposal-list", attrs: { "aria-live": "polite" } });
+  const openList = h("div", { class: "proposal-list" });
   const queuedTitle = h("h2", { class: "section-title", text: "Waiting in line" });
   const queuedList = h("div", { class: "proposal-list" });
   const board = h("section", {
@@ -128,14 +138,26 @@ export function townView(ctx: ViewContext): View {
     if (destroyed || !t.ok) return;
     town = t.data;
     if (w.ok) commons = commonsOf(w.data);
+    // Only what changed gets drawn again, so a vote you're about to tap stays put.
     paint();
-    paintBoard(false);
+    const board = JSON.stringify(town.board);
+    if (board !== paintedBoard) paintBoard(false);
   }
 
   // ---------- hero and proposals ----------
 
+  /** What the top card and proposals last showed, and the notice board. */
+  let painted = "";
+  let paintedBoard = "";
+
   function paint() {
     if (!town) return;
+    const mapKey = commons
+      ? JSON.stringify([commons.x0, commons.y0, commons.size, [...commons.blocks]])
+      : "";
+    const next = townPaintKey(town, Date.now(), mapKey);
+    if (next === painted) return;
+    painted = next;
     const you = town.you;
     const status = h("p", { class: "town-you" });
     let action: HTMLElement | null = null;
@@ -259,14 +281,17 @@ export function townView(ctx: ViewContext): View {
       }
     }
     if (you && p.author.id === you.residentId && (p.status === "open" || p.status === "queued")) {
-      card.append(
-        h("button", {
-          class: "text-button",
-          attrs: { type: "button" },
-          text: "Withdraw my proposal",
-          on: { click: () => void send({ type: "withdraw", proposal: p.id }, "Withdrawn") },
-        }),
-      );
+      const label = "Withdraw my proposal";
+      const withdraw = h("button", {
+        class: "text-button",
+        attrs: { type: "button" },
+        text: label,
+      });
+      confirmTwice(withdraw, "Tap again to withdraw", async () => {
+        await whileBusy(withdraw, () => send({ type: "withdraw", proposal: p.id }, "Withdrawn"));
+        withdraw.textContent = label;
+      });
+      card.append(withdraw);
     }
     return card;
   }
@@ -302,7 +327,7 @@ export function townView(ctx: ViewContext): View {
         h("span", { class: "dot abstain", text: `${p.tally.abstain} abstain` }),
         h("span", {
           class: `tally-quorum${bar.quorumMet ? " met" : ""}`,
-          text: p.status === "open" ? bar.label : `${bar.counted} of ${bar.quorum} needed`,
+          text: p.status === "open" ? bar.label : closedQuorum(p.tally),
         }),
       ),
     );
@@ -315,19 +340,21 @@ export function townView(ctx: ViewContext): View {
     });
     for (const choice of ["yes", "no", "abstain"] as const) {
       const on = p.yourVote === choice;
-      row.append(
-        h("button", {
-          class: `vote-button v-${choice}${on ? " on" : ""}`,
-          attrs: { type: "button", "data-choice": choice, "aria-pressed": String(on) },
-          text: choice === "yes" ? "Yes" : choice === "no" ? "No" : "Abstain",
-          on: {
-            click: () => {
-              if (on) return;
-              void send({ type: "vote", proposal: p.id, choice }, "Vote counted");
-            },
+      const button = h("button", {
+        class: `vote-button v-${choice}${on ? " on" : ""}`,
+        attrs: { type: "button", "data-choice": choice, "aria-pressed": String(on) },
+        text: choice === "yes" ? "Yes" : choice === "no" ? "No" : "Abstain",
+        on: {
+          click: () => {
+            if (on || busy) return;
+            button.setAttribute("aria-busy", "true");
+            void send({ type: "vote", proposal: p.id, choice }, "Vote counted").finally(() =>
+              button.removeAttribute("aria-busy"),
+            );
           },
-        }),
-      );
+        },
+      });
+      row.append(button);
     }
     return row;
   }
@@ -501,10 +528,12 @@ export function townView(ctx: ViewContext): View {
       );
       const problem = actProblem(r);
       if (problem) {
-        error.textContent = problem;
+        // Closed while it sent: the error line is gone with it.
+        if (overlayShowing(dialog)) error.textContent = problem;
+        else toast(problem);
         return;
       }
-      closeOverlay();
+      closeOverlay(dialog);
       toast("Your proposal is up");
       void refresh();
     });
@@ -548,6 +577,7 @@ export function townView(ctx: ViewContext): View {
       board.replaceChildren(savedToken() ? noticeComposer() : boardHint(), list);
     }
     const notices = town.board;
+    paintedBoard = JSON.stringify(notices);
     list.replaceChildren(
       ...(notices.length > 0
         ? notices.map(noticeEl)
@@ -603,27 +633,31 @@ export function townView(ctx: ViewContext): View {
   }
 
   function noticeEl(n: NoticeView): HTMLElement {
+    let takeDown: HTMLButtonElement | null = null;
+    if (n.canRemove) {
+      const button = h("button", {
+        class: "text-button",
+        attrs: { type: "button" },
+        text: "Take down",
+      });
+      confirmTwice(button, "Tap again to take down", async () => {
+        const r = await whileBusy(button, () => api.removeNotice(n.id));
+        if (destroyed) return;
+        if (!r.ok) {
+          button.textContent = "Take down";
+          return toast(r.message);
+        }
+        if (town) town.board = town.board.filter((b) => b.id !== n.id);
+        paintBoard(false);
+      });
+      takeDown = button;
+    }
     return h(
       "li",
       { class: "notice", attrs: { "data-notice": n.id } },
       h("p", { class: "notice-by" }, personLink(n.author), timeAgo(n.createdAt)),
       h("p", { class: "notice-text", text: n.text }),
-      n.canRemove
-        ? h("button", {
-            class: "text-button",
-            attrs: { type: "button" },
-            text: "Take down",
-            on: {
-              click: async () => {
-                const r = await api.removeNotice(n.id);
-                if (destroyed) return;
-                if (!r.ok) return toast(r.message);
-                if (town) town.board = town.board.filter((b) => b.id !== n.id);
-                paintBoard(false);
-              },
-            },
-          })
-        : null,
+      takeDown,
     );
   }
 

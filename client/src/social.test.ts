@@ -1,4 +1,5 @@
 import type { AuthorView, PostView } from "@terrakin/protocol";
+import { singleAspect } from "@terrakin/ui/media";
 import {
   activeMention,
   appendRichText,
@@ -245,5 +246,20 @@ describe("placeholder banners", () => {
       expect(shape.color).not.toBe("snow");
       expect(shape.color).not.toBe("coal");
     }
+  });
+});
+
+describe("a lone picture's shape before it loads", () => {
+  it("takes the size the server read, then what we saw, within limits", () => {
+    expect(singleAspect({ kind: "image", width: 1200, height: 900 })).toBe(4 / 3);
+    expect(singleAspect({ kind: "image", width: 1000, height: 1000 })).toBe(1);
+    expect(singleAspect({ kind: "image", width: 300, height: 3000 })).toBe(0.8);
+    expect(singleAspect({ kind: "image", width: 1000, height: 1000 }, 1.5)).toBe(1.5);
+  });
+
+  it("falls back to fixed shapes for older uploads, videos, and models", () => {
+    expect(singleAspect({ kind: "image" })).toBe(4 / 3);
+    expect(singleAspect({ kind: "video", width: 100, height: 100 })).toBe(16 / 9);
+    expect(singleAspect({ kind: "model" })).toBe(16 / 10);
   });
 });

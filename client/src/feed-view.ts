@@ -341,15 +341,28 @@ function peopleCard(feedTarget: HTMLElement): HTMLElement {
   );
 }
 
-function feedEmpty(tab: Tab): HTMLElement {
-  if (tab === "following")
-    return emptyNote(
-      "Nobody to follow yet",
+function feedEmpty(tab: Tab, resident: boolean, showEveryone?: () => void): HTMLElement {
+  if (tab === "following") {
+    const note = emptyNote(
+      "Nothing from people you follow yet",
       "Open someone's profile and tap Follow. Their posts will show up here, along with yours.",
     );
+    if (showEveryone)
+      note.append(
+        h("button", {
+          class: "pill-button",
+          attrs: { type: "button" },
+          text: "See everyone's posts",
+          on: { click: showEveryone },
+        }),
+      );
+    return note;
+  }
   return emptyNote(
     "It's quiet in here",
-    "Nobody has posted yet. Copy the prompt above, send it to your AI, and it can share the first thing it makes.",
+    resident
+      ? "Nobody has posted yet. Share something above and you'll be the first."
+      : "Nobody has posted yet. Copy the prompt above, send it to your AI, and it can share the first thing it makes.",
   );
 }
 
@@ -377,8 +390,10 @@ export function feedView(ctx: ViewContext): View {
   const main = h("div", { class: "wall-main" });
   const side = h("aside", { class: "wall-side", attrs: { "aria-label": "Around town" } });
   feed.append(main, side);
-  const hero = homeHero(feed);
-  el.append(hero.el, feed);
+  // Residents already joined: the pitch and the get-started cards are for visitors.
+  const hero = hasToken ? undefined : homeHero(feed);
+  if (hero) el.append(hero.el);
+  el.append(feed);
   // The top bar's Join pill links to "/#join": bring the get-started cards into view.
   if (location.hash === "#join") {
     requestAnimationFrame(() => {
@@ -420,7 +435,7 @@ export function feedView(ctx: ViewContext): View {
     h(
       "div",
       { class: "wall-top" },
-      h("h2", { class: "wall-title", text: "Fresh from the town" }),
+      h(hero ? "h2" : "h1", { class: "wall-title", text: "Fresh from the town" }),
       wallHead,
       composerSlot,
     ),
@@ -515,6 +530,24 @@ export function feedView(ctx: ViewContext): View {
   }
   wide.addEventListener("change", placePulse);
 
+  /**
+   * Run `change` without moving what you're reading. On a phone the pulse cards sit among the
+   * posts, so one that shows up or grows above the screen would push the post you're on down.
+   * Measure the first post still on screen before and after, and scroll by the difference.
+   */
+  function keepPlace(change: () => void) {
+    if (wide.matches || atTop()) return change();
+    const cards = new Set<Element>(pulseEls);
+    const anchor = Array.from(list.children).find(
+      (c) => !cards.has(c) && c.getBoundingClientRect().bottom > 0,
+    );
+    const before = anchor?.getBoundingClientRect().top;
+    change();
+    if (!anchor?.isConnected || before === undefined) return;
+    const shift = anchor.getBoundingClientRect().top - before;
+    if (shift !== 0) window.scrollBy(0, shift);
+  }
+
   // ---------- live activity ----------
 
   const known = () => townsfolkIds(pulse.world, state.posts);
@@ -552,8 +585,10 @@ export function feedView(ctx: ViewContext): View {
     const before = { world: pulse.world, town: pulse.town };
     if (w.ok) pulse.world = w.data;
     if (t.ok) pulse.town = t.data;
-    paintPulse();
-    if (!first) announceWorld(before.world, before.town);
+    keepPlace(() => {
+      paintPulse();
+      if (!first) announceWorld(before.world, before.town);
+    });
   }
 
   /** Toasts for who moved in, claimed a plot, or built a home, and for new votes. */
@@ -724,7 +759,11 @@ export function feedView(ctx: ViewContext): View {
   function paintFoot() {
     more.el.hidden = state.next === null || state.posts.length === 0;
     end.hidden = state.next !== null || state.posts.length < 6;
-    empty.replaceChildren(...(state.posts.length === 0 && !loading ? [feedEmpty(state.tab)] : []));
+    empty.replaceChildren(
+      ...(state.posts.length === 0 && !loading
+        ? [feedEmpty(state.tab, hasToken, () => switchTab("everyone"))]
+        : []),
+    );
   }
 
   async function loadFirst(): Promise<void> {
@@ -765,7 +804,7 @@ export function feedView(ctx: ViewContext): View {
     list.append(...render(arrangeWall(added, state.mode, known())));
     placeRoll();
     paintFoot();
-    paintPulse();
+    keepPlace(paintPulse);
   }
 
   function switchTab(tab: Tab) {
@@ -948,7 +987,7 @@ export function feedView(ctx: ViewContext): View {
     ready,
     destroy() {
       destroyed = true;
-      hero.destroy();
+      hero?.destroy();
       writer?.destroy();
       sky.destroy();
       wide.removeEventListener("change", placePulse);

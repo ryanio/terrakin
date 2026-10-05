@@ -2,7 +2,7 @@
 import type { ModerationLogView } from "@terrakin/protocol";
 import { h } from "@terrakin/ui/dom";
 import { fullDate, relativeTime } from "@terrakin/ui/format";
-import { moreButton, stateCard } from "@terrakin/ui/ui";
+import { moreButton, stateCard, whileBusy } from "@terrakin/ui/ui";
 import { api } from "./api";
 import { actorLabel, logHeadline } from "./logic";
 import { button, type View } from "./view";
@@ -33,9 +33,14 @@ export function logView(): View {
     attrs: { hidden: true },
     text: "That's the start of the log.",
   });
+  const loading = h("p", {
+    class: "field-hint",
+    attrs: { role: "status" },
+    text: "Loading the log…",
+  });
   let cursor: string | undefined;
   const older = moreButton("Show older", () => load(cursor));
-  more.append(older.el, end);
+  more.append(loading, older.el, end);
 
   async function load(before?: string): Promise<string | undefined> {
     const res = await api.log(before);
@@ -49,7 +54,7 @@ export function logView(): View {
         stateCard({
           title: "Couldn't load the log",
           body: res.message,
-          actions: [button("Try again", () => void load())],
+          actions: [button("Try again", (b) => void whileBusy(b, () => load()))],
         }),
       );
       return;
@@ -60,7 +65,11 @@ export function logView(): View {
       );
       return;
     }
-    if (!before) more.replaceChildren(older.el, end);
+    if (!before) {
+      more.replaceChildren(older.el, end);
+      // A first page again (after Try again) starts the list over.
+      list.replaceChildren();
+    }
     list.append(...res.data.entries.map(entryRow));
     cursor = res.data.next ?? undefined;
     older.el.hidden = cursor === undefined;

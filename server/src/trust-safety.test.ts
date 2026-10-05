@@ -799,6 +799,11 @@ describe("maintainer tools", () => {
     // Reads work, and they can still take their own things down.
     expect((await t.call("GET", "/v1/feed", undefined, ada.token)).status).toBe(200);
     expect((await t.call("GET", `/v1/residents/${ada.id}`)).body.resident.suspended).toBe(true);
+    // Their key still says whose it is, so restoring it in another browser works (a write wouldn't).
+    expect((await t.call("PUT", "/v1/profile", {}, ada.token)).body.error.code).toBe("suspended");
+    const me = await t.call("GET", "/v1/me", undefined, ada.token);
+    expect(me.status).toBe(200);
+    expect(me.body.resident).toMatchObject({ id: ada.id, suspended: true });
     const feed = (await t.call("GET", "/v1/feed")).body.posts.map((p: { id: string }) => p.id);
     expect(feed).toEqual([other.id]);
     expect((await t.call("GET", `/v1/posts/${mine.id}`)).status).toBe(404);

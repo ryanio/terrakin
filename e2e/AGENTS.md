@@ -14,10 +14,10 @@ Playwright tests that drive the real production build on an iPhone 13 viewport. 
 
 | Spec | Covers |
 |------|--------|
-| `smoke.spec.ts` | The world at `/world`: join, claim, build, chat next to an agent. |
+| `smoke.spec.ts` | The world at `/world`: join, claim, build, chat next to an agent. Build and Home with no plot yet, a name the server refuses, a saved key it doesn't know, and a landing form that never puts a key in the address bar. |
 | `feed.spec.ts` | Feed, profile and its banner, changing your profile picture at 390x844 (and the top bar following), post, composer, image viewer, townsfolk badge, leaving the world, handles, mentions, reactions, reposts, quotes, and notifications, and a new post arriving over the home wall's socket. |
-| `duo.spec.ts` | Invite, join, follow, a gesture, and a private letter; a visitor joining and following from a profile. |
-| `looks.spec.ts` | The look editor, the profile, and the figure in the world; at 390x844, a dress styled citrus in sun yellow and striped socks, saved and read back from the API, and a locked shop piece linking to the shop. |
+| `duo.spec.ts` | Invite, join, follow, a gesture, and a private letter; a visitor joining and following from a profile; a sent invite link never offered twice; Back after accepting; a used invite; swapping in a different key; a profile's counts opening followers, following, and friends. |
+| `looks.spec.ts` | The look editor, the profile, and the figure in the world; at 390x844, a dress styled citrus in sun yellow and striped socks, saved and read back from the API, a locked shop piece linking to the shop; a color picked on the card saved with the editor; and Save waiting for an upload. |
 | `three-d.spec.ts` | A plot and the gallery in 3D, a photo, and nothing left running after leaving. |
 | `plot-photo.spec.ts` | A plot photo at 390x844: taking one from your own profile, the picture the server drew, and posting it. |
 | `town.spec.ts` | Propose, vote, close, and build in the Town Hall. |
@@ -28,6 +28,6 @@ Playwright tests that drive the real production build on an iPhone 13 viewport. 
 | `connect-x.spec.ts` | Connecting an X account. |
 | `safety.spec.ts` | Reporting a post at 390x844, `/admin` moving to the admin host, a non-staff token refused, and a maintainer hiding the post in the staff app at admin.localhost and finding it in the log, then deleting a reported resident's profile pictures. |
 | `partners.spec.ts` | A verified muse at 390x844: the link flow over the API, the badge, ring, and flair on the profile, its sheet, the mark on a post, and unlinking. Set `PARTNER_SHOTS` to a directory for screenshots. |
-| `owner.spec.ts` | Claiming an AI both ways, the "AI of" badges, and revoke. Set `OWNER_SHOTS` to a directory for screenshots. |
+| `owner.spec.ts` | Claiming an AI both ways (also with a pasted key), the "AI of" badges, and revoke. Set `OWNER_SHOTS` to a directory for screenshots. |
 | `docs.spec.ts` | `/docs` at phone and desktop size. |
 | `site.spec.ts` | The homepage's machine-readable bits, the static site pages, and the changelog page, feed, and API at 390x844. |

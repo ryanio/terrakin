@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { closesIn, nextCell, statusWord, tallyBar } from "./town-format";
+import {
+  closedQuorum,
+  closesIn,
+  nextCell,
+  statusWord,
+  tallyBar,
+  townPaintKey,
+} from "./town-format";
 
 const tally = (yes: number, no: number, abstain: number, quorum = 3) => ({
   yes,
@@ -78,5 +85,36 @@ describe("statusWord", () => {
   it("names every status in plain words", () => {
     expect(statusWord("no_quorum")).toBe("Not enough votes");
     expect(statusWord("failed")).toBe("Didn't pass");
+  });
+});
+
+describe("closedQuorum", () => {
+  it("says the quorum was met instead of counting votes against it", () => {
+    expect(closedQuorum(tally(4, 1, 2))).toBe("Quorum met with 5 votes");
+    expect(closedQuorum(tally(2, 1, 0))).toBe("Quorum met with 3 votes");
+    expect(closedQuorum(tally(1, 0, 4))).toBe("Short of quorum: 1 of 3 votes");
+  });
+});
+
+describe("townPaintKey", () => {
+  const now = Date.UTC(2026, 9, 4, 15, 0, 10);
+  const proposal = (yes: number) =>
+    ({ id: "pr_1", closesAt: "2026-10-04T16:35:00.000Z", tally: tally(yes, 0, 0) }) as never;
+  const town = (yes: number) => ({
+    open: [proposal(yes)],
+    queued: [],
+    you: null,
+    nextClose: "2026-10-04T16:35:00.000Z",
+  });
+
+  it("stays the same when a refresh brings nothing new", () => {
+    expect(townPaintKey(town(1), now)).toBe(townPaintKey(town(1), now + 20_000));
+  });
+
+  it("changes with a vote, the Commons, or a closing time's minute", () => {
+    const key = townPaintKey(town(1), now);
+    expect(townPaintKey(town(2), now)).not.toBe(key);
+    expect(townPaintKey(town(1), now, "map")).not.toBe(key);
+    expect(townPaintKey(town(1), now + 60_000)).not.toBe(key);
   });
 });

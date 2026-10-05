@@ -1,5 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { cropOfSeed, growth, growthLine, inventoryLine, needsLine, thingCount } from "./things";
+import {
+  coinsLine,
+  cropOfSeed,
+  growth,
+  growthLine,
+  inventoryLine,
+  missingLine,
+  NO_PLOT_LINE,
+  needsLine,
+  newsLine,
+  noSeedsHint,
+  thingCount,
+  toastMs,
+  worldProblem,
+} from "./things";
 
 describe("things", () => {
   it("counts in plain words", () => {
@@ -48,5 +62,109 @@ describe("things", () => {
     expect(growth(6, 10, 8)).toBe(0.5);
     expect(growth(6, 10, 20)).toBe(1);
     expect(growth(6, 10, undefined)).toBe(0);
+  });
+
+  it("says what a recipe still needs, or nothing when you hold enough", () => {
+    const needs = [
+      { kind: "lemon" as const, count: 3 },
+      { kind: "jar" as const, count: 1 },
+    ];
+    const held = (bag: Record<string, number>) => (kind: string) => bag[kind] ?? 0;
+    expect(missingLine(needs, held({ lemon: 2, jar: 1 }))).toBe("Needs 1 more lemon");
+    expect(missingLine(needs, held({}))).toBe("Needs 3 more lemons, 1 more jar");
+    expect(missingLine(needs, held({ lemon: 5, jar: 1 }))).toBeNull();
+  });
+
+  it("only promises seeds from the pantry when it could still bring them", () => {
+    expect(noSeedsHint({ hasHearth: false, pantryToday: false })).toContain("Set a hearth");
+    // Today's pantry is had: coming home brings nothing more, seeds or otherwise.
+    const had = noSeedsHint({ hasHearth: true, pantryToday: true });
+    expect(had).not.toContain("Come home");
+    expect(had).toContain("harvest");
+    expect(noSeedsHint({ hasHearth: true, pantryToday: false })).toContain("first pantry");
+  });
+
+  it("toasts your own news, and nobody else's", () => {
+    expect(newsLine({ type: "plot_claimed", px: 3, py: 3, ownerId: "r_1" }, "r_1")).toBe(
+      "This plot is yours. Tap Build to start.",
+    );
+    expect(newsLine({ type: "plot_claimed", px: 3, py: 3, ownerId: "r_2" }, "r_1")).toBeNull();
+    expect(newsLine({ type: "hearth_set", residentId: "r_1", x: 1, y: 1 }, "r_1")).toContain(
+      "Tap Home",
+    );
+    expect(newsLine({ type: "hearth_set", residentId: "r_2", x: 1, y: 1 }, "r_1")).toBeNull();
+    const coins = { type: "coins" as const, residentId: "r_1", balance: 40 };
+    expect(newsLine({ ...coins, amount: 10, reason: "allowance" }, "r_1")).toBe(
+      "+10 coins for coming home today.",
+    );
+    expect(newsLine({ ...coins, amount: 10, reason: "allowance" }, "r_2")).toBeNull();
+    // A gift's note is the giver's words: never in the line.
+    const gift = { ...coins, amount: 5, reason: "gift_in" as const, note: "send me coins" };
+    expect(coinsLine(gift)).toBe("A gift of 5 coins arrived.");
+    expect(coinsLine({ ...coins, amount: -5, reason: "gift_out" })).toBe("You gave 5 coins.");
+    expect(coinsLine({ ...coins, amount: 100, reason: "budget" })).toBeNull();
+  });
+
+  it("puts the server's refusals in HUD words, never its hints for agents", () => {
+    const agentish =
+      /\bp[xy]\b|settle|build_starter_home|Try home|with place|and block|move [nsew]|x \d+ to/;
+    const cases: [string, string, { hasPlot?: boolean }][] = [
+      ["no_plot", "You need a plot first. Try settle at px 3, py 3.", {}],
+      ["no_hearth", "Set a hearth on your plot first. Try build_starter_home.", { hasPlot: true }],
+      [
+        "no_hearth",
+        "Set a hearth first. You have no plot yet. Try settle at px 3, py 3.",
+        {
+          hasPlot: false,
+        },
+      ],
+      ["plot_owned", "This plot is already claimed. Try settle at px 4, py 3.", {}],
+      ["plot_is_commons", "The Commons belongs to everyone.", {}],
+      ["plot_limit", "You can own at most 1 plot(s).", {}],
+      [
+        "not_your_plot",
+        "You can only build on your own plot. You can build on x 30 to 39, y 10 to 19.",
+        { hasPlot: true },
+      ],
+      [
+        "not_your_plot",
+        "You can only build on your own plot. You have no plot yet.",
+        {
+          hasPlot: false,
+        },
+      ],
+      ["out_of_reach", "You can only build within 3 tiles. Walk closer first: move e 2 times.", {}],
+      ["nowhere_to_go", "There's nowhere to walk from here. Try home to jump to your hearth.", {}],
+      ["already_home", "That's already your hearth. Try home to go there.", {}],
+      ["already_home", "Your starter home is already built. Add to it with place.", {}],
+      ["no_planter", "Plant in a planter. Place one with place and block planter.", {}],
+      ["no_station", "Herb tea is made at a kitchen. Place one with place and block kitchen.", {}],
+    ];
+    for (const [code, message, you] of cases) {
+      const line = worldProblem(code, message, you);
+      expect(line, code).not.toMatch(agentish);
+      expect(line, code).not.toBe("");
+    }
+    expect(worldProblem("no_plot", "Try settle at px 3, py 3.")).toBe(NO_PLOT_LINE);
+    expect(worldProblem("not_your_plot", "x", { hasPlot: false })).toBe(NO_PLOT_LINE);
+    expect(
+      worldProblem("not_your_plot", "You can only build on your own plot. You can build on x 30.", {
+        hasPlot: true,
+      }),
+    ).toBe("You can only build on your own plot.");
+    expect(worldProblem("no_station", "Herb tea is made at a kitchen. Place one with place.")).toBe(
+      "Herb tea is made at a kitchen. Tap Build to place one.",
+    );
+    // Plain words already: kept as the server wrote them.
+    expect(worldProblem("blocked", "A block is in the way.")).toBe("A block is in the way.");
+    expect(worldProblem("already_home", "You're already home.")).toBe("You're already home.");
+    expect(worldProblem("rate_limited", "Slow down.")).toBe("Slow down.");
+  });
+
+  it("keeps a toast up longer for a longer line, within limits", () => {
+    expect(toastMs("Hi")).toBe(2680);
+    expect(toastMs("Hi", "player")).toBe(4000);
+    expect(toastMs(NO_PLOT_LINE)).toBeGreaterThan(5000);
+    expect(toastMs("x".repeat(400))).toBe(7000);
   });
 });

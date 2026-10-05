@@ -10,6 +10,7 @@ import { personLink } from "@terrakin/ui/people";
 import { stateCard } from "@terrakin/ui/ui";
 import { api } from "./api";
 import { savedToken } from "./net";
+import { comeHomeButton } from "./purse-view";
 import { growthLine, stackCount, thingCount, thingName } from "./things";
 import { errorCard, type View, type ViewContext } from "./view";
 
@@ -73,6 +74,8 @@ export function inventoryView(ctx: ViewContext): View {
     }
     const held = (kind: string) => stackCount(inv.stacks, kind);
     const staplesFull = held("sugar") >= rules.stapleMax && held("jar") >= rules.stapleMax;
+    // Today's pantry waits at home: the same "come home" the purse page has.
+    const pantryDue = inv.hasHearth && !inv.pantryToday && !staplesFull;
     body.replaceChildren(
       h(
         "section",
@@ -106,6 +109,11 @@ export function inventoryView(ctx: ViewContext): View {
                 ? `Come home today for ${thingCount("sugar", rules.pantrySugar)} and ${thingCount("jar", rules.pantryJars)}.`
                 : "Build a home on your plot to get a pantry each day.",
         }),
+        pantryDue
+          ? comeHomeButton("Come home for the pantry", () => {
+              if (!destroyed) void load();
+            })
+          : null,
       ),
       h(
         "section",
@@ -145,7 +153,11 @@ export function inventoryView(ctx: ViewContext): View {
             )
           : h("p", {
               class: "purse-hint",
-              text: "Empty. Come home to your hearth for the pantry.",
+              text: !inv.hasHearth
+                ? "Empty. Build a home on your plot, then come home to it for the pantry."
+                : inv.pantryToday
+                  ? "Empty. The pantry tops you up again tomorrow."
+                  : "Empty. Come home to your hearth for today's pantry.",
             }),
         h("p", {
           class: "purse-hint",

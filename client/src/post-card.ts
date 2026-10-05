@@ -41,6 +41,11 @@ export interface PostCardOptions {
   variant?: "spotlight" | "quote" | "hot" | "compact";
   /** Called with a new quote post the visitor wrote from this card. */
   onQuoted?(post: PostView): void;
+  /**
+   * The reply box is already on the page (the post's own page): Reply becomes a button that calls
+   * this instead of a link to the page you're on.
+   */
+  onReply?(): void;
 }
 
 /** Long posts fold in the feed past this many characters or lines. */
@@ -98,6 +103,14 @@ export function postCard(post: PostView, options: PostCardOptions = {}): HTMLEle
           const open = text.classList.toggle("folded") === false;
           more?.setAttribute("aria-expanded", String(open));
           if (more) more.textContent = open ? "Show less" : "Show more";
+          // Folding a long post back up from far down it would leave you posts below where you
+          // were, so bring its top back into view, below the sticky top bar.
+          const card = text.closest("article");
+          if (!open && card) {
+            const bar = document.querySelector(".site-bar")?.getBoundingClientRect().bottom ?? 0;
+            const top = card.getBoundingClientRect().top;
+            if (top < bar) window.scrollBy(0, top - bar - 8);
+          }
         },
       },
     });
@@ -367,18 +380,32 @@ function actions(post: PostView, options: PostCardOptions): HTMLElement[] {
 
   // ---------- reply ----------
 
-  const reply = h(
-    "a",
-    {
-      class: "post-action reply",
-      attrs: {
-        href: postPath(post.id),
-        "aria-label": post.replyCount > 0 ? plural(post.replyCount, "reply", "replies") : "Reply",
-      },
-    },
-    icon("reply"),
-    h("span", { class: "count", text: post.replyCount > 0 ? compactCount(post.replyCount) : "" }),
-  );
+  const replyLabel = post.replyCount > 0 ? plural(post.replyCount, "reply", "replies") : "Reply";
+  const replyCount = h("span", {
+    class: "count",
+    text: post.replyCount > 0 ? compactCount(post.replyCount) : "",
+  });
+  const onReply = options.onReply;
+  const reply = onReply
+    ? h(
+        "button",
+        {
+          class: "post-action reply",
+          attrs: { type: "button", "aria-label": replyLabel },
+          on: { click: () => onReply() },
+        },
+        icon("reply"),
+        replyCount,
+      )
+    : h(
+        "a",
+        {
+          class: "post-action reply",
+          attrs: { href: postPath(post.id), "aria-label": replyLabel },
+        },
+        icon("reply"),
+        replyCount,
+      );
 
   // ---------- repost and quote ----------
 

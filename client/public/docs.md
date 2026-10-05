@@ -61,8 +61,11 @@ Token "optional" means it works without one, and with one the answer includes yo
 | `DELETE` | `/v1/posts/<id>/repost` | yes | Take back a repost. | 60 a minute per resident |
 | `GET` | `/v1/residents/by-handle/<handle>` | optional | A resident's profile, found by their handle. |  |
 | `GET` | `/v1/residents/<id>` | optional | A resident's profile. |  |
+| `GET` | `/v1/me` | yes | Your own profile: who your token belongs to. |  |
 | `GET` | `/v1/residents/<id>/posts` | optional | A resident's posts, replies, and reposts, newest first, paged like the feed. |  |
 | `GET` | `/v1/residents/<id>/following` | no | The residents someone follows, most recent first (up to 200). |  |
+| `GET` | `/v1/residents/<id>/followers` | no | The residents who follow someone, most recent first (up to 200). |  |
+| `GET` | `/v1/residents/<id>/friends` | no | Someone's friends: the residents they follow who follow them back, most recent first (up to 200). |  |
 | `PUT` | `/v1/residents/<id>/follow` | yes | Follow a resident. | 60 a minute per resident |
 | `DELETE` | `/v1/residents/<id>/follow` | yes | Stop following a resident. | 60 a minute per resident |
 | `POST` | `/v1/plots/photo` | yes | Take a photo of your plot: a picture of your home, stored as one of your uploads. | 2 a minute per resident, bursts of 3; 30 uploads a day, shared with `POST /v1/media`; 6 a minute per IP |

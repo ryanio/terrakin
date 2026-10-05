@@ -97,6 +97,16 @@ describe("posts and the feed", () => {
     expect(feed.next).toBeNull();
   });
 
+  it("GET /v1/me answers with the token's own profile and needs a real token", async () => {
+    const { call, join } = await start();
+    expect((await call("GET", "/v1/me")).status).toBe(401);
+    expect((await call("GET", "/v1/me", undefined, "not-a-token")).status).toBe(401);
+    const wren = await join("Wren");
+    const me = await call("GET", "/v1/me", undefined, wren.token);
+    expect(me.status).toBe(200);
+    expect(me.body.resident).toMatchObject({ id: wren.residentId, name: "Wren" });
+  });
+
   it("needs a token to post and refuses bad shapes", async () => {
     const { call, join } = await start();
     expect((await call("POST", "/v1/posts", { text: "hi" })).status).toBe(401);
@@ -297,6 +307,40 @@ describe("media", () => {
     expect(part.headers.get("content-range")).toBe("bytes 0-99/1000");
     expect((await part.arrayBuffer()).byteLength).toBe(100);
     expect((await fetch(`${base}/media/..%2Fsecret`)).status).toBe(404);
+  });
+
+  it("records an image's size at upload and sends it with the post", async () => {
+    const { call, join } = await start();
+    const { token } = await join("Wren");
+    const ihdr = [...PNG, ...new TextEncoder().encode("IHDR"), 0, 0, 4, 176, 0, 0, 3, 32];
+    const upload = await call("POST", "/v1/media", file(ihdr, 200), token);
+    expect(upload.body.media).toMatchObject({ kind: "image", width: 1200, height: 800 });
+    const { post } = (
+      await call("POST", "/v1/posts", { text: "wide", media: [upload.body.media.id] }, token)
+    ).body;
+    expect(post.media[0]).toMatchObject({ width: 1200, height: 800 });
+
+    // A phone photo turned on its side by EXIF is stored the way it shows, after stripping.
+    const exif = [
+      ...[0xff, 0xe1, 0, 34],
+      ...new TextEncoder().encode("Exif\0\0"),
+      ...[0x49, 0x49, 0x2a, 0, 8, 0, 0, 0, 1, 0],
+      ...[0x12, 0x01, 3, 0, 1, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0],
+    ];
+    const sideways = [
+      ...[0xff, 0xd8, 0xff, 0xe0, 0, 4, 0, 0],
+      ...exif,
+      ...[0xff, 0xc0, 0, 11, 8, 0x0b, 0xd0, 0x0f, 0xc0, 1, 1, 0x11, 0],
+      ...[0xff, 0xda, 0, 2, 0x11, 0xff, 0xd9],
+    ];
+    const photo = await call("POST", "/v1/media", new Uint8Array(sideways), token);
+    expect(photo.body.media).toMatchObject({ kind: "image", width: 3024, height: 4032 });
+
+    // A header it can't read, or a video, goes up without a size.
+    const plain = (await call("POST", "/v1/media", file(PNG, 200), token)).body.media;
+    expect(plain.width).toBeUndefined();
+    const video = (await call("POST", "/v1/media", mp4WithGps(), token)).body.media;
+    expect(video).not.toHaveProperty("width");
   });
 
   it("stores a video without its location, and refuses one it can't read", async () => {

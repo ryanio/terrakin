@@ -30,6 +30,7 @@ export {
   type DecorKind,
   GOOD_KINDS,
   type GoodKind,
+  harvestFits,
   type InventoryRead,
   ITEM_ID_PATTERN,
   ITEM_INFO,

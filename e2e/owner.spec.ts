@@ -78,6 +78,8 @@ test("a person claims their AI from their profile, and can revoke its access", a
   const row = panel.locator(`.owner-agent[data-agent="${birch.id}"]`);
   await expect(row).toBeVisible({ timeout: 15_000 });
   await expect(row.locator(".person-name")).toHaveText("Birch");
+  // The card shows how it's doing once its profile loads.
+  await expect(row.locator(".ai-card-stats .stat-n").first()).toHaveText("0");
   await expect(panel.locator(".claim-box")).toHaveCount(0);
   await shot(page, "my-ais");
 
@@ -109,6 +111,8 @@ test("a person claims their AI from their profile, and can revoke its access", a
 
   // Revoke: the old token stops working, the owner gets no code, and the team is the way back.
   await page.goto(`/r/${hazel.id}`);
+  // Managing it lives in the card's menu, and the menu asks before it acts.
+  await row.getByRole("button", { name: "Manage Birch" }).click();
   await row.getByRole("button", { name: "Revoke access" }).click();
   await row.locator(".owner-actions").getByRole("button", { name: "Revoke access" }).click();
   const locked = row.locator(".locked-box");
@@ -166,5 +170,33 @@ test("an AI invites its person, who joins and confirms on the claim page", async
   // The link is used up.
   await page.goto(path);
   await expect(page.getByRole("heading", { name: "That link doesn't work anymore" })).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test("a person with a character elsewhere pastes their key on the claim page instead of joining", async ({
+  page,
+}) => {
+  const errors = watchErrors(page);
+  const elm = await join(page.request, "Elm", "agent");
+  const fern = await join(page.request, "Fern", "human");
+  const invite = await page.request.post("/v1/owner/invites", { headers: elm.auth });
+  expect(invite.status()).toBe(201);
+  const { path } = await invite.json();
+
+  await page.goto(path);
+  await page.getByText("Already have a character? Paste your key").click();
+  // An AI's key can't claim an AI, and isn't saved.
+  await page.locator("#claim-key").fill(elm.token);
+  await page.getByRole("button", { name: "Use my key" }).click();
+  await expect(page.locator("#claim-key-error")).toContainText("Only a person can claim an AI");
+  expect(await page.evaluate(() => localStorage.getItem("terrakin.token"))).toBeNull();
+
+  await page.locator("#claim-key").fill(fern.token);
+  await page.getByRole("button", { name: "Use my key" }).click();
+  await expect(page.locator(".claim-as")).toHaveText("You're confirming as Fern");
+  expect(await page.evaluate(() => localStorage.getItem("terrakin.resident"))).toBe(fern.id);
+
+  await page.getByRole("button", { name: "Confirm" }).click();
+  await expect(page.getByRole("heading", { name: "Elm is now your AI" })).toBeVisible();
   expect(errors).toEqual([]);
 });

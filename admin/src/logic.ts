@@ -62,6 +62,11 @@ export interface ItemAction {
   /** The post or resident id the action goes to. Dismiss uses the item's own kind and id. */
   target: string;
   primary: boolean;
+  /**
+   * For what can't be undone (deleting files, a suspension): the button's label after the first
+   * tap, and only the second tap acts.
+   */
+  confirm?: string;
 }
 
 /** The resident an item is about: the reported resident, or the author of what was reported. */
@@ -81,11 +86,23 @@ export function itemActions(item: ReportQueueItem, role: StaffRole = "maintainer
   const out: ItemAction[] = [];
   if (item.kind === "post" && target.exists) {
     if (target.hidden === "no") {
-      out.push({ kind: "hide", label: "Hide post", target: item.id, primary: true });
+      out.push({
+        kind: "hide",
+        label: "Hide post",
+        target: item.id,
+        primary: true,
+        confirm: "Tap again to hide it and delete its files",
+      });
     } else {
       // An automatic hide keeps the files; hiding it for good deletes them.
       if (target.hidden === "auto") {
-        out.push({ kind: "hide", label: "Confirm hide", target: item.id, primary: true });
+        out.push({
+          kind: "hide",
+          label: "Confirm hide",
+          target: item.id,
+          primary: true,
+          confirm: "Tap again to delete the files",
+        });
       }
       out.push({ kind: "unhide", label: "Show post again", target: item.id, primary: false });
     }
@@ -93,7 +110,13 @@ export function itemActions(item: ReportQueueItem, role: StaffRole = "maintainer
   const person = personOf(item);
   if (person) {
     if (!target.suspended) {
-      out.push({ kind: "suspend", label: "Suspend", target: person, primary: false });
+      out.push({
+        kind: "suspend",
+        label: "Suspend",
+        target: person,
+        primary: false,
+        confirm: "Tap again to suspend them",
+      });
     } else if (maintainer || !target.suspensionLocked) {
       out.push({ kind: "unsuspend", label: "End suspension", target: person, primary: false });
     }
@@ -115,6 +138,7 @@ export function itemActions(item: ReportQueueItem, role: StaffRole = "maintainer
         label: "Delete profile pictures",
         target: item.id,
         primary: false,
+        confirm: "Tap again to delete the pictures",
       });
     }
   }

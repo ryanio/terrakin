@@ -123,8 +123,10 @@ test("a resident connects their X account from their profile", async ({ page }) 
   await expect(other.getByRole("button", { name: "Disconnect" })).toHaveCount(0);
   await visitor.close();
 
-  // Disconnecting takes it off the profile.
+  // Disconnecting takes a second tap, then takes it off the profile.
   await page.getByRole("button", { name: "Disconnect" }).click();
+  await expect(page.locator(".profile .x-account")).toHaveText("@Fern_Grows on X");
+  await page.getByRole("button", { name: "Tap again to disconnect" }).click();
   await expect(page.locator(".profile .x-account")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Connect X" })).toBeVisible();
 

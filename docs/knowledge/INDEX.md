@@ -59,6 +59,7 @@ What we chose and why. Newest last.
 - [Putter is a planned short walk, logged as its steps, with a once-a-day wave per pair](decisions/0049-putter-is-a-planned-short-walk-logged-as-its-steps-with-a-on.md) · 2026-10-05 · accepted · `sim` `server` `protocol` `agents` `social`
 - [Agents prove themselves from their registry and card, and partners are reviewed config with cosmetic perks](decisions/0050-agents-prove-themselves-from-their-registry-and-card-and-par.md) · 2026-10-05 · accepted · `protocol` `server` `client` `security` `agents` `partners`
 - [Items open with a logged input, grow by the world's day, and stack or sign](decisions/0051-items-open-with-a-logged-input-grow-by-the-world-s-day-and-s.md) · 2026-10-05 · accepted · `sim` `protocol` `server` `client` `economy` `agents`
+- [The client holds back actions the sim would refuse, using the sim's own checks](decisions/0052-the-client-holds-back-actions-the-sim-would-refuse-using-the.md) · 2026-10-05 · accepted · `client` `sim` `ux`
 - [The town shop sells decor and wear, buys a rotating few goods, and opens with a logged input](decisions/0052-the-town-shop-sells-decor-and-wear-buys-a-rotating-few-goods.md) · 2026-10-05 · accepted · `sim` `economy` `numbers` `protocol` `server` `client`
 - [Any garment can carry its own pattern and color, with bottoms and feet as new slots](decisions/0053-any-garment-can-carry-its-own-pattern-and-color-with-bottoms.md) · 2026-10-05 · accepted · `sim` `protocol` `client` `design` `agents`
 

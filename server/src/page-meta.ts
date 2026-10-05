@@ -60,6 +60,11 @@ const PATTERNS: [RegExp, (m: RegExpExecArray) => Page][] = [
   [new RegExp(`^/r/${ID}$`), (m) => ({ name: "profile", id: m[1] ?? "" })],
   // The plot in 3D shares its profile's meta and canonical.
   [new RegExp(`^/r/${ID}/3d$`), (m) => ({ name: "profile", id: m[1] ?? "" })],
+  // Followers, following, and friends share their profile's meta too.
+  [
+    new RegExp(`^/r/${ID}/(followers|following|friends)$`),
+    (m) => ({ name: "profile", id: m[1] ?? "" }),
+  ],
   // The hidden 3D gallery is an app view like the world.
   [/^\/gallery\/3d$/, () => ({ name: "world" })],
   [/^\/u\/([A-Za-z][A-Za-z0-9_]{2,19})$/, (m) => ({ name: "handle", handle: m[1] ?? "" })],

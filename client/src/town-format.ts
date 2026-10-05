@@ -3,7 +3,7 @@
  * editor's tap cycle. The server decides every result; these only describe its numbers.
  */
 
-import type { TallyView } from "@terrakin/protocol";
+import type { TallyView, TownResponse } from "@terrakin/protocol";
 import { BUILDING_BLOCKS, type BuildingBlock } from "@terrakin/sim";
 import { plural } from "@terrakin/ui/format";
 
@@ -45,6 +45,31 @@ export function tallyBar(t: TallyView): TallyBar {
       ? "Passing"
       : "Not passing";
   return { yes, no, abstain, counted, quorum: t.quorum, quorumMet, label };
+}
+
+/** The quorum line under a closed proposal: whether it got enough yes and no votes to count. */
+export function closedQuorum(t: TallyView): string {
+  const counted = t.yes + t.no;
+  return counted >= t.quorum
+    ? `Quorum met with ${plural(counted, "vote", "votes")}`
+    : `Short of quorum: ${counted} of ${t.quorum} votes`;
+}
+
+/**
+ * Everything the Town Hall's top card and proposal lists show, as one string, so a refresh that
+ * brings nothing new leaves the page alone. The closing times are in it as words, so the page
+ * still repaints when "Closes in 35 minutes" turns into 34. `extra` is anything else the cards
+ * draw from, like the Commons map.
+ */
+export function townPaintKey(
+  town: Pick<TownResponse, "open" | "queued" | "you" | "nextClose">,
+  now: number,
+  extra = "",
+): string {
+  const clocks = [town.nextClose, ...town.open.map((p) => p.closesAt)].map((at) =>
+    at ? closesIn(at, now) : "",
+  );
+  return JSON.stringify([town.open, town.queued, town.you, town.nextClose, clocks, extra]);
 }
 
 /** "Closes in 1 day, 4 hours", "Closes in 35 minutes", or "Closing now". */

@@ -242,9 +242,15 @@ const PARENT_PARAGRAPHS = 2;
 
 /**
  * The quoted post as a small nested card, or a note that it's gone. `parent` shows the post a
- * reply answers instead: the same card, cut to its first paragraphs.
+ * reply answers instead: the same card, cut to its first paragraphs. With `interactive: false`
+ * (the quote in the composer) nothing in it is a link or a button, so a tap can't leave the
+ * dialog or change the page under it.
  */
-export function quoteEmbed(quote: QuotedPostView | null, parent = false): HTMLElement {
+export function quoteEmbed(
+  quote: QuotedPostView | null,
+  parent = false,
+  o: { interactive?: boolean } = {},
+): HTMLElement {
   const kind = parent ? "Replied-to post" : "Quoted post";
   const classes = parent ? "quote-card parent-card" : "quote-card";
   if (!quote)
@@ -273,6 +279,16 @@ export function quoteEmbed(quote: QuotedPostView | null, parent = false): HTMLEl
     text,
     mediaGrid(quote.media.slice(0, 1), quote.author.name),
   );
+  if (o.interactive === false) {
+    // The same words and look, as plain text. The picture stays, but tapping it opens nothing.
+    for (const a of card.querySelectorAll("a")) {
+      const span = h("span", { class: a.className });
+      span.append(...a.childNodes);
+      a.replaceWith(span);
+    }
+    for (const grid of card.querySelectorAll<HTMLElement>(".media-grid")) grid.inert = true;
+    return card;
+  }
   // Tapping anywhere else on the card opens the quoted post, through the router like any link.
   card.addEventListener("click", (e) => {
     if (e.target instanceof Element && e.target.closest("a, button, video, .media-grid")) return;

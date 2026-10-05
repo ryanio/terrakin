@@ -44,20 +44,40 @@ export function mediaGrid(media: readonly MediaView[], label: string): HTMLEleme
     else cell.append(modelTile(item));
     grid.append(cell);
   }
-  if (layout === "single") {
-    const only = items[0];
-    const aspect = only && only.kind === "image" ? knownAspect.get(only.url) : undefined;
-    grid.style.aspectRatio = String(
-      aspect ?? (only?.kind === "video" ? 16 / 9 : only?.kind === "model" ? 16 / 10 : 4 / 3),
-    );
+  const only = items[0];
+  if (layout === "single" && only) {
+    grid.style.aspectRatio = String(singleAspect(only, knownAspect.get(only.url)));
   }
   return grid;
+}
+
+/**
+ * The shape of a post's only picture, video, or model before it loads. An image takes the size
+ * the server read at upload, or the one we saw last time (`seen`), within limits; older uploads
+ * and everything else get a fixed shape. Pure, so tests pin it.
+ */
+export function singleAspect(
+  item: Pick<MediaView, "kind" | "width" | "height">,
+  seen?: number,
+): number {
+  if (item.kind === "video") return 16 / 9;
+  if (item.kind === "model") return 16 / 10;
+  if (seen !== undefined) return seen;
+  if (item.width && item.height) return clampAspect(item.width, item.height);
+  return 4 / 3;
 }
 
 function imageButton(item: MediaView, all: MediaView[], label: string, single: boolean) {
   const img = h("img", {
     class: "media-img",
-    attrs: { src: item.url, alt: "", loading: "lazy", decoding: "async", width: 800, height: 600 },
+    attrs: {
+      src: item.url,
+      alt: "",
+      loading: "lazy",
+      decoding: "async",
+      width: item.width ?? 800,
+      height: item.height ?? 600,
+    },
   });
   img.addEventListener("load", () => {
     const aspect = clampAspect(img.naturalWidth, img.naturalHeight);

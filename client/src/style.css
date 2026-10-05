@@ -502,7 +502,7 @@ body.in-world .veil {
   flex-wrap: wrap;
   justify-content: center;
   align-items: center;
-  gap: 4px 10px;
+  gap: 4px 22px;
   padding: 8px 16px calc(24px + env(safe-area-inset-bottom));
   font-size: 14px;
   color: var(--ink-soft);
@@ -513,6 +513,11 @@ body.in-world .veil {
   align-items: center;
   min-height: 44px;
   font-weight: 600;
+}
+
+/* The links wrap, and a dot between groups would dangle at a line's end: space them instead. */
+.foot > [aria-hidden="true"] {
+  display: none;
 }
 
 /* Desktop: the card and the notes sit side by side. */
@@ -913,7 +918,8 @@ body.in-world .veil {
   text-decoration: underline;
 }
 
-#feed {
+#feed,
+#join {
   outline: none;
   scroll-margin-top: calc(76px + env(safe-area-inset-top));
 }
@@ -1026,6 +1032,83 @@ body.in-world .veil {
   background: var(--paper-fill);
   color: var(--ink);
   box-shadow: var(--shadow-pill);
+}
+
+/* /r/:id/followers, /following, /friends: a three-way switch with counts, then the people. */
+.people-page {
+  display: grid;
+  gap: 14px;
+}
+
+.people-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 3px;
+  padding: 3px;
+  border-radius: 18px;
+  background: rgba(236, 220, 192, 0.42);
+  border: 1px solid rgba(220, 200, 165, 0.6);
+}
+
+.people-tab {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  min-height: 56px;
+  padding: 4px 6px;
+  border-radius: 15px;
+  font-size: 13.5px;
+  font-weight: 650;
+  color: var(--ink-soft);
+  text-decoration: none;
+}
+
+.people-tab-n {
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.people-tab[aria-current="page"] {
+  background: var(--paper-fill);
+  color: var(--ink);
+  box-shadow: var(--shadow-pill);
+}
+
+.people-list {
+  list-style: none;
+  display: grid;
+  margin: 0;
+  padding: 4px 16px;
+  border-radius: var(--r-card);
+  background: var(--paper-fill);
+  border: 1px solid var(--paper-edge);
+}
+
+.people-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 10px;
+  min-height: 60px;
+  padding: 8px 0;
+}
+
+.people-row + .people-row {
+  border-top: 1px dashed var(--paper-edge);
+}
+
+.people-person {
+  min-width: 0;
+  font-weight: 650;
+}
+
+.people-handle {
+  font-size: 14px;
+  color: var(--ink-soft);
 }
 
 .feed-heading {
@@ -2045,10 +2128,13 @@ button.profile-avatar.editable:disabled {
   overflow-wrap: anywhere;
 }
 
+/* Even columns, however many counts there are, so five still fit on a phone. */
 .stats {
   list-style: none;
-  display: flex;
-  gap: 28px;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 8px;
   margin: 18px 0 0;
   padding: 14px 0 0;
   border-top: 1.5px dashed var(--paper-edge);
@@ -2057,6 +2143,13 @@ button.profile-avatar.editable:disabled {
 .stat {
   display: grid;
   gap: 0;
+}
+
+/* A count that opens a list: it reads as the count, with no link styling. */
+.stat-link {
+  display: grid;
+  color: inherit;
+  text-decoration: none;
 }
 
 .stat-n {
@@ -2071,9 +2164,18 @@ button.profile-avatar.editable:disabled {
 }
 
 .stat-label {
+  overflow: hidden;
   font-size: 13.5px;
   font-weight: 600;
   color: var(--ink-soft);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 419px) {
+  .stat-label {
+    font-size: 12.5px;
+  }
 }
 
 /* ---------- post page ---------- */
@@ -3126,21 +3228,7 @@ dialog.model-viewer {
   text-decoration: none;
 }
 
-/* Give coins, or a thing, on a profile. */
-.coin-gift,
-.thing-gift {
-  display: grid;
-  gap: 10px;
-  margin-top: 4px;
-}
-
-.coin-open,
-.thing-open {
-  justify-self: start;
-  gap: 6px;
-  color: var(--coin-deep);
-}
-
+/* Give coins, or a thing, on a profile: buttons in the card's send row, forms below it. */
 .coin-open .icon,
 .thing-open .icon {
   color: var(--coin);
@@ -3346,8 +3434,29 @@ dialog.model-viewer {
   }
 }
 
+/* The page can zoom, but not from the world's controls: a quick double tap on the d-pad or a pinch
+   on a button would zoom the whole HUD away. The canvas has its own touch-action: none; the
+   d-pad, the action buttons, and the two top pills have none too, and the palette and the chat
+   only scroll. */
 .hud > * {
   pointer-events: auto;
+}
+
+/* Centered while a returning resident waits for a server that isn't answering. */
+.world-wait {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  max-width: calc(100% - 32px);
+  margin: 0;
+  padding: 14px 20px;
+  border-radius: var(--r-card);
+  font-size: 16px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--ink);
+  pointer-events: none;
 }
 
 .status {
@@ -3377,6 +3486,7 @@ dialog.model-viewer {
   margin: 0;
   padding: 0;
   border: 0;
+  touch-action: none;
 }
 
 .dpad button {
@@ -3467,6 +3577,7 @@ dialog.model-viewer {
   font-weight: 650;
   color: var(--ink);
   white-space: nowrap;
+  touch-action: none;
   transition:
     transform 0.1s ease,
     background 0.15s ease,
@@ -3506,6 +3617,7 @@ dialog.model-viewer {
   max-width: calc(100vw - 28px - env(safe-area-inset-left) - env(safe-area-inset-right));
   overflow-x: auto;
   scrollbar-width: none;
+  touch-action: pan-x;
   gap: 4px;
   padding: 5px;
   border-radius: 999px;
@@ -3559,6 +3671,7 @@ dialog.model-viewer {
   left: calc(12px + env(safe-area-inset-left));
   padding: 0 16px 0 12px;
   text-decoration: none;
+  touch-action: none;
 }
 
 .chat {
@@ -3572,6 +3685,7 @@ dialog.model-viewer {
   flex-direction: column;
   padding: 12px;
   border-radius: var(--r-card);
+  touch-action: pan-y;
 }
 
 .chat-log {
@@ -3579,6 +3693,7 @@ dialog.model-viewer {
   margin: 0 0 10px;
   padding: 2px 4px;
   overflow-y: auto;
+  touch-action: pan-y;
   overflow-wrap: anywhere;
   font-size: 15px;
   line-height: 1.4;
@@ -4014,6 +4129,15 @@ a.btn-primary {
   margin-top: 6px;
 }
 
+/* The server's answer rides above the sticky button, on paper so it reads over the form. */
+.onboard .join-submit .form-error {
+  margin: 0 0 8px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: var(--paper);
+  box-shadow: 0 2px 10px rgba(43, 38, 32, 0.12);
+}
+
 .onboard-foot {
   margin-top: 12px;
   text-align: center;
@@ -4174,8 +4298,8 @@ a.btn-primary {
 }
 
 .streak-line {
-  margin: 0;
-  font-size: 14.5px;
+  margin: -2px 0 0;
+  font-size: 13.5px;
   font-weight: 600;
   color: var(--ink-soft);
 }
@@ -4188,8 +4312,44 @@ a.btn-primary {
   content: "🔥 ";
 }
 
-.write-letter {
-  justify-self: start;
+/* Letter, coins, a thing: one even row under a divider. On a phone the letter spans the row. */
+.together-sends {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--paper-edge);
+}
+
+.together-sends > .pill-button {
+  justify-content: center;
+  gap: 6px;
+  min-height: 48px;
+  padding-inline: 10px;
+}
+
+.together-sends .write-letter {
+  grid-column: 1 / -1;
+}
+
+.together-sends > [aria-expanded="true"] {
+  border-color: var(--clay);
+  background: #fff3e2;
+}
+
+.together-sends > .write-letter .icon {
+  color: var(--clay);
+}
+
+@media (min-width: 560px) {
+  .together-sends {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .together-sends .write-letter {
+    grid-column: auto;
+  }
 }
 
 .join-follow {
@@ -4465,6 +4625,7 @@ a.btn-primary {
   top: calc(12px + env(safe-area-inset-top));
   right: calc(12px + env(safe-area-inset-right));
   padding: 0 16px 0 12px;
+  touch-action: none;
 }
 
 .restore {
@@ -4492,6 +4653,25 @@ a.btn-primary {
 #restore-key {
   flex: 1;
   min-width: 0;
+}
+
+/* The world's chunk failed to load (main.ts): say so above the join form, with a Reload button. */
+.world-reload {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: #fff3e2;
+  color: var(--clay-deep);
+  font-weight: 600;
+}
+
+.world-reload p {
+  margin: 0;
 }
 
 /* ---------- your look (look-editor.ts) ---------- */
@@ -6637,6 +6817,191 @@ a.profile-owner:hover .owner-name {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+/* My AIs: each AI as a big card with its banner, who it is, and its counts. */
+.ai-card {
+  position: relative;
+  display: block;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 20px;
+  background: #fffdf8;
+  border: 1px solid var(--paper-edge);
+  box-shadow: 0 10px 28px -22px rgba(92, 60, 30, 0.6);
+}
+
+.ai-card-banner {
+  position: relative;
+  display: block;
+  aspect-ratio: 3 / 1;
+  overflow: hidden;
+  background: var(--paper-fill);
+  border-bottom: 1px solid var(--paper-edge);
+}
+
+.ai-card .ai-card-banner > img,
+.ai-card .ai-card-banner > .banner-art {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ai-card-body {
+  display: grid;
+  gap: 6px;
+  padding: 0 16px 16px;
+}
+
+.ai-card-top {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: -32px;
+}
+
+.ai-card-avatar {
+  position: relative;
+  z-index: 1;
+  border-radius: 50%;
+}
+
+.ai-card-avatar .avatar.lg {
+  --size: 72px;
+  border-width: 4px;
+}
+
+.ai-card-more {
+  margin-bottom: 2px;
+}
+
+.ai-card .menu-item.calm {
+  color: var(--ink);
+}
+
+.ai-card-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 0;
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.15;
+  font-variation-settings:
+    "opsz" 36,
+    "SOFT" 100;
+  overflow-wrap: anywhere;
+}
+
+.ai-card-name a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.ai-card-name a:hover {
+  text-decoration: underline;
+}
+
+.ai-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+  margin: 0;
+}
+
+.ai-card-handle {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.ai-card-meta .presence {
+  font-size: 13.5px;
+}
+
+.ai-card-note {
+  display: -webkit-box;
+  margin: 4px 0 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
+
+/* Even columns (from .stats), so the numbers line up from card to card. */
+.ai-card-stats {
+  margin-top: 10px;
+}
+
+.ai-card-stats .stat-n {
+  font-size: 22px;
+}
+
+.ai-card-stats .stat-label {
+  font-size: 12.5px;
+}
+
+.ai-card-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.ai-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--paper-edge);
+  background: var(--paper-fill);
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--ink-soft);
+}
+
+.ai-chip.streak::before {
+  content: "🔥";
+  margin-right: 4px;
+}
+
+.ai-chip.warn {
+  border-color: rgba(180, 83, 47, 0.35);
+  background: rgba(180, 83, 47, 0.08);
+  color: var(--danger);
+}
+
+.ai-card-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.ai-card .owner-actions {
+  margin-top: 6px;
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--paper-fill);
+}
+
+.ai-card .owner-actions[hidden] {
+  display: none;
+}
+
+.ai-card .owner-extra:empty {
+  display: none;
 }
 
 .owner-ask {

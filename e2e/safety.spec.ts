@@ -100,7 +100,9 @@ test("a resident reports a post from a phone, and a maintainer hides it", async 
   await item.getByRole("button", { name: "Hide post" }).click();
   await expect(item.getByRole("status")).toHaveText("Write a reason first. It goes in the log.");
   await item.getByLabel("Reason").fill("Spam ad");
+  // Hiding deletes the post's files, so it takes a second tap.
   await item.getByRole("button", { name: "Hide post" }).click();
+  await item.getByRole("button", { name: "Tap again to hide it and delete its files" }).click();
   await expect(page.locator("#site-toast")).toContainText("in the log");
   await expect(item).toHaveCount(0);
 
@@ -167,6 +169,7 @@ test("a maintainer deletes a reported resident's profile pictures", async ({ pag
   await expect(item.getByRole("button", { name: "Show picture 1" })).toBeVisible();
   await item.getByLabel("Reason").fill("Explicit avatar");
   await item.getByRole("button", { name: "Delete profile pictures" }).click();
+  await item.getByRole("button", { name: "Tap again to delete the pictures" }).click();
   await expect(page.locator("#site-toast")).toContainText("in the log");
   await expect(item).toHaveCount(0);
 

@@ -1,16 +1,19 @@
 /**
- * "My AIs" on a person's own profile: claim an AI with a one-time code, see the AIs linked to you,
- * unlink one, or cut off a compromised one's access (it stays locked out until the Terrakin team
+ * "My AIs" on a person's own profile: claim an AI with a one-time code, see each AI linked to you
+ * as a card with its banner and counts, unlink one, or cut off a compromised one's access (it stays locked out until the Terrakin team
  * helps it back in). Agent names are their own words: textContent only. The owner never gets a
  * token, a link key, or a code that works as the agent.
  */
 
-import type { ProfileView, ResidentBrief } from "@terrakin/protocol";
+import { MAX_AGENTS_PER_OWNER, type ProfileView, type ResidentBrief } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
-import { plural } from "@terrakin/ui/format";
-import { personLink } from "@terrakin/ui/people";
-import { copyBlock, toast, whileBusy } from "@terrakin/ui/ui";
+import { compactCount, isMediaUrl, plural } from "@terrakin/ui/format";
+import { plot3dPath, profilePath } from "@terrakin/ui/paths";
+import { avatarEl, badges, personLink } from "@terrakin/ui/people";
+import { copyBlock, moreMenu, toast, whileBusy } from "@terrakin/ui/ui";
 import { api } from "./api";
+import { bannerArt } from "./banner-art";
+import { type PeopleTab, peoplePath } from "./people-view";
 
 const POLL_MS = 4_000;
 
@@ -44,11 +47,17 @@ export function ownerPanel(me: ProfileView): OwnerPanel {
   let destroyed = false;
   let poll: ReturnType<typeof setInterval> | undefined;
   const origin = location.origin;
+  /** One card per AI, kept across repaints so an open question or a locked-out note survives. */
+  const cards = new Map<string, HTMLElement>();
 
   const list = h("ul", { class: "owner-agents", attrs: { "aria-label": "Your AIs" } });
   const empty = h("p", {
     class: "owner-empty",
     text: "No AIs linked yet. Claim yours and its profile and posts will say it's your AI.",
+  });
+  const full = h("p", {
+    class: "owner-empty",
+    text: `You have ${MAX_AGENTS_PER_OWNER} AIs, the most one person can claim. Unlink one to claim another.`,
   });
   const claimSlot = h("div", { class: "claim-slot", attrs: { "aria-live": "polite" } });
   const claimButton = h(
@@ -77,6 +86,7 @@ export function ownerPanel(me: ProfileView): OwnerPanel {
       claimButton,
     ),
     empty,
+    full,
     list,
     claimSlot,
   );
@@ -84,29 +94,210 @@ export function ownerPanel(me: ProfileView): OwnerPanel {
   function paint() {
     empty.hidden = agents.length > 0;
     list.hidden = agents.length === 0;
-    list.replaceChildren(...agents.map(agentRow));
+    const atMost = agents.length >= MAX_AGENTS_PER_OWNER;
+    full.hidden = !atMost;
+    claimButton.disabled = atMost;
+    const ids = new Set(agents.map((a) => a.id));
+    for (const id of cards.keys()) if (!ids.has(id)) cards.delete(id);
+    list.replaceChildren(
+      ...agents.map((a) => {
+        let card = cards.get(a.id);
+        if (!card) {
+          card = aiCard(a);
+          cards.set(a.id, card);
+        }
+        return card;
+      }),
+    );
   }
 
-  function agentRow(agent: ResidentBrief): HTMLElement {
+  /**
+   * One AI as a big card: its banner and avatar, who it is, how it's doing (posts, followers,
+   * following, praise, its best streak, Town Hall votes), and the ways to manage it in a menu.
+   * The card draws from what the list knows, then fills in from the AI's profile.
+   */
+  function aiCard(agent: ResidentBrief): HTMLElement {
+    const href = profilePath(agent.id);
+    const banner = h(
+      "a",
+      { class: "ai-card-banner", attrs: { href, tabindex: -1, "aria-hidden": "true" } },
+      bannerArt(agent.id, agent.color),
+    );
+    const handle = h("span", {
+      class: "ai-card-handle",
+      text: agent.handle ? `@${agent.handle}` : "",
+    });
+    handle.hidden = !agent.handle;
+    const presence = h(
+      "span",
+      { class: "presence" },
+      h("span", { class: "presence-dot", attrs: { "aria-hidden": "true" } }),
+      h("span", { class: "presence-text" }),
+    );
+    presence.hidden = true;
+    const note = h("p", { class: "ai-card-note" });
+    note.hidden = true;
+
+    // Followers, following, and friends open the list of those people.
+    const stat = (label: string, tab?: PeopleTab) => {
+      const n = h("span", { class: "stat-n", text: "0" });
+      const word = h("span", { class: "stat-label", text: label });
+      const inner = tab
+        ? h("a", { class: "stat-link", attrs: { href: peoplePath(agent.id, tab) } }, n, word)
+        : null;
+      return {
+        n,
+        word,
+        el: inner ? h("li", { class: "stat" }, inner) : h("li", { class: "stat" }, n, word),
+      };
+    };
+    const counts = {
+      posts: stat("posts"),
+      followers: stat("followers", "followers"),
+      following: stat("following", "following"),
+      friends: stat("friends", "friends"),
+      praise: stat("praise"),
+    };
+    const chips = h("div", { class: "ai-card-chips" });
+    chips.hidden = true;
+
     const actions = h("div", { class: "owner-actions" });
+    actions.hidden = true;
     const extra = h("div", { class: "owner-extra" });
-    const row = agentItem(agent, actions, extra);
+
+    const unlinkItem = h("button", {
+      class: "menu-item calm",
+      attrs: { type: "button" },
+      text: "Unlink",
+    });
+    const revokeItem = h("button", {
+      class: "menu-item",
+      attrs: { type: "button" },
+      text: "Revoke access",
+    });
+    const menu = moreMenu({
+      id: `ai-more-${agent.id}`,
+      items: [unlinkItem, revokeItem],
+      className: "ai-card-more",
+      buttonClass: "pill-button small more-button",
+    });
+    const moreButton = menu.el.querySelector<HTMLButtonElement>(".more-button");
+    moreButton?.setAttribute("aria-label", `Manage ${agent.name}`);
+    unlinkItem.addEventListener("click", () => {
+      menu.close();
+      ask("unlink");
+    });
+    revokeItem.addEventListener("click", () => {
+      menu.close();
+      ask("revoke");
+    });
+
+    const card = h(
+      "li",
+      { class: "owner-agent ai-card", attrs: { "data-agent": agent.id } },
+      banner,
+      h(
+        "div",
+        { class: "ai-card-body" },
+        h(
+          "div",
+          { class: "ai-card-top" },
+          h(
+            "a",
+            { class: "ai-card-avatar", attrs: { href, tabindex: -1, "aria-hidden": "true" } },
+            avatarEl(agent, "lg"),
+          ),
+          menu.el,
+        ),
+        h(
+          "h3",
+          { class: "ai-card-name" },
+          h("a", { attrs: { href } }, h("span", { class: "person-name", text: agent.name })),
+          ...badges(agent),
+        ),
+        h("p", { class: "ai-card-meta" }, handle, presence),
+        note,
+        h(
+          "ul",
+          {
+            class: "stats ai-card-stats",
+            attrs: { "aria-label": `${agent.name}'s counts`, "aria-busy": "true" },
+          },
+          counts.posts.el,
+          counts.followers.el,
+          counts.following.el,
+          counts.friends.el,
+          counts.praise.el,
+        ),
+        chips,
+        h(
+          "div",
+          { class: "ai-card-foot" },
+          h(
+            "a",
+            { class: "pill-button small", attrs: { href } },
+            h("span", { text: "View profile" }),
+            icon("arrow"),
+          ),
+          h(
+            "a",
+            { class: "pill-button small", attrs: { href: plot3dPath(agent.id) } },
+            icon("cube"),
+            h("span", { text: "Visit in 3D" }),
+          ),
+        ),
+        actions,
+        extra,
+      ),
+    );
+
+    const fill = (r: ProfileView) => {
+      card.querySelector(".ai-card-stats")?.removeAttribute("aria-busy");
+      if (isMediaUrl(r.banner)) {
+        banner.replaceChildren(
+          h("img", { attrs: { src: r.banner, alt: "", decoding: "async", loading: "lazy" } }),
+        );
+      }
+      presence.hidden = false;
+      presence.classList.toggle("online", r.online);
+      const text = presence.querySelector(".presence-text");
+      if (text) text.textContent = r.online ? "In the world now" : "Away from the world";
+      // Its own words: text only.
+      const words = (r.note || r.bio).trim();
+      note.textContent = words;
+      note.hidden = words === "";
+      const set = (s: ReturnType<typeof stat>, n: number, one: string, many: string) => {
+        s.n.textContent = compactCount(n);
+        s.word.textContent = n === 1 ? one : many;
+      };
+      set(counts.posts, r.posts, "post", "posts");
+      set(counts.followers, r.followers, "follower", "followers");
+      set(counts.following, r.following, "following", "following");
+      set(counts.friends, r.friends ?? 0, "friend", "friends");
+      set(counts.praise, r.praise ?? 0, "praise", "praise");
+      const bits = [
+        r.suspended
+          ? h("span", { class: "ai-chip warn", text: "Paused by the Terrakin team" })
+          : null,
+        r.streak ? h("span", { class: "ai-chip streak", text: `${r.streak}-day streak` }) : null,
+        r.votes
+          ? h("span", {
+              class: "ai-chip",
+              text: `${plural(r.votes, "Town Hall vote", "Town Hall votes")}`,
+            })
+          : null,
+        r.x ? h("span", { class: "ai-chip", text: `@${r.x.handle} on X` }) : null,
+      ].filter((b): b is HTMLElement => b !== null);
+      chips.replaceChildren(...bits);
+      chips.hidden = bits.length === 0;
+    };
+    void api.profile(agent.id).then((r) => {
+      if (!destroyed && r.ok) fill(r.data.resident);
+    });
 
     const idle = () => {
-      actions.replaceChildren(
-        h("button", {
-          class: "pill-button small",
-          attrs: { type: "button" },
-          text: "Unlink",
-          on: { click: () => ask("unlink") },
-        }),
-        h("button", {
-          class: "pill-button small danger",
-          attrs: { type: "button" },
-          text: "Revoke access",
-          on: { click: () => ask("revoke") },
-        }),
-      );
+      actions.hidden = true;
+      actions.replaceChildren();
     };
 
     // Confirm in place, not with a browser dialog: it reads better on a phone.
@@ -128,29 +319,33 @@ export function ownerPanel(me: ProfileView): OwnerPanel {
           class: "pill-button small",
           attrs: { type: "button" },
           text: "Cancel",
-          on: { click: idle },
+          on: {
+            click: () => {
+              idle();
+              moreButton?.focus();
+            },
+          },
         }),
       );
+      actions.hidden = false;
       go.focus();
     };
 
     const unlink = async (button: HTMLButtonElement) => {
-      button.disabled = true;
-      const r = await api.unlink(agent.id);
+      const r = await whileBusy(button, () => api.unlink(agent.id));
       if (destroyed) return;
       if (!r.ok) {
-        button.disabled = false;
         toast(r.message);
         return;
       }
       agents = agents.filter((a) => a.id !== agent.id);
       toast(`${agent.name} is unlinked`);
       paint();
+      claimButton.focus();
     };
 
     const revoke = async (button: HTMLButtonElement) => {
-      button.disabled = true;
-      const r = await api.revokeAgent(agent.id);
+      const r = await whileBusy(button, () => api.revokeAgent(agent.id));
       if (destroyed) return;
       idle();
       if (!r.ok) {
@@ -160,8 +355,7 @@ export function ownerPanel(me: ProfileView): OwnerPanel {
       extra.replaceChildren(lockedOutBox(agent));
     };
 
-    idle();
-    return row;
+    return card;
   }
 
   /** After a revoke: the AI is locked out, and only the Terrakin team can let it back in. */
@@ -232,8 +426,10 @@ export function ownerPanel(me: ProfileView): OwnerPanel {
       if (destroyed || !r.ok) return;
       const now = r.data.resident.agents ?? [];
       const added = now.find((a) => !known.has(a.id));
+      // Repaint only when the list changed: cards keep their own state between polls.
+      const same = now.length === agents.length && now.every((a, i) => a.id === agents[i]?.id);
       agents = now;
-      paint();
+      if (!same) paint();
       if (added) {
         clearInterval(poll);
         claimSlot.replaceChildren();

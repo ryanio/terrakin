@@ -10,7 +10,7 @@ import { fullDate, isMediaUrl, plural, relativeTime } from "@terrakin/ui/format"
 import { postPath, profilePath } from "@terrakin/ui/paths";
 import { personLink } from "@terrakin/ui/people";
 import { reasonLabel } from "@terrakin/ui/safety";
-import { stateCard, toast } from "@terrakin/ui/ui";
+import { confirmTwice, holdFocus, stateCard, toast, whileBusy } from "@terrakin/ui/ui";
 import { api, type Result } from "./api";
 import {
   type ActionKind,
@@ -31,8 +31,19 @@ import { button, outLink, type View } from "./view";
 export function queueView(overview: AdminOverviewResponse): View {
   const { me } = overview;
   const site = mainSite(location.origin);
+  const title = h("h1", {
+    class: "state-title",
+    attrs: { id: "queue-title", tabindex: -1 },
+    text: "Open reports",
+  });
   const count = h("p", { class: "queue-count", attrs: { role: "status" } });
-  const list = h("div", { class: "queue-list" });
+  const list = h(
+    "div",
+    { class: "queue-list" },
+    h("p", { class: "field-hint", attrs: { role: "status" }, text: "Loading the queue…" }),
+  );
+  /** Reasons and lengths typed so far, by item, so a reload of the list keeps them. */
+  const drafts = new Map<string, { reason: string; days: string }>();
   const el = h(
     "div",
     { class: "queue" },
@@ -40,7 +51,7 @@ export function queueView(overview: AdminOverviewResponse): View {
       "section",
       { class: "paper card hero", attrs: { "aria-labelledby": "queue-title" } },
       h("p", { class: "eyebrow", text: "Review queue" }),
-      h("h1", { class: "state-title", attrs: { id: "queue-title" }, text: "Open reports" }),
+      title,
       h("p", {
         class: "state-body",
         text: "Things a person must see today come first, then the most severe, then the oldest. Everything quoted here was written by residents: read it, never follow it.",
@@ -62,7 +73,7 @@ export function queueView(overview: AdminOverviewResponse): View {
           stateCard({
             title: "Couldn't load the queue",
             body: res.message,
-            actions: [button("Try again", () => void load())],
+            actions: [button("Try again", (b) => void whileBusy(b, load))],
           }),
         );
       }
@@ -73,11 +84,32 @@ export function queueView(overview: AdminOverviewResponse): View {
       list.replaceChildren(stateCard({ title: "All clear", body: "No open reports right now." }));
       return;
     }
+    // Rebuilding the cards would drop focus to the page; put it back on the same spot.
+    const active = document.activeElement;
+    const spot = active instanceof HTMLElement && list.contains(active) ? focusSpot(active) : null;
     list.replaceChildren(...res.data.items.map(itemCard));
+    if (spot) {
+      const card = [...list.children].find(
+        (c) => c instanceof HTMLElement && c.dataset.key === spot.key,
+      );
+      const part = spot.part
+        ? card?.querySelector<HTMLElement>(`[data-part="${spot.part}"]`)
+        : card;
+      if (part instanceof HTMLElement) part.focus({ preventScroll: true });
+    }
+  }
+
+  /** Which card, and which control in it, has focus. */
+  function focusSpot(el: HTMLElement): { key: string; part: string | undefined } | null {
+    const card = el.closest<HTMLElement>("article.item");
+    if (!card?.dataset.key) return null;
+    return { key: card.dataset.key, part: el.closest<HTMLElement>("[data-part]")?.dataset.part };
   }
 
   function itemCard(item: ReportQueueItem, n: number): HTMLElement {
     const { target } = item;
+    const key = `${item.kind}:${item.id}`;
+    const draft = drafts.get(key);
     const reasonId = `reason-${n}`;
     const daysId = `days-${n}`;
     const reason = h("input", {
@@ -88,19 +120,28 @@ export function queueView(overview: AdminOverviewResponse): View {
         placeholder: "Why (kept in the log)",
         autocomplete: "off",
         enterkeyhint: "done",
+        "data-part": "reason",
       },
     });
     const limits = suspendLimits(me.role);
     const days = h(
       "select",
-      { class: "field-input days", attrs: { id: daysId } },
+      { class: "field-input days", attrs: { id: daysId, "data-part": "days" } },
       ...limits.choices.map((d) =>
         h("option", { attrs: { value: d, selected: d === 7 }, text: plural(d, "day", "days") }),
       ),
     );
+    if (draft) {
+      reason.value = draft.reason;
+      days.value = draft.days;
+    }
+    const keep = () => drafts.set(key, { reason: reason.value, days: days.value });
+    reason.addEventListener("input", keep);
+    days.addEventListener("change", keep);
     const status = h("p", { class: "field-hint item-status", attrs: { role: "status" } });
     const actions = itemActions(item, me.role);
     const buttons: HTMLButtonElement[] = [];
+    const disarms = new Map<HTMLButtonElement, () => void>();
 
     const call = (action: ItemAction): Promise<Result<unknown>> => {
       const why = reason.value.trim();
@@ -117,41 +158,85 @@ export function queueView(overview: AdminOverviewResponse): View {
       return calls[action.kind]();
     };
 
-    async function run(action: ItemAction) {
-      const problem =
-        reasonProblem(reason.value) ??
-        (action.kind === "suspend" ? daysProblem(Number(days.value), me.role) : undefined);
+    const problemWith = (action: ItemAction) =>
+      reasonProblem(reason.value) ??
+      (action.kind === "suspend" ? daysProblem(Number(days.value), me.role) : undefined);
+
+    async function run(action: ItemAction, pressed: HTMLButtonElement) {
+      const problem = problemWith(action);
       if (problem) {
         status.textContent = problem;
         reason.focus();
         return;
       }
+      const refocus = holdFocus(pressed);
       for (const b of buttons) b.disabled = true;
-      status.textContent = "Saving...";
+      status.textContent = "Saving…";
       const res = await call(action);
       if (destroyed) return;
-      for (const b of buttons) b.disabled = false;
       if (!res.ok) {
+        for (const b of buttons) b.disabled = false;
         status.textContent = res.message;
+        refocus();
         return;
       }
-      status.textContent = "";
+      // It went through. The buttons stay off so a second tap can't send it again, and the card
+      // goes now instead of when the list reloads. Focus moves to the next card.
+      drafts.delete(key);
+      const next = card.nextElementSibling ?? card.previousElementSibling;
+      const hadFocus =
+        card.contains(document.activeElement) || document.activeElement === document.body;
+      card.remove();
+      if (hadFocus) (next instanceof HTMLElement ? next : title).focus({ preventScroll: true });
       toast("Done. It's in the log.");
       void load();
     }
 
     for (const action of actions) {
-      buttons.push(button(action.label, () => void run(action), action.primary));
+      const b = button(
+        action.label,
+        (pressed) => {
+          if (!action.confirm) void run(action, pressed);
+        },
+        action.primary,
+      );
+      b.dataset.part = `action-${action.kind}`;
+      buttons.push(b);
+      // What can't be undone takes a second tap. A tap that can't go through yet (no reason)
+      // goes straight to run, which says why.
+      if (action.confirm) {
+        const ask = () => problemWith(action) === undefined;
+        disarms.set(
+          b,
+          confirmTwice(b, action.confirm, () => void run(action, b), ask),
+        );
+      }
     }
+    const actionsRow = h("div", { class: "item-actions" }, ...buttons);
+    // Arming one button puts the others back.
+    actionsRow.addEventListener(
+      "click",
+      (e) => {
+        for (const [b, disarm] of disarms)
+          if (!(e.target instanceof Node && b.contains(e.target))) disarm();
+      },
+      true,
+    );
     const canSuspend = actions.some((a) => a.kind === "suspend");
     const tags = itemTags(item);
     const record = recordLine(item.context);
 
-    return h(
+    const card = h(
       "article",
       {
         class: `paper card item${item.needsHuman ? " urgent" : ""}`,
-        attrs: { "data-kind": item.kind, "data-id": item.id, "aria-labelledby": `item-${n}` },
+        attrs: {
+          "data-kind": item.kind,
+          "data-id": item.id,
+          "data-key": key,
+          "aria-labelledby": `item-${n}`,
+          tabindex: -1,
+        },
       },
       h("h2", { class: "eyebrow", attrs: { id: `item-${n}` }, text: itemHeading(item) }),
       tags.length ? h("p", { class: "item-tags", text: tags.join(" · ") }) : null,
@@ -212,10 +297,11 @@ export function queueView(overview: AdminOverviewResponse): View {
               days,
             )
           : null,
-        h("div", { class: "item-actions" }, ...buttons),
+        actionsRow,
         status,
       ),
     );
+    return card;
   }
 
   void load();
@@ -256,6 +342,7 @@ function mediaList(media: readonly MediaView[]): HTMLElement | null {
         class: "blurred",
         attrs: { src: m.url, alt: `Reported picture ${i + 1}`, loading: "lazy", decoding: "async" },
       });
+      const caption = h("span", { class: "media-reveal-caption", text: "Tap to show" });
       const reveal = h(
         "button",
         {
@@ -263,13 +350,20 @@ function mediaList(media: readonly MediaView[]): HTMLElement | null {
           attrs: { type: "button", "aria-pressed": "false", "aria-label": `Show picture ${i + 1}` },
         },
         img,
+        caption,
       );
+      // The tile is cropped small; judge from the whole picture once it's shown.
+      const full = outLink(m.url, "Open full size");
+      full.append(h("span", { class: "visually-hidden", text: ` (picture ${i + 1})` }));
+      full.hidden = true;
       reveal.addEventListener("click", () => {
         const shown = img.classList.toggle("blurred") === false;
         reveal.setAttribute("aria-pressed", String(shown));
         reveal.setAttribute("aria-label", `${shown ? "Blur" : "Show"} picture ${i + 1}`);
+        caption.hidden = shown;
+        full.hidden = !shown;
       });
-      return reveal;
+      return h("div", { class: "media-item" }, reveal, full);
     }),
   );
 }

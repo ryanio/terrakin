@@ -66,6 +66,27 @@ function lineItem(line: PurseLine): HTMLElement {
   );
 }
 
+/**
+ * "Come home": sends `home` from a page, as if you'd tapped Home in the world. It pays today's
+ * allowance and pantry. `done` runs once the server takes it; a refusal shows as a toast.
+ */
+export function comeHomeButton(text: string, done: () => void): HTMLButtonElement {
+  const home = h("button", {
+    class: "btn-primary purse-home",
+    attrs: { type: "button" },
+    text,
+  });
+  home.addEventListener("click", async () => {
+    const r = await whileBusy(home, () => api.act({ type: "home" }));
+    if (!home.isConnected) return;
+    const problem = actProblem(r);
+    if (problem) return toast(problem);
+    refreshPurse(true);
+    done();
+  });
+  return home;
+}
+
 function streakText(streak: number, streakDays: number, bonus: number): string {
   if (streak <= 0) return "Come home today to start a streak.";
   if (streak >= streakDays) return `${streak} days in a row: +${bonus} a day on top.`;
@@ -109,18 +130,8 @@ export function purseView(ctx: ViewContext): View {
       body.replaceChildren(stateCard({ title: "Coins aren't open yet", body: "Check back soon." }));
       return;
     }
-    const home = h("button", {
-      class: "btn-primary purse-home",
-      attrs: { type: "button" },
-      text: `Come home for ${coins(rules.allowance)}`,
-    });
-    home.addEventListener("click", async () => {
-      const r = await whileBusy(home, () => api.act({ type: "home" }));
-      if (destroyed) return;
-      const problem = actProblem(r);
-      if (problem) return toast(problem);
-      refreshPurse(true);
-      void load();
+    const home = comeHomeButton(`Come home for ${coins(rules.allowance)}`, () => {
+      if (!destroyed) void load();
     });
     // Townsfolk get a daily budget instead of the allowance: no streak, nothing to come home for.
     const eligible = purse.allowanceEligible !== false;

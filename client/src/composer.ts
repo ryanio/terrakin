@@ -18,6 +18,7 @@ import { activeMention, insertMention, suggestHandles } from "@terrakin/ui/menti
 import { avatarEl, quoteEmbed } from "@terrakin/ui/people";
 import { closeOverlay, errorLine, openOverlay } from "@terrakin/ui/ui";
 import { api, uploadMedia } from "./api";
+import { clearDraft, type DraftFor, loadDraft, saveDraft } from "./drafts";
 
 const ACCEPT =
   "image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,.glb,model/gltf-binary";
@@ -45,6 +46,8 @@ interface Attachment {
 
 export interface Composer {
   el: HTMLElement;
+  /** Bring the box into view and put the cursor in it. */
+  focus(): void;
   /** Stop any uploads still running and free the preview images. Call when the page goes away. */
   destroy(): void;
 }
@@ -60,6 +63,12 @@ export function queueAttachment(file: File) {
 export function composer({ me, replyTo, quote, onPosted }: ComposerOptions): Composer {
   const reply = replyTo !== undefined;
   const mode = reply ? "reply" : quote ? "quote" : "post";
+  const draft: DraftFor =
+    replyTo !== undefined
+      ? { mode: "reply", id: replyTo }
+      : quote
+        ? { mode: "quote", id: quote.id }
+        : { mode: "post" };
   const fieldId = `compose-${mode}`;
   const textarea = h("textarea", {
     class: "composer-input",
@@ -126,7 +135,7 @@ export function composer({ me, replyTo, quote, onPosted }: ComposerOptions): Com
     },
     h("div", { class: "composer-row" }, avatarEl(me, reply ? "sm" : "md"), label, textarea),
     suggest,
-    quote ? quoteEmbed(quote) : null,
+    quote ? quoteEmbed(quote, false, { interactive: false }) : null,
     list,
     error,
     h(
@@ -150,7 +159,10 @@ export function composer({ me, replyTo, quote, onPosted }: ComposerOptions): Com
     counter.classList.toggle("low", left <= 20);
     const uploading = attachments.some((a) => !a.media && !a.error);
     const failed = attachments.some((a) => a.error);
-    submit.disabled = posting || uploading || failed || textarea.value.trim().length === 0;
+    // With a picture attached, Post stays on even before any words, so tapping it can say what's
+    // missing instead of sitting there disabled.
+    const empty = textarea.value.trim().length === 0 && attachments.length === 0;
+    submit.disabled = posting || uploading || failed || empty;
     attach.disabled = posting || attachments.length >= MAX_MEDIA_PER_POST;
     list.hidden = attachments.length === 0;
   };
@@ -165,6 +177,7 @@ export function composer({ me, replyTo, quote, onPosted }: ComposerOptions): Com
     autosize();
     update();
     refreshSuggest();
+    saveDraft(draft, textarea.value);
   });
 
   // ---------- @handle suggestions from people you follow ----------
@@ -240,6 +253,7 @@ export function composer({ me, replyTo, quote, onPosted }: ComposerOptions): Com
     hideSuggest();
     autosize();
     update();
+    saveDraft(draft, textarea.value);
   }
 
   textarea.addEventListener("click", () => refreshSuggest());
@@ -352,7 +366,13 @@ export function composer({ me, replyTo, quote, onPosted }: ComposerOptions): Com
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const text = textarea.value.trim();
-    if (!text || posting) return;
+    if (posting) return;
+    if (!text) {
+      // The server wants words with every post, pictures or not.
+      error.textContent = "Add a few words to go with it.";
+      textarea.focus();
+      return;
+    }
     posting = true;
     error.textContent = "";
     submit.setAttribute("aria-busy", "true");
@@ -376,6 +396,7 @@ export function composer({ me, replyTo, quote, onPosted }: ComposerOptions): Com
       return;
     }
     textarea.value = "";
+    clearDraft(draft);
     for (const a of attachments) if (a.preview) URL.revokeObjectURL(a.preview);
     attachments = [];
     list.replaceChildren();
@@ -390,9 +411,22 @@ export function composer({ me, replyTo, quote, onPosted }: ComposerOptions): Com
     for (const file of files) add(file);
   }
 
+  // Words left here earlier in this tab come back. The box is sized once it's on the page.
+  const kept = loadDraft(draft);
+  if (kept) {
+    textarea.value = kept;
+    requestAnimationFrame(() => {
+      if (textarea.isConnected) autosize();
+    });
+  }
+
   update();
   return {
     el: form,
+    focus() {
+      form.scrollIntoView({ behavior: "smooth", block: "center" });
+      textarea.focus({ preventScroll: true });
+    },
     destroy() {
       destroyed = true;
       for (const a of attachments) {

@@ -181,6 +181,12 @@ export const MediaView = z.object({
   type: MediaType,
   url: z.string(),
   bytes: z.number().int(),
+  /**
+   * An image's width and height in pixels, the way it shows (after a JPEG's rotation). Read from
+   * the file at upload; absent for videos, models, and images uploaded before sizes were recorded.
+   */
+  width: z.number().int().positive().optional(),
+  height: z.number().int().positive().optional(),
 });
 export type MediaView = z.infer<typeof MediaView>;
 
@@ -325,6 +331,8 @@ export const ProfileView = z.object({
   posts: z.number().int(),
   followers: z.number().int(),
   following: z.number().int(),
+  /** Their friends: residents they follow who follow them back. */
+  friends: z.number().int().optional(),
   /** Whether the caller follows them. Always false without a token. */
   followed: z.boolean(),
   /** Their longest active gesture streak with anyone, in days. Absent when they have none. */

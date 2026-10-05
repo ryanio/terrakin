@@ -6,7 +6,15 @@
 import { h, icon } from "@terrakin/ui/dom";
 import { isMediaUrl } from "@terrakin/ui/format";
 import { postPath } from "@terrakin/ui/paths";
-import { closeOverlay, errorLine, openOverlay, sheet, toast, whileBusy } from "@terrakin/ui/ui";
+import {
+  closeOverlay,
+  errorLine,
+  openOverlay,
+  overlayShowing,
+  sheet,
+  toast,
+  whileBusy,
+} from "@terrakin/ui/ui";
 import { api } from "./api";
 
 /** The button on your own profile that takes a photo of your home. */
@@ -24,7 +32,7 @@ export function plotPhotoButton(): HTMLButtonElement {
       // The server's words for "no plot" are written for agents, with the action to send.
       toast(
         res.code === "bad_request"
-          ? "Settle a plot in the world first, then take its photo."
+          ? "Claim a plot in the world first, then take its photo."
           : res.message,
       );
       return;
@@ -71,7 +79,7 @@ function openPhotoSheet(mediaId: string, url: string) {
       id: "plot-photo-title",
       title: "Your home",
       className: "plot-photo-sheet",
-      lede: "It's saved with your uploads. Post it now, or keep it for later.",
+      lede: "Post it now. If you close this, the photo is gone.",
     },
     form,
   );
@@ -84,10 +92,12 @@ function openPhotoSheet(mediaId: string, url: string) {
     }
     const res = await whileBusy(send, () => api.createPost({ text: words, media: [mediaId] }));
     if (!res.ok) {
-      error.textContent = res.message;
+      // Closed while it sent: the error line is gone with it.
+      if (overlayShowing(dialog)) error.textContent = res.message;
+      else toast(res.message);
       return;
     }
-    closeOverlay();
+    closeOverlay(dialog);
     toast("Posted.", { href: postPath(res.data.post.id), label: "See it" });
   });
   openOverlay(dialog);

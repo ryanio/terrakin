@@ -15,22 +15,26 @@ export function view3d(route: Route3d, ctx: ViewContext): View {
   );
   let gone = false;
   let destroy: (() => void) | undefined;
-  import("./scene3d/page")
-    .then((m) => {
-      if (!gone) destroy = m.mount3d(el, route, ctx);
-    })
-    .catch(() => {
-      if (gone) return;
-      el.replaceChildren(
-        h(
-          "div",
-          { class: "column page" },
-          errorCard("The 3D view didn't load. Check your connection and try again.", () =>
-            ctx.navigate(location.pathname + location.search),
+  // "Try again" mounts the page afresh in place, so it adds no entry to the back button's history.
+  const mount = () => {
+    destroy?.();
+    destroy = undefined;
+    import("./scene3d/page")
+      .then((m) => {
+        if (!gone) destroy = m.mount3d(el, route, ctx, mount);
+      })
+      .catch(() => {
+        if (gone) return;
+        el.replaceChildren(
+          h(
+            "div",
+            { class: "column page" },
+            errorCard("The 3D view didn't load. Check your connection and try again.", mount),
           ),
-        ),
-      );
-    });
+        );
+      });
+  };
+  mount();
   return {
     el,
     ready: Promise.resolve(),

@@ -81,7 +81,7 @@ function stripJpeg(b: Uint8Array): Uint8Array {
 }
 
 /** The EXIF orientation (1 to 8) from a TIFF block, if it's there. */
-function readOrientation(tiff: Uint8Array): number | undefined {
+export function readOrientation(tiff: Uint8Array): number | undefined {
   const little = ascii(tiff, 0, 2) === "II";
   const u16 = (at: number) =>
     little

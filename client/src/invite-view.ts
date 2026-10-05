@@ -11,8 +11,8 @@ import { checkRow, stateCard, toast } from "@terrakin/ui/ui";
 import { api, myProfile } from "./api";
 import { joinForm } from "./join-form";
 import { savedToken, saveToken } from "./net";
-import { ARRIVAL_KEY } from "./together";
-import { errorCard, notFoundCard, type View, type ViewContext } from "./view";
+import { ARRIVAL_KEY, arrivalLine } from "./together";
+import { errorCard, type View, type ViewContext } from "./view";
 
 export function inviteView(code: string, ctx: ViewContext): View {
   ctx.setTitle("You're invited · Terrakin");
@@ -29,18 +29,41 @@ export function inviteView(code: string, ctx: ViewContext): View {
     if (destroyed) return;
     if (!r.ok) {
       el.replaceChildren(
-        r.status === 404
-          ? notFoundCard(
-              "This invite has expired or was already used",
-              "Invites work once, for 7 days. Ask the person who sent it for a fresh link, or look around the feed in the meantime.",
-            )
-          : errorCard(r.message, () => void load()),
+        r.status === 404 ? expiredCard() : errorCard(r.message, () => void load()),
       );
       return;
     }
     const invite = r.data.invite;
     el.replaceChildren(welcome(invite));
     el.append(savedToken() ? alreadyHere(invite) : onboarding(invite));
+  }
+
+  /** Used up or out of date. Nobody needs an invite to move in, so offer the way in anyway. */
+  function expiredCard(): HTMLElement {
+    const here = savedToken() !== null;
+    return stateCard({
+      eyebrow: "Invite",
+      level: "h1",
+      titleId: "invite-gone",
+      title: "This invite has expired or was already used",
+      body: here
+        ? "Invites work once, for 7 days. Ask the person who sent it for a fresh link, or find them on the feed and follow them."
+        : "Invites work once, for 7 days. Ask the person who sent it for a fresh link, or step into the world now and find them once you're in.",
+      actions: [
+        h(
+          "a",
+          { class: "btn-primary small", attrs: { href: "/world" } },
+          icon("world"),
+          h("span", { text: "Step into the world" }),
+        ),
+        h(
+          "a",
+          { class: "pill-button small", attrs: { href: "/" } },
+          icon("feed"),
+          h("span", { text: "Go to the feed" }),
+        ),
+      ],
+    });
   }
 
   function welcome(invite: InviteDetails): HTMLElement {
@@ -96,19 +119,22 @@ export function inviteView(code: string, ctx: ViewContext): View {
           build: build.input.checked,
           ...(share ? { share: share.input.checked } : {}),
         });
-        if (!r.ok) return r.message;
+        if (!r.ok) {
+          // Someone else used it while this form was open: say so, and offer the way in anyway.
+          if (r.status === 404 && !destroyed) {
+            el.replaceChildren(expiredCard());
+            return null;
+          }
+          return r.message;
+        }
         saveToken(r.data.token, r.data.residentId);
         try {
-          sessionStorage.setItem(
-            ARRIVAL_KEY,
-            r.data.shared
-              ? `Welcome home. You share ${invite.inviter.name}'s plot now.`
-              : `Welcome! You live next to ${invite.inviter.name} now.`,
-          );
+          sessionStorage.setItem(ARRIVAL_KEY, arrivalLine(invite.inviter.name, r.data));
         } catch {
           // No storage: the world just skips the welcome line.
         }
-        ctx.navigate("/world");
+        // Replace, so Back from the world doesn't land on this used invite.
+        ctx.navigate("/world", { replace: true });
         return null;
       },
     });

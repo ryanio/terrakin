@@ -91,6 +91,39 @@ body {
   font-family: var(--font-body);
 }
 
+/* "Loading the docs…" until Scalar mounts, and the way out if it never does (main.ts). */
+.docs-status {
+  max-width: 40rem;
+  margin: 32px auto;
+  padding: 0 16px;
+  font-family: var(--font-body);
+}
+
+.docs-status-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
+}
+
+.docs-status-links a,
+.docs-reload {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+.docs-reload {
+  padding: 0 18px;
+  border: 1.5px solid currentColor;
+  border-radius: 999px;
+  background: transparent;
+  font: inherit;
+  font-weight: 600;
+  color: inherit;
+  cursor: pointer;
+}
+
 /* ---------- Scalar, in storybook colors ---------- */
 
 :root {

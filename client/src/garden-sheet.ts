@@ -1,14 +1,24 @@
 /**
  * The sheet a planter, kitchen, or workbench opens in the world (RFC 0005): plant a seed you
  * hold, pick a ready crop, or make something. It only sends actions; the server decides, and its
- * answer shows as a toast in the world. Labels are your own words, sent as text.
+ * answer shows as a toast in the world. A button your things already show the server would turn
+ * down (an unripe crop, missing ingredients, today's making done) is off, with the reason in its
+ * row. Labels are your own words, sent as text.
  */
 import { type Action, type InventoryResponse, ITEM_CATALOG, ITEM_RULES } from "@terrakin/protocol";
-import type { BlockKind, Crop } from "@terrakin/sim";
+import { type BlockKind, type Crop, harvestFits, isReady } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
-import { closeOverlay, openOverlay, sheet } from "@terrakin/ui/ui";
+import { closeOverlay, errorLine, openOverlay, sheet } from "@terrakin/ui/ui";
 import { api } from "./api";
-import { cropOfSeed, growthLine, needsLine, thingCount, thingName } from "./things";
+import {
+  cropOfSeed,
+  growthLine,
+  missingLine,
+  needsLine,
+  noSeedsHint,
+  thingCount,
+  thingName,
+} from "./things";
 
 export interface TileSheetOptions {
   block: BlockKind;
@@ -17,14 +27,19 @@ export interface TileSheetOptions {
   /** What grows in the planter, as the world shows it. */
   planting?: { crop: Crop; readyDay: number };
   day: number | undefined;
-  act: (action: Action) => void;
+  /** Whether the tile is on a plot you own or share, as the world shows it. */
+  yours: boolean;
+  /** Whose plot it is otherwise. Their own words: text only. */
+  ownerName?: string;
+  /** Send an action. Undefined means it wasn't sent: the world isn't connected. */
+  act: (action: Action) => string | undefined;
 }
 
 const title = (block: BlockKind) =>
   block === "planter" ? "Planter" : block === "kitchen" ? "Kitchen" : "Workbench";
 
-/** A row with a name, a line under it, and one button. */
-function row(name: string, line: string, button: HTMLButtonElement): HTMLElement {
+/** A row with a name, a line under it, and one button (none on someone else's planter). */
+function row(name: string, line: string, button: HTMLButtonElement | null): HTMLElement {
   return h(
     "li",
     { class: "workshop-row" },
@@ -47,7 +62,8 @@ export function openTileSheet(o: TileSheetOptions) {
     h("span", { text: "All your things" }),
     icon("arrow"),
   );
-  things.addEventListener("click", () => closeOverlay());
+  // No closeOverlay here: the router closes the sheet as it goes, and takes over its history
+  // entry, so the URL and the page stay in step.
   const label = h("input", {
     class: "field-input",
     attrs: {
@@ -70,6 +86,7 @@ export function openTileSheet(o: TileSheetOptions) {
         label,
       )
     : null;
+  const problem = errorLine("workshop-error");
   const s = sheet(
     {
       id: "workshop-title",
@@ -80,16 +97,22 @@ export function openTileSheet(o: TileSheetOptions) {
     hint,
     labelField,
     list,
+    problem,
     things,
   );
   const send = (action: Action) => {
-    o.act(action);
-    closeOverlay();
+    // Not connected: keep the sheet open and say so, rather than drop the tap.
+    if (o.act(action) === undefined) {
+      problem.textContent = "Not connected yet. Try again in a moment.";
+      return;
+    }
+    closeOverlay(s.dialog);
   };
-  const button = (text: string, action: () => Action, primary = true) =>
+  /** A button, or an off one when `ok` is false: its row says why. */
+  const button = (text: string, action: () => Action, ok = true) =>
     h("button", {
-      class: primary ? "btn-primary small" : "pill-button small",
-      attrs: { type: "button" },
+      class: ok ? "btn-primary small" : "pill-button small",
+      attrs: { type: "button", disabled: !ok },
       text,
       on: { click: () => send(action()) },
     });
@@ -100,20 +123,32 @@ export function openTileSheet(o: TileSheetOptions) {
       hint.textContent = "Growing and making aren't open in this world yet.";
       return;
     }
+    const { rules } = data;
     const held = new Map(inv.stacks.map((st) => [st.kind, st.count]));
     if (o.block === "planter") {
+      // Only the plot's owner, and whoever they share it with, plant and pick here.
+      if (!o.yours) {
+        hint.textContent = o.ownerName
+          ? `This planter is on ${o.ownerName}'s plot. Only they and the people they share it with can plant or pick here.`
+          : "This planter isn't on anyone's plot, so nobody can plant here.";
+        list.replaceChildren(
+          ...(o.planting
+            ? [row(thingName(o.planting.crop), growthLine(o.planting.readyDay, inv.day), null)]
+            : []),
+        );
+        return;
+      }
       if (o.planting) {
-        const ready = growthLine(o.planting.readyDay, o.day);
+        const ready = growthLine(o.planting.readyDay, inv.day);
+        // The sim's own checks, so the sheet never disagrees with what harvest would answer.
+        const ripe = isReady(o.planting.readyDay, inv.day);
+        const full = !harvestFits(inv.size, o.planting.crop);
         hint.textContent = `${thingName(o.planting.crop)}: ${ready.toLowerCase()}.`;
         list.replaceChildren(
           row(
             thingName(o.planting.crop),
-            ready,
-            button(
-              "Harvest",
-              () => ({ type: "harvest", x: o.x, y: o.y }),
-              ready === "Ready to pick",
-            ),
+            ripe && full ? "Your bag is full. Make or give something first." : ready,
+            button("Harvest", () => ({ type: "harvest", x: o.x, y: o.y }), ripe && !full),
           ),
         );
         return;
@@ -122,7 +157,7 @@ export function openTileSheet(o: TileSheetOptions) {
       hint.textContent =
         seeds.length > 0
           ? "Pick a seed to plant. It grows a little each day, at midnight UTC."
-          : "You have no seeds. Come home to your hearth: your first pantry brings some.";
+          : noSeedsHint(inv);
       list.replaceChildren(
         ...seeds.map((st) => {
           const crop = cropOfSeed(st.kind) as Crop;
@@ -137,13 +172,19 @@ export function openTileSheet(o: TileSheetOptions) {
       return;
     }
     const recipes = ITEM_CATALOG.recipes.filter((r) => r.station === o.block);
-    hint.textContent = `What you make here keeps your name. Up to ${ITEM_RULES.craftPerDay} a day.`;
+    const doneToday = inv.craftedToday >= rules.craftPerDay;
+    hint.textContent = doneToday
+      ? `You've made ${inv.craftedToday} things today, the most for one day. Come back tomorrow.`
+      : `What you make here keeps your name. Up to ${rules.craftPerDay} a day.`;
     list.replaceChildren(
       ...recipes.map((r) => {
-        const enough = r.needs.every((n) => (held.get(n.kind) ?? 0) >= n.count);
+        const short = missingLine(r.needs, (kind) => held.get(kind) ?? 0);
+        const enough = short === null && !doneToday;
         return row(
           r.name,
-          `Needs ${needsLine(r.recipe)}`,
+          doneToday
+            ? `You've made ${inv.craftedToday} today`
+            : (short ?? `Uses ${needsLine(r.recipe)}`),
           button(
             "Make",
             () => {

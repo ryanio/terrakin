@@ -8,6 +8,7 @@ import { h, icon } from "@terrakin/ui/dom";
 import { xIntentHref } from "@terrakin/ui/format";
 import {
   closeOverlay,
+  confirmTwice,
   copyButton,
   errorLine,
   openOverlay,
@@ -77,7 +78,8 @@ export function xRow(profile: ProfileView): { el: HTMLElement; paint(mine: boole
       attrs: { type: "button" },
       text: "Disconnect",
     });
-    b.addEventListener("click", async () => {
+    // Disconnecting deletes the link, so it takes a second tap.
+    const disarm = confirmTwice(b, "Tap again to disconnect", async () => {
       const res = await whileBusy(b, () => api.xUnlink());
       if (!res.ok) {
         toast(res.message);
@@ -86,6 +88,7 @@ export function xRow(profile: ProfileView): { el: HTMLElement; paint(mine: boole
       update(res.data.resident);
       toast("X disconnected");
     });
+    b.addEventListener("blur", disarm);
     return b;
   }
 

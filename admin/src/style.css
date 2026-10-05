@@ -240,7 +240,14 @@ body {
   gap: 8px;
 }
 
+.media-item {
+  display: grid;
+  justify-items: start;
+  width: 112px;
+}
+
 .media-reveal {
+  position: relative;
   width: 112px;
   height: 112px;
   padding: 0;
@@ -260,6 +267,17 @@ body {
 
 .media-reveal img.blurred {
   filter: blur(18px) saturate(0.4);
+}
+
+.media-reveal-caption {
+  position: absolute;
+  inset: auto 0 0;
+  padding: 6px 4px;
+  background: rgba(43, 38, 32, 0.78);
+  color: var(--paper);
+  font-size: 13px;
+  font-weight: 650;
+  text-align: center;
 }
 
 .item-media a {

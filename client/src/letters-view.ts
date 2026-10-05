@@ -17,6 +17,7 @@ import { avatarEl, badges } from "@terrakin/ui/people";
 import { confirmTwice, emptyNote, errorLine, stateCard, toast } from "@terrakin/ui/ui";
 import { timeAgo } from "@terrakin/ui/when";
 import { api, letterImage, myProfile, uploadMedia } from "./api";
+import { clearDraft, type DraftFor, loadDraft, saveDraft } from "./drafts";
 import { savedToken } from "./net";
 import { conversations } from "./together";
 import { errorCard, notFoundCard, type View, type ViewContext } from "./view";
@@ -204,13 +205,17 @@ export function letterThreadView(otherId: string, ctx: ViewContext): View {
       );
     }
 
-    // Open every unread letter they sent, so it counts as read, then let the top bar know.
+    // Newest at the bottom, so start there. Before marking read, so a slow request can't scroll
+    // whatever page you've moved on to.
+    window.scrollTo(0, document.body.scrollHeight);
+
+    // Open every unread letter they sent, so it counts as read, then let the top bar know (even
+    // if you've left, since they were read).
     const unread = letters.filter((l) => l.to.id === me.id && l.readAt === null);
     if (unread.length) {
       await Promise.all(unread.map((l) => api.letter(l.id)));
       unreadChanged();
     }
-    window.scrollTo(0, document.body.scrollHeight);
   }
 
   function header(them: ProfileView): HTMLElement {
@@ -298,6 +303,7 @@ export function letterThreadView(otherId: string, ctx: ViewContext): View {
 
 /** Write a letter: text and up to four pictures, which upload as soon as they're picked. */
 function composer(to: ProfileView, onSent: (letter: LetterView) => void) {
+  const draft: DraftFor = { mode: "letter", id: to.id };
   const textarea = h("textarea", {
     class: "composer-input letter-input",
     attrs: {
@@ -377,6 +383,7 @@ function composer(to: ProfileView, onSent: (letter: LetterView) => void) {
     URL.revokeObjectURL(p.preview);
     p.el.remove();
     picked = picked.filter((x) => x !== p);
+    if (p.failed && !picked.some((x) => x.failed)) error.textContent = "";
     update();
   };
 
@@ -391,6 +398,7 @@ function composer(to: ProfileView, onSent: (letter: LetterView) => void) {
         icon("close"),
       );
       const progress = h("span", { class: "attachment-progress" });
+      const state = h("span", { class: "attachment-state", text: "Uploading…" });
       const el = h(
         "li",
         { class: "attachment uploading" },
@@ -400,6 +408,7 @@ function composer(to: ProfileView, onSent: (letter: LetterView) => void) {
           h("img", { class: "thumb-media", attrs: { src: preview, alt: "" } }),
         ),
         progress,
+        state,
         removeBtn,
       );
       list.append(el);
@@ -413,9 +422,11 @@ function composer(to: ProfileView, onSent: (letter: LetterView) => void) {
         if (r.ok) {
           p.media = r.data;
           el.classList.replace("uploading", "done");
+          state.textContent = "";
         } else {
           p.failed = true;
           el.classList.replace("uploading", "failed");
+          state.textContent = "Failed";
           error.textContent = r.message;
         }
         update();
@@ -425,8 +436,10 @@ function composer(to: ProfileView, onSent: (letter: LetterView) => void) {
   });
 
   textarea.addEventListener("input", () => {
-    error.textContent = "";
+    // A failed picture's reason stays until it's removed, since it's what keeps Send off.
+    if (!picked.some((p) => p.failed)) error.textContent = "";
     update();
+    saveDraft(draft, textarea.value);
   });
 
   form.addEventListener("submit", async (e) => {
@@ -444,6 +457,7 @@ function composer(to: ProfileView, onSent: (letter: LetterView) => void) {
       return;
     }
     textarea.value = "";
+    clearDraft(draft);
     for (const p of picked) URL.revokeObjectURL(p.preview);
     picked = [];
     list.replaceChildren();
@@ -452,6 +466,8 @@ function composer(to: ProfileView, onSent: (letter: LetterView) => void) {
     onSent(r.data.letter);
   });
 
+  // Words left here earlier in this tab come back.
+  textarea.value = loadDraft(draft);
   update();
   return {
     el: form,

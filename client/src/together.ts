@@ -81,15 +81,30 @@ export const inviteLink = (path: string, origin: string) => new URL(path, origin
 
 /**
  * Whether a saved invite can be handed out again instead of making a new one: same kind of offer,
- * and at least an hour left before it expires.
+ * at least an hour left before it expires, and never copied or shared. An invite works once, so a
+ * link already sent to one person would fail for the next.
  */
 export function reusableInvite(
   saved: InviteView | undefined,
   share: boolean,
   nowMs: number,
+  handedOut = false,
 ): saved is InviteView {
-  if (!saved || saved.share !== share) return false;
+  if (!saved || saved.share !== share || handedOut) return false;
   return Date.parse(saved.expiresAt) - nowMs > 60 * 60_000;
+}
+
+/**
+ * The welcome the world shows after accepting an invite. Without a plot (none free nearby), it
+ * says only what did happen: you follow each other.
+ */
+export function arrivalLine(
+  inviter: string,
+  accepted: { shared: boolean; plot: unknown | null },
+): string {
+  if (accepted.shared) return `Welcome home. You share ${inviter}'s plot now.`;
+  if (accepted.plot) return `Welcome! You live next to ${inviter} now.`;
+  return `Welcome! You and ${inviter} follow each other now. Walk out of the Commons to claim a plot.`;
 }
 
 /** A line the world shows once when you arrive from an invite (sessionStorage). */

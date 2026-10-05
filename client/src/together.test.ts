@@ -5,6 +5,7 @@ import { PROMPT_INTERESTS, PROMPT_NAMES, PROMPT_PATTERN, promptAt, promptLine } 
 import { matchRoute, routeTemplate } from "./router";
 import { templateIds } from "./telemetry";
 import {
+  arrivalLine,
   conversations,
   gestureLine,
   isLetterMediaUrl,
@@ -112,6 +113,20 @@ describe("invites", () => {
     expect(reusableInvite(saved, true, now)).toBe(false);
     expect(reusableInvite(undefined, false, now)).toBe(false);
     expect(reusableInvite(saved, false, Date.parse("2026-10-08T11:30:00Z"))).toBe(false);
+  });
+
+  it("welcomes you with what accepting did, and never claims a plot you didn't get", () => {
+    const plot = { id: "p_1" };
+    expect(arrivalLine("Ada", { shared: true, plot })).toBe(
+      "Welcome home. You share Ada's plot now.",
+    );
+    expect(arrivalLine("Ada", { shared: false, plot })).toBe("Welcome! You live next to Ada now.");
+    expect(arrivalLine("Ada", { shared: false, plot: null })).not.toContain("live next to");
+  });
+
+  it("never reuses a link that was already copied or shared: it works only once", () => {
+    expect(reusableInvite(saved, false, now, false)).toBe(true);
+    expect(reusableInvite(saved, false, now, true)).toBe(false);
   });
 
   it("routes invite and letter pages, and never reports their ids", () => {

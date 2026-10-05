@@ -200,6 +200,10 @@ export const api = {
     request(on ? "PUT" : "DELETE", `/v1/posts/${encodeURIComponent(id)}/repost`, PostOnly),
   byHandle: (handle: string) =>
     request("GET", `/v1/residents/by-handle/${encodeURIComponent(handle)}`, ProfileResponse),
+  followers: (id: string) =>
+    request("GET", `/v1/residents/${encodeURIComponent(id)}/followers`, ResidentListResponse),
+  friends: (id: string) =>
+    request("GET", `/v1/residents/${encodeURIComponent(id)}/friends`, ResidentListResponse),
   following: (id: string) =>
     request("GET", `/v1/residents/${encodeURIComponent(id)}/following`, ResidentListResponse),
   updateProfile: (body: UpdateProfileRequest) =>
@@ -217,16 +221,12 @@ export const api = {
 
 /**
  * Who a key belongs to, without saving it: the restore field checks a pasted key this way first.
- * An empty profile update changes nothing and answers with the key's resident.
+ * `GET /v1/me` is a read, so it answers for a suspended or paused resident too.
  */
 export async function whoseKey(token: string): Promise<Result<ProfileView>> {
   let res: Response;
   try {
-    res = await fetch("/v1/profile", {
-      method: "PUT",
-      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
-      body: "{}",
-    });
+    res = await fetch("/v1/me", { headers: { authorization: `Bearer ${token}` } });
   } catch {
     return { ok: false, status: 0, code: "offline", message: OFFLINE };
   }
@@ -335,7 +335,7 @@ export function myProfile(): Promise<ProfileView | null> {
         const r = await api.profile(id);
         if (r.ok) return r.data.resident;
       }
-      const r = await request("PUT", "/v1/profile", ProfileResponse, {});
+      const r = await request("GET", "/v1/me", ProfileResponse);
       if (!r.ok) return null;
       saveResidentId(r.data.resident.id);
       return r.data.resident;

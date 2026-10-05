@@ -25,6 +25,9 @@ export interface Landing {
   setJoining(on: boolean): void;
   setError(text: string): void;
   focusName(): void;
+  focusNote(): void;
+  /** Open "Restore with a key", for a saved key the server no longer knows. */
+  openRestore(): void;
   /** Update the live line, for example "12 residents, 3 online now". */
   setPopulation(total: number, online: number): void;
 }
@@ -138,6 +141,10 @@ export function createLanding(root: HTMLElement, { onJoin, onRestore }: LandingO
       error.textContent = text;
     },
     focusName: () => name.focus(),
+    focusNote: () => note.focus(),
+    openRestore() {
+      byId<HTMLDetailsElement>(root, "restore").open = true;
+    },
     setPopulation(total, online) {
       liveText.textContent = populationLine(total, online);
       live.hidden = false;

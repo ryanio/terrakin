@@ -972,6 +972,16 @@ export class Api {
           status: 200 as const,
           body: { residents },
         })),
+      getResidentFollowers: ({ params }) =>
+        fromResult(social().followers(params.id), (residents) => ({
+          status: 200 as const,
+          body: { residents },
+        })),
+      getResidentFriends: ({ params }) =>
+        fromResult(social().friends(params.id), (residents) => ({
+          status: 200 as const,
+          body: { residents },
+        })),
       getPurse: ({ viewer }) => ({
         status: 200,
         body: purseView(service.state, viewer, (id) => this.social?.authorView(id)),
@@ -1010,6 +1020,11 @@ export class Api {
         if (!resident) return fail("not_found", "No such resident.");
         // An hour-old agent link is checked again in the background; this answer doesn't wait.
         void social().agentLinks.refreshIfStale(params.id);
+        return { status: 200, body: { resident } };
+      },
+      getMe: ({ viewer }) => {
+        const resident = social().profile(viewer, viewer);
+        if (!resident) return fail("unauthorized", "That token doesn't belong to anyone here.");
         return { status: 200, body: { resident } };
       },
       getResidentPosts: ({ viewer, params, query }) => {

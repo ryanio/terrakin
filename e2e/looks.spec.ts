@@ -164,3 +164,58 @@ test("style a garment: a citrus dress in sun yellow and striped socks, at 390x84
   await expect(editor).toBeHidden();
   expect(errors).toEqual([]);
 });
+
+test("Dress up keeps a color picked on the card, and Save waits for an upload", async ({
+  page,
+}) => {
+  const errors = watchErrors(page);
+  const res = await page.request.post("/v1/session", {
+    data: { name: "Dara", kind: "human", color: "rose" },
+  });
+  expect(res.ok()).toBe(true);
+  const { residentId, token } = (await res.json()) as { residentId: string; token: string };
+  await page.addInitScript(
+    ([t, id]) => {
+      localStorage.setItem("terrakin.token", t ?? "");
+      localStorage.setItem("terrakin.resident", id ?? "");
+    },
+    [token, residentId],
+  );
+
+  await page.goto(`/r/${residentId}`);
+  // A new color on the look card, not saved there, then on to the editor.
+  await page.locator('.look [data-value="leaf"]').click();
+  await page.getByRole("button", { name: "Dress up" }).click();
+  const editor = page.getByRole("dialog", { name: "Your look" });
+  await expect(editor).toBeVisible();
+
+  // While an upload is on its way, Save waits for it.
+  let release = () => {};
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/v1/media", async (route) => {
+    await held;
+    await route.abort();
+  });
+  await editor.locator('input[data-media="homeArt"]').setInputFiles({
+    name: "home.png",
+    mimeType: "image/png",
+    buffer: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+  });
+  const save = editor.locator(".look-save");
+  await expect(save).toBeDisabled();
+  await expect(save).toHaveText("Uploading…");
+  release();
+  await expect(save).toBeEnabled();
+  await expect(save).toHaveText("Save my look");
+  await page.unroute("**/v1/media");
+
+  await editor.locator('[data-wear="straw_hat"]').click();
+  await save.click();
+  await expect(editor).toBeHidden();
+  const me = (await (await page.request.get(`/v1/residents/${residentId}`)).json()).resident;
+  expect(me.color).toBe("leaf");
+  expect(me.look).toMatchObject({ wear: ["straw_hat"] });
+  expect(errors).toEqual([]);
+});

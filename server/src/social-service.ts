@@ -43,6 +43,7 @@ import {
 } from "@terrakin/protocol";
 import { lookOf, type Resident } from "@terrakin/sim";
 import { type AgentLinkOptions, AgentLinkService } from "./agent-links";
+import { imageSize, sizeFields } from "./image-size";
 import { aimedAtReader, readerMessage } from "./injection";
 import { type MediaStore, privateMediaKey, sniffMediaType } from "./media";
 import { Moderation, type ReviewContext, refusal, type Surface } from "./moderation";
@@ -124,8 +125,18 @@ const DAY_MS = 24 * HOUR_MS;
 const NOTIFICATION_KEEP_MS = 90 * DAY_MS;
 /** How much of a post a notification quotes. */
 const EXCERPT_CHARS = 140;
-/** The most residents `following()` lists. */
+/** The most residents `following()`, `followers()`, and `friends()` list. */
 const FOLLOWING_LIST_MAX = 200;
+/** No block either way between two residents, as a SQL condition on two columns. */
+const unblocked = (x: string, y: string) =>
+  `NOT EXISTS (SELECT 1 FROM blocks k WHERE (k.blocker = ${x} AND k.blocked = ${y}) OR (k.blocker = ${y} AND k.blocked = ${x}))`;
+/** Follows that go both ways: `a.follower` and `a.followee` follow each other. */
+const MUTUAL_FOLLOWS =
+  "follows a JOIN follows b ON b.follower = a.followee AND b.followee = a.follower";
+// A block leaves the follow rows in place, so the lists and counts leave blocked pairs out.
+const FOLLOWER_IDS = `SELECT a.follower AS id FROM follows a WHERE a.followee = ? AND ${unblocked("a.follower", "a.followee")}`;
+const FOLLOWING_IDS = `SELECT a.followee AS id FROM follows a WHERE a.follower = ? AND ${unblocked("a.follower", "a.followee")}`;
+const FRIEND_IDS = `SELECT a.followee AS id FROM ${MUTUAL_FOLLOWS} WHERE a.follower = ? AND ${unblocked("a.follower", "a.followee")}`;
 
 export interface SocialServiceOptions {
   sql: SqlExec;
@@ -402,6 +413,15 @@ export class SocialService {
     for (const column of ["updated_at INTEGER", "banner TEXT"]) {
       try {
         this.sql.exec(`ALTER TABLE profiles ADD COLUMN ${column}`);
+      } catch {
+        // Already there.
+      }
+    }
+    // Added later: an image's size in pixels, read from its header at upload. Null for older
+    // uploads, videos, models, and images whose header we couldn't read.
+    for (const column of ["width INTEGER", "height INTEGER"]) {
+      try {
+        this.sql.exec(`ALTER TABLE media ADD COLUMN ${column}`);
       } catch {
         // Already there.
       }
@@ -921,12 +941,22 @@ export class SocialService {
 
   /** Who someone follows, most recent first. */
   following(residentId: string): SocialResult<AuthorView[]> {
+    return this.residentList(residentId, `${FOLLOWING_IDS} ORDER BY a.rowid DESC LIMIT ?`);
+  }
+
+  /** Who follows someone, most recent first. */
+  followers(residentId: string): SocialResult<AuthorView[]> {
+    return this.residentList(residentId, `${FOLLOWER_IDS} ORDER BY a.rowid DESC LIMIT ?`);
+  }
+
+  /** Their friends: the residents they follow who follow them back, most recently followed first. */
+  friends(residentId: string): SocialResult<AuthorView[]> {
+    return this.residentList(residentId, `${FRIEND_IDS} ORDER BY a.rowid DESC LIMIT ?`);
+  }
+
+  private residentList(residentId: string, sql: string): SocialResult<AuthorView[]> {
     if (!this.resident(residentId)) return fail("not_found", "No such resident.");
-    const ids = this.rows(
-      "SELECT followee FROM follows WHERE follower = ? ORDER BY rowid DESC LIMIT ?",
-      residentId,
-      FOLLOWING_LIST_MAX,
-    ).map((row) => String(row.followee));
+    const ids = this.rows(sql, residentId, FOLLOWING_LIST_MAX).map((row) => String(row.id));
     return { ok: true, value: ids.flatMap((id) => this.authorById(id) ?? []) };
   }
 
@@ -937,12 +967,14 @@ export class SocialService {
     const extra = this.rows(
       `SELECT bio, avatar, banner,
         (SELECT COUNT(*) FROM posts WHERE author = ? AND hidden = 0) AS posts,
-        (SELECT COUNT(*) FROM follows WHERE followee = ?) AS followers,
-        (SELECT COUNT(*) FROM follows WHERE follower = ?) AS following,
+        (SELECT COUNT(*) FROM (${FOLLOWER_IDS})) AS followers,
+        (SELECT COUNT(*) FROM (${FOLLOWING_IDS})) AS following,
+        (SELECT COUNT(*) FROM (${FRIEND_IDS})) AS friends,
         (SELECT COUNT(*) FROM follows WHERE follower = ? AND followee = ?) AS followed,
         (SELECT handle FROM handles WHERE resident_id = ? AND released_at = 0) AS handle,
         (SELECT handle FROM x_links WHERE x_links.resident_id = ?) AS x_handle
       FROM (SELECT 1) LEFT JOIN profiles ON resident_id = ?`,
+      residentId,
       residentId,
       residentId,
       residentId,
@@ -972,6 +1004,7 @@ export class SocialService {
       posts: Number(extra?.posts ?? 0),
       followers: Number(extra?.followers ?? 0),
       following: Number(extra?.following ?? 0),
+      friends: Number(extra?.friends ?? 0),
       followed: Number(extra?.followed ?? 0) > 0,
       ...optionalStreak(this.together.longestStreak(r.id)),
       praise: this.praise.received(r.id),
@@ -1719,6 +1752,8 @@ export class SocialService {
     bytes = stripped;
     const refusal = this.checkUploadCaps(ownerId, bytes.length);
     if (refusal) return refusal;
+    // Read from the header, so a post can save the picture's room before it loads.
+    const size = kind === "image" ? imageSize(bytes, type) : undefined;
     const id = randomId("m");
     const at = this.now();
     this.sql.exec(
@@ -1729,12 +1764,15 @@ export class SocialService {
       at,
     );
     this.sql.exec(
-      "INSERT INTO media (id, owner, type, bytes, created_at) VALUES (?, ?, ?, ?, ?)",
+      `INSERT INTO media (id, owner, type, bytes, created_at, width, height)
+        VALUES (?, ?, ?, ?, ?, NULLIF(?, 0), NULLIF(?, 0))`,
       id,
       ownerId,
       type,
       bytes.length,
       at,
+      size?.width ?? 0,
+      size?.height ?? 0,
     );
     try {
       await this.media.put(id, bytes, type);
@@ -1744,7 +1782,10 @@ export class SocialService {
       this.sql.exec("DELETE FROM uploads WHERE media_id = ?", id);
       return fail("internal", "Couldn't save that file. Try again.");
     }
-    return { ok: true, value: { id, kind, type, url: mediaUrl(id), bytes: bytes.length } };
+    return {
+      ok: true,
+      value: { id, kind, type, url: mediaUrl(id), bytes: bytes.length, ...size },
+    };
   }
 
   /**
@@ -1991,7 +2032,8 @@ export class SocialService {
     const media = new Map<string, MediaView[]>();
     if (ids.length === 0) return media;
     for (const m of this.rows(
-      `SELECT pm.post_id, m.id, m.type, m.bytes FROM post_media pm JOIN media m ON m.id = pm.media_id
+      `SELECT pm.post_id, m.id, m.type, m.bytes, m.width, m.height
+        FROM post_media pm JOIN media m ON m.id = pm.media_id
         WHERE pm.post_id IN (${marks(ids.length)}) ORDER BY pm.post_id, pm.ord`,
       ...ids,
     )) {
@@ -2003,6 +2045,7 @@ export class SocialService {
         type,
         url: mediaUrl(String(m.id)),
         bytes: Number(m.bytes),
+        ...sizeFields(m),
       });
       media.set(String(m.post_id), list);
     }
@@ -2012,7 +2055,8 @@ export class SocialService {
   /** A resident's avatar and then their banner, the ones that are set. */
   private profileMedia(residentId: string): MediaView[] {
     return this.rows(
-      `SELECT m.id, m.type, m.bytes FROM profiles pr JOIN media m ON m.id IN (pr.avatar, pr.banner)
+      `SELECT m.id, m.type, m.bytes, m.width, m.height
+        FROM profiles pr JOIN media m ON m.id IN (pr.avatar, pr.banner)
         WHERE pr.resident_id = ? ORDER BY m.id = pr.banner`,
       residentId,
     ).map((m) => {
@@ -2023,6 +2067,7 @@ export class SocialService {
         type,
         url: mediaUrl(String(m.id)),
         bytes: Number(m.bytes),
+        ...sizeFields(m),
       };
     });
   }

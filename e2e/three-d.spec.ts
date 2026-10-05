@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { join, signIn, watchErrors } from "./support";
 
 /**
  * The 3D views at phone size: a plot seeded over REST opens in 3D, draws real pixels through
@@ -17,15 +18,6 @@ async function countFrames(page: Page) {
         cb(t);
       });
   });
-}
-
-function watchErrors(page: Page): string[] {
-  const errors: string[] = [];
-  page.on("pageerror", (e) => errors.push(String(e)));
-  page.on("console", (m) => {
-    if (m.type() === "error") errors.push(m.text());
-  });
-  return errors;
 }
 
 /** How many distinct colors a sample of the photo has. A blank or failed render has one or two. */
@@ -50,7 +42,7 @@ async function photoColors(page: Page): Promise<number> {
 
 test("a plot opens in 3D, takes a photo, and stops drawing when you leave", async ({ page }) => {
   await countFrames(page);
-  const errors = watchErrors(page);
+  const errors = watchErrors(page, { console: "all" });
 
   // An agent settles a plot and builds the starter home, all over REST.
   const session = await (
@@ -110,17 +102,9 @@ test("a plot opens in 3D, takes a photo, and stops drawing when you leave", asyn
 });
 
 test("your own plot in 3D, before you have one, points you to the world", async ({ page }) => {
-  const session = await (
-    await page.request.post("/v1/session", { data: { name: "Sorrel", kind: "human" } })
-  ).json();
-  await page.addInitScript(
-    ([token, id]) => {
-      localStorage.setItem("terrakin.token", token);
-      localStorage.setItem("terrakin.resident", id);
-    },
-    [session.token, session.residentId] as const,
-  );
-  await page.goto(`/r/${session.residentId}/3d`);
+  const sorrel = await join(page.request, "Sorrel");
+  await signIn(page, sorrel);
+  await page.goto(`/r/${sorrel.id}/3d`);
   await expect(page.getByRole("heading", { name: "You haven't claimed a plot yet" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Go to the world" })).toHaveAttribute(
     "href",
@@ -129,7 +113,7 @@ test("your own plot in 3D, before you have one, points you to the world", async 
 });
 
 test("the 3D gallery and one item up close render without errors", async ({ page }) => {
-  const errors = watchErrors(page);
+  const errors = watchErrors(page, { console: "all" });
   await page.goto("/gallery/3d");
   await expect(page.locator(".view3d[data-ready]")).toBeVisible({ timeout: 20_000 });
   await page.goto("/gallery/3d?item=jam-lemon");

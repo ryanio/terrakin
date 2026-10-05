@@ -9,13 +9,41 @@ import { type APIRequestContext, expect, type Page } from "@playwright/test";
 export interface Resident {
   id: string;
   token: string;
+  /** The `authorization` header for requests as this resident. */
+  auth: { authorization: string };
 }
 
-export async function join(request: APIRequestContext, name: string): Promise<Resident> {
-  const res = await request.post("/v1/session", { data: { name, kind: "human" } });
-  expect(res.ok()).toBe(true);
-  const body = await res.json();
-  return { id: body.residentId as string, token: body.token as string };
+export interface JoinOptions {
+  kind?: "human" | "agent";
+  color?: string;
+  /**
+   * Keep trying for up to 90 seconds when the server refuses, for a spec that joins after others
+   * have spent the per-IP budget for new sessions.
+   */
+  retry?: boolean;
+}
+
+/** A new resident over the API, a human unless `kind` says otherwise. */
+export async function join(
+  request: APIRequestContext,
+  name: string,
+  { kind = "human", color, retry = false }: JoinOptions = {},
+): Promise<Resident> {
+  const data = color === undefined ? { name, kind } : { name, kind, color };
+  let body: { residentId: string; token: string } | undefined;
+  const attempt = async () => {
+    const res = await request.post("/v1/session", { data });
+    expect(res.ok()).toBe(true);
+    body = await res.json();
+  };
+  if (retry) await expect(attempt).toPass({ timeout: 90_000, intervals: [2_000, 5_000] });
+  else await attempt();
+  if (!body) throw new Error("no session");
+  return {
+    id: body.residentId,
+    token: body.token,
+    auth: { authorization: `Bearer ${body.token}` },
+  };
 }
 
 /** A world action. The body says whether the rules took it: check `ok`. */
@@ -34,30 +62,44 @@ export async function read(request: APIRequestContext, token: string, path: stri
   return res.json();
 }
 
-/** Open pages as `who`, the way the app remembers a resident. */
-export async function signIn(page: Page, who: Resident) {
-  await page.addInitScript(
-    ([token, id]) => {
-      localStorage.setItem("terrakin.token", token);
-      localStorage.setItem("terrakin.resident", id);
-    },
-    [who.token, who.id] as const,
-  );
+/**
+ * Open pages as `who`, the way the app remembers a resident. With `now`, sign in only the page as
+ * it is, so pages opened later (on the admin host, say) start signed out.
+ */
+export async function signIn(
+  page: Page,
+  who: Pick<Resident, "id" | "token">,
+  { now = false } = {},
+) {
+  const save = ([token, id]: readonly [string, string]) => {
+    localStorage.setItem("terrakin.token", token);
+    localStorage.setItem("terrakin.resident", id);
+  };
+  if (now) await page.evaluate(save, [who.token, who.id] as const);
+  else await page.addInitScript(save, [who.token, who.id] as const);
 }
 
-/** Unclaimed plots, read from the shared world (other specs settle too), skipping the Commons. */
+/**
+ * Unclaimed plots, read from the shared world (other specs settle too), skipping the Commons. The
+ * search starts in `corner` and goes a row at a time.
+ */
 export async function freePlots(
   request: APIRequestContext,
   n: number,
+  corner: "bottom-right" | "bottom-left" | "top-right" = "bottom-right",
 ): Promise<[number, number][]> {
   const world = await (await request.get("/v1/world")).json();
   const { width, height, plotSize } = world.config;
   const taken = new Set(world.plots.map((p: { px: number; py: number }) => `${p.px},${p.py}`));
   taken.add(`${world.commons.px},${world.commons.py}`);
+  const span = (size: number, backwards: boolean) => {
+    const all = Array.from({ length: size / plotSize }, (_, i) => i);
+    return backwards ? all.reverse() : all;
+  };
   const out: [number, number][] = [];
-  for (let py = height / plotSize - 1; py >= 0 && out.length < n; py--) {
-    for (let px = width / plotSize - 1; px >= 0 && out.length < n; px--) {
-      if (!taken.has(`${px},${py}`)) out.push([px, py]);
+  for (const py of span(height, corner !== "top-right")) {
+    for (const px of span(width, corner !== "bottom-left")) {
+      if (out.length < n && !taken.has(`${px},${py}`)) out.push([px, py]);
     }
   }
   return out;
@@ -80,13 +122,32 @@ export async function advanceDay(request: APIRequestContext) {
   expect((await request.post("/v1/test/advance-day")).ok()).toBe(true);
 }
 
+export interface WatchOptions {
+  /** Fail on any dialog the page opens (and dismiss it). */
+  dialogs?: boolean;
+  /** Which console errors fail: Content-Security-Policy refusals (the default), all, or none. */
+  console?: "csp" | "all" | "none";
+}
+
 /** Page errors and Content-Security-Policy refusals, which fail a test. */
-export function watchErrors(page: Page): string[] {
+export function watchErrors(
+  page: Page,
+  { dialogs = false, console: logged = "csp" }: WatchOptions = {},
+): string[] {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
-  page.on("console", (m) => {
-    if (m.type() === "error" && /Content Security Policy/i.test(m.text())) errors.push(m.text());
-  });
+  if (logged !== "none") {
+    page.on("console", (m) => {
+      if (m.type() !== "error") return;
+      if (logged === "all" || /Content.Security.Policy/i.test(m.text())) errors.push(m.text());
+    });
+  }
+  if (dialogs) {
+    page.on("dialog", (d) => {
+      errors.push(`unexpected dialog: ${d.message()}`);
+      void d.dismiss();
+    });
+  }
   return errors;
 }
 

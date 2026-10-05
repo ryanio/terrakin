@@ -1,14 +1,5 @@
-import { expect, type Page, test } from "@playwright/test";
-
-/** Page errors and Content-Security-Policy refusals fail a test. */
-function watchErrors(page: Page): string[] {
-  const errors: string[] = [];
-  page.on("pageerror", (e) => errors.push(String(e)));
-  page.on("console", (m) => {
-    if (m.type() === "error" && /Content Security Policy/i.test(m.text())) errors.push(m.text());
-  });
-  return errors;
-}
+import { expect, test } from "@playwright/test";
+import { watchErrors } from "./support";
 
 test("the homepage describes itself to machines and links its docs and trust pages", async ({
   page,

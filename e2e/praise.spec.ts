@@ -1,4 +1,5 @@
-import { type APIRequestContext, expect, type Page, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import { advanceDay, join, signIn, watchErrors } from "./support";
 
 /**
  * Praise (issue #36) at 390x844: a resident praises a neighbor from their profile, the count goes
@@ -6,38 +7,17 @@ import { type APIRequestContext, expect, type Page, test } from "@playwright/tes
  * a resident's second UTC day, so this moves the shared clock a day on and runs last, alone.
  */
 
-async function join(request: APIRequestContext, name: string) {
-  const res = await request.post("/v1/session", { data: { name, kind: "human" } });
-  expect(res.ok()).toBe(true);
-  const body = await res.json();
-  return { id: body.residentId as string, token: body.token as string };
-}
-
-async function signIn(page: Page, who: { id: string; token: string }) {
-  await page.addInitScript(
-    ([token, id]) => {
-      localStorage.setItem("terrakin.token", token);
-      localStorage.setItem("terrakin.resident", id);
-    },
-    [who.token, who.id] as const,
-  );
-}
-
 test("a resident praises a neighbor once a day from their profile", async ({ page }) => {
-  const errors: string[] = [];
-  page.on("pageerror", (e) => errors.push(String(e)));
-  page.on("console", (m) => {
-    if (m.type() === "error" && /Content Security Policy/i.test(m.text())) errors.push(m.text());
-  });
+  const errors = watchErrors(page);
   const iris = await join(page.request, "Iris");
   const tam = await join(page.request, "Tam");
 
   // On their first day, the server says to wait.
   const early = await page.request.post(`/v1/residents/${tam.id}/praise`, {
-    headers: { authorization: `Bearer ${iris.token}` },
+    headers: iris.auth,
   });
   expect(early.status()).toBe(429);
-  expect((await page.request.post("/v1/test/advance-day")).ok()).toBe(true);
+  await advanceDay(page.request);
 
   await signIn(page, iris);
   await page.goto(`/r/${tam.id}`);
@@ -63,7 +43,7 @@ test("a resident praises a neighbor once a day from their profile", async ({ pag
 
   // Tam sees it in notifications.
   const notes = await page.request.get("/v1/notifications", {
-    headers: { authorization: `Bearer ${tam.token}` },
+    headers: tam.auth,
   });
   const body = await notes.json();
   expect(body.notifications[0]).toMatchObject({ type: "praise", actor: { id: iris.id } });

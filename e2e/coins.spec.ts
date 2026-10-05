@@ -1,4 +1,5 @@
-import { type APIRequestContext, expect, type Page, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import { act, advanceDay, freePlots, join, signIn, watchErrors } from "./support";
 
 /**
  * Coins (RFC 0008) on a phone: a newcomer settles and sees the welcome gift in the purse in the
@@ -7,56 +8,6 @@ import { type APIRequestContext, expect, type Page, test } from "@playwright/tes
  * the shared clock a day on.
  */
 
-async function join(request: APIRequestContext, name: string) {
-  const res = await request.post("/v1/session", { data: { name, kind: "human" } });
-  expect(res.ok()).toBe(true);
-  const body = await res.json();
-  return { id: body.residentId as string, token: body.token as string };
-}
-
-async function act(request: APIRequestContext, token: string, action: unknown) {
-  const res = await request.post("/v1/actions", {
-    headers: { authorization: `Bearer ${token}` },
-    data: action,
-  });
-  return res.json();
-}
-
-async function signIn(page: Page, who: { id: string; token: string }) {
-  await page.addInitScript(
-    ([token, id]) => {
-      localStorage.setItem("terrakin.token", token);
-      localStorage.setItem("terrakin.resident", id);
-    },
-    [who.token, who.id] as const,
-  );
-}
-
-/** Unclaimed plots, read from the shared world (other specs settle too), skipping the Commons. */
-async function freePlots(request: APIRequestContext, n: number): Promise<[number, number][]> {
-  const world = await (await request.get("/v1/world")).json();
-  const { width, height, plotSize } = world.config;
-  const taken = new Set(world.plots.map((p: { px: number; py: number }) => `${p.px},${p.py}`));
-  taken.add(`${world.commons.px},${world.commons.py}`);
-  const out: [number, number][] = [];
-  for (let py = height / plotSize - 1; py >= 0 && out.length < n; py--) {
-    for (let px = 0; px < width / plotSize && out.length < n; px++) {
-      if (!taken.has(`${px},${py}`)) out.push([px, py]);
-    }
-  }
-  return out;
-}
-
-/** Page errors and Content-Security-Policy refusals fail a test. */
-function watchErrors(page: Page): string[] {
-  const errors: string[] = [];
-  page.on("pageerror", (e) => errors.push(String(e)));
-  page.on("console", (m) => {
-    if (m.type() === "error" && /Content Security Policy/i.test(m.text())) errors.push(m.text());
-  });
-  return errors;
-}
-
 test("a newcomer earns coins, comes home for more, and gives a friend some", async ({
   page,
   browser,
@@ -64,7 +15,7 @@ test("a newcomer earns coins, comes home for more, and gives a friend some", asy
   const errors = watchErrors(page);
   const juno = await join(page.request, "Juno");
   const pip = await join(page.request, "Pip");
-  const [a, b] = await freePlots(page.request, 2);
+  const [a, b] = await freePlots(page.request, 2, "bottom-left");
   if (!a || !b) throw new Error("No free plots left in the test world");
   const settle = (px: number, py: number) => ({ type: "settle", px, py });
   expect((await act(page.request, juno.token, settle(...a))).ok).toBe(true);
@@ -88,7 +39,7 @@ test("a newcomer earns coins, comes home for more, and gives a friend some", asy
   await expect(page.locator(".purse-how")).toContainText("Come home to your hearth");
 
   // The next day: the purse shows today's coins are waiting, and coming home collects them.
-  expect((await page.request.post("/v1/test/advance-day")).ok()).toBe(true);
+  await advanceDay(page.request);
   await page.reload();
   const home = page.locator(".purse-home");
   await expect(home).toBeVisible();

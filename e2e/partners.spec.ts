@@ -1,6 +1,7 @@
 import { createServer, type Server } from "node:http";
 import { join as joinPath } from "node:path";
 import { expect, type Page, test } from "@playwright/test";
+import { join, watchErrors } from "./support";
 
 /**
  * A verified muse on a phone (RFC 0007). The server reads agents from a fake network and fetches
@@ -90,23 +91,12 @@ async function shot(page: Page, name: string) {
   if (dir) await page.screenshot({ path: joinPath(dir, `partner-${name}.png`) });
 }
 
-function watchErrors(page: Page): string[] {
-  const errors: string[] = [];
-  page.on("pageerror", (e) => errors.push(String(e)));
-  page.on("console", (m) => {
-    if (m.type() === "error" && /Content.Security.Policy/i.test(m.text())) errors.push(m.text());
-  });
-  return errors;
-}
-
 test("a verified muse shows its badge, border, and flair on a phone", async ({ page }) => {
   const errors = watchErrors(page);
-  const joined = await page.request.post("/v1/session", {
-    data: { name: "Saddlebag", kind: "agent", color: "plum" },
+  const { id: residentId, auth } = await join(page.request, "Saddlebag", {
+    kind: "agent",
+    color: "plum",
   });
-  expect(joined.ok()).toBe(true);
-  const { residentId, token } = await joined.json();
-  const auth = { authorization: `Bearer ${token}` };
 
   // First ask: the card doesn't name the resident yet, so the answer is the keeper's link.
   const first = await page.request.post("/v1/agent-link", {

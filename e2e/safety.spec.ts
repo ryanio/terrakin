@@ -1,4 +1,5 @@
-import { type APIRequestContext, expect, type Page, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import { join, signIn, watchErrors } from "./support";
 
 /**
  * RFC 0006 on a phone: a resident reports a post, and a maintainer hides it from the staff app on
@@ -8,38 +9,8 @@ import { type APIRequestContext, expect, type Page, test } from "@playwright/tes
 // The full iPhone 13 screen, 390 by 844.
 test.use({ viewport: { width: 390, height: 844 } });
 
-async function join(request: APIRequestContext, name: string) {
-  const res = await request.post("/v1/session", { data: { name, kind: "human" } });
-  expect(res.ok()).toBe(true);
-  const body = await res.json();
-  return {
-    id: body.residentId as string,
-    token: body.token as string,
-    auth: { authorization: `Bearer ${body.token}` },
-  };
-}
-
-/** Act as this resident in the browser, the way joining would leave it. */
-async function signIn(page: Page, who: { id: string; token: string }) {
-  await page.evaluate(
-    ([token, id]) => {
-      localStorage.setItem("terrakin.token", token ?? "");
-      localStorage.setItem("terrakin.resident", id ?? "");
-    },
-    [who.token, who.id],
-  );
-}
-
 test("a resident reports a post from a phone, and a maintainer hides it", async ({ page }) => {
-  const errors: string[] = [];
-  page.on("pageerror", (e) => errors.push(String(e)));
-  page.on("console", (m) => {
-    if (m.type() === "error" && /Content Security Policy/i.test(m.text())) errors.push(m.text());
-  });
-  page.on("dialog", (d) => {
-    errors.push(`unexpected dialog: ${d.message()}`);
-    void d.dismiss();
-  });
+  const errors = watchErrors(page, { dialogs: true });
   expect(page.viewportSize()).toEqual({ width: 390, height: 844 });
 
   const author = await join(page.request, "Pebble");
@@ -60,7 +31,7 @@ test("a resident reports a post from a phone, and a maintainer hides it", async 
 
   // Quill opens the post and reports it from the post's More menu.
   await page.goto("/");
-  await signIn(page, reporter);
+  await signIn(page, reporter, { now: true });
   await page.goto(`/p/${post.id}`);
   const card = page.locator(`article[data-post="${post.id}"]`);
   await card.getByRole("button", { name: "More" }).click();
@@ -132,8 +103,7 @@ test("a resident reports a post from a phone, and a maintainer hides it", async 
 });
 
 test("a maintainer deletes a reported resident's profile pictures", async ({ page }) => {
-  const errors: string[] = [];
-  page.on("pageerror", (e) => errors.push(String(e)));
+  const errors = watchErrors(page, { console: "none" });
   const resident = await join(page.request, "Tansy");
   const reporter = await join(page.request, "Wren");
   const maintainer = await join(page.request, "Oriel");

@@ -1,5 +1,6 @@
 import { join as joinPath } from "node:path";
-import { type APIRequestContext, expect, type Page, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
+import { join, signIn, watchErrors } from "./support";
 
 // New sessions share a small per-IP budget with the other spec files, so joins wait their turn.
 test.setTimeout(120_000);
@@ -10,49 +11,13 @@ async function shot(page: Page, name: string) {
   if (dir) await page.screenshot({ path: joinPath(dir, `owner-${name}.png`), fullPage: true });
 }
 
-async function join(request: APIRequestContext, name: string, kind: "human" | "agent") {
-  let body: { residentId: string; token: string } | undefined;
-  await expect(async () => {
-    const res = await request.post("/v1/session", { data: { name, kind, color: "sky" } });
-    expect(res.status()).toBe(201);
-    body = await res.json();
-  }).toPass({ timeout: 90_000, intervals: [2_000, 5_000] });
-  if (!body) throw new Error("no session");
-  return {
-    id: body.residentId,
-    token: body.token,
-    auth: { authorization: `Bearer ${body.token}` },
-  };
-}
-
-/** Save a token the way joining the world does, so the page treats us as that resident. */
-async function signIn(page: Page, who: { id: string; token: string }) {
-  await page.addInitScript(
-    ([token, id]) => {
-      localStorage.setItem("terrakin.token", token);
-      localStorage.setItem("terrakin.resident", id);
-    },
-    [who.token, who.id] as const,
-  );
-}
-
-function watchErrors(page: Page): string[] {
-  const errors: string[] = [];
-  page.on("pageerror", (e) => errors.push(String(e)));
-  page.on("dialog", (d) => {
-    errors.push(`unexpected dialog: ${d.message()}`);
-    void d.dismiss();
-  });
-  return errors;
-}
-
 test("a person claims their AI from their profile, and can revoke its access", async ({
   page,
   browser,
 }) => {
-  const errors = watchErrors(page);
-  const hazel = await join(page.request, "Hazel", "human");
-  const birch = await join(page.request, "Birch", "agent");
+  const errors = watchErrors(page, { dialogs: true, console: "none" });
+  const hazel = await join(page.request, "Hazel", { kind: "human", color: "sky", retry: true });
+  const birch = await join(page.request, "Birch", { kind: "agent", color: "sky", retry: true });
   await signIn(page, hazel);
 
   // My AIs sits on your own profile.
@@ -138,8 +103,8 @@ test("a person claims their AI from their profile, and can revoke its access", a
 });
 
 test("an AI invites its person, who joins and confirms on the claim page", async ({ page }) => {
-  const errors = watchErrors(page);
-  const ash = await join(page.request, "Ash", "agent");
+  const errors = watchErrors(page, { dialogs: true, console: "none" });
+  const ash = await join(page.request, "Ash", { kind: "agent", color: "sky", retry: true });
   const invite = await page.request.post("/v1/owner/invites", { headers: ash.auth });
   expect(invite.status()).toBe(201);
   const { path } = await invite.json();
@@ -176,9 +141,9 @@ test("an AI invites its person, who joins and confirms on the claim page", async
 test("a person with a character elsewhere pastes their key on the claim page instead of joining", async ({
   page,
 }) => {
-  const errors = watchErrors(page);
-  const elm = await join(page.request, "Elm", "agent");
-  const fern = await join(page.request, "Fern", "human");
+  const errors = watchErrors(page, { dialogs: true, console: "none" });
+  const elm = await join(page.request, "Elm", { kind: "agent", color: "sky", retry: true });
+  const fern = await join(page.request, "Fern", { kind: "human", color: "sky", retry: true });
   const invite = await page.request.post("/v1/owner/invites", { headers: elm.auth });
   expect(invite.status()).toBe(201);
   const { path } = await invite.json();

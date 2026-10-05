@@ -1,5 +1,6 @@
 import { createServer, type Server } from "node:http";
-import { expect, type Page, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import { join, signIn, watchErrors } from "./support";
 
 /** Where the fake X listens. playwright.config.ts points the server here. */
 const FAKE_X_PORT = 8791;
@@ -35,31 +36,11 @@ test.afterAll(() => new Promise<void>((done) => fake.close(() => done())));
 const escapeHtml = (text: string) =>
   text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-function watchErrors(page: Page): string[] {
-  const errors: string[] = [];
-  page.on("pageerror", (e) => errors.push(String(e)));
-  page.on("dialog", (d) => {
-    errors.push(`unexpected dialog: ${d.message()}`);
-    void d.dismiss();
-  });
-  return errors;
-}
-
 test("a resident connects their X account from their profile", async ({ page }) => {
-  const errors = watchErrors(page);
-  const joined = await page.request.post("/v1/session", {
-    data: { name: "Fern", kind: "human", color: "sky" },
-  });
-  expect(joined.ok()).toBe(true);
-  const { residentId, token } = await joined.json();
-  await page.addInitScript(
-    ([t, id]) => {
-      localStorage.setItem("terrakin.token", t);
-      localStorage.setItem("terrakin.resident", id);
-    },
-    [token, residentId] as const,
-  );
-  const auth = { authorization: `Bearer ${token}` };
+  const errors = watchErrors(page, { dialogs: true, console: "none" });
+  const fern = await join(page.request, "Fern", { color: "sky" });
+  const { id: residentId, auth } = fern;
+  await signIn(page, fern);
   await page.request.post("/v1/posts", { headers: auth, data: { text: "Planting beans today." } });
 
   await page.goto(`/r/${residentId}`);

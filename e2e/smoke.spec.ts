@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { watchErrors } from "./support";
 
 // Default world: spawn (36,36) is inside the Commons (tiles 32..39), so 5 steps west and north
 // reach plot (3,3). See docs/knowledge/learnings/2026-10-02-leaving-the-commons-from-spawn.md.
@@ -25,8 +26,7 @@ async function settleCamera(page: Page) {
 }
 
 test("a human can join, claim, build, and chat safely next to an agent", async ({ page }) => {
-  const errors: string[] = [];
-  page.on("pageerror", (e) => errors.push(String(e)));
+  const errors = watchErrors(page, { console: "none" });
 
   // An agent moves in through the API, the way a muse would.
   const agent = await (
@@ -164,8 +164,7 @@ test("a saved key the server doesn't know comes back to the landing with a way o
 });
 
 test("the landing form never puts a key, name, or note in the address bar", async ({ page }) => {
-  const errors: string[] = [];
-  page.on("pageerror", (e) => errors.push(String(e)));
+  const errors = watchErrors(page, { console: "none" });
   await page.goto("/world");
   // The fields have no names, so even a native submit couldn't send them.
   for (const id of ["join-name", "join-note", "restore-key"]) {

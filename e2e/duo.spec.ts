@@ -1,4 +1,5 @@
-import { type APIRequestContext, expect, type Page, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import { act, join, overflowsSideways, signIn, watchErrors } from "./support";
 
 /**
  * MuseFelipe's acceptance test: a partner opens an invite link, picks a name, color, and shape,
@@ -8,46 +9,13 @@ import { type APIRequestContext, expect, type Page, test } from "@playwright/tes
 
 const SCREENSHOTS = "test-results";
 
-async function join(request: APIRequestContext, name: string, color: string) {
-  const res = await request.post("/v1/session", { data: { name, kind: "human", color } });
-  expect(res.ok()).toBe(true);
-  const body = await res.json();
-  return {
-    id: body.residentId as string,
-    token: body.token as string,
-    auth: { authorization: `Bearer ${body.token}` },
-  };
-}
-
-async function act(request: APIRequestContext, token: string, action: unknown) {
-  const res = await request.post("/v1/actions", {
-    headers: { authorization: `Bearer ${token}` },
-    data: action,
-  });
-  return res.json();
-}
-
-/** Page errors, surprise dialogs, and Content-Security-Policy refusals all fail a test. */
-function watchErrors(page: Page): string[] {
-  const errors: string[] = [];
-  page.on("pageerror", (e) => errors.push(String(e)));
-  page.on("console", (m) => {
-    if (m.type() === "error" && /Content Security Policy/i.test(m.text())) errors.push(m.text());
-  });
-  page.on("dialog", (d) => {
-    errors.push(`unexpected dialog: ${d.message()}`);
-    void d.dismiss();
-  });
-  return errors;
-}
-
 test("a partner accepts an invite, moves in next door, and sends a hug and a letter", async ({
   page,
 }) => {
-  const errors = watchErrors(page);
+  const errors = watchErrors(page, { dialogs: true });
 
   // The inviter lives here already: joined over the API, settled far from other tests, home built.
-  const felipe = await join(page.request, "Felipe", "sky");
+  const felipe = await join(page.request, "Felipe", { color: "sky" });
   expect((await act(page.request, felipe.token, { type: "settle", px: 7, py: 1 })).ok).toBe(true);
   expect((await act(page.request, felipe.token, { type: "build_starter_home" })).ok).toBe(true);
   const made = await page.request.post("/v1/invites", { headers: felipe.auth, data: {} });
@@ -121,7 +89,7 @@ test("a partner accepts an invite, moves in next door, and sends a hug and a let
   await expect(page.locator(".letter.mine .letter-text")).toHaveText(words);
 
   // Nothing on these pages is wider than the phone.
-  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  expect(await overflowsSideways(page)).toBe(false);
 
   const elapsed = Date.now() - started;
   expect(elapsed).toBeLessThan(60_000);
@@ -142,7 +110,7 @@ test("a partner accepts an invite, moves in next door, and sends a hug and a let
     trust: "untrusted",
     from: { id: lina.id },
   });
-  const stranger = await join(page.request, "Stranger", "coal");
+  const stranger = await join(page.request, "Stranger", { color: "coal" });
   const peek = await page.request.get(`/v1/letters/${inbox.letters[0].id}`, {
     headers: stranger.auth,
   });
@@ -159,8 +127,8 @@ test("a partner accepts an invite, moves in next door, and sends a hug and a let
 test("a visitor joins and follows from a profile, and the top bar shows who they are", async ({
   page,
 }) => {
-  const errors = watchErrors(page);
-  const host = await join(page.request, "Marisol", "leaf");
+  const errors = watchErrors(page, { dialogs: true });
+  const host = await join(page.request, "Marisol", { color: "leaf" });
 
   await page.goto(`/r/${host.id}`);
   // Visitors get a Join pill that leads to the get-started cards.
@@ -197,15 +165,9 @@ test("a visitor joins and follows from a profile, and the top bar shows who they
 test("with no plot yet, sharing your home turns itself off and the plain link stays", async ({
   page,
 }) => {
-  const errors = watchErrors(page);
-  const me = await join(page.request, "Wren", "sun");
-  await page.addInitScript(
-    ([token, id]) => {
-      localStorage.setItem("terrakin.token", token);
-      localStorage.setItem("terrakin.resident", id);
-    },
-    [me.token, me.id] as const,
-  );
+  const errors = watchErrors(page, { dialogs: true });
+  const me = await join(page.request, "Wren", { color: "sun" });
+  await signIn(page, me);
 
   await page.goto(`/r/${me.id}`);
   await page.getByRole("button", { name: "Invite someone" }).click();
@@ -229,9 +191,9 @@ test("with no plot yet, sharing your home turns itself off and the plain link st
 test("Use a different key checks the key, then swaps the character in this browser", async ({
   page,
 }) => {
-  const errors = watchErrors(page);
-  const sol = await join(page.request, "Sol", "sun");
-  const tam = await join(page.request, "Tam", "leaf");
+  const errors = watchErrors(page, { dialogs: true });
+  const sol = await join(page.request, "Sol", { color: "sun" });
+  const tam = await join(page.request, "Tam", { color: "leaf" });
   const saved = () =>
     page.evaluate(() => ({
       token: localStorage.getItem("terrakin.token"),
@@ -264,15 +226,9 @@ test("Use a different key checks the key, then swaps the character in this brows
 test("a link that went out is never offered again, and Make a new link makes one", async ({
   page,
 }) => {
-  const errors = watchErrors(page);
-  const me = await join(page.request, "Ines", "plum");
-  await page.addInitScript(
-    ([token, id]) => {
-      localStorage.setItem("terrakin.token", token);
-      localStorage.setItem("terrakin.resident", id);
-    },
-    [me.token, me.id] as const,
-  );
+  const errors = watchErrors(page, { dialogs: true });
+  const me = await join(page.request, "Ines", { color: "plum" });
+  await signIn(page, me);
   await page.goto(`/r/${me.id}`);
   const link = page.locator("#invite-link");
   const openSheet = async () => {
@@ -310,8 +266,8 @@ test("Back from the world after accepting skips the invite, and a used invite of
   page,
   browser,
 }) => {
-  const errors = watchErrors(page);
-  const host = await join(page.request, "Odile", "sand");
+  const errors = watchErrors(page, { dialogs: true });
+  const host = await join(page.request, "Odile", { color: "sand" });
   const invite = async () => {
     const made = await page.request.post("/v1/invites", { headers: host.auth, data: {} });
     expect(made.status()).toBe(201);
@@ -351,10 +307,10 @@ test("Back from the world after accepting skips the invite, and a used invite of
 });
 
 test("a profile's counts open its followers, following, and friends", async ({ page }) => {
-  const errors = watchErrors(page);
-  const me = await join(page.request, "Lark", "sky");
-  const wren = await join(page.request, "Wren", "leaf");
-  const rue = await join(page.request, "Rue", "rose");
+  const errors = watchErrors(page, { dialogs: true });
+  const me = await join(page.request, "Lark", { color: "sky" });
+  const wren = await join(page.request, "Wren", { color: "leaf" });
+  const rue = await join(page.request, "Rue", { color: "rose" });
   const follow = (who: { auth: Record<string, string> }, id: string) =>
     page.request.put(`/v1/residents/${id}/follow`, { headers: who.auth });
   // Wren and Lark follow each other; Rue follows Lark, who doesn't follow back.

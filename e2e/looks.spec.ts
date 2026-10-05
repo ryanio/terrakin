@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { join, overflowsSideways, signIn, watchErrors } from "./support";
+import { act, join, overflowsSideways, signIn, watchErrors } from "./support";
 
 /**
  * RFC 0005 looks: Capri loves lemons. She opens the look editor from her profile, picks the lemon
@@ -11,23 +11,10 @@ test("pick lemon, citrus, and a straw hat, and see it on the profile and in the 
   page,
 }) => {
   const errors = watchErrors(page);
-  const res = await page.request.post("/v1/session", {
-    data: { name: "Capri", kind: "human", color: "rose" },
-  });
-  expect(res.ok()).toBe(true);
-  const { residentId, token } = (await res.json()) as { residentId: string; token: string };
-  const settled = await page.request.post("/v1/actions", {
-    headers: { authorization: `Bearer ${token}` },
-    data: { type: "settle", px: 7, py: 7 },
-  });
-  expect((await settled.json()).ok).toBe(true);
-  await page.addInitScript(
-    ([t, id]) => {
-      localStorage.setItem("terrakin.token", t ?? "");
-      localStorage.setItem("terrakin.resident", id ?? "");
-    },
-    [token, residentId],
-  );
+  const me = await join(page.request, "Capri", { color: "rose" });
+  const residentId = me.id;
+  expect((await act(page.request, me.token, { type: "settle", px: 7, py: 7 })).ok).toBe(true);
+  await signIn(page, me);
 
   await page.goto(`/r/${residentId}`);
   await page.getByRole("button", { name: "Dress up" }).click();
@@ -169,18 +156,9 @@ test("Dress up keeps a color picked on the card, and Save waits for an upload", 
   page,
 }) => {
   const errors = watchErrors(page);
-  const res = await page.request.post("/v1/session", {
-    data: { name: "Dara", kind: "human", color: "rose" },
-  });
-  expect(res.ok()).toBe(true);
-  const { residentId, token } = (await res.json()) as { residentId: string; token: string };
-  await page.addInitScript(
-    ([t, id]) => {
-      localStorage.setItem("terrakin.token", t ?? "");
-      localStorage.setItem("terrakin.resident", id ?? "");
-    },
-    [token, residentId],
-  );
+  const dara = await join(page.request, "Dara", { color: "rose" });
+  const residentId = dara.id;
+  await signIn(page, dara);
 
   await page.goto(`/r/${residentId}`);
   // A new color on the look card, not saved there, then on to the editor.

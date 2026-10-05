@@ -1,5 +1,6 @@
 import { crc32, deflateSync } from "node:zlib";
-import { type APIRequestContext, expect, type Page, test } from "@playwright/test";
+import { type APIRequestContext, expect, test } from "@playwright/test";
+import { join, type Resident, signIn, watchErrors } from "./support";
 
 /** A tiny valid PNG (4x4, warm clay color), built by hand so the test needs no fixtures. */
 function tinyPng(): Buffer {
@@ -30,18 +31,6 @@ function tinyPng(): Buffer {
   ]);
 }
 
-async function join(request: APIRequestContext, name: string, color: string) {
-  const res = await request.post("/v1/session", { data: { name, kind: "agent", color } });
-  expect(res.ok()).toBe(true);
-  const body = await res.json();
-  return {
-    id: body.residentId as string,
-    token: body.token as string,
-    auth: { authorization: `Bearer ${body.token}` },
-  };
-}
-
-type Resident = Awaited<ReturnType<typeof join>>;
 let cast: Promise<{ juniper: Resident; moss: Resident }> | undefined;
 
 /**
@@ -50,30 +39,16 @@ let cast: Promise<{ juniper: Resident; moss: Resident }> | undefined;
  */
 function residents(request: APIRequestContext) {
   cast ??= (async () => ({
-    juniper: await join(request, "Juniper", "leaf"),
-    moss: await join(request, "Moss", "plum"),
+    juniper: await join(request, "Juniper", { kind: "agent", color: "leaf" }),
+    moss: await join(request, "Moss", { kind: "agent", color: "plum" }),
   }))();
   return cast;
-}
-
-/** Page errors, surprise dialogs, and Content-Security-Policy refusals all fail a test. */
-function watchErrors(page: Page): string[] {
-  const errors: string[] = [];
-  page.on("pageerror", (e) => errors.push(String(e)));
-  page.on("console", (m) => {
-    if (m.type() === "error" && /Content Security Policy/i.test(m.text())) errors.push(m.text());
-  });
-  page.on("dialog", (d) => {
-    errors.push(`unexpected dialog: ${d.message()}`);
-    void d.dismiss();
-  });
-  return errors;
 }
 
 test("the feed shows posts, images, profiles, and replies, with post text kept as text", async ({
   page,
 }) => {
-  const errors = watchErrors(page);
+  const errors = watchErrors(page, { dialogs: true });
 
   // Two agents move in over REST.
   const { juniper, moss } = await residents(page.request);
@@ -197,19 +172,8 @@ test("the feed shows posts, images, profiles, and replies, with post text kept a
   expect(errors).toEqual([]);
 });
 
-/** Save a token the way joining the world does, so the page treats us as that resident. */
-async function signIn(page: Page, who: { id: string; token: string }) {
-  await page.addInitScript(
-    ([token, id]) => {
-      localStorage.setItem("terrakin.token", token);
-      localStorage.setItem("terrakin.resident", id);
-    },
-    [who.token, who.id] as const,
-  );
-}
-
 test("a resident posts a picture through the composer", async ({ page }) => {
-  const errors = watchErrors(page);
+  const errors = watchErrors(page, { dialogs: true });
   const { juniper } = await residents(page.request);
   await signIn(page, juniper);
   await page.goto("/");
@@ -237,7 +201,7 @@ test("a resident posts a picture through the composer", async ({ page }) => {
 });
 
 test("the image viewer closes with back, and the page stays put", async ({ page }) => {
-  const errors = watchErrors(page);
+  const errors = watchErrors(page, { dialogs: true });
   const { juniper } = await residents(page.request);
   const upload = await page.request.post("/v1/media", {
     headers: { ...juniper.auth, "content-type": "image/png" },
@@ -262,7 +226,7 @@ test("the image viewer closes with back, and the page stays put", async ({ page 
 });
 
 test("a profile shows its banner and the post each reply answers", async ({ page }) => {
-  const errors = watchErrors(page);
+  const errors = watchErrors(page, { dialogs: true });
   const { juniper, moss } = await residents(page.request);
   const parent = (
     await (
@@ -318,7 +282,7 @@ test("a profile shows its banner and the post each reply answers", async ({ page
 test("on your own profile, tap your picture to change it, and the top bar follows", async ({
   page,
 }) => {
-  const errors = watchErrors(page);
+  const errors = watchErrors(page, { dialogs: true });
   const { juniper, moss } = await residents(page.request);
   await page.setViewportSize({ width: 390, height: 844 });
 
@@ -361,7 +325,7 @@ test("on your own profile, tap your picture to change it, and the top bar follow
 });
 
 test("leaving the world closes its socket", async ({ page }) => {
-  const errors = watchErrors(page);
+  const errors = watchErrors(page, { dialogs: true });
   const { moss } = await residents(page.request);
   await signIn(page, moss);
 
@@ -400,10 +364,10 @@ test("leaving the world closes its socket", async ({ page }) => {
 test("a new post reaches the home wall over the socket, which closes when you leave", async ({
   page,
 }) => {
-  const errors = watchErrors(page);
+  const errors = watchErrors(page, { dialogs: true });
   const { moss } = await residents(page.request);
   // Its own poster, so the shared residents keep their post allowance for the tests below.
-  const fern = await join(page.request, "Fern", "sky");
+  const fern = await join(page.request, "Fern", { kind: "agent", color: "sky" });
   await signIn(page, moss);
 
   let watching = 0;
@@ -440,7 +404,7 @@ test("a new post reaches the home wall over the socket, which closes when you le
 });
 
 test("townsfolk wear a friendly NPC badge on posts and profiles", async ({ page }) => {
-  const errors = watchErrors(page);
+  const errors = watchErrors(page, { dialogs: true });
   const { juniper } = await residents(page.request);
   await page.request.post("/v1/posts", {
     headers: juniper.auth,
@@ -473,7 +437,7 @@ test("townsfolk wear a friendly NPC badge on posts and profiles", async ({ page 
 });
 
 test("handles, mentions, reactions, reposts, quotes, and notifications", async ({ page }) => {
-  const errors = watchErrors(page);
+  const errors = watchErrors(page, { dialogs: true });
   const { juniper, moss } = await residents(page.request);
 
   // Moss has a handle and a post; Juniper follows Moss, so Moss shows up in suggestions.

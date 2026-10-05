@@ -1,4 +1,5 @@
-import { type APIRequestContext, expect, type Page, test } from "@playwright/test";
+import { type APIRequestContext, expect, test } from "@playwright/test";
+import { act, advanceDay, join, overflowsSideways, signIn, watchErrors } from "./support";
 
 /**
  * The Town Hall, end to end on a phone: three residents who have held their plots for three days
@@ -6,34 +7,17 @@ import { type APIRequestContext, expect, type Page, test } from "@playwright/tes
  * TERRAKIN_TEST_CLOCK=1, so `POST /v1/test/advance-day` moves its clock a day on.
  */
 
-async function join(request: APIRequestContext, name: string, plot: [number, number]) {
-  const res = await request.post("/v1/session", { data: { name, kind: "agent" } });
-  expect(res.ok()).toBe(true);
-  const body = await res.json();
-  const auth = { authorization: `Bearer ${body.token}` };
-  const act = async (action: unknown) => {
-    const r = await request.post("/v1/actions", { data: action, headers: auth });
-    return r.json();
-  };
-  expect(await act({ type: "settle", px: plot[0], py: plot[1] })).toMatchObject({ ok: true });
-  expect(await act({ type: "build_starter_home" })).toMatchObject({ ok: true });
-  return { id: body.residentId as string, token: body.token as string, act };
+/** An agent who settles `plot` and builds the starter home, with `act` bound to it. */
+async function settleAt(request: APIRequestContext, name: string, plot: [number, number]) {
+  const who = await join(request, name, { kind: "agent" });
+  const actAs = (action: unknown) => act(request, who.token, action);
+  expect(await actAs({ type: "settle", px: plot[0], py: plot[1] })).toMatchObject({ ok: true });
+  expect(await actAs({ type: "build_starter_home" })).toMatchObject({ ok: true });
+  return { ...who, act: actAs };
 }
 
 async function advanceDays(request: APIRequestContext, n: number) {
-  for (let i = 0; i < n; i++) {
-    expect((await request.post("/v1/test/advance-day")).ok()).toBe(true);
-  }
-}
-
-async function signIn(page: Page, who: { id: string; token: string }) {
-  await page.addInitScript(
-    ([token, id]) => {
-      localStorage.setItem("terrakin.token", token);
-      localStorage.setItem("terrakin.resident", id);
-    },
-    [who.token, who.id] as const,
-  );
+  for (let i = 0; i < n; i++) await advanceDay(request);
 }
 
 // Tiles of the default Commons (32..39), clear of the hall (35..37, 32..33) and of spawn (36, 36).
@@ -47,13 +31,12 @@ const FOUNTAIN = [
 test("an eligible resident proposes a fountain, the town votes it in, and it's built", async ({
   page,
 }) => {
-  const errors: string[] = [];
-  page.on("pageerror", (e) => errors.push(String(e)));
+  const errors = watchErrors(page, { console: "none" });
 
   // Plots just south of the Commons, so the hall is on screen from home.
-  const fern = await join(page.request, "Fern", [4, 5]);
-  const birch = await join(page.request, "Birch", [5, 5]);
-  const clover = await join(page.request, "Clover", [3, 5]);
+  const fern = await settleAt(page.request, "Fern", [4, 5]);
+  const birch = await settleAt(page.request, "Birch", [5, 5]);
+  const clover = await settleAt(page.request, "Clover", [3, 5]);
   await advanceDays(page.request, 3);
 
   await signIn(page, fern);
@@ -61,10 +44,7 @@ test("an eligible resident proposes a fountain, the town votes it in, and it's b
   await expect(page.locator(".town-you")).toHaveText("You can propose and vote.");
   await expect(page.locator('.site-nav [data-nav="town"]')).toHaveAttribute("aria-current", "page");
   // Phone first: nothing on the page scrolls sideways.
-  const width = page.viewportSize()?.width ?? 0;
-  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
-    width,
-  );
+  expect(await overflowsSideways(page)).toBe(false);
 
   // Draw a glass fountain on the map of the Commons: three taps go wood, stone, glass.
   await page.click("#town-propose");

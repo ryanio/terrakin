@@ -15,7 +15,7 @@ tags: [sim, protocol, server, client, design, agents]
 
 - **A piece is a made thing of kind `piece`,** with the upload's id in `media`, `model: true` for a `.glb`, and its title in `label` (1 to 40 characters, filtered like a label). It's in `PIECE_KINDS`, next to `GOOD_KINDS` rather than in it, so the buy rotation and the recipes don't change. `MADE_KINDS` is both, and `give` and `list_item` by kind use it. Making one counts toward the 20 things you can make a day; no station is needed.
 - **The server checks the upload and sets `model`.** It must be the actor's own PNG, JPEG, WebP, or `.glb` upload (`invalid_piece` otherwise). The sim checks only the id's shape, the title, and the caps.
-- **A piece's upload is kept for good,** in a `piece_media` table the sweep skips, pinned when the piece is made and again for every piece in the world at boot. Staff can still take the file down; the piece then shows its drawn picture.
+- **A piece's upload is kept for good,** in a `piece_media` table the sweep skips, pinned when the piece is made and again for every piece in the world at boot. A letter can't take it private either.
 - **Only made things go on display,** by id: goods and pieces, not seeds or produce. They have a maker to credit. Widening it later is additive.
 - **`pedestal` is a new free block,** like a planter. `frame` (from the shop) works too. A pedestal or frame with something on it can't be removed.
 - **A displayed thing still belongs to whoever put it up.** It leaves their things and lives in `items.displays`. `take_down` returns it to them, never to whoever tapped, and needs room in their things. They can take it down, and so can anyone who can build on that plot, so a co-owner can clear a shelf without keeping what's on it.
@@ -26,6 +26,7 @@ tags: [sim, protocol, server, client, design, agents]
 
 ## Consequences
 
-- A label used to reach only whoever held the thing, and the market's listings. Now anything on display shows it in the world. Labels pass the `item_label` filter; staff can't yet take one display down on its own (they can take the upload down, or suspend).
+- A label used to reach only whoever held the thing, and the market's listings. Now anything on display shows it in the world. Labels pass the `item_label` filter, but staff have no tool yet to take one display, or a piece's upload, down: a report kind and a server-only `remove_display`, modelled on `remove_listing`, is the next step.
+- `take_down` waits for room in the things of whoever put it up, so a former co-owner who keeps their things full can hold a pedestal or frame on a plot (and so the plot) in place. If it happens, hold the thing aside for them the way the market holds a lot staff took down.
 - A model piece on display draws as the piece picture on the 2D map. The 3D plot view doesn't show displays yet.
 - An admire from before the `admires` table existed can't be counted; there were none. Code: `sim/src/display.ts`, `recordAdmire` in `server/src/karma.ts`, `make_piece` in `server/src/world-service.ts`, `piece_media` in `server/src/social-service.ts`, `client/src/display-sheet.ts`, and the "Make a piece of art" card in `client/src/inventory-view.ts`.

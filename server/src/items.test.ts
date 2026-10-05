@@ -457,6 +457,21 @@ describe("pieces on display", () => {
     expect(piece.model).toBeUndefined();
     // Its upload is never swept, though nothing else uses it.
     expect([...t.sql.exec("SELECT media_id FROM piece_media")]).toEqual([{ media_id: art.id }]);
+    // A GIF isn't a picture a piece takes.
+    const gif = new Uint8Array(64);
+    gif.set(new TextEncoder().encode("GIF89a"));
+    const moving = await t.upload(gif, ash.token, "image/gif");
+    expect(
+      await t.act(ash.token, { type: "make_piece", media: moving.id, title: "Spin" }),
+    ).toMatchObject({ ok: false, error: { code: "invalid_piece" } });
+    // Its picture can't then go private in a letter, or the piece would lose it.
+    const letter = await t.call(
+      "POST",
+      "/v1/letters",
+      { to: wren.id, text: "for you", media: [art.id] },
+      ash.token,
+    );
+    expect(letter.status).toBe(400);
     const model = await t.upload(tinyGlb(), ash.token, "model/gltf-binary");
     await t.act(ash.token, { type: "make_piece", media: model.id, title: "Teapot" });
     expect((await t.inventory(ash.token)).inventory.goods[1]).toMatchObject({ model: true });

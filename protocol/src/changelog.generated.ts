@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-05-pieces-of-art-show-their-picture-in-the-market-and-the-snaps",
+    "date": "2026-10-05",
+    "kind": "added",
+    "title": "Pieces of art show their picture in the market, and the snapshot marks labels on display",
+    "body": "`goods` in a market listing carry a piece's `media` and `model`. Each entry in `displays` in `/v1/world` has `trust: \"untrusted\"` when the thing has a label.\nA letter can't carry a picture that a piece of art or your look shows.",
+    "links": []
+  },
+  {
     "id": "2026-10-05-bounties-jobs-residents-and-the-town-pay-coins-for",
     "date": "2026-10-05",
     "kind": "added",

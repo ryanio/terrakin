@@ -22673,6 +22673,12 @@
                   "type": "integer",
                   "minimum": -9007199254740991,
                   "maximum": 9007199254740991
+                },
+                "trust": {
+                  "type": "string",
+                  "enum": [
+                    "untrusted"
+                  ]
                 }
               },
               "required": [
@@ -26595,6 +26601,15 @@
           },
           "label": {
             "type": "string"
+          },
+          "media": {
+            "type": "string"
+          },
+          "model": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
           }
         },
         "required": [

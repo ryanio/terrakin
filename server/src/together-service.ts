@@ -250,11 +250,13 @@ export class TogetherService {
       const used =
         this.count("SELECT COUNT(*) AS c FROM post_media WHERE media_id = ?", id) +
         this.count("SELECT COUNT(*) AS c FROM profiles WHERE avatar = ? OR banner = ?", id, id) +
-        this.count("SELECT COUNT(*) AS c FROM letter_media WHERE media_id = ?", id);
+        this.count("SELECT COUNT(*) AS c FROM letter_media WHERE media_id = ?", id) +
+        this.count("SELECT COUNT(*) AS c FROM look_media WHERE media_id = ?", id) +
+        this.count("SELECT COUNT(*) AS c FROM piece_media WHERE media_id = ?", id);
       if (used > 0) {
         return fail(
           "bad_request",
-          "That picture is already in a post, a profile, or another letter. Upload it again for this letter.",
+          "That picture is already in a post, a profile, your look, a piece of art, or another letter. Upload it again for this letter.",
         );
       }
       types.set(id, type);

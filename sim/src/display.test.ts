@@ -95,6 +95,10 @@ describe("make_piece", () => {
     if (!items) throw new Error("items");
     items.today.crafted.ada = ITEMS.craftPerDay;
     expect(w.code("ada", { type: "make_piece", media: ART, title: "A" })).toBe("craft_limit");
+    items.today.crafted.ada = 0;
+    const room = ITEMS.inventoryMax - inventorySize(items.inventories.ada);
+    stock(w.state, "ada", { tomato: room });
+    expect(w.code("ada", { type: "make_piece", media: ART, title: "A" })).toBe("inventory_full");
   });
 
   it("waits for items to open", () => {
@@ -141,12 +145,15 @@ describe("display and take_down", () => {
     expect(w.code("ada", { type: "display", item: "i_2", x: 10, y: 2 })).toBe("out_of_reach");
     w.settle("bob", 2, 0);
     expect(w.code("ada", { type: "take_down", x: 3, y: 3 })).toBe("nothing_displayed");
-    // Bob can't take down Ada's things on her plot.
+    // Bob can't display on Ada's plot, or take down her things there.
+    w.ok("bob", { type: "make_piece", media: ART, title: "Bob's" });
+    const bobs = w.goods("bob")[0]?.id ?? "";
     const bob = w.state.residents.bob;
     if (!bob) throw new Error("bob");
     bob.x = 4;
     bob.y = 3;
     expect(w.code("bob", { type: "take_down", x: 2, y: 2 })).toBe("not_your_plot");
+    expect(w.code("bob", { type: "display", item: bobs, x: 4, y: 2 })).toBe("not_your_plot");
   });
 
   it("lets a co-owner take a thing down, and it goes back to whoever put it up", () => {

@@ -21,6 +21,10 @@ export const ListingGoodView = z.object({
   maker: AuthorView.nullable(),
   madeDay: z.number().int(),
   label: z.string().optional(),
+  /** A piece only: the upload it shows, served at `/media/<id>`. */
+  media: z.string().optional(),
+  /** A piece only: the upload is a `.glb` model, not a picture. */
+  model: z.literal(true).optional(),
 });
 
 export const ListingView = z.object({

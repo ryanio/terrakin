@@ -87,6 +87,8 @@ function listingView(
             maker: author(g.maker) ?? null,
             madeDay: g.madeDay,
             ...(g.label ? { label: g.label } : {}),
+            ...(g.media ? { media: g.media } : {}),
+            ...(g.model ? { model: true as const } : {}),
           })),
         }
       : {}),

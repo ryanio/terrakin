@@ -9,7 +9,7 @@
 import type { InventoryResponse, ListingView, MarketResponse } from "@terrakin/protocol";
 import { BUY_ORDERS, type ItemKind, isShopSku, type SellKind, SHOP_CATALOG } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
-import { itemArt } from "@terrakin/ui/item-art";
+import { thingPicture } from "@terrakin/ui/item-art";
 import { personLink } from "@terrakin/ui/people";
 import {
   confirmTwice,
@@ -109,7 +109,8 @@ export function listingRow(
   return itemRow({
     className: "market-listing",
     attrs: { "data-listing": l.id },
-    lead: itemArt(l.kind, { size: 32 }),
+    // A piece shows its own picture; everything else its drawn one.
+    lead: thingPicture({ kind: l.kind, ...l.goods?.[0] }, { size: 32 }),
     name: l.name,
     lines,
     trail: more ? h("span", { class: "cluster listing-trail" }, trail, more) : trail,

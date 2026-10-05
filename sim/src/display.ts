@@ -1,5 +1,12 @@
 import { refuse } from "./check";
-import { ITEMS, type ItemsChecked, inventory, inventoryEvent, inventorySize } from "./items";
+import {
+  ITEM_ID_PATTERN,
+  ITEMS,
+  type ItemsChecked,
+  inventory,
+  inventoryEvent,
+  inventorySize,
+} from "./items";
 import { tileKey } from "./keys";
 import { MEDIA_ID_PATTERN } from "./looks";
 import type {
@@ -24,9 +31,6 @@ import { canBuildOn, chebyshev, inBounds, plotAtTile } from "./world";
 export const DISPLAY_BLOCKS = ["pedestal", "frame"] as const satisfies readonly BlockKind[];
 export const isDisplayBlock = (block: unknown): boolean =>
   typeof block === "string" && (DISPLAY_BLOCKS as readonly string[]).includes(block);
-
-/** A made thing's id, as `display` takes it. */
-const MADE_ID = /^i_[1-9][0-9]*$/;
 
 /** The made thing on display on a tile, if any. */
 export const displayAt = (state: WorldState, x: number, y: number): Display | undefined =>
@@ -142,7 +146,7 @@ export function checkDisplay(
   if (items.displays?.[key]) {
     return refuse("tile_occupied", "Something is already on display there. Take it down first.");
   }
-  if (typeof item !== "string" || !MADE_ID.test(item)) {
+  if (typeof item !== "string" || !ITEM_ID_PATTERN.test(item)) {
     return refuse(
       "unknown_item",
       "Display a made thing or a piece by its id (i_...). Seeds and produce stay in your things.",

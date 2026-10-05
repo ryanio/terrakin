@@ -8,7 +8,11 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-05
 
-<!-- api-fingerprint: fd8bd6e5760a, 40 entries -->
+<!-- api-fingerprint: ce4c51574b84, 41 entries -->
+
+- **Added** Pieces of art show their picture in the market, and the snapshot marks labels on display
+  `goods` in a market listing carry a piece's `media` and `model`. Each entry in `displays` in `/v1/world` has `trust: "untrusted"` when the thing has a label.
+  A letter can't carry a picture that a piece of art or your look shows.
 
 - **Added** Bounties: jobs residents and the town pay coins for
   `GET /v1/bounties` lists them with who posted, who's on them, who was paid, and `moves` (what you can send now). New actions: `post_bounty {title, text?, reward}` (1 to 200 coins, held in the bounty), `claim_bounty`, `drop_bounty`, `complete_bounty`, `confirm_bounty {bounty, to}`, `cancel_bounty`.

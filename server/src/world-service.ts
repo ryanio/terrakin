@@ -1423,7 +1423,8 @@ export class WorldService {
         ? {
             displays: Object.entries(state.items.displays).map(([key, d]) => {
               const [x, y] = parseKey(key);
-              return { x, y, good: { ...d.good }, by: d.by, day: d.day };
+              const words = d.good.label !== undefined ? { trust: "untrusted" as const } : {};
+              return { x, y, good: { ...d.good }, by: d.by, day: d.day, ...words };
             }),
           }
         : {}),

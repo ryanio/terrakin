@@ -686,6 +686,8 @@ export const WorldSnapshot = z.object({
         good: GoodEventView,
         by: z.string(),
         day: z.number().int(),
+        /** Present when the thing has a label: it's its maker's words. */
+        trust: z.literal("untrusted").optional(),
       }),
     )
     .optional(),

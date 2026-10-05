@@ -39,6 +39,25 @@ export const mix = mixHex;
 /** A hex color as rgba() with an alpha. */
 export const withAlpha = alphaHex;
 
+/** Relative luminance of a `#rrggbb` color, 0 (black) to 1 (white). */
+export function luminance(hex: string): number {
+  const n = Number.parseInt(hex.slice(1, 7), 16);
+  const lin = (c: number) => {
+    const v = c / 255;
+    return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * lin((n >> 16) & 255) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255);
+}
+
+/**
+ * What a small pattern swatch is painted on: the cloth's own color, or a shade darker when it's
+ * pale, so a pale motif (stripes on a snow outfit) still shows at thumbnail size. The figure keeps
+ * the real color.
+ */
+export function swatchBacking(base: string): string {
+  return luminance(base) > 0.75 ? mix(base, INK, 0.22) : base;
+}
+
 /** The palette for a look: its theme's, or one made from the resident's color when it has none. */
 export function lookPalette(theme: Theme | undefined, color: ResidentColor): ThemePalette {
   if (theme && Object.hasOwn(THEME_INFO, theme)) return THEME_INFO[theme].palette;

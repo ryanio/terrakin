@@ -35,6 +35,7 @@ import {
   mediaUrlOf,
   onLookImage,
   PatternCache,
+  swatchBacking,
 } from "@terrakin/ui/looks";
 import {
   closeOverlay,
@@ -273,7 +274,10 @@ export function openLookEditor(owner: LookOwner, onSaved: (look: LookView) => vo
     );
   }
 
-  /** Paint a pattern swatch: the base color, then the motif, or your own tile once it loads. */
+  /**
+   * Paint a pattern swatch: the base color (a shade darker under a motif when it's pale, so the
+   * motif shows), then the motif, or your own tile once it loads.
+   */
   function paintThumb(t: Thumb, base: string, palette: ReturnType<typeof lookPalette>) {
     const dpr = Math.min(window.devicePixelRatio || 1, 3);
     const px = Math.round(28 * dpr);
@@ -281,7 +285,9 @@ export function openLookEditor(owner: LookOwner, onSaved: (look: LookView) => vo
     t.canvas.height = px;
     const ctx = t.canvas.getContext("2d");
     if (!ctx) return;
-    ctx.fillStyle = base;
+    // A plain swatch and your own tile show the cloth as it is; only a motif needs the backing.
+    const motif = t.pattern !== "own" && t.pattern !== "plain";
+    ctx.fillStyle = motif ? swatchBacking(base) : base;
     ctx.fillRect(0, 0, px, px);
     const img = t.pattern === "own" ? lookImage(draft.patternMedia ?? undefined) : undefined;
     const fill =

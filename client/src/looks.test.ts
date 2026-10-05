@@ -12,6 +12,7 @@ import {
   COLOR_WORDS,
   garmentName,
   lookPalette,
+  luminance,
   type MakeCanvas,
   mediaUrlOf,
   mix,
@@ -20,6 +21,7 @@ import {
   paintMotif,
   patternMotifs,
   RESIDENT_COLOR_HEX,
+  swatchBacking,
   waveY,
 } from "@terrakin/ui/looks";
 import { describe, expect, it } from "vitest";
@@ -138,6 +140,21 @@ function recorder() {
   );
   return { ctx, calls };
 }
+
+describe("pattern swatches", () => {
+  it("sit on a darker backing when the outfit is pale, so a pale motif shows", () => {
+    const snow = lookPalette(undefined, "snow");
+    const backing = swatchBacking(snow.main);
+    expect(backing).not.toBe(snow.main);
+    const gap = (a: string, b: string) => Math.abs(luminance(a) - luminance(b));
+    expect(gap(backing, snow.light)).toBeGreaterThan(3 * gap(snow.main, snow.light));
+    // A mid-tone outfit keeps its own color.
+    const sky = lookPalette(undefined, "sky");
+    expect(swatchBacking(sky.main)).toBe(sky.main);
+    expect(luminance("#ffffff")).toBeCloseTo(1);
+    expect(luminance("#000000")).toBe(0);
+  });
+});
 
 describe("theme palettes", () => {
   it("looks up a theme's palette, and makes one from the resident color without a theme", () => {

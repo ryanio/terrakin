@@ -1,6 +1,7 @@
 /**
  * `/town` the Town Hall: open proposals with live tallies and vote buttons, the Propose sheet (an
- * advisory, or a build drawn on a map of the Commons), the notice board, and past results.
+ * advisory, a build drawn on a map of the Commons, a grant, or a town bounty), the notice board, a
+ * way to the bounties, and past results.
  * Titles, texts, notices, and names are other residents' words: textContent only. The server
  * decides who may vote and what passes; this page shows its answers and its reasons.
  */
@@ -33,9 +34,12 @@ import { timeAgo } from "@terrakin/ui/when";
 import { actProblem, api } from "./api";
 import { savedToken } from "./net";
 import { skeletonCards } from "./post-card";
+import { coins } from "./purse";
 import {
   closedQuorum,
   closesIn,
+  grantHandle,
+  kindLabel,
   nextCell,
   type PlanCell,
   statusWord,
@@ -122,6 +126,7 @@ export function townView(ctx: ViewContext): View {
       h("h2", { class: "section-title", attrs: { id: "board-title" }, text: "Notice board" }),
       board,
       ...(town.shop ? [shopCard(town.shop)] : []),
+      ...(town.treasury ? [bountiesCard()] : []),
       h("h2", { class: "section-title", text: "Past results" }),
       archiveList,
       h("div", { class: "feed-foot" }, more.el),
@@ -230,8 +235,8 @@ export function townView(ctx: ViewContext): View {
       "div",
       { class: "proposal-head" },
       h("span", {
-        class: `proposal-kind ${p.kind === "commons_build" ? "build" : "advisory"}`,
-        text: p.kind === "commons_build" ? "Build" : "Advisory",
+        class: `proposal-kind ${p.kind === "advisory" ? "advisory" : "build"}`,
+        text: kindLabel(p.kind),
       }),
       h("span", {
         class: `proposal-status s-${p.status}`,
@@ -253,6 +258,16 @@ export function townView(ctx: ViewContext): View {
       p.text && !compact ? h("p", { class: "proposal-text", text: p.text }) : null,
       p.kind === "commons_build" && commons && (p.blocks.length > 0 || p.remove.length > 0)
         ? planMap(p)
+        : null,
+      p.amount !== undefined
+        ? h(
+            "p",
+            { class: "proposal-by proposal-money" },
+            icon("coin"),
+            p.kind === "grant" && p.to
+              ? h("span", {}, `${coins(p.amount)} from the treasury for `, personLink(p.to))
+              : h("span", { text: `${coins(p.amount)} from the treasury for whoever does it` }),
+          )
         : null,
       byline,
     );
@@ -402,7 +417,8 @@ export function townView(ctx: ViewContext): View {
     if (w.ok) commons = commonsOf(w.data);
     const c = commons;
     const limits = town.limits;
-    let kind: "advisory" | "commons_build" = "advisory";
+    type Kind = "advisory" | "commons_build" | "grant" | "bounty";
+    let kind: Kind = "advisory";
     const plan = new Map<string, PlanCell>();
 
     const titleInput = h("input", {
@@ -466,13 +482,71 @@ export function townView(ctx: ViewContext): View {
     );
     buildPart.hidden = true;
 
-    const kinds = chips<"advisory" | "commons_build">(
-      c ? ["advisory", "commons_build"] : ["advisory"],
+    // A grant or a town bounty pays from the treasury, so it needs coins open.
+    const treasury = town.treasury?.balance;
+    const amountInput = h("input", {
+      class: "sheet-input coin-amount",
+      attrs: {
+        id: "propose-amount",
+        type: "number",
+        inputmode: "numeric",
+        min: 1,
+        max: Math.min(1_000, treasury ?? 0),
+        step: 1,
+      },
+    });
+    const toInput = h("input", {
+      class: "sheet-input",
+      attrs: {
+        id: "propose-to",
+        placeholder: "@handle",
+        autocomplete: "off",
+        autocapitalize: "none",
+        spellcheck: "false",
+      },
+    });
+    const toPart = h(
+      "div",
+      { class: "stack tight" },
+      h("label", { class: "field-label", attrs: { for: "propose-to" }, text: "Who it's for" }),
+      toInput,
+    );
+    const moneyPart = h(
+      "div",
+      { class: "stack tight money-part" },
+      toPart,
+      h("label", {
+        class: "field-label",
+        attrs: { for: "propose-amount" },
+        text: "Coins from the treasury",
+      }),
+      amountInput,
+      h("p", {
+        class: "sheet-note",
+        text: `Up to 1,000. The treasury holds ${coins(treasury ?? 0)}. A town bounty pays whoever does the job, once a maintainer checks it.`,
+      }),
+    );
+    moneyPart.hidden = true;
+    const kindWords: Record<Kind, string> = {
+      advisory: "An idea",
+      commons_build: "A build",
+      grant: "A grant",
+      bounty: "A job",
+    };
+    const offered: Kind[] = [
+      "advisory",
+      ...(c ? (["commons_build"] as const) : []),
+      ...(treasury !== undefined ? (["grant", "bounty"] as const) : []),
+    ];
+    const kinds = chips<Kind>(
+      offered,
       kind,
-      (v) => [h("span", { text: v === "advisory" ? "An idea" : "A build" })],
+      (v) => [h("span", { text: kindWords[v] })],
       (v) => {
         kind = v;
         buildPart.hidden = kind !== "commons_build";
+        moneyPart.hidden = kind !== "grant" && kind !== "bounty";
+        toPart.hidden = kind !== "grant";
       },
       h("div", { class: "kind-row", attrs: { "aria-label": "Kind of proposal" } }),
     ).row;
@@ -491,6 +565,7 @@ export function townView(ctx: ViewContext): View {
       h("label", { class: "field-label", attrs: { for: "propose-text" }, text: "Details" }),
       textInput,
       buildPart,
+      moneyPart,
       h("p", {
         class: "sheet-note",
         text: "Voting closes at midnight UTC, two nights after it opens. Everyone can see who voted which way.",
@@ -517,6 +592,24 @@ export function townView(ctx: ViewContext): View {
         error.textContent = "Tap some tiles on the map first.";
         return;
       }
+      const money = kind === "grant" || kind === "bounty";
+      const amount = Number(amountInput.value);
+      if (money && (!Number.isInteger(amount) || amount < 1)) {
+        error.textContent = "Say how many coins, a whole number.";
+        amountInput.focus();
+        return;
+      }
+      let to: string | undefined;
+      if (kind === "grant") {
+        const handle = grantHandle(toInput.value);
+        const found = handle ? await api.byHandle(handle) : null;
+        if (!found?.ok) {
+          error.textContent = "Nobody has that handle. Check it on their profile.";
+          toInput.focus();
+          return;
+        }
+        to = found.data.resident.id;
+      }
       const r = await whileBusy(submit, () =>
         api.act({
           type: "propose",
@@ -524,6 +617,8 @@ export function townView(ctx: ViewContext): View {
           title,
           text: textInput.value.trim(),
           ...(kind === "commons_build" ? { blocks, remove } : {}),
+          ...(money ? { amount } : {}),
+          ...(to ? { to } : {}),
         }),
       );
       const problem = actProblem(r);
@@ -562,6 +657,27 @@ export function townView(ctx: ViewContext): View {
         "a",
         { class: "pill-button", attrs: { href: "/shop" } },
         h("span", { text: "Visit the shop" }),
+        icon("arrow"),
+      ),
+    );
+  }
+
+  // ---------- bounties ----------
+
+  /** The way to the bounties: jobs the town and residents pay coins for. */
+  function bountiesCard(): HTMLElement {
+    return h(
+      "section",
+      { class: "stack start paper card town-bounties", attrs: { "aria-label": "Bounties" } },
+      h("h2", { class: "card-title", text: "Bounties" }),
+      h("p", {
+        class: "town-lede",
+        text: "Jobs the town and your neighbors pay coins for. A passed job proposal goes up there, paid from the treasury.",
+      }),
+      h(
+        "a",
+        { class: "pill-button", attrs: { href: "/bounties" } },
+        h("span", { text: "See the bounties" }),
         icon("arrow"),
       ),
     );

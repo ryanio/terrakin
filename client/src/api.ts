@@ -8,6 +8,7 @@ import {
   type Action,
   ActionResponse,
   ArchiveResponse,
+  BountiesResponse,
   type CreateLetterRequest,
   type CreatePostRequest,
   type CreateReportRequest,
@@ -187,6 +188,8 @@ export const api = {
       `/v1/market${query({ seller: opts.seller, before: opts.before })}`,
       MarketResponse,
     ),
+  /** Bounties (RFC 0008): jobs residents and the town pay coins for. */
+  bounties: () => request("GET", "/v1/bounties", BountiesResponse),
   /** A world action. A 200 can still be a refusal by the rules: check `ok` in the body. */
   act: (action: Action) => request("POST", "/v1/actions", ActionResponse, action),
   pinNotice: (text: string) => request("POST", "/v1/notices", NoticeResponse, { text }),

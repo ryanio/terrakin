@@ -48,6 +48,10 @@ export function coinNote(
       return { lead: `+${coins(line.amount)}`, rest: "from the town for what you sold" };
     case "appreciation":
       return { lead: `+${coins(line.amount)}`, rest: "from neighbors who liked your posts" };
+    case "bounty":
+      return { lead: `+${coins(line.amount)}`, rest: "for a bounty you finished" };
+    case "grant":
+      return { lead: `+${coins(line.amount)}`, rest: "from a Town Hall grant" };
     case "gift_in":
       return {
         lead: line.with?.name ?? "Someone",

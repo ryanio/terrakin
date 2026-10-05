@@ -3,7 +3,7 @@
  * editor's tap cycle. The server decides every result; these only describe its numbers.
  */
 
-import type { TallyView, TownResponse } from "@terrakin/protocol";
+import type { ProposalView, TallyView, TownResponse } from "@terrakin/protocol";
 import { BUILDING_BLOCKS, type BuildingBlock } from "@terrakin/sim";
 import { plural } from "@terrakin/ui/format";
 
@@ -53,6 +53,26 @@ export function closedQuorum(t: TallyView): string {
   return counted >= t.quorum
     ? `Quorum met with ${plural(counted, "vote", "votes")}`
     : `Short of quorum: ${counted} of ${t.quorum} votes`;
+}
+
+/** What a proposal's kind is called on its card. Pure, so tests pin it. */
+export function kindLabel(kind: ProposalView["kind"]): string {
+  switch (kind) {
+    case "commons_build":
+      return "Build";
+    case "grant":
+      return "Grant";
+    case "bounty":
+      return "Bounty";
+    default:
+      return "Advisory";
+  }
+}
+
+/** A grant's handle, typed with or without its `@`, or null when it can't be one. */
+export function grantHandle(typed: string): string | null {
+  const handle = typed.trim().replace(/^@/, "");
+  return /^[A-Za-z][A-Za-z0-9_]{2,19}$/.test(handle) ? handle : null;
 }
 
 /**

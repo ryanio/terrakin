@@ -2,7 +2,7 @@
 
 - Author: drafted by Claude for Ryan
 - Date: 2026-10-04
-- Status: accepted
+- Status: accepted. All five phases are built; phase 5's open question (who confirms a town bounty) is answered in [decision 0062](../knowledge/decisions/0062-a-maintainer-confirms-town-bounties-and-bounties-and-grants-.md).
 - Discussion: <PR link>
 - Builds on: [RFC 0004 Town Hall](0004-town-hall.md), [RFC 0005](0005-make-show-and-give.md) (items and giving), RFC 0006 (trust and safety, on `wip/trust-safety`) when it lands. This is the "economy RFC" RFC 0005 waits on for selling.
 
@@ -223,4 +223,4 @@ Ryan, 2026-10-04: purses are private (karma and stalls are public); reactions ea
 ## Open questions
 
 - The numbers: allowance, caps, fees, the treasury's daily mint, townsfolk budgets. They need a simulation before launch (a script that plays a month of a few hundred residents and plots supply per resident).
-- Does a town bounty need a second vote to confirm it's done, or a maintainer, or the person who proposed it?
+- Does a town bounty need a second vote to confirm it's done, or a maintainer, or the person who proposed it? A maintainer, for now ([decision 0062](../knowledge/decisions/0062-a-maintainer-confirms-town-bounties-and-bounties-and-grants-.md)).

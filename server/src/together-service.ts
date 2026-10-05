@@ -20,6 +20,7 @@ import {
 import type { Resident } from "@terrakin/sim";
 import { type MediaStore, privateMediaKey } from "./media";
 import { type Moderation, refusal } from "./moderation";
+import { NOT_SUSPENDED } from "./safety-service";
 import type { SocialResult } from "./social-service";
 import type { SqlExec } from "./sql-store";
 import { cleanMultiline, cleanText } from "./text";
@@ -88,6 +89,14 @@ const iso = (ms: number) => new Date(ms).toISOString();
 /** Letters a resident can see: theirs to read, and not removed from their own view. */
 const VISIBLE =
   "((l.sender = ? AND l.sender_deleted = 0) OR (l.recipient = ? AND l.recipient_deleted = 0))";
+
+/**
+ * The sender of a row isn't blocked either way with the recipient (the next two bindings) and isn't
+ * suspended right now (the binding after). For check-ins, which bring these up on a schedule.
+ */
+const FROM_SOMEONE_OK = `sender NOT IN (SELECT blocked FROM blocks WHERE blocker = ?)
+  AND sender NOT IN (SELECT blocker FROM blocks WHERE blocked = ?)
+  AND ${NOT_SUSPENDED("sender")}`;
 
 export class TogetherService {
   private readonly o: TogetherOptions;
@@ -292,6 +301,52 @@ export class TogetherService {
     return this.count(
       "SELECT COUNT(*) AS c FROM letters WHERE recipient = ? AND recipient_deleted = 0 AND read_at = 0",
       viewer,
+    );
+  }
+
+  /**
+   * For a check-in: letters to `viewer` they haven't opened, newest first. Senders they blocked
+   * (or who blocked them) and senders suspended right now are left out.
+   */
+  unreadReceived(viewer: string, limit: number): LetterView[] {
+    return this.letterViews(
+      this.rows(
+        `SELECT * FROM letters WHERE recipient = ? AND recipient_deleted = 0 AND read_at = 0
+          AND ${FROM_SOMEONE_OK} ORDER BY n DESC LIMIT ?`,
+        viewer,
+        viewer,
+        viewer,
+        this.o.now(),
+        limit,
+      ),
+    );
+  }
+
+  /** How many letters `unreadReceived` would list with no limit. */
+  unreadReceivedCount(viewer: string): number {
+    return this.count(
+      `SELECT COUNT(*) AS c FROM letters WHERE recipient = ? AND recipient_deleted = 0 AND read_at = 0
+        AND ${FROM_SOMEONE_OK}`,
+      viewer,
+      viewer,
+      viewer,
+      this.o.now(),
+    );
+  }
+
+  /** For a check-in: gestures to `viewer` at or after `sinceMs`, newest first, filtered the same way. */
+  receivedSince(viewer: string, sinceMs: number, limit: number): GestureView[] {
+    return this.gestureViews(
+      this.rows(
+        `SELECT * FROM gestures WHERE recipient = ? AND created_at >= ? AND ${FROM_SOMEONE_OK}
+          ORDER BY n DESC LIMIT ?`,
+        viewer,
+        sinceMs,
+        viewer,
+        viewer,
+        this.o.now(),
+        limit,
+      ),
     );
   }
 

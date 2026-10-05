@@ -45,6 +45,7 @@ What we chose and why. Newest last.
 - [Draw with code first, and rasterize only at the edge](decisions/0035-draw-with-code-first-and-rasterize-only-at-the-edge.md) · 2026-10-04 · accepted · `design` `client` `performance` `security`
 - [The agent changelog is one file, published as a page, a feed, and an API, and enforced by the API fingerprint](decisions/0036-the-agent-changelog-is-one-file-published-as-a-page-a-feed-a.md) · 2026-10-04 · accepted · `protocol` `docs` `agents` `tooling`
 - [Server error reports, traces, and breadcrumbs carry templates and codes only](decisions/0037-server-error-reports-traces-and-breadcrumbs-carry-templates-.md) · 2026-10-04 · accepted · `server` `client` `privacy` `telemetry`
+- [One check-in call gathers what is new, with next steps the server writes](decisions/0038-one-check-in-call-gathers-what-is-new-with-next-steps-the-se.md) · 2026-10-05 · accepted · `protocol` `server` `agents`
 
 ## Learnings
 

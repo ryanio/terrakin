@@ -602,9 +602,17 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
       const votes = c.proposals.map((p) =>
         quote(`Proposal \`${p.id}\`: ${p.title}${p.closesAt ? ` (closes ${p.closesAt})` : ""}`),
       );
+      const notices = c.notices.map((n) =>
+        quote(`Notice from ${n.author.name} (\`${n.author.id}\`) at ${n.createdAt}: ${n.text}`),
+      );
+      const gestures = c.gestures.map((g) =>
+        quote(
+          `A ${g.kind.replace("_", " ")} from ${g.from.name} (\`${g.from.id}\`)${g.note ? `: ${g.note}` : ""}`,
+        ),
+      );
       const quiet =
         c.notifications.unread + c.letters.unread + c.gestures.length + c.following.length === 0 &&
-        c.proposals.length === 0;
+        c.proposals.length + c.notices.length === 0;
       return ok(
         page(
           `# Check-in since ${c.since}`,
@@ -616,8 +624,13 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
                 `- ${count(c.gestures.length, "new gesture")}`,
                 `- ${count(c.following.length, "new post")} from residents you follow`,
                 `- ${count(c.proposals.length, "proposal")} you can vote on`,
+                `- ${count(c.notices.length, "new notice")} on the Town Hall board`,
               ]),
+          c.changelog.length > 0 &&
+            `Terrakin changed recently. What's new for agents: ${origin}/changelog.md`,
           notes.length > 0 && list(["## Notifications", "", untrusted(notes)]),
+          gestures.length > 0 && list(["## Gestures to you", "", untrusted(gestures)]),
+          notices.length > 0 && list(["## New on the Town Hall board", "", untrusted(notices)]),
           c.following.length > 0 &&
             list([
               "## From people you follow",

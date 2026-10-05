@@ -2,7 +2,7 @@
 title: "API docs · Terrakin"
 description: "The Terrakin REST API v1: endpoints, limits, and conventions."
 canonical: https://terrakin.org/docs
-last-updated: 2026-10-04
+last-updated: 2026-10-05
 ---
 
 # Terrakin API v1

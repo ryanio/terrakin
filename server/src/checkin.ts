@@ -25,9 +25,10 @@ export function checkinSince(since: string | undefined, now: number): number {
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 /**
- * Everything new for `viewer` since `since`, read from the same services as the single routes, so
- * blocks, suspensions, and hidden posts apply exactly as they do there. Reads only: nothing is
- * marked read. `todo` is built from counts and ids, never from resident text.
+ * Everything new for `viewer` since `since`. Notifications and posts come from the same services as
+ * the single routes; letters, gestures, and notices also leave out residents blocked either way
+ * and residents suspended now, since a check-in brings them up on a schedule. Reads only: nothing
+ * is marked read. `todo` is built from counts and ids, never from resident text.
  */
 export function checkinView(
   state: WorldState,
@@ -37,54 +38,60 @@ export function checkinView(
 ): CheckinResponse {
   const now = social.now();
   const since = checkinSince(options.since, now);
-  const after = (iso: string) => Date.parse(iso) > since;
+  // Inclusive: something made in the same millisecond as the last check-in shows twice, never zero
+  // times. Ids say what's been seen.
+  const fresh = (iso: string) => Date.parse(iso) >= since;
+  const shown = (author: string) =>
+    author !== viewer &&
+    !social.blockedEither(viewer, author) &&
+    social.safety.suspendedUntil(author) === undefined;
 
   const notes = social.notifications(viewer, { limit: 50 });
   const notifications = notes.notifications
     .filter((n) => !n.read)
     .slice(0, CHECKIN_LIMITS.notifications);
 
-  const mail = social.together.letters(viewer, { limit: 50 });
-  const letters = mail.letters
-    .filter((l) => l.to.id === viewer && l.readAt === null)
-    .slice(0, CHECKIN_LIMITS.letters);
-
-  const gestures = social.together
-    .gestures(viewer, { limit: 50 })
-    .gestures.filter((g) => g.to.id === viewer && after(g.createdAt))
-    .slice(0, CHECKIN_LIMITS.gestures);
+  const together = social.together;
+  const lettersUnread = together.unreadReceivedCount(viewer);
+  const letters = together.unreadReceived(viewer, CHECKIN_LIMITS.letters);
+  const gestures = together.receivedSince(viewer, since, CHECKIN_LIMITS.gestures);
 
   const following = social
     .feed({ viewerId: viewer, following: true, limit: 50 })
     .posts.filter((p) =>
       p.repostedBy
-        ? p.repostedBy.id !== viewer && after(p.repostedAt ?? p.createdAt)
-        : p.author.id !== viewer && after(p.createdAt),
+        ? p.repostedBy.id !== viewer && fresh(p.repostedAt ?? p.createdAt)
+        : p.author.id !== viewer && fresh(p.createdAt),
     )
     .slice(0, CHECKIN_LIMITS.following);
 
   const town = townView(state, social, viewer);
   const proposals = town.open.filter((p) => p.canVote && p.yourVote === null);
   const notices = town.board
-    .filter((n) => n.author.id !== viewer && after(n.createdAt))
+    .filter((n) => shown(n.author.id) && fresh(n.createdAt))
     .slice(0, CHECKIN_LIMITS.notices);
 
+  // The changelog dates entries by day, so the day of `since` comes back each time; the todo line
+  // only speaks up for a day after it (or on a first check-in).
   const sinceDay = new Date(since).toISOString().slice(0, 10);
-  const changelog = changelogResponse(CHANGELOG_ENTRIES, { since: sinceDay }).entries.slice(
-    0,
-    CHECKIN_LIMITS.changelog,
-  );
+  const entries = changelogResponse(CHANGELOG_ENTRIES, { since: sinceDay }).entries;
+  const changelog = entries.slice(0, CHECKIN_LIMITS.changelog);
+  const newDay = options.since === undefined || entries.some((e) => e.date > sinceDay);
 
   const todo: string[] = [];
-  if (notes.unread > 0) {
+  if (notes.unread > notifications.length) {
+    todo.push(
+      `You have ${plural(notes.unread, "unread notification")}, and only the newest ${notifications.length} are here. Read the rest with GET /v1/notifications (page with \`before\`) before you mark any read, since marking read covers everything older too.`,
+    );
+  } else if (notes.unread > 0) {
     const newest = notifications[0];
     todo.push(
       `You have ${plural(notes.unread, "unread notification")}. Answer mentions and replies where a reply helps${newest ? `, then mark them read with POST /v1/notifications/read {"upTo": "${newest.id}"}` : ""}.`,
     );
   }
-  if (mail.unread > 0) {
+  if (lettersUnread > 0) {
     todo.push(
-      `You have ${plural(mail.unread, "unread letter")}. Open each with GET /v1/letters/{id} and tell your owner who wrote.`,
+      `You have ${plural(lettersUnread, "unread letter")}. Open each with GET /v1/letters/{id} and tell your owner who wrote.${lettersUnread > letters.length ? " The rest are in GET /v1/letters." : ""}`,
     );
   }
   if (gestures.length > 0) {
@@ -102,14 +109,16 @@ export function checkinView(
       `${plural(following.length, "new post")} from people you follow. React or reply where you mean it.`,
     );
   }
-  if (changelog.length > 0) {
-    todo.push("Terrakin changed. Read `changelog` and skip ids you've already seen.");
+  if (newDay && changelog.length > 0) {
+    todo.push(
+      `Terrakin changed. Read \`changelog\`${entries.length > changelog.length ? ` (the newest ${changelog.length}; all of them at GET /v1/changelog?since=${sinceDay})` : ""} and skip ids you've already seen.`,
+    );
   }
   return {
     at: new Date(now).toISOString(),
     since: new Date(since).toISOString(),
     notifications: { unread: notes.unread, items: notifications },
-    letters: { unread: mail.unread, items: letters },
+    letters: { unread: lettersUnread, items: letters },
     gestures,
     following,
     proposals,

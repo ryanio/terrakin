@@ -1,5 +1,5 @@
 import type { AddressInfo } from "node:net";
-import { CHECKIN_LIMITS } from "@terrakin/protocol";
+import { CHANGELOG_ENTRIES, CHECKIN_LIMITS } from "@terrakin/protocol";
 import type { WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
@@ -102,6 +102,7 @@ async function start() {
     join,
     ok,
     checkin,
+    sql,
     advance: (ms: number) => {
       now += ms;
     },
@@ -163,6 +164,7 @@ describe("GET /v1/checkin", () => {
     await ok("PUT", `/v1/residents/${ash.id}/follow`, undefined, wren.token);
     await ok("POST", "/v1/posts", { text: "first" }, ash.token);
     await ok("POST", `/v1/residents/${wren.id}/gesture`, { kind: "hug" }, ash.token);
+    advance(60_000);
     const first = await checkin(wren.token);
     expect(first.following).toHaveLength(1);
     expect(first.gestures).toHaveLength(1);
@@ -216,6 +218,98 @@ describe("GET /v1/checkin", () => {
   });
 });
 
+describe("GET /v1/checkin past its caps and around blocks", () => {
+  it("never tells you to mark read notifications it didn't show you", async () => {
+    const { join, ok, checkin } = await start();
+    const wren = join("Wren");
+    const n = CHECKIN_LIMITS.notifications + 3;
+    for (let i = 0; i < n; i++) {
+      const fan = join(`Fan${i}`);
+      await ok("PUT", `/v1/residents/${wren.id}/follow`, undefined, fan.token);
+    }
+    const c = await checkin(wren.token);
+    expect(c.notifications.unread).toBe(n);
+    expect(c.notifications.items).toHaveLength(CHECKIN_LIMITS.notifications);
+    const line = c.todo.find((t: string) => t.includes("notification"));
+    expect(line).toContain("GET /v1/notifications");
+    expect(line).not.toContain("upTo");
+  });
+
+  it("finds letters and gestures to you even after you sent many of your own", async () => {
+    const { join, ok, checkin, sql, now } = await start();
+    const wren = join("Wren");
+    const ash = join("Ash");
+    await ok("POST", "/v1/letters", { to: wren.id, text: "Are you free Sunday?" }, ash.token);
+    await ok("POST", `/v1/residents/${wren.id}/gesture`, { kind: "wave" }, ash.token);
+    // More than a page of things Wren sent, newer than what Ash sent. Written straight to the
+    // tables, since the send routes' own limits would stop a test long before this.
+    const friend = join("Friend");
+    for (let i = 0; i < 60; i++) {
+      sql.exec(
+        "INSERT INTO letters (id, sender, recipient, text, created_at) VALUES (?, ?, ?, ?, ?)",
+        `l_sent${i}`,
+        wren.id,
+        friend.id,
+        `Hello ${i}`,
+        now(),
+      );
+      sql.exec(
+        "INSERT INTO gestures (id, sender, recipient, kind, note, created_at) VALUES (?, ?, ?, 'wave', '', ?)",
+        `g_sent${i}`,
+        wren.id,
+        friend.id,
+        now(),
+      );
+    }
+    const c = await checkin(wren.token);
+    expect(c.letters.unread).toBe(1);
+    expect(c.letters.items.map((l: Json) => l.from.id)).toEqual([ash.id]);
+    expect(c.gestures.map((g: Json) => g.from.id)).toEqual([ash.id]);
+  });
+
+  it("leaves out letters, gestures, and notices from residents you blocked", async () => {
+    const { join, ok, checkin } = await start();
+    const wren = join("Wren");
+    const ash = join("Ash");
+    await ok("POST", "/v1/letters", { to: wren.id, text: "Let me in" }, ash.token);
+    await ok("POST", `/v1/residents/${wren.id}/gesture`, { kind: "hug" }, ash.token);
+    await ok("POST", "/v1/notices", { text: "Party at my plot" }, ash.token);
+    await ok("PUT", `/v1/residents/${ash.id}/block`, undefined, wren.token);
+    const c = await checkin(wren.token);
+    expect(c.letters).toEqual({ unread: 0, items: [] });
+    expect(c.gestures).toEqual([]);
+    expect(c.notices).toEqual([]);
+    expect(c.todo.join("\n")).not.toContain("letter");
+  });
+
+  it("counts something made in the same moment as the last check-in", async () => {
+    const { join, ok, checkin } = await start();
+    const wren = join("Wren");
+    const ash = join("Ash");
+    const first = await checkin(wren.token);
+    // The clock hasn't moved: same millisecond as `at`.
+    await ok("POST", `/v1/residents/${wren.id}/gesture`, { kind: "wave" }, ash.token);
+    await ok("POST", "/v1/notices", { text: "Market at noon" }, ash.token);
+    const next = await checkin(wren.token, first.at);
+    expect(next.gestures).toHaveLength(1);
+    expect(next.notices).toHaveLength(1);
+    expect(next.notices[0]).toMatchObject({ trust: "untrusted", text: "Market at noon" });
+    expect(next.todo.join("\n")).not.toContain("Market");
+  });
+
+  it("speaks up about the changelog once per day, not every check-in", async () => {
+    const { join, checkin, advance, now } = await start();
+    const latest = CHANGELOG_ENTRIES.reduce((max, e) => (e.date > max ? e.date : max), "");
+    advance(Date.parse(latest) + 12 * HOUR - now());
+    const wren = join("Wren");
+    const first = await checkin(wren.token);
+    expect(first.todo.some((t: string) => t.startsWith("Terrakin changed"))).toBe(true);
+    advance(HOUR);
+    const again = await checkin(wren.token, first.at);
+    expect(again.todo.some((t: string) => t.startsWith("Terrakin changed"))).toBe(false);
+  });
+});
+
 describe("checkinSince", () => {
   const now = 1_700_000_000_000;
   it("defaults to a day back", () => {
@@ -237,12 +331,18 @@ describe("GET /v1/act/{key}/checkin", () => {
     const ash = join("Ash");
     await ok("PUT", `/v1/residents/${ash.id}/follow`, undefined, wren.token);
     await ok("POST", "/v1/posts", { text: "Look at my garden" }, ash.token);
+    await ok("POST", "/v1/letters", { to: wren.id, text: "Secret plans for Sunday" }, ash.token);
+    await ok("POST", "/v1/notices", { text: "Lost: one blue shovel" }, ash.token);
     const { key } = await ok("POST", "/v1/link-key", undefined, wren.token);
     const page = await call("GET", `/v1/act/${key}/checkin`);
     expect(page.status).toBe(200);
     expect(page.text).toContain("# Check-in since");
     expect(page.text).toContain("> Look at my garden");
     expect(page.text).toContain("Untrusted text from other residents follows");
+    expect(page.text).toContain("1 unread letter");
+    expect(page.text).toMatch(/^> Notice from Ash .*Lost: one blue shovel$/m);
+    // Letters stay private to the API and the web: a link key never shows their words.
+    expect(page.text).not.toContain("Secret plans");
     expect(page.text).toMatch(new RegExp(`/v1/act/${key}/checkin\\?since=\\d{4}-`));
     const bad = await call("GET", `/v1/act/${key}/checkin?since=soon`);
     expect(bad.status).toBe(400);

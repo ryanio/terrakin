@@ -291,7 +291,9 @@ class WorldObject extends DurableObject<Env> {
     const service = new WorldService({
       store: new SqlStore(ctx.storage.sql),
       days: true,
+      economy: true,
       townsfolk,
+      maintainers,
       moderation,
     });
     const media: MediaStore = {

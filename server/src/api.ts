@@ -42,6 +42,7 @@ import {
 } from "@terrakin/protocol";
 import { findProposal } from "@terrakin/sim";
 import { checkinView } from "./checkin";
+import { purseView } from "./coins";
 import { IdempotencyStore, type StoredResponse, sha256Hex } from "./idempotency";
 import { BAD_LINK_KEY, DEFAULT_ORIGIN, linkHandlers, linkHelp, REPEAT_NOTE } from "./links";
 import { postMarkdown, profileMarkdown } from "./markdown";
@@ -366,6 +367,14 @@ export class Api {
     this.owners = options.social
       ? new OwnerService({ social: options.social, credentials: options.service })
       : undefined;
+    // Coins (RFC 0008): gifts can't cross a block, and a person and their AI give each other coins
+    // without the daily caps. Both facts live in the social layer, so the world asks it.
+    const layer = options.social;
+    if (layer) {
+      this.service.blockedEither = (a, b) => layer.blockedEither(a, b);
+      layer.onOwnerLinks = (pairs) => this.service.syncOwnerPairs(pairs);
+      this.service.syncOwnerPairs(layer.ownerPairs());
+    }
     this.ipUploadBytesPerDay = options.ipUploadBytesPerDay ?? 500_000_000;
     this.onResponse = options.onResponse;
     this.now = options.now ?? Date.now;
@@ -776,6 +785,10 @@ export class Api {
           status: 200 as const,
           body: { residents },
         })),
+      getPurse: ({ viewer }) => ({
+        status: 200,
+        body: purseView(service.state, viewer, (id) => this.social?.authorView(id)),
+      }),
       getCheckin: ({ viewer, query }) => ({
         status: 200,
         body: checkinView(service.state, social(), viewer, { since: query.since }),

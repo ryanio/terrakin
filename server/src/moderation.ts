@@ -43,6 +43,7 @@ export type Surface =
   | "letter"
   | "chat"
   | "gesture_note"
+  | "gift_note"
   | "proposal_title"
   | "proposal_text"
   | "notice";
@@ -124,6 +125,14 @@ export const POLICY: Record<Surface, Policy> = {
     vulgar: "allow",
     impersonation: null,
     shorteners: false,
+    spam: ["runs"],
+  },
+  // A note on coins is where a scam would ask for more, so it checks staff-sounding text and links.
+  gift_note: {
+    label: "Gift notes",
+    vulgar: "allow",
+    impersonation: "text",
+    shorteners: true,
     spam: ["runs"],
   },
   proposal_title: {

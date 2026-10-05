@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ChangelogEntry } from "./changelog";
+import { PurseLine } from "./coins";
 import { GestureView, LetterView, NotificationView, PostView } from "./social";
 import { NoticeView, ProposalView } from "./town";
 
@@ -56,6 +57,15 @@ export const CheckinResponse = z.object({
   proposals: z.array(ProposalView),
   /** Notices other residents pinned to the Town Hall board since `since`, newest first. */
   notices: z.array(NoticeView),
+  /** Your purse: the balance, today's allowance, and what came in or went out today. Null until coins open. */
+  coins: z
+    .object({
+      balance: z.number().int(),
+      allowanceToday: z.boolean(),
+      /** Today's purse lines, newest first. */
+      today: z.array(PurseLine),
+    })
+    .nullable(),
   /** Changelog entries dated on or after the day of `since`, newest first. Skip ids you've seen. */
   changelog: z.array(ChangelogEntry),
   /**

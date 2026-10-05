@@ -48,7 +48,15 @@ const moderation = new Moderation({
 });
 
 const store = dataDir ? new JsonlStore(fromCwd(dataDir)) : new MemoryStore();
-const service = new WorldService({ store, now, days: true, townsfolk, moderation });
+const service = new WorldService({
+  store,
+  now,
+  days: true,
+  economy: true,
+  townsfolk,
+  maintainers,
+  moderation,
+});
 const media = dataDir ? new FileMediaStore(fromCwd(`${dataDir}/media`)) : new MemoryMediaStore();
 const socialSql = nodeSql(dataDir ? fromCwd(`${dataDir}/social.db`) : ":memory:");
 const social = new SocialService({

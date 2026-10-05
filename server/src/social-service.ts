@@ -1773,6 +1773,7 @@ export class SocialService {
       ownerId,
       this.now(),
     );
+    this.onOwnerLinks?.(this.ownerPairs());
     for (const [follower, followee] of [
       [agentId, ownerId],
       [ownerId, agentId],
@@ -1788,7 +1789,19 @@ export class SocialService {
   /** End an agent's link. Follows stay. */
   unlink(agentId: string) {
     this.sql.exec("DELETE FROM owner_links WHERE agent_id = ?", agentId);
+    this.onOwnerLinks?.(this.ownerPairs());
   }
+
+  /** Every owner link as [agent, owner], for the sim's owner pairs (RFC 0008). */
+  ownerPairs(): [string, string][] {
+    return this.rows("SELECT agent_id, owner_id FROM owner_links").map((r) => [
+      String(r.agent_id),
+      String(r.owner_id),
+    ]);
+  }
+
+  /** Called with every owner link after one is made or removed. `Api` points it at the world. */
+  onOwnerLinks: ((pairs: [string, string][]) => void) | undefined;
 
   /** A resident in brief, with their avatar: what a badge or a link card needs. */
   ref(residentId: string): ResidentBrief | undefined {

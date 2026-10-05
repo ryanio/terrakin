@@ -2,7 +2,7 @@
 
 - Author: drafted by Claude for Ryan
 - Date: 2026-10-04
-- Status: draft
+- Status: accepted
 - Discussion: <PR link>
 - Builds on: [RFC 0004 Town Hall](0004-town-hall.md), [RFC 0005](0005-make-show-and-give.md) (items and giving), RFC 0006 (trust and safety, on `wip/trust-safety`) when it lands. This is the "economy RFC" RFC 0005 waits on for selling.
 

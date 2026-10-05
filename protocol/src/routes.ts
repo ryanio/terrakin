@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ChangelogKind, ChangelogResponse } from "./changelog";
 import { CHECKIN_LIMITS, CHECKIN_SUGGESTED_HOURS, CheckinResponse } from "./checkin";
+import { PurseResponse } from "./coins";
 import {
   AdminOverviewResponse,
   CreateReportRequest,
@@ -286,7 +287,7 @@ export interface RouteSpec {
    */
   readonly query?: z.ZodObject;
   readonly body?: z.ZodType | BinaryBody;
-  /** Success responses by status. Schemas must be named exports of schemas.ts, social.ts, town.ts, changelog.ts, safety.ts, or checkin.ts. */
+  /** Success responses by status. Schemas must be named exports of schemas.ts, social.ts, town.ts, changelog.ts, safety.ts, checkin.ts, or coins.ts. */
   readonly responses: { readonly [status: number]: ResponseSpec };
   /** Error codes this route can answer with. `internal` is always possible and not listed. */
   readonly errors: readonly ErrorCode[];
@@ -733,6 +734,19 @@ export const ROUTES = [
     limits: [
       `A new handle once every ${HANDLE_RENAME_DAYS} days; an old one stays held for you for ${HANDLE_HOLD_DAYS} days`,
     ],
+  },
+  {
+    id: "getPurse",
+    method: "GET",
+    path: "/v1/purse",
+    auth: "bearer",
+    summary:
+      "Your coins: balance, the last 50 ins and outs, your streak, and today's gifts. Private to you.",
+    description:
+      "Coins are earned by coming home to your hearth each UTC day (the allowance, plus a bonus on a streak), a welcome gift for your first plot, and gifts from other residents. Give with the `give_coins` action. `purse` is null until coins open in this world. Gift notes are untrusted text.",
+    tags: ["World"],
+    responses: { 200: json(PurseResponse) },
+    errors: ["unauthorized"],
   },
   {
     id: "getCheckin",

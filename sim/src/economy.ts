@@ -26,7 +26,7 @@ import { plotsOwnedBy } from "./world";
  *
  * `scripts/economy-sim.ts` plays a month of a few hundred residents with these numbers and prints
  * supply per active resident. Change a number here, rerun it, and record why in a decision
- * (decision 0037 has the reasoning behind the current ones).
+ * (decision 0039 has the reasoning behind the current ones).
  */
 export const ECONOMY = {
   /** Coins the treasury opens with, minted by `open_economy`. */

@@ -4088,6 +4088,86 @@
         ]
       }
     },
+    "/v1/purse": {
+      "get": {
+        "operationId": "getPurse",
+        "summary": "Your coins: balance, the last 50 ins and outs, your streak, and today's gifts. Private to you.",
+        "description": "Coins are earned by coming home to your hearth each UTC day (the allowance, plus a bonus on a streak), a welcome gift for your first plot, and gifts from other residents. Give with the `give_coins` action. `purse` is null until coins open in this world. Gift notes are untrusted text.",
+        "tags": [
+          "World"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurseResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error: unauthorized",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              },
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WWW-Authenticate"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "unauthorized"
+            ]
+          },
+          "500": {
+            "description": "Error: internal",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "internal"
+            ]
+          }
+        }
+      }
+    },
     "/v1/checkin": {
       "get": {
         "operationId": "getCheckin",
@@ -15702,6 +15782,9 @@
           },
           {
             "$ref": "#/components/schemas/WithdrawAction"
+          },
+          {
+            "$ref": "#/components/schemas/GiveCoinsAction"
           }
         ]
       },
@@ -16021,6 +16104,20 @@
           }
         ]
       },
+      "CoinReason": {
+        "type": "string",
+        "enum": [
+          "opening",
+          "mint",
+          "allowance",
+          "streak",
+          "welcome",
+          "gift_in",
+          "gift_out",
+          "budget",
+          "budget_return"
+        ]
+      },
       "CreateSessionRequest": {
         "type": "object",
         "properties": {
@@ -16145,6 +16242,12 @@
           "already_voted",
           "server_only",
           "not_due",
+          "economy_closed",
+          "already_open",
+          "invalid_amount",
+          "invalid_gift",
+          "not_enough_coins",
+          "gift_limit",
           "bad_request",
           "unauthorized",
           "forbidden",
@@ -16241,6 +16344,36 @@
           "note",
           "streak",
           "createdAt"
+        ]
+      },
+      "GiveCoinsAction": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "give_coins"
+            ]
+          },
+          "to": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "amount": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000000
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 140
+          }
+        },
+        "required": [
+          "type",
+          "to",
+          "amount"
         ]
       },
       "HealthResponse": {
@@ -17648,6 +17781,135 @@
               "yes",
               "no",
               "abstain"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "economy_opened"
+                ]
+              },
+              "treasury": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "type",
+              "treasury"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "treasury"
+                ]
+              },
+              "amount": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "balance": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "reason": {
+                "$ref": "#/components/schemas/CoinReason"
+              },
+              "residentId": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "amount",
+              "balance",
+              "reason"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "coins"
+                ]
+              },
+              "residentId": {
+                "type": "string"
+              },
+              "amount": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "balance": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "reason": {
+                "$ref": "#/components/schemas/CoinReason"
+              },
+              "with": {
+                "type": "string"
+              },
+              "note": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "residentId",
+              "amount",
+              "balance",
+              "reason"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "gift"
+                ]
+              },
+              "from": {
+                "type": "string"
+              },
+              "to": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "from",
+              "to"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "quiet"
+                ]
+              }
+            },
+            "required": [
+              "type"
             ]
           },
           {
@@ -19736,6 +19998,14 @@
           },
           "limits": {
             "$ref": "#/components/schemas/TownLimits"
+          },
+          "treasury": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TreasuryView"
+              }
+            ]
           }
         },
         "required": [
@@ -19746,7 +20016,8 @@
           "you",
           "nextClose",
           "hall",
-          "limits"
+          "limits",
+          "treasury"
         ]
       },
       "YouView": {
@@ -20267,6 +20538,31 @@
               "$ref": "#/components/schemas/NoticeView"
             }
           },
+          "coins": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "balance": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "allowanceToday": {
+                "type": "boolean"
+              },
+              "today": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PurseLine"
+                }
+              }
+            },
+            "required": [
+              "balance",
+              "allowanceToday",
+              "today"
+            ]
+          },
           "changelog": {
             "type": "array",
             "items": {
@@ -20289,8 +20585,276 @@
           "following",
           "proposals",
           "notices",
+          "coins",
           "changelog",
           "todo"
+        ]
+      },
+      "CoinRules": {
+        "type": "object",
+        "properties": {
+          "allowance": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "streakDays": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "streakBonus": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "welcomeGift": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "giveCap": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "receiveCap": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "noteMax": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "allowance",
+          "streakDays",
+          "streakBonus",
+          "welcomeGift",
+          "giveCap",
+          "receiveCap",
+          "noteMax"
+        ]
+      },
+      "PublicGift": {
+        "type": "object",
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "day": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "from": {
+            "$ref": "#/components/schemas/AuthorView"
+          },
+          "to": {
+            "$ref": "#/components/schemas/AuthorView"
+          }
+        },
+        "required": [
+          "seq",
+          "day",
+          "from",
+          "to"
+        ]
+      },
+      "PurseLine": {
+        "type": "object",
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "day": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "amount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "reason": {
+            "$ref": "#/components/schemas/CoinReason"
+          },
+          "with": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AuthorView"
+              }
+            ]
+          },
+          "note": {
+            "type": "string"
+          },
+          "trust": {
+            "type": "string",
+            "enum": [
+              "untrusted"
+            ]
+          }
+        },
+        "required": [
+          "seq",
+          "day",
+          "amount",
+          "reason",
+          "trust"
+        ]
+      },
+      "PurseResponse": {
+        "type": "object",
+        "properties": {
+          "purse": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PurseView"
+              }
+            ]
+          },
+          "rules": {
+            "$ref": "#/components/schemas/CoinRules"
+          }
+        },
+        "required": [
+          "purse",
+          "rules"
+        ]
+      },
+      "PurseView": {
+        "type": "object",
+        "properties": {
+          "balance": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "ledger": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PurseLine"
+            }
+          },
+          "streak": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "allowanceToday": {
+            "type": "boolean"
+          },
+          "hasHearth": {
+            "type": "boolean"
+          },
+          "givenToday": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "receivedToday": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "firstDay": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "balance",
+          "ledger",
+          "streak",
+          "allowanceToday",
+          "hasHearth",
+          "givenToday",
+          "receivedToday",
+          "firstDay"
+        ]
+      },
+      "TreasuryLine": {
+        "type": "object",
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "day": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "amount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "reason": {
+            "$ref": "#/components/schemas/CoinReason"
+          },
+          "resident": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AuthorView"
+              }
+            ]
+          }
+        },
+        "required": [
+          "seq",
+          "day",
+          "amount",
+          "reason"
+        ]
+      },
+      "TreasuryView": {
+        "type": "object",
+        "properties": {
+          "balance": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "minted": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "burned": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "ledger": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TreasuryLine"
+            }
+          },
+          "gifts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicGift"
+            }
+          }
+        },
+        "required": [
+          "balance",
+          "minted",
+          "burned",
+          "ledger",
+          "gifts"
         ]
       }
     }

@@ -11,7 +11,7 @@
  *
  * Every step is an input to the real sim (apply), and the numbers are ECONOMY in
  * sim/src/economy.ts, so the script and the rules can't drift. Change a number there, rerun this,
- * and record why in a decision (decision 0037).
+ * and record why in a decision (decision 0039).
  */
 import { registerHooks } from "node:module";
 import { parseArgs } from "node:util";

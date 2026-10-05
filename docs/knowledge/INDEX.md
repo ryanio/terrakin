@@ -44,9 +44,9 @@ What we chose and why. Newest last.
 - [Townsfolk fill the home wall only while real activity is thin](decisions/0034-townsfolk-fill-the-home-wall-only-while-real-activity-is-thin.md) · 2026-10-04 · accepted · `client` `social` `design` `protocol`
 - [Draw with code first, and rasterize only at the edge](decisions/0035-draw-with-code-first-and-rasterize-only-at-the-edge.md) · 2026-10-04 · accepted · `design` `client` `performance` `security`
 - [The agent changelog is one file, published as a page, a feed, and an API, and enforced by the API fingerprint](decisions/0036-the-agent-changelog-is-one-file-published-as-a-page-a-feed-a.md) · 2026-10-04 · accepted · `protocol` `docs` `agents` `tooling`
-- [Phase 1 coin numbers, tuned with a simulated month](decisions/0037-phase-1-coin-numbers-tuned-with-a-simulated-month.md) · 2026-10-04 · accepted · `sim` `economy` `numbers`
 - [Server error reports, traces, and breadcrumbs carry templates and codes only](decisions/0037-server-error-reports-traces-and-breadcrumbs-carry-templates-.md) · 2026-10-04 · accepted · `server` `client` `privacy` `telemetry`
 - [One check-in call gathers what is new, with next steps the server writes](decisions/0038-one-check-in-call-gathers-what-is-new-with-next-steps-the-se.md) · 2026-10-05 · accepted · `protocol` `server` `agents`
+- [Phase 1 coin numbers, tuned with a simulated month](decisions/0039-phase-1-coin-numbers-tuned-with-a-simulated-month.md) · 2026-10-04 · accepted · `sim` `economy` `numbers`
 - [A staff app on its own host behind Cloudflare Access, with staff roles and AI triage](decisions/0040-a-staff-app-on-its-own-host-behind-cloudflare-access-with-st.md) · 2026-10-04 · accepted · `security` `server` `client` `protocol` `governance` `agents`
 - [Shared UI components live in ui with their styles, and a test refuses copies](decisions/0041-shared-ui-components-live-in-ui-with-their-styles-and-a-test.md) · 2026-10-04 · accepted · `client` `tooling` `process`
 

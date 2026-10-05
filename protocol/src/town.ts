@@ -1,5 +1,6 @@
 import { INELIGIBLE_REASONS, TOWN_LIMITS } from "@terrakin/sim";
 import { z } from "zod";
+import { TreasuryView } from "./coins";
 import { PlannedBlock, ProposalKind, ProposalStatus, VoteChoice } from "./schemas";
 import { AuthorView, FEED_DEFAULT_LIMIT, FEED_MAX_LIMIT } from "./social";
 
@@ -131,6 +132,8 @@ export const TownResponse = z.object({
   /** The Commons tiles the Town Hall stands on. */
   hall: z.array(tile),
   limits: TownLimits,
+  /** The town's purse and recent gifts between residents. Null until coins open. */
+  treasury: TreasuryView.nullable(),
 });
 export type TownResponse = z.infer<typeof TownResponse>;
 

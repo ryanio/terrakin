@@ -5,6 +5,7 @@ import type {
   ErrorCode,
   MediaType,
   ServerMessage,
+  WorldEvent as WireEvent,
   WorldSnapshot,
 } from "@terrakin/protocol";
 import { PROTOCOL_VERSION } from "@terrakin/protocol";
@@ -34,7 +35,7 @@ import { count, crumb, report, span } from "./telemetry";
 import { cleanMultiline, cleanText } from "./text";
 
 export type ActResult =
-  | { ok: true; seq: number; events: WorldEvent[]; heard?: number }
+  | { ok: true; seq: number; events: WireEvent[]; heard?: number }
   | { ok: false; error: { code: ErrorCode; message: string } };
 
 type Listener = (message: ServerMessage) => void;
@@ -62,6 +63,43 @@ export interface WorldServiceOptions {
    * add up across chat, posts, and everything else. Default: a fresh one.
    */
   moderation?: Moderation;
+  /**
+   * Coins (RFC 0008): once the world counts days, append `open_economy` if it never has. Both
+   * adapters turn this on. Off by default so a test world's log holds only what the test sent.
+   */
+  economy?: boolean;
+  /**
+   * Maintainers' resident ids from config. Logged as `set_maintainers` when they differ from the
+   * log, so the sim keeps townsfolk budgets away from them.
+   */
+  maintainers?: ReadonlySet<string>;
+}
+
+/**
+ * What an input's sim events look like on the wire. Owner-pair and maintainer lists stay on the
+ * server. A gift also shows as a public `gift` event, without the amount or note.
+ */
+function toWire(events: WorldEvent[]): WireEvent[] {
+  const out: WireEvent[] = [];
+  for (const e of events) {
+    if (e.type === "owner_pairs_set" || e.type === "maintainers_set") continue;
+    out.push(e);
+    if (e.type === "coins" && e.reason === "gift_out" && e.with) {
+      out.push({ type: "gift", from: e.residentId, to: e.with });
+    }
+  }
+  return out;
+}
+
+/** What everyone may see: no purse moves. Never empty, so every client's `seq` keeps counting. */
+function publicEvents(events: WireEvent[]): WireEvent[] {
+  const shown = events.filter((e) => e.type !== "coins");
+  return shown.length > 0 ? shown : [{ type: "quiet" }];
+}
+
+/** What one resident may see: everything public, plus their own purse moves. */
+export function eventsFor(events: WireEvent[], viewer: string): WireEvent[] {
+  return events.filter((e) => e.type !== "coins" || e.residentId === viewer);
 }
 
 /** One UTC day. The Town Hall's clock ticks once per day, at midnight UTC. */
@@ -161,6 +199,7 @@ export class WorldService {
   private readonly idleTimeoutMs: number;
   readonly now: () => number;
   private readonly days: boolean;
+  private readonly economy: boolean;
   /** The edge filters for names, notes, chat, and proposals. */
   readonly moderation: Moderation;
   /**
@@ -192,9 +231,34 @@ export class WorldService {
       if (r.online) this.run({ actor: r.id, command: { type: "leave" } });
     }
     if (options.townsfolk) this.syncTownsfolk(options.townsfolk);
+    if (options.maintainers) this.syncMaintainers(options.maintainers);
+    this.economy = options.economy ?? false;
     // A day may have started (and proposals come due) while the server was down.
     this.tick();
   }
+
+  /** Log the maintainers list when config changed it. */
+  private syncMaintainers(grant: ReadonlySet<string>) {
+    const ids = [...grant].sort();
+    if (ids.join(",") === (this.state.maintainers ?? []).join(",")) return;
+    this.run({ actor: TOWN_ACTOR, command: { type: "set_maintainers", ids } });
+  }
+
+  /**
+   * Log the owner-linked pairs when they changed (decision 0031), so gifts between a person and
+   * their AI skip the daily caps. The social service calls this on boot and on every link change.
+   */
+  syncOwnerPairs(links: readonly [string, string][]) {
+    const pairs = links
+      .map(([a, b]): [string, string] => (a < b ? [a, b] : [b, a]))
+      .sort(([a, b], [c, d]) => (a === c ? (b < d ? -1 : b > d ? 1 : 0) : a < c ? -1 : 1));
+    const key = (list: readonly (readonly string[])[]) => list.map((p) => p.join("+")).join(",");
+    if (key(pairs) === key(this.state.ownerPairs ?? [])) return;
+    this.run({ actor: TOWN_ACTOR, command: { type: "set_owner_pairs", pairs } });
+  }
+
+  /** Whether two residents block each other, from the social layer. Gifts can't cross a block. */
+  blockedEither: (a: string, b: string) => boolean = () => false;
 
   // ---------- the town's clock ----------
 
@@ -218,6 +282,10 @@ export class WorldService {
     }
     const day = this.state.day;
     if (day === undefined) return;
+    if (this.economy && !this.state.economy) {
+      const opened = this.run({ actor: TOWN_ACTOR, command: { type: "open_economy" } });
+      if (!opened.ok) console.error(`Couldn't open coins: ${opened.error.message}`);
+    }
     const due = (this.state.town?.proposals ?? []).filter(
       (p) => p.status === "open" && p.closesDay !== undefined && p.closesDay <= day,
     );
@@ -468,6 +536,25 @@ export class WorldService {
       };
       return this.run({ actor: residentId, command });
     }
+    if (action.type === "give_coins") {
+      // Blocks live in the social layer; a gift can't cross one either way (decision 0024).
+      if (this.blockedEither(residentId, action.to)) {
+        return {
+          ok: false,
+          error: { code: "forbidden", message: "You can't send coins to this resident." },
+        };
+      }
+      const note = action.note === undefined ? "" : cleanText(action.note);
+      const refused = filtered(this.moderation, "gift_note", note, context);
+      if (refused) return refused;
+      const command: Command = {
+        type: "give_coins",
+        to: action.to,
+        amount: action.amount,
+        ...(note ? { note } : {}),
+      };
+      return this.run({ actor: residentId, command });
+    }
     return this.run({ actor: residentId, command: action satisfies Command });
   }
 
@@ -532,8 +619,13 @@ export class WorldService {
       return { ok: false, error: { code: "internal", message: "Couldn't save that. Try again." } };
     }
     const { seq, events } = prepared.commit();
-    for (const event of events) this.broadcast({ type: "event", seq, event });
-    return { ok: true, seq, events };
+    const wire = toWire(events);
+    for (const event of publicEvents(wire)) this.broadcast({ type: "event", seq, event });
+    // Purse moves go only to the purse's owner (RFC 0008: purses are private).
+    for (const event of wire) {
+      if (event.type === "coins") this.notify(event.residentId, { type: "event", seq, event });
+    }
+    return { ok: true, seq, events: eventsFor(wire, input.actor) };
   }
 
   // ---------- presence ----------

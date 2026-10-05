@@ -3,6 +3,7 @@ import * as changelog from "./changelog";
 import * as checkin from "./checkin";
 import * as coins from "./coins";
 import * as items from "./items";
+import * as market from "./market";
 import * as partners from "./partners";
 import {
   acceptsIdempotencyKey,
@@ -108,6 +109,7 @@ function namedSchemas() {
     ...items,
     ...partners,
     ...shop,
+    ...market,
   })) {
     if (!(value instanceof z.ZodType) || names.has(value)) continue;
     registry.add(value, { id: name });
@@ -154,7 +156,7 @@ export function buildOpenApi() {
     const name = names.get(schema);
     if (!name)
       throw new Error(
-        `${where} uses a schema that isn't exported from schemas.ts, social.ts, town.ts, changelog.ts, safety.ts, checkin.ts, coins.ts, items.ts, partners.ts, or shop.ts`,
+        `${where} uses a schema that isn't exported from schemas.ts, social.ts, town.ts, changelog.ts, safety.ts, checkin.ts, coins.ts, items.ts, market.ts, partners.ts, or shop.ts`,
       );
     return ref(name);
   };

@@ -47,6 +47,7 @@ import { openInviteDialog } from "./invite-share";
 import { colorChips, joinForm, shapeChips, tokenPreview } from "./join-form";
 import { lettersPath } from "./letters-view";
 import { openLookEditor } from "./look-editor";
+import { stallCard } from "./market-view";
 import { savedResidentId, savedToken, saveToken } from "./net";
 import { agentItem, type OwnerPanel, ownerPanel } from "./owner-panel";
 import { verifiedRow } from "./partner-badge";
@@ -139,7 +140,11 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
         else top.after(panel.el);
       });
     }
-    el.append(h("h2", { class: "section-title", text: "Posts" }));
+    const postsTitle = h("h2", { class: "section-title", text: "Posts" });
+    el.append(postsTitle);
+    void stallCard(resident).then((card) => {
+      if (card && !destroyed && postsTitle.isConnected) postsTitle.before(card);
+    });
     const list = h("div", {
       class: "post-list",
       attrs: { role: "feed", "aria-label": `Posts by ${resident.name}` },

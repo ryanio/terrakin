@@ -40,6 +40,7 @@ import {
   type WorldState,
   withinEarshot,
 } from "@terrakin/sim";
+import { listingRefusal } from "./market";
 import { Moderation, type ReviewContext, type Surface } from "./moderation";
 import type { Store } from "./store";
 import { count, crumb, report, span } from "./telemetry";
@@ -99,6 +100,11 @@ export interface WorldServiceOptions {
    */
   shop?: boolean;
   /**
+   * The market (RFC 0008, phase 4): once the shop is open, append `open_market` if it never has.
+   * Both adapters turn this on. Off by default, like `shop`.
+   */
+  market?: boolean;
+  /**
    * Maintainers' resident ids from config. Logged as `set_maintainers` when they differ from the
    * log, so the sim keeps townsfolk budgets away from them.
    */
@@ -125,6 +131,12 @@ function toWire(events: WorldEvent[], townsfolk: readonly string[] = []): WireEv
     if (e.type === "inventory") {
       // A gift's note and a made thing's label are another resident's words.
       const words = e.note !== undefined || e.gained?.some((g) => g.label !== undefined);
+      out.push(words ? { ...e, trust: "untrusted" } : e);
+      continue;
+    }
+    if (e.type === "listed") {
+      // A made thing's label is its maker's words.
+      const words = e.listing.goods?.some((g) => g.label !== undefined);
       out.push(words ? { ...e, trust: "untrusted" } : e);
       continue;
     }
@@ -291,6 +303,7 @@ export class WorldService {
   private readonly economy: boolean;
   private readonly items: boolean;
   private readonly shop: boolean;
+  private readonly market: boolean;
   /** The edge filters for names, notes, chat, and proposals. */
   readonly moderation: Moderation;
   /**
@@ -343,6 +356,7 @@ export class WorldService {
     this.economy = options.economy ?? false;
     this.items = options.items ?? false;
     this.shop = options.shop ?? false;
+    this.market = options.market ?? false;
     // A day may have started (and proposals come due) while the server was down.
     this.tick();
   }
@@ -385,6 +399,17 @@ export class WorldService {
     });
     if (!done.ok) console.error(`Couldn't remove an owner pair: ${done.error.message}`);
   }
+
+  /**
+   * Why a resident can't list in the market yet (time in Terrakin, karma), or null. Both live
+   * outside the sim. On its own this checks time in Terrakin; `Api` adds karma from the social
+   * layer.
+   */
+  listingRefusal: (residentId: string) => string | null = (id) =>
+    listingRefusal(this.state, id, { ageDays: this.residentAgeDays(id), tier: "newcomer" });
+
+  /** Whether a resident is suspended, from the social layer. Their stall can't sell meanwhile. */
+  suspended: (residentId: string) => boolean = () => false;
 
   /** Whether two residents block each other, from the social layer. Gifts can't cross a block. */
   blockedEither: (a: string, b: string) => boolean = () => false;
@@ -440,6 +465,10 @@ export class WorldService {
     if (this.shop && !this.state.shop && this.state.economy && this.state.items) {
       const opened = this.run({ actor: TOWN_ACTOR, command: { type: "open_shop" } });
       if (!opened.ok) console.error(`Couldn't open the shop: ${opened.error.message}`);
+    }
+    if (this.market && !this.state.market && this.state.shop) {
+      const opened = this.run({ actor: TOWN_ACTOR, command: { type: "open_market" } });
+      if (!opened.ok) console.error(`Couldn't open the market: ${opened.error.message}`);
     }
     // The treasury's share of shop spending follows the sim's number, logged when it changes so
     // earlier purchases replay at the share they were made at.
@@ -814,6 +843,33 @@ export class WorldService {
         ...(label ? { label } : {}),
       };
       return this.run({ actor: residentId, command }, dry);
+    }
+    if (action.type === "list_item") {
+      const why = this.listingRefusal(residentId);
+      if (why) return { ok: false, error: { code: "not_eligible", message: why } };
+      const command: Command = {
+        type: "list_item",
+        item: action.item,
+        price: action.price,
+        ...(action.count === undefined ? {} : { count: action.count }),
+      };
+      return this.run({ actor: residentId, command }, dry);
+    }
+    if (action.type === "buy_listing") {
+      // Like a gift, a sale can't cross a block either way.
+      const seller = this.state.market?.listings[action.listing]?.seller;
+      if (seller && this.blockedEither(residentId, seller)) {
+        return {
+          ok: false,
+          error: { code: "forbidden", message: "You can't buy from this resident." },
+        };
+      }
+      if (seller && this.suspended(seller)) {
+        return {
+          ok: false,
+          error: { code: "forbidden", message: "That stall is closed for now." },
+        };
+      }
     }
     if (action.type === "shop_buy" || action.type === "sell_to_town") {
       const count = action.count === undefined ? {} : { count: action.count };

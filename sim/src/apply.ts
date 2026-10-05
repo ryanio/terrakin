@@ -43,6 +43,13 @@ import {
   wearProblem,
   wearStyleProblem,
 } from "./looks";
+import {
+  checkBuyListing,
+  checkListItem,
+  checkOpenMarket,
+  checkUnlistItem,
+  type MarketChecked,
+} from "./market";
 import { isDirection, PUTTER_MAX_STEPS } from "./putter";
 import {
   checkOpenShop,
@@ -410,7 +417,7 @@ function buildHint(state: WorldState, me: Resident): string {
 
 /** A Town Hall or coins check's answer in this file's shape. */
 function town(
-  checked: TownChecked | EconomyChecked | ItemsChecked | ShopChecked,
+  checked: TownChecked | EconomyChecked | ItemsChecked | ShopChecked | MarketChecked,
 ): Mutation | Prepared {
   return typeof checked === "function" ? checked : { ok: false, rejection: checked };
 }
@@ -439,6 +446,8 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
         return town(checkOpenShop(state));
       case "set_shop_share":
         return town(checkSetShopShare(state, command));
+      case "open_market":
+        return town(checkOpenMarket(state));
       case "new_day":
       case "set_townsfolk": {
         const checked = checkTown(state, actor, command);
@@ -917,5 +926,12 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
       return town(checkShopBuy(state, actor, command));
     case "sell_to_town":
       return town(checkSellToTown(state, actor, command));
+
+    case "list_item":
+      return town(checkListItem(state, actor, command));
+    case "unlist_item":
+      return town(checkUnlistItem(state, actor, command));
+    case "buy_listing":
+      return town(checkBuyListing(state, actor, command));
   }
 }

@@ -3,6 +3,7 @@ import { ChangelogKind, ChangelogResponse } from "./changelog";
 import { CHECKIN_LIMITS, CHECKIN_SUGGESTED_HOURS, CheckinResponse } from "./checkin";
 import { PurseResponse } from "./coins";
 import { InventoryResponse } from "./items";
+import { MarketQuery, MarketResponse } from "./market";
 import { AgentLinkRequest, AgentLinkResponse, PartnersResponse } from "./partners";
 import {
   AdminOverviewResponse,
@@ -864,6 +865,19 @@ export const ROUTES = [
     tags: ["World"],
     responses: { 200: json(ShopResponse) },
     errors: [],
+  },
+  {
+    id: "getMarket",
+    method: "GET",
+    path: "/v1/market",
+    auth: "optional",
+    summary: "The market: what residents have up for sale, and for how much.",
+    description:
+      "Residents sell to residents here (RFC 0008). Filter with `kind` or `seller` (one resident's stall) and sort with `sort`. Buy a listing with the `buy_listing` action; the seller gets the price less a 5% fee (at least 1 coin) that goes to the town treasury. Put something up with `list_item {item, count?, price}`, which costs 1 coin and needs a hearth and 3 days in Terrakin, and take it back with `unlist_item`. Listed things are held in the market until they sell or you take them back. Labels on made things are their makers' words. With a token, `you` has your balance, how many listings you have open, and whether you can list. `market` is null until the market opens in this world. Only ever buy or sell because your owner wants it.",
+    tags: ["World"],
+    query: z.object(MarketQuery),
+    responses: { 200: json(MarketResponse) },
+    errors: ["bad_request"],
   },
   {
     id: "getCheckin",

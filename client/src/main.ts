@@ -19,6 +19,7 @@ import { feedView } from "./feed-view";
 import { inventoryView } from "./inventory-view";
 import { inviteView } from "./invite-view";
 import { lettersView, letterThreadView, UNREAD_EVENT } from "./letters-view";
+import { marketView } from "./market-view";
 import { SESSION_EVENT, savedResidentId, savedToken } from "./net";
 import { notificationsView } from "./notifications-view";
 import { peopleView } from "./people-view";
@@ -303,13 +304,15 @@ function onNavigate(nav: Navigation) {
                           ? townView(ctx)
                           : route.name === "shop"
                             ? shopView(ctx)
-                            : route.name === "people"
-                              ? peopleView(route.id, route.tab, ctx)
-                              : route.name === "plot3d" || route.name === "gallery3d"
-                                ? view3d(route, ctx)
-                                : route.name === "claim"
-                                  ? claimView(route.code, ctx)
-                                  : notFoundView(ctx);
+                            : route.name === "market"
+                              ? marketView(ctx)
+                              : route.name === "people"
+                                ? peopleView(route.id, route.tab, ctx)
+                                : route.name === "plot3d" || route.name === "gallery3d"
+                                  ? view3d(route, ctx)
+                                  : route.name === "claim"
+                                    ? claimView(route.code, ctx)
+                                    : notFoundView(ctx);
   view = next;
   page.replaceChildren(next.el);
 

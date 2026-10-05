@@ -267,6 +267,33 @@ export interface WorldState {
    * hash as they always have.
    */
   shop?: ShopState;
+  /**
+   * The market (RFC 0008, phase 4): residents selling to residents. Absent until `open_market`,
+   * so worlds from before it hash as they always have.
+   */
+  market?: MarketState;
+}
+
+/** Something a resident put up for sale. The things are held here, in escrow, until it ends. */
+export interface Listing {
+  /** `l_1`, `l_2`, ... from the market's counter. */
+  id: string;
+  seller: ResidentId;
+  kind: ItemKind;
+  /** How many in the lot. The price is for the whole lot. */
+  count: number;
+  /** The made things in the lot, with their makers and labels. Absent for things that stack. */
+  goods?: Good[];
+  price: number;
+  /** The day it was listed. */
+  day: number;
+}
+
+export interface MarketState {
+  /** The number in the next listing's id. */
+  nextId: number;
+  /** Open listings by id. */
+  listings: Record<string, Listing>;
 }
 
 export interface ShopState {
@@ -356,6 +383,12 @@ export const INVENTORY_REASONS = [
   "placed",
   /** A decor block taken back up. */
   "picked_up",
+  /** Put up for sale in the market, so held there until it sells or is taken back. */
+  "listed",
+  /** Taken back from the market unsold. */
+  "unlisted",
+  /** Bought from another resident in the market. */
+  "market",
 ] as const;
 export type InventoryReason = (typeof INVENTORY_REASONS)[number];
 
@@ -383,6 +416,14 @@ export const COIN_REASONS = [
   "sold",
   /** Minted for residents who reacted to your posts on a day, logged by `daily_awards`. */
   "appreciation",
+  /** The fee for putting something up in the market. Burned. */
+  "listing_fee",
+  /** Paid to another resident for something in the market. */
+  "market_buy",
+  /** Paid for something you sold in the market, less the market fee. */
+  "market_sale",
+  /** The market's share of a sale, to the treasury. */
+  "market_fee",
 ] as const;
 export type CoinReason = (typeof COIN_REASONS)[number];
 
@@ -483,6 +524,10 @@ export type Command =
   // The town shop (RFC 0008, phase 2).
   | { type: "shop_buy"; sku: string; count?: number }
   | { type: "sell_to_town"; item: string; count?: number }
+  // The market (RFC 0008, phase 4).
+  | { type: "list_item"; item: string; count?: number; price: number }
+  | { type: "unlist_item"; listing: string }
+  | { type: "buy_listing"; listing: string }
   // Only the server sends these, as TOWN_ACTOR.
   | { type: "new_day"; day: number }
   | { type: "set_townsfolk"; ids: ResidentId[] }
@@ -498,6 +543,7 @@ export type Command =
   | { type: "open_shop" }
   /** The treasury's share of shop spending from now on, in percent; the rest is burned. */
   | { type: "set_shop_share"; percent: number }
+  | { type: "open_market" }
   /** Coins the server counted for a day that has ended, minted once per day (decision 0055). */
   | { type: "daily_awards"; day: number; awards: DailyAward[] };
 
@@ -531,6 +577,7 @@ export const SERVER_COMMANDS = [
   "open_shop",
   "set_shop_share",
   "daily_awards",
+  "open_market",
 ] as const satisfies readonly CommandType[];
 
 /** A command plus who issued it. This is the unit the server logs and replays. */
@@ -628,6 +675,20 @@ export type WorldEvent =
   | { type: "maintainers_set"; ids: ResidentId[] }
   | { type: "items_opened" }
   | { type: "shop_opened" }
+  | { type: "market_opened" }
+  /** Something went up for sale. Public: the market is. Made things carry their makers' labels. */
+  | { type: "listed"; listing: Listing }
+  /** A listing was taken back unsold. Public. */
+  | { type: "unlisted"; listing: string; seller: ResidentId }
+  /** A listing sold. Public, without the buyer: what someone buys is theirs to tell. */
+  | {
+      type: "listing_sold";
+      listing: string;
+      seller: ResidentId;
+      kind: ItemKind;
+      count: number;
+      price: number;
+    }
   /** The treasury's share of shop spending changed. Public, like the treasury. */
   | { type: "shop_share_set"; percent: number }
   /** Shop wear a resident bought. Private, like their purse. */
@@ -718,6 +779,10 @@ export const REJECTION_CODES = [
   "sell_limit",
   "already_have",
   "not_owned",
+  "market_closed",
+  "unknown_listing",
+  "own_listing",
+  "listing_limit",
 ] as const;
 export type RejectionCode = (typeof REJECTION_CODES)[number];
 

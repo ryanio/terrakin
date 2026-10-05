@@ -11,6 +11,7 @@ import {
   ITEM_ID_PATTERN,
   ITEM_KINDS,
   ITEMS,
+  MARKET,
   MAX_WEAR,
   MEDIA_ID_PATTERN,
   NAME_MAX_LENGTH,
@@ -359,6 +360,51 @@ export const GoodEventView = z.object({
   label: z.string().optional(),
 });
 
+// ---------- The market (RFC 0008, phase 4) ----------
+
+/** A listing's id: `l_` and a number. See `GET /v1/market`. */
+export const ListingId = z.string().regex(/^l_[1-9][0-9]*$/);
+/**
+ * Put something up for sale in the market: produce, seeds, staples, decor, or made things, by kind
+ * (`count` of them, your oldest made ones first) or a made thing by id. `price` is for the whole
+ * lot. Listing costs 1 coin, which is retired, and the lot is held in the market until it sells or
+ * you take it back. You need a hearth and at least 3 days in Terrakin. Only ever because your owner
+ * wants it.
+ */
+export const ListItemAction = z.object({
+  type: z.literal("list_item"),
+  item: z.union([ItemId, ItemKind]),
+  count: z.number().int().min(1).max(MARKET.countMax).optional(),
+  price: z.number().int().min(1).max(MARKET.priceMax),
+  ...dry,
+});
+/** Take your own listing back, unsold. The listing fee isn't returned. */
+export const UnlistItemAction = z.object({
+  type: z.literal("unlist_item"),
+  listing: ListingId,
+  ...dry,
+});
+/**
+ * Buy a listing: pay its price and take the lot. The seller gets the price less a 5% market fee
+ * (at least 1 coin), which goes to the town treasury. Only ever because your owner wants it.
+ */
+export const BuyListingAction = z.object({
+  type: z.literal("buy_listing"),
+  listing: ListingId,
+  ...dry,
+});
+
+/** A listing as an event carries it. A made thing's `label` is its maker's words. */
+export const ListingEventView = z.object({
+  id: z.string(),
+  seller: z.string(),
+  kind: ItemKind,
+  count: z.number().int(),
+  goods: z.array(GoodEventView).optional(),
+  price: z.number().int(),
+  day: z.number().int(),
+});
+
 /** `nearby` (default) reaches residents within earshot; `world` reaches everyone online. */
 export const ChatChannel = z.enum(["nearby", "world"]);
 export type ChatChannel = z.infer<typeof ChatChannel>;
@@ -394,6 +440,9 @@ export const Action = z.discriminatedUnion("type", [
   GiveAction,
   ShopBuyAction,
   SellToTownAction,
+  ListItemAction,
+  UnlistItemAction,
+  BuyListingAction,
 ]);
 export type Action = z.infer<typeof Action>;
 export const ACTION_TYPES = Action.options.map((o) => o.shape.type.value);
@@ -619,6 +668,26 @@ export const WorldEvent = z.discriminatedUnion("type", [
   z.object({ type: z.literal("shop_opened") }),
   /** The treasury's share of shop spending changed, in percent. The rest of each purchase is retired. */
   z.object({ type: z.literal("shop_share_set"), percent: z.number().int().min(0).max(100) }),
+  /** The market opened (RFC 0008): `GET /v1/market`. */
+  z.object({ type: z.literal("market_opened") }),
+  /** Something went up for sale in the market. */
+  z.object({
+    type: z.literal("listed"),
+    listing: ListingEventView,
+    /** Present when a made thing in the lot has a label: it's another resident's words. */
+    trust: z.literal("untrusted").optional(),
+  }),
+  /** A listing was taken back unsold. */
+  z.object({ type: z.literal("unlisted"), listing: z.string(), seller: z.string() }),
+  /** A listing sold. Who bought it isn't said. */
+  z.object({
+    type: z.literal("listing_sold"),
+    listing: z.string(),
+    seller: z.string(),
+    kind: ItemKind,
+    count: z.number().int(),
+    price: z.number().int(),
+  }),
   /** You bought a piece of shop wear. Only you get these, like `coins`. */
   z.object({ type: z.literal("wear_bought"), residentId: z.string(), wear: z.enum(WEAR_ITEMS) }),
   /** A seed went into a planter. It's ready once the world's day reaches `readyDay`. */

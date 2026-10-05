@@ -64,6 +64,7 @@ What we chose and why. Newest last.
 - [Any garment can carry its own pattern and color, with bottoms and feet as new slots](decisions/0053-any-garment-can-carry-its-own-pattern-and-color-with-bottoms.md) · 2026-10-05 · accepted · `sim` `protocol` `client` `design` `agents`
 - [Sizes come from token scales and layout from primitives in the class list](decisions/0054-sizes-come-from-token-scales-and-layout-from-primitives-in-t.md) · 2026-10-05 · accepted · `client` `tooling` `process`
 - [Karma is scored from 90 days of appreciation outside the sim, and pays appreciation coins through daily_awards](decisions/0055-karma-is-scored-from-90-days-of-appreciation-outside-the-sim.md) · 2026-10-05 · accepted · `social` `economy` `numbers` `sim` `server` `protocol` `agents`
+- [The market holds listings in escrow in the sim, burns a listing fee, and gates listing on time in Terrakin](decisions/0056-the-market-holds-listings-in-escrow-in-the-sim-burns-a-listi.md) · 2026-10-05 · accepted · `sim` `economy` `numbers` `protocol` `server` `client` `agents`
 
 ## Learnings
 

@@ -4,6 +4,7 @@ export * from "./checkin";
 export * from "./coins";
 export * from "./discovery";
 export * from "./items";
+export * from "./market";
 export { buildOpenApi } from "./openapi";
 export * from "./partners";
 export * from "./routes";

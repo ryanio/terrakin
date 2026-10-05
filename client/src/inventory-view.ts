@@ -164,6 +164,11 @@ export function inventoryView(ctx: ViewContext): View {
           class: "purse-hint",
           text: `${inv.size} of ${rules.inventoryMax} things. Give from someone's profile: up to ${rules.giveCap} a day. Only you see this page.`,
         }),
+        h(
+          "a",
+          { class: "pill-button small", attrs: { href: "/market", id: "things-market" } },
+          "Sell in the market",
+        ),
       ),
     );
   }

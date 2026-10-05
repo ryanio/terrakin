@@ -196,10 +196,13 @@ export function shopView(ctx: ViewContext): View {
           shop.buying.map((o) => buyingRow(o, inv)),
           { className: "shop-orders" },
         ),
-        h("p", {
-          class: "purse-hint",
-          text: "It buys different things each day, at midnight UTC. Make something at a kitchen or a workbench to sell.",
-        }),
+        h(
+          "p",
+          { class: "purse-hint" },
+          "It buys different things each day, at midnight UTC. Make something at a kitchen or a workbench to sell, or sell it to your neighbors in ",
+          h("a", { attrs: { href: "/market" }, text: "the market" }),
+          ".",
+        ),
       ),
       ...SHELVES.map(({ section, title, hint }) =>
         h(

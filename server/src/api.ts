@@ -49,6 +49,7 @@ import { IdempotencyStore, type StoredResponse, sha256Hex } from "./idempotency"
 import { inventoryView } from "./items";
 import { BAD_LINK_KEY, DEFAULT_ORIGIN, linkHandlers, linkHelp, REPEAT_NOTE } from "./links";
 import { postMarkdown, profileMarkdown } from "./markdown";
+import { type ListerFacts, listingRefusal, marketView } from "./market";
 import { COOL_DOWN_MESSAGE, type Moderation } from "./moderation";
 import { OwnerService } from "./owner-service";
 import { partnerViews } from "./partners";
@@ -466,6 +467,10 @@ export class Api {
         this.service.notify(to, layer.together.liveGesture(sent.value.gesture, sent.value.streak));
         return true;
       };
+      // Who may list in the market (decision 0056): time in Terrakin and karma live out here.
+      this.service.listingRefusal = (id) =>
+        listingRefusal(this.service.state, id, this.listerFacts(id));
+      this.service.suspended = (id) => layer.safety.suspendedUntil(id) !== undefined;
       // Appreciation coins (decision 0055): counted from reactions, logged once a day by `tick`.
       this.service.dailyAwards = (day) => layer.karma.awards(day);
       this.service.syncOwnerPairs(layer.ownerPairs());
@@ -1001,6 +1006,32 @@ export class Api {
           (id) => social().authorView(id),
         ),
       }),
+      getMarket: ({ viewer, query }) => {
+        const layer = social();
+        // Read once per request: who the viewer blocks either way, and each seller's suspension.
+        const blocked = viewer === undefined ? new Set<string>() : layer.blockedWith(viewer);
+        const closed = new Map<string, boolean>();
+        const hidden = (seller: string) => {
+          if (blocked.has(seller)) return true;
+          let shut = closed.get(seller);
+          if (shut === undefined) {
+            shut = layer.safety.suspendedUntil(seller) !== undefined;
+            closed.set(seller, shut);
+          }
+          return shut;
+        };
+        return {
+          status: 200,
+          body: marketView(
+            service.state,
+            viewer,
+            query,
+            (id) => layer.authorView(id),
+            hidden,
+            (id) => this.listerFacts(id),
+          ),
+        };
+      },
       getCheckin: ({ viewer, query }) => ({
         status: 200,
         body: checkinView(service.state, social(), viewer, {
@@ -1522,6 +1553,14 @@ export class Api {
    * only, so a signed-out watcher learns nothing a visitor to the feed couldn't see (decision
    * 0046). One read for the blocks and one for the followers, whatever the number of sockets.
    */
+  /** What the market's gate on listing reads from outside the sim: time in Terrakin and karma. */
+  private listerFacts(id: string): ListerFacts {
+    return {
+      ageDays: this.service.residentAgeDays(id),
+      tier: this.social?.karma.of(id).tier ?? "newcomer",
+    };
+  }
+
   private announcePost(post: PostView) {
     try {
       const author = post.author.id;

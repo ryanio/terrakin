@@ -1407,11 +1407,14 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
               // The editor previews the color and shape picked here, so its Save saves them too,
               // along with a changed note.
               click: () =>
-                openLookEditor({ color, shape, look: r.look, pending: cardChanges() }, (look) => {
-                  r.look = look;
-                  forgetMe();
-                  void load();
-                }),
+                openLookEditor(
+                  { color, shape, look: r.look, pending: cardChanges(), entitled: r.entitled },
+                  (look) => {
+                    r.look = look;
+                    forgetMe();
+                    void load();
+                  },
+                ),
             },
           },
           icon("sparkle"),

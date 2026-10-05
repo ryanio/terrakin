@@ -1,4 +1,4 @@
-import type { WorldConfig } from "@terrakin/sim";
+import { entitledTo, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import type { AgentCard, CardRead } from "./agent-card";
 import {
@@ -22,7 +22,7 @@ import { MUSEGOD } from "./partners";
 import { type SocialLimits, SocialService } from "./social-service";
 import { MemoryStore } from "./store";
 import { abi, type Cleanup, jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
-import { WorldService } from "./world-service";
+import { ENTITLEMENT_CHECK_MS, WorldService } from "./world-service";
 
 const cleanups: Cleanup[] = [];
 const { problems, onResponse } = responseChecker();
@@ -196,7 +196,7 @@ function fakeChain() {
 async function start(options: AgentLinkOptions = {}, limits: Partial<SocialLimits> = {}) {
   let now = Date.UTC(2026, 9, 4, 12);
   const chain = fakeChain();
-  const service = new WorldService({ store: new MemoryStore(), config: CONFIG });
+  const service = new WorldService({ store: new MemoryStore(), config: CONFIG, now: () => now });
   const sql = nodeSql();
   const media = new MemoryMediaStore();
   const social = new SocialService({
@@ -204,6 +204,7 @@ async function start(options: AgentLinkOptions = {}, limits: Partial<SocialLimit
     media,
     limits,
     resident: (id) => service.state.residents[id],
+    entitledTo: (id) => entitledTo(service.state, id),
     now: () => now,
     agentLinks: { call: chain.call, readCard: chain.readCard, readArt: chain.readArt, ...options },
   });
@@ -236,6 +237,9 @@ async function start(options: AgentLinkOptions = {}, limits: Partial<SocialLimit
     social,
     links,
     media,
+    service,
+    act: async (token: string, action: unknown) =>
+      (await call("POST", "/v1/actions", action, token)).body,
     profile,
     advance: (ms: number) => {
       now += ms;
@@ -420,7 +424,16 @@ describe("linking a muse", () => {
           flair: "Muse",
           profile: "velvet",
           art: true,
+          items: ["muse_halo"],
         },
+        promos: [
+          {
+            id: "muse-lantern-2026",
+            from: "2026-11-01",
+            until: "2026-12-01",
+            perks: { items: ["muse_lantern"], flair: "Lantern night" },
+          },
+        ],
       },
     ]);
     expect(res.text).not.toMatch(/\b(?:nft|wallet|token|holder|chain|onchain|buy)\b/i);
@@ -1117,6 +1130,125 @@ describe("the character's picture (RFC 0007 phase 2)", () => {
     advance(RECHECK_MS);
     await links.recheckDue();
     expect((await profile(wren.residentId)).avatar).toBeNull();
+  });
+});
+
+describe("partner wear (RFC 0007 phase 3)", () => {
+  const DAY = 24 * 60 * 60_000;
+
+  it("lets a linked muse wear the halo, and takes it off when the link ends", async () => {
+    const { link, join, chain, profile, service, act, call } = await start();
+    const wren = join("Wren");
+    const moss = join("Moss");
+    chain.addMuse(464, [wren.residentId]);
+    expect((await act(wren.token, { type: "profile", wear: ["muse_halo"] })).error.code).toBe(
+      "not_entitled",
+    );
+    await link(muse(464), wren.token);
+    expect(service.state.entitlements).toEqual({ [wren.residentId]: ["muse_halo"] });
+    expect((await profile(wren.residentId)).entitled).toEqual(["muse_halo"]);
+    expect((await act(wren.token, { type: "profile", wear: ["muse_halo", "scarf"] })).ok).toBe(
+      true,
+    );
+    // Only the muse: someone else can't put it on.
+    expect((await act(moss.token, { type: "profile", wear: ["muse_halo"] })).error.code).toBe(
+      "not_entitled",
+    );
+    expect((await profile(moss.residentId)).entitled).toBeUndefined();
+
+    await call("DELETE", "/v1/agent-link", undefined, wren.token);
+    expect(service.state.entitlements).toBeUndefined();
+    expect(service.state.residents[wren.residentId]?.wear).toEqual(["scarf"]);
+    expect((await profile(wren.residentId)).entitled).toBeUndefined();
+  });
+
+  it("adds the promo's lantern and flair while it runs, on the server's clock", async () => {
+    const { link, join, chain, profile, service, advance } = await start();
+    const wren = join("Wren");
+    chain.addMuse(464, [wren.residentId]);
+    await link(muse(464), wren.token);
+    // 2026-10-04 now; the promo runs from 2026-11-01 to 2026-12-01. Any request ticks the world,
+    // which compares everyone's partner wear at most every ENTITLEMENT_CHECK_MS.
+    advance(28 * DAY);
+    const flair = (await profile(wren.residentId)).partner.flair;
+    expect(service.state.entitlements?.[wren.residentId]).toEqual(["muse_halo", "muse_lantern"]);
+    expect(flair).toBe("Lantern night");
+    advance(30 * DAY);
+    await profile(wren.residentId);
+    expect(service.state.entitlements?.[wren.residentId]).toEqual(["muse_halo"]);
+    expect((await profile(wren.residentId)).partner.flair).toBe("Muse");
+  });
+
+  it("checks between requests no more than every ENTITLEMENT_CHECK_MS", async () => {
+    const musegod = { ...MUSEGOD };
+    const { link, join, chain, profile, service, advance } = await start({ partners: [musegod] });
+    const wren = join("Wren");
+    chain.addMuse(464, [wren.residentId]);
+    await link(muse(464), wren.token);
+    advance(ENTITLEMENT_CHECK_MS);
+    await profile(wren.residentId);
+    musegod.status = "paused";
+    advance(ENTITLEMENT_CHECK_MS - 1_000);
+    await profile(wren.residentId);
+    expect(service.state.entitlements?.[wren.residentId]).toEqual(["muse_halo"]);
+    advance(1_000);
+    await profile(wren.residentId);
+    expect(service.state.entitlements).toBeUndefined();
+  });
+
+  it("catches up on partner wear when the server starts", async () => {
+    const { link, join, chain, service, sql, social } = await start();
+    const wren = join("Wren");
+    chain.addMuse(464, [wren.residentId]);
+    await link(muse(464), wren.token);
+    // As if the log lost the entitlement: a fresh Api over the same world and links logs it again.
+    service.syncEntitlements(wren.residentId, []);
+    expect(service.state.entitlements).toBeUndefined();
+    createApp({ service, social, media: new MemoryMediaStore() });
+    expect(service.state.entitlements?.[wren.residentId]).toEqual(["muse_halo"]);
+    expect(sql).toBeDefined();
+  });
+
+  it("gives an agent with no partner nothing to wear, and logs nothing", async () => {
+    const { link, join, chain, service } = await start();
+    const wren = join("Wren");
+    chain.agents.set(9001, { uri: "https://agents.example/9001.json", owner: SOMEONE });
+    chain.cards.set("https://agents.example/9001.json", {
+      name: "Helper",
+      terrakin: [`https://terrakin.org/r/${wren.residentId}`],
+    });
+    const seq = service.state.seq;
+    await link({ agent: agentRef(9001) }, wren.token);
+    expect(service.state.seq).toBe(seq);
+    expect(service.state.entitlements).toBeUndefined();
+  });
+
+  it("takes partner wear back while the partner is paused, and logs each change once", async () => {
+    const musegod = { ...MUSEGOD };
+    const { link, join, chain, service } = await start({ partners: [musegod] });
+    const wren = join("Wren");
+    chain.addMuse(464, [wren.residentId]);
+    await link(muse(464), wren.token);
+    musegod.status = "paused";
+    service.reconcileEntitlements(true);
+    expect(service.state.entitlements).toBeUndefined();
+    const seq = service.state.seq;
+    service.reconcileEntitlements(true);
+    expect(service.state.seq).toBe(seq);
+    musegod.status = "active";
+    service.reconcileEntitlements(true);
+    expect(service.state.entitlements?.[wren.residentId]).toEqual(["muse_halo"]);
+  });
+
+  it("moves the halo with the muse when someone else links it", async () => {
+    const { link, join, chain, service } = await start();
+    const wren = join("Wren");
+    const moss = join("Moss");
+    const { uri } = chain.addMuse(464, [wren.residentId]);
+    await link(muse(464), wren.token);
+    chain.setNames(uri, [moss.residentId]);
+    await link(muse(464), moss.token);
+    expect(service.state.entitlements).toEqual({ [moss.residentId]: ["muse_halo"] });
   });
 });
 

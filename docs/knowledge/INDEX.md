@@ -69,6 +69,7 @@ What we chose and why. Newest last.
 - [Partner characters wear a curated border and profile design, and bring their own picture through the upload checks](decisions/0058-partner-characters-wear-a-curated-border-and-profile-design-.md) · 2026-10-05 · accepted · `client` `server` `protocol` `design` `security` `partners`
 - [Pieces are made things from your own uploads, shown on pedestals and frames](decisions/0059-pieces-are-made-things-from-your-own-uploads-shown-on-pedest.md) · 2026-10-05 · accepted · `sim` `protocol` `server` `client` `design` `agents`
 - [The world in 3D draws a view radius around you within a frame budget, and 2D stays the default](decisions/0060-the-world-in-3d-draws-a-view-radius-around-you-within-a-fram.md) · 2026-10-05 · accepted · `client` `performance` `3d` `design`
+- [Partner wear reaches the sim as a per-resident entitlement list the server logs, and comes off when it goes](decisions/0061-partner-wear-reaches-the-sim-as-a-per-resident-entitlement-l.md) · 2026-10-05 · accepted · `sim` `server` `protocol` `client` `partners` `economy`
 
 ## Learnings
 

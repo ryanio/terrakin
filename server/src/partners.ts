@@ -1,4 +1,11 @@
-import type { PartnerBadge, PartnerBorder, PartnerView, ProfileDesign } from "@terrakin/protocol";
+import type {
+  PartnerBadge,
+  PartnerBorder,
+  PartnerPromoView,
+  PartnerView,
+  ProfileDesign,
+} from "@terrakin/protocol";
+import type { ExclusiveWear } from "@terrakin/sim";
 
 /**
  * Terrakin's partners (RFC 0007): config in the repo, reviewed like code. No admin panel and no
@@ -34,6 +41,15 @@ export interface AgentOwnerMatch {
   agentOf: string;
 }
 
+export interface PartnerPromo {
+  id: string;
+  /** `YYYY-MM-DD`, the first UTC day it runs. */
+  from: string;
+  /** `YYYY-MM-DD`, the UTC day it stops. */
+  until: string;
+  perks: { items?: readonly ExclusiveWear[]; flair?: string };
+}
+
 export interface PartnerConfig {
   id: string;
   name: string;
@@ -61,7 +77,17 @@ export interface PartnerConfig {
      * its avatar unless it already has one (partner-art.ts). Never hotlinked.
      */
     art?: string;
+    /**
+     * Partner wear its characters may put on while linked (the sim's `EXCLUSIVE_WEAR`). The server
+     * logs `set_entitlements` when a link or a promo changes what a resident may wear.
+     */
+    items?: readonly ExclusiveWear[];
   };
+  /**
+   * Perks for a set window on the server's clock, from `from` (inclusive) to `until` (exclusive),
+   * UTC days. Promo items come off when the promo ends.
+   */
+  promos?: readonly PartnerPromo[];
   /** `paused` hides perks without unlinking anyone. */
   status: "active" | "paused";
 }
@@ -100,7 +126,16 @@ export const MUSEGOD: PartnerConfig = {
     profile: "velvet",
     // musegod.org's 480 px cut of the muse's art (about 40 KB), not the 4096 px original.
     art: "https://musegod.org/muse/art/480/{subject}.jpg",
+    items: ["muse_halo"],
   },
+  promos: [
+    {
+      id: "muse-lantern-2026",
+      from: "2026-11-01",
+      until: "2026-12-01",
+      perks: { items: ["muse_lantern"], flair: "Lantern night" },
+    },
+  ],
   status: "active",
 };
 
@@ -116,21 +151,51 @@ export function findPartner(
   return partners.find((p) => p.id === id.trim().toLowerCase());
 }
 
+const dayStart = (day: string) => Date.parse(`${day}T00:00:00Z`);
+
+/** Whether a promo runs at `now`. */
+export const promoRuns = (promo: PartnerPromo, now: number) =>
+  dayStart(promo.from) <= now && now < dayStart(promo.until);
+
+/** A partner's promos running at `now`. */
+const running = (partner: PartnerConfig, now: number) =>
+  (partner.promos ?? []).filter((p) => promoRuns(p, now));
+
+/** The partner wear a linked character may put on at `now`: the partner's own and its running promos'. */
+export function partnerItems(
+  partnerId: string,
+  subject: string,
+  now: number,
+  partners: readonly PartnerConfig[] = PARTNERS,
+): ExclusiveWear[] {
+  const partner = partnerId ? findPartner(partnerId, partners) : undefined;
+  if (partner?.status !== "active" || !partner.subject.test(subject)) return [];
+  const items = [
+    ...(partner.perks.items ?? []),
+    ...running(partner, now).flatMap((p) => p.perks.items ?? []),
+  ];
+  return [...new Set(items)].sort();
+}
+
 /** The badge a linked resident shows, or undefined when the partner is gone or paused. */
 export function partnerBadge(
   partnerId: string,
   subject: string,
   partners: readonly PartnerConfig[] = PARTNERS,
+  now: number = Date.now(),
 ): PartnerBadge | undefined {
   const partner = partnerId ? findPartner(partnerId, partners) : undefined;
   if (partner?.status !== "active" || !partner.subject.test(subject)) return undefined;
+  // A running promo's flair shows instead of the partner's own.
+  const flair =
+    running(partner, now).find((p) => p.perks.flair)?.perks.flair ?? partner.perks.flair;
   return {
     id: partner.id,
     name: partner.name,
     label: fill(partner.label, { subject }),
     badge: partner.perks.badge,
     ...(partner.perks.border ? { border: partner.perks.border } : {}),
-    ...(partner.perks.flair ? { flair: partner.perks.flair } : {}),
+    ...(flair ? { flair } : {}),
     ...(partner.perks.profile ? { profile: partner.perks.profile } : {}),
     url: fill(partner.page, { subject }),
   };
@@ -148,23 +213,40 @@ export const partnerSetUrl = (partner: PartnerConfig, subject: string, residentI
 export const partnerLabel = (partner: PartnerConfig, subject: string) =>
   fill(partner.label, { subject });
 
-/** `GET /v1/partners`: the active ones. */
-export function partnerViews(partners: readonly PartnerConfig[] = PARTNERS): PartnerView[] {
+/** `GET /v1/partners`: the active ones, with promos running now or still to come. */
+export function partnerViews(
+  partners: readonly PartnerConfig[] = PARTNERS,
+  now: number = Date.now(),
+): PartnerView[] {
+  const promoView = (promo: PartnerPromo): PartnerPromoView => ({
+    id: promo.id,
+    from: promo.from,
+    until: promo.until,
+    perks: {
+      ...(promo.perks.items?.length ? { items: [...promo.perks.items] } : {}),
+      ...(promo.perks.flair ? { flair: promo.perks.flair } : {}),
+    },
+  });
   return partners
     .filter((p) => p.status === "active")
-    .map((p) => ({
-      id: p.id,
-      name: p.name,
-      url: p.url,
-      about: p.about,
-      label: p.label,
-      subject: p.subjectHint,
-      perks: {
-        badge: p.perks.badge,
-        ...(p.perks.border ? { border: p.perks.border } : {}),
-        ...(p.perks.flair ? { flair: p.perks.flair } : {}),
-        ...(p.perks.profile ? { profile: p.perks.profile } : {}),
-        ...(p.perks.art ? { art: true } : {}),
-      },
-    }));
+    .map((p) => {
+      const promos = (p.promos ?? []).filter((promo) => now < dayStart(promo.until));
+      return {
+        id: p.id,
+        name: p.name,
+        url: p.url,
+        about: p.about,
+        label: p.label,
+        subject: p.subjectHint,
+        perks: {
+          badge: p.perks.badge,
+          ...(p.perks.border ? { border: p.perks.border } : {}),
+          ...(p.perks.flair ? { flair: p.perks.flair } : {}),
+          ...(p.perks.profile ? { profile: p.perks.profile } : {}),
+          ...(p.perks.art ? { art: true } : {}),
+          ...(p.perks.items?.length ? { items: [...p.perks.items] } : {}),
+        },
+        ...(promos.length ? { promos: promos.map(promoView) } : {}),
+      };
+    });
 }

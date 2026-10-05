@@ -15,7 +15,8 @@ import {
   WEAR_ITEMS,
   type WearItem,
 } from "@terrakin/sim";
-import { BRAND_HEX } from "./brand";
+
+import { BRAND_HEX, WOOD_DARK } from "./brand";
 import { mediaUrlOf, RESIDENT_COLOR_HEX } from "./looks";
 
 /** Anything `itemArt` can draw: an item kind or a piece of wear. */
@@ -64,7 +65,6 @@ const KRAFT = "#e6cfa3";
 const GLASS = "#dcefee";
 const LID = "#c9a25a";
 const WOOD = "#9a6b43";
-const WOOD_DARK = "#6e4a2c";
 const STRAW = "#e8c878";
 const STRAW_DEEP = "#c49a4c";
 const WICKER = "#c9925a";
@@ -76,6 +76,7 @@ const CANOPY = "#e0604a";
 const SKY = RESIDENT_COLOR_HEX.sky;
 const ROSE = RESIDENT_COLOR_HEX.rose;
 const PLUM = RESIDENT_COLOR_HEX.plum;
+const DUSK = BRAND_HEX.dusk;
 
 // ---------- shape builders ----------
 
@@ -731,6 +732,56 @@ function umbrella(): ArtShape[] {
   ];
 }
 
+// ---------- partner wear ----------
+
+/** A four-pointed sparkle at (x, y), `r` from its middle to each point. */
+const sparkle = (x: number, y: number, r: number): ArtShape =>
+  path(
+    `M${x} ${y - r}Q${x} ${y} ${x + r} ${y}Q${x} ${y} ${x} ${y + r}Q${x} ${y} ${x - r} ${y}Q${x} ${y} ${x} ${y - r}z`,
+    SUN,
+    out({ stroke: CLAY_DEEP, "stroke-width": 0.7 }),
+  );
+
+/** The Muse halo: a plush lilac ring seen from a little above, in a soft glow, with gold studs. */
+function museHalo(): ArtShape[] {
+  return [
+    shadow(15, 41),
+    ellipse(24, 25, 21, 11, DUSK, { opacity: 0.3 }),
+    path(
+      "M5 25c0-5.5 8.5-9.5 19-9.5s19 4 19 9.5-8.5 9.5-19 9.5S5 30.5 5 25zM12.5 25c0 2.4 5.1 4 11.5 4s11.5-1.6 11.5-4-5.1-4-11.5-4-11.5 1.6-11.5 4z",
+      DUSK,
+      out({ stroke: PLUM, "fill-rule": "evenodd" }),
+    ),
+    line("M10.5 21.5c3-2.5 8-3.6 13.5-3.6", "#ffffff", 1.6, { opacity: 0.7 }),
+    sparkle(13, 30, 3.2),
+    sparkle(24, 33, 4),
+    sparkle(35, 30, 3.2),
+    circle(39, 14, 1.2, SUN, { opacity: 0.8 }),
+    circle(9, 15, 0.9, SUN, { opacity: 0.8 }),
+  ];
+}
+
+/** The Muse lantern: a round paper lantern hung from a short stick, glowing warm. */
+function museLantern(): ArtShape[] {
+  const glow = BLOCK_COLORS.lantern;
+  return [
+    shadow(10, 44),
+    circle(26, 28, 15, glow, { opacity: 0.2 }),
+    line("M8 16 26.5 6.5", WOOD_DARK, 2.4),
+    line("M26.5 6.5V14", WOOD_DARK, 1),
+    rect(21.5, 13.5, 10, 3.5, 1.2, WOOD_DARK, out({ "stroke-width": 1 })),
+    ellipse(26.5, 27.5, 11, 11.5, glow, out()),
+    ellipse(26.5, 27.5, 4.5, 6, "#ffffff", { opacity: 0.4 }),
+    path(
+      "M15.6 23.5c6 1.6 15.8 1.6 21.8 0M15.6 31.5c6 1.6 15.8 1.6 21.8 0",
+      "none",
+      out({ stroke: CLAY, "stroke-width": 1, opacity: 0.6 }),
+    ),
+    rect(21.5, 38, 10, 3.5, 1.2, WOOD_DARK, out({ "stroke-width": 1 })),
+    line("M26.5 41.5v3", CLAY, 1.4),
+  ];
+}
+
 // ---------- bottoms, dresses, and feet ----------
 
 function dress(): ArtShape[] {
@@ -857,6 +908,8 @@ const ART: Record<ArtKind, () => ArtShape[]> = {
   top_hat: topHat,
   raincoat,
   umbrella,
+  muse_halo: museHalo,
+  muse_lantern: museLantern,
   dress,
   skirt,
   trousers,

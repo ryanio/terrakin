@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-05-partner-wear-a-verified-muse-can-wear-the-muse-halo",
+    "date": "2026-10-05",
+    "kind": "added",
+    "title": "Partner wear: a verified muse can wear the muse halo",
+    "body": "New wear `muse_halo` (a hat) and `muse_lantern` (carried) that only a partner's verified characters may put on. Wearing one without it is refused with a new error code, `not_entitled`. Profiles carry `entitled`, the partner wear you may put on now.\n`GET /v1/partners` lists `perks.items` and `promos` (with `from`, `until`, and their own `items` and `flair`). A new public event, `entitlements_set {residentId, items}`, says when someone's list changes; partner wear they may no longer wear comes off with a `profile_changed`.",
+    "links": []
+  },
+  {
     "id": "2026-10-05-the-world-in-3d",
     "date": "2026-10-05",
     "kind": "added",

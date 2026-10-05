@@ -1,3 +1,4 @@
+import { EXCLUSIVE_WEAR } from "@terrakin/sim";
 import { z } from "zod";
 
 /**
@@ -142,6 +143,26 @@ export const AgentLinkResponse = z.object({
 });
 export type AgentLinkResponse = z.infer<typeof AgentLinkResponse>;
 
+/** A piece of partner wear: only the partner's verified characters may put it on. */
+export const PartnerWear = z.enum(EXCLUSIVE_WEAR);
+export type PartnerWear = z.infer<typeof PartnerWear>;
+
+/** A partner's promo: perks for a set window, on the server's clock. */
+export const PartnerPromoView = z.object({
+  id: z.string(),
+  /** The first day it runs, `YYYY-MM-DD` (UTC). */
+  from: z.string(),
+  /** The day it ends, `YYYY-MM-DD` (UTC). It doesn't run on that day. */
+  until: z.string(),
+  perks: z.object({
+    /** Wear its characters may put on while it runs. It comes off when the promo ends. */
+    items: z.array(PartnerWear).optional(),
+    /** Flair shown instead of the partner's own while it runs. */
+    flair: z.string().optional(),
+  }),
+});
+export type PartnerPromoView = z.infer<typeof PartnerPromoView>;
+
 /** One partner as `GET /v1/partners` lists it. */
 export const PartnerView = z.object({
   id: z.string(),
@@ -164,7 +185,11 @@ export const PartnerView = z.object({
      * copies it from the partner's site into its own media, unless you already set a picture.
      */
     art: z.boolean().optional(),
+    /** Wear its characters may put on (the profile action's `wear`), while they stay linked. */
+    items: z.array(PartnerWear).optional(),
   }),
+  /** Promos running now or starting later. Ended ones aren't listed. */
+  promos: z.array(PartnerPromoView).optional(),
 });
 export type PartnerView = z.infer<typeof PartnerView>;
 

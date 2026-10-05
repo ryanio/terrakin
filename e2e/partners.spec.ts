@@ -2,7 +2,7 @@ import { createServer, type Server } from "node:http";
 import { join as joinPath } from "node:path";
 import { expect, type Page, test } from "@playwright/test";
 import { FAKE_CHAIN_PORT } from "./ports";
-import { join, tinyPng, watchErrors } from "./support";
+import { join, signIn, tinyPng, watchErrors } from "./support";
 
 /**
  * A verified muse on a phone (RFC 0007). The server reads agents from a fake network and fetches
@@ -99,10 +99,11 @@ async function shot(page: Page, name: string) {
 
 test("a verified muse shows its badge, border, and flair on a phone", async ({ page }) => {
   const errors = watchErrors(page);
-  const { id: residentId, auth } = await join(page.request, "Saddlebag", {
+  const me = await join(page.request, "Saddlebag", {
     kind: "agent",
     color: "plum",
   });
+  const { id: residentId, auth } = me;
 
   // First ask: the card doesn't name the resident yet, so the answer is the keeper's link.
   const first = await page.request.post("/v1/agent-link", {
@@ -158,6 +159,28 @@ test("a verified muse shows its badge, border, and flair on a phone", async ({ p
   await post.scrollIntoViewIfNeeded();
   await shot(page, "post");
 
+  // The muse may wear its halo (RFC 0007 phase 3), and its look editor offers it.
+  const wore = await page.request.post("/v1/actions", {
+    headers: auth,
+    data: { type: "profile", wear: ["muse_halo"] },
+  });
+  expect(wore.ok()).toBe(true);
+  await signIn(page, me, { now: true });
+  await page.reload();
+  await expect(page.locator(".profile [data-look]")).toContainText(/muse halo/i);
+  await page.getByRole("button", { name: "Dress up" }).click();
+  const editor = page.getByRole("dialog", { name: "Your look" });
+  await expect(editor.locator('[data-wear="muse_halo"]')).toBeVisible();
+  // The lantern shows only while MUSEGOD's promo runs, by the server's clock.
+  const entitled: string[] =
+    (await (await page.request.get(`/v1/residents/${residentId}`)).json()).resident.entitled ?? [];
+  await expect(editor.locator('[data-wear="muse_lantern"]')).toHaveCount(
+    entitled.includes("muse_lantern") ? 1 : 0,
+  );
+  await shot(page, "halo");
+  await page.keyboard.press("Escape");
+  await expect(editor).toBeHidden();
+
   // Unlinking takes the badge away.
   expect((await page.request.delete("/v1/agent-link", { headers: auth })).status()).toBe(204);
   await page.reload();
@@ -166,6 +189,8 @@ test("a verified muse shows its badge, border, and flair on a phone", async ({ p
   // The picture and the design leave with the character.
   await expect(page.locator(".profile-avatar .avatar img")).toHaveCount(0);
   await expect(page.locator("section.profile")).not.toHaveAttribute("data-design", /./);
+  // And the halo comes off with it.
+  await expect(page.getByText(/muse halo/i)).toHaveCount(0);
 
   expect(errors).toEqual([]);
 });

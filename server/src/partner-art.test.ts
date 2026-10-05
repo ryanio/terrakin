@@ -1,7 +1,8 @@
+import { isExclusiveWear } from "@terrakin/sim";
 import { describe, expect, it } from "vitest";
 import { cat, jpegWithExif, mp4WithGps } from "./media-fixtures";
 import { ART_MAX_BYTES, httpArtReader } from "./partner-art";
-import { PARTNERS, partnerArtUrl } from "./partners";
+import { PARTNERS, partnerArtUrl, partnerItems, promoRuns } from "./partners";
 
 const jpeg = () => jpegWithExif();
 const image = (bytes: Uint8Array, type = "image/jpeg", status = 200) =>
@@ -120,5 +121,36 @@ describe("partner art in the config", () => {
     expect(musegod && partnerArtUrl(musegod, "464")).toBe(
       "https://musegod.org/muse/art/480/464.jpg",
     );
+  });
+});
+
+describe("partner wear and promos in the config", () => {
+  it("names only partner wear, and promos with real UTC days in order", () => {
+    for (const partner of PARTNERS) {
+      for (const item of partner.perks.items ?? []) expect(isExclusiveWear(item)).toBe(true);
+      for (const promo of partner.promos ?? []) {
+        expect(promo.from).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+        expect(promo.until).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+        expect(Date.parse(`${promo.from}T00:00:00Z`)).toBeLessThan(
+          Date.parse(`${promo.until}T00:00:00Z`),
+        );
+        for (const item of promo.perks.items ?? []) expect(isExclusiveWear(item)).toBe(true);
+      }
+    }
+  });
+
+  it("runs a promo from its first day up to, not including, its last", () => {
+    const promo = { id: "p", from: "2026-11-01", until: "2026-12-01", perks: {} };
+    expect(promoRuns(promo, Date.UTC(2026, 9, 31, 23, 59))).toBe(false);
+    expect(promoRuns(promo, Date.UTC(2026, 10, 1))).toBe(true);
+    expect(promoRuns(promo, Date.UTC(2026, 10, 30, 23, 59))).toBe(true);
+    expect(promoRuns(promo, Date.UTC(2026, 11, 1))).toBe(false);
+    expect(partnerItems("musegod", "464", Date.UTC(2026, 10, 5))).toEqual([
+      "muse_halo",
+      "muse_lantern",
+    ]);
+    expect(partnerItems("musegod", "464", Date.UTC(2026, 9, 5))).toEqual(["muse_halo"]);
+    expect(partnerItems("musegod", "0", Date.UTC(2026, 9, 5))).toEqual([]);
+    expect(partnerItems("nobody", "1", Date.UTC(2026, 9, 5))).toEqual([]);
   });
 });

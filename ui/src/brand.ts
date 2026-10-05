@@ -16,3 +16,6 @@ export const BRAND_HEX = {
   dusk: "#cdb4f6",
   danger: "#a3361a",
 } as const;
+
+/** Dark wood for handles, posts, and lantern caps, wherever an item or garment is drawn. */
+export const WOOD_DARK = "#6e4a2c";

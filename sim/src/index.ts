@@ -20,6 +20,7 @@ export {
   purseOf,
   treasuryOf,
 } from "./economy";
+export * from "./entitlements";
 export { canonicalJson, fnv1a, hashWorld } from "./hash";
 export {
   CROP_INFO,

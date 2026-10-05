@@ -6,6 +6,7 @@
  * not a light each; only the gallery's single lantern gets a point light, and only on desktop.
  */
 import type { DecorKind } from "@terrakin/sim";
+import { WOOD_DARK as WOOD_BRAND } from "@terrakin/ui/brand";
 import {
   AdditiveBlending,
   type BufferGeometry,
@@ -59,7 +60,7 @@ interface Part {
   renderOrder?: number;
 }
 
-const WOOD_DARK = hex("#6e4a2c");
+const WOOD_DARK = hex(WOOD_BRAND);
 const WOOD = hex("#9a6b43");
 const GOLD = hex("#d8b45a");
 

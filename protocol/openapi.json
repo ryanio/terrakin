@@ -18398,6 +18398,7 @@
           "invalid_piece",
           "no_display",
           "nothing_displayed",
+          "not_entitled",
           "bad_request",
           "unauthorized",
           "forbidden",
@@ -20059,7 +20060,9 @@
           "shorts",
           "socks",
           "boots",
-          "sneakers"
+          "sneakers",
+          "muse_halo",
+          "muse_lantern"
         ]
       },
       "WearStyle": {
@@ -20269,6 +20272,22 @@
                 "$ref": "#/components/schemas/WearStyle"
               }
             ]
+          },
+          "muse_halo": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyle"
+              }
+            ]
+          },
+          "muse_lantern": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyle"
+              }
+            ]
           }
         },
         "additionalProperties": false
@@ -20452,6 +20471,20 @@
             ]
           },
           "sneakers": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyleView"
+              }
+            ]
+          },
+          "muse_halo": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyleView"
+              }
+            ]
+          },
+          "muse_lantern": {
             "allOf": [
               {
                 "$ref": "#/components/schemas/WearStyleView"
@@ -21412,7 +21445,9 @@
                   "shorts",
                   "socks",
                   "boots",
-                  "sneakers"
+                  "sneakers",
+                  "muse_halo",
+                  "muse_lantern"
                 ]
               }
             },
@@ -21420,6 +21455,35 @@
               "type",
               "residentId",
               "wear"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "entitlements_set"
+                ]
+              },
+              "residentId": {
+                "type": "string"
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "muse_halo",
+                    "muse_lantern"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "type",
+              "residentId",
+              "items"
             ]
           },
           {
@@ -23248,6 +23312,12 @@
                 "$ref": "#/components/schemas/AgentLinkView"
               }
             ]
+          },
+          "entitled": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PartnerWear"
+            }
           }
         },
         "required": [
@@ -25470,6 +25540,40 @@
           "aurora"
         ]
       },
+      "PartnerPromoView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string"
+          },
+          "until": {
+            "type": "string"
+          },
+          "perks": {
+            "type": "object",
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PartnerWear"
+                }
+              },
+              "flair": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "id",
+          "from",
+          "until",
+          "perks"
+        ]
+      },
       "PartnerSubject": {
         "type": "string",
         "pattern": "^[0-9A-Za-z_-]{1,32}$"
@@ -25520,11 +25624,23 @@
               },
               "art": {
                 "type": "boolean"
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PartnerWear"
+                }
               }
             },
             "required": [
               "badge"
             ]
+          },
+          "promos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PartnerPromoView"
+            }
           }
         },
         "required": [
@@ -25535,6 +25651,13 @@
           "label",
           "subject",
           "perks"
+        ]
+      },
+      "PartnerWear": {
+        "type": "string",
+        "enum": [
+          "muse_halo",
+          "muse_lantern"
         ]
       },
       "PartnersResponse": {

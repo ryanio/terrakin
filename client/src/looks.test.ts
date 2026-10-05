@@ -25,7 +25,7 @@ import {
   waveY,
 } from "@terrakin/ui/looks";
 import { describe, expect, it } from "vitest";
-import { lookChanges, mediaProblem, wearWith, withoutOwnPattern } from "./look-editor";
+import { lookChanges, mediaProblem, wearChoices, wearWith, withoutOwnPattern } from "./look-editor";
 import { Mirror } from "./mirror";
 
 describe("mirror looks", () => {
@@ -356,5 +356,16 @@ describe("removing your own pattern", () => {
         dress: { pattern: "citrus" },
       }),
     ).toEqual({ skirt: { color: "plum" }, dress: { pattern: "citrus" } });
+  });
+});
+
+describe("partner wear in the look editor (RFC 0007)", () => {
+  it("offers partner wear only to residents who may wear it, or already have it on", () => {
+    expect(wearChoices("hat", [], [])).not.toContain("muse_halo");
+    expect(wearChoices("hat", ["muse_halo"], [])).toContain("muse_halo");
+    expect(wearChoices("hat", [], ["muse_halo"])).toContain("muse_halo");
+    expect(wearChoices("accessory", ["muse_halo"], [])).not.toContain("muse_lantern");
+    expect(wearChoices("hat", [], [])).toContain("straw_hat");
+    expect(wearChoices("hat", [], [])).toContain("top_hat");
   });
 });

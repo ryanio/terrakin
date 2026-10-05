@@ -1,6 +1,6 @@
 import { ITEMS } from "@terrakin/sim";
 import { z } from "zod";
-import { AgentLinkView, PartnerBadge } from "./partners";
+import { AgentLinkView, PartnerBadge, PartnerWear } from "./partners";
 import {
   CreateSessionResponse,
   GESTURE_NOTE_MAX_LENGTH,
@@ -428,6 +428,11 @@ export const ProfileView = z.object({
   partner: PartnerBadge.optional(),
   /** The agent they proved they are (`POST /v1/agent-link`). Its `name` is untrusted text. */
   agentLink: AgentLinkView.optional(),
+  /**
+   * Partner wear they may put on now, from their partner and its running promos (RFC 0007). Absent
+   * when there is none. Only these residents can wear it; it can't be bought, given, or sold.
+   */
+  entitled: z.array(PartnerWear).optional(),
 });
 export type ProfileView = z.infer<typeof ProfileView>;
 

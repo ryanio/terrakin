@@ -5,6 +5,7 @@
  * y 0.66, facing +z.
  */
 import type { WearItem } from "@terrakin/sim";
+import { BRAND_HEX, WOOD_DARK } from "@terrakin/ui/brand";
 import { PatternCache } from "@terrakin/ui/looks";
 import {
   BoxGeometry,
@@ -15,6 +16,7 @@ import {
   type Material,
   Mesh,
   MeshLambertMaterial,
+  OctahedronGeometry,
   SphereGeometry,
   TorusGeometry,
 } from "three";
@@ -45,6 +47,22 @@ function cloth(piece: WornPiece): Material {
 }
 
 const solid = (color: string | number) => new MeshLambertMaterial({ color });
+
+/** Gold for the halo's studs (the brand's sun). */
+const GOLD = BRAND_HEX.sun;
+
+/** Make a garment glow softly in its own color, or its own pattern when it has one. */
+function glow(mat: Material, amount: number): Material {
+  if (!(mat instanceof MeshLambertMaterial)) return mat;
+  if (mat.map) {
+    mat.emissive.set("#ffffff");
+    mat.emissiveMap = mat.map;
+  } else {
+    mat.emissive.copy(mat.color);
+  }
+  mat.emissiveIntensity = amount;
+  return mat;
+}
 
 function at(geo: BufferGeometry, mat: Material, x: number, y: number, z = 0): Mesh {
   const m = new Mesh(geo, mat);
@@ -103,6 +121,20 @@ function piece(item: WearItem, mat: Material): Mesh[] {
         return at(new SphereGeometry(0.04, 8, 6), mat, Math.cos(a) * 0.15, 0.8, Math.sin(a) * 0.15);
       });
       return [ring, ...petals];
+    }
+    case "muse_halo": {
+      const lit = glow(mat, 0.35);
+      const ring = at(new TorusGeometry(0.14, 0.035, 8, 24), lit, 0, 0.9);
+      ring.rotation.x = Math.PI / 2;
+      const gold = new MeshLambertMaterial({ color: GOLD, emissive: GOLD, emissiveIntensity: 0.3 });
+      const stud = new OctahedronGeometry(0.045);
+      const studs = [0.25, 0.5, 0.75].map((t) => {
+        const a = t * Math.PI;
+        const m = at(stud, gold, Math.cos(a) * 0.14, 0.93, Math.sin(a) * 0.14);
+        m.scale.set(0.7, 1, 0.7);
+        return m;
+      });
+      return [ring, ...studs];
     }
 
     // ---------- tops ----------
@@ -176,6 +208,16 @@ function piece(item: WearItem, mat: Material): Mesh[] {
         at(new CylinderGeometry(0.01, 0.01, 0.8, 6), solid("#5a4632"), 0.26, 0.62),
         at(new ConeGeometry(0.34, 0.14, 16), mat, 0.26, 1.06),
       ];
+    case "muse_lantern": {
+      const wood = solid(WOOD_DARK);
+      const stick = at(new CylinderGeometry(0.009, 0.009, 0.22, 6), wood, 0.34, 0.34, 0.06);
+      stick.rotation.z = -0.7;
+      const paper = at(new SphereGeometry(0.07, 12, 8), glow(mat, 0.45), 0.41, 0.33, 0.06);
+      paper.scale.set(1, 1.1, 1);
+      const cap = (y: number) =>
+        at(new CylinderGeometry(0.035, 0.035, 0.02, 10), wood, 0.41, y, 0.06);
+      return [stick, paper, cap(0.41), cap(0.25)];
+    }
   }
 }
 

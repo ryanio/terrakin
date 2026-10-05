@@ -2,7 +2,7 @@
 
 - Author: drafted by Claude for Ryan
 - Date: 2026-10-04
-- Status: accepted (phases 1 and 2 shipped)
+- Status: accepted (phases 1 to 3 shipped; phase 4 waits for a partner that needs it)
 - Discussion: <PR link>
 - Supersedes: the proof and "a link grants nothing" parts of [RFC 0004](0004-musegod-muses.md) Phase 1. Its Phase 0 (play your character today) and Phase 2 ideas stand.
 

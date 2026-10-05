@@ -12,6 +12,7 @@ import {
   payWelcome,
   welcomeDue,
 } from "./economy";
+import { checkSetEntitlements, unentitled } from "./entitlements";
 import { canonicalJson, fnv1a } from "./hash";
 import {
   checkCraft,
@@ -198,12 +199,30 @@ function mergeLook(base: Look, fields: ProfileFields): Look | Prepared {
   return out;
 }
 
-/** Shop wear in `fields` that `actor` hasn't bought, as a rejection, or null. */
+/**
+ * Wear in `fields` that `actor` may not put on, as a rejection, or null: shop wear they haven't
+ * bought, or a partner's piece (worn or styled) they have no entitlement to (RFC 0007).
+ */
 function unownedWear(state: WorldState, actor: string, fields: ProfileFields): Prepared | null {
-  if (!Array.isArray(fields.wear)) return null;
-  const missing = fields.wear.find((w) => isShopWear(w) && !ownsWear(state, actor, w));
-  if (missing === undefined) return null;
-  return reject("not_owned", "That's from the town shop. Buy it there with shop_buy first.");
+  const wear: readonly unknown[] = Array.isArray(fields.wear) ? fields.wear : [];
+  const missing = wear.find((w) => isShopWear(w) && !ownsWear(state, actor, w));
+  if (missing !== undefined) {
+    return reject("not_owned", "That's from the town shop. Buy it there with shop_buy first.");
+  }
+  // A style on partner wear needs the entitlement too (clearing one never does).
+  const styled =
+    fields.wearStyle && typeof fields.wearStyle === "object"
+      ? Object.entries(fields.wearStyle)
+          .filter(([, style]) => style !== null)
+          .map(([item]) => item)
+      : [];
+  if (unentitled(state, actor, [...wear, ...styled]) !== undefined) {
+    return reject(
+      "not_entitled",
+      "That's a partner's piece: only its verified characters can wear it.",
+    );
+  }
+  return null;
 }
 
 /** Set a resident's profile: every look key in `profile`, and none of the ones it leaves out. */
@@ -421,7 +440,14 @@ function buildHint(state: WorldState, me: Resident): string {
 
 /** A Town Hall or coins check's answer in this file's shape. */
 function town(
-  checked: TownChecked | EconomyChecked | ItemsChecked | ShopChecked | MarketChecked,
+  checked:
+    | TownChecked
+    | EconomyChecked
+    | ItemsChecked
+    | ShopChecked
+    | MarketChecked
+    | Mutation
+    | Rejection,
 ): Mutation | Prepared {
   return typeof checked === "function" ? checked : { ok: false, rejection: checked };
 }
@@ -456,6 +482,8 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
         return town(checkOpenMarket(state));
       case "remove_listing":
         return town(checkRemoveListing(state, command));
+      case "set_entitlements":
+        return town(checkSetEntitlements(state, command));
       case "new_day":
       case "set_townsfolk": {
         const checked = checkTown(state, actor, command);

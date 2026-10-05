@@ -1,5 +1,5 @@
 import { resolve } from "node:path";
-import { findProposal, votesCast } from "@terrakin/sim";
+import { entitledTo, findProposal, votesCast } from "@terrakin/sim";
 import { httpCardReader } from "./agent-card";
 import { type AgentLinkOptions, parseDailyReads } from "./agent-links";
 import { createApp } from "./app";
@@ -79,6 +79,7 @@ const social = new SocialService({
   media,
   now,
   resident: (id) => service.state.residents[id],
+  entitledTo: (id) => entitledTo(service.state, id),
   townsfolk,
   ...testXReader(process.env.TERRAKIN_TEST_X_OEMBED),
   maintainers,

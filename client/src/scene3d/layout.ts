@@ -116,11 +116,11 @@ export function wornPieces(look: FigureLook): WornPiece[] {
   });
 }
 
-/** How high a figure's name tag floats: higher over a top hat or an umbrella. */
+/** How high a figure's name tag floats: higher over a top hat, a halo, or an umbrella. */
 export function tagHeight(f: Pick<LayoutFigure, "kind" | "look">): number {
   const wear = f.look.wear ?? [];
   if (wear.includes("umbrella")) return 1.32;
-  if (wear.includes("top_hat")) return 1.2;
+  if (wear.includes("top_hat") || wear.includes("muse_halo")) return 1.2;
   return f.kind === "agent" ? 1.2 : 1.08;
 }
 

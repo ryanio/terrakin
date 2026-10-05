@@ -8,6 +8,7 @@ import type { LookView, MediaView } from "@terrakin/protocol";
 import {
   FULL_LENGTH,
   type GarmentPattern,
+  isExclusiveWear,
   isShopWear,
   PATTERN_LABELS,
   PATTERNS,
@@ -58,6 +59,24 @@ export interface LookOwner {
    * preview shows them, so Save saves them too.
    */
   pending?: { color?: ResidentColor; shape?: ResidentShape; note?: string };
+  /** Partner wear they may put on (`ProfileView.entitled`). Other partner wear isn't offered. */
+  entitled?: readonly string[] | undefined;
+}
+
+/**
+ * The wear one slot offers: everything, except partner wear (RFC 0007) the resident may not put on
+ * and isn't wearing. Partner wear can't be bought, so it is never shown locked.
+ */
+export function wearChoices(
+  slot: WearSlot,
+  entitled: readonly string[],
+  wearing: readonly WearItem[],
+): WearItem[] {
+  return WEAR_ITEMS.filter(
+    (w) =>
+      WEAR_INFO[w].slot === slot &&
+      (!isExclusiveWear(w) || entitled.includes(w) || wearing.includes(w)),
+  );
 }
 
 const SLOT_LABELS: Record<WearSlot, string> = {
@@ -389,7 +408,7 @@ export function openLookEditor(owner: LookOwner, onSaved: (look: LookView) => vo
     });
     wearButtons.set(`none-${slot}`, none);
     row.append(none);
-    for (const item of WEAR_ITEMS.filter((w) => WEAR_INFO[w].slot === slot)) {
+    for (const item of wearChoices(slot, owner.entitled ?? [], owner.look?.wear ?? [])) {
       const art = itemArt(item, { size: 28, className: "look-chip-art" });
       const name = h("span", { text: WEAR_INFO[item].label });
       if (isShopWear(item) && !wardrobe.owned.has(item)) {

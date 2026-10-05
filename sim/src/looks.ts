@@ -78,6 +78,8 @@ export const WEAR_ITEMS = [
   "socks",
   "boots",
   "sneakers",
+  "muse_halo",
+  "muse_lantern",
 ] as const;
 export type WearItem = (typeof WEAR_ITEMS)[number];
 
@@ -89,6 +91,15 @@ export const SHOP_WEAR = ["top_hat", "raincoat", "umbrella"] as const satisfies 
 export type ShopWear = (typeof SHOP_WEAR)[number];
 export const isShopWear = (w: unknown): w is ShopWear =>
   typeof w === "string" && (SHOP_WEAR as readonly string[]).includes(w);
+
+/**
+ * Partner wear (RFC 0007): only residents the server entitled with `set_entitlements` may put it on,
+ * and it comes off when the entitlement goes. Cosmetic only. Never sold, given, or traded.
+ */
+export const EXCLUSIVE_WEAR = ["muse_halo", "muse_lantern"] as const satisfies readonly WearItem[];
+export type ExclusiveWear = (typeof EXCLUSIVE_WEAR)[number];
+export const isExclusiveWear = (w: unknown): w is ExclusiveWear =>
+  typeof w === "string" && (EXCLUSIVE_WEAR as readonly string[]).includes(w);
 
 /** One item per slot, so at most this many at once. */
 export const MAX_WEAR = WEAR_SLOTS.length;
@@ -275,6 +286,8 @@ export const WEAR_INFO: Record<WearItem, { slot: WearSlot; label: string }> = {
   socks: { slot: "feet", label: "Socks" },
   boots: { slot: "feet", label: "Boots" },
   sneakers: { slot: "feet", label: "Sneakers" },
+  muse_halo: { slot: "hat", label: "Muse halo" },
+  muse_lantern: { slot: "accessory", label: "Muse lantern" },
 };
 
 /** Wear that covers the bottom half too, so nothing goes in the bottom slot with it. */

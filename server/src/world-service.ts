@@ -17,6 +17,7 @@ import {
   commonsPlot,
   type DailyAward,
   DEFAULT_CONFIG,
+  entitledTo,
   exactWearStyles,
   hashWorld,
   type Input,
@@ -204,6 +205,8 @@ export type WorldCredit =
 
 /** The most ended days `tick` pays appreciation for at once, after a stretch with no requests. */
 const AWARD_CATCH_UP = 7;
+/** How often `tick` compares every resident's partner wear with the social layer's (RFC 0007). */
+export const ENTITLEMENT_CHECK_MS = 5 * 60_000;
 
 /** The credit an accepted input earns, if any, on `day`. */
 function creditFor(actor: string, command: Command, day: number): WorldCredit | undefined {
@@ -411,6 +414,50 @@ export class WorldService {
     if (!done.ok) console.error(`Couldn't add an owner pair: ${done.error.message}`);
   }
 
+  /**
+   * Log a resident's partner wear when it differs from the world's (RFC 0007 phase 3): a link made
+   * or ended, or a promo starting or ending. The sim takes off anything they may no longer wear.
+   */
+  syncEntitlements(residentId: string, items: readonly string[]) {
+    const next = [...new Set(items)].sort();
+    if (next.join(",") === entitledTo(this.state, residentId).join(",")) return;
+    const done = this.run({
+      actor: TOWN_ACTOR,
+      command: { type: "set_entitlements", residentId, items: next },
+    });
+    if (!done.ok) {
+      report(new Error(`set_entitlements refused: ${done.error.code}`), "world.entitlements", {
+        command: "set_entitlements",
+      });
+    }
+  }
+
+  /**
+   * Every linked resident's partner wear now, from the social layer. `tick` compares it with the
+   * world's at most every `ENTITLEMENT_CHECK_MS`, so a promo starts and ends on time without a
+   * request from the residents it touches.
+   */
+  entitlements: (() => ReadonlyMap<string, readonly string[]>) | undefined;
+  private entitlementsCheckedAt = Number.NEGATIVE_INFINITY;
+
+  /** Bring every resident's partner wear in line. `force` skips the wait between checks. */
+  reconcileEntitlements(force = false) {
+    const want = this.entitlements;
+    if (!want) return;
+    const now = this.now();
+    if (!force && now - this.entitlementsCheckedAt < ENTITLEMENT_CHECK_MS) return;
+    this.entitlementsCheckedAt = now;
+    let wanted: ReadonlyMap<string, readonly string[]>;
+    try {
+      wanted = want();
+    } catch (err) {
+      report(err, "world.entitlements");
+      return;
+    }
+    const ids = new Set([...wanted.keys(), ...Object.keys(this.state.entitlements ?? {})]);
+    for (const id of [...ids].sort()) this.syncEntitlements(id, wanted.get(id) ?? []);
+  }
+
   /** Log one owner pair ending. Nothing is logged when the world doesn't have it. */
   removeOwnerPair(a: string, b: string) {
     if (!ownerPaired(this.state, a, b)) return;
@@ -468,6 +515,7 @@ export class WorldService {
    * step is a logged input, so replay never needs the clock.
    */
   tick() {
+    this.reconcileEntitlements();
     if (!this.days) return;
     const today = utcDay(this.now());
     if (this.state.day === undefined || today > this.state.day) {

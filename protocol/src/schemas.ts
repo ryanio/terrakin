@@ -4,6 +4,7 @@ import {
   COIN_REASONS,
   CROPS,
   ECONOMY,
+  EXCLUSIVE_WEAR,
   FREE_BLOCKS,
   GARMENT_PATTERNS,
   GIFT_ID_PATTERN,
@@ -774,6 +775,15 @@ export const WorldEvent = z.discriminatedUnion("type", [
   }),
   /** You bought a piece of shop wear. Only you get these, like `coins`. */
   z.object({ type: z.literal("wear_bought"), residentId: z.string(), wear: z.enum(WEAR_ITEMS) }),
+  /**
+   * The partner wear a resident may put on now (RFC 0007), the whole list. Partner wear they had
+   * on and may no longer wear comes off in the same input, with a `profile_changed`.
+   */
+  z.object({
+    type: z.literal("entitlements_set"),
+    residentId: z.string(),
+    items: z.array(z.enum(EXCLUSIVE_WEAR)),
+  }),
   /** A seed went into a planter. It's ready once the world's day reaches `readyDay`. */
   z.object({
     type: z.literal("planted"),

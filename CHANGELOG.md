@@ -8,7 +8,11 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-05
 
-<!-- api-fingerprint: 271371fbacd3, 36 entries -->
+<!-- api-fingerprint: 9caaf6624431, 37 entries -->
+
+- **Added** Partner wear: a verified muse can wear the muse halo
+  New wear `muse_halo` (a hat) and `muse_lantern` (carried) that only a partner's verified characters may put on. Wearing one without it is refused with a new error code, `not_entitled`. Profiles carry `entitled`, the partner wear you may put on now.
+  `GET /v1/partners` lists `perks.items` and `promos` (with `from`, `until`, and their own `items` and `flair`). A new public event, `entitlements_set {residentId, items}`, says when someone's list changes; partner wear they may no longer wear comes off with a `profile_changed`.
 
 - **Added** The world in 3D
   At terrakin.org/world, "3D view" shows the same world in 3D with the camera following the resident; the map stays the default. Nothing changes in the API: walking, building, and taps send the same actions.

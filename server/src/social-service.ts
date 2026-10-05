@@ -26,6 +26,7 @@ import {
   type NotificationType,
   type NotificationView,
   type PartnerBadge,
+  type PartnerWear,
   type PostView,
   type ProfileView,
   type QuotedPostView,
@@ -41,7 +42,7 @@ import {
   xIntentUrl,
   xPostText,
 } from "@terrakin/protocol";
-import { lookOf, type Resident } from "@terrakin/sim";
+import { isExclusiveWear, lookOf, type Resident } from "@terrakin/sim";
 import { type AgentLinkOptions, AgentLinkService } from "./agent-links";
 import { imageSize, sizeFields } from "./image-size";
 import { aimedAtReader, readerMessage } from "./injection";
@@ -149,6 +150,8 @@ export interface SocialServiceOptions {
   resident: (id: string) => Resident | undefined;
   /** Agent links (RFC 0007): the network and card readers and the daily read cap. Tests pass fakes. */
   agentLinks?: AgentLinkOptions;
+  /** The partner wear a resident may put on, from the world (`entitledTo` in the sim). Default: none. */
+  entitledTo?: (id: string) => readonly string[];
   limits?: Partial<SocialLimits>;
   now?: () => number;
   /**
@@ -234,6 +237,7 @@ export class SocialService {
   readonly sql: SqlExec;
   private readonly media: MediaStore;
   readonly resident: (id: string) => Resident | undefined;
+  private readonly entitledTo: (id: string) => readonly string[];
   private readonly limits: SocialLimits;
   readonly now: () => number;
   private readonly townsfolk: ReadonlySet<string>;
@@ -248,6 +252,7 @@ export class SocialService {
     this.sql = options.sql;
     this.media = options.media;
     this.resident = options.resident;
+    this.entitledTo = options.entitledTo ?? (() => []);
     this.limits = { ...DEFAULT_SOCIAL_LIMITS, ...options.limits };
     this.now = options.now ?? Date.now;
     this.townsfolk = options.townsfolk ?? new Set();
@@ -535,12 +540,17 @@ export class SocialService {
       release: (media) => this.releaseIfUnused(media),
     });
     links.onChange = async (ids, pool) => {
-      // Each on its own, so one failure never strands another resident's picture.
+      // Each on its own, so one failure never strands another resident's picture or wear.
       for (const id of ids) {
         try {
           await this.partnerArt.sync(id, pool);
         } catch (err) {
           report(err, "partner_art.sync");
+        }
+        try {
+          this.onPartnerPerks?.(id);
+        } catch (err) {
+          report(err, "partner_perks.sync");
         }
       }
     };
@@ -550,6 +560,11 @@ export class SocialService {
   readonly agentLinks: AgentLinkService;
   /** A partner character's own picture as its avatar (RFC 0007 phase 2). */
   readonly partnerArt: PartnerArtService;
+  /**
+   * Called after a resident's partner perks may have changed: a link made, ended, or rechecked.
+   * `Api` logs their partner wear to the world from it (`set_entitlements`).
+   */
+  onPartnerPerks: ((residentId: string) => void) | undefined;
 
   /** Letters, gestures, streaks, and invites (decision 0024). Shares this service's tables. */
   readonly together: TogetherService;
@@ -1095,7 +1110,14 @@ export class SocialService {
       ...(this.safety.suspendedUntil(r.id) === undefined ? {} : { suspended: true }),
       ...this.partnerField(r.id),
       ...this.agentLinkField(r.id),
+      ...this.entitledField(r.id),
     };
+  }
+
+  /** Partner wear they may put on now (RFC 0007 phase 3), from the world's own list. */
+  private entitledField(id: string): { entitled?: PartnerWear[] } {
+    const items = this.entitledTo(id).filter(isExclusiveWear);
+    return items.length > 0 ? { entitled: [...items] } : {};
   }
 
   /** The partner badge, when they proved they are a partner's character (RFC 0007). */

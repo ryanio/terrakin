@@ -154,11 +154,12 @@ describe("wear on 3D figures", () => {
     expect(boots?.color).toBe(garmentColor({ color: "sky", theme: "lemon" }, "boots"));
   });
 
-  it("lifts the name tag over a top hat or an umbrella", () => {
+  it("lifts the name tag over a top hat, a halo, or an umbrella", () => {
     const look = (wear: WearItem[]) => ({ color: "sky" as const, shape: "round" as const, wear });
     expect(tagHeight({ kind: "human", look: look([]) })).toBe(1.08);
     expect(tagHeight({ kind: "agent", look: look([]) })).toBe(1.2);
     expect(tagHeight({ kind: "human", look: look(["top_hat"]) })).toBeGreaterThan(1.08);
+    expect(tagHeight({ kind: "human", look: look(["muse_halo"]) })).toBeGreaterThan(1.08);
     expect(tagHeight({ kind: "agent", look: look(["umbrella"]) })).toBeGreaterThan(1.2);
   });
 });

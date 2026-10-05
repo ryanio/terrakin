@@ -3,7 +3,7 @@ import { instrumentDurableObjectWithSentry, withSentry } from "@sentry/cloudflar
 import { cards } from "@terrakin/cards/worker";
 import { buildOpenApi } from "@terrakin/protocol";
 import SKILL_MD from "@terrakin/protocol/SKILL.md";
-import { findProposal, votesCast } from "@terrakin/sim";
+import { entitledTo, findProposal, votesCast } from "@terrakin/sim";
 import { AccessVerifier, accessConfig, parseEmails } from "../src/access";
 import { adminAssetPath, adminGate, isMissingAdminFile } from "../src/admin-host";
 import { nextRecheckAt, parseDailyReads } from "../src/agent-links";
@@ -326,6 +326,7 @@ class WorldObject extends DurableObject<Env> {
       sql: ctx.storage.sql,
       media,
       resident: (id) => service.state.residents[id],
+      entitledTo: (id) => entitledTo(service.state, id),
       townsfolk,
       maintainers,
       votesCast: (id) => votesCast(service.state, id),

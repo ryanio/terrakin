@@ -1,5 +1,5 @@
 import type { Crop, GoodKind, ItemKind, MadeKind, StackKind } from "./items";
-import type { Look, Pattern, Theme, WearItem, WearStyle } from "./looks";
+import type { ExclusiveWear, Look, Pattern, Theme, WearItem, WearStyle } from "./looks";
 
 /** Stable id for a resident (human or agent). Assigned by the server, opaque to the sim. */
 export type ResidentId = string;
@@ -274,6 +274,11 @@ export interface WorldState {
    * so worlds from before it hash as they always have.
    */
   market?: MarketState;
+  /**
+   * Partner wear each resident may put on (RFC 0007), from the server's `set_entitlements`.
+   * Sorted. Absent until the first, and a resident's key goes when their list empties.
+   */
+  entitlements?: Record<ResidentId, ExclusiveWear[]>;
 }
 
 /** Something a resident put up for sale. The things are held here, in escrow, until it ends. */
@@ -618,7 +623,9 @@ export type Command =
   | { type: "set_shop_share"; percent: number }
   | { type: "open_market" }
   /** Coins the server counted for a day that has ended, minted once per day (decision 0055). */
-  | { type: "daily_awards"; day: number; awards: DailyAward[] };
+  | { type: "daily_awards"; day: number; awards: DailyAward[] }
+  /** The partner wear a resident may put on now (RFC 0007). Replaces their whole list. */
+  | { type: "set_entitlements"; residentId: ResidentId; items: string[] };
 
 /** One resident's award in `daily_awards`. */
 export interface DailyAward {
@@ -653,6 +660,7 @@ export const SERVER_COMMANDS = [
   "daily_awards",
   "open_market",
   "remove_listing",
+  "set_entitlements",
 ] as const satisfies readonly CommandType[];
 
 /** A command plus who issued it. This is the unit the server logs and replays. */
@@ -771,6 +779,8 @@ export type WorldEvent =
   | { type: "shop_share_set"; percent: number }
   /** Shop wear a resident bought. Private, like their purse. */
   | { type: "wear_bought"; residentId: ResidentId; wear: WearItem }
+  /** The partner wear a resident may put on now. Public: it's a cosmetic their profile shows. */
+  | { type: "entitlements_set"; residentId: ResidentId; items: ExclusiveWear[] }
   /** A seed went into a planter. Public: crops show in the world. */
   | {
       type: "planted";
@@ -872,6 +882,7 @@ export const REJECTION_CODES = [
   "invalid_piece",
   "no_display",
   "nothing_displayed",
+  "not_entitled",
 ] as const;
 export type RejectionCode = (typeof REJECTION_CODES)[number];
 

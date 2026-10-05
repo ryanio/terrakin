@@ -494,6 +494,12 @@ export class Api {
       // Appreciation coins (decision 0055): counted from reactions, logged once a day by `tick`.
       this.service.dailyAwards = (day) => layer.karma.awards(day);
       this.service.syncOwnerPairs(layer.ownerPairs());
+      // Partner wear (RFC 0007 phase 3): logged as each link changes, and caught up on a timer so
+      // promos start and end on the server's clock. At boot, everything at once.
+      layer.onPartnerPerks = (id) =>
+        this.service.syncEntitlements(id, layer.agentLinks.entitled(id));
+      this.service.entitlements = () => layer.agentLinks.allEntitled();
+      this.service.reconcileEntitlements(true);
     }
     this.ipUploadBytesPerDay = options.ipUploadBytesPerDay ?? 500_000_000;
     this.photos = options.photos;
@@ -1138,7 +1144,10 @@ export class Api {
         await social().agentLinks.unlink(viewer);
         return { status: 204 };
       },
-      getPartners: () => ({ status: 200, body: { partners: partnerViews() } }),
+      getPartners: () => ({
+        status: 200,
+        body: { partners: partnerViews(social().agentLinks.partnerList, this.now()) },
+      }),
       unlinkX: ({ viewer }) =>
         fromResult(social().unlinkX(viewer), (resident) => ({
           status: 200 as const,

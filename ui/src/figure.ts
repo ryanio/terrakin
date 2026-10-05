@@ -6,6 +6,7 @@
  * stays cheap at 60fps on a phone.
  */
 import {
+  BLOCK_COLORS,
   type Direction,
   type GarmentPattern,
   PATTERNS,
@@ -19,7 +20,7 @@ import {
   type WearItem,
   type WearSlot,
 } from "@terrakin/sim";
-import { BRAND_HEX } from "./brand";
+import { BRAND_HEX, WOOD_DARK } from "./brand";
 import { lookImage, lookPalette, mix, PatternCache, RESIDENT_COLOR_HEX } from "./looks";
 
 /** A color and pattern per garment, as the sim keeps them or as the wire carries them. */
@@ -111,6 +112,12 @@ const SLICKER_DEEP = "#d9a21c";
 const CANOPY = "#e0604a";
 /** Sneakers are white canvas. */
 const CANVAS = "#fdfbf6";
+/** The Muse halo: soft lilac plush, trimmed in plum, with gold studs. */
+const HALO = BRAND_HEX.dusk;
+const HALO_TRIM = RESIDENT_COLOR_HEX.plum;
+const GOLD = BRAND_HEX.sun;
+/** The Muse lantern's paper, the same warm glow as the lanterns in the world. */
+const LANTERN = BLOCK_COLORS.lantern;
 
 /** A theme accent too pale to show on paper. */
 const paleAccent = (p: ThemePalette) => p.accent === "#ffffff" || p.accent === PAPER;
@@ -143,6 +150,8 @@ export const GARMENT_COLOR: Record<WearItem, (p: ThemePalette) => string> = {
   glasses: () => INK,
   bow: (p) => (p.accent === "#ffffff" ? p.deep : p.accent),
   umbrella: (p) => (paleAccent(p) ? CANOPY : p.accent),
+  muse_halo: () => HALO,
+  muse_lantern: () => LANTERN,
 };
 
 /** A worn garment's main color: its own, else its usual one in the outfit's palette. Pure. */
@@ -408,6 +417,7 @@ export function drawFigure(
   if (wear.has("bow")) drawBow(ctx, u, side, back, p, garb("bow"));
   if (wear.has("basket")) drawBasket(ctx, u, hand, p, garb("basket"));
   if (wear.has("umbrella")) drawUmbrella(ctx, u, p, hand, garb("umbrella"));
+  if (wear.has("muse_lantern")) drawMuseLantern(ctx, u, hand, p, garb("muse_lantern"));
 }
 
 /** Eyes and cheeks, slid `turn` tiles sideways when the figure faces east or west. */
@@ -441,6 +451,7 @@ function drawHat(
   else if (wear.has("beanie")) drawBeanie(ctx, u, p, garb("beanie"));
   else if (wear.has("top_hat")) drawTopHat(ctx, u, p, garb("top_hat"));
   else if (wear.has("flower_crown")) drawFlowerCrown(ctx, u, p, garb("flower_crown"));
+  else if (wear.has("muse_halo")) drawMuseHalo(ctx, u, p, garb("muse_halo"));
 }
 
 const HAT_TOP = HEAD_Y - HEAD_R;
@@ -527,6 +538,65 @@ function drawFlowerCrown(ctx: CanvasRenderingContext2D, u: number, p: ThemePalet
     ctx.arc(x, y, 0.016 * u, 0, Math.PI * 2);
     ctx.fill();
   }
+}
+
+/** Where the halo's ring floats: just clear of the top of the head. */
+const HALO_Y = HAT_TOP - 0.07;
+
+/** The halo's plush ring, seen from a little above: an oval band around an oval hole. */
+function haloPath(ctx: CanvasRenderingContext2D, u: number) {
+  const y = HALO_Y * u;
+  ctx.beginPath();
+  ctx.ellipse(0, y, 0.19 * u, 0.07 * u, 0, 0, Math.PI * 2);
+  ctx.moveTo(0.115 * u, y);
+  ctx.ellipse(0, y, 0.115 * u, 0.024 * u, 0, 0, Math.PI * 2, true);
+}
+
+/** A four-pointed sparkle at (x, y), `r` from its middle to each point. */
+function sparklePath(ctx: CanvasRenderingContext2D, x: number, y: number, r: number) {
+  ctx.moveTo(x, y - r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.quadraticCurveTo(x, y, x, y + r);
+  ctx.quadraticCurveTo(x, y, x - r, y);
+  ctx.quadraticCurveTo(x, y, x, y - r);
+  ctx.closePath();
+}
+
+/**
+ * The Muse halo: a soft lilac ring floating over the head in a faint glow, with a shine along its
+ * back and three gold sparkles studded along its front.
+ */
+function drawMuseHalo(ctx: CanvasRenderingContext2D, u: number, p: ThemePalette, g: Garb) {
+  const y = HALO_Y * u;
+  const color = g.color(GARMENT_COLOR.muse_halo(p));
+  ctx.save();
+  ctx.globalAlpha = 0.3;
+  ctx.fillStyle = mix(color, PAPER, 0.5);
+  ctx.beginPath();
+  ctx.ellipse(0, y, 0.23 * u, 0.095 * u, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+  paintCloth(ctx, u, () => haloPath(ctx, u), color, g.fill());
+  ctx.strokeStyle = g.trim(HALO_TRIM);
+  ctx.lineWidth = Math.max(0.8, 0.015 * u);
+  haloPath(ctx, u);
+  ctx.stroke();
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.6)";
+  ctx.lineCap = "round";
+  ctx.lineWidth = Math.max(0.8, 0.018 * u);
+  ctx.beginPath();
+  ctx.ellipse(0, y, 0.152 * u, 0.05 * u, 0, Math.PI * 1.15, Math.PI * 1.55);
+  ctx.stroke();
+  ctx.fillStyle = GOLD;
+  ctx.strokeStyle = mix(GOLD, INK, 0.35);
+  ctx.lineWidth = Math.max(0.6, 0.008 * u);
+  ctx.beginPath();
+  for (const a of [0.2, 0.5, 0.8]) {
+    const r = (a === 0.5 ? 0.042 : 0.032) * u;
+    sparklePath(ctx, Math.cos(a * Math.PI) * 0.152 * u, y + Math.sin(a * Math.PI) * 0.047 * u, r);
+  }
+  ctx.fill();
+  ctx.stroke();
 }
 
 // ---------- tops ----------
@@ -1143,5 +1213,73 @@ function drawUmbrella(
   ctx.fillStyle = INK;
   ctx.beginPath();
   ctx.arc(cx, cy - 0.18 * u, 0.02 * u, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+/** Where the lantern hangs: out past the carrying hand, inside the figure's box. */
+const LANTERN_X = 0.37;
+const LANTERN_Y = -0.22;
+
+/** The lantern's round paper body. */
+function lanternPath(ctx: CanvasRenderingContext2D, u: number, x: number) {
+  ctx.beginPath();
+  ctx.ellipse(x, LANTERN_Y * u, 0.07 * u, 0.08 * u, 0, 0, Math.PI * 2);
+}
+
+/**
+ * The Muse lantern: a round paper lantern hung from the tip of a short stick held in the carrying
+ * hand, glowing warm, with dark caps and a couple of ribs.
+ */
+function drawMuseLantern(
+  ctx: CanvasRenderingContext2D,
+  u: number,
+  hand: number,
+  p: ThemePalette,
+  g: Garb,
+) {
+  const x = LANTERN_X * hand * u;
+  const y = LANTERN_Y * u;
+  const color = g.color(GARMENT_COLOR.muse_lantern(p));
+  ctx.save();
+  ctx.globalAlpha = 0.28;
+  ctx.fillStyle = mix(color, PAPER, 0.3);
+  ctx.beginPath();
+  ctx.arc(x, y, 0.12 * u, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+  // The stick, from the hand up and out, and the cord down to the lantern.
+  ctx.strokeStyle = WOOD_DARK;
+  ctx.lineCap = "round";
+  ctx.lineWidth = Math.max(1, 0.025 * u);
+  ctx.beginPath();
+  ctx.moveTo(0.27 * hand * u, -0.24 * u);
+  ctx.lineTo(x, -0.37 * u);
+  ctx.stroke();
+  ctx.lineWidth = Math.max(0.6, 0.01 * u);
+  ctx.beginPath();
+  ctx.moveTo(x, -0.37 * u);
+  ctx.lineTo(x, y - 0.08 * u);
+  ctx.stroke();
+  paintCloth(ctx, u, () => lanternPath(ctx, u, x), color, g.fill());
+  ctx.save();
+  lanternPath(ctx, u, x);
+  ctx.clip();
+  ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+  ctx.beginPath();
+  ctx.ellipse(x, y, 0.035 * u, 0.05 * u, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = g.trim(mix(LANTERN, BRAND_HEX.clay, 0.45));
+  ctx.lineWidth = Math.max(0.6, 0.012 * u);
+  ctx.beginPath();
+  ctx.moveTo(x - 0.07 * u, y - 0.03 * u);
+  ctx.quadraticCurveTo(x, y - 0.015 * u, x + 0.07 * u, y - 0.03 * u);
+  ctx.moveTo(x - 0.07 * u, y + 0.03 * u);
+  ctx.quadraticCurveTo(x, y + 0.045 * u, x + 0.07 * u, y + 0.03 * u);
+  ctx.stroke();
+  ctx.restore();
+  ctx.fillStyle = WOOD_DARK;
+  ctx.beginPath();
+  ctx.roundRect(x - 0.035 * u, y - 0.095 * u, 0.07 * u, 0.025 * u, 0.008 * u);
+  ctx.roundRect(x - 0.035 * u, y + 0.07 * u, 0.07 * u, 0.025 * u, 0.008 * u);
   ctx.fill();
 }

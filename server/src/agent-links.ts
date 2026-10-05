@@ -30,6 +30,7 @@ import {
   type PartnerConfig,
   partnerArtUrl,
   partnerBadge,
+  partnerItems,
   partnerLabel,
   partnerSetUrl,
 } from "./partners";
@@ -502,7 +503,37 @@ export class AgentLinkService {
       ),
     ][0];
     if (!row) return undefined;
-    return partnerBadge(String(row.partner_id), String(row.subject), this.partners);
+    return partnerBadge(String(row.partner_id), String(row.subject), this.partners, this.now());
+  }
+
+  /** The partners this service matches against: config, or a test's own. */
+  get partnerList(): readonly PartnerConfig[] {
+    return this.partners;
+  }
+
+  /** The partner wear a resident may put on now: their partner's, and its running promos'. */
+  entitled(residentId: string): string[] {
+    const row = [
+      ...this.sql.exec(
+        "SELECT partner_id, subject FROM agent_links WHERE resident_id = ? AND partner_id != ''",
+        residentId,
+      ),
+    ][0];
+    if (!row) return [];
+    return partnerItems(String(row.partner_id), String(row.subject), this.now(), this.partners);
+  }
+
+  /** Every linked resident's partner wear now, leaving out those with none. */
+  allEntitled(): Map<string, string[]> {
+    const out = new Map<string, string[]>();
+    const now = this.now();
+    for (const row of this.sql.exec(
+      "SELECT resident_id, partner_id, subject FROM agent_links WHERE partner_id != ''",
+    )) {
+      const items = partnerItems(String(row.partner_id), String(row.subject), now, this.partners);
+      if (items.length > 0) out.set(String(row.resident_id), items);
+    }
+    return out;
   }
 
   /** A resident's link as profiles show it. */
@@ -510,7 +541,7 @@ export class AgentLinkService {
     const row = this.row(residentId);
     if (!row) return undefined;
     const partner = row.partner_id
-      ? partnerBadge(row.partner_id, row.subject, this.partners)
+      ? partnerBadge(row.partner_id, row.subject, this.partners, this.now())
       : undefined;
     return {
       agent: formatAgentRef({

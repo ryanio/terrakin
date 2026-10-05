@@ -74,6 +74,18 @@
   /* Text fields: 16px or more stops iOS from zooming on focus. */
   --text-input: 17px;
 
+  /* Line height (unitless). A px line height is a tap target's height, and says so. */
+  --leading-none: 1;
+  --leading-tight: 1.15;
+  --leading-snug: 1.3;
+  --leading-normal: 1.5;
+
+  /* Weight. Both faces are variable, so these are exact. */
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+  --weight-heavy: 800;
+
   /* Corners. 50% for circles; everything else is one of these. */
   --r-xs: 4px;
   --r-sm: 8px;

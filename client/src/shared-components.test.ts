@@ -250,6 +250,25 @@ describe("one definition per rule", () => {
     expect(off).toEqual([]);
   });
 
+  it("line heights and weights come from their scales", () => {
+    // A unitless line height or a numeric weight is a token. A px line height is a tap target.
+    const off = [
+      "ui/src/base.css",
+      "client/src/style.css",
+      "admin/src/style.css",
+      "client/src/docs/docs.css",
+    ].flatMap((path) =>
+      read(path)
+        .split("\n")
+        .flatMap((line, i) =>
+          /^\s*(line-height:\s*\d*\.?\d+;|font-weight:\s*\d+)/.test(line)
+            ? [`${path}:${i + 1} ${line.trim()}`]
+            : [],
+        ),
+    );
+    expect(off).toEqual([]);
+  });
+
   it("app stylesheets use the layout primitives instead of restating them", () => {
     // A rule made only of what .stack, .cluster and .plain-list already say is a copy of them:
     // put the primitive in the view's class list instead (base.css lists them).
@@ -294,7 +313,9 @@ describe("one definition per rule", () => {
     );
     const used = ["ui/src/base.css", "client/src/style.css", "admin/src/style.css"].flatMap(
       (path) =>
-        [...read(path).matchAll(/var\((--(?:space|text|r|gap)-[\w-]+)\)/g)].map((m) => m[1]),
+        [...read(path).matchAll(/var\((--(?:space|text|r|gap|leading|weight)-[\w-]+)\)/g)].map(
+          (m) => m[1],
+        ),
     );
     expect(used.length).toBeGreaterThan(500);
     expect([...new Set(used)].filter((t) => !defined.has(t))).toEqual([]);

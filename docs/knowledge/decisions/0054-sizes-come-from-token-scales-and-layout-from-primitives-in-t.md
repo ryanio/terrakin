@@ -17,7 +17,7 @@ Each view also wrapped its cards in its own body element. `/purse` forgot the ga
 
 ## Decision
 
-- `ui/src/tokens.css` has a spacing scale (`--space-2xs` 4px to `--space-6xl` 64px), a type scale (`--text-2xs` 11px to `--text-6xl` 44px, plus `--text-input` at 17px), a corner scale (`--r-xs` to `--r-pill`), and the page rhythm (`--gap-page`, `--gap-section-head`).
+- `ui/src/tokens.css` has a spacing scale (`--space-2xs` 4px to `--space-6xl` 64px), a type scale (`--text-2xs` 11px to `--text-6xl` 44px, plus `--text-input` at 17px), a corner scale (`--r-xs` to `--r-pill`), line heights (`--leading-none` to `--leading-normal`), weights (`--weight-medium` to `--weight-heavy`), and the page rhythm (`--gap-page`, `--gap-section-head`).
   - Any gap, padding, margin, font size or radius of 4px or more is a token.
   - Less than 4px is a hairline or an optical nudge.
   - Geometry tied to a fixed size goes in a `calc()` that names what it measures.
@@ -26,7 +26,7 @@ Each view also wrapped its cards in its own body element. `/purse` forgot the ga
 - A view's body inside `.page` is a `stack cards`. `.section-title` lives in `base.css`, and a column of cards gives it (or a section that opens with it) the extra room above it. That keeps a heading closer to what it names than to what came before.
 - `itemRow` and `itemRows` in `ui/src/ui.ts` draw the list row. The views keep their own class on it (`purse-line`, `shop-order`), so e2e selectors and contextual colors still work.
 - Enforcement:
-  - `client/src/shared-components.test.ts` fails on a raw size of 4px or more, on a scale token that isn't defined, on an app rule that only restates a primitive, and on a hand-built row.
+  - `client/src/shared-components.test.ts` fails on a raw size of 4px or more, a unitless line height or numeric weight, on a scale token that isn't defined, on an app rule that only restates a primitive, and on a hand-built row.
   - `touchingCards` in `e2e/support.ts` fails `site.spec.ts` when two stacked cards on a resident's main pages are less than 8px apart.
 
 ## Consequences
@@ -34,4 +34,5 @@ Each view also wrapped its cards in its own body element. `/purse` forgot the ga
 - Spacing and type changed by a pixel or two across the site, mostly toward more room: 10px gaps are 12px, 14px padding is 16px, and 13.5px text is 14px. Page sections are 16px apart, and a section heading gets 32px above it.
 - A new view gets consistent spacing by composing classes, without new CSS.
 - An unusual size must either use a token or say what it measures in a `calc()`.
-- Line heights, font weights and shadows aren't on scales yet. If they drift the way spacing did, give them the same treatment.
+- Weights 650 and 750 became 700 and 800, and line heights of 1.4 and 1.45 became 1.5, so labels are a little bolder and text a little more open.
+- Shadows aren't on a scale yet: past `--shadow-paper` and `--shadow-pill`, most are one-off glows. If they drift the way spacing did, give them the same treatment.

@@ -97,7 +97,8 @@ Metadata text is untrusted outside text: cleaned, run through the injection filt
 
 Ryan, 2026-10-04: trust an OpenSea username first and add real connection only if needed; any chain OpenSea supports, starting with Ethereum, Robinhood Chain, and Base; an AI can hang its owner's pieces, credited; a sold piece's post stays, marked.
 
+Ryan, 2026-10-05: the zero-step check ships matching on the X handle and accepts the stale-handle risk; a false match can be reported and cleared.
+
 ## Open questions
 
-- Should the zero-step check accept the stale-handle risk above, or wait until Terrakin can compare X ids?
 - Should "Verified original" pieces rank higher on walls and in exhibitions than unchecked ones?

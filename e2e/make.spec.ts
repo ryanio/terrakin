@@ -1,4 +1,5 @@
 import { type APIRequestContext, expect, type Page, test } from "@playwright/test";
+import { act, freePlots, join, signIn, watchErrors } from "./support";
 
 /**
  * Growing, making, and giving (RFC 0005) on a phone: a resident taps a planter in the world and
@@ -7,49 +8,9 @@ import { type APIRequestContext, expect, type Page, test } from "@playwright/tes
  * coins.spec.ts, since it moves the shared clock on.
  */
 
-async function join(request: APIRequestContext, name: string) {
-  const res = await request.post("/v1/session", { data: { name, kind: "human" } });
-  expect(res.ok()).toBe(true);
-  const body = await res.json();
-  return { id: body.residentId as string, token: body.token as string };
-}
-
-async function act(request: APIRequestContext, token: string, action: unknown) {
-  const res = await request.post("/v1/actions", {
-    headers: { authorization: `Bearer ${token}` },
-    data: action,
-  });
-  return res.json();
-}
-
 async function inventory(request: APIRequestContext, token: string) {
   const res = await request.get("/v1/inventory", { headers: { authorization: `Bearer ${token}` } });
   return (await res.json()).inventory;
-}
-
-async function signIn(page: Page, who: { id: string; token: string }) {
-  await page.addInitScript(
-    ([token, id]) => {
-      localStorage.setItem("terrakin.token", token);
-      localStorage.setItem("terrakin.resident", id);
-    },
-    [who.token, who.id] as const,
-  );
-}
-
-/** Unclaimed plots, read from the shared world (other specs settle too), skipping the Commons. */
-async function freePlots(request: APIRequestContext, n: number): Promise<[number, number][]> {
-  const world = await (await request.get("/v1/world")).json();
-  const { width, height, plotSize } = world.config;
-  const taken = new Set(world.plots.map((p: { px: number; py: number }) => `${p.px},${p.py}`));
-  taken.add(`${world.commons.px},${world.commons.py}`);
-  const out: [number, number][] = [];
-  for (let py = height / plotSize - 1; py >= 0 && out.length < n; py--) {
-    for (let px = width / plotSize - 1; px >= 0 && out.length < n; px--) {
-      if (!taken.has(`${px},${py}`)) out.push([px, py]);
-    }
-  }
-  return out;
 }
 
 /** The camera eases toward you; wait enough frames for it to land before tapping tiles. */
@@ -71,15 +32,6 @@ async function tapTile(page: Page, dx: number, dy: number) {
   const scale = Math.max(16, Math.floor(Math.min(vp.width, vp.height) / 13));
   await settleCamera(page);
   await page.mouse.click(vp.width / 2 + dx * scale, vp.height / 2 + dy * scale);
-}
-
-function watchErrors(page: Page): string[] {
-  const errors: string[] = [];
-  page.on("pageerror", (e) => errors.push(String(e)));
-  page.on("console", (m) => {
-    if (m.type() === "error" && /Content Security Policy/i.test(m.text())) errors.push(m.text());
-  });
-  return errors;
 }
 
 test("grow herbs, make tea, and give it to a friend", async ({ page }) => {
@@ -156,8 +108,13 @@ test("grow herbs, make tea, and give it to a friend", async ({ page }) => {
     .poll(async () => (await inventory(page.request, fern.token)).goods)
     .toContainEqual(expect.objectContaining({ kind: "herb_tea", label: "Calm" }));
 
-  // Your things: the tea, signed by Fern.
-  await page.goto("/inventory");
+  // Your things, from the kitchen's sheet: one tap closes it and lands on the page.
+  await tapTile(page, 1, -1);
+  await expect(sheet).toBeVisible();
+  await sheet.getByRole("link", { name: "All your things" }).click();
+  await expect(page).toHaveURL(/\/inventory$/);
+  await expect(sheet).toBeHidden();
+  // The tea, signed by Fern.
   const tea = page.locator(".things-good", { hasText: "Herb tea" });
   await expect(tea).toContainText("“Calm”");
   await expect(tea).toContainText("Fern");

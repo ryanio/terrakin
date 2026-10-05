@@ -77,6 +77,10 @@ const HAND_BUILT: { pattern: RegExp; use: string; home?: string }[] = [
   { pattern: /`\/[rp]\/\$\{/, use: "profilePath, postPath, or plot3dPath (paths.ts)" },
   { pattern: /class: "sheet[ "]|class: "sheet-(card|head|title|close)"/, use: "sheet (ui.ts)" },
   { pattern: /["'`]item-art\b|CROP_COLORS/, use: "itemArt or CROP_HEX (item-art.ts)" },
+  {
+    pattern: /history\.state as \{ overlay/,
+    use: "the router, which closes an open overlay as it navigates (leaveOverlay in ui.ts)",
+  },
 ];
 
 describe("views use the shared components", () => {

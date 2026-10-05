@@ -192,25 +192,8 @@ interface Wardrobe {
   prices: ReadonlyMap<string, number>;
 }
 
-/**
- * Open the look editor. `onSaved` gets the new look once the world accepts it. `navigate` is the
- * router's, for the links to the shop.
- */
-export function openLookEditor(
-  owner: LookOwner,
-  onSaved: (look: LookView) => void,
-  navigate: (path: string) => void,
-) {
-  /**
-   * Close the editor, then go to `path`. Closing steps back past the editor's history entry, so
-   * the page changes only once that step lands; otherwise it would undo the navigation.
-   */
-  const leaveFor = (path: string) => {
-    const overlay = (history.state as { overlay?: boolean } | null)?.overlay;
-    if (overlay) window.addEventListener("popstate", () => navigate(path), { once: true });
-    closeOverlay();
-    if (!overlay) navigate(path);
-  };
+/** Open the look editor. `onSaved` gets the new look once the world accepts it. */
+export function openLookEditor(owner: LookOwner, onSaved: (look: LookView) => void) {
   const draft = draftOf(owner.look);
   const figureLook = (): FullLook => ({
     color: owner.color,
@@ -425,10 +408,7 @@ export function openLookEditor(
             h("span", { text: price === undefined ? "Shop" : String(price) }),
           ),
         );
-        link.addEventListener("click", (e) => {
-          e.preventDefault();
-          leaveFor("/shop");
-        });
+        // No closeOverlay here: the router closes the editor as it goes to the shop.
         wearButtons.set(item, link);
         row.append(link);
         continue;

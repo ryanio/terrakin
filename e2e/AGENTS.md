@@ -23,7 +23,7 @@ Playwright tests that drive the real production build on an iPhone 13 viewport. 
 | `town.spec.ts` | Propose, vote, close, and build in the Town Hall. |
 | `coins.spec.ts` | Coins at 390x844: the welcome gift in the top bar purse, the purse page, coming home for the allowance the next day, giving a friend coins from their profile, and their live notice. |
 | `praise.spec.ts` | Praise at 390x844: refused on the first day, then praising a neighbor from their profile, the count and the "Praised today" button, a second tap refused, and their notification. |
-| `make.spec.ts` | Growing and making at 390x844: placing a planter and a kitchen from the build palette, tapping the planter to plant, picking the crop two days later, making labelled herb tea, the things page, and giving it from a friend's profile. |
+| `make.spec.ts` | Growing and making at 390x844: placing a planter and a kitchen from the build palette, tapping the planter to plant, picking the crop two days later, making labelled herb tea, the things page reached from the kitchen sheet's "All your things" link, and giving it from a friend's profile. |
 | `shop.spec.ts` | The town shop at 390x844: herbs grown and sold to the town on a day it buys them, a lantern bought, the balance and the top bar following, what you can't afford, and the visitor's view. |
 | `connect-x.spec.ts` | Connecting an X account. |
 | `safety.spec.ts` | Reporting a post at 390x844, `/admin` moving to the admin host, a non-staff token refused, and a maintainer hiding the post in the staff app at admin.localhost and finding it in the log, then deleting a reported resident's profile pictures. |

@@ -81,6 +81,9 @@ export const HIDDEN = { no: 0, maintainer: 1, auto: 2 } as const;
 export const NOT_SUSPENDED = (column: string) =>
   `${column} NOT IN (SELECT resident_id FROM suspensions WHERE until > ?)`;
 
+/** How many report groups the queue reads at most, most urgent first. */
+export const QUEUE_WINDOW = 500;
+
 /** The actors that aren't people, in the moderation log and on triage-raised reports. */
 export const TRIAGE_ACTOR = "triage";
 export const SYSTEM_ACTOR = "system";
@@ -615,12 +618,25 @@ export class SafetyService {
    * Open reports grouped by what they point at: anything a person must see today first, then by
    * triage severity (untriaged counts as medium), then oldest first.
    */
-  queue(limit?: number): ReportQueueResponse {
+  queue(limit?: number, window = QUEUE_WINDOW): ReportQueueResponse {
     const n = Math.floor(Number(limit));
     const size = Number.isFinite(n) ? Math.max(1, Math.min(FEED_MAX_LIMIT, n)) : FEED_DEFAULT_LIMIT;
+    // The database puts urgent items first before it cuts the window, so a flood of ordinary
+    // reports can never push a suspected minor, CSAM, or self-harm report out of view.
+    const latest = (column: string) =>
+      `(SELECT v.${column} FROM triage_verdicts v WHERE v.kind = r.kind AND v.target = r.target
+        ORDER BY v.n DESC LIMIT 1)`;
     const groups = this.rows(
-      `SELECT kind, target, MIN(created_at) AS first, MAX(created_at) AS last
-        FROM reports WHERE status = 'open' GROUP BY kind, target ORDER BY first ASC LIMIT 500`,
+      `SELECT kind, target, MIN(created_at) AS first, MAX(created_at) AS last,
+          MAX(reason = 'self_harm') AS self_harm, ${latest("category")} AS category,
+          ${latest("severity")} AS severity
+        FROM reports r WHERE status = 'open' GROUP BY kind, target
+        ORDER BY (self_harm = 1 OR category IN (${[...NEEDS_HUMAN].map((c) => `'${c}'`).join(", ")})) DESC,
+          CASE COALESCE(severity, 'medium')
+            ${SEVERITIES.map((sev, i) => `WHEN '${sev}' THEN ${i}`).join(" ")} ELSE 0 END DESC,
+          first ASC
+        LIMIT ?`,
+      window,
     );
     const items: ReportQueueItem[] = groups.map((g) => {
       const kind = String(g.kind) as ReportKind;

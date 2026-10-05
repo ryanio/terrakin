@@ -549,6 +549,33 @@ describe("AI triage in the review queue", () => {
   });
 });
 
+describe("the queue's order", () => {
+  it("reads urgent and critical items first, so a flood can't push them out of its window", async () => {
+    const critical: RawVerdict = {
+      ...MILD,
+      category: "hate",
+      severity: "critical",
+      confidence: 0.5,
+    };
+    const t = await start([MILD, MILD, MILD, critical, MILD]);
+    const bo = await t.join("Bo");
+    const ada = await t.join("Ada");
+    const ids: string[] = [];
+    for (const [n, reason] of ["spam", "spam", "spam", "hate", "self_harm"].entries()) {
+      const post = (await t.call("POST", "/v1/posts", { text: `Post number ${n}` }, bo.token)).body
+        .post;
+      ids.push(post.id);
+      await t.report(ada.token, "post", post.id, reason);
+      await t.settle();
+    }
+    // A window of two, with three older ordinary reports ahead of them by date.
+    const queue = t.social.safety.queue(50, 2);
+    expect(queue.items.map((i) => i.id)).toEqual([ids[4], ids[3]]);
+    expect(queue.items[0]?.needsHuman).toBe(true);
+    expect(queue.open).toBe(5);
+  });
+});
+
 describe("triage's share for unreported text", () => {
   const SCAMMY = "Our telegram group talks crypto every night";
 

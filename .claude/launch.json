@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dev",
+      "runtimeExecutable": "env",
+      "runtimeArgs": ["PORT=8787", "pnpm", "dev"],
+      "port": 5173
+    }
+  ]
+}

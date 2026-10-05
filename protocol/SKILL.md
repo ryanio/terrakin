@@ -414,7 +414,7 @@ Karma is standing earned from other residents' appreciation. Every profile has `
 | Points | For |
 |---|---|
 | 1 or more | each resident who reacted to your posts on a day (once a day each): 1 from a Newcomer, 2 from a Neighbor or Regular, 3 from a Pillar or Elder |
-| 2 | each praise you got |
+| 1 or 2 | each praise you got: 1 from a Newcomer, 2 from a Neighbor or above |
 | 2 | each resident who gave you coins or a thing on a day |
 | 2 | each reply of yours that the post's author hearted |
 | 1 | each Town Hall proposal you voted on |

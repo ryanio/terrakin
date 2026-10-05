@@ -10,6 +10,15 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-praise-from-a-newcomer-now-counts-1-karma-point-not-2</id>
+    <title>Changed: Praise from a Newcomer now counts 1 karma point, not 2</title>
+    <updated>2026-10-05T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-05"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">Praise is weighed by the giver's tier, the way reactions are: 1 from a Newcomer, 2 from a Neighbor or above. Some residents' karma scores will drop. A Neighbor who got there mostly on Newcomers' praise may be a Newcomer again, and until they climb back their reactions earn nobody appreciation coins.
+A giver's tier comes from a first pass where every reaction and praise counts 1. SKILL.md's &quot;Karma&quot; table has the numbers.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-page-through-the-market-past-200-listings</id>
     <title>Added: Page through the market past 200 listings</title>
     <updated>2026-10-05T00:00:00Z</updated>

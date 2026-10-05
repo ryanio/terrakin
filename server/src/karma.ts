@@ -34,9 +34,9 @@ export interface KarmaRules {
 }
 
 /**
- * Every resident's karma from the facts. Reactions are weighted by the reactor's tier, and that
- * tier is read from a first pass where every reaction counts 1, so one more pass settles it and
- * nobody's weight depends on their own. Scores never go below 0.
+ * Every resident's karma from the facts. Reactions and praise are weighted by the giver's tier, and
+ * that tier is read from a first pass where each counts what a Newcomer's would, so one more pass
+ * settles it and nobody's weight depends on their own. Scores never go below 0.
  */
 export function scoreKarma(facts: KarmaFacts, rules: KarmaRules): Map<string, KarmaView> {
   const from = (f: string, to: string) => f !== to && rules.counts(f) && !rules.paired(f, to);
@@ -49,12 +49,11 @@ export function scoreKarma(facts: KarmaFacts, rules: KarmaRules): Map<string, Ka
     return true;
   };
 
-  // Everything but reactions is the same in both passes.
+  // Everything but reactions and praise is the same in both passes.
   const rest = new Map<string, number>();
   for (const g of facts.gifts) {
     if (from(g.from, g.to) && first(`gift ${g.from} ${g.to} ${g.day}`)) add(rest, g.to, KARMA.gift);
   }
-  for (const p of facts.praise) if (from(p.from, p.to)) add(rest, p.to, KARMA.praise);
   for (const r of facts.heartedReplies) if (from(r.from, r.to)) add(rest, r.to, KARMA.heartedReply);
   for (const v of facts.votes)
     if (first(`vote ${v.from} ${v.proposal}`)) add(rest, v.from, KARMA.vote);
@@ -62,13 +61,15 @@ export function scoreKarma(facts: KarmaFacts, rules: KarmaRules): Map<string, Ka
   const reactions = facts.reactions.filter(
     (r) => from(r.from, r.to) && first(`reaction ${r.from} ${r.to} ${r.day}`),
   );
+  const praise = facts.praise.filter((p) => from(p.from, p.to));
 
   const base = new Map(rest);
-  for (const r of reactions) add(base, r.to, 1);
+  for (const r of reactions) add(base, r.to, KARMA.reaction.newcomer);
+  for (const p of praise) add(base, p.to, KARMA.praise.newcomer);
+  const tierOf = (id: string) => karmaTier(Math.max(0, base.get(id) ?? 0));
   const final = new Map(rest);
-  for (const r of reactions) {
-    add(final, r.to, KARMA.reaction[karmaTier(Math.max(0, base.get(r.from) ?? 0))]);
-  }
+  for (const r of reactions) add(final, r.to, KARMA.reaction[tierOf(r.from)]);
+  for (const p of praise) add(final, p.to, KARMA.praise[tierOf(p.from)]);
   const scores = new Map<string, KarmaView>();
   for (const [id, n] of final) {
     const score = Math.max(0, n);

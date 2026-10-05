@@ -148,11 +148,14 @@ export const KARMA = {
   tiers: { newcomer: 0, neighbor: 10, regular: 50, pillar: 150, elder: 400 },
   /**
    * Each resident who reacted to your posts on a day, once a day, by their own tier (read from
-   * their score with every reaction counted as 1, so one pass settles it).
+   * their score with every reaction and praise counted as a Newcomer's, so one pass settles it).
    */
   reaction: { newcomer: 1, neighbor: 2, regular: 2, pillar: 3, elder: 3 },
-  /** Each praise you got. Praise is already once a day per pair. */
-  praise: 2,
+  /**
+   * Each praise you got, by the giver's tier the same way as reactions, so a ring of new accounts
+   * praising each other counts for less. Praise is already once a day per pair.
+   */
+  praise: { newcomer: 1, neighbor: 2, regular: 2, pillar: 2, elder: 2 },
   /** Each resident who gave you coins or a thing on a day, once a day. */
   gift: 2,
   /** Each reply of yours that the post's author hearted. */
@@ -168,6 +171,7 @@ export const KARMA = {
 } as const satisfies {
   tiers: Record<KarmaTier, number>;
   reaction: Record<KarmaTier, number>;
+  praise: Record<KarmaTier, number>;
   appreciationTier: KarmaTier;
 } & Record<string, unknown>;
 

@@ -46,15 +46,15 @@ describe("scoreKarma", () => {
         // Wren is a Newcomer; Bee reaches Neighbor from praise.
         { from: "wren", to: "ash", day: 1 },
       ],
-      praise: many(5, "bee"),
+      praise: many(10, "bee"),
     };
     const scores = score(facts);
     expect(scores.get("bee")).toEqual({ score: 10, tier: "neighbor" });
     expect(scores.get("ash")?.score).toBe(2 * KARMA.reaction.neighbor + KARMA.reaction.newcomer);
   });
 
-  it("reads the reactor's tier from a pass where every reaction counts 1", () => {
-    // First pass: Bee has 8 Newcomers and Ash (9, Newcomer), Ash has 5 praise and Bee (11,
+  it("reads the giver's tier from a pass where everything counts as a Newcomer's", () => {
+    // First pass: Bee has 8 Newcomers and Ash (9, Newcomer), Ash has 10 praise and Bee (11,
     // Neighbor). Weighted, Ash's reaction lifts Bee to 10, a Neighbor, but Bee's reaction to Ash
     // still weighs what Bee had in the first pass, so nobody's weight depends on their own.
     const facts: Partial<KarmaFacts> = {
@@ -63,7 +63,7 @@ describe("scoreKarma", () => {
         { from: "ash", to: "bee", day: 1 },
         { from: "bee", to: "ash", day: 1 },
       ],
-      praise: many(5, "ash"),
+      praise: many(10, "ash"),
     };
     const scores = score(facts);
     expect(scores.get("bee")).toEqual({ score: 8 + KARMA.reaction.neighbor, tier: "neighbor" });
@@ -107,12 +107,35 @@ describe("scoreKarma", () => {
       ],
     });
     expect(scores.get("ash")?.score).toBe(
-      2 * KARMA.gift + KARMA.praise + 2 * KARMA.heartedReply + 2 * KARMA.vote,
+      2 * KARMA.gift + KARMA.praise.newcomer + 2 * KARMA.heartedReply + 2 * KARMA.vote,
     );
   });
 
+  it("weighs praise by the giver's tier: a Newcomer's counts 1, a Neighbor's 2", () => {
+    const scores = score({
+      praise: [
+        ...many(10, "bee"),
+        { from: "bee", to: "ash", day: 2 },
+        { from: "wren", to: "ash", day: 2 },
+      ],
+    });
+    expect(scores.get("bee")?.tier).toBe("neighbor");
+    expect(scores.get("ash")?.score).toBe(2 + 1);
+  });
+
+  it("keeps a small ring of new accounts praising each other at Newcomer", () => {
+    // Six accounts, each praised by the other five. At 2 a praise they'd all be Neighbors (10)
+    // and could start earning appreciation coins from each other's reactions.
+    const ring = ["a", "b", "c", "d", "e", "f"];
+    const praise = ring.flatMap((to) =>
+      ring.filter((f) => f !== to).map((f) => ({ from: f, to, day: 1 })),
+    );
+    const scores = score({ praise });
+    for (const id of ring) expect(scores.get(id)).toEqual({ score: 5, tier: "newcomer" });
+  });
+
   it("takes points off for each upheld report, never below 0", () => {
-    const scores = score({ praise: many(6, "ash"), upheld: ["ash", "bee"] });
+    const scores = score({ praise: many(12, "ash"), upheld: ["ash", "bee"] });
     expect(scores.get("ash")?.score).toBe(12 - KARMA.upheldReport);
     expect(scores.get("bee")).toEqual({ score: 0, tier: "newcomer" });
   });
@@ -174,7 +197,7 @@ function social(options: { townsfolk?: string[] } = {}) {
       key,
       day * DAY_MS + 1000,
     );
-  /** `count` praises for `to`, from distinct residents, on past days: 2 points each. */
+  /** `count` praises for `to`, from distinct Newcomers, on past days: 1 point each. */
   const praised = (to: string, count: number) => {
     for (let i = 0; i < count; i++) {
       sql.exec(
@@ -187,7 +210,7 @@ function social(options: { townsfolk?: string[] } = {}) {
   };
   /** Make residents Neighbors. */
   const neighbors = (...ids: string[]) => {
-    for (const id of ids) praised(id, 5);
+    for (const id of ids) praised(id, KARMA.tiers.neighbor);
   };
   /** Link an AI to its person. */
   const own = (agent: string, owner: string) =>
@@ -251,7 +274,7 @@ describe("karma on the social layer", () => {
 
   it("takes 10 for each thing staff acted on after reports, once however many reported it", () => {
     const t = social();
-    t.praised("ash", 30);
+    t.praised("ash", 60);
     const post = t.post("ash");
     t.report("post", post, "actioned");
     t.report("post", post, "actioned");
@@ -360,7 +383,7 @@ describe("appreciation awards", () => {
   it("read the reactor's tier from before the day, so that day's praise can't lift it", () => {
     const t = social();
     const day = TODAY - 1;
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 10; i++) {
       t.sql.exec(
         "INSERT INTO praise (giver, receiver, day, created_at) VALUES (?, 'bee', ?, 0)",
         `fan${i}`,
@@ -456,7 +479,7 @@ describe("appreciation coins in a running world", () => {
       await call("POST", "/v1/actions", { type: "build_starter_home" }, who.token);
     }
     const today = Math.floor(now / DAY_MS);
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 10; i++) {
       sql.exec(
         "INSERT INTO praise (giver, receiver, day, created_at) VALUES (?, ?, ?, 0)",
         `fan${i}`,

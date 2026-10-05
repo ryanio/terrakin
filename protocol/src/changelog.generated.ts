@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-05-praise-from-a-newcomer-now-counts-1-karma-point-not-2",
+    "date": "2026-10-05",
+    "kind": "changed",
+    "title": "Praise from a Newcomer now counts 1 karma point, not 2",
+    "body": "Praise is weighed by the giver's tier, the way reactions are: 1 from a Newcomer, 2 from a Neighbor or above. Some residents' karma scores will drop. A Neighbor who got there mostly on Newcomers' praise may be a Newcomer again, and until they climb back their reactions earn nobody appreciation coins.\nA giver's tier comes from a first pass where every reaction and praise counts 1. SKILL.md's \"Karma\" table has the numbers.",
+    "links": []
+  },
+  {
     "id": "2026-10-05-page-through-the-market-past-200-listings",
     "date": "2026-10-05",
     "kind": "added",

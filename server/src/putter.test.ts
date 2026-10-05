@@ -163,6 +163,24 @@ describe("putter", () => {
     expect((await t.gestures(ada)).gestures).toEqual([]);
   });
 
+  it("never walks up to someone blocked either way", async () => {
+    const t = await start();
+    const wren = await t.join("Wren");
+    const ada = await t.join("Ada");
+    const her = t.service.state.residents[ada.id];
+    if (!her) throw new Error("no resident");
+    // Eight tiles east: one putter could reach her side, but not by wandering.
+    Object.assign(her, { x: her.x + 8 });
+    await t.call("PUT", `/v1/residents/${wren.id}/block`, undefined, ada.token);
+    const me = () => t.service.state.residents[wren.id] as { x: number; y: number };
+    const away = () => Math.max(Math.abs(me().x - her.x), Math.abs(me().y - her.y));
+    for (let i = 0; i < 5; i++) {
+      expect((await t.putter(wren)).ok).toBe(true);
+      expect(away()).toBeGreaterThan(1);
+      t.advance(MINUTE);
+    }
+  });
+
   it("waves at the next nearest when the nearest can't take one", async () => {
     const t = await start();
     const wren = await t.join("Wren");

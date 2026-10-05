@@ -84,6 +84,7 @@ describe("gestures and streaks", () => {
   it("says who sent what, with a gift's note", () => {
     expect(gestureLine("hug", "Ada", "")).toBe("Ada sent you a hug");
     expect(gestureLine("high_five", "Bo", "")).toBe("Bo sent you a high five");
+    expect(gestureLine("wave", "Wren", "", true)).toBe("Wren waved as they puttered past");
     expect(gestureLine("gift", "Ada", "a jar of honey")).toBe(
       "Ada sent you a gift: a jar of honey",
     );

@@ -10,7 +10,7 @@ import { PRE_ECONOMY_CONFIG, PRE_ECONOMY_HASH, PRE_ECONOMY_LOG } from "./fixture
 import { PRE_TOWN_CONFIG, PRE_TOWN_HASH, PRE_TOWN_LOG } from "./fixtures/pre-town-log";
 import { hashWorld } from "./hash";
 import { tileKey } from "./keys";
-import { PUTTER, planPutter } from "./putter";
+import { PUTTER, PUTTER_MAX_STEPS, planPutter } from "./putter";
 import { replay } from "./replay";
 import {
   type Command,
@@ -21,6 +21,9 @@ import {
   type WorldConfig,
 } from "./types";
 import { chebyshev, cloneWorld, createWorld, plotOf, STEP } from "./world";
+
+/** The world after one six-step putter from spawn, pinned when putter landed. */
+const PINNED_PUTTER_HASH = "f6cb4793";
 
 // 3x3 plots of 8 tiles. The Commons is plot (1,1), tiles 8 to 15; spawn is (12,12).
 const CONFIG: WorldConfig = {
@@ -286,6 +289,26 @@ describe("the putter command", () => {
     expect(result.ok).toBe(true);
     expect(coinsOf(w.state, "ada")).toBe(coins + ECONOMY.allowance);
     expect(w.state.lastActiveDay?.ada).toBe(100);
+  });
+
+  it("keeps accepting the longest walk the sim allows, so old logs replay", () => {
+    // PUTTER_MAX_STEPS may go up but never down: a log with a walk this long must keep replaying.
+    const w = world();
+    w.join("ada");
+    const steps: Direction[] = ["n", "n", "e", "e", "s", "s"];
+    expect(steps).toHaveLength(PUTTER_MAX_STEPS);
+    expect(w.send("ada", { type: "putter", steps }).ok).toBe(true);
+    expect(PUTTER.steps).toBeLessThanOrEqual(PUTTER_MAX_STEPS);
+    expect(hashWorld(replay(CONFIG, w.log))).toBe(PINNED_PUTTER_HASH);
+  });
+
+  it("plans around residents it's told to avoid, though they still stand where they are", () => {
+    const w = world();
+    w.join("ada", { x: 2, y: 12 });
+    w.join("bob", { x: 6, y: 12 });
+    const steps = planPutter(w.state, "ada", new Set(["bob"]));
+    const tiles = walk({ x: 2, y: 12 }, steps);
+    for (const t of tiles.slice(-1)) expect(chebyshev(t, { x: 6, y: 12 })).toBeGreaterThan(1);
   });
 
   it("replays to the same world", () => {

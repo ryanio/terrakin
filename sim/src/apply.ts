@@ -24,7 +24,7 @@ import {
   THEMES,
   wearProblem,
 } from "./looks";
-import { isDirection, PUTTER } from "./putter";
+import { isDirection, PUTTER_MAX_STEPS } from "./putter";
 import { checkTown, isActivity, isServerCommand, type TownChecked } from "./town";
 import type {
   ApplyResult,
@@ -460,8 +460,8 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
       if (!Array.isArray(steps) || steps.length === 0) {
         return reject("nowhere_to_go", `There's nowhere to walk from here.${stuckHint(state, me)}`);
       }
-      if (steps.length > PUTTER.steps) {
-        return reject("out_of_reach", `A putter walks at most ${PUTTER.steps} tiles.`);
+      if (steps.length > PUTTER_MAX_STEPS) {
+        return reject("out_of_reach", `A putter walks at most ${PUTTER_MAX_STEPS} tiles.`);
       }
       // Each step is checked like a move, from where the last one left off.
       const path: Tile[] = [];

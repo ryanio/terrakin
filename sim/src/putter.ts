@@ -20,13 +20,22 @@ import {
  * planner: tuning it changes where future putters go, never how old logs replay.
  */
 export const PUTTER = {
-  /** The most tiles one putter walks. */
+  /** The most tiles one putter walks. Never more than `PUTTER_MAX_STEPS`. */
   steps: 6,
   /** How far it looks for another online resident to walk up to (Chebyshev). */
   seek: 12,
   /** The square around the resident that paths may use (Chebyshev radius). */
   window: 12,
 } as const;
+
+/**
+ * The most steps the sim accepts in one `putter`. Logged putters replay against this, so it may go
+ * up but never down; tune the planner with `PUTTER.steps` instead.
+ */
+export const PUTTER_MAX_STEPS = 6;
+
+/** What the planner walks at most: its tuning, inside what the sim accepts. */
+const MAX_WALK = Math.min(PUTTER.steps, PUTTER_MAX_STEPS);
 
 const DIRECTIONS: readonly Direction[] = ["n", "e", "s", "w"];
 
@@ -73,7 +82,15 @@ function plotRect(state: WorldState, px: number, py: number): Rect {
  * tile), a hash of your id, the world's `seq`, and the day picks, so the same world and resident
  * always give the same walk, and the next putter usually gives another.
  */
-export function planPutter(state: WorldState, actor: ResidentId): Direction[] {
+export function planPutter(
+  state: WorldState,
+  actor: ResidentId,
+  /**
+   * Residents not to walk up to. The server passes everyone blocked either way with the actor, so a
+   * putter never heads for someone who shut them out. They still count as standing where they are.
+   */
+  avoid: ReadonlySet<ResidentId> = new Set(),
+): Direction[] {
   const me = state.residents[actor];
   if (!me?.online) return [];
   const seed = fnv1a(`putter:${actor}:${state.seq}:${state.day ?? 0}`);
@@ -90,7 +107,7 @@ export function planPutter(state: WorldState, actor: ResidentId): Direction[] {
     const path: number[] = [];
     for (let at = i; at > 0; at = nodes[at]?.prev ?? 0) path.push(at);
     path.reverse();
-    let end = Math.min(path.length, PUTTER.steps);
+    let end = Math.min(path.length, MAX_WALK);
     while (end > 0 && !free(nodes[path[end - 1] ?? 0] as Node)) end--;
     return path.slice(0, end).map((at) => nodes[at]?.dir as Direction);
   };
@@ -121,7 +138,7 @@ export function planPutter(state: WorldState, actor: ResidentId): Direction[] {
   // 1. Someone to walk up to: stop next to them, never on them.
   const near = others
     .map((r) => ({ r, d: chebyshev(me, r) }))
-    .filter(({ d }) => d <= PUTTER.seek && d !== 1)
+    .filter(({ r, d }) => d <= PUTTER.seek && d !== 1 && !avoid.has(r.id))
     .sort((a, b) => a.d - b.d || (a.r.id < b.r.id ? -1 : 1));
   const nearest = near.filter(({ d }) => d === near[0]?.d).length;
   const first = nearest > 0 ? pick(nearest, "resident") : 0;
@@ -147,7 +164,7 @@ export function planPutter(state: WorldState, actor: ResidentId): Direction[] {
   if (steps.length > 0) return steps;
 
   // 4. Anywhere open a few steps away, two or more if there's room.
-  const open = nodes.flatMap((n, i) => (i > 0 && n.steps <= PUTTER.steps && free(n) ? [i] : []));
+  const open = nodes.flatMap((n, i) => (i > 0 && n.steps <= MAX_WALK && free(n) ? [i] : []));
   const roomy = open.filter((i) => (nodes[i] as Node).steps >= 2);
   const choices = roomy.length > 0 ? roomy : open;
   if (choices.length === 0) return [];

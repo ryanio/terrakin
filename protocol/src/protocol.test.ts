@@ -6,6 +6,7 @@ import {
   createWorld,
   DEFAULT_CONFIG,
   PATTERNS,
+  PUTTER,
   spawnTile,
   THEMES,
   WEAR_ITEMS,
@@ -19,6 +20,7 @@ import {
   isReservedHandle,
   markdownError,
   markdownErrorCode,
+  PUTTER_LIMITS,
   RATE_LIMITS,
   ROUTE_WORDS,
   ROUTES,
@@ -252,6 +254,12 @@ describe("looks", () => {
     const changed = { type: "profile_changed", residentId: "r_1", color: "sun", shape: "round" };
     expect(WorldEvent.safeParse({ ...changed, note: "" }).success).toBe(true);
     expect(WorldEvent.safeParse({ ...changed, note: "", pattern: "citrus" }).success).toBe(true);
+  });
+
+  it("gives putter's numbers as the sim and server use them", () => {
+    expect(skill).toContain(`up to ${PUTTER.steps} tiles`);
+    expect(skill).toContain(`within ${PUTTER.seek} tiles`);
+    expect(skill).toContain(`${PUTTER_LIMITS.perDay} times a UTC day`);
   });
 
   it("documents every theme, pattern, and wear item in SKILL.md", () => {

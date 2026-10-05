@@ -59,8 +59,12 @@ export const GESTURES: readonly GestureInfo[] = [
 export const gestureInfo = (kind: GestureKind): GestureInfo =>
   GESTURES.find((g) => g.kind === kind) ?? (GESTURES[0] as GestureInfo);
 
-/** "Ada sent you a hug", or with a gift, "Ada sent you a gift: a jar of honey". */
-export function gestureLine(kind: GestureKind, from: string, note: string): string {
+/**
+ * "Ada sent you a hug", or with a gift, "Ada sent you a gift: a jar of honey". A wave from
+ * someone's putter says so: "Wren waved as they puttered past".
+ */
+export function gestureLine(kind: GestureKind, from: string, note: string, putter = false): string {
+  if (putter) return `${from} waved as they puttered past`;
   const base = `${from} sent you ${gestureInfo(kind).noun}`;
   return note ? `${base}: ${note}` : base;
 }

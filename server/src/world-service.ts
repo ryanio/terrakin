@@ -667,7 +667,14 @@ export class WorldService {
       state = cloneWorld(state);
       apply(state, { actor: me.id, command: { type: "join", name: me.name, kind: me.kind } });
     }
-    const steps = planPutter(state, residentId);
+    // Never walk up to someone blocked either way: the wave would be refused, and the walk alone
+    // would follow them around.
+    const avoid = new Set(
+      Object.values(state.residents)
+        .filter((r) => r.online && r.id !== residentId && this.blockedEither(residentId, r.id))
+        .map((r) => r.id),
+    );
+    const steps = planPutter(state, residentId, avoid);
     const result = this.run({ actor: residentId, command: { type: "putter", steps } }, dry);
     if (!result.ok || dry) return result;
     const now = this.now();

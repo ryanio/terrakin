@@ -1,12 +1,14 @@
-import type { LookView, ResidentView, WorldEvent, WorldSnapshot } from "@terrakin/protocol";
+import type { ResidentView, WorldEvent, WorldSnapshot } from "@terrakin/protocol";
 import {
   type BlockKind,
   type Crop,
   type Direction,
   LOOK_KEYS,
   lookOf,
+  pickupOn,
   plotKey,
   type Resident,
+  type ResourceKind,
   shopTiles,
   tileKey,
   type WorldConfig,
@@ -54,6 +56,8 @@ export class Mirror {
   galleries = new Set<string>();
   /** Made things on display on pedestals and frames (RFC 0005 step 3). Labels are untrusted text. */
   displays = new Map<string, DisplayView>();
+  /** Tiles picked clean today, so a pickup that's gone isn't drawn (phase 1 gathering). */
+  gathered = new Set<string>();
   /** Today, as the world counts it. A crop is ready once this reaches its `readyDay`. */
   day: number | undefined;
   /** Which way each resident last walked. Only for drawing; nobody faces anywhere in the sim. */
@@ -83,6 +87,7 @@ export class Mirror {
     for (const d of snapshot.displays ?? []) {
       this.displays.set(tileKey(d.x, d.y), { good: { ...d.good }, by: d.by, day: d.day });
     }
+    for (const t of snapshot.gathered ?? []) this.gathered.add(tileKey(t.x, t.y));
     this.day = snapshot.day;
   }
 
@@ -182,6 +187,8 @@ export class Mirror {
         break;
       case "day_started":
         this.day = event.day;
+        // A new day grows every tile's pickup back.
+        this.gathered.clear();
         break;
       case "planted":
         this.crops.set(tileKey(event.x, event.y), {
@@ -216,6 +223,9 @@ export class Mirror {
         if (shown?.good.id === event.item) shown.good.admired = event.admired;
         break;
       }
+      case "gathered":
+        this.gathered.add(tileKey(event.x, event.y));
+        break;
       // The blocks themselves arrive as block_placed and block_removed just before this.
       case "town_built":
         for (const b of event.placed) this.townBuilt.set(tileKey(b.x, b.y), event.proposal);
@@ -229,6 +239,16 @@ export class Mirror {
   residentAt(x: number, y: number): Resident | undefined {
     for (const r of this.residents.values()) if (r.online && r.x === x && r.y === y) return r;
     return undefined;
+  }
+
+  /** The fallen branch or loose stone lying on a tile today, from the sim's own spawn. */
+  pickupAt(x: number, y: number): ResourceKind | null {
+    if (this.day === undefined) return null;
+    const key = tileKey(x, y);
+    return pickupOn(this.config, x, y, this.day, {
+      built: this.blocks.has(key),
+      picked: this.gathered.has(key),
+    });
   }
 
   ownerAt(x: number, y: number): string | undefined {

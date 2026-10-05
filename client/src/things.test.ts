@@ -42,6 +42,13 @@ describe("things", () => {
         ],
       }),
     ).toBe("You picked 3 lemons, 1 lemon seed.");
+    expect(
+      inventoryLine({
+        ...base,
+        reason: "gather",
+        changes: [{ kind: "wood", amount: 1, count: 4 }],
+      }),
+    ).toBe("You picked up 1 wood.");
     const jam = {
       id: "i_1",
       kind: "lemon_jam" as const,

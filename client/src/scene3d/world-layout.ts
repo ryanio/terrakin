@@ -9,6 +9,7 @@ import {
   type Direction,
   groundTile,
   type Resident,
+  type ResourceKind,
   type Scenery,
   tileKey,
   type WorldConfig,
@@ -101,6 +102,8 @@ export interface PlotChunk {
   /** Grass tufts and flowers on open ground, from the same palette the 2D map draws with. */
   tufts: { x: number; y: number; turn: number }[];
   flowers: { x: number; y: number; warm: boolean }[];
+  /** Today's fallen branches and loose stones still lying there, from the sim's own spawn. */
+  pickups: { x: number; y: number; kind: ResourceKind }[];
   /** Equal for two reads exactly when what's drawn is the same. */
   signature: string;
 }
@@ -114,6 +117,8 @@ export interface ChunkSource {
   displays?: ReadonlyMap<string, { good: ShownGood }>;
   crops?: ReadonlyMap<string, { crop: Crop; plantedDay: number; readyDay: number }>;
   day?: number | undefined;
+  /** What lies on a tile to pick up today (`Mirror.pickupAt`). */
+  pickupAt?(x: number, y: number): ResourceKind | null;
 }
 
 /** What stands on one tile, and the words for it in a chunk's signature. */
@@ -129,7 +134,10 @@ function tileThings(source: ChunkSource, x: number, y: number, hearths: Readonly
   // The picture too: staff can remove a piece's picture while it stays up (picture_removed).
   if (display) parts.push(`${key}:shows:${display.good.id}:${display.good.media ?? ""}`);
   if (crop) parts.push(`${key}:${crop.crop}:${crop.done.toFixed(2)}`);
-  return { block, hearth, display, crop, parts };
+  // Same rule as the map and the sim: a pickup lies anywhere not built on, hearths too.
+  const pickup = source.pickupAt?.(x, y) ?? null;
+  if (pickup) parts.push(`${key}:${pickup}`);
+  return { block, hearth, display, crop, pickup, parts };
 }
 
 /** Read one plot from the mirror. `hearths` holds every resident's hearth tile key. */
@@ -148,6 +156,7 @@ export function readChunk(
   const crops: LayoutCrop[] = [];
   const tufts: PlotChunk["tufts"] = [];
   const flowers: PlotChunk["flowers"] = [];
+  const pickups: PlotChunk["pickups"] = [];
   const parts: string[] = [owner ?? ""];
   for (let y = bounds.y0; y <= bounds.y1; y++) {
     for (let x = bounds.x0; x <= bounds.x1; x++) {
@@ -157,6 +166,7 @@ export function readChunk(
       if (at.hearth) homes.push({ x, y });
       if (at.display) displays.push(at.display);
       if (at.crop) crops.push(at.crop);
+      if (at.pickup) pickups.push({ x, y, kind: at.pickup });
       if (at.block || at.hearth) continue;
       const scenery: Scenery | null = groundTile(source.config, x, y, inCommons).scenery;
       if (scenery?.kind === "tuft")
@@ -180,6 +190,7 @@ export function readChunk(
     crops,
     tufts,
     flowers,
+    pickups,
     signature: parts.join("|"),
   };
 }

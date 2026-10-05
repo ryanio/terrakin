@@ -48,12 +48,22 @@ export type SeedKind = (typeof SEED_KINDS)[number];
 export const STAPLE_KINDS = ["sugar", "jar"] as const;
 export type StapleKind = (typeof STAPLE_KINDS)[number];
 
+/** Fallen branches and loose stones, picked up with `gather`. */
+export const RESOURCE_KINDS = ["wood", "stone"] as const;
+export type ResourceKind = (typeof RESOURCE_KINDS)[number];
+
 /** Decor from the town shop, held until you place it (RFC 0008). Same names as the blocks. */
 export const DECOR_KINDS = DECOR_BLOCKS;
 export type DecorKind = DecorBlock;
 
 /** Things that stack: you hold a count of each, not separate items. */
-export const STACK_KINDS = [...SEED_KINDS, ...CROPS, ...STAPLE_KINDS, ...DECOR_KINDS] as const;
+export const STACK_KINDS = [
+  ...SEED_KINDS,
+  ...CROPS,
+  ...STAPLE_KINDS,
+  ...RESOURCE_KINDS,
+  ...DECOR_KINDS,
+] as const;
 export type StackKind = (typeof STACK_KINDS)[number];
 
 /** Made things. Each one is its own item with an id, its maker, and the day it was made. */
@@ -83,7 +93,7 @@ export type MadeKind = (typeof MADE_KINDS)[number];
 export const ITEM_KINDS = [...STACK_KINDS, ...MADE_KINDS] as const;
 export type ItemKind = (typeof ITEM_KINDS)[number];
 
-export type ItemCategory = "seed" | "produce" | "staple" | "good" | "decor";
+export type ItemCategory = "seed" | "produce" | "staple" | "resource" | "good" | "decor";
 
 export interface ItemInfo {
   /** One of it, in plain words. */
@@ -106,6 +116,8 @@ export const ITEM_INFO: Record<ItemKind, ItemInfo> = {
   flower: { name: "Flower", plural: "Flowers", category: "produce" },
   sugar: { name: "Bag of sugar", plural: "Bags of sugar", category: "staple" },
   jar: { name: "Jar", plural: "Jars", category: "staple" },
+  wood: { name: "Wood", plural: "Wood", category: "resource" },
+  stone: { name: "Stone", plural: "Stone", category: "resource" },
   lantern: { name: "Paper lantern", plural: "Paper lanterns", category: "decor" },
   frame: { name: "Picture frame", plural: "Picture frames", category: "decor" },
   fence: { name: "Fence post", plural: "Fence posts", category: "decor" },
@@ -217,6 +229,8 @@ export const isDecorKind = (k: unknown): k is DecorKind =>
   typeof k === "string" && (DECOR_KINDS as readonly string[]).includes(k);
 export const isCrop = (k: unknown): k is Crop =>
   typeof k === "string" && (CROPS as readonly string[]).includes(k);
+export const isResourceKind = (k: unknown): k is ResourceKind =>
+  typeof k === "string" && (RESOURCE_KINDS as readonly string[]).includes(k);
 
 /** "1 lemon", "3 lemons", in plain words. */
 export function countOf(kind: ItemKind, n: number): string {
@@ -352,15 +366,18 @@ export function inventoryEvent(
 }
 
 /** The checks every item command shares: items open and the world counting days. */
-function closed(state: WorldState): Rejection | null {
+export function closed(state: WorldState): Rejection | null {
   if (!state.items || state.day === undefined) {
-    return refuse("items_closed", "Growing and making haven't opened in this world yet.");
+    return refuse(
+      "items_closed",
+      "Growing, making, and gathering haven't opened in this world yet.",
+    );
   }
   return null;
 }
 
 /** Whether a tile is within a resident's reach, or how to get there. */
-function reachProblem(state: WorldState, me: Tile, at: Tile): Rejection | null {
+export function reachProblem(state: WorldState, me: Tile, at: Tile): Rejection | null {
   const { config } = state;
   if (!isWhole(at.x) || !isWhole(at.y) || !inBounds(config, at.x, at.y)) {
     return refuse("out_of_bounds", "That's outside the world.");
@@ -378,9 +395,13 @@ function reachProblem(state: WorldState, me: Tile, at: Tile): Rejection | null {
 
 /** `open_items`, which only TOWN_ACTOR sends. */
 export function checkOpenItems(state: WorldState): ItemsChecked {
-  if (state.items) return refuse("already_open", "Growing and making are already open.");
+  if (state.items)
+    return refuse("already_open", "Growing, making, and gathering are already open.");
   if (state.day === undefined) {
-    return refuse("not_due", "Growing and making open once the world starts counting days.");
+    return refuse(
+      "not_due",
+      "Growing, making, and gathering open once the world starts counting days.",
+    );
   }
   return () => {
     state.items = {
@@ -403,11 +424,17 @@ export function itemsNewDay(state: WorldState): Mutation | null {
   if (!items) return null;
   return () => {
     items.today = emptyToday();
-    // Gifts past their last day to send back are forgotten. `state.day` is the new day by now.
+    // Gifts past their last day to send back are forgotten, and so are yesterday's pickups:
+    // each tile grows at most one back a day. `state.day` is the new day by now.
     const day = state.day;
     if (items.gifts && day !== undefined) {
       for (const [id, gift] of Object.entries(items.gifts)) {
         if (lastDeclineDay(gift.day) < day) delete items.gifts[id];
+      }
+    }
+    if (items.gathered && day !== undefined) {
+      for (const [key, d] of Object.entries(items.gathered)) {
+        if (d < day) delete items.gathered[key];
       }
     }
     return [];
@@ -417,7 +444,11 @@ export function itemsNewDay(state: WorldState): Mutation | null {
 /** `open_gifts`, which only TOWN_ACTOR sends: from now on, gifts can be sent back. */
 export function checkOpenGifts(state: WorldState): ItemsChecked {
   const items = state.items;
-  if (!items) return refuse("items_closed", "Growing and making haven't opened in this world yet.");
+  if (!items)
+    return refuse(
+      "items_closed",
+      "Growing, making, and gathering haven't opened in this world yet.",
+    );
   if (items.gifts) return refuse("already_open", "Gifts can already be sent back.");
   return () => {
     items.gifts = {};

@@ -42,7 +42,7 @@ function. Ground scenery must never be able to desync two servers or change a re
 - The biome map is identical on every world of the same size until a seed is added. That's fine
   for phase 1: there is one world.
 - Trees, rocks, and other decorations per biome are a follow-up; this change ships tints only.
-- Gathering design must cite this decision if it attaches gameplay to biomes.
+- Gathering design must cite this decision if it attaches gameplay to biomes. [Decision 0063](0063-simple-gathering-is-in-phase-1-wood-and-stone-picku.md) does: pickups fall by biome, so `biomeAt` now affects which logged `gather`s replay.
 
 ## Note on the hash
 

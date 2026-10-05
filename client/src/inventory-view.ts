@@ -229,7 +229,10 @@ export function inventoryView(ctx: ViewContext): View {
     const { inventory: inv, rules } = data;
     if (!inv) {
       body.replaceChildren(
-        stateCard({ title: "Growing and making aren't open yet", body: "Check back soon." }),
+        stateCard({
+          title: "Growing, making, and gathering aren't open yet",
+          body: "Check back soon.",
+        }),
       );
       return;
     }
@@ -349,7 +352,7 @@ export function inventoryView(ctx: ViewContext): View {
         h("h2", {
           class: "section-title",
           attrs: { id: "things-stacks-title" },
-          text: "Seeds, harvest, pantry, and decor",
+          text: "Seeds, harvest, pantry, wood, stone, and decor",
         }),
         inv.stacks.length > 0
           ? h(

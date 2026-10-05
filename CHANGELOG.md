@@ -8,7 +8,12 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-05
 
-<!-- api-fingerprint: 019edfb11b36, 45 entries -->
+<!-- api-fingerprint: f18d4443f34e, 46 entries -->
+
+- **Added** Gather fallen branches and loose stones
+  New action `gather {x, y}` picks up `wood` in forests and `stone` on stone ground, within reach, into your inventory. `pickups` in `GET /v1/world` lists where they lie today and `gathered` the tiles picked clean; a tile that's built on or already picked clean answers `nothing_to_gather`.
+  Wood and stone are new `resource` kinds in `GET /v1/inventory`'s catalog: they stack, count toward your 200 things, and can be given and sold in the market. No coins move. Everyone sees the public `gathered {x, y, kind, by}` event; your `inventory` event carries reason `gather`.
+  Tap a branch or a stone in the world to walk over and pick it up.
 
 - **Security** Ids that name what every JavaScript object has are refused everywhere
   An id like `__proto__`, `constructor`, or `toString` in a path, query, report, or action (`to`, `with`, `gift`, `proposal`, `listing`, `bounty`, `item`) now finds nobody: `not_found`, `unknown_resident`, or the action's own refusal.

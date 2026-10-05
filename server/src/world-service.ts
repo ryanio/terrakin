@@ -30,9 +30,11 @@ import {
   ownerPaired,
   type ProfileFields,
   parseKey,
+  pickupLeft,
   planPutter,
   prepare,
   type ResidentKind,
+  type ResourceKind,
   replay,
   SHOP,
   shopTiles,
@@ -93,9 +95,9 @@ export interface WorldServiceOptions {
    */
   economy?: boolean;
   /**
-   * Growing and making (RFC 0005): once the world counts days, append `open_items` if it never
-   * has. Both adapters turn this on. Off by default so a test world's log holds only what the
-   * test sent.
+   * Growing, making, and gathering (RFC 0005, phase 1 item 9): once the world counts days,
+   * append `open_items` if it never has. Both adapters turn this on. Off by default so a test
+   * world's log holds only what the test sent.
    */
   items?: boolean;
   /**
@@ -1447,6 +1449,27 @@ export class WorldService {
             }),
           }
         : {}),
+      ...(state.items?.gathered && Object.keys(state.items.gathered).length > 0
+        ? {
+            gathered: Object.keys(state.items.gathered).map((key) => {
+              const [x, y] = parseKey(key);
+              return { x, y };
+            }),
+          }
+        : {}),
+      ...(state.items && state.day !== undefined ? { pickups: pickupsToday(state) } : {}),
     };
   }
+}
+
+/** Every fallen branch and loose stone still lying in the world today, row by row. */
+function pickupsToday(state: WorldState): { x: number; y: number; kind: ResourceKind }[] {
+  const out: { x: number; y: number; kind: ResourceKind }[] = [];
+  for (let y = 0; y < state.config.height; y++) {
+    for (let x = 0; x < state.config.width; x++) {
+      const kind = pickupLeft(state, x, y);
+      if (kind) out.push({ x, y, kind });
+    }
+  }
+  return out;
 }

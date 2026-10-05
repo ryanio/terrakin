@@ -26,6 +26,7 @@ import {
   REJECTION_CODES,
   RESIDENT_COLORS,
   RESIDENT_SHAPES,
+  RESOURCE_KINDS,
   SHOP,
   SHOP_SKUS,
   STACK_KINDS,
@@ -312,6 +313,13 @@ export const HarvestAction = z.object({
   y: coord,
   ...dry,
 });
+/** Pick up a fallen branch or a loose stone on (x, y), within reach, into your inventory. */
+export const GatherAction = z.object({
+  type: z.literal("gather"),
+  x: coord,
+  y: coord,
+  ...dry,
+});
 /**
  * Make something at the station on (x, y), within reach: a `kitchen` or a `workbench`. `label` is
  * your own name for it, untrusted text that travels with it.
@@ -594,6 +602,7 @@ export const Action = z.discriminatedUnion("type", [
   GiveCoinsAction,
   PlantAction,
   HarvestAction,
+  GatherAction,
   CraftAction,
   GiveAction,
   DeclineGiftAction,
@@ -717,6 +726,18 @@ export const WorldSnapshot = z.object({
         readyDay: z.number().int(),
       }),
     )
+    .optional(),
+  /**
+   * Tiles picked clean today, so clients don't draw a pickup that's gone. Absent when there are
+   * none. `new_day` clears it: each tile grows one pickup back a day.
+   */
+  gathered: z.array(z.object({ x: z.number().int(), y: z.number().int() })).optional(),
+  /**
+   * The fallen branches and loose stones lying in the world today, ready to `gather`. Absent until
+   * growing, making, and gathering open.
+   */
+  pickups: z
+    .array(z.object({ x: z.number().int(), y: z.number().int(), kind: z.enum(RESOURCE_KINDS) }))
     .optional(),
 });
 export type WorldSnapshot = z.infer<typeof WorldSnapshot>;
@@ -946,6 +967,14 @@ export const WorldEvent = z.discriminatedUnion("type", [
     x: z.number().int(),
     y: z.number().int(),
     crop: CropKind,
+    by: z.string(),
+  }),
+  /** Someone picked up a fallen branch or a loose stone. Public, like a harvest. */
+  z.object({
+    type: z.literal("gathered"),
+    x: z.number().int(),
+    y: z.number().int(),
+    kind: z.enum(RESOURCE_KINDS),
     by: z.string(),
   }),
   /** Someone gave someone a thing. Public, without the count or the note. */

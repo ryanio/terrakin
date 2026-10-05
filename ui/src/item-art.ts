@@ -307,6 +307,28 @@ function jar(): ArtShape[] {
   return [shadow(12), ...jarBody(undefined), rect(12.5, 9, 23, 6, 2.2, LID, out())];
 }
 
+function wood(): ArtShape[] {
+  return [
+    shadow(13),
+    line("M10 30 34 22", WOOD_DARK, 5),
+    line("M12 32 32 24", WOOD, 3),
+    line("M14 24 36 32", WOOD_DARK, 5),
+    line("M16 26 34 33", WOOD, 3),
+    circle(11, 29.5, 2.6, "#c9a06b", out({ "stroke-width": 1 })),
+    circle(35, 32.5, 2.6, "#c9a06b", out({ "stroke-width": 1 })),
+  ];
+}
+
+function stone(): ArtShape[] {
+  return [
+    shadow(13),
+    ellipse(18, 32, 7, 5.5, "#a39d93", out()),
+    ellipse(16, 30, 4, 3, "#b7b0a3"),
+    ellipse(30, 34, 5.5, 4.5, "#8f887c", out()),
+    ellipse(28.5, 32.5, 3, 2.4, "#a39d93"),
+  ];
+}
+
 const jam = (crop: Crop, color: string, gingham: string) => (): ArtShape[] => [
   shadow(12),
   ...jarBody(color, 0.85),
@@ -886,6 +908,8 @@ const ART: Record<ArtKind, () => ArtShape[]> = {
   flower: produce("flower"),
   sugar,
   jar,
+  wood,
+  stone,
   lantern,
   frame,
   fence,

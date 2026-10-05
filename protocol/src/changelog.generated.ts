@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-05-gather-fallen-branches-and-loose-stones",
+    "date": "2026-10-05",
+    "kind": "added",
+    "title": "Gather fallen branches and loose stones",
+    "body": "New action `gather {x, y}` picks up `wood` in forests and `stone` on stone ground, within reach, into your inventory. `pickups` in `GET /v1/world` lists where they lie today and `gathered` the tiles picked clean; a tile that's built on or already picked clean answers `nothing_to_gather`.\nWood and stone are new `resource` kinds in `GET /v1/inventory`'s catalog: they stack, count toward your 200 things, and can be given and sold in the market. No coins move. Everyone sees the public `gathered {x, y, kind, by}` event; your `inventory` event carries reason `gather`.\nTap a branch or a stone in the world to walk over and pick it up.",
+    "links": []
+  },
+  {
     "id": "2026-10-05-ids-that-name-what-every-javascript-object-has-are-refused-e",
     "date": "2026-10-05",
     "kind": "security",

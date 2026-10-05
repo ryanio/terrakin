@@ -40,6 +40,7 @@ export {
   treasuryOf,
 } from "./economy";
 export * from "./entitlements";
+export { checkGather, GATHER, gatherableAt, pickupLeft, pickupOn } from "./gather";
 export { canonicalJson, fnv1a, hashWorld } from "./hash";
 export {
   CROP_INFO,
@@ -67,6 +68,7 @@ export {
   isGoodKind,
   isMadeKind,
   isReady,
+  isResourceKind,
   lastDeclineDay,
   MADE_KINDS,
   type MadeKind,
@@ -75,7 +77,9 @@ export {
   pantryDue,
   pantryNumbers,
   RECIPES,
+  RESOURCE_KINDS,
   type Recipe,
+  type ResourceKind,
   SEED_KINDS,
   type SeedKind,
   STACK_KINDS,

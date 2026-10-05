@@ -110,7 +110,7 @@ export function openTileSheet(o: TileSheetOptions) {
   function paint(data: InventoryResponse) {
     const inv = data.inventory;
     if (!inv) {
-      hint.textContent = "Growing and making aren't open in this world yet.";
+      hint.textContent = "Growing, making, and gathering aren't open in this world yet.";
       return;
     }
     const { rules } = data;

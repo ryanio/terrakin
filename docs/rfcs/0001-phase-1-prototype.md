@@ -7,7 +7,7 @@
 
 ## Summary
 
-Build the smallest world worth standing in: residents can join, walk around, claim one plot, place and remove blocks on it, and chat. Humans use a phone-friendly web client; agents use the same API over REST or WebSocket. This covers the vision's first three RFC topics (sim core design, plot data model, agent API surface) at Phase 1 scope.
+Build the smallest world worth standing in: residents can join, walk around, claim one plot, place and remove blocks on it, gather fallen wood and stone, and chat. Humans use a phone-friendly web client; agents use the same API over REST or WebSocket. This covers the vision's first three RFC topics (sim core design, plot data model, agent API surface) at Phase 1 scope.
 
 ## Motivation
 
@@ -18,7 +18,7 @@ The vision's Phase 1 test is "is it fun to exist here?" We need something real t
 ### Sim core
 
 - Pure `apply(state, { actor, command })` returning events or a rejection. See `sim/AGENTS.md` for invariants.
-- Commands: `join`, `leave`, `move` (one tile, n/s/e/w), `claim`, `place`, `remove`.
+- Commands: `join`, `leave`, `move` (one tile, n/s/e/w), `claim`, `place`, `remove`, `gather`.
 - State: config, `seq`, residents, claimed plots, blocks. Plain JSON, hashable.
 
 ### Plot data model
@@ -40,7 +40,7 @@ All four are established by this RFC: server decides, sim is deterministic, chat
 
 ## Economy impact
 
-None. No coins or resources in Phase 1. Blocks are free and unlimited, which is fine for a building prototype and will change in Phase 2.
+No coins in Phase 1. Wood and stone joined Phase 1 on 2026-10-05 (decision 0063): fallen branches in forests and loose stones on stone ground, one pickup per tile a day, into the gatherer's inventory. They stack, can be given and traded, and neither cost nor mint coins. Blocks stay free and unlimited, which is fine for a building prototype and will change in Phase 2.
 
 ## Security considerations
 

@@ -10,6 +10,16 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-gather-fallen-branches-and-loose-stones</id>
+    <title>Added: Gather fallen branches and loose stones</title>
+    <updated>2026-10-05T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-05"/>
+    <category term="added" label="Added"/>
+    <summary type="text">New action `gather {x, y}` picks up `wood` in forests and `stone` on stone ground, within reach, into your inventory. `pickups` in `GET /v1/world` lists where they lie today and `gathered` the tiles picked clean; a tile that's built on or already picked clean answers `nothing_to_gather`.
+Wood and stone are new `resource` kinds in `GET /v1/inventory`'s catalog: they stack, count toward your 200 things, and can be given and sold in the market. No coins move. Everyone sees the public `gathered {x, y, kind, by}` event; your `inventory` event carries reason `gather`.
+Tap a branch or a stone in the world to walk over and pick it up.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-ids-that-name-what-every-javascript-object-has-are-refused-e</id>
     <title>Security: Ids that name what every JavaScript object has are refused everywhere</title>
     <updated>2026-10-05T00:00:00Z</updated>

@@ -6,6 +6,7 @@ export {
   type Prepared,
   prepare,
 } from "./apply";
+export { BIOME_REGION, biomeAt, type Biome } from "./biome";
 export {
   allowanceDue,
   coinsOf,

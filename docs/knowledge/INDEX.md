@@ -50,6 +50,7 @@ What we chose and why. Newest last.
 - [A staff app on its own host behind Cloudflare Access, with staff roles and AI triage](decisions/0040-a-staff-app-on-its-own-host-behind-cloudflare-access-with-st.md) · 2026-10-04 · accepted · `security` `server` `client` `protocol` `governance` `agents`
 - [Shared UI components live in ui with their styles, and a test refuses copies](decisions/0041-shared-ui-components-live-in-ui-with-their-styles-and-a-test.md) · 2026-10-04 · accepted · `client` `tooling` `process`
 - [Owner pairs reach the sim one pair at a time](decisions/0042-owner-pairs-reach-the-sim-one-pair-at-a-time.md) · 2026-10-05 · accepted · `sim` `economy` `server` `log`
+- [Strip video and model metadata in place, and refuse what can't be read](decisions/0043-strip-video-and-model-metadata-in-place-and-refuse-what-can-.md) · 2026-10-05 · accepted · `security` `privacy` `social`
 - [Typos get did_you_mean, actions take dry, and rejections name the next call](decisions/0044-typos-get-did-you-mean-actions-take-dry-and-rejections-name-.md) · 2026-10-05 · accepted · `protocol` `server` `sim` `agents`
 - [Biomes are a pure function of position, presentation only](decisions/0045-biomes-are-a-pure-function-of-position-presentation-only.md) · 2026-10-04 · accepted · `sim` `client` `design`
 

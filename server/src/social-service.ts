@@ -1617,7 +1617,14 @@ export class SocialService {
       );
     }
     // Location and camera details come out before anything is stored or counted.
-    bytes = stripMetadata(bytes, type);
+    const stripped = stripMetadata(bytes, type);
+    if (!stripped) {
+      return fail(
+        "bad_request",
+        `Couldn't read that ${kind} to remove hidden details like its location. Save or export it again and retry.`,
+      );
+    }
+    bytes = stripped;
     const refusal = this.checkUploadCaps(ownerId, bytes.length);
     if (refusal) return refusal;
     const id = randomId("m");

@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import { createApp } from "./app";
 import { MemoryMediaStore, privateMediaKey } from "./media";
+import { tinyGlb } from "./media-fixtures";
 import { nodeSql } from "./node-sql";
 import { type SocialLimits, SocialService } from "./social-service";
 import { MemoryStore } from "./store";
@@ -428,9 +429,7 @@ describe("letters", () => {
       ada.token,
     );
     expect(steal.status).toBe(400);
-    const glb = new Uint8Array(64);
-    glb.set([0x67, 0x6c, 0x54, 0x46, 2, 0, 0, 0]);
-    const model = await call("POST", "/v1/media", glb, ada.token);
+    const model = await call("POST", "/v1/media", tinyGlb(), ada.token);
     const notPicture = await call(
       "POST",
       "/v1/letters",

@@ -10,6 +10,7 @@ import {
   serveFromBucket,
   sniffMediaType,
 } from "./media";
+import { asText, MP4_GPS, MP4_VIDEO, mp4WithGps, tinyGlb } from "./media-fixtures";
 import { nodeSql } from "./node-sql";
 import { parseTownsfolk, type SocialLimits, SocialService } from "./social-service";
 import { MemoryStore } from "./store";
@@ -317,6 +318,24 @@ describe("media", () => {
     expect((await fetch(`${base}/media/..%2Fsecret`)).status).toBe(404);
   });
 
+  it("stores a video without its location, and refuses one it can't read", async () => {
+    const { call, join, media } = await start();
+    const { token } = await join("Wren");
+    const video = mp4WithGps();
+    const upload = await call("POST", "/v1/media", video, token);
+    expect(upload.status).toBe(201);
+    expect(upload.body.media).toMatchObject({ kind: "video", bytes: video.length });
+    const stored = media.files.get(upload.body.media.id);
+    if (!stored) throw new Error("not stored");
+    expect(asText(stored)).not.toContain(MP4_GPS);
+    expect(asText(stored)).toContain(MP4_VIDEO.slice(0, 12));
+
+    const broken = await call("POST", "/v1/media", file("\0\0\0\x18ftypisom"), token);
+    expect(broken.status).toBe(400);
+    expect(broken.body.error.message).toContain("location");
+    expect(media.files.size).toBe(1);
+  });
+
   it("refuses files over the per-type size limit", async () => {
     const { call, join } = await start();
     const { token } = await join("Wren");
@@ -545,8 +564,7 @@ describe("hardening", () => {
   it("refuses a banner that isn't a picture", async () => {
     const { call, join } = await start();
     const { token } = await join("Wren");
-    const glb = [0x67, 0x6c, 0x54, 0x46, 2, 0, 0, 0];
-    const model = (await call("POST", "/v1/media", file(glb), token)).body.media;
+    const model = (await call("POST", "/v1/media", tinyGlb(), token)).body.media;
     const res = await call("PUT", "/v1/profile", { banner: model.id }, token);
     expect(res.status).toBe(400);
     expect(res.body.error.message).toBe("The banner must be an image.");
@@ -664,7 +682,6 @@ describe("serving from R2", () => {
 });
 
 describe("look media", () => {
-  const GLB = [0x67, 0x6c, 0x54, 0x46, 2, 0, 0, 0];
   const act = (call: Awaited<ReturnType<typeof start>>["call"], token: string, body: object) =>
     call("POST", "/v1/actions", { type: "profile", ...body }, token);
 
@@ -675,7 +692,7 @@ describe("look media", () => {
       (await call("POST", "/v1/media", bytes, capri.token)).body.media.id as string;
     const tile = await upload(file(PNG));
     const home = await upload(file("RIFF\0\0\0\0WEBP"));
-    const model = await upload(file(GLB));
+    const model = await upload(tinyGlb());
     const result = await act(call, capri.token, {
       theme: "lemon",
       pattern: "citrus",
@@ -713,7 +730,7 @@ describe("look media", () => {
     const ashes = await upload(ash.token, file(PNG));
     const gif = await upload(capri.token, file("GIF89a"));
     const png = await upload(capri.token, file(PNG));
-    const glb = await upload(capri.token, file(GLB));
+    const glb = await upload(capri.token, tinyGlb());
     const refused = [
       [{ patternMedia: ashes }, "someone else's image"],
       [{ homeArt: ashes }, "someone else's image"],

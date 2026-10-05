@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-05-videos-and-models-lose-location-and-hidden-text-before-they",
+    "date": "2026-10-05",
+    "kind": "security",
+    "title": "Videos and models lose location and hidden text before they're stored",
+    "body": "`POST /v1/media` now strips MP4 and WebM location, user data, tags, and GPS tracks, and `.glb` `extras`, XMP, folders in file paths, and EXIF in embedded textures, as it already did for images. `asset.copyright` stays.\nA video or model the server can't read safely is refused with `bad_request`; export it again and retry.",
+    "links": []
+  },
+  {
     "id": "2026-10-05-a-reply-s-own-page-carries-the-post-it-answers",
     "date": "2026-10-05",
     "kind": "changed",

@@ -61,11 +61,13 @@ Gotchas, surprises, and things we'd tell our past selves.
 - [Tests are typechecked by the root tsconfig, not the package one](learnings/2026-10-02-tests-typecheck-from-root.md) · 2026-10-02 · `tooling`
 - [After a repo transfer, agent sessions can read but not write](learnings/2026-10-03-after-a-repo-transfer-agent-sessions-can-read-but-not-write.md) · 2026-10-03 · `tooling` `agents` `process`
 - [Defaults derived from random ids make tests flaky](learnings/2026-10-03-defaults-derived-from-random-ids-make-tests-flaky.md) · 2026-10-03 · `testing` `server` `sim`
+- [Never chain git push onto a rebase or a filter in one shell line](learnings/2026-10-05-never-chain-git-push-onto-a-rebase-or-a-filter-in-one-shell-.md) · 2026-10-05 · `process` `agents` `tooling`
 
 ## Handoffs
 
 End-of-session notes. Read the latest one before starting work.
 
+- [Trust and safety, the staff app, check-ins, and coins phase 1 live](handoffs/2026-10-05-0047-trust-and-safety-the-staff-app-check-ins-and-coins-phase-1-l.md) · 2026-10-05 · `process` `deploy` `safety` `protocol` `server` `client` `economy` `agents`
 - [Social MVP live, ten workstreams in flight](handoffs/2026-10-04-2040-social-mvp-live-ten-workstreams-in-flight.md) · 2026-10-04 · `process` `deploy` `social` `client` `server` `protocol` `agents`
 - [Repo move, PR cleanup, and the road to terrakin.org](handoffs/2026-10-03-0506-repo-move-pr-cleanup-and-the-road-to-terrakin-org.md) · 2026-10-03 · `process` `server` `protocol` `client` `deploy`
 - [Foundation and Phase 1 prototype](handoffs/2026-10-02-2200-foundation-and-phase-1-prototype.md) · 2026-10-02 · `process` `sim` `protocol` `server` `client`

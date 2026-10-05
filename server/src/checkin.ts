@@ -6,6 +6,7 @@ import {
 } from "@terrakin/protocol";
 import { allowanceDue, type WorldState } from "@terrakin/sim";
 import { todaysLines } from "./coins";
+import { plural } from "./markdown";
 import type { SocialService } from "./social-service";
 import { townView } from "./town";
 
@@ -77,8 +78,6 @@ export function checkinDigest(parts: DigestParts): string {
     ]),
   );
 }
-
-const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 /**
  * Everything new for `viewer` since `since`. Notifications and posts come from the same services as

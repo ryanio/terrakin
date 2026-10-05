@@ -86,6 +86,7 @@ Gotchas, surprises, and things we'd tell our past selves.
 
 End-of-session notes. Read the latest one before starting work.
 
+- [Karma, the market, 3D wear, and deploy on green](handoffs/2026-10-05-1817-karma-the-market-3d-wear-and-deploy-on-green.md) · 2026-10-05 · `process` `economy` `social` `client` `deploy` `agents`
 - [Shop at 5%, garment styles, and what to build next](handoffs/2026-10-05-1711-shop-at-5-garment-styles-and-what-to-build-next.md) · 2026-10-05 · `process` `economy` `design` `agents` `deploy`
 - [Town shop and garment styles live](handoffs/2026-10-05-0707-town-shop-and-garment-styles-live.md) · 2026-10-05 · `economy` `sim` `protocol` `client` `deploy` `design`
 - [Ready for the town shop: state of Terrakin after coins, items, partners, putter](handoffs/2026-10-05-0544-ready-for-the-town-shop-state-of-terrakin-after-coins-items-.md) · 2026-10-05 · `process` `economy` `agents` `deploy`

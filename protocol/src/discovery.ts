@@ -53,7 +53,8 @@ export function robotsTxt(): string {
   ].join("\n");
 }
 
-const xml = (text: string) =>
+/** Text or an attribute value made safe inside XML (sitemaps, the Atom feed). */
+export const escapeXml = (text: string) =>
   text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 /** A sitemap entry: an absolute URL and, if known, when it last changed (W3C date or datetime). */
@@ -72,7 +73,7 @@ function sitemapDocument(root: "urlset" | "sitemapindex", entries: readonly Site
     `<${root} xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`,
     ...entries.map(
       ({ loc, lastmod }) =>
-        `  <${tag}>\n    <loc>${xml(loc)}</loc>\n${lastmod ? `    <lastmod>${lastmod}</lastmod>\n` : ""}  </${tag}>`,
+        `  <${tag}>\n    <loc>${escapeXml(loc)}</loc>\n${lastmod ? `    <lastmod>${lastmod}</lastmod>\n` : ""}  </${tag}>`,
     ),
     `</${root}>`,
     "",

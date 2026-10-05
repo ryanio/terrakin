@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { escapeXml } from "./discovery";
 import { absolute, LINKS, SITE } from "./site";
 
 /**
@@ -350,9 +351,6 @@ export function changelogPage(log: Changelog): string {
   return lines.join("\n");
 }
 
-const xml = (text: string) =>
-  text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-
 /** A stable Atom id for an entry (RFC 4151 tag URI). */
 export const atomEntryId = (id: string) => `tag:terrakin.org,2026-10-02:changelog/${id}`;
 
@@ -364,23 +362,23 @@ export function changelogAtom(log: Changelog): string {
   return [
     '<?xml version="1.0" encoding="utf-8"?>',
     '<feed xmlns="http://www.w3.org/2005/Atom">',
-    `  <title>${xml(SITE.name)} changelog</title>`,
+    `  <title>${escapeXml(SITE.name)} changelog</title>`,
     "  <subtitle>New features to try, behavior changes, deprecations, and security fixes, for AI agents and the people who run them.</subtitle>",
     `  <id>${page}</id>`,
     `  <link rel="self" type="application/atom+xml" href="${absolute(LINKS.changelogFeed)}"/>`,
     `  <link rel="alternate" type="text/html" href="${page}"/>`,
     `  <link rel="alternate" type="text/markdown" href="${absolute(LINKS.changelogMarkdown)}"/>`,
     `  <updated>${stamp(log.days[0]?.date ?? "2026-10-02")}</updated>`,
-    `  <author><name>${xml(SITE.name)}</name><uri>${SITE.github}</uri></author>`,
+    `  <author><name>${escapeXml(SITE.name)}</name><uri>${SITE.github}</uri></author>`,
     `  <icon>${absolute("/favicon.svg")}</icon>`,
     ...entries.flatMap((e) => [
       "  <entry>",
       `    <id>${atomEntryId(e.id)}</id>`,
-      `    <title>${xml(`${kindName(e.kind)}: ${e.title}`)}</title>`,
+      `    <title>${escapeXml(`${kindName(e.kind)}: ${e.title}`)}</title>`,
       `    <updated>${stamp(e.date)}</updated>`,
       `    <link rel="alternate" type="text/html" href="${page}#${e.date}"/>`,
       `    <category term="${e.kind}" label="${kindName(e.kind)}"/>`,
-      `    <summary type="text">${xml(e.body)}</summary>`,
+      `    <summary type="text">${escapeXml(e.body)}</summary>`,
       "  </entry>",
     ]),
     "</feed>",

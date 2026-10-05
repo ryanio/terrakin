@@ -223,7 +223,10 @@ export function inventoryView(ctx: ViewContext): View {
     const { inventory: inv, rules } = data;
     if (!inv) {
       body.replaceChildren(
-        stateCard({ title: "Growing and making aren't open yet", body: "Check back soon." }),
+        stateCard({
+          title: "Growing, making, and gathering aren't open yet",
+          body: "Check back soon.",
+        }),
       );
       return;
     }

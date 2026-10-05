@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Generated from ryanio/op-secrets lib/1p.mjs (9557c2b, body 4fb97c4c2269). Edit it there and run `node sync.mjs`; changes made here are overwritten.
+// Generated from ryanio/op-secrets lib/1p.mjs (0735754, body 8dd880947d27). Edit it there and run `node sync.mjs`; changes made here are overwritten.
 /**
  * 1Password wrapper for this repo's vault (`vault` in secrets.config.json). One
  * entry point so callers never pick
@@ -22,10 +22,19 @@
  *     host machine; the write blocks until you do. Writes are the one case where
  *     the prompt is the POINT, so they still go through `op`.
  *
+ * Settings, from `secrets.config.json` next to this file:
+ *   vault          the vault title reads list and writes go to.
+ *   vaultId        optional. Pins writes and listing to one vault by id, so a
+ *                  second vault with the same title can't catch a write.
+ *   localFallback  optional file (e.g. ".env") whose KEY=value lines stand in
+ *                  for vault items in `run`. A key set there is used as-is and
+ *                  costs no vault read.
+ *
  * Usage: node <secrets dir>/1p.mjs <command> [args...]
  */
 import { execSync, spawn, spawnSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { reconcileSecrets } from './declared-secrets.mjs'
 import {
@@ -38,9 +47,11 @@ import {
 	spendToday,
 } from './op-sdk.mjs'
 
-const VAULT = JSON.parse(
-	readFileSync(new URL('./secrets.config.json', import.meta.url), 'utf8')
-).vault
+const CONFIG = JSON.parse(readFileSync(new URL('./secrets.config.json', import.meta.url), 'utf8'))
+const VAULT = CONFIG.vault
+// What writes pass to `op --vault`: the id when one is pinned, else the title.
+const WRITE_VAULT = CONFIG.vaultId ?? VAULT
+const WRITE_TIMEOUT_MS = 120_000
 
 const ROOT = (() => {
 	try {
@@ -60,6 +71,23 @@ const READ_CMDS = new Set(['run', 'get', 'read', 'list', 'fields', 'env', 'audit
 // Hoisted to module scope: this runs per .env.tpl line, so re-compiling the
 // literal inside the loop on every call is wasted work (Biome useTopLevelRegex).
 const ENV_TPL_LINE_RE = /^([A-Z_][A-Z0-9_]*)=(op:\/\/.+)$/
+const ENV_LINE_RE = /^([A-Z_][A-Z0-9_]*)=(.*)$/
+
+/** KEY=value pairs from a file under the repo root, blank values skipped. */
+function readEnvFile(file) {
+	const path = join(ROOT, file)
+	const values = {}
+	if (!existsSync(path)) {
+		return values
+	}
+	for (const line of readFileSync(path, 'utf8').split('\n')) {
+		const m = line.match(ENV_LINE_RE)
+		if (m?.[2].trim()) {
+			values[m[1]] = m[2].trim()
+		}
+	}
+	return values
+}
 
 // Env with the read-only service token removed, forcing op onto the desktop
 // integration (personal approval). Used for every write so the auth mode is
@@ -69,9 +97,27 @@ function personalEnv() {
 	return env
 }
 
-/** Writes only. Reads never reach the `op` binary, see the header. */
-function opInherit(args) {
-	const res = spawnSync('op', args, { stdio: 'inherit', env: personalEnv() })
+/**
+ * Writes only. Reads never reach the `op` binary, see the header.
+ *
+ * Bounded: a human has to approve the desktop prompt, but one nobody approves
+ * should fail rather than hold the run forever. `quiet` drops op's stdout, for
+ * writes whose echo would print the values just written.
+ */
+function opWrite(args, { quiet = false } = {}) {
+	const res = spawnSync('op', args, {
+		stdio: ['ignore', quiet ? 'ignore' : 'inherit', 'inherit'],
+		env: personalEnv(),
+		timeout: WRITE_TIMEOUT_MS,
+		killSignal: 'SIGKILL',
+	})
+	if (res.error?.code === 'ETIMEDOUT' || res.signal === 'SIGKILL') {
+		console.error(
+			`op ${args.slice(0, 2).join(' ')} timed out after 2 minutes waiting for approval. ` +
+				'Approve the 1Password desktop prompt on the host machine, then rerun.'
+		)
+		process.exit(1)
+	}
 	if (res.status !== 0) {
 		process.exit(res.status ?? 1)
 	}
@@ -182,7 +228,25 @@ async function cmdRun(rest) {
 		}
 	}
 
-	const { env, failed, exhausted, sent, cached } = await resolveAll(refs)
+	// Keys the local fallback file sets cost no vault read.
+	const local = {}
+	if (CONFIG.localFallback) {
+		const values = readEnvFile(CONFIG.localFallback)
+		for (const { key } of refs) {
+			if (values[key]) {
+				local[key] = values[key]
+			}
+		}
+		if (Object.keys(local).length > 0) {
+			console.error(`[1p] ${Object.keys(local).length} from ${CONFIG.localFallback}`)
+		}
+	}
+	const vaultRefs = refs.filter(({ key }) => !(key in local))
+	const resolved = vaultRefs.length
+		? await resolveAll(vaultRefs)
+		: { env: {}, failed: [], exhausted: false, sent: 0, cached: 0 }
+	const { failed, exhausted, sent, cached } = resolved
+	const env = { ...resolved.env, ...local }
 	// Say what the read actually COST. The whole failure mode this tooling exists
 	// for was invisible spend, so a run that quietly billed 78 requests and one
 	// that billed 0 should not look identical.
@@ -222,6 +286,9 @@ async function cmdRead(ref) {
  * `vaults.list()` rather than the vault NAME the `op` CLI accepted.
  */
 async function resolveVaultId() {
+	if (CONFIG.vaultId) {
+		return CONFIG.vaultId
+	}
 	const client = await getClient()
 	for await (const vault of await client.vaults.list()) {
 		if (vault.title === VAULT) {
@@ -366,9 +433,11 @@ function loadEnvTpl() {
 }
 
 async function cmdEnv(envVar) {
-	const ref = loadEnvTpl()[envVar]
+	const refs = loadEnvTpl()
+	const ref = refs[envVar]
 	if (!ref) {
 		console.error(`${envVar} not found in .env.tpl`)
+		console.error(`Available: ${Object.keys(refs).join(', ')}`)
 		process.exit(1)
 	}
 	console.log(`${envVar} -> ${ref}`)
@@ -420,7 +489,7 @@ function announceWrite(action, item, field) {
 
 function cmdSet(item, field, value) {
 	announceWrite('Set', item, field)
-	opInherit(['item', 'edit', item, '--vault', VAULT, `${field}[password]=${value}`])
+	opWrite(['item', 'edit', item, '--vault', WRITE_VAULT, `${field}[password]=${value}`])
 	console.log(`Updated ${item}/${field}`)
 }
 
@@ -430,7 +499,7 @@ function cmdCreate(item, pairs) {
 		const [k, ...rest] = p.split('=')
 		return `${k}[password]=${rest.join('=')}`
 	})
-	opInherit([
+	opWrite([
 		'item',
 		'create',
 		'--vault',
@@ -445,6 +514,55 @@ function cmdCreate(item, pairs) {
 }
 
 /**
+ * Create an item whose fields are named after env keys, so a ref reads
+ * op://<vault>/<item>/<KEY>, with the values taken from a file rather than the
+ * command line (where they would sit in shell history and `ps`). The values go
+ * to `op` as a template file, 0600 in a 0700 directory, removed afterwards:
+ * piping the template to `op item create -` drops its fields, and assignment
+ * args would put the values back in argv. `--text name=value` adds a plain,
+ * unconcealed field, such as a public address.
+ */
+function cmdPut(item, from, args) {
+	const keys = []
+	const text = []
+	for (let i = 0; i < args.length; i++) {
+		if (args[i] !== '--text') {
+			keys.push(args[i])
+			continue
+		}
+		const [name, ...value] = (args[++i] ?? '').split('=')
+		if (!(name && value.length)) {
+			fail('put <item> --from <envfile> KEY1 [KEY2...] [--text name=value]')
+		}
+		text.push({ id: name, label: name, type: 'STRING', value: value.join('=') })
+	}
+	if (keys.length === 0) {
+		fail('put <item> --from <envfile> KEY1 [KEY2...] [--text name=value]')
+	}
+	const values = readEnvFile(from)
+	const missing = keys.filter((k) => !values[k])
+	if (missing.length > 0) {
+		console.error(`1p put: not found in ${from}: ${missing.join(', ')}`)
+		process.exit(1)
+	}
+	const template = {
+		title: item,
+		category: 'SECURE_NOTE',
+		fields: [...keys.map((k) => ({ id: k, label: k, type: 'CONCEALED', value: values[k] })), ...text],
+	}
+	announceWrite('Create', item)
+	const dir = mkdtempSync(join(tmpdir(), '1p-put-'))
+	const file = join(dir, 'item.json')
+	try {
+		writeFileSync(file, JSON.stringify(template), { mode: 0o600 })
+		opWrite(['item', 'create', '--vault', WRITE_VAULT, `--template=${file}`], { quiet: true })
+	} finally {
+		rmSync(dir, { force: true, recursive: true })
+	}
+	console.log(`Created ${item} (${[...keys, ...text.map((t) => t.id)].join(', ')})`)
+}
+
+/**
  * Delete a whole item, addressed by id.
  *
  * By ID and not by title on purpose. `op item create` does not dedupe by
@@ -456,13 +574,13 @@ function cmdCreate(item, pairs) {
  */
 function cmdDeleteItem(id) {
 	announceWrite('Delete item', id)
-	opInherit(['item', 'delete', id, '--vault', VAULT])
+	opWrite(['item', 'delete', id, '--vault', WRITE_VAULT])
 	console.log(`Deleted item ${id}`)
 }
 
 function cmdDelete(item, field) {
 	announceWrite('Delete', item, field)
-	opInherit(['item', 'edit', item, '--vault', VAULT, `${field}[delete]`])
+	opWrite(['item', 'edit', item, '--vault', WRITE_VAULT, `${field}[delete]`])
 	console.log(`Removed ${field} from ${item}`)
 }
 
@@ -574,6 +692,12 @@ switch (cmd) {
 		}
 		cmdDelete(args[0], args[1])
 		break
+	case 'put':
+		if (args.length < 4 || args[1] !== '--from') {
+			fail('put <item> --from <envfile> KEY1 [KEY2...] [--text name=value]')
+		}
+		cmdPut(args[0], args[2], args.slice(3))
+		break
 	case 'delete-item':
 		if (args.length < 1) {
 			fail('delete-item <item-id>   (ids come from `1p.mjs list --ids`)')
@@ -603,6 +727,8 @@ Writes (drops service token, 1Password desktop prompts for approval):
   delete-item <item-id>        delete a whole item by id (duplicate titles)
   set <item> <field> <value>   set a field
   create <item> field=value... create a new item
+  put <item> --from <envfile> KEY... [--text name=value]
+                               create an item from a file's values (none in argv)
   delete <item> <field>        remove a field`)
 		if (cmd) {
 			process.exit(1)

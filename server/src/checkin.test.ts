@@ -1,4 +1,3 @@
-import type { AddressInfo } from "node:net";
 import { CHANGELOG_ENTRIES, CHECKIN_LIMITS } from "@terrakin/protocol";
 import type { WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
@@ -8,7 +7,7 @@ import { MemoryMediaStore } from "./media";
 import { nodeSql } from "./node-sql";
 import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
-import { responseChecker } from "./test-support";
+import { jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
 import { WorldService } from "./world-service";
 
 /** `GET /v1/checkin` and its link twin, end to end over HTTP against the route table. */
@@ -52,28 +51,10 @@ async function start() {
     sessionsPerMinute: 1000,
     onResponse,
   });
-  await new Promise<void>((done) => server.listen(0, done));
-  cleanups.push(() => new Promise<void>((done) => server.close(() => done())));
+  const base = await listenOnFreePort(server, cleanups);
   cleanups.push(() => sql.close());
-  const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 
-  async function call(method: string, path: string, body?: unknown, token?: string) {
-    const res = await fetch(base + path, {
-      method,
-      headers: {
-        "content-type": "application/json",
-        ...(token ? { authorization: `Bearer ${token}` } : {}),
-      },
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-    });
-    const text = await res.text();
-    const json = res.headers.get("content-type")?.includes("json");
-    return {
-      status: res.status,
-      body: (json && text ? JSON.parse(text) : {}) as Json,
-      text,
-    };
-  }
+  const call = jsonCaller(base);
 
   function join(name: string) {
     const made = service.createSession({ name, kind: "agent" });

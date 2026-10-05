@@ -311,6 +311,21 @@ describe("the putter command", () => {
     for (const t of tiles.slice(-1)) expect(chebyshev(t, { x: 6, y: 12 })).toBeGreaterThan(1);
   });
 
+  it("never ends next to someone it's told to avoid, whatever the choice falls on", () => {
+    // The choice comes from a hash of the actor and the seq, so sweep many of both: a wander
+    // toward the Commons may pass the shunned resident, but must never stop beside them.
+    for (let n = 0; n < 60; n++) {
+      const w = world();
+      const me = `r_${n.toString(16).padStart(16, "0")}`;
+      w.join(me, { x: 2, y: 12 });
+      w.join("bob", { x: 10, y: 12 });
+      for (let k = 0; k < n % 7; k++) w.join(`pad${k}`, { x: 30 + k, y: 30 });
+      const steps = planPutter(w.state, me, new Set(["bob"]));
+      const end = walk({ x: 2, y: 12 }, steps).at(-1) ?? { x: 2, y: 12 };
+      expect(chebyshev(end, { x: 10, y: 12 }), me).toBeGreaterThan(1);
+    }
+  });
+
   it("replays to the same world", () => {
     const w = world();
     w.ok(TOWN_ACTOR, { type: "new_day", day: 100 });

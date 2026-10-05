@@ -99,8 +99,12 @@ export function planPutter(
 
   const others = Object.values(state.residents).filter((r) => r.online && r.id !== actor);
   const occupied = new Set(others.map((r) => tileKey(r.x, r.y)));
+  // Nobody in `avoid` is a destination, and no walk ends next to one of them either: a wander
+  // toward the Commons may pass by, but never stops beside someone who shut the actor out.
+  const shunned = others.filter((r) => avoid.has(r.id));
   const nodes = reachable(state, me);
-  const free = (n: Node) => !occupied.has(tileKey(n.x, n.y));
+  const free = (n: Node) =>
+    !occupied.has(tileKey(n.x, n.y)) && !shunned.some((r) => chebyshev(n, r) <= 1);
 
   /** The walk to `nodes[i]`, cut to `PUTTER.steps` and back off anyone's tile. */
   const walkTo = (i: number): Direction[] => {

@@ -549,6 +549,50 @@ describe("AI triage in the review queue", () => {
   });
 });
 
+describe("triage's share for unreported text", () => {
+  const SCAMMY = "Our telegram group talks crypto every night";
+
+  it("caps the calls one author's flagged text can cause in a day", async () => {
+    const t = await start([MILD], { perAuthorFilterPerDay: 2 });
+    const bo = await t.join("Bo");
+    for (const n of [1, 2, 3, 4]) {
+      await t.call("POST", "/v1/posts", { text: `${SCAMMY}, part ${n}` }, bo.token);
+      await t.settle();
+    }
+    expect(t.api.calls).toHaveLength(2);
+    // Another author has a share of their own.
+    const cy = await t.join("Cy");
+    await t.call("POST", "/v1/posts", { text: `${SCAMMY}, says Cy` }, cy.token);
+    await t.settle();
+    expect(t.api.calls).toHaveLength(3);
+    // And the next day, Bo's share starts again.
+    t.advance(DAY_MS);
+    await t.call("POST", "/v1/posts", { text: `${SCAMMY}, a new day` }, bo.token);
+    await t.settle();
+    expect(t.api.calls).toHaveLength(4);
+  });
+
+  it("keeps part of the daily calls for reports", async () => {
+    const t = await start([MILD], { callsPerDay: 4, filterShare: 0.5, perAuthorFilterPerDay: 10 });
+    const bo = await t.join("Bo");
+    const authors = [bo, await t.join("Cy"), await t.join("Dee")];
+    for (const [n, author] of authors.entries()) {
+      await t.call("POST", "/v1/posts", { text: `${SCAMMY}, number ${n}` }, author.token);
+      await t.settle();
+    }
+    // Flagged text may use half the day's calls.
+    expect(t.api.calls).toHaveLength(2);
+    // Reports get the rest.
+    const ada = await t.join("Ada");
+    for (const text of ["First plain post", "Second plain post", "Third plain post"]) {
+      const post = (await t.call("POST", "/v1/posts", { text }, bo.token)).body.post;
+      await t.report(ada.token, "post", post.id);
+      await t.settle();
+    }
+    expect(t.api.calls).toHaveLength(4);
+  });
+});
+
 describe("without a key", () => {
   it("files reports and fills the queue exactly as before, and never calls out", async () => {
     const t = await start([SPAM], { apiKey: undefined });

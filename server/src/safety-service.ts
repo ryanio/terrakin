@@ -368,17 +368,13 @@ export class SafetyService {
     const latest = this.latestVerdictRow(kind, id);
     if (latest && String(latest.evidence) === evidence) return;
     if (this.inFlight.has(key)) return;
-    const trigger = reporter ?? `filter:${key}`;
-    if (reporter) {
-      const today = this.count(
-        "SELECT COUNT(*) AS c FROM triage_verdicts WHERE trigger = ? AND created_at > ?",
-        reporter,
-        this.o.now() - DAY_MS,
-      );
-      if (today >= triage.config.perReporterPerDay) return;
-    }
-
     const authorId = kind === "resident" ? id : target.author?.id;
+    // Each reporter, and each author whose text a filter flagged, can cause only so many calls a
+    // day, so nobody can spend the day's budget alone.
+    const trigger = reporter ?? `filter:${authorId ?? key}`;
+    const limit = reporter ? triage.config.perReporterPerDay : triage.config.perAuthorFilterPerDay;
+    if (!triage.takeTrigger(trigger, limit)) return;
+
     const facts = [
       reports.length
         ? `Open reports: ${reports.length} (reasons: ${[...new Set(reports.map((r) => String(r.reason)))].join(", ")}).`
@@ -388,12 +384,15 @@ export class SafetyService {
     ];
     this.inFlight.add(key);
     const run = triage
-      .classify({
-        kind: kind === "resident" ? "resident profile (name, note, and bio)" : kind,
-        text: target.text,
-        notes: reports.map((r) => String(r.note)).filter(Boolean),
-        facts,
-      })
+      .classify(
+        {
+          kind: kind === "resident" ? "resident profile (name, note, and bio)" : kind,
+          text: target.text,
+          notes: reports.map((r) => String(r.note)).filter(Boolean),
+          facts,
+        },
+        reporter ? "report" : "filter",
+      )
       .then((result) => {
         if (result.ok) this.applyVerdict(kind, id, evidence, trigger, result.verdict, result.model);
       })

@@ -29,9 +29,11 @@ export type AdminGate = { email: string | undefined } | { refuse: Response };
 /**
  * Who is calling the admin host. With Access set up, only a request carrying a valid Access JWT
  * (the header Access adds, or its cookie) gets through, checked here as well as at Cloudflare's
- * edge, and its email is the staff identity. Without Access, requests get through with no email,
- * and staff routes fall back to a maintainer's or moderator's token; `requireAccess` (the real
- * admin.terrakin.org) refuses that fallback, so the public host never runs without Access.
+ * edge, and its email is the staff identity, and the `Api` then ignores resident tokens on staff
+ * routes on every host, terrakin.org included. Without Access, requests get through with no email
+ * and staff routes fall back to a maintainer's or moderator's token. `requireAccess` (the real
+ * admin.terrakin.org) refuses to serve the admin host that way, but until Access is configured the
+ * staff routes on terrakin.org's own API still take those tokens.
  */
 export async function adminGate(
   request: Request,

@@ -219,10 +219,17 @@ describe("with Cloudflare Access set up", () => {
     const t = direct(true);
     const mo = await t.join("Mo");
     t.maintainers.add(mo.id);
-    // A maintainer's token no longer opens staff routes.
+    // A maintainer's token no longer opens staff routes, on terrakin.org or anywhere else.
     expect((await t.call("GET", "/v1/admin/reports", undefined, t.bearer(mo.token))).status).toBe(
       401,
     );
+    for (const origin of ["https://terrakin.org", "https://admin.terrakin.org"]) {
+      const call = await t.call("GET", "/v1/admin/reports", undefined, {
+        ...t.bearer(mo.token),
+        origin,
+      });
+      expect(call.status, origin).toBe(401);
+    }
     expect((await t.call("GET", "/v1/admin/reports")).status).toBe(401);
     expect(
       (await t.call("GET", "/v1/admin/reports", undefined, { staffEmail: "nobody@example.com" }))

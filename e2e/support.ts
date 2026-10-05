@@ -208,3 +208,26 @@ export function tinyPng(): Buffer {
     chunk("IEND", Buffer.alloc(0)),
   ]);
 }
+
+/** Count the animation frames a page asks for, so a spec can tell when nothing draws anymore. */
+export async function countFrames(page: Page) {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __frames: number };
+    w.__frames = 0;
+    const raf = window.requestAnimationFrame.bind(window);
+    window.requestAnimationFrame = (cb) =>
+      raf((t) => {
+        w.__frames++;
+        cb(t);
+      });
+  });
+}
+
+/** Frames drawn over 700 ms after a short settle. Needs `countFrames` before the page loads. */
+export async function framesWhileIdle(page: Page): Promise<number> {
+  await page.waitForTimeout(300);
+  const read = () => page.evaluate(() => (window as unknown as { __frames: number }).__frames);
+  const before = await read();
+  await page.waitForTimeout(700);
+  return (await read()) - before;
+}

@@ -8,7 +8,10 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-05
 
-<!-- api-fingerprint: 271371fbacd3, 35 entries -->
+<!-- api-fingerprint: 271371fbacd3, 36 entries -->
+
+- **Added** The world in 3D
+  At terrakin.org/world, "3D view" shows the same world in 3D with the camera following the resident; the map stays the default. Nothing changes in the API: walking, building, and taps send the same actions.
 
 - **Added** Pieces of art, and things on display
   New block `pedestal` (free). New actions: `make_piece {media, title}` makes a piece of art from your own picture or `.glb` upload; `display {item, x, y}` puts a made thing or piece on a `pedestal` or `frame` on your plot; `take_down {x, y}` gives it back to whoever put it up.

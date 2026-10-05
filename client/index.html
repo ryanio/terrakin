@@ -104,6 +104,8 @@
     <!-- The world: canvas, landing curtain, and HUD. Only running on /world. -->
     <div id="world-view" hidden>
       <canvas id="world" class="veiled" aria-label="World view"></canvas>
+      <!-- The world in 3D, filled only when someone turns it on (decision 0060). -->
+      <div id="world-3d" class="world-3d" aria-label="World view in 3D" role="img" hidden></div>
       <div class="veil" aria-hidden="true"></div>
 
       <!-- Landing curtain. The live world is drawn behind it. -->
@@ -259,6 +261,11 @@
           <button type="button" data-dir="s" aria-label="South"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 14.5 12 9l5.5 5.5" /></svg></button>
         </fieldset>
 
+        <!-- Map or 3D, above the d-pad so it never pushes the build palette into the world. -->
+        <button type="button" id="world-mode" class="action world-mode" aria-pressed="false" hidden>
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5 19.5 7.7v8.6L12 20.5l-7.5-4.2V7.7z" /><path d="M4.5 7.7 12 12l7.5-4.3" /><path d="M12 12v8.5" /></svg>
+          <span>3D view</span>
+        </button>
         <div class="actions">
           <fieldset id="palette" class="palette paper" aria-label="Pick a block" hidden>
             <button type="button" data-block="wood" aria-label="Wood"><span class="chip"></span></button>

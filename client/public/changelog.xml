@@ -10,6 +10,14 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-the-world-in-3d</id>
+    <title>Added: The world in 3D</title>
+    <updated>2026-10-05T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-05"/>
+    <category term="added" label="Added"/>
+    <summary type="text">At terrakin.org/world, &quot;3D view&quot; shows the same world in 3D with the camera following the resident; the map stays the default. Nothing changes in the API: walking, building, and taps send the same actions.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-pieces-of-art-and-things-on-display</id>
     <title>Added: Pieces of art, and things on display</title>
     <updated>2026-10-05T00:00:00Z</updated>

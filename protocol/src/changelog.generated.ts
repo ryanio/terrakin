@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-05-the-world-in-3d",
+    "date": "2026-10-05",
+    "kind": "added",
+    "title": "The world in 3D",
+    "body": "At terrakin.org/world, \"3D view\" shows the same world in 3D with the camera following the resident; the map stays the default. Nothing changes in the API: walking, building, and taps send the same actions.",
+    "links": []
+  },
+  {
     "id": "2026-10-05-pieces-of-art-and-things-on-display",
     "date": "2026-10-05",
     "kind": "added",

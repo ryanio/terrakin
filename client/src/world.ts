@@ -34,10 +34,12 @@ import { createLanding } from "./landing";
 import { Mirror } from "./mirror";
 import { Connection, type Identity, savedToken, saveToken } from "./net";
 import { blockColor, HEARTH_COLOR, render } from "./render";
+import type { World3d } from "./scene3d/world";
 import { track } from "./telemetry";
 import { NO_PLOT_LINE, newsLine, toastMs, worldProblem } from "./things";
 import { dayPhase } from "./time";
 import { ARRIVAL_KEY, gestureLine } from "./together";
+import { offer3d, readSignals, savedMode, saveMode, startMode, type WorldMode } from "./world-mode";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -54,6 +56,8 @@ const chatInput = $<HTMLInputElement>("chat-input");
 const chatToggle = $("chat-toggle");
 const buildButton = $("build");
 const palette = $("palette");
+const modeButton = $<HTMLButtonElement>("world-mode");
+const host3d = $("world-3d");
 
 const motionQuery = window.matchMedia(REDUCED_MOTION);
 
@@ -92,6 +96,12 @@ let joiningFresh = false;
 /** Server time anchor from the latest snapshot, plus when we received it locally. */
 let dayAnchor: { nowMs: number; dayLengthMs: number; receivedAt: number } | undefined;
 const cam: Camera = { cx: 0, cy: 0, scale: 32, width: 0, height: 0 };
+/** 2D map or 3D view (decision 0060). The 2D map is the default; the choice is remembered. */
+let mode: WorldMode = "2d";
+let world3d: World3d | undefined;
+let loading3d = false;
+const signals = readSignals();
+modeButton.hidden = !offer3d(signals);
 
 // ---------- landing ----------
 
@@ -121,6 +131,7 @@ function enterWorld(instant = false) {
 
 /** Back to the landing, with the world soft and drifting behind it. */
 function leaveWorld() {
+  close3d();
   joiningFresh = false;
   worldWait.hidden = true;
   canvas.classList.add("veiled");
@@ -243,6 +254,7 @@ function onMessage(msg: ServerMessage) {
       hud.hidden = false;
       worldWait.hidden = true;
       snapCamera();
+      if (mode === "3d") open3d();
       showArrival();
       void loadDecor();
       break;
@@ -429,9 +441,13 @@ function openStation(x: number, y: number) {
 }
 
 canvas.addEventListener("pointerdown", (e) => {
+  tapTile(screenToTile(cam, e.clientX, e.clientY));
+});
+
+/** A tap on the world, as a tile: from the 2D map, or picked in the 3D view. Both act the same. */
+function tapTile(tile: { x: number; y: number }) {
   const r = self();
   if (!mirror || !r) return;
-  const tile = screenToTile(cam, e.clientX, e.clientY);
   if (buildMode) {
     const hasBlock = mirror.blocks.has(`${tile.x},${tile.y}`);
     if (block === "hearth") tryAct({ type: "set_hearth", ...tile });
@@ -469,7 +485,70 @@ canvas.addEventListener("pointerdown", (e) => {
     return;
   }
   walkTarget = tile;
+}
+
+// ---------- 2D or 3D ----------
+
+function paintMode() {
+  modeButton.setAttribute("aria-pressed", String(mode === "3d"));
+}
+
+modeButton.addEventListener("click", () => {
+  mode = mode === "3d" ? "2d" : "3d";
+  saveMode(mode);
+  paintMode();
+  if (mode === "3d") open3d();
+  else close3d();
 });
+
+/** Show the world in 3D, fetching the scene code (three.js included) the first time. */
+function open3d() {
+  if (world3d || loading3d || !active || !me) return;
+  loading3d = true;
+  modeButton.setAttribute("aria-busy", "true");
+  import("./scene3d/world")
+    .then((m) => {
+      loading3d = false;
+      modeButton.removeAttribute("aria-busy");
+      if (mode !== "3d" || !active || !me) return;
+      host3d.hidden = false;
+      world3d = m.createWorld3d(host3d, { onTap: tapTile, onFail: fallBack });
+      canvas.hidden = true;
+    })
+    .catch(() => {
+      loading3d = false;
+      modeButton.removeAttribute("aria-busy");
+      fallBack("failed");
+    });
+}
+
+/** Back to the 2D map, keeping the choice for next time. */
+function close3d() {
+  world3d?.dispose();
+  world3d = undefined;
+  host3d.hidden = true;
+  canvas.hidden = false;
+}
+
+/**
+ * The 3D view can't run here: back to the map. Too slow, or the scene won't load, is remembered
+ * for this device; a lost GPU (a phone reclaiming it in the background) is for this visit only.
+ */
+function fallBack(reason: "slow" | "lost" | "failed") {
+  mode = "2d";
+  if (reason !== "lost") saveMode("2d");
+  paintMode();
+  // Leave the frame the scene is in before freeing it, and free only the view that failed.
+  const failed = world3d;
+  setTimeout(() => {
+    if (world3d === failed) close3d();
+  }, 0);
+  showToast(
+    reason === "slow"
+      ? "3D was running slowly on this device, so you're back on the map."
+      : "The 3D view stopped working here, so you're back on the map.",
+  );
+}
 
 for (const button of document.querySelectorAll<HTMLButtonElement>(".dpad button")) {
   button.addEventListener("click", () => step(button.dataset.dir as Direction));
@@ -688,7 +767,8 @@ function frame(t: number) {
   const phase = dayAnchor
     ? dayPhase(dayAnchor.nowMs + (performance.now() - dayAnchor.receivedAt), dayAnchor.dayLengthMs)
     : undefined;
-  if (mirror)
+  if (world3d && mirror && me) world3d.sync({ mirror, me, buildMode });
+  else if (mirror)
     render(ctx, {
       mirror,
       me,
@@ -708,6 +788,8 @@ export function startWorld(options: { navigate?: (path: string) => void } = {}) 
   if (active) return;
   active = true;
   navigate = options.navigate;
+  mode = startMode(savedMode(), signals);
+  paintMode();
   resize();
   rafId = requestAnimationFrame(frame);
   const token = savedToken();
@@ -729,6 +811,7 @@ export function stopWorld() {
   if (!active) return;
   active = false;
   cancelAnimationFrame(rafId);
+  close3d();
   stopPopulation?.();
   stopPopulation = undefined;
   conn?.close();

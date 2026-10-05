@@ -289,10 +289,11 @@ describe("one definition per rule", () => {
       "list-style: none",
     ]);
     const cluster = "display: flex; flex-wrap: wrap; gap: var(--space-sm)";
+    // The lookbehind leaves each rule's closing brace for the next match, so no rule is skipped.
     const copies = ["client/src/style.css", "admin/src/style.css"].flatMap((path) =>
       [
         ...topLevel(read(path).replace(/\/\*[\s\S]*?\*\//g, "")).matchAll(
-          /(?:^|\})\s*([^{}@]+?)\s*\{([^{}]*)\}/g,
+          /(?<=^|\})\s*([^{}@]+?)\s*\{([^{}]*)\}/g,
         ),
       ].flatMap(([, selector, body]) => {
         const decls = (body ?? "")

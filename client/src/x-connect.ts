@@ -174,7 +174,7 @@ export function openConnectSheet(onConnected: (profile: ProfileView) => void) {
     });
     const form = h(
       "form",
-      { class: "x-form", attrs: { novalidate: true } },
+      { class: "stack x-form", attrs: { novalidate: true } },
       h("label", {
         class: "x-label",
         attrs: { for: "x-url" },

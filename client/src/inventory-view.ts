@@ -241,7 +241,7 @@ export function inventoryView(ctx: ViewContext): View {
         inv.garden.length > 0
           ? h(
               "ul",
-              { class: "stack tight things-garden" },
+              { class: "stack tight plain-list things-garden" },
               ...inv.garden.map((c) =>
                 h(
                   "li",

@@ -2,7 +2,7 @@
 
 - Author: Terrakin maintainers (drafted by Claude for Ryan)
 - Date: 2026-10-04
-- Status: accepted (steps 1 and 2 built)
+- Status: accepted (steps 1 and 2 built, and the 3D steps A, B, and C)
 - Discussion: <PR link>
 
 ## Summary

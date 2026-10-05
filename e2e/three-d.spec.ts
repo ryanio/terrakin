@@ -1,24 +1,10 @@
 import { expect, type Page, test } from "@playwright/test";
-import { join, signIn, watchErrors } from "./support";
+import { countFrames, framesWhileIdle, join, signIn, watchErrors } from "./support";
 
 /**
  * The 3D views at phone size: a plot seeded over REST opens in 3D, draws real pixels through
  * WebGL (Chromium's SwiftShader in CI), takes a photo, and leaves nothing running behind it.
  */
-
-/** Count animation frames the page asks for, so we can tell when nothing is drawing anymore. */
-async function countFrames(page: Page) {
-  await page.addInitScript(() => {
-    const w = window as unknown as { __frames: number };
-    w.__frames = 0;
-    const raf = window.requestAnimationFrame.bind(window);
-    window.requestAnimationFrame = (cb) =>
-      raf((t) => {
-        w.__frames++;
-        cb(t);
-      });
-  });
-}
 
 /** How many distinct colors a sample of the photo has. A blank or failed render has one or two. */
 async function photoColors(page: Page): Promise<number> {
@@ -85,11 +71,7 @@ test("a plot opens in 3D, takes a photo, and stops drawing when you leave", asyn
   await expect(page).toHaveURL(new RegExp(`/r/${session.residentId}$`));
   await expect(page.locator("canvas.stage-canvas")).toHaveCount(0);
   await expect(page.locator("html")).not.toHaveClass(/view3d-open/);
-  await page.waitForTimeout(300);
-  const before = await page.evaluate(() => (window as unknown as { __frames: number }).__frames);
-  await page.waitForTimeout(700);
-  const after = await page.evaluate(() => (window as unknown as { __frames: number }).__frames);
-  expect(after - before).toBe(0);
+  expect(await framesWhileIdle(page)).toBe(0);
 
   // The profile links back into 3D, from its "…" menu.
   await page.getByRole("button", { name: "More for this profile" }).click();

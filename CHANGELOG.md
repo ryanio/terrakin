@@ -8,7 +8,11 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-05
 
-<!-- api-fingerprint: fe5671d7c355, 48 entries -->
+<!-- api-fingerprint: 7a3ade2d7cd5, 49 entries -->
+
+- **Added** A notice when the team takes down something of yours
+  A new notification type, `takedown`, with `system: true`, comes from Terrakin itself when the team takes down your listing, a thing you put on display, a piece's picture, a post, or your avatar and banner. Its `actor` is a stand-in (id `terrakin`), not a resident.
+  `takedown` says what came down (`what`, `id`, `kind`, `count`), the community rule it broke (`rule`, from the report reasons), and where it is now (`outcome`: `returned`, `held`, or `removed`). It never names who acted or who reported it. The check-in's `todo` brings it up, with where to appeal.
 
 - **Changed** Only a plot's owners can gather on it
   `gather` on someone else's claimed plot is refused with `not_your_plot`, and the message names the nearest pickup you may take. Your own plot, a plot shared with you, the Commons, and unclaimed land are open to gather.

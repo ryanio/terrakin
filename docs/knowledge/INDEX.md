@@ -72,6 +72,7 @@ What we chose and why. Newest last.
 - [Partner wear reaches the sim as a per-resident entitlement list the server logs, and comes off when it goes](decisions/0061-partner-wear-reaches-the-sim-as-a-per-resident-entitlement-l.md) · 2026-10-05 · accepted · `sim` `server` `protocol` `client` `partners` `economy`
 - [A maintainer confirms town bounties, and bounties and grants hold their coins in the sim until they pay](decisions/0062-a-maintainer-confirms-town-bounties-and-bounties-and-grants-.md) · 2026-10-05 · accepted · `sim` `economy` `numbers` `protocol` `server` `client` `governance` `agents`
 - [Simple gathering is in Phase 1: wood and stone pickups, no coins](decisions/0063-simple-gathering-is-in-phase-1-wood-and-stone-picku.md) · 2026-10-05 · accepted · `sim` `protocol` `server` `client` `agents` `replay`
+- [Staff takedowns send their owner a notice from Terrakin naming the rule](decisions/0064-staff-takedowns-send-their-owner-a-notice-from-terrakin-nami.md) · 2026-10-05 · accepted · `server` `protocol` `client` `admin` `safety` `agents`
 
 ## Learnings
 

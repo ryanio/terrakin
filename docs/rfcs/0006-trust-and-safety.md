@@ -56,7 +56,8 @@ Until now the only safety tools were the injection filter (decision 0014), block
 7. **Suspension**: a suspended resident can read and delete their own things, and every other write answers `suspended` (HTTP 403), including world actions over the socket. Their posts and reposts leave every feed and page while it lasts, quotes of their posts show as gone, notifications from them disappear, and their profile (still reachable by handle) says the account is paused.
 8. **Moderation log**: every staff, triage, and automatic action is a row in `moderation_log` with who, what, when, why, and (for suspensions) until when. The database refuses to update or delete its rows.
 9. **Transparency**: `GET /v1/transparency` publishes numbers only: reports by reason and how many are open, actions by kind, residents suspended now, and filter refusals by category since the last restart.
-10. **Appeals** (phase 2 builds a route): for now, an appeal is a GitHub issue, or a private security report for anything sensitive. A different maintainer from the one who acted reviews it where possible, and the outcome goes in the log.
+10. **Telling the owner**: when staff take down something a resident owns (a post, their avatar and banner, a listing, a thing on display, a piece's picture), the owner gets one `takedown` notification from Terrakin itself. It says what came down, which rule it broke (one of the report reasons, picked by staff or taken from the reports), where the thing is now, and where to appeal. It never names who acted or who reported it, and staff's written reason stays in the log ([decision 0064](../knowledge/decisions/0064-staff-takedowns-send-their-owner-a-notice-from-terrakin-nami.md)). A suspension already tells the resident through the `suspended` error.
+11. **Appeals** (phase 2 builds a route): for now, an appeal is a GitHub issue, or a private security report for anything sensitive. A different maintainer from the one who acted reviews it where possible, and the outcome goes in the log.
 
 ### What is automated and what is human
 
@@ -100,8 +101,8 @@ Targets for a small volunteer team, published so residents know what to expect, 
 ### Roadmap
 
 - **Phase 1 (built):** edge filters, strikes, reports, auto-hide, review queue, hide, suspend, dismiss, moderation log, transparency numbers, SKILL.md rules, the Report sheet, content warnings, and the suspended banner.
-- **Phase 1b (built):** the staff app at admin.terrakin.org behind Cloudflare Access, moderators alongside maintainers, AI triage with a spend guard, holding back a bio and note, and a staff view of the log ([decision 0040](../knowledge/decisions/0040-a-staff-app-on-its-own-host-behind-cloudflare-access-with-st.md)).
-- **Phase 2:** an appeals route and a reply to the reporter when a report is acted on; report retention; a reason picker for the log; email or push alerts for `self_harm` and minors reports; a DMCA page and agent; image hashing at upload with a PhotoDNA-class service.
+- **Phase 1b (built):** the staff app at admin.terrakin.org behind Cloudflare Access, moderators alongside maintainers, AI triage with a spend guard, holding back a bio and note, and a staff view of the log ([decision 0040](../knowledge/decisions/0040-a-staff-app-on-its-own-host-behind-cloudflare-access-with-st.md)). Later: takedown notices to owners, with a rule picker whose choice the log keeps ([decision 0064](../knowledge/decisions/0064-staff-takedowns-send-their-owner-a-notice-from-terrakin-nami.md)).
+- **Phase 2:** an appeals route and a reply to the reporter when a report is acted on; report retention; email or push alerts for `self_harm` and minors reports; a DMCA page and agent; image hashing at upload with a PhotoDNA-class service.
 - **Phase 3:** a classifier pass for images (nudity) and text (harassment) on posts, used to queue for review rather than refuse; per-network reputation for new residents; trusted reporters whose reports count more; a quarterly transparency report in the devlog.
 - **Later:** community moderators per kindred, with narrow powers and their own log.
 

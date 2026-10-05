@@ -34,6 +34,8 @@ import {
   type ReactionCounts,
   type ReactionKey,
   type ResidentBrief,
+  TakedownView,
+  TERRAKIN_ACTOR,
   type UpdateProfileRequest,
   X_CODE_TTL_MS,
   X_HANDLE,
@@ -516,6 +518,7 @@ export class SocialService {
         return kept;
       },
       purgeMedia: (mediaId) => this.purgeMedia(mediaId),
+      takedown: (owner, notice, excerptOf) => this.takedownNotice(owner, notice, excerptOf),
       moderation: () => [this.moderation],
       triage: options.triage,
     });
@@ -727,6 +730,11 @@ export class SocialService {
       postId,
     );
     this.sql.exec("DELETE FROM notifications WHERE post_id = ?", postId);
+    // A takedown notice about it quotes its start: that goes with the post.
+    this.sql.exec(
+      "DELETE FROM notifications WHERE type = 'takedown' AND instr(detail, ?) > 0",
+      `"id":${JSON.stringify(postId)}`,
+    );
     for (const id of media) await this.releaseIfUnused(id);
     return { ok: true, value: null };
   }
@@ -1743,6 +1751,27 @@ export class SocialService {
   }
 
   /**
+   * A takedown notice from Terrakin itself (decision 0064): staff took down something `recipient`
+   * owns. No resident is the actor, so blocks and the per-actor cap don't apply, and nothing names
+   * who acted or who reported it. `excerpt` is the start of a hidden post: the owner's own words.
+   */
+  takedownNotice(recipient: string, notice: TakedownView, excerptOf = "") {
+    if (!this.resident(recipient)) return;
+    const now = this.now();
+    const seq = this.count("SELECT COALESCE(MAX(seq), 0) + 1 AS c FROM notifications");
+    this.sql.exec(
+      `INSERT INTO notifications (id, recipient, type, actor, post_id, detail, group_key, count, seq, created_at)
+        VALUES (?, ?, 'takedown', ?, '', ?, '', 1, ?, ?)`,
+      randomId("n"),
+      recipient,
+      TERRAKIN_ACTOR.id,
+      JSON.stringify({ ...notice, ...(excerptOf ? { excerpt: excerpt(excerptOf) } : {}) }),
+      seq,
+      now,
+    );
+  }
+
+  /**
    * Notifications whose post (if any) is still there and shown, from residents who aren't
    * suspended, about posts by residents who aren't suspended. Checked when read, so hiding a post or
    * suspending someone takes their notifications away at once. Bind the recipient, then `now()`
@@ -1785,10 +1814,11 @@ export class SocialService {
     const page = rows.slice(0, limit);
     const last = page.at(-1);
     const notifications = page.flatMap((row): NotificationView[] => {
-      const actor = this.authorById(String(row.actor));
-      if (!actor) return [];
       const type = String(row.type) as NotificationType;
       const detail = String(row.detail);
+      if (type === "takedown") return this.takedownView(row, detail);
+      const actor = this.authorById(String(row.actor));
+      if (!actor) return [];
       return [
         {
           id: String(row.id),
@@ -1810,6 +1840,34 @@ export class SocialService {
       next: rows.length > limit && last ? Number(last.seq).toString(36) : null,
       unread: this.unread(recipient),
     };
+  }
+
+  /** A stored takedown notice as the recipient reads it, from Terrakin rather than a resident. */
+  private takedownView(row: Record<string, unknown>, detail: string): NotificationView[] {
+    let stored: unknown;
+    try {
+      stored = JSON.parse(detail);
+    } catch {
+      return [];
+    }
+    const parsed = TakedownView.safeParse(stored);
+    if (!parsed.success) return [];
+    const quote = (stored as { excerpt?: unknown }).excerpt;
+    return [
+      {
+        id: String(row.id),
+        type: "takedown",
+        trust: "untrusted",
+        actor: TERRAKIN_ACTOR,
+        count: 1,
+        postId: null,
+        excerpt: typeof quote === "string" ? quote : "",
+        system: true,
+        takedown: parsed.data,
+        read: Number(row.read) > 0,
+        createdAt: new Date(Number(row.created_at)).toISOString(),
+      },
+    ];
   }
 
   /** Mark one notification and every older one read. Returns what's still unread. */

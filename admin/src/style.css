@@ -310,13 +310,18 @@ body {
   border-top: 1px dashed var(--paper-edge);
 }
 
-.days-row {
+.days-row,
+.rule-row {
   display: grid;
   gap: var(--space-xs);
 }
 
 .field-input.days {
   max-width: 180px;
+}
+
+.field-input.rule {
+  max-width: 280px;
 }
 
 /* ---------- log ---------- */

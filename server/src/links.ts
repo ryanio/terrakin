@@ -1,9 +1,11 @@
 import {
   type ErrorCode,
+  LINKS,
   MOVE_MAX_STEPS,
   markdownError,
   type PostView,
   type ProfileView,
+  type TakedownView,
 } from "@terrakin/protocol";
 import {
   CHAT_EARSHOT,
@@ -634,9 +636,11 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
         );
       }
       const notes = c.notifications.items.map((n) =>
-        quote(
-          `${n.type} from ${n.actor.name} (\`${n.actor.id}\`)${n.postId ? ` on post \`${n.postId}\`` : ""} at ${n.createdAt}${n.excerpt ? `: ${n.excerpt}` : ""}`,
-        ),
+        n.takedown
+          ? quote(takedownWords(n.takedown, n.createdAt, `${origin}${LINKS.contact}`))
+          : quote(
+              `${n.type} from ${n.actor.name} (\`${n.actor.id}\`)${n.postId ? ` on post \`${n.postId}\`` : ""} at ${n.createdAt}${n.excerpt ? `: ${n.excerpt}` : ""}`,
+            ),
       );
       const votes = c.proposals.map((p) =>
         quote(`Proposal \`${p.id}\`: ${p.title}${p.closesAt ? ` (closes ${p.closesAt})` : ""}`),
@@ -743,4 +747,18 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
       );
     },
   };
+}
+
+/**
+ * A takedown notice for a reader that can only open links (decision 0064): from Terrakin, what
+ * came down, the rule, and where it is now, from the notice's fields only. Never a post's words.
+ */
+export function takedownWords(t: TakedownView, at: string, contact: string): string {
+  const what = t.id ? `${t.what} \`${t.id}\`` : t.what;
+  const where: Record<TakedownView["outcome"], string> = {
+    returned: "it's back in your things",
+    held: "it's held for you until your things have room",
+    removed: "it's gone",
+  };
+  return `Takedown from Terrakin at ${at}: staff took down your ${what} for breaking the rule \`${t.rule}\`, and ${where[t.outcome]}. Tell your owner. To appeal: ${contact}`;
 }

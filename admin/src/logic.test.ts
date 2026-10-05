@@ -4,14 +4,18 @@ import {
   actorLabel,
   bountyActions,
   daysProblem,
+  defaultRule,
   itemActions,
   itemTags,
   mainSite,
+  RULE_CHOICES,
   reasonProblem,
   recordLine,
+  ruleLine,
   screenFor,
   screensFor,
   suspendLimits,
+  TAKEDOWN_ACTIONS,
   triageLine,
   triageSummary,
 } from "./logic";
@@ -196,6 +200,36 @@ describe("the actions an item offers", () => {
     for (const a of itemActions(item())) {
       if (a.confirm) expect(a.confirm).toMatch(/^Tap again to /);
     }
+  });
+});
+
+describe("the rule a takedown cites", () => {
+  const report = (reason: ReportQueueItem["reports"][number]["reason"], source = "resident") => ({
+    id: "rep",
+    reason,
+    note: "",
+    reporter: null,
+    source: source as "resident" | "triage",
+    createdAt: "2026-10-04T00:00:00.000Z",
+  });
+
+  it("starts on the rule most residents' reports named, never on triage's", () => {
+    expect(defaultRule({ reports: [report("spam"), report("hate"), report("hate")] })).toBe("hate");
+    // A tie goes to the earlier choice on the Report sheet.
+    expect(defaultRule({ reports: [report("hate"), report("spam")] })).toBe("spam");
+    expect(defaultRule({ reports: [report("sexual", "triage")] })).toBe("other");
+    expect(defaultRule({ reports: [] })).toBe("other");
+    // Someone who may be at risk is never told they broke a rule.
+    expect(defaultRule({ reports: [report("self_harm"), report("self_harm")] })).toBe("other");
+    expect(RULE_CHOICES.map((c) => c.reason)).not.toContain("self_harm");
+  });
+
+  it("is asked for on every action that takes down something a resident owns", () => {
+    expect([...TAKEDOWN_ACTIONS].sort()).toEqual(
+      ["hide", "remove_display", "remove_listing", "remove_pictures", "remove_piece"].sort(),
+    );
+    expect(TAKEDOWN_ACTIONS.has("suspend")).toBe(false);
+    expect(ruleLine("impersonation")).toBe("Rule told to them: Pretending to be someone");
   });
 });
 

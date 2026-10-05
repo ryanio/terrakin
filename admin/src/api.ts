@@ -13,6 +13,7 @@ import {
   ModerationResponse,
   type ReportKind,
   ReportQueueResponse,
+  type ReportReason,
   StaffBountiesResponse,
   StaffBountyResponse,
 } from "@terrakin/protocol";
@@ -62,8 +63,8 @@ export const api = {
   reports: () => request("GET", `/v1/admin/reports${query({ limit: 50 })}`, ReportQueueResponse),
   log: (before?: string) =>
     request("GET", `/v1/admin/log${query({ limit: 30, before })}`, ModerationLogResponse),
-  hidePost: (id: string, reason: string) =>
-    request("POST", path("/v1/admin/posts/{id}/hide", id), ModerationResponse, { reason }),
+  hidePost: (id: string, reason: string, rule: ReportReason) =>
+    request("POST", path("/v1/admin/posts/{id}/hide", id), ModerationResponse, { reason, rule }),
   unhidePost: (id: string, reason: string) =>
     request("POST", path("/v1/admin/posts/{id}/unhide", id), ModerationResponse, { reason }),
   suspend: (id: string, days: number, reason: string) =>
@@ -81,16 +82,23 @@ export const api = {
     }),
   release: (id: string, reason: string) =>
     request("POST", path("/v1/admin/residents/{id}/release", id), ModerationResponse, { reason }),
-  removePictures: (id: string, reason: string) =>
+  removePictures: (id: string, reason: string, rule: ReportReason) =>
     request("POST", path("/v1/admin/residents/{id}/remove-pictures", id), ModerationResponse, {
       reason,
+      rule,
     }),
-  removeListing: (id: string, reason: string) =>
-    request("POST", path("/v1/admin/listings/{id}/remove", id), ModerationResponse, { reason }),
-  removeDisplay: (id: string, reason: string) =>
-    request("POST", path("/v1/admin/displays/{id}/remove", id), ModerationResponse, { reason }),
-  removePiece: (id: string, reason: string) =>
-    request("POST", path("/v1/admin/pieces/{id}/remove", id), ModerationResponse, { reason }),
+  removeListing: (id: string, reason: string, rule: ReportReason) =>
+    request("POST", path("/v1/admin/listings/{id}/remove", id), ModerationResponse, {
+      reason,
+      rule,
+    }),
+  removeDisplay: (id: string, reason: string, rule: ReportReason) =>
+    request("POST", path("/v1/admin/displays/{id}/remove", id), ModerationResponse, {
+      reason,
+      rule,
+    }),
+  removePiece: (id: string, reason: string, rule: ReportReason) =>
+    request("POST", path("/v1/admin/pieces/{id}/remove", id), ModerationResponse, { reason, rule }),
   bounties: () => request("GET", "/v1/admin/bounties", StaffBountiesResponse),
   confirmBounty: (id: string, to: string) =>
     request("POST", path("/v1/admin/bounties/{id}/confirm", id), StaffBountyResponse, { to }),

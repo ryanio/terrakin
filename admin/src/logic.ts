@@ -12,6 +12,7 @@ import {
   type ModerationLogView,
   type ReportKind,
   type ReportQueueItem,
+  type ReportReason,
   type StaffRole,
   SUSPEND_MAX_DAYS,
   type TriageVerdictView,
@@ -20,6 +21,8 @@ import { plural } from "@terrakin/ui/format";
 import {
   ACTION_LABELS,
   CATEGORY_LABELS,
+  REPORT_CHOICES,
+  reasonLabel,
   SEVERITY_LABELS,
   SUGGESTION_LABELS,
 } from "@terrakin/ui/safety";
@@ -225,6 +228,46 @@ export function itemActions(item: ReportQueueItem, role: StaffRole = "maintainer
   return out;
 }
 
+/**
+ * Actions that take down something a resident owns. Each one sends its owner a takedown notice
+ * naming a rule (decision 0064), so the form asks which.
+ */
+export const TAKEDOWN_ACTIONS: ReadonlySet<ActionKind> = new Set([
+  "hide",
+  "remove_pictures",
+  "remove_listing",
+  "remove_display",
+  "remove_piece",
+]);
+
+/**
+ * The rules a takedown can cite: every report reason but `self_harm`, since someone who may be at
+ * risk isn't told they broke a rule (RFC 0006). The server reads it as `other` too.
+ */
+export const RULE_CHOICES = REPORT_CHOICES.filter((c) => c.reason !== "self_harm");
+
+/**
+ * The rule the form starts on: the one most residents' reports named (ties go to the earlier
+ * choice), else "Something else". Reports triage raised don't count, so its guess is never
+ * preselected.
+ */
+export function defaultRule(item: Pick<ReportQueueItem, "reports">): ReportReason {
+  const counts = new Map<ReportReason, number>();
+  for (const r of item.reports) {
+    if (r.source === "resident") counts.set(r.reason, (counts.get(r.reason) ?? 0) + 1);
+  }
+  let best: ReportReason = "other";
+  let most = 0;
+  for (const { reason } of RULE_CHOICES) {
+    const n = counts.get(reason) ?? 0;
+    if (n > most) {
+      best = reason;
+      most = n;
+    }
+  }
+  return best;
+}
+
 /** A reason is required for every action, and kept in the log. Undefined when it's fine. */
 export function reasonProblem(reason: string): string | undefined {
   const r = reason.trim();
@@ -332,6 +375,9 @@ export function actorLabel(entry: Pick<ModerationLogView, "actor" | "actorView">
 export function logHeadline(entry: ModerationLogView): string {
   return `${ACTION_LABELS[entry.action]} · ${KIND_WORDS[entry.kind].toLowerCase()} ${entry.id}`;
 }
+
+/** The rule a takedown's owner was told it broke: "Rule told to them: Spam". */
+export const ruleLine = (rule: ReportReason) => `Rule told to them: ${reasonLabel(rule)}`;
 
 /** Who's signed in, for the top bar. */
 export function signedInAs(me: AdminOverviewResponse["me"]): string {

@@ -1,6 +1,7 @@
 import { ITEMS } from "@terrakin/sim";
 import { z } from "zod";
 import { AgentLinkView, PartnerBadge, PartnerWear } from "./partners";
+import { ReportReason } from "./reasons";
 import {
   CreateSessionResponse,
   GESTURE_NOTE_MAX_LENGTH,
@@ -695,9 +696,49 @@ export const NOTIFICATION_TYPES = [
   "letter",
   "gesture",
   "praise",
+  /** From Terrakin itself, not a resident: staff took down something of yours (`takedown`). */
+  "takedown",
 ] as const;
 export const NotificationType = z.enum(NOTIFICATION_TYPES);
 export type NotificationType = z.infer<typeof NotificationType>;
+
+/** What a takedown notice can be about. `pictures` is your profile picture and banner. */
+export const TAKEDOWN_TARGETS = ["listing", "display", "piece", "post", "pictures"] as const;
+
+/**
+ * Staff took down something of yours because it broke a community rule. Who acted and who
+ * reported it are never said. `outcome` is where the thing is now: `returned` (back in your
+ * things), `held` (your things were full, so it's kept for you: a listing until you take it back
+ * with `unlist_item`, a thing from display until your first action that leaves room), or `removed`
+ * (a hidden post, deleted pictures, or a piece's picture: every piece made from it keeps its
+ * title).
+ */
+export const TakedownView = z.object({
+  what: z.enum(TAKEDOWN_TARGETS),
+  /** The community rule it broke, from the same list reports use. Never `self_harm`. */
+  rule: ReportReason,
+  outcome: z.enum(["returned", "held", "removed"]),
+  /** The listing (`l_...`), made thing (`i_...`), or post (`p_...`). Absent for `pictures`. */
+  id: z.string().optional(),
+  /** For a listing, a display, or a piece: what kind of thing it is. */
+  kind: ItemKind.optional(),
+  /** For a listing: how many were in the lot. */
+  count: z.number().int().optional(),
+});
+export type TakedownView = z.infer<typeof TakedownView>;
+
+/**
+ * The `actor` on a notification from Terrakin itself (`system: true`): a stand-in so the field is
+ * always there, not a resident. Its id is a reserved word no resident or handle can have.
+ */
+export const TERRAKIN_ACTOR: AuthorView = {
+  id: "terrakin",
+  name: "Terrakin",
+  kind: "human",
+  color: "leaf",
+  shape: "round",
+  avatar: null,
+};
 
 /**
  * Something another resident did that involves you. Reactions (and reposts) on one post within
@@ -714,7 +755,8 @@ export const NotificationView = z.object({
   count: z.number().int(),
   /**
    * The post it's about: the new post for a mention, reply, or quote, and your post for a
-   * reaction or repost. Null for a follow, a letter, a gesture, or praise.
+   * reaction or repost. Null for a follow, a letter, a gesture, praise, or a takedown (a hidden
+   * post's id is in `takedown.id`, and `excerpt` is its start).
    */
   postId: z.string().nullable(),
   excerpt: z.string(),
@@ -722,6 +764,13 @@ export const NotificationView = z.object({
   reaction: ReactionKey.optional(),
   /** For a gesture: which one. Gestures and letters are private, so there's no excerpt. */
   gesture: GestureKind.optional(),
+  /**
+   * True on a notice from Terrakin itself rather than a resident. `actor` is then `TERRAKIN_ACTOR`
+   * (id `terrakin`), a stand-in with no profile, and `count` is 1.
+   */
+  system: z.literal(true).optional(),
+  /** For a `takedown`: what came down, the rule it broke, and where it is now. */
+  takedown: TakedownView.optional(),
   read: z.boolean(),
   createdAt: z.string(),
 });

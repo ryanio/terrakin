@@ -44,7 +44,7 @@ import {
   type WorldEvent as WorldEventView,
   w3cDatetime,
 } from "@terrakin/protocol";
-import { findBounty, findProposal, goodById, listingById } from "@terrakin/sim";
+import { findBounty, findProposal, goodById, heldAsideOf, listingById } from "@terrakin/sim";
 import { bountiesView, bountyView, staffBountiesView } from "./bounties";
 import { checkinView } from "./checkin";
 import { purseView } from "./coins";
@@ -1527,7 +1527,7 @@ export class Api {
       dismissReports: ({ viewer, body }) =>
         logged(social().safety.dismiss(viewer, body.kind, body.id, body.reason)),
       hidePost: async ({ viewer, params, body }) =>
-        logged(await social().safety.hidePost(viewer, params.id, body.reason)),
+        logged(await social().safety.hidePost(viewer, params.id, body.reason, body.rule)),
       unhidePost: ({ viewer, params, body }) =>
         logged(social().safety.unhidePost(viewer, params.id, body.reason)),
       suspendResident: ({ viewer, params, body }) => {
@@ -1556,33 +1556,46 @@ export class Api {
         return logged(social().safety.release(viewer, params.id, body.reason));
       },
       removeResidentPictures: async ({ viewer, params, body }) =>
-        logged(await social().safety.removePictures(viewer, params.id, body.reason)),
+        logged(await social().safety.removePictures(viewer, params.id, body.reason, body.rule)),
       // Decision 0056: the lot goes back to its seller, or waits out of view when they're full.
       removeListing: ({ viewer, params, body }) => {
         const listing = listingById(service.state, params.id);
         if (!listing || listing.takenDown) {
           return fail("not_found", "That listing isn't in the market any more.");
         }
+        const safety = social().safety;
+        const rule = safety.ruleFor(["listing"], params.id, body.rule);
         const done = service.removeListing(params.id);
         if (!done.ok) return fail(done.error.code, done.error.message);
-        const entry = social().safety.recordAction(
+        const entry = safety.recordAction(
           viewer,
           "remove_listing",
           "listing",
           params.id,
           body.reason,
+          rule,
         );
+        // Decision 0064: the seller hears what came down, why, and where the lot is now.
+        safety.tellOwner(listing.seller, {
+          what: "listing",
+          rule,
+          outcome: listingById(service.state, params.id) ? "held" : "returned",
+          id: params.id,
+          kind: listing.kind,
+          count: listing.count,
+        });
         return { status: 200, body: { logged: entry } };
       },
       // Decision 0059: the thing goes back to whoever put it up, or waits for room. It settles the
       // reports on it either way: as a thing on display, and as a piece (a title, say).
       removeDisplay: ({ viewer, params, body }) => {
-        if (!madeThingForReport(service.state, "display", params.id)) {
-          return fail("not_found", "That isn't on display any more.");
-        }
+        const shown = madeThingForReport(service.state, "display", params.id);
+        const kind = goodById(service.state, params.id)?.good.kind;
+        if (!shown || !kind) return fail("not_found", "That isn't on display any more.");
+        const safety = social().safety;
+        const rule = safety.ruleFor(["display", "piece"], params.id, body.rule);
         const done = service.removeDisplay(params.id, false);
         if (!done.ok) return fail(done.error.code, done.error.message);
-        const safety = social().safety;
         safety.closeReports(viewer, "piece", params.id);
         const entry = safety.recordAction(
           viewer,
@@ -1590,7 +1603,17 @@ export class Api {
           "display",
           params.id,
           body.reason,
+          rule,
         );
+        // Decision 0064: whoever put it up hears it, and whether it's back or held for them.
+        const held = heldAsideOf(service.state, shown.owner).some((d) => d.good.id === params.id);
+        safety.tellOwner(shown.owner, {
+          what: "display",
+          rule,
+          outcome: held ? "held" : "returned",
+          id: params.id,
+          kind,
+        });
         return { status: 200, body: { logged: entry } };
       },
       // Decision 0059: the file goes first, everywhere, so the world never says it's gone while
@@ -1610,6 +1633,7 @@ export class Api {
         }
         const check = service.removeDisplay(params.id, true, true);
         if (!check.ok) return fail(check.error.code, check.error.message);
+        const rule = safety.ruleFor(["piece", "display"], params.id, body.rule);
         if (!(await safety.purgeUpload(media))) {
           return fail("internal", "The picture couldn't be deleted from storage yet. Try again.");
         }
@@ -1625,7 +1649,24 @@ export class Api {
           safety.closeReports(viewer, "display", id);
           if (id !== params.id) safety.closeReports(viewer, "piece", id);
         }
-        const entry = safety.recordAction(viewer, "remove_piece", "piece", params.id, body.reason);
+        const entry = safety.recordAction(
+          viewer,
+          "remove_piece",
+          "piece",
+          params.id,
+          body.reason,
+          rule,
+        );
+        // Decision 0064: its maker hears it once, however many pieces showed the picture.
+        if (maker) {
+          safety.tellOwner(maker, {
+            what: "piece",
+            rule,
+            outcome: "removed",
+            id: params.id,
+            kind: "piece",
+          });
+        }
         return { status: 200, body: { logged: entry } };
       },
       // Bounties (decision 0062): town coins move only on a maintainer's word.

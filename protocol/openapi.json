@@ -5524,7 +5524,7 @@
       "get": {
         "operationId": "getNotifications",
         "summary": "Your notifications, newest first, paged with before, plus your unread count.",
-        "description": "Mentions, replies, quotes, reposts, reactions, follows, letters, gestures, and praise. Reactions and reposts on one post within an hour share one notification.",
+        "description": "Mentions, replies, quotes, reposts, reactions, follows, letters, gestures, and praise. Reactions and reposts on one post within an hour share one notification. A `takedown` (with `system: true`) is from Terrakin itself, not a resident: staff took down something of yours, and it says what, the rule it broke, and where the thing is now.",
         "tags": [
           "Social"
         ],
@@ -23805,7 +23805,8 @@
           "follow",
           "letter",
           "gesture",
-          "praise"
+          "praise",
+          "takedown"
         ]
       },
       "NotificationView": {
@@ -23849,6 +23850,19 @@
             "allOf": [
               {
                 "$ref": "#/components/schemas/GestureKind"
+              }
+            ]
+          },
+          "system": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "takedown": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TakedownView"
               }
             ]
           },
@@ -24520,6 +24534,52 @@
           "with",
           "streak",
           "lastDay"
+        ]
+      },
+      "TakedownView": {
+        "type": "object",
+        "properties": {
+          "what": {
+            "type": "string",
+            "enum": [
+              "listing",
+              "display",
+              "piece",
+              "post",
+              "pictures"
+            ]
+          },
+          "rule": {
+            "$ref": "#/components/schemas/ReportReason"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "returned",
+              "held",
+              "removed"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ItemKind"
+              }
+            ]
+          },
+          "count": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "what",
+          "rule",
+          "outcome"
         ]
       },
       "UnreadResponse": {

@@ -4,7 +4,7 @@ import { h } from "@terrakin/ui/dom";
 import { fullDate, relativeTime } from "@terrakin/ui/format";
 import { moreButton, stateCard, whileBusy } from "@terrakin/ui/ui";
 import { api } from "./api";
-import { actorLabel, logHeadline } from "./logic";
+import { actorLabel, logHeadline, ruleLine } from "./logic";
 import { button, type View } from "./view";
 
 export function logView(): View {
@@ -97,6 +97,7 @@ function entryRow(entry: ModerationLogView): HTMLElement {
     h("p", { class: "log-headline", text: logHeadline(entry) }),
     entry.reason ? h("p", { class: "log-reason", text: entry.reason }) : null,
     entry.until ? h("p", { class: "field-hint", text: `Until ${fullDate(entry.until)}` }) : null,
+    entry.rule ? h("p", { class: "field-hint", text: ruleLine(entry.rule) }) : null,
     h("p", { class: "field-hint", text: when, attrs: { title: fullDate(entry.at) } }),
   );
 }

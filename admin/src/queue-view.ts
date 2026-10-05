@@ -4,7 +4,12 @@
  * person picks an action and writes a reason. Every quoted word (the content, report notes, and
  * the triage rationale, which can quote residents) goes into the page as text.
  */
-import type { AdminOverviewResponse, MediaView, ReportQueueItem } from "@terrakin/protocol";
+import type {
+  AdminOverviewResponse,
+  MediaView,
+  ReportQueueItem,
+  ReportReason,
+} from "@terrakin/protocol";
 import { h } from "@terrakin/ui/dom";
 import { fullDate, isMediaUrl, plural, relativeTime } from "@terrakin/ui/format";
 import { postPath, profilePath } from "@terrakin/ui/paths";
@@ -15,14 +20,17 @@ import { api, type Result } from "./api";
 import {
   type ActionKind,
   daysProblem,
+  defaultRule,
   type ItemAction,
   itemActions,
   itemHeading,
   itemTags,
   mainSite,
+  RULE_CHOICES,
   reasonProblem,
   recordLine,
   suspendLimits,
+  TAKEDOWN_ACTIONS,
   triageLine,
   triageSummary,
 } from "./logic";
@@ -42,8 +50,8 @@ export function queueView(overview: AdminOverviewResponse): View {
     { class: "stack queue-list" },
     h("p", { class: "field-hint", attrs: { role: "status" }, text: "Loading the queue…" }),
   );
-  /** Reasons and lengths typed so far, by item, so a reload of the list keeps them. */
-  const drafts = new Map<string, { reason: string; days: string }>();
+  /** Reasons, lengths, and rules picked so far, by item, so a reload of the list keeps them. */
+  const drafts = new Map<string, { reason: string; days: string; rule: string }>();
   const el = h(
     "div",
     { class: "stack queue" },
@@ -112,6 +120,7 @@ export function queueView(overview: AdminOverviewResponse): View {
     const draft = drafts.get(key);
     const reasonId = `reason-${n}`;
     const daysId = `days-${n}`;
+    const ruleId = `rule-${n}`;
     const reason = h("input", {
       class: "field-input",
       attrs: {
@@ -131,13 +140,29 @@ export function queueView(overview: AdminOverviewResponse): View {
         h("option", { attrs: { value: d, selected: d === 7 }, text: plural(d, "day", "days") }),
       ),
     );
+    // Decision 0064: a takedown tells its owner which rule it broke. It starts on the rule most
+    // reports named, so the usual case is still the reason and the two taps.
+    const startRule = defaultRule(item);
+    const rule = h(
+      "select",
+      { class: "field-input rule", attrs: { id: ruleId, "data-part": "rule" } },
+      ...RULE_CHOICES.map((c) =>
+        h("option", {
+          attrs: { value: c.reason, selected: c.reason === startRule },
+          text: c.label,
+        }),
+      ),
+    );
     if (draft) {
       reason.value = draft.reason;
       days.value = draft.days;
+      rule.value = draft.rule;
     }
-    const keep = () => drafts.set(key, { reason: reason.value, days: days.value });
+    const keep = () =>
+      drafts.set(key, { reason: reason.value, days: days.value, rule: rule.value });
     reason.addEventListener("input", keep);
     days.addEventListener("change", keep);
+    rule.addEventListener("change", keep);
     const status = h("p", { class: "field-hint item-status", attrs: { role: "status" } });
     const actions = itemActions(item, me.role);
     const buttons: HTMLButtonElement[] = [];
@@ -145,17 +170,18 @@ export function queueView(overview: AdminOverviewResponse): View {
 
     const call = (action: ItemAction): Promise<Result<unknown>> => {
       const why = reason.value.trim();
+      const broke = rule.value as ReportReason;
       const calls: Record<ActionKind, () => Promise<Result<unknown>>> = {
-        hide: () => api.hidePost(action.target, why),
+        hide: () => api.hidePost(action.target, why, broke),
         unhide: () => api.unhidePost(action.target, why),
         suspend: () => api.suspend(action.target, Number(days.value), why),
         unsuspend: () => api.unsuspend(action.target, why),
         quarantine: () => api.quarantine(action.target, why),
         release: () => api.release(action.target, why),
-        remove_pictures: () => api.removePictures(action.target, why),
-        remove_listing: () => api.removeListing(action.target, why),
-        remove_display: () => api.removeDisplay(action.target, why),
-        remove_piece: () => api.removePiece(action.target, why),
+        remove_pictures: () => api.removePictures(action.target, why, broke),
+        remove_listing: () => api.removeListing(action.target, why, broke),
+        remove_display: () => api.removeDisplay(action.target, why, broke),
+        remove_piece: () => api.removePiece(action.target, why, broke),
         void_bounty: () => api.voidBounty(action.target, why),
         dismiss: () => api.dismiss(item.kind, item.id, why),
       };
@@ -227,6 +253,7 @@ export function queueView(overview: AdminOverviewResponse): View {
       true,
     );
     const canSuspend = actions.some((a) => a.kind === "suspend");
+    const canTakeDown = actions.some((a) => TAKEDOWN_ACTIONS.has(a.kind));
     const tags = itemTags(item);
     const record = recordLine(item.context);
 
@@ -310,6 +337,18 @@ export function queueView(overview: AdminOverviewResponse): View {
         { class: "decide" },
         h("label", { class: "field-label", attrs: { for: reasonId }, text: "Reason" }),
         reason,
+        canTakeDown
+          ? h(
+              "div",
+              { class: "rule-row" },
+              h("label", {
+                class: "field-label",
+                attrs: { for: ruleId },
+                text: "Rule broken (they see this)",
+              }),
+              rule,
+            )
+          : null,
         canSuspend
           ? h(
               "div",

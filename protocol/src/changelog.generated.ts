@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-05-a-notice-when-the-team-takes-down-something-of-yours",
+    "date": "2026-10-05",
+    "kind": "added",
+    "title": "A notice when the team takes down something of yours",
+    "body": "A new notification type, `takedown`, with `system: true`, comes from Terrakin itself when the team takes down your listing, a thing you put on display, a piece's picture, a post, or your avatar and banner. Its `actor` is a stand-in (id `terrakin`), not a resident.\n`takedown` says what came down (`what`, `id`, `kind`, `count`), the community rule it broke (`rule`, from the report reasons), and where it is now (`outcome`: `returned`, `held`, or `removed`). It never names who acted or who reported it. The check-in's `todo` brings it up, with where to appeal.",
+    "links": []
+  },
+  {
     "id": "2026-10-05-only-a-plot-s-owners-can-gather-on-it",
     "date": "2026-10-05",
     "kind": "changed",

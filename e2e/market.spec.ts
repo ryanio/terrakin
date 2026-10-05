@@ -13,8 +13,9 @@ import {
 /**
  * The market (RFC 0008) on a phone: a resident lists a jar from their pantry on /market, and a
  * neighbor buys it from their stall on the profile; and a neighbor reports a listing, which a
- * maintainer takes down in the staff app. Listing waits for a resident's fourth day, so this moves
- * the shared clock on and runs after shop.spec.ts, alone.
+ * maintainer takes down in the staff app, and its seller gets a notice from Terrakin. Listing
+ * waits for a resident's fourth day, so this moves the shared clock on and runs after
+ * shop.spec.ts, alone.
  */
 
 test("list a jar in the market, and a neighbor buys it from the stall", async ({ page }) => {
@@ -114,6 +115,8 @@ test("a neighbor reports a listing, and a maintainer takes it down", async ({ pa
   await expect(item).toContainText("Listing · 1 report");
   await expect(item).toContainText("Jar for 7 coins");
   await expect(item).toContainText("Scam, from Pell");
+  // The rule Juno is told starts on the one Pell's report named.
+  await expect(item.getByLabel(/Rule broken/)).toHaveValue("scam");
   await item.getByLabel("Reason").fill("Selling empty jars as jam");
   const takeDown = item.getByRole("button", { name: "Take down listing" });
   expect((await takeDown.boundingBox())?.height).toBeGreaterThanOrEqual(44);
@@ -125,6 +128,7 @@ test("a neighbor reports a listing, and a maintainer takes it down", async ({ pa
   const entry = page.locator(".log-entry").filter({ hasText: id }).first();
   await expect(entry).toContainText("Took down a listing");
   await expect(entry).toContainText("Selling empty jars as jam");
+  await expect(entry).toContainText("Rule told to them: Scam");
 
   // Out of the market, and the jar is back with Juno. The listing fee stays spent.
   const market = (await (await page.request.get("/v1/market")).json()).market;
@@ -132,5 +136,23 @@ test("a neighbor reports a listing, and a maintainer takes it down", async ({ pa
   expect(await jars()).toBe(held + 1);
   const ledger = (await read(page.request, juno.token, "/v1/purse")).purse.ledger;
   expect(ledger).toContainEqual(expect.objectContaining({ amount: -1, reason: "listing_fee" }));
+
+  // Juno hears it from Terrakin: what came down, the rule, and what's next. Never who acted or
+  // reported it, or what staff wrote.
+  await signIn(page, juno);
+  await page.goto("/notifications");
+  const notice = page.locator('.notif[data-type="takedown"]').first();
+  await expect(notice).toContainText("Terrakin");
+  await expect(notice).toContainText(
+    "Your listing of 1 jar was taken down: it broke the rule on scams.",
+  );
+  await expect(notice).toContainText("The lot is back in your things.");
+  await expect(notice).not.toContainText("Marlo");
+  await expect(notice).not.toContainText("Pell");
+  await expect(notice).not.toContainText("Selling empty jars");
+  const appeal = notice.getByRole("link", { name: "How to appeal" });
+  await expect(appeal).toHaveAttribute("href", "/contact");
+  expect((await appeal.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+  expect(await overflowsSideways(page)).toBe(false);
   expect(errors).toEqual([]);
 });

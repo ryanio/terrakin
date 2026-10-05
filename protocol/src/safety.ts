@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { REPORT_REASONS, ReportReason } from "./reasons";
 import { AuthorView, MediaView } from "./social";
 
 /**
@@ -25,19 +26,8 @@ export const REPORT_KINDS = [
 export const ReportKind = z.enum(REPORT_KINDS);
 export type ReportKind = z.infer<typeof ReportKind>;
 
-/** Why. `self_harm` is reviewed first. */
-export const REPORT_REASONS = [
-  "spam",
-  "scam",
-  "hate",
-  "harassment",
-  "sexual",
-  "self_harm",
-  "impersonation",
-  "other",
-] as const;
-export const ReportReason = z.enum(REPORT_REASONS);
-export type ReportReason = z.infer<typeof ReportReason>;
+/** Why: the community rule it broke. */
+export { REPORT_REASONS, ReportReason } from "./reasons";
 
 export const REPORT_NOTE_MAX_LENGTH = 500;
 /** Why staff acted, kept in the moderation log. */
@@ -255,6 +245,16 @@ export const ModerationReasonRequest = z.object({
   reason: Reason,
 });
 
+/**
+ * Staff taking down something a resident owns: a post, their pictures, a listing, a thing on
+ * display, or a piece's picture. The owner gets a takedown notice naming `rule`, never `reason`.
+ */
+export const TakedownRequest = ModerationReasonRequest.extend({
+  /** The community rule it broke, told to its owner. Without it, the rule most reports named. */
+  rule: ReportReason.optional(),
+});
+export type TakedownRequest = z.infer<typeof TakedownRequest>;
+
 export const SuspendRequest = z.object({
   /** Maintainers up to 365; moderators up to 7. */
   days: z.number().int().min(1).max(SUSPEND_MAX_DAYS),
@@ -276,6 +276,8 @@ export const ModerationLogEntry = z.object({
   at: z.string(),
   /** For a suspension: when it ends. */
   until: z.string().optional(),
+  /** For a takedown: the rule its owner was told it broke. */
+  rule: ReportReason.optional(),
 });
 export type ModerationLogEntry = z.infer<typeof ModerationLogEntry>;
 

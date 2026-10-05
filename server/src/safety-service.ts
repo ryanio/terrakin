@@ -20,6 +20,7 @@ import {
   type ReportView,
   SEVERITIES,
   type Severity,
+  type TakedownView,
   type TransparencyResponse,
   type TriageAction,
   type TriageCategory,
@@ -67,6 +68,11 @@ export interface SafetyOptions {
   dropPostMedia: (postId: string) => Promise<number>;
   /** Take one file down everywhere, storage first. False when storage refused and nothing changed. */
   purgeMedia: (mediaId: string) => Promise<boolean>;
+  /**
+   * Tell a resident staff took down something of theirs (decision 0064). `excerpt` is the start of
+   * a hidden post. Default: nobody is told.
+   */
+  takedown?: ((owner: string, notice: TakedownView, excerpt?: string) => void) | undefined;
   /** The edge filters, for their refusal counts and strikes. */
   moderation: () => Moderation[];
   /** AI triage. Without it (or without a key), reports wait for people as before. */
@@ -82,6 +88,9 @@ const DAY_MS = 86_400_000;
 
 const randomId = (prefix: string) =>
   `${prefix}_${Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) => b.toString(16).padStart(2, "0")).join("")}`;
+
+const isReason = (value: unknown): value is ReportReason =>
+  (REPORT_REASONS as readonly unknown[]).includes(value);
 
 /** `posts.hidden`: 0 shown, 1 hidden by staff, 2 hidden automatically until reviewed. */
 export const HIDDEN = { no: 0, maintainer: 1, auto: 2 } as const;
@@ -243,6 +252,13 @@ export class SafetyService {
     // null.
     try {
       this.o.sql.exec("ALTER TABLE reports ADD COLUMN owner TEXT");
+    } catch {
+      // Already there.
+    }
+    // Added with takedown notices: the rule a takedown's owner was told it broke. Older rows stay
+    // null.
+    try {
+      this.o.sql.exec("ALTER TABLE moderation_log ADD COLUMN rule TEXT");
     } catch {
       // Already there.
     }
@@ -830,14 +846,28 @@ export class SafetyService {
     by: string,
     postId: string,
     reason: string,
+    rule?: ReportReason,
   ): Promise<SocialResult<ModerationLogEntry>> {
-    if (!this.rows("SELECT id FROM posts WHERE id = ?", postId)[0]) {
-      return fail("not_found", "No such post.");
-    }
+    const post = this.rows("SELECT author, text, hidden FROM posts WHERE id = ?", postId)[0];
+    if (!post) return fail("not_found", "No such post.");
+    const again = Number(post.hidden) === HIDDEN.maintainer;
+    // Hiding again to retry files: its reports are closed, so the rule is the one already cited.
+    const cited =
+      rule === undefined && again
+        ? (this.lastRule("hide_post", "post", postId) ?? "other")
+        : this.ruleFor(["post"], postId, rule);
     this.o.sql.exec("UPDATE posts SET hidden = ? WHERE id = ?", HIDDEN.maintainer, postId);
+    // Its author hears it once: not again when staff hide it a second time to retry its files.
+    if (!again) {
+      this.o.takedown?.(
+        String(post.author),
+        { what: "post", rule: cited, outcome: "removed", id: postId },
+        String(post.text ?? ""),
+      );
+    }
     const kept = await this.o.dropPostMedia(postId);
     this.close("post", postId, "actioned", by);
-    const entry = this.act(by, "hide_post", "post", postId, reason);
+    const entry = this.act(by, "hide_post", "post", postId, reason, undefined, cited);
     // Never report a takedown that didn't happen: the file would still be served.
     if (kept > 0) {
       return fail(
@@ -930,6 +960,7 @@ export class SafetyService {
     by: string,
     residentId: string,
     reason: string,
+    rule?: ReportReason,
   ): Promise<SocialResult<ModerationLogEntry>> {
     if (!this.o.resident(residentId)) return fail("not_found", "No such resident.");
     if (this.o.cannotBeSuspended(residentId)) {
@@ -944,13 +975,14 @@ export class SafetyService {
     )[0];
     const files = [...new Set([row?.avatar, row?.banner].filter((id) => id != null).map(String))];
     if (files.length === 0) return fail("bad_request", "They have no avatar or banner.");
+    const cited = this.ruleFor(["resident"], residentId, rule);
     let kept = 0;
     for (const id of files) if (!(await this.o.purgeMedia(id))) kept++;
     // Logged only when a file actually went. A picture storage refused is still on the profile, so
     // its reports stay open and the item stays in the queue, where the retry is.
     const entry =
       kept < files.length
-        ? this.act(by, "remove_pictures", "resident", residentId, reason)
+        ? this.act(by, "remove_pictures", "resident", residentId, reason, undefined, cited)
         : undefined;
     if (kept > 0 || !entry) {
       return fail(
@@ -959,6 +991,8 @@ export class SafetyService {
       );
     }
     this.close("resident", residentId, "actioned", by);
+    // Told once, when every file is gone: a retry after a refusal is the call that tells them.
+    this.o.takedown?.(residentId, { what: "pictures", rule: cited, outcome: "removed" });
     return ok(entry);
   }
 
@@ -1032,9 +1066,65 @@ export class SafetyService {
     kind: ReportKind,
     id: string,
     reason: string,
+    rule?: ReportReason,
   ): ModerationLogEntry {
     this.close(kind, id, "actioned", by);
-    return this.act(by, action, kind, id, reason);
+    return this.act(by, action, kind, id, reason, undefined, rule);
+  }
+
+  /**
+   * The rule a takedown cites: the one staff picked, else the reason most open reports by residents
+   * on the thing gave (ties go to the earlier reason in REPORT_REASONS), else `other`. Reports
+   * triage raised don't count, so its guess never becomes what a resident is told. `self_harm` is
+   * never cited: someone who may be at risk isn't told they broke a rule (RFC 0006), so it reads as
+   * `other`. Read before the reports close.
+   */
+  ruleFor(kinds: readonly ReportKind[], id: string, picked?: ReportReason): ReportReason {
+    if (picked !== undefined) return picked === "self_harm" ? "other" : picked;
+    const counts = new Map<string, number>();
+    for (const row of this.rows(
+      `SELECT reason, COUNT(*) AS c FROM reports
+        WHERE kind IN (${kinds.map(() => "?").join(", ")}) AND target = ? AND status = 'open'
+          AND reporter != ?
+        GROUP BY reason`,
+      ...kinds,
+      id,
+      TRIAGE_ACTOR,
+    )) {
+      counts.set(String(row.reason), Number(row.c));
+    }
+    let best: ReportReason = "other";
+    let most = 0;
+    for (const reason of REPORT_REASONS) {
+      if (reason === "self_harm") continue;
+      const n = counts.get(reason) ?? 0;
+      if (n > most) {
+        best = reason;
+        most = n;
+      }
+    }
+    return best;
+  }
+
+  /** The rule the newest log row for an action on a thing cited, if it cited one. */
+  private lastRule(
+    action: ModerationAction,
+    kind: ReportKind,
+    id: string,
+  ): ReportReason | undefined {
+    const row = this.rows(
+      `SELECT rule FROM moderation_log WHERE action = ? AND kind = ? AND target = ? AND rule IS NOT NULL
+        ORDER BY n DESC LIMIT 1`,
+      action,
+      kind,
+      id,
+    )[0];
+    return isReason(row?.rule) ? row.rule : undefined;
+  }
+
+  /** Tell a resident staff took down something of theirs (decision 0064). */
+  tellOwner(owner: string, notice: TakedownView) {
+    this.o.takedown?.(owner, notice);
   }
 
   /**
@@ -1115,9 +1205,10 @@ export class SafetyService {
     id: string,
     reason: string,
     until?: number,
+    rule?: ReportReason,
   ): ModerationLogEntry {
     this.recordDecision(actor, kind, id, action);
-    return this.log(actor, action, kind, id, reason, until);
+    return this.log(actor, action, kind, id, reason, until, rule);
   }
 
   private log(
@@ -1127,11 +1218,16 @@ export class SafetyService {
     id: string,
     reason: string,
     until?: number,
+    rule?: ReportReason,
   ): ModerationLogEntry {
     const at = this.o.now();
-    const values = [at, actor, action, kind, id, reason, ...(until === undefined ? [] : [until])];
+    // Columns left out stay null: `until` is only for suspensions, `rule` only for takedowns.
+    const extra: [string, string | number][] = [];
+    if (until !== undefined) extra.push(["until", until]);
+    if (rule !== undefined) extra.push(["rule", rule]);
+    const values = [at, actor, action, kind, id, reason, ...extra.map(([, v]) => v)];
     this.o.sql.exec(
-      `INSERT INTO moderation_log (at, actor, action, kind, target, reason${until === undefined ? "" : ", until"})
+      `INSERT INTO moderation_log (at, actor, action, kind, target, reason${extra.map(([c]) => `, ${c}`).join("")})
         VALUES (${values.map(() => "?").join(", ")})`,
       ...values,
     );
@@ -1144,6 +1240,7 @@ export class SafetyService {
       reason,
       at: iso(at),
       ...(until === undefined ? {} : { until: iso(until) }),
+      ...(rule === undefined ? {} : { rule }),
     };
   }
 
@@ -1170,6 +1267,7 @@ export class SafetyService {
         reason: String(row.reason),
         at: iso(Number(row.at)),
         ...(until === undefined ? {} : { until: iso(until) }),
+        ...(isReason(row.rule) ? { rule: row.rule } : {}),
         actor,
         actorView: this.o.author(actor) ?? null,
       };

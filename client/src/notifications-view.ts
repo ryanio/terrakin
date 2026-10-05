@@ -1,19 +1,22 @@
 /**
- * `/notifications`: what other residents did that involves you, newest first. Opening the page
- * marks everything shown as read. Names and excerpts are other residents' words: textContent only.
+ * `/notifications`: what other residents did that involves you, and notices from Terrakin itself
+ * (a takedown), newest first. Opening the page marks everything shown as read. Names and excerpts
+ * are residents' words: textContent only.
  */
 
-import type { NotificationView } from "@terrakin/protocol";
+import { LINKS, type NotificationView, type TakedownView } from "@terrakin/protocol";
 import { h, type IconName, icon } from "@terrakin/ui/dom";
 import { plural } from "@terrakin/ui/format";
 import { postPath, profilePath } from "@terrakin/ui/paths";
 import { avatarEl } from "@terrakin/ui/people";
+import { RULE_WORDS } from "@terrakin/ui/safety";
 import { emptyNote, moreButton, stateCard } from "@terrakin/ui/ui";
 import { timeAgo } from "@terrakin/ui/when";
 import { api } from "./api";
 import { setUnread } from "./bell";
 import { savedToken } from "./net";
 import { REACTIONS } from "./reactions";
+import { thingCount, thingName } from "./things";
 import { gestureInfo } from "./together";
 import { errorCard, type View, type ViewContext } from "./view";
 
@@ -27,6 +30,7 @@ const ICONS: Record<NotificationView["type"], IconName> = {
   letter: "mail",
   gesture: "sparkle",
   praise: "star",
+  takedown: "town",
 };
 
 /** "Moss and 2 others reacted 🌱 to your post". Pure, so tests pin it. */
@@ -52,11 +56,128 @@ export function notificationLine(
     letter: "sent you a letter",
     gesture: `sent you ${sent}`,
     praise: "praised you",
+    takedown: "took something of yours down",
   };
   return { who, what: what[n.type] };
 }
 
-function item(n: NotificationView): HTMLElement {
+/**
+ * A takedown notice in plain words (decision 0064): what came down and the rule it broke, then
+ * what happens next. Built from the notice's fields only, never from a label or title, so no
+ * resident's words are in it. Pure, so tests pin it.
+ */
+export function takedownLine(t: TakedownView): { line: string; next: string } {
+  const rule = RULE_WORDS[t.rule];
+  const held = t.outcome === "held";
+  switch (t.what) {
+    case "listing": {
+      const lot = t.kind ? thingCount(t.kind, t.count ?? 1) : "things";
+      return {
+        line: `Your listing of ${lot} was taken down: it broke ${rule}.`,
+        next: held
+          ? "Your things were full, so the lot is held for you. Make room, then take it back from the market."
+          : "The lot is back in your things.",
+      };
+    }
+    case "display": {
+      const thing = t.kind ? thingName(t.kind).toLowerCase() : "thing";
+      return {
+        line: `Your ${thing} was taken off display: it broke ${rule}.`,
+        next: held
+          ? "Your things were full, so it's held for you and comes back once you have room."
+          : "It's back in your things.",
+      };
+    }
+    case "piece":
+      return {
+        line: `The picture on your piece of art was deleted: it broke ${rule}.`,
+        next: "Every piece made from that picture keeps its title and shows a plain canvas.",
+      };
+    case "post":
+      return {
+        line: `Your post was hidden: it broke ${rule}.`,
+        next: "Nobody else can see it now.",
+      };
+    case "pictures":
+      return {
+        line: `Your profile picture and banner were deleted: they broke ${rule}.`,
+        next: "You can upload new ones that keep to the rules.",
+      };
+  }
+}
+
+/** Where a takedown's thing is now, when there's a page for it. */
+function takedownPlace(t: TakedownView): { href: string; label: string } | null {
+  if (t.what === "listing" && t.outcome === "held")
+    return { href: "/market", label: "Open the market" };
+  if (t.what === "listing" || t.what === "display") {
+    return { href: "/inventory", label: "Open your things" };
+  }
+  return null;
+}
+
+/**
+ * A notice from Terrakin itself: no resident, no avatar, no profile to open. The excerpt (a hidden
+ * post's start) is the resident's own words: text only.
+ */
+function systemItem(n: NotificationView, t: TakedownView): HTMLElement {
+  const { line, next } = takedownLine(t);
+  const place = takedownPlace(t);
+  return h(
+    "li",
+    {},
+    h(
+      "div",
+      {
+        class: `notif notif-system paper${n.read ? "" : " unread"}`,
+        attrs: { "data-type": n.type },
+      },
+      h(
+        "span",
+        { class: "notif-icon system", attrs: { "aria-hidden": "true" } },
+        icon(ICONS.takedown),
+      ),
+      h(
+        "span",
+        { class: "notif-body" },
+        h(
+          "span",
+          { class: "notif-top" },
+          h("strong", { class: "notif-who", text: "Terrakin" }),
+          timeAgo(n.createdAt, { className: "notif-time" }),
+        ),
+        h(
+          "span",
+          { class: "notif-line" },
+          line,
+          n.read ? null : h("span", { class: "visually-hidden", text: " (new)" }),
+        ),
+        n.excerpt ? h("span", { class: "notif-excerpt", text: n.excerpt }) : null,
+        h("span", { class: "notif-next", text: next }),
+        h(
+          "span",
+          { class: "cluster notif-links" },
+          place
+            ? h(
+                "a",
+                { class: "text-link", attrs: { href: place.href } },
+                h("span", { text: place.label }),
+              )
+            : null,
+          h(
+            "a",
+            { class: "text-link", attrs: { href: LINKS.contact } },
+            h("span", { text: "How to appeal" }),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+/** One notification as a list item. */
+export function notificationItem(n: NotificationView): HTMLElement {
+  if (n.system && n.takedown) return systemItem(n, n.takedown);
   // Letters and gestures are private: they open your letters with that resident.
   const href = n.postId
     ? postPath(n.postId)
@@ -136,7 +257,7 @@ export function notificationsView(ctx: ViewContext): View {
     const r = await api.notifications({ before: next });
     if (destroyed) return;
     if (!r.ok) return r.message;
-    list.append(...r.data.notifications.map(item));
+    list.append(...r.data.notifications.map(notificationItem));
     next = r.data.next;
     more.el.hidden = next === null;
   });
@@ -165,7 +286,7 @@ export function notificationsView(ctx: ViewContext): View {
       setUnread(0);
       return;
     }
-    list.replaceChildren(...notifications.map(item));
+    list.replaceChildren(...notifications.map(notificationItem));
     more.el.hidden = next === null;
     body.replaceChildren(list, foot);
     const newest = notifications[0];

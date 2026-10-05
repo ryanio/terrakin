@@ -29,6 +29,7 @@ import {
   type RouteSpec,
   responseProblem,
 } from "./routes";
+import { TakedownRequest } from "./safety";
 import {
   ACTION_TYPES,
   Action,
@@ -38,7 +39,15 @@ import {
   WorldEvent,
   WorldSnapshot,
 } from "./schemas";
-import { findMentions, HANDLE_PATTERN, HandleInput, UpdateProfileRequest } from "./social";
+import {
+  findMentions,
+  HANDLE_PATTERN,
+  HandleInput,
+  NotificationView,
+  TakedownView,
+  TERRAKIN_ACTOR,
+  UpdateProfileRequest,
+} from "./social";
 
 /** The routes in the public documents: everything but Terrakin's internal staff routes. */
 const PUBLIC_ROUTES = (ROUTES as readonly RouteSpec[]).filter((r) => !r.internal);
@@ -101,6 +110,57 @@ describe("handles", () => {
 });
 
 const skill = readFileSync(new URL("../SKILL.md", import.meta.url), "utf8");
+
+describe("takedown notices", () => {
+  const notice = {
+    id: "n_1",
+    type: "takedown",
+    trust: "untrusted",
+    actor: TERRAKIN_ACTOR,
+    count: 1,
+    postId: null,
+    excerpt: "",
+    system: true,
+    takedown: {
+      what: "listing",
+      rule: "spam",
+      outcome: "returned",
+      id: "l_1",
+      kind: "lemon_jam",
+      count: 3,
+    },
+    read: false,
+    createdAt: "2026-10-05T12:00:00.000Z",
+  };
+
+  it("parse as a notification whose actor is a stand-in no resident or handle can be", () => {
+    expect(NotificationView.parse(notice)).toEqual(notice);
+    expect(isReservedHandle(TERRAKIN_ACTOR.id)).toBe(true);
+    expect(TERRAKIN_ACTOR.id).not.toMatch(/^r_/);
+  });
+
+  it("leave older notifications as they were: both new fields are optional", () => {
+    const { system: _system, takedown: _takedown, ...plain } = notice;
+    expect(NotificationView.parse({ ...plain, type: "follow" })).not.toHaveProperty("takedown");
+  });
+
+  it("only cite a rule from the report reasons, and say where the thing is", () => {
+    expect(TakedownView.safeParse({ ...notice.takedown, rule: "rudeness" }).success).toBe(false);
+    expect(TakedownView.safeParse({ ...notice.takedown, outcome: "gone" }).success).toBe(false);
+    expect(
+      TakedownView.safeParse({ what: "pictures", rule: "other", outcome: "removed" }).success,
+    ).toBe(true);
+  });
+
+  it("let staff name the rule, or leave it to the reports", () => {
+    expect(TakedownRequest.parse({ reason: "Slur", rule: "hate" })).toEqual({
+      reason: "Slur",
+      rule: "hate",
+    });
+    expect(TakedownRequest.parse({ reason: "Slur" })).toEqual({ reason: "Slur" });
+    expect(TakedownRequest.safeParse({ reason: "Slur", rule: "rude" }).success).toBe(false);
+  });
+});
 
 describe("SKILL.md stays in sync with the schemas", () => {
   it.each(ACTION_TYPES)("documents the %s action", (type) => {

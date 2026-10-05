@@ -1,4 +1,9 @@
-import type { AuthorView, PostView } from "@terrakin/protocol";
+import {
+  type AuthorView,
+  type NotificationView,
+  type PostView,
+  TERRAKIN_ACTOR,
+} from "@terrakin/protocol";
 import { singleAspect } from "@terrakin/ui/media";
 import {
   activeMention,
@@ -9,7 +14,7 @@ import {
 } from "@terrakin/ui/mentions";
 import { afterEach, describe, expect, it } from "vitest";
 import { BANNER_MOTIFS, bannerShapes } from "./banner-art";
-import { notificationLine } from "./notifications-view";
+import { notificationItem, notificationLine, takedownLine } from "./notifications-view";
 import { applyReaction, applyRepost, copyPostState, REACTIONS, reactionSummary } from "./reactions";
 
 const WREN = { handle: "wren", id: "r_wren" };
@@ -70,6 +75,7 @@ function fakeDocument() {
     FakeNode,
     doc: {
       createElement: (tag: string) => new FakeNode(tag),
+      createElementNS: (_ns: string, tag: string) => new FakeNode(tag),
       createTextNode: (text: string) => new FakeNode("#text", text),
     },
   };
@@ -219,6 +225,91 @@ describe("notification lines", () => {
       "sent you a wave 👋",
     );
     expect(notificationLine({ type: "follow", count: 1, actor }).what).toBe("followed you");
+  });
+});
+
+describe("takedown notices", () => {
+  it("say what came down, the rule, and what happens next, in plain words", () => {
+    expect(
+      takedownLine({
+        what: "listing",
+        rule: "spam",
+        outcome: "returned",
+        id: "l_1",
+        kind: "lemon_jam",
+        count: 3,
+      }),
+    ).toEqual({
+      line: "Your listing of 3 jars of lemon jam was taken down: it broke the rule on spam.",
+      next: "The lot is back in your things.",
+    });
+    expect(
+      takedownLine({ what: "listing", rule: "scam", outcome: "held", kind: "jar", count: 1 }).next,
+    ).toBe(
+      "Your things were full, so the lot is held for you. Make room, then take it back from the market.",
+    );
+    expect(
+      takedownLine({ what: "display", rule: "hate", outcome: "returned", kind: "piece" }),
+    ).toEqual({
+      line: "Your piece of art was taken off display: it broke the rule on hate.",
+      next: "It's back in your things.",
+    });
+    expect(takedownLine({ what: "display", rule: "hate", outcome: "held" }).next).toBe(
+      "Your things were full, so it's held for you and comes back once you have room.",
+    );
+    expect(takedownLine({ what: "piece", rule: "sexual", outcome: "removed" }).line).toBe(
+      "The picture on your piece of art was deleted: it broke the rule on sexual content.",
+    );
+    expect(takedownLine({ what: "post", rule: "other", outcome: "removed" }).line).toBe(
+      "Your post was hidden: it broke our community rules.",
+    );
+    expect(takedownLine({ what: "pictures", rule: "impersonation", outcome: "removed" })).toEqual({
+      line: "Your profile picture and banner were deleted: they broke the rule on pretending to be someone.",
+      next: "You can upload new ones that keep to the rules.",
+    });
+  });
+
+  describe("in the list", () => {
+    const saved = (globalThis as { document?: unknown }).document;
+    afterEach(() => {
+      (globalThis as { document?: unknown }).document = saved;
+    });
+
+    it("come from Terrakin, link no profile, and keep a post's words as text", () => {
+      const { doc } = fakeDocument();
+      (globalThis as { document?: unknown }).document = doc;
+      const quote = "<img src=x onerror=alert(1)> buy now";
+      const n: NotificationView = {
+        id: "n_1",
+        type: "takedown",
+        trust: "untrusted",
+        actor: TERRAKIN_ACTOR,
+        count: 1,
+        postId: null,
+        excerpt: quote,
+        system: true,
+        takedown: { what: "post", rule: "spam", outcome: "removed", id: "p_1" },
+        read: false,
+        createdAt: "2026-10-05T12:00:00.000Z",
+      };
+      type Node = {
+        tag: string;
+        textContent: string;
+        attrs: Record<string, string>;
+        children: Node[];
+      };
+      const all = (node: Node): Node[] => [node, ...node.children.flatMap(all)];
+      const nodes = all(notificationItem(n) as unknown as Node);
+      const texts = nodes.map((x) => x.textContent);
+      expect(texts).toContain("Terrakin");
+      expect(texts).toContain("Your post was hidden: it broke the rule on spam.");
+      // The excerpt is one text node, never markup.
+      expect(texts).toContain(quote);
+      expect(nodes.some((x) => x.tag === "img")).toBe(false);
+      // No resident, so no avatar and no profile link; the one link is how to appeal.
+      const links = nodes.filter((x) => x.tag === "a").map((x) => x.attrs.href);
+      expect(links).toEqual(["/contact"]);
+    });
   });
 });
 

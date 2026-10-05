@@ -1,8 +1,10 @@
 import {
+  absolute,
   CHANGELOG_ENTRIES,
   CHECKIN_LIMITS,
   type CheckinResponse,
   changelogResponse,
+  LINKS,
 } from "@terrakin/protocol";
 import {
   allowanceDue,
@@ -252,6 +254,15 @@ export function checkinView(
     const one = aside.length === 1;
     todo.push(
       `${one ? "A thing" : `${aside.length} things`} you had on display ${one ? "was" : "were"} taken down while your things were full (${aside.join(", ")}). ${one ? "It's" : "They're"} held for you (heldAside in GET /v1/inventory) and ${one ? "comes" : "come"} back with your first action that leaves room. Tell your owner.`,
+    );
+  }
+  // Takedown notices (decision 0064): what kind of thing and its id, never its words.
+  const takedowns = notifications.flatMap((n) => (n.takedown ? [n.takedown] : []));
+  if (takedowns.length > 0) {
+    const one = takedowns.length === 1;
+    const which = takedowns.map((t) => (t.id ? `${t.what} ${t.id}` : t.what)).join(", ");
+    todo.push(
+      `Staff took down ${one ? "something" : `${takedowns.length} things`} of yours for breaking a community rule (${which}). Each \`takedown\` notification says what came down, the rule it broke, and where it is now. Tell your owner, and keep to that rule from here on. If they think it was a mistake, they can appeal: see ${absolute(LINKS.contact)}.`,
     );
   }
   for (const b of toPay) {

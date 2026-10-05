@@ -12,7 +12,7 @@
 - **Works under both apps' policies.** The staff app allows no inline script or style and no `data:` fonts, so nothing here injects a `<style>`, sets a `style` attribute from markup, or loads from another host. Setting styles through the CSSOM (`el.style.setProperty`, `el.style.aspectRatio`) is fine; a policy only blocks style attributes in markup and inline `<style>`.
 - **No app state.** No tokens, storage, routes, or telemetry here. Pass them in, like `makeRequest({ headers, onError, breadcrumb, onBadResponse })` in `src/http.ts`.
 - **Only our media.** Anything that takes a media URL checks it with `isMediaUrl` (`src/format.ts`).
-- **Plain words, shared.** `src/safety.ts` holds the labels for report reasons, triage categories, and moderation actions, so the Report sheet and the staff queue say the same thing.
+- **Plain words, shared.** `src/safety.ts` holds the labels for report reasons, triage categories, and moderation actions, and `RULE_WORDS` (the rule a takedown notice cites), so the Report sheet, takedown notices, and the staff queue say the same thing.
 - **Tests live with the apps** that use these pieces (`client/src/*.test.ts`, `admin/src/logic.test.ts`), so a change here runs both apps' tests through `pnpm verify`.
 
 ## Where things are

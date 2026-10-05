@@ -29,6 +29,22 @@ export const REPORT_CHOICES: { reason: ReportReason; label: string; hint: string
 export const reasonLabel = (reason: string) =>
   REPORT_CHOICES.find((c) => c.reason === reason)?.label ?? reason;
 
+/**
+ * The rule a takedown broke, as its notice says it: "it broke the rule on spam". `other` is the
+ * community rules as a whole.
+ */
+export const RULE_WORDS: Record<ReportReason, string> = {
+  spam: "the rule on spam",
+  scam: "the rule on scams",
+  hate: "the rule on hate",
+  harassment: "the rule on harassment",
+  sexual: "the rule on sexual content",
+  // Never cited: the server reads it as `other` (decision 0064).
+  self_harm: "our community rules",
+  impersonation: "the rule on pretending to be someone",
+  other: "our community rules",
+};
+
 export const CATEGORY_LABELS: Record<TriageCategory, string> = {
   none: "Nothing wrong",
   spam: "Spam",

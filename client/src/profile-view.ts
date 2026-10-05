@@ -20,7 +20,7 @@ import { compactCount, isMediaUrl, plural } from "@terrakin/ui/format";
 import { mediaUrlOf } from "@terrakin/ui/looks";
 import { openImage, openModelViewer } from "@terrakin/ui/media";
 import { plot3dPath, profilePath } from "@terrakin/ui/paths";
-import { avatarEl, badges, ownerLine, TOWNSFOLK_ABOUT } from "@terrakin/ui/people";
+import { avatarEl, badges, ownerLine, paintAvatar, TOWNSFOLK_ABOUT } from "@terrakin/ui/people";
 import {
   confirmTwice,
   copyButton,
@@ -216,6 +216,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
 
     const x = xRow(r);
     const banner = profileBanner(r);
+    const avatar = profileAvatar(r);
     if (savedToken()) {
       void myProfile().then((me) => {
         if (destroyed || !me) return;
@@ -236,7 +237,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
           );
           x.paint(true);
           handleWrap.append(handleButton(r, handleLine, handleWrap));
-          actions.append(plotPhotoButton());
+          actions.append(plotPhotoButton(), avatar.editable());
           return;
         }
         actions.prepend(followButton(r, paintCounts), praiseButton(r, paintCounts));
@@ -260,7 +261,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       "section",
       { class: "paper card profile", attrs: { "aria-label": `Profile of ${r.name}` } },
       banner.el,
-      h("div", { class: "profile-top" }, profileAvatar(r), actions),
+      h("div", { class: "profile-top" }, avatar.el, actions),
       name,
       handleWrap,
       verifiedRow(r),
@@ -304,20 +305,119 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
     return card;
   }
 
-  /** Their picture, large. Tap a real picture to see it full screen. */
-  function profileAvatar(r: ProfileView): HTMLElement {
+  /**
+   * Their picture, large. Tap a real picture to see it full screen. On your own profile,
+   * `editable()` makes the picture the way to change it (with a camera badge) and returns the
+   * "Remove picture" button for the actions row.
+   */
+  function profileAvatar(r: ProfileView): { el: HTMLElement; editable(): HTMLElement } {
     const pic = avatarEl(r, "xl");
     const url = r.avatar;
-    if (!isMediaUrl(url)) return h("div", { class: "profile-avatar" }, pic);
-    return h(
-      "button",
-      {
-        class: "profile-avatar",
-        attrs: { type: "button", "aria-label": `Open ${r.name}'s picture` },
-        on: { click: () => openImage(url, r.name) },
-      },
-      pic,
-    );
+    const el = isMediaUrl(url)
+      ? h(
+          "button",
+          {
+            class: "profile-avatar",
+            attrs: { type: "button", "aria-label": `Open ${r.name}'s picture` },
+            on: { click: () => openImage(url, r.name) },
+          },
+          pic,
+        )
+      : h("div", { class: "profile-avatar" }, pic);
+
+    function editable(): HTMLElement {
+      const input = h("input", {
+        class: "visually-hidden",
+        attrs: {
+          type: "file",
+          accept: "image/png,image/jpeg,image/webp,image/gif",
+          tabindex: -1,
+          "aria-hidden": "true",
+          "data-media": "avatar",
+        },
+      });
+      const progress = h("span", {
+        class: "profile-avatar-progress",
+        attrs: { "aria-hidden": "true", hidden: true },
+      });
+      const button = h(
+        "button",
+        {
+          class: "profile-avatar editable",
+          attrs: { type: "button", "aria-label": "Change profile picture" },
+          on: { click: () => input.click() },
+        },
+        pic,
+        progress,
+        h(
+          "span",
+          { class: "profile-avatar-badge", attrs: { "aria-hidden": "true" } },
+          icon("camera"),
+        ),
+      );
+      const removeButton = h(
+        "button",
+        {
+          class: "pill-button small avatar-remove",
+          attrs: { type: "button" },
+          on: { click: () => void save(null, removeButton) },
+        },
+        icon("close"),
+        h("span", { text: "Remove picture" }),
+      );
+      const paint = () => {
+        paintAvatar(pic, r, "xl");
+        removeButton.hidden = !isMediaUrl(r.avatar);
+      };
+      const showProgress = (text: string | null) => {
+        progress.hidden = text === null;
+        progress.textContent = text ?? "";
+      };
+
+      async function save(avatar: string | null, busy: HTMLButtonElement) {
+        const res = await whileBusy(busy, () => api.updateProfile({ avatar }));
+        if (destroyed) return;
+        if (!res.ok) {
+          toast(res.message);
+          return;
+        }
+        r.avatar = res.data.resident.avatar;
+        rememberMyProfile(res.data.resident);
+        paint();
+        toast(avatar ? "Picture saved" : "Picture removed");
+      }
+
+      input.addEventListener("change", async () => {
+        const file = input.files?.[0];
+        input.value = "";
+        if (!file) return;
+        button.disabled = true;
+        button.setAttribute("aria-busy", "true");
+        showProgress("0%");
+        const up = await uploadMedia(file, (f) => showProgress(`${Math.round(f * 100)}%`)).promise;
+        button.disabled = false;
+        button.removeAttribute("aria-busy");
+        if (destroyed) return;
+        if (!up.ok) {
+          showProgress(null);
+          toast(up.message);
+          return;
+        }
+        if (up.data.kind !== "image") {
+          showProgress(null);
+          toast("A profile picture has to be a picture.");
+          return;
+        }
+        showProgress("Saving");
+        await save(up.data.id, button);
+        showProgress(null);
+      });
+      el.replaceWith(button, input);
+      paint();
+      return removeButton;
+    }
+
+    return { el, editable };
   }
 
   /**

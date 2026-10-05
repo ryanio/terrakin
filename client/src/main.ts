@@ -11,7 +11,7 @@ import { useModelViewer } from "@terrakin/ui/media";
 import { profilePath } from "@terrakin/ui/paths";
 import { avatarEl, avatarPlaceholder } from "@terrakin/ui/people";
 import { interceptPop } from "@terrakin/ui/ui";
-import { api, myProfile, SUSPENDED_EVENT } from "./api";
+import { api, MY_PROFILE_EVENT, myProfile, SUSPENDED_EVENT } from "./api";
 import { initBell, makeBell, refreshBell } from "./bell";
 import { initBrandMarks } from "./chrome";
 import { claimView } from "./claim-view";
@@ -84,11 +84,12 @@ function paintNav(route: Route) {
 
 /**
  * The right end of the top bar. Residents get their letters (with an unread count) and their own
- * avatar, which opens their profile, key, and look. Visitors get a Join pill that leads to the
- * get-started cards, except on the home page, which already shows them.
+ * avatar, which opens their profile, picture, key, and look. Visitors get a Join pill that leads to
+ * the get-started cards, except on the home page, which already shows them.
  */
 let unreadCount: HTMLElement | undefined;
 let lettersLink: HTMLAnchorElement | undefined;
+let youLink: HTMLAnchorElement | undefined;
 let headerFor: string | null | undefined;
 
 function paintHeader(route: Route) {
@@ -97,6 +98,7 @@ function paintHeader(route: Route) {
     headerFor = null;
     unreadCount = undefined;
     lettersLink = undefined;
+    youLink = undefined;
     you.replaceChildren(
       route.name === "feed"
         ? ""
@@ -132,15 +134,25 @@ function paintHeader(route: Route) {
     },
     avatarPlaceholder("sm", "you-placeholder"),
   );
+  youLink = me;
   you.replaceChildren(makePurse(), makeBell(), lettersLink, me);
-  void myProfile().then((profile) => {
-    if (!profile || headerFor !== token) return;
-    me.setAttribute("href", profilePath(profile.id));
-    me.setAttribute("aria-label", "You: your profile, key, and look");
-    me.replaceChildren(avatarEl(profile, "sm"));
-  });
+  paintYou();
   void refreshUnread();
 }
+
+/** Your avatar in the top bar, from your profile. Painted again when you change your picture or look. */
+function paintYou() {
+  const link = youLink;
+  if (!link) return;
+  void myProfile().then((profile) => {
+    if (!profile || link !== youLink) return;
+    link.setAttribute("href", profilePath(profile.id));
+    link.setAttribute("aria-label", "You: your profile, picture, key, and look");
+    link.replaceChildren(avatarEl(profile, "sm"));
+  });
+}
+
+window.addEventListener(MY_PROFILE_EVENT, paintYou);
 
 async function refreshUnread() {
   const badge = unreadCount;

@@ -1823,6 +1823,58 @@ button.profile-avatar {
   border-width: 5px;
 }
 
+/* Your own picture is the way to change it, and the camera badge says so. */
+button.profile-avatar.editable {
+  cursor: pointer;
+}
+
+button.profile-avatar.editable:disabled {
+  cursor: progress;
+}
+
+.profile-avatar-badge {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--paper);
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--paper);
+  transition: transform 0.15s ease;
+}
+
+.profile-avatar-badge .icon {
+  width: 18px;
+  height: 18px;
+}
+
+@media (hover: hover) {
+  button.profile-avatar.editable:hover .profile-avatar-badge {
+    transform: scale(1.08);
+  }
+}
+
+.profile-avatar-progress {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(43, 38, 32, 0.75);
+  color: var(--paper);
+  font-weight: 700;
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+}
+
+.profile-avatar-progress[hidden] {
+  display: none;
+}
+
 .profile-top {
   display: flex;
   align-items: flex-start;

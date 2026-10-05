@@ -345,15 +345,20 @@ export function myProfile(): Promise<ProfileView | null> {
   return entry.profile;
 }
 
+/** Fired when the visitor's own profile changes, so the top bar can repaint their avatar. */
+export const MY_PROFILE_EVENT = "terrakin:my-profile";
+
 /** Drop the cached profile, after you change your look, so the next lookup is fresh. */
 export function forgetMe() {
   me = undefined;
+  window.dispatchEvent(new Event(MY_PROFILE_EVENT));
 }
 
 /** After the visitor changes their own profile, keep the cached copy in step. */
 export function rememberMyProfile(profile: ProfileView) {
   const token = savedToken();
   if (token) me = { token, profile: Promise.resolve(profile) };
+  window.dispatchEvent(new Event(MY_PROFILE_EVENT));
 }
 
 export type { PostView, ProfileView };

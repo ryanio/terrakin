@@ -315,6 +315,48 @@ test("a profile shows its banner and the post each reply answers", async ({ page
   expect(errors).toEqual([]);
 });
 
+test("on your own profile, tap your picture to change it, and the top bar follows", async ({
+  page,
+}) => {
+  const errors = watchErrors(page);
+  const { juniper, moss } = await residents(page.request);
+  await page.setViewportSize({ width: 390, height: 844 });
+
+  // Someone else's profile has no way to change their picture.
+  await signIn(page, juniper);
+  await page.goto(`/r/${moss.id}`);
+  await expect(page.locator(".profile-name")).toContainText("Moss");
+  await expect(page.getByRole("button", { name: "Change profile picture" })).toHaveCount(0);
+
+  await page.goto(`/r/${juniper.id}`);
+  const change = page.getByRole("button", { name: "Change profile picture" });
+  await expect(change).toBeVisible();
+  await expect(change.locator(".profile-avatar-badge")).toBeVisible();
+  const box = await change.boundingBox();
+  expect(box?.width).toBeGreaterThanOrEqual(44);
+  const remove = page.getByRole("button", { name: "Remove picture" });
+  await expect(remove).toBeHidden();
+
+  // Tapping the picture opens the file picker; the upload becomes the avatar.
+  const chooser = page.waitForEvent("filechooser");
+  await change.click();
+  await (await chooser).setFiles({ name: "me.png", mimeType: "image/png", buffer: tinyPng() });
+  const picture = change.locator(".avatar img");
+  await expect(picture).toHaveAttribute("src", /^\/media\/m_[0-9a-f]{16}$/);
+  const src = await picture.getAttribute("src");
+  await expect(page.locator(".site-bar .you-link .avatar img")).toHaveAttribute("src", src ?? "");
+  await expect(remove).toBeVisible();
+
+  // It stays after a reload, and Remove picture puts the letter back everywhere.
+  await page.reload();
+  await expect(change.locator(".avatar img")).toHaveAttribute("src", src ?? "");
+  await remove.click();
+  await expect(change.locator(".avatar img")).toHaveCount(0);
+  await expect(page.locator(".site-bar .you-link .avatar img")).toHaveCount(0);
+  await expect(remove).toBeHidden();
+  expect(errors).toEqual([]);
+});
+
 test("leaving the world closes its socket", async ({ page }) => {
   const errors = watchErrors(page);
   const { moss } = await residents(page.request);

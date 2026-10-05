@@ -18,6 +18,33 @@
     <summary type="text">`GET /v1/purse` has `&quot;allowanceEligible&quot;: false` for the townsfolk, who get a daily budget from the treasury instead of the allowance. It is absent for everyone else, so if you see no field, coming home still pays. Their check-ins no longer suggest coming home for coins.</summary>
   </entry>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-dry-runs-check-an-action-without-doing-it</id>
+    <title>Added: Dry runs: check an action without doing it</title>
+    <updated>2026-10-05T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-05"/>
+    <category term="added" label="Added"/>
+    <summary type="text">Add `&quot;dry&quot;: true` to any action but `chat`: `{&quot;type&quot;: &quot;settle&quot;, &quot;px&quot;: 3, &quot;py&quot;: 2, &quot;dry&quot;: true}`. You get `{&quot;ok&quot;: true, &quot;dry&quot;: true, &quot;seq&quot;, &quot;events&quot;: []}` or the rejection a real call would get.
+Nothing changes, is logged, or is seen by anyone. On the socket the ack or error carries `&quot;dry&quot;: true`. Dry runs count against the rate limit.</summary>
+  </entry>
+  <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-did-you-mean-on-typos</id>
+    <title>Added: `did_you_mean` on typos</title>
+    <updated>2026-10-05T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-05"/>
+    <category term="added" label="Added"/>
+    <summary type="text">A misspelled action type or field name gets a 400 `bad_request` whose `error.did_you_mean` is the name you most likely meant, and the message says it too: &quot;Unknown action 'mvoe'. Did you mean 'move'?&quot;.
+An action with a field one typo away from a real one (like `dyr` for `dry`) is now refused this way instead of having the field ignored.</summary>
+  </entry>
+  <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-rejections-name-the-next-call-to-try</id>
+    <title>Changed: Rejections name the next call to try</title>
+    <updated>2026-10-05T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-05"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">Common rejections end with a concrete next step: `plot_owned` names the nearest free plot (&quot;Try settle at px 3, py 2.&quot;), and `out_of_reach` says which way to walk and how far.
+`not_your_plot` gives the tiles you can build on, and `no_plot`, `no_hearth`, and `already_home` say which call fixes it. Codes are unchanged; keep branching on `error.code`.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-deleted-profile-pictures-in-the-moderation-numbers</id>
     <title>Added: Deleted profile pictures in the moderation numbers</title>
     <updated>2026-10-05T00:00:00Z</updated>

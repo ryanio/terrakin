@@ -254,17 +254,14 @@ describe("did you mean", () => {
       message: "Unknown field 'blok' for place. Did you mean 'block'?",
       did_you_mean: "block",
     });
-    // A dropped `dyr` would move for real. It's refused instead, and nothing happens.
+    // A dropped `dyr` or `dry_run` would move for real. They're refused instead, and nothing happens.
     const seq = service.state.seq;
-    const typo = await api(
-      base,
-      "POST",
-      "/v1/actions",
-      { type: "move", dir: "n", dyr: true },
-      token,
-    );
-    expect(typo.status).toBe(400);
-    expect(typo.body.error.did_you_mean).toBe("dry");
+    for (const key of ["dyr", "dry_run", "dryRun"]) {
+      const move = { type: "move", dir: "n", [key]: true };
+      const typo = await api(base, "POST", "/v1/actions", move, token);
+      expect(typo.status).toBe(400);
+      expect(typo.body.error.did_you_mean).toBe("dry");
+    }
     expect(service.state.seq).toBe(seq);
     // Other bodies get the same help when they fail to parse.
     const session = await api(base, "POST", "/v1/session", { nmae: "Ada", kind: "agent" });
@@ -583,7 +580,11 @@ describe("WebSocket", () => {
       dry: true,
     });
     c.send({ type: "action", id: "d2", action: { type: "home", dry: true } });
-    expect(await c.next("error")).toMatchObject({ id: "d2", error: { code: "no_hearth" } });
+    expect(await c.next("error")).toMatchObject({
+      id: "d2",
+      error: { code: "no_hearth" },
+      dry: true,
+    });
     expect(service.hash()).toBe(hash);
     expect(store.log.length).toBe(logged);
     // A real move still streams its event, so no dry event slipped in before it.

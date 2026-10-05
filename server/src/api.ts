@@ -1478,9 +1478,14 @@ export class LiveSession {
     this.socket.send(JSON.stringify(message));
   }
 
-  private fail(code: ErrorCode, message: string, id?: string, didYouMean?: string) {
+  private fail(code: ErrorCode, message: string, id?: string, didYouMean?: string, dry?: true) {
     const error = { code, message, ...(didYouMean ? { did_you_mean: didYouMean } : {}) };
-    this.send({ type: "error", ...(id === undefined ? {} : { id }), error });
+    this.send({
+      type: "error",
+      ...(id === undefined ? {} : { id }),
+      error,
+      ...(dry ? { dry } : {}),
+    });
   }
 
   onMessage(text: string) {
@@ -1513,8 +1518,15 @@ export class LiveSession {
       return this.fail("bad_request", "Messages must be JSON.");
     }
     const parsed = ClientMessage.safeParse(raw);
+    // A typo answer waits for hello and takes an action slot, in the same order as REST.
     const hint = actionHint(raw);
-    if (hint) return this.fail("bad_request", hint.message, hint.id, hint.didYouMean);
+    if (hint) {
+      if (!this.residentId) return this.fail("bad_request", "Say hello first.");
+      if (!this.api.takeAction(this.residentId)) {
+        return this.fail("rate_limited", "Slow down.", hint.id);
+      }
+      return this.fail("bad_request", hint.message, hint.id, hint.didYouMean);
+    }
     if (!parsed.success) return this.fail("bad_request", parsed.error.message);
     const msg = parsed.data;
 
@@ -1574,7 +1586,10 @@ export class LiveSession {
     // An open socket means they're here, so bring them back. A dry run changes nothing.
     if (!msg.action.dry) service.ensureOnline(residentId);
     const result = service.act(residentId, msg.action);
-    if (!result.ok) return this.fail(result.error.code, result.error.message, msg.id);
+    if (!result.ok) {
+      const { code, message } = result.error;
+      return this.fail(code, message, msg.id, undefined, result.dry);
+    }
     this.send({
       type: "ack",
       ...(msg.id === undefined ? {} : { id: msg.id }),

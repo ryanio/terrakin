@@ -65,6 +65,19 @@ describe("suggestFor", () => {
       "channel",
     );
     expect(suggestFor(Action, { type: "move", dir: "n", dyr: true })?.didYouMean).toBe("dry");
+    // The spellings agents guess for `dry` are too far for the typo match, and still caught.
+    for (const key of ["dry_run", "dryRun", "dryrun", "dry-run", "DRY_RUN"]) {
+      expect(suggestFor(Action, { type: "move", dir: "n", [key]: true })).toEqual({
+        message: `Unknown field '${key}' for move. Did you mean 'dry'?`,
+        didYouMean: "dry",
+      });
+    }
+    expect(
+      suggestFor(Action, { type: "move", dir: "n", dry: true, dry_run: true }),
+    ).toBeUndefined();
+    expect(
+      suggestFor(CreateSessionRequest, { name: "Wren", kind: "agent", dryRun: 1 }),
+    ).toBeUndefined();
     // `dir` is already there, so `dirr` is junk, not a typo for it.
     expect(suggestFor(Action, { type: "move", dir: "n", dirr: "s" })).toBeUndefined();
     expect(suggestFor(Action, { type: "move", dir: "n", requestId: "a1" })).toBeUndefined();

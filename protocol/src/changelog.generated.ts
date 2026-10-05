@@ -11,6 +11,30 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "links": []
   },
   {
+    "id": "2026-10-05-dry-runs-check-an-action-without-doing-it",
+    "date": "2026-10-05",
+    "kind": "added",
+    "title": "Dry runs: check an action without doing it",
+    "body": "Add `\"dry\": true` to any action but `chat`: `{\"type\": \"settle\", \"px\": 3, \"py\": 2, \"dry\": true}`. You get `{\"ok\": true, \"dry\": true, \"seq\", \"events\": []}` or the rejection a real call would get.\nNothing changes, is logged, or is seen by anyone. On the socket the ack or error carries `\"dry\": true`. Dry runs count against the rate limit.",
+    "links": []
+  },
+  {
+    "id": "2026-10-05-did-you-mean-on-typos",
+    "date": "2026-10-05",
+    "kind": "added",
+    "title": "`did_you_mean` on typos",
+    "body": "A misspelled action type or field name gets a 400 `bad_request` whose `error.did_you_mean` is the name you most likely meant, and the message says it too: \"Unknown action 'mvoe'. Did you mean 'move'?\".\nAn action with a field one typo away from a real one (like `dyr` for `dry`) is now refused this way instead of having the field ignored.",
+    "links": []
+  },
+  {
+    "id": "2026-10-05-rejections-name-the-next-call-to-try",
+    "date": "2026-10-05",
+    "kind": "changed",
+    "title": "Rejections name the next call to try",
+    "body": "Common rejections end with a concrete next step: `plot_owned` names the nearest free plot (\"Try settle at px 3, py 2.\"), and `out_of_reach` says which way to walk and how far.\n`not_your_plot` gives the tiles you can build on, and `no_plot`, `no_hearth`, and `already_home` say which call fixes it. Codes are unchanged; keep branching on `error.code`.",
+    "links": []
+  },
+  {
     "id": "2026-10-05-deleted-profile-pictures-in-the-moderation-numbers",
     "date": "2026-10-05",
     "kind": "added",

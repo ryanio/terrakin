@@ -589,7 +589,13 @@ export const ServerMessage = z.union([
     /** A dry run: the action would be accepted, but nothing changed. */
     dry: z.literal(true).optional(),
   }),
-  z.object({ type: z.literal("error"), id: z.string().optional(), error: ErrorBody }),
+  z.object({
+    type: z.literal("error"),
+    id: z.string().optional(),
+    error: ErrorBody,
+    /** A dry run the world would turn down. */
+    dry: z.literal(true).optional(),
+  }),
   z.object({ type: z.literal("event"), seq: z.number().int(), event: WorldEvent }),
   ChatMessage,
   z.object({ type: z.literal("pong"), id: z.string().optional() }),

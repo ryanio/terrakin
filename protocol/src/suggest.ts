@@ -119,7 +119,10 @@ function fieldSuggestion(
   const missing = fields.filter((f) => !(f in raw));
   for (const key of Object.keys(raw)) {
     if (fields.includes(key)) continue;
-    const meant = nearestName(key, missing);
+    // `dry_run`, `dryRun`, and the like are too far from `dry` for the typo match, but dropping
+    // them would do the action for real.
+    const dryLike = isNameLike(key) && key.toLowerCase().replace(/[-_]/g, "").startsWith("dry");
+    const meant = dryLike && missing.includes("dry") ? "dry" : nearestName(key, missing);
     if (!meant) continue;
     const where = what ? ` for ${what}` : "";
     return {

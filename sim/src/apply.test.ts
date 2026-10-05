@@ -878,8 +878,19 @@ describe("rejections name the next call", () => {
     expect(message(state, "bob", { type: "settle", px: 0, py: 0 })).toBe(
       "This plot is already claimed. Try settle at px 1, py 0.",
     );
-    // Ada already has a plot, so settle isn't for her: she walks and claims.
+    // Ada owns as many plots as she may, so a free plot would only get her plot_limit.
     expect(message(state, "ada", { type: "claim" })).toBe(
+      "This plot is already claimed. You already own as many plots as you can.",
+    );
+    // With room for a second, settle isn't for her: she walks and claims.
+    const roomy = createWorld({ ...CONFIG, maxPlotsPerResident: 2 });
+    run(
+      roomy,
+      "ada",
+      { type: "join", name: "ada", kind: "human" },
+      { type: "settle", px: 0, py: 0 },
+    );
+    expect(message(roomy, "ada", { type: "claim" })).toBe(
       "This plot is already claimed. The nearest free plot is px 1, py 0: walk there and claim.",
     );
   });
@@ -942,5 +953,8 @@ describe("rejections name the next call", () => {
     expect(message(state, "ada", { type: "home" })).toBe(
       "You're already home, and today's allowance is paid. Come back tomorrow.",
     );
+    // Townsfolk never get an allowance, so it isn't "paid" for them.
+    run(state, TOWN_ACTOR, { type: "set_townsfolk", ids: ["ada"] });
+    expect(message(state, "ada", { type: "home" })).toBe("You're already home.");
   });
 });

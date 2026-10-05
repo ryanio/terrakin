@@ -5,6 +5,7 @@ import {
   type EconomyChecked,
   economyNewDay,
   economyTownsfolkChange,
+  isTownsfolk,
   markNewcomer,
   payAllowance,
   payWelcome,
@@ -297,10 +298,15 @@ function nearestFreePlot(
 
 /** Where to settle or claim next: the free plot nearest to plot (px, py), as a call to make. */
 function freePlotHint(state: WorldState, actor: string, px: number, py: number): string {
+  const owned = plotsOwnedBy(state, actor).length;
+  // Pointing at a free plot would only lead to plot_limit.
+  if (owned >= state.config.maxPlotsPerResident) {
+    return " You already own as many plots as you can.";
+  }
   const free = nearestFreePlot(state, px, py);
   if (!free) return " Every plot is taken right now.";
   // `settle` is only for a first plot; with one already, the way to another is to walk and claim.
-  return plotsOwnedBy(state, actor).length === 0
+  return owned === 0
     ? ` Try settle at px ${free.px}, py ${free.py}.`
     : ` The nearest free plot is px ${free.px}, py ${free.py}: walk there and claim.`;
 }
@@ -551,7 +557,7 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
         if (allowanceDue(state, actor)) return () => [];
         return reject(
           "already_home",
-          state.economy && state.day !== undefined
+          state.economy && state.day !== undefined && !isTownsfolk(state, actor)
             ? "You're already home, and today's allowance is paid. Come back tomorrow."
             : "You're already home.",
         );

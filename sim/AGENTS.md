@@ -17,7 +17,7 @@ The rules engine. If a rule decides what's allowed in the world, it lives here a
 - `src/types.ts` world, command, event, and rejection types. Start here.
 - `src/apply.ts` the rules. One `case` per command.
 - `src/world.ts` geometry helpers and `DEFAULT_CONFIG`.
-- `src/hash.ts` canonical JSON + FNV-1a fingerprint.
+- `src/hash.ts` canonical JSON + FNV-1a fingerprint. `src/keys.ts` the `"x,y"` record keys for tiles and plots.
 - `src/replay.ts` rebuild state from a log.
 - `src/town.ts` the Town Hall (RFC 0004): eligibility, proposals, votes, closes, builds, `TOWN_LIMITS`. Commands the server sends itself (`new_day`, `set_townsfolk`, `close_proposal`, `void_proposal`) must come from `TOWN_ACTOR` ([decision 0026](../docs/knowledge/decisions/0026-time-enters-the-sim-as-logged-day-and-close-inputs.md)).
 - `src/looks.ts` the looks catalog (RFC 0005): themes, patterns, wear and its slots. The protocol and client import it.

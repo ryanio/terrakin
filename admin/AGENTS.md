@@ -14,7 +14,7 @@ The staff app at admin.terrakin.org: the review queue, AI triage's suggestions, 
 
 ## Where things are
 
-- `index.html` the static shell. `src/main.ts` boots: asks `GET /v1/admin/overview` who is signed in, then routes `/` (queue) and `/log`; it also shows the token sign-in and the staff-only screen.
+- `index.html` the static shell. `src/jitless.ts`, imported first, keeps zod from probing `new Function`, which the admin host's policy forbids. `src/main.ts` boots: asks `GET /v1/admin/overview` who is signed in, then routes `/` (queue) and `/log`; it also shows the token sign-in and the staff-only screen.
 - `src/queue-view.ts` the queue: items grouped by target, the author's record, reports, triage's suggestion, and the reason, suspend length, and action buttons.
 - `src/log-view.ts` the moderation log, paged with `before`.
 - `src/api.ts` the staff routes. `src/logic.ts` pure decisions and wording. `src/view.ts` the button and outbound link helpers. `src/style.css` the staff app's own styles, on top of `@terrakin/ui/tokens.css` and `base.css`. State cards, people, times, fields, and the toast come from `@terrakin/ui` with their styles ([ui/AGENTS.md](../ui/AGENTS.md)); don't copy them here.

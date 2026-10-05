@@ -40,16 +40,16 @@ Plot (owned land), hearth (home tile), kindred (clan), coins (earned currency), 
 | [`ui/`](ui/AGENTS.md) | `@terrakin/ui`: the components, styles, design tokens, DOM helpers, and request helper `client/` and `admin/` share. Build a piece once, here. |
 | [`cards/`](cards/AGENTS.md) | Link preview cards, drawn with satori and resvg-wasm. |
 | [`e2e/`](e2e/AGENTS.md) | Playwright tests on a phone viewport against the real build. |
-| [`scripts/`](scripts/AGENTS.md) | Repo tooling: `gen`, `kb`, the brand generator, the townsfolk seed. |
+| [`scripts/`](scripts/AGENTS.md) | Repo tooling: `gen`, `kb`, the brand generator, the coin simulation, the townsfolk seed and tips, and the Sentry reader. |
 | [`docs/`](docs/AGENTS.md) | Vision, plans, architecture, RFCs, guides, site pages, knowledge base. |
 
-Dependencies point one way: `client -> ui -> protocol -> sim`, `admin -> ui -> protocol`, `server -> protocol -> sim`, and `server -> cards`. `sim` and `cards` depend on nothing.
+Dependencies point one way: `client -> ui -> protocol -> sim` (client and ui also import sim directly), `admin -> ui -> protocol`, `server -> protocol -> sim`, and `server -> cards`. `sim` and `cards` depend on nothing.
 
 ## Commands
 
 ```sh
-pnpm dev          # server :8787 + client :5173 (proxied), hot reload
-pnpm verify       # lint, typecheck, test, kb:check, gen:check, build. Same as CI.
+pnpm dev          # server :8787 + client :5173 + staff app :5174 (proxied), hot reload
+pnpm verify       # vendored secrets check, lint, typecheck, test, kb:check, gen:check, build. Same as CI.
 pnpm vitest run --project sim   # one package's tests
 pnpm e2e          # Playwright on a phone viewport against the real build
 pnpm format       # Biome: fix formatting and safe lint issues

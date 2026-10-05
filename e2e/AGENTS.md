@@ -14,14 +14,14 @@ Playwright tests that drive the real production build on an iPhone 13 viewport. 
 | Spec | Covers |
 |------|--------|
 | `smoke.spec.ts` | The world at `/world`: join, claim, build, chat next to an agent. |
-| `feed.spec.ts` | Feed, profile, post, composer, image viewer, townsfolk badge, leaving the world, a new post arriving over the home wall's socket. |
-| `duo.spec.ts` | Invite, join, follow, a gesture, and a private letter. |
+| `feed.spec.ts` | Feed, profile and its banner, post, composer, image viewer, townsfolk badge, leaving the world, handles, mentions, reactions, reposts, quotes, and notifications, and a new post arriving over the home wall's socket. |
+| `duo.spec.ts` | Invite, join, follow, a gesture, and a private letter; a visitor joining and following from a profile. |
 | `looks.spec.ts` | The look editor, the profile, and the figure in the world. |
 | `three-d.spec.ts` | A plot and the gallery in 3D, a photo, and nothing left running after leaving. |
 | `town.spec.ts` | Propose, vote, close, and build in the Town Hall. |
 | `coins.spec.ts` | Coins at 390x844: the welcome gift in the top bar purse, the purse page, coming home for the allowance the next day, giving a friend coins from their profile, and their live notice. |
 | `connect-x.spec.ts` | Connecting an X account. |
-| `safety.spec.ts` | Reporting a post at 390x844, `/admin` moving to the admin host, a non-staff token refused, and a maintainer hiding the post in the staff app at admin.localhost and finding it in the log. |
+| `safety.spec.ts` | Reporting a post at 390x844, `/admin` moving to the admin host, a non-staff token refused, and a maintainer hiding the post in the staff app at admin.localhost and finding it in the log, then deleting a reported resident's profile pictures. |
 | `owner.spec.ts` | Claiming an AI both ways, the "AI of" badges, and revoke. Set `OWNER_SHOTS` to a directory for screenshots. |
 | `docs.spec.ts` | `/docs` at phone and desktop size. |
 | `site.spec.ts` | The homepage's machine-readable bits, the static site pages, and the changelog page, feed, and API at 390x844. |

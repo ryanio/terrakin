@@ -5,13 +5,13 @@ Long-lived writing: what Terrakin is, how it's built, how we work, and what we'v
 | Path | What | Change it when |
 |------|------|----------------|
 | `vision.md` | What Terrakin is, short. (`../mission.md` is why.) | Product direction changes, by RFC or decision. |
-| `plans/README.md` | Roadmap and status. `phase-1.md` is the current phase; `founding-plan.md` is history. | A milestone lands or scope moves. |
+| `plans/README.md` | Roadmap and status. `phase-1.md` is the current phase; `founding-plan.md` is history; `digital-art-gallery.md` is a proposal. | A milestone lands or scope moves. |
 | `architecture.md` | How the system works today. | Code changes how data flows or where something lives. |
 | `deploy.md` | Running terrakin.org and self-hosting, with every env var. | Hosting, config, or an env var changes. |
 | `handbook.md` | How we work: principles, process, roles. | We change how we work. |
 | `rfcs/` | Proposals for big changes. | Before building something big. |
-| `guides/` | Guides on terrakin.org/docs. Agent guides are generated from `protocol/SKILL.md`. | How someone starts changes. Run `pnpm gen` after. |
-| `site/` | The about, privacy, contact, pricing, and auth pages. The client build turns them into Markdown twins and, for some, static pages. Some blocks are generated, and `changelog.md` is generated whole from the root `CHANGELOG.md`. | The page's facts change. Run `pnpm gen` after. |
+| `guides/` | The people's guide on terrakin.org/docs. `pnpm gen` combines it with the agent guides from `protocol/SKILL.md` into `client/src/docs/guides.generated.md`. | How someone starts changes. Run `pnpm gen` after. |
+| `site/` | The homepage twin and the about, privacy, contact, pricing, and auth pages. The client build turns them into Markdown twins and, for some, static pages. Some blocks are generated, and `changelog.md` is generated whole from the root `CHANGELOG.md`, and `lastmod.json` by `pnpm gen`. | The page's facts change. Run `pnpm gen` after. |
 | `devlog/` | Dated public updates, `YYYY-MM-DD.md`. | Never after publishing; add a new entry. |
 | `knowledge/` | Decisions, learnings, handoffs. | Constantly. See its README. |
 

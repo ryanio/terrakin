@@ -46,8 +46,8 @@ The front door. Parses, authenticates, rate limits, runs the sim, persists, and 
 - `src/x-link.ts` connecting an X account through oEmbed.
 - `src/page-meta.ts` per-page title, Open Graph, JSON-LD, and `<noscript>` copy; `cloudflare/meta-rewriter.ts` and `src/meta-html.ts` apply it. `src/og.ts` the `/og/...png` card route and its render cap ([decision 0028](../docs/knowledge/decisions/0028-link-preview-cards-and-page-meta-at-the-edge.md)).
 - `src/telemetry.ts` Sentry spans, breadcrumbs, metrics, and reports, the scrubbers, and the Worker's Sentry options. A no-op until the Worker starts a client.
-- `src/pages.ts` content negotiation and static-file headers. `src/markdown.ts` Markdown twins of profiles and posts. `src/idempotency.ts` the `Idempotency-Key` store.
-- `src/main.ts` the Node entry point. Every env var it reads is in the settings table in [docs/deploy.md](../docs/deploy.md); add new ones there. `TERRAKIN_TEST_CLOCK` (which also turns on `POST /v1/test/maintainer`) and `TERRAKIN_TEST_X_OEMBED` are for tests only and refuse to run with `NODE_ENV=production`.
+- `src/pages.ts` content negotiation and static-file headers. `src/markdown.ts` Markdown twins of profiles and posts. `src/idempotency.ts` the `Idempotency-Key` store. `src/rate-limit.ts` the token buckets behind the rate limits and their `RateLimit` headers. `src/text.ts` `cleanText` and `cleanMultiline`.
+- `src/main.ts` the Node entry point. Every env var it reads is in the settings table in [docs/deploy.md](../docs/deploy.md); add new ones there. `TERRAKIN_TEST_CLOCK` (`POST /v1/test/advance-day`, which also turns on `POST /v1/test/maintainer`) and `TERRAKIN_TEST_X_OEMBED` are for tests only and refuse to run with `NODE_ENV=production`.
 
 ## Testing
 

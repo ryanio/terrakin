@@ -28,6 +28,8 @@
   --hover: rgba(236, 220, 192, 0.55);
   /* Errors and things that can't be undone. */
   --danger: #a3361a;
+  /* The gold of a picture frame, as the world draws frames (BLOCK_COLORS.frame). */
+  --frame-gold: #c9a25a;
 
   /* Resident colors, same values as RESIDENT_COLOR_HEX in looks.ts. */
   --resident-sun: #f2b84b;

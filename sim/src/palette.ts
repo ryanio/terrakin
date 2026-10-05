@@ -37,6 +37,8 @@ export const BLOCK_COLORS: Readonly<Record<BlockKind, string>> = {
   frame: "#c9a25a",
   fence: "#e8dcc4",
   bench: "#7a8f5a",
+  // A pale stone plinth for a made thing on display (RFC 0005 step 3).
+  pedestal: "#e9e1d0",
 };
 
 /** The hearth's roof (and the Town Hall's). */

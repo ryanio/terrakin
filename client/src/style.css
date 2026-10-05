@@ -3089,6 +3089,35 @@ dialog.model-viewer {
   text-decoration: none;
 }
 
+/* The sheet a pedestal or a frame opens: what's on display, large, with who made it. */
+.showcase {
+  justify-items: center;
+  margin: 0;
+  text-align: center;
+}
+
+.showcase-art.thing-picture {
+  width: min(100%, 240px);
+  height: auto;
+  aspect-ratio: 1;
+}
+
+.showcase-name {
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.showcase-line {
+  color: var(--ink-soft);
+  font-size: var(--text-md);
+}
+
+/* Make a piece of art on your things page: the picture you chose, before it has a title. */
+.piece-preview .thing-picture {
+  border-width: 3px;
+}
+
 /* Give coins, or a thing, on a profile: buttons in the card's send row, forms below it. */
 .coin-open .icon,
 .thing-open .icon {

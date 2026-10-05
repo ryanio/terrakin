@@ -81,6 +81,7 @@ export function inventoryLine(e: InventoryEvent): string | null {
       return `You picked ${list(gained)}.`;
     case "craft": {
       const made = e.gained?.[0];
+      if (made?.kind === "piece") return "You made a piece of art.";
       return made ? `You made ${thingName(made.kind).toLowerCase()}.` : null;
     }
     case "gift_in": {
@@ -95,6 +96,10 @@ export function inventoryLine(e: InventoryEvent): string | null {
       return "Your gift is on its way.";
     case "declined":
       return "You sent the gift back.";
+    case "displayed":
+      return "It's on display for everyone who passes.";
+    case "off_display":
+      return "Taken down. It's back in your things.";
     case "returned": {
       const goods = e.gained ?? [];
       const what =

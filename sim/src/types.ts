@@ -1,4 +1,4 @@
-import type { Crop, GoodKind, ItemKind, StackKind } from "./items";
+import type { Crop, GoodKind, ItemKind, MadeKind, StackKind } from "./items";
 import type { Look, Pattern, Theme, WearItem, WearStyle } from "./looks";
 
 /** Stable id for a resident (human or agent). Assigned by the server, opaque to the sim. */
@@ -10,9 +10,9 @@ export type Direction = "n" | "s" | "e" | "w";
 
 /**
  * What can be placed. The first four are building blocks. `planter` holds a crop, and `kitchen`
- * and `workbench` are stations to craft at (RFC 0005). Those are placed for free. The rest are
+ * and `workbench` are stations to craft at (RFC 0005). Those are placed for free. The next four are
  * decor from the town shop (RFC 0008): placing one uses one from your things, and removing it puts
- * it back.
+ * it back. `pedestal` (free) and `frame` hold a made thing on display (RFC 0005 step 3).
  */
 export const BLOCK_KINDS = [
   "wood",
@@ -26,6 +26,7 @@ export const BLOCK_KINDS = [
   "frame",
   "fence",
   "bench",
+  "pedestal",
 ] as const;
 
 /** Blocks bought at the town shop. Each one placed is one fewer in your things. */
@@ -46,6 +47,7 @@ export const FREE_BLOCKS = [
   "planter",
   "kitchen",
   "workbench",
+  "pedestal",
 ] as const satisfies readonly (typeof BLOCK_KINDS)[number][];
 export type FreeBlock = (typeof FREE_BLOCKS)[number];
 
@@ -322,11 +324,27 @@ export interface ShopToday {
 export interface Good {
   /** `i_1`, `i_2`, ... from the world's counter. */
   id: string;
-  kind: GoodKind;
+  kind: MadeKind;
   maker: ResidentId;
   madeDay: number;
-  /** The maker's label. Untrusted text, cleaned by the server before it was logged. */
+  /**
+   * The maker's label, or a piece's title. Untrusted text, cleaned by the server before it was
+   * logged.
+   */
   label?: string;
+  /** A piece only: the maker's upload it shows (`m_...`, served at `/media/<id>`). */
+  media?: string;
+  /** A piece only: the upload is a `.glb` model, not a picture. */
+  model?: true;
+}
+
+/** A made thing on a `pedestal` or a `frame`, out of its holder's things until it's taken down. */
+export interface Display {
+  good: Good;
+  /** Who put it up. It goes back to them when it's taken down. */
+  by: ResidentId;
+  /** The day it went up. */
+  day: number;
 }
 
 /** What one resident holds. */
@@ -391,6 +409,8 @@ export interface ItemsState {
   gifts?: Record<string, GiftRecord>;
   /** The number in the next gift's id. Set with `gifts`. */
   nextGift?: number;
+  /** Made things on display, keyed by tileKey(x, y). Absent until the first `display`. */
+  displays?: Record<string, Display>;
 }
 
 /** Why an inventory changed. */
@@ -424,6 +444,10 @@ export const INVENTORY_REASONS = [
   "declined",
   /** A gift of yours that its recipient sent back. */
   "returned",
+  /** Put on display on a pedestal or a frame. */
+  "displayed",
+  /** Taken down from display, back into your things. */
+  "off_display",
 ] as const;
 export type InventoryReason = (typeof INVENTORY_REASONS)[number];
 
@@ -558,6 +582,11 @@ export type Command =
   | { type: "give"; item: string; to: ResidentId; count?: number; note?: string }
   /** Send a gift back to whoever gave it, within `ITEMS.declineDays` days. */
   | { type: "decline_gift"; gift: string }
+  // Showing (RFC 0005 step 3). `title` is untrusted text the server cleaned; `model` is set by the
+  // server from the upload's type.
+  | { type: "make_piece"; media: string; title: string; model?: true }
+  | { type: "display"; item: string; x: number; y: number }
+  | { type: "take_down"; x: number; y: number }
   // The town shop (RFC 0008, phase 2).
   | { type: "shop_buy"; sku: string; count?: number }
   | { type: "sell_to_town"; item: string; count?: number }
@@ -756,6 +785,11 @@ export type WorldEvent =
   | { type: "harvested"; x: number; y: number; crop: Crop; by: ResidentId }
   /** Someone gave someone a thing. Public, without the count or the note. */
   | { type: "item_given"; from: ResidentId; to: ResidentId; kind: ItemKind }
+  /** A made thing went on display. Public: it shows in the world, label and all. */
+  | { type: "displayed"; x: number; y: number; good: Good; by: ResidentId }
+  /** A displayed thing was taken down by `by`. Public. */
+  | { type: "taken_down"; x: number; y: number; by: ResidentId }
+
   /**
    * One resident's things changed. Private: it belongs to `residentId` alone, and the server sends
    * it only to them. A gift makes two, one for each side.
@@ -835,6 +869,9 @@ export const REJECTION_CODES = [
   "own_listing",
   "listing_limit",
   "unknown_gift",
+  "invalid_piece",
+  "no_display",
+  "nothing_displayed",
 ] as const;
 export type RejectionCode = (typeof REJECTION_CODES)[number];
 

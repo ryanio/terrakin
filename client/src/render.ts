@@ -22,7 +22,7 @@ import {
 } from "@terrakin/sim";
 import { BRAND_HEX } from "@terrakin/ui/brand";
 import { drawFigure, FIGURE_BOX } from "@terrakin/ui/figure";
-import { CROP_HEX } from "@terrakin/ui/item-art";
+import { CROP_HEX, itemArtImage } from "@terrakin/ui/item-art";
 import {
   lookImage,
   lookPalette,
@@ -32,7 +32,7 @@ import {
   withAlpha,
 } from "@terrakin/ui/looks";
 import { type Camera, tileToScreen } from "./camera";
-import type { Mirror } from "./mirror";
+import type { DisplayView, Mirror } from "./mirror";
 import { growth } from "./things";
 import { nightAmount } from "./time";
 
@@ -368,6 +368,106 @@ function paintDecor(
   else if (kind === "fence") paintFence(ctx, left, top, size, edge, joins);
   else paintBench(ctx, left, top, size);
   ctx.restore();
+}
+
+/** A pale stone plinth for something on display. */
+function paintPedestal(
+  ctx: CanvasRenderingContext2D,
+  left: number,
+  top: number,
+  size: number,
+  scale: number,
+) {
+  const cx = left + size / 2;
+  const base = top + size * 0.92;
+  ctx.save();
+  ctx.fillStyle = "rgba(74, 52, 28, 0.2)";
+  ctx.beginPath();
+  ctx.ellipse(cx, base, size * 0.34, size * 0.08, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = BLOCK_COLORS.pedestal;
+  ctx.strokeStyle = "rgba(70, 40, 18, 0.45)";
+  ctx.lineWidth = Math.max(1, scale / 30);
+  ctx.beginPath();
+  ctx.roundRect(cx - size * 0.3, base - size * 0.12, size * 0.6, size * 0.12, size * 0.03);
+  ctx.roundRect(cx - size * 0.2, top + size * 0.62, size * 0.4, size * 0.2, size * 0.02);
+  ctx.roundRect(cx - size * 0.3, top + size * 0.54, size * 0.6, size * 0.1, size * 0.03);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+}
+
+/**
+ * What's on display on a pedestal or in a frame: a piece's own picture when it has loaded, and the
+ * thing's drawn picture otherwise (a model, a jar of jam). Pictures load once and draw from then on.
+ */
+function paintShown(
+  ctx: CanvasRenderingContext2D,
+  good: DisplayView["good"],
+  left: number,
+  top: number,
+  size: number,
+  on: "pedestal" | "frame",
+) {
+  const picture = good.kind === "piece" && !good.model ? lookImage(good.media) : undefined;
+  const cx = left + size / 2;
+  if (on === "frame") {
+    // The easel's picture area, inside the frame's border (see paintEasel).
+    const border = Math.max(2, size * 0.08);
+    const x = cx - size * 0.35 + border;
+    const y = top + size * 0.12 + border;
+    const w = size * 0.7 - border * 2;
+    const h = size * 0.52 - border * 2;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x, y, w, h);
+    ctx.clip();
+    ctx.fillStyle = PAPER;
+    ctx.fillRect(x, y, w, h);
+    if (picture) drawCover(ctx, picture, x, y, w, h);
+    else {
+      const art = itemArtImage(good.kind);
+      const side = Math.min(w, h) * 1.1;
+      if (art) ctx.drawImage(art, cx - side / 2, y + (h - side) / 2, side, side);
+    }
+    ctx.restore();
+    return;
+  }
+  const side = size * 0.66;
+  const y = top + size * 0.58 - side;
+  if (picture) {
+    // A little canvas on the plinth, in a frame.
+    const w = side * 0.8;
+    const h = side * 0.66;
+    const x = cx - w / 2;
+    const py = top + size * 0.56 - h;
+    ctx.save();
+    ctx.fillStyle = BLOCK_COLORS.frame;
+    ctx.fillRect(x - 2, py - 2, w + 4, h + 4);
+    ctx.beginPath();
+    ctx.rect(x, py, w, h);
+    ctx.clip();
+    drawCover(ctx, picture, x, py, w, h);
+    ctx.restore();
+    return;
+  }
+  const art = itemArtImage(good.kind);
+  if (art) ctx.drawImage(art, cx - side / 2, y, side, side);
+}
+
+/** Draw an image to fill a box, cropped to keep its shape. */
+function drawCover(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+) {
+  const k = Math.max(w / img.naturalWidth, h / img.naturalHeight);
+  const dw = img.naturalWidth * k;
+  const dh = img.naturalHeight * k;
+  ctx.drawImage(img, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
 }
 
 /** A paper lantern hanging from a shepherd's hook. */
@@ -737,6 +837,13 @@ export function render(
     const left = Math.round(sx - half) + inset;
     const top = Math.round(sy - half) + inset;
     const size = Math.round(scale) - inset * 2;
+    // A pedestal is a little plinth; whatever's on display stands on it (RFC 0005 step 3).
+    if (block === "pedestal") {
+      paintPedestal(ctx, left, top, size, scale);
+      const shown = mirror.displays.get(key);
+      if (shown) paintShown(ctx, shown.good, left, top, size, "pedestal");
+      continue;
+    }
     if (isDecorKind(block)) {
       const joins = {
         n: isFence(x, y - 1),
@@ -745,6 +852,9 @@ export function render(
         w: isFence(x - 1, y),
       };
       paintDecor(ctx, block, left, top, size, scale, inset, joins);
+      // A frame shows what hangs in it in place of its own little landscape.
+      const shown = block === "frame" ? mirror.displays.get(key) : undefined;
+      if (shown) paintShown(ctx, shown.good, left, top, size, "frame");
       if (block === "lantern") lanterns.push({ sx: left + size * 0.64, sy: top + size * 0.42 });
       continue;
     }

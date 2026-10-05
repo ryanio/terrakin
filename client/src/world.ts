@@ -375,7 +375,8 @@ function self() {
   return me ? mirror?.residents.get(me) : undefined;
 }
 
-const STATIONS: readonly BlockKind[] = ["planter", "kitchen", "workbench"];
+/** Blocks a tap opens a sheet for: what grows or is made there, or what's on display. */
+const STATIONS: readonly BlockKind[] = ["planter", "kitchen", "workbench", "pedestal", "frame"];
 
 /** Whether a tile is within the world's reach of where you stand. Only a hint: the server checks. */
 function inReach(r: { x: number; y: number }, tile: { x: number; y: number }): boolean {
@@ -383,7 +384,10 @@ function inReach(r: { x: number; y: number }, tile: { x: number; y: number }): b
   return Math.max(Math.abs(tile.x - r.x), Math.abs(tile.y - r.y)) <= reach;
 }
 
-/** Open the sheet for the planter, kitchen, or workbench on a tile (RFC 0005), if one is there. */
+/**
+ * Open the sheet for the planter, kitchen, workbench, pedestal, or frame on a tile (RFC 0005), if
+ * one is there.
+ */
 function openStation(x: number, y: number) {
   const m = mirror;
   const here = m?.blocks.get(`${x},${y}`);
@@ -394,6 +398,22 @@ function openStation(x: number, y: number) {
   const plot = ownerId ? { px: 0, py: 0, ownerId, coOwners: [...m.coOwnersAt(x, y)] } : undefined;
   const yours = !!me && canBuildOn(plot, me);
   const ownerName = ownerId ? m.residents.get(ownerId)?.name : undefined;
+  if (here === "pedestal" || here === "frame") {
+    const shown = m.displays.get(`${x},${y}`);
+    void import("./display-sheet").then((d) =>
+      d.openDisplaySheet({
+        block: here,
+        x,
+        y,
+        ...(shown ? { shown } : {}),
+        yours,
+        me,
+        nameOf: (id) => m.residents.get(id)?.name,
+        act: (action) => act(action),
+      }),
+    );
+    return;
+  }
   void import("./garden-sheet").then((g) =>
     g.openTileSheet({
       block: here,

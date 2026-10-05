@@ -10,7 +10,7 @@ import {
   inventory,
   inventoryEvent,
   inventorySize,
-  isGoodKind,
+  isMadeKind,
   isStackKind,
 } from "./items";
 import type {
@@ -174,7 +174,7 @@ export function checkListItem(
     if (count !== 1) return refuse("invalid_amount", "An item id is one thing. Leave out count.");
     kind = good.kind;
     goods = [good];
-  } else if (isGoodKind(item)) {
+  } else if (isMadeKind(item)) {
     kind = item;
     goods = (inv?.goods ?? []).filter((g) => g.kind === item).slice(0, count);
     if (goods.length < count) {

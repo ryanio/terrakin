@@ -77,6 +77,10 @@ const HAND_BUILT: { pattern: RegExp; use: string; home?: string }[] = [
   { pattern: /`\/[rp]\/\$\{/, use: "profilePath, postPath, or plot3dPath (paths.ts)" },
   { pattern: /class: "sheet[ "]|class: "sheet-(card|head|title|close)"/, use: "sheet (ui.ts)" },
   { pattern: /["'`]item-art\b|CROP_COLORS/, use: "itemArt or CROP_HEX (item-art.ts)" },
+  {
+    pattern: /mediaUrlOf\([\w.]+\.media\)|class: "[^"]*\bthing-picture\b/,
+    use: "thingPicture (item-art.ts)",
+  },
   { pattern: /class: "[^"]*-(row|line|good|order)-body\b/, use: "itemRow and itemRows (ui.ts)" },
   {
     pattern: /history\.state as \{ overlay/,

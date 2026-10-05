@@ -56,6 +56,22 @@ describe("things", () => {
     expect(inventoryLine({ ...base, reason: "taken_down", gained: [jam] })).toBe(
       "Staff took one of your listings out of the market. It's back in your things.",
     );
+    expect(inventoryLine({ ...base, reason: "displayed", lost: ["i_1"] })).toBe(
+      "It's on display for everyone who passes.",
+    );
+    expect(inventoryLine({ ...base, reason: "off_display", gained: [jam] })).toBe(
+      "Taken down. It's back in your things.",
+    );
+    const piece = {
+      id: "i_2",
+      kind: "piece" as const,
+      maker: "r_1",
+      madeDay: 1,
+      media: "m_0123456789abcdef",
+    };
+    expect(inventoryLine({ ...base, reason: "craft", gained: [piece] })).toBe(
+      "You made a piece of art.",
+    );
     expect(inventoryLine({ ...base, reason: "declined", lost: ["i_1"] })).toBe(
       "You sent the gift back.",
     );

@@ -7,6 +7,7 @@ export {
   prepare,
 } from "./apply";
 export { BIOME_REGION, type Biome, biomeAt } from "./biome";
+export { DISPLAY_BLOCKS, displayAt, displaysOf, isDisplayBlock } from "./display";
 export {
   allowanceDue,
   coinsOf,
@@ -44,8 +45,13 @@ export {
   inventorySize,
   isDecorKind,
   isGoodKind,
+  isMadeKind,
   isReady,
   lastDeclineDay,
+  MADE_KINDS,
+  type MadeKind,
+  PIECE_KINDS,
+  type PieceKind,
   pantryDue,
   pantryNumbers,
   RECIPES,

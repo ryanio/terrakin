@@ -14,6 +14,9 @@ import {
 
 type EventMessage = { seq: number; event: WorldEvent };
 
+/** A made thing on display, as the world shows it. Its `label` is its maker's words. */
+export type DisplayView = Omit<NonNullable<WorldSnapshot["displays"]>[number], "x" | "y">;
+
 /** The way someone faces after moving by (dx, dy): the bigger axis wins. Undefined for no move. */
 export function facingFrom(dx: number, dy: number): Direction | undefined {
   if (dx === 0 && dy === 0) return undefined;
@@ -47,6 +50,8 @@ export class Mirror {
   townBuilt = new Map<string, string>(); // tileKey -> the proposal that built it
   /** Crops growing in planters (RFC 0005). */
   crops = new Map<string, { crop: Crop; plantedDay: number; readyDay: number }>();
+  /** Made things on display on pedestals and frames (RFC 0005 step 3). Labels are untrusted text. */
+  displays = new Map<string, DisplayView>();
   /** Today, as the world counts it. A crop is ready once this reaches its `readyDay`. */
   day: number | undefined;
   /** Which way each resident last walked. Only for drawing; nobody faces anywhere in the sim. */
@@ -71,6 +76,9 @@ export class Mirror {
         plantedDay: c.plantedDay,
         readyDay: c.readyDay,
       });
+    }
+    for (const d of snapshot.displays ?? []) {
+      this.displays.set(tileKey(d.x, d.y), { good: { ...d.good }, by: d.by, day: d.day });
     }
     this.day = snapshot.day;
   }
@@ -174,6 +182,16 @@ export class Mirror {
         break;
       case "harvested":
         this.crops.delete(tileKey(event.x, event.y));
+        break;
+      case "displayed":
+        this.displays.set(tileKey(event.x, event.y), {
+          good: { ...event.good },
+          by: event.by,
+          day: this.day ?? 0,
+        });
+        break;
+      case "taken_down":
+        this.displays.delete(tileKey(event.x, event.y));
         break;
       // The blocks themselves arrive as block_placed and block_removed just before this.
       case "town_built":

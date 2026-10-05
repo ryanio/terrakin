@@ -63,6 +63,7 @@ const BLOCK_LOOKS: Record<BlockKind, BlockLook> = {
   frame: { color: hex(BLOCK_COLORS.frame), height: 1.25, opacity: 1, form: "decor" },
   fence: { color: hex(BLOCK_COLORS.fence), height: 0.8, opacity: 1, form: "decor" },
   bench: { color: hex(BLOCK_COLORS.bench), height: 0.78, opacity: 1, form: "decor" },
+  pedestal: { color: hex(BLOCK_COLORS.pedestal), height: 0.6, opacity: 1, form: "voxel" },
 };
 
 export function blockLook(block: BlockKind): BlockLook {

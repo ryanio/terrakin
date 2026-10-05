@@ -42,6 +42,17 @@ a {
   overflow: visible;
 }
 
+/* A piece of art's own picture, in a thin gold frame like the world's frames. */
+.thing-picture {
+  flex: none;
+  display: inline-block;
+  vertical-align: middle;
+  object-fit: cover;
+  border: 2px solid var(--frame-gold);
+  border-radius: var(--r-xs);
+  background: var(--paper-2);
+}
+
 .icon {
   width: 20px;
   height: 20px;

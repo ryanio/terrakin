@@ -140,6 +140,11 @@ function toWire(events: WorldEvent[], townsfolk: readonly string[] = []): WireEv
       out.push(words ? { ...e, trust: "untrusted" } : e);
       continue;
     }
+    if (e.type === "displayed") {
+      // A made thing's label, or a piece's title, is its maker's words.
+      out.push(e.good.label !== undefined ? { ...e, trust: "untrusted" } : e);
+      continue;
+    }
     if (e.type === "listed") {
       // A made thing's label is its maker's words.
       const words = e.listing.goods?.some((g) => g.label !== undefined);
@@ -262,6 +267,14 @@ const LOOK_MEDIA_TYPES: Record<LookMediaKey, { types: readonly MediaType[]; what
     what: "Your home model must be one of your .glb uploads.",
   },
 };
+
+/** What a piece of art may show: a still picture, or a `.glb` model. */
+const PIECE_MEDIA_TYPES: readonly MediaType[] = [
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "model/gltf-binary",
+];
 
 /** Look up the type of an upload `owner` made, or undefined if it isn't theirs (or doesn't exist). */
 export type OwnedMediaType = (owner: string, mediaId: string) => MediaType | undefined;
@@ -600,6 +613,7 @@ export class WorldService {
 
   private mediaType: OwnedMediaType | undefined;
   private onLookMedia: ((residentId: string, mediaIds: string[]) => void) | undefined;
+  private onPieceMedia: ((itemId: string, mediaId: string) => void) | undefined;
 
   /**
    * Connect the uploads the look fields may name. `type` answers which of a resident's uploads
@@ -607,9 +621,29 @@ export class WorldService {
    * so the upload sweep never deletes media the world still shows. Without this, look media are
    * refused.
    */
-  useMedia(type: OwnedMediaType, pinned: (residentId: string, mediaIds: string[]) => void) {
+  useMedia(
+    type: OwnedMediaType,
+    pinned: (residentId: string, mediaIds: string[]) => void,
+    piece?: (itemId: string, mediaId: string) => void,
+  ) {
     this.mediaType = type;
     this.onLookMedia = pinned;
+    this.onPieceMedia = piece;
+  }
+
+  /**
+   * Every piece of art in the world and the upload it shows, wherever it is: in someone's things,
+   * on display, or in the market. For pinning them all after a restart.
+   */
+  allPieceMedia(): [string, string][] {
+    const items = this.state.items;
+    if (!items) return [];
+    const goods = [
+      ...Object.values(items.inventories).flatMap((inv) => inv.goods),
+      ...Object.values(items.displays ?? {}).map((d) => d.good),
+      ...Object.values(this.state.market?.listings ?? {}).flatMap((l) => l.goods ?? []),
+    ];
+    return goods.flatMap((g) => (g.media ? [[g.id, g.media] as [string, string]] : []));
   }
 
   /** The upload ids a resident's look names. */
@@ -863,6 +897,36 @@ export class WorldService {
         ...(label ? { label } : {}),
       };
       return this.run({ actor: residentId, command }, dry);
+    }
+    if (action.type === "make_piece") {
+      // A title travels with the piece to everyone who sees it: clean it and filter it first.
+      const title = cleanText(action.title);
+      const refused = filtered(this.moderation, "item_label", title, context);
+      if (refused) return refused;
+      const type = this.mediaType?.(residentId, action.media);
+      if (!type || !PIECE_MEDIA_TYPES.includes(type)) {
+        return {
+          ok: false,
+          error: {
+            code: "invalid_piece",
+            message: "A piece shows one of your PNG, JPEG, or WebP uploads, or a .glb model.",
+          },
+        };
+      }
+      const command: Command = {
+        type: "make_piece",
+        media: action.media,
+        title,
+        ...(type === "model/gltf-binary" ? { model: true as const } : {}),
+      };
+      const result = this.run({ actor: residentId, command }, dry);
+      if (result.ok && !dry) {
+        for (const e of result.events) {
+          if (e.type !== "inventory") continue;
+          for (const g of e.gained ?? []) if (g.media) this.onPieceMedia?.(g.id, g.media);
+        }
+      }
+      return result;
     }
     if (action.type === "list_item") {
       const why = this.listingRefusal(residentId);
@@ -1204,6 +1268,14 @@ export class WorldService {
           }
         : {}),
       ...(state.townsfolk?.length ? { townsfolk: [...state.townsfolk] } : {}),
+      ...(state.items?.displays && Object.keys(state.items.displays).length > 0
+        ? {
+            displays: Object.entries(state.items.displays).map(([key, d]) => {
+              const [x, y] = parseKey(key);
+              return { x, y, good: { ...d.good }, by: d.by, day: d.day };
+            }),
+          }
+        : {}),
       ...(state.items && Object.keys(state.items.crops).length > 0
         ? {
             crops: Object.entries(state.items.crops).map(([key, c]) => {

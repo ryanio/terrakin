@@ -1,3 +1,4 @@
+import { checkDisplay, checkMakePiece, checkTakeDown, displayRemoveProblem } from "./display";
 import {
   allowanceDue,
   checkEconomyServer,
@@ -726,6 +727,8 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
         if (cropAt(state, x, y)) {
           return reject("tile_occupied", "Something is growing in that planter. Harvest it first.");
         }
+        const shown = displayRemoveProblem(state, x, y);
+        if (shown) return { ok: false, rejection: shown };
         const taken = state.blocks[key];
         const full = decorRemoveProblem(state, actor, taken);
         if (full) return { ok: false, rejection: full };
@@ -930,6 +933,13 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
       return town(checkGiveItem(state, actor, command));
     case "decline_gift":
       return town(checkDeclineGift(state, actor, command));
+
+    case "make_piece":
+      return town(checkMakePiece(state, actor, command));
+    case "display":
+      return town(checkDisplay(state, actor, command));
+    case "take_down":
+      return town(checkTakeDown(state, actor, command));
 
     case "shop_buy":
       return town(checkShopBuy(state, actor, command));

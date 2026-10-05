@@ -1,5 +1,5 @@
 import { type APIRequestContext, expect, type Page, test } from "@playwright/test";
-import { act, freePlots, join, signIn, watchErrors } from "./support";
+import { act, freePlots, join, settler, signIn, tinyPng, watchErrors } from "./support";
 
 /**
  * Growing, making, and giving (RFC 0005) on a phone: a resident taps a planter in the world and
@@ -151,6 +151,69 @@ test("grow herbs, make tea, and give it to a friend", async ({ page }) => {
   expect((await inventory(page.request, olive.token)).goods).toEqual([]);
   expect((await inventory(page.request, fern.token)).goods).toContainEqual(
     expect.objectContaining({ kind: "herb_tea", label: "Calm" }),
+  );
+
+  expect(errors).toEqual([]);
+});
+
+test("make a piece of art and put it on a pedestal", async ({ page }) => {
+  const errors = watchErrors(page);
+  const iris = await settler(page.request, "Iris");
+  await signIn(page, iris);
+
+  // On her things page, a picture of hers becomes a piece of art with a title.
+  await page.goto("/inventory");
+  await page
+    .locator("#piece-file")
+    .setInputFiles({ name: "garden.png", mimeType: "image/png", buffer: tinyPng() });
+  await expect(page.locator("#piece-status")).toHaveText("Now give it a title.");
+  await expect(page.locator(".piece-preview img.thing-picture")).toBeVisible();
+  await page.locator("#piece-title").fill("Clay sky");
+  await page.locator("#piece-make").click();
+  await expect(page.locator("#site-toast")).toContainText("You made a piece of art");
+  const art = page.locator(".things-good", { hasText: "Clay sky" });
+  await expect(art.locator("img.thing-picture")).toBeVisible();
+  await page.screenshot({ path: "test-results/show-piece.png" });
+  const [piece] = (await inventory(page.request, iris.token)).goods;
+  expect(piece).toMatchObject({ kind: "piece", label: "Clay sky", makerId: iris.id });
+
+  // In the world: a pedestal up and to the left of her hearth, then tap it to put the piece up.
+  await page.goto("/world");
+  await expect(page.locator("#hud")).toBeVisible();
+  await page.click("#build");
+  await page.click('[data-block="pedestal"]');
+  await tapTile(page, -1, -1);
+  await page.click("#build");
+  const world = async () => (await page.request.get("/v1/world")).json();
+  const me = (await world()).residents.find((r: { id: string }) => r.id === iris.id);
+  await expect
+    .poll(async () => (await world()).blocks)
+    .toContainEqual({ x: me.x - 1, y: me.y - 1, block: "pedestal" });
+  await tapTile(page, -1, -1);
+  const sheet = page.locator(".display-sheet");
+  await expect(sheet).toBeVisible();
+  await sheet.locator(".workshop-row", { hasText: "Clay sky" }).getByRole("button").click();
+  await expect
+    .poll(async () => (await world()).displays ?? [])
+    .toContainEqual(
+      expect.objectContaining({
+        x: me.x - 1,
+        y: me.y - 1,
+        by: iris.id,
+        good: expect.objectContaining({ id: piece.id }),
+      }),
+    );
+  await page.screenshot({ path: "test-results/show-displayed.png" });
+
+  // Tapping it again shows it large, with its maker, and lets her take it down.
+  await tapTile(page, -1, -1);
+  await expect(sheet.locator(".showcase-name")).toHaveText("Piece of art “Clay sky”");
+  await expect(sheet.locator(".showcase-line")).toHaveText("Made by Iris");
+  await page.screenshot({ path: "test-results/show-sheet.png" });
+  await sheet.getByRole("button", { name: "Take down" }).click();
+  await expect.poll(async () => (await world()).displays).toBeUndefined();
+  expect((await inventory(page.request, iris.token)).goods).toContainEqual(
+    expect.objectContaining({ id: piece.id }),
   );
 
   expect(errors).toEqual([]);

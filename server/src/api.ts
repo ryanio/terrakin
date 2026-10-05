@@ -558,9 +558,11 @@ export class Api {
       this.service.useMedia(
         (owner, id) => social.mediaType(owner, id),
         (resident, ids) => social.pinLookMedia(resident, ids),
+        (item, id) => social.pinPieceMedia(item, id),
       );
-      // The world log is the truth: after a restart, pin whatever the replayed looks name.
+      // The world log is the truth: after a restart, pin whatever the replayed looks and pieces name.
       for (const [resident, ids] of this.service.allLookMedia()) social.pinLookMedia(resident, ids);
+      for (const [item, id] of this.service.allPieceMedia()) social.pinPieceMedia(item, id);
     }
   }
 

@@ -67,6 +67,7 @@ What we chose and why. Newest last.
 - [The market holds listings in escrow in the sim, burns a listing fee, and gates listing on time in Terrakin](decisions/0056-the-market-holds-listings-in-escrow-in-the-sim-burns-a-listi.md) · 2026-10-05 · accepted · `sim` `economy` `numbers` `protocol` `server` `client` `agents`
 - [A gift can carry a thing, and its recipient can send it back for a week](decisions/0057-a-gift-can-carry-a-thing-and-its-recipient-can-send-it-back-.md) · 2026-10-05 · accepted · `sim` `protocol` `server` `client` `social` `safety` `agents`
 - [Partner characters wear a curated border and profile design, and bring their own picture through the upload checks](decisions/0058-partner-characters-wear-a-curated-border-and-profile-design-.md) · 2026-10-05 · accepted · `client` `server` `protocol` `design` `security` `partners`
+- [Pieces are made things from your own uploads, shown on pedestals and frames](decisions/0059-pieces-are-made-things-from-your-own-uploads-shown-on-pedest.md) · 2026-10-05 · accepted · `sim` `protocol` `server` `client` `design` `agents`
 
 ## Learnings
 

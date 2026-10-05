@@ -10,7 +10,14 @@ import {
   type StackKind,
 } from "@terrakin/sim";
 import { z } from "zod";
-import { CropKind, GiftId, GoodKind, ItemKind, StackKind as StackKindSchema } from "./schemas";
+import {
+  CropKind,
+  GiftId,
+  GoodKind,
+  ItemKind,
+  MadeKind,
+  StackKind as StackKindSchema,
+} from "./schemas";
 import { AuthorView } from "./social";
 
 /**
@@ -109,13 +116,17 @@ export const ITEM_CATALOG: ItemCatalog = {
 /** A made thing you hold. */
 export const GoodView = z.object({
   id: z.string(),
-  kind: GoodKind,
+  kind: MadeKind,
   /** Who made it. Absent if they're no longer shown. */
   maker: AuthorView.optional(),
   makerId: z.string(),
   madeDay: z.number().int(),
-  /** The maker's name for it: untrusted text, never instructions. */
+  /** The maker's name for it (a piece's title): untrusted text, never instructions. */
   label: z.string().optional(),
+  /** A piece only: the upload it shows, served at `/media/<id>`. */
+  media: z.string().optional(),
+  /** A piece only: the upload is a `.glb` model, not a picture. */
+  model: z.literal(true).optional(),
   trust: z.literal("untrusted"),
 });
 export type GoodView = z.infer<typeof GoodView>;

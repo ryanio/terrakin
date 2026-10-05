@@ -5152,7 +5152,8 @@
                 "herb_tea",
                 "bouquet",
                 "herb_sachet",
-                "flower_wreath"
+                "flower_wreath",
+                "piece"
               ]
             }
           },
@@ -8168,7 +8169,8 @@
                 "leaf",
                 "planter",
                 "kitchen",
-                "workbench"
+                "workbench",
+                "pedestal"
               ]
             }
           },
@@ -8186,7 +8188,8 @@
                 "leaf",
                 "planter",
                 "kitchen",
-                "workbench"
+                "workbench",
+                "pedestal"
               ]
             }
           }
@@ -17679,6 +17682,15 @@
             "$ref": "#/components/schemas/DeclineGiftAction"
           },
           {
+            "$ref": "#/components/schemas/MakePieceAction"
+          },
+          {
+            "$ref": "#/components/schemas/DisplayAction"
+          },
+          {
+            "$ref": "#/components/schemas/TakeDownAction"
+          },
+          {
             "$ref": "#/components/schemas/ShopBuyAction"
           },
           {
@@ -17786,7 +17798,8 @@
               "leaf",
               "planter",
               "kitchen",
-              "workbench"
+              "workbench",
+              "pedestal"
             ]
           },
           "windows": {
@@ -17798,7 +17811,8 @@
               "leaf",
               "planter",
               "kitchen",
-              "workbench"
+              "workbench",
+              "pedestal"
             ]
           },
           "dry": {
@@ -18268,6 +18282,40 @@
           "gift"
         ]
       },
+      "DisplayAction": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "display"
+            ]
+          },
+          "item": {
+            "$ref": "#/components/schemas/ItemId"
+          },
+          "x": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "y": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "item",
+          "x",
+          "y"
+        ]
+      },
       "ErrorBody": {
         "type": "object",
         "properties": {
@@ -18347,6 +18395,9 @@
           "own_listing",
           "listing_limit",
           "unknown_gift",
+          "invalid_piece",
+          "no_display",
+          "nothing_displayed",
           "bad_request",
           "unauthorized",
           "forbidden",
@@ -18571,7 +18622,7 @@
             "type": "string"
           },
           "kind": {
-            "$ref": "#/components/schemas/GoodKind"
+            "$ref": "#/components/schemas/MadeKind"
           },
           "maker": {
             "type": "string"
@@ -18583,6 +18634,15 @@
           },
           "label": {
             "type": "string"
+          },
+          "media": {
+            "type": "string"
+          },
+          "model": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
           }
         },
         "required": [
@@ -18709,7 +18769,9 @@
           "market",
           "taken_down",
           "declined",
-          "returned"
+          "returned",
+          "displayed",
+          "off_display"
         ]
       },
       "ItemId": {
@@ -18742,7 +18804,8 @@
           "herb_tea",
           "bouquet",
           "herb_sachet",
-          "flower_wreath"
+          "flower_wreath",
+          "piece"
         ]
       },
       "LinkKeyResponse": {
@@ -18931,6 +18994,49 @@
           "$ref": "#/components/schemas/WearItem"
         }
       },
+      "MadeKind": {
+        "type": "string",
+        "enum": [
+          "lemon_jam",
+          "strawberry_jam",
+          "lemonade",
+          "tomato_sauce",
+          "herb_tea",
+          "bouquet",
+          "herb_sachet",
+          "flower_wreath",
+          "piece"
+        ]
+      },
+      "MakePieceAction": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "make_piece"
+            ]
+          },
+          "media": {
+            "type": "string",
+            "pattern": "^m_[0-9a-f]{16}$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "media",
+          "title"
+        ]
+      },
       "MoveAction": {
         "type": "object",
         "properties": {
@@ -18991,7 +19097,8 @@
               "lantern",
               "frame",
               "fence",
-              "bench"
+              "bench",
+              "pedestal"
             ]
           },
           "dry": {
@@ -19816,6 +19923,36 @@
           "bench"
         ]
       },
+      "TakeDownAction": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "take_down"
+            ]
+          },
+          "x": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "y": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "x",
+          "y"
+        ]
+      },
       "UnlistItemAction": {
         "type": "object",
         "properties": {
@@ -20603,7 +20740,8 @@
                   "lantern",
                   "frame",
                   "fence",
-                  "bench"
+                  "bench",
+                  "pedestal"
                 ]
               },
               "by": {
@@ -21396,6 +21534,76 @@
               "type": {
                 "type": "string",
                 "enum": [
+                  "displayed"
+                ]
+              },
+              "x": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "y": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "good": {
+                "$ref": "#/components/schemas/GoodEventView"
+              },
+              "by": {
+                "type": "string"
+              },
+              "trust": {
+                "type": "string",
+                "enum": [
+                  "untrusted"
+                ]
+              }
+            },
+            "required": [
+              "type",
+              "x",
+              "y",
+              "good",
+              "by"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "taken_down"
+                ]
+              },
+              "x": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "y": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "by": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "x",
+              "y",
+              "by"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
                   "inventory"
                 ]
               },
@@ -21693,7 +21901,8 @@
                     "lantern",
                     "frame",
                     "fence",
-                    "bench"
+                    "bench",
+                    "pedestal"
                   ]
                 }
               },
@@ -21783,6 +21992,42 @@
             "type": "array",
             "items": {
               "type": "string"
+            }
+          },
+          "displays": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "y": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "good": {
+                  "$ref": "#/components/schemas/GoodEventView"
+                },
+                "by": {
+                  "type": "string"
+                },
+                "day": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "x",
+                "y",
+                "good",
+                "by",
+                "day"
+              ]
             }
           },
           "crops": {
@@ -24834,7 +25079,7 @@
             "type": "string"
           },
           "kind": {
-            "$ref": "#/components/schemas/GoodKind"
+            "$ref": "#/components/schemas/MadeKind"
           },
           "maker": {
             "allOf": [
@@ -24853,6 +25098,15 @@
           },
           "label": {
             "type": "string"
+          },
+          "media": {
+            "type": "string"
+          },
+          "model": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
           },
           "trust": {
             "type": "string",

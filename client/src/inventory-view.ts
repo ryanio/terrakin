@@ -5,10 +5,10 @@
  */
 import type { GiftView, GoodView, InventoryResponse } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
-import { itemArt } from "@terrakin/ui/item-art";
+import { itemArt, thingPicture } from "@terrakin/ui/item-art";
 import { personLink } from "@terrakin/ui/people";
 import { confirmTwice, itemRow, itemRows, stateCard, toast, whileBusy } from "@terrakin/ui/ui";
-import { actProblem, api } from "./api";
+import { actProblem, api, uploadMedia } from "./api";
 import { savedToken } from "./net";
 import { comeHomeButton } from "./purse-view";
 import { growthLine, sendBackLine, stackCount, thingCount, thingName } from "./things";
@@ -18,7 +18,7 @@ function goodItem(g: GoodView): HTMLLIElement {
   return itemRow({
     className: "things-good",
     attrs: { "data-item": g.id },
-    lead: itemArt(g.kind, { size: 32 }),
+    lead: thingPicture(g, { size: 32 }),
     name: thingName(g.kind),
     lines: [
       g.label ? `“${g.label}”` : null,
@@ -67,6 +67,125 @@ function giftItem(g: GiftView, today: number, sent: () => void): HTMLLIElement {
     ],
     trail: back,
   });
+}
+
+/** What a piece of art may show: your own picture, or a `.glb` model. */
+const PIECE_TYPES = "image/png,image/jpeg,image/webp,model/gltf-binary,.glb";
+
+/**
+ * Make a piece of art (RFC 0005 step 3): pick one of your own pictures (or a `.glb` model), give it
+ * a title, and it's a made thing you can hang in a frame or stand on a pedestal. `made` runs after.
+ */
+function pieceCard(labelMax: number, made: () => void): HTMLElement {
+  const file = h("input", {
+    class: "visually-hidden",
+    attrs: { id: "piece-file", type: "file", accept: PIECE_TYPES },
+  });
+  const pick = h(
+    "label",
+    { class: "pill-button small", attrs: { for: "piece-file", id: "piece-pick" } },
+    icon("image"),
+    h("span", { text: "Choose a picture" }),
+  );
+  const preview = h("div", { class: "piece-preview", attrs: { hidden: true } });
+  const title = h("input", {
+    class: "field-input",
+    attrs: {
+      id: "piece-title",
+      maxlength: labelMax,
+      placeholder: "Morning light",
+      autocomplete: "off",
+      enterkeyhint: "done",
+    },
+  });
+  const make = h("button", {
+    class: "btn-primary small",
+    attrs: { type: "submit", id: "piece-make", disabled: true },
+    text: "Make it",
+  });
+  const status = h("p", {
+    class: "field-hint",
+    attrs: { id: "piece-status", "aria-live": "polite" },
+  });
+  let media: { id: string; model: boolean } | undefined;
+  const sync = () => {
+    make.disabled = !media || title.value.trim() === "";
+  };
+  title.addEventListener("input", sync);
+  file.addEventListener("change", async () => {
+    const chosen = file.files?.[0];
+    file.value = "";
+    if (!chosen) return;
+    media = undefined;
+    sync();
+    preview.hidden = true;
+    status.textContent = "Uploading…";
+    const up = uploadMedia(chosen, (f) => {
+      status.textContent = `Uploading ${Math.round(f * 100)}%`;
+    });
+    const result = await up.promise;
+    if (!result.ok) {
+      status.textContent = result.message;
+      return;
+    }
+    const model = result.data.type === "model/gltf-binary";
+    const still = ["image/png", "image/jpeg", "image/webp"].includes(result.data.type);
+    if (!still && !model) {
+      status.textContent = "A piece is a picture (PNG, JPEG, or WebP) or a .glb model.";
+      return;
+    }
+    media = { id: result.data.id, model };
+    preview.replaceChildren(
+      thingPicture(
+        { kind: "piece", media: media.id, ...(model ? { model: true } : {}) },
+        {
+          size: 96,
+        },
+      ),
+    );
+    preview.hidden = false;
+    status.textContent = "Now give it a title.";
+    sync();
+    title.focus();
+  });
+  const form = h(
+    "form",
+    { class: "stack tight piece-form", attrs: { id: "piece-form", novalidate: true } },
+    h("div", { class: "cluster" }, pick, file, preview),
+    h("label", { class: "field-label", attrs: { for: "piece-title" }, text: "Title" }),
+    h("div", { class: "gift-row" }, title, make),
+    status,
+  );
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const text = title.value.trim();
+    if (!media || !text || make.disabled) return;
+    const chosen = media;
+    const res = await whileBusy(make, () =>
+      api.act({ type: "make_piece", media: chosen.id, title: text }),
+    );
+    const problem = actProblem(res);
+    if (problem) {
+      status.textContent = problem;
+      return;
+    }
+    toast("You made a piece of art");
+    made();
+  });
+  return h(
+    "section",
+    { class: "stack paper card things-card", attrs: { "aria-labelledby": "things-piece-title" } },
+    h("h2", {
+      class: "card-title",
+      attrs: { id: "things-piece-title" },
+      text: "Make a piece of art",
+    }),
+    h("p", {
+      class: "purse-hint",
+      text: "Turn one of your own pictures into a piece, signed by you. Hang it in a frame or stand it on a pedestal on your plot for everyone to see.",
+    }),
+    form,
+  );
 }
 
 export function inventoryView(ctx: ViewContext): View {
@@ -193,6 +312,9 @@ export function inventoryView(ctx: ViewContext): View {
               text: "Nothing yet. Tap a kitchen or a workbench in the world to make something.",
             }),
       ),
+      pieceCard(rules.labelMax, () => {
+        if (!destroyed) void load();
+      }),
       h(
         "section",
         { class: "stack things-section", attrs: { "aria-labelledby": "things-stacks-title" } },

@@ -16,7 +16,7 @@ import {
   type WearItem,
 } from "@terrakin/sim";
 import { BRAND_HEX } from "./brand";
-import { RESIDENT_COLOR_HEX } from "./looks";
+import { mediaUrlOf, RESIDENT_COLOR_HEX } from "./looks";
 
 /** Anything `itemArt` can draw: an item kind or a piece of wear. */
 export type ArtKind = ItemKind | WearItem;
@@ -461,6 +461,20 @@ function frame(): ArtShape[] {
   ];
 }
 
+/** A piece of art: a small canvas on an easel, with brush strokes of color. */
+function piece(): ArtShape[] {
+  return [
+    shadow(14),
+    line("M16 41 22 12M32 41 26 12M24 30v12", WOOD, 2.2),
+    rect(10, 8, 28, 22, 1.5, PAPER, out()),
+    path("M13 26c3-4 6-6 9-4s6 2 8-1 4-2 5 0v5H13z", MOSS_LIGHT),
+    circle(30, 14.5, 3, SUN),
+    line("M14 14c2-1.5 4-1.5 6 0", ROSE, 1.8),
+    line("M15.5 18.5c2-1 3.5-1 5 0", SKY, 1.6),
+    rect(8.5, 29, 31, 3, 1, WOOD_DARK, out({ "stroke-width": 1 })),
+  ];
+}
+
 function fence(): ArtShape[] {
   const post = (x: number) => path(`M${x - 4} 42V14l4-5 4 5v28z`, BLOCK_COLORS.fence, out());
   return [
@@ -827,6 +841,7 @@ const ART: Record<ArtKind, () => ArtShape[]> = {
   bouquet,
   herb_sachet: herbSachet,
   flower_wreath: flowerWreath,
+  piece,
   straw_hat: strawHat,
   beret,
   flower_crown: flowerCrown,
@@ -897,4 +912,54 @@ export function itemArt(kind: ArtKind, opts: ItemArtOptions = {}): SVGSVGElement
   }
   for (const shape of itemShapes(kind)) svg.append(build(shape));
   return svg;
+}
+
+const artImages = new Map<ArtKind, { img: HTMLImageElement; ready: boolean }>();
+
+/**
+ * A thing's picture as an image, for drawing on a canvas (the world map). Built once per kind from
+ * the same shapes as `itemArt`, as a `data:` URL both apps' policies allow. Undefined until it has
+ * loaded; a canvas that draws every frame picks it up then.
+ */
+export function itemArtImage(kind: ArtKind): HTMLImageElement | undefined {
+  let entry = artImages.get(kind);
+  if (!entry) {
+    const svg = itemArt(kind, { size: ART_BOX });
+    svg.setAttribute("xmlns", SVG_NS);
+    const img = new Image();
+    const fresh = { img, ready: false };
+    entry = fresh;
+    artImages.set(kind, fresh);
+    img.addEventListener("load", () => {
+      fresh.ready = img.naturalWidth > 0;
+    });
+    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(new XMLSerializer().serializeToString(svg))}`;
+  }
+  return entry.ready ? entry.img : undefined;
+}
+
+/** A made thing as lists and sheets show it: its kind, and for a piece, the upload it shows. */
+export interface ThingLook {
+  kind: ArtKind;
+  media?: string | undefined;
+  model?: true | undefined;
+}
+
+/**
+ * A made thing's picture: a piece's own uploaded picture (only ever from our `/media/`), and the
+ * drawn picture for everything else, a model included. Decorative unless `title` is given.
+ */
+export function thingPicture(thing: ThingLook, opts: ItemArtOptions = {}): Element {
+  const url = thing.kind === "piece" && !thing.model ? mediaUrlOf(thing.media) : undefined;
+  if (!url) return itemArt(thing.kind, opts);
+  const size = opts.size ?? 28;
+  const img = document.createElement("img");
+  img.className = opts.className ? `thing-picture ${opts.className}` : "thing-picture";
+  img.width = size;
+  img.height = size;
+  img.alt = opts.title ?? "";
+  img.loading = "lazy";
+  img.decoding = "async";
+  img.src = url;
+  return img;
 }

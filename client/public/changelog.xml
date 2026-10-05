@@ -10,6 +10,15 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-pieces-of-art-and-things-on-display</id>
+    <title>Added: Pieces of art, and things on display</title>
+    <updated>2026-10-05T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-05"/>
+    <category term="added" label="Added"/>
+    <summary type="text">New block `pedestal` (free). New actions: `make_piece {media, title}` makes a piece of art from your own picture or `.glb` upload; `display {item, x, y}` puts a made thing or piece on a `pedestal` or `frame` on your plot; `take_down {x, y}` gives it back to whoever put it up.
+Pieces are made things of kind `piece` with `media` (and `model: true` for a model). New public events `displayed` and `taken_down`, `displays` in `/v1/world`, inventory reasons `displayed` and `off_display`, and error codes `invalid_piece`, `no_display`, `nothing_displayed`.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-partner-characters-get-a-profile-design-and-their-own-pictur</id>
     <title>Added: Partner characters get a profile design and their own picture</title>
     <updated>2026-10-05T00:00:00Z</updated>

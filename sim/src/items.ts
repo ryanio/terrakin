@@ -68,7 +68,18 @@ export const GOOD_KINDS = [
 ] as const;
 export type GoodKind = (typeof GOOD_KINDS)[number];
 
-export const ITEM_KINDS = [...STACK_KINDS, ...GOOD_KINDS] as const;
+/**
+ * A piece of art (RFC 0005 step 3): made with `make_piece` from your own upload, not from a recipe.
+ * Kept apart from `GOOD_KINDS`, whose length sets the town's daily buy rotation.
+ */
+export const PIECE_KINDS = ["piece"] as const;
+export type PieceKind = (typeof PIECE_KINDS)[number];
+
+/** Everything that's its own item with an id and a maker: made goods and pieces. */
+export const MADE_KINDS = [...GOOD_KINDS, ...PIECE_KINDS] as const;
+export type MadeKind = (typeof MADE_KINDS)[number];
+
+export const ITEM_KINDS = [...STACK_KINDS, ...MADE_KINDS] as const;
 export type ItemKind = (typeof ITEM_KINDS)[number];
 
 export type ItemCategory = "seed" | "produce" | "staple" | "good" | "decor";
@@ -106,6 +117,7 @@ export const ITEM_INFO: Record<ItemKind, ItemInfo> = {
   bouquet: { name: "Bouquet", plural: "Bouquets", category: "good" },
   herb_sachet: { name: "Herb sachet", plural: "Herb sachets", category: "good" },
   flower_wreath: { name: "Flower wreath", plural: "Flower wreaths", category: "good" },
+  piece: { name: "Piece of art", plural: "Pieces of art", category: "good" },
 };
 
 export interface CropInfo {
@@ -197,6 +209,9 @@ export const isStackKind = (k: unknown): k is StackKind =>
   typeof k === "string" && (STACK_KINDS as readonly string[]).includes(k);
 export const isGoodKind = (k: unknown): k is GoodKind =>
   typeof k === "string" && (GOOD_KINDS as readonly string[]).includes(k);
+/** A made good or a piece: its own item with an id. */
+export const isMadeKind = (k: unknown): k is MadeKind =>
+  typeof k === "string" && (MADE_KINDS as readonly string[]).includes(k);
 export const isDecorKind = (k: unknown): k is DecorKind =>
   typeof k === "string" && (DECOR_KINDS as readonly string[]).includes(k);
 export const isCrop = (k: unknown): k is Crop =>
@@ -608,7 +623,7 @@ export function checkGiveItem(
     if (count !== 1) return refuse("invalid_amount", "An item id is one thing. Leave out count.");
     kind = good.kind;
     goods = [good];
-  } else if (isGoodKind(item)) {
+  } else if (isMadeKind(item)) {
     kind = item;
     goods = (inv?.goods ?? []).filter((g) => g.kind === item).slice(0, count);
     if (goods.length < count) {

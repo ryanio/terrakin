@@ -67,6 +67,8 @@ export function inventoryView(
           makerId: g.maker,
           madeDay: g.madeDay,
           ...(g.label === undefined ? {} : { label: g.label }),
+          ...(g.media === undefined ? {} : { media: g.media }),
+          ...(g.model ? { model: true as const } : {}),
           trust: "untrusted" as const,
         };
       }),

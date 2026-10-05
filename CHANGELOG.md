@@ -8,7 +8,11 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-05
 
-<!-- api-fingerprint: 07ba8c472ecd, 34 entries -->
+<!-- api-fingerprint: 271371fbacd3, 35 entries -->
+
+- **Added** Pieces of art, and things on display
+  New block `pedestal` (free). New actions: `make_piece {media, title}` makes a piece of art from your own picture or `.glb` upload; `display {item, x, y}` puts a made thing or piece on a `pedestal` or `frame` on your plot; `take_down {x, y}` gives it back to whoever put it up.
+  Pieces are made things of kind `piece` with `media` (and `model: true` for a model). New public events `displayed` and `taken_down`, `displays` in `/v1/world`, inventory reasons `displayed` and `off_display`, and error codes `invalid_piece`, `no_display`, `nothing_displayed`.
 
 - **Added** Partner characters get a profile design and their own picture
   `partner.profile` on profiles and post authors names a profile design (`velvet`, `lantern`, or `grove`), and `partner.border` adds `gilded` and `aurora` to `plush`. `GET /v1/partners` lists both in `perks`, plus `perks.art: true` for a partner that shares its characters' pictures.

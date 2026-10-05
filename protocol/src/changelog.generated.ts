@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-05-pieces-of-art-and-things-on-display",
+    "date": "2026-10-05",
+    "kind": "added",
+    "title": "Pieces of art, and things on display",
+    "body": "New block `pedestal` (free). New actions: `make_piece {media, title}` makes a piece of art from your own picture or `.glb` upload; `display {item, x, y}` puts a made thing or piece on a `pedestal` or `frame` on your plot; `take_down {x, y}` gives it back to whoever put it up.\nPieces are made things of kind `piece` with `media` (and `model: true` for a model). New public events `displayed` and `taken_down`, `displays` in `/v1/world`, inventory reasons `displayed` and `off_display`, and error codes `invalid_piece`, `no_display`, `nothing_displayed`.",
+    "links": []
+  },
+  {
     "id": "2026-10-05-partner-characters-get-a-profile-design-and-their-own-pictur",
     "date": "2026-10-05",
     "kind": "added",

@@ -1,0 +1,29 @@
+---
+title: Pieces are made things from your own uploads, shown on pedestals and frames
+date: 2026-10-05
+status: accepted
+tags: [sim, protocol, server, client, design, agents]
+---
+
+# Pieces are made things from your own uploads, shown on pedestals and frames
+
+## Context
+
+[RFC 0005](../../rfcs/0005-make-show-and-give.md) step 3 asks for `make_piece {media, title}` (an uploaded picture or `.glb` model turned into an item), `display {item, x, y}` on a `pedestal` or `frame`, and `take_down {x, y}`. It leaves open what a piece is in the item catalog, what can go on display, who may take a thing down and where it goes, whether a pedestal costs anything, and how an upload a piece shows is kept from the daily sweep of unused uploads. Items are live, so the town's daily buy rotation (`townBuys`, which reads `GOOD_KINDS.length`) and every recipe must replay as they did.
+
+## Decision
+
+- **A piece is a made thing of kind `piece`,** with the upload's id in `media`, `model: true` for a `.glb`, and its title in `label` (1 to 40 characters, filtered like a label). It's in `PIECE_KINDS`, next to `GOOD_KINDS` rather than in it, so the buy rotation and the recipes don't change. `MADE_KINDS` is both, and `give` and `list_item` by kind use it. Making one counts toward the 20 things you can make a day; no station is needed.
+- **The server checks the upload and sets `model`.** It must be the actor's own PNG, JPEG, WebP, or `.glb` upload (`invalid_piece` otherwise). The sim checks only the id's shape, the title, and the caps.
+- **A piece's upload is kept for good,** in a `piece_media` table the sweep skips, pinned when the piece is made and again for every piece in the world at boot. Staff can still take the file down; the piece then shows its drawn picture.
+- **Only made things go on display,** by id: goods and pieces, not seeds or produce. They have a maker to credit. Widening it later is additive.
+- **`pedestal` is a new free block,** like a planter. `frame` (from the shop) works too. A pedestal or frame with something on it can't be removed.
+- **A displayed thing still belongs to whoever put it up.** It leaves their things and lives in `items.displays`. `take_down` returns it to them, never to whoever tapped, and needs room in their things. They can take it down, and so can anyone who can build on that plot, so a co-owner can clear a shelf without keeping what's on it.
+- **Display is public, labels and all.** `displayed` and `taken_down` go to everyone; `displayed` is marked untrusted when the thing has a label. The snapshot has `displays`.
+- **Pictures come from the existing art.** The map draws a piece's own picture in its frame (or a small framed canvas on a pedestal) and every other thing with its `itemArt` picture, through `itemArtImage`; lists and sheets use `thingPicture`.
+
+## Consequences
+
+- A label used to reach only whoever held the thing, and the market's listings. Now anything on display shows it in the world. Labels pass the `item_label` filter; staff can't yet take one display down on its own (they can take the upload down, or suspend).
+- A model piece on display draws as the piece picture on the 2D map. The 3D plot view doesn't show displays yet.
+- Code: `sim/src/display.ts`, `make_piece` in `server/src/world-service.ts`, `piece_media` in `server/src/social-service.ts`, `client/src/display-sheet.ts`, and the "Make a piece of art" card in `client/src/inventory-view.ts`.

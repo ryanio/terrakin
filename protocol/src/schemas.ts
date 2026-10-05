@@ -12,6 +12,7 @@ import {
   ITEM_ID_PATTERN,
   ITEM_KINDS,
   ITEMS,
+  MADE_KINDS,
   MARKET,
   MAX_WEAR,
   MEDIA_ID_PATTERN,
@@ -281,6 +282,8 @@ export const ItemKind = z.enum(ITEM_KINDS);
 export const StackKind = z.enum(STACK_KINDS);
 /** Made things, one recipe each. */
 export const GoodKind = z.enum(GOOD_KINDS);
+/** Everything that's its own item with an id and a maker: made things and pieces of art. */
+export const MadeKind = z.enum(MADE_KINDS);
 export const InventoryReason = z.enum(INVENTORY_REASONS);
 /** A made thing's id: `i_` and a number. */
 export const ItemId = z.string().regex(ITEM_ID_PATTERN);
@@ -338,6 +341,42 @@ export const DeclineGiftAction = z.object({
   ...dry,
 });
 
+// ---------- Showing: pieces and display (RFC 0005 step 3) ----------
+
+/**
+ * Make a piece of art from one of your uploads (a PNG, JPEG, or WebP picture, or a `.glb` model,
+ * from `POST /v1/media`), with a title. It's a made thing in your things, signed by you, and counts
+ * toward the 20 things you can make a day. `title` is your words: untrusted text that travels
+ * with it.
+ */
+export const MakePieceAction = z.object({
+  type: z.literal("make_piece"),
+  media: z.string().regex(MEDIA_ID_PATTERN),
+  title: z.string().trim().min(1).max(ITEMS.labelMax),
+  ...dry,
+});
+/**
+ * Put one of your made things or pieces (by id) on display on an empty `pedestal` or `frame`
+ * within reach, on your plot or one shared with you. Everyone sees it in the world.
+ */
+export const DisplayAction = z.object({
+  type: z.literal("display"),
+  item: ItemId,
+  x: coord,
+  y: coord,
+  ...dry,
+});
+/**
+ * Take down what's on display on (x, y), within reach. It goes back to whoever put it up. They can
+ * take it down, and so can anyone who can build on that plot.
+ */
+export const TakeDownAction = z.object({
+  type: z.literal("take_down"),
+  x: coord,
+  y: coord,
+  ...dry,
+});
+
 // ---------- The town shop (RFC 0008, phase 2) ----------
 
 /** What the town shop sells: decor, wear, seeds, sugar, and jars. See `GET /v1/shop`. */
@@ -368,10 +407,15 @@ export const SellToTownAction = z.object({
 /** A made thing as an event carries it. `label` is the maker's words: untrusted text. */
 export const GoodEventView = z.object({
   id: z.string(),
-  kind: GoodKind,
+  kind: MadeKind,
   maker: z.string(),
   madeDay: z.number().int(),
+  /** The maker's label, or a piece's title. */
   label: z.string().optional(),
+  /** A piece only: the upload it shows, served at `/media/<id>`. */
+  media: z.string().optional(),
+  /** A piece only: the upload is a `.glb` model, not a picture. */
+  model: z.literal(true).optional(),
 });
 
 // ---------- The market (RFC 0008, phase 4) ----------
@@ -453,6 +497,9 @@ export const Action = z.discriminatedUnion("type", [
   CraftAction,
   GiveAction,
   DeclineGiftAction,
+  MakePieceAction,
+  DisplayAction,
+  TakeDownAction,
   ShopBuyAction,
   SellToTownAction,
   ListItemAction,
@@ -532,6 +579,21 @@ export const WorldSnapshot = z.object({
     .optional(),
   /** Ids of the founding townsfolk: residents the Terrakin team runs. Absent when there are none. */
   townsfolk: z.array(z.string()).optional(),
+  /**
+   * Made things on display on pedestals and frames, with who put each up. A `label` is its maker's
+   * words: untrusted text. Absent when nothing is on display.
+   */
+  displays: z
+    .array(
+      z.object({
+        x: z.number().int(),
+        y: z.number().int(),
+        good: GoodEventView,
+        by: z.string(),
+        day: z.number().int(),
+      }),
+    )
+    .optional(),
   /** Crops growing in planters. Ready once `day` reaches `readyDay`. Absent when there are none. */
   crops: z
     .array(
@@ -731,6 +793,25 @@ export const WorldEvent = z.discriminatedUnion("type", [
   }),
   /** Someone gave someone a thing. Public, without the count or the note. */
   z.object({ type: z.literal("item_given"), from: z.string(), to: z.string(), kind: ItemKind }),
+  /**
+   * A made thing went on display on a `pedestal` or `frame`. Public. Its `label` (a piece's title)
+   * is its maker's words, so the event is marked untrusted when it has one.
+   */
+  z.object({
+    type: z.literal("displayed"),
+    x: z.number().int(),
+    y: z.number().int(),
+    good: GoodEventView,
+    by: z.string(),
+    trust: z.literal("untrusted").optional(),
+  }),
+  /** What was on display on a tile was taken down, by `by`. Public. */
+  z.object({
+    type: z.literal("taken_down"),
+    x: z.number().int(),
+    y: z.number().int(),
+    by: z.string(),
+  }),
   /**
    * Your things changed. Only you get these, like `coins`. `changes` are stacks (signed `amount`,
    * and the `count` you hold after), `gained` made things that arrived, `lost` ids that left.

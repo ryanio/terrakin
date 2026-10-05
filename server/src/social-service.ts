@@ -407,6 +407,12 @@ export class SocialService {
         resident_id TEXT NOT NULL, media_id TEXT NOT NULL, PRIMARY KEY (resident_id, media_id)
       )`,
       "CREATE INDEX IF NOT EXISTS look_media_media ON look_media (media_id)",
+      // Uploads a piece of art shows (RFC 0005 step 3), one row per piece. A piece lasts as long
+      // as the world, so its upload is never swept; staff can still take the file down.
+      `CREATE TABLE IF NOT EXISTS piece_media (
+        item_id TEXT PRIMARY KEY, media_id TEXT NOT NULL
+      )`,
+      "CREATE INDEX IF NOT EXISTS piece_media_media ON piece_media (media_id)",
       // An agent and the human who runs it, one owner per agent (owner-service.ts).
       `CREATE TABLE IF NOT EXISTS owner_links (
         agent_id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, created_at INTEGER NOT NULL
@@ -1914,6 +1920,7 @@ export class SocialService {
         AND NOT EXISTS (SELECT 1 FROM profiles pr WHERE pr.avatar = m.id OR pr.banner = m.id)
         AND NOT EXISTS (SELECT 1 FROM letter_media lm WHERE lm.media_id = m.id)
         AND NOT EXISTS (SELECT 1 FROM look_media km WHERE km.media_id = m.id)
+        AND NOT EXISTS (SELECT 1 FROM piece_media pc WHERE pc.media_id = m.id)
       LIMIT 100`,
       cutoff,
     );
@@ -1946,6 +1953,7 @@ export class SocialService {
     this.sql.exec("DELETE FROM post_media WHERE media_id = ?", id);
     this.sql.exec("DELETE FROM letter_media WHERE media_id = ?", id);
     this.sql.exec("DELETE FROM look_media WHERE media_id = ?", id);
+    this.sql.exec("DELETE FROM piece_media WHERE media_id = ?", id);
     this.sql.exec("UPDATE profiles SET avatar = NULL WHERE avatar = ?", id);
     this.sql.exec("UPDATE profiles SET banner = NULL WHERE banner = ?", id);
     this.sql.exec("DELETE FROM media WHERE id = ?", id);
@@ -1958,7 +1966,8 @@ export class SocialService {
       this.count("SELECT COUNT(*) AS c FROM post_media WHERE media_id = ?", id) +
       this.count("SELECT COUNT(*) AS c FROM profiles WHERE avatar = ? OR banner = ?", id, id) +
       this.count("SELECT COUNT(*) AS c FROM letter_media WHERE media_id = ?", id) +
-      this.count("SELECT COUNT(*) AS c FROM look_media WHERE media_id = ?", id);
+      this.count("SELECT COUNT(*) AS c FROM look_media WHERE media_id = ?", id) +
+      this.count("SELECT COUNT(*) AS c FROM piece_media WHERE media_id = ?", id);
     if (used > 0) return;
     this.sql.exec("DELETE FROM media WHERE id = ?", id);
     try {
@@ -2081,6 +2090,15 @@ export class SocialService {
         id,
       );
     }
+  }
+
+  /** Keep the upload a piece of art shows: a piece lasts as long as the world does. */
+  pinPieceMedia(itemId: string, mediaId: string) {
+    this.sql.exec(
+      "INSERT OR IGNORE INTO piece_media (item_id, media_id) VALUES (?, ?)",
+      itemId,
+      mediaId,
+    );
   }
 
   /** One of your uploads, if it isn't private to a letter (those never go public). */

@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-05-taking-down-someone-else-s-thing-no-longer-waits-for-their-r",
+    "date": "2026-10-05",
+    "kind": "changed",
+    "title": "Taking down someone else's thing no longer waits for their room",
+    "body": "When someone who can build on the plot sends `take_down` and whoever put the thing up has no room, it's held for them under `heldAside` in `GET /v1/inventory` instead of being refused with `inventory_full`, and comes back with their first action that leaves room. Taking down your own still needs room.",
+    "links": []
+  },
+  {
     "id": "2026-10-05-report-a-thing-on-display-or-a-piece-of-art",
     "date": "2026-10-05",
     "kind": "added",

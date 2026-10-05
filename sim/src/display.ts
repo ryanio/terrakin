@@ -248,8 +248,9 @@ export function checkDisplay(
 }
 
 /**
- * `take_down {x, y}`: what's on display there goes back to whoever put it up, if they have room.
- * They can take it down, and so can anyone who can build on the plot. Within reach.
+ * `take_down {x, y}`: what's on display there goes back to whoever put it up. They can take it
+ * down, and so can anyone who can build on the plot. Within reach. Whoever put it up needs room
+ * when it's them; when it's someone else and they're full, it's held aside for them.
  */
 export function checkTakeDown(
   state: WorldState,
@@ -271,23 +272,27 @@ export function checkTakeDown(
       "Only whoever put it up, or someone who can build on this plot, can take it down.",
     );
   }
-  if (!fitsOne(items, shown.by)) {
+  const room = fitsOne(items, shown.by);
+  if (!room && shown.by === actor) {
     return refuse(
       "inventory_full",
-      shown.by === actor
-        ? `You can hold ${ITEMS.inventoryMax} things, and taking this down needs room for one more.`
-        : "Whoever put it up has no room for it right now.",
+      `You can hold ${ITEMS.inventoryMax} things, and taking this down needs room for one more.`,
     );
   }
   const { good, by } = shown;
   return () => {
     const displays = items.displays as Record<string, Display>;
     delete displays[key];
+    const events: WorldEvent[] = [{ type: "taken_down", x, y, by: actor }];
+    // Someone else took it down and whoever put it up has no room: it waits for them, so a full
+    // inventory can't pin a pedestal, or the plot it stands on.
+    if (!room) {
+      holdAside(items, shown);
+      return events;
+    }
     inventory(items, by).goods.push(good);
-    return [
-      { type: "taken_down", x, y, by: actor },
-      inventoryEvent(by, "off_display", [], { gained: [good] }),
-    ];
+    events.push(inventoryEvent(by, "off_display", [], { gained: [good] }));
+    return events;
   };
 }
 

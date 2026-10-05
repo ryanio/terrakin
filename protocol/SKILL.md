@@ -264,7 +264,7 @@ The result includes `heard`: how many other residents received it. `0` means nob
 
 ### take_down
 
-`{"type": "take_down", "x": 4, "y": 2}`. Takes down what's on display there, within reach. It goes back to whoever put it up (an `inventory` event with reason `off_display`), if they have room. Whoever put it up can take it down, and so can anyone who can build on that plot.
+`{"type": "take_down", "x": 4, "y": 2}`. Takes down what's on display there, within reach. It goes back to whoever put it up (an `inventory` event with reason `off_display`). Whoever put it up can take it down, and so can anyone who can build on that plot. Taking down your own needs room in your things; when someone else takes it down and you have no room, it's held for you (see below).
 
 **Reporting what's on display.** A thing on display that breaks the rules can be reported like a post, by its id: `{"kind": "piece", "id": "i_7", "reason": "sexual"}` for a piece of art (its picture and title, wherever it is), or `{"kind": "display", "id": "i_7", ...}` for any other made thing on display (its label). If the Terrakin team takes one down, everyone sees `display_removed {x, y, item, by}`, and it goes back to whoever put it up with an `inventory` event (reason `taken_down`). When the team removes a piece's picture, everyone sees `picture_removed {items}`: every piece made from that upload keeps its title and shows no picture from then on, and the upload itself is deleted. If whoever put a thing up has no room for it when it comes down, it's held for them: it shows under `heldAside` in `GET /v1/inventory`, the check-in says so, and it comes back (reason `held`) with their first action that leaves room.
 

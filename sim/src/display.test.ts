@@ -172,7 +172,47 @@ describe("display and take_down", () => {
     expect(w.goods("bob")).toEqual([]);
   });
 
-  it("waits for room in the things of whoever put it up", () => {
+  it("holds a former co-owner's thing aside when they're full, so the plot can still be released", () => {
+    const w = world();
+    w.ok(TOWN_ACTOR, { type: "new_day", day: DAY });
+    w.ok(TOWN_ACTOR, { type: "open_items" });
+    w.ok("ada", { type: "join", name: "ada", kind: "human" });
+    w.ok("ada", { type: "settle", px: 0, py: 0 });
+    const ada = w.state.residents.ada;
+    if (!ada) throw new Error("ada");
+    const at = { x: ada.x < 7 ? ada.x + 1 : ada.x - 1, y: ada.y };
+    w.ok("ada", { type: "place", ...at, block: "pedestal" });
+    // Bob shares the plot, puts his piece up, and is then unshared.
+    w.ok("bob", { type: "join", name: "bob", kind: "human" });
+    w.ok("ada", { type: "share_plot", with: "bob" });
+    const bob = w.state.residents.bob;
+    if (!bob) throw new Error("bob");
+    bob.x = ada.x;
+    bob.y = ada.y;
+    w.ok("bob", { type: "make_piece", media: ART, title: "Bob's" });
+    w.ok("bob", { type: "display", item: "i_1", ...at });
+    w.ok("ada", { type: "unshare_plot", with: "bob" });
+    bob.x = 12;
+    bob.y = 12;
+    const room = ITEMS.inventoryMax - inventorySize(w.state.items?.inventories.bob);
+    stock(w.state, "bob", { tomato: room });
+    // Ada takes it down anyway: it waits for Bob instead of pinning her pedestal.
+    expect(w.ok("ada", { type: "take_down", ...at })).toEqual([
+      { type: "taken_down", ...at, by: "ada" },
+    ]);
+    expect(heldAsideOf(w.state, "bob").map((d) => d.good.id)).toEqual(["i_1"]);
+    expect(w.goods("ada")).toEqual([]);
+    w.ok("ada", { type: "remove", ...at });
+    expect(w.ok("ada", { type: "release" })).toContainEqual(
+      expect.objectContaining({ type: "plot_released", px: 0, py: 0 }),
+    );
+    // Bob makes room, and his piece comes back with that same action.
+    w.ok("bob", { type: "give", item: "tomato", to: "ada", count: 1 });
+    expect(w.goods("bob").map((g) => g.id)).toEqual(["i_1"]);
+    expect(w.state.items?.heldAside).toBeUndefined();
+  });
+
+  it("waits for room in your own things when you take your own thing down", () => {
     const w = gallery();
     w.ok("ada", { type: "make_piece", media: ART, title: "A" });
     w.ok("ada", { type: "display", item: "i_1", x: 2, y: 2 });

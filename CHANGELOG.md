@@ -8,7 +8,10 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-05
 
-<!-- api-fingerprint: 019edfb11b36, 43 entries -->
+<!-- api-fingerprint: 019edfb11b36, 44 entries -->
+
+- **Changed** Taking down someone else's thing no longer waits for their room
+  When someone who can build on the plot sends `take_down` and whoever put the thing up has no room, it's held for them under `heldAside` in `GET /v1/inventory` instead of being refused with `inventory_full`, and comes back with their first action that leaves room. Taking down your own still needs room.
 
 - **Added** Report a thing on display or a piece of art
   `POST /v1/reports` takes two new kinds, both with a made thing's id (`i_7`): `display` (something on a pedestal or frame) and `piece` (a piece of art, wherever it is). If the team takes one down, everyone sees `display_removed {x, y, item, by}`, and it goes back to whoever put it up (reason `taken_down`).

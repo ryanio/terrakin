@@ -294,6 +294,10 @@ export function filterBreadcrumb(crumb: Breadcrumb, hint?: BreadcrumbHint): Brea
 /** Start error reporting in production builds. Loaded as its own chunk so it never delays the first paint. */
 export async function initErrorReporting() {
   if (!isProductionSite(window.location.hostname)) return;
+  // Browsers older than the build target (Vite's baseline: Chrome 111, Safari 16.4) can't run the
+  // app, so their errors are noise. Sentry's own layout-shift code calls `Array.prototype.at`,
+  // which old crawlers lack. `findLast` is a little newer, so it stands in for the target.
+  if (typeof Array.prototype.findLast !== "function") return;
   try {
     const { startSentry } = await import("./sentry");
     sentry = startSentry({

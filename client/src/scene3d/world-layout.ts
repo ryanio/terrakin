@@ -131,7 +131,8 @@ function tileThings(source: ChunkSource, x: number, y: number, hearths: Readonly
   const parts: string[] = [];
   if (block) parts.push(`${key}:${block}`);
   if (hearth) parts.push(`${key}:hearth`);
-  if (display) parts.push(`${key}:shows:${display.good.id}`);
+  // The picture too: staff can remove a piece's picture while it stays up (picture_removed).
+  if (display) parts.push(`${key}:shows:${display.good.id}:${display.good.media ?? ""}`);
   if (crop) parts.push(`${key}:${crop.crop}:${crop.done.toFixed(2)}`);
   // Same rule as the map and the sim: a pickup lies anywhere not built on, hearths too.
   const pickup = source.pickupAt?.(x, y) ?? null;

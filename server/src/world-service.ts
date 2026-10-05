@@ -18,6 +18,7 @@ import {
   type DailyAward,
   DEFAULT_CONFIG,
   entitledTo,
+  everyGood,
   exactWearStyles,
   findBounty,
   hashWorld,
@@ -673,6 +674,20 @@ export class WorldService {
     return this.run({ actor: TOWN_ACTOR, command: { type: "remove_listing", listing } });
   }
 
+  /**
+   * Staff take a made thing off display, and with `picture` a piece's picture everywhere (decision
+   * 0059). Logged without who did it, like `removeListing`. With `dry`, only checked.
+   */
+  removeDisplay(item: string, picture: boolean, dry = false): ActResult {
+    return this.run(
+      {
+        actor: TOWN_ACTOR,
+        command: { type: "remove_display", item, ...(picture ? { picture: true as const } : {}) },
+      },
+      dry,
+    );
+  }
+
   /** Whole UTC days since a resident first joined. Residents from before days were counted are old. */
   residentAgeDays(residentId: string): number {
     const joined = this.joinedDay.get(residentId);
@@ -738,17 +753,12 @@ export class WorldService {
 
   /**
    * Every piece of art in the world and the upload it shows, wherever it is: in someone's things,
-   * on display, or in the market. For pinning them all after a restart.
+   * on display, held aside, or in the market. For pinning them all after a restart.
    */
   allPieceMedia(): [string, string][] {
-    const items = this.state.items;
-    if (!items) return [];
-    const goods = [
-      ...Object.values(items.inventories).flatMap((inv) => inv.goods),
-      ...Object.values(items.displays ?? {}).map((d) => d.good),
-      ...Object.values(this.state.market?.listings ?? {}).flatMap((l) => l.goods ?? []),
-    ];
-    return goods.flatMap((g) => (g.media ? [[g.id, g.media] as [string, string]] : []));
+    return everyGood(this.state).flatMap(({ good: g }) =>
+      g.media ? [[g.id, g.media] as [string, string]] : [],
+    );
   }
 
   /** The upload ids a resident's look names. */

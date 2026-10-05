@@ -11,6 +11,22 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "links": []
   },
   {
+    "id": "2026-10-05-taking-down-someone-else-s-thing-no-longer-waits-for-their-r",
+    "date": "2026-10-05",
+    "kind": "changed",
+    "title": "Taking down someone else's thing no longer waits for their room",
+    "body": "When someone who can build on the plot sends `take_down` and whoever put the thing up has no room, it's held for them under `heldAside` in `GET /v1/inventory` instead of being refused with `inventory_full`, and comes back with their first action that leaves room. Taking down your own still needs room.",
+    "links": []
+  },
+  {
+    "id": "2026-10-05-report-a-thing-on-display-or-a-piece-of-art",
+    "date": "2026-10-05",
+    "kind": "added",
+    "title": "Report a thing on display or a piece of art",
+    "body": "`POST /v1/reports` takes two new kinds, both with a made thing's id (`i_7`): `display` (something on a pedestal or frame) and `piece` (a piece of art, wherever it is). If the team takes one down, everyone sees `display_removed {x, y, item, by}`, and it goes back to whoever put it up (reason `taken_down`).\nIf the team removes a piece's picture, everyone sees `picture_removed {items}`: every piece made from that upload keeps its title and loses its picture, and the upload is deleted.\nSomething taken down while its owner's things are full waits under a new field, `heldAside` in `GET /v1/inventory`, and comes back (new inventory reason `held`) with their first action that leaves room. The check-in says so too.",
+    "links": []
+  },
+  {
     "id": "2026-10-05-galleries",
     "date": "2026-10-05",
     "kind": "added",

@@ -11,6 +11,7 @@ import { thingPicture } from "@terrakin/ui/item-art";
 import { closeOverlay, errorLine, itemRow, itemRows, openOverlay, sheet } from "@terrakin/ui/ui";
 import { api } from "./api";
 import type { DisplayView } from "./mirror";
+import { openReportSheet, type ReportTarget } from "./report-sheet";
 import { admiredLine, thingName } from "./things";
 
 export interface DisplaySheetOptions {
@@ -29,6 +30,16 @@ export interface DisplaySheetOptions {
   nameOf: (id: string) => string | undefined;
   /** Send an action. Undefined means it wasn't sent: the world isn't connected. */
   act: (action: Action) => string | undefined;
+}
+
+/**
+ * What reporting a thing on display reports: a piece with a picture by its id wherever it goes
+ * (its picture and title), anything else as the display it's in (its label or title).
+ */
+export function displayReport(good: Pick<GoodView, "id" | "kind" | "media">): ReportTarget {
+  return good.kind === "piece" && good.media !== undefined
+    ? { kind: "piece", id: good.id, label: "piece of art" }
+    : { kind: "display", id: good.id, label: "thing on display" };
 }
 
 /** A made thing's name and, when it has one, its label or title in quotes. */
@@ -109,6 +120,8 @@ export function openDisplaySheet(o: DisplaySheetOptions) {
     const canTakeDown = o.yours || (o.me !== undefined && o.me === shown.by);
     // Anyone but its maker and whoever put it up can admire it, once a day: the server counts.
     const canAdmire = o.me !== undefined && o.me !== good.maker && o.me !== shown.by;
+    // The same people can report it to the maintainers.
+    const canReport = canAdmire;
     body.append(
       h(
         "figure",
@@ -144,6 +157,21 @@ export function openDisplaySheet(o: DisplaySheetOptions) {
               attrs: { type: "button", id: "display-take-down" },
               text: "Take down",
               on: { click: () => send({ type: "take_down", x: o.x, y: o.y }) },
+            }),
+          ]
+        : []),
+      ...(canReport
+        ? [
+            h("button", {
+              class: "pill-button small",
+              attrs: { type: "button", id: "display-report" },
+              text: "Report",
+              on: {
+                click: () => {
+                  closeOverlay(s.dialog);
+                  openReportSheet(displayReport(good));
+                },
+              },
             }),
           ]
         : []),

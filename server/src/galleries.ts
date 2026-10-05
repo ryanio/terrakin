@@ -5,7 +5,14 @@ import {
   type GalleryPieceView,
   type GalleryView,
 } from "@terrakin/protocol";
-import { displaysOf, parseKey, type WorldState } from "@terrakin/sim";
+import {
+  displayOfItem,
+  displaysOf,
+  goodById,
+  ITEM_INFO,
+  parseKey,
+  type WorldState,
+} from "@terrakin/sim";
 import { goodView } from "./items";
 
 /**
@@ -60,4 +67,29 @@ export function galleriesView(
       b.admired - a.admired || b.pieces.length - a.pieces.length || a.py - b.py || a.px - b.px,
   );
   return { galleries: galleries.slice(0, GALLERIES_MAX) };
+}
+
+/**
+ * A made thing as staff read it in the review queue (decision 0059): whose it is, its name with
+ * its label or title on a line of its own (residents' words), and the upload a piece shows. For a
+ * `display` report it's whoever put it up, while it's on display; for a `piece` report it's the
+ * piece's maker, while it still shows a picture anywhere. Undefined otherwise.
+ */
+export function madeThingForReport(
+  state: WorldState,
+  kind: "display" | "piece",
+  id: string,
+): { owner: string; text: string; media?: string; onDisplay: boolean } | undefined {
+  const on = displayOfItem(state, id);
+  const found =
+    kind === "display"
+      ? on && { good: on.shown.good, owner: on.shown.by }
+      : (() => {
+          const g = goodById(state, id)?.good;
+          return g?.kind === "piece" && g.media !== undefined ? { good: g, owner: g.maker } : null;
+        })();
+  if (!found) return undefined;
+  const { good, owner } = found;
+  const text = [ITEM_INFO[good.kind].name, good.label].filter(Boolean).join("\n");
+  return { owner, text, ...(good.media ? { media: good.media } : {}), onDisplay: on !== undefined };
 }

@@ -130,7 +130,7 @@ async function settleCamera(page: Page) {
   );
 }
 
-/** Tap the tile `dx`, `dy` from where you stand (the middle of the screen) on the 2D map. */
+/** On the 2D map at /world, tap the tile `dx`, `dy` from where you stand (the middle of the screen). */
 export async function tapTile(page: Page, dx: number, dy: number) {
   const vp = page.viewportSize();
   if (!vp) throw new Error("no viewport");

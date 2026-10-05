@@ -186,6 +186,12 @@ export const InventoryView = z.object({
    * first. Sending one back needs all of it still in your things.
    */
   gifts: z.array(GiftView),
+  /**
+   * Things of yours taken down from display while your things were too full for them, oldest
+   * first. Out of the world and not counted in `size`; each comes back with your first action
+   * that leaves room for it. Absent when there are none.
+   */
+  heldAside: z.array(GoodView).optional(),
 });
 export type InventoryView = z.infer<typeof InventoryView>;
 

@@ -115,7 +115,9 @@ export function inventoryLine(e: InventoryEvent): string | null {
     case "sold":
       return "Sold to the town.";
     case "taken_down":
-      return "Staff took one of your listings out of the market. It's back in your things.";
+      return "Staff took down something of yours from the market or a display. It's back in your things.";
+    case "held":
+      return "Something taken down while your things were full is back in your things.";
     default:
       return null;
   }

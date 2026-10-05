@@ -7,7 +7,7 @@ import {
   inventoryEvent,
   inventorySize,
 } from "./items";
-import { plotKey, tileKey } from "./keys";
+import { parseKey, plotKey, tileKey } from "./keys";
 import { MEDIA_ID_PATTERN } from "./looks";
 import type {
   BlockKind,
@@ -17,6 +17,7 @@ import type {
   ItemsState,
   Rejection,
   ResidentId,
+  WorldEvent,
   WorldState,
 } from "./types";
 import { canBuildOn, chebyshev, inBounds, plotAtTile } from "./world";
@@ -39,6 +40,86 @@ export const displayAt = (state: WorldState, x: number, y: number): Display | un
 /** Everything on display, by tile key. Empty before the first `display`. */
 export const displaysOf = (state: WorldState): Record<string, Display> =>
   state.items?.displays ?? {};
+
+/** Where a made thing is on display, by its id, if it is. */
+export function displayOfItem(
+  state: WorldState,
+  item: string,
+): { x: number; y: number; key: string; shown: Display } | undefined {
+  for (const [key, shown] of Object.entries(displaysOf(state))) {
+    if (shown.good.id !== item) continue;
+    const [x, y] = parseKey(key);
+    return { x, y, key, shown };
+  }
+  return undefined;
+}
+
+/**
+ * A resident's things taken down from display while they had no room, oldest first. They come back
+ * with that resident's first input that leaves room for them.
+ */
+export const heldAsideOf = (state: WorldState, id: ResidentId): Display[] =>
+  (state.items?.heldAside ?? []).filter((d) => d.by === id);
+
+/**
+ * Every made thing in the world and who has it: in someone's things, on display (whoever put it
+ * up), in the market (its seller), or held aside (who it waits for).
+ */
+export function everyGood(state: WorldState): { good: Good; holder: ResidentId }[] {
+  const items = state.items;
+  if (!items) return [];
+  const out: { good: Good; holder: ResidentId }[] = [];
+  for (const [holder, inv] of Object.entries(items.inventories)) {
+    for (const good of inv.goods) out.push({ good, holder });
+  }
+  for (const d of Object.values(items.displays ?? {})) out.push({ good: d.good, holder: d.by });
+  for (const d of items.heldAside ?? []) out.push({ good: d.good, holder: d.by });
+  for (const l of Object.values(state.market?.listings ?? {})) {
+    for (const good of l.goods ?? []) out.push({ good, holder: l.seller });
+  }
+  return out;
+}
+
+/** A made thing by its id, wherever it is, and who has it. */
+export function goodById(
+  state: WorldState,
+  id: string,
+): { good: Good; holder: ResidentId } | undefined {
+  if (typeof id !== "string" || !ITEM_ID_PATTERN.test(id)) return undefined;
+  return everyGood(state).find((g) => g.good.id === id);
+}
+
+const fitsOne = (items: ItemsState, id: ResidentId) =>
+  inventorySize(items.inventories[id]) + 1 <= ITEMS.inventoryMax;
+
+/** Keep a thing taken down from display for whoever put it up, until they have room. */
+function holdAside(items: ItemsState, shown: Display) {
+  items.heldAside = [...(items.heldAside ?? []), shown];
+}
+
+/**
+ * Bookkeeping in `prepare()`'s commit, after a resident's own input: what's held aside for them
+ * comes back, oldest first, as far as their things have room. Nothing changes, and no event, when
+ * nothing is held for them or there's no room.
+ */
+export function returnHeldAside(state: WorldState, id: ResidentId): WorldEvent[] {
+  const items = state.items;
+  const held = items?.heldAside;
+  if (!items || !held?.some((d) => d.by === id)) return [];
+  let size = inventorySize(items.inventories[id]);
+  const back: Good[] = [];
+  const keep = held.filter((d) => {
+    if (d.by !== id || size + 1 > ITEMS.inventoryMax) return true;
+    size += 1;
+    back.push(d.good);
+    return false;
+  });
+  if (back.length === 0) return [];
+  if (keep.length > 0) items.heldAside = keep;
+  else delete items.heldAside;
+  inventory(items, id).goods.push(...back);
+  return [inventoryEvent(id, "held", [], { gained: back })];
+}
 
 function closed(state: WorldState): Rejection | null {
   if (!state.items || state.day === undefined) {
@@ -167,8 +248,9 @@ export function checkDisplay(
 }
 
 /**
- * `take_down {x, y}`: what's on display there goes back to whoever put it up, if they have room.
- * They can take it down, and so can anyone who can build on the plot. Within reach.
+ * `take_down {x, y}`: what's on display there goes back to whoever put it up. They can take it
+ * down, and so can anyone who can build on the plot. Within reach. Whoever put it up needs room
+ * when it's them; when it's someone else and they're full, it's held aside for them.
  */
 export function checkTakeDown(
   state: WorldState,
@@ -190,23 +272,89 @@ export function checkTakeDown(
       "Only whoever put it up, or someone who can build on this plot, can take it down.",
     );
   }
-  if (inventorySize(items.inventories[shown.by]) + 1 > ITEMS.inventoryMax) {
+  const room = fitsOne(items, shown.by);
+  if (!room && shown.by === actor) {
     return refuse(
       "inventory_full",
-      shown.by === actor
-        ? `You can hold ${ITEMS.inventoryMax} things, and taking this down needs room for one more.`
-        : "Whoever put it up has no room for it right now.",
+      `You can hold ${ITEMS.inventoryMax} things, and taking this down needs room for one more.`,
     );
   }
   const { good, by } = shown;
   return () => {
     const displays = items.displays as Record<string, Display>;
     delete displays[key];
+    const events: WorldEvent[] = [{ type: "taken_down", x, y, by: actor }];
+    // Someone else took it down and whoever put it up has no room: it waits for them, so a full
+    // inventory can't pin a pedestal, or the plot it stands on.
+    if (!room) {
+      holdAside(items, shown);
+      return events;
+    }
     inventory(items, by).goods.push(good);
-    return [
-      { type: "taken_down", x, y, by: actor },
-      inventoryEvent(by, "off_display", [], { gained: [good] }),
-    ];
+    events.push(inventoryEvent(by, "off_display", [], { gained: [good] }));
+    return events;
+  };
+}
+
+/**
+ * `remove_display {item, picture?}`, which only TOWN_ACTOR sends: staff took a made thing off
+ * display after a report (decision 0059). It goes back to whoever put it up, or is held aside for
+ * them when their things are full, so nothing is lost and nothing goes past `inventoryMax`. With
+ * `picture`, the thing is a piece and its picture goes, from every piece that shows the same
+ * upload, wherever each is: they keep their titles and draw as a plain canvas. A piece taken this
+ * way needn't be on display; when it is, it comes down too. No coins move.
+ */
+export function checkRemoveDisplay(
+  state: WorldState,
+  command: Extract<Command, { type: "remove_display" }>,
+): ItemsChecked {
+  const items = state.items;
+  if (!items) {
+    return refuse("items_closed", "Growing and making haven't opened in this world yet.");
+  }
+  const { item, picture } = command;
+  if (picture !== undefined && picture !== true) {
+    return refuse("unknown_item", "picture is true or left out.");
+  }
+  if (typeof item !== "string" || !ITEM_ID_PATTERN.test(item)) {
+    return refuse("unknown_item", "Name a made thing by its id (i_...).");
+  }
+  const on = displayOfItem(state, item);
+  let media: string | undefined;
+  if (picture) {
+    const good = on?.shown.good ?? goodById(state, item)?.good;
+    if (good?.kind !== "piece" || good.media === undefined) {
+      return refuse("unknown_item", "No piece with that id shows a picture.");
+    }
+    media = good.media;
+  } else if (!on) {
+    return refuse("nothing_displayed", "That isn't on display.");
+  }
+  const room = on ? fitsOne(items, on.shown.by) : false;
+  return () => {
+    const events: WorldEvent[] = [];
+    if (media !== undefined) {
+      const ids: string[] = [];
+      for (const { good } of everyGood(state)) {
+        if (good.kind !== "piece" || good.media !== media) continue;
+        delete good.media;
+        delete good.model;
+        ids.push(good.id);
+      }
+      events.push({ type: "picture_removed", items: ids });
+    }
+    if (!on) return events;
+    const { x, y, key, shown } = on;
+    const { good, by } = shown;
+    delete (items.displays as Record<string, Display>)[key];
+    events.push({ type: "display_removed", x, y, item, by });
+    if (!room) {
+      holdAside(items, shown);
+      return events;
+    }
+    inventory(items, by).goods.push(good);
+    events.push(inventoryEvent(by, "taken_down", [], { gained: [good] }));
+    return events;
   };
 }
 

@@ -154,6 +154,8 @@ export function queueView(overview: AdminOverviewResponse): View {
         release: () => api.release(action.target, why),
         remove_pictures: () => api.removePictures(action.target, why),
         remove_listing: () => api.removeListing(action.target, why),
+        remove_display: () => api.removeDisplay(action.target, why),
+        remove_piece: () => api.removePiece(action.target, why),
         void_bounty: () => api.voidBounty(action.target, why),
         dismiss: () => api.dismiss(item.kind, item.id, why),
       };
@@ -270,6 +272,16 @@ export function queueView(overview: AdminOverviewResponse): View {
             "p",
             { class: "item-link" },
             outLink(site + profilePath(target.author.id), "Open their stall"),
+          )
+        : null,
+      (item.kind === "display" || item.kind === "piece") && target.exists && target.author
+        ? h(
+            "p",
+            { class: "item-link" },
+            outLink(
+              site + profilePath(target.author.id),
+              item.kind === "display" ? "Open who put it up" : "Open its maker",
+            ),
           )
         : null,
       h(

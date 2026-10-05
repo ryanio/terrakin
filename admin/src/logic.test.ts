@@ -60,6 +60,37 @@ describe("the actions an item offers", () => {
     expect(kinds(item())).toEqual(["hide:p_1", `suspend:${author.id}`, "dismiss:p_1"]);
   });
 
+  it("takes a thing off display, or deletes a piece's picture, while it's still there", () => {
+    const shown = item({ kind: "display", id: "i_7" });
+    expect(kinds(shown)).toEqual(["remove_display:i_7", `suspend:${author.id}`, "dismiss:i_7"]);
+    expect(itemActions(shown, "moderator")[0]).toMatchObject({
+      kind: "remove_display",
+      label: "Take off display",
+      confirm: "Tap again to take it down",
+    });
+    const piece = item({ kind: "piece", id: "i_7" });
+    expect(kinds(piece)).toEqual(["remove_piece:i_7", `suspend:${author.id}`, "dismiss:i_7"]);
+    expect(itemActions(piece, "moderator")[0]).toMatchObject({
+      kind: "remove_piece",
+      confirm: "Tap again to delete the picture everywhere",
+    });
+    // On display, a piece can also just come down, for a bad title.
+    const up = item({ kind: "piece", id: "i_7" }, { onDisplay: true });
+    expect(kinds(up)).toEqual([
+      "remove_display:i_7",
+      "remove_piece:i_7",
+      `suspend:${author.id}`,
+      "dismiss:i_7",
+    ]);
+    // Taken down, or no picture left: nothing to act on but the person.
+    expect(kinds(item({ kind: "display", id: "i_7" }, { exists: false }))).not.toContain(
+      "remove_display:i_7",
+    );
+    expect(kinds(item({ kind: "piece", id: "i_7" }, { exists: false }))).not.toContain(
+      "remove_piece:i_7",
+    );
+  });
+
   it("takes down a listing that's still in the market, or suspends its seller", () => {
     const listing = item({ kind: "listing", id: "l_7" });
     expect(kinds(listing)).toEqual(["remove_listing:l_7", `suspend:${author.id}`, "dismiss:l_7"]);

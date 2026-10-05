@@ -17,7 +17,6 @@ import {
   itemRow,
   itemRows,
   moreButton,
-  moreMenu,
   stateCard,
   toast,
 } from "@terrakin/ui/ui";
@@ -25,7 +24,7 @@ import { actFromButton } from "./act";
 import { api } from "./api";
 import { savedResidentId, savedToken } from "./net";
 import { balanceLine, coins } from "./purse";
-import { openReportSheet } from "./report-sheet";
+import { reportMenu } from "./report-sheet";
 import { thingName } from "./things";
 import { errorCard, type View, type ViewContext } from "./view";
 
@@ -57,17 +56,10 @@ export function listingAction(
 
 /** "…" with Report, on listings that aren't yours. */
 function listingMore(l: ListingView): HTMLElement {
-  const report = h("button", {
-    class: "menu-item",
-    attrs: { type: "button" },
-    text: "Report listing",
-  });
-  const menu = moreMenu({ id: `listing-more-${l.id}`, items: [report] });
-  report.addEventListener("click", () => {
-    menu.close();
-    openReportSheet({ kind: "listing", id: l.id, label: "listing" });
-  });
-  return menu.el;
+  return reportMenu(
+    { kind: "listing", id: l.id, label: "listing" },
+    { id: `listing-more-${l.id}`, text: "Report listing" },
+  );
 }
 
 /**

@@ -38,6 +38,7 @@ import {
   type ErrorCode,
   ErrorResponse,
   HealthResponse,
+  ItemId,
   LinkKeyResponse,
   ListingId,
   MoveAction,
@@ -410,6 +411,7 @@ const InviteParams = z.object({
 });
 const ProposalParams = idParams("proposal", "t_12");
 const ListingParams = z.object({ id: ListingId.describe("The listing id, like `l_7`.") });
+const MadeThingParams = z.object({ id: ItemId.describe("The made thing's id, like `i_7`.") });
 const NoticeParams = idParams("notice", "n_0123456789abcdef");
 const AgentParams = idParams("agent's resident", "r_0123456789abcdef");
 const CodeParams = z.object({
@@ -2125,6 +2127,36 @@ export const ROUTES = [
     body: ModerationReasonRequest,
     responses: { 200: json(ModerationResponse) },
     errors: ["bad_request", "unauthorized", "forbidden", "not_found"],
+  },
+  {
+    id: "removeDisplay",
+    method: "POST",
+    path: "/v1/admin/displays/{id}/remove",
+    auth: "staff",
+    internal: true,
+    summary: "Staff: take one made thing off display.",
+    description:
+      "The thing goes back to whoever put it up, with its maker and label. When their things are too full for it, it's held aside for them and comes back with their first action that leaves room. Its open `display` reports close. A thing that isn't on display answers `not_found`.",
+    tags: ["Moderation"],
+    params: MadeThingParams,
+    body: ModerationReasonRequest,
+    responses: { 200: json(ModerationResponse) },
+    errors: ["bad_request", "unauthorized", "forbidden", "not_found", "internal"],
+  },
+  {
+    id: "removePiece",
+    method: "POST",
+    path: "/v1/admin/pieces/{id}/remove",
+    auth: "staff",
+    internal: true,
+    summary: "Staff: delete a piece's picture, everywhere.",
+    description:
+      "The upload the piece shows is deleted from storage and from everything that uses it (posts, profile pictures, looks), and every piece made from it loses its picture, wherever it is, keeping its title. If the piece is on display it comes down too, as with `removeDisplay`. Its open `piece` and `display` reports close. A piece with no picture left answers `not_found`. If storage refuses, nothing changes in the world and it answers `internal`; try again.",
+    tags: ["Moderation"],
+    params: MadeThingParams,
+    body: ModerationReasonRequest,
+    responses: { 200: json(ModerationResponse) },
+    errors: ["bad_request", "unauthorized", "forbidden", "not_found", "internal"],
   },
   {
     id: "getStaffBounties",

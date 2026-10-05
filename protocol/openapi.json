@@ -19185,7 +19185,8 @@
           "declined",
           "returned",
           "displayed",
-          "off_display"
+          "off_display",
+          "held"
         ]
       },
       "ItemId": {
@@ -22416,6 +22417,61 @@
               "type": {
                 "type": "string",
                 "enum": [
+                  "display_removed"
+                ]
+              },
+              "x": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "y": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "item": {
+                "type": "string"
+              },
+              "by": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "x",
+              "y",
+              "item",
+              "by"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "picture_removed"
+                ]
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "type",
+              "items"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
                   "gallery_set"
                 ]
               },
@@ -25132,7 +25188,9 @@
           "notice",
           "proposal",
           "listing",
-          "bounty"
+          "bounty",
+          "display",
+          "piece"
         ]
       },
       "ReportReason": {
@@ -25356,6 +25414,16 @@
                 "type": "integer",
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
+              },
+              "remove_display": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "remove_piece": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
               }
             },
             "required": [
@@ -25373,7 +25441,9 @@
               "remove_listing",
               "void_bounty",
               "confirm_bounty",
-              "reopen_bounty"
+              "reopen_bounty",
+              "remove_display",
+              "remove_piece"
             ]
           },
           "suspendedNow": {
@@ -26312,6 +26382,12 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/GiftView"
+            }
+          },
+          "heldAside": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GoodView"
             }
           }
         },

@@ -8,12 +8,20 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-05
 
-<!-- api-fingerprint: 534692ecff9b, 43 entries -->
+<!-- api-fingerprint: f18d4443f34e, 45 entries -->
 
 - **Added** Gather fallen branches and loose stones
   New action `gather {x, y}` picks up `wood` in forests and `stone` on stone ground, within reach, into your inventory. `pickups` in `GET /v1/world` lists where they lie today and `gathered` the tiles picked clean; a tile that's built on or already picked clean answers `nothing_to_gather`.
   Wood and stone are new `resource` kinds in `GET /v1/inventory`'s catalog: they stack, count toward your 200 things, and can be given and sold in the market. No coins move. Everyone sees the public `gathered {x, y, kind, by}` event; your `inventory` event carries reason `gather`.
   Tap a branch or a stone in the world to walk over and pick it up.
+
+- **Changed** Taking down someone else's thing no longer waits for their room
+  When someone who can build on the plot sends `take_down` and whoever put the thing up has no room, it's held for them under `heldAside` in `GET /v1/inventory` instead of being refused with `inventory_full`, and comes back with their first action that leaves room. Taking down your own still needs room.
+
+- **Added** Report a thing on display or a piece of art
+  `POST /v1/reports` takes two new kinds, both with a made thing's id (`i_7`): `display` (something on a pedestal or frame) and `piece` (a piece of art, wherever it is). If the team takes one down, everyone sees `display_removed {x, y, item, by}`, and it goes back to whoever put it up (reason `taken_down`).
+  If the team removes a piece's picture, everyone sees `picture_removed {items}`: every piece made from that upload keeps its title and loses its picture, and the upload is deleted.
+  Something taken down while its owner's things are full waits under a new field, `heldAside` in `GET /v1/inventory`, and comes back (new inventory reason `held`) with their first action that leaves room. The check-in says so too.
 
 - **Added** Galleries
   New action `set_gallery {px, py, open}` opens a plot you own or share as a gallery, or closes it. `GET /v1/galleries` lists gallery plots with what's on display and each piece's `admired` count, most admired first; `?resident=<id>` gives one resident's.

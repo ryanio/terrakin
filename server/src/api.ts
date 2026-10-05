@@ -44,11 +44,11 @@ import {
   type WorldEvent as WorldEventView,
   w3cDatetime,
 } from "@terrakin/protocol";
-import { findBounty, findProposal, listingById } from "@terrakin/sim";
+import { findBounty, findProposal, goodById, listingById } from "@terrakin/sim";
 import { bountiesView, bountyView, staffBountiesView } from "./bounties";
 import { checkinView } from "./checkin";
 import { purseView } from "./coins";
-import { galleriesView } from "./galleries";
+import { galleriesView, madeThingForReport } from "./galleries";
 import { IdempotencyStore, type StoredResponse, sha256Hex } from "./idempotency";
 import { inventoryView } from "./items";
 import { BAD_LINK_KEY, DEFAULT_ORIGIN, linkHandlers, linkHelp, REPEAT_NOTE } from "./links";
@@ -507,6 +507,8 @@ export class Api {
         layer.karma.recordAdmire(admirer, maker, day);
       // Reports on a listing (decision 0056) read it from the world.
       layer.safety.listing = (id) => listingForReport(this.service.state, id);
+      // Reports on a thing on display, or a piece (decision 0059), read it from the world too.
+      layer.safety.madeThing = (kind, id) => madeThingForReport(this.service.state, kind, id);
       // Appreciation coins (decision 0055): counted from reactions, logged once a day by `tick`.
       this.service.dailyAwards = (day) => layer.karma.awards(day);
       this.service.syncOwnerPairs(layer.ownerPairs());
@@ -1570,6 +1572,60 @@ export class Api {
           params.id,
           body.reason,
         );
+        return { status: 200, body: { logged: entry } };
+      },
+      // Decision 0059: the thing goes back to whoever put it up, or waits for room. It settles the
+      // reports on it either way: as a thing on display, and as a piece (a title, say).
+      removeDisplay: ({ viewer, params, body }) => {
+        if (!madeThingForReport(service.state, "display", params.id)) {
+          return fail("not_found", "That isn't on display any more.");
+        }
+        const done = service.removeDisplay(params.id, false);
+        if (!done.ok) return fail(done.error.code, done.error.message);
+        const safety = social().safety;
+        safety.closeReports(viewer, "piece", params.id);
+        const entry = safety.recordAction(
+          viewer,
+          "remove_display",
+          "display",
+          params.id,
+          body.reason,
+        );
+        return { status: 200, body: { logged: entry } };
+      },
+      // Decision 0059: the file goes first, everywhere, so the world never says it's gone while
+      // storage still serves it. Then every piece made from it loses its picture, and this one
+      // comes off display if it's up.
+      removePiece: async ({ viewer, params, body }) => {
+        const safety = social().safety;
+        const media = madeThingForReport(service.state, "piece", params.id)?.media;
+        if (!media) return fail("not_found", "No piece with that id shows a picture.");
+        // Like a resident's pictures: the upload may be staff's avatar too.
+        const maker = goodById(service.state, params.id)?.good.maker;
+        if (maker && safety.protects(maker)) {
+          return fail(
+            "bad_request",
+            "Staff's pictures can't be removed. Take them off the staff list first.",
+          );
+        }
+        const check = service.removeDisplay(params.id, true, true);
+        if (!check.ok) return fail(check.error.code, check.error.message);
+        if (!(await safety.purgeUpload(media))) {
+          return fail("internal", "The picture couldn't be deleted from storage yet. Try again.");
+        }
+        const done = service.removeDisplay(params.id, true);
+        if (!done.ok) {
+          // The file is gone: say so in the log, and leave the reports open to try again.
+          safety.recordNote(viewer, "remove_piece", "piece", params.id, body.reason);
+          return fail(done.error.code, done.error.message);
+        }
+        // Every piece that showed the picture is settled, wherever its reports are.
+        const removed = done.events.flatMap((e) => (e.type === "picture_removed" ? e.items : []));
+        for (const id of new Set([params.id, ...removed])) {
+          safety.closeReports(viewer, "display", id);
+          if (id !== params.id) safety.closeReports(viewer, "piece", id);
+        }
+        const entry = safety.recordAction(viewer, "remove_piece", "piece", params.id, body.reason);
         return { status: 200, body: { logged: entry } };
       },
       // Bounties (decision 0062): town coins move only on a maintainer's word.

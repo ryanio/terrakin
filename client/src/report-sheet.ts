@@ -1,6 +1,7 @@
 /**
  * The Report sheet (RFC 0006): pick a reason, add a note if it helps, send. Opened from a post's
- * and a profile's "More" menu. The reported resident never learns who reported them.
+ * and a profile's "More" menu, a listing's, a gallery piece's, and a pedestal's sheet. The reported
+ * resident never learns who reported them.
  */
 import { REPORT_NOTE_MAX_LENGTH, type ReportKind, type ReportReason } from "@terrakin/protocol";
 import { h } from "@terrakin/ui/dom";
@@ -8,6 +9,7 @@ import { REPORT_CHOICES } from "@terrakin/ui/safety";
 import {
   checkRow,
   closeOverlay,
+  moreMenu,
   openOverlay,
   overlayShowing,
   sheet,
@@ -20,7 +22,25 @@ import { savedToken } from "./net";
 const CRISIS_LINE =
   "Thanks. A maintainer will look soon. If someone is in danger right now, call local emergency services.";
 
-export function openReportSheet(target: { kind: ReportKind; id: string; label: string }) {
+export interface ReportTarget {
+  kind: ReportKind;
+  id: string;
+  /** What it is in the sheet's question: "listing", "piece of art". */
+  label: string;
+}
+
+/** A "More" menu with one item, `text`, that opens the Report sheet for `target`. */
+export function reportMenu(target: ReportTarget, o: { id: string; text: string }): HTMLElement {
+  const report = h("button", { class: "menu-item", attrs: { type: "button" }, text: o.text });
+  const menu = moreMenu({ id: o.id, items: [report] });
+  report.addEventListener("click", () => {
+    menu.close();
+    openReportSheet(target);
+  });
+  return menu.el;
+}
+
+export function openReportSheet(target: ReportTarget) {
   if (!savedToken()) {
     toast("Join to report things to the maintainers.", { href: "/#join", label: "Join" });
     return;

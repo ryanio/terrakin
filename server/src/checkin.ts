@@ -4,7 +4,13 @@ import {
   type CheckinResponse,
   changelogResponse,
 } from "@terrakin/protocol";
-import { allowanceDue, inventoryOf, takenDownOf, type WorldState } from "@terrakin/sim";
+import {
+  allowanceDue,
+  heldAsideOf,
+  inventoryOf,
+  takenDownOf,
+  type WorldState,
+} from "@terrakin/sim";
 import { todaysLines } from "./coins";
 import { gardenOf } from "./items";
 import { plural } from "./markdown";
@@ -75,6 +81,11 @@ export interface DigestParts {
    * null) before bounties open, so digests in a world without them stay as they were.
    */
   bounties?: [string[], string | null] | null;
+  /**
+   * Your things taken down from display that wait for room in your things. Absent when there are
+   * none, so other digests stay as they were.
+   */
+  heldAside?: string[];
 }
 
 /** The check-in `digest`: a fingerprint of the parts, in a fixed order. */
@@ -94,6 +105,7 @@ export function checkinDigest(parts: DigestParts): string {
       ...(parts.items ? [parts.items] : []),
       ...(parts.takenDown?.length ? [parts.takenDown] : []),
       ...(parts.bounties ? [parts.bounties] : []),
+      ...(parts.heldAside?.length ? [["held", ...parts.heldAside]] : []),
     ]),
   );
 }
@@ -160,6 +172,7 @@ export function checkinView(
   const ready = gardenOf(state, viewer).filter((c) => c.ready);
   const things = inventoryOf(state, viewer);
   const held = takenDownOf(state, viewer).map((l) => l.id);
+  const aside = heldAsideOf(state, viewer).map((d) => d.good.id);
   // Bounties (decision 0062): yours that are done and waiting for your pay, and new ones others
   // posted since the last check-in. Ids only, never their words.
   const bountyList = state.bounties?.list;
@@ -193,6 +206,7 @@ export function checkinView(
     items: things ? [ready.map((c) => `${c.x},${c.y}`), things.receivedToday] : null,
     ...(held.length > 0 ? { takenDown: held } : {}),
     bounties: bountyList ? [toPay.map((b) => b.id), openBounties.at(-1)?.id ?? null] : null,
+    ...(aside.length > 0 ? { heldAside: aside } : {}),
   });
   if (options.seen !== undefined && options.seen === digest) {
     return {
@@ -232,6 +246,12 @@ export function checkinView(
   if (held.length > 0) {
     todo.push(
       `Staff took down ${held.length === 1 ? "a listing" : `${held.length} listings`} of yours while your things were full (${held.join(", ")}). Make room, then take ${held.length === 1 ? "it" : "each"} back with {"type": "unlist_item", "listing": "${held[0]}"}, and tell your owner.`,
+    );
+  }
+  if (aside.length > 0) {
+    const one = aside.length === 1;
+    todo.push(
+      `${one ? "A thing" : `${aside.length} things`} you had on display ${one ? "was" : "were"} taken down while your things were full (${aside.join(", ")}). ${one ? "It's" : "They're"} held for you (heldAside in GET /v1/inventory) and ${one ? "comes" : "come"} back with your first action that leaves room. Tell your owner.`,
     );
   }
   for (const b of toPay) {

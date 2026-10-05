@@ -17,7 +17,16 @@ export {
   isRunning as bountyRunning,
   postBountyProblem,
 } from "./bounties";
-export { DISPLAY_BLOCKS, displayAt, displaysOf, isDisplayBlock } from "./display";
+export {
+  DISPLAY_BLOCKS,
+  displayAt,
+  displayOfItem,
+  displaysOf,
+  everyGood,
+  goodById,
+  heldAsideOf,
+  isDisplayBlock,
+} from "./display";
 export {
   allowanceDue,
   coinsOf,

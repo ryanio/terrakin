@@ -16,9 +16,11 @@ import {
   checkAdmire,
   checkDisplay,
   checkMakePiece,
+  checkRemoveDisplay,
   checkSetGallery,
   checkTakeDown,
   displayRemoveProblem,
+  returnHeldAside,
 } from "./display";
 import {
   allowanceDue,
@@ -294,6 +296,8 @@ export function prepare(state: WorldState, input: Input): Prepared {
       if (welcome !== null) events.push(...payWelcome(state, actor, welcome, seq));
       // The allowance: whatever the resident did, if it leaves them on their own hearth.
       if (state.residents[actor] && isActivity(command)) {
+        // Things held aside for them while their things were full, as far as there's room now.
+        events.push(...returnHeldAside(state, actor));
         events.push(...payAllowance(state, actor, seq));
         // The pantry (RFC 0005), on the same terms: a no-op until items open.
         events.push(...payPantry(state, actor));
@@ -505,6 +509,8 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
         return town(checkOpenMarket(state));
       case "remove_listing":
         return town(checkRemoveListing(state, command));
+      case "remove_display":
+        return town(checkRemoveDisplay(state, command));
       case "set_entitlements":
         return town(checkSetEntitlements(state, command));
       case "open_bounties":

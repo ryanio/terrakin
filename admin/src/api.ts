@@ -87,6 +87,10 @@ export const api = {
     }),
   removeListing: (id: string, reason: string) =>
     request("POST", path("/v1/admin/listings/{id}/remove", id), ModerationResponse, { reason }),
+  removeDisplay: (id: string, reason: string) =>
+    request("POST", path("/v1/admin/displays/{id}/remove", id), ModerationResponse, { reason }),
+  removePiece: (id: string, reason: string) =>
+    request("POST", path("/v1/admin/pieces/{id}/remove", id), ModerationResponse, { reason }),
   bounties: () => request("GET", "/v1/admin/bounties", StaffBountiesResponse),
   confirmBounty: (id: string, to: string) =>
     request("POST", path("/v1/admin/bounties/{id}/confirm", id), StaffBountyResponse, { to }),

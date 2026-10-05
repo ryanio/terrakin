@@ -998,6 +998,22 @@ export const WorldEvent = z.discriminatedUnion("type", [
     y: z.number().int(),
     by: z.string(),
   }),
+  /**
+   * The Terrakin team took a made thing off display on (x, y) after a report. `by` put it up, and
+   * it goes back to their things, or is held aside for them while their things are full. Public.
+   */
+  z.object({
+    type: z.literal("display_removed"),
+    x: z.number().int(),
+    y: z.number().int(),
+    item: z.string(),
+    by: z.string(),
+  }),
+  /**
+   * The Terrakin team removed these pieces' picture after a report: each keeps its title and shows
+   * no picture from now on. Public.
+   */
+  z.object({ type: z.literal("picture_removed"), items: z.array(z.string()) }),
   /** A plot was opened as a gallery (`open: true`) or closed, by `by`. Public. */
   z.object({
     type: z.literal("gallery_set"),

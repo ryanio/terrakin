@@ -399,6 +399,8 @@ class WorldObject extends DurableObject<Env> {
       // Only the Worker in front sets this, from an Access JWT it verified (see toWorld).
       staffEmail: request.headers.get(STAFF_EMAIL_HEADER) ?? undefined,
       browserOrigin: request.headers.get("origin") ?? undefined,
+      fetchSite: request.headers.get("sec-fetch-site") ?? undefined,
+      contentType: request.headers.get("content-type") ?? undefined,
     });
     if (!response) return jsonError(404, "not_found", "Not found.");
     return new Response(response.status === 204 ? null : response.body, {

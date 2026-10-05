@@ -161,6 +161,10 @@ export interface ApiRequest {
   staffEmail?: string | undefined;
   /** The `Origin` header, which browsers send on cross-site and most same-site requests. */
   browserOrigin?: string | undefined;
+  /** The `Sec-Fetch-Site` header browsers send: `same-origin`, `same-site`, `cross-site`, or `none`. */
+  fetchSite?: string | undefined;
+  /** The `Content-Type` header. */
+  contentType?: string | undefined;
 }
 
 /** Who may use staff routes, and how they sign in (RFC 0006, decision 0040). */
@@ -175,10 +179,16 @@ export interface StaffOptions {
   moderatorEmails?: ReadonlySet<string>;
 }
 
-/** Staff routes answer browsers only from the admin site: `admin.terrakin.org`, or `admin.localhost`. */
-export function isAdminOrigin(origin: string): boolean {
+/**
+ * Staff routes answer a browser only from the admin site itself: the `Origin` it sent must be
+ * exactly the origin the request came in on, and that must be an admin host (admin.terrakin.org,
+ * or admin.localhost on any port). A page on admin.anything-else, or on the main site, is refused.
+ */
+export function isAdminOrigin(browserOrigin: string, requestOrigin: string | undefined): boolean {
   try {
-    return new URL(origin).hostname.startsWith("admin.");
+    const from = new URL(browserOrigin);
+    const to = new URL(requestOrigin ?? "");
+    return from.origin === to.origin && to.hostname.toLowerCase().startsWith("admin.");
   } catch {
     return false;
   }
@@ -1297,8 +1307,21 @@ export class Api {
    * moderator's token.
    */
   private staffFor(req: ApiRequest): { actor: string } | Failure {
-    if (req.browserOrigin && !isAdminOrigin(req.browserOrigin)) {
-      return fail("forbidden", "Staff tools only answer the admin site, admin.terrakin.org.");
+    // Cross-site request forgery: Access signs staff in with a cookie, which a browser would send
+    // along from any page. Refuse anything a browser marks cross-site, any Origin but the admin
+    // site's own, and writes that aren't JSON (a form can't send JSON without a preflight).
+    if (req.fetchSite === "cross-site") {
+      return fail("forbidden", "Staff tools only answer the admin site.");
+    }
+    if (req.browserOrigin && !isAdminOrigin(req.browserOrigin, req.origin)) {
+      return fail("forbidden", "Staff tools only answer the admin site.");
+    }
+    const writing = req.method !== "GET" && req.method !== "HEAD";
+    if (writing && !/^application\/json\b/i.test(req.contentType ?? "")) {
+      return fail(
+        "bad_request",
+        "Send staff actions as JSON, with Content-Type: application/json.",
+      );
     }
     const actor = this.staffOptions.access
       ? req.staffEmail

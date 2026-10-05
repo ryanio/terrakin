@@ -72,6 +72,7 @@ function direct(access: boolean) {
       readJson: async () => body,
       readBytes: async () => undefined,
       contentLength: undefined,
+      ...(body === undefined ? {} : { contentType: "application/json" }),
       ...extra,
     });
     const text = typeof res?.body === "string" ? res.body : "";
@@ -126,25 +127,50 @@ describe("staff roles", () => {
     expect(log[0]).toMatchObject({ action: "suspend", actor: mod.id, actorView: { name: "Mod" } });
   });
 
-  it("refuses browser calls from anywhere but the admin site", async () => {
+  it("refuses browser calls from anywhere but the admin site's own origin", async () => {
     const t = direct(false);
     const mo = await t.join("Mo");
     t.maintainers.add(mo.id);
-    const from = (origin: string) => ({ ...t.bearer(mo.token), browserOrigin: origin });
-    expect(
-      (await t.call("GET", "/v1/admin/reports", undefined, from("https://terrakin.org"))).status,
-    ).toBe(403);
-    expect(
-      (await t.call("GET", "/v1/admin/reports", undefined, from("https://evil.example"))).status,
-    ).toBe(403);
-    expect(
-      (await t.call("GET", "/v1/admin/reports", undefined, from("https://admin.terrakin.org")))
-        .status,
-    ).toBe(200);
-    expect(
-      (await t.call("GET", "/v1/admin/reports", undefined, from("http://admin.localhost:8790")))
-        .status,
-    ).toBe(200);
+    const bo = await t.join("Bo");
+    const at = (origin: string, browser: string, more: Partial<ApiRequest> = {}) => ({
+      ...t.bearer(mo.token),
+      origin,
+      browserOrigin: browser,
+      ...more,
+    });
+    const reports = (extra: Partial<ApiRequest>) =>
+      t.call("GET", "/v1/admin/reports", undefined, extra);
+    const admin = "https://admin.terrakin.org";
+    for (const page of [
+      "https://terrakin.org",
+      "https://evil.example",
+      "https://admin.evil.example",
+      "https://admin.terrakin.org.evil.example",
+      "http://admin.terrakin.org",
+    ]) {
+      expect((await reports(at(admin, page))).status, page).toBe(403);
+    }
+    // The main site's API refuses even its own pages.
+    expect((await reports(at("https://terrakin.org", "https://terrakin.org"))).status).toBe(403);
+    expect((await reports(at(admin, admin))).status).toBe(200);
+    const local = "http://admin.localhost:8790";
+    expect((await reports(at(local, local))).status).toBe(200);
+    // Anything a browser marks cross-site is refused, Origin or not.
+    expect((await reports({ ...t.bearer(mo.token), fetchSite: "cross-site" })).status).toBe(403);
+    expect((await reports({ ...t.bearer(mo.token), fetchSite: "same-origin" })).status).toBe(200);
+
+    // Writes must be JSON, so a plain form or a text/plain fetch from elsewhere can't make one.
+    const suspend = (contentType: string | undefined) =>
+      t.call(
+        "POST",
+        `/v1/admin/residents/${bo.id}/suspend`,
+        { days: 1, reason: "x" },
+        { ...at(admin, admin), contentType },
+      );
+    for (const type of ["text/plain", "application/x-www-form-urlencoded", undefined]) {
+      expect((await suspend(type)).status, String(type)).toBe(400);
+    }
+    expect((await suspend("application/json; charset=utf-8")).status).toBe(200);
   });
 });
 

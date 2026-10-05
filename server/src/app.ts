@@ -116,6 +116,9 @@ export function requestOrigin(req: IncomingMessage, trustedProxies = 0): { origi
   return { origin: `${scheme}://${host}` };
 }
 
+/** One value of a header Node may hand back as a list. */
+const header = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
+
 /** Node adapter: HTTP + WebSocket around the runtime-neutral `Api`. */
 export function createApp(options: AppOptions): Server {
   const api = new Api({
@@ -296,6 +299,8 @@ export function createApp(options: AppOptions): Server {
           : Number(req.headers["content-length"]),
       idempotencyKey: Array.isArray(key) ? key[0] : key,
       browserOrigin: req.headers.origin,
+      fetchSite: header(req.headers["sec-fetch-site"]),
+      contentType: req.headers["content-type"],
       ...requestOrigin(req, options.trustedProxies),
     });
   }

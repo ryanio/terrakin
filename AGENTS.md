@@ -55,7 +55,7 @@ pnpm e2e          # Playwright on a phone viewport against the real build
 pnpm format       # Biome: fix formatting and safe lint issues
 pnpm gen          # regenerate everything derived from the route table and site config
 pnpm kb           # rebuild the knowledge index
-pnpm cf:deploy    # deploy to terrakin.org (docs/deploy.md)
+pnpm cf:deploy    # deploy to terrakin.org by hand; main also deploys itself once CI passes (docs/deploy.md)
 ```
 
 ## Definition of done

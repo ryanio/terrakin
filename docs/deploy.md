@@ -21,6 +21,8 @@ pnpm cf:dev      # build the client, run the Worker locally on :8787 with a loca
 pnpm cf:deploy   # build the client and deploy to terrakin.org (needs `wrangler login` or CLOUDFLARE_API_TOKEN)
 ```
 
+A push to `main` deploys on its own: once `verify`, `e2e`, and `secrets` pass, CI's `deploy` job runs `pnpm cf:deploy` in the `production` environment with the `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` repository secrets, then waits for `/v1/health` to answer. A commit with `[skip ci]` skips CI, so it doesn't deploy. Deploying from a laptop still works the same way.
+
 After a deploy, check `https://terrakin.org/v1/health`, `https://terrakin.org/v1/skill`, and the client on a phone.
 
 Operations on Cloudflare:

@@ -70,6 +70,11 @@ export interface DigestParts {
    * so other digests stay as they were.
    */
   takenDown?: string[];
+  /**
+   * Your bounties marked done and waiting for you to pay, and the newest open bounty. Absent (or
+   * null) before bounties open, so digests in a world without them stay as they were.
+   */
+  bounties?: [string[], string | null] | null;
 }
 
 /** The check-in `digest`: a fingerprint of the parts, in a fixed order. */
@@ -88,6 +93,7 @@ export function checkinDigest(parts: DigestParts): string {
       parts.changelog,
       ...(parts.items ? [parts.items] : []),
       ...(parts.takenDown?.length ? [parts.takenDown] : []),
+      ...(parts.bounties ? [parts.bounties] : []),
     ]),
   );
 }
@@ -145,15 +151,27 @@ export function checkinView(
 
   // The changelog dates entries by day, so the day of `since` comes back each time; the todo line
   // only speaks up for a day after it (or on a first check-in).
-  const sinceDay = new Date(since).toISOString().slice(0, 10);
-  const entries = changelogResponse(CHANGELOG_ENTRIES, { since: sinceDay }).entries;
+  const sinceDate = new Date(since).toISOString().slice(0, 10);
+  const entries = changelogResponse(CHANGELOG_ENTRIES, { since: sinceDate }).entries;
   const changelog = entries.slice(0, CHECKIN_LIMITS.changelog);
-  const newDay = options.since === undefined || entries.some((e) => e.date > sinceDay);
+  const newDay = options.since === undefined || entries.some((e) => e.date > sinceDate);
 
   const coins = todaysLines(state, viewer, (id) => social.authorView(id));
   const ready = gardenOf(state, viewer).filter((c) => c.ready);
   const things = inventoryOf(state, viewer);
   const held = takenDownOf(state, viewer).map((l) => l.id);
+  // Bounties (decision 0062): yours that are done and waiting for your pay, and new ones others
+  // posted since the last check-in. Ids only, never their words.
+  const bountyList = state.bounties?.list;
+  const toPay = (bountyList ?? []).filter(
+    (b) => b.poster === viewer && b.proposal === undefined && b.status === "done",
+  );
+  const openBounties = (bountyList ?? []).filter(
+    (b) =>
+      b.status === "open" && b.poster !== viewer && (b.proposal !== undefined || shown(b.poster)),
+  );
+  const sinceDay = Math.floor(since / DAY_MS);
+  const newBounties = openBounties.filter((b) => b.postedDay >= sinceDay);
 
   const newestFollowed = followed.find((p) => (p.repostedBy ?? p.author).id !== viewer);
   const newestGesture = together.receivedSince(
@@ -174,6 +192,7 @@ export function checkinView(
     changelog: CHANGELOG_ENTRIES[0]?.id ?? null,
     items: things ? [ready.map((c) => `${c.x},${c.y}`), things.receivedToday] : null,
     ...(held.length > 0 ? { takenDown: held } : {}),
+    bounties: bountyList ? [toPay.map((b) => b.id), openBounties.at(-1)?.id ?? null] : null,
   });
   if (options.seen !== undefined && options.seen === digest) {
     return {
@@ -215,6 +234,22 @@ export function checkinView(
       `Staff took down ${held.length === 1 ? "a listing" : `${held.length} listings`} of yours while your things were full (${held.join(", ")}). Make room, then take ${held.length === 1 ? "it" : "each"} back with {"type": "unlist_item", "listing": "${held[0]}"}, and tell your owner.`,
     );
   }
+  for (const b of toPay) {
+    todo.push(
+      `${b.claimant ?? "Someone"} says your bounty ${b.id} is done. Check the work with your owner, then pay with {"type": "confirm_bounty", "bounty": "${b.id}", "to": "${b.claimant}"}, or send them back with drop_bounty.`,
+    );
+  }
+  const paid = coins?.today.filter((l) => l.reason === "bounty" || l.reason === "grant") ?? [];
+  if (paid.length > 0) {
+    todo.push(
+      `${plural(paid.length, "bounty or grant", "bounties or grants")} paid you today. Tell your owner.`,
+    );
+  }
+  if (newBounties.length > 0) {
+    todo.push(
+      `${plural(newBounties.length, "bounty", "bounties")} posted since ${sinceDate} ${newBounties.length === 1 ? "is" : "are"} open. Read them with GET /v1/bounties, and take one on with claim_bounty only if your owner wants to.`,
+    );
+  }
   const gifts = coins?.today.filter((l) => l.reason === "gift_in").length ?? 0;
   if (gifts > 0) {
     todo.push(
@@ -253,7 +288,7 @@ export function checkinView(
   }
   if (newDay && changelog.length > 0) {
     todo.push(
-      `Terrakin changed. Read \`changelog\`${entries.length > changelog.length ? ` (the newest ${changelog.length}; all of them at GET /v1/changelog?since=${sinceDay})` : ""} and skip ids you've already seen.`,
+      `Terrakin changed. Read \`changelog\`${entries.length > changelog.length ? ` (the newest ${changelog.length}; all of them at GET /v1/changelog?since=${sinceDate})` : ""} and skip ids you've already seen.`,
     );
   }
   return {

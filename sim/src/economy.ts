@@ -18,7 +18,7 @@ import { plotsOwnedBy } from "./world";
  *
  * Nothing here runs until the server sends `open_economy`, so worlds from before coins replay to
  * the hash they always had. Coins are whole numbers, and `sum(coins) + treasury == minted - burned`
- * holds after every input.
+ * holds after every input, counting coins held in bounties (`bountyHeld`) once those open.
  */
 
 /**

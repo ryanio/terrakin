@@ -177,6 +177,8 @@ export interface SocialServiceOptions {
   residentAgeDays?: (id: string) => number;
   /** A Town Hall proposal, for reports on one. Default: none exist. */
   proposal?: (id: string) => { author: string; title: string; text: string } | undefined;
+  /** A bounty, for reports on one; `author` is who posted it. Default: none exist. */
+  bounty?: (id: string) => { author: string; title: string; text: string } | undefined;
   /**
    * Residents who can work the review queue but hold no other maintainer powers
    * (`TERRAKIN_MODERATORS`, RFC 0006). A server grant, like maintainers.
@@ -488,6 +490,7 @@ export class SocialService {
         this.isMaintainer(id) || this.isModerator(id) || this.isTownsfolk(id),
       residentAgeDays: options.residentAgeDays ?? (() => Number.POSITIVE_INFINITY),
       proposal: options.proposal ?? (() => undefined),
+      bounty: options.bounty,
       postMedia: (postId) => this.mediaFor([postId]).get(postId) ?? [],
       profileMedia: (residentId) => this.profileMedia(residentId),
       dropPostMedia: async (postId) => {

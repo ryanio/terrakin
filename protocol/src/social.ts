@@ -171,6 +171,11 @@ export const KARMA = {
   heartedReply: 2,
   /** Each Town Hall proposal you voted on. */
   vote: 1,
+  /**
+   * A bounty you were paid for (decision 0062): once per resident whose bounties you finished, and
+   * each town bounty.
+   */
+  bounty: 5,
   /** Taken off for each post, letter, or profile of yours that staff acted on after a report. */
   upheldReport: 10,
   /** Reactions count toward appreciation coins only from residents at this tier or above. */

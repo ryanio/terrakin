@@ -64,6 +64,10 @@ export const ProposalView = z.object({
   blocks: z.array(PlannedBlock),
   /** `commons_build`: Commons blocks it takes away if it passes. */
   remove: z.array(tile),
+  /** `grant` and `bounty`: the coins it pays from the treasury if it passes. */
+  amount: z.number().int().optional(),
+  /** `grant`: who it pays. */
+  to: AuthorView.optional(),
   /** UTC days since 1970-01-01. */
   filedDay: z.number().int(),
   openedDay: z.number().int().nullable(),

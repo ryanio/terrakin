@@ -151,6 +151,8 @@ describe("the edge filters on every surface", () => {
       { type: "propose", kind: "advisory", title: "Benches", text: bad },
       { type: "give", item: "jar", to: bo.id, note: bad },
       { type: "craft", recipe: "bouquet", x: 0, y: 0, label: bad },
+      { type: "post_bounty", title: bad, reward: 5 },
+      { type: "post_bounty", title: "Water my lemons", text: bad, reward: 5 },
     ]) {
       const res = await t.call("POST", "/v1/actions", action, await fresh());
       expect(res.body, action.type).toMatchObject({
@@ -309,6 +311,7 @@ describe("reports", () => {
     expect((await report("resident", bo.id)).status).toBe(201);
     expect((await report("resident", ada.id)).status).toBe(400);
     expect((await report("proposal", "t_99")).status).toBe(404);
+    expect((await report("bounty", "b_99")).status).toBe(404);
     expect(
       (await t.call("POST", "/v1/reports", { kind: "post", id: p.id, reason: "rude" }, ada.token))
         .status,

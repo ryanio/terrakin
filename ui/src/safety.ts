@@ -73,4 +73,7 @@ export const ACTION_LABELS: Record<ModerationAction, string> = {
   release: "Released a bio and note",
   remove_pictures: "Deleted profile pictures",
   remove_listing: "Took down a listing",
+  void_bounty: "Cancelled a bounty",
+  confirm_bounty: "Confirmed a town bounty or grant",
+  reopen_bounty: "Sent a town bounty back",
 };

@@ -19,6 +19,7 @@ import {
   DEFAULT_CONFIG,
   entitledTo,
   exactWearStyles,
+  findBounty,
   hashWorld,
   type Input,
   LOOK_MEDIA_KEYS,
@@ -112,6 +113,11 @@ export interface WorldServiceOptions {
    */
   market?: boolean;
   /**
+   * Bounties and grants (RFC 0008, phase 5): once coins are open, append `open_bounties` if it
+   * never has. Both adapters turn this on. Off by default, like `market`.
+   */
+  bounties?: boolean;
+  /**
    * Maintainers' resident ids from config. Logged as `set_maintainers` when they differ from the
    * log, so the sim keeps townsfolk budgets away from them.
    */
@@ -144,6 +150,23 @@ function toWire(events: WorldEvent[], townsfolk: readonly string[] = []): WireEv
     if (e.type === "displayed") {
       // A made thing's label, or a piece's title, is its maker's words.
       out.push(e.good.label !== undefined ? { ...e, trust: "untrusted" } : e);
+      continue;
+    }
+    if (e.type === "bounty_posted") {
+      // Like proposals, the words stay out of events: they're read from GET /v1/bounties.
+      const { id, poster, proposal, grant, reward, postedDay, expiresDay } = e.bounty;
+      out.push({
+        type: "bounty_posted",
+        bounty: {
+          id,
+          poster,
+          ...(proposal ? { proposal } : {}),
+          ...(grant ? { grant } : {}),
+          reward,
+          postedDay,
+          expiresDay,
+        },
+      });
       continue;
     }
     if (e.type === "listed") {
@@ -196,12 +219,14 @@ export const DAY_MS = 86_400_000;
 export const utcDay = (ms: number) => Math.floor(ms / DAY_MS);
 
 /**
- * A gift or a Town Hall vote, read from the log for karma (decision 0055). `to` is who got a
- * gift; `proposal` is what a vote was on.
+ * A gift, a Town Hall vote, or a bounty paid, read from the log for karma (decisions 0055 and
+ * 0062). `to` is who got a gift or a bounty's pay; `proposal` is what a vote was on.
  */
 export type WorldCredit =
   | { kind: "gift"; from: string; to: string; day: number }
-  | { kind: "vote"; from: string; proposal: string; day: number };
+  | { kind: "vote"; from: string; proposal: string; day: number }
+  /** A bounty paid `to`. `from` is its poster, or `town` for a town bounty a maintainer confirmed. */
+  | { kind: "bounty"; from: string; to: string; bounty: string; day: number };
 
 /** The most ended days `tick` pays appreciation for at once, after a stretch with no requests. */
 const AWARD_CATCH_UP = 7;
@@ -215,6 +240,9 @@ function creditFor(actor: string, command: Command, day: number): WorldCredit | 
   }
   if (command.type === "vote")
     return { kind: "vote", from: actor, proposal: command.proposal, day };
+  if (command.type === "confirm_bounty" || command.type === "confirm_town_bounty") {
+    return { kind: "bounty", from: actor, to: command.to, bounty: command.bounty, day };
+  }
   return undefined;
 }
 
@@ -327,6 +355,7 @@ export class WorldService {
   private readonly gifts: boolean;
   private readonly shop: boolean;
   private readonly market: boolean;
+  private readonly bounties: boolean;
   /** The edge filters for names, notes, chat, and proposals. */
   readonly moderation: Moderation;
   /**
@@ -381,6 +410,7 @@ export class WorldService {
     this.gifts = options.gifts ?? false;
     this.shop = options.shop ?? false;
     this.market = options.market ?? false;
+    this.bounties = options.bounties ?? false;
     // A day may have started (and proposals come due) while the server was down.
     this.tick();
   }
@@ -546,6 +576,10 @@ export class WorldService {
       const opened = this.run({ actor: TOWN_ACTOR, command: { type: "open_market" } });
       if (!opened.ok) console.error(`Couldn't open the market: ${opened.error.message}`);
     }
+    if (this.bounties && !this.state.bounties && this.state.economy) {
+      const opened = this.run({ actor: TOWN_ACTOR, command: { type: "open_bounties" } });
+      if (!opened.ok) console.error(`Couldn't open bounties: ${opened.error.message}`);
+    }
     // The treasury's share of shop spending follows the sim's number, logged when it changes so
     // earlier purchases replay at the share they were made at.
     if (this.shop && this.state.shop && treasuryShareOf(this.state) !== SHOP.treasuryShare) {
@@ -604,6 +638,24 @@ export class WorldService {
         command: "daily_awards",
       });
     }
+  }
+
+  /** A maintainer confirms a town bounty is done. Logged as a world input naming them. */
+  confirmTownBounty(bounty: string, to: string, by: string): ActResult {
+    return this.run({
+      actor: TOWN_ACTOR,
+      command: { type: "confirm_town_bounty", bounty, to, by },
+    });
+  }
+
+  /** A maintainer sends a town bounty's claimant back. Logged as a world input naming them. */
+  reopenBounty(bounty: string, by: string): ActResult {
+    return this.run({ actor: TOWN_ACTOR, command: { type: "reopen_bounty", bounty, by } });
+  }
+
+  /** A maintainer cancels a bounty that hasn't paid. Logged as a world input naming them. */
+  voidBounty(bounty: string, by: string): ActResult {
+    return this.run({ actor: TOWN_ACTOR, command: { type: "void_bounty", bounty, by } });
   }
 
   /** A maintainer voids a proposal. Logged as a world input naming them. */
@@ -876,6 +928,15 @@ export class WorldService {
       };
       return this.run({ actor: residentId, command }, dry);
     }
+    if (action.type === "propose" && action.kind === "grant" && action.to) {
+      // Like a gift, a grant can't name someone across a block either way.
+      if (this.blockedEither(residentId, action.to)) {
+        return {
+          ok: false,
+          error: { code: "forbidden", message: "You can't propose a grant for this resident." },
+        };
+      }
+    }
     if (action.type === "propose") {
       // Proposal text is read by everyone, agents included: clean it and turn away text written
       // as orders to AI readers before it's logged. The sim stores what's logged.
@@ -885,7 +946,7 @@ export class WorldService {
         filtered(this.moderation, "proposal_title", title, context) ??
         filtered(this.moderation, "proposal_text", text, context);
       if (refused) return refused;
-      const { blocks, remove } = action;
+      const { blocks, remove, amount, to } = action;
       const command: Command = {
         type: "propose",
         kind: action.kind,
@@ -893,6 +954,8 @@ export class WorldService {
         text,
         ...(blocks?.length ? { blocks } : {}),
         ...(remove?.length ? { remove } : {}),
+        ...(amount === undefined ? {} : { amount }),
+        ...(to === undefined ? {} : { to }),
       };
       return this.run({ actor: residentId, command }, dry);
     }
@@ -978,6 +1041,40 @@ export class WorldService {
         }
       }
       return result;
+    }
+    if (action.type === "post_bounty") {
+      // A bounty's words are read by everyone, agents included: cleaned and filtered like a
+      // proposal's before they're logged (decision 0004).
+      const title = cleanText(action.title);
+      const text = cleanMultiline(action.text ?? "");
+      const refused =
+        filtered(this.moderation, "bounty_title", title, context) ??
+        filtered(this.moderation, "bounty_text", text, context);
+      if (refused) return refused;
+      const command: Command = {
+        type: "post_bounty",
+        title,
+        reward: action.reward,
+        ...(text ? { text } : {}),
+      };
+      return this.run({ actor: residentId, command }, dry);
+    }
+    if (action.type === "claim_bounty") {
+      // Like a sale, a bounty can't cross a block either way, and a suspended poster's are shut.
+      const b = findBounty(this.state, action.bounty);
+      const poster = b && b.proposal === undefined ? b.poster : undefined;
+      if (poster && this.blockedEither(residentId, poster)) {
+        return {
+          ok: false,
+          error: { code: "forbidden", message: "You can't take this resident's bounties." },
+        };
+      }
+      if (poster && this.suspended(poster)) {
+        return {
+          ok: false,
+          error: { code: "forbidden", message: "That bounty is closed for now." },
+        };
+      }
     }
     if (action.type === "list_item") {
       const why = this.listingRefusal(residentId);

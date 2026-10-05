@@ -1,4 +1,18 @@
 import {
+  type BountiesChecked,
+  bountiesNewDay,
+  checkCancelBounty,
+  checkClaimBounty,
+  checkCompleteBounty,
+  checkConfirmBounty,
+  checkConfirmTownBounty,
+  checkDropBounty,
+  checkOpenBounties,
+  checkPostBounty,
+  checkReopenBounty,
+  checkVoidBounty,
+} from "./bounties";
+import {
   checkAdmire,
   checkDisplay,
   checkMakePiece,
@@ -452,6 +466,7 @@ function town(
     | ItemsChecked
     | ShopChecked
     | MarketChecked
+    | BountiesChecked
     | Mutation
     | Rejection,
 ): Mutation | Prepared {
@@ -490,6 +505,14 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
         return town(checkRemoveListing(state, command));
       case "set_entitlements":
         return town(checkSetEntitlements(state, command));
+      case "open_bounties":
+        return town(checkOpenBounties(state));
+      case "confirm_town_bounty":
+        return town(checkConfirmTownBounty(state, command));
+      case "void_bounty":
+        return town(checkVoidBounty(state, command));
+      case "reopen_bounty":
+        return town(checkReopenBounty(state, command));
       case "new_day":
       case "set_townsfolk": {
         const checked = checkTown(state, actor, command);
@@ -500,12 +523,14 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
             : economyTownsfolkChange(state, [...new Set(command.ids)]);
         const items = command.type === "new_day" ? itemsNewDay(state) : null;
         const shop = command.type === "new_day" ? shopNewDay(state) : null;
-        if (!coins && !items && !shop) return checked;
+        const bounties = command.type === "new_day" ? bountiesNewDay(state, command.day) : null;
+        if (!coins && !items && !shop && !bounties) return checked;
         return () => [
           ...checked(),
           ...(coins ? coins() : []),
           ...(items ? items() : []),
           ...(shop ? shop() : []),
+          ...(bounties ? bounties() : []),
         ];
       }
       default:
@@ -988,5 +1013,18 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
       return town(checkUnlistItem(state, actor, command));
     case "buy_listing":
       return town(checkBuyListing(state, actor, command));
+
+    case "post_bounty":
+      return town(checkPostBounty(state, actor, command));
+    case "claim_bounty":
+      return town(checkClaimBounty(state, actor, command));
+    case "drop_bounty":
+      return town(checkDropBounty(state, actor, command));
+    case "complete_bounty":
+      return town(checkCompleteBounty(state, actor, command));
+    case "confirm_bounty":
+      return town(checkConfirmBounty(state, actor, command));
+    case "cancel_bounty":
+      return town(checkCancelBounty(state, actor, command));
   }
 }

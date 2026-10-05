@@ -153,7 +153,11 @@ export interface Plot {
 export const VOTE_CHOICES = ["yes", "no", "abstain"] as const;
 export type VoteChoice = (typeof VOTE_CHOICES)[number];
 
-export const PROPOSAL_KINDS = ["advisory", "commons_build"] as const;
+/**
+ * `advisory` and `commons_build` (RFC 0004), and `grant` and `bounty` (RFC 0008 phase 5), which
+ * pay from the treasury and are accepted only once bounties are open.
+ */
+export const PROPOSAL_KINDS = ["advisory", "commons_build", "grant", "bounty"] as const;
 export type ProposalKind = (typeof PROPOSAL_KINDS)[number];
 
 /**
@@ -192,6 +196,10 @@ export interface Proposal {
   blocks?: PlannedBlock[];
   /** `commons_build` only: Commons blocks to take away. */
   remove?: Tile[];
+  /** `grant` and `bounty` only: the coins it pays from the treasury if it passes. */
+  amount?: number;
+  /** `grant` only: who it pays. */
+  to?: ResidentId;
   status: ProposalStatus;
   filedDay: number;
   /** Set when it opens. */
@@ -279,6 +287,60 @@ export interface WorldState {
    * Sorted. Absent until the first, and a resident's key goes when their list empties.
    */
   entitlements?: Record<ResidentId, ExclusiveWear[]>;
+  /**
+   * Bounties (RFC 0008, phase 5): jobs a resident or the town pays for once they're done, with
+   * the reward held here until then. Absent until `open_bounties`, so worlds from before it hash
+   * as they always have.
+   */
+  bounties?: BountiesState;
+}
+
+/**
+ * `open` waits for someone to take it, `claimed` is being worked on, `done` is the claimant
+ * saying it's finished, and the rest are final: `paid`, `cancelled` (by its poster or a
+ * maintainer), and `expired`.
+ */
+export const BOUNTY_STATUSES = ["open", "claimed", "done", "paid", "cancelled", "expired"] as const;
+export type BountyStatus = (typeof BOUNTY_STATUSES)[number];
+
+/** A job someone pays for when it's done. Its reward is held here until it pays or ends. */
+export interface Bounty {
+  /** `b_1`, `b_2`, ... from the counter. */
+  id: string;
+  /** Who posted it, or for a town bounty, who proposed it. */
+  poster: ResidentId;
+  /** A town bounty's proposal. Its reward came from the treasury and a maintainer confirms it. */
+  proposal?: string;
+  /**
+   * A passed Town Hall grant: held for its resident (`claimant`) from the start, marked done, and
+   * paid once a maintainer releases it. Never open to claims.
+   */
+  grant?: true;
+  /** Untrusted text, cleaned by the server before it was logged. */
+  title: string;
+  /** Untrusted text, cleaned by the server before it was logged. May be empty. */
+  text: string;
+  reward: number;
+  status: BountyStatus;
+  postedDay: number;
+  /** An open or claimed bounty expires when this day starts. */
+  expiresDay: number;
+  /** Who is working on it, while it's claimed or done, and who was paid. */
+  claimant?: ResidentId;
+  claimedDay?: number;
+  /** When the claimant said it was done. */
+  doneDay?: number;
+  /** When it reached a final status. */
+  closedDay?: number;
+  /** The maintainer who confirmed a town bounty or voided a bounty. */
+  by?: string;
+}
+
+export interface BountiesState {
+  /** The number in the next bounty's id. */
+  nextId: number;
+  /** Bounties in posting order: every one still running, and the newest finished ones. */
+  list: Bounty[];
 }
 
 /** Something a resident put up for sale. The things are held here, in escrow, until it ends. */
@@ -492,6 +554,14 @@ export const COIN_REASONS = [
   "market_sale",
   /** The market's share of a sale, to the treasury. */
   "market_fee",
+  /** Out of a purse, or the treasury, into a bounty until it pays or ends. */
+  "bounty_held",
+  /** Back from a bounty that was cancelled or expired, to its poster or the treasury. */
+  "bounty_returned",
+  /** Paid for a bounty you finished. */
+  "bounty",
+  /** From the treasury, by a passed Town Hall grant. */
+  "grant",
 ] as const;
 export type CoinReason = (typeof COIN_REASONS)[number];
 
@@ -512,7 +582,7 @@ export interface LedgerLine {
 export interface EconomyState {
   /** The town's own coins. Never negative. */
   treasury: number;
-  /** Every coin ever made. `sum(coins) + treasury == minted - burned`, always. */
+  /** Every coin ever made. `sum(coins) + treasury + bountyHeld == minted - burned`, always. */
   minted: number;
   /** Every coin ever destroyed: most of what's spent at the town shop. */
   burned: number;
@@ -578,6 +648,10 @@ export type Command =
       text: string;
       blocks?: PlannedBlock[];
       remove?: Tile[];
+      /** `grant` and `bounty`: the coins it pays from the treasury. */
+      amount?: number;
+      /** `grant`: who it pays. */
+      to?: ResidentId;
     }
   | { type: "vote"; proposal: string; choice: VoteChoice }
   | { type: "withdraw"; proposal: string }
@@ -604,6 +678,14 @@ export type Command =
   | { type: "list_item"; item: string; count?: number; price: number }
   | { type: "unlist_item"; listing: string }
   | { type: "buy_listing"; listing: string }
+  // Bounties (RFC 0008, phase 5). `title` and `text` are untrusted text the server cleaned.
+  | { type: "post_bounty"; title: string; text?: string; reward: number }
+  | { type: "claim_bounty"; bounty: string }
+  | { type: "drop_bounty"; bounty: string }
+  | { type: "complete_bounty"; bounty: string }
+  /** The poster pays `to`, who must be the claimant. */
+  | { type: "confirm_bounty"; bounty: string; to: ResidentId }
+  | { type: "cancel_bounty"; bounty: string }
   // Only the server sends these, as TOWN_ACTOR.
   | { type: "new_day"; day: number }
   | { type: "set_townsfolk"; ids: ResidentId[] }
@@ -627,6 +709,13 @@ export type Command =
   /** The treasury's share of shop spending from now on, in percent; the rest is burned. */
   | { type: "set_shop_share"; percent: number }
   | { type: "open_market" }
+  | { type: "open_bounties" }
+  /** A maintainer confirms a town bounty is done and pays `to`, who must be the claimant. */
+  | { type: "confirm_town_bounty"; bounty: string; to: ResidentId; by: string }
+  /** A maintainer cancels a bounty that hasn't paid. Its reward goes back where it came from. */
+  | { type: "void_bounty"; bounty: string; by: string }
+  /** A maintainer sends a town bounty's claimant back: it isn't done. It's open again. */
+  | { type: "reopen_bounty"; bounty: string; by: string }
   /** Coins the server counted for a day that has ended, minted once per day (decision 0055). */
   | { type: "daily_awards"; day: number; awards: DailyAward[] }
   /** The partner wear a resident may put on now (RFC 0007). Replaces their whole list. */
@@ -666,6 +755,10 @@ export const SERVER_COMMANDS = [
   "open_market",
   "remove_listing",
   "set_entitlements",
+  "open_bounties",
+  "confirm_town_bounty",
+  "void_bounty",
+  "reopen_bounty",
 ] as const satisfies readonly CommandType[];
 
 /** A command plus who issued it. This is the unit the server logs and replays. */
@@ -780,6 +873,27 @@ export type WorldEvent =
       count: number;
       price: number;
     }
+  | { type: "bounties_opened" }
+  /** A bounty opened: a resident's, or the town's from a passed proposal. Public. */
+  | { type: "bounty_posted"; bounty: Bounty }
+  | { type: "bounty_claimed"; bounty: string; claimant: ResidentId }
+  /** A claim ended without pay: the claimant let go, or the poster (or a maintainer) sent them back. */
+  | {
+      type: "bounty_dropped";
+      bounty: string;
+      claimant: ResidentId;
+      by: "claimant" | "poster" | "maintainer";
+    }
+  /** The claimant says it's done. It pays once the poster, or a maintainer, confirms. */
+  | { type: "bounty_done"; bounty: string; claimant: ResidentId }
+  /** A bounty paid its claimant. Public: the town sees who was paid. */
+  | { type: "bounty_paid"; bounty: string; claimant: ResidentId; reward: number }
+  /** A bounty ended unpaid and its reward went back where it came from. */
+  | { type: "bounty_closed"; bounty: string; status: "cancelled" | "expired" }
+  /** A passed grant paid its resident from the treasury. Public. */
+  | { type: "grant_paid"; proposal: string; to: ResidentId; amount: number }
+  /** A passed grant or bounty the treasury couldn't spare (or whose resident can't have it) moved nothing. */
+  | { type: "proposal_unpaid"; proposal: string; amount: number }
   /** The treasury's share of shop spending changed. Public, like the treasury. */
   | { type: "shop_share_set"; percent: number }
   /** Shop wear a resident bought. Private, like their purse. */
@@ -899,6 +1013,13 @@ export const REJECTION_CODES = [
   "nothing_displayed",
   "not_entitled",
   "already_admired",
+  "bounties_closed",
+  "unknown_bounty",
+  "invalid_bounty",
+  "bounty_not_open",
+  "own_bounty",
+  "not_your_bounty",
+  "bounty_limit",
 ] as const;
 export type RejectionCode = (typeof REJECTION_CODES)[number];
 

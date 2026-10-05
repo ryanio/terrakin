@@ -16,6 +16,7 @@ export const REPORT_KINDS = [
   "notice",
   "proposal",
   "listing",
+  "bounty",
 ] as const;
 export const ReportKind = z.enum(REPORT_KINDS);
 export type ReportKind = z.infer<typeof ReportKind>;
@@ -227,6 +228,12 @@ export const MODERATION_ACTIONS = [
   "release",
   "remove_pictures",
   "remove_listing",
+  /** A maintainer cancelled a bounty; its reward went back to its poster or the treasury. */
+  "void_bounty",
+  /** A maintainer confirmed a town bounty was done, which paid its claimant from the treasury's coins. */
+  "confirm_bounty",
+  /** A maintainer sent a town bounty's claimant back: it wasn't done. */
+  "reopen_bounty",
 ] as const;
 export const ModerationAction = z.enum(MODERATION_ACTIONS);
 export type ModerationAction = z.infer<typeof ModerationAction>;

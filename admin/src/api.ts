@@ -13,6 +13,8 @@ import {
   ModerationResponse,
   type ReportKind,
   ReportQueueResponse,
+  StaffBountiesResponse,
+  StaffBountyResponse,
 } from "@terrakin/protocol";
 import { makeRequest, query, type Result } from "@terrakin/ui/http";
 
@@ -85,6 +87,13 @@ export const api = {
     }),
   removeListing: (id: string, reason: string) =>
     request("POST", path("/v1/admin/listings/{id}/remove", id), ModerationResponse, { reason }),
+  bounties: () => request("GET", "/v1/admin/bounties", StaffBountiesResponse),
+  confirmBounty: (id: string, to: string) =>
+    request("POST", path("/v1/admin/bounties/{id}/confirm", id), StaffBountyResponse, { to }),
+  reopenBounty: (id: string, reason: string) =>
+    request("POST", path("/v1/admin/bounties/{id}/reopen", id), StaffBountyResponse, { reason }),
+  voidBounty: (id: string, reason: string) =>
+    request("POST", path("/v1/admin/bounties/{id}/void", id), StaffBountyResponse, { reason }),
   dismiss: (kind: ReportKind, id: string, reason: string) =>
     request("POST", "/v1/admin/reports/dismiss", ModerationResponse, { kind, id, reason }),
 };

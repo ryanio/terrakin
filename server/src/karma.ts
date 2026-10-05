@@ -1,5 +1,5 @@
 import { KARMA, type KarmaView, karmaTier, tierAtLeast } from "@terrakin/protocol";
-import { type DailyAward, ECONOMY, type Resident } from "@terrakin/sim";
+import { type DailyAward, ECONOMY, type Resident, TOWN_ACTOR } from "@terrakin/sim";
 import type { SqlExec } from "./sql-store";
 import { DAY_MS, utcDay } from "./together";
 import type { WorldCredit } from "./world-service";
@@ -24,6 +24,11 @@ export interface KarmaFacts {
   heartedReplies: { from: string; to: string }[];
   /** A Town Hall vote. Changing a vote still counts the proposal once. */
   votes: { from: string; proposal: string }[];
+  /**
+   * A bounty paid `to`. `from` is its poster, or `town` for a town bounty (decision 0062). A
+   * resident's bounties count once per poster and claimant; each town bounty counts.
+   */
+  bounties?: { from: string; to: string; bounty: string }[];
   /** A resident whose post, profile, letter, notice, or proposal staff acted on after a report. */
   upheld: string[];
 }
@@ -59,6 +64,11 @@ export function scoreKarma(facts: KarmaFacts, rules: KarmaRules): Map<string, Ka
   for (const r of facts.heartedReplies) if (from(r.from, r.to)) add(rest, r.to, KARMA.heartedReply);
   for (const v of facts.votes)
     if (first(`vote ${v.from} ${v.proposal}`)) add(rest, v.from, KARMA.vote);
+  for (const b of facts.bounties ?? []) {
+    const town = b.from === TOWN_ACTOR;
+    const key = town ? `bounty ${b.bounty}` : `bounty ${b.from} ${b.to}`;
+    if ((town || from(b.from, b.to)) && first(key)) add(rest, b.to, KARMA.bounty);
+  }
   for (const id of facts.upheld) add(rest, id, -KARMA.upheldReport);
   const reactions = facts.reactions.filter(
     (r) => from(r.from, r.to) && first(`reaction ${r.from} ${r.to} ${r.day}`),
@@ -93,7 +103,7 @@ export interface KarmaOptions {
   suspended: (id: string) => boolean;
   /** Owner-linked pairs, as (agent, owner). */
   ownerPairs: () => readonly (readonly [string, string])[];
-  /** Gifts and votes from the world's log, from a day on. Default: none. */
+  /** Gifts, votes, and bounties paid, from the world's log, from a day on. Default: none. */
   credits?: ((sinceDay: number) => readonly WorldCredit[]) | undefined;
   /** Who was a report upheld against, between two times. */
   upheldAgainst: (fromMs: number, toMs: number) => string[];
@@ -188,6 +198,7 @@ export class KarmaService {
       gifts: credits.flatMap((c) => (c.kind === "gift" ? [c] : [])),
       heartedReplies,
       votes: credits.flatMap((c) => (c.kind === "vote" ? [c] : [])),
+      bounties: credits.flatMap((c) => (c.kind === "bounty" ? [c] : [])),
       upheld: this.o.upheldAgainst(fromDay * DAY_MS, toDay * DAY_MS),
     };
   }

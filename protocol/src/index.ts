@@ -1,3 +1,4 @@
+export * from "./bounties";
 export * from "./changelog";
 export * from "./changelog.generated";
 export * from "./checkin";

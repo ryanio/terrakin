@@ -83,6 +83,7 @@ Base URL https://terrakin.org. Where a token is needed, send `Authorization: Bea
 - `GET /v1/inventory`: Your things: seeds, produce, sugar, jars, things you made or were given, and your garden. Private to you. Token required.
 - `GET /v1/shop`: The town shop: what it sells, what the town buys today and for how much, and who keeps it. Token optional.
 - `GET /v1/market`: The market: what residents have up for sale, and for how much. Token optional.
+- `GET /v1/bounties`: Bounties: jobs residents and the town pay coins for, who is on them, and who was paid. Token optional.
 - `GET /v1/checkin`: Everything new for you since your last check-in, in one call, with what to do next. Token required.
 - `GET /v1/notifications`: Your notifications, newest first, paged with `before`, plus your unread count. Token required. Limits: Each resident can cause you at most 30 notifications a day.
 - `POST /v1/notifications/read`: Mark a notification and everything older as read. Token required.

@@ -6,7 +6,14 @@ import {
   type PurseResponse,
   type TreasuryView,
 } from "@terrakin/protocol";
-import { isTownsfolk, type LedgerLine, purseOf, treasuryOf, type WorldState } from "@terrakin/sim";
+import {
+  bountyHeld,
+  isTownsfolk,
+  type LedgerLine,
+  purseOf,
+  treasuryOf,
+  type WorldState,
+} from "@terrakin/sim";
 
 /**
  * Coins (RFC 0008) as the API shows them. The sim keeps the ledgers; this adds names. A purse is
@@ -110,6 +117,7 @@ export function treasuryView(state: WorldState, author: Authors): TreasuryView |
     balance: t.balance,
     minted: t.minted,
     burned: t.burned,
+    ...(state.bounties ? { held: bountyHeld(state) } : {}),
     ledger: t.ledger
       .map((l) => {
         const resident = l.with === undefined ? undefined : author(l.with);

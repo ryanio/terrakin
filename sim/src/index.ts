@@ -7,6 +7,16 @@ export {
   prepare,
 } from "./apply";
 export { BIOME_REGION, type Biome, biomeAt } from "./biome";
+export {
+  BOUNTIES,
+  BOUNTY_MOVES,
+  type BountyMove,
+  bountyHeld,
+  bountyMoves,
+  findBounty,
+  isRunning as bountyRunning,
+  postBountyProblem,
+} from "./bounties";
 export { DISPLAY_BLOCKS, displayAt, displaysOf, isDisplayBlock } from "./display";
 export {
   allowanceDue,

@@ -44,7 +44,8 @@ import {
   type WorldEvent as WorldEventView,
   w3cDatetime,
 } from "@terrakin/protocol";
-import { findProposal, listingById } from "@terrakin/sim";
+import { findBounty, findProposal, listingById } from "@terrakin/sim";
+import { bountiesView, bountyView, staffBountiesView } from "./bounties";
 import { checkinView } from "./checkin";
 import { purseView } from "./coins";
 import { IdempotencyStore, type StoredResponse, sha256Hex } from "./idempotency";
@@ -341,6 +342,18 @@ interface HandlerReply {
 }
 
 const STAFF_ONLY = "Only Terrakin's maintainers and moderators can do that.";
+const MAINTAINERS_ONLY = "Only Terrakin's maintainers can move town coins.";
+
+/**
+ * Who a staff member is in the world log, which is kept for good: their resident id when they
+ * signed in with a resident token, else an opaque id from a hash of their Access sign-in, so no
+ * staff email is ever logged in the world (decision 0062). The moderation log names them as
+ * before.
+ */
+export async function worldStaffId(actor: string): Promise<string> {
+  if (!actor.startsWith("access:")) return actor;
+  return `staff_${(await sha256Hex(actor)).slice(0, 16)}`;
+}
 
 /** A maintainer action's log line as the reply. */
 function logged(outcome: SocialResult<ModerationLogEntry>) {
@@ -1061,6 +1074,25 @@ export class Api {
         if ("error" in view) return fail("bad_request", view.error);
         return { status: 200, body: view };
       },
+      getBounties: ({ viewer }) => {
+        const layer = social();
+        // Read once per request: who the viewer blocks either way, and each poster's suspension.
+        const blocked = viewer === undefined ? new Set<string>() : layer.blockedWith(viewer);
+        const closed = new Map<string, boolean>();
+        const hidden = (poster: string) => {
+          if (blocked.has(poster)) return true;
+          let shut = closed.get(poster);
+          if (shut === undefined) {
+            shut = layer.safety.suspendedUntil(poster) !== undefined;
+            closed.set(poster, shut);
+          }
+          return shut;
+        };
+        return {
+          status: 200,
+          body: bountiesView(service.state, viewer, (id) => layer.authorView(id), hidden),
+        };
+      },
       getCheckin: ({ viewer, query }) => ({
         status: 200,
         body: checkinView(service.state, social(), viewer, {
@@ -1524,6 +1556,44 @@ export class Api {
         );
         return { status: 200, body: { logged: entry } };
       },
+      // Bounties (decision 0062): town coins move only on a maintainer's word.
+      getStaffBounties: ({ viewer }) => {
+        if (this.staffRole(viewer) !== "maintainer") return fail("forbidden", MAINTAINERS_ONLY);
+        return {
+          status: 200,
+          body: staffBountiesView(service.state, (id) => social().authorView(id)),
+        };
+      },
+      confirmTownBounty: async ({ viewer, params, body }) => {
+        if (this.staffRole(viewer) !== "maintainer") return fail("forbidden", MAINTAINERS_ONLY);
+        if (!findBounty(service.state, params.id)) return fail("not_found", "No such bounty.");
+        const done = service.confirmTownBounty(params.id, body.to, await worldStaffId(viewer));
+        if (!done.ok) return fail(done.error.code, done.error.message);
+        social().safety.recordNote(
+          viewer,
+          "confirm_bounty",
+          "bounty",
+          params.id,
+          `Confirmed done, paid ${body.to}`,
+        );
+        return this.staffBounty(params.id);
+      },
+      reopenTownBounty: async ({ viewer, params, body }) => {
+        if (this.staffRole(viewer) !== "maintainer") return fail("forbidden", MAINTAINERS_ONLY);
+        if (!findBounty(service.state, params.id)) return fail("not_found", "No such bounty.");
+        const done = service.reopenBounty(params.id, await worldStaffId(viewer));
+        if (!done.ok) return fail(done.error.code, done.error.message);
+        social().safety.recordAction(viewer, "reopen_bounty", "bounty", params.id, body.reason);
+        return this.staffBounty(params.id);
+      },
+      voidBounty: async ({ viewer, params, body }) => {
+        if (this.staffRole(viewer) !== "maintainer") return fail("forbidden", MAINTAINERS_ONLY);
+        if (!findBounty(service.state, params.id)) return fail("not_found", "No such bounty.");
+        const done = service.voidBounty(params.id, await worldStaffId(viewer));
+        if (!done.ok) return fail(done.error.code, done.error.message);
+        social().safety.recordAction(viewer, "void_bounty", "bounty", params.id, body.reason);
+        return this.staffBounty(params.id);
+      },
 
       // ---------- docs ----------
       getSkill: () => ({ status: 200, text: this.skill }),
@@ -1620,6 +1690,16 @@ export class Api {
    * only, so a signed-out watcher learns nothing a visitor to the feed couldn't see (decision
    * 0046). One read for the blocks and one for the followers, whatever the number of sockets.
    */
+  /** A bounty as staff see it after acting on it. */
+  private staffBounty(id: string): Reply<"confirmTownBounty"> {
+    const b = findBounty(this.service.state, id);
+    if (!b) return fail("internal", "Bounty vanished.");
+    return {
+      status: 200,
+      body: { bounty: bountyView(this.service.state, b, (r) => this.social?.authorView(r)) },
+    };
+  }
+
   /** What the market's gate on listing reads from outside the sim: time in Terrakin and karma. */
   private listerFacts(id: string): ListerFacts {
     return {

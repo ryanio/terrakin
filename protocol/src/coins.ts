@@ -111,9 +111,14 @@ export type PublicGift = z.infer<typeof PublicGift>;
 
 export const TreasuryView = z.object({
   balance: z.number().int(),
-  /** Every coin ever made, and destroyed. Coins in purses plus the treasury equals minted minus burned. */
+  /**
+   * Every coin ever made, and destroyed. Coins in purses, the treasury, and bounties (`held`)
+   * equal minted minus burned.
+   */
   minted: z.number().int(),
   burned: z.number().int(),
+  /** Coins held in bounties until they pay or end. Present once bounties open. */
+  held: z.number().int().optional(),
   /** Newest first. */
   ledger: z.array(TreasuryLine),
   /** Recent gifts between residents, newest first. Gifts to or from townsfolk aren't listed. */

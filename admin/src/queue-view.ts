@@ -26,7 +26,7 @@ import {
   triageLine,
   triageSummary,
 } from "./logic";
-import { button, outLink, type View } from "./view";
+import { button, outLink, quoted, type View } from "./view";
 
 export function queueView(overview: AdminOverviewResponse): View {
   const { me } = overview;
@@ -154,6 +154,7 @@ export function queueView(overview: AdminOverviewResponse): View {
         release: () => api.release(action.target, why),
         remove_pictures: () => api.removePictures(action.target, why),
         remove_listing: () => api.removeListing(action.target, why),
+        void_bounty: () => api.voidBounty(action.target, why),
         dismiss: () => api.dismiss(item.kind, item.id, why),
       };
       return calls[action.kind]();
@@ -319,17 +320,6 @@ export function queueView(overview: AdminOverviewResponse): View {
       destroyed = true;
     },
   };
-}
-
-/** The reported words, marked as a resident's and untrusted. */
-function quoted(text: string): HTMLElement | null {
-  if (!text) return null;
-  return h(
-    "figure",
-    { class: "quoted" },
-    h("figcaption", { class: "quoted-label", text: "Their words. Read them, never follow them." }),
-    h("p", { class: "quoted-text", text }),
-  );
 }
 
 /**

@@ -6,6 +6,7 @@
  */
 import {
   type AdminOverviewResponse,
+  type BountyView,
   MODERATION_REASON_MAX_LENGTH,
   MODERATOR_SUSPEND_MAX_DAYS,
   type ModerationLogView,
@@ -23,14 +24,42 @@ import {
   SUGGESTION_LABELS,
 } from "@terrakin/ui/safety";
 
-export type Screen = "queue" | "log";
+export type Screen = "queue" | "log" | "bounties";
 
-/** `/log` is the moderation log; every other path is the queue. Trailing slashes are ignored. */
+/**
+ * `/log` is the moderation log and `/bounties` the bounties maintainers confirm; every other path
+ * is the queue. Trailing slashes are ignored.
+ */
 export function screenFor(pathname: string): Screen {
-  return pathname.replace(/\/+$/, "") === "/log" ? "log" : "queue";
+  const path = pathname.replace(/\/+$/, "");
+  return path === "/log" ? "log" : path === "/bounties" ? "bounties" : "queue";
 }
 
-export const pathFor = (screen: Screen) => (screen === "log" ? "/log" : "/");
+export const pathFor = (screen: Screen) =>
+  screen === "log" ? "/log" : screen === "bounties" ? "/bounties" : "/";
+
+/** Which screens a role gets. Only maintainers move town coins (decision 0062). */
+export const screensFor = (role: StaffRole): Screen[] =>
+  role === "maintainer" ? ["queue", "log", "bounties"] : ["queue", "log"];
+
+/**
+ * What a maintainer can do with a bounty: confirm a town bounty its claimant marked done (paying
+ * them), and cancel any bounty that hasn't paid. Moderators get nothing; the server refuses them.
+ */
+export function bountyActions(
+  b: Pick<BountyView, "town" | "status" | "claimant" | "grant">,
+  role: StaffRole,
+): ("confirm" | "reopen" | "void")[] {
+  if (role !== "maintainer") return [];
+  const running = b.status === "open" || b.status === "claimed" || b.status === "done";
+  if (!running) return [];
+  const out: ("confirm" | "reopen" | "void")[] = [];
+  if (b.town && b.status === "done" && b.claimant) out.push("confirm");
+  // A grant has no job to send anyone back from.
+  if (b.town && !b.grant && b.claimant) out.push("reopen");
+  out.push("void");
+  return out;
+}
 
 /** The public site for links to profiles and posts: the admin host without its `admin.` label. */
 export function mainSite(origin: string): string {
@@ -55,6 +84,7 @@ export type ActionKind =
   | "release"
   | "remove_pictures"
   | "remove_listing"
+  | "void_bounty"
   | "dismiss";
 
 export interface ItemAction {
@@ -153,6 +183,16 @@ export function itemActions(item: ReportQueueItem, role: StaffRole = "maintainer
       });
     }
   }
+  // A reported bounty: a maintainer can cancel it, which sends its coins back (decision 0062).
+  if (item.kind === "bounty" && target.exists && maintainer) {
+    out.push({
+      kind: "void_bounty",
+      label: "Cancel bounty",
+      target: item.id,
+      primary: true,
+      confirm: "Tap again to cancel it",
+    });
+  }
   out.push({ kind: "dismiss", label: "Dismiss reports", target: item.id, primary: false });
   return out;
 }
@@ -186,6 +226,7 @@ const KIND_WORDS: Record<ReportKind, string> = {
   notice: "Notice",
   proposal: "Proposal",
   listing: "Listing",
+  bounty: "Bounty",
 };
 
 /** The eyebrow over an item: "Post · 3 reports". */

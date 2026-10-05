@@ -1,3 +1,4 @@
+import { townMoneyOnPass, townMoneyProblem } from "./bounties";
 import { refuse } from "./check";
 import { tileKey } from "./keys";
 import type {
@@ -337,9 +338,11 @@ export function checkTown(state: WorldState, actor: string, command: TownCommand
       const status: ProposalStatus =
         t.yes + t.no < quorum(voters) ? "no_quorum" : t.yes > t.no ? "passed" : "failed";
       const build = status === "passed" && p.kind === "commons_build" ? planBuild(state, p) : null;
+      const money = status === "passed" ? townMoneyOnPass(state, p, day) : null;
       const opens = nextToOpen(state, p);
       return () => {
         const events: WorldEvent[] = [finish(p, status, day)];
+        if (money) events.push(...money());
         if (build) {
           const town = ensureTown(state);
           for (const t of build.removed) {
@@ -368,7 +371,10 @@ export function checkTown(state: WorldState, actor: string, command: TownCommand
         return refuse("not_eligible", ok.eligible ? "The Town Hall isn't open yet." : ok.message);
       }
       if (!PROPOSAL_KINDS.includes(command.kind)) {
-        return refuse("invalid_proposal", "A proposal is an advisory or a commons_build.");
+        return refuse(
+          "invalid_proposal",
+          "A proposal is an advisory, a commons_build, a grant, or a bounty.",
+        );
       }
       const title = typeof command.title === "string" ? command.title.trim() : "";
       const text = typeof command.text === "string" ? command.text.trim() : "";
@@ -383,12 +389,19 @@ export function checkTown(state: WorldState, actor: string, command: TownCommand
       if (!Array.isArray(blocks) || !Array.isArray(remove)) {
         return refuse("invalid_proposal", "Blocks and removals are lists of tiles.");
       }
-      if (command.kind === "advisory" && blocks.length + remove.length > 0) {
-        return refuse("invalid_proposal", "An advisory has no blocks. Use commons_build.");
+      if (command.kind !== "commons_build" && blocks.length + remove.length > 0) {
+        return refuse("invalid_proposal", `A ${command.kind} has no blocks. Use commons_build.`);
       }
       if (command.kind === "commons_build") {
         const problem = checkPlan(state, blocks, remove);
         if (problem) return refuse("invalid_proposal", problem);
+      }
+      const money = command.kind === "grant" || command.kind === "bounty";
+      if (money) {
+        const problem = townMoneyProblem(state, actor, command);
+        if (problem) return refuse("invalid_proposal", problem);
+      } else if (command.amount !== undefined || command.to !== undefined) {
+        return refuse("invalid_proposal", "Only a grant or a bounty pays coins.");
       }
       const mine = state.town?.proposals.filter((p) => p.author === actor) ?? [];
       if (mine.some((p) => p.status === "open" || p.status === "queued")) {
@@ -417,7 +430,12 @@ export function checkTown(state: WorldState, actor: string, command: TownCommand
                 : {}),
               ...(remove.length > 0 ? { remove: remove.map(({ x, y }) => ({ x, y })) } : {}),
             }
-          : {};
+          : money
+            ? {
+                amount: command.amount as number,
+                ...(command.kind === "grant" ? { to: command.to as ResidentId } : {}),
+              }
+            : {};
       return () => {
         const town = ensureTown(state);
         const p: Proposal = {

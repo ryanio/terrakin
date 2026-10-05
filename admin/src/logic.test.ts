@@ -2,6 +2,7 @@ import type { ReportQueueItem, TriageVerdictView } from "@terrakin/protocol";
 import { describe, expect, it } from "vitest";
 import {
   actorLabel,
+  bountyActions,
   daysProblem,
   itemActions,
   itemTags,
@@ -9,6 +10,7 @@ import {
   reasonProblem,
   recordLine,
   screenFor,
+  screensFor,
   suspendLimits,
   triageLine,
   triageSummary,
@@ -263,6 +265,30 @@ describe("routes and links", () => {
     expect(screenFor("/log")).toBe("log");
     expect(screenFor("/log/")).toBe("log");
     expect(screenFor("/anything")).toBe("queue");
+    expect(screenFor("/bounties")).toBe("bounties");
+  });
+
+  it("shows bounties to maintainers only, and offers confirm only on a town bounty marked done", () => {
+    expect(screensFor("maintainer")).toContain("bounties");
+    expect(screensFor("moderator")).not.toContain("bounties");
+    const claimant = author;
+    const a = (
+      o: Partial<Parameters<typeof bountyActions>[0]>,
+      role: "maintainer" | "moderator" = "maintainer",
+    ) => bountyActions({ town: true, status: "done", claimant, grant: false, ...o }, role);
+    expect(a({})).toEqual(["confirm", "reopen", "void"]);
+    expect(a({ grant: true })).toEqual(["confirm", "void"]);
+    expect(a({ status: "claimed" })).toEqual(["reopen", "void"]);
+    expect(a({ status: "open", claimant: null })).toEqual(["void"]);
+    expect(a({ town: false })).toEqual(["void"]);
+    expect(a({ status: "paid" })).toEqual([]);
+    expect(a({}, "moderator")).toEqual([]);
+  });
+
+  it("offers maintainers a cancel on a reported bounty, and moderators only dismiss", () => {
+    const bounty = item({ kind: "bounty", id: "b_2" });
+    expect(itemActions(bounty, "maintainer").map((a) => a.kind)).toContain("void_bounty");
+    expect(itemActions(bounty, "moderator").map((a) => a.kind)).not.toContain("void_bounty");
   });
 
   it("links to the public site from the admin host", () => {

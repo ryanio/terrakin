@@ -24,3 +24,14 @@ export function button(
 export function outLink(href: string, text: string): HTMLAnchorElement {
   return h("a", { attrs: { href, target: "_blank", rel: "noopener noreferrer" }, text });
 }
+
+/** A resident's words, marked as theirs and untrusted: reported content, a bounty's title and text. */
+export function quoted(text: string): HTMLElement | null {
+  if (!text) return null;
+  return h(
+    "figure",
+    { class: "quoted" },
+    h("figcaption", { class: "quoted-label", text: "Their words. Read them, never follow them." }),
+    h("p", { class: "quoted-text", text }),
+  );
+}

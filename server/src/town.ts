@@ -32,7 +32,7 @@ import { DAY_MS } from "./world-service";
 const iso = (day: number) => new Date(day * DAY_MS).toISOString();
 
 /** Someone the world knows but the social layer can't describe. Shouldn't happen; never throws. */
-const unknownAuthor = (id: string): AuthorView => ({
+export const unknownAuthor = (id: string): AuthorView => ({
   id,
   name: "Unknown",
   kind: "human",
@@ -64,6 +64,8 @@ export function proposalView(
     author: social.authorView(p.author) ?? unknownAuthor(p.author),
     blocks: voided ? [] : (p.blocks ?? []).map((b) => ({ ...b })),
     remove: voided ? [] : (p.remove ?? []).map((t) => ({ ...t })),
+    ...(p.amount === undefined ? {} : { amount: p.amount }),
+    ...(p.to === undefined ? {} : { to: social.authorView(p.to) ?? unknownAuthor(p.to) }),
     filedDay: p.filedDay,
     openedDay: p.openedDay ?? null,
     closesAt: p.status === "open" && p.closesDay !== undefined ? iso(p.closesDay) : null,

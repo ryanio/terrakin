@@ -53,6 +53,10 @@ export interface SafetyOptions {
   residentAgeDays: (id: string) => number;
   /** A Town Hall proposal from the world, for reports on one. */
   proposal: (id: string) => { author: string; title: string; text: string } | undefined;
+  /** A bounty from the world, for reports on one. Its author is who posted it. Default: none. */
+  bounty?:
+    | ((id: string) => { author: string; title: string; text: string } | undefined)
+    | undefined;
   /** A post's files, as its view shows them. */
   postMedia: (postId: string) => MediaView[];
   /** A resident's avatar and banner files, so a profile report shows its pictures. */
@@ -128,6 +132,7 @@ const AGREES: Record<TriageAction, ReadonlySet<ModerationAction> | "any"> = {
     "remove_notice",
     "void_proposal",
     "remove_listing",
+    "void_bounty",
     "suspend",
   ]),
   suspend: new Set(["suspend"]),
@@ -330,6 +335,7 @@ export class SafetyService {
     if (kind === "resident") return this.o.resident(id) ? id : undefined;
     if (kind === "proposal") return this.o.proposal(id)?.author;
     if (kind === "listing") return this.listing(id)?.seller;
+    if (kind === "bounty") return this.o.bounty?.(id)?.author;
     if (kind === "post") {
       const row = this.rows("SELECT author FROM posts WHERE id = ?", id)[0];
       return row ? String(row.author) : undefined;
@@ -789,7 +795,7 @@ export class SafetyService {
       const l = this.listing(id);
       return l ? base(l.seller, l.text) : gone;
     }
-    const p = this.o.proposal(id);
+    const p = kind === "bounty" ? this.o.bounty?.(id) : this.o.proposal(id);
     return p ? base(p.author, [p.title, p.text].filter(Boolean).join("\n")) : gone;
   }
 
@@ -951,7 +957,11 @@ export class SafetyService {
     );
     return rows.flatMap((row) => {
       const against =
-        row.kind === "proposal" ? this.o.proposal(String(row.target))?.author : row.against;
+        row.kind === "proposal"
+          ? this.o.proposal(String(row.target))?.author
+          : row.kind === "bounty"
+            ? this.o.bounty?.(String(row.target))?.author
+            : row.against;
       return typeof against === "string" && against !== "" ? [against] : [];
     });
   }
@@ -983,6 +993,14 @@ export class SafetyService {
   ): ModerationLogEntry {
     this.close(kind, id, "actioned", by);
     return this.act(by, action, kind, id, reason);
+  }
+
+  /**
+   * Staff did something worth a line in the log that isn't acting on a report (confirming a town
+   * bounty). Open reports stay open.
+   */
+  recordNote(by: string, action: ModerationAction, kind: ReportKind, id: string, reason: string) {
+    this.log(by, action, kind, id, reason);
   }
 
   /** When a resident's suspension ends (ms), or undefined if they aren't suspended. */
@@ -1160,6 +1178,7 @@ const NOT_FOUND: Record<ReportKind, string> = {
   notice: "No such notice.",
   proposal: "No such proposal.",
   listing: "That listing isn't in the market.",
+  bounty: "No such bounty.",
 };
 
 function reportView(row: Row): ReportView {

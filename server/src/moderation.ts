@@ -55,6 +55,8 @@ export type Surface =
   | "item_label"
   | "proposal_title"
   | "proposal_text"
+  | "bounty_title"
+  | "bounty_text"
   | "notice";
 
 type SpamCheck = "repeat" | "crowd" | "links" | "mentions" | "caps" | "runs";
@@ -164,6 +166,21 @@ export const POLICY: Record<Surface, Policy> = {
     vulgar: "refuse",
     impersonation: null,
     shorteners: false,
+    spam: ["links", "mentions", "runs", "caps"],
+  },
+  // A bounty asks people to do something for coins, which is where a scam would sound like staff.
+  bounty_title: {
+    label: "Bounties",
+    vulgar: "refuse",
+    impersonation: "text",
+    shorteners: true,
+    spam: ["runs", "caps"],
+  },
+  bounty_text: {
+    label: "Bounties",
+    vulgar: "refuse",
+    impersonation: "text",
+    shorteners: true,
     spam: ["links", "mentions", "runs", "caps"],
   },
   notice: {

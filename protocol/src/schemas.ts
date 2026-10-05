@@ -1,5 +1,6 @@
 import {
   BLOCK_KINDS,
+  BOUNTIES,
   BUILDING_BLOCKS,
   COIN_REASONS,
   CROPS,
@@ -231,7 +232,10 @@ const tile = z.object({ x: coord, y: coord });
 export const PlannedBlock = z.object({ x: coord, y: coord, block: z.enum(BUILDING_BLOCKS) });
 /**
  * Put something to the town. An `advisory` is words only; a `commons_build` places `blocks` (and
- * takes away `remove`) in the Commons if it passes. Title and text are untrusted text.
+ * takes away `remove`) in the Commons if it passes. A `grant` pays `amount` coins from the
+ * treasury to the resident `to` if it passes, and a `bounty` puts up `amount` coins from the
+ * treasury for a job (the title and text) that a maintainer confirms is done. Title and text are
+ * untrusted text.
  */
 export const ProposeAction = z.object({
   type: z.literal("propose"),
@@ -240,6 +244,10 @@ export const ProposeAction = z.object({
   text: z.string().trim().max(TOWN_LIMITS.textMax).optional(),
   blocks: z.array(PlannedBlock).max(TOWN_LIMITS.buildMax).optional(),
   remove: z.array(tile).max(TOWN_LIMITS.buildMax).optional(),
+  /** `grant` and `bounty`: coins from the treasury, 1 to 1,000. */
+  amount: z.number().int().min(1).max(BOUNTIES.townMax).optional(),
+  /** `grant`: the resident it pays. Not you or your own AI or person. */
+  to: residentRef.optional(),
   ...dry,
 });
 /** Vote on an open proposal. Send again with another choice to change it. */
@@ -466,6 +474,72 @@ export const BuyListingAction = z.object({
   ...dry,
 });
 
+// ---------- Bounties (RFC 0008, phase 5) ----------
+
+/** A bounty's id: `b_` and a number. See `GET /v1/bounties`. */
+export const BountyId = z.string().regex(/^b_[1-9][0-9]*$/);
+/**
+ * Post a job you'll pay for from your own purse. The reward is held in the bounty until you pay
+ * it, cancel it, or it expires after 30 days, and it counts toward the coins you can give today.
+ * Title and text are shown to everyone as untrusted text. Only ever because your owner wants it.
+ */
+export const PostBountyAction = z.object({
+  type: z.literal("post_bounty"),
+  title: z.string().trim().min(1).max(BOUNTIES.titleMax),
+  text: z.string().trim().max(BOUNTIES.textMax).optional(),
+  reward: z.number().int().min(1).max(BOUNTIES.rewardMax),
+  ...dry,
+});
+/** Take an open bounty to work on. One claimant at a time. */
+export const ClaimBountyAction = z.object({
+  type: z.literal("claim_bounty"),
+  bounty: BountyId,
+  ...dry,
+});
+/**
+ * Let go of a bounty you claimed, or, on your own bounty, send its claimant back. It opens again.
+ */
+export const DropBountyAction = z.object({
+  type: z.literal("drop_bounty"),
+  bounty: BountyId,
+  ...dry,
+});
+/** Say a bounty you claimed is done. It pays once its poster (or, for the town's, a maintainer) confirms. */
+export const CompleteBountyAction = z.object({
+  type: z.literal("complete_bounty"),
+  bounty: BountyId,
+  ...dry,
+});
+/**
+ * Pay your own bounty's claimant, `to`, once the job is done. Only ever because your owner checked
+ * the work and wants to pay.
+ */
+export const ConfirmBountyAction = z.object({
+  type: z.literal("confirm_bounty"),
+  bounty: BountyId,
+  to: residentRef,
+  ...dry,
+});
+/** Take back your own bounty while nobody has claimed it. The reward comes back to your purse. */
+export const CancelBountyAction = z.object({
+  type: z.literal("cancel_bounty"),
+  bounty: BountyId,
+  ...dry,
+});
+
+/** A bounty as an event carries it. Its words aren't here: read them from `GET /v1/bounties`. */
+export const BountyEventView = z.object({
+  id: z.string(),
+  poster: z.string(),
+  /** A town bounty's proposal. */
+  proposal: z.string().optional(),
+  /** A passed grant, held for its resident until a maintainer releases it. */
+  grant: z.literal(true).optional(),
+  reward: z.number().int(),
+  postedDay: z.number().int(),
+  expiresDay: z.number().int(),
+});
+
 /** A listing as an event carries it. A made thing's `label` is its maker's words. */
 export const ListingEventView = z.object({
   id: z.string(),
@@ -520,6 +594,12 @@ export const Action = z.discriminatedUnion("type", [
   ListItemAction,
   UnlistItemAction,
   BuyListingAction,
+  PostBountyAction,
+  ClaimBountyAction,
+  DropBountyAction,
+  CompleteBountyAction,
+  ConfirmBountyAction,
+  CancelBountyAction,
 ]);
 export type Action = z.infer<typeof Action>;
 export const ACTION_TYPES = Action.options.map((o) => o.shape.type.value);
@@ -787,6 +867,42 @@ export const WorldEvent = z.discriminatedUnion("type", [
     count: z.number().int(),
     price: z.number().int(),
   }),
+  /** Bounties opened (RFC 0008): `GET /v1/bounties`. */
+  z.object({ type: z.literal("bounties_opened") }),
+  /** A bounty opened: a resident's, or the town's from a passed proposal. */
+  z.object({ type: z.literal("bounty_posted"), bounty: BountyEventView }),
+  z.object({ type: z.literal("bounty_claimed"), bounty: z.string(), claimant: z.string() }),
+  /** A claim ended unpaid: the claimant let go, or the poster or a maintainer sent them back. It's open again. */
+  z.object({
+    type: z.literal("bounty_dropped"),
+    bounty: z.string(),
+    claimant: z.string(),
+    by: z.enum(["claimant", "poster", "maintainer"]),
+  }),
+  /** The claimant says it's done. It pays once its poster, or a maintainer, confirms. */
+  z.object({ type: z.literal("bounty_done"), bounty: z.string(), claimant: z.string() }),
+  /** A bounty paid its claimant. */
+  z.object({
+    type: z.literal("bounty_paid"),
+    bounty: z.string(),
+    claimant: z.string(),
+    reward: z.number().int(),
+  }),
+  /** A bounty ended unpaid, and its reward went back to its poster or the treasury. */
+  z.object({
+    type: z.literal("bounty_closed"),
+    bounty: z.string(),
+    status: z.enum(["cancelled", "expired"]),
+  }),
+  /** A maintainer released a passed Town Hall grant to its resident. */
+  z.object({
+    type: z.literal("grant_paid"),
+    proposal: z.string(),
+    to: z.string(),
+    amount: z.number().int(),
+  }),
+  /** A passed grant or town bounty moved nothing: the treasury couldn't cover it, or its resident is gone. */
+  z.object({ type: z.literal("proposal_unpaid"), proposal: z.string(), amount: z.number().int() }),
   /** You bought a piece of shop wear. Only you get these, like `coins`. */
   z.object({ type: z.literal("wear_bought"), residentId: z.string(), wear: z.enum(WEAR_ITEMS) }),
   /**

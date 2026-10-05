@@ -3,6 +3,7 @@ import { entitledTo, findProposal, votesCast } from "@terrakin/sim";
 import { httpCardReader } from "./agent-card";
 import { type AgentLinkOptions, parseDailyReads } from "./agent-links";
 import { createApp } from "./app";
+import { bountyWords } from "./bounties";
 import { parseRpcUrls, rpcReader } from "./chain";
 import { FileMediaStore } from "./file-media-store";
 import { MemoryMediaStore } from "./media";
@@ -68,6 +69,7 @@ const service = new WorldService({
   gifts: true,
   shop: true,
   market: true,
+  bounties: true,
   townsfolk,
   maintainers,
   moderation,
@@ -88,6 +90,7 @@ const social = new SocialService({
   moderation,
   residentAgeDays: (id) => service.residentAgeDays(id),
   proposal: (id) => findProposal(service.state, id),
+  bounty: (id) => bountyWords(service.state, id),
   moderators,
   // AI triage only with ANTHROPIC_API_KEY set; otherwise reports wait for people (decision 0040).
   triage: new TriageClient(triageConfig(process.env), socialSql, undefined, now),

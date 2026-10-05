@@ -8,6 +8,7 @@ import { AccessVerifier, accessConfig, parseEmails } from "../src/access";
 import { adminAssetPath, adminGate, isMissingAdminFile } from "../src/admin-host";
 import { nextRecheckAt, parseDailyReads } from "../src/agent-links";
 import { Api, ipKey, isApiPath, MAX_BODY_BYTES } from "../src/api";
+import { bountyWords } from "../src/bounties";
 import { parseRpcUrls } from "../src/chain";
 import {
   MEDIA_ID,
@@ -308,6 +309,7 @@ class WorldObject extends DurableObject<Env> {
       gifts: true,
       shop: true,
       market: true,
+      bounties: true,
       townsfolk,
       maintainers,
       moderation,
@@ -334,6 +336,7 @@ class WorldObject extends DurableObject<Env> {
       moderation,
       residentAgeDays: (id) => service.residentAgeDays(id),
       proposal: (id) => findProposal(service.state, id),
+      bounty: (id) => bountyWords(service.state, id),
       moderators,
       triage: new TriageClient(triageConfig(env), ctx.storage.sql),
       agentLinks: {

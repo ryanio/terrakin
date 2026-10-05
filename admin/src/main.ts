@@ -6,15 +6,16 @@ import type { AdminOverviewResponse } from "@terrakin/protocol";
 import { h } from "@terrakin/ui/dom";
 import { stateCard } from "@terrakin/ui/ui";
 import { api, SIGNED_OUT_EVENT, savedToken, saveToken } from "./api";
+import { bountiesView } from "./bounties-view";
 import { logView } from "./log-view";
-import { pathFor, type Screen, screenFor, signedInAs } from "./logic";
+import { pathFor, type Screen, screenFor, screensFor, signedInAs } from "./logic";
 import { queueView } from "./queue-view";
 import { button, type View } from "./view";
 import "./style.css";
 
 /**
  * The staff app at admin.terrakin.org (RFC 0006, decision 0040). It asks who's signed in, then
- * shows the review queue or the moderation log. Everything it shows comes from the staff routes;
+ * shows the review queue, the moderation log, or (for maintainers) the bounties to confirm. Everything it shows comes from the staff routes;
  * the server checks every action, so this page only decides what to offer.
  */
 
@@ -80,19 +81,27 @@ function paintTop(screen: Screen | undefined) {
     h(
       "nav",
       { class: "column nav", attrs: { "aria-label": "Staff" } },
-      navLink("queue", "Queue", screen),
-      navLink("log", "Log", screen),
+      ...screensFor(me.role).map((s) => navLink(s, SCREEN_NAMES[s], screen)),
     ),
   );
 }
 
+const SCREEN_NAMES: Record<Screen, string> = { queue: "Queue", log: "Log", bounties: "Bounties" };
+
 function route() {
   if (!overview) return;
-  const screen = screenFor(location.pathname);
+  const asked = screenFor(location.pathname);
+  // A moderator who opens /bounties gets the queue; the server refuses them there anyway.
+  const screen = screensFor(overview.me.role).includes(asked) ? asked : "queue";
   paintTop(screen);
-  document.title = `${screen === "log" ? "Log" : "Queue"} · Terrakin staff`;
+  document.title = `${SCREEN_NAMES[screen]} · Terrakin staff`;
   view?.destroy();
-  view = screen === "log" ? logView() : queueView(overview);
+  view =
+    screen === "log"
+      ? logView()
+      : screen === "bounties"
+        ? bountiesView(overview)
+        : queueView(overview);
   main.replaceChildren(view.el);
   main.focus({ preventScroll: true });
   window.scrollTo(0, 0);

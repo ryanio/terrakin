@@ -1,4 +1,5 @@
 import { expect } from "vitest";
+import { bountyHeld } from "./bounties";
 import type { StackKind } from "./items";
 import type { WorldState } from "./types";
 
@@ -8,8 +9,8 @@ import type { WorldState } from "./types";
  */
 
 /**
- * Every coin is in a purse or the treasury, every amount is a whole number, and
- * `sum(coins) + treasury == minted - burned`.
+ * Every coin is in a purse, the treasury, or a running bounty, every amount is a whole number, and
+ * `sum(coins) + treasury + held in bounties == minted - burned`.
  */
 export function expectSupplyHolds(state: WorldState) {
   const econ = state.economy;
@@ -21,7 +22,7 @@ export function expectSupplyHolds(state: WorldState) {
   }
   expect(Number.isInteger(econ.treasury) && econ.treasury >= 0).toBe(true);
   expect(Number.isInteger(econ.burned) && econ.burned >= 0).toBe(true);
-  expect(held + econ.treasury).toBe(econ.minted - econ.burned);
+  expect(held + econ.treasury + bountyHeld(state)).toBe(econ.minted - econ.burned);
 }
 
 /** Put coins straight into a purse, minting them so the supply identity still holds. */

@@ -148,6 +148,29 @@ describe("scoreKarma", () => {
     for (const id of ring) expect(scores.get(id)).toEqual({ score: 5, tier: "newcomer" });
   });
 
+  it("counts a resident's bounties once per poster and claimant, and each town bounty", () => {
+    const scores = score(
+      {
+        bounties: [
+          { from: "bee", to: "ash", bounty: "b_1" },
+          { from: "bee", to: "ash", bounty: "b_2" },
+          { from: "cy", to: "ash", bounty: "b_3" },
+          { from: "town", to: "ash", bounty: "b_4" },
+          { from: "town", to: "ash", bounty: "b_5" },
+          // Your own AI's bounty, and a townsfolk's, count for nothing.
+          { from: "ai", to: "ash", bounty: "b_6" },
+          { from: "clem", to: "ash", bounty: "b_7" },
+        ],
+      },
+      {
+        counts: (id) => id !== "clem",
+        paired: (a, b) => [a, b].sort().join() === "ai,ash",
+      },
+    );
+    expect(scores.get("ash")?.score).toBe(4 * KARMA.bounty);
+    expect(KARMA.bounty).toBe(5);
+  });
+
   it("takes points off for each upheld report, never below 0", () => {
     const scores = score({ praise: many(12, "ash"), upheld: ["ash", "bee"] });
     expect(scores.get("ash")?.score).toBe(12 - KARMA.upheldReport);

@@ -32,7 +32,9 @@ The 3D world is a second renderer of the same mirror. `client/src/world.ts` keep
 | Frame time | 60 fps target; step down once past 25 ms (decision 0030's rule) | 22 to 28 fps on SwiftShader, Chromium's software WebGL with no GPU |
 | Draw calls per frame, shadow pass included | 300 | 88 in a street of homes, 267 with 23 residents in view |
 | Triangles per frame, shadow pass included | 150,000 | 83,000 to 103,000 |
-| Texture memory, not counting the drawing buffer | 16 MB | about 7 MB by estimate: the 1024 shadow map (4 MB), one grain, plank, stone, and hearth glow texture shared by every plot, and a name tag per figure (about 100 kB each) |
+| Texture memory, not counting the drawing buffer | 16 MB | about 7 MB by estimate: the 1024 shadow map (4 MB), one grain, plank, stone, and hearth glow texture shared by every plot, and a name tag per figure (about 100 kB each); up to about 13 MB with what's on display (below) |
+
+**What's on display** (`scene3d/displays.ts`, shared with the plot view): a piece's picture is cropped and scaled to 256 by 192 once (about 260 kB with mipmaps), every display of the same thing shares one texture, at most 16 pictures are held at a time (about 4 MB; past that a piece shows its drawn picture), and a texture is freed with the last plot that shows it. Drawn pictures of made things are 128 pixels square (160 by 120 on paper in a frame), one per kind. At the very worst, 16 different pictures and every kind of made thing in view, the estimate is about 13 MB. A model piece shows its drawn picture in a frame, not its model. Crops in planters are about 100 triangles each, in one draw per plot for the plants and one for ripe fruit.
 
 Figures in the world cast blob shadows only, since a real shadow per figure doubles its draws. Hearths have no point light, because a light coming into view recompiles every material. The rest of decision 0030 holds: pixel ratio capped at 2, one shadow-casting sun (it follows you and covers the view radius), Lambert paper materials, instancing, no post-processing.
 
@@ -47,5 +49,5 @@ Figures in the world cast blob shadows only, since a real shadow per figure doub
 - The main bundle doesn't grow (about 144 kB gzipped before, 143 kB after, as the build splits a few shared helpers differently), and three.js stays in its own chunk. The world chunk grows by about 0.2 kB gzipped for the toggle; the 3D world chunk is about 6 kB gzipped on top of three.js and the shared plot builders.
 - The plot builders now take an origin instead of a whole plot layout, and the stage has scopes (`scoped` in `scene3d/art.ts`) so a chunk or a figure can stop its own animations when it leaves. Planters, kitchens, workbenches, and pedestals are drawn in 3D now, as plain voxels, in the plot view too.
 - The measured numbers are from headless Chromium. Measuring on a real mid-range phone is still to do, and if it runs under budget the view radius is the first number to raise.
-- Crops in planters, what is on display on pedestals and in frames, a resident's own home model, and day and night are drawn on the map but not yet in the 3D world.
+- A resident's own home model and day and night are drawn on the map but not yet in the 3D world. Crops in planters and what's on display are drawn in both 3D views.
 - The camera orbits around you, so the d-pad stays in world directions (north is up on the map, away from the camera only until you turn it).

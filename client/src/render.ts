@@ -22,7 +22,7 @@ import {
 } from "@terrakin/sim";
 import { BRAND_HEX } from "@terrakin/ui/brand";
 import { drawFigure, FIGURE_BOX } from "@terrakin/ui/figure";
-import { CROP_HEX, itemArtImage } from "@terrakin/ui/item-art";
+import { CROP_HEX, growth, itemArtImage } from "@terrakin/ui/item-art";
 import {
   lookImage,
   lookPalette,
@@ -33,7 +33,6 @@ import {
 } from "@terrakin/ui/looks";
 import { type Camera, tileToScreen } from "./camera";
 import type { DisplayView, Mirror } from "./mirror";
-import { growth } from "./things";
 import { nightAmount } from "./time";
 
 export { RESIDENT_COLOR_HEX } from "@terrakin/ui/looks";

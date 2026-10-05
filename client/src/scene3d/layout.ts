@@ -6,16 +6,20 @@
 import type { WorldSnapshot } from "@terrakin/protocol";
 import {
   type BlockKind,
+  type Crop,
+  type MadeKind,
   type Pattern,
   type ResidentColor,
   type ResidentShape,
   sortWear,
   type ThemePalette,
+  tileKey,
   WEAR_INFO,
   type WearItem,
 } from "@terrakin/sim";
 import { type FigureLook, garmentColor, garmentLook } from "@terrakin/ui/figure";
 import { isMediaUrl } from "@terrakin/ui/format";
+import { growth } from "@terrakin/ui/item-art";
 
 /** Inclusive tile range. */
 export interface Bounds {
@@ -137,6 +141,10 @@ export interface PlotLayout {
   blocks: LayoutBlock[];
   hearth: { x: number; y: number } | null;
   figures: LayoutFigure[];
+  /** What's on display on the plot's pedestals and frames. */
+  displays: LayoutDisplay[];
+  /** What grows in the plot's planters. */
+  crops: LayoutCrop[];
   /** Is this tile inside the world at all? */
   inWorld(x: number, y: number): boolean;
 }
@@ -170,6 +178,19 @@ export function plotLayout(
     blocks.push({ x: b.x, y: b.y, block: b.block, own: d === 0, fade: d / (margin + 1) });
   }
   blocks.sort((a, b) => a.y - b.y || a.x - b.x);
+
+  const shown = new Map((snapshot.displays ?? []).map((d) => [tileKey(d.x, d.y), d]));
+  const planted = new Map((snapshot.crops ?? []).map((c) => [tileKey(c.x, c.y), c]));
+  const displays: LayoutDisplay[] = [];
+  const crops: LayoutCrop[] = [];
+  for (const b of blocks) {
+    if (!b.own) continue;
+    const key = tileKey(b.x, b.y);
+    const d = displayOn(b.block, b.x, b.y, shown.get(key));
+    if (d) displays.push(d);
+    const c = cropIn(b.block, b.x, b.y, planted.get(key), snapshot.day);
+    if (c) crops.push(c);
+  }
 
   const hearth =
     owner.hearth && inBounds(bounds, owner.hearth.x, owner.hearth.y) ? owner.hearth : null;
@@ -212,8 +233,58 @@ export function plotLayout(
     blocks,
     hearth,
     figures,
+    displays,
+    crops,
     inWorld: (x, y) => x >= 0 && y >= 0 && x < width && y < height,
   };
+}
+
+/** A made thing on display, as the 3D views draw it. */
+export interface ShownGood {
+  id: string;
+  kind: MadeKind;
+  media?: string | undefined;
+  model?: true | undefined;
+}
+
+/** Something on display on a pedestal or in a frame. */
+export interface LayoutDisplay {
+  x: number;
+  y: number;
+  on: "pedestal" | "frame";
+  good: ShownGood;
+}
+
+/** A crop in a planter, and how far along it is (0 to 1, ready at 1). */
+export interface LayoutCrop {
+  x: number;
+  y: number;
+  crop: Crop;
+  done: number;
+}
+
+/** What a pedestal or frame shows, if it shows anything. Anything else shows nothing. */
+export function displayOn(
+  block: BlockKind | undefined,
+  x: number,
+  y: number,
+  shown: { good: ShownGood } | undefined,
+): LayoutDisplay | undefined {
+  if (!shown || (block !== "pedestal" && block !== "frame")) return undefined;
+  const { id, kind, media, model } = shown.good;
+  return { x, y, on: block, good: { id, kind, media, model } };
+}
+
+/** What grows in a planter, drawn from the world's day the way the map draws it. */
+export function cropIn(
+  block: BlockKind | undefined,
+  x: number,
+  y: number,
+  planting: { crop: Crop; plantedDay: number; readyDay: number } | undefined,
+  day: number | undefined,
+): LayoutCrop | undefined {
+  if (!planting || block !== "planter") return undefined;
+  return { x, y, crop: planting.crop, done: growth(planting.plantedDay, planting.readyDay, day) };
 }
 
 /** Where an owner who's out stands: next to the hearth on a free tile, or the middle of the plot. */

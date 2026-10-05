@@ -48,6 +48,12 @@ export const CROP_HEX: Readonly<Record<Crop, string>> = {
   flower: "#e58fb6",
 };
 
+/** How far along a crop is, 0 to 1, for drawing it on the map and in 3D. */
+export function growth(plantedDay: number, readyDay: number, today: number | undefined): number {
+  if (today === undefined || readyDay <= plantedDay) return 0;
+  return Math.max(0, Math.min(1, (today - plantedDay) / (readyDay - plantedDay)));
+}
+
 // ---------- colors ----------
 
 const INK = BRAND_HEX.ink;
@@ -967,7 +973,34 @@ export function itemArt(kind: ArtKind, opts: ItemArtOptions = {}): SVGSVGElement
   return svg;
 }
 
-const artImages = new Map<ArtKind, { img: HTMLImageElement; ready: boolean }>();
+interface ArtImage {
+  img: HTMLImageElement;
+  loaded: boolean;
+  ready: Promise<boolean>;
+}
+
+const artImages = new Map<ArtKind, ArtImage>();
+
+function artEntry(kind: ArtKind): ArtImage {
+  let entry = artImages.get(kind);
+  if (!entry) {
+    const svg = itemArt(kind, { size: ART_BOX });
+    svg.setAttribute("xmlns", SVG_NS);
+    const img = new Image();
+    const fresh: ArtImage = { img, loaded: false, ready: Promise.resolve(false) };
+    fresh.ready = new Promise<boolean>((done) => {
+      img.addEventListener("load", () => {
+        fresh.loaded = img.naturalWidth > 0;
+        done(fresh.loaded);
+      });
+      img.addEventListener("error", () => done(false));
+    });
+    entry = fresh;
+    artImages.set(kind, fresh);
+    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(new XMLSerializer().serializeToString(svg))}`;
+  }
+  return entry;
+}
 
 /**
  * A thing's picture as an image, for drawing on a canvas (the world map). Built once per kind from
@@ -975,20 +1008,14 @@ const artImages = new Map<ArtKind, { img: HTMLImageElement; ready: boolean }>();
  * loaded; a canvas that draws every frame picks it up then.
  */
 export function itemArtImage(kind: ArtKind): HTMLImageElement | undefined {
-  let entry = artImages.get(kind);
-  if (!entry) {
-    const svg = itemArt(kind, { size: ART_BOX });
-    svg.setAttribute("xmlns", SVG_NS);
-    const img = new Image();
-    const fresh = { img, ready: false };
-    entry = fresh;
-    artImages.set(kind, fresh);
-    img.addEventListener("load", () => {
-      fresh.ready = img.naturalWidth > 0;
-    });
-    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(new XMLSerializer().serializeToString(svg))}`;
-  }
-  return entry.ready ? entry.img : undefined;
+  const entry = artEntry(kind);
+  return entry.loaded ? entry.img : undefined;
+}
+
+/** The same picture once it has loaded, for a canvas drawn once (a 3D texture). */
+export async function itemArtLoaded(kind: ArtKind): Promise<HTMLImageElement | undefined> {
+  const entry = artEntry(kind);
+  return (await entry.ready) ? entry.img : undefined;
 }
 
 /** A made thing as lists and sheets show it: its kind, and for a piece, the upload it shows. */
@@ -998,12 +1025,17 @@ export interface ThingLook {
   model?: true | undefined;
 }
 
+/** A piece's own uploaded picture, as one of our `/media/` URLs. Undefined for anything else. */
+export function piecePictureUrl(thing: ThingLook): string | undefined {
+  return thing.kind === "piece" && !thing.model ? mediaUrlOf(thing.media) : undefined;
+}
+
 /**
  * A made thing's picture: a piece's own uploaded picture (only ever from our `/media/`), and the
  * drawn picture for everything else, a model included. Decorative unless `title` is given.
  */
 export function thingPicture(thing: ThingLook, opts: ItemArtOptions = {}): Element {
-  const url = thing.kind === "piece" && !thing.model ? mediaUrlOf(thing.media) : undefined;
+  const url = piecePictureUrl(thing);
   if (!url) return itemArt(thing.kind, opts);
   const size = opts.size ?? 28;
   const img = document.createElement("img");

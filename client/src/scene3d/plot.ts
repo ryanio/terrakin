@@ -8,6 +8,7 @@
 
 import { BLOCK_KINDS, DECOR_KINDS, isDecorKind } from "@terrakin/sim";
 import { isModelResource } from "@terrakin/ui/format";
+import { CROP_HEX } from "@terrakin/ui/item-art";
 import {
   Box3,
   BufferAttribute,
@@ -57,6 +58,7 @@ import {
   unindexed,
 } from "./art";
 import { decorInstances } from "./decor";
+import { createPictures, displayedThings } from "./displays";
 import { painting } from "./items";
 import {
   type Bounds,
@@ -66,6 +68,7 @@ import {
   type HomeExtras,
   inBounds,
   type LayoutBlock,
+  type LayoutCrop,
   type LayoutFigure,
   modelFootprint,
   overBudget,
@@ -74,7 +77,7 @@ import {
   tileHash,
   underFootprint,
 } from "./layout";
-import { BRAND, blockLook, mix, residentHex, SKY, shade } from "./palette";
+import { BRAND, blockLook, hex, mix, residentHex, SKY, shade } from "./palette";
 import { wearGroup } from "./wear";
 
 export interface PlotSceneOptions {
@@ -121,6 +124,14 @@ export function buildPlot(
     h.position.set(toX(layout.hearth.x), 0, toZ(layout.hearth.y));
     root.add(h);
   }
+  // Whatever stands under their own model gives way to it, like the blocks.
+  const shown = <T extends { x: number; y: number }>(list: readonly T[]) =>
+    footprint ? list.filter((t) => !underFootprint(footprint, t.x, t.y)) : list;
+  const crops = cropPlants(stage, origin, shown(layout.crops));
+  if (crops.length) root.add(...crops);
+  root.add(
+    displayedThings(stage, origin, shown(layout.displays), stage.keep(createPictures()), grain),
+  );
   const shadowMap = stage.keep(spotTexture());
   for (const f of layout.figures) {
     const fig = figure(stage, f, shadowMap);
@@ -335,8 +346,17 @@ export function blockMeshes(
     const list = blocks.filter((b) => b.block === kind);
     if (list.length === 0) continue;
     const look = blockLook(kind);
-    const geo = bakeShade(new RoundedBoxGeometry(0.9, look.height, 0.9, 2, 0.08), 0.62, 1);
+    let geo = bakeShade(new RoundedBoxGeometry(0.9, look.height, 0.9, 2, 0.08), 0.62, 1);
     geo.translate(0, look.height / 2, 0);
+    if (kind === "planter") {
+      // Dark soil inset in the top, like the map's planter, in the same draw.
+      const soil = new RoundedBoxGeometry(0.7, 0.04, 0.7, 1, 0.015);
+      soil.translate(0, look.height + 0.005, 0);
+      const merged = mergeGeometries([unindexed(geo), unindexed(bakeShade(soil, 0.34, 0.34))]);
+      geo.dispose();
+      soil.dispose();
+      geo = merged;
+    }
     const mesh = new InstancedMesh(geo, paper(0xffffff, grain), list.length);
     list.forEach((b, i) => {
       m.compose(new Vector3(toX(b.x), 0, toZ(b.y)), q, one);
@@ -523,6 +543,102 @@ export function scenery(
     group.add(mesh);
   }
   return group;
+}
+
+// ---------- crops in planters ----------
+
+/** A part of a plant in one flat color, for merging. */
+function tinted(geometry: BufferGeometry, color: number): BufferGeometry {
+  const g = unindexed(geometry);
+  const c = lin(color);
+  const n = g.getAttribute("position").count;
+  const colors = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) colors.set([c.r, c.g, c.b], i * 3);
+  g.setAttribute("color", new BufferAttribute(colors, 3));
+  return g;
+}
+
+/**
+ * Crops growing in planters, the way the map draws them: a sprout that grows with the days, then
+ * the crop's color in three small fruit once it's ready. One draw for every plant and one for
+ * every ripe crop, about 100 triangles a planter, swaying in the breeze. Shared by the plot and
+ * the world.
+ */
+export function cropPlants(
+  stage: Stage,
+  origin: { x: number; y: number },
+  crops: readonly LayoutCrop[],
+): Object3D[] {
+  if (crops.length === 0) return [];
+  const out: Object3D[] = [];
+  const top = blockLook("planter").height;
+  const m = new Matrix4();
+  const q = new Quaternion();
+  const up = new Vector3(0, 1, 0);
+  const place = (c: LayoutCrop, scale: number) => {
+    q.setFromAxisAngle(up, (tileHash(c.x, c.y) % 628) / 100);
+    m.compose(
+      new Vector3(c.x - origin.x, top, c.y - origin.y),
+      q,
+      new Vector3(scale, scale, scale),
+    );
+    return m;
+  };
+
+  const stem = new CylinderGeometry(0.02, 0.03, 0.5, 5);
+  stem.translate(0, 0.25, 0);
+  const leaves = [
+    [-0.1, 0.26, 0.5],
+    [0.1, 0.3, -0.5],
+    [0, 0.5, 0],
+  ].map(([x, y, tilt]) => {
+    const g = new OctahedronGeometry(0.1, 0);
+    g.scale(1, 0.35, 0.6);
+    g.rotateZ(tilt as number);
+    g.translate(x as number, y as number, 0);
+    return g;
+  });
+  const plantGeo = mergeGeometries([
+    tinted(stem, 0x5f9a43),
+    ...leaves.map((g) => tinted(g, 0x6fae4c)),
+  ]);
+  stem.dispose();
+  for (const g of leaves) g.dispose();
+  const plantMat = new MeshLambertMaterial({ vertexColors: true, flatShading: true });
+  const plantWind = addWind(plantMat, 0.5);
+  stage.animate(({ time }) => plantWind.tick(time));
+  const plants = new InstancedMesh(plantGeo, plantMat, crops.length);
+  crops.forEach((c, i) => {
+    plants.setMatrixAt(i, place(c, 0.45 + 0.55 * c.done));
+  });
+  plants.castShadow = true;
+  out.push(plants);
+
+  const ripe = crops.filter((c) => c.done >= 1);
+  if (ripe.length > 0) {
+    const fruit = [
+      [-0.11, 0.4, 0.04],
+      [0.11, 0.36, -0.03],
+      [0, 0.52, 0.05],
+    ].map(([x, y, z]) => {
+      const g = new IcosahedronGeometry(0.065, 0);
+      g.translate(x as number, y as number, z as number);
+      return unindexed(g);
+    });
+    const fruitGeo = noShade(mergeGeometries(fruit));
+    for (const g of fruit) g.dispose();
+    const fruitMat = new MeshLambertMaterial({ vertexColors: true, flatShading: true });
+    const fruitWind = addWind(fruitMat, 0.5);
+    stage.animate(({ time }) => fruitWind.tick(time));
+    const mesh = new InstancedMesh(fruitGeo, fruitMat, ripe.length);
+    ripe.forEach((c, i) => {
+      mesh.setMatrixAt(i, place(c, 1));
+      mesh.setColorAt(i, lin(hex(CROP_HEX[c.crop])));
+    });
+    mesh.castShadow = true;
+    out.push(mesh);
+  }
+  return out;
 }
 
 // ---------- the hearth ----------

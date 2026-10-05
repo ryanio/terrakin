@@ -100,6 +100,31 @@ describe("one plot of the world, read from the mirror", () => {
     expect(chunkSignature(source([["8,8", "wood"]]), 1, 1, none)).toBe(a);
     expect(chunkSignature(source([["8,8", "stone"]]), 1, 1, none)).not.toBe(a);
     expect(chunkSignature(source([["8,8", "wood"]], "capri"), 1, 1, none)).not.toBe(a);
+    // Something put on display, a crop planted, and a crop growing a day all change it.
+    const shows = {
+      ...source([["8,8", "pedestal"]]),
+      displays: new Map([["8,8", { good: { id: "g1", kind: "lemon_jam" as const } }]]),
+    };
+    const bare = chunkSignature(source([["8,8", "pedestal"]]), 1, 1, none);
+    expect(chunkSignature(shows, 1, 1, none)).not.toBe(bare);
+    const planted = (day: number) => ({
+      ...source([["9,9", "planter"]]),
+      crops: new Map([["9,9", { crop: "herb" as const, plantedDay: 1, readyDay: 3 }]]),
+      day,
+    });
+    expect(chunkSignature(planted(1), 1, 1, none)).not.toBe(
+      chunkSignature(source([["9,9", "planter"]]), 1, 1, none),
+    );
+    expect(chunkSignature(planted(2), 1, 1, none)).not.toBe(chunkSignature(planted(1), 1, 1, none));
+    expect(chunkSignature(planted(2), 1, 1, none)).toBe(
+      readChunk(planted(2), 1, 1, none).signature,
+    );
+    expect(readChunk(shows, 1, 1, none).displays).toEqual([
+      { x: 8, y: 8, on: "pedestal", good: { id: "g1", kind: "lemon_jam" } },
+    ]);
+    expect(readChunk(planted(2), 1, 1, none).crops).toEqual([
+      { x: 9, y: 9, crop: "herb", done: 0.5 },
+    ]);
     // A block on another plot doesn't touch this one.
     expect(
       chunkSignature(

@@ -1,9 +1,9 @@
+import { growth } from "@terrakin/ui/item-art";
 import { describe, expect, it } from "vitest";
 import {
   admiredLine,
   coinsLine,
   cropOfSeed,
-  growth,
   growthLine,
   inventoryLine,
   missingLine,

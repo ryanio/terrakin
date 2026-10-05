@@ -142,8 +142,24 @@ function lanternParts(stage: Stage, grain: Texture): Part[] {
   ];
 }
 
+/** Where the picture sits in a frame's easel: its size, the easel's lean, and its middle. */
+export const FRAME_PICTURE = { width: 0.7, height: 0.52, tilt: -0.14, y: 0.73, z: 0.14 } as const;
+
+/**
+ * A plane where a frame's picture goes, `lift` in front of the frame's back board. What's on
+ * display in a frame (`displays.ts`) is drawn on one just in front of the frame's own landscape.
+ */
+export function framePicturePlane(lift = 0.012): PlaneGeometry {
+  const { width, height, tilt, y, z } = FRAME_PICTURE;
+  const geo = new PlaneGeometry(width, height);
+  geo.translate(0, 0, lift);
+  geo.rotateX(tilt);
+  geo.translate(0, y, z);
+  return geo;
+}
+
 function frameParts(stage: Stage, grain: Texture): Part[] {
-  const tilt = -0.14;
+  const { tilt, width: w, height: h, y: cy } = FRAME_PICTURE;
   const easel = merged([
     box(0.06, 1.25, 0.06, [-0.3, 0.6, 0.06], [tilt, 0, -0.1]),
     box(0.06, 1.25, 0.06, [0.3, 0.6, 0.06], [tilt, 0, 0.1]),
@@ -151,10 +167,7 @@ function frameParts(stage: Stage, grain: Texture): Part[] {
     box(0.82, 0.05, 0.12, [0, 0.42, 0.14]),
   ]);
   // The frame around the picture, leaning back with the easel.
-  const w = 0.7;
-  const h = 0.52;
   const t = 0.07;
-  const cy = 0.73;
   const frame = merged(
     [
       box(w + t * 2, t, 0.06, [0, h / 2 + t / 2, 0]),
@@ -162,13 +175,10 @@ function frameParts(stage: Stage, grain: Texture): Part[] {
       box(t, h, 0.06, [-w / 2 - t / 2, 0, 0]),
       box(t, h, 0.06, [w / 2 + t / 2, 0, 0]),
       box(w, h, 0.02, [0, 0, -0.02]),
-    ].map((g) => g.rotateX(tilt).translate(0, cy, 0.14)),
+    ].map((g) => g.rotateX(tilt).translate(0, cy, FRAME_PICTURE.z)),
     0.85,
   );
-  const picGeo = new PlaneGeometry(w, h);
-  picGeo.translate(0, 0, 0.012);
-  picGeo.rotateX(tilt);
-  picGeo.translate(0, cy, 0.14);
+  const picGeo = framePicturePlane();
   const picture = stage.keep(landscapeTexture("meadow"));
   return [
     { geometry: easel, material: paper(WOOD, grain), cast: true },

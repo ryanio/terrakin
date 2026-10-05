@@ -5,6 +5,7 @@
  */
 import {
   type BlockKind,
+  type Crop,
   type Direction,
   groundTile,
   type Resident,
@@ -12,7 +13,15 @@ import {
   tileKey,
   type WorldConfig,
 } from "@terrakin/sim";
-import { type Bounds, plotBounds } from "./layout";
+import {
+  type Bounds,
+  cropIn,
+  displayOn,
+  type LayoutCrop,
+  type LayoutDisplay,
+  plotBounds,
+  type ShownGood,
+} from "./layout";
 
 /** How far around you the world is drawn, in tiles (Chebyshev, like reach). Fog hides the edge. */
 export const VIEW_RADIUS = 12;
@@ -86,6 +95,9 @@ export interface PlotChunk {
   owner: string | undefined;
   blocks: { x: number; y: number; block: BlockKind }[];
   hearths: Tile[];
+  /** What's on display on its pedestals and frames, and what grows in its planters. */
+  displays: LayoutDisplay[];
+  crops: LayoutCrop[];
   /** Grass tufts and flowers on open ground, from the same palette the 2D map draws with. */
   tufts: { x: number; y: number; turn: number }[];
   flowers: { x: number; y: number; warm: boolean }[];
@@ -99,6 +111,24 @@ export interface ChunkSource {
   commons: { px: number; py: number };
   blocks: ReadonlyMap<string, BlockKind>;
   plots: ReadonlyMap<string, string>;
+  displays?: ReadonlyMap<string, { good: ShownGood }>;
+  crops?: ReadonlyMap<string, { crop: Crop; plantedDay: number; readyDay: number }>;
+  day?: number | undefined;
+}
+
+/** What stands on one tile, and the words for it in a chunk's signature. */
+function tileThings(source: ChunkSource, x: number, y: number, hearths: ReadonlySet<string>) {
+  const key = tileKey(x, y);
+  const block = source.blocks.get(key);
+  const hearth = hearths.has(key);
+  const display = displayOn(block, x, y, source.displays?.get(key));
+  const crop = cropIn(block, x, y, source.crops?.get(key), source.day);
+  const parts: string[] = [];
+  if (block) parts.push(`${key}:${block}`);
+  if (hearth) parts.push(`${key}:hearth`);
+  if (display) parts.push(`${key}:shows:${display.good.id}`);
+  if (crop) parts.push(`${key}:${crop.crop}:${crop.done.toFixed(2)}`);
+  return { block, hearth, display, crop, parts };
 }
 
 /** Read one plot from the mirror. `hearths` holds every resident's hearth tile key. */
@@ -113,22 +143,20 @@ export function readChunk(
   const inCommons = px === source.commons.px && py === source.commons.py;
   const blocks: PlotChunk["blocks"] = [];
   const homes: Tile[] = [];
+  const displays: LayoutDisplay[] = [];
+  const crops: LayoutCrop[] = [];
   const tufts: PlotChunk["tufts"] = [];
   const flowers: PlotChunk["flowers"] = [];
   const parts: string[] = [owner ?? ""];
   for (let y = bounds.y0; y <= bounds.y1; y++) {
     for (let x = bounds.x0; x <= bounds.x1; x++) {
-      const key = tileKey(x, y);
-      const block = source.blocks.get(key);
-      if (block) {
-        blocks.push({ x, y, block });
-        parts.push(`${key}:${block}`);
-      }
-      if (hearths.has(key)) {
-        homes.push({ x, y });
-        parts.push(`${key}:hearth`);
-      }
-      if (block || hearths.has(key)) continue;
+      const at = tileThings(source, x, y, hearths);
+      parts.push(...at.parts);
+      if (at.block) blocks.push({ x, y, block: at.block });
+      if (at.hearth) homes.push({ x, y });
+      if (at.display) displays.push(at.display);
+      if (at.crop) crops.push(at.crop);
+      if (at.block || at.hearth) continue;
       const scenery: Scenery | null = groundTile(source.config, x, y, inCommons).scenery;
       if (scenery?.kind === "tuft")
         tufts.push({ x: x + scenery.fx - 0.5, y: y + 0.2, turn: ((x * 7 + y * 13) % 63) / 10 });
@@ -147,6 +175,8 @@ export function readChunk(
     owner,
     blocks,
     hearths: homes,
+    displays,
+    crops,
     tufts,
     flowers,
     signature: parts.join("|"),
@@ -162,14 +192,9 @@ export function chunkSignature(
 ): string {
   const bounds = plotBounds(source.config.plotSize, px, py);
   const parts: string[] = [source.plots.get(`${px},${py}`) ?? ""];
-  for (let y = bounds.y0; y <= bounds.y1; y++) {
-    for (let x = bounds.x0; x <= bounds.x1; x++) {
-      const key = tileKey(x, y);
-      const block = source.blocks.get(key);
-      if (block) parts.push(`${key}:${block}`);
-      if (hearths.has(key)) parts.push(`${key}:hearth`);
-    }
-  }
+  for (let y = bounds.y0; y <= bounds.y1; y++)
+    for (let x = bounds.x0; x <= bounds.x1; x++)
+      parts.push(...tileThings(source, x, y, hearths).parts);
   return parts.join("|");
 }
 

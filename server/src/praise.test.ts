@@ -1,4 +1,3 @@
-import type { AddressInfo } from "node:net";
 import { PRAISE_LIMITS } from "@terrakin/protocol";
 import type { WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
@@ -7,7 +6,7 @@ import { MemoryMediaStore } from "./media";
 import { nodeSql } from "./node-sql";
 import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
-import { responseChecker } from "./test-support";
+import { listenOnFreePort, responseChecker } from "./test-support";
 import { WorldService } from "./world-service";
 
 const CONFIG: WorldConfig = {
@@ -47,10 +46,8 @@ async function start(age: (id: string) => number = () => 30) {
     sessionsPerMinute: 1000,
     onResponse,
   });
-  await new Promise<void>((done) => server.listen(0, done));
-  cleanups.push(() => new Promise<void>((done) => server.close(() => done())));
+  const base = await listenOnFreePort(server, cleanups);
   cleanups.push(() => sql.close());
-  const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 
   async function call(method: string, path: string, token?: string, body?: unknown) {
     const res = await fetch(base + path, {

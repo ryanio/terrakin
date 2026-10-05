@@ -292,8 +292,8 @@ export interface ApiOptions {
    */
   onResponse?: (route: RouteSpec | undefined, response: ApiResponse) => void;
   /**
-   * Clock for the repeat window of `once` links, the life of watch sockets, and the day of the
-   * per-IP upload bytes. Default Date.now.
+   * Clock for the rate limits, the repeat window of `once` links, the life of watch sockets, and
+   * the day of the per-IP upload bytes. Default Date.now.
    */
   now?: () => number;
   /** Staff sign-in. Default: no Access, so maintainers' and moderators' tokens work. */
@@ -524,16 +524,20 @@ export class Api {
     this.onResponse = options.onResponse;
     this.now = options.now ?? Date.now;
     const bucket = (name: RateLimitName) =>
-      new RateLimiters(RATE_LIMITS[name].burst, RATE_LIMITS[name].perSecond);
+      new RateLimiters(RATE_LIMITS[name].burst, RATE_LIMITS[name].perSecond, this.now);
     const actions = options.actionsPerSecond;
     this.limiters = {
-      actions: actions === undefined ? bucket("actions") : new RateLimiters(actions * 2, actions),
+      actions:
+        actions === undefined
+          ? bucket("actions")
+          : new RateLimiters(actions * 2, actions, this.now),
       sessions:
         options.sessionsPerMinute === undefined
           ? bucket("sessions")
           : new RateLimiters(
               Math.max(RATE_LIMITS.sessions.burst, Math.floor(options.sessionsPerMinute)),
               options.sessionsPerMinute / 60,
+              this.now,
             ),
       posts: bucket("posts"),
       reactions: bucket("reactions"),

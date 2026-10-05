@@ -1,4 +1,3 @@
-import type { AddressInfo } from "node:net";
 import { KARMA, type ServerMessage, type WorldEvent } from "@terrakin/protocol";
 import { CROP_INFO, ITEMS, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
@@ -8,7 +7,7 @@ import { tinyGlb } from "./media-fixtures";
 import { nodeSql } from "./node-sql";
 import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
-import { responseChecker } from "./test-support";
+import { listenOnFreePort, responseChecker } from "./test-support";
 import { DAY_MS, WorldService } from "./world-service";
 
 /**
@@ -63,10 +62,8 @@ async function start(items = true, economy = true, gifts = false) {
     sessionsPerMinute: 1000,
     onResponse,
   });
-  await new Promise<void>((done) => server.listen(0, done));
-  cleanups.push(() => new Promise<void>((done) => server.close(() => done())));
+  const base = await listenOnFreePort(server, cleanups);
   cleanups.push(() => sql.close());
-  const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 
   async function call(method: string, path: string, body?: unknown, token?: string) {
     const res = await fetch(base + path, {

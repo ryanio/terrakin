@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ServerMessage } from "@terrakin/protocol";
 import type { WorldConfig } from "@terrakin/sim";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import WebSocket from "ws";
 import { clientIp, createApp } from "./app";
 import { nodeSql } from "./node-sql";
@@ -535,8 +535,8 @@ describe("WebSocket", () => {
     expect((await d.next("error")).error.code).toBe("version_mismatch");
 
     c.ws.close();
-    await new Promise((r) => setTimeout(r, 50));
-    expect(service.state.residents[residentId]?.online).toBe(false);
+    // The server hears the close on its own turn of the event loop.
+    await vi.waitFor(() => expect(service.state.residents[residentId]?.online).toBe(false));
   });
 
   it("brings a socket resident back after they were marked offline", async () => {

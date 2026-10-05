@@ -26,9 +26,19 @@ export function responseChecker() {
 /** What a test file runs after each test, newest first. */
 export type Cleanup = () => void | Promise<void>;
 
-/** Start a test server on a free port, close it with the test's cleanups, and return its base URL. */
+/**
+ * Start a test server on a free port, close it with the test's cleanups, and return its base URL.
+ * It listens on 127.0.0.1, the address the tests dial. A server on every address (`::`) can be
+ * handed a port that another program already holds on 127.0.0.1 alone (Tailscale's local API
+ * does this on macOS), and then the other program answers the tests' requests.
+ *
+ * Idle connections stay open until the server closes. Node otherwise drops one after 6 seconds,
+ * and a test that spends that long on setup can send its next request down the connection just
+ * as the server drops it, which fails with ECONNRESET.
+ */
 export async function listenOnFreePort(server: Server, cleanups: Cleanup[]): Promise<string> {
-  await new Promise<void>((done) => server.listen(0, done));
+  server.keepAliveTimeout = 0;
+  await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
   cleanups.push(() => new Promise<void>((done) => server.close(() => done())));
   return `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 }

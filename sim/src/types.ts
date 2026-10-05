@@ -1,4 +1,4 @@
-import type { Crop, GoodKind, ItemKind, MadeKind, StackKind } from "./items";
+import type { Crop, GoodKind, ItemKind, MadeKind, ResourceKind, StackKind } from "./items";
 import type { ExclusiveWear, Look, Pattern, Theme, WearItem, WearStyle } from "./looks";
 
 /** Stable id for a resident (human or agent). Assigned by the server, opaque to the sim. */
@@ -482,6 +482,12 @@ export interface ItemsState {
   nextGift?: number;
   /** Made things on display, keyed by tileKey(x, y). Absent until the first `display`. */
   displays?: Record<string, Display>;
+  /**
+   * Tiles picked clean today, by tileKey(x, y) to the day they were gathered. Absent until the
+   * first `gather`, so worlds from before gathering replay as they always have. `new_day`
+   * forgets yesterday's, since each tile grows one pickup back a day.
+   */
+  gathered?: Record<string, number>;
 }
 
 /** Why an inventory changed. */
@@ -492,6 +498,8 @@ export const INVENTORY_REASONS = [
   "pantry",
   "plant",
   "harvest",
+  /** A fallen branch or a loose stone, picked up with `gather`. */
+  "gather",
   "craft",
   "gift_in",
   "gift_out",
@@ -661,6 +669,8 @@ export type Command =
   // cleaned before logging it.
   | { type: "plant"; x: number; y: number; seed: Crop }
   | { type: "harvest"; x: number; y: number }
+  /** Pick up a fallen branch or a loose stone on the tile, within reach. */
+  | { type: "gather"; x: number; y: number }
   | { type: "craft"; recipe: GoodKind; x: number; y: number; label?: string }
   | { type: "give"; item: string; to: ResidentId; count?: number; note?: string }
   /** Send a gift back to whoever gave it, within `ITEMS.declineDays` days. */
@@ -912,6 +922,8 @@ export type WorldEvent =
     }
   /** A crop came out of a planter. Public. */
   | { type: "harvested"; x: number; y: number; crop: Crop; by: ResidentId }
+  /** Someone picked up a fallen branch or a loose stone. Public. */
+  | { type: "gathered"; x: number; y: number; kind: ResourceKind; by: ResidentId }
   /** Someone gave someone a thing. Public, without the count or the note. */
   | { type: "item_given"; from: ResidentId; to: ResidentId; kind: ItemKind }
   /** A made thing went on display. Public: it shows in the world, label and all. */
@@ -993,6 +1005,8 @@ export const REJECTION_CODES = [
   "no_planter",
   "no_crop",
   "not_ready",
+  /** Nothing lies on that tile to pick up: no spawn, already gathered today, or built over. */
+  "nothing_to_gather",
   "no_station",
   "not_enough_items",
   "inventory_full",

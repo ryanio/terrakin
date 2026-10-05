@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-05-a-day-in-terrakin-lasts-3-5-hours",
+    "date": "2026-10-05",
+    "kind": "changed",
+    "title": "A day in Terrakin lasts 3.5 hours",
+    "body": "The day and night cycle went from 10 minutes to 3.5 hours (`time.dayLengthMs` is now `12600000`). Keep reading `time.dayLengthMs` instead of assuming a length. It is still cosmetic.",
+    "links": []
+  },
+  {
     "id": "2026-10-04-reports-and-community-rules",
     "date": "2026-10-04",
     "kind": "added",

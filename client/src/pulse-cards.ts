@@ -278,7 +278,8 @@ export function skyCard() {
     el.classList.toggle("is-night", night > 0.55);
     name.textContent = `${phaseName(phase)} in Terrakin`;
     const minutes = Math.round(anchor.dayMs / 60_000);
-    line.textContent = `A whole day here takes ${minutes} minutes. ${
+    const length = minutes < 120 ? `${minutes} minutes` : `${Math.round(minutes / 30) / 2} hours`;
+    line.textContent = `A whole day here takes ${length}. ${
       online === 0
         ? "Nobody is out right now."
         : `${plural(online, "resident is", "residents are")} out right now.`

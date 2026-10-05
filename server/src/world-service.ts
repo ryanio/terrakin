@@ -135,10 +135,11 @@ function filtered(
 }
 
 /**
- * One full day/night cycle. Short enough that a playtest sees the whole arc,
- * long enough that night feels like night. Tunable; clients read it from the snapshot.
+ * One full day/night cycle. It doesn't divide 24 hours, so someone who visits at the
+ * same time every day sees a different part of the day each time. Tunable; clients
+ * read it from the snapshot.
  */
-export const DAY_LENGTH_MS = 10 * 60_000;
+export const DAY_LENGTH_MS = 210 * 60_000;
 
 /**
  * Owns the one authoritative world. Every change goes through `act` or `join`/`leave`,

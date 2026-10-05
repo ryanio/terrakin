@@ -212,3 +212,39 @@ export function displayRemoveProblem(state: WorldState, x: number, y: number): R
     ? refuse("tile_occupied", "Something is on display there. Take it down first with take_down.")
     : null;
 }
+
+/**
+ * `admire {x, y}`: admire what's on display there, once a UTC day per resident per thing. Not your
+ * own: not something you made or put up. No reach needed, so a gallery can be admired from a
+ * profile. The count stays on the thing wherever it goes.
+ */
+export function checkAdmire(
+  state: WorldState,
+  actor: ResidentId,
+  command: Extract<Command, { type: "admire" }>,
+): ItemsChecked {
+  const shut = closed(state);
+  if (shut) return shut;
+  const items = state.items as ItemsState;
+  if (!state.residents[actor]) return refuse("not_joined", "Join the world first.");
+  const { x, y } = command;
+  if (!Number.isInteger(x) || !Number.isInteger(y) || !inBounds(state.config, x, y)) {
+    return refuse("out_of_bounds", "That's outside the world.");
+  }
+  const shown = items.displays?.[tileKey(x, y)];
+  if (!shown) return refuse("nothing_displayed", "Nothing is on display there.");
+  const { good } = shown;
+  if (good.maker === actor || shown.by === actor) {
+    return refuse("not_eligible", "That's yours. Admire what other residents made.");
+  }
+  const today = items.today.admired?.[actor] ?? [];
+  if (today.includes(good.id)) {
+    return refuse("already_admired", "You admired that today. Come back tomorrow.");
+  }
+  const admired = (good.admired ?? 0) + 1;
+  return () => {
+    items.today.admired = { ...items.today.admired, [actor]: [...today, good.id] };
+    good.admired = admired;
+    return [{ type: "admired", x, y, item: good.id, maker: good.maker, by: actor, admired }];
+  };
+}

@@ -1,4 +1,10 @@
-import { checkDisplay, checkMakePiece, checkTakeDown, displayRemoveProblem } from "./display";
+import {
+  checkAdmire,
+  checkDisplay,
+  checkMakePiece,
+  checkTakeDown,
+  displayRemoveProblem,
+} from "./display";
 import {
   allowanceDue,
   checkEconomyServer,
@@ -968,6 +974,8 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
       return town(checkDisplay(state, actor, command));
     case "take_down":
       return town(checkTakeDown(state, actor, command));
+    case "admire":
+      return town(checkAdmire(state, actor, command));
 
     case "shop_buy":
       return town(checkShopBuy(state, actor, command));

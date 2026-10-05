@@ -186,3 +186,56 @@ describe("display and take_down", () => {
     expect(hashWorld(replay(CONFIG, w.log))).toBe(hashWorld(w.state));
   });
 });
+
+describe("admire", () => {
+  /** Ada's piece on her pedestal, and Bob and Cy settled on other plots. */
+  function shown() {
+    const w = gallery();
+    w.ok("ada", { type: "make_piece", media: ART, title: "Morning" });
+    w.ok("ada", { type: "display", item: "i_1", x: 2, y: 2 });
+    w.settle("bob", 2, 0);
+    w.settle("cy", 0, 2);
+    return w;
+  }
+
+  it("counts once a day per resident, from anywhere, and the count stays with the thing", () => {
+    const w = shown();
+    expect(w.ok("bob", { type: "admire", x: 2, y: 2 })).toEqual([
+      { type: "admired", x: 2, y: 2, item: "i_1", maker: "ada", by: "bob", admired: 1 },
+    ]);
+    expect(w.code("bob", { type: "admire", x: 2, y: 2 })).toBe("already_admired");
+    w.ok("cy", { type: "admire", x: 2, y: 2 });
+    expect(displayAt(w.state, 2, 2)?.good.admired).toBe(2);
+    w.ok(TOWN_ACTOR, { type: "new_day", day: DAY + 1 });
+    expect(w.state.items?.today.admired).toBeUndefined();
+    w.ok("bob", { type: "admire", x: 2, y: 2 });
+    w.ok("ada", { type: "take_down", x: 2, y: 2 });
+    expect(w.goods("ada")[0]?.admired).toBe(3);
+  });
+
+  it("refuses your own, an empty tile, and before items open", () => {
+    const w = shown();
+    expect(w.code("ada", { type: "admire", x: 2, y: 2 })).toBe("not_eligible");
+    expect(w.code("bob", { type: "admire", x: 3, y: 2 })).toBe("nothing_displayed");
+    expect(w.code("bob", { type: "admire", x: 999, y: 2 })).toBe("out_of_bounds");
+    const fresh = world();
+    fresh.ok(TOWN_ACTOR, { type: "new_day", day: DAY });
+    fresh.ok("bob", { type: "join", name: "bob", kind: "human" });
+    expect(fresh.code("bob", { type: "admire", x: 2, y: 2 })).toBe("items_closed");
+  });
+
+  it("replays to the same world", () => {
+    const w = world();
+    w.ok(TOWN_ACTOR, { type: "new_day", day: DAY });
+    w.ok(TOWN_ACTOR, { type: "open_items" });
+    w.settle("ada", 0, 0);
+    w.settle("bob", 2, 0);
+    w.ok("ada", { type: "place", x: 2, y: 2, block: "pedestal" });
+    w.ok("ada", { type: "make_piece", media: ART, title: "A" });
+    w.ok("ada", { type: "display", item: "i_1", x: 2, y: 2 });
+    w.ok("bob", { type: "admire", x: 2, y: 2 });
+    w.ok(TOWN_ACTOR, { type: "new_day", day: DAY + 1 });
+    w.ok("bob", { type: "admire", x: 2, y: 2 });
+    expect(hashWorld(replay(CONFIG, w.log))).toBe(hashWorld(w.state));
+  });
+});

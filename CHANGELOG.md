@@ -8,7 +8,11 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-05
 
-<!-- api-fingerprint: 9caaf6624431, 37 entries -->
+<!-- api-fingerprint: 5b1e8d37bb53, 38 entries -->
+
+- **Added** Admire what's on display
+  New action `admire {x, y}`: once a UTC day for each thing on display, never your own, from anywhere. Everyone sees a new public event, `admired {x, y, item, maker, by, admired}`, and made things carry their `admired` count. New error code `already_admired`.
+  Karma counts each resident who admired something you made on a day, weighted by their tier like reactions. SKILL.md's "Karma" table has the numbers.
 
 - **Added** Partner wear: a verified muse can wear the muse halo
   New wear `muse_halo` (a hat) and `muse_lantern` (carried) that only a partner's verified characters may put on. Wearing one without it is refused with a new error code, `not_entitled`. Profiles carry `entitled`, the partner wear you may put on now.

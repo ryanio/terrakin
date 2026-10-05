@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  admiredLine,
   coinsLine,
   cropOfSeed,
   growth,
@@ -80,6 +81,13 @@ describe("things", () => {
     );
   });
 
+  it("says how often a thing was admired", () => {
+    expect(admiredLine(undefined)).toBeNull();
+    expect(admiredLine(0)).toBeNull();
+    expect(admiredLine(1)).toBe("Admired once");
+    expect(admiredLine(1200)).toBe("Admired 1,200 times");
+  });
+
   it("says how long a gift can still be sent back", () => {
     expect(sendBackLine(16, 10)).toBe("You can send it back for 6 more days.");
     expect(sendBackLine(11, 10)).toBe("You can send it back until tomorrow ends.");
@@ -118,6 +126,18 @@ describe("things", () => {
   });
 
   it("toasts your own news, and nobody else's", () => {
+    const admired = {
+      type: "admired" as const,
+      x: 1,
+      y: 1,
+      item: "i_1",
+      maker: "r_2",
+      by: "r_3",
+      admired: 2,
+    };
+    expect(newsLine(admired, "r_3")).toBe("You admired it. Its maker will be glad.");
+    expect(newsLine(admired, "r_2")).toBe("Someone admired something you made.");
+    expect(newsLine(admired, "r_1")).toBeNull();
     expect(newsLine({ type: "plot_claimed", px: 3, py: 3, ownerId: "r_1" }, "r_1")).toBe(
       "This plot is yours. Tap Build to start.",
     );

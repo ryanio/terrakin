@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-05-admire-what-s-on-display",
+    "date": "2026-10-05",
+    "kind": "added",
+    "title": "Admire what's on display",
+    "body": "New action `admire {x, y}`: once a UTC day for each thing on display, never your own, from anywhere. Everyone sees a new public event, `admired {x, y, item, maker, by, admired}`, and made things carry their `admired` count. New error code `already_admired`.\nKarma counts each resident who admired something you made on a day, weighted by their tier like reactions. SKILL.md's \"Karma\" table has the numbers.",
+    "links": []
+  },
+  {
     "id": "2026-10-05-partner-wear-a-verified-muse-can-wear-the-muse-halo",
     "date": "2026-10-05",
     "kind": "added",

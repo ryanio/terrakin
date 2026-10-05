@@ -16,6 +16,8 @@ export interface KarmaFacts {
   reactions: { from: string; to: string; day: number }[];
   /** One row per praise (already once a day per pair). */
   praise: { from: string; to: string; day: number }[];
+  /** A resident who admired something `to` made, on display, on a day. Once per pair per day. */
+  admires?: { from: string; to: string; day: number }[];
   /** Coins or a thing given. Several on one day from the same giver count once. */
   gifts: { from: string; to: string; day: number }[];
   /** A reply of `to`'s that the post's author, `from`, hearted. One per reply. */
@@ -62,14 +64,19 @@ export function scoreKarma(facts: KarmaFacts, rules: KarmaRules): Map<string, Ka
     (r) => from(r.from, r.to) && first(`reaction ${r.from} ${r.to} ${r.day}`),
   );
   const praise = facts.praise.filter((p) => from(p.from, p.to));
+  const admires = (facts.admires ?? []).filter(
+    (a) => from(a.from, a.to) && first(`admire ${a.from} ${a.to} ${a.day}`),
+  );
 
   const base = new Map(rest);
   for (const r of reactions) add(base, r.to, KARMA.reaction.newcomer);
   for (const p of praise) add(base, p.to, KARMA.praise.newcomer);
+  for (const a of admires) add(base, a.to, KARMA.admire.newcomer);
   const tierOf = (id: string) => karmaTier(Math.max(0, base.get(id) ?? 0));
   const final = new Map(rest);
   for (const r of reactions) add(final, r.to, KARMA.reaction[tierOf(r.from)]);
   for (const p of praise) add(final, p.to, KARMA.praise[tierOf(p.from)]);
+  for (const a of admires) add(final, a.to, KARMA.admire[tierOf(a.from)]);
   const scores = new Map<string, KarmaView>();
   for (const [id, n] of final) {
     const score = Math.max(0, n);
@@ -105,6 +112,24 @@ export class KarmaService {
 
   constructor(options: KarmaOptions) {
     this.o = options;
+    // Who admired whose work on display, once per pair per day. The world log holds the admires,
+    // but not whose work each was, so the server keeps that here as they happen.
+    this.o.sql.exec(
+      `CREATE TABLE IF NOT EXISTS admires (
+        admirer TEXT NOT NULL, maker TEXT NOT NULL, day INTEGER NOT NULL,
+        PRIMARY KEY (admirer, maker, day)
+      )`,
+    );
+  }
+
+  /** Remember that `admirer` admired something `maker` made, on `day`. */
+  recordAdmire(admirer: string, maker: string, day: number) {
+    this.o.sql.exec(
+      "INSERT OR IGNORE INTO admires (admirer, maker, day) VALUES (?, ?, ?)",
+      admirer,
+      maker,
+      day,
+    );
   }
 
   private rows(query: string, ...bindings: (string | number)[]) {
@@ -151,9 +176,15 @@ export class KarmaService {
       toDay * DAY_MS,
     ).map((row) => ({ from: String(row.from_id), to: String(row.to_id) }));
     const credits = (this.o.credits?.(fromDay) ?? []).filter((c) => c.day < toDay);
+    const admires = this.rows(
+      "SELECT admirer, maker, day FROM admires WHERE day >= ? AND day < ?",
+      fromDay,
+      toDay,
+    ).map((row) => ({ from: String(row.admirer), to: String(row.maker), day: Number(row.day) }));
     return {
       reactions: this.reactions(fromDay, toDay),
       praise,
+      admires,
       gifts: credits.flatMap((c) => (c.kind === "gift" ? [c] : [])),
       heartedReplies,
       votes: credits.flatMap((c) => (c.kind === "vote" ? [c] : [])),

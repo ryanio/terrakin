@@ -127,6 +127,8 @@ export const GoodView = z.object({
   media: z.string().optional(),
   /** A piece only: the upload is a `.glb` model, not a picture. */
   model: z.literal(true).optional(),
+  /** How many times residents admired it on display. Absent at 0. */
+  admired: z.number().int().optional(),
   trust: z.literal("untrusted"),
 });
 export type GoodView = z.infer<typeof GoodView>;

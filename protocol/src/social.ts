@@ -160,6 +160,11 @@ export const KARMA = {
    * praising each other counts for less. Praise is already once a day per pair.
    */
   praise: { newcomer: 1, neighbor: 2, regular: 2, pillar: 2, elder: 2 },
+  /**
+   * Each resident who admired something you made, on display, on a day (once a day), by their
+   * tier the same way as reactions.
+   */
+  admire: { newcomer: 1, neighbor: 2, regular: 2, pillar: 3, elder: 3 },
   /** Each resident who gave you coins or a thing on a day, once a day. */
   gift: 2,
   /** Each reply of yours that the post's author hearted. */
@@ -176,6 +181,7 @@ export const KARMA = {
   tiers: Record<KarmaTier, number>;
   reaction: Record<KarmaTier, number>;
   praise: Record<KarmaTier, number>;
+  admire: Record<KarmaTier, number>;
   appreciationTier: KarmaTier;
 } & Record<string, unknown>;
 

@@ -11,7 +11,7 @@ import { thingPicture } from "@terrakin/ui/item-art";
 import { closeOverlay, errorLine, itemRow, itemRows, openOverlay, sheet } from "@terrakin/ui/ui";
 import { api } from "./api";
 import type { DisplayView } from "./mirror";
-import { thingName } from "./things";
+import { admiredLine, thingName } from "./things";
 
 export interface DisplaySheetOptions {
   block: BlockKind;
@@ -67,8 +67,11 @@ export function openDisplaySheet(o: DisplaySheetOptions) {
     const lines = [
       maker ? `Made by ${maker}` : "Made by a resident",
       shown.by !== good.maker && by ? `Put up by ${by}` : null,
+      admiredLine(good.admired),
     ];
     const canTakeDown = o.yours || (o.me !== undefined && o.me === shown.by);
+    // Anyone but its maker and whoever put it up can admire it, once a day: the server counts.
+    const canAdmire = o.me !== undefined && o.me !== good.maker && o.me !== shown.by;
     body.append(
       h(
         "figure",
@@ -83,6 +86,20 @@ export function openDisplaySheet(o: DisplaySheetOptions) {
           ),
         ),
       ),
+      ...(canAdmire
+        ? [
+            h(
+              "button",
+              {
+                class: "btn-primary",
+                attrs: { type: "button", id: "display-admire" },
+                on: { click: () => send({ type: "admire", x: o.x, y: o.y }) },
+              },
+              icon("sparkle"),
+              h("span", { text: "Admire" }),
+            ),
+          ]
+        : []),
       ...(canTakeDown
         ? [
             h("button", {

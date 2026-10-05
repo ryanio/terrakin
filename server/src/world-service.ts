@@ -476,6 +476,9 @@ export class WorldService {
   listingRefusal: (residentId: string) => string | null = (id) =>
     listingRefusal(this.state, id, { ageDays: this.residentAgeDays(id), tier: "newcomer" });
 
+  /** Hears each admire as it happens, for karma (decision 0059): who admired whose work, and when. */
+  onAdmired: ((admirer: string, maker: string, day: number) => void) | undefined;
+
   /** Whether a resident is suspended, from the social layer. Their stall can't sell meanwhile. */
   suspended: (residentId: string) => boolean = () => false;
 
@@ -1184,6 +1187,9 @@ export class WorldService {
     const { seq, events } = prepared.commit();
     const credit = creditFor(input.actor, input.command, this.state.day ?? 0);
     if (credit) this.creditLog.push(credit);
+    for (const e of events) {
+      if (e.type === "admired") this.onAdmired?.(e.by, e.maker, this.state.day ?? 0);
+    }
     const wire = toWire(events, this.state.townsfolk);
     for (const event of publicEvents(wire)) this.broadcast({ type: "event", seq, event });
     // Purse moves and inventory changes go only to their owner (purses and inventories are

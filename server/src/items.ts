@@ -69,6 +69,7 @@ export function inventoryView(
           ...(g.label === undefined ? {} : { label: g.label }),
           ...(g.media === undefined ? {} : { media: g.media }),
           ...(g.model ? { model: true as const } : {}),
+          ...(g.admired ? { admired: g.admired } : {}),
           trust: "untrusted" as const,
         };
       }),

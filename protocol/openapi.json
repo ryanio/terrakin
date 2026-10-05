@@ -17691,6 +17691,9 @@
             "$ref": "#/components/schemas/TakeDownAction"
           },
           {
+            "$ref": "#/components/schemas/AdmireAction"
+          },
+          {
             "$ref": "#/components/schemas/ShopBuyAction"
           },
           {
@@ -17778,6 +17781,36 @@
               "error"
             ]
           }
+        ]
+      },
+      "AdmireAction": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "admire"
+            ]
+          },
+          "x": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "y": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "x",
+          "y"
         ]
       },
       "BuildStarterHomeAction": {
@@ -18399,6 +18432,7 @@
           "no_display",
           "nothing_displayed",
           "not_entitled",
+          "already_admired",
           "bad_request",
           "unauthorized",
           "forbidden",
@@ -18644,6 +18678,11 @@
             "enum": [
               true
             ]
+          },
+          "admired": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           }
         },
         "required": [
@@ -21660,6 +21699,50 @@
               "x",
               "y",
               "by"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "admired"
+                ]
+              },
+              "x": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "y": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "item": {
+                "type": "string"
+              },
+              "maker": {
+                "type": "string"
+              },
+              "by": {
+                "type": "string"
+              },
+              "admired": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "type",
+              "x",
+              "y",
+              "item",
+              "maker",
+              "by",
+              "admired"
             ]
           },
           {
@@ -25177,6 +25260,11 @@
             "enum": [
               true
             ]
+          },
+          "admired": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           },
           "trust": {
             "type": "string",

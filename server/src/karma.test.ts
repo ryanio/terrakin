@@ -123,6 +123,20 @@ describe("scoreKarma", () => {
     expect(scores.get("ash")?.score).toBe(2 + 1);
   });
 
+  it("counts each admirer of your work once a day, by the admirer's tier", () => {
+    const scores = score({
+      praise: many(10, "bee"),
+      admires: [
+        { from: "bee", to: "ash", day: 2 },
+        { from: "bee", to: "ash", day: 2 },
+        { from: "wren", to: "ash", day: 2 },
+        { from: "wren", to: "ash", day: 3 },
+        { from: "ash", to: "ash", day: 3 },
+      ],
+    });
+    expect(scores.get("ash")?.score).toBe(KARMA.admire.neighbor + KARMA.admire.newcomer * 2);
+  });
+
   it("keeps a small ring of new accounts praising each other at Newcomer", () => {
     // Six accounts, each praised by the other five. At 2 a praise they'd all be Neighbors (10)
     // and could start earning appreciation coins from each other's reactions.

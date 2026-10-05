@@ -205,10 +205,15 @@ test("make a piece of art and put it on a pedestal", async ({ page }) => {
     );
   await page.screenshot({ path: "test-results/show-displayed.png" });
 
-  // Tapping it again shows it large, with its maker, and lets her take it down.
+  // A neighbor admires it from wherever they are. Tapping it again shows it large, with its
+  // maker and how often it was admired, and lets Iris take it down. She can't admire her own.
+  const juno = await join(page.request, "Juno");
+  const at = { x: me.x - 1, y: me.y - 1 };
+  expect((await act(page.request, juno.token, { type: "admire", ...at })).ok).toBe(true);
   await tapTile(page, -1, -1);
   await expect(sheet.locator(".showcase-name")).toHaveText("Piece of art “Clay sky”");
-  await expect(sheet.locator(".showcase-line")).toHaveText("Made by Iris");
+  await expect(sheet.locator(".showcase-line")).toHaveText(["Made by Iris", "Admired once"]);
+  await expect(sheet.locator("#display-admire")).toHaveCount(0);
   await page.screenshot({ path: "test-results/show-sheet.png" });
   await sheet.getByRole("button", { name: "Take down" }).click();
   await expect.poll(async () => (await world()).displays).toBeUndefined();

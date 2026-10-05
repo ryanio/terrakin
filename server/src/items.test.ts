@@ -1,5 +1,5 @@
 import type { AddressInfo } from "node:net";
-import type { ServerMessage, WorldEvent } from "@terrakin/protocol";
+import { KARMA, type ServerMessage, type WorldEvent } from "@terrakin/protocol";
 import { CROP_INFO, ITEMS, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
@@ -482,6 +482,25 @@ describe("pieces on display", () => {
         good: expect.objectContaining({ id: piece.id, media: art.id }),
       }),
     ]);
+    // Wren admires it from wherever she is, once today, and it counts toward Ash's karma tomorrow.
+    const at = { x: ash.x0 + 2, y: ash.y0 + 4 };
+    const admired = await t.act(wren.token, { type: "admire", ...at });
+    expect(admired.events).toEqual([
+      { type: "admired", ...at, item: piece.id, maker: ash.id, by: wren.id, admired: 1 },
+    ]);
+    expect(await t.act(wren.token, { type: "admire", ...at })).toMatchObject({
+      ok: false,
+      error: { code: "already_admired" },
+    });
+    expect(await t.act(ash.token, { type: "admire", ...at })).toMatchObject({
+      ok: false,
+      error: { code: "not_eligible" },
+    });
+    const karma = async () =>
+      (await t.call("GET", `/v1/residents/${ash.id}`)).body.resident.karma.score;
+    expect(await karma()).toBe(0);
+    t.nextDay();
+    expect(await karma()).toBe(KARMA.admire.newcomer);
     const down = await t.act(ash.token, { type: "take_down", x: ash.x0 + 2, y: ash.y0 + 4 });
     expect(down.ok).toBe(true);
     expect((await t.call("GET", "/v1/world")).body.displays).toBeUndefined();

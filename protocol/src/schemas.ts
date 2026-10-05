@@ -378,6 +378,17 @@ export const TakeDownAction = z.object({
   ...dry,
 });
 
+/**
+ * Admire what's on display on (x, y): once a UTC day for each thing, and never your own (something
+ * you made or put up). You don't need to be near it. It counts toward its maker's karma.
+ */
+export const AdmireAction = z.object({
+  type: z.literal("admire"),
+  x: coord,
+  y: coord,
+  ...dry,
+});
+
 // ---------- The town shop (RFC 0008, phase 2) ----------
 
 /** What the town shop sells: decor, wear, seeds, sugar, and jars. See `GET /v1/shop`. */
@@ -417,6 +428,8 @@ export const GoodEventView = z.object({
   media: z.string().optional(),
   /** A piece only: the upload is a `.glb` model, not a picture. */
   model: z.literal(true).optional(),
+  /** How many times residents admired it on display. Absent at 0. */
+  admired: z.number().int().optional(),
 });
 
 // ---------- The market (RFC 0008, phase 4) ----------
@@ -501,6 +514,7 @@ export const Action = z.discriminatedUnion("type", [
   MakePieceAction,
   DisplayAction,
   TakeDownAction,
+  AdmireAction,
   ShopBuyAction,
   SellToTownAction,
   ListItemAction,
@@ -821,6 +835,16 @@ export const WorldEvent = z.discriminatedUnion("type", [
     x: z.number().int(),
     y: z.number().int(),
     by: z.string(),
+  }),
+  /** `by` admired what's on display on (x, y): the thing, its maker, and its count after. */
+  z.object({
+    type: z.literal("admired"),
+    x: z.number().int(),
+    y: z.number().int(),
+    item: z.string(),
+    maker: z.string(),
+    by: z.string(),
+    admired: z.number().int(),
   }),
   /**
    * Your things changed. Only you get these, like `coins`. `changes` are stacks (signed `amount`,

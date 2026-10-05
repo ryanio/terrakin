@@ -193,6 +193,11 @@ export class Mirror {
       case "taken_down":
         this.displays.delete(tileKey(event.x, event.y));
         break;
+      case "admired": {
+        const shown = this.displays.get(tileKey(event.x, event.y));
+        if (shown?.good.id === event.item) shown.good.admired = event.admired;
+        break;
+      }
       // The blocks themselves arrive as block_placed and block_removed just before this.
       case "town_built":
         for (const b of event.placed) this.townBuilt.set(tileKey(b.x, b.y), event.proposal);

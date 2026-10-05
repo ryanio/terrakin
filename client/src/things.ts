@@ -119,6 +119,12 @@ export function inventoryLine(e: InventoryEvent): string | null {
   }
 }
 
+/** "Admired once", "Admired 4 times", or null for a thing nobody has admired yet. */
+export function admiredLine(n: number | undefined): string | null {
+  if (!n || n <= 0) return null;
+  return n === 1 ? "Admired once" : `Admired ${n.toLocaleString("en-US")} times`;
+}
+
 /** How long a gift can still be sent back, in plain words. */
 export function sendBackLine(lastDay: number, today: number): string {
   const left = lastDay - today;
@@ -178,6 +184,9 @@ export function newsLine(event: WorldEvent, me: string): string | null {
       return event.residentId === me ? coinsLine(event) : null;
     case "inventory":
       return event.residentId === me ? inventoryLine(event) : null;
+    case "admired":
+      if (event.by === me) return "You admired it. Its maker will be glad.";
+      return event.maker === me ? "Someone admired something you made." : null;
     default:
       return null;
   }

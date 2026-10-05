@@ -341,6 +341,8 @@ export interface Good {
   media?: string;
   /** A piece only: the upload is a `.glb` model, not a picture. */
   model?: true;
+  /** How many times residents admired it on display, wherever it went since. Absent at 0. */
+  admired?: number;
 }
 
 /** A made thing on a `pedestal` or a `frame`, out of its holder's things until it's taken down. */
@@ -377,6 +379,8 @@ export interface ItemsToday {
   received: Record<ResidentId, number>;
   /** Things each resident made today. */
   crafted: Record<ResidentId, number>;
+  /** The made things each resident admired today, by id. Absent until the day's first admire. */
+  admired?: Record<ResidentId, string[]>;
 }
 
 /**
@@ -592,6 +596,7 @@ export type Command =
   | { type: "make_piece"; media: string; title: string; model?: true }
   | { type: "display"; item: string; x: number; y: number }
   | { type: "take_down"; x: number; y: number }
+  | { type: "admire"; x: number; y: number }
   // The town shop (RFC 0008, phase 2).
   | { type: "shop_buy"; sku: string; count?: number }
   | { type: "sell_to_town"; item: string; count?: number }
@@ -799,6 +804,16 @@ export type WorldEvent =
   | { type: "displayed"; x: number; y: number; good: Good; by: ResidentId }
   /** A displayed thing was taken down by `by`. Public. */
   | { type: "taken_down"; x: number; y: number; by: ResidentId }
+  /** `by` admired what's on display: the thing, its maker, and its count after. Public. */
+  | {
+      type: "admired";
+      x: number;
+      y: number;
+      item: string;
+      maker: ResidentId;
+      by: ResidentId;
+      admired: number;
+    }
 
   /**
    * One resident's things changed. Private: it belongs to `residentId` alone, and the server sends
@@ -883,6 +898,7 @@ export const REJECTION_CODES = [
   "no_display",
   "nothing_displayed",
   "not_entitled",
+  "already_admired",
 ] as const;
 export type RejectionCode = (typeof REJECTION_CODES)[number];
 

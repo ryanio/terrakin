@@ -489,6 +489,8 @@ export class Api {
       this.service.listingRefusal = (id) =>
         listingRefusal(this.service.state, id, this.listerFacts(id));
       this.service.suspended = (id) => layer.safety.suspendedUntil(id) !== undefined;
+      this.service.onAdmired = (admirer, maker, day) =>
+        layer.karma.recordAdmire(admirer, maker, day);
       // Reports on a listing (decision 0056) read it from the world.
       layer.safety.listing = (id) => listingForReport(this.service.state, id);
       // Appreciation coins (decision 0055): counted from reactions, logged once a day by `tick`.

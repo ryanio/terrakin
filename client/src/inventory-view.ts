@@ -11,7 +11,7 @@ import { confirmTwice, itemRow, itemRows, stateCard, toast, whileBusy } from "@t
 import { actProblem, api, uploadMedia } from "./api";
 import { savedToken } from "./net";
 import { comeHomeButton } from "./purse-view";
-import { growthLine, sendBackLine, stackCount, thingCount, thingName } from "./things";
+import { admiredLine, growthLine, sendBackLine, stackCount, thingCount, thingName } from "./things";
 import { errorCard, type View, type ViewContext } from "./view";
 
 function goodItem(g: GoodView): HTMLLIElement {
@@ -28,6 +28,7 @@ function goodItem(g: GoodView): HTMLLIElement {
         h("span", { text: "Made by " }),
         g.maker ? personLink(g.maker) : h("span", { text: "a former resident" }),
       ),
+      admiredLine(g.admired),
     ],
   });
 }

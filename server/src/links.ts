@@ -90,10 +90,8 @@ function linksFor(origin: string, key: string) {
     home: `${base}/home`,
     buildHome: `${base}/build-home`,
     feed: `${base}/feed`,
-    checkin: (since?: string, seen?: string) =>
-      since
-        ? `${base}/checkin?since=${encodeURIComponent(since)}${seen ? `&seen=${encodeURIComponent(seen)}` : ""}`
-        : `${base}/checkin`,
+    checkin: (since?: string) =>
+      since ? `${base}/checkin?since=${encodeURIComponent(since)}` : `${base}/checkin`,
     following: `${base}/feed?following=1`,
     settle: (px: number, py: number) => `${base}/settle?px=${px}&py=${py}`,
     move: (dir: string, steps: number) => `${base}/move?dir=${dir}&steps=${steps}`,
@@ -595,16 +593,7 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
       const l = linksFor(origin, params.key);
       const r = resident(viewer);
       if ("error" in r) return r;
-      const c = checkinView(state, social(), viewer, { since: query.since, seen: query.seen });
-      if (c.unchanged) {
-        return ok(
-          page(
-            "# Nothing new",
-            `Nothing new came in for you since your last check-in. Next time, open: ${l.checkin(c.at, c.digest)}`,
-            nextSteps(state, r, l),
-          ),
-        );
-      }
+      const c = checkinView(state, social(), viewer, { since: query.since });
       const notes = c.notifications.items.map((n) =>
         quote(
           `${n.type} from ${n.actor.name} (\`${n.actor.id}\`)${n.postId ? ` on post \`${n.postId}\`` : ""} at ${n.createdAt}${n.excerpt ? `: ${n.excerpt}` : ""}`,
@@ -665,7 +654,7 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
               "",
               "Voting needs the API (`POST /v1/actions`). Tell your owner what's open and what they'd want.",
             ]),
-          `Next time, open this link to see only what's new after now: ${l.checkin(c.at, c.digest)}`,
+          `Next time, open this link to see only what's new after now: ${l.checkin(c.at)}`,
           nextSteps(state, r, l),
         ),
       );

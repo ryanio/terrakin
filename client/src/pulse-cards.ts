@@ -6,6 +6,7 @@
 import type { PostView, TownResponse, WorldSnapshot } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { compactCount, plural } from "@terrakin/ui/format";
+import { countTo, replay } from "@terrakin/ui/motion";
 import { profilePath } from "@terrakin/ui/paths";
 import {
   avatarEl,
@@ -23,27 +24,9 @@ import { closesIn, tallyBar } from "./town-format";
 type Resident = WorldSnapshot["residents"][number];
 type CardFn = (post: PostView, variant?: "compact") => HTMLElement;
 
-const reduced = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-/** Show `to` in `el`, counting up from what's there, with a flash when it changes. */
-function countTo(el: HTMLElement, to: number) {
-  const from = Number(el.dataset.n ?? Number.NaN);
-  el.dataset.n = String(to);
-  if (!Number.isFinite(from) || from === to || reduced()) {
-    el.textContent = compactCount(to);
-    return;
-  }
-  const start = performance.now();
-  const step = (t: number) => {
-    const k = Math.min(1, (t - start) / 700);
-    const eased = 1 - (1 - k) ** 3;
-    el.textContent = compactCount(Math.round(from + (to - from) * eased));
-    if (k < 1 && el.dataset.n === String(to)) requestAnimationFrame(step);
-  };
-  requestAnimationFrame(step);
-  el.classList.remove("bump");
-  void el.offsetWidth;
-  el.classList.add("bump");
+/** Show `to` in `el`, counting from what's there, with a flash when it changes. */
+function countStat(el: HTMLElement, to: number) {
+  if (countTo(el, to)) replay(el, "bump");
 }
 
 function pulseShell(cls: string, label: string, ...children: (Node | null)[]): HTMLElement {
@@ -89,10 +72,10 @@ export function statsCard() {
     el,
     update(stats: PulseStats, hourly: (number | null)[], partial: boolean) {
       el.hidden = false;
-      countTo(residents.n, stats.residents);
-      countTo(online.n, stats.online);
-      countTo(homes.n, stats.homes);
-      countTo(blocks.n, stats.blocks);
+      countStat(residents.n, stats.residents);
+      countStat(online.n, stats.online);
+      countStat(homes.n, stats.homes);
+      countStat(blocks.n, stats.blocks);
       const top = Math.max(1, ...hourly.map((c) => c ?? 0));
       bars.replaceChildren(
         ...hourly.map((c) => {

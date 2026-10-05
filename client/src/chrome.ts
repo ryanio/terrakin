@@ -3,7 +3,7 @@
  * "Bring your AI" popover. The home page shows its prompt in a card instead.
  */
 
-import { copyText } from "@terrakin/ui/ui";
+import { copyButton } from "@terrakin/ui/ui";
 import { track } from "./telemetry";
 
 /** Use the real brand mark when it loads; otherwise keep the inline drawing next to it. */
@@ -40,17 +40,12 @@ export function initBringAi(button: HTMLElement, pop: HTMLElement) {
   const copy = pop.querySelector<HTMLButtonElement>(".copy-button");
   const label = copy?.querySelector<HTMLElement>(".copy-label");
   if (!line || !copy || !label) return;
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  copy.addEventListener("click", async () => {
-    // Collapse whitespace so the copied text is always one line.
-    const text = (line.textContent ?? "").replace(/\s+/g, " ").trim();
-    // No clipboard permission: copyText selects the line so a long-press copy works.
-    const ok = await copyText(text, line);
-    label.textContent = ok ? "Copied" : "Selected";
-    if (ok) track("bring_ai_copy");
-    clearTimeout(timer);
-    timer = setTimeout(() => {
-      label.textContent = "Copy";
-    }, 2000);
+  // Collapse whitespace so the copied text is always one line.
+  copyButton(copy, label, () => (line.textContent ?? "").replace(/\s+/g, " ").trim(), {
+    idle: "Copy",
+    fallback: line,
+    onChange: (state) => {
+      if (state === "copied") track("bring_ai_copy");
+    },
   });
 }

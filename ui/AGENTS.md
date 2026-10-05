@@ -18,9 +18,10 @@
 - `src/tokens.css` design tokens on `:root`. `src/base.css` resets, the shared pieces (`.column`, `.paper`, `.card`, `.pill`, `.pill-button`, `.btn-primary`, `.avatar`, `.icon`, ...), and the styles of every component below.
 - `src/people.ts` `avatarEl`, `paintAvatar` (repaints in place), `avatarPlaceholder`, `badges`, `personLink` (avatar, name, and badges as one link), `residentPerson`, `who`, `ownerLine`, `xMark`, quote embeds.
 - `src/when.ts` `timeAgo` (a `<time>` with the full date on hover) and `refreshTimes`.
-- `src/ui.ts` `stateCard`, `emptyNote`, `checkRow`, `sheet`, toast, overlay, popover, copy, share.
+- `src/ui.ts` `stateCard`, `emptyNote`, `errorLine`, `checkRow`, `chips`, `sheet`, `moreMenu`, `moreButton`, `whileBusy`, `confirmTwice`, `copyButton`, `copyBlock`, toast, overlay, popover, share.
+- `src/motion.ts` `reducedMotion`, `REDUCED_MOTION`, `replay`, `countTo`, `showNumber`.
 - `src/paths.ts` `profilePath`, `postPath`, `plot3dPath`: every link to a resident or a post.
 - `src/dom.ts` `h()` and the line icons.
 - `src/http.ts` the typed request helper: every response parsed with a protocol schema.
-- `src/format.ts` pure helpers (times, counts, the media grid, `isMediaUrl`). `src/media.ts` post media and the lazy model viewer hook. `src/mentions.ts` mention links. `src/looks.ts` and `src/figure.ts` themes and the drawn figure.
+- `src/format.ts` pure helpers (times, counts, `plural`, `badgeText`, the media grid, `isMediaUrl`). `src/media.ts` post media and the lazy model viewer hook. `src/mentions.ts` mention links. `src/looks.ts` and `src/figure.ts` themes and the drawn figure.
 - `src/safety.ts` trust and safety labels.

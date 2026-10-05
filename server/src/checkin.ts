@@ -23,61 +23,6 @@ export function checkinSince(since: string | undefined, now: number): number {
   return Math.min(now, Math.max(from, now - CHECKIN_LIMITS.maxLookbackDays * DAY_MS));
 }
 
-/**
- * A short fingerprint of a string: FNV-1a with two different multipliers, as 16 hex characters.
- * Not for secrets; it only tells two check-ins apart.
- */
-export function fingerprint(text: string): string {
-  let a = 0x811c9dc5;
-  let b = 0x811c9dc5;
-  for (let i = 0; i < text.length; i++) {
-    const c = text.charCodeAt(i);
-    a = Math.imul(a ^ c, 0x01000193);
-    b = Math.imul(b ^ c, 0x5bd1e995);
-  }
-  const hex = (n: number) => (n >>> 0).toString(16).padStart(8, "0");
-  return hex(a) + hex(b);
-}
-
-/** What a check-in's `digest` covers: what's waiting for a resident, not the `since` window. */
-export interface DigestParts {
-  unreadNotifications: number;
-  /** The unread notifications shown: id, how many residents, and when. */
-  notifications: [string, number, string][];
-  unreadLetters: number;
-  letters: string[];
-  /** The newest gesture to you. */
-  gesture: string | null;
-  /** The newest post or repost from people you follow: id, and when it was reposted. */
-  followed: [string, string | null] | null;
-  /** Open proposals you can still vote on. */
-  proposals: string[];
-  /** The newest notice on the board. */
-  notice: string | null;
-  /** Balance, today's allowance, and today's purse lines by seq. */
-  coins: [number, boolean, number[]] | null;
-  /** The newest changelog entry. */
-  changelog: string | null;
-}
-
-/** The check-in `digest`: a fingerprint of the parts, in a fixed order. */
-export function checkinDigest(parts: DigestParts): string {
-  return fingerprint(
-    JSON.stringify([
-      parts.unreadNotifications,
-      parts.notifications,
-      parts.unreadLetters,
-      parts.letters,
-      parts.gesture,
-      parts.followed,
-      parts.proposals,
-      parts.notice,
-      parts.coins,
-      parts.changelog,
-    ]),
-  );
-}
-
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 /**
@@ -85,17 +30,12 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
  * the single routes; letters, gestures, and notices also leave out residents blocked either way
  * and residents suspended now, since a check-in brings them up on a schedule. Reads only: nothing
  * is marked read. `todo` is built from counts and ids, never from resident text.
- *
- * `digest` fingerprints what's waiting, not the window `since` picks: unread notifications and
- * letters, the newest gesture, followed post, and notice, open votes, the purse, and the newest
- * changelog entry. With `seen` equal to it, the answer is the same shape with `unchanged: true`,
- * the unread counts and purse, and every list empty.
  */
 export function checkinView(
   state: WorldState,
   social: SocialService,
   viewer: string,
-  options: { since: string | undefined; seen?: string | undefined },
+  options: { since: string | undefined },
 ): CheckinResponse {
   const now = social.now();
   const since = checkinSince(options.since, now);
@@ -117,9 +57,9 @@ export function checkinView(
   const letters = together.unreadReceived(viewer, CHECKIN_LIMITS.letters);
   const gestures = together.receivedSince(viewer, since, CHECKIN_LIMITS.gestures);
 
-  const followed = social.feed({ viewerId: viewer, following: true, limit: 50 }).posts;
-  const following = followed
-    .filter((p) =>
+  const following = social
+    .feed({ viewerId: viewer, following: true, limit: 50 })
+    .posts.filter((p) =>
       p.repostedBy
         ? p.repostedBy.id !== viewer && fresh(p.repostedAt ?? p.createdAt)
         : p.author.id !== viewer && fresh(p.createdAt),
@@ -128,8 +68,9 @@ export function checkinView(
 
   const town = townView(state, social, viewer);
   const proposals = town.open.filter((p) => p.canVote && p.yourVote === null);
-  const board = town.board.filter((n) => shown(n.author.id));
-  const notices = board.filter((n) => fresh(n.createdAt)).slice(0, CHECKIN_LIMITS.notices);
+  const notices = town.board
+    .filter((n) => shown(n.author.id) && fresh(n.createdAt))
+    .slice(0, CHECKIN_LIMITS.notices);
 
   // The changelog dates entries by day, so the day of `since` comes back each time; the todo line
   // only speaks up for a day after it (or on a first check-in).
@@ -139,42 +80,6 @@ export function checkinView(
   const newDay = options.since === undefined || entries.some((e) => e.date > sinceDay);
 
   const coins = todaysLines(state, viewer, (id) => social.authorView(id));
-
-  const newestFollowed = followed.find((p) => (p.repostedBy ?? p.author).id !== viewer);
-  const newestGesture = together.receivedSince(
-    viewer,
-    now - CHECKIN_LIMITS.maxLookbackDays * DAY_MS,
-    1,
-  )[0];
-  const digest = checkinDigest({
-    unreadNotifications: notes.unread,
-    notifications: notifications.map((n) => [n.id, n.count, n.createdAt]),
-    unreadLetters: lettersUnread,
-    letters: letters.map((l) => l.id),
-    gesture: newestGesture?.id ?? null,
-    followed: newestFollowed ? [newestFollowed.id, newestFollowed.repostedAt ?? null] : null,
-    proposals: proposals.map((p) => p.id),
-    notice: board[0]?.id ?? null,
-    coins: coins ? [coins.balance, coins.allowanceToday, coins.today.map((l) => l.seq)] : null,
-    changelog: CHANGELOG_ENTRIES[0]?.id ?? null,
-  });
-  if (options.seen !== undefined && options.seen === digest) {
-    return {
-      at: new Date(now).toISOString(),
-      since: new Date(since).toISOString(),
-      notifications: { unread: notes.unread, items: [] },
-      letters: { unread: lettersUnread, items: [] },
-      gestures: [],
-      following: [],
-      proposals: [],
-      notices: [],
-      coins,
-      changelog: [],
-      todo: [],
-      digest,
-      unchanged: true,
-    };
-  }
 
   const todo: string[] = [];
   if (coins && !coins.allowanceToday && allowanceDue(state, viewer)) {
@@ -235,6 +140,5 @@ export function checkinView(
     coins,
     changelog,
     todo,
-    digest,
   };
 }

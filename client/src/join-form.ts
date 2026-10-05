@@ -18,6 +18,7 @@ import {
 } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
 import { paintAvatar } from "@terrakin/ui/people";
+import { chips, errorLine, whileBusy } from "@terrakin/ui/ui";
 
 export interface JoinChoice {
   name: string;
@@ -45,35 +46,46 @@ const SHAPE_LABELS: Record<ResidentShape, string> = {
   diamond: "Diamond",
 };
 
-/** One pressable chip per option; returns the row and a getter for the current choice. */
-function chips<T extends string>(
-  options: readonly T[],
-  first: T,
-  draw: (value: T) => HTMLElement[],
-  onPick: (value: T) => void,
-): { row: HTMLElement; value: () => T } {
-  let chosen = first;
-  const row = h("div", { class: "swatch-row" });
-  for (const value of options) {
-    const b = h(
-      "button",
-      {
-        attrs: { type: "button", "aria-pressed": String(value === first), "data-value": value },
-        on: {
-          click: () => {
-            chosen = value;
-            for (const other of row.children) {
-              other.setAttribute("aria-pressed", String(other === b));
-            }
-            onPick(value);
-          },
-        },
-      },
-      ...draw(value),
-    );
-    row.append(b);
-  }
-  return { row, value: () => chosen };
+/** The resident colors as chips: a dot in the color and its name. */
+export function colorChips(
+  first: ResidentColor,
+  onPick?: (c: ResidentColor) => void,
+  row?: HTMLElement,
+) {
+  const picker = chips(
+    RESIDENT_COLORS,
+    first,
+    (c) => {
+      const dot = h("span", { class: "swatch-dot", attrs: { "aria-hidden": "true" } });
+      dot.style.background = `var(--resident-${c})`;
+      return [dot, h("span", { class: "swatch-name", text: c })];
+    },
+    onPick,
+    row,
+  );
+  picker.row.setAttribute("aria-label", "Colors");
+  return picker;
+}
+
+/** The resident shapes as chips: a dot in the shape and its name. */
+export function shapeChips(
+  first: ResidentShape,
+  onPick?: (s: ResidentShape) => void,
+  row?: HTMLElement,
+) {
+  const picker = chips(
+    RESIDENT_SHAPES,
+    first,
+    (s) => [
+      h("span", { class: `shape-dot ${s}`, attrs: { "aria-hidden": "true" } }),
+      h("span", { class: "swatch-name", text: SHAPE_LABELS[s] }),
+    ],
+    onPick,
+    row,
+  );
+  picker.row.classList.add("shape-row");
+  picker.row.setAttribute("aria-label", "Shapes");
+  return picker;
 }
 
 /** A small resident token (the same as an avatar) in a color and shape. */
@@ -132,27 +144,8 @@ export function joinForm(options: JoinFormOptions) {
     );
   };
 
-  const color = chips(
-    RESIDENT_COLORS,
-    firstColor,
-    (c) => {
-      const dot = h("span", { class: "swatch-dot" });
-      dot.style.background = `var(--resident-${c})`;
-      return [dot, h("span", { class: "swatch-name", text: c })];
-    },
-    repaint,
-  );
-  color.row.setAttribute("aria-label", "Colors");
-  const shape = chips(
-    RESIDENT_SHAPES,
-    firstShape,
-    (s) => [
-      h("span", { class: `shape-dot ${s}`, attrs: { "aria-hidden": "true" } }),
-      h("span", { text: SHAPE_LABELS[s] }),
-    ],
-    repaint,
-  );
-  shape.row.classList.add("shape-row");
+  const color = colorChips(firstColor, repaint);
+  const shape = shapeChips(firstShape, repaint);
   // Optional: a theme dresses you from the first step. Pattern, wear, and your own art come later.
   const theme = chips<Theme | "none">(
     ["none", ...THEMES],
@@ -174,7 +167,7 @@ export function joinForm(options: JoinFormOptions) {
     repaint();
   });
 
-  const error = h("p", { class: "error", attrs: { role: "alert" } });
+  const error = errorLine();
   const label = h("span", { text: options.submitLabel });
   const submit = h(
     "button",
@@ -246,19 +239,21 @@ export function joinForm(options: JoinFormOptions) {
     }
     const chosenTheme = theme.value();
     busy = true;
-    submit.disabled = true;
-    label.textContent = options.busyLabel;
     error.textContent = "";
-    const problem = await options.onSubmit({
-      name: value,
-      color: color.value(),
-      shape: shape.value(),
-      note: note.value.trim(),
-      ...(chosenTheme === "none" ? {} : { theme: chosenTheme }),
-    });
+    const problem = await whileBusy(
+      submit,
+      () =>
+        options.onSubmit({
+          name: value,
+          color: color.value(),
+          shape: shape.value(),
+          note: note.value.trim(),
+          ...(chosenTheme === "none" ? {} : { theme: chosenTheme }),
+        }),
+      options.busyLabel,
+      label,
+    );
     busy = false;
-    submit.disabled = false;
-    label.textContent = options.submitLabel;
     if (problem) error.textContent = problem;
   });
 

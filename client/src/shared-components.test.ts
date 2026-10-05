@@ -26,7 +26,8 @@ function sources(): { path: string; text: string }[] {
 }
 
 /** Hand-built versions of a shared component, and the component to use instead. */
-const HAND_BUILT: { pattern: RegExp; use: string }[] = [
+/** `home` is the one file allowed to do it: the helper itself. */
+const HAND_BUILT: { pattern: RegExp; use: string; home?: string }[] = [
   {
     pattern: /class: [`"]avatar\b/,
     use: "avatarEl, paintAvatar, or avatarPlaceholder (people.ts)",
@@ -40,6 +41,28 @@ const HAND_BUILT: { pattern: RegExp; use: string }[] = [
   { pattern: /class: "[^"]*\bstate-card\b/, use: "stateCard (ui.ts)" },
   { pattern: /class: "[^"]*\bempty-note\b/, use: "emptyNote (ui.ts)" },
   { pattern: /class: "check-row"/, use: "checkRow (ui.ts)" },
+  { pattern: /class: "paper menu"/, use: "moreMenu (ui.ts)" },
+  { pattern: /copyText\(/, use: "copyButton or copyBlock (ui.ts)" },
+  {
+    pattern: /\} \$\{\w+ === 1 \? "\w+" : "\w+"\}|=== 1 \? "1 \w+"/,
+    use: "plural (format.ts), or coins (purse.ts) for money",
+    home: "client/src/purse.ts",
+  },
+  { pattern: /dataset\.confirm/, use: "confirmTwice (ui.ts)" },
+  { pattern: /"[^"]*\bload-more\b/, use: "moreButton (ui.ts)" },
+  {
+    pattern: /"swatch-dot"|createElement\("button"\)/,
+    use: "chips (ui.ts), colorChips or shapeChips (join-form.ts)",
+    home: "client/src/join-form.ts",
+  },
+  { pattern: /"\(prefers-reduced-motion/, use: "reducedMotion or REDUCED_MOTION (motion.ts)" },
+  { pattern: /void \w+\.offsetWidth/, use: "replay (motion.ts)" },
+  { pattern: /class: "[^"]*\b(form-error|error|composer-error)\b/, use: "errorLine (ui.ts)" },
+  {
+    pattern: /\.data\.error\.message/,
+    use: "actProblem (client/src/api.ts)",
+    home: "client/src/api.ts",
+  },
   { pattern: /`\/[rp]\/\$\{/, use: "profilePath, postPath, or plot3dPath (paths.ts)" },
   { pattern: /class: "sheet[ "]|class: "sheet-(card|head|title|close)"/, use: "sheet (ui.ts)" },
 ];
@@ -52,13 +75,17 @@ describe("views use the shared components", () => {
     expect(files.some((f) => f.path === "admin/src/queue-view.ts")).toBe(true);
   });
 
-  for (const { pattern, use } of HAND_BUILT) {
+  for (const { pattern, use, home } of HAND_BUILT) {
     it(`nothing hand-builds what ${use} makes`, () => {
-      const hits = files.flatMap((f) =>
-        f.text
-          .split("\n")
-          .flatMap((line, i) => (pattern.test(line) ? [`${f.path}:${i + 1}: ${line.trim()}`] : [])),
-      );
+      const hits = files
+        .filter((f) => f.path !== home)
+        .flatMap((f) =>
+          f.text
+            .split("\n")
+            .flatMap((line, i) =>
+              pattern.test(line) ? [`${f.path}:${i + 1}: ${line.trim()}`] : [],
+            ),
+        );
       expect(hits).toEqual([]);
     });
   }
@@ -87,55 +114,80 @@ describe("views use the shared components", () => {
   });
 });
 
-/** Top-level selector lists and keyframes names in a stylesheet, in order, comments removed. */
-function topLevelRules(css: string): string[] {
+/**
+ * The selector lists in a stylesheet, comments removed: `top` for top-level rules and keyframes
+ * names, `nested` for rules inside a media or supports query.
+ */
+function cssRules(css: string): { top: string[]; nested: string[] } {
   const text = css.replace(/\/\*[\s\S]*?\*\//g, "");
-  const rules: string[] = [];
-  let depth = 0;
+  const top: string[] = [];
+  const nested: string[] = [];
+  // For each open brace: whether it opened a media or supports query.
+  const stack: boolean[] = [];
   let head = "";
   for (const ch of text) {
     if (ch === "{") {
-      if (depth === 0) {
-        const name = head.trim().replace(/\s+/g, " ");
-        // A media query wraps rules; keyframes are named once like a rule.
-        if (!name.startsWith("@media") && !name.startsWith("@supports")) rules.push(name);
-      }
-      depth++;
+      const name = head.trim().replace(/\s+/g, " ");
+      const query = name.startsWith("@media") || name.startsWith("@supports");
+      if (stack.length === 0 && !query) top.push(name);
+      else if (stack.length > 0 && stack.every(Boolean) && !query) nested.push(name);
+      stack.push(query);
       head = "";
     } else if (ch === "}") {
-      depth--;
+      stack.pop();
       head = "";
-    } else if (ch === ";" && depth === 0) {
+    } else if (ch === ";") {
       head = "";
-    } else if (depth === 0) {
+    } else {
       head += ch;
     }
   }
-  return rules;
+  return { top, nested };
 }
+
+/** Each selector of a list on its own: ".a, .b" is ".a" and ".b". */
+const selectors = (lists: string[]) => lists.flatMap((l) => l.split(",").map((x) => x.trim()));
 
 describe("one definition per rule", () => {
   const read = (path: string) => readFileSync(join(ROOT, path), "utf8");
-  const base = new Set(topLevelRules(read("ui/src/base.css")));
+  const base = new Set(selectors(cssRules(read("ui/src/base.css")).top));
 
-  it("parses selector lists and keyframes", () => {
-    expect(topLevelRules("/* x */ .a,\n.b { c: d; }\n@keyframes k { from { e: f; } }")).toEqual([
-      ".a, .b",
-      "@keyframes k",
-    ]);
+  it("parses selector lists, keyframes, and rules inside media queries", () => {
+    const css =
+      "/* x */ .a,\n.b { c: d; }\n@keyframes k { from { e: f; } }\n@media (x) { .c { g: h; } }";
+    expect(cssRules(css)).toEqual({ top: [".a, .b", "@keyframes k"], nested: [".c"] });
   });
 
   for (const path of ["ui/src/base.css", "client/src/style.css", "admin/src/style.css"]) {
     it(`${path} defines each selector once`, () => {
       const seen = new Set<string>();
-      const twice = topLevelRules(read(path)).filter((r) => seen.has(r) || !seen.add(r));
+      const twice = cssRules(read(path)).top.filter((r) => seen.has(r) || !seen.add(r));
       expect(twice).toEqual([]);
     });
   }
 
+  it("stylesheets name a token instead of spelling out its color", () => {
+    const tokens = new Map(
+      [...read("ui/src/tokens.css").matchAll(/(--[\w-]+):\s*(#[0-9a-f]{6});/gi)].map((m) => [
+        m[2]?.toLowerCase(),
+        m[1],
+      ]),
+    );
+    const spelled = ["ui/src/base.css", "client/src/style.css", "admin/src/style.css"].flatMap(
+      (path) =>
+        [...read(path).matchAll(/#[0-9a-f]{6}\b/gi)].flatMap((m) => {
+          const token = tokens.get(m[0].toLowerCase());
+          return token ? [`${path}: ${m[0]} is var(${token})`] : [];
+        }),
+    );
+    expect(tokens.size).toBeGreaterThan(10);
+    expect(spelled).toEqual([]);
+  });
+
   for (const path of ["client/src/style.css", "admin/src/style.css"]) {
-    it(`${path} leaves the shared components' rules to base.css`, () => {
-      expect(topLevelRules(read(path)).filter((r) => base.has(r))).toEqual([]);
+    it(`${path} leaves the shared components' rules to base.css, at every screen size`, () => {
+      const { top, nested } = cssRules(read(path));
+      expect(selectors([...top, ...nested]).filter((r) => base.has(r))).toEqual([]);
     });
   }
 });

@@ -16,7 +16,7 @@ import {
 import { h, icon } from "@terrakin/ui/dom";
 import { activeMention, insertMention, suggestHandles } from "@terrakin/ui/mentions";
 import { avatarEl, quoteEmbed } from "@terrakin/ui/people";
-import { closeOverlay, openOverlay } from "@terrakin/ui/ui";
+import { closeOverlay, errorLine, openOverlay } from "@terrakin/ui/ui";
 import { api, uploadMedia } from "./api";
 
 const ACCEPT =
@@ -113,7 +113,7 @@ export function composer({ me, replyTo, quote, onPosted }: ComposerOptions): Com
     },
   });
   const list = h("ul", { class: "attachments", attrs: { "aria-label": "Attached files" } });
-  const error = h("p", { class: "composer-error", attrs: { role: "alert" } });
+  const error = errorLine();
 
   const form = h(
     "form",

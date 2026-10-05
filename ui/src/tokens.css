@@ -12,6 +12,8 @@
   --moss-light: #8fb36a;
   --sun: #f2b84b;
   --dusk: #cdb4f6;
+  /* Errors and things that can't be undone. */
+  --danger: #a3361a;
 
   /* Resident colors, same values as RESIDENT_COLOR_HEX in render.ts. */
   --resident-sun: #f2b84b;

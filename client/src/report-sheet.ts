@@ -5,7 +5,7 @@
 import { REPORT_NOTE_MAX_LENGTH, type ReportKind, type ReportReason } from "@terrakin/protocol";
 import { h } from "@terrakin/ui/dom";
 import { REPORT_CHOICES } from "@terrakin/ui/safety";
-import { checkRow, closeOverlay, openOverlay, sheet, toast } from "@terrakin/ui/ui";
+import { checkRow, closeOverlay, openOverlay, sheet, toast, whileBusy } from "@terrakin/ui/ui";
 import { api } from "./api";
 import { savedToken } from "./net";
 
@@ -71,16 +71,11 @@ export function openReportSheet(target: { kind: ReportKind; id: string; label: s
       return;
     }
     const reason = picked.value as ReportReason;
-    send.disabled = true;
     status.textContent = "Sending…";
     const text = note.value.trim();
-    const res = await api.report({
-      kind: target.kind,
-      id: target.id,
-      reason,
-      ...(text ? { note: text } : {}),
-    });
-    send.disabled = false;
+    const res = await whileBusy(send, () =>
+      api.report({ kind: target.kind, id: target.id, reason, ...(text ? { note: text } : {}) }),
+    );
     if (!res.ok) {
       status.textContent = res.message;
       return;

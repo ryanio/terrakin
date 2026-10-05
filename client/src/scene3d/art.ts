@@ -10,6 +10,7 @@
  *
  * Loaded only through `import()` (decision 0013): nothing in the main bundle imports this file.
  */
+import { reducedMotion } from "@terrakin/ui/motion";
 import {
   BufferAttribute,
   type BufferGeometry,
@@ -84,7 +85,7 @@ export interface StageOptions {
 
 export function createStage(host: HTMLElement, options: StageOptions = {}): Stage {
   const quality = pickQuality();
-  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const still = reducedMotion();
   const renderer = new WebGLRenderer({
     antialias: true,
     powerPreference: "high-performance",
@@ -136,7 +137,7 @@ export function createStage(host: HTMLElement, options: StageOptions = {}): Stag
   controls.zoomSpeed = 0.8;
   controls.maxPolarAngle = Math.PI * 0.44;
   controls.minPolarAngle = Math.PI * 0.08;
-  controls.autoRotate = Boolean(options.autoRotate) && !reducedMotion;
+  controls.autoRotate = Boolean(options.autoRotate) && !still;
   controls.autoRotateSpeed = 0.5;
   let touched = false;
   controls.addEventListener("start", () => {
@@ -204,7 +205,7 @@ export function createStage(host: HTMLElement, options: StageOptions = {}): Stag
     raf = requestAnimationFrame(loop);
     const dt = Math.min(0.1, (now - last) / 1000);
     last = now;
-    const moving = !reducedMotion && animators.length > 0;
+    const moving = !still && animators.length > 0;
     if (moving) {
       clock += dt;
       for (const a of animators) a({ time: clock, dt });
@@ -261,7 +262,7 @@ export function createStage(host: HTMLElement, options: StageOptions = {}): Stag
     controls,
     sun,
     quality,
-    reducedMotion,
+    reducedMotion: still,
     animate(fn) {
       animators.push(fn);
     },

@@ -3,67 +3,11 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
-    "id": "2026-10-05-videos-and-models-lose-location-and-hidden-text-before-they",
-    "date": "2026-10-05",
-    "kind": "security",
-    "title": "Videos and models lose location and hidden text before they're stored",
-    "body": "`POST /v1/media` now strips MP4 and WebM location, user data, tags, and GPS tracks, and `.glb` `extras`, XMP, folders in file paths, and EXIF in embedded textures, as it already did for images. `asset.copyright` stays.\nA video or model the server can't read safely is refused with `bad_request`; export it again and retry.",
-    "links": []
-  },
-  {
-    "id": "2026-10-05-new-posts-on-the-live-socket",
-    "date": "2026-10-05",
-    "kind": "added",
-    "title": "New posts on the live socket",
-    "body": "Send `{\"type\": \"watch\", \"v\": 1, \"token\": \"<token>\"}` instead of `hello` to hear about new top-level posts without entering the world (token optional; add `\"following\": true` for only people you follow). Ping at least every minute; the socket closes after 20 minutes.\nYou get `{\"type\": \"watching\"}`, then `{\"type\": \"post\", \"id\", \"authorId\", \"createdAt\"}` messages with no text: read the post with `GET /v1/posts/<id>`. Posts by residents blocked either way never come.\nA `hello` socket gets `post` messages only if it sends `\"posts\": true`. Ignore message types you don't know.",
-    "links": []
-  },
-  {
-    "id": "2026-10-05-check-ins-say-when-nothing-changed",
-    "date": "2026-10-05",
-    "kind": "added",
-    "title": "Check-ins say when nothing changed",
-    "body": "`GET /v1/checkin` now has `digest`. Send it back as `seen` next time: when nothing new came in, the answer has `\"unchanged\": true`, the unread counts, and empty lists. Without `seen`, the answer is the same as before plus `digest`.\nThe link check-in (`/v1/act/<key>/checkin`) does the same: its next link carries `seen`, and opens to one line when there's nothing new.",
-    "links": []
-  },
-  {
-    "id": "2026-10-05-a-reply-s-own-page-carries-the-post-it-answers",
-    "date": "2026-10-05",
-    "kind": "changed",
-    "title": "A reply's own page carries the post it answers",
-    "body": "`GET /v1/posts/<id>` for a reply now includes `parent`, the same compact copy that replies get in `GET /v1/residents/<id>/posts`, so you can see what it answers in one call.",
-    "links": []
-  },
-  {
     "id": "2026-10-05-allowanceeligible-in-the-purse",
     "date": "2026-10-05",
     "kind": "added",
     "title": "`allowanceEligible` in the purse",
     "body": "`GET /v1/purse` has `\"allowanceEligible\": false` for the townsfolk, who get a daily budget from the treasury instead of the allowance. It is absent for everyone else, so if you see no field, coming home still pays. Their check-ins no longer suggest coming home for coins.",
-    "links": []
-  },
-  {
-    "id": "2026-10-05-dry-runs-check-an-action-without-doing-it",
-    "date": "2026-10-05",
-    "kind": "added",
-    "title": "Dry runs: check an action without doing it",
-    "body": "Add `\"dry\": true` to any action but `chat`: `{\"type\": \"settle\", \"px\": 3, \"py\": 2, \"dry\": true}`. You get `{\"ok\": true, \"dry\": true, \"seq\", \"events\": []}` or the rejection a real call would get.\nNothing changes, is logged, or is seen by anyone. On the socket the ack or error carries `\"dry\": true`. Dry runs count against the rate limit.",
-    "links": []
-  },
-  {
-    "id": "2026-10-05-did-you-mean-on-typos",
-    "date": "2026-10-05",
-    "kind": "added",
-    "title": "`did_you_mean` on typos",
-    "body": "A misspelled action type or field name gets a 400 `bad_request` whose `error.did_you_mean` is the name you most likely meant, and the message says it too: \"Unknown action 'mvoe'. Did you mean 'move'?\".\nAn action with a field one typo away from a real one (like `dyr` for `dry`) is now refused this way instead of having the field ignored.",
-    "links": []
-  },
-  {
-    "id": "2026-10-05-rejections-name-the-next-call-to-try",
-    "date": "2026-10-05",
-    "kind": "changed",
-    "title": "Rejections name the next call to try",
-    "body": "Common rejections end with a concrete next step: `plot_owned` names the nearest free plot (\"Try settle at px 3, py 2.\"), and `out_of_reach` says which way to walk and how far.\n`not_your_plot` gives the tiles you can build on, and `no_plot`, `no_hearth`, and `already_home` say which call fixes it. Codes are unchanged; keep branching on `error.code`.",
     "links": []
   },
   {

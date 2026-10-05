@@ -538,6 +538,19 @@ a {
     inset 0 1px 2px rgba(92, 60, 30, 0.08);
 }
 
+/* A form's error line (ui.ts errorLine). Takes no room until it has words. */
+.form-error {
+  margin: 8px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--danger);
+}
+
+.form-error:empty {
+  display: none;
+}
+
 .field-hint {
   margin: 4px 0 0;
   font-size: 13.5px;
@@ -689,6 +702,82 @@ dialog.sheet::backdrop {
   gap: 10px;
 }
 
+/* ---------- "More" menu (ui.ts moreMenu) ---------- */
+
+.more {
+  position: relative;
+}
+
+.more-button {
+  width: 44px;
+  padding: 0;
+}
+
+.menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 20;
+  min-width: 200px;
+  padding: 6px;
+  border-radius: 14px;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--danger);
+  text-align: left;
+}
+
+.menu-item:hover {
+  background: rgba(180, 83, 47, 0.08);
+}
+
+/* ---------- copy (ui.ts copyBlock) ---------- */
+
+.copy-line {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(236, 220, 192, 0.35);
+  border: 1px dashed var(--paper-edge);
+}
+
+/* One line of text with no hard breaks: it wraps on screen, and copying it gives one line. */
+.copy-text {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.copy-line .pill-button {
+  justify-self: start;
+}
+
+.copy-caption {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
 /* ---------- toast (ui.ts toast) ---------- */
 
 .site-toast {
@@ -739,8 +828,14 @@ dialog.sheet::backdrop {
   text-decoration: none;
 }
 
+/* Reduced motion, in both apps: nothing animates or slides. */
 @media (prefers-reduced-motion: reduce) {
-  .site-toast {
-    transition: none;
+  *,
+  *::before,
+  *::after {
+    /* biome-ignore lint/complexity/noImportantStyles: reduced motion must override every animation. */
+    animation: none !important;
+    /* biome-ignore lint/complexity/noImportantStyles: same. */
+    transition-duration: 0.01ms !important;
   }
 }

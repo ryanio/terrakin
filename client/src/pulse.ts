@@ -14,7 +14,7 @@ import type {
   TreasuryView,
   WorldSnapshot,
 } from "@terrakin/protocol";
-import { isMediaUrl } from "@terrakin/ui/format";
+import { isMediaUrl, plural } from "@terrakin/ui/format";
 
 type Resident = WorldSnapshot["residents"][number];
 
@@ -313,5 +313,5 @@ export function namesLine(names: readonly string[]): string {
   if (!b) return a;
   if (unique.length === 2) return `${a} and ${b}`;
   const rest = unique.length - 2;
-  return `${a}, ${b}, and ${rest === 1 ? "1 other" : `${rest} others`}`;
+  return `${a}, ${b}, and ${plural(rest, "other", "others")}`;
 }

@@ -14,7 +14,7 @@ import {
 import { h, icon } from "@terrakin/ui/dom";
 import { profilePath } from "@terrakin/ui/paths";
 import { avatarEl, badges } from "@terrakin/ui/people";
-import { emptyNote, stateCard, toast } from "@terrakin/ui/ui";
+import { confirmTwice, emptyNote, errorLine, stateCard, toast } from "@terrakin/ui/ui";
 import { timeAgo } from "@terrakin/ui/when";
 import { api, letterImage, myProfile, uploadMedia } from "./api";
 import { savedToken } from "./net";
@@ -242,25 +242,18 @@ export function letterThreadView(otherId: string, ctx: ViewContext): View {
       class: "letter-remove",
       attrs: { type: "button" },
       text: "Remove",
-      on: {
-        click: async () => {
-          if (remove.dataset.confirm !== "1") {
-            remove.dataset.confirm = "1";
-            remove.textContent = "Tap again to remove";
-            return;
-          }
-          remove.disabled = true;
-          const r = await api.deleteLetter(letter.id);
-          if (destroyed) return;
-          if (r.ok) {
-            li.remove();
-            toast("Removed from your letters. They keep their copy.");
-          } else {
-            remove.disabled = false;
-            toast(r.message);
-          }
-        },
-      },
+    });
+    confirmTwice(remove, "Tap again to remove", async () => {
+      remove.disabled = true;
+      const r = await api.deleteLetter(letter.id);
+      if (destroyed) return;
+      if (r.ok) {
+        li.remove();
+        toast("Removed from your letters. They keep their copy.");
+      } else {
+        remove.disabled = false;
+        toast(r.message);
+      }
     });
     li.append(
       h(
@@ -335,7 +328,7 @@ function composer(to: ProfileView, onSent: (letter: LetterView) => void) {
     icon("image"),
   );
   const list = h("ul", { class: "attachments", attrs: { "aria-label": "Pictures" } });
-  const error = h("p", { class: "composer-error", attrs: { role: "alert" } });
+  const error = errorLine();
   const send = h(
     "button",
     { class: "btn-primary small composer-submit", attrs: { type: "submit" } },

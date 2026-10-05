@@ -1,4 +1,5 @@
 import type { AuthorView, LetterView } from "@terrakin/protocol";
+import { badgeText } from "@terrakin/ui/format";
 import { describe, expect, it } from "vitest";
 import { PROMPT_INTERESTS, PROMPT_NAMES, PROMPT_PATTERN, promptAt, promptLine } from "./prompts";
 import { matchRoute, routeTemplate } from "./router";
@@ -9,7 +10,6 @@ import {
   isLetterMediaUrl,
   reusableInvite,
   streakLine,
-  unreadBadge,
 } from "./together";
 
 const person = (id: string, name: string): AuthorView => ({
@@ -72,10 +72,11 @@ describe("letters", () => {
     );
   });
 
-  it("keeps the unread badge small", () => {
-    expect(unreadBadge(0)).toBe("");
-    expect(unreadBadge(3)).toBe("3");
-    expect(unreadBadge(12)).toBe("9+");
+  it("caps a badge count at 99+", () => {
+    expect(badgeText(0)).toBe("");
+    expect(badgeText(3)).toBe("3");
+    expect(badgeText(99)).toBe("99");
+    expect(badgeText(120)).toBe("99+");
   });
 });
 

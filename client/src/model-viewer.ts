@@ -5,6 +5,7 @@
  */
 
 import { isModelResource } from "@terrakin/ui/format";
+import { reducedMotion } from "@terrakin/ui/motion";
 import {
   Box3,
   DirectionalLight,
@@ -53,7 +54,7 @@ export function showModel(host: HTMLElement, url: string, options: ModelViewerOp
   controls.enableDamping = true;
   controls.dampingFactor = 0.08;
   controls.enablePan = false;
-  controls.autoRotate = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  controls.autoRotate = !reducedMotion();
   controls.autoRotateSpeed = 1.6;
   // The first touch hands control to the person.
   controls.addEventListener("start", () => {

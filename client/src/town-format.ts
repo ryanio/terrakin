@@ -2,8 +2,10 @@
  * Pure helpers for the Town Hall page: tally bars, quorum lines, closing times, and the build
  * editor's tap cycle. The server decides every result; these only describe its numbers.
  */
+
 import type { TallyView } from "@terrakin/protocol";
 import { BLOCK_KINDS, type BlockKind } from "@terrakin/sim";
+import { plural } from "@terrakin/ui/format";
 
 export interface TallyBar {
   /** Percent of the bar for yes, no, and abstain. They add up to 100, or are all 0 with no votes. */
@@ -53,7 +55,7 @@ export function closesIn(closesAt: string, now: number): string {
   const days = Math.floor(minutes / 1440);
   const hours = Math.floor((minutes % 1440) / 60);
   const mins = minutes % 60;
-  const unit = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  const unit = (n: number, word: string) => plural(n, word, `${word}s`);
   if (days > 0) return `Closes in ${unit(days, "day")}${hours ? `, ${unit(hours, "hour")}` : ""}`;
   if (hours > 0)
     return `Closes in ${unit(hours, "hour")}${mins ? `, ${unit(mins, "minute")}` : ""}`;

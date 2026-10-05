@@ -68,7 +68,7 @@ test("an eligible resident proposes a fountain, the town votes it in, and it's b
 
   // Draw a glass fountain on the map of the Commons: three taps go wood, stone, glass.
   await page.click("#town-propose");
-  await page.click('[data-kind="commons_build"]');
+  await page.click('.kind-row [data-value="commons_build"]');
   await page.fill("#propose-title", "A fountain");
   await page.fill("#propose-text", "Glass water by the south path, for <b>everyone</b>.");
   for (const [x, y] of FOUNTAIN) {

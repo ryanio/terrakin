@@ -45,6 +45,12 @@ export function compactCount(n: number): string {
   );
 }
 
+/** A count on a badge: "3", or "99+" past 99. Empty for none. */
+export function badgeText(n: number): string {
+  if (n <= 0) return "";
+  return n > 99 ? "99+" : String(n);
+}
+
 /** "1 reply", "3 replies". */
 export function plural(n: number, one: string, many: string): string {
   return `${compactCount(n)} ${n === 1 ? one : many}`;

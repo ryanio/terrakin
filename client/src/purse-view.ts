@@ -4,11 +4,11 @@
  */
 import type { PurseLine, PurseResponse } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
-import { compactCount } from "@terrakin/ui/format";
+import { compactCount, plural } from "@terrakin/ui/format";
 import { profilePath } from "@terrakin/ui/paths";
 import { avatarEl } from "@terrakin/ui/people";
-import { stateCard, toast } from "@terrakin/ui/ui";
-import { api } from "./api";
+import { stateCard, toast, whileBusy } from "@terrakin/ui/ui";
+import { actProblem, api } from "./api";
 import { savedToken } from "./net";
 import { coins, refreshPurse } from "./purse";
 import { errorCard, type View, type ViewContext } from "./view";
@@ -66,7 +66,7 @@ function streakText(streak: number, streakDays: number, bonus: number): string {
   if (streak <= 0) return "Come home today to start a streak.";
   if (streak >= streakDays) return `${streak} days in a row: +${bonus} a day on top.`;
   const left = streakDays - streak;
-  return `${streak} ${streak === 1 ? "day" : "days"} in a row. ${left} more for +${bonus} a day.`;
+  return `${plural(streak, "day", "days")} in a row. ${left} more for +${bonus} a day.`;
 }
 
 export function purseView(ctx: ViewContext): View {
@@ -111,12 +111,10 @@ export function purseView(ctx: ViewContext): View {
       text: `Come home for ${coins(rules.allowance)}`,
     });
     home.addEventListener("click", async () => {
-      home.disabled = true;
-      const r = await api.act({ type: "home" });
+      const r = await whileBusy(home, () => api.act({ type: "home" }));
       if (destroyed) return;
-      home.disabled = false;
-      if (!r.ok) return toast(r.message);
-      if (!r.data.ok) return toast(r.data.error.message);
+      const problem = actProblem(r);
+      if (problem) return toast(problem);
       refreshPurse(true);
       void load();
     });

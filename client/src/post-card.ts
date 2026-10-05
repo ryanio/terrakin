@@ -8,9 +8,10 @@ import { h, icon } from "@terrakin/ui/dom";
 import { compactCount, plural } from "@terrakin/ui/format";
 import { mediaGrid } from "@terrakin/ui/media";
 import { appendRichText } from "@terrakin/ui/mentions";
+import { replay } from "@terrakin/ui/motion";
 import { postPath, profilePath } from "@terrakin/ui/paths";
 import { avatarEl, quoteEmbed, who } from "@terrakin/ui/people";
-import { openPopover, shareLink, toast } from "@terrakin/ui/ui";
+import { moreMenu, openPopover, shareLink, toast } from "@terrakin/ui/ui";
 import { timeAgo } from "@terrakin/ui/when";
 import { api, myProfile } from "./api";
 import { openQuoteComposer } from "./composer";
@@ -55,9 +56,6 @@ export function postCard(post: PostView, options: PostCardOptions = {}): HTMLEle
   const postHref = postPath(post.id);
 
   const time = timeAgo(post.createdAt, { full: options.focus });
-  const timeLink = h("a", { class: "post-time", attrs: { href: postHref } }, time);
-  // On its own page the full date sits under the text, so it never crowds out the name.
-  if (options.focus) timeLink.classList.add("post-stamp");
 
   const reposter = post.repostedBy
     ? h(
@@ -77,7 +75,7 @@ export function postCard(post: PostView, options: PostCardOptions = {}): HTMLEle
       avatarEl(author),
     ),
     who(author, authorHref),
-    options.focus ? null : timeLink,
+    h("a", { class: "post-time", attrs: { href: postHref } }, time),
   );
 
   const text = appendRichText(h("p", { class: "post-text" }), post.text, post.mentions);
@@ -160,7 +158,6 @@ export function postCard(post: PostView, options: PostCardOptions = {}): HTMLEle
     head,
     context,
     warned ? contentWarning(body) : body,
-    options.focus ? timeLink : null,
     ...actions(post, options),
   );
   if (options.variant === "quote")
@@ -193,45 +190,24 @@ function contentWarning(body: HTMLElement): HTMLElement {
 }
 
 /** "…" with Report, on posts that aren't yours. */
-function moreMenu(post: PostView): HTMLElement | null {
+function postMore(post: PostView): HTMLElement | null {
   if (post.author.id === savedResidentId()) return null;
-  const menuId = `post-more-${post.id}`;
-  const button = h(
-    "button",
-    {
-      class: "post-action post-more-button",
-      attrs: {
-        type: "button",
-        "aria-label": "More",
-        "aria-haspopup": "true",
-        "aria-expanded": "false",
-        "aria-controls": menuId,
-      },
-    },
-    icon("more"),
-  );
   const report = h("button", {
     class: "menu-item",
     attrs: { type: "button" },
     text: "Report post",
   });
-  const menu = h("div", { class: "paper menu", attrs: { id: menuId, hidden: true } }, report);
-  const wrap = h("div", { class: "more post-more-wrap" }, button, menu);
-  const outside = (e: PointerEvent) => {
-    if (!(e.target instanceof Node && wrap.contains(e.target))) setOpen(false);
-  };
-  const setOpen = (open: boolean) => {
-    menu.hidden = !open;
-    button.setAttribute("aria-expanded", String(open));
-    if (open) document.addEventListener("pointerdown", outside);
-    else document.removeEventListener("pointerdown", outside);
-  };
-  button.addEventListener("click", () => setOpen(menu.hidden === true));
+  const menu = moreMenu({
+    id: `post-more-${post.id}`,
+    items: [report],
+    buttonClass: "post-action post-more-button",
+    className: "post-more-wrap",
+  });
   report.addEventListener("click", () => {
-    setOpen(false);
+    menu.close();
     openReportSheet({ kind: "post", id: post.id, label: "post" });
   });
-  return wrap;
+  return menu.el;
 }
 
 /** Long-press this long on the like button to pick another reaction. */
@@ -313,9 +289,7 @@ function actions(post: PostView, options: PostCardOptions): HTMLElement[] {
     applyReaction(post, key, on);
     paintReactions();
     if (key === "heart" && on) {
-      like.classList.remove("pop");
-      void like.offsetWidth;
-      like.classList.add("pop");
+      replay(like, "pop");
     }
     // Hearts go through the like route, so older servers understand them too.
     const r = key === "heart" ? await api.like(post.id, on) : await api.react(post.id, key, on);
@@ -507,7 +481,7 @@ function actions(post: PostView, options: PostCardOptions): HTMLElement[] {
   paintReactions();
   paintRepost();
   bar.append(like, react, reply, repost, share);
-  const more = moreMenu(post);
+  const more = postMore(post);
   if (more) bar.append(more);
   return [chips, bar];
 }

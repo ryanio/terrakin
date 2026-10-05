@@ -518,9 +518,6 @@ describe("reply parents", () => {
     // The thread page already shows the parent, so replies there don't repeat it.
     const thread = (await call("GET", `/v1/posts/${original.id}`)).body.replies;
     expect(thread[0].parent).toBeUndefined();
-    // A reply's own page carries what it answers.
-    const own = (await call("GET", `/v1/posts/${reply.id}`)).body.post;
-    expect(own.parent).toMatchObject({ id: original.id, text: "the cafe opens at noon" });
 
     // Someone who blocked Wren sees the parent as gone, not Wren's words.
     const reader = await join("Reader");

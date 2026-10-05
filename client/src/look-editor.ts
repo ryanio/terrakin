@@ -21,8 +21,8 @@ import {
 import { h, icon } from "@terrakin/ui/dom";
 import { type FullLook, paintFigure } from "@terrakin/ui/figure";
 import { lookImage, lookPalette, mediaUrlOf, onLookImage, PatternCache } from "@terrakin/ui/looks";
-import { closeOverlay, openOverlay, toast } from "@terrakin/ui/ui";
-import { api, uploadMedia } from "./api";
+import { closeOverlay, errorLine, openOverlay, toast, whileBusy } from "@terrakin/ui/ui";
+import { actProblem, api, uploadMedia } from "./api";
 
 export interface LookOwner {
   color: ResidentColor;
@@ -339,7 +339,7 @@ export function openLookEditor(owner: LookOwner, onSaved: (look: LookView) => vo
   lookImage(draft.patternMedia ?? undefined);
 
   // ---- save ----
-  const error = h("p", { class: "error", attrs: { role: "alert" } });
+  const error = errorLine();
   const saveLabel = h("span", { text: "Save my look" });
   const save = h(
     "button",
@@ -365,19 +365,17 @@ export function openLookEditor(owner: LookOwner, onSaved: (look: LookView) => vo
       closeOverlay();
       return;
     }
-    save.disabled = true;
-    saveLabel.textContent = "Saving…";
     error.textContent = "";
-    const result = await api.act({ type: "profile", ...changes });
-    save.disabled = false;
-    saveLabel.textContent = "Save my look";
+    const result = await whileBusy(
+      save,
+      () => api.act({ type: "profile", ...changes }),
+      "Saving…",
+      saveLabel,
+    );
     // A 200 can still be the world saying no (an unknown theme, an upload that isn't yours).
-    if (!result.ok || !result.data.ok) {
-      error.textContent = result.ok
-        ? result.data.ok
-          ? ""
-          : result.data.error.message
-        : result.message;
+    const problem = actProblem(result);
+    if (problem) {
+      error.textContent = problem;
       return;
     }
     const look = viewOf(draft);

@@ -13,32 +13,34 @@ import {
   type ProfileView,
   type ResidentBrief,
 } from "@terrakin/protocol";
-import {
-  NOTE_MAX_LENGTH,
-  PATTERN_LABELS,
-  RESIDENT_COLORS,
-  RESIDENT_SHAPES,
-  THEME_INFO,
-  WEAR_INFO,
-} from "@terrakin/sim";
+import { NOTE_MAX_LENGTH, PATTERN_LABELS, THEME_INFO, WEAR_INFO } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
 import { compactCount, isMediaUrl, plural } from "@terrakin/ui/format";
 import { mediaUrlOf } from "@terrakin/ui/looks";
 import { openImage, openModelViewer } from "@terrakin/ui/media";
 import { plot3dPath, profilePath } from "@terrakin/ui/paths";
 import { avatarEl, badges, ownerLine, TOWNSFOLK_ABOUT } from "@terrakin/ui/people";
-import { copyText, emptyNote, toast } from "@terrakin/ui/ui";
-import { api, forgetMe, myProfile, rememberMyProfile, uploadMedia } from "./api";
+import {
+  confirmTwice,
+  copyButton,
+  emptyNote,
+  errorLine,
+  moreButton,
+  moreMenu,
+  toast,
+  whileBusy,
+} from "@terrakin/ui/ui";
+import { actProblem, api, forgetMe, myProfile, rememberMyProfile, uploadMedia } from "./api";
 import { bannerArt } from "./banner-art";
 import { syncPost } from "./feed-view";
 import { openInviteDialog } from "./invite-share";
-import { joinForm, tokenPreview } from "./join-form";
+import { colorChips, joinForm, shapeChips, tokenPreview } from "./join-form";
 import { lettersPath } from "./letters-view";
 import { openLookEditor } from "./look-editor";
 import { savedToken, saveToken } from "./net";
 import { agentItem, type OwnerPanel, ownerPanel } from "./owner-panel";
 import { postCard, skeletonCards } from "./post-card";
-import { refreshPurse } from "./purse";
+import { coins, refreshPurse } from "./purse";
 import { openReportSheet } from "./report-sheet";
 import { GESTURES, gestureInfo, streakLine } from "./together";
 import { errorCard, notFoundCard, type View, type ViewContext } from "./view";
@@ -146,29 +148,17 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       list.append(
         emptyNote("No posts yet", `When ${name} shares something, it will show up here.`),
       );
-    const more = h("button", {
-      class: "pill-button load-more",
-      attrs: { type: "button" },
-      text: "Show more posts",
-    });
-    const foot = h("div", { class: "feed-foot" }, more);
-    more.hidden = next === null;
-    more.addEventListener("click", async () => {
+    const more = moreButton("Show more posts", async () => {
       if (!next) return;
-      more.disabled = true;
-      more.textContent = "Loading…";
       const r = await api.residentPosts(id, next);
       if (destroyed) return;
-      more.disabled = false;
-      more.textContent = "Show more posts";
-      if (!r.ok) {
-        more.textContent = "Couldn't load more. Try again";
-        return;
-      }
+      if (!r.ok) return r.message;
       add(r.data.posts);
       next = r.data.next;
-      more.hidden = next === null;
+      more.el.hidden = next === null;
     });
+    more.el.hidden = next === null;
+    const foot = h("div", { class: "feed-foot" }, more.el);
     el.append(foot);
   }
 
@@ -200,23 +190,14 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
     const copyLabel = h("span", { text: "Copy link" });
     const copy = h(
       "button",
-      {
-        class: "pill-button small",
-        attrs: { type: "button" },
-        on: {
-          click: async () => {
-            const ok = await copyText(new URL(profilePath(r.id), location.origin).href);
-            copyLabel.textContent = ok ? "Copied" : "Copy link";
-            if (!ok) toast("Couldn't copy the link");
-            setTimeout(() => {
-              copyLabel.textContent = "Copy link";
-            }, 2000);
-          },
-        },
-      },
+      { class: "pill-button small", attrs: { type: "button" } },
       icon("link"),
       copyLabel,
     );
+    copyButton(copy, copyLabel, () => new URL(profilePath(r.id), location.origin).href, {
+      idle: "Copy link",
+      failed: "Couldn't copy the link",
+    });
     // Their plot in 3D. The page says so kindly if they haven't settled one yet.
     const visit = h(
       "a",
@@ -233,8 +214,8 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
         if (destroyed || !me) return;
         if (me.id === r.id) {
           banner.editable();
-          name.append(h("span", { class: "you-tag", text: "This is you" }));
           actions.prepend(
+            h("span", { class: "you-tag", text: "This is you" }),
             h(
               "button",
               {
@@ -247,19 +228,17 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
             ),
           );
           x.paint(true);
-          handleWrap.append(handleButton(r, handleLine, handleWrap));
+          actions.prepend(handleButton(r, handleLine, card));
           return;
         }
         actions.prepend(followButton(r, paintCounts));
-        actions.append(moreMenu(r));
+        actions.append(profileMore(r));
       });
     }
 
     const name = h("h1", { class: "profile-name" }, h("span", { text: r.name }), ...badges(r));
     const handleLine = h("p", { class: "profile-handle", text: r.handle ? `@${r.handle}` : "" });
     handleLine.hidden = !r.handle;
-    // On your own profile the button to pick or change it sits on this line too.
-    const handleWrap = h("div", { class: "profile-handle-line" }, handleLine);
     const status = h(
       "p",
       { class: `presence${r.online ? " online" : ""}` },
@@ -273,7 +252,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       banner.el,
       h("div", { class: "profile-top" }, profileAvatar(r), actions),
       name,
-      handleWrap,
+      handleLine,
       r.townsfolk ? null : ownerLine(r, "profile-owner"),
       r.townsfolk ? h("p", { class: "townsfolk-note", text: TOWNSFOLK_ABOUT }) : null,
       r.suspended
@@ -368,9 +347,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
     paint();
 
     async function save(banner: string | null, busy: HTMLButtonElement) {
-      busy.disabled = true;
-      const res = await api.updateProfile({ banner });
-      busy.disabled = false;
+      const res = await whileBusy(busy, () => api.updateProfile({ banner }));
       if (destroyed) return;
       if (!res.ok) {
         toast(res.message);
@@ -487,7 +464,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
   }
 
   /** On your own profile: pick a handle, or change it (the server enforces the weekly limit). */
-  function handleButton(r: ProfileView, line: HTMLElement, wrap: HTMLElement): HTMLElement {
+  function handleButton(r: ProfileView, line: HTMLElement, card: HTMLElement): HTMLElement {
     const label = h("span", { text: r.handle ? "Change handle" : "Pick a handle" });
     const b = h(
       "button",
@@ -512,7 +489,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
         "aria-describedby": "handle-hint handle-error",
       },
     });
-    const error = h("p", { class: "composer-error", attrs: { id: "handle-error", role: "alert" } });
+    const error = errorLine("handle-error");
     const save = h("button", {
       class: "btn-primary small",
       attrs: { type: "submit" },
@@ -530,7 +507,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       }),
       error,
     );
-    wrap.after(form);
+    card.append(form);
     b.addEventListener("click", () => {
       form.hidden = !form.hidden;
       b.setAttribute("aria-expanded", String(!form.hidden));
@@ -547,9 +524,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
           "A handle is 3 to 20 letters, numbers, or underscores, and starts with a letter.";
         return;
       }
-      save.disabled = true;
-      const res = await api.updateProfile({ handle: parsed.data });
-      save.disabled = false;
+      const res = await whileBusy(save, () => api.updateProfile({ handle: parsed.data }));
       if (destroyed) return;
       if (!res.ok) {
         error.textContent = res.message;
@@ -765,19 +740,14 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
         return;
       }
       const text = note.value.trim();
-      give.disabled = true;
-      const res = await api.act({
-        type: "give_coins",
-        to: r.id,
-        amount: n,
-        ...(text ? { note: text } : {}),
-      });
-      give.disabled = false;
+      const res = await whileBusy(give, () =>
+        api.act({ type: "give_coins", to: r.id, amount: n, ...(text ? { note: text } : {}) }),
+      );
       if (destroyed) return;
-      if (!res.ok) return toast(res.message);
-      if (!res.data.ok) return toast(res.data.error.message);
+      const problem = actProblem(res);
+      if (problem) return toast(problem);
       floatUp(open, "🪙");
-      toast(`You gave ${n === 1 ? "1 coin" : `${n} coins`} to ${r.name}`);
+      toast(`You gave ${coins(n)} to ${r.name}`);
       note.value = "";
       form.hidden = true;
       open.setAttribute("aria-expanded", "false");
@@ -788,77 +758,46 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
   }
 
   /** "…" with Block (or Unblock). The first tap asks, the second does it. */
-  function moreMenu(r: ProfileView): HTMLElement {
-    const button = h(
-      "button",
-      {
-        class: "pill-button small more-button",
-        attrs: {
-          type: "button",
-          "aria-label": "More",
-          "aria-haspopup": "true",
-          "aria-expanded": "false",
-          "aria-controls": "profile-more",
-        },
-      },
-      icon("more"),
-    );
+  function profileMore(r: ProfileView): HTMLElement {
     const blockItem = h("button", { class: "menu-item", attrs: { type: "button" } });
     const reportItem = h("button", {
       class: "menu-item",
       attrs: { type: "button" },
       text: `Report ${r.name}`,
     });
-    const menu = h(
-      "div",
-      { class: "paper menu", attrs: { id: "profile-more", hidden: true } },
-      blockItem,
-      reportItem,
-    );
-    const paint = () => {
-      blockItem.dataset.confirm = "";
-      blockItem.textContent = r.blocked ? `Unblock ${r.name}` : `Block ${r.name}`;
-    };
-    const setOpen = (open: boolean) => {
-      menu.hidden = !open;
-      button.setAttribute("aria-expanded", String(open));
-      if (!open) paint();
-    };
-    paint();
-    button.addEventListener("click", () => setOpen(menu.hidden === true));
+    blockItem.textContent = r.blocked ? `Unblock ${r.name}` : `Block ${r.name}`;
+    const menu = moreMenu({
+      id: "profile-more",
+      items: [blockItem, reportItem],
+      onClose: () => disarm(),
+    });
     reportItem.addEventListener("click", () => {
-      setOpen(false);
+      menu.close();
       openReportSheet({ kind: "resident", id: r.id, label: "profile" });
     });
-    blockItem.addEventListener("click", async () => {
-      if (!r.blocked && blockItem.dataset.confirm !== "1") {
-        blockItem.dataset.confirm = "1";
-        blockItem.textContent = "Tap again to block";
-        return;
-      }
-      blockItem.disabled = true;
-      const res = await api.block(r.id, !r.blocked);
-      blockItem.disabled = false;
+    const disarm = confirmTwice(
+      blockItem,
+      "Tap again to block",
+      () => void block(),
+      () => !r.blocked,
+    );
+    const block = async () => {
+      const res = await whileBusy(blockItem, () => api.block(r.id, !r.blocked));
       if (destroyed) return;
       if (!res.ok) {
         toast(res.message);
         return;
       }
-      setOpen(false);
+      menu.close();
       toast(
         res.data.resident.blocked
           ? "Blocked. No letters or gestures between you, and their posts leave your feed."
           : "Unblocked.",
       );
       void load();
-    });
-    const wrap = h("div", { class: "more" }, button, menu);
-    const outside = (e: PointerEvent) => {
-      if (!menu.hidden && !(e.target instanceof Node && wrap.contains(e.target))) setOpen(false);
     };
-    document.addEventListener("pointerdown", outside);
-    cleanups.push(() => document.removeEventListener("pointerdown", outside));
-    return wrap;
+    cleanups.push(menu.close);
+    return menu.el;
   }
 
   // ---------- visitors: join and follow ----------
@@ -935,12 +874,10 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       icon("copy"),
       copyLabel,
     );
-    copy.addEventListener("click", async () => {
-      const ok = await copyText(token);
-      copyLabel.textContent = ok ? "Copied. Keep it private" : "Couldn't copy";
-      setTimeout(() => {
-        copyLabel.textContent = "Copy key";
-      }, 2600);
+    copyButton(copy, copyLabel, () => token, {
+      idle: "Copy key",
+      copied: "Copied. Keep it private",
+      failed: "Couldn't copy. Show the key and copy it from there.",
     });
     return h(
       "section",
@@ -968,56 +905,20 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
     let color = r.color;
     let shape = r.shape;
     const preview = tokenPreview(color, shape, r.name, r.look);
-    const pick = <T extends string>(
-      options: readonly T[],
-      current: T,
-      draw: (value: T) => HTMLElement,
-      set: (v: T) => void,
-    ) => {
-      const row = h("div", { class: "swatch-row" });
-      for (const value of options) {
-        const b = h(
-          "button",
-          { attrs: { type: "button", "aria-pressed": String(value === current) } },
-          draw(value),
-          h("span", { class: "swatch-name", text: value }),
-        );
-        b.addEventListener("click", () => {
-          set(value);
-          for (const other of row.children) other.setAttribute("aria-pressed", String(other === b));
-          preview.paint(color, shape, r.name, r.look);
-        });
-        row.append(b);
-      }
-      return row;
-    };
-    const shapes = pick(
-      RESIDENT_SHAPES,
-      shape,
-      (s) => h("span", { class: `shape-dot ${s}`, attrs: { "aria-hidden": "true" } }),
-      (v) => {
-        shape = v;
-      },
-    );
-    shapes.classList.add("shape-row");
-    const colors = pick(
-      RESIDENT_COLORS,
-      color,
-      (c) => {
-        const dot = h("span", { class: "swatch-dot" });
-        dot.style.background = `var(--resident-${c})`;
-        return dot;
-      },
-      (v) => {
-        color = v;
-      },
-    );
+    const shapes = shapeChips(shape, (v) => {
+      shape = v;
+      preview.paint(color, shape, r.name, r.look);
+    }).row;
+    const colors = colorChips(color, (v) => {
+      color = v;
+      preview.paint(color, shape, r.name, r.look);
+    }).row;
     const note = h("input", {
       class: "field-input",
       attrs: { id: "look-note", maxlength: NOTE_MAX_LENGTH, autocomplete: "off" },
     });
     note.value = r.note;
-    const error = h("p", { class: "error", attrs: { role: "alert" } });
+    const error = errorLine();
     const save = h("button", {
       class: "btn-primary small",
       attrs: { type: "submit" },
@@ -1094,13 +995,11 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
         error.textContent = "Nothing to change yet. Pick a new color, shape, or note.";
         return;
       }
-      save.disabled = true;
-      const res = await api.setLook(changes);
-      save.disabled = false;
+      const res = await whileBusy(save, () => api.setLook(changes));
       if (destroyed) return;
-      const refused = res.ok && !res.data.ok ? res.data.error.message : null;
-      if (!res.ok || refused) {
-        error.textContent = res.ok ? (refused ?? "") : res.message;
+      const problem = actProblem(res);
+      if (problem) {
+        error.textContent = problem;
         return;
       }
       toast("Saved. Everyone sees your new look.");

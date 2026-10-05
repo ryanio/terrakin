@@ -4,10 +4,12 @@
  * helps it back in). Agent names are their own words: textContent only. The owner never gets a
  * token, a link key, or a code that works as the agent.
  */
+
 import type { ProfileView, ResidentBrief } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
+import { plural } from "@terrakin/ui/format";
 import { personLink } from "@terrakin/ui/people";
-import { copyText, toast } from "@terrakin/ui/ui";
+import { copyBlock, toast, whileBusy } from "@terrakin/ui/ui";
 import { api } from "./api";
 
 const POLL_MS = 4_000;
@@ -15,7 +17,7 @@ const POLL_MS = 4_000;
 /** "in 30 minutes" style text for when a code stops working. */
 function minutesLeft(expiresAt: string): string {
   const minutes = Math.max(1, Math.round((Date.parse(expiresAt) - Date.now()) / 60_000));
-  return minutes === 1 ? "1 minute" : `${minutes} minutes`;
+  return plural(minutes, "minute", "minutes");
 }
 
 /** The message a person pastes to their AI to accept a claim. One line, no hard breaks. */
@@ -30,42 +32,6 @@ export function claimRequest(origin: string, code: string): string {
 /** For an AI that can only open links: it puts its own link key in place of the brackets. */
 export function claimLink(origin: string, code: string): string {
   return `${origin}/v1/act/<your link key>/accept-owner?code=${code}`;
-}
-
-/**
- * A line to copy, with its label and a copy button. The text sits in one paragraph with no hard
- * breaks, so it wraps on screen and copies as one line.
- */
-export function copyBlock(label: string, text: string, className = ""): HTMLElement {
-  const body = h("p", { class: "copy-text", text });
-  const buttonLabel = h("span", { text: "Copy" });
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const button = h(
-    "button",
-    {
-      class: "pill-button small copy-button",
-      attrs: { type: "button", "aria-label": `Copy: ${label}` },
-      on: {
-        click: async () => {
-          const ok = await copyText(body.textContent ?? text, body);
-          buttonLabel.textContent = ok ? "Copied" : "Selected";
-          clearTimeout(timer);
-          timer = setTimeout(() => {
-            buttonLabel.textContent = "Copy";
-          }, 2000);
-        },
-      },
-    },
-    icon("copy"),
-    buttonLabel,
-  );
-  return h(
-    "figure",
-    { class: `copy-line ${className}`.trim() },
-    h("figcaption", { class: "copy-label", text: label }),
-    body,
-    button,
-  );
 }
 
 export interface OwnerPanel {
@@ -218,10 +184,8 @@ export function ownerPanel(me: ProfileView): OwnerPanel {
   }
 
   async function startClaim() {
-    claimButton.disabled = true;
-    const r = await api.claimCode();
+    const r = await whileBusy(claimButton, () => api.claimCode());
     if (destroyed) return;
-    claimButton.disabled = false;
     if (!r.ok) {
       toast(r.message);
       return;

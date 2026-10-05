@@ -6,6 +6,7 @@ import "@fontsource-variable/figtree";
 import "@fontsource-variable/figtree/wght-italic.css";
 import { markdownTwin } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
+import { badgeText } from "@terrakin/ui/format";
 import { useModelViewer } from "@terrakin/ui/media";
 import { profilePath } from "@terrakin/ui/paths";
 import { avatarEl, avatarPlaceholder } from "@terrakin/ui/people";
@@ -25,7 +26,6 @@ import { initPurse, makePurse, refreshPurse } from "./purse";
 import { purseView } from "./purse-view";
 import { createRouter, matchRoute, type Navigation, type Route, routeTemplate } from "./router";
 import { initErrorReporting, pageView, startAnalytics } from "./telemetry";
-import { unreadBadge } from "./together";
 import { townView } from "./town-view";
 import { notFoundView, type View, type ViewContext } from "./view";
 import { view3d } from "./view-3d";
@@ -112,7 +112,7 @@ function paintHeader(route: Route) {
     return;
   }
   headerFor = token;
-  unreadCount = h("span", { class: "unread-badge", attrs: { hidden: true } });
+  unreadCount = h("span", { class: "count-badge", attrs: { "aria-hidden": "true", hidden: true } });
   lettersLink = h(
     "a",
     {
@@ -147,7 +147,7 @@ async function refreshUnread() {
   if (!badge || !link) return;
   const r = await api.letters({ limit: 1 });
   if (!r.ok || badge !== unreadCount) return;
-  const text = unreadBadge(r.data.unread);
+  const text = badgeText(r.data.unread);
   badge.textContent = text;
   badge.hidden = text === "";
   link.setAttribute("aria-label", text ? `Letters, ${r.data.unread} unread` : "Letters");

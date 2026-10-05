@@ -6,7 +6,7 @@
  */
 import type { PurseLine, PurseResponse, PurseView } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
-import { compactCount } from "@terrakin/ui/format";
+import { countTo, reducedMotion, replay, showNumber } from "@terrakin/ui/motion";
 import { api } from "./api";
 import { liveToast, snippet } from "./live-toast";
 import { savedResidentId, savedToken } from "./net";
@@ -66,7 +66,6 @@ let lastAsked = 0;
 let asking = false;
 /** A forced refresh asked for while another was in flight: run it when that one lands. */
 let again = false;
-let counting = 0;
 
 /**
  * The newest purse line this browser has announced, kept per resident, so a gift that came in
@@ -95,35 +94,10 @@ function writeSeen(who: string, seq: number) {
   }
 }
 
-const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-/** Count the number up from what's shown to `to`. */
-function countTo(to: number) {
-  const target = amount;
-  if (!target) return;
-  const from = shown;
-  shown = to;
-  cancelAnimationFrame(counting);
-  if (to <= from || reducedMotion()) {
-    target.textContent = compactCount(to);
-    return;
-  }
-  const start = performance.now();
-  const step = (t: number) => {
-    const k = Math.min(1, (t - start) / COUNT_MS);
-    const eased = 1 - (1 - k) ** 3;
-    target.textContent = compactCount(Math.round(from + (to - from) * eased));
-    if (k < 1) counting = requestAnimationFrame(step);
-  };
-  counting = requestAnimationFrame(step);
-}
-
 function glow() {
   if (!pill || reducedMotion()) return;
-  pill.classList.remove("glow");
   // Restart the animation when coins arrive twice in a row.
-  void pill.offsetWidth;
-  pill.classList.add("glow");
+  replay(pill, "glow");
   const el = pill;
   setTimeout(() => el.classList.remove("glow"), GLOW_MS);
 }
@@ -150,12 +124,12 @@ function paint(res: PurseResponse, announce: boolean) {
         : `${coins(purse.balance)}. Come home to your hearth for today's coins.`;
   pill.classList.toggle("due", waiting);
   if (rose) {
-    countTo(purse.balance);
+    countTo(amount, purse.balance, COUNT_MS);
     glow();
   } else {
-    shown = purse.balance;
-    amount.textContent = compactCount(purse.balance);
+    showNumber(amount, purse.balance);
   }
+  shown = purse.balance;
   if (!announce) return;
   for (const line of fresh.slice(-NOTICES_MAX)) {
     const note = coinNote(line);

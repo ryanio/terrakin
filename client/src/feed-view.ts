@@ -1,29 +1,22 @@
 /**
  * `/` the feed: the "bring your AI" prompt for everyone, the composer for residents, Everyone and
  * Following tabs, and the wall: posts in several formats, rollups, and pulse cards from the world
- * and the Town Hall, laid out full width. New posts arrive over a light socket while you're here
- * (`feed-live.ts`), with polling as the fallback, and live notices announce what's new. Townsfolk fill in while real activity is thin (see `pulse.ts`).
+ * and the Town Hall, laid out full width. It polls while visible and announces what's new with
+ * live notices. Townsfolk fill in while real activity is thin (see `pulse.ts`).
  */
-import type { PostMessage, PostView, TownResponse, WorldSnapshot } from "@terrakin/protocol";
+
+import type { PostView, TownResponse, WorldSnapshot } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
+import { countNew } from "@terrakin/ui/format";
+import { REDUCED_MOTION, reducedMotion } from "@terrakin/ui/motion";
 import { postPath, profilePath } from "@terrakin/ui/paths";
 import { residentPerson } from "@terrakin/ui/people";
-import { copyText, emptyNote } from "@terrakin/ui/ui";
+import { copyButton, emptyNote, moreButton } from "@terrakin/ui/ui";
 import { refreshTimes } from "@terrakin/ui/when";
 import { api, myProfile } from "./api";
 import { type Composer, composer } from "./composer";
-import {
-  EVERYONE_GAP_MS,
-  FOLLOWING_GAP_MS,
-  liveFeed,
-  newPosts,
-  PUSH_JITTER_MS,
-  pollDue,
-  refreshDelay,
-  wantsRefresh,
-} from "./feed-live";
 import { clearLiveToasts, liveToast, liveToastHost, snippet } from "./live-toast";
-import { savedResidentId, savedToken } from "./net";
+import { savedToken } from "./net";
 import { postCard, skeletonCards } from "./post-card";
 import { promptAt } from "./prompts";
 import {
@@ -51,6 +44,7 @@ import {
   townCard,
   townsfolkCard,
 } from "./pulse-cards";
+import { coins } from "./purse";
 import { copyPostState } from "./reactions";
 import { track } from "./telemetry";
 import { errorCard, type View, type ViewContext } from "./view";
@@ -148,7 +142,7 @@ function agentsCard(): { el: HTMLElement; destroy(): void } {
   });
   const label = h("span", { text: "Copy the prompt" });
   const glyph = h("span", { class: "copy-glyph" }, icon("copy"));
-  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const reduced = window.matchMedia(REDUCED_MOTION);
   let held = false;
   let stopped = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -182,31 +176,28 @@ function agentsCard(): { el: HTMLElement; destroy(): void } {
   };
   timer = setTimeout(tick, ROTATE_MS);
 
-  let copyTimer: ReturnType<typeof setTimeout> | undefined;
   const copy = h(
     "button",
     {
       class: "btn-primary hero-copy",
       attrs: { type: "button", "aria-describedby": "hero-prompt" },
-      on: {
-        click: async () => {
-          freeze();
-          // textContent, so what lands on the clipboard is exactly the one line shown.
-          const ok = await copyText(prompt.textContent ?? "", prompt);
-          label.textContent = ok ? "Copied. Paste it to your AI" : "Selected. Copy it from there";
-          glyph.replaceChildren(icon(ok ? "check" : "copy"));
-          if (ok) track("bring_ai_copy");
-          clearTimeout(copyTimer);
-          copyTimer = setTimeout(() => {
-            label.textContent = "Copy the prompt";
-            glyph.replaceChildren(icon("copy"));
-          }, 2600);
-        },
-      },
+      // Before the copy below reads the line, so the line stays put.
+      on: { click: freeze },
     },
     glyph,
     label,
   );
+  // textContent, so what lands on the clipboard is exactly the one line shown.
+  copyButton(copy, label, () => prompt.textContent ?? "", {
+    idle: "Copy the prompt",
+    copied: "Copied. Paste it to your AI",
+    selected: "Selected. Copy it from there",
+    fallback: prompt,
+    onChange: (state) => {
+      glyph.replaceChildren(icon(state === "copied" ? "check" : "copy"));
+      if (state === "copied") track("bring_ai_copy");
+    },
+  });
   const another = h("button", {
     class: "pill-button small show-another",
     attrs: { type: "button" },
@@ -274,7 +265,6 @@ function agentsCard(): { el: HTMLElement; destroy(): void } {
     destroy() {
       clearTimeout(timer);
       clearTimeout(fade);
-      clearTimeout(copyTimer);
       reduced.removeEventListener("change", paintAnother);
     },
   };
@@ -296,7 +286,7 @@ function peopleCard(feedTarget: HTMLElement): HTMLElement {
       on: {
         click: (e) => {
           e.preventDefault();
-          const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+          const smooth = !reducedMotion();
           feedTarget.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "start" });
           feedTarget.focus({ preventScroll: true });
         },
@@ -463,26 +453,16 @@ export function feedView(ctx: ViewContext): View {
   });
   if (hasToken) list.setAttribute("aria-labelledby", `tab-${state.tab}`);
   const empty = h("div", { class: "empty-slot" });
-  const more = h("button", {
-    class: "pill-button load-more",
-    attrs: { type: "button", hidden: true },
-    text: "Show more posts",
-    on: { click: () => void loadMore() },
-  });
+  const more = moreButton("Show more posts", () => loadMore());
   const end = h("p", { class: "feed-end", attrs: { hidden: true }, text: "You're all caught up." });
-  main.append(pillWrap, list, empty, h("div", { class: "feed-foot" }, more, end));
+  main.append(pillWrap, list, empty, h("div", { class: "feed-foot" }, more.el, end));
   liveToastHost();
 
   let destroyed = false;
   let loading = false;
   let generation = 0;
-  /** New posts waiting above the wall, newest first. */
   let fresh: PostView[] = [];
-  /** Set when a poll found a whole page of new posts: there may be a gap, so start over from it. */
-  let restart: { posts: PostView[]; next: string | null } | undefined;
-  let lastPoll = 0;
-  /** The one refresh pushes asked for, if it's waiting. Pushes meanwhile ride along with it. */
-  let pendingPoll: ReturnType<typeof setTimeout> | undefined;
+  let freshPage: { posts: PostView[]; next: string | null } | undefined;
   /** New posts we already announced, so a pending pill doesn't announce them every poll. */
   const announced = new Set<string>();
 
@@ -623,7 +603,7 @@ export function feedView(ctx: ViewContext): View {
                 key: `welcome:${n.line.seq}`,
                 who: r,
                 lead: r.name,
-                rest: `got a welcome gift of ${Math.abs(n.line.amount) === 1 ? "1 coin" : `${Math.abs(n.line.amount)} coins`}`,
+                rest: `got a welcome gift of ${coins(Math.abs(n.line.amount))}`,
                 href: profilePath(r.id),
                 at,
                 tone: "coins",
@@ -729,7 +709,7 @@ export function feedView(ctx: ViewContext): View {
   }
 
   function paintFoot() {
-    more.hidden = state.next === null || state.posts.length === 0;
+    more.el.hidden = state.next === null || state.posts.length === 0;
     end.hidden = state.next !== null || state.posts.length < 6;
     empty.replaceChildren(...(state.posts.length === 0 && !loading ? [feedEmpty(state.tab)] : []));
   }
@@ -740,7 +720,7 @@ export function feedView(ctx: ViewContext): View {
     list.setAttribute("aria-busy", "true");
     list.replaceChildren(...skeletonCards(6));
     empty.replaceChildren();
-    more.hidden = true;
+    more.el.hidden = true;
     end.hidden = true;
     const r = await api.feed({ following: state.tab === "following" });
     if (destroyed || gen !== generation) return;
@@ -757,21 +737,14 @@ export function feedView(ctx: ViewContext): View {
     paintFoot();
   }
 
-  async function loadMore() {
+  async function loadMore(): Promise<string | undefined> {
     if (loading || !state.next) return;
     const gen = generation;
     loading = true;
-    more.disabled = true;
-    more.textContent = "Loading…";
     const r = await api.feed({ following: state.tab === "following", before: state.next });
     loading = false;
-    more.disabled = false;
-    more.textContent = "Show more posts";
     if (destroyed || gen !== generation) return;
-    if (!r.ok) {
-      more.textContent = "Couldn't load more. Try again";
-      return;
-    }
+    if (!r.ok) return r.message;
     const seen = new Set(state.posts.map((p) => p.id));
     const added = r.data.posts.filter((p) => !seen.has(p.id));
     state.posts.push(...added);
@@ -786,7 +759,6 @@ export function feedView(ctx: ViewContext): View {
     if (tab === state.tab) return;
     state.tab = tab;
     storage.set(TAB_KEY, tab);
-    live.follow(tab === "following");
     hidePill();
     paintTabs();
     tabButtons.get(tab)?.focus();
@@ -802,7 +774,7 @@ export function feedView(ctx: ViewContext): View {
 
   function hidePill() {
     fresh = [];
-    restart = undefined;
+    freshPage = undefined;
     newPill.hidden = true;
   }
 
@@ -810,7 +782,7 @@ export function feedView(ctx: ViewContext): View {
   const atTop = () => list.getBoundingClientRect().top > 0;
 
   function scrollToWall() {
-    const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const smooth = !reducedMotion();
     feed.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "start" });
   }
 
@@ -835,56 +807,36 @@ export function feedView(ctx: ViewContext): View {
 
   async function poll() {
     if (destroyed || loading || document.visibilityState !== "visible") return;
-    lastPoll = Date.now();
     const gen = generation;
     const r = await api.feed({ following: state.tab === "following" });
     if (destroyed || gen !== generation || !r.ok) return;
     refreshTimes(feed);
-    fresh = newPosts(state.posts, r.data.posts);
-    restart = fresh.length > 0 && fresh.length >= r.data.posts.length ? r.data : undefined;
-    present();
-  }
-
-  /** Show what's in `fresh`: in place while you're at the top, or behind the "new posts" pill. */
-  function present() {
+    fresh = countNew(state.posts, r.data.posts);
+    freshPage = r.data;
     if (fresh.length === 0) {
       newPill.hidden = true;
       return;
     }
+    const full = fresh.length >= r.data.posts.length;
     announcePosts(fresh);
     // Nobody is reading below the top yet: let the new cards arrive in place.
-    if (!restart && atTop()) {
+    if (!full && atTop()) {
       showFresh(false);
       return;
     }
-    const n = restart ? `${fresh.length}+` : String(fresh.length);
+    const n = full ? `${fresh.length}+` : String(fresh.length);
     const text = newPill.querySelector("span");
-    if (text) text.textContent = `${n} new ${fresh.length === 1 && !restart ? "post" : "posts"}`;
+    if (text) text.textContent = `${n} new ${fresh.length === 1 && !full ? "post" : "posts"}`;
     newPill.hidden = false;
   }
 
-  /**
-   * A `post` message from the socket: refresh the feed once, after a short random wait and not too
-   * soon after the last poll, however many posts arrive meanwhile. The feed comes back in order
-   * and with your blocks applied, so nothing is fetched one post at a time.
-   */
-  function onPush(message: PostMessage) {
-    if (destroyed || pendingPoll) return;
-    const shown = new Set([...state.posts, ...fresh].map((p) => p.id));
-    if (!wantsRefresh(message, shown, savedResidentId())) return;
-    const gap = state.tab === "following" ? FOLLOWING_GAP_MS : EVERYONE_GAP_MS;
-    const wait = refreshDelay(lastPoll, Date.now(), Math.random() * PUSH_JITTER_MS, gap);
-    pendingPoll = setTimeout(() => {
-      pendingPoll = undefined;
-      void poll();
-    }, wait);
-  }
-
   function showFresh(scroll = true) {
-    if (fresh.length === 0) return;
-    if (restart) {
-      state.posts = restart.posts;
-      state.next = restart.next;
+    const page = freshPage;
+    if (!page) return;
+    // A whole page of new posts means there may be a gap: start over from the fresh page.
+    if (fresh.length >= page.posts.length) {
+      state.posts = page.posts;
+      state.next = page.next;
       paintAll();
     } else {
       state.posts.unshift(...fresh);
@@ -924,11 +876,7 @@ export function feedView(ctx: ViewContext): View {
     if (scroll) scrollToWall();
   }
 
-  const live = liveFeed(onPush);
-  live.follow(state.tab === "following");
-  const timer = setInterval(() => {
-    if (pollDue(live.live(), lastPoll, Date.now())) void poll();
-  }, POLL_MS);
+  const timer = setInterval(() => void poll(), POLL_MS);
   const pulseTimer = setInterval(() => void pollPulse(), PULSE_MS);
   const onVisible = () => {
     if (document.visibilityState !== "visible") return;
@@ -940,11 +888,11 @@ export function feedView(ctx: ViewContext): View {
   // Infinite paging: load the next page a little before the button scrolls into view.
   const observer = new IntersectionObserver(
     (entries) => {
-      if (entries.some((e) => e.isIntersecting)) void loadMore();
+      if (entries.some((e) => e.isIntersecting)) void more.run();
     },
     { rootMargin: "0px 0px 800px 0px" },
   );
-  observer.observe(more);
+  observer.observe(more.el);
 
   paintTabs();
   let ready: Promise<void>;
@@ -967,8 +915,6 @@ export function feedView(ctx: ViewContext): View {
       sky.destroy();
       wide.removeEventListener("change", placePulse);
       clearLiveToasts();
-      live.destroy();
-      clearTimeout(pendingPoll);
       clearInterval(timer);
       clearInterval(pulseTimer);
       document.removeEventListener("visibilitychange", onVisible);

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { apply, prepare } from "./apply";
 import { hashWorld } from "./hash";
 import { replay } from "./replay";
-import { type Command, type Input, TOWN_ACTOR, type WorldConfig, type WorldState } from "./types";
+import type { Command, Input, WorldConfig, WorldState } from "./types";
 import { CHAT_EARSHOT, createWorld, spawnTile, withinEarshot } from "./world";
 
 // 3x3 plots of 4 tiles. Commons is plot (1,1), tiles 4..7. Spawn is tile (6,6).
@@ -831,130 +831,5 @@ describe("determinism with settle, sharing, and the starter home", () => {
     expect(log).toHaveLength(script.length - 2);
     expect(state.seq).toBe(log.length);
     expect(hashWorld(replay(ROOMY, log))).toBe(hashWorld(state));
-  });
-});
-
-describe("rejections name the next call", () => {
-  /** Ada settles plot (0,0) and lands on (1,1). Bob stays at spawn (6,6), in the Commons. */
-  function neighbors() {
-    const state = joined("ada", "bob");
-    run(state, "ada", { type: "settle", px: 0, py: 0 });
-    return state;
-  }
-  /** The rejection's message, checking that the rejection changed nothing. */
-  const message = (state: WorldState, actor: string, command: Command) => {
-    const before = hashWorld(state);
-    const result = apply(state, { actor, command });
-    expect(hashWorld(state)).toBe(before);
-    return result.ok ? null : result.rejection.message;
-  };
-
-  it("out_of_reach says which way to walk and how far", () => {
-    const state = neighbors();
-    expect(message(state, "bob", { type: "place", x: 11, y: 2, block: "wood" })).toBe(
-      "You can only build within 2 tiles. Walk closer first: move e 3 times, then move n 2 times.",
-    );
-    expect(message(state, "bob", { type: "set_hearth", x: 6, y: 9 })).toBe(
-      "You can only build within 2 tiles. Walk closer first: move s once.",
-    );
-  });
-
-  it("not_your_plot names the tiles you can build on, or where to settle", () => {
-    const state = neighbors();
-    run(state, "ada", { type: "move", dir: "s" }, { type: "move", dir: "s" });
-    expect(message(state, "ada", { type: "place", x: 1, y: 4, block: "wood" })).toBe(
-      "You can only build on your own plot. You can build on x 0 to 3, y 0 to 3.",
-    );
-    expect(message(state, "ada", { type: "set_hearth", x: 1, y: 4 })).toBe(
-      "Your hearth has to be on your own plot. You can build on x 0 to 3, y 0 to 3.",
-    );
-    expect(message(state, "bob", { type: "place", x: 6, y: 7, block: "wood" })).toBe(
-      "You can only build on your own plot. You have no plot yet. Try settle at px 1, py 0.",
-    );
-  });
-
-  it("plot_owned points at the nearest free plot", () => {
-    const state = neighbors();
-    expect(message(state, "bob", { type: "settle", px: 0, py: 0 })).toBe(
-      "This plot is already claimed. Try settle at px 1, py 0.",
-    );
-    // Ada owns as many plots as she may, so a free plot would only get her plot_limit.
-    expect(message(state, "ada", { type: "claim" })).toBe(
-      "This plot is already claimed. You already own as many plots as you can.",
-    );
-    // With room for a second, settle isn't for her: she walks and claims.
-    const roomy = createWorld({ ...CONFIG, maxPlotsPerResident: 2 });
-    run(
-      roomy,
-      "ada",
-      { type: "join", name: "ada", kind: "human" },
-      { type: "settle", px: 0, py: 0 },
-    );
-    expect(message(roomy, "ada", { type: "claim" })).toBe(
-      "This plot is already claimed. The nearest free plot is px 1, py 0: walk there and claim.",
-    );
-  });
-
-  it("says when every plot is taken", () => {
-    const names = ["a", "b", "c", "d", "e", "f", "g", "h"];
-    const state = joined(...names, "late");
-    const plots = [0, 1, 2]
-      .flatMap((py) => [0, 1, 2].map((px) => ({ px, py })))
-      .filter((p) => !(p.px === 1 && p.py === 1));
-    plots.forEach((p, i) => {
-      const [result] = run(state, names[i] ?? "", { type: "settle", ...p });
-      expect(result?.ok).toBe(true);
-    });
-    expect(message(state, "late", { type: "settle", px: 0, py: 0 })).toBe(
-      "This plot is already claimed. Every plot is taken right now.",
-    );
-  });
-
-  it("no_plot and no_hearth name the call that fixes them", () => {
-    const state = neighbors();
-    expect(message(state, "bob", { type: "build_starter_home" })).toBe(
-      "You need a plot first. Try settle at px 1, py 0.",
-    );
-    expect(message(state, "bob", { type: "share_plot", with: "ada" })).toBe(
-      "You need a plot of your own first. Try settle at px 1, py 0.",
-    );
-    expect(message(state, "bob", { type: "home" })).toBe(
-      "Set a hearth on your plot first. You have no plot yet. Try settle at px 1, py 0.",
-    );
-    expect(message(state, "ada", { type: "home" })).toBe(
-      "Set a hearth on your plot first. Try build_starter_home, which sets one for you.",
-    );
-  });
-
-  it("already_home says what to do instead", () => {
-    const built = neighbors();
-    run(built, "ada", { type: "build_starter_home" });
-    expect(message(built, "ada", { type: "build_starter_home" })).toBe(
-      "Your starter home is already built. Add to it with place.",
-    );
-
-    const state = neighbors();
-    run(state, "ada", { type: "set_hearth", x: 1, y: 1 });
-    expect(message(state, "ada", { type: "set_hearth", x: 1, y: 1 })).toBe(
-      "That's already your hearth, and you're on it.",
-    );
-    expect(message(state, "ada", { type: "home" })).toBe("You're already home.");
-    run(state, "ada", { type: "move", dir: "s" });
-    expect(message(state, "ada", { type: "set_hearth", x: 1, y: 1 })).toBe(
-      "That's already your hearth. Try home to go there.",
-    );
-  });
-
-  it("already_home on home says the allowance is paid once coins are open", () => {
-    const state = neighbors();
-    run(state, TOWN_ACTOR, { type: "new_day", day: 20_000 }, { type: "open_economy" });
-    expect(state.economy).toBeDefined();
-    run(state, "ada", { type: "set_hearth", x: 1, y: 1 });
-    expect(message(state, "ada", { type: "home" })).toBe(
-      "You're already home, and today's allowance is paid. Come back tomorrow.",
-    );
-    // Townsfolk never get an allowance, so it isn't "paid" for them.
-    run(state, TOWN_ACTOR, { type: "set_townsfolk", ids: ["ada"] });
-    expect(message(state, "ada", { type: "home" })).toBe("You're already home.");
   });
 });

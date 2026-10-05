@@ -66,6 +66,101 @@ export function emptyNote(title: string, body: string): HTMLElement {
   );
 }
 
+/** The line under a form that says what went wrong, read out when it changes. */
+export function errorLine(id?: string): HTMLParagraphElement {
+  return h("p", { class: "form-error", attrs: { id, role: "alert" } });
+}
+
+// ---------- chips ----------
+
+/**
+ * A row of pressable chips where one is picked, like colors or shapes. Fills `row` when given (a
+ * row already in the page), else makes one. Each chip carries `data-value`.
+ */
+export function chips<T extends string>(
+  options: readonly T[],
+  first: T,
+  draw: (value: T) => Node[],
+  onPick: (value: T) => void = () => {},
+  row: HTMLElement = h("div", { class: "swatch-row" }),
+): { row: HTMLElement; value: () => T } {
+  let chosen = first;
+  row.setAttribute("role", "group");
+  for (const value of options) {
+    const b = h(
+      "button",
+      {
+        attrs: { type: "button", "aria-pressed": String(value === first), "data-value": value },
+        on: {
+          click: () => {
+            chosen = value;
+            for (const other of row.children) {
+              other.setAttribute("aria-pressed", String(other === b));
+            }
+            onPick(value);
+          },
+        },
+      },
+      ...draw(value),
+    );
+    row.append(b);
+  }
+  return { row, value: () => chosen };
+}
+
+// ---------- busy buttons ----------
+
+/**
+ * Run `work` with `button` disabled and marked busy, so a second tap can't send it twice. With
+ * `busyText`, `label` (the button itself unless given) says it until the work settles.
+ */
+export async function whileBusy<T>(
+  button: HTMLButtonElement,
+  work: () => Promise<T>,
+  busyText?: string,
+  label: HTMLElement = button,
+): Promise<T> {
+  const idle = label.textContent;
+  button.disabled = true;
+  button.setAttribute("aria-busy", "true");
+  if (busyText) label.textContent = busyText;
+  try {
+    return await work();
+  } finally {
+    button.disabled = false;
+    button.removeAttribute("aria-busy");
+    if (busyText) label.textContent = idle;
+  }
+}
+
+// ---------- show more ----------
+
+/**
+ * "Show more" at the foot of a list. Starts hidden: the caller shows it while there is another
+ * page. `next` loads that page and returns a problem when it couldn't; the button then offers to
+ * try again. `run` does the same as a tap, for paging on scroll.
+ */
+export function moreButton(label: string, next: () => Promise<string | undefined>) {
+  const el = h("button", {
+    class: "pill-button load-more",
+    attrs: { type: "button", hidden: true },
+    text: label,
+  });
+  let busy = false;
+  const run = async () => {
+    if (busy) return;
+    busy = true;
+    el.disabled = true;
+    el.textContent = "Loading…";
+    const problem = await next();
+    busy = false;
+    el.disabled = false;
+    el.textContent = problem ? "Couldn't load more. Try again" : label;
+  };
+  el.addEventListener("click", () => void run());
+  return { el, run };
+}
+
 // ---------- checkbox and radio rows ----------
 
 export interface CheckRowOptions {
@@ -254,7 +349,171 @@ export function openPopover(host: HTMLElement, el: HTMLElement, opener: HTMLElem
   return close;
 }
 
+// ---------- confirm twice ----------
+
+/**
+ * A button for something hard to undo: the first tap changes its label to `again`, the second runs
+ * `act`. `ask` says whether this tap needs asking at all (unblocking doesn't). Returns `disarm`,
+ * which puts the label back, for example when its menu closes.
+ */
+export function confirmTwice(
+  button: HTMLButtonElement,
+  again: string,
+  act: () => unknown,
+  ask: () => boolean = () => true,
+): () => void {
+  let idle: string | null = null;
+  const disarm = () => {
+    if (idle === null) return;
+    button.textContent = idle;
+    idle = null;
+  };
+  button.addEventListener("click", () => {
+    if (idle === null && ask()) {
+      idle = button.textContent ?? "";
+      button.textContent = again;
+      return;
+    }
+    idle = null;
+    void act();
+  });
+  return disarm;
+}
+
+// ---------- "More" menu ----------
+
+export interface MoreMenuOptions {
+  /** The menu's id, for `aria-controls`. Unique on the page. */
+  id: string;
+  items: HTMLButtonElement[];
+  /** Classes for the "…" button. */
+  buttonClass?: string;
+  /** Added to the `more` wrapper. */
+  className?: string;
+  /** Runs each time the menu closes, for example to reset a "tap again" item. */
+  onClose?: () => void;
+}
+
+/**
+ * A "…" button with a small menu under it. It closes on a tap outside, on Escape (focus goes back
+ * to the button), or when the caller calls `close`, which an item does after it acts.
+ */
+export function moreMenu(o: MoreMenuOptions) {
+  const button = h(
+    "button",
+    {
+      class: o.buttonClass ?? "pill-button small more-button",
+      attrs: {
+        type: "button",
+        "aria-label": "More",
+        "aria-haspopup": "true",
+        "aria-expanded": "false",
+        "aria-controls": o.id,
+      },
+    },
+    icon("more"),
+  );
+  const menu = h("div", { class: "paper menu", attrs: { id: o.id, hidden: true } }, ...o.items);
+  const el = h("div", { class: ["more", o.className].filter(Boolean).join(" ") }, button, menu);
+  const onDown = (e: PointerEvent) => {
+    if (!(e.target instanceof Node && el.contains(e.target))) setOpen(false);
+  };
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key !== "Escape") return;
+    setOpen(false);
+    button.focus({ preventScroll: true });
+  };
+  function setOpen(open: boolean) {
+    if (open === !menu.hidden) return;
+    menu.hidden = !open;
+    button.setAttribute("aria-expanded", String(open));
+    if (open) {
+      document.addEventListener("pointerdown", onDown, true);
+      document.addEventListener("keydown", onKey, true);
+      return;
+    }
+    document.removeEventListener("pointerdown", onDown, true);
+    document.removeEventListener("keydown", onKey, true);
+    o.onClose?.();
+  }
+  button.addEventListener("click", () => setOpen(Boolean(menu.hidden)));
+  return { el, close: () => setOpen(false) };
+}
+
 // ---------- copy ----------
+
+/** How long a copy button says "Copied" before it goes back. */
+const COPIED_MS = 2600;
+
+export interface CopyButtonOptions {
+  /** The label at rest, like "Copy" or "Copy link". */
+  idle: string;
+  copied?: string;
+  /** Shown when the clipboard refused and `fallback` got selected instead. */
+  selected?: string;
+  /** Selected when the clipboard refuses, so a long-press copy works. */
+  fallback?: Element;
+  /** The toast when the clipboard refuses and there is nothing on the page to select. */
+  failed?: string;
+  /** After each try, and again with `null` when the label goes back to `idle`. */
+  onChange?: (state: "copied" | "selected" | "failed" | null) => void;
+}
+
+/**
+ * Make `button` copy `text()` when tapped and say so on `label` for a moment. Every copy button
+ * in both apps goes through here, so they all answer the same way.
+ */
+export function copyButton(
+  button: HTMLButtonElement,
+  label: HTMLElement,
+  text: () => string,
+  o: CopyButtonOptions,
+) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  button.addEventListener("click", async () => {
+    const ok = await copyText(text(), o.fallback);
+    const state = ok ? "copied" : o.fallback ? "selected" : "failed";
+    if (state === "failed") toast(o.failed ?? "Couldn't copy. Press and hold the text to copy it.");
+    label.textContent =
+      state === "copied"
+        ? (o.copied ?? "Copied")
+        : state === "selected"
+          ? (o.selected ?? "Selected")
+          : o.idle;
+    o.onChange?.(state);
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      label.textContent = o.idle;
+      o.onChange?.(null);
+    }, COPIED_MS);
+  });
+}
+
+/**
+ * A line to copy, with a caption and a Copy button. The text sits in one paragraph with no hard
+ * breaks, so it wraps on screen and copies as one line.
+ */
+export function copyBlock(caption: string, text: string, className = ""): HTMLElement {
+  const body = h("p", { class: "copy-text", text });
+  const label = h("span", { text: "Copy" });
+  const button = h(
+    "button",
+    {
+      class: "pill-button small copy-button",
+      attrs: { type: "button", "aria-label": `Copy: ${caption}` },
+    },
+    icon("copy"),
+    label,
+  );
+  copyButton(button, label, () => body.textContent ?? text, { idle: "Copy", fallback: body });
+  return h(
+    "figure",
+    { class: ["copy-line", className].filter(Boolean).join(" ") },
+    h("figcaption", { class: "copy-caption", text: caption }),
+    body,
+    button,
+  );
+}
 
 /** Copy text, or select `fallback` so a long-press copy works. Returns true when it copied. */
 export async function copyText(text: string, fallback?: Element): Promise<boolean> {

@@ -39,7 +39,7 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
   // The world lives at /world; / is the feed.
   await page.goto("/world");
   await page.fill("#join-name", "Ada");
-  await page.click("#join-color button[aria-label=plum]");
+  await page.click("#join-color button[data-value=plum]");
   await page.click("#world-join button[type=submit]");
   await expect(page.locator("#hud")).toBeVisible();
 

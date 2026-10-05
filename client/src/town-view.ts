@@ -15,9 +15,19 @@ import type { BlockKind } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
 import { plural } from "@terrakin/ui/format";
 import { personLink } from "@terrakin/ui/people";
-import { closeOverlay, emptyNote, openOverlay, sheet, toast } from "@terrakin/ui/ui";
+import {
+  chips,
+  closeOverlay,
+  emptyNote,
+  errorLine,
+  moreButton,
+  openOverlay,
+  sheet,
+  toast,
+  whileBusy,
+} from "@terrakin/ui/ui";
 import { timeAgo } from "@terrakin/ui/when";
-import { api } from "./api";
+import { actProblem, api } from "./api";
 import { savedToken } from "./net";
 import { skeletonCards } from "./post-card";
 import { closesIn, nextCell, type PlanCell, statusWord, tallyBar } from "./town-format";
@@ -68,10 +78,12 @@ export function townView(ctx: ViewContext): View {
     attrs: { "aria-labelledby": "board-title" },
   });
   const archiveList = h("div", { class: "archive-list" });
-  const more = h("button", {
-    class: "pill-button load-more",
-    attrs: { type: "button" },
-    text: "Show more results",
+  const more = moreButton("Show more results", async () => {
+    if (!archiveNext) return;
+    const r = await api.archive(archiveNext);
+    if (destroyed) return;
+    if (!r.ok) return r.message;
+    addArchive(r.data.proposals, r.data.next);
   });
   let archiveNext: string | null = null;
 
@@ -100,7 +112,7 @@ export function townView(ctx: ViewContext): View {
       board,
       h("h2", { class: "section-title", text: "Past results" }),
       archiveList,
-      h("div", { class: "feed-foot" }, more),
+      h("div", { class: "feed-foot" }, more.el),
     );
     paint();
     paintBoard(true);
@@ -346,8 +358,8 @@ export function townView(ctx: ViewContext): View {
     const r = await api.act(action);
     busy = false;
     if (destroyed) return;
-    if (!r.ok) return toast(r.message);
-    if (!r.data.ok) return toast(r.data.error.message);
+    const problem = actProblem(r);
+    if (problem) return toast(problem);
     toast(done);
     await refresh();
   }
@@ -384,7 +396,7 @@ export function townView(ctx: ViewContext): View {
       },
     });
     const count = h("p", { class: "plan-count", attrs: { "aria-live": "polite" } });
-    const error = h("p", { class: "error", attrs: { role: "alert" } });
+    const error = errorLine();
     const grid = h("div", {
       class: "commons-map editor",
       attrs: { "aria-label": "Map of the Commons" },
@@ -425,27 +437,16 @@ export function townView(ctx: ViewContext): View {
     );
     buildPart.hidden = true;
 
-    const kindButton = (value: typeof kind, label: string) =>
-      h("button", {
-        class: "kind-button",
-        attrs: { type: "button", "data-kind": value, "aria-pressed": String(value === kind) },
-        text: label,
-        on: {
-          click: () => {
-            kind = value;
-            for (const b of kinds.querySelectorAll("button")) {
-              b.setAttribute("aria-pressed", String(b.dataset.kind === kind));
-            }
-            buildPart.hidden = kind !== "commons_build";
-          },
-        },
-      });
-    const kinds = h(
-      "div",
-      { class: "kind-row", attrs: { role: "group", "aria-label": "Kind of proposal" } },
-      kindButton("advisory", "An idea"),
-      c ? kindButton("commons_build", "A build") : null,
-    );
+    const kinds = chips<"advisory" | "commons_build">(
+      c ? ["advisory", "commons_build"] : ["advisory"],
+      kind,
+      (v) => [h("span", { text: v === "advisory" ? "An idea" : "A build" })],
+      (v) => {
+        kind = v;
+        buildPart.hidden = kind !== "commons_build";
+      },
+      h("div", { class: "kind-row", attrs: { "aria-label": "Kind of proposal" } }),
+    ).row;
 
     const submit = h(
       "button",
@@ -487,21 +488,18 @@ export function townView(ctx: ViewContext): View {
         error.textContent = "Tap some tiles on the map first.";
         return;
       }
-      submit.disabled = true;
-      const r = await api.act({
-        type: "propose",
-        kind,
-        title,
-        text: textInput.value.trim(),
-        ...(kind === "commons_build" ? { blocks, remove } : {}),
-      });
-      submit.disabled = false;
-      if (!r.ok) {
-        error.textContent = r.message;
-        return;
-      }
-      if (!r.data.ok) {
-        error.textContent = r.data.error.message;
+      const r = await whileBusy(submit, () =>
+        api.act({
+          type: "propose",
+          kind,
+          title,
+          text: textInput.value.trim(),
+          ...(kind === "commons_build" ? { blocks, remove } : {}),
+        }),
+      );
+      const problem = actProblem(r);
+      if (problem) {
+        error.textContent = problem;
         return;
       }
       closeOverlay();
@@ -571,9 +569,7 @@ export function townView(ctx: ViewContext): View {
       e.preventDefault();
       const text = input.value.trim();
       if (!text) return;
-      pin.disabled = true;
-      const r = await api.pinNotice(text);
-      pin.disabled = false;
+      const r = await whileBusy(pin, () => api.pinNotice(text));
       if (destroyed) return;
       if (!r.ok) return toast(r.message);
       input.value = "";
@@ -618,18 +614,8 @@ export function townView(ctx: ViewContext): View {
       );
     }
     archiveList.append(...proposals.map((p) => proposalCard(p, true)));
-    more.hidden = archiveNext === null;
+    more.el.hidden = archiveNext === null;
   }
-
-  more.addEventListener("click", async () => {
-    if (!archiveNext) return;
-    more.disabled = true;
-    const r = await api.archive(archiveNext);
-    more.disabled = false;
-    if (destroyed) return;
-    if (!r.ok) return toast(r.message);
-    addArchive(r.data.proposals, r.data.next);
-  });
 
   return {
     el,

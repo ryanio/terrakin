@@ -3,14 +3,17 @@
  * Self-contained, so a router can show it, skip it, or put it back. It never touches the world
  * or the connection; it reports a join through `onJoin` and the caller decides what happens next.
  */
+
 import {
   RESIDENT_COLORS,
   RESIDENT_SHAPES,
   type ResidentColor,
   type ResidentShape,
 } from "@terrakin/sim";
+import { plural } from "@terrakin/ui/format";
+import { reducedMotion } from "@terrakin/ui/motion";
 import { initBrandMarks, initBringAi } from "./chrome";
-import { RESIDENT_COLOR_HEX } from "./render";
+import { colorChips, shapeChips } from "./join-form";
 
 export interface Landing {
   /** True while the curtain is showing (not lifted or hidden). */
@@ -35,11 +38,9 @@ export interface LandingOptions {
 /** "12 residents, 3 online now". Pure, so tests can pin the wording. */
 export function populationLine(total: number, online: number): string {
   if (total === 0) return "Nobody here yet. Be the first";
-  const residents = `${total} ${total === 1 ? "resident" : "residents"}`;
+  const residents = plural(total, "resident", "residents");
   return online > 0 ? `${residents}, ${online} online now` : `${residents}, quiet right now`;
 }
-
-const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 function byId<T extends HTMLElement>(root: ParentNode, id: string): T {
   const el = root.querySelector<T>(`#${id}`);
@@ -62,47 +63,10 @@ export function createLanding(root: HTMLElement, { onJoin, onRestore }: LandingO
   initBrandMarks(root);
   initBringAi(byId(root, "bring-ai"), byId(root, "bring-pop"));
 
-  // Color chips. Names are ours (the fixed color list), not player text. The first color is
-  // picked to start, every time: a choice that changes on each load reads as a glitch.
-  let color: ResidentColor = RESIDENT_COLORS[0] ?? "sun";
-  for (const c of RESIDENT_COLORS) {
-    const b = document.createElement("button");
-    b.type = "button";
-    b.setAttribute("aria-label", c);
-    b.setAttribute("aria-pressed", String(c === color));
-    const dot = document.createElement("span");
-    dot.className = "swatch-dot";
-    dot.style.background = RESIDENT_COLOR_HEX[c];
-    const label = document.createElement("span");
-    label.className = "swatch-name";
-    label.textContent = c;
-    b.append(dot, label);
-    b.addEventListener("click", () => {
-      color = c;
-      for (const s of swatchRow.children) s.setAttribute("aria-pressed", String(s === b));
-    });
-    swatchRow.append(b);
-  }
-
-  let shape: ResidentShape = RESIDENT_SHAPES[0] ?? "round";
-  for (const s of RESIDENT_SHAPES) {
-    const b = document.createElement("button");
-    b.type = "button";
-    b.setAttribute("aria-label", s);
-    b.setAttribute("aria-pressed", String(s === shape));
-    const dot = document.createElement("span");
-    dot.className = `shape-dot ${s}`;
-    const label = document.createElement("span");
-    label.className = "swatch-name";
-    label.textContent = s;
-    b.append(dot, label);
-    b.addEventListener("click", () => {
-      shape = s;
-      for (const other of shapeRow.children)
-        other.setAttribute("aria-pressed", String(other === b));
-    });
-    shapeRow.append(b);
-  }
+  // The first color and shape are picked to start, every time: a choice that changes on each load
+  // reads as a glitch.
+  const colors = colorChips(RESIDENT_COLORS[0] ?? "sun", undefined, swatchRow);
+  const shapes = shapeChips(RESIDENT_SHAPES[0] ?? "round", undefined, shapeRow);
 
   name.addEventListener("input", () => {
     error.textContent = "";
@@ -143,7 +107,7 @@ export function createLanding(root: HTMLElement, { onJoin, onRestore }: LandingO
       return;
     }
     error.textContent = "";
-    onJoin({ name: value, color, shape, note: note.value.trim() });
+    onJoin({ name: value, color: colors.value(), shape: shapes.value(), note: note.value.trim() });
   });
 
   let hideTimer: ReturnType<typeof setTimeout> | undefined;

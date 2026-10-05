@@ -188,31 +188,6 @@ body.in-world .veil {
   color: var(--ink-soft);
 }
 
-.copy-line {
-  display: grid;
-  gap: 10px;
-  padding: 12px;
-  border-radius: 12px;
-  background: rgba(236, 220, 192, 0.35);
-  border: 1px dashed var(--paper-edge);
-}
-
-/* One line of text with no hard breaks: it wraps on screen, and copying it gives one line. */
-.copy-text {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 600;
-  line-height: 1.5;
-  color: var(--ink);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  user-select: all;
-}
-
-.copy-line .pill-button {
-  justify-self: start;
-}
-
 .stage {
   flex: 1 0 auto;
   width: 100%;
@@ -467,19 +442,6 @@ body.in-world .veil {
   display: grid;
 }
 
-.error {
-  min-height: 1.3em;
-  margin: 10px 0 0;
-  font-size: 14px;
-  font-weight: 600;
-  color: #a3361a;
-}
-
-.error:empty {
-  margin: 0;
-  min-height: 0;
-}
-
 /* ---------- notes ---------- */
 
 .notes {
@@ -632,7 +594,7 @@ body.in-world .veil {
     margin-top: 16px;
   }
 
-  .join .error {
+  .join .form-error {
     order: 2;
   }
 }
@@ -1286,12 +1248,6 @@ body.in-world .veil {
   line-height: 1.5;
 }
 
-.post-time.post-stamp {
-  justify-self: start;
-  margin: -6px 0 -10px;
-  padding: 0;
-}
-
 .post-actions {
   display: flex;
   align-items: center;
@@ -1418,7 +1374,7 @@ body.in-world .veil {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  background: #2b2620;
+  background: var(--ink);
 }
 
 .media-img {
@@ -1639,7 +1595,7 @@ body.in-world .veil {
 }
 
 .composer-count.low {
-  color: #a3361a;
+  color: var(--danger);
 }
 
 .composer-submit {
@@ -1654,17 +1610,6 @@ body.in-world .veil {
 
 .composer-submit[aria-busy="true"] {
   opacity: 0.75;
-}
-
-.composer-error {
-  margin: 8px 0 0;
-  font-size: 14px;
-  font-weight: 600;
-  color: #a3361a;
-}
-
-.composer-error:empty {
-  display: none;
 }
 
 .attachments {
@@ -1744,7 +1689,7 @@ body.in-world .veil {
 }
 
 .attachment.failed .attachment-state {
-  color: #a3361a;
+  color: var(--danger);
 }
 
 .attachment-remove {
@@ -1887,23 +1832,6 @@ button.profile-avatar {
   padding-top: 12px;
 }
 
-/* Phones: beside the avatar there's room for one button, so they wrap in a row under it instead. */
-@media (max-width: 639px) {
-  .profile-top {
-    flex-wrap: wrap;
-  }
-
-  .profile-actions {
-    flex: 1 1 100%;
-    justify-content: flex-start;
-    padding-top: 0;
-  }
-
-  .profile-actions .btn-primary {
-    font-size: 15px;
-  }
-}
-
 .profile-actions .follow {
   min-width: 110px;
 }
@@ -1952,16 +1880,6 @@ button.profile-avatar {
 .profile-name .badge-townsfolk {
   font-family: var(--font-body);
   font-size: 13px;
-  letter-spacing: 0;
-}
-
-/* A label beside your own name, not a button, so it's no taller than the badges. */
-.profile-name .you-tag {
-  min-height: 0;
-  padding: 3px 10px;
-  font-family: var(--font-body);
-  font-size: 13px;
-  line-height: 1.3;
   letter-spacing: 0;
 }
 
@@ -2205,7 +2123,7 @@ dialog.viewer::backdrop {
 
 dialog.model-viewer {
   background:
-    var(--grain), radial-gradient(90% 70% at 50% 42%, #fffaf0 0%, #f6ead2 55%, #e9d6b2 100%);
+    var(--grain), radial-gradient(90% 70% at 50% 42%, var(--paper) 0%, #f6ead2 55%, #e9d6b2 100%);
   color: var(--ink);
 }
 
@@ -2632,40 +2550,17 @@ dialog.quote-dialog::backdrop {
 
 /* ---------- profile handle ---------- */
 
-.profile-handle-line {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 10px;
-  margin: -6px 0 0;
-}
-
 .profile-handle {
-  margin: 0;
+  margin: -6px 0 0;
   font-size: 15.5px;
   font-weight: 600;
   color: var(--ink-soft);
 }
 
-/* Beside the handle it's a quiet link-sized button, still 44px tall to tap. */
-.profile-handle-line .handle-edit {
-  padding: 0 12px;
-  border-color: transparent;
-  background: none;
-  box-shadow: none;
-  font-size: 14px;
-  color: var(--clay-deep);
-}
-
-.profile-handle-line .handle-edit:hover {
-  background: rgba(255, 253, 247, 0.9);
-  border-color: var(--paper-edge);
-}
-
 .handle-form {
   display: grid;
   gap: 6px;
-  padding: 4px 0 10px;
+  padding-top: 4px;
 }
 
 .handle-form[hidden] {
@@ -3051,18 +2946,22 @@ dialog.quote-dialog::backdrop {
 }
 
 /* Sits in the top bar next to letters, and looks like it. */
-.site-bell {
+/* The icon pills in the top bar: notifications and letters. */
+.site-bell,
+.letters-link {
   position: relative;
   width: 44px;
   padding: 0;
   color: var(--clay-deep);
 }
 
-.site-bell[aria-current="page"] {
+.site-bell[aria-current="page"],
+.letters-link[aria-current="page"] {
   background: #fff3e2;
 }
 
-.bell-badge {
+/* The unread count on a top bar pill. */
+.count-badge {
   position: absolute;
   top: -4px;
   right: -4px;
@@ -3080,7 +2979,7 @@ dialog.quote-dialog::backdrop {
   box-shadow: 0 0 0 2px var(--paper);
 }
 
-.bell-badge[hidden] {
+.count-badge[hidden] {
   display: none;
 }
 
@@ -3154,7 +3053,7 @@ dialog.quote-dialog::backdrop {
     margin-top: -26px;
   }
 
-  .avatar.xl {
+  .invite-hero .avatar.xl {
     --size: 104px;
   }
 
@@ -3691,17 +3590,6 @@ dialog.quote-dialog::backdrop {
   outline-offset: 0;
 }
 
-.x-error {
-  margin: 8px 0 0;
-  font-size: 14.5px;
-  line-height: 1.4;
-  color: var(--clay-deep);
-}
-
-.x-error:empty {
-  display: none;
-}
-
 .x-verify {
   margin-top: 12px;
 }
@@ -3767,35 +3655,6 @@ a.btn-primary {
   .site-bar-inner:has(.letters-link) .site-brand .brand-name {
     display: none;
   }
-}
-
-.letters-link {
-  position: relative;
-  width: 44px;
-  padding: 0;
-  color: var(--clay-deep);
-}
-
-.letters-link[aria-current="page"] {
-  background: #fff3e2;
-}
-
-.unread-badge {
-  position: absolute;
-  top: -4px;
-  right: -4px;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 5px;
-  border-radius: 999px;
-  background: var(--clay);
-  color: var(--paper);
-  font-size: 12px;
-  font-weight: 750;
-  line-height: 20px;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-  box-shadow: 0 0 0 2px var(--paper);
 }
 
 .you-link {
@@ -4052,44 +3911,6 @@ a.btn-primary {
 
 .write-letter {
   justify-self: start;
-}
-
-.more {
-  position: relative;
-}
-
-.more-button {
-  width: 44px;
-  padding: 0;
-}
-
-.menu {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 6px);
-  z-index: 20;
-  min-width: 200px;
-  padding: 6px;
-  border-radius: 14px;
-}
-
-.menu-item {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  min-height: 44px;
-  padding: 0 12px;
-  border: 0;
-  border-radius: 10px;
-  background: none;
-  font-size: 15px;
-  font-weight: 600;
-  color: #a3361a;
-  text-align: left;
-}
-
-.menu-item:hover {
-  background: rgba(180, 83, 47, 0.08);
 }
 
 .join-follow {
@@ -4733,15 +4554,6 @@ dialog.look-editor::backdrop {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    /* biome-ignore lint/complexity/noImportantStyles: reduced motion must override every animation. */
-    animation: none !important;
-    /* biome-ignore lint/complexity/noImportantStyles: same. */
-    transition-duration: 0.01ms !important;
-  }
-
   #world.veiled {
     transform: none;
   }
@@ -4918,7 +4730,7 @@ dialog.look-editor::backdrop {
 
 .proposal-status.s-failed,
 .proposal-status.s-voided {
-  color: #a3361a;
+  color: var(--danger);
 }
 
 .proposal-title {
@@ -5166,7 +4978,7 @@ dialog.look-editor::backdrop {
 
 .commons-map .tile.removing {
   opacity: 0.45;
-  box-shadow: inset 0 0 0 2px #a3361a;
+  box-shadow: inset 0 0 0 2px var(--danger);
 }
 
 .kind-row {
@@ -5175,7 +4987,7 @@ dialog.look-editor::backdrop {
   gap: 8px;
 }
 
-.kind-button {
+.kind-row > button {
   min-height: 48px;
   border: 1px solid var(--paper-edge);
   border-radius: 999px;
@@ -5184,7 +4996,7 @@ dialog.look-editor::backdrop {
   font-weight: 650;
 }
 
-.kind-button[aria-pressed="true"] {
+.kind-row > button[aria-pressed="true"] {
   background: var(--clay);
   border-color: var(--clay);
   color: var(--paper);
@@ -6117,7 +5929,7 @@ html.view3d-open body {
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 35%, #fff6c8, #f2b84b 60%, #e08a2b);
+  background: radial-gradient(circle at 35% 35%, #fff6c8, var(--sun) 60%, #e08a2b);
   box-shadow: 0 0 22px 6px rgba(242, 184, 75, 0.45);
   transform: translate(-50%, 50%);
   transition:
@@ -6208,10 +6020,10 @@ html.view3d-open body {
   max-width: 420px;
   pointer-events: auto;
   animation: lt-in 0.7s cubic-bezier(0.2, 1.3, 0.3, 1) both;
-  --lt-1: #f2b84b;
+  --lt-1: var(--sun);
   --lt-2: #e0703f;
-  --lt-3: #cdb4f6;
-  --lt-4: #8fb36a;
+  --lt-3: var(--dusk);
+  --lt-4: var(--moss-light);
 }
 
 .live-toast.leaving {
@@ -6241,10 +6053,10 @@ html.view3d-open body {
 }
 
 .live-toast.tone-join {
-  --lt-1: #8fb36a;
+  --lt-1: var(--moss-light);
   --lt-2: #f2e27a;
-  --lt-3: #7cb9dd;
-  --lt-4: #8fb36a;
+  --lt-3: var(--resident-sky);
+  --lt-4: var(--moss-light);
 }
 
 .live-toast.tone-coins {
@@ -6255,10 +6067,10 @@ html.view3d-open body {
 }
 
 .live-toast.tone-town {
-  --lt-1: #cdb4f6;
-  --lt-2: #ea8a9d;
-  --lt-3: #7cb9dd;
-  --lt-4: #cdb4f6;
+  --lt-1: var(--dusk);
+  --lt-2: var(--resident-rose);
+  --lt-3: var(--resident-sky);
+  --lt-4: var(--dusk);
 }
 
 .lt-glow {
@@ -6588,11 +6400,11 @@ a.profile-owner:hover .owner-name {
 }
 
 .pill-button.danger {
-  color: #a3361a;
+  color: var(--danger);
 }
 
 .btn-primary.danger {
-  background: linear-gradient(180deg, #b8432a, #a3361a 55%, #8a2c14);
+  background: linear-gradient(180deg, #b8432a, var(--danger) 55%, #8a2c14);
 }
 
 .code-box {
@@ -6620,15 +6432,6 @@ a.profile-owner:hover .owner-name {
   white-space: nowrap;
   color: var(--ink);
   user-select: all;
-}
-
-.copy-label {
-  margin: 0;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--ink-soft);
 }
 
 .code-box .copy-line {

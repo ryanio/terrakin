@@ -8,6 +8,7 @@ import type { OwnerInviteView, ProfileView } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { profilePath } from "@terrakin/ui/paths";
 import { personLink } from "@terrakin/ui/people";
+import { errorLine } from "@terrakin/ui/ui";
 import { api, myProfile } from "./api";
 import { joinForm } from "./join-form";
 import { saveToken } from "./net";
@@ -93,7 +94,7 @@ export function claimView(code: string, ctx: ViewContext): View {
         },
       },
     });
-    const error = h("p", { class: "error claim-error", attrs: { role: "alert" } });
+    const error = errorLine();
 
     const confirmStep = (person: ProfileView | { id: string; name: string }) => {
       const confirm = h(

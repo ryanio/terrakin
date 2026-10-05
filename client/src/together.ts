@@ -38,12 +38,6 @@ export function conversations(letters: readonly LetterView[], me: string): Conve
   );
 }
 
-/** "9+" past nine, so the badge stays small. Empty for zero. */
-export function unreadBadge(n: number): string {
-  if (n <= 0) return "";
-  return n > 9 ? "9+" : String(n);
-}
-
 export interface GestureInfo {
   kind: GestureKind;
   /** Button label. */

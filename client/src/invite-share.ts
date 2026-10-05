@@ -4,7 +4,7 @@
  */
 import { InviteView } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
-import { checkRow, copyText, openOverlay, sheet } from "@terrakin/ui/ui";
+import { checkRow, copyButton, openOverlay, sheet } from "@terrakin/ui/ui";
 import { api } from "./api";
 import { savedResidentId } from "./net";
 import { inviteLink, reusableInvite } from "./together";
@@ -96,13 +96,7 @@ export function openInviteDialog() {
     share.hidden = typeof navigator.share !== "function";
   };
 
-  copy.addEventListener("click", async () => {
-    const ok = await copyText(url, link);
-    copyLabel.textContent = ok ? "Copied" : "Selected";
-    setTimeout(() => {
-      copyLabel.textContent = "Copy";
-    }, 2000);
-  });
+  copyButton(copy, copyLabel, () => url, { idle: "Copy", fallback: link });
   share.addEventListener("click", async () => {
     try {
       await navigator.share({ url, title: "Come live next to me on Terrakin" });

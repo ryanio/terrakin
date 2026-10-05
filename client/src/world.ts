@@ -3,6 +3,7 @@
  * chunk and started only on `/world`; `stopWorld` cancels the loop and closes the socket, so the
  * feed pages stay light on phones.
  */
+
 import {
   type Action,
   type ChatChannel,
@@ -10,6 +11,7 @@ import {
   WorldSnapshot,
 } from "@terrakin/protocol";
 import type { BlockKind, Direction } from "@terrakin/sim";
+import { REDUCED_MOTION } from "@terrakin/ui/motion";
 import { plot3dPath } from "@terrakin/ui/paths";
 import { whoseKey } from "./api";
 import { type Camera, fitScale, screenToTile, stepToward } from "./camera";
@@ -36,7 +38,7 @@ const chatToggle = $("chat-toggle");
 const buildButton = $("build");
 const palette = $("palette");
 
-const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+const motionQuery = window.matchMedia(REDUCED_MOTION);
 
 let active = false;
 let rafId = 0;
@@ -395,7 +397,7 @@ function frame(t: number) {
     const { plotSize } = mirror.config;
     const ox = (mirror.commons.px + 0.5) * plotSize - 0.5;
     const oy = (mirror.commons.py + 0.5) * plotSize - 0.5;
-    const drift = reducedMotion.matches ? 0 : t / 1000;
+    const drift = motionQuery.matches ? 0 : t / 1000;
     cam.cx = ox + Math.sin(drift / 9) * 4;
     cam.cy = oy + Math.cos(drift / 13) * 2.5 + 1.5;
     cam.scale = targetScale();

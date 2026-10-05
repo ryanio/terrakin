@@ -2,7 +2,7 @@
 import type { ModerationLogView } from "@terrakin/protocol";
 import { h } from "@terrakin/ui/dom";
 import { fullDate, relativeTime } from "@terrakin/ui/format";
-import { stateCard } from "@terrakin/ui/ui";
+import { moreButton, stateCard } from "@terrakin/ui/ui";
 import { api } from "./api";
 import { actorLabel, logHeadline } from "./logic";
 import { button, type View } from "./view";
@@ -28,19 +28,30 @@ export function logView(): View {
   );
   let destroyed = false;
 
-  async function load(before?: string) {
+  const end = h("p", {
+    class: "field-hint",
+    attrs: { hidden: true },
+    text: "That's the start of the log.",
+  });
+  let cursor: string | undefined;
+  const older = moreButton("Show older", () => load(cursor));
+  more.append(older.el, end);
+
+  async function load(before?: string): Promise<string | undefined> {
     const res = await api.log(before);
     if (destroyed) return;
     if (!res.ok) {
-      if (res.code !== "unauthorized") {
-        more.replaceChildren(
-          stateCard({
-            title: "Couldn't load the log",
-            body: res.message,
-            actions: [button("Try again", () => void load(before))],
-          }),
-        );
-      }
+      // A missing sign-in is handled app-wide (SIGNED_OUT_EVENT).
+      if (res.code === "unauthorized") return;
+      // A later page says so on its button; the first page gets a card.
+      if (before) return res.message;
+      more.replaceChildren(
+        stateCard({
+          title: "Couldn't load the log",
+          body: res.message,
+          actions: [button("Try again", () => void load())],
+        }),
+      );
       return;
     }
     if (!before && res.data.entries.length === 0) {
@@ -49,16 +60,12 @@ export function logView(): View {
       );
       return;
     }
+    if (!before) more.replaceChildren(older.el, end);
     list.append(...res.data.entries.map(entryRow));
-    const next = res.data.next;
-    more.replaceChildren(
-      next
-        ? button("Show older", (b) => {
-            b.disabled = true;
-            void load(next);
-          })
-        : h("p", { class: "field-hint", text: "That's the start of the log." }),
-    );
+    cursor = res.data.next ?? undefined;
+    older.el.hidden = cursor === undefined;
+    end.hidden = cursor !== undefined;
+    return;
   }
 
   void load();

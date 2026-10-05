@@ -58,6 +58,17 @@ import { isLetterMediaUrl } from "./together";
 
 export type { Result };
 
+/**
+ * Why an action didn't happen: the request failed, or the world answered no (a 200 can still be a
+ * refusal). Null when it worked.
+ */
+export function actProblem(
+  r: Result<{ ok: true } | { ok: false; error: { message: string } }>,
+): string | null {
+  if (!r.ok) return r.message;
+  return r.data.ok ? null : r.data.error.message;
+}
+
 const PostOnly = PostResponse.pick({ post: true });
 
 /**

@@ -2,11 +2,13 @@
  * `/notifications`: what other residents did that involves you, newest first. Opening the page
  * marks everything shown as read. Names and excerpts are other residents' words: textContent only.
  */
+
 import type { NotificationView } from "@terrakin/protocol";
 import { h, type IconName, icon } from "@terrakin/ui/dom";
+import { plural } from "@terrakin/ui/format";
 import { postPath, profilePath } from "@terrakin/ui/paths";
 import { avatarEl } from "@terrakin/ui/people";
-import { emptyNote, stateCard } from "@terrakin/ui/ui";
+import { emptyNote, moreButton, stateCard } from "@terrakin/ui/ui";
 import { timeAgo } from "@terrakin/ui/when";
 import { api } from "./api";
 import { setUnread } from "./bell";
@@ -34,9 +36,7 @@ export function notificationLine(
 ): { who: string; what: string } {
   const others = n.count - 1;
   const who =
-    others > 0
-      ? `${n.actor.name} and ${others} ${others === 1 ? "other" : "others"}`
-      : n.actor.name;
+    others > 0 ? `${n.actor.name} and ${plural(others, "other", "others")}` : n.actor.name;
   const emoji = n.reaction ? ` ${REACTIONS[n.reaction].emoji}` : "";
   const sent = n.gesture
     ? `${gestureInfo(n.gesture).noun} ${gestureInfo(n.gesture).emoji}`
@@ -126,10 +126,14 @@ export function notificationsView(ctx: ViewContext): View {
   }
 
   const list = h("ol", { class: "notifs", attrs: { "aria-label": "Notifications" } });
-  const more = h("button", {
-    class: "pill-button load-more",
-    attrs: { type: "button", hidden: true },
-    text: "Show more",
+  const more = moreButton("Show more", async () => {
+    if (!next) return;
+    const r = await api.notifications({ before: next });
+    if (destroyed) return;
+    if (!r.ok) return r.message;
+    list.append(...r.data.notifications.map(item));
+    next = r.data.next;
+    more.el.hidden = next === null;
   });
   let next: string | null = null;
 
@@ -157,7 +161,7 @@ export function notificationsView(ctx: ViewContext): View {
       return;
     }
     list.append(...notifications.map(item));
-    more.hidden = next === null;
+    more.el.hidden = next === null;
     const newest = notifications[0];
     if (unread > 0 && newest) {
       const marked = await api.markRead(newest.id);
@@ -165,18 +169,7 @@ export function notificationsView(ctx: ViewContext): View {
     } else setUnread(unread);
   }
 
-  more.addEventListener("click", async () => {
-    if (!next) return;
-    more.disabled = true;
-    const r = await api.notifications({ before: next });
-    more.disabled = false;
-    if (destroyed || !r.ok) return;
-    list.append(...r.data.notifications.map(item));
-    next = r.data.next;
-    more.hidden = next === null;
-  });
-
-  el.append(list, h("div", { class: "feed-foot" }, more));
+  el.append(list, h("div", { class: "feed-foot" }, more.el));
   return {
     el,
     ready: load(),

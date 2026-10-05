@@ -1,30 +1,14 @@
 import type { MediaType } from "@terrakin/protocol";
-import { stripGlb } from "./strip-glb";
-import { stripMp4 } from "./strip-mp4";
-import { stripWebm } from "./strip-webm";
 
 /**
- * Remove metadata that can identify a person from an upload before it's stored (decisions 0014
- * and 0043).
+ * Remove metadata that can identify a person from uploaded images: EXIF (which holds GPS location,
+ * camera serials, and timestamps), XMP, IPTC, and text comments. Pixels are untouched. A JPEG keeps
+ * only its orientation, so phone photos don't come out sideways. Video and models pass through
+ * unchanged for now (see issue on video metadata).
  *
- * Images lose EXIF (which holds GPS location, camera serials, and timestamps), XMP, IPTC, and text
- * comments. Pixels are untouched. A JPEG keeps only its orientation, so phone photos don't come
- * out sideways. A malformed image is returned unchanged; the type check already passed.
- *
- * Videos lose location, user data, and metadata boxes (MP4) or tags, attachments, and chapters
- * (WebM), and models lose `extras`, XMP, and metadata in their textures. These are edited in place
- * without moving the media data, so the input may be changed. A video or model we can't walk comes
- * back undefined: the caller refuses it rather than storing something it couldn't check.
+ * Malformed files are returned unchanged rather than rejected here; the type check already passed.
  */
-export function stripMetadata(
-  bytes: Uint8Array,
-  type: Extract<MediaType, `image/${string}`>,
-): Uint8Array;
-export function stripMetadata(bytes: Uint8Array, type: MediaType): Uint8Array | undefined;
-export function stripMetadata(bytes: Uint8Array, type: MediaType): Uint8Array | undefined {
-  if (type === "video/mp4") return stripMp4(bytes);
-  if (type === "video/webm") return stripWebm(bytes);
-  if (type === "model/gltf-binary") return stripGlb(bytes);
+export function stripMetadata(bytes: Uint8Array, type: MediaType): Uint8Array {
   try {
     if (type === "image/jpeg") return stripJpeg(bytes);
     if (type === "image/png") return stripPng(bytes);

@@ -5,6 +5,7 @@
  */
 
 import { h, icon } from "@terrakin/ui/dom";
+import { badgeText } from "@terrakin/ui/format";
 import { api } from "./api";
 import { savedToken } from "./net";
 
@@ -17,12 +18,6 @@ let label: HTMLElement | undefined;
 let lastAsked = 0;
 let asking = false;
 
-/** "3", or "99+" past 99. Empty for none. */
-export function badgeText(unread: number): string {
-  if (unread <= 0) return "";
-  return unread > 99 ? "99+" : String(unread);
-}
-
 export function setUnread(unread: number) {
   if (!badge) return;
   const text = badgeText(unread);
@@ -34,7 +29,7 @@ export function setUnread(unread: number) {
 /** A new bell link for the top bar. Only one is live at a time: the newest. */
 export function makeBell(): HTMLAnchorElement {
   label = h("span", { class: "visually-hidden", text: "Notifications" });
-  badge = h("span", { class: "bell-badge", attrs: { "aria-hidden": "true", hidden: true } });
+  badge = h("span", { class: "count-badge", attrs: { "aria-hidden": "true", hidden: true } });
   link = h(
     "a",
     {

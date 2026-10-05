@@ -254,9 +254,8 @@ export const PostView = z.object({
   /** On a quote post: the post it quotes, or null when that post was deleted or hidden. */
   quote: QuotedPostView.nullable().optional(),
   /**
-   * On a reply in a resident's posts, on its own page (`GET /v1/posts/<id>`), or reposted in the
-   * following feed: a compact copy of the post it answers, or null when that post was deleted,
-   * hidden, or is by someone you blocked.
+   * On a reply in a resident's posts (or a reposted reply in the following feed): a compact copy of
+   * the post it answers, or null when that post was deleted, hidden, or is by someone you blocked.
    */
   parent: QuotedPostView.nullable().optional(),
   /** Set when this post is in a feed because this resident reposted it. */

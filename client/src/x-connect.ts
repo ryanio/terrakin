@@ -6,7 +6,15 @@
 import { type ProfileView, xProfileUrl } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { xIntentHref } from "@terrakin/ui/format";
-import { closeOverlay, copyText, openOverlay, sheet, toast } from "@terrakin/ui/ui";
+import {
+  closeOverlay,
+  copyButton,
+  errorLine,
+  openOverlay,
+  sheet,
+  toast,
+  whileBusy,
+} from "@terrakin/ui/ui";
 import { api } from "./api";
 
 /** "@handle on X", linking to the account. `rel="me"` says the account and this profile are one. */
@@ -70,9 +78,7 @@ export function xRow(profile: ProfileView): { el: HTMLElement; paint(mine: boole
       text: "Disconnect",
     });
     b.addEventListener("click", async () => {
-      b.disabled = true;
-      const res = await api.xUnlink();
-      b.disabled = false;
+      const res = await whileBusy(b, () => api.xUnlink());
       if (!res.ok) {
         toast(res.message);
         return;
@@ -127,23 +133,11 @@ export function openConnectSheet(onConnected: (profile: ProfileView) => void) {
     const copyLabel = h("span", { text: "Copy" });
     const copy = h(
       "button",
-      {
-        class: "pill-button small",
-        attrs: { type: "button" },
-        on: {
-          click: async () => {
-            const ok = await copyText(text, phrase);
-            copyLabel.textContent = ok ? "Copied" : "Copy";
-            if (!ok) toast("Couldn't copy. Press and hold the text to copy it.");
-            setTimeout(() => {
-              copyLabel.textContent = "Copy";
-            }, 2000);
-          },
-        },
-      },
+      { class: "pill-button small", attrs: { type: "button" } },
       icon("copy"),
       copyLabel,
     );
+    copyButton(copy, copyLabel, () => text, { idle: "Copy", fallback: phrase });
     const open = intent
       ? h(
           "a",
@@ -169,7 +163,7 @@ export function openConnectSheet(onConnected: (profile: ProfileView) => void) {
         required: true,
       },
     });
-    const error = h("p", { class: "x-error", attrs: { role: "alert" } });
+    const error = errorLine();
     const verify = h("button", {
       class: "btn-primary x-verify",
       attrs: { type: "submit" },
@@ -195,15 +189,9 @@ export function openConnectSheet(onConnected: (profile: ProfileView) => void) {
         input.focus();
         return;
       }
-      verify.disabled = true;
-      verify.setAttribute("aria-busy", "true");
-      verify.textContent = "Checking…";
       error.textContent = "";
-      const res = await api.xVerify(url);
+      const res = await whileBusy(verify, () => api.xVerify(url), "Checking…");
       if (closed) return;
-      verify.disabled = false;
-      verify.removeAttribute("aria-busy");
-      verify.textContent = "Verify";
       if (!res.ok) {
         error.textContent = res.message;
         return;

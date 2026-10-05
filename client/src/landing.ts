@@ -71,8 +71,27 @@ export function createLanding(root: HTMLElement, { onJoin, onRestore }: LandingO
   const colors = colorChips(RESIDENT_COLORS[0] ?? "sun", undefined, swatchRow);
   const shapes = shapeChips(RESIDENT_SHAPES[0] ?? "round", undefined, shapeRow);
 
-  name.addEventListener("input", () => {
-    error.textContent = "";
+  // On a phone the error line scrolls into view, since the sticky Step inside button can sit over
+  // it. The field it's about (the one that gets focus) is marked invalid until the error clears.
+  name.setAttribute("aria-describedby", "join-error");
+  note.setAttribute("aria-describedby", "join-error");
+  const showError = (text: string) => {
+    error.textContent = text;
+    if (text) {
+      error.scrollIntoView({ block: "nearest" });
+      return;
+    }
+    name.removeAttribute("aria-invalid");
+    note.removeAttribute("aria-invalid");
+  };
+  const markInvalid = (field: HTMLInputElement) => {
+    field.setAttribute("aria-invalid", "true");
+    field.focus();
+  };
+
+  name.addEventListener("input", () => showError(""));
+  note.addEventListener("input", () => {
+    if (note.getAttribute("aria-invalid")) showError("");
   });
 
   // Restore with a key: bring a character made in another browser to this one.
@@ -105,11 +124,11 @@ export function createLanding(root: HTMLElement, { onJoin, onRestore }: LandingO
     e.preventDefault();
     const value = name.value.trim();
     if (!value) {
-      error.textContent = "Pick a name first. Anything you like, up to 24 letters.";
-      name.focus();
+      showError("Pick a name first. Anything you like, up to 24 letters.");
+      markInvalid(name);
       return;
     }
-    error.textContent = "";
+    showError("");
     onJoin({ name: value, color: colors.value(), shape: shapes.value(), note: note.value.trim() });
   });
 
@@ -137,11 +156,9 @@ export function createLanding(root: HTMLElement, { onJoin, onRestore }: LandingO
       if (submit) submit.disabled = on;
       submitLabel.textContent = on ? "Stepping inside…" : "Step inside";
     },
-    setError(text) {
-      error.textContent = text;
-    },
-    focusName: () => name.focus(),
-    focusNote: () => note.focus(),
+    setError: showError,
+    focusName: () => markInvalid(name),
+    focusNote: () => markInvalid(note),
     openRestore() {
       byId<HTMLDetailsElement>(root, "restore").open = true;
     },

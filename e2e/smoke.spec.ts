@@ -145,6 +145,7 @@ test("a name the server refuses stays on the form and says why", async ({ page }
   await expect(page.locator("#join-error")).not.toContainText("Can't reach");
   await expect(page.locator("#join-submit-label")).toHaveText("Step inside");
   await expect(page.locator("#join-name")).toBeFocused();
+  await expect(page.locator("#join-name")).toHaveAttribute("aria-invalid", "true");
   await expect(page.locator("#hud")).toBeHidden();
 });
 

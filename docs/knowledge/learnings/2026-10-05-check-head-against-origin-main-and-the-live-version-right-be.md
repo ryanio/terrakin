@@ -14,5 +14,5 @@ The shared checkout had also moved during the run: another session committed in 
 
 **Fix or workaround:**
 - A push to `main` deploys itself once CI is green ([deploy.md](../../deploy.md)), so a manual deploy is rarely needed.
-- If you do deploy by hand, fetch and check `git rev-parse HEAD` equals `git rev-parse origin/main` in the same command as `pnpm cf:deploy`, after any long verify, not before it.
+- `pnpm cf:deploy` now fetches and refuses unless HEAD is `origin/main` and the tree is clean, checked after the build, right before the upload (`scripts/deploy.ts`). In CI a superseded commit skips the upload.
 - If a deploy breaks replay, deploy the newest `origin/main` at once. Rolling back can't help, because the log already holds the newer command.

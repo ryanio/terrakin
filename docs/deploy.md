@@ -23,6 +23,8 @@ pnpm cf:deploy   # build the client and deploy to terrakin.org (needs `wrangler 
 
 A push to `main` deploys on its own: once `verify`, `e2e`, and `secrets` pass, CI's `deploy` job runs `pnpm cf:deploy` in the `production` environment with the `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` repository secrets, then waits for `/v1/health` to answer. A commit with `[skip ci]` skips CI, so it doesn't deploy. Deploying from a laptop still works the same way.
 
+`pnpm cf:deploy` deploys only the tip of `origin/main` from a clean tree (`scripts/deploy.ts`, checked after the build, right before the upload). The world replays its log at boot, so a Worker older than the live one can't start once the live one has logged a command the old sim doesn't know. On a laptop an older or dirty checkout is refused. In CI a run whose commit is no longer the tip of main skips the upload, since the newer commit's run deploys it. If a deploy does break replay, deploy the newest `origin/main` at once: rolling back can't help, because the log already holds the newer command.
+
 After a deploy, check `https://terrakin.org/v1/health`, `https://terrakin.org/v1/skill`, and the client on a phone.
 
 Operations on Cloudflare:

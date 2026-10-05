@@ -10,6 +10,7 @@ Repo tooling. Plain Node with type stripping, so it runs right after `pnpm insta
 | `brand/` | `pnpm brand` | Draws the logo, favicons, app icons, and social card from one config. See its [README](brand/README.md). |
 | `townsfolk/` | `pnpm townsfolk -- --base <url>`, `pnpm townsfolk -- --base <url> --handles [--send]`, `pnpm townsfolk:tips -- --base <url> [--send]` | Seeds the founding townsfolk through the public API, claims their handles, and spends their daily coin budgets on newcomers and the day's best post. See its [README](townsfolk/README.md). |
 | `sentry.ts` | `node scripts/sentry.ts issues \| issue <id> \| trace <id>` | Reads production errors, their breadcrumbs, and traces from Sentry ([decision 0037](../docs/knowledge/decisions/0037-server-error-reports-traces-and-breadcrumbs-carry-templates-.md)). |
+| `deploy.ts` | `pnpm cf:deploy` | Runs `wrangler deploy` only from the tip of `origin/main` with a clean tree. An older Worker can't replay a log the newer one wrote, so a stale deploy takes the world down ([docs/deploy.md](../docs/deploy.md)). In CI a superseded commit skips. |
 | `docker/` | | The container entrypoint. |
 
 ## Rules

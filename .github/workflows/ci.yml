@@ -65,7 +65,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # Deploy terrakin.org once everything above passed on a push to main (issue #21). The same
-  # `pnpm cf:deploy` as from a laptop, then a check that the live world answers.
+  # `pnpm cf:deploy` as from a laptop (it skips if main has moved past this commit), then a check
+  # that the live world answers.
   deploy:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [verify, e2e, secrets]

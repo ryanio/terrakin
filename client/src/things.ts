@@ -93,6 +93,16 @@ export function inventoryLine(e: InventoryEvent): string | null {
     }
     case "gift_out":
       return "Your gift is on its way.";
+    case "declined":
+      return "You sent the gift back.";
+    case "returned": {
+      const goods = e.gained ?? [];
+      const what =
+        goods.length > 0
+          ? goods.map((g) => thingName(g.kind).toLowerCase()).join(", ")
+          : list(gained);
+      return `A gift came back to you: ${what}.`;
+    }
     case "bought":
       return `From the town shop: ${list(gained)}.`;
     case "sold":
@@ -102,6 +112,14 @@ export function inventoryLine(e: InventoryEvent): string | null {
     default:
       return null;
   }
+}
+
+/** How long a gift can still be sent back, in plain words. */
+export function sendBackLine(lastDay: number, today: number): string {
+  const left = lastDay - today;
+  if (left <= 0) return "You can send it back until midnight UTC.";
+  if (left === 1) return "You can send it back until tomorrow ends.";
+  return `You can send it back for ${left} more days.`;
 }
 
 /** What to say when a planter is empty and you hold no seeds. */

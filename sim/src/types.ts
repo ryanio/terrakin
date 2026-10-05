@@ -356,6 +356,23 @@ export interface ItemsToday {
   crafted: Record<ResidentId, number>;
 }
 
+/**
+ * A gift its recipient may still send back (`decline_gift`). Kept for `ITEMS.declineDays` days,
+ * from `open_gifts` on, and dropped when it's sent back.
+ */
+export interface GiftRecord {
+  /** `gift_1`, `gift_2`, ... from `items.nextGift`. */
+  id: string;
+  from: ResidentId;
+  to: ResidentId;
+  kind: ItemKind;
+  count: number;
+  /** The made things' ids. Absent for things that stack. */
+  goods?: string[];
+  /** The day it was given. */
+  day: number;
+}
+
 export interface ItemsState {
   /** The number in the next made thing's id. */
   nextId: number;
@@ -367,6 +384,13 @@ export interface ItemsState {
   pantry: Record<ResidentId, number>;
   /** Today's counters for the daily caps. Reset at each `new_day`. */
   today: ItemsToday;
+  /**
+   * Gifts that can still be sent back, by id. Absent until `open_gifts`, so worlds from before it
+   * hash as they always have.
+   */
+  gifts?: Record<string, GiftRecord>;
+  /** The number in the next gift's id. Set with `gifts`. */
+  nextGift?: number;
 }
 
 /** Why an inventory changed. */
@@ -396,6 +420,10 @@ export const INVENTORY_REASONS = [
   "market",
   /** Back from the market because staff took the listing down. */
   "taken_down",
+  /** A gift you sent back to its giver. */
+  "declined",
+  /** A gift of yours that its recipient sent back. */
+  "returned",
 ] as const;
 export type InventoryReason = (typeof INVENTORY_REASONS)[number];
 
@@ -528,6 +556,8 @@ export type Command =
   | { type: "harvest"; x: number; y: number }
   | { type: "craft"; recipe: GoodKind; x: number; y: number; label?: string }
   | { type: "give"; item: string; to: ResidentId; count?: number; note?: string }
+  /** Send a gift back to whoever gave it, within `ITEMS.declineDays` days. */
+  | { type: "decline_gift"; gift: string }
   // The town shop (RFC 0008, phase 2).
   | { type: "shop_buy"; sku: string; count?: number }
   | { type: "sell_to_town"; item: string; count?: number }
@@ -552,6 +582,8 @@ export type Command =
   | { type: "remove_owner_pair"; pair: [ResidentId, ResidentId] }
   | { type: "set_maintainers"; ids: ResidentId[] }
   | { type: "open_items" }
+  /** From now on, every gift is kept for a few days so its recipient can send it back. */
+  | { type: "open_gifts" }
   | { type: "open_shop" }
   /** The treasury's share of shop spending from now on, in percent; the rest is burned. */
   | { type: "set_shop_share"; percent: number }
@@ -586,6 +618,7 @@ export const SERVER_COMMANDS = [
   "remove_owner_pair",
   "set_maintainers",
   "open_items",
+  "open_gifts",
   "open_shop",
   "set_shop_share",
   "daily_awards",
@@ -687,6 +720,7 @@ export type WorldEvent =
   | { type: "owner_pair_removed"; pair: [ResidentId, ResidentId] }
   | { type: "maintainers_set"; ids: ResidentId[] }
   | { type: "items_opened" }
+  | { type: "gifts_opened" }
   | { type: "shop_opened" }
   | { type: "market_opened" }
   /** Something went up for sale. Public: the market is. Made things carry their makers' labels. */
@@ -739,6 +773,8 @@ export type WorldEvent =
       /** The other side of a gift. */
       with?: ResidentId;
       note?: string;
+      /** The gift's id, once gifts can be sent back: `decline_gift` takes it. */
+      gift?: string;
     };
 
 export const REJECTION_CODES = [
@@ -798,6 +834,7 @@ export const REJECTION_CODES = [
   "unknown_listing",
   "own_listing",
   "listing_limit",
+  "unknown_gift",
 ] as const;
 export type RejectionCode = (typeof REJECTION_CODES)[number];
 

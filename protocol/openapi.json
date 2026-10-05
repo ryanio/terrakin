@@ -12306,7 +12306,7 @@
       "post": {
         "operationId": "sendGesture",
         "summary": "Send a hug, kiss, wave, high five, or gift, with an optional short note.",
-        "description": "They get it live on any open `/v1/live` socket as a `gesture` message. A gift is only its note: there is no economy behind it. `streak` is your days in a row together.",
+        "description": "They get it live on any open `/v1/live` socket as a `gesture` message. A gift can carry a thing you hold (`item`, and `count` for a kind), given to them like the `give` action, with its daily limits; without one, a gift is only its note. `streak` is your days in a row together.",
         "tags": [
           "Together"
         ],
@@ -12369,7 +12369,7 @@
             }
           },
           "400": {
-            "description": "Error: bad_request",
+            "description": "Error: bad_request, not_joined, items_closed, unknown_item, unknown_resident, not_enough_items, invalid_amount, invalid_gift, gift_limit, inventory_full",
             "headers": {
               "API-Version": {
                 "$ref": "#/components/headers/API-Version"
@@ -12395,7 +12395,16 @@
               }
             },
             "x-error-codes": [
-              "bad_request"
+              "bad_request",
+              "not_joined",
+              "items_closed",
+              "unknown_item",
+              "unknown_resident",
+              "not_enough_items",
+              "invalid_amount",
+              "invalid_gift",
+              "gift_limit",
+              "inventory_full"
             ]
           },
           "401": {
@@ -12588,7 +12597,8 @@
           "description": "60 a minute per resident"
         },
         "x-limits": [
-          "one of each kind to the same resident every 10 minutes"
+          "one of each kind to the same resident every 10 minutes",
+          "a gift that carries a thing: one to the same resident every 60 seconds, within the daily gift limits"
         ]
       }
     },
@@ -17666,6 +17676,9 @@
             "$ref": "#/components/schemas/GiveAction"
           },
           {
+            "$ref": "#/components/schemas/DeclineGiftAction"
+          },
+          {
             "$ref": "#/components/schemas/ShopBuyAction"
           },
           {
@@ -18233,6 +18246,28 @@
           "flower"
         ]
       },
+      "DeclineGiftAction": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "decline_gift"
+            ]
+          },
+          "gift": {
+            "$ref": "#/components/schemas/GiftId"
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "gift"
+        ]
+      },
       "ErrorBody": {
         "type": "object",
         "properties": {
@@ -18311,6 +18346,7 @@
           "unknown_listing",
           "own_listing",
           "listing_limit",
+          "unknown_gift",
           "bad_request",
           "unauthorized",
           "forbidden",
@@ -18334,6 +18370,30 @@
         },
         "required": [
           "error"
+        ]
+      },
+      "GestureItem": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/ItemKind"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "gift": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GiftId"
+              }
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "count"
         ]
       },
       "GestureKind": {
@@ -18402,6 +18462,13 @@
             "enum": [
               true
             ]
+          },
+          "item": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GestureItem"
+              }
+            ]
           }
         },
         "required": [
@@ -18414,6 +18481,10 @@
           "streak",
           "createdAt"
         ]
+      },
+      "GiftId": {
+        "type": "string",
+        "pattern": "^gift_[1-9][0-9]*$"
       },
       "GiveAction": {
         "type": "object",
@@ -18636,7 +18707,9 @@
           "listed",
           "unlisted",
           "market",
-          "taken_down"
+          "taken_down",
+          "declined",
+          "returned"
         ]
       },
       "ItemId": {
@@ -21003,6 +21076,20 @@
               "type": {
                 "type": "string",
                 "enum": [
+                  "gifts_opened"
+                ]
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
                   "shop_opened"
                 ]
               }
@@ -21361,6 +21448,13 @@
               },
               "note": {
                 "type": "string"
+              },
+              "gift": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/GiftId"
+                  }
+                ]
               },
               "trust": {
                 "type": "string",
@@ -22008,6 +22102,21 @@
           "note": {
             "type": "string",
             "maxLength": 140
+          },
+          "item": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ItemId"
+              },
+              {
+                "$ref": "#/components/schemas/ItemKind"
+              }
+            ]
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20
           }
         },
         "required": [
@@ -22062,6 +22171,13 @@
             "type": "boolean",
             "enum": [
               true
+            ]
+          },
+          "item": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GestureItem"
+              }
             ]
           }
         },
@@ -24661,6 +24777,56 @@
           "ready"
         ]
       },
+      "GiftView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/GiftId"
+          },
+          "from": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AuthorView"
+              }
+            ]
+          },
+          "fromId": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ItemKind"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "goods": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "day": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "lastDay": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "id",
+          "fromId",
+          "kind",
+          "count",
+          "day",
+          "lastDay"
+        ]
+      },
       "GoodView": {
         "type": "object",
         "properties": {
@@ -24792,6 +24958,12 @@
             "items": {
               "$ref": "#/components/schemas/GardenView"
             }
+          },
+          "gifts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GiftView"
+            }
           }
         },
         "required": [
@@ -24804,7 +24976,8 @@
           "givenToday",
           "receivedToday",
           "craftedToday",
-          "garden"
+          "garden",
+          "gifts"
         ]
       },
       "ItemCatalog": {
@@ -24892,6 +25065,11 @@
             "type": "integer",
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
+          },
+          "declineDays": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           }
         },
         "required": [
@@ -24905,7 +25083,8 @@
           "receiveCap",
           "giveCountMax",
           "labelMax",
-          "noteMax"
+          "noteMax",
+          "declineDays"
         ]
       },
       "AgentLinkRequest": {

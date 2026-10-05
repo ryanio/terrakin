@@ -15,6 +15,7 @@ import {
   ITEMS,
   inventoryOf,
   inventorySize,
+  lastDeclineDay,
   RECIPES,
   SEED_KINDS,
   type StackKind,
@@ -642,6 +643,127 @@ describe("give", () => {
     const room = ITEMS.inventoryMax - inventorySize(w.state.items?.inventories.bob);
     stock(w.state, "bob", { tomato: room });
     expect(w.code("ada", { type: "give", item: "lemon_seed", to: "bob" })).toBe("inventory_full");
+  });
+});
+
+describe("sending a gift back", () => {
+  /** Ada and Bob settled, Ada with a jam (`i_1`), and gifts kept so they can be sent back. */
+  function kept() {
+    const w = garden();
+    w.settle("bob", 1);
+    stock(w.state, "ada", { lemon: 6 });
+    w.ok("ada", { type: "craft", recipe: "lemon_jam", x: 4, y: 2, label: "Sunny" });
+    expect(w.ok(TOWN_ACTOR, { type: "open_gifts" })).toEqual([{ type: "gifts_opened" }]);
+    return w;
+  }
+
+  it("opens only from the server, once items are open, and only once", () => {
+    const w = world();
+    w.day(DAY);
+    w.join("ada");
+    expect(w.code("ada", { type: "open_gifts" })).toBe("server_only");
+    expect(w.code(TOWN_ACTOR, { type: "open_gifts" })).toBe("items_closed");
+    w.open();
+    w.ok(TOWN_ACTOR, { type: "open_gifts" });
+    expect(w.state.items).toMatchObject({ gifts: {}, nextGift: 1 });
+    expect(w.code(TOWN_ACTOR, { type: "open_gifts" })).toBe("already_open");
+  });
+
+  it("keeps no gifts before open_gifts, so older logs replay as they did", () => {
+    const w = garden();
+    w.settle("bob", 1);
+    const events = w.ok("ada", { type: "give", item: "lemon_seed", to: "bob" });
+    expect(inventoryEvents(events).every((e) => !("gift" in e))).toBe(true);
+    expect(w.state.items?.gifts).toBeUndefined();
+    expect(inventoryOf(w.state, "bob")?.gifts).toEqual([]);
+    expect(w.code("bob", { type: "decline_gift", gift: "gift_1" })).toBe("unknown_gift");
+  });
+
+  it("sends a stack back to its giver, privately, whatever today's caps say", () => {
+    const w = kept();
+    const given = w.ok("ada", { type: "give", item: "lemon", to: "bob", count: 3, note: "hi" });
+    expect(inventoryEvents(given).map((e) => "gift" in e && e.gift)).toEqual(["gift_1", "gift_1"]);
+    expect(inventoryOf(w.state, "bob")?.gifts).toEqual([
+      { id: "gift_1", from: "ada", to: "bob", kind: "lemon", count: 3, day: DAY },
+    ]);
+    // Ada is at today's give cap; sending back doesn't need any of it.
+    const items = w.state.items;
+    if (!items) throw new Error("items");
+    items.today.given.ada = ITEMS.giveCap;
+    items.today.received.ada = ITEMS.receiveCap;
+    const lemons = w.has("ada", "lemon");
+    const events = w.ok("bob", { type: "decline_gift", gift: "gift_1" });
+    expect(events).toEqual([
+      {
+        type: "inventory",
+        residentId: "bob",
+        reason: "declined",
+        changes: [{ kind: "lemon", amount: -3, count: 0 }],
+        with: "ada",
+        gift: "gift_1",
+      },
+      {
+        type: "inventory",
+        residentId: "ada",
+        reason: "returned",
+        changes: [{ kind: "lemon", amount: 3, count: lemons + 3 }],
+        with: "bob",
+        gift: "gift_1",
+      },
+    ]);
+    expect(w.state.items?.gifts).toEqual({});
+    expect(w.state.items?.today.given.ada).toBe(ITEMS.giveCap);
+    expect(w.code("bob", { type: "decline_gift", gift: "gift_1" })).toBe("unknown_gift");
+  });
+
+  it("sends a made thing back with its maker and label", () => {
+    const w = kept();
+    const [jam] = w.goods("ada");
+    w.ok("ada", { type: "give", item: "i_1", to: "bob" });
+    expect(inventoryOf(w.state, "bob")?.gifts[0]).toMatchObject({ goods: ["i_1"], count: 1 });
+    w.ok("bob", { type: "decline_gift", gift: "gift_1" });
+    expect(w.goods("bob")).toEqual([]);
+    expect(w.goods("ada")).toEqual([jam]);
+  });
+
+  it("refuses someone else's gift, a gift partly used, and a giver with no room", () => {
+    const w = kept();
+    w.join("cy");
+    w.ok("ada", { type: "give", item: "lemon", to: "bob", count: 3 });
+    w.ok("ada", { type: "give", item: "i_1", to: "bob" });
+    expect(w.code("cy", { type: "decline_gift", gift: "gift_1" })).toBe("unknown_gift");
+    expect(w.code("ada", { type: "decline_gift", gift: "gift_1" })).toBe("unknown_gift");
+    w.ok("bob", { type: "give", item: "lemon", to: "cy" });
+    expect(w.code("bob", { type: "decline_gift", gift: "gift_1" })).toBe("not_enough_items");
+    // A gift that can't go back whole isn't offered.
+    expect(inventoryOf(w.state, "bob")?.gifts.map((g) => g.id)).toEqual(["gift_2"]);
+    const room = ITEMS.inventoryMax - inventorySize(w.state.items?.inventories.ada);
+    stock(w.state, "ada", { tomato: room });
+    expect(w.code("bob", { type: "decline_gift", gift: "gift_2" })).toBe("inventory_full");
+  });
+
+  it("forgets a gift once its days to send it back are over", () => {
+    const w = kept();
+    w.ok("ada", { type: "give", item: "lemon", to: "bob" });
+    w.ok("ada", { type: "give", item: "lemon", to: "bob" });
+    expect(lastDeclineDay(DAY)).toBe(DAY + ITEMS.declineDays - 1);
+    w.day(lastDeclineDay(DAY));
+    w.ok("bob", { type: "decline_gift", gift: "gift_1" });
+    w.day(lastDeclineDay(DAY) + 1);
+    expect(w.state.items?.gifts).toEqual({});
+    expect(w.code("bob", { type: "decline_gift", gift: "gift_2" })).toBe("unknown_gift");
+  });
+
+  it("replays to the same world", () => {
+    // Only logged inputs here: the starter seeds, no stocked lemons.
+    const w = garden();
+    w.settle("bob", 1);
+    w.ok(TOWN_ACTOR, { type: "open_gifts" });
+    w.ok("ada", { type: "give", item: "tomato_seed", to: "bob", count: 2 });
+    w.ok("ada", { type: "give", item: "herb_seed", to: "bob" });
+    w.ok("bob", { type: "decline_gift", gift: "gift_2" });
+    w.day(DAY + 1);
+    expect(hashWorld(replay(CONFIG, w.log))).toBe(hashWorld(w.state));
   });
 });
 

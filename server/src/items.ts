@@ -9,6 +9,7 @@ import {
   canBuildOn,
   inventoryOf,
   isReady,
+  lastDeclineDay,
   pantryNumbers,
   parseKey,
   plotAtTile,
@@ -76,6 +77,19 @@ export function inventoryView(
       receivedToday: read.receivedToday,
       craftedToday: read.craftedToday,
       garden: gardenOf(state, viewer),
+      gifts: read.gifts.map((g) => {
+        const from = author(g.from);
+        return {
+          id: g.id,
+          ...(from ? { from } : {}),
+          fromId: g.from,
+          kind: g.kind,
+          count: g.count,
+          ...(g.goods ? { goods: g.goods } : {}),
+          day: g.day,
+          lastDay: lastDeclineDay(g.day),
+        };
+      }),
     },
     ...base,
   };

@@ -38,6 +38,7 @@ The rules engine. If a rule decides what's allowed in the world, it lives here a
 - Seeds, produce, and staples stack as counts (absent at 0). A made thing has an id from `items.nextId`, its maker, and its made day, and keeps them wherever it goes. Every unit counts toward `inventoryMax`.
 - Inventories are private, like purses. An `inventory` event belongs to its `residentId` alone; a gift makes two. `planted`, `harvested`, and `item_given` (no count, no note) are public. Use `inventoryOf` for `GET /v1/inventory`.
 - A planter with a crop in it can't be removed. Anyone who can build on the plot may harvest it into their own inventory.
+- Gifts can be sent back once the server logs `open_gifts`, which creates `items.gifts`. From then on each accepted `give` records a gift (`gift_1`, ...) that its recipient may send back whole with `decline_gift` until `lastDeclineDay`, if the giver has room. `new_day` forgets older ones. Before `open_gifts`, `give` hashes exactly as it did ([decision 0057](../docs/knowledge/decisions/0057-a-gift-can-carry-a-thing-and-its-recipient-can-send-it-back-.md)).
 
 ## The town shop
 

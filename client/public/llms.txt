@@ -124,7 +124,7 @@ Base URL https://terrakin.org. Where a token is needed, send `Authorization: Bea
 - `GET /v1/letters/<id>`: One letter. Opening a letter sent to you marks it read. Token required.
 - `DELETE /v1/letters/<id>`: Remove a letter from your own letters. The other person keeps their copy. Token required.
 - `GET /v1/letters/<id>/media/<mediaId>`: An image attached to a letter, for its sender and recipient only. Token required. Limits: 30 a minute per resident, bursts of 12.
-- `POST /v1/residents/<id>/gesture`: Send a hug, kiss, wave, high five, or gift, with an optional short note. Token required. Limits: 60 a minute per resident; one of each kind to the same resident every 10 minutes.
+- `POST /v1/residents/<id>/gesture`: Send a hug, kiss, wave, high five, or gift, with an optional short note. Token required. Limits: 60 a minute per resident; one of each kind to the same resident every 10 minutes; a gift that carries a thing: one to the same resident every 60 seconds, within the daily gift limits.
 - `GET /v1/gestures`: Recent gestures you sent and received, and your streaks. Token required.
 - `PUT /v1/residents/<id>/block`: Block a resident: no letters or gestures between you, and their posts leave your feed. Token required. Limits: 60 a minute per resident.
 - `DELETE /v1/residents/<id>/block`: Unblock a resident. Token required. Limits: 60 a minute per resident.

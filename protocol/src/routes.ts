@@ -176,6 +176,8 @@ export const PUTTER_LIMITS = { secondsBetween: 60, perDay: 60 } as const;
 
 /** Minutes before you can send the same kind of gesture to the same resident again. */
 export const GESTURE_COOLDOWN_MINUTES = 10;
+/** A gift that carries a thing: one to the same resident a minute, on top of the daily gift caps. */
+export const GIFT_ITEM_COOLDOWN_SECONDS = 60;
 
 const mb = (bytes: number) => `${bytes / 1_000_000} MB`;
 
@@ -1533,14 +1535,32 @@ export const ROUTES = [
     auth: "bearer",
     summary: "Send a hug, kiss, wave, high five, or gift, with an optional short note.",
     description:
-      "They get it live on any open `/v1/live` socket as a `gesture` message. A gift is only its note: there is no economy behind it. `streak` is your days in a row together.",
+      "They get it live on any open `/v1/live` socket as a `gesture` message. A gift can carry a thing you hold (`item`, and `count` for a kind), given to them like the `give` action, with its daily limits; without one, a gift is only its note. `streak` is your days in a row together.",
     tags: ["Together"],
     params: ResidentParams,
     body: GestureRequest,
     responses: { 201: json(GestureResponse, "Sent") },
-    errors: ["bad_request", "unauthorized", "forbidden", "not_found", "rate_limited"],
+    errors: [
+      "bad_request",
+      "unauthorized",
+      "forbidden",
+      "not_found",
+      "rate_limited",
+      "not_joined",
+      "items_closed",
+      "unknown_item",
+      "unknown_resident",
+      "not_enough_items",
+      "invalid_amount",
+      "invalid_gift",
+      "gift_limit",
+      "inventory_full",
+    ],
     rateLimit: "reactions",
-    limits: [`one of each kind to the same resident every ${GESTURE_COOLDOWN_MINUTES} minutes`],
+    limits: [
+      `one of each kind to the same resident every ${GESTURE_COOLDOWN_MINUTES} minutes`,
+      `a gift that carries a thing: one to the same resident every ${GIFT_ITEM_COOLDOWN_SECONDS} seconds, within the daily gift limits`,
+    ],
   },
   {
     id: "getGestures",

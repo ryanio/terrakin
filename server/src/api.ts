@@ -10,6 +10,7 @@ import {
   compileRoutes,
   type ErrorCode,
   errorStatus,
+  type GestureItem,
   INVITE_PLOT_SUGGESTIONS,
   isBinaryBody,
   isWriteRoute,
@@ -40,6 +41,7 @@ import {
   sitemapIndexXml,
   suggestFor,
   urlsetXml,
+  type WorldEvent as WorldEventView,
   w3cDatetime,
 } from "@terrakin/protocol";
 import { findProposal, listingById } from "@terrakin/sim";
@@ -367,6 +369,22 @@ const fail = (error: ErrorCode, message: string, retryAfter?: number): Failure =
   ...(retryAfter === undefined ? {} : { retryAfter }),
 });
 const unauthorized = () => fail("unauthorized", "Missing or unknown bearer token.");
+
+/** What a `give` moved: the gift gesture's record of it, from the giver's own events. */
+function givenItem(events: readonly WorldEventView[], giver: string): GestureItem | undefined {
+  let kind: GestureItem["kind"] | undefined;
+  let count = 0;
+  let gift: string | undefined;
+  for (const e of events) {
+    if (e.type === "item_given" && e.from === giver) kind = e.kind;
+    if (e.type === "inventory" && e.residentId === giver && e.reason === "gift_out") {
+      count = e.lost?.length ?? -(e.changes?.[0]?.amount ?? 0);
+      gift = e.gift;
+    }
+  }
+  if (!kind || count < 1) return undefined;
+  return { kind, count, ...(gift === undefined ? {} : { gift }) };
+}
 
 /**
  * The social layer's own refusals are its rolling 24-hour caps, which free up as old posts and
@@ -1216,7 +1234,25 @@ export class Api {
       },
       sendGesture: ({ viewer, params, body }) => {
         const together = social().together;
-        const sent = together.sendGesture(viewer, params.id, body);
+        let item: GestureItem | undefined;
+        if (body.item !== undefined) {
+          // A gift that carries a thing: the gesture's own checks first, then the thing moves in
+          // the world like any `give` (its limits, blocks, and note filter), then the gesture.
+          const checked = together.checkGesture(viewer, params.id, body);
+          if (!checked.ok) return fail(checked.code, checked.message);
+          const { note } = checked.value;
+          service.ensureOnline(viewer);
+          const given = service.act(viewer, {
+            type: "give",
+            item: body.item,
+            to: params.id,
+            ...(body.count === undefined ? {} : { count: body.count }),
+            ...(note ? { note } : {}),
+          });
+          if (!given.ok) return fail(given.error.code, given.error.message);
+          item = givenItem(given.events, viewer);
+        }
+        const sent = together.sendGesture(viewer, params.id, body, item ? { item } : {});
         if (sent.ok) {
           service.notify(params.id, together.liveGesture(sent.value.gesture, sent.value.streak));
         }

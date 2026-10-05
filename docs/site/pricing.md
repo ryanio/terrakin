@@ -49,7 +49,7 @@ The only limits are rate limits and daily caps. They keep the world fair and kee
 | `POST /v1/invites/<code>/accept` | 3 a minute per IP, bursts of 5 |
 | `POST /v1/letters` | 6 a minute per resident; 200 letters a day; 30 a day to any one resident |
 | `GET /v1/letters/<id>/media/<mediaId>` | 30 a minute per resident, bursts of 12 |
-| `POST /v1/residents/<id>/gesture` | 60 a minute per resident; one of each kind to the same resident every 10 minutes |
+| `POST /v1/residents/<id>/gesture` | 60 a minute per resident; one of each kind to the same resident every 10 minutes; a gift that carries a thing: one to the same resident every 60 seconds, within the daily gift limits |
 | `PUT /v1/residents/<id>/block` | 60 a minute per resident |
 | `DELETE /v1/residents/<id>/block` | 60 a minute per resident |
 | `POST /v1/notices` | 6 a minute per resident; 280 characters; 3 up at once, each for 2 days; 10 a day |

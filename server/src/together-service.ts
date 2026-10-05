@@ -5,9 +5,11 @@ import {
   FEED_DEFAULT_LIMIT,
   FEED_MAX_LIMIT,
   GESTURE_COOLDOWN_MINUTES,
+  type GestureItem,
   type GestureKind,
   type GestureRequest,
   type GestureView,
+  GIFT_ITEM_COOLDOWN_SECONDS,
   INVITE_TTL_DAYS,
   type InviteView,
   type LetterView,
@@ -62,6 +64,13 @@ type Row = Record<string, unknown>;
 
 const fail = (code: ErrorCode, message: string) => ({ ok: false as const, code, message });
 const ok = <T>(value: T) => ({ ok: true as const, value });
+
+/** The thing a gift gesture carried, from its row. */
+const gestureItem = (row: Row): GestureItem => ({
+  kind: String(row.item_kind) as GestureItem["kind"],
+  count: Number(row.item_count),
+  ...(row.gift ? { gift: String(row.gift) } : {}),
+});
 
 const randomId = (prefix: string) =>
   `${prefix}_${Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) => b.toString(16).padStart(2, "0")).join("")}`;
@@ -159,6 +168,19 @@ export class TogetherService {
       this.o.sql.exec("ALTER TABLE gestures ADD COLUMN putter INTEGER NOT NULL DEFAULT 0");
     } catch {
       // Already there.
+    }
+    // Added with gifts that carry a thing: its kind, count, and the world's gift id. Older rows
+    // carry nothing ('' and 0).
+    for (const column of [
+      "item_kind TEXT NOT NULL DEFAULT ''",
+      "item_count INTEGER NOT NULL DEFAULT 0",
+      "gift TEXT NOT NULL DEFAULT ''",
+    ]) {
+      try {
+        this.o.sql.exec(`ALTER TABLE gestures ADD COLUMN ${column}`);
+      } catch {
+        // Already there.
+      }
     }
   }
 
@@ -465,16 +487,18 @@ export class TogetherService {
   // ---------- gestures and streaks ----------
 
   /**
-   * Send a gesture. With `putter`, it's the wave `putter` sends by itself when a walk ends near
-   * someone (decision 0049): at most one a UTC day between any two residents, in either direction,
-   * and it leaves the pair's streak alone, so automatic walks can't keep a streak alive.
+   * Whether a gesture may go: both residents known, no block either way, a note the filters let
+   * through, and the kind's cooldown. With `putter`, it's the wave `putter` sends by itself when a
+   * walk ends near someone (decision 0049): at most one a UTC day between any two residents, in
+   * either direction. A gift that carries a thing (`item`) needs no note and skips the cooldown:
+   * the world's daily gift limits bound it. The answer is the cleaned note.
    */
-  sendGesture(
+  checkGesture(
     sender: string,
     to: string,
     request: GestureRequest,
     options: { putter?: boolean } = {},
-  ): SocialResult<{ gesture: GestureView; streak: number }> {
+  ): SocialResult<{ note: string }> {
     const putter = options.putter === true;
     if (!this.o.resident(sender)) return fail("unauthorized", "Unknown resident.");
     if (to === sender) return fail("bad_request", "Send it to someone else.");
@@ -482,13 +506,23 @@ export class TogetherService {
     if (this.o.blockedEither(sender, to)) {
       return fail("forbidden", "You can't send that to this resident.");
     }
+    const carries = request.item !== undefined;
+    if (carries && request.kind !== "gift") {
+      return fail("bad_request", "Only a gift can carry a thing. Send it with kind gift.");
+    }
+    if (!carries && request.count !== undefined) {
+      return fail("bad_request", "count goes with item. Leave it out, or say which item.");
+    }
     const note = cleanText(request.note ?? "");
     const refused = note
       ? refusal(this.o.review("gesture_note", note, { resident: sender }))
       : undefined;
     if (refused) return refused;
-    if (request.kind === "gift" && note === "") {
-      return fail("bad_request", 'Say what the gift is in the note, like "a jar of honey".');
+    if (request.kind === "gift" && note === "" && !carries) {
+      return fail(
+        "bad_request",
+        'Say what the gift is in the note, like "a jar of honey", or give a thing with item.',
+      );
     }
     const now = this.o.now();
     const today = utcDay(now);
@@ -506,10 +540,29 @@ export class TogetherService {
       );
       if (already > 0) return fail("rate_limited", "You two already waved while puttering today.");
     }
+    if (carries) {
+      // The daily gift caps bound how many; this keeps a burst of them from landing at once.
+      const wait = GIFT_ITEM_COOLDOWN_SECONDS * 1000;
+      const lastGift = this.rows(
+        `SELECT MAX(created_at) AS at FROM gestures
+          WHERE sender = ? AND recipient = ? AND item_kind != '' AND created_at > ?`,
+        sender,
+        to,
+        now - wait,
+      )[0];
+      if (lastGift?.at !== null && lastGift?.at !== undefined) {
+        const seconds = Math.max(1, Math.ceil((Number(lastGift.at) + wait - now) / 1000));
+        return fail(
+          "rate_limited",
+          `You just gave them something. Try again in ${seconds} ${seconds === 1 ? "second" : "seconds"}.`,
+        );
+      }
+      return ok({ note });
+    }
     const cooldown = GESTURE_COOLDOWN_MINUTES * 60_000;
     const last = this.rows(
       `SELECT MAX(created_at) AS at FROM gestures
-        WHERE sender = ? AND recipient = ? AND kind = ? AND created_at > ?`,
+        WHERE sender = ? AND recipient = ? AND kind = ? AND item_kind = '' AND created_at > ?`,
       sender,
       to,
       request.kind,
@@ -522,10 +575,37 @@ export class TogetherService {
         `You just sent them ${GESTURE_WORDS[request.kind]}. Try again in ${minutes} ${minutes === 1 ? "minute" : "minutes"}.`,
       );
     }
+    return ok({ note });
+  }
+
+  /**
+   * Send a gesture. A putter wave leaves the pair's streak alone, so automatic walks can't keep a
+   * streak alive. A gift with `request.item` was checked with `checkGesture` and given in the world
+   * by the caller, so only its record goes here, with `item` (what moved) when known.
+   */
+  sendGesture(
+    sender: string,
+    to: string,
+    request: GestureRequest,
+    options: { putter?: boolean; item?: GestureItem } = {},
+  ): SocialResult<{ gesture: GestureView; streak: number }> {
+    const putter = options.putter === true;
+    const { item } = options;
+    // A gift that carries a thing was checked before the thing moved in the world. Nothing may
+    // refuse it now, so only its record is written.
+    const checked =
+      request.item !== undefined
+        ? ok({ note: cleanText(request.note ?? "") })
+        : this.checkGesture(sender, to, request, options);
+    if (!checked.ok) return checked;
+    const { note } = checked.value;
+    const now = this.o.now();
+    const today = utcDay(now);
 
     const id = randomId("g");
     this.o.sql.exec(
-      "INSERT INTO gestures (id, sender, recipient, kind, note, created_at, putter) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      `INSERT INTO gestures (id, sender, recipient, kind, note, created_at, putter, item_kind, item_count, gift)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       id,
       sender,
       to,
@@ -533,6 +613,9 @@ export class TogetherService {
       note,
       now,
       putter ? 1 : 0,
+      item?.kind ?? "",
+      item?.count ?? 0,
+      item?.gift ?? "",
     );
     const pair = pairKey(sender, to);
     const before = this.streakRecord(pair);
@@ -610,6 +693,7 @@ export class TogetherService {
       streak,
       createdAt: gesture.createdAt,
       ...(gesture.putter ? { putter: true as const } : {}),
+      ...(gesture.item ? { item: gesture.item } : {}),
     };
   }
 
@@ -645,6 +729,7 @@ export class TogetherService {
           note: String(row.note),
           createdAt: iso(Number(row.created_at)),
           ...(Number(row.putter) === 1 ? { putter: true as const } : {}),
+          ...(row.item_kind ? { item: gestureItem(row) } : {}),
         },
       ];
     });

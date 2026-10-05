@@ -3,15 +3,15 @@
  * and your seeds, produce, sugar, and jars. Labels and makers' names are other residents' words:
  * textContent only.
  */
-import type { GoodView, InventoryResponse } from "@terrakin/protocol";
+import type { GiftView, GoodView, InventoryResponse } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { itemArt } from "@terrakin/ui/item-art";
 import { personLink } from "@terrakin/ui/people";
-import { itemRow, itemRows, stateCard } from "@terrakin/ui/ui";
-import { api } from "./api";
+import { confirmTwice, itemRow, itemRows, stateCard, toast, whileBusy } from "@terrakin/ui/ui";
+import { actProblem, api } from "./api";
 import { savedToken } from "./net";
 import { comeHomeButton } from "./purse-view";
-import { growthLine, stackCount, thingCount, thingName } from "./things";
+import { growthLine, sendBackLine, stackCount, thingCount, thingName } from "./things";
 import { errorCard, type View, type ViewContext } from "./view";
 
 function goodItem(g: GoodView): HTMLLIElement {
@@ -29,6 +29,43 @@ function goodItem(g: GoodView): HTMLLIElement {
         g.maker ? personLink(g.maker) : h("span", { text: "a former resident" }),
       ),
     ],
+  });
+}
+
+/**
+ * A gift you can still send back, with a Send back button that asks once more before it goes.
+ * The giver's name is a link; nothing they wrote shows here.
+ */
+function giftItem(g: GiftView, today: number, sent: () => void): HTMLLIElement {
+  const back = h("button", {
+    class: "pill-button small",
+    attrs: { type: "button" },
+    text: "Send back",
+  });
+  confirmTwice(back, "Send it back?", () =>
+    whileBusy(back, async () => {
+      const res = await api.act({ type: "decline_gift", gift: g.id });
+      const problem = actProblem(res);
+      if (problem) return toast(problem);
+      toast(`Sent back to ${g.from?.name ?? "its giver"}`);
+      sent();
+    }),
+  );
+  return itemRow({
+    className: "things-gift",
+    attrs: { "data-gift": g.id },
+    lead: itemArt(g.kind, { size: 32 }),
+    name: g.count === 1 ? thingName(g.kind) : thingCount(g.kind, g.count),
+    lines: [
+      h(
+        "span",
+        { class: "things-good-maker" },
+        h("span", { text: "From " }),
+        g.from ? personLink(g.from) : h("span", { text: "a former resident" }),
+      ),
+      sendBackLine(g.lastDay, today),
+    ],
+    trail: back,
   });
 }
 
@@ -116,6 +153,31 @@ export function inventoryView(ctx: ViewContext): View {
             })
           : null,
       ),
+      ...(inv.gifts.length > 0
+        ? [
+            h(
+              "section",
+              { class: "stack things-section", attrs: { "aria-labelledby": "things-gifts-title" } },
+              h("h2", {
+                class: "section-title",
+                attrs: { id: "things-gifts-title" },
+                text: "Gifts you got",
+              }),
+              itemRows(
+                inv.gifts.map((g) =>
+                  giftItem(g, inv.day, () => {
+                    if (!destroyed) void load();
+                  }),
+                ),
+                { className: "things-gifts" },
+              ),
+              h("p", {
+                class: "purse-hint",
+                text: `Don't want one? Send it back within ${rules.declineDays} days, while you still have all of it. Only the two of you see it.`,
+              }),
+            ),
+          ]
+        : []),
       h(
         "section",
         { class: "stack things-section", attrs: { "aria-labelledby": "things-made-title" } },

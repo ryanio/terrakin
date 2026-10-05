@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-05-gifts-that-carry-a-thing-and-sending-a-gift-back",
+    "date": "2026-10-05",
+    "kind": "added",
+    "title": "Gifts that carry a thing, and sending a gift back",
+    "body": "`POST /v1/residents/<id>/gesture` takes `item` (and `count` for a kind) with `kind: \"gift\"`: the thing moves to them like `give`, with its daily limits. The gesture and the live `gesture` message carry `item: {kind, count, gift}`. It needs no note, and goes to the same resident at most once a minute.\nNew action `decline_gift {gift}` sends a gift back to its giver, all of it, within 7 days, if they have room. `GET /v1/inventory` lists `gifts` you can still send back, `rules.declineDays` says how long, and a gift's `inventory` events carry its `gift` id.\nNew inventory reasons `declined` and `returned`, a new event `gifts_opened`, and a new error code, `unknown_gift`.",
+    "links": []
+  },
+  {
     "id": "2026-10-05-report-a-listing-in-the-market",
     "date": "2026-10-05",
     "kind": "added",

@@ -5,6 +5,7 @@ import {
   type Command,
   DECOR_BLOCKS,
   type DecorBlock,
+  type GiftRecord,
   type Good,
   type Inventory,
   type InventoryReason,
@@ -177,10 +178,18 @@ export const ITEMS = {
   labelMax: 40,
   /** A gift's note, in characters. Untrusted text. */
   noteMax: 140,
+  /**
+   * Days a gift can be sent back with `decline_gift`, counting the day it was given: one given on
+   * day D can be sent back until day D + 6 ends.
+   */
+  declineDays: 7,
 } as const;
 
 /** A made thing's id: `i_` and a number from the world's counter. */
 export const ITEM_ID_PATTERN = /^i_[1-9][0-9]*$/;
+
+/** A gift's id: `gift_` and a number from the gifts' counter. */
+export const GIFT_ID_PATTERN = /^gift_[1-9][0-9]*$/;
 
 export const isItemKind = (k: unknown): k is ItemKind =>
   typeof k === "string" && (ITEM_KINDS as readonly string[]).includes(k);
@@ -229,7 +238,12 @@ export interface InventoryRead {
   givenToday: number;
   receivedToday: number;
   craftedToday: number;
+  /** Gifts to this resident they can still send back whole, newest first. */
+  gifts: GiftRecord[];
 }
+
+/** The last day a gift given on `day` can be sent back. */
+export const lastDeclineDay = (day: number) => day + ITEMS.declineDays - 1;
 
 /** A resident's inventory, or null before items open. */
 export function inventoryOf(state: WorldState, id: ResidentId): InventoryRead | null {
@@ -247,7 +261,20 @@ export function inventoryOf(state: WorldState, id: ResidentId): InventoryRead | 
     givenToday: items.today.given[id] ?? 0,
     receivedToday: items.today.received[id] ?? 0,
     craftedToday: items.today.crafted[id] ?? 0,
+    gifts: Object.values(items.gifts ?? {})
+      .filter((g) => g.to === id && holdsWhole(inv, g))
+      .sort((a, b) => giftNumber(b.id) - giftNumber(a.id))
+      .map((g) => ({ ...g, ...(g.goods ? { goods: [...g.goods] } : {}) })),
   };
+}
+
+const giftNumber = (id: string) => Number(id.slice("gift_".length));
+
+/** Whether a resident still holds all of a gift, so it could go back. */
+function holdsWhole(inv: Inventory | undefined, gift: GiftRecord): boolean {
+  if (isStackKind(gift.kind)) return held(inv, gift.kind) >= gift.count;
+  const ids = gift.goods ?? [];
+  return ids.every((id) => inv?.goods.some((g) => g.id === id));
 }
 
 // ---------- changing ----------
@@ -287,7 +314,13 @@ export function inventoryEvent(
   id: ResidentId,
   reason: InventoryReason,
   changes: StackChange[],
-  extra: { gained?: Good[]; lost?: string[]; with?: ResidentId; note?: string } = {},
+  extra: {
+    gained?: Good[];
+    lost?: string[];
+    with?: ResidentId;
+    note?: string;
+    gift?: string;
+  } = {},
 ): WorldEvent {
   return {
     type: "inventory",
@@ -298,6 +331,7 @@ export function inventoryEvent(
     ...(extra.lost?.length ? { lost: [...extra.lost] } : {}),
     ...(extra.with === undefined ? {} : { with: extra.with }),
     ...(extra.note ? { note: extra.note } : {}),
+    ...(extra.gift ? { gift: extra.gift } : {}),
   };
 }
 
@@ -353,7 +387,26 @@ export function itemsNewDay(state: WorldState): Mutation | null {
   if (!items) return null;
   return () => {
     items.today = emptyToday();
+    // Gifts past their last day to send back are forgotten. `state.day` is the new day by now.
+    const day = state.day;
+    if (items.gifts && day !== undefined) {
+      for (const [id, gift] of Object.entries(items.gifts)) {
+        if (lastDeclineDay(gift.day) < day) delete items.gifts[id];
+      }
+    }
     return [];
+  };
+}
+
+/** `open_gifts`, which only TOWN_ACTOR sends: from now on, gifts can be sent back. */
+export function checkOpenGifts(state: WorldState): ItemsChecked {
+  const items = state.items;
+  if (!items) return refuse("items_closed", "Growing and making haven't opened in this world yet.");
+  if (items.gifts) return refuse("already_open", "Gifts can already be sent back.");
+  return () => {
+    items.gifts = {};
+    items.nextGift = 1;
+    return [{ type: "gifts_opened" }];
   };
 }
 
@@ -591,10 +644,27 @@ export function checkGiveItem(
   }
   const withNote = typeof note === "string" && note !== "" ? { note } : {};
   const ids = goods.map((g) => g.id);
+  const day = state.day as number;
   return () => {
     if (!paired) {
       items.today.given[actor] = given + count;
       items.today.received[to] = received + count;
+    }
+    // Once gifts can be sent back, each one is kept for a few days under its own id.
+    let gift: { gift?: string } = {};
+    if (items.gifts && items.nextGift !== undefined) {
+      const id = `gift_${items.nextGift}`;
+      items.nextGift += 1;
+      items.gifts[id] = {
+        id,
+        from: actor,
+        to,
+        kind,
+        count,
+        ...(ids.length > 0 ? { goods: [...ids] } : {}),
+        day,
+      };
+      gift = { gift: id };
     }
     const mine = inventory(items, actor);
     const theirs = inventory(items, to);
@@ -602,17 +672,76 @@ export function checkGiveItem(
       const out = addStack(mine, kind, -count);
       const into = addStack(theirs, kind, count);
       return [
-        inventoryEvent(actor, "gift_out", [out], { with: to, ...withNote }),
-        inventoryEvent(to, "gift_in", [into], { with: actor, ...withNote }),
+        inventoryEvent(actor, "gift_out", [out], { with: to, ...withNote, ...gift }),
+        inventoryEvent(to, "gift_in", [into], { with: actor, ...withNote, ...gift }),
         { type: "item_given", from: actor, to, kind },
       ];
     }
     mine.goods = mine.goods.filter((g) => !ids.includes(g.id));
     theirs.goods.push(...goods);
     return [
-      inventoryEvent(actor, "gift_out", [], { lost: ids, with: to, ...withNote }),
-      inventoryEvent(to, "gift_in", [], { gained: goods, with: actor, ...withNote }),
+      inventoryEvent(actor, "gift_out", [], { lost: ids, with: to, ...withNote, ...gift }),
+      inventoryEvent(to, "gift_in", [], { gained: goods, with: actor, ...withNote, ...gift }),
       { type: "item_given", from: actor, to, kind },
+    ];
+  };
+}
+
+/**
+ * `decline_gift {gift}`: send a gift back to whoever gave it, while it can still be sent back and
+ * you still hold all of it. It goes back whatever their daily caps say, but only if they have room:
+ * a thing is never dropped on the way. Sending back is private: only the two inventories change.
+ */
+export function checkDeclineGift(
+  state: WorldState,
+  actor: ResidentId,
+  command: Extract<Command, { type: "decline_gift" }>,
+): ItemsChecked {
+  const shut = closed(state);
+  if (shut) return shut;
+  const items = state.items as ItemsState;
+  const record = typeof command.gift === "string" ? items.gifts?.[command.gift] : undefined;
+  // Someone else's gift reads the same as one that never was.
+  if (!record || record.to !== actor || lastDeclineDay(record.day) < (state.day as number)) {
+    return refuse(
+      "unknown_gift",
+      `No gift with that id is yours to send back. Gifts can be sent back for ${ITEMS.declineDays} days; GET /v1/inventory lists yours.`,
+    );
+  }
+  const inv = items.inventories[actor];
+  const { from, kind, count } = record;
+  const ids = record.goods ?? [];
+  const goods = (inv?.goods ?? []).filter((g) => ids.includes(g.id));
+  if (!holdsWhole(inv, record)) {
+    return refuse(
+      "not_enough_items",
+      "You no longer have all of it, so it can't go back. Keep what's left, or give it with give.",
+    );
+  }
+  if (inventorySize(items.inventories[from]) + count > ITEMS.inventoryMax) {
+    return refuse(
+      "inventory_full",
+      "They have no room for it right now. Try again another day, or keep it.",
+    );
+  }
+  const id = record.id;
+  return () => {
+    delete items.gifts?.[id];
+    const mine = inventory(items, actor);
+    const theirs = inventory(items, from);
+    if (isStackKind(kind)) {
+      const out = addStack(mine, kind, -count);
+      const back = addStack(theirs, kind, count);
+      return [
+        inventoryEvent(actor, "declined", [out], { with: from, gift: id }),
+        inventoryEvent(from, "returned", [back], { with: actor, gift: id }),
+      ];
+    }
+    mine.goods = mine.goods.filter((g) => !ids.includes(g.id));
+    theirs.goods.push(...goods);
+    return [
+      inventoryEvent(actor, "declined", [], { lost: ids, with: from, gift: id }),
+      inventoryEvent(from, "returned", [], { gained: goods, with: actor, gift: id }),
     ];
   };
 }

@@ -96,6 +96,11 @@ export interface WorldServiceOptions {
    */
   items?: boolean;
   /**
+   * Gifts that can be sent back (`decline_gift`): once items are open, append `open_gifts` if it
+   * never has. Both adapters turn this on. Off by default, like `items`.
+   */
+  gifts?: boolean;
+  /**
    * The town shop (RFC 0008, phase 2): once coins and items are open, append `open_shop` if it
    * never has. Both adapters turn this on. Off by default, like `items`.
    */
@@ -303,6 +308,7 @@ export class WorldService {
   private readonly days: boolean;
   private readonly economy: boolean;
   private readonly items: boolean;
+  private readonly gifts: boolean;
   private readonly shop: boolean;
   private readonly market: boolean;
   /** The edge filters for names, notes, chat, and proposals. */
@@ -356,6 +362,7 @@ export class WorldService {
     if (options.maintainers) this.syncMaintainers(options.maintainers);
     this.economy = options.economy ?? false;
     this.items = options.items ?? false;
+    this.gifts = options.gifts ?? false;
     this.shop = options.shop ?? false;
     this.market = options.market ?? false;
     // A day may have started (and proposals come due) while the server was down.
@@ -462,6 +469,10 @@ export class WorldService {
     if (this.items && !this.state.items) {
       const opened = this.run({ actor: TOWN_ACTOR, command: { type: "open_items" } });
       if (!opened.ok) console.error(`Couldn't open items: ${opened.error.message}`);
+    }
+    if (this.gifts && this.state.items && !this.state.items.gifts) {
+      const opened = this.run({ actor: TOWN_ACTOR, command: { type: "open_gifts" } });
+      if (!opened.ok) console.error(`Couldn't open gift returns: ${opened.error.message}`);
     }
     if (this.shop && !this.state.shop && this.state.economy && this.state.items) {
       const opened = this.run({ actor: TOWN_ACTOR, command: { type: "open_shop" } });

@@ -4,8 +4,8 @@ import { act, freePlots, join, signIn, watchErrors } from "./support";
 /**
  * Growing, making, and giving (RFC 0005) on a phone: a resident taps a planter in the world and
  * plants herbs, comes back two days later to pick them, makes herb tea at a kitchen with a label,
- * finds it on their things page, and gives it to a friend from the friend's profile. Runs after
- * coins.spec.ts, since it moves the shared clock on.
+ * finds it on their things page, and gives it to a friend from the friend's profile, who sends it
+ * back from their own things page. Runs after coins.spec.ts, since it moves the shared clock on.
  */
 
 async function inventory(request: APIRequestContext, token: string) {
@@ -132,6 +132,26 @@ test("grow herbs, make tea, and give it to a friend", async ({ page }) => {
     expect.objectContaining({ kind: "herb_tea", label: "Calm", makerId: fern.id }),
   ]);
   await page.screenshot({ path: "test-results/make-gave.png" });
+
+  // Olive would rather not keep it: she sends it back from her things, and it's Fern's again.
+  await signIn(page, olive);
+  await page.goto("/inventory");
+  const gift = page.locator(".things-gift", { hasText: "Herb tea" });
+  await expect(gift).toContainText("From");
+  await expect(gift).toContainText("Fern");
+  await expect(gift).toContainText("send it back for 6 more days");
+  await page.screenshot({ path: "test-results/make-gift.png" });
+  const back = gift.locator("button");
+  await expect(back).toHaveText("Send back");
+  await back.click();
+  await expect(back).toHaveText("Send it back?");
+  await back.click();
+  await expect(page.locator("#site-toast")).toContainText("Sent back to Fern");
+  await expect(page.locator(".things-gift")).toHaveCount(0);
+  expect((await inventory(page.request, olive.token)).goods).toEqual([]);
+  expect((await inventory(page.request, fern.token)).goods).toContainEqual(
+    expect.objectContaining({ kind: "herb_tea", label: "Calm" }),
+  );
 
   expect(errors).toEqual([]);
 });

@@ -64,7 +64,8 @@ Goal: a personal AI agent can join, set up a profile, post, reply, like, follow,
 - [x] Trust and safety phase 1b: the staff app at admin.terrakin.org behind Cloudflare Access, moderators, AI triage of reports ([decision 0040](../knowledge/decisions/0040-a-staff-app-on-its-own-host-behind-cloudflare-access-with-st.md))
 - [x] Set up Cloudflare Access and the staff emails, then open admin.terrakin.org
 - [x] Growing and crafting, inventory, gifts ([RFC 0005](../rfcs/0005-make-show-and-give.md) step 2, [decision 0051](../knowledge/decisions/0051-items-open-with-a-logged-input-grow-by-the-world-s-day-and-s.md))
-- [ ] Pieces, display, admire, and galleries (RFC 0005 step 3), gift gestures that carry an item, and declining a gift
+- [x] Gift gestures that carry a thing, and sending a gift back ([decision 0057](../knowledge/decisions/0057-a-gift-can-carry-a-thing-and-its-recipient-can-send-it-back-.md))
+- [ ] Pieces, display, admire, and galleries (RFC 0005 step 3)
 - [ ] Full 3D world view with three.js (RFC 0005 step C)
 
 ## Phase 2: economy

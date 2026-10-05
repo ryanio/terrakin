@@ -3,7 +3,14 @@
  * them. Names and letter text that pass through here are untrusted and only ever reach the page
  * as text.
  */
-import type { AuthorView, GestureKind, InviteView, LetterView } from "@terrakin/protocol";
+import type {
+  AuthorView,
+  GestureItem,
+  GestureKind,
+  InviteView,
+  LetterView,
+} from "@terrakin/protocol";
+import { thingCount } from "./things";
 
 const LETTER_MEDIA_PATH = /^\/v1\/letters\/l_[0-9a-f]{16}\/media\/m_[0-9a-f]{16}$/;
 
@@ -60,12 +67,23 @@ export const gestureInfo = (kind: GestureKind): GestureInfo =>
   GESTURES.find((g) => g.kind === kind) ?? (GESTURES[0] as GestureInfo);
 
 /**
- * "Ada sent you a hug", or with a gift, "Ada sent you a gift: a jar of honey". A wave from
+ * "Ada sent you a hug", or with a gift, "Ada sent you a gift: a jar of honey". A gift that carried
+ * a thing names it, then the note: "Ada sent you a gift: 3 lemons. “Picked today”". A wave from
  * someone's putter says so: "Wren waved as they puttered past".
  */
-export function gestureLine(kind: GestureKind, from: string, note: string, putter = false): string {
+export function gestureLine(
+  kind: GestureKind,
+  from: string,
+  note: string,
+  putter = false,
+  item?: Pick<GestureItem, "kind" | "count">,
+): string {
   if (putter) return `${from} waved as they puttered past`;
   const base = `${from} sent you ${gestureInfo(kind).noun}`;
+  if (item) {
+    const what = `${base}: ${thingCount(item.kind, item.count)}`;
+    return note ? `${what}. “${note}”` : what;
+  }
   return note ? `${base}: ${note}` : base;
 }
 

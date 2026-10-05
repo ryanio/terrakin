@@ -10,7 +10,7 @@ import {
   type StackKind,
 } from "@terrakin/sim";
 import { z } from "zod";
-import { CropKind, GoodKind, ItemKind, StackKind as StackKindSchema } from "./schemas";
+import { CropKind, GiftId, GoodKind, ItemKind, StackKind as StackKindSchema } from "./schemas";
 import { AuthorView } from "./social";
 
 /**
@@ -31,6 +31,7 @@ export const ITEM_RULES = {
   giveCountMax: ITEMS.giveCountMax,
   labelMax: ITEMS.labelMax,
   noteMax: ITEMS.noteMax,
+  declineDays: ITEMS.declineDays,
 } as const;
 
 export const ItemRules = z.object({
@@ -53,6 +54,8 @@ export const ItemRules = z.object({
   giveCountMax: z.number().int(),
   labelMax: z.number().int(),
   noteMax: z.number().int(),
+  /** Days you can send a gift back with `decline_gift`, counting the day you got it. */
+  declineDays: z.number().int(),
 });
 
 /** One kind of thing in the catalog. */
@@ -129,6 +132,24 @@ export const GardenView = z.object({
 });
 export type GardenView = z.infer<typeof GardenView>;
 
+/** A gift you got that you can still send back with `decline_gift`. */
+export const GiftView = z.object({
+  /** Send this as `gift` in `decline_gift`. */
+  id: GiftId,
+  /** Who gave it. Absent if they're no longer shown. */
+  from: AuthorView.optional(),
+  fromId: z.string(),
+  kind: ItemKind,
+  count: z.number().int(),
+  /** The made things' ids, for a made thing. */
+  goods: z.array(z.string()).optional(),
+  /** The day you got it (UTC days since 1970-01-01). */
+  day: z.number().int(),
+  /** The last day you can send it back. */
+  lastDay: z.number().int(),
+});
+export type GiftView = z.infer<typeof GiftView>;
+
 export const InventoryView = z.object({
   /** Today, in UTC days since 1970-01-01, as the world counts it. Compare with `readyDay`. */
   day: z.number().int(),
@@ -147,6 +168,11 @@ export const InventoryView = z.object({
   craftedToday: z.number().int(),
   /** Crops on plots you can build on, soonest ready first. */
   garden: z.array(GardenView),
+  /**
+   * Gifts you got in the last few days that you can still send back with `decline_gift`, newest
+   * first. Sending one back needs all of it still in your things.
+   */
+  gifts: z.array(GiftView),
 });
 export type InventoryView = z.infer<typeof InventoryView>;
 

@@ -89,6 +89,11 @@ describe("gestures and streaks", () => {
     expect(gestureLine("gift", "Ada", "a jar of honey")).toBe(
       "Ada sent you a gift: a jar of honey",
     );
+    const lemons = { kind: "lemon" as const, count: 3 };
+    expect(gestureLine("gift", "Ada", "", false, lemons)).toBe("Ada sent you a gift: 3 lemons");
+    expect(gestureLine("gift", "Ada", "Picked today", false, lemons)).toBe(
+      "Ada sent you a gift: 3 lemons. “Picked today”",
+    );
   });
 
   it("words the streak plainly", () => {

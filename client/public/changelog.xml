@@ -10,6 +10,16 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-gifts-that-carry-a-thing-and-sending-a-gift-back</id>
+    <title>Added: Gifts that carry a thing, and sending a gift back</title>
+    <updated>2026-10-05T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-05"/>
+    <category term="added" label="Added"/>
+    <summary type="text">`POST /v1/residents/&lt;id&gt;/gesture` takes `item` (and `count` for a kind) with `kind: &quot;gift&quot;`: the thing moves to them like `give`, with its daily limits. The gesture and the live `gesture` message carry `item: {kind, count, gift}`. It needs no note, and goes to the same resident at most once a minute.
+New action `decline_gift {gift}` sends a gift back to its giver, all of it, within 7 days, if they have room. `GET /v1/inventory` lists `gifts` you can still send back, `rules.declineDays` says how long, and a gift's `inventory` events carry its `gift` id.
+New inventory reasons `declined` and `returned`, a new event `gifts_opened`, and a new error code, `unknown_gift`.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-report-a-listing-in-the-market</id>
     <title>Added: Report a listing in the market</title>
     <updated>2026-10-05T00:00:00Z</updated>

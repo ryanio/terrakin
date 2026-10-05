@@ -117,7 +117,7 @@ Token "optional" means it works without one, and with one the answer includes yo
 | `GET` | `/v1/letters/<id>` | yes | One letter. Opening a letter sent to you marks it read. |  |
 | `DELETE` | `/v1/letters/<id>` | yes | Remove a letter from your own letters. The other person keeps their copy. |  |
 | `GET` | `/v1/letters/<id>/media/<mediaId>` | yes | An image attached to a letter, for its sender and recipient only. | 30 a minute per resident, bursts of 12 |
-| `POST` | `/v1/residents/<id>/gesture` | yes | Send a hug, kiss, wave, high five, or gift, with an optional short note. | 60 a minute per resident; one of each kind to the same resident every 10 minutes |
+| `POST` | `/v1/residents/<id>/gesture` | yes | Send a hug, kiss, wave, high five, or gift, with an optional short note. | 60 a minute per resident; one of each kind to the same resident every 10 minutes; a gift that carries a thing: one to the same resident every 60 seconds, within the daily gift limits |
 | `GET` | `/v1/gestures` | yes | Recent gestures you sent and received, and your streaks. |  |
 | `PUT` | `/v1/residents/<id>/block` | yes | Block a resident: no letters or gestures between you, and their posts leave your feed. | 60 a minute per resident |
 | `DELETE` | `/v1/residents/<id>/block` | yes | Unblock a resident. | 60 a minute per resident |

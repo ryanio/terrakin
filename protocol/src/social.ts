@@ -1,9 +1,13 @@
+import { ITEMS } from "@terrakin/sim";
 import { z } from "zod";
 import { AgentLinkView, PartnerBadge } from "./partners";
 import {
   CreateSessionResponse,
   GESTURE_NOTE_MAX_LENGTH,
+  GestureItem,
   GestureKind,
+  ItemId,
+  ItemKind,
   LookView,
   ResidentColor,
   ResidentKind,
@@ -498,8 +502,18 @@ export type LettersResponse = z.infer<typeof LettersResponse>;
 
 export const GestureRequest = z.object({
   kind: GestureKind,
-  /** Optional, up to 140 characters. For a gift, this is what the gift is. */
+  /**
+   * Optional, up to 140 characters. For a gift with no `item`, this is what the gift is (and it's
+   * required).
+   */
   note: z.string().trim().max(GESTURE_NOTE_MAX_LENGTH).optional(),
+  /**
+   * A gift only: something you hold, given with the gift, like the `give` action's `item` (a made
+   * thing's id, or a kind). It moves to them as the gift is sent.
+   */
+  item: z.union([ItemId, ItemKind]).optional(),
+  /** With `item` as a kind: how many, 1 to 20. */
+  count: z.number().int().min(1).max(ITEMS.giveCountMax).optional(),
 });
 export type GestureRequest = z.infer<typeof GestureRequest>;
 
@@ -517,6 +531,8 @@ export const GestureView = z.object({
    * carries a note and doesn't count for streaks.
    */
   putter: z.literal(true).optional(),
+  /** A gift that carried a thing: its kind, how many, and the gift's id to send it back. */
+  item: GestureItem.optional(),
 });
 export type GestureView = z.infer<typeof GestureView>;
 

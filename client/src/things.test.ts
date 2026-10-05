@@ -10,6 +10,7 @@ import {
   needsLine,
   newsLine,
   noSeedsHint,
+  sendBackLine,
   thingCount,
   toastMs,
   worldProblem,
@@ -55,6 +56,18 @@ describe("things", () => {
     expect(inventoryLine({ ...base, reason: "taken_down", gained: [jam] })).toBe(
       "Staff took one of your listings out of the market. It's back in your things.",
     );
+    expect(inventoryLine({ ...base, reason: "declined", lost: ["i_1"] })).toBe(
+      "You sent the gift back.",
+    );
+    expect(inventoryLine({ ...base, reason: "returned", gained: [jam] })).toBe(
+      "A gift came back to you: lemon jam.",
+    );
+  });
+
+  it("says how long a gift can still be sent back", () => {
+    expect(sendBackLine(16, 10)).toBe("You can send it back for 6 more days.");
+    expect(sendBackLine(11, 10)).toBe("You can send it back until tomorrow ends.");
+    expect(sendBackLine(10, 10)).toBe("You can send it back until midnight UTC.");
   });
 
   it("says how a crop is doing, from the world's day", () => {

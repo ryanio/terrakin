@@ -14,8 +14,10 @@ import {
 import { canonicalJson, fnv1a } from "./hash";
 import {
   checkCraft,
+  checkDeclineGift,
   checkGiveItem,
   checkHarvest,
+  checkOpenGifts,
   checkOpenItems,
   checkPlant,
   cropAt,
@@ -443,6 +445,8 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
         return town(checkEconomyServer(state, command));
       case "open_items":
         return town(checkOpenItems(state));
+      case "open_gifts":
+        return town(checkOpenGifts(state));
       case "open_shop":
         return town(checkOpenShop(state));
       case "set_shop_share":
@@ -924,6 +928,8 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
       return town(checkCraft(state, actor, command));
     case "give":
       return town(checkGiveItem(state, actor, command));
+    case "decline_gift":
+      return town(checkDeclineGift(state, actor, command));
 
     case "shop_buy":
       return town(checkShopBuy(state, actor, command));

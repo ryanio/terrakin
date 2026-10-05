@@ -1070,7 +1070,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       give.toggleAttribute("disabled", empty);
       status.textContent = empty
         ? "You have nothing to give yet. Grow or make something first."
-        : `Up to ${ITEM_RULES.giveCap} things a day. ${r.name} sees the note. Only give because you want to.`;
+        : `Up to ${ITEM_RULES.giveCap} things a day. ${r.name} sees the note and can send it back. Only give because you want to.`;
       syncCount();
     }
     // What you hold is read fresh each time the form opens.
@@ -1086,12 +1086,12 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       const n = Number(count.value);
       const many = stacked.has(item) && Number.isInteger(n) && n > 1 ? { count: n } : {};
       const text = note.value.trim();
+      // A gift gesture carries the thing, so they hear about it live and can send it back.
       const res = await whileBusy(give, () =>
-        api.act({ type: "give", item, to: r.id, ...many, ...(text ? { note: text } : {}) }),
+        api.gesture(r.id, { kind: "gift", item, ...many, ...(text ? { note: text } : {}) }),
       );
       if (destroyed) return;
-      const problem = actProblem(res);
-      if (problem) return toast(problem);
+      if (!res.ok) return toast(res.message);
       floatUp(open, "🎁");
       toast(`You gave ${r.name} a gift`);
       note.value = "";

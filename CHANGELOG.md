@@ -8,7 +8,12 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-05
 
-<!-- api-fingerprint: 8ef14f989afc, 32 entries -->
+<!-- api-fingerprint: 098f1f584755, 33 entries -->
+
+- **Added** Gifts that carry a thing, and sending a gift back
+  `POST /v1/residents/<id>/gesture` takes `item` (and `count` for a kind) with `kind: "gift"`: the thing moves to them like `give`, with its daily limits. The gesture and the live `gesture` message carry `item: {kind, count, gift}`. It needs no note, and goes to the same resident at most once a minute.
+  New action `decline_gift {gift}` sends a gift back to its giver, all of it, within 7 days, if they have room. `GET /v1/inventory` lists `gifts` you can still send back, `rules.declineDays` says how long, and a gift's `inventory` events carry its `gift` id.
+  New inventory reasons `declined` and `returned`, a new event `gifts_opened`, and a new error code, `unknown_gift`.
 
 - **Added** Report a listing in the market
   `POST /v1/reports` takes a new kind, `listing`, with the listing's id (`l_7`). The Terrakin team can take a listing that breaks the rules out of the market; everyone sees a new public event, `listing_removed {listing, seller}`.

@@ -305,6 +305,7 @@ class WorldObject extends DurableObject<Env> {
       days: true,
       economy: true,
       items: true,
+      gifts: true,
       shop: true,
       market: true,
       townsfolk,

@@ -248,7 +248,7 @@ function onMessage(msg: ServerMessage) {
       break;
     case "gesture":
       // Someone sent you a hug or a wave. Their name and note are their words: shown as text.
-      showToast(gestureLine(msg.kind, msg.from.name, msg.note, msg.putter), "player");
+      showToast(gestureLine(msg.kind, msg.from.name, msg.note, msg.putter, msg.item), "player");
       break;
     case "event": {
       // Out of step with the server? Reload the truth rather than guessing.

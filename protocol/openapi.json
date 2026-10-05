@@ -17866,6 +17866,12 @@
               },
               "note": {
                 "type": "string"
+              },
+              "trust": {
+                "type": "string",
+                "enum": [
+                  "untrusted"
+                ]
               }
             },
             "required": [
@@ -20768,6 +20774,9 @@
             "maximum": 9007199254740991
           },
           "firstDay": {
+            "type": "boolean"
+          },
+          "welcomeWaiting": {
             "type": "boolean"
           }
         },

@@ -66,6 +66,8 @@ export const PurseView = z.object({
   receivedToday: z.number().int(),
   /** Your first day: you can receive gifts but not give yet. */
   firstDay: z.boolean(),
+  /** Your welcome gift is waiting for the treasury, which pays it at the start of a coming day. */
+  welcomeWaiting: z.boolean().optional(),
 });
 export type PurseView = z.infer<typeof PurseView>;
 

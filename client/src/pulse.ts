@@ -6,7 +6,14 @@
  * enough real residents are posting, their posts fold into one small card, they stop being
  * announced, and they only pad the "around now" roster when too few real residents are online.
  */
-import type { AuthorView, PostView, WorldSnapshot } from "@terrakin/protocol";
+import type {
+  AuthorView,
+  PostView,
+  PublicGift,
+  TreasuryLine,
+  TreasuryView,
+  WorldSnapshot,
+} from "@terrakin/protocol";
 import { isMediaUrl } from "@terrakin/ui/format";
 
 type Resident = WorldSnapshot["residents"][number];
@@ -254,6 +261,34 @@ export function worldNews(
     else if (old.hearth === null && r.hearth !== null) news.push({ kind: "home", resident: r });
   }
   return news;
+}
+
+export type CoinNews =
+  | { kind: "gift"; gift: PublicGift }
+  | { kind: "welcome"; line: TreasuryLine & { resident: AuthorView } }
+  | { kind: "mint"; line: TreasuryLine };
+
+/**
+ * What's new in the town's coins between two looks at the treasury, oldest first: gifts between
+ * residents (who and whom, never how much), welcome gifts, and the daily mint. Townsfolk budgets
+ * are left out: they move every day and say nothing about people.
+ */
+export function coinNews(before: TreasuryView | null, after: TreasuryView | null): CoinNews[] {
+  if (!before || !after) return [];
+  const seen = Math.max(0, ...before.ledger.map((l) => l.seq), ...before.gifts.map((g) => g.seq));
+  const news: (CoinNews & { seq: number })[] = [];
+  for (const gift of after.gifts) {
+    if (gift.seq > seen) news.push({ kind: "gift", gift, seq: gift.seq });
+  }
+  for (const line of after.ledger) {
+    if (line.seq <= seen) continue;
+    if (line.reason === "welcome" && line.resident) {
+      news.push({ kind: "welcome", line: { ...line, resident: line.resident }, seq: line.seq });
+    } else if (line.reason === "mint") {
+      news.push({ kind: "mint", line, seq: line.seq });
+    }
+  }
+  return news.sort((a, b) => a.seq - b.seq).map(({ seq: _, ...n }) => n as CoinNews);
 }
 
 /** A name for the time of day in the world, from `dayPhase` (0 dawn, 0.25 noon, 0.5 dusk). */

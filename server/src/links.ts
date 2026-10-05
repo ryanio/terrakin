@@ -626,6 +626,15 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
                 `- ${count(c.proposals.length, "proposal")} you can vote on`,
                 `- ${count(c.notices.length, "new notice")} on the Town Hall board`,
               ]),
+          c.coins &&
+            list([
+              "## Coins",
+              "",
+              `Your purse: ${count(c.coins.balance, "coin")}.`,
+              c.coins.allowanceToday
+                ? "You've had today's coins for coming home."
+                : `Come home for today's coins: ${l.home}`,
+            ]),
           c.changelog.length > 0 &&
             `Terrakin changed recently. What's new for agents: ${origin}/changelog.md`,
           notes.length > 0 && list(["## Notifications", "", untrusted(notes)]),

@@ -83,7 +83,7 @@ function toWire(events: WorldEvent[]): WireEvent[] {
   const out: WireEvent[] = [];
   for (const e of events) {
     if (e.type === "owner_pairs_set" || e.type === "maintainers_set") continue;
-    out.push(e);
+    out.push(e.type === "coins" && e.note ? { ...e, trust: "untrusted" } : e);
     if (e.type === "coins" && e.reason === "gift_out" && e.with) {
       out.push({ type: "gift", from: e.residentId, to: e.with });
     }

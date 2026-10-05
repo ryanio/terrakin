@@ -135,6 +135,7 @@ describe("coins", () => {
     await t.act(ash.token, { type: "settle", px: 1, py: 1 });
     t.nextDay();
     const toWren = t.listen(wren.id);
+    const toAsh = t.listen(ash.id);
     const toMoss = t.listen(moss.id);
 
     const gave = await t.act(ash.token, {
@@ -158,6 +159,10 @@ describe("coins", () => {
         note: "for the tea",
       }),
     );
+    // Ash's own sockets get Ash's side, never Wren's balance.
+    const ashSaw = toAsh.flatMap((m) => (m.type === "event" ? [m.event] : []));
+    expect(ashSaw.filter((e) => e.type === "coins").map((e) => e.residentId)).toEqual([ash.id]);
+    expect(wrenSaw).toContainEqual(expect.objectContaining({ type: "coins", trust: "untrusted" }));
     const mossSaw = toMoss.flatMap((m) => (m.type === "event" ? [m.event] : []));
     expect(mossSaw).toEqual([{ type: "gift", from: ash.id, to: wren.id }]);
 
@@ -265,6 +270,28 @@ describe("coins", () => {
     expect(after.coins.allowanceToday).toBe(true);
     expect(after.coins.today[0]).toMatchObject({ reason: "allowance" });
     expect(after.todo.join("\n")).not.toContain("Come home");
+  });
+
+  it("append nothing when the server boots again over a world that has them", async () => {
+    const store = new MemoryStore();
+    const now = () => Date.UTC(2026, 9, 5, 9);
+    const boot = () =>
+      new WorldService({
+        store,
+        config: CONFIG,
+        now,
+        days: true,
+        economy: true,
+        maintainers: new Set(["r_0000000000000001"]),
+      });
+    const first = boot();
+    first.syncOwnerPairs([["r_0000000000000002", "r_0000000000000003"]]);
+    const logged = store.loadLog().length;
+    expect(first.state.economy).toBeDefined();
+    const again = boot();
+    again.syncOwnerPairs([["r_0000000000000002", "r_0000000000000003"]]);
+    expect(store.loadLog().length).toBe(logged);
+    expect(again.hash()).toBe(first.hash());
   });
 
   it("stay closed in a world that never opened them", async () => {

@@ -21,6 +21,7 @@ import {
   announceable,
   aroundNow,
   arrangeWall,
+  coinNews,
   hourlyCounts,
   namesLine,
   PULSE_SLOTS,
@@ -32,6 +33,7 @@ import {
   worldNews,
 } from "./pulse";
 import {
+  type ActivityEntry,
   activityCard,
   aroundCard,
   burstCard,
@@ -583,6 +585,47 @@ export function feedView(ctx: ViewContext): View {
       }
     }
     if (townBefore && pulse.town) {
+      // Coins (RFC 0008): who gave whom (never how much), welcome gifts, and the day's mint.
+      const at = new Date().toISOString();
+      activity.add(
+        coinNews(townBefore.treasury, pulse.town.treasury)
+          .reverse()
+          .map((n): ActivityEntry => {
+            if (n.kind === "gift") {
+              const { from, to, seq } = n.gift;
+              return {
+                key: `gift:${seq}`,
+                who: from,
+                lead: from.name,
+                rest: `gave ${to.name} coins`,
+                href: profilePath(to.id),
+                at,
+                tone: "coins",
+              };
+            }
+            if (n.kind === "welcome") {
+              const r = n.line.resident;
+              return {
+                key: `welcome:${n.line.seq}`,
+                who: r,
+                lead: r.name,
+                rest: `got a welcome gift of ${n.line.amount === 1 ? "1 coin" : `${Math.abs(n.line.amount)} coins`}`,
+                href: profilePath(r.id),
+                at,
+                tone: "coins",
+              };
+            }
+            return {
+              key: `mint:${n.line.seq}`,
+              lead: "The town treasury",
+              rest: `minted ${n.line.amount.toLocaleString("en-US")} coins for today`,
+              href: "/town",
+              at,
+              tone: "coins",
+            };
+          }),
+        true,
+      );
       const had = new Set(townBefore.open.map((p) => p.id));
       for (const p of pulse.town.open.filter((p) => !had.has(p.id)).slice(0, 2)) {
         activity.add(

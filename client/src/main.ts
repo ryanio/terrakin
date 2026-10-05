@@ -21,6 +21,8 @@ import { SESSION_EVENT, savedResidentId, savedToken } from "./net";
 import { notificationsView } from "./notifications-view";
 import { postView } from "./post-view";
 import { profileView } from "./profile-view";
+import { initPurse, makePurse, refreshPurse } from "./purse";
+import { purseView } from "./purse-view";
 import { createRouter, matchRoute, type Navigation, type Route, routeTemplate } from "./router";
 import { initErrorReporting, pageView, startAnalytics } from "./telemetry";
 import { unreadBadge } from "./together";
@@ -46,6 +48,7 @@ const root = document.documentElement;
 initBrandMarks(site);
 const you = $("site-you");
 initBell();
+initPurse();
 
 let view: View | undefined;
 let world: Promise<typeof import("./world")> | undefined;
@@ -71,7 +74,8 @@ function paintNav(route: Route) {
       (a.dataset.nav === "letters" &&
         (route.name === "letters" || route.name === "letters-with")) ||
       (a.dataset.nav === "town" && route.name === "town") ||
-      (a.dataset.nav === "notifications" && route.name === "notifications");
+      (a.dataset.nav === "notifications" && route.name === "notifications") ||
+      (a.dataset.nav === "purse" && route.name === "purse");
     if (current) a.setAttribute("aria-current", "page");
     else a.removeAttribute("aria-current");
   }
@@ -127,7 +131,7 @@ function paintHeader(route: Route) {
     },
     avatarPlaceholder("sm", "you-placeholder"),
   );
-  you.replaceChildren(makeBell(), lettersLink, me);
+  you.replaceChildren(makePurse(), makeBell(), lettersLink, me);
   void myProfile().then((profile) => {
     if (!profile || headerFor !== token) return;
     me.setAttribute("href", profilePath(profile.id));
@@ -205,6 +209,7 @@ function onNavigate(nav: Navigation) {
 
   void world?.then((w) => w.stopWorld());
   refreshBell();
+  refreshPurse();
   setMode("site");
   const ctx: ViewContext = {
     restoring: nav.restoring,
@@ -224,21 +229,23 @@ function onNavigate(nav: Navigation) {
           ? profileView({ handle: route.handle }, ctx)
           : route.name === "notifications"
             ? notificationsView(ctx)
-            : route.name === "post"
-              ? postView(route.id, ctx)
-              : route.name === "letters"
-                ? lettersView(ctx)
-                : route.name === "letters-with"
-                  ? letterThreadView(route.id, ctx)
-                  : route.name === "invite"
-                    ? inviteView(route.code, ctx)
-                    : route.name === "town"
-                      ? townView(ctx)
-                      : route.name === "plot3d" || route.name === "gallery3d"
-                        ? view3d(route, ctx)
-                        : route.name === "claim"
-                          ? claimView(route.code, ctx)
-                          : notFoundView(ctx);
+            : route.name === "purse"
+              ? purseView(ctx)
+              : route.name === "post"
+                ? postView(route.id, ctx)
+                : route.name === "letters"
+                  ? lettersView(ctx)
+                  : route.name === "letters-with"
+                    ? letterThreadView(route.id, ctx)
+                    : route.name === "invite"
+                      ? inviteView(route.code, ctx)
+                      : route.name === "town"
+                        ? townView(ctx)
+                        : route.name === "plot3d" || route.name === "gallery3d"
+                          ? view3d(route, ctx)
+                          : route.name === "claim"
+                            ? claimView(route.code, ctx)
+                            : notFoundView(ctx);
   view = next;
   page.replaceChildren(next.el);
 

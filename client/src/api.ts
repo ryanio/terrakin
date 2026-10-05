@@ -32,6 +32,7 @@ import {
   type PostView,
   ProfileResponse,
   type ProfileView,
+  PurseResponse,
   type ReactionKey,
   ReportResponse,
   ResidentListResponse,
@@ -151,6 +152,8 @@ export const api = {
   world: () => request("GET", "/v1/world", WorldSnapshot),
   archive: (before?: string) =>
     request("GET", `/v1/town/archive${query({ limit: 10, before })}`, ArchiveResponse),
+  /** Your coins (RFC 0008). Private to you. */
+  purse: () => request("GET", "/v1/purse", PurseResponse),
   /** A world action. A 200 can still be a refusal by the rules: check `ok` in the body. */
   act: (action: Action) => request("POST", "/v1/actions", ActionResponse, action),
   pinNotice: (text: string) => request("POST", "/v1/notices", NoticeResponse, { text }),

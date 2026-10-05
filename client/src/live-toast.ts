@@ -15,7 +15,7 @@ export interface LiveNote {
   rest: string;
   /** A line of their words, already shortened. */
   snippet?: string;
-  tone: "post" | "join" | "home" | "town";
+  tone: "post" | "join" | "home" | "town" | "coins";
   action?: { label: string; href?: string; run?: () => void };
 }
 

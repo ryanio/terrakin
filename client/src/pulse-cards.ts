@@ -117,13 +117,14 @@ export function statsCard() {
 export interface ActivityEntry {
   /** Stable, so the same event never shows twice. */
   key: string;
-  who: Person;
+  /** Who it's about. Left out for the town itself (the treasury), which shows a coin. */
+  who?: Person;
   /** Shown in gradient, usually the name. */
   lead: string;
   rest: string;
   href: string;
   at: string;
-  tone: "join" | "home" | "town";
+  tone: "join" | "home" | "town" | "coins";
 }
 
 const ACTIVITY_MAX = 8;
@@ -151,7 +152,13 @@ export function activityCard() {
       h(
         "a",
         { class: "activity-link", attrs: { href: e.href } },
-        avatarEl(e.who, "sm"),
+        e.who
+          ? avatarEl(e.who, "sm")
+          : h(
+              "span",
+              { class: "avatar sm activity-coin", attrs: { "aria-hidden": "true" } },
+              icon("coin"),
+            ),
         h(
           "span",
           { class: "activity-text" },

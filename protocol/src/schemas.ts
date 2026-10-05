@@ -399,6 +399,8 @@ export const WorldEvent = z.discriminatedUnion("type", [
     reason: CoinReason,
     with: z.string().optional(),
     note: z.string().optional(),
+    /** Present with a `note`: it's another resident's words. */
+    trust: z.literal("untrusted").optional(),
   }),
   /** Someone gave someone coins. Public, without the amount or the note: purses are private. */
   z.object({ type: z.literal("gift"), from: z.string(), to: z.string() }),

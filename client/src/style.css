@@ -2748,6 +2748,252 @@ dialog.quote-dialog::backdrop {
 
 /* ---------- bell ---------- */
 
+/* ---------- purse (RFC 0008) ---------- */
+
+/* Coins are warm gold on paper. Defined here so the purse, its page, and the coin notices agree. */
+:root {
+  --coin: #d99a2b;
+  --coin-deep: #9a6512;
+  --coin-light: #fff1cf;
+}
+
+/* The purse pill in the top bar: a coin and the balance. Hidden until coins open. */
+.site-purse {
+  position: relative;
+  gap: 5px;
+  min-width: 44px;
+  padding: 0 12px 0 9px;
+  color: var(--coin-deep);
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+.site-purse[hidden] {
+  display: none;
+}
+
+.site-purse[aria-current="page"] {
+  background: var(--coin-light);
+}
+
+.purse-coin {
+  color: var(--coin);
+}
+
+/* Today's allowance is waiting: a small dot, like the bell's badge but quieter. */
+.site-purse.due::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--coin);
+  box-shadow: 0 0 0 2px var(--paper);
+}
+
+/* Coins arrived: the pill glows gold for a moment while the number counts up. */
+.site-purse.glow {
+  animation: purse-glow 1.6s ease-out;
+}
+
+.site-purse.glow .purse-coin {
+  animation: purse-spin 0.9s ease-out;
+}
+
+@keyframes purse-glow {
+  0% {
+    box-shadow: 0 0 0 0 rgb(217 154 43 / 0.7);
+    background: var(--coin-light);
+  }
+  40% {
+    box-shadow: 0 0 0 8px rgb(217 154 43 / 0.25);
+  }
+  100% {
+    box-shadow: 0 0 0 14px rgb(217 154 43 / 0);
+  }
+}
+
+@keyframes purse-spin {
+  from {
+    transform: rotateY(0deg) scale(1.25);
+  }
+  to {
+    transform: rotateY(360deg) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-purse.glow,
+  .site-purse.glow .purse-coin {
+    animation: none;
+  }
+}
+
+/* The /purse page. */
+.purse-card {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}
+
+.purse-balance {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  color: var(--coin-deep);
+}
+
+.purse-balance-coin {
+  width: 36px;
+  height: 36px;
+  color: var(--coin);
+}
+
+.purse-balance-amount {
+  font-family: var(--font-display, inherit);
+  font-size: 44px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.purse-balance-unit {
+  font-size: 17px;
+  font-weight: 650;
+}
+
+.purse-streak,
+.purse-hint {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.purse-how-list {
+  margin: 0 0 8px;
+  padding-left: 1.2em;
+  display: grid;
+  gap: 6px;
+}
+
+.purse-ledger {
+  margin-top: 8px;
+}
+
+.purse-lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.purse-line {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 8px 14px;
+  border-radius: 16px;
+  background: var(--paper);
+  border: 1px solid var(--paper-edge);
+}
+
+.purse-line-who {
+  display: flex;
+}
+
+.purse-line-mark {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--coin-light);
+  color: var(--coin);
+}
+
+.purse-line-body {
+  display: grid;
+  min-width: 0;
+}
+
+.purse-line-label {
+  font-weight: 650;
+}
+
+.purse-line-note {
+  overflow: hidden;
+  color: var(--ink-soft);
+  font-size: 14.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.purse-line-amount {
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+.purse-line.in .purse-line-amount {
+  color: var(--coin-deep);
+}
+
+.purse-line.out .purse-line-amount {
+  color: var(--ink-soft);
+}
+
+/* Give coins on a profile. */
+.coin-gift {
+  display: grid;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.coin-open {
+  justify-self: start;
+  gap: 6px;
+  color: var(--coin-deep);
+}
+
+.coin-open .icon {
+  color: var(--coin);
+}
+
+.coin-form {
+  display: grid;
+  gap: 8px;
+}
+
+.coin-form[hidden] {
+  display: none;
+}
+
+.coin-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.coin-amount {
+  width: 7em;
+  font-size: 16px;
+}
+
+.coin-quick {
+  display: flex;
+  gap: 6px;
+}
+
+.coin-quick .pill-button {
+  min-width: 44px;
+  min-height: 44px;
+}
+
 /* Sits in the top bar next to letters, and looks like it. */
 .site-bell {
   position: relative;
@@ -5374,6 +5620,17 @@ html.view3d-open body {
   background-image: linear-gradient(90deg, #4c7a32, var(--moss));
 }
 
+.tone-coins .activity-lead {
+  background-image: linear-gradient(90deg, var(--coin-deep), var(--coin));
+}
+
+.activity-coin {
+  display: grid;
+  place-items: center;
+  background: var(--coin-light);
+  color: var(--coin);
+}
+
 .tone-town .activity-lead {
   background-image: linear-gradient(90deg, #6b4fa8, #9b6fd0);
 }
@@ -5934,6 +6191,13 @@ html.view3d-open body {
   --lt-4: #8fb36a;
 }
 
+.live-toast.tone-coins {
+  --lt-1: #f2c94b;
+  --lt-2: #d99a2b;
+  --lt-3: #fff1cf;
+  --lt-4: #f2c94b;
+}
+
 .live-toast.tone-town {
   --lt-1: #cdb4f6;
   --lt-2: #ea8a9d;
@@ -6443,6 +6707,29 @@ a.profile-owner:hover .owner-name {
 
 @media (max-width: 379px) {
   .site-bar-inner:has(.site-bell) .site-brand {
+    display: none;
+  }
+}
+
+/*
+ * Phones, signed in, with coins open: the purse needs room too. The mark steps aside (Feed still
+ * goes home), Docs leaves the bar (it's in the footer as "Docs and API"), and the purse tightens.
+ * Below 380px, letters leave the bar as well; the bell still announces them.
+ */
+@media (max-width: 479px) {
+  .site-bar-inner:has(.site-purse:not([hidden])) .site-brand,
+  .site-bar-inner:has(.site-purse:not([hidden])) .nav-link[href="/docs"] {
+    display: none;
+  }
+
+  .site-purse {
+    gap: 3px;
+    padding: 0 9px 0 7px;
+  }
+}
+
+@media (max-width: 379px) {
+  .site-bar-inner:has(.site-purse:not([hidden])) .letters-link {
     display: none;
   }
 }

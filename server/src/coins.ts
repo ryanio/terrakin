@@ -46,6 +46,7 @@ export function purseView(state: WorldState, viewer: string, author: Authors): P
       givenToday: purse.givenToday,
       receivedToday: purse.receivedToday,
       firstDay: purse.firstDay,
+      ...(purse.welcomeOwed ? { welcomeWaiting: true } : {}),
     },
     rules: { ...COIN_RULES },
   };

@@ -1,8 +1,9 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { WorldSnapshot } from "@terrakin/protocol";
-import { BLOCK_KINDS, RESIDENT_COLORS } from "@terrakin/sim";
+import { BLOCK_KINDS, RESIDENT_COLORS, THEME_INFO, type WearItem } from "@terrakin/sim";
 import { BRAND_HEX } from "@terrakin/ui/brand";
+import { GARMENT_COLOR, garmentColor } from "@terrakin/ui/figure";
 import { describe, expect, it } from "vitest";
 import { blockColor, RESIDENT_COLOR_HEX } from "./render";
 import { parseGallery } from "./scene3d/catalog";
@@ -19,7 +20,9 @@ import {
   plotBounds,
   plotLayout,
   rawResident,
+  tagHeight,
   underFootprint,
+  wornPieces,
 } from "./scene3d/layout";
 import { BRAND, blockLook, hex, mix, residentHex, shade } from "./scene3d/palette";
 
@@ -131,6 +134,32 @@ describe("plot layout", () => {
     const full = new Set<string>();
     for (let y = b.y0; y <= b.y1; y++) for (let x = b.x0; x <= b.x1; x++) full.add(`${x},${y}`);
     expect(groundDecor(b, full)).toEqual({ tufts: [], flowers: [] });
+  });
+});
+
+describe("wear on 3D figures", () => {
+  it("comes in slot order, in the colors and patterns the 2D figure uses", () => {
+    const pieces = wornPieces({
+      color: "sky",
+      shape: "round",
+      theme: "lemon",
+      wear: ["boots", "dress", "straw_hat", "not_a_thing" as never],
+      wearStyle: { dress: { pattern: "citrus", color: "sun" } },
+    });
+    expect(pieces.map((p) => p.item)).toEqual(["straw_hat", "dress", "boots"]);
+    const [hat, dress, boots] = pieces;
+    expect(hat).toMatchObject({ color: GARMENT_COLOR.straw_hat(THEME_INFO.lemon.palette) });
+    expect(hat?.pattern).toBeUndefined();
+    expect(dress).toMatchObject({ color: RESIDENT_COLOR_HEX.sun, pattern: "citrus" });
+    expect(boots?.color).toBe(garmentColor({ color: "sky", theme: "lemon" }, "boots"));
+  });
+
+  it("lifts the name tag over a top hat or an umbrella", () => {
+    const look = (wear: WearItem[]) => ({ color: "sky" as const, shape: "round" as const, wear });
+    expect(tagHeight({ kind: "human", look: look([]) })).toBe(1.08);
+    expect(tagHeight({ kind: "agent", look: look([]) })).toBe(1.2);
+    expect(tagHeight({ kind: "human", look: look(["top_hat"]) })).toBeGreaterThan(1.08);
+    expect(tagHeight({ kind: "agent", look: look(["umbrella"]) })).toBeGreaterThan(1.2);
   });
 });
 
@@ -275,6 +304,7 @@ describe("three.js stays out of the main bundle", () => {
     "scene3d/plot.ts",
     "scene3d/gallery.ts",
     "scene3d/page.ts",
+    "scene3d/wear.ts",
   ]);
 
   it("imports three only from the lazy 3D files", () => {

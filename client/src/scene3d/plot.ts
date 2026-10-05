@@ -66,10 +66,12 @@ import {
   modelFootprint,
   overBudget,
   type PlotLayout,
+  tagHeight,
   tileHash,
   underFootprint,
 } from "./layout";
 import { BRAND, blockLook, mix, residentHex, SKY, shade } from "./palette";
+import { wearGroup } from "./wear";
 
 export interface PlotSceneOptions {
   /** A note for the page when the owner's own model or picture couldn't be shown. */
@@ -555,7 +557,7 @@ function hearth(stage: Stage, grain: Texture): Group {
 
 // ---------- residents ----------
 
-/** A soft peg figure: a body in their color and shape, a round head, and dot eyes. */
+/** A soft peg figure: a body in their color and shape, a round head, dot eyes, and their wear. */
 function figure(stage: Stage, f: LayoutFigure, shadowMap: Texture): Group {
   const group = new Group();
   group.name = "figure";
@@ -605,6 +607,7 @@ function figure(stage: Stage, f: LayoutFigure, shadowMap: Texture): Group {
     bulb.position.y = 0.97;
     body.add(stalk, bulb);
   }
+  body.add(wearGroup(f));
   body.traverse((o) => {
     if (o instanceof Mesh) o.castShadow = true;
   });
@@ -616,7 +619,7 @@ function figure(stage: Stage, f: LayoutFigure, shadowMap: Texture): Group {
   );
   const h = 0.3;
   label.scale.set(h * tag.aspect, h, 1);
-  label.position.y = f.kind === "agent" ? 1.2 : 1.08;
+  label.position.y = tagHeight(f);
   label.renderOrder = 5;
   group.add(label);
 

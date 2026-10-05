@@ -112,6 +112,47 @@ const CANOPY = "#e0604a";
 /** Sneakers are white canvas. */
 const CANVAS = "#fdfbf6";
 
+/** A theme accent too pale to show on paper. */
+const paleAccent = (p: ThemePalette) => p.accent === "#ffffff" || p.accent === PAPER;
+
+/**
+ * Each garment's main color when it has no color of its own, from the outfit's palette. The 2D
+ * figure paints with it and the 3D figures (`client/src/scene3d/wear.ts`) read it, so a garment is
+ * the same color in both.
+ */
+export const GARMENT_COLOR: Record<WearItem, (p: ThemePalette) => string> = {
+  straw_hat: () => STRAW,
+  beret: (p) => p.deep,
+  flower_crown: (p) => (p.accent === "#ffffff" ? p.light : p.accent),
+  beanie: (p) => (p.accent === "#ffffff" ? p.main : p.accent),
+  top_hat: () => INK,
+  apron: (p) => p.light,
+  scarf: (p) => (paleAccent(p) ? p.deep : p.accent),
+  cardigan: (p) => p.deep,
+  overalls: (p) => p.deep,
+  raincoat: () => SLICKER,
+  dress: (p) => p.main,
+  skirt: (p) => p.deep,
+  trousers: (p) => p.deep,
+  shorts: (p) => p.deep,
+  socks: (p) => (paleAccent(p) ? p.deep : p.accent),
+  boots: () => LEATHER,
+  sneakers: () => CANVAS,
+  basket: () => WICKER,
+  satchel: () => LEATHER,
+  glasses: () => INK,
+  bow: (p) => (p.accent === "#ffffff" ? p.deep : p.accent),
+  umbrella: (p) => (paleAccent(p) ? CANOPY : p.accent),
+};
+
+/** A worn garment's main color: its own, else its usual one in the outfit's palette. Pure. */
+export function garmentColor(
+  look: Pick<FigureLook, "color" | "theme" | "pattern" | "patternMedia" | "wearStyle">,
+  item: WearItem,
+): string {
+  return garmentLook(look, item).color ?? GARMENT_COLOR[item](lookPalette(look.theme, look.color));
+}
+
 // ---------- garment styles ----------
 
 const isPattern = (value: unknown): value is Pattern =>
@@ -302,8 +343,8 @@ export function drawFigure(
   }
 
   // A skirt's flare sits behind the body, so a coat over it leaves only the hem showing.
-  if (wear.has("dress")) drawFlare(ctx, u, garb("dress"), p.main, pattern);
-  else if (wear.has("skirt")) drawFlare(ctx, u, garb("skirt"), p.deep, null);
+  if (wear.has("dress")) drawFlare(ctx, u, garb("dress"), GARMENT_COLOR.dress(p), pattern);
+  else if (wear.has("skirt")) drawFlare(ctx, u, garb("skirt"), GARMENT_COLOR.skirt(p), null);
 
   // Feet.
   if (!shoes) {
@@ -418,7 +459,7 @@ function strawCrownPath(ctx: CanvasRenderingContext2D, u: number) {
 /** A wide straw brim and crown with a band in the theme's accent. */
 function drawStrawHat(ctx: CanvasRenderingContext2D, u: number, p: ThemePalette, g: Garb) {
   const top = HAT_TOP * u;
-  const straw = g.color(STRAW);
+  const straw = g.color(GARMENT_COLOR.straw_hat(p));
   ctx.strokeStyle = g.trim(STRAW_DEEP);
   ctx.lineWidth = Math.max(0.8, 0.015 * u);
   for (const shape of [strawBrimPath, strawCrownPath]) {
@@ -440,7 +481,7 @@ function beretPath(ctx: CanvasRenderingContext2D, u: number) {
 
 /** A soft beret tipped to one side, in the theme's deep color. */
 function drawBeret(ctx: CanvasRenderingContext2D, u: number, p: ThemePalette, g: Garb) {
-  paintCloth(ctx, u, () => beretPath(ctx, u), g.color(p.deep), g.fill());
+  paintCloth(ctx, u, () => beretPath(ctx, u), g.color(GARMENT_COLOR.beret(p)), g.fill());
 }
 
 function beaniePath(ctx: CanvasRenderingContext2D, u: number) {
@@ -450,7 +491,7 @@ function beaniePath(ctx: CanvasRenderingContext2D, u: number) {
 
 /** A knit beanie with a turned-up cuff and a pompom. */
 function drawBeanie(ctx: CanvasRenderingContext2D, u: number, p: ThemePalette, g: Garb) {
-  const knit = g.color(p.accent === "#ffffff" ? p.main : p.accent);
+  const knit = g.color(GARMENT_COLOR.beanie(p));
   paintCloth(ctx, u, () => beaniePath(ctx, u), knit, g.fill());
   ctx.fillStyle = mix(knit, "#000000", 0.18);
   ctx.beginPath();
@@ -478,7 +519,7 @@ function drawFlowerCrown(ctx: CanvasRenderingContext2D, u: number, p: ThemePalet
     ctx.beginPath();
     ctx.ellipse(x + 0.035 * u, y + 0.01 * u, 0.03 * u, 0.015 * u, 0.5, 0, Math.PI * 2);
     ctx.fill();
-    const usual = i % 2 === 0 ? (p.accent === "#ffffff" ? p.light : p.accent) : p.light;
+    const usual = i % 2 === 0 ? GARMENT_COLOR.flower_crown(p) : p.light;
     const petal = g.own ? (i % 2 === 0 ? g.own : mix(g.own, PAPER, 0.45)) : usual;
     paintCloth(ctx, u, () => petalPath(ctx, u, x, y), petal, g.fill());
     ctx.fillStyle = p.deep;
@@ -520,7 +561,7 @@ function apronPath(ctx: CanvasRenderingContext2D, u: number, t: number) {
 }
 
 function drawApron(ctx: CanvasRenderingContext2D, u: number, t: number, p: ThemePalette, g: Garb) {
-  paintCloth(ctx, u, () => apronPath(ctx, u, t), g.color(p.light), g.fill());
+  paintCloth(ctx, u, () => apronPath(ctx, u, t), g.color(GARMENT_COLOR.apron(p)), g.fill());
   ctx.strokeStyle = g.trim(p.deep);
   ctx.lineWidth = Math.max(0.8, 0.018 * u);
   ctx.beginPath();
@@ -546,7 +587,13 @@ function drawCardigan(
   p: ThemePalette,
   g: Garb,
 ) {
-  paintCloth(ctx, u, () => cardiganPath(ctx, u, t, back), g.color(p.deep), g.fill());
+  paintCloth(
+    ctx,
+    u,
+    () => cardiganPath(ctx, u, t, back),
+    g.color(GARMENT_COLOR.cardigan(p)),
+    g.fill(),
+  );
   if (back) return;
   ctx.fillStyle = p.light;
   for (const y of [-0.38, -0.26, -0.14]) {
@@ -571,7 +618,7 @@ function drawOveralls(
   p: ThemePalette,
   g: Garb,
 ) {
-  const denim = g.color(p.deep);
+  const denim = g.color(GARMENT_COLOR.overalls(p));
   paintCloth(ctx, u, () => overallsPath(ctx, u, t, back), denim, g.fill());
   ctx.strokeStyle = denim;
   ctx.lineWidth = 0.04 * u;
@@ -612,7 +659,7 @@ function drawScarf(
   p: ThemePalette,
   g: Garb,
 ) {
-  const usual = p.accent === "#ffffff" || p.accent === BRAND_HEX.paper ? p.deep : p.accent;
+  const usual = GARMENT_COLOR.scarf(p);
   paintCloth(ctx, u, () => scarfPath(ctx, u, t, back), g.color(usual), g.fill());
   if (back) return;
   ctx.fillStyle = "rgba(255,255,255,0.3)";
@@ -651,7 +698,7 @@ function topHatPath(ctx: CanvasRenderingContext2D, u: number) {
 /** A tall dark top hat with a band in the theme's accent. */
 function drawTopHat(ctx: CanvasRenderingContext2D, u: number, p: ThemePalette, g: Garb) {
   const brim = (HAT_TOP + 0.05) * u;
-  paintCloth(ctx, u, () => topHatPath(ctx, u), g.color(INK), g.fill());
+  paintCloth(ctx, u, () => topHatPath(ctx, u), g.color(GARMENT_COLOR.top_hat(p)), g.fill());
   ctx.fillStyle =
     p.accent === "#ffffff" || p.accent === BRAND_HEX.paper ? BRAND_HEX.clay : p.accent;
   ctx.fillRect(-0.15 * u, brim - 0.08 * u, 0.3 * u, 0.055 * u);
@@ -791,7 +838,7 @@ function drawTrouserLegs(
   p: ThemePalette,
   g: Garb,
 ) {
-  const color = g.color(p.deep);
+  const color = g.color(GARMENT_COLOR.trousers(p));
   paintCloth(ctx, u, () => trouserLegsPath(ctx, u, feet), color, g.fill());
   ctx.fillStyle = mix(color, INK, 0.25);
   for (const f of feet) ctx.fillRect((f - 0.065) * u, -0.035 * u, 0.13 * u, 0.02 * u);
@@ -805,7 +852,7 @@ function shortsCuffsPath(ctx: CanvasRenderingContext2D, u: number) {
 }
 
 function drawShortsCuffs(ctx: CanvasRenderingContext2D, u: number, p: ThemePalette, g: Garb) {
-  const color = g.color(p.deep);
+  const color = g.color(GARMENT_COLOR.shorts(p));
   paintCloth(ctx, u, () => shortsCuffsPath(ctx, u), mix(color, INK, 0.12), g.fill());
 }
 
@@ -829,7 +876,7 @@ function drawSocks(
   g: Garb,
 ) {
   // Socks in the theme's accent, so a pattern's light motif shows on them, with a pale cuff.
-  const color = g.color(p.accent === "#ffffff" || p.accent === PAPER ? p.deep : p.accent);
+  const color = g.color(GARMENT_COLOR.socks(p));
   ctx.strokeStyle = mix(color, INK, 0.3);
   ctx.lineWidth = Math.max(0.8, 0.015 * u);
   socksPath(ctx, u, feet, side);
@@ -888,7 +935,7 @@ function drawSneakers(
   p: ThemePalette,
   g: Garb,
 ) {
-  const color = g.color(CANVAS);
+  const color = g.color(GARMENT_COLOR.sneakers(p));
   ctx.strokeStyle = mix(color, INK, 0.45);
   ctx.lineWidth = Math.max(0.8, 0.018 * u);
   sneakersPath(ctx, u, feet, side);
@@ -980,7 +1027,7 @@ function drawBow(
 ) {
   const x = 0.15 * (side ? -side : back ? -1 : 1) * u;
   const y = -0.82 * u;
-  const color = g.color(p.accent === "#ffffff" ? p.deep : p.accent);
+  const color = g.color(GARMENT_COLOR.bow(p));
   paintCloth(ctx, u, () => bowPath(ctx, u, x, y), color, g.fill());
   ctx.fillStyle = color;
   ctx.beginPath();
@@ -1003,7 +1050,7 @@ function drawBasket(
 ) {
   const x = 0.3 * hand * u;
   const y = -0.2 * u;
-  const wicker = g.color(WICKER);
+  const wicker = g.color(GARMENT_COLOR.basket(p));
   ctx.strokeStyle = wicker;
   ctx.lineWidth = 0.03 * u;
   ctx.beginPath();
@@ -1057,8 +1104,8 @@ function drawUmbrella(
   hand: number,
   g: Garb,
 ) {
-  const pale = p.accent === "#ffffff" || p.accent === BRAND_HEX.paper;
-  const color = g.color(pale ? CANOPY : p.accent);
+  const pale = paleAccent(p);
+  const color = g.color(GARMENT_COLOR.umbrella(p));
   const motif = g.fill();
   // Kept inside the figure's box (FIGURE_BOX), which is all its sprite has room for.
   const cx = 0.17 * hand * u;

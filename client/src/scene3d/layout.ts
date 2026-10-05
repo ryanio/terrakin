@@ -4,7 +4,17 @@
  * the math is tested without a GPU.
  */
 import type { WorldSnapshot } from "@terrakin/protocol";
-import type { BlockKind, ResidentColor, ResidentShape } from "@terrakin/sim";
+import {
+  type BlockKind,
+  type Pattern,
+  type ResidentColor,
+  type ResidentShape,
+  sortWear,
+  type ThemePalette,
+  WEAR_INFO,
+  type WearItem,
+} from "@terrakin/sim";
+import { type FigureLook, garmentColor, garmentLook } from "@terrakin/ui/figure";
 import { isMediaUrl } from "@terrakin/ui/format";
 
 /** Inclusive tile range. */
@@ -75,6 +85,43 @@ export interface LayoutFigure {
   x: number;
   y: number;
   owner: boolean;
+  /** What they wear and how it's styled, as the snapshot has it. */
+  look: FigureLook;
+}
+
+/** One worn thing on a 3D figure: its color, and its pattern when it has one. */
+export interface WornPiece {
+  item: WearItem;
+  color: string;
+  pattern?: Pattern;
+  /** The colors its pattern is drawn in. */
+  palette: ThemePalette;
+}
+
+/**
+ * What a figure wears, in slot order, each in the color and pattern the 2D figure gives it
+ * (`garmentColor`, `garmentLook`). A plain pattern draws nothing, so it's left out. Unknown items
+ * from a newer server are skipped.
+ */
+export function wornPieces(look: FigureLook): WornPiece[] {
+  const known = (look.wear ?? []).filter((w) => Object.hasOwn(WEAR_INFO, w));
+  return sortWear(known).map((item) => {
+    const g = garmentLook(look, item);
+    return {
+      item,
+      color: garmentColor(look, item),
+      palette: g.palette,
+      ...(g.pattern && g.pattern !== "plain" ? { pattern: g.pattern } : {}),
+    };
+  });
+}
+
+/** How high a figure's name tag floats: higher over a top hat or an umbrella. */
+export function tagHeight(f: Pick<LayoutFigure, "kind" | "look">): number {
+  const wear = f.look.wear ?? [];
+  if (wear.includes("umbrella")) return 1.32;
+  if (wear.includes("top_hat")) return 1.2;
+  return f.kind === "agent" ? 1.2 : 1.08;
 }
 
 export interface PlotLayout {
@@ -142,6 +189,15 @@ export function plotLayout(
       x: spot.x,
       y: spot.y,
       owner: isOwner,
+      look: {
+        color: r.color,
+        shape: r.shape,
+        theme: r.theme,
+        pattern: r.pattern,
+        patternMedia: r.patternMedia,
+        wear: r.wear,
+        wearStyle: r.wearStyle,
+      },
     });
   }
 

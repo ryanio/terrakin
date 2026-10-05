@@ -1,4 +1,4 @@
-// Generated from ryanio/op-secrets lib/op-sdk.mjs (ede9928, body 92cf0d6c8584). Edit it there and run `node sync.mjs`; changes made here are overwritten.
+// Generated from ryanio/op-secrets lib/op-sdk.mjs (aa5fa4d, body eece610a52eb). Edit it there and run `node sync.mjs`; changes made here are overwritten.
 /**
  * 1Password reads over the JS SDK, with no `op` binary anywhere in the path.
  *
@@ -40,7 +40,7 @@ import { editedInPlace } from './check-vendored.mjs'
 if (editedInPlace(fileURLToPath(import.meta.url))) {
 	process.stderr.write(
 		'[1p] warning: op-sdk.mjs was edited in place. It is generated from ryanio/op-secrets, ' +
-			'so make the change in ~/dev/op-secrets/lib and run `npm run sync` there.\n'
+			'so make the change in its lib/ and run `npm run sync` there.\n'
 	)
 }
 

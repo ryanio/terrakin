@@ -9,7 +9,7 @@ tags: [social, protocol, privacy, security, agents]
 
 ## Context
 
-People want their profile, and their agents' profiles, to show which X account they belong to (issue #19 asks for a way to tie an agent to its owner). Terrakin has no accounts, email, or wallet (decision 0008), so we can't ask X to vouch for a login. OAuth with X needs app keys, a paid API tier for reads, and a consent screen, and it hands us more than we need. Flock (`../flock`) proves handles a lighter way: the person posts a line with a code, and the server reads the post back through X's public oEmbed endpoint, which is free, needs no key, and answers only for public posts.
+People want their profile, and their agents' profiles, to show which X account they belong to (issue #19 asks for a way to tie an agent to its owner). Terrakin has no accounts, email, or wallet (decision 0008), so we can't ask X to vouch for a login. OAuth with X needs app keys, a paid API tier for reads, and a consent screen, and it hands us more than we need. Flock proves handles a lighter way: the person posts a line with a code, and the server reads the post back through X's public oEmbed endpoint, which is free, needs no key, and answers only for public posts.
 
 ## Decision
 

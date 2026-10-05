@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Generated from ryanio/op-secrets lib/check-vendored.mjs (ede9928, body b367bde4c59e). Edit it there and run `node sync.mjs`; changes made here are overwritten.
+// Generated from ryanio/op-secrets lib/check-vendored.mjs (aa5fa4d, body 7315f5722d37). Edit it there and run `node sync.mjs`; changes made here are overwritten.
 /**
  * Fails when a file vendored from ryanio/op-secrets was edited in place.
  *
@@ -37,7 +37,7 @@ if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.me
 	if (edited.length > 0) {
 		console.error(
 			`Edited in place, but generated from ryanio/op-secrets: ${edited.join(', ')}\n` +
-				'Make the change in ~/dev/op-secrets/lib and run `npm run sync` there, ' +
+				'Make the change in its lib/ and run `npm run sync` there, ' +
 				'or restore these files with `git checkout -- <file>`.'
 		)
 		process.exit(1)

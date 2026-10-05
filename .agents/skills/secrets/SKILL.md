@@ -8,7 +8,7 @@ description: |
 
 # Secrets
 
-Everything goes through the vendored wrapper, which uses the 1Password JS SDK with a read-only service token. The files here (except this one and `secrets.config.json`) are generated from `~/dev/op-secrets`; `check-vendored.mjs` runs first in `pnpm verify` and fails on an edited copy. Change them there and run `npm run sync`.
+Everything goes through the vendored wrapper, which uses the 1Password JS SDK with a read-only service token. The files here (except this one and `secrets.config.json`) are generated from `ryanio/op-secrets`; `check-vendored.mjs` runs first in `pnpm verify` and fails on an edited copy. Change them there and run `npm run sync`.
 
 ## Reads
 

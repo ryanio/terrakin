@@ -99,7 +99,7 @@ export function queueView(overview: AdminOverviewResponse): View {
       ),
     );
     const status = h("p", { class: "field-hint item-status", attrs: { role: "status" } });
-    const actions = itemActions(item);
+    const actions = itemActions(item, me.role);
     const buttons: HTMLButtonElement[] = [];
 
     const call = (action: ItemAction): Promise<Result<unknown>> => {

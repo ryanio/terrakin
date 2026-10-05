@@ -170,6 +170,28 @@ describe("staff roles", () => {
     expect((await act(mod, `/v1/admin/residents/${dee.id}/quarantine`, {})).status).toBe(200);
     expect((await act(other, `/v1/admin/residents/${dee.id}/release`, {})).status).toBe(200);
     expect((await act(mo, `/v1/admin/residents/${cy.id}/release`, {})).status).toBe(200);
+
+    // The queue says which of these only a maintainer may change, so the app can leave them out.
+    expect((await suspend(mo, bo.id, 3)).status).toBe(200);
+    expect((await suspend(mod, dee.id, 2)).status).toBe(200);
+    expect((await act(mo, `/v1/admin/residents/${cy.id}/quarantine`, {})).status).toBe(200);
+    const reporter = await t.join("Reporter");
+    for (const id of [bo.id, cy.id, dee.id]) {
+      const filed = await t.call(
+        "POST",
+        "/v1/reports",
+        { kind: "resident", id, reason: "spam" },
+        t.bearer(reporter.token),
+      );
+      expect(filed.status).toBe(201);
+    }
+    const queue = (await t.call("GET", "/v1/admin/reports", undefined, t.bearer(mod.token))).body;
+    const target = (id: string) =>
+      queue.items.find((i: { id: string }) => i.id === id)?.target as Record<string, unknown>;
+    expect(target(bo.id)).toMatchObject({ suspended: true, suspensionLocked: true });
+    expect(target(cy.id)).toMatchObject({ quarantined: true, holdBackLocked: true });
+    expect(target(dee.id)).toMatchObject({ suspended: true });
+    expect(target(dee.id)).not.toHaveProperty("suspensionLocked");
   });
 
   it("refuses browser calls from anywhere but the admin site's own origin", async () => {

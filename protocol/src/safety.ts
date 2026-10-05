@@ -104,6 +104,10 @@ export const ReportTarget = z.object({
   suspended: z.boolean(),
   /** The author's bio and note are held back from view, pending review. */
   quarantined: z.boolean(),
+  /** Only a maintainer may change the author's suspension: a maintainer set it, or more than a week is left. */
+  suspensionLocked: z.boolean().optional(),
+  /** Only a maintainer may release the held-back bio and note: a maintainer held them back. */
+  holdBackLocked: z.boolean().optional(),
 });
 export type ReportTarget = z.infer<typeof ReportTarget>;
 

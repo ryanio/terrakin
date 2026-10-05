@@ -1143,7 +1143,26 @@ export class Api {
           },
         };
       },
-      getReports: ({ query }) => ({ status: 200, body: social().safety.queue(query.limit) }),
+      getReports: ({ query }) => {
+        const queue = social().safety.queue(query.limit);
+        // Say which suspensions and hold-backs only a maintainer may change, so the staff app
+        // offers moderators only what the routes below will accept.
+        const items = queue.items.map((item) => {
+          const person = item.kind === "resident" ? item.id : item.target.author?.id;
+          if (!person) return item;
+          const suspensionLocked = this.suspensionLocked(person);
+          const holdBackLocked = this.holdBackLocked(person);
+          return {
+            ...item,
+            target: {
+              ...item.target,
+              ...(suspensionLocked ? { suspensionLocked } : {}),
+              ...(holdBackLocked ? { holdBackLocked } : {}),
+            },
+          };
+        });
+        return { status: 200, body: { ...queue, items } };
+      },
       getModerationLog: ({ query }) => ({ status: 200, body: social().safety.logPage(query) }),
       dismissReports: ({ viewer, body }) =>
         logged(social().safety.dismiss(viewer, body.kind, body.id, body.reason)),
@@ -1168,8 +1187,7 @@ export class Api {
       quarantineResident: ({ viewer, params, body }) =>
         logged(social().safety.quarantine(viewer, params.id, body.reason)),
       releaseResident: ({ viewer, params, body }) => {
-        const by = social().safety.quarantinedBy(params.id);
-        if (by && this.staffRole(viewer) !== "maintainer" && this.staffRole(by) === "maintainer") {
+        if (this.staffRole(viewer) !== "maintainer" && this.holdBackLocked(params.id)) {
           return fail(
             "forbidden",
             "A maintainer held these back. Ask a maintainer to release them.",
@@ -1370,12 +1388,23 @@ export class Api {
    * A moderator may not shorten, lengthen, or end a suspension a maintainer set, or one with more
    * than a moderator's own limit still to run. The refusal, or undefined when they may.
    */
+  /** Whether only a maintainer may change this resident's suspension: one set it, or it's long. */
+  private suspensionLocked(residentId: string): boolean {
+    const current = this.social?.safety.currentSuspension(residentId);
+    if (!current) return false;
+    const long = current.remainingMs > MODERATOR_SUSPEND_MAX_DAYS * 86_400_000;
+    return long || this.staffRole(current.by) === "maintainer";
+  }
+
+  /** Whether only a maintainer may release this resident's held-back bio and note. */
+  private holdBackLocked(residentId: string): boolean {
+    const by = this.social?.safety.quarantinedBy(residentId);
+    return by !== undefined && this.staffRole(by) === "maintainer";
+  }
+
   private maintainersSuspension(viewer: string, residentId: string): Failure | undefined {
     if (this.staffRole(viewer) === "maintainer") return undefined;
-    const current = this.social?.safety.currentSuspension(residentId);
-    if (!current) return undefined;
-    const long = current.remainingMs > MODERATOR_SUSPEND_MAX_DAYS * 86_400_000;
-    if (!long && this.staffRole(current.by) !== "maintainer") return undefined;
+    if (!this.suspensionLocked(residentId)) return undefined;
     return fail(
       "forbidden",
       "A maintainer set this suspension, or it has more than a week to run. Ask a maintainer to change it.",

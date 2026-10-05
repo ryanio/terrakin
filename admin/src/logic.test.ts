@@ -72,6 +72,24 @@ describe("the actions an item offers", () => {
     ]);
   });
 
+  it("leaves moderators out of suspensions and hold-backs only a maintainer may change", () => {
+    const locked = item({}, { suspended: true, suspensionLocked: true });
+    const asModerator = itemActions(locked, "moderator").map((a) => a.kind);
+    expect(asModerator).not.toContain("unsuspend");
+    expect(asModerator).not.toContain("suspend");
+    expect(itemActions(locked, "maintainer").map((a) => a.kind)).toContain("unsuspend");
+    // A short suspension a moderator set stays theirs to end.
+    const open = item({}, { suspended: true });
+    expect(itemActions(open, "moderator").map((a) => a.kind)).toContain("unsuspend");
+
+    const held = item(
+      { kind: "resident", id: author.id },
+      { quarantined: true, holdBackLocked: true },
+    );
+    expect(itemActions(held, "moderator").map((a) => a.kind)).not.toContain("release");
+    expect(itemActions(held, "maintainer").map((a) => a.kind)).toContain("release");
+  });
+
   it("leaves out post actions for a deleted post and person actions without an author", () => {
     expect(kinds(item({}, { exists: false, author: null }))).toEqual(["dismiss:p_1"]);
   });

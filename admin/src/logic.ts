@@ -71,9 +71,12 @@ export function personOf(item: ReportQueueItem): string | undefined {
 
 /**
  * What staff can do with one queue item, in the order the buttons show. Every role gets the same
- * kinds of action; moderators get shorter suspensions (see `suspendLimits`).
+ * kinds of action, with two limits for moderators: shorter suspensions (see `suspendLimits`), and
+ * no changing a suspension or a hold-back that only a maintainer may change (the server refuses
+ * those too).
  */
-export function itemActions(item: ReportQueueItem): ItemAction[] {
+export function itemActions(item: ReportQueueItem, role: StaffRole = "maintainer"): ItemAction[] {
+  const maintainer = role === "maintainer";
   const { target } = item;
   const out: ItemAction[] = [];
   if (item.kind === "post" && target.exists) {
@@ -89,18 +92,23 @@ export function itemActions(item: ReportQueueItem): ItemAction[] {
   }
   const person = personOf(item);
   if (person) {
-    out.push(
-      target.suspended
-        ? { kind: "unsuspend", label: "End suspension", target: person, primary: false }
-        : { kind: "suspend", label: "Suspend", target: person, primary: false },
-    );
+    if (!target.suspended) {
+      out.push({ kind: "suspend", label: "Suspend", target: person, primary: false });
+    } else if (maintainer || !target.suspensionLocked) {
+      out.push({ kind: "unsuspend", label: "End suspension", target: person, primary: false });
+    }
   }
   if (item.kind === "resident" && target.exists) {
-    out.push(
-      target.quarantined
-        ? { kind: "release", label: "Show bio and note", target: item.id, primary: false }
-        : { kind: "quarantine", label: "Hold back bio and note", target: item.id, primary: false },
-    );
+    if (!target.quarantined) {
+      out.push({
+        kind: "quarantine",
+        label: "Hold back bio and note",
+        target: item.id,
+        primary: false,
+      });
+    } else if (maintainer || !target.holdBackLocked) {
+      out.push({ kind: "release", label: "Show bio and note", target: item.id, primary: false });
+    }
     if (target.media.length > 0) {
       out.push({
         kind: "remove_pictures",

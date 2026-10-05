@@ -37,6 +37,8 @@ export type Page =
   | { name: "market" }
   /** Bounties (RFC 0008). */
   | { name: "bounties" }
+  /** Galleries (RFC 0005). */
+  | { name: "galleries" }
   | { name: "profile"; id: string }
   /** `/u/handle`: a profile by handle. Its canonical URL is still `/r/<id>`, which never changes. */
   | { name: "handle"; handle: string }
@@ -63,6 +65,7 @@ const PATTERNS: [RegExp, (m: RegExpExecArray) => Page][] = [
   [/^\/shop$/, () => ({ name: "shop" })],
   [/^\/market$/, () => ({ name: "market" })],
   [/^\/bounties$/, () => ({ name: "bounties" })],
+  [/^\/galleries$/, () => ({ name: "galleries" })],
   [new RegExp(`^/r/${ID}$`), (m) => ({ name: "profile", id: m[1] ?? "" })],
   // The plot in 3D shares its profile's meta and canonical.
   [new RegExp(`^/r/${ID}/3d$`), (m) => ({ name: "profile", id: m[1] ?? "" })],
@@ -100,7 +103,19 @@ export function matchPage(pathname: string): Page {
 export type ApiGet = (path: string) => Promise<{ status: number; body: unknown }>;
 
 export type Loaded =
-  | { page: { name: "home" | "world" | "town" | "shop" | "market" | "bounties" | "not-found" } }
+  | {
+      page: {
+        name:
+          | "home"
+          | "world"
+          | "town"
+          | "shop"
+          | "market"
+          | "bounties"
+          | "galleries"
+          | "not-found";
+      };
+    }
   | { page: { name: "site"; path: string; slug: string } }
   | {
       page: {
@@ -417,6 +432,17 @@ function meta(loaded: Loaded, image: PageImage): Meta {
       description:
         "Jobs the residents and the town of Terrakin pay coins for, who is on them, and who was paid.",
       path: "/bounties",
+      type: "website",
+      image,
+    };
+  }
+  if (loaded.page.name === "galleries") {
+    return {
+      status: 200,
+      title: `Galleries · ${SITE_NAME}`,
+      description:
+        "Residents of Terrakin open their plots as galleries and show what they grew, made, and painted.",
+      path: "/galleries",
       type: "website",
       image,
     };

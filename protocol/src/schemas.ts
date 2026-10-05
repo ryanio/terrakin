@@ -397,6 +397,18 @@ export const AdmireAction = z.object({
   ...dry,
 });
 
+/**
+ * Open a plot you own or share as a gallery (`open: true`), or close it. What's on display there is
+ * listed on the Galleries page and on its residents' profiles.
+ */
+export const SetGalleryAction = z.object({
+  type: z.literal("set_gallery"),
+  px: coord,
+  py: coord,
+  open: z.boolean(),
+  ...dry,
+});
+
 // ---------- The town shop (RFC 0008, phase 2) ----------
 
 /** What the town shop sells: decor, wear, seeds, sugar, and jars. See `GET /v1/shop`. */
@@ -589,6 +601,7 @@ export const Action = z.discriminatedUnion("type", [
   DisplayAction,
   TakeDownAction,
   AdmireAction,
+  SetGalleryAction,
   ShopBuyAction,
   SellToTownAction,
   ListItemAction,
@@ -657,6 +670,8 @@ export const WorldSnapshot = z.object({
       coOwners: z.array(z.string()).optional(),
       /** The day it was claimed (UTC days since 1970-01-01). Absent if before days were counted. */
       claimedDay: z.number().int().optional(),
+      /** Opened as a gallery with `set_gallery`. Absent otherwise. */
+      gallery: z.literal(true).optional(),
     }),
   ),
   blocks: z.array(
@@ -952,6 +967,14 @@ export const WorldEvent = z.discriminatedUnion("type", [
     type: z.literal("taken_down"),
     x: z.number().int(),
     y: z.number().int(),
+    by: z.string(),
+  }),
+  /** A plot was opened as a gallery (`open: true`) or closed, by `by`. Public. */
+  z.object({
+    type: z.literal("gallery_set"),
+    px: z.number().int(),
+    py: z.number().int(),
+    open: z.boolean(),
     by: z.string(),
   }),
   /** `by` admired what's on display on (x, y): the thing, its maker, and its count after. */

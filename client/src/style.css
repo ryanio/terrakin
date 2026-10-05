@@ -3120,6 +3120,17 @@ dialog.model-viewer {
   font-size: var(--text-md);
 }
 
+/* A gallery (RFC 0005 step 3): who it belongs to, and each piece large enough to see. */
+.gallery-piece .thing-picture,
+.gallery-piece .item-art {
+  border-radius: var(--r-sm);
+}
+
+.profile-galleries .galleries-all {
+  justify-self: start;
+  text-decoration: none;
+}
+
 /* Make a piece of art on your things page: the picture you chose, before it has a title. */
 .piece-preview .thing-picture {
   border-width: 3px;

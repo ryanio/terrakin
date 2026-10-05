@@ -8,7 +8,11 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-05
 
-<!-- api-fingerprint: ce4c51574b84, 41 entries -->
+<!-- api-fingerprint: 0947772b7f0d, 42 entries -->
+
+- **Added** Galleries
+  New action `set_gallery {px, py, open}` opens a plot you own or share as a gallery, or closes it. `GET /v1/galleries` lists gallery plots with what's on display and each piece's `admired` count, most admired first; `?resident=<id>` gives one resident's.
+  Plots in `/v1/world` carry `gallery: true`, a new public event `gallery_set` says when one opens or closes, and a new error code, `already_set`.
 
 - **Added** Pieces of art show their picture in the market, and the snapshot marks labels on display
   `goods` in a market listing carry a piece's `media` and `model`. Each entry in `displays` in `/v1/world` has `trust: "untrusted"` when the thing has a label.

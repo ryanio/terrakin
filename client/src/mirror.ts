@@ -50,6 +50,8 @@ export class Mirror {
   townBuilt = new Map<string, string>(); // tileKey -> the proposal that built it
   /** Crops growing in planters (RFC 0005). */
   crops = new Map<string, { crop: Crop; plantedDay: number; readyDay: number }>();
+  /** Plots opened as galleries (`set_gallery`), by plotKey. */
+  galleries = new Set<string>();
   /** Made things on display on pedestals and frames (RFC 0005 step 3). Labels are untrusted text. */
   displays = new Map<string, DisplayView>();
   /** Today, as the world counts it. A crop is ready once this reaches its `readyDay`. */
@@ -65,6 +67,7 @@ export class Mirror {
     for (const p of snapshot.plots) {
       this.plots.set(plotKey(p.px, p.py), p.ownerId);
       if (p.coOwners?.length) this.coOwners.set(plotKey(p.px, p.py), [...p.coOwners]);
+      if (p.gallery) this.galleries.add(plotKey(p.px, p.py));
     }
     for (const b of snapshot.blocks) this.blocks.set(tileKey(b.x, b.y), b.block);
     this.townHall = (snapshot.townHall ?? []).map((t) => ({ ...t }));
@@ -136,6 +139,13 @@ export class Mirror {
         const key = plotKey(event.px, event.py);
         this.plots.delete(key);
         this.coOwners.delete(key);
+        this.galleries.delete(key);
+        break;
+      }
+      case "gallery_set": {
+        const key = plotKey(event.px, event.py);
+        if (event.open) this.galleries.add(key);
+        else this.galleries.delete(key);
         break;
       }
       case "hearth_set": {

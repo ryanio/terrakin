@@ -7,7 +7,7 @@ import {
   inventoryEvent,
   inventorySize,
 } from "./items";
-import { tileKey } from "./keys";
+import { plotKey, tileKey } from "./keys";
 import { MEDIA_ID_PATTERN } from "./looks";
 import type {
   BlockKind,
@@ -250,5 +250,35 @@ export function checkAdmire(
     items.today.admired = { ...items.today.admired, [actor]: [...today, good.id] };
     good.admired = admired;
     return [{ type: "admired", x, y, item: good.id, maker: good.maker, by: actor, admired }];
+  };
+}
+
+/**
+ * `set_gallery {px, py, open}`: mark a plot you own or share a gallery, or stop. What's on display
+ * on a gallery plot is listed on the Galleries page and its residents' profiles. It needs no items
+ * open: a gallery can wait for its first piece.
+ */
+export function checkSetGallery(
+  state: WorldState,
+  actor: ResidentId,
+  command: Extract<Command, { type: "set_gallery" }>,
+): ItemsChecked {
+  const { px, py, open } = command;
+  if (typeof open !== "boolean") return refuse("invalid_profile", "open is true or false.");
+  const plot = state.plots[plotKey(px, py)];
+  if (!plot) return refuse("no_plot", "Nobody has claimed that plot.");
+  if (!canBuildOn(plot, actor)) {
+    return refuse(
+      "not_your_plot",
+      "Only the plot's owner, or someone it's shared with, can do that.",
+    );
+  }
+  if ((plot.gallery === true) === open) {
+    return refuse("already_set", open ? "It's already a gallery." : "It isn't a gallery.");
+  }
+  return () => {
+    if (open) plot.gallery = true;
+    else delete plot.gallery;
+    return [{ type: "gallery_set", px, py, open, by: actor }];
   };
 }

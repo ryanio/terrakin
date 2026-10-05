@@ -48,6 +48,7 @@ import { findBounty, findProposal, listingById } from "@terrakin/sim";
 import { bountiesView, bountyView, staffBountiesView } from "./bounties";
 import { checkinView } from "./checkin";
 import { purseView } from "./coins";
+import { galleriesView } from "./galleries";
 import { IdempotencyStore, type StoredResponse, sha256Hex } from "./idempotency";
 import { inventoryView } from "./items";
 import { BAD_LINK_KEY, DEFAULT_ORIGIN, linkHandlers, linkHelp, REPEAT_NOTE } from "./links";
@@ -1091,6 +1092,17 @@ export class Api {
         return {
           status: 200,
           body: bountiesView(service.state, viewer, (id) => layer.authorView(id), hidden),
+        };
+      },
+      getGalleries: ({ query }) => {
+        const layer = this.social;
+        return {
+          status: 200,
+          body: galleriesView(service.state, (id) => layer?.authorView(id), {
+            resident: query.resident,
+            // A suspended resident's gallery is closed for now, like their market stall.
+            hidden: (id) => layer?.safety.suspendedUntil(id) !== undefined,
+          }),
         };
       },
       getCheckin: ({ viewer, query }) => ({

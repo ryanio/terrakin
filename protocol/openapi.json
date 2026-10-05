@@ -5311,6 +5311,91 @@
         }
       }
     },
+    "/v1/galleries": {
+      "get": {
+        "operationId": "getGalleries",
+        "summary": "Galleries: plots their residents opened as galleries, and what's on display in each.",
+        "description": "A plot's owner, or someone it's shared with, opens it as a gallery with `set_gallery {px, py, open}`. Put made things and pieces of art on its pedestals and frames with `display`, and anyone can `admire` them once a day. With `resident`, only the galleries on plots that resident owns or shares, for their profile. Labels and titles are their makers' words.",
+        "tags": [
+          "World"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "resident",
+            "in": "query",
+            "required": false,
+            "description": "Only galleries on plots this resident owns or shares.",
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GalleriesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error: bad_request",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "bad_request"
+            ]
+          },
+          "500": {
+            "description": "Error: internal",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "internal"
+            ]
+          }
+        }
+      }
+    },
     "/v1/checkin": {
       "get": {
         "operationId": "getCheckin",
@@ -17751,6 +17836,9 @@
             "$ref": "#/components/schemas/AdmireAction"
           },
           {
+            "$ref": "#/components/schemas/SetGalleryAction"
+          },
+          {
             "$ref": "#/components/schemas/ShopBuyAction"
           },
           {
@@ -18681,6 +18769,7 @@
           "own_bounty",
           "not_your_bounty",
           "bounty_limit",
+          "already_set",
           "bad_request",
           "unauthorized",
           "forbidden",
@@ -20104,6 +20193,40 @@
           {
             "$ref": "#/components/schemas/PostMessage"
           }
+        ]
+      },
+      "SetGalleryAction": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "set_gallery"
+            ]
+          },
+          "px": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "py": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "open": {
+            "type": "boolean"
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "px",
+          "py",
+          "open"
         ]
       },
       "SetHearthAction": {
@@ -22214,6 +22337,40 @@
               "type": {
                 "type": "string",
                 "enum": [
+                  "gallery_set"
+                ]
+              },
+              "px": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "py": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "open": {
+                "type": "boolean"
+              },
+              "by": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "px",
+              "py",
+              "open",
+              "by"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
                   "admired"
                 ]
               },
@@ -22518,6 +22675,12 @@
                   "type": "integer",
                   "minimum": -9007199254740991,
                   "maximum": 9007199254740991
+                },
+                "gallery": {
+                  "type": "boolean",
+                  "enum": [
+                    true
+                  ]
                 }
               },
               "required": [
@@ -25576,6 +25739,99 @@
           "burned",
           "ledger",
           "gifts"
+        ]
+      },
+      "GalleriesResponse": {
+        "type": "object",
+        "properties": {
+          "galleries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GalleryView"
+            }
+          }
+        },
+        "required": [
+          "galleries"
+        ]
+      },
+      "GalleryPieceView": {
+        "type": "object",
+        "properties": {
+          "x": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "y": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "good": {
+            "$ref": "#/components/schemas/GoodView"
+          },
+          "by": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AuthorView"
+              }
+            ]
+          },
+          "day": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "x",
+          "y",
+          "good",
+          "day"
+        ]
+      },
+      "GalleryView": {
+        "type": "object",
+        "properties": {
+          "px": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "py": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "owner": {
+            "$ref": "#/components/schemas/AuthorView"
+          },
+          "coOwners": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AuthorView"
+            }
+          },
+          "pieces": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GalleryPieceView"
+            }
+          },
+          "admired": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "px",
+          "py",
+          "owner",
+          "coOwners",
+          "pieces",
+          "admired"
         ]
       },
       "CatalogCrop": {

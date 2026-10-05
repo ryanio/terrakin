@@ -43,6 +43,7 @@ import {
 } from "./api";
 import { bannerArt, designArt } from "./banner-art";
 import { syncPost } from "./feed-view";
+import { profileGalleries } from "./galleries-view";
 import { openInviteDialog } from "./invite-share";
 import { colorChips, joinForm, shapeChips, tokenPreview } from "./join-form";
 import { lettersPath } from "./letters-view";
@@ -144,6 +145,9 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
     el.append(postsTitle);
     void stallCard(resident).then((card) => {
       if (card && !destroyed && postsTitle.isConnected) postsTitle.before(card);
+    });
+    void profileGalleries(resident).then((section) => {
+      if (section && !destroyed && postsTitle.isConnected) postsTitle.before(section);
     });
     const list = h("div", {
       class: "post-list",

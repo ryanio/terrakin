@@ -21,6 +21,8 @@ export interface DisplaySheetOptions {
   shown?: DisplayView;
   /** Whether the tile is on a plot you own or share, as the world shows it. */
   yours: boolean;
+  /** The plot the tile is on, and whether it's open as a gallery. */
+  plot?: { px: number; py: number; gallery: boolean };
   /** Your resident id, if you're in the world. */
   me: string | undefined;
   /** A resident's name from the world, for "Made by". Their own words: text only. */
@@ -44,10 +46,45 @@ export function openDisplaySheet(o: DisplaySheetOptions) {
     h("span", { text: "All your things" }),
     icon("arrow"),
   );
+  // On your own plot: open it as a gallery, so what's on display is listed for everyone, or close it.
+  const plot = o.plot;
+  const galleryRow =
+    o.yours && plot
+      ? h(
+          "div",
+          { class: "stack tight display-gallery" },
+          h("p", {
+            class: "purse-hint",
+            text: plot.gallery
+              ? "Your plot is a gallery: what's on display here is listed on the Galleries page and your profile."
+              : "Open your plot as a gallery, and what's on display here is listed on the Galleries page and your profile.",
+          }),
+          h(
+            "div",
+            { class: "cluster" },
+            h("button", {
+              class: plot.gallery ? "pill-button small" : "btn-primary small",
+              attrs: { type: "button", id: "display-gallery" },
+              text: plot.gallery ? "Close the gallery" : "Open as a gallery",
+              on: {
+                click: () =>
+                  send({ type: "set_gallery", px: plot.px, py: plot.py, open: !plot.gallery }),
+              },
+            }),
+            h(
+              "a",
+              { class: "pill-button small", attrs: { href: "/galleries" } },
+              h("span", { text: "Galleries" }),
+              icon("arrow"),
+            ),
+          ),
+        )
+      : null;
   const s = sheet(
     { id: "display-title", title: where, className: "display-sheet", closeOnBackdrop: true },
     body,
     problem,
+    galleryRow,
     o.yours ? things : null,
   );
   const send = (action: Action) => {

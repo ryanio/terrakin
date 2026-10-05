@@ -127,6 +127,7 @@ export function townView(ctx: ViewContext): View {
       board,
       ...(town.shop ? [shopCard(town.shop)] : []),
       ...(town.treasury ? [bountiesCard()] : []),
+      galleriesCard(),
       h("h2", { class: "section-title", text: "Past results" }),
       archiveList,
       h("div", { class: "feed-foot" }, more.el),
@@ -664,23 +665,48 @@ export function townView(ctx: ViewContext): View {
 
   // ---------- bounties ----------
 
-  /** The way to the bounties: jobs the town and residents pay coins for. */
-  function bountiesCard(): HTMLElement {
+  /** A card that points somewhere else in town: a title, a line, and a link. */
+  function wayCard(o: {
+    title: string;
+    text: string;
+    href: string;
+    link: string;
+    className: string;
+  }): HTMLElement {
     return h(
       "section",
-      { class: "stack start paper card town-bounties", attrs: { "aria-label": "Bounties" } },
-      h("h2", { class: "card-title", text: "Bounties" }),
-      h("p", {
-        class: "town-lede",
-        text: "Jobs the town and your neighbors pay coins for. A passed job proposal goes up there, paid from the treasury.",
-      }),
+      { class: `stack start paper card ${o.className}`, attrs: { "aria-label": o.title } },
+      h("h2", { class: "card-title", text: o.title }),
+      h("p", { class: "town-lede", text: o.text }),
       h(
         "a",
-        { class: "pill-button", attrs: { href: "/bounties" } },
-        h("span", { text: "See the bounties" }),
+        { class: "pill-button", attrs: { href: o.href } },
+        h("span", { text: o.link }),
         icon("arrow"),
       ),
     );
+  }
+
+  /** The way to the bounties: jobs the town and residents pay coins for. */
+  function bountiesCard(): HTMLElement {
+    return wayCard({
+      title: "Bounties",
+      text: "Jobs the town and your neighbors pay coins for. A passed job proposal goes up there, paid from the treasury.",
+      href: "/bounties",
+      link: "See the bounties",
+      className: "town-bounties",
+    });
+  }
+
+  /** The way to the galleries: plots their residents opened to show what they made. */
+  function galleriesCard(): HTMLElement {
+    return wayCard({
+      title: "Galleries",
+      text: "Residents open their plots as galleries and show what they grew, made, and painted. Admire what you like.",
+      href: "/galleries",
+      link: "Visit the galleries",
+      className: "town-galleries",
+    });
   }
 
   // ---------- notice board ----------

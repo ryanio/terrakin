@@ -205,6 +205,13 @@ test("make a piece of art and put it on a pedestal", async ({ page }) => {
     );
   await page.screenshot({ path: "test-results/show-displayed.png" });
 
+  // From the same sheet, Iris opens her plot as a gallery.
+  await tapTile(page, -1, -1);
+  await sheet.locator("#display-gallery").click();
+  await expect
+    .poll(async () => (await world()).plots)
+    .toContainEqual(expect.objectContaining({ ownerId: iris.id, gallery: true }));
+
   // A neighbor admires it from wherever they are. Tapping it again shows it large, with its
   // maker and how often it was admired, and lets Iris take it down. She can't admire her own.
   const juno = await join(page.request, "Juno");
@@ -216,7 +223,14 @@ test("make a piece of art and put it on a pedestal", async ({ page }) => {
   await expect(sheet.locator("#display-admire")).toHaveCount(0);
   await page.screenshot({ path: "test-results/show-sheet.png" });
   await sheet.getByRole("button", { name: "Take down" }).click();
-  await expect.poll(async () => (await world()).displays).toBeUndefined();
+  // Other specs share the world, so look for this pedestal only.
+  await expect
+    .poll(async () =>
+      ((await world()).displays ?? []).filter(
+        (d: { x: number; y: number }) => d.x === me.x - 1 && d.y === me.y - 1,
+      ),
+    )
+    .toEqual([]);
   expect((await inventory(page.request, iris.token)).goods).toContainEqual(
     expect.objectContaining({ id: piece.id }),
   );

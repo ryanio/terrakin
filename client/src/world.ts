@@ -412,12 +412,16 @@ function openStation(x: number, y: number) {
   const ownerName = ownerId ? m.residents.get(ownerId)?.name : undefined;
   if (here === "pedestal" || here === "frame") {
     const shown = m.displays.get(`${x},${y}`);
+    const { plotSize } = m.config;
+    const px = Math.floor(x / plotSize);
+    const py = Math.floor(y / plotSize);
     void import("./display-sheet").then((d) =>
       d.openDisplaySheet({
         block: here,
         x,
         y,
         ...(shown ? { shown } : {}),
+        plot: { px, py, gallery: m.galleries.has(`${px},${py}`) },
         yours,
         me,
         nameOf: (id) => m.residents.get(id)?.name,

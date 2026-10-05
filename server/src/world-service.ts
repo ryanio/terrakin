@@ -1402,6 +1402,7 @@ export class WorldService {
         ownerId: p.ownerId,
         ...(p.coOwners ? { coOwners: [...p.coOwners] } : {}),
         ...(p.claimedDay === undefined ? {} : { claimedDay: p.claimedDay }),
+        ...(p.gallery ? { gallery: true as const } : {}),
       })),
       blocks: Object.entries(state.blocks).map(([key, block]) => {
         const [x, y] = parseKey(key);

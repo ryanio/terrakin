@@ -138,6 +138,10 @@ describe("things", () => {
     expect(newsLine(admired, "r_3")).toBe("You admired it. Its maker will be glad.");
     expect(newsLine(admired, "r_2")).toBe("Someone admired something you made.");
     expect(newsLine(admired, "r_1")).toBeNull();
+    const opened = { type: "gallery_set" as const, px: 1, py: 2, open: true, by: "r_1" };
+    expect(newsLine(opened, "r_1")).toContain("Galleries page");
+    expect(newsLine({ ...opened, open: false }, "r_1")).toBe("Your plot isn't a gallery anymore.");
+    expect(newsLine(opened, "r_2")).toBeNull();
     expect(newsLine({ type: "plot_claimed", px: 3, py: 3, ownerId: "r_1" }, "r_1")).toBe(
       "This plot is yours. Tap Build to start.",
     );

@@ -74,11 +74,13 @@ Gotchas, surprises, and things we'd tell our past selves.
 - [After a repo transfer, agent sessions can read but not write](learnings/2026-10-03-after-a-repo-transfer-agent-sessions-can-read-but-not-write.md) · 2026-10-03 · `tooling` `agents` `process`
 - [Defaults derived from random ids make tests flaky](learnings/2026-10-03-defaults-derived-from-random-ids-make-tests-flaky.md) · 2026-10-03 · `testing` `server` `sim`
 - [Never chain git push onto a rebase or a filter in one shell line](learnings/2026-10-05-never-chain-git-push-onto-a-rebase-or-a-filter-in-one-shell-.md) · 2026-10-05 · `process` `agents` `tooling`
+- [Symlinked package node_modules make a worktree run the main checkout's workspace packages](learnings/2026-10-05-symlinked-package-node-modules-make-a-worktree-run-the-main-.md) · 2026-10-05 · `tooling` `agents` `testing`
 
 ## Handoffs
 
 End-of-session notes. Read the latest one before starting work.
 
+- [Town shop and garment styles live](handoffs/2026-10-05-0707-town-shop-and-garment-styles-live.md) · 2026-10-05 · `economy` `sim` `protocol` `client` `deploy` `design`
 - [Ready for the town shop: state of Terrakin after coins, items, partners, putter](handoffs/2026-10-05-0544-ready-for-the-town-shop-state-of-terrakin-after-coins-items-.md) · 2026-10-05 · `process` `economy` `agents` `deploy`
 - [Putter, items, partners, praise, plot photos, hygiene all live](handoffs/2026-10-05-0436-putter-items-partners-praise-plot-photos-hygiene-all-live.md) · 2026-10-05 · `process` `deploy` `sim` `economy` `social` `agents`
 - [Live posts, media stripping, did you mean, coins follow-ups; four agents stopped mid-work](handoffs/2026-10-05-0146-live-posts-media-stripping-did-you-mean-coins-follow-ups-fou.md) · 2026-10-05 · `process` `deploy` `social` `economy` `safety` `agents`

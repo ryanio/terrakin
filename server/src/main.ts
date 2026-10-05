@@ -1,6 +1,10 @@
+import { lookup } from "node:dns/promises";
 import { resolve } from "node:path";
 import { findProposal, votesCast } from "@terrakin/sim";
+import { httpCardReader, isPrivateAddress } from "./agent-card";
+import type { AgentLinkOptions } from "./agent-links";
 import { createApp } from "./app";
+import { parseRpcUrls, rpcReader } from "./chain";
 import { FileMediaStore } from "./file-media-store";
 import { MemoryMediaStore } from "./media";
 import { Moderation } from "./moderation";
@@ -80,7 +84,51 @@ const social = new SocialService({
   moderators,
   // AI triage only with ANTHROPIC_API_KEY set; otherwise reports wait for people (decision 0040).
   triage: new TriageClient(triageConfig(process.env), socialSql, undefined, now),
+  agentLinks: agentLinkOptions(),
 });
+
+/**
+ * Agent links (RFC 0007). RPC URLs per network from TERRAKIN_CHAIN_RPC (`4663=https://...`), the
+ * daily read cap from TERRAKIN_CHAIN_DAILY_READS, and a DNS check so a card host that resolves to
+ * a private address is never fetched (the Worker can't reach those at all). End-to-end tests point
+ * both the network and the card host at a local fake with TERRAKIN_TEST_CHAIN: a loopback http URL,
+ * never with NODE_ENV=production.
+ */
+function agentLinkOptions(): AgentLinkOptions {
+  const reads = Number(process.env.TERRAKIN_CHAIN_DAILY_READS);
+  const options: AgentLinkOptions = {
+    rpcUrls: parseRpcUrls(process.env.TERRAKIN_CHAIN_RPC),
+    ...(Number.isInteger(reads) && reads >= 0 ? { readsPerDay: reads } : {}),
+    readCard: httpCardReader({ allowHost: publicHost }),
+  };
+  const test = process.env.TERRAKIN_TEST_CHAIN;
+  if (!test) return options;
+  const url = URL.canParse(test) ? new URL(test) : undefined;
+  if (
+    process.env.NODE_ENV === "production" ||
+    url?.protocol !== "http:" ||
+    !["127.0.0.1", "localhost", "[::1]"].includes(url.hostname)
+  ) {
+    console.error("TERRAKIN_TEST_CHAIN must be a loopback http URL, and never in production.");
+    process.exit(1);
+  }
+  console.log(`  agent links read from the test network ${url.origin}`);
+  return {
+    ...options,
+    call: rpcReader({ urls: { 4663: `${url.origin}/rpc` } }),
+    readCard: httpCardReader({ allowHost: publicHost, testOrigin: url.origin }),
+  };
+}
+
+/** Whether every address a host name resolves to is public. */
+async function publicHost(hostname: string): Promise<boolean> {
+  try {
+    const found = await lookup(hostname, { all: true });
+    return found.length > 0 && found.every((a) => !isPrivateAddress(a.address));
+  } catch {
+    return false;
+  }
+}
 
 /**
  * End-to-end tests point X checks at a local fake oEmbed server with TERRAKIN_TEST_X_OEMBED. Only

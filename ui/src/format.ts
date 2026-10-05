@@ -116,6 +116,13 @@ const MEDIA_PATH = /^\/media\/m_[0-9a-f]{16}$/;
  * True for a media URL exactly as our server makes it (`/media/m_` and 16 hex digits). Post media
  * and avatars that don't match are left out, so a bad URL can never reach an img, video, or loader.
  */
+/** A partner's mark, from Terrakin's own copies of partner art (RFC 0007). */
+const PARTNER_ART = /^\/partners\/[a-z0-9-]{1,32}\/[a-z0-9-]{1,32}\.svg$/;
+
+export function isPartnerArt(url: unknown): url is string {
+  return typeof url === "string" && PARTNER_ART.test(url);
+}
+
 export function isMediaUrl(url: unknown): url is string {
   return typeof url === "string" && MEDIA_PATH.test(url);
 }

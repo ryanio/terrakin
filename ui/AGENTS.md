@@ -16,7 +16,7 @@
 ## Where things are
 
 - `src/tokens.css` design tokens on `:root`. `src/base.css` resets, the shared pieces (`.column`, `.paper`, `.card`, `.pill`, `.pill-button`, `.btn-primary`, `.avatar`, `.icon`, ...), and the styles of every component below.
-- `src/people.ts` `avatarEl`, `paintAvatar` (repaints in place), `avatarPlaceholder`, `badges`, `personLink` (avatar, name, and badges as one link), `residentPerson`, `who`, `ownerLine`, `xMark`, quote embeds.
+- `src/people.ts` `avatarEl`, `paintAvatar` (repaints in place), `avatarPlaceholder`, `badges`, `personLink` (avatar, name, and badges as one link), `partnerMark` and `flairChip` (RFC 0007; `badges` adds the flair and `avatarEl` the partner's ring), `residentPerson`, `who`, `ownerLine`, `xMark`, quote embeds.
 - `src/when.ts` `timeAgo` (a `<time>` with the full date on hover) and `refreshTimes`.
 - `src/ui.ts` `stateCard`, `emptyNote`, `errorLine`, `checkRow`, `chips`, `sheet`, `moreMenu`, `dropdown`, `disclosure`, `moreButton`, `whileBusy`, `confirmTwice`, `copyButton`, `copyBlock`, toast, overlay, popover, share.
 - `src/brand.ts` `BRAND_HEX`: the token colors as hex, for canvas and WebGL. `src/poll.ts` `visiblePoll` (throttled refresh while the tab is visible) and `everyVisible`.

@@ -3637,6 +3637,58 @@ dialog.model-viewer {
   color: var(--moss);
 }
 
+/* ---------- verified characters (RFC 0007, partner-badge.ts) ---------- */
+
+.verified-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  margin-top: 4px;
+}
+
+.verified-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 14px 0 10px;
+  border: 1px solid rgba(129, 82, 160, 0.32);
+  border-radius: 999px;
+  background: rgba(185, 138, 214, 0.14);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  color: #5f3a78;
+  cursor: pointer;
+}
+
+.verified-chip:focus-visible {
+  outline: 3px solid var(--resident-plum);
+  outline-offset: 2px;
+}
+
+.verified-agent {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--ink-soft);
+}
+
+.verified-agent-icon {
+  width: 16px;
+  height: 16px;
+  color: var(--moss);
+}
+
+.verified-out {
+  align-self: flex-start;
+  margin-top: 12px;
+}
+
 /* ---------- X accounts (decision 0022) ---------- */
 
 .x-row {

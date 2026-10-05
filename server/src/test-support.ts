@@ -61,3 +61,19 @@ export function jsonCaller(base: string) {
     };
   };
 }
+
+/** For tests: ABI answers a network would send, to feed a fake `ChainCall`. */
+export const abi = {
+  word: (n: bigint | number) => BigInt(n).toString(16).padStart(64, "0"),
+  address: (a: string) => `0x${a.slice(2).toLowerCase().padStart(64, "0")}`,
+  string(text: string) {
+    const bytes = new TextEncoder().encode(text);
+    const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+    const padded = hex.padEnd(Math.ceil(hex.length / 64) * 64, "0");
+    return `0x${abi.word(32)}${abi.word(bytes.length)}${padded}`;
+  },
+  binding: (standard: number, bound: string, tokenId: number) =>
+    `0x${abi.word(standard)}${bound.slice(2).toLowerCase().padStart(64, "0")}${abi.word(tokenId)}`,
+  agentOf: (registered: boolean, agentId: number) =>
+    `0x${abi.word(registered ? 1 : 0)}${abi.word(agentId)}`,
+};

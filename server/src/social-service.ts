@@ -1,4 +1,5 @@
 import {
+  type AgentLinkView,
   type AuthorView,
   BOARD_LIMITS,
   type CreateNoticeRequest,
@@ -24,6 +25,7 @@ import {
   type NotificationsResponse,
   type NotificationType,
   type NotificationView,
+  type PartnerBadge,
   type PostView,
   type ProfileView,
   type QuotedPostView,
@@ -40,6 +42,7 @@ import {
   xPostText,
 } from "@terrakin/protocol";
 import { lookOf, type Resident } from "@terrakin/sim";
+import { type AgentLinkOptions, AgentLinkService } from "./agent-links";
 import { aimedAtReader, readerMessage } from "./injection";
 import { type MediaStore, privateMediaKey, sniffMediaType } from "./media";
 import { Moderation, type ReviewContext, refusal, type Surface } from "./moderation";
@@ -129,6 +132,8 @@ export interface SocialServiceOptions {
   media: MediaStore;
   /** Look up a resident in the world. Social data only exists for residents who exist there. */
   resident: (id: string) => Resident | undefined;
+  /** Agent links (RFC 0007): the network and card readers and the daily read cap. Tests pass fakes. */
+  agentLinks?: AgentLinkOptions;
   limits?: Partial<SocialLimits>;
   now?: () => number;
   /**
@@ -443,7 +448,14 @@ export class SocialService {
       moderation: () => [this.moderation],
       triage: options.triage,
     });
+    this.agentLinks = new AgentLinkService(
+      { sql: this.sql, now: this.now, moderation: this.moderation },
+      options.agentLinks,
+    );
   }
+
+  /** Agent links and partner badges (RFC 0007). Shares this service's tables. */
+  readonly agentLinks: AgentLinkService;
 
   /** Letters, gestures, streaks, and invites (decision 0024). Shares this service's tables. */
   readonly together: TogetherService;
@@ -970,7 +982,23 @@ export class SocialService {
       ...(this.votesCast ? { votes: this.votesCast(r.id) } : {}),
       ...this.ownerFields(r.id),
       ...(this.safety.suspendedUntil(r.id) === undefined ? {} : { suspended: true }),
+      ...this.partnerField(r.id),
+      ...this.agentLinkField(r.id),
     };
+  }
+
+  /** The partner badge, when they proved they are a partner's character (RFC 0007). */
+  private partnerField(id: string): { partner?: PartnerBadge } {
+    const partner = this.agentLinks.badge(id);
+    return partner ? { partner } : {};
+  }
+
+  private agentLinkField(id: string): { agentLink?: AgentLinkView } {
+    const agentLink = this.agentLinks.view(id);
+    if (!agentLink) return {};
+    // The badge sits on the profile itself; the link carries only the agent.
+    const { partner: _partner, ...rest } = agentLink;
+    return { agentLink: rest };
   }
 
   // ---------- town hall: grants, the notice board, petition answers ----------
@@ -2165,6 +2193,7 @@ export class SocialService {
       ...xAccount(xHandle),
       ...lookField(r),
       ...(owner ? { owner } : {}),
+      ...this.partnerField(r.id),
     };
   }
 }

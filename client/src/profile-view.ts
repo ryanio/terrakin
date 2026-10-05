@@ -42,6 +42,7 @@ import { openLookEditor } from "./look-editor";
 import { savedToken, saveToken } from "./net";
 import { agentItem, type OwnerPanel, ownerPanel } from "./owner-panel";
 import { plotPhotoButton } from "./plot-photo";
+import { verifiedRow } from "./partner-badge";
 import { postCard, skeletonCards } from "./post-card";
 import { coins, refreshPurse } from "./purse";
 import { openReportSheet } from "./report-sheet";
@@ -262,6 +263,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       h("div", { class: "profile-top" }, profileAvatar(r), actions),
       name,
       handleWrap,
+      verifiedRow(r),
       r.townsfolk ? null : ownerLine(r, "profile-owner"),
       r.townsfolk ? h("p", { class: "townsfolk-note", text: TOWNSFOLK_ABOUT }) : null,
       r.suspended

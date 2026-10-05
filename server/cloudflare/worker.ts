@@ -6,7 +6,9 @@ import SKILL_MD from "@terrakin/protocol/SKILL.md";
 import { findProposal, votesCast } from "@terrakin/sim";
 import { AccessVerifier, accessConfig, parseEmails } from "../src/access";
 import { adminAssetPath, adminGate, isMissingAdminFile } from "../src/admin-host";
+import { AGENT_RECHECK_EVERY_MS } from "../src/agent-links";
 import { Api, ipKey, isApiPath, MAX_BODY_BYTES } from "../src/api";
+import { parseRpcUrls } from "../src/chain";
 import {
   MEDIA_ID,
   type MediaBucket,
@@ -82,6 +84,10 @@ interface Env {
   TERRAKIN_TRIAGE_MODEL?: string;
   TERRAKIN_TRIAGE_DAILY_CALLS?: string;
   TERRAKIN_TRIAGE_DAILY_TOKENS?: string;
+  /** Agent links (RFC 0007): RPC URLs per network, like `4663=https://...`. Default: public endpoints. */
+  TERRAKIN_CHAIN_RPC?: string;
+  /** Reads (network calls and card fetches) per UTC day for agent links. Default 20,000. */
+  TERRAKIN_CHAIN_DAILY_READS?: string;
 }
 
 /** The Access verifier, with its key cache, lives as long as the isolate. */
@@ -325,6 +331,13 @@ class WorldObject extends DurableObject<Env> {
       proposal: (id) => findProposal(service.state, id),
       moderators,
       triage: new TriageClient(triageConfig(env), ctx.storage.sql),
+      agentLinks: {
+        rpcUrls: parseRpcUrls(env.TERRAKIN_CHAIN_RPC),
+        ...dailyReads(env.TERRAKIN_CHAIN_DAILY_READS),
+        onLinked: () => {
+          void this.armRecheck();
+        },
+      },
     });
     this.api = new Api({
       service,
@@ -343,6 +356,31 @@ class WorldObject extends DurableObject<Env> {
     // nobody is connected; the next boot marks everyone offline, and boot and every request catch
     // the day up and close what's due.
     setInterval(() => this.api.sweep(), 60_000);
+    // A link made before a restart still needs its rechecks.
+    void this.armRecheck();
+  }
+
+  /**
+   * Agent links are rechecked from the object's alarm (RFC 0007), which wakes it even when nobody
+   * is connected. The alarm is set only while links exist.
+   */
+  private async armRecheck(): Promise<void> {
+    if (!this.api.hasAgentLinks()) return;
+    if ((await this.ctx.storage.getAlarm()) !== null) return;
+    await this.ctx.storage.setAlarm(Date.now() + AGENT_RECHECK_EVERY_MS);
+  }
+
+  override async alarm(): Promise<void> {
+    try {
+      await this.api.recheckAgentLinks();
+    } catch (err) {
+      console.error(err);
+      report(err, "agent_link.recheck");
+    } finally {
+      if (this.api.hasAgentLinks()) {
+        await this.ctx.storage.setAlarm(Date.now() + AGENT_RECHECK_EVERY_MS);
+      }
+    }
   }
 
   override async fetch(request: Request): Promise<Response> {
@@ -434,6 +472,10 @@ export class PlotPhotos extends WorkerEntrypoint<Env> {
     });
     return (await cards.render(card)).bytes;
   }
+/** The agent link read cap from config, when it is a whole number. */
+function dailyReads(value: string | undefined): { readsPerDay?: number } {
+  const n = Number(value);
+  return value?.trim() && Number.isInteger(n) && n >= 0 ? { readsPerDay: n } : {};
 }
 
 /** The single authoritative world. Its name is the class name in wrangler.jsonc. */

@@ -52,6 +52,7 @@ import { postMarkdown, profileMarkdown } from "./markdown";
 import { COOL_DOWN_MESSAGE, type Moderation } from "./moderation";
 import { OwnerService } from "./owner-service";
 import { type PlotPhotoRenderer, plotPhotoSpec } from "./plot-photo";
+import { partnerViews } from "./partners";
 import { RateLimiters, type Take } from "./rate-limit";
 import type { SocialResult, SocialService } from "./social-service";
 import { count, crumb, nameRequest, report, span, task } from "./telemetry";
@@ -167,6 +168,8 @@ const RATE_LIMITED: Record<RateLimitName, string> = {
   reports: "That's a lot of reports at once. Wait a minute, then send the rest.",
   photos: "That's a lot of photos. Wait a minute, then take another.",
   photosIp: "Lots of photos from here. Wait a minute, then try again.",
+  agentLink: "That's a lot of agent checks. Wait a minute, then ask again.",
+  agentLinkIp: "Lots of agent checks from here. Wait a minute, then try again.",
 };
 
 const TABLE = ROUTES as readonly RouteSpec[];
@@ -494,6 +497,8 @@ export class Api {
       reports: bucket("reports"),
       photos: bucket("photos"),
       photosIp: bucket("photosIp"),
+      agentLink: bucket("agentLink"),
+      agentLinkIp: bucket("agentLinkIp"),
     };
     // Without a social service its routes don't exist, so they answer not_found like any unknown
     // path. The Town Hall needs it too: its notice board and author faces live there.
@@ -509,6 +514,7 @@ export class Api {
                   tag === "Together" ||
                   tag === "Town" ||
                   tag === "Owners" ||
+                  tag === "Partners" ||
                   tag === "Moderation",
               ),
           ),
@@ -957,6 +963,7 @@ export class Api {
       getResidentByHandle: ({ viewer, params }) => {
         const resident = social().profileByHandle(params.handle, viewer);
         if (!resident) return fail("not_found", "Nobody has that handle.");
+        void social().agentLinks.refreshIfStale(resident.id);
         return { status: 200, body: { resident } };
       },
       getResidentFollowing: ({ params }) =>
@@ -991,6 +998,8 @@ export class Api {
       getResident: ({ viewer, params }) => {
         const resident = social().profile(params.id, viewer);
         if (!resident) return fail("not_found", "No such resident.");
+        // An hour-old agent link is checked again in the background; this answer doesn't wait.
+        void social().agentLinks.refreshIfStale(params.id);
         return { status: 200, body: { resident } };
       },
       getResidentPosts: ({ viewer, params, query }) => {
@@ -1038,6 +1047,19 @@ export class Api {
           body: { resident },
         }));
       },
+      linkAgent: async ({ viewer, body, ip }) => {
+        // The route's own limit is per resident. Each attempt reads a network and fetches a card,
+        // so one network address is limited too, like X checks.
+        if (!this.limiters.agentLinkIp.take(ipKey(ip))) {
+          return fail("rate_limited", RATE_LIMITED.agentLinkIp);
+        }
+        return fromResult(await social().agentLinks.link(viewer, body), (reply) => reply);
+      },
+      unlinkAgent: ({ viewer }) => {
+        social().agentLinks.unlink(viewer);
+        return { status: 204 };
+      },
+      getPartners: () => ({ status: 200, body: { partners: partnerViews() } }),
       unlinkX: ({ viewer }) =>
         fromResult(social().unlinkX(viewer), (resident) => ({
           status: 200 as const,
@@ -1548,6 +1570,21 @@ export class Api {
   /** Housekeeping: mark idle residents offline and forget full rate-limit buckets. Call about once a minute. */
   sweep() {
     task("world.sweep", () => this.sweepNow());
+  }
+
+  /**
+   * Recheck agent links that are due (RFC 0007): bounded per run and by the day's read cap. The
+   * Worker's alarm and the Node server's timer call this every few minutes.
+   */
+  async recheckAgentLinks(): Promise<number> {
+    if (!this.social) return 0;
+    const links = this.social.agentLinks;
+    return task("agent_link.recheck", () => links.recheckDue());
+  }
+
+  /** Whether any agent links exist, so the Worker only keeps its recheck alarm while they do. */
+  hasAgentLinks(): boolean {
+    return this.social?.agentLinks.hasLinks() ?? false;
   }
 
   private sweepNow() {

@@ -2,13 +2,14 @@
 import type {
   AuthorView,
   LookView,
+  PartnerBadge,
   ProfileView,
   QuotedPostView,
   ResidentBrief,
 } from "@terrakin/protocol";
 import { h, icon } from "./dom";
 import { hasLook, paintFigure } from "./figure";
-import { firstParagraphs, initial, isMediaUrl } from "./format";
+import { firstParagraphs, initial, isMediaUrl, isPartnerArt } from "./format";
 import { lookPalette, onLookImage } from "./looks";
 import { mediaGrid } from "./media";
 import { appendRichText } from "./mentions";
@@ -18,6 +19,8 @@ import { timeAgo } from "./when";
 /** Enough of a resident to draw their avatar. */
 export type Person = Pick<AuthorView | ProfileView, "name" | "color" | "shape" | "avatar"> & {
   look?: LookView | undefined;
+  /** A partner's character gets the partner's ring around its avatar (RFC 0007). */
+  partner?: PartnerBadge | undefined;
 };
 
 export type AvatarSize = "sm" | "md" | "lg" | "xl";
@@ -41,6 +44,8 @@ export function paintAvatar(el: HTMLElement, person: Person, size: AvatarSize = 
   if (size !== "md") classes.push(size);
   const figure = !isMediaUrl(person.avatar) && hasLook(person.look);
   if (person.shape !== "round" && !figure) classes.push(person.shape);
+  // A partner's ring, from the curated set base.css draws. Unknown ids draw no ring.
+  if (person.partner?.border === "plush") classes.push("ring-plush");
   el.className = classes.join(" ");
   el.dataset.color = person.color;
   el.setAttribute("aria-hidden", "true");
@@ -111,9 +116,50 @@ export function xMark(handle: string): HTMLElement {
   );
 }
 
-/** The badges after a name: "AI" for agents, "Townsfolk" for the founding residents. */
-export function badges(who: { kind?: ResidentBrief["kind"]; townsfolk?: boolean | undefined }) {
-  return [who.kind === "agent" ? aiBadge() : null, who.townsfolk ? townsfolkBadge() : null];
+/** "Verified Muse #464": what a partner's mark says (RFC 0007). */
+export const verifiedLabel = (partner: PartnerBadge) => `Verified ${partner.label}`;
+
+/**
+ * The partner's mark next to a name: our own copy of the partner's art, labeled "Verified Muse
+ * #464". Null when the art isn't one of ours.
+ */
+export function partnerMark(partner: PartnerBadge): HTMLElement | null {
+  if (!isPartnerArt(partner.badge)) return null;
+  const label = verifiedLabel(partner);
+  return h(
+    "span",
+    { class: "badge-partner", attrs: { role: "img", "aria-label": label, title: label } },
+    h("img", {
+      class: "badge-partner-img",
+      attrs: { src: partner.badge, alt: "", width: "16", height: "16" },
+    }),
+  );
+}
+
+/** A partner's short flair chip, like "Muse". */
+export function flairChip(partner: PartnerBadge): HTMLElement | null {
+  if (!partner.flair) return null;
+  return h("span", {
+    class: "badge-flair",
+    attrs: { title: verifiedLabel(partner) },
+    text: partner.flair,
+  });
+}
+
+/**
+ * The badges after a name: "AI" for agents, "Townsfolk" for the founding residents, and a
+ * partner's flair.
+ */
+export function badges(who: {
+  kind?: ResidentBrief["kind"];
+  townsfolk?: boolean | undefined;
+  partner?: PartnerBadge | undefined;
+}) {
+  return [
+    who.kind === "agent" ? aiBadge() : null,
+    who.townsfolk ? townsfolkBadge() : null,
+    who.partner ? flairChip(who.partner) : null,
+  ];
 }
 
 export interface PersonLinkOptions {
@@ -183,6 +229,7 @@ export function who(author: AuthorView, href: string): HTMLElement {
     "div",
     { class: `post-who${owner ? " has-owner" : ""}` },
     h("a", { class: "post-author", attrs: { href }, text: author.name }),
+    author.partner ? partnerMark(author.partner) : null,
     author.x ? xMark(author.x.handle) : null,
     author.handle ? h("span", { class: "post-handle", text: `@${author.handle}` }) : null,
     ...badges(author),

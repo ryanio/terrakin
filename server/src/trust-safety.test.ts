@@ -3,13 +3,14 @@ import { findProposal, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { Api } from "./api";
 import { createApp, isLoopback } from "./app";
+import { SELECTORS } from "./chain";
 import { MemoryMediaStore } from "./media";
 import { COOL_DOWN_MESSAGE, HATE_MESSAGE, Moderation, SCAM_MESSAGE } from "./moderation";
 import { THRESHOLDS } from "./moderation-lists";
 import { nodeSql } from "./node-sql";
 import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
-import { jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
+import { abi, jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
 import { DAY_MS, WorldService } from "./world-service";
 
 /** Test words are ROT13 here too, so the file doesn't spell slurs out. */
@@ -35,6 +36,7 @@ afterEach(async () => {
 });
 
 async function start() {
+  const agentCard = { name: "", names: "" };
   let t = Date.UTC(2026, 9, 4, 15);
   const now = () => t;
   const maintainers = new Set<string>();
@@ -51,6 +53,17 @@ async function start() {
     moderation,
     residentAgeDays: (id) => service.residentAgeDays(id),
     proposal: (id) => findProposal(service.state, id),
+    // One agent whose card says whatever `agentCard` holds (RFC 0007).
+    agentLinks: {
+      call: async (_chain, _to, data) =>
+        data.startsWith(SELECTORS.tokenURI)
+          ? { ok: true, value: abi.string("https://agents.example/card.json") }
+          : { ok: true, value: abi.address(`0x${"2".repeat(40)}`) },
+      readCard: async () => ({
+        ok: true,
+        card: { name: agentCard.name, terrakin: [`https://terrakin.org/r/${agentCard.names}`] },
+      }),
+    },
   });
   const server = createApp({
     service,
@@ -88,6 +101,7 @@ async function start() {
     sql,
     media,
     moderation,
+    agentCard,
     advance: (ms: number) => (t += ms),
   };
 }
@@ -160,6 +174,18 @@ describe("the edge filters on every surface", () => {
       expect(res.body, what).toContain(HATE_MESSAGE);
       expect(res.body.includes(SLUR), what).toBe(false);
     }
+  });
+
+  it("keeps no hateful name from an agent's card, and the link still stands", async () => {
+    const t = await start();
+    const bo = await t.join("Bo");
+    t.agentCard.names = bo.id;
+    t.agentCard.name = `hello ${SLUR}`;
+    const agent = "eip155:4663:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432:9001";
+    const res = await t.call("POST", "/v1/agent-link", { agent }, bo.token);
+    expect(res.status).toBe(201);
+    expect(res.body.link.name).toBe("");
+    expect(JSON.stringify(res.body).includes(SLUR)).toBe(false);
   });
 
   it("refuses strong language in names and bios, and marks it on posts", async () => {

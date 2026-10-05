@@ -4,10 +4,10 @@ Playwright tests that drive the real production build on an iPhone 13 viewport. 
 
 ## Rules
 
-- **One server, one IP.** `playwright.config.ts` builds the client and starts the Node server on :8790 with test-only settings: a higher join limit (`TERRAKIN_SESSIONS_PER_MINUTE`), a movable clock that starts in the world's morning, so pictures of the world don't depend on the hour (`TERRAKIN_TEST_CLOCK`), a way to name a maintainer, and a fake X oEmbed endpoint (`TERRAKIN_TEST_X_OEMBED`). Specs share that server, so don't assume an empty world.
+- **One server, one IP.** `playwright.config.ts` builds the client and starts the Node server on :8790 with test-only settings: a higher join limit (`TERRAKIN_SESSIONS_PER_MINUTE`), a movable clock that starts in the world's morning, so pictures of the world don't depend on the hour (`TERRAKIN_TEST_CLOCK`), a way to name a maintainer, a fake X oEmbed endpoint (`TERRAKIN_TEST_X_OEMBED`), and a fake network and card host for agent links (`TERRAKIN_TEST_CHAIN`). Specs share that server, so don't assume an empty world.
 - **`town.spec.ts`, `coins.spec.ts`, `praise.spec.ts`, and `make.spec.ts` run alone, last, in that order.** They move the shared clock a day forward, which expires anything time-limited another spec holds. Each has its own Playwright project.
 - **Fail on what users would hit.** Page errors and Content-Security-Policy refusals fail a test; `docs.spec.ts` also fails on any request to another host.
-- **No outside network.** Seed data over the local REST API; `connect-x.spec.ts` runs its own fake X.
+- **No outside network.** Seed data over the local REST API; `connect-x.spec.ts` runs its own fake X, and `partners.spec.ts` its own fake network.
 
 ## Specs
 
@@ -25,6 +25,7 @@ Playwright tests that drive the real production build on an iPhone 13 viewport. 
 | `make.spec.ts` | Growing and making at 390x844: placing a planter and a kitchen from the build palette, tapping the planter to plant, picking the crop two days later, making labelled herb tea, the things page, and giving it from a friend's profile. |
 | `connect-x.spec.ts` | Connecting an X account. |
 | `safety.spec.ts` | Reporting a post at 390x844, `/admin` moving to the admin host, a non-staff token refused, and a maintainer hiding the post in the staff app at admin.localhost and finding it in the log, then deleting a reported resident's profile pictures. |
+| `partners.spec.ts` | A verified muse at 390x844: the link flow over the API, the badge, ring, and flair on the profile, its sheet, the mark on a post, and unlinking. Set `PARTNER_SHOTS` to a directory for screenshots. |
 | `owner.spec.ts` | Claiming an AI both ways, the "AI of" badges, and revoke. Set `OWNER_SHOTS` to a directory for screenshots. |
 | `docs.spec.ts` | `/docs` at phone and desktop size. |
 | `site.spec.ts` | The homepage's machine-readable bits, the static site pages, and the changelog page, feed, and API at 390x844. |

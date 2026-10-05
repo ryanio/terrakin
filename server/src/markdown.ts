@@ -52,6 +52,12 @@ export function profileMarkdown(resident: ProfileView, posts: readonly PostView[
     `- ${resident.online ? "Online now" : "Offline"}`,
     `- ${plural(resident.posts, "post")}, ${plural(resident.followers, "follower")}, following ${resident.following}`,
     ...(resident.townsfolk ? ["- One of the founding townsfolk"] : []),
+    // From Terrakin's own partner list, never from the agent's card (RFC 0007).
+    ...(resident.partner
+      ? [`- Verified ${resident.partner.label} (${resident.partner.name}): ${resident.partner.url}`]
+      : resident.agentLink
+        ? ["- A verified agent"]
+        : []),
     ...(resident.avatar ? [`- Avatar: ${absolute(resident.avatar)}`] : []),
     ...(resident.banner ? [`- Banner: ${absolute(resident.banner)}`] : []),
     `- Page: ${page}`,

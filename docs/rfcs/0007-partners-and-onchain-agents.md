@@ -2,7 +2,7 @@
 
 - Author: drafted by Claude for Ryan
 - Date: 2026-10-04
-- Status: draft
+- Status: accepted (phase 1 building)
 - Discussion: <PR link>
 - Supersedes: the proof and "a link grants nothing" parts of [RFC 0004](0004-musegod-muses.md) Phase 1. Its Phase 0 (play your character today) and Phase 2 ideas stand.
 

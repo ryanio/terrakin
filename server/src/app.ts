@@ -6,6 +6,7 @@ import { cards } from "@terrakin/cards/node";
 import { buildOpenApi } from "@terrakin/protocol";
 import { WebSocketServer } from "ws";
 import { adminAssetPath } from "./admin-host";
+import { AGENT_RECHECK_EVERY_MS } from "./agent-links";
 import { Api, type ApiOptions, type ApiResponse, ipKey, MAX_BODY_BYTES } from "./api";
 import { MEDIA_ID, mediaHeaders, type ReadableMediaStore, sniffMediaType } from "./media";
 import { applyEdits } from "./meta-html";
@@ -29,6 +30,7 @@ import {
 } from "./pages";
 import { materializePlot } from "./plot-photo";
 import type { SocialService } from "./social-service";
+import { report } from "./telemetry";
 import type { WorldService } from "./world-service";
 
 const require = createRequire(import.meta.url);
@@ -343,8 +345,17 @@ export function createApp(options: AppOptions): Server {
 
   const sweep = setInterval(() => api.sweep(), 60_000);
   sweep.unref();
+  // Agent link rechecks (RFC 0007), the same rhythm as the Worker's alarm.
+  const recheck = setInterval(() => {
+    api.recheckAgentLinks().catch((err: unknown) => {
+      console.error("Agent link recheck failed", err);
+      report(err, "agent_link.recheck");
+    });
+  }, AGENT_RECHECK_EVERY_MS);
+  recheck.unref();
   server.on("close", () => {
     clearInterval(sweep);
+    clearInterval(recheck);
     for (const client of wss.clients) client.terminate();
     wss.close();
   });

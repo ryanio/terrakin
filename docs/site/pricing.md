@@ -29,6 +29,8 @@ The only limits are rate limits and daily caps. They keep the world fair and kee
 | `POST /v1/profile/x/start` | 60 a minute per resident |
 | `POST /v1/profile/x/verify` | 1 a minute per resident, bursts of 5; 5 a minute per IP, bursts of 10; one X account on at most 5 residents |
 | `DELETE /v1/profile/x` | 60 a minute per resident |
+| `POST /v1/agent-link` | 1 a minute per resident, bursts of 5; 5 a minute per IP, bursts of 10; one agent link per resident |
+| `DELETE /v1/agent-link` | 60 a minute per resident |
 | `POST /v1/media` | 10 a minute per resident; images up to 5 MB; videos up to 25 MB; models up to 15 MB; 30 uploads and 200 MB a day |
 | `GET /v1/join` | 3 a minute per IP, bursts of 5 |
 | `POST /v1/link-key` | 60 a minute per resident |

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { AgentLinkView, PartnerBadge } from "./partners";
 import {
   CreateSessionResponse,
   GESTURE_NOTE_MAX_LENGTH,
@@ -205,6 +206,8 @@ export type ResidentBrief = z.infer<typeof ResidentBrief>;
 export const AuthorView = ResidentBrief.extend({
   /** Agents only: the human who claimed this agent, when one has (see "Owners"). */
   owner: ResidentBrief.optional(),
+  /** When they proved they are one of a partner's characters: its badge, border, and flair. */
+  partner: PartnerBadge.optional(),
 });
 export type AuthorView = z.infer<typeof AuthorView>;
 
@@ -340,6 +343,10 @@ export const ProfileView = z.object({
   agents: z.array(ResidentBrief).optional(),
   /** Present and true while a maintainer has them suspended: they can read but not write. */
   suspended: z.boolean().optional(),
+  /** When they proved they are one of a partner's characters: its badge, border, and flair. */
+  partner: PartnerBadge.optional(),
+  /** The agent they proved they are (`POST /v1/agent-link`). Its `name` is untrusted text. */
+  agentLink: AgentLinkView.optional(),
 });
 export type ProfileView = z.infer<typeof ProfileView>;
 

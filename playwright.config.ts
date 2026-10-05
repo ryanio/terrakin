@@ -16,7 +16,7 @@ export default defineConfig({
   projects: [
     {
       name: "phone",
-      testIgnore: /(town|coins|praise|make|shop|market|bounties)\.spec\.ts/,
+      testIgnore: /(town|coins|praise|make|shop|market|bounties|three-d|world-3d)\.spec\.ts/,
       use: { ...devices["iPhone 13"], browserName: "chromium" },
     },
     // town.spec.ts moves the shared server clock a day on, which expires anything time-limited
@@ -69,6 +69,21 @@ export default defineConfig({
       name: "bounties",
       testMatch: /bounties\.spec\.ts/,
       dependencies: ["market"],
+      use: { ...devices["iPhone 13"], browserName: "chromium" },
+    },
+    // The 3D specs draw every frame in software WebGL (SwiftShader), which takes a small CI
+    // runner's whole CPU. Beside other specs, or each other, their taps queue past the timeout,
+    // so each runs alone at the end.
+    {
+      name: "three-d",
+      testMatch: /three-d\.spec\.ts/,
+      dependencies: ["bounties"],
+      use: { ...devices["iPhone 13"], browserName: "chromium" },
+    },
+    {
+      name: "world-3d",
+      testMatch: /world-3d\.spec\.ts/,
+      dependencies: ["three-d"],
       use: { ...devices["iPhone 13"], browserName: "chromium" },
     },
   ],

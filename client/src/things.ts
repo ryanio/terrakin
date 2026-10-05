@@ -79,6 +79,8 @@ export function inventoryLine(e: InventoryEvent): string | null {
       return gained.length > 0 ? `From the pantry: ${list(gained)}.` : null;
     case "harvest":
       return `You picked ${list(gained)}.`;
+    case "gather":
+      return `You picked up ${list(gained)}.`;
     case "craft": {
       const made = e.gained?.[0];
       if (made?.kind === "piece") return "You made a piece of art.";

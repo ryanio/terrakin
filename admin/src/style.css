@@ -1,0 +1,481 @@
+/*
+ * The staff app. Phone first (390x844), on the same paper as terrakin.org: tokens and the shared
+ * pieces come from @terrakin/ui. No inline styles anywhere; the admin host's policy refuses them.
+ */
+
+@import "@terrakin/ui/tokens.css";
+@import "@terrakin/ui/base.css";
+
+html,
+body {
+  margin: 0;
+  color: var(--ink);
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  min-height: 100vh;
+  background: var(--grain), linear-gradient(180deg, #fbf4e6 0, #f4e8d2 900px, #f1e4cc 100%);
+  font-size: 16px;
+  line-height: 1.45;
+}
+
+.skip-link {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 70;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--paper);
+  transform: translateY(-200%);
+}
+
+.skip-link:focus {
+  transform: none;
+}
+
+/* ---------- top bar ---------- */
+
+.top {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  padding-top: env(safe-area-inset-top);
+  background: rgba(255, 250, 240, 0.94);
+  border-bottom: 1px solid var(--paper-edge);
+  backdrop-filter: blur(8px);
+}
+
+.top-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+}
+
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0;
+}
+
+.brand-name {
+  font-family: var(--font-display);
+  font-size: 21px;
+  font-weight: 650;
+}
+
+.brand-tag {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--clay);
+}
+
+.who {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.25;
+  color: var(--ink-soft);
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.top-row .pill-button {
+  flex: none;
+  text-decoration: none;
+}
+
+.nav {
+  display: flex;
+  gap: 4px;
+  padding-bottom: 6px;
+}
+
+.nav-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 999px;
+  font-weight: 650;
+  color: var(--ink-soft);
+  text-decoration: none;
+}
+
+.nav-link[aria-current="page"] {
+  background: var(--paper-2);
+  box-shadow: inset 0 0 0 1px var(--paper-edge);
+  color: var(--ink);
+}
+
+/* ---------- pages ---------- */
+
+.page {
+  display: grid;
+  gap: 12px;
+  padding-top: 16px;
+  padding-bottom: calc(96px + env(safe-area-inset-bottom));
+}
+
+.page:focus {
+  outline: none;
+}
+
+.loading {
+  color: var(--ink-soft);
+}
+
+.queue,
+.log,
+.sign-in {
+  display: grid;
+  gap: 12px;
+}
+
+.hero {
+  display: grid;
+  gap: 6px;
+}
+
+.state-card {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 28px 20px 24px;
+  text-align: center;
+}
+
+.state-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.12;
+  text-wrap: balance;
+}
+
+.state-body {
+  max-width: 40ch;
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.section-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 21px;
+  font-weight: 600;
+}
+
+.queue-count {
+  margin: 4px 0 0;
+  font-weight: 650;
+}
+
+.triage-status {
+  margin: 0;
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+
+/* ---------- fields ---------- */
+
+.field-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.field-input {
+  width: 100%;
+  min-height: var(--tap);
+  padding: 0 16px;
+  border: 1.5px solid var(--paper-edge);
+  border-radius: 14px;
+  background: #fffdf8;
+  box-shadow: inset 0 1px 2px rgba(92, 60, 30, 0.08);
+  font-size: 17px; /* 16px or more stops iOS from zooming on focus. */
+}
+
+.field-input::placeholder {
+  color: #9a8d7c;
+}
+
+.field-input:focus {
+  outline: none;
+  border-color: var(--clay);
+  box-shadow:
+    0 0 0 4px rgba(242, 184, 75, 0.3),
+    inset 0 1px 2px rgba(92, 60, 30, 0.08);
+}
+
+.field-hint {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+
+.token-form {
+  display: grid;
+  gap: 10px;
+}
+
+/* ---------- queue items ---------- */
+
+.queue-list {
+  display: grid;
+  gap: 12px;
+}
+
+.item {
+  display: grid;
+  gap: 10px;
+}
+
+.item.urgent {
+  border-color: var(--clay);
+  box-shadow:
+    0 0 0 2px rgba(180, 83, 47, 0.35),
+    var(--shadow-paper);
+}
+
+.item > p,
+.item .eyebrow {
+  margin: 0;
+}
+
+.item-tags {
+  font-size: 13.5px;
+  font-weight: 650;
+  color: var(--clay-deep);
+}
+
+.item-record {
+  font-size: 13.5px;
+  color: var(--ink-soft);
+}
+
+.quoted {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--paper-2);
+  box-shadow: inset 0 0 0 1px var(--paper-edge);
+}
+
+.quoted-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.quoted-text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.item-media {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.media-reveal {
+  width: 112px;
+  height: 112px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--paper-edge);
+  border-radius: 12px;
+  background: var(--paper-2);
+}
+
+.media-reveal img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: filter 0.2s ease;
+}
+
+.media-reveal img.blurred {
+  filter: blur(18px) saturate(0.4);
+}
+
+.item-media a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+.reports {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+  font-size: 14.5px;
+}
+
+.report-note {
+  display: block;
+  color: var(--ink-soft);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.triage {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border-radius: 12px;
+  background: #f3efe2;
+  box-shadow: inset 0 0 0 1px #d9d1b8;
+}
+
+.triage p {
+  margin: 0;
+}
+
+.triage .eyebrow {
+  color: var(--moss);
+}
+
+.triage-suggestion {
+  font-weight: 700;
+}
+
+.triage-detail {
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+
+.triage-flag {
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--clay-deep);
+}
+
+.triage-rationale {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.decide {
+  display: grid;
+  gap: 8px;
+  padding-top: 4px;
+  border-top: 1px dashed var(--paper-edge);
+}
+
+.days-row {
+  display: grid;
+  gap: 6px;
+}
+
+.field-input.days {
+  max-width: 180px;
+}
+
+.item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ---------- log ---------- */
+
+.log-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.log-entry {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+}
+
+.log-entry p {
+  margin: 0;
+}
+
+.log-headline {
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.log-reason {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.log-more {
+  display: grid;
+  justify-items: center;
+}
+
+/* ---------- toast ---------- */
+
+.site-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(20px + env(safe-area-inset-bottom));
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  min-height: 48px;
+  padding: 6px 18px;
+  border-radius: 999px;
+  background: #2f2922;
+  color: var(--paper);
+  font-size: 15px;
+  font-weight: 600;
+  box-shadow: 0 14px 32px -12px rgba(40, 25, 10, 0.55);
+  opacity: 0;
+  transform: translate(-50%, 10px);
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+  pointer-events: none;
+}
+
+.site-toast.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-toast,
+  .media-reveal img {
+    transition: none;
+  }
+}
+
+@media (min-width: 760px) {
+  .page {
+    padding-top: 24px;
+  }
+}

@@ -20,16 +20,17 @@ import {
   THEME_INFO,
   WEAR_INFO,
 } from "@terrakin/sim";
+import { h, icon } from "@terrakin/ui/dom";
+import { compactCount, plural } from "@terrakin/ui/format";
+import { mediaUrlOf } from "@terrakin/ui/looks";
+import { openModelViewer } from "@terrakin/ui/media";
+import { copyText, toast } from "@terrakin/ui/ui";
 import { api, forgetMe, myProfile, rememberMyProfile } from "./api";
-import { h, icon } from "./dom";
 import { syncPost } from "./feed-view";
-import { compactCount, plural } from "./format";
 import { openInviteDialog } from "./invite-share";
 import { joinForm, tokenPreview } from "./join-form";
 import { lettersPath } from "./letters-view";
 import { openLookEditor } from "./look-editor";
-import { mediaUrlOf } from "./looks";
-import { openModelViewer } from "./media";
 import { savedToken, saveToken } from "./net";
 import { type OwnerPanel, ownerPanel } from "./owner-panel";
 import {
@@ -44,7 +45,6 @@ import {
 } from "./post-card";
 import { openReportSheet } from "./report-sheet";
 import { GESTURES, gestureInfo, streakLine } from "./together";
-import { copyText, toast } from "./ui";
 import { errorCard, notFoundCard, type View, type ViewContext } from "./view";
 import { xRow } from "./x-connect";
 

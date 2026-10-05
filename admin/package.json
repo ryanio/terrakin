@@ -1,0 +1,22 @@
+{
+  "name": "@terrakin/admin",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The staff app at admin.terrakin.org: the review queue with AI triage suggestions, and the moderation log. Built into the client's dist under _admin/ and served only on the admin host.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host --configLoader runner",
+    "build": "tsc -p tsconfig.json && vite build --configLoader runner",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@fontsource-variable/figtree": "5.3.0",
+    "@fontsource-variable/fraunces": "5.3.0",
+    "@terrakin/protocol": "workspace:*",
+    "@terrakin/ui": "workspace:*",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "vite": "8.3.2"
+  }
+}

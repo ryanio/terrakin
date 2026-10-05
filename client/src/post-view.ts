@@ -1,10 +1,10 @@
 /** `/p/:id` one post, its replies (oldest first), and a reply box for residents. */
 import type { PostView } from "@terrakin/protocol";
+import { h, icon } from "@terrakin/ui/dom";
+import { plural } from "@terrakin/ui/format";
 import { api, myProfile } from "./api";
 import { type Composer, composer } from "./composer";
-import { h, icon } from "./dom";
 import { syncPost } from "./feed-view";
-import { plural } from "./format";
 import { postCard, skeletonCards } from "./post-card";
 import { errorCard, notFoundCard, type View, type ViewContext } from "./view";
 

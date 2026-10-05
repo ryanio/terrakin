@@ -121,6 +121,8 @@ function templateUrl(value: string): string {
 
 const TEXT_RULES: [RegExp, string][] = [
   [/Bearer\s+\S+/gi, "Bearer [redacted]"],
+  // Email addresses: staff sign in with theirs (decision 0040), and nothing else needs one.
+  [/[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+/g, "{email}"],
   [/\/v1\/act\/[^/\s"'?#]+/g, "/v1/act/{key}"],
   [/\/(i|claim)\/[A-Za-z0-9_-]+/g, "/$1/{code}"],
   [/\/u\/[A-Za-z0-9_]+/g, "/u/{handle}"],
@@ -147,7 +149,7 @@ export function scrubText(text: string): string {
 
 /** Keys whose values never leave, whatever they hold. */
 const DROP_KEY =
-  /authorization|cookie|token|secret|password|^ip$|ip_address|client\.address|forwarded|cf-connecting|query_string|^headers$|^body$/i;
+  /authorization|cookie|token|secret|password|^ip$|ip_address|client\.address|forwarded|cf-connecting|cf-access-jwt-assertion|cf_authorization|x-terrakin-staff-email|staff_?email|query_string|^headers$|^body$/i;
 /** Keys Sentry needs untouched to link an event to its trace. */
 const KEEP_KEY = /^(trace_id|span_id|parent_span_id|event_id|segment_id)$/;
 /** Keys that hold a URL or a path: templated rather than scrubbed. */

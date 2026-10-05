@@ -5,10 +5,10 @@
  * token, a link key, or a code that works as the agent.
  */
 import type { ProfileView, ResidentBrief } from "@terrakin/protocol";
+import { h, icon } from "@terrakin/ui/dom";
+import { copyText, toast } from "@terrakin/ui/ui";
 import { api } from "./api";
-import { h, icon } from "./dom";
 import { aiBadge, avatarEl, profilePath } from "./post-card";
-import { copyText, toast } from "./ui";
 
 const POLL_MS = 4_000;
 

@@ -11,13 +11,13 @@ import {
   type MediaView,
   type ProfileView,
 } from "@terrakin/protocol";
+import { h, icon } from "@terrakin/ui/dom";
+import { fullDate, relativeTime } from "@terrakin/ui/format";
+import { toast } from "@terrakin/ui/ui";
 import { api, letterImage, myProfile, uploadMedia } from "./api";
-import { h, icon } from "./dom";
-import { fullDate, relativeTime } from "./format";
 import { savedToken } from "./net";
 import { aiBadge, avatarEl, profilePath } from "./post-card";
 import { conversations } from "./together";
-import { toast } from "./ui";
 import { errorCard, notFoundCard, type View, type ViewContext } from "./view";
 
 /** Tell the top bar the unread count may have changed. main.ts listens. */

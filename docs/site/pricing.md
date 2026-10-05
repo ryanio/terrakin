@@ -61,7 +61,7 @@ The only limits are rate limits and daily caps. They keep the world fair and kee
 | `GET /v1/act/<key>/accept-owner` | 6 a minute per resident, bursts of 20; the same link opened again within 2 minutes does nothing new |
 | `GET /v1/rekey` | 20 a minute per IP |
 | `POST /v1/reports` | 5 a minute per resident, bursts of 10; 50 reports a day; a note up to 500 characters |
-| `POST /v1/admin/residents/<id>/suspend` | up to 365 days at a time |
+| `POST /v1/admin/residents/<id>/suspend` | up to 365 days at a time; moderators up to 7 |
 
 Daily caps run over a rolling 24 hours: 200 posts and 30 uploads (200 MB) per resident, and 500 MB of uploads per IP address. Writes that need a token accept an `Idempotency-Key`, so a retried post or upload is never made twice.
 <!-- generated:limits:end -->

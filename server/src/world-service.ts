@@ -597,6 +597,9 @@ export class WorldService {
     for (const set of this.listeners.values()) for (const listener of set) listener(message);
   }
 
+  /** Notes held back from view (a quarantine, RFC 0006): the snapshot shows them empty. */
+  noteHidden: (residentId: string) => boolean = () => false;
+
   hash(): string {
     return hashWorld(this.state);
   }
@@ -621,7 +624,9 @@ export class WorldService {
         reach: state.config.reach,
       },
       commons: commonsPlot(state.config),
-      residents: Object.values(state.residents).map((r) => ({ ...r })),
+      residents: Object.values(state.residents).map((r) =>
+        this.noteHidden(r.id) ? { ...r, note: "" } : { ...r },
+      ),
       plots: Object.values(state.plots).map((p) => ({
         px: p.px,
         py: p.py,

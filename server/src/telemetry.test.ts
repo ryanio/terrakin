@@ -182,6 +182,38 @@ describe("sentryOptions", () => {
     expect(out?.trace_id).toBe(TRACE_ID);
   });
 
+  it("never lets a staff sign-in or email out, in spans or in errors", async () => {
+    const jwt = `eyJhbGciOiJSUzI1NiJ9.${TOKEN}.${TOKEN}`;
+    const s = {
+      trace_id: TRACE_ID,
+      span_id: "0123456789abcdef",
+      name: "POST /v1/admin/reports/dismiss",
+      start_timestamp: 0,
+      status: "ok",
+      is_segment: true,
+      attributes: {
+        "http.request.header.cf-access-jwt-assertion": jwt,
+        "http.request.header.x-terrakin-staff-email": "mod@example.com",
+        cf_authorization: jwt,
+        "terrakin.note": "dismissed by access:Mod.Person+t@example.co.uk",
+      },
+    } as StreamedSpanJSON;
+    const span = JSON.stringify(options.beforeSendSpan?.(s));
+    const event = {
+      event_id: TRACE_ID,
+      exception: { values: [{ type: "Error", value: "No staff role for ryan@example.com" }] },
+      request: { headers: { "x-terrakin-staff-email": "ryan@example.com" } },
+      extra: { "cf-access-jwt-assertion": jwt },
+    } as unknown as ErrorEvent;
+    const error = JSON.stringify(await options.beforeSend?.(event, {}));
+    for (const out of [span, error]) {
+      for (const secret of ["example.com", "example.co.uk", "Mod.Person", "eyJhbGci", TOKEN]) {
+        expect(out).not.toContain(secret);
+      }
+    }
+    expect(error).toContain("No staff role for {email}");
+  });
+
   it("names a method-only request span by its templated path", () => {
     const s = {
       trace_id: TRACE_ID,

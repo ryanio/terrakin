@@ -3,7 +3,7 @@
  * the screen with a glowing border and a gradient on the names, then fade on their own. Names and
  * snippets are other residents' text, so they only go in as text nodes.
  */
-import { h, icon } from "./dom";
+import { h, icon } from "@terrakin/ui/dom";
 import { avatarEl } from "./post-card";
 
 type Person = Parameters<typeof avatarEl>[0];

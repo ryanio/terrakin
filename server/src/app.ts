@@ -5,6 +5,7 @@ import { extname, join, normalize, sep } from "node:path";
 import { cards } from "@terrakin/cards/node";
 import { buildOpenApi } from "@terrakin/protocol";
 import { WebSocketServer } from "ws";
+import { adminAssetPath } from "./admin-host";
 import { Api, type ApiOptions, type ApiResponse, ipKey, MAX_BODY_BYTES } from "./api";
 import { MEDIA_ID, mediaHeaders, type ReadableMediaStore, sniffMediaType } from "./media";
 import { applyEdits } from "./meta-html";
@@ -17,7 +18,15 @@ import {
   windowLimiter,
 } from "./og";
 import { type ApiGet, loadPage, matchPage, pageEdits } from "./page-meta";
-import { negotiate, pageHeaders, twinHeaders } from "./pages";
+import {
+  ADMIN_ASSET_PREFIX,
+  ADMIN_PAGE_HEADERS,
+  adminRedirect,
+  isAdminHost,
+  negotiate,
+  pageHeaders,
+  twinHeaders,
+} from "./pages";
 import type { SocialService } from "./social-service";
 import type { WorldService } from "./world-service";
 
@@ -61,6 +70,8 @@ export interface AppOptions {
   ipUploadBytesPerDay?: number;
   /** See `ApiOptions.onResponse`. Tests use it to check responses against the route table. */
   onResponse?: ApiOptions["onResponse"];
+  /** See `ApiOptions.staff`. Node has no Cloudflare Access, so staff sign in with a token. */
+  staff?: ApiOptions["staff"];
   /**
    * Tests only (`TERRAKIN_TEST_CLOCK=1`): answers `POST /v1/test/advance-day` by moving the clock
    * a day on. It's deliberately outside the route table, so it never appears in the API docs, and
@@ -122,6 +133,7 @@ export function createApp(options: AppOptions): Server {
       ? {}
       : { ipUploadBytesPerDay: options.ipUploadBytesPerDay }),
     ...(options.onResponse ? { onResponse: options.onResponse } : {}),
+    ...(options.staff ? { staff: options.staff } : {}),
   });
 
   const server = createServer((req, res) => {
@@ -209,6 +221,17 @@ export function createApp(options: AppOptions): Server {
       });
     }
     const reading = req.method === "GET" || req.method === "HEAD";
+    // The staff app has its own host (admin.localhost here, admin.terrakin.org in production).
+    const host = (req.headers.host ?? "").replace(/:\d+$/, "");
+    if (isAdminHost(host)) return admin(req, res, url);
+    const moved = adminRedirect(new URL(url.pathname, `http://${req.headers.host ?? "localhost"}`));
+    if (moved) {
+      res.writeHead(302, { location: moved, "cache-control": "no-store" });
+      return res.end();
+    }
+    if (url.pathname.startsWith(ADMIN_ASSET_PREFIX)) {
+      return send(res, apiError("not_found", "Not found."));
+    }
     const card = reading ? matchCardPath(url.pathname) : undefined;
     if (card) {
       const out = await serveCard(
@@ -244,6 +267,19 @@ export function createApp(options: AppOptions): Server {
     return send(res, apiError("not_found", `No route for ${req.method} ${url.pathname}.`));
   }
 
+  /** admin.*: the staff app's files, uploads, and the API it calls. */
+  async function admin(req: IncomingMessage, res: ServerResponse, url: URL) {
+    const response = await callApi(req, url.pathname, url.searchParams);
+    if (response) return send(res, response);
+    const mediaId = /^\/media\/([^/]+)$/.exec(url.pathname)?.[1];
+    if (req.method === "GET" && mediaId !== undefined && options.media) {
+      return serveMedia(options.media, mediaId, req, res);
+    }
+    if (!options.staticDir) return send(res, apiError("not_found", "Not found."));
+    const file = adminAssetPath(url.pathname);
+    return serveStatic(options.staticDir, file, res, ADMIN_PAGE_HEADERS, undefined, false);
+  }
+
   function callApi(req: IncomingMessage, pathname: string, query: URLSearchParams) {
     const key = req.headers["idempotency-key"];
     return api.handle({
@@ -259,6 +295,7 @@ export function createApp(options: AppOptions): Server {
           ? undefined
           : Number(req.headers["content-length"]),
       idempotencyKey: Array.isArray(key) ? key[0] : key,
+      browserOrigin: req.headers.origin,
       ...requestOrigin(req, options.trustedProxies),
     });
   }
@@ -356,6 +393,8 @@ async function serveStatic(
   res: ServerResponse,
   extra: Record<string, string> = {},
   decorate?: Decorate,
+  /** Answer unknown paths with the app's index.html (the main site does; the admin app doesn't). */
+  spaFallback = true,
 ) {
   let decoded: string;
   try {
@@ -371,7 +410,7 @@ async function serveStatic(
   // single-page app for every other deep link.
   const candidates = [file];
   if (extname(file) === "") candidates.push(`${file.replace(/[\\/]+$/, "")}.html`);
-  candidates.push(join(base, "index.html"));
+  if (spaFallback) candidates.push(join(base, "index.html"));
   let body: Buffer | undefined;
   for (const candidate of candidates) {
     try {

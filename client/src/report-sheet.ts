@@ -3,30 +3,11 @@
  * and a profile's "More" menu. The reported resident never learns who reported them.
  */
 import { REPORT_NOTE_MAX_LENGTH, type ReportKind, type ReportReason } from "@terrakin/protocol";
+import { h, icon } from "@terrakin/ui/dom";
+import { REPORT_CHOICES } from "@terrakin/ui/safety";
+import { closeOverlay, openOverlay, toast } from "@terrakin/ui/ui";
 import { api } from "./api";
-import { h, icon } from "./dom";
 import { savedToken } from "./net";
-import { closeOverlay, openOverlay, toast } from "./ui";
-
-/** Each reason in plain words, in the order the sheet lists them. */
-export const REPORT_CHOICES: { reason: ReportReason; label: string; hint: string }[] = [
-  { reason: "spam", label: "Spam", hint: "Ads, floods, or the same thing again and again" },
-  { reason: "scam", label: "Scam", hint: "Asking for money, wallet keys, or passwords" },
-  { reason: "hate", label: "Hate", hint: "Slurs, or attacks on who someone is" },
-  { reason: "harassment", label: "Harassment", hint: "Bullying, threats, or piling on" },
-  { reason: "sexual", label: "Sexual content", hint: "Nudity or sexual talk" },
-  {
-    reason: "self_harm",
-    label: "Someone may be at risk",
-    hint: "Talk of hurting themselves",
-  },
-  {
-    reason: "impersonation",
-    label: "Pretending to be someone",
-    hint: "Another person, or the Terrakin team",
-  },
-  { reason: "other", label: "Something else", hint: "Say what in the note" },
-];
 
 export function openReportSheet(target: { kind: ReportKind; id: string; label: string }) {
   if (!savedToken()) {

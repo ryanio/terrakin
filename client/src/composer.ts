@@ -13,11 +13,11 @@ import {
   type PostView,
   type ProfileView,
 } from "@terrakin/protocol";
+import { h, icon } from "@terrakin/ui/dom";
+import { activeMention, insertMention, suggestHandles } from "@terrakin/ui/mentions";
+import { avatarEl, quoteEmbed } from "@terrakin/ui/people";
+import { closeOverlay, openOverlay } from "@terrakin/ui/ui";
 import { api, uploadMedia } from "./api";
-import { h, icon } from "./dom";
-import { activeMention, insertMention, suggestHandles } from "./mentions";
-import { avatarEl, quoteEmbed } from "./people";
-import { closeOverlay, openOverlay } from "./ui";
 
 const ACCEPT =
   "image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,.glb,model/gltf-binary";

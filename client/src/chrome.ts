@@ -2,8 +2,9 @@
  * Page chrome: the brand mark (the feed bar and the world landing) and the world landing's
  * "Bring your AI" popover. The home page shows its prompt in a card instead.
  */
+
+import { copyText } from "@terrakin/ui/ui";
 import { track } from "./telemetry";
-import { copyText } from "./ui";
 
 /** Use the real brand mark when it loads; otherwise keep the inline drawing next to it. */
 export function initBrandMarks(root: ParentNode = document) {

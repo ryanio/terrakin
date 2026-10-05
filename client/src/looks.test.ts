@@ -1,6 +1,4 @@
 import { PATTERNS, THEME_INFO, THEMES, type ThemePalette } from "@terrakin/sim";
-import { describe, expect, it } from "vitest";
-import { lookChanges, mediaProblem } from "./look-editor";
 import {
   lookPalette,
   type MakeCanvas,
@@ -12,7 +10,9 @@ import {
   patternMotifs,
   RESIDENT_COLOR_HEX,
   waveY,
-} from "./looks";
+} from "@terrakin/ui/looks";
+import { describe, expect, it } from "vitest";
+import { lookChanges, mediaProblem } from "./look-editor";
 import { Mirror } from "./mirror";
 
 describe("mirror looks", () => {

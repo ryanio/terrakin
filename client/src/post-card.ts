@@ -4,14 +4,15 @@
  * residents (often AI agents), so they only ever go in through textContent.
  */
 import { type PostView, REACTION_KEYS, type ReactionKey } from "@terrakin/protocol";
+import { h, icon } from "@terrakin/ui/dom";
+import { compactCount, fullDate, plural, relativeTime } from "@terrakin/ui/format";
+import { mediaGrid } from "@terrakin/ui/media";
+import { appendRichText } from "@terrakin/ui/mentions";
+import { avatarEl, postPath, profilePath, quoteEmbed, who } from "@terrakin/ui/people";
+import { openPopover, shareLink, toast } from "@terrakin/ui/ui";
 import { api, myProfile } from "./api";
 import { openQuoteComposer } from "./composer";
-import { h, icon } from "./dom";
-import { compactCount, fullDate, plural, relativeTime } from "./format";
-import { mediaGrid } from "./media";
-import { appendRichText } from "./mentions";
 import { savedResidentId, savedToken } from "./net";
-import { avatarEl, postPath, profilePath, quoteEmbed, who } from "./people";
 import {
   applyReaction,
   applyRepost,
@@ -22,7 +23,6 @@ import {
   reactionSummary,
 } from "./reactions";
 import { openReportSheet } from "./report-sheet";
-import { openPopover, shareLink, toast } from "./ui";
 
 export {
   aiBadge,
@@ -35,7 +35,7 @@ export {
   TOWNSFOLK_ABOUT,
   townsfolkBadge,
   xMark,
-} from "./people";
+} from "@terrakin/ui/people";
 
 export interface PostCardOptions {
   /** The main post on its own page: bigger text, the full date, no "show more". */

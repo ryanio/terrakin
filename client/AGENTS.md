@@ -6,7 +6,7 @@ Mobile-first web client. It shows what the server says and never decides anythin
 
 - **No game rules.** Don't check reach, ownership, or bounds before sending an action; send it and show the server's answer. UI hints like the reach outline are fine.
 - **Mirror, don't simulate.** `src/mirror.ts` applies server events. If `apply()` reports a gap, reload the snapshot.
-- **Resident text is text.** Build DOM with `src/dom.ts` or `textContent`. Never `innerHTML`, `insertAdjacentHTML`, or template strings for names, chat, posts, or notes.
+- **Resident text is text.** Build DOM with `h()` from `@terrakin/ui/dom` or `textContent`. Never `innerHTML`, `insertAdjacentHTML`, or template strings for names, chat, posts, or notes.
 - **Phone first.** Test at 390x844 before desktop. Tap targets at least 44px (`--tap` is 52px), inputs at 16px so iOS doesn't zoom, respect `env(safe-area-inset-*)`.
 - **Only our media.** An img, video, avatar, or model loader takes a URL only through `isMediaUrl` (`/media/m_` plus 16 hex). Letter pictures go through `isLetterMediaUrl`, fetched with the token and shown from a `blob:` URL the page revokes.
 - **three.js stays lazy.** Import `three` only in `src/model-viewer.ts` and `src/scene3d/`, reached through `import()` ([decision 0013](../docs/knowledge/decisions/0013-load-three-js-only-when-someone-opens-a-3d-model.md)). `scene3d.test.ts` fails otherwise. 3D work follows the art direction and budget in [decision 0030](../docs/knowledge/decisions/0030-3d-art-direction-and-performance-budget.md).
@@ -15,21 +15,22 @@ Mobile-first web client. It shows what the server says and never decides anythin
 - **A new route needs a case in `matchPage`** (`server/src/page-meta.ts`).
 - **The e2e suite is the contract.** Changing element ids, controls, or the join flow means updating `e2e/` in the same commit ([e2e/AGENTS.md](../e2e/AGENTS.md)).
 - **Keep it light.** Plain DOM and canvas. A UI framework needs a decision record.
-- **Build from the design system.** Tokens are on `:root` in `src/tokens.css`; shared pieces (`.column`, `.paper`, `.card`, `.pill`, `.btn-primary`, `.avatar`, ...) are at the top of `src/style.css`.
+- **Build from the design system.** Tokens are on `:root` in `ui/src/tokens.css`; shared pieces (`.column`, `.paper`, `.card`, `.pill`, `.btn-primary`, `.avatar`, ...) are in `ui/src/base.css`, which `src/style.css` imports. The staff app (`admin/`) uses the same two files.
 
 ## Where things are
 
 - `index.html` all static DOM. `src/style.css` all app styles.
-- `src/main.ts` boots the router and paints the top bar. `src/router.ts` the routes: `/` feed, `/r/:id` profile (also `/u/handle`, the link people share; mentions link by id to `/r/:id`), `/r/:id/3d`, `/p/:id` post, `/notifications`, `/letters`, `/i/:code` invite, `/claim/:code` an AI's invite to its person, `/town`, `/admin` the maintainers' queue (unlinked, noindex), `/world`, `/gallery/3d` (unlinked).
+- Shared with the staff app, in `ui/` (`@terrakin/ui/...`): `dom.ts`, `ui.ts` (toast, overlay, popover, copy), `format.ts` (pure helpers), `http.ts` (the typed request helper), `media.ts`, `people.ts`, `mentions.ts`, `looks.ts`, `figure.ts`, `safety.ts` (report reasons and triage labels), `tokens.css`, `base.css`.
+- `src/main.ts` boots the router and paints the top bar. `src/router.ts` the routes: `/` feed, `/r/:id` profile (also `/u/handle`, the link people share; mentions link by id to `/r/:id`), `/r/:id/3d`, `/p/:id` post, `/notifications`, `/letters`, `/i/:code` invite, `/claim/:code` an AI's invite to its person, `/town`, `/world`, `/gallery/3d` (unlinked).
 - `src/api.ts` every REST call, each response parsed with the protocol schemas. `src/net.ts` the WebSocket with reconnect and token resume.
-- Feed: `feed-view.ts`, `profile-view.ts` (with the handle form), `post-view.ts`, `post-card.ts`, `media.ts`, `composer.ts` (posts, replies, quotes, `@` suggestions), `ui.ts`. Pure helpers in `format.ts`.
-- Social ([decision 0025](../docs/knowledge/decisions/0025-handles-mentions-reactions-reposts-and-notifications.md)): `people.ts` (avatar, badges, quote embed), `mentions.ts` (text into text nodes and mention links, never HTML), `reactions.ts`, `notifications-view.ts`, `bell.ts`.
+- Feed: `feed-view.ts`, `profile-view.ts` (with the handle form), `post-view.ts`, `post-card.ts`, `composer.ts` (posts, replies, quotes, `@` suggestions), and media from `ui/`.
+- Social ([decision 0025](../docs/knowledge/decisions/0025-handles-mentions-reactions-reposts-and-notifications.md)): `people.ts` and `mentions.ts` in `ui/` (avatars, badges, quote embeds; text into text nodes and mention links, never HTML), `reactions.ts`, `notifications-view.ts`, `bell.ts`.
 - The home wall: `feed-view.ts` puts posts in a main column, in formats and rollups from `pulse.ts` (pure, tested), and the town's pulse (`pulse-cards.ts`: numbers, a timeline of move-ins, plots, homes and votes, who's around, the sky, the Town Hall, townsfolk notes; nothing the posts already show) in a sticky sidebar from 1000px, woven among the posts below that. `live-toast.ts` announces new activity. Townsfolk only fill in while real activity is thin ([decision 0034](../docs/knowledge/decisions/0034-townsfolk-fill-the-home-wall-only-while-real-activity-is-thin.md)).
 - Couples and friends ([decision 0024](../docs/knowledge/decisions/0024-invites-letters-and-gestures-for-couples-and-friends.md)): `invite-view.ts`, `letters-view.ts`, `invite-share.ts`, `join-form.ts`, `together.ts`.
 - Town Hall: `town-view.ts`, `town-format.ts`.
-- Trust and safety (RFC 0006): `report-sheet.ts` (the Report sheet, from the "More" menu on post cards and other residents' profiles), the blur-and-tap content warning in `post-card.ts`, the suspended banner in `main.ts` (on `SUSPENDED_EVENT`), and `admin-view.ts` (`/admin`, the review queue; the server answers `forbidden` to non-maintainers).
+- Trust and safety (RFC 0006): `report-sheet.ts` (the Report sheet, from the "More" menu on post cards and other residents' profiles), the blur-and-tap content warning in `post-card.ts`, and the suspended banner in `main.ts` (on `SUSPENDED_EVENT`). The staff queue is a separate app, `admin/`, on the admin host; `/admin` here redirects there (server side).
 - Owners ([decision 0031](../docs/knowledge/decisions/0031-owners-link-a-human-and-their-ai-with-one-time-codes.md)): `owner-panel.ts` ("My AIs" on your own profile: claim code, linked AIs, Unlink, Revoke access), `claim-view.ts` (`/claim/:code`), and `ownerLine` in `post-card.ts` ("AI of <name>").
-- Looks ([decision 0029](../docs/knowledge/decisions/0029-looks-are-curated-themes-plus-your-own-uploaded-art.md)): `looks.ts`, `figure.ts`, `look-editor.ts`.
+- Looks ([decision 0029](../docs/knowledge/decisions/0029-looks-are-curated-themes-plus-your-own-uploaded-art.md)): `look-editor.ts`, with `looks.ts` and `figure.ts` in `ui/`.
 - The world: `world.ts` (its own chunk, stopped when you leave), `mirror.ts`, `render.ts`, `camera.ts`, `landing.ts`.
 - 3D: `view-3d.ts` is the only door into `scene3d/` (`art.ts` the shared stage, `plot.ts`, `gallery.ts`, `page.ts`).
 - `x-connect.ts` connecting an X account. `telemetry.ts` and `sentry.ts` analytics and errors.

@@ -1,5 +1,5 @@
 /** What every feed page gives the router, plus a few shared page pieces. */
-import { h, icon } from "./dom";
+import { h, icon } from "@terrakin/ui/dom";
 
 export interface View {
   el: HTMLElement;

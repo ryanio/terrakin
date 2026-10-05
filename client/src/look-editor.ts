@@ -18,11 +18,11 @@ import {
   type WearItem,
   type WearSlot,
 } from "@terrakin/sim";
+import { h, icon } from "@terrakin/ui/dom";
+import { type FullLook, paintFigure } from "@terrakin/ui/figure";
+import { lookImage, lookPalette, mediaUrlOf, onLookImage, PatternCache } from "@terrakin/ui/looks";
+import { closeOverlay, openOverlay, toast } from "@terrakin/ui/ui";
 import { api, uploadMedia } from "./api";
-import { h, icon } from "./dom";
-import { type FullLook, paintFigure } from "./figure";
-import { lookImage, lookPalette, mediaUrlOf, onLookImage, PatternCache } from "./looks";
-import { closeOverlay, openOverlay, toast } from "./ui";
 
 export interface LookOwner {
   color: ResidentColor;

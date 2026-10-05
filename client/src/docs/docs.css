@@ -2,7 +2,7 @@
  * The docs page: a slim Terrakin bar over Scalar's reference, themed through Scalar's own CSS
  * variables (theme: "none" in main.ts). Values come from the storybook tokens.
  */
-@import "../tokens.css";
+@import "@terrakin/ui/tokens.css";
 
 :root {
   --docs-bar: 56px;

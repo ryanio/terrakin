@@ -4,10 +4,10 @@
  * room (and `?item=` one item up close). Lazy: the main bundle reaches this only through import().
  */
 import { WorldSnapshot } from "@terrakin/protocol";
+import { h, icon } from "@terrakin/ui/dom";
+import { toast } from "@terrakin/ui/ui";
 import { queueAttachment } from "../composer";
-import { h, icon } from "../dom";
 import { savedToken } from "../net";
-import { toast } from "../ui";
 import { errorCard, notFoundCard, type ViewContext } from "../view";
 import { createStage, type Stage } from "./art";
 import { parseGallery } from "./catalog";

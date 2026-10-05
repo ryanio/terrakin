@@ -1,12 +1,12 @@
 import type { AuthorView, PostView } from "@terrakin/protocol";
-import { afterEach, describe, expect, it } from "vitest";
 import {
   activeMention,
   appendRichText,
   insertMention,
   suggestHandles,
   textSegments,
-} from "./mentions";
+} from "@terrakin/ui/mentions";
+import { afterEach, describe, expect, it } from "vitest";
 import { notificationLine } from "./notifications-view";
 import { applyReaction, applyRepost, copyPostState, REACTIONS, reactionSummary } from "./reactions";
 

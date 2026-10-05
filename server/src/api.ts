@@ -15,6 +15,7 @@ import {
   LINKS,
   linkHeader,
   MAX_BODY_BYTES,
+  MODERATOR_SUSPEND_MAX_DAYS,
   type ModerationLogEntry,
   markdownError,
   type PostView,
@@ -34,6 +35,7 @@ import {
   type RouteViewer,
   type ServerMessage,
   SITEMAP_MAX_URLS,
+  type StaffRole,
   sitemapIndexXml,
   urlsetXml,
   w3cDatetime,
@@ -152,6 +154,34 @@ export interface ApiRequest {
   origin?: string;
   /** The Idempotency-Key header, if the client sent one. */
   idempotencyKey?: string | undefined;
+  /**
+   * The email of a Cloudflare Access sign-in the adapter has already verified (`access.ts`). Only
+   * the Worker sets it, after checking the JWT; never copy it from a request header.
+   */
+  staffEmail?: string | undefined;
+  /** The `Origin` header, which browsers send on cross-site and most same-site requests. */
+  browserOrigin?: string | undefined;
+}
+
+/** Who may use staff routes, and how they sign in (RFC 0006, decision 0040). */
+export interface StaffOptions {
+  /**
+   * Cloudflare Access is set up (`TERRAKIN_ACCESS_TEAM` and `TERRAKIN_ACCESS_AUD`): staff routes
+   * need a verified Access sign-in, and resident tokens don't count. Without it, a maintainer's or
+   * moderator's token works.
+   */
+  access: boolean;
+  maintainerEmails?: ReadonlySet<string>;
+  moderatorEmails?: ReadonlySet<string>;
+}
+
+/** Staff routes answer browsers only from the admin site: `admin.terrakin.org`, or `admin.localhost`. */
+export function isAdminOrigin(origin: string): boolean {
+  try {
+    return new URL(origin).hostname.startsWith("admin.");
+  } catch {
+    return false;
+  }
 }
 
 export interface ApiResponse {
@@ -182,6 +212,8 @@ export interface ApiOptions {
   onResponse?: (route: RouteSpec | undefined, response: ApiResponse) => void;
   /** Clock for the repeat window of `once` links. Default Date.now. */
   now?: () => number;
+  /** Staff sign-in. Default: no Access, so maintainers' and moderators' tokens work. */
+  staff?: StaffOptions;
 }
 
 // ---------- handler types, all derived from the route table ----------
@@ -221,7 +253,7 @@ interface HandlerReply {
   contentType?: string;
 }
 
-const MAINTAINERS_ONLY = "Only maintainers can do that.";
+const STAFF_ONLY = "Only Terrakin's maintainers and moderators can do that.";
 
 /** A maintainer action's log line as the reply. */
 function logged(outcome: SocialResult<ModerationLogEntry>) {
@@ -314,6 +346,7 @@ export class Api {
   /** Answers to `once` links, by route, resident, and query, for REPEAT_WINDOW_MS. */
   private readonly repeats = new Map<string, { at: number; response: Promise<ApiResponse> }>();
   private readonly idempotency = new IdempotencyStore();
+  private readonly staffOptions: StaffOptions;
 
   constructor(options: ApiOptions) {
     this.service = options.service;
@@ -368,6 +401,10 @@ export class Api {
           ),
     );
     this.handlers = this.routeHandlers();
+    this.staffOptions = options.staff ?? { access: false };
+    // A quarantined resident's note stays out of the world snapshot too (RFC 0006).
+    const safety = options.social?.safety;
+    if (safety) this.service.noteHidden = (id) => safety.isQuarantined(id);
     // Look media (RFC 0005) are the resident's own uploads, checked and kept by the social layer.
     const social = options.social;
     if (social) {
@@ -423,6 +460,11 @@ export class Api {
       return render(route, fail("unauthorized", BAD_LINK_KEY), linkHelp(origin, undefined));
     }
     if (route.auth === "bearer" && !viewer) return render(route, unauthorized());
+    if (route.auth === "staff") {
+      const staff = this.staffFor(req);
+      if ("error" in staff) return render(route, staff);
+      return this.run(match, req, staff.actor, origin);
+    }
     if (route.once && viewer) {
       const query = new URLSearchParams(req.query);
       query.sort();
@@ -1066,30 +1108,41 @@ export class Api {
           : { status: 200 as const, body: { report } };
       },
       getTransparency: () => ({ status: 200, body: social().safety.transparency() }),
-      getReports: ({ viewer, query }) => {
-        if (!social().isMaintainer(viewer)) return fail("forbidden", MAINTAINERS_ONLY);
-        return { status: 200, body: social().safety.queue(query.limit) };
+      getAdminOverview: ({ viewer }) => {
+        const role = this.staffRole(viewer);
+        if (!role) return fail("forbidden", STAFF_ONLY);
+        const via = viewer.startsWith("access:") ? ("access" as const) : ("token" as const);
+        return {
+          status: 200,
+          body: {
+            me: { actor: viewer, role, via, resident: social().authorView(viewer) ?? null },
+            triage: social().safety.triageStatus(),
+          },
+        };
       },
-      dismissReports: ({ viewer, body }) => {
-        if (!social().isMaintainer(viewer)) return fail("forbidden", MAINTAINERS_ONLY);
-        return logged(social().safety.dismiss(viewer, body.kind, body.id, body.reason));
-      },
-      hidePost: async ({ viewer, params, body }) => {
-        if (!social().isMaintainer(viewer)) return fail("forbidden", MAINTAINERS_ONLY);
-        return logged(await social().safety.hidePost(viewer, params.id, body.reason));
-      },
-      unhidePost: ({ viewer, params, body }) => {
-        if (!social().isMaintainer(viewer)) return fail("forbidden", MAINTAINERS_ONLY);
-        return logged(social().safety.unhidePost(viewer, params.id, body.reason));
-      },
+      getReports: ({ query }) => ({ status: 200, body: social().safety.queue(query.limit) }),
+      getModerationLog: ({ query }) => ({ status: 200, body: social().safety.logPage(query) }),
+      dismissReports: ({ viewer, body }) =>
+        logged(social().safety.dismiss(viewer, body.kind, body.id, body.reason)),
+      hidePost: async ({ viewer, params, body }) =>
+        logged(await social().safety.hidePost(viewer, params.id, body.reason)),
+      unhidePost: ({ viewer, params, body }) =>
+        logged(social().safety.unhidePost(viewer, params.id, body.reason)),
       suspendResident: ({ viewer, params, body }) => {
-        if (!social().isMaintainer(viewer)) return fail("forbidden", MAINTAINERS_ONLY);
+        if (this.staffRole(viewer) !== "maintainer" && body.days > MODERATOR_SUSPEND_MAX_DAYS) {
+          return fail(
+            "forbidden",
+            `Moderators can suspend for up to ${MODERATOR_SUSPEND_MAX_DAYS} days. Ask a maintainer for longer.`,
+          );
+        }
         return logged(social().safety.suspend(viewer, params.id, body.days, body.reason));
       },
-      unsuspendResident: ({ viewer, params, body }) => {
-        if (!social().isMaintainer(viewer)) return fail("forbidden", MAINTAINERS_ONLY);
-        return logged(social().safety.unsuspend(viewer, params.id, body.reason));
-      },
+      unsuspendResident: ({ viewer, params, body }) =>
+        logged(social().safety.unsuspend(viewer, params.id, body.reason)),
+      quarantineResident: ({ viewer, params, body }) =>
+        logged(social().safety.quarantine(viewer, params.id, body.reason)),
+      releaseResident: ({ viewer, params, body }) =>
+        logged(social().safety.release(viewer, params.id, body.reason)),
 
       // ---------- docs ----------
       getSkill: () => ({ status: 200, text: this.skill }),
@@ -1236,6 +1289,45 @@ export class Api {
   /** The key a client's address is counted under (see `ipKey`). */
   networkOf(ip: string): string {
     return ipKey(ip);
+  }
+
+  /**
+   * Who is calling a staff route, or why not. Browsers must come from the admin site. With
+   * Cloudflare Access set up, only a verified Access sign-in counts; without it, a maintainer's or
+   * moderator's token.
+   */
+  private staffFor(req: ApiRequest): { actor: string } | Failure {
+    if (req.browserOrigin && !isAdminOrigin(req.browserOrigin)) {
+      return fail("forbidden", "Staff tools only answer the admin site, admin.terrakin.org.");
+    }
+    const actor = this.staffOptions.access
+      ? req.staffEmail
+        ? `access:${req.staffEmail.toLowerCase()}`
+        : undefined
+      : this.authenticate(req.authorization);
+    if (!actor) {
+      return fail(
+        "unauthorized",
+        this.staffOptions.access
+          ? "Sign in to admin.terrakin.org through Cloudflare Access."
+          : "Missing or unknown bearer token.",
+      );
+    }
+    if (!this.staffRole(actor)) return fail("forbidden", STAFF_ONLY);
+    return { actor };
+  }
+
+  /** A staff member's role: by Access email, or by resident id from the server's grants. */
+  staffRole(actor: string): StaffRole | undefined {
+    if (actor.startsWith("access:")) {
+      const email = actor.slice("access:".length);
+      if (this.staffOptions.maintainerEmails?.has(email)) return "maintainer";
+      if (this.staffOptions.moderatorEmails?.has(email)) return "moderator";
+      return undefined;
+    }
+    if (this.social?.isMaintainer(actor)) return "maintainer";
+    if (this.social?.isModerator(actor)) return "moderator";
+    return undefined;
   }
 
   authenticate(authorization: string | undefined): string | undefined {

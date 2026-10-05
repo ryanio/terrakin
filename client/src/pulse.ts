@@ -7,7 +7,7 @@
  * announced, and they only pad the "around now" roster when too few real residents are online.
  */
 import type { AuthorView, PostView, WorldSnapshot } from "@terrakin/protocol";
-import { isMediaUrl } from "./format";
+import { isMediaUrl } from "@terrakin/ui/format";
 
 type Resident = WorldSnapshot["residents"][number];
 

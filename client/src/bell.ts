@@ -3,8 +3,9 @@
  * builds it for the top bar; it asks the server on page changes (at most every 15 seconds) and
  * once a minute while the page is visible.
  */
+
+import { h, icon } from "@terrakin/ui/dom";
 import { api } from "./api";
-import { h, icon } from "./dom";
 import { savedToken } from "./net";
 
 const POLL_MS = 60_000;

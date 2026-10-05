@@ -3,6 +3,8 @@
  * so three.js never weighs on the feed (see decision 0013). Warm, soft light; turns slowly on its
  * own until touched; follows its box's size; everything is freed when the viewer closes.
  */
+
+import { isModelResource } from "@terrakin/ui/format";
 import {
   Box3,
   DirectionalLight,
@@ -20,7 +22,6 @@ import {
 } from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { isModelResource } from "./format";
 
 export interface ModelViewerOptions {
   onLoaded?(): void;

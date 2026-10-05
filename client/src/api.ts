@@ -13,7 +13,6 @@ import {
   type CreateReportRequest,
   type CreateSessionRequest,
   CreateSessionResponse,
-  ErrorBody,
   FeedResponse,
   type GestureRequest,
   GestureResponse,
@@ -24,7 +23,6 @@ import {
   LettersResponse,
   MediaResponse,
   type MediaView,
-  ModerationResponse,
   NoticeResponse,
   NotificationsResponse,
   OwnerCodeResponse,
@@ -35,8 +33,6 @@ import {
   ProfileResponse,
   type ProfileView,
   type ReactionKey,
-  type ReportKind,
-  ReportQueueResponse,
   ReportResponse,
   ResidentListResponse,
   TownResponse,
@@ -46,28 +42,22 @@ import {
   XStartResponse,
 } from "@terrakin/protocol";
 import type { ResidentColor, ResidentShape } from "@terrakin/sim";
+import {
+  errorOf,
+  friendlyMessage,
+  makeRequest,
+  Nothing,
+  OFFLINE,
+  query,
+  type Result,
+} from "@terrakin/ui/http";
 import { savedResidentId, savedToken, saveResidentId } from "./net";
 import { appCrumb, reportBadResponse } from "./telemetry";
 import { isLetterMediaUrl } from "./together";
 
-export type Result<T> =
-  | { ok: true; data: T }
-  | { ok: false; status: number; code: string; message: string };
-
-/** Anything with a zod-style `safeParse`. */
-interface Schema<T> {
-  safeParse(value: unknown): { success: true; data: T } | { success: false; error: unknown };
-}
+export type { Result };
 
 const PostOnly = PostResponse.pick({ post: true });
-
-/** The `{ error: { code, message } }` body every failed request carries. */
-function errorOf(json: unknown) {
-  const parsed = ErrorBody.safeParse((json as { error?: unknown } | undefined)?.error);
-  return parsed.success ? parsed.data : undefined;
-}
-
-const OFFLINE = "Can't reach Terrakin right now. Check your connection and try again.";
 
 /**
  * Fired on `window` when the server refuses a write because a maintainer suspended this resident.
@@ -80,72 +70,18 @@ function authHeaders(): Record<string, string> {
   return token ? { authorization: `Bearer ${token}` } : {};
 }
 
-/** The server's message when it is plain words; a gentle fallback when it is a schema dump. */
-export function friendlyMessage(message: string, fallback: string): string {
-  const m = message.trim();
-  if (!m || m.startsWith("[") || m.startsWith("{")) return fallback;
-  return m;
-}
+export { friendlyMessage };
 
-async function request<T>(
-  method: string,
-  path: string,
-  schema: Schema<T>,
-  body?: unknown,
-): Promise<Result<T>> {
-  let res: Response;
-  try {
-    res = await fetch(path, {
-      method,
-      headers: {
-        ...authHeaders(),
-        ...(body === undefined ? {} : { "content-type": "application/json" }),
-      },
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-    });
-  } catch {
-    appCrumb("api", `${method} ${path} offline`);
-    return { ok: false, status: 0, code: "offline", message: OFFLINE };
-  }
-  let json: unknown;
-  try {
-    json = await res.json();
-  } catch {
-    json = undefined;
-  }
-  if (!res.ok) {
-    const err = errorOf(json);
-    appCrumb("api", `${method} ${path} ${res.status} ${err?.code ?? "unknown"}`);
-    if (err?.code === "suspended") {
-      window.dispatchEvent(new CustomEvent(SUSPENDED_EVENT, { detail: err.message }));
+const request = makeRequest({
+  headers: authHeaders,
+  breadcrumb: (text) => appCrumb("api", text),
+  onBadResponse: reportBadResponse,
+  onError: (code, message) => {
+    if (code === "suspended") {
+      window.dispatchEvent(new CustomEvent(SUSPENDED_EVENT, { detail: message }));
     }
-    return {
-      ok: false,
-      status: res.status,
-      code: err?.code ?? "unknown",
-      message: friendlyMessage(err?.message ?? "", "Something went wrong. Try again."),
-    };
-  }
-  const parsed = schema.safeParse(json);
-  if (!parsed.success) {
-    console.warn("Unexpected response from", path, parsed.error);
-    reportBadResponse(path, parsed.error);
-    return {
-      ok: false,
-      status: res.status,
-      code: "bad_response",
-      message: "Something went wrong.",
-    };
-  }
-  return { ok: true, data: parsed.data };
-}
-
-const query = (params: Record<string, string | number | undefined>) => {
-  const q = new URLSearchParams();
-  for (const [k, v] of Object.entries(params)) if (v !== undefined) q.set(k, String(v));
-  const s = q.toString();
-  return s ? `?${s}` : "";
-};
+  },
+});
 
 export const api = {
   feed: (opts: { following?: boolean; before?: string; limit?: number } = {}) =>
@@ -252,31 +188,9 @@ export const api = {
       NotificationsResponse,
     ),
   markRead: (upTo: string) => request("POST", "/v1/notifications/read", UnreadResponse, { upTo }),
-  // Trust and safety (RFC 0006)
+  // Trust and safety (RFC 0006). Staff tools are in the admin app (admin/).
   report: (body: CreateReportRequest) => request("POST", "/v1/reports", ReportResponse, body),
-  reports: () => request("GET", "/v1/admin/reports?limit=50", ReportQueueResponse),
-  hidePost: (id: string, reason: string, on: boolean) =>
-    request(
-      "POST",
-      `/v1/admin/posts/${encodeURIComponent(id)}/${on ? "hide" : "unhide"}`,
-      ModerationResponse,
-      { reason },
-    ),
-  suspend: (id: string, days: number, reason: string) =>
-    request("POST", `/v1/admin/residents/${encodeURIComponent(id)}/suspend`, ModerationResponse, {
-      days,
-      reason,
-    }),
-  unsuspend: (id: string, reason: string) =>
-    request("POST", `/v1/admin/residents/${encodeURIComponent(id)}/unsuspend`, ModerationResponse, {
-      reason,
-    }),
-  dismissReports: (kind: ReportKind, id: string, reason: string) =>
-    request("POST", "/v1/admin/reports/dismiss", ModerationResponse, { kind, id, reason }),
 };
-
-/** For replies with no body (204). */
-const Nothing: Schema<null> = { safeParse: () => ({ success: true, data: null }) };
 
 /**
  * Who a key belongs to, without saving it: the restore field checks a pasted key this way first.

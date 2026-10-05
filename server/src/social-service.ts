@@ -48,6 +48,7 @@ import type { SqlExec } from "./sql-store";
 import { stripMetadata } from "./strip-metadata";
 import { cleanMultiline, cleanText } from "./text";
 import { TogetherService } from "./together-service";
+import type { TriageClient } from "./triage";
 import {
   canonicalStatusUrl,
   checkXPost,
@@ -152,6 +153,13 @@ export interface SocialServiceOptions {
   residentAgeDays?: (id: string) => number;
   /** A Town Hall proposal, for reports on one. Default: none exist. */
   proposal?: (id: string) => { author: string; title: string; text: string } | undefined;
+  /**
+   * Residents who can work the review queue but hold no other maintainer powers
+   * (`TERRAKIN_MODERATORS`, RFC 0006). A server grant, like maintainers.
+   */
+  moderators?: ReadonlySet<string>;
+  /** AI triage for the review queue. Without it (or without a key), reports wait for people. */
+  triage?: TriageClient | undefined;
 }
 
 type Row = Record<string, unknown>;
@@ -208,6 +216,7 @@ export class SocialService {
   private readonly townsfolk: ReadonlySet<string>;
   private readonly readXPost: XPostReader;
   private readonly maintainers: ReadonlySet<string>;
+  private readonly moderators: ReadonlySet<string>;
   private readonly votesCast: ((id: string) => number) | undefined;
   /** The edge filters for posts, bios, notices, letters, and gesture notes. */
   readonly moderation: Moderation;
@@ -221,6 +230,7 @@ export class SocialService {
     this.townsfolk = options.townsfolk ?? new Set();
     this.readXPost = options.readXPost ?? oembedReader();
     this.maintainers = options.maintainers ?? new Set();
+    this.moderators = options.moderators ?? new Set();
     this.votesCast = options.votesCast;
     this.moderation =
       options.moderation ??
@@ -404,8 +414,9 @@ export class SocialService {
       now: this.now,
       resident: this.resident,
       author: (id) => this.authorView(id),
-      isMaintainer: (id) => this.isMaintainer(id),
-      isStaff: (id) => this.isMaintainer(id) || this.isTownsfolk(id),
+      cannotBeSuspended: (id) => this.isMaintainer(id) || this.isModerator(id),
+      neverAutoHidden: (id) =>
+        this.isMaintainer(id) || this.isModerator(id) || this.isTownsfolk(id),
       residentAgeDays: options.residentAgeDays ?? (() => Number.POSITIVE_INFINITY),
       proposal: options.proposal ?? (() => undefined),
       postMedia: (postId) => this.mediaFor([postId]).get(postId) ?? [],
@@ -416,6 +427,7 @@ export class SocialService {
         return kept;
       },
       moderation: () => [this.moderation],
+      triage: options.triage,
     });
   }
 
@@ -523,6 +535,7 @@ export class SocialService {
     for (const m of mentions) tell(m.id, "mention");
 
     verdict.commit();
+    if (verdict.borderline) this.safety.requestTriage("post", id);
     const post = this.post(id, authorId);
     return post ? { ok: true, value: post } : fail("internal", "Post vanished.");
   }
@@ -880,6 +893,7 @@ export class SocialService {
   profile(residentId: string, viewerId?: string): ProfileView | undefined {
     const r = this.resident(residentId);
     if (!r) return undefined;
+    const quarantined = this.safety.isQuarantined(residentId);
     const extra = this.rows(
       `SELECT bio, avatar,
         (SELECT COUNT(*) FROM posts WHERE author = ? AND hidden = 0) AS posts,
@@ -905,8 +919,9 @@ export class SocialService {
       kind: r.kind,
       color: r.color,
       shape: r.shape,
-      note: r.note,
-      bio: String(extra?.bio ?? ""),
+      // A quarantined resident's words stay out of view until staff release them (RFC 0006).
+      note: quarantined ? "" : r.note,
+      bio: quarantined ? "" : String(extra?.bio ?? ""),
       avatar: extra?.avatar ? mediaUrl(String(extra.avatar)) : null,
       ...(this.townsfolk.has(r.id) ? { townsfolk: true } : {}),
       ...(extra?.handle ? { handle: String(extra.handle) } : {}),
@@ -926,6 +941,11 @@ export class SocialService {
   }
 
   // ---------- town hall: grants, the notice board, petition answers ----------
+
+  /** A moderator (`TERRAKIN_MODERATORS`): works the review queue, nothing more. */
+  isModerator(residentId: string): boolean {
+    return this.moderators.has(residentId);
+  }
 
   isMaintainer(residentId: string): boolean {
     return this.maintainers.has(residentId);
@@ -984,6 +1004,7 @@ export class SocialService {
       now,
     );
     verdict.commit();
+    if (verdict.borderline) this.safety.requestTriage("notice", id);
     const row = this.rows("SELECT id, author, text, created_at FROM notices WHERE id = ?", id)[0];
     const view = row ? this.noticeView(row, authorId) : undefined;
     return view ? { ok: true, value: view } : fail("internal", "Notice vanished.");
@@ -1122,11 +1143,14 @@ export class SocialService {
         return fail("bad_request", "The avatar must be an image.");
       }
     }
+    let borderlineBio = false;
     if (request.bio !== undefined && request.bio.trim() !== "") {
-      const refused = refusal(
-        this.moderation.review("bio", cleanMultiline(request.bio), { resident: residentId }),
-      );
+      const verdict = this.moderation.review("bio", cleanMultiline(request.bio), {
+        resident: residentId,
+      });
+      const refused = refusal(verdict);
       if (refused) return refused;
+      borderlineBio = verdict.ok && verdict.borderline !== undefined;
     }
     const handle =
       request.handle === undefined ? undefined : this.checkHandle(residentId, request.handle);
@@ -1156,6 +1180,7 @@ export class SocialService {
       if (old?.avatar && old.avatar !== request.avatar)
         await this.releaseIfUnused(String(old.avatar));
     }
+    if (borderlineBio) this.safety.requestTriage("resident", residentId);
     const profile = this.profile(residentId, residentId);
     return profile ? { ok: true, value: profile } : fail("internal", "Profile vanished.");
   }

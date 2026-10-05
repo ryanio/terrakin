@@ -5,12 +5,13 @@ import "@fontsource-variable/fraunces/wonk-italic.css";
 import "@fontsource-variable/figtree";
 import "@fontsource-variable/figtree/wght-italic.css";
 import { markdownTwin } from "@terrakin/protocol";
-import { adminView } from "./admin-view";
+import { h, icon } from "@terrakin/ui/dom";
+import { useModelViewer } from "@terrakin/ui/media";
+import { interceptPop } from "@terrakin/ui/ui";
 import { api, myProfile, SUSPENDED_EVENT } from "./api";
 import { initBell, makeBell, refreshBell } from "./bell";
 import { initBrandMarks } from "./chrome";
 import { claimView } from "./claim-view";
-import { h, icon } from "./dom";
 import { feedView } from "./feed-view";
 import { inviteView } from "./invite-view";
 import { lettersView, letterThreadView, UNREAD_EVENT } from "./letters-view";
@@ -23,10 +24,12 @@ import { createRouter, matchRoute, type Navigation, type Route, routeTemplate } 
 import { initErrorReporting, pageView, startAnalytics } from "./telemetry";
 import { unreadBadge } from "./together";
 import { townView } from "./town-view";
-import { interceptPop } from "./ui";
 import { notFoundView, type View, type ViewContext } from "./view";
 import { view3d } from "./view-3d";
 import "./style.css";
+
+// Models open in the three.js viewer, its own chunk, loaded only when someone opens one.
+useModelViewer(() => import("./model-viewer"));
 
 // Analytics first, with the page set as a template before gtag.js can send anything.
 startAnalytics(routeTemplate(matchRoute(location.pathname)));
@@ -234,9 +237,7 @@ function onNavigate(nav: Navigation) {
                         ? view3d(route, ctx)
                         : route.name === "claim"
                           ? claimView(route.code, ctx)
-                          : route.name === "admin"
-                            ? adminView(ctx)
-                            : notFoundView(ctx);
+                          : notFoundView(ctx);
   view = next;
   page.replaceChildren(next.el);
 

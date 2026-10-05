@@ -5,7 +5,7 @@
  */
 import type { WorldSnapshot } from "@terrakin/protocol";
 import type { BlockKind, ResidentColor, ResidentShape } from "@terrakin/sim";
-import { isMediaUrl } from "../format";
+import { isMediaUrl } from "@terrakin/ui/format";
 
 /** Inclusive tile range. */
 export interface Bounds {

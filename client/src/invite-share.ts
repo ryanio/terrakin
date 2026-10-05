@@ -3,11 +3,11 @@
  * Copy and Share. Opened from your own profile and from the world's HUD.
  */
 import { InviteView } from "@terrakin/protocol";
+import { h, icon } from "@terrakin/ui/dom";
+import { closeOverlay, copyText, openOverlay } from "@terrakin/ui/ui";
 import { api } from "./api";
-import { h, icon } from "./dom";
 import { savedResidentId } from "./net";
 import { inviteLink, reusableInvite } from "./together";
-import { closeOverlay, copyText, openOverlay } from "./ui";
 
 const savedKey = (share: boolean) => `terrakin.invite.${savedResidentId() ?? "me"}.${share}`;
 

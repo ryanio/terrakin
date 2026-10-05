@@ -1,0 +1,29 @@
+---
+title: A staff app on its own host behind Cloudflare Access, with staff roles and AI triage
+date: 2026-10-04
+status: accepted
+tags: [security, server, client, protocol, governance, agents]
+---
+
+# A staff app on its own host behind Cloudflare Access, with staff roles and AI triage
+
+## Context
+
+Phase 1 of RFC 0006 (decision 0033) put the review queue at `/admin` inside the main app, opened by a maintainer's resident token. That has three problems. A resident token is a long-lived bearer secret that lives in the browser next to everything else the app runs, so stealing one maintainer's token means owning the queue. The main app's Content-Security-Policy has to allow Google Analytics, Sentry, and inline scripts by hash, which is more than a page that can hide posts and suspend people should run. And Ryan wants help with the queue: moderators who can work it without holding a maintainer's powers, and a cheap first read of every report so the urgent ones surface.
+
+## Decision
+
+- **Its own host.** The staff app is a separate Vite package, `admin/`, built into the client's dist under `/_admin/` and served by the Worker (and the Node server) only on a host whose first label is `admin` (admin.terrakin.org, admin.localhost in dev). Every other path on that host gets the app's page, `/v1/...` goes to the API, and `/media/...` to uploads. On the main site, `/admin` redirects to the admin host and `/_admin/` answers 404.
+- **A strict policy.** Every admin page and file carries `ADMIN_PAGE_HEADERS` (`server/src/pages.ts`): `default-src 'none'`, scripts, styles, fonts, and connections from the same origin only, no inline anything, no framing, `noindex`, `no-store`, and no referrer. The app has no analytics and no error reporting. Resident text, report notes, and triage rationales reach the DOM only as text.
+- **Cloudflare Access signs staff in.** Access sits in front of admin.terrakin.org. The Worker verifies its JWT again (`server/src/access.ts`: RS256 against the team's keys, audience, issuer, expiry), drops any staff header a caller sent, and passes the verified email to the world object (`toWorld`). With Access configured (`TERRAKIN_ACCESS_TEAM`, `TERRAKIN_ACCESS_AUD`), staff routes accept only that email; resident tokens no longer open them anywhere. The real admin.terrakin.org refuses to run without Access (503). Other admin hosts (admin.localhost, a self-hosted Node server) fall back to a maintainer's or moderator's resident token, which the app keeps in sessionStorage for one tab.
+- **Two roles.** Maintainers can do everything; moderators can work the queue. Behind Access the role comes from the email (`TERRAKIN_MAINTAINER_EMAILS`, `TERRAKIN_MODERATOR_EMAILS`); without Access, from the resident id (`TERRAKIN_MAINTAINERS`, `TERRAKIN_MODERATORS`). Moderators can hide and unhide, dismiss, hold back and release a bio and note, and suspend for up to 7 days. The server enforces the limit; the app only leaves longer choices out. Staff can't be suspended or quarantined through the API. Staff routes are `auth: "staff"` in the route table, and browser calls from any origin but an admin host are refused.
+- **AI triage reads reports; people decide.** With `ANTHROPIC_API_KEY` set, each new report (and borderline public text a filter flagged) gets one call to Claude Haiku 4.5 through a forced tool call (`server/src/triage.ts`) for a category, severity, confidence, rationale, and suggested action. The resident's words go in as a JSON string inside a fenced block the instructions call data; an attempt to steer the model is recorded as a signal. The queue shows the verdict as a suggestion next to the content and never applies it. On its own, triage only takes reversible steps: it hides a post or holds back a bio and note when it is at least 90% sure of spam, scams, hate, or sexual content at high or critical severity, and hides anything it suspects is CSAM. It never acts against a person over suspected minors or self-harm; those go to the top of the queue for a human today. Its actions are logged under the actor `triage`.
+- **A spend guard.** Triage stops at a daily call cap and a daily token cap (counted in SQLite, so a restart doesn't reset them, and reserved before each call so racing calls can't overshoot), opens a breaker after three failures in a row, cuts what it sends to 4,000 characters, and lets one reporter cause at most 10 calls a day. It reads each target once per new evidence. `triage.test.ts` proves each cap refuses.
+
+## Consequences
+
+- Removing someone from staff is an Access policy or config change, and every action carries the actor (`access:<email>` or a resident id) in the append-only log, which staff can read in the app.
+- Deploying needs Access set up first: an Access application on admin.terrakin.org, its team domain and audience tag as Worker vars, the staff emails, and a route for the host. Until then the admin host answers 503. `docs/deploy.md` lists every setting.
+- Running the admin app locally needs no Access: `pnpm dev` serves it at http://admin.localhost:5174 with hot reload, and `pnpm start` at http://admin.localhost:8787. Staff paste a token there.
+- Triage costs money and sends report text to Anthropic. It is off without a key, and the queue works exactly as before. Changing the model is `TERRAKIN_TRIAGE_MODEL`; the newest models refuse a forced tool call, and `forcesTool()` switches those to `auto`.
+- The admin app shares design tokens, base styles, DOM helpers, the request helper, and the safety labels with the main app through `@terrakin/ui`, so both say the same thing about reports.

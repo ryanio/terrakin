@@ -5,10 +5,11 @@
  * live notices. Townsfolk fill in while real activity is thin (see `pulse.ts`).
  */
 import type { PostView, TownResponse, WorldSnapshot } from "@terrakin/protocol";
+import { h, icon } from "@terrakin/ui/dom";
+import { countNew } from "@terrakin/ui/format";
+import { copyText } from "@terrakin/ui/ui";
 import { api, myProfile } from "./api";
 import { type Composer, composer } from "./composer";
-import { h, icon } from "./dom";
-import { countNew } from "./format";
 import { clearLiveToasts, liveToast, liveToastHost, snippet } from "./live-toast";
 import { savedToken } from "./net";
 import { postCard, postPath, profilePath, refreshTimes, skeletonCards } from "./post-card";
@@ -38,7 +39,6 @@ import {
 } from "./pulse-cards";
 import { copyPostState } from "./reactions";
 import { track } from "./telemetry";
-import { copyText } from "./ui";
 import { errorCard, type View, type ViewContext } from "./view";
 
 type Tab = "everyone" | "following";

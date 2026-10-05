@@ -4,10 +4,10 @@
  * shows its answers. Handles are drawn as text and only become a link through `xProfileUrl`.
  */
 import { type ProfileView, xProfileUrl } from "@terrakin/protocol";
+import { h, icon } from "@terrakin/ui/dom";
+import { xIntentHref } from "@terrakin/ui/format";
+import { closeOverlay, copyText, openOverlay, toast } from "@terrakin/ui/ui";
 import { api } from "./api";
-import { h, icon } from "./dom";
-import { xIntentHref } from "./format";
-import { closeOverlay, copyText, openOverlay, toast } from "./ui";
 
 /** "@handle on X", linking to the account. `rel="me"` says the account and this profile are one. */
 export function xAccountLink(handle: string): HTMLElement | null {

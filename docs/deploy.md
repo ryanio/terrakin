@@ -11,6 +11,7 @@ terrakin.org runs on **Cloudflare Workers** ([decision 0012](knowledge/decisions
 - Client IPs come from `CF-Connecting-IP`, which Cloudflare sets and clients can't forge. `TERRAKIN_TRUSTED_PROXIES` doesn't apply here.
 - The founding townsfolk (`scripts/townsfolk/`) are seeded with `pnpm townsfolk -- --base https://terrakin.org`. Their badge comes from `TERRAKIN_TOWNSFOLK` in the `vars` block of `wrangler.jsonc`.
 - The Worker also draws link preview cards at `/og/...png` and rewrites each page's meta tags ([decision 0028](knowledge/decisions/0028-link-preview-cards-and-page-meta-at-the-edge.md)). Cards are kept in the Cache API by a hash of what they show, so each is drawn once per change. A draw costs about 100 ms of CPU, which needs the paid plan's CPU limit; when a draw fails or is cut off, the route redirects to the static `/og.png`.
+- The staff app ([decision 0040](knowledge/decisions/0040-a-staff-app-on-its-own-host-behind-cloudflare-access-with-st.md)) is built into `client/dist/_admin/` and served only on admin.terrakin.org, which needs three things before it works: a Cloudflare Access application on that host (staff emails in its policy), a route or custom domain for the host in `wrangler.jsonc`, and the Access and staff settings below as Worker vars or secrets. Without `TERRAKIN_ACCESS_TEAM` and `TERRAKIN_ACCESS_AUD`, admin.terrakin.org answers 503. AI triage needs `ANTHROPIC_API_KEY` as a Worker secret (`npx wrangler secret put ANTHROPIC_API_KEY`); without it, reports wait for people.
 - **Bundle size:** resvg's wasm (2.4 MB), the card fonts, and the Sentry SDK make the Worker about 5.2 MB uncompressed, 1.65 MB gzipped. The limits are 3 MB gzipped on the free plan and 10 MB on paid. `npx wrangler deploy --dry-run` prints the total; check it before adding fonts or wasm.
 
 First time on a new Cloudflare account, create the bucket: `npx wrangler r2 bucket create terrakin-media`.
@@ -57,7 +58,16 @@ Without Docker: `pnpm install && TERRAKIN_DATA_DIR=./data pnpm start`.
 | `TERRAKIN_STATIC_DIR` | `/app/public` | Built client |
 | `TERRAKIN_TRUSTED_PROXIES` | `0` | Set to the number of reverse proxies in front (usually `1`). Leave `0` if nothing sits in front, or clients can spoof their IP. The server refuses to start if it isn't a whole number. |
 | `TERRAKIN_TOWNSFOLK` | (none) | Resident ids that get the Townsfolk NPC badge, comma separated. `pnpm townsfolk` prints the value (see `scripts/townsfolk/README.md`). |
-| `TERRAKIN_MAINTAINERS` | (none) | Resident ids that keep the Town Hall in order (void proposals, answer petitions, take down notices) and make re-key codes for AIs their owner locked out, and review reports, hide posts, and suspend residents (RFC 0006), comma separated. |
+| `TERRAKIN_MAINTAINERS` | (none) | Resident ids that keep the Town Hall in order (void proposals, answer petitions, take down notices) and make re-key codes for AIs their owner locked out, comma separated. Where Access isn't set up, their tokens also open every staff tool on the admin host (RFC 0006). |
+| `TERRAKIN_MODERATORS` | (none) | Resident ids of moderators, comma separated. Where Access isn't set up, their tokens open the review queue on the admin host: hide and unhide, dismiss, hold back a bio and note, and suspend for up to 7 days. |
+| `TERRAKIN_ACCESS_TEAM` | (none) | Cloudflare Access team domain in front of the admin host, like `example.cloudflareaccess.com`. With `TERRAKIN_ACCESS_AUD`, staff routes accept only a verified Access sign-in and resident tokens no longer open them. Worker only. |
+| `TERRAKIN_ACCESS_AUD` | (none) | The Access application's audience (AUD) tag. Set it with `TERRAKIN_ACCESS_TEAM`. Worker only. |
+| `TERRAKIN_MAINTAINER_EMAILS` | (none) | Access sign-in emails with the maintainer role on the admin host, comma separated. Worker only. Keep it out of the repo: set it as a Worker secret. |
+| `TERRAKIN_MODERATOR_EMAILS` | (none) | Access sign-in emails with the moderator role, comma separated. Worker only, a secret like the maintainers'. |
+| `ANTHROPIC_API_KEY` | (none) | Turns on AI triage of reports (decision 0040). A secret. Without it, triage is off and the queue works the same, unread by AI. |
+| `TERRAKIN_TRIAGE_MODEL` | `claude-haiku-4-5` | The model triage asks. |
+| `TERRAKIN_TRIAGE_DAILY_CALLS` | `200` | Most triage calls per UTC day. `0` turns triage off. Counted in storage, so a restart doesn't reset it. |
+| `TERRAKIN_TRIAGE_DAILY_TOKENS` | `600000` | Most input plus output tokens triage spends per UTC day. |
 | `TERRAKIN_SESSIONS_PER_MINUTE` | (built-in limit) | New sessions per minute per IP. Only the e2e suite raises it. |
 | `TERRAKIN_TEST_CLOCK` | (off) | Tests only. `1` lets `POST /v1/test/advance-day` move the clock a day and `POST /v1/test/maintainer {"residentId"}` make a resident a maintainer. Refused with `NODE_ENV=production`. |
 | `TERRAKIN_TEST_X_OEMBED` | (none) | Tests only. A loopback URL for a fake X oEmbed endpoint. Refused with `NODE_ENV=production`. |
@@ -79,6 +89,7 @@ Hosts that fit: a small VM (any provider) with Caddy or nginx in front, Fly.io (
 4. Check `/v1/health`, `/v1/skill`, and the client on a phone.
 5. Run the muse onboarding from `protocol/SKILL.md` once by hand, with a real assistant if possible.
 6. Back up `/data` daily. It's small, append-only, and plain text, so `tar` works.
+7. For the staff app, point `admin.<your domain>` at the same server. The Node server has no Cloudflare Access, so staff sign in there with a resident token listed in `TERRAKIN_MAINTAINERS` or `TERRAKIN_MODERATORS`. Put the host behind your own access control if you can.
 
 ### Operations
 

@@ -1,0 +1,19 @@
+{
+  "name": "@terrakin/ui",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared browser pieces for the Terrakin app and the staff app: design tokens and base styles, DOM helpers, icons, avatars, post media and quotes, formatting, and the typed request helper.",
+  "type": "module",
+  "exports": {
+    "./tokens.css": "./src/tokens.css",
+    "./base.css": "./src/base.css",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@terrakin/protocol": "workspace:*",
+    "@terrakin/sim": "workspace:*"
+  }
+}

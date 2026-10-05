@@ -4,6 +4,8 @@ import { cards } from "@terrakin/cards/worker";
 import { buildOpenApi } from "@terrakin/protocol";
 import SKILL_MD from "@terrakin/protocol/SKILL.md";
 import { findProposal, votesCast } from "@terrakin/sim";
+import { AccessVerifier, accessConfig, parseEmails } from "../src/access";
+import { adminAssetPath, adminGate, isMissingAdminFile } from "../src/admin-host";
 import { Api, ipKey, isApiPath, MAX_BODY_BYTES } from "../src/api";
 import {
   MEDIA_ID,
@@ -23,10 +25,21 @@ import {
   windowLimiter,
 } from "../src/og";
 import { type ApiGet, loadPage, matchPage, pageEdits } from "../src/page-meta";
-import { negotiate, pageHeaders, twinHeaders } from "../src/pages";
+import {
+  ADMIN_ASSET_PREFIX,
+  ADMIN_PAGE_HEADERS,
+  adminRedirect,
+  isAdminHost,
+  negotiate,
+  pageHeaders,
+  STAFF_EMAIL_HEADER,
+  toWorld,
+  twinHeaders,
+} from "../src/pages";
 import { parseMaintainers, parseTownsfolk, SocialService } from "../src/social-service";
 import { SqlStore } from "../src/sql-store";
 import { report, sentryOptions, span } from "../src/telemetry";
+import { TriageClient, triageConfig } from "../src/triage";
 import { WorldService } from "../src/world-service";
 import { rewritePage } from "./meta-rewriter";
 
@@ -50,6 +63,61 @@ interface Env {
   SENTRY_DSN?: string;
   /** Which deploy is running, so a report names its release. */
   CF_VERSION_METADATA?: WorkerVersionMetadata;
+  /** Resident ids of moderators: the review queue only (RFC 0006). */
+  TERRAKIN_MODERATORS?: string;
+  /** Cloudflare Access in front of admin.terrakin.org: the team domain and the app's audience tag. */
+  TERRAKIN_ACCESS_TEAM?: string;
+  TERRAKIN_ACCESS_AUD?: string;
+  /** Access emails with each staff role, comma separated. */
+  TERRAKIN_MAINTAINER_EMAILS?: string;
+  TERRAKIN_MODERATOR_EMAILS?: string;
+  /** AI triage (decision 0040). A Worker secret; without it, triage is off. */
+  ANTHROPIC_API_KEY?: string;
+  TERRAKIN_TRIAGE_MODEL?: string;
+  TERRAKIN_TRIAGE_DAILY_CALLS?: string;
+  TERRAKIN_TRIAGE_DAILY_TOKENS?: string;
+}
+
+/** The Access verifier, with its key cache, lives as long as the isolate. */
+let verifier: { key: string; verifier: AccessVerifier } | undefined;
+function accessVerifier(env: Env): AccessVerifier | undefined {
+  const config = accessConfig(env.TERRAKIN_ACCESS_TEAM, env.TERRAKIN_ACCESS_AUD);
+  if (!config) return undefined;
+  const key = `${config.team} ${config.aud}`;
+  if (verifier?.key !== key) verifier = { key, verifier: new AccessVerifier(config) };
+  return verifier.verifier;
+}
+
+/**
+ * admin.terrakin.org: the staff app and the API it calls (RFC 0006, decision 0040). With Access set
+ * up, every request needs a valid Access sign-in, checked here as well as at Cloudflare's edge, and
+ * the real admin host refuses to run without it (`adminGate`).
+ */
+async function admin(request: Request, env: Env, url: URL): Promise<Response> {
+  const gate = await adminGate(request, url, {
+    verifier: accessVerifier(env),
+    requireAccess: url.hostname === `admin.${CANONICAL_HOST}`,
+  });
+  if ("refuse" in gate) return gate.refuse;
+  if (isApiPath(url.pathname)) {
+    return env.WORLD.get(env.WORLD.idFromName("world")).fetch(toWorld(request, url, gate.email));
+  }
+  const reading = request.method === "GET" || request.method === "HEAD";
+  const mediaId = /^\/media\/([^/]+)$/.exec(url.pathname)?.[1];
+  if (mediaId !== undefined && reading) {
+    return serveFromBucket(env.MEDIA as unknown as MediaBucket, mediaId, request);
+  }
+  // The admin app's files, or its page for every other path. The assets binding serves a folder's
+  // index.html at the folder's own path, so the page is fetched as /_admin/.
+  const path = adminAssetPath(url.pathname).replace(/index\.html$/, "");
+  const response = await env.ASSETS.fetch(new Request(new URL(path, url), request));
+  if (isMissingAdminFile(path, response.headers.get("content-type"))) {
+    return new Response("Not found.", {
+      status: 404,
+      headers: { ...ADMIN_PAGE_HEADERS, "content-type": "text/plain; charset=utf-8" },
+    });
+  }
+  return withHeaders(response, ADMIN_PAGE_HEADERS);
 }
 
 /** The same Sentry setup for the Worker and the World object. */
@@ -160,6 +228,13 @@ const handler = {
       url.hostname = CANONICAL_HOST;
       return Response.redirect(url.toString(), 301);
     }
+    if (isAdminHost(url.hostname)) return admin(request, env, url);
+    // The staff app lives on its own host; its files aren't served here.
+    const moved = adminRedirect(url);
+    if (moved) return Response.redirect(moved, 302);
+    if (url.pathname.startsWith(ADMIN_ASSET_PREFIX)) {
+      return jsonError(404, "not_found", "Not found.");
+    }
     const world = () => env.WORLD.get(env.WORLD.idFromName("world"));
     const reading = request.method === "GET" || request.method === "HEAD";
     // An agent asking for Markdown gets the page's twin: a static file, or built from live data.
@@ -168,10 +243,12 @@ const handler = {
       : undefined;
     if (twin) {
       const target = new Request(new URL(twin, url), request);
-      const response = await (isApiPath(twin) ? world().fetch(target) : env.ASSETS.fetch(target));
+      const response = await (isApiPath(twin)
+        ? world().fetch(toWorld(target, new URL(twin, url)))
+        : env.ASSETS.fetch(target));
       return withHeaders(response, response.ok ? twinHeaders() : { vary: "Accept" });
     }
-    if (isApiPath(url.pathname)) return world().fetch(request);
+    if (isApiPath(url.pathname)) return world().fetch(toWorld(request, url));
     const mediaId = /^\/media\/([^/]+)$/.exec(url.pathname)?.[1];
     if (mediaId !== undefined && reading) {
       return serveFromBucket(env.MEDIA as unknown as MediaBucket, mediaId, request);
@@ -206,9 +283,10 @@ class WorldObject extends DurableObject<Env> {
     super(ctx, env);
     const townsfolk = parseTownsfolk(env.TERRAKIN_TOWNSFOLK);
     const maintainers = parseMaintainers(env.TERRAKIN_MAINTAINERS);
+    const moderators = parseMaintainers(env.TERRAKIN_MODERATORS);
     // One set of edge filters for the world and the social layer (RFC 0006).
     const moderation = new Moderation({
-      privileged: (id) => townsfolk.has(id) || maintainers.has(id),
+      privileged: (id) => townsfolk.has(id) || maintainers.has(id) || moderators.has(id),
     });
     const service = new WorldService({
       store: new SqlStore(ctx.storage.sql),
@@ -236,8 +314,20 @@ class WorldObject extends DurableObject<Env> {
       moderation,
       residentAgeDays: (id) => service.residentAgeDays(id),
       proposal: (id) => findProposal(service.state, id),
+      moderators,
+      triage: new TriageClient(triageConfig(env), ctx.storage.sql),
     });
-    this.api = new Api({ service, social, skill: SKILL_MD, openapi: OPENAPI });
+    this.api = new Api({
+      service,
+      social,
+      skill: SKILL_MD,
+      openapi: OPENAPI,
+      staff: {
+        access: accessConfig(env.TERRAKIN_ACCESS_TEAM, env.TERRAKIN_ACCESS_AUD) !== undefined,
+        maintainerEmails: parseEmails(env.TERRAKIN_MAINTAINER_EMAILS),
+        moderatorEmails: parseEmails(env.TERRAKIN_MODERATOR_EMAILS),
+      },
+    });
     // Runs while the object is in memory: idle sweeps and the Town Hall's clock. If it's evicted,
     // nobody is connected; the next boot marks everyone offline, and boot and every request catch
     // the day up and close what's due.
@@ -306,6 +396,9 @@ class WorldObject extends DurableObject<Env> {
       // http request; anywhere else (local dev), at whatever the request used.
       origin: url.hostname === CANONICAL_HOST ? `https://${CANONICAL_HOST}` : url.origin,
       idempotencyKey: request.headers.get("idempotency-key") ?? undefined,
+      // Only the Worker in front sets this, from an Access JWT it verified (see toWorld).
+      staffEmail: request.headers.get(STAFF_EMAIL_HEADER) ?? undefined,
+      browserOrigin: request.headers.get("origin") ?? undefined,
     });
     if (!response) return jsonError(404, "not_found", "Not found.");
     return new Response(response.status === 204 ? null : response.body, {

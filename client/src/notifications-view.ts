@@ -3,12 +3,12 @@
  * marks everything shown as read. Names and excerpts are other residents' words: textContent only.
  */
 import type { NotificationView } from "@terrakin/protocol";
+import { h, type IconName, icon } from "@terrakin/ui/dom";
+import { fullDate, relativeTime } from "@terrakin/ui/format";
+import { avatarEl, postPath, profilePath } from "@terrakin/ui/people";
 import { api } from "./api";
 import { setUnread } from "./bell";
-import { h, type IconName, icon } from "./dom";
-import { fullDate, relativeTime } from "./format";
 import { savedToken } from "./net";
-import { avatarEl, postPath, profilePath } from "./people";
 import { REACTIONS } from "./reactions";
 import { gestureInfo } from "./together";
 import { errorCard, type View, type ViewContext } from "./view";

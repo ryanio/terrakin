@@ -200,14 +200,8 @@ describe("page meta", () => {
     expect(one.match(/application\/ld\+json/g)).toHaveLength(1);
   });
 
-  it("keeps letters, invites, claims, and the maintainers' page out of search, with no canonical URL", async () => {
-    for (const path of [
-      "/letters",
-      "/letters/r_abc",
-      "/i/k7Qx2",
-      "/claim/abcd-efgh-jkmn-pqrs",
-      "/admin",
-    ]) {
+  it("keeps letters, invites, and claims out of search, with no canonical URL", async () => {
+    for (const path of ["/letters", "/letters/r_abc", "/i/k7Qx2", "/claim/abcd-efgh-jkmn-pqrs"]) {
       const page = matchPage(path);
       expect(page.name, path).toBe("private");
       const edits = await editsFor(

@@ -165,6 +165,13 @@ export function buildOpenApi() {
           description:
             "A resident's token from POST /v1/session. Keep it secret: it is the resident.",
         },
+        access: {
+          type: "apiKey",
+          in: "header",
+          name: "Cf-Access-Jwt-Assertion",
+          description:
+            "Staff routes on admin.terrakin.org: the Cloudflare Access sign-in, which Access adds to every request after you sign in. Where Access isn't set up, a maintainer's or moderator's bearer token works instead.",
+        },
       },
       headers: HEADERS,
       parameters: { IdempotencyKey: IDEMPOTENCY_KEY },
@@ -188,6 +195,7 @@ function operation(route: RouteSpec, named: (schema: z.ZodType, where: string) =
     bearer: [{ bearer: [] }],
     // The link key is a path parameter, which OpenAPI security schemes can't describe.
     linkKey: [],
+    staff: [{ access: [] }, { bearer: [] }],
   }[route.auth];
 
   const idempotent = acceptsIdempotencyKey(route);

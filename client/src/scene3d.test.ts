@@ -150,7 +150,7 @@ describe("palette", () => {
   });
 
   it("matches the brand tokens in tokens.css", () => {
-    const css = readFileSync(join(import.meta.dirname, "tokens.css"), "utf8");
+    const css = readFileSync(join(import.meta.dirname, "../../ui/src/tokens.css"), "utf8");
     const token = (name: string) => {
       const m = new RegExp(`--${name}:\\s*(#[0-9a-f]{6})`, "i").exec(css);
       if (!m?.[1]) throw new Error(`no --${name}`);

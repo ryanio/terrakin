@@ -20,7 +20,7 @@ Playwright tests that drive the real production build on an iPhone 13 viewport. 
 | `three-d.spec.ts` | A plot and the gallery in 3D, a photo, and nothing left running after leaving. |
 | `town.spec.ts` | Propose, vote, close, and build in the Town Hall. |
 | `connect-x.spec.ts` | Connecting an X account. |
-| `safety.spec.ts` | Reporting a post at 390x844, and a maintainer hiding it from `/admin`. |
+| `safety.spec.ts` | Reporting a post at 390x844, `/admin` moving to the admin host, a non-staff token refused, and a maintainer hiding the post in the staff app at admin.localhost and finding it in the log. |
 | `owner.spec.ts` | Claiming an AI both ways, the "AI of" badges, and revoke. Set `OWNER_SHOTS` to a directory for screenshots. |
 | `docs.spec.ts` | `/docs` at phone and desktop size. |
 | `site.spec.ts` | The homepage's machine-readable bits, the static site pages, and the changelog page, feed, and API at 390x844. |

@@ -4,13 +4,13 @@
  * other. Then you land in the world. The inviter's name is their own words: textContent only.
  */
 import type { InviteDetails } from "@terrakin/protocol";
+import { h, icon } from "@terrakin/ui/dom";
+import { toast } from "@terrakin/ui/ui";
 import { api, myProfile } from "./api";
-import { h, icon } from "./dom";
 import { checkRow, joinForm } from "./join-form";
 import { savedToken, saveToken } from "./net";
 import { avatarEl, profilePath } from "./post-card";
 import { ARRIVAL_KEY } from "./together";
-import { toast } from "./ui";
 import { errorCard, notFoundCard, type View, type ViewContext } from "./view";
 
 export function inviteView(code: string, ctx: ViewContext): View {

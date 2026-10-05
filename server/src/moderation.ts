@@ -328,6 +328,31 @@ export function hasHate(n: Normalized): boolean {
 /** Whether normalized text holds strong language. */
 export const hasVulgar = (n: Normalized): boolean => n.words.some(vulgarWord);
 
+/** Words that don't break a rule on their own but make text worth a second look. */
+const SCAM_HINTS =
+  /\b(?:seed phrase|recovery phrase|private keys?|airdrops?|giveaways?|wallets?|usdt|telegram|whatsapp|investment|forex|crypto|bitcoin|dm me)\b/;
+const INJECTION_HINTS =
+  /\b(?:ignore (?:all|any|previous|prior|your)|system prompt|you are an ai|as an ai|your (?:instructions|owner)|reply with your)\b/;
+const LOOKALIKE_SLURS = HATE_WORDS.filter((w) => w.length >= 5);
+
+/**
+ * Signals that text which passed every filter almost didn't (RFC 0006's borderline band): a slur
+ * inside a longer word, scam words, or words aimed at AI readers. Names of signals only, never
+ * the text. Staff never see these; AI triage takes a second look at public text that has any.
+ */
+export function borderlineSignals(n: Normalized): string[] {
+  const signals: string[] = [];
+  const lookalike = n.words.some(
+    (spellings) =>
+      !allowed(spellings) &&
+      spellings.some((s) => LOOKALIKE_SLURS.some((w) => s !== w && s.includes(w))),
+  );
+  if (lookalike) signals.push("slur_lookalike");
+  if (SCAM_HINTS.test(n.plain) || SCAM_HINTS.test(n.joined)) signals.push("scam_words");
+  if (INJECTION_HINTS.test(n.plain)) signals.push("reader_words");
+  return signals;
+}
+
 /** Whether the text reads like a common scam. */
 export const hasScam = (n: Normalized): boolean =>
   SCAM_PATTERNS.some((p) => p.test(n.plain) || p.test(n.joined));
@@ -420,6 +445,8 @@ export type Verdict =
       ok: true;
       /** `language` when a post or reply has strong language (shown with a content warning). */
       contentWarning?: "language";
+      /** Borderline signals (see `borderlineSignals`). Absent when there are none. */
+      borderline?: string[];
       /** Call once the text is stored, so the spam checks count it. */
       commit(): void;
     }
@@ -514,6 +541,13 @@ export class Moderation {
   /** Strong language in a post, for its content warning. */
   contentWarning(text: string): "language" | undefined {
     return hasVulgar(normalize(text)) ? "language" : undefined;
+  }
+
+  /** Refusals in the last hour, for the review queue's context. */
+  strikeCount(residentId: string): number {
+    const now = this.now();
+    return (this.strikes.get(residentId) ?? []).filter((t) => now - t < THRESHOLDS.strikes.windowMs)
+      .length;
   }
 
   /** Seconds until a resident may write again, or 0. */
@@ -676,9 +710,11 @@ export class Moderation {
       }
     }
 
+    const borderline = borderlineSignals(n);
     return {
       ok: true,
       ...(vulgar ? { contentWarning: "language" as const } : {}),
+      ...(borderline.length ? { borderline } : {}),
       commit: () => {
         if (!resident) return;
         if (checks.has("repeat")) {

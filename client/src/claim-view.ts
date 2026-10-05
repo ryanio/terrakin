@@ -5,8 +5,8 @@
  * words: textContent only.
  */
 import type { OwnerInviteView, ProfileView } from "@terrakin/protocol";
+import { h, icon } from "@terrakin/ui/dom";
 import { api, myProfile } from "./api";
-import { h, icon } from "./dom";
 import { joinForm } from "./join-form";
 import { saveToken } from "./net";
 import { aiBadge, avatarEl, profilePath } from "./post-card";

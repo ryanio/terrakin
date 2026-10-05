@@ -5,6 +5,8 @@
  * shape, and the neighbors' ground melts into the haze. A resident's own home model or picture,
  * when they have one, stands on the plot too.
  */
+
+import { isModelResource } from "@terrakin/ui/format";
 import {
   Box3,
   BufferAttribute,
@@ -36,7 +38,6 @@ import {
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
-import { isModelResource } from "../format";
 import {
   addWind,
   bakeShade,

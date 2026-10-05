@@ -3,6 +3,8 @@
  * the walls, jam jars on pedestals, and a potted lemon tree. It shows off the art direction, and
  * `?item=` admires one item up close on a soft ground disc.
  */
+
+import { isModelResource } from "@terrakin/ui/format";
 import {
   BufferAttribute,
   CircleGeometry,
@@ -16,7 +18,6 @@ import {
   Vector3,
 } from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
-import { isModelResource } from "../format";
 import { bakeShade, grainTexture, lin, noShade, paper, plankTexture, type Stage } from "./art";
 import { type GalleryRequest, jamFlavor } from "./catalog";
 import {

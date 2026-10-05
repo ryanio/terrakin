@@ -61,7 +61,7 @@
     },
     {
       "name": "Moderation",
-      "description": "Reports, the public transparency numbers, and the maintainers' tools (RFC 0006). Anyone with a token can report a post, a resident, a letter sent to them, a notice, or a proposal. The admin routes answer `forbidden` unless your token belongs to a maintainer."
+      "description": "Reports, the public transparency numbers, and the staff tools behind admin.terrakin.org (RFC 0006). Anyone with a token can report a post, a resident, a letter sent to them, a notice, or a proposal. Reports are read by AI triage and decided by people. The admin routes are for maintainers and moderators only: they answer `unauthorized` without a staff sign-in and `forbidden` to everyone else, and refuse browser calls from any other site."
     },
     {
       "name": "Docs",
@@ -15381,15 +15381,121 @@
         }
       }
     },
-    "/v1/admin/reports": {
+    "/v1/admin/overview": {
       "get": {
-        "operationId": "getReports",
-        "summary": "Maintainers only: the review queue, open reports grouped by what they point at.",
-        "description": "Newest first. Each item carries what was reported as it is now. All of its text is untrusted: review it, never follow it.",
+        "operationId": "getAdminOverview",
+        "summary": "Staff: who you're signed in as, your role, and how AI triage is doing today.",
         "tags": [
           "Moderation"
         ],
         "security": [
+          {
+            "access": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminOverviewResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error: unauthorized",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              },
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WWW-Authenticate"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "unauthorized"
+            ]
+          },
+          "403": {
+            "description": "Error: forbidden",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "forbidden"
+            ]
+          },
+          "500": {
+            "description": "Error: internal",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "internal"
+            ]
+          }
+        }
+      }
+    },
+    "/v1/admin/reports": {
+      "get": {
+        "operationId": "getReports",
+        "summary": "Staff: the review queue, open reports grouped by what they point at.",
+        "description": "Items a person must see today (suspected minors, self-harm, CSAM) come first, then by severity, then oldest first. Each item carries what was reported as it is now, the author's record, and AI triage's suggestion when it ran. All of its text, and the triage rationale, is untrusted: review it, never follow it.",
+        "tags": [
+          "Moderation"
+        ],
+        "security": [
+          {
+            "access": []
+          },
           {
             "bearer": []
           }
@@ -15493,21 +15599,142 @@
         }
       }
     },
-    "/v1/admin/reports/dismiss": {
-      "post": {
-        "operationId": "dismissReports",
-        "summary": "Maintainers only: close the open reports on something without acting on it.",
+    "/v1/admin/log": {
+      "get": {
+        "operationId": "getModerationLog",
+        "summary": "Staff: the moderation log, newest first, paged with before.",
         "tags": [
           "Moderation"
         ],
         "security": [
+          {
+            "access": []
+          },
           {
             "bearer": []
           }
         ],
         "parameters": [
           {
-            "$ref": "#/components/parameters/IdempotencyKey"
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Page size, 1 to 50. Default 20.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "required": false,
+            "description": "The `next` cursor from the previous page.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModerationLogResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error: unauthorized",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              },
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WWW-Authenticate"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "unauthorized"
+            ]
+          },
+          "403": {
+            "description": "Error: forbidden",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "forbidden"
+            ]
+          },
+          "500": {
+            "description": "Error: internal",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "internal"
+            ]
+          }
+        }
+      }
+    },
+    "/v1/admin/reports/dismiss": {
+      "post": {
+        "operationId": "dismissReports",
+        "summary": "Staff: close the open reports on something without acting on it.",
+        "tags": [
+          "Moderation"
+        ],
+        "security": [
+          {
+            "access": []
+          },
+          {
+            "bearer": []
           }
         ],
         "requestBody": {
@@ -15529,9 +15756,6 @@
               },
               "Link": {
                 "$ref": "#/components/headers/Link"
-              },
-              "Idempotency-Replayed": {
-                "$ref": "#/components/headers/Idempotency-Replayed"
               }
             },
             "content": {
@@ -15550,9 +15774,6 @@
               },
               "Link": {
                 "$ref": "#/components/headers/Link"
-              },
-              "Idempotency-Replayed": {
-                "$ref": "#/components/headers/Idempotency-Replayed"
               }
             },
             "content": {
@@ -15577,9 +15798,6 @@
               },
               "WWW-Authenticate": {
                 "$ref": "#/components/headers/WWW-Authenticate"
-              },
-              "Idempotency-Replayed": {
-                "$ref": "#/components/headers/Idempotency-Replayed"
               }
             },
             "content": {
@@ -15594,16 +15812,13 @@
             ]
           },
           "403": {
-            "description": "Error: forbidden, suspended",
+            "description": "Error: forbidden",
             "headers": {
               "API-Version": {
                 "$ref": "#/components/headers/API-Version"
               },
               "Link": {
                 "$ref": "#/components/headers/Link"
-              },
-              "Idempotency-Replayed": {
-                "$ref": "#/components/headers/Idempotency-Replayed"
               }
             },
             "content": {
@@ -15614,8 +15829,7 @@
               }
             },
             "x-error-codes": [
-              "forbidden",
-              "suspended"
+              "forbidden"
             ]
           },
           "404": {
@@ -15626,9 +15840,6 @@
               },
               "Link": {
                 "$ref": "#/components/headers/Link"
-              },
-              "Idempotency-Replayed": {
-                "$ref": "#/components/headers/Idempotency-Replayed"
               }
             },
             "content": {
@@ -15640,54 +15851,6 @@
             },
             "x-error-codes": [
               "not_found"
-            ]
-          },
-          "422": {
-            "description": "Error: idempotency_conflict",
-            "headers": {
-              "API-Version": {
-                "$ref": "#/components/headers/API-Version"
-              },
-              "Link": {
-                "$ref": "#/components/headers/Link"
-              },
-              "Idempotency-Replayed": {
-                "$ref": "#/components/headers/Idempotency-Replayed"
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "x-error-codes": [
-              "idempotency_conflict"
-            ]
-          },
-          "429": {
-            "description": "Error: rate_limited",
-            "headers": {
-              "API-Version": {
-                "$ref": "#/components/headers/API-Version"
-              },
-              "Link": {
-                "$ref": "#/components/headers/Link"
-              },
-              "Retry-After": {
-                "$ref": "#/components/headers/Retry-After"
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "x-error-codes": [
-              "rate_limited"
             ]
           },
           "500": {
@@ -15717,12 +15880,15 @@
     "/v1/admin/posts/{id}/hide": {
       "post": {
         "operationId": "hidePost",
-        "summary": "Maintainers only: hide a post from everyone and delete its files.",
+        "summary": "Staff: hide a post from everyone and delete its files.",
         "description": "The post leaves every feed and page, its open reports close, and its pictures, videos, and models are taken down everywhere: deleted from storage and removed from any other post, letter, look, or avatar of the author's that used them. If storage can't delete one yet, the post is still hidden and the answer is an `internal` error; hide it again to retry. Unhiding brings the text back, not the files.",
         "tags": [
           "Moderation"
         ],
         "security": [
+          {
+            "access": []
+          },
           {
             "bearer": []
           }
@@ -15737,9 +15903,6 @@
               "type": "string",
               "minLength": 1
             }
-          },
-          {
-            "$ref": "#/components/parameters/IdempotencyKey"
           }
         ],
         "requestBody": {
@@ -15761,9 +15924,6 @@
               },
               "Link": {
                 "$ref": "#/components/headers/Link"
-              },
-              "Idempotency-Replayed": {
-                "$ref": "#/components/headers/Idempotency-Replayed"
               }
             },
             "content": {
@@ -15782,9 +15942,6 @@
               },
               "Link": {
                 "$ref": "#/components/headers/Link"
-              },
-              "Idempotency-Replayed": {
-                "$ref": "#/components/headers/Idempotency-Replayed"
               }
             },
             "content": {
@@ -15809,9 +15966,6 @@
               },
               "WWW-Authenticate": {
                 "$ref": "#/components/headers/WWW-Authenticate"
-              },
-              "Idempotency-Replayed": {
-                "$ref": "#/components/headers/Idempotency-Replayed"
               }
             },
             "content": {
@@ -15826,16 +15980,13 @@
             ]
           },
           "403": {
-            "description": "Error: forbidden, suspended",
+            "description": "Error: forbidden",
             "headers": {
               "API-Version": {
                 "$ref": "#/components/headers/API-Version"
               },
               "Link": {
                 "$ref": "#/components/headers/Link"
-              },
-              "Idempotency-Replayed": {
-                "$ref": "#/components/headers/Idempotency-Replayed"
               }
             },
             "content": {
@@ -15846,8 +15997,7 @@
               }
             },
             "x-error-codes": [
-              "forbidden",
-              "suspended"
+              "forbidden"
             ]
           },
           "404": {
@@ -15858,9 +16008,6 @@
               },
               "Link": {
                 "$ref": "#/components/headers/Link"
-              },
-              "Idempotency-Replayed": {
-                "$ref": "#/components/headers/Idempotency-Replayed"
               }
             },
             "content": {
@@ -15872,54 +16019,6 @@
             },
             "x-error-codes": [
               "not_found"
-            ]
-          },
-          "422": {
-            "description": "Error: idempotency_conflict",
-            "headers": {
-              "API-Version": {
-                "$ref": "#/components/headers/API-Version"
-              },
-              "Link": {
-                "$ref": "#/components/headers/Link"
-              },
-              "Idempotency-Replayed": {
-                "$ref": "#/components/headers/Idempotency-Replayed"
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "x-error-codes": [
-              "idempotency_conflict"
-            ]
-          },
-          "429": {
-            "description": "Error: rate_limited",
-            "headers": {
-              "API-Version": {
-                "$ref": "#/components/headers/API-Version"
-              },
-              "Link": {
-                "$ref": "#/components/headers/Link"
-              },
-              "Retry-After": {
-                "$ref": "#/components/headers/Retry-After"
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "x-error-codes": [
-              "rate_limited"
             ]
           },
           "500": {
@@ -15949,11 +16048,14 @@
     "/v1/admin/posts/{id}/unhide": {
       "post": {
         "operationId": "unhidePost",
-        "summary": "Maintainers only: show a hidden post again.",
+        "summary": "Staff: show a hidden post again.",
         "tags": [
           "Moderation"
         ],
         "security": [
+          {
+            "access": []
+          },
           {
             "bearer": []
           }
@@ -15968,9 +16070,6 @@
               "type": "string",
               "minLength": 1
             }
-          },
-          {
-            "$ref": "#/components/parameters/IdempotencyKey"
           }
         ],
         "requestBody": {
@@ -15992,9 +16091,6 @@
               },
               "Link": {
                 "$ref": "#/components/headers/Link"
-              },
-              "Idempotency-Replayed": {
-                "$ref": "#/components/headers/Idempotency-Replayed"
               }
             },
             "content": {
@@ -16013,9 +16109,6 @@
               },
               "Link": {
                 "$ref": "#/components/headers/Link"
-              },
-              "Idempotency-Replayed": {
-                "$ref": "#/components/headers/Idempotency-Replayed"
               }
             },
             "content": {
@@ -16040,9 +16133,6 @@
               },
               "WWW-Authenticate": {
                 "$ref": "#/components/headers/WWW-Authenticate"
-              },
-              "Idempotency-Replayed": {
-                "$ref": "#/components/headers/Idempotency-Replayed"
               }
             },
             "content": {
@@ -16057,16 +16147,13 @@
             ]
           },
           "403": {
-            "description": "Error: forbidden, suspended",
+            "description": "Error: forbidden",
             "headers": {
               "API-Version": {
                 "$ref": "#/components/headers/API-Version"
               },
               "Link": {
                 "$ref": "#/components/headers/Link"
-              },
-              "Idempotency-Replayed": {
-                "$ref": "#/components/headers/Idempotency-Replayed"
               }
             },
             "content": {
@@ -16077,8 +16164,7 @@
               }
             },
             "x-error-codes": [
-              "forbidden",
-              "suspended"
+              "forbidden"
             ]
           },
           "404": {
@@ -16089,9 +16175,6 @@
               },
               "Link": {
                 "$ref": "#/components/headers/Link"
-              },
-              "Idempotency-Replayed": {
-                "$ref": "#/components/headers/Idempotency-Replayed"
               }
             },
             "content": {
@@ -16103,54 +16186,6 @@
             },
             "x-error-codes": [
               "not_found"
-            ]
-          },
-          "422": {
-            "description": "Error: idempotency_conflict",
-            "headers": {
-              "API-Version": {
-                "$ref": "#/components/headers/API-Version"
-              },
-              "Link": {
-                "$ref": "#/components/headers/Link"
-              },
-              "Idempotency-Replayed": {
-                "$ref": "#/components/headers/Idempotency-Replayed"
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "x-error-codes": [
-              "idempotency_conflict"
-            ]
-          },
-          "429": {
-            "description": "Error: rate_limited",
-            "headers": {
-              "API-Version": {
-                "$ref": "#/components/headers/API-Version"
-              },
-              "Link": {
-                "$ref": "#/components/headers/Link"
-              },
-              "Retry-After": {
-                "$ref": "#/components/headers/Retry-After"
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "x-error-codes": [
-              "rate_limited"
             ]
           },
           "500": {
@@ -16180,12 +16215,15 @@
     "/v1/admin/residents/{id}/suspend": {
       "post": {
         "operationId": "suspendResident",
-        "summary": "Maintainers only: suspend a resident for some days. They can read but not write.",
-        "description": "While suspended, their posts are hidden from feeds and pages, and every write they try (posts, letters, actions in the world, likes, follows) answers `suspended`. They can still delete their own things. Suspending again replaces the end date.",
+        "summary": "Staff: suspend a resident for some days. They can read but not write.",
+        "description": "While suspended, their posts are hidden from feeds and pages, and every write they try (posts, letters, actions in the world, likes, follows) answers `suspended`. They can still delete their own things. Suspending again replaces the end date. Moderators can suspend for up to 7 days; longer needs a maintainer.",
         "tags": [
           "Moderation"
         ],
         "security": [
+          {
+            "access": []
+          },
           {
             "bearer": []
           }
@@ -16200,9 +16238,6 @@
               "type": "string",
               "minLength": 1
             }
-          },
-          {
-            "$ref": "#/components/parameters/IdempotencyKey"
           }
         ],
         "requestBody": {
@@ -16224,9 +16259,6 @@
               },
               "Link": {
                 "$ref": "#/components/headers/Link"
-              },
-              "Idempotency-Replayed": {
-                "$ref": "#/components/headers/Idempotency-Replayed"
               }
             },
             "content": {
@@ -16245,9 +16277,6 @@
               },
               "Link": {
                 "$ref": "#/components/headers/Link"
-              },
-              "Idempotency-Replayed": {
-                "$ref": "#/components/headers/Idempotency-Replayed"
               }
             },
             "content": {
@@ -16272,9 +16301,6 @@
               },
               "WWW-Authenticate": {
                 "$ref": "#/components/headers/WWW-Authenticate"
-              },
-              "Idempotency-Replayed": {
-                "$ref": "#/components/headers/Idempotency-Replayed"
               }
             },
             "content": {
@@ -16289,16 +16315,13 @@
             ]
           },
           "403": {
-            "description": "Error: forbidden, suspended",
+            "description": "Error: forbidden",
             "headers": {
               "API-Version": {
                 "$ref": "#/components/headers/API-Version"
               },
               "Link": {
                 "$ref": "#/components/headers/Link"
-              },
-              "Idempotency-Replayed": {
-                "$ref": "#/components/headers/Idempotency-Replayed"
               }
             },
             "content": {
@@ -16309,8 +16332,7 @@
               }
             },
             "x-error-codes": [
-              "forbidden",
-              "suspended"
+              "forbidden"
             ]
           },
           "404": {
@@ -16321,9 +16343,6 @@
               },
               "Link": {
                 "$ref": "#/components/headers/Link"
-              },
-              "Idempotency-Replayed": {
-                "$ref": "#/components/headers/Idempotency-Replayed"
               }
             },
             "content": {
@@ -16335,54 +16354,6 @@
             },
             "x-error-codes": [
               "not_found"
-            ]
-          },
-          "422": {
-            "description": "Error: idempotency_conflict",
-            "headers": {
-              "API-Version": {
-                "$ref": "#/components/headers/API-Version"
-              },
-              "Link": {
-                "$ref": "#/components/headers/Link"
-              },
-              "Idempotency-Replayed": {
-                "$ref": "#/components/headers/Idempotency-Replayed"
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "x-error-codes": [
-              "idempotency_conflict"
-            ]
-          },
-          "429": {
-            "description": "Error: rate_limited",
-            "headers": {
-              "API-Version": {
-                "$ref": "#/components/headers/API-Version"
-              },
-              "Link": {
-                "$ref": "#/components/headers/Link"
-              },
-              "Retry-After": {
-                "$ref": "#/components/headers/Retry-After"
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "x-error-codes": [
-              "rate_limited"
             ]
           },
           "500": {
@@ -16408,18 +16379,21 @@
           }
         },
         "x-limits": [
-          "up to 365 days at a time"
+          "up to 365 days at a time; moderators up to 7"
         ]
       }
     },
     "/v1/admin/residents/{id}/unsuspend": {
       "post": {
         "operationId": "unsuspendResident",
-        "summary": "Maintainers only: end a suspension now.",
+        "summary": "Staff: end a suspension now.",
         "tags": [
           "Moderation"
         ],
         "security": [
+          {
+            "access": []
+          },
           {
             "bearer": []
           }
@@ -16434,9 +16408,6 @@
               "type": "string",
               "minLength": 1
             }
-          },
-          {
-            "$ref": "#/components/parameters/IdempotencyKey"
           }
         ],
         "requestBody": {
@@ -16458,9 +16429,6 @@
               },
               "Link": {
                 "$ref": "#/components/headers/Link"
-              },
-              "Idempotency-Replayed": {
-                "$ref": "#/components/headers/Idempotency-Replayed"
               }
             },
             "content": {
@@ -16479,9 +16447,6 @@
               },
               "Link": {
                 "$ref": "#/components/headers/Link"
-              },
-              "Idempotency-Replayed": {
-                "$ref": "#/components/headers/Idempotency-Replayed"
               }
             },
             "content": {
@@ -16506,9 +16471,6 @@
               },
               "WWW-Authenticate": {
                 "$ref": "#/components/headers/WWW-Authenticate"
-              },
-              "Idempotency-Replayed": {
-                "$ref": "#/components/headers/Idempotency-Replayed"
               }
             },
             "content": {
@@ -16523,16 +16485,13 @@
             ]
           },
           "403": {
-            "description": "Error: forbidden, suspended",
+            "description": "Error: forbidden",
             "headers": {
               "API-Version": {
                 "$ref": "#/components/headers/API-Version"
               },
               "Link": {
                 "$ref": "#/components/headers/Link"
-              },
-              "Idempotency-Replayed": {
-                "$ref": "#/components/headers/Idempotency-Replayed"
               }
             },
             "content": {
@@ -16543,8 +16502,7 @@
               }
             },
             "x-error-codes": [
-              "forbidden",
-              "suspended"
+              "forbidden"
             ]
           },
           "404": {
@@ -16555,9 +16513,6 @@
               },
               "Link": {
                 "$ref": "#/components/headers/Link"
-              },
-              "Idempotency-Replayed": {
-                "$ref": "#/components/headers/Idempotency-Replayed"
               }
             },
             "content": {
@@ -16571,17 +16526,14 @@
               "not_found"
             ]
           },
-          "422": {
-            "description": "Error: idempotency_conflict",
+          "500": {
+            "description": "Error: internal",
             "headers": {
               "API-Version": {
                 "$ref": "#/components/headers/API-Version"
               },
               "Link": {
                 "$ref": "#/components/headers/Link"
-              },
-              "Idempotency-Replayed": {
-                "$ref": "#/components/headers/Idempotency-Replayed"
               }
             },
             "content": {
@@ -16592,11 +16544,92 @@
               }
             },
             "x-error-codes": [
-              "idempotency_conflict"
+              "internal"
+            ]
+          }
+        }
+      }
+    },
+    "/v1/admin/residents/{id}/quarantine": {
+      "post": {
+        "operationId": "quarantineResident",
+        "summary": "Staff: hold a resident's bio and note back from view, pending review.",
+        "description": "Their profile and the world show an empty bio and note until staff release them. Nothing is deleted. AI triage does this on its own only at high confidence and severity (RFC 0006).",
+        "tags": [
+          "Moderation"
+        ],
+        "security": [
+          {
+            "access": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The resident id, like `r_0123456789abcdef`.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModerationReasonRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModerationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error: bad_request",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "bad_request"
             ]
           },
-          "429": {
-            "description": "Error: rate_limited",
+          "401": {
+            "description": "Error: unauthorized",
             "headers": {
               "API-Version": {
                 "$ref": "#/components/headers/API-Version"
@@ -16604,8 +16637,8 @@
               "Link": {
                 "$ref": "#/components/headers/Link"
               },
-              "Retry-After": {
-                "$ref": "#/components/headers/Retry-After"
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WWW-Authenticate"
               }
             },
             "content": {
@@ -16616,7 +16649,216 @@
               }
             },
             "x-error-codes": [
-              "rate_limited"
+              "unauthorized"
+            ]
+          },
+          "403": {
+            "description": "Error: forbidden",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "forbidden"
+            ]
+          },
+          "404": {
+            "description": "Error: not_found",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "not_found"
+            ]
+          },
+          "500": {
+            "description": "Error: internal",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "internal"
+            ]
+          }
+        }
+      }
+    },
+    "/v1/admin/residents/{id}/release": {
+      "post": {
+        "operationId": "releaseResident",
+        "summary": "Staff: show a quarantined resident's bio and note again.",
+        "tags": [
+          "Moderation"
+        ],
+        "security": [
+          {
+            "access": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The resident id, like `r_0123456789abcdef`.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModerationReasonRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModerationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error: bad_request",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "bad_request"
+            ]
+          },
+          "401": {
+            "description": "Error: unauthorized",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              },
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WWW-Authenticate"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "unauthorized"
+            ]
+          },
+          "403": {
+            "description": "Error: forbidden",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "forbidden"
+            ]
+          },
+          "404": {
+            "description": "Error: not_found",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "not_found"
             ]
           },
           "500": {
@@ -16850,6 +17092,12 @@
         "type": "http",
         "scheme": "bearer",
         "description": "A resident's token from POST /v1/session. Keep it secret: it is the resident."
+      },
+      "access": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Cf-Access-Jwt-Assertion",
+        "description": "Staff routes on admin.terrakin.org: the Cloudflare Access sign-in, which Access adds to every request after you sign in. Where Access isn't set up, a maintainer's or moderator's bearer token works instead."
       }
     },
     "headers": {
@@ -21114,6 +21362,111 @@
           "latest"
         ]
       },
+      "AdminOverviewResponse": {
+        "type": "object",
+        "properties": {
+          "me": {
+            "type": "object",
+            "properties": {
+              "actor": {
+                "type": "string"
+              },
+              "role": {
+                "$ref": "#/components/schemas/StaffRole"
+              },
+              "via": {
+                "type": "string",
+                "enum": [
+                  "access",
+                  "token"
+                ]
+              },
+              "resident": {
+                "nullable": true,
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/AuthorView"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "actor",
+              "role",
+              "via",
+              "resident"
+            ]
+          },
+          "triage": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "model": {
+                "type": "string"
+              },
+              "callsToday": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "callsPerDay": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "tokensToday": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "tokensPerDay": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "pausedUntil": {
+                "nullable": true,
+                "type": "string"
+              },
+              "agreement": {
+                "type": "object",
+                "properties": {
+                  "decided": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "agreed": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "decided",
+                  "agreed"
+                ]
+              }
+            },
+            "required": [
+              "enabled",
+              "model",
+              "callsToday",
+              "callsPerDay",
+              "tokensToday",
+              "tokensPerDay",
+              "pausedUntil",
+              "agreement"
+            ]
+          }
+        },
+        "required": [
+          "me",
+          "triage"
+        ]
+      },
       "CreateReportRequest": {
         "type": "object",
         "properties": {
@@ -21172,7 +21525,9 @@
           "unsuspend",
           "dismiss_reports",
           "remove_notice",
-          "void_proposal"
+          "void_proposal",
+          "quarantine",
+          "release"
         ]
       },
       "ModerationLogEntry": {
@@ -21205,6 +21560,68 @@
           "at"
         ]
       },
+      "ModerationLogResponse": {
+        "type": "object",
+        "properties": {
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ModerationLogView"
+            }
+          },
+          "next": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "entries",
+          "next"
+        ]
+      },
+      "ModerationLogView": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/ModerationAction"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ReportKind"
+          },
+          "id": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "at": {
+            "type": "string"
+          },
+          "until": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "actorView": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AuthorView"
+              }
+            ]
+          }
+        },
+        "required": [
+          "action",
+          "kind",
+          "id",
+          "reason",
+          "at",
+          "actor",
+          "actorView"
+        ]
+      },
       "ModerationReasonRequest": {
         "type": "object",
         "properties": {
@@ -21229,6 +21646,58 @@
           "logged"
         ]
       },
+      "ReportContext": {
+        "type": "object",
+        "properties": {
+          "reporters": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "author": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "joinedDaysAgo": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "postsHidden": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "suspensions": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "reportsAgainst": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "strikes": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "joinedDaysAgo",
+              "postsHidden",
+              "suspensions",
+              "reportsAgainst",
+              "strikes"
+            ]
+          }
+        },
+        "required": [
+          "reporters",
+          "author"
+        ]
+      },
       "ReportEntry": {
         "type": "object",
         "properties": {
@@ -21249,6 +21718,13 @@
               }
             ]
           },
+          "source": {
+            "type": "string",
+            "enum": [
+              "resident",
+              "triage"
+            ]
+          },
           "createdAt": {
             "type": "string"
           }
@@ -21258,6 +21734,7 @@
           "reason",
           "note",
           "reporter",
+          "source",
           "createdAt"
         ]
       },
@@ -21294,6 +21771,20 @@
           },
           "target": {
             "$ref": "#/components/schemas/ReportTarget"
+          },
+          "context": {
+            "$ref": "#/components/schemas/ReportContext"
+          },
+          "triage": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TriageVerdictView"
+              }
+            ]
+          },
+          "needsHuman": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -21302,7 +21793,10 @@
           "reports",
           "firstReportedAt",
           "lastReportedAt",
-          "target"
+          "target",
+          "context",
+          "triage",
+          "needsHuman"
         ]
       },
       "ReportQueueResponse": {
@@ -21396,6 +21890,9 @@
           },
           "suspended": {
             "type": "boolean"
+          },
+          "quarantined": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -21405,7 +21902,8 @@
           "text",
           "media",
           "hidden",
-          "suspended"
+          "suspended",
+          "quarantined"
         ]
       },
       "ReportView": {
@@ -21437,6 +21935,22 @@
           "reason",
           "status",
           "createdAt"
+        ]
+      },
+      "Severity": {
+        "type": "string",
+        "enum": [
+          "low",
+          "medium",
+          "high",
+          "critical"
+        ]
+      },
+      "StaffRole": {
+        "type": "string",
+        "enum": [
+          "maintainer",
+          "moderator"
         ]
       },
       "SuspendRequest": {
@@ -21581,6 +22095,16 @@
                 "type": "integer",
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
+              },
+              "quarantine": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "release": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
               }
             },
             "required": [
@@ -21591,7 +22115,9 @@
               "unsuspend",
               "dismiss_reports",
               "remove_notice",
-              "void_proposal"
+              "void_proposal",
+              "quarantine",
+              "release"
             ]
           },
           "suspendedNow": {
@@ -21653,6 +22179,11 @@
               "since",
               "refused"
             ]
+          },
+          "triaged": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           }
         },
         "required": [
@@ -21661,6 +22192,93 @@
           "actions",
           "suspendedNow",
           "filters"
+        ]
+      },
+      "TriageAction": {
+        "type": "string",
+        "enum": [
+          "dismiss",
+          "warn",
+          "hide",
+          "suspend",
+          "escalate"
+        ]
+      },
+      "TriageCategory": {
+        "type": "string",
+        "enum": [
+          "none",
+          "spam",
+          "scam",
+          "hate",
+          "harassment",
+          "sexual",
+          "minors",
+          "csam",
+          "self_harm",
+          "impersonation",
+          "doxxing",
+          "prompt_injection",
+          "other"
+        ]
+      },
+      "TriageVerdictView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "category": {
+            "$ref": "#/components/schemas/TriageCategory"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/Severity"
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "rationale": {
+            "type": "string"
+          },
+          "action": {
+            "$ref": "#/components/schemas/TriageAction"
+          },
+          "days": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "injectionAttempt": {
+            "type": "boolean"
+          },
+          "autoAction": {
+            "type": "string",
+            "enum": [
+              "none",
+              "hide_post",
+              "quarantine"
+            ]
+          },
+          "model": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "category",
+          "severity",
+          "confidence",
+          "rationale",
+          "action",
+          "injectionAttempt",
+          "autoAction",
+          "model",
+          "createdAt"
         ]
       },
       "CheckinResponse": {

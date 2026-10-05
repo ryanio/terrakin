@@ -16,10 +16,10 @@ import {
   THEMES,
   type Theme,
 } from "@terrakin/sim";
-import { h, icon } from "./dom";
-import { hasLook, paintFigure } from "./figure";
-import { initial } from "./format";
-import { lookPalette } from "./looks";
+import { h, icon } from "@terrakin/ui/dom";
+import { hasLook, paintFigure } from "@terrakin/ui/figure";
+import { initial } from "@terrakin/ui/format";
+import { lookPalette } from "@terrakin/ui/looks";
 
 export interface JoinChoice {
   name: string;

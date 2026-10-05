@@ -11,6 +11,26 @@ import { closeOverlay, openOverlay } from "./ui";
 /** Natural sizes we've seen, so a re-rendered single image gets its real shape with no jump. */
 const knownAspect = new Map<string, number>();
 
+/** What a 3D viewer module offers (the app's `model-viewer.ts`). */
+export interface ModelViewer {
+  showModel(
+    host: HTMLElement,
+    url: string,
+    events: { onLoaded(): void; onError(): void },
+  ): () => void;
+}
+
+let loadModelViewer: (() => Promise<ModelViewer>) | undefined;
+
+/**
+ * Say how to load the 3D viewer. The app passes `() => import("./model-viewer")`, so three.js stays
+ * in its own chunk and only loads when someone opens a model (decision 0013). Without it, models
+ * say they can't be shown here.
+ */
+export function useModelViewer(load: () => Promise<ModelViewer>) {
+  loadModelViewer = load;
+}
+
 export function mediaGrid(media: readonly MediaView[], label: string): HTMLElement | null {
   // Only URLs shaped exactly like ours reach an img, video, or the model loader.
   const { layout, items } = mediaLayout(media.filter((m) => isMediaUrl(m.url)));
@@ -200,7 +220,8 @@ export async function openModelViewer(url: string) {
   });
   closeBtn.focus();
   try {
-    const { showModel } = await import("./model-viewer");
+    if (!loadModelViewer) throw new Error("No 3D viewer here");
+    const { showModel } = await loadModelViewer();
     if (closed) return;
     dispose = showModel(host, url, {
       onLoaded: () => {

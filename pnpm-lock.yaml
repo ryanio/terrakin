@@ -36,6 +36,28 @@ importers:
         specifier: 4.147.0
         version: 4.147.0(@cloudflare/workers-types@5.20261004.1)(@types/node@22.20.5)
 
+  admin:
+    dependencies:
+      '@fontsource-variable/figtree':
+        specifier: 5.3.0
+        version: 5.3.0
+      '@fontsource-variable/fraunces':
+        specifier: 5.3.0
+        version: 5.3.0
+      '@terrakin/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+      '@terrakin/ui':
+        specifier: workspace:*
+        version: link:../ui
+      zod:
+        specifier: 4.6.5
+        version: 4.6.5
+    devDependencies:
+      vite:
+        specifier: 8.3.2
+        version: 8.3.2(@types/node@24.19.1)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1)
+
   cards:
     dependencies:
       '@fontsource/figtree':
@@ -78,6 +100,9 @@ importers:
       '@terrakin/sim':
         specifier: workspace:*
         version: link:../sim
+      '@terrakin/ui':
+        specifier: workspace:*
+        version: link:../ui
       three:
         specifier: 0.186.1
         version: 0.186.1
@@ -124,6 +149,9 @@ importers:
       ws:
         specifier: 8.22.0
         version: 8.22.0
+      zod:
+        specifier: 4.6.5
+        version: 4.6.5
     devDependencies:
       '@types/node':
         specifier: ^22.20.5
@@ -133,6 +161,15 @@ importers:
         version: 8.18.2
 
   sim: {}
+
+  ui:
+    dependencies:
+      '@terrakin/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+      '@terrakin/sim':
+        specifier: workspace:*
+        version: link:../sim
 
 packages:
 

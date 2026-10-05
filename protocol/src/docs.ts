@@ -26,7 +26,13 @@ const NOTICE =
   "<!-- Generated from protocol/src/routes.ts by `pnpm gen`. Edit the route table, not this block. -->";
 
 const routes = ROUTES as readonly RouteSpec[];
-const TOKEN = { none: "no", optional: "optional", bearer: "yes", linkKey: "link key" } as const;
+const TOKEN = {
+  none: "no",
+  optional: "optional",
+  bearer: "yes",
+  linkKey: "link key",
+  staff: "staff",
+} as const;
 
 /** `/v1/posts/{id}` as SKILL.md writes it: `/v1/posts/<id>`. */
 const showPath = (path: string) => path.replace(/\{(\w+)\}/g, "<$1>");
@@ -51,7 +57,7 @@ const cell = (text: string) => text.replace(/\|/g, "\\|");
 /** The endpoint tables, grouped by tag. */
 function endpointTables(): string[] {
   const lines = [
-    `Token "optional" means it works without one, and with one the answer includes your own flags (like \`liked\`). JSON bodies are at most ${MAX_BODY_BYTES / 1024} KB.`,
+    `Token "optional" means it works without one, and with one the answer includes your own flags (like \`liked\`). Token "staff" means Terrakin's maintainers and moderators only, signed in on admin.terrakin.org. JSON bodies are at most ${MAX_BODY_BYTES / 1024} KB.`,
   ];
   for (const tag of Object.keys(TAGS)) {
     // A route is listed once, under its first tag.
@@ -88,6 +94,7 @@ function endpointLines(): string[] {
       optional: " Token optional.",
       bearer: " Token required.",
       linkKey: " Link key in the path.",
+      staff: " Staff only, on admin.terrakin.org.",
     }[r.auth];
     const notes = limits(r);
     const tail = notes.length ? ` Limits: ${notes.join("; ")}.` : "";

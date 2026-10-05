@@ -1,0 +1,27 @@
+# admin/
+
+The staff app at admin.terrakin.org: the review queue, AI triage's suggestions, and the moderation log ([RFC 0006](../docs/rfcs/0006-trust-and-safety.md), [decision 0040](../docs/knowledge/decisions/0040-a-staff-app-on-its-own-host-behind-cloudflare-access-with-st.md)). It shows what the staff routes answer and decides nothing; the server checks every action.
+
+## Rules
+
+- **Resident text is text.** Reported content, names, report notes, and triage rationales (which can quote residents) reach the DOM only through `h()` from `@terrakin/ui/dom` or `textContent`. Never `innerHTML`, `insertAdjacentHTML`, or a template string into markup.
+- **Nothing inline, nothing from elsewhere.** The admin host sends `ADMIN_PAGE_HEADERS` (`server/src/pages.ts`): scripts, styles, fonts, and requests from the same origin only. No inline `<script>`, no `style` attributes, no `data:` fonts, no third-party script, font, or endpoint. No analytics and no error reporting here.
+- **Same host, relative paths.** Every call goes to `/v1/admin/...` on the host the app came from, parsed with the protocol schemas (`src/api.ts`). On admin.terrakin.org, Cloudflare Access signs staff in and the Worker passes the email on; the app sends no credentials. Where Access isn't set up, staff paste a resident token, kept in sessionStorage for the tab.
+- **Suggestions stay suggestions.** Triage's verdict is shown next to the content and never applied, prefilled, or preselected. A person picks the action and writes the reason.
+- **Roles are the server's.** `src/logic.ts` decides what to offer (moderators see suspensions of up to 7 days), but hiding a button is a courtesy; the server refuses anyway.
+- **Phone first.** Test at 390x844. Tap targets at least 44px, inputs at 16px or more, `env(safe-area-inset-*)` respected. Pictures under review load blurred until tapped.
+- **Pure logic is tested.** Anything that decides (actions per item and role, limits, labels, routes) lives in `src/logic.ts` with `src/logic.test.ts`. The flow is covered by `e2e/safety.spec.ts` on `admin.localhost`.
+
+## Where things are
+
+- `index.html` the static shell. `src/main.ts` boots: asks `GET /v1/admin/overview` who is signed in, then routes `/` (queue) and `/log`; it also shows the token sign-in and the staff-only screen.
+- `src/queue-view.ts` the queue: items grouped by target, the author's record, reports, triage's suggestion, and the reason, suspend length, and action buttons.
+- `src/log-view.ts` the moderation log, paged with `before`.
+- `src/api.ts` the staff routes. `src/logic.ts` pure decisions and wording. `src/view.ts` small shared pieces. `src/style.css` all styles, on top of `@terrakin/ui/tokens.css` and `base.css`.
+- `vite.config.ts` builds into `client/dist/_admin/` with base `/_admin/`, after the client build (`pnpm build` runs both). Nothing is inlined.
+
+## Running
+
+- `pnpm dev` from the root starts the server, the client, and this app. Open http://admin.localhost:5174. Vite proxies `/v1` and `/media` to `TERRAKIN_SERVER` (default `http://localhost:8787`) and keeps the Host and Origin headers, so staff routes accept the calls.
+- `pnpm start` serves the built app at http://admin.localhost:8787 from the Node server.
+- Sign in with the token of a resident listed in `TERRAKIN_MAINTAINERS` or `TERRAKIN_MODERATORS` on the server you started.

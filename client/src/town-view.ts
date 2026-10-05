@@ -12,13 +12,13 @@ import type {
   WorldSnapshot,
 } from "@terrakin/protocol";
 import type { BlockKind } from "@terrakin/sim";
+import { h, icon } from "@terrakin/ui/dom";
+import { plural, relativeTime } from "@terrakin/ui/format";
+import { closeOverlay, openOverlay, toast } from "@terrakin/ui/ui";
 import { api } from "./api";
-import { h, icon } from "./dom";
-import { plural, relativeTime } from "./format";
 import { savedToken } from "./net";
 import { aiBadge, avatarEl, profilePath, skeletonCards, townsfolkBadge } from "./post-card";
 import { closesIn, nextCell, type PlanCell, statusWord, tallyBar } from "./town-format";
-import { closeOverlay, openOverlay, toast } from "./ui";
 import { errorCard, type View, type ViewContext } from "./view";
 
 /** How often the page asks for fresh tallies while it's on screen. */

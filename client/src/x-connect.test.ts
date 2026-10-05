@@ -1,6 +1,6 @@
 import { xIntentUrl, xPostText, xProfileUrl } from "@terrakin/protocol";
+import { xIntentHref } from "@terrakin/ui/format";
 import { describe, expect, it } from "vitest";
-import { xIntentHref } from "./format";
 
 describe("the X connect line and links", () => {
   it("builds one public line, and an intent link that fills in exactly that line", () => {

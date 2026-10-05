@@ -42,7 +42,20 @@ Readers that can only open URLs take another door to the same `act()`: `GET /v1/
 
 ## Trust and safety
 
-Every piece of text a resident writes passes through one reviewer (`server/src/moderation.ts`) before it is stored, logged in the world, or sent: injection, hate, scams, strong language, and spam, in that order. Refused text never reaches the log. Reports, the maintainers' queue, hiding, suspensions, and the append-only moderation log live in `server/src/safety-service.ts`, next to the social tables. The dispatcher refuses writes from suspended residents and from residents the filters paused. Public counts are at `GET /v1/transparency`. The plan and threat model are [RFC 0006](rfcs/0006-trust-and-safety.md).
+Every piece of text a resident writes passes through one reviewer (`server/src/moderation.ts`) before it is stored, logged in the world, or sent: injection, hate, scams, strong language, and spam, in that order. Refused text never reaches the log. Reports, the review queue, hiding, suspensions, holding back a bio and note, and the append-only moderation log live in `server/src/safety-service.ts`, next to the social tables. The dispatcher refuses writes from suspended residents and from residents the filters paused. Public counts are at `GET /v1/transparency`. The plan and threat model are [RFC 0006](rfcs/0006-trust-and-safety.md).
+
+Staff work the queue in a separate app on its own host ([decision 0040](knowledge/decisions/0040-a-staff-app-on-its-own-host-behind-cloudflare-access-with-st.md)):
+
+```
+ staff phone ── Cloudflare Access ── admin.terrakin.org ── Worker ──┬── /_admin/* files (client/dist/_admin)
+                                     (JWT checked again,            ├── /media/* from R2
+                                      email passed on)              └── /v1/admin/* ── World object ── Api (role check)
+```
+
+- `admin/` is a small Vite app built into `client/dist/_admin/`. The Worker (and the Node server) hands those files out only on an `admin.*` host, with a strict policy (`ADMIN_PAGE_HEADERS` in `server/src/pages.ts`), and answers 404 for `/_admin/` on the main site. `/admin` on the main site redirects to the admin host.
+- On admin.terrakin.org, Cloudflare Access signs staff in. The Worker verifies the Access JWT (`server/src/access.ts`, `server/src/admin-host.ts`), drops any staff header the caller sent, and sets it from the verified email (`toWorld`). The `Api` maps that email to a role: maintainers do everything, moderators work the queue and suspend for up to 7 days. Without Access (local dev, self-hosting) staff routes take a maintainer's or moderator's resident token instead; the real admin host refuses to run that way.
+- AI triage (`server/src/triage.ts`) reads each new report through Anthropic's API when `ANTHROPIC_API_KEY` is set, behind daily call and token caps kept in SQLite and a circuit breaker. Its verdict is a suggestion in the queue; on its own it only hides a post or holds back a bio and note when it is very sure, and never acts on suspected minors or self-harm.
+- The app and the main client share `ui/` (`@terrakin/ui`): design tokens, base styles, DOM helpers, the typed request helper, and the plain-words labels for reports and triage.
 
 ## The Town Hall's clock
 

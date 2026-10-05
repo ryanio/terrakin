@@ -7,6 +7,7 @@ import { Moderation } from "./moderation";
 import { nodeSql } from "./node-sql";
 import { parseMaintainers, parseTownsfolk, SocialService } from "./social-service";
 import { JsonlStore, MemoryStore } from "./store";
+import { TriageClient, triageConfig } from "./triage";
 import { DAY_MS, WorldService } from "./world-service";
 import { oembedReader } from "./x-link";
 
@@ -39,17 +40,19 @@ let offset = 0;
 const now = testClock ? () => Date.now() + offset : Date.now;
 const townsfolk = parseTownsfolk(process.env.TERRAKIN_TOWNSFOLK);
 const maintainers = parseMaintainers(process.env.TERRAKIN_MAINTAINERS);
+const moderators = parseMaintainers(process.env.TERRAKIN_MODERATORS);
 // One set of edge filters for the world and the social layer, so refusals add up everywhere.
 const moderation = new Moderation({
   now,
-  privileged: (id) => townsfolk.has(id) || maintainers.has(id),
+  privileged: (id) => townsfolk.has(id) || maintainers.has(id) || moderators.has(id),
 });
 
 const store = dataDir ? new JsonlStore(fromCwd(dataDir)) : new MemoryStore();
 const service = new WorldService({ store, now, days: true, townsfolk, moderation });
 const media = dataDir ? new FileMediaStore(fromCwd(`${dataDir}/media`)) : new MemoryMediaStore();
+const socialSql = nodeSql(dataDir ? fromCwd(`${dataDir}/social.db`) : ":memory:");
 const social = new SocialService({
-  sql: nodeSql(dataDir ? fromCwd(`${dataDir}/social.db`) : ":memory:"),
+  sql: socialSql,
   media,
   now,
   resident: (id) => service.state.residents[id],
@@ -60,6 +63,9 @@ const social = new SocialService({
   moderation,
   residentAgeDays: (id) => service.residentAgeDays(id),
   proposal: (id) => findProposal(service.state, id),
+  moderators,
+  // AI triage only with ANTHROPIC_API_KEY set; otherwise reports wait for people (decision 0040).
+  triage: new TriageClient(triageConfig(process.env), socialSql, undefined, now),
 });
 
 /**

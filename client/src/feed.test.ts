@@ -1,5 +1,4 @@
 import type { MediaView, PostView } from "@terrakin/protocol";
-import { describe, expect, it } from "vitest";
 import {
   clampAspect,
   countNew,
@@ -9,7 +8,8 @@ import {
   mediaLayout,
   plural,
   relativeTime,
-} from "./format";
+} from "@terrakin/ui/format";
+import { describe, expect, it } from "vitest";
 import { isAppLink, matchRoute, routeTemplate } from "./router";
 import { filterBreadcrumb, scrubEvent, templateIds } from "./telemetry";
 
@@ -36,8 +36,6 @@ describe("router", () => {
   it("matches the five pages and nothing else", () => {
     expect(matchRoute("/town")).toEqual({ name: "town" });
     expect(routeTemplate(matchRoute("/town/"))).toBe("/town");
-    expect(matchRoute("/admin")).toEqual({ name: "admin" });
-    expect(routeTemplate(matchRoute("/admin"))).toBe("/admin");
     expect(matchRoute("/")).toEqual({ name: "feed" });
     expect(matchRoute("/r/r_0123abcd")).toEqual({ name: "profile", id: "r_0123abcd" });
     expect(matchRoute("/p/p_0123456789abcdef/")).toEqual({

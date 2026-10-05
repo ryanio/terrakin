@@ -4,8 +4,8 @@
  * the townsfolk's notes). Every number comes from the server; names and words go in as text.
  */
 import type { PostView, TownResponse, WorldSnapshot } from "@terrakin/protocol";
-import { h, icon } from "./dom";
-import { compactCount, fullDate, plural, relativeTime } from "./format";
+import { h, icon } from "@terrakin/ui/dom";
+import { compactCount, fullDate, plural, relativeTime } from "@terrakin/ui/format";
 import { avatarEl, profilePath, TOWNSFOLK_ABOUT, townsfolkBadge } from "./post-card";
 import { type PulseStats, phaseName, type WallItem } from "./pulse";
 import { dayPhase, nightAmount } from "./time";

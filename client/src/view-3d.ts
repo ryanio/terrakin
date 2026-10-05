@@ -2,7 +2,7 @@
  * The 3D pages (`/r/:id/3d` and `/gallery/3d`). This stub stays in the main bundle and fetches the
  * scene code, three.js included, only when someone opens one (decision 0013).
  */
-import { h } from "./dom";
+import { h } from "@terrakin/ui/dom";
 import type { Route3d } from "./scene3d/page";
 import { errorCard, type View, type ViewContext } from "./view";
 

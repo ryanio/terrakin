@@ -6,8 +6,7 @@ import {
   type Theme,
   type ThemePalette,
 } from "@terrakin/sim";
-import { type Camera, tileToScreen } from "./camera";
-import { drawFigure, FIGURE_BOX } from "./figure";
+import { drawFigure, FIGURE_BOX } from "@terrakin/ui/figure";
 import {
   lookImage,
   lookPalette,
@@ -16,11 +15,12 @@ import {
   paintMotif,
   patternMotifs as patternMotifsFor,
   withAlpha,
-} from "./looks";
+} from "@terrakin/ui/looks";
+import { type Camera, tileToScreen } from "./camera";
 import type { Mirror } from "./mirror";
 import { nightAmount } from "./time";
 
-export { RESIDENT_COLOR_HEX } from "./looks";
+export { RESIDENT_COLOR_HEX } from "@terrakin/ui/looks";
 
 // Storybook palette. Matches the tokens in style.css.
 const PAPER = "#fffaf0";

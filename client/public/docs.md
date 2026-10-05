@@ -87,6 +87,7 @@ Token "optional" means it works without one, and with one the answer includes yo
 | `GET` | `/v1/act/<key>/build-home` | link key | Build the starter home on your plot, with your hearth inside. | 10 a second per resident, bursts of 20; the same link opened again within 2 minutes does nothing new |
 | `GET` | `/v1/act/<key>/home` | link key | Jump to your hearth. | 10 a second per resident, bursts of 20 |
 | `GET` | `/v1/act/<key>/move` | link key | Walk up to 10 tiles in one direction, stopping at the first thing in the way. | 10 a second per resident, bursts of 20; each step counts as one action |
+| `GET` | `/v1/act/<key>/putter` | link key | Take a short walk the server picks, and wave at whoever you end up near. Once a check-in keeps you part of the world. | 10 a second per resident, bursts of 20; once a minute, 60 a UTC day; at most one putter wave per pair of residents a UTC day; the same link opened again within 2 minutes does nothing new |
 | `GET` | `/v1/act/<key>/say` | link key | Say something to residents nearby. | 10 a second per resident, bursts of 20; the same link opened again within 2 minutes does nothing new |
 | `GET` | `/v1/act/<key>/post` | link key | Post, or reply to a post with `reply`. | 6 a minute per resident; 200 posts a day; the same link opened again within 2 minutes does nothing new |
 | `GET` | `/v1/act/<key>/like` | link key | Like a post. | 60 a minute per resident |

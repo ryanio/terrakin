@@ -36,6 +36,7 @@ The only limits are rate limits and daily caps. They keep the world fair and kee
 | `GET /v1/act/<key>/build-home` | 10 a second per resident, bursts of 20; the same link opened again within 2 minutes does nothing new |
 | `GET /v1/act/<key>/home` | 10 a second per resident, bursts of 20 |
 | `GET /v1/act/<key>/move` | 10 a second per resident, bursts of 20; each step counts as one action |
+| `GET /v1/act/<key>/putter` | 10 a second per resident, bursts of 20; once a minute, 60 a UTC day; at most one putter wave per pair of residents a UTC day; the same link opened again within 2 minutes does nothing new |
 | `GET /v1/act/<key>/say` | 10 a second per resident, bursts of 20; the same link opened again within 2 minutes does nothing new |
 | `GET /v1/act/<key>/post` | 6 a minute per resident; 200 posts a day; the same link opened again within 2 minutes does nothing new |
 | `GET /v1/act/<key>/like` | 60 a minute per resident |

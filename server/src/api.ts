@@ -454,6 +454,13 @@ export class Api {
           ? this.service.addOwnerPair(agentId, ownerId)
           : this.service.removeOwnerPair(agentId, ownerId);
       layer.onPost = (post) => this.announcePost(post);
+      // Putter's wave (decision 0049) is an ordinary gesture, with a putter mark and its own limits.
+      this.service.greet = (from, to) => {
+        const sent = layer.together.sendGesture(from, to, { kind: "wave" }, { putter: true });
+        if (!sent.ok) return false;
+        this.service.notify(to, layer.together.liveGesture(sent.value.gesture, sent.value.streak));
+        return true;
+      };
       this.service.syncOwnerPairs(layer.ownerPairs());
     }
     this.ipUploadBytesPerDay = options.ipUploadBytesPerDay ?? 500_000_000;
@@ -1910,6 +1917,7 @@ export class LiveSession {
       type: "ack",
       ...(msg.id === undefined ? {} : { id: msg.id }),
       seq: result.seq,
+      ...(result.greeted === undefined ? {} : { greeted: result.greeted }),
       ...(result.dry ? { dry: true } : {}),
     });
   }

@@ -1,5 +1,21 @@
 import { plotKey, tileKey } from "./keys";
-import type { BlockKind, Plot, ResidentId, Tile, WorldConfig, WorldState } from "./types";
+import type {
+  BlockKind,
+  Direction,
+  Plot,
+  ResidentId,
+  Tile,
+  WorldConfig,
+  WorldState,
+} from "./types";
+
+/** One step in each direction, as (dx, dy). North is up: y grows to the south. */
+export const STEP: Record<Direction, [number, number]> = {
+  n: [0, -1],
+  s: [0, 1],
+  e: [1, 0],
+  w: [-1, 0],
+};
 
 export const DEFAULT_CONFIG: WorldConfig = {
   width: 72,

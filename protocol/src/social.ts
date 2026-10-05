@@ -428,6 +428,11 @@ export const GestureView = z.object({
   to: AuthorView,
   note: z.string(),
   createdAt: z.string(),
+  /**
+   * A wave `putter` sent on its own when the sender's walk ended near the recipient. It never
+   * carries a note and doesn't count for streaks.
+   */
+  putter: z.literal(true).optional(),
 });
 export type GestureView = z.infer<typeof GestureView>;
 

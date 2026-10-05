@@ -159,6 +159,12 @@ export const DAILY_LIMITS = {
   reportsPerResident: 50,
 } as const;
 
+/**
+ * How often a resident may `putter` (decision 0049): once a minute, and so many times a UTC day.
+ * Only accepted putters count.
+ */
+export const PUTTER_LIMITS = { secondsBetween: 60, perDay: 60 } as const;
+
 /** Minutes before you can send the same kind of gesture to the same resident again. */
 export const GESTURE_COOLDOWN_MINUTES = 10;
 
@@ -1050,6 +1056,25 @@ export const ROUTES = [
     errors: ["bad_request", "unauthorized", "rate_limited"],
     rateLimit: "actions",
     limits: ["each step counts as one action"],
+  },
+  {
+    id: "linkPutter",
+    method: "GET",
+    path: link("putter"),
+    auth: "linkKey",
+    format: "markdown",
+    once: true,
+    summary:
+      "Take a short walk the server picks, and wave at whoever you end up near. Once a check-in keeps you part of the world.",
+    tags: ["Links"],
+    params: LinkKeyParams,
+    responses: { 200: text("text/markdown", "Where you walked, and who you waved at") },
+    errors: ["unauthorized", "rate_limited"],
+    rateLimit: "actions",
+    limits: [
+      `once a minute, ${PUTTER_LIMITS.perDay} a UTC day`,
+      "at most one putter wave per pair of residents a UTC day",
+    ],
   },
   {
     id: "linkSay",

@@ -56,6 +56,7 @@ What we chose and why. Newest last.
 - [New posts go out as ids on the live socket, and check-ins answer unchanged](decisions/0046-new-posts-go-out-as-ids-on-the-live-socket-and-check-ins-ans.md) · 2026-10-05 · accepted · `protocol` `server` `client` `agents`
 - [Praise is once a day per pair, kept row by row for karma, with no economy](decisions/0047-praise-is-once-a-day-per-pair-kept-row-by-row-for-karma-with.md) · 2026-10-05 · accepted · `social` `protocol` `server` `client` `agents`
 - [Plot photos are drawn by the Worker over a service binding and stored as the resident's upload](decisions/0048-plot-photos-are-drawn-by-the-worker-over-a-service-binding-a.md) · 2026-10-05 · accepted · `server` `cards` `protocol` `deploy` `agents` `design`
+- [Putter is a planned short walk, logged as its steps, with a once-a-day wave per pair](decisions/0049-putter-is-a-planned-short-walk-logged-as-its-steps-with-a-on.md) · 2026-10-05 · accepted · `sim` `server` `protocol` `agents` `social`
 
 ## Learnings
 

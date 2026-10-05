@@ -119,6 +119,13 @@ export const MoveAction = z.object({
   dir: z.enum(["n", "s", "e", "w"]),
   ...dry,
 });
+/**
+ * A short walk the server picks for you (decision 0049): next to someone nearby if anyone's
+ * online, else onto a neighbor's plot or along your own, else toward the Commons, else anywhere
+ * open. Up to `PUTTER.steps` tiles. If it ends within earshot of another online resident, you
+ * wave at them (`greeted` in the response).
+ */
+export const PutterAction = z.object({ type: z.literal("putter"), ...dry });
 export const ClaimAction = z.object({ type: z.literal("claim"), ...dry });
 export const ReleaseAction = z.object({ type: z.literal("release"), ...dry });
 export const PlaceAction = z.object({
@@ -227,6 +234,7 @@ export const ChatAction = z.object({
 
 export const Action = z.discriminatedUnion("type", [
   MoveAction,
+  PutterAction,
   ClaimAction,
   ReleaseAction,
   PlaceAction,
@@ -494,6 +502,8 @@ export const GestureMessage = z.object({
   /** Consecutive UTC days the two of you have exchanged a gesture, today included. */
   streak: z.number().int(),
   createdAt: z.string(),
+  /** A wave sent by `putter` when the sender's walk ended near you. It doesn't count for streaks. */
+  putter: z.literal(true).optional(),
 });
 
 // ---------- new posts ----------
@@ -547,6 +557,14 @@ export const ActionResponse = z.discriminatedUnion("ok", [
     events: z.array(WorldEvent),
     /** Chat only: how many other residents received it live. */
     heard: z.number().int().optional(),
+    /** Putter only: who you waved at when the walk ended near them, or null. */
+    greeted: z
+      .string()
+      .nullable()
+      .optional()
+      .describe(
+        "`putter` only: the id of the resident you waved at when your walk ended within earshot of them, or null. Absent on a dry run.",
+      ),
     /** A dry run: the action would be accepted, but nothing happened. `seq` is the current one. */
     dry: z
       .literal(true)
@@ -616,6 +634,8 @@ export const ServerMessage = z.union([
     type: z.literal("ack"),
     id: z.string().optional(),
     seq: z.number().int(),
+    /** `putter` only: who you waved at, or null. */
+    greeted: z.string().nullable().optional(),
     /** A dry run: the action would be accepted, but nothing changed. */
     dry: z.literal(true).optional(),
   }),

@@ -153,6 +153,12 @@ export class TogetherService {
     ]) {
       this.o.sql.exec(statement);
     }
+    // Added with putter (decision 0049): 1 on a wave `putter` sent by itself. Older rows are 0.
+    try {
+      this.o.sql.exec("ALTER TABLE gestures ADD COLUMN putter INTEGER NOT NULL DEFAULT 0");
+    } catch {
+      // Already there.
+    }
   }
 
   private rows(query: string, ...bindings: (string | number)[]): Row[] {
@@ -455,11 +461,18 @@ export class TogetherService {
 
   // ---------- gestures and streaks ----------
 
+  /**
+   * Send a gesture. With `putter`, it's the wave `putter` sends by itself when a walk ends near
+   * someone (decision 0049): at most one a UTC day between any two residents, in either direction,
+   * and it leaves the pair's streak alone, so automatic walks can't keep a streak alive.
+   */
   sendGesture(
     sender: string,
     to: string,
     request: GestureRequest,
+    options: { putter?: boolean } = {},
   ): SocialResult<{ gesture: GestureView; streak: number }> {
+    const putter = options.putter === true;
     if (!this.o.resident(sender)) return fail("unauthorized", "Unknown resident.");
     if (to === sender) return fail("bad_request", "Send it to someone else.");
     if (!this.o.resident(to)) return fail("not_found", "No such resident.");
@@ -475,6 +488,21 @@ export class TogetherService {
       return fail("bad_request", 'Say what the gift is in the note, like "a jar of honey".');
     }
     const now = this.o.now();
+    const today = utcDay(now);
+    if (putter) {
+      // Putter waves carry no note, so no text of anyone's rides along on an automatic walk.
+      if (request.kind !== "wave" || note !== "") return fail("bad_request", "Putter only waves.");
+      const already = this.count(
+        `SELECT COUNT(*) AS c FROM gestures WHERE putter = 1 AND created_at >= ?
+          AND ((sender = ? AND recipient = ?) OR (sender = ? AND recipient = ?))`,
+        today * DAY_MS,
+        sender,
+        to,
+        to,
+        sender,
+      );
+      if (already > 0) return fail("rate_limited", "You two already waved while puttering today.");
+    }
     const cooldown = GESTURE_COOLDOWN_MINUTES * 60_000;
     const last = this.rows(
       `SELECT MAX(created_at) AS at FROM gestures
@@ -494,27 +522,31 @@ export class TogetherService {
 
     const id = randomId("g");
     this.o.sql.exec(
-      "INSERT INTO gestures (id, sender, recipient, kind, note, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+      "INSERT INTO gestures (id, sender, recipient, kind, note, created_at, putter) VALUES (?, ?, ?, ?, ?, ?, ?)",
       id,
       sender,
       to,
       request.kind,
       note,
       now,
+      putter ? 1 : 0,
     );
-    const today = utcDay(now);
     const pair = pairKey(sender, to);
-    const record = nextStreak(this.streakRecord(pair), today);
-    const [a, b] = pair.split("|") as [string, string];
-    this.o.sql.exec(
-      `INSERT INTO streaks (pair, a, b, day, streak) VALUES (?, ?, ?, ?, ?)
-        ON CONFLICT (pair) DO UPDATE SET day = excluded.day, streak = excluded.streak`,
-      pair,
-      a,
-      b,
-      record.day,
-      record.streak,
-    );
+    const before = this.streakRecord(pair);
+    // A putter wave is real, but nobody chose to send it, so it never moves a streak.
+    const record = putter ? before : nextStreak(before, today);
+    if (record && !putter) {
+      const [a, b] = pair.split("|") as [string, string];
+      this.o.sql.exec(
+        `INSERT INTO streaks (pair, a, b, day, streak) VALUES (?, ?, ?, ?, ?)
+          ON CONFLICT (pair) DO UPDATE SET day = excluded.day, streak = excluded.streak`,
+        pair,
+        a,
+        b,
+        record.day,
+        record.streak,
+      );
+    }
     const gesture = this.gestureViews(this.rows("SELECT * FROM gestures WHERE id = ?", id))[0];
     if (gesture) this.o.notify?.(to, sender, "gesture", request.kind);
     return gesture
@@ -574,6 +606,7 @@ export class TogetherService {
       note: gesture.note,
       streak,
       createdAt: gesture.createdAt,
+      ...(gesture.putter ? { putter: true as const } : {}),
     };
   }
 
@@ -608,6 +641,7 @@ export class TogetherService {
           to,
           note: String(row.note),
           createdAt: iso(Number(row.created_at)),
+          ...(Number(row.putter) === 1 ? { putter: true as const } : {}),
         },
       ];
     });

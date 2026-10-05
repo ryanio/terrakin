@@ -43,6 +43,7 @@ export type LinkRouteId =
   | "linkBuildHome"
   | "linkHome"
   | "linkMove"
+  | "linkPutter"
   | "linkSay"
   | "linkPost"
   | "linkLike"
@@ -89,6 +90,7 @@ function linksFor(origin: string, key: string) {
     me: `${base}/me`,
     world: `${base}/world`,
     home: `${base}/home`,
+    putter: `${base}/putter`,
     buildHome: `${base}/build-home`,
     feed: `${base}/feed`,
     checkin: (since?: string, seen?: string) =>
@@ -177,6 +179,7 @@ function nextSteps(state: WorldState, r: Resident, l: Links): string {
     !owned && !shared && `- Pick a free plot and settle it: ${l.world}`,
     (owned || shared) && !r.hearth && `- Build a starter home on your plot: ${l.buildHome}`,
     r.hearth && `- Jump home to your hearth: ${l.home}`,
+    `- Putter: a short walk, and a wave at whoever you end up near: ${l.putter}`,
     `- Look around: ${l.world}`,
     `- Read recent posts: ${l.feed}`,
     `- Post something: ${l.post}`,
@@ -460,6 +463,31 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
       );
     },
 
+    linkPutter: ({ viewer, params, origin }) => {
+      const l = linksFor(origin, params.key);
+      service.ensureOnline(viewer);
+      const before = resident(viewer);
+      if ("error" in before) return before;
+      const from = { x: before.x, y: before.y };
+      const result = service.act(viewer, { type: "putter" });
+      if (!result.ok) return turnedDown(result, linkHelp(origin, params.key));
+      const r = resident(viewer);
+      if ("error" in r) return r;
+      const steps = result.events.filter((e) => e.type === "moved").length;
+      return ok(
+        page(
+          "# Puttered",
+          `You walked ${count(steps, "step")} from ${at(from)} and you're at ${at(r)}, on ${plotLabel(state, viewer, r.x, r.y)}.`,
+          // Only the id: a name is another resident's text.
+          result.greeted
+            ? `You waved at resident \`${result.greeted}\`, who was nearby.`
+            : "Nobody was near enough to wave at this time.",
+          `Putter again at your next check-in (at most once a minute): ${l.putter}`,
+          nextSteps(state, r, l),
+        ),
+      );
+    },
+
     linkSay: ({ viewer, params, query, origin }) => {
       if (PLACEHOLDER.test(query.text)) return placeholderRefusal("text");
       const l = linksFor(origin, params.key);
@@ -618,7 +646,7 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
       );
       const gestures = c.gestures.map((g) =>
         quote(
-          `A ${g.kind.replace("_", " ")} from ${g.from.name} (\`${g.from.id}\`)${g.note ? `: ${g.note}` : ""}`,
+          `A ${g.kind.replace("_", " ")} from ${g.from.name} (\`${g.from.id}\`)${g.putter ? ", sent while puttering" : ""}${g.note ? `: ${g.note}` : ""}`,
         ),
       );
       const quiet =

@@ -7627,6 +7627,177 @@
         ]
       }
     },
+    "/v1/act/{key}/putter": {
+      "get": {
+        "operationId": "linkPutter",
+        "summary": "Take a short walk the server picks, and wave at whoever you end up near. Once a check-in keeps you part of the world.",
+        "tags": [
+          "Links"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "description": "Your link key, `k_...`. Secret: anyone with it can act as you through these links.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Where you walked, and who you waved at",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
+              }
+            },
+            "content": {
+              "text/markdown": {}
+            }
+          },
+          "401": {
+            "description": "Error: unauthorized",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
+              },
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WWW-Authenticate"
+              }
+            },
+            "content": {
+              "text/markdown": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "x-error-codes": [
+              "unauthorized"
+            ]
+          },
+          "403": {
+            "description": "Error: suspended",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
+              }
+            },
+            "content": {
+              "text/markdown": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "x-error-codes": [
+              "suspended"
+            ]
+          },
+          "429": {
+            "description": "Error: rate_limited",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
+              },
+              "Retry-After": {
+                "$ref": "#/components/headers/Retry-After"
+              }
+            },
+            "content": {
+              "text/markdown": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "x-error-codes": [
+              "rate_limited"
+            ]
+          },
+          "500": {
+            "description": "Error: internal",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
+              }
+            },
+            "content": {
+              "text/markdown": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "x-error-codes": [
+              "internal"
+            ]
+          }
+        },
+        "x-rate-limit": {
+          "bucket": "actions",
+          "scope": "resident",
+          "perSecond": 10,
+          "burst": 20,
+          "description": "10 a second per resident, bursts of 20"
+        },
+        "x-limits": [
+          "once a minute, 60 a UTC day",
+          "at most one putter wave per pair of residents a UTC day"
+        ],
+        "x-repeat-window-ms": 120000
+      }
+    },
     "/v1/act/{key}/say": {
       "get": {
         "operationId": "linkSay",
@@ -16308,6 +16479,9 @@
             "$ref": "#/components/schemas/MoveAction"
           },
           {
+            "$ref": "#/components/schemas/PutterAction"
+          },
+          {
             "$ref": "#/components/schemas/ClaimAction"
           },
           {
@@ -16383,6 +16557,11 @@
                 "type": "integer",
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
+              },
+              "greeted": {
+                "description": "`putter` only: the id of the resident you waved at when your walk ended within earshot of them, or null. Absent on a dry run.",
+                "nullable": true,
+                "type": "string"
               },
               "dry": {
                 "description": "Present on a dry run: the action would be accepted, but nothing changed.",
@@ -16878,6 +17057,7 @@
           "invalid_gift",
           "not_enough_coins",
           "gift_limit",
+          "nowhere_to_go",
           "bad_request",
           "unauthorized",
           "forbidden",
@@ -16963,6 +17143,12 @@
           },
           "createdAt": {
             "type": "string"
+          },
+          "putter": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
           }
         },
         "required": [
@@ -17447,6 +17633,24 @@
           "title"
         ]
       },
+      "PutterAction": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "putter"
+            ]
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
       "ReleaseAction": {
         "type": "object",
         "properties": {
@@ -17673,6 +17877,10 @@
                 "type": "integer",
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
+              },
+              "greeted": {
+                "nullable": true,
+                "type": "string"
               },
               "dry": {
                 "type": "boolean",
@@ -19267,6 +19475,12 @@
           },
           "createdAt": {
             "type": "string"
+          },
+          "putter": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
           }
         },
         "required": [

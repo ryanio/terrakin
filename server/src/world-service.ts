@@ -8,10 +8,11 @@ import type {
   WorldEvent as WireEvent,
   WorldSnapshot,
 } from "@terrakin/protocol";
-import { PROTOCOL_VERSION } from "@terrakin/protocol";
+import { PROTOCOL_VERSION, PUTTER_LIMITS } from "@terrakin/protocol";
 import {
   apply,
   type Command,
+  chebyshev,
   cloneWorld,
   commonsPlot,
   DEFAULT_CONFIG,
@@ -22,6 +23,7 @@ import {
   ownerPaired,
   type ProfileFields,
   parseKey,
+  planPutter,
   prepare,
   type ResidentKind,
   replay,
@@ -38,7 +40,15 @@ import { count, crumb, report, span } from "./telemetry";
 import { cleanMultiline, cleanText } from "./text";
 
 export type ActResult =
-  | { ok: true; seq: number; events: WireEvent[]; heard?: number; dry?: true }
+  | {
+      ok: true;
+      seq: number;
+      events: WireEvent[];
+      heard?: number;
+      /** `putter` only: who it waved at, or null. */
+      greeted?: string | null;
+      dry?: true;
+    }
   | { ok: false; error: { code: ErrorCode; message: string }; dry?: true };
 
 type Listener = (message: ServerMessage) => void;
@@ -119,6 +129,9 @@ function publicEvents(events: WireEvent[]): WireEvent[] {
 export function eventsFor(events: WireEvent[], viewer: string): WireEvent[] {
   return events.filter((e) => e.type !== "coins" || e.residentId === viewer);
 }
+
+/** How many residents within earshot a putter tries to wave at before it gives up. */
+const PUTTER_GREET_TRIES = 5;
 
 /** One UTC day. The Town Hall's clock ticks once per day, at midnight UTC. */
 export const DAY_MS = 86_400_000;
@@ -225,6 +238,11 @@ export class WorldService {
    * first `join`; 0 if the world wasn't counting days yet). For report weight, never for the sim.
    */
   private readonly joinedDay = new Map<string, number>();
+  /**
+   * Each resident's last accepted putter and how many they've had today (decision 0049). Today's
+   * count is read back from the log at boot, so a restart doesn't reset the daily cap.
+   */
+  private readonly putters = new Map<string, { at: number; day: number; count: number }>();
 
   constructor(options: WorldServiceOptions) {
     this.store = options.store;
@@ -238,9 +256,14 @@ export class WorldService {
     const log = this.store.loadLog();
     this.state = replay(options.config ?? DEFAULT_CONFIG, log);
     let day = 0;
+    const today = utcDay(this.now());
     for (const { actor, command } of log) {
       if (command.type === "new_day") day = command.day;
       if (command.type === "join" && !this.joinedDay.has(actor)) this.joinedDay.set(actor, day);
+      if (command.type === "putter" && day === today) {
+        const count = (this.putters.get(actor)?.count ?? 0) + 1;
+        this.putters.set(actor, { at: 0, day, count });
+      }
     }
     for (const s of this.store.loadSessions()) this.sessions.set(s.tokenHash, s.residentId);
     for (const k of this.store.loadLinkKeys()) this.rememberLinkKey(k.residentId, k.keyHash);
@@ -296,6 +319,13 @@ export class WorldService {
 
   /** Whether two residents block each other, from the social layer. Gifts can't cross a block. */
   blockedEither: (a: string, b: string) => boolean = () => false;
+
+  /**
+   * Send a putter's wave from one resident to another, through the social layer's gestures.
+   * True when it went; false when blocks, gesture limits, or today's putter wave for the pair
+   * stopped it. Without a social layer nobody is greeted.
+   */
+  greet: (from: string, to: string) => boolean = () => false;
 
   // ---------- the town's clock ----------
 
@@ -553,6 +583,7 @@ export class WorldService {
     this.touch(residentId);
     const context = { resident: residentId };
     if (action.type === "chat") return this.chat(residentId, action.text, action.channel);
+    if (action.type === "putter") return this.putter(residentId, dry);
     if (action.type === "profile") {
       const { type, ...profile } = action;
       const note = profile.note && cleanText(profile.note);
@@ -615,6 +646,84 @@ export class WorldService {
       return this.run({ actor: residentId, command }, dry);
     }
     return this.run({ actor: residentId, command: action satisfies Command }, dry);
+  }
+
+  // ---------- putter (decision 0049) ----------
+
+  /**
+   * A short walk the sim's planner picks, then a wave at the nearest online resident within
+   * earshot. Limited to once a minute and `PUTTER_LIMITS.perDay` a UTC day, counting only accepted
+   * putters. The logged command carries the planned steps, so replay never runs the planner. A dry
+   * run plans and checks the walk but greets nobody and uses up nothing.
+   */
+  private putter(residentId: string, dry: boolean): ActResult {
+    const limited = this.putterLimited(residentId);
+    if (limited) return limited;
+    // Plan from where the resident would be: a dry run for someone marked offline checks them as
+    // if they had come back, like `check()` does.
+    let state = this.state;
+    const me = state.residents[residentId];
+    if (me && !me.online) {
+      state = cloneWorld(state);
+      apply(state, { actor: me.id, command: { type: "join", name: me.name, kind: me.kind } });
+    }
+    const steps = planPutter(state, residentId);
+    const result = this.run({ actor: residentId, command: { type: "putter", steps } }, dry);
+    if (!result.ok || dry) return result;
+    const now = this.now();
+    const today = utcDay(now);
+    const used = this.putters.get(residentId);
+    const count = used?.day === today ? used.count + 1 : 1;
+    this.putters.set(residentId, { at: now, day: today, count });
+    return { ...result, greeted: this.greetNearby(residentId) };
+  }
+
+  /** The refusal when a resident has puttered too recently or too often today. */
+  private putterLimited(residentId: string): ActResult | undefined {
+    const used = this.putters.get(residentId);
+    if (!used) return undefined;
+    const now = this.now();
+    if (used.day === utcDay(now) && used.count >= PUTTER_LIMITS.perDay) {
+      return {
+        ok: false,
+        error: {
+          code: "rate_limited",
+          message: `You've puttered ${PUTTER_LIMITS.perDay} times today, the most in one day. Try again after midnight UTC.`,
+        },
+      };
+    }
+    const wait = used.at + PUTTER_LIMITS.secondsBetween * 1000 - now;
+    if (wait > 0) {
+      const seconds = Math.ceil(wait / 1000);
+      return {
+        ok: false,
+        error: {
+          code: "rate_limited",
+          message: `You puttered a moment ago. Try again in ${seconds} ${seconds === 1 ? "second" : "seconds"}.`,
+        },
+      };
+    }
+    return undefined;
+  }
+
+  /** Wave at the nearest online resident within earshot who can take one. Their id, or null. */
+  private greetNearby(residentId: string): string | null {
+    const me = this.state.residents[residentId];
+    if (!me) return null;
+    const near = Object.values(this.state.residents)
+      .filter((r) => r.online && r.id !== residentId && withinEarshot(me, r))
+      .sort((a, b) => chebyshev(me, a) - chebyshev(me, b) || (a.id < b.id ? -1 : 1))
+      .slice(0, PUTTER_GREET_TRIES);
+    for (const r of near) {
+      try {
+        if (this.greet(residentId, r.id)) return r.id;
+      } catch (err) {
+        // The walk already happened; a failed wave shouldn't turn it into an error.
+        report(err, "world.putter_greet", { command: "putter" });
+        return null;
+      }
+    }
+    return null;
   }
 
   private chat(residentId: string, raw: string, channel: ChatChannel = "nearby"): ActResult {
@@ -737,6 +846,9 @@ export class WorldService {
     for (const id of this.lastSeen.keys()) {
       if (!this.state.residents[id]?.online) this.lastSeen.delete(id);
     }
+    // Putters from before today no longer limit anything.
+    const today = utcDay(this.now());
+    for (const [id, used] of this.putters) if (used.day < today) this.putters.delete(id);
   }
 
   private touch(residentId: string) {

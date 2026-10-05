@@ -288,6 +288,11 @@ export type Command =
   | ({ type: "profile" } & ProfileFields)
   | { type: "leave" }
   | { type: "move"; dir: Direction }
+  /**
+   * A short walk, up to `PUTTER.steps` moves. Residents send `putter` with no steps; the server
+   * fills them in from `planPutter` before logging, so replay never runs the planner.
+   */
+  | { type: "putter"; steps: Direction[] }
   | { type: "claim" }
   | { type: "release" }
   | { type: "set_hearth"; x: number; y: number }
@@ -474,6 +479,7 @@ export const REJECTION_CODES = [
   "invalid_gift",
   "not_enough_coins",
   "gift_limit",
+  "nowhere_to_go",
 ] as const;
 export type RejectionCode = (typeof REJECTION_CODES)[number];
 

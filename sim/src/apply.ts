@@ -24,11 +24,11 @@ import {
   THEMES,
   wearProblem,
 } from "./looks";
+import { isDirection, PUTTER } from "./putter";
 import { checkTown, isActivity, isServerCommand, type TownChecked } from "./town";
 import type {
   ApplyResult,
   Command,
-  Direction,
   Input,
   Plot,
   ProfileFields,
@@ -51,6 +51,7 @@ import {
   plotInBounds,
   plotOf,
   plotsOwnedBy,
+  STEP,
   spawnTile,
   starterHome,
 } from "./world";
@@ -59,8 +60,6 @@ export const NAME_MAX_LENGTH = 24;
 export const NOTE_MAX_LENGTH = 80;
 /** How many residents an owner can share one plot with. */
 export const MAX_CO_OWNERS = 3;
-
-const STEP: Record<Direction, [number, number]> = { n: [0, -1], s: [0, 1], e: [1, 0], w: [-1, 0] };
 
 /**
  * A validated input, ready to commit. `commit()` mutates the state it was prepared against,
@@ -331,6 +330,20 @@ function walkHint(me: Tile, target: Tile, reach: number): string {
   return steps.length ? ` Walk closer first: ${steps.join(", then ")}.` : "";
 }
 
+/** What to do when blocks or the edge leave a resident nowhere to walk. */
+function stuckHint(state: WorldState, me: Resident): string {
+  if (me.hearth && !sameTile(me, me.hearth)) return " Try home to jump to your hearth.";
+  if (canBuildOn(plotAtTile(state, me.x, me.y), me.id)) {
+    return " Remove a block next to you to open a path.";
+  }
+  const ask = " Ask whoever built around you to open a path";
+  if (me.hearth) return `${ask}.`;
+  if (workingPlot(state, me, true)) {
+    return `${ask}, or try build_starter_home, which sets a hearth, and then home.`;
+  }
+  return `${ask}.${settleHint(state, me)}`;
+}
+
 /** Where a resident may build: the tiles of their working plot, or how to get one. */
 function buildHint(state: WorldState, me: Resident): string {
   const plot = workingPlot(state, me, true);
@@ -440,6 +453,36 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
         me.y = y;
         return [{ type: "moved", residentId: actor, x, y }];
       };
+    }
+
+    case "putter": {
+      const { steps } = command;
+      if (!Array.isArray(steps) || steps.length === 0) {
+        return reject("nowhere_to_go", `There's nowhere to walk from here.${stuckHint(state, me)}`);
+      }
+      if (steps.length > PUTTER.steps) {
+        return reject("out_of_reach", `A putter walks at most ${PUTTER.steps} tiles.`);
+      }
+      // Each step is checked like a move, from where the last one left off.
+      const path: Tile[] = [];
+      let at: Tile = me;
+      for (const dir of steps) {
+        if (!isDirection(dir)) return reject("out_of_bounds", "Steps go n, s, e, or w.");
+        const [dx, dy] = STEP[dir];
+        const next = { x: at.x + dx, y: at.y + dy };
+        if (!inBounds(config, next.x, next.y)) {
+          return reject("out_of_bounds", "That's the edge of the world.");
+        }
+        if (isSolid(state, next.x, next.y)) return reject("blocked", "A block is in the way.");
+        path.push(next);
+        at = next;
+      }
+      return () =>
+        path.map(({ x, y }) => {
+          me.x = x;
+          me.y = y;
+          return { type: "moved", residentId: actor, x, y };
+        });
     }
 
     case "claim": {

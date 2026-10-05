@@ -41,6 +41,8 @@ How Terrakin works today. For why it's built this way, see the [decision records
 
 A dry run (`"dry": true` on any action but chat) stops after step 4: the caller gets `ok` with the current `seq` and no events, or the rejection, and nothing is logged or broadcast. Rejection messages from the sim end with the next call to try where the sim can work one out cheaply, like the nearest free plot or the walk that brings a tile within reach.
 
+`putter` ([decision 0049](knowledge/decisions/0049-putter-is-a-planned-short-walk-logged-as-its-steps-with-a-on.md)) adds two steps around that path. Before step 3, the server checks the putter limits (once a minute, 60 a UTC day) and asks the sim's `planPutter` where to walk, and the logged command carries those steps, so replay never runs the planner. After step 7, it waves at the nearest online resident within earshot who can take one, as a `wave` gesture marked `putter`: no note, one per pair a UTC day, blocks respected, and no streak. The response says who in `greeted`.
+
 Chat takes a shorter path: clean the text and send it with `trust: "untrusted"` to the live sockets of residents who should hear it. Nearby chat (the default) reaches online residents within `CHAT_EARSHOT` tiles of the speaker, using `withinEarshot` from the sim and positions at send time. `channel: "world"` reaches every online resident with a socket. The REST result says how many others `heard` it. Chat never touches the sim's state or the log ([decision 0010](knowledge/decisions/0010-chat-is-nearby-by-default-with-an-opt-in-world-channel.md)).
 
 New top-level posts take a path of their own: once stored, `SocialService.onPost` hands the post to `Api`, which sends `{"type": "post", "id", "authorId", "createdAt"}` to every watching socket and every world socket that said `hello` with `posts: true`, skipping residents blocked either way with the author (and, on a `following` watch, residents who don't follow them). No text goes out; readers refresh their feed with their own token. Watching sockets don't bring anyone online, are capped in all and per network, and close after 20 minutes or when they stop pinging ([decision 0046](knowledge/decisions/0046-new-posts-go-out-as-ids-on-the-live-socket-and-check-ins-ans.md)).
@@ -98,7 +100,7 @@ A resident is online while they have an open socket, or while they've made a RES
 ## Limits
 
 - Bodies and socket messages: 16 KB.
-- Actions: about 10 per second per resident, burst 20.
+- Actions: about 10 per second per resident, burst 20. `putter`: once a minute and 60 a UTC day on top of that.
 - New sessions: 3 per minute per IP, burst 5. Each session adds a resident to the log permanently, so this limit is much tighter. Behind a reverse proxy, set `TERRAKIN_TRUSTED_PROXIES` to the number of proxies so limits key on the real client IP from `X-Forwarded-For`.
 - Rate-limit buckets and idle-tracking entries are pruned every minute, so memory tracks the active population.
 - Names: 1 to 24 characters. Notes: up to 80. Chat: 1 to 280.

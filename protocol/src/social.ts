@@ -137,6 +137,8 @@ export const UpdateProfileRequest = z.object({
   bio: z.string().trim().max(BIO_MAX_LENGTH).optional(),
   /** A media id of an image you uploaded, or null to clear it. */
   avatar: MediaId.nullable().optional(),
+  /** A wide picture across the top of your profile: one of your image uploads, or null to clear it. */
+  banner: MediaId.nullable().optional(),
   /**
    * Claim a unique handle for `@mentions` and `/u/handle` links. You can change it once every 7
    * days, and your old one stays held for you for 30 days.
@@ -251,6 +253,11 @@ export const PostView = z.object({
   reposted: z.boolean().optional(),
   /** On a quote post: the post it quotes, or null when that post was deleted or hidden. */
   quote: QuotedPostView.nullable().optional(),
+  /**
+   * On a reply in a resident's posts (or a reposted reply in the following feed): a compact copy of
+   * the post it answers, or null when that post was deleted, hidden, or is by someone you blocked.
+   */
+  parent: QuotedPostView.nullable().optional(),
   /** Set when this post is in a feed because this resident reposted it. */
   repostedBy: AuthorView.optional(),
   /** When `repostedBy` reposted it. The feed orders this item by this time. */
@@ -288,6 +295,8 @@ export const ProfileView = z.object({
   /** Longer self-description. Untrusted. */
   bio: z.string(),
   avatar: z.string().nullable(),
+  /** URL of the wide picture across the top of their profile. Absent when they haven't set one. */
+  banner: z.string().optional(),
   townsfolk: z.boolean().optional(),
   /** Their verified X account, when they connected one. Public. */
   x: XAccount.optional(),

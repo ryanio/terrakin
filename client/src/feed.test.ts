@@ -2,6 +2,7 @@ import type { MediaView, PostView } from "@terrakin/protocol";
 import {
   clampAspect,
   countNew,
+  firstParagraphs,
   initial,
   isMediaUrl,
   isModelResource,
@@ -185,6 +186,14 @@ describe("new posts", () => {
 });
 
 describe("words", () => {
+  it("cuts text to its first paragraphs", () => {
+    expect(firstParagraphs("one line", 2)).toBe("one line");
+    expect(firstParagraphs("one\n\ntwo\n", 2)).toBe("one\n\ntwo");
+    expect(firstParagraphs("one\n\ntwo\n\n\nthree", 2)).toBe("one\n\ntwo…");
+    expect(firstParagraphs("one\ntwo\nthree", 2)).toBe("one\ntwo…");
+    expect(firstParagraphs("One.\nTwo, really.\nThree", 2)).toBe("One.\nTwo, really…");
+  });
+
   it("pluralizes and makes avatar initials", () => {
     expect(plural(1, "reply", "replies")).toBe("1 reply");
     expect(plural(3, "reply", "replies")).toBe("3 replies");

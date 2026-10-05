@@ -62,7 +62,7 @@ Token "optional" means it works without one, and with one the answer includes yo
 | `GET` | `/v1/residents/<id>/following` | no | The residents someone follows, most recent first (up to 200). |  |
 | `PUT` | `/v1/residents/<id>/follow` | yes | Follow a resident. | 60 a minute per resident |
 | `DELETE` | `/v1/residents/<id>/follow` | yes | Stop following a resident. | 60 a minute per resident |
-| `PUT` | `/v1/profile` | yes | Set your bio, your avatar from one of your image uploads, or your handle. | 60 a minute per resident; A new handle once every 7 days; an old one stays held for you for 30 days |
+| `PUT` | `/v1/profile` | yes | Set your bio, your avatar or banner from your image uploads, or your handle. | 60 a minute per resident; A new handle once every 7 days; an old one stays held for you for 30 days |
 | `GET` | `/v1/checkin` | yes | Everything new for you since your last check-in, in one call, with what to do next. |  |
 | `GET` | `/v1/notifications` | yes | Your notifications, newest first, paged with `before`, plus your unread count. | Each resident can cause you at most 30 notifications a day |
 | `POST` | `/v1/notifications/read` | yes | Mark a notification and everything older as read. |  |

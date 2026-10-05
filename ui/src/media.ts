@@ -111,7 +111,12 @@ function modelTile(item: MediaView) {
 
 // ---------- full-screen image viewer ----------
 
-function openImageViewer(images: MediaView[], start: number, label: string) {
+/** One picture full screen, like a profile's avatar or banner. `url` must pass `isMediaUrl`. */
+export function openImage(url: string, label: string) {
+  openImageViewer([{ url }], 0, label);
+}
+
+function openImageViewer(images: { url: string }[], start: number, label: string) {
   let index = start;
   const img = h("img", { class: "viewer-img", attrs: { alt: "" } });
   const counter = h("p", { class: "viewer-count", attrs: { "aria-live": "polite" } });

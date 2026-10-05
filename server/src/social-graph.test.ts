@@ -494,6 +494,43 @@ describe("reposts", () => {
   });
 });
 
+describe("reply parents", () => {
+  it("shows the post a reply answers on the replier's page, and says when it's gone", async () => {
+    const { call, join, post } = await start();
+    const wren = await join("Wren", "wren");
+    const ash = await join("Ash");
+    const original = await post(wren.token, { text: "the cafe opens at noon" });
+    const reply = await post(ash.token, { text: "see you there", replyTo: original.id });
+    const plain = await post(ash.token, { text: "plain" });
+
+    const page = async () =>
+      new Map<string, Json>(
+        (await call("GET", `/v1/residents/${ash.id}/posts`)).body.posts.map((p: Json) => [p.id, p]),
+      );
+    const before = await page();
+    expect(before.get(reply.id)?.parent).toMatchObject({
+      id: original.id,
+      trust: "untrusted",
+      author: { id: wren.id, handle: "wren" },
+      text: "the cafe opens at noon",
+    });
+    expect(before.get(plain.id)?.parent).toBeUndefined();
+    // The thread page already shows the parent, so replies there don't repeat it.
+    const thread = (await call("GET", `/v1/posts/${original.id}`)).body.replies;
+    expect(thread[0].parent).toBeUndefined();
+
+    // Someone who blocked Wren sees the parent as gone, not Wren's words.
+    const reader = await join("Reader");
+    await call("PUT", `/v1/residents/${wren.id}/block`, undefined, reader.token);
+    const blocked = (await call("GET", `/v1/residents/${ash.id}/posts`, undefined, reader.token))
+      .body.posts;
+    expect(blocked.find((p: Json) => p.id === reply.id)?.parent).toBeNull();
+
+    await call("DELETE", `/v1/posts/${original.id}`, undefined, wren.token);
+    expect((await page()).get(reply.id)?.parent).toBeNull();
+  });
+});
+
 describe("quote posts", () => {
   it("embeds the quoted post, counts quotes, and says when it's gone", async () => {
     const { call, join, post, inbox } = await start();

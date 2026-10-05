@@ -21,11 +21,12 @@ import {
   WEAR_INFO,
 } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
-import { compactCount, plural } from "@terrakin/ui/format";
+import { compactCount, isMediaUrl, plural } from "@terrakin/ui/format";
 import { mediaUrlOf } from "@terrakin/ui/looks";
-import { openModelViewer } from "@terrakin/ui/media";
+import { openImage, openModelViewer } from "@terrakin/ui/media";
 import { copyText, toast } from "@terrakin/ui/ui";
-import { api, forgetMe, myProfile, rememberMyProfile } from "./api";
+import { api, forgetMe, myProfile, rememberMyProfile, uploadMedia } from "./api";
+import { bannerArt } from "./banner-art";
 import { syncPost } from "./feed-view";
 import { openInviteDialog } from "./invite-share";
 import { joinForm, tokenPreview } from "./join-form";
@@ -256,10 +257,12 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
     actions.append(visit, copy);
 
     const x = xRow(r);
+    const banner = profileBanner(r);
     if (savedToken()) {
       void myProfile().then((me) => {
         if (destroyed || !me) return;
         if (me.id === r.id) {
+          banner.editable();
           actions.prepend(
             h("span", { class: "you-tag", text: "This is you" }),
             h(
@@ -301,7 +304,8 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
     const card = h(
       "section",
       { class: "paper card profile", attrs: { "aria-label": `Profile of ${r.name}` } },
-      h("div", { class: "profile-top" }, avatarEl(r, "xl"), actions),
+      banner.el,
+      h("div", { class: "profile-top" }, profileAvatar(r), actions),
       name,
       handleLine,
       r.townsfolk ? null : ownerLine(r, "profile-owner"),
@@ -341,6 +345,137 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       homeSection(r),
     );
     return card;
+  }
+
+  /** Their picture, large. Tap a real picture to see it full screen. */
+  function profileAvatar(r: ProfileView): HTMLElement {
+    const pic = avatarEl(r, "xl");
+    const url = r.avatar;
+    if (!isMediaUrl(url)) return h("div", { class: "profile-avatar" }, pic);
+    return h(
+      "button",
+      {
+        class: "profile-avatar",
+        attrs: { type: "button", "aria-label": `Open ${r.name}'s picture` },
+        on: { click: () => openImage(url, r.name) },
+      },
+      pic,
+    );
+  }
+
+  /**
+   * The wide picture across the top: theirs (tap to see it full screen), or a pattern drawn from
+   * their id until they add one. On your own profile, `editable()` adds a way to change or remove it.
+   */
+  function profileBanner(r: ProfileView): { el: HTMLElement; editable(): void } {
+    const pic = h("div", { class: "profile-banner-pic" });
+    const el = h("div", { class: "profile-banner" }, pic);
+    let remove: HTMLElement | undefined;
+    let change: HTMLElement | undefined;
+    const paint = () => {
+      const url = r.banner;
+      const has = isMediaUrl(url);
+      // On narrow phones a set banner's buttons shrink to icons (style.css), so the name is a label.
+      el.classList.toggle("has-image", has);
+      if (remove) remove.hidden = !has;
+      const label = change?.querySelector(".banner-tool-label");
+      if (change && label) {
+        label.textContent = has ? "Change banner" : "Add a banner";
+        change.setAttribute("aria-label", label.textContent);
+      }
+      if (!has) {
+        pic.replaceChildren(bannerArt(r.id, r.color));
+        return;
+      }
+      pic.replaceChildren(
+        h(
+          "button",
+          {
+            class: "profile-banner-open",
+            attrs: { type: "button", "aria-label": `Open ${r.name}'s banner` },
+            on: { click: () => openImage(url, r.name) },
+          },
+          h("img", { attrs: { src: url, alt: "", decoding: "async" } }),
+        ),
+      );
+    };
+    paint();
+
+    async function save(banner: string | null, busy: HTMLButtonElement) {
+      busy.disabled = true;
+      const res = await api.updateProfile({ banner });
+      busy.disabled = false;
+      if (destroyed) return;
+      if (!res.ok) {
+        toast(res.message);
+        return;
+      }
+      r.banner = res.data.resident.banner;
+      rememberMyProfile(res.data.resident);
+      paint();
+      toast(banner ? "Banner saved" : "Banner removed");
+    }
+
+    function editable() {
+      const input = h("input", {
+        class: "visually-hidden",
+        attrs: {
+          type: "file",
+          accept: "image/png,image/jpeg,image/webp",
+          tabindex: -1,
+          "aria-hidden": "true",
+          "data-media": "banner",
+        },
+      });
+      const text = h("span", { class: "banner-tool-label" });
+      const changeButton = h(
+        "button",
+        {
+          class: "pill-button small banner-change",
+          attrs: { type: "button" },
+          on: { click: () => input.click() },
+        },
+        icon("camera"),
+        text,
+      );
+      const removeButton = h(
+        "button",
+        {
+          class: "pill-button small banner-remove",
+          attrs: { type: "button", "aria-label": "Remove banner" },
+          on: { click: () => void save(null, removeButton) },
+        },
+        icon("close"),
+        h("span", { class: "banner-tool-label", text: "Remove" }),
+      );
+      change = changeButton;
+      remove = removeButton;
+      input.addEventListener("change", async () => {
+        const file = input.files?.[0];
+        input.value = "";
+        if (!file) return;
+        changeButton.disabled = true;
+        const up = await uploadMedia(file, (f) => {
+          text.textContent = `Uploading ${Math.round(f * 100)}%`;
+        }).promise;
+        changeButton.disabled = false;
+        paint();
+        if (destroyed) return;
+        if (!up.ok) {
+          toast(up.message);
+          return;
+        }
+        if (up.data.kind !== "image") {
+          toast("A banner has to be a picture.");
+          return;
+        }
+        await save(up.data.id, changeButton);
+      });
+      el.append(h("div", { class: "profile-banner-tools" }, changeButton, removeButton), input);
+      paint();
+    }
+
+    return { el, editable };
   }
 
   /** "Lemon · Citrus slices · Straw hat, Basket". Names are ours (the catalog), not player text. */

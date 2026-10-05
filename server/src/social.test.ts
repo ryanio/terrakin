@@ -496,6 +496,62 @@ describe("hardening", () => {
     expect(media.files.has(image.id)).toBe(false);
   });
 
+  it("sets a banner from your own image, keeps it through sweeps, and lets it go when cleared", async () => {
+    const { call, join, social, media, advance } = await start();
+    const wren = await join("Wren");
+    const ash = await join("Ash");
+    const image = (await call("POST", "/v1/media", file(PNG), wren.token)).body.media;
+    expect(
+      (await call("PUT", "/v1/profile", { banner: image.id }, ash.token)).status,
+      "someone else's upload",
+    ).toBe(400);
+    expect((await call("GET", `/v1/residents/${wren.residentId}`)).body.resident.banner).toBe(
+      undefined,
+    );
+    const updated = await call("PUT", "/v1/profile", { banner: image.id }, wren.token);
+    expect(updated.body.resident.banner).toBe(`/media/${image.id}`);
+
+    advance(24 * 60 * 60_000 + 1);
+    await social.sweep();
+    expect(media.files.has(image.id)).toBe(true);
+
+    await call("PUT", "/v1/profile", { banner: null }, wren.token);
+    expect(media.files.has(image.id)).toBe(false);
+    expect((await call("GET", `/v1/residents/${wren.residentId}`)).body.resident.banner).toBe(
+      undefined,
+    );
+  });
+
+  it("keeps both files when one request moves or swaps the avatar and banner", async () => {
+    const { call, join, media } = await start();
+    const { token } = await join("Wren");
+    const a = (await call("POST", "/v1/media", file(PNG), token)).body.media;
+    const b = (await call("POST", "/v1/media", file(PNG), token)).body.media;
+    await call("PUT", "/v1/profile", { avatar: a.id }, token);
+    const moved = await call("PUT", "/v1/profile", { avatar: null, banner: a.id }, token);
+    expect(moved.body.resident).toMatchObject({ avatar: null, banner: `/media/${a.id}` });
+    expect(media.files.has(a.id)).toBe(true);
+
+    await call("PUT", "/v1/profile", { avatar: b.id }, token);
+    const swapped = await call("PUT", "/v1/profile", { avatar: a.id, banner: b.id }, token);
+    expect(swapped.body.resident).toMatchObject({
+      avatar: `/media/${a.id}`,
+      banner: `/media/${b.id}`,
+    });
+    expect(media.files.has(a.id)).toBe(true);
+    expect(media.files.has(b.id)).toBe(true);
+  });
+
+  it("refuses a banner that isn't a picture", async () => {
+    const { call, join } = await start();
+    const { token } = await join("Wren");
+    const glb = [0x67, 0x6c, 0x54, 0x46, 2, 0, 0, 0];
+    const model = (await call("POST", "/v1/media", file(glb), token)).body.media;
+    const res = await call("PUT", "/v1/profile", { banner: model.id }, token);
+    expect(res.status).toBe(400);
+    expect(res.body.error.message).toBe("The banner must be an image.");
+  });
+
   it("sweeps uploads nobody attached within a day", async () => {
     const { call, join, social, media, advance } = await start();
     const { token } = await join("Wren");

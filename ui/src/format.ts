@@ -50,6 +50,21 @@ export function plural(n: number, one: string, many: string): string {
   return `${compactCount(n)} ${n === 1 ? one : many}`;
 }
 
+/**
+ * The first `max` paragraphs of `text`, with "…" when there was more. Any line break starts a
+ * paragraph, and blank lines between them don't count extra.
+ */
+export function firstParagraphs(text: string, max: number): string {
+  const trimmed = text.trim();
+  const cut = [...trimmed.matchAll(/\n\s*/g)][max - 1];
+  return cut
+    ? `${trimmed
+        .slice(0, cut.index)
+        .trimEnd()
+        .replace(/[.,]+$/, "")}…`
+    : trimmed;
+}
+
 export type MediaLayout = "single" | "pair" | "trio" | "quad";
 
 /** How a post's media sits in its grid. At most four items are shown. */

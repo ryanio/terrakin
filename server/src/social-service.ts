@@ -391,11 +391,14 @@ export class SocialService {
     ]) {
       this.sql.exec(statement);
     }
-    // Added after launch: when the profile last changed, for sitemap lastmod. Older rows stay null.
-    try {
-      this.sql.exec("ALTER TABLE profiles ADD COLUMN updated_at INTEGER");
-    } catch {
-      // Already there.
+    // Added after launch: when the profile last changed (for sitemap lastmod), and the banner
+    // picture. Older rows stay null.
+    for (const column of ["updated_at INTEGER", "banner TEXT"]) {
+      try {
+        this.sql.exec(`ALTER TABLE profiles ADD COLUMN ${column}`);
+      } catch {
+        // Already there.
+      }
     }
     this.together = new TogetherService({
       sql: this.sql,
@@ -710,6 +713,7 @@ export class SocialService {
             )
           : [],
         options.viewerId,
+        true,
       ).map((v) => [v.id, v]),
     );
     const posts = items.flatMap((row) => {
@@ -895,7 +899,7 @@ export class SocialService {
     if (!r) return undefined;
     const quarantined = this.safety.isQuarantined(residentId);
     const extra = this.rows(
-      `SELECT bio, avatar,
+      `SELECT bio, avatar, banner,
         (SELECT COUNT(*) FROM posts WHERE author = ? AND hidden = 0) AS posts,
         (SELECT COUNT(*) FROM follows WHERE followee = ?) AS followers,
         (SELECT COUNT(*) FROM follows WHERE follower = ?) AS following,
@@ -923,6 +927,7 @@ export class SocialService {
       note: quarantined ? "" : r.note,
       bio: quarantined ? "" : String(extra?.bio ?? ""),
       avatar: extra?.avatar ? mediaUrl(String(extra.avatar)) : null,
+      ...(extra?.banner ? { banner: mediaUrl(String(extra.banner)) } : {}),
       ...(this.townsfolk.has(r.id) ? { townsfolk: true } : {}),
       ...(extra?.handle ? { handle: String(extra.handle) } : {}),
       ...xAccount(extra?.x_handle),
@@ -1136,11 +1141,13 @@ export class SocialService {
   ): Promise<SocialResult<ProfileView>> {
     if (!this.resident(residentId)) return fail("unauthorized", "Unknown resident.");
     // Check everything before changing anything, so a refusal leaves the profile as it was.
-    if (request.avatar) {
-      const media = this.ownedMedia(residentId, request.avatar);
-      if (!media) return fail("bad_request", "The avatar must be one of your uploads.");
+    for (const field of ["avatar", "banner"] as const) {
+      const id = request[field];
+      if (!id) continue;
+      const media = this.ownedMedia(residentId, id);
+      if (!media) return fail("bad_request", `The ${field} must be one of your uploads.`);
       if (MEDIA_TYPES[media.type].kind !== "image") {
-        return fail("bad_request", "The avatar must be an image.");
+        return fail("bad_request", `The ${field} must be an image.`);
       }
     }
     let borderlineBio = false;
@@ -1170,16 +1177,17 @@ export class SocialService {
         residentId,
       );
     }
-    if (request.avatar !== undefined) {
-      const old = this.rows("SELECT avatar FROM profiles WHERE resident_id = ?", residentId)[0];
-      this.sql.exec(
-        "UPDATE profiles SET avatar = ? WHERE resident_id = ?",
-        request.avatar ?? "",
-        residentId,
-      );
-      if (old?.avatar && old.avatar !== request.avatar)
-        await this.releaseIfUnused(String(old.avatar));
+    // Write both pictures before letting any old file go, so moving one picture from avatar to
+    // banner (or swapping them) in a single request never deletes it.
+    const replaced: string[] = [];
+    for (const field of ["avatar", "banner"] as const) {
+      const id = request[field];
+      if (id === undefined) continue;
+      const old = this.rows(`SELECT ${field} FROM profiles WHERE resident_id = ?`, residentId)[0];
+      this.sql.exec(`UPDATE profiles SET ${field} = ? WHERE resident_id = ?`, id ?? "", residentId);
+      if (old?.[field] && old[field] !== id) replaced.push(String(old[field]));
     }
+    for (const id of replaced) await this.releaseIfUnused(id);
     if (borderlineBio) this.safety.requestTriage("resident", residentId);
     const profile = this.profile(residentId, residentId);
     return profile ? { ok: true, value: profile } : fail("internal", "Profile vanished.");
@@ -1677,7 +1685,7 @@ export class SocialService {
     const orphans = this.rows(
       `SELECT id FROM media m WHERE m.created_at < ?
         AND NOT EXISTS (SELECT 1 FROM post_media pm WHERE pm.media_id = m.id)
-        AND NOT EXISTS (SELECT 1 FROM profiles pr WHERE pr.avatar = m.id)
+        AND NOT EXISTS (SELECT 1 FROM profiles pr WHERE pr.avatar = m.id OR pr.banner = m.id)
         AND NOT EXISTS (SELECT 1 FROM letter_media lm WHERE lm.media_id = m.id)
         AND NOT EXISTS (SELECT 1 FROM look_media km WHERE km.media_id = m.id)
       LIMIT 100`,
@@ -1696,10 +1704,9 @@ export class SocialService {
     this.sql.exec("DELETE FROM notifications WHERE created_at < ?", old);
   }
 
-  /** Delete a file and its row if no post, avatar, letter, or world look uses it. */
   /**
-   * Take a file down everywhere: from storage first, then from every post, letter, look, and avatar
-   * that uses it. Only the uploader can attach a file, so everything that goes is theirs. If storage
+   * Take a file down everywhere: from storage first, then from every post, letter, look, avatar,
+   * and banner that uses it. Only the uploader can attach a file, so everything that goes is theirs. If storage
    * refuses, nothing changes here and this returns false, so a retry still finds the file.
    */
   async purgeMedia(id: string): Promise<boolean> {
@@ -1714,14 +1721,16 @@ export class SocialService {
     this.sql.exec("DELETE FROM letter_media WHERE media_id = ?", id);
     this.sql.exec("DELETE FROM look_media WHERE media_id = ?", id);
     this.sql.exec("UPDATE profiles SET avatar = NULL WHERE avatar = ?", id);
+    this.sql.exec("UPDATE profiles SET banner = NULL WHERE banner = ?", id);
     this.sql.exec("DELETE FROM media WHERE id = ?", id);
     return true;
   }
 
+  /** Delete a file and its row if no post, avatar, banner, letter, or world look uses it. */
   async releaseIfUnused(id: string) {
     const used =
       this.count("SELECT COUNT(*) AS c FROM post_media WHERE media_id = ?", id) +
-      this.count("SELECT COUNT(*) AS c FROM profiles WHERE avatar = ?", id) +
+      this.count("SELECT COUNT(*) AS c FROM profiles WHERE avatar = ? OR banner = ?", id, id) +
       this.count("SELECT COUNT(*) AS c FROM letter_media WHERE media_id = ?", id) +
       this.count("SELECT COUNT(*) AS c FROM look_media WHERE media_id = ?", id);
     if (used > 0) return;
@@ -1918,8 +1927,11 @@ export class SocialService {
     return warning ? { contentWarning: warning } : {};
   }
 
-  /** Compact views of quoted posts that are still there. */
-  private quotedFor(ids: string[]): Map<string, QuotedPostView> {
+  /**
+   * Compact views of quoted and replied-to posts that are still there. A post by someone the viewer
+   * blocked is left out, so it shows as gone.
+   */
+  private quotedFor(ids: string[], viewerId: string | undefined): Map<string, QuotedPostView> {
     const out = new Map<string, QuotedPostView>();
     if (ids.length === 0) return out;
     const rows = this.rows(
@@ -1928,8 +1940,10 @@ export class SocialService {
         (SELECT handle FROM handles h WHERE h.resident_id = p.author AND h.released_at = 0) AS handle,
         (SELECT handle FROM x_links x WHERE x.resident_id = p.author) AS x_handle
       FROM posts p WHERE p.hidden = 0 AND p.id IN (${marks(ids.length)})
+        AND p.author NOT IN (SELECT blocked FROM blocks WHERE blocker = ?)
         AND ${NOT_SUSPENDED("p.author")}`,
       ...ids,
+      viewerId ?? "",
       this.now(),
     );
     const found = rows.map((row) => String(row.id));
@@ -1955,16 +1969,22 @@ export class SocialService {
     return out;
   }
 
-  /** Post views for rows selected with POST_COLUMNS. Posts whose author is gone are dropped. */
-  private views(rows: Row[], viewerId: string | undefined): PostView[] {
+  /**
+   * Post views for rows selected with POST_COLUMNS. Posts whose author is gone are dropped.
+   * `parents` adds a compact copy of the post each reply answers.
+   */
+  private views(rows: Row[], viewerId: string | undefined, parents = false): PostView[] {
     if (rows.length === 0) return [];
     const ids = rows.map((row) => String(row.id));
     const media = this.mediaFor(ids);
     const mentions = this.mentionsFor(ids);
     const reactions = this.reactionsFor(ids, viewerId);
-    const quoted = this.quotedFor([
-      ...new Set(rows.flatMap((row) => (row.quote_of ? [String(row.quote_of)] : []))),
-    ]);
+    const linked = new Set<string>();
+    for (const row of rows) {
+      if (row.quote_of) linked.add(String(row.quote_of));
+      if (parents && row.reply_to) linked.add(String(row.reply_to));
+    }
+    const quoted = this.quotedFor([...linked], viewerId);
     return rows.flatMap((row) => {
       const author = this.author(String(row.author), row.avatar, row.handle, row.x_handle);
       if (!author) return [];
@@ -1991,6 +2011,7 @@ export class SocialService {
         ...this.warning(String(row.text)),
       };
       if (row.quote_of) view.quote = quoted.get(String(row.quote_of)) ?? null;
+      if (parents && row.reply_to) view.parent = quoted.get(String(row.reply_to)) ?? null;
       return [view];
     });
   }

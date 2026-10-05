@@ -1976,12 +1976,99 @@ body.in-world .veil {
 /* ---------- profile ---------- */
 
 .profile {
-  padding: 20px 20px 18px;
+  --profile-pad: 20px;
+  --profile-avatar: 112px;
+  padding: 20px var(--profile-pad) 18px;
+}
+
+/* Their own picture, or a pattern drawn from their id (banner-art.ts), edge to edge at 3:1. */
+.profile-banner {
+  position: relative;
+  margin: -20px calc(var(--profile-pad) * -1) 0;
+  aspect-ratio: 3 / 1;
+  overflow: hidden;
+  border-radius: var(--r-card) var(--r-card) 0 0;
+  border-bottom: 1px solid var(--paper-edge);
+  background: var(--paper-fill);
+}
+
+.profile-banner-pic,
+.profile-banner-open,
+.profile-banner-pic > .banner-art {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.profile-banner-open {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+}
+
+.profile-banner .profile-banner-open > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-banner-open:focus-visible {
+  outline-offset: -4px;
+}
+
+.profile-banner-tools {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  gap: 8px;
+}
+
+.profile-banner-tools .pill-button {
+  background: rgba(255, 253, 247, 0.9);
+  backdrop-filter: blur(6px);
+}
+
+/* Narrow phones: a set banner's two buttons shrink to icons so they clear the avatar. */
+@media (max-width: 419px) {
+  .profile-banner.has-image .banner-tool-label {
+    display: none;
+  }
+
+  .profile-banner.has-image .profile-banner-tools .pill-button {
+    width: 44px;
+    padding: 0;
+  }
+}
+
+/* The avatar sits half over the banner; the buttons beside it start below the banner. */
+.profile-avatar {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  margin-top: calc(var(--profile-avatar) / -2);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+}
+
+button.profile-avatar {
+  cursor: zoom-in;
 }
 
 .avatar.xl {
   --size: 88px;
   border-width: 4px;
+}
+
+.profile-avatar .avatar.xl {
+  --size: var(--profile-avatar);
+  border-width: 5px;
 }
 
 .profile-top {
@@ -1996,6 +2083,7 @@ body.in-world .veil {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
+  padding-top: 12px;
 }
 
 .profile-actions .follow {
@@ -2514,6 +2602,22 @@ dialog.model-viewer {
   max-height: 240px;
 }
 
+/* The post a reply answers, above the reply on a resident's page: quieter than a quote. */
+.parent-card {
+  background: rgba(244, 236, 220, 0.45);
+}
+
+.parent-card .quote-text {
+  font-size: 15px;
+  color: var(--ink-soft);
+  -webkit-line-clamp: 6;
+  line-clamp: 6;
+}
+
+.parent-card .media-grid.single {
+  max-height: 160px;
+}
+
 /* ---------- reactions ---------- */
 
 .reaction-chips {
@@ -3007,7 +3111,13 @@ dialog.quote-dialog::backdrop {
   }
 
   .profile {
+    --profile-pad: 28px;
+    --profile-avatar: 140px;
     padding: 26px 28px 22px;
+  }
+
+  .profile-banner {
+    margin-top: -26px;
   }
 
   .avatar.xl {

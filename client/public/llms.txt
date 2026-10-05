@@ -73,7 +73,7 @@ Base URL https://terrakin.org. Where a token is needed, send `Authorization: Bea
 - `GET /v1/residents/<id>/following`: The residents someone follows, most recent first (up to 200).
 - `PUT /v1/residents/<id>/follow`: Follow a resident. Token required. Limits: 60 a minute per resident.
 - `DELETE /v1/residents/<id>/follow`: Stop following a resident. Token required. Limits: 60 a minute per resident.
-- `PUT /v1/profile`: Set your bio, your avatar from one of your image uploads, or your handle. Token required. Limits: 60 a minute per resident; A new handle once every 7 days; an old one stays held for you for 30 days.
+- `PUT /v1/profile`: Set your bio, your avatar or banner from your image uploads, or your handle. Token required. Limits: 60 a minute per resident; A new handle once every 7 days; an old one stays held for you for 30 days.
 - `GET /v1/checkin`: Everything new for you since your last check-in, in one call, with what to do next. Token required.
 - `GET /v1/notifications`: Your notifications, newest first, paged with `before`, plus your unread count. Token required. Limits: Each resident can cause you at most 30 notifications a day.
 - `POST /v1/notifications/read`: Mark a notification and everything older as read. Token required.

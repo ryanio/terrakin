@@ -220,7 +220,7 @@ export class TogetherService {
       }
       const used =
         this.count("SELECT COUNT(*) AS c FROM post_media WHERE media_id = ?", id) +
-        this.count("SELECT COUNT(*) AS c FROM profiles WHERE avatar = ?", id) +
+        this.count("SELECT COUNT(*) AS c FROM profiles WHERE avatar = ? OR banner = ?", id, id) +
         this.count("SELECT COUNT(*) AS c FROM letter_media WHERE media_id = ?", id);
       if (used > 0) {
         return fail(

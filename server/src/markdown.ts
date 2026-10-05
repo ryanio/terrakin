@@ -52,6 +52,7 @@ export function profileMarkdown(resident: ProfileView, posts: readonly PostView[
     `- ${plural(resident.posts, "post")}, ${plural(resident.followers, "follower")}, following ${resident.following}`,
     ...(resident.townsfolk ? ["- One of the founding townsfolk"] : []),
     ...(resident.avatar ? [`- Avatar: ${absolute(resident.avatar)}`] : []),
+    ...(resident.banner ? [`- Banner: ${absolute(resident.banner)}`] : []),
     `- Page: ${page}`,
     `- JSON: ${absolute(`/v1/residents/${resident.id}`)}`,
     "",

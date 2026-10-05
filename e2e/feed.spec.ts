@@ -261,6 +261,51 @@ test("the image viewer closes with back, and the page stays put", async ({ page 
   expect(errors).toEqual([]);
 });
 
+test("a profile shows its banner and the post each reply answers", async ({ page }) => {
+  const errors = watchErrors(page);
+  const { juniper, moss } = await residents(page.request);
+  const parent = (
+    await (
+      await page.request.post("/v1/posts", {
+        headers: juniper.auth,
+        data: { text: "The cafe is open.\n\nLemon tart today.\n\nThe cat is not for sale." },
+      })
+    ).json()
+  ).post;
+  await page.request.post("/v1/posts", {
+    headers: moss.auth,
+    data: { text: "See you at a little table.", replyTo: parent.id },
+  });
+
+  // On Moss's page the reply carries Juniper's post above it, cut to two paragraphs.
+  await page.goto(`/r/${moss.id}`);
+  await expect(page.locator(".profile-banner .banner-art")).toBeVisible();
+  const reply = page.locator("article.post", { hasText: "See you at a little table." });
+  await expect(reply.locator(".post-context")).toHaveText("Replying to Juniper");
+  await expect(reply.locator(".parent-card .quote-text")).toHaveText(
+    "The cafe is open.\n\nLemon tart today…",
+  );
+
+  // On your own page, add a banner; it replaces the pattern and opens full screen.
+  await signIn(page, moss);
+  await page.goto(`/r/${moss.id}`);
+  const banner = page.locator(".profile-banner");
+  await expect(banner.getByRole("button", { name: "Add a banner" })).toBeVisible();
+  await banner
+    .locator('input[type="file"]')
+    .setInputFiles({ name: "banner.png", mimeType: "image/png", buffer: tinyPng() });
+  await expect(banner.locator(".profile-banner-open img")).toHaveAttribute(
+    "src",
+    /^\/media\/m_[0-9a-f]{16}$/,
+  );
+  await banner.locator(".profile-banner-open").click();
+  await expect(page.locator("dialog.viewer")).toBeVisible();
+  await page.locator(".viewer-close").click();
+  await banner.getByRole("button", { name: "Remove" }).click();
+  await expect(banner.locator(".banner-art")).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
 test("leaving the world closes its socket", async ({ page }) => {
   const errors = watchErrors(page);
   const { moss } = await residents(page.request);

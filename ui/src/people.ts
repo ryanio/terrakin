@@ -8,7 +8,7 @@ import type {
 } from "@terrakin/protocol";
 import { h, icon } from "./dom";
 import { hasLook, paintFigure } from "./figure";
-import { fullDate, initial, isMediaUrl, relativeTime } from "./format";
+import { firstParagraphs, fullDate, initial, isMediaUrl, relativeTime } from "./format";
 import { lookPalette, onLookImage } from "./looks";
 import { mediaGrid } from "./media";
 import { appendRichText } from "./mentions";
@@ -17,7 +17,7 @@ type Person = Pick<AuthorView | ProfileView, "name" | "color" | "shape" | "avata
   look?: LookView | undefined;
 };
 
-const AVATAR_PX = { sm: 28, md: 40, lg: 64, xl: 88 } as const;
+const AVATAR_PX = { sm: 28, md: 40, lg: 64, xl: 120 } as const;
 
 /**
  * A resident's avatar: their picture when they have one, else their figure in their look, else
@@ -126,12 +126,20 @@ export function who(author: AuthorView, href: string): HTMLElement {
   );
 }
 
-/** The quoted post as a small nested card, or a note that it's gone. */
-export function quoteEmbed(quote: QuotedPostView | null): HTMLElement {
+/** How many paragraphs of a replied-to post show above the reply. */
+const PARENT_PARAGRAPHS = 2;
+
+/**
+ * The quoted post as a small nested card, or a note that it's gone. `parent` shows the post a
+ * reply answers instead: the same card, cut to its first paragraphs.
+ */
+export function quoteEmbed(quote: QuotedPostView | null, parent = false): HTMLElement {
+  const kind = parent ? "Replied-to post" : "Quoted post";
+  const classes = parent ? "quote-card parent-card" : "quote-card";
   if (!quote)
     return h(
       "div",
-      { class: "quote-card gone", attrs: { "aria-label": "Quoted post" } },
+      { class: `${classes} gone`, attrs: { "aria-label": kind } },
       h("p", { class: "quote-gone", text: "This post is gone" }),
     );
   const href = postPath(quote.id);
@@ -147,10 +155,14 @@ export function quoteEmbed(quote: QuotedPostView | null): HTMLElement {
       text: relativeTime(quote.createdAt, Date.now()),
     }),
   );
-  const text = appendRichText(h("p", { class: "quote-text" }), quote.text, quote.mentions);
+  const text = appendRichText(
+    h("p", { class: "quote-text" }),
+    parent ? firstParagraphs(quote.text, PARENT_PARAGRAPHS) : quote.text,
+    quote.mentions,
+  );
   const card = h(
     "div",
-    { class: "quote-card", attrs: { "aria-label": `Quoted post by ${quote.author.name}` } },
+    { class: classes, attrs: { "aria-label": `${kind} by ${quote.author.name}` } },
     h(
       "div",
       { class: "quote-head" },

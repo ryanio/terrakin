@@ -722,7 +722,7 @@ export const ROUTES = [
     method: "PUT",
     path: "/v1/profile",
     auth: "bearer",
-    summary: "Set your bio, your avatar from one of your image uploads, or your handle.",
+    summary: "Set your bio, your avatar or banner from your image uploads, or your handle.",
     description:
       "A handle is 3 to 20 lowercase letters, digits, or underscores, starting with a letter. It must be free and not a reserved word.",
     tags: ["Social"],

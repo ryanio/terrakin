@@ -123,9 +123,12 @@ export function postCard(post: PostView, options: PostCardOptions = {}): HTMLEle
           "a",
           { class: "post-context", attrs: { href: postPath(post.replyTo) } },
           icon("reply"),
-          "Replying to a post",
+          post.parent ? `Replying to ${post.parent.author.name}` : "Replying to a post",
         )
       : null;
+  // On a resident's page, the post a reply answers sits above it.
+  const parent =
+    post.parent !== undefined && !options.inThread ? quoteEmbed(post.parent, true) : null;
 
   const classes = ["post"];
   if (!compact) classes.push("paper");
@@ -135,11 +138,15 @@ export function postCard(post: PostView, options: PostCardOptions = {}): HTMLEle
   const media = mediaGrid(post.media, author.name);
   // Strong language: the words and pictures go behind a tap-to-show cover, so a spotlight's
   // picture moves down into it too.
-  const warned = post.contentWarning !== undefined || Boolean(post.quote?.contentWarning);
+  const warned =
+    post.contentWarning !== undefined ||
+    Boolean(post.quote?.contentWarning) ||
+    Boolean(parent && post.parent?.contentWarning);
   const lead = options.variant === "spotlight" && !warned ? media : null;
   const body = h(
     "div",
     { class: "post-body" },
+    parent,
     options.variant === "quote"
       ? h("span", { class: "quote-mark" }, icon("quote", "icon quote-icon"))
       : null,

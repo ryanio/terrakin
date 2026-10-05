@@ -7,6 +7,7 @@ import {
   textSegments,
 } from "@terrakin/ui/mentions";
 import { afterEach, describe, expect, it } from "vitest";
+import { BANNER_MOTIFS, bannerShapes } from "./banner-art";
 import { notificationLine } from "./notifications-view";
 import { applyReaction, applyRepost, copyPostState, REACTIONS, reactionSummary } from "./reactions";
 
@@ -217,5 +218,32 @@ describe("notification lines", () => {
       "sent you a wave 👋",
     );
     expect(notificationLine({ type: "follow", count: 1, actor }).what).toBe("followed you");
+  });
+});
+
+describe("placeholder banners", () => {
+  it("draws the same banner for the same resident every time", () => {
+    expect(bannerShapes("r_wren", "leaf")).toEqual(bannerShapes("r_wren", "leaf"));
+    expect(bannerShapes("r_wren", "leaf")).not.toEqual(bannerShapes("r_ash", "leaf"));
+  });
+
+  it("uses every motif across residents, in their color, with finite numbers", () => {
+    const seen = new Set<string>();
+    for (let i = 0; i < 200; i++) {
+      const { motif, shapes } = bannerShapes(`r_${i.toString(16).padStart(16, "0")}`, "plum");
+      seen.add(motif);
+      expect(shapes[0]?.color).toBe("plum");
+      for (const shape of shapes)
+        for (const v of Object.values(shape.attrs))
+          expect(String(v)).not.toMatch(/NaN|Infinity|undefined/);
+    }
+    expect([...seen].sort()).toEqual([...BANNER_MOTIFS].sort());
+  });
+
+  it("never washes a snow resident's banner out to white", () => {
+    for (const shape of bannerShapes("r_snow", "snow").shapes) {
+      expect(shape.color).not.toBe("snow");
+      expect(shape.color).not.toBe("coal");
+    }
   });
 });

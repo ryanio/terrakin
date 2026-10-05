@@ -3842,7 +3842,7 @@
     "/v1/profile": {
       "put": {
         "operationId": "updateProfile",
-        "summary": "Set your bio, your avatar from one of your image uploads, or your handle.",
+        "summary": "Set your bio, your avatar or banner from your image uploads, or your handle.",
         "description": "A handle is 3 to 20 lowercase letters, digits, or underscores, starting with a letter. It must be free and not a reserved word.",
         "tags": [
           "Social"
@@ -18853,6 +18853,14 @@
               }
             ]
           },
+          "parent": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/QuotedPostView"
+              }
+            ]
+          },
           "repostedBy": {
             "allOf": [
               {
@@ -18926,6 +18934,9 @@
           },
           "avatar": {
             "nullable": true,
+            "type": "string"
+          },
+          "banner": {
             "type": "string"
           },
           "townsfolk": {
@@ -19250,6 +19261,11 @@
             "maxLength": 300
           },
           "avatar": {
+            "nullable": true,
+            "type": "string",
+            "pattern": "^m_[0-9a-f]{16}$"
+          },
+          "banner": {
             "nullable": true,
             "type": "string",
             "pattern": "^m_[0-9a-f]{16}$"

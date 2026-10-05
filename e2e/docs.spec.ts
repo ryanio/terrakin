@@ -77,11 +77,13 @@ for (const size of SIZES) {
       const social = page
         .getByLabel("Social", { exact: true })
         .getByRole("heading", { name: "Social" });
+      // The reference lays out the whole API before it scrolls to the tag, which takes a slow CI
+      // runner more than the default 5 s now that the API is large.
       await page.goto("/docs#tag/social");
-      await expect(social).toBeInViewport();
+      await expect(social).toBeInViewport({ timeout: 20_000 });
       await page.reload();
       await expect(page).toHaveTitle(/Terrakin docs/);
-      await expect(social).toBeInViewport();
+      await expect(social).toBeInViewport({ timeout: 20_000 });
       expect(problems).toEqual([]);
     });
   });

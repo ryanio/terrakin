@@ -9,6 +9,8 @@ import { MemoryMediaStore } from "./media";
 import { Moderation } from "./moderation";
 import { cardFetch, publicHost } from "./node-net";
 import { nodeSql } from "./node-sql";
+import { httpArtReader } from "./partner-art";
+import { PARTNERS } from "./partners";
 import { parseMaintainers, parseTownsfolk, SocialService } from "./social-service";
 import { JsonlStore, MemoryStore } from "./store";
 import { TriageClient, triageConfig } from "./triage";
@@ -104,6 +106,7 @@ function agentLinkOptions(): AgentLinkOptions {
     rpcUrls: parseRpcUrls(process.env.TERRAKIN_CHAIN_RPC),
     ...parseDailyReads(process.env.TERRAKIN_CHAIN_DAILY_READS),
     readCard: httpCardReader({ allowHost: publicHost(), fetch: cardFetch() }),
+    readArt: httpArtReader({ allowHost: publicHost(), fetch: cardFetch() }),
   };
   const test = process.env.TERRAKIN_TEST_CHAIN;
   if (!test) return options;
@@ -126,6 +129,11 @@ function agentLinkOptions(): AgentLinkOptions {
       fetch: cardFetch(),
       testOrigin: url.origin,
     }),
+    readArt: httpArtReader({ allowHost: publicHost(), fetch: cardFetch(), testOrigin: url.origin }),
+    // Partner art comes from the same fake host, so a test never fetches a partner's real site.
+    partners: PARTNERS.map((p) =>
+      p.perks.art ? { ...p, perks: { ...p.perks, art: `${url.origin}/art/{subject}.jpg` } } : p,
+    ),
   };
 }
 

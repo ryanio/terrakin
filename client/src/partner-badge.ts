@@ -4,7 +4,12 @@
  * partner. The server decides all of it; this only draws `partner` and `agentLink`. Names from an
  * agent's card are text, and the only link out is the partner page from Terrakin's own config.
  */
-import type { PartnerBadge, ProfileView } from "@terrakin/protocol";
+import {
+  type PartnerBadge,
+  PROFILE_DESIGNS,
+  type ProfileDesign,
+  type ProfileView,
+} from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { partnerMark, verifiedLabel } from "@terrakin/ui/people";
 import { openOverlay, sheet } from "@terrakin/ui/ui";
@@ -15,6 +20,15 @@ function partnerPage(partner: PartnerBadge): { href: string; host: string } | nu
   const url = new URL(partner.url);
   if (url.protocol !== "https:") return null;
   return { href: url.href, host: url.hostname };
+}
+
+/**
+ * The partner profile design a character's profile wears (header art, a background pattern, and
+ * accent colors), or null. Only ids from the curated set; anything else draws the usual profile.
+ */
+export function profileDesign(profile: Pick<ProfileView, "partner">): ProfileDesign | null {
+  const design = profile.partner?.profile;
+  return design && (PROFILE_DESIGNS as readonly string[]).includes(design) ? design : null;
 }
 
 /** The line under a profile's name, or null when they linked no agent. */

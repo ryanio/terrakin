@@ -1,11 +1,12 @@
 /** How a resident shows up anywhere on the feed pages: avatar, badges, and links to them. */
-import type {
-  AuthorView,
-  LookView,
-  PartnerBadge,
-  ProfileView,
-  QuotedPostView,
-  ResidentBrief,
+import {
+  type AuthorView,
+  type LookView,
+  PARTNER_BORDERS,
+  type PartnerBadge,
+  type ProfileView,
+  type QuotedPostView,
+  type ResidentBrief,
 } from "@terrakin/protocol";
 import { h, icon } from "./dom";
 import { hasLook, paintFigure } from "./figure";
@@ -45,7 +46,10 @@ export function paintAvatar(el: HTMLElement, person: Person, size: AvatarSize = 
   const figure = !isMediaUrl(person.avatar) && hasLook(person.look);
   if (person.shape !== "round" && !figure) classes.push(person.shape);
   // A partner's ring, from the curated set base.css draws. Unknown ids draw no ring.
-  if (person.partner?.border === "plush") classes.push("ring-plush");
+  const border = person.partner?.border;
+  if (border && (PARTNER_BORDERS as readonly string[]).includes(border)) {
+    classes.push(`ring-${border}`);
+  }
   el.className = classes.join(" ");
   el.dataset.color = person.color;
   el.setAttribute("aria-hidden", "true");

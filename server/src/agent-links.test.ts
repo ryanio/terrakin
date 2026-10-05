@@ -14,10 +14,12 @@ import {
 import { createApp } from "./app";
 import { type ChainCall, SELECTORS } from "./chain";
 import { MemoryMediaStore } from "./media";
+import { jpegWithExif } from "./media-fixtures";
 import { Moderation } from "./moderation";
 import { nodeSql } from "./node-sql";
+import { ART_RETRY_MS, type ArtRead } from "./partner-art";
 import { MUSEGOD } from "./partners";
-import { SocialService } from "./social-service";
+import { type SocialLimits, SocialService } from "./social-service";
 import { MemoryStore } from "./store";
 import { abi, type Cleanup, jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
 import { WorldService } from "./world-service";
@@ -65,7 +67,33 @@ function fakeChain() {
   const muses = new Map<number, number>();
   const holders = new Map<number, string>();
   const cards = new Map<string, AgentCard | "bad">();
-  const state = { down: false, cardDown: false, gone: false, reads: 0 };
+  const state = { down: false, cardDown: false, gone: false, reads: 0, artReads: 0 };
+  /** Each muse's picture by URL. Unlisted URLs answer 404, like a host without the art. */
+  const art = new Map<string, ArtRead>();
+  /** Set to hold the next art reads until it resolves, to catch a copy halfway. */
+  const artGate: { held?: Promise<void> | undefined; reached?: () => void } = {};
+  const readArt = async (url: string): Promise<ArtRead> => {
+    state.artReads++;
+    if (artGate.held) {
+      artGate.reached?.();
+      await artGate.held;
+    }
+    return art.get(url) ?? { ok: false, bad: true, message: "The art isn't there." };
+  };
+  /** Hold art reads; `reached` resolves once one waits, and calling the result lets them go. */
+  const holdArt = () => {
+    let open = () => {};
+    const reached = new Promise<void>((resolve) => {
+      artGate.reached = resolve;
+    });
+    artGate.held = new Promise<void>((resolve) => {
+      open = () => {
+        artGate.held = undefined;
+        resolve();
+      };
+    });
+    return Object.assign(() => open(), { reached });
+  };
   const gates = new Map<string, { opened: Promise<void>; arrive: () => void }>();
   const word = (data: string) => Number(BigInt(`0x${data.slice(10)}`));
   const call: ChainCall = async (chainId, to, data) => {
@@ -122,6 +150,7 @@ function fakeChain() {
     muses.set(n, agentId);
     holders.set(n, KEEPER);
     cards.set(uri, { name, terrakin: names.map((id) => `https://terrakin.org/r/${id}`) });
+    art.set(`https://musegod.org/muse/art/480/${n}.jpg`, { ok: true, bytes: jpegWithExif() });
     return { agentId, uri };
   };
   const setNames = (uri: string, ids: string[]) => {
@@ -147,20 +176,36 @@ function fakeChain() {
     gates.set(uri, { opened, arrive });
     return Object.assign(() => open(), { reached });
   };
-  return { agents, muses, holders, cards, state, call, readCard, addMuse, setNames, hold };
+  return {
+    agents,
+    muses,
+    holders,
+    cards,
+    art,
+    state,
+    call,
+    readCard,
+    readArt,
+    holdArt,
+    addMuse,
+    setNames,
+    hold,
+  };
 }
 
-async function start(options: AgentLinkOptions = {}) {
+async function start(options: AgentLinkOptions = {}, limits: Partial<SocialLimits> = {}) {
   let now = Date.UTC(2026, 9, 4, 12);
   const chain = fakeChain();
   const service = new WorldService({ store: new MemoryStore(), config: CONFIG });
   const sql = nodeSql();
+  const media = new MemoryMediaStore();
   const social = new SocialService({
     sql,
-    media: new MemoryMediaStore(),
+    media,
+    limits,
     resident: (id) => service.state.residents[id],
     now: () => now,
-    agentLinks: { call: chain.call, readCard: chain.readCard, ...options },
+    agentLinks: { call: chain.call, readCard: chain.readCard, readArt: chain.readArt, ...options },
   });
   const server = createApp({
     service,
@@ -190,6 +235,7 @@ async function start(options: AgentLinkOptions = {}) {
     sql,
     social,
     links,
+    media,
     profile,
     advance: (ms: number) => {
       now += ms;
@@ -220,6 +266,7 @@ describe("linking a muse", () => {
       badge: "/partners/musegod/badge.svg",
       border: "plush",
       flair: "Muse",
+      profile: "velvet",
       url: "https://musegod.org/muse/464",
     };
     expect(done.body.link).toMatchObject({
@@ -367,7 +414,13 @@ describe("linking a muse", () => {
         about: expect.any(String),
         label: "Muse #{subject}",
         subject: expect.any(String),
-        perks: { badge: "/partners/musegod/badge.svg", border: "plush", flair: "Muse" },
+        perks: {
+          badge: "/partners/musegod/badge.svg",
+          border: "plush",
+          flair: "Muse",
+          profile: "velvet",
+          art: true,
+        },
       },
     ]);
     expect(res.text).not.toMatch(/\b(?:nft|wallet|token|holder|chain|onchain|buy)\b/i);
@@ -789,6 +842,293 @@ describe("rechecks", () => {
     expect(await links.recheckDue()).toBe(1);
   });
 });
+
+describe("the character's picture (RFC 0007 phase 2)", () => {
+  const ART = "https://musegod.org/muse/art/480/464.jpg";
+  const latin = (b: Uint8Array) => String.fromCharCode(...b);
+
+  it("copies a linked muse's art as its avatar, through the upload checks, with metadata stripped", async () => {
+    const { link, join, chain, profile, media } = await start();
+    const wren = join("Wren");
+    chain.addMuse(464, [wren.residentId]);
+    expect((await link(muse(464), wren.token)).status).toBe(201);
+    expect(chain.state.artReads).toBe(1);
+    const shown = await profile(wren.residentId);
+    expect(shown.avatar).toMatch(/^\/media\/m_[0-9a-f]{16}$/);
+    const id = String(shown.avatar).slice("/media/".length);
+    const stored = media.files.get(id);
+    expect(stored && latin(stored)).not.toContain("GPS");
+    expect(stored && latin(stored)).not.toContain("Ryan's desk");
+  });
+
+  it("leaves a resident's own picture alone, and asks again only once they have none", async () => {
+    const { link, join, chain, profile, links, advance, call } = await start();
+    const wren = join("Wren");
+    chain.addMuse(464, [wren.residentId]);
+    const up = await fetchUpload(call, wren.token, jpegWithExif());
+    await call("PUT", "/v1/profile", { avatar: up }, wren.token);
+    await link(muse(464), wren.token);
+    expect(chain.state.artReads).toBe(0);
+    expect((await profile(wren.residentId)).avatar).toBe(`/media/${up}`);
+
+    // They take their picture down; the next recheck brings the muse's art.
+    await call("PUT", "/v1/profile", { avatar: null }, wren.token);
+    advance(RECHECK_MS);
+    await links.recheckDue();
+    expect(chain.state.artReads).toBe(1);
+    expect((await profile(wren.residentId)).avatar).toMatch(/^\/media\/m_/);
+  });
+
+  it("copies once per link: a picture removed after the copy stays removed", async () => {
+    const { link, join, chain, profile, links, advance, call } = await start();
+    const wren = join("Wren");
+    chain.addMuse(464, [wren.residentId]);
+    await link(muse(464), wren.token);
+    await call("PUT", "/v1/profile", { avatar: null }, wren.token);
+    for (let i = 0; i < 3; i++) {
+      advance(RECHECK_MS);
+      await links.recheckDue();
+    }
+    expect(chain.state.artReads).toBe(1);
+    expect((await profile(wren.residentId)).avatar).toBeNull();
+  });
+
+  it("takes the copy down when the link ends, or when someone else links the same muse", async () => {
+    const { link, join, chain, profile, call, media } = await start();
+    const wren = join("Wren");
+    const moss = join("Moss");
+    const { uri } = chain.addMuse(464, [wren.residentId]);
+    await link(muse(464), wren.token);
+    const first = String((await profile(wren.residentId)).avatar).slice("/media/".length);
+    expect(media.files.has(first)).toBe(true);
+
+    // The muse's keeper moves it to Moss: Wren's copy goes, Moss gets their own.
+    chain.setNames(uri, [moss.residentId]);
+    expect((await link(muse(464), moss.token)).status).toBe(201);
+    expect((await profile(wren.residentId)).avatar).toBeNull();
+    expect(media.files.has(first)).toBe(false);
+    expect((await profile(moss.residentId)).avatar).toMatch(/^\/media\/m_/);
+
+    // Unlinking takes Moss's down too.
+    expect((await call("DELETE", "/v1/agent-link", undefined, moss.token)).status).toBe(204);
+    expect((await profile(moss.residentId)).avatar).toBeNull();
+  });
+
+  it("keeps a picture the resident chose after the copy when the link ends", async () => {
+    const { link, join, chain, profile, call } = await start();
+    const wren = join("Wren");
+    chain.addMuse(464, [wren.residentId]);
+    await link(muse(464), wren.token);
+    const mine = await fetchUpload(call, wren.token, jpegWithExif());
+    await call("PUT", "/v1/profile", { avatar: mine }, wren.token);
+    await call("DELETE", "/v1/agent-link", undefined, wren.token);
+    expect((await profile(wren.residentId)).avatar).toBe(`/media/${mine}`);
+  });
+
+  it.each([
+    { uploadsPerDay: 0 },
+    { uploadBytesPerDay: 5 },
+    { globalUploadsPerDay: 0 },
+    { globalUploadBytesPerDay: 5 },
+    { totalStoredBytes: 5 },
+  ] satisfies Partial<SocialLimits>[])(
+    "is refused by the upload cap %o like any upload",
+    async (limits) => {
+      const { link, join, chain, profile, media } = await start({}, limits);
+      const wren = join("Wren");
+      chain.addMuse(464, [wren.residentId]);
+      expect((await link(muse(464), wren.token)).status).toBe(201);
+      expect((await profile(wren.residentId)).avatar).toBeNull();
+      expect(media.files.size).toBe(0);
+      // A cap with no room at all is seen before anything is fetched.
+      const full = "uploadsPerDay" in limits || "globalUploadsPerDay" in limits;
+      expect(chain.state.artReads).toBe(full ? 0 : 1);
+    },
+  );
+
+  it("tries a failed copy again only a day later", async () => {
+    const { link, join, chain, profile, links, advance } = await start();
+    const wren = join("Wren");
+    chain.addMuse(464, [wren.residentId]);
+    const good = chain.art.get(ART);
+    chain.art.set(ART, { ok: false, bad: false, message: "down" });
+    await link(muse(464), wren.token);
+    expect(chain.state.artReads).toBe(1);
+    if (good) chain.art.set(ART, good);
+    advance(RECHECK_MS);
+    await links.recheckDue();
+    expect(chain.state.artReads).toBe(1);
+    advance(ART_RETRY_MS);
+    await links.recheckDue();
+    expect(chain.state.artReads).toBe(2);
+    expect((await profile(wren.residentId)).avatar).toMatch(/^\/media\/m_/);
+  });
+
+  it("skips the copy when the recheck pool is spent", async () => {
+    // The recheck pool is 5: a recheck takes all 5, leaving none for the art.
+    const { link, join, chain, profile, links, advance, call } = await start({
+      readsPerDay: 20,
+      recheckShare: 0.25,
+    });
+    const wren = join("Wren");
+    chain.addMuse(464, [wren.residentId]);
+    const mine = await fetchUpload(call, wren.token, jpegWithExif());
+    await call("PUT", "/v1/profile", { avatar: mine }, wren.token);
+    await link(muse(464), wren.token);
+    await call("PUT", "/v1/profile", { avatar: null }, wren.token);
+    advance(RECHECK_MS);
+    expect(await links.recheckDue()).toBe(1);
+    expect(links.readsToday("recheck")).toBe(5);
+    expect(chain.state.artReads).toBe(0);
+    expect((await profile(wren.residentId)).avatar).toBeNull();
+  });
+
+  it("keeps copies while the partner is paused, and copies nothing new", async () => {
+    const musegod = { ...MUSEGOD };
+    const { link, join, chain, profile, links, advance } = await start({ partners: [musegod] });
+    const wren = join("Wren");
+    const fern = join("Fern");
+    chain.addMuse(464, [wren.residentId]);
+    chain.addMuse(5, [fern.residentId]);
+    await link(muse(464), wren.token);
+    musegod.status = "paused";
+    const avatar = (await profile(wren.residentId)).avatar;
+    advance(RECHECK_MS);
+    await links.recheckDue();
+    expect((await profile(wren.residentId)).avatar).toBe(avatar);
+    musegod.status = "active";
+    await link(muse(5), fern.token);
+    musegod.status = "paused";
+    expect(chain.state.artReads).toBe(2);
+  });
+
+  it("keeps a picture the resident set while the art was on its way, and drops the copy", async () => {
+    const { link, join, chain, profile, call, media } = await start();
+    const wren = join("Wren");
+    chain.addMuse(464, [wren.residentId]);
+    const mine = await fetchUpload(call, wren.token, jpegWithExif());
+    const release = chain.holdArt();
+    const linking = link(muse(464), wren.token);
+    await release.reached;
+    await call("PUT", "/v1/profile", { avatar: mine }, wren.token);
+    release();
+    expect((await linking).status).toBe(201);
+    expect((await profile(wren.residentId)).avatar).toBe(`/media/${mine}`);
+    expect([...media.files.keys()]).toEqual([mine]);
+  });
+
+  it("drops a copy whose link ended or moved while the art was on its way", async () => {
+    const { link, join, chain, profile, call, media, links, advance } = await start();
+    const wren = join("Wren");
+    const moss = join("Moss");
+    const { uri } = chain.addMuse(464, [wren.residentId]);
+    // Unlinked mid-read.
+    let release = chain.holdArt();
+    const linking = link(muse(464), wren.token);
+    await release.reached;
+    await call("DELETE", "/v1/agent-link", undefined, wren.token);
+    release();
+    await linking;
+    expect((await profile(wren.residentId)).avatar).toBeNull();
+    expect(media.files.size).toBe(0);
+
+    // Moved to Moss while a recheck reads Wren's art: Wren gets no copy, and Moss gets his own.
+    const mine = await fetchUpload(call, wren.token, jpegWithExif());
+    await call("PUT", "/v1/profile", { avatar: mine }, wren.token);
+    await link(muse(464), wren.token);
+    await call("PUT", "/v1/profile", { avatar: null }, wren.token);
+    advance(RECHECK_MS);
+    release = chain.holdArt();
+    const rechecking = links.recheckDue();
+    await release.reached;
+    chain.setNames(uri, [moss.residentId]);
+    const moving = link(muse(464), moss.token);
+    release();
+    await rechecking;
+    expect((await moving).status).toBe(201);
+    expect((await profile(wren.residentId)).avatar).toBeNull();
+    const mossCopy = String((await profile(moss.residentId)).avatar).slice("/media/".length);
+    expect([...media.files.keys()]).toEqual([mossCopy]);
+  });
+
+  it("refuses art its reader refused, and never stores it", async () => {
+    const { link, join, chain, profile, media } = await start();
+    const wren = join("Wren");
+    chain.addMuse(464, [wren.residentId]);
+    chain.art.set(ART, {
+      ok: false,
+      bad: true,
+      message: "The art isn't a PNG, JPEG, WebP, or GIF.",
+    });
+    expect((await link(muse(464), wren.token)).status).toBe(201);
+    expect((await profile(wren.residentId)).avatar).toBeNull();
+    expect(media.files.size).toBe(0);
+  });
+
+  it("spends one read from the link pool, and skips the copy when the pool is spent", async () => {
+    const { link, join, chain, profile, links } = await start({
+      readsPerDay: 20,
+      recheckShare: 0.65,
+    });
+    // The link pool is 7: a link attempt reserves and uses 6 here, then the art takes 1.
+    const wren = join("Wren");
+    chain.addMuse(464, [wren.residentId]);
+    expect((await link(muse(464), wren.token)).status).toBe(201);
+    expect(links.readsToday("link")).toBe(7);
+    expect(chain.state.artReads).toBe(1);
+
+    const {
+      link: link2,
+      join: join2,
+      chain: chain2,
+      profile: profile2,
+    } = await start({
+      readsPerDay: 17,
+      recheckShare: 0.65,
+    });
+    // The link pool is 6: the attempt fits, and nothing is left for the art.
+    const fern = join2("Fern");
+    chain2.addMuse(464, [fern.residentId]);
+    expect((await link2(muse(464), fern.token)).status).toBe(201);
+    expect(chain2.state.artReads).toBe(0);
+    expect((await profile2(fern.residentId)).avatar).toBeNull();
+    expect(await profile(wren.residentId)).toBeDefined();
+  });
+
+  it("never fetches art for an agent with no partner", async () => {
+    const { link, join, chain } = await start();
+    const wren = join("Wren");
+    chain.agents.set(9001, { uri: "https://agents.example/9001.json", owner: SOMEONE });
+    chain.cards.set("https://agents.example/9001.json", {
+      name: "Helper",
+      terrakin: [`https://terrakin.org/r/${wren.residentId}`],
+    });
+    expect((await link({ agent: agentRef(9001) }, wren.token)).status).toBe(201);
+    expect(chain.state.artReads).toBe(0);
+  });
+
+  it("takes the copy down when a recheck drops the link", async () => {
+    const { link, join, chain, profile, links, advance } = await start();
+    const wren = join("Wren");
+    const { uri } = chain.addMuse(464, [wren.residentId]);
+    await link(muse(464), wren.token);
+    expect((await profile(wren.residentId)).avatar).toMatch(/^\/media\/m_/);
+    chain.setNames(uri, []);
+    advance(RECHECK_MS);
+    await links.recheckDue();
+    expect((await profile(wren.residentId)).avatar).toBeNull();
+  });
+});
+
+/** Upload bytes as a resident and return the media id. */
+async function fetchUpload(
+  call: ReturnType<typeof jsonCaller>,
+  token: string,
+  bytes: Uint8Array,
+): Promise<string> {
+  const res = await call("POST", "/v1/media", bytes, token);
+  return String(res.body.media.id);
+}
 
 describe("the first cut of the tables", () => {
   it("is dropped, so no holder address stays behind", () => {

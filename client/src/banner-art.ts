@@ -3,6 +3,7 @@
  * their id, so it's the same on every visit and every device, in their color and two companions.
  * `bannerShapes` is pure (and tested); `bannerArt` turns its list into an SVG.
  */
+import type { ProfileDesign } from "@terrakin/protocol";
 import type { ResidentColor } from "@terrakin/sim";
 
 export const BANNER_W = 600;
@@ -199,11 +200,156 @@ export function bannerShapes(
   return { motif, shapes };
 }
 
+/**
+ * The header art of a partner's profile design (RFC 0007, decision 0058): the same picture for
+ * every character with that design, so it reads as the partner's at a glance. Drawn from resident
+ * colors like every banner, never from partner text or art.
+ */
+export function designShapes(design: ProfileDesign): BannerShape[] {
+  const fill = (color: ResidentColor, opacity: number): Pick<BannerShape, "color" | "opacity"> => ({
+    color,
+    opacity,
+  });
+  const backdrop = (color: ResidentColor, opacity: number): BannerShape => ({
+    tag: "rect",
+    attrs: { x: 0, y: 0, width: BANNER_W, height: BANNER_H },
+    ...fill(color, opacity),
+  });
+  const shapes: BannerShape[] = [];
+  if (design === "velvet") {
+    // Quilted plush: a plum ground, a rose sheen, diamond tufting, and a button at each crossing.
+    shapes.push(backdrop("plum", 0.62), {
+      tag: "path",
+      attrs: { d: `M0 ${BANNER_H} L${BANNER_W} 0 L${BANNER_W} ${BANNER_H} Z` },
+      ...fill("rose", 0.22),
+    });
+    const cell = 50;
+    for (let x = -BANNER_H; x <= BANNER_W; x += cell) {
+      shapes.push(
+        {
+          tag: "path",
+          attrs: { d: `M${x} 0 L${x + BANNER_H} ${BANNER_H}` },
+          ...fill("snow", 0.28),
+          stroke: 2,
+        },
+        {
+          tag: "path",
+          attrs: { d: `M${x + BANNER_H} 0 L${x} ${BANNER_H}` },
+          ...fill("snow", 0.28),
+          stroke: 2,
+        },
+      );
+    }
+    for (let y = 0; y <= BANNER_H; y += cell / 2) {
+      const shift = (y / (cell / 2)) % 2 === 0 ? 0 : cell / 2;
+      for (let x = shift; x <= BANNER_W; x += cell) {
+        shapes.push({ tag: "circle", attrs: { cx: x, cy: y, r: 3.5 }, ...fill("snow", 0.7) });
+      }
+    }
+  } else if (design === "lantern") {
+    // A warm night: coal sky with a plum glow, a string of lanterns, and a few stars.
+    shapes.push(backdrop("coal", 0.88), {
+      tag: "circle",
+      attrs: { cx: BANNER_W * 0.7, cy: BANNER_H * 1.4, r: BANNER_H },
+      ...fill("plum", 0.4),
+    });
+    for (const [cx, cy] of [
+      [40, 30],
+      [150, 22],
+      [270, 40],
+      [520, 26],
+      [580, 60],
+      [95, 70],
+    ] as const) {
+      shapes.push({ tag: "circle", attrs: { cx, cy, r: 1.8 }, ...fill("snow", 0.8) });
+    }
+    // Where the string hangs at x: the same curve as the path below.
+    const sag = (x: number) => 82 + 120 * (x / BANNER_W) * (1 - x / BANNER_W);
+    shapes.push({
+      tag: "path",
+      attrs: { d: `M0 82 Q${BANNER_W / 2} 142 ${BANNER_W} 82` },
+      ...fill("sand", 0.55),
+      stroke: 2,
+    });
+    for (let x = 50; x < BANNER_W; x += 100) {
+      const top = round(sag(x));
+      shapes.push(
+        { tag: "circle", attrs: { cx: x, cy: top + 22, r: 26 }, ...fill("sun", 0.18) },
+        {
+          tag: "rect",
+          attrs: { x: x - 9, y: top + 8, width: 18, height: 28, rx: 7 },
+          ...fill("sun", 0.95),
+        },
+        {
+          tag: "rect",
+          attrs: { x: x - 6, y: top + 4, width: 12, height: 5, rx: 2 },
+          ...fill("sand", 0.9),
+        },
+      );
+    }
+  } else {
+    // A grove: soft leaf hills under a sun, and sprigs of leaves.
+    shapes.push(
+      backdrop("leaf", 0.3),
+      { tag: "circle", attrs: { cx: 470, cy: 58, r: 30 }, ...fill("sun", 0.75) },
+      {
+        tag: "path",
+        attrs: {
+          d: `M0 128 Q150 88 300 122 T${BANNER_W} 112 L${BANNER_W} ${BANNER_H} L0 ${BANNER_H} Z`,
+        },
+        ...fill("leaf", 0.55),
+      },
+      {
+        tag: "path",
+        attrs: {
+          d: `M0 160 Q200 128 380 158 T${BANNER_W} 150 L${BANNER_W} ${BANNER_H} L0 ${BANNER_H} Z`,
+        },
+        ...fill("leaf", 0.85),
+      },
+    );
+    for (const [x, y, turn] of [
+      [70, 60, -30],
+      [190, 40, 20],
+      [330, 64, -10],
+      [560, 92, 30],
+    ] as const) {
+      shapes.push(
+        {
+          tag: "path",
+          attrs: {
+            d: `M${x} ${y} q12 -16 24 0 q-12 16 -24 0 Z`,
+            transform: `rotate(${turn} ${x} ${y})`,
+          },
+          ...fill("leaf", 0.9),
+        },
+        {
+          tag: "path",
+          attrs: {
+            d: `M${x} ${y} q-12 -16 -24 0 q12 16 24 0 Z`,
+            transform: `rotate(${turn} ${x} ${y})`,
+          },
+          ...fill("sun", 0.55),
+        },
+      );
+    }
+  }
+  return shapes;
+}
+
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 /** The banner as an SVG that covers its box. Decorative, so hidden from screen readers. */
 export function bannerArt(id: string, color: ResidentColor): SVGSVGElement {
   const { motif, shapes } = bannerShapes(id, color);
+  return drawBanner(shapes, motif);
+}
+
+/** A partner profile design's header art, drawn like any banner. */
+export function designArt(design: ProfileDesign): SVGSVGElement {
+  return drawBanner(designShapes(design), design);
+}
+
+function drawBanner(shapes: readonly BannerShape[], motif: string): SVGSVGElement {
   const svg = document.createElementNS(SVG_NS, "svg");
   svg.setAttribute("viewBox", `0 0 ${BANNER_W} ${BANNER_H}`);
   svg.setAttribute("preserveAspectRatio", "xMidYMid slice");

@@ -10,6 +10,15 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-partner-characters-get-a-profile-design-and-their-own-pictur</id>
+    <title>Added: Partner characters get a profile design and their own picture</title>
+    <updated>2026-10-05T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-05"/>
+    <category term="added" label="Added"/>
+    <summary type="text">`partner.profile` on profiles and post authors names a profile design (`velvet`, `lantern`, or `grove`), and `partner.border` adds `gilded` and `aurora` to `plush`. `GET /v1/partners` lists both in `perks`, plus `perks.art: true` for a partner that shares its characters' pictures.
+Linking as a muse with no profile picture makes the muse's own picture your avatar, copied into Terrakin's media as your upload (it counts toward your daily uploads). A picture you set is never replaced, and the copy goes when the link ends.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-gifts-that-carry-a-thing-and-sending-a-gift-back</id>
     <title>Added: Gifts that carry a thing, and sending a gift back</title>
     <updated>2026-10-05T00:00:00Z</updated>

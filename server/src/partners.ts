@@ -1,4 +1,4 @@
-import type { PartnerBadge, PartnerBorder, PartnerView } from "@terrakin/protocol";
+import type { PartnerBadge, PartnerBorder, PartnerView, ProfileDesign } from "@terrakin/protocol";
 
 /**
  * Terrakin's partners (RFC 0007): config in the repo, reviewed like code. No admin panel and no
@@ -9,8 +9,9 @@ import type { PartnerBadge, PartnerBorder, PartnerView } from "@terrakin/protoco
  * on the partner's own contract, never by what the card says, so a lookalike card gets at most a
  * plain verified link.
  *
- * Perks are presentation only: a badge, an avatar border from the client's curated set, and a
- * short flair. Never coins, plots, reach, votes, rank, or limits.
+ * Perks are presentation only: a badge, an avatar border and a profile design from the client's
+ * curated sets, a short flair, and the character's own picture as its avatar. Never coins, plots,
+ * reach, votes, rank, or limits.
  */
 
 /**
@@ -49,7 +50,18 @@ export interface PartnerConfig {
   page: string;
   /** Where whoever controls the character confirms a profile. `{subject}` and `{residentId}` are replaced. */
   setUrl: string;
-  perks: { badge: string; border?: PartnerBorder; flair?: string };
+  perks: {
+    badge: string;
+    border?: PartnerBorder;
+    flair?: string;
+    profile?: ProfileDesign;
+    /**
+     * Where the character's picture is, on the partner's own https site, with `{subject}` replaced.
+     * Copied into Terrakin's media through the upload checks when a character links, and used as
+     * its avatar unless it already has one (partner-art.ts). Never hotlinked.
+     */
+    art?: string;
+  };
   /** `paused` hides perks without unlinking anyone. */
   status: "active" | "paused";
 }
@@ -81,7 +93,14 @@ export const MUSEGOD: PartnerConfig = {
   label: "Muse #{subject}",
   page: "https://musegod.org/muse/{subject}",
   setUrl: "https://musegod.org/muse/{subject}#terrakin={residentId}",
-  perks: { badge: "/partners/musegod/badge.svg", border: "plush", flair: "Muse" },
+  perks: {
+    badge: "/partners/musegod/badge.svg",
+    border: "plush",
+    flair: "Muse",
+    profile: "velvet",
+    // musegod.org's 480 px cut of the muse's art (about 40 KB), not the 4096 px original.
+    art: "https://musegod.org/muse/art/480/{subject}.jpg",
+  },
   status: "active",
 };
 
@@ -112,8 +131,14 @@ export function partnerBadge(
     badge: partner.perks.badge,
     ...(partner.perks.border ? { border: partner.perks.border } : {}),
     ...(partner.perks.flair ? { flair: partner.perks.flair } : {}),
+    ...(partner.perks.profile ? { profile: partner.perks.profile } : {}),
     url: fill(partner.page, { subject }),
   };
+}
+
+/** Where a partner's character's picture is, or undefined when the partner shares none. */
+export function partnerArtUrl(partner: PartnerConfig, subject: string): string | undefined {
+  return partner.perks.art ? fill(partner.perks.art, { subject }) : undefined;
 }
 
 /** Where a partner's character confirms a resident's profile. */
@@ -138,6 +163,8 @@ export function partnerViews(partners: readonly PartnerConfig[] = PARTNERS): Par
         badge: p.perks.badge,
         ...(p.perks.border ? { border: p.perks.border } : {}),
         ...(p.perks.flair ? { flair: p.perks.flair } : {}),
+        ...(p.perks.profile ? { profile: p.perks.profile } : {}),
+        ...(p.perks.art ? { art: true } : {}),
       },
     }));
 }

@@ -2,7 +2,7 @@ import { createServer, type Server } from "node:http";
 import { join as joinPath } from "node:path";
 import { expect, type Page, test } from "@playwright/test";
 import { FAKE_CHAIN_PORT } from "./ports";
-import { join, watchErrors } from "./support";
+import { join, tinyPng, watchErrors } from "./support";
 
 /**
  * A verified muse on a phone (RFC 0007). The server reads agents from a fake network and fetches
@@ -48,6 +48,12 @@ function answer(to: string, data: string): string | undefined {
 
 test.beforeAll(async () => {
   fake = createServer((req, res) => {
+    // The muse's picture, which the server copies in as its avatar (partner-art.ts).
+    if (req.method === "GET" && req.url === `/art/${MUSE}.jpg`) {
+      res.writeHead(200, { "content-type": "image/png" });
+      res.end(tinyPng());
+      return;
+    }
     if (req.method === "GET" && req.url === `/card/${MUSE}.json`) {
       res.writeHead(200, { "content-type": "application/json" });
       res.end(
@@ -121,6 +127,16 @@ test("a verified muse shows its badge, border, and flair on a phone", async ({ p
   await expect(chip).toBeVisible();
   await expect(page.locator(".profile-name .badge-flair")).toHaveText("Muse");
   await expect(page.locator(".profile-avatar .avatar")).toHaveClass(/ring-plush/);
+  // The muse's own picture is its avatar, from Terrakin's media, and its profile wears velvet.
+  await expect(page.locator(".profile-avatar .avatar img")).toHaveAttribute(
+    "src",
+    /^\/media\/m_[0-9a-f]{16}$/,
+  );
+  await expect(page.locator("section.profile")).toHaveAttribute("data-design", "velvet");
+  await expect(page.locator(".profile-banner svg.banner-art")).toHaveAttribute(
+    "data-motif",
+    "velvet",
+  );
   const box = await chip.boundingBox();
   expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
   expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(390);
@@ -147,6 +163,9 @@ test("a verified muse shows its badge, border, and flair on a phone", async ({ p
   await page.reload();
   await expect(page.getByRole("heading", { name: "Saddlebag" })).toBeVisible();
   await expect(page.getByRole("button", { name: `Verified Muse #${MUSE}` })).toHaveCount(0);
+  // The picture and the design leave with the character.
+  await expect(page.locator(".profile-avatar .avatar img")).toHaveCount(0);
+  await expect(page.locator("section.profile")).not.toHaveAttribute("data-design", /./);
 
   expect(errors).toEqual([]);
 });

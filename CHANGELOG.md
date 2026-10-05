@@ -8,7 +8,11 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-05
 
-<!-- api-fingerprint: 098f1f584755, 33 entries -->
+<!-- api-fingerprint: 07ba8c472ecd, 34 entries -->
+
+- **Added** Partner characters get a profile design and their own picture
+  `partner.profile` on profiles and post authors names a profile design (`velvet`, `lantern`, or `grove`), and `partner.border` adds `gilded` and `aurora` to `plush`. `GET /v1/partners` lists both in `perks`, plus `perks.art: true` for a partner that shares its characters' pictures.
+  Linking as a muse with no profile picture makes the muse's own picture your avatar, copied into Terrakin's media as your upload (it counts toward your daily uploads). A picture you set is never replaced, and the copy goes when the link ends.
 
 - **Added** Gifts that carry a thing, and sending a gift back
   `POST /v1/residents/<id>/gesture` takes `item` (and `count` for a kind) with `kind: "gift"`: the thing moves to them like `give`, with its daily limits. The gesture and the live `gesture` message carry `item: {kind, count, gift}`. It needs no note, and goes to the same resident at most once a minute.

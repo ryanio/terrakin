@@ -78,56 +78,99 @@ export function cardUrlProblem(url: URL, testOrigin?: string): string | undefine
   return undefined;
 }
 
+/** What `fetchOutside` found: the body, or why not. */
+export type OutsideRead =
+  | { ok: true; bytes: Uint8Array; type: string }
+  /** `refused`: the URL (or a redirect) breaks the rules. `missing`: 404 or 410. `down`: anything else. */
+  | { ok: false; why: "refused" | "missing" | "html" | "too_big" | "down" };
+
+export interface OutsideFetch {
+  get: typeof fetch;
+  timeoutMs: number;
+  allowHost: (hostname: string) => Promise<boolean>;
+  testOrigin: string | undefined;
+  accept: string;
+  maxBytes: number;
+}
+
+/**
+ * Fetch something from outside Terrakin by the card rules (the comment at the top): https on the
+ * usual port, a host name, every redirect held to the same rules, `allowHost` before every request,
+ * one timeout for the whole read, HTML refused, and the body read only up to `maxBytes`. Cards
+ * (here) and partner art (partner-art.ts) both read through it.
+ */
+export async function fetchOutside(uri: string, o: OutsideFetch): Promise<OutsideRead> {
+  if (!URL.canParse(uri)) return { ok: false, why: "refused" };
+  let url = new URL(uri);
+  const signal = AbortSignal.timeout(o.timeoutMs);
+  try {
+    for (let hop = 0; ; hop++) {
+      if (cardUrlProblem(url, o.testOrigin)) return { ok: false, why: "refused" };
+      if (url.origin !== o.testOrigin && !(await withinTime(o.allowHost(url.hostname), signal))) {
+        return { ok: false, why: "refused" };
+      }
+      const res = await o.get(url.href, {
+        headers: { accept: o.accept },
+        redirect: "manual",
+        signal,
+      });
+      if (res.status >= 300 && res.status < 400) {
+        await res.body?.cancel();
+        const next = res.headers.get("location");
+        if (!next || hop >= MAX_REDIRECTS || !URL.canParse(next, url.href)) {
+          return { ok: false, why: "refused" };
+        }
+        url = new URL(next, url);
+        continue;
+      }
+      if (res.status === 404 || res.status === 410) {
+        await res.body?.cancel();
+        return { ok: false, why: "missing" };
+      }
+      if (!res.ok) {
+        await res.body?.cancel();
+        return { ok: false, why: "down" };
+      }
+      const type = res.headers.get("content-type") ?? "";
+      if (/^text\/html/i.test(type)) {
+        await res.body?.cancel();
+        return { ok: false, why: "html" };
+      }
+      const bytes = await readCapped(res.body, o.maxBytes);
+      if (!bytes) return { ok: false, why: "too_big" };
+      return { ok: true, bytes, type };
+    }
+  } catch {
+    return { ok: false, why: "down" };
+  }
+}
+
 /** The real reader. */
 export function httpCardReader(options: CardReaderOptions = {}): CardReader {
-  const get = options.fetch ?? ((input, init) => fetch(input, init));
-  const timeoutMs = options.timeoutMs ?? CARD_TIMEOUT_MS;
-  const allowHost = options.allowHost ?? (async () => true);
-  const testOrigin = options.testOrigin;
+  const fetching: OutsideFetch = {
+    get: options.fetch ?? ((input, init) => fetch(input, init)),
+    timeoutMs: options.timeoutMs ?? CARD_TIMEOUT_MS,
+    allowHost: options.allowHost ?? (async () => true),
+    testOrigin: options.testOrigin,
+    accept: "application/json",
+    maxBytes: CARD_MAX_BYTES,
+  };
   return async (uri) => {
     if (uri.length > CARD_MAX_BYTES * 2) return bad(TOO_BIG);
     if (/^data:/i.test(uri)) return readDataUri(uri);
-    if (!URL.canParse(uri)) return bad(BAD_URL);
-    let url = new URL(uri);
-    const signal = AbortSignal.timeout(timeoutMs);
-    try {
-      for (let hop = 0; ; hop++) {
-        const problem = cardUrlProblem(url, testOrigin);
-        if (problem) return bad(problem);
-        if (url.origin !== testOrigin && !(await withinTime(allowHost(url.hostname), signal))) {
-          return bad(BAD_URL);
-        }
-        const res = await get(url.href, {
-          headers: { accept: "application/json" },
-          redirect: "manual",
-          signal,
-        });
-        if (res.status >= 300 && res.status < 400) {
-          await res.body?.cancel();
-          const next = res.headers.get("location");
-          if (!next || hop >= MAX_REDIRECTS || !URL.canParse(next, url.href)) return bad(BAD_URL);
-          url = new URL(next, url);
-          continue;
-        }
-        if (res.status === 404 || res.status === 410) {
-          await res.body?.cancel();
-          return bad("The agent's card isn't there (its address answers 404).");
-        }
-        if (!res.ok) {
-          await res.body?.cancel();
-          return down;
-        }
-        const type = res.headers.get("content-type") ?? "";
-        if (/^text\/html/i.test(type)) {
-          await res.body?.cancel();
-          return bad(NOT_JSON);
-        }
-        const bytes = await readCapped(res.body, CARD_MAX_BYTES);
-        if (!bytes) return bad(TOO_BIG);
-        return parsed(bytes);
-      }
-    } catch {
-      return down;
+    const read = await fetchOutside(uri, fetching);
+    if (read.ok) return parsed(read.bytes);
+    switch (read.why) {
+      case "refused":
+        return bad(BAD_URL);
+      case "missing":
+        return bad("The agent's card isn't there (its address answers 404).");
+      case "html":
+        return bad(NOT_JSON);
+      case "too_big":
+        return bad(TOO_BIG);
+      case "down":
+        return down;
     }
   };
 }

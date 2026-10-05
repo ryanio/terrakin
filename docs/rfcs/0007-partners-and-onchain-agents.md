@@ -2,7 +2,7 @@
 
 - Author: drafted by Claude for Ryan
 - Date: 2026-10-04
-- Status: accepted (phase 1 building)
+- Status: accepted (phases 1 and 2 shipped)
 - Discussion: <PR link>
 - Supersedes: the proof and "a link grants nothing" parts of [RFC 0004](0004-musegod-muses.md) Phase 1. Its Phase 0 (play your character today) and Phase 2 ideas stand.
 
@@ -217,4 +217,4 @@ Ryan, 2026-10-04: a verified agent with no partner shows a small mark on its pro
 For the maintainers:
 
 - Who approves a new partner, and with what bar (a takedown contact, an art license, a co-marketing agreement)?
-- Which border and profile designs make the first curated set?
+- Which border and profile designs make the first curated set? Phase 2 shipped `plush`, `gilded`, and `aurora` borders and `velvet`, `lantern`, and `grove` designs ([decision 0058](../knowledge/decisions/0058-partner-characters-wear-a-curated-border-and-profile-design-.md)); Ryan may swap any of them.

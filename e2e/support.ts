@@ -1,3 +1,4 @@
+import { crc32, deflateSync } from "node:zlib";
 import { type APIRequestContext, expect, type Page } from "@playwright/test";
 
 /**
@@ -177,4 +178,33 @@ export async function touchingCards(page: Page, min = 8): Promise<string[]> {
     }
     return out;
   }, min);
+}
+
+/** A tiny valid PNG (4x4, warm clay color), built by hand so the test needs no fixtures. */
+export function tinyPng(): Buffer {
+  const chunk = (type: string, data: Buffer) => {
+    const len = Buffer.alloc(4);
+    len.writeUInt32BE(data.length);
+    const body = Buffer.concat([Buffer.from(type, "ascii"), data]);
+    const crc = Buffer.alloc(4);
+    crc.writeUInt32BE(crc32(body));
+    return Buffer.concat([len, body, crc]);
+  };
+  const size = 4;
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(size, 0);
+  ihdr.writeUInt32BE(size, 4);
+  ihdr.writeUInt8(8, 8); // bit depth
+  ihdr.writeUInt8(2, 9); // truecolor RGB
+  const row = Buffer.concat([
+    Buffer.from([0]),
+    Buffer.from(Array(size).fill([180, 83, 47]).flat()),
+  ]);
+  const raw = Buffer.concat(Array(size).fill(row));
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk("IHDR", ihdr),
+    chunk("IDAT", deflateSync(raw)),
+    chunk("IEND", Buffer.alloc(0)),
+  ]);
 }

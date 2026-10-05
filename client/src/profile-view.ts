@@ -41,7 +41,7 @@ import {
   uploadMedia,
   whoseKey,
 } from "./api";
-import { bannerArt } from "./banner-art";
+import { bannerArt, designArt } from "./banner-art";
 import { syncPost } from "./feed-view";
 import { openInviteDialog } from "./invite-share";
 import { colorChips, joinForm, shapeChips, tokenPreview } from "./join-form";
@@ -50,7 +50,7 @@ import { openLookEditor } from "./look-editor";
 import { stallCard } from "./market-view";
 import { savedResidentId, savedToken, saveToken } from "./net";
 import { agentItem, type OwnerPanel, ownerPanel } from "./owner-panel";
-import { verifiedRow } from "./partner-badge";
+import { profileDesign, verifiedRow } from "./partner-badge";
 import { type PeopleTab, peoplePath } from "./people-view";
 import { plotPhotoButton } from "./plot-photo";
 import { postCard, skeletonCards } from "./post-card";
@@ -352,9 +352,16 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       lookLine(r.look),
     ].filter((f): f is HTMLElement => f !== null);
 
+    const design = profileDesign(r);
     const card = h(
       "section",
-      { class: "paper card profile", attrs: { "aria-label": `Profile of ${r.name}` } },
+      {
+        class: "paper card profile",
+        attrs: {
+          "aria-label": `Profile of ${r.name}`,
+          ...(design ? { "data-design": design } : {}),
+        },
+      },
       banner.el,
       h("div", { class: "profile-top" }, avatar.el, actions),
       name,
@@ -522,7 +529,9 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
         change.setAttribute("aria-label", label.textContent);
       }
       if (!has) {
-        pic.replaceChildren(bannerArt(r.id, r.color));
+        // A partner's character shows its profile design's header until it adds its own banner.
+        const design = profileDesign(r);
+        pic.replaceChildren(design ? designArt(design) : bannerArt(r.id, r.color));
         return;
       }
       pic.replaceChildren(

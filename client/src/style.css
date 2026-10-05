@@ -3668,7 +3668,7 @@ dialog.model-viewer {
   font: inherit;
   font-size: var(--text-base);
   font-weight: var(--weight-bold);
-  color: #5f3a78;
+  color: var(--plum-deep);
   cursor: pointer;
 }
 
@@ -3696,6 +3696,48 @@ dialog.model-viewer {
 .verified-out {
   align-self: flex-start;
   margin-top: var(--space-md);
+}
+
+/*
+ * A partner's profile design (RFC 0007, decision 0058): header art from `designArt` until they add a
+ * banner, a faint dotted ground, and the design's accent on the banner's edge and the verified chip.
+ */
+.profile[data-design="velvet"] {
+  --design-accent: var(--resident-plum);
+  --design-ink: var(--plum-deep);
+  --design-wash: rgba(185, 138, 214, 0.14);
+  --design-dot: rgba(169, 139, 216, 0.16);
+}
+
+.profile[data-design="lantern"] {
+  --design-accent: var(--sun);
+  --design-ink: var(--clay-deep);
+  --design-wash: rgba(242, 184, 75, 0.16);
+  --design-dot: rgba(242, 184, 75, 0.22);
+}
+
+.profile[data-design="grove"] {
+  --design-accent: var(--moss-light);
+  --design-ink: var(--moss-deep);
+  --design-wash: rgba(134, 182, 95, 0.16);
+  --design-dot: rgba(134, 182, 95, 0.2);
+}
+
+.profile[data-design] {
+  background:
+    radial-gradient(circle, var(--design-dot) 1.5px, transparent 2px) 0 0 / var(--space-lg)
+    var(--space-lg),
+    var(--paper-fill);
+}
+
+.profile[data-design] .profile-banner {
+  border-bottom: 3px solid var(--design-accent);
+}
+
+.profile[data-design] .verified-chip {
+  border-color: var(--design-accent);
+  background: var(--design-wash);
+  color: var(--design-ink);
 }
 
 /* ---------- X accounts (decision 0022) ---------- */

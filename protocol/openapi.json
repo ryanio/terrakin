@@ -25189,6 +25189,13 @@
           "flair": {
             "type": "string"
           },
+          "profile": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProfileDesign"
+              }
+            ]
+          },
           "url": {
             "type": "string"
           }
@@ -25204,7 +25211,9 @@
       "PartnerBorder": {
         "type": "string",
         "enum": [
-          "plush"
+          "plush",
+          "gilded",
+          "aurora"
         ]
       },
       "PartnerSubject": {
@@ -25247,6 +25256,16 @@
               },
               "flair": {
                 "type": "string"
+              },
+              "profile": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/ProfileDesign"
+                  }
+                ]
+              },
+              "art": {
+                "type": "boolean"
               }
             },
             "required": [
@@ -25276,6 +25295,14 @@
         },
         "required": [
           "partners"
+        ]
+      },
+      "ProfileDesign": {
+        "type": "string",
+        "enum": [
+          "velvet",
+          "lantern",
+          "grove"
         ]
       },
       "BuyOrderView": {

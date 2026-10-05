@@ -48,10 +48,12 @@ import { aimedAtReader, readerMessage } from "./injection";
 import { KarmaService } from "./karma";
 import { type MediaStore, privateMediaKey, sniffMediaType } from "./media";
 import { Moderation, type ReviewContext, refusal, type Surface } from "./moderation";
+import { httpArtReader, PartnerArtService } from "./partner-art";
 import { PraiseService } from "./praise";
 import { NOT_SUSPENDED, SafetyService } from "./safety-service";
 import type { SqlExec } from "./sql-store";
 import { stripMetadata } from "./strip-metadata";
+import { report } from "./telemetry";
 import { cleanMultiline, cleanText } from "./text";
 import { TogetherService } from "./together-service";
 import type { TriageClient } from "./triage";
@@ -502,10 +504,46 @@ export class SocialService {
       { sql: this.sql, now: this.now, moderation: this.moderation },
       options.agentLinks,
     );
+    const links = this.agentLinks;
+    this.partnerArt = new PartnerArtService({
+      sql: this.sql,
+      now: this.now,
+      readArt: options.agentLinks?.readArt ?? httpArtReader(),
+      wanted: (id) => links.artWanted(id),
+      spendRead: (pool) => links.spendRead(pool),
+      uploadRoom: (id) => this.uploadRoom(id, 1).ok,
+      avatarOf: (id) => {
+        const row = this.rows("SELECT avatar FROM profiles WHERE resident_id = ?", id)[0];
+        return row?.avatar ? String(row.avatar) : undefined;
+      },
+      setAvatar: (id, media) => {
+        this.sql.exec("INSERT OR IGNORE INTO profiles (resident_id) VALUES (?)", id);
+        this.sql.exec(
+          "UPDATE profiles SET avatar = ?, updated_at = ? WHERE resident_id = ?",
+          media ?? "",
+          this.now(),
+          id,
+        );
+      },
+      upload: (id, bytes) => this.upload(id, bytes),
+      release: (media) => this.releaseIfUnused(media),
+    });
+    links.onChange = async (ids, pool) => {
+      // Each on its own, so one failure never strands another resident's picture.
+      for (const id of ids) {
+        try {
+          await this.partnerArt.sync(id, pool);
+        } catch (err) {
+          report(err, "partner_art.sync");
+        }
+      }
+    };
   }
 
   /** Agent links and partner badges (RFC 0007). Shares this service's tables. */
   readonly agentLinks: AgentLinkService;
+  /** A partner character's own picture as its avatar (RFC 0007 phase 2). */
+  readonly partnerArt: PartnerArtService;
 
   /** Letters, gestures, streaks, and invites (decision 0024). Shares this service's tables. */
   readonly together: TogetherService;

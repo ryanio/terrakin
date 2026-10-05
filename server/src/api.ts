@@ -1132,8 +1132,8 @@ export class Api {
         }
         return fromResult(await social().agentLinks.link(viewer, body), (reply) => reply);
       },
-      unlinkAgent: ({ viewer }) => {
-        social().agentLinks.unlink(viewer);
+      unlinkAgent: async ({ viewer }) => {
+        await social().agentLinks.unlink(viewer);
         return { status: 204 };
       },
       getPartners: () => ({ status: 200, body: { partners: partnerViews() } }),

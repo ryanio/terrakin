@@ -23,10 +23,12 @@ import {
   sameAddress,
 } from "./chain";
 import type { Moderation } from "./moderation";
+import type { ArtReader, ArtWanted } from "./partner-art";
 import {
   findPartner,
   PARTNERS,
   type PartnerConfig,
+  partnerArtUrl,
   partnerBadge,
   partnerLabel,
   partnerSetUrl,
@@ -64,9 +66,14 @@ export interface AgentLinkOptions {
   call?: ChainCall;
   /** Fetches an agent's card. Default: the real fetcher with its rules (agent-card.ts). */
   readCard?: CardReader;
+  /** Fetches a partner character's picture. Default: the real fetcher (partner-art.ts). */
+  readArt?: ArtReader;
   /** RPC URLs per network, from server config. Ignored when `call` is given. */
   rpcUrls?: Readonly<Record<number, string>>;
-  /** Reads (network calls plus card fetches) per UTC day, both pools together. 0 turns links off. */
+  /**
+   * Reads (network calls, card fetches, and partner art copies) per UTC day, both pools together.
+   * 0 turns links off.
+   */
   readsPerDay?: number;
   /** The share of `readsPerDay` for rechecks. The rest is for link attempts. */
   recheckShare?: number;
@@ -124,7 +131,7 @@ const CHAIN_CACHE_MS = 60_000;
 const NAME_MAX_CHARS = 64;
 const DAY_MS = 86_400_000;
 
-type Pool = "link" | "recheck";
+export type Pool = "link" | "recheck";
 
 interface LinkRow {
   resident_id: string;
@@ -209,6 +216,12 @@ export class AgentLinkService {
   private readonly onLinked: (() => void) | undefined;
   /** Residents whose link is being rechecked right now, so a busy profile checks once. */
   private readonly inFlight = new Set<string>();
+  /**
+   * Called after residents' links were made, ended, or rechecked, with the pool any follow-up read
+   * should come from. `SocialService` sets it to bring partner art in line (partner-art.ts).
+   * Awaited, so a link's answer comes back after its art is copied.
+   */
+  onChange: ((residentIds: string[], pool: Pool) => Promise<void>) | undefined;
 
   constructor(
     deps: {
@@ -394,17 +407,23 @@ export class AgentLinkService {
     const partner = check.partner;
     // A newer valid claim wins: the same agent, the same partner character, or this resident's
     // own older link all make way.
-    this.sql.exec(
-      `DELETE FROM agent_links WHERE resident_id = ?
+    const replaced = `resident_id = ?
         OR (chain_id = ? AND registry = ? AND agent_id = ?)
-        OR (partner_id != '' AND partner_id = ? AND subject = ?)`,
+        OR (partner_id != '' AND partner_id = ? AND subject = ?)`;
+    const replacedArgs = [
       residentId,
       ref.chainId,
       ref.registry.toLowerCase(),
       ref.agentId,
       partner?.id ?? "",
       partner?.subject ?? "",
-    );
+    ];
+    const others = [
+      ...this.sql.exec(`SELECT resident_id FROM agent_links WHERE ${replaced}`, ...replacedArgs),
+    ]
+      .map((r) => String(r.resident_id))
+      .filter((id) => id !== residentId);
+    this.sql.exec(`DELETE FROM agent_links WHERE ${replaced}`, ...replacedArgs);
     this.sql.exec(
       `INSERT INTO agent_links (resident_id, chain_id, registry, agent_id, name, name_hash,
         partner_id, subject, holder_hash, linked_at, checked_at, due_at)
@@ -423,13 +442,47 @@ export class AgentLinkService {
       now + RECHECK_MS,
     );
     this.onLinked?.();
+    // Residents who lost the character first, so their copies go before the new one is made.
+    await this.changed([...others, residentId], "link");
     const link = this.view(residentId);
     if (!link) return fail("unavailable", UNAVAILABLE);
     return { ok: true, value: { status: 201, body: { link } } };
   }
 
-  unlink(residentId: string) {
+  /** End a resident's link. Its perks go with it: partner art, entitlements. */
+  async unlink(residentId: string, pool: Pool = "link") {
     this.sql.exec("DELETE FROM agent_links WHERE resident_id = ?", residentId);
+    await this.changed([residentId], pool);
+  }
+
+  private async changed(residentIds: string[], pool: Pool) {
+    try {
+      await this.onChange?.(residentIds, pool);
+    } catch (err) {
+      report(err, "agent_link.changed");
+    }
+  }
+
+  /** Spend one read from today's pool, for a follow-up like copying art. False when it's spent. */
+  spendRead(pool: Pool): boolean {
+    return this.reserve(pool, 1) !== undefined;
+  }
+
+  /** The picture a resident's link brings: an active partner's character, with art in its config. */
+  artWanted(residentId: string): ArtWanted | "paused" | undefined {
+    const row = [
+      ...this.sql.exec(
+        "SELECT partner_id, subject FROM agent_links WHERE resident_id = ? AND partner_id != ''",
+        residentId,
+      ),
+    ][0];
+    if (!row) return undefined;
+    const partner = findPartner(String(row.partner_id), this.partners);
+    const subject = String(row.subject);
+    if (partner?.status === "paused") return "paused";
+    if (partner?.status !== "active" || !partner.subject.test(subject)) return undefined;
+    const url = partnerArtUrl(partner, subject);
+    return url ? { partnerId: partner.id, subject, url } : undefined;
   }
 
   // ---------- views ----------
@@ -572,7 +625,7 @@ export class AgentLinkService {
     if (check.kind === "down") {
       const downs = Number(current.down_checks) + 1;
       if (downs >= DOWN_LIMIT) {
-        this.unlink(id);
+        await this.unlink(id, "recheck");
         count("agent_link.dropped", { result: "down" });
         return;
       }
@@ -595,7 +648,7 @@ export class AgentLinkService {
       return;
     }
     if (check.kind !== "ok" || !check.names(id)) {
-      this.unlink(id);
+      await this.unlink(id, "recheck");
       count("agent_link.dropped", { result: check.kind });
       return;
     }
@@ -608,7 +661,7 @@ export class AgentLinkService {
       partner.id === current.partner_id &&
       partner.holderHash !== current.holder_hash
     ) {
-      this.unlink(id);
+      await this.unlink(id, "recheck");
       count("agent_link.dropped", { result: "sold" });
       return;
     }
@@ -640,6 +693,8 @@ export class AgentLinkService {
       now + RECHECK_MS,
       id,
     );
+    // The partner match may have changed, and a copy of the character's art may still be due.
+    await this.changed([id], "recheck");
   }
 
   // ---------- reading an agent ----------

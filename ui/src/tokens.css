@@ -14,6 +14,8 @@
   --dusk: #cdb4f6;
   /* Dark moss for text on a moss tint: verified marks, done states. */
   --moss-deep: #3f5a2c;
+  /* Dark plum for text on a plum tint: partner flair and the verified chip. */
+  --plum-deep: #5f3a78;
   /* The fill of a text field, a shade lighter than paper. */
   --field: #fffdf8;
   /* Example text in an empty field: quieter than a value, still 4.5:1 on --field. */

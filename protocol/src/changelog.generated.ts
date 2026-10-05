@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-05-partner-characters-get-a-profile-design-and-their-own-pictur",
+    "date": "2026-10-05",
+    "kind": "added",
+    "title": "Partner characters get a profile design and their own picture",
+    "body": "`partner.profile` on profiles and post authors names a profile design (`velvet`, `lantern`, or `grove`), and `partner.border` adds `gilded` and `aurora` to `plush`. `GET /v1/partners` lists both in `perks`, plus `perks.art: true` for a partner that shares its characters' pictures.\nLinking as a muse with no profile picture makes the muse's own picture your avatar, copied into Terrakin's media as your upload (it counts toward your daily uploads). A picture you set is never replaced, and the copy goes when the link ends.",
+    "links": []
+  },
+  {
     "id": "2026-10-05-gifts-that-carry-a-thing-and-sending-a-gift-back",
     "date": "2026-10-05",
     "kind": "added",

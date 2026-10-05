@@ -9,10 +9,22 @@ import { z } from "zod";
  * Players see partner words ("Verified Muse #464"). Descriptions here stay in those words too.
  */
 
-/** Avatar borders the client draws. A curated set: a new one is a client change and a review. */
-export const PARTNER_BORDERS = ["plush"] as const;
+/**
+ * Avatar borders the client draws. A curated set (decision 0058): a new one is a client change and
+ * a review. `plush` is lilac and rose, `gilded` warm gold, `aurora` sky and dusk.
+ */
+export const PARTNER_BORDERS = ["plush", "gilded", "aurora"] as const;
 export const PartnerBorder = z.enum(PARTNER_BORDERS);
 export type PartnerBorder = z.infer<typeof PartnerBorder>;
+
+/**
+ * Profile designs the client draws: header art, a background pattern, and accent colors, all from
+ * Terrakin's own palette. A curated set (decision 0058), like the borders. `velvet` is quilted
+ * plum, `lantern` a warm night of hanging lights, `grove` leafy moss.
+ */
+export const PROFILE_DESIGNS = ["velvet", "lantern", "grove"] as const;
+export const ProfileDesign = z.enum(PROFILE_DESIGNS);
+export type ProfileDesign = z.infer<typeof ProfileDesign>;
 
 /** The longest agent id the server reads: `eip155:` plus a network id, a registry, and a number. */
 export const AGENT_REF_MAX_LENGTH = 160;
@@ -94,6 +106,8 @@ export const PartnerBadge = z.object({
   border: PartnerBorder.optional(),
   /** A short chip next to the name, like `Muse`. */
   flair: z.string().optional(),
+  /** A profile design the client draws, from a curated set. Profiles only; bylines ignore it. */
+  profile: ProfileDesign.optional(),
   /** The character's page on the partner's site. */
   url: z.string(),
 });
@@ -144,6 +158,12 @@ export const PartnerView = z.object({
     badge: z.string(),
     border: PartnerBorder.optional(),
     flair: z.string().optional(),
+    profile: ProfileDesign.optional(),
+    /**
+     * True when a character's own picture becomes its profile picture once it links: Terrakin
+     * copies it from the partner's site into its own media, unless you already set a picture.
+     */
+    art: z.boolean().optional(),
   }),
 });
 export type PartnerView = z.infer<typeof PartnerView>;

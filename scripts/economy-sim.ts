@@ -96,6 +96,8 @@ interface Rules {
   treasury(): number;
   minted(): number;
   burned(): number;
+  /** Residents still waiting for a welcome gift the treasury couldn't pay in full. */
+  owed(): number;
 }
 
 /** The real rules: every step is an input to the sim, exactly as the server would log it. */
@@ -142,6 +144,7 @@ function simRules(): Rules {
     treasury: () => state.economy?.treasury ?? 0,
     minted: () => state.economy?.minted ?? 0,
     burned: () => state.economy?.burned ?? 0,
+    owed: () => state.economy?.owed.length ?? 0,
   };
 }
 
@@ -386,7 +389,9 @@ function report(rules: Rules) {
     console.log(
       `Month end: supply ${last.supply}, treasury ${last.treasury}, ${last.perActive} coins per active resident.`,
     );
-    console.log(`Welcome gifts paid short because the treasury ran low: ${shortWelcomes}.`);
+    console.log(
+      `Welcome gifts that had to wait for a new_day because the treasury ran low: ${shortWelcomes}, still waiting at month end: ${rules.owed()}.`,
+    );
   }
 }
 

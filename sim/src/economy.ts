@@ -78,6 +78,18 @@ export function ownerPaired(state: WorldState, a: ResidentId, b: ResidentId): bo
   return state.ownerPairs?.some(([p, q]) => p === x && q === y) ?? false;
 }
 
+/**
+ * Whether a gift between two residents skips the daily caps: they're an owner pair, and the pair
+ * has been linked since before today. A pair linked today is capped until tomorrow, so linking a
+ * fresh account, giving, and unlinking can't be repeated in one day.
+ */
+export function pairSkipsCaps(state: WorldState, a: ResidentId, b: ResidentId): boolean {
+  if (!ownerPaired(state, a, b)) return false;
+  const [x, y] = a < b ? [a, b] : [b, a];
+  const since = state.ownerPairDays?.[x]?.[y] ?? 0;
+  return (state.day ?? 0) > since;
+}
+
 /** A resident's balance. 0 before the economy opens. */
 export function coinsOf(state: WorldState, id: ResidentId): number {
   return state.economy?.coins[id] ?? 0;
@@ -97,6 +109,8 @@ export interface Purse {
   receivedToday: number;
   /** A resident's first day can receive gifts but not give. */
   firstDay: boolean;
+  /** Waiting for a welcome gift the treasury couldn't pay in full yet. */
+  welcomeOwed: boolean;
 }
 
 /** A resident's purse, or null before the economy opens. */
@@ -114,6 +128,7 @@ export function purseOf(state: WorldState, id: ResidentId): Purse | null {
     givenToday: econ.today.given[id] ?? 0,
     receivedToday: econ.today.received[id] ?? 0,
     firstDay: econ.today.newcomers.includes(id),
+    welcomeOwed: econ.owed.includes(id),
   };
 }
 
@@ -233,6 +248,7 @@ export function checkEconomyServer(
           treasuryLedger: [],
           allowance: {},
           welcomed,
+          owed: [],
           today: emptyToday(),
         };
         state.economy = econ;
@@ -261,9 +277,19 @@ export function checkEconomyServer(
       }
       const order = (x: string, y: string) => (x < y ? -1 : x > y ? 1 : 0);
       const pairs = [...byKey.values()].sort((p, q) => order(p[0], q[0]) || order(p[1], q[1]));
+      // A pair keeps the day it first appeared. A new one is stamped today, except in the first
+      // list ever sent or before the world counts days: those links predate this rule, so day 0.
+      const first = state.ownerPairDays === undefined;
+      const days: Record<ResidentId, Record<ResidentId, number>> = {};
+      for (const [a, b] of pairs) {
+        const kept = state.ownerPairDays?.[a]?.[b];
+        const since = kept ?? (first || state.day === undefined ? 0 : state.day);
+        days[a] = { ...days[a], [b]: since };
+      }
       return () => {
         if (pairs.length > 0) state.ownerPairs = pairs;
         else delete state.ownerPairs;
+        state.ownerPairDays = days;
         return [{ type: "owner_pairs_set", pairs: pairs.map(([a, b]) => [a, b]) }];
       };
     }
@@ -284,9 +310,13 @@ export function checkEconomyServer(
 
 /**
  * What `new_day` does to coins, or null before the economy opens: each townsfolk resident's
- * whole purse goes back to the treasury, the treasury mints, the gift caps reset, and each
- * townsfolk resident (in id order) gets their budget from what the treasury holds above the
- * reserve. All amounts are worked out here, before anything changes.
+ * whole purse goes back to the treasury, the treasury mints, welcome gifts still owed are paid in
+ * full in the order they were owed, the gift caps reset, and each townsfolk resident (in id order)
+ * gets their budget from what the treasury holds above the reserve. All amounts are worked out
+ * here, before anything changes.
+ *
+ * The treasury's history is public, so the returns and the budgets are one line each for all
+ * townsfolk together: a line per townsfolk resident would show what they gave and were given.
  */
 export function economyNewDay(state: WorldState, day: number): Mutation | null {
   const econ = state.economy;
@@ -302,6 +332,18 @@ export function economyNewDay(state: WorldState, day: number): Mutation | null {
       treasury += held;
     }
   }
+  const returned = returns.reduce((sum, [, held]) => sum + held, 0);
+  // Owed welcome gifts, oldest first, each only in full. One that can't be paid holds up the
+  // rest, so nobody jumps the queue. Townsfolk never get one, so any in the queue drop out.
+  const welcomes: ResidentId[] = [];
+  const stillOwed: ResidentId[] = [];
+  for (const id of econ.owed) {
+    if (isTownsfolk(state, id)) continue;
+    if (stillOwed.length === 0 && treasury >= ECONOMY.welcomeGift) {
+      welcomes.push(id);
+      treasury -= ECONOMY.welcomeGift;
+    } else stillOwed.push(id);
+  }
   const budgets: [ResidentId, number][] = [];
   for (const id of townsfolk) {
     if (!state.residents[id]) continue;
@@ -310,19 +352,20 @@ export function economyNewDay(state: WorldState, day: number): Mutation | null {
     budgets.push([id, pay]);
     treasury -= pay;
   }
+  const budgeted = budgets.reduce((sum, [, pay]) => sum + pay, 0);
   return () => {
     const events: WorldEvent[] = [];
     for (const [id, held] of returns) {
       events.push(movePurse(econ, id, -held, "budget_return", at));
-      events.push(moveTreasury(econ, held, "budget_return", at, id));
     }
+    if (returned > 0) events.push(moveTreasury(econ, returned, "budget_return", at));
     econ.minted += ECONOMY.treasuryMint;
     events.push(moveTreasury(econ, ECONOMY.treasuryMint, "mint", at));
+    for (const id of welcomes) events.push(...welcome(econ, id, at));
+    econ.owed = stillOwed;
     econ.today = emptyToday();
-    for (const [id, pay] of budgets) {
-      events.push(moveTreasury(econ, -pay, "budget", at, id));
-      events.push(movePurse(econ, id, pay, "budget", at));
-    }
+    if (budgeted > 0) events.push(moveTreasury(econ, -budgeted, "budget", at));
+    for (const [id, pay] of budgets) events.push(movePurse(econ, id, pay, "budget", at));
     return events;
   };
 }
@@ -342,11 +385,11 @@ export function economyTownsfolkChange(state: WorldState, ids: ResidentId[]): Mu
       return held > 0 ? [[id, held]] : [];
     });
   if (leaving.length === 0) return null;
-  return () =>
-    leaving.flatMap(([id, held]) => [
-      movePurse(econ, id, -held, "budget_return", at),
-      moveTreasury(econ, held, "budget_return", at, id),
-    ]);
+  const returned = leaving.reduce((sum, [, held]) => sum + held, 0);
+  return () => [
+    ...leaving.map(([id, held]) => movePurse(econ, id, -held, "budget_return", at)),
+    moveTreasury(econ, returned, "budget_return", at),
+  ];
 }
 
 // ---------- gifts ----------
@@ -383,7 +426,7 @@ export function checkGive(
   }
   const have = econ.coins[actor] ?? 0;
   if (have < amount) return refuse("not_enough_coins", `You have ${coins(have)}.`);
-  const paired = ownerPaired(state, actor, to);
+  const paired = pairSkipsCaps(state, actor, to);
   const given = econ.today.given[actor] ?? 0;
   const received = econ.today.received[to] ?? 0;
   if (!paired && given + amount > ECONOMY.giveCap) {
@@ -392,13 +435,17 @@ export function checkGive(
       `You can give ${coins(ECONOMY.giveCap)} a day. You have ${coins(ECONOMY.giveCap - given)} left to give today.`,
     );
   }
-  // Their total is theirs: say no without saying how much they've had.
-  if (!paired && received + amount > ECONOMY.receiveCap) {
+  // Their total is theirs. Refusing only once they're already at the cap means a refusal never
+  // depends on this gift's amount, so trying amounts can't measure what they've had today. The
+  // gift that crosses the cap goes through.
+  if (!paired && received >= ECONOMY.receiveCap) {
     return refuse(
       "gift_limit",
-      `A resident can receive ${coins(ECONOMY.receiveCap)} in gifts a day, and that would go over. Try fewer coins, or tomorrow.`,
+      `A resident can receive ${coins(ECONOMY.receiveCap)} in gifts a day, and they've had that today. Try tomorrow.`,
     );
   }
+  // This one stays exact: only townsfolk (run by the team) can hit it, so there's nobody to hide
+  // the total from, and it keeps the treasury's daily cost per resident fixed.
   const tipped = econ.today.fromTownsfolk[to] ?? 0;
   if (fromTownsfolk && tipped + amount > ECONOMY.townsfolkPerResident) {
     return refuse(
@@ -424,35 +471,50 @@ export function checkGive(
 // ---------- bookkeeping on residents' own inputs ----------
 
 /**
- * The welcome gift `command` would pay `actor`, or null. Due on a resident's first plot by
- * `settle` or `claim` while the economy is open, once per resident ever, never to townsfolk.
- * When the treasury is short it pays what the treasury has, and the gift still counts as had.
- * Worked out before the command commits.
+ * Whether `command` gives `actor` a welcome gift now ("pay"), puts them in line for one ("owe"),
+ * or neither (null). Due on a resident's first plot by `settle` or `claim` while the economy is
+ * open, once per resident ever, never to townsfolk. It's only ever paid in full: when the treasury
+ * can't, or others are already waiting, the resident joins the end of the line and `new_day` pays
+ * it. Worked out before the command commits.
  */
-export function welcomeDue(state: WorldState, actor: ResidentId, command: Command): number | null {
+export function welcomeDue(
+  state: WorldState,
+  actor: ResidentId,
+  command: Command,
+): "pay" | "owe" | null {
   const econ = state.economy;
   if (!econ || (command.type !== "settle" && command.type !== "claim")) return null;
-  if (econ.welcomed.includes(actor) || isTownsfolk(state, actor)) return null;
-  if (plotsOwnedBy(state, actor).length > 0) return null;
-  return Math.min(ECONOMY.welcomeGift, econ.treasury);
+  if (econ.welcomed.includes(actor) || econ.owed.includes(actor)) return null;
+  if (isTownsfolk(state, actor) || plotsOwnedBy(state, actor).length > 0) return null;
+  return econ.owed.length === 0 && econ.treasury >= ECONOMY.welcomeGift ? "pay" : "owe";
 }
 
-/** Pay a welcome gift worked out by `welcomeDue`. */
+/** Pay a welcome gift in full from the treasury, and count it as had. */
+function welcome(econ: EconomyState, id: ResidentId, at: At): WorldEvent[] {
+  insertSorted(econ.welcomed, id);
+  return [
+    moveTreasury(econ, -ECONOMY.welcomeGift, "welcome", at, id),
+    movePurse(econ, id, ECONOMY.welcomeGift, "welcome", at),
+  ];
+}
+
+/**
+ * Carry out what `welcomeDue` decided. Joining the line has no event: the purse shows
+ * `welcomeOwed`, and the gift's own events come when `new_day` pays it.
+ */
 export function payWelcome(
   state: WorldState,
   actor: ResidentId,
-  amount: number,
+  due: "pay" | "owe",
   seq: number,
 ): WorldEvent[] {
   const econ = state.economy;
   if (!econ) return [];
-  insertSorted(econ.welcomed, actor);
-  if (amount <= 0) return [];
-  const at = { seq, day: state.day ?? 0 };
-  return [
-    moveTreasury(econ, -amount, "welcome", at, actor),
-    movePurse(econ, actor, amount, "welcome", at),
-  ];
+  if (due === "owe") {
+    econ.owed.push(actor);
+    return [];
+  }
+  return welcome(econ, actor, { seq, day: state.day ?? 0 });
 }
 
 /**

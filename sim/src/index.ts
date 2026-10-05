@@ -14,6 +14,7 @@ export {
   isTownsfolk,
   ownerPaired,
   type Purse,
+  pairSkipsCaps,
   purseOf,
   treasuryOf,
 } from "./economy";

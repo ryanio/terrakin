@@ -132,6 +132,14 @@ function opened() {
   return w;
 }
 
+/** Set the treasury for a test, minting or unminting the difference so the supply adds up. */
+function setTreasury(state: WorldState, n: number) {
+  const econ = state.economy;
+  if (!econ) throw new Error("open the economy first");
+  econ.minted += n - econ.treasury;
+  econ.treasury = n;
+}
+
 /**
  * Put coins straight into a purse for a test, minting them so the supply identity still holds.
  * Never part of a replayed log.
@@ -169,7 +177,9 @@ describe("old logs", () => {
       minted: 6_450,
       coins: { ada: 1, bob: 40, dee: 104 },
       welcomed: ["ada", "bob", "clem", "cy", "dee"],
+      owed: [],
     });
+    expect(state.ownerPairDays).toEqual({ ada: { bob: 0 }, cy: { dee: DAY + 6 } });
   });
 });
 
@@ -399,20 +409,69 @@ describe("the welcome gift", () => {
     expect(w.state.economy?.welcomed).toEqual([]);
   });
 
-  it("pays what the treasury has when it's short, and counts as had", () => {
+  it("is only paid in full: short newcomers wait in line and new_day pays them in order", () => {
     const w = opened();
-    const econ = w.state.economy;
-    if (!econ) throw new Error("no economy");
-    // Leave the treasury 30 coins, unminting the rest so the supply still adds up.
-    econ.minted -= econ.treasury - 30;
-    econ.treasury = 30;
+    w.join("clem");
+    w.ok(TOWN_ACTOR, { type: "set_townsfolk", ids: ["clem"] });
+    setTreasury(w.state, 80);
+    // Ada is paid in full, leaving 30. Bob can't be, so he waits.
     w.join("ada");
     w.ok("ada", { type: "settle", px: 0, py: 0 });
-    expect(w.coins("ada")).toBe(30);
+    expect(w.coins("ada")).toBe(50);
     w.join("bob");
     expect(coinEvents(w.ok("bob", { type: "settle", px: 1, py: 0 }))).toEqual([]);
-    expect(w.state.economy?.welcomed).toEqual(["ada", "bob"]);
+    // Cy waits behind Bob even though the treasury could now pay one gift: nobody jumps the line.
+    setTreasury(w.state, 100);
+    w.join("cy");
+    expect(coinEvents(w.ok("cy", { type: "settle", px: 2, py: 0 }))).toEqual([]);
+    expect(w.state.economy?.owed).toEqual(["bob", "cy"]);
+    expect(w.state.economy?.welcomed).toEqual(["ada"]);
+    expect(purseOf(w.state, "bob")).toMatchObject({ balance: 0, welcomeOwed: true });
+    // Releasing and settling again doesn't queue anyone twice.
+    w.ok("cy", { type: "release" });
+    w.ok("cy", { type: "settle", px: 2, py: 0 });
+    expect(w.state.economy?.owed).toEqual(["bob", "cy"]);
+
+    // Tomorrow's mint (100 + 700) pays both, in order, before Clem's budget.
+    const events = coinEvents(w.day(DAY + 1));
+    expect(events.map((e) => [e.type, e.reason, "residentId" in e ? e.residentId : ""])).toEqual([
+      ["treasury", "mint", ""],
+      ["treasury", "welcome", "bob"],
+      ["coins", "welcome", "bob"],
+      ["treasury", "welcome", "cy"],
+      ["coins", "welcome", "cy"],
+    ]);
+    // Paying them left 700, under the reserve, so no budget for Clem today.
+    expect(w.treasury()).toBe(700);
+    expect(w.coins("clem")).toBe(0);
+    expect([w.coins("bob"), w.coins("cy")]).toEqual([50, 50]);
+    expect(w.state.economy?.owed).toEqual([]);
+    expect(w.state.economy?.welcomed).toEqual(["ada", "bob", "cy"]);
+    expect(purseOf(w.state, "bob")?.welcomeOwed).toBe(false);
+  });
+
+  it("pays the line only while each gift can be paid in full, and keeps the rest in order", () => {
+    // 5x5 plots, so 16 newcomers fit.
+    const w = world({ ...CONFIG, width: 40, height: 40 });
+    w.day(DAY);
+    w.open();
+    setTreasury(w.state, 0);
+    const names = Array.from({ length: 16 }, (_, i) => `r_${String(i).padStart(2, "0")}`);
+    names.forEach((name, i) => {
+      // Plots in reading order, skipping the Commons at (2, 2).
+      const n = i < 12 ? i : i + 1;
+      w.join(name);
+      w.ok(name, { type: "settle", px: n % 5, py: Math.floor(n / 5) });
+    });
+    expect(w.state.economy?.owed).toEqual(names);
+    // The mint of 700 pays 14 gifts of 50. The last two wait for tomorrow, still in order.
+    w.day(DAY + 1);
+    expect(w.state.economy?.owed).toEqual(names.slice(14));
     expect(w.treasury()).toBe(0);
+    expect(names.map((n) => w.coins(n))).toEqual([...Array(14).fill(50), 0, 0]);
+    w.day(DAY + 2);
+    expect(w.state.economy?.owed).toEqual([]);
+    expect(w.treasury()).toBe(600);
   });
 });
 
@@ -426,32 +485,35 @@ describe("new_day with coins", () => {
     expect(events).toEqual([
       { type: "day_started", day: DAY + 1 },
       { type: "treasury", amount: 700, balance: 5_700, reason: "mint" },
-      { type: "treasury", amount: -50, balance: 5_650, reason: "budget", residentId: "bram" },
+      // One public line for all the budgets: what each townsfolk resident holds is private.
+      { type: "treasury", amount: -100, balance: 5_600, reason: "budget" },
       { type: "coins", residentId: "bram", amount: 50, balance: 50, reason: "budget" },
-      { type: "treasury", amount: -50, balance: 5_600, reason: "budget", residentId: "clem" },
       { type: "coins", residentId: "clem", amount: 50, balance: 50, reason: "budget" },
     ]);
+    expect(w.state.economy?.treasuryLedger.at(-1)).toEqual({
+      seq: w.state.seq,
+      day: DAY + 1,
+      amount: -100,
+      reason: "budget",
+    });
     expect(w.state.economy?.minted).toBe(5_700);
   });
 
-  it("takes back what townsfolk didn't give, before the new budgets", () => {
+  it("takes back what townsfolk didn't give, as one public line, before the new budgets", () => {
     const w = opened();
+    w.join("bram");
     w.join("clem");
     w.settle("ada", 0);
-    w.ok(TOWN_ACTOR, { type: "set_townsfolk", ids: ["clem"] });
+    w.ok(TOWN_ACTOR, { type: "set_townsfolk", ids: ["bram", "clem"] });
     w.day(DAY + 1);
     expect(w.give("clem", "ada", 20).ok).toBe(true);
+    const start = 5_000 - 50 + 700 - 100;
     const events = w.day(DAY + 2);
-    expect(events.slice(1, 4)).toEqual([
+    expect(events.slice(1, 5)).toEqual([
+      { type: "coins", residentId: "bram", amount: -50, balance: 0, reason: "budget_return" },
       { type: "coins", residentId: "clem", amount: -30, balance: 0, reason: "budget_return" },
-      {
-        type: "treasury",
-        amount: 30,
-        balance: 5_000 - 50 + 700 - 50 + 30,
-        reason: "budget_return",
-        residentId: "clem",
-      },
-      { type: "treasury", amount: 700, balance: 5_000 - 50 + 700 - 50 + 30 + 700, reason: "mint" },
+      { type: "treasury", amount: 80, balance: start + 80, reason: "budget_return" },
+      { type: "treasury", amount: 700, balance: start + 80 + 700, reason: "mint" },
     ]);
     expect(w.coins("clem")).toBe(50);
   });
@@ -505,13 +567,7 @@ describe("new_day with coins", () => {
     expect(w.ok(TOWN_ACTOR, { type: "set_townsfolk", ids: [] })).toEqual([
       { type: "townsfolk_set", ids: [] },
       { type: "coins", residentId: "clem", amount: -50, balance: 0, reason: "budget_return" },
-      {
-        type: "treasury",
-        amount: 50,
-        balance: before + 50,
-        reason: "budget_return",
-        residentId: "clem",
-      },
+      { type: "treasury", amount: 50, balance: before + 50, reason: "budget_return" },
     ]);
   });
 });
@@ -626,18 +682,33 @@ describe("give_coins", () => {
     expect(w.messages.at(-1)).toContain("0 coins left");
   });
 
-  it("caps receiving at 500 a day: exactly at the cap is fine, one over is not", () => {
+  it("caps receiving at 500 a day: the gift that crosses the cap goes through, then no more", () => {
     const w = neighbors();
     for (const [i, name] of ["cy", "dee", "eve"].entries()) w.settle(name, 2 + i);
     w.day(DAY + 2);
     for (const name of ["ada", "cy", "dee", "eve"]) fund(w.state, name, 300);
     expect(w.giveCode("ada", "bob", 200)).toBeNull();
     expect(w.giveCode("cy", "bob", 200)).toBeNull();
-    expect(w.giveCode("dee", "bob", 101)).toBe("gift_limit");
-    // The refusal doesn't say how much Bob has had.
-    expect(w.messages.at(-1)).not.toMatch(/400|100 /);
-    expect(w.giveCode("dee", "bob", 100)).toBeNull();
+    // At 400, any amount goes through, even one that takes Bob over 500.
+    expect(w.giveCode("dee", "bob", 150)).toBeNull();
+    expect(purseOf(w.state, "bob")?.receivedToday).toBe(550);
+    // Over the cap, every amount is refused alike, so the refusal says nothing about the total.
     expect(w.giveCode("eve", "bob", 1)).toBe("gift_limit");
+    expect(w.giveCode("eve", "bob", 200)).toBe("gift_limit");
+    expect(w.messages.at(-1)).not.toMatch(/550|50 /);
+  });
+
+  it("refuses at exactly 500 received, and not at 499", () => {
+    const w = neighbors();
+    for (const [i, name] of ["cy", "dee"].entries()) w.settle(name, 2 + i);
+    w.day(DAY + 2);
+    for (const name of ["ada", "cy", "dee"]) fund(w.state, name, 300);
+    expect(w.giveCode("ada", "bob", 200)).toBeNull();
+    expect(w.giveCode("cy", "bob", 200)).toBeNull();
+    expect(w.giveCode("dee", "bob", 99)).toBeNull();
+    expect(w.giveCode("dee", "bob", 1)).toBeNull();
+    expect(purseOf(w.state, "bob")?.receivedToday).toBe(500);
+    expect(w.giveCode("dee", "bob", 1)).toBe("gift_limit");
   });
 
   it("lets owner-linked pairs skip both caps, both ways, without using them up", () => {
@@ -651,6 +722,65 @@ describe("give_coins", () => {
     expect(purseOf(w.state, "ada")).toMatchObject({ givenToday: 0, receivedToday: 0 });
     expect(w.giveCode("ada", "cy", 200)).toBeNull();
     expect(w.giveCode("ada", "cy", 1)).toBe("gift_limit");
+  });
+
+  it("skips the caps only from the day after a pair first appears", () => {
+    const w = neighbors();
+    w.settle("cy", 2);
+    // The first list ever counts as linked since day 0, so links from before this rule work.
+    w.ok(TOWN_ACTOR, { type: "set_owner_pairs", pairs: [["bob", "ada"]] });
+    expect(w.state.ownerPairDays).toEqual({ ada: { bob: 0 } });
+    fund(w.state, "ada", 2_000);
+    expect(w.giveCode("ada", "bob", 300)).toBeNull();
+
+    // A pair new today is capped like anyone else until tomorrow.
+    w.ok(TOWN_ACTOR, {
+      type: "set_owner_pairs",
+      pairs: [
+        ["ada", "bob"],
+        ["ada", "cy"],
+      ],
+    });
+    expect(w.state.ownerPairDays).toEqual({ ada: { bob: 0, cy: DAY + 1 } });
+    expect(w.giveCode("ada", "cy", 201)).toBe("gift_limit");
+    expect(w.giveCode("ada", "cy", 200)).toBeNull();
+    w.day(DAY + 2);
+    expect(w.giveCode("ada", "cy", 500)).toBeNull();
+    expect(purseOf(w.state, "ada")?.givenToday).toBe(0);
+
+    // Unlinking and linking again starts the wait over.
+    w.ok(TOWN_ACTOR, { type: "set_owner_pairs", pairs: [["ada", "bob"]] });
+    w.ok(TOWN_ACTOR, {
+      type: "set_owner_pairs",
+      pairs: [
+        ["ada", "bob"],
+        ["cy", "ada"],
+      ],
+    });
+    expect(w.state.ownerPairDays).toEqual({ ada: { bob: 0, cy: DAY + 2 } });
+    expect(w.giveCode("ada", "cy", 201)).toBe("gift_limit");
+    w.day(DAY + 3);
+    expect(w.giveCode("ada", "cy", 201)).toBeNull();
+
+    // An empty list keeps the record (empty), so the next pair isn't mistaken for a first list.
+    w.ok(TOWN_ACTOR, { type: "set_owner_pairs", pairs: [] });
+    expect(w.state.ownerPairs).toBeUndefined();
+    expect(w.state.ownerPairDays).toEqual({});
+    w.ok(TOWN_ACTOR, { type: "set_owner_pairs", pairs: [["ada", "bob"]] });
+    expect(w.state.ownerPairDays).toEqual({ ada: { bob: DAY + 3 } });
+  });
+
+  it("counts pairs set before the world counts days as day 0", () => {
+    const w = world();
+    w.ok(TOWN_ACTOR, { type: "set_owner_pairs", pairs: [["ada", "bob"]] });
+    w.ok(TOWN_ACTOR, {
+      type: "set_owner_pairs",
+      pairs: [
+        ["ada", "bob"],
+        ["ada", "cy"],
+      ],
+    });
+    expect(w.state.ownerPairDays).toEqual({ ada: { bob: 0, cy: 0 } });
   });
 
   it("holds townsfolk to 25 a resident a day between them, never to townsfolk or maintainers", () => {

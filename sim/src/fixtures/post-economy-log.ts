@@ -3,9 +3,9 @@ import { TOWN_ACTOR } from "../types";
 import { PRE_ECONOMY_CONFIG, PRE_ECONOMY_LOG } from "./pre-economy-log";
 
 /**
- * The pre-economy world after coins open: owner pairs and maintainers, a welcome gift, allowances,
- * townsfolk budgets and tips, gifts inside and outside a pair, a budget returned at `new_day`,
- * and one handed back when a resident leaves the townsfolk. `economy.test.ts` replays it and
+ * The pre-economy world after coins open: owner pairs (one linked after the first list),
+ * maintainers, a welcome gift, allowances, townsfolk budgets and tips, gifts inside and outside a
+ * pair, budgets returned at `new_day`, and one handed back when a resident leaves the townsfolk. `economy.test.ts` replays it and
  * checks the hash pinned below, so once coins are live a change to `ECONOMY` or to a coin rule
  * that would replay the real log differently fails loudly.
  */
@@ -31,6 +31,14 @@ export const POST_ECONOMY_LOG: Input[] = [
   { actor: "ada", command: { type: "give_coins", to: "bob", amount: 40, note: "for you" } },
   { actor: "ada", command: { type: "give_coins", to: "dee", amount: 5 } },
   { actor: "dee", command: { type: "give_coins", to: "ada", amount: 1 } },
+  // A pair linked today, so it is stamped with today and capped until tomorrow.
+  town({
+    type: "set_owner_pairs",
+    pairs: [
+      ["bob", "ada"],
+      ["dee", "cy"],
+    ],
+  }),
   town({ type: "new_day", day: DAY + 7 }),
   { actor: "dee", command: { type: "move", dir: "s" } },
   { actor: "dee", command: { type: "move", dir: "n" } },
@@ -38,4 +46,4 @@ export const POST_ECONOMY_LOG: Input[] = [
 ];
 
 /** `hashWorld(replay(POST_ECONOMY_CONFIG, POST_ECONOMY_LOG))`, pinned when coins landed. */
-export const POST_ECONOMY_HASH = "8013bd6c";
+export const POST_ECONOMY_HASH = "9917e007";

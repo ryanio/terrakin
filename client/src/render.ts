@@ -214,7 +214,9 @@ const GROUND: Record<Biome, string[]> = {
   meadow: ["#a5c682", "#a1c27d", "#a9c986", "#9dbe79"],
   forest: ["#8fb26a", "#8aab64", "#93b56e", "#86a660"],
   stone: ["#b3ab9b", "#afa798", "#b7afa0", "#aba394"],
-  sand: ["#e3cf9e", "#dfc996", "#e7d3a4", "#dbc294"],
+  // A little deeper and greener than the Commons plaza and the area outside the world, so a
+  // sand patch never blends into either.
+  sand: ["#d6c08a", "#d2bb84", "#dac590", "#cdb67f"],
 };
 const COMMONS = ["#efdcab", "#ebd7a4", "#f2e1b3", "#e8d39f"];
 const OUTSIDE = "#e6d6b6";

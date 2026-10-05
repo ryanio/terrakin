@@ -23,8 +23,8 @@ Economy, crafting, combat, clans, seasons, accounts beyond a simple identity. Th
 5. [x] `docs/`: [RFC 0001](../rfcs/0001-phase-1-prototype.md) covers the plot data model, the sim, and the agent API surface. (The sim is event-driven, not ticked, so far.)
 6. [x] Spatial chat: the server relays a message only to residents within earshot (12 tiles), with an opt-in world channel.
 7. [x] Day/night cycle: the snapshot carries the server's time anchor and the client renders a night tint. The sim never sees a clock, so replay stays deterministic.
-8. [x] Biomes: `biomeAt` is a pure deterministic function of position, presentation-only ([decision 0038](../knowledge/decisions/0038-biomes-are-a-pure-function-of-position-presentation-only.md)).
-9. [ ] Simple gathering (pick up wood/stone): needs a scope call — RFC 0001 says no resources in phase 1.
+8. [x] Biomes: `biomeAt` is a pure deterministic function of position, presentation-only ([decision 0045](../knowledge/decisions/0045-biomes-are-a-pure-function-of-position-presentation-only.md)).
+9. [ ] Simple gathering (pick up wood/stone): needs a scope call: RFC 0001 says no resources in phase 1.
 10. [x] Deploy at terrakin.org (Cloudflare Workers, see [deploy.md](../deploy.md)).
 
 ## Done when

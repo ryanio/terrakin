@@ -1,4 +1,3 @@
-import { fnv1a } from "./hash";
 import type { WorldConfig } from "./types";
 
 /**
@@ -23,7 +22,11 @@ export function biomeAt(config: WorldConfig, x: number, y: number): Biome {
   void config;
   const rx = Math.floor(x / BIOME_REGION);
   const ry = Math.floor(y / BIOME_REGION);
-  const roll = parseInt(fnv1a(`terrakin-biome|${rx}|${ry}`).slice(0, 4), 16) / 0xffff;
+  // Mix the two integers with a finalizer, so neighboring regions are independent both across and
+  // down (hashing a string like `rx|ry` left the map in vertical stripes).
+  let h = (Math.imul(rx, 374761393) + Math.imul(ry, 668265263)) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  const roll = ((h ^ (h >>> 16)) >>> 0) / 0x100000000;
   if (roll < 0.34) return "meadow";
   if (roll < 0.62) return "forest";
   if (roll < 0.84) return "stone";

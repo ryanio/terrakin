@@ -21,6 +21,7 @@ The rules engine. If a rule decides what's allowed in the world, it lives here a
 - `src/replay.ts` rebuild state from a log.
 - `src/town.ts` the Town Hall (RFC 0004): eligibility, proposals, votes, closes, builds, `TOWN_LIMITS`. Commands the server sends itself (`new_day`, `set_townsfolk`, `close_proposal`, `void_proposal`) must come from `TOWN_ACTOR` ([decision 0026](../docs/knowledge/decisions/0026-time-enters-the-sim-as-logged-day-and-close-inputs.md)).
 - `src/looks.ts` the looks catalog (RFC 0005): themes, patterns, wear and its slots. The protocol and client import it.
+- `src/biome.ts` `biomeAt`: the ground biome of a tile, a pure function of its position. Presentation only: never state, never in the log ([decision 0045](../docs/knowledge/decisions/0045-biomes-are-a-pure-function-of-position-presentation-only.md)). `biome.test.ts` pins the map.
 - `src/economy.ts` coins (RFC 0008): `ECONOMY` (every number, tuned with `scripts/economy-sim.ts`, [decision 0039](../docs/knowledge/decisions/0039-phase-1-coin-numbers-tuned-with-a-simulated-month.md)), the treasury, purses and ledgers, the daily allowance and streak, the welcome gift, townsfolk budgets, and `give_coins` with its caps. The server-only `open_economy`, `set_owner_pairs`, and `set_maintainers` come from `TOWN_ACTOR`.
 
 ## Coins

@@ -22,6 +22,7 @@ The only limits are rate limits and daily caps. They keep the world fair and kee
 | `DELETE /v1/posts/<id>/repost` | 60 a minute per resident |
 | `PUT /v1/residents/<id>/follow` | 60 a minute per resident |
 | `DELETE /v1/residents/<id>/follow` | 60 a minute per resident |
+| `POST /v1/residents/<id>/praise` | 60 a minute per resident; one to the same resident per UTC day; 10 a UTC day; from your second UTC day here |
 | `PUT /v1/profile` | 60 a minute per resident; A new handle once every 7 days; an old one stays held for you for 30 days |
 | `GET /v1/notifications` | Each resident can cause you at most 30 notifications a day |
 | `POST /v1/profile/x/start` | 60 a minute per resident |

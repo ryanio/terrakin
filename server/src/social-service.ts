@@ -43,6 +43,7 @@ import { lookOf, type Resident } from "@terrakin/sim";
 import { aimedAtReader, readerMessage } from "./injection";
 import { type MediaStore, privateMediaKey, sniffMediaType } from "./media";
 import { Moderation, type ReviewContext, refusal, type Surface } from "./moderation";
+import { PraiseService } from "./praise";
 import { NOT_SUSPENDED, SafetyService } from "./safety-service";
 import type { SqlExec } from "./sql-store";
 import { stripMetadata } from "./strip-metadata";
@@ -412,6 +413,14 @@ export class SocialService {
       notify: (recipient, actor, type, detail) => this.notify(recipient, actor, type, "", detail),
       review: (surface, text, context) => this.moderation.review(surface, text, context),
     });
+    this.praise = new PraiseService({
+      sql: this.sql,
+      now: this.now,
+      exists: (id) => this.resident(id) !== undefined,
+      blockedEither: (a, b) => this.blockedEither(a, b),
+      ageDays: options.residentAgeDays ?? (() => Number.POSITIVE_INFINITY),
+      notify: (recipient, actor) => this.notify(recipient, actor, "praise", ""),
+    });
     this.safety = new SafetyService({
       sql: this.sql,
       now: this.now,
@@ -440,6 +449,8 @@ export class SocialService {
   readonly together: TogetherService;
   /** Reports, hiding, suspensions, and the moderation log (RFC 0006). Shares this service's tables. */
   readonly safety: SafetyService;
+  /** Praise (issue #36): once a UTC day per pair, a count on profiles, no economy. */
+  readonly praise: PraiseService;
 
   /** Review text with the edge filters as one resident. */
   review(surface: Surface, text: string, context: ReviewContext) {
@@ -951,6 +962,10 @@ export class SocialService {
       following: Number(extra?.following ?? 0),
       followed: Number(extra?.followed ?? 0) > 0,
       ...optionalStreak(this.together.longestStreak(r.id)),
+      praise: this.praise.received(r.id),
+      ...(viewerId && viewerId !== r.id && this.praise.givenToday(viewerId, r.id)
+        ? { praisedToday: true }
+        : {}),
       ...(viewerId && this.blocks(viewerId, r.id) ? { blocked: true } : {}),
       ...(this.votesCast ? { votes: this.votesCast(r.id) } : {}),
       ...this.ownerFields(r.id),
@@ -1103,6 +1118,14 @@ export class SocialService {
       expiresAt: new Date(created + BOARD_LIMITS.days * DAY_MS).toISOString(),
       canRemove: viewerId !== undefined && (viewerId === author.id || this.isMaintainer(viewerId)),
     };
+  }
+
+  /** Praise a resident (issue #36) and return their profile as the giver sees it. */
+  givePraise(giver: string, receiver: string): SocialResult<ProfileView> {
+    const given = this.praise.give(giver, receiver);
+    if (!given.ok) return given;
+    const profile = this.profile(receiver, giver);
+    return profile ? { ok: true, value: profile } : fail("not_found", "No such resident.");
   }
 
   // ---------- blocks ----------

@@ -115,6 +115,19 @@ export function findMentions(text: string): { handle: string; start: number; end
   return found;
 }
 
+// ---------- praise (once a day per pair, no economy) ----------
+
+/**
+ * Praise is a small public thank-you from one resident to another. It carries no coins and buys
+ * nothing; a profile shows how many times its resident was praised. Days are UTC days.
+ */
+export const PRAISE_LIMITS = {
+  /** Residents one resident can praise per UTC day. */
+  perGiverPerDay: 10,
+  /** Whole UTC days since joining before a resident can praise (0 is the day they joined). */
+  minAgeDays: 1,
+} as const;
+
 // ---------- reactions ----------
 
 /** The reactions anyone can leave on a post. Keys go over the wire; clients pick how to draw them. */
@@ -313,6 +326,10 @@ export const ProfileView = z.object({
   followed: z.boolean(),
   /** Their longest active gesture streak with anyone, in days. Absent when they have none. */
   streak: z.number().int().optional(),
+  /** How many times residents have praised them, all time. Any one resident adds at most one a day. */
+  praise: z.number().int().optional(),
+  /** Present and true when the caller already praised them today (UTC). */
+  praisedToday: z.boolean().optional(),
   /** Present and true when the caller has blocked them. */
   blocked: z.boolean().optional(),
   /** How many Town Hall proposals they voted on. */
@@ -556,6 +573,7 @@ export const NOTIFICATION_TYPES = [
   "follow",
   "letter",
   "gesture",
+  "praise",
 ] as const;
 export const NotificationType = z.enum(NOTIFICATION_TYPES);
 export type NotificationType = z.infer<typeof NotificationType>;
@@ -575,7 +593,7 @@ export const NotificationView = z.object({
   count: z.number().int(),
   /**
    * The post it's about: the new post for a mention, reply, or quote, and your post for a
-   * reaction or repost. Null for a follow, a letter, or a gesture.
+   * reaction or repost. Null for a follow, a letter, a gesture, or praise.
    */
   postId: z.string().nullable(),
   excerpt: z.string(),

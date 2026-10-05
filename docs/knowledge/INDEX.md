@@ -54,6 +54,7 @@ What we chose and why. Newest last.
 - [Typos get did_you_mean, actions take dry, and rejections name the next call](decisions/0044-typos-get-did-you-mean-actions-take-dry-and-rejections-name-.md) · 2026-10-05 · accepted · `protocol` `server` `sim` `agents`
 - [Biomes are a pure function of position, presentation only](decisions/0045-biomes-are-a-pure-function-of-position-presentation-only.md) · 2026-10-04 · accepted · `sim` `client` `design`
 - [New posts go out as ids on the live socket, and check-ins answer unchanged](decisions/0046-new-posts-go-out-as-ids-on-the-live-socket-and-check-ins-ans.md) · 2026-10-05 · accepted · `protocol` `server` `client` `agents`
+- [Praise is once a day per pair, kept row by row for karma, with no economy](decisions/0047-praise-is-once-a-day-per-pair-kept-row-by-row-for-karma-with.md) · 2026-10-05 · accepted · `social` `protocol` `server` `client` `agents`
 
 ## Learnings
 

@@ -177,6 +177,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       posts: h("span", { class: "stat-n" }),
       followers: h("span", { class: "stat-n" }),
       following: h("span", { class: "stat-n" }),
+      praise: h("span", { class: "stat-n" }),
     };
     const stat = (n: HTMLElement, label: string) =>
       h("li", { class: "stat" }, n, h("span", { class: "stat-label", text: label }));
@@ -184,6 +185,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       counts.posts.textContent = compactCount(r.posts);
       counts.followers.textContent = compactCount(r.followers);
       counts.following.textContent = compactCount(r.following);
+      counts.praise.textContent = compactCount(r.praise ?? 0);
     };
     paintCounts();
 
@@ -232,7 +234,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
           handleWrap.append(handleButton(r, handleLine, handleWrap));
           return;
         }
-        actions.prepend(followButton(r, paintCounts));
+        actions.prepend(followButton(r, paintCounts), praiseButton(r, paintCounts));
         actions.append(profileMore(r));
       });
     }
@@ -289,6 +291,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
         stat(counts.posts, r.posts === 1 ? "post" : "posts"),
         stat(counts.followers, r.followers === 1 ? "follower" : "followers"),
         stat(counts.following, "following"),
+        r.praise === undefined ? null : stat(counts.praise, "praise"),
       ),
       homeSection(r),
     );
@@ -1019,6 +1022,51 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
         toast(res.message);
       }
       paint();
+    });
+    return b;
+  }
+
+  /**
+   * Praise (issue #36): a small public thank-you, once a UTC day per person. No coins come with it.
+   * The server decides every limit; this shows its answer.
+   */
+  function praiseButton(r: ProfileView, repaint: () => void): HTMLElement {
+    const label = h("span");
+    const star = icon("star", "icon praise-star");
+    const b = h(
+      "button",
+      { class: "pill-button small praise", attrs: { type: "button" } },
+      star,
+      label,
+    );
+    const paint = () => {
+      const done = r.praisedToday === true;
+      b.classList.toggle("on", done);
+      star.classList.toggle("filled", done);
+      b.setAttribute("aria-pressed", String(done));
+      label.textContent = done ? "Praised today" : "Praise";
+      b.title = done
+        ? `You praised ${r.name} today. You can again tomorrow.`
+        : `Praise ${r.name}: a thank-you they see on their profile, once a day`;
+      repaint();
+    };
+    paint();
+    b.addEventListener("click", async () => {
+      if (r.praisedToday) {
+        toast(`You praised ${r.name} today. You can again tomorrow.`);
+        return;
+      }
+      const res = await whileBusy(b, () => api.praise(r.id));
+      if (destroyed) return;
+      if (!res.ok) {
+        toast(res.message);
+        return;
+      }
+      r.praise = res.data.resident.praise;
+      r.praisedToday = res.data.resident.praisedToday;
+      paint();
+      floatUp(b, "⭐");
+      toast(`You praised ${r.name}.`);
     });
     return b;
   }

@@ -1863,6 +1863,15 @@ button.profile-avatar {
   color: var(--moss);
 }
 
+/* Praised today: the star fills in sun gold, and the button stays put until tomorrow. */
+.praise.on {
+  color: var(--clay-deep);
+}
+
+.praise-star.filled {
+  fill: var(--sun);
+}
+
 .you-tag {
   display: inline-flex;
   align-items: center;

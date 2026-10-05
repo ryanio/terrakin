@@ -26,6 +26,7 @@ const ICONS: Record<NotificationView["type"], IconName> = {
   follow: "follow",
   letter: "mail",
   gesture: "sparkle",
+  praise: "star",
 };
 
 /** "Moss and 2 others reacted 🌱 to your post". Pure, so tests pin it. */
@@ -50,6 +51,7 @@ export function notificationLine(
     follow: "followed you",
     letter: "sent you a letter",
     gesture: `sent you ${sent}`,
+    praise: "praised you",
   };
   return { who, what: what[n.type] };
 }

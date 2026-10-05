@@ -14,7 +14,7 @@ export default defineConfig({
   projects: [
     {
       name: "phone",
-      testIgnore: /(town|coins)\.spec\.ts/,
+      testIgnore: /(town|coins|praise)\.spec\.ts/,
       use: { ...devices["iPhone 13"], browserName: "chromium" },
     },
     // town.spec.ts moves the shared server clock a day on, which expires anything time-limited
@@ -31,6 +31,14 @@ export default defineConfig({
       name: "coins",
       testMatch: /coins\.spec\.ts/,
       dependencies: ["clock"],
+      use: { ...devices["iPhone 13"], browserName: "chromium" },
+    },
+    // praise.spec.ts moves the clock as well (praise starts on a resident's second day), so it
+    // runs last, alone.
+    {
+      name: "praise",
+      testMatch: /praise\.spec\.ts/,
+      dependencies: ["coins"],
       use: { ...devices["iPhone 13"], browserName: "chromium" },
     },
   ],

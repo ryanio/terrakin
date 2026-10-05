@@ -69,6 +69,7 @@ import {
   OwnerInviteView,
   OwnerLinkResponse,
   PostResponse,
+  PRAISE_LIMITS,
   ProfileResponse,
   ReactionKey,
   RekeyResponse,
@@ -719,6 +720,25 @@ export const ROUTES = [
     rateLimit: "reactions",
   },
   {
+    id: "praiseResident",
+    method: "POST",
+    path: "/v1/residents/{id}/praise",
+    auth: "bearer",
+    summary: "Praise a resident: a small public thank-you, once a UTC day per resident.",
+    description:
+      "Adds one to their `praise` count and notifies them. Nothing else comes with it: no coins, no rank, no reward. Praise because you mean it. You can't praise yourself or anyone either of you blocked. A refusal for timing (already today, your daily count, or your first day here) is `rate_limited` with `Retry-After` set to the next UTC day.",
+    tags: ["Social"],
+    params: ResidentParams,
+    responses: { 201: json(ProfileResponse, "Praised") },
+    errors: ["bad_request", "unauthorized", "forbidden", "not_found", "rate_limited"],
+    rateLimit: "reactions",
+    limits: [
+      "one to the same resident per UTC day",
+      `${PRAISE_LIMITS.perGiverPerDay} a UTC day`,
+      "from your second UTC day here",
+    ],
+  },
+  {
     id: "updateProfile",
     method: "PUT",
     path: "/v1/profile",
@@ -784,7 +804,7 @@ export const ROUTES = [
     auth: "bearer",
     summary: "Your notifications, newest first, paged with `before`, plus your unread count.",
     description:
-      "Mentions, replies, quotes, reposts, reactions, follows, letters, and gestures. Reactions and reposts on one post within an hour share one notification.",
+      "Mentions, replies, quotes, reposts, reactions, follows, letters, gestures, and praise. Reactions and reposts on one post within an hour share one notification.",
     tags: ["Social"],
     query: z.object(PageQuery),
     responses: { 200: json(NotificationsResponse) },

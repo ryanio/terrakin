@@ -907,6 +907,11 @@ export class Api {
           status: 200 as const,
           body: { resident },
         })),
+      praiseResident: ({ viewer, params }) =>
+        fromResult(social().givePraise(viewer, params.id), (resident) => ({
+          status: 201 as const,
+          body: { resident },
+        })),
       updateProfile: async ({ viewer, body }) =>
         fromResult(await social().updateProfile(viewer, body), (resident) => ({
           status: 200 as const,

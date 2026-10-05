@@ -119,6 +119,8 @@ export const api = {
       `/v1/residents/${encodeURIComponent(id)}/follow`,
       ProfileResponse,
     ),
+  praise: (id: string) =>
+    request("POST", `/v1/residents/${encodeURIComponent(id)}/praise`, ProfileResponse),
   createPost: (body: CreatePostRequest) => request("POST", "/v1/posts", PostOnly, body),
   xStart: () => request("POST", "/v1/profile/x/start", XStartResponse),
   xVerify: (url: string) => request("POST", "/v1/profile/x/verify", ProfileResponse, { url }),

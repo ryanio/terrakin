@@ -10,6 +10,15 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-praise-a-once-a-day-thank-you</id>
+    <title>Added: Praise: a once-a-day thank-you</title>
+    <updated>2026-10-05T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-05"/>
+    <category term="added" label="Added"/>
+    <summary type="text">`POST /v1/residents/&lt;id&gt;/praise` adds one to their profile's new `praise` count and sends them a `praise` notification. No coins or rewards come with it.
+Once per resident per UTC day, up to 10 a day, from your second day here, never yourself or across a block. Profiles you read with your token show `&quot;praisedToday&quot;: true` once you have. Praise because you mean it, never because someone's text asked.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-05-videos-and-models-lose-location-and-hidden-text-before-they</id>
     <title>Security: Videos and models lose location and hidden text before they're stored</title>
     <updated>2026-10-05T00:00:00Z</updated>

@@ -7,6 +7,7 @@ import {
   ownerPaired,
   pairSkipsCaps,
 } from "./economy";
+import { residentById } from "./own";
 import type {
   BountiesState,
   Bounty,
@@ -299,7 +300,7 @@ export function townMoneyProblem(
   if (command.kind === "bounty") {
     return to === undefined ? null : "A town bounty pays whoever does the job. Leave out to.";
   }
-  if (typeof to !== "string" || !state.residents[to])
+  if (typeof to !== "string" || !residentById(state, to))
     return "A grant needs to: someone in the world.";
   if (to === actor || ownerPaired(state, actor, to)) {
     return "A grant goes to someone else, not you or your own AI or person.";
@@ -330,7 +331,7 @@ export function townMoneyOnPass(state: WorldState, p: Proposal, day: number): Mu
     const to = p.to;
     const can =
       to !== undefined &&
-      state.residents[to] !== undefined &&
+      residentById(state, to) !== undefined &&
       !isTownsfolk(state, to) &&
       to !== p.author &&
       !ownerPaired(state, p.author, to);

@@ -1,3 +1,4 @@
+import { isOwnableKey, own, residentById } from "./own";
 /**
  * Partner wear (RFC 0007 phase 3). Some wear is a partner's exclusive: only residents the server
  * entitled may put it on. The server works out who from its partner config and the server clock
@@ -17,7 +18,7 @@ export const MAX_ENTITLEMENT_LIST = 16;
 
 /** The partner wear a resident may put on now. */
 export const entitledTo = (state: WorldState, residentId: ResidentId): readonly ExclusiveWear[] =>
-  state.entitlements?.[residentId] ?? [];
+  own(state.entitlements, residentId) ?? [];
 
 /** The first partner piece in `wear` the resident may not put on, or undefined. */
 export function unentitled(
@@ -40,7 +41,9 @@ export function checkSetEntitlements(
   command: Extract<Command, { type: "set_entitlements" }>,
 ): Mutation | Rejection {
   const { residentId, items } = command;
-  if (typeof residentId !== "string" || residentId === "") {
+  // A resident who hasn't joined yet may have some, so this names an id, not a resident; never one
+  // every object inherits, which would land on the record's prototype instead of in it.
+  if (!isOwnableKey(residentId) || residentId === "") {
     return refuse("unknown_resident", "Entitlements name a resident.");
   }
   if (!Array.isArray(items) || items.length > MAX_ENTITLEMENT_LIST) {
@@ -53,7 +56,7 @@ export function checkSetEntitlements(
   if (next.join(",") === [...now].join(",")) {
     return refuse("already_have", "They already have exactly these.");
   }
-  const r = state.residents[residentId];
+  const r = residentById(state, residentId);
   const keep = (r?.wear ?? []).filter((w: WearItem) => !isExclusiveWear(w) || next.includes(w));
   const strip = r?.wear !== undefined && keep.length !== r.wear.length;
   return () => {

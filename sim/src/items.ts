@@ -1,6 +1,7 @@
 import { isWhole, refuse } from "./check";
 import { isTownsfolk, pairSkipsCaps } from "./economy";
 import { tileKey } from "./keys";
+import { own, residentById } from "./own";
 import {
   type Command,
   DECOR_BLOCKS,
@@ -610,7 +611,7 @@ export function checkGiveItem(
   if (note !== undefined && (typeof note !== "string" || note.length > ITEMS.noteMax)) {
     return refuse("invalid_gift", `A note is text, at most ${ITEMS.noteMax} characters.`);
   }
-  if (typeof to !== "string" || !state.residents[to]) {
+  if (!residentById(state, to)) {
     return refuse("unknown_resident", "Nobody in the world has that id.");
   }
   if (to === actor) return refuse("invalid_gift", "You can't give things to yourself.");
@@ -715,7 +716,7 @@ export function checkDeclineGift(
   const shut = closed(state);
   if (shut) return shut;
   const items = state.items as ItemsState;
-  const record = typeof command.gift === "string" ? items.gifts?.[command.gift] : undefined;
+  const record = own(items.gifts, command.gift);
   // Someone else's gift reads the same as one that never was.
   if (!record || record.to !== actor || lastDeclineDay(record.day) < (state.day as number)) {
     return refuse(

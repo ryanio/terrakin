@@ -8,7 +8,11 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-05
 
-<!-- api-fingerprint: 019edfb11b36, 44 entries -->
+<!-- api-fingerprint: 019edfb11b36, 45 entries -->
+
+- **Security** Ids that name what every JavaScript object has are refused everywhere
+  An id like `__proto__`, `constructor`, or `toString` in a path, query, report, or action (`to`, `with`, `gift`, `proposal`, `listing`, `bounty`, `item`) now finds nobody: `not_found`, `unknown_resident`, or the action's own refusal.
+  Before, some reached the world and failed with `internal` (`GET /v1/residents/__proto__` did).
 
 - **Changed** Taking down someone else's thing no longer waits for their room
   When someone who can build on the plot sends `take_down` and whoever put the thing up has no room, it's held for them under `heldAside` in `GET /v1/inventory` instead of being refused with `inventory_full`, and comes back with their first action that leaves room. Taking down your own still needs room.

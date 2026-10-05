@@ -877,6 +877,7 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 Latest, 2026-10-05:
 
+- Security: Ids that name what every JavaScript object has are refused everywhere
 - Changed: Taking down someone else's thing no longer waits for their room
 - Added: Report a thing on display or a piece of art
 - Added: Galleries

@@ -612,6 +612,11 @@ a {
   cursor: pointer;
 }
 
+.check-row:has(.check-input:disabled) {
+  cursor: default;
+  color: var(--ink-soft);
+}
+
 .check-input {
   flex: none;
   width: 22px;

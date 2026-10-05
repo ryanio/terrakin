@@ -31,13 +31,15 @@ function save(invite: InviteView) {
 }
 
 /** An invite to hand out: the saved one while it still works, else a new one. */
-async function getInvite(share: boolean): Promise<{ invite: InviteView } | { error: string }> {
+async function getInvite(
+  share: boolean,
+): Promise<{ invite: InviteView } | { error: string; code: string }> {
   const saved = loadSaved(share);
   if (reusableInvite(saved, share, Date.now()) && (await api.invite(saved.code)).ok) {
     return { invite: saved };
   }
   const made = await api.createInvite(share);
-  if (!made.ok) return { error: made.message };
+  if (!made.ok) return { error: made.message, code: made.code };
   save(made.data.invite);
   return { invite: made.data.invite };
 }
@@ -77,20 +79,49 @@ export function openInviteDialog() {
     shareHome.el,
   );
 
+  const homeHint = shareHome.el.querySelector(".check-hint");
+  status.hidden = true;
+
   let url = "";
+  let latest = 0;
   const load = async () => {
+    const run = ++latest;
+    const wantShare = shareHome.input.checked;
     copy.disabled = true;
     share.disabled = true;
-    link.textContent = "Making your link…";
-    status.textContent = "";
-    const result = await getInvite(shareHome.input.checked);
+    // Keep the current link in place while the new one loads, so the sheet doesn't jump.
+    if (url) link.classList.add("is-loading");
+    else link.textContent = "Making your link…";
+    status.hidden = true;
+    const result = await getInvite(wantShare);
+    if (run !== latest) return;
+    link.classList.remove("is-loading");
     if ("error" in result) {
-      link.textContent = "";
+      if (wantShare && result.code === "bad_request") {
+        // Nothing of yours to share yet: say why on the option and go back to the plain link.
+        shareHome.input.checked = false;
+        shareHome.input.disabled = true;
+        if (homeHint) homeHint.textContent = result.error;
+        if (url) ready();
+        else void load();
+        return;
+      }
+      if (url) {
+        // Keep the link that's showing, and the option it was made with.
+        shareHome.input.checked = !wantShare;
+        ready();
+      } else {
+        link.textContent = "";
+      }
       status.textContent = result.error;
+      status.hidden = false;
       return;
     }
     url = inviteLink(result.invite.path, location.origin);
     link.textContent = url;
+    ready();
+  };
+  const ready = () => {
     copy.disabled = false;
     share.disabled = typeof navigator.share !== "function";
     share.hidden = typeof navigator.share !== "function";

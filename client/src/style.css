@@ -4390,6 +4390,11 @@ a.btn-primary {
 .invite-link {
   font-size: 15px;
   user-select: all;
+  transition: opacity 0.15s;
+}
+
+.invite-link.is-loading {
+  opacity: 0.45;
 }
 
 .invite-actions {

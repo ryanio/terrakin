@@ -193,3 +193,35 @@ test("a visitor joins and follows from a profile, and the top bar shows who they
 
   expect(errors).toEqual([]);
 });
+
+test("with no plot yet, sharing your home turns itself off and the plain link stays", async ({
+  page,
+}) => {
+  const errors = watchErrors(page);
+  const me = await join(page.request, "Wren", "sun");
+  await page.addInitScript(
+    ([token, id]) => {
+      localStorage.setItem("terrakin.token", token);
+      localStorage.setItem("terrakin.resident", id);
+    },
+    [me.token, me.id] as const,
+  );
+
+  await page.goto(`/r/${me.id}`);
+  await page.getByRole("button", { name: "Invite someone" }).click();
+  const link = page.locator("#invite-link");
+  await expect(link).toContainText("/i/");
+  const plain = await link.textContent();
+
+  const option = page.locator("#invite-share-home");
+  await option.check();
+  await expect(option).not.toBeChecked();
+  await expect(option).toBeDisabled();
+  await expect(page.locator(".invite-sheet .check-hint")).toHaveText(
+    "Settle a plot of your own first, then you can share it.",
+  );
+  await expect(link).toHaveText(plain ?? "");
+  await expect(page.locator(".invite-copy")).toBeEnabled();
+
+  expect(errors).toEqual([]);
+});

@@ -118,6 +118,56 @@ describe("plot layout", () => {
     expect(figures.capri).toMatchObject({ x: 12, y: 11, owner: true });
   });
 
+  it("shows what's on display and what grows on the plot, but not on a neighbor's", () => {
+    const w = world();
+    const good = (id: string, kind: "piece" | "lemon_jam") => ({
+      id,
+      kind,
+      maker: "capri",
+      madeDay: 1,
+      ...(kind === "piece" ? { media: "m_0123456789abcdef", label: "Sky" } : {}),
+    });
+    w.day = 12;
+    w.blocks.push(
+      { x: 9, y: 9, block: "pedestal" },
+      { x: 13, y: 9, block: "frame" },
+      { x: 14, y: 14, block: "planter" },
+      { x: 15, y: 14, block: "planter" },
+      { x: 17, y: 9, block: "pedestal" }, // a neighbor's
+    );
+    w.displays = [
+      { x: 9, y: 9, good: good("g1", "piece"), by: "capri", day: 3 },
+      { x: 13, y: 9, good: good("g2", "lemon_jam"), by: "capri", day: 3 },
+      { x: 17, y: 9, good: good("g3", "lemon_jam"), by: "bram", day: 3 },
+      { x: 10, y: 10, good: good("g4", "lemon_jam"), by: "capri", day: 3 }, // not a pedestal
+    ];
+    w.crops = [
+      { x: 14, y: 14, crop: "lemon", plantedDay: 10, readyDay: 14 },
+      { x: 15, y: 14, crop: "herb", plantedDay: 8, readyDay: 10 },
+      { x: 10, y: 10, crop: "herb", plantedDay: 8, readyDay: 10 }, // not a planter
+    ];
+    const layout = plotLayout(w, "capri");
+    if (!layout) throw new Error("no layout");
+    expect(layout.displays).toEqual([
+      {
+        x: 9,
+        y: 9,
+        on: "pedestal",
+        good: { id: "g1", kind: "piece", media: "m_0123456789abcdef", model: undefined },
+      },
+      {
+        x: 13,
+        y: 9,
+        on: "frame",
+        good: { id: "g2", kind: "lemon_jam", media: undefined, model: undefined },
+      },
+    ]);
+    expect(layout.crops).toEqual([
+      { x: 14, y: 14, crop: "lemon", done: 0.5 },
+      { x: 15, y: 14, crop: "herb", done: 1 },
+    ]);
+  });
+
   it("darkens ground corners next to blocks", () => {
     const solid = new Set(["4,4", "5,4"]);
     expect(cornerLight(solid, 0, 0)).toBe(1);
@@ -302,6 +352,7 @@ describe("three.js stays out of the main bundle", () => {
     "scene3d/art.ts",
     "scene3d/items.ts",
     "scene3d/decor.ts",
+    "scene3d/displays.ts",
     "scene3d/plot.ts",
     "scene3d/gallery.ts",
     "scene3d/page.ts",

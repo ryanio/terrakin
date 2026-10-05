@@ -259,9 +259,3 @@ export function toastMs(text: string, source: "system" | "player" = "system"): n
   const base = source === "player" ? 4000 : 2600;
   return Math.min(7000, Math.max(base, 2600 + 40 * text.length));
 }
-
-/** How far along a crop is, 0 to 1, for drawing it. */
-export function growth(plantedDay: number, readyDay: number, today: number | undefined): number {
-  if (today === undefined || readyDay <= plantedDay) return 0;
-  return Math.max(0, Math.min(1, (today - plantedDay) / (readyDay - plantedDay)));
-}

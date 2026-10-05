@@ -43,9 +43,19 @@ import {
   stoneTexture,
 } from "./art";
 import { type Footprint, footprintOf, seeThrough, shop, townHall } from "./buildings";
+import { createPictures, displayedThings } from "./displays";
 import { cornerLight, type LayoutFigure } from "./layout";
 import { hex, SKY } from "./palette";
-import { blockMeshes, border, figure, groundGrid, hearth, pickups, scenery } from "./plot";
+import {
+  blockMeshes,
+  border,
+  cropPlants,
+  figure,
+  groundGrid,
+  hearth,
+  pickups,
+  scenery,
+} from "./plot";
 import {
   approach,
   BUILDS_PER_FRAME,
@@ -143,6 +153,8 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
     hearthLook.glow,
   ]);
   const fog = scene.fog as Fog;
+  // What's on display shares its pictures across plots, and frees each with its last display.
+  const pictures = createPictures(shared);
 
   controls.enablePan = false;
   controls.enableDamping = !still;
@@ -207,6 +219,9 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       home.position.set(h.x, 0, h.y);
       group.add(home);
     }
+    const crops = cropPlants(scope, origin, data.crops);
+    if (crops.length) group.add(...crops);
+    group.add(displayedThings(scope, origin, data.displays, pictures, grain));
     scene.add(group);
     return { group, scope, signature: data.signature };
   }
@@ -602,6 +617,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       canvas.removeEventListener("pointercancel", onCancel);
       for (const key of [...chunks.keys()]) dropChunk(key);
       for (const id of [...figures.keys()]) dropFigure(id);
+      pictures.dispose();
       stage.dispose();
     },
   };

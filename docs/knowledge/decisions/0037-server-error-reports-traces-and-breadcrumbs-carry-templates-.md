@@ -29,7 +29,7 @@ Every event, span, breadcrumb, log, and metric goes through a scrubber before it
 
 ## Consequences
 
-- `node scripts/sentry.ts issues`, `issue <id>`, and `trace <id>` read it all from the terminal.
+- `node scripts/sentry.ts issues`, `issue <id>`, and `trace <id>` read it all from the terminal, and `resolve <id>` closes an issue once its fix is live.
 - A new span, crumb, or metric takes only templates, route ids, codes, command types, and counts. Never an id or resident text, even though the scrubber would catch most of them.
 - Reports can say which route failed and how often, never for whom. To follow one resident's trouble, reproduce it.
 - The Worker grew by about 250 KB gzipped.

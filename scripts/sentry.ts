@@ -4,6 +4,7 @@
  *   node scripts/sentry.ts issues [days]       unresolved issues in both projects, newest first
  *   node scripts/sentry.ts issue <id|SHORT-ID> the latest event: stack, breadcrumbs, tags, trace
  *   node scripts/sentry.ts trace <trace id>    the spans of one trace, slowest first
+ *   node scripts/sentry.ts resolve <id|SHORT-ID> mark an issue resolved, once its fix is live
  *
  * The auth token is SENTRY_AUTH_TOKEN, or the `sentry` item's credential in the Terrakin vault,
  * read through the secrets wrapper (never the `op` binary).
@@ -23,8 +24,15 @@ function token(): string {
   }).trim();
 }
 
-async function get<T>(path: string): Promise<T> {
-  const res = await fetch(`${API}/${path}`, { headers: { authorization: `Bearer ${token()}` } });
+async function get<T>(
+  path: string,
+  init: { method: string; body: unknown } | undefined = undefined,
+): Promise<T> {
+  const res = await fetch(`${API}/${path}`, {
+    method: init?.method ?? "GET",
+    headers: { authorization: `Bearer ${token()}`, "content-type": "application/json" },
+    body: init ? JSON.stringify(init.body) : null,
+  });
   if (!res.ok) throw new Error(`Sentry answered ${res.status} for ${path}: ${await res.text()}`);
   return (await res.json()) as T;
 }
@@ -84,10 +92,23 @@ async function issues(days: string) {
   }
 }
 
-async function issue(ref: string) {
-  const found = /^\d+$/.test(ref)
+async function findIssue(ref: string): Promise<Issue> {
+  return /^\d+$/.test(ref)
     ? await get<Issue>(`organizations/${ORG}/issues/${ref}/`)
     : (await get<{ group: Issue }>(`organizations/${ORG}/shortids/${ref}/`)).group;
+}
+
+async function resolve(ref: string) {
+  const found = await findIssue(ref);
+  await get(`organizations/${ORG}/issues/${found.id}/`, {
+    method: "PUT",
+    body: { status: "resolved" },
+  });
+  console.log(`${found.shortId} resolved: ${found.title}`);
+}
+
+async function issue(ref: string) {
+  const found = await findIssue(ref);
   const event = await get<Event>(`organizations/${ORG}/issues/${found.id}/events/latest/`);
   console.log(`${found.shortId}  ${found.project.slug}  x${found.count}`);
   console.log(found.title);
@@ -151,9 +172,10 @@ const [command, arg] = process.argv.slice(2);
 if (command === "issues") await issues(arg ?? "14");
 else if (command === "issue" && arg) await issue(arg);
 else if (command === "trace" && arg) await trace(arg);
+else if (command === "resolve" && arg) await resolve(arg);
 else {
   console.log(
-    "Usage: node scripts/sentry.ts issues [days] | issue <id|SHORT-ID> | trace <trace id>",
+    "Usage: node scripts/sentry.ts issues [days] | issue <id|SHORT-ID> | trace <trace id> | resolve <id|SHORT-ID>",
   );
   process.exitCode = 1;
 }

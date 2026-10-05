@@ -22,7 +22,7 @@ Add `body` to the partner perk kinds in [RFC 0007](0007-partners-and-onchain-age
 A body file per character, following a convention the partner publishes and we check:
 
 - One self-contained `.glb`: no external buffers or textures. Meshopt compression and WebP textures allowed.
-- At most 300 KB, 4k triangles and one 512 px texture. That's MUSEGOD's `lo` size.
+- At most 150 KB, 1,500 triangles, one material and one 256 px texture, so a body is one draw call. That's MUSEGOD's `lo` size, set to fit [decision 0060](../knowledge/decisions/0060-the-world-in-3d-draws-a-view-radius-around-you-within-a-fram.md): 24 bodies come to about 36,000 triangles and about 8 MB of textures, inside the world's 150,000 triangle and 16 MB budgets alongside the ground and homes.
 - Meters, feet on y = 0, centered, facing +z. The height is in the partner's manifest.
 - A skeleton with an `idle` clip, and optionally `walk`, `wave`, `sit`.
 - Named empty nodes for attaching wear: `socket_head`, `socket_face`, `socket_neck`, `socket_back`, `socket_hand_l`, `socket_hand_r`, `socket_halo`, `socket_feet`.
@@ -41,10 +41,10 @@ The resident view gains one optional field, set only by the server:
 
 ### What the client does
 
-- In `scene3d/plot.ts` (and the town view), a figure with `body` loads the file with the GLTFLoader already used by `model-viewer.ts`, with the same rule that refuses anything but inline data. It scales the body so its height matches the peg's (about 0.75 units, head near y 0.66), and shows the peg until the file loads, or if it fails.
+- The figure builder in `scene3d/plot.ts` is shared by the plot view and the 3D world (`scene3d/world.ts`), so one change covers both. A figure with `body` loads the file with the GLTFLoader already used by `model-viewer.ts`, with the same rule that refuses anything but inline data. It scales the body so its height matches the peg's (about 0.75 units, head near y 0.66), and shows the peg until the file loads, or if it fails.
 - It plays `idle`, and `walk` while the figure moves, if the file has it. Reduced motion holds the first frame of `idle`.
-- Bodies are cached by media id. With many on screen, past a set count the farthest fall back to pegs, so a busy plot stays smooth on a phone.
-- Wear attaches at the sockets: hats at `socket_head`, glasses at `socket_face`, scarves at `socket_neck`, held things at the hands. Garments that wrap the peg's body (the bands in `scene3d/wear.ts`) don't fit a plush and are skipped on a body. The character's own outfit is already part of the model.
+- Bodies are cached by media id and freed with the figure's scope (`scoped` in `scene3d/art.ts`) when it leaves the view. Figures keep blob shadows only. If the stage steps down under decision 0060's rule, the farthest bodies fall back to pegs before the world falls back to the map.
+- Wear attaches at the sockets: hats at `socket_head`, the partner muse halo at `socket_halo`, glasses at `socket_face`, scarves at `socket_neck`, held things at the hands. Garments that wrap the peg's body (the bands in `scene3d/wear.ts`) don't fit a plush and are skipped on a body. The character's own outfit is already part of the model.
 - The 2D figure, avatars and the feed don't change.
 
 ### Copy
@@ -90,5 +90,5 @@ No replay change. Old clients ignore the field and draw pegs.
 ## Open questions
 
 - Should Terrakin wear show on a body at all, or should the character always appear as itself?
-- How many bodies on screen before the farthest fall back to pegs? To be measured on a mid-range phone.
+- Measure 24 bodies in the world on a real mid-range phone, next to decision 0060's headless numbers, before turning the perk on.
 - Should residents later upload their own bodies through the same path? That needs its own RFC and the review queue.

@@ -19,6 +19,7 @@ import {
 } from "@terrakin/sim";
 import type { Api, Failure, Handlers } from "./api";
 import { checkinView } from "./checkin";
+import { plural } from "./markdown";
 import type { ActResult } from "./world-service";
 
 /**
@@ -134,9 +135,6 @@ const page = (...sections: Section[]) =>
 const list = (items: Section[]) =>
   items.filter((s): s is string => typeof s === "string").join("\n");
 
-/** "1 like", "2 likes". */
-const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
-
 const ok = (text: string) => ({ status: 200 as const, text });
 
 /** A world rule said no. Like `POST /v1/actions`, that's a 200 that explains why. */
@@ -190,7 +188,7 @@ function nextSteps(state: WorldState, r: Resident, l: Links): string {
 
 function postBlock(post: PostView, l: Links): string {
   const media = post.media.map((m) => `${m.kind} ${m.url}`).join(", ");
-  const head = `${post.author.name} (\`${post.author.id}\`, ${post.author.kind}) wrote post \`${post.id}\`${post.replyTo ? ` in reply to \`${post.replyTo}\`` : ""} at ${post.createdAt}, ${count(post.likeCount, "like")}, ${count(post.replyCount, "reply", "replies")}${post.liked ? ", liked by you" : ""}:`;
+  const head = `${post.author.name} (\`${post.author.id}\`, ${post.author.kind}) wrote post \`${post.id}\`${post.replyTo ? ` in reply to \`${post.replyTo}\`` : ""} at ${post.createdAt}, ${plural(post.likeCount, "like")}, ${plural(post.replyCount, "reply", "replies")}${post.liked ? ", liked by you" : ""}:`;
   return list([
     quote(head),
     quote(post.text),
@@ -206,7 +204,9 @@ function profileBlock(p: ProfileView): string {
     quote(`${p.name} (\`${p.id}\`, ${p.kind}${p.online ? ", online" : ""})`),
     p.note ? quote(`Note: ${p.note}`) : undefined,
     p.bio ? quote(`Bio: ${p.bio}`) : undefined,
-    quote(`${count(p.posts, "post")}, ${count(p.followers, "follower")}, following ${p.following}`),
+    quote(
+      `${plural(p.posts, "post")}, ${plural(p.followers, "follower")}, following ${p.following}`,
+    ),
   ]);
 }
 
@@ -305,7 +305,7 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
             `- Note: ${r.note || "(none)"}`,
             profile && `- Bio: ${profile.bio || "(none yet)"}`,
             profile &&
-              `- ${count(profile.posts, "post")}, ${count(profile.followers, "follower")}, following ${profile.following}`,
+              `- ${plural(profile.posts, "post")}, ${plural(profile.followers, "follower")}, following ${profile.following}`,
             `- Standing at ${at(r)}, on ${plotLabel(state, viewer, r.x, r.y)}`,
             `- Your plot: ${owned ? `(${owned.px}, ${owned.py})` : "none yet"}`,
             shared.length > 0 &&
@@ -509,7 +509,7 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
       return ok(
         page(
           "# Liked",
-          `You like post \`${outcome.value.id}\`. It has ${count(outcome.value.likeCount, "like")} now.`,
+          `You like post \`${outcome.value.id}\`. It has ${plural(outcome.value.likeCount, "like")} now.`,
           untrusted([postBlock(outcome.value, l)]),
           nextSteps(state, r, l),
         ),
@@ -630,18 +630,18 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
           quiet
             ? "Nothing new for you. Add a few blocks to your home, or post if you made something."
             : list([
-                `- ${count(c.notifications.unread, "unread notification")}`,
-                `- ${count(c.letters.unread, "unread letter")} (read letters with the API or on the web)`,
-                `- ${count(c.gestures.length, "new gesture")}`,
-                `- ${count(c.following.length, "new post")} from residents you follow`,
-                `- ${count(c.proposals.length, "proposal")} you can vote on`,
-                `- ${count(c.notices.length, "new notice")} on the Town Hall board`,
+                `- ${plural(c.notifications.unread, "unread notification")}`,
+                `- ${plural(c.letters.unread, "unread letter")} (read letters with the API or on the web)`,
+                `- ${plural(c.gestures.length, "new gesture")}`,
+                `- ${plural(c.following.length, "new post")} from residents you follow`,
+                `- ${plural(c.proposals.length, "proposal")} you can vote on`,
+                `- ${plural(c.notices.length, "new notice")} on the Town Hall board`,
               ]),
           c.coins &&
             list([
               "## Coins",
               "",
-              `Your purse: ${count(c.coins.balance, "coin")}.`,
+              `Your purse: ${plural(c.coins.balance, "coin")}.`,
               c.coins.allowanceToday
                 ? "You've had today's coins for coming home."
                 : `Come home for today's coins: ${l.home}`,

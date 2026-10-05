@@ -23,7 +23,8 @@ function frontmatter(title: string, canonical: string): string {
   );
 }
 
-const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+/** "1 like", "2 likes": a count and its noun, for the Markdown answers. */
+export const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 function postBlock(post: PostView, heading: string): string[] {
   const lines = [

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Generated from ryanio/op-secrets lib/1p.mjs (0735754, body 8dd880947d27). Edit it there and run `node sync.mjs`; changes made here are overwritten.
+// Generated from ryanio/op-secrets lib/1p.mjs (0735754, body 04cc12c0daaa). Edit it there and run `node sync.mjs`; changes made here are overwritten.
 /**
  * 1Password wrapper for this repo's vault (`vault` in secrets.config.json). One
  * entry point so callers never pick
@@ -170,6 +170,35 @@ function parseRunFlags(rest) {
 	return { all, argv, auto, only }
 }
 
+/** The values the local fallback file sets for these refs. */
+function localValues(refs) {
+	const local = {}
+	if (!CONFIG.localFallback) {
+		return local
+	}
+	const values = readEnvFile(CONFIG.localFallback)
+	for (const { key } of refs) {
+		if (values[key]) {
+			local[key] = values[key]
+		}
+	}
+	if (Object.keys(local).length > 0) {
+		console.error(`[1p] ${Object.keys(local).length} from ${CONFIG.localFallback}`)
+	}
+	return local
+}
+
+/** resolveAll, except keys the local fallback file sets cost no vault read. */
+async function resolveWithFallback(refs) {
+	const local = localValues(refs)
+	const vaultRefs = refs.filter(({ key }) => !(key in local))
+	if (vaultRefs.length === 0) {
+		return { env: local, failed: [], exhausted: false, sent: 0, cached: 0 }
+	}
+	const resolved = await resolveAll(vaultRefs)
+	return { ...resolved, env: { ...resolved.env, ...local } }
+}
+
 async function cmdRun(rest) {
 	const parsed = parseRunFlags(rest)
 	const { all, argv, auto } = parsed
@@ -228,25 +257,7 @@ async function cmdRun(rest) {
 		}
 	}
 
-	// Keys the local fallback file sets cost no vault read.
-	const local = {}
-	if (CONFIG.localFallback) {
-		const values = readEnvFile(CONFIG.localFallback)
-		for (const { key } of refs) {
-			if (values[key]) {
-				local[key] = values[key]
-			}
-		}
-		if (Object.keys(local).length > 0) {
-			console.error(`[1p] ${Object.keys(local).length} from ${CONFIG.localFallback}`)
-		}
-	}
-	const vaultRefs = refs.filter(({ key }) => !(key in local))
-	const resolved = vaultRefs.length
-		? await resolveAll(vaultRefs)
-		: { env: {}, failed: [], exhausted: false, sent: 0, cached: 0 }
-	const { failed, exhausted, sent, cached } = resolved
-	const env = { ...resolved.env, ...local }
+	const { env, failed, exhausted, sent, cached } = await resolveWithFallback(refs)
 	// Say what the read actually COST. The whole failure mode this tooling exists
 	// for was invisible spend, so a run that quietly billed 78 requests and one
 	// that billed 0 should not look identical.
@@ -525,12 +536,13 @@ function cmdCreate(item, pairs) {
 function cmdPut(item, from, args) {
 	const keys = []
 	const text = []
-	for (let i = 0; i < args.length; i++) {
-		if (args[i] !== '--text') {
-			keys.push(args[i])
+	const rest = args[Symbol.iterator]()
+	for (const arg of rest) {
+		if (arg !== '--text') {
+			keys.push(arg)
 			continue
 		}
-		const [name, ...value] = (args[++i] ?? '').split('=')
+		const [name, ...value] = (rest.next().value ?? '').split('=')
 		if (!(name && value.length)) {
 			fail('put <item> --from <envfile> KEY1 [KEY2...] [--text name=value]')
 		}
@@ -548,7 +560,10 @@ function cmdPut(item, from, args) {
 	const template = {
 		title: item,
 		category: 'SECURE_NOTE',
-		fields: [...keys.map((k) => ({ id: k, label: k, type: 'CONCEALED', value: values[k] })), ...text],
+		fields: [
+			...keys.map((k) => ({ id: k, label: k, type: 'CONCEALED', value: values[k] })),
+			...text,
+		],
 	}
 	announceWrite('Create', item)
 	const dir = mkdtempSync(join(tmpdir(), '1p-put-'))

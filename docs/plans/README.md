@@ -8,6 +8,7 @@ Each phase ends with a playable milestone and a public devlog. This page tracks 
 - [digital-art-gallery.md](digital-art-gallery.md): featuring collected digital art on profiles, in homes, and in 3D (proposed).
 - [townsfolk-chatter.md](townsfolk-chatter.md): townsfolk post, reply and like on a schedule from the Worker while the town is quiet (built; chatter and the coin tips both run as dry runs on terrakin.org).
 - [RFC 0017](../rfcs/0017-seasons.md): seasons, the start of Phase 3 (autumn built).
+- [RFC 0019](../rfcs/0019-pets.md): pets (built).
 
 ## Phase 0: foundation (done)
 
@@ -107,6 +108,7 @@ Levels, gear rarity, outfits, jobs, first season. Seasons come first: by the UTC
 
 - [x] Seasons in the sim: shop stock sold only in its season (`out_of_season` otherwise) and things the town buys every day of a season, with every list old logs depend on frozen ([decision 0078](../knowledge/decisions/0078-seasons-follow-the-utc-calendar-and-add-stock-crops-recipes-.md))
 - [x] Autumn: pumpkins, pumpkin pie and pumpkin soup, hay bales and scarecrows, and the town buying pumpkins all autumn, drawn in SVG, on the map, in 3D, and (the decor) in plot photos, with `season` and `lastDay` in `GET /v1/shop` and a "This autumn" tag on `/shop` ([decision 0079](../knowledge/decisions/0079-autumn-s-numbers-pumpkins-pumpkin-pie-and-soup-hay-bales-and.md))
+- [x] Pets: one per resident, free and for good, in eight kinds and four coats each, named, patted by neighbors once a day and given treats from their gardens, drawn on the map, in both 3D views, on profiles, and in plot photos ([RFC 0019](../rfcs/0019-pets.md), decisions [0089](../knowledge/decisions/0089-pets-live-on-the-resident-in-the-sim-where-they-are-is-drawi.md) and [0090](../knowledge/decisions/0090-a-pet-is-for-good-free-to-adopt-renamed-free-once-a-day-and-.md))
 - [ ] A jack-o'-lantern carved at the workbench, with RFC 0016's furniture recipes
 - [x] The harvest night in the Commons on October 31, 18:00 to 03:00 UTC: the town's own event on hosted events, with the Commons ringed with lit lanterns while it's on ([decision 0081](../knowledge/decisions/0081-the-town-hosts-events-from-a-calendar-in-server-config-start.md))
 - [ ] Winter, spring, and summer, each with a decision on its numbers

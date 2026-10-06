@@ -15,7 +15,16 @@ import {
 import { afterEach, describe, expect, it } from "vitest";
 import { BANNER_MOTIFS, bannerShapes } from "./banner-art";
 import { notificationItem, notificationLine, takedownLine } from "./notifications-view";
-import { applyReaction, applyRepost, copyPostState, REACTIONS, reactionSummary } from "./reactions";
+import {
+  applyReaction,
+  applyRepost,
+  copyPostState,
+  PostToggles,
+  REACTIONS,
+  reactionSummary,
+  type Toggle,
+  type ToggleAnswer,
+} from "./reactions";
 
 const WREN = { handle: "wren", id: "r_wren" };
 
@@ -209,6 +218,133 @@ describe("reactions", () => {
     };
     copyPostState(post, item);
     expect(item).toMatchObject({ reposted: true, repostCount: 1, repostedBy: post.author });
+  });
+});
+
+describe("taps on a post", () => {
+  /** A server that answers each request only when the test says so, oldest first. */
+  function slowServer() {
+    const asked: [Toggle, boolean][] = [];
+    const waiting: ((answer: ToggleAnswer) => void)[] = [];
+    const send = (toggle: Toggle, on: boolean) =>
+      new Promise<ToggleAnswer>((resolve) => {
+        asked.push([toggle, on]);
+        waiting.push(resolve);
+      });
+    const answer = async (answer: ToggleAnswer) => {
+      waiting.shift()?.(answer);
+      await new Promise((settle) => setTimeout(settle));
+    };
+    return { asked, send, answer };
+  }
+  const ok = (post: PostView): ToggleAnswer => ({ ok: true, data: { post } });
+
+  it("shows every tap at once, sends them one at a time, and ends with the server's counts", async () => {
+    const post = basePost();
+    const server = slowServer();
+    const toggles = new PostToggles(post, { send: server.send });
+    toggles.set("sprout", true);
+    toggles.set("hug", true);
+    toggles.set("heart", true);
+    toggles.set("repost", true);
+    expect(post).toMatchObject({
+      liked: true,
+      likeCount: 3,
+      myReactions: ["heart", "sprout", "hug"],
+      reactions: { heart: 3, sprout: 2, hug: 1 },
+      reposted: true,
+      repostCount: 1,
+    });
+    expect(server.asked).toEqual([["sprout", true]]);
+
+    // The server's answer counts a neighbor's wow, and nothing it hasn't been asked yet.
+    await server.answer(
+      ok({ ...basePost(), reactions: { heart: 2, sprout: 2, wow: 1 }, myReactions: ["sprout"] }),
+    );
+    expect(post).toMatchObject({
+      liked: true,
+      reactions: { heart: 3, sprout: 2, wow: 1, hug: 1 },
+      reposted: true,
+      repostCount: 1,
+    });
+    expect(server.asked).toEqual([
+      ["sprout", true],
+      ["hug", true],
+    ]);
+    await server.answer(
+      ok({
+        ...basePost(),
+        reactions: { heart: 2, sprout: 2, wow: 1, hug: 1 },
+        myReactions: ["sprout", "hug"],
+      }),
+    );
+    await server.answer(
+      ok({
+        ...basePost(),
+        liked: true,
+        likeCount: 3,
+        reactions: { heart: 3, sprout: 2, wow: 1, hug: 1 },
+        myReactions: ["heart", "sprout", "hug"],
+      }),
+    );
+    const last = {
+      ...basePost(),
+      liked: true,
+      likeCount: 3,
+      reactions: { heart: 3, sprout: 2, wow: 1, hug: 1 },
+      myReactions: ["heart", "sprout", "hug"] as PostView["myReactions"],
+      reposted: true,
+      repostCount: 2,
+    };
+    await server.answer(ok(last));
+    expect(server.asked.map(([toggle]) => toggle)).toEqual(["sprout", "hug", "heart", "repost"]);
+    expect(post).toEqual(last);
+  });
+
+  it("sends nothing for taps that end where the server is, and puts back a tap it refuses", async () => {
+    const post = basePost();
+    const server = slowServer();
+    const settled: string[] = [];
+    const toggles = new PostToggles(post, {
+      send: server.send,
+      settled: (toggle, on, answer) =>
+        settled.push(`${toggle} ${on}: ${answer.ok ? "ok" : answer.message}`),
+    });
+    toggles.set("heart", true);
+    toggles.set("heart", false);
+    toggles.set("heart", true);
+    const liked = {
+      ...basePost(),
+      liked: true,
+      likeCount: 3,
+      reactions: { heart: 3, sprout: 1 },
+      myReactions: ["heart"] as PostView["myReactions"],
+    };
+    await server.answer(ok(liked));
+    expect(server.asked).toEqual([["heart", true]]);
+    expect(post).toEqual(liked);
+
+    toggles.set("heart", false);
+    toggles.set("wow", true);
+    expect(post).toMatchObject({ liked: false, likeCount: 2, myReactions: ["wow"] });
+    await server.answer({ ok: false, status: 429, code: "rate_limited", message: "Slow down." });
+    // The unlike is undone; the wow still waits its turn.
+    expect(post).toMatchObject({ liked: true, likeCount: 3, myReactions: ["heart", "wow"] });
+    expect(server.asked.at(-1)).toEqual(["wow", true]);
+    expect(settled).toEqual(["heart true: ok", "heart false: Slow down."]);
+  });
+
+  it("starts from the post as shown, so a like made on another card showing it can be undone", () => {
+    const post = basePost();
+    const server = slowServer();
+    const toggles = new PostToggles(post, { send: server.send });
+    // The same post further down the wall was liked, and its answer copied into this one.
+    copyPostState(
+      { ...basePost(), liked: true, likeCount: 3, reactions: { heart: 3 }, myReactions: ["heart"] },
+      post,
+    );
+    toggles.set("heart", false);
+    expect(server.asked).toEqual([["heart", false]]);
   });
 });
 

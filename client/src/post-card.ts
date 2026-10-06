@@ -16,15 +16,7 @@ import { timeAgo } from "@terrakin/ui/when";
 import { api, myProfile } from "./api";
 import { openQuoteComposer } from "./composer";
 import { savedResidentId, savedToken } from "./net";
-import {
-  applyReaction,
-  applyRepost,
-  copyPostState,
-  hasReaction,
-  postState,
-  REACTIONS,
-  reactionSummary,
-} from "./reactions";
+import { hasReaction, PostToggles, REACTIONS, reactionSummary } from "./reactions";
 import { openReportSheet } from "./report-sheet";
 
 export interface PostCardOptions {
@@ -280,7 +272,7 @@ function actions(post: PostView, options: PostCardOptions): HTMLElement[] {
               "aria-pressed": String(r.mine),
               "aria-label": `${REACTIONS[r.key].label}, ${r.count}`,
             },
-            on: { click: () => void toggle(r.key, !r.mine) },
+            on: { click: () => toggle(r.key, !r.mine) },
           },
           h(
             "span",
@@ -297,27 +289,30 @@ function actions(post: PostView, options: PostCardOptions): HTMLElement[] {
     );
   };
 
-  let busy = false;
-  async function toggle(key: ReactionKey, on: boolean) {
-    if (needToken(key === "heart" ? "like posts" : "react to posts") || busy) return;
-    busy = true;
-    // Optimistic: change it now, put it back if the server says no.
-    const before = postState(post);
-    applyReaction(post, key, on);
+  // Every tap shows at once and goes to the server one request at a time, so a quick second tap is
+  // never lost and the counts end up as the server has them. A refusal puts that tap back.
+  const toggles = new PostToggles(post, {
+    send: (toggle, on) =>
+      toggle === "repost"
+        ? api.repost(post.id, on)
+        : // Hearts go through the like route, so older servers understand them too.
+          toggle === "heart"
+          ? api.like(post.id, on)
+          : api.react(post.id, toggle, on),
+    settled: (toggle, on, answer) => {
+      if (!answer.ok) toast(answer.message);
+      else if (toggle === "repost") toast(on ? "Reposted" : "Repost removed");
+      paintReactions();
+      paintRepost();
+      changed();
+    },
+  });
+
+  function toggle(key: ReactionKey, on: boolean) {
+    if (needToken(key === "heart" ? "like posts" : "react to posts")) return;
+    toggles.set(key, on);
     paintReactions();
-    if (key === "heart" && on) {
-      replay(like, "pop");
-    }
-    // Hearts go through the like route, so older servers understand them too.
-    const r = key === "heart" ? await api.like(post.id, on) : await api.react(post.id, key, on);
-    busy = false;
-    if (r.ok) copyPostState(r.data.post, post);
-    else {
-      copyPostState(before, post);
-      toast(r.message);
-    }
-    paintReactions();
-    changed();
+    if (key === "heart" && on) replay(like, "pop");
   }
 
   // Tap: like. Long-press, or the smile button: the picker.
@@ -340,7 +335,7 @@ function actions(post: PostView, options: PostCardOptions): HTMLElement[] {
       longPressed = false;
       return;
     }
-    void toggle("heart", !post.liked);
+    toggle("heart", !post.liked);
   });
   react.addEventListener("click", () => openPicker(react));
 
@@ -366,7 +361,7 @@ function actions(post: PostView, options: PostCardOptions): HTMLElement[] {
             on: {
               click: () => {
                 close();
-                void toggle(key, !hasReaction(post, key));
+                toggle(key, !hasReaction(post, key));
                 opener.focus({ preventScroll: true });
               },
             },
@@ -426,24 +421,9 @@ function actions(post: PostView, options: PostCardOptions): HTMLElement[] {
     repostCount.textContent = n > 0 ? compactCount(n) : "";
   };
 
-  let reposting = false;
-  async function setRepost(on: boolean) {
-    if (reposting) return;
-    reposting = true;
-    const before = postState(post);
-    applyRepost(post, on);
+  function setRepost(on: boolean) {
+    toggles.set("repost", on);
     paintRepost();
-    const r = await api.repost(post.id, on);
-    reposting = false;
-    if (r.ok) {
-      copyPostState(r.data.post, post);
-      toast(on ? "Reposted" : "Repost removed");
-    } else {
-      copyPostState(before, post);
-      toast(r.message);
-    }
-    paintRepost();
-    changed();
   }
 
   repost.addEventListener("click", () => {
@@ -460,7 +440,7 @@ function actions(post: PostView, options: PostCardOptions): HTMLElement[] {
           on: {
             click: () => {
               close();
-              void setRepost(!post.reposted);
+              setRepost(!post.reposted);
             },
           },
         },

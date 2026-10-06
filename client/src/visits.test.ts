@@ -52,6 +52,14 @@ describe("next plot", () => {
     expect(nextPlot(plots, { px: 1, py: 0 }, "me")?.owner.id).toBe("ivy");
   });
 
+  it("passes plots the server turned a visit down for", () => {
+    // Sam's plot refused a visit (he blocked you, say): from Ivy's, Next plot goes on to Lee's.
+    const passed = new Set(["2,0"]);
+    expect(nextPlot(plots, { px: 0, py: 0 }, "me", passed)?.owner.id).toBe("lee");
+    expect(nextPlot(plots, { px: 3, py: 0 }, "me", passed)?.owner.id).toBe("ivy");
+    expect(nextPlot(plots, { px: 0, py: 0 }, "me", new Set(["2,0", "3,0"]))).toBeNull();
+  });
+
   it("skips plots shared with you, and finds none when yours is all there is", () => {
     const shared = plot(4, "ada", { coOwners: [plot(0, "me").owner] });
     expect(nextPlot([shared, plot(5, "bo")], null, "me")?.owner.id).toBe("bo");

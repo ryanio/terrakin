@@ -335,13 +335,24 @@ describe("plots to visit over HTTP", () => {
     await t.act(ivy.token, { type: "place", x: 1, y: 6, block: "leaf" });
     expect((await t.plots())[0]).toMatchObject({ px: 0, py: 0, blocks: 16 });
 
-    // Once Sam blocks Wren, his plot is gone from her list and she can't visit it.
+    // Once Sam blocks Wren, she can't visit his plot, but it stays in her list, as it is in the
+    // list anyone can read: leaving it out would tell her who blocked her.
     await t.call("PUT", `/v1/residents/${wren.id}/block`, undefined, sam.token);
-    expect((await t.plots("", wren.token)).map((p) => [p.px, p.py])).toEqual([[0, 0]]);
+    const both = [
+      [0, 0],
+      [2, 0],
+    ];
+    expect((await t.plots("", wren.token)).map((p) => [p.px, p.py])).toEqual(both);
+    expect((await t.plots()).map((p) => [p.px, p.py])).toEqual(both);
+    expect((await t.call("GET", "/v1/plots/2/0", undefined, wren.token)).status).toBe(200);
     expect(await t.act(wren.token, { type: "visit", px: 2, py: 0 })).toMatchObject({
       ok: false,
       error: { code: "forbidden" },
     });
+    // The plots of someone Wren blocked are gone from her list, and from a read of one plot.
+    await t.call("PUT", `/v1/residents/${ivy.id}/block`, undefined, wren.token);
+    expect((await t.plots("", wren.token)).map((p) => [p.px, p.py])).toEqual([[2, 0]]);
+    expect((await t.call("GET", "/v1/plots/0/0", undefined, wren.token)).status).toBe(404);
   });
   it("closes a suspended owner's plot to visits, and points a visit to an empty plot at one that's open", async () => {
     const t = await start();

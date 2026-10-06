@@ -348,8 +348,7 @@ const ORDER: Record<PlotSort, (a: PlotView, b: PlotView) => number> = {
 /**
  * Every plot someone lives on, as `GET /v1/plots` shows them: whose it is, when it last changed,
  * this week's visitors and admirers, and what's on it, from the world and the tables. `hidden`
- * leaves out a plot by any of its residents (a suspended owner, or someone blocked either way
- * with the viewer). Nothing here is private: the world snapshot already shows plots, blocks,
+ * leaves out a plot by any of its residents (a suspended owner, or someone the viewer blocked). Nothing here is private: the world snapshot already shows plots, blocks,
  * and displays, and the counts never say who.
  */
 export function plotViews(

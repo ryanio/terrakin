@@ -2098,7 +2098,9 @@ export class Api {
 
   /**
    * Plots to visit (RFC 0020) as `viewer` sees them, leaving out plots whose owner is suspended
-   * (like their gallery and stall) and plots of anyone blocked either way with the viewer.
+   * (like their gallery and stall) and plots of anyone the viewer blocked. Only the viewer's own
+   * blocks: anyone can read the list without a token, so leaving out the plots of residents who
+   * blocked the viewer would tell them who did. A visit or an admire there is still refused.
    */
   private plotsFor(
     viewer: string | undefined,
@@ -2106,7 +2108,7 @@ export class Api {
     only?: { px: number; py: number },
   ): PlotView[] {
     const layer = this.requireSocial();
-    const blocked = viewer === undefined ? new Set<string>() : layer.blockedWith(viewer);
+    const blocked = viewer === undefined ? new Set<string>() : layer.blockedBy(viewer);
     const hidden = (plot: Plot) =>
       layer.safety.suspendedUntil(plot.ownerId) !== undefined ||
       [plot.ownerId, ...(plot.coOwners ?? [])].some((id) => blocked.has(id));

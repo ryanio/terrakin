@@ -19,8 +19,11 @@ const LIST_MS = 60_000;
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
 export interface VisitCardOptions {
-  /** Jump to plot (px, py): the world sends `visit` over its socket. */
-  visit: (px: number, py: number) => void;
+  /**
+   * Jump to plot (px, py): the world sends `visit` over its socket. The message's id, or
+   * undefined when it couldn't be sent.
+   */
+  visit: (px: number, py: number) => string | undefined;
   /** Say something in the world's toast. */
   toast: (text: string) => void;
 }
@@ -33,6 +36,8 @@ export interface VisitCard {
     at: { x: number; y: number } | undefined,
   ): void;
   hide(): void;
+  /** The server turned down the message with this id: a tour's visit, maybe. */
+  refused(id: string): void;
 }
 
 export function visitCard(o: VisitCardOptions): VisitCard {
@@ -52,6 +57,9 @@ export function visitCard(o: VisitCardOptions): VisitCard {
   /** Where you were and the mirror's `seq` at the last look, so a still frame does no work. */
   let looked = "";
   let tour: { plots: PlotView[]; at: number } | null = null;
+  /** The tour's last visit, until it's answered, and the plots whose visit was turned down. */
+  let sent: { id: string; key: string } | null = null;
+  const passed = new Set<string>();
 
   function paint(view: PlotView) {
     week.textContent = weekLine(view);
@@ -111,9 +119,10 @@ export function visitCard(o: VisitCardOptions): VisitCard {
   next.addEventListener("click", async () => {
     const plots = await whileBusy(next, tourPlots);
     if (typeof plots === "string") return o.toast(plots);
-    const to = nextPlot(plots, plot, me);
+    const to = nextPlot(plots, plot, me, passed);
     if (!to) return o.toast("There's no other plot to visit yet.");
-    o.visit(to.px, to.py);
+    const id = o.visit(to.px, to.py);
+    sent = id === undefined ? null : { id, key: plotKey(to.px, to.py) };
   });
 
   return {
@@ -140,5 +149,11 @@ export function visitCard(o: VisitCardOptions): VisitCard {
       if (here !== key) show(mirror, px, py);
     },
     hide,
+    refused(id) {
+      // A plot whose owner blocked you, say, stays in the list: the tour goes past it from now on.
+      if (sent?.id !== id) return;
+      passed.add(sent.key);
+      sent = null;
+    },
   };
 }

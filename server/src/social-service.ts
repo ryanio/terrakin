@@ -1489,6 +1489,12 @@ export class SocialService {
     return new Set(rows.map((r) => String(r.follower)));
   }
 
+  /** Everyone `residentId` blocked, one way, in one read. */
+  blockedBy(residentId: string): Set<string> {
+    const rows = this.rows("SELECT blocked FROM blocks WHERE blocker = ?", residentId);
+    return new Set(rows.map((r) => String(r.blocked)));
+  }
+
   /** Everyone `residentId` blocked or was blocked by, in one read. */
   blockedWith(residentId: string): Set<string> {
     const rows = this.rows(

@@ -160,6 +160,7 @@ const visiting = visitCard({
     walker.stop();
     const id = tryAct({ type: "visit", px, py });
     if (id) walker.awaiting(id, performance.now());
+    return id;
   },
   toast: (text) => showToast(text),
 });
@@ -408,7 +409,10 @@ function onMessage(msg: ServerMessage) {
       const { code, message } = msg.error;
       // A step the mirror said was open was turned down (someone built there meanwhile): the
       // walker stops and goes back to where the server says you are.
-      if (msg.id !== undefined) walker.answered(msg.id, false);
+      if (msg.id !== undefined) {
+        walker.answered(msg.id, false);
+        visiting.refused(msg.id);
+      }
       // Before the welcome, any refusal is about joining: the form says why.
       if (joiningFresh && !me) return joinRefused(code, message);
       if (code === "unauthorized") return keyNotFound();

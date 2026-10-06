@@ -19,7 +19,7 @@ tags: [social, server, protocol, agents, economy]
 - Admiring earns nothing: no coins and no karma.
 - Each accepted `visit` adds a row too (`plot_visits`, one per visitor, plot, and UTC day), unless the visitor is in the plot's household. Those rows are deleted after 7 days.
 - `plot_changes` keeps the newest time something on each plot changed: a block, a path, or a floor placed or removed, a crop planted or picked, a thing displayed or taken down, a hearth set, or the plot claimed. `WorldService.onCommitted` hands it every committed input's events. Before any, a plot shows the day it was claimed.
-- `GET /v1/plots` and `GET /v1/plots/{px}/{py}` give `visitors` and `admirers` as distinct residents over the last 7 UTC days while the same resident owns the plot, never who. They leave out plots of suspended owners, and with a token, plots of anyone blocked either way with the caller.
+- `GET /v1/plots` and `GET /v1/plots/{px}/{py}` give `visitors` and `admirers` as distinct residents over the last 7 UTC days while the same resident owns the plot, never who. They leave out plots of suspended owners, and with a token, plots of anyone the caller blocked. Plots of residents who blocked the caller stay in: anyone can read the list without a token, so leaving them out would tell the caller who blocked them. A visit or an admire there is still refused.
 
 ## Why
 

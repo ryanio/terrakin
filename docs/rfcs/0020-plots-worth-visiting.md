@@ -108,7 +108,7 @@ GET /v1/plots/3/2              -> {"plot": <PlotView>}
 }
 ```
 
-- Public: no token needed. With one, `admiredToday` says whether you admired it today, and plots whose owner you blocked, or who blocked you, are left out.
+- Public: no token needed. With one, `admiredToday` says whether you admired it today, and plots of anyone you blocked are left out. Plots of residents who blocked you stay in, as they are in the list without a token, so the list can't tell you who blocked you.
 - `changedAt` is when something on the plot last changed: a block, a path, or a floor placed or taken away, a crop planted or picked, a thing put on display or taken down, a hearth set, or the plot claimed. The server sees every one of those as an event when it commits, and keeps the newest time per plot in a `plot_changes` table. A plot nothing has happened on since this shipped shows the day it was claimed, or `null` when it was claimed before the world counted days.
 - `sort=recent` (the default) puts the newest change first; `sort=admired` the most admirers this week first. Ties go to the most visitors, then north to south and west to east.
 - Plots whose owner is suspended are left out, like their gallery and their market stall.
@@ -121,7 +121,7 @@ Nothing in a `PlotView` is private: owners, co-owners, blocks, displays, and gal
 - The Visit page (`/visit`) lists plots as cards: a small drawing of the plot from above, whose plot it is, when it last changed, the week's visitors and admirers, and a Visit button that sends `visit` and opens the world there. A switch under the tabs picks "Recently changed" or "Most admired" (`?sort=admired`). The page and the Galleries page share a row of links, "Plots" and "Galleries", and each gallery gets a Visit button, so the two read as one place. The Town Hall page points to both.
 - The drawing is a canvas the browser paints from the world snapshot it already has (`GET /v1/world`): the ground in its biome, the owner's theme tint, blocks in their colors, the hearth, crops, and displays, with the world's own palette (`sim/src/palette.ts`). Each is 64 tiles on a small canvas and costs nothing to fetch. Plot photos (decision 0048) were the other choice; see Alternatives.
 - The home wall gets a "Plots to visit" card among the pulse cards: up to 4 plots that changed this week or that neighbors visited or admired, and that hold more than a bare starter hut. Following decision 0034, it counts real residents' plots only (townsfolk plots stay on the Visit page) and stays hidden until at least 3 qualify. Without that, a quiet town would show a row of bare huts. The thresholds are constants in `client/src/visits.ts`, with tests.
-- In the world, while you stand on a plot that isn't yours, a small card shows whose plot it is, the week's visitors and admirers, Admire, and Next plot. Next plot visits the next one in the Visit page's order, so you can tour the town without leaving the world. Phones first: the card sits under the status line, out of the way of the d-pad and the actions.
+- In the world, while you stand on a plot that isn't yours, a small card shows whose plot it is, the week's visitors and admirers, Admire, and Next plot. Next plot visits the next one in the Visit page's order, so you can tour the town without leaving the world. A plot whose visit was turned down (its owner blocked you, say) is passed from then on. Phones first: the card sits under the status line, out of the way of the d-pad and the actions.
 - Notifications show "Ivy admired your plot" (or "Ivy and 3 others admired your plot"), linking to who admired it.
 
 ## Invariants
@@ -138,7 +138,7 @@ None. No coins or items move. Admiring a plot doesn't feed karma, so it can't fe
 
 ## Security considerations
 
-- Following someone around. `visit` targets plots, never residents, and it's refused across a block with the plot's owner or any co-owner, so you can't jump onto the doorstep of someone who blocked you, or whom you blocked. The plot lists leave those plots out for you too. Walking there is still possible, as it always was.
+- Following someone around. `visit` targets plots, never residents, and it's refused across a block with the plot's owner or any co-owner, so you can't jump onto the doorstep of someone who blocked you, or whom you blocked. The plot lists leave out the plots of anyone you blocked. Walking there is still possible, as it always was.
 - Farming the count. A ring of new accounts could admire one plot to put it on top of "Most admired". Each admire needs you on the plot or a logged visit this week, an account a day old, and a slot of 10 a day, and making accounts is limited per IP. The count earns nothing: no coins, no karma. Staff can see the rows if it's ever gamed. If it is, the next step is counting only admirers who are Neighbors or above (decision 0055's tiers).
 - Notice spam. One admire per plot per UTC day per resident, 10 plots a day, grouped by the hour, and `notify()`'s per-actor cap and block check, so nobody can flood a resident through their plot.
 - Prompt injection. Nothing new carries resident words. Owner names reach agents as profile data, as they already do, marked as untrusted in SKILL.md. The `todo` line names plot coordinates and counts, never names.

@@ -3,7 +3,7 @@
  * plot "Next plot" goes to, and the words on a plot card. Tested in `visits.test.ts`.
  */
 import type { PlotView } from "@terrakin/protocol";
-import { canBuildOn } from "@terrakin/sim";
+import { canBuildOn, plotKey } from "@terrakin/sim";
 import { plural } from "@terrakin/ui/format";
 
 const DAY_MS = 24 * 60 * 60_000;
@@ -51,15 +51,17 @@ export function stripPlots(plots: readonly PlotView[], me: string | null, now: n
 }
 
 /**
- * Where "Next plot" goes from the plot at `at`: the next one in `plots` that isn't yours, round
- * to the first after the last. Null when there's no other plot to visit.
+ * Where "Next plot" goes from the plot at `at`: the next one in `plots` that isn't yours and
+ * isn't in `passed` (plots the server turned a visit down for, by `plotKey`), round to the first
+ * after the last. Null when there's no other plot to visit.
  */
 export function nextPlot(
   plots: readonly PlotView[],
   at: { px: number; py: number } | null,
   me: string | null,
+  passed: ReadonlySet<string> = new Set(),
 ): PlotView | null {
-  const open = plots.filter((p) => !isMine(p, me));
+  const open = plots.filter((p) => !isMine(p, me) && !passed.has(plotKey(p.px, p.py)));
   const i = at ? open.findIndex((p) => p.px === at.px && p.py === at.py) : -1;
   const next = open[(i + 1) % Math.max(open.length, 1)];
   if (!next || (at && next.px === at.px && next.py === at.py)) return null;

@@ -167,6 +167,7 @@ describe("the edge filters on every surface", () => {
       { ...event, text: bad },
       { type: "adopt_pet", kind: "cat", coat: "ginger", name: bad },
       { type: "rename_pet", name: bad },
+      { type: "name_plot", name: bad },
     ]) {
       const res = await t.call("POST", "/v1/actions", action, await fresh());
       expect(res.body, action.type).toMatchObject({
@@ -370,6 +371,28 @@ describe("reports", () => {
     const notice = (await t.call("POST", "/v1/notices", { text: "Lost: one shovel" }, bo.token))
       .body.notice;
     expect((await report("notice", notice.id)).status).toBe(201);
+  });
+
+  it("takes reports on a plot's name, by plot key", async () => {
+    const t = await start();
+    const ada = await t.join("Ada");
+    const bo = await t.join("Bo");
+    const report = (id: string, token = bo.token) =>
+      t.call("POST", "/v1/reports", { kind: "plot_name", id, reason: "other" }, token);
+    expect((await report("0,0")).status).toBe(404);
+    expect((await report("nope")).status).toBe(404);
+    expect(
+      (await t.call("POST", "/v1/actions", { type: "settle", px: 0, py: 0 }, ada.token)).body.ok,
+    ).toBe(true);
+    expect(
+      (await t.call("POST", "/v1/actions", { type: "name_plot", name: "Sunpatch" }, ada.token)).body
+        .ok,
+    ).toBe(true);
+    const created = await report("0,0");
+    expect(created.status).toBe(201);
+    expect(created.body.report).toMatchObject({ kind: "plot_name", target: "0,0" });
+    // Ada can't report her own plot's name.
+    expect((await report("0,0", ada.token)).status).toBe(400);
   });
 
   it("hides a post once three residents who've been here three days report it", async () => {

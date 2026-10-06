@@ -701,27 +701,46 @@ function drawMouth(
   }
 }
 
+/** How big a feeling's sign is on the map, in CSS pixels, for tiles `scale` pixels across. */
+export function signPx(scale: number): number {
+  return Math.round(Math.min(34, Math.max(24, scale * 0.8)));
+}
+
 /**
- * The sign that floats over a figure, centered on (0, 0) of the current transform and `size`
- * pixels across: a heart, a "z", a thought bubble, or a sparkle. Drawn the same on the map and,
- * as a texture, over the 3D figure.
+ * The sign that floats over a figure, centered on (0, 0) of the current transform and filling a
+ * square `size` pixels across: a heart, a "z", three thinking dots, or a sparkle on a soft paper
+ * disc, so it reads on grass, sand, stone, or at night. Drawn the same on the map and, as a
+ * texture, over the 3D figure.
  */
 export function drawFeelingIcon(ctx: CanvasRenderingContext2D, icon: FeelingIcon, size: number) {
-  const s = size;
+  // The backing: a paper disc on a soft shadow, kept inside the square.
+  ctx.save();
+  ctx.shadowColor = "rgba(74, 52, 28, 0.32)";
+  ctx.shadowBlur = size * 0.07;
+  ctx.shadowOffsetY = size * 0.025;
+  ctx.fillStyle = PAPER;
+  ctx.beginPath();
+  ctx.arc(0, 0, size * 0.41, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+  ctx.strokeStyle = BRAND_HEX.paperEdge;
+  ctx.lineWidth = size * 0.03;
+  ctx.stroke();
+
+  const s = size * 0.56;
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
-  ctx.strokeStyle = RIM;
-  ctx.lineWidth = s * 0.1;
   ctx.beginPath();
   switch (icon) {
     case "heart":
-      heartPath(ctx, 0, s * 0.04, s * 0.8);
-      ctx.stroke();
+      heartPath(ctx, 0, s * 0.06, s * 0.95);
       ctx.fillStyle = HEART;
       ctx.fill();
       return;
     case "spark":
-      sparklePath(ctx, 0, 0, s * 0.42);
+      sparklePath(ctx, 0, 0, s * 0.5);
+      ctx.strokeStyle = BRAND_HEX.clay;
+      ctx.lineWidth = s * 0.06;
       ctx.stroke();
       ctx.fillStyle = GOLD;
       ctx.fill();
@@ -734,27 +753,18 @@ export function drawFeelingIcon(ctx: CanvasRenderingContext2D, icon: FeelingIcon
         ctx.lineTo(x - k, y + k);
         ctx.lineTo(x + k, y + k);
       };
-      zig(-s * 0.12, s * 0.12, s * 0.2);
-      zig(s * 0.26, -s * 0.24, s * 0.11);
-      ctx.lineWidth = s * 0.2;
-      ctx.stroke();
+      zig(-s * 0.14, s * 0.14, s * 0.24);
+      zig(s * 0.3, -s * 0.28, s * 0.13);
       ctx.strokeStyle = BRAND_HEX.inkSoft;
-      ctx.lineWidth = s * 0.08;
+      ctx.lineWidth = s * 0.12;
       ctx.stroke();
       return;
     }
     case "dots":
-      ctx.roundRect(-s * 0.44, -s * 0.24, s * 0.88, s * 0.48, s * 0.24);
-      ctx.fillStyle = PAPER;
-      ctx.fill();
-      ctx.strokeStyle = BRAND_HEX.paperEdge;
-      ctx.lineWidth = s * 0.05;
-      ctx.stroke();
       ctx.fillStyle = INK;
-      ctx.beginPath();
-      for (const x of [-0.22, 0, 0.22]) {
-        ctx.moveTo((x + 0.065) * s, 0);
-        ctx.arc(x * s, 0, 0.065 * s, 0, Math.PI * 2);
+      for (const x of [-0.3, 0, 0.3]) {
+        ctx.moveTo((x + 0.09) * s, 0);
+        ctx.arc(x * s, 0, 0.09 * s, 0, Math.PI * 2);
       }
       ctx.fill();
       return;

@@ -72,9 +72,12 @@ import { painting } from "./items";
 import {
   type Bounds,
   cornerLight,
+  FIGURE_SCALE,
   fitModel,
   groundDecor,
   type HomeExtras,
+  hearthPull,
+  hearthStand,
   inBounds,
   type LayoutBlock,
   type LayoutCrop,
@@ -82,6 +85,8 @@ import {
   modelFootprint,
   overBudget,
   type PlotLayout,
+  SIGN_SIZE,
+  signSize,
   tagHeight,
   tileHash,
   underFootprint,
@@ -142,12 +147,24 @@ export function buildPlot(
     displayedThings(stage, origin, shown(layout.displays), stage.keep(createPictures()), grain),
   );
   const shadowMap = stage.keep(spotTexture());
+  // Someone on the hearth's tile stands clear of the stonework, not inside it.
+  const home = layout.hearth;
+  const stand = home
+    ? hearthStand((dx, dy) => {
+        const x = home.x + dx;
+        const y = home.y + dy;
+        return layout.inWorld(x, y) && !solid.has(`${x},${y}`);
+      })
+    : undefined;
+  const figures: Group[] = [];
   for (const f of layout.figures) {
     const fig = figure(stage, f, shadowMap);
-    fig.position.set(toX(f.x), 0, toZ(f.y));
+    const pull = home && stand ? hearthPull(f.x, f.y, home.x, home.y) : 0;
+    fig.position.set(toX(f.x) + (stand?.x ?? 0) * pull, 0, toZ(f.y) + (stand?.y ?? 0) * pull);
     // Face the camera's usual side (south-east), with a little turn each.
     fig.rotation.y = 0.5 + ((tileHash(f.x, f.y) % 100) / 100 - 0.5) * 0.8;
     root.add(fig);
+    figures.push(fig);
   }
 
   if (extras.homeModel && footprint) {
@@ -175,6 +192,14 @@ export function buildPlot(
   const center = new Vector3(0, 0.6, 0);
   stage.light(new Vector3(0, 0, 0), layout.size / 2 + layout.margin);
   stage.frame(center, radius, new Vector3(0.55, 0.78, 1));
+  // Signs keep a readable size as the camera pulls back. Only a zoom changes it.
+  const { camera, controls } = stage;
+  const fitSigns = () => {
+    const size = signSize(camera.position.distanceTo(controls.target), camera.fov);
+    for (const fig of figures) sizeSign(fig, size);
+  };
+  fitSigns();
+  controls.addEventListener("change", fitSigns);
   return root;
 }
 
@@ -882,6 +907,21 @@ export function faceParts(color: number = BRAND.ink): FaceParts {
   return { head, eyes, dots, arcs, smile, mouth, cheeks, cheekMat };
 }
 
+/** How tall a name tag is, in a figure's own units, and the gap between it and the sign. */
+const TAG_SIZE = 0.3;
+const SIGN_GAP = 0.03;
+
+/**
+ * What floats over figures draws last, in this order, with no depth test: name tags, then
+ * feelings' signs, then chat bubbles. Geometry never covers them, and two never fight.
+ */
+export const OVERHEAD_ORDER = { tag: 5, sign: 6, bubble: 7 } as const;
+
+/** A sprite material for something over a figure: drawn on top of everything, see-through. */
+export function overheadMaterial(map: Texture | null = null): SpriteMaterial {
+  return new SpriteMaterial({ map, depthTest: false, depthWrite: false, transparent: true });
+}
+
 /** Each feeling's floating sign, drawn once from canvas and shared by every figure. */
 const icons = new Map<FeelingIcon, CanvasTexture>();
 /** The signs drawn so far: shared, so dropping one figure must not free them. */
@@ -891,11 +931,11 @@ function iconTexture(icon: FeelingIcon): CanvasTexture {
   let texture = icons.get(icon);
   if (!texture) {
     const c = document.createElement("canvas");
-    c.width = 96;
-    c.height = 96;
+    c.width = 128;
+    c.height = 128;
     const g = c.getContext("2d") as CanvasRenderingContext2D;
-    g.translate(48, 48);
-    drawFeelingIcon(g, icon, 78);
+    g.translate(64, 64);
+    drawFeelingIcon(g, icon, 128);
     texture = canvasTexture(c);
     icons.set(icon, texture);
     (ICON_TEXTURES as Set<Texture>).add(texture);
@@ -908,7 +948,9 @@ interface Rig extends FaceParts {
   hand: Mesh;
   icon: Sprite;
   iconMat: SpriteMaterial;
-  iconY: number;
+  /** The top of the name tag, where the sign sits, and how big the sign is drawn. */
+  tagTop: number;
+  iconSize: number;
   phase: number;
   shown: Shown | undefined;
   /** The feeling the face parts are set for. */
@@ -970,7 +1012,7 @@ function movePose(rig: Rig, p: Pose) {
     const lean = p.wave === 1 ? 0.35 : 0.75;
     rig.hand.position.set(0.2 + Math.sin(lean) * 0.2, 0.42 + Math.cos(lean) * 0.2, 0.02);
   }
-  rig.icon.position.y = rig.iconY + p.rise;
+  rig.icon.position.y = rig.tagTop + SIGN_GAP + rig.iconSize / 2 + p.rise;
   rig.iconMat.opacity = p.fade;
 }
 
@@ -985,6 +1027,25 @@ export function showFeeling(fig: Object3D, shown: Shown | undefined, now: number
   rig.shown = shown;
   movePose(rig, pose(shown, now, rig.phase, true, rig.pose));
   return true;
+}
+
+/**
+ * Draw a figure's sign `size` units across (in the figure's own units), so it stays readable as the
+ * camera pulls back (`signSize` in `layout.ts`). Only changes a scale, so it's cheap to call often.
+ */
+export function sizeSign(fig: Object3D, size: number) {
+  const rig = rigs.get(fig);
+  if (!rig || rig.iconSize === size) return;
+  rig.iconSize = size;
+  rig.icon.scale.setScalar(size);
+  movePose(rig, rig.pose);
+}
+
+/** How high over a figure's feet (in its own units) the name tag, and the sign when shown, reach. */
+export function overheadTop(fig: Object3D): number {
+  const rig = rigs.get(fig);
+  if (!rig) return 0;
+  return rig.icon.visible ? rig.icon.position.y + rig.iconSize / 2 : rig.tagTop;
 }
 
 /** Turn a figure's head `yaw` radians from where its body faces, to look at someone. */
@@ -1056,27 +1117,26 @@ export function figure(stage: Stage, f: LayoutFigure, shadowMap: Texture): Group
   });
   group.add(blobShadow(shadowMap, 0.3), body);
 
+  // The name tag and the sign over it draw over everything, so a chimney or a wall never hides
+  // them, the sign after the tag so the two never fight.
   const tag = nameTag(f.name, f.owner);
-  const label = new Sprite(
-    new SpriteMaterial({ map: tag.texture, depthWrite: false, transparent: true }),
-  );
-  const h = 0.3;
-  label.scale.set(h * tag.aspect, h, 1);
+  const label = new Sprite(overheadMaterial(tag.texture));
+  label.scale.set(TAG_SIZE * tag.aspect, TAG_SIZE, 1);
   label.position.y = tagHeight(f);
-  label.renderOrder = 5;
+  label.renderOrder = OVERHEAD_ORDER.tag;
   group.add(label);
 
   // The feeling's sign floats over the name tag. Its texture is set when a feeling needs one.
-  const iconMat = new SpriteMaterial({ depthWrite: false, transparent: true });
+  const iconMat = overheadMaterial();
   const icon = new Sprite(iconMat);
-  icon.scale.setScalar(0.3);
-  icon.renderOrder = 5;
+  icon.scale.setScalar(SIGN_SIZE);
+  icon.renderOrder = OVERHEAD_ORDER.sign;
   icon.visible = false;
-  const iconY = tagHeight(f) + 0.3;
-  icon.position.y = iconY;
+  const tagTop = tagHeight(f) + TAG_SIZE / 2;
+  icon.position.y = tagTop + SIGN_GAP + SIGN_SIZE / 2;
   group.add(icon);
 
-  group.scale.setScalar(1.3);
+  group.scale.setScalar(FIGURE_SCALE);
   // The world view leans the body as it steps.
   group.userData.body = body;
   const phase = (tileHash(f.x * 7, f.y * 13) % 1000) / 160;
@@ -1086,7 +1146,8 @@ export function figure(stage: Stage, f: LayoutFigure, shadowMap: Texture): Group
     hand,
     icon,
     iconMat,
-    iconY,
+    tagTop,
+    iconSize: SIGN_SIZE,
     phase: idPhase(f.id),
     shown: undefined,
     drawn: "neutral",

@@ -137,6 +137,48 @@ export function tagHeight(f: Pick<LayoutFigure, "kind" | "look">): number {
   return f.kind === "agent" ? 1.2 : 1.08;
 }
 
+/** How big a figure is drawn, and its feeling's sign up close, in the figure's own units. */
+export const FIGURE_SCALE = 1.3;
+export const SIGN_SIZE = 0.34;
+/** The share of the view's height a sign never shrinks below, about 30 px on a 390x844 phone. */
+const SIGN_SHARE = 0.036;
+
+/**
+ * How big to draw a feeling's sign, in the figure's own units, from a camera `distance` away
+ * through a lens `fov` degrees tall: its own size up close, and never smaller than a set share of
+ * the view further back, so a heart still reads from the world's camera.
+ */
+export function signSize(distance: number, fov: number): number {
+  const viewHeight = 2 * distance * Math.tan((fov * Math.PI) / 360);
+  return Math.max(SIGN_SIZE, (SIGN_SHARE * viewHeight) / FIGURE_SCALE);
+}
+
+/**
+ * Which way, and how far in tiles, to draw someone standing on a hearth's tile, since the
+ * stonework fills it: out in front of the fire (south, the camera's usual side) when that tile is
+ * free, else beside it to the east or west, else behind. `free(dx, dy)` says whether the tile
+ * that far from the hearth is open ground.
+ */
+export function hearthStand(free: (dx: number, dy: number) => boolean): {
+  x: number;
+  y: number;
+} {
+  if (free(0, 1)) return { x: 0, y: 0.6 };
+  if (free(1, 0)) return { x: 0.72, y: 0 };
+  if (free(-1, 0)) return { x: -0.72, y: 0 };
+  if (free(0, -1)) return { x: 0, y: -0.6 };
+  return { x: 0, y: 0.6 };
+}
+
+/**
+ * How much of `hearthStand`'s step to take at (x, y), a figure's place between tiles: all of it on
+ * the hearth's tile, none a tile away, and in between while it slides on or off, so walking stays
+ * smooth.
+ */
+export function hearthPull(x: number, y: number, hx: number, hy: number): number {
+  return Math.max(0, 1 - Math.max(Math.abs(x - hx), Math.abs(y - hy)));
+}
+
 export interface PlotLayout {
   ownerId: string;
   ownerName: string;

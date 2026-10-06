@@ -11,8 +11,11 @@ import { parseGallery } from "./scene3d/catalog";
 import {
   cornerLight,
   distanceOutside,
+  FIGURE_SCALE,
   fitModel,
   groundDecor,
+  hearthPull,
+  hearthStand,
   homeExtras,
   homePlot,
   mediaRef,
@@ -21,12 +24,14 @@ import {
   plotBounds,
   plotLayout,
   rawResident,
+  SIGN_SIZE,
+  signSize,
   tagHeight,
   underFootprint,
   wornPieces,
 } from "./scene3d/layout";
 import { BRAND, blockLook, hex, mix, residentHex, shade } from "./scene3d/palette";
-import { faceParts } from "./scene3d/plot";
+import { faceParts, OVERHEAD_ORDER, overheadMaterial } from "./scene3d/plot";
 import { onHead } from "./scene3d/wear";
 
 type ResidentView = WorldSnapshot["residents"][number];
@@ -223,6 +228,42 @@ describe("faces on 3D figures", () => {
     expect(extra - replaced).toBeLessThan(50);
     // A neutral face draws two eyes and two cheeks, as before.
     expect(shownNeutral).toBe(4);
+  });
+
+  it("keeps a feeling's sign readable from the world's camera, at its own size up close", () => {
+    // The world's camera starts 17.7 units back through a 58 degree lens on a phone.
+    const far = signSize(Math.hypot(13, 12), 58);
+    const viewHeight = 2 * Math.hypot(13, 12) * Math.tan((29 * Math.PI) / 180);
+    expect((far * FIGURE_SCALE * 844) / viewHeight).toBeGreaterThanOrEqual(28);
+    expect(signSize(3, 58)).toBe(SIGN_SIZE);
+    expect(signSize(24, 58)).toBeGreaterThan(far);
+  });
+
+  it("draws name tags, signs and bubbles over everything, in a fixed order", () => {
+    const m = overheadMaterial();
+    expect(m.depthTest).toBe(false);
+    expect(m.depthWrite).toBe(false);
+    expect(OVERHEAD_ORDER.tag).toBeLessThan(OVERHEAD_ORDER.sign);
+    expect(OVERHEAD_ORDER.sign).toBeLessThan(OVERHEAD_ORDER.bubble);
+  });
+
+  it("stands someone on a hearth's tile clear of the stonework, smoothly as they step on", () => {
+    const open =
+      (...shut: [number, number][]) =>
+      (dx: number, dy: number) =>
+        !shut.some(([x, y]) => x === dx && y === dy);
+    // In front of the fire, else beside it, else behind.
+    expect(hearthStand(open())).toEqual({ x: 0, y: 0.6 });
+    expect(hearthStand(open([0, 1]))).toEqual({ x: 0.72, y: 0 });
+    expect(hearthStand(open([0, 1], [1, 0]))).toEqual({ x: -0.72, y: 0 });
+    expect(hearthStand(open([0, 1], [1, 0], [-1, 0]))).toEqual({ x: 0, y: -0.6 });
+    // All the way on the tile, none a tile off, and moving forward the whole slide in.
+    expect(hearthPull(5, 5, 5, 5)).toBe(1);
+    expect(hearthPull(5, 6, 5, 5)).toBe(0);
+    expect(hearthPull(6, 6, 5, 5)).toBe(0);
+    const { y: step } = hearthStand(open());
+    const drawnAt = (y: number) => y + step * hearthPull(5, y, 5, 5);
+    for (let y = 6; y > 5; y -= 0.1) expect(drawnAt(y - 0.1)).toBeLessThan(drawnAt(y));
   });
 
   it("turns hats, glasses and the bow with the head, and leaves the rest on the body", () => {

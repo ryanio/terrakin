@@ -29,6 +29,7 @@ import {
   type FeelingIcon,
   FIGURE_BOX,
   type FigureFace,
+  signPx,
 } from "@terrakin/ui/figure";
 import { CROP_HEX, growth, itemArtImage } from "@terrakin/ui/item-art";
 import {
@@ -732,11 +733,11 @@ export interface RenderState {
 const posed = restingPose();
 const face: FigureFace = {};
 
-/** A feeling's floating sign, `px` device pixels square, drawn once. */
+/** A feeling's floating sign on its paper disc, `px` device pixels square, drawn once. */
 function iconSprite(icon: FeelingIcon, px: number): HTMLCanvasElement {
   return sprite(`icon|${icon}|${px}`, px, px, (ctx) => {
     ctx.translate(px / 2, px / 2);
-    drawFeelingIcon(ctx, icon, px * 0.8);
+    drawFeelingIcon(ctx, icon, px);
   });
 }
 
@@ -1046,6 +1047,10 @@ export function render(
     top?: number;
     /** A resident's tag: what they say goes over it. */
     who?: string;
+    /** The feeling's sign over the tag, how faded it is, and how far it has drifted up. */
+    icon?: FeelingIcon | undefined;
+    fade?: number;
+    rise?: number;
   }[] = [];
   const hall = tilesBox(mirror.townHall, cam);
   if (hall)
@@ -1098,25 +1103,15 @@ export function render(
     ctx.scale(m.squash, 1 / m.squash);
     ctx.drawImage(fig.canvas, fig.dx, fig.dy, fig.w, fig.h);
     ctx.restore();
-    const icon = FEELING_ICON[p.feeling];
-    if (icon) {
-      const size = Math.round(scale * 0.42);
-      ctx.globalAlpha = p.fade;
-      ctx.drawImage(
-        iconSprite(icon, Math.round(size * dpr)),
-        sx + scale * 0.38 - size / 2,
-        ground - scale * (0.92 + p.rise) - size / 2,
-        size,
-        size,
-      );
-      ctx.globalAlpha = 1;
-    }
     labels.push({
       text: r.kind === "agent" ? `${r.name} ⚙` : r.name,
       x: sx,
       y: feet + fig.dy - 1,
       mine,
       who: r.id,
+      icon: FEELING_ICON[p.feeling],
+      fade: p.fade,
+      rise: p.rise,
     });
   }
 
@@ -1223,11 +1218,27 @@ export function render(
     ctx.fillText(l.text, l.x, top + tagH / 2 + 0.5);
   }
 
-  // ---- over the name tags: what people are saying, as text ----
+  // ---- over the name tags: feelings' signs, then what people are saying, as text ----
+  // Drawn after every tag and the night, so a neighbor's tag never covers a sign.
+  const sign = signPx(scale);
+  for (const l of labels) {
+    if (!l.icon || l.top === undefined) continue;
+    ctx.globalAlpha = l.fade ?? 1;
+    ctx.drawImage(
+      iconSprite(l.icon, Math.round(sign * dpr)),
+      l.x - sign / 2,
+      l.top - sign - 1 - (l.rise ?? 0) * scale,
+      sign,
+      sign,
+    );
+    ctx.globalAlpha = 1;
+  }
   for (const l of labels) {
     if (!l.who || l.top === undefined) continue;
     const said = motion.bubble(l.who, now);
-    if (said) drawBubble(ctx, l.x, l.top - 4, said.lines, said.alpha, fontSize, font, width);
+    // A bubble goes over the sign, so both show.
+    const over = l.icon ? sign + 1 + (l.rise ?? 0) * scale : 0;
+    if (said) drawBubble(ctx, l.x, l.top - 4 - over, said.lines, said.alpha, fontSize, font, width);
   }
   ctx.textBaseline = "alphabetic";
 }

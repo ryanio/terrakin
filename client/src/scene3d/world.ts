@@ -16,6 +16,7 @@ import {
   type Resident,
   THEME_INFO,
   THEME_TINT_ALPHA,
+  tileKey,
 } from "@terrakin/sim";
 import {
   BufferGeometry,
@@ -30,7 +31,6 @@ import {
   type Object3D,
   Raycaster,
   Sprite,
-  SpriteMaterial,
   type Texture,
   Vector2,
   Vector3,
@@ -52,7 +52,14 @@ import {
 } from "./art";
 import { type Footprint, footprintOf, seeThrough, shop, townHall } from "./buildings";
 import { createPictures, displayedThings } from "./displays";
-import { cornerLight, type LayoutFigure, tagHeight } from "./layout";
+import {
+  cornerLight,
+  FIGURE_SCALE,
+  hearthPull,
+  hearthStand,
+  type LayoutFigure,
+  signSize,
+} from "./layout";
 import { hex, SKY } from "./palette";
 import {
   blockMeshes,
@@ -62,9 +69,13 @@ import {
   groundGrid,
   hearth,
   ICON_TEXTURES,
+  OVERHEAD_ORDER,
+  overheadMaterial,
+  overheadTop,
   pickups,
   scenery,
   showFeeling,
+  sizeSign,
   turnHead,
 } from "./plot";
 import {
@@ -129,8 +140,6 @@ interface Fig {
   turn: number;
   /** The head's turn from the body, toward whoever is speaking. */
   look: number;
-  /** Where its name tag sits, in world units above the feet. */
-  tagY: number;
   /** While they doze, the `sleepy` feeling from `motion.ts`. */
   doze: Shown | undefined;
   /** What they're saying, in the scene so a hop or squash doesn't bend it. */
@@ -214,6 +223,11 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
   let lastSync = performance.now();
   let lastMirror: Mirror | undefined;
   let hearths = new Set<string>();
+  /** Where someone on each hearth's tile stands instead (`hearthStand`), by `y * width + x`. */
+  let stands = new Map<number, { x: number; y: number }>();
+  let standsWidth = 0;
+  /** How big feelings' signs are drawn for the camera's distance (`signSize`). */
+  let signAt = signSize(START_OFFSET.length(), camera.fov);
 
   // The reach outline while building, like the 2D map's dashed square.
   const reach = new LineLoop(
@@ -439,16 +453,16 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
     if (!said || text === undefined) return false;
     if (!f.bubble) {
       const { texture, w, h } = bubbleTexture(said.lines);
-      const sprite = new Sprite(
-        new SpriteMaterial({ map: texture, depthWrite: false, transparent: true }),
-      );
-      sprite.renderOrder = 6;
+      const sprite = new Sprite(overheadMaterial(texture));
+      sprite.renderOrder = OVERHEAD_ORDER.bubble;
       sprite.scale.set(w * OVER_PX, h * OVER_PX, 1);
       scene.add(sprite);
       f.bubble = { text, sprite, height: h * OVER_PX };
     }
     const p = f.group.position;
-    f.bubble.sprite.position.set(p.x, f.tagY + 0.22 + f.bubble.height / 2, p.z);
+    // Over the name tag, and over the feeling's sign when one shows.
+    const over = overheadTop(f.group) * FIGURE_SCALE + 0.03;
+    f.bubble.sprite.position.set(p.x, over + f.bubble.height / 2, p.z);
     f.bubble.sprite.material.opacity = said.alpha;
     return true;
   }
@@ -497,9 +511,9 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
         signature,
         turn,
         look: 0,
-        tagY: tagHeight(figureOf(r, mine)) * 1.3,
         doze: undefined,
       });
+      sizeSign(group, signAt);
     }
   }
 
@@ -526,8 +540,21 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       const turn = still || Math.abs(gap) < 1e-3 ? want : f.turn + gap * (1 - Math.exp(-TURN * dt));
       const g = f.group;
       const p = g.position;
-      if (m.x !== p.x || m.y !== p.z || m.lift !== p.y || turn !== f.turn) moved = true;
-      p.set(m.x, m.lift, m.y);
+      // Off the stonework when on or stepping onto a hearth's tile.
+      let x = m.x;
+      let z = m.y;
+      if (stands.size > 0) {
+        for (let ty = Math.floor(m.y); ty <= Math.ceil(m.y); ty++)
+          for (let tx = Math.floor(m.x); tx <= Math.ceil(m.x); tx++) {
+            const stand = stands.get(ty * standsWidth + tx);
+            if (!stand) continue;
+            const pull = hearthPull(m.x, m.y, tx, ty);
+            x += stand.x * pull;
+            z += stand.y * pull;
+          }
+      }
+      if (x !== p.x || z !== p.z || m.lift !== p.y || turn !== f.turn) moved = true;
+      p.set(x, m.lift, z);
       f.turn = turn;
       // Turn first, then sway side to side in the figure's own frame.
       g.rotation.set(0, turn, m.sway);
@@ -552,6 +579,31 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       if (placeBubble(f, motion.bubble(id, now))) moved = true;
     }
     return moved;
+  }
+
+  /** Where someone on each hearth's tile stands, clear of the stonework. */
+  function hearthStands(mirror: Mirror): Map<number, { x: number; y: number }> {
+    const { width, height } = mirror.config;
+    const out = new Map<number, { x: number; y: number }>();
+    for (const r of mirror.residents.values()) {
+      const h = r.hearth;
+      if (!h) continue;
+      const stand = hearthStand((dx, dy) => {
+        const x = h.x + dx;
+        const y = h.y + dy;
+        const key = tileKey(x, y);
+        return (
+          x >= 0 &&
+          y >= 0 &&
+          x < width &&
+          y < height &&
+          !mirror.blocks.has(key) &&
+          !hearths.has(key)
+        );
+      });
+      out.set(h.y * width + h.x, stand);
+    }
+    return out;
   }
 
   // ---------- the camera ----------
@@ -691,7 +743,11 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       const tile = { x: self.x, y: self.y };
       const walked = !lastTile || lastTile.x !== tile.x || lastTile.y !== tile.y;
       lastTile = tile;
-      if (changed) hearths = hearthKeys(mirror.residents.values());
+      if (changed) {
+        hearths = hearthKeys(mirror.residents.values());
+        stands = hearthStands(mirror);
+        standsWidth = mirror.config.width;
+      }
       if (changed || walked || pending) {
         const check = changed || recheck;
         updateChunks(mirror, tile, check);
@@ -715,6 +771,13 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
         if (showFeeling(f.group, feelings?.get(id, now) ?? f.doze, now)) moved = true;
       const mine = figures.get(me);
       if (mine) follow(mine.group.position);
+      // Signs keep a readable size as the camera pulls back. Only a zoom changes it.
+      const sign = signSize(camera.position.distanceTo(controls.target), camera.fov);
+      if (Math.abs(sign - signAt) > 0.005) {
+        signAt = sign;
+        for (const f of figures.values()) sizeSign(f.group, sign);
+        moved = true;
+      }
       placeReach(mirror, self, buildMode);
       if (moved || changed || walked || buildMode) stage.invalidate();
     },

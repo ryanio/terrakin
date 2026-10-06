@@ -1,10 +1,10 @@
 ---
-title: CI green again, routes and handlers split by area, a first-load budget, agent-link diagnostics
+title: e2e timeouts fixed, routes and handlers split by area, a first-load budget, agent-link diagnostics
 date: 2026-10-06
 tags: [ci, e2e, protocol, server, client, performance, agents]
 ---
 
-# CI green again, routes and handlers split by area, a first-load budget, agent-link diagnostics
+# e2e timeouts fixed, routes and handlers split by area, a first-load budget, agent-link diagnostics
 
 ## Done
 
@@ -16,6 +16,7 @@ tags: [ci, e2e, protocol, server, client, performance, agents]
 
 ## State of things
 
+- When this was written, CI for `cb36b0cf` (the last code commit) was still running. The three e2e timeouts that failed main earlier that day are fixed and pass locally; check `gh run list --branch main` before assuming main is green.
 - On terrakin.org, every `POST /v1/agent-link` in the three days to 2026-10-06 answered 503 or 429; none linked. The public Robinhood Chain RPC and a real agent card both answer from a laptop, so the failure is on the Worker's side of one of those reads. The new log line will name which.
 - Workers logs show `Replay diverged at entry 2474: not_joined` 21 times, all from one earlier Worker version. The live world boots and serves at seq 3321, so it's past, but it is the failure the snapshot handoff warns about when a version meets a log it can't replay.
 - Townsfolk chatter is still a dry run: in the two days to 2026-10-06, 3 runs logged, each drafting 3 replies and no posts. The drafts are only on admin.terrakin.org.

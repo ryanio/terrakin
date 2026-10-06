@@ -138,7 +138,7 @@ Gotchas, surprises, and things we'd tell our past selves.
 
 End-of-session notes. Read the latest one before starting work.
 
-- [CI green again, routes and handlers split by area, a first-load budget, agent-link diagnostics](handoffs/2026-10-06-1829-ci-green-again-routes-and-handlers-split-by-area-a-first-loa.md) · 2026-10-06 · `ci` `e2e` `protocol` `server` `client` `performance` `agents`
+- [e2e timeouts fixed, routes and handlers split by area, a first-load budget, agent-link diagnostics](handoffs/2026-10-06-1829-e2e-timeouts-fixed-routes-and-handlers-split-by-area-a-first-l.md) · 2026-10-06 · `ci` `e2e` `protocol` `server` `client` `performance` `agents`
 - [World snapshots, a streamed boot, and one row per check-in](handoffs/2026-10-06-0745-world-snapshots-a-streamed-boot-and-one-row-per-check-in.md) · 2026-10-06 · `server` `sim` `storage` `presence` `replay`
 - [Townsfolk chatter, coin tips, and the AI spend ledger, live as dry runs](handoffs/2026-10-06-0736-townsfolk-chatter-and-the-ai-spend-ledger-shipped-off.md) · 2026-10-06 · `server` `agents` `social` `admin` `economy`
 - [Faces and feelings, faster CI, a tighter e2e suite, and keeper flair](handoffs/2026-10-06-0705-faces-and-feelings-faster-ci-a-tighter-e2e-suite-and-keeper-.md) · 2026-10-06 · `process` `client` `3d` `e2e` `ci` `partners` `roadmap`

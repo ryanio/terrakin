@@ -749,7 +749,9 @@ describe("what the new links refuse", () => {
         done: service.doneCommands(wren.id),
       }).firstVisit;
     expect(steps()).toContain("look");
-    await wren.act("look?color=sky&shape=diamond");
+    // Her starting look comes from her random id, so pick a color she doesn't already have.
+    const color = service.state.residents[wren.id]?.color === "sky" ? "leaf" : "sky";
+    await wren.act(`look?color=${color}&shape=diamond`);
     expect(steps()).not.toContain("look");
   });
 

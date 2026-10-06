@@ -1,10 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { apply } from "./apply";
+import { apply, prepare } from "./apply";
+import { COMMONS_CONFIG, COMMONS_HASH, COMMONS_LOG } from "./fixtures/commons-log";
 import { PRE_TOWN_CONFIG, PRE_TOWN_HASH, PRE_TOWN_LOG } from "./fixtures/pre-town-log";
 import { hashWorld } from "./hash";
 import { replay } from "./replay";
 import { electorate, quorum, TOWN_LIMITS, townEligibility, votesCast } from "./town";
-import { type Command, type Input, type PlannedBlock, TOWN_ACTOR, type WorldConfig } from "./types";
+import {
+  type Command,
+  type Input,
+  type PlannedBlock,
+  type PlannedGround,
+  TOWN_ACTOR,
+  type WorldConfig,
+} from "./types";
 import { createWorld, shopTiles, townHallTiles } from "./world";
 
 // 3x3 plots of 8 tiles. The Commons is plot (1,1), tiles 8..15; spawn is (12,12). The Town Hall
@@ -346,13 +354,101 @@ describe("propose", () => {
       w.code(who, { type: "propose", kind: "commons_build", title: "Shop", text: "", ...extra });
     // Before the shop opens, its ground is ordinary Commons.
     expect(build("ada", { blocks: [{ ...tile, block: "stone" }] })).toBeNull();
-    // A block a past build left there (set directly: how it got there isn't the point).
+    // A block and a path a past build left there (set directly: how they got there isn't the point).
     w.state.blocks[`${tile.x},${tile.y}`] = "stone";
+    w.state.ground = { [`${tile.x},${tile.y}`]: "dirt" };
     w.ok(TOWN_ACTOR, { type: "open_economy" });
     w.ok(TOWN_ACTOR, { type: "open_items" });
     w.ok(TOWN_ACTOR, { type: "open_shop" });
     expect(build("bob", { blocks: [{ ...tile, block: "wood" }] })).toBe("invalid_proposal");
-    expect(build("bob", { remove: [tile] })).toBeNull();
+    expect(build("bob", { lift: [tile], ground: [{ ...tile, ground: "cobble" }] })).toBe(
+      "invalid_proposal",
+    );
+    expect(build("bob", { remove: [tile], lift: [tile] })).toBeNull();
+  });
+
+  it("checks paths, decor, and furniture against the Commons as it is when filed", () => {
+    const w = town("ada", "bob");
+    // Bob stands on (10,11), and a past build laid cobble on (12,12) and stone on (9,13). (Set
+    // directly: how they got there isn't the point.)
+    const bob = w.state.residents.bob;
+    if (!bob) throw new Error("no bob");
+    Object.assign(bob, { x: 10, y: 11 });
+    w.state.ground = { "12,12": "cobble" };
+    w.state.blocks["9,13"] = "stone";
+    // Checked without filing, so one proposer can try them all: null, or why not.
+    const files = (plan: Partial<Extract<Command, { type: "propose" }>>) => {
+      const prepared = prepare(w.state, {
+        actor: "ada",
+        command: { type: "propose", kind: "commons_build", title: "A square", text: "", ...plan },
+      });
+      if (prepared.ok) return null;
+      expect(prepared.rejection.code).toBe("invalid_proposal");
+      return prepared.rejection.message;
+    };
+    const path = (x: number, y: number, ground: PlannedGround["ground"] = "dirt") => ({
+      x,
+      y,
+      ground,
+    });
+    const [hall] = townHallTiles(CONFIG);
+    if (!hall) throw new Error("no hall tiles");
+
+    // Refused: off the Commons, on the Town Hall, kinds the town doesn't build with, a block on
+    // Bob, a path on a path the plan doesn't lift, nothing to lift, and a tile twice in a list.
+    expect(files({ ground: [path(3, 3)] })).toMatch("isn't in the Commons");
+    expect(files({ ground: [path(hall.x, hall.y)] })).toMatch("Town Hall");
+    expect(files({ lift: [hall] })).toMatch("Town Hall");
+    expect(files({ ground: [path(10, 10, "lava" as never)] })).toMatch("needs a path or floor");
+    expect(files({ blocks: [{ x: 10, y: 10, block: "workbench" as never }] })).toMatch(
+      "needs a block the town builds with",
+    );
+    expect(files({ blocks: [{ x: 10, y: 11, block: "bench" }] })).toMatch("Someone is standing");
+    expect(files({ ground: [path(12, 12, "brick")] })).toMatch("already has cobblestones");
+    expect(files({ lift: [{ x: 10, y: 10 }] })).toMatch("no path or floor to lift");
+    expect(files({ ground: [path(9, 9), path(9, 9, "sand")] })).toMatch("in ground twice");
+    const advisory = prepare(w.state, {
+      actor: "ada",
+      command: { type: "propose", kind: "advisory", title: "Paths", text: "", lift: [hall] },
+    });
+    expect(advisory).toMatchObject({ ok: false, rejection: { code: "invalid_proposal" } });
+
+    // Filed: a path under Bob, decor and furniture, a path swapped with lift, a block with remove.
+    expect(files({ ground: [path(10, 11)] })).toBeNull();
+    expect(
+      files({
+        blocks: [
+          { x: 10, y: 10, block: "lantern" },
+          { x: 14, y: 12, block: "well" },
+        ],
+      }),
+    ).toBeNull();
+    expect(files({ lift: [{ x: 12, y: 12 }], ground: [path(12, 12, "brick")] })).toBeNull();
+    expect(
+      files({ remove: [{ x: 9, y: 13 }], blocks: [{ x: 9, y: 13, block: "bench" }] }),
+    ).toBeNull();
+  });
+
+  it("caps blocks and paths together, at 40 changes", () => {
+    const w = town("ada");
+    const tiles = Array.from({ length: 41 }, (_, i) => ({
+      x: 8 + (i % 8),
+      y: 10 + Math.floor(i / 8),
+    }));
+    const propose = (n: number) =>
+      w.send("ada", {
+        type: "propose",
+        kind: "commons_build",
+        title: "Moss",
+        text: "",
+        blocks: tiles.slice(0, 10).map((t) => ({ ...t, block: "fence" as const })),
+        ground: tiles.slice(10, n).map((t) => ({ ...t, ground: "moss" as const })),
+      });
+    expect(propose(41)).toMatchObject({
+      ok: false,
+      rejection: { code: "invalid_proposal", message: expect.stringContaining("at most 40") },
+    });
+    expect(propose(40).ok).toBe(true);
   });
 
   it("allows one open or queued proposal per resident, and one new one a week", () => {
@@ -574,6 +670,142 @@ describe("close_proposal", () => {
     expect(w.state.town?.built["9,14"]).toBeUndefined();
   });
 
+  it("lays a passed path and puts up a bench, a lamp post, and a well, from nobody's things", () => {
+    const w = town("ada", "bob", "cy");
+    w.ok(TOWN_ACTOR, { type: "open_economy" });
+    w.ok(TOWN_ACTOR, { type: "open_items" });
+    const blocks: PlannedBlock[] = [
+      { x: 10, y: 11, block: "bench" },
+      { x: 13, y: 10, block: "lamp_post" },
+      { x: 14, y: 12, block: "well" },
+    ];
+    const ground: PlannedGround[] = [
+      { x: 12, y: 10, ground: "cobble" },
+      { x: 12, y: 11, ground: "brick" },
+    ];
+    w.propose("ada", { kind: "commons_build", title: "A square", blocks, ground });
+    for (const who of ["ada", "bob", "cy"]) w.vote(who, "t_1", "yes");
+    const things = JSON.stringify(w.state.items);
+    w.day(DAY + 5);
+    const result = w.close("t_1");
+    expect(result.ok && result.events).toEqual([
+      { type: "proposal_closed", proposal: "t_1", status: "passed", yes: 3, no: 0, abstain: 0 },
+      ...blocks.map((b) => ({ type: "block_placed", ...b, by: "t_1" })),
+      ...ground.map((g) => ({ type: "ground_laid", ...g, by: "t_1" })),
+      {
+        type: "town_built",
+        proposal: "t_1",
+        placed: blocks,
+        removed: [],
+        skipped: [],
+        laid: ground,
+      },
+    ]);
+    expect(w.state.ground).toEqual({ "12,10": "cobble", "12,11": "brick" });
+    expect(w.state.blocks).toMatchObject({
+      "10,11": "bench",
+      "13,10": "lamp_post",
+      "14,12": "well",
+    });
+    // The town marks the blocks it put up, and nobody's things paid for any of it.
+    expect(w.state.town?.built).toEqual({ "10,11": "t_1", "13,10": "t_1", "14,12": "t_1" });
+    expect(JSON.stringify(w.state.items)).toBe(things);
+  });
+
+  it("skips what moved since filing: a path another build laid, someone standing, the shop", () => {
+    const w = town("ada", "bob", "cy");
+    const [shop] = shopTiles(CONFIG);
+    if (!shop) throw new Error("no shop tiles");
+    w.propose("ada", {
+      kind: "commons_build",
+      title: "Moss",
+      ground: [{ x: 9, y: 11, ground: "moss" }],
+    });
+    w.propose("bob", {
+      kind: "commons_build",
+      title: "Sand and a bench",
+      blocks: [{ x: 10, y: 12, block: "bench" }],
+      ground: [
+        { x: 9, y: 11, ground: "sand" },
+        { x: 10, y: 12, ground: "sand" },
+        { ...shop, ground: "sand" },
+      ],
+    });
+    for (const who of ["ada", "bob", "cy"]) {
+      w.vote(who, "t_1", "yes");
+      w.vote(who, "t_2", "yes");
+    }
+    // By closing time Cy stands on (10,12) (set directly: walking there isn't the point), and the
+    // shop has opened.
+    Object.assign(w.state.residents.cy ?? {}, { x: 10, y: 12 });
+    w.ok(TOWN_ACTOR, { type: "open_economy" });
+    w.ok(TOWN_ACTOR, { type: "open_items" });
+    w.ok(TOWN_ACTOR, { type: "open_shop" });
+    w.day(DAY + 5);
+    w.close("t_1");
+    const result = w.close("t_2");
+    // The bench waits for nobody, but the sand goes under Cy's feet.
+    expect(result.ok && result.events.slice(1)).toEqual([
+      { type: "ground_laid", x: 10, y: 12, ground: "sand", by: "t_2" },
+      {
+        type: "town_built",
+        proposal: "t_2",
+        placed: [],
+        removed: [],
+        skipped: [
+          { x: 10, y: 12 },
+          { x: 9, y: 11 },
+          { x: shop.x, y: shop.y },
+        ],
+        laid: [{ x: 10, y: 12, ground: "sand" }],
+      },
+    ]);
+    expect(w.state.ground).toEqual({ "9,11": "moss", "10,12": "sand" });
+  });
+
+  it("swaps a block and a path on one tile, and lifts what the plan names", () => {
+    const w = town("ada", "bob", "cy");
+    // Stone and dirt a past build left (set directly: how they got there isn't the point).
+    w.state.blocks["10,10"] = "stone";
+    w.state.ground = { "11,11": "dirt", "12,12": "dirt" };
+    w.propose("ada", {
+      kind: "commons_build",
+      title: "A well where the stone was",
+      remove: [{ x: 10, y: 10 }],
+      blocks: [{ x: 10, y: 10, block: "well" }],
+      lift: [
+        { x: 11, y: 11 },
+        { x: 12, y: 12 },
+      ],
+      ground: [{ x: 11, y: 11, ground: "brick" }],
+    });
+    for (const who of ["ada", "bob", "cy"]) w.vote(who, "t_1", "yes");
+    w.day(DAY + 5);
+    const result = w.close("t_1");
+    expect(result.ok && result.events.slice(1)).toEqual([
+      { type: "block_removed", x: 10, y: 10, by: "t_1" },
+      { type: "ground_lifted", x: 11, y: 11, by: "t_1" },
+      { type: "ground_lifted", x: 12, y: 12, by: "t_1" },
+      { type: "block_placed", x: 10, y: 10, block: "well", by: "t_1" },
+      { type: "ground_laid", x: 11, y: 11, ground: "brick", by: "t_1" },
+      {
+        type: "town_built",
+        proposal: "t_1",
+        placed: [{ x: 10, y: 10, block: "well" }],
+        removed: [{ x: 10, y: 10 }],
+        skipped: [],
+        laid: [{ x: 11, y: 11, ground: "brick" }],
+        lifted: [
+          { x: 11, y: 11 },
+          { x: 12, y: 12 },
+        ],
+      },
+    ]);
+    expect(w.state.blocks["10,10"]).toBe("well");
+    expect(w.state.ground).toEqual({ "11,11": "brick" });
+    expect(w.state.town?.built).toEqual({ "10,10": "t_1" });
+  });
+
   it("does nothing to the world for a passed advisory or a failed build", () => {
     const w = town("ada", "bob", "cy");
     w.propose("ada", { kind: "commons_build", title: "A fountain", blocks: fountain });
@@ -607,6 +839,19 @@ describe("void_proposal", () => {
 });
 
 describe("replay", () => {
+  it("replays the Commons log, with its path, bench, lamp post, and well, to its pinned hash", () => {
+    const state = replay(COMMONS_CONFIG, COMMONS_LOG);
+    expect(hashWorld(state)).toBe(COMMONS_HASH);
+    expect(state.blocks).toMatchObject({ "9,11": "bench", "13,10": "lamp_post", "14,12": "well" });
+    expect(state.ground).toMatchObject({
+      "12,10": "cobble",
+      "12,11": "cobble",
+      "12,12": "cobble",
+      "12,13": "brick",
+      "13,13": "moss",
+    });
+  });
+
   it("rebuilds the same town from a log of days, proposals, votes, closes, and builds", () => {
     const w = town("ada", "bob", "cy", "di", "eve", "fay");
     w.ok(TOWN_ACTOR, { type: "set_townsfolk", ids: ["fay"] });

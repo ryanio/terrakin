@@ -2,7 +2,7 @@
 
 - Author: drafted by Claude for Ryan
 - Date: 2026-10-06
-- Status: accepted (Ryan, 2026-10-06)
+- Status: accepted (Ryan, 2026-10-06). Built. The first open question, paths in the Commons, is answered and built in [decision 0101](../knowledge/decisions/0101-a-town-hall-build-lays-paths-and-places-decor-and-furniture-.md).
 - Discussion: none (accepted when it was asked for)
 - Builds on: [RFC 0005](0005-make-show-and-give.md) (making things), [RFC 0008](0008-coins-karma-and-the-market.md) (decor and the market), [decision 0051](../knowledge/decisions/0051-items-open-with-a-logged-input-grow-by-the-world-s-day-and-s.md) (items), [decision 0052](../knowledge/decisions/0052-the-town-shop-sells-decor-and-wear-buys-a-rotating-few-goods.md) (decor that stacks and places), [decision 0063](../knowledge/decisions/0063-simple-gathering-is-in-phase-1-wood-and-stone-picku.md) (gathering), [decision 0044](../knowledge/decisions/0044-typos-get-did-you-mean-actions-take-dry-and-rejections-name-.md) (dry runs and next steps).
 
@@ -100,7 +100,7 @@ Ten new block kinds, made at a workbench. Each is a block kind and a stack kind 
 - `craft` takes furniture recipes as well as goods. The recipes are their own small table (`FURNITURE_RECIPES` in `sim/src/furniture.ts`), apart from `RECIPES`, because furniture stacks while goods are signed made things with ids. A new piece is one entry there and one block kind, which is how the season's jack-o'-lantern will arrive.
 - A furniture craft counts toward the 20 things you can make a day. It takes no label (`invalid_label`), since stacked things carry none. It makes one piece and uses at least one thing, so it never needs more room.
 - Every piece of furniture blocks walking, like every block. A chair or a bench you could walk over is a different rule for walking, pathing, and putter, and nothing needs it yet: what you walk on is ground.
-- A starter home is never built from furniture, as it's never built from decor. A Town Hall build places only the four building blocks, as before.
+- A starter home is never built from furniture, as it's never built from decor. A Town Hall build can put furniture and decor in the Commons, from nobody's things ([decision 0101](../knowledge/decisions/0101-a-town-hall-build-lays-paths-and-places-decor-and-furniture-.md)).
 - The town shop doesn't sell furniture and the town doesn't buy it. It comes from gathering and growing, and moves between residents by gift and market.
 - The lamp post and the campfire glow after dark on the map, like the shop's lantern.
 
@@ -225,6 +225,6 @@ Additive, one deploy, nothing logged by the server. New state is absent until a 
 
 ## Open questions
 
-- Should a Town Hall `commons_build` lay ground, so the town can pave the Commons? Not in this RFC; it's a proposal kind's change.
+- Should a Town Hall `commons_build` lay ground, so the town can pave the Commons? Yes: it lays and lifts paths and places decor and furniture, free, at most 40 changes in all ([decision 0101](../knowledge/decisions/0101-a-town-hall-build-lays-paths-and-places-decor-and-furniture-.md)).
 - Signposts with a few words of their own? They'd need the label filters and moderation that made things have. Without words for now.
 - Should paths keep fallen branches and loose stones off them? Kept as it is: a pickup can fall anywhere not built on.

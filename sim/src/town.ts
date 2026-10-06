@@ -1,10 +1,14 @@
 import { townMoneyOnPass, townMoneyProblem } from "./bounties";
+import type { BuildPlan } from "./build";
 import { refuse } from "./check";
+import { GROUND_INFO, GROUND_KINDS, isGroundKind } from "./ground";
 import { tileKey } from "./keys";
 import { own } from "./own";
 import type {
+  BlockKind,
   Command,
   PlannedBlock,
+  PlannedGround,
   Proposal,
   ProposalStatus,
   Rejection,
@@ -15,7 +19,7 @@ import type {
   WorldEvent,
   WorldState,
 } from "./types";
-import { BUILDING_BLOCKS, PROPOSAL_KINDS, SERVER_COMMANDS, VOTE_CHOICES } from "./types";
+import { COMMONS_BLOCKS, PROPOSAL_KINDS, SERVER_COMMANDS, VOTE_CHOICES } from "./types";
 import { commonsPlot, inBounds, isShopTile, isTownHallTile, plotOf } from "./world";
 
 /**
@@ -31,7 +35,10 @@ export const TOWN_LIMITS = {
   titleMax: 80,
   /** Proposal texts, in characters. */
   textMax: 1_000,
-  /** Blocks one `commons_build` may place or take away, together. */
+  /**
+   * Changes one `commons_build` may make: blocks placed and taken away and paths laid and lifted,
+   * together (decision 0101).
+   */
   buildMax: 40,
   /** Proposals open at once. More wait in a queue. */
   openMax: 5,
@@ -166,16 +173,7 @@ export type TownChecked = TownMutation | Rejection;
 type ServerCommand = Extract<Command, { type: (typeof SERVER_COMMANDS)[number] }>;
 type TownCommand = Extract<
   Command,
-  {
-    type:
-      | "new_day"
-      | "set_townsfolk"
-      | "close_proposal"
-      | "void_proposal"
-      | "propose"
-      | "vote"
-      | "withdraw";
-  }
+  { type: "new_day" | "set_townsfolk" | "close_proposal" | "void_proposal" | "vote" | "withdraw" }
 >;
 
 export function isServerCommand(command: Command): command is ServerCommand {
@@ -226,52 +224,106 @@ function finish(p: Proposal, status: ProposalStatus, day: number): WorldEvent {
 
 const isWhole = (n: unknown): n is number => typeof n === "number" && Number.isInteger(n);
 
-/** Check a `commons_build` plan against the Commons as it is now. Returns an error message or null. */
-function checkPlan(state: WorldState, blocks: PlannedBlock[], remove: Tile[]): string | null {
+/** A `commons_build`'s plan: the four lists `build` takes, at world tiles in the Commons. */
+interface CommonsPlan {
+  blocks: readonly PlannedBlock[];
+  remove: readonly Tile[];
+  ground: readonly PlannedGround[];
+  lift: readonly Tile[];
+}
+
+/** A proposal's plan, with an empty list for each it doesn't carry. */
+const planOf = (p: Pick<Proposal, "blocks" | "remove" | "ground" | "lift">): CommonsPlan => ({
+  blocks: p.blocks ?? [],
+  remove: p.remove ?? [],
+  ground: p.ground ?? [],
+  lift: p.lift ?? [],
+});
+
+/**
+ * Check a `commons_build` plan against the Commons as it is now (decision 0101). Returns an error
+ * message or null. Every tile is a world tile in the Commons, off the Town Hall, and in each list
+ * at most once, so a tile in `remove` and `blocks` swaps its block, and one in `lift` and `ground`
+ * its path. A block never goes where someone stands; a path goes under them, as it does anywhere.
+ */
+function checkPlan(state: WorldState, plan: CommonsPlan): string | null {
   const { config } = state;
-  const total = blocks.length + remove.length;
-  if (total < 1) return "A build needs at least one block to place or take away.";
+  const { blocks, remove, ground, lift } = plan;
+  const total = blocks.length + remove.length + ground.length + lift.length;
+  if (total < 1) return "A build needs at least one block or path to place, lay, or take away.";
   if (total > TOWN_LIMITS.buildMax) {
-    return `A build can place or take away at most ${TOWN_LIMITS.buildMax} blocks.`;
+    return `A build can make at most ${TOWN_LIMITS.buildMax} changes: blocks placed and taken away and paths laid and lifted, together.`;
   }
   const commons = commonsPlot(config);
+  const lists: [string, readonly unknown[]][] = [
+    ["blocks", blocks],
+    ["remove", remove],
+    ["ground", ground],
+    ["lift", lift],
+  ];
+  for (const [name, list] of lists) {
+    const seen = new Set<string>();
+    for (const t of list) {
+      const { x, y } = (typeof t === "object" && t !== null ? t : {}) as Partial<Tile>;
+      if (!isWhole(x) || !isWhole(y) || !inBounds(config, x, y)) {
+        return "Every tile must be inside the world.";
+      }
+      const p = plotOf(config, x, y);
+      if (p.px !== commons.px || p.py !== commons.py) {
+        return `(${x}, ${y}) isn't in the Commons. Builds only go in the Commons.`;
+      }
+      if (isTownHallTile(config, x, y)) {
+        return `(${x}, ${y}) is where the Town Hall stands. Keep it clear.`;
+      }
+      const key = tileKey(x, y);
+      if (seen.has(key)) return `(${x}, ${y}) is in ${name} twice.`;
+      seen.add(key);
+    }
+  }
   const standing = new Set(
     Object.values(state.residents)
       .filter((r) => r.online)
       .map((r) => tileKey(r.x, r.y)),
   );
-  const seen = new Set<string>();
-  for (const t of [...blocks, ...remove]) {
-    if (!isWhole(t.x) || !isWhole(t.y) || !inBounds(config, t.x, t.y)) {
-      return "Every tile must be inside the world.";
-    }
-    const p = plotOf(config, t.x, t.y);
-    if (p.px !== commons.px || p.py !== commons.py) {
-      return `(${t.x}, ${t.y}) isn't in the Commons. Builds only go in the Commons.`;
-    }
-    if (isTownHallTile(config, t.x, t.y)) {
-      return `(${t.x}, ${t.y}) is where the Town Hall stands. Keep it clear.`;
-    }
-    const key = tileKey(t.x, t.y);
-    if (seen.has(key)) return `(${t.x}, ${t.y}) is in the plan twice.`;
-    seen.add(key);
-  }
+  const removing = new Set(remove.map((t) => tileKey(t.x, t.y)));
+  const lifting = new Set(lift.map((t) => tileKey(t.x, t.y)));
+  // Only once the shop is open, so builds from before it replay as they did. Taking away a block or
+  // lifting a path that was already there stays allowed, so the town can clear the shop's ground.
+  const onShop = (t: Tile) =>
+    state.shop && isShopTile(config, t.x, t.y)
+      ? `(${t.x}, ${t.y}) is where the town shop stands. Keep it clear.`
+      : null;
   for (const b of blocks) {
-    // Only once the shop is open, so builds from before it replay as they did. Taking away a block
-    // that was already there stays allowed, so the town can clear the shop's ground.
-    if (state.shop && isShopTile(config, b.x, b.y)) {
-      return `(${b.x}, ${b.y}) is where the town shop stands. Keep it clear.`;
-    }
-    if (!(BUILDING_BLOCKS as readonly string[]).includes(b.block)) {
-      return `(${b.x}, ${b.y}) needs wood, stone, glass, or leaf. Builds in the Commons use those.`;
+    const shop = onShop(b);
+    if (shop) return shop;
+    if (!(COMMONS_BLOCKS as readonly unknown[]).includes(b.block)) {
+      return `(${b.x}, ${b.y}) needs a block the town builds with: wood, stone, glass, or leaf, or decor or furniture like a bench, a lamp post, or a well. Stations and planters go on residents' own plots.`;
     }
     const key = tileKey(b.x, b.y);
-    if (state.blocks[key] !== undefined) return `(${b.x}, ${b.y}) already has a block.`;
+    if (state.blocks[key] !== undefined && !removing.has(key)) {
+      return `(${b.x}, ${b.y}) already has a block. Take it away in the same plan with remove.`;
+    }
     if (standing.has(key)) return `Someone is standing on (${b.x}, ${b.y}).`;
+  }
+  for (const g of ground) {
+    const shop = onShop(g);
+    if (shop) return shop;
+    if (!isGroundKind(g.ground)) {
+      return `(${g.x}, ${g.y}) needs a path or floor: ${GROUND_KINDS.join(", ")}.`;
+    }
+    const there = state.ground?.[tileKey(g.x, g.y)];
+    if (there !== undefined && !lifting.has(tileKey(g.x, g.y))) {
+      return `(${g.x}, ${g.y}) already has ${GROUND_INFO[there].name.toLowerCase()}. Lift it in the same plan with lift.`;
+    }
   }
   for (const t of remove) {
     if (state.blocks[tileKey(t.x, t.y)] === undefined) {
       return `(${t.x}, ${t.y}) has no block to take away.`;
+    }
+  }
+  for (const t of lift) {
+    if (state.ground?.[tileKey(t.x, t.y)] === undefined) {
+      return `(${t.x}, ${t.y}) has no path or floor to lift.`;
     }
   }
   return null;
@@ -338,122 +390,16 @@ export function checkTown(state: WorldState, actor: string, command: TownCommand
       const voters = p.electorate?.length ?? 0;
       const status: ProposalStatus =
         t.yes + t.no < quorum(voters) ? "no_quorum" : t.yes > t.no ? "passed" : "failed";
-      const build = status === "passed" && p.kind === "commons_build" ? planBuild(state, p) : null;
+      const build =
+        status === "passed" && p.kind === "commons_build" ? closeBuild(state, planOf(p)) : null;
       const money = status === "passed" ? townMoneyOnPass(state, p, day) : null;
       const opens = nextToOpen(state, p);
       return () => {
         const events: WorldEvent[] = [finish(p, status, day)];
         if (money) events.push(...money());
-        if (build) {
-          const town = ensureTown(state);
-          for (const t of build.removed) {
-            const key = tileKey(t.x, t.y);
-            delete state.blocks[key];
-            delete town.built[key];
-            events.push({ type: "block_removed", x: t.x, y: t.y, by: p.id });
-          }
-          for (const b of build.placed) {
-            const key = tileKey(b.x, b.y);
-            state.blocks[key] = b.block;
-            town.built[key] = p.id;
-            events.push({ type: "block_placed", x: b.x, y: b.y, block: b.block, by: p.id });
-          }
-          events.push({ type: "town_built", proposal: p.id, ...build });
-        }
+        if (build) events.push(...commitCommonsBuild(state, p.id, build));
         for (const o of opens) events.push(open(o.p, day, o.voters));
         return events;
-      };
-    }
-
-    case "propose": {
-      const day = state.day;
-      const ok = townEligibility(state, actor);
-      if (!ok.eligible || day === undefined) {
-        return refuse("not_eligible", ok.eligible ? "The Town Hall isn't open yet." : ok.message);
-      }
-      if (!PROPOSAL_KINDS.includes(command.kind)) {
-        return refuse(
-          "invalid_proposal",
-          "A proposal is an advisory, a commons_build, a grant, or a bounty.",
-        );
-      }
-      const title = typeof command.title === "string" ? command.title.trim() : "";
-      const text = typeof command.text === "string" ? command.text.trim() : "";
-      if (title.length < 1 || title.length > TOWN_LIMITS.titleMax) {
-        return refuse("invalid_proposal", `Titles are 1 to ${TOWN_LIMITS.titleMax} characters.`);
-      }
-      if (text.length > TOWN_LIMITS.textMax) {
-        return refuse("invalid_proposal", `Texts are at most ${TOWN_LIMITS.textMax} characters.`);
-      }
-      const blocks = command.blocks ?? [];
-      const remove = command.remove ?? [];
-      if (!Array.isArray(blocks) || !Array.isArray(remove)) {
-        return refuse("invalid_proposal", "Blocks and removals are lists of tiles.");
-      }
-      if (command.kind !== "commons_build" && blocks.length + remove.length > 0) {
-        return refuse("invalid_proposal", `A ${command.kind} has no blocks. Use commons_build.`);
-      }
-      if (command.kind === "commons_build") {
-        const problem = checkPlan(state, blocks, remove);
-        if (problem) return refuse("invalid_proposal", problem);
-      }
-      const money = command.kind === "grant" || command.kind === "bounty";
-      if (money) {
-        const problem = townMoneyProblem(state, actor, command);
-        if (problem) return refuse("invalid_proposal", problem);
-      } else if (command.amount !== undefined || command.to !== undefined) {
-        return refuse("invalid_proposal", "Only a grant or a bounty pays coins.");
-      }
-      const mine = state.town?.proposals.filter((p) => p.author === actor) ?? [];
-      if (mine.some((p) => p.status === "open" || p.status === "queued")) {
-        return refuse(
-          "proposal_limit",
-          "You already have a proposal open or waiting. Let it close, or withdraw it first.",
-        );
-      }
-      const last = mine.at(-1);
-      if (last && day - last.filedDay < TOWN_LIMITS.cooldownDays) {
-        const wait = last.filedDay + TOWN_LIMITS.cooldownDays - day;
-        return refuse(
-          "proposal_limit",
-          `One new proposal a week. You can propose again in ${days(wait)}.`,
-        );
-      }
-      const openNow =
-        (state.town?.proposals.filter((p) => p.status === "open").length ?? 0) <
-        TOWN_LIMITS.openMax;
-      const voters = openNow ? electorate(state) : [];
-      const plan =
-        command.kind === "commons_build"
-          ? {
-              ...(blocks.length > 0
-                ? { blocks: blocks.map(({ x, y, block }) => ({ x, y, block })) }
-                : {}),
-              ...(remove.length > 0 ? { remove: remove.map(({ x, y }) => ({ x, y })) } : {}),
-            }
-          : money
-            ? {
-                amount: command.amount as number,
-                ...(command.kind === "grant" ? { to: command.to as ResidentId } : {}),
-              }
-            : {};
-      return () => {
-        const town = ensureTown(state);
-        const p: Proposal = {
-          id: `t_${town.nextId}`,
-          author: actor,
-          kind: command.kind,
-          title,
-          text,
-          ...plan,
-          status: "queued",
-          filedDay: day,
-          votes: {},
-        };
-        town.nextId += 1;
-        town.proposals.push(p);
-        if (openNow) return [open(p, day, voters)];
-        return [{ type: "proposal_queued", proposal: p.id, author: actor, kind: p.kind }];
       };
     }
 
@@ -509,32 +455,245 @@ export function checkTown(state: WorldState, actor: string, command: TownCommand
 }
 
 /**
- * What a passed build does to the Commons as it is now: each block goes in unless its tile has a
- * block, a hearth, or an online resident on it by then, and each removal happens if the block is
- * still there. Skipped tiles are listed so the event says what didn't happen.
+ * `propose`: the change that files it, or why not. A `commons_build` also hands back its plan in
+ * the shape `build` answers with: what it would build in the Commons if it passed now (the filing
+ * checks leave nothing to skip), so a dry proposal previews it and nothing is ever taken from
+ * anyone's things (decision 0101).
  */
-function planBuild(
+export function checkPropose(
   state: WorldState,
-  p: Proposal,
-): { placed: PlannedBlock[]; removed: Tile[]; skipped: Tile[] } {
+  actor: string,
+  command: Extract<Command, { type: "propose" }>,
+): { commit: TownMutation; plan?: BuildPlan } | Rejection {
+  const day = state.day;
+  const ok = townEligibility(state, actor);
+  if (!ok.eligible || day === undefined) {
+    return refuse("not_eligible", ok.eligible ? "The Town Hall isn't open yet." : ok.message);
+  }
+  if (!PROPOSAL_KINDS.includes(command.kind)) {
+    return refuse(
+      "invalid_proposal",
+      "A proposal is an advisory, a commons_build, a grant, or a bounty.",
+    );
+  }
+  const title = typeof command.title === "string" ? command.title.trim() : "";
+  const text = typeof command.text === "string" ? command.text.trim() : "";
+  if (title.length < 1 || title.length > TOWN_LIMITS.titleMax) {
+    return refuse("invalid_proposal", `Titles are 1 to ${TOWN_LIMITS.titleMax} characters.`);
+  }
+  if (text.length > TOWN_LIMITS.textMax) {
+    return refuse("invalid_proposal", `Texts are at most ${TOWN_LIMITS.textMax} characters.`);
+  }
+  const lists = planOf(command);
+  if (!Object.values(lists).every((list) => Array.isArray(list))) {
+    return refuse("invalid_proposal", "Blocks, ground, removals, and lifts are lists of tiles.");
+  }
+  const { blocks, remove, ground, lift } = lists;
+  const changes = blocks.length + remove.length + ground.length + lift.length;
+  if (command.kind !== "commons_build" && changes > 0) {
+    return refuse(
+      "invalid_proposal",
+      `A ${command.kind} has no blocks or paths. Use commons_build.`,
+    );
+  }
+  if (command.kind === "commons_build") {
+    const problem = checkPlan(state, lists);
+    if (problem) return refuse("invalid_proposal", problem);
+  }
+  const money = command.kind === "grant" || command.kind === "bounty";
+  if (money) {
+    const problem = townMoneyProblem(state, actor, command);
+    if (problem) return refuse("invalid_proposal", problem);
+  } else if (command.amount !== undefined || command.to !== undefined) {
+    return refuse("invalid_proposal", "Only a grant or a bounty pays coins.");
+  }
+  const mine = state.town?.proposals.filter((p) => p.author === actor) ?? [];
+  if (mine.some((p) => p.status === "open" || p.status === "queued")) {
+    return refuse(
+      "proposal_limit",
+      "You already have a proposal open or waiting. Let it close, or withdraw it first.",
+    );
+  }
+  const last = mine.at(-1);
+  if (last && day - last.filedDay < TOWN_LIMITS.cooldownDays) {
+    const wait = last.filedDay + TOWN_LIMITS.cooldownDays - day;
+    return refuse(
+      "proposal_limit",
+      `One new proposal a week. You can propose again in ${days(wait)}.`,
+    );
+  }
+  const openNow =
+    (state.town?.proposals.filter((p) => p.status === "open").length ?? 0) < TOWN_LIMITS.openMax;
+  const voters = openNow ? electorate(state) : [];
+  // A build keeps only the lists it has, so proposals that lay no paths hash as they always have.
+  const plan =
+    command.kind === "commons_build"
+      ? {
+          ...(blocks.length > 0
+            ? { blocks: blocks.map(({ x, y, block }) => ({ x, y, block })) }
+            : {}),
+          ...(remove.length > 0 ? { remove: remove.map(({ x, y }) => ({ x, y })) } : {}),
+          ...(ground.length > 0
+            ? { ground: ground.map(({ x, y, ground }) => ({ x, y, ground })) }
+            : {}),
+          ...(lift.length > 0 ? { lift: lift.map(({ x, y }) => ({ x, y })) } : {}),
+        }
+      : money
+        ? {
+            amount: command.amount as number,
+            ...(command.kind === "grant" ? { to: command.to as ResidentId } : {}),
+          }
+        : {};
+  const commit: TownMutation = () => {
+    const town = ensureTown(state);
+    const p: Proposal = {
+      id: `t_${town.nextId}`,
+      author: actor,
+      kind: command.kind,
+      title,
+      text,
+      ...plan,
+      status: "queued",
+      filedDay: day,
+      votes: {},
+    };
+    town.nextId += 1;
+    town.proposals.push(p);
+    if (openNow) return [open(p, day, voters)];
+    return [{ type: "proposal_queued", proposal: p.id, author: actor, kind: p.kind }];
+  };
+  if (command.kind !== "commons_build") return { commit };
+  const now = closeBuild(state, lists);
+  const { px, py } = commonsPlot(state.config);
+  return {
+    commit,
+    plan: {
+      px,
+      py,
+      removed: now.removed,
+      lifted: now.lifted,
+      placed: now.placed,
+      laid: now.laid,
+      changes: [],
+      skipped: [],
+    },
+  };
+}
+
+/** What a passed build does, or would do now: world tiles. */
+interface CommonsBuilt {
+  placed: PlannedBlock[];
+  removed: Tile[];
+  laid: PlannedGround[];
+  lifted: Tile[];
+  /** Where part of the plan didn't happen, a tile once for each part. */
+  skipped: Tile[];
+}
+
+/**
+ * What a passed build does to the Commons as it is now, in `build`'s order: removals, lifts,
+ * blocks, then paths, each as filed. A removal or a lift happens if something is still there. A
+ * block goes in unless its tile has a block by then (after the removals), a hearth, or an online
+ * resident on it, or is the Town Hall's or the open shop's. A path goes in unless its tile has one
+ * by then (after the lifts), or is the hall's or the open shop's; it goes under anyone standing
+ * there. Skipped tiles are listed so the event says what didn't happen. Reads only.
+ */
+function closeBuild(state: WorldState, plan: CommonsPlan): CommonsBuilt {
+  const { config } = state;
   const taken = new Set<string>();
   for (const r of Object.values(state.residents)) {
     if (r.online) taken.add(tileKey(r.x, r.y));
     if (r.hearth) taken.add(tileKey(r.hearth.x, r.hearth.y));
   }
-  const placed: PlannedBlock[] = [];
-  const removed: Tile[] = [];
-  const skipped: Tile[] = [];
-  for (const t of p.remove ?? []) {
-    if (state.blocks[tileKey(t.x, t.y)] !== undefined) removed.push({ x: t.x, y: t.y });
-    else skipped.push({ x: t.x, y: t.y });
+  // What the build changed so far, over what the world has.
+  const blocksNow = new Map<string, BlockKind | undefined>();
+  const groundNow = new Map<string, PlannedGround["ground"] | undefined>();
+  const blockAt = (key: string) => (blocksNow.has(key) ? blocksNow.get(key) : state.blocks[key]);
+  const groundAt = (key: string) => (groundNow.has(key) ? groundNow.get(key) : state.ground?.[key]);
+  const building = (t: Tile) =>
+    isTownHallTile(config, t.x, t.y) || (state.shop !== undefined && isShopTile(config, t.x, t.y));
+  const built: CommonsBuilt = { placed: [], removed: [], laid: [], lifted: [], skipped: [] };
+  const skip = (t: Tile) => built.skipped.push({ x: t.x, y: t.y });
+  for (const t of plan.remove) {
+    const key = tileKey(t.x, t.y);
+    if (blockAt(key) === undefined) skip(t);
+    else {
+      built.removed.push({ x: t.x, y: t.y });
+      blocksNow.set(key, undefined);
+    }
   }
-  for (const b of p.blocks ?? []) {
+  for (const t of plan.lift) {
+    const key = tileKey(t.x, t.y);
+    if (groundAt(key) === undefined) skip(t);
+    else {
+      built.lifted.push({ x: t.x, y: t.y });
+      groundNow.set(key, undefined);
+    }
+  }
+  for (const b of plan.blocks) {
     const key = tileKey(b.x, b.y);
-    const free = state.blocks[key] === undefined && !taken.has(key);
-    const shop = state.shop !== undefined && isShopTile(state.config, b.x, b.y);
-    if (free && !shop && !isTownHallTile(state.config, b.x, b.y)) placed.push({ ...b });
-    else skipped.push({ x: b.x, y: b.y });
+    if (blockAt(key) !== undefined || taken.has(key) || building(b)) skip(b);
+    else {
+      built.placed.push({ ...b });
+      blocksNow.set(key, b.block);
+    }
   }
-  return { placed, removed, skipped };
+  for (const g of plan.ground) {
+    const key = tileKey(g.x, g.y);
+    if (groundAt(key) !== undefined || building(g)) skip(g);
+    else {
+      built.laid.push({ ...g });
+      groundNow.set(key, g.ground);
+    }
+  }
+  return built;
+}
+
+/**
+ * Make a passed build's changes, credited to the proposal: the events single actions make, then
+ * `town_built`. The town's blocks and paths come from nobody's things and go back to nobody, and
+ * `town.built` marks the blocks it put up. `laid` and `lifted` are on `town_built` only when there
+ * are some, so a build that lays no paths sends the event it always did.
+ */
+function commitCommonsBuild(
+  state: WorldState,
+  proposal: string,
+  build: CommonsBuilt,
+): WorldEvent[] {
+  const town = ensureTown(state);
+  const events: WorldEvent[] = [];
+  for (const t of build.removed) {
+    const key = tileKey(t.x, t.y);
+    delete state.blocks[key];
+    delete town.built[key];
+    events.push({ type: "block_removed", x: t.x, y: t.y, by: proposal });
+  }
+  for (const t of build.lifted) {
+    delete state.ground?.[tileKey(t.x, t.y)];
+    events.push({ type: "ground_lifted", x: t.x, y: t.y, by: proposal });
+  }
+  for (const b of build.placed) {
+    const key = tileKey(b.x, b.y);
+    state.blocks[key] = b.block;
+    town.built[key] = proposal;
+    events.push({ type: "block_placed", x: b.x, y: b.y, block: b.block, by: proposal });
+  }
+  if (build.laid.length > 0) {
+    state.ground ??= {};
+    for (const g of build.laid) {
+      state.ground[tileKey(g.x, g.y)] = g.ground;
+      events.push({ type: "ground_laid", x: g.x, y: g.y, ground: g.ground, by: proposal });
+    }
+  }
+  const { placed, removed, skipped, laid, lifted } = build;
+  events.push({
+    type: "town_built",
+    proposal,
+    placed,
+    removed,
+    skipped,
+    ...(laid.length > 0 ? { laid } : {}),
+    ...(lifted.length > 0 ? { lifted } : {}),
+  });
+  return events;
 }

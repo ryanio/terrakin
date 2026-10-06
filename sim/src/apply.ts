@@ -117,7 +117,7 @@ import {
   type ShopChecked,
   shopNewDay,
 } from "./shop";
-import { checkTown, isActivity, isServerCommand, type TownChecked } from "./town";
+import { checkPropose, checkTown, isActivity, isServerCommand, type TownChecked } from "./town";
 import type {
   ApplyResult,
   Command,
@@ -159,7 +159,8 @@ export const MAX_CO_OWNERS = 3;
  * A validated input, ready to commit. `commit()` mutates the state it was prepared against,
  * bumps `seq`, and returns the events. Call it at most once, and only if the state hasn't changed
  * since `prepare()`. A `build` also carries `plan`, the changes its commit makes, worked out with
- * the actor as the commit will find them, so the server answers with what the sim does.
+ * the actor as the commit will find them, so the server answers with what the sim does. A
+ * `commons_build` proposal carries the plan it would build in the Commons if it passed now.
  */
 export type Prepared =
   | { ok: true; commit: () => { seq: number; events: WorldEvent[] }; plan?: BuildPlan }
@@ -387,8 +388,8 @@ export function apply(state: WorldState, input: Input): ApplyResult {
 type Mutation = () => WorldEvent[];
 
 /**
- * What `check` finds: the change to make, the same for `build` with the plan it makes, or a
- * rejection (a `Prepared` with `ok: false`).
+ * What `check` finds: the change to make, the same for `build` (and a Commons build proposal) with
+ * the plan it makes, or a rejection (a `Prepared` with `ok: false`).
  */
 type Checked = Mutation | { plan: BuildPlan; commit: Mutation } | Prepared;
 
@@ -1143,7 +1144,12 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       };
     }
 
-    case "propose":
+    case "propose": {
+      // A Commons build answers with its plan, as `build` does (decision 0101).
+      const proposed = checkPropose(state, actor, command);
+      if ("code" in proposed) return { ok: false, rejection: proposed };
+      return proposed.plan ? { plan: proposed.plan, commit: proposed.commit } : proposed.commit;
+    }
     case "vote":
     case "withdraw":
       return town(checkTown(state, actor, command));

@@ -96,7 +96,7 @@ export const FREE_BLOCKS = [
 ] as const satisfies readonly (typeof BLOCK_KINDS)[number][];
 export type FreeBlock = (typeof FREE_BLOCKS)[number];
 
-/** The blocks a Town Hall `commons_build` may place: the four building blocks, no stations. */
+/** The four building blocks: walls, windows, and hedges. */
 export const BUILDING_BLOCKS = [
   "wood",
   "stone",
@@ -104,6 +104,19 @@ export const BUILDING_BLOCKS = [
   "leaf",
 ] as const satisfies readonly (typeof BLOCK_KINDS)[number][];
 export type BuildingBlock = (typeof BUILDING_BLOCKS)[number];
+
+/**
+ * The blocks a Town Hall `commons_build` may place (decision 0101): the building blocks, the shop's
+ * decor, and the workbench's furniture, in `BLOCK_KINDS` order. The town builds them from nobody's
+ * things. Stations, planters, and pedestals belong on residents' own plots.
+ */
+export type CommonsBlock = BuildingBlock | DecorKind | FurnitureKind;
+export const COMMONS_BLOCKS: readonly CommonsBlock[] = BLOCK_KINDS.filter(
+  (k): k is CommonsBlock =>
+    (BUILDING_BLOCKS as readonly string[]).includes(k) ||
+    (DECOR_BLOCKS as readonly string[]).includes(k) ||
+    (FURNITURE_BLOCKS as readonly string[]).includes(k),
+);
 
 /** How a resident looks. Plain color words so agents and humans can pick without a palette. */
 export const RESIDENT_COLORS = [
@@ -228,11 +241,18 @@ export const PROPOSAL_STATUSES = [
 ] as const;
 export type ProposalStatus = (typeof PROPOSAL_STATUSES)[number];
 
-/** One block a `commons_build` proposal places in the Commons. */
+/** One block a `commons_build` proposal places in the Commons, at a world tile. */
 export interface PlannedBlock {
   x: number;
   y: number;
-  block: BuildingBlock;
+  block: CommonsBlock;
+}
+
+/** One path or floor a `commons_build` proposal lays in the Commons, at a world tile. */
+export interface PlannedGround {
+  x: number;
+  y: number;
+  ground: GroundKind;
 }
 
 /** One block a `build` places, at a tile counted from its plot's north-west corner. */
@@ -262,6 +282,10 @@ export interface Proposal {
   blocks?: PlannedBlock[];
   /** `commons_build` only: Commons blocks to take away. */
   remove?: Tile[];
+  /** `commons_build` only: paths and floors to lay. Absent on proposals that lay none. */
+  ground?: PlannedGround[];
+  /** `commons_build` only: Commons paths and floors to lift. Absent on proposals that lift none. */
+  lift?: Tile[];
   /** `grant` and `bounty` only: the coins it pays from the treasury if it passes. */
   amount?: number;
   /** `grant` only: who it pays. */
@@ -901,8 +925,11 @@ export type Command =
       kind: ProposalKind;
       title: string;
       text: string;
+      /** `commons_build`: world tiles in the Commons, like `remove`, `ground`, and `lift`. */
       blocks?: PlannedBlock[];
       remove?: Tile[];
+      ground?: PlannedGround[];
+      lift?: Tile[];
       /** `grant` and `bounty`: the coins it pays from the treasury. */
       amount?: number;
       /** `grant`: who it pays. */
@@ -1177,7 +1204,12 @@ export type WorldEvent =
       proposal: string;
       placed: PlannedBlock[];
       removed: Tile[];
+      /** Tiles where part of the plan didn't happen: a tile once for each part. */
       skipped: Tile[];
+      /** Paths and floors laid. Present only when there are some, so older builds' events are as they were. */
+      laid?: PlannedGround[];
+      /** Paths and floors lifted. Present only when there are some. */
+      lifted?: Tile[];
     }
   | { type: "economy_opened"; treasury: number }
   /**

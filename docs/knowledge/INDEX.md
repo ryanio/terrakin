@@ -101,6 +101,7 @@ What we chose and why. Newest last.
 - [Admiring a plot is a social row, from on or beside it, once a day, and earns nothing](decisions/0092-admiring-a-plot-is-a-social-row-from-on-or-beside-it-once-a-.md) · 2026-10-06 · accepted · `social` `server` `protocol` `agents` `economy`
 - [The world's sound is made with code, off until the speaker is tapped, and loaded then](decisions/0097-the-world-s-sound-is-made-with-code-off-until-the-speaker-is.md) · 2026-10-06 · accepted · `client` `design` `performance` `privacy`
 - [Evenings and nights in 3D follow the map's clock, with lamps, fires, and lit windows that glow after dark](decisions/0098-evenings-and-nights-in-3d-follow-the-map-s-clock-with-lamps-.md) · 2026-10-06 · accepted · `client` `3d` `design` `performance`
+- [A Town Hall build lays paths and places decor and furniture in the Commons, free, in world tiles, 40 changes in all](decisions/0101-a-town-hall-build-lays-paths-and-places-decor-and-furniture-.md) · 2026-10-06 · accepted · `sim` `protocol` `client` `town` `replay`
 
 ## Learnings
 

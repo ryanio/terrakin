@@ -39,7 +39,7 @@ interface KindEntry {
 
 Decor needs no field of its own: every decor kind places as a block, and every block is solid.
 
-Helpers keep entries short. `fruit("pomegranate", { name, plural, days, yield, seedsBack, seedPrice, look })` makes the fruit and its seed, and `crop(...)` does the same for a crop in another family. A family recipe makes its outputs (below).
+Helpers keep entries short. `fruit("pomegranate", { name, plural, days, yield, seedsBack, seedPrice, look })` makes the fruit and its seed, and `crop(...)` does the same for a crop in another family, with `seedSeasons` when the shop sells its seeds in one season only. A family recipe makes its outputs (below).
 
 The sim's existing names (`ITEM_KINDS`, `STACK_KINDS`, `GOOD_KINDS`, `CROPS`, `SEED_KINDS`, `ITEM_INFO`, `CROP_INFO`, `RECIPES`, the shop's SKUs) stay, derived from the catalog, so the rest of the code and the protocol's enums keep working. Each list groups kinds by role in catalog order, as today's lists do, so a new kind joins the end of its lists and every kind already listed keeps its place. The kind types (`ItemKind`, `SeedKind`, `Crop`, ...) are derived too, so tables keyed by kind still have to cover every kind to typecheck.
 
@@ -52,9 +52,9 @@ A family names the family it sits in, if any, so each family has a path from gen
 | food › fruit | lemon, strawberry, pomegranate |
 | food › vegetable | tomato, pumpkin (RFC 0017) |
 | food › herb | herb |
-| food › preserve | lemon jam, strawberry jam, pomegranate jam, tomato sauce |
+| food › preserve | lemon jam, strawberry jam, pomegranate jam, tomato sauce, pumpkin soup (RFC 0017) |
 | food › drink | lemonade, herb tea |
-| food › baked | RFC 0017's pumpkin dishes, where they fit |
+| food › baked | pumpkin pie (RFC 0017) |
 | flower | flower |
 | keepsake | bouquet, herb sachet, flower wreath |
 | seed | every seed, each naming what it grows |
@@ -80,7 +80,7 @@ This RFC builds jam only. A second family recipe (juice, pie) adds a kind for ev
 
 Each entry has a `look`: a template and its colors, for example a pomegranate's `{ template: "produce", shape: "round", top: "crown", body: "#b8323f", detail: "#7a1f2b", jam: { fill: "#9e1b32", cloth: "#ea8a9d" } }`. Templates cover the families with many members:
 
-- produce, for fruit and vegetables: an outline (an oval like a lemon, a berry, or round), what grows on top (a leaf, a leafy cap, a star of sepals, or a crown), its skin, and the color of its speckles, seeds, or ribs. A fruit also gives its jam's colors.
+- produce, for fruit and vegetables: an outline (an oval like a lemon, a berry, round, or three ribbed lobes like a pumpkin), what grows on top (a leaf, a leafy cap, a star of sepals, a vine, or a crown), its skin, and the color of its speckles, seeds, or ribs. A crop with a vine on top grows along the soil in a planter. A fruit also gives its jam's colors.
 - sprig, for herbs, and bloom, for flowers.
 - seed packet, drawn from what it grows.
 - jar, filled with its color and labelled with what's in it, under a cloth like a jam or a lid like a sauce.

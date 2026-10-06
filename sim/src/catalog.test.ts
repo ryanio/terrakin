@@ -21,6 +21,7 @@ import {
   RESOURCE_KINDS,
   ROTATION_CROPS,
   ROTATION_GOODS,
+  SEASON_STOCK,
   SEED_KINDS,
   STACK_KINDS,
   STAPLE_KINDS,
@@ -29,12 +30,19 @@ import {
 } from "./catalog";
 import * as items from "./items";
 import { isShopWear, WEAR_ITEMS } from "./looks";
-import { SHOP_CATALOG, SHOP_SKUS } from "./shop";
+import * as shop from "./shop";
 
 const entries = Object.entries(CATALOG) as [ItemKind, KindEntry][];
 
 /** JSON with its keys in order: a recipe's needs come off in this order in the craft event. */
 const json = (value: unknown) => JSON.stringify(value);
+
+/**
+ * A table's rows in the order of `kinds`, each with its keys in order. Nothing walks a table's own
+ * keys, so their order is left out.
+ */
+const rows = (table: Readonly<Record<string, unknown>>, kinds: readonly string[]) =>
+  json([Object.keys(table).sort(), kinds.map((kind) => [kind, table[kind]])]);
 
 describe("the catalog's views", () => {
   it("give exactly the lists and tables in items.ts, in the same order", () => {
@@ -52,27 +60,28 @@ describe("the catalog's views", () => {
       STATIONS: [STATIONS, items.STATIONS],
     };
     for (const [name, [mine, theirs]] of Object.entries(lists)) expect(mine, name).toEqual(theirs);
-    expect(json(ITEM_INFO)).toBe(json(items.ITEM_INFO));
-    expect(json(CROP_INFO)).toBe(json(items.CROP_INFO));
-    expect(json(RECIPES)).toBe(json(items.RECIPES));
+    expect(rows(ITEM_INFO, ITEM_KINDS)).toBe(rows(items.ITEM_INFO, ITEM_KINDS));
+    expect(rows(CROP_INFO, CROPS)).toBe(rows(items.CROP_INFO, CROPS));
+    expect(rows(RECIPES, GOOD_KINDS)).toBe(rows(items.RECIPES, GOOD_KINDS));
   });
 
-  it("price what the town shop sells as the shop does", () => {
+  it("sell what the town shop sells, at its prices and in its seasons", () => {
     const priced = entries.flatMap(([kind, e]) => (e.shop ? [[kind, e.shop.price]] : []));
-    const sold = SHOP_SKUS.filter((sku) => !isShopWear(sku)).map((sku) => [
+    const sold = shop.SHOP_SKUS.filter((sku) => !isShopWear(sku)).map((sku) => [
       sku,
-      SHOP_CATALOG[sku].price,
+      shop.SHOP_CATALOG[sku].price,
     ]);
     expect(Object.fromEntries(priced)).toEqual(Object.fromEntries(sold));
+    expect(SEASON_STOCK).toEqual(shop.SEASON_STOCK);
   });
 });
 
 describe("the frozen lists", () => {
   it("hold what the rules walk today: the first pantry's seeds, its staples, the town's rotation", () => {
-    expect(STARTER_SEEDS).toEqual(items.SEED_KINDS);
+    expect(STARTER_SEEDS).toEqual(items.STARTER_SEEDS);
     expect(PANTRY_STAPLES).toEqual(items.STAPLE_KINDS);
-    expect(ROTATION_GOODS).toEqual(items.GOOD_KINDS);
-    expect(ROTATION_CROPS).toEqual(items.CROPS);
+    expect(ROTATION_GOODS).toEqual(shop.ROTATION_GOODS);
+    expect(ROTATION_CROPS).toEqual(shop.ROTATION_CROPS);
   });
 });
 

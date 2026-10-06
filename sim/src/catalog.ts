@@ -9,8 +9,10 @@
  * replay, are frozen by name at the bottom instead.
  *
  * Nothing reads the catalog yet. `catalog.test.ts` checks that its views give exactly the lists and
- * tables in `items.ts`, so the sim can switch to them without changing how any log replays.
+ * tables in `items.ts` and `shop.ts`, so the sim can switch to them without changing how any log
+ * replays.
  */
+import type { Season } from "./season";
 
 // ---------- families ----------
 
@@ -33,6 +35,7 @@ export const FAMILIES = {
   herb: { name: "Herbs", parent: "food" },
   preserve: { name: "Preserves", parent: "food" },
   drink: { name: "Drinks", parent: "food" },
+  baked: { name: "Baked goods", parent: "food" },
   flower: { name: "Flowers" },
   keepsake: { name: "Keepsakes" },
   seed: { name: "Seeds" },
@@ -85,14 +88,16 @@ export interface CropNumbers {
 
 /**
  * A crop drawn from the produce template: its outline (an oval with pointed ends like a lemon, a
- * berry, or round), what grows on top (a leaf, a leafy cap, or a star of sepals with a stem), its
- * skin, and the color of its speckles, seeds, or ribs. A fruit also gives the colors of its jam:
- * what fills the jar the jam family recipe makes, and the cloth tied over it.
+ * berry, round, or three ribbed lobes like a pumpkin), what grows on top (a leaf, a leafy cap, a
+ * star of sepals with a stem, or a stubby stem with a curl of vine and a leaf), its skin, and the
+ * color of its speckles, seeds, or ribs. A crop with a vine on top grows along the soil in a
+ * planter. A fruit also gives the colors of its jam: what fills the jar the jam family recipe makes,
+ * and the cloth tied over it.
  */
 export interface ProduceLook {
   template: "produce";
-  shape: "oval" | "berry" | "round";
-  top: "leaf" | "cap" | "star";
+  shape: "oval" | "berry" | "round" | "lobed";
+  top: "leaf" | "cap" | "star" | "vine";
   body: string;
   detail: string;
   jam?: { fill: string; cloth: string };
@@ -135,8 +140,8 @@ export interface KindEntry {
   grows?: string;
   /** A crop: how it grows. */
   crop?: CropNumbers;
-  /** Sold at the town shop, all year, for this many coins. */
-  shop?: { price: number };
+  /** Sold at the town shop for `price` coins: all year, or every day of `seasons` only. */
+  shop?: { price: number; seasons?: readonly Season[] };
   /** A made good: how it's made. */
   recipe?: Recipe;
   look: KindLook;
@@ -160,6 +165,8 @@ interface CropSpec<F extends Family> {
   seedsBack: number;
   /** What the town shop asks for one of its seeds. */
   seedPrice: number;
+  /** The seasons the shop sells its seeds in, when it doesn't all year. */
+  seedSeasons?: readonly Season[];
   look: KindLook;
 }
 
@@ -168,14 +175,24 @@ interface CropSpec<F extends Family> {
  * town shop sells for `seedPrice`.
  */
 function crop<const Id extends string, const F extends Family>(id: Id, spec: CropSpec<F>) {
-  const { name, plural, family, days, yield: harvest, seedsBack, seedPrice, look } = spec;
+  const {
+    name,
+    plural,
+    family,
+    days,
+    yield: harvest,
+    seedsBack,
+    seedPrice,
+    seedSeasons,
+    look,
+  } = spec;
   const seed: KindEntry = {
     name: `${title(id)} seed`,
     plural: `${title(id)} seeds`,
     family: "seed",
     role: "seed",
     grows: id,
-    shop: { price: seedPrice },
+    shop: seedSeasons ? { price: seedPrice, seasons: seedSeasons } : { price: seedPrice },
     look: { template: "packet" },
   };
   const produce: KindEntry = {
@@ -386,6 +403,50 @@ const WRITTEN = {
     role: "piece",
     look: { template: "drawn" },
   }),
+  // Autumn (RFC 0017): its crop, what the kitchen makes from it, and the shop's autumn decor.
+  ...crop("pumpkin", {
+    name: "Pumpkin",
+    plural: "Pumpkins",
+    family: "vegetable",
+    days: 5,
+    yield: 2,
+    seedsBack: 1,
+    seedPrice: 4,
+    seedSeasons: ["autumn"],
+    look: { template: "produce", shape: "lobed", top: "vine", body: "#e8862f", detail: "#c4661c" },
+  }),
+  pumpkin_pie: entry({
+    name: "Pumpkin pie",
+    plural: "Pumpkin pies",
+    family: "baked",
+    role: "good",
+    recipe: { station: "kitchen", needs: { pumpkin: 2, sugar: 1 } },
+    look: { template: "drawn" },
+  }),
+  pumpkin_soup: entry({
+    name: "Pumpkin soup",
+    plural: "Jars of pumpkin soup",
+    family: "preserve",
+    role: "good",
+    recipe: { station: "kitchen", needs: { pumpkin: 1, herb: 1, jar: 1 } },
+    look: { template: "jar", fill: "#e3913d", label: "pumpkin", lid: "#5e7f45" },
+  }),
+  hay_bale: entry({
+    name: "Hay bale",
+    plural: "Hay bales",
+    family: "decor",
+    role: "decor",
+    shop: { price: 8, seasons: ["autumn"] },
+    look: { template: "drawn" },
+  }),
+  scarecrow: entry({
+    name: "Scarecrow",
+    plural: "Scarecrows",
+    family: "decor",
+    role: "decor",
+    shop: { price: 35, seasons: ["autumn"] },
+    look: { template: "drawn" },
+  }),
 };
 
 // ---------- family recipes ----------
@@ -554,6 +615,19 @@ export const CROP_INFO = Object.fromEntries(
 export const RECIPES = Object.fromEntries(
   GOOD_KINDS.map((kind) => [kind, CATALOG[kind].recipe]),
 ) as Readonly<Record<GoodKind, Recipe>>;
+
+/**
+ * What the town shop sells in one season only, every day of it. Everything else it sells, it sells
+ * all year.
+ */
+const soldIn = (season: Season) =>
+  STACK_KINDS.filter((kind) => CATALOG[kind].shop?.seasons?.includes(season));
+export const SEASON_STOCK: Readonly<Record<Season, readonly StackKind[]>> = {
+  spring: soldIn("spring"),
+  summer: soldIn("summer"),
+  autumn: soldIn("autumn"),
+  winter: soldIn("winter"),
+};
 
 // ---------- frozen lists ----------
 

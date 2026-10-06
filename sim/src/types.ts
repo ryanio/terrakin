@@ -1,6 +1,16 @@
-import type { FurnitureKind } from "./furniture";
+import {
+  type Crop,
+  DECOR_KINDS,
+  type DecorKind,
+  FURNITURE_KINDS,
+  type FurnitureKind,
+  type GoodKind,
+  type ItemKind,
+  type MadeKind,
+  type ResourceKind,
+  type StackKind,
+} from "./catalog";
 import type { GroundKind } from "./ground";
-import type { Crop, GoodKind, ItemKind, MadeKind, ResourceKind, StackKind } from "./items";
 import type {
   ExclusiveWear,
   HairColor,
@@ -27,7 +37,8 @@ export type Direction = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
  * decor from the town shop (RFC 0008): placing one uses one from your things, and removing it puts
  * it back. `pedestal` (free) and `frame` hold a made thing on display (RFC 0005 step 3). `hay_bale`
  * and `scarecrow` are decor the shop sells in autumn (RFC 0017). The rest are furniture made at a
- * workbench (RFC 0016), held and placed like decor. New kinds go on the end.
+ * workbench (RFC 0016), held and placed like decor. New kinds go on the end, and a held one (decor
+ * or furniture) is an entry in the catalog too.
  */
 export const BLOCK_KINDS = [
   "wood",
@@ -56,36 +67,20 @@ export const BLOCK_KINDS = [
   "flower_box",
 ] as const;
 
-/** Blocks bought at the town shop. Each one placed is one fewer in your things. */
-export const DECOR_BLOCKS = [
-  "lantern",
-  "frame",
-  "fence",
-  "bench",
-  "hay_bale",
-  "scarecrow",
-] as const satisfies readonly (typeof BLOCK_KINDS)[number][];
-export type DecorBlock = (typeof DECOR_BLOCKS)[number];
+/**
+ * Blocks bought at the town shop: the catalog's decor (RFC 0018). Each one placed is one fewer in
+ * your things.
+ */
+export const DECOR_BLOCKS: readonly DecorKind[] = DECOR_KINDS;
+export type DecorBlock = DecorKind;
 
 /**
- * Furniture (RFC 0016): made at a workbench from what residents gather and grow
- * (`FURNITURE_RECIPES` in `furniture.ts`), held in your things, and placed and taken up like decor.
- * Every piece blocks walking, like every block. New pieces go on the end, and on the end of
- * `BLOCK_KINDS`.
+ * Furniture (RFC 0016): the catalog's furniture, made at a workbench from what residents gather and
+ * grow (`FURNITURE_RECIPES`), held in your things, and placed and taken up like decor. Every piece
+ * blocks walking, like every block.
  */
-export const FURNITURE_BLOCKS = [
-  "table",
-  "chair",
-  "bookshelf",
-  "barrel",
-  "signpost",
-  "lamp_post",
-  "well",
-  "stone_wall",
-  "campfire",
-  "flower_box",
-] as const satisfies readonly (typeof BLOCK_KINDS)[number][];
-export type FurnitureBlock = (typeof FURNITURE_BLOCKS)[number];
+export const FURNITURE_BLOCKS: readonly FurnitureKind[] = FURNITURE_KINDS;
+export type FurnitureBlock = FurnitureKind;
 
 /** The blocks anyone can place without holding one: everything but decor and furniture. */
 export const FREE_BLOCKS = [

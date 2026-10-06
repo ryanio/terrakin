@@ -1,11 +1,22 @@
-import { coinCount as coins, isWhole, refuse } from "./check";
-import { allowanceDue, isTownsfolk, movePurse, moveTreasury } from "./economy";
 import {
-  addStack,
+  CATALOG,
   type Crop,
   DECOR_KINDS,
   type DecorKind,
   type GoodKind,
+  ROTATION_CROPS,
+  ROTATION_GOODS,
+  type Role,
+  SEED_KINDS,
+  type SeedKind,
+  STAPLE_KINDS,
+  SEASON_STOCK as STOCK_BY_SEASON,
+  type StapleKind,
+} from "./catalog";
+import { coinCount as coins, isWhole, refuse } from "./check";
+import { allowanceDue, isTownsfolk, movePurse, moveTreasury } from "./economy";
+import {
+  addStack,
   held,
   ITEM_ID_PATTERN,
   ITEM_INFO,
@@ -16,11 +27,7 @@ import {
   inventorySize,
   isGoodKind,
   isStackKind,
-  SEED_KINDS,
-  type SeedKind,
-  STAPLE_KINDS,
   type StackKind,
-  type StapleKind,
 } from "./items";
 import { isShopWear, SHOP_WEAR, type ShopWear, WEAR_INFO } from "./looks";
 import { dateOfDay, SEASONS, type Season, seasonOf, seasonSpan } from "./season";
@@ -50,8 +57,23 @@ import { moveOff, offBuildings } from "./walk";
 
 // ---------- the catalog ----------
 
-/** What the shop sells. A sku is the name of what you get: a stack kind or a piece of shop wear. */
-export const SHOP_SKUS = [...DECOR_KINDS, ...SHOP_WEAR, ...SEED_KINDS, ...STAPLE_KINDS] as const;
+/** Wear the shop sells, and its price. Every other price is in the catalog (`catalog.ts`). */
+const WEAR_PRICES: Readonly<Record<ShopWear, number>> = { top_hat: 80, raincoat: 90, umbrella: 60 };
+
+/** The catalog's kinds the shop sells: those with a shop price, in catalog order. */
+const sold = <K extends StackKind>(kinds: readonly K[]) =>
+  kinds.filter((kind) => CATALOG[kind].shop !== undefined);
+
+/**
+ * What the shop sells. A sku is the name of what you get: a stack kind or a piece of shop wear.
+ * Decor, then wear, then seeds, then the pantry's staples.
+ */
+export const SHOP_SKUS: readonly ShopSku[] = [
+  ...sold(DECOR_KINDS),
+  ...SHOP_WEAR,
+  ...sold(SEED_KINDS),
+  ...sold(STAPLE_KINDS),
+];
 export type ShopSku = DecorKind | ShopWear | SeedKind | StapleKind;
 
 export type ShopSection = "decor" | "wear" | "garden" | "pantry";
@@ -80,29 +102,25 @@ export const SHOP = {
   producePerDay: 1,
 } as const;
 
-export const SHOP_CATALOG: Readonly<Record<ShopSku, ShopEntry>> = {
-  lantern: { price: 40, section: "decor" },
-  frame: { price: 30, section: "decor" },
-  fence: { price: 3, section: "decor" },
-  bench: { price: 25, section: "decor" },
-  top_hat: { price: 80, section: "wear" },
-  raincoat: { price: 90, section: "wear" },
-  umbrella: { price: 60, section: "wear" },
-  lemon_seed: { price: 4, section: "garden" },
-  strawberry_seed: { price: 4, section: "garden" },
-  tomato_seed: { price: 4, section: "garden" },
-  herb_seed: { price: 3, section: "garden" },
-  flower_seed: { price: 3, section: "garden" },
-  sugar: { price: 3, section: "pantry" },
-  jar: { price: 3, section: "pantry" },
-  // Autumn only (`SEASON_STOCK`, RFC 0017). Decision 0079 has the reasoning.
-  pumpkin_seed: { price: 4, section: "garden" },
-  hay_bale: { price: 8, section: "decor" },
-  scarecrow: { price: 35, section: "decor" },
+/** The section of the shop a kind sits in, by what it is to the rules. */
+const SECTION: Partial<Record<Role, ShopSection>> = {
+  decor: "decor",
+  seed: "garden",
+  staple: "pantry",
 };
 
-/** What the town buys: made things and produce. */
-export type SellKind = GoodKind | Crop;
+/** Every sku's price and section: wear's from `WEAR_PRICES`, everything else's from the catalog. */
+export const SHOP_CATALOG = Object.fromEntries(
+  SHOP_SKUS.map((sku): [ShopSku, ShopEntry] => {
+    if (isShopWear(sku)) return [sku, { price: WEAR_PRICES[sku], section: "wear" }];
+    // `sold` kept only decor, seeds, and staples with a price.
+    const { shop, role } = CATALOG[sku];
+    return [
+      sku,
+      { price: (shop as { price: number }).price, section: SECTION[role] as ShopSection },
+    ];
+  }),
+) as Readonly<Record<ShopSku, ShopEntry>>;
 
 export interface BuyOrder {
   /** Coins the town pays for one. */
@@ -111,8 +129,7 @@ export interface BuyOrder {
   perDay: number;
 }
 
-/** Every buy order the town has. On a given day it buys only some of them (`townBuys`). */
-export const BUY_ORDERS: Readonly<Record<SellKind, BuyOrder>> = {
+const ORDERS = {
   lemon_jam: { price: 5, perDay: 1 },
   strawberry_jam: { price: 5, perDay: 1 },
   lemonade: { price: 4, perDay: 1 },
@@ -130,7 +147,16 @@ export const BUY_ORDERS: Readonly<Record<SellKind, BuyOrder>> = {
   pumpkin: { price: 2, perDay: 2 },
   pumpkin_pie: { price: 6, perDay: 1 },
   pumpkin_soup: { price: 5, perDay: 1 },
-};
+} satisfies Partial<Record<GoodKind | Crop, BuyOrder>>;
+
+/**
+ * What the town buys: the made things and produce it has a buy order for. A kind gets one by a
+ * decision of its own, never by joining the catalog.
+ */
+export type SellKind = keyof typeof ORDERS;
+
+/** Every buy order the town has. On a given day it buys only some of them (`townBuys`). */
+export const BUY_ORDERS: Readonly<Record<SellKind, BuyOrder>> = ORDERS;
 
 export const isShopSku = (s: unknown): s is ShopSku =>
   typeof s === "string" && (SHOP_SKUS as readonly string[]).includes(s);
@@ -139,28 +165,12 @@ export const isShopSku = (s: unknown): s is ShopSku =>
 export const skuName = (sku: ShopSku) =>
   isShopWear(sku) ? WEAR_INFO[sku].label : ITEM_INFO[sku as StackKind].name;
 
-/**
- * The made things and crops the daily rotation cycles through. Frozen: their order and lengths
- * decide what the town bought on every day in the log, so a new kind never joins them. A season's
- * kinds go in `SEASON_BUYS` instead (RFC 0017).
+/*
+ * The rotation cycles through `ROTATION_GOODS` and `ROTATION_CROPS`, frozen in the catalog: their
+ * order and lengths decide what the town bought on every day in the log, so a new kind never joins
+ * them. A season's kinds go in `SEASON_BUYS` instead (RFC 0017).
  */
-export const ROTATION_GOODS = [
-  "lemon_jam",
-  "strawberry_jam",
-  "lemonade",
-  "tomato_sauce",
-  "herb_tea",
-  "bouquet",
-  "herb_sachet",
-  "flower_wreath",
-] as const satisfies readonly GoodKind[];
-export const ROTATION_CROPS = [
-  "lemon",
-  "strawberry",
-  "tomato",
-  "herb",
-  "flower",
-] as const satisfies readonly Crop[];
+export { ROTATION_CROPS, ROTATION_GOODS };
 
 /**
  * The kinds the town buys on `day`: today's turn of the fixed rotation, made things first, then
@@ -170,11 +180,11 @@ export const ROTATION_CROPS = [
 export function townBuys(day: number): SellKind[] {
   const goods = Array.from(
     { length: Math.min(SHOP.goodsPerDay, ROTATION_GOODS.length) },
-    (_, i) => ROTATION_GOODS[(day + i * 3) % ROTATION_GOODS.length] as GoodKind,
+    (_, i) => ROTATION_GOODS[(day + i * 3) % ROTATION_GOODS.length] as SellKind,
   );
   const produce = Array.from(
     { length: Math.min(SHOP.producePerDay, ROTATION_CROPS.length) },
-    (_, i) => ROTATION_CROPS[(day + i * 2) % ROTATION_CROPS.length] as Crop,
+    (_, i) => ROTATION_CROPS[(day + i * 2) % ROTATION_CROPS.length] as SellKind,
   );
   return [...goods, ...produce, ...SEASON_BUYS[seasonOf(day)]];
 }
@@ -185,12 +195,8 @@ export function townBuys(day: number): SellKind[] {
  * Shop stock sold in one season only, every day of it, and refused (`out_of_season`) the rest of
  * the year. Everything else is sold all year. What you bought stays yours when its season ends.
  */
-export const SEASON_STOCK: Readonly<Record<Season, readonly ShopSku[]>> = {
-  spring: [],
-  summer: [],
-  autumn: ["pumpkin_seed", "hay_bale", "scarecrow"],
-  winter: [],
-};
+export const SEASON_STOCK: Readonly<Record<Season, readonly ShopSku[]>> =
+  STOCK_BY_SEASON as Readonly<Record<Season, readonly ShopSku[]>>;
 
 /** What the town buys every day of a season, on top of the daily rotation. */
 export const SEASON_BUYS: Readonly<Record<Season, readonly SellKind[]>> = {

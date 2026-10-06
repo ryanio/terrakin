@@ -452,6 +452,12 @@ describe("craft", () => {
     expect(w.code("ada", { type: "craft", recipe: "pie" as "bouquet", x: 4, y: 3 })).toBe(
       "unknown_item",
     );
+    // Jam is a family recipe: asked of a tomato, which isn't a fruit, it names the jams there are.
+    const tomatoJam = { type: "craft", recipe: "tomato_jam" as "bouquet", x: 4, y: 2 } as const;
+    expect(w.code("ada", tomatoJam)).toBe("unknown_item");
+    expect(w.message("ada", tomatoJam)).toMatch(
+      /^Jam is made from one kind of fruit at a time\. Try one of: lemon_jam, strawberry_jam\b/,
+    );
     expect(
       w.code("ada", { type: "craft", recipe: "bouquet", x: 4, y: 3, label: "x".repeat(41) }),
     ).toBe("invalid_label");

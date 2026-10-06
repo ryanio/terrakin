@@ -12,28 +12,22 @@ import {
   FURNITURE_RECIPES,
   familyPath,
   GOOD_KINDS,
-  ITEM_INFO,
   ITEM_KINDS,
   type ItemKind,
   type KindEntry,
-  MADE_KINDS,
   PANTRY_STAPLES,
   PIECE_KINDS,
   RECIPES,
   RESOURCE_KINDS,
   ROTATION_CROPS,
   ROTATION_GOODS,
-  SEASON_STOCK,
   SEED_KINDS,
   STACK_KINDS,
   STAPLE_KINDS,
   STARTER_SEEDS,
-  STATIONS,
 } from "./catalog";
-import * as furniture from "./furniture";
-import * as items from "./items";
-import { isShopWear, WEAR_ITEMS } from "./looks";
-import * as shop from "./shop";
+import { WEAR_ITEMS } from "./looks";
+import { BLOCK_KINDS, FREE_BLOCKS } from "./types";
 
 const entries = Object.entries(CATALOG) as [ItemKind, KindEntry][];
 
@@ -41,54 +35,148 @@ const entries = Object.entries(CATALOG) as [ItemKind, KindEntry][];
 const json = (value: unknown) => JSON.stringify(value);
 
 /**
- * A table's rows in the order of `kinds`, each with its keys in order. Nothing walks a table's own
- * keys, so their order is left out.
+ * Every kind as it shipped, by role, in order. Logs hold these ids, and `build` orders what it uses
+ * by `STACK_KINDS`, so a kind already shipped never leaves, never moves, and never changes role. A
+ * new one joins the end of its role's list.
  */
-const rows = (table: Readonly<Record<string, unknown>>, kinds: readonly string[]) =>
-  json([Object.keys(table).sort(), kinds.map((kind) => [kind, table[kind]])]);
+const SHIPPED = {
+  seed: [
+    "lemon_seed",
+    "strawberry_seed",
+    "tomato_seed",
+    "herb_seed",
+    "flower_seed",
+    "pumpkin_seed",
+  ],
+  crop: ["lemon", "strawberry", "tomato", "herb", "flower", "pumpkin"],
+  staple: ["sugar", "jar"],
+  resource: ["wood", "stone"],
+  decor: ["lantern", "frame", "fence", "bench", "hay_bale", "scarecrow"],
+  furniture: [
+    "table",
+    "chair",
+    "bookshelf",
+    "barrel",
+    "signpost",
+    "lamp_post",
+    "well",
+    "stone_wall",
+    "campfire",
+    "flower_box",
+  ],
+  good: [
+    "lemon_jam",
+    "strawberry_jam",
+    "lemonade",
+    "tomato_sauce",
+    "herb_tea",
+    "bouquet",
+    "herb_sachet",
+    "flower_wreath",
+    "pumpkin_pie",
+    "pumpkin_soup",
+  ],
+  piece: ["piece"],
+};
 
-describe("the catalog's views", () => {
-  it("give exactly the lists and tables in items.ts, in the same order", () => {
+/**
+ * Every shipped recipe and crop, its needs in order. A logged `craft` uses up exactly these and a
+ * logged `plant` grows by exactly these, so changing one changes how old logs replay.
+ */
+const SHIPPED_RECIPES = {
+  lemon_jam: ["kitchen", { lemon: 3, sugar: 1, jar: 1 }],
+  strawberry_jam: ["kitchen", { strawberry: 3, sugar: 1, jar: 1 }],
+  lemonade: ["kitchen", { lemon: 2, sugar: 1, jar: 1 }],
+  tomato_sauce: ["kitchen", { tomato: 3, herb: 1, jar: 1 }],
+  herb_tea: ["kitchen", { herb: 2, jar: 1 }],
+  bouquet: ["workbench", { flower: 3 }],
+  herb_sachet: ["workbench", { herb: 2, flower: 1 }],
+  flower_wreath: ["workbench", { flower: 4, herb: 2 }],
+  pumpkin_pie: ["kitchen", { pumpkin: 2, sugar: 1 }],
+  pumpkin_soup: ["kitchen", { pumpkin: 1, herb: 1, jar: 1 }],
+  table: ["workbench", { wood: 3 }],
+  chair: ["workbench", { wood: 2 }],
+  bookshelf: ["workbench", { wood: 4 }],
+  barrel: ["workbench", { wood: 3 }],
+  signpost: ["workbench", { wood: 2 }],
+  lamp_post: ["workbench", { wood: 1, stone: 2 }],
+  well: ["workbench", { wood: 2, stone: 6 }],
+  stone_wall: ["workbench", { stone: 1 }],
+  campfire: ["workbench", { wood: 2, stone: 3 }],
+  flower_box: ["workbench", { wood: 1, flower: 3 }],
+} as const;
+const SHIPPED_CROPS = {
+  lemon: { seed: "lemon_seed", days: 4, yield: 3, seeds: 1 },
+  strawberry: { seed: "strawberry_seed", days: 3, yield: 4, seeds: 1 },
+  tomato: { seed: "tomato_seed", days: 3, yield: 3, seeds: 1 },
+  herb: { seed: "herb_seed", days: 2, yield: 3, seeds: 1 },
+  flower: { seed: "flower_seed", days: 2, yield: 3, seeds: 1 },
+  pumpkin: { seed: "pumpkin_seed", days: 5, yield: 2, seeds: 1 },
+} as const;
+
+describe("what shipped", () => {
+  it("keeps every kind, in its place: a new kind only joins the end of its role's list", () => {
     const lists = {
-      ITEM_KINDS: [ITEM_KINDS, items.ITEM_KINDS],
-      STACK_KINDS: [STACK_KINDS, items.STACK_KINDS],
-      SEED_KINDS: [SEED_KINDS, items.SEED_KINDS],
-      CROPS: [CROPS, items.CROPS],
-      STAPLE_KINDS: [STAPLE_KINDS, items.STAPLE_KINDS],
-      RESOURCE_KINDS: [RESOURCE_KINDS, items.RESOURCE_KINDS],
-      DECOR_KINDS: [DECOR_KINDS, items.DECOR_KINDS],
-      FURNITURE_KINDS: [FURNITURE_KINDS, furniture.FURNITURE_KINDS],
-      GOOD_KINDS: [GOOD_KINDS, items.GOOD_KINDS],
-      PIECE_KINDS: [PIECE_KINDS, items.PIECE_KINDS],
-      MADE_KINDS: [MADE_KINDS, items.MADE_KINDS],
-      STATIONS: [STATIONS, items.STATIONS],
+      seed: SEED_KINDS,
+      crop: CROPS,
+      staple: STAPLE_KINDS,
+      resource: RESOURCE_KINDS,
+      decor: DECOR_KINDS,
+      furniture: FURNITURE_KINDS,
+      good: GOOD_KINDS,
+      piece: PIECE_KINDS,
     };
-    for (const [name, [mine, theirs]] of Object.entries(lists)) expect(mine, name).toEqual(theirs);
-    expect(rows(ITEM_INFO, ITEM_KINDS)).toBe(rows(items.ITEM_INFO, ITEM_KINDS));
-    expect(rows(CROP_INFO, CROPS)).toBe(rows(items.CROP_INFO, CROPS));
-    expect(rows(RECIPES, GOOD_KINDS)).toBe(rows(items.RECIPES, GOOD_KINDS));
-    expect(rows(FURNITURE_RECIPES, FURNITURE_KINDS)).toBe(
-      rows(furniture.FURNITURE_RECIPES, FURNITURE_KINDS),
-    );
-  });
-
-  it("sell what the town shop sells, at its prices and in its seasons", () => {
-    const priced = entries.flatMap(([kind, e]) => (e.shop ? [[kind, e.shop.price]] : []));
-    const sold = shop.SHOP_SKUS.filter((sku) => !isShopWear(sku)).map((sku) => [
-      sku,
-      shop.SHOP_CATALOG[sku].price,
+    for (const [role, list] of Object.entries(lists)) {
+      const shipped = SHIPPED[role as keyof typeof SHIPPED];
+      expect(list.slice(0, shipped.length), role).toEqual(shipped);
+    }
+    // The lists that span roles keep every shipped kind in the order it shipped.
+    const all = Object.values(SHIPPED).flat();
+    expect(STACK_KINDS.filter((k) => all.includes(k))).toEqual([
+      ...SHIPPED.seed,
+      ...SHIPPED.crop,
+      ...SHIPPED.staple,
+      ...SHIPPED.resource,
+      ...SHIPPED.decor,
+      ...SHIPPED.furniture,
     ]);
-    expect(Object.fromEntries(priced)).toEqual(Object.fromEntries(sold));
-    expect(SEASON_STOCK).toEqual(shop.SEASON_STOCK);
+    expect(ITEM_KINDS.filter((k) => all.includes(k))).toEqual([
+      ...STACK_KINDS.filter((k) => all.includes(k)),
+      ...SHIPPED.good,
+      ...SHIPPED.piece,
+    ]);
   });
-});
 
-describe("the frozen lists", () => {
-  it("hold what the rules walk today: the first pantry's seeds, its staples, the town's rotation", () => {
-    expect(STARTER_SEEDS).toEqual(items.STARTER_SEEDS);
-    expect(PANTRY_STAPLES).toEqual(items.STAPLE_KINDS);
-    expect(ROTATION_GOODS).toEqual(shop.ROTATION_GOODS);
-    expect(ROTATION_CROPS).toEqual(shop.ROTATION_CROPS);
+  it("keeps every recipe and crop's numbers, needs in the order they come off", () => {
+    for (const [kind, [station, needs]] of Object.entries(SHIPPED_RECIPES)) {
+      const recipe = (RECIPES as Record<string, unknown>)[kind] ?? FURNITURE_RECIPES[kind as never];
+      expect(json(recipe), kind).toBe(json({ station, needs }));
+    }
+    for (const [crop, info] of Object.entries(SHIPPED_CROPS)) {
+      expect(json(CROP_INFO[crop as Crop]), crop).toBe(json(info));
+    }
+  });
+
+  it("freezes the lists rules walk: the first pantry's seeds, its staples, the town's rotation", () => {
+    expect(STARTER_SEEDS).toEqual([
+      "lemon_seed",
+      "strawberry_seed",
+      "tomato_seed",
+      "herb_seed",
+      "flower_seed",
+    ]);
+    expect(PANTRY_STAPLES).toEqual(["sugar", "jar"]);
+    expect(ROTATION_GOODS).toEqual([
+      "lemon_jam",
+      "strawberry_jam",
+      "lemonade",
+      "tomato_sauce",
+      "herb_tea",
+      "bouquet",
+      "herb_sachet",
+      "flower_wreath",
+    ]);
+    expect(ROTATION_CROPS).toEqual(["lemon", "strawberry", "tomato", "herb", "flower"]);
   });
 });
 
@@ -100,6 +188,21 @@ describe("every entry", () => {
       expect(WEAR_ITEMS as readonly string[], kind).not.toContain(kind);
     }
     expect([...ITEM_KINDS].sort()).toEqual(entries.map(([kind]) => kind).sort());
+  });
+
+  it("places as a block if it's decor or furniture, and every block you hold is one of them", () => {
+    const held: readonly string[] = [...DECOR_KINDS, ...FURNITURE_KINDS];
+    const free: readonly string[] = FREE_BLOCKS;
+    for (const kind of held) expect(BLOCK_KINDS, kind).toContain(kind);
+    expect(BLOCK_KINDS.filter((b) => !free.includes(b)).sort()).toEqual([...held].sort());
+  });
+
+  it("is sold at the town shop if it's a seed, decor, or a staple, which a shop sku can be", () => {
+    for (const [kind, { role, shop }] of entries) {
+      if (role === "seed" || role === "decor" || role === "staple") {
+        expect(shop?.price, kind).toBeGreaterThanOrEqual(1);
+      }
+    }
   });
 
   it("belongs to a family whose parents are families, and every family holds something", () => {

@@ -33,6 +33,29 @@ export {
   plotPlan,
 } from "./build";
 export {
+  CATALOG,
+  type CropNumbers,
+  FAMILIES,
+  FAMILY_RECIPES,
+  type Family,
+  type FamilyInfo,
+  type FamilyRecipe,
+  familyPath,
+  familyRecipeOf,
+  JAM,
+  type JarLook,
+  type KindEntry,
+  type KindLook,
+  type KindRecipe,
+  kindsIn,
+  PANTRY_STAPLES,
+  type PantryStaple,
+  PRODUCE_KINDS,
+  type ProduceKind,
+  type ProduceLook,
+  type Role,
+} from "./catalog";
+export {
   DISPLAY_BLOCKS,
   displayAt,
   displayOfItem,
@@ -80,7 +103,6 @@ export {
   lastSlot,
 } from "./events";
 export {
-  FURNITURE_INFO,
   FURNITURE_KINDS,
   FURNITURE_RECIPES,
   type FurnitureKind,

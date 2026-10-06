@@ -1,7 +1,31 @@
+import {
+  CROP_INFO,
+  CROPS,
+  type Crop,
+  DECOR_KINDS,
+  type DecorKind,
+  FAMILIES,
+  familyRecipeOf,
+  GOOD_KINDS,
+  type GoodKind,
+  ITEM_INFO,
+  ITEM_KINDS,
+  type ItemKind,
+  kindsIn,
+  MADE_KINDS,
+  type MadeKind,
+  PANTRY_STAPLES,
+  type PantryStaple,
+  RECIPES,
+  RESOURCE_KINDS,
+  type ResourceKind,
+  STACK_KINDS,
+  STARTER_SEEDS,
+  type StackKind,
+} from "./catalog";
 import { isWhole, refuse } from "./check";
 import { isTownsfolk, pairSkipsCaps } from "./economy";
 import {
-  FURNITURE_INFO,
   FURNITURE_KINDS,
   FURNITURE_RECIPES,
   type FurnitureKind,
@@ -9,21 +33,19 @@ import {
 } from "./furniture";
 import { tileKey } from "./keys";
 import { own, residentById } from "./own";
-import {
-  type Command,
-  DECOR_BLOCKS,
-  type DecorBlock,
-  type GiftRecord,
-  type Good,
-  type Inventory,
-  type InventoryReason,
-  type ItemsState,
-  type ItemsToday,
-  type Rejection,
-  type ResidentId,
-  type Tile,
-  type WorldEvent,
-  type WorldState,
+import type {
+  Command,
+  GiftRecord,
+  Good,
+  Inventory,
+  InventoryReason,
+  ItemsState,
+  ItemsToday,
+  Rejection,
+  ResidentId,
+  Tile,
+  WorldEvent,
+  WorldState,
 } from "./types";
 import { canBuildOn, chebyshev, inBounds, plotAtTile } from "./world";
 
@@ -38,191 +60,42 @@ import { canBuildOn, chebyshev, inBounds, plotAtTile } from "./world";
 
 // ---------- the catalog ----------
 
-/**
- * What grows in a planter. Each has a seed kind (`lemon_seed`) and a produce kind (`lemon`).
- * Pumpkins are autumn's crop (RFC 0017): the shop sells their seeds only in autumn.
+/*
+ * Every kind, crop, and recipe comes from the catalog (`catalog.ts`, RFC 0018), under the names
+ * the rest of the sim and the protocol have always used. Add a kind there, not here.
  */
-export const CROPS = ["lemon", "strawberry", "tomato", "herb", "flower", "pumpkin"] as const;
-export type Crop = (typeof CROPS)[number];
-
-export const SEED_KINDS = [
-  "lemon_seed",
-  "strawberry_seed",
-  "tomato_seed",
-  "herb_seed",
-  "flower_seed",
-  "pumpkin_seed",
-] as const;
-export type SeedKind = (typeof SEED_KINDS)[number];
-
-/**
- * The seeds a first pantry brings, `ITEMS.starterSeeds` of each. Frozen: every first pantry in the
- * log gave exactly these, so a new crop's seed never joins them (RFC 0017). The items log's pinned
- * hash fails if it changes.
- */
-export const STARTER_SEEDS = [
-  "lemon_seed",
-  "strawberry_seed",
-  "tomato_seed",
-  "herb_seed",
-  "flower_seed",
-] as const satisfies readonly SeedKind[];
-
-/** The kitchen's basics, from the daily pantry. */
-export const STAPLE_KINDS = ["sugar", "jar"] as const;
-export type StapleKind = (typeof STAPLE_KINDS)[number];
-
-/** Fallen branches and loose stones, picked up with `gather`. */
-export const RESOURCE_KINDS = ["wood", "stone"] as const;
-export type ResourceKind = (typeof RESOURCE_KINDS)[number];
-
-/** Decor from the town shop, held until you place it (RFC 0008). Same names as the blocks. */
-export const DECOR_KINDS = DECOR_BLOCKS;
-export type DecorKind = DecorBlock;
-
-/** Things that stack: you hold a count of each, not separate items. New kinds go on the end. */
-export const STACK_KINDS = [
-  ...SEED_KINDS,
-  ...CROPS,
-  ...STAPLE_KINDS,
-  ...RESOURCE_KINDS,
-  ...DECOR_KINDS,
-  ...FURNITURE_KINDS,
-] as const;
-export type StackKind = (typeof STACK_KINDS)[number];
-
-/**
- * Made things. Each one is its own item with an id, its maker, and the day it was made. The town's
- * daily rotation cycles through its own frozen list (`ROTATION_GOODS` in `shop.ts`), so a new
- * recipe here never changes what the town bought on a past day.
- */
-export const GOOD_KINDS = [
-  "lemon_jam",
-  "strawberry_jam",
-  "lemonade",
-  "tomato_sauce",
-  "herb_tea",
-  "bouquet",
-  "herb_sachet",
-  "flower_wreath",
-  "pumpkin_pie",
-  "pumpkin_soup",
-] as const;
-export type GoodKind = (typeof GOOD_KINDS)[number];
-
-/**
- * A piece of art (RFC 0005 step 3): made with `make_piece` from your own upload, not from a recipe,
- * so it has no recipe and the town never buys one.
- */
-export const PIECE_KINDS = ["piece"] as const;
-export type PieceKind = (typeof PIECE_KINDS)[number];
-
-/** Everything that's its own item with an id and a maker: made goods and pieces. */
-export const MADE_KINDS = [...GOOD_KINDS, ...PIECE_KINDS] as const;
-export type MadeKind = (typeof MADE_KINDS)[number];
-
-export const ITEM_KINDS = [...STACK_KINDS, ...MADE_KINDS] as const;
-export type ItemKind = (typeof ITEM_KINDS)[number];
-
-export type ItemCategory =
-  | "seed"
-  | "produce"
-  | "staple"
-  | "resource"
-  | "good"
-  | "decor"
-  | "furniture";
-
-export interface ItemInfo {
-  /** One of it, in plain words. */
-  name: string;
-  /** More than one. */
-  plural: string;
-  category: ItemCategory;
-}
-
-export const ITEM_INFO: Record<ItemKind, ItemInfo> = {
-  lemon_seed: { name: "Lemon seed", plural: "Lemon seeds", category: "seed" },
-  strawberry_seed: { name: "Strawberry seed", plural: "Strawberry seeds", category: "seed" },
-  tomato_seed: { name: "Tomato seed", plural: "Tomato seeds", category: "seed" },
-  herb_seed: { name: "Herb seed", plural: "Herb seeds", category: "seed" },
-  flower_seed: { name: "Flower seed", plural: "Flower seeds", category: "seed" },
-  lemon: { name: "Lemon", plural: "Lemons", category: "produce" },
-  strawberry: { name: "Strawberry", plural: "Strawberries", category: "produce" },
-  tomato: { name: "Tomato", plural: "Tomatoes", category: "produce" },
-  herb: { name: "Bunch of herbs", plural: "Bunches of herbs", category: "produce" },
-  flower: { name: "Flower", plural: "Flowers", category: "produce" },
-  sugar: { name: "Bag of sugar", plural: "Bags of sugar", category: "staple" },
-  jar: { name: "Jar", plural: "Jars", category: "staple" },
-  wood: { name: "Wood", plural: "Wood", category: "resource" },
-  stone: { name: "Stone", plural: "Stone", category: "resource" },
-  lantern: { name: "Paper lantern", plural: "Paper lanterns", category: "decor" },
-  frame: { name: "Picture frame", plural: "Picture frames", category: "decor" },
-  fence: { name: "Fence post", plural: "Fence posts", category: "decor" },
-  bench: { name: "Garden bench", plural: "Garden benches", category: "decor" },
-  lemon_jam: { name: "Lemon jam", plural: "Jars of lemon jam", category: "good" },
-  strawberry_jam: { name: "Strawberry jam", plural: "Jars of strawberry jam", category: "good" },
-  lemonade: { name: "Lemonade", plural: "Jars of lemonade", category: "good" },
-  tomato_sauce: { name: "Tomato sauce", plural: "Jars of tomato sauce", category: "good" },
-  herb_tea: { name: "Herb tea", plural: "Jars of herb tea", category: "good" },
-  bouquet: { name: "Bouquet", plural: "Bouquets", category: "good" },
-  herb_sachet: { name: "Herb sachet", plural: "Herb sachets", category: "good" },
-  flower_wreath: { name: "Flower wreath", plural: "Flower wreaths", category: "good" },
-  piece: { name: "Piece of art", plural: "Pieces of art", category: "good" },
-  // Autumn (RFC 0017): its crop, what the kitchen makes from it, and the shop's autumn decor.
-  pumpkin_seed: { name: "Pumpkin seed", plural: "Pumpkin seeds", category: "seed" },
-  pumpkin: { name: "Pumpkin", plural: "Pumpkins", category: "produce" },
-  pumpkin_pie: { name: "Pumpkin pie", plural: "Pumpkin pies", category: "good" },
-  pumpkin_soup: { name: "Pumpkin soup", plural: "Jars of pumpkin soup", category: "good" },
-  hay_bale: { name: "Hay bale", plural: "Hay bales", category: "decor" },
-  scarecrow: { name: "Scarecrow", plural: "Scarecrows", category: "decor" },
-  ...FURNITURE_INFO,
-};
-
-export interface CropInfo {
-  seed: SeedKind;
-  /** Days from planting to ready. Planted on day D, it's ready when day D + days starts. */
-  days: number;
-  /** Produce a harvest gives. */
-  yield: number;
-  /** Seeds a harvest gives back, so a garden keeps going. */
-  seeds: number;
-}
-
-export const CROP_INFO: Record<Crop, CropInfo> = {
-  lemon: { seed: "lemon_seed", days: 4, yield: 3, seeds: 1 },
-  strawberry: { seed: "strawberry_seed", days: 3, yield: 4, seeds: 1 },
-  tomato: { seed: "tomato_seed", days: 3, yield: 3, seeds: 1 },
-  herb: { seed: "herb_seed", days: 2, yield: 3, seeds: 1 },
-  flower: { seed: "flower_seed", days: 2, yield: 3, seeds: 1 },
-  // Big and slow: fewer to a harvest, and worth more each (decision 0079).
-  pumpkin: { seed: "pumpkin_seed", days: 5, yield: 2, seeds: 1 },
-};
-
-/** Block kinds you craft at. `craft` names the station's tile. */
-export const STATIONS = ["kitchen", "workbench"] as const;
-export type Station = (typeof STATIONS)[number];
-
-export interface Recipe {
-  station: Station;
-  /** What it uses up. */
-  needs: Partial<Record<StackKind, number>>;
-}
-
-/** One recipe per made thing, named after what it makes. */
-export const RECIPES: Record<GoodKind, Recipe> = {
-  lemon_jam: { station: "kitchen", needs: { lemon: 3, sugar: 1, jar: 1 } },
-  strawberry_jam: { station: "kitchen", needs: { strawberry: 3, sugar: 1, jar: 1 } },
-  lemonade: { station: "kitchen", needs: { lemon: 2, sugar: 1, jar: 1 } },
-  tomato_sauce: { station: "kitchen", needs: { tomato: 3, herb: 1, jar: 1 } },
-  herb_tea: { station: "kitchen", needs: { herb: 2, jar: 1 } },
-  bouquet: { station: "workbench", needs: { flower: 3 } },
-  herb_sachet: { station: "workbench", needs: { herb: 2, flower: 1 } },
-  flower_wreath: { station: "workbench", needs: { flower: 4, herb: 2 } },
-  // Autumn's kitchen (RFC 0017). Recipes work in any season, like seeds you hold.
-  pumpkin_pie: { station: "kitchen", needs: { pumpkin: 2, sugar: 1 } },
-  pumpkin_soup: { station: "kitchen", needs: { pumpkin: 1, herb: 1, jar: 1 } },
-};
+export {
+  CROP_INFO,
+  CROPS,
+  type Crop,
+  type CropInfo,
+  DECOR_KINDS,
+  type DecorKind,
+  GOOD_KINDS,
+  type GoodKind,
+  ITEM_INFO,
+  ITEM_KINDS,
+  type ItemCategory,
+  type ItemInfo,
+  type ItemKind,
+  MADE_KINDS,
+  type MadeKind,
+  PIECE_KINDS,
+  type PieceKind,
+  RECIPES,
+  RESOURCE_KINDS,
+  type Recipe,
+  type ResourceKind,
+  SEED_KINDS,
+  type SeedKind,
+  STACK_KINDS,
+  STAPLE_KINDS,
+  STARTER_SEEDS,
+  STATIONS,
+  type StackKind,
+  type StapleKind,
+  type Station,
+} from "./catalog";
 
 /**
  * The numbers. Every count is a whole number of items. Decision 0051 has the reasoning.
@@ -231,14 +104,14 @@ export const ITEMS = {
   /** The most things one resident can hold: every unit of a stack counts, and every made thing. */
   inventoryMax: 200,
   /** What the pantry gives each UTC day, the first time you're at your hearth. */
-  pantry: { sugar: 2, jar: 2 } as Readonly<Record<StapleKind, number>>,
+  pantry: { sugar: 2, jar: 2 } as Readonly<Record<PantryStaple, number>>,
   /** The pantry stops topping up a staple once you hold this many. */
   stapleMax: 10,
   /**
    * The pantry once the town shop is open (`open_shop`), which sells sugar and jars: decision
    * 0052. Before it opens, `pantry` and `stapleMax` above, so older logs replay as they did.
    */
-  shopPantry: { sugar: 1, jar: 1 } as Readonly<Record<StapleKind, number>>,
+  shopPantry: { sugar: 1, jar: 1 } as Readonly<Record<PantryStaple, number>>,
   shopStapleMax: 6,
   /** With your very first pantry: this many of each of `STARTER_SEEDS`. */
   starterSeeds: 2,
@@ -637,6 +510,15 @@ export function checkCraft(
   const { recipe, x, y, label } = command;
   const furniture = isFurnitureKind(recipe);
   if (!furniture && !isGoodKind(recipe)) {
+    // A family recipe asked of a kind outside its family: say which kinds it takes.
+    const family = typeof recipe === "string" ? familyRecipeOf(recipe) : undefined;
+    if (family) {
+      const made = kindsIn(family.from).map((kind) => `${kind}_${family.suffix}`);
+      return refuse(
+        "unknown_item",
+        `${family.label} is made from one kind of ${FAMILIES[family.from].name.toLowerCase()} at a time. Try one of: ${made.join(", ")}.`,
+      );
+    }
     return refuse(
       "unknown_item",
       `There's no recipe for that. Try one of: ${GOOD_KINDS.join(", ")}, or furniture: ${FURNITURE_KINDS.join(", ")}.`,
@@ -881,7 +763,7 @@ export function checkDeclineGift(
 
 /** The pantry's numbers: smaller once the town shop is open, since it sells sugar and jars. */
 export function pantryNumbers(state: WorldState): {
-  pantry: Readonly<Record<StapleKind, number>>;
+  pantry: Readonly<Record<PantryStaple, number>>;
   stapleMax: number;
 } {
   return state.shop
@@ -891,7 +773,7 @@ export function pantryNumbers(state: WorldState): {
 
 /**
  * What today's pantry would add for `id`, in order: the starter seeds the first time ever, then
- * sugar and jars, never past `stapleMax` of each or `inventoryMax` in all. Empty when nothing is
+ * sugar and jars (`PANTRY_STAPLES`), never past `stapleMax` of each or `inventoryMax` in all. Empty when nothing is
  * due: items closed, no days yet, no hearth, townsfolk (like the allowance), had today, or full.
  */
 function pantryAdds(state: WorldState, id: ResidentId): [StackKind, number][] {
@@ -912,7 +794,7 @@ function pantryAdds(state: WorldState, id: ResidentId): [StackKind, number][] {
     for (const seed of STARTER_SEEDS) add(seed, ITEMS.starterSeeds);
   }
   const { pantry, stapleMax } = pantryNumbers(state);
-  for (const staple of STAPLE_KINDS) {
+  for (const staple of PANTRY_STAPLES) {
     add(staple, Math.min(pantry[staple], Math.max(0, stapleMax - held(inv, staple))));
   }
   return adds;

@@ -8,9 +8,9 @@
  * joins the end of its lists. Lists a rule walks, whose contents and order decide how old logs
  * replay, are frozen by name at the bottom instead.
  *
- * Nothing reads the catalog yet. `catalog.test.ts` checks that its views give exactly the lists and
- * tables in `items.ts` and `shop.ts`, so the sim can switch to them without changing how any log
- * replays.
+ * The sim reads its lists and tables from here: `items.ts`, `furniture.ts`, `shop.ts`, and `types.ts`
+ * export them under the names they always had. `catalog.test.ts` pins every list and recipe as it
+ * shipped, so a new entry can only add to them.
  */
 import type { Season } from "./season";
 
@@ -42,6 +42,7 @@ export const FAMILIES = {
   pantry: { name: "Pantry" },
   material: { name: "Materials" },
   decor: { name: "Decor" },
+  furniture: { name: "Furniture", parent: "decor" },
   art: { name: "Art" },
 } as const satisfies Readonly<Record<string, FamilyInfo>>;
 export type Family = keyof typeof FAMILIES;
@@ -79,8 +80,11 @@ export type Role =
 export const STATIONS = ["kitchen", "workbench"] as const;
 export type Station = (typeof STATIONS)[number];
 
-/** How a made thing is made: at a station, using up what it needs, in this order. */
-export interface Recipe {
+/**
+ * How a made thing is made, as its entry writes it: at a station, using up what it needs, in this
+ * order. The views give it as a `Recipe`, its needs keyed by kind.
+ */
+export interface KindRecipe {
   station: Station;
   /** Each kind it uses up and how many. Only things that stack. */
   needs: Readonly<Record<string, number>>;
@@ -99,9 +103,9 @@ export interface CropNumbers {
  * A crop drawn from the produce template: its outline (an oval with pointed ends like a lemon, a
  * berry, round, or three ribbed lobes like a pumpkin), what grows on top (a leaf, a leafy cap, a
  * star of sepals with a stem, or a stubby stem with a curl of vine and a leaf), its skin, and the
- * color of its speckles, seeds, or ribs. A crop with a vine on top grows along the soil in a
- * planter. A fruit also gives the colors of its jam: what fills the jar the jam family recipe makes,
- * and the cloth tied over it.
+ * color of its speckles, seeds, or ribs. A crop with a vine on
+ * top grows along the soil in a planter. A fruit also gives the colors of its jam: what fills the
+ * jar the jam family recipe makes, and the cloth tied over it.
  */
 export interface ProduceLook {
   template: "produce";
@@ -151,8 +155,8 @@ export interface KindEntry {
   crop?: CropNumbers;
   /** Sold at the town shop for `price` coins: all year, or every day of `seasons` only. */
   shop?: { price: number; seasons?: readonly Season[] };
-  /** A made good: how it's made. */
-  recipe?: Recipe;
+  /** A made good or a piece of furniture: how it's made. */
+  recipe?: KindRecipe;
   look: KindLook;
 }
 
@@ -461,7 +465,7 @@ const WRITTEN = {
   table: entry({
     name: "Table",
     plural: "Tables",
-    family: "decor",
+    family: "furniture",
     role: "furniture",
     recipe: { station: "workbench", needs: { wood: 3 } },
     look: { template: "drawn" },
@@ -469,7 +473,7 @@ const WRITTEN = {
   chair: entry({
     name: "Chair",
     plural: "Chairs",
-    family: "decor",
+    family: "furniture",
     role: "furniture",
     recipe: { station: "workbench", needs: { wood: 2 } },
     look: { template: "drawn" },
@@ -477,7 +481,7 @@ const WRITTEN = {
   bookshelf: entry({
     name: "Bookshelf",
     plural: "Bookshelves",
-    family: "decor",
+    family: "furniture",
     role: "furniture",
     recipe: { station: "workbench", needs: { wood: 4 } },
     look: { template: "drawn" },
@@ -485,7 +489,7 @@ const WRITTEN = {
   barrel: entry({
     name: "Barrel",
     plural: "Barrels",
-    family: "decor",
+    family: "furniture",
     role: "furniture",
     recipe: { station: "workbench", needs: { wood: 3 } },
     look: { template: "drawn" },
@@ -493,7 +497,7 @@ const WRITTEN = {
   signpost: entry({
     name: "Signpost",
     plural: "Signposts",
-    family: "decor",
+    family: "furniture",
     role: "furniture",
     recipe: { station: "workbench", needs: { wood: 2 } },
     look: { template: "drawn" },
@@ -501,7 +505,7 @@ const WRITTEN = {
   lamp_post: entry({
     name: "Lamp post",
     plural: "Lamp posts",
-    family: "decor",
+    family: "furniture",
     role: "furniture",
     recipe: { station: "workbench", needs: { wood: 1, stone: 2 } },
     look: { template: "drawn" },
@@ -509,7 +513,7 @@ const WRITTEN = {
   well: entry({
     name: "Well",
     plural: "Wells",
-    family: "decor",
+    family: "furniture",
     role: "furniture",
     recipe: { station: "workbench", needs: { wood: 2, stone: 6 } },
     look: { template: "drawn" },
@@ -517,7 +521,7 @@ const WRITTEN = {
   stone_wall: entry({
     name: "Low stone wall",
     plural: "Low stone walls",
-    family: "decor",
+    family: "furniture",
     role: "furniture",
     recipe: { station: "workbench", needs: { stone: 1 } },
     look: { template: "drawn" },
@@ -525,7 +529,7 @@ const WRITTEN = {
   campfire: entry({
     name: "Campfire",
     plural: "Campfires",
-    family: "decor",
+    family: "furniture",
     role: "furniture",
     recipe: { station: "workbench", needs: { wood: 2, stone: 3 } },
     look: { template: "drawn" },
@@ -533,7 +537,7 @@ const WRITTEN = {
   flower_box: entry({
     name: "Flower box",
     plural: "Flower boxes",
-    family: "decor",
+    family: "furniture",
     role: "furniture",
     recipe: { station: "workbench", needs: { wood: 1, flower: 3 } },
     look: { template: "drawn" },
@@ -548,6 +552,8 @@ const WRITTEN = {
  * ordinary kind with an ordinary recipe everywhere: `craft` names `lemon_jam` like any recipe.
  */
 export interface FamilyRecipe {
+  /** What it's called on its own: "Jam". */
+  label: string;
   /** What it makes from a kind is `<kind>_<suffix>`: `lemon_jam`. */
   suffix: string;
   /** The family the one kind comes from. */
@@ -567,6 +573,7 @@ export interface FamilyRecipe {
 
 /** Jam: three of one fruit, a bag of sugar, and a jar, at a kitchen. A lemon makes lemon jam. */
 export const JAM = {
+  label: "Jam",
   suffix: "jam",
   from: "fruit",
   count: 3,
@@ -585,6 +592,13 @@ export const JAM = {
 
 /** Every family recipe. A new one is a decision of its own: it adds a kind for every member. */
 export const FAMILY_RECIPES = [JAM] as const satisfies readonly FamilyRecipe[];
+
+/**
+ * The family recipe a name asks for: `tomato_jam` asks for jam, whether or not a tomato is a fruit.
+ * Undefined when no family recipe makes things named like it.
+ */
+export const familyRecipeOf = (name: string): FamilyRecipe | undefined =>
+  FAMILY_RECIPES.find((r) => name.length > r.suffix.length + 1 && name.endsWith(`_${r.suffix}`));
 
 // ---------- the catalog ----------
 
@@ -652,6 +666,10 @@ export const CATALOG = build();
 const KINDS = Object.keys(CATALOG) as ItemKind[];
 const withRole = (role: Role) => KINDS.filter((kind) => CATALOG[kind].role === role);
 
+/** The kinds in a family itself, not in the families under it, in catalog order. */
+export const kindsIn = (family: Family): ItemKind[] =>
+  KINDS.filter((kind) => CATALOG[kind].family === family);
+
 export const SEED_KINDS = withRole("seed") as readonly SeedKind[];
 export const PRODUCE_KINDS = withRole("produce") as readonly ProduceKind[];
 /** What grows in a planter. Each has a seed kind that grows it. */
@@ -718,6 +736,12 @@ export const CROP_INFO = Object.fromEntries(
   }),
 ) as Readonly<Record<Crop, CropInfo>>;
 
+/** How a made thing is made: at a station, using up what it needs, in this order. */
+export interface Recipe {
+  station: Station;
+  needs: Readonly<Partial<Record<StackKind, number>>>;
+}
+
 /** One recipe per made good, named after what it makes. */
 export const RECIPES = Object.fromEntries(
   GOOD_KINDS.map((kind) => [kind, CATALOG[kind].recipe]),
@@ -760,6 +784,7 @@ export const STARTER_SEEDS = [
 
 /** What the daily pantry tops up, in this order. */
 export const PANTRY_STAPLES = ["sugar", "jar"] as const satisfies readonly StapleKind[];
+export type PantryStaple = (typeof PANTRY_STAPLES)[number];
 
 /** The made things the town's daily rotation (`townBuys`) cycles through, in this order. */
 export const ROTATION_GOODS = [

@@ -13,6 +13,7 @@ import { hashWorld } from "./hash";
 import {
   CROPS,
   GOOD_KINDS,
+  type GoodKind,
   ITEMS,
   inventorySize,
   isCrop,
@@ -22,7 +23,7 @@ import {
 } from "./items";
 import { SHOP_WEAR } from "./looks";
 import { replay } from "./replay";
-import { seasonOf } from "./season";
+import { SEASONS, seasonOf } from "./season";
 import {
   BUY_ORDERS,
   ROTATION_CROPS,
@@ -208,9 +209,11 @@ describe("the catalog", () => {
     });
   });
 
-  it("buys every made thing and every crop, a few kinds a day", () => {
+  it("buys only its rotation and each season's buys, a few kinds a day", () => {
+    // A kind joins what the town buys by a decision of its own, never by joining the catalog.
     const orders = Object.keys(BUY_ORDERS).sort();
-    expect(orders).toEqual([...GOOD_KINDS, ...CROPS].sort());
+    const seasonal = SEASONS.flatMap((s) => SEASON_BUYS[s]);
+    expect(orders).toEqual([...ROTATION_GOODS, ...ROTATION_CROPS, ...seasonal].sort());
     const turn = SHOP.goodsPerDay + SHOP.producePerDay;
     for (let d = DAY; d < DAY + 400; d++) {
       const today = townBuys(d);
@@ -241,10 +244,12 @@ describe("the catalog", () => {
 
   it("never pays more for a made thing than its staples cost at the shop and its produce fetches", () => {
     // So buying sugar and jars to sell to the town never beats selling the produce as it is.
-    for (const kind of GOOD_KINDS) {
+    for (const kind of GOOD_KINDS.filter((k): k is GoodKind & SellKind => k in BUY_ORDERS)) {
       let cost = 0;
       for (const [need, n] of Object.entries(RECIPES[kind].needs) as [StackKind, number][]) {
-        cost += n * (isCrop(need) ? BUY_ORDERS[need].price : SHOP_CATALOG[need as ShopSku].price);
+        cost +=
+          n *
+          (isCrop(need) ? BUY_ORDERS[need as SellKind].price : SHOP_CATALOG[need as ShopSku].price);
       }
       expect(BUY_ORDERS[kind].price, kind).toBeLessThanOrEqual(cost);
     }
@@ -503,7 +508,7 @@ describe("sell_to_town", () => {
         reason: "sold",
       },
     ]);
-    const notToday = CROPS.find((c) => !townBuys(day).includes(c)) ?? "lemon";
+    const notToday = CROPS.find((c) => !(townBuys(day) as string[]).includes(c)) ?? "lemon";
     stock(w.state, "ada", { [notToday]: 1 });
     expect(w.code("ada", { type: "sell_to_town", item: notToday })).toBe("not_buying");
     expect(w.code("ada", { type: "sell_to_town", item: "fence" })).toBe("not_buying");

@@ -526,13 +526,19 @@ export function plotsCard(o: { me: string | null; navigate: (path: string) => vo
       // Repaint only when what's shown changed, so a poll doesn't redraw the same drawings.
       const key = JSON.stringify([
         world?.seq ?? null,
-        picks.map((p) => [p.px, p.py, p.owner.name, ...p.coOwners.map((c) => c.name)]),
+        picks.map((p) => [
+          p.px,
+          p.py,
+          p.name ?? null,
+          p.owner.name,
+          ...p.coOwners.map((c) => c.name),
+        ]),
       ]);
       if (key === painted) return;
       painted = key;
       list.replaceChildren(
         ...picks.map((p) => {
-          const name = plotName([p.owner.name, ...p.coOwners.map((c) => c.name)]);
+          const name = plotName(p);
           return h(
             "li",
             { class: "plots-strip-item", attrs: { "data-plot": `${p.px},${p.py}` } },

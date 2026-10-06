@@ -872,6 +872,9 @@ export class SafetyService {
         String(post.text ?? ""),
       );
     }
+    // Decision 0065: pieces made from the post's files stop pointing at them once they're purged.
+    // Capture the ids before the purge deletes the rows.
+    const files = this.o.postMedia(postId).map((m) => m.id);
     const kept = await this.o.dropPostMedia(postId);
     this.close("post", postId, "actioned", by);
     const entry = this.act(by, "hide_post", "post", postId, reason, undefined, cited);
@@ -882,6 +885,7 @@ export class SafetyService {
         `The post is hidden, but ${kept === 1 ? "1 of its files" : `${kept} of its files`} couldn't be deleted from storage yet. Hide it again to retry.`,
       );
     }
+    for (const mediaId of files) this.clearPiecePictures(by, mediaId, reason);
     return ok(entry);
   }
 

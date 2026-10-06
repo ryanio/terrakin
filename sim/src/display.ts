@@ -91,8 +91,7 @@ export function goodById(
 
 /** One piece made from an upload, wherever it is: its id, or undefined when none shows it. */
 export function pieceShowingMedia(state: WorldState, mediaId: string): string | undefined {
-  return everyGood(state).find((g) => g.good.kind === "piece" && g.good.media === mediaId)?.good
-    .id;
+  return everyGood(state).find((g) => g.good.kind === "piece" && g.good.media === mediaId)?.good.id;
 }
 
 const fitsOne = (items: ItemsState, id: ResidentId) =>

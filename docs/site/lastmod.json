@@ -4,11 +4,11 @@
     "lastmod": "2026-10-06"
   },
   "/world": {
-    "sha256": "7241f7c54f2fd1a16e9d1267e44baac9e92d6cc70fcbc1119c4f1d030ef88fbf",
+    "sha256": "5ce7e4a54072704948b3c13857ce3d4ddf035012f6b706712dfe60d035ba0d46",
     "lastmod": "2026-10-06"
   },
   "/docs": {
-    "sha256": "7d69f6494e7aa3646cc7c6b92a1cba35529a98df6502159e2883085fa6218cfb",
+    "sha256": "d253925ab5641dd4135b4d17a6b2f2348f6cb444f91b67bc711f7c174de8086d",
     "lastmod": "2026-10-06"
   },
   "/about": {
@@ -28,7 +28,7 @@
     "lastmod": "2026-10-04"
   },
   "/changelog": {
-    "sha256": "f5a445c58611bd4d4aa73745e2033a24848ec7aea93e76e3dece83f4f88eaee4",
+    "sha256": "aa52e8773cc20c2e62986966cae330d62a0412a17b9438bc0afaae67df551214",
     "lastmod": "2026-10-06"
   },
   "/pricing.md": {

@@ -1,6 +1,7 @@
 import {
   facingFrom,
   type ResidentView,
+  ROUTINE_LIMITS,
   type WorldEvent,
   type WorldSnapshot,
 } from "@terrakin/protocol";
@@ -18,6 +19,7 @@ import {
   plotKey,
   type Resident,
   type ResourceKind,
+  type StepRoutine,
   shopTiles,
   tileKey,
   type WorldConfig,
@@ -31,7 +33,7 @@ export type DisplayView = Omit<NonNullable<WorldSnapshot["displays"]>[number], "
 
 /** A resident from the wire, with unset look fields left out rather than undefined. */
 export function residentFrom(view: ResidentView): Resident {
-  // `facing` is for drawing; the mirror keeps it in `facing`, outside the resident.
+  // `facing` and `routine` are for drawing; the mirror keeps them outside the resident.
   const {
     theme,
     pattern,
@@ -43,6 +45,7 @@ export function residentFrom(view: ResidentView): Resident {
     hair,
     hairColor,
     facing,
+    routine,
     ...rest
   } = view;
   const look = {
@@ -57,6 +60,15 @@ export function residentFrom(view: ResidentView): Resident {
     hairColor,
   };
   return { ...rest, ...lookOf(look) };
+}
+
+/** How long an away resident is out after a routine's step reaches us, before they sleep again. */
+export const OUT_MS = ROUTINE_LIMITS.awakeMinutes * 60_000;
+
+/** An away resident out on a routine (RFC 0009): which one, and when its last step reached us. */
+export interface OutOnRoutine {
+  r: Resident;
+  routine: StepRoutine;
 }
 
 /**
@@ -97,14 +109,23 @@ export class Mirror {
   facing = new Map<string, Direction>();
   /** Who is asleep at home and where, worked out again after any event (`asleep`). */
   #dozing: { me: string | undefined; list: readonly Dozer<Resident>[] } | undefined;
+  /**
+   * Away residents out on a routine (decision 0083): the routine, and when its last step reached
+   * this copy, on `clock`. They're drawn where they are, awake, until `OUT_MS` after it.
+   */
+  #out = new Map<string, { routine: StepRoutine; at: number }>();
+  readonly #clock: () => number;
 
-  constructor(snapshot: WorldSnapshot) {
+  /** `clock` times routine steps for drawing; the default is the page's own. */
+  constructor(snapshot: WorldSnapshot, clock: () => number = () => performance.now()) {
+    this.#clock = clock;
     this.config = snapshot.config;
     this.commons = snapshot.commons;
     this.seq = snapshot.seq;
     for (const r of snapshot.residents) {
       this.residents.set(r.id, residentFrom(r));
       if (r.facing) this.facing.set(r.id, r.facing);
+      if (!r.online && r.routine) this.#out.set(r.id, { routine: r.routine, at: clock() });
     }
     for (const p of snapshot.plots) {
       this.plots.set(plotKey(p.px, p.py), p.ownerId);
@@ -165,6 +186,7 @@ export class Mirror {
     switch (event.type) {
       case "joined":
         this.residents.set(event.resident.id, residentFrom(event.resident));
+        this.#out.delete(event.resident.id);
         break;
       case "left": {
         const r = this.residents.get(event.residentId);
@@ -186,6 +208,7 @@ export class Mirror {
         const dir = facingFrom(event.x - r.x, event.y - r.y);
         if (dir) this.facing.set(r.id, dir);
         Object.assign(r, { x: event.x, y: event.y });
+        if (event.routine) this.#out.set(r.id, { routine: event.routine, at: this.#clock() });
         break;
       }
       case "plot_claimed":
@@ -308,11 +331,38 @@ export class Mirror {
     return undefined;
   }
 
+  /** Forget routine walks that ended, so those residents sleep at home again. */
+  #settle() {
+    const now = this.#clock();
+    for (const [id, out] of this.#out) {
+      if (now - out.at < OUT_MS && this.residents.get(id)?.online === false) continue;
+      this.#out.delete(id);
+      this.#dozing = undefined;
+    }
+  }
+
+  /**
+   * Away residents out on a routine right now (RFC 0009, decision 0083), leaving out `me`: drawn
+   * where the server has them, awake and faded, until `OUT_MS` after the routine's last step, and
+   * never counted as here.
+   */
+  outOnRoutine(me?: string): OutOnRoutine[] {
+    this.#settle();
+    const list: OutOnRoutine[] = [];
+    for (const [id, out] of this.#out) {
+      const r = this.residents.get(id);
+      if (r && id !== me) list.push({ r, routine: out.routine });
+    }
+    return list;
+  }
+
   /**
    * Residents away from the world, drawn asleep at their hearths, and where (`dozers` in
-   * `scene3d/layout.ts`), leaving out `me`. Drawing only: they're never "here" (decision 0086).
+   * `scene3d/layout.ts`), leaving out `me` and anyone out on a routine. Drawing only: they're
+   * never "here" (decision 0086).
    */
   asleep(me?: string): readonly Dozer<Resident>[] {
+    this.#settle();
     const seen = this.#dozing;
     if (seen && seen.me === me) return seen.list;
     const hearths = new Set<string>();
@@ -326,7 +376,8 @@ export class Mirror {
       y < height &&
       !this.blocks.has(tileKey(x, y)) &&
       !hearths.has(tileKey(x, y));
-    const list = dozers(this.residents.values(), free, me);
+    const home = [...this.residents.values()].filter((r) => !this.#out.has(r.id));
+    const list = dozers(home, free, me);
     this.#dozing = { me, list };
     return list;
   }

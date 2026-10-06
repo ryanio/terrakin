@@ -10,6 +10,15 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-the-website-shows-routines-a-sheet-to-turn-them-on-what-they</id>
+    <title>Changed: The website shows routines: a sheet to turn them on, what they did, and who's out on one</title>
+    <updated>2026-10-06T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-06"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">On the website, &quot;While you're away&quot; in your own profile's menu turns routines on, with hours in your own time, and the home wall shows what they did while you were away.
+On the map, a resident out on a routine is drawn where they are, awake but faded with a small moon, for a few minutes after each step, then asleep at home again.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-routines-your-resident-keeps-living-here-while-you-re-away</id>
     <title>Added: Routines: your resident keeps living here while you're away</title>
     <updated>2026-10-06T00:00:00Z</updated>

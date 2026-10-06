@@ -354,8 +354,11 @@ const NO_FACE: FigureFace = {};
 export const blinks = (feeling: Feeling | undefined): boolean =>
   feeling !== "happy" && feeling !== "laugh" && feeling !== "love" && feeling !== "sleepy";
 
-/** The small sign that floats over a figure showing some feelings. */
-export type FeelingIcon = "heart" | "z" | "dots" | "spark";
+/**
+ * The small sign that floats over a figure showing some feelings, or, for `moon`, someone away and
+ * out on a routine (RFC 0009).
+ */
+export type FeelingIcon = "heart" | "z" | "dots" | "spark" | "moon";
 
 export const FEELING_ICON: Partial<Record<Feeling, FeelingIcon>> = {
   love: "heart",
@@ -737,9 +740,9 @@ export function signPx(scale: number): number {
 
 /**
  * The sign that floats over a figure, centered on (0, 0) of the current transform and filling a
- * square `size` pixels across: a heart, a "z", three thinking dots, or a sparkle on a soft paper
- * disc, so it reads on grass, sand, stone, or at night. Drawn the same on the map and, as a
- * texture, over the 3D figure.
+ * square `size` pixels across: a heart, a "z", three thinking dots, a sparkle, or a crescent moon
+ * on a soft paper disc, so it reads on grass, sand, stone, or at night. Drawn the same on the map
+ * and, as a texture, over the 3D figure.
  */
 export function drawFeelingIcon(ctx: CanvasRenderingContext2D, icon: FeelingIcon, size: number) {
   // The backing: a paper disc on a soft shadow, kept inside the square.
@@ -797,6 +800,21 @@ export function drawFeelingIcon(ctx: CanvasRenderingContext2D, icon: FeelingIcon
       }
       ctx.fill();
       return;
+    case "moon": {
+      // A crescent: a gold disc with a clay rim, and a paper one laid over its upper right.
+      const r = s * 0.42;
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
+      ctx.fillStyle = GOLD;
+      ctx.fill();
+      ctx.strokeStyle = BRAND_HEX.clay;
+      ctx.lineWidth = s * 0.06;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(r * 0.48, -r * 0.34, r * 0.84, 0, Math.PI * 2);
+      ctx.fillStyle = PAPER;
+      ctx.fill();
+      return;
+    }
   }
 }
 

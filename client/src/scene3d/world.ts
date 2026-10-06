@@ -158,6 +158,8 @@ interface Fig {
   doze: Shown | undefined;
   /** Away and asleep at home here (decision 0086): they stay put, and a tap on them is this tile. */
   away?: { x: number; y: number };
+  /** Away and out on a routine (decision 0083): faded, walking its steps, and awake. */
+  out?: true;
   /** What they're saying, in the scene so a hop or squash doesn't bend it; its canvas size. */
   bubble?: { text: string; sprite: Sprite; w: number; h: number };
 }
@@ -241,6 +243,8 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
   let ground: { mesh: Mesh; signature: string } | undefined;
   let mirrorSeen: Mirror | undefined;
   let seqSeen = -1;
+  /** Who was out on a routine at the last frame, so the cast changes when one goes back to sleep. */
+  let outSeen = "";
   let lastTile: Tile | undefined;
   let pending = false;
   /** A pass over changed plots stopped at the per-frame cap: the next frame finishes it. */
@@ -554,18 +558,24 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
   /** Who is drawn, and in what look. Runs when the mirror changes. */
   function updateCast(mirror: Mirror, me: string, tile: Tile) {
     const shown = figuresAround(mirror.residents.values(), tile, me);
-    // Anyone away sleeps at home in the places the online leave free (decision 0086).
-    const asleep = dozersAround(mirror.asleep(me), tile, MAX_FIGURES - shown.length);
+    // Anyone away out on a routine walks where they are, then anyone asleep at home lies there,
+    // in the places the online leave free (decisions 0083 and 0086).
+    const room = MAX_FIGURES - shown.length;
+    const outs = mirror.outOnRoutine(me).map((o) => ({ r: o.r, x: o.r.x, y: o.r.y }));
+    const out = dozersAround(outs, tile, room).map((d) => d.r);
+    const walking = new Set(out.map((r) => r.id));
+    const asleep = dozersAround(mirror.asleep(me), tile, room - out.length);
     const spots = new Map(asleep.map((d) => [d.r.id, { x: d.x, y: d.y }]));
-    const ids = new Set([...shown.map((r) => r.id), ...spots.keys()]);
+    const ids = new Set([...shown.map((r) => r.id), ...walking, ...spots.keys()]);
     // The canvas can't be read aloud, so the view names who is around (names as plain text). Only
     // residents in the world: never anyone asleep at home.
     const label = nearbyLabel(shown.filter((r) => r.id !== me).map((r) => r.name));
     if (host.getAttribute("aria-label") !== label) host.setAttribute("aria-label", label);
     for (const id of [...figures.keys()]) if (!ids.has(id)) dropFigure(id);
-    for (const r of [...shown, ...asleep.map((d) => d.r)]) {
+    for (const r of [...shown, ...out, ...asleep.map((d) => d.r)]) {
       const mine = r.id === me;
       const away = spots.get(r.id);
+      const strolling = walking.has(r.id);
       const signature = JSON.stringify([
         r.name,
         r.kind,
@@ -580,6 +590,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
         r.hairColor,
         mine,
         away,
+        strolling,
       ]);
       const have = figures.get(r.id);
       if (have?.signature === signature) continue;
@@ -594,7 +605,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       const scope = scoped(stage);
       const group = figure(
         scope,
-        { ...figureOf(r, mine), ...(away ? { away: true as const } : {}) },
+        { ...figureOf(r, mine), ...(away || strolling ? { away: true as const } : {}) },
         shadowMap,
       );
       group.userData.residentId = r.id;
@@ -616,6 +627,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
         look: 0,
         doze: undefined,
         ...(away ? { away } : {}),
+        ...(strolling ? { out: true as const } : {}),
       });
       sizeSign(group, signAt);
     }
@@ -674,7 +686,8 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       g.scale.set(1.3 * sq * pop, (1.3 / sq) * pop, 1.3 * sq * pop);
       const body = g.userData.body as Object3D | undefined;
       if (body) body.rotation.x = m.lean;
-      f.doze = m.doze;
+      // Out on a routine, they're awake.
+      f.doze = f.out ? undefined : m.doze;
       let look = 0;
       if (speaker && speaker.id !== id && tileDistance(r, speaker) <= LISTEN_RADIUS) {
         const toward = turnBetween(turn, Math.atan2(speaker.x - m.x, speaker.y - m.y));
@@ -859,6 +872,13 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       const changed = mirror !== mirrorSeen || mirror.seq !== seqSeen || newSeason;
       mirrorSeen = mirror;
       seqSeen = mirror.seq;
+      // Someone out on a routine goes back to sleep at home a few minutes after its last step.
+      const outNow = mirror
+        .outOnRoutine(me)
+        .map((o) => o.r.id)
+        .join(",");
+      const outChanged = outNow !== outSeen;
+      outSeen = outNow;
       const tile = { x: self.x, y: self.y };
       const walked = !lastTile || lastTile.x !== tile.x || lastTile.y !== tile.y;
       lastTile = tile;
@@ -872,7 +892,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
         updateChunks(mirror, tile, check);
         recheck = pending && check;
       }
-      if (changed || walked) {
+      if (changed || walked || outChanged) {
         updateGround(mirror, tile);
         updateBuildings(mirror);
         updateCast(mirror, me, tile);

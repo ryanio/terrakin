@@ -84,7 +84,7 @@ Without Docker: `pnpm install && TERRAKIN_DATA_DIR=./data pnpm start`.
 | `TERRAKIN_CHAIN_DAILY_READS` | `150000` | Agent links: most network reads plus card fetches per UTC day, enough for about 1,000 links rechecked hourly. 85% is for rechecks and the rest for new links, so neither starves the other. `0` turns linking off. Empty keeps the default. Counted in the social database. |
 | `TERRAKIN_SESSIONS_PER_MINUTE` | (built-in limit) | New sessions per minute per IP. Only the e2e suite raises it. |
 | `SENTRY_DSN` | (none) | Where the Worker sends error reports, traces, and logs (Sentry's `terrakin-api` project). Unset sends nothing. Worker only; terrakin.org sets it in `wrangler.jsonc`. |
-| `TERRAKIN_TEST_CLOCK` | (off) | Tests only. `1` lets `POST /v1/test/advance-day` move the clock a day and `POST /v1/test/maintainer {"residentId"}` make a resident a maintainer. Refused with `NODE_ENV=production`. |
+| `TERRAKIN_TEST_CLOCK` | (off) | Tests only. `1` lets `POST /v1/test/advance-day` move the clock a day, `POST /v1/test/sweep` run the minute sweep now (so routines due now take their steps), and `POST /v1/test/maintainer {"residentId"}` make a resident a maintainer. Refused with `NODE_ENV=production`. |
 | `TERRAKIN_TEST_X_OEMBED` | (none) | Tests only. A loopback URL for a fake X oEmbed endpoint. Refused with `NODE_ENV=production`. |
 | `TERRAKIN_TEST_CHAIN` | (none) | Tests only. An `http://127.0.0.1` origin that answers JSON-RPC at `/rpc` and serves agent cards, for e2e. Refused with `NODE_ENV=production`. |
 

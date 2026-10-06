@@ -4,7 +4,7 @@ import { hashWorld, replay, TOWN_ACTOR, votesCast, type WorldConfig } from "@ter
 import { afterEach, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import { Api } from "./api";
-import { createApp, TEST_ADVANCE_DAY_PATH } from "./app";
+import { createApp, TEST_ADVANCE_DAY_PATH, TEST_SWEEP_PATH } from "./app";
 import { MemoryMediaStore } from "./media";
 import { nodeSql } from "./node-sql";
 import { SocialService } from "./social-service";
@@ -498,7 +498,7 @@ describe("live events", () => {
 });
 
 describe("the test clock", () => {
-  it("moves the Node server a day on only when asked for", async () => {
+  it("moves the Node server a day on, and sweeps now, only when asked for", async () => {
     const time = clock();
     const service = new WorldService({
       store: new MemoryStore(),
@@ -515,13 +515,16 @@ describe("the test clock", () => {
       const server = createApp({ service, onResponse, ...(testClock ? { testClock } : {}) });
       const base = await listenOnFreePort(server, cleanups);
       const res = await fetch(base + TEST_ADVANCE_DAY_PATH, { method: "POST" });
+      const swept = await fetch(base + TEST_SWEEP_PATH, { method: "POST" });
       if (testClock) {
         expect(await res.json()).toEqual({ day: utcDay(START) + 1 });
         // `days` jumps further in one call, for specs that need another season.
         const jump = await fetch(`${base + TEST_ADVANCE_DAY_PATH}?days=90`, { method: "POST" });
         expect(await jump.json()).toEqual({ day: utcDay(START) + 91 });
+        expect(await swept.json()).toEqual({ ok: true });
       } else {
         expect(res.status).toBe(404);
+        expect(swept.status).toBe(404);
       }
     }
   });
@@ -541,6 +544,6 @@ describe("the test clock", () => {
     });
     expect(res?.status).toBe(404);
     const worker = readFileSync(new URL("../cloudflare/worker.ts", import.meta.url), "utf8");
-    expect(worker).not.toMatch(/testClock|advance-day|TEST_CLOCK/);
+    expect(worker).not.toMatch(/testClock|advance-day|test\/sweep|TEST_CLOCK/);
   });
 });

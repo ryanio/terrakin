@@ -1,7 +1,7 @@
 import type { WorldSnapshot } from "@terrakin/protocol";
 import { describe, expect, it } from "vitest";
 import { type Camera, screenToTile, tileToScreen } from "./camera";
-import { Mirror } from "./mirror";
+import { Mirror, OUT_MS } from "./mirror";
 import { dayPhase, nightAmount } from "./time";
 
 const snapshot: WorldSnapshot = {
@@ -145,6 +145,36 @@ describe("Mirror", () => {
       m.apply({ seq: seq++, event: { type: "moved", residentId: "a", x, y } });
       expect(m.facing.get("a")).toBe(dir);
     }
+  });
+
+  it("draws someone out on a routine where they are until a few minutes after its last step", () => {
+    const [ada] = snapshot.residents;
+    if (!ada) throw new Error("fixture");
+    let now = 0;
+    const away = { ...ada, id: "b", name: "Bea", online: false, hearth: { x: 1, y: 1 } };
+    const m = new Mirror({ ...snapshot, residents: [ada, away] }, () => now);
+    const asleep = () => m.asleep("a").map((d) => d.r.id);
+    const out = () => m.outOnRoutine("a").map((o) => [o.r.id, o.routine]);
+    expect([asleep(), out()]).toEqual([["b"], []]);
+    // The routine walks Bea home: she's drawn there, awake, and not asleep beside it.
+    m.apply({
+      seq: 4,
+      event: { type: "moved", residentId: "b", x: 1, y: 1, routine: "walk_home" },
+    });
+    expect([asleep(), out()]).toEqual([[], [["b", "walk_home"]]]);
+    now += OUT_MS - 1;
+    expect(out()).toEqual([["b", "walk_home"]]);
+    // Then she sleeps at home again.
+    now += 1;
+    expect([asleep(), out()]).toEqual([["b"], []]);
+    // A page loaded mid-stroll starts with her out, and her coming back ends it.
+    const loaded = new Mirror(
+      { ...snapshot, residents: [ada, { ...away, routine: "stroll" }] },
+      () => now,
+    );
+    expect(loaded.outOnRoutine("a").map((o) => o.routine)).toEqual(["stroll"]);
+    loaded.apply({ seq: 4, event: { type: "joined", resident: { ...away, online: true } } });
+    expect(loaded.outOnRoutine("a")).toEqual([]);
   });
 
   it("ignores stale events and reports gaps without applying them", () => {

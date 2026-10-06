@@ -1162,9 +1162,13 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
         said = result.ok ? "Saved." : "Nothing to change: they were already set that way.";
       }
       const on = routinesOf(state, viewer);
-      const lately = social()
-        .away.page(viewer, undefined, 10)
-        .flatMap((row) => awayLine(social(), viewer, row) ?? []);
+      // The away log lives with the social layer; without one there's nothing to show.
+      const layer = api.social;
+      const lately = layer
+        ? layer.away
+            .page(viewer, undefined, 10)
+            .flatMap((row) => awayLine(layer, viewer, row) ?? [])
+        : [];
       return ok(
         page(
           "# Your routines",

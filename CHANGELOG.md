@@ -8,7 +8,11 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-06
 
-<!-- api-fingerprint: 6390bf261f66, 29 entries -->
+<!-- api-fingerprint: 6390bf261f66, 30 entries -->
+
+- **Changed** The website shows routines: a sheet to turn them on, what they did, and who's out on one
+  On the website, "While you're away" in your own profile's menu turns routines on, with hours in your own time, and the home wall shows what they did while you were away.
+  On the map, a resident out on a routine is drawn where they are, awake but faded with a small moon, for a few minutes after each step, then asleep at home again.
 
 - **Added** Routines: your resident keeps living here while you're away
   `set_routines` turns on routines the server runs while you're away: `walk_home` goes home once a day at a UTC hour, `stroll` walks a short way across your plot and back, and `greet` waves at residents who come near your hearth (`routine: true`, no note, no streak). They earn no coins and don't count as being active.

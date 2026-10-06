@@ -54,6 +54,7 @@ import {
 } from "./pulse-cards";
 import { coins } from "./purse";
 import { copyPostState } from "./reactions";
+import { awayCard } from "./routines-view";
 import { track } from "./telemetry";
 import { errorCard, type View, type ViewContext } from "./view";
 
@@ -443,6 +444,10 @@ export function feedView(ctx: ViewContext): View {
   let writer: Composer | undefined;
   void myProfile().then((me) => {
     if (!me || destroyed) return;
+    // What your routines did while you were away (RFC 0009), under the composer, when anything did.
+    void awayCard().then((card) => {
+      if (card && !destroyed) composerSlot.after(card);
+    });
     writer = composer({
       me,
       onPosted(post) {

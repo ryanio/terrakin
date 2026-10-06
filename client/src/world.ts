@@ -56,7 +56,7 @@ import { approach, type Quarter, turnDir } from "./scene3d/world-layout";
 import { track } from "./telemetry";
 import { NO_PLOT_LINE, newsLine, othersPickupLine, toastMs, worldProblem } from "./things";
 import { dayPhase } from "./time";
-import { ARRIVAL_KEY, gestureLine } from "./together";
+import { ARRIVAL_KEY, type FoldedWaves, foldWaves, gestureLine, wavesLine } from "./together";
 import { Walker } from "./walk";
 import { Sky, skyNow } from "./weather";
 import type { WorldLoader } from "./world-loader";
@@ -117,6 +117,8 @@ let pick: BlockKind | GroundKind | "hearth" = "wood";
 let holdings: Holdings = new Map();
 /** The chat line waiting for the server's answer: its text leaves the input only once accepted. */
 let pendingChat: { id: string; text: string } | undefined;
+/** Routine waves from neighbors at home, folded into one line while they come close together. */
+let waves: FoldedWaves | undefined;
 /**
  * Your steps: keys, the d-pad, and taps on the world, walked at your figure's pace and drawn before
  * the server answers (`walk.ts`). One step every 200ms keeps a held key well under the action rate
@@ -310,13 +312,26 @@ function onMessage(msg: ServerMessage) {
       void loadHoldings();
       break;
     case "gesture":
-      // Someone sent you a hug or a wave. Their name and note are their words: shown as text.
-      showToast(gestureLine(msg.kind, msg.from.name, msg.note, msg.putter, msg.item), "player");
+      if (msg.routine) {
+        // A neighbor away at home waved as you walked past (RFC 0009): they wave from where they
+        // sleep, and waves close together are one line.
+        waves = foldWaves(waves, msg.from.name, performance.now());
+        showToast(wavesLine(waves), "player");
+        feelings.show(msg.from.id, gestureReaction("wave"), performance.now());
+      } else {
+        // Someone sent you a hug or a wave. Their name and note are their words: shown as text.
+        showToast(gestureLine(msg.kind, msg.from.name, msg.note, msg.putter, msg.item), "player");
+      }
       // Your figure answers it: love for a hug, a wave back for a wave. Only the kind decides.
       // A kiss arrives only once it's mutual (decision 0066), so it can show here like the rest.
       if (me) feelings.show(me, gestureReaction(msg.kind), performance.now());
       break;
     case "event": {
+      // An away resident's routine walks them from where they were (decision 0083).
+      const ev = msg.event;
+      const walker =
+        ev.type === "moved" && ev.routine ? mirror?.residents.get(ev.residentId) : undefined;
+      if (walker && !walker.online) motion.setOut(walker, performance.now());
       // Out of step with the server? Reload the truth rather than guessing.
       const applied = mirror && !resyncing ? mirror.apply(msg) : undefined;
       if (applied === "gap") void resync();
@@ -646,11 +661,18 @@ function tapTile(tile: { x: number; y: number }) {
     showToast(other.note ? `${name}: ${other.note}` : name, "player");
     return;
   }
-  // Someone asleep at home is away, not here: say so, and walk on as if the tile were empty.
-  const asleep = other ? undefined : dozerAt(mirror.asleep(me), tile.x, tile.y)?.r;
-  if (asleep) {
-    const name = asleep.kind === "agent" ? `${asleep.name} ⚙` : asleep.name;
-    showToast(`${name} is away, asleep at home.`, "player");
+  // Someone away is not here: asleep at home, or out on a routine (decision 0083). Say so, and
+  // walk on as if the tile were empty.
+  const out = other
+    ? undefined
+    : mirror.outOnRoutine(me).find((o) => o.r.x === tile.x && o.r.y === tile.y);
+  const asleep = other || out ? undefined : dozerAt(mirror.asleep(me), tile.x, tile.y)?.r;
+  const away = out?.r ?? asleep;
+  if (away) {
+    const name = away.kind === "agent" ? `${away.name} ⚙` : away.name;
+    const doing =
+      out?.routine === "stroll" ? "out on a stroll" : out ? "just walked home" : "asleep at home";
+    showToast(`${name} is away, ${doing}.`, "player");
   }
   walkToward(tile);
 }

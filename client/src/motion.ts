@@ -207,6 +207,14 @@ export class Motion {
   }
 
   /**
+   * Start a walk where someone stands now, if they have none yet: an away resident whose routine
+   * is about to take a step (decision 0083) walks it from here instead of appearing at its end.
+   */
+  setOut(r: { id: string; x: number; y: number }, now: number) {
+    if (!this.tracks.has(r.id)) this.pose(r, now, true);
+  }
+
+  /**
    * The server says someone moved. Each step of a burst joins their walk, so a putter is walked
    * tile by tile. Your own steps come from `ahead` instead.
    */

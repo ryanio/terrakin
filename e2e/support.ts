@@ -3,8 +3,8 @@ import { type APIRequestContext, expect, type Page } from "@playwright/test";
 
 /**
  * Helpers specs share: joining and acting over the REST API, signing a page in, finding free
- * plots in the shared world, tapping a tile on the map, and watching for errors a user would hit. New specs use these
- * instead of writing their own.
+ * plots in the shared world, tapping a tile on the map, running the server's minute sweep, and
+ * watching for errors a user would hit. New specs use these instead of writing their own.
  */
 
 export interface Resident {
@@ -145,6 +145,14 @@ export async function tapTile(page: Page, dx: number, dy: number) {
  */
 export async function advanceDay(request: APIRequestContext, days = 1) {
   expect((await request.post(`/v1/test/advance-day?days=${days}`)).ok()).toBe(true);
+}
+
+/**
+ * Run the server's minute sweep now: residents with no socket and no call for 10 minutes go
+ * offline, and routines that are due take their steps. It's what the next minute would do.
+ */
+export async function sweep(request: APIRequestContext) {
+  expect((await request.post("/v1/test/sweep")).ok()).toBe(true);
 }
 
 export interface WatchOptions {

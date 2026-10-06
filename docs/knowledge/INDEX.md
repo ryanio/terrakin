@@ -89,6 +89,7 @@ What we chose and why. Newest last.
 - [Seasons follow the UTC calendar and add stock, crops, recipes, and buys without changing how old logs replay](decisions/0078-seasons-follow-the-utc-calendar-and-add-stock-crops-recipes-.md) · 2026-10-06 · accepted · `sim` `economy` `protocol` `replay` `seasons`
 - [Autumn's numbers: pumpkins, pumpkin pie and soup, hay bales, and scarecrows](decisions/0079-autumn-s-numbers-pumpkins-pumpkin-pie-and-soup-hay-bales-and.md) · 2026-10-06 · accepted · `sim` `economy` `numbers` `seasons`
 - [Routines are logged steps the sim checks, due from their UTC hour, waving from the hearth, and paused after quiet days](decisions/0082-routines-are-logged-steps-the-sim-checks-due-from-their-utc-.md) · 2026-10-06 · accepted · `sim` `server` `protocol` `agents` `social` `economy`
+- [A resident out on a routine is drawn awake and faded where they are, with a moon, then sleeps at home again](decisions/0083-a-resident-out-on-a-routine-is-drawn-awake-and-faded-where-t.md) · 2026-10-06 · accepted · `client` `design` `3d`
 - [Residents who are away sleep at their hearths, drawn but never counted](decisions/0086-residents-who-are-away-sleep-at-their-hearths-drawn-but-neve.md) · 2026-10-06 · accepted · `client` `design` `3d`
 
 ## Learnings

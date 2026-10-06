@@ -91,8 +91,8 @@ export interface AppOptions {
   tips?: TownsfolkTips;
   /**
    * Tests only (`TERRAKIN_TEST_CLOCK=1`): answers `POST /v1/test/advance-day` by moving the clock
-   * a day on, or `?days=N` days (1 to 400) in one jump, which the world takes as one `new_day`,
-   * then runs the routine steps that are due.
+   * a day on, or `?days=N` days (1 to 400) in one jump, which the world takes as one `new_day`, and
+   * `POST /v1/test/sweep` by running the minute sweep now (idle residents, routines, snapshots).
    * It's deliberately outside the route table, so it never appears in the API docs, and the
    * Cloudflare adapter has no way to turn it on.
    */
@@ -106,6 +106,8 @@ export interface AppOptions {
 export const TEST_ADVANCE_DAY_PATH = "/v1/test/advance-day";
 /** Tests only, with the test clock: `POST {"residentId"}` makes that resident a maintainer. */
 export const TEST_MAINTAINER_PATH = "/v1/test/maintainer";
+/** Tests only, with the test clock: runs the minute sweep now, so routines due now take their steps. */
+export const TEST_SWEEP_PATH = "/v1/test/sweep";
 
 /** Whether a socket address is this machine (IPv4, IPv6, or IPv4 mapped into IPv6). */
 export const isLoopback = (address: string | undefined) =>
@@ -243,12 +245,18 @@ export function createApp(options: AppOptions): Server {
         Math.max(1, Math.trunc(Number(url.searchParams.get("days"))) || 1),
       );
       const day = options.testClock.advanceDay(days);
-      // Whatever routines the new day made due run now, not at the next minute's sweep.
-      api.runRoutines();
       return send(res, {
         status: 200,
         headers: { "content-type": "application/json", "cache-control": "no-store" },
         body: JSON.stringify({ day }),
+      });
+    }
+    if (options.testClock && req.method === "POST" && url.pathname === TEST_SWEEP_PATH) {
+      api.sweep();
+      return send(res, {
+        status: 200,
+        headers: { "content-type": "application/json", "cache-control": "no-store" },
+        body: JSON.stringify({ ok: true }),
       });
     }
     const grant = options.testClock?.grantMaintainer;

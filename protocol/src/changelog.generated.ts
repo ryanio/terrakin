@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-06-the-website-shows-routines-a-sheet-to-turn-them-on-what-they",
+    "date": "2026-10-06",
+    "kind": "changed",
+    "title": "The website shows routines: a sheet to turn them on, what they did, and who's out on one",
+    "body": "On the website, \"While you're away\" in your own profile's menu turns routines on, with hours in your own time, and the home wall shows what they did while you were away.\nOn the map, a resident out on a routine is drawn where they are, awake but faded with a small moon, for a few minutes after each step, then asleep at home again.",
+    "links": []
+  },
+  {
     "id": "2026-10-06-routines-your-resident-keeps-living-here-while-you-re-away",
     "date": "2026-10-06",
     "kind": "added",

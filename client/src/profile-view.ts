@@ -65,6 +65,7 @@ import { plotPhotoButton } from "./plot-photo";
 import { postCard, skeletonCards } from "./post-card";
 import { coins, refreshPurse } from "./purse";
 import { openReportSheet } from "./report-sheet";
+import { openRoutines } from "./routines-view";
 import { thingCount, thingName } from "./things";
 import { type GestureInfo, gestureChoices, gestureInfo, sentLine, streakLine } from "./together";
 import { errorCard, notFoundCard, type View, type ViewContext } from "./view";
@@ -318,7 +319,18 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
           photo.className = "menu-item calm plot-photo-open";
           const remove = avatar.editable();
           remove.className = "menu-item avatar-remove";
-          const items: HTMLElement[] = [copyItem, visitItem, photo];
+          // Routines (RFC 0009): what your character does while you're away.
+          const routines = h(
+            "button",
+            { class: "menu-item calm routines-open", attrs: { type: "button" } },
+            icon("moon"),
+            h("span", { text: "While you're away" }),
+          );
+          routines.addEventListener("click", () => {
+            current?.close();
+            void openRoutines(actions.querySelector<HTMLElement>(".more-button") ?? undefined);
+          });
+          const items: HTMLElement[] = [copyItem, visitItem, photo, routines];
           if (r.handle) {
             handle.className = "menu-item calm handle-edit";
             handle.addEventListener("click", () => current?.close());

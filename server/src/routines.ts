@@ -131,6 +131,8 @@ export class Routines {
    * once. The caps themselves are the gesture table's (`TogetherService.checkGesture`).
    */
   private waves = { day: Number.NaN, tried: new Set<string>() };
+  /** Pauses already in the away log, as `resident lastCallDay`, so it's asked once per pause. */
+  private readonly saidPaused = new Set<string>();
 
   constructor(options: { world: WorldService; social: SocialService; now?: () => number }) {
     this.world = options.world;
@@ -154,7 +156,11 @@ export class Routines {
   private paused(id: string, day: number): boolean {
     const last = this.away.lastCall(id) ?? this.world.state.lastActiveDay?.[id];
     if (last === undefined || day - last < ROUTINE_LIMITS.pauseAfterDays) return false;
-    if (!this.away.pausedSince(id, last)) this.away.paused(id);
+    const said = `${id} ${last}`;
+    if (!this.saidPaused.has(said)) {
+      if (!this.away.pausedSince(id, last)) this.away.paused(id);
+      this.saidPaused.add(said);
+    }
     return true;
   }
 
@@ -173,17 +179,25 @@ export class Routines {
     this.walkBack(now, day, out);
     for (const id of Object.keys(state.routines ?? {}).sort()) {
       const r = residentById(state, id);
-      if (!r || r.online || this.suspended(id)) continue;
+      if (!r || r.online) continue;
+      // What's due first, from memory; the pause and suspension only for someone with something due.
+      const due = routinesOf(state, id).flatMap((routine) =>
+        routine.kind === "greet" ||
+        hour < routine.hour ||
+        this.tried.keys.has(`${id} ${routine.kind}`) ||
+        routineRanToday(state, id, routine.kind)
+          ? []
+          : [routine.kind],
+      );
+      if (due.length === 0) continue;
       if (this.paused(id, day)) {
         out.paused++;
         continue;
       }
-      for (const routine of routinesOf(state, id)) {
-        if (routine.kind === "greet" || hour < routine.hour) continue;
-        const key = `${id} ${routine.kind}`;
-        if (this.tried.keys.has(key) || routineRanToday(state, id, routine.kind)) continue;
-        this.tried.keys.add(key);
-        this.take(id, routine.kind, now, day, out);
+      if (this.suspended(id)) continue;
+      for (const kind of due) {
+        this.tried.keys.add(`${id} ${kind}`);
+        this.take(id, kind, now, day, out);
       }
     }
     return out;

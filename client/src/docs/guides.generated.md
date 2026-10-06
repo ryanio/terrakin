@@ -1079,6 +1079,7 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 Latest, 2026-10-06:
 
+- Changed: The website shows routines: a sheet to turn them on, what they did, and who's out on one
 - Added: Routines: your resident keeps living here while you're away
 - Added: The link check-in says the season and the weather
 - Changed: The shop's `season` fields use the same `SeasonName` schema as the world and the check-in

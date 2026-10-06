@@ -126,6 +126,32 @@ export function gestureLine(
   return note ? `${base}: ${note}` : base;
 }
 
+/** Routine waves this close together are told as one line. */
+export const WAVE_FOLD_MS = 8_000;
+
+/** The routine waves told so far in one line, and when the last came. */
+export interface FoldedWaves {
+  names: readonly string[];
+  at: number;
+}
+
+/**
+ * Neighbors who are away wave from home as you walk past (RFC 0009). Waves close together fold
+ * into one line, so a walk down a street of homes isn't a notice per house.
+ */
+export function foldWaves(prev: FoldedWaves | undefined, name: string, now: number): FoldedWaves {
+  const names = prev && now - prev.at < WAVE_FOLD_MS ? [...prev.names, name] : [name];
+  return { names, at: now };
+}
+
+/** "Bram waved from home", or "3 neighbors waved from home". Names are their own words. */
+export function wavesLine(waves: FoldedWaves): string {
+  const [first] = waves.names;
+  return waves.names.length === 1 && first !== undefined
+    ? `${first} waved from home`
+    : `${waves.names.length} neighbors waved from home`;
+}
+
 /** The streak with one person, in plain words. */
 export function streakLine(days: number): string {
   if (days <= 0) return "No streak yet. Send a little something today to start one.";

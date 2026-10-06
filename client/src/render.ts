@@ -1375,7 +1375,7 @@ export function render(
     icon?: FeelingIcon | undefined;
     fade?: number;
     rise?: number;
-    /** Asleep at home while away: the tag and sign are drawn fainter. */
+    /** Away, asleep at home or out on a routine: the tag and sign are drawn fainter, beside. */
     away?: boolean;
   }[] = [];
   const hall = tilesBox(mirror.townHall, cam);
@@ -1384,28 +1384,35 @@ export function render(
   const shop = tilesBox(mirror.shop, cam);
   if (shop) labels.push({ text: "Shop", x: shop.left + shop.w / 2, y: shop.top - 2, mine: false });
   // `m` is how they move between tiles (`motion.ts`); `p` below is their face (`feelings.ts`).
-  const shown: { r: Resident; m: MotionPose; away: boolean }[] = [];
-  const online = new Set<string>();
+  // `away` is someone away from the world; `out`, someone away out on a routine (decision 0083).
+  const shown: { r: Resident; m: MotionPose; away: boolean; out: boolean }[] = [];
+  const walking = new Set<string>();
   const onScreen = (m: MotionPose) => {
     const { sx, sy } = tileToScreen(cam, m.x, m.y);
     return sx >= -scale && sy >= -scale && sx <= width + scale && sy <= height + scale * 1.5;
   };
   for (const r of mirror.residents.values()) {
     if (!r.online) continue;
-    online.add(r.id);
+    walking.add(r.id);
     const m = motion.pose(r, now, still);
-    if (onScreen(m)) shown.push({ r, m, away: false });
+    if (onScreen(m)) shown.push({ r, m, away: false, out: false });
   }
-  motion.keep(online);
+  // Away and out on a routine (decision 0083): where they are, walking its steps, awake but faded.
+  for (const { r } of mirror.outOnRoutine(me)) {
+    walking.add(r.id);
+    const m = motion.pose(r, now, still);
+    if (onScreen(m)) shown.push({ r, m, away: true, out: true });
+  }
+  motion.keep(walking);
   // Residents who are away sleep at their hearths, faded (decision 0086). Drawn, never counted.
   for (const d of mirror.asleep(me)) {
     const m = awayPose(d.r.id, d.x, d.y, now, still);
-    if (onScreen(m)) shown.push({ r: d.r, m, away: true });
+    if (onScreen(m)) shown.push({ r: d.r, m, away: true, out: false });
   }
   shown.sort((a, b) => a.m.y - b.m.y || a.m.x - b.m.x);
   // Umbrellas go up in the rain and are carried rolled up otherwise.
   const raining = (sky?.rain ?? 0) >= UMBRELLA_RAIN;
-  for (const { r, m, away } of shown) {
+  for (const { r, m, away, out } of shown) {
     const { sx, sy } = tileToScreen(cam, m.x, m.y);
     const feet = sy + scale * 0.38;
     const mine = r.id === me;
@@ -1426,13 +1433,16 @@ export function render(
       const at = tileToScreen(cam, m.dust.x, m.dust.y);
       drawDust(ctx, at.sx, at.sy + scale * 0.38, scale, m.dust.t);
     }
-    // The face of the moment: a feeling, a blink, a wave, a bounce (RFC 0013). Dozing is `sleepy`.
-    const p = pose(feelings?.get(r.id, now) ?? m.doze, now, idPhase(r.id), still, posed);
+    // The face of the moment: a feeling, a blink, a wave, a bounce (RFC 0013). Dozing is `sleepy`;
+    // someone out on a routine is awake.
+    const doze = out ? undefined : m.doze;
+    const p = pose(feelings?.get(r.id, now) ?? doze, now, idPhase(r.id), still, posed);
     face.feeling = p.feeling;
     face.blink = p.blink;
     face.wave = p.wave;
     // Out in the rain an umbrella goes up; asleep at home it stays rolled up beside them.
-    face.furled = (away || !raining) && (r.wear?.includes("umbrella") ?? false);
+    const asleep = away && !out;
+    face.furled = (asleep || !raining) && (r.wear?.includes("umbrella") ?? false);
     // The way they're walking, or the server's word for someone who hasn't moved since. Asleep
     // at home, they face out of the door (`awayPose`).
     const facing = m.facing ?? mirror.facing.get(r.id) ?? "s";
@@ -1453,9 +1463,10 @@ export function render(
       y: feet + fig.dy - 1,
       mine,
       who: r.id,
-      icon: FEELING_ICON[p.feeling],
-      fade: p.fade,
-      rise: p.rise,
+      // Out on a routine, a small moon beside the name says they're away, not here.
+      icon: out ? "moon" : FEELING_ICON[p.feeling],
+      fade: out ? 1 : p.fade,
+      rise: out ? 0 : p.rise,
       away,
     });
   }

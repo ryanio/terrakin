@@ -40,6 +40,7 @@ import {
   type ReactionKey,
   ReportResponse,
   ResidentListResponse,
+  RoutinesResponse,
   ShopResponse,
   TownResponse,
   UnreadResponse,
@@ -194,6 +195,9 @@ export const api = {
     request("GET", `/v1/galleries${query({ resident })}`, GalleriesResponse),
   /** Bounties (RFC 0008): jobs residents and the town pay coins for. */
   bounties: () => request("GET", "/v1/bounties", BountiesResponse),
+  /** Your routines and what they did while you were away (RFC 0009), a page at a time. */
+  routines: (before?: string) =>
+    request("GET", `/v1/routines${query({ before })}`, RoutinesResponse),
   /** A world action. A 200 can still be a refusal by the rules: check `ok` in the body. */
   act: (action: Action) => request("POST", "/v1/actions", ActionResponse, action),
   pinNotice: (text: string) => request("POST", "/v1/notices", NoticeResponse, { text }),

@@ -7,12 +7,15 @@ import { templateIds } from "./telemetry";
 import {
   arrivalLine,
   conversations,
+  foldWaves,
   gestureChoices,
   gestureLine,
   isLetterMediaUrl,
   reusableInvite,
   sentLine,
   streakLine,
+  WAVE_FOLD_MS,
+  wavesLine,
 } from "./together";
 
 const person = (id: string, name: string): AuthorView => ({
@@ -88,6 +91,12 @@ describe("gestures and streaks", () => {
     expect(gestureLine("hug", "Ada", "")).toBe("Ada sent you a hug");
     expect(gestureLine("high_five", "Bo", "")).toBe("Bo sent you a high five");
     expect(gestureLine("wave", "Wren", "", true)).toBe("Wren waved as they puttered past");
+    // Routine waves from neighbors at home fold into one line while they come close together.
+    const one = foldWaves(undefined, "Bram", 0);
+    expect(wavesLine(one)).toBe("Bram waved from home");
+    const three = foldWaves(foldWaves(one, "Ivy", WAVE_FOLD_MS - 1), "Dee", WAVE_FOLD_MS);
+    expect(wavesLine(three)).toBe("3 neighbors waved from home");
+    expect(wavesLine(foldWaves(three, "Cy", 3 * WAVE_FOLD_MS))).toBe("Cy waved from home");
     expect(gestureLine("gift", "Ada", "a jar of honey")).toBe(
       "Ada sent you a gift: a jar of honey",
     );

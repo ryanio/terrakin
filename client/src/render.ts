@@ -21,7 +21,15 @@ import {
   tileKey,
 } from "@terrakin/sim";
 import { BRAND_HEX } from "@terrakin/ui/brand";
-import { drawFigure, FIGURE_BOX } from "@terrakin/ui/figure";
+import {
+  blinks,
+  drawFeelingIcon,
+  drawFigure,
+  FEELING_ICON,
+  type FeelingIcon,
+  FIGURE_BOX,
+  type FigureFace,
+} from "@terrakin/ui/figure";
 import { CROP_HEX, growth, itemArtImage } from "@terrakin/ui/item-art";
 import {
   lookImage,
@@ -32,6 +40,7 @@ import {
   withAlpha,
 } from "@terrakin/ui/looks";
 import { type Camera, tileToScreen } from "./camera";
+import { type Feelings, idPhase, pose, restingPose } from "./feelings";
 import type { DisplayView, Mirror } from "./mirror";
 import { nightAmount } from "./time";
 
@@ -95,9 +104,17 @@ function clothesPattern(
   return { pattern: patterns.named(ctx, name, lookPalette(r.theme, r.color), u * 0.36), key: name };
 }
 
+/** The sprite key's part for a face: only what changes the drawing, so a blink on shut eyes reuses one. */
+export function faceKey(face: FigureFace): string {
+  const feeling = face.feeling ?? "neutral";
+  const blink = face.blink && blinks(feeling) ? 1 : 0;
+  return `${feeling}|${blink}|${face.wave ?? 0}`;
+}
+
 /**
  * A resident's figure as a sprite at `scale` CSS pixels per tile. Returns the canvas and where its
- * top-left sits relative to the feet, in CSS pixels.
+ * top-left sits relative to the feet, in CSS pixels. Each look, facing, and face (`faceKey`) is
+ * drawn once and then stamped.
  */
 export function figureSprite(
   r: Pick<
@@ -107,6 +124,7 @@ export function figureSprite(
   scale: number,
   dpr: number,
   facing: Direction = "s",
+  face: FigureFace = {},
 ): { canvas: HTMLCanvasElement; dx: number; dy: number; w: number; h: number } {
   const u = scale * dpr;
   const w = (FIGURE_BOX.right - FIGURE_BOX.left) * u;
@@ -117,10 +135,10 @@ export function figureSprite(
     const s = r.wearStyle?.[w];
     return s ? `${w}:${s.pattern ?? ""}:${s.color ?? ""}` : "";
   });
-  const key = `fig|${r.color}|${r.shape}|${r.theme ?? ""}|${probe}|${(r.wear ?? []).join(",")}|${styles.join(",")}|${facing}|${u.toFixed(2)}`;
+  const key = `fig|${r.color}|${r.shape}|${r.theme ?? ""}|${probe}|${(r.wear ?? []).join(",")}|${styles.join(",")}|${facing}|${faceKey(face)}|${u.toFixed(2)}`;
   const canvas = sprite(key, w, h, (ctx) => {
     ctx.translate(-FIGURE_BOX.left * u, -FIGURE_BOX.top * u);
-    drawFigure(ctx, u, r, clothesPattern(ctx, r, u).pattern, facing, patterns);
+    drawFigure(ctx, u, r, clothesPattern(ctx, r, u).pattern, facing, patterns, face);
   });
   return {
     canvas,
@@ -698,11 +716,28 @@ export interface RenderState {
   buildMode: boolean;
   /** Phase of the day, 0 to 1. Absent when the server gave no time anchor. */
   dayPhase?: number;
+  /** What each figure feels, at `now` (milliseconds). Without it every face is neutral. */
+  feelings?: Feelings;
+  now?: number;
+  /** Reduced motion: faces and signs stay, bounces, blinks and drifting go. */
+  still?: boolean;
+}
+
+/** Reused every frame, so drawing figures allocates nothing. */
+const posed = restingPose();
+const face: FigureFace = {};
+
+/** A feeling's floating sign, `px` device pixels square, drawn once. */
+function iconSprite(icon: FeelingIcon, px: number): HTMLCanvasElement {
+  return sprite(`icon|${icon}|${px}`, px, px, (ctx) => {
+    ctx.translate(px / 2, px / 2);
+    drawFeelingIcon(ctx, icon, px * 0.8);
+  });
 }
 
 export function render(
   ctx: CanvasRenderingContext2D,
-  { mirror, me, cam, buildMode, dayPhase }: RenderState,
+  { mirror, me, cam, buildMode, dayPhase, feelings, now = 0, still = false }: RenderState,
 ) {
   const { width, height, scale } = cam;
   const { config, commons } = mirror;
@@ -1026,8 +1061,34 @@ export function render(
     ctx.beginPath();
     ctx.ellipse(sx, feet, scale * 0.27, scale * 0.085, 0, 0, Math.PI * 2);
     ctx.fill();
-    const fig = figureSprite(r, scale, dpr, mirror.facing.get(r.id));
-    ctx.drawImage(fig.canvas, sx + fig.dx, feet + fig.dy, fig.w, fig.h);
+    // The face of the moment: a feeling, a blink, a wave, a bounce (RFC 0013).
+    const p = pose(feelings?.get(r.id, now), now, idPhase(r.id), still, posed);
+    face.feeling = p.feeling;
+    face.blink = p.blink;
+    face.wave = p.wave;
+    const fig = figureSprite(r, scale, dpr, mirror.facing.get(r.id), face);
+    const ground = feet - p.lift * scale;
+    if (p.tilt) {
+      // Leaning from the feet.
+      ctx.save();
+      ctx.translate(sx, ground);
+      ctx.rotate(p.tilt * 0.5);
+      ctx.drawImage(fig.canvas, fig.dx, fig.dy, fig.w, fig.h);
+      ctx.restore();
+    } else ctx.drawImage(fig.canvas, sx + fig.dx, ground + fig.dy, fig.w, fig.h);
+    const icon = FEELING_ICON[p.feeling];
+    if (icon) {
+      const size = Math.round(scale * 0.42);
+      ctx.globalAlpha = p.fade;
+      ctx.drawImage(
+        iconSprite(icon, Math.round(size * dpr)),
+        sx + scale * 0.38 - size / 2,
+        ground - scale * (0.92 + p.rise) - size / 2,
+        size,
+        size,
+      );
+      ctx.globalAlpha = 1;
+    }
     labels.push({
       text: r.kind === "agent" ? `${r.name} ⚙` : r.name,
       x: sx,

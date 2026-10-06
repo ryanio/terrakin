@@ -4,7 +4,7 @@
  * the body fills about y 0 to 0.55 with a radius near 0.25, and the head is a sphere of 0.17 at
  * y 0.66, facing +z.
  */
-import type { WearItem } from "@terrakin/sim";
+import { WEAR_INFO, type WearItem } from "@terrakin/sim";
 import { BRAND_HEX, WOOD_DARK } from "@terrakin/ui/brand";
 import { PatternCache } from "@terrakin/ui/looks";
 import {
@@ -227,10 +227,16 @@ export function wearGroup(f: Pick<LayoutFigure, "look">): Group {
   group.name = "wear";
   for (const p of wornPieces(f.look)) {
     const mat = cloth(p);
+    const head = onHead(p.item);
     for (const mesh of piece(p.item, mat)) {
       mesh.castShadow = true;
+      mesh.userData.onHead = head;
       group.add(mesh);
     }
   }
   return group;
 }
+
+/** Worn on the head, so it turns with it: hats, glasses, and the bow. */
+export const onHead = (item: WearItem): boolean =>
+  WEAR_INFO[item].slot === "hat" || item === "glasses" || item === "bow";

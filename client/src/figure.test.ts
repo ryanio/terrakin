@@ -1,7 +1,25 @@
 import { RESIDENT_COLORS, THEME_INFO, WEAR_INFO, WEAR_ITEMS, type WearItem } from "@terrakin/sim";
-import { drawFigure, type FigureLook, garmentLook } from "@terrakin/ui/figure";
+import { FEELINGS, isFeeling } from "@terrakin/ui/feelings";
+import {
+  drawFeelingIcon,
+  drawFigure,
+  FEELING_ICON,
+  type FigureFace,
+  type FigureLook,
+  garmentLook,
+} from "@terrakin/ui/figure";
 import { lookPalette, type MakeCanvas, PatternCache, RESIDENT_COLOR_HEX } from "@terrakin/ui/looks";
 import { describe, expect, it } from "vitest";
+import {
+  Feelings,
+  gestureReaction,
+  HOLD_MS,
+  idPhase,
+  LISTEN_MS,
+  pose,
+  restingPose,
+} from "./feelings";
+import { faceKey } from "./render";
 
 /** A 2D context that records every call and color, so a drawing can be compared without a browser. */
 function recorder() {
@@ -40,9 +58,9 @@ const fakeTiles: MakeCanvas = () => ({
 });
 
 /** Everything drawing one figure does, in order. */
-function draw(look: FigureLook, facing: "s" | "n" | "e" = "s"): string[] {
+function draw(look: FigureLook, facing: "s" | "n" | "e" = "s", face: FigureFace = {}): string[] {
   const { ctx, calls } = recorder();
-  drawFigure(ctx, 40, look, null, facing, new PatternCache(fakeTiles));
+  drawFigure(ctx, 40, look, null, facing, new PatternCache(fakeTiles), face);
   return calls;
 }
 
@@ -155,5 +173,142 @@ describe("drawn garments", () => {
     expect(calls.filter((c) => c.startsWith("clip(")).length).toBeGreaterThan(2);
     expect(calls).toContain(`fillStyle=${RESIDENT_COLOR_HEX.sun}`);
     expect(new Set(WEAR_ITEMS.map((w) => WEAR_INFO[w].slot)).size).toBe(5);
+  });
+});
+
+describe("faces", () => {
+  const drawn = (face: FigureFace, facing: "s" | "e" = "s") => draw(base, facing, face).join("\n");
+
+  it("draws every feeling its own way, from the front and in profile", () => {
+    for (const facing of ["s", "e"] as const) {
+      const seen = new Set(FEELINGS.map((feeling) => drawn({ feeling }, facing)));
+      expect(seen.size, facing).toBe(FEELINGS.length);
+      for (const feeling of FEELINGS)
+        expect(drawn({ feeling }, facing)).not.toMatch(/NaN|undefined/);
+    }
+    // No feeling is the neutral face, drawn as it always was.
+    expect(drawn({ feeling: "neutral" })).toBe(drawn({}));
+  });
+
+  it("closes open eyes for a blink, and leaves shut or curved eyes alone", () => {
+    expect(drawn({ blink: true })).not.toBe(drawn({}));
+    expect(drawn({ feeling: "surprised", blink: true })).not.toBe(drawn({ feeling: "surprised" }));
+    for (const feeling of ["happy", "laugh", "love", "sleepy"] as const)
+      expect(drawn({ feeling, blink: true }), feeling).toBe(drawn({ feeling }));
+  });
+
+  it("raises a hand to wave, at either end of the wave, from every side", () => {
+    for (const facing of ["s", "n", "e"] as const) {
+      const still = draw(base, facing).join("\n");
+      const up = draw(base, facing, { wave: 1 }).join("\n");
+      const over = draw(base, facing, { wave: 2 }).join("\n");
+      expect(new Set([still, up, over]).size, facing).toBe(3);
+    }
+  });
+
+  it("gives some feelings a floating sign, and draws each sign", () => {
+    expect(Object.keys(FEELING_ICON).every(isFeeling)).toBe(true);
+    for (const icon of new Set(Object.values(FEELING_ICON))) {
+      const { ctx, calls } = recorder();
+      drawFeelingIcon(ctx, icon, 40);
+      expect(
+        calls.some((c) => c.startsWith("fill(") || c.startsWith("stroke(")),
+        icon,
+      ).toBe(true);
+    }
+    expect(isFeeling("angry")).toBe(false);
+  });
+
+  it("keys sprites by feeling, blink, and wave, and reuses one for a blink on shut eyes", () => {
+    const keys = new Set(FEELINGS.map((feeling) => faceKey({ feeling })));
+    expect(keys.size).toBe(FEELINGS.length);
+    expect(faceKey({})).toBe(faceKey({ feeling: "neutral", blink: false, wave: 0 }));
+    expect(faceKey({ blink: true })).not.toBe(faceKey({}));
+    expect(faceKey({ feeling: "sleepy", blink: true })).toBe(faceKey({ feeling: "sleepy" }));
+    expect(faceKey({ feeling: "happy", wave: 1 })).not.toBe(faceKey({ feeling: "happy", wave: 2 }));
+  });
+});
+
+describe("feelings", () => {
+  it("answers each gesture: love for a hug or kiss, a wave back, a hop for a high five", () => {
+    expect(gestureReaction("hug")).toEqual({ feeling: "love" });
+    expect(gestureReaction("kiss")).toEqual({ feeling: "love" });
+    expect(gestureReaction("comfort")).toEqual({ feeling: "love" });
+    expect(gestureReaction("wave")).toEqual({ feeling: "happy", cue: "wave" });
+    expect(gestureReaction("high_five")).toEqual({ feeling: "laugh", cue: "hop" });
+    expect(gestureReaction("gift").feeling).toBe("happy");
+  });
+
+  it("shows one feeling at a time, the newest, held a few seconds, then neutral again", () => {
+    const f = new Feelings();
+    expect(f.feeling("lina", 0)).toBe("neutral");
+    f.show("lina", { feeling: "love" }, 1000);
+    expect(f.feeling("lina", 1000)).toBe("love");
+    // The same object while it lasts, so a 3D figure only changes its face when this does.
+    expect(f.get("lina", 2000)).toBe(f.get("lina", 3000));
+    f.show("lina", { feeling: "laugh", cue: "hop" }, 2000);
+    expect(f.get("lina", 2000)).toMatchObject({ feeling: "laugh", cue: "hop", at: 2000 });
+    expect(f.feeling("lina", 2000 + HOLD_MS - 1)).toBe("laugh");
+    expect(f.feeling("lina", 2000 + HOLD_MS)).toBe("neutral");
+    expect(f.get("lina", 2000)).toBeUndefined();
+    // Only the figure it happened to.
+    f.show("lina", { feeling: "love" }, 9000);
+    expect(f.feeling("felipe", 9000)).toBe("neutral");
+  });
+
+  it("remembers who spoke for a moment", () => {
+    const f = new Feelings();
+    expect(f.speaker(0)).toBeUndefined();
+    f.heard("wren", 100);
+    expect(f.speaker(100 + LISTEN_MS - 1)).toBe("wren");
+    expect(f.speaker(100 + LISTEN_MS)).toBeUndefined();
+  });
+
+  it("blinks every few seconds, each figure at its own time", () => {
+    const out = restingPose();
+    const blinkTimes = (phase: number) => {
+      const times: number[] = [];
+      for (let t = 0; t < 12_000; t += 10)
+        if (pose(undefined, t, phase, false, out).blink) times.push(t);
+      return times;
+    };
+    const a = blinkTimes(idPhase("lina"));
+    const b = blinkTimes(idPhase("felipe"));
+    expect(a.length).toBeGreaterThan(20);
+    expect(a.length).toBeLessThan(80);
+    expect(a).not.toEqual(b);
+    expect(idPhase("lina")).toBe(idPhase("lina"));
+  });
+
+  it("bounces, hops, waves and floats a sign, and with reduced motion keeps only the face", () => {
+    const f = new Feelings();
+    const hop = f.show("a", gestureReaction("high_five"), 0);
+    const wave = f.show("b", gestureReaction("wave"), 0);
+    const love = f.show("c", gestureReaction("hug"), 0);
+    const moving = (shown: typeof hop, t: number) => ({
+      ...pose(shown, t, 0.3, false, restingPose()),
+    });
+    const still = (shown: typeof hop, t: number) => ({
+      ...pose(shown, t, 0.3, true, restingPose()),
+    });
+
+    expect(moving(hop, 240).lift).toBeGreaterThan(0.2);
+    expect(moving(hop, 240).feeling).toBe("laugh");
+    expect(moving(wave, 100).wave).toBeGreaterThan(0);
+    expect(new Set([0, 250, 500].map((t) => moving(wave, t).wave)).size).toBe(2);
+    expect(moving(wave, 5000).wave).toBe(0);
+    expect(moving(love, 400).tilt).not.toBe(0);
+    expect(moving(love, 850).rise).toBeGreaterThan(0);
+
+    for (const shown of [hop, wave, love]) {
+      for (let t = 0; t < HOLD_MS; t += 37) {
+        const p = still(shown, t);
+        expect(p.feeling).toBe(shown.feeling);
+        expect(p).toMatchObject({ lift: 0, blink: false, rise: 0, fade: 1 });
+        if (shown.feeling === "love") expect(p.tilt).toBe(0);
+      }
+    }
+    // A wave still shows the hand, without the swing.
+    expect(new Set([0, 250, 500].map((t) => still(wave, t).wave))).toEqual(new Set([1]));
   });
 });

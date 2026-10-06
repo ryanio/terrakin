@@ -31,6 +31,7 @@ import {
   Vector2,
   Vector3,
 } from "three";
+import type { Feelings } from "../feelings";
 import type { Mirror } from "../mirror";
 import {
   createStage,
@@ -53,8 +54,11 @@ import {
   figure,
   groundGrid,
   hearth,
+  ICON_TEXTURES,
   pickups,
   scenery,
+  showFeeling,
+  turnHead,
 } from "./plot";
 import {
   approach,
@@ -91,6 +95,8 @@ export interface World3dFrame {
   mirror: Mirror;
   me: string;
   buildMode: boolean;
+  /** What each figure feels and who just spoke (RFC 0013). */
+  feelings?: Feelings;
 }
 
 export interface World3d {
@@ -112,6 +118,8 @@ interface Fig {
   scope: Scope;
   signature: string;
   turn: number;
+  /** The head's turn from the body, toward whoever is speaking. */
+  look: number;
 }
 
 interface Building {
@@ -127,6 +135,11 @@ const MAX_DISTANCE = 24;
 /** How quickly figures glide to their tile and turn, per second. */
 const GLIDE = 12;
 const TURN = 10;
+/** Figures this close to a speaker turn their heads to them, as far as a neck goes. */
+const LISTEN_RADIUS = 5;
+const NECK = 0.8;
+/** A speaker further round than this is behind them: they don't strain to look. */
+const BEHIND = 2.2;
 /** Ground beyond the view radius, fading out, so the fog has something to swallow. */
 const GROUND_RING = VIEW_RADIUS + GROUND_STEP + 4;
 
@@ -388,6 +401,8 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
     figures.delete(id);
     scene.remove(f.group);
     f.scope.release();
+    // Feelings' signs are shared by every figure.
+    for (const t of ICON_TEXTURES) shared.add(t);
     disposeTree(f.group, shared);
   }
 
@@ -428,13 +443,17 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       group.position.copy(at);
       group.rotation.y = turn;
       scene.add(group);
-      figures.set(r.id, { group, scope, signature, turn });
+      figures.set(r.id, { group, scope, signature, turn, look: 0 });
     }
   }
 
-  /** Glide each figure to its tile and turn it the way it walked. True if anything moved. */
-  function moveFigures(mirror: Mirror, dt: number): boolean {
+  /**
+   * Glide each figure to its tile and turn it the way it walked, with its head toward whoever
+   * just spoke nearby. True if anything moved.
+   */
+  function moveFigures(mirror: Mirror, dt: number, speakerId: string | undefined): boolean {
     let moved = false;
+    const speaker = speakerId === undefined ? undefined : mirror.residents.get(speakerId);
     for (const [id, f] of figures) {
       const r = mirror.residents.get(id);
       if (!r) continue;
@@ -449,6 +468,17 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       p.z = z;
       f.turn = turn;
       f.group.rotation.y = turn;
+      let look = 0;
+      if (speaker && speaker.id !== id && tileDistance(r, speaker) <= LISTEN_RADIUS) {
+        const toward = turnBetween(turn, Math.atan2(speaker.x - x, speaker.y - z));
+        if (Math.abs(toward) <= BEHIND) look = Math.max(-NECK, Math.min(NECK, toward));
+      }
+      const head = still ? look : approach(f.look, look, dt, TURN / 2);
+      if (head !== f.look) {
+        moved = true;
+        f.look = head;
+        turnHead(f.group, head);
+      }
     }
     return moved;
   }
@@ -577,7 +607,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
   canvas.addEventListener("webglcontextlost", onLost);
 
   return {
-    sync({ mirror, me, buildMode }) {
+    sync({ mirror, me, buildMode, feelings }) {
       const self = mirror.residents.get(me);
       lastMirror = mirror;
       const now = performance.now();
@@ -608,7 +638,10 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
           seeThrough(b.group, inside);
         }
       }
-      const moved = moveFigures(mirror, dt);
+      let moved = moveFigures(mirror, dt, feelings?.speaker(now));
+      if (feelings)
+        for (const [id, f] of figures)
+          if (showFeeling(f.group, feelings.get(id, now), now)) moved = true;
       const mine = figures.get(me);
       if (mine) follow(mine.group.position);
       placeReach(mirror, self, buildMode);

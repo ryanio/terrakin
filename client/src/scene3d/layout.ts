@@ -17,9 +17,11 @@ import {
   WEAR_INFO,
   type WearItem,
 } from "@terrakin/sim";
+import type { Feeling } from "@terrakin/ui/feelings";
 import { type FigureLook, garmentColor, garmentLook } from "@terrakin/ui/figure";
 import { isMediaUrl } from "@terrakin/ui/format";
 import { growth } from "@terrakin/ui/item-art";
+import { dayPhase, nightAmount } from "../time";
 
 /** Inclusive tile range. */
 export interface Bounds {
@@ -91,6 +93,13 @@ export interface LayoutFigure {
   owner: boolean;
   /** What they wear and how it's styled, as the snapshot has it. */
   look: FigureLook;
+  /** A feeling to hold while the view is open: sleepy for someone out and home at night. */
+  feeling?: Feeling | undefined;
+}
+
+/** Night enough for someone out at their hearth to doze: past dusk and before dawn. */
+export function isNight(time: WorldSnapshot["time"]): boolean {
+  return time ? nightAmount(dayPhase(time.nowMs, time.dayLengthMs)) > 0.5 : false;
 }
 
 /** One worn thing on a 3D figure: its color, and its pattern when it has one. */
@@ -195,12 +204,19 @@ export function plotLayout(
   const hearth =
     owner.hearth && inBounds(bounds, owner.hearth.x, owner.hearth.y) ? owner.hearth : null;
   const solid = new Set(blocks.map((b) => `${b.x},${b.y}`));
+  const night = isNight(snapshot.time);
   const figures: LayoutFigure[] = [];
   for (const r of snapshot.residents) {
     const isOwner = r.id === owner.id;
     const onPlot = inBounds(bounds, r.x, r.y);
     if (!isOwner && !(r.online && onPlot)) continue;
     const spot = onPlot ? { x: r.x, y: r.y } : homeSpot(bounds, hearth, solid);
+    // Out, at their hearth, after dark: dozing (decision 0011's clock, RFC 0013).
+    const asleep =
+      night &&
+      !r.online &&
+      hearth !== null &&
+      Math.max(Math.abs(spot.x - hearth.x), Math.abs(spot.y - hearth.y)) <= 1;
     figures.push({
       id: r.id,
       name: r.name,
@@ -219,6 +235,7 @@ export function plotLayout(
         wear: r.wear,
         wearStyle: r.wearStyle,
       },
+      ...(asleep ? { feeling: "sleepy" as const } : {}),
     });
   }
 

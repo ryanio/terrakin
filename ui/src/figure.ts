@@ -21,6 +21,7 @@ import {
   type WearSlot,
 } from "@terrakin/sim";
 import { BRAND_HEX, WOOD_DARK } from "./brand";
+import type { Feeling } from "./feelings";
 import { lookImage, lookPalette, mix, PatternCache, RESIDENT_COLOR_HEX } from "./looks";
 
 /** A color and pattern per garment, as the sim keeps them or as the wire carries them. */
@@ -322,12 +323,68 @@ function headPath(ctx: CanvasRenderingContext2D, u: number, side: number) {
 const feetAt = (side: number): [number, number] =>
   side ? [-0.03 * side, 0.1 * side] : [-0.1, 0.1];
 
+/** How the face looks this moment: a feeling, eyes shut for a blink, and a hand up to wave. */
+export interface FigureFace {
+  feeling?: Feeling | undefined;
+  blink?: boolean | undefined;
+  /** A raised hand, at one end of the wave (1) or the other (2). 0 or absent: arms down. */
+  wave?: 0 | 1 | 2 | undefined;
+}
+
+const NO_FACE: FigureFace = {};
+
+/** Feelings drawn with open eyes, which close for a blink. The rest have shut or curved eyes. */
+export const blinks = (feeling: Feeling | undefined): boolean =>
+  feeling !== "happy" && feeling !== "laugh" && feeling !== "love" && feeling !== "sleepy";
+
+/** The small sign that floats over a figure showing some feelings. */
+export type FeelingIcon = "heart" | "z" | "dots" | "spark";
+
+export const FEELING_ICON: Partial<Record<Feeling, FeelingIcon>> = {
+  love: "heart",
+  laugh: "spark",
+  surprised: "spark",
+  sleepy: "z",
+  thinking: "dots",
+};
+
+/** How far the raised arm leans out from straight up, in radians, at each end of the wave. */
+const WAVE_LEAN = { front: [0, 0.35, 0.75], side: [0, 0.85, 1.2] } as const;
+
+/** The raised arm's shoulder, the middle of the arm, and the hand, for `s` (-1 or 1) and the wave. */
+function raisedArm(side: number, s: number, wave: 1 | 2) {
+  const lean = (side ? WAVE_LEAN.side : WAVE_LEAN.front)[wave];
+  // In profile the arm reaches forward, clear of the nose.
+  const sx = (side ? 0.15 : 0.22) * s;
+  const reach = side ? 0.22 : 0.2;
+  const dx = Math.sin(lean) * s;
+  const dy = -Math.cos(lean);
+  return {
+    x: sx + dx * reach * 0.5,
+    y: -0.4 + dy * reach * 0.5,
+    tilt: lean * s,
+    hand: { x: sx + dx * reach, y: -0.4 + dy * reach },
+  };
+}
+
+function raisedArmPath(
+  ctx: CanvasRenderingContext2D,
+  u: number,
+  arm: ReturnType<typeof raisedArm>,
+) {
+  ctx.beginPath();
+  ctx.ellipse(arm.x * u, arm.y * u, 0.055 * u, 0.11 * u, arm.tilt, 0, Math.PI * 2);
+  ctx.moveTo((arm.hand.x + 0.05) * u, arm.hand.y * u);
+  ctx.arc(arm.hand.x * u, arm.hand.y * u, 0.05 * u, 0, Math.PI * 2);
+}
+
 /**
  * Draw a figure with its feet at (0, 0) of the current transform. `u` is one tile in pixels.
  * `pattern` fills the clothes over the main color (null for plain). `facing` is the way they look:
  * south (the default) shows the face, north their back, east and west a profile with one eye and
  * a nose pointing that way.
- * `patterns` makes the tiles for garments with a pattern of their own.
+ * `patterns` makes the tiles for garments with a pattern of their own. `face` is the feeling on
+ * the face, a blink, and a wave; without one the face is neutral with open eyes.
  */
 export function drawFigure(
   ctx: CanvasRenderingContext2D,
@@ -336,6 +393,7 @@ export function drawFigure(
   pattern: CanvasPattern | null,
   facing: Direction = "s",
   patterns: PatternCache = pagePatterns,
+  face: FigureFace = NO_FACE,
 ) {
   const p = lookPalette(look.theme, look.color);
   const head = RESIDENT_COLOR_HEX[look.color] ?? RESIDENT_COLOR_HEX.sun;
@@ -350,6 +408,8 @@ export function drawFigure(
   const feet = feetAt(side);
   const flared = wear.has("dress") || wear.has("skirt");
   const shoes = wear.has("socks") || wear.has("boots") || wear.has("sneakers");
+  // A wave raises the arm on the carrying side up beside the head.
+  const waving = face.wave ? raisedArm(side, hand, face.wave) : undefined;
 
   // White rim behind everything, so the figure reads on any ground.
   ctx.lineJoin = "round";
@@ -359,6 +419,10 @@ export function drawFigure(
   ctx.stroke();
   headPath(ctx, u, back ? 0 : side);
   ctx.stroke();
+  if (waving) {
+    raisedArmPath(ctx, u, waving);
+    ctx.stroke();
+  }
   if (flared) {
     flarePath(ctx, u);
     ctx.stroke();
@@ -397,16 +461,27 @@ export function drawFigure(
   if (wear.has("boots")) drawBoots(ctx, u, feet, side, garb("boots"));
   else if (wear.has("sneakers")) drawSneakers(ctx, u, feet, side, p, garb("sneakers"));
 
-  // Little arms. Sideways, the near arm hangs over the body and the far one is hidden.
-  ctx.fillStyle = mix(p.main, p.deep, 0.18);
+  // Little arms. Sideways, the near arm hangs over the body and the far one is hidden. A raised
+  // arm takes the place of the one on its side.
+  const arm = mix(p.main, p.deep, 0.18);
+  ctx.fillStyle = arm;
   ctx.beginPath();
   if (side) {
-    ctx.ellipse(-0.03 * side * u, -0.29 * u, 0.065 * u, 0.11 * u, 0.25 * side, 0, Math.PI * 2);
+    if (!waving)
+      ctx.ellipse(-0.03 * side * u, -0.29 * u, 0.065 * u, 0.11 * u, 0.25 * side, 0, Math.PI * 2);
   } else {
-    ctx.ellipse(-0.27 * u, -0.3 * u, 0.06 * u, 0.1 * u, 0.35, 0, Math.PI * 2);
-    ctx.ellipse(0.27 * u, -0.3 * u, 0.06 * u, 0.1 * u, -0.35, 0, Math.PI * 2);
+    if (!waving || hand > 0)
+      ctx.ellipse(-0.27 * u, -0.3 * u, 0.06 * u, 0.1 * u, 0.35, 0, Math.PI * 2);
+    if (!waving || hand < 0) {
+      ctx.moveTo(0.33 * u, -0.3 * u);
+      ctx.ellipse(0.27 * u, -0.3 * u, 0.06 * u, 0.1 * u, -0.35, 0, Math.PI * 2);
+    }
   }
   ctx.fill();
+  if (waving) {
+    raisedArmPath(ctx, u, waving);
+    ctx.fill();
+  }
 
   if (wear.has("satchel")) drawSatchel(ctx, u, hand, garb("satchel"));
 
@@ -420,7 +495,7 @@ export function drawFigure(
   ctx.fill();
   if (!back) {
     const eye = look.color === "coal" ? BRAND_HEX.paper : INK;
-    drawFace(ctx, u, eye, side);
+    drawFace(ctx, u, eye, side, face.feeling ?? "neutral", Boolean(face.blink));
     if (wear.has("glasses")) drawGlasses(ctx, u, side, garb("glasses"));
   }
 
@@ -432,25 +507,258 @@ export function drawFigure(
   if (wear.has("muse_lantern")) drawMuseLantern(ctx, u, hand, p, garb("muse_lantern"));
 }
 
-/** Eyes and cheeks, slid `turn` tiles sideways when the figure faces east or west. */
-/** Two eyes and two cheeks from the front; in profile (`side` 1 east, -1 west) one of each. */
-function drawFace(ctx: CanvasRenderingContext2D, u: number, eye: string, side: number) {
+const EYE_Y = -0.64;
+const EYE_R = 0.026;
+const MOUTH_Y = -0.56;
+const CHEEK = "rgba(234, 110, 120, 0.4)";
+const BLUSH = "rgba(232, 92, 110, 0.62)";
+const HEART = "#e8576b";
+
+/** How the eyes look for a feeling, with `blink` closing open ones. */
+type EyeShape = "dot" | "shut" | "arc" | "heart" | "round" | "down" | "up" | "sad";
+
+function eyeShape(feeling: Feeling, blink: boolean): EyeShape {
+  if (blink && blinks(feeling)) return "shut";
+  switch (feeling) {
+    case "happy":
+    case "laugh":
+      return "arc";
+    case "love":
+      return "heart";
+    case "sleepy":
+      return "shut";
+    case "surprised":
+      return "round";
+    case "shy":
+      return "down";
+    case "thinking":
+      return "up";
+    case "sad":
+      return "sad";
+    default:
+      return "dot";
+  }
+}
+
+/** A heart `s` wide around (x, y). */
+function heartPath(ctx: CanvasRenderingContext2D, x: number, y: number, s: number) {
+  ctx.moveTo(x, y + s * 0.42);
+  ctx.bezierCurveTo(x - s * 0.62, y + s * 0.02, x - s * 0.42, y - s * 0.52, x, y - s * 0.18);
+  ctx.bezierCurveTo(x + s * 0.42, y - s * 0.52, x + s * 0.62, y + s * 0.02, x, y + s * 0.42);
+  ctx.closePath();
+}
+
+/**
+ * The face: two eyes and two cheeks from the front, one of each in profile (`side` 1 east, -1
+ * west), and a mouth for every feeling but neutral. Eyes and mouth are drawn in `ink`.
+ */
+function drawFace(
+  ctx: CanvasRenderingContext2D,
+  u: number,
+  ink: string,
+  side: number,
+  feeling: Feeling,
+  blink: boolean,
+) {
   const eyes = side ? [PROFILE_EYE * side] : [-0.075, 0.075];
   const cheeks = side ? [0.03 * side] : [-0.13, 0.13];
-  ctx.fillStyle = eye;
+  const shape = eyeShape(feeling, blink);
+  // Toward the middle of the face: the nose in profile, the other eye from the front.
+  const inward = (x: number) => side || (x < 0 ? 1 : -1);
+  ctx.lineCap = "round";
+  ctx.lineWidth = Math.max(1, 0.022 * u);
+  ctx.strokeStyle = ink;
+  ctx.fillStyle = shape === "heart" ? HEART : ink;
   ctx.beginPath();
   for (const x of eyes) {
-    ctx.moveTo((x + 0.026) * u, -0.64 * u);
-    ctx.ellipse(x * u, -0.64 * u, 0.026 * u, (side ? 0.032 : 0.026) * u, 0, 0, Math.PI * 2);
+    const ex = x * u;
+    const ey = EYE_Y * u;
+    switch (shape) {
+      case "shut":
+        ctx.moveTo((x + 0.03 * Math.cos(0.15 * Math.PI)) * u, (EYE_Y - 0.012) * u);
+        ctx.arc(ex, (EYE_Y - 0.012) * u, 0.03 * u, 0.15 * Math.PI, 0.85 * Math.PI);
+        break;
+      case "arc":
+        ctx.moveTo((x - 0.03 * Math.cos(0.15 * Math.PI)) * u, (EYE_Y + 0.008) * u);
+        ctx.arc(ex, (EYE_Y + 0.022) * u, 0.03 * u, 1.15 * Math.PI, 1.85 * Math.PI);
+        break;
+      case "heart":
+        heartPath(ctx, ex, ey, 0.075 * u);
+        break;
+      case "round":
+        ctx.moveTo((x + 0.034) * u, ey);
+        ctx.ellipse(ex, ey, 0.034 * u, 0.038 * u, 0, 0, Math.PI * 2);
+        break;
+      case "sad":
+        ctx.moveTo((x + EYE_R) * u, (EYE_Y + 0.006) * u);
+        ctx.ellipse(ex, (EYE_Y + 0.006) * u, EYE_R * u, EYE_R * u, 0, 0, Math.PI * 2);
+        break;
+      default: {
+        const dx = shape === "up" ? 0.016 * (side || 1) : 0;
+        const dy = shape === "up" ? -0.018 : shape === "down" ? 0.016 : 0;
+        const r = shape === "down" ? 0.022 : EYE_R;
+        ctx.moveTo((x + dx + r) * u, (EYE_Y + dy) * u);
+        ctx.ellipse(
+          (x + dx) * u,
+          (EYE_Y + dy) * u,
+          r * u,
+          (side ? r * 1.25 : r) * u,
+          0,
+          0,
+          Math.PI * 2,
+        );
+      }
+    }
   }
-  ctx.fill();
-  ctx.fillStyle = "rgba(234, 110, 120, 0.4)";
+  if (shape === "shut" || shape === "arc") ctx.stroke();
+  else ctx.fill();
+  if (shape === "sad") {
+    // Brows lifted toward the middle of the face.
+    ctx.lineWidth = Math.max(1, 0.016 * u);
+    ctx.beginPath();
+    for (const x of eyes) {
+      ctx.moveTo((x - 0.035 * inward(x)) * u, (EYE_Y - 0.045) * u);
+      ctx.lineTo((x + 0.025 * inward(x)) * u, (EYE_Y - 0.065) * u);
+    }
+    ctx.stroke();
+  }
+  if (shape === "round") {
+    // A catch of light in wide eyes.
+    ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+    ctx.beginPath();
+    for (const x of eyes) {
+      ctx.moveTo((x + 0.022) * u, (EYE_Y - 0.012) * u);
+      ctx.arc((x + 0.01) * u, (EYE_Y - 0.012) * u, 0.012 * u, 0, Math.PI * 2);
+    }
+    ctx.fill();
+  }
+
+  // Cheeks, rosier for love and shy.
+  const blush = feeling === "love" || feeling === "shy";
+  const [cw, ch] = blush ? [0.055, 0.032] : [0.04, 0.025];
+  ctx.fillStyle = blush ? BLUSH : CHEEK;
   ctx.beginPath();
   for (const x of cheeks) {
-    ctx.moveTo((x + 0.04) * u, -0.585 * u);
-    ctx.ellipse(x * u, -0.585 * u, 0.04 * u, 0.025 * u, 0, 0, Math.PI * 2);
+    ctx.moveTo((x + cw) * u, -0.585 * u);
+    ctx.ellipse(x * u, -0.585 * u, cw * u, ch * u, 0, 0, Math.PI * 2);
   }
   ctx.fill();
+
+  drawMouth(ctx, u, ink, side, feeling);
+}
+
+/** The mouth for a feeling, under the eyes from the front and toward the nose in profile. */
+function drawMouth(
+  ctx: CanvasRenderingContext2D,
+  u: number,
+  ink: string,
+  side: number,
+  feeling: Feeling,
+) {
+  const x = (side ? 0.125 * side : 0) * u;
+  const y = MOUTH_Y * u;
+  // In profile you see about half of it.
+  const w = (side ? 0.65 : 1) * u;
+  ctx.strokeStyle = ink;
+  ctx.fillStyle = ink;
+  ctx.beginPath();
+  switch (feeling) {
+    case "happy":
+    case "love":
+    case "shy": {
+      const r = (feeling === "shy" ? 0.022 : 0.034) * w;
+      ctx.moveTo(x + r * Math.cos(0.2 * Math.PI), y - 0.02 * u + r * Math.sin(0.2 * Math.PI));
+      ctx.arc(x, y - 0.02 * u, r, 0.2 * Math.PI, 0.8 * Math.PI);
+      ctx.stroke();
+      return;
+    }
+    case "laugh":
+      ctx.ellipse(x, y - 0.012 * u, 0.045 * w, 0.042 * u, 0, 0, Math.PI);
+      ctx.closePath();
+      ctx.fill();
+      return;
+    case "surprised":
+      ctx.ellipse(x, y, 0.018 * w, 0.022 * u, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      return;
+    case "sad": {
+      const r = 0.03 * w;
+      ctx.moveTo(x + r * Math.cos(1.2 * Math.PI), y + 0.022 * u + r * Math.sin(1.2 * Math.PI));
+      ctx.arc(x, y + 0.022 * u, r, 1.2 * Math.PI, 1.8 * Math.PI);
+      ctx.stroke();
+      return;
+    }
+    case "sleepy":
+      ctx.ellipse(x, y, 0.012 * w, 0.014 * u, 0, 0, Math.PI * 2);
+      ctx.fill();
+      return;
+    case "thinking":
+      ctx.moveTo(x - 0.008 * w, y);
+      ctx.lineTo(x + 0.032 * w, y - 0.006 * u);
+      ctx.stroke();
+      return;
+    default:
+  }
+}
+
+/**
+ * The sign that floats over a figure, centered on (0, 0) of the current transform and `size`
+ * pixels across: a heart, a "z", a thought bubble, or a sparkle. Drawn the same on the map and,
+ * as a texture, over the 3D figure.
+ */
+export function drawFeelingIcon(ctx: CanvasRenderingContext2D, icon: FeelingIcon, size: number) {
+  const s = size;
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  ctx.strokeStyle = RIM;
+  ctx.lineWidth = s * 0.1;
+  ctx.beginPath();
+  switch (icon) {
+    case "heart":
+      heartPath(ctx, 0, s * 0.04, s * 0.8);
+      ctx.stroke();
+      ctx.fillStyle = HEART;
+      ctx.fill();
+      return;
+    case "spark":
+      sparklePath(ctx, 0, 0, s * 0.42);
+      ctx.stroke();
+      ctx.fillStyle = GOLD;
+      ctx.fill();
+      return;
+    case "z": {
+      // A big z and a little one, climbing to the right.
+      const zig = (x: number, y: number, k: number) => {
+        ctx.moveTo(x - k, y - k);
+        ctx.lineTo(x + k, y - k);
+        ctx.lineTo(x - k, y + k);
+        ctx.lineTo(x + k, y + k);
+      };
+      zig(-s * 0.12, s * 0.12, s * 0.2);
+      zig(s * 0.26, -s * 0.24, s * 0.11);
+      ctx.lineWidth = s * 0.2;
+      ctx.stroke();
+      ctx.strokeStyle = BRAND_HEX.inkSoft;
+      ctx.lineWidth = s * 0.08;
+      ctx.stroke();
+      return;
+    }
+    case "dots":
+      ctx.roundRect(-s * 0.44, -s * 0.24, s * 0.88, s * 0.48, s * 0.24);
+      ctx.fillStyle = PAPER;
+      ctx.fill();
+      ctx.strokeStyle = BRAND_HEX.paperEdge;
+      ctx.lineWidth = s * 0.05;
+      ctx.stroke();
+      ctx.fillStyle = INK;
+      ctx.beginPath();
+      for (const x of [-0.22, 0, 0.22]) {
+        ctx.moveTo((x + 0.065) * s, 0);
+        ctx.arc(x * s, 0, 0.065 * s, 0, Math.PI * 2);
+      }
+      ctx.fill();
+      return;
+  }
 }
 
 // ---------- hats ----------

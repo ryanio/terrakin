@@ -30,6 +30,7 @@ import {
   withDecorChanges,
 } from "./build-palette";
 import { type Camera, fitScale, screenToTile, stepToward } from "./camera";
+import { Feelings, gestureReaction } from "./feelings";
 import { createLanding } from "./landing";
 import { Mirror } from "./mirror";
 import { Connection, type Identity, savedToken, saveToken } from "./net";
@@ -61,6 +62,8 @@ const modeButton = $<HTMLButtonElement>("world-mode");
 const host3d = $("world-3d");
 
 const motionQuery = window.matchMedia(REDUCED_MOTION);
+/** What figures show in reaction to what happens to them (RFC 0013). Drawing only. */
+const feelings = new Feelings();
 
 let active = false;
 let rafId = 0;
@@ -261,8 +264,12 @@ function onMessage(msg: ServerMessage) {
       break;
     case "gesture":
       // Someone sent you a hug or a wave. Their name and note are their words: shown as text.
-      if (showsReceived(msg.kind))
+      if (showsReceived(msg.kind)) {
         showToast(gestureLine(msg.kind, msg.from.name, msg.note, msg.putter, msg.item), "player");
+        // Your figure answers it: love for a hug, a wave back for a wave. Only the kind decides,
+        // and a kind the site keeps quiet about (a kiss, decision 0066) shows nothing here either.
+        if (me) feelings.show(me, gestureReaction(msg.kind), performance.now());
+      }
       break;
     case "event": {
       // Out of step with the server? Reload the truth rather than guessing.
@@ -286,6 +293,8 @@ function onMessage(msg: ServerMessage) {
     }
     case "chat":
       addChat(msg.from.name, msg.from.kind, msg.text, msg.channel);
+      // Figures near the speaker look their way. Who spoke, never what they said.
+      feelings.heard(msg.from.id, performance.now());
       break;
     case "ack":
       if (msg.id === pendingMove) pendingMove = undefined;
@@ -829,15 +838,23 @@ function frame(t: number) {
     ? dayPhase(dayAnchor.nowMs + (performance.now() - dayAnchor.receivedAt), dayAnchor.dayLengthMs)
     : undefined;
   paintPad(world3d?.heading() ?? 0, world3d !== undefined);
-  if (world3d && mirror && me) world3d.sync({ mirror, me, buildMode });
+  const now = performance.now();
+  const still = motionQuery.matches;
+  if (world3d && mirror && me) world3d.sync({ mirror, me, buildMode, feelings });
   else if (mirror)
     render(ctx, {
       mirror,
       me,
       cam,
       buildMode,
+      feelings,
+      now,
+      still,
       ...(phase === undefined ? {} : { dayPhase: phase }),
     });
+  // Your own figure's feeling, a name from a fixed list, once you're in: for tests and tools.
+  const mine = me ? feelings.feeling(me, now) : "";
+  if (canvas.dataset.feeling !== mine) canvas.dataset.feeling = mine;
   if (active) rafId = requestAnimationFrame(frame);
 }
 

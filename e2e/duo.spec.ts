@@ -67,6 +67,15 @@ test("a partner accepts an invite, moves in next door, and sends a hug and a let
   expect(onHerPlot.length).toBeGreaterThanOrEqual(15);
   expect(me.hearth).not.toBeNull();
 
+  // Felipe hugs her while she's in the world, and her figure shows love (RFC 0013).
+  await expect(page.locator("#world")).toHaveAttribute("data-feeling", "neutral");
+  const hug = await page.request.post(`/v1/residents/${lina.id}/gesture`, {
+    headers: felipe.auth,
+    data: { kind: "hug" },
+  });
+  expect(hug.status()).toBe(201);
+  await expect(page.locator("#world")).toHaveAttribute("data-feeling", "love");
+
   // They follow each other.
   const seen = async (viewer: Record<string, string>, id: string) =>
     (await (await page.request.get(`/v1/residents/${id}`, { headers: viewer })).json()).resident;

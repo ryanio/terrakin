@@ -4,6 +4,7 @@ import type { WorldSnapshot } from "@terrakin/protocol";
 import { BLOCK_KINDS, RESIDENT_COLORS, THEME_INFO, type WearItem } from "@terrakin/sim";
 import { BRAND_HEX } from "@terrakin/ui/brand";
 import { GARMENT_COLOR, garmentColor } from "@terrakin/ui/figure";
+import { type BufferGeometry, IcosahedronGeometry, Mesh, SphereGeometry } from "three";
 import { describe, expect, it } from "vitest";
 import { blockColor, RESIDENT_COLOR_HEX } from "./render";
 import { parseGallery } from "./scene3d/catalog";
@@ -25,6 +26,8 @@ import {
   wornPieces,
 } from "./scene3d/layout";
 import { BRAND, blockLook, hex, mix, residentHex, shade } from "./scene3d/palette";
+import { faceParts } from "./scene3d/plot";
+import { onHead } from "./scene3d/wear";
 
 type ResidentView = WorldSnapshot["residents"][number];
 
@@ -184,6 +187,53 @@ describe("plot layout", () => {
     const full = new Set<string>();
     for (let y = b.y0; y <= b.y1; y++) for (let x = b.x0; x <= b.x1; x++) full.add(`${x},${y}`);
     expect(groundDecor(b, full)).toEqual({ tufts: [], flowers: [] });
+  });
+});
+
+describe("faces on 3D figures", () => {
+  const capriFeels = (online: boolean, time?: { nowMs: number; dayLengthMs: number }) => {
+    const w = world();
+    w.residents = w.residents.map((r) => (r.id === "capri" ? { ...r, online } : r));
+    if (time) w.time = time;
+    return plotLayout(w, "capri")?.figures.find((f) => f.id === "capri")?.feeling;
+  };
+
+  it("dozes by the hearth after dark while out, and not by day, online, or without a clock", () => {
+    const midnight = { nowMs: 75_000, dayLengthMs: 100_000 };
+    const noon = { nowMs: 25_000, dayLengthMs: 100_000 };
+    expect(capriFeels(false, midnight)).toBe("sleepy");
+    expect(capriFeels(false, noon)).toBeUndefined();
+    expect(capriFeels(true, midnight)).toBeUndefined();
+    expect(capriFeels(false)).toBeUndefined();
+  });
+
+  it("adds fewer than 50 triangles over the sphere eyes and cheeks it replaces", () => {
+    const triangles = (g: BufferGeometry) =>
+      (g.index ? g.index.count : (g.getAttribute("position")?.count ?? 0)) / 3;
+    let face = 0;
+    let shownNeutral = 0;
+    faceParts().head.traverse((o) => {
+      if (!(o instanceof Mesh)) return;
+      face += triangles(o.geometry);
+      if (o.visible) shownNeutral++;
+    });
+    // The waving hand and the floating sign (a sprite: two triangles).
+    const extra = face + triangles(new IcosahedronGeometry(0.05, 0)) + 2;
+    const replaced = 4 * triangles(new SphereGeometry(0.022, 8, 6));
+    expect(extra - replaced).toBeLessThan(50);
+    // A neutral face draws two eyes and two cheeks, as before.
+    expect(shownNeutral).toBe(4);
+  });
+
+  it("turns hats, glasses and the bow with the head, and leaves the rest on the body", () => {
+    expect(
+      ["straw_hat", "beret", "top_hat", "muse_halo", "glasses", "bow"].every((w) =>
+        onHead(w as WearItem),
+      ),
+    ).toBe(true);
+    expect(["scarf", "satchel", "umbrella", "boots"].some((w) => onHead(w as WearItem))).toBe(
+      false,
+    );
   });
 });
 

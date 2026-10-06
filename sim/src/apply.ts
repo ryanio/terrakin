@@ -12,7 +12,7 @@ import {
   checkReopenBounty,
   checkVoidBounty,
 } from "./bounties";
-import { checkBuild } from "./build";
+import { type BuildPlan, checkBuild } from "./build";
 import {
   checkAdmire,
   checkDisplay,
@@ -138,10 +138,11 @@ export const MAX_CO_OWNERS = 3;
 /**
  * A validated input, ready to commit. `commit()` mutates the state it was prepared against,
  * bumps `seq`, and returns the events. Call it at most once, and only if the state hasn't changed
- * since `prepare()`.
+ * since `prepare()`. A `build` also carries `plan`, the changes its commit makes, worked out with
+ * the actor as the commit will find them, so the server answers with what the sim does.
  */
 export type Prepared =
-  | { ok: true; commit: () => { seq: number; events: WorldEvent[] } }
+  | { ok: true; commit: () => { seq: number; events: WorldEvent[] }; plan?: BuildPlan }
   | { ok: false; rejection: Rejection };
 
 const reject = (code: RejectionCode, message: string): Prepared => ({
@@ -304,24 +305,26 @@ export function prepare(state: WorldState, input: Input): Prepared {
   const back = state.implicitPresence && isActivity(command) ? rejoined(state, actor) : undefined;
   const away = back && residentById(state, actor);
   if (back) state.residents[actor] = back;
-  let mutate: Mutation | Prepared;
+  let checked: Checked;
   let welcome: ReturnType<typeof welcomeDue>;
   let newcomer: boolean;
   try {
-    mutate = check(state, actor, command);
+    checked = check(state, actor, command);
     // Coin bookkeeping worked out against the state as it is now (RFC 0008). All of it is a no-op
     // until the economy opens.
-    welcome = typeof mutate === "function" ? welcomeDue(state, actor, command) : null;
+    welcome = "ok" in checked ? null : welcomeDue(state, actor, command);
     newcomer = command.type === "join" && !state.residents[actor];
   } finally {
     if (back && away) state.residents[actor] = away;
   }
-  if (typeof mutate !== "function") return mutate;
+  if ("ok" in checked) return checked;
   const seq = state.seq + 1;
-  const act = mutate;
+  const act = typeof checked === "function" ? checked : checked.commit;
+  const plan = typeof checked === "function" ? undefined : checked.plan;
   let done = false;
   return {
     ok: true,
+    ...(plan ? { plan } : {}),
     commit: () => {
       if (done) throw new Error("Prepared input committed twice");
       done = true;
@@ -362,6 +365,12 @@ export function apply(state: WorldState, input: Input): ApplyResult {
 }
 
 type Mutation = () => WorldEvent[];
+
+/**
+ * What `check` finds: the change to make, the same for `build` with the plan it makes, or a
+ * rejection (a `Prepared` with `ok: false`).
+ */
+type Checked = Mutation | { plan: BuildPlan; commit: Mutation } | Prepared;
 
 const northToSouth = (a: Plot, b: Plot) => a.py - b.py || a.px - b.px;
 const sameTile = (a: Tile, b: Tile) => a.x === b.x && a.y === b.y;
@@ -580,7 +589,7 @@ function town(
 /** `{ claimedDay }` once the world counts days, else nothing, so older worlds hash as before. */
 const stampDay = (state: WorldState) => (state.day === undefined ? {} : { claimedDay: state.day });
 
-function check(state: WorldState, actor: string, command: Command): Mutation | Prepared {
+function check(state: WorldState, actor: string, command: Command): Checked {
   const { config } = state;
   const me = state.residents[actor];
 
@@ -1020,8 +1029,10 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
       };
     }
 
-    case "build":
-      return town(checkBuild(state, actor, command));
+    case "build": {
+      const built = checkBuild(state, actor, command);
+      return "code" in built ? { ok: false, rejection: built } : built;
+    }
 
     case "share_plot":
     case "unshare_plot": {

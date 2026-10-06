@@ -414,15 +414,18 @@ export function commitBuild(state: WorldState, actor: ResidentId, plan: BuildPla
   return events;
 }
 
-/** `build`: the plan, or why not. */
+/**
+ * `build`: the plan and the change that makes it, or why not. `prepare` hands the plan on, so the
+ * server answers with exactly what the sim commits.
+ */
 export function checkBuild(
   state: WorldState,
   actor: ResidentId,
   command: Extract<Command, { type: "build" }>,
-): (() => WorldEvent[]) | Rejection {
+): { plan: BuildPlan; commit: () => WorldEvent[] } | Rejection {
   const plan = planBuild(state, actor, command);
   if ("code" in plan) return plan;
-  return () => commitBuild(state, actor, plan);
+  return { plan, commit: () => commitBuild(state, actor, plan) };
 }
 
 /** What a plan did, or would do, in counts and net things, for the server's answer. */

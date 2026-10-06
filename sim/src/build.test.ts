@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { apply } from "./apply";
-import { buildSummary, planBuild, planMax, plotPlan } from "./build";
+import { apply, prepare } from "./apply";
+import { buildSummary, planMax, plotPlan } from "./build";
 import { BUILD_CONFIG, BUILD_HASH, BUILD_LOG } from "./fixtures/build-log";
 import { FURNITURE_KINDS, FURNITURE_RECIPES } from "./furniture";
 import { hashWorld } from "./hash";
@@ -372,9 +372,10 @@ describe("build", () => {
         { x: 3, y: 4, ground: "dirt" },
       ],
     });
-    const before = planBuild(w.state, "ada", command);
-    if ("code" in before) throw new Error(before.message);
-    expect(buildSummary(before).skipped).toEqual([
+    // The plan `prepare` hands back is what the server answers with, and what its commit builds.
+    const prepared = prepare(w.state, { actor: "ada", command });
+    if (!prepared.ok || !prepared.plan) throw new Error("the plan should go ahead");
+    expect(buildSummary(prepared.plan).skipped).toEqual([
       { x: 2, y: 2, what: "remove", why: "growing" },
       { x: 4, y: 2, what: "remove", why: "on_display" },
       { x: 6, y: 6, what: "remove", why: "empty" },
@@ -384,7 +385,7 @@ describe("build", () => {
       { x: 1, y: 2, what: "block", why: "occupied" },
       { x: 2, y: 4, what: "ground", why: "same" },
     ]);
-    w.ok("ada", command);
+    prepared.commit();
     expect(w.state.blocks["6,6"]).toBe("leaf");
     expect(w.state.ground?.["3,4"]).toBe("dirt");
     expect(w.state.blocks["2,2"]).toBe("planter");

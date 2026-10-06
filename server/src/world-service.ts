@@ -19,6 +19,7 @@ import {
 } from "@terrakin/protocol";
 import {
   asJoined,
+  type BuildPlan,
   buildSummary,
   type Command,
   chebyshev,
@@ -41,7 +42,6 @@ import {
   parseKey,
   pickupLeft,
   pieceShowingMedia,
-  planBuild,
   planPutter,
   plotAtTile,
   plotPickupsOwned,
@@ -264,6 +264,10 @@ function publicEvents(events: WireEvent[]): WireEvent[] {
 export function eventsFor(events: WireEvent[], viewer: string): WireEvent[] {
   return events.filter((e) => !isPrivate(e) || e.residentId === viewer);
 }
+
+/** A `build`'s answer: the plan the sim prepared, the one its commit makes (decision 0076). */
+const planOf = (prepared: { plan?: BuildPlan }): { plan?: BuildPlanSummary } =>
+  prepared.plan ? { plan: buildSummary(prepared.plan) } : {};
 
 /** How many residents within earshot a putter tries to wave at before it gives up. */
 const PUTTER_GREET_TRIES = 5;
@@ -1261,9 +1265,8 @@ export class WorldService {
 
   /**
    * A plan built in one input, spaced `BUILD_LIMITS.secondsBetween` apart per resident since one
-   * can broadcast an event for every tile of a plot. The answer carries the sim's own plan
-   * (`planBuild`), worked out against the same world the input is checked against, with the
-   * builder back online if acting brings them back. A dry run plans and checks, and counts nothing.
+   * can broadcast an event for every tile of a plot. The answer carries the plan `prepare` hands
+   * back (`run` adds it), the one the sim commits. A dry run plans and checks, and counts nothing.
    */
   private build(residentId: string, command: Command, dry: boolean): ActResult {
     if (command.type !== "build") throw new Error("build takes a build");
@@ -1281,11 +1284,9 @@ export class WorldService {
         };
       }
     }
-    const planned = planBuild(asJoined(this.state, residentId), residentId, command);
     const result = this.run({ actor: residentId, command }, dry);
-    if (!result.ok) return result;
-    if (!dry) this.builds.set(residentId, this.now());
-    return "code" in planned ? result : { ...result, plan: buildSummary(planned) };
+    if (result.ok && !dry) this.builds.set(residentId, this.now());
+    return result;
   }
 
   // ---------- putter (decision 0049) ----------
@@ -1431,7 +1432,7 @@ export class WorldService {
   private check(input: Input): ActResult {
     const prepared = prepare(asJoined(this.state, input.actor), input);
     if (!prepared.ok) return { ok: false, error: prepared.rejection };
-    return { ok: true, seq: this.state.seq, events: [] };
+    return { ok: true, seq: this.state.seq, events: [], ...planOf(prepared) };
   }
 
   private runTraced(input: Input): ActResult {
@@ -1469,7 +1470,7 @@ export class WorldService {
     for (const event of wire) {
       if (isPrivate(event)) this.notify(event.residentId, { type: "event", seq, event });
     }
-    return { ok: true, seq, events: eventsFor(wire, input.actor) };
+    return { ok: true, seq, events: eventsFor(wire, input.actor), ...planOf(prepared) };
   }
 
   // ---------- presence ----------

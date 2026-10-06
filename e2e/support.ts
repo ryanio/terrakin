@@ -109,11 +109,15 @@ export async function freePlots(
 /** Join, settle a free plot, and build the starter home, which puts you on your hearth. */
 export async function settler(request: APIRequestContext, name: string) {
   const who = await join(request, name);
-  const [plot] = await freePlots(request, 1);
-  if (!plot) throw new Error("No free plots left in the test world");
-  expect((await act(request, who.token, { type: "settle", px: plot[0], py: plot[1] })).ok).toBe(
-    true,
-  );
+  // Specs share one world and run side by side, so the first free plot can be taken between
+  // reading the world and settling it. Then the next free one is tried.
+  for (let attempt = 1; ; attempt++) {
+    const [plot] = await freePlots(request, 1);
+    if (!plot) throw new Error("No free plots left in the test world");
+    const settled = await act(request, who.token, { type: "settle", px: plot[0], py: plot[1] });
+    if (settled.ok) break;
+    if (attempt === 5) expect(settled.ok, JSON.stringify(settled)).toBe(true);
+  }
   expect((await act(request, who.token, { type: "build_starter_home" })).ok).toBe(true);
   return who;
 }

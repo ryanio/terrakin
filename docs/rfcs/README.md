@@ -46,3 +46,4 @@ Bug fixes, docs, and contained features don't need one.
 | [0020](0020-plots-worth-visiting.md) | Plots worth visiting | accepted (built) |
 | [0021](0021-collections-and-foraging.md) | Collections and foraging | accepted (built) |
 | [0022](0022-holidays.md) | Holidays | accepted (Halloween built) |
+| [0023](0023-fishing.md) | Fishing | accepted (built) |

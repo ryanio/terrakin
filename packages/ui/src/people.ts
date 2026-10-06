@@ -196,6 +196,8 @@ export interface PersonLinkOptions {
    * false: a reported picture stays behind its tap-to-reveal.
    */
   picture?: boolean;
+  /** False leaves the badges off, for a list where every row is the same kind of resident. */
+  badges?: boolean;
 }
 
 /** A resident as one link: avatar, name, and badges. Lists, bylines, and cards all use it. */
@@ -219,7 +221,7 @@ export function personLink(
       options.size ?? "sm",
     ),
     h("span", { class: "person-name", text: person.name }),
-    ...badges(person),
+    ...(options.badges === false ? [] : badges(person)),
   );
 }
 

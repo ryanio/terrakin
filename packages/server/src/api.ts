@@ -21,7 +21,9 @@ import {
   plainProblem,
   RATE_LIMITS,
   type RateLimitName,
+  REACTION_KEYS,
   REPEAT_WINDOW_MS,
+  type ReactionKey,
   ROUTES,
   type RouteId,
   type RouteMatch,
@@ -29,6 +31,7 @@ import {
   type ServerMessage,
   type StaffRole,
   suggestFor,
+  type TownsfolkActivityResponse,
 } from "@terrakin/protocol";
 import {
   eventOpen,
@@ -1199,6 +1202,8 @@ export class Api {
     const iso = (ms: number) => new Date(ms).toISOString();
     return {
       mode: chatter?.mode ?? ("off" as const),
+      gate: chatter?.config.gate ?? ("quiet" as const),
+      perRun: chatter?.config.perRun ?? 0,
       model: chatter?.config.model ?? "",
       callsToday: usage.calls,
       callsPerDay: chatter?.config.callsPerDay ?? 0,
@@ -1213,6 +1218,64 @@ export class Api {
         reactions: 0,
       },
       drafts: (chatter?.drafts() ?? []).map((d) => ({ ...d, at: iso(d.at) })),
+    };
+  }
+
+  /**
+   * What the townsfolk are doing, for `GET /v1/admin/townsfolk`: chatter's settings and today's use,
+   * each townsfolk resident's day, the latest things they did with the posts and residents they
+   * touched, and the last coin tips.
+   */
+  townsfolkActivity(): TownsfolkActivityResponse {
+    const social = this.requireSocial();
+    const chatter = this.chatter;
+    const status = this.chatterStatus();
+    const iso = (ms: number) => new Date(ms).toISOString();
+    const log = chatter?.activity() ?? [];
+    const lastAt = new Map<string, number>();
+    for (const e of log) if (!lastAt.has(e.residentId)) lastAt.set(e.residentId, e.at);
+    const postOf = (id: string) => {
+      const post = id ? social.post(id) : undefined;
+      return post ? { id: post.id, author: post.author, text: post.text.slice(0, 280) } : null;
+    };
+    const reactions: readonly string[] = REACTION_KEYS;
+    return {
+      chatter: {
+        mode: status.mode,
+        gate: status.gate,
+        perRun: status.perRun,
+        model: status.model,
+        callsToday: status.callsToday,
+        callsPerDay: status.callsPerDay,
+        pausedUntil: status.pausedUntil,
+        lastRun: status.lastRun,
+        participation: status.participation,
+      },
+      tips: this.tipsStatus(),
+      townsfolk: (chatter?.roster() ?? []).flatMap((id) => {
+        const resident = social.authorView(id);
+        if (!resident || !chatter) return [];
+        const at = lastAt.get(id);
+        return [
+          { resident, today: chatter.doneToday(id), lastAt: at === undefined ? null : iso(at) },
+        ];
+      }),
+      activity: log.flatMap((e) => {
+        const by = social.authorView(e.residentId);
+        if (!by) return [];
+        return [
+          {
+            at: iso(e.at),
+            by,
+            action: e.action,
+            live: e.live,
+            text: e.text,
+            post: postOf(e.postId),
+            resident: e.targetId ? (social.authorView(e.targetId) ?? null) : null,
+            reaction: reactions.includes(e.reaction) ? (e.reaction as ReactionKey) : null,
+          },
+        ];
+      }),
     };
   }
 

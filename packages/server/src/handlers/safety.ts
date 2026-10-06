@@ -86,6 +86,7 @@ export function safetyHandlers(api: Api): Pick<Handlers, AreaRouteIds["safety"]>
         },
       };
     },
+    getTownsfolkActivity: () => ({ status: 200, body: api.townsfolkActivity() }),
     getReports: ({ query }) => {
       const queue = social().safety.queue(query.limit);
       // Say which suspensions and hold-backs only a maintainer may change, so the staff app

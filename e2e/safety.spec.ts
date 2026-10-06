@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { join, signIn, watchErrors } from "./support";
+import { join, overflowsSideways, signIn, watchErrors } from "./support";
 
 /**
  * RFC 0006 on a phone: a resident reports a post, and a maintainer hides it from the staff app on
@@ -122,6 +122,16 @@ test("a resident reports a post from a phone, and a maintainer hides it and dele
   await expect(entry).toContainText("Hid a post");
   await expect(entry).toContainText("Spam ad");
   await expect(entry).toContainText("Marlo");
+
+  // What the townsfolk are doing: chatter's state, today, and the latest. Chatter has no key here,
+  // so it says it's off and shows nothing yet.
+  await page.getByRole("link", { name: "Townsfolk" }).click();
+  await expect(page).toHaveURL(`${adminOrigin}/townsfolk`);
+  await expect(page.getByRole("heading", { level: 1, name: "Townsfolk" })).toBeVisible();
+  await expect(page.locator(".townsfolk-chip").first()).toHaveText("Off");
+  await expect(page.getByRole("heading", { name: "Latest" })).toBeVisible();
+  expect(await overflowsSideways(page)).toBe(false);
+  await page.screenshot({ path: "test-results/admin-townsfolk.png", fullPage: true });
 
   // Gone for everyone.
   expect((await page.request.get(`/v1/posts/${post.id}`)).status()).toBe(404);

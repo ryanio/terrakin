@@ -31,3 +31,4 @@
 - `src/ground-art.ts` paths and floors (RFC 0016) from the sim's `GROUND_LOOK`: `paintGround` draws a tile on a canvas (the world map, and the 3D views' ground texture) and `groundArt(kind)` a swatch as an SVG (the build bar). Styles: `.ground-art` in `base.css`.
 - `src/pet-art.ts` `petArt(kind, coat, opts)` (a pet as an SVG, awake or asleep, with an open or happy face, for the Adopt sheet, pet cards, and the pet sheets) and `drawPet` (the same shapes painted on a canvas, for the map's sprites), both from the sim's `petShapes` ([RFC 0019](../../docs/rfcs/0019-pets.md)).
 - `src/safety.ts` trust and safety labels.
+- `src/reactions.ts` `REACTIONS`, the emoji and name for each reaction key, for the client's posts and the staff app's townsfolk page.

@@ -17,6 +17,7 @@ import {
   StaffBountiesResponse,
   StaffBountyResponse,
   StaffEventResponse,
+  TownsfolkActivityResponse,
 } from "@terrakin/protocol";
 import { makeRequest, query, type Result } from "@terrakin/ui/http";
 
@@ -61,6 +62,7 @@ const path = (template: string, id: string) => template.replace("{id}", encodeUR
 
 export const api = {
   overview: () => request("GET", "/v1/admin/overview", AdminOverviewResponse),
+  townsfolk: () => request("GET", "/v1/admin/townsfolk", TownsfolkActivityResponse),
   reports: () => request("GET", `/v1/admin/reports${query({ limit: 50 })}`, ReportQueueResponse),
   log: (before?: string) =>
     request("GET", `/v1/admin/log${query({ limit: 30, before })}`, ModerationLogResponse),

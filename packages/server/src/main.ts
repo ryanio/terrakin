@@ -182,6 +182,7 @@ const chatter = new ChatterService({
   townsfolk,
   now,
   residentAgeDays: (id) => service.residentAgeDays(id),
+  world: service,
 });
 
 // The townsfolk's daily coin tips: off unless TERRAKIN_TIPS is `dry` or `on`.

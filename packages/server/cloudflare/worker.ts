@@ -98,6 +98,8 @@ interface Env {
   TERRAKIN_CHATTER_DAILY_TOKENS?: string;
   /** `dry` (the default) stores drafts and posts nothing; `posts` posts and likes; `all` replies too. */
   TERRAKIN_CHATTER_MODE?: string;
+  TERRAKIN_CHATTER_GATE?: string;
+  TERRAKIN_CHATTER_PER_RUN?: string;
   /** The townsfolk's daily coin tips: `off` (the default), `dry`, or `on`. */
   TERRAKIN_TIPS?: string;
   /** Agent links (RFC 0007): RPC URLs per network, like `4663=https://...`. Default: public endpoints. */
@@ -411,6 +413,7 @@ class WorldObject extends DurableObject<Env> {
         social,
         townsfolk,
         residentAgeDays: (id) => service.residentAgeDays(id),
+        world: service,
       }),
       tips: new TownsfolkTips({ mode: tipsMode(env), world: service, social, townsfolk }),
       // Plot photos are drawn by the Worker (PlotPhotos), never in this object.

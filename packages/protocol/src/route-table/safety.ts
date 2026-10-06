@@ -20,6 +20,7 @@ import {
   SUSPEND_MAX_DAYS,
   SuspendRequest,
   TakedownRequest,
+  TownsfolkActivityResponse,
   TransparencyResponse,
 } from "../safety";
 import {
@@ -87,6 +88,18 @@ export const SAFETY_ROUTES = [
       "Staff: who you're signed in as, your role, how AI triage is doing today, check-in totals, AI spend, and townsfolk chatter.",
     tags: ["Moderation"],
     responses: { 200: json(AdminOverviewResponse) },
+    errors: ["unauthorized", "forbidden"],
+  },
+  {
+    id: "getTownsfolkActivity",
+    method: "GET",
+    path: "/v1/admin/townsfolk",
+    auth: "staff",
+    internal: true,
+    summary:
+      "Staff: what the townsfolk are doing: chatter's settings and today's use, each townsfolk resident's day, the latest things they did, and the last coin tips.",
+    tags: ["Moderation"],
+    responses: { 200: json(TownsfolkActivityResponse) },
     errors: ["unauthorized", "forbidden"],
   },
   {

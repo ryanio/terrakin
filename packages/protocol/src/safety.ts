@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { CheckinStats } from "./checkin";
 import { REPORT_REASONS, ReportReason } from "./reasons";
-import { AuthorView, MediaView } from "./social";
+import { AuthorView, MediaView, ReactionKey } from "./social";
 
 /**
  * Trust and safety (RFC 0006): reports from residents, the staff review queue and tools on
@@ -303,6 +303,58 @@ export const ModerationLogResponse = z.object({
   next: z.string().nullable(),
 });
 
+/**
+ * The townsfolk's daily coin tips (docs/plans/townsfolk-chatter.md, "Coins"): the mode, and what
+ * the last run came to, in counts. `dry` checks each gift with the sim and gives nothing.
+ */
+const TipsStatus = z.object({
+  mode: z.enum(["off", "dry", "on"]),
+  lastRun: z
+    .object({
+      at: z.string(),
+      /** The world's day it ran for. */
+      day: z.number().int(),
+      mode: z.enum(["off", "dry", "on"]),
+      skipped: z.enum(["off", "closed", "done", "nobody"]).optional(),
+      welcomed: z.number().int(),
+      refused: z.number().int(),
+      skippedNewcomers: z.number().int(),
+      waiting: z.number().int(),
+      welcomeCoins: z.number().int(),
+      post: z.enum(["tipped", "refused", "none"]),
+      postCoins: z.number().int(),
+      gap: z.boolean(),
+      stopped: z.boolean(),
+      /** The sim's refusal codes. */
+      codes: z.array(z.string()),
+    })
+    .nullable(),
+});
+
+/**
+ * Whether chatter draws real residents in: the notes it put up, how many a real resident replied or
+ * reacted to, and those replies and reactions.
+ */
+const ChatterParticipation = z.object({
+  notes: z.number().int(),
+  answered: z.number().int(),
+  replies: z.number().int(),
+  reactions: z.number().int(),
+});
+
+/** What townsfolk chatter can do (decision 0114). */
+export const TOWNSFOLK_ACTIONS = [
+  "post",
+  "reply",
+  "like",
+  "react",
+  "praise",
+  "admire",
+  "wave",
+] as const;
+export const TownsfolkAction = z.enum(TOWNSFOLK_ACTIONS);
+export type TownsfolkAction = z.infer<typeof TownsfolkAction>;
+
 /** Who's signed in to admin.terrakin.org, and how AI triage is doing. */
 export const AdminOverviewResponse = z.object({
   me: z.object({
@@ -359,33 +411,15 @@ export const AdminOverviewResponse = z.object({
    * The townsfolk's daily coin tips (docs/plans/townsfolk-chatter.md, "Coins"): the mode, and what
    * the last run came to, in counts. `dry` checks each gift with the sim and gives nothing.
    */
-  tips: z.object({
-    mode: z.enum(["off", "dry", "on"]),
-    lastRun: z
-      .object({
-        at: z.string(),
-        /** The world's day it ran for. */
-        day: z.number().int(),
-        mode: z.enum(["off", "dry", "on"]),
-        skipped: z.enum(["off", "closed", "done", "nobody"]).optional(),
-        welcomed: z.number().int(),
-        refused: z.number().int(),
-        skippedNewcomers: z.number().int(),
-        waiting: z.number().int(),
-        welcomeCoins: z.number().int(),
-        post: z.enum(["tipped", "refused", "none"]),
-        postCoins: z.number().int(),
-        gap: z.boolean(),
-        stopped: z.boolean(),
-        /** The sim's refusal codes. */
-        codes: z.array(z.string()),
-      })
-      .nullable(),
-  }),
+  tips: TipsStatus,
   /** Townsfolk chatter (docs/plans/townsfolk-chatter.md): its settings, today's use, and drafts. */
   chatter: z.object({
     /** `off` without a key or with no calls a day; `dry` stores drafts and posts nothing. */
     mode: z.enum(["off", "dry", "posts", "all"]),
+    /** `quiet` runs only while real residents post little; `off` runs every time. */
+    gate: z.enum(["quiet", "off"]),
+    /** Townsfolk residents who act in one run. */
+    perRun: z.number().int(),
     model: z.string(),
     callsToday: z.number().int(),
     callsPerDay: z.number().int(),
@@ -401,12 +435,7 @@ export const AdminOverviewResponse = z.object({
      * Whether chatter draws real residents in, over the same window as `spend`: the notes it put
      * up, how many a real resident replied or reacted to, and those replies and reactions.
      */
-    participation: z.object({
-      notes: z.number().int(),
-      answered: z.number().int(),
-      replies: z.number().int(),
-      reactions: z.number().int(),
-    }),
+    participation: ChatterParticipation,
     /**
      * A dry run's newest answers, for staff to read before posts go live. The model wrote `text`;
      * it can quote residents, so it's shown as text only.
@@ -424,6 +453,60 @@ export const AdminOverviewResponse = z.object({
   }),
 });
 export type AdminOverviewResponse = z.infer<typeof AdminOverviewResponse>;
+
+/**
+ * What the townsfolk are doing (`GET /v1/admin/townsfolk`, staff only): chatter's settings and
+ * today's use, each townsfolk resident with what they did today, the latest things they did, and
+ * the last coin tips. Text in `activity` was written by the model or by residents; show it as text.
+ */
+export const TownsfolkActivityResponse = z.object({
+  chatter: z.object({
+    /** `off` without a key or with no calls a day. */
+    mode: z.enum(["off", "dry", "posts", "all"]),
+    /** `quiet` runs only while real residents post little; `off` runs every time. */
+    gate: z.enum(["quiet", "off"]),
+    /** Townsfolk residents who act in one run. */
+    perRun: z.number().int(),
+    model: z.string(),
+    callsToday: z.number().int(),
+    callsPerDay: z.number().int(),
+    pausedUntil: z.string().nullable(),
+    lastRun: z.object({ at: z.string(), result: z.string() }).nullable(),
+    /** Over the last 30 days. */
+    participation: ChatterParticipation,
+  }),
+  tips: TipsStatus,
+  townsfolk: z.array(
+    z.object({
+      resident: AuthorView,
+      /** What they did today (UTC), by action, live or drafted. */
+      today: z.record(TownsfolkAction, z.number().int()),
+      /** When they last did anything, or null. */
+      lastAt: z.string().nullable(),
+    }),
+  ),
+  /** Newest first. */
+  activity: z.array(
+    z.object({
+      at: z.string(),
+      by: AuthorView,
+      action: TownsfolkAction,
+      /** Done for real, or only drafted by a dry run. */
+      live: z.boolean(),
+      /** The note or reply the model wrote. */
+      text: z.string(),
+      /**
+       * For a post, the post as it is now; for a reply, like, or reaction, the post it answered.
+       * Null when it's gone or hidden.
+       */
+      post: z.object({ id: z.string(), author: AuthorView, text: z.string() }).nullable(),
+      /** The resident praised, waved to, or whose plot was admired. */
+      resident: AuthorView.nullable(),
+      reaction: ReactionKey.nullable(),
+    }),
+  ),
+});
+export type TownsfolkActivityResponse = z.infer<typeof TownsfolkActivityResponse>;
 
 const reasonCounts = z.object(
   Object.fromEntries(REPORT_REASONS.map((r) => [r, z.number().int()])) as Record<

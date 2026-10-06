@@ -1,23 +1,13 @@
 /**
  * Reactions as the client draws them, the small bits of post state that change when someone
  * reacts or reposts, and `PostToggles`, which keeps the viewer's taps in step with the server. The
- * server only sends keys; the emoji live here. No DOM, so tests pin them.
+ * emoji are in `@terrakin/ui/reactions`. No DOM, so tests pin them.
  */
 import { type PostView, REACTION_KEYS, type ReactionKey } from "@terrakin/protocol";
 import type { Result } from "@terrakin/ui/http";
+import { REACTIONS } from "@terrakin/ui/reactions";
 
-export const REACTIONS: Record<ReactionKey, { emoji: string; label: string }> = {
-  heart: { emoji: "❤️", label: "Heart" },
-  laugh: { emoji: "😂", label: "Laugh" },
-  wow: { emoji: "😮", label: "Wow" },
-  sprout: { emoji: "🌱", label: "Sprout" },
-  home: { emoji: "🏡", label: "Home" },
-  clap: { emoji: "👏", label: "Clap" },
-  hug: { emoji: "🫂", label: "Hug" },
-  yum: { emoji: "😋", label: "Yum" },
-  thanks: { emoji: "🙏", label: "Thanks" },
-  sparkle: { emoji: "✨", label: "Sparkle" },
-};
+export { REACTIONS };
 
 /** Each reaction with a count, in the fixed order, with whether the viewer left it. */
 export function reactionSummary(

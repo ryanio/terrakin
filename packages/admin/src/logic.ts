@@ -15,9 +15,14 @@ import {
   type ReportReason,
   type StaffRole,
   SUSPEND_MAX_DAYS,
+  TOWNSFOLK_ACTIONS,
+  type TownsfolkAction,
+  type TownsfolkActivityResponse,
   type TriageVerdictView,
 } from "@terrakin/protocol";
-import { plural } from "@terrakin/ui/format";
+import { plural, relativeTime } from "@terrakin/ui/format";
+import type { IconName } from "@terrakin/ui/icons";
+import { REACTIONS } from "@terrakin/ui/reactions";
 import {
   ACTION_LABELS,
   CATEGORY_LABELS,
@@ -27,23 +32,31 @@ import {
   SUGGESTION_LABELS,
 } from "@terrakin/ui/safety";
 
-export type Screen = "queue" | "log" | "bounties";
+export type Screen = "queue" | "log" | "townsfolk" | "bounties";
+
+const PATHS: Record<Screen, string> = {
+  queue: "/",
+  log: "/log",
+  townsfolk: "/townsfolk",
+  bounties: "/bounties",
+};
 
 /**
- * `/log` is the moderation log and `/bounties` the bounties maintainers confirm; every other path
- * is the queue. Trailing slashes are ignored.
+ * `/log` is the moderation log, `/townsfolk` what the townsfolk are doing, and `/bounties` the
+ * bounties maintainers confirm; every other path is the queue. Trailing slashes are ignored.
  */
 export function screenFor(pathname: string): Screen {
   const path = pathname.replace(/\/+$/, "");
-  return path === "/log" ? "log" : path === "/bounties" ? "bounties" : "queue";
+  return (
+    (Object.keys(PATHS) as Screen[]).find((s) => s !== "queue" && PATHS[s] === path) ?? "queue"
+  );
 }
 
-export const pathFor = (screen: Screen) =>
-  screen === "log" ? "/log" : screen === "bounties" ? "/bounties" : "/";
+export const pathFor = (screen: Screen) => PATHS[screen];
 
 /** Which screens a role gets. Only maintainers move town coins (decision 0062). */
 export const screensFor = (role: StaffRole): Screen[] =>
-  role === "maintainer" ? ["queue", "log", "bounties"] : ["queue", "log"];
+  role === "maintainer" ? ["queue", "log", "townsfolk", "bounties"] : ["queue", "log", "townsfolk"];
 
 /**
  * What a maintainer can do with a bounty: confirm a town bounty its claimant marked done (paying
@@ -499,10 +512,11 @@ export function chatterLine(c: AdminOverviewResponse["chatter"], nowMs: number):
   if (c.pausedUntil && Date.parse(c.pausedUntil) > nowMs) {
     return "Townsfolk chatter is paused after repeated errors.";
   }
+  const when = c.gate === "quiet" ? " while the town is quiet" : "";
   const what = {
-    dry: "is a dry run: it writes drafts and posts nothing",
-    posts: "posts and likes while the town is quiet",
-    all: "posts, replies and likes while the town is quiet",
+    dry: "is a dry run: it writes drafts and does nothing",
+    posts: `posts, likes and reacts${when}`,
+    all: `posts, replies, reacts, praises, admires plots and waves${when}`,
   }[c.mode];
   const n = (x: number) => x.toLocaleString("en-US");
   const used = ` Today: ${n(c.callsToday)} of ${n(c.callsPerDay)} calls.`;
@@ -514,7 +528,18 @@ export function chatterLine(c: AdminOverviewResponse["chatter"], nowMs: number):
 
 /** What a dry-run draft was: "would post", or why it was turned away. */
 export function draftLabel(d: AdminOverviewResponse["chatter"]["drafts"][number]): string {
-  const action = { post: "a post", reply: "a reply", like: "a like" }[d.action] ?? "an answer";
+  const action =
+    (
+      {
+        post: "a post",
+        reply: "a reply",
+        like: "a like",
+        react: "a reaction",
+        praise: "praise",
+        admire: "admiring a plot",
+        wave: "a wave",
+      } as Record<string, string>
+    )[d.action] ?? "an answer";
   if (d.outcome.startsWith("draft_")) return `would be ${action}`;
   if (d.outcome === "filtered") return `${action}, turned away by the filters`;
   return `${action}, turned away by the rules`;
@@ -549,4 +574,87 @@ export function tipsLine(t: AdminOverviewResponse["tips"]): string {
     ...(last.gap ? [" Some newcomers may have been missed (the treasury's history ran out)."] : []),
   ].join("");
   return `${what} Day ${last.day}: ${parts.join(", ")}.${flags}`;
+}
+
+// ---------- the townsfolk page ----------
+
+type Activity = TownsfolkActivityResponse["activity"][number];
+
+/** Each townsfolk action's icon, from the shared set. */
+export const ACTION_ICONS: Record<TownsfolkAction, IconName> = {
+  post: "feed",
+  reply: "reply",
+  like: "heart",
+  react: "smile",
+  praise: "star",
+  admire: "home",
+  wave: "wave",
+};
+
+/** Each action counted: one, and more than one. */
+const ACTION_COUNTS: Record<TownsfolkAction, [string, string]> = {
+  post: ["post", "posts"],
+  reply: ["reply", "replies"],
+  like: ["like", "likes"],
+  react: ["reaction", "reactions"],
+  praise: ["praise", "praises"],
+  admire: ["plot admired", "plots admired"],
+  wave: ["wave", "waves"],
+};
+
+/** What one townsfolk resident did today, in counts: "2 posts, 1 reply", or nothing yet. */
+export function todayWords(today: Record<TownsfolkAction, number>): string {
+  const parts = TOWNSFOLK_ACTIONS.filter((a) => today[a] > 0).map((a) => {
+    const [one, many] = ACTION_COUNTS[a];
+    return plural(today[a], one, many);
+  });
+  return parts.length > 0 ? parts.join(", ") : "Nothing yet today";
+}
+
+/**
+ * What one thing a townsfolk resident did, as a short line: "replied to Ryan", "reacted 🌱 to Ivy's
+ * post", "admired Ivy's plot". Names are residents' own words; the page puts the line in as text.
+ */
+export function activityLine(
+  e: Pick<Activity, "action" | "post" | "resident" | "reaction">,
+): string {
+  const author = e.post?.author.name;
+  const person = e.resident?.name;
+  switch (e.action) {
+    case "post":
+      return "posted";
+    case "reply":
+      return author ? `replied to ${author}` : "replied to a post that's gone";
+    case "like":
+      return author ? `liked ${author}'s post` : "liked a post that's gone";
+    case "react": {
+      const emoji = e.reaction ? `${REACTIONS[e.reaction].emoji} ` : "";
+      return author
+        ? `reacted ${emoji}to ${author}'s post`
+        : `reacted ${emoji}to a post that's gone`;
+    }
+    case "praise":
+      return person ? `praised ${person}` : "praised someone who's gone";
+    case "admire":
+      return person ? `admired ${person}'s plot` : "admired a plot";
+    case "wave":
+      return person ? `waved to ${person}` : "waved to someone who's gone";
+  }
+}
+
+/** Chatter's state in one word or two, for the page's first chip. */
+export function chatterState(c: TownsfolkActivityResponse["chatter"], nowMs: number): string {
+  if (c.mode === "off") return "Off";
+  if (c.pausedUntil && Date.parse(c.pausedUntil) > nowMs) return "Paused";
+  return c.mode === "dry" ? "Dry run" : "Live";
+}
+
+/** When chatter acts: every run, or only while real residents post little. */
+export const gateWords = (c: Pick<TownsfolkActivityResponse["chatter"], "gate" | "perRun">) =>
+  `${c.gate === "off" ? "Every run" : "Quiet hours only"}, ${plural(c.perRun, "townsfolk", "townsfolk")} a run`;
+
+/** How long ago, in words that read after "Last run" or "Last active": "42m ago", "Oct 5". */
+export function sinceWords(iso: string, nowMs: number): string {
+  const r = relativeTime(iso, nowMs);
+  return r === "now" ? "just now" : /^\d+[mh]$/.test(r) ? `${r} ago` : r;
 }

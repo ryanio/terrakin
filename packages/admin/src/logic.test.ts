@@ -1,29 +1,35 @@
 import type { ReportQueueItem, TriageVerdictView } from "@terrakin/protocol";
 import { describe, expect, it } from "vitest";
 import {
+  activityLine,
   actorLabel,
   bountyActions,
   chatterLine,
+  chatterState,
   checkinLine,
   dayLabel,
   daysProblem,
   defaultRule,
   dollars,
   draftLabel,
+  gateWords,
   itemActions,
   itemTags,
   mainSite,
   participationLine,
+  pathFor,
   RULE_CHOICES,
   reasonProblem,
   recordLine,
   ruleLine,
   screenFor,
   screensFor,
+  sinceWords,
   spendLine,
   suspendLimits,
   TAKEDOWN_ACTIONS,
   tipsLine,
+  todayWords,
   triageLine,
   triageSummary,
 } from "./logic";
@@ -366,6 +372,8 @@ describe("AI spend and chatter", () => {
   it("says how chatter is set up and how its last run went", () => {
     const base = {
       mode: "dry" as const,
+      gate: "quiet" as const,
+      perRun: 3,
       model: "claude-sonnet-5-5",
       callsToday: 3,
       callsPerDay: 24,
@@ -377,12 +385,15 @@ describe("AI spend and chatter", () => {
       drafts: [],
     };
     expect(chatterLine(base, 0)).toBe(
-      "Townsfolk chatter is a dry run: it writes drafts and posts nothing. Today: 3 of 24 calls. Last run: real residents were posting.",
+      "Townsfolk chatter is a dry run: it writes drafts and does nothing. Today: 3 of 24 calls. Last run: real residents were posting.",
     );
     expect(
       chatterLine({ ...base, mode: "posts", lastRun: { at: "", result: "posted,nothing" } }, 0),
     ).toBe(
-      "Townsfolk chatter posts and likes while the town is quiet. Today: 3 of 24 calls. Last run: 2 calls.",
+      "Townsfolk chatter posts, likes and reacts while the town is quiet. Today: 3 of 24 calls. Last run: 2 calls.",
+    );
+    expect(chatterLine({ ...base, mode: "all", gate: "off", lastRun: null }, 0)).toBe(
+      "Townsfolk chatter posts, replies, reacts, praises, admires plots and waves. Today: 3 of 24 calls.",
     );
     expect(chatterLine({ ...base, mode: "off" }, 0)).toBe("Townsfolk chatter is off.");
     expect(chatterLine({ ...base, lastRun: { at: "", result: "idle" } }, 0)).toMatch(
@@ -398,6 +409,9 @@ describe("AI spend and chatter", () => {
       "a reply, turned away by the filters",
     );
     expect(draftLabel({ ...draft, outcome: "invalid" })).toBe("a post, turned away by the rules");
+    expect(draftLabel({ ...draft, action: "admire", outcome: "draft_admire" })).toBe(
+      "would be admiring a plot",
+    );
     expect(chatterLine({ ...base, pausedUntil: "2026-10-04T01:00:00.000Z" }, 0)).toMatch(/paused/);
   });
 });
@@ -476,6 +490,9 @@ describe("routes and links", () => {
     expect(screenFor("/log/")).toBe("log");
     expect(screenFor("/anything")).toBe("queue");
     expect(screenFor("/bounties")).toBe("bounties");
+    expect(screenFor("/townsfolk/")).toBe("townsfolk");
+    expect(pathFor("townsfolk")).toBe("/townsfolk");
+    expect(screensFor("moderator")).toContain("townsfolk");
   });
 
   it("shows bounties to maintainers only, and offers confirm only on a town bounty marked done", () => {
@@ -518,5 +535,64 @@ describe("dayLabel", () => {
     expect(dayLabel("2026-10-05T01:00:00", noon)).toBe("Today");
     expect(dayLabel("2026-10-04T23:00:00", noon)).toBe("Yesterday");
     expect(dayLabel("2026-10-01T09:00:00", noon)).toBe("Thu, Oct 1");
+  });
+});
+
+describe("the townsfolk page", () => {
+  const ryan = {
+    id: "r_ryan",
+    name: "Ryan",
+    kind: "human",
+    color: "sun",
+    shape: "round",
+    avatar: null,
+  } as const;
+  const post = { id: "p_1", author: ryan, text: "Planted my first lemon tree." };
+  const entry = { post: null, resident: null, reaction: null } as const;
+
+  it("says what each townsfolk action was, naming who it touched", () => {
+    expect(activityLine({ ...entry, action: "post", post })).toBe("posted");
+    expect(activityLine({ ...entry, action: "reply", post })).toBe("replied to Ryan");
+    expect(activityLine({ ...entry, action: "react", post, reaction: "sprout" })).toBe(
+      "reacted 🌱 to Ryan's post",
+    );
+    expect(activityLine({ ...entry, action: "like" })).toBe("liked a post that's gone");
+    expect(activityLine({ ...entry, action: "praise", resident: ryan })).toBe("praised Ryan");
+    expect(activityLine({ ...entry, action: "admire", resident: ryan })).toBe(
+      "admired Ryan's plot",
+    );
+    expect(activityLine({ ...entry, action: "wave", resident: ryan })).toBe("waved to Ryan");
+  });
+
+  it("counts a townsfolk resident's day, and says when there's nothing yet", () => {
+    const none = { post: 0, reply: 0, like: 0, react: 0, praise: 0, admire: 0, wave: 0 };
+    expect(todayWords(none)).toBe("Nothing yet today");
+    expect(todayWords({ ...none, post: 2, reply: 1, admire: 1 })).toBe(
+      "2 posts, 1 reply, 1 plot admired",
+    );
+  });
+
+  it("names chatter's state and when it acts", () => {
+    const c = {
+      mode: "all" as const,
+      gate: "off" as const,
+      perRun: 1,
+      model: "",
+      callsToday: 0,
+      callsPerDay: 12,
+      pausedUntil: null,
+      lastRun: null,
+      participation: { notes: 0, answered: 0, replies: 0, reactions: 0 },
+    };
+    expect(chatterState(c, 0)).toBe("Live");
+    expect(chatterState({ ...c, mode: "dry" }, 0)).toBe("Dry run");
+    expect(chatterState({ ...c, mode: "off" }, 0)).toBe("Off");
+    expect(chatterState({ ...c, pausedUntil: "2026-10-04T01:00:00.000Z" }, 0)).toBe("Paused");
+    expect(gateWords(c)).toBe("Every run, 1 townsfolk a run");
+    expect(gateWords({ gate: "quiet", perRun: 3 })).toBe("Quiet hours only, 3 townsfolk a run");
+    const at = Date.UTC(2026, 9, 6, 12);
+    expect(sinceWords(new Date(at - 42 * 60_000).toISOString(), at)).toBe("42m ago");
+    expect(sinceWords(new Date(at - 10_000).toISOString(), at)).toBe("just now");
+    expect(sinceWords(new Date(at - 3 * 86_400_000).toISOString(), at)).toBe("Oct 3");
   });
 });

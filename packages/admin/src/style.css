@@ -502,6 +502,241 @@ body {
   justify-items: center;
 }
 
+/* ---------- townsfolk ---------- */
+
+.townsfolk-chips {
+  gap: var(--space-xs);
+}
+
+.townsfolk-chip {
+  padding: var(--space-2xs) var(--space-md);
+  border-radius: var(--r-pill);
+  background: var(--paper-2);
+  box-shadow: inset 0 0 0 1px var(--paper-edge);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--ink-soft);
+}
+
+.townsfolk-chip.state-live {
+  background: var(--moss-deep);
+  box-shadow: none;
+  color: var(--paper);
+}
+
+.townsfolk-chip.state-dry-run {
+  background: color-mix(in srgb, var(--sun) 45%, var(--paper));
+  box-shadow: none;
+  color: var(--ink);
+}
+
+.townsfolk-chip.state-paused {
+  background: var(--clay-deep);
+  box-shadow: none;
+  color: var(--paper);
+}
+
+.townsfolk-meter {
+  display: grid;
+  gap: var(--space-2xs);
+}
+
+.townsfolk-meter-label {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--ink-soft);
+}
+
+.townsfolk-meter-track {
+  display: block;
+  height: 8px;
+  overflow: hidden;
+  border-radius: var(--r-pill);
+  background: var(--paper-2);
+  box-shadow: inset 0 0 0 1px var(--paper-edge);
+}
+
+.townsfolk-meter-fill {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--moss);
+}
+
+.townsfolk-meter-fill.fill-1 {
+  width: 10%;
+}
+
+.townsfolk-meter-fill.fill-2 {
+  width: 20%;
+}
+
+.townsfolk-meter-fill.fill-3 {
+  width: 30%;
+}
+
+.townsfolk-meter-fill.fill-4 {
+  width: 40%;
+}
+
+.townsfolk-meter-fill.fill-5 {
+  width: 50%;
+}
+
+.townsfolk-meter-fill.fill-6 {
+  width: 60%;
+}
+
+.townsfolk-meter-fill.fill-7 {
+  width: 70%;
+}
+
+.townsfolk-meter-fill.fill-8 {
+  width: 80%;
+}
+
+.townsfolk-meter-fill.fill-9 {
+  width: 90%;
+}
+
+.townsfolk-meter-fill.fill-10 {
+  width: 100%;
+}
+
+.townsfolk-refresh {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.townsfolk-section {
+  gap: var(--space-sm);
+}
+
+.townsfolk-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 24rem), 1fr));
+  gap: var(--space-sm);
+}
+
+.townsfolk-person-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.townsfolk-name .person-name {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+}
+
+.townsfolk-handle,
+.townsfolk-last,
+.townsfolk-time {
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}
+
+.townsfolk-today {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--moss-deep);
+}
+
+.townsfolk-day {
+  gap: var(--space-xs);
+}
+
+.townsfolk-feed {
+  gap: var(--space-sm);
+}
+
+.townsfolk-entry-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-xs) var(--space-sm);
+}
+
+.townsfolk-entry-head > .item-chip {
+  grid-column: 2 / -1;
+  justify-self: start;
+}
+
+.townsfolk-line .person-link {
+  font-weight: var(--weight-bold);
+}
+
+.townsfolk-icon {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  background: var(--paper-2);
+  color: var(--ink);
+}
+
+.townsfolk-icon .icon {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.townsfolk-icon.action-post {
+  background: color-mix(in srgb, var(--resident-sky) 35%, var(--paper));
+}
+
+.townsfolk-icon.action-reply {
+  background: color-mix(in srgb, var(--resident-leaf) 35%, var(--paper));
+}
+
+.townsfolk-icon.action-like {
+  background: color-mix(in srgb, var(--resident-rose) 35%, var(--paper));
+}
+
+.townsfolk-icon.action-react {
+  background: color-mix(in srgb, var(--sun) 40%, var(--paper));
+}
+
+.townsfolk-icon.action-praise {
+  background: color-mix(in srgb, var(--resident-plum) 35%, var(--paper));
+}
+
+.townsfolk-icon.action-admire {
+  background: color-mix(in srgb, var(--resident-sand) 55%, var(--paper));
+}
+
+.townsfolk-icon.action-wave {
+  background: color-mix(in srgb, var(--moss-light) 40%, var(--paper));
+}
+
+.townsfolk-line {
+  margin: 0;
+  font-size: var(--text-md);
+  overflow-wrap: anywhere;
+}
+
+.townsfolk-time {
+  white-space: nowrap;
+}
+
+.townsfolk-words {
+  margin: 0;
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--moss-light) 18%, var(--paper));
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.townsfolk-link {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
 @media (min-width: 760px) {
   .page {
     padding-top: var(--space-2xl);

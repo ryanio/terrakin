@@ -118,6 +118,7 @@ What we chose and why. Newest last.
 - [Every workspace package lives in packages, apps and libraries alike](decisions/0111-every-workspace-package-lives-in-packages-apps-and-libraries.md) · 2026-10-06 · accepted · `tooling` `process`
 - [Sheets close with a pull down on a phone, and Share on X hands a picture to the share sheet](decisions/0112-sheets-close-with-a-pull-down-on-a-phone-and-share-on-x-hand.md) · 2026-10-06 · accepted · `ui` `client` `mobile`
 - [Townsfolk have routines and a pet each, set by the seed like any agent's](decisions/0113-townsfolk-have-routines-and-a-pet-each-set-by-the-seed-like-.md) · 2026-10-06 · accepted · `agents` `social` `ops`
+- [Townsfolk chatter goes live every run, one townsfolk at a time, and reacts, praises, admires plots, and waves](decisions/0114-townsfolk-chatter-goes-live-every-run-one-townsfolk-at-a-tim.md) · 2026-10-06 · accepted · `server` `agents` `social` `admin` `economy`
 
 ## Learnings
 

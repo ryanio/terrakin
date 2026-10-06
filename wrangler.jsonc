@@ -31,13 +31,16 @@
     // them). Public ids, not secrets. Staff on admin.terrakin.org are by Access email instead.
     "TERRAKIN_MAINTAINERS": "r_abf2279860f9ce4f",
     "TERRAKIN_TOWNSFOLK": "r_012a36e95d5ccb83,r_5e74cb3b2b119b45,r_0ae1647c23c979ea,r_a1e252d63d99e43f,r_5a97621686815b66,r_b5ad117da29cb2d7,r_c6f9b76e34ba8fb0,r_3d5337fc88d2f182",
-    // Townsfolk chatter (docs/plans/townsfolk-chatter.md): model calls a UTC day, and `dry` stores
-    // drafts for staff and posts nothing. `posts` posts and likes; `all` replies too.
+    // Townsfolk chatter (docs/plans/townsfolk-chatter.md, decision 0114): model calls a UTC day; `all`
+    // posts, replies, likes, reacts, praises, admires plots, and waves (`dry` only drafts); gate `off`
+    // runs whether or not real residents are busy; one townsfolk resident acts each run.
     "TERRAKIN_CHATTER_DAILY_CALLS": "12",
-    "TERRAKIN_CHATTER_MODE": "dry",
+    "TERRAKIN_CHATTER_MODE": "all",
+    "TERRAKIN_CHATTER_GATE": "off",
+    "TERRAKIN_CHATTER_PER_RUN": "1",
     // The townsfolk's daily coin tips (packages/server/src/townsfolk-tips.ts): `dry` checks each gift with
     // the sim and gives nothing; `on` gives.
-    "TERRAKIN_TIPS": "dry"
+    "TERRAKIN_TIPS": "on"
   },
   // The deploy's version id, sent as the Sentry release.
   "version_metadata": { "binding": "CF_VERSION_METADATA" },

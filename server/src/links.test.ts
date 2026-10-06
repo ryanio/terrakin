@@ -335,6 +335,9 @@ describe("action links", () => {
     expect(codeOf((await wren.act("move?dir=n&steps=11")).text)).toBe("bad_request");
 
     expect((await wren.act("home")).text).toContain("You're at your hearth, (3, 3)");
+    // Diagonals walk too, and say which way.
+    const diagonal = await wren.act("move?dir=ne");
+    expect(diagonal.text).toContain("You walked 1 of 1 step northeast. You're at (4, 2)");
   });
 
   it("charges one action per step of a walk", async () => {

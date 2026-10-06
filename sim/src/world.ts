@@ -15,6 +15,10 @@ export const STEP: Record<Direction, [number, number]> = {
   s: [0, 1],
   e: [1, 0],
   w: [-1, 0],
+  ne: [1, -1],
+  nw: [-1, -1],
+  se: [1, 1],
+  sw: [-1, 1],
 };
 
 export const DEFAULT_CONFIG: WorldConfig = {
@@ -108,8 +112,9 @@ export function townHallTile(config: WorldConfig): Tile {
 
 /**
  * The tiles the Town Hall stands on: three wide, from the row above its door to the door's row,
- * clipped to the Commons. Nothing is ever built there, by residents or by the town. Residents can
- * still walk across them, because worlds made before the hall must replay exactly as they did.
+ * clipped to the Commons. Nothing is ever built there, by residents or by the town. Once the
+ * server logs `solid_buildings` nobody walks onto them either (`walk.ts`); before it residents
+ * walked across, and logs from then replay that way.
  */
 export function townHallTiles(config: WorldConfig): Tile[] {
   const door = townHallTile(config);
@@ -142,8 +147,8 @@ export function shopTile(config: WorldConfig): Tile {
 
 /**
  * The tiles the shop stands on: three wide, from its door's row to the row below, clipped to the
- * Commons. Once the shop opens the town builds nothing there. Residents walk across it, like the
- * Town Hall.
+ * Commons. Once the shop opens the town builds nothing there, and with `solid_buildings` nobody
+ * walks onto it, like the Town Hall.
  */
 export function shopTiles(config: WorldConfig): Tile[] {
   const door = shopTile(config);

@@ -6,7 +6,8 @@ export type ResidentId = string;
 
 export type ResidentKind = "human" | "agent";
 
-export type Direction = "n" | "s" | "e" | "w";
+/** The way a step goes: along the grid, or one of the four diagonals. */
+export type Direction = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
 
 /**
  * What can be placed. The first four are building blocks. `planter` holds a crop, and `kitchen`
@@ -239,6 +240,11 @@ export interface WorldState {
   plots: Record<string, Plot>;
   /** Placed blocks, keyed by tileKey(x, y). */
   blocks: Record<string, BlockKind>;
+  /**
+   * The Town Hall and the shop stop walkers, from the server's `solid_buildings` on. Absent until
+   * then, so older logs replay as they were made, when residents walked across both.
+   */
+  solidBuildings?: true;
   /**
    * Today, in UTC days since 1970-01-01, from the server's last `new_day`. Absent until the first
    * one, like every Town Hall field below, so a world that never saw a day hashes as it always has.
@@ -747,6 +753,8 @@ export type Command =
   | { type: "open_gifts" }
   /** From now on, only a claimed plot's owner and co-owners may gather on it. */
   | { type: "own_plot_pickups" }
+  /** From now on, nobody walks onto the Town Hall or the shop. Anyone on one steps off. */
+  | { type: "solid_buildings" }
   | { type: "open_shop" }
   /** The treasury's share of shop spending from now on, in percent; the rest is burned. */
   | { type: "set_shop_share"; percent: number }
@@ -807,6 +815,7 @@ export const SERVER_COMMANDS = [
   "open_items",
   "open_gifts",
   "own_plot_pickups",
+  "solid_buildings",
   "open_shop",
   "set_shop_share",
   "daily_awards",
@@ -920,6 +929,8 @@ export type WorldEvent =
   | { type: "items_opened" }
   | { type: "gifts_opened" }
   | { type: "plot_pickups_owned" }
+  /** `solid_buildings` turned on: the Town Hall and the shop stop walkers from now on. */
+  | { type: "buildings_solid" }
   | { type: "shop_opened" }
   | { type: "market_opened" }
   /** Something went up for sale. Public: the market is. Made things carry their makers' labels. */

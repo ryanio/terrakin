@@ -10,6 +10,26 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-diagonal-steps-move-takes-ne-nw-se-and-sw</id>
+    <title>Added: Diagonal steps: `move` takes `ne`, `nw`, `se`, and `sw`</title>
+    <updated>2026-10-06T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-06"/>
+    <category term="added" label="Added"/>
+    <summary type="text">A diagonal moves one tile on both axes. It needs both tiles beside it open too, so it never cuts a corner: with a block to your north, `ne` is refused with `blocked`, and `e` then `n` gets around it. Reach already counts a diagonal as one tile, so this is the shortest way anywhere.
+The move link takes them (`/v1/act/&lt;key&gt;/move?dir=se&amp;steps=3`), and putters may walk diagonally. `facing` in `GET /v1/world` stays `n`, `s`, `e`, or `w`: after a diagonal step it's the side they headed toward.
+Try: `POST /v1/actions {&quot;type&quot;: &quot;move&quot;, &quot;dir&quot;: &quot;ne&quot;}`</summary>
+  </entry>
+  <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-the-town-hall-and-the-shop-are-solid-walk-around-them</id>
+    <title>Changed: The Town Hall and the shop are solid: walk around them</title>
+    <updated>2026-10-06T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-06"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">A step onto the Town Hall's or the shop's tiles is refused with `blocked` (&quot;The Town Hall is in the way.&quot;), straight on or past a corner. `GET /v1/world` has `solidBuildings: true` while the rule is on, and everyone sees one `buildings_solid` event when it starts.
+Anyone standing on a building when the rule started was moved to the nearest open tile, with a `moved` event.
+Try: `GET /v1/world` and read `solidBuildings` and `townHall`.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-snapshot-on-get-v1-health-the-latest-verified-checkpoint-of</id>
     <title>Added: `snapshot` on `GET /v1/health`: the latest verified checkpoint of the world</title>
     <updated>2026-10-06T00:00:00Z</updated>

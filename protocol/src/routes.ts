@@ -1251,7 +1251,7 @@ export const ROUTES = [
     tags: ["Links"],
     params: LinkKeyParams,
     query: z.object({
-      dir: MoveAction.shape.dir.describe("n, s, e, or w."),
+      dir: MoveAction.shape.dir.describe("n, s, e, w, ne, nw, se, or sw."),
       steps: wholeNumber(1, MOVE_MAX_STEPS)
         .optional()
         .describe(`How many tiles, 1 to ${MOVE_MAX_STEPS}. Default 1.`),

@@ -8,7 +8,13 @@ import type {
   WorldEvent as WireEvent,
   WorldSnapshot,
 } from "@terrakin/protocol";
-import { facingFrom, KARMA, PROTOCOL_VERSION, PUTTER_LIMITS } from "@terrakin/protocol";
+import {
+  facingFrom,
+  fourWayFacing,
+  KARMA,
+  PROTOCOL_VERSION,
+  PUTTER_LIMITS,
+} from "@terrakin/protocol";
 import {
   asJoined,
   type Command,
@@ -129,6 +135,12 @@ export interface WorldServiceOptions {
    * made. Both adapters turn this on. Off by default, like `items`.
    */
   plotPickups?: boolean;
+  /**
+   * The Town Hall and the shop stop walkers: once the world counts days, append `solid_buildings`
+   * if it never has, so walks logged before the rule replay as they were made. Both adapters turn
+   * this on. Off by default, like `items`.
+   */
+  solidBuildings?: boolean;
   /**
    * The town shop (RFC 0008, phase 2): once coins and items are open, append `open_shop` if it
    * never has. Both adapters turn this on. Off by default, like `items`.
@@ -372,6 +384,7 @@ export class WorldService {
   private readonly items: boolean;
   private readonly gifts: boolean;
   private readonly plotPickups: boolean;
+  private readonly solidBuildings: boolean;
   private readonly shop: boolean;
   private readonly market: boolean;
   private readonly bounties: boolean;
@@ -440,6 +453,7 @@ export class WorldService {
     this.items = options.items ?? false;
     this.gifts = options.gifts ?? false;
     this.plotPickups = options.plotPickups ?? false;
+    this.solidBuildings = options.solidBuildings ?? false;
     this.shop = options.shop ?? false;
     this.market = options.market ?? false;
     this.bounties = options.bounties ?? false;
@@ -619,6 +633,11 @@ export class WorldService {
     if (this.shop && !this.state.shop && this.state.economy && this.state.items) {
       const opened = this.run({ actor: TOWN_ACTOR, command: { type: "open_shop" } });
       if (!opened.ok) console.error(`Couldn't open the shop: ${opened.error.message}`);
+    }
+    // After the shop's chance to open, so a new world's hall and shop turn solid together.
+    if (this.solidBuildings && !this.state.solidBuildings) {
+      const solid = this.run({ actor: TOWN_ACTOR, command: { type: "solid_buildings" } });
+      if (!solid.ok) console.error(`Couldn't make the buildings solid: ${solid.error.message}`);
     }
     if (this.market && !this.state.market && this.state.shop) {
       const opened = this.run({ actor: TOWN_ACTOR, command: { type: "open_market" } });
@@ -1613,7 +1632,8 @@ export class WorldService {
         return {
           ...r,
           ...(this.noteHidden(r.id) ? { note: "" } : {}),
-          ...(facing ? { facing } : {}),
+          // Kept any of eight ways, sent as one of the four `facing` has always been.
+          ...(facing ? { facing: fourWayFacing(facing) } : {}),
         };
       }),
       plots: Object.values(state.plots).map((p) => ({
@@ -1631,6 +1651,7 @@ export class WorldService {
       ...(state.day === undefined ? {} : { day: state.day }),
       townHall: townHallTiles(state.config),
       ...(state.shop ? { shop: shopTiles(state.config) } : {}),
+      ...(state.solidBuildings ? { solidBuildings: true as const } : {}),
       ...(state.town
         ? {
             townBuilt: Object.entries(state.town.built).map(([key, proposal]) => {

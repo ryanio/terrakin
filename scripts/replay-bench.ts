@@ -96,7 +96,16 @@ function time<T>(f: () => T): [T, number] {
 /** Ids shaped like the server's (`r_` and 16 hex digits). */
 const agentId = (i: number) => `r_${i.toString(16).padStart(16, "0")}`;
 
-const BACK: Record<Direction, Direction> = { n: "s", s: "n", e: "w", w: "e" };
+const BACK: Record<Direction, Direction> = {
+  n: "s",
+  s: "n",
+  e: "w",
+  w: "e",
+  ne: "sw",
+  sw: "ne",
+  nw: "se",
+  se: "nw",
+};
 
 /**
  * A putter of `PUTTER_MAX_STEPS` tiles: half out in the first open direction (turned by `seq`, so

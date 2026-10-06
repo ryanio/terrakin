@@ -183,6 +183,11 @@ describe("motion in the 3D world", () => {
     expect(faceAngle("e")).toBeCloseTo(Math.PI / 2);
     expect(faceAngle("n")).toBeCloseTo(Math.PI);
     expect(faceAngle("w")).toBeCloseTo(-Math.PI / 2);
+    // Diagonals face halfway between.
+    expect(faceAngle("se")).toBeCloseTo(Math.PI / 4);
+    expect(faceAngle("ne")).toBeCloseTo((3 * Math.PI) / 4);
+    expect(faceAngle("nw")).toBeCloseTo((-3 * Math.PI) / 4);
+    expect(faceAngle("sw")).toBeCloseTo(-Math.PI / 4);
   });
 
   it("snaps away-from-the-camera to the nearest direction, clockwise on a tie", () => {
@@ -212,6 +217,10 @@ describe("motion in the 3D world", () => {
     expect(pad.map((d) => turnDir(d, 1))).toEqual(["e", "s", "w", "n"]);
     expect(pad.map((d) => turnDir(d, 2))).toEqual(["s", "w", "n", "e"]);
     expect(pad.map((d) => turnDir(d, 3))).toEqual(["w", "n", "e", "s"]);
+    // Diagonals turn with them: up and right together walks south-east when looking east.
+    const corners = ["ne", "se", "sw", "nw"] as const;
+    expect(corners.map((d) => turnDir(d, 1))).toEqual(["se", "sw", "nw", "ne"]);
+    expect(corners.map((d) => turnDir(d, 2))).toEqual(["sw", "nw", "ne", "se"]);
   });
 
   it("turns the short way round", () => {

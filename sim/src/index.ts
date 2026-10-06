@@ -159,6 +159,20 @@ export {
 } from "./town";
 export * from "./types";
 export {
+  DIRECTIONS,
+  directionOf,
+  type Ground,
+  groundOf,
+  type Obstacle,
+  route,
+  type Step,
+  stepFrom,
+  type WalkNode,
+  walkPath,
+  walkTree,
+  worldGround,
+} from "./walk";
+export {
   CHAT_EARSHOT,
   canBuildOn,
   chebyshev,

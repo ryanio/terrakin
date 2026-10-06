@@ -43,6 +43,40 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
   // Watch our own position rather than the world's event count: other tests may join meanwhile.
   // Everything below is relative to where we started, so a moved spawn doesn't break the test.
   await expect.poll(async () => (await me()) !== undefined).toBe(true);
+
+  await test.step("taps walk around the Town Hall, never across it", async () => {
+    const { townHall } = await page.request.get("/v1/world").then((r) => r.json());
+    const onHall = (t: { x: number; y: number }) =>
+      townHall.some((h: { x: number; y: number }) => h.x === t.x && h.y === t.y);
+    // From the hall's west end across to its east end, the straight way is through it. All of
+    // it is the Commons, where nobody builds, so other specs can't wall the way.
+    const spawn = await me();
+    const west = { x: spawn.x - 2, y: spawn.y - 4 };
+    const east = { x: spawn.x + 2, y: spawn.y - 4 };
+    // Back beside spawn, not on it: a tap on someone (Wren stands on spawn) says who they are.
+    // Two short taps, since one far down and to the left lands on the 3D view button.
+    const front = { x: spawn.x, y: spawn.y - 2 };
+    const back = { x: spawn.x - 1, y: spawn.y };
+    expect(onHall({ x: spawn.x, y: west.y })).toBe(true);
+    const seen: { x: number; y: number }[] = [];
+    let at = { x: spawn.x, y: spawn.y };
+    for (const to of [west, east, front, back]) {
+      await tapTile(page, to.x - at.x, to.y - at.y);
+      await expect
+        .poll(
+          async () => {
+            const r = await me();
+            seen.push({ x: r.x, y: r.y });
+            return [r.x, r.y];
+          },
+          { intervals: [100], timeout: 10_000 },
+        )
+        .toEqual([to.x, to.y]);
+      at = to;
+    }
+    expect(seen.filter(onHall)).toEqual([]);
+  });
+
   const start = await me();
   const x = start.x - 5;
   const y = start.y - 5;
@@ -88,6 +122,21 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
   await page.click("#home");
   await expect.poll(async () => [(await me()).x, (await me()).y]).toEqual([x, y]);
   await page.screenshot({ path: "test-results/hearth.png" });
+
+  await test.step("two arrow keys held together walk diagonally", async () => {
+    await page.keyboard.down("ArrowDown");
+    await page.keyboard.down("ArrowRight");
+    await expect.poll(async () => (await me()).x, { intervals: [100] }).toBeGreaterThan(x + 1);
+    await page.keyboard.up("ArrowDown");
+    await page.keyboard.up("ArrowRight");
+    // Every step went south-east: as far down as across.
+    await expect
+      .poll(async () => {
+        const r = await me();
+        return r.x > x + 1 && r.x - x === r.y - y;
+      })
+      .toBe(true);
+  });
 
   // Chat that looks like HTML must render as text.
   await page.click("#chat-toggle");

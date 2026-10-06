@@ -1,6 +1,6 @@
 import type { WorldSnapshot } from "@terrakin/protocol";
 import { describe, expect, it } from "vitest";
-import { type Camera, screenToTile, stepToward, tileToScreen } from "./camera";
+import { type Camera, screenToTile, tileToScreen } from "./camera";
 import { Mirror } from "./mirror";
 import { dayPhase, nightAmount } from "./time";
 
@@ -168,12 +168,6 @@ describe("camera", () => {
       const { sx, sy } = tileToScreen(cam, x, y);
       expect(screenToTile(cam, sx + 5, sy - 5)).toEqual({ x, y });
     }
-  });
-
-  it("steps along the longer axis", () => {
-    expect(stepToward({ x: 0, y: 0 }, { x: 3, y: 1 })).toBe("e");
-    expect(stepToward({ x: 0, y: 0 }, { x: 1, y: -4 })).toBe("n");
-    expect(stepToward({ x: 2, y: 2 }, { x: 2, y: 2 })).toBeUndefined();
   });
 });
 

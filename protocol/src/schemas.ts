@@ -4,6 +4,7 @@ import {
   BUILDING_BLOCKS,
   COIN_REASONS,
   CROPS,
+  DIRECTIONS,
   ECONOMY,
   EXCLUSIVE_WEAR,
   FREE_BLOCKS,
@@ -165,9 +166,12 @@ const dry = {
     .describe("`true` checks the action against the rules without doing it. Not for chat."),
 };
 
+/** The way a step goes: `n`, `s`, `e`, `w`, or a diagonal (`ne`, `nw`, `se`, `sw`). */
+export const Direction = z.enum(DIRECTIONS);
+
 export const MoveAction = z.object({
   type: z.literal("move"),
-  dir: z.enum(["n", "s", "e", "w"]),
+  dir: Direction,
   ...dry,
 });
 /**
@@ -640,7 +644,10 @@ export const ResidentView = z.object({
   y: z.number().int(),
   online: z.boolean(),
   hearth: z.object({ x: z.number().int(), y: z.number().int() }).nullable(),
-  /** Which way they last stepped, for drawing only. Absent until they've stepped since a restart. */
+  /**
+   * Which way they last stepped, for drawing only: after a diagonal step, the side they headed
+   * toward. Absent until they've stepped since a restart.
+   */
   facing: z.enum(["n", "s", "e", "w"]).optional(),
   ...lookView,
 });
@@ -694,6 +701,11 @@ export const WorldSnapshot = z.object({
   townHall: z.array(z.object({ x: z.number().int(), y: z.number().int() })).optional(),
   /** The tiles the town shop stands on, in the Commons, once it's open. Tap it for /shop. */
   shop: z.array(z.object({ x: z.number().int(), y: z.number().int() })).optional(),
+  /**
+   * Present once the Town Hall's and the shop's tiles stop walkers: a step onto one is refused with
+   * `blocked`. Absent in worlds where residents walk across both.
+   */
+  solidBuildings: z.literal(true).optional(),
   /** Commons blocks the town built, with the proposal that built each. */
   townBuilt: z
     .array(z.object({ x: z.number().int(), y: z.number().int(), proposal: z.string() }))
@@ -896,6 +908,8 @@ export const WorldEvent = z.discriminatedUnion("type", [
    * unclaimed land stay open to everyone.
    */
   z.object({ type: z.literal("plot_pickups_owned") }),
+  /** From now on, nobody walks onto the Town Hall or the shop (`solidBuildings`). */
+  z.object({ type: z.literal("buildings_solid") }),
   /** The town shop opened (RFC 0008): `GET /v1/shop`. */
   z.object({ type: z.literal("shop_opened") }),
   /** The treasury's share of shop spending changed, in percent. The rest of each purchase is retired. */

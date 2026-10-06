@@ -5,6 +5,7 @@
  * Drawn with plain canvas shapes, once per look into a cached sprite (see render.ts), so the world
  * stays cheap at 60fps on a phone.
  */
+import { fourWayFacing } from "@terrakin/protocol";
 import {
   BLOCK_COLORS,
   type Direction,
@@ -382,7 +383,7 @@ function raisedArmPath(
  * Draw a figure with its feet at (0, 0) of the current transform. `u` is one tile in pixels.
  * `pattern` fills the clothes over the main color (null for plain). `facing` is the way they look:
  * south (the default) shows the face, north their back, east and west a profile with one eye and
- * a nose pointing that way.
+ * a nose pointing that way, and a diagonal the profile it's heading toward (`fourWayFacing`).
  * `patterns` makes the tiles for garments with a pattern of their own. `face` is the feeling on
  * the face, a blink, and a wave; without one the face is neutral with open eyes.
  */
@@ -400,9 +401,10 @@ export function drawFigure(
   const wear = new Set(look.wear ?? []);
   const garb = (item: WearItem) => garbFor(ctx, u, look, item, patterns);
   const rim = Math.max(1.5, u * 0.06);
-  const back = facing === "n";
+  const turned = fourWayFacing(facing);
+  const back = turned === "n";
   // Turned sideways, front details slide toward the way they face.
-  const side = facing === "e" ? 1 : facing === "w" ? -1 : 0;
+  const side = turned === "e" ? 1 : turned === "w" ? -1 : 0;
   // Which side things carried in the right hand show on.
   const hand = side || (back ? -1 : 1);
   const feet = feetAt(side);

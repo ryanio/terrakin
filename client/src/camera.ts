@@ -27,15 +27,3 @@ export function screenToTile(cam: Camera, sx: number, sy: number): { x: number; 
 export function fitScale(width: number, height: number, tilesAcross = 13): number {
   return Math.max(16, Math.floor(Math.min(width, height) / tilesAcross));
 }
-
-/** One step from `from` toward `to`, preferring the longer axis. Undefined when already there. */
-export function stepToward(
-  from: { x: number; y: number },
-  to: { x: number; y: number },
-): "n" | "s" | "e" | "w" | undefined {
-  const dx = to.x - from.x;
-  const dy = to.y - from.y;
-  if (dx === 0 && dy === 0) return undefined;
-  if (Math.abs(dx) >= Math.abs(dy)) return dx > 0 ? "e" : "w";
-  return dy > 0 ? "s" : "n";
-}

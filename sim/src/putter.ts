@@ -1,16 +1,10 @@
 import { fnv1a } from "./hash";
 import { tileKey } from "./keys";
 import type { Direction, Resident, ResidentId, Tile, WorldState } from "./types";
-import {
-  canBuildOn,
-  chebyshev,
-  commonsPlot,
-  inBounds,
-  isSolid,
-  plotAtTile,
-  plotOf,
-  STEP,
-} from "./world";
+import { type WalkNode, walkPath, walkTree, worldGround } from "./walk";
+import { canBuildOn, chebyshev, commonsPlot, isSolid, plotAtTile, plotOf } from "./world";
+
+export { isDirection } from "./walk";
 
 /**
  * `putter`: a short, aimless walk that keeps a resident visibly part of the world (decision 0049).
@@ -36,20 +30,6 @@ export const PUTTER_MAX_STEPS = 6;
 
 /** What the planner walks at most: its tuning, inside what the sim accepts. */
 const MAX_WALK = Math.min(PUTTER.steps, PUTTER_MAX_STEPS);
-
-const DIRECTIONS: readonly Direction[] = ["n", "e", "s", "w"];
-
-/** Whether a value is one of the four directions. Logged steps are checked with it. */
-export const isDirection = (d: unknown): d is Direction =>
-  typeof d === "string" && (DIRECTIONS as readonly string[]).includes(d);
-
-/** One tile the search reached: how many steps from the start, and how it got there. */
-interface Node extends Tile {
-  steps: number;
-  /** Index of the node it came from, or -1 for the start. */
-  prev: number;
-  dir: Direction | null;
-}
 
 /** A rectangle of tiles, inclusive. */
 interface Rect {
@@ -77,8 +57,9 @@ function plotRect(state: WorldState, px: number, py: number): Rect {
  *
  * In order of preference: next to the nearest other online resident within `PUTTER.seek` tiles;
  * else onto a neighbor's plot or along the edge of the plot you're building on; else toward the
- * Commons; else any open tile a few steps away. Paths go around blocks and stay in the world and in
- * a small window around you. Where there's a choice (residents equally near, which plot, which
+ * Commons; else any open tile a few steps away. Walks take the steps `move` would (any of eight
+ * ways, around blocks and buildings) and stay in the world and in a small window around you.
+ * Where there's a choice (residents equally near, which plot, which
  * tile), a hash of your id, the world's `seq`, and the day picks, so the same world and resident
  * always give the same walk, and the next putter usually gives another.
  */
@@ -102,17 +83,15 @@ export function planPutter(
   // Nobody in `avoid` is a destination, and no walk ends next to one of them either: a wander
   // toward the Commons may pass by, but never stops beside someone who shut the actor out.
   const shunned = others.filter((r) => avoid.has(r.id));
-  const nodes = reachable(state, me);
-  const free = (n: Node) =>
+  const nodes = walkTree(worldGround(state), me, PUTTER.window);
+  const free = (n: WalkNode) =>
     !occupied.has(tileKey(n.x, n.y)) && !shunned.some((r) => chebyshev(n, r) <= 1);
 
   /** The walk to `nodes[i]`, cut to `PUTTER.steps` and back off anyone's tile. */
   const walkTo = (i: number): Direction[] => {
-    const path: number[] = [];
-    for (let at = i; at > 0; at = nodes[at]?.prev ?? 0) path.push(at);
-    path.reverse();
+    const path = walkPath(nodes, i);
     let end = Math.min(path.length, MAX_WALK);
-    while (end > 0 && !free(nodes[path[end - 1] ?? 0] as Node)) end--;
+    while (end > 0 && !free(nodes[path[end - 1] ?? 0] as WalkNode)) end--;
     return path.slice(0, end).map((at) => nodes[at]?.dir as Direction);
   };
 
@@ -123,7 +102,7 @@ export function planPutter(
     let fewest = Number.POSITIVE_INFINITY;
     let ties: number[] = [];
     for (let i = 1; i < nodes.length; i++) {
-      const n = nodes[i] as Node;
+      const n = nodes[i] as WalkNode;
       if (!free(n)) continue;
       const s = score(n);
       if (s >= here) continue;
@@ -169,7 +148,7 @@ export function planPutter(
 
   // 4. Anywhere open a few steps away, two or more if there's room.
   const open = nodes.flatMap((n, i) => (i > 0 && n.steps <= MAX_WALK && free(n) ? [i] : []));
-  const roomy = open.filter((i) => (nodes[i] as Node).steps >= 2);
+  const roomy = open.filter((i) => (nodes[i] as WalkNode).steps >= 2);
   const choices = roomy.length > 0 ? roomy : open;
   if (choices.length === 0) return [];
   return walkTo(choices[pick(choices.length, "wander")] as number);
@@ -222,29 +201,4 @@ function plotGoals(
     }
   }
   return goals;
-}
-
-/**
- * Every tile a resident can walk to without leaving the world, crossing a block, or going more than
- * `PUTTER.window` tiles from where they stand, breadth first. Other residents don't block a path,
- * as they don't block `move`. The first node is where they stand.
- */
-function reachable(state: WorldState, from: Tile): Node[] {
-  const nodes: Node[] = [{ x: from.x, y: from.y, steps: 0, prev: -1, dir: null }];
-  const seen = new Set([tileKey(from.x, from.y)]);
-  for (let i = 0; i < nodes.length; i++) {
-    const n = nodes[i] as Node;
-    for (const dir of DIRECTIONS) {
-      const [dx, dy] = STEP[dir];
-      const x = n.x + dx;
-      const y = n.y + dy;
-      if (Math.abs(x - from.x) > PUTTER.window || Math.abs(y - from.y) > PUTTER.window) continue;
-      if (!inBounds(state.config, x, y) || isSolid(state, x, y)) continue;
-      const key = tileKey(x, y);
-      if (seen.has(key)) continue;
-      seen.add(key);
-      nodes.push({ x, y, steps: n.steps + 1, prev: i, dir });
-    }
-  }
-  return nodes;
 }

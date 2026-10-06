@@ -1,3 +1,4 @@
+import { fourWayFacing } from "@terrakin/protocol";
 import {
   BLOCK_COLORS,
   type BlockKind,
@@ -138,7 +139,7 @@ export function figureSprite(
     const s = r.wearStyle?.[w];
     return s ? `${w}:${s.pattern ?? ""}:${s.color ?? ""}` : "";
   });
-  const key = `fig|${r.color}|${r.shape}|${r.theme ?? ""}|${probe}|${(r.wear ?? []).join(",")}|${styles.join(",")}|${facing}|${faceKey(face)}|${u.toFixed(2)}`;
+  const key = `fig|${r.color}|${r.shape}|${r.theme ?? ""}|${probe}|${(r.wear ?? []).join(",")}|${styles.join(",")}|${fourWayFacing(facing)}|${faceKey(face)}|${u.toFixed(2)}`;
   const canvas = sprite(key, w, h, (ctx) => {
     ctx.translate(-FIGURE_BOX.left * u, -FIGURE_BOX.top * u);
     drawFigure(ctx, u, r, clothesPattern(ctx, r, u).pattern, facing, patterns, face);
@@ -1096,8 +1097,10 @@ export function render(
     face.feeling = p.feeling;
     face.blink = p.blink;
     face.wave = p.wave;
-    const facing = mirror.facing.get(r.id) ?? "s";
-    const side = facing === "e" ? 1 : facing === "w" ? -1 : 0;
+    // The way they're walking, or the server's word for someone who hasn't moved since.
+    const facing = m.facing ?? mirror.facing.get(r.id) ?? "s";
+    const turned = fourWayFacing(facing);
+    const side = turned === "e" ? 1 : turned === "w" ? -1 : 0;
     const fig = figureSprite(r, scale, dpr, facing, face);
     const ground = feet - (p.lift + m.lift) * scale;
     // Leaning, swaying, and squashing from the feet.
@@ -1295,8 +1298,8 @@ function tilesBox(tiles: readonly { x: number; y: number }[], cam: Camera) {
 
 /**
  * The Town Hall: a small storybook civic building on its tiles in the Commons. Columns under a clay
- * pediment, a gold door, stone steps, and a flag. Residents walk across it (old worlds must replay),
- * so it's drawn under them, like a hearth.
+ * pediment, a gold door, stone steps, and a flag. It's drawn under the residents, like a hearth:
+ * nobody walks onto it once buildings are solid, so whoever stands beside it is in front of it.
  */
 function drawTownHall(ctx: CanvasRenderingContext2D, mirror: Mirror, cam: Camera) {
   const box = tilesBox(mirror.townHall, cam);
@@ -1384,8 +1387,7 @@ function drawTownHall(ctx: CanvasRenderingContext2D, mirror: Mirror, cam: Camera
 /**
  * The town shop (RFC 0008): a small storybook shop on its tiles on the Commons' south edge. Cream
  * walls under a moss roof, a striped awning, two windows with jars and fruit on the sill, a door,
- * and a sign hanging from a bracket. Like the Town Hall, residents walk across it, so it's drawn
- * under them.
+ * and a sign hanging from a bracket. Like the Town Hall, it's drawn under the residents.
  */
 function drawShop(ctx: CanvasRenderingContext2D, mirror: Mirror, cam: Camera) {
   const box = tilesBox(mirror.shop, cam);

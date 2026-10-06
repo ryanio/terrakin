@@ -183,10 +183,11 @@ describe("planPutter", () => {
     w.join("ada", { x: 1, y: 22 });
     const steps = planPutter(w.state, "ada");
     expect(steps).toHaveLength(PUTTER.steps);
-    // Every step is one tile closer to the Commons' nearest corner, (8, 15), along the grid.
+    // Every step is one tile closer to the Commons' nearest corner, (8, 15): diagonally, here.
     const end = walk({ x: 1, y: 22 }, steps).at(-1) as Tile;
-    const grid = (t: Tile) => Math.abs(t.x - 8) + Math.abs(t.y - 15);
-    expect(grid(end)).toBe(grid({ x: 1, y: 22 }) - PUTTER.steps);
+    const corner = { x: 8, y: 15 };
+    expect(chebyshev(end, corner)).toBe(chebyshev({ x: 1, y: 22 }, corner) - PUTTER.steps);
+    expect(steps.every((dir) => dir === "ne")).toBe(true);
   });
 
   it("in the Commons with nobody near, wanders to an open tile, a different one as seq moves", () => {

@@ -8,6 +8,14 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 ## 2026-10-06
 
+### Added: Diagonal steps: `move` takes `ne`, `nw`, `se`, and `sw`
+
+A diagonal moves one tile on both axes. It needs both tiles beside it open too, so it never cuts a corner: with a block to your north, `ne` is refused with `blocked`, and `e` then `n` gets around it. Reach already counts a diagonal as one tile, so this is the shortest way anywhere. The move link takes them (`/v1/act/<key>/move?dir=se&steps=3`), and putters may walk diagonally. `facing` in `GET /v1/world` stays `n`, `s`, `e`, or `w`: after a diagonal step it's the side they headed toward. Try: `POST /v1/actions {"type": "move", "dir": "ne"}`
+
+### Changed: The Town Hall and the shop are solid: walk around them
+
+A step onto the Town Hall's or the shop's tiles is refused with `blocked` ("The Town Hall is in the way."), straight on or past a corner. `GET /v1/world` has `solidBuildings: true` while the rule is on, and everyone sees one `buildings_solid` event when it starts. Anyone standing on a building when the rule started was moved to the nearest open tile, with a `moved` event. Try: `GET /v1/world` and read `solidBuildings` and `townHall`.
+
 ### Added: `snapshot` on `GET /v1/health`: the latest verified checkpoint of the world
 
 `snapshot {seq, hash}` names the newest world snapshot a replay of the log has reproduced. Its `hash` is the one health served at that `seq`, so you can compare it with a hash you recorded. It's absent until one is verified. Try: `GET /v1/health` and read `snapshot`.

@@ -11,6 +11,7 @@ import {
   type Resident,
   type ResourceKind,
   type Scenery,
+  STEP,
   tileKey,
   type WorldConfig,
 } from "@terrakin/sim";
@@ -243,24 +244,20 @@ export function tileOfHit(point: Vec, dir: Vec, step = 0.05): Tile {
   return tileAtPoint(point[0] + (dir[0] / len) * step, point[2] + (dir[2] / len) * step);
 }
 
-/** How far to turn a figure (about y) so it faces the way it last walked. South faces the camera. */
+/**
+ * How far to turn a figure (about y) so it faces the way it last walked, any of the eight. South
+ * faces the camera.
+ */
 export function faceAngle(dir: Direction | undefined): number {
-  switch (dir) {
-    case "e":
-      return Math.PI / 2;
-    case "n":
-      return Math.PI;
-    case "w":
-      return -Math.PI / 2;
-    default:
-      return 0;
-  }
+  if (!dir) return 0;
+  const [dx, dy] = STEP[dir];
+  return Math.atan2(dx, dy);
 }
 
 /** Quarter turns clockwise from north, seen from above: 0 north, 1 east, 2 south, 3 west. */
 export type Quarter = 0 | 1 | 2 | 3;
 
-const CLOCKWISE: readonly Direction[] = ["n", "e", "s", "w"];
+const CLOCKWISE: readonly Direction[] = ["n", "ne", "e", "se", "s", "sw", "w", "nw"];
 
 /**
  * Which way is "away from the camera", snapped to the nearest of the four directions, given where
@@ -274,11 +271,11 @@ export function cameraQuarter(dx: number, dz: number): Quarter {
 }
 
 /**
- * A d-pad or arrow-key direction (up is "n") turned to the world direction it means when "up" is
- * `quarter`. The 2D map passes 0, so up stays north.
+ * A d-pad or arrow-key direction (up is "n", diagonals too) turned to the world direction it means
+ * when "up" is `quarter`. The 2D map passes 0, so up stays north.
  */
 export function turnDir(dir: Direction, quarter: Quarter): Direction {
-  return CLOCKWISE[(CLOCKWISE.indexOf(dir) + quarter) % 4] ?? dir;
+  return CLOCKWISE[(CLOCKWISE.indexOf(dir) + quarter * 2) % 8] ?? dir;
 }
 
 /** The shortest turn from angle `a` to angle `b`, in (-PI, PI]. */

@@ -37,6 +37,7 @@ import type {
   WorldEvent,
   WorldState,
 } from "./types";
+import { stepOffBuildings } from "./walk";
 
 /**
  * The town shop (RFC 0008, phase 2): a catalog the town sells from, buy orders the town pays for,
@@ -204,7 +205,8 @@ export function checkOpenShop(state: WorldState): ShopChecked {
   }
   return () => {
     state.shop = { wardrobe: {}, today: emptyToday() };
-    return [{ type: "shop_opened" }];
+    // Once buildings are solid, anyone standing where the shop goes steps off it.
+    return [{ type: "shop_opened" }, ...(state.solidBuildings ? stepOffBuildings(state) : [])];
   };
 }
 

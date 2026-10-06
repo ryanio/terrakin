@@ -3430,7 +3430,8 @@ dialog.model-viewer {
   stroke-width: 2;
 }
 
-.dpad button:active {
+.dpad button:active,
+.dpad button[data-held] {
   transform: translateY(2px);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.9),

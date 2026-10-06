@@ -106,6 +106,7 @@ import type {
   WorldState,
 } from "./types";
 import { BLOCK_KINDS, RESIDENT_COLORS, RESIDENT_SHAPES, TOWN_ACTOR } from "./types";
+import { checkSolidBuildings, stepFrom, worldGround } from "./walk";
 import {
   canBuildOn,
   chebyshev,
@@ -117,13 +118,16 @@ import {
   plotInBounds,
   plotOf,
   plotsOwnedBy,
-  STEP,
   spawnTile,
   starterHome,
 } from "./world";
 
 export const NAME_MAX_LENGTH = 24;
 export const NOTE_MAX_LENGTH = 80;
+
+/** What a step with a direction the sim doesn't know is told. */
+const STEPS_GO = "Steps go n, s, e, w, ne, nw, se, or sw.";
+
 /** How many residents an owner can share one plot with. */
 export const MAX_CO_OWNERS = 3;
 
@@ -583,6 +587,8 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
         return town(checkOpenGifts(state));
       case "own_plot_pickups":
         return town(checkOwnPlotPickups(state));
+      case "solid_buildings":
+        return town(checkSolidBuildings(state));
       case "open_shop":
         return town(checkOpenShop(state));
       case "set_shop_share":
@@ -668,12 +674,10 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
     }
 
     case "move": {
-      if (!isDirection(command.dir)) return reject("out_of_bounds", "Steps go n, s, e, or w.");
-      const [dx, dy] = STEP[command.dir];
-      const x = me.x + dx;
-      const y = me.y + dy;
-      if (!inBounds(config, x, y)) return reject("out_of_bounds", "That's the edge of the world.");
-      if (isSolid(state, x, y)) return reject("blocked", "A block is in the way.");
+      if (!isDirection(command.dir)) return reject("out_of_bounds", STEPS_GO);
+      const step = stepFrom(worldGround(state), me, command.dir);
+      if (!step.ok) return reject(step.code, step.message);
+      const { x, y } = step.to;
       return () => {
         me.x = x;
         me.y = y;
@@ -690,18 +694,15 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
         return reject("out_of_reach", `A putter walks at most ${PUTTER_MAX_STEPS} tiles.`);
       }
       // Each step is checked like a move, from where the last one left off.
+      const ground = worldGround(state);
       const path: Tile[] = [];
       let at: Tile = me;
       for (const dir of steps) {
-        if (!isDirection(dir)) return reject("out_of_bounds", "Steps go n, s, e, or w.");
-        const [dx, dy] = STEP[dir];
-        const next = { x: at.x + dx, y: at.y + dy };
-        if (!inBounds(config, next.x, next.y)) {
-          return reject("out_of_bounds", "That's the edge of the world.");
-        }
-        if (isSolid(state, next.x, next.y)) return reject("blocked", "A block is in the way.");
-        path.push(next);
-        at = next;
+        if (!isDirection(dir)) return reject("out_of_bounds", STEPS_GO);
+        const step = stepFrom(ground, at, dir);
+        if (!step.ok) return reject(step.code, step.message);
+        path.push(step.to);
+        at = step.to;
       }
       return () =>
         path.map(({ x, y }) => {

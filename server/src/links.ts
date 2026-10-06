@@ -155,7 +155,16 @@ function untrusted(blocks: string[]): string {
 }
 
 const at = (t: { x: number; y: number }) => `(${t.x}, ${t.y})`;
-const DIRECTIONS = { n: "north", s: "south", e: "east", w: "west" } as const;
+const DIRECTIONS = {
+  n: "north",
+  s: "south",
+  e: "east",
+  w: "west",
+  ne: "northeast",
+  nw: "northwest",
+  se: "southeast",
+  sw: "southwest",
+} as const;
 
 /** A piece of a page, or nothing (false, null, undefined, or empty) to leave it out. */
 type Section = string | false | null | undefined;

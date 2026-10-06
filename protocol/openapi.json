@@ -8709,14 +8709,18 @@
             "name": "dir",
             "in": "query",
             "required": true,
-            "description": "n, s, e, or w.",
+            "description": "n, s, e, w, ne, nw, se, or sw.",
             "schema": {
               "type": "string",
               "enum": [
                 "n",
-                "s",
                 "e",
-                "w"
+                "s",
+                "w",
+                "ne",
+                "se",
+                "sw",
+                "nw"
               ]
             }
           },
@@ -19755,6 +19759,19 @@
           "gift"
         ]
       },
+      "Direction": {
+        "type": "string",
+        "enum": [
+          "n",
+          "e",
+          "s",
+          "w",
+          "ne",
+          "se",
+          "sw",
+          "nw"
+        ]
+      },
       "DisplayAction": {
         "type": "object",
         "properties": {
@@ -20611,13 +20628,7 @@
             ]
           },
           "dir": {
-            "type": "string",
-            "enum": [
-              "n",
-              "s",
-              "e",
-              "w"
-            ]
+            "$ref": "#/components/schemas/Direction"
           },
           "dry": {
             "description": "`true` checks the action against the rules without doing it. Not for chat.",
@@ -22929,6 +22940,20 @@
               "type": {
                 "type": "string",
                 "enum": [
+                  "buildings_solid"
+                ]
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
                   "shop_opened"
                 ]
               }
@@ -24083,6 +24108,12 @@
                 "y"
               ]
             }
+          },
+          "solidBuildings": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
           },
           "townBuilt": {
             "type": "array",

@@ -8,6 +8,8 @@ import {
   type BlockKind,
   type Crop,
   type Direction,
+  type Ground,
+  groundOf,
   LOOK_KEYS,
   lookOf,
   mayGatherOn,
@@ -50,6 +52,9 @@ export class Mirror {
   townHall: { x: number; y: number }[];
   /** The tiles the town shop stands on, once it's open (RFC 0008). Tapping one opens /shop. */
   shop: { x: number; y: number }[];
+  /** Whether the Town Hall and the shop stop walkers (`solid_buildings`). */
+  solidBuildings: boolean;
+  private walkable: Ground | undefined;
   townBuilt = new Map<string, string>(); // tileKey -> the proposal that built it
   /** Crops growing in planters (RFC 0005). */
   crops = new Map<string, { crop: Crop; plantedDay: number; readyDay: number }>();
@@ -82,6 +87,7 @@ export class Mirror {
     for (const b of snapshot.blocks) this.blocks.set(tileKey(b.x, b.y), b.block);
     this.townHall = (snapshot.townHall ?? []).map((t) => ({ ...t }));
     this.shop = (snapshot.shop ?? []).map((t) => ({ ...t }));
+    this.solidBuildings = snapshot.solidBuildings === true;
     for (const t of snapshot.townBuilt ?? []) this.townBuilt.set(tileKey(t.x, t.y), t.proposal);
     for (const c of snapshot.crops ?? []) {
       this.crops.set(tileKey(c.x, c.y), {
@@ -104,6 +110,17 @@ export class Mirror {
 
   isShop(x: number, y: number): boolean {
     return this.shop.some((t) => t.x === x && t.y === y);
+  }
+
+  /** The ground as the sim's walking rule sees it, so a step is checked here as it is there. */
+  ground(): Ground {
+    this.walkable ??= groundOf({
+      config: this.config,
+      hasBlock: (x, y) => this.blocks.has(tileKey(x, y)),
+      solidBuildings: this.solidBuildings,
+      shopOpen: this.shop.length > 0,
+    });
+    return this.walkable;
   }
 
   /**
@@ -191,6 +208,11 @@ export class Mirror {
       // The event names no tiles; where the shop stands is fixed by the world's size.
       case "shop_opened":
         this.shop = shopTiles(this.config);
+        this.walkable = undefined;
+        break;
+      case "buildings_solid":
+        this.solidBuildings = true;
+        this.walkable = undefined;
         break;
       case "day_started":
         this.day = event.day;

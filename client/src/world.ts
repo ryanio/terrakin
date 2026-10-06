@@ -16,8 +16,12 @@ import {
   canBuildOn,
   type DecorKind,
   type Direction,
+  directionOf,
   ITEM_INFO,
   isDecorKind,
+  route,
+  STEP,
+  type Tile,
 } from "@terrakin/sim";
 import { REDUCED_MOTION } from "@terrakin/ui/motion";
 import { plot3dPath } from "@terrakin/ui/paths";
@@ -30,7 +34,7 @@ import {
   paintDecorChoices,
   withDecorChanges,
 } from "./build-palette";
-import { type Camera, fitScale, screenToTile, stepToward } from "./camera";
+import { type Camera, fitScale, screenToTile } from "./camera";
 import { Feelings, gestureReaction } from "./feelings";
 import { createLanding } from "./landing";
 import { Mirror } from "./mirror";
@@ -38,11 +42,12 @@ import { Motion } from "./motion";
 import { Connection, type Identity, savedToken, saveToken } from "./net";
 import { blockColor, HEARTH_COLOR, render } from "./render";
 import type { World3d } from "./scene3d/world";
-import { type Quarter, turnDir } from "./scene3d/world-layout";
+import { approach, type Quarter, turnDir } from "./scene3d/world-layout";
 import { track } from "./telemetry";
 import { NO_PLOT_LINE, newsLine, othersPickupLine, toastMs, worldProblem } from "./things";
 import { dayPhase } from "./time";
 import { ARRIVAL_KEY, gestureLine } from "./together";
+import { Walker } from "./walk";
 import { offer3d, readSignals, savedMode, saveMode, startMode, type WorldMode } from "./world-mode";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -84,20 +89,26 @@ let block: BlockKind | "hearth" = "wood";
 let decor: DecorCounts = new Map();
 /** Decor shown since the palette opened, kept (greyed out) when you run out. */
 let decorShown = new Set<DecorKind>();
-/** Where a tap sent you. `station` is a planter, kitchen, or workbench to open once in reach. */
-let walkTarget: { x: number; y: number; station?: boolean; pickup?: boolean } | undefined;
-let pendingMove: string | undefined;
 /** The chat line waiting for the server's answer: its text leaves the input only once accepted. */
 let pendingChat: { id: string; text: string } | undefined;
-/** Steps asked for by key presses and d-pad taps (world directions), sent as the pace allows. */
-const queuedSteps: Direction[] = [];
-/** Walk keys held down, newest last, as the key's own direction (up is "n"). Holding walks on. */
-const heldKeys: Direction[] = [];
 /**
- * The fastest we walk: one step per server ack, and no more often than this. Keeps a held key
- * under the action rate limit (10 a second) instead of bursting into "Slow down."
+ * Your steps: keys, the d-pad, and taps on the world, walked at your figure's pace and drawn before
+ * the server answers (`walk.ts`). One step every 200ms keeps a held key well under the action rate
+ * limit (10 a second).
  */
-const STEP_MS = 110;
+const walker = new Walker({
+  at: () => self(),
+  ground: () => mirror?.ground(),
+  behind: () => (me ? motion.behind(me) : 0),
+  steer,
+  send: (dir) => act({ type: "move", dir }),
+  bumped: (dir) => {
+    if (me) motion.bump(me, dir, performance.now());
+  },
+});
+/** How quickly the map's camera catches up with your figure, per second. */
+const CAMERA_RATE = 10;
+let lastFrame = 0;
 let resyncing = false;
 /** True between pressing "Step inside" and the server's welcome, so we count a join once. */
 let joiningFresh = false;
@@ -214,11 +225,9 @@ function hasPlot(): boolean {
   return false;
 }
 
+/** Nothing in flight and nothing to walk: a new connection, or leaving. */
 function stopWalking() {
-  walkTarget = undefined;
-  pendingMove = undefined;
-  queuedSteps.length = 0;
-  heldKeys.length = 0;
+  walker.reset();
 }
 
 /** Remember the server's day/night anchor and when it arrived. No anchor means no night. */
@@ -275,7 +284,13 @@ function onMessage(msg: ServerMessage) {
       break;
     case "event": {
       // Out of step with the server? Reload the truth rather than guessing.
-      if (mirror && !resyncing && mirror.apply(msg) === "gap") void resync();
+      const applied = mirror && !resyncing ? mirror.apply(msg) : undefined;
+      if (applied === "gap") void resync();
+      // Each step someone takes joins their walk, so a burst of them is walked, not jumped.
+      if (applied === "applied" && msg.event.type === "moved") {
+        const { residentId, x, y } = msg.event;
+        motion.moved(residentId, x, y, performance.now());
+      }
       // Your own news, in plain words. Notes, labels, and names stay out of it.
       const line = me ? newsLine(msg.event, me) : null;
       if (line) showToast(line);
@@ -300,7 +315,7 @@ function onMessage(msg: ServerMessage) {
       motion.say(msg.from.id, msg.text, performance.now());
       break;
     case "ack":
-      if (msg.id === pendingMove) pendingMove = undefined;
+      if (msg.id !== undefined) walker.answered(msg.id, true);
       if (pendingChat && msg.id === pendingChat.id) {
         // Sent: clear the line, unless you've started another one meanwhile.
         if (chatInput.value.trim() === pendingChat.text) chatInput.value = "";
@@ -309,10 +324,9 @@ function onMessage(msg: ServerMessage) {
       break;
     case "error": {
       const { code, message } = msg.error;
-      if (msg.id === pendingMove) {
-        // Walked into something: stop, rather than bumping it every step until the key comes up.
-        stopWalking();
-      }
+      // A step the mirror said was open was turned down (someone built there meanwhile): the
+      // walker stops and goes back to where the server says you are.
+      if (msg.id !== undefined) walker.answered(msg.id, false);
       // Before the welcome, any refusal is about joining: the form says why.
       if (joiningFresh && !me) return joinRefused(code, message);
       if (code === "unauthorized") return keyNotFound();
@@ -392,7 +406,16 @@ function showToast(text: string, source: "system" | "player" = "system") {
 
 const pad = document.querySelector<HTMLElement>(".dpad");
 const padButtons = [...document.querySelectorAll<HTMLButtonElement>(".dpad button")];
-const DIR_NAMES: Record<Direction, string> = { n: "North", e: "East", s: "South", w: "West" };
+const DIR_NAMES: Record<Direction, string> = {
+  n: "North",
+  e: "East",
+  s: "South",
+  w: "West",
+  ne: "Northeast",
+  nw: "Northwest",
+  se: "Southeast",
+  sw: "Southwest",
+};
 /** What "up" on the d-pad and arrow keys means: north on the map, away from the camera in 3D. */
 let padQuarter: Quarter = 0;
 let padIn3d = false;
@@ -420,15 +443,24 @@ function paintPad(quarter: Quarter, in3d: boolean) {
     button.setAttribute("aria-label", DIR_NAMES[steer(button.dataset.dir as Direction)]);
 }
 
-function step(dir: Direction) {
-  walkTarget = undefined;
-  queuedSteps.push(dir);
-  // Turn right away, even if the step is refused. Only how you're drawn; the server moves you.
-  if (me) mirror?.facing.set(me, dir);
-}
-
 function self() {
   return me ? mirror?.residents.get(me) : undefined;
+}
+
+/** Where you'll be once the steps you've taken land: what you can reach from next. */
+function here(): Tile | undefined {
+  return walker.ahead ?? self();
+}
+
+/**
+ * Walk to a tile, or until it's within `near` tiles, around whatever is in the way, with the
+ * sim's own walking rule. `arrive` runs once the walk ends.
+ */
+function walkToward(tile: Tile, near = 0, arrive?: () => void) {
+  walker.walkTo({
+    plan: (from) => (mirror ? route(mirror.ground(), from, tile, near) : []),
+    ...(arrive ? { arrive } : {}),
+  });
 }
 
 /** Blocks a tap opens a sheet for: what grows or is made there, or what's on display. */
@@ -446,22 +478,22 @@ function inReach(r: { x: number; y: number }, tile: { x: number; y: number }): b
  */
 function openStation(x: number, y: number) {
   const m = mirror;
-  const here = m?.blocks.get(`${x},${y}`);
-  if (!m || !here || !STATIONS.includes(here)) return;
+  const kind = m?.blocks.get(`${x},${y}`);
+  if (!m || !kind || !STATIONS.includes(kind)) return;
   const planting = m.crops.get(`${x},${y}`);
   const ownerId = m.ownerAt(x, y);
   // The sim's rule for whose plot this is to work on.
   const plot = ownerId ? { px: 0, py: 0, ownerId, coOwners: [...m.coOwnersAt(x, y)] } : undefined;
   const yours = !!me && canBuildOn(plot, me);
   const ownerName = ownerId ? m.residents.get(ownerId)?.name : undefined;
-  if (here === "pedestal" || here === "frame") {
+  if (kind === "pedestal" || kind === "frame") {
     const shown = m.displays.get(`${x},${y}`);
     const { plotSize } = m.config;
     const px = Math.floor(x / plotSize);
     const py = Math.floor(y / plotSize);
     void import("./display-sheet").then((d) =>
       d.openDisplaySheet({
-        block: here,
+        block: kind,
         x,
         y,
         ...(shown ? { shown } : {}),
@@ -476,7 +508,7 @@ function openStation(x: number, y: number) {
   }
   void import("./garden-sheet").then((g) =>
     g.openTileSheet({
-      block: here,
+      block: kind,
       x,
       y,
       ...(planting ? { planting } : {}),
@@ -495,22 +527,28 @@ canvas.addEventListener("pointerdown", (e) => {
 /** A tap on the world, as a tile: from the 2D map, or picked in the 3D view. Both act the same. */
 /** Turn to look at something you tapped or are using. Only how you're drawn; the server moves you. */
 function lookAt(tile: { x: number; y: number }) {
-  const r = self();
+  const r = here();
   const dir = r && facingToward(tile.x - r.x, tile.y - r.y);
-  if (dir && me) mirror?.facing.set(me, dir);
+  if (!dir || !me) return;
+  mirror?.facing.set(me, dir);
+  motion.face(me, dir);
 }
 
 function tapTile(tile: { x: number; y: number }) {
   const r = self();
-  if (!mirror || !r) return;
+  const at = here();
+  if (!mirror || !r || !at) return;
   if (buildMode) {
     const hasBlock = mirror.blocks.has(`${tile.x},${tile.y}`);
-    if (block === "hearth") tryAct({ type: "set_hearth", ...tile });
-    else tryAct(hasBlock ? { type: "remove", ...tile } : { type: "place", ...tile, block });
+    if (block === "hearth") {
+      // A new hearth takes you home to it: no more steps until the server says where you are.
+      const id = tryAct({ type: "set_hearth", ...tile });
+      if (id) walker.awaiting(id, performance.now());
+    } else tryAct(hasBlock ? { type: "remove", ...tile } : { type: "place", ...tile, block });
     return;
   }
   // Tapping yourself while you stand on your own plot opens it in 3D.
-  if (tile.x === r.x && tile.y === r.y && mirror.ownerAt(r.x, r.y) === r.id && navigate) {
+  if (tile.x === at.x && tile.y === at.y && mirror.ownerAt(at.x, at.y) === r.id && navigate) {
     navigate(plot3dPath(r.id));
     return;
   }
@@ -525,15 +563,23 @@ function tapTile(tile: { x: number; y: number }) {
     navigate("/shop");
     return;
   }
+  /** Do `then` here if it's in reach, or walk until it is and do it there. */
+  const reachThen = (then: () => void) => {
+    if (inReach(at, tile)) return then();
+    walkToward(tile, mirror?.config.reach ?? 0, () => {
+      const there = here();
+      if (there && inReach(there, tile)) then();
+      else showToast("You can't get close enough to reach that from here.");
+    });
+  };
   // A planter, kitchen, or workbench opens what you can do there (RFC 0005). One farther off is
-  // somewhere to walk to: you stop once it's in reach, since walking into it only bumps, and it
-  // opens then.
-  const here = mirror.blocks.get(`${tile.x},${tile.y}`);
-  if (!other && here && STATIONS.includes(here)) {
-    if (inReach(r, tile)) {
+  // somewhere to walk to: you stop once it's in reach, and it opens then.
+  const station = mirror.blocks.get(`${tile.x},${tile.y}`);
+  if (!other && station && STATIONS.includes(station)) {
+    reachThen(() => {
       lookAt(tile);
       openStation(tile.x, tile.y);
-    } else walkTarget = { ...tile, station: true };
+    });
     return;
   }
   // A fallen branch or a loose stone: tap to pick it up (phase 1 gathering). One farther off is
@@ -546,10 +592,13 @@ function tapTile(tile: { x: number; y: number }) {
       showToast(othersPickupLine(owner ? mirror.residents.get(owner)?.name : undefined));
       return;
     }
-    if (inReach(r, tile)) {
+    reachThen(() => {
       lookAt(tile);
-      tryAct({ type: "gather", x: tile.x, y: tile.y });
-    } else walkTarget = { ...tile, pickup: true };
+      // Someone may have claimed the plot on the way.
+      const m = mirror;
+      if (!m || m.mayGatherAt(tile.x, tile.y, r.id)) tryAct({ type: "gather", ...tile });
+      else showToast(othersPickupLine(m.residents.get(m.ownerAt(tile.x, tile.y) ?? "")?.name));
+    });
     return;
   }
   if (other && other.id !== me) {
@@ -558,7 +607,7 @@ function tapTile(tile: { x: number; y: number }) {
     showToast(other.note ? `${name}: ${other.note}` : name, "player");
     return;
   }
-  walkTarget = tile;
+  walkToward(tile);
 }
 
 // ---------- 2D or 3D ----------
@@ -624,8 +673,69 @@ function fallBack(reason: "slow" | "lost" | "failed") {
   );
 }
 
+// ---------- the d-pad: press for a step, hold to walk, slide your thumb to turn ----------
+
+/**
+ * The way a point on the d-pad points on screen: the button under it, a corner between two
+ * buttons for a diagonal, or nothing on the hub. Past the pad's edge it points the way it went.
+ */
+function padWay(e: PointerEvent): Direction | undefined {
+  if (!pad) return undefined;
+  const box = pad.getBoundingClientRect();
+  const half = box.width / 6;
+  const dx = e.clientX - (box.left + box.width / 2);
+  const dy = e.clientY - (box.top + box.height / 2);
+  return directionOf(
+    Math.abs(dx) > half ? Math.sign(dx) : 0,
+    Math.abs(dy) > half ? Math.sign(dy) : 0,
+  );
+}
+
+/** Light the buttons the d-pad is walking toward: one, or the two either side of a diagonal. */
+function paintHeld(dir: Direction | undefined) {
+  const [dx, dy] = dir ? STEP[dir] : [0, 0];
+  for (const button of padButtons) {
+    const [bx, by] = STEP[button.dataset.dir as Direction];
+    button.toggleAttribute("data-held", (bx !== 0 && bx === dx) || (by !== 0 && by === dy));
+  }
+}
+
+/** Until when a click on a d-pad button is the tail of a press the pointer already walked. */
+let padClickUntil = 0;
+
+pad?.addEventListener("pointerdown", (e) => {
+  const dir = padWay(e);
+  if (!active || !me || !dir || e.button > 0) return;
+  e.preventDefault();
+  walker.padDown(dir, performance.now());
+  paintHeld(dir);
+  // Keep the thumb's moves coming to the pad as it slides off a button, or past the pad's edge.
+  try {
+    pad.setPointerCapture(e.pointerId);
+  } catch {
+    // A pointer the browser no longer tracks: the step still goes, it just won't slide.
+  }
+});
+pad?.addEventListener("pointermove", (e) => {
+  if (!pad.hasPointerCapture(e.pointerId)) return;
+  const dir = padWay(e);
+  walker.padMove(dir);
+  paintHeld(dir);
+});
+const padUp = () => {
+  walker.padUp();
+  paintHeld(undefined);
+  padClickUntil = performance.now() + 500;
+};
+pad?.addEventListener("pointerup", padUp);
+pad?.addEventListener("pointercancel", padUp);
+pad?.addEventListener("lostpointercapture", padUp);
+// A button pressed with the keyboard or a screen reader takes one step.
 for (const button of padButtons) {
-  button.addEventListener("click", () => step(steer(button.dataset.dir as Direction)));
+  button.addEventListener("click", () => {
+    if (performance.now() < padClickUntil) return;
+    walker.tap(button.dataset.dir as Direction, performance.now());
+  });
 }
 
 const KEYS: Record<string, Direction> = {
@@ -650,33 +760,31 @@ function keysTaken(): boolean {
   );
 }
 
+/** The walk key an event is, if any: W and w alike, so Caps Lock doesn't stop you. */
+const walkKey = (e: KeyboardEvent): Direction | undefined =>
+  KEYS[e.key.length === 1 ? e.key.toLowerCase() : e.key];
+
 window.addEventListener("keydown", (e) => {
-  if (!active || !me || keysTaken()) return;
-  const dir = KEYS[e.key];
+  if (!active || !me || keysTaken() || e.metaKey || e.ctrlKey || e.altKey) return;
+  const dir = walkKey(e);
   if (!dir) return;
   e.preventDefault();
-  // Key repeat is ignored: the frame loop walks a held key at its own steady pace.
-  if (e.repeat) return;
-  releaseKey(dir);
-  heldKeys.push(dir);
-  step(steer(dir));
+  // Key repeat isn't another press: a held key walks at your figure's pace (`walk.ts`).
+  if (!e.repeat) walker.press(dir, performance.now());
 });
 window.addEventListener("keyup", (e) => {
-  const dir = KEYS[e.key];
-  if (dir) releaseKey(dir);
+  const dir = walkKey(e);
+  if (dir) walker.release(dir, performance.now());
 });
 // A key released while the page is in the background never sends keyup.
 window.addEventListener("blur", () => {
-  heldKeys.length = 0;
+  walker.stop();
+  paintHeld(undefined);
 });
 
-function releaseKey(dir: Direction) {
-  const i = heldKeys.indexOf(dir);
-  if (i >= 0) heldKeys.splice(i, 1);
-}
-
 $("claim").addEventListener("click", () => {
-  const r = self();
+  // The claim lands after any steps still on their way, on the plot they end in.
+  const r = here();
   if (r && mirror?.ownerAt(r.x, r.y) === me) {
     showToast("This plot is already yours. Tap Build to start.");
     return;
@@ -738,14 +846,16 @@ async function loadDecor() {
 }
 
 $("home").addEventListener("click", () => {
-  walkTarget = undefined;
+  walker.stop();
   // No hearth is nowhere to go: say how to set one now, rather than after a round trip.
   const r = self();
   if (r && !r.hearth) {
     showToast(worldProblem("no_hearth", "", { hasPlot: hasPlot() }));
     return;
   }
-  tryAct({ type: "home" });
+  // The jump lands after any steps still on their way; walk no further until it does.
+  const id = tryAct({ type: "home" });
+  if (id) walker.awaiting(id, performance.now());
 });
 
 chatToggle.addEventListener("click", () => {
@@ -800,51 +910,28 @@ function snapCamera() {
   cam.scale = targetScale();
 }
 
-let lastWalk = 0;
-function frame(t: number) {
+function frame() {
+  const now = performance.now();
+  const dt = Math.min(0.1, (now - lastFrame) / 1000);
+  lastFrame = now;
+  const still = motionQuery.matches;
+  motion.self = me;
+  // The 3D camera decides which way "up" walks, so turn the d-pad before the next step.
+  paintPad(world3d?.heading() ?? 0, world3d !== undefined);
   const r = self();
   if (r) {
-    cam.cx += (r.x - cam.cx) * 0.2;
-    cam.cy += (r.y - cam.cy) * 0.2;
-    // Walking: one step at a time, each waiting for the server to confirm the last. Presses and
-    // taps go first, then a held key, then a tapped destination.
-    if (!pendingMove && t - lastWalk >= STEP_MS) {
-      // Walking to a planter or a kitchen: stop once it's in reach, and open it.
-      if (
-        walkTarget?.station &&
-        !queuedSteps.length &&
-        !heldKeys.length &&
-        inReach(r, walkTarget)
-      ) {
-        lookAt(walkTarget);
-        openStation(walkTarget.x, walkTarget.y);
-        walkTarget = undefined;
-      }
-      // Walking to a pickup: stop once it's in reach, and pick it up, unless its plot was claimed
-      // by someone else on the way.
-      if (walkTarget?.pickup && !queuedSteps.length && !heldKeys.length && inReach(r, walkTarget)) {
-        const { x, y } = walkTarget;
-        const m = mirror;
-        lookAt(walkTarget);
-        if (!m || m.mayGatherAt(x, y, r.id)) tryAct({ type: "gather", x, y });
-        else showToast(othersPickupLine(m.residents.get(m.ownerAt(x, y) ?? "")?.name));
-        walkTarget = undefined;
-      }
-      // A held key walks the way it points now, so it follows the camera as it turns.
-      const held = heldKeys.at(-1);
-      const dir =
-        queuedSteps.shift() ?? (held && steer(held)) ?? (walkTarget && stepToward(r, walkTarget));
-      if (dir) {
-        pendingMove = act({ type: "move", dir });
-        lastWalk = t;
-      } else walkTarget = undefined;
-    }
+    walker.tick(now);
+    motion.ahead = walker.ahead;
+    // The map's camera follows your figure as it's drawn, so the world glides under a walk.
+    const p = motion.pose(r, now, still);
+    cam.cx = approach(cam.cx, p.x, dt, CAMERA_RATE);
+    cam.cy = approach(cam.cy, p.y, dt, CAMERA_RATE);
   } else if (mirror) {
     // Behind the curtain: a slow drift around the Commons.
     const { plotSize } = mirror.config;
     const ox = (mirror.commons.px + 0.5) * plotSize - 0.5;
     const oy = (mirror.commons.py + 0.5) * plotSize - 0.5;
-    const drift = motionQuery.matches ? 0 : t / 1000;
+    const drift = still ? 0 : now / 1000;
     cam.cx = ox + Math.sin(drift / 9) * 4;
     cam.cy = oy + Math.cos(drift / 13) * 2.5 + 1.5;
     cam.scale = targetScale();
@@ -854,10 +941,6 @@ function frame(t: number) {
   const phase = dayAnchor
     ? dayPhase(dayAnchor.nowMs + (performance.now() - dayAnchor.receivedAt), dayAnchor.dayLengthMs)
     : undefined;
-  paintPad(world3d?.heading() ?? 0, world3d !== undefined);
-  const now = performance.now();
-  const still = motionQuery.matches;
-  motion.self = me;
   if (world3d && mirror && me) world3d.sync({ mirror, me, buildMode, feelings, motion });
   else if (mirror)
     render(ctx, {

@@ -585,7 +585,8 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       const r = mirror.residents.get(id);
       if (!r) continue;
       const m = motion.pose(r, now, still);
-      const want = faceAngle(mirror.facing.get(id));
+      // The way they're walking, or the server's word for someone who hasn't moved since.
+      const want = faceAngle(m.facing ?? mirror.facing.get(id));
       const gap = turnBetween(f.turn, want);
       const turn = still || Math.abs(gap) < 1e-3 ? want : f.turn + gap * (1 - Math.exp(-TURN * dt));
       const g = f.group;

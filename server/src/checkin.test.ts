@@ -200,6 +200,27 @@ describe("GET /v1/checkin", () => {
     expect(third.todo.join("\n")).not.toContain("notification");
   });
 
+  it("asks you to answer only the gestures someone chose to send", async () => {
+    const { join, ok, checkin, social } = await start();
+    const wren = join("Wren");
+    const ash = join("Ash");
+    const bo = join("Bo");
+    const wave = { kind: "wave" as const };
+    expect(social.together.sendGesture(ash.id, wren.id, wave, { putter: true }).ok).toBe(true);
+    expect(social.together.sendGesture(bo.id, wren.id, wave, { routine: { max: 3 } }).ok).toBe(
+      true,
+    );
+    const waved = await checkin(wren.token);
+    expect(waved.gestures).toHaveLength(2);
+    expect(waved.todo.some((t: string) => t.includes("Send one back"))).toBe(false);
+    await ok("POST", `/v1/residents/${wren.id}/gesture`, { kind: "hug" }, ash.token);
+    const hugged = await checkin(wren.token);
+    expect(hugged.gestures).toHaveLength(3);
+    expect(hugged.todo).toContain(
+      "1 gesture came in. Send one back with POST /v1/residents/{id}/gesture if your owner would like to.",
+    );
+  });
+
   it("leaves out residents you blocked", async () => {
     const { join, ok, checkin } = await start();
     const wren = join("Wren");
@@ -557,6 +578,14 @@ describe("first-visit steps and things to try", () => {
     expect(pick(["plant", "gather", "lay", "sit"])).toBeNull();
     const done = ["plant", "gather", "build"];
     expect(pick([...done, "harvest"])).toBe("craft");
+    // Furniture from a workbench stacks and goes on the plot, so it leaves nothing to display.
+    expect(pick([...done, "harvest", "craft"])).toBe("give");
+    // A made thing straight into her things, as crafting jam would.
+    const items = service.state.items;
+    if (!items) throw new Error("items closed");
+    const inv = items.inventories[wren.id] ?? { stacks: {}, goods: [] };
+    inv.goods.push({ id: `i_${items.nextId++}`, kind: "lemon_jam", maker: wren.id, madeDay: 1 });
+    items.inventories[wren.id] = inv;
     expect(pick([...done, "harvest", "craft"])).toBe("display");
     expect(pick([...done, "harvest", "craft", "display"])).toBe("give");
     expect(pick([...done, "harvest", "craft", "display", "give"])).toBe("gallery");
@@ -570,6 +599,28 @@ describe("first-visit steps and things to try", () => {
     const pet = { type: "adopt_pet", kind: "cat", coat: "ginger", name: "Biscuit" };
     await ok("POST", "/v1/actions", pet, wren.token);
     expect(pick(["plant", "gather"])).toBe("build");
+  });
+
+  it("suggests the Town Hall only while there's a proposal you can vote on", async () => {
+    const { join, ok, service, advance } = await start({ days: true });
+    const [wren, ash, bo] = [join("Wren"), join("Ash"), join("Bo")];
+    for (const [r, px] of [
+      [wren, 1],
+      [ash, 3],
+      [bo, 5],
+    ] as const) {
+      await ok("POST", "/v1/actions", { type: "settle", px, py: 1 }, r.token);
+      await ok("POST", "/v1/actions", { type: "build_starter_home" }, r.token);
+    }
+    // Three days on, all three may vote. Everything before the Town Hall is done.
+    advance(3 * DAY);
+    service.tick();
+    const done = new Set(["adopt_pet", "build", "visit"]);
+    const pick = () => pickTryNext(service.state, wren.id, done, new Set())?.id ?? null;
+    expect(pick()).toBeNull();
+    const advisory = { type: "propose", kind: "advisory", title: "More benches by the well" };
+    await ok("POST", "/v1/actions", advisory, ash.token);
+    expect(pick()).toBe("town_hall");
   });
 
   it("suggests pumpkins in autumn to a gardener with none, and stops once they have some", async () => {
@@ -668,6 +719,42 @@ describe("GET /v1/act/{key}/checkin", () => {
       )
     ).text;
     expect(later).not.toContain("Still to do from your first visit");
+  });
+
+  it("lists what's new on the first check-in of a UTC day, not every time", async () => {
+    const { call, join, ok, advance, now } = await start();
+    const latest = CHANGELOG_ENTRIES.reduce((max, e) => (e.date > max ? e.date : max), "");
+    advance(Date.parse(latest) + 12 * HOUR - now());
+    const wren = join("Wren");
+    const { key } = await ok("POST", "/v1/link-key", undefined, wren.token);
+    const first = (await call("GET", `/v1/act/${key}/checkin`)).text;
+    expect(first).toContain("## What's new in Terrakin");
+    const at = encodeURIComponent(new Date(now()).toISOString());
+    advance(HOUR);
+    const again = (await call("GET", `/v1/act/${key}/checkin?since=${at}`)).text;
+    expect(again).toContain("# Check-in since");
+    expect(again).not.toContain("## What's new in Terrakin");
+  });
+
+  it("offers today's coins once you have a hearth, and a plot before a home", async () => {
+    const { call, join, ok, advance, service } = await start({ days: true, economy: true });
+    const wren = join("Wren");
+    const { key } = await ok("POST", "/v1/link-key", undefined, wren.token);
+    const page = (await call("GET", `/v1/act/${key}/checkin`)).text;
+    expect(page).toContain("## Coins");
+    expect(page).not.toContain("Come home for today's coins");
+    const homeless = (await call("GET", `/v1/act/${key}/home`)).text;
+    expect(homeless).toContain("Error code: `no_hearth`");
+    expect(homeless).toContain(`settle it: http`);
+    expect(homeless).not.toContain("/build-home");
+    await ok("POST", "/v1/actions", { type: "settle", px: 1, py: 1 }, wren.token);
+    const plotted = (await call("GET", `/v1/act/${key}/home`)).text;
+    expect(plotted).toContain(`/v1/act/${key}/build-home`);
+    await ok("POST", "/v1/actions", { type: "build_starter_home" }, wren.token);
+    advance(DAY);
+    service.tick();
+    const due = (await call("GET", `/v1/act/${key}/checkin`)).text;
+    expect(due).toContain(`Come home for today's coins: http`);
   });
 
   it("answers in Markdown, quotes other residents as untrusted, and links to the next check-in", async () => {

@@ -35,7 +35,6 @@ import {
   seasonOf,
   skyAt,
   takenDownOf,
-  townEligibility,
   type WorldState,
 } from "@terrakin/sim";
 import { todaysLines } from "./coins";
@@ -150,6 +149,20 @@ export function oneFindShort(
   }
   return undefined;
 }
+/** Something a pedestal or frame can show in your things: a made thing, or a find. */
+const holdsShowable = (state: WorldState, viewer: string) => {
+  const inv = state.items?.inventories[viewer];
+  return (inv?.goods.length ?? 0) > 0 || FIND_KINDS.some((k) => (inv?.stacks[k] ?? 0) > 0);
+};
+/** An open proposal you're on the roll for and haven't voted on yet. */
+const votable = (state: WorldState, viewer: string) =>
+  !isTownsfolk(state, viewer) &&
+  (state.town?.proposals ?? []).some(
+    (p) =>
+      p.status === "open" &&
+      (p.electorate?.includes(viewer) ?? false) &&
+      !Object.hasOwn(p.votes, viewer),
+  );
 
 /**
  * The parts of Terrakin a newcomer might never find on their own, in the order they build on each
@@ -223,10 +236,10 @@ export const TRY_NEXT: readonly TryNext[] = [
     line: 'Visit a neighbor: GET /v1/plots lists the plots people live on, newest change first. Jump to one with {"type": "visit", "px": <px>, "py": <py>} and look around. If your owner would like it, admire it with POST /v1/plots/<px>/<py>/admire, and tell them about a plot worth seeing.',
   },
   {
+    // Only with something to show, a made thing or a find: furniture stacks, and goes on the plot.
     id: "display",
     commands: ["display"],
-    open: itemsOpen,
-    after: ["craft", "make_piece"],
+    open: (state, viewer) => itemsOpen(state) && holdsShowable(state, viewer),
     line: 'Put something you made on display: place a pedestal on your plot, then {"type": "display", "item": "<id>", "x": <x>, "y": <y>}.',
   },
   {
@@ -267,9 +280,10 @@ export const TRY_NEXT: readonly TryNext[] = [
     },
   },
   {
+    // Only while there's something to vote on. A proposal is the owner's idea, never a suggestion.
     id: "town_hall",
     commands: ["vote", "propose"],
-    open: (state, viewer) => townEligibility(state, viewer).eligible,
+    open: votable,
     line: "Look in at the Town Hall: GET /v1/town. Tell your owner what's open, and vote the way they'd want.",
   },
   {
@@ -413,6 +427,22 @@ export function checkinDigest(parts: DigestParts): string {
 }
 
 /**
+ * The changelog a check-in carries: entries from the day of `since` on, the newest few of them, and
+ * whether they're news. Entries are dated by day, so the day of `since` comes back every time; they
+ * are news on a first check-in, on the first check-in of a UTC day, and when an entry is dated after
+ * the last check-in's day. The JSON check-in's `todo` and the link check-in's list speak up only
+ * then.
+ */
+export function checkinChangelog(sinceGiven: boolean, since: number, now: number) {
+  const sinceDate = new Date(since).toISOString().slice(0, 10);
+  const entries = changelogResponse(CHANGELOG_ENTRIES, { since: sinceDate }).entries;
+  const changelog = entries.slice(0, CHECKIN_LIMITS.changelog);
+  const firstToday = !sinceGiven || since < Math.floor(now / DAY_MS) * DAY_MS;
+  const news = changelog.length > 0 && (firstToday || entries.some((e) => e.date > sinceDate));
+  return { sinceDate, entries, changelog, news };
+}
+
+/**
  * Everything new for `viewer` since `since`. Notifications and posts come from the same services as
  * the single routes; letters, gestures, and notices also leave out residents blocked either way
  * and residents suspended now, since a check-in brings them up on a schedule. Reads only: nothing
@@ -474,16 +504,12 @@ export function checkinView(
   const board = town.board.filter((n) => shown(n.author.id));
   const notices = board.filter((n) => fresh(n.createdAt)).slice(0, CHECKIN_LIMITS.notices);
 
-  // The changelog dates entries by day, so the day of `since` comes back each time; the todo line
-  // only speaks up for a day after it (or on a first check-in).
-  const sinceDate = new Date(since).toISOString().slice(0, 10);
-  const entries = changelogResponse(CHANGELOG_ENTRIES, { since: sinceDate }).entries;
-  const changelog = entries.slice(0, CHECKIN_LIMITS.changelog);
-  // Speak up about the changelog on a first check-in, on the first check-in of a UTC day while
-  // there are entries since the last one, or when an entry is dated after the last check-in's day.
+  const { sinceDate, entries, changelog, news } = checkinChangelog(
+    options.since !== undefined,
+    since,
+    now,
+  );
   const today = Math.floor(now / DAY_MS);
-  const firstToday = options.since === undefined || since < today * DAY_MS;
-  const newDay = (firstToday && changelog.length > 0) || entries.some((e) => e.date > sinceDate);
 
   const coins = todaysLines(state, viewer, (id) => social.authorView(id));
   // Only what you planted: anyone who can build on a plot may harvest it, but on a shared plot the
@@ -704,9 +730,11 @@ export function checkinView(
       `You have ${plural(lettersUnread, "unread letter")}. Open each with GET /v1/letters/{id} and tell your owner who wrote.${lettersUnread > letters.length ? " The rest are in GET /v1/letters." : ""}`,
     );
   }
-  if (gestures.length > 0) {
+  // A putter's or a routine's wave went out on its own, so it isn't one to answer.
+  const chosen = gestures.filter((g) => !g.putter && !g.routine);
+  if (chosen.length > 0) {
     todo.push(
-      `${plural(gestures.length, "gesture")} came in. Send one back with POST /v1/residents/{id}/gesture if your owner would like to.`,
+      `${plural(chosen.length, "gesture")} came in. Send one back with POST /v1/residents/{id}/gesture if your owner would like to.`,
     );
   }
   for (const p of proposals) {
@@ -741,7 +769,7 @@ export function checkinView(
       `${plural(otherLive.length, "event is", "events are")} on now (${otherLive.map((e) => e.id).join(", ")}). Read them with GET /v1/events, tell your owner about any they'd enjoy, and go with join_event only if they'd like.`,
     );
   }
-  if (newDay && changelog.length > 0) {
+  if (news) {
     todo.push(
       `Terrakin changed. Read \`changelog\`${entries.length > changelog.length ? ` (the newest ${changelog.length}; all of them at GET /v1/changelog?since=${sinceDate})` : ""} and skip ids you've already seen. Tell your owner about what would suit them, try what they'd like, and move off anything deprecated.`,
     );

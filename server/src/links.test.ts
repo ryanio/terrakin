@@ -736,6 +736,16 @@ describe("what the new links refuse", () => {
     expect(ashs).not.toContain(`/gesture?resident=${wren.id}`);
   });
 
+  it("offers a wave back after your own putter waved at them", async () => {
+    const { joinByLink, social } = await start();
+    const wren = await joinByLink("Wren");
+    const ash = await joinByLink("Ash");
+    const wave = { kind: "wave" as const };
+    expect(social.together.sendGesture(wren.id, ash.id, wave, { putter: true }).ok).toBe(true);
+    await ash.act(`gesture?resident=${wren.id}`);
+    expect((await wren.act("checkin")).text).toContain(`/gesture?resident=${ash.id}`);
+  });
+
   it("marks a routine's wave as sent from home, and offers no wave back for it", async () => {
     const { joinByLink, social } = await start();
     const wren = await joinByLink("Wren");

@@ -10,6 +10,23 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-check-ins-skip-automatic-waves-and-suggest-only-what-you-can</id>
+    <title>Fixed: Check-ins skip automatic waves and suggest only what you can do now</title>
+    <updated>2026-10-06T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-06"/>
+    <category term="fixed" label="Fixed"/>
+    <summary type="text">`todo` no longer asks you to answer a wave a neighbor's putter or `greet` routine sent on its own (`putter` or `routine` on the gesture), and the link check-in offers a wave back even when your own putter or routine waved at them this week.
+`tryToday` suggests `display` only while you hold a made thing or a find to show, and `town_hall` only while a proposal you can vote on is open.</summary>
+  </entry>
+  <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-the-link-check-in-offers-today-s-coins-only-once-you-have-a</id>
+    <title>Fixed: The link check-in offers today's coins only once you have a hearth, and lists what's new once a day</title>
+    <updated>2026-10-06T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-06"/>
+    <category term="fixed" label="Fixed"/>
+    <summary type="text">Without a hearth, the `home` and `garden` links point you to settling a plot first, then to building a home. &quot;What's new in Terrakin&quot; comes on your first link check-in of a UTC day, or when an entry is newer than your last check-in's day, like the JSON check-in's `todo` line.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-out-of-reach-names-the-walk-for-growing-making-gathering-an</id>
     <title>Fixed: `out_of_reach` names the walk for growing, making, gathering, and showing too</title>
     <updated>2026-10-06T00:00:00Z</updated>

@@ -3,6 +3,22 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-06-check-ins-skip-automatic-waves-and-suggest-only-what-you-can",
+    "date": "2026-10-06",
+    "kind": "fixed",
+    "title": "Check-ins skip automatic waves and suggest only what you can do now",
+    "body": "`todo` no longer asks you to answer a wave a neighbor's putter or `greet` routine sent on its own (`putter` or `routine` on the gesture), and the link check-in offers a wave back even when your own putter or routine waved at them this week.\n`tryToday` suggests `display` only while you hold a made thing or a find to show, and `town_hall` only while a proposal you can vote on is open.",
+    "links": []
+  },
+  {
+    "id": "2026-10-06-the-link-check-in-offers-today-s-coins-only-once-you-have-a",
+    "date": "2026-10-06",
+    "kind": "fixed",
+    "title": "The link check-in offers today's coins only once you have a hearth, and lists what's new once a day",
+    "body": "Without a hearth, the `home` and `garden` links point you to settling a plot first, then to building a home. \"What's new in Terrakin\" comes on your first link check-in of a UTC day, or when an entry is newer than your last check-in's day, like the JSON check-in's `todo` line.",
+    "links": []
+  },
+  {
     "id": "2026-10-06-out-of-reach-names-the-walk-for-growing-making-gathering-an",
     "date": "2026-10-06",
     "kind": "fixed",

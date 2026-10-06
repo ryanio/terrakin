@@ -5,6 +5,7 @@ import {
   type CropKind,
   type ErrorCode,
   type FirstVisitStep,
+  type GestureView,
   HANDLE_RENAME_DAYS,
   LINKS,
   MOVE_MAX_STEPS,
@@ -18,6 +19,7 @@ import {
   type WeatherName,
 } from "@terrakin/protocol";
 import {
+  allowanceDue,
   CHAT_EARSHOT,
   CROP_INFO,
   canBuildOn,
@@ -44,7 +46,7 @@ import {
   type WorldState,
 } from "@terrakin/sim";
 import type { Api, Failure, Handlers } from "./api";
-import { checkinView } from "./checkin";
+import { checkinChangelog, checkinView } from "./checkin";
 import { gardenOf } from "./items";
 import { plural } from "./markdown";
 import { awayLine, ROUTINE_WORDS } from "./routines";
@@ -233,15 +235,25 @@ function freePlotsNear(state: WorldState, x: number, y: number, count: number) {
   return free.sort((a, b) => a.away - b.away || a.py - b.py || a.px - b.px).slice(0, count);
 }
 
+/** Whether a resident has a plot to build a home on: their own, or one shared with them. */
+const housed = (state: WorldState, id: string) =>
+  plotsOwnedBy(state, id).length > 0 ||
+  Object.values(state.plots).some((p) => p.coOwners?.includes(id));
+
+/** The way to a hearth: a plot first, then a home on it. */
+const homeStep = (state: WorldState, id: string, l: Links) =>
+  housed(state, id)
+    ? `Build a starter home on your plot, which sets your hearth: ${l.buildHome}`
+    : `A home needs a plot first. Pick a free one and settle it: ${l.world}`;
+
 /** The next steps that fit where this resident is: plot, then home, then the social side. */
 function nextSteps(state: WorldState, r: Resident, l: Links): string {
-  const owned = plotsOwnedBy(state, r.id)[0];
-  const shared = Object.values(state.plots).some((p) => p.coOwners?.includes(r.id));
+  const home = housed(state, r.id);
   return list([
     "## Next",
     "",
-    !owned && !shared && `- Pick a free plot and settle it: ${l.world}`,
-    (owned || shared) && !r.hearth && `- Build a starter home on your plot: ${l.buildHome}`,
+    !home && `- Pick a free plot and settle it: ${l.world}`,
+    home && !r.hearth && `- Build a starter home on your plot: ${l.buildHome}`,
     r.hearth && `- Jump home to your hearth: ${l.home}`,
     r.hearth && `- Tend your garden (harvest what's ready, plant a seed): ${l.garden("flower")}`,
     r.hearth &&
@@ -515,7 +527,7 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
         return turnedDown(
           result,
           result.error.code === "no_hearth"
-            ? `Build a starter home to set one: ${l.buildHome}`
+            ? homeStep(state, viewer, l)
             : linkHelp(origin, params.key),
         );
       }
@@ -758,7 +770,7 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
         return refuse(
           "no_hearth",
           "A garden is tended from your hearth, and you don't have one yet.",
-          `Build a starter home: ${l.buildHome}`,
+          homeStep(state, viewer, l),
         );
       }
       const seed = query.seed;
@@ -1020,21 +1032,29 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
         quote(`Notice from ${n.author.name} (\`${n.author.id}\`) at ${n.createdAt}: ${n.text}`),
       );
       // A wave back only for a gesture someone chose to send (not a putter's or a routine's), and
-      // only when you haven't sent them one this week, so two link residents never wave at each
-      // other forever.
+      // only when you haven't chosen to send them one this week, so two link residents never wave
+      // at each other forever. Your own putter's and routines' waves went out on their own.
       const weekAgo = social().now() - 7 * 24 * 60 * 60_000;
-      const waveBack = [
-        ...new Set(c.gestures.filter((g) => !g.putter && !g.routine).map((g) => g.from.id)),
-      ].filter(
+      const chosen = (g: GestureView) => !g.putter && !g.routine;
+      const waveBack = [...new Set(c.gestures.filter(chosen).map((g) => g.from.id))].filter(
         (id) =>
           !social()
             .together.gestures(viewer, { with: id, limit: 20 })
-            .gestures.some((g) => g.from.id === viewer && Date.parse(g.createdAt) >= weekAgo),
+            .gestures.some(
+              (g) => g.from.id === viewer && chosen(g) && Date.parse(g.createdAt) >= weekAgo,
+            ),
       );
       const gestures = c.gestures.map((g) =>
         quote(
           `A ${g.kind.replace("_", " ")} from ${g.from.name} (\`${g.from.id}\`)${g.putter ? ", sent while puttering" : g.routine ? ", sent from home by their routine while they're away" : ""}${g.note ? `: ${g.note}` : ""}`,
         ),
+      );
+      // The changelog's list comes on the first check-in of a UTC day and when an entry is newer
+      // than the last check-in's day, like the JSON check-in's todo line, not every time.
+      const { news } = checkinChangelog(
+        query.since !== undefined,
+        Date.parse(c.since),
+        Date.parse(c.at),
       );
       const quiet =
         c.notifications.unread + c.letters.unread + c.gestures.length + c.following.length === 0 &&
@@ -1063,9 +1083,9 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
               `Your purse: ${plural(c.coins.balance, "coin")}.`,
               c.coins.allowanceToday
                 ? "You've had today's coins for coming home."
-                : `Come home for today's coins: ${l.home}`,
+                : allowanceDue(state, viewer) && `Come home for today's coins: ${l.home}`,
             ]),
-          c.changelog.length > 0 &&
+          news &&
             list([
               "## What's new in Terrakin",
               "",

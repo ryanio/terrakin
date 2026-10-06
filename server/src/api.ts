@@ -14,6 +14,7 @@ import {
   errorStatus,
   type GestureItem,
   INVITE_PLOT_SUGGESTIONS,
+  type Issue,
   isBinaryBody,
   isWriteRoute,
   LINKS,
@@ -26,6 +27,7 @@ import {
   type PostView,
   PROTOCOL_VERSION,
   type ProfileView,
+  plainProblem,
   RATE_LIMITS,
   type RateLimitName,
   REPEAT_WINDOW_MS,
@@ -783,9 +785,13 @@ export class Api {
         : undefined;
     const reject = (code: ErrorCode, message: string, retryAfter?: number) =>
       render(route, fail(code, message, retryAfter), help);
-    // Markdown readers get each problem on its own line instead of zod's JSON.
-    const problem = (e: { message: string; issues: Issue[] }) =>
-      route.format === "markdown" ? e.issues.map(plainIssue).join("\n") : e.message;
+    // What failed to parse, in plain words with the choices a field takes and the one a near miss
+    // meant: a sentence each, on its own line for Markdown readers.
+    const unparsed = (schema: Schema, input: unknown, issues: readonly Issue[]) => {
+      const plain = plainProblem(schema, input, issues);
+      if (route.format === "markdown") return reject("bad_request", plain.lines.join("\n"));
+      return error("bad_request", plain.lines.join(" "), undefined, plain.didYouMean);
+    };
 
     // Suspended residents can read but not write; a resident whose writes the filters paused waits.
     if (viewer && isWriteRoute(route)) {
@@ -811,13 +817,14 @@ export class Api {
     let params: unknown;
     if (route.params) {
       const parsed = route.params.safeParse(rawParams);
-      if (!parsed.success) return reject("bad_request", problem(parsed.error));
+      if (!parsed.success) return unparsed(route.params, rawParams, parsed.error.issues);
       params = parsed.data;
     }
     let query: unknown;
     if (route.query) {
-      const parsed = route.query.safeParse(firstValues(req.query));
-      if (!parsed.success) return reject("bad_request", problem(parsed.error));
+      const rawQuery = firstValues(req.query);
+      const parsed = route.query.safeParse(rawQuery);
+      if (!parsed.success) return unparsed(route.query, rawQuery, parsed.error.issues);
       query = parsed.data;
     }
 
@@ -845,7 +852,7 @@ export class Api {
       }
       const missed = !parsed.success && route.body === Action ? familyMiss(raw) : undefined;
       if (missed) return render(route, { status: 200, body: missed }, help);
-      if (!parsed.success) return reject("bad_request", problem(parsed.error));
+      if (!parsed.success) return unparsed(route.body, raw, parsed.error.issues);
       body = parsed.data;
     }
 
@@ -2805,7 +2812,7 @@ export class LiveSession {
  * What a socket action gets before it reaches the world, with the message's `id` when it has a
  * usable one: a typo in its type or field names (like `POST /v1/actions`, a near-miss field is
  * refused even when the rest parses), or, when it didn't parse, a family recipe's thing for a kind
- * outside its family ({@link familyMiss}).
+ * outside its family ({@link familyMiss}), else what's wrong in plain words.
  */
 function actionHint(
   raw: unknown,
@@ -2818,10 +2825,23 @@ function actionHint(
   const withId = usableId === undefined ? {} : { id: usableId };
   const hint = suggestFor(Action, action);
   if (hint) return { code: "bad_request", ...hint, ...withId };
-  const missed = parsed ? undefined : familyMiss(action);
+  if (parsed) return undefined;
+  const missed = familyMiss(action);
   if (missed) return { ...missed.error, ...withId, ...(missed.dry ? { dry: missed.dry } : {}) };
-  return undefined;
+  // The same words as POST /v1/actions, with the choices a field takes and what a near miss meant.
+  const checked = Action.safeParse(action);
+  if (checked.success) return undefined;
+  const plain = plainProblem(Action, action, checked.error.issues);
+  return {
+    code: "bad_request",
+    message: plain.lines.join(" "),
+    ...(plain.didYouMean ? { didYouMean: plain.didYouMean } : {}),
+    ...withId,
+  };
 }
+
+/** A schema the dispatcher parses with. */
+type Schema = Parameters<typeof plainProblem>[0];
 
 /**
  * A `craft` of a family recipe's thing for a kind outside its family, like `tomato_jam`. It isn't a
@@ -2997,34 +3017,4 @@ function render(
     headers: { "content-type": type, ...cache },
     body: reply.text ?? "",
   };
-}
-
-/** The parts of a zod issue that `plainIssue` reads. */
-interface Issue {
-  path: PropertyKey[];
-  message: string;
-  code?: string;
-  input?: unknown;
-  minimum?: number | bigint;
-  maximum?: number | bigint;
-  values?: readonly unknown[];
-}
-
-/** One validation problem in plain words, for readers that can only open links. */
-export function plainIssue(issue: Issue): string {
-  const field = issue.path.map(String).join(".");
-  const name = field ? `\`${field}\`` : "The input";
-  if (issue.code === "invalid_type" && issue.input === undefined) return `${name} is missing.`;
-  if (issue.code === "too_small" && issue.minimum !== undefined) {
-    return Number(issue.minimum) <= 1
-      ? `${name} can't be empty.`
-      : `${name} is too short. Use at least ${issue.minimum} characters.`;
-  }
-  if (issue.code === "too_big" && issue.maximum !== undefined) {
-    return `${name} is too long. Use at most ${issue.maximum} characters.`;
-  }
-  if (issue.code === "invalid_value" && issue.values?.length) {
-    return `${name} must be one of: ${issue.values.map(String).join(", ")}.`;
-  }
-  return `${name}: ${issue.message}`;
 }

@@ -22909,7 +22909,7 @@
             "type": "string"
           },
           "did_you_mean": {
-            "description": "The action type or field name you most likely meant, when the request had a typo.",
+            "description": "The action type, field name, or value you most likely meant, when the request had a typo.",
             "type": "string"
           }
         },

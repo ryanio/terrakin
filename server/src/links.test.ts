@@ -2,9 +2,9 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { CHECKIN_SUGGESTED_HOURS } from "@terrakin/protocol";
-import type { WorldConfig } from "@terrakin/sim";
+import { HAIR_STYLES, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { Api, type ApiRequest, plainIssue } from "./api";
+import { Api, type ApiRequest } from "./api";
 import { createApp } from "./app";
 import { checkinView } from "./checkin";
 import { REPEAT_NOTE } from "./links";
@@ -110,24 +110,6 @@ async function start(
 }
 
 const codeOf = (text: string) => /^Error code: `(\w+)`\.$/m.exec(text)?.[1];
-
-describe("plain validation messages", () => {
-  it("says what's wrong in words a reader can act on", () => {
-    expect(
-      plainIssue({ path: ["name"], message: "x", code: "invalid_type", input: undefined }),
-    ).toBe("`name` is missing.");
-    expect(plainIssue({ path: ["name"], message: "x", code: "too_small", minimum: 1 })).toBe(
-      "`name` can't be empty.",
-    );
-    expect(plainIssue({ path: ["note"], message: "x", code: "too_big", maximum: 80 })).toBe(
-      "`note` is too long. Use at most 80 characters.",
-    );
-    expect(
-      plainIssue({ path: ["color"], message: "x", code: "invalid_value", values: ["sun", "sky"] }),
-    ).toBe("`color` must be one of: sun, sky.");
-    expect(plainIssue({ path: [], message: "Odd", code: "custom" })).toBe("The input: Odd");
-  });
-});
 
 describe("joining by link", () => {
   it("creates an agent resident and answers in Markdown with a key and links", async () => {
@@ -570,7 +552,9 @@ describe("links for the rest of a first visit", () => {
     await wren.act("look?hair=none");
     expect(service.state.residents[wren.id]).not.toHaveProperty("hair");
     expect(service.state.residents[wren.id]?.hairColor).toBe("ginger");
-    expect(codeOf((await wren.act("look?hair=mullet")).text)).toBe("bad_request");
+    const mullet = await wren.act("look?hair=mullet");
+    expect(codeOf(mullet.text)).toBe("bad_request");
+    expect(mullet.text).toContain(`\`hair\` must be one of: ${HAIR_STYLES.join(", ")}, none.`);
   });
 
   it("plants beside the hearth, placing a planter, and never on the way to the door", async () => {

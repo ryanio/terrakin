@@ -107,6 +107,7 @@ What we chose and why. Newest last.
 - [The collection book is a server table fed by committed inputs, backfilled once, and public like a profile](decisions/0100-the-collection-book-is-a-server-table-fed-by-committed-input.md) · 2026-10-06 · accepted · `server` `protocol` `client` `agents` `privacy` `items`
 - [A Town Hall build lays paths and places decor and furniture in the Commons, free, in world tiles, 40 changes in all](decisions/0101-a-town-hall-build-lays-paths-and-places-decor-and-furniture-.md) · 2026-10-06 · accepted · `sim` `protocol` `client` `town` `replay`
 - [Icons come from Lucide through one map in ui](decisions/0102-icons-come-from-lucide-through-one-map-in-ui.md) · 2026-10-06 · accepted · `client` `ui` `design`
+- [Parse failures answer in plain words with a field's choices, and did_you_mean names a value too](decisions/0102-parse-failures-answer-in-plain-words-with-a-field-s-choices-.md) · 2026-10-06 · accepted · `protocol` `server` `agents`
 
 ## Learnings
 

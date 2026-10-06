@@ -2,7 +2,7 @@ import { appendFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "n
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ServerMessage } from "@terrakin/protocol";
-import { familyRecipeMiss, type WorldConfig } from "@terrakin/sim";
+import { CROPS, familyRecipeMiss, GROUND_KINDS, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import WebSocket from "ws";
 import { clientIp, createApp } from "./app";
@@ -319,6 +319,27 @@ describe("did you mean", () => {
     const session = await api(base, "POST", "/v1/session", { nmae: "Ada", kind: "agent" });
     expect(session.status).toBe(400);
     expect(session.body.error.did_you_mean).toBe("name");
+  });
+
+  it("names the choices a field takes and the one a near miss meant, in plain words", async () => {
+    const { base, service } = await start();
+    const { token } = await join_(base, "Wren");
+    const seq = service.state.seq;
+    const plant = { type: "plant", x: 6, y: 6, seed: "pumpkin_seed" };
+    const res = await api(base, "POST", "/v1/actions", plant, token);
+    expect(res.status).toBe(400);
+    expect(res.body.error).toEqual({
+      code: "bad_request",
+      message: `\`seed\` must be one of: ${CROPS.join(", ")}. Did you mean 'pumpkin'?`,
+      did_you_mean: "pumpkin",
+    });
+    // Every problem gets a sentence, and nothing in the answer is the parser's own JSON.
+    const lay = await api(base, "POST", "/v1/actions", { type: "lay", ground: "gravel" }, token);
+    expect(lay.body.error).toEqual({
+      code: "bad_request",
+      message: `\`x\` is missing. \`y\` is missing. \`ground\` must be one of: ${GROUND_KINDS.join(", ")}.`,
+    });
+    expect(service.state.seq).toBe(seq);
   });
 
   it("answers jam made from something that isn't a fruit as the world would, naming the jams", async () => {
@@ -667,6 +688,25 @@ describe("WebSocket", () => {
     await c.open;
     c.send({ type: "action", action: { type: "claim" } });
     expect((await c.next("error")).error.code).toBe("bad_request");
+  });
+
+  it("answers a value outside a field's choices in plain words, as REST does", async () => {
+    const { base } = await start();
+    const c = connect(base);
+    await c.open;
+    c.send({ type: "hello", v: 1, name: "Ada", kind: "human" });
+    await c.next("welcome");
+    const plant = { type: "plant", x: 6, y: 6, seed: "pumpkin_seed" };
+    c.send({ type: "action", id: "p1", action: plant });
+    expect(await c.next("error")).toEqual({
+      type: "error",
+      id: "p1",
+      error: {
+        code: "bad_request",
+        message: `\`seed\` must be one of: ${CROPS.join(", ")}. Did you mean 'pumpkin'?`,
+        did_you_mean: "pumpkin",
+      },
+    });
   });
 
   it("answers jam made from something that isn't a fruit as the world would", async () => {

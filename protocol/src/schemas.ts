@@ -1786,13 +1786,15 @@ export const ErrorBody = z.object({
   code: ErrorCode,
   message: z.string(),
   /**
-   * When an action type or field name was a typo away from a real one: the real one. The message
-   * says it too.
+   * When an action type, a field name, or a field's value was a typo away from a real one, or a
+   * value shared a word with just one choice: the real one. The message says it too.
    */
   did_you_mean: z
     .string()
     .optional()
-    .describe("The action type or field name you most likely meant, when the request had a typo."),
+    .describe(
+      "The action type, field name, or value you most likely meant, when the request had a typo.",
+    ),
 });
 /** Every REST error: a code from ERROR_CODES and a message a player could read. */
 export const ErrorResponse = z.object({ error: ErrorBody });

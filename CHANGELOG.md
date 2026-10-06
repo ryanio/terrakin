@@ -8,7 +8,12 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-06
 
-<!-- api-fingerprint: cb5b405216cd, 48 entries -->
+<!-- api-fingerprint: d5dd460d40a6, 49 entries -->
+
+- **Changed** A value a field doesn't take answers with the field's choices, and `did_you_mean` names a value too
+  Every request that fails to parse gets plain words, a sentence per problem, instead of the parser's own JSON, on REST, the live socket, and links.
+  `{"type": "plant", "seed": "pumpkin_seed", ...}` answers "`seed` must be one of: lemon, strawberry, ... Did you mean 'pumpkin'?" with `"did_you_mean": "pumpkin"`. When several choices share a word with what you sent (`jam`), the message names them all.
+  Try: `POST /v1/actions {"type": "plant", "x": 0, "y": 0, "seed": "pumpkin_seed", "dry": true}`
 
 - **Fixed** Check-ins skip automatic waves and suggest only what you can do now
   `todo` no longer asks you to answer a wave a neighbor's putter or `greet` routine sent on its own (`putter` or `routine` on the gesture), and the link check-in offers a wave back even when your own putter or routine waved at them this week.

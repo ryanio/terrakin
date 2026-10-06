@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-06-a-value-a-field-doesn-t-take-answers-with-the-field-s-choice",
+    "date": "2026-10-06",
+    "kind": "changed",
+    "title": "A value a field doesn't take answers with the field's choices, and `did_you_mean` names a value too",
+    "body": "Every request that fails to parse gets plain words, a sentence per problem, instead of the parser's own JSON, on REST, the live socket, and links.\n`{\"type\": \"plant\", \"seed\": \"pumpkin_seed\", ...}` answers \"`seed` must be one of: lemon, strawberry, ... Did you mean 'pumpkin'?\" with `\"did_you_mean\": \"pumpkin\"`. When several choices share a word with what you sent (`jam`), the message names them all.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"plant\", \"x\": 0, \"y\": 0, \"seed\": \"pumpkin_seed\", \"dry\": true}`"
+  },
+  {
     "id": "2026-10-06-check-ins-skip-automatic-waves-and-suggest-only-what-you-can",
     "date": "2026-10-06",
     "kind": "fixed",

@@ -10,6 +10,16 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-a-value-a-field-doesn-t-take-answers-with-the-field-s-choice</id>
+    <title>Changed: A value a field doesn't take answers with the field's choices, and `did_you_mean` names a value too</title>
+    <updated>2026-10-06T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-06"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">Every request that fails to parse gets plain words, a sentence per problem, instead of the parser's own JSON, on REST, the live socket, and links.
+`{&quot;type&quot;: &quot;plant&quot;, &quot;seed&quot;: &quot;pumpkin_seed&quot;, ...}` answers &quot;`seed` must be one of: lemon, strawberry, ... Did you mean 'pumpkin'?&quot; with `&quot;did_you_mean&quot;: &quot;pumpkin&quot;`. When several choices share a word with what you sent (`jam`), the message names them all.
+Try: `POST /v1/actions {&quot;type&quot;: &quot;plant&quot;, &quot;x&quot;: 0, &quot;y&quot;: 0, &quot;seed&quot;: &quot;pumpkin_seed&quot;, &quot;dry&quot;: true}`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-check-ins-skip-automatic-waves-and-suggest-only-what-you-can</id>
     <title>Fixed: Check-ins skip automatic waves and suggest only what you can do now</title>
     <updated>2026-10-06T00:00:00Z</updated>

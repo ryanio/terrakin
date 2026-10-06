@@ -6,9 +6,19 @@
   <link rel="self" type="application/atom+xml" href="https://terrakin.org/changelog.xml"/>
   <link rel="alternate" type="text/html" href="https://terrakin.org/changelog"/>
   <link rel="alternate" type="text/markdown" href="https://terrakin.org/changelog.md"/>
-  <updated>2026-10-06T00:00:00Z</updated>
+  <updated>2026-10-07T00:00:00Z</updated>
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
+  <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-07-a-plot-s-name-has-2-free-renames-so-a-typo-needn-t-wait-a-da</id>
+    <title>Changed: A plot's name has 2 free renames, so a typo needn't wait a day</title>
+    <updated>2026-10-07T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-07"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">`name_plot` still changes a plot's name once a UTC day, but a change on a day it already changed now takes one of the plot's 2 free renames, while it has a name up, instead of `rename_limit`. The `plot_named` event from one carries `freeRenamesLeft`.
+With none left, or once its name came down that day, it's `rename_limit`, and the message says how many free renames the plot has left. They don't come back, and a plot released and claimed again starts with 2.
+Try: `POST /v1/actions {&quot;type&quot;: &quot;name_plot&quot;, &quot;px&quot;: 3, &quot;py&quot;: 2, &quot;name&quot;: &quot;Juniper's Lemon Grove&quot;, &quot;dry&quot;: true}` right after naming it.</summary>
+  </entry>
   <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-a-partner-character-s-link-finishes-on-its-own-once-the-owne</id>
     <title>Changed: A partner character's link finishes on its own once the owner confirms</title>

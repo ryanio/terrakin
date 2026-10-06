@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { apply } from "./apply";
+import {
+  FREE_RENAMES_CONFIG,
+  FREE_RENAMES_HASH,
+  FREE_RENAMES_LOG,
+} from "./fixtures/free-renames-log";
 import { PLOT_NAMES_CONFIG, PLOT_NAMES_HASH, PLOT_NAMES_LOG } from "./fixtures/plot-names-log";
 import { VISIT_CONFIG, VISIT_LOG } from "./fixtures/visit-log";
 import { hashWorld } from "./hash";
@@ -20,12 +25,13 @@ function act(state: WorldState, actor: string, command: Command) {
   return result.events;
 }
 
-/** A refusal with this code that leaves the world exactly as it was. */
+/** A refusal with this code that leaves the world exactly as it was, and its message. */
 function refused(state: WorldState, actor: string, command: Command, code: RejectionCode) {
   const before = hashWorld(state);
   const result = apply(state, { actor, command });
   expect(result.ok ? "accepted" : result.rejection.code, JSON.stringify(command)).toBe(code);
   expect(hashWorld(state)).toBe(before);
+  return result.ok ? "" : result.rejection.message;
 }
 
 const name = (px: number, py: number, value: string | null): Command => ({
@@ -62,6 +68,38 @@ describe("the plot names log", () => {
     });
     // Released and claimed again: a new plot, with nothing of the old name.
     expect(state.plots["2,2"]).toEqual({ px: 2, py: 2, ownerId: "clem", claimedDay: 20015 });
+  });
+});
+
+describe("the free renames log", () => {
+  it("replays the names from before free renames as they were, then the renames, to the hash pinned", () => {
+    const state = createWorld(FREE_RENAMES_CONFIG);
+    for (const [i, input] of FREE_RENAMES_LOG.entries()) {
+      const result = apply(state, input);
+      expect(result.ok, JSON.stringify(input.command)).toBe(true);
+      if (i === PLOT_NAMES_LOG.length - 1) expect(hashWorld(state)).toBe(PLOT_NAMES_HASH);
+    }
+    expect(hashWorld(state)).toBe(FREE_RENAMES_HASH);
+    // Ada's shared plot: Cy's name changed the day it was given, and again the next day.
+    expect(state.plots["0,0"]).toMatchObject({
+      name: "Ada's Lemon Grove",
+      namedBy: "ada",
+      namedDay: 20017,
+      freeRenamesUsed: 2,
+    });
+    // Bob's renamed on a day it hadn't changed yet, which used none of the two he'd spent.
+    expect(state.plots["2,0"]).toMatchObject({ name: "Bob's Workshop", freeRenamesUsed: 2 });
+    // Cy's came down after one free rename, and keeps the day and the count.
+    expect(state.plots["0,2"]).toEqual({
+      px: 0,
+      py: 2,
+      ownerId: "cy",
+      claimedDay: 20000,
+      namedDay: 20016,
+      freeRenamesUsed: 1,
+    });
+    // Released and claimed again: a new plot, whose free renames start over.
+    expect(state.plots["2,2"]).toMatchObject({ name: "Clem's Corner", freeRenamesUsed: 1 });
   });
 });
 
@@ -115,15 +153,32 @@ describe("naming a plot", () => {
     expect(state.plots["0,0"]?.name).toBe(longest);
   });
 
-  it("changes once a world day, the first name included, and refuses the same name", () => {
+  it("changes once a world day, plus two free renames the plot's residents share", () => {
     const state = visitWorld();
     act(state, "ada", name(0, 0, "Ada's Lemn Grove"));
-    // A second name today, from the owner or a co-owner, waits for tomorrow.
-    refused(state, "ada", name(0, 0, "Ada's Lemon Grove"), "rename_limit");
-    refused(state, "cy", name(0, 0, "Ada's Lemon Grove"), "rename_limit");
+    // The typo needn't wait for tomorrow: a change the same day takes a free rename.
+    expect(act(state, "ada", name(0, 0, "Ada's Lemon Grove"))).toEqual([
+      {
+        type: "plot_named",
+        px: 0,
+        py: 0,
+        name: "Ada's Lemon Grove",
+        by: "ada",
+        day: state.day,
+        freeRenamesLeft: 1,
+      },
+    ]);
+    refused(state, "cy", name(0, 0, "Ada's Lemon Grove"), "already_set");
+    expect(act(state, "cy", name(0, 0, "Our Lemon Grove"))).toContainEqual(
+      expect.objectContaining({ type: "plot_named", by: "cy", freeRenamesLeft: 0 }),
+    );
+    // With both used, a third change today waits, from the owner or a co-owner.
+    const limit = refused(state, "ada", name(0, 0, "Ada's Grove"), "rename_limit");
+    expect(limit).toContain("no free renames left");
+    refused(state, "cy", name(0, 0, "Ada's Grove"), "rename_limit");
     nextDay(state);
-    refused(state, "ada", name(0, 0, "Ada's Lemn Grove"), "already_set");
-    // Ada stands on her hearth, so the new day's allowance comes with it, as with any command.
+    // A new day needs no free rename. Ada stands on her hearth, so the new day's allowance comes
+    // with it, as with any command.
     expect(act(state, "ada", name(0, 0, "Ada's Lemon Grove"))).toContainEqual({
       type: "plot_named",
       px: 0,
@@ -132,7 +187,9 @@ describe("naming a plot", () => {
       by: "ada",
       day: state.day,
     });
-    expect(state.plots["0,0"]?.namedDay).toBe(state.day);
+    expect(state.plots["0,0"]).toMatchObject({ namedDay: state.day, freeRenamesUsed: 2 });
+    // They don't come back.
+    refused(state, "ada", name(0, 0, "Ada's Grove"), "rename_limit");
   });
 
   it("names freely in a world that doesn't count days", () => {
@@ -157,7 +214,9 @@ describe("clearing a plot's name", () => {
     expect(state.plots["2,0"]).not.toHaveProperty("name");
     expect(state.plots["2,0"]).not.toHaveProperty("namedBy");
     expect(state.plots["2,0"]?.namedDay).toBe(state.day);
-    refused(state, "bob", name(2, 0, "Bob's Shed"), "rename_limit");
+    // A free rename changes a name that's up, so the plot keeps both for another day.
+    const limit = refused(state, "bob", name(2, 0, "Bob's Shed"), "rename_limit");
+    expect(limit).toContain("2 free renames left, but those only change a name that's up");
     refused(state, "bob", name(2, 0, null), "already_set");
     refused(state, "ada", name(2, 0, null), "not_your_plot");
   });

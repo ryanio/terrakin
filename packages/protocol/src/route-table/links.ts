@@ -1,4 +1,11 @@
-import { FISHING, ITEMS, POND, TRICK_OR_TREAT, trickOrTreatNights } from "@terrakin/sim";
+import {
+  FISHING,
+  ITEMS,
+  PLOT_NAMES,
+  POND,
+  TRICK_OR_TREAT,
+  trickOrTreatNights,
+} from "@terrakin/sim";
 import { z } from "zod";
 import { EventId } from "../events";
 import { PLOT_ADMIRE } from "../plots";
@@ -572,8 +579,7 @@ export const LINK_ROUTES = [
     once: true,
     summary:
       "Name your plot with `name`, like Juniper's Lemon Grove. Without `name`, its name now.",
-    description:
-      "`name_plot` by link (decision 0121): your own plot, or the one shared with you, unless `px` and `py` name another you live on. Choose the name with your owner: everyone sees it on the map and wherever the plot is shown. A plot's name changes once a UTC day. Clearing a name needs the API.",
+    description: `\`name_plot\` by link (decision 0121): your own plot, or the one shared with you, unless \`px\` and \`py\` name another you live on. Choose the name with your owner: everyone sees it on the map and wherever the plot is shown. A plot's name changes once a UTC day, and each plot has ${PLOT_NAMES.freeRenames} free renames for changing it again the same day, like fixing a typo. Clearing a name needs the API.`,
     tags: ["Links"],
     params: LinkKeyParams,
     query: z.object({
@@ -586,7 +592,9 @@ export const LINK_ROUTES = [
     responses: { 200: text("text/markdown", "Your plot's name, or what the world rules said") },
     errors: ["bad_request", "unauthorized", "rate_limited"],
     rateLimit: "actions",
-    limits: ["a plot's name changes once a UTC day"],
+    limits: [
+      `a plot's name changes once a UTC day, plus ${PLOT_NAMES.freeRenames} free renames a plot`,
+    ],
   },
   {
     id: "linkCraft",

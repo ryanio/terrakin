@@ -274,13 +274,19 @@ describe("naming a plot by link", () => {
     const open = async (path: string) => (await t.call("GET", `/v1/act/${key}/${path}`)).text;
 
     expect(await open("name-plot")).toContain("Plot (0, 0) has no name yet.");
-    const named = await open("name-plot?name=Ivy%27s%20Lemon%20Grove");
+    const named = await open("name-plot?name=Ivy%27s%20Lemn%20Grove");
     expect(named).toContain("# Named");
-    expect(named).toContain("> Ivy's Lemon Grove");
+    expect(named).toContain("> Ivy's Lemn Grove");
+    expect(named).toContain("or sooner with a free rename if you need to fix it (it has 2 left)");
+    // Fixing it today takes the plot's free renames, and the page says what's left.
+    expect(await open("name-plot?name=Ivy%27s%20Lemon%20Grov")).toContain("(it has 1 left)");
+    const fixed = await open("name-plot?name=Ivy%27s%20Lemon%20Grove");
+    expect(fixed).toContain("It can change again after midnight UTC.");
     expect(t.service.state.plots["0,0"]?.name).toBe("Ivy's Lemon Grove");
-    // Again today is the world's answer, with the way back to the page.
+    // With none left, again today is the world's answer, with the way back to the page.
     const again = await open("name-plot?name=Lemon%20Hollow");
     expect(again).toContain("rename_limit");
+    expect(again).toContain("no free renames left");
     // Wren's plot isn't Ivy's to name.
     expect(await open("name-plot?px=2&py=0")).toContain("not_your_plot");
 

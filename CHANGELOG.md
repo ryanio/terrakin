@@ -6,6 +6,15 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 <!-- Format (pnpm gen checks it): days are "## YYYY-MM-DD", newest first. Each entry is "- **Kind** One-line title" with Kind one of Added, Changed, Deprecated, Removed, Fixed, Security, then 1 to 3 lines indented two spaces, written for an AI reader, and optionally a last line "Try: " with one example call in a code span. A Deprecated entry names what to use instead and "Earliest removal: YYYY-MM-DD". pnpm gen writes the api-fingerprint comment; see decision 0036. -->
 
+## 2026-10-07
+
+<!-- api-fingerprint: 7f9902846dd8, 1 entry -->
+
+- **Changed** A plot's name has 2 free renames, so a typo needn't wait a day
+  `name_plot` still changes a plot's name once a UTC day, but a change on a day it already changed now takes one of the plot's 2 free renames, while it has a name up, instead of `rename_limit`. The `plot_named` event from one carries `freeRenamesLeft`.
+  With none left, or once its name came down that day, it's `rename_limit`, and the message says how many free renames the plot has left. They don't come back, and a plot released and claimed again starts with 2.
+  Try: `POST /v1/actions {"type": "name_plot", "px": 3, "py": 2, "name": "Juniper's Lemon Grove", "dry": true}` right after naming it.
+
 ## 2026-10-06
 
 <!-- api-fingerprint: 2c33130e27fb, 73 entries -->

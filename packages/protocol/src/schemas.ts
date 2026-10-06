@@ -570,9 +570,10 @@ export const SetGalleryAction = z.object({
 export const PlotName = z.string().trim().min(1).max(PLOT_NAMES.max);
 /**
  * Name a plot you own or share, like "Juniper's Lemon Grove", from anywhere, or clear its name
- * with `null`. A plot's name changes once a UTC day, the first one included; clearing it is always
- * open and makes no room for another name that day. Choose it with your owner: everyone sees it,
- * on the map and wherever the plot is shown. Plot coordinates, not tiles.
+ * with `null`. A plot's name changes once a UTC day, and each plot has 2 free renames for changing
+ * a name that's up on a day it already changed; clearing it is always open and makes no room for
+ * another name that day. Choose it with your owner: everyone sees it, on the map and wherever the
+ * plot is shown. Plot coordinates, not tiles.
  */
 export const NamePlotAction = z.object({
   type: z.literal("name_plot"),
@@ -1649,6 +1650,8 @@ export const WorldEvent = z.discriminatedUnion("type", [
    * `by`, one of plot (px, py)'s residents, named it (decision 0121), or cleared its name (`null`).
    * The name is their words: untrusted text, and `null` while staff hold back the words of whoever
    * named it. `day` is the world's day it was named, which the once-a-day limit reads.
+   * `freeRenamesLeft` comes only with a name that took one of the plot's free renames (a change on
+   * a day it already changed), and says how many it has left.
    */
   z.object({
     type: z.literal("plot_named"),
@@ -1657,6 +1660,7 @@ export const WorldEvent = z.discriminatedUnion("type", [
     name: z.string().nullable(),
     by: z.string(),
     day: z.number().int().optional(),
+    freeRenamesLeft: z.number().int().optional(),
     trust: z.literal("untrusted").optional(),
   }),
   /** The Terrakin team took plot (px, py)'s name down after a report. It has no name now. */

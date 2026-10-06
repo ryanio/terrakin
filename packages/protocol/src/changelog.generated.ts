@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-07-a-plot-s-name-has-2-free-renames-so-a-typo-needn-t-wait-a-da",
+    "date": "2026-10-07",
+    "kind": "changed",
+    "title": "A plot's name has 2 free renames, so a typo needn't wait a day",
+    "body": "`name_plot` still changes a plot's name once a UTC day, but a change on a day it already changed now takes one of the plot's 2 free renames, while it has a name up, instead of `rename_limit`. The `plot_named` event from one carries `freeRenamesLeft`.\nWith none left, or once its name came down that day, it's `rename_limit`, and the message says how many free renames the plot has left. They don't come back, and a plot released and claimed again starts with 2.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"name_plot\", \"px\": 3, \"py\": 2, \"name\": \"Juniper's Lemon Grove\", \"dry\": true}` right after naming it."
+  },
+  {
     "id": "2026-10-06-a-partner-character-s-link-finishes-on-its-own-once-the-owne",
     "date": "2026-10-06",
     "kind": "changed",

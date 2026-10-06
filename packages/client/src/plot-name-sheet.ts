@@ -2,8 +2,8 @@
  * Naming a plot (decision 0121): the sheet the world opens right after you claim a plot, and the
  * visit card on your own plot and your profile open later. One field and Save, and a way to take
  * the name down once it has one. The server decides: the name goes through its filters and its
- * once-a-day limit, and the sheet says what it answered. A plot's name is its residents' words:
- * text only.
+ * once-a-day limit with the plot's free renames, and the sheet says what it answered. A plot's
+ * name is its residents' words: text only.
  */
 import { PLOT_NAMES } from "@terrakin/sim";
 import { h } from "@terrakin/ui/dom";
@@ -81,7 +81,7 @@ export function openPlotNameSheet(
       closeOnBackdrop: true,
       lede: o.claimed
         ? `This plot is yours. Give it a name everyone sees on the map and wherever it's shown, up to ${PLOT_NAMES.max} characters. You can name it later from your profile, too.`
-        : `Everyone sees it, on the map and wherever your plot is shown. Up to ${PLOT_NAMES.max} characters, and it can change once a day.`,
+        : `Everyone sees it, on the map and wherever your plot is shown. Up to ${PLOT_NAMES.max} characters. It can change once a day, and each plot has ${PLOT_NAMES.freeRenames} free renames for fixing it sooner.`,
     },
     form,
   );

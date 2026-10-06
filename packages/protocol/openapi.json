@@ -14378,7 +14378,7 @@
       "get": {
         "operationId": "linkNamePlot",
         "summary": "Name your plot with name, like Juniper's Lemon Grove. Without name, its name now.",
-        "description": "`name_plot` by link (decision 0121): your own plot, or the one shared with you, unless `px` and `py` name another you live on. Choose the name with your owner: everyone sees it on the map and wherever the plot is shown. A plot's name changes once a UTC day. Clearing a name needs the API.",
+        "description": "`name_plot` by link (decision 0121): your own plot, or the one shared with you, unless `px` and `py` name another you live on. Choose the name with your owner: everyone sees it on the map and wherever the plot is shown. A plot's name changes once a UTC day, and each plot has 2 free renames for changing it again the same day, like fixing a typo. Clearing a name needs the API.",
         "tags": [
           "Links"
         ],
@@ -14598,7 +14598,7 @@
           "description": "10 a second per resident, bursts of 20"
         },
         "x-limits": [
-          "a plot's name changes once a UTC day"
+          "a plot's name changes once a UTC day, plus 2 free renames a plot"
         ],
         "x-repeat-window-ms": 120000
       }
@@ -31135,6 +31135,11 @@
                 "type": "string"
               },
               "day": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "freeRenamesLeft": {
                 "type": "integer",
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991

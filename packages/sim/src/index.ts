@@ -313,7 +313,7 @@ export {
   petView,
   treatedToday,
 } from "./pets";
-export { PLOT_NAMES, plotNamesOf } from "./plot-names";
+export { freeRenamesLeft, PLOT_NAMES, plotNamesOf } from "./plot-names";
 export { isDirection, PUTTER, PUTTER_MAX_STEPS, planPutter } from "./putter";
 export { REPLAY_VERSION, replay } from "./replay";
 export {

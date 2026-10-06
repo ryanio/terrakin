@@ -40,6 +40,7 @@ import {
   FURNITURE_RECIPES,
   type FurnitureKind,
   findEvent,
+  freeRenamesLeft,
   GOOD_KINDS,
   type GoodKind,
   HAIR_COLORS,
@@ -1949,7 +1950,7 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
             "# Your plot's name",
             name === undefined
               ? `Plot (${px}, ${py}) has no name yet. Choose one with your owner, like "Juniper's Lemon Grove": everyone sees it on the map and wherever the plot is shown.`
-              : `Plot (${px}, ${py}) has a name. A plot's name changes once a UTC day.`,
+              : `Plot (${px}, ${py}) has a name. A plot's name changes once a UTC day, and this one has ${plural(freeRenamesLeft(plot), "free rename")} left for changing it again the same day.`,
             plotNamesBlock([{ px, py, name }]),
             `Name it: ${l.namePlot}`,
             nextSteps(state, r, l),
@@ -1964,10 +1965,11 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
       if ("error" in me) return me;
       const named = result.events.find((e) => e.type === "plot_named");
       const name = named?.type === "plot_named" ? named.name : null;
+      const left = freeRenamesLeft(state.plots[plotKey(px, py)] ?? {});
       return ok(
         page(
           "# Named",
-          `Plot (${px}, ${py}) has its new name. Everyone sees it on the map and wherever the plot is shown, so tell your owner what you chose. It can change again after midnight UTC.`,
+          `Plot (${px}, ${py}) has its new name. Everyone sees it on the map and wherever the plot is shown, so tell your owner what you chose. It can change again after midnight UTC${left > 0 ? `, or sooner with a free rename if you need to fix it (it has ${left} left)` : ""}.`,
           name !== null && list(["Its name, as you wrote it:", "", quote(name)]),
           nextSteps(state, me, l),
         ),

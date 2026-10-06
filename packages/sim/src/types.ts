@@ -241,6 +241,11 @@ export interface Plot {
    * name, and kept when a name is cleared, so clearing never makes room for another the same day.
    */
   namedDay?: number;
+  /**
+   * Free renames used: names given on a day the plot was already named, while a name was up
+   * (`PLOT_NAMES.freeRenames`, decision 0121). Absent until the first.
+   */
+  freeRenamesUsed?: number;
 }
 
 export const VOTE_CHOICES = ["yes", "no", "abstain"] as const;
@@ -1599,7 +1604,8 @@ export type WorldEvent =
   /**
    * `by`, one of plot (px, py)'s residents, named it, or cleared its name (`null`). Public. `day` is
    * the world's day, which the once-a-day limit reads: absent in a world that doesn't count days,
-   * and on a clear.
+   * and on a clear. `freeRenamesLeft` comes only with a name that took one of the plot's free
+   * renames, and says how many it has left.
    */
   | {
       type: "plot_named";
@@ -1608,6 +1614,7 @@ export type WorldEvent =
       name: string | null;
       by: ResidentId;
       day?: number;
+      freeRenamesLeft?: number;
     }
   /** Staff took plot (px, py)'s name down after a report. Public, like the name was. */
   | { type: "plot_name_removed"; px: number; py: number }
@@ -1879,7 +1886,10 @@ export const REJECTION_CODES = [
   "knock_limit",
   /** Nobody there has candy for you, and the town's candy at that door, or for today, is gone. */
   "no_candy",
-  /** That plot was already named today: a plot's name changes once a UTC day (decision 0121). */
+  /**
+   * That plot was already named today, and has no free rename left for it, or its name came down
+   * since: a plot's name changes once a UTC day (decision 0121).
+   */
   "rename_limit",
   /** Fishing takes a fishing rod in your things (RFC 0023). */
   "no_rod",

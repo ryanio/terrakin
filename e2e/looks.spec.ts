@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { act, join, overflowsSideways, signIn, watchErrors } from "./support";
+import { freePlots, join, overflowsSideways, settleFree, signIn, watchErrors } from "./support";
 
 /**
  * RFC 0005 looks: Capri loves lemons. She opens the look editor from her profile, picks the lemon
@@ -14,7 +14,7 @@ test("pick lemon, citrus, and a straw hat, and see it on the profile and in the 
   const errors = watchErrors(page);
   const me = await join(page.request, "Capri", { color: "rose" });
   const residentId = me.id;
-  expect((await act(page.request, me.token, { type: "settle", px: 7, py: 7 })).ok).toBe(true);
+  await settleFree(page.request, me.token, await freePlots(page.request, 5));
   await signIn(page, me);
 
   await page.goto(`/r/${residentId}`);

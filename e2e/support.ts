@@ -106,18 +106,28 @@ export async function freePlots(
   return out;
 }
 
+/**
+ * Settle the first of `plots` that's still free when asked, and return it. Specs share one world
+ * and run side by side, so a free plot can be taken between reading the world and settling it;
+ * then the next one is tried. Never settle a fixed plot: another spec may have it.
+ */
+export async function settleFree(
+  request: APIRequestContext,
+  token: string,
+  plots: readonly (readonly [number, number])[],
+): Promise<[number, number]> {
+  let last: unknown;
+  for (const [px, py] of plots.slice(0, 5)) {
+    last = await act(request, token, { type: "settle", px, py });
+    if ((last as { ok?: boolean }).ok) return [px, py];
+  }
+  throw new Error(`Couldn't settle any of ${plots.length} free plots: ${JSON.stringify(last)}`);
+}
+
 /** Join, settle a free plot, and build the starter home, which puts you on your hearth. */
 export async function settler(request: APIRequestContext, name: string) {
   const who = await join(request, name);
-  // Specs share one world and run side by side, so the first free plot can be taken between
-  // reading the world and settling it. Then the next free one is tried.
-  for (let attempt = 1; ; attempt++) {
-    const [plot] = await freePlots(request, 1);
-    if (!plot) throw new Error("No free plots left in the test world");
-    const settled = await act(request, who.token, { type: "settle", px: plot[0], py: plot[1] });
-    if (settled.ok) break;
-    if (attempt === 5) expect(settled.ok, JSON.stringify(settled)).toBe(true);
-  }
+  await settleFree(request, who.token, await freePlots(request, 5));
   expect((await act(request, who.token, { type: "build_starter_home" })).ok).toBe(true);
   return who;
 }

@@ -1,5 +1,13 @@
 import { expect, test } from "@playwright/test";
-import { act, join, overflowsSideways, signIn, watchErrors } from "./support";
+import {
+  act,
+  freePlots,
+  join,
+  overflowsSideways,
+  settleFree,
+  signIn,
+  watchErrors,
+} from "./support";
 
 /**
  * MuseFelipe's acceptance test: a partner opens an invite link, picks a name, color, and shape,
@@ -14,9 +22,20 @@ test("a partner accepts an invite, moves in next door, and sends a hug and a let
 }) => {
   const errors = watchErrors(page, { dialogs: true });
 
-  // The inviter lives here already: joined over the API, settled far from other tests, home built.
+  // The inviter lives here already: joined over the API, settled, home built. Their plot is the free
+  // one with the most free plots around it, so the partner can move in next door.
   const felipe = await join(page.request, "Felipe", { color: "sky" });
-  expect((await act(page.request, felipe.token, { type: "settle", px: 7, py: 1 })).ok).toBe(true);
+  const free = await freePlots(page.request, 64, "bottom-left");
+  const isFree = new Set(free.map(([px, py]) => `${px},${py}`));
+  const room = ([px, py]: [number, number]) =>
+    [-1, 0, 1]
+      .flatMap((dx) => [-1, 0, 1].map((dy) => `${px + dx},${py + dy}`))
+      .filter((key) => key !== `${px},${py}` && isFree.has(key)).length;
+  await settleFree(
+    page.request,
+    felipe.token,
+    [...free].sort((a, b) => room(b) - room(a)),
+  );
   expect((await act(page.request, felipe.token, { type: "build_starter_home" })).ok).toBe(true);
   const made = await page.request.post("/v1/invites", { headers: felipe.auth, data: {} });
   expect(made.status()).toBe(201);

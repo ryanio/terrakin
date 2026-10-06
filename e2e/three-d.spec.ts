@@ -1,5 +1,13 @@
 import { expect, type Page, test } from "@playwright/test";
-import { countFrames, framesWhileIdle, join, signIn, watchErrors } from "./support";
+import {
+  countFrames,
+  framesWhileIdle,
+  freePlots,
+  join,
+  settleFree,
+  signIn,
+  watchErrors,
+} from "./support";
 
 /**
  * The 3D views at phone size: a plot seeded over REST opens in 3D, draws real pixels through
@@ -57,8 +65,7 @@ test.describe("a plot in 3D", () => {
       const res = await page.request.post("/v1/actions", { headers: auth, data });
       expect(res.ok(), JSON.stringify(await res.json())).toBe(true);
     };
-    // Far from the other specs' plots (duo settles at 7,1 and its neighbors).
-    await act({ type: "settle", px: 1, py: 7 });
+    await settleFree(page.request, session.token, await freePlots(page.request, 5, "top-right"));
     await act({ type: "build_starter_home", walls: "stone", windows: "glass" });
 
     await page.goto(`/r/${session.residentId}/3d`);

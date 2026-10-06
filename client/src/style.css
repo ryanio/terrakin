@@ -1240,7 +1240,10 @@ body.in-world .veil {
 .post-who {
   flex: 1;
   min-width: 0;
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--space-sm);
 }
 
 .post-name-line {
@@ -1250,13 +1253,13 @@ body.in-world .veil {
   min-width: 0;
 }
 
-/* The name line is 44px tall to tap; the tags tuck into the room under its text. */
+/* The tags sit on the name line when they fit and wrap under it when they don't. */
 .post-tags {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-xs) var(--space-sm);
-  margin: calc(var(--space-xs) * -1) 0 var(--space-2xs);
+  min-width: 0;
 }
 
 /* Block (not flex) so a long name ends in an ellipsis. 44px line height is the tap target. */
@@ -7130,6 +7133,7 @@ a.profile-owner:hover .owner-name {
 }
 
 .report-note {
+  padding-block: var(--space-md);
   min-height: 84px;
   resize: vertical;
 }

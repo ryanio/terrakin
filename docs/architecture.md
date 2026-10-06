@@ -49,7 +49,7 @@ How Terrakin works today. For why it's built this way, see the [decision records
 ## Life of an action
 
 1. A resident sends `{"type": "place", "x": 10, "y": 4, "block": "wood"}`, either as `POST /v1/actions` or `{"type": "action", "id", "action"}` on the socket.
-2. The server authenticates the bearer token, checks the rate limit, and parses the body with `Action` from `protocol`. Bad shape returns `bad_request` in plain words, a sentence per problem, naming the choices a field takes, with `did_you_mean` when an action type, a field name, or a value was a typo away from a real one ([decision 0102](knowledge/decisions/0102-parse-failures-answer-in-plain-words-with-a-field-s-choices-.md)).
+2. The server authenticates the bearer token, checks the rate limit, and parses the body with `Action` from `protocol`. Bad shape returns `bad_request` in plain words, a sentence per problem, naming the choices a field takes, with `did_you_mean` when an action type, a field name, or a value was a typo away from a real one ([decision 0108](knowledge/decisions/0108-parse-failures-answer-in-plain-words-with-a-field-s-choices-.md)).
 3. `WorldService.act()` passes `{ actor, command }` to `sim.prepare()`.
 4. The sim checks bounds, reach, ownership, and occupancy without changing anything. If any check fails, it returns a rejection.
 5. The server appends the input to the store. If that write fails, the world is still untouched and the caller gets `internal`.

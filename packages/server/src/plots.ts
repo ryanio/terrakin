@@ -121,6 +121,19 @@ function plotAt(state: WorldState, px: number, py: number): Plot | undefined {
 
 const weekKey = (px: number, py: number, owner: string) => `${plotKey(px, py)}|${owner}`;
 
+/**
+ * A plot for a `plot_name` report: its owner and its name, or undefined when no plot is claimed
+ * there. Plot ids from requests are own keys, like every other world id.
+ */
+export function plotForReport(
+  state: WorldState,
+  px: number,
+  py: number,
+): { owner: string; name?: string } | undefined {
+  const plot = plotInBounds(state.config, px, py) ? own(state.plots, plotKey(px, py)) : undefined;
+  return plot ? { owner: plot.ownerId, ...(plot.name ? { name: plot.name } : {}) } : undefined;
+}
+
 export class PlotVisits {
   constructor(private readonly o: PlotVisitsOptions) {
     for (const statement of [
@@ -489,6 +502,7 @@ export function plotViews(
       px: plot.px,
       py: plot.py,
       owner,
+      ...(plot.name ? { name: plot.name } : {}),
       coOwners: (plot.coOwners ?? []).flatMap((id) => {
         const a = author(id);
         return a ? [a] : [];

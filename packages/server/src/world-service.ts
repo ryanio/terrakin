@@ -31,6 +31,7 @@ import {
   canBuildOn,
   chebyshev,
   commonsPlot,
+  DAY_LENGTH_MS,
   type DailyAward,
   DEFAULT_CONFIG,
   type Direction,
@@ -41,6 +42,7 @@ import {
   eventOpen,
   everyGood,
   exactWearStyles,
+  FISHING,
   findBounty,
   findEvent,
   findsOnDisplay,
@@ -56,6 +58,7 @@ import {
   inEventArea,
   isTownEvent,
   isTownsfolk,
+  isWater,
   joinTile,
   LOOK_MEDIA_KEYS,
   type LookMediaKey,
@@ -90,6 +93,7 @@ import {
   skyAt,
   starterOf,
   TOWN_ACTOR,
+  timeOfDayAt,
   townHallTiles,
   treasuryShareOf,
   unclaimedMessage,
@@ -97,6 +101,7 @@ import {
   type WorldConfig,
   type WorldEvent,
   type WorldState,
+  waterBeside,
   withinEarshot,
 } from "@terrakin/sim";
 import { closeDue, startBy, startFree, townsfolkMove } from "./games";
@@ -402,6 +407,19 @@ const hashToken = (token: string) => createHash("sha256").update(token).digest("
 
 /** Web Crypto randomness, so this file runs the same on Node and Cloudflare Workers. */
 const randomBytes = (n: number) => crypto.getRandomValues(new Uint8Array(n));
+
+/**
+ * A cast's roll (RFC 0023): a whole number from 0 to `FISHING.outOf - 1`, every one as likely, from
+ * Web Crypto. Draws past the last whole multiple of `outOf` are drawn again, so none is favored.
+ */
+function castRoll(): number {
+  const span = 2 ** 32;
+  const fair = span - (span % FISHING.outOf);
+  for (;;) {
+    const n = crypto.getRandomValues(new Uint32Array(1))[0] ?? 0;
+    if (n < fair) return n % FISHING.outOf;
+  }
+}
 const toHex = (bytes: Uint8Array) =>
   Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 const toBase64Url = (bytes: Uint8Array) =>
@@ -477,12 +495,8 @@ function filtered(
   return { ok: false, error: { code: verdict.code, message: verdict.message } };
 }
 
-/**
- * One full day/night cycle. It doesn't divide 24 hours, so someone who visits at the
- * same time every day sees a different part of the day each time. Tunable; clients
- * read it from the snapshot.
- */
-export const DAY_LENGTH_MS = 210 * 60_000;
+/** One full day/night cycle, from the sim, where the time of day a cast logs is worked out. */
+export { DAY_LENGTH_MS };
 
 /**
  * Owns the one authoritative world. Every change goes through `act` or `join`/`leave`,
@@ -1759,6 +1773,7 @@ export class WorldService {
       };
       return this.run({ actor: residentId, command }, dry);
     }
+    if (action.type === "fish") return this.fish(residentId, dry);
     if (action.type === "shop_buy" || action.type === "sell_to_town") {
       const count = action.count === undefined ? {} : { count: action.count };
       const command: Command =
@@ -1856,6 +1871,37 @@ export class WorldService {
       py: action.py,
       startsAt,
       minutes: action.minutes,
+    };
+    return this.run({ actor: residentId, command }, dry);
+  }
+
+  // ---------- fishing (RFC 0023) ----------
+
+  /**
+   * A cast. The server rolls it and notes the weather and the map's time of day on its own clock,
+   * and the logged command carries all three, so replay never reads a clock or the weather and
+   * nobody can pick a rainy night or a lucky roll. Never into the pond of anyone blocked either way,
+   * nor of a suspended owner, whose plot is closed for now, as for a visit.
+   */
+  private fish(residentId: string, dry: boolean): ActResult {
+    const me = asJoined(this.state, residentId).residents[residentId];
+    const water = me ? waterBeside(me, (x, y) => isWater(this.state, x, y)) : undefined;
+    const plot = water ? plotAtTile(this.state, water.x, water.y) : undefined;
+    if (plot) {
+      const refused = this.closedDoor(
+        residentId,
+        plot.px,
+        plot.py,
+        "You can't fish in this resident's pond.",
+      );
+      if (refused) return refused;
+    }
+    const now = this.now();
+    const command: Command = {
+      type: "fish",
+      roll: castRoll(),
+      weather: skyAt(now, this.state.day).weather,
+      timeOfDay: timeOfDayAt(now, DAY_LENGTH_MS),
     };
     return this.run({ actor: residentId, command }, dry);
   }
@@ -2407,6 +2453,8 @@ export class WorldService {
       // weather and the season it reads off the same clock (decision 0073).
       time: { nowMs, dayLengthMs: DAY_LENGTH_MS },
       ...skyAt(nowMs, state.day),
+      // The time of day on the same clock, which a cast logs (RFC 0023).
+      timeOfDay: timeOfDayAt(nowMs, DAY_LENGTH_MS),
       ...holidayField(state.day),
       config: {
         width: state.config.width,

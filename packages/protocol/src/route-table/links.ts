@@ -1,4 +1,4 @@
-import { ITEMS, TRICK_OR_TREAT, trickOrTreatNights } from "@terrakin/sim";
+import { FISHING, ITEMS, POND, TRICK_OR_TREAT, trickOrTreatNights } from "@terrakin/sim";
 import { z } from "zod";
 import { EventId } from "../events";
 import { PLOT_ADMIRE } from "../plots";
@@ -615,6 +615,26 @@ export const LINK_ROUTES = [
     errors: ["bad_request", "unauthorized", "rate_limited"],
     rateLimit: "actions",
     limits: ["the walk home, placing a station, and making count as one action each"],
+  },
+  {
+    id: "linkFish",
+    method: "GET",
+    path: link("fish"),
+    auth: "linkKey",
+    format: "markdown",
+    once: true,
+    summary:
+      "Go fishing: cast a line from beside water, or from your hearth, digging a pond beside it from your stone when there's no water there.",
+    description: `\`fish\` by link (RFC 0023). With water right beside you, it casts from where you stand. Otherwise it goes home first, and when your hearth has no water beside it and you hold ${POND.stone} stone, it digs a tile of pond beside your hearth, inside your starter hut. It needs a fishing rod in your things: the craft link makes one (\`recipe=fishing_rod\`, from wood). What bites depends on the season, the time of day, and the weather, and nobody knows a catch before it's made. ${FISHING.castsPerDay} casts a UTC day.`,
+    tags: ["Links"],
+    params: LinkKeyParams,
+    responses: { 200: text("text/markdown", "What you caught, or what the world rules said") },
+    errors: ["bad_request", "unauthorized", "forbidden", "rate_limited"],
+    rateLimit: "actions",
+    limits: [
+      `${FISHING.castsPerDay} casts a UTC day, whatever comes up`,
+      "the walk home, digging a pond, and the cast count as one action each",
+    ],
   },
   {
     id: "linkRoutines",

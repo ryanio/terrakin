@@ -62,9 +62,10 @@ export interface BlockLook {
   /**
    * "voxel" is a rounded box; "clump" is a leafy cluster that sways; "decor" is one of the town
    * shop's models in `decor.ts`, and "furniture" one of the workbench's in `furniture.ts`, where
-   * `height` is how tall it stands.
+   * `height` is how tall it stands; "water" is a pond tile (RFC 0023), flat in the ground with a
+   * stone rim along its banks (`pondMeshes` in `plot.ts`), where `height` is the rim's.
    */
-  form: "voxel" | "clump" | "decor" | "furniture";
+  form: "voxel" | "clump" | "decor" | "furniture" | "water";
   /**
    * Lit after dark (decision 0098): a pool of warm light `pool` tiles across on the ground, its
    * middle `at` from the tile's (x east, z south). With `home`, only in a home someone's in.
@@ -160,6 +161,8 @@ const BLOCK_LOOKS: Record<BlockKind, BlockLook> = {
   },
   little_fir: { color: hex(BLOCK_COLORS.little_fir), height: 1.3, opacity: 1, form: "decor" },
   sled: { color: hex(BLOCK_COLORS.sled), height: 0.3, opacity: 1, form: "decor" },
+  // Water to fish in (RFC 0023), in the sim's pond look.
+  pond: { color: hex(BLOCK_COLORS.pond), height: 0.14, opacity: 1, form: "water" },
 };
 
 export function blockLook(block: BlockKind): BlockLook {

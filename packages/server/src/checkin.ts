@@ -20,12 +20,15 @@ import {
   CATALOG,
   COSTUMES,
   canBuildOn,
+  countOf,
   displaysOf,
   FAMILIES,
   type Family,
   type FamilyInfo,
   FIND_KINDS,
   FIND_SPAWNS,
+  FISHING,
+  FISHING_ROD,
   type FindKind,
   type FindSpawn,
   findsOpen,
@@ -38,13 +41,16 @@ import {
   kindsIn,
   knockedToday,
   ownsWear,
+  POND,
   plotsOwnedBy,
+  RECIPES,
   type Season,
   SHOP_CATALOG,
   seasonOf,
   skyAt,
   TRICK_OR_TREAT,
   takenDownOf,
+  timeOfDayAt,
   trickOrTreatDay,
   trickOrTreatNights,
   type WorldState,
@@ -306,6 +312,15 @@ export const TRY_NEXT: readonly TryNext[] = [
     line: 'Make your plot look lived in: lay a path out of your door in one call, {"type": "build", "px": <px>, "py": <py>, "ground": [{"x": 3, "y": 6, "ground": "dirt"}, {"x": 3, "y": 7, "ground": "dirt"}]}. Add "dry": true to price a bigger plan first; SKILL.md has a few to copy.',
   },
   {
+    // Fishing (RFC 0023), once they've gathered, since a rod takes wood and a pond stone. A cast
+    // counts as tried.
+    id: "fish",
+    commands: ["fish"],
+    open: itemsOpen,
+    after: ["gather"],
+    line: `Go fishing: make a fishing rod at a workbench from ${countOf("wood", RECIPES[FISHING_ROD].needs.wood ?? 0)} ({"type": "craft", "recipe": "${FISHING_ROD}", "x": <x>, "y": <y>}), dig a pond on your plot ({"type": "place", "x": <x>, "y": <y>, "block": "pond"}, ${countOf("stone", POND.stone)} a tile), stand right beside it, and cast with {"type": "fish"}. What bites depends on the season, the time of day, and the weather (\`timeOfDay\` and \`weather\` here say what it's like now): a rainy night brings up fish a sunny noon never does. ${FISHING.castsPerDay} casts a day. Tell your owner when you catch something rare.`,
+  },
+  {
     // Plots worth visiting (RFC 0020): open once someone else lives here too.
     id: "visit",
     commands: ["visit"],
@@ -555,7 +570,12 @@ export function checkinView(
   const since = checkinSince(options.since, now);
   // What it's like out, read off the same clock as `GET /v1/world` (decision 0073), and the
   // catalog's version, so an agent knows when to read `GET /v1/catalog` again.
-  const sky = { ...skyAt(now, state.day), ...holidayField(state.day), catalog: CATALOG_VERSION };
+  const sky = {
+    ...skyAt(now, state.day),
+    timeOfDay: timeOfDayAt(now),
+    ...holidayField(state.day),
+    catalog: CATALOG_VERSION,
+  };
   const done = options.done ?? new Set<string>();
   // Inclusive: something made in the same millisecond as the last check-in shows twice, never zero
   // times. Ids say what's been seen.

@@ -3,6 +3,7 @@ import {
   type Crop,
   DECOR_KINDS,
   type DecorKind,
+  type FishKind,
   type GoodKind,
   holidayKinds,
   ROTATION_CROPS,
@@ -178,7 +179,12 @@ const ORDERS = {
   cranberry: { price: 1, perDay: 3 },
   cranberry_jam: { price: 5, perDay: 1 },
   cranberry_punch: { price: 5, perDay: 1 },
-} satisfies Partial<Record<GoodKind | Crop, BuyOrder>>;
+  // Each season's own fish, bought every day of it (RFC 0023). Decision 0123 has the reasoning.
+  trout: { price: 2, perDay: 2 },
+  sunfish: { price: 2, perDay: 2 },
+  salmon: { price: 2, perDay: 2 },
+  char: { price: 2, perDay: 2 },
+} satisfies Partial<Record<GoodKind | Crop | FishKind, BuyOrder>>;
 
 /**
  * What the town buys: the made things and produce it has a buy order for. A kind gets one by a
@@ -229,12 +235,16 @@ export function townBuys(day: number): SellKind[] {
 export const SEASON_STOCK: Readonly<Record<Season, readonly ShopSku[]>> =
   STOCK_BY_SEASON as Readonly<Record<Season, readonly ShopSku[]>>;
 
-/** What the town buys every day of a season, on top of the daily rotation. */
+/**
+ * What the town buys every day of a season, on top of the daily rotation: autumn's pumpkins and
+ * winter's cranberries, with what the kitchen makes from them (RFC 0017), and each season's own fish
+ * (RFC 0023). A new kind goes on the end of its season's list.
+ */
 export const SEASON_BUYS: Readonly<Record<Season, readonly SellKind[]>> = {
-  spring: [],
-  summer: [],
-  autumn: ["pumpkin", "pumpkin_pie", "pumpkin_soup"],
-  winter: ["cranberry", "cranberry_jam", "cranberry_punch"],
+  spring: ["trout"],
+  summer: ["sunfish"],
+  autumn: ["pumpkin", "pumpkin_pie", "pumpkin_soup", "salmon"],
+  winter: ["cranberry", "cranberry_jam", "cranberry_punch", "char"],
 };
 
 /** The season `sku` is sold in, or undefined when the shop sells it all year. */

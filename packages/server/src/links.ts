@@ -12,6 +12,7 @@ import {
   markdownError,
   type PostView,
   type ProfileView,
+  REPEAT_WINDOW_MS,
   ROUTINE_RULES,
   type RoutineChoice,
   type SeasonName,
@@ -24,6 +25,7 @@ import {
   CHAT_EARSHOT,
   CROP_INFO,
   canBuildOn,
+  castsToday,
   chebyshev,
   commonsPlot,
   countOf,
@@ -32,6 +34,8 @@ import {
   EVENTS,
   type EventKind,
   eventEndsAt,
+  FISHING,
+  FISHING_ROD,
   FURNITURE_KINDS,
   FURNITURE_RECIPES,
   type FurnitureKind,
@@ -41,6 +45,7 @@ import {
   HAIR_COLORS,
   HAIR_STYLES,
   type HostedEvent,
+  holdsRod,
   holidayLastDay,
   holidayOf,
   homePlotOf,
@@ -54,6 +59,7 @@ import {
   isFurnitureKind,
   isSweetKind,
   isTownEvent,
+  isWater,
   knockedToday,
   lastDeclineDay,
   mayGatherOn,
@@ -62,6 +68,7 @@ import {
   PET_COATS,
   PET_KINDS,
   type Plot,
+  POND,
   pantryDue,
   pantryWould,
   pickupLeft,
@@ -90,6 +97,7 @@ import {
   trickOrTreatDay,
   trickOrTreatNights,
   type WorldState,
+  waterBeside,
 } from "@terrakin/sim";
 import type { Api } from "./api";
 import { checkinChangelog, checkinView, startsIn } from "./checkin";
@@ -142,6 +150,7 @@ export type LinkRouteId =
   | "linkTrickOrTreat"
   | "linkNamePlot"
   | "linkCraft"
+  | "linkFish"
   | "linkGesture"
   | "linkRead"
   | "linkFeed"
@@ -207,6 +216,7 @@ function linksFor(origin: string, key: string) {
       `${base}/trick-or-treat${px === undefined || py === undefined ? "" : `?px=${px}&py=${py}`}`,
     namePlot: `${base}/name-plot?name=<your plot's name>`,
     craft: (recipe?: string) => `${base}/craft${recipe ? `?recipe=${recipe}` : ""}`,
+    fish: `${base}/fish`,
     settle: (px: number, py: number) => `${base}/settle?px=${px}&py=${py}`,
     move: (dir: string, steps: number) => `${base}/move?dir=${dir}&steps=${steps}`,
     like: (postId: string) => `${base}/like?post=${encodeURIComponent(postId)}`,
@@ -457,6 +467,9 @@ function nextSteps(state: WorldState, r: Resident, l: Links): string {
     r.hearth &&
       state.items !== undefined &&
       `- Make something at a kitchen or workbench by your hearth: ${l.craft()}`,
+    r.hearth &&
+      state.items !== undefined &&
+      `- Go fishing, by your hearth or beside any water (it takes a fishing rod): ${l.fish}`,
     state.items !== undefined && `- What you hold, what you made, and your garden: ${l.things}`,
     lying > 0 &&
       `- Pick up what lies within reach (${plural(lying, "thing")}: branches, stones, or finds): ${l.gather}`,
@@ -2130,6 +2143,117 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
               : isSweetKind(recipe)
                 ? "Sweets are for giving, at Midwinter or any day. Giving them or selling them needs the API. Tell your owner what you made."
                 : "Giving it, selling it, or putting it on display needs the API. Tell your owner what you made.",
+          nextSteps(state, me, l),
+        ),
+      );
+    },
+
+    linkFish: ({ viewer, params, origin }) => {
+      const l = linksFor(origin, params.key);
+      const start = resident(viewer);
+      if ("error" in start) return start;
+      const refuse = (code: ErrorCode, message: string, help: string) =>
+        turnedDown({ ok: false, error: { code, message } }, help);
+      const items = state.items;
+      if (!items) {
+        return refuse(
+          "items_closed",
+          "Growing, making, and gathering haven't opened in this world yet.",
+          linkHelp(origin, params.key),
+        );
+      }
+      const rodWords = countOf("wood", RECIPES[FISHING_ROD].needs.wood ?? 0);
+      if (!holdsRod(items.inventories[viewer])) {
+        return refuse(
+          "no_rod",
+          `Fishing takes a fishing rod in your things. Make one by your hearth from ${rodWords}: ${l.craft(FISHING_ROD)}`,
+          `Your menu: ${l.me}`,
+        );
+      }
+      const water = (x: number, y: number) => isWater(state, x, y);
+      const hearth = start.hearth;
+      const here = rejoined(state, viewer) ?? start;
+      const besideHere = waterBeside(here, water) !== undefined;
+      const besideHome = hearth ? waterBeside(hearth, water) !== undefined : false;
+      const stone = items.inventories[viewer]?.stacks.stone ?? 0;
+      if (!besideHere && !hearth) {
+        return refuse(
+          "no_water",
+          "There's no water right beside you, and you have no hearth to fish from yet.",
+          homeStep(state, viewer, l),
+        );
+      }
+      if (!besideHere && !besideHome && stone < POND.stone) {
+        return refuse(
+          "no_water",
+          `There's no water beside you or your hearth. A tile of pond takes ${countOf("stone", POND.stone)}, and you have ${countOf("stone", stone)}: gather stone with the API (\`gather\`), or ask a friend for some.`,
+          `Your menu: ${l.me}`,
+        );
+      }
+      // Checks done: from here on the visit acts, so it brings you online.
+      service.arrive(viewer, "fish");
+      // The dispatcher paid for the first action; each one after it is one more.
+      let acted = 0;
+      const act = (command: Action): ActResult => {
+        if (acted++ > 0 && !api.takeAction(viewer)) {
+          return { ok: false, error: { code: "rate_limited", message: "Slow down." } };
+        }
+        return service.act(viewer, command);
+      };
+      let dug = "";
+      if (!besideHere && hearth) {
+        const me = rejoined(state, viewer) ?? start;
+        if (me.x !== hearth.x || me.y !== hearth.y) {
+          const went = act({ type: "home" });
+          if (!went.ok) return turnedDown(went, linkHelp(origin, params.key));
+        }
+        if (!besideHome) {
+          // A tile of pond beside the hearth, inside the starter hut, never between it and the door.
+          const mine = (t: Tile) => canBuildOn(plotAtTile(state, t.x, t.y), viewer);
+          const someone = (t: Tile) =>
+            Object.values(state.residents).some((o) => o.online && o.x === t.x && o.y === t.y);
+          for (const t of starterHutGardenTiles(state.config, hearth)) {
+            if (!mine(t) || state.blocks[tileKey(t.x, t.y)] || someone(t)) continue;
+            const put = act({ type: "place", x: t.x, y: t.y, block: "pond" });
+            if (put.ok) {
+              dug = `You dug a tile of pond at ${at(t)}, beside your hearth, with ${countOf("stone", POND.stone)}. `;
+              break;
+            }
+            if (put.error.code === "rate_limited") return failed("rate_limited", put.error.message);
+          }
+          if (!dug) {
+            return refuse(
+              "no_water",
+              "There's no water beside your hearth, and no free tile inside your starter hut beside it for a pond. Place one with the API.",
+              `Your menu: ${l.me}`,
+            );
+          }
+        }
+      }
+      const cast = act({ type: "fish" });
+      if (!cast.ok) {
+        if (cast.error.code === "rate_limited") return failed("rate_limited", cast.error.message);
+        return turnedDown(cast, `Your menu: ${l.me}`);
+      }
+      const fished = cast.events.find((e) => e.type === "fished");
+      const caught = fished?.type === "fished" ? fished.caught : "nothing";
+      const line =
+        caught === "nothing"
+          ? "Nothing's biting this time."
+          : caught === "boot"
+            ? "You reeled in an old boot, and threw it back."
+            : `You caught ${countOf(caught, 1).replace(/^1 /, /^1 [aeiou]/.test(countOf(caught, 1)) ? "an " : "a ")}! It's in your things and your collection book: ${l.things}`;
+      const left = FISHING.castsPerDay - castsToday(state, viewer);
+      const me = resident(viewer);
+      if ("error" in me) return me;
+      return ok(
+        page(
+          "# Fishing",
+          `${dug}${line}`,
+          left > 0
+            ? `You have ${plural(left, "cast")} left today. Cast again in a few minutes (the same link does nothing new for ${REPEAT_WINDOW_MS / 60_000} minutes): ${l.fish}`
+            : "That was your last cast today. The fish bite again after midnight UTC.",
+          "What bites depends on the season, the time of day, and the weather: a rainy night brings up fish a sunny noon never does. Tell your owner when you catch something rare.",
           nextSteps(state, me, l),
         ),
       );

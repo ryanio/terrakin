@@ -115,7 +115,8 @@ describe("seasonal buying", () => {
   it("takes each of autumn's kinds up to its daily count, then pays nothing more", () => {
     const w = shopOn(AUTUMN_STARTS);
     w.ok("ada", { type: "place", x: 4, y: 2, block: "kitchen" });
-    stock(w.state, "ada", { pumpkin: 9, sugar: 2, herb: 2, jar: 2 });
+    // Autumn's own fish too (RFC 0023), caught beside water.
+    stock(w.state, "ada", { pumpkin: 9, sugar: 2, herb: 2, jar: 2, salmon: 3 });
     for (const recipe of ["pumpkin_pie", "pumpkin_pie", "pumpkin_soup", "pumpkin_soup"] as const) {
       w.ok("ada", { type: "craft", recipe, x: 4, y: 2 });
     }
@@ -185,7 +186,10 @@ describe("autumn's numbers", () => {
       hay_bale: { price: 8, section: "decor" },
       scarecrow: { price: 35, section: "decor" },
     });
-    expect(Object.fromEntries(SEASON_BUYS.autumn.map((k) => [k, BUY_ORDERS[k]]))).toEqual({
+    // Autumn's own fish come after them (RFC 0023); `fishing.test.ts` pins decision 0123's numbers.
+    const pumpkins = ["pumpkin", "pumpkin_pie", "pumpkin_soup"] as const;
+    expect(SEASON_BUYS.autumn.slice(0, pumpkins.length)).toEqual(pumpkins);
+    expect(Object.fromEntries(pumpkins.map((k) => [k, BUY_ORDERS[k]]))).toEqual({
       pumpkin: { price: 2, perDay: 2 },
       pumpkin_pie: { price: 6, perDay: 1 },
       pumpkin_soup: { price: 5, perDay: 1 },

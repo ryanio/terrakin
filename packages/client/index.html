@@ -247,8 +247,12 @@
           <svg class="icon" data-icon="cube" aria-hidden="true"></svg>
           <span>3D view</span>
         </button>
-        <!-- What you can do where you stand, above the 3D toggle: pat a neighbor's pet (RFC 0019), and pick up everything lying within reach (decision 0125). -->
+        <!-- What you can do where you stand, above the 3D toggle: cast a line beside water (RFC 0023), pat a neighbor's pet (RFC 0019), and pick up everything lying within reach (decision 0125). -->
         <div class="stack tight start world-near">
+          <button type="button" id="world-fish" class="pill-button" hidden>
+            <svg class="icon" data-icon="fishing" aria-hidden="true"></svg>
+            <span>Fish</span>
+          </button>
           <button type="button" id="world-pet" class="pill-button" hidden>
             <svg class="icon" data-icon="paw" aria-hidden="true"></svg>
             <span>Pat</span>
@@ -271,6 +275,7 @@
               <button type="button" data-block="kitchen" aria-label="Kitchen (make jam, tea, and sauce)"><span class="chip"><svg class="icon" data-icon="kitchen" aria-hidden="true"></svg></span></button>
               <button type="button" data-block="workbench" aria-label="Workbench (make bouquets, wreaths, and furniture)"><span class="chip"><svg class="icon" data-icon="workbench" aria-hidden="true"></svg></span></button>
               <button type="button" data-block="pedestal" aria-label="Pedestal (show something you made)"><span class="chip"><svg class="icon" data-icon="pedestal" aria-hidden="true"></svg></span></button>
+              <button type="button" data-block="pond" aria-label="Pond (2 stone a tile, to fish beside)"><span class="chip"><svg class="icon" data-icon="pond" aria-hidden="true"></svg></span></button>
             </div>
             <div id="palette-ground" class="palette-row" role="tabpanel" aria-labelledby="palette-tab-ground" hidden></div>
             <div id="palette-furniture" class="palette-row" role="tabpanel" aria-labelledby="palette-tab-furniture" hidden></div>

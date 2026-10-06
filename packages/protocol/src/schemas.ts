@@ -15,6 +15,7 @@ import {
   EVENTS,
   EXCLUSIVE_WEAR,
   FIND_KINDS,
+  FISH_KINDS,
   FREE_BLOCKS,
   FURNITURE_KINDS,
   GAME_KINDS,
@@ -58,6 +59,7 @@ import {
   TABLE_ID_PATTERN,
   TABLE_STATUSES,
   THEMES,
+  TIMES_OF_DAY,
   TOWN_LIMITS,
   VOTE_CHOICES,
   WEAR_ITEMS,
@@ -405,6 +407,14 @@ export const FindKind = z.enum(FIND_KINDS);
 export type FindKind = z.infer<typeof FindKind>;
 /** What can lie on a tile to `gather`: a fallen branch (`wood`), a loose stone, or a find. */
 export const PickupKind = z.enum([...RESOURCE_KINDS, ...FIND_KINDS]);
+/**
+ * Fish (RFC 0023): caught with a fishing rod from right beside water, by season, time of day, and
+ * weather. They stack.
+ */
+export const FishKind = z.enum(FISH_KINDS);
+export type FishKind = z.infer<typeof FishKind>;
+/** What a cast brings up: a fish, an old boot that goes straight back in, or `nothing`. */
+export const CatchName = z.enum([...FISH_KINDS, "boot", "nothing"]);
 /** Everything that's its own item with an id and a maker: made things and pieces of art. */
 export const MadeKind = z.enum(MADE_KINDS);
 export const InventoryReason = z.enum(INVENTORY_REASONS);
@@ -749,6 +759,19 @@ export const TreatPetAction = z.object({
   ...dry,
 });
 
+// ---------- Fishing (RFC 0023) ----------
+
+/**
+ * Cast a line from right beside water (a `pond` tile next to you, diagonals included), with a
+ * fishing rod in your things. What bites depends on the season, the time of day, and the weather;
+ * the server rolls each cast, so nobody knows a catch before it's made. `FISHING.castsPerDay`
+ * casts a UTC day, whatever comes up.
+ */
+export const FishAction = z.object({
+  type: z.literal("fish"),
+  ...dry,
+});
+
 // ---------- Holidays (RFC 0022) ----------
 
 /** The holidays, by the UTC calendar. Halloween runs from October 24 to November 1. */
@@ -1027,6 +1050,7 @@ export const Action = z.discriminatedUnion("type", [
   StartGameAction,
   DecideAction,
   TrickOrTreatAction,
+  FishAction,
 ]);
 export type Action = z.infer<typeof Action>;
 export const ACTION_TYPES = Action.options.map((o) => o.shape.type.value);
@@ -1092,9 +1116,15 @@ export type WorldTime = z.infer<typeof WorldTime>;
 /** The seasons, by the UTC calendar: spring is March to May, and winter December to February. */
 export const SeasonName = z.enum(SEASONS);
 export type SeasonName = z.infer<typeof SeasonName>;
-/** The weather. Presentation only, like day and night: no rule reads it. */
+/** The weather. No rule reads it but what bites when someone fishes (RFC 0023). */
 export const WeatherName = z.enum(WEATHERS);
 export type WeatherName = z.infer<typeof WeatherName>;
+/**
+ * The time of day on the map's clock (RFC 0023): a quarter of its cycle each, around dawn, noon,
+ * dusk, and midnight. No rule reads it but what bites when someone fishes.
+ */
+export const TimeOfDayName = z.enum(TIMES_OF_DAY);
+export type TimeOfDayName = z.infer<typeof TimeOfDayName>;
 
 export const WorldSnapshot = z.object({
   v: z.literal(PROTOCOL_VERSION),
@@ -1106,7 +1136,10 @@ export const WorldSnapshot = z.object({
     "The season of the world's day, by the UTC calendar: spring is March to May, summer June to August, autumn September to November, winter December to February.",
   ),
   weather: WeatherName.optional().describe(
-    "The weather now, worked out from the server's clock: it comes in spells of a few hours, and snow falls only in winter. It is cosmetic and changes no rules.",
+    "The weather now, worked out from the server's clock: it comes in spells of a few hours, and snow falls only in winter. It changes nothing but what bites when you fish.",
+  ),
+  timeOfDay: TimeOfDayName.optional().describe(
+    "The time of day on the map's clock now: `dawn`, `day`, `dusk`, or `night`, a quarter of `time.dayLengthMs` each. It changes nothing but what bites when you fish.",
   ),
   holiday: HolidayName.optional().describe(
     "The holiday the world's day falls in, by the UTC calendar (`halloween`: October 24 to November 1). Absent on ordinary days.",
@@ -1664,6 +1697,17 @@ export const WorldEvent = z.discriminatedUnion("type", [
     residentId: z.string(),
     by: z.string(),
     kind: CropKind,
+  }),
+  /**
+   * `by` cast a line into the water at (x, y) and brought up `caught` (RFC 0023): a fish, an old
+   * boot they threw back, or `nothing`. Public, like a gather.
+   */
+  z.object({
+    type: z.literal("fished"),
+    by: z.string(),
+    x: z.number().int(),
+    y: z.number().int(),
+    caught: CatchName,
   }),
   /**
    * `by` knocked at the door of plot (px, py) on Halloween night and got a candy (RFC 0022): from

@@ -86,6 +86,7 @@ export function inventoryView(
       givenToday: read.givenToday,
       receivedToday: read.receivedToday,
       craftedToday: read.craftedToday,
+      castToday: read.castToday,
       garden: gardenOf(state, viewer),
       gifts: read.gifts.map((g) => {
         const from = author(g.from);

@@ -1,4 +1,4 @@
-import type { Biome, Family } from "@terrakin/sim";
+import type { Biome, CatchChance, Family, TimeOfDay } from "@terrakin/sim";
 import { z } from "zod";
 import { HolidayName, SeasonName } from "./schemas";
 
@@ -29,11 +29,14 @@ export const COLLECTION_WORDS: Readonly<
   drink: { hint: "Made at a kitchen", badge: "Every drink" },
   baked: { hint: "Made at a kitchen" },
   sweets: { hint: "Made at a kitchen, or sold at the shop for a holiday", badge: "Every sweet" },
+  fish: { hint: "Caught with a rod, beside water", badge: "Every fish" },
+  dish: { hint: "Cooked at a kitchen", badge: "Every dish" },
   flower: { hint: "Grown from seed in a planter" },
   keepsake: { hint: "Made at a workbench", badge: "Every keepsake" },
   seed: { hint: "From the pantry, the town shop, or a harvest", badge: "Every seed" },
   pantry: { hint: "From the pantry and the town shop", badge: "Every staple" },
   material: { hint: "Gathered in forests and on stony ground", badge: "Wood and stone" },
+  tool: { hint: "Made at a workbench" },
   decor: { hint: "Sold at the town shop", badge: "Every decoration" },
   furniture: { hint: "Made at a workbench", badge: "Every piece of furniture" },
   art: { hint: "Made from a picture of your own" },
@@ -58,6 +61,38 @@ export function findRarity(chance: number): "common" | "uncommon" | "rare" {
   if (chance >= 0.0025) return "common";
   if (chance >= 0.001) return "uncommon";
   return "rare";
+}
+
+/** When a fish bites, in words: "at dawn", "by day", "at dusk", "at night". */
+const TIME_WORDS: Readonly<Record<TimeOfDay, string>> = {
+  dawn: "at dawn",
+  day: "by day",
+  dusk: "at dusk",
+  night: "at night",
+};
+
+/** "a, b, and c", or "a and b", or "a". */
+function andList(words: readonly string[], last = "and"): string {
+  if (words.length < 3) return words.join(` ${last} `);
+  return `${words.slice(0, -1).join(", ")}, ${last} ${words.at(-1)}`;
+}
+
+/**
+ * When and how a fish bites (RFC 0023), in words, from its place in the sim's `CATCHES`: the times
+ * of day, the weather, the seasons, and how often, for SKILL.md's fish table.
+ */
+export function bitesWhen(c: CatchChance): {
+  times: string;
+  weather: string;
+  seasons: string;
+  often: "common" | "uncommon" | "rare";
+} {
+  return {
+    times: c.times ? andList(c.times.map((t) => TIME_WORDS[t])) : "any time",
+    weather: c.weathers ? andList(c.weathers, "or") : "any",
+    seasons: c.seasons ? `${c.seasons.join(" and ")} only` : "all year",
+    often: c.chance >= 1000 ? "common" : c.chance >= 200 ? "uncommon" : "rare",
+  };
 }
 
 export const CollectionKind = z.object({

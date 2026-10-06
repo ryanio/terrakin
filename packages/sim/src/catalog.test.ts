@@ -9,6 +9,7 @@ import {
   FAMILIES,
   type FamilyInfo,
   FIND_KINDS,
+  FISH_KINDS,
   FURNITURE_KINDS,
   FURNITURE_RECIPES,
   familyPath,
@@ -29,6 +30,7 @@ import {
   STARTER_SEEDS,
   SWEET_KINDS,
 } from "./catalog";
+import { POND } from "./items";
 import { WEAR_ITEMS } from "./looks";
 import { BLOCK_KINDS, FREE_BLOCKS } from "./types";
 
@@ -78,6 +80,12 @@ const SHIPPED = {
     "flower_wreath",
     "pumpkin_pie",
     "pumpkin_soup",
+    "pomegranate_jam",
+    "cranberry_jam",
+    "cranberry_punch",
+    "fishing_rod",
+    "fried_minnows",
+    "fish_stew",
   ],
   piece: ["piece"],
   find: [
@@ -97,6 +105,21 @@ const SHIPPED = {
     "four_leaf_clover",
     "maple_leaf",
     "cherry_blossom",
+  ],
+  fish: [
+    "minnow",
+    "perch",
+    "carp",
+    "catfish",
+    "eel",
+    "trout",
+    "smelt",
+    "sunfish",
+    "salmon",
+    "pike",
+    "char",
+    "golden_koi",
+    "moonfish",
   ],
 };
 
@@ -125,6 +148,9 @@ const SHIPPED_RECIPES = {
   stone_wall: ["workbench", { stone: 1 }],
   campfire: ["workbench", { wood: 2, stone: 3 }],
   flower_box: ["workbench", { wood: 1, flower: 3 }],
+  fishing_rod: ["workbench", { wood: 3 }],
+  fried_minnows: ["kitchen", { minnow: 3, herb: 1 }],
+  fish_stew: ["kitchen", { carp: 1, tomato: 1, herb: 1 }],
 } as const;
 const SHIPPED_CROPS = {
   lemon: { seed: "lemon_seed", days: 4, yield: 3, seeds: 1 },
@@ -147,6 +173,7 @@ describe("what shipped", () => {
       good: GOOD_KINDS,
       piece: PIECE_KINDS,
       find: FIND_KINDS,
+      fish: FISH_KINDS,
     };
     for (const [role, list] of Object.entries(lists)) {
       const shipped = SHIPPED[role as keyof typeof SHIPPED];
@@ -162,6 +189,7 @@ describe("what shipped", () => {
       ...SHIPPED.decor,
       ...SHIPPED.furniture,
       ...SHIPPED.find,
+      ...SHIPPED.fish,
     ]);
     expect(ITEM_KINDS.filter((k) => all.includes(k))).toEqual([
       ...STACK_KINDS.filter((k) => all.includes(k)),
@@ -215,9 +243,10 @@ describe("every entry", () => {
 
   it("places as a block if it's decor or furniture, and every block you hold is one of them", () => {
     const held: readonly string[] = [...DECOR_KINDS, ...FURNITURE_KINDS];
-    const free: readonly string[] = FREE_BLOCKS;
+    // A pond (RFC 0023) is the one block that's neither free nor held: it's paid for in stone.
+    const notHeld: readonly string[] = [...FREE_BLOCKS, POND.block];
     for (const kind of held) expect(BLOCK_KINDS, kind).toContain(kind);
-    expect(BLOCK_KINDS.filter((b) => !free.includes(b)).sort()).toEqual([...held].sort());
+    expect(BLOCK_KINDS.filter((b) => !notHeld.includes(b)).sort()).toEqual([...held].sort());
   });
 
   it("is sold at the town shop if it's a seed, decor, or a staple, which a shop sku can be", () => {
@@ -267,6 +296,12 @@ describe("every entry", () => {
         case "packet":
           // A packet shows the crop it grows, in that crop's color.
           expect(CATALOG[grows as ItemKind]?.look, kind).toHaveProperty("body");
+          break;
+        case "fish":
+          colors.push(look.body, look.belly, look.fin);
+          for (const mark of [look.spots, look.bars, look.band, look.scales]) {
+            if (mark !== undefined) colors.push(mark);
+          }
           break;
         case "drawn":
           break;

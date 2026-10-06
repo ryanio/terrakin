@@ -12,7 +12,14 @@ import {
   WEAR_SLOTS,
 } from "@terrakin/sim";
 import { z } from "zod";
-import { CropKind, GoodKind, HolidayName, SeasonName, ShopSku as ShopSkuSchema } from "./schemas";
+import {
+  CropKind,
+  FishKind,
+  GoodKind,
+  HolidayName,
+  SeasonName,
+  ShopSku as ShopSkuSchema,
+} from "./schemas";
 import { AuthorView } from "./social";
 
 /**
@@ -48,7 +55,7 @@ export type ShopItemView = z.infer<typeof ShopItemView>;
 /** What the town pays for something, on a day it's buying it. */
 export const BuyOrderView = z.object({
   /** Send this as `item` in `sell_to_town`. */
-  kind: z.union([GoodKind, CropKind]),
+  kind: z.union([GoodKind, CropKind, FishKind]),
   name: z.string(),
   price: z.number().int(),
   /** The most the town buys from each resident today. */

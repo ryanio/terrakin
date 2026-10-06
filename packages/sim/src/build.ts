@@ -4,6 +4,7 @@ import { isFurnitureKind } from "./furniture";
 import { GROUND_KINDS, type GroundKind, groundNeeds, isGroundKind } from "./ground";
 import {
   addStack,
+  blockNeeds,
   closed,
   countOf,
   GATHER_HINT,
@@ -13,7 +14,6 @@ import {
   inventoryEvent,
   inventorySize,
   isDecorKind,
-  isHeldBlock,
   isResourceKind,
   STACK_KINDS,
   type StackKind,
@@ -288,7 +288,8 @@ export function planBuild(
     else {
       plan.removed.push({ x, y });
       blocksNow.set(key, undefined);
-      if (isHeldBlock(block)) add(block, 1);
+      // Decor and furniture come back as themselves, a pond as its stone (RFC 0023).
+      for (const [kind, n] of blockNeeds(block)) add(kind, n);
     }
   }
   for (const t of tiles.lift) {
@@ -316,7 +317,7 @@ export function planBuild(
     else {
       plan.placed.push({ x, y, block });
       blocksNow.set(key, block);
-      if (isHeldBlock(block)) add(block, -1);
+      for (const [kind, n] of blockNeeds(block)) add(kind, -n);
     }
   });
   tiles.ground.forEach((t, i) => {

@@ -40,6 +40,7 @@ export {
   type Family,
   type FamilyInfo,
   type FamilyRecipe,
+  type FishLook,
   familyPath,
   familyRecipeMiss,
   familyRecipeOf,
@@ -110,6 +111,20 @@ export {
   joinTile,
   lastSlot,
 } from "./events";
+export {
+  biting,
+  CATCHES,
+  type Catch,
+  type CatchChance,
+  castsToday,
+  catchOf,
+  FISHING,
+  FISHING_ROD,
+  holdsRod,
+  isWater,
+  nearestWater,
+  waterBeside,
+} from "./fishing";
 export {
   FURNITURE_KINDS,
   FURNITURE_RECIPES,
@@ -204,6 +219,7 @@ export {
   nextHolidayStart,
 } from "./holiday";
 export {
+  blockNeeds,
   CROP_INFO,
   CROPS,
   type Crop,
@@ -212,7 +228,9 @@ export {
   DECOR_KINDS,
   type DecorKind,
   FIND_KINDS,
+  FISH_KINDS,
   type FindKind,
+  type FishKind,
   GIFT_ID_PATTERN,
   GOOD_KINDS,
   type GoodKind,
@@ -229,6 +247,7 @@ export {
   inventorySize,
   isDecorKind,
   isFindKind,
+  isFishKind,
   isGoodKind,
   isHeldBlock,
   isMadeKind,
@@ -240,6 +259,7 @@ export {
   type MadeKind,
   PIECE_KINDS,
   type PieceKind,
+  POND,
   pantryDue,
   pantryNumbers,
   pantryWould,
@@ -345,6 +365,15 @@ export {
   townBuys,
   treasuryShareOf,
 } from "./shop";
+export {
+  DAY_LENGTH_MS,
+  dayPhase,
+  isTimeOfDay,
+  TIMES_OF_DAY,
+  type TimeOfDay,
+  timeOfDay,
+  timeOfDayAt,
+} from "./time-of-day";
 export {
   type Eligibility,
   electorate,

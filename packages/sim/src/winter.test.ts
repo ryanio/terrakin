@@ -4,7 +4,7 @@ import { CATALOG } from "./catalog";
 import { WINTER_CONFIG, WINTER_HASH, WINTER_LOG } from "./fixtures/winter-log";
 import { hashWorld } from "./hash";
 import { holidayOf } from "./holiday";
-import { CROP_INFO, RECIPES } from "./items";
+import { CROP_INFO, isFishKind, RECIPES } from "./items";
 import { replay } from "./replay";
 import { dayOfDate, seasonOf } from "./season";
 import {
@@ -125,7 +125,9 @@ describe("winter's numbers", () => {
       little_fir: { price: 20, section: "decor" },
       sled: { price: 25, section: "decor" },
     });
-    expect(Object.fromEntries(SEASON_BUYS.winter.map((k) => [k, BUY_ORDERS[k]]))).toEqual({
+    // Winter's own fish (RFC 0023) comes after these, with decision 0123's numbers.
+    const cranberries = SEASON_BUYS.winter.filter((k) => !isFishKind(k));
+    expect(Object.fromEntries(cranberries.map((k) => [k, BUY_ORDERS[k]]))).toEqual({
       cranberry: { price: 1, perDay: 3 },
       cranberry_jam: { price: 5, perDay: 1 },
       cranberry_punch: { price: 5, perDay: 1 },
@@ -138,8 +140,11 @@ describe("winter's numbers", () => {
   it("add at most 13 coins a day from one resident, under autumn's 15", () => {
     const most = (kinds: readonly (keyof typeof BUY_ORDERS)[]) =>
       kinds.reduce((sum, k) => sum + BUY_ORDERS[k].price * BUY_ORDERS[k].perDay, 0);
-    expect(most(SEASON_BUYS.winter)).toBe(13);
-    expect(most(SEASON_BUYS.winter)).toBeLessThan(most(SEASON_BUYS.autumn));
+    // Without each season's own fish (RFC 0023), which adds the same to every season.
+    const grown = (kinds: readonly (keyof typeof BUY_ORDERS)[]) =>
+      kinds.filter((k) => !isFishKind(k));
+    expect(most(grown(SEASON_BUYS.winter))).toBe(13);
+    expect(most(grown(SEASON_BUYS.winter))).toBeLessThan(most(grown(SEASON_BUYS.autumn)));
   });
 });
 
@@ -198,7 +203,8 @@ describe("winter's buying", () => {
   it("takes each of winter's kinds up to its daily count, then pays nothing more", () => {
     const state = shopOn(WINTERS[0].first);
     ok(state, "ada", { type: "place", x: 4, y: 2, block: "kitchen" });
-    stock(state, "ada", { cranberry: 14, lemon: 2, sugar: 2, jar: 4 });
+    // Winter's own fish too (RFC 0023), caught beside water.
+    stock(state, "ada", { cranberry: 14, lemon: 2, sugar: 2, jar: 4, char: 3 });
     for (const recipe of [
       "cranberry_jam",
       "cranberry_jam",
@@ -239,10 +245,14 @@ describe("winter's buying", () => {
 
   it("comes after the day's rotation, every day of winter", () => {
     for (const { first, last } of WINTERS) {
-      for (const day of [first, last]) expect(townBuys(day).slice(-3)).toEqual(SEASON_BUYS.winter);
+      for (const day of [first, last]) {
+        expect(townBuys(day).slice(-SEASON_BUYS.winter.length)).toEqual(SEASON_BUYS.winter);
+      }
     }
-    expect(townBuys(WINTERS[0].first - 1).slice(-3)).toEqual(SEASON_BUYS.autumn);
-    expect(townBuys(WINTERS[0].last + 1)).toHaveLength(4);
+    const autumn = townBuys(WINTERS[0].first - 1);
+    expect(autumn.slice(-SEASON_BUYS.autumn.length)).toEqual(SEASON_BUYS.autumn);
+    // Spring adds only its own fish (RFC 0023) to the rotation's four.
+    expect(townBuys(WINTERS[0].last + 1).slice(4)).toEqual(SEASON_BUYS.spring);
   });
 });
 

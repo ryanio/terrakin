@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   admiredLine,
   byFamily,
+  catchLine,
   coinsLine,
   cropOfSeed,
   dayLabel,
@@ -102,6 +103,10 @@ describe("things", () => {
         { kind: "acorn", amount: 2 },
       ]),
     ).toBe("You picked up 3 wood, and found 2 acorns. They're in your collection book.");
+    // A catch (RFC 0023) is told by the cast itself, so its inventory change says nothing more.
+    expect(
+      inventoryLine({ ...base, reason: "caught", changes: [{ kind: "eel", amount: 1, count: 1 }] }),
+    ).toBeNull();
     const jam = {
       id: "i_1",
       kind: "lemon_jam" as const,
@@ -337,6 +342,18 @@ describe("things", () => {
     expect(toastMs("Hi", "player")).toBe(4000);
     expect(toastMs(NO_PLOT_LINE)).toBeGreaterThan(5000);
     expect(toastMs("x".repeat(400))).toBe(7000);
+  });
+});
+
+describe("a cast's words", () => {
+  it("say what came up for the one who cast, and nothing for anyone else", () => {
+    const cast = (by: string, caught: "eel" | "golden_koi" | "boot" | "nothing") =>
+      newsLine({ type: "fished", by, x: 3, y: 2, caught }, "r_1");
+    expect(cast("r_1", "eel")).toBe("You caught an eel! It's in your things.");
+    expect(cast("r_1", "golden_koi")).toBe("You caught a golden koi! It's in your things.");
+    expect(cast("r_1", "boot")).toBe("An old boot. You throw it back.");
+    expect(cast("r_1", "nothing")).toBe(catchLine("nothing"));
+    expect(cast("r_2", "golden_koi")).toBeNull();
   });
 });
 

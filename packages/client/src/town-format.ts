@@ -270,9 +270,9 @@ export function pickName(kind: BlockKind | GroundKind): string {
 export function pickLine(pick: CommonsPick): string {
   const name = pickName(pick);
   const Name = name.charAt(0).toUpperCase() + name.slice(1);
-  return isGroundKind(pick)
-    ? `${Name}: tap a tile to lay it, or a path to lift it.`
-    : `${Name}: tap a tile to put it up, or a block to take it away.`;
+  if (isGroundKind(pick)) return `${Name}: tap a tile to lay it, or a path to lift it.`;
+  if (pick === "pond") return "Pond: tap a tile to dig it, for everyone to fish beside.";
+  return `${Name}: tap a tile to put it up, or a block to take it away.`;
 }
 
 /** What a build changes, in words: "2 blocks and 4 paths", "1 block taken away". */

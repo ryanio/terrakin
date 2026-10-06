@@ -24,6 +24,8 @@ import {
   route,
   STEP,
   type Tile,
+  tileKey,
+  waterBeside,
 } from "@terrakin/sim";
 import { REDUCED_MOTION } from "@terrakin/ui/motion";
 import { plot3dPath } from "@terrakin/ui/paths";
@@ -49,6 +51,7 @@ import {
 } from "./build-palette";
 import { type Camera, fitScale, screenToTile } from "./camera";
 import { Feelings, gestureReaction } from "./feelings";
+import { canDig, noRodLine, pondLine, rodsAfter, rodsIn } from "./fishing";
 import { createLanding } from "./landing";
 import { Mirror } from "./mirror";
 import { Motion } from "./motion";
@@ -56,7 +59,7 @@ import { Connection, type Identity, savedToken, saveToken } from "./net";
 import { openWorldPetSheet, patPet } from "./pet-sheet";
 import { PatsToday, PetMotion, petCalled } from "./pets";
 import { openPlotNameSheet } from "./plot-name-sheet";
-import { blockColor, HEARTH_COLOR, render } from "./render";
+import { blockColor, CAST_MS, type CastMark, HEARTH_COLOR, render } from "./render";
 import { dozerAt } from "./scene3d/layout";
 import type { World3d } from "./scene3d/world";
 import { approach, type Quarter, turnDir } from "./scene3d/world-layout";
@@ -111,6 +114,8 @@ palette.prepend(
 const modeButton = $<HTMLButtonElement>("world-mode");
 const petButton = $<HTMLButtonElement>("world-pet");
 const gatherButton = $<HTMLButtonElement>("world-gather");
+/** Shown while you stand beside water (RFC 0023): cast a line. */
+const fishButton = $<HTMLButtonElement>("world-fish");
 const host3d = $("world-3d");
 /** The speaker button: sound is off until it's tapped, and its code loads then (decision 0097). */
 const sound = new SoundSwitch($<HTMLButtonElement>("sound"));
@@ -163,6 +168,10 @@ let buildMode = false;
 let pick: BlockKind | GroundKind | "hearth" = "wood";
 /** What you hold that the build bar shows: decor and furniture counts, and what paths take. */
 let holdings: Holdings = new Map();
+/** The fishing rods you hold, by id (RFC 0023): with none, Fish says how to make one. */
+let rods: ReadonlySet<string> = new Set();
+/** Casts made lately, anyone's, drawn on the water for a moment. */
+let casts: CastMark[] = [];
 /** The chat line waiting for the server's answer: its text leaves the input only once accepted. */
 let pendingChat: { id: string; text: string } | undefined;
 /** Routine waves from neighbors at home, folded into one line while they come close together. */
@@ -421,11 +430,17 @@ function onMessage(msg: ServerMessage) {
         const { px, py } = msg.event;
         openPlotNameSheet({ px, py }, { say: showToast, claimed: true });
       }
+      // A cast (RFC 0023), anyone's: its float, its rings, and what it brought up, on the water.
+      if (applied === "applied" && msg.event.type === "fished") {
+        const { x, y, caught } = msg.event;
+        casts = [...casts, { x, y, caught, at: performance.now() }];
+      }
       // Your own news, in plain words. Notes, labels, and names stay out of it.
       const line = me ? newsLine(msg.event, me) : null;
       if (line) showToast(line);
       // What you hold changes the build bar: decor and furniture counts, and what paths take.
       if (msg.event.type === "inventory" && msg.event.residentId === me) {
+        rods = rodsAfter(rods, msg.event);
         const next = withChanges(holdings, msg.event.changes);
         if (next !== holdings) {
           const wasHeld = isHeldBlock(pick) ? heldOf(holdings, pick) : 0;
@@ -690,6 +705,7 @@ function tapTile(tile: { x: number; y: number }) {
       else showToast(groundLine(pick, holdings));
     } else if (hasBlock) tryAct({ type: "remove", ...tile });
     else if (isHeldBlock(pick) && heldOf(holdings, pick) === 0) showToast(heldLine(pick, 0));
+    else if (pick === "pond" && !canDig(holdings)) showToast(pondLine(holdings));
     else tryAct({ type: "place", ...tile, block: pick });
     return;
   }
@@ -724,6 +740,12 @@ function tapTile(tile: { x: number; y: number }) {
       else showToast("You can't get close enough to reach that from here.");
     });
   };
+  // Water (RFC 0023): cast a line into it from beside it, walking there first when it's farther.
+  if (!other && mirror.blocks.get(tileKey(tile.x, tile.y)) === "pond") {
+    if (Math.max(Math.abs(tile.x - at.x), Math.abs(tile.y - at.y)) <= 1) castLine();
+    else walkToward(tile, 1, castLine);
+    return;
+  }
   // A planter, kitchen, or workbench opens what you can do there (RFC 0005). One farther off is
   // somewhere to walk to: you stop once it's in reach, and it opens then.
   const station = mirror.blocks.get(`${tile.x},${tile.y}`);
@@ -1064,7 +1086,9 @@ function paintPalette() {
     ? groundLine(pick, holdings)
     : isHeldBlock(pick)
       ? heldLine(pick, heldOf(holdings, pick))
-      : blockLine(pick);
+      : pick === "pond"
+        ? pondLine(holdings)
+        : blockLine(pick);
   if (buildMode)
     hud.style.setProperty("--palette-bottom", `${palette.getBoundingClientRect().bottom}px`);
 }
@@ -1074,6 +1098,7 @@ async function loadHoldings() {
   const r = await api.inventory();
   if (!active || !r.ok) return;
   holdings = holdingsFromStacks(r.data.inventory?.stacks ?? []);
+  rods = rodsIn(r.data.inventory?.goods ?? []);
   paintPalette();
 }
 
@@ -1218,12 +1243,17 @@ function frame() {
       clock,
       // Plots' names keep clear of the top bar and the visit card (decision 0121).
       labelTop: Math.max(TOP_BAR_PX, visiting.bottom()),
+      casts,
       ...(phase === undefined ? {} : { dayPhase: phase }),
     });
+  if (casts.length > 0 && now - (casts[0]?.at ?? now) > CAST_MS) {
+    casts = casts.filter((c) => now - c.at <= CAST_MS);
+  }
   if (now - petCheckAt > 250) {
     petCheckAt = now;
     paintPetButton(now);
     paintGatherButton();
+    paintFishButton();
   }
   // Your own figure's feeling, a name from a fixed list, once you're in: for tests and tools.
   const mine = me ? feelings.feeling(me, now) : "";
@@ -1289,6 +1319,36 @@ gatherButton.addEventListener("click", () => {
       }),
   );
 });
+
+/** The water beside where the server has you, if any: where a cast would go in. */
+function waterNear(): Tile | undefined {
+  const r = self();
+  const m = mirror;
+  if (!r || !m) return undefined;
+  return waterBeside(r, (x, y) => m.blocks.get(tileKey(x, y)) === "pond");
+}
+
+/** Show Fish while you stand beside water, out of build mode (RFC 0023). */
+function paintFishButton() {
+  fishButton.hidden = buildMode || waterNear() === undefined;
+}
+
+/** Cast a line into the water beside you, or say how to get a rod. The server rolls the catch. */
+function castLine() {
+  const water = waterNear();
+  if (!water) {
+    showToast("Stand right beside the water to fish.");
+    return;
+  }
+  lookAt(water);
+  if (rods.size === 0) {
+    showToast(noRodLine());
+    return;
+  }
+  tryAct({ type: "fish" });
+}
+
+fishButton.addEventListener("click", () => castLine());
 
 petButton.addEventListener("click", async () => {
   const owner = petNear;
@@ -1360,5 +1420,8 @@ export function stopWorld() {
   petNear = undefined;
   gatherButton.hidden = true;
   gathering?.done();
+  fishButton.hidden = true;
+  rods = new Set();
+  casts = [];
   landing.setJoining(false);
 }

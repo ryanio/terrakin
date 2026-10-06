@@ -586,7 +586,8 @@ export function townView(ctx: ViewContext): View {
     };
     const pickWords = h("p", { class: "palette-line", attrs: { "aria-live": "polite" } });
     const paintPicks = () => {
-      paintBlockRow(rows.blocks, BUILDING_BLOCKS, pick);
+      // A pond too (RFC 0023), for everyone to fish beside.
+      paintBlockRow(rows.blocks, [...BUILDING_BLOCKS, "pond"], pick);
       paintGroundRow(rows.ground, null, pick);
       paintHeldRow(rows.furniture, null, pick);
       pickWords.textContent = pickLine(pick);

@@ -50,6 +50,7 @@ import {
   eventsLeavingPlot,
   eventsNewDay,
 } from "./events";
+import { checkFish } from "./fishing";
 import {
   checkCloseRound,
   checkCloseTable,
@@ -66,6 +67,9 @@ import { checkLay, checkLift } from "./ground";
 import { checkTrickOrTreat, halloweenNewDay } from "./halloween";
 import { canonicalJson, fnv1a } from "./hash";
 import {
+  blockNeeds,
+  blockPlaceProblem,
+  blockRemoveProblem,
   checkCraft,
   checkDeclineGift,
   checkGiveItem,
@@ -74,12 +78,9 @@ import {
   checkOpenItems,
   checkPlant,
   cropAt,
-  decorPlaceProblem,
-  decorRemoveProblem,
   type ItemsChecked,
-  isHeldBlock,
   itemsNewDay,
-  moveDecor,
+  moveBlockCost,
   pantryDue,
   payPantry,
 } from "./items";
@@ -967,11 +968,14 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         const shown = displayRemoveProblem(state, x, y);
         if (shown) return { ok: false, rejection: shown };
         const taken = state.blocks[key];
-        const full = decorRemoveProblem(state, actor, taken);
+        const full = blockRemoveProblem(state, actor, taken);
         if (full) return { ok: false, rejection: full };
         return () => {
           delete state.blocks[key];
-          return [{ type: "block_removed", x, y, by: actor }, ...moveDecor(state, actor, taken, 1)];
+          return [
+            { type: "block_removed", x, y, by: actor },
+            ...moveBlockCost(state, actor, taken, 1),
+          ];
         };
       }
       if (state.blocks[key] !== undefined)
@@ -991,13 +995,13 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       if (!(BLOCK_KINDS as readonly unknown[]).includes(block)) {
         return reject("unknown_item", "That isn't a block you can place.");
       }
-      const decor = decorPlaceProblem(state, actor, block);
-      if (decor) return { ok: false, rejection: decor };
+      const cost = blockPlaceProblem(state, actor, block);
+      if (cost) return { ok: false, rejection: cost };
       return () => {
         state.blocks[key] = block;
         return [
           { type: "block_placed", x, y, block, by: actor },
-          ...moveDecor(state, actor, block, -1),
+          ...moveBlockCost(state, actor, block, -1),
         ];
       };
     }
@@ -1046,10 +1050,10 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         const p = plotOf(config, t.x, t.y);
         return inBounds(config, t.x, t.y) && p.px === plot.px && p.py === plot.py;
       };
-      if (isHeldBlock(command.walls) || isHeldBlock(command.windows)) {
+      if (blockNeeds(command.walls).length > 0 || blockNeeds(command.windows).length > 0) {
         return reject(
           "unknown_item",
-          "A starter home is built from free blocks. Place decor and furniture yourself with place.",
+          "A starter home is built from free blocks. Place decor, furniture, and ponds yourself with place.",
         );
       }
       const home = starterHome(
@@ -1262,5 +1266,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
 
     case "trick_or_treat":
       return town(checkTrickOrTreat(state, actor, command));
+
+    case "fish":
+      return town(checkFish(state, actor, command));
   }
 }

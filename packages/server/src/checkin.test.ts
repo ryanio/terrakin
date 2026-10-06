@@ -285,9 +285,11 @@ describe("GET /v1/checkin with seen", () => {
     expect(quiet.body).toEqual({
       at: new Date(Date.parse(first.at) + 4 * HOUR).toISOString(),
       since: first.at,
-      // What it's like out comes with every answer: mid-November is autumn. So does the
-      // catalog's version, so an agent knows when to read GET /v1/catalog again.
+      // What it's like out comes with every answer: mid-November is autumn, and the time of day is
+      // the map's. So does the catalog's version, so an agent knows when to read GET /v1/catalog
+      // again.
       weather: expect.any(String),
+      timeOfDay: expect.any(String),
       season: "autumn",
       catalog: CATALOG_VERSION,
       notifications: { unread: first.notifications.unread, items: [] },
@@ -342,6 +344,7 @@ describe("GET /v1/checkin with seen", () => {
       "since",
       "season",
       "weather",
+      "timeOfDay",
       "catalog",
       "notifications",
       "letters",
@@ -613,9 +616,11 @@ describe("first-visit steps and things to try", () => {
       pickTryNext(service.state, wren.id, new Set(done), new Set())?.id ?? null;
     expect(pick([])).toBe("plant");
     expect(pick(["plant", "gather"])).toBe("build");
-    expect(pick(["plant", "gather", "lay"])).toBe("games");
-    expect(pick(["plant", "gather", "lay", "sit"])).toBeNull();
-    const done = ["plant", "gather", "build"];
+    // Fishing (RFC 0023) once there's been some building, then the games.
+    expect(pick(["plant", "gather", "lay"])).toBe("fish");
+    expect(pick(["plant", "gather", "lay", "fish"])).toBe("games");
+    expect(pick(["plant", "gather", "lay", "fish", "sit"])).toBeNull();
+    const done = ["plant", "gather", "build", "fish"];
     expect(pick([...done, "harvest"])).toBe("craft");
     // Furniture from a workbench stacks and goes on the plot, so it leaves nothing to display.
     expect(pick([...done, "harvest", "craft"])).toBe("give");
@@ -669,7 +674,7 @@ describe("first-visit steps and things to try", () => {
     const ash = join("Ash");
     await ok("POST", "/v1/actions", { type: "settle", px: 1, py: 1 }, wren.token);
     await ok("POST", "/v1/actions", { type: "settle", px: 3, py: 1 }, ash.token);
-    const gardener = new Set(["plant", "gather", "harvest", "craft", "build"]);
+    const gardener = new Set(["plant", "gather", "harvest", "craft", "build", "fish"]);
     const pick = (id: string) => pickTryNext(service.state, id, gardener, new Set())?.id ?? null;
     // The test clock starts on 2023-11-14, in autumn.
     expect(pick(wren.id)).toBe("pumpkins");
@@ -689,7 +694,7 @@ describe("first-visit steps and things to try", () => {
     const { join, ok, service, advance } = await start(world);
     const wren = join("Wren");
     await ok("POST", "/v1/actions", { type: "settle", px: 1, py: 1 }, wren.token);
-    const gardener = new Set(["plant", "gather", "harvest", "craft", "build"]);
+    const gardener = new Set(["plant", "gather", "harvest", "craft", "build", "fish"]);
     const pick = () => pickTryNext(service.state, wren.id, gardener, new Set());
     // The test clock starts on 2023-11-14, in autumn: December 1 is 17 days on.
     expect(pick()?.id).toBe("pumpkins");

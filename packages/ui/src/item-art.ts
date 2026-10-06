@@ -5,7 +5,7 @@
  *
  * Most items are drawn from their look in the sim's catalog (RFC 0018): produce from its outline,
  * what grows on top, and its colors; a seed packet from the crop it grows; a jar from what fills it
- * and what's on its label. Decor, furniture, the pantry's staples, made goods without a template,
+ * and what's on its label; a fish from its outline, its colors, and its markings (RFC 0023). Decor, furniture, the pantry's staples, made goods without a template,
  * finds, and wear have their own drawings here, under their ids. Each picture sits in a 48 by 48
  * box on a soft ground shadow. Colors come from the catalog, the brand tokens, and the sim's
  * palette, so a lantern here is the lantern in the world.
@@ -15,6 +15,7 @@ import {
   CATALOG,
   CROP_HEX,
   type Crop,
+  type FishLook,
   growth,
   ITEM_KINDS,
   type ItemKind,
@@ -1825,11 +1826,233 @@ function candyCane(): ArtShape[] {
   ];
 }
 
+// ---------- fishing (RFC 0023) ----------
+
+/**
+ * A fish's outline, facing right, in the 48 by 48 box: its body, the belly along its underside, its
+ * tail and its fin on top, a fin at its side, its eye, its gill, its mouth (where a catfish's
+ * whiskers grow), and where its markings go, so spots, bars, and bands stay inside its body.
+ */
+interface FishFrame {
+  body: string;
+  belly: string;
+  tail: string;
+  dorsal: string;
+  fin: string;
+  eye: [number, number, number];
+  gill: string;
+  mouth: [number, number];
+  spots: readonly [number, number, number][];
+  bars: string;
+  band: string;
+  scales: string;
+  shine: [number, number, number, number];
+}
+
+const FISH_FRAMES: Readonly<Record<Exclude<FishLook["shape"], "eel" | "small">, FishFrame>> = {
+  // Like a trout: long and even, with a forked tail.
+  slim: {
+    body: "M12 26C15 20 25 18.5 33 19.5S41 23 41.5 26 38 31.5 33 32.5 15 32 12 26z",
+    belly: "M14 28c6 3.5 14 4.8 19 4.5s7.5-3 8.2-5.1c-7.2 2.2-17.2 2.6-27.2.6z",
+    tail: "M13.2 26 6 18.6l2.6 7.4-2.6 7.4z",
+    dorsal: "M21.5 19.6c1.8-4 6.4-4.8 9.6-.2z",
+    fin: "M28.6 28.4c-1.6 2.6-4 3.6-6 3.4 1.4-1.6 3.6-3 6-3.4z",
+    eye: [36, 24.4, 1.7],
+    gill: "M32.6 21.4c-1.4 2.6-1.4 5.6 0 8.6",
+    mouth: [41.4, 26.4],
+    spots: [
+      [19.5, 23, 0.9],
+      [23.5, 21.8, 0.8],
+      [27, 23.6, 0.9],
+      [16.8, 25.4, 0.8],
+      [22.6, 25.6, 0.7],
+      [29.6, 21.8, 0.7],
+    ],
+    bars: "M18 21.4v9.2M22.4 20.4v11.4M26.8 20v11.8",
+    band: "M14.5 26.4c6-.6 13.5-.4 20.5-1",
+    scales:
+      "M17 23.6q1.5 1.5 3 0M21 23q1.5 1.5 3 0M25 23q1.5 1.5 3 0M19 27q1.5 1.5 3 0M23 27q1.5 1.5 3 0",
+    shine: [30, 21.6, 3, 1],
+  },
+  // Like a perch or a koi: tall and round, with a spiny fin on top and a broad tail.
+  deep: {
+    body: "M13 26c2-9 9-12.5 16-11.5S39.5 20 40 26s-4.5 10.5-11 11.5S15 35 13 26z",
+    belly: "M15 30c4 5.5 10 8 14 7.5s9-4 10.5-8c-7.5 3-17.5 3.5-24.5.5z",
+    tail: "M14.4 26 6 17.6c2.2 4.4 2.2 12.4 0 16.8z",
+    dorsal: "M18.6 16.8c3-6 10.4-6.4 14.6-1.4z",
+    fin: "M28 28.2c-2 3-4.6 4.4-6.6 4 1.6-2 4-3.6 6.6-4z",
+    eye: [34.4, 22.4, 1.9],
+    gill: "M31 17.8c-2 4.6-2 11.2 0 15.8",
+    mouth: [40, 26],
+    spots: [
+      [20, 22, 1.2],
+      [25, 19.6, 1.1],
+      [23, 26, 1],
+      [28, 23, 1.2],
+      [18.4, 27.4, 0.9],
+      [26, 30, 0.9],
+    ],
+    bars: "M18.6 19.8v12.6M23.4 16.8v18.6M28.2 16v19.8",
+    band: "M15.4 26.2c6-.6 14-.6 20.6-1.2",
+    scales:
+      "M18 21q1.6 1.6 3.2 0M22.4 19.6q1.6 1.6 3.2 0M26.8 20q1.6 1.6 3.2 0M18.4 25.4q1.6 1.6 3.2 0M22.8 25q1.6 1.6 3.2 0M27.2 25q1.6 1.6 3.2 0M20.6 29.4q1.6 1.6 3.2 0M25 29.6q1.6 1.6 3.2 0",
+    shine: [29, 18, 3.4, 1.2],
+  },
+  // Like a pike: long and narrow, its fin set far back by the tail.
+  long: {
+    body: "M9 26c3-4 13-5 23-4.5s11 2.5 12.5 4.7c-1.5 2-6.5 3.8-12.5 4.3S12 30 9 26z",
+    belly: "M11 27.6c7 2.9 17 3.4 21 2.9s9.5-1.7 11.8-3.3c-8.8 1.3-21.8 1.8-32.8.4z",
+    tail: "M10 26 3.4 20.4c1.6 3.6 1.6 7.6 0 11.2z",
+    dorsal: "M14.2 22.6c1.6-4.2 5.6-4.2 7.2-.6z",
+    fin: "M30 28.6c-1.4 2.4-3.4 3.4-5 3.2 1-1.6 3-2.8 5-3.2z",
+    eye: [39.4, 24.6, 1.4],
+    gill: "M36 22.6c-1 2-1 5 0 7",
+    mouth: [44.4, 26.6],
+    spots: [
+      [15, 25, 0.8],
+      [19, 24, 0.8],
+      [23, 26, 0.8],
+      [27, 24.4, 0.8],
+      [31, 26.4, 0.8],
+      [18, 27.4, 0.7],
+      [25, 28, 0.7],
+    ],
+    bars: "M17 23.2v6.4M22 22.6v7.4M27 22.2v7.8",
+    band: "M11.2 26.4c9-.4 19-.2 27-1",
+    scales:
+      "M15 24.4q1.4 1.4 2.8 0M19.4 24q1.4 1.4 2.8 0M23.8 23.8q1.4 1.4 2.8 0M28.2 23.8q1.4 1.4 2.8 0",
+    shine: [33, 23.2, 3, 0.8],
+  },
+};
+
+/** A catfish's whiskers, from its mouth. */
+const whiskers = ([x, y]: [number, number]): ArtShape =>
+  line(
+    `M${x} ${y}c2.4-.2 4-1.4 4.8-3M${x} ${y + 0.4}c2.3.6 3.8 2 4.4 3.8M${x - 0.7} ${y - 0.6}c1.4-1.2 2.2-2.6 2.4-4.3`,
+    LINE,
+    0.9,
+  );
+
+/** A fish drawn from its frame and its look's colors, without the shadow. */
+function fishBody(look: FishLook, f: FishFrame): ArtShape[] {
+  const marks: ArtShape[] = [];
+  if (look.scales) marks.push(line(f.scales, look.scales, 0.9, { opacity: 0.55 }));
+  if (look.bars) marks.push(line(f.bars, look.bars, 2.4, { opacity: 0.55 }));
+  if (look.band) marks.push(line(f.band, look.band, 2, { opacity: 0.8 }));
+  if (look.spots) {
+    const spots = look.spots;
+    marks.push(...f.spots.map(([cx, cy, r]) => circle(cx, cy, r, spots, { opacity: 0.9 })));
+  }
+  const [ex, ey, er] = f.eye;
+  return [
+    path(f.tail, look.fin, out()),
+    path(f.dorsal, look.fin, out()),
+    path(f.body, look.body, out()),
+    path(f.belly, look.belly),
+    ...marks,
+    path(f.fin, look.fin, out({ "stroke-width": 1 })),
+    line(f.gill, LINE, 1, { opacity: 0.55 }),
+    circle(ex, ey, er, "#ffffff", out({ "stroke-width": 0.9 })),
+    circle(ex + 0.25, ey, er * 0.55, INK),
+    shine(...f.shine, 0),
+    ...(look.whiskers ? [whiskers(f.mouth)] : []),
+  ];
+}
+
+/** An eel: one long ribbon in an S, darker along its back and pale beneath. */
+function eelBody(look: FishLook): ArtShape[] {
+  const spine = "M7 31c4-8 9-8.5 13-4.5s9 6.5 13 1.5 6.5-7.5 10.5-5.5";
+  return [
+    line(spine, LINE, 8.4),
+    line(spine, look.body, 6.4),
+    line("M8.2 32.4c4-7 8.8-7.4 12.4-3.8s8.8 6.2 12.6 1.4 6.6-7 9.8-5.4", look.belly, 2.2, {
+      opacity: 0.85,
+    }),
+    line("M9.4 27.8c3.4-5 7.4-5 10.4-2.4", look.fin, 1.4),
+    path("M7.6 30.6 3.4 33.8l4.8.8z", look.fin, out({ "stroke-width": 0.9 })),
+    circle(40.6, 22.6, 1.2, "#ffffff", out({ "stroke-width": 0.8 })),
+    circle(40.8, 22.6, 0.65, INK),
+  ];
+}
+
+/** A fish from its look in the catalog: its outline, its colors, and its markings. */
+function fishArt(look: FishLook): ArtShape[] {
+  if (look.shape === "eel") return [shadow(17, 42), ...eelBody(look)];
+  if (look.shape === "small") {
+    // A minnow is a slim fish, small: each part drawn at the smaller size.
+    const small = "translate(24 26) scale(0.72) translate(-24 -26)";
+    return [shadow(10, 41), ...fishBody(look, FISH_FRAMES.slim).map((s) => group(small, [s]))];
+  }
+  return [shadow(look.shape === "long" ? 18 : 14, 42), ...fishBody(look, FISH_FRAMES[look.shape])];
+}
+
+/** A fishing rod: bamboo with a reel by its cork grip, its line hanging to a red and white float. */
+function fishingRod(): ArtShape[] {
+  const bamboo = "#c9a25a";
+  return [
+    shadow(14),
+    line("M9 41 38 8", WOOD_DARK, 3.6),
+    line("M9 41 38 8", bamboo, 2.2),
+    line("M17.7 31.1l1.8 1.6M24 23.9l1.8 1.6M30.3 16.7l1.8 1.6", WOOD_DARK, 1),
+    line("M9 41l5.4-6.2", "#b98a5a", 3.8),
+    circle(16.6, 33.4, 3.1, "#9aa3a8", out()),
+    circle(16.6, 33.4, 1.1, IRON),
+    line("M38 8c2 6 3 13.5 2.6 21", "#e9e1d0", 0.8),
+    circle(40.6, 31.4, 2.6, "#ffffff", out({ "stroke-width": 1 })),
+    path("M38 31.4a2.6 2.6 0 0 1 5.2 0z", "#d1453b", out({ "stroke-width": 1 })),
+  ];
+}
+
+/** Fried minnows: three golden little fish on a plate, with a sprig of herbs. */
+function friedMinnows(): ArtShape[] {
+  const crumb = "#d9a24a";
+  const minnow = (x: number, y: number, turn: number): ArtShape =>
+    group(`translate(${x} ${y}) rotate(${turn})`, [
+      path("M-5 0l-2.6-2.2v4.4z", "#c48a36", out({ "stroke-width": 0.8 })),
+      ellipse(0, 0, 5.4, 2.2, crumb, out({ "stroke-width": 1 })),
+      line("M-2.2-.6h3", "#f2c97a", 0.8),
+      circle(3.2, -0.5, 0.55, INK),
+    ]);
+  return [
+    shadow(17, 42),
+    ellipse(24, 33, 17.5, 7, "#e9e1d0", out()),
+    ellipse(24, 32.6, 13, 4.8, PAPER2, out({ "stroke-width": 0.8 })),
+    minnow(16.5, 31, -10),
+    minnow(24.5, 29.4, 6),
+    minnow(31.5, 32, -4),
+    leaf(30, 27, 6, -60, LEAF),
+    leaf(30.5, 27, 5, -10, MOSS_LIGHT),
+  ];
+}
+
+/** Fish stew: a blue bowl of tomato broth with chunks of carp, a herb leaf, and steam. */
+function fishStew(): ArtShape[] {
+  return [
+    shadow(15, 43),
+    line(
+      "M17 19c-1.5-2 1.5-3.5 0-6M24 18c-1.5-2 1.5-3.5 0-6M31 19c-1.5-2 1.5-3.5 0-6",
+      "#c9c2b4",
+      1.2,
+      {
+        opacity: 0.8,
+      },
+    ),
+    path("M8 26h32c0 9-7 15.5-16 15.5S8 35 8 26z", "#5e7f9a", out()),
+    line("M10.5 31c2.5 5 7.5 8 13.5 8", "#ffffff", 1.2, { opacity: 0.2 }),
+    ellipse(24, 26, 16, 4.6, "#c8642f", out()),
+    circle(18, 25.6, 1.7, "#f0d79a", out({ "stroke-width": 0.7 })),
+    circle(26.5, 26.6, 1.5, "#f0d79a", out({ "stroke-width": 0.7 })),
+    circle(22.4, 27.4, 1.1, "#f0d79a", out({ "stroke-width": 0.7 })),
+    leaf(29, 25.4, 5.5, -25, LEAF),
+  ];
+}
+
 // ---------- the catalog ----------
 
 /**
  * Items with their own drawing (`drawn` looks in the catalog): the pantry's staples, materials,
- * decor, furniture, made things that no template draws, and finds (RFC 0021).
+ * decor, furniture, made things that no template draws, finds (RFC 0021), and the fishing rod and
+ * what the kitchen cooks from fish (RFC 0023).
  */
 const DRAWN: Readonly<Partial<Record<ItemKind, () => ArtShape[]>>> = {
   sugar,
@@ -1886,6 +2109,9 @@ const DRAWN: Readonly<Partial<Record<ItemKind, () => ArtShape[]>>> = {
   little_fir: littleFir,
   sled,
   candy_cane: candyCane,
+  fishing_rod: fishingRod,
+  fried_minnows: friedMinnows,
+  fish_stew: fishStew,
 };
 
 /** Every piece of wear's drawing. */
@@ -1932,6 +2158,8 @@ function lookShapes(kind: ItemKind, look: KindLook): ArtShape[] {
       return seedPacket(CATALOG[kind].grows as Crop);
     case "jar":
       return jarArt(look);
+    case "fish":
+      return fishArt(look);
     case "drawn": {
       const draw = DRAWN[kind];
       if (!draw) throw new Error(`${kind} is drawn by hand, and item-art.ts has no picture of it.`);

@@ -24,11 +24,13 @@ import {
   onVine,
   PAPER,
   PET_BOX,
+  POND_LOOK,
   petBed,
   petShapes,
   seasonOf,
   THEME_INFO,
   THEME_TINT_ALPHA,
+  tileHash,
   tileKey,
   tuftStroke,
   type WorldState,
@@ -153,14 +155,18 @@ export function plotPhotoSpec(
           ...(onVine(planting.crop) ? { vine: true } : {}),
         });
       }
-      // Glass keeps its own color on a themed plot, as in the world.
+      // Glass keeps its own color on a themed plot, as in the world, and so does water. A pond's
+      // lily pads float where the map floats them (RFC 0023).
+      const pond = block === "pond";
       blocks.push({
         x,
         y,
         glass: block === "glass",
-        fill: blockFill(block, block === "glass" ? undefined : palette),
+        fill: blockFill(block, block === "glass" || pond ? undefined : palette),
         ...(isDecorKind(block) ? { decor: block } : {}),
         ...(isFurnitureKind(block) ? { furniture: block } : {}),
+        ...(pond ? { water: true } : {}),
+        ...(pond && tileHash(x0 + x, y0 + y) % 3 === 0 ? { lily: true } : {}),
       });
     }
   }
@@ -196,7 +202,19 @@ export function plotPhotoSpec(
     ...(hearth ? { hearth: { x: hearth.x - x0, y: hearth.y - y0 } } : {}),
     ...(owner?.homeArt ? { homeArt: owner.homeArt } : {}),
     ...(pet ? { pet } : {}),
-    ink: { roof: HEARTH_COLOR, door: HEARTH_DOOR, walls: PAPER, tuft: tuftStroke(season) },
+    ink: {
+      roof: HEARTH_COLOR,
+      door: HEARTH_DOOR,
+      walls: PAPER,
+      tuft: tuftStroke(season),
+      pond: {
+        shade: POND_LOOK.shade,
+        stone: POND_LOOK.stone,
+        pebble: POND_LOOK.pebble,
+        lily: POND_LOOK.lily,
+        glint: POND_LOOK.glint,
+      },
+    },
   };
 }
 

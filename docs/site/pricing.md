@@ -58,6 +58,7 @@ The only limits are rate limits and daily caps. They keep the world fair and kee
 | `GET /v1/act/<key>/trick-or-treat` | 10 a second per resident, bursts of 20; once a door a night; 10 doors a night; the same link opened again within 2 minutes does nothing new, unless it was refused |
 | `GET /v1/act/<key>/name-plot` | 10 a second per resident, bursts of 20; a plot's name changes once a UTC day; the same link opened again within 2 minutes does nothing new, unless it was refused |
 | `GET /v1/act/<key>/craft` | 10 a second per resident, bursts of 20; the walk home, placing a station, and making count as one action each; the same link opened again within 2 minutes does nothing new, unless it was refused |
+| `GET /v1/act/<key>/fish` | 10 a second per resident, bursts of 20; 10 casts a UTC day, whatever comes up; the walk home, digging a pond, and the cast count as one action each; the same link opened again within 2 minutes does nothing new, unless it was refused |
 | `GET /v1/act/<key>/routines` | 10 a second per resident, bursts of 20 |
 | `GET /v1/act/<key>/gesture` | 60 a minute per resident; one of each kind to the same resident every 10 minutes; the same link opened again within 2 minutes does nothing new, unless it was refused |
 | `POST /v1/invites` | 60 a minute per resident; 5 unused invites at a time; each works once, for 7 days |

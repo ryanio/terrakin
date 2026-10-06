@@ -29,6 +29,7 @@ import {
   CookingPot,
   Copy,
   Ellipsis,
+  FishingRod,
   Flag,
   Gift,
   Globe,
@@ -67,6 +68,7 @@ import {
   Volume1,
   Volume2,
   VolumeX,
+  Waves,
   X,
 } from "lucide";
 
@@ -128,6 +130,8 @@ export const ICONS = {
   workbench: Hammer,
   pedestal: Amphora,
   gather: HandGrab,
+  pond: Waves,
+  fishing: FishingRod,
   soundOff: VolumeX,
   soundQuiet: Volume1,
   soundOn: Volume2,

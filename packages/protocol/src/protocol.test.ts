@@ -8,6 +8,7 @@ import {
   countOf,
   createWorld,
   DEFAULT_CONFIG,
+  FISHING,
   FURNITURE_KINDS,
   FURNITURE_RECIPES,
   fnv1a,
@@ -23,11 +24,14 @@ import {
   holidayDates,
   ITEM_INFO,
   ITEM_KINDS,
+  isFishKind,
   PATTERNS,
   PET_COATS,
   PET_KINDS,
   PETS,
+  POND,
   PUTTER,
+  RECIPES,
   SEASON_BUYS,
   SEASON_STOCK,
   SEASONS,
@@ -36,6 +40,7 @@ import {
   type StackKind,
   spawnTile,
   THEMES,
+  TIMES_OF_DAY,
   TOWN_ACTOR,
   TRICK_OR_TREAT,
   trickOrTreatNights,
@@ -459,12 +464,33 @@ describe("looks", () => {
     }
     const section = skill.slice(skill.indexOf("## Seasons"), skill.indexOf("## Holidays"));
     const { cranberry, cranberry_jam: jam, cranberry_punch: punch } = BUY_ORDERS;
-    expect(SEASON_BUYS.winter).toEqual(["cranberry", "cranberry_jam", "cranberry_punch"]);
+    // Then winter's own fish (RFC 0023), as the fishing test below checks.
+    expect(SEASON_BUYS.winter).toEqual(["cranberry", "cranberry_jam", "cranberry_punch", "char"]);
     expect(section).toContain(
       `cranberries (${cranberry.price} coin each, ${cranberry.perDay} a day from each resident)`,
     );
     expect(section).toContain(`cranberry jam (${jam.price} coins, ${jam.perDay} a day)`);
     expect(section).toContain(`hot cranberry punch (${punch.price} coins, ${punch.perDay} a day)`);
+  });
+
+  it("gives fishing's numbers as the sim has them", () => {
+    const section = skill.slice(skill.indexOf("## Fishing"), skill.indexOf("## Visiting"));
+    for (const words of [
+      `for ${POND.stone} stone from your things`,
+      `from ${RECIPES.fishing_rod.needs.wood} wood`,
+      `${FISHING.castsPerDay} casts a UTC day`,
+    ]) {
+      expect(section).toContain(words);
+    }
+    // Each season's own fish, which the town buys every day of it, all at the one order quoted.
+    const quoted = `${BUY_ORDERS.salmon.price} coins each, up to ${BUY_ORDERS.salmon.perDay} a day`;
+    expect(section).toContain(quoted);
+    for (const season of SEASONS) {
+      for (const kind of SEASON_BUYS[season].filter(isFishKind)) {
+        expect(section).toContain(`\`${kind}\` in ${season}`);
+        expect(BUY_ORDERS[kind], kind).toEqual(BUY_ORDERS.salmon);
+      }
+    }
   });
 
   it("gives the games' numbers as the sim and the server's clock use them", () => {
@@ -491,7 +517,7 @@ describe("looks", () => {
     }
   });
 
-  it("documents every theme, pattern, wear item, hair style and color, weather, and season in SKILL.md", () => {
+  it("documents every theme, pattern, wear item, hair style and color, weather, season, and time of day in SKILL.md", () => {
     for (const id of [
       ...THEMES,
       ...PATTERNS,
@@ -500,6 +526,7 @@ describe("looks", () => {
       ...HAIR_COLORS,
       ...WEATHERS,
       ...SEASONS,
+      ...TIMES_OF_DAY,
     ]) {
       expect(skill).toContain(`\`${id}\``);
     }

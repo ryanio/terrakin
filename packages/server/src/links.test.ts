@@ -1075,6 +1075,38 @@ describe("links for the rest of a link-only resident's week", () => {
     expect((await wren.act("checkin")).text).not.toContain("## Halloween");
   });
 
+  it("fishes from the hearth once there's a rod, digging a pond beside it from stone", async () => {
+    const { joinByLink, service } = await start({
+      world: { days: true, economy: true, items: true },
+    });
+    const wren = await joinByLink("Wren");
+    await wren.act("settle?px=0&py=0");
+    await wren.act("build-home");
+    // Without a rod, the refusal links the craft link that makes one.
+    const early = (await wren.act("fish")).text;
+    expect(codeOf(early)).toBe("no_rod");
+    expect(early).toContain(`/v1/act/${wren.key}/craft?recipe=fishing_rod`);
+    // Three branches and two stones, as gathering with the API brings them.
+    const items = service.state.items;
+    if (!items) throw new Error("items closed");
+    items.inventories[wren.id] = { stacks: { wood: 3, stone: 1 }, goods: [] };
+    expect((await wren.act("craft?recipe=fishing_rod")).text).toContain("You made");
+    // One stone short of a pond: it says so, and nothing is dug.
+    const short = (await wren.act("fish")).text;
+    expect(codeOf(short)).toBe("no_water");
+    expect(short).toContain("A tile of pond takes 2 stone, and you have 1 stone");
+    (items.inventories[wren.id] as { stacks: Record<string, number> }).stacks.stone = 2;
+    const cast = (await wren.act("fish")).text;
+    expect(cast).toMatch(/You dug a tile of pond at \(\d+, \d+\), beside your hearth/);
+    expect(cast).toMatch(/Nothing's biting|an old boot|You caught/);
+    expect(cast).toContain("9 casts left today");
+    const hearth = service.state.residents[wren.id]?.hearth;
+    const ponds = Object.entries(service.state.blocks).filter(([, b]) => b === "pond");
+    expect(ponds).toHaveLength(1);
+    const [x = 0, y = 0] = (ponds[0]?.[0] ?? "").split(",").map(Number);
+    expect(Math.max(Math.abs(x - (hearth?.x ?? 0)), Math.abs(y - (hearth?.y ?? 0)))).toBe(1);
+  });
+
   it("lists events that are on in the check-in, and goes there and stays by link", async () => {
     let now = Date.UTC(2026, 9, 5, 9);
     const store = new MemoryStore();

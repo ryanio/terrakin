@@ -98,6 +98,13 @@ export interface PlotBlock {
   decor?: PlotDecor | undefined;
   /** Set for a piece of furniture; `fill` is then its main color. */
   furniture?: PlotFurniture | undefined;
+  /**
+   * A tile of pond (RFC 0023): flat in the ground in `ink.pond`'s colors, with a stone rim along
+   * each side that doesn't run on into more pond. `fill` is then its water.
+   */
+  water?: boolean | undefined;
+  /** A lily pad floats on this tile of pond, as on the map. */
+  lily?: boolean | undefined;
 }
 
 /** Something growing in a planter, drawn over it as the map draws it. */
@@ -121,7 +128,27 @@ export interface PlotInk {
   door: string;
   walls: string;
   tuft: string;
+  /** A pond's colors beside its water (RFC 0023): the shade by its banks, its rim, and more. */
+  pond?: PlotPondInk | undefined;
 }
+
+/** How a pond is drawn in a photo, from the sim's `POND_LOOK`. */
+export interface PlotPondInk {
+  shade: string;
+  stone: string;
+  pebble: string;
+  lily: string;
+  glint: string;
+}
+
+/** A pond's colors when a card names none: the sim's own, so a photo never shows a plain square. */
+const POND_INK: PlotPondInk = {
+  shade: "rgba(28, 64, 96, 0.22)",
+  stone: "#c4beb2",
+  pebble: "#8f887c",
+  lily: "#6fae4c",
+  glint: "#ffffff",
+};
 
 /**
  * A pet asleep by the hearth (RFC 0019), from the pictures the sim keeps as data: plain shapes whose
@@ -221,13 +248,28 @@ export function plotSvg(c: PlotCard, px: number): string {
   parts.push(...flowers);
   if (c.tint) parts.push(`<rect width="${S}" height="${S}" fill="${safeColor(c.tint)}"/>`);
 
+  // Ponds (RFC 0023) lie flat in the ground, under everything standing.
+  const ponds = new Set(c.blocks.filter((b) => b.water).map((b) => `${b.x},${b.y}`));
+  for (const b of c.blocks) {
+    if (!b.water || !inPlot(b.x, S) || !inPlot(b.y, S)) continue;
+    const at = (dx: number, dy: number) => ponds.has(`${b.x + dx},${b.y + dy}`);
+    parts.push(
+      ...pondSvg(b, safeColor(b.fill), c.ink.pond ?? POND_INK, {
+        n: !at(0, -1),
+        e: !at(1, 0),
+        s: !at(0, 1),
+        w: !at(-1, 0),
+      }),
+    );
+  }
+
   // Blocks: a ground shadow, the block, a bottom shade, and a top highlight, as in the world.
   const fences = new Set(c.blocks.filter((b) => b.decor === "fence").map((b) => `${b.x},${b.y}`));
   const walls = new Set(
     c.blocks.filter((b) => b.furniture === "stone_wall").map((b) => `${b.x},${b.y}`),
   );
   for (const b of c.blocks) {
-    if (!inPlot(b.x, S) || !inPlot(b.y, S)) continue;
+    if (b.water || !inPlot(b.x, S) || !inPlot(b.y, S)) continue;
     if (b.furniture && (PLOT_FURNITURE as readonly string[]).includes(b.furniture)) {
       const at = (dx: number, dy: number) => walls.has(`${b.x + dx},${b.y + dy}`);
       parts.push(
@@ -290,6 +332,56 @@ export function plotSvg(c: PlotCard, px: number): string {
   }
   if (c.pet) parts.push(...petSvg(c.pet, S));
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="0 0 ${S} ${S}" shape-rendering="geometricPrecision">${parts.join("")}</svg>`;
+}
+
+/**
+ * A tile of pond as `packages/client/src/render.ts` draws it, held still for a photo: the water, a
+ * shade along each bank, the stone rim there with three pebbles a side, a lily pad when it has one,
+ * and two glints.
+ */
+function pondSvg(
+  b: PlotBlock,
+  water: string,
+  ink: PlotPondInk,
+  open: { n: boolean; e: boolean; s: boolean; w: boolean },
+): string[] {
+  const { x, y } = b;
+  const band = 0.28;
+  const rim = 0.13;
+  const out = [`<rect x="${x}" y="${y}" width="1.02" height="1.02" fill="${water}"/>`];
+  const sides = [
+    [open.n, x, y, 1, band, x, y, 1, rim],
+    [open.s, x, y + 1 - band, 1, band, x, y + 1 - rim, 1, rim],
+    [open.w, x, y, band, 1, x, y, rim, 1],
+    [open.e, x + 1 - band, y, band, 1, x + 1 - rim, y, rim, 1],
+  ] as const;
+  for (const [on, sx, sy, w, h] of sides) {
+    if (on) {
+      out.push(
+        `<rect x="${n(sx)}" y="${n(sy)}" width="${w}" height="${h}" fill="${safeColor(ink.shade)}"/>`,
+      );
+    }
+  }
+  for (const [on, , , , , sx, sy, w, h] of sides) {
+    if (!on) continue;
+    out.push(
+      `<rect x="${n(sx)}" y="${n(sy)}" width="${w}" height="${h}" fill="${safeColor(ink.stone)}"/>`,
+    );
+    for (const t of [0.22, 0.58, 0.86]) {
+      const px = w > h ? sx + w * t : sx + w / 2;
+      const py = w > h ? sy + h / 2 : sy + h * t;
+      out.push(`<circle cx="${n(px)}" cy="${n(py)}" r="0.04" fill="${safeColor(ink.pebble)}"/>`);
+    }
+  }
+  if (b.lily) {
+    out.push(
+      `<path d="M${n(x + 0.42)} ${n(y + 0.56)}l0.12 -0.05a0.13 0.13 0 1 0 0 0.1z" fill="${safeColor(ink.lily)}"/>`,
+    );
+  }
+  out.push(
+    `<path d="M${n(x + 0.26)} ${n(y + 0.4)}H${n(x + 0.44)}M${n(x + 0.54)} ${n(y + 0.7)}H${n(x + 0.66)}" stroke="${safeColor(ink.glint)}" stroke-opacity="0.6" stroke-width="0.045" stroke-linecap="round"/>`,
+  );
+  return out;
 }
 
 /**

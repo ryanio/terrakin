@@ -164,6 +164,7 @@ describe("the town shop", () => {
     expect(winter.buying.filter((b: Json) => b.season).map((b: Json) => b.kind)).toEqual(
       SEASON_BUYS.winter,
     );
+    expect(winter.buying.every((b: Json) => !b.season || b.season === "winter")).toBe(true);
     expect(winter.buying.map((b: Json) => b.kind)).toEqual(townBuys(w.today()));
     // Midwinter, December 21 to 31: candy canes on the shelf, with the holiday and its last day.
     while (w.today() < dayOfDate(2026, 12, 21)) w.nextDay();

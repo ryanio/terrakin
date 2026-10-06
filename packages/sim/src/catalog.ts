@@ -1,7 +1,7 @@
 /**
  * The catalog of things (RFC 0018): every kind of thing a resident can hold, one entry each, sorted
  * into families such as food › fruit. Seeds, produce, staples, materials, decor, furniture, made
- * goods, pieces of art, and finds are all entries here, as plain data like the looks catalog.
+ * goods, pieces of art, finds, and fish are all entries here, as plain data like the looks catalog.
  *
  * Ids never change, since logs hold them, and new entries go on the end. The lists and tables below
  * the entries are views of it: each list groups kinds by role, in catalog order, so a new kind
@@ -38,11 +38,15 @@ export const FAMILIES = {
   drink: { name: "Drinks", parent: "food" },
   baked: { name: "Baked goods", parent: "food" },
   sweets: { name: "Sweets", parent: "food" },
+  // Fishing (RFC 0023): what bites beside water, and what the kitchen cooks from it.
+  fish: { name: "Fish", parent: "food" },
+  dish: { name: "Dishes", parent: "food" },
   flower: { name: "Flowers" },
   keepsake: { name: "Keepsakes" },
   seed: { name: "Seeds" },
   pantry: { name: "Pantry" },
   material: { name: "Materials" },
+  tool: { name: "Tools" },
   decor: { name: "Decor" },
   furniture: { name: "Furniture", parent: "decor" },
   art: { name: "Art" },
@@ -73,8 +77,9 @@ export function familyPath(family: Family): Family[] {
  * from a planter, a kitchen staple, a gathered material, decor that places as a block, furniture
  * made at a workbench that stacks and places like decor (RFC 0016), a made good, a piece of art, or
  * a find (RFC 0021): something rare picked up where it lies, which stacks and can stand on a
- * pedestal; or a sweet (RFC 0022): made at a kitchen and stacked, to hand out, like candy. It's
- * the category the API shows, where a piece shows as a good.
+ * pedestal; a sweet (RFC 0022): made at a kitchen and stacked, to hand out, like candy; or a fish
+ * (RFC 0023): caught beside water with a rod, and stacked. It's the category the API shows, where
+ * a piece shows as a good.
  */
 export type Role =
   | "seed"
@@ -86,7 +91,8 @@ export type Role =
   | "good"
   | "piece"
   | "find"
-  | "sweet";
+  | "sweet"
+  | "fish";
 
 /** Block kinds you craft at. `craft` names the station's tile. */
 export const STATIONS = ["kitchen", "workbench"] as const;
@@ -139,10 +145,29 @@ export type JarLook =
   | { template: "jar"; fill: string; label: string; lid: string };
 
 /**
+ * A fish (RFC 0023), drawn from the fish template: its outline (`small` like a minnow, `slim` like
+ * a trout, `deep` like a perch or a koi, `long` like a pike, or an `eel`), its back and sides
+ * (`body`), its belly, its fins and tail, and any markings, each in its own color: `spots`, `bars`
+ * across its sides, a `band` along them, or a net of `scales`. A catfish has `whiskers`.
+ */
+export interface FishLook {
+  template: "fish";
+  shape: "small" | "slim" | "deep" | "long" | "eel";
+  body: string;
+  belly: string;
+  fin: string;
+  spots?: string;
+  bars?: string;
+  band?: string;
+  scales?: string;
+  whiskers?: true;
+}
+
+/**
  * How a kind is drawn: a template and its colors, so a new fruit is a few colors and not a new
- * drawing. Besides produce and jars: `sprig` is a sprig of leaves (herbs), `bloom` a flower on its
- * stem with its petals in `body`, and `packet` a paper seed packet with the crop it grows on the
- * front, in that crop's colors. `drawn` kinds have their own picture in
+ * drawing. Besides produce, jars, and fish: `sprig` is a sprig of leaves (herbs), `bloom` a flower
+ * on its stem with its petals in `body`, and `packet` a paper seed packet with the crop it grows on
+ * the front, in that crop's colors. `drawn` kinds have their own picture in
  * `packages/ui/src/item-art.ts`, under their id. Colors are `#rrggbb`. `body` is the one color that
  * stands for a kind where it shows small: a ripe crop on the map and in 3D, a plot photo, a seed
  * packet's band.
@@ -153,6 +178,7 @@ export type KindLook =
   | { template: "bloom"; body: string }
   | { template: "packet" }
   | JarLook
+  | FishLook
   | { template: "drawn" };
 
 /** One kind of thing. Nothing in it comes from residents. */
@@ -193,6 +219,13 @@ const title = (id: string) => `${id.charAt(0).toUpperCase()}${id.slice(1).replac
  */
 const find = <const F extends Family>(name: string, plural: string, family: F) =>
   entry({ name, plural, family, role: "find", look: { template: "drawn" } });
+
+/**
+ * A fish (RFC 0023): caught with a rod beside water, and drawn from the fish template. When and
+ * how often it bites is `CATCHES` in `fishing.ts`, frozen there, never here.
+ */
+const fish = (name: string, plural: string, look: Omit<FishLook, "template">) =>
+  entry({ name, plural, family: "fish", role: "fish", look: { template: "fish", ...look } });
 
 interface CropSpec<F extends Family> {
   name: string;
@@ -719,6 +752,121 @@ const WRITTEN = {
     recipe: { station: "kitchen", needs: { herb: 1, sugar: 1 }, makes: 5 },
     look: { template: "drawn" },
   }),
+  // Fishing (RFC 0023): what bites beside water, by season, time of day, and weather. Decision 0123
+  // has the numbers.
+  minnow: fish("Minnow", "Minnows", {
+    shape: "small",
+    body: "#8fa4ac",
+    belly: "#e3ecee",
+    fin: "#7d939b",
+    band: "#4e6168",
+  }),
+  perch: fish("Perch", "Perch", {
+    shape: "deep",
+    body: "#9aa54a",
+    belly: "#f0e2a0",
+    fin: "#e2733a",
+    bars: "#4a5a22",
+  }),
+  carp: fish("Carp", "Carp", {
+    shape: "deep",
+    body: "#b98a42",
+    belly: "#f0d79a",
+    fin: "#9a6a30",
+    scales: "#8a6328",
+  }),
+  catfish: fish("Catfish", "Catfish", {
+    shape: "slim",
+    body: "#6e5d4c",
+    belly: "#d2c3a6",
+    fin: "#54463a",
+    spots: "#4e4135",
+    whiskers: true,
+  }),
+  eel: fish("Eel", "Eels", { shape: "eel", body: "#4a5a3f", belly: "#c9c48f", fin: "#39452f" }),
+  trout: fish("Trout", "Trout", {
+    shape: "slim",
+    body: "#7d9a6e",
+    belly: "#f3dfd6",
+    fin: "#a3b08f",
+    band: "#e7899a",
+    spots: "#39472f",
+  }),
+  smelt: fish("Smelt", "Smelt", {
+    shape: "slim",
+    body: "#a7c4c9",
+    belly: "#eef6f4",
+    fin: "#9ab5b9",
+    band: "#6f9aa0",
+  }),
+  sunfish: fish("Sunfish", "Sunfish", {
+    shape: "deep",
+    body: "#4d8aa6",
+    belly: "#f2a23c",
+    fin: "#3b6d84",
+    bars: "#2f5c70",
+  }),
+  salmon: fish("Salmon", "Salmon", {
+    shape: "slim",
+    body: "#8d9fb0",
+    belly: "#f4c0a8",
+    fin: "#75889a",
+    spots: "#3e4a57",
+  }),
+  pike: fish("Pike", "Pike", {
+    shape: "long",
+    body: "#6c8a45",
+    belly: "#ece6b0",
+    fin: "#9b7442",
+    spots: "#e3dd92",
+  }),
+  char: fish("Char", "Char", {
+    shape: "slim",
+    body: "#556274",
+    belly: "#ec7a45",
+    fin: "#e2603f",
+    spots: "#f2d6d0",
+  }),
+  golden_koi: fish("Golden koi", "Golden koi", {
+    shape: "deep",
+    body: "#f2a83a",
+    belly: "#fff1c9",
+    fin: "#f8cf6c",
+    spots: "#ffffff",
+  }),
+  moonfish: fish("Moonfish", "Moonfish", {
+    shape: "deep",
+    body: "#a9bfe0",
+    belly: "#eef3ff",
+    fin: "#d4505e",
+    spots: "#f4f8ff",
+  }),
+  // Made at a workbench from wood and needed to fish. A good, so it's signed by its maker.
+  fishing_rod: entry({
+    name: "Fishing rod",
+    plural: "Fishing rods",
+    family: "tool",
+    role: "good",
+    recipe: { station: "workbench", needs: { wood: 3 } },
+    look: { template: "drawn" },
+  }),
+  // What the kitchen cooks from the commonest fish.
+  fried_minnows: entry({
+    name: "Fried minnows",
+    plural: "Plates of fried minnows",
+    family: "dish",
+    role: "good",
+    recipe: { station: "kitchen", needs: { minnow: 3, herb: 1 } },
+    look: { template: "drawn" },
+  }),
+  fish_stew: entry({
+    name: "Fish stew",
+    plural: "Bowls of fish stew",
+    family: "dish",
+    role: "good",
+    recipe: { station: "kitchen", needs: { carp: 1, tomato: 1, herb: 1 } },
+    look: { template: "drawn" },
+  }),
 };
 
 // ---------- family recipes ----------
@@ -800,6 +948,7 @@ export type GoodKind = With<{ role: "good" }> | FamilyMade;
 export type PieceKind = With<{ role: "piece" }>;
 export type FindKind = With<{ role: "find" }>;
 export type SweetKind = With<{ role: "sweet" }>;
+export type FishKind = With<{ role: "fish" }>;
 export type StackKind =
   | SeedKind
   | ProduceKind
@@ -808,7 +957,8 @@ export type StackKind =
   | DecorKind
   | FurnitureKind
   | FindKind
-  | SweetKind;
+  | SweetKind
+  | FishKind;
 export type MadeKind = GoodKind | PieceKind;
 
 /** What a family recipe makes from one kind in its family. */
@@ -875,9 +1025,11 @@ export const FURNITURE_KINDS = withRole("furniture") as readonly FurnitureKind[]
 export const FIND_KINDS = withRole("find") as readonly FindKind[];
 /** Sweets (RFC 0022): made at a kitchen like a good, but they stack, to hand out. */
 export const SWEET_KINDS = withRole("sweet") as readonly SweetKind[];
+/** Fish (RFC 0023): caught with a rod beside water, by season, time of day, and weather. */
+export const FISH_KINDS = withRole("fish") as readonly FishKind[];
 /**
- * Things that stack: you hold a count of each, not separate items. Finds and then sweets came
- * last, after every role that shipped before them, so no kind that shipped earlier moves.
+ * Things that stack: you hold a count of each, not separate items. Finds, then sweets, then fish
+ * came last, after every role that shipped before them, so no kind that shipped earlier moves.
  */
 export const STACK_KINDS: readonly StackKind[] = [
   ...SEED_KINDS,
@@ -888,6 +1040,7 @@ export const STACK_KINDS: readonly StackKind[] = [
   ...FURNITURE_KINDS,
   ...FIND_KINDS,
   ...SWEET_KINDS,
+  ...FISH_KINDS,
 ];
 /** Made things with a recipe. Each one is its own item with an id, its maker, and its made day. */
 export const GOOD_KINDS = withRole("good") as readonly GoodKind[];
@@ -905,7 +1058,8 @@ export type ItemCategory =
   | "decor"
   | "furniture"
   | "find"
-  | "sweet";
+  | "sweet"
+  | "fish";
 
 export interface ItemInfo {
   /** One of it, in plain words. */
@@ -990,7 +1144,8 @@ export const holidayKinds = (holiday: Holiday): StackKind[] =>
 /*
  * Lists that rules walk, frozen by name. Old logs replayed through exactly these kinds in exactly
  * this order, so a kind never joins one by being added to the catalog. A kind joins a rule like
- * these only through a new logged input. Where finds lie is one more, `FIND_SPAWNS` in `gather.ts`.
+ * these only through a new logged input. Where finds lie is one more, `FIND_SPAWNS` in `gather.ts`,
+ * and what bites beside water another, `CATCHES` in `fishing.ts`.
  */
 
 /** The seeds a first pantry brings, `ITEMS.starterSeeds` of each. */

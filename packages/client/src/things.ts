@@ -186,8 +186,10 @@ export function inventoryLine(e: InventoryEvent): string | null {
       return sweet ? `You made ${thingCount(sweet.kind, sweet.amount)}.` : null;
     }
     // Halloween night (RFC 0022): the knock itself says where the candy came from (`newsLine`).
+    // So does a cast what it brought up (RFC 0023).
     case "trick_or_treat":
     case "handed_out":
+    case "caught":
       return null;
     case "gift_in": {
       const goods = e.gained ?? [];
@@ -305,10 +307,25 @@ export function newsLine(event: WorldEvent, me: string): string | null {
       return event.maker === me ? "Someone admired something you made." : null;
     case "trick_or_treated":
       return knockLine(event, me);
+    case "fished":
+      return event.by === me ? catchLine(event.caught) : null;
     default:
       return null;
   }
 }
+
+/**
+ * What a cast of yours brought up (RFC 0023), in plain words: a fish, which goes in your things
+ * and your collection book, an old boot you throw back, or nothing.
+ */
+export function catchLine(caught: Extract<WorldEvent, { type: "fished" }>["caught"]): string {
+  if (caught === "nothing") return "Nothing's biting. Try again, or come back another time.";
+  if (caught === "boot") return "An old boot. You throw it back.";
+  return `You caught ${thingCount(caught, 1).replace(/^1 /, articleFor(caught))}! It's in your things.`;
+}
+
+/** "a " or "an " before a kind's name, by how it starts. */
+const articleFor = (kind: ItemKind) => (/^[aeiou]/i.test(ITEM_INFO[kind].name) ? "an " : "a ");
 
 /**
  * A knock on Halloween night (RFC 0022) in plain words, for the knocker or whoever handed out the

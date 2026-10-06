@@ -1,6 +1,7 @@
 import {
   CROP_INFO,
   CROPS,
+  FISHING,
   FURNITURE_KINDS,
   FURNITURE_RECIPES,
   GOOD_KINDS,
@@ -9,6 +10,7 @@ import {
   ITEM_INFO,
   ITEM_KINDS,
   ITEMS,
+  POND,
   RECIPES,
   STATIONS,
   type StackKind,
@@ -46,6 +48,8 @@ export const ITEM_RULES = {
   labelMax: ITEMS.labelMax,
   noteMax: ITEMS.noteMax,
   declineDays: ITEMS.declineDays,
+  castsPerDay: FISHING.castsPerDay,
+  pondStone: POND.stone,
 } as const;
 
 export const ItemRules = z.object({
@@ -70,6 +74,10 @@ export const ItemRules = z.object({
   noteMax: z.number().int(),
   /** Days you can send a gift back with `decline_gift`, counting the day you got it. */
   declineDays: z.number().int(),
+  /** Times you can cast a line in a UTC day (RFC 0023), whatever comes up. */
+  castsPerDay: z.number().int(),
+  /** Stone one tile of pond takes when you dig it, and gives back when it's taken up. */
+  pondStone: z.number().int(),
 });
 
 /** One kind of thing in the catalog. */
@@ -87,6 +95,7 @@ export const CatalogItem = z.object({
     "furniture",
     "find",
     "sweet",
+    "fish",
   ]),
 });
 
@@ -239,6 +248,8 @@ export const InventoryView = z.object({
   givenToday: z.number().int(),
   receivedToday: z.number().int(),
   craftedToday: z.number().int(),
+  /** Times you cast a line today (RFC 0023). `rules.castsPerDay` is the most in a day. */
+  castToday: z.number().int(),
   /** Crops on plots you can build on, soonest ready first. */
   garden: z.array(GardenView),
   /**

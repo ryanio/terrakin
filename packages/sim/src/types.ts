@@ -11,6 +11,7 @@ import {
   type StackKind,
   type SweetKind,
 } from "./catalog";
+import type { Catch } from "./fishing";
 import type { PickupKind } from "./gather";
 import type { GroundKind } from "./ground";
 import type {
@@ -24,6 +25,8 @@ import type {
   WearStyle,
 } from "./looks";
 import type { Pet, PetCoat, PetKind } from "./pets";
+import type { TimeOfDay } from "./time-of-day";
+import type { Weather } from "./weather";
 
 /** Stable id for a resident (human or agent). Assigned by the server, opaque to the sim. */
 export type ResidentId = string;
@@ -40,8 +43,9 @@ export type Direction = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
  * it back. `pedestal` (free) and `frame` hold a made thing on display (RFC 0005 step 3). `hay_bale`
  * and `scarecrow` are decor the shop sells in autumn (RFC 0017). The next eleven are furniture made
  * at a workbench (RFC 0016), held and placed like decor, then three of Halloween's decor (RFC 0022),
- * and the last four winter's decor (RFC 0017). New kinds go on the end, and a held one (decor or
- * furniture) is an entry in the catalog too.
+ * the next four winter's decor (RFC 0017), and `pond` a tile of water to fish beside (RFC 0023),
+ * paid for in stone. New kinds go on the end, and a held one (decor or furniture) is an entry in the
+ * catalog too.
  */
 export const BLOCK_KINDS = [
   "wood",
@@ -76,6 +80,7 @@ export const BLOCK_KINDS = [
   "string_lights",
   "little_fir",
   "sled",
+  "pond",
 ] as const;
 
 /**
@@ -117,15 +122,16 @@ export type BuildingBlock = (typeof BUILDING_BLOCKS)[number];
 
 /**
  * The blocks a Town Hall `commons_build` may place (decision 0101): the building blocks, the shop's
- * decor, and the workbench's furniture, in `BLOCK_KINDS` order. The town builds them from nobody's
- * things. Stations, planters, and pedestals belong on residents' own plots.
+ * decor, the workbench's furniture, and a pond (RFC 0023), in `BLOCK_KINDS` order. The town builds
+ * them from nobody's things. Stations, planters, and pedestals belong on residents' own plots.
  */
-export type CommonsBlock = BuildingBlock | DecorKind | FurnitureKind;
+export type CommonsBlock = BuildingBlock | DecorKind | FurnitureKind | "pond";
 export const COMMONS_BLOCKS: readonly CommonsBlock[] = BLOCK_KINDS.filter(
   (k): k is CommonsBlock =>
     (BUILDING_BLOCKS as readonly string[]).includes(k) ||
     (DECOR_BLOCKS as readonly string[]).includes(k) ||
-    (FURNITURE_BLOCKS as readonly string[]).includes(k),
+    (FURNITURE_BLOCKS as readonly string[]).includes(k) ||
+    k === "pond",
 );
 
 /** How a resident looks. Plain color words so agents and humans can pick without a palette. */
@@ -842,6 +848,8 @@ export interface ItemsToday {
   crafted: Record<ResidentId, number>;
   /** The made things each resident admired today, by id. Absent until the day's first admire. */
   admired?: Record<ResidentId, string[]>;
+  /** Times each resident cast a line today (RFC 0023). Absent until the day's first cast. */
+  casts?: Record<ResidentId, number>;
 }
 
 /**
@@ -959,6 +967,8 @@ export const INVENTORY_REASONS = [
   "trick_or_treat",
   /** Candy you handed out to a trick-or-treater at your door, or from your bowl by it. */
   "handed_out",
+  /** A fish you caught (RFC 0023). */
+  "caught",
 ] as const;
 export type InventoryReason = (typeof INVENTORY_REASONS)[number];
 
@@ -1219,6 +1229,12 @@ export type Command =
   | { type: "decide"; table: string; round: number; move: number }
   /** Knock at the door of plot (px, py) on Halloween night, from on or beside it (RFC 0022). */
   | { type: "trick_or_treat"; px: number; py: number }
+  /**
+   * Cast a line from beside water (RFC 0023). Residents send `fish` alone; the server fills in
+   * `roll`, a whole number from 0 to 9,999 it drew, and the `weather` and `timeOfDay` on its clock,
+   * before logging, so replay reads neither a clock nor the weather.
+   */
+  | { type: "fish"; roll: number; weather: Weather; timeOfDay: TimeOfDay }
   // Only the server sends these, as TOWN_ACTOR.
   | { type: "new_day"; day: number }
   | { type: "set_townsfolk"; ids: ResidentId[] }
@@ -1688,6 +1704,11 @@ export type WorldEvent =
       tally?: { people: number; agents: number };
     }
   /**
+   * `by` cast a line into the water at (x, y) and caught `caught`: a fish, an old boot they threw
+   * back, or nothing (RFC 0023). Public, like a gather.
+   */
+  | { type: "fished"; by: ResidentId; x: number; y: number; caught: Catch }
+  /**
    * `by` knocked at the door of plot (px, py) and got a candy (RFC 0022): from `giver`, someone
    * home or their bowl by the door, or from the town. Public, like a visit.
    */
@@ -1860,6 +1881,12 @@ export const REJECTION_CODES = [
   "no_candy",
   /** That plot was already named today: a plot's name changes once a UTC day (decision 0121). */
   "rename_limit",
+  /** Fishing takes a fishing rod in your things (RFC 0023). */
+  "no_rod",
+  /** Fishing takes water right beside you: a pond tile, diagonals included. */
+  "no_water",
+  /** You cast as many times as one day has. */
+  "cast_limit",
 ] as const;
 export type RejectionCode = (typeof REJECTION_CODES)[number];
 

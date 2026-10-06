@@ -70,7 +70,27 @@ export const BLOCK_COLORS: Readonly<Record<BlockKind, string>> = {
   string_lights: "#f5c451",
   little_fir: "#2f6e45",
   sled: "#c4473a",
+  // Water to fish in (RFC 0023): a pond's blue, under its stone rim.
+  pond: "#4f9ac4",
 };
+
+/**
+ * How a pond looks (RFC 0023), on the map, in both 3D views, and in plot photos: the water, a
+ * shade where it deepens away from the bank, the stone rim along each side that doesn't run on into
+ * more pond (`rim` wide, in tile units), the pebbles in it, a lily pad on some tiles, and the
+ * glints that shimmer on the water.
+ */
+export const POND_LOOK = {
+  water: BLOCK_COLORS.pond,
+  deep: "#3a78a8",
+  shade: "rgba(28, 64, 96, 0.22)",
+  stone: "#c4beb2",
+  pebble: "#8f887c",
+  lily: "#6fae4c",
+  lilyEdge: "#4f8a3a",
+  glint: "#ffffff",
+  rim: 0.13,
+} as const;
 
 /**
  * One shape of a path or floor's picture, in tile units: (0, 0) is the tile's top left and (1, 1)

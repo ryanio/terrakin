@@ -5,7 +5,9 @@ import {
   DECOR_KINDS,
   type DecorKind,
   FIND_KINDS,
+  FISH_KINDS,
   type FindKind,
+  type FishKind,
   familyRecipeMiss,
   GOOD_KINDS,
   type GoodKind,
@@ -75,7 +77,9 @@ export {
   DECOR_KINDS,
   type DecorKind,
   FIND_KINDS,
+  FISH_KINDS,
   type FindKind,
+  type FishKind,
   GOOD_KINDS,
   type GoodKind,
   ITEM_INFO,
@@ -175,6 +179,9 @@ export const isFindKind = (k: unknown): k is FindKind =>
 /** A sweet (RFC 0022): made at a kitchen, and it stacks. */
 export const isSweetKind = (k: unknown): k is SweetKind =>
   typeof k === "string" && (SWEET_KINDS as readonly string[]).includes(k);
+/** A fish (RFC 0023): caught beside water, and it stacks. */
+export const isFishKind = (k: unknown): k is FishKind =>
+  typeof k === "string" && (FISH_KINDS as readonly string[]).includes(k);
 
 /** "1 lemon", "3 lemons", in plain words. */
 export function countOf(kind: ItemKind, n: number): string {
@@ -212,6 +219,8 @@ export interface InventoryRead {
   givenToday: number;
   receivedToday: number;
   craftedToday: number;
+  /** Times they cast a line today (RFC 0023). */
+  castToday: number;
   /** Gifts to this resident they can still send back whole, newest first. */
   gifts: GiftRecord[];
 }
@@ -235,6 +244,7 @@ export function inventoryOf(state: WorldState, id: ResidentId): InventoryRead | 
     givenToday: items.today.given[id] ?? 0,
     receivedToday: items.today.received[id] ?? 0,
     craftedToday: items.today.crafted[id] ?? 0,
+    castToday: items.today.casts?.[id] ?? 0,
     gifts: Object.values(items.gifts ?? {})
       .filter((g) => g.to === id && holdsWhole(inv, g))
       .sort((a, b) => giftNumber(b.id) - giftNumber(a.id))
@@ -850,7 +860,7 @@ export function payPantry(state: WorldState, id: ResidentId): WorldEvent[] {
   return [inventoryEvent(id, first ? "starter" : "pantry", changes)];
 }
 
-// ---------- held blocks: decor from the town shop, furniture from a workbench ----------
+// ---------- blocks that cost: decor, furniture, and ponds ----------
 
 /** Where to get one more of a held block, for a refusal. */
 export function heldBlockHint(kind: DecorKind | FurnitureKind): string {
@@ -860,54 +870,87 @@ export function heldBlockHint(kind: DecorKind | FurnitureKind): string {
 }
 
 /**
- * Whether `actor` can place a held block (decor or furniture): items open and one in their things.
- * A free block is always fine here. Read in `place`'s check.
+ * A pond (RFC 0023): a tile of water you fish beside, paid for in stone like a cobbled path. It
+ * blocks walking like every block, and whoever takes it up gets the stone back.
  */
-export function decorPlaceProblem(
+export const POND = { block: "pond", stone: 2 } as const;
+
+/**
+ * What placing a block takes from your things, and what taking it up gives back to whoever does:
+ * one of itself for decor and furniture, which you hold before you place them, `POND.stone` stone
+ * for a pond, and nothing for a free block. In a fixed order, like a recipe's needs.
+ */
+export function blockNeeds(block: string | undefined): [StackKind, number][] {
+  if (isHeldBlock(block)) return [[block, 1]];
+  if (block === POND.block) return [["stone", POND.stone]];
+  return [];
+}
+
+/**
+ * Whether `actor` can place a block that costs something (decor, furniture, or a pond): items
+ * open and what it takes in their things. A free block is always fine here. Read in `place`'s
+ * check.
+ */
+export function blockPlaceProblem(
   state: WorldState,
   actor: ResidentId,
   block: string,
 ): Rejection | null {
-  if (!isHeldBlock(block)) return null;
+  const needs = blockNeeds(block);
+  if (needs.length === 0) return null;
   const shut = closed(state);
   if (shut) return shut;
-  if (held(state.items?.inventories[actor], block) < 1) {
+  const inv = state.items?.inventories[actor];
+  if (isHeldBlock(block)) {
+    if (held(inv, block) >= 1) return null;
     return refuse(
       "not_enough_items",
       `You have no ${ITEM_INFO[block].plural.toLowerCase()}. ${heldBlockHint(block)}`,
     );
   }
-  return null;
+  const short = needs.filter(([kind, n]) => held(inv, kind) < n);
+  if (short.length === 0) return null;
+  const missing = short.map(([kind, n]) => countOf(kind, n - held(inv, kind)));
+  return refuse(
+    "not_enough_items",
+    `A tile of pond takes ${countOf("stone", POND.stone)}, and you need ${missing.join(" and ")} more. ${GATHER_HINT}`,
+  );
 }
 
-/** Whether `actor` has room to take a held block back up. Read in `remove`'s check. */
-export function decorRemoveProblem(
+/** Whether `actor` has room for what taking a block up gives back. Read in `remove`'s check. */
+export function blockRemoveProblem(
   state: WorldState,
   actor: ResidentId,
   block: string | undefined,
 ): Rejection | null {
-  if (!isHeldBlock(block)) return null;
-  if (inventorySize(state.items?.inventories[actor]) + 1 > ITEMS.inventoryMax) {
+  const back = blockNeeds(block).reduce((sum, [, n]) => sum + n, 0);
+  if (back === 0) return null;
+  if (inventorySize(state.items?.inventories[actor]) + back > ITEMS.inventoryMax) {
     return refuse(
       "inventory_full",
-      `You can hold ${ITEMS.inventoryMax} things, and taking this up needs room for one more.`,
+      back === 1
+        ? `You can hold ${ITEMS.inventoryMax} things, and taking this up needs room for one more.`
+        : `You can hold ${ITEMS.inventoryMax} things, and taking this up gives back ${back}. Make, place, or give something first.`,
     );
   }
   return null;
 }
 
 /**
- * Commit side of placing or removing a block: a held block (decor or furniture) leaves (`-1`) or
- * comes back to (`+1`) the actor's things, with its private event. Free blocks change nothing.
+ * Commit side of placing or removing a block that costs something: what it takes leaves the
+ * actor's things (`-1`) or comes back to them (`+1`), with its private event. Free blocks change
+ * nothing.
  */
-export function moveDecor(
+export function moveBlockCost(
   state: WorldState,
   actor: ResidentId,
   block: string | undefined,
   amount: 1 | -1,
 ): WorldEvent[] {
   const items = state.items;
-  if (!items || !isHeldBlock(block)) return [];
-  const change = addStack(inventory(items, actor), block, amount);
-  return [inventoryEvent(actor, amount < 0 ? "placed" : "picked_up", [change])];
+  const needs = blockNeeds(block);
+  if (!items || needs.length === 0) return [];
+  const mine = inventory(items, actor);
+  const changes = needs.map(([kind, n]) => addStack(mine, kind, amount * n));
+  return [inventoryEvent(actor, amount < 0 ? "placed" : "picked_up", changes)];
 }

@@ -3,7 +3,7 @@
  * world whose economy, items, and town shop have just opened, and prints supply per active
  * resident each day.
  *
- *   node scripts/economy-sim.ts [--seed 1] [--days 30] [--residents 300] [--start 2024-10-04] [--no-shop] [--no-appreciation] [--set key=value ...]
+ *   node scripts/economy-sim.ts [--seed 1] [--days 30] [--residents 300] [--start 2024-10-04] [--no-shop] [--no-appreciation] [--no-fishing] [--set key=value ...]
  *
  *   --seed       PRNG seed, so a run repeats exactly (default 1)
  *   --days       days to play (default 30)
@@ -13,6 +13,8 @@
  *   --residents  residents who arrive over those days, not counting the townsfolk (default 300)
  *   --no-shop    play phase 1 only: coins, no gardens, no shop (the decision 0039 baseline)
  *   --no-appreciation  no posts, reactions, or appreciation coins (the decision 0052 baseline)
+ *   --no-fishing  nobody fishes (RFC 0023), so the month plays as it did before fishing (the
+ *                decision 0123 baseline)
  *   --set        try a different number without editing it: a key of ECONOMY (`allowance=8`), a
  *                shop price (`price.lantern=50`), what the town pays (`buy.lemon_jam=5`), its daily
  *                count (`perDay.lemon_jam=3`), a key of SHOP (`goodsPerDay=2`), or the pantry once
@@ -52,26 +54,39 @@ import type {
 
 const {
   apply,
+  biomeAt,
   BUY_ORDERS,
   CROP_INFO,
   CROPS,
+  castsToday,
   coinsOf,
   createWorld,
   ECONOMY,
+  FISH_KINDS,
+  FISHING,
+  FISHING_ROD,
+  holdsRod,
   ITEMS,
+  inventorySize,
   isCommons,
   isDecorKind,
   isGoodKind,
   isReady,
+  isWater,
   onSale,
+  pickupLeft,
+  POND,
   RECIPES,
   SHOP,
   SHOP_CATALOG,
   SHOP_SHARE_BEFORE,
+  TIMES_OF_DAY,
   TOWN_ACTOR,
   dayOfDate,
   tileKey,
   townBuys,
+  waterBeside,
+  weatherAt,
 } = await import("../packages/sim/src/index.ts");
 const { KARMA, KARMA_TIERS, tierAtLeast } = await import("../packages/protocol/src/social.ts");
 const { scoreKarma } = await import("../packages/server/src/karma.ts");
@@ -87,6 +102,7 @@ const { values: args } = parseArgs({
     start: { type: "string", default: "2024-10-04" },
     "no-shop": { type: "boolean", default: false },
     "no-appreciation": { type: "boolean", default: false },
+    "no-fishing": { type: "boolean", default: false },
     set: { type: "string", multiple: true, default: [] },
   },
 });
@@ -117,6 +133,8 @@ for (const pair of args.set ?? []) {
 }
 const SHOP_OPEN = !args["no-shop"];
 const APPRECIATION = !args["no-appreciation"];
+/** Fishing needs items, and its coins need the shop. */
+const FISHING_ON = SHOP_OPEN && !args["no-fishing"];
 const SEED = Number(args.seed);
 const DAYS = Number(args.days);
 const RESIDENTS = Number(args.residents);
@@ -154,6 +172,8 @@ const { chance, between, pick } = draws(random);
 const taste = draws(mulberry32(SEED ^ 0x5eed));
 // Posts and reactions too, so turning appreciation on or off leaves the rest of the month alone.
 const social = draws(mulberry32(SEED ^ 0xa11ce));
+// Who fishes, and every cast's roll and sky, so turning fishing off leaves the rest alone too.
+const angling = draws(mulberry32(SEED ^ 0xf15));
 
 // ---------- the rules ----------
 
@@ -162,8 +182,11 @@ interface Rules {
   open(): void;
   newDay(day: number): void;
   join(id: string): void;
-  /** Settle a first plot and build a starter home, which sets a hearth. */
-  settle(id: string): void;
+  /**
+   * Settle a first plot and build a starter home, which sets a hearth. With `near`, the first free
+   * plot it likes, else the next one.
+   */
+  settle(id: string, near?: (px: number, py: number) => boolean): void;
   /** Stand on your own hearth. */
   home(id: string): void;
   give(from: string, to: string, amount: number): boolean;
@@ -219,8 +242,9 @@ function simRules(): Rules {
     },
     newDay: (d) => must(TOWN_ACTOR, { type: "new_day", day: DAY0 + d }),
     join: (id) => must(id, { type: "join", name: id, kind: "human" }),
-    settle(id) {
-      const plot = free.shift();
+    settle(id, near) {
+      const liked = near ? free.findIndex(([px, py]) => near(px, py)) : -1;
+      const plot = liked >= 0 ? free.splice(liked, 1)[0] : free.shift();
       if (!plot) throw new Error("The simulated world ran out of plots.");
       must(id, { type: "settle", px: plot[0], py: plot[1] });
       // Settling lands on the plot's center, where the starter home puts the hearth.
@@ -254,6 +278,8 @@ interface Habits {
   shops: number;
   /** What they'd like from the shop, in order. */
   wants: ShopSku[];
+  /** Casts a line this many times on a day at home, once they have a rod and a pond (RFC 0023). 0 never fishes. */
+  casts: number;
 }
 
 /**
@@ -281,11 +307,18 @@ const WISHES: ShopSku[][] = [
   ["frame", "frame", "top_hat", "bench"],
 ];
 
+/** Where an angler digs their pond: the tile north of their hearth, inside the starter hut. */
+const pondTile = (hearth: { x: number; y: number }) => ({ x: hearth.x, y: hearth.y - 1 });
+
+/** Residents who fish, so their gardens leave the pond's tile free. */
+const anglers = new Set<string>();
+
 /** The free tiles on a resident's plot within reach of their hearth, nearest first. */
 function gardenTiles(state: WorldState, id: string): { x: number; y: number }[] {
   const me = state.residents[id];
   const hearth = me?.hearth;
   if (!me || !hearth) return [];
+  const pond = anglers.has(id) ? pondTile(hearth) : undefined;
   const { plotSize, reach } = state.config;
   const px = Math.floor(hearth.x / plotSize);
   const py = Math.floor(hearth.y / plotSize);
@@ -296,6 +329,7 @@ function gardenTiles(state: WorldState, id: string): { x: number; y: number }[] 
       const y = hearth.y + dy;
       if (Math.floor(x / plotSize) !== px || Math.floor(y / plotSize) !== py) continue;
       if ((dx === 0 && dy === 0) || state.blocks[tileKey(x, y)] !== undefined) continue;
+      if (pond && pond.x === x && pond.y === y) continue;
       tiles.push({ x, y, d: Math.abs(dx) + Math.abs(dy) });
     }
   }
@@ -308,7 +342,7 @@ const goodsOf = (state: WorldState, id: string, kind: GoodKind) =>
   (state.items?.inventories[id]?.goods ?? []).filter((g) => g.kind === kind).length;
 
 /** Counts for the report, kept per day. */
-const tally = { sold: 0, spent: 0 };
+const tally = { sold: 0, spent: 0, fish: 0, casts: 0 };
 
 /** A gardener's day at home: harvest, replant, make and sell what the town buys, and grow. */
 function tendGarden(rules: Rules, id: string, habits: Habits, planters: Map<string, Set<string>>) {
@@ -428,6 +462,98 @@ function goShopping(rules: Rules, id: string, habits: Habits) {
   }
 }
 
+// ---------- fishing (RFC 0023) ----------
+
+/** The things a rod and a tile of pond take, gathered on the angler's own plot. */
+const ROD_WOOD = RECIPES[FISHING_ROD].needs.wood ?? 0;
+
+/**
+ * Whether a plot suits an angler: forest and stony ground within reach of where its hearth will
+ * be, so branches and stones for a rod and a pond turn up there within a few days, as they would
+ * for someone who walks a little way to gather them.
+ */
+function anglersPlot(state: WorldState, px: number, py: number): boolean {
+  const { plotSize, reach } = state.config;
+  const hx = px * plotSize + Math.floor((plotSize - 1) / 2);
+  const hy = py * plotSize + Math.floor((plotSize - 1) / 2);
+  let forest = 0;
+  let stone = 0;
+  for (let y = hy - reach; y <= hy + reach; y++) {
+    for (let x = hx - reach; x <= hx + reach; x++) {
+      const b = biomeAt(state.config, x, y);
+      if (b === "forest") forest++;
+      if (b === "stone") stone++;
+    }
+  }
+  return forest >= 8 && stone >= 8;
+}
+
+/**
+ * An angler's day at home: pick up branches and stones within reach until they have a rod and a
+ * pond, make the rod at their workbench and dig the pond by their hearth, then cast their casts
+ * at moments through the day, and sell the town what it buys of their catch. They stop casting
+ * while their things are near full, so fish never crowd out their garden.
+ */
+function goFishing(rules: Rules, id: string, habits: Habits) {
+  const { state } = rules;
+  const me = state.residents[id];
+  const hearth = me?.hearth;
+  const day = state.day ?? 0;
+  if (!me || !hearth || habits.casts === 0) return;
+  const inv = () => state.items?.inventories[id];
+  const rod = holdsRod(inv());
+  const pond = pondTile(hearth);
+  const dug = isWater(state, pond.x, pond.y);
+  if (!rod || !dug) {
+    const { reach } = state.config;
+    for (let y = hearth.y - reach; y <= hearth.y + reach; y++) {
+      for (let x = hearth.x - reach; x <= hearth.x + reach; x++) {
+        const kind = pickupLeft(state, x, y);
+        if (kind === "wood" && (rod || holds(state, id, "wood") >= ROD_WOOD)) continue;
+        if (kind === "stone" && (dug || holds(state, id, "stone") >= POND.stone)) continue;
+        if (kind === "wood" || kind === "stone") rules.send(id, { type: "gather", x, y });
+      }
+    }
+  }
+  if (!rod && holds(state, id, "wood") >= ROD_WOOD) {
+    let bench = Object.entries(state.blocks).find(([key, b]) => {
+      const [x = 0, y = 0] = key.split(",").map(Number);
+      const near = Math.max(Math.abs(x - hearth.x), Math.abs(y - hearth.y)) <= state.config.reach;
+      return b === "workbench" && near;
+    })?.[0];
+    if (!bench) {
+      const tile = gardenTiles(state, id)[0];
+      if (tile && rules.send(id, { type: "place", ...tile, block: "workbench" })) {
+        bench = tileKey(tile.x, tile.y);
+      }
+    }
+    if (bench) {
+      const [x = 0, y = 0] = bench.split(",").map(Number);
+      rules.send(id, { type: "craft", recipe: FISHING_ROD, x, y });
+    }
+  }
+  if (!dug && holds(state, id, "stone") >= POND.stone) {
+    rules.send(id, { type: "place", ...pond, block: "pond" });
+  }
+  if (!holdsRod(inv()) || !waterBeside(me, (x, y) => isWater(state, x, y))) return;
+  for (let i = castsToday(state, id); i < Math.min(habits.casts, FISHING.castsPerDay); i++) {
+    if (inventorySize(inv()) > ITEMS.inventoryMax - 50) break;
+    // As the server would log it: its roll, and the sky at a moment of the day.
+    const roll = angling.between(0, FISHING.outOf - 1);
+    const weather = weatherAt(day, angling.between(0, 23));
+    const timeOfDay = angling.pick(TIMES_OF_DAY) ?? "day";
+    if (rules.send(id, { type: "fish", roll, weather, timeOfDay })) tally.casts++;
+  }
+  for (const kind of townBuys(day)) {
+    if (!(FISH_KINDS as readonly string[]).includes(kind)) continue;
+    const count = Math.min(BUY_ORDERS[kind].perDay, holds(state, id, kind as StackKind));
+    if (count === 0) continue;
+    const before = coinsOf(state, id);
+    sell(rules, id, kind, count);
+    tally.fish += coinsOf(state, id) - before;
+  }
+}
+
 // ---------- the population ----------
 
 /**
@@ -454,6 +580,9 @@ interface Person {
 
 /** Regulars garden most, and AI residents (a third of them) tend a garden as a daily routine. */
 const GARDENS: Record<Kind, number> = { regular: 0.7, visitor: 0.45, drifter: 0.3, oneday: 0 };
+
+/** Who fishes (RFC 0023), as many as garden or more: casting costs nothing but a little time. */
+const ANGLERS: Record<Kind, number> = { regular: 0.7, visitor: 0.5, drifter: 0.3, oneday: 0 };
 
 const TOWNSFOLK = ["t_bram", "t_clem", "t_dot", "t_fern", "t_hale", "t_ivy", "t_juno", "t_moss"];
 /** Share of each townsfolk budget their scripts actually hand out on a typical day. */
@@ -523,6 +652,8 @@ function population(): Person[] {
         planters: taste.between(10, 22),
         shops: taste.chance(0.3) ? 0.6 : 0.25,
         wants: [...(taste.pick(WISHES) ?? [])],
+        // Drawn from their own stream, so `--no-fishing` leaves everyone else's month as it was.
+        casts: FISHING_ON && angling.chance(ANGLERS[kind]) ? angling.between(4, 10) : 0,
       },
     });
   }
@@ -534,6 +665,9 @@ function population(): Person[] {
 interface Row {
   appreciation: number;
   sold: number;
+  /** Coins the town paid for fish (part of `sold`), and casts made. */
+  fish: number;
+  casts: number;
   spent: number;
   burned: number;
   day: number;
@@ -580,6 +714,7 @@ function play(rules: Rules) {
   const planters = new Map<string, Set<string>>();
   const atHome = (p: Person) => {
     if (p.habits.gardens) tendGarden(rules, p.id, p.habits, planters);
+    if (p.habits.casts > 0) goFishing(rules, p.id, p.habits);
     goShopping(rules, p.id, p.habits);
   };
   rules.open();
@@ -591,6 +726,8 @@ function play(rules: Rules) {
     const burnedBefore = rules.burned();
     tally.sold = 0;
     tally.spent = 0;
+    tally.fish = 0;
+    tally.casts = 0;
     // The economy opens partway through day 0, so day 0 has no new_day of its own.
     if (day > 0) rules.newDay(day);
     // Yesterday's appreciation, paid early today.
@@ -610,7 +747,12 @@ function play(rules: Rules) {
         arrived.push(p.id);
         active.push(p.id);
         if (p.settles) {
-          rules.settle(p.id);
+          // An angler settles where branches and stones lie near their hearth.
+          if (p.habits.casts > 0) anglers.add(p.id);
+          rules.settle(
+            p.id,
+            p.habits.casts > 0 ? (px, py) => anglersPlot(rules.state, px, py) : undefined,
+          );
           if (rules.balance(p.id) < N.welcomeGift) shortWelcomes++;
           settled.add(p.id);
           rules.home(p.id);
@@ -680,6 +822,8 @@ function play(rules: Rules) {
     rows.push({
       appreciation,
       sold: tally.sold,
+      fish: tally.fish,
+      casts: tally.casts,
       spent: tally.spent,
       burned: rules.burned() - burnedBefore,
       day,
@@ -778,6 +922,17 @@ function report(rules: Rules) {
       console.log(
         `Gardeners who arrived in the first week (n=${g.length}): month-end purse median ${percentile(g, 0.5)}, p90 ${percentile(g, 0.9)}, max ${g.at(-1) ?? 0}.`,
       );
+      if (FISHING_ON) {
+        const early = people.filter((p) => p.habits.casts > 0 && p.settles && p.arrives <= 6);
+        const fishing = early.filter((p) => holdsRod(rules.state.items?.inventories[p.id]));
+        const a = early.map((p) => rules.balance(p.id)).sort((x, y) => x - y);
+        console.log(
+          `Last 7 days fishing: ${avg((r) => r.casts)} casts a day, and the town paid ${avg((r) => r.fish)} a day for fish (part of what it paid for everything).`,
+        );
+        console.log(
+          `Anglers who arrived in the first week (n=${early.length}, ${fishing.length} with a rod by month end): month-end purse median ${percentile(a, 0.5)}, p90 ${percentile(a, 0.9)}, max ${a.at(-1) ?? 0}.`,
+        );
+      }
     }
     if (APPRECIATION) {
       console.log(

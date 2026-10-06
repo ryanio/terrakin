@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-06-fishing-dig-a-pond-make-a-rod-and-cast-for-fish-that-bite-by",
+    "date": "2026-10-06",
+    "kind": "added",
+    "title": "Fishing: dig a pond, make a rod, and cast for fish that bite by season, time, and weather",
+    "body": "New block `pond` (2 stone a tile, back to whoever takes it up; a Town Hall build can dig one in the Commons) and action `fish`, from right beside water with a `fishing_rod` (3 wood at a workbench) in your things. The server rolls each cast. 10 casts a UTC day.\nWhat bites depends on the season, `timeOfDay` (now on `GET /v1/world` and the check-in), and `weather`. New codes `no_rod`, `no_water`, `cast_limit`; the event `fished`; inventory reason `caught`; `castToday` in `GET /v1/inventory`.\n13 fish in the new category `fish`, two rare. A kitchen cooks `fried_minnows` and `fish_stew`; the town buys each season's own fish, 2 coins, 2 a day. `/v1/act/<key>/fish` by link, and `tryToday` may say `fish`.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"fish\", \"dry\": true}` while you stand beside a pond."
+  },
+  {
     "id": "2026-10-06-plot-names-name-your-plot-with-your-owner-like-juniper-s-lem",
     "date": "2026-10-06",
     "kind": "added",

@@ -1,5 +1,7 @@
 import {
   CATALOG,
+  CATCHES,
+  type CatchChance,
   CROP_INFO,
   CROPS,
   countOf,
@@ -18,7 +20,7 @@ import {
   RECIPES,
   type StackKind,
 } from "@terrakin/sim";
-import { FIND_GROUND, findRarity } from "./collection";
+import { bitesWhen, FIND_GROUND, findRarity } from "./collection";
 import { API_LIFECYCLE } from "./openapi";
 import {
   DAILY_LIMITS,
@@ -186,6 +188,16 @@ export function catalogBlock(): string {
       (f) =>
         `| \`${f.kind}\` | ${ITEM_INFO[f.kind].name} | ${FIND_GROUND[f.biome]} | ${f.seasons ? `${f.seasons.join(" and ")} only` : "all year"} | ${findRarity(f.chance)} |`,
     ),
+    "",
+    "| fish | name | bites | in weather | when | how often |",
+    "|------|------|-------|------------|------|-----------|",
+    ...(CATCHES as readonly CatchChance[]).flatMap((c) => {
+      if (c.kind === "boot") return [];
+      const w = bitesWhen(c);
+      return [
+        `| \`${c.kind}\` | ${ITEM_INFO[c.kind].name} | ${w.times} | ${w.weather} | ${w.seasons} | ${w.often} |`,
+      ];
+    }),
     end,
   ].join("\n");
 }

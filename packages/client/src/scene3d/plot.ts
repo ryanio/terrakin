@@ -14,6 +14,7 @@ import {
   type GroundKind,
   isHeldBlock,
   LEAF_TONES,
+  POND_LOOK,
   type ResourceKind,
   SEASON_GROUND,
   type Season,
@@ -620,10 +621,139 @@ export function blockMeshes(
     out.push(...furnitureInstances(stage, kind, grain, places));
   }
 
+  // Ponds (RFC 0023): water flat in the ground, with a stone rim along each bank.
+  const ponds = blocks.filter((b) => b.block === "pond");
+  if (ponds.length > 0) out.push(...pondMeshes(stage, origin, ponds, colorFor));
+
   // After dark, a pool of warm light under every lamp and fire and around every lit window, for
   // any kind whose look is marked to glow: one draw for the whole plot (decision 0098).
   const glows = blocks.filter((b) => glowsAfterDark(b.block, b.lit));
   if (glows.length > 0) out.push(glowPools(stage, origin, glows, shared?.pool));
+  return out;
+}
+
+/** How high a pond's water lies: over the grass and any path, under everything standing. */
+const WATER_Y = 0.035;
+
+/**
+ * Glints on water: a few soft white streaks on clear, drawn once and repeated, which drift across
+ * every pond while motion is allowed (RFC 0023).
+ */
+function glintTexture(): CanvasTexture {
+  const c = document.createElement("canvas");
+  c.width = 64;
+  c.height = 64;
+  const g = c.getContext("2d") as CanvasRenderingContext2D;
+  g.strokeStyle = POND_LOOK.glint;
+  g.lineCap = "round";
+  for (const [x, y, w, a] of [
+    [10, 18, 16, 0.7],
+    [36, 40, 12, 0.55],
+    [44, 12, 9, 0.45],
+    [18, 52, 10, 0.4],
+  ] as const) {
+    g.globalAlpha = a;
+    g.lineWidth = 3;
+    g.beginPath();
+    g.moveTo(x, y);
+    g.lineTo(x + w, y);
+    g.stroke();
+  }
+  return canvasTexture(c, true);
+}
+
+/**
+ * A plot's ponds in 3D (RFC 0023), in the sim's `POND_LOOK`: one draw for the water, one for the
+ * glints drifting on it (still under reduced motion), one for the stone rim along every bank that
+ * doesn't run on into more pond, and one for the lily pads on some tiles, as on the map.
+ */
+function pondMeshes(
+  stage: Stage,
+  origin: { x: number; y: number },
+  ponds: readonly LayoutBlock[],
+  colorFor: (base: number, b: LayoutBlock) => number,
+): Object3D[] {
+  const out: Object3D[] = [];
+  const at = new Set(ponds.map((b) => `${b.x},${b.y}`));
+  const water = (x: number, y: number) => at.has(`${x},${y}`);
+  const m = new Matrix4();
+  const q = new Quaternion();
+  const one = new Vector3(1, 1, 1);
+  const spot = (b: LayoutBlock, dx = 0, y = WATER_Y, dz = 0) =>
+    new Vector3(b.x - origin.x + dx, y, b.y - origin.y + dz);
+
+  const sheet = new PlaneGeometry(1, 1);
+  sheet.rotateX(-Math.PI / 2);
+  const surface = new InstancedMesh(
+    sheet,
+    new MeshPhongMaterial({ color: 0xffffff, shininess: 70, specular: hex(POND_LOOK.deep) }),
+    ponds.length,
+  );
+  ponds.forEach((b, i) => {
+    surface.setMatrixAt(i, m.compose(spot(b), q, one));
+    surface.setColorAt(i, lin(colorFor(hex(POND_LOOK.water), b)));
+  });
+  surface.receiveShadow = true;
+  surface.name = "ponds";
+  out.push(surface);
+
+  const glints = stage.keep(glintTexture());
+  const sheen = new InstancedMesh(
+    sheet,
+    new MeshBasicMaterial({ map: glints, transparent: true, depthWrite: false, opacity: 0.5 }),
+    ponds.length,
+  );
+  ponds.forEach((b, i) => {
+    sheen.setMatrixAt(i, m.compose(spot(b, 0, WATER_Y + 0.004), q, one));
+  });
+  sheen.renderOrder = 1;
+  stage.animate(({ time }) => {
+    glints.offset.set((time * 0.03) % 1, (Math.sin(time * 0.4) * 0.04 + 1) % 1);
+  });
+  out.push(sheen);
+
+  // The rim: a low stone kerb along each side that's bank.
+  const kerbs: { b: LayoutBlock; dx: number; dz: number; across: boolean }[] = [];
+  for (const b of ponds) {
+    if (!water(b.x, b.y - 1)) kerbs.push({ b, dx: 0, dz: -0.43, across: true });
+    if (!water(b.x, b.y + 1)) kerbs.push({ b, dx: 0, dz: 0.43, across: true });
+    if (!water(b.x - 1, b.y)) kerbs.push({ b, dx: -0.43, dz: 0, across: false });
+    if (!water(b.x + 1, b.y)) kerbs.push({ b, dx: 0.43, dz: 0, across: false });
+  }
+  if (kerbs.length > 0) {
+    const h = blockLook("pond").height;
+    const kerbGeo = bakeShade(new RoundedBoxGeometry(1, h, 0.16, 1, 0.05), 0.7, 1);
+    kerbGeo.translate(0, h / 2, 0);
+    const rim = new InstancedMesh(kerbGeo, paper(0xffffff, null), kerbs.length);
+    kerbs.forEach(({ b, dx, dz, across }, i) => {
+      q.setFromAxisAngle(UP, across ? 0 : Math.PI / 2);
+      rim.setMatrixAt(i, m.compose(spot(b, dx, 0, dz), q, one));
+      rim.setColorAt(i, lin(colorFor(hex(POND_LOOK.stone), b)));
+    });
+    q.identity();
+    rim.castShadow = true;
+    rim.receiveShadow = true;
+    out.push(rim);
+  }
+
+  // Lily pads on the same tiles the map floats them on.
+  const pads = ponds.filter((b) => tileHash(b.x, b.y) % 3 === 0);
+  if (pads.length > 0) {
+    const padGeo = new CircleGeometry(0.15, 10, 0.35, Math.PI * 2 - 0.5);
+    padGeo.rotateX(-Math.PI / 2);
+    const lily = new InstancedMesh(
+      padGeo,
+      new MeshLambertMaterial({ color: hex(POND_LOOK.lily) }),
+      pads.length,
+    );
+    pads.forEach((b, i) => {
+      const n = tileHash(b.x, b.y);
+      const dx = -0.2 + ((n >> 3) % 4) * 0.12;
+      const dz = 0.12 - ((n >> 5) % 3) * 0.1;
+      lily.setMatrixAt(i, m.compose(spot(b, dx, WATER_Y + 0.008, dz), q, one));
+    });
+    out.push(lily);
+  }
   return out;
 }
 
@@ -675,7 +805,10 @@ function glowPools(
 }
 
 function solidAt(blocks: readonly LayoutBlock[], x: number, y: number): boolean {
-  return blocks.some((b) => b.x === x && b.y === y && b.block !== "leaf" && !isHeldBlock(b.block));
+  return blocks.some(
+    (b) =>
+      b.x === x && b.y === y && b.block !== "leaf" && b.block !== "pond" && !isHeldBlock(b.block),
+  );
 }
 
 // ---------- paths and floors (RFC 0016) ----------

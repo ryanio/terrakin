@@ -5838,6 +5838,19 @@
                 "cherry_blossom",
                 "candy",
                 "candy_cane",
+                "minnow",
+                "perch",
+                "carp",
+                "catfish",
+                "eel",
+                "trout",
+                "smelt",
+                "sunfish",
+                "salmon",
+                "pike",
+                "char",
+                "golden_koi",
+                "moonfish",
                 "lemon_jam",
                 "strawberry_jam",
                 "lemonade",
@@ -5851,6 +5864,9 @@
                 "pomegranate_jam",
                 "cranberry_jam",
                 "cranberry_punch",
+                "fishing_rod",
+                "fried_minnows",
+                "fish_stew",
                 "piece"
               ]
             }
@@ -14629,6 +14645,9 @@
                 "pomegranate_jam",
                 "cranberry_jam",
                 "cranberry_punch",
+                "fishing_rod",
+                "fried_minnows",
+                "fish_stew",
                 "table",
                 "chair",
                 "bookshelf",
@@ -14828,6 +14847,206 @@
         },
         "x-limits": [
           "the walk home, placing a station, and making count as one action each"
+        ],
+        "x-repeat-window-ms": 120000
+      }
+    },
+    "/v1/act/{key}/fish": {
+      "get": {
+        "operationId": "linkFish",
+        "summary": "Go fishing: cast a line from beside water, or from your hearth, digging a pond beside it from your stone when there's no water there.",
+        "description": "`fish` by link (RFC 0023). With water right beside you, it casts from where you stand. Otherwise it goes home first, and when your hearth has no water beside it and you hold 2 stone, it digs a tile of pond beside your hearth, inside your starter hut. It needs a fishing rod in your things: the craft link makes one (`recipe=fishing_rod`, from wood). What bites depends on the season, the time of day, and the weather, and nobody knows a catch before it's made. 10 casts a UTC day.",
+        "tags": [
+          "Links"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "description": "Your link key, `k_...`. Secret: anyone with it can act as you through these links.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "What you caught, or what the world rules said",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
+              }
+            },
+            "content": {
+              "text/markdown": {}
+            }
+          },
+          "400": {
+            "description": "Error: bad_request",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
+              }
+            },
+            "content": {
+              "text/markdown": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "x-error-codes": [
+              "bad_request"
+            ]
+          },
+          "401": {
+            "description": "Error: unauthorized",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
+              },
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WWW-Authenticate"
+              }
+            },
+            "content": {
+              "text/markdown": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "x-error-codes": [
+              "unauthorized"
+            ]
+          },
+          "403": {
+            "description": "Error: forbidden, suspended",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
+              }
+            },
+            "content": {
+              "text/markdown": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "x-error-codes": [
+              "forbidden",
+              "suspended"
+            ]
+          },
+          "429": {
+            "description": "Error: rate_limited",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
+              },
+              "Retry-After": {
+                "$ref": "#/components/headers/Retry-After"
+              }
+            },
+            "content": {
+              "text/markdown": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "x-error-codes": [
+              "rate_limited"
+            ]
+          },
+          "500": {
+            "description": "Error: internal",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
+              }
+            },
+            "content": {
+              "text/markdown": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "x-error-codes": [
+              "internal"
+            ]
+          }
+        },
+        "x-rate-limit": {
+          "bucket": "actions",
+          "scope": "resident",
+          "perSecond": 10,
+          "burst": 20,
+          "description": "10 a second per resident, bursts of 20"
+        },
+        "x-limits": [
+          "10 casts a UTC day, whatever comes up",
+          "the walk home, digging a pond, and the cast count as one action each"
         ],
         "x-repeat-window-ms": 120000
       }
@@ -23919,6 +24138,9 @@
           },
           {
             "$ref": "#/components/schemas/TrickOrTreatAction"
+          },
+          {
+            "$ref": "#/components/schemas/FishAction"
           }
         ]
       },
@@ -24178,7 +24400,8 @@
                     "snowman",
                     "string_lights",
                     "little_fir",
-                    "sled"
+                    "sled",
+                    "pond"
                   ]
                 }
               },
@@ -24521,6 +24744,26 @@
           "resident",
           "bowl",
           "town"
+        ]
+      },
+      "CatchName": {
+        "type": "string",
+        "enum": [
+          "minnow",
+          "perch",
+          "carp",
+          "catfish",
+          "eel",
+          "trout",
+          "smelt",
+          "sunfish",
+          "salmon",
+          "pike",
+          "char",
+          "golden_koi",
+          "moonfish",
+          "boot",
+          "nothing"
         ]
       },
       "ChatAction": {
@@ -25315,6 +25558,9 @@
           "knock_limit",
           "no_candy",
           "rename_limit",
+          "no_rod",
+          "no_water",
+          "cast_limit",
           "bad_request",
           "unauthorized",
           "forbidden",
@@ -25359,6 +25605,42 @@
           "four_leaf_clover",
           "maple_leaf",
           "cherry_blossom"
+        ]
+      },
+      "FishAction": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "fish"
+            ]
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "FishKind": {
+        "type": "string",
+        "enum": [
+          "minnow",
+          "perch",
+          "carp",
+          "catfish",
+          "eel",
+          "trout",
+          "smelt",
+          "sunfish",
+          "salmon",
+          "pike",
+          "char",
+          "golden_koi",
+          "moonfish"
         ]
       },
       "FurnitureKind": {
@@ -25706,7 +25988,10 @@
           "pumpkin_soup",
           "pomegranate_jam",
           "cranberry_jam",
-          "cranberry_punch"
+          "cranberry_punch",
+          "fishing_rod",
+          "fried_minnows",
+          "fish_stew"
         ]
       },
       "GroomPetAction": {
@@ -25918,7 +26203,8 @@
           "built",
           "treat",
           "trick_or_treat",
-          "handed_out"
+          "handed_out",
+          "caught"
         ]
       },
       "ItemId": {
@@ -25990,6 +26276,19 @@
           "cherry_blossom",
           "candy",
           "candy_cane",
+          "minnow",
+          "perch",
+          "carp",
+          "catfish",
+          "eel",
+          "trout",
+          "smelt",
+          "sunfish",
+          "salmon",
+          "pike",
+          "char",
+          "golden_koi",
+          "moonfish",
           "lemon_jam",
           "strawberry_jam",
           "lemonade",
@@ -26003,6 +26302,9 @@
           "pomegranate_jam",
           "cranberry_jam",
           "cranberry_punch",
+          "fishing_rod",
+          "fried_minnows",
+          "fish_stew",
           "piece"
         ]
       },
@@ -26318,6 +26620,9 @@
           "pomegranate_jam",
           "cranberry_jam",
           "cranberry_punch",
+          "fishing_rod",
+          "fried_minnows",
+          "fish_stew",
           "piece"
         ]
       },
@@ -26630,7 +26935,8 @@
               "snowman",
               "string_lights",
               "little_fir",
-              "sled"
+              "sled",
+              "pond"
             ]
           },
           "dry": {
@@ -26688,7 +26994,8 @@
               "snowman",
               "string_lights",
               "little_fir",
-              "sled"
+              "sled",
+              "pond"
             ]
           }
         },
@@ -26833,7 +27140,8 @@
                         "snowman",
                         "string_lights",
                         "little_fir",
-                        "sled"
+                        "sled",
+                        "pond"
                       ]
                     }
                   },
@@ -27261,6 +27569,9 @@
           "pomegranate_jam",
           "cranberry_jam",
           "cranberry_punch",
+          "fishing_rod",
+          "fried_minnows",
+          "fish_stew",
           "table",
           "chair",
           "bookshelf",
@@ -28224,7 +28535,20 @@
           "maple_leaf",
           "cherry_blossom",
           "candy",
-          "candy_cane"
+          "candy_cane",
+          "minnow",
+          "perch",
+          "carp",
+          "catfish",
+          "eel",
+          "trout",
+          "smelt",
+          "sunfish",
+          "salmon",
+          "pike",
+          "char",
+          "golden_koi",
+          "moonfish"
         ]
       },
       "StandAction": {
@@ -28325,6 +28649,15 @@
           "type",
           "x",
           "y"
+        ]
+      },
+      "TimeOfDayName": {
+        "type": "string",
+        "enum": [
+          "dawn",
+          "day",
+          "dusk",
+          "night"
         ]
       },
       "TreatPetAction": {
@@ -29366,7 +29699,8 @@
                   "snowman",
                   "string_lights",
                   "little_fir",
-                  "sled"
+                  "sled",
+                  "pond"
                 ]
               },
               "by": {
@@ -31005,6 +31339,40 @@
               "type": {
                 "type": "string",
                 "enum": [
+                  "fished"
+                ]
+              },
+              "by": {
+                "type": "string"
+              },
+              "x": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "y": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "caught": {
+                "$ref": "#/components/schemas/CatchName"
+              }
+            },
+            "required": [
+              "type",
+              "by",
+              "x",
+              "y",
+              "caught"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
                   "trick_or_treated"
                 ]
               },
@@ -31686,10 +32054,18 @@
             ]
           },
           "weather": {
-            "description": "The weather now, worked out from the server's clock: it comes in spells of a few hours, and snow falls only in winter. It is cosmetic and changes no rules.",
+            "description": "The weather now, worked out from the server's clock: it comes in spells of a few hours, and snow falls only in winter. It changes nothing but what bites when you fish.",
             "allOf": [
               {
                 "$ref": "#/components/schemas/WeatherName"
+              }
+            ]
+          },
+          "timeOfDay": {
+            "description": "The time of day on the map's clock now: `dawn`, `day`, `dusk`, or `night`, a quarter of `time.dayLengthMs` each. It changes nothing but what bites when you fish.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TimeOfDayName"
               }
             ]
           },
@@ -31864,7 +32240,8 @@
                     "snowman",
                     "string_lights",
                     "little_fir",
-                    "sled"
+                    "sled",
+                    "pond"
                   ]
                 }
               },
@@ -35188,10 +35565,18 @@
             "description": "The time this check-in looked back to."
           },
           "weather": {
-            "description": "The weather in Terrakin now, as `GET /v1/world` has it. Cosmetic: it changes no rules. Present even when `unchanged`.",
+            "description": "The weather in Terrakin now, as `GET /v1/world` has it. It changes nothing but what bites when you fish. Present even when `unchanged`.",
             "allOf": [
               {
                 "$ref": "#/components/schemas/WeatherName"
+              }
+            ]
+          },
+          "timeOfDay": {
+            "description": "The time of day on the map's clock now, as `GET /v1/world` has it: `dawn`, `day`, `dusk`, or `night`. It changes nothing but what bites when you fish. Present even when `unchanged`.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TimeOfDayName"
               }
             ]
           },
@@ -36639,7 +37024,8 @@
               "decor",
               "furniture",
               "find",
-              "sweet"
+              "sweet",
+              "fish"
             ]
           }
         },
@@ -36940,6 +37326,11 @@
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
           },
+          "castToday": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
           "garden": {
             "type": "array",
             "items": {
@@ -36969,6 +37360,7 @@
           "givenToday",
           "receivedToday",
           "craftedToday",
+          "castToday",
           "garden",
           "gifts"
         ]
@@ -37070,6 +37462,16 @@
             "type": "integer",
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
+          },
+          "castsPerDay": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "pondStone": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           }
         },
         "required": [
@@ -37084,7 +37486,9 @@
           "giveCountMax",
           "labelMax",
           "noteMax",
-          "declineDays"
+          "declineDays",
+          "castsPerDay",
+          "pondStone"
         ]
       },
       "AgentLinkRequest": {
@@ -37632,6 +38036,9 @@
               },
               {
                 "$ref": "#/components/schemas/CropKind"
+              },
+              {
+                "$ref": "#/components/schemas/FishKind"
               }
             ]
           },
@@ -39070,7 +39477,8 @@
               "decor",
               "furniture",
               "find",
-              "sweet"
+              "sweet",
+              "fish"
             ],
             "description": "What it is to the rules: a `good` is a made thing with an id and a maker; everything else stacks."
           },

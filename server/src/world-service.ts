@@ -712,6 +712,21 @@ export class WorldService {
     );
   }
 
+  /**
+   * Staff cleared the picture from every piece made from an upload (decision 0065: pieces must
+   * stop pointing at a file a hidden post or deleted profile pictures took down). One
+   * `remove_display {picture}` through the log clears them all; the chosen piece comes off
+   * display if it's up, like the staff route. `undefined` when the log refused; nothing changed.
+   */
+  removePiecePictures(mediaId: string): { removed: string[] } | undefined {
+    const piece = pieceShowingMedia(this.state, mediaId);
+    if (!piece) return { removed: [] };
+    const done = this.removeDisplay(piece, true);
+    if (!done.ok) return undefined;
+    const removed = done.events.flatMap((e) => (e.type === "picture_removed" ? e.items : []));
+    return { removed: [...new Set([piece, ...removed])] };
+  }
+
   /** Whole UTC days since a resident first joined. Residents from before days were counted are old. */
   residentAgeDays(residentId: string): number {
     const joined = this.joinedDay.get(residentId);

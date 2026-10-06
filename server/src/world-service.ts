@@ -48,6 +48,7 @@ import {
   residentById,
   SHOP,
   shopTiles,
+  skyAt,
   TOWN_ACTOR,
   townHallTiles,
   treasuryShareOf,
@@ -1615,12 +1616,15 @@ export class WorldService {
 
   snapshot(): WorldSnapshot {
     const { state } = this;
+    const nowMs = this.now();
     return {
       v: PROTOCOL_VERSION,
       seq: state.seq,
       hash: this.hash(),
-      // The sim never sees a clock; this is presentation state, anchored by the server.
-      time: { nowMs: this.now(), dayLengthMs: DAY_LENGTH_MS },
+      // The sim never sees a clock; this is presentation state, anchored by the server. So are the
+      // weather and the season it reads off the same clock (decision 0073).
+      time: { nowMs, dayLengthMs: DAY_LENGTH_MS },
+      ...skyAt(nowMs, state.day),
       config: {
         width: state.config.width,
         height: state.config.height,

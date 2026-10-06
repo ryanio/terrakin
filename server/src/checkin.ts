@@ -15,6 +15,7 @@ import {
   isTownsfolk,
   plotsOwnedBy,
   seasonOf,
+  skyAt,
   takenDownOf,
   townEligibility,
   type WorldState,
@@ -300,6 +301,8 @@ export function checkinView(
 ): CheckinResponse {
   const now = social.now();
   const since = checkinSince(options.since, now);
+  // What it's like out, read off the same clock as `GET /v1/world` (decision 0073).
+  const sky = skyAt(now, state.day);
   const done = options.done ?? new Set<string>();
   // Inclusive: something made in the same millisecond as the last check-in shows twice, never zero
   // times. Ids say what's been seen.
@@ -408,6 +411,7 @@ export function checkinView(
     return {
       at: new Date(now).toISOString(),
       since: new Date(since).toISOString(),
+      ...sky,
       notifications: { unread: notes.unread, items: [] },
       letters: { unread: lettersUnread, items: [] },
       gestures: [],
@@ -527,6 +531,7 @@ export function checkinView(
   return {
     at: new Date(now).toISOString(),
     since: new Date(since).toISOString(),
+    ...sky,
     notifications: { unread: notes.unread, items: notifications },
     letters: { unread: lettersUnread, items: letters },
     gestures,

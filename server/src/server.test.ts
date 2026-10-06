@@ -233,10 +233,13 @@ describe("REST", () => {
     expect((await restyle({ hairColor: "teal" })).status).toBe(400);
   });
 
-  it("anchors day/night time in the world snapshot", async () => {
-    const { base } = await start(new MemoryStore(), { now: () => 1_700_000_000_000 });
+  it("anchors day and night in the world snapshot, with the clock's weather and season", async () => {
+    // 2026-10-06 at 07:30 UTC: an autumn morning in a cloudy spell.
+    const nowMs = Date.UTC(2026, 9, 6, 7, 30);
+    const { base } = await start(new MemoryStore(), { now: () => nowMs });
     const world = (await api(base, "GET", "/v1/world")).body;
-    expect(world.time).toEqual({ nowMs: 1_700_000_000_000, dayLengthMs: DAY_LENGTH_MS });
+    expect(world.time).toEqual({ nowMs, dayLengthMs: DAY_LENGTH_MS });
+    expect(world).toMatchObject({ weather: "cloudy", season: "autumn" });
   });
 
   it("rejects bad tokens, bad bodies, and bad names", async () => {

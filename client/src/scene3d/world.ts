@@ -14,6 +14,8 @@ import {
   OUTSIDE_GROUND,
   plotKey,
   type Resident,
+  type Season,
+  seasonTone,
   THEME_INFO,
   THEME_TINT_ALPHA,
   tileKey,
@@ -37,8 +39,9 @@ import {
 } from "three";
 import type { Feelings, Shown } from "../feelings";
 import type { Mirror } from "../mirror";
-import type { Motion } from "../motion";
+import { awayPose, type Motion } from "../motion";
 import { bubbleSize, drawBubble, stackBubbles } from "../overhead";
+import { type SkyAmounts, UMBRELLA_RAIN } from "../weather";
 import {
   canvasTexture,
   createStage,
@@ -74,15 +77,18 @@ import {
   overheadTop,
   pickups,
   scenery,
+  setUmbrella,
   showFeeling,
   sizeSign,
   turnHead,
 } from "./plot";
+import { createWeather } from "./weather";
 import {
   approach,
   BUILDS_PER_FRAME,
   cameraQuarter,
   chunkSignature,
+  dozersAround,
   faceAngle,
   figuresAround,
   GROUND_STEP,
@@ -90,6 +96,7 @@ import {
   groundPoint,
   hearthKeys,
   KEEP_SLACK,
+  MAX_FIGURES,
   nearbyLabel,
   plotsAround,
   type Quarter,
@@ -117,6 +124,10 @@ export interface World3dFrame {
   feelings?: Feelings;
   /** How residents move, and what they say: the same the map draws. */
   motion: Motion;
+  /** The world's season, for the ground. Absent: today's look. */
+  season?: Season | undefined;
+  /** How much cloud, rain, snow, and fog to draw (`weather.ts`). Absent: a clear sky. */
+  sky?: SkyAmounts | undefined;
 }
 
 export interface World3d {
@@ -142,6 +153,8 @@ interface Fig {
   look: number;
   /** While they doze, the `sleepy` feeling from `motion.ts`. */
   doze: Shown | undefined;
+  /** Away and asleep at home here (decision 0086): they stay put, and a tap on them is this tile. */
+  away?: { x: number; y: number };
   /** What they're saying, in the scene so a hop or squash doesn't bend it; its canvas size. */
   bubble?: { text: string; sprite: Sprite; w: number; h: number };
 }
@@ -229,6 +242,11 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
   let standsWidth = 0;
   /** How big feelings' signs are drawn for the camera's distance (`signSize`). */
   let signAt = signSize(START_OFFSET.length(), camera.fov);
+  /** The season the ground is dressed for, and whether umbrellas are up. */
+  let season: Season | undefined;
+  let umbrellasUp = false;
+  // Rain and snow fall around you, and the sky greys for the weather (decision 0073).
+  const weather = createWeather(stage, { radius: VIEW_RADIUS - 1 });
 
   // The reach outline while building, like the 2D map's dashed square.
   const reach = new LineLoop(
@@ -252,7 +270,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
   }
 
   function buildChunk(mirror: Mirror, px: number, py: number): Chunk {
-    const data = readChunk(mirror, px, py, hearths);
+    const data = readChunk(mirror, px, py, hearths, season);
     const scope = scoped(stage);
     const group = new Group();
     group.name = `plot ${px},${py}`;
@@ -261,7 +279,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
     const parts = blockMeshes(scope, origin, blocks, grain, surfaces);
     if (parts.length) group.add(...parts);
     if (data.owner) group.add(border(data.bounds, origin, grain));
-    group.add(scenery(scope, origin, data.tufts, data.flowers));
+    group.add(scenery(scope, origin, data.tufts, data.flowers, data.leaves, season));
     if (data.pickups.length) group.add(pickups(origin, data.pickups));
     for (const h of data.hearths) {
       const home = hearth(scope, grain, { light: false, ...hearthLook });
@@ -293,7 +311,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       const key = plotKey(p.x, p.y);
       const have = chunks.get(key);
       if (have && !changed) continue;
-      if (have && have.signature === chunkSignature(mirror, p.x, p.y, hearths)) continue;
+      if (have && have.signature === chunkSignature(mirror, p.x, p.y, hearths, season)) continue;
       if (built >= BUILDS_PER_FRAME) {
         pending = true;
         break;
@@ -315,7 +333,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       return owner ? `${owner}:${mirror.residents.get(owner)?.theme ?? ""}` : "";
     });
     const signature = `${at.x},${at.y}|${owners.join(",")}|${area
-      .map((p) => chunkSignature(mirror, p.x, p.y, hearths))
+      .map((p) => chunkSignature(mirror, p.x, p.y, hearths, season))
       .join("/")}`;
     if (ground?.signature === signature) return;
     if (ground) {
@@ -323,7 +341,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       disposeTree(ground.mesh, shared);
     }
     const S = config.plotSize;
-    const plotTint = new Color(0xb4cd86);
+    const plotTint = new Color(hex(seasonTone("#b4cd86", season)));
     const outside = new Color(hex(OUTSIDE_GROUND));
     const fogColor = new Color(SKY.fog);
     const solid = new Set<string>();
@@ -346,7 +364,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
         const px = Math.floor(tx / S);
         const py = Math.floor(ty / S);
         const inCommons = px === mirror.commons.px && py === mirror.commons.py;
-        c = new Color(hex(groundTile(config, tx, ty, inCommons).fill));
+        c = new Color(hex(groundTile(config, tx, ty, inCommons, season).fill));
         const owner = mirror.plots.get(plotKey(px, py));
         if (owner) {
           const theme = mirror.residents.get(owner)?.theme;
@@ -522,13 +540,18 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
   /** Who is drawn, and in what look. Runs when the mirror changes. */
   function updateCast(mirror: Mirror, me: string, tile: Tile) {
     const shown = figuresAround(mirror.residents.values(), tile, me);
-    const ids = new Set(shown.map((r) => r.id));
-    // The canvas can't be read aloud, so the view names who is around (names as plain text).
+    // Anyone away sleeps at home in the places the online leave free (decision 0086).
+    const asleep = dozersAround(mirror.asleep(me), tile, MAX_FIGURES - shown.length);
+    const spots = new Map(asleep.map((d) => [d.r.id, { x: d.x, y: d.y }]));
+    const ids = new Set([...shown.map((r) => r.id), ...spots.keys()]);
+    // The canvas can't be read aloud, so the view names who is around (names as plain text). Only
+    // residents in the world: never anyone asleep at home.
     const label = nearbyLabel(shown.filter((r) => r.id !== me).map((r) => r.name));
     if (host.getAttribute("aria-label") !== label) host.setAttribute("aria-label", label);
     for (const id of [...figures.keys()]) if (!ids.has(id)) dropFigure(id);
-    for (const r of shown) {
+    for (const r of [...shown, ...asleep.map((d) => d.r)]) {
       const mine = r.id === me;
+      const away = spots.get(r.id);
       const signature = JSON.stringify([
         r.name,
         r.kind,
@@ -542,15 +565,27 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
         r.hair,
         r.hairColor,
         mine,
+        away,
       ]);
       const have = figures.get(r.id);
       if (have?.signature === signature) continue;
-      const at = have ? have.group.position.clone() : new Vector3(r.x, 0, r.y);
-      const turn = have?.turn ?? faceAngle(mirror.facing.get(r.id));
+      const at = away
+        ? new Vector3(away.x, 0, away.y)
+        : have
+          ? have.group.position.clone()
+          : new Vector3(r.x, 0, r.y);
+      // Asleep at home, they face out of the door, toward the camera's usual side.
+      const turn = away ? 0 : (have?.turn ?? faceAngle(mirror.facing.get(r.id)));
       dropFigure(r.id);
       const scope = scoped(stage);
-      const group = figure(scope, figureOf(r, mine), shadowMap);
+      const group = figure(
+        scope,
+        { ...figureOf(r, mine), ...(away ? { away: true as const } : {}) },
+        shadowMap,
+      );
       group.userData.residentId = r.id;
+      // Out in the rain an umbrella goes up; asleep at home it stays rolled up beside them.
+      setUmbrella(group, umbrellasUp && !away);
       // A crowd casts blob shadows only: a real one per figure would double its draws.
       group.traverse((o) => {
         o.castShadow = false;
@@ -566,6 +601,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
         turn,
         look: 0,
         doze: undefined,
+        ...(away ? { away } : {}),
       });
       sizeSign(group, signAt);
     }
@@ -588,6 +624,11 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
     for (const [id, f] of figures) {
       const r = mirror.residents.get(id);
       if (!r) continue;
+      if (f.away) {
+        // Asleep at home: they stay where they lie, breathing, and doze.
+        f.doze = awayPose(id, f.away.x, f.away.y, now, still).doze;
+        continue;
+      }
       const m = motion.pose(r, now, still);
       // The way they're walking, or the server's word for someone who hasn't moved since.
       const want = faceAngle(m.facing ?? mirror.facing.get(id));
@@ -680,10 +721,13 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
         camera.position.add(delta);
       }
     }
-    // Haze starts just past you and closes in at the view radius, wherever the camera is.
+    // Haze starts just past you and closes in at the view radius, wherever the camera is, and
+    // nearer in fog.
     const d = camera.position.distanceTo(controls.target);
-    fog.near = d + 2;
-    fog.far = d + VIEW_RADIUS * 1.6;
+    const reach = stage.hazeReach();
+    fog.near = d + 2 * reach;
+    fog.far = d + VIEW_RADIUS * 1.6 * reach;
+    weather.follow(focus.x, focus.z);
     if (focus.distanceToSquared(lastFocus) > 0.25) {
       lastFocus.copy(focus);
       stage.light(new Vector3(focus.x, 0, focus.z), 10);
@@ -757,6 +801,9 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
     // standing in front of a wall.
     if (figureHit && !(hit && hit.distance < figureHit.distance)) {
       const id = ownerOf(figureHit.object, (o) => o.userData.residentId as string | undefined);
+      const away = id ? figures.get(id)?.away : undefined;
+      // Someone asleep at home is where they're drawn, not where they last stood.
+      if (away) return tileAtPoint(away.x, away.y);
       const r = id ? lastMirror?.residents.get(id) : undefined;
       if (r) return { x: r.x, y: r.y };
     }
@@ -785,14 +832,17 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
   canvas.addEventListener("webglcontextlost", onLost);
 
   return {
-    sync({ mirror, me, buildMode, feelings, motion }) {
+    sync({ mirror, me, buildMode, feelings, motion, season: seasonNow, sky }) {
       const self = mirror.residents.get(me);
       lastMirror = mirror;
       const now = performance.now();
       const dt = Math.min(0.1, (now - lastSync) / 1000);
       lastSync = now;
       if (!self || failed) return;
-      const changed = mirror !== mirrorSeen || mirror.seq !== seqSeen;
+      // A new season dresses the ground again, plot by plot, like any change to the world.
+      const newSeason = seasonNow !== season;
+      season = seasonNow;
+      const changed = mirror !== mirrorSeen || mirror.seq !== seqSeen || newSeason;
       mirrorSeen = mirror;
       seqSeen = mirror.seq;
       const tile = { x: self.x, y: self.y };
@@ -839,6 +889,13 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
         moved = true;
       }
       placeReach(mirror, self, buildMode);
+      weather.set(sky ?? CLEAR);
+      const up = (sky?.rain ?? 0) >= UMBRELLA_RAIN;
+      if (up !== umbrellasUp) {
+        umbrellasUp = up;
+        for (const f of figures.values()) setUmbrella(f.group, up && !f.away);
+        moved = true;
+      }
       if (moved || changed || walked || buildMode) stage.invalidate();
     },
     heading() {
@@ -860,6 +917,8 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
     },
   };
 }
+
+const CLEAR: SkyAmounts = { cloud: 0, rain: 0, snow: 0, fog: 0 };
 
 /** A chat bubble on its own canvas, drawn the way the map draws it. */
 function bubbleTexture(lines: string[]): { texture: CanvasTexture; w: number; h: number } {

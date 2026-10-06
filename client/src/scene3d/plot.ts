@@ -6,7 +6,16 @@
  * when they have one, stands on the plot too.
  */
 
-import { BLOCK_KINDS, DECOR_KINDS, isDecorKind, type ResourceKind } from "@terrakin/sim";
+import {
+  BLOCK_KINDS,
+  DECOR_KINDS,
+  isDecorKind,
+  LEAF_TONES,
+  type ResourceKind,
+  SEASON_GROUND,
+  type Season,
+  seasonTone,
+} from "@terrakin/sim";
 import type { Feeling } from "@terrakin/ui/feelings";
 import { drawFeelingIcon, FEELING_ICON, type FeelingIcon } from "@terrakin/ui/figure";
 import { isModelResource } from "@terrakin/ui/format";
@@ -49,6 +58,7 @@ import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.j
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { idPhase, type Pose, pose, restingPose, type Shown } from "../feelings";
+import { UMBRELLA_RAIN, WEATHER_LOOK } from "../weather";
 import {
   addWind,
   bakeShade,
@@ -75,6 +85,7 @@ import {
   cornerLight,
   FIGURE_SCALE,
   fitModel,
+  type GroundLeaf,
   groundDecor,
   type HomeExtras,
   hearthPull,
@@ -94,6 +105,7 @@ import {
 } from "./layout";
 import { BRAND, blockLook, hex, mix, residentHex, SKY, shade } from "./palette";
 import { wearGroup } from "./wear";
+import { createWeather } from "./weather";
 
 export interface PlotSceneOptions {
   /** A note for the page when the owner's own model or picture couldn't be shown. */
@@ -124,7 +136,7 @@ export function buildPlot(
   root.add(ground(layout, solid));
   root.add(border(layout.bounds, origin, grain));
   root.add(...blockMeshes(stage, origin, blocks, grain));
-  const { tufts, flowers } = groundDecor(
+  const { tufts, flowers, leaves } = groundDecor(
     {
       x0: layout.bounds.x0 - 2,
       y0: layout.bounds.y0 - 2,
@@ -132,8 +144,9 @@ export function buildPlot(
       y1: layout.bounds.y1 + 2,
     },
     solid,
+    layout.season,
   );
-  root.add(scenery(stage, origin, tufts, flowers));
+  root.add(scenery(stage, origin, tufts, flowers, leaves, layout.season));
   if (layout.hearth) {
     const h = hearth(stage, grain);
     h.position.set(toX(layout.hearth.x), 0, toZ(layout.hearth.y));
@@ -157,13 +170,20 @@ export function buildPlot(
         return layout.inWorld(x, y) && !solid.has(`${x},${y}`);
       })
     : undefined;
+  // The weather when the snapshot was taken (decision 0073): rain or snow over the plot, a greyer
+  // sky, and umbrellas up in the rain.
+  const sky = WEATHER_LOOK[layout.weather];
+  createWeather(stage, { radius: layout.size / 2 + layout.margin }).set(sky);
   const figures: Group[] = [];
   for (const f of layout.figures) {
     const fig = figure(stage, f, shadowMap);
-    const pull = home && stand ? hearthPull(f.x, f.y, home.x, home.y) : 0;
+    // Someone asleep at home already stands clear of the stonework.
+    const pull = home && stand && !f.away ? hearthPull(f.x, f.y, home.x, home.y) : 0;
     fig.position.set(toX(f.x) + (stand?.x ?? 0) * pull, 0, toZ(f.y) + (stand?.y ?? 0) * pull);
     // Face the camera's usual side (south-east), with a little turn each.
     fig.rotation.y = 0.5 + ((tileHash(f.x, f.y) % 100) / 100 - 0.5) * 0.8;
+    // Out in the rain an umbrella goes up; asleep at home it stays rolled up beside them.
+    setUmbrella(fig, sky.rain >= UMBRELLA_RAIN && !f.away);
     root.add(fig);
     figures.push(fig);
   }
@@ -259,8 +279,9 @@ export function groundGrid(
 function ground(layout: PlotLayout, solid: ReadonlySet<string>): Mesh {
   const ring = layout.margin + 14;
   const n = layout.size + ring * 2;
-  const grass = [BRAND.grass, 0xa1c27d, 0xa9c986, 0x9dbe79].map(lin);
-  const plotTint = lin(0xb4cd86);
+  // The world's meadow, as the season wears it.
+  const grass = SEASON_GROUND[layout.season ?? "summer"].ground.meadow.map((c) => lin(hex(c)));
+  const plotTint = lin(hex(seasonTone("#b4cd86", layout.season)));
   const sand = lin(BRAND.sand);
   const fog = lin(SKY.fog);
   const fadeStart = layout.size / 2 + layout.margin + 2;
@@ -524,12 +545,17 @@ function solidAt(blocks: readonly LayoutBlock[], x: number, y: number): boolean 
 
 // ---------- tufts and flowers ----------
 
-/** Grass tufts and flowers at tile positions, each kind one instanced draw that sways. */
+/**
+ * Grass tufts, flowers, and autumn's fallen leaves at tile positions, each kind one instanced draw;
+ * tufts and flowers sway. Tufts go olive in autumn and pale in winter, as on the map.
+ */
 export function scenery(
   stage: Stage,
   origin: { x: number; y: number },
   tufts: readonly { x: number; y: number; turn: number }[],
   flowers: readonly { x: number; y: number; warm: boolean }[],
+  leaves: readonly GroundLeaf[] = [],
+  season?: Season,
 ): Group {
   const group = new Group();
   const m = new Matrix4();
@@ -547,7 +573,13 @@ export function scenery(
     });
     const geo = bakeShade(mergeGeometries(blades), 0.6, 1.1);
     for (const g of blades) g.dispose();
-    const mat = new MeshLambertMaterial({ color: BRAND.moss, vertexColors: true });
+    const color =
+      season === "autumn"
+        ? mix(BRAND.moss, 0xb08a3e, 0.55)
+        : season === "winter"
+          ? mix(BRAND.moss, 0xf4f1ea, 0.45)
+          : BRAND.moss;
+    const mat = new MeshLambertMaterial({ color, vertexColors: true });
     const wind = addWind(mat, 0.9);
     stage.animate(({ time }) => wind.tick(time));
     const mesh = new InstancedMesh(geo, mat, tufts.length);
@@ -575,6 +607,26 @@ export function scenery(
       mesh.setMatrixAt(i, m);
       mesh.setColorAt(i, lin(f.warm ? BRAND.sun : 0xfff4d6));
     });
+    group.add(mesh);
+  }
+  if (leaves.length) {
+    // A leaf: a flat diamond lying just over the ground, turned and colored by tile.
+    const geo = new CircleGeometry(0.075, 4);
+    geo.scale(1.6, 0.85, 1);
+    geo.rotateX(-Math.PI / 2);
+    geo.translate(0, 0.02, 0);
+    const mesh = new InstancedMesh(
+      geo,
+      new MeshLambertMaterial({ color: 0xffffff }),
+      leaves.length,
+    );
+    leaves.forEach((l, i) => {
+      q.setFromAxisAngle(up, l.turn);
+      m.compose(new Vector3(toX(l.x), 0, toZ(l.y)), q, new Vector3(1, 1, 1));
+      mesh.setMatrixAt(i, m);
+      mesh.setColorAt(i, lin(hex(LEAF_TONES[l.tone])));
+    });
+    mesh.receiveShadow = true;
     group.add(mesh);
   }
   return group;
@@ -1015,9 +1067,15 @@ interface Rig extends FaceParts {
   hand: Mesh;
   icon: Sprite;
   iconMat: SpriteMaterial;
+  /** The name tag, and who it floats over (a hat or an umbrella held up lifts it). */
+  label: Sprite;
+  who: Pick<LayoutFigure, "kind" | "look">;
+  umbrellaUp: boolean;
   /** The top of the name tag, where the sign sits, and how big the sign is drawn. */
   tagTop: number;
   iconSize: number;
+  /** How strongly the tag and sign show: fainter for someone away, asleep at home. */
+  shows: number;
   phase: number;
   shown: Shown | undefined;
   /** The feeling the face parts are set for. */
@@ -1080,7 +1138,7 @@ function movePose(rig: Rig, p: Pose) {
     rig.hand.position.set(0.2 + Math.sin(lean) * 0.2, 0.42 + Math.cos(lean) * 0.2, 0.02);
   }
   rig.icon.position.y = rig.tagTop + SIGN_GAP + rig.iconSize / 2 + p.rise;
-  rig.iconMat.opacity = p.fade;
+  rig.iconMat.opacity = p.fade * rig.shows;
 }
 
 /**
@@ -1120,6 +1178,28 @@ export function turnHead(fig: Object3D, yaw: number) {
   const rig = rigs.get(fig);
   if (rig) rig.head.rotation.y = yaw;
 }
+
+/**
+ * Put a figure's umbrella up over its head (in the rain) or roll it up at its side, and float the
+ * name tag over whichever it is (decision 0073). True when it changed, so the caller draws a frame.
+ */
+export function setUmbrella(fig: Object3D, up: boolean): boolean {
+  const rig = rigs.get(fig);
+  if (!rig || rig.umbrellaUp === up) return false;
+  rig.umbrellaUp = up;
+  fig.traverse((o) => {
+    const part = o.userData.umbrella as "open" | "furled" | undefined;
+    if (part) o.visible = (part === "open") === up;
+  });
+  rig.label.position.y = tagHeight(rig.who, up);
+  rig.tagTop = rig.label.position.y + TAG_SIZE / 2;
+  movePose(rig, rig.pose);
+  return true;
+}
+
+/** How strongly someone away shows: their peg fades toward the haze, their tag fainter. */
+const AWAY_FADE = 0.38;
+const AWAY_SHOWS = 0.72;
 
 /**
  * A soft peg figure: a body in their color and shape, a round head with a nose and a face that
@@ -1192,9 +1272,19 @@ export function figure(stage: Stage, f: LayoutFigure, shadowMap: Texture): Group
   const tag = nameTag(f.name, f.owner);
   const label = new Sprite(overheadMaterial(tag.texture));
   label.scale.set(TAG_SIZE * tag.aspect, TAG_SIZE, 1);
+  // An umbrella starts rolled up; `setUmbrella` puts it up in the rain.
   label.position.y = tagHeight(f);
   label.renderOrder = OVERHEAD_ORDER.tag;
   group.add(label);
+  if (f.away) {
+    // Away and asleep at home: faded toward the haze, so they read as not quite here.
+    const haze = lin(SKY.fog);
+    body.traverse((o) => {
+      if (o instanceof Mesh && o.material instanceof MeshLambertMaterial)
+        o.material.color.lerp(haze, AWAY_FADE);
+    });
+    label.material.opacity = AWAY_SHOWS;
+  }
 
   // The feeling's sign floats over the name tag. Its texture is set when a feeling needs one.
   const iconMat = overheadMaterial();
@@ -1216,8 +1306,12 @@ export function figure(stage: Stage, f: LayoutFigure, shadowMap: Texture): Group
     hand,
     icon,
     iconMat,
+    label,
+    who: { kind: f.kind, look: f.look },
+    umbrellaUp: false,
     tagTop,
     iconSize: SIGN_SIZE,
+    shows: f.away ? AWAY_SHOWS : 1,
     phase: idPhase(f.id),
     shown: undefined,
     drawn: "neutral",

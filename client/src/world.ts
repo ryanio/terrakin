@@ -41,6 +41,7 @@ import { Mirror } from "./mirror";
 import { Motion } from "./motion";
 import { Connection, type Identity, savedToken, saveToken } from "./net";
 import { blockColor, HEARTH_COLOR, render } from "./render";
+import { dozerAt } from "./scene3d/layout";
 import type { World3d } from "./scene3d/world";
 import { approach, type Quarter, turnDir } from "./scene3d/world-layout";
 import { track } from "./telemetry";
@@ -48,6 +49,7 @@ import { NO_PLOT_LINE, newsLine, othersPickupLine, toastMs, worldProblem } from 
 import { dayPhase } from "./time";
 import { ARRIVAL_KEY, gestureLine } from "./together";
 import { Walker } from "./walk";
+import { Sky, skyNow } from "./weather";
 import type { WorldLoader } from "./world-loader";
 import { offer3d, readSignals, savedMode, saveMode, startMode, type WorldMode } from "./world-mode";
 
@@ -74,6 +76,8 @@ const motionQuery = window.matchMedia(REDUCED_MOTION);
 const feelings = new Feelings();
 /** Slides, hops, sways, dozing, and speech bubbles, for the map and the 3D view alike. */
 const motion = new Motion();
+/** The weather drifting in and out, for the map and the 3D view alike (decision 0073). */
+const sky = new Sky();
 
 let active = false;
 let rafId = 0;
@@ -618,6 +622,12 @@ function tapTile(tile: { x: number; y: number }) {
     showToast(other.note ? `${name}: ${other.note}` : name, "player");
     return;
   }
+  // Someone asleep at home is away, not here: say so, and walk on as if the tile were empty.
+  const asleep = other ? undefined : dozerAt(mirror.asleep(me), tile.x, tile.y)?.r;
+  if (asleep) {
+    const name = asleep.kind === "agent" ? `${asleep.name} ⚙` : asleep.name;
+    showToast(`${name} is away, asleep at home.`, "player");
+  }
   walkToward(tile);
 }
 
@@ -965,12 +975,19 @@ function frame() {
     cam.cy = oy + Math.cos(drift / 13) * 2.5 + 1.5;
     cam.scale = targetScale();
   }
-  // Advance the server's time anchor with our own clock, so every client
-  // renders the same night at the same time without asking the server again.
-  const phase = dayAnchor
-    ? dayPhase(dayAnchor.nowMs + (performance.now() - dayAnchor.receivedAt), dayAnchor.dayLengthMs)
+  // Advance the server's time anchor with our own clock, so every client renders the same night,
+  // and the same weather, at the same time without asking the server again.
+  const serverMs = dayAnchor
+    ? dayAnchor.nowMs + (performance.now() - dayAnchor.receivedAt)
     : undefined;
-  if (world3d && mirror && me) world3d.sync({ mirror, me, buildMode, feelings, motion });
+  const phase =
+    dayAnchor && serverMs !== undefined ? dayPhase(serverMs, dayAnchor.dayLengthMs) : undefined;
+  const { season, weather } = skyNow(serverMs, mirror?.day);
+  // Only once the server's clock is known, so the first weather we draw is the real one, not a
+  // spell drifting in from a clear sky.
+  if (serverMs !== undefined) sky.update(weather, now, still);
+  if (world3d && mirror && me)
+    world3d.sync({ mirror, me, buildMode, feelings, motion, season, sky: sky.amounts });
   else if (mirror)
     render(ctx, {
       mirror,
@@ -981,6 +998,8 @@ function frame() {
       motion,
       now,
       still,
+      season,
+      sky: sky.amounts,
       ...(phase === undefined ? {} : { dayPhase: phase }),
     });
   // Your own figure's feeling, a name from a fixed list, once you're in: for tests and tools.

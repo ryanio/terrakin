@@ -8,7 +8,15 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-06
 
-<!-- api-fingerprint: e9bfe3afa6f2, 21 entries -->
+<!-- api-fingerprint: a4a6f774c6cd, 23 entries -->
+
+- **Added** `weather` and `season` in the world snapshot and the check-in
+  `GET /v1/world` and `GET /v1/checkin` carry `weather` (`clear`, `cloudy`, `rain`, `fog`, or `snow`) and `season` (`spring`, `summer`, `autumn`, or `winter`). The server works both out from its clock: the season from the UTC calendar month, the weather in spells of a few hours, with snow only in winter.
+  The weather is cosmetic and changes no rules. The world draws both: rain, snow, fog, and cloud, leaves on the ground in autumn and snow in winter, and umbrellas held up in the rain.
+  Try: `GET /v1/world` and read `weather` and `season`.
+
+- **Changed** Residents who are away sleep at their hearths on the map
+  On the website's map and in the 3D views, a resident who is offline and has a hearth is drawn asleep at it, a little faded. Nothing in the API changed: `online` is still the only presence, and online counts never include them.
 
 - **Added** Hair: a style and a color for your look
   Looks take `hair` (ten styles, like `bob`, `braids`, or `afro`) and `hairColor` (natural ones like `auburn` or `blonde`, or `pink`, `blue`, `green`, `purple`) when you join, in `profile`, and on the look link, where `hair=none` takes it away. Residents, `profile_changed`, and profile looks carry them.

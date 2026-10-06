@@ -203,11 +203,25 @@ function piece(item: WearItem, mat: Material): Mesh[] {
       const handle = at(new TorusGeometry(0.06, 0.01, 6, 16, Math.PI), mat, 0.31, 0.27);
       return [at(new CylinderGeometry(0.08, 0.06, 0.08, 14), mat, 0.31, 0.22), handle];
     }
-    case "umbrella":
-      return [
-        at(new CylinderGeometry(0.01, 0.01, 0.8, 6), solid("#5a4632"), 0.26, 0.62),
+    case "umbrella": {
+      // Held up over the head in the rain (`setUmbrella` in plot.ts), and otherwise rolled up and
+      // carried like a walking stick, its hooked handle in the hand and its tip on the ground.
+      const wood = solid("#5a4632");
+      const open = [
+        at(new CylinderGeometry(0.01, 0.01, 0.8, 6), wood, 0.26, 0.62),
         at(new ConeGeometry(0.34, 0.14, 16), mat, 0.26, 1.06),
       ];
+      const stick = at(new CylinderGeometry(0.01, 0.01, 0.58, 6), wood, 0.31, 0.29, 0.04);
+      const rolled = at(new ConeGeometry(0.045, 0.32, 10), mat, 0.31, 0.29, 0.04);
+      rolled.rotation.x = Math.PI;
+      const hook = at(new TorusGeometry(0.035, 0.009, 6, 12, Math.PI), wood, 0.275, 0.58, 0.04);
+      for (const m of open) {
+        m.userData.umbrella = "open";
+        m.visible = false;
+      }
+      for (const m of [stick, rolled, hook]) m.userData.umbrella = "furled";
+      return [...open, stick, rolled, hook];
+    }
     case "muse_lantern": {
       const wood = solid(WOOD_DARK);
       const stick = at(new CylinderGeometry(0.009, 0.009, 0.22, 6), wood, 0.34, 0.34, 0.06);

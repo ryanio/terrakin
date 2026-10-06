@@ -8,8 +8,9 @@
  * Each step hops, kicks a little dust where it pushes off, and leans into the walk. A figure
  * squashes as it lands, sways while it stands, puffs in after a jump, nudges toward what stopped
  * it, and dozes after standing still a while (the `sleepy` feeling, so faces have one source,
- * `feelings.ts`). Chat bubbles live here too, so the map and the 3D view read one place. Nothing
- * here feeds back into the world; the mirror stays the truth.
+ * `feelings.ts`). Residents who are away sleep at home through `awayPose`, which keeps no track.
+ * Chat bubbles live here too, so the map and the 3D view read one place. Nothing here feeds back
+ * into the world; the mirror stays the truth.
  *
  * Times are in milliseconds from the page's own clock. With `still` (prefers-reduced-motion) a
  * figure stands on its tile; walks keep their pace, and bubbles and dozing still show.
@@ -452,4 +453,40 @@ function setOff(t: Track, clock: number) {
   t.kick = { x: t.fromX, y: t.fromY, t: 0 };
   t.facing = directionOf(leg.x - t.fromX, leg.y - t.fromY) ?? t.facing;
   t.bump = undefined;
+}
+
+/** Each away resident's `sleepy` feeling, kept so its sign drifts on from frame to frame. */
+const awayDozes = new Map<string, Shown>();
+
+/**
+ * How to draw someone away from the world, asleep at home at (x, y) (decision 0086): a doze's slow
+ * breath and the `sleepy` feeling, nothing else. It keeps no track, so when they come back they
+ * appear where the server says they are, awake, with no slide from their hearth.
+ */
+export function awayPose(id: string, x: number, y: number, now: number, still: boolean): Pose {
+  const phase = phaseOf(id);
+  let doze = awayDozes.get(id);
+  if (!doze) {
+    // A sign drifts on each one's own beat, so a row of sleepers doesn't puff in step.
+    doze = {
+      feeling: "sleepy",
+      cue: undefined,
+      at: -phase * 9000,
+      until: Number.POSITIVE_INFINITY,
+    };
+    awayDozes.set(id, doze);
+  }
+  return {
+    x,
+    y,
+    lift: 0,
+    squash: 1,
+    lean: 0,
+    sway: still ? 0 : Math.sin((now / 1000) * 0.9 + phase * Math.PI * 2) * 0.05,
+    // Out of the door, toward the camera.
+    facing: "s",
+    doze,
+    poof: undefined,
+    dust: undefined,
+  };
 }

@@ -4,6 +4,7 @@ import {
   approach,
   cameraQuarter,
   chunkSignature,
+  dozersAround,
   faceAngle,
   figuresAround,
   groundAnchor,
@@ -73,6 +74,18 @@ describe("who the 3D world draws", () => {
     expect(shown).toHaveLength(MAX_FIGURES);
     expect(shown[0]?.id).toBe("me");
   });
+
+  it("fills only the places left with residents asleep at home, nearest first", () => {
+    const asleep = [
+      { r: { id: "far" }, x: 36 + VIEW_RADIUS + 1, y: 36.6 },
+      { r: { id: "mid" }, x: 30, y: 40.6 },
+      { r: { id: "near" }, x: 37.72, y: 36 },
+    ];
+    const focus = { x: 36, y: 36 };
+    expect(dozersAround(asleep, focus, 5).map((d) => d.r.id)).toEqual(["near", "mid"]);
+    expect(dozersAround(asleep, focus, 1).map((d) => d.r.id)).toEqual(["near"]);
+    expect(dozersAround(asleep, focus, 0)).toEqual([]);
+  });
 });
 
 describe("one plot of the world, read from the mirror", () => {
@@ -99,6 +112,18 @@ describe("one plot of the world, read from the mirror", () => {
       expect(tileAtPoint(t.x, t.y)).not.toEqual({ x: 8, y: 8 });
       expect(tileAtPoint(t.x, t.y)).not.toEqual({ x: 9, y: 9 });
     }
+  });
+
+  it("dresses its ground for the season, and is built again when the season turns", () => {
+    const none = new Set<string>();
+    const summer = readChunk(source([]), 1, 1, none, "summer");
+    const autumn = readChunk(source([]), 1, 1, none, "autumn");
+    expect(summer.leaves).toEqual([]);
+    expect(autumn.leaves.length).toBeGreaterThan(0);
+    expect(autumn.flowers).toEqual([]);
+    expect(readChunk(source([]), 1, 1, none, "winter").flowers).toEqual([]);
+    expect(chunkSignature(source([]), 1, 1, none, "autumn")).toBe(autumn.signature);
+    expect(autumn.signature).not.toBe(summer.signature);
   });
 
   it("changes its signature exactly when what's drawn changes", () => {

@@ -1,6 +1,7 @@
 import { facingFrom, facingToward } from "@terrakin/protocol";
 import { describe, expect, it } from "vitest";
 import {
+  awayPose,
   BUMP_MS,
   bubbleMs,
   CUSHION_MS,
@@ -254,6 +255,21 @@ describe("dozing and waking", () => {
     m.pose(at(5, 5), 0, true);
     m.say("a", "morning", DOZE_MS + 1);
     expect(m.pose(at(5, 5), DOZE_MS + 2, true).doze).toBeUndefined();
+  });
+
+  it("sleeps someone away at home where they lie, breathing, holding one sleepy feeling", () => {
+    const asleep = awayPose("away", 5, 5.6, 1000, false);
+    expect(asleep).toMatchObject({ x: 5, y: 5.6, lift: 0, squash: 1, poof: undefined });
+    expect(asleep.doze?.feeling).toBe("sleepy");
+    // The same feeling frame after frame, so its sign drifts on instead of starting over.
+    const later = awayPose("away", 5, 5.6, 2500, false);
+    expect(later.doze).toBe(asleep.doze);
+    expect(later.sway).not.toBe(asleep.sway);
+    // With reduced motion, not even the breath.
+    expect(awayPose("away", 5, 5.6, 2500, true).sway).toBe(0);
+    // Back in the world across the plot, they're there at once, awake, with no slide or puff.
+    const back = new Motion().pose({ id: "away", x: 20, y: 30 }, 3000, false);
+    expect(back).toMatchObject({ x: 20, y: 30, doze: undefined, poof: undefined, dust: undefined });
   });
 });
 

@@ -8,13 +8,15 @@
  * The shapes follow `client/src/render.ts`, so a photo looks like the plot does in the world.
  */
 
-/** One tile of ground: its tone, and the tuft or flower that grows on it. */
+/** One tile of ground: its tone, and the tuft, flower, or fallen leaf on it. */
 export interface PlotGround {
   fill: string;
   /** A grass tuft, by where it stands across the tile (0 to 1). */
   tuft?: number | undefined;
   /** A flower, by where it sits in the tile (0 to 1 each way), and its color. */
   flower?: { fx: number; fy: number; fill: string } | undefined;
+  /** An autumn leaf: where it lies in the tile, its turn in radians from east, and its color. */
+  leaf?: { fx: number; fy: number; turn: number; fill: string } | undefined;
 }
 
 /** Decor from the town shop, drawn as itself rather than a square. Same names as the sim's. */
@@ -95,6 +97,9 @@ export function plotSvg(c: PlotCard, px: number): string {
         flowers.push(
           `<circle cx="${n(x + g.flower.fx)}" cy="${n(y + g.flower.fy)}" r="0.07" fill="${safeColor(g.flower.fill)}"/>`,
         );
+      } else if (g.leaf) {
+        const leaf = leafPath(x + g.leaf.fx, y + g.leaf.fy, g.leaf.turn);
+        if (leaf) flowers.push(`<path d="${leaf}" fill="${safeColor(g.leaf.fill)}"/>`);
       }
     }
   }
@@ -154,6 +159,21 @@ export function plotSvg(c: PlotCard, px: number): string {
     );
   }
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="0 0 ${S} ${S}" shape-rendering="geometricPrecision">${parts.join("")}</svg>`;
+}
+
+/**
+ * A fallen leaf around (cx, cy), lying `turn` radians from east: two curves from tip to tip, as
+ * `client/src/render.ts` draws it. Undefined for anything that isn't a finite number.
+ */
+function leafPath(cx: number, cy: number, turn: number): string | undefined {
+  if (![cx, cy, turn].every(Number.isFinite)) return undefined;
+  const dx = Math.cos(turn);
+  const dy = Math.sin(turn);
+  const long = 0.14;
+  const wide = 0.13;
+  const tip = (k: number) => `${n(cx + dx * long * k)} ${n(cy + dy * long * k)}`;
+  const side = (k: number) => `${n(cx - dy * wide * k)} ${n(cy + dx * wide * k)}`;
+  return `M${tip(1)}Q${side(1)} ${tip(-1)}Q${side(-1)} ${tip(1)}`;
 }
 
 const WOOD_DARK = "#6e4a2c";

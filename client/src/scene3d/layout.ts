@@ -11,17 +11,20 @@ import {
   type Pattern,
   type ResidentColor,
   type ResidentShape,
+  type Season,
   sortWear,
   type ThemePalette,
+  type Tile,
   tileKey,
   WEAR_INFO,
   type WearItem,
+  type Weather,
 } from "@terrakin/sim";
 import type { Feeling } from "@terrakin/ui/feelings";
 import { type FigureLook, garmentColor, garmentLook } from "@terrakin/ui/figure";
 import { isMediaUrl } from "@terrakin/ui/format";
 import { growth } from "@terrakin/ui/item-art";
-import { dayPhase, nightAmount } from "../time";
+import { skyNow } from "../weather";
 
 /** Inclusive tile range. */
 export interface Bounds {
@@ -93,13 +96,10 @@ export interface LayoutFigure {
   owner: boolean;
   /** What they wear and how it's styled, as the snapshot has it. */
   look: FigureLook;
-  /** A feeling to hold while the view is open: sleepy for someone out and home at night. */
+  /** A feeling to hold while the view is open: sleepy for someone away, asleep at home. */
   feeling?: Feeling | undefined;
-}
-
-/** Night enough for someone out at their hearth to doze: past dusk and before dawn. */
-export function isNight(time: WorldSnapshot["time"]): boolean {
-  return time ? nightAmount(dayPhase(time.nowMs, time.dayLengthMs)) > 0.5 : false;
+  /** Away from the world and asleep at home: drawn faded, never as here (decision 0086). */
+  away?: true | undefined;
 }
 
 /** One worn thing on a 3D figure: its color, and its pattern when it has one. */
@@ -143,10 +143,13 @@ export const HAT_BAND: Partial<Record<WearItem, number>> = {
 /** Hair styles that stand up past the head: a puff, spikes, a bun on top. */
 const TALL_HAIR: readonly string[] = ["afro", "spiky", "bun"];
 
-/** How high a figure's name tag floats: higher over a top hat, a halo, an umbrella, or tall hair. */
-export function tagHeight(f: Pick<LayoutFigure, "kind" | "look">): number {
+/**
+ * How high a figure's name tag floats: higher over a top hat, a halo, tall hair, or an umbrella
+ * held up (in the rain; otherwise it's rolled up at their side).
+ */
+export function tagHeight(f: Pick<LayoutFigure, "kind" | "look">, umbrellaUp = false): number {
   const wear = f.look.wear ?? [];
-  if (wear.includes("umbrella")) return 1.32;
+  if (umbrellaUp && wear.includes("umbrella")) return 1.32;
   if (wear.includes("top_hat") || wear.includes("muse_halo")) return 1.2;
   if (f.kind === "agent") return 1.2;
   const tall = f.look.hair !== undefined && TALL_HAIR.includes(f.look.hair);
@@ -196,6 +199,92 @@ export function hearthPull(x: number, y: number, hx: number, hy: number): number
   return Math.max(0, 1 - Math.max(Math.abs(x - hx), Math.abs(y - hy)));
 }
 
+// ---------- residents away, asleep at home (decision 0086) ----------
+
+/** How far apart, in tiles, two residents sleep when more share a hearth than it has open sides. */
+export const DOZE_GAP = 0.42;
+
+/**
+ * Where someone asleep at a hearth lies: beside it first, east then west, so the hearth itself
+ * still shows between them, then in front of it, then behind. Each is clear of the stonework.
+ */
+const BESIDE = [
+  { dx: 1, dy: 0, x: 0.72, y: 0 },
+  { dx: -1, dy: 0, x: -0.72, y: 0 },
+  { dx: 0, dy: 1, x: 0, y: 0.6 },
+  { dx: 0, dy: -1, x: 0, y: -0.6 },
+] as const;
+
+/** Someone away, and where they're drawn asleep, in tiles (between tiles, off the stonework). */
+export interface Dozer<R> {
+  r: R;
+  x: number;
+  y: number;
+}
+
+/**
+ * Everyone away who has a hearth, and where to draw them asleep at it, so the town looks lived in
+ * while nobody is online: beside the hearth on its open sides (`BESIDE`), one to a side in id order
+ * when several share it, and a little along a side once every open side has someone. `free(x, y)`
+ * says whether a tile is open ground. `me` is left out: your own figure doesn't doze while you're
+ * here to see it. Drawing only: someone asleep is never counted as in the world, never named as
+ * nearby, and never in an online count, which all still read `online`. The map and both 3D views
+ * place them with this.
+ */
+export function dozers<R extends { id: string; online: boolean; hearth: Tile | null }>(
+  residents: Iterable<R>,
+  free: (x: number, y: number) => boolean,
+  me?: string,
+): Dozer<R>[] {
+  const byHearth = new Map<string, { x: number; y: number; who: R[] }>();
+  for (const r of residents) {
+    const h = r.hearth;
+    if (r.online || !h || r.id === me) continue;
+    const key = `${h.x},${h.y}`;
+    const at = byHearth.get(key);
+    if (at) at.who.push(r);
+    else byHearth.set(key, { x: h.x, y: h.y, who: [r] });
+  }
+  const out: Dozer<R>[] = [];
+  for (const h of byHearth.values()) {
+    const open = BESIDE.filter((s) => free(h.x + s.dx, h.y + s.dy));
+    // Boxed in on every side: in front of it all the same.
+    const sides = open.length > 0 ? open : [BESIDE[2]];
+    h.who.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    h.who.forEach((r, i) => {
+      const side = sides[i % sides.length] as (typeof BESIDE)[number];
+      // Round two of the sides: a little along it, one way then the other.
+      const round = Math.floor(i / sides.length);
+      const k = Math.ceil(round / 2) * (round % 2 ? 1 : -1) * DOZE_GAP;
+      out.push({ r, x: h.x + side.x + (side.dx ? 0 : k), y: h.y + side.y + (side.dx ? k : 0) });
+    });
+  }
+  return out;
+}
+
+/**
+ * The resident asleep on a tile: the one whose figure covers it (a figure stands about a tile tall
+ * over its feet, so its head reaches the tile above), nearest first, else one at home on that
+ * hearth.
+ */
+export function dozerAt<R extends { hearth: Tile | null }>(
+  list: readonly Dozer<R>[],
+  x: number,
+  y: number,
+): Dozer<R> | undefined {
+  let best: Dozer<R> | undefined;
+  let bestFar = Number.POSITIVE_INFINITY;
+  for (const d of list) {
+    if (Math.abs(x - d.x) >= 0.78 || y <= d.y - 1.18 || y >= d.y + 0.88) continue;
+    const far = Math.abs(x - d.x) + Math.abs(y - (d.y - 0.15));
+    if (far < bestFar) {
+      best = d;
+      bestFar = far;
+    }
+  }
+  return best ?? list.find((d) => d.r.hearth?.x === x && d.r.hearth.y === y);
+}
+
 export interface PlotLayout {
   ownerId: string;
   ownerName: string;
@@ -213,14 +302,18 @@ export interface PlotLayout {
   displays: LayoutDisplay[];
   /** What grows in the plot's planters. */
   crops: LayoutCrop[];
+  /** The world's season, for the ground, and the weather when the snapshot was taken. */
+  season: Season | undefined;
+  weather: Weather;
   /** Is this tile inside the world at all? */
   inWorld(x: number, y: number): boolean;
 }
 
 /**
  * Everything the 3D plot view draws, read from one snapshot. Undefined when the resident is
- * unknown or owns no plot. Residents on the plot are shown if they're online; the owner is always
- * home, standing on their own tile when they're on the plot, else beside the hearth.
+ * unknown or owns no plot. Residents on the plot are shown if they're online; anyone away whose
+ * hearth is here sleeps at it (`dozers`), at any hour; the owner is always home, standing on their
+ * own tile when they're on the plot, else beside the hearth.
  */
 export function plotLayout(
   snapshot: WorldSnapshot,
@@ -263,19 +356,32 @@ export function plotLayout(
   const hearth =
     owner.hearth && inBounds(bounds, owner.hearth.x, owner.hearth.y) ? owner.hearth : null;
   const solid = new Set(blocks.map((b) => `${b.x},${b.y}`));
-  const night = isNight(snapshot.time);
+  const hearths = new Set(
+    snapshot.residents.flatMap((r) => (r.hearth ? [tileKey(r.hearth.x, r.hearth.y)] : [])),
+  );
+  // Everyone away whose hearth is on this plot, asleep at it (decision 0086, RFC 0013).
+  const homeHere = snapshot.residents.filter(
+    (r) => r.hearth && inBounds(bounds, r.hearth.x, r.hearth.y),
+  );
+  const asleep = new Map(
+    dozers(
+      homeHere,
+      (x, y) =>
+        x >= 0 &&
+        y >= 0 &&
+        x < width &&
+        y < height &&
+        !solid.has(`${x},${y}`) &&
+        !hearths.has(tileKey(x, y)),
+    ).map((d) => [d.r.id, d]),
+  );
   const figures: LayoutFigure[] = [];
   for (const r of snapshot.residents) {
     const isOwner = r.id === owner.id;
     const onPlot = inBounds(bounds, r.x, r.y);
-    if (!isOwner && !(r.online && onPlot)) continue;
-    const spot = onPlot ? { x: r.x, y: r.y } : homeSpot(bounds, hearth, solid);
-    // Out, at their hearth, after dark: dozing (decision 0011's clock, RFC 0013).
-    const asleep =
-      night &&
-      !r.online &&
-      hearth !== null &&
-      Math.max(Math.abs(spot.x - hearth.x), Math.abs(spot.y - hearth.y)) <= 1;
+    const dozing = asleep.get(r.id);
+    if (!isOwner && !dozing && !(r.online && onPlot)) continue;
+    const spot = dozing ?? (onPlot ? { x: r.x, y: r.y } : homeSpot(bounds, hearth, solid));
     figures.push({
       id: r.id,
       name: r.name,
@@ -296,9 +402,10 @@ export function plotLayout(
         hair: r.hair,
         hairColor: r.hairColor,
       },
-      ...(asleep ? { feeling: "sleepy" as const } : {}),
+      ...(dozing ? { feeling: "sleepy" as const, away: true as const } : {}),
     });
   }
+  const { season, weather } = skyNow(snapshot.time?.nowMs, snapshot.day);
 
   return {
     ownerId: owner.id,
@@ -313,6 +420,8 @@ export function plotLayout(
     figures,
     displays,
     crops,
+    season,
+    weather,
     inWorld: (x, y) => x >= 0 && y >= 0 && x < width && y < height,
   };
 }
@@ -416,16 +525,30 @@ export function tileHash(x: number, y: number): number {
   return (h ^ (h >>> 16)) >>> 0;
 }
 
-/** Grass tufts and flowers on open ground, picked by hash so a plot looks the same every visit. */
+/** A fallen leaf on the ground: where, its turn, and which of the palette's `LEAF_TONES`. */
+export interface GroundLeaf {
+  x: number;
+  y: number;
+  turn: number;
+  tone: 0 | 1 | 2;
+}
+
+/**
+ * Grass tufts and flowers on open ground, picked by hash so a plot looks the same every visit. In
+ * autumn the flowers are fallen leaves and more leaves lie about; in winter only tufts show.
+ */
 export function groundDecor(
   bounds: Bounds,
   solid: ReadonlySet<string>,
+  season?: Season,
 ): {
   tufts: { x: number; y: number; turn: number }[];
   flowers: { x: number; y: number; warm: boolean }[];
+  leaves: GroundLeaf[];
 } {
   const tufts: { x: number; y: number; turn: number }[] = [];
   const flowers: { x: number; y: number; warm: boolean }[] = [];
+  const leaves: GroundLeaf[] = [];
   for (let y = bounds.y0; y <= bounds.y1; y++) {
     for (let x = bounds.x0; x <= bounds.x1; x++) {
       if (solid.has(`${x},${y}`)) continue;
@@ -435,10 +558,18 @@ export function groundDecor(
       const oy = (((n >>> 13) & 15) / 15 - 0.5) * 0.6;
       if (deco === 0 || deco === 4)
         tufts.push({ x: x + ox, y: y + oy, turn: ((n >>> 17) & 63) / 10 });
-      else if (deco === 2) flowers.push({ x: x + ox, y: y + oy, warm: ((n >>> 20) & 1) === 1 });
+      else if (season === "autumn" && (deco === 2 || deco === 6 || deco === 7))
+        leaves.push({
+          x: x + ox,
+          y: y + oy,
+          turn: ((n >>> 17) & 63) / 10,
+          tone: ((n >>> 20) % 3) as 0 | 1 | 2,
+        });
+      else if (deco === 2 && season !== "winter")
+        flowers.push({ x: x + ox, y: y + oy, warm: ((n >>> 20) & 1) === 1 });
     }
   }
-  return { tufts, flowers };
+  return { tufts, flowers, leaves };
 }
 
 // ---------- a resident's own home model and art ----------

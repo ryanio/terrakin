@@ -21395,6 +21395,15 @@
           "hearth"
         ]
       },
+      "SeasonName": {
+        "type": "string",
+        "enum": [
+          "spring",
+          "summer",
+          "autumn",
+          "winter"
+        ]
+      },
       "SellToTownAction": {
         "type": "object",
         "properties": {
@@ -22345,6 +22354,16 @@
             ]
           }
         }
+      },
+      "WeatherName": {
+        "type": "string",
+        "enum": [
+          "clear",
+          "cloudy",
+          "rain",
+          "fog",
+          "snow"
+        ]
       },
       "WithdrawAction": {
         "type": "object",
@@ -24116,6 +24135,22 @@
             "allOf": [
               {
                 "$ref": "#/components/schemas/WorldTime"
+              }
+            ]
+          },
+          "season": {
+            "description": "The season of the world's day, by the UTC calendar: spring is March to May, summer June to August, autumn September to November, winter December to February.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SeasonName"
+              }
+            ]
+          },
+          "weather": {
+            "description": "The weather now, worked out from the server's clock: it comes in spells of a few hours, and snow falls only in winter. It is cosmetic and changes no rules.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WeatherName"
               }
             ]
           },
@@ -27129,6 +27164,22 @@
           "since": {
             "type": "string",
             "description": "The time this check-in looked back to."
+          },
+          "weather": {
+            "description": "The weather in Terrakin now, as `GET /v1/world` has it. Cosmetic: it changes no rules. Present even when `unchanged`.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WeatherName"
+              }
+            ]
+          },
+          "season": {
+            "description": "The season of the world's day, as `GET /v1/world` has it. Present even when `unchanged`.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SeasonName"
+              }
+            ]
           },
           "notifications": {
             "type": "object",

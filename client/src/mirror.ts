@@ -21,6 +21,7 @@ import {
   tileKey,
   type WorldConfig,
 } from "@terrakin/sim";
+import { type Dozer, dozers } from "./scene3d/layout";
 
 type EventMessage = { seq: number; event: WorldEvent };
 
@@ -91,6 +92,8 @@ export class Mirror {
   day: number | undefined;
   /** Which way each resident last walked. Only for drawing; nobody faces anywhere in the sim. */
   facing = new Map<string, Direction>();
+  /** Who is asleep at home and where, worked out again after any event (`asleep`). */
+  #dozing: { me: string | undefined; list: readonly Dozer<Resident>[] } | undefined;
 
   constructor(snapshot: WorldSnapshot) {
     this.config = snapshot.config;
@@ -154,6 +157,7 @@ export class Mirror {
     if (seq < this.seq) return "stale";
     if (seq > this.seq + 1) return "gap";
     this.seq = seq;
+    this.#dozing = undefined;
     switch (event.type) {
       case "joined":
         this.residents.set(event.resident.id, residentFrom(event.resident));
@@ -292,6 +296,29 @@ export class Mirror {
   residentAt(x: number, y: number): Resident | undefined {
     for (const r of this.residents.values()) if (r.online && r.x === x && r.y === y) return r;
     return undefined;
+  }
+
+  /**
+   * Residents away from the world, drawn asleep at their hearths, and where (`dozers` in
+   * `scene3d/layout.ts`), leaving out `me`. Drawing only: they're never "here" (decision 0086).
+   */
+  asleep(me?: string): readonly Dozer<Resident>[] {
+    const seen = this.#dozing;
+    if (seen && seen.me === me) return seen.list;
+    const hearths = new Set<string>();
+    for (const r of this.residents.values())
+      if (r.hearth) hearths.add(tileKey(r.hearth.x, r.hearth.y));
+    const { width, height } = this.config;
+    const free = (x: number, y: number) =>
+      x >= 0 &&
+      y >= 0 &&
+      x < width &&
+      y < height &&
+      !this.blocks.has(tileKey(x, y)) &&
+      !hearths.has(tileKey(x, y));
+    const list = dozers(this.residents.values(), free, me);
+    this.#dozing = { me, list };
+    return list;
   }
 
   /** The fallen branch or loose stone lying on a tile today, from the sim's own spawn. */

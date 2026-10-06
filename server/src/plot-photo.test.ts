@@ -4,8 +4,11 @@ import {
   alphaHex,
   BLOCK_COLORS,
   blockFill,
+  dayOfDate,
+  groundTile,
   THEME_INFO,
   THEME_TINT_ALPHA,
+  tuftStroke,
   type WorldConfig,
 } from "@terrakin/sim";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
@@ -130,6 +133,24 @@ describe("plot photo data", () => {
     expect(wall?.fill).toBe(blockFill("wood", THEME_INFO.lemon.palette));
     expect(spec.facts[1]).toBe(`${spec.blocks.length} blocks`);
     expect(spec.blocks.some((b) => b.decor !== undefined)).toBe(false);
+  });
+
+  it("dresses the ground for the world's season, as the map does", async () => {
+    const { settled, service } = await start();
+    const wren = await settled("Wren");
+    const photo = (day: number) => plotPhotoSpec({ ...service.state, day }, wren.residentId);
+    const tiles = (season: "autumn" | "winter") =>
+      Array.from({ length: 64 }, (_, i) =>
+        groundTile(CONFIG, i % 8, Math.floor(i / 8), false, season),
+      );
+    // 2026-10-06 is autumn, 2026-12-25 winter.
+    const autumn = photo(dayOfDate(2026, 10, 6));
+    const winter = photo(dayOfDate(2026, 12, 25));
+    expect(autumn?.ground.map((g) => g.fill)).toEqual(tiles("autumn").map((t) => t.fill));
+    expect(autumn?.ground.some((g) => g.leaf)).toBe(true);
+    expect(autumn?.ink.tuft).toBe(tuftStroke("autumn"));
+    expect(winter?.ground.map((g) => g.fill)).toEqual(tiles("winter").map((t) => t.fill));
+    expect(winter?.ground.some((g) => g.flower || g.leaf)).toBe(false);
   });
 
   it("names decor so the photo draws a lantern, not a square", async () => {

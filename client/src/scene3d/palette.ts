@@ -35,7 +35,23 @@ export const BRAND = {
 } as const;
 
 /** Sky gradient for the 3D backdrop: warm paper at the top, sand at the horizon. */
-export const SKY = { top: "#f6ecd8", horizon: "#efe0c2", fog: hex("#efe0c2") } as const;
+export const SKY = {
+  top: "#f6ecd8",
+  topHex: hex("#f6ecd8"),
+  horizon: "#efe0c2",
+  fog: hex("#efe0c2"),
+} as const;
+
+/**
+ * The sky under cloud (decision 0073): a cool grey top and horizon, the cooler light from above,
+ * and the pale haze of fog.
+ */
+export const OVERCAST = {
+  top: hex("#d9dde0"),
+  fog: hex("#d3d6d4"),
+  light: hex("#e4e8ee"),
+  mist: hex("#eeece6"),
+} as const;
 
 export interface BlockLook {
   color: number;

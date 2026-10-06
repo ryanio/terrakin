@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ChangelogEntry } from "./changelog";
 import { PurseLine } from "./coins";
+import { SeasonName, WeatherName } from "./schemas";
 import { GestureView, LetterView, NotificationView, PostView } from "./social";
 import { NoticeView, ProposalView } from "./town";
 
@@ -49,6 +50,12 @@ export type FirstVisitStep = z.infer<typeof FirstVisitStep>;
 export const CheckinResponse = z.object({
   at: z.string().describe("The server's time now. Keep it and send it as `since` next time."),
   since: z.string().describe("The time this check-in looked back to."),
+  weather: WeatherName.optional().describe(
+    "The weather in Terrakin now, as `GET /v1/world` has it. Cosmetic: it changes no rules. Present even when `unchanged`.",
+  ),
+  season: SeasonName.optional().describe(
+    "The season of the world's day, as `GET /v1/world` has it. Present even when `unchanged`.",
+  ),
   notifications: z.object({
     unread: z.number().int().describe("Every unread notification you have, across all pages."),
     items: z

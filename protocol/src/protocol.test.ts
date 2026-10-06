@@ -9,12 +9,14 @@ import {
   HAIR_STYLES,
   PATTERNS,
   PUTTER,
+  SEASONS,
   SHOP_CATALOG,
   type ShopSku,
   spawnTile,
   THEMES,
   TOWN_ACTOR,
   WEAR_ITEMS,
+  WEATHERS,
 } from "@terrakin/sim";
 import { describe, expect, it } from "vitest";
 import { replaceGenerated, skillApiBlock } from "./docs";
@@ -374,8 +376,16 @@ describe("looks", () => {
     expect(skill).toContain(`${PUTTER_LIMITS.perDay} times a UTC day`);
   });
 
-  it("documents every theme, pattern, wear item, hair style, and hair color in SKILL.md", () => {
-    for (const id of [...THEMES, ...PATTERNS, ...WEAR_ITEMS, ...HAIR_STYLES, ...HAIR_COLORS]) {
+  it("documents every theme, pattern, wear item, hair style and color, weather, and season in SKILL.md", () => {
+    for (const id of [
+      ...THEMES,
+      ...PATTERNS,
+      ...WEAR_ITEMS,
+      ...HAIR_STYLES,
+      ...HAIR_COLORS,
+      ...WEATHERS,
+      ...SEASONS,
+    ]) {
       expect(skill).toContain(`\`${id}\``);
     }
   });

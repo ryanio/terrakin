@@ -11,16 +11,18 @@ import {
   HEARTH_COLOR,
   HEARTH_DOOR,
   isDecorKind,
+  LEAF_TONES,
   mixHex,
   OUTSIDE_GROUND,
   plotKey,
   type Resident,
+  type Season,
   THEME_INFO,
   THEME_TINT_ALPHA,
   type Theme,
   type ThemePalette,
-  TUFT_STROKE,
   tileKey,
+  tuftStroke,
 } from "@terrakin/sim";
 import { BRAND_HEX } from "@terrakin/ui/brand";
 import {
@@ -45,9 +47,10 @@ import {
 import { type Camera, tileToScreen } from "./camera";
 import { type Feelings, idPhase, pose, restingPose } from "./feelings";
 import type { DisplayView, Mirror } from "./mirror";
-import type { Motion, Pose as MotionPose } from "./motion";
+import { awayPose, type Motion, type Pose as MotionPose } from "./motion";
 import { type Box, bubbleBox, drawBubble, drawDust, drawPoof, stackBubbles } from "./overhead";
 import { nightAmount } from "./time";
+import { drawWeather, type SkyAmounts, UMBRELLA_RAIN } from "./weather";
 
 export { RESIDENT_COLOR_HEX } from "@terrakin/ui/looks";
 
@@ -113,13 +116,18 @@ function clothesPattern(
 export function faceKey(face: FigureFace): string {
   const feeling = face.feeling ?? "neutral";
   const blink = face.blink && blinks(feeling) ? 1 : 0;
-  return `${feeling}|${blink}|${face.wave ?? 0}`;
+  return `${feeling}|${blink}|${face.wave ?? 0}|${face.furled ? 1 : 0}`;
 }
+
+/** Laid over someone asleep at home while they're away, so they read as not quite here. */
+const AWAY_WASH = "rgba(255, 250, 240, 0.4)";
+/** How strongly their name tag and sign show. */
+const AWAY_TAG_ALPHA = 0.72;
 
 /**
  * A resident's figure as a sprite at `scale` CSS pixels per tile. Returns the canvas and where its
  * top-left sits relative to the feet, in CSS pixels. Each look, facing, and face (`faceKey`) is
- * drawn once and then stamped.
+ * drawn once and then stamped. `away` fades it, for someone asleep at home (decision 0086).
  */
 export function figureSprite(
   r: Pick<
@@ -138,6 +146,7 @@ export function figureSprite(
   dpr: number,
   facing: Direction = "s",
   face: FigureFace = {},
+  away = false,
 ): { canvas: HTMLCanvasElement; dx: number; dy: number; w: number; h: number } {
   const u = scale * dpr;
   const w = (FIGURE_BOX.right - FIGURE_BOX.left) * u;
@@ -149,10 +158,15 @@ export function figureSprite(
     return s ? `${w}:${s.pattern ?? ""}:${s.color ?? ""}` : "";
   });
   const hair = r.hair ? `${r.hair}:${r.hairColor ?? ""}` : "";
-  const key = `fig|${r.color}|${r.shape}|${r.theme ?? ""}|${probe}|${(r.wear ?? []).join(",")}|${styles.join(",")}|${hair}|${fourWayFacing(facing)}|${faceKey(face)}|${u.toFixed(2)}`;
+  const key = `fig|${r.color}|${r.shape}|${r.theme ?? ""}|${probe}|${(r.wear ?? []).join(",")}|${styles.join(",")}|${hair}|${fourWayFacing(facing)}|${faceKey(face)}|${away ? "away|" : ""}${u.toFixed(2)}`;
   const canvas = sprite(key, w, h, (ctx) => {
     ctx.translate(-FIGURE_BOX.left * u, -FIGURE_BOX.top * u);
     drawFigure(ctx, u, r, clothesPattern(ctx, r, u).pattern, facing, patterns, face);
+    if (!away) return;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalCompositeOperation = "source-atop";
+    ctx.fillStyle = AWAY_WASH;
+    ctx.fillRect(0, 0, w, h);
   });
   return {
     canvas,
@@ -556,6 +570,20 @@ function paintShown(
   if (art) ctx.drawImage(art, cx - side / 2, y, side, side);
 }
 
+/**
+ * A fallen leaf around (cx, cy) on a tile `size` across, lying `turn` radians from east: two curves
+ * from tip to tip, the shape the plot photos draw (`cards/src/plot.ts`).
+ */
+function leafPath(path: Path2D, cx: number, cy: number, turn: number, size: number) {
+  const dx = Math.cos(turn) * size * 0.14;
+  const dy = Math.sin(turn) * size * 0.14;
+  const wx = -Math.sin(turn) * size * 0.13;
+  const wy = Math.cos(turn) * size * 0.13;
+  path.moveTo(cx + dx, cy + dy);
+  path.quadraticCurveTo(cx + wx, cy + wy, cx - dx, cy - dy);
+  path.quadraticCurveTo(cx - wx, cy - wy, cx + dx, cy + dy);
+}
+
 /** Draw an image to fill a box, cropped to keep its shape. */
 function drawCover(
   ctx: CanvasRenderingContext2D,
@@ -893,6 +921,10 @@ export interface RenderState {
   now: number;
   /** Reduced motion: faces, signs, and bubbles stay; slides, bounces, blinks, and drifting go. */
   still: boolean;
+  /** The world's season, for the ground. Absent: today's look. */
+  season?: Season | undefined;
+  /** How much cloud, rain, snow, and fog to draw (`weather.ts`). Absent: a clear sky. */
+  sky?: SkyAmounts | undefined;
 }
 
 /** Reused every frame, so drawing figures allocates nothing. */
@@ -909,7 +941,7 @@ function iconSprite(icon: FeelingIcon, px: number): HTMLCanvasElement {
 
 export function render(
   ctx: CanvasRenderingContext2D,
-  { mirror, me, cam, buildMode, dayPhase, feelings, motion, now, still }: RenderState,
+  { mirror, me, cam, buildMode, dayPhase, feelings, motion, now, still, season, sky }: RenderState,
 ) {
   const { width, height, scale } = cam;
   const { config, commons } = mirror;
@@ -927,6 +959,7 @@ export function render(
   // ---- ground: one fillRect per tile, edges rounded so neighbors share pixels (no seams) ----
   const tufts = new Path2D();
   const flowers: [Path2D, Path2D] = [new Path2D(), new Path2D()];
+  const leaves: [Path2D, Path2D, Path2D] = [new Path2D(), new Path2D(), new Path2D()];
   // Phase 1 gathering: fallen branches and loose stones, from the sim's own spawn function.
   const sticks = new Path2D();
   const pebbles = new Path2D();
@@ -939,7 +972,7 @@ export function render(
       const h = Math.round(sy + half) - top;
       const inCommons = Math.floor(x / S) === commons.px && Math.floor(y / S) === commons.py;
       // Tone and scenery come from the sim's palette, shared with the plot photos.
-      const ground = groundTile(config, x, y, inCommons);
+      const ground = groundTile(config, x, y, inCommons, season);
       ctx.fillStyle = ground.fill;
       ctx.fillRect(left, top, w, h);
       const deco = ground.scenery;
@@ -959,6 +992,9 @@ export function render(
         const path = flowers[deco.tone] as Path2D;
         path.moveTo(fx + scale * 0.06, fy);
         path.arc(fx, fy, scale * 0.06, 0, Math.PI * 2);
+      } else if (deco?.kind === "leaf") {
+        // A fallen leaf: two curves from tip to tip, as the plot photos draw it.
+        leafPath(leaves[deco.tone] as Path2D, left + w * deco.fx, top + h * deco.fy, deco.turn, w);
       }
       const pickup = mirror.pickupAt(x, y);
       if (pickup) {
@@ -980,12 +1016,16 @@ export function render(
   }
   ctx.lineCap = "round";
   ctx.lineWidth = Math.max(1, scale / 24);
-  ctx.strokeStyle = TUFT_STROKE;
+  ctx.strokeStyle = tuftStroke(season);
   ctx.stroke(tufts);
   ctx.fillStyle = FLOWER_TONES[0];
   ctx.fill(flowers[0]);
   ctx.fillStyle = FLOWER_TONES[1];
   ctx.fill(flowers[1]);
+  for (const [i, path] of leaves.entries()) {
+    ctx.fillStyle = LEAF_TONES[i] as string;
+    ctx.fill(path);
+  }
   // Pickups sit on ground of their own color (forest, stone), so each gets a soft ink edge.
   ctx.globalAlpha = 0.45;
   ctx.strokeStyle = INK;
@@ -1217,6 +1257,8 @@ export function render(
     icon?: FeelingIcon | undefined;
     fade?: number;
     rise?: number;
+    /** Asleep at home while away: the tag and sign are drawn fainter. */
+    away?: boolean;
   }[] = [];
   const hall = tilesBox(mirror.townHall, cam);
   if (hall)
@@ -1224,19 +1266,28 @@ export function render(
   const shop = tilesBox(mirror.shop, cam);
   if (shop) labels.push({ text: "Shop", x: shop.left + shop.w / 2, y: shop.top - 2, mine: false });
   // `m` is how they move between tiles (`motion.ts`); `p` below is their face (`feelings.ts`).
-  const shown: { r: Resident; m: MotionPose }[] = [];
+  const shown: { r: Resident; m: MotionPose; away: boolean }[] = [];
   const online = new Set<string>();
+  const onScreen = (m: MotionPose) => {
+    const { sx, sy } = tileToScreen(cam, m.x, m.y);
+    return sx >= -scale && sy >= -scale && sx <= width + scale && sy <= height + scale * 1.5;
+  };
   for (const r of mirror.residents.values()) {
     if (!r.online) continue;
     online.add(r.id);
     const m = motion.pose(r, now, still);
-    const { sx, sy } = tileToScreen(cam, m.x, m.y);
-    if (sx < -scale || sy < -scale || sx > width + scale || sy > height + scale * 1.5) continue;
-    shown.push({ r, m });
+    if (onScreen(m)) shown.push({ r, m, away: false });
   }
   motion.keep(online);
+  // Residents who are away sleep at their hearths, faded (decision 0086). Drawn, never counted.
+  for (const d of mirror.asleep(me)) {
+    const m = awayPose(d.r.id, d.x, d.y, now, still);
+    if (onScreen(m)) shown.push({ r: d.r, m, away: true });
+  }
   shown.sort((a, b) => a.m.y - b.m.y || a.m.x - b.m.x);
-  for (const { r, m } of shown) {
+  // Umbrellas go up in the rain and are carried rolled up otherwise.
+  const raining = (sky?.rain ?? 0) >= UMBRELLA_RAIN;
+  for (const { r, m, away } of shown) {
     const { sx, sy } = tileToScreen(cam, m.x, m.y);
     const feet = sy + scale * 0.38;
     const mine = r.id === me;
@@ -1247,7 +1298,7 @@ export function render(
       ctx.fill();
     }
     // The shadow stays on the ground and shrinks as they hop.
-    const shade = Math.max(0.5, 1 - m.lift * 2.5);
+    const shade = Math.max(0.5, 1 - m.lift * 2.5) * (away ? 0.6 : 1);
     ctx.fillStyle = `rgba(60, 40, 20, ${(0.24 * shade).toFixed(3)})`;
     ctx.beginPath();
     ctx.ellipse(sx, feet, scale * 0.27 * shade, scale * 0.085 * shade, 0, 0, Math.PI * 2);
@@ -1262,11 +1313,14 @@ export function render(
     face.feeling = p.feeling;
     face.blink = p.blink;
     face.wave = p.wave;
-    // The way they're walking, or the server's word for someone who hasn't moved since.
+    // Out in the rain an umbrella goes up; asleep at home it stays rolled up beside them.
+    face.furled = (away || !raining) && (r.wear?.includes("umbrella") ?? false);
+    // The way they're walking, or the server's word for someone who hasn't moved since. Asleep
+    // at home, they face out of the door (`awayPose`).
     const facing = m.facing ?? mirror.facing.get(r.id) ?? "s";
     const turned = fourWayFacing(facing);
     const side = turned === "e" ? 1 : turned === "w" ? -1 : 0;
-    const fig = figureSprite(r, scale, dpr, facing, face);
+    const fig = figureSprite(r, scale, dpr, facing, face, away);
     const ground = feet - (p.lift + m.lift) * scale;
     // Leaning, swaying, and squashing from the feet.
     ctx.save();
@@ -1284,6 +1338,19 @@ export function render(
       icon: FEELING_ICON[p.feeling],
       fade: p.fade,
       rise: p.rise,
+      away,
+    });
+  }
+
+  // ---- the weather: cloud, mist, rain, and snow, under the night and the name tags ----
+  if (sky) {
+    const blocks = mirror.blocks;
+    drawWeather(ctx, {
+      cam,
+      sky,
+      now,
+      still,
+      open: (x, y) => !blocks.has(tileKey(x, y)),
     });
   }
 
@@ -1356,25 +1423,53 @@ export function render(
   ctx.textBaseline = "middle";
   const padX = fontSize * 0.55;
   const tagH = fontSize + 8;
-  // Nudge a tag up when it would sit on top of a neighbor's, so names next to each other stay legible.
+  // Nudge a tag up when it, or the sign over it, would sit on a neighbor's tag or sign, so names
+  // next to each other stay legible. Someone asleep at home wears their sign beside the name
+  // (`besideTag`), so neighbors asleep at one hearth keep their tags close.
+  const sign = signPx(scale);
+  const small = Math.round(sign * 0.8);
+  const besideTag = (l: (typeof labels)[number], w: number, top: number): Box => ({
+    left: l.x + w / 2 + 2,
+    right: l.x + w / 2 + 2 + small,
+    top: top + (tagH - small) / 2,
+    bottom: top + (tagH + small) / 2,
+  });
   labels.sort((a, b) => b.y - a.y || a.x - b.x);
-  const placed: { left: number; right: number; top: number }[] = [];
+  const placed: Box[] = [];
+  const taken: Box[] = [];
   const widths: number[] = [];
+  const clear = (box: Box) =>
+    !taken.some(
+      (t) =>
+        box.left < t.right + 2 &&
+        box.right > t.left - 2 &&
+        box.top < t.bottom + 2 &&
+        box.bottom > t.top - 2,
+    );
   for (const l of labels) {
     const w = labelWidth(ctx, font, l.text) + padX * 2;
+    const tagAt = (top: number): Box => ({
+      left: l.x - w / 2,
+      right: l.x + w / 2,
+      top,
+      bottom: top + tagH,
+    });
+    const signAt = (top: number): Box | undefined =>
+      !l.icon
+        ? undefined
+        : l.away
+          ? besideTag(l, w, top)
+          : { left: l.x - sign / 2, right: l.x + sign / 2, top: top - sign - 1, bottom: top };
     let top = l.y - tagH;
     for (let tries = 0; tries < 4; tries++) {
-      const hit = placed.some(
-        (p) =>
-          l.x - w / 2 < p.right + 2 &&
-          l.x + w / 2 > p.left - 2 &&
-          top < p.top + tagH + 2 &&
-          top + tagH > p.top - 2,
-      );
-      if (!hit) break;
+      const over = signAt(top);
+      if (clear(tagAt(top)) && (!over || clear(over))) break;
       top -= tagH + 3;
     }
-    placed.push({ left: l.x - w / 2, right: l.x + w / 2, top });
+    const tag = tagAt(top);
+    const over = signAt(top);
+    placed.push(tag);
+    taken.push(tag, ...(over ? [over] : []));
     widths.push(w);
     l.top = top;
   }
@@ -1382,14 +1477,14 @@ export function render(
   // ---- what people are saying, as text, in bubbles over their tags and signs ----
   // Bubbles stack clear of every tag and sign and of each other, the nearest speaker lowest. They
   // go down first, so a tag or sign sits on top of a raised bubble's tail.
-  const sign = signPx(scale);
-  const avoid: Box[] = placed.map((t) => ({ ...t, bottom: t.top + tagH }));
+  const avoid: Box[] = [...placed];
   const bubbles: { x: number; tip: number; lines: string[]; alpha: number; box: Box }[] = [];
-  for (const l of labels) {
+  for (const [i, l] of labels.entries()) {
     if (l.top === undefined) continue;
+    if (l.icon && l.away) avoid.push(besideTag(l, widths[i] ?? 0, l.top));
     // A bubble goes over the sign, so both show.
-    const over = l.icon ? sign + 1 + (l.rise ?? 0) * scale : 0;
-    if (l.icon)
+    const over = l.icon && !l.away ? sign + 1 + (l.rise ?? 0) * scale : 0;
+    if (over)
       avoid.push({ left: l.x - sign / 2, right: l.x + sign / 2, top: l.top - over, bottom: l.top });
     const said = l.who && motion.bubble(l.who, now);
     if (!said) continue;
@@ -1413,6 +1508,7 @@ export function render(
   for (const [i, l] of labels.entries()) {
     const top = l.top ?? l.y - tagH;
     const w = widths[i] ?? 0;
+    ctx.globalAlpha = l.away ? AWAY_TAG_ALPHA : 1;
     ctx.fillStyle = "rgba(74, 52, 28, 0.16)";
     ctx.beginPath();
     ctx.roundRect(l.x - w / 2, top + 1.5, w, tagH, tagH / 2);
@@ -1427,19 +1523,33 @@ export function render(
     ctx.fillStyle = l.mine ? CLAY_DEEP : INK;
     ctx.fillText(l.text, l.x, top + tagH / 2 + 0.5);
   }
+  ctx.globalAlpha = 1;
 
   // ---- feelings' signs over the tags ----
   // Drawn after every tag and the night, so a neighbor's tag never covers a sign.
-  for (const l of labels) {
+  for (const [i, l] of labels.entries()) {
     if (!l.icon || l.top === undefined) continue;
-    ctx.globalAlpha = l.fade ?? 1;
-    ctx.drawImage(
-      iconSprite(l.icon, Math.round(sign * dpr)),
-      l.x - sign / 2,
-      l.top - sign - 1 - (l.rise ?? 0) * scale,
-      sign,
-      sign,
-    );
+    if (l.away) {
+      // Beside the name, drifting a little, faint like the tag.
+      const at = besideTag(l, widths[i] ?? 0, l.top);
+      ctx.globalAlpha = (l.fade ?? 1) * AWAY_TAG_ALPHA;
+      ctx.drawImage(
+        iconSprite(l.icon, Math.round(small * dpr)),
+        at.left,
+        at.top - (l.rise ?? 0) * scale * 0.4,
+        small,
+        small,
+      );
+    } else {
+      ctx.globalAlpha = l.fade ?? 1;
+      ctx.drawImage(
+        iconSprite(l.icon, Math.round(sign * dpr)),
+        l.x - sign / 2,
+        l.top - sign - 1 - (l.rise ?? 0) * scale,
+        sign,
+        sign,
+      );
+    }
     ctx.globalAlpha = 1;
   }
   ctx.textBaseline = "alphabetic";

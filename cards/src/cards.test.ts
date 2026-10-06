@@ -248,10 +248,14 @@ describe("renderer", () => {
     const svg = plotSvg(
       {
         ...base,
-        ground: base.ground.map((g) => ({
+        ground: base.ground.map((g, i) => ({
           ...g,
           fill: hostile,
           ...(g.flower ? { flower: { ...g.flower, fill: hostile } } : {}),
+          // Autumn leaves on bare tiles: a hostile color, and one lying nowhere.
+          ...(!g.flower && g.tuft === undefined && i % 3 === 0
+            ? { leaf: { fx: 0.5, fy: i % 2 ? Number.NaN : 0.4, turn: 1, fill: hostile } }
+            : {}),
         })),
         tint: hostile,
         blocks: [

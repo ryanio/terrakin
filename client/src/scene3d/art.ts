@@ -38,7 +38,8 @@ import {
   WebGLRenderer,
 } from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { SKY } from "./palette";
+import type { SkyAmounts } from "../weather";
+import { mix, OVERCAST, SKY } from "./palette";
 
 export type Quality = "high" | "phone";
 
@@ -74,6 +75,13 @@ export interface Stage {
   light(center: Vector3, radius: number): void;
   /** Ask for one more frame (reduced motion renders only when something changes). */
   invalidate(): void;
+  /**
+   * Grey the light, the sky, and the haze for the weather (decision 0073): cloud dims the sun and
+   * greys the sky, and fog pales the haze and pulls it in. Cheap to call every frame.
+   */
+  skyLook(sky: SkyAmounts): void;
+  /** How far the haze reaches in this weather, as a share of a clear day's (1 when clear). */
+  hazeReach(): number;
   /** A PNG of the current view at up to 2x, or null if the browser can't make one. */
   photo(): Promise<Blob | null>;
   dispose(): void;
@@ -146,7 +154,8 @@ export function createStage(host: HTMLElement, options: StageOptions = {}): Stag
   };
 
   const scene = new Scene();
-  scene.background = keep(skyTexture());
+  const sky = keep(skyTexture());
+  scene.background = sky.texture;
   const fog = new Fog(SKY.fog, 18, 42);
   scene.fog = fog;
 
@@ -165,6 +174,18 @@ export function createStage(host: HTMLElement, options: StageOptions = {}): Stag
   const fill = new DirectionalLight(0xd9c8f4, 0.55);
   fill.position.set(-6, 4, -8);
   scene.add(fill);
+  const lit = { sun: sun.intensity, hemi: hemi.intensity, fill: fill.intensity };
+  const warmSky = hemi.color.clone();
+  const warmSun = sun.color.clone();
+  /** How far the haze reaches in this weather, and the framed scene's own haze, set by `fit`. */
+  let reach = 1;
+  let haze: { distance: number; radius: number } | undefined;
+  let skySeen = "";
+  const applyHaze = () => {
+    if (!haze) return;
+    fog.near = haze.distance + haze.radius * 0.4 * reach;
+    fog.far = haze.distance + haze.radius * 3.2 * reach;
+  };
 
   const camera = new PerspectiveCamera(34, 1, 0.1, 200);
   const controls = new OrbitControls(camera, renderer.domElement);
@@ -207,9 +228,10 @@ export function createStage(host: HTMLElement, options: StageOptions = {}): Stag
     controls.maxDistance = distance * 1.6;
     camera.near = Math.max(0.05, distance / 60);
     camera.far = distance * 8;
-    // Haze starts just past the scene and swallows the far ground, whatever the distance.
-    fog.near = distance + radius * 0.4;
-    fog.far = distance + radius * 3.2;
+    // Haze starts just past the scene and swallows the far ground, whatever the distance, and comes
+    // in closer in fog.
+    haze = { distance, radius };
+    applyHaze();
     camera.updateProjectionMatrix();
     controls.update();
   };
@@ -341,6 +363,29 @@ export function createStage(host: HTMLElement, options: StageOptions = {}): Stag
       dirty = true;
       start();
     },
+    skyLook(look) {
+      const key = [look.cloud, look.rain, look.snow, look.fog].map((v) => v.toFixed(3)).join();
+      if (key === skySeen) return;
+      skySeen = key;
+      const grey = Math.min(1, look.cloud * 0.75 + look.rain * 0.25);
+      const mist = look.fog;
+      sun.intensity = lit.sun * Math.max(0.2, 1 - 0.6 * grey - 0.3 * mist);
+      sun.color.copy(warmSun).lerp(new Color(OVERCAST.light), grey * 0.7);
+      hemi.intensity = lit.hemi * (1 + 0.1 * grey);
+      hemi.color.copy(warmSky).lerp(new Color(OVERCAST.light), grey);
+      fill.intensity = lit.fill * (1 - 0.35 * grey);
+      const tone = (clear: number, overcast: number) =>
+        mix(mix(clear, overcast, grey), OVERCAST.mist, mist * 0.7);
+      fog.color.set(tone(SKY.fog, OVERCAST.fog));
+      sky.paint(tone(SKY.topHex, OVERCAST.top), tone(SKY.fog, OVERCAST.fog));
+      reach = 1 - 0.5 * mist - 0.12 * look.rain - 0.08 * look.snow;
+      applyHaze();
+      dirty = true;
+      start();
+    },
+    hazeReach() {
+      return reach;
+    },
     photo() {
       // Draw one frame at up to 2x and copy it right away, in the same task, before the browser
       // clears the drawing buffer. Then put the screen's own size back.
@@ -427,16 +472,29 @@ export function canvasTexture(c: HTMLCanvasElement, repeat = false): CanvasTextu
   return t;
 }
 
-/** Paper sky: warm cream at the top, sand at the horizon, so the fog meets it without a seam. */
-function skyTexture(): CanvasTexture {
+/**
+ * Paper sky: warm cream at the top, sand at the horizon, so the fog meets it without a seam. The
+ * weather paints it greyer (`skyLook`), with the horizon always the haze's own color.
+ */
+function skyTexture(): {
+  texture: CanvasTexture;
+  paint(top: number, horizon: number): void;
+  dispose(): void;
+} {
   const [c, g] = canvas(4, 256);
-  const grad = g.createLinearGradient(0, 0, 0, 256);
-  grad.addColorStop(0, SKY.top);
-  grad.addColorStop(0.62, SKY.horizon);
-  grad.addColorStop(1, SKY.horizon);
-  g.fillStyle = grad;
-  g.fillRect(0, 0, 4, 256);
-  return canvasTexture(c);
+  const texture = canvasTexture(c);
+  const css = (color: number) => `#${color.toString(16).padStart(6, "0")}`;
+  const paint = (top: number, horizon: number) => {
+    const grad = g.createLinearGradient(0, 0, 0, 256);
+    grad.addColorStop(0, css(top));
+    grad.addColorStop(0.62, css(horizon));
+    grad.addColorStop(1, css(horizon));
+    g.fillStyle = grad;
+    g.fillRect(0, 0, 4, 256);
+    texture.needsUpdate = true;
+  };
+  paint(SKY.topHex, SKY.fog);
+  return { texture, paint, dispose: () => texture.dispose() };
 }
 
 /** Small seeded random for texture noise. Visual only. */

@@ -14,11 +14,13 @@ import {
   HEARTH_COLOR,
   HEARTH_DOOR,
   isDecorKind,
+  LEAF_TONES,
   PAPER,
+  seasonOf,
   THEME_INFO,
   THEME_TINT_ALPHA,
-  TUFT_STROKE,
   tileKey,
+  tuftStroke,
   type WorldState,
 } from "@terrakin/sim";
 
@@ -79,13 +81,15 @@ export function plotPhotoSpec(state: WorldState, residentId: string): PlotPhotoS
   const y0 = plot.py * S;
   const owner = state.residents[plot.ownerId];
   const palette = owner?.theme ? THEME_INFO[owner.theme]?.palette : undefined;
+  // The world's season, as the map draws it: leaves in autumn, snow in winter.
+  const season = state.day === undefined ? undefined : seasonOf(state.day);
 
   const ground: PlotGround[] = [];
   const biomeCounts = new Map<Biome, number>();
   for (let y = 0; y < S; y++) {
     for (let x = 0; x < S; x++) {
       // Plots are never the Commons, so the ground is always the biome's.
-      const tile = groundTile(config, x0 + x, y0 + y, false);
+      const tile = groundTile(config, x0 + x, y0 + y, false, season);
       biomeCounts.set(tile.biome, (biomeCounts.get(tile.biome) ?? 0) + 1);
       const s = tile.scenery;
       ground.push({
@@ -93,6 +97,9 @@ export function plotPhotoSpec(state: WorldState, residentId: string): PlotPhotoS
         ...(s?.kind === "tuft" ? { tuft: s.fx } : {}),
         ...(s?.kind === "flower"
           ? { flower: { fx: s.fx, fy: s.fy, fill: FLOWER_TONES[s.tone] } }
+          : {}),
+        ...(s?.kind === "leaf"
+          ? { leaf: { fx: s.fx, fy: s.fy, turn: s.turn, fill: LEAF_TONES[s.tone] } }
           : {}),
       });
     }
@@ -136,7 +143,7 @@ export function plotPhotoSpec(state: WorldState, residentId: string): PlotPhotoS
     blocks,
     ...(hearth ? { hearth: { x: hearth.x - x0, y: hearth.y - y0 } } : {}),
     ...(owner?.homeArt ? { homeArt: owner.homeArt } : {}),
-    ink: { roof: HEARTH_COLOR, door: HEARTH_DOOR, walls: PAPER, tuft: TUFT_STROKE },
+    ink: { roof: HEARTH_COLOR, door: HEARTH_DOOR, walls: PAPER, tuft: tuftStroke(season) },
   };
 }
 

@@ -335,12 +335,17 @@ function headPath(ctx: CanvasRenderingContext2D, u: number, side: number) {
 const feetAt = (side: number): [number, number] =>
   side ? [-0.03 * side, 0.1 * side] : [-0.1, 0.1];
 
-/** How the face looks this moment: a feeling, eyes shut for a blink, and a hand up to wave. */
+/**
+ * How the figure looks this moment: a feeling, eyes shut for a blink, a hand up to wave, and, out
+ * in the world when it isn't raining, an umbrella rolled up.
+ */
 export interface FigureFace {
   feeling?: Feeling | undefined;
   blink?: boolean | undefined;
   /** A raised hand, at one end of the wave (1) or the other (2). 0 or absent: arms down. */
   wave?: 0 | 1 | 2 | undefined;
+  /** The umbrella rolled up and carried like a walking stick. Absent: held up open, as on a page. */
+  furled?: boolean | undefined;
 }
 
 const NO_FACE: FigureFace = {};
@@ -524,7 +529,10 @@ export function drawFigure(
 
   if (wear.has("bow")) drawBow(ctx, u, side, back, p, garb("bow"));
   if (wear.has("basket")) drawBasket(ctx, u, hand, p, garb("basket"));
-  if (wear.has("umbrella")) drawUmbrella(ctx, u, p, hand, garb("umbrella"));
+  if (wear.has("umbrella")) {
+    if (face.furled) drawFurledUmbrella(ctx, u, p, hand, garb("umbrella"));
+    else drawUmbrella(ctx, u, p, hand, garb("umbrella"));
+  }
   if (wear.has("muse_lantern")) drawMuseLantern(ctx, u, hand, p, garb("muse_lantern"));
 }
 
@@ -2313,6 +2321,54 @@ function drawUmbrella(
   ctx.beginPath();
   ctx.arc(cx, cy - 0.18 * u, 0.02 * u, 0, Math.PI * 2);
   ctx.fill();
+}
+
+/** A rolled-up umbrella's cloth around its shaft, from the hand (`top`) down toward the tip. */
+function furledPath(ctx: CanvasRenderingContext2D, u: number, x: number, top: number, tip: number) {
+  const w = 0.05 * u;
+  ctx.beginPath();
+  ctx.moveTo(x - w * 0.5, top);
+  ctx.quadraticCurveTo(x - w * 1.3, top + (tip - top) * 0.3, x - w * 0.2, tip);
+  ctx.lineTo(x + w * 0.2, tip);
+  ctx.quadraticCurveTo(x + w * 1.3, top + (tip - top) * 0.3, x + w * 0.5, top);
+  ctx.closePath();
+}
+
+/**
+ * The umbrella rolled up and carried like a walking stick in the carrying hand, its hooked handle
+ * over the hand and its tip on the ground, in the same color (and pattern) as when it's open.
+ */
+function drawFurledUmbrella(
+  ctx: CanvasRenderingContext2D,
+  u: number,
+  p: ThemePalette,
+  hand: number,
+  g: Garb,
+) {
+  const color = g.color(GARMENT_COLOR.umbrella(p));
+  const x = 0.33 * hand * u;
+  const top = -0.27 * u;
+  const tip = -0.05 * u;
+  ctx.strokeStyle = INK;
+  ctx.lineCap = "round";
+  ctx.lineWidth = Math.max(1, 0.026 * u);
+  ctx.beginPath();
+  // The ferrule down to the ground, and the hooked handle up over the hand.
+  ctx.moveTo(x, tip);
+  ctx.lineTo(x + 0.01 * hand * u, 0);
+  ctx.moveTo(x, top);
+  ctx.lineTo(x, -0.33 * u);
+  ctx.quadraticCurveTo(x, -0.38 * u, x - 0.04 * hand * u, -0.37 * u);
+  ctx.quadraticCurveTo(x - 0.07 * hand * u, -0.36 * u, x - 0.065 * hand * u, -0.32 * u);
+  ctx.stroke();
+  paintCloth(ctx, u, () => furledPath(ctx, u, x, top, tip), color, g.fill());
+  ctx.strokeStyle = mix(color, INK, 0.35);
+  ctx.lineWidth = Math.max(0.8, 0.016 * u);
+  furledPath(ctx, u, x, top, tip);
+  ctx.stroke();
+  // The strap that keeps it rolled.
+  ctx.fillStyle = mix(color, INK, 0.3);
+  ctx.fillRect(x - 0.04 * u, -0.2 * u, 0.08 * u, 0.022 * u);
 }
 
 /** Where the lantern hangs: out past the carrying hand, inside the figure's box. */

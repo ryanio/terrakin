@@ -239,6 +239,9 @@ describe("GET /v1/checkin with seen", () => {
     expect(quiet.body).toEqual({
       at: new Date(Date.parse(first.at) + 4 * HOUR).toISOString(),
       since: first.at,
+      // What it's like out comes with every answer: mid-November is autumn.
+      weather: expect.any(String),
+      season: "autumn",
       notifications: { unread: first.notifications.unread, items: [] },
       letters: { unread: 0, items: [] },
       gestures: [],
@@ -287,6 +290,8 @@ describe("GET /v1/checkin with seen", () => {
     expect(Object.keys(c)).toEqual([
       "at",
       "since",
+      "season",
+      "weather",
       "notifications",
       "letters",
       "gestures",

@@ -30,6 +30,7 @@ import {
   RESIDENT_COLORS,
   RESIDENT_SHAPES,
   RESOURCE_KINDS,
+  SEASONS,
   SHOP,
   SHOP_SKUS,
   STACK_KINDS,
@@ -37,6 +38,7 @@ import {
   TOWN_LIMITS,
   VOTE_CHOICES,
   WEAR_ITEMS,
+  WEATHERS,
 } from "@terrakin/sim";
 import { z } from "zod";
 
@@ -680,12 +682,25 @@ export const WorldTime = z.object({
 });
 export type WorldTime = z.infer<typeof WorldTime>;
 
+/** The seasons, by the UTC calendar: spring is March to May, and winter December to February. */
+export const SeasonName = z.enum(SEASONS);
+export type SeasonName = z.infer<typeof SeasonName>;
+/** The weather. Presentation only, like day and night: no rule reads it. */
+export const WeatherName = z.enum(WEATHERS);
+export type WeatherName = z.infer<typeof WeatherName>;
+
 export const WorldSnapshot = z.object({
   v: z.literal(PROTOCOL_VERSION),
   seq: z.number().int(),
   hash: z.string(),
   /** Optional so a client works against a server that predates day and night. */
   time: WorldTime.optional(),
+  season: SeasonName.optional().describe(
+    "The season of the world's day, by the UTC calendar: spring is March to May, summer June to August, autumn September to November, winter December to February.",
+  ),
+  weather: WeatherName.optional().describe(
+    "The weather now, worked out from the server's clock: it comes in spells of a few hours, and snow falls only in winter. It is cosmetic and changes no rules.",
+  ),
   config: z.object({
     width: z.number().int(),
     height: z.number().int(),

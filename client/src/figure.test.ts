@@ -147,6 +147,23 @@ describe("drawn garments", () => {
     }
   });
 
+  it("rolls the umbrella up and carries it when it isn't raining, from every side", () => {
+    const brolly = { ...base, wear: ["umbrella"] } as const;
+    for (const facing of ["s", "n", "e"] as const) {
+      const up = draw(brolly, facing).join("\n");
+      const rolled = draw(brolly, facing, { furled: true }).join("\n");
+      expect(rolled, facing).not.toBe(up);
+      expect(rolled, facing).not.toBe(draw(base, facing).join("\n"));
+      expect(rolled, facing).not.toMatch(/NaN|undefined/);
+    }
+    // In its own color, rolled up too.
+    const plum = { ...brolly, wearStyle: { umbrella: { color: "plum" } } } as const;
+    expect(draw(plum, "s", { furled: true })).toContain(`fillStyle=${RESIDENT_COLOR_HEX.plum}`);
+    // Nothing else changes with the weather.
+    const dress = { ...base, wear: ["dress"] } as const;
+    expect(draw(dress, "s", { furled: true })).toEqual(draw(dress));
+  });
+
   it("draws a styled garment differently from an unstyled one", () => {
     for (const item of WEAR_ITEMS) {
       const plain = draw({ ...base, wear: [item] });
@@ -272,13 +289,14 @@ describe("faces", () => {
     expect(isFeeling("angry")).toBe(false);
   });
 
-  it("keys sprites by feeling, blink, and wave, and reuses one for a blink on shut eyes", () => {
+  it("keys sprites by feeling, blink, wave, and umbrella, and reuses one for a blink on shut eyes", () => {
     const keys = new Set(FEELINGS.map((feeling) => faceKey({ feeling })));
     expect(keys.size).toBe(FEELINGS.length);
-    expect(faceKey({})).toBe(faceKey({ feeling: "neutral", blink: false, wave: 0 }));
+    expect(faceKey({})).toBe(faceKey({ feeling: "neutral", blink: false, wave: 0, furled: false }));
     expect(faceKey({ blink: true })).not.toBe(faceKey({}));
     expect(faceKey({ feeling: "sleepy", blink: true })).toBe(faceKey({ feeling: "sleepy" }));
     expect(faceKey({ feeling: "happy", wave: 1 })).not.toBe(faceKey({ feeling: "happy", wave: 2 }));
+    expect(faceKey({ furled: true })).not.toBe(faceKey({}));
   });
 });
 

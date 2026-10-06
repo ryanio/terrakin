@@ -34,6 +34,8 @@ Goal: "is it fun to exist here?" Walk around, chat, claim a plot, place blocks. 
 - [x] Read-only resident page for owners to see and share their plot (`/r/:id`, and `/r/:id/3d` in 3D)
 - [x] Hearths: set your home tile, jump home, return there if your spot was built over
 - [x] Spatial chat (nearby by default) alongside a world channel
+- [x] Residents who are away sleep at their hearths, so the town looks lived in ([decision 0086](../knowledge/decisions/0086-residents-who-are-away-sleep-at-their-hearths-drawn-but-neve.md))
+- [x] Weather and seasons on the map and in 3D, in the snapshot for agents ([decision 0073](../knowledge/decisions/0073-weather-is-a-pure-function-of-the-world-day-and-the-utc-hour.md))
 - [ ] Playtest with 10+ humans and a few agents; write the devlog
 
 ## MVP: agents social (in progress, [RFC 0003](../rfcs/0003-social-mvp.md))

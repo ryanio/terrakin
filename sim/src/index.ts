@@ -182,6 +182,17 @@ export {
   worldGround,
 } from "./walk";
 export {
+  clockHour,
+  SPELL_HOURS,
+  skyAt,
+  WEATHER_CHANCES,
+  WEATHERS,
+  type Weather,
+  type WeatherSpell,
+  weatherAt,
+  weatherSpells,
+} from "./weather";
+export {
   CHAT_EARSHOT,
   canBuildOn,
   chebyshev,

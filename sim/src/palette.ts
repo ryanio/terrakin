@@ -1,13 +1,14 @@
 /**
  * The world's palette: ground tones per biome, blocks, and the hearth, plus the per-tile scenery
- * (tufts and flowers) the ground grows. Presentation only, like the looks catalog: no rule reads
- * any of it. It lives here so the client's world renderer (`client/src/render.ts`) and the plot
- * photos drawn at the edge (`cards/`, through `server/src/plot-photo.ts`) use the same colors and
- * put the same tuft on the same tile.
+ * (tufts, flowers, and autumn's fallen leaves) the ground grows, and how each season dresses it.
+ * Presentation only, like the looks catalog: no rule reads any of it. It lives here so the
+ * client's world renderer (`client/src/render.ts`) and the plot photos drawn at the edge (`cards/`,
+ * through `server/src/plot-photo.ts`) use the same colors and put the same tuft on the same tile.
  */
 
 import { type Biome, biomeAt } from "./biome";
 import type { ThemePalette } from "./looks";
+import type { Season } from "./season";
 import { type BlockKind, BUILDING_BLOCKS, type WorldConfig } from "./types";
 
 /** Ground tones per biome, picked per tile by `tileHash`, so the ground has texture. */
@@ -54,8 +55,67 @@ export const PAPER = "#fffaf0";
 export const TUFT_STROKE = "rgba(78, 112, 54, 0.45)";
 /** The two flower colors. */
 export const FLOWER_TONES: readonly [string, string] = ["#fff4d6", "#f2b84b"];
+/** Fallen leaves in autumn: rust, amber, and gold. */
+export const LEAF_TONES: readonly [string, string, string] = ["#c8643a", "#e0913a", "#e8b84a"];
 /** How much a theme tints its owner's plot. */
 export const THEME_TINT_ALPHA = 0.34;
+
+/** Autumn warms the grass toward this gold; winter lays this snow over everything. */
+const AUTUMN_GOLD = "#d4a94f";
+const SNOW = "#f3f5f7";
+
+/** The ground's tones in one season: per biome, and the Commons plaza. */
+export interface SeasonGround {
+  ground: Readonly<Record<Biome, readonly string[]>>;
+  commons: readonly string[];
+}
+
+const toward = (tones: readonly string[], to: string, t: number) =>
+  tones.map((tone) => mixHex(tone, to, t));
+
+/**
+ * How each season dresses the ground. Spring and summer keep the tones above; autumn warms the
+ * grass, and winter lies snowy on every biome and frosts the Commons.
+ */
+export const SEASON_GROUND: Readonly<Record<Season, SeasonGround>> = {
+  spring: { ground: GROUND, commons: COMMONS_GROUND },
+  summer: { ground: GROUND, commons: COMMONS_GROUND },
+  autumn: {
+    ground: {
+      meadow: toward(GROUND.meadow, AUTUMN_GOLD, 0.32),
+      forest: toward(GROUND.forest, AUTUMN_GOLD, 0.28),
+      stone: toward(GROUND.stone, AUTUMN_GOLD, 0.08),
+      sand: GROUND.sand,
+    },
+    commons: COMMONS_GROUND,
+  },
+  winter: {
+    ground: {
+      meadow: toward(GROUND.meadow, SNOW, 0.74),
+      forest: toward(GROUND.forest, SNOW, 0.7),
+      stone: toward(GROUND.stone, SNOW, 0.7),
+      sand: toward(GROUND.sand, SNOW, 0.64),
+    },
+    commons: toward(COMMONS_GROUND, SNOW, 0.5),
+  },
+};
+
+/**
+ * A ground color as a season wears it, for ground drawn outside the biome palette (a plot's tint,
+ * the 3D plot view's meadow): the same mix the season gives meadow grass.
+ */
+export function seasonTone(hex: string, season: Season | undefined): string {
+  if (season === "autumn") return mixHex(hex, AUTUMN_GOLD, 0.32);
+  if (season === "winter") return mixHex(hex, SNOW, 0.74);
+  return hex;
+}
+
+/** The tufts' stroke in a season: olive in autumn, and pale where they poke through winter snow. */
+export function tuftStroke(season: Season | undefined): string {
+  if (season === "autumn") return "rgba(122, 104, 44, 0.5)";
+  if (season === "winter") return "rgba(98, 122, 92, 0.42)";
+  return TUFT_STROKE;
+}
 
 /** Cheap integer hash for visual variety only. Not game state: the sim never sees it. */
 export function tileHash(x: number, y: number): number {
@@ -64,10 +124,14 @@ export function tileHash(x: number, y: number): number {
   return (h ^ (h >>> 16)) >>> 0;
 }
 
-/** What grows on one tile, in fractions of the tile from its top left corner. */
+/**
+ * What grows on one tile, in fractions of the tile from its top left corner. A leaf lies `turn`
+ * radians from pointing east.
+ */
 export type Scenery =
   | { kind: "tuft"; fx: number }
-  | { kind: "flower"; fx: number; fy: number; tone: 0 | 1 };
+  | { kind: "flower"; fx: number; fy: number; tone: 0 | 1 }
+  | { kind: "leaf"; fx: number; fy: number; tone: 0 | 1 | 2; turn: number };
 
 export interface GroundTile {
   biome: Biome;
@@ -75,34 +139,47 @@ export interface GroundTile {
   scenery: Scenery | null;
 }
 
+/** Tiles (by `deco`, below) where a leaf falls in autumn besides the flowers' own; forests drop more. */
+const LEAF_DECO = new Set([5, 11, 14]);
+const FOREST_LEAF_DECO = 9;
+
 /**
- * One tile of ground: its biome, its tone, and its tuft or flower. The Commons plaza and the bare
- * biomes (stone, sand) stay clean; only meadow and forest grow decoration.
+ * One tile of ground in a season (today's look without one): its biome, its tone, and its tuft,
+ * flower, or fallen leaf. The Commons plaza and the bare biomes (stone, sand) stay clean; only
+ * meadow and forest grow decoration. In autumn flowers give way to fallen leaves and more leaves
+ * lie about; in winter the flowers are gone and only tufts poke through the snow.
  */
 export function groundTile(
   config: WorldConfig,
   x: number,
   y: number,
   inCommons: boolean,
+  season?: Season,
 ): GroundTile {
   const n = tileHash(x, y);
   const biome = biomeAt(config, x, y);
-  const fill = (inCommons ? COMMONS_GROUND : GROUND[biome])[n & 3] as string;
+  const look = SEASON_GROUND[season ?? "summer"];
+  const fill = (inCommons ? look.commons : look.ground[biome])[n & 3] as string;
   if (inCommons || biome === "stone" || biome === "sand") return { biome, fill, scenery: null };
   const deco = (n >>> 4) % 17;
   if (deco === 0 || deco === 7) {
     return { biome, fill, scenery: { kind: "tuft", fx: 0.3 + ((n >>> 9) & 7) / 20 } };
   }
-  if (deco === 3) {
+  const fx = 0.25 + ((n >>> 12) & 7) / 14;
+  const fy = 0.25 + ((n >>> 15) & 7) / 14;
+  const autumn = season === "autumn";
+  if (
+    autumn &&
+    (deco === 3 || LEAF_DECO.has(deco) || (biome === "forest" && deco === FOREST_LEAF_DECO))
+  ) {
+    const tone = ((n >>> 20) % 3) as 0 | 1 | 2;
+    return { biome, fill, scenery: { kind: "leaf", fx, fy, tone, turn: ((n >>> 23) & 7) * 0.39 } };
+  }
+  if (deco === 3 && season !== "winter") {
     return {
       biome,
       fill,
-      scenery: {
-        kind: "flower",
-        fx: 0.25 + ((n >>> 12) & 7) / 14,
-        fy: 0.25 + ((n >>> 15) & 7) / 14,
-        tone: ((n >>> 20) & 1) as 0 | 1,
-      },
+      scenery: { kind: "flower", fx, fy, tone: ((n >>> 20) & 1) as 0 | 1 },
     };
   }
   return { biome, fill, scenery: null };

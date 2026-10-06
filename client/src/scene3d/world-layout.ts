@@ -11,6 +11,7 @@ import {
   type Resident,
   type ResourceKind,
   type Scenery,
+  type Season,
   STEP,
   tileKey,
   type WorldConfig,
@@ -18,7 +19,9 @@ import {
 import {
   type Bounds,
   cropIn,
+  type Dozer,
   displayOn,
+  type GroundLeaf,
   type LayoutCrop,
   type LayoutDisplay,
   plotBounds,
@@ -29,7 +32,10 @@ import {
 export const VIEW_RADIUS = 12;
 /** A loaded plot stays until you're this many tiles past the view radius, so edges don't flicker. */
 export const KEEP_SLACK = 4;
-/** At most this many residents are drawn, nearest first. You're always one of them. */
+/**
+ * At most this many residents are drawn, nearest first. You're always one of them, then everyone
+ * online, then anyone away asleep at home fills what's left.
+ */
 export const MAX_FIGURES = 24;
 /** At most this many plots are built in one frame, so walking into new ground never hitches. */
 export const BUILDS_PER_FRAME = 2;
@@ -89,6 +95,25 @@ export function figuresAround<R extends Pick<Resident, "id" | "x" | "y" | "onlin
   return out.slice(0, max);
 }
 
+/**
+ * Who of those away and asleep at home to draw (decision 0086): the nearest within `radius` of
+ * `focus`, at most `room` of them, so they only fill places the online leave free.
+ */
+export function dozersAround<R extends { id: string }>(
+  asleep: readonly Dozer<R>[],
+  focus: Tile,
+  room: number,
+  radius = VIEW_RADIUS,
+): Dozer<R>[] {
+  if (room <= 0) return [];
+  return asleep
+    .map((d) => ({ d, far: tileDistance(d, focus) }))
+    .filter((n) => n.far <= radius)
+    .sort((a, b) => a.far - b.far || (a.d.r.id < b.d.r.id ? -1 : 1))
+    .slice(0, room)
+    .map((n) => n.d);
+}
+
 /** What one plot of the world holds, read from the mirror, with a signature that changes with it. */
 export interface PlotChunk {
   px: number;
@@ -100,9 +125,10 @@ export interface PlotChunk {
   /** What's on display on its pedestals and frames, and what grows in its planters. */
   displays: LayoutDisplay[];
   crops: LayoutCrop[];
-  /** Grass tufts and flowers on open ground, from the same palette the 2D map draws with. */
+  /** Grass tufts, flowers, and autumn leaves on open ground, from the palette the map draws with. */
   tufts: { x: number; y: number; turn: number }[];
   flowers: { x: number; y: number; warm: boolean }[];
+  leaves: GroundLeaf[];
   /** Today's fallen branches and loose stones still lying there, from the sim's own spawn. */
   pickups: { x: number; y: number; kind: ResourceKind }[];
   /** Equal for two reads exactly when what's drawn is the same. */
@@ -141,12 +167,16 @@ function tileThings(source: ChunkSource, x: number, y: number, hearths: Readonly
   return { block, hearth, display, crop, pickup, parts };
 }
 
-/** Read one plot from the mirror. `hearths` holds every resident's hearth tile key. */
+/**
+ * Read one plot from the mirror. `hearths` holds every resident's hearth tile key, and `season`
+ * dresses the ground (today's look without one).
+ */
 export function readChunk(
   source: ChunkSource,
   px: number,
   py: number,
   hearths: ReadonlySet<string>,
+  season?: Season,
 ): PlotChunk {
   const bounds = plotBounds(source.config.plotSize, px, py);
   const owner = source.plots.get(`${px},${py}`);
@@ -157,8 +187,9 @@ export function readChunk(
   const crops: LayoutCrop[] = [];
   const tufts: PlotChunk["tufts"] = [];
   const flowers: PlotChunk["flowers"] = [];
+  const leaves: GroundLeaf[] = [];
   const pickups: PlotChunk["pickups"] = [];
-  const parts: string[] = [owner ?? ""];
+  const parts: string[] = [owner ?? "", season ?? ""];
   for (let y = bounds.y0; y <= bounds.y1; y++) {
     for (let x = bounds.x0; x <= bounds.x1; x++) {
       const at = tileThings(source, x, y, hearths);
@@ -169,7 +200,7 @@ export function readChunk(
       if (at.crop) crops.push(at.crop);
       if (at.pickup) pickups.push({ x, y, kind: at.pickup });
       if (at.block || at.hearth) continue;
-      const scenery: Scenery | null = groundTile(source.config, x, y, inCommons).scenery;
+      const scenery: Scenery | null = groundTile(source.config, x, y, inCommons, season).scenery;
       if (scenery?.kind === "tuft")
         tufts.push({ x: x + scenery.fx - 0.5, y: y + 0.2, turn: ((x * 7 + y * 13) % 63) / 10 });
       else if (scenery?.kind === "flower")
@@ -177,6 +208,13 @@ export function readChunk(
           x: x + scenery.fx - 0.5,
           y: y + scenery.fy - 0.5,
           warm: scenery.tone === 1,
+        });
+      else if (scenery?.kind === "leaf")
+        leaves.push({
+          x: x + scenery.fx - 0.5,
+          y: y + scenery.fy - 0.5,
+          turn: scenery.turn,
+          tone: scenery.tone,
         });
     }
   }
@@ -191,6 +229,7 @@ export function readChunk(
     crops,
     tufts,
     flowers,
+    leaves,
     pickups,
     signature: parts.join("|"),
   };
@@ -202,9 +241,10 @@ export function chunkSignature(
   px: number,
   py: number,
   hearths: ReadonlySet<string>,
+  season?: Season,
 ): string {
   const bounds = plotBounds(source.config.plotSize, px, py);
-  const parts: string[] = [source.plots.get(`${px},${py}`) ?? ""];
+  const parts: string[] = [source.plots.get(`${px},${py}`) ?? "", season ?? ""];
   for (let y = bounds.y0; y <= bounds.y1; y++)
     for (let x = bounds.x0; x <= bounds.x1; x++)
       parts.push(...tileThings(source, x, y, hearths).parts);
@@ -300,7 +340,10 @@ export function groundAnchor(focus: Tile, step = GROUND_STEP): Tile {
   return { x: Math.round(focus.x / step) * step, y: Math.round(focus.y / step) * step };
 }
 
-/** What the 3D view says it shows: who is nearby, a few names and how many more. */
+/**
+ * What the 3D view says it shows: who is nearby, a few names and how many more. Only residents in
+ * the world: someone asleep at home is never named as nearby.
+ */
 export function nearbyLabel(names: readonly string[]): string {
   if (names.length === 0) return "World view in 3D";
   const few = names.slice(0, 4);

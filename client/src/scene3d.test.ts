@@ -18,7 +18,10 @@ import { parseGallery } from "./scene3d/catalog";
 import { hairMesh, hairPieces } from "./scene3d/hair";
 import {
   cornerLight,
+  DOZE_GAP,
   distanceOutside,
+  dozerAt,
+  dozers,
   FIGURE_SCALE,
   fitModel,
   groundDecor,
@@ -200,7 +203,104 @@ describe("plot layout", () => {
     expect(a.tufts.length + a.flowers.length).toBeGreaterThan(0);
     const full = new Set<string>();
     for (let y = b.y0; y <= b.y1; y++) for (let x = b.x0; x <= b.x1; x++) full.add(`${x},${y}`);
-    expect(groundDecor(b, full)).toEqual({ tufts: [], flowers: [] });
+    for (const season of [undefined, "autumn", "winter"] as const)
+      expect(groundDecor(b, full, season)).toEqual({ tufts: [], flowers: [], leaves: [] });
+  });
+
+  it("drops leaves where the flowers were in autumn, and keeps only the tufts in winter", () => {
+    const b = plotBounds(8, 1, 1);
+    const none = new Set<string>();
+    const summer = groundDecor(b, none, "summer");
+    const autumn = groundDecor(b, none, "autumn");
+    expect(summer.leaves).toEqual([]);
+    expect(autumn.flowers).toEqual([]);
+    expect(autumn.leaves.length).toBeGreaterThan(summer.flowers.length);
+    expect(autumn.tufts).toEqual(summer.tufts);
+    expect(groundDecor(b, none, "winter")).toEqual({ ...summer, flowers: [] });
+  });
+
+  it("puts everyone away whose hearth is here to sleep at it, side by side, and no one else", () => {
+    const w = world();
+    // Capri and Moss share the hearth at (11, 11) and are both away; Pip is away, home elsewhere.
+    w.residents = w.residents.map((r) =>
+      r.id === "capri"
+        ? { ...r, online: false }
+        : r.id === "asleep"
+          ? { ...r, hearth: { x: 11, y: 11 } }
+          : r.id === "far"
+            ? { ...r, online: false, hearth: { x: 30, y: 30 } }
+            : r,
+    );
+    const layout = plotLayout(w, "capri");
+    const sleepers = layout?.figures
+      .filter((f) => f.away)
+      .map((f) => [f.id, Number(f.x.toFixed(2)), f.y, f.feeling]);
+    // One on each side of the hearth, in id order.
+    expect(sleepers).toEqual([
+      ["capri", 10.28, 11, "sleepy"],
+      ["asleep", 11.72, 11, "sleepy"],
+    ]);
+    expect(layout?.figures.map((f) => f.id).sort()).toEqual(["asleep", "capri", "visitor"]);
+  });
+
+  it("reads the season off the world's day, and the weather off the snapshot's clock", () => {
+    const w = { ...world(), day: 20732, time: { nowMs: Date.UTC(2026, 9, 6, 7), dayLengthMs: 1 } };
+    expect(plotLayout(w, "capri")).toMatchObject({ season: "autumn", weather: "cloudy" });
+    expect(plotLayout(world(), "capri")).toMatchObject({ season: undefined, weather: "clear" });
+  });
+});
+
+describe("residents away, asleep at home", () => {
+  const who = (id: string, hearth: { x: number; y: number } | null, online = false) => ({
+    id,
+    online,
+    hearth,
+  });
+  const at = (list: ReturnType<typeof dozers>) =>
+    list.map((d) => [d.r.id, Number(d.x.toFixed(2)), Number(d.y.toFixed(2))]);
+
+  it("sleeps everyone away who keeps a hearth beside it, but not you or anyone here", () => {
+    const list = dozers(
+      [
+        who("ada", { x: 5, y: 5 }),
+        who("bo", null),
+        who("cy", { x: 9, y: 2 }, true),
+        who("me", { x: 1, y: 1 }),
+      ],
+      () => true,
+      "me",
+    );
+    expect(at(list)).toEqual([["ada", 5.72, 5]]);
+  });
+
+  it("puts residents who share a hearth on its open sides, and doubles up once they're full", () => {
+    const home = { x: 5, y: 5 };
+    const open = dozers([who("bo", home), who("ada", home)], () => true);
+    expect(at(open)).toEqual([
+      ["ada", 5.72, 5],
+      ["bo", 4.28, 5],
+    ]);
+    // A wall east of the hearth, and four who share it: west, in front, behind, then west again.
+    const four = ["ada", "bo", "cy", "di"].map((id) => who(id, home));
+    const walled = dozers(four, (x, y) => !(x === 6 && y === 5));
+    expect(at(walled)).toEqual([
+      ["ada", 4.28, 5],
+      ["bo", 5, 5.6],
+      ["cy", 5, 4.4],
+      ["di", 4.28, 5 + DOZE_GAP],
+    ]);
+  });
+
+  it("finds who sleeps on a tile, by where they're drawn or by their hearth", () => {
+    const home = { x: 5, y: 5 };
+    const list = dozers([who("ada", home), who("bo", home)], () => true);
+    // Ada lies east of the hearth and Bo west: a tap on either one, head or feet, is theirs.
+    expect(dozerAt(list, 6, 5)?.r.id).toBe("ada");
+    expect(dozerAt(list, 6, 4)?.r.id).toBe("ada");
+    expect(dozerAt(list, 4, 5)?.r.id).toBe("bo");
+    expect(dozerAt(list, 5, 5)?.r.hearth).toEqual(home);
+    expect(dozerAt(list, 5, 6)).toBeUndefined();
+    expect(dozerAt(list, 7, 5)).toBeUndefined();
   });
 });
 
@@ -212,13 +312,13 @@ describe("faces on 3D figures", () => {
     return plotLayout(w, "capri")?.figures.find((f) => f.id === "capri")?.feeling;
   };
 
-  it("dozes by the hearth after dark while out, and not by day, online, or without a clock", () => {
+  it("dozes at the hearth whenever out, by day or by night, and not while online", () => {
     const midnight = { nowMs: 75_000, dayLengthMs: 100_000 };
     const noon = { nowMs: 25_000, dayLengthMs: 100_000 };
     expect(capriFeels(false, midnight)).toBe("sleepy");
-    expect(capriFeels(false, noon)).toBeUndefined();
+    expect(capriFeels(false, noon)).toBe("sleepy");
+    expect(capriFeels(false)).toBe("sleepy");
     expect(capriFeels(true, midnight)).toBeUndefined();
-    expect(capriFeels(false)).toBeUndefined();
   });
 
   it("adds fewer than 50 triangles over the sphere eyes and cheeks it replaces", () => {
@@ -304,13 +404,15 @@ describe("wear on 3D figures", () => {
     expect(boots?.color).toBe(garmentColor({ color: "sky", theme: "lemon" }, "boots"));
   });
 
-  it("lifts the name tag over a top hat, a halo, an umbrella, or tall hair", () => {
+  it("lifts the name tag over a top hat, a halo, tall hair, or an umbrella held up", () => {
     const look = (wear: WearItem[]) => ({ color: "sky" as const, shape: "round" as const, wear });
     expect(tagHeight({ kind: "human", look: look([]) })).toBe(1.08);
     expect(tagHeight({ kind: "agent", look: look([]) })).toBe(1.2);
     expect(tagHeight({ kind: "human", look: look(["top_hat"]) })).toBeGreaterThan(1.08);
     expect(tagHeight({ kind: "human", look: look(["muse_halo"]) })).toBeGreaterThan(1.08);
-    expect(tagHeight({ kind: "agent", look: look(["umbrella"]) })).toBeGreaterThan(1.2);
+    expect(tagHeight({ kind: "agent", look: look(["umbrella"]) }, true)).toBeGreaterThan(1.2);
+    // Rolled up at their side when it isn't raining, it leaves the tag where it was.
+    expect(tagHeight({ kind: "agent", look: look(["umbrella"]) })).toBe(1.2);
     expect(tagHeight({ kind: "human", look: { ...look([]), hair: "afro" } })).toBeGreaterThan(1.08);
     // Short hair, or tall hair tucked under a beanie, leaves the tag where it was.
     expect(tagHeight({ kind: "human", look: { ...look([]), hair: "short" } })).toBe(1.08);
@@ -509,6 +611,7 @@ describe("three.js stays out of the main bundle", () => {
     "scene3d/wear.ts",
     "scene3d/hair.ts",
     "scene3d/buildings.ts",
+    "scene3d/weather.ts",
     "scene3d/world.ts",
   ]);
 

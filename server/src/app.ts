@@ -91,10 +91,14 @@ export interface AppOptions {
   tips?: TownsfolkTips;
   /**
    * Tests only (`TERRAKIN_TEST_CLOCK=1`): answers `POST /v1/test/advance-day` by moving the clock
-   * a day on. It's deliberately outside the route table, so it never appears in the API docs, and
-   * the Cloudflare adapter has no way to turn it on.
+   * a day on, or `?days=N` days (1 to 400) in one jump, which the world takes as one `new_day`.
+   * It's deliberately outside the route table, so it never appears in the API docs, and the
+   * Cloudflare adapter has no way to turn it on.
    */
-  testClock?: { advanceDay(): number | null; grantMaintainer?(residentId: string): void };
+  testClock?: {
+    advanceDay(days: number): number | null;
+    grantMaintainer?(residentId: string): void;
+  };
 }
 
 /** The test clock's route that moves the world to the next day. See `AppOptions.testClock`. */
@@ -233,7 +237,11 @@ export function createApp(options: AppOptions): Server {
   async function handle(req: IncomingMessage, res: ServerResponse) {
     const url = new URL(req.url ?? "/", "http://localhost");
     if (options.testClock && req.method === "POST" && url.pathname === TEST_ADVANCE_DAY_PATH) {
-      const day = options.testClock.advanceDay();
+      const days = Math.min(
+        400,
+        Math.max(1, Math.trunc(Number(url.searchParams.get("days"))) || 1),
+      );
+      const day = options.testClock.advanceDay(days);
       return send(res, {
         status: 200,
         headers: { "content-type": "application/json", "cache-control": "no-store" },

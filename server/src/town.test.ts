@@ -506,8 +506,8 @@ describe("the test clock", () => {
       now: time.now,
       days: true,
     });
-    const advanceDay = () => {
-      time.advance(DAY_MS);
+    const advanceDay = (days: number) => {
+      time.advance(days * DAY_MS);
       service.tick();
       return service.state.day ?? null;
     };
@@ -517,6 +517,9 @@ describe("the test clock", () => {
       const res = await fetch(base + TEST_ADVANCE_DAY_PATH, { method: "POST" });
       if (testClock) {
         expect(await res.json()).toEqual({ day: utcDay(START) + 1 });
+        // `days` jumps further in one call, for specs that need another season.
+        const jump = await fetch(`${base + TEST_ADVANCE_DAY_PATH}?days=90`, { method: "POST" });
+        expect(await jump.json()).toEqual({ day: utcDay(START) + 91 });
       } else {
         expect(res.status).toBe(404);
       }

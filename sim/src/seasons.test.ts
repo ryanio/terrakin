@@ -4,7 +4,7 @@ import { AUTUMN_CONFIG, AUTUMN_HASH, AUTUMN_LOG } from "./fixtures/autumn-log";
 import { hashWorld } from "./hash";
 import { CROP_INFO, RECIPES } from "./items";
 import { replay } from "./replay";
-import { dayOfDate } from "./season";
+import { dayOfDate, SEASONS } from "./season";
 import {
   BUY_ORDERS,
   ROTATION_CROPS,
@@ -110,6 +110,42 @@ describe("seasonal buying", () => {
     w.day(AUTUMN_ENDS + 1);
     const result = w.send("ada", { type: "sell_to_town", item: "pumpkin" });
     expect(result.ok ? null : result.rejection.code).toBe("not_buying");
+  });
+
+  it("takes each of autumn's kinds up to its daily count, then pays nothing more", () => {
+    const w = shopOn(AUTUMN_STARTS);
+    w.ok("ada", { type: "place", x: 4, y: 2, block: "kitchen" });
+    stock(w.state, "ada", { pumpkin: 9, sugar: 2, herb: 2, jar: 2 });
+    for (const recipe of ["pumpkin_pie", "pumpkin_pie", "pumpkin_soup", "pumpkin_soup"] as const) {
+      w.ok("ada", { type: "craft", recipe, x: 4, y: 2 });
+    }
+    for (const kind of SEASON_BUYS.autumn) {
+      for (let i = 0; i < BUY_ORDERS[kind].perDay; i++) {
+        w.ok("ada", { type: "sell_to_town", item: kind });
+      }
+      // Ada still holds one more of each, so only the daily count can refuse it.
+      const before = w.coins();
+      const result = w.send("ada", { type: "sell_to_town", item: kind });
+      expect(result.ok ? null : result.rejection.code).toBe("sell_limit");
+      expect(w.coins()).toBe(before);
+    }
+  });
+
+  it("buys none of autumn's kinds the day before autumn or the day after it", () => {
+    for (const day of [AUTUMN_STARTS - 1, AUTUMN_ENDS + 1]) {
+      const w = shopOn(day);
+      for (const kind of SEASON_BUYS.autumn) {
+        const result = w.send("ada", { type: "sell_to_town", item: kind });
+        expect(result.ok ? null : result.rejection.code).toBe("not_buying");
+      }
+    }
+  });
+
+  it("names each thing in one season at most, since the shop labels and sells by the first", () => {
+    const stocked = SEASONS.flatMap((s) => SEASON_STOCK[s]);
+    expect(new Set(stocked).size).toBe(stocked.length);
+    const bought = SEASONS.flatMap((s) => SEASON_BUYS[s]);
+    expect(new Set(bought).size).toBe(bought.length);
   });
 
   it("leaves the rotation every past day was bought from as it was", () => {

@@ -196,8 +196,8 @@ const server = createApp({
   ...(testClock
     ? {
         testClock: {
-          advanceDay: () => {
-            offset += DAY_MS;
+          advanceDay: (days: number) => {
+            offset += days * DAY_MS;
             service.tick();
             return service.state.day ?? null;
           },

@@ -112,7 +112,9 @@ test("a visitor sees the shop; a resident sells herbs to the town and buys a lan
 
   await test.step("autumn's stock is tagged and sold in autumn, and gone once it ends", async () => {
     const shopDay = async () => (await read(page.request, hazel.token, "/v1/shop")).shop.day;
-    for (let n = daysToAutumn(await shopDay()); n > 0; n--) await advanceDay(page.request);
+    // One jump each way, so the step takes as long in December as it does in October.
+    const toAutumn = daysToAutumn(await shopDay());
+    if (toAutumn > 0) await advanceDay(page.request, toAutumn);
     await page.goto("/shop");
     const seeds = page.locator('.shop-item[data-sku="pumpkin_seed"]');
     await expect(seeds.locator(".shop-season")).toHaveText("This autumn");
@@ -123,7 +125,7 @@ test("a visitor sees the shop; a resident sells herbs to the town and buys a lan
     expect(await overflowsSideways(page)).toBe(false);
     await page.screenshot({ path: "test-results/shop-autumn.png", fullPage: true });
 
-    for (let n = daysToWinter(await shopDay()); n > 0; n--) await advanceDay(page.request);
+    await advanceDay(page.request, daysToWinter(await shopDay()));
     await page.goto("/shop");
     await expect(page.locator('.shop-item[data-sku="lantern"]')).toBeVisible();
     await expect(page.locator('.shop-item[data-sku="pumpkin_seed"]')).toHaveCount(0);

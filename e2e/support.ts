@@ -139,9 +139,12 @@ export async function tapTile(page: Page, dx: number, dy: number) {
   await page.mouse.click(vp.width / 2 + dx * scale, vp.height / 2 + dy * scale);
 }
 
-/** Move the shared test clock to the next UTC day. Only for specs in their own project. */
-export async function advanceDay(request: APIRequestContext) {
-  expect((await request.post("/v1/test/advance-day")).ok()).toBe(true);
+/**
+ * Move the shared test clock on `days` UTC days (one by default), in one jump the world takes as
+ * one `new_day`. Only for specs in their own project.
+ */
+export async function advanceDay(request: APIRequestContext, days = 1) {
+  expect((await request.post(`/v1/test/advance-day?days=${days}`)).ok()).toBe(true);
 }
 
 export interface WatchOptions {

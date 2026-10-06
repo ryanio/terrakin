@@ -5,6 +5,7 @@
  *
  *   pnpm townsfolk -- --base http://localhost:8787
  *   pnpm townsfolk -- --base http://localhost:8787 --handles [--send]
+ *   pnpm townsfolk -- --base http://localhost:8787 --routines --pets [--send]
  *   node scripts/townsfolk/seed.ts --base <url> [--dry-run] [--refresh-art] [--creds <file>] [--images <dir>] [--pace <ms>]
  *
  *   --base         server to seed (required)
@@ -13,9 +14,12 @@
  *                  new avatars, the old postcard posts deleted and posted again in the same order,
  *                  the townsfolk replies and likes on them made again, and any new signature
  *                  blocks placed. Does nothing once the credentials file records the current version.
- *   --handles      only claim each stored resident's handle (`handle` in personas.ts) and change
- *                  nothing else. A dry run that prints the plan unless --send is given too.
- *   --send     with --handles: claim them
+ *   --handles      only claim each stored resident's handle (`handle` in personas.ts)
+ *   --routines     only set each stored resident's routines (`routines` in personas.ts)
+ *   --pets         only adopt each stored resident's pet (`pet` in personas.ts), or rename it.
+ *                  These three go together in any mix and change nothing else. Each is a dry run
+ *                  that prints the plan and the exact requests unless --send is given too.
+ *   --send     with --handles, --routines or --pets: send them
  *   --creds    where to keep tokens (default ~/.config/terrakin/townsfolk.<host>.json, mode 0600)
  *   --images   also write the postcards and avatars to this directory
  *   --pace     pause between social writes, in ms (default 800)
@@ -27,17 +31,22 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import type {
+  Action,
   FeedResponse,
+  PetView,
   PostResponse,
   PostView,
   ProfileView,
+  RoutinesResponse,
   WorldSnapshot,
 } from "../../packages/protocol/src/index";
 import { ART_VERSION, type Images, renderAll } from "./art.ts";
 import { type Creds, defaultCredsPath, type Stored, writePrivateJson } from "./creds.ts";
 import { describeStep, planHandle } from "./handle-plan.ts";
 import { checkPersonas, PERSONAS, type Persona } from "./personas.ts";
+import { describePetStep, planPet } from "./pet-plan.ts";
 import { choosePlot, describePlace, type Plot, plotKey } from "./plan.ts";
+import { describeRoutinesStep, planRoutines } from "./routine-plan.ts";
 
 // ---------------------------------------------------------------------------
 // Options
@@ -51,6 +60,8 @@ const { values: args } = parseArgs({
     "dry-run": { type: "boolean", default: false },
     "refresh-art": { type: "boolean", default: false },
     handles: { type: "boolean", default: false },
+    routines: { type: "boolean", default: false },
+    pets: { type: "boolean", default: false },
     send: { type: "boolean", default: false },
     creds: { type: "string" },
     images: { type: "string" },
@@ -66,13 +77,17 @@ const BASE = new URL(args.base).origin;
 const DRY = args["dry-run"];
 const REFRESH = args["refresh-art"];
 const HANDLES = args.handles;
-if (args.send && !HANDLES) {
-  console.error("--send goes with --handles. A full seed has --dry-run instead.");
+const ROUTINES = args.routines;
+const PETS = args.pets;
+/** Only some steps, for residents already seeded: `--handles`, `--routines`, `--pets`. */
+const ONLY = HANDLES || ROUTINES || PETS;
+if (args.send && !ONLY) {
+  console.error("--send goes with --handles, --routines or --pets. A full seed has --dry-run.");
   process.exit(2);
 }
-if (HANDLES && (DRY || REFRESH)) {
+if (ONLY && (DRY || REFRESH)) {
   console.error(
-    "--handles is a dry run unless you add --send; leave out --dry-run and --refresh-art.",
+    "--handles, --routines and --pets are a dry run unless you add --send; leave out --dry-run and --refresh-art.",
   );
   process.exit(2);
 }
@@ -96,7 +111,7 @@ function loadCreds(): Creds {
 }
 
 function saveCreds(creds: Creds): void {
-  if (DRY || HANDLES) return;
+  if (DRY || ONLY) return;
   writePrivateJson(CREDS, creds);
 }
 
@@ -309,22 +324,73 @@ async function ensureHandle(
   say(p.name, `handle refused: ${res.status} ${data.error?.message ?? ""}`.trim());
 }
 
-/** `--handles`: each stored resident's handle and nothing else. */
-async function handlesOnly(creds: Creds): Promise<void> {
+/**
+ * Print one step and the exact request it makes, if any. With `sender`, send it as that resident
+ * and print what the world answered; without, it's a dry run and nothing is sent.
+ */
+async function runStep(
+  p: Persona,
+  line: string,
+  action: Action | undefined,
+  sender?: Stored,
+): Promise<void> {
+  say(p.name, line);
+  if (!action) return;
+  say(p.name, `${sender ? "sending" : "would send"} POST /v1/actions ${JSON.stringify(action)}`);
+  if (!sender) return;
+  const result = await act(sender.token, action);
+  say(
+    p.name,
+    result.ok
+      ? `${action.type}: done (seq ${result.seq})`
+      : `${action.type} refused: ${result.error.code}, ${result.error.message}`,
+  );
+}
+
+/**
+ * Turn on the persona's routines unless they're on already. Routines are private, so this reads
+ * them with the resident's own token, even in a dry run. With `send` false it only prints.
+ */
+async function ensureRoutines(p: Persona, s: Stored, send: boolean): Promise<void> {
+  const { routines } = await call<RoutinesResponse>("GET", "/v1/routines", { token: s.token });
+  const step = planRoutines(p.routines, routines);
+  const action = step.kind === "set" ? step.action : undefined;
+  await runStep(p, describeRoutinesStep(step, send), action, send ? s : undefined);
+}
+
+/**
+ * Adopt the persona's pet if it has none, or rename it when only the name differs. `current` is
+ * the pet on its profile now. A pet is for good, so a different kind or coat is left alone.
+ */
+async function ensurePet(
+  p: Persona,
+  s: Stored,
+  current: PetView | undefined,
+  send: boolean,
+): Promise<void> {
+  const step = planPet(p.pet, current);
+  const action = step.kind === "adopt" || step.kind === "rename" ? step.action : undefined;
+  await runStep(p, describePetStep(step, send), action, send ? s : undefined);
+}
+
+/** `--handles`, `--routines`, `--pets`: those steps for each stored resident, and nothing else. */
+async function onlySteps(creds: Creds): Promise<void> {
   for (const p of PERSONAS) {
     const s = creds.residents[p.key];
     if (!s) {
-      say(p.name, "isn't seeded here yet; a full seed creates it and claims its handle");
+      say(p.name, "isn't seeded here yet; a full seed creates it with all of these");
       continue;
     }
     const { resident } = await call<{ resident: ProfileView }>(
       "GET",
       `/v1/residents/${s.residentId}`,
     );
-    await ensureHandle(p, s, resident.handle, args.send);
+    if (HANDLES) await ensureHandle(p, s, resident.handle, args.send);
+    if (ROUTINES) await ensureRoutines(p, s, args.send);
+    if (PETS) await ensurePet(p, s, resident.pet, args.send);
     if (args.send) await sleep(PACE);
   }
-  if (!args.send) console.log("\nDry run: nothing changed. Add --send to claim them.");
+  if (!args.send) console.log("\nDry run: nothing changed. Add --send to send it.");
 }
 
 async function upload(s: Stored, png: Buffer): Promise<string> {
@@ -624,12 +690,15 @@ async function main(): Promise<void> {
   }
 
   const creds = loadCreds();
-  if (HANDLES) {
+  if (ONLY) {
+    const steps = [HANDLES && "handles", ROUTINES && "routines", PETS && "pets"].filter(Boolean);
+    const what =
+      steps.length > 1 ? `${steps.slice(0, -1).join(", ")} and ${steps.at(-1)}` : steps[0];
     console.log(
-      `claiming handles for ${PERSONAS.length} townsfolk on ${BASE}${args.send ? "" : " (dry run)"}`,
+      `${what} for ${PERSONAS.length} townsfolk on ${BASE}${args.send ? "" : " (dry run)"}`,
     );
     console.log(`credentials: ${CREDS}`);
-    await handlesOnly(creds);
+    await onlySteps(creds);
     return;
   }
   console.log(
@@ -661,6 +730,8 @@ async function main(): Promise<void> {
           `/v1/residents/${stored.residentId}`,
         );
         await ensureHandle(p, stored, resident.handle, false);
+        await ensureRoutines(p, stored, false);
+        await ensurePet(p, stored, resident.pet, false);
         continue;
       }
       const plot = choosePlot(p.spot, snap, reserved);
@@ -670,6 +741,12 @@ async function main(): Promise<void> {
       }
       reserved.add(plotKey(plot));
       say(p.name, `would join and settle (${plot.px}, ${plot.py}), ${describePlace(plot, snap)}`);
+      // Someone new has no routines and no pet yet.
+      const routines = planRoutines(p.routines, []);
+      const pet = planPet(p.pet, undefined);
+      const set = routines.kind === "set" ? routines.action : undefined;
+      await runStep(p, describeRoutinesStep(routines, false), set);
+      await runStep(p, describePetStep(pet, false), pet.kind === "adopt" ? pet.action : undefined);
     }
     return;
   }
@@ -742,6 +819,16 @@ async function main(): Promise<void> {
       await ensurePost(live, `post:${i}`, postText(live, i), postMedia(live, i, images));
     }
     saveCreds(creds);
+  }
+
+  // 5. Routines and pets.
+  for (const { persona: p, stored: s } of lives) {
+    await ensureRoutines(p, s, true);
+    const { resident } = await call<{ resident: ProfileView }>(
+      "GET",
+      `/v1/residents/${s.residentId}`,
+    );
+    await ensurePet(p, s, resident.pet, true);
   }
 
   if (artIsCurrent(creds)) {

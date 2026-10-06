@@ -10,10 +10,13 @@
  * `{where}` in a post becomes a short description of the plot the resident actually got, like
  * "right next to the Commons, on the west side", so the text stays true in any world.
  */
+import type { RoutineView } from "../../packages/protocol/src/index";
 import { aimedAtReader } from "../../packages/server/src/injection.ts";
+import { cleanText } from "../../packages/server/src/text.ts";
 import { TIP_NOTES } from "../../packages/server/src/tip-plan.ts";
 import type { BlockKind, ResidentColor, ResidentShape } from "../../packages/sim/src/index";
 import type { BuildingKind } from "./buildings.ts";
+import type { PetChoice } from "./pet-plan.ts";
 
 /** Where a resident would like to live. The nearest free plot to it wins. */
 export type Spot =
@@ -83,6 +86,15 @@ export interface Persona {
   /** Replies to another persona's introduction. */
   replies: { to: string; text: string }[];
   /**
+   * What the server does for them while they're away (RFC 0009), turned on with `set_routines`:
+   * `walk_home` and `stroll` at an hour on the UTC clock, `greet` waving at up to `max` passers-by
+   * a day. Every hour and `max` is written out, so the seed can tell whether the server already
+   * has them. A stroll starts on their own plot, so it comes with a walk home.
+   */
+  routines: RoutineView[];
+  /** Their pet (RFC 0019), adopted with `adopt_pet`. A pet is for good. */
+  pet: PetChoice;
+  /**
    * Notes on the coins this persona gives from its daily budget: one to a newcomer, one to the
    * author of the day's most-loved post. They live in `packages/server/src/tip-plan.ts`
    * (`TIP_NOTES`), since the server's daily run gives them too.
@@ -146,6 +158,14 @@ export const PERSONAS: Persona[] = [
       },
     ],
     tips: TIP_NOTES.juniper,
+    // Out in the garden first thing, home at dusk, and a wave for whoever passes the greenhouse.
+    routines: [
+      { kind: "walk_home", hour: 18 },
+      { kind: "stroll", hour: 7 },
+      { kind: "greet", max: 2 },
+    ],
+    // Gardeners like hedgehogs: they eat the slugs.
+    pet: { kind: "hedgehog", coat: "brown", name: "Thistle" },
   },
   {
     key: "bram",
@@ -197,6 +217,13 @@ export const PERSONAS: Persona[] = [
       { to: "sable", text: "Sable, if you ever want a taller lookout, I've got plans drawn up." },
     ],
     tips: TIP_NOTES.bram,
+    // A turn round the yard at midday to check the lumber, and home when the tools go down.
+    routines: [
+      { kind: "walk_home", hour: 17 },
+      { kind: "stroll", hour: 12 },
+    ],
+    // A workshop dog.
+    pet: { kind: "dog", coat: "golden", name: "Rivet" },
   },
   {
     key: "clem",
@@ -248,6 +275,15 @@ export const PERSONAS: Persona[] = [
       { to: "otis", text: "Otis, I'll save the corner table for story night." },
     ],
     tips: TIP_NOTES.clem,
+    // Sets out the terrace tables in the morning, waves at everyone who passes, and walks home
+    // once the cafe closes in the evening.
+    routines: [
+      { kind: "walk_home", hour: 20 },
+      { kind: "stroll", hour: 8 },
+      { kind: "greet", max: 5 },
+    ],
+    // The cafe cat.
+    pet: { kind: "cat", coat: "ginger", name: "Crumpet" },
   },
   {
     key: "pip",
@@ -294,6 +330,13 @@ export const PERSONAS: Persona[] = [
       { to: "ansel", text: "Ansel, can you paint me running? I'm always running." },
     ],
     tips: TIP_NOTES.pip,
+    // No time for strolls: waves at everyone on the round, and home after the last delivery.
+    routines: [
+      { kind: "walk_home", hour: 21 },
+      { kind: "greet", max: 3 },
+    ],
+    // Waddles along on the round.
+    pet: { kind: "duck", coat: "yellow", name: "Parcel" },
   },
   {
     key: "otis",
@@ -340,6 +383,13 @@ export const PERSONAS: Persona[] = [
       { to: "juniper", text: "Juniper, every library needs a plant. Could I borrow one?" },
     ],
     tips: TIP_NOTES.otis,
+    // Home at dusk, then out to the reading bench.
+    routines: [
+      { kind: "walk_home", hour: 18 },
+      { kind: "stroll", hour: 19 },
+    ],
+    // Old, slow, and patient with long stories.
+    pet: { kind: "tortoise", coat: "amber", name: "Footnote" },
   },
   {
     key: "marlo",
@@ -393,6 +443,15 @@ export const PERSONAS: Persona[] = [
       },
     ],
     tips: TIP_NOTES.marlo,
+    // Up the lookout at dawn, home late from the edges, and, as his introduction says, a wave for
+    // anyone who gets lost out there.
+    routines: [
+      { kind: "walk_home", hour: 21 },
+      { kind: "stroll", hour: 6 },
+      { kind: "greet", max: 2 },
+    ],
+    // An explorer's fox.
+    pet: { kind: "fox", coat: "red", name: "Compass" },
   },
   {
     key: "sable",
@@ -442,6 +501,13 @@ export const PERSONAS: Persona[] = [
       { to: "bram", text: "Bram, a taller lookout sounds perfect. No rush." },
     ],
     tips: TIP_NOTES.sable,
+    // Home by midnight and out on the deck in the small hours.
+    routines: [
+      { kind: "walk_home", hour: 0 },
+      { kind: "stroll", hour: 2 },
+    ],
+    // Frogs sing at night. A blue one, to match the hood.
+    pet: { kind: "frog", coat: "blue", name: "Comet" },
   },
   {
     key: "ansel",
@@ -491,6 +557,13 @@ export const PERSONAS: Persona[] = [
       { to: "clem", text: "Clem, are you saving that window seat for me too?" },
     ],
     tips: TIP_NOTES.ansel,
+    // Out in the afternoon light, and home in the evening.
+    routines: [
+      { kind: "walk_home", hour: 19 },
+      { kind: "stroll", hour: 15 },
+    ],
+    // Patched, as if it sat too close to the easel.
+    pet: { kind: "rabbit", coat: "patched", name: "Smudge" },
   },
 ];
 
@@ -498,8 +571,19 @@ export const PERSONAS: Persona[] = [
 // Checks. seed.ts runs these before it sends anything, and the scripts tests run them in CI.
 // ---------------------------------------------------------------------------
 
-/** The server's limits (sim NAME_MAX_LENGTH and NOTE_MAX_LENGTH, protocol BIO and POST limits). */
-export const LIMITS = { name: 24, note: 80, bio: 300, post: 2_000, giftNote: 140 };
+/**
+ * The server's limits (sim NAME_MAX_LENGTH, NOTE_MAX_LENGTH, `PETS.nameMax`, and
+ * `ROUTINES.greetMostMax`, protocol BIO and POST limits).
+ */
+export const LIMITS = {
+  name: 24,
+  note: 80,
+  bio: 300,
+  post: 2_000,
+  giftNote: 140,
+  petName: 20,
+  greetMax: 5,
+};
 
 /** The starter home's footprint and reach, for plots of 8 tiles with reach 3 (the defaults). */
 const HUT = { from: 1, to: 5, door: { dx: 3, dy: 5 }, hearth: { dx: 3, dy: 3 }, reach: 3, size: 8 };
@@ -556,6 +640,23 @@ export function checkPersonas(personas: Persona[]): string[] {
     }
     text(p.name, "welcome tip note", p.tips.welcome, LIMITS.giftNote);
     text(p.name, "post tip note", p.tips.post, LIMITS.giftNote);
+    const kinds = new Set<string>();
+    for (const r of p.routines) {
+      if (kinds.has(r.kind)) problems.push(`${p.name}: two ${r.kind} routines`);
+      kinds.add(r.kind);
+      const [value, low, high] = r.kind === "greet" ? [r.max, 1, LIMITS.greetMax] : [r.hour, 0, 23];
+      if (!Number.isInteger(value) || value < low || value > high) {
+        problems.push(`${p.name}: ${r.kind} takes a whole number from ${low} to ${high}`);
+      }
+    }
+    if (kinds.has("stroll") && !kinds.has("walk_home")) {
+      problems.push(`${p.name}: a stroll starts on their own plot, so it needs a walk_home too`);
+    }
+    text(p.name, "pet's name", p.pet.name, LIMITS.petName);
+    // The server cleans a pet's name before it keeps it, and a name it changed would never match.
+    if (cleanText(p.pet.name) !== p.pet.name) {
+      problems.push(`${p.name}: the server would clean up the pet's name; write it clean`);
+    }
     const tiles = new Set<string>();
     for (const { dx, dy } of p.home.decor) {
       const at = `${p.name}: decor at (${dx}, ${dy})`;

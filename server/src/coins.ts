@@ -8,6 +8,7 @@ import {
 } from "@terrakin/protocol";
 import {
   bountyHeld,
+  eventHeld,
   isTownsfolk,
   type LedgerLine,
   purseOf,
@@ -117,7 +118,7 @@ export function treasuryView(state: WorldState, author: Authors): TreasuryView |
     balance: t.balance,
     minted: t.minted,
     burned: t.burned,
-    ...(state.bounties ? { held: bountyHeld(state) } : {}),
+    ...(state.bounties || state.events ? { held: bountyHeld(state) + eventHeld(state) } : {}),
     ledger: t.ledger
       .map((l) => {
         const resident = l.with === undefined ? undefined : author(l.with);

@@ -5,6 +5,7 @@ import { createApp } from "./app";
 import { countGuests, eventWords } from "./events";
 import { MemoryMediaStore } from "./media";
 import { nodeSql } from "./node-sql";
+import { supplyHolds } from "./snapshots";
 import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
 import { type Cleanup, jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
@@ -365,6 +366,10 @@ describe("staff", () => {
     expect(queue).toMatchObject([{ kind: "event", id: "e_1", target: { exists: true } }]);
     const why = { reason: "Not an event, an ad." };
     expect((await t.call("POST", "/v1/admin/events/e_1/void", why, bob.token)).status).toBe(403);
+    // The deposit is coins the world still holds: snapshots count it, and so does the treasury.
+    expect(supplyHolds(t.service.state)).toBe(true);
+    const treasury = (await t.call("GET", "/v1/town")).body.treasury;
+    expect(treasury.held).toBe(10);
     const purse = async () => (await t.call("GET", "/v1/purse", undefined, ada.token)).body.purse;
     const before = (await purse()).balance;
     const done = await t.call("POST", "/v1/admin/events/e_1/void", why, cy.token);

@@ -6,6 +6,7 @@ import {
   type Command,
   canonicalJson,
   createWorld,
+  eventHeld,
   hashWorld,
   type Input,
   REPLAY_VERSION,
@@ -217,15 +218,17 @@ export function splitUtf8(text: string, maxBytes: number): { parts: string[]; by
 }
 
 /**
- * The world's coins all accounted for: `sum(coins) + treasury + bountyHeld == minted - burned`.
- * Always true for a world the sim built; a boot checks it on every snapshot it loads.
+ * The world's coins all accounted for:
+ * `sum(coins) + treasury + bountyHeld + eventHeld == minted - burned`, where `eventHeld` is what
+ * Commons bookings hold. Always true for a world the sim built; a boot checks it on every snapshot
+ * it loads.
  */
 export function supplyHolds(state: WorldState): boolean {
   const econ = state.economy;
   if (!econ) return true;
   let held = 0;
   for (const n of Object.values(econ.coins)) held += n;
-  return held + econ.treasury + bountyHeld(state) === econ.minted - econ.burned;
+  return held + econ.treasury + bountyHeld(state) + eventHeld(state) === econ.minted - econ.burned;
 }
 
 /**

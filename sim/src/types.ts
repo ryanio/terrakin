@@ -808,7 +808,10 @@ export interface LedgerLine {
 export interface EconomyState {
   /** The town's own coins. Never negative. */
   treasury: number;
-  /** Every coin ever made. `sum(coins) + treasury + bountyHeld == minted - burned`, always. */
+  /**
+   * Every coin ever made. `sum(coins) + treasury + bountyHeld + eventHeld == minted - burned`,
+   * always.
+   */
   minted: number;
   /** Every coin ever destroyed: most of what's spent at the town shop. */
   burned: number;

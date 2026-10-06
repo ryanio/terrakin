@@ -4,7 +4,6 @@ import { afterEach, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import {
   Api,
-  ipKey,
   type LiveSocket,
   MAX_WATCHERS,
   MAX_WATCHERS_PER_NETWORK,
@@ -12,6 +11,7 @@ import {
   WATCH_SILENT_MS,
 } from "./api";
 import { createApp } from "./app";
+import { ipKey } from "./handlers/shared";
 import { MemoryMediaStore } from "./media";
 import { nodeSql } from "./node-sql";
 import { SocialService } from "./social-service";

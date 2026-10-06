@@ -7,8 +7,9 @@ import { buildOpenApi } from "@terrakin/protocol";
 import { WebSocketServer } from "ws";
 import { adminAssetPath } from "./admin-host";
 import { AGENT_RECHECK_EVERY_MS } from "./agent-links";
-import { Api, type ApiOptions, type ApiResponse, ipKey, MAX_BODY_BYTES } from "./api";
+import { Api, type ApiOptions, type ApiResponse, MAX_BODY_BYTES } from "./api";
 import { CHATTER_EVERY_MS, type ChatterService } from "./chatter";
+import { ipKey } from "./handlers/shared";
 import { MEDIA_ID, mediaHeaders, type ReadableMediaStore, sniffMediaType } from "./media";
 import { applyEdits } from "./meta-html";
 import {

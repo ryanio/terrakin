@@ -74,9 +74,10 @@ import {
   tileKey,
   type WorldState,
 } from "@terrakin/sim";
-import type { Api, Failure, Handlers } from "./api";
+import type { Api } from "./api";
 import { checkinChangelog, checkinView, startsIn } from "./checkin";
 import { checkinEvents } from "./events";
+import type { Failure, Handlers } from "./handlers/shared";
 import { gardenOf } from "./items";
 import { plural } from "./markdown";
 import { awayLine, ROUTINE_WORDS } from "./routines";

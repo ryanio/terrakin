@@ -1,104 +1,86 @@
 import {
   type AcceptInviteRequest,
   Action,
-  absolute,
   acceptsIdempotencyKey,
-  type BinaryBody,
-  CATALOG_VIEW,
-  CHANGELOG_ENTRIES,
   ClientMessage,
-  changelogResponse,
   compileRoutes,
-  DEVLOG_POSTS,
-  devlogResponse,
   type ErrorCode,
   type EventResponse,
   errorStatus,
-  type GestureItem,
   INVITE_PLOT_SUGGESTIONS,
   type Issue,
   isBinaryBody,
   isWriteRoute,
-  LINKS,
   linkHeader,
   MAX_BODY_BYTES,
   MODERATOR_SUSPEND_MAX_DAYS,
-  type ModerationLogEntry,
   markdownError,
   markdownErrorCode,
   type PostView,
   PROTOCOL_VERSION,
-  type ProfileView,
   plainProblem,
   RATE_LIMITS,
   type RateLimitName,
   REPEAT_WINDOW_MS,
   ROUTES,
-  ROUTINE_RULES,
-  type RouteBody,
   type RouteId,
   type RouteMatch,
-  type RouteParams,
-  type RouteQuery,
   type RouteSpec,
-  type RouteSuccess,
-  type RouteViewer,
   type ServerMessage,
-  SITEMAP_MAX_URLS,
-  type SnapshotView,
   type StaffRole,
-  sitemapIndexXml,
   suggestFor,
-  urlsetXml,
-  WORLD_LOG_PAGE_MAX,
-  type WorldEvent as WorldEventView,
-  type WorldLogResponse,
-  w3cDatetime,
 } from "@terrakin/protocol";
 import {
-  canBuildOn,
   eventOpen,
   familyRecipeMiss,
   findBounty,
   findEvent,
-  findProposal,
-  goodById,
   type HostedEvent,
-  heldAsideOf,
   isTownEvent,
-  LADDERS,
-  listingById,
-  plotPlan,
-  REPLAY_VERSION,
-  routinesOf,
-  tableById,
 } from "@terrakin/sim";
 import { AiSpend, SUMMARY_DAYS } from "./ai-spend";
-import { bountiesView, bountyView, staffBountiesView } from "./bounties";
+import { bountyView } from "./bounties";
 import type { ChatterRun, ChatterService } from "./chatter";
-import { checkinView } from "./checkin";
-import { purseView } from "./coins";
-import { countGuests, eventsView, eventView } from "./events";
-import { galleriesView, madeThingForReport } from "./galleries";
-import { gameRatings, gamesView, ladderView, tableView } from "./games";
+import { countGuests, eventView } from "./events";
+import { madeThingForReport } from "./galleries";
+import { gameRatings } from "./games";
+import { docsHandlers } from "./handlers/docs";
+import { eventHandlers } from "./handlers/events";
+import { ownerHandlers } from "./handlers/owners";
+import { safetyHandlers } from "./handlers/safety";
+import {
+  type AnyHandler,
+  DAILY_CAP_RETRY_SECONDS,
+  type Failure,
+  fail,
+  fromResult,
+  type HandlerReply,
+  type Handlers,
+  INVITE_GONE,
+  ipKey,
+  RATE_LIMITED,
+  type Reply,
+  STAFF_ONLY,
+  type Upload,
+  unauthorized,
+} from "./handlers/shared";
+import { siteHandlers } from "./handlers/site";
+import { socialHandlers } from "./handlers/social";
+import { togetherHandlers } from "./handlers/together";
+import { townHallHandlers } from "./handlers/town-hall";
+import { worldHandlers } from "./handlers/world";
 import { IdempotencyStore, type StoredResponse, sha256Hex } from "./idempotency";
-import { inventoryView } from "./items";
 import { BAD_LINK_KEY, DEFAULT_ORIGIN, linkHandlers, linkHelp, REPEAT_NOTE } from "./links";
-import { postMarkdown, profileMarkdown } from "./markdown";
-import { type ListerFacts, listingForReport, listingRefusal, marketView } from "./market";
+import { type ListerFacts, listingForReport, listingRefusal } from "./market";
 import { COOL_DOWN_MESSAGE, type Moderation } from "./moderation";
 import { OwnerService } from "./owner-service";
-import { partnerViews } from "./partners";
 import { type PlotPhotoRenderer, plotPhotoSpec } from "./plot-photo";
 import type { PlotViewer } from "./plots";
 import { RateLimiters, type Take } from "./rate-limit";
 import { Routines, type RoutinesRun, runRoutines } from "./routines";
-import { SHOP_KEEPER_HANDLE, shopView } from "./shop";
-import { reportable, type SnapshotHeader } from "./snapshots";
-import type { SocialResult, SocialService } from "./social-service";
+import type { SocialService } from "./social-service";
 import { count, crumb, nameRequest, report, span, task } from "./telemetry";
 import { anchorPlot, suggestPlots } from "./together";
-import { archiveView, proposalDetail, townView } from "./town";
 import type { TipsResult, TownsfolkTips } from "./townsfolk-tips";
 import { type ActResult, DAY_MS, utcDay, type WorldService } from "./world-service";
 
@@ -110,7 +92,9 @@ import { type ActResult, DAY_MS, utcDay, type WorldService } from "./world-servi
  * REST routes come from the table in `@terrakin/protocol` (routes.ts). For each request the
  * dispatcher matches the table, authenticates, rate limits, and parses params, query, and body
  * with the route's schemas, in that order, before the route's handler runs. Handlers live in
- * `handlers()`, keyed by route id; its type makes a missing or unknown route a compile error.
+ * `handlers/`, one file per area of the table, and link routes' in `links.ts`, joined by
+ * `routeHandlers()` and keyed by route id. Their types make a missing or unknown route a compile
+ * error.
  */
 
 export { MAX_BODY_BYTES };
@@ -161,29 +145,9 @@ function frame(message: ServerMessage): string {
   return text;
 }
 
-/**
- * The key for per-IP limits. IPv6 clients usually control a whole /64, so they share one key;
- * otherwise one person could rotate addresses forever.
- */
-export function ipKey(ip: string, groups = 4): string {
-  if (!ip.includes(":") || ip.startsWith("::ffff:")) return ip.replace(/^::ffff:/, "");
-  const [head = "", tail = ""] = ip.split("::");
-  const left = head ? head.split(":") : [];
-  const right = tail ? tail.split(":") : [];
-  const parts = ip.includes("::")
-    ? [...left, ...Array(Math.max(0, 8 - left.length - right.length)).fill("0"), ...right]
-    : left;
-  return `${parts
-    .slice(0, groups)
-    .map((g) => g.toLowerCase().replace(/^0+(?=.)/, ""))
-    .join(":")}::/${groups * 16}`;
-}
-
 /** Most `once` answers kept in memory: a short Markdown page each, keyed by a URL up to a few KB. */
 const MAX_REPEATS = 2_000;
 
-/** Uploads the one world object will buffer at once. Each can be up to 25 MB. */
-const MAX_UPLOADS_IN_FLIGHT = 2;
 /** Plot photos being drawn at once. Each waits on the renderer and then holds a PNG in memory. */
 const MAX_PHOTOS_IN_FLIGHT = 2;
 /**
@@ -191,28 +155,6 @@ const MAX_PHOTOS_IN_FLIGHT = 2;
  * drawn photo is about 100 to 300 KB; the exact size is checked again when it's stored.
  */
 const PHOTO_RESERVE_BYTES = 1_000_000;
-/** Letter pictures (up to 5 MB each) the world object will hold in memory at once. */
-const MAX_LETTER_READS_IN_FLIGHT = 4;
-
-/** What each rate limit says when it refuses. */
-const RATE_LIMITED: Record<RateLimitName, string> = {
-  actions: "Slow down.",
-  sessions: "Too many new sessions. Try again in a minute.",
-  posts: "Slow down a little.",
-  reactions: "Slow down a little.",
-  uploads: "Slow down a little.",
-  xVerify: "That's a lot of checks. Wait a minute, then send the link again.",
-  xVerifyIp: "Lots of X checks from here. Wait a minute, then try again.",
-  letters: "Slow down a little.",
-  letterMedia: "Slow down a little.",
-  owner: "Slow down a little.",
-  ownerCodes: "Too many tries with codes from here. Wait a minute.",
-  reports: "That's a lot of reports at once. Wait a minute, then send the rest.",
-  photos: "That's a lot of photos. Wait a minute, then take another.",
-  photosIp: "Lots of photos from here. Wait a minute, then try again.",
-  agentLink: "That's a lot of agent checks. Wait a minute, then ask again.",
-  agentLinkIp: "Lots of agent checks from here. Wait a minute, then try again.",
-};
 
 const TABLE = ROUTES as readonly RouteSpec[];
 
@@ -358,120 +300,6 @@ export interface ApiOptions {
   tips?: TownsfolkTips;
 }
 
-// ---------- handler types, all derived from the route table ----------
-
-/** A raw upload: its declared length (already checked against the route's cap) and a capped reader. */
-export interface Upload {
-  readonly length: number;
-  /** The bytes, or undefined if the client sent more than it declared. */
-  read(): Promise<Uint8Array | undefined>;
-}
-
-export interface HandlerInput<K extends RouteId> {
-  params: RouteParams<K>;
-  query: RouteQuery<K>;
-  body: RouteBody<K> extends BinaryBody ? Upload : RouteBody<K>;
-  viewer: RouteViewer<K>;
-  ip: string;
-  /** See `ApiRequest.origin`. */
-  origin: string;
-}
-
-/** An error reply. The code must be one the route declares (tests check it). */
-export interface Failure {
-  error: ErrorCode;
-  message: string;
-  /** For `rate_limited`: seconds until trying again makes sense. */
-  retryAfter?: number;
-}
-
-type Reply<K extends RouteId> = RouteSuccess<K> | Failure;
-/** Any success reply, as the renderer sees it. */
-interface HandlerReply {
-  status: number;
-  body?: unknown;
-  text?: string;
-  bytes?: Uint8Array;
-  contentType?: string;
-}
-
-const STAFF_ONLY = "Only Terrakin's maintainers and moderators can do that.";
-const MAINTAINERS_ONLY = "Only Terrakin's maintainers can move town coins.";
-const WORLD_MAINTAINERS_ONLY = "Only Terrakin's maintainers can do that.";
-
-/**
- * Who a staff member is in the world log, which is kept for good: their resident id when they
- * signed in with a resident token, else an opaque id from a hash of their Access sign-in, so no
- * staff email is ever logged in the world (decision 0062). The moderation log names them as
- * before.
- */
-export async function worldStaffId(actor: string): Promise<string> {
-  if (!actor.startsWith("access:")) return actor;
-  return `staff_${(await sha256Hex(actor)).slice(0, 16)}`;
-}
-
-/** A maintainer action's log line as the reply. */
-function logged(outcome: SocialResult<ModerationLogEntry>) {
-  return fromResult(outcome, (entry) => ({ status: 200 as const, body: { logged: entry } }));
-}
-
-/** A plot nobody lives on, and one left out for you, answer the same. */
-const NO_PLOT_TO_VISIT = "There's no plot to visit there.";
-
-/** Unknown, used, and expired invites all answer the same. */
-const INVITE_GONE = "This invite has expired or was already used. Ask for a fresh link.";
-type Handler<K extends RouteId> = (input: HandlerInput<K>) => Reply<K> | Promise<Reply<K>>;
-/** One handler per route id, no more and no fewer. */
-export type Handlers = { [K in RouteId]: Handler<K> };
-
-/** What the dispatcher sees once types have done their job. */
-type AnyHandler = (input: {
-  params: unknown;
-  query: unknown;
-  body: unknown;
-  viewer: string | undefined;
-  ip: string;
-  origin: string;
-}) => Promise<HandlerReply | Failure>;
-
-const fail = (error: ErrorCode, message: string, retryAfter?: number): Failure => ({
-  error,
-  message,
-  ...(retryAfter === undefined ? {} : { retryAfter }),
-});
-const unauthorized = () => fail("unauthorized", "Missing or unknown bearer token.");
-
-/** What a `give` moved: the gift gesture's record of it, from the giver's own events. */
-function givenItem(events: readonly WorldEventView[], giver: string): GestureItem | undefined {
-  let kind: GestureItem["kind"] | undefined;
-  let count = 0;
-  let gift: string | undefined;
-  for (const e of events) {
-    if (e.type === "item_given" && e.from === giver) kind = e.kind;
-    if (e.type === "inventory" && e.residentId === giver && e.reason === "gift_out") {
-      count = e.lost?.length ?? -(e.changes?.[0]?.amount ?? 0);
-      gift = e.gift;
-    }
-  }
-  if (!kind || count < 1) return undefined;
-  return { kind, count, ...(gift === undefined ? {} : { gift }) };
-}
-
-/**
- * The social layer's own refusals are its rolling 24-hour caps, which free up as old posts and
- * uploads age out, so an hour is an honest first wait.
- */
-const DAILY_CAP_RETRY_SECONDS = 3600;
-
-function fromResult<T, R>(outcome: SocialResult<T>, ok: (value: T) => R): R | Failure {
-  if (outcome.ok) return ok(outcome.value);
-  return fail(
-    outcome.code,
-    outcome.message,
-    outcome.code === "rate_limited" ? (outcome.retryAfter ?? DAILY_CAP_RETRY_SECONDS) : undefined,
-  );
-}
-
 /** Seconds until the next UTC day, when per-IP daily upload bytes reset. */
 const secondsToTomorrow = (now: number) => Math.ceil((DAY_MS - (now % DAY_MS)) / 1000);
 
@@ -504,16 +332,16 @@ const mb = (bytes: number) => `${bytes / 1_000_000} MB`;
 
 export class Api {
   readonly service: WorldService;
-  private readonly skill: string;
-  private readonly openapi: string;
+  readonly skill: string;
+  readonly openapi: string;
   readonly social: SocialService | undefined;
   readonly owners: OwnerService | undefined;
-  private readonly limiters: Record<RateLimitName, RateLimiters>;
+  readonly limiters: Record<RateLimitName, RateLimiters>;
   private readonly ipUploads = new Map<string, { day: number; bytes: number }>();
-  private uploadsInFlight = 0;
+  uploadsInFlight = 0;
   private photosInFlight = 0;
   private readonly photos: PlotPhotoRenderer | undefined;
-  private letterReadsInFlight = 0;
+  letterReadsInFlight = 0;
   /** `watch` sockets, capped in all and per network. */
   private readonly watchers = new Set<PostListener>();
   /** `hello` sockets that asked for `posts`. They're sessions already, so no cap here. */
@@ -523,19 +351,19 @@ export class Api {
   private readonly maxWatchersPerNetwork: number;
   private readonly ipUploadBytesPerDay: number;
   private readonly match: (method: string, pathname: string) => RouteMatch<RouteSpec> | undefined;
-  private readonly handlers: Handlers;
+  readonly handlers: Handlers;
   private readonly onResponse: ApiOptions["onResponse"];
-  private readonly now: () => number;
+  readonly now: () => number;
   /** Answers to `once` links, by route, resident, and query, for REPEAT_WINDOW_MS. */
   private readonly repeats = new Map<string, { at: number; response: Promise<ApiResponse> }>();
   private readonly idempotency = new IdempotencyStore();
-  private readonly staffOptions: StaffOptions;
+  readonly staffOptions: StaffOptions;
   private readonly chatter: ChatterService | undefined;
   private readonly tips: TownsfolkTips | undefined;
   /** Offline routines' runner (RFC 0009). Needs the social layer, where the away log lives. */
   readonly routines: Routines | undefined;
   /** The AI spend ledger, read for the staff overview. Triage and chatter write to it. */
-  private readonly spendLedger: AiSpend | undefined;
+  readonly spendLedger: AiSpend | undefined;
 
   constructor(options: ApiOptions) {
     this.service = options.service;
@@ -963,20 +791,20 @@ export class Api {
     }
   }
 
-  private requireSocial(): SocialService {
+  requireSocial(): SocialService {
     // Unreachable: social routes aren't matched without a social service.
     if (!this.social) throw new Error("Social routes need a SocialService.");
     return this.social;
   }
 
-  private requireOwners(): OwnerService {
+  requireOwners(): OwnerService {
     // Unreachable: owner routes aren't matched without a social service.
     if (!this.owners) throw new Error("Owner routes need a SocialService.");
     return this.owners;
   }
 
   /** The per-IP daily upload bytes, refused when `bytes` more would go over. */
-  private ipUploadRefusal(key: string, bytes: number): Failure | undefined {
+  ipUploadRefusal(key: string, bytes: number): Failure | undefined {
     const now = this.now();
     const day = utcDay(now);
     const used = this.ipUploads.get(key);
@@ -990,7 +818,7 @@ export class Api {
   }
 
   /** Count a stored upload against its IP's day. Read again: another may have finished meanwhile. */
-  private countIpUpload(key: string, day: number, bytes: number) {
+  countIpUpload(key: string, day: number, bytes: number) {
     const latest = this.ipUploads.get(key);
     const before = latest?.day === day ? latest.bytes : 0;
     this.ipUploads.set(key, { day, bytes: before + bytes });
@@ -1002,7 +830,7 @@ export class Api {
    * photos in flight. The drawn PNG then goes through `upload()`, which checks the caps again
    * against its real size, so a photo is a normal upload owned by the resident.
    */
-  private async takePlotPhoto(viewer: string, ip: string): Promise<Reply<"takePlotPhoto">> {
+  async takePlotPhoto(viewer: string, ip: string): Promise<Reply<"takePlotPhoto">> {
     const social = this.requireSocial();
     if (!this.photos) return fail("unavailable", "Photos aren't available on this server.");
     const key = ipKey(ip);
@@ -1051,1041 +879,24 @@ export class Api {
     }
   }
 
-  /** Every REST route's behavior, keyed by the route id from the table. */
+  /**
+   * Every REST route's behavior, keyed by the route id from the table. Each area's handlers are in
+   * the file of the same name in `handlers/`, except the links area's Markdown twins and sitemaps,
+   * which are in `handlers/site.ts`. Link routes, every id in `LinkRouteId`, are in `links.ts`.
+   */
   private routeHandlers(): Handlers {
-    const { service } = this;
-    const social = () => this.requireSocial();
-    const owners = () => this.requireOwners();
-    /** One page (from 1) of profile or post URLs. Page 1 always exists, even when empty. */
-    const sitemap = (kind: "residents" | "posts", page: number) => {
-      const entries = social().sitemapEntries(kind, page - 1, SITEMAP_MAX_URLS);
-      if (entries.length === 0 && page > 1) return fail("not_found", "No such sitemap page.");
-      const prefix = kind === "residents" ? "/r/" : "/p/";
-      return {
-        status: 200 as const,
-        text: urlsetXml(
-          entries.map(({ id, lastmod }) => ({
-            loc: absolute(`${prefix}${id}`),
-            lastmod: lastmod === null ? undefined : w3cDatetime(lastmod),
-          })),
-        ),
-      };
-    };
-    const handlers: Handlers = {
-      // ---------- world ----------
-      getHealth: () => {
-        const snapshot = service.snapshotInfo();
-        return {
-          status: 200,
-          body: {
-            ok: true,
-            v: PROTOCOL_VERSION,
-            seq: service.state.seq,
-            hash: service.hash(),
-            online: service.onlineCount(),
-            ...(snapshot ? { snapshot } : {}),
-          },
-        };
-      },
-      getWorld: () => ({ status: 200, body: service.snapshot() }),
-      createSession: ({ body }) => {
-        const result = service.createSession(body);
-        if (!result.ok) return fail(result.error.code, result.error.message);
-        if (!result.residentId || !result.token) return fail("internal", "No session.");
-        return {
-          status: 201,
-          body: { residentId: result.residentId, token: result.token, world: service.snapshot() },
-        };
-      },
-      deleteSession: ({ viewer }) => {
-        service.leave(viewer);
-        return { status: 204 };
-      },
-      act: ({ viewer, body }) => {
-        // A dry run never brings anyone online: `act` checks it as if they were.
-        if (!body.dry) service.arrive(viewer, body.type);
-        return { status: 200, body: service.act(viewer, body) };
-      },
-      getPlotPlan: ({ params }) => {
-        const plan = plotPlan(service.state, params.px, params.py);
-        if (!plan) return fail("not_found", "There's no plot there: it's outside the world.");
-        return { status: 200, body: { plan } };
-      },
-
-      // ---------- social ----------
-      getFeed: ({ viewer, query }) => {
-        if (query.following && !viewer) return unauthorized();
-        return {
-          status: 200,
-          body: social().feed({
-            viewerId: viewer,
-            limit: query.limit,
-            before: query.before,
-            following: query.following,
-          }),
-        };
-      },
-      createPost: ({ viewer, body, ip }) =>
-        fromResult(social().createPost(viewer, body, ipKey(ip)), (post) => ({
-          status: 201 as const,
-          body: { post },
-        })),
-      getPost: ({ viewer, params }) => {
-        const post = social().post(params.id, viewer, true);
-        if (!post) return fail("not_found", "No such post.");
-        return { status: 200, body: { post, replies: social().replies(params.id, viewer) } };
-      },
-      deletePost: async ({ viewer, params }) =>
-        fromResult(await social().deletePost(viewer, params.id), () => ({ status: 204 as const })),
-      likePost: ({ viewer, params }) =>
-        fromResult(social().setLike(viewer, params.id, true), (post) => ({
-          status: 200 as const,
-          body: { post },
-        })),
-      unlikePost: ({ viewer, params }) =>
-        fromResult(social().setLike(viewer, params.id, false), (post) => ({
-          status: 200 as const,
-          body: { post },
-        })),
-      reactToPost: ({ viewer, params }) =>
-        fromResult(social().setReaction(viewer, params.id, params.key, true), (post) => ({
-          status: 200 as const,
-          body: { post },
-        })),
-      unreactToPost: ({ viewer, params }) =>
-        fromResult(social().setReaction(viewer, params.id, params.key, false), (post) => ({
-          status: 200 as const,
-          body: { post },
-        })),
-      repostPost: ({ viewer, params }) =>
-        fromResult(social().setRepost(viewer, params.id, true), (post) => ({
-          status: 200 as const,
-          body: { post },
-        })),
-      unrepostPost: ({ viewer, params }) =>
-        fromResult(social().setRepost(viewer, params.id, false), (post) => ({
-          status: 200 as const,
-          body: { post },
-        })),
-      getResidentByHandle: ({ viewer, params }) => {
-        const resident = social().profileByHandle(params.handle, viewer);
-        if (!resident) return fail("not_found", "Nobody has that handle.");
-        void social().agentLinks.refreshIfStale(resident.id);
-        return { status: 200, body: { resident } };
-      },
-      getResidentFollowing: ({ params }) =>
-        fromResult(social().following(params.id), (residents) => ({
-          status: 200 as const,
-          body: { residents },
-        })),
-      getResidentFollowers: ({ params }) =>
-        fromResult(social().followers(params.id), (residents) => ({
-          status: 200 as const,
-          body: { residents },
-        })),
-      getResidentFriends: ({ params }) =>
-        fromResult(social().friends(params.id), (residents) => ({
-          status: 200 as const,
-          body: { residents },
-        })),
-      getPurse: ({ viewer }) => ({
-        status: 200,
-        body: purseView(service.state, viewer, (id) => this.social?.authorView(id)),
-      }),
-      getInventory: ({ viewer }) => ({
-        status: 200,
-        body: inventoryView(service.state, viewer, (id) => this.social?.authorView(id)),
-      }),
-      getCatalog: () => ({ status: 200, body: CATALOG_VIEW }),
-      getCollection: ({ viewer }) => ({
-        status: 200,
-        body: { collection: social().collection.view(viewer) },
-      }),
-      getResidentCollection: ({ params }) => {
-        if (!social().authorView(params.id)) return fail("not_found", "No such resident.");
-        return { status: 200, body: { collection: social().collection.view(params.id) } };
-      },
-      getShop: ({ viewer }) => ({
-        status: 200,
-        body: shopView(
-          service.state,
-          viewer,
-          social().residentIdByHandle(SHOP_KEEPER_HANDLE),
-          (id) => social().authorView(id),
-        ),
-      }),
-      getMarket: ({ viewer, query }) => {
-        const layer = social();
-        // Read once per request: who the viewer blocks either way, and each seller's suspension.
-        const blocked = viewer === undefined ? new Set<string>() : layer.blockedWith(viewer);
-        const closed = new Map<string, boolean>();
-        const hidden = (seller: string) => {
-          if (blocked.has(seller)) return true;
-          let shut = closed.get(seller);
-          if (shut === undefined) {
-            shut = layer.safety.suspendedUntil(seller) !== undefined;
-            closed.set(seller, shut);
-          }
-          return shut;
-        };
-        const view = marketView(
-          service.state,
-          viewer,
-          query,
-          (id) => layer.authorView(id),
-          hidden,
-          (id) => this.listerFacts(id),
-        );
-        if ("error" in view) return fail("bad_request", view.error);
-        return { status: 200, body: view };
-      },
-      getBounties: ({ viewer }) => {
-        const layer = social();
-        // Read once per request: who the viewer blocks either way, and each poster's suspension.
-        const blocked = viewer === undefined ? new Set<string>() : layer.blockedWith(viewer);
-        const closed = new Map<string, boolean>();
-        const hidden = (poster: string) => {
-          if (blocked.has(poster)) return true;
-          let shut = closed.get(poster);
-          if (shut === undefined) {
-            shut = layer.safety.suspendedUntil(poster) !== undefined;
-            closed.set(poster, shut);
-          }
-          return shut;
-        };
-        return {
-          status: 200,
-          body: bountiesView(service.state, viewer, (id) => layer.authorView(id), hidden),
-        };
-      },
-      getGames: ({ viewer }) => ({
-        status: 200,
-        body: gamesView(service.state, viewer, (id) => this.social?.authorView(id), service.now()),
-      }),
-      getGameLadder: ({ viewer, query }) => ({
-        status: 200,
-        body: ladderView(service.state, query.ladder ?? LADDERS[0], viewer, (id) =>
-          this.social?.authorView(id),
-        ),
-      }),
-      getGame: ({ viewer, params }) => {
-        const t = tableById(service.state, params.table);
-        if (!t) return fail("not_found", "No table has that id. GET /v1/games lists them.");
-        return {
-          status: 200,
-          body: {
-            table: tableView(service.state, t, (id) => this.social?.authorView(id), viewer, {
-              now: service.now(),
-              history: true,
-            }),
-            now: new Date(service.now()).toISOString(),
-          },
-        };
-      },
-      getGalleries: ({ query }) => {
-        const layer = this.social;
-        return {
-          status: 200,
-          body: galleriesView(service.state, (id) => layer?.authorView(id), {
-            resident: query.resident,
-            // A suspended resident's gallery is closed for now, like their market stall.
-            hidden: (id) => layer?.safety.suspendedUntil(id) !== undefined,
-          }),
-        };
-      },
-      getPlots: ({ viewer, query }) => {
-        const layer = social();
-        const author = (id: string) => layer.authorView(id);
-        const sort = query.sort ?? "recent";
-        const plots = layer.plots.list(service.state, author, sort, this.plotViewer(viewer));
-        return { status: 200, body: { plots: plots.slice(0, query.limit) } };
-      },
-      getPlot: ({ viewer, params }) => {
-        const plot = this.plotFor(viewer, params);
-        return plot ? { status: 200, body: { plot } } : fail("not_found", NO_PLOT_TO_VISIT);
-      },
-      admirePlot: ({ viewer, params }) =>
-        fromResult(social().plots.admire(service.state, viewer, params.px, params.py), () => {
-          const plot = this.plotFor(viewer, params);
-          return plot
-            ? { status: 201 as const, body: { plot } }
-            : fail("not_found", NO_PLOT_TO_VISIT);
-        }),
-      getCheckin: ({ viewer, query }) => {
-        social().checkins.record(viewer);
-        return {
-          status: 200,
-          body: checkinView(service.state, social(), viewer, {
-            since: query.since,
-            seen: query.seen,
-            done: service.doneCommands(viewer),
-            suggestions: social().checkins,
-            devlogAt: (date) => social().checkins.published(date),
-          }),
-        };
-      },
-      getRoutines: ({ viewer, query }) => {
-        const before = query.before === undefined ? undefined : Number(query.before.slice(2));
-        // Without the social layer there's no away log, and nothing runs them.
-        const body = this.routines?.view(viewer, before) ?? {
-          routines: routinesOf(service.state, viewer).map((r) => ({ ...r })),
-          paused: false,
-          rules: { ...ROUTINE_RULES },
-          away: { items: [], next: null },
-        };
-        return { status: 200, body };
-      },
-      getNotifications: ({ viewer, query }) => ({
-        status: 200,
-        body: social().notifications(viewer, { limit: query.limit, before: query.before }),
-      }),
-      markNotificationsRead: ({ viewer, body }) =>
-        fromResult(social().markRead(viewer, body.upTo), (unread) => ({
-          status: 200 as const,
-          body: { unread },
-        })),
-      getResident: ({ viewer, params }) => {
-        const profile = social().profile(params.id, viewer);
-        if (!profile) return fail("not_found", "No such resident.");
-        // Whether you share a plot with them: the site offers a kiss to the people you live with.
-        const shared =
-          viewer !== undefined &&
-          viewer !== params.id &&
-          Object.values(service.state.plots).some(
-            (p) => canBuildOn(p, viewer) && canBuildOn(p, params.id),
-          );
-        const resident = shared ? { ...profile, sharesPlot: true as const } : profile;
-        // An hour-old agent link is checked again in the background; this answer doesn't wait.
-        void social().agentLinks.refreshIfStale(params.id);
-        return { status: 200, body: { resident } };
-      },
-      getMe: ({ viewer }) => {
-        const resident = social().profile(viewer, viewer);
-        if (!resident) return fail("unauthorized", "That token doesn't belong to anyone here.");
-        return { status: 200, body: { resident } };
-      },
-      getResidentPosts: ({ viewer, params, query }) => {
-        if (!social().profile(params.id)) return fail("not_found", "No such resident.");
-        return {
-          status: 200,
-          body: social().feed({
-            viewerId: viewer,
-            author: params.id,
-            limit: query.limit,
-            before: query.before,
-          }),
-        };
-      },
-      followResident: ({ viewer, params }) =>
-        fromResult(social().setFollow(viewer, params.id, true), (resident) => ({
-          status: 200 as const,
-          body: { resident },
-        })),
-      unfollowResident: ({ viewer, params }) =>
-        fromResult(social().setFollow(viewer, params.id, false), (resident) => ({
-          status: 200 as const,
-          body: { resident },
-        })),
-      praiseResident: ({ viewer, params }) =>
-        fromResult(social().givePraise(viewer, params.id), (resident) => ({
-          status: 201 as const,
-          body: { resident },
-        })),
-      patResidentPet: ({ viewer, params }) =>
-        fromResult(social().patPet(viewer, params.id), (resident) => ({
-          status: 201 as const,
-          body: { resident },
-        })),
-      updateProfile: async ({ viewer, body }) =>
-        fromResult(await social().updateProfile(viewer, body), (resident) => ({
-          status: 200 as const,
-          body: { resident },
-        })),
-      startXLink: ({ viewer }) =>
-        fromResult(social().startXLink(viewer), (start) => ({ status: 200 as const, body: start })),
-      verifyXLink: async ({ viewer, body, ip }) => {
-        // The route's own limit is per resident. Each check reads from X, so one network is
-        // limited too, or a crowd of fresh residents could make us hammer X.
-        if (!this.limiters.xVerifyIp.take(ipKey(ip))) {
-          return fail("rate_limited", RATE_LIMITED.xVerifyIp);
-        }
-        return fromResult(await social().verifyXLink(viewer, body.url), (resident) => ({
-          status: 200 as const,
-          body: { resident },
-        }));
-      },
-      linkAgent: async ({ viewer, body, ip }) => {
-        // The route's own limit is per resident. Each attempt reads a network and fetches a card,
-        // so one network address is limited too, like X checks.
-        if (!this.limiters.agentLinkIp.take(ipKey(ip))) {
-          return fail("rate_limited", RATE_LIMITED.agentLinkIp);
-        }
-        return fromResult(await social().agentLinks.link(viewer, body), (reply) => reply);
-      },
-      unlinkAgent: async ({ viewer }) => {
-        await social().agentLinks.unlink(viewer);
-        return { status: 204 };
-      },
-      getPartners: () => ({
-        status: 200,
-        body: { partners: partnerViews(social().agentLinks.partnerList, this.now()) },
-      }),
-      unlinkX: ({ viewer }) =>
-        fromResult(social().unlinkX(viewer), (resident) => ({
-          status: 200 as const,
-          body: { resident },
-        })),
-      takePlotPhoto: ({ viewer, ip }) => this.takePlotPhoto(viewer, ip),
-      uploadMedia: async ({ viewer, body, ip }) => {
-        const key = ipKey(ip);
-        const day = utcDay(this.now());
-        const overIp = this.ipUploadRefusal(key, body.length);
-        if (overIp) return overIp;
-        // The world object has one memory budget for everyone, so only a couple of bodies at once.
-        if (this.uploadsInFlight >= MAX_UPLOADS_IN_FLIGHT) {
-          return fail("rate_limited", "Lots of uploads right now. Try again in a moment.", 5);
-        }
-        this.uploadsInFlight++;
-        try {
-          const bytes = await body.read();
-          if (!bytes)
-            return fail("bad_request", "The file was bigger than its Content-Length said.");
-          const outcome = await social().upload(viewer, bytes);
-          if (outcome.ok) this.countIpUpload(key, day, bytes.length);
-          return fromResult(outcome, (media) => ({ status: 201 as const, body: { media } }));
-        } finally {
-          this.uploadsInFlight--;
-        }
-      },
-
-      // ---------- links (decision 0020), in links.ts ----------
+    return {
+      ...worldHandlers(this),
+      ...socialHandlers(this),
+      ...siteHandlers(this),
+      ...togetherHandlers(this),
+      ...townHallHandlers(this),
+      ...eventHandlers(this),
+      ...ownerHandlers(this),
+      ...safetyHandlers(this),
+      ...docsHandlers(this),
       ...linkHandlers(this),
-      // ---------- together: invites, letters, gestures, blocks ----------
-      createInvite: ({ viewer, body }) => {
-        const share = body.share === true;
-        if (share && !anchorPlot(service.state, viewer)?.owned) {
-          return fail("bad_request", "Settle a plot of your own first, then you can share it.");
-        }
-        return fromResult(social().together.createInvite(viewer, share), (invite) => ({
-          status: 201 as const,
-          body: { invite },
-        }));
-      },
-      getInvite: ({ params }) => {
-        const invite = social().together.openInvite(params.code);
-        const inviter = invite && social().authorView(invite.inviter);
-        if (!invite || !inviter) return fail("not_found", INVITE_GONE);
-        const anchor = anchorPlot(service.state, invite.inviter);
-        const sharedPlot = invite.share && anchor?.owned ? { px: anchor.px, py: anchor.py } : null;
-        return {
-          status: 200,
-          body: {
-            invite: {
-              code: invite.code,
-              inviter,
-              share: sharedPlot !== null,
-              sharedPlot,
-              plots: anchor ? suggestPlots(service.state, anchor, INVITE_PLOT_SUGGESTIONS) : [],
-              expiresAt: invite.expiresAt,
-            },
-          },
-        };
-      },
-      acceptInvite: ({ params, body }) => this.acceptInvite(params.code, body),
-      createLetter: async ({ viewer, body }) =>
-        fromResult(await social().together.createLetter(viewer, body), (letter) => ({
-          status: 201 as const,
-          body: { letter },
-        })),
-      getLetters: ({ viewer, query }) => ({
-        status: 200,
-        body: social().together.letters(viewer, query),
-      }),
-      getLetter: ({ viewer, params }) => {
-        // Not yours and not there look the same, so nobody learns a letter exists.
-        const letter = social().together.openLetter(viewer, params.id);
-        return letter ? { status: 200, body: { letter } } : fail("not_found", "No such letter.");
-      },
-      deleteLetter: async ({ viewer, params }) =>
-        (await social().together.deleteLetter(viewer, params.id))
-          ? { status: 204 }
-          : fail("not_found", "No such letter."),
-      getLetterMedia: async ({ viewer, params }) => {
-        // Each read holds a whole picture in the one world object's memory, so only a few at once.
-        if (this.letterReadsInFlight >= MAX_LETTER_READS_IN_FLIGHT) {
-          return fail("rate_limited", "Lots of pictures loading right now. Try again in a moment.");
-        }
-        this.letterReadsInFlight++;
-        try {
-          const file = await social().together.letterMedia(viewer, params.id, params.mediaId);
-          return file
-            ? { status: 200, bytes: file.bytes, contentType: file.type }
-            : fail("not_found", "Not found.");
-        } finally {
-          this.letterReadsInFlight--;
-        }
-      },
-      sendGesture: ({ viewer, params, body }) => {
-        const together = social().together;
-        let item: GestureItem | undefined;
-        if (body.item !== undefined) {
-          // A gift that carries a thing: the gesture's own checks first, then the thing moves in
-          // the world like any `give` (its limits, blocks, and note filter), then the gesture.
-          const checked = together.checkGesture(viewer, params.id, body);
-          if (!checked.ok) return fail(checked.code, checked.message);
-          const { note } = checked.value;
-          service.arrive(viewer, "give");
-          const given = service.act(viewer, {
-            type: "give",
-            item: body.item,
-            to: params.id,
-            ...(body.count === undefined ? {} : { count: body.count }),
-            ...(note ? { note } : {}),
-          });
-          if (!given.ok) return fail(given.error.code, given.error.message);
-          item = givenItem(given.events, viewer);
-        }
-        const sent = together.sendGesture(viewer, params.id, body, item ? { item } : {});
-        if (sent.ok && !sent.value.secret) {
-          service.notify(params.id, together.liveGesture(sent.value.gesture, sent.value.streak));
-        }
-        return fromResult(sent, (value) => ({ status: 201 as const, body: value }));
-      },
-      getGestures: ({ viewer, query }) => ({
-        status: 200,
-        body: social().together.gestures(viewer, query),
-      }),
-      blockResident: ({ viewer, params }) =>
-        fromResult(social().setBlock(viewer, params.id, true), (resident) => ({
-          status: 200 as const,
-          body: { resident },
-        })),
-      unblockResident: ({ viewer, params }) =>
-        fromResult(social().setBlock(viewer, params.id, false), (resident) => ({
-          status: 200 as const,
-          body: { resident },
-        })),
-
-      // ---------- site: Markdown twins and sitemaps (decision 0023) ----------
-      // The twins call the JSON routes' own handlers, so they can't disagree with the API.
-      getResidentMarkdown: async (input) => {
-        const anonymous = { ...input, query: undefined, body: undefined, viewer: undefined };
-        const profile = await handlers.getResident(anonymous);
-        if ("error" in profile) return profile;
-        const posts = await handlers.getResidentPosts({
-          ...anonymous,
-          query: { limit: undefined, before: undefined },
-        });
-        if ("error" in posts) return posts;
-        return {
-          status: 200,
-          text: profileMarkdown(
-            profile.body.resident as ProfileView,
-            posts.body.posts as PostView[],
-          ),
-        };
-      },
-      getPostMarkdown: async (input) => {
-        const found = await handlers.getPost({
-          ...input,
-          query: undefined,
-          body: undefined,
-          viewer: undefined,
-        });
-        if ("error" in found) return found;
-        return {
-          status: 200,
-          text: postMarkdown(found.body.post as PostView, found.body.replies as PostView[]),
-        };
-      },
-      getSitemapIndex: () => {
-        const pages = (kind: "residents" | "posts") =>
-          social()
-            .sitemapPages(kind, SITEMAP_MAX_URLS)
-            .map(({ lastmod }, i) => ({
-              loc: absolute(`/sitemap-${kind}-${i + 1}.xml`),
-              lastmod: lastmod === null ? undefined : w3cDatetime(lastmod),
-            }));
-        return {
-          status: 200,
-          text: sitemapIndexXml([
-            { loc: absolute(LINKS.sitemapPages) },
-            ...pages("residents"),
-            ...pages("posts"),
-          ]),
-        };
-      },
-      getResidentSitemap: ({ params }) => sitemap("residents", params.page),
-      getPostSitemap: ({ params }) => sitemap("posts", params.page),
-      // ---------- town hall ----------
-      getTown: ({ viewer }) => ({
-        status: 200,
-        body: townView(service.state, social(), viewer),
-      }),
-      getTownArchive: ({ viewer, query }) => ({
-        status: 200,
-        body: archiveView(service.state, social(), query, viewer),
-      }),
-      getProposal: ({ viewer, params }) => {
-        const detail = proposalDetail(service.state, social(), params.id, viewer);
-        return detail ? { status: 200, body: detail } : fail("not_found", "No such proposal.");
-      },
-      voidProposal: ({ viewer, params }) => {
-        if (!social().isMaintainer(viewer)) {
-          return fail("forbidden", "Only maintainers can void a proposal.");
-        }
-        if (!findProposal(service.state, params.id)) return fail("not_found", "No such proposal.");
-        const result = service.voidProposal(params.id, viewer);
-        if (!result.ok) return fail(result.error.code, result.error.message);
-        social().safety.recordAction(
-          viewer,
-          "void_proposal",
-          "proposal",
-          params.id,
-          "Voided by a maintainer",
-        );
-        const detail = proposalDetail(service.state, social(), params.id, viewer);
-        return detail ? { status: 200, body: detail } : fail("internal", "Proposal vanished.");
-      },
-      answerPetition: ({ viewer, params, body }) => {
-        if (!social().isMaintainer(viewer)) {
-          return fail("forbidden", "Only maintainers answer petitions.");
-        }
-        const p = findProposal(service.state, params.id);
-        if (!p) return fail("not_found", "No such proposal.");
-        if (p.kind !== "advisory" || p.status !== "passed") {
-          return fail("bad_request", "Only a passed advisory is a petition to answer.");
-        }
-        const answered = social().answerPetition(viewer, params.id, body.text);
-        if (!answered.ok) return fail(answered.code, answered.message);
-        const detail = proposalDetail(service.state, social(), params.id, viewer);
-        return detail ? { status: 200, body: detail } : fail("internal", "Proposal vanished.");
-      },
-      // ---------- hosted events (RFC 0010) ----------
-      getEvents: ({ viewer, query }) => ({
-        status: 200,
-        body: eventsView(service.state, social().eventContext(viewer), viewer, query),
-      }),
-      getEvent: ({ viewer, params }) => {
-        const e = findEvent(service.state, params.id);
-        const ctx = social().eventContext(viewer);
-        if (!e || (!isTownEvent(e) && ctx.hidden(e.host)))
-          return fail("not_found", "No such event.");
-        return { status: 200, body: this.eventResponse(e, viewer) };
-      },
-      markGoing: ({ viewer, params }) => this.setGoing(viewer, params.id, true),
-      unmarkGoing: ({ viewer, params }) => this.setGoing(viewer, params.id, false),
-      createNotice: ({ viewer, body }) =>
-        fromResult(social().createNotice(viewer, body), (notice) => ({
-          status: 201 as const,
-          body: { notice },
-        })),
-      deleteNotice: ({ viewer, params }) =>
-        fromResult(social().deleteNotice(viewer, params.id), () => ({ status: 204 as const })),
-
-      // ---------- owners ----------
-      createOwnerClaim: ({ viewer }) =>
-        fromResult(owners().createClaim(viewer), (code) => ({ status: 201 as const, body: code })),
-      acceptOwnerClaim: ({ viewer, body }) =>
-        fromResult(owners().accept(viewer, body.code), (link) => ({
-          status: 200 as const,
-          body: link,
-        })),
-      createOwnerInvite: ({ viewer }) =>
-        fromResult(owners().createInvite(viewer), (invite) => ({
-          status: 201 as const,
-          body: invite,
-        })),
-      getOwnerInvite: ({ params }) =>
-        fromResult(owners().preview(params.code), (invite) => ({
-          status: 200 as const,
-          body: invite,
-        })),
-      confirmOwnerInvite: ({ viewer, body }) =>
-        fromResult(owners().confirm(viewer, body.code), (link) => ({
-          status: 200 as const,
-          body: link,
-        })),
-      declineOwnerInvite: ({ body }) =>
-        fromResult(owners().decline(body.code), () => ({ status: 204 as const })),
-      unlinkOwner: ({ viewer, params }) =>
-        fromResult(owners().unlink(viewer, params.id), () => ({ status: 204 as const })),
-      revokeAgentAccess: ({ viewer, params }) =>
-        fromResult(owners().revoke(viewer, params.id), () => ({ status: 204 as const })),
-      createRekeyCode: ({ viewer, params }) =>
-        fromResult(owners().maintainerRekey(viewer, params.id), (code) => ({
-          status: 201 as const,
-          body: code,
-        })),
-      redeemRekey: ({ body }) =>
-        fromResult(owners().rekey(body.code), (fresh) => ({ status: 200 as const, body: fresh })),
-      // ---------- safety: reports, transparency, maintainers (RFC 0006) ----------
-      createReport: ({ viewer, body }) => {
-        const filed = social().safety.report(viewer, body);
-        if (!filed.ok) {
-          return fail(
-            filed.code,
-            filed.message,
-            filed.code === "rate_limited" ? DAILY_CAP_RETRY_SECONDS : undefined,
-          );
-        }
-        const { report, created } = filed.value;
-        return created
-          ? { status: 201 as const, body: { report } }
-          : { status: 200 as const, body: { report } };
-      },
-      getTransparency: () => ({ status: 200, body: social().safety.transparency() }),
-      getAdminOverview: ({ viewer }) => {
-        const role = this.staffRole(viewer);
-        if (!role) return fail("forbidden", STAFF_ONLY);
-        const via = viewer.startsWith("access:") ? ("access" as const) : ("token" as const);
-        // An Access sign-in shows the resident it's mapped to, so staff can see the mapping took.
-        const resident = this.staffResident(viewer);
-        return {
-          status: 200,
-          body: {
-            me: {
-              actor: viewer,
-              role,
-              via,
-              resident: resident === undefined ? null : (social().authorView(resident) ?? null),
-            },
-            triage: social().safety.triageStatus(),
-            checkins: social().checkins.stats(),
-            spend: {
-              ...(this.spendLedger?.summary() ?? {
-                todayMicroUsd: 0,
-                windowMicroUsd: 0,
-                lines: [],
-                chatter: { calls: 0, notes: 0, drafts: 0, refused: 0, microUsd: 0 },
-              }),
-              days: SUMMARY_DAYS,
-            },
-            chatter: this.chatterStatus(),
-            tips: this.tipsStatus(),
-          },
-        };
-      },
-      getReports: ({ query }) => {
-        const queue = social().safety.queue(query.limit);
-        // Say which suspensions and hold-backs only a maintainer may change, so the staff app
-        // offers moderators only what the routes below will accept.
-        const items = queue.items.map((item) => {
-          const person = item.kind === "resident" ? item.id : item.target.author?.id;
-          if (!person) return item;
-          const suspensionLocked = this.suspensionLocked(person);
-          const holdBackLocked = this.holdBackLocked(person);
-          return {
-            ...item,
-            target: {
-              ...item.target,
-              ...(suspensionLocked ? { suspensionLocked } : {}),
-              ...(holdBackLocked ? { holdBackLocked } : {}),
-            },
-          };
-        });
-        return { status: 200, body: { ...queue, items } };
-      },
-      getModerationLog: ({ query }) => ({ status: 200, body: social().safety.logPage(query) }),
-      dismissReports: ({ viewer, body }) =>
-        logged(social().safety.dismiss(viewer, body.kind, body.id, body.reason)),
-      hidePost: async ({ viewer, params, body }) =>
-        logged(await social().safety.hidePost(viewer, params.id, body.reason, body.rule)),
-      unhidePost: ({ viewer, params, body }) =>
-        logged(social().safety.unhidePost(viewer, params.id, body.reason)),
-      suspendResident: ({ viewer, params, body }) => {
-        if (this.staffRole(viewer) !== "maintainer" && body.days > MODERATOR_SUSPEND_MAX_DAYS) {
-          return fail(
-            "forbidden",
-            `Moderators can suspend for up to ${MODERATOR_SUSPEND_MAX_DAYS} days. Ask a maintainer for longer.`,
-          );
-        }
-        const locked = this.maintainersSuspension(viewer, params.id);
-        if (locked) return locked;
-        return logged(social().safety.suspend(viewer, params.id, body.days, body.reason));
-      },
-      unsuspendResident: ({ viewer, params, body }) =>
-        this.maintainersSuspension(viewer, params.id) ??
-        logged(social().safety.unsuspend(viewer, params.id, body.reason)),
-      quarantineResident: ({ viewer, params, body }) =>
-        logged(social().safety.quarantine(viewer, params.id, body.reason)),
-      releaseResident: ({ viewer, params, body }) => {
-        if (this.staffRole(viewer) !== "maintainer" && this.holdBackLocked(params.id)) {
-          return fail(
-            "forbidden",
-            "A maintainer held these back. Ask a maintainer to release them.",
-          );
-        }
-        return logged(social().safety.release(viewer, params.id, body.reason));
-      },
-      removeResidentPictures: async ({ viewer, params, body }) =>
-        logged(await social().safety.removePictures(viewer, params.id, body.reason, body.rule)),
-      // Decision 0056: the lot goes back to its seller, or waits out of view when they're full.
-      removeListing: ({ viewer, params, body }) => {
-        const listing = listingById(service.state, params.id);
-        if (!listing || listing.takenDown) {
-          return fail("not_found", "That listing isn't in the market any more.");
-        }
-        const safety = social().safety;
-        const rule = safety.ruleFor(["listing"], params.id, body.rule);
-        const done = service.removeListing(params.id);
-        if (!done.ok) return fail(done.error.code, done.error.message);
-        const entry = safety.recordAction(
-          viewer,
-          "remove_listing",
-          "listing",
-          params.id,
-          body.reason,
-          rule,
-        );
-        // Decision 0064: the seller hears what came down, why, and where the lot is now.
-        safety.tellOwner(listing.seller, {
-          what: "listing",
-          rule,
-          outcome: listingById(service.state, params.id) ? "held" : "returned",
-          id: params.id,
-          kind: listing.kind,
-          count: listing.count,
-        });
-        return { status: 200, body: { logged: entry } };
-      },
-      // Decision 0059: the thing goes back to whoever put it up, or waits for room. It settles the
-      // reports on it either way: as a thing on display, and as a piece (a title, say).
-      removeDisplay: ({ viewer, params, body }) => {
-        const shown = madeThingForReport(service.state, "display", params.id);
-        const kind = goodById(service.state, params.id)?.good.kind;
-        if (!shown || !kind) return fail("not_found", "That isn't on display any more.");
-        const safety = social().safety;
-        const rule = safety.ruleFor(["display", "piece"], params.id, body.rule);
-        const done = service.removeDisplay(params.id, false);
-        if (!done.ok) return fail(done.error.code, done.error.message);
-        safety.closeReports(viewer, "piece", params.id);
-        const entry = safety.recordAction(
-          viewer,
-          "remove_display",
-          "display",
-          params.id,
-          body.reason,
-          rule,
-        );
-        // Decision 0064: whoever put it up hears it, and whether it's back or held for them.
-        const held = heldAsideOf(service.state, shown.owner).some((d) => d.good.id === params.id);
-        safety.tellOwner(shown.owner, {
-          what: "display",
-          rule,
-          outcome: held ? "held" : "returned",
-          id: params.id,
-          kind,
-        });
-        return { status: 200, body: { logged: entry } };
-      },
-      // Decision 0059: the file goes first, everywhere, so the world never says it's gone while
-      // storage still serves it. Then every piece made from it loses its picture, and this one
-      // comes off display if it's up.
-      removePiece: async ({ viewer, params, body }) => {
-        const safety = social().safety;
-        const media = madeThingForReport(service.state, "piece", params.id)?.media;
-        if (!media) return fail("not_found", "No piece with that id shows a picture.");
-        // Like a resident's pictures: the upload may be staff's avatar too.
-        const maker = goodById(service.state, params.id)?.good.maker;
-        if (maker && safety.protects(maker)) {
-          return fail(
-            "bad_request",
-            "Staff's pictures can't be removed. Take them off the staff list first.",
-          );
-        }
-        const check = service.removeDisplay(params.id, true, true);
-        if (!check.ok) return fail(check.error.code, check.error.message);
-        const rule = safety.ruleFor(["piece", "display"], params.id, body.rule);
-        if (!(await safety.purgeUpload(media))) {
-          return fail("internal", "The picture couldn't be deleted from storage yet. Try again.");
-        }
-        const done = service.removeDisplay(params.id, true);
-        if (!done.ok) {
-          // The file is gone: say so in the log, and leave the reports open to try again.
-          safety.recordNote(viewer, "remove_piece", "piece", params.id, body.reason);
-          return fail(done.error.code, done.error.message);
-        }
-        // Every piece that showed the picture is settled, wherever its reports are.
-        const removed = done.events.flatMap((e) => (e.type === "picture_removed" ? e.items : []));
-        for (const id of new Set([params.id, ...removed])) {
-          safety.closeReports(viewer, "display", id);
-          if (id !== params.id) safety.closeReports(viewer, "piece", id);
-        }
-        const entry = safety.recordAction(
-          viewer,
-          "remove_piece",
-          "piece",
-          params.id,
-          body.reason,
-          rule,
-        );
-        // Decision 0064: its maker hears it once, however many pieces showed the picture.
-        if (maker) {
-          safety.tellOwner(maker, {
-            what: "piece",
-            rule,
-            outcome: "removed",
-            id: params.id,
-            kind: "piece",
-          });
-        }
-        // Decision 0065: whoever holds or displays a piece made from the picture hears it too,
-        // once per piece, not only its maker.
-        for (const pieceId of new Set([params.id, ...removed])) {
-          const holder = goodById(service.state, pieceId)?.holder;
-          if (!holder || holder === maker) continue;
-          safety.tellOwner(holder, {
-            what: "piece",
-            rule,
-            outcome: "removed",
-            id: pieceId,
-            kind: "piece",
-          });
-        }
-        return { status: 200, body: { logged: entry } };
-      },
-      // Bounties (decision 0062): town coins move only on a maintainer's word.
-      getStaffBounties: ({ viewer }) => {
-        if (this.staffRole(viewer) !== "maintainer") return fail("forbidden", MAINTAINERS_ONLY);
-        return {
-          status: 200,
-          body: staffBountiesView(service.state, (id) => social().authorView(id)),
-        };
-      },
-      confirmTownBounty: async ({ viewer, params, body }) => {
-        if (this.staffRole(viewer) !== "maintainer") return fail("forbidden", MAINTAINERS_ONLY);
-        if (!findBounty(service.state, params.id)) return fail("not_found", "No such bounty.");
-        const done = service.confirmTownBounty(
-          params.id,
-          body.to,
-          await worldStaffId(viewer),
-          this.staffResident(viewer),
-        );
-        if (!done.ok) return fail(done.error.code, done.error.message);
-        social().safety.recordNote(
-          viewer,
-          "confirm_bounty",
-          "bounty",
-          params.id,
-          `Confirmed done, paid ${body.to}`,
-        );
-        return this.staffBounty(params.id);
-      },
-      reopenTownBounty: async ({ viewer, params, body }) => {
-        if (this.staffRole(viewer) !== "maintainer") return fail("forbidden", MAINTAINERS_ONLY);
-        if (!findBounty(service.state, params.id)) return fail("not_found", "No such bounty.");
-        const done = service.reopenBounty(
-          params.id,
-          await worldStaffId(viewer),
-          this.staffResident(viewer),
-        );
-        if (!done.ok) return fail(done.error.code, done.error.message);
-        social().safety.recordAction(viewer, "reopen_bounty", "bounty", params.id, body.reason);
-        return this.staffBounty(params.id);
-      },
-      voidBounty: async ({ viewer, params, body }) => {
-        if (this.staffRole(viewer) !== "maintainer") return fail("forbidden", MAINTAINERS_ONLY);
-        if (!findBounty(service.state, params.id)) return fail("not_found", "No such bounty.");
-        const done = service.voidBounty(
-          params.id,
-          await worldStaffId(viewer),
-          this.staffResident(viewer),
-        );
-        if (!done.ok) return fail(done.error.code, done.error.message);
-        social().safety.recordAction(viewer, "void_bounty", "bounty", params.id, body.reason);
-        return this.staffBounty(params.id);
-      },
-      voidEvent: async ({ viewer, params, body }) => {
-        if (this.staffRole(viewer) !== "maintainer") {
-          return fail("forbidden", WORLD_MAINTAINERS_ONLY);
-        }
-        if (!findEvent(service.state, params.id)) return fail("not_found", "No such event.");
-        const done = service.voidEvent(
-          params.id,
-          await worldStaffId(viewer),
-          this.staffResident(viewer),
-        );
-        if (!done.ok) return fail(done.error.code, done.error.message);
-        social().safety.recordAction(viewer, "void_event", "event", params.id, body.reason);
-        const e = findEvent(service.state, params.id);
-        if (!e) return fail("internal", "Event vanished.");
-        const ctx = social().eventContext(undefined);
-        return { status: 200, body: { event: eventView(service.state, e, ctx) } };
-      },
-      // World snapshots and the log (RFC 0014): maintainers only.
-      getStaffSnapshots: ({ viewer }) => {
-        if (this.staffRole(viewer) !== "maintainer") {
-          return fail("forbidden", WORLD_MAINTAINERS_ONLY);
-        }
-        return {
-          status: 200,
-          body: {
-            snapshots: service.snapshotHeaders().map(snapshotView),
-            replayVersion: REPLAY_VERSION,
-            kept: service.snapshotsKept(),
-            seq: service.state.seq,
-            hash: service.hash(),
-          },
-        };
-      },
-      takeSnapshot: ({ viewer }) => {
-        if (this.staffRole(viewer) !== "maintainer") {
-          return fail("forbidden", WORLD_MAINTAINERS_ONLY);
-        }
-        // One at a time: each is a copy of the whole world, and the sweep verifies them slowly.
-        if (service.snapshotHeaders().some((h) => h.verified === 0)) {
-          return fail("bad_request", SNAPSHOT_REFUSED.pending);
-        }
-        const taken = service.takeSnapshot();
-        if (!("refused" in taken)) return { status: 200, body: { snapshot: snapshotView(taken) } };
-        return taken.refused === "failed"
-          ? fail("internal", "Couldn't save the snapshot. Nothing changed; try again.")
-          : fail("bad_request", SNAPSHOT_REFUSED[taken.refused]);
-      },
-      getWorldLog: ({ viewer, query, origin }) => {
-        if (this.staffRole(viewer) !== "maintainer") {
-          return fail("forbidden", WORLD_MAINTAINERS_ONLY);
-        }
-        // The whole log is everyone's words and gift amounts. On terrakin.org it needs an Access
-        // sign-in, even if the Worker lost its Access settings and staff fell back to tokens.
-        if (!this.staffOptions.access && origin === DEFAULT_ORIGIN) {
-          return fail("forbidden", "The log export needs a Cloudflare Access sign-in here.");
-        }
-        let page: ReturnType<typeof service.logPage>;
-        try {
-          page = service.logPage(query.after ?? 0, query.until, query.limit ?? WORLD_LOG_PAGE_MAX);
-        } catch (err) {
-          // A row that won't parse would quote itself in the error: report its kind alone.
-          report(reportable(err), "world.log_export");
-          return fail("internal", "Couldn't read the log. Try again.");
-        }
-        // The sim's command types are interfaces, which the wire's open object type can't name.
-        return { status: 200, body: { ...page, rows: page.rows as WorldLogResponse["rows"] } };
-      },
-
-      // ---------- docs ----------
-      getSkill: () => ({ status: 200, text: this.skill }),
-      getOpenApi: () => ({ status: 200, text: this.openapi }),
-      // Built into the bundle by `pnpm gen` from CHANGELOG.md, so no file is read at run time.
-      getChangelog: ({ query }) => ({
-        status: 200,
-        body: changelogResponse(CHANGELOG_ENTRIES, query),
-      }),
-      // The devlog's posts, built into the bundle by `pnpm gen` from docs/devlog (decision 0105).
-      getDevlog: ({ query }) => ({ status: 200, body: devlogResponse(DEVLOG_POSTS, query) }),
-      getDevlogPost: ({ params }) => {
-        const post = DEVLOG_POSTS.find((p) => p.date === params.date);
-        if (!post) {
-          return fail(
-            "not_found",
-            "There's no devlog post on that day. GET /v1/devlog lists them.",
-          );
-        }
-        return { status: 200, body: { post } };
-      },
     };
-    return handlers;
   }
 
   /**
@@ -2094,7 +905,7 @@ export class Api {
    * follow each other. Every world change still goes through `service.act`. No awaits between
    * reading the invite and using it up, so two people can't both accept one code.
    */
-  private acceptInvite(code: string, body: AcceptInviteRequest): Reply<"acceptInvite"> {
+  acceptInvite(code: string, body: AcceptInviteRequest): Reply<"acceptInvite"> {
     const { service } = this;
     const social = this.requireSocial();
     const invite = social.together.openInvite(code);
@@ -2172,7 +983,7 @@ export class Api {
    * 0046). One read for the blocks and one for the followers, whatever the number of sockets.
    */
   /** A bounty as staff see it after acting on it. */
-  private staffBounty(id: string): Reply<"confirmTownBounty"> {
+  staffBounty(id: string): Reply<"confirmTownBounty"> {
     const b = findBounty(this.service.state, id);
     if (!b) return fail("internal", "Bounty vanished.");
     return {
@@ -2200,14 +1011,14 @@ export class Api {
   }
 
   /** Plot (px, py) as `viewer` sees it, read fresh, or undefined when it isn't theirs to see. */
-  private plotFor(viewer: string | undefined, at: { px: number; py: number }) {
+  plotFor(viewer: string | undefined, at: { px: number; py: number }) {
     const layer = this.requireSocial();
     const author = (id: string) => layer.authorView(id);
     return layer.plots.one(this.service.state, author, at.px, at.py, this.plotViewer(viewer));
   }
 
   /** What the market's gate on listing reads from outside the sim: time in Terrakin and karma. */
-  private listerFacts(id: string): ListerFacts {
+  listerFacts(id: string): ListerFacts {
     return {
       ageDays: this.service.residentAgeDays(id),
       tier: this.social?.karma.of(id).tier ?? "newcomer",
@@ -2341,7 +1152,7 @@ export class Api {
   }
 
   /** The staff overview's tips line: the mode and the last run's counts. */
-  private tipsStatus() {
+  tipsStatus() {
     const last = this.tips?.lastRun() ?? null;
     return {
       mode: this.tips?.mode ?? ("off" as const),
@@ -2352,7 +1163,7 @@ export class Api {
   }
 
   /** One event as `GET /v1/events/{id}` answers it. */
-  private eventResponse(e: HostedEvent, viewer: string | undefined): EventResponse {
+  eventResponse(e: HostedEvent, viewer: string | undefined): EventResponse {
     const ctx = this.requireSocial().eventContext(viewer);
     return {
       now: new Date(ctx.now).toISOString(),
@@ -2364,7 +1175,7 @@ export class Api {
    * Say you're going to an event, or take it back. A social row, public as a count: it never
    * changes attendance. Not for an event whose host you've blocked or who blocked you.
    */
-  private setGoing(viewer: string, id: string, going: boolean) {
+  setGoing(viewer: string, id: string, going: boolean) {
     const social = this.requireSocial();
     const e = findEvent(this.service.state, id);
     const ctx = social.eventContext(viewer);
@@ -2380,7 +1191,7 @@ export class Api {
   }
 
   /** The staff overview's chatter line: settings, today's use, the last run, and dry-run drafts. */
-  private chatterStatus() {
+  chatterStatus() {
     const chatter = this.chatter;
     const usage = chatter?.usage() ?? { calls: 0, tokens: 0 };
     const paused = chatter?.pausedUntil() ?? null;
@@ -2537,7 +1348,7 @@ export class Api {
   }
 
   /** Whether only a maintainer may change this resident's suspension: one set it, or it's long. */
-  private suspensionLocked(residentId: string): boolean {
+  suspensionLocked(residentId: string): boolean {
     const current = this.social?.safety.currentSuspension(residentId);
     if (!current) return false;
     const long = current.remainingMs > MODERATOR_SUSPEND_MAX_DAYS * DAY_MS;
@@ -2545,12 +1356,12 @@ export class Api {
   }
 
   /** Whether only a maintainer may release this resident's held-back bio and note. */
-  private holdBackLocked(residentId: string): boolean {
+  holdBackLocked(residentId: string): boolean {
     const by = this.social?.safety.quarantinedBy(residentId);
     return by !== undefined && this.staffRole(by) === "maintainer";
   }
 
-  private maintainersSuspension(viewer: string, residentId: string): Failure | undefined {
+  maintainersSuspension(viewer: string, residentId: string): Failure | undefined {
     if (this.staffRole(viewer) === "maintainer") return undefined;
     if (!this.suspensionLocked(residentId)) return undefined;
     return fail(
@@ -2887,27 +1698,6 @@ function familyMiss(action: unknown): Extract<ActResult, { ok: false }> | undefi
   if (message === undefined) return undefined;
   return { ok: false, error: { code: "unknown_item", message }, ...(dry === true ? { dry } : {}) };
 }
-
-/** A stored snapshot as staff see it. */
-const snapshotView = (h: SnapshotHeader): SnapshotView => ({
-  seq: h.seq,
-  format: h.format,
-  replayVersion: h.replayVersion,
-  hash: h.hash,
-  parts: h.parts,
-  bytes: h.bytes,
-  status: h.verified === 1 ? "verified" : h.verified === 0 ? "pending" : "failed",
-});
-
-/** Why `POST /v1/admin/snapshots` took none. */
-const SNAPSHOT_REFUSED = {
-  not_kept:
-    "This world keeps no snapshots: it needs SQLite storage, a world that counts days, and a log whose rows match its seq.",
-  taken: "There's already a snapshot at this seq. Take another once the world has moved on.",
-  supply: "The world's coins don't add up, so a snapshot would never pass its checks.",
-  pending:
-    "A snapshot is still waiting to be verified. Take another once the sweep has checked it.",
-} as const;
 
 function json(status: number, body: unknown): ApiResponse {
   return {

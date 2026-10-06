@@ -1,9 +1,10 @@
 import type { ServerMessage, WorldEvent } from "@terrakin/protocol";
 import { apply, createWorld, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
-import { Api, type ApiRequest, worldStaffId } from "./api";
+import { Api, type ApiRequest } from "./api";
 import { createApp } from "./app";
 import { bountyWords } from "./bounties";
+import { worldStaffId } from "./handlers/shared";
 import { MemoryMediaStore } from "./media";
 import { nodeSql } from "./node-sql";
 import { SocialService } from "./social-service";

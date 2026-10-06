@@ -1,7 +1,7 @@
 import type { WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
-import { ipKey } from "./api";
 import { createApp } from "./app";
+import { ipKey } from "./handlers/shared";
 import {
   type MediaBucket,
   MemoryMediaStore,

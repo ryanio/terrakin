@@ -7,11 +7,12 @@ import { entitledTo, findProposal, residentById, votesCast } from "@terrakin/sim
 import { AccessVerifier, accessConfig, parseEmails, parseStaffResidents } from "../src/access";
 import { adminAssetPath, adminGate, isMissingAdminFile } from "../src/admin-host";
 import { nextRecheckAt, parseDailyReads } from "../src/agent-links";
-import { Api, ipKey, isApiPath, MAX_BODY_BYTES } from "../src/api";
+import { Api, isApiPath, MAX_BODY_BYTES } from "../src/api";
 import { bountyWords } from "../src/bounties";
 import { parseRpcUrls } from "../src/chain";
 import { ChatterService, chatterConfig } from "../src/chatter";
 import { eventWords } from "../src/events";
+import { ipKey } from "../src/handlers/shared";
 import {
   MEDIA_ID,
   type MediaBucket,

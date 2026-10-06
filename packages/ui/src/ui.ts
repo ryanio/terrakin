@@ -636,9 +636,11 @@ export function sheet(o: SheetOptions, ...body: (Node | null)[]) {
     icon("close"),
   );
   const title = h("h2", { class: "sheet-title", attrs: { id: o.id }, text: o.title });
+  // Focusable, so a sheet whose buttons are all choices can open with focus on itself: focus on a
+  // button draws the ring around it in Safari, and it looks picked before anyone has chosen.
   const card = h(
     "div",
-    { class: "sheet-card paper" },
+    { class: "sheet-card paper", attrs: { tabindex: -1 } },
     h("div", { class: "sheet-head" }, title, close),
     o.lede ? h("p", { class: "sheet-lede", text: o.lede }) : null,
     ...body,
@@ -668,7 +670,7 @@ export function sheet(o: SheetOptions, ...body: (Node | null)[]) {
     });
   }
   pullToClose(dialog, card, typed);
-  return { dialog, title, close };
+  return { dialog, title, close, card };
 }
 
 /**

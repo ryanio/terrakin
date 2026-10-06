@@ -901,6 +901,8 @@ dialog.fullscreen.closing::backdrop {
   padding: var(--space-2xl) max(20px, env(safe-area-inset-left))
     calc(22px + env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-right));
   border-radius: var(--r-lg) var(--r-lg) 0 0;
+  /* It can hold focus (ui.ts sheet), and the sheet being open already shows where focus is. */
+  outline: none;
   animation: sheet-up 0.34s cubic-bezier(0.2, 0.7, 0.2, 1);
   transition: translate 0.25s cubic-bezier(0.2, 0.7, 0.2, 1);
 }

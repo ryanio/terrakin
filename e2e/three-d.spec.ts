@@ -85,6 +85,8 @@ test.describe("a plot in 3D", () => {
     expect(photo.colors).toBeGreaterThan(12);
     day = { residentId: session.residentId, light: photo.light };
     const sheet = page.getByRole("dialog", { name: "Your photo" });
+    // It opens with focus on the sheet, so Save doesn't open looking picked.
+    await expect(sheet.locator(".sheet-card")).toBeFocused();
     await expect(sheet.getByRole("link", { name: "Save" })).toHaveAttribute("download", /\.png$/);
     const intent = new URL(
       (await sheet.getByRole("link", { name: "Share on X" }).getAttribute("href")) ?? "",

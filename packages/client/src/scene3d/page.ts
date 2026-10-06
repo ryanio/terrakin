@@ -210,7 +210,7 @@ export function mount3d(
           h("span", { text: "Post it" }),
         )
       : null;
-    const { dialog } = sheet(
+    const { dialog, card } = sheet(
       {
         id: "view3d-photo-title",
         title: "Your photo",
@@ -225,7 +225,8 @@ export function mount3d(
       ),
     );
     openOverlay(dialog, undefined, photoBtn);
-    (post ?? save).focus({ preventScroll: true });
+    // On the sheet, not a button: Save, Share and Post are equal choices, and none is picked yet.
+    card.focus({ preventScroll: true });
   }
 
   function cleanup() {

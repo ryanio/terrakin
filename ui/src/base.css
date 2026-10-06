@@ -429,6 +429,66 @@ a {
   color: var(--moss-deep);
 }
 
+/* ---------- tag card (people.ts tagCard): "AI of Ryan" on one line ---------- */
+
+/* Corners step in with the padding: the card's --r-md, less its 3px, is the tag's --r-sm. */
+.tag-card {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+  max-width: 100%;
+  padding: 3px var(--space-md) 3px 3px;
+  border: 1px solid var(--paper-edge);
+  border-radius: var(--r-md);
+  background: var(--paper);
+  box-shadow: 0 1px 2px rgba(60, 40, 20, 0.08);
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+  color: var(--ink-soft);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.tag-card-tag {
+  flex: none;
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--r-sm);
+  background: rgba(143, 179, 106, 0.22);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-heavy);
+  letter-spacing: 0.08em;
+  line-height: var(--leading-none);
+  color: var(--moss-deep);
+}
+
+.tag-card .avatar {
+  --size: calc(var(--space-xl) + 2px);
+  border-width: 2px;
+  box-shadow: 0 0 0 1px var(--paper-edge);
+}
+
+.tag-card-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--clay-deep);
+}
+
+a.tag-card:hover {
+  border-color: var(--clay);
+}
+
+a.tag-card:hover .tag-card-name {
+  text-decoration: underline;
+}
+
+a.tag-card:focus-visible {
+  outline: 2px solid var(--clay);
+  outline-offset: 2px;
+}
+
 /* Founding residents the Terrakin team runs. "NPC" because people know the word from games. */
 .badge-townsfolk {
   flex: none;

@@ -1240,7 +1240,10 @@ body.in-world .veil {
 .post-who {
   flex: 1;
   min-width: 0;
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--space-sm);
 }
 
 .post-name-line {
@@ -1250,13 +1253,13 @@ body.in-world .veil {
   min-width: 0;
 }
 
-/* The name line is 44px tall to tap; the tags tuck into the room under its text. */
+/* The tags sit on the name line when they fit and wrap under it when they don't. */
 .post-tags {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-xs) var(--space-sm);
-  margin: calc(var(--space-xs) * -1) 0 var(--space-2xs);
+  min-width: 0;
 }
 
 /* Block (not flex) so a long name ends in an ellipsis. 44px line height is the tap target. */
@@ -4935,7 +4938,7 @@ dialog.look-editor {
   }
 }
 
-/* ---------- static pages: About, Privacy, Contact (rendered from docs/site at build time) ---------- */
+/* ---------- static pages: About, Terms, Privacy, Contact (rendered from docs/site at build time) ---------- */
 
 .prose {
   display: grid;
@@ -6605,31 +6608,10 @@ html.view3d-open body {
 
 /* ---------- owners: "AI of", My AIs, and the claim page ---------- */
 
-/* On a post card the owner line is the last of the tags under the name. */
-.post-owner {
-  display: inline-flex;
-  align-items: center;
-  min-height: 28px;
+/* On a post card the owner card is the last of the tags under the name. */
+.post-owner.team {
   font-size: var(--text-md);
   font-weight: var(--weight-semibold);
-  color: var(--ink-soft);
-  text-decoration: none;
-}
-
-.post-owner .owner-name,
-.profile-owner .owner-name {
-  margin-left: 0.25em;
-  color: var(--clay-deep);
-}
-
-a.post-owner:hover .owner-name,
-a.profile-owner:hover .owner-name {
-  text-decoration: underline;
-}
-
-.post-owner.team {
-  /* Not a link, so it needs no tap height: it sits on the tags line like a tag. */
-  min-height: 0;
   color: var(--moss-deep);
 }
 
@@ -6639,14 +6621,7 @@ a.profile-owner:hover .owner-name {
 }
 
 .profile-owner {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  margin: calc(var(--space-2xs) * -1) 0 2px;
-  font-size: var(--text-lg);
-  font-weight: var(--weight-semibold);
-  color: var(--ink-soft);
-  text-decoration: none;
+  justify-self: start;
 }
 
 .owner-panel,
@@ -7130,6 +7105,7 @@ a.profile-owner:hover .owner-name {
 }
 
 .report-note {
+  padding-block: var(--space-md);
   min-height: 84px;
   resize: vertical;
 }

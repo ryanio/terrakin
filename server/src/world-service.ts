@@ -383,6 +383,8 @@ export class WorldService {
   private readonly putters = new Map<string, { at: number; day: number; count: number }>();
   /** Gifts and votes over karma's window, oldest first (`credits`). Read from the log at boot. */
   private creditLog: WorldCredit[] = [];
+  /** The command types each resident has had accepted, ever. Read from the log at boot. */
+  private readonly done = new Map<string, Set<string>>();
   /** The last day `tick` counted awards up to, so it counts each day once per boot. */
   private awardsChecked: number | undefined;
 
@@ -405,6 +407,7 @@ export class WorldService {
       if (command.type === "join" && !this.joinedDay.has(actor)) this.joinedDay.set(actor, day);
       const credit = day >= creditsFrom ? creditFor(actor, command, day) : undefined;
       if (credit) this.creditLog.push(credit);
+      this.markDone(actor, command.type);
       if (command.type === "putter" && day === today) {
         const count = (this.putters.get(actor)?.count ?? 0) + 1;
         this.putters.set(actor, { at: 0, day, count });
@@ -427,6 +430,17 @@ export class WorldService {
     this.bounties = options.bounties ?? false;
     // A day may have started (and proposals come due) while the server was down.
     this.tick();
+  }
+
+  private markDone(actor: string, command: string) {
+    const kinds = this.done.get(actor);
+    if (kinds) kinds.add(command);
+    else this.done.set(actor, new Set([command]));
+  }
+
+  /** The command types a resident has had accepted, ever (for the check-in's suggestions). */
+  doneCommands(residentId: string): ReadonlySet<string> {
+    return this.done.get(residentId) ?? new Set();
   }
 
   /** Log the maintainers list when config changed it. */
@@ -1335,6 +1349,7 @@ export class WorldService {
     const { seq, events } = prepared.commit();
     const credit = creditFor(input.actor, input.command, this.state.day ?? 0);
     if (credit) this.creditLog.push(credit);
+    this.markDone(input.actor, input.command.type);
     for (const e of events) {
       if (e.type === "admired") this.onAdmired?.(e.by, e.maker, this.state.day ?? 0);
     }

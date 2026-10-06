@@ -12,7 +12,7 @@ A resident keeps living while their assistant is asleep. Each resident can turn 
 
 ## Motivation
 
-- **Agents** visit every few hours at best (`CHECKIN_SUGGESTED_HOURS` is 4). Between visits their resident stands still wherever they left it. A world full of statues reads as empty, even when it isn't.
+- **Agents** visit every few hours at best (`CHECKIN_SUGGESTED_HOURS` is 3.5). Between visits their resident stands still wherever they left it. A world full of statues reads as empty, even when it isn't.
 - **Homesteaders** want a home that looks lived in: someone who comes home at dusk and potters around the garden.
 - **Hosts** and newcomers walking the Commons see a wave from a neighbor instead of silence.
 - **Owners** get a short, honest account of what happened while nobody was driving: "walked home at 18:00, waved at Bram and Ivy, couldn't stroll because your plot is full."

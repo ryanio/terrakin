@@ -1,18 +1,16 @@
 /**
- * The static pages (About, Privacy, Contact, What's new) and the Markdown twins, built at build time from
+ * The static pages (About, Terms, Privacy, Contact, What's new) and the Markdown twins, built at build time from
  * docs/site/*.md by the `terrakin-site` plugin in vite.config.ts. Pure functions, so tests pin
  * them. These pages load no scripts: no app, no analytics.
  */
 
-import { absolute, LINKS, SITE, type SitePage } from "@terrakin/protocol";
+import { absolute, LINKS, SITE, type SitePage, TRUST_PAGES } from "@terrakin/protocol";
 import { BRAND_HEX } from "@terrakin/ui/brand";
 import { markdownToHtml } from "./markdown";
 
-/** The footer links every page shows. index.html carries the same list for the app's pages. */
+/** The footer links every static page shows. */
 export const FOOTER_LINKS = [
-  { href: LINKS.about, label: "About" },
-  { href: LINKS.privacy, label: "Privacy" },
-  { href: LINKS.contact, label: "Contact" },
+  ...TRUST_PAGES,
   { href: LINKS.docs, label: "Docs and API" },
   { href: LINKS.changelog, label: "What's new" },
   { href: LINKS.openapi, label: "OpenAPI" },
@@ -20,6 +18,13 @@ export const FOOTER_LINKS = [
   { href: LINKS.llms, label: "llms.txt" },
   { href: SITE.github, label: "GitHub" },
 ] as const;
+
+/**
+ * The trust pages as footer links, joined with middots. The `terrakin-site` plugin puts them in
+ * place of `<!-- site:trust-links -->` in index.html.
+ */
+export const trustLinksHtml = () =>
+  TRUST_PAGES.map((l) => `<a href="${l.href}">${l.label}</a>`).join(" · ");
 
 const attr = (text: string) =>
   text.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");

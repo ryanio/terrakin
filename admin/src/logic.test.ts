@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   actorLabel,
   bountyActions,
+  checkinLine,
+  dayLabel,
   daysProblem,
   defaultRule,
   itemActions,
@@ -282,9 +284,7 @@ describe("plain words", () => {
   it("names log actors", () => {
     expect(actorLabel({ actor: "triage", actorView: null })).toBe("AI triage");
     expect(actorLabel({ actor: "system", actorView: null })).toBe("Automatic");
-    expect(actorLabel({ actor: "access:mod@example.com", actorView: null })).toBe(
-      "mod@example.com",
-    );
+    expect(actorLabel({ actor: "access:mod@example.com", actorView: null })).toBe("mod");
     expect(actorLabel({ actor: author.id, actorView: author })).toBe("Pebble");
   });
 
@@ -324,6 +324,37 @@ describe("plain words", () => {
   });
 });
 
+describe("check-in numbers", () => {
+  it("says how many check in and how often", () => {
+    expect(
+      checkinLine({
+        residentsThisWeek: 9,
+        residentsToday: 5,
+        scheduledToday: 3,
+        medianGapHours: 3.6,
+      }),
+    ).toBe(
+      "Check-ins: 5 today (3 on a schedule), 9 residents this week. Median gap between check-ins: 3.6 hours.",
+    );
+    expect(
+      checkinLine({
+        residentsThisWeek: 1,
+        residentsToday: null,
+        scheduledToday: null,
+        medianGapHours: null,
+      }),
+    ).toBe("Check-ins: 1 resident this week. More numbers once 5 or more check in.");
+    expect(
+      checkinLine({
+        residentsThisWeek: 0,
+        residentsToday: null,
+        scheduledToday: null,
+        medianGapHours: null,
+      }),
+    ).toMatch(/nobody/);
+  });
+});
+
 describe("routes and links", () => {
   it("has two screens", () => {
     expect(screenFor("/")).toBe("queue");
@@ -359,5 +390,14 @@ describe("routes and links", () => {
   it("links to the public site from the admin host", () => {
     expect(mainSite("https://admin.terrakin.org")).toBe("https://terrakin.org");
     expect(mainSite("http://admin.localhost:8787")).toBe("http://localhost:8787");
+  });
+});
+
+describe("dayLabel", () => {
+  const noon = Date.parse("2026-10-05T12:00:00");
+  it("names today and yesterday, then the date", () => {
+    expect(dayLabel("2026-10-05T01:00:00", noon)).toBe("Today");
+    expect(dayLabel("2026-10-04T23:00:00", noon)).toBe("Yesterday");
+    expect(dayLabel("2026-10-01T09:00:00", noon)).toBe("Thu, Oct 1");
   });
 });

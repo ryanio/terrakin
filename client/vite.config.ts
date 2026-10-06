@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { homeJsonLd, PAGES, type SitePage } from "@terrakin/protocol";
 import { defineConfig, type Plugin } from "vite";
-import { markdownTwin, staticPage } from "./src/site-page";
+import { markdownTwin, staticPage, trustLinksHtml } from "./src/site-page";
 
 const server = process.env.TERRAKIN_SERVER ?? "http://localhost:8787";
 const repo = (path: string) => fileURLToPath(new URL(`../${path}`, import.meta.url));
@@ -77,6 +77,7 @@ function withCsp(html: string, policy: string): string {
 /**
  * The site pages from docs/site/*.md and protocol/src/site.ts (the one source for each):
  *
+ * - the trust links (About, Terms, Privacy, Contact) in place of `<!-- site:trust-links -->`,
  * - the homepage's JSON-LD (WebSite, Organization, WebApplication, FAQPage) in index.html,
  * - a Markdown twin for every page with `prose` (`/index.md`, `/about.md`, `/pricing.md`, ...),
  *   with frontmatter for title, description, canonical, and last-updated,
@@ -98,7 +99,8 @@ function sitePages(): Plugin {
 
   return {
     name: "terrakin-site",
-    transformIndexHtml(html, ctx) {
+    transformIndexHtml(raw, ctx) {
+      const html = raw.replaceAll("<!-- site:trust-links -->", trustLinksHtml());
       // The homepage's description; the docs page (docs.html) has its own.
       if (ctx.path !== "/index.html") return html;
       const json = JSON.stringify(homeJsonLd()).replace(/</g, "\\u003c");

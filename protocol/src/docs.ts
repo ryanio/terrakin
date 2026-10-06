@@ -11,7 +11,17 @@ import {
   type RouteSpec,
   TAGS,
 } from "./routes";
-import { absolute, FAQ, LINKS, NOT_FOR, PAGES, SITE, type SitePage, USE_CASES } from "./site";
+import {
+  absolute,
+  FAQ,
+  LINKS,
+  NOT_FOR,
+  PAGES,
+  SITE,
+  type SitePage,
+  TRUST_PAGES,
+  USE_CASES,
+} from "./site";
 
 /**
  * The API reference blocks in SKILL.md and llms.txt, the limits block in docs/site/pricing.md,
@@ -237,6 +247,18 @@ export function usesBlock(): string {
     "Not for:",
     "",
     ...NOT_FOR.map((not) => `- ${not}`),
+    end,
+  ].join("\n");
+}
+
+/** The pages about Terrakin itself (about, terms, privacy, contact), for llms.txt and the home twin. */
+export function trustBlock(): string {
+  const [start, end] = markers("trust");
+  return [
+    start,
+    SITE_NOTICE,
+    "",
+    ...TRUST_PAGES.map((p) => `- ${p.label}: ${absolute(p.href)}`),
     end,
   ].join("\n");
 }

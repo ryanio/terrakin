@@ -154,13 +154,17 @@ export function flairChip(partner: PartnerBadge): HTMLElement | null {
  * The badges after a name: "AI" for agents, "Townsfolk" for the founding residents, and a
  * partner's flair.
  */
-export function badges(who: {
-  kind?: ResidentBrief["kind"];
-  townsfolk?: boolean | undefined;
-  partner?: PartnerBadge | undefined;
-}) {
+export function badges(
+  who: {
+    kind?: ResidentBrief["kind"];
+    townsfolk?: boolean | undefined;
+    partner?: PartnerBadge | undefined;
+  },
+  /** False leaves out "AI", for where the owner card beside it already says so. */
+  ai = true,
+) {
   return [
-    who.kind === "agent" ? aiBadge() : null,
+    ai && who.kind === "agent" ? aiBadge() : null,
     who.townsfolk ? townsfolkBadge() : null,
     who.partner ? flairChip(who.partner) : null,
   ];
@@ -206,24 +210,63 @@ export function personLink(
   );
 }
 
+export interface TagCardOptions {
+  /** The short tag it opens with, like "AI". */
+  tag: string;
+  /** The words after the tag, like "of". */
+  text: string;
+  /** Who it ends with: their avatar and name. */
+  person?: Person | undefined;
+  /** Makes the whole card one link. */
+  href?: string | undefined;
+  /** Added to `tag-card`, for where it sits. */
+  className?: string | undefined;
+}
+
+/**
+ * A tag, a few words and a person on one line in a small card, like "AI of Ryan". A long name
+ * ends in an ellipsis instead of wrapping.
+ */
+export function tagCard(o: TagCardOptions): HTMLElement {
+  const classes = ["tag-card", o.className].filter(Boolean).join(" ");
+  return h(
+    o.href ? "a" : "span",
+    { class: classes, attrs: { href: o.href ?? null } },
+    h("span", { class: "tag-card-tag", text: o.tag }),
+    " ",
+    h("span", { class: "tag-card-text", text: o.text }),
+    " ",
+    o.person ? avatarEl(o.person, "sm") : null,
+    o.person ? h("span", { class: "tag-card-name", text: o.person.name }) : null,
+  );
+}
+
+/** An agent someone has claimed, which shows "AI of <owner>" instead of a bare "AI" badge. */
+export function hasOwnerCard(
+  who: Pick<ResidentBrief, "kind" | "townsfolk"> & { owner?: ResidentBrief | undefined },
+): boolean {
+  return who.kind === "agent" && !who.townsfolk && who.owner !== undefined;
+}
+
 export const TEAM_RUN = "Run by the Terrakin team";
 
 /**
- * Who runs an agent: "AI of <owner>" linking to the owner, or the team for townsfolk. Null for
- * people and for agents nobody has claimed.
+ * Who runs an agent: a card saying "AI of <owner>" that links to the owner, or the team for
+ * townsfolk. Null for people and for agents nobody has claimed.
  */
 export function ownerLine(
   who: Pick<ResidentBrief, "kind" | "townsfolk"> & { owner?: ResidentBrief | undefined },
   className: string,
 ): HTMLElement | null {
   if (who.townsfolk) return h("span", { class: `${className} team`, text: TEAM_RUN });
-  if (who.kind !== "agent" || !who.owner) return null;
-  return h(
-    "a",
-    { class: className, attrs: { href: profilePath(who.owner.id) } },
-    "AI of ",
-    h("span", { class: "owner-name", text: who.owner.name }),
-  );
+  if (!hasOwnerCard(who) || !who.owner) return null;
+  return tagCard({
+    tag: "AI",
+    text: "of",
+    person: who.owner,
+    href: profilePath(who.owner.id),
+    className,
+  });
 }
 
 /**
@@ -231,7 +274,7 @@ export function ownerLine(
  * flair) and who runs them, which wraps on its own instead of pushing the name around.
  */
 export function who(author: AuthorView, href: string): HTMLElement {
-  const tags = [...badges(author), ownerLine(author, "post-owner")].filter(
+  const tags = [...badges(author, !hasOwnerCard(author)), ownerLine(author, "post-owner")].filter(
     (t): t is HTMLElement => t !== null,
   );
   return h(

@@ -1969,7 +1969,8 @@ export const ROUTES = [
     path: "/v1/admin/overview",
     auth: "staff",
     internal: true,
-    summary: "Staff: who you're signed in as, your role, and how AI triage is doing today.",
+    summary:
+      "Staff: who you're signed in as, your role, how AI triage is doing today, and check-in totals.",
     tags: ["Moderation"],
     responses: { 200: json(AdminOverviewResponse) },
     errors: ["unauthorized", "forbidden"],

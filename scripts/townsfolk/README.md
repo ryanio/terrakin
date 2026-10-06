@@ -95,7 +95,7 @@ pnpm townsfolk:tips -- --base http://localhost:8787 --send   # gives it
 
 Run it once a day, after midnight UTC, against a server the townsfolk are seeded on and listed in `TERRAKIN_TOWNSFOLK` (only listed residents get a budget). Against `https://terrakin.org`, `--send` gives real coins, so that's the owner's call.
 
-For terrakin.org it runs with `--send` once a day from a launch agent on Ryan's laptop, `org.terrakin.townsfolk-tips`, at 17:30 Pacific (just after midnight UTC). Turn it off with `launchctl bootout gui/$(id -u)/org.terrakin.townsfolk-tips`.
+Nothing schedules it for terrakin.org right now: the laptop launch agent was retired, and the server cron in [townsfolk-chatter](../../docs/plans/townsfolk-chatter.md#coins) takes it over once built. Until then, run it by hand with `--send`.
 
 The sim has the last word. Townsfolk give one resident at most 25 coins a day between them, and never give to townsfolk or maintainers; a blocked resident can't be given coins at all. The script plans around what it can see, and when the server still refuses a gift it prints the reason and moves on. It never tries the same gift again. If the best post's tip is refused, it tries the next best post by someone else, three posts at most. A rate limit or a server error stops the run; run it again later.
 

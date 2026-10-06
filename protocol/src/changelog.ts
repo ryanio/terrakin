@@ -49,6 +49,12 @@ export const ChangelogEntry = z.object({
       "One to three short lines of Markdown: what it is, how to use it, and for a deprecation what to move to.",
     ),
   links: z.array(z.string()).describe("Absolute URLs the entry links to, in order."),
+  try: z
+    .string()
+    .optional()
+    .describe(
+      'One example to try, as one line of Markdown with the call in a code span, like `{"type": "putter"}` with `POST /v1/actions`. Present on entries that add or change something you can do.',
+    ),
   removal: z
     .string()
     .optional()
@@ -105,6 +111,8 @@ const ENTRY = /^- \*\*([A-Za-z]+)\*\* (.+)$/;
 const BODY = /^ {2}(\S.*)$/;
 const FINGERPRINT = /^<!-- api-fingerprint: ([0-9a-f]{12}), (\d+) entr(?:y|ies) -->$/;
 const REMOVAL = /Earliest removal: (\d{4}-\d{2}-\d{2})/;
+/** An entry's optional last line: one example to try, with the call in a code span. */
+const TRY = /^Try: (.+)$/;
 
 /** `2026-10-04` if it is a real day in that form. */
 function isDay(text: string): boolean {
@@ -158,12 +166,19 @@ export function parseChangelog(text: string, file = "CHANGELOG.md"): Changelog {
   const ids = new Set<string>();
   let day: ChangelogDay | undefined;
   let entry:
-    | { at: number; date: string; kind: ChangelogKind; title: string; body: string[] }
+    | {
+        at: number;
+        date: string;
+        kind: ChangelogKind;
+        title: string;
+        body: string[];
+        try?: string;
+      }
     | undefined;
 
   const finishEntry = () => {
     if (!entry || !day) return;
-    const { at, date, kind, title, body } = entry;
+    const { at, date, kind, title, body, try: example } = entry;
     entry = undefined;
     if (body.length === 0) {
       fail(at, `"${title}" needs 1 to ${BODY_LINES} lines under it, indented two spaces.`);
@@ -190,6 +205,7 @@ export function parseChangelog(text: string, file = "CHANGELOG.md"): Changelog {
       title,
       body: joined,
       links: linksIn(`${title}\n${joined}`),
+      ...(example ? { try: example } : {}),
       ...(kind === "deprecated" && removal ? { removal } : {}),
     });
   };
@@ -245,6 +261,15 @@ export function parseChangelog(text: string, file = "CHANGELOG.md"): Changelog {
     }
     const body = BODY.exec(line);
     if (body && entry) {
+      if (entry.try !== undefined) fail(at, `"${entry.title}": the Try line goes last.`);
+      const example = TRY.exec(body[1] ?? "");
+      if (example) {
+        const text = (example[1] ?? "").trimEnd();
+        if (!text.includes("`")) fail(at, "a Try line holds its example call in a code span.");
+        if (text.length > LINE_MAX) fail(at, `lines are at most ${LINE_MAX} characters.`);
+        entry.try = text;
+        return;
+      }
       if (entry.body.length === BODY_LINES) {
         fail(at, `"${entry.title}" has more than ${BODY_LINES} lines. Say it shorter.`);
       }
@@ -340,7 +365,13 @@ export function changelogPage(log: Changelog): string {
   for (const day of log.days) {
     lines.push("", `## ${day.date}`);
     for (const e of day.entries) {
-      lines.push("", `### ${kindName(e.kind)}: ${e.title}`, "", e.body.split("\n").join(" "));
+      const body = e.body.split("\n").join(" ");
+      lines.push(
+        "",
+        `### ${kindName(e.kind)}: ${e.title}`,
+        "",
+        e.try ? `${body} Try: ${e.try}` : body,
+      );
     }
   }
   lines.push(
@@ -378,7 +409,7 @@ export function changelogAtom(log: Changelog): string {
       `    <updated>${stamp(e.date)}</updated>`,
       `    <link rel="alternate" type="text/html" href="${page}#${e.date}"/>`,
       `    <category term="${e.kind}" label="${kindName(e.kind)}"/>`,
-      `    <summary type="text">${escapeXml(e.body)}</summary>`,
+      `    <summary type="text">${escapeXml(e.try ? `${e.body}\nTry: ${e.try}` : e.body)}</summary>`,
       "  </entry>",
     ]),
     "</feed>",

@@ -9,6 +9,6 @@
 | [handbook.md](handbook.md) | How we work: principles, process, roles, memory. |
 | [rfcs/](rfcs/README.md) | Public proposals for big changes. |
 | [guides/](guides/getting-started.md) | Guides published at terrakin.org/docs. |
-| [site/](site/) | The about, privacy, contact, pricing, and auth pages on terrakin.org. |
+| [site/](site/) | The about, terms, privacy, contact, pricing, and auth pages on terrakin.org. |
 | [devlog/](devlog/) | Dated public updates. Snapshots, not kept current. |
 | [knowledge/](knowledge/INDEX.md) | Decisions, learnings, and session handoffs. |

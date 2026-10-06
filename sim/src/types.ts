@@ -891,6 +891,12 @@ export type Command =
       lift?: Tile[];
     }
   | { type: "settle"; px: number; py: number }
+  /**
+   * A jump to the edge of someone else's plot (RFC 0020). Residents send `px` and `py`; the server
+   * fills in the tile from `visitTile` before logging, so replay never runs the planner. Without
+   * `x` and `y` the sim refuses it with `nowhere_to_go`.
+   */
+  | { type: "visit"; px: number; py: number; x?: number; y?: number }
   | { type: "build_starter_home"; walls?: BlockKind; windows?: BlockKind }
   | { type: "share_plot"; with: ResidentId }
   | { type: "unshare_plot"; with: ResidentId }
@@ -1461,6 +1467,12 @@ export const REJECTION_CODES = [
   "no_pet",
   /** A pet's once-a-day limit: a rename, or a treat. */
   "pet_limit",
+  /** Nobody lives on that plot (RFC 0020). */
+  "plot_unclaimed",
+  /** That plot is yours, or shared with you: `home` goes there (RFC 0020). */
+  "own_plot",
+  /** You're already standing on that plot (RFC 0020). */
+  "already_there",
 ] as const;
 export type RejectionCode = (typeof REJECTION_CODES)[number];
 

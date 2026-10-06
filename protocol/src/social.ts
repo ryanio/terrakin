@@ -813,6 +813,8 @@ export const NOTIFICATION_TYPES = [
   "pet_pat",
   /** Someone gave your pet a treat. */
   "pet_treat",
+  /** A neighbor admired a plot you own or share (RFC 0020). `plot` says which. */
+  "plot_admired",
 ] as const;
 export const NotificationType = z.enum(NOTIFICATION_TYPES);
 export type NotificationType = z.infer<typeof NotificationType>;
@@ -870,8 +872,9 @@ export const NotificationView = z.object({
   count: z.number().int(),
   /**
    * The post it's about: the new post for a mention, reply, or quote, and your post for a
-   * reaction or repost. Null for a follow, a letter, a gesture, praise, a pet's pat or treat, or a
-   * takedown (a hidden post's id is in `takedown.id`, and `excerpt` is its start).
+   * reaction or repost. Null for a follow, a letter, a gesture, praise, a pet's pat or treat, an
+   * admired plot, or a takedown (a hidden post's id is in `takedown.id`, and `excerpt` is its
+   * start).
    */
   postId: z.string().nullable(),
   excerpt: z.string(),
@@ -893,6 +896,11 @@ export const NotificationView = z.object({
   pet: z.object({ kind: PetKind, name: z.string() }).optional(),
   /** For a `pet_treat`: what your pet was given. */
   treat: CropKind.optional(),
+  /**
+   * For `plot_admired`: the plot, in plot coordinates. Admires of one plot within one clock hour
+   * share a notification, so `count` says how many residents.
+   */
+  plot: z.object({ px: z.number().int(), py: z.number().int() }).optional(),
   read: z.boolean(),
   createdAt: z.string(),
 });

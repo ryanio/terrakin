@@ -132,6 +132,7 @@ import type {
   WorldState,
 } from "./types";
 import { BLOCK_KINDS, RESIDENT_COLORS, RESIDENT_SHAPES, TOWN_ACTOR } from "./types";
+import { checkVisit } from "./visit";
 import { checkSolidBuildings, STEPS_GO, stepFrom, walkSteps, worldGround } from "./walk";
 import {
   canBuildOn,
@@ -1009,6 +1010,9 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return events;
       };
     }
+
+    case "visit":
+      return town(checkVisit(state, me, command));
 
     case "build_starter_home": {
       const plot = workingPlot(state, me, true);

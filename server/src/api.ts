@@ -22,6 +22,8 @@ import {
   type ModerationLogEntry,
   markdownError,
   markdownErrorCode,
+  type PlotSort,
+  type PlotView,
   type PostView,
   PROTOCOL_VERSION,
   type ProfileView,
@@ -61,6 +63,7 @@ import {
   heldAsideOf,
   isTownEvent,
   listingById,
+  type Plot,
   plotPlan,
   REPLAY_VERSION,
   routinesOf,
@@ -81,6 +84,7 @@ import { COOL_DOWN_MESSAGE, type Moderation } from "./moderation";
 import { OwnerService } from "./owner-service";
 import { partnerViews } from "./partners";
 import { type PlotPhotoRenderer, plotPhotoSpec } from "./plot-photo";
+import { plotViews } from "./plots";
 import { RateLimiters, type Take } from "./rate-limit";
 import { Routines, type RoutinesRun, runRoutines } from "./routines";
 import { SHOP_KEEPER_HANDLE, shopView } from "./shop";
@@ -403,6 +407,9 @@ function logged(outcome: SocialResult<ModerationLogEntry>) {
   return fromResult(outcome, (entry) => ({ status: 200 as const, body: { logged: entry } }));
 }
 
+/** A plot nobody lives on, and one left out for you, answer the same. */
+const NO_PLOT_TO_VISIT = "There's no plot to visit there.";
+
 /** Unknown, used, and expired invites all answer the same. */
 const INVITE_GONE = "This invite has expired or was already used. Ask for a fresh link.";
 type Handler<K extends RouteId> = (input: HandlerInput<K>) => Reply<K> | Promise<Reply<K>>;
@@ -565,6 +572,9 @@ export class Api {
       // makes the pet look happy on every screen that shows it.
       this.service.onPetTreated = (owner, by, kind) => layer.petTreated(owner, by, kind);
       layer.onPetPatted = (owner) => this.service.announce({ type: "pet_patted", owner });
+      // Plots to visit (RFC 0020): when each plot last changed, and who visited it.
+      this.service.onCommitted = (input, events) =>
+        layer.plots.noteCommitted(this.service.state, input, events);
       // Reports on a listing (decision 0056) read it from the world.
       layer.safety.listing = (id) => listingForReport(this.service.state, id);
       // Reports on a thing on display, or a piece (decision 0059), read it from the world too.
@@ -1214,6 +1224,21 @@ export class Api {
           }),
         };
       },
+      getPlots: ({ viewer, query }) => ({
+        status: 200,
+        body: { plots: this.plotsFor(viewer, query.sort).slice(0, query.limit) },
+      }),
+      getPlot: ({ viewer, params }) => {
+        const plot = this.plotsFor(viewer).find((p) => p.px === params.px && p.py === params.py);
+        return plot ? { status: 200, body: { plot } } : fail("not_found", NO_PLOT_TO_VISIT);
+      },
+      admirePlot: ({ viewer, params }) =>
+        fromResult(social().plots.admire(service.state, viewer, params.px, params.py), () => {
+          const plot = this.plotsFor(viewer).find((p) => p.px === params.px && p.py === params.py);
+          return plot
+            ? { status: 201 as const, body: { plot } }
+            : fail("not_found", NO_PLOT_TO_VISIT);
+        }),
       getCheckin: ({ viewer, query }) => {
         social().checkins.record(viewer);
         return {
@@ -2069,6 +2094,23 @@ export class Api {
       status: 200,
       body: { bounty: bountyView(this.service.state, b, (r) => this.social?.authorView(r)) },
     };
+  }
+
+  /**
+   * Plots to visit (RFC 0020) as `viewer` sees them, leaving out plots whose owner is suspended
+   * (like their gallery and stall) and plots of anyone blocked either way with the viewer.
+   */
+  private plotsFor(viewer: string | undefined, sort: PlotSort = "recent"): PlotView[] {
+    const layer = this.requireSocial();
+    const blocked = viewer === undefined ? new Set<string>() : layer.blockedWith(viewer);
+    const hidden = (plot: Plot) =>
+      layer.safety.suspendedUntil(plot.ownerId) !== undefined ||
+      [plot.ownerId, ...(plot.coOwners ?? [])].some((id) => blocked.has(id));
+    return plotViews(this.service.state, layer.plots.facts(viewer), (id) => layer.authorView(id), {
+      viewer,
+      hidden,
+      sort,
+    });
   }
 
   /** What the market's gate on listing reads from outside the sim: time in Terrakin and karma. */

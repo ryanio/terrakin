@@ -4,6 +4,7 @@
 - Date: 2026-10-06
 - Status: accepted (Ryan, 2026-10-06)
 - Discussion: none (accepted when it was asked for)
+- Decisions: [0091](../knowledge/decisions/0091-visit-is-a-jump-to-a-neighbor-s-door-logged-with-the-tile-th.md) (the visit and its tile), [0092](../knowledge/decisions/0092-admiring-a-plot-is-a-social-row-from-on-or-beside-it-once-a-.md) (admires, visitors, and changes)
 - Builds on: [decision 0009](../knowledge/decisions/0009-home-is-an-instant-jump-to-your-hearth.md) (home is a jump), [decision 0016](../knowledge/decisions/0016-settle-claims-a-first-plot-from-anywhere.md) (settle from anywhere), [decision 0044](../knowledge/decisions/0044-typos-get-did-you-mean-actions-take-dry-and-rejections-name-.md) (dry runs and next steps), [decision 0047](../knowledge/decisions/0047-praise-is-once-a-day-per-pair-kept-row-by-row-for-karma-with.md) (praise), [decision 0049](../knowledge/decisions/0049-putter-is-a-planned-short-walk-logged-as-its-steps-with-a-on.md) (a planned move logged as its outcome), [decision 0059](../knowledge/decisions/0059-pieces-are-made-things-from-your-own-uploads-shown-on-pedest.md) (galleries), [decision 0034](../knowledge/decisions/0034-townsfolk-fill-the-home-wall-only-while-real-activity-is-thin.md) (a thin home wall).
 
 ## Summary
@@ -120,7 +121,7 @@ Nothing in a `PlotView` is private: owners, co-owners, blocks, displays, and gal
 - The drawing is a canvas the browser paints from the world snapshot it already has (`GET /v1/world`): the ground in its biome, the owner's theme tint, blocks in their colors, the hearth, crops, and displays, with the world's own palette (`sim/src/palette.ts`). Each is 64 tiles on a small canvas and costs nothing to fetch. Plot photos (decision 0048) were the other choice; see Alternatives.
 - The home wall gets a "Plots to visit" card among the pulse cards: up to 4 plots that changed this week or have admirers, and that hold more than a bare starter hut. Following decision 0034, it counts real residents' plots only (townsfolk plots stay on the Visit page) and stays hidden until at least 3 qualify, so a quiet town shows nothing rather than a row of empty huts. The thresholds are constants in `client/src/visits.ts`, with tests.
 - In the world, while you stand on a plot that isn't yours, a small card shows whose plot it is, the week's visitors and admirers, Admire, and Next plot. Next plot visits the next one in the Visit page's order, so you can tour the town without leaving the world. Phones first: the card sits under the status line, out of the way of the d-pad and the actions.
-- Notifications show "Ivy admired your plot" (or "Ivy and 3 others"), linking to the plot in the world.
+- Notifications show "Ivy admired your plot" (or "Ivy and 3 others admired your plot"), linking to who admired it.
 
 ## Invariants
 

@@ -199,6 +199,17 @@ export function plotInBounds(config: WorldConfig, px: number, py: number): boole
 }
 
 /**
+ * How far a tile is from plot (px, py), in tiles, counted like reach (Chebyshev): 0 on the plot,
+ * 1 on a tile beside it (a corner's diagonal neighbor too), and so on.
+ */
+export function plotDistance(config: WorldConfig, tile: Tile, px: number, py: number): number {
+  const size = config.plotSize;
+  const dx = Math.max(px * size - tile.x, 0, tile.x - (px * size + size - 1));
+  const dy = Math.max(py * size - tile.y, 0, tile.y - (py * size + size - 1));
+  return Math.max(dx, dy);
+}
+
+/**
  * The center tile of a plot. On an even plot size it's the north-west of the middle four. With the
  * default plot size of 8 that is also where the starter home puts its hearth.
  */

@@ -34,6 +34,7 @@ const ICONS: Record<NotificationView["type"], IconName> = {
   takedown: "town",
   pet_pat: "paw",
   pet_treat: "paw",
+  plot_admired: "sparkle",
 };
 
 /** "Moss and 2 others reacted 🌱 to your post". Pure, so tests pin it. */
@@ -62,6 +63,7 @@ export function notificationLine(
     takedown: "took something of yours down",
     pet_pat: `patted ${petCalled(n.pet)}`,
     pet_treat: `gave ${petCalled(n.pet)} ${n.treat ? aThing(n.treat) : "a treat"}`,
+    plot_admired: "admired your plot",
   };
   return { who, what: what[n.type] };
 }

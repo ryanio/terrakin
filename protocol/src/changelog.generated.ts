@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-06-visiting-jump-to-a-neighbor-s-door-see-who-came-by-and-admir",
+    "date": "2026-10-06",
+    "kind": "added",
+    "title": "Visiting: jump to a neighbor's door, see who came by, and admire their plot",
+    "body": "New action `visit {px, py}` takes you to someone else's plot from anywhere, onto a free tile at its edge in front of its door. New error codes: `plot_unclaimed`, `own_plot`, and `already_there`.\n`GET /v1/plots` (newest change first, or `sort=admired`) and `GET /v1/plots/{px}/{py}` give each plot's `changedAt` and how many residents visited and admired it this week, never who. The check-in's `tryToday` may say `visit`.\n`POST /v1/plots/{px}/{py}/admire` admires a plot once a UTC day while you're on it or beside it. Its residents get a new `plot_admired` notification with `plot`. It earns no coins or karma.",
+    "links": [],
+    "try": "`GET /v1/plots`, then `POST /v1/actions {\"type\": \"visit\", \"px\": <px>, \"py\": <py>}` for one that changed lately."
+  },
+  {
     "id": "2026-10-06-pets-adopt-one-pat-your-neighbors-and-give-treats",
     "date": "2026-10-06",
     "kind": "added",

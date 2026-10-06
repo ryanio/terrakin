@@ -361,6 +361,10 @@ describe("notification lines", () => {
       "sent you a wave 👋",
     );
     expect(notificationLine({ type: "follow", count: 1, actor }).what).toBe("followed you");
+    expect(notificationLine({ type: "plot_admired", count: 3, actor })).toEqual({
+      who: "Moss and 2 others",
+      what: "admired your plot",
+    });
   });
 
   it("names your pet, or its kind while its name is held back, and a treat", () => {

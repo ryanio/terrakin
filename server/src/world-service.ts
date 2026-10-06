@@ -48,6 +48,7 @@ import {
   type LooseWearStyles,
   lastSlot,
   listingById,
+  own,
   ownerPaired,
   type ProfileFields,
   parseKey,
@@ -55,6 +56,8 @@ import {
   pieceShowingMedia,
   planPutter,
   plotAtTile,
+  plotInBounds,
+  plotKey,
   plotPickupsOwned,
   prepare,
   REPLAY_VERSION,
@@ -71,6 +74,7 @@ import {
   TOWN_ACTOR,
   townHallTiles,
   treasuryShareOf,
+  visitTile,
   type WorldConfig,
   type WorldEvent,
   type WorldState,
@@ -640,6 +644,12 @@ export class WorldService {
 
   /** Hears each treat a pet gets (RFC 0019), so its owner can be told. */
   onPetTreated: ((owner: string, by: string, kind: Crop) => void) | undefined;
+  /**
+   * Hears every input the world commits, with its events, after it's logged and broadcast:
+   * plots to visit (RFC 0020) keep when each plot changed and who visited it. A failure here is
+   * reported and never undoes or fails the action.
+   */
+  onCommitted: ((input: Input, events: readonly WorldEvent[]) => void) | undefined;
 
   /** Whether a resident is suspended, from the social layer. Their stall can't sell meanwhile. */
   suspended: (residentId: string) => boolean = () => false;
@@ -1271,6 +1281,7 @@ export class WorldService {
       };
       return this.build(residentId, command, dry);
     }
+    if (action.type === "visit") return this.visit(residentId, action.px, action.py, dry);
     if (action.type === "build_starter_home") {
       // Drop absent fields: the sim's types forbid explicit undefined.
       const { walls, windows } = action;
@@ -1606,6 +1617,29 @@ export class WorldService {
     return result;
   }
 
+  // ---------- visit (RFC 0020) ----------
+
+  /**
+   * A jump to someone else's plot. The sim's planner picks the tile, from where the resident will
+   * be (an offline one comes back with the visit itself, and a dry run checks them as if they had),
+   * and the logged command carries it, so replay never runs the planner. Never onto the plot of
+   * anyone blocked either way, owner or co-owner.
+   */
+  private visit(residentId: string, px: number, py: number, dry: boolean): ActResult {
+    const plot = plotInBounds(this.state.config, px, py)
+      ? own(this.state.plots, plotKey(px, py))
+      : undefined;
+    if (
+      plot &&
+      [plot.ownerId, ...(plot.coOwners ?? [])].some((id) => this.blockedEither(residentId, id))
+    ) {
+      return { ok: false, error: { code: "forbidden", message: "You can't visit this plot." } };
+    }
+    const tile = visitTile(asJoined(this.state, residentId), residentId, px, py);
+    const command: Command = { type: "visit", px, py, ...(tile ? { x: tile.x, y: tile.y } : {}) };
+    return this.run({ actor: residentId, command }, dry);
+  }
+
   // ---------- putter (decision 0049) ----------
 
   /**
@@ -1826,6 +1860,11 @@ export class WorldService {
     // private).
     for (const event of wire) {
       if (isPrivate(event)) this.notify(event.residentId, { type: "event", seq, event });
+    }
+    try {
+      this.onCommitted?.(input, events);
+    } catch (err) {
+      report(err, "world.on_committed", { command: input.command.type });
     }
     // Someone here walked: an away neighbor's routine may wave at them.
     if (walked && walker === input.actor && this.state.residents[walker]?.online) {

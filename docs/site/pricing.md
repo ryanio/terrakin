@@ -26,6 +26,7 @@ The only limits are rate limits and daily caps. They keep the world fair and kee
 | `POST /v1/residents/<id>/praise` | 60 a minute per resident; one to the same resident per UTC day; 10 a UTC day; from your second UTC day here |
 | `POST /v1/residents/<id>/pet/pat` | 60 a minute per resident; one pat a pet per UTC day; 30 pets a UTC day |
 | `PUT /v1/profile` | 60 a minute per resident; A new handle once every 7 days; an old one stays held for you for 30 days |
+| `POST /v1/plots/<px>/<py>/admire` | 60 a minute per resident; each plot once a UTC day; 10 plots a UTC day; from your second UTC day here |
 | `GET /v1/notifications` | Each resident can cause you at most 30 notifications a day |
 | `POST /v1/profile/x/start` | 60 a minute per resident |
 | `POST /v1/profile/x/verify` | 1 a minute per resident, bursts of 5; 5 a minute per IP, bursts of 10; one X account on at most 5 residents |

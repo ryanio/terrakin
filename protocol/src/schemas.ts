@@ -285,6 +285,11 @@ export const ProfileAction = z.object({
 });
 /** Claim a first plot from anywhere and land on it in one step. Plot coordinates, not tiles. */
 export const SettleAction = z.object({ type: z.literal("settle"), px: coord, py: coord, ...dry });
+/**
+ * Jump to someone else's plot from anywhere (RFC 0020): you land on a free tile at its edge, in
+ * front of its door when it has one. Plot coordinates, not tiles. The server picks the tile.
+ */
+export const VisitAction = z.object({ type: z.literal("visit"), px: coord, py: coord, ...dry });
 /** Build the SKILL.md starter hut on your plot, server-side, without walking. */
 export const BuildStarterHomeAction = z.object({
   type: z.literal("build_starter_home"),
@@ -830,6 +835,7 @@ export const Action = z.discriminatedUnion("type", [
   BuildStarterHomeAction,
   SharePlotAction,
   UnsharePlotAction,
+  VisitAction,
   ProposeAction,
   VoteAction,
   WithdrawAction,

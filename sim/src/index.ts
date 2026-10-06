@@ -257,6 +257,7 @@ export {
   votesCast,
 } from "./town";
 export * from "./types";
+export { plotHeart, visitTile } from "./visit";
 export {
   DIRECTIONS,
   directionOf,
@@ -297,6 +298,7 @@ export {
   isTownHallTile,
   plotAtTile,
   plotCenter,
+  plotDistance,
   plotInBounds,
   plotOf,
   plotsOwnedBy,

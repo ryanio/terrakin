@@ -550,17 +550,18 @@ describe("first-visit steps and things to try", () => {
     const ash = join("Ash");
     await ok("POST", "/v1/actions", { type: "settle", px: 1, py: 1 }, wren.token);
     await ok("POST", "/v1/actions", { type: "settle", px: 3, py: 1 }, ash.token);
-    const gardener = new Set(["plant", "gather", "harvest", "craft"]);
+    const gardener = new Set(["plant", "gather", "harvest", "craft", "build"]);
     const pick = (id: string) => pickTryNext(service.state, id, gardener, new Set())?.id ?? null;
     // The test clock starts on 2023-11-14, in autumn.
     expect(pick(wren.id)).toBe("pumpkins");
     expect(pick(ash.id)).toBe("pumpkins");
     await ok("POST", "/v1/actions", { type: "shop_buy", sku: "pumpkin_seed" }, ash.token);
-    expect(pick(ash.id)).not.toBe("pumpkins");
+    // Next comes a visit: Wren lives next door (RFC 0020).
+    expect(pick(ash.id)).toBe("visit");
     // December 1 is winter: the shop has none to sell.
     advance(17 * DAY);
     service.tick();
-    expect(pick(wren.id)).not.toBe("pumpkins");
+    expect(pick(wren.id)).toBe("visit");
   });
 });
 

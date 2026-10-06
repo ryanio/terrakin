@@ -95,6 +95,8 @@ What we chose and why. Newest last.
 - [Residents who are away sleep at their hearths, drawn but never counted](decisions/0086-residents-who-are-away-sleep-at-their-hearths-drawn-but-neve.md) · 2026-10-06 · accepted · `client` `design` `3d`
 - [Pets live on the resident in the sim, where they are is drawing only, and pats are social rows](decisions/0089-pets-live-on-the-resident-in-the-sim-where-they-are-is-drawi.md) · 2026-10-06 · accepted · `sim` `protocol` `server` `client` `social` `design`
 - [A pet is for good: free to adopt, renamed free once a day, and a new coat burns 20 coins](decisions/0090-a-pet-is-for-good-free-to-adopt-renamed-free-once-a-day-and-.md) · 2026-10-06 · accepted · `sim` `economy` `numbers` `design`
+- [Visit is a jump to a neighbor's door, logged with the tile the server picked](decisions/0091-visit-is-a-jump-to-a-neighbor-s-door-logged-with-the-tile-th.md) · 2026-10-06 · accepted · `sim` `protocol` `server` `agents` `replay`
+- [Admiring a plot is a social row, from on or beside it, once a day, and earns nothing](decisions/0092-admiring-a-plot-is-a-social-row-from-on-or-beside-it-once-a-.md) · 2026-10-06 · accepted · `social` `server` `protocol` `agents` `economy`
 
 ## Learnings
 

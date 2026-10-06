@@ -66,6 +66,7 @@ import { type MediaStore, privateMediaKey, sniffMediaType } from "./media";
 import { Moderation, type ReviewContext, refusal, type Surface } from "./moderation";
 import { httpArtReader, PartnerArtService } from "./partner-art";
 import { PetPatService, petDetail, readPetDetail } from "./pets";
+import { PlotVisits } from "./plots";
 import { PraiseService } from "./praise";
 import { NOT_SUSPENDED, SafetyService } from "./safety-service";
 import type { SqlExec } from "./sql-store";
@@ -562,6 +563,17 @@ export class SocialService {
       triage: options.triage,
     });
     this.events = new EventsSocial({ sql: this.sql, now: this.now });
+    this.plots = new PlotVisits({
+      sql: this.sql,
+      now: this.now,
+      exists: (id) => this.resident(id) !== undefined,
+      blockedEither: (a, b) => this.blockedEither(a, b),
+      household: (a, b) => (this.ownerOf(a) ?? a) === (this.ownerOf(b) ?? b),
+      ageDays: options.residentAgeDays ?? (() => Number.POSITIVE_INFINITY),
+      suspended: (id) => this.safety.suspendedUntil(id) !== undefined,
+      notify: (recipient, actor, plot) =>
+        this.notify(recipient, actor, "plot_admired", "", `${plot.px},${plot.py}`),
+    });
     this.karma = new KarmaService({
       sql: this.sql,
       now: this.now,
@@ -642,6 +654,8 @@ export class SocialService {
    * pet looks happy wherever it's drawn.
    */
   onPetPatted: ((owner: string) => void) | undefined;
+  /** Plots worth visiting (RFC 0020): who visited and admired each plot, and when it changed. */
+  readonly plots: PlotVisits;
   /** When residents check in, for the staff app's numbers. */
   readonly checkins: CheckinLog;
   /** What routines did while their residents were away, and each resident's last call (RFC 0009). */
@@ -1822,14 +1836,16 @@ export class SocialService {
       recipient,
       now,
     );
-    // Reactions and reposts on one post in an hour share a notification, and so do pats on a pet
-    // in a UTC day.
+    // Reactions and reposts on one post in an hour share a notification, and so do admires of one
+    // plot in an hour (its coordinates are the detail) and pats on a pet in a UTC day.
     const groupKey =
       type === "reaction" || type === "repost"
         ? `${type}:${postId}:${Math.floor(now / HOUR_MS)}`
-        : type === "pet_pat"
-          ? `pet_pat:${Math.floor(now / DAY_MS)}`
-          : "";
+        : type === "plot_admired"
+          ? `${type}:${detail}:${Math.floor(now / HOUR_MS)}`
+          : type === "pet_pat"
+            ? `pet_pat:${Math.floor(now / DAY_MS)}`
+            : "";
     const existing = groupKey
       ? this.rows(
           "SELECT id FROM notifications WHERE recipient = ? AND group_key = ?",
@@ -1961,6 +1977,7 @@ export class SocialService {
           ...(type === "reaction" && isReactionKey(detail) ? { reaction: detail } : {}),
           ...(type === "gesture" && isGestureKind(detail) ? { gesture: detail } : {}),
           ...(type === "pet_pat" || type === "pet_treat" ? petNotice(detail) : {}),
+          ...(type === "plot_admired" ? plotDetail(detail) : {}),
           read: Number(row.read) > 0,
           createdAt: new Date(Number(row.created_at)).toISOString(),
         },
@@ -2599,6 +2616,12 @@ const isReactionKey = (key: string): key is ReactionKey =>
 
 const isGestureKind = (kind: string): kind is GestureKind =>
   (GESTURE_KINDS as readonly string[]).includes(kind);
+
+/** A `plot_admired` notification's plot, stored as its `"px,py"` detail. */
+function plotDetail(detail: string): { plot: { px: number; py: number } } | Record<string, never> {
+  const m = /^(\d{1,5}),(\d{1,5})$/.exec(detail);
+  return m ? { plot: { px: Number(m[1]), py: Number(m[2]) } } : {};
+}
 
 /** The start of a post for a notification: one line, cut at a word near EXCERPT_CHARS. */
 export function excerpt(text: string): string {

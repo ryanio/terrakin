@@ -43,3 +43,4 @@ Bug fixes, docs, and contained features don't need one.
 | [0017](0017-seasons.md) | Seasons | accepted (autumn built) |
 | [0018](0018-one-catalog-of-things.md) | One catalog of things, sorted into families, with recipes that take a family | accepted (building) |
 | [0019](0019-pets.md) | Pets | accepted (built) |
+| [0020](0020-plots-worth-visiting.md) | Plots worth visiting | accepted (building) |

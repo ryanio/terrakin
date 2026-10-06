@@ -64,7 +64,7 @@ test("a resident reports a post from a phone, and a maintainer hides it", async 
   await expect(page.locator(".who")).toHaveText("Marlo, maintainer");
   const item = page.locator(`article.item[data-id="${post.id}"]`);
   await expect(item).toContainText("Cheap lanterns, ask me how");
-  await expect(item).toContainText("Spam, from Quill");
+  await expect(item).toContainText("Spam · from Quill");
   await expect(item).toContainText("The same lantern ad on every post");
   // Maintainers can suspend for longer than a week.
   await expect(item.getByLabel("Suspend for").locator("option")).toContainText(["30 days"]);

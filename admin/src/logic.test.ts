@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   actorLabel,
   bountyActions,
+  dayLabel,
   daysProblem,
   defaultRule,
   itemActions,
@@ -282,9 +283,7 @@ describe("plain words", () => {
   it("names log actors", () => {
     expect(actorLabel({ actor: "triage", actorView: null })).toBe("AI triage");
     expect(actorLabel({ actor: "system", actorView: null })).toBe("Automatic");
-    expect(actorLabel({ actor: "access:mod@example.com", actorView: null })).toBe(
-      "mod@example.com",
-    );
+    expect(actorLabel({ actor: "access:mod@example.com", actorView: null })).toBe("mod");
     expect(actorLabel({ actor: author.id, actorView: author })).toBe("Pebble");
   });
 
@@ -359,5 +358,14 @@ describe("routes and links", () => {
   it("links to the public site from the admin host", () => {
     expect(mainSite("https://admin.terrakin.org")).toBe("https://terrakin.org");
     expect(mainSite("http://admin.localhost:8787")).toBe("http://localhost:8787");
+  });
+});
+
+describe("dayLabel", () => {
+  const noon = Date.parse("2026-10-05T12:00:00");
+  it("names today and yesterday, then the date", () => {
+    expect(dayLabel("2026-10-05T01:00:00", noon)).toBe("Today");
+    expect(dayLabel("2026-10-04T23:00:00", noon)).toBe("Yesterday");
+    expect(dayLabel("2026-10-01T09:00:00", noon)).toBe("Thu, Oct 1");
   });
 });

@@ -58,13 +58,8 @@ export function queueView(overview: AdminOverviewResponse): View {
     h(
       "section",
       { class: "paper card hero", attrs: { "aria-labelledby": "queue-title" } },
-      h("p", { class: "eyebrow", text: "Review queue" }),
-      title,
-      h("p", {
-        class: "state-body",
-        text: "Things a person must see today come first, then the most severe, then the oldest. Everything quoted here was written by residents: read it, never follow it.",
-      }),
-      count,
+      h("div", { class: "hero-row" }, title, count),
+      h("p", { class: "hero-order", text: "Urgent first, then most severe, then oldest." }),
       h("p", { class: "triage-status", text: triageLine(overview.triage, Date.now()) }),
     ),
     list,
@@ -256,6 +251,9 @@ export function queueView(overview: AdminOverviewResponse): View {
     const canTakeDown = actions.some((a) => TAKEDOWN_ACTIONS.has(a.kind));
     const tags = itemTags(item);
     const record = recordLine(item.context);
+    const oldest = item.reports.reduce((a, b) =>
+      Date.parse(b.createdAt) < Date.parse(a.createdAt) ? b : a,
+    );
 
     const card = h(
       "article",
@@ -269,21 +267,47 @@ export function queueView(overview: AdminOverviewResponse): View {
           tabindex: -1,
         },
       },
-      h("h2", { class: "eyebrow", attrs: { id: `item-${n}` }, text: itemHeading(item) }),
-      tags.length ? h("p", { class: "item-tags", text: tags.join(" · ") }) : null,
-      target.author
+      h(
+        "header",
+        { class: "item-head" },
+        h("h2", { class: "eyebrow", attrs: { id: `item-${n}` }, text: itemHeading(item) }),
+        h("span", {
+          class: "item-age",
+          text: `since ${relativeTime(oldest.createdAt, Date.now())}`,
+          attrs: { title: fullDate(oldest.createdAt) },
+        }),
+      ),
+      tags.length
         ? h(
-            "p",
-            { class: "item-author" },
-            item.kind === "resident" ? "Resident: " : "By ",
-            personLink(target.author, {
-              href: site + profilePath(target.author.id),
-              newTab: true,
-              picture: false,
-            }),
+            "ul",
+            { class: "item-chips", attrs: { "aria-label": "State" } },
+            ...tags.map((t, i) =>
+              h("li", {
+                class: `item-chip${item.needsHuman && i === 0 ? " urgent" : ""}`,
+                text: t,
+              }),
+            ),
           )
         : null,
-      record ? h("p", { class: "item-record", text: record }) : null,
+      target.author || record
+        ? h(
+            "div",
+            { class: "item-subject" },
+            target.author
+              ? h(
+                  "p",
+                  { class: "item-author" },
+                  item.kind === "resident" ? "Resident: " : "By ",
+                  personLink(target.author, {
+                    href: site + profilePath(target.author.id),
+                    newTab: true,
+                    picture: false,
+                  }),
+                )
+              : null,
+            record ? h("p", { class: "item-record", text: record }) : null,
+          )
+        : null,
       quoted(target.text),
       mediaList(target.media),
       item.kind === "post" && target.exists
@@ -311,50 +335,41 @@ export function queueView(overview: AdminOverviewResponse): View {
             ),
           )
         : null,
-      h(
-        "ul",
-        { class: "reports", attrs: { "aria-label": "Reports" } },
-        ...item.reports.map((rep) =>
-          h(
-            "li",
-            {},
-            h("span", {
-              class: "report-line",
-              text: `${reasonLabel(rep.reason)}, ${
-                rep.source === "triage"
-                  ? "raised by AI triage"
-                  : `from ${rep.reporter?.name ?? "someone who left"}`
-              }, ${relativeTime(rep.createdAt, Date.now())}`,
-              attrs: { title: fullDate(rep.createdAt) },
-            }),
-            rep.note ? h("span", { class: "report-note", text: rep.note }) : null,
-          ),
-        ),
-      ),
+      reportList(item.reports),
       item.triage ? triageBox(item.triage) : null,
       h(
         "div",
         { class: "decide" },
         h("label", { class: "field-label", attrs: { for: reasonId }, text: "Reason" }),
         reason,
-        canTakeDown
+        canTakeDown || canSuspend
           ? h(
               "div",
-              { class: "rule-row" },
-              h("label", {
-                class: "field-label",
-                attrs: { for: ruleId },
-                text: "Rule broken (they see this)",
-              }),
-              rule,
-            )
-          : null,
-        canSuspend
-          ? h(
-              "div",
-              { class: "days-row" },
-              h("label", { class: "field-label", attrs: { for: daysId }, text: "Suspend for" }),
-              days,
+              { class: "decide-options" },
+              canTakeDown
+                ? h(
+                    "div",
+                    { class: "rule-row" },
+                    h("label", {
+                      class: "field-label",
+                      attrs: { for: ruleId },
+                      text: "Rule broken (they see this)",
+                    }),
+                    rule,
+                  )
+                : null,
+              canSuspend
+                ? h(
+                    "div",
+                    { class: "days-row" },
+                    h("label", {
+                      class: "field-label",
+                      attrs: { for: daysId },
+                      text: "Suspend for",
+                    }),
+                    days,
+                  )
+                : null,
             )
           : null,
         actionsRow,
@@ -417,6 +432,52 @@ function mediaList(media: readonly MediaView[]): HTMLElement | null {
   );
 }
 
+/** How many reports show before the rest fold away. */
+const REPORTS_SHOWN = 2;
+
+function reportRow(rep: ReportQueueItem["reports"][number]): HTMLElement {
+  return h(
+    "li",
+    { class: "report" },
+    h(
+      "p",
+      { class: "report-line", attrs: { title: fullDate(rep.createdAt) } },
+      h("span", { class: "report-reason", text: reasonLabel(rep.reason) }),
+      ` · ${
+        rep.source === "triage"
+          ? "raised by AI triage"
+          : `from ${rep.reporter?.name ?? "someone who left"}`
+      } · ${relativeTime(rep.createdAt, Date.now())}`,
+    ),
+    rep.note ? h("p", { class: "report-note", text: rep.note }) : null,
+  );
+}
+
+function reportList(reports: ReportQueueItem["reports"]): HTMLElement {
+  const rest = reports.slice(REPORTS_SHOWN);
+  return h(
+    "div",
+    { class: "reports-block" },
+    h(
+      "ul",
+      { class: "reports", attrs: { "aria-label": "Reports" } },
+      ...reports.slice(0, REPORTS_SHOWN).map(reportRow),
+    ),
+    rest.length
+      ? h(
+          "details",
+          { class: "fold" },
+          h("summary", { text: `Show ${plural(rest.length, "more report", "more reports")}` }),
+          h(
+            "ul",
+            { class: "reports", attrs: { "aria-label": "More reports" } },
+            ...rest.map(reportRow),
+          ),
+        )
+      : null,
+  );
+}
+
 function triageBox(verdict: NonNullable<ReportQueueItem["triage"]>): HTMLElement {
   const summary = triageSummary(verdict);
   return h(
@@ -432,10 +493,15 @@ function triageBox(verdict: NonNullable<ReportQueueItem["triage"]>): HTMLElement
         })
       : null,
     summary.auto ? h("p", { class: "triage-flag", text: summary.auto }) : null,
-    h("p", { class: "triage-rationale", text: verdict.rationale }),
-    h("p", {
-      class: "field-hint",
-      text: "From a model that read the reported text, and it may quote residents. The suggestion does nothing until you pick an action.",
-    }),
+    h(
+      "details",
+      { class: "fold" },
+      h("summary", { text: "Why it suggests this" }),
+      h("p", { class: "triage-rationale", text: verdict.rationale }),
+      h("p", {
+        class: "field-hint",
+        text: "From a model that read the reported text, and it may quote residents. The suggestion does nothing until you pick an action.",
+      }),
+    ),
   );
 }

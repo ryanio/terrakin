@@ -8,9 +8,9 @@ import { stateCard } from "@terrakin/ui/ui";
 import { api, SIGNED_OUT_EVENT, savedToken, saveToken } from "./api";
 import { bountiesView } from "./bounties-view";
 import { logView } from "./log-view";
-import { pathFor, type Screen, screenFor, screensFor, signedInAs } from "./logic";
+import { pathFor, type Screen, screenFor, screensFor } from "./logic";
 import { queueView } from "./queue-view";
-import { button, type View } from "./view";
+import { actorName, button, type View } from "./view";
 import "./style.css";
 
 /**
@@ -75,7 +75,12 @@ function paintTop(screen: Screen | undefined) {
       "div",
       { class: "column top-row" },
       brand,
-      h("p", { class: "who", text: signedInAs(me) }),
+      h(
+        "p",
+        { class: "who" },
+        actorName({ actor: me.actor, actorView: me.resident ?? null }),
+        `, ${me.role}`,
+      ),
       signOut,
     ),
     h(

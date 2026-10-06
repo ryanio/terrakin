@@ -2,14 +2,15 @@
 import type { ModerationLogView } from "@terrakin/protocol";
 import { h } from "@terrakin/ui/dom";
 import { fullDate, relativeTime } from "@terrakin/ui/format";
+import { ACTION_LABELS } from "@terrakin/ui/safety";
 import { moreButton, stateCard, whileBusy } from "@terrakin/ui/ui";
 import { api } from "./api";
-import { actorLabel, logHeadline, ruleLine } from "./logic";
-import { button, type View } from "./view";
+import { dayLabel, logTarget, ruleLine } from "./logic";
+import { actorName, button, type View } from "./view";
 
 export function logView(): View {
   const list = h("ol", {
-    class: "stack plain-list log-list",
+    class: "paper card plain-list log-list",
     attrs: { "aria-label": "Moderation log" },
   });
   const more = h("div", { class: "log-more" });
@@ -19,11 +20,10 @@ export function logView(): View {
     h(
       "section",
       { class: "paper card hero", attrs: { "aria-labelledby": "log-title" } },
-      h("p", { class: "eyebrow", text: "Moderation log" }),
-      h("h1", { class: "state-title", attrs: { id: "log-title" }, text: "What staff did" }),
+      h("h1", { class: "state-title", attrs: { id: "log-title" }, text: "Moderation log" }),
       h("p", {
-        class: "state-body",
-        text: "Every action by staff, AI triage, and the automatic rules, newest first. The log can't be edited or deleted.",
+        class: "hero-order",
+        text: "Staff, AI triage, and the automatic rules, newest first. It can't be edited or deleted.",
       }),
     ),
     list,
@@ -42,6 +42,8 @@ export function logView(): View {
     text: "Loading the log…",
   });
   let cursor: string | undefined;
+  /** The day heading last added, so a day split across pages gets one. */
+  let lastDay: string | undefined;
   const older = moreButton("Show older", () => load(cursor));
   more.append(loading, older.el, end);
 
@@ -72,8 +74,16 @@ export function logView(): View {
       more.replaceChildren(older.el, end);
       // A first page again (after Try again) starts the list over.
       list.replaceChildren();
+      lastDay = undefined;
     }
-    list.append(...res.data.entries.map(entryRow));
+    for (const entry of res.data.entries) {
+      const day = dayLabel(entry.at, Date.now());
+      if (day !== lastDay) {
+        list.append(h("li", { class: "log-day", text: day }));
+        lastDay = day;
+      }
+      list.append(entryRow(entry));
+    }
     cursor = res.data.next ?? undefined;
     older.el.hidden = cursor === undefined;
     end.hidden = cursor !== undefined;
@@ -90,14 +100,31 @@ export function logView(): View {
 }
 
 function entryRow(entry: ModerationLogView): HTMLElement {
-  const when = `${actorLabel(entry)}, ${relativeTime(entry.at, Date.now())}`;
+  const notes = [
+    entry.until ? `Until ${fullDate(entry.until)}` : null,
+    entry.rule ? ruleLine(entry.rule) : null,
+  ].filter((n): n is string => n !== null);
   return h(
     "li",
-    { class: "paper card log-entry", attrs: { "data-action": entry.action } },
-    h("p", { class: "log-headline", text: logHeadline(entry) }),
+    { class: "log-entry", attrs: { "data-action": entry.action } },
+    h(
+      "div",
+      { class: "log-top" },
+      h("span", { class: "log-headline", text: ACTION_LABELS[entry.action] }),
+      h("span", {
+        class: "log-time",
+        text: relativeTime(entry.at, Date.now()),
+        attrs: { title: fullDate(entry.at) },
+      }),
+    ),
+    h("p", { class: "log-meta" }, `${logTarget(entry)} · by `, actorName(entry)),
     entry.reason ? h("p", { class: "log-reason", text: entry.reason }) : null,
-    entry.until ? h("p", { class: "field-hint", text: `Until ${fullDate(entry.until)}` }) : null,
-    entry.rule ? h("p", { class: "field-hint", text: ruleLine(entry.rule) }) : null,
-    h("p", { class: "field-hint", text: when, attrs: { title: fullDate(entry.at) } }),
+    notes.length
+      ? h(
+          "ul",
+          { class: "item-chips" },
+          ...notes.map((n) => h("li", { class: "item-chip", text: n })),
+        )
+      : null,
   );
 }

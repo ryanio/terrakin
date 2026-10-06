@@ -363,27 +363,48 @@ export function triageSummary(verdict: TriageVerdictView): {
   return { suggestion, detail, auto };
 }
 
-/** Who did something in the log. Staff see each other's sign-in emails; that's how they're named. */
+/** A staff sign-in's short name: the part of the email before the "@". */
+export const shortStaffName = (email: string) => email.split("@")[0] || email;
+
+/** The sign-in email behind a staff actor, for a tooltip. Undefined for everyone else. */
+export function actorEmail(entry: Pick<ModerationLogView, "actor">): string | undefined {
+  return entry.actor.startsWith("access:") ? entry.actor.slice("access:".length) : undefined;
+}
+
+/** Who did something in the log. A staff sign-in shows as the part of its email before the "@". */
 export function actorLabel(entry: Pick<ModerationLogView, "actor" | "actorView">): string {
   if (entry.actor === "triage") return "AI triage";
   if (entry.actor === "system") return "Automatic";
-  if (entry.actor.startsWith("access:")) return entry.actor.slice("access:".length);
+  const email = actorEmail(entry);
+  if (email) return shortStaffName(email);
   return entry.actorView?.name ?? entry.actor;
 }
 
 /** "Hid a post · post p_1", with the end date for a suspension. */
 export function logHeadline(entry: ModerationLogView): string {
-  return `${ACTION_LABELS[entry.action]} · ${KIND_WORDS[entry.kind].toLowerCase()} ${entry.id}`;
+  return `${ACTION_LABELS[entry.action]} · ${logTarget(entry)}`;
+}
+
+/** "Today", "Yesterday", or "Mon, Oct 5": the heading a day of log entries sits under. */
+export function dayLabel(iso: string, nowMs: number): string {
+  const day = (ms: number) => new Date(ms).toDateString();
+  const at = Date.parse(iso);
+  if (day(at) === day(nowMs)) return "Today";
+  if (day(at) === day(nowMs - 86_400_000)) return "Yesterday";
+  return new Date(at).toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+/** What a log entry acted on, like "post p_1". */
+export function logTarget(entry: Pick<ModerationLogView, "kind" | "id">): string {
+  return `${KIND_WORDS[entry.kind].toLowerCase()} ${entry.id}`;
 }
 
 /** The rule a takedown's owner was told it broke: "Rule told to them: Spam". */
 export const ruleLine = (rule: ReportReason) => `Rule told to them: ${reasonLabel(rule)}`;
-
-/** Who's signed in, for the top bar. */
-export function signedInAs(me: AdminOverviewResponse["me"]): string {
-  const name = me.resident?.name ?? actorLabel({ actor: me.actor, actorView: null });
-  return `${name}, ${me.role}`;
-}
 
 /** How AI triage is doing today, in one line. */
 export function triageLine(t: AdminOverviewResponse["triage"], nowMs: number): string {

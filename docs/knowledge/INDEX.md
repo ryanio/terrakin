@@ -121,6 +121,7 @@ What we chose and why. Newest last.
 - [Townsfolk chatter goes live every run, one townsfolk at a time, and reacts, praises, admires plots, and waves](decisions/0114-townsfolk-chatter-goes-live-every-run-one-townsfolk-at-a-tim.md) · 2026-10-06 · accepted · `server` `agents` `social` `admin` `economy`
 - [Winter's numbers: cranberries, hot cranberry punch, winter decor, the town's winter buys, and Midwinter's candy canes](decisions/0124-winter-s-numbers-cranberries-hot-cranberry-punch-winter-deco.md) · 2026-10-06 · accepted · `sim` `economy` `numbers` `seasons` `holidays`
 - [Gather with no tile picks up everything within reach, north to south, as far as there is room](decisions/0125-gather-with-no-tile-picks-up-everything-within-reach-north-t.md) · 2026-10-06 · accepted · `sim` `protocol` `server` `client` `agents` `replay`
+- [Town Hall builds keep the game tables' spots clear, from a logged keep_table_spots](decisions/0126-town-hall-builds-keep-the-game-tables-spots-clear-from-a-log.md) · 2026-10-06 · accepted · `sim` `server` `protocol` `town` `games` `replay`
 
 ## Learnings
 

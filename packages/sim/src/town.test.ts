@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { apply, prepare } from "./apply";
 import { COMMONS_CONFIG, COMMONS_HASH, COMMONS_LOG } from "./fixtures/commons-log";
 import { PRE_TOWN_CONFIG, PRE_TOWN_HASH, PRE_TOWN_LOG } from "./fixtures/pre-town-log";
+import { TABLE_SPOTS_CONFIG, TABLE_SPOTS_HASH, TABLE_SPOTS_LOG } from "./fixtures/table-spots-log";
 import { hashWorld } from "./hash";
 import { replay } from "./replay";
 import { electorate, quorum, TOWN_LIMITS, townEligibility, votesCast } from "./town";
@@ -13,7 +14,7 @@ import {
   TOWN_ACTOR,
   type WorldConfig,
 } from "./types";
-import { createWorld, shopTiles, townHallTiles } from "./world";
+import { createWorld, DEFAULT_CONFIG, gameTableTiles, shopTiles, townHallTiles } from "./world";
 
 // 3x3 plots of 8 tiles. The Commons is plot (1,1), tiles 8..15; spawn is (12,12). The Town Hall
 // stands on (11..13, 8..9).
@@ -835,6 +836,109 @@ describe("void_proposal", () => {
     expect(w.code(TOWN_ACTOR, { type: "void_proposal", proposal: "t_1", by: "r_admin" })).toBe(
       "proposal_not_open",
     );
+  });
+});
+
+describe("game table spots (decision 0126)", () => {
+  // In this world the spots are (9, 10), (14, 10), (9, 13), and (14, 13).
+  const keep = (w: ReturnType<typeof world>) =>
+    expect(w.ok(TOWN_ACTOR, { type: "keep_table_spots" })).toEqual([{ type: "table_spots_kept" }]);
+
+  it("are pinned: once they're kept, a build's blocks replay only while the spots stay put", () => {
+    expect(gameTableTiles(CONFIG)).toEqual([
+      { x: 9, y: 10 },
+      { x: 14, y: 10 },
+      { x: 9, y: 13 },
+      { x: 14, y: 13 },
+    ]);
+    expect(gameTableTiles(DEFAULT_CONFIG)).toEqual([
+      { x: 33, y: 34 },
+      { x: 38, y: 34 },
+      { x: 33, y: 37 },
+      { x: 38, y: 37 },
+    ]);
+  });
+
+  it("take a build's block before the server logs keep_table_spots, as builds always did, and refuse one after", () => {
+    const w = town("ada", "bob", "cy");
+    // Before the switch a block on a spot files, so builds logged then replay as they were made.
+    expect(
+      w.propose("ada", {
+        kind: "commons_build",
+        title: "A lamp",
+        blocks: [{ x: 9, y: 13, block: "lamp_post" }],
+      }),
+    ).toMatchObject({ ok: true });
+    keep(w);
+    const refused = w.propose("bob", {
+      kind: "commons_build",
+      title: "A bench",
+      blocks: [{ x: 14, y: 10, block: "bench" }],
+    });
+    expect(refused).toMatchObject({ ok: false, rejection: { code: "invalid_proposal" } });
+    expect(refused.ok ? "" : refused.rejection.message).toBe(
+      "(14, 10) is one of the four spots where game tables stand. Keep it clear for them: a path can go there, a block can't.",
+    );
+    // A dry run answers the same, and a path still goes on a spot.
+    expect(
+      w.code("bob", {
+        type: "propose",
+        kind: "commons_build",
+        title: "A stone",
+        text: "",
+        blocks: [{ x: 9, y: 10, block: "stone" }],
+      }),
+    ).toBe("invalid_proposal");
+    expect(
+      w.propose("bob", {
+        kind: "commons_build",
+        title: "Moss",
+        ground: [{ x: 14, y: 10, ground: "moss" }],
+      }),
+    ).toMatchObject({ ok: true });
+  });
+
+  it("skip a block on a spot when a build filed before the switch closes after it", () => {
+    const w = town("ada", "bob", "cy");
+    const plan: PlannedBlock[] = [
+      { x: 9, y: 13, block: "glass" },
+      { x: 10, y: 13, block: "glass" },
+    ];
+    w.propose("ada", { kind: "commons_build", title: "A fountain", blocks: plan });
+    for (const who of ["ada", "bob", "cy"]) w.vote(who, "t_1", "yes");
+    keep(w);
+    w.day(DAY + 5);
+    expect(w.close("t_1")).toMatchObject({
+      events: [
+        { status: "passed" },
+        { type: "block_placed", x: 10, y: 13, block: "glass", by: "t_1" },
+        {
+          type: "town_built",
+          placed: [{ x: 10, y: 13, block: "glass" }],
+          skipped: [{ x: 9, y: 13 }],
+        },
+      ],
+    });
+    expect(w.state.blocks["9,13"]).toBeUndefined();
+  });
+
+  it("are kept only by the server, once", () => {
+    const w = town("ada");
+    expect(w.code("ada", { type: "keep_table_spots" })).toBe("server_only");
+    keep(w);
+    expect(w.state.tableSpotsKept).toBe(true);
+    expect(w.code(TOWN_ACTOR, { type: "keep_table_spots" })).toBe("already_open");
+  });
+
+  it("replay a log with builds on both sides of the switch to its pinned hash", () => {
+    const state = replay(TABLE_SPOTS_CONFIG, TABLE_SPOTS_LOG);
+    expect(hashWorld(state)).toBe(TABLE_SPOTS_HASH);
+    // Bob's bench filed before the switch and closed after it stayed off its spot; its moss went.
+    expect(state.blocks).toMatchObject({ "13,11": "bench" });
+    expect(state.blocks["14,10"]).toBeUndefined();
+    expect(state.ground?.["14,10"]).toBe("moss");
+    // Ada's lamp post went up before the switch, and Cy's build took it off after.
+    expect(state.blocks["9,13"]).toBeUndefined();
   });
 });
 

@@ -15,6 +15,7 @@ import {
   GAMES,
   GROUND_INFO,
   GROUND_KINDS,
+  gameTableTiles,
   groundCostWords,
   HAIR_COLORS,
   HAIR_STYLES,
@@ -850,6 +851,15 @@ describe("SKILL.md building", () => {
 });
 
 describe("SKILL.md Town Hall", () => {
+  it("names the default world's game table spots, which builds keep clear, as the sim has them", () => {
+    const section = skill.slice(skill.indexOf("## Town Hall"), skill.indexOf("## Events"));
+    const spots = gameTableTiles(DEFAULT_CONFIG).map((t) => `(${t.x}, ${t.y})`);
+    expect(spots).toHaveLength(4);
+    expect(section).toContain(
+      `in the default world ${spots.slice(0, -1).join(", ")}, and ${spots.at(-1)}`,
+    );
+  });
+
   it("has a Commons build that files on the default world and builds whole when it passes", () => {
     const section = skill.slice(skill.indexOf("## Town Hall"));
     const [json] = [...section.matchAll(/```json\n(\{"type": "propose"[\s\S]*?)\n```/g)].map(
@@ -881,6 +891,7 @@ describe("SKILL.md Town Hall", () => {
     act(TOWN_ACTOR, { type: "open_economy" });
     act(TOWN_ACTOR, { type: "open_items" });
     act(TOWN_ACTOR, { type: "open_shop" });
+    act(TOWN_ACTOR, { type: "keep_table_spots" });
     act("newcomer", { type: "join", name: "Wren", kind: "human" });
     expect(world.residents.newcomer).toMatchObject(spawnTile(DEFAULT_CONFIG));
     act(TOWN_ACTOR, { type: "new_day", day: 20_003 });

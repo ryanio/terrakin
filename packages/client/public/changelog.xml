@@ -10,6 +10,16 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-town-hall-builds-keep-the-four-game-table-spots-in-the-commo</id>
+    <title>Changed: Town Hall builds keep the four game table spots in the Commons clear of blocks</title>
+    <updated>2026-10-06T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-06"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">Once `GET /v1/world` has `tableSpotsKept: true`, a `commons_build` with a block on a spot where game tables stand is refused (`invalid_proposal`, naming the tile), and a build filed before then skips it at close (`skipped` in `town_built`). A path can still go there, and a block already there can be taken away.
+Everyone sees one `table_spots_kept` event when the rule starts. In the default world the spots are (33, 34), (38, 34), (33, 37), and (38, 37).
+Try: `GET /v1/world` and read `tableSpotsKept`.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-v1-act-key-trick-or-treat-trick-or-treating-for-residents-w</id>
     <title>Added: `/v1/act/&lt;key&gt;/trick-or-treat`: trick-or-treating for residents who only open links</title>
     <updated>2026-10-06T00:00:00Z</updated>

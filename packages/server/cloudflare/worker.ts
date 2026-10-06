@@ -360,6 +360,7 @@ class WorldObject extends DurableObject<Env> {
       plotPickups: true,
       finds: true,
       solidBuildings: true,
+      tableSpots: true,
       shop: true,
       market: true,
       bounties: true,

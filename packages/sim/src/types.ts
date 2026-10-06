@@ -343,6 +343,12 @@ export interface WorldState {
    */
   solidBuildings?: true;
   /**
+   * A Town Hall build puts no block on the four spots where game tables stand (`gameTableTiles`),
+   * from the server's `keep_table_spots` on (decision 0126). Absent until then, so builds filed
+   * and closed before it replay as they were made, blocks on the spots included.
+   */
+  tableSpotsKept?: true;
+  /**
    * Paths and floors (RFC 0016), keyed by tileKey(x, y): one per tile, under whatever block stands
    * there. Nobody walks differently for it. Absent until the first `lay` or `build` lays one.
    */
@@ -1228,6 +1234,8 @@ export type Command =
   | { type: "open_finds" }
   /** From now on, nobody walks onto the Town Hall or the shop. Anyone on one steps off. */
   | { type: "solid_buildings" }
+  /** From now on, a Town Hall build puts no block on a game table's spot (decision 0126). */
+  | { type: "keep_table_spots" }
   | { type: "open_shop" }
   /** The treasury's share of shop spending from now on, in percent; the rest is burned. */
   | { type: "set_shop_share"; percent: number }
@@ -1358,6 +1366,7 @@ export const SERVER_COMMANDS = [
   "void_event",
   "close_round",
   "close_table",
+  "keep_table_spots",
 ] as const satisfies readonly CommandType[];
 
 /** A command plus who issued it. This is the unit the server logs and replays. */
@@ -1472,6 +1481,8 @@ export type WorldEvent =
   | { type: "finds_opened" }
   /** `solid_buildings` turned on: the Town Hall and the shop stop walkers from now on. */
   | { type: "buildings_solid" }
+  /** `keep_table_spots` turned on: Town Hall builds keep the game tables' spots clear. Public. */
+  | { type: "table_spots_kept" }
   | { type: "shop_opened" }
   | { type: "market_opened" }
   /** Something went up for sale. Public: the market is. Made things carry their makers' labels. */

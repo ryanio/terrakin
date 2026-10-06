@@ -129,7 +129,14 @@ import {
   type ShopChecked,
   shopNewDay,
 } from "./shop";
-import { checkPropose, checkTown, isActivity, isServerCommand, type TownChecked } from "./town";
+import {
+  checkKeepTableSpots,
+  checkPropose,
+  checkTown,
+  isActivity,
+  isServerCommand,
+  type TownChecked,
+} from "./town";
 import type {
   ApplyResult,
   Command,
@@ -648,6 +655,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return town(checkOpenFinds(state));
       case "solid_buildings":
         return town(checkSolidBuildings(state));
+      case "keep_table_spots":
+        return town(checkKeepTableSpots(state));
       case "open_shop":
         return town(checkOpenShop(state));
       case "set_shop_share":

@@ -1,15 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { apply } from "./apply";
 import { GAMES_CONFIG, GAMES_HASH, GAMES_LOG } from "./fixtures/games-log";
-import {
-  activeTable,
-  GAMES,
-  gameTableTiles,
-  ladderRows,
-  ratingOf,
-  roundBoards,
-  tableById,
-} from "./games";
+import { activeTable, GAMES, ladderRows, ratingOf, roundBoards, tableById } from "./games";
 import { canonicalJson, hashWorld } from "./hash";
 import { replay } from "./replay";
 import {
@@ -21,7 +13,7 @@ import {
   type WorldConfig,
   type WorldEvent,
 } from "./types";
-import { chebyshev, createWorld } from "./world";
+import { chebyshev, createWorld, gameTableTiles } from "./world";
 
 // 3x3 plots of 8 tiles; the Commons is plot (1,1).
 const CONFIG: WorldConfig = {

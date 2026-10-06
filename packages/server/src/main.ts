@@ -78,6 +78,7 @@ const service = new WorldService({
   plotPickups: true,
   finds: true,
   solidBuildings: true,
+  tableSpots: true,
   shop: true,
   market: true,
   bounties: true,

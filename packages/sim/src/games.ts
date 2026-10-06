@@ -17,22 +17,12 @@ import type {
   ResidentId,
   ResidentKind,
   Tile,
-  WorldConfig,
   WorldEvent,
   WorldState,
 } from "./types";
 import { GAME_KINDS, GAME_PACES } from "./types";
 import { worldGround } from "./walk";
-import {
-  canBuildOn,
-  chebyshev,
-  commonsPlot,
-  inBounds,
-  isShopTile,
-  isTownHallTile,
-  plotOf,
-  spawnTile,
-} from "./world";
+import { canBuildOn, chebyshev, commonsPlot, gameTableTiles, inBounds } from "./world";
 
 /**
  * Party games (RFC 0011): short games at tables in the Commons, where the server plays the seat
@@ -124,32 +114,6 @@ type Mutation = () => WorldEvent[];
 export type GamesChecked = Mutation | Rejection;
 
 // ---------- where tables stand ----------
-
-/**
- * Where game tables stand: four spots in the Commons, two on each side of the square between the
- * Town Hall and the shop, clear of both and of the spawn tile. They don't stop walkers, so the
- * ground plays no part in how older logs replay. A new table takes the first free spot.
- */
-export function gameTableTiles(config: WorldConfig): Tile[] {
-  const { plotSize } = config;
-  const c = commonsPlot(config);
-  const x0 = c.px * plotSize;
-  const y0 = c.py * plotSize;
-  const spawn = spawnTile(config);
-  const tiles: Tile[] = [];
-  for (const dy of [2, plotSize - 3]) {
-    for (const dx of [1, plotSize - 2]) {
-      const t = { x: x0 + dx, y: y0 + dy };
-      const p = plotOf(config, t.x, t.y);
-      if (!inBounds(config, t.x, t.y) || p.px !== c.px || p.py !== c.py) continue;
-      if (isTownHallTile(config, t.x, t.y) || isShopTile(config, t.x, t.y)) continue;
-      if ((t.x === spawn.x && t.y === spawn.y) || tiles.some((o) => o.x === t.x && o.y === t.y))
-        continue;
-      tiles.push(t);
-    }
-  }
-  return tiles;
-}
 
 /** The first spot with no table and no block on it, or undefined when every one is taken. */
 function freeSpot(state: WorldState): Tile | undefined {

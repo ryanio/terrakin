@@ -1136,6 +1136,12 @@ export const WorldSnapshot = z.object({
    * `blocked`. Absent in worlds where residents walk across both.
    */
   solidBuildings: z.literal(true).optional(),
+  /**
+   * Present once a Town Hall build puts no block on the four spots in the Commons where game
+   * tables stand: filing one refuses it, and closing skips it. Absent in worlds from before the
+   * rule.
+   */
+  tableSpotsKept: z.literal(true).optional(),
   /** Commons blocks the town built, with the proposal that built each. */
   townBuilt: z
     .array(z.object({ x: z.number().int(), y: z.number().int(), proposal: z.string() }))
@@ -1419,6 +1425,8 @@ export const WorldEvent = z.discriminatedUnion("type", [
   z.object({ type: z.literal("finds_opened") }),
   /** From now on, nobody walks onto the Town Hall or the shop (`solidBuildings`). */
   z.object({ type: z.literal("buildings_solid") }),
+  /** From now on, Town Hall builds put no block on a game table's spot (`tableSpotsKept`). */
+  z.object({ type: z.literal("table_spots_kept") }),
   /** The town shop opened (RFC 0008): `GET /v1/shop`. */
   z.object({ type: z.literal("shop_opened") }),
   /** The treasury's share of shop spending changed, in percent. The rest of each purchase is retired. */

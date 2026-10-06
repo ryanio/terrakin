@@ -200,6 +200,12 @@ export interface WorldServiceOptions {
    */
   solidBuildings?: boolean;
   /**
+   * Town Hall builds keep the game tables' spots clear (decision 0126): once the world counts days,
+   * append `keep_table_spots` if it never has, so builds filed and closed before the rule replay as
+   * they were made. Both adapters turn this on. Off by default, like `items`.
+   */
+  tableSpots?: boolean;
+  /**
    * The town shop (RFC 0008, phase 2): once coins and items are open, append `open_shop` if it
    * never has. Both adapters turn this on. Off by default, like `items`.
    */
@@ -502,6 +508,7 @@ export class WorldService {
   private readonly plotPickups: boolean;
   private readonly finds: boolean;
   private readonly solidBuildings: boolean;
+  private readonly tableSpots: boolean;
   private readonly shop: boolean;
   private readonly market: boolean;
   private readonly bounties: boolean;
@@ -575,6 +582,7 @@ export class WorldService {
     this.plotPickups = options.plotPickups ?? false;
     this.finds = options.finds ?? false;
     this.solidBuildings = options.solidBuildings ?? false;
+    this.tableSpots = options.tableSpots ?? false;
     this.shop = options.shop ?? false;
     this.market = options.market ?? false;
     this.bounties = options.bounties ?? false;
@@ -795,6 +803,10 @@ export class WorldService {
     if (this.solidBuildings && !this.state.solidBuildings) {
       const solid = this.run({ actor: TOWN_ACTOR, command: { type: "solid_buildings" } });
       if (!solid.ok) console.error(`Couldn't make the buildings solid: ${solid.error.message}`);
+    }
+    if (this.tableSpots && !this.state.tableSpotsKept) {
+      const kept = this.run({ actor: TOWN_ACTOR, command: { type: "keep_table_spots" } });
+      if (!kept.ok) console.error(`Couldn't keep the table spots clear: ${kept.error.message}`);
     }
     if (this.market && !this.state.market && this.state.shop) {
       const opened = this.run({ actor: TOWN_ACTOR, command: { type: "open_market" } });
@@ -2408,6 +2420,7 @@ export class WorldService {
       townHall: townHallTiles(state.config),
       ...(state.shop ? { shop: shopTiles(state.config) } : {}),
       ...(state.solidBuildings ? { solidBuildings: true as const } : {}),
+      ...(state.tableSpotsKept ? { tableSpotsKept: true as const } : {}),
       ...(state.town
         ? {
             townBuilt: Object.entries(state.town.built).map(([key, proposal]) => {

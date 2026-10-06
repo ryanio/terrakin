@@ -20,7 +20,7 @@ import type {
   WorldState,
 } from "./types";
 import { COMMONS_BLOCKS, PROPOSAL_KINDS, SERVER_COMMANDS, VOTE_CHOICES } from "./types";
-import { commonsPlot, inBounds, isShopTile, isTownHallTile, plotOf } from "./world";
+import { commonsPlot, gameTableTiles, inBounds, isShopTile, isTownHallTile, plotOf } from "./world";
 
 /**
  * The Town Hall (RFC 0004): who may take part, proposals, votes, closes, and Commons builds.
@@ -293,9 +293,15 @@ function checkPlan(state: WorldState, plan: CommonsPlan): string | null {
     state.shop && isShopTile(config, t.x, t.y)
       ? `(${t.x}, ${t.y}) is where the town shop stands. Keep it clear.`
       : null;
+  // Only once the server logs `keep_table_spots`, so builds from before it replay as they did. A
+  // path still goes there, and a block already there can still be taken away.
+  const spots = tableSpots(state);
   for (const b of blocks) {
     const shop = onShop(b);
     if (shop) return shop;
+    if (spots.has(tileKey(b.x, b.y))) {
+      return `(${b.x}, ${b.y}) is one of the four spots where game tables stand. Keep it clear for them: a path can go there, a block can't.`;
+    }
     if (!(COMMONS_BLOCKS as readonly unknown[]).includes(b.block)) {
       return `(${b.x}, ${b.y}) needs a block the town builds with: wood, stone, glass, or leaf, or decor or furniture like a bench, a lamp post, or a well. Stations and planters go on residents' own plots.`;
     }
@@ -327,6 +333,30 @@ function checkPlan(state: WorldState, plan: CommonsPlan): string | null {
     }
   }
   return null;
+}
+
+/**
+ * The game tables' spots a Town Hall build keeps clear of blocks, as tile keys: all four once the
+ * server has logged `keep_table_spots` (decision 0126), and none before, so older builds replay as
+ * they were made.
+ */
+function tableSpots(state: WorldState): ReadonlySet<string> {
+  if (!state.tableSpotsKept) return new Set();
+  return new Set(gameTableTiles(state.config).map((t) => tileKey(t.x, t.y)));
+}
+
+/**
+ * `keep_table_spots`, which only TOWN_ACTOR sends: from now on a Town Hall build puts no block on
+ * a game table's spot, when it's filed or when it closes. Comes once.
+ */
+export function checkKeepTableSpots(state: WorldState): TownChecked {
+  if (state.tableSpotsKept) {
+    return refuse("already_open", "Town Hall builds already keep the game tables' spots clear.");
+  }
+  return () => {
+    state.tableSpotsKept = true;
+    return [{ type: "table_spots_kept" }];
+  };
 }
 
 function ensureTown(state: WorldState): TownState {
@@ -594,9 +624,10 @@ interface CommonsBuilt {
  * What a passed build does to the Commons as it is now, in `build`'s order: removals, lifts,
  * blocks, then paths, each as filed. A removal or a lift happens if something is still there. A
  * block goes in unless its tile has a block by then (after the removals), a hearth, or an online
- * resident on it, or is the Town Hall's or the open shop's. A path goes in unless its tile has one
- * by then (after the lifts), or is the hall's or the open shop's; it goes under anyone standing
- * there. Skipped tiles are listed so the event says what didn't happen. Reads only.
+ * resident on it, or is the Town Hall's, the open shop's, or a game table's spot once the server
+ * has logged `keep_table_spots`. A path goes in unless its tile has one by then (after the
+ * lifts), or is the hall's or the open shop's; it goes under anyone standing there. Skipped tiles
+ * are listed so the event says what didn't happen. Reads only.
  */
 function closeBuild(state: WorldState, plan: CommonsPlan): CommonsBuilt {
   const { config } = state;
@@ -612,6 +643,7 @@ function closeBuild(state: WorldState, plan: CommonsPlan): CommonsBuilt {
   const groundAt = (key: string) => (groundNow.has(key) ? groundNow.get(key) : state.ground?.[key]);
   const building = (t: Tile) =>
     isTownHallTile(config, t.x, t.y) || (state.shop !== undefined && isShopTile(config, t.x, t.y));
+  const spots = tableSpots(state);
   const built: CommonsBuilt = { placed: [], removed: [], laid: [], lifted: [], skipped: [] };
   const skip = (t: Tile) => built.skipped.push({ x: t.x, y: t.y });
   for (const t of plan.remove) {
@@ -632,7 +664,7 @@ function closeBuild(state: WorldState, plan: CommonsPlan): CommonsBuilt {
   }
   for (const b of plan.blocks) {
     const key = tileKey(b.x, b.y);
-    if (blockAt(key) !== undefined || taken.has(key) || building(b)) skip(b);
+    if (blockAt(key) !== undefined || taken.has(key) || building(b) || spots.has(key)) skip(b);
     else {
       built.placed.push({ ...b });
       blocksNow.set(key, b.block);

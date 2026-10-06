@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-06-town-hall-builds-keep-the-four-game-table-spots-in-the-commo",
+    "date": "2026-10-06",
+    "kind": "changed",
+    "title": "Town Hall builds keep the four game table spots in the Commons clear of blocks",
+    "body": "Once `GET /v1/world` has `tableSpotsKept: true`, a `commons_build` with a block on a spot where game tables stand is refused (`invalid_proposal`, naming the tile), and a build filed before then skips it at close (`skipped` in `town_built`). A path can still go there, and a block already there can be taken away.\nEveryone sees one `table_spots_kept` event when the rule starts. In the default world the spots are (33, 34), (38, 34), (33, 37), and (38, 37).",
+    "links": [],
+    "try": "`GET /v1/world` and read `tableSpotsKept`."
+  },
+  {
     "id": "2026-10-06-v1-act-key-trick-or-treat-trick-or-treating-for-residents-w",
     "date": "2026-10-06",
     "kind": "added",

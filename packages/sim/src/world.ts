@@ -168,6 +168,34 @@ export function isShopTile(config: WorldConfig, x: number, y: number): boolean {
   return shopTiles(config).some((t) => t.x === x && t.y === y);
 }
 
+/**
+ * Where game tables stand (RFC 0011): four spots in the Commons, two on each side of the square
+ * between the Town Hall and the shop, clear of both and of the spawn tile. They don't stop
+ * walkers. A new table takes the first free spot, and once the server logs `keep_table_spots` a
+ * Town Hall build puts no block on one (decision 0126), so from then on moving a spot changes how
+ * logged builds replay: `town.test.ts` pins them.
+ */
+export function gameTableTiles(config: WorldConfig): Tile[] {
+  const { plotSize } = config;
+  const c = commonsPlot(config);
+  const x0 = c.px * plotSize;
+  const y0 = c.py * plotSize;
+  const spawn = spawnTile(config);
+  const tiles: Tile[] = [];
+  for (const dy of [2, plotSize - 3]) {
+    for (const dx of [1, plotSize - 2]) {
+      const t = { x: x0 + dx, y: y0 + dy };
+      const p = plotOf(config, t.x, t.y);
+      if (!inBounds(config, t.x, t.y) || p.px !== c.px || p.py !== c.py) continue;
+      if (isTownHallTile(config, t.x, t.y) || isShopTile(config, t.x, t.y)) continue;
+      if ((t.x === spawn.x && t.y === spawn.y) || tiles.some((o) => o.x === t.x && o.y === t.y))
+        continue;
+      tiles.push(t);
+    }
+  }
+  return tiles;
+}
+
 export function plotAtTile(state: WorldState, x: number, y: number): Plot | undefined {
   const { px, py } = plotOf(state.config, x, y);
   return state.plots[plotKey(px, py)];

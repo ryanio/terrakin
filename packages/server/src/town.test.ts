@@ -39,7 +39,7 @@ function clock(start = START) {
   return { now: () => t, advance: (ms: number) => (t += ms) };
 }
 
-async function start(options: { townsfolk?: ReadonlySet<string> } = {}) {
+async function start(options: { townsfolk?: ReadonlySet<string>; tableSpots?: boolean } = {}) {
   const time = clock();
   const store = new MemoryStore();
   const service = new WorldService({
@@ -303,6 +303,40 @@ describe("GET /v1/town", () => {
     expect(town.open).toEqual([
       expect.objectContaining({ id: "t_1", blocks, ground, remove: [], lift: [] }),
     ]);
+  });
+
+  it("keeps the game tables' spots clear once it logs keep_table_spots, and /v1/world says so", async () => {
+    const off = await start();
+    expect((await off.call("GET", "/v1/world")).body.tableSpotsKept).toBeUndefined();
+    const t = await start({ tableSpots: true });
+    const switches = () =>
+      t.store.log.filter((i) => i.command.type === "keep_table_spots").map((i) => i.actor);
+    expect(switches()).toEqual([TOWN_ACTOR]);
+    t.service.tick();
+    expect(switches()).toEqual([TOWN_ACTOR]);
+    expect((await t.call("GET", "/v1/world")).body.tableSpotsKept).toBe(true);
+    const ada = await t.resident("Ada");
+    t.days(3);
+    // (14, 10) is a table's spot in this world: a bench there is refused, the moss under it isn't.
+    const bench = await t.act(ada.token, {
+      type: "propose",
+      kind: "commons_build",
+      title: "A bench",
+      blocks: [{ x: 14, y: 10, block: "bench" }],
+      dry: true,
+    });
+    expect(bench).toMatchObject({ ok: false, dry: true, error: { code: "invalid_proposal" } });
+    expect(bench.error.message).toContain(
+      "(14, 10) is one of the four spots where game tables stand",
+    );
+    const moss = await t.act(ada.token, {
+      type: "propose",
+      kind: "commons_build",
+      title: "Moss",
+      ground: [{ x: 14, y: 10, ground: "moss" }],
+      dry: true,
+    });
+    expect(moss).toMatchObject({ ok: true, dry: true });
   });
 });
 

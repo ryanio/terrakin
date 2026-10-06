@@ -14,12 +14,13 @@ import type {
   TreasuryView,
   WorldSnapshot,
 } from "@terrakin/protocol";
+import { REAL_ENOUGH } from "@terrakin/protocol";
 import { isMediaUrl, plural } from "@terrakin/ui/format";
+
+export { REAL_ENOUGH };
 
 type Resident = WorldSnapshot["residents"][number];
 
-/** Real (not townsfolk) posts a page needs before townsfolk fold away. */
-export const REAL_ENOUGH = 8;
 /** Real residents online before the roster stops padding with townsfolk. */
 export const ROSTER_FILL = 6;
 /** Consecutive posts by one author, each within this of the next, roll up into one card. */

@@ -1,12 +1,14 @@
 # Townsfolk chatter
 
-Status: proposed. Runs on the server, not from anyone's machine.
+Status: chatter and the spend ledger are built and ship off (`TERRAKIN_CHATTER_DAILY_CALLS=0`). Moving the coin tips into the Worker is not built yet. Runs on the server, not from anyone's machine.
 
 ## Why
 
 The founding townsfolk ([decision 0019](../knowledge/decisions/0019-founding-townsfolk-are-ordinary-residents-seeded-through-the.md)) only post when `scripts/townsfolk` is rerun by hand, so a quiet day is a still wall. Decision 0034 already folds their posts away once real residents are active, so this only has to help while the town is thin.
 
-The goal: while real activity is low, a few townsfolk post, reply and like in their own voices, on a schedule, inside the Worker. The budget is about $10 a month on `claude-sonnet-5-5` ($2 in, $10 out per million tokens).
+The goal: while real activity is low, a few townsfolk post, reply and like in their own voices, on a schedule, inside the Worker, in ways that get real residents posting and answering. The budget is about $10 a month on `claude-sonnet-5-5` ($2 in, $10 out per million tokens).
+
+Success is participation, not volume: real residents replying to and reacting to what the townsfolk write. The prompt steers that way (welcome newcomers, answer real residents first, and write notes that leave an easy way in, like a light question or an invitation to try something in the world), and posts from a real resident in their first 3 days carry a `newcomer` mark. Every post and reply chatter puts up is kept in `chatter_posts`, and the staff overview counts, over 30 days, how many drew a reply or reaction from a real resident, and how many replies and reactions in all.
 
 The same cron also takes over the townsfolk's daily coin tips from `scripts/townsfolk/tips.ts`, which no longer runs on anyone's machine (see [Coins](#coins)).
 
@@ -16,7 +18,7 @@ Out of scope: votes and proposals (townsfolk never take part, [decision 0027](..
 
 A `ChatterService` in `server/src/chatter.ts`, built like `TriageClient` in `server/src/triage.ts`: it checks its own guard before every model call, the network and the clock are injected, and tests never touch either.
 
-It runs from a Cloudflare cron trigger. `wrangler.jsonc` gets a `triggers.crons` entry (every two hours to start). The Worker's new `scheduled` handler calls an RPC method on the `World` object, so there is no public route. The work happens inside the world object, next to the services it uses.
+It runs from a Cloudflare cron trigger: `wrangler.jsonc` has `"17 */2 * * *"`, every two hours. The Worker's `scheduled` handler calls the `World` object's `chatter()` RPC method, so there is no public route, and the work happens inside the world object, next to the services it uses. On Node, a timer calls the same `Api.runChatter()` every `CHATTER_EVERY_MS`.
 
 It acts as each townsfolk resident directly through `SocialService` (`createPost`, likes, replies), so it needs no resident tokens. The ids come from `TERRAKIN_TOWNSFOLK`.
 
@@ -51,7 +53,7 @@ Columns:
 
 It holds no resident text and no resident ids, only the persona key, so it follows the telemetry rule of codes and counts ([server/AGENTS.md](../../server/AGENTS.md)). A call the guard refuses before fetching spends nothing and writes no row.
 
-Staff read it on the admin app: spend per day by purpose and model, cost per posted note, cache hit rate, and the share of answers refused. A line in the staff check-in numbers carries the day's total.
+Staff read it on the admin app's queue page: a line with today's total, the last 30 days, and what a townsfolk note costs and how many answers were turned away. The overview (`GET /v1/admin/overview`, internal) also carries the 30-day lines by purpose and model with each one's cache read share.
 
 It goes in first, with triage writing to it, so triage spend is recorded before chatter exists.
 
@@ -62,17 +64,17 @@ All of these are constants in `server/src/chatter.ts`, with the numbers below as
 - It runs only while real (non-townsfolk) top-level posts in the last 6 hours are under a threshold, set equal to `REAL_ENOUGH` in `client/src/pulse.ts` (a test pins the two together).
 - It skips a run if townsfolk already posted in the last 3 hours, so they never dominate a thin feed.
 - Per persona per UTC day: 2 posts, 3 replies, 6 likes. Per run: at most 3 personas act.
-- Per UTC day, a call cap (24) and a token cap, counted in the social database like triage's. Calls stop when either is spent or when the breaker is open (three failures in a row pause calls for 15 minutes).
-- Replies and likes may target only a post id from the candidate list the service built (real residents' recent posts first, then townsfolk). A made-up id is refused.
+- Per UTC day, a call cap (`0`, which is off, until it's set; 24 to start) and a token cap (100,000), counted in the social database like triage's. Calls stop when either is spent or when the breaker is open (three failures in a row pause calls for 15 minutes).
+- Replies and likes may target only a post from the candidate list the service built (real residents' posts from the last two days first, then townsfolk, at most 12, none it already liked or answered, none across a block). The model names one by a short ref (`"3"`), never by id, and a ref that isn't on the list is refused.
 - A persona never repeats one of its last 10 posts.
 
 ## The model call
 
-- Model `claude-sonnet-5-5` by default, from `TERRAKIN_CHATTER_MODEL`. Effort `low`, `thinking` left out, `max_tokens` about 400.
+- Model `claude-sonnet-5-5` by default, from `TERRAKIN_CHATTER_MODEL`. Effort `low`, `max_tokens` 400, and thinking off. Sonnet 5.5 refuses `thinking: {type: "disabled"}`; `{type: "between_tools"}` is its way to turn thinking off, and with no tools in the request it means none at all. One short JSON answer needs no reasoning, and thinking tokens would cost more and could cut the answer off at 400. Other models get their default thinking, and Haiku 4.5 gets no `effort` (it refuses one).
 - Sonnet 5.5 refuses forced `tool_choice`, so the answer comes back as structured output (`output_config.format`, a JSON schema): `{action: post | reply | like | nothing, text?, targetId?}`.
 - The system prompt is stable and cached: the persona's voice and a short rule list (plain words, no em dashes, 280 characters, never claims to be a person, never mentions coins, votes or proposals). Feed content goes after the cache breakpoint.
 - Feed text is untrusted ([decision 0004](../knowledge/decisions/0004-chat-is-untrusted-data.md)). It goes in as quoted, truncated JSON inside a fenced block the prompt calls data. The model can only choose from the enum and fill `text`. The code decides what is sent.
-- It sends the server-side `fallbacks` setting that Sonnet 5.5 code is meant to include. A refusal counts as "nothing" for that persona and is not retried.
+- It sends `fallbacks: "default"` with the `server-side-fallback-2026-07-01` beta header, so a declined request reruns on the model Anthropic picks for that kind of refusal. A refusal that still comes back counts as nothing for that townsfolk resident and is not retried.
 
 ## What is checked before anything is posted
 
@@ -86,24 +88,24 @@ Telemetry carries counts and codes only. The text and the key are never logged (
 - `server/src/chatter.test.ts`: the gate and every cap refusing, a bad answer refused for each reason above, injection text in a fixture feed changing nothing, and the call cap stopping a run (rule 5: the guard test shows it refuses).
 - `server/src/trust-safety.test.ts`: a case for the new door for text.
 - `server/cloudflare/worker.ts` and `wrangler.jsonc`: the `scheduled` handler, the RPC method, the cron.
-- `docs/deploy.md`: the new `TERRAKIN_CHATTER_*` settings in the env table (on, model, daily calls, daily tokens, cadence note).
+- `docs/deploy.md`: the `TERRAKIN_CHATTER_*` settings in the env table (daily calls, where `0` is off; daily tokens; mode; model).
 - `server/AGENTS.md`: a line under "Where things are" and under the rules ("chatter spends money, so it goes through the guard").
 - A decision record (`pnpm kb new decision`): why a model, why Sonnet 5.5, why enumerated actions only, why the quiet gate, why the server and not a script.
 - `server/src/townsfolk-tips.ts` and `server/src/townsfolk-tips.test.ts`: the planner moved from `scripts/`, the daily run, the state table, and a refusal test for each sim cap.
 - `scripts/townsfolk/tips.ts` and `scripts/townsfolk/README.md`: import the planner from `server/`, and say the server runs it for terrakin.org.
 - `server/src/ai-spend.ts` and `server/src/ai-spend.test.ts`: the `ai_spend` table, the price table, `record()`, and the day summary. Tests show a row per call with the right cost, no row for a refused call, and no text or ids in any row.
-- `server/src/triage.ts`: writes a ledger row after each call. `server/src/safety-service.ts` and the staff route behind the admin spend view, with its `protocol/` route entry and `pnpm gen` (an additive v1 route, so it also gets a `CHANGELOG.md` entry).
-- `admin/`: the spend view, built from `ui/` pieces.
+- `server/src/triage.ts`: writes a ledger row after each call. The staff overview carries the ledger's summary and chatter's status and drafts (`protocol/src/safety.ts`, `server/src/api.ts`); it is an internal route, so no `CHANGELOG.md` entry.
+- `admin/`: the spend and chatter lines on the queue page, with a dry run's drafts folded under them (`spendLine`, `chatterLine`, `draftLabel` in `src/logic.ts`).
 - `docs/plans/README.md`: a link to this page.
 
-Chatter and tips add no API, so they need no `CHANGELOG.md` entry. The staff spend route is a staff route, so check whether `pnpm gen:check` asks for one.
+Chatter and tips add no public API, so they need no `CHANGELOG.md` entry.
 
 ## Rollout
 
-0. Ship the spend ledger first, with triage writing to it. After a few days it shows what triage costs today.
-1. Ship chatter with `TERRAKIN_CHATTER_DAILY_CALLS` at `0` (off), so the deploy changes nothing.
-2. Add a dry-run mode that runs the planner and the model but stores and posts nothing, and logs only counts. Run it a few times on production and read the answers through a staff-only summary.
-3. Turn posts and likes on first, replies after a few days of clean output.
+0. Done: the spend ledger, with triage writing to it.
+1. Done: chatter ships with `TERRAKIN_CHATTER_DAILY_CALLS` at `0` (off), so the deploy changes nothing.
+2. Now: `TERRAKIN_CHATTER_DAILY_CALLS` is `12` in `wrangler.jsonc`, with `TERRAKIN_CHATTER_MODE` left at `dry`. A dry run makes the calls and keeps the newest 30 answers as drafts, posting nothing; logs carry counts and codes only. It rests after a draft post, never drafts the same reply or like twice, and counts its drafts as said, so the drafts show what live chatter would do. Read the drafts and the cost line on the admin queue page for a few days.
+3. Then `TERRAKIN_CHATTER_MODE=posts` (posts and likes), and `all` (replies too) after a few days of clean output. From here the participation line says whether it's working.
 4. Raise the caps only if the wall still looks empty.
 5. Tips: ship off, run the dry run for two days and compare its plan with what the script would have given, then turn `TERRAKIN_TIPS_ON` on.
 
@@ -114,6 +116,4 @@ Chatter and tips add no API, so they need no `CHANGELOG.md` entry. The staff spe
 - On production with the dry run on: the ledger's cost per run matches the budget (well under $0.50 a day), and no answer is refused for the same reason twice in a row.
 - The ledger's day total matches the provider's usage page for the same day, to within rounding.
 
-## Open question
-
-Posts and likes only at first, or replies from day one? The plan stages replies later, because a reply is where an odd model answer would land on a real resident.
+Replies wait for `all`, because a reply is where an odd model answer would land on a real resident.

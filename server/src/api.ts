@@ -53,7 +53,9 @@ import {
   heldAsideOf,
   listingById,
 } from "@terrakin/sim";
+import { AiSpend, SUMMARY_DAYS } from "./ai-spend";
 import { bountiesView, bountyView, staffBountiesView } from "./bounties";
+import type { ChatterRun, ChatterService } from "./chatter";
 import { checkinView } from "./checkin";
 import { purseView } from "./coins";
 import { galleriesView, madeThingForReport } from "./galleries";
@@ -316,6 +318,11 @@ export interface ApiOptions {
    * drawing never runs in the world. Without it, `POST /v1/plots/photo` answers `unavailable`.
    */
   photos?: PlotPhotoRenderer;
+  /**
+   * Townsfolk chatter (docs/plans/townsfolk-chatter.md), run by `runChatter()` from the Worker's
+   * cron or the Node timer. Built on `social`. Without it, chatter is off.
+   */
+  chatter?: ChatterService;
 }
 
 // ---------- handler types, all derived from the route table ----------
@@ -486,6 +493,9 @@ export class Api {
   private readonly repeats = new Map<string, { at: number; response: Promise<ApiResponse> }>();
   private readonly idempotency = new IdempotencyStore();
   private readonly staffOptions: StaffOptions;
+  private readonly chatter: ChatterService | undefined;
+  /** The AI spend ledger, read for the staff overview. Triage and chatter write to it. */
+  private readonly spendLedger: AiSpend | undefined;
 
   constructor(options: ApiOptions) {
     this.service = options.service;
@@ -536,6 +546,10 @@ export class Api {
     }
     this.ipUploadBytesPerDay = options.ipUploadBytesPerDay ?? 500_000_000;
     this.photos = options.photos;
+    this.chatter = options.chatter;
+    this.spendLedger = options.social
+      ? new AiSpend(options.social.sql, options.social.now)
+      : undefined;
     this.maxWatchers = options.maxWatchers ?? MAX_WATCHERS;
     this.maxWatchersPerNetwork = options.maxWatchersPerNetwork ?? MAX_WATCHERS_PER_NETWORK;
     this.onResponse = options.onResponse;
@@ -1539,6 +1553,16 @@ export class Api {
             },
             triage: social().safety.triageStatus(),
             checkins: social().checkins.stats(),
+            spend: {
+              ...(this.spendLedger?.summary() ?? {
+                todayMicroUsd: 0,
+                windowMicroUsd: 0,
+                lines: [],
+                chatter: { calls: 0, notes: 0, drafts: 0, refused: 0, microUsd: 0 },
+              }),
+              days: SUMMARY_DAYS,
+            },
+            chatter: this.chatterStatus(),
           },
         };
       },
@@ -1971,6 +1995,42 @@ export class Api {
     if (!this.social) return 0;
     const links = this.social.agentLinks;
     return task("agent_link.recheck", () => links.recheckDue());
+  }
+
+  /**
+   * One round of townsfolk chatter (docs/plans/townsfolk-chatter.md). The Worker's cron and the
+   * Node timer call this; it checks its own gate and spend guard, so an early call does nothing.
+   */
+  async runChatter(): Promise<ChatterRun> {
+    const chatter = this.chatter;
+    if (!chatter) return { skipped: "off", outcomes: [] };
+    return task("chatter.run", () => chatter.run());
+  }
+
+  /** The staff overview's chatter line: settings, today's use, the last run, and dry-run drafts. */
+  private chatterStatus() {
+    const chatter = this.chatter;
+    const usage = chatter?.usage() ?? { calls: 0, tokens: 0 };
+    const paused = chatter?.pausedUntil() ?? null;
+    const last = chatter?.lastRun() ?? null;
+    const iso = (ms: number) => new Date(ms).toISOString();
+    return {
+      mode: chatter?.mode ?? ("off" as const),
+      model: chatter?.config.model ?? "",
+      callsToday: usage.calls,
+      callsPerDay: chatter?.config.callsPerDay ?? 0,
+      tokensToday: usage.tokens,
+      tokensPerDay: chatter?.config.tokensPerDay ?? 0,
+      pausedUntil: paused === null ? null : iso(paused),
+      lastRun: last ? { at: iso(last.at), result: last.result } : null,
+      participation: chatter?.participation(SUMMARY_DAYS) ?? {
+        notes: 0,
+        answered: 0,
+        replies: 0,
+        reactions: 0,
+      },
+      drafts: (chatter?.drafts() ?? []).map((d) => ({ ...d, at: iso(d.at) })),
+    };
   }
 
   /**

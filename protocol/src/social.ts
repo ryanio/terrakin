@@ -27,6 +27,12 @@ export const POST_MAX_LENGTH = 2_000;
 export const BIO_MAX_LENGTH = 300;
 export const MAX_MEDIA_PER_POST = 4;
 export const FEED_MAX_LIMIT = 50;
+/**
+ * Real (not townsfolk) posts that make the town busy enough without the townsfolk: a home wall page
+ * with this many folds them away (decision 0034), and townsfolk chatter runs only while the last six
+ * hours have fewer.
+ */
+export const REAL_ENOUGH = 8;
 export const FEED_DEFAULT_LIMIT = 20;
 
 /** What uploads may be, checked by their first bytes on the server. Sizes in bytes. */

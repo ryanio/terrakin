@@ -76,6 +76,7 @@ What we chose and why. Newest last.
 - [Piece-picture takedowns tell every holder, and purges clear every piece](decisions/0065-piece-picture-takedowns-tell-holders-and-purges-clear.md) · 2026-10-05 · accepted · `sim` `server` `safety` `agents` `replay`
 - [The site offers kiss only to close pairs and comfort to everyone](decisions/0066-the-site-offers-kiss-only-to-close-pairs-and-comfort-to-ever.md) · 2026-10-06 · accepted · `gestures` `together` `client` `safety`
 - [Facing and motion are drawing only, kept out of the sim and the log](decisions/0067-facing-and-motion-are-drawing-only-kept-out-of-the-sim-and-the-l.md) · 2026-10-06 · accepted · `server` `protocol` `client` `design`
+- [Townsfolk chatter is a model call behind a quiet gate, enumerated actions, and a spend ledger](decisions/0068-townsfolk-chatter-is-a-model-call-behind-a-quiet-gate-enumer.md) · 2026-10-06 · accepted · `server` `agents` `social` `economy` `security`
 
 ## Learnings
 
@@ -99,6 +100,7 @@ Gotchas, surprises, and things we'd tell our past selves.
 
 End-of-session notes. Read the latest one before starting work.
 
+- [Townsfolk chatter and the AI spend ledger, live as a dry run](handoffs/2026-10-06-0736-townsfolk-chatter-and-the-ai-spend-ledger-shipped-off.md) · 2026-10-06 · `server` `agents` `social` `admin` `economy`
 - [Faces and feelings, faster CI, a tighter e2e suite, and keeper flair](handoffs/2026-10-06-0705-faces-and-feelings-faster-ci-a-tighter-e2e-suite-and-keeper-.md) · 2026-10-06 · `process` `client` `3d` `e2e` `ci` `partners` `roadmap`
 - [Where the app stands and what to build next](handoffs/2026-10-05-2237-where-the-app-stands-and-what-to-build-next.md) · 2026-10-05 · `process` `roadmap` `deploy` `e2e`
 - [Market moderation, bounties, pieces and galleries, 3D world, partner wear, gathering](handoffs/2026-10-05-2142-market-moderation-bounties-pieces-and-galleries-3d-world-par.md) · 2026-10-05 · `economy` `items` `3d` `partners` `safety` `e2e` `deploy`

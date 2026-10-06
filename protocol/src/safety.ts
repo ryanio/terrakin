@@ -323,6 +323,74 @@ export const AdminOverviewResponse = z.object({
   }),
   /** How many residents check in, and how far apart. */
   checkins: CheckinStats,
+  /**
+   * What AI calls cost, from the spend ledger: every call triage and townsfolk chatter made. Amounts
+   * are millionths of a US dollar. Never resident text or ids.
+   */
+  spend: z.object({
+    todayMicroUsd: z.number().int(),
+    /** The last `days` UTC days, today included. */
+    windowMicroUsd: z.number().int(),
+    days: z.number().int(),
+    lines: z.array(
+      z.object({
+        purpose: z.string(),
+        model: z.string(),
+        calls: z.number().int(),
+        microUsd: z.number().int(),
+        /** Cache reads as a share of all input tokens, 0 to 1. */
+        cacheReadShare: z.number(),
+      }),
+    ),
+    /** Chatter over the window: calls, notes that went up, a dry run's drafts, answers turned away. */
+    chatter: z.object({
+      calls: z.number().int(),
+      notes: z.number().int(),
+      drafts: z.number().int(),
+      refused: z.number().int(),
+      microUsd: z.number().int(),
+    }),
+  }),
+  /** Townsfolk chatter (docs/plans/townsfolk-chatter.md): its settings, today's use, and drafts. */
+  chatter: z.object({
+    /** `off` without a key or with no calls a day; `dry` stores drafts and posts nothing. */
+    mode: z.enum(["off", "dry", "posts", "all"]),
+    model: z.string(),
+    callsToday: z.number().int(),
+    callsPerDay: z.number().int(),
+    tokensToday: z.number().int(),
+    tokensPerDay: z.number().int(),
+    pausedUntil: z.string().nullable(),
+    /**
+     * The last run: when, and a skip reason (`busy`, `rested`, ...), a stop reason (`capped`,
+     * `paused`, `idle`), or each call's outcome, comma separated.
+     */
+    lastRun: z.object({ at: z.string(), result: z.string() }).nullable(),
+    /**
+     * Whether chatter draws real residents in, over the same window as `spend`: the notes it put
+     * up, how many a real resident replied or reacted to, and those replies and reactions.
+     */
+    participation: z.object({
+      notes: z.number().int(),
+      answered: z.number().int(),
+      replies: z.number().int(),
+      reactions: z.number().int(),
+    }),
+    /**
+     * A dry run's newest answers, for staff to read before posts go live. The model wrote `text`;
+     * it can quote residents, so it's shown as text only.
+     */
+    drafts: z.array(
+      z.object({
+        at: z.string(),
+        persona: z.string(),
+        action: z.string(),
+        outcome: z.string(),
+        text: z.string(),
+        postId: z.string().nullable(),
+      }),
+    ),
+  }),
 });
 export type AdminOverviewResponse = z.infer<typeof AdminOverviewResponse>;
 

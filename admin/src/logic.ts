@@ -431,3 +431,79 @@ export function triageLine(t: AdminOverviewResponse["triage"], nowMs: number): s
     : "";
   return used + agreed;
 }
+
+/** Millionths of a dollar as dollars and cents: "$1.20", or "under $0.01" for a little. */
+export function dollars(microUsd: number): string {
+  if (microUsd > 0 && microUsd < 5_000) return "under $0.01";
+  return `$${(microUsd / 1_000_000).toFixed(2)}`;
+}
+
+/** What AI calls cost today and lately, from the spend ledger, in one line. */
+export function spendLine(s: AdminOverviewResponse["spend"]): string {
+  const total = `AI spend: ${dollars(s.todayMicroUsd)} today, ${dollars(s.windowMicroUsd)} in the last ${s.days} days.`;
+  const { chatter } = s;
+  if (chatter.calls === 0) return total;
+  const made = [
+    chatter.notes || !chatter.drafts ? plural(chatter.notes, "note", "notes") : "",
+    chatter.drafts ? plural(chatter.drafts, "draft", "drafts") : "",
+  ]
+    .filter(Boolean)
+    .join(" and ");
+  const count = chatter.notes + chatter.drafts;
+  const each = count > 0 ? ` (${dollars(chatter.microUsd / count)} each)` : "";
+  const refused = chatter.refused
+    ? `, ${plural(chatter.refused, "answer", "answers")} turned away`
+    : "";
+  return `${total} Townsfolk chatter: ${made} for ${dollars(chatter.microUsd)}${each}${refused}.`;
+}
+
+/**
+ * Whether townsfolk chatter draws real residents in: of its notes, how many a real resident replied
+ * or reacted to. Undefined until it has put a note up.
+ */
+export function participationLine(
+  p: AdminOverviewResponse["chatter"]["participation"],
+  days: number,
+): string | undefined {
+  if (p.notes === 0) return undefined;
+  return `Townsfolk notes in the last ${days} days: ${p.answered} of ${p.notes} drew a reply or reaction from real residents (${plural(p.replies, "reply", "replies")}, ${plural(p.reactions, "reaction", "reactions")}).`;
+}
+
+/** What each skip reason means, for the chatter line. */
+const CHATTER_SKIPS: Record<string, string> = {
+  off: "it was off",
+  paused: "it was paused",
+  running: "a run was still going",
+  busy: "real residents were posting",
+  rested: "townsfolk had posted lately",
+  nobody: "no townsfolk had anything left to do today",
+  capped: "the day's calls or tokens were spent",
+  idle: "nobody had anything to post or answer",
+};
+
+/** How townsfolk chatter is set up and how its last run went, in one line. */
+export function chatterLine(c: AdminOverviewResponse["chatter"], nowMs: number): string {
+  if (c.mode === "off") return "Townsfolk chatter is off.";
+  if (c.pausedUntil && Date.parse(c.pausedUntil) > nowMs) {
+    return "Townsfolk chatter is paused after repeated errors.";
+  }
+  const what = {
+    dry: "is a dry run: it writes drafts and posts nothing",
+    posts: "posts and likes while the town is quiet",
+    all: "posts, replies and likes while the town is quiet",
+  }[c.mode];
+  const n = (x: number) => x.toLocaleString("en-US");
+  const used = ` Today: ${n(c.callsToday)} of ${n(c.callsPerDay)} calls.`;
+  const last = c.lastRun
+    ? ` Last run: ${CHATTER_SKIPS[c.lastRun.result] ?? plural(c.lastRun.result.split(",").length, "call", "calls")}.`
+    : "";
+  return `Townsfolk chatter ${what}.${used}${last}`;
+}
+
+/** What a dry-run draft was: "would post", or why it was turned away. */
+export function draftLabel(d: AdminOverviewResponse["chatter"]["drafts"][number]): string {
+  const action = { post: "a post", reply: "a reply", like: "a like" }[d.action] ?? "an answer";
+  if (d.outcome.startsWith("draft_")) return `would be ${action}`;
+  if (d.outcome === "filtered") return `${action}, turned away by the filters`;
+  return `${action}, turned away by the rules`;
+}

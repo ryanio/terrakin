@@ -10,6 +10,7 @@ import { nextRecheckAt, parseDailyReads } from "../src/agent-links";
 import { Api, ipKey, isApiPath, MAX_BODY_BYTES } from "../src/api";
 import { bountyWords } from "../src/bounties";
 import { parseRpcUrls } from "../src/chain";
+import { ChatterService, chatterConfig } from "../src/chatter";
 import {
   MEDIA_ID,
   type MediaBucket,
@@ -87,6 +88,12 @@ interface Env {
   TERRAKIN_TRIAGE_MODEL?: string;
   TERRAKIN_TRIAGE_DAILY_CALLS?: string;
   TERRAKIN_TRIAGE_DAILY_TOKENS?: string;
+  /** Townsfolk chatter (docs/plans/townsfolk-chatter.md). Off until the daily calls are above 0. */
+  TERRAKIN_CHATTER_MODEL?: string;
+  TERRAKIN_CHATTER_DAILY_CALLS?: string;
+  TERRAKIN_CHATTER_DAILY_TOKENS?: string;
+  /** `dry` (the default) stores drafts and posts nothing; `posts` posts and likes; `all` replies too. */
+  TERRAKIN_CHATTER_MODE?: string;
   /** Agent links (RFC 0007): RPC URLs per network, like `4663=https://...`. Default: public endpoints. */
   TERRAKIN_CHAIN_RPC?: string;
   /** Reads (network calls and card fetches) per UTC day for agent links. Default 20,000. */
@@ -287,6 +294,23 @@ const handler = {
     }
     return withHeaders(response, response.ok ? pageHeaders(url.pathname, type) : {});
   },
+
+  /**
+   * The cron in wrangler.jsonc: a round of townsfolk chatter in the World object, over RPC, so
+   * there's no public route for it. Chatter checks its own gate and spend guard.
+   */
+  async scheduled(_controller, env, ctx) {
+    // While chatter is off, don't wake the world (a cold object replays its log to boot).
+    const config = chatterConfig(env);
+    if (config.apiKey === undefined || config.callsPerDay === 0) return;
+    const world = env.WORLD.get(env.WORLD.idFromName("world"));
+    ctx.waitUntil(
+      world.chatter().catch((err: unknown) => {
+        console.error(err);
+        report(err, "chatter.run");
+      }),
+    );
+  },
 } satisfies ExportedHandler<Env>;
 
 export default withSentry(sentry, handler);
@@ -355,6 +379,12 @@ class WorldObject extends DurableObject<Env> {
       social,
       skill: SKILL_MD,
       openapi: OPENAPI,
+      chatter: new ChatterService({
+        config: chatterConfig(env),
+        social,
+        townsfolk,
+        residentAgeDays: (id) => service.residentAgeDays(id),
+      }),
       // Plot photos are drawn by the Worker (PlotPhotos), never in this object.
       photos: (spec) => env.PHOTOS.draw(spec),
       staff: {
@@ -389,6 +419,11 @@ class WorldObject extends DurableObject<Env> {
     const set = await this.ctx.storage.getAlarm();
     if (set !== null && set <= when) return;
     await this.ctx.storage.setAlarm(when);
+  }
+
+  /** A round of townsfolk chatter, from the Worker's cron. Answers with counts and codes only. */
+  async chatter(): Promise<{ skipped?: string; outcomes: string[] }> {
+    return this.api.runChatter();
   }
 
   override async alarm(): Promise<void> {

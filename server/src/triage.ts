@@ -1,5 +1,6 @@
 import { Severity, TriageAction, TriageCategory } from "@terrakin/protocol";
 import { z } from "zod";
+import { AiSpend, NO_TOKENS, type TokenCounts, tokensOf } from "./ai-spend";
 import type { SqlExec } from "./sql-store";
 
 /**
@@ -19,6 +20,9 @@ import type { SqlExec } from "./sql-store";
  * The text being judged is untrusted (decision 0004). It goes in as a JSON string inside a fenced
  * block that the instructions call data, and an attempt to steer the model is itself a signal.
  * Neither the text nor the key is ever logged.
+ *
+ * Every call that goes out adds a row to the AI spend ledger (`ai-spend.ts`), with its source as the
+ * trigger and the suggested action as the outcome.
  */
 
 export interface TriageConfig {
@@ -188,6 +192,7 @@ export function triagePrompt(input: TriageInput, maxChars: number): string {
 export class TriageClient {
   private failures = 0;
   private paused = 0;
+  private readonly ledger: AiSpend;
 
   constructor(
     readonly config: TriageConfig,
@@ -195,6 +200,7 @@ export class TriageClient {
     private readonly fetcher: typeof fetch = (input, init) => fetch(input, init),
     private readonly now: () => number = Date.now,
   ) {
+    this.ledger = new AiSpend(sql, now);
     sql.exec(
       `CREATE TABLE IF NOT EXISTS triage_usage (
         day INTEGER PRIMARY KEY, calls INTEGER NOT NULL, tokens INTEGER NOT NULL
@@ -298,26 +304,33 @@ export class TriageClient {
       if (!res.ok) {
         // Status only: the body can echo the request.
         console.error(`Triage call failed with HTTP ${res.status}`);
+        this.record(source, model, NO_TOKENS, "error");
         return this.failed("error");
       }
       body = await res.json();
     } catch (err) {
       console.error("Triage call failed", err instanceof Error ? err.name : "");
+      this.record(source, model, NO_TOKENS, "error");
       return this.failed("error");
     }
 
     const message = body as {
+      model?: unknown;
       content?: { type?: string; name?: string; input?: unknown }[];
-      usage?: { input_tokens?: number; output_tokens?: number };
+      usage?: unknown;
     };
-    const actual = (message.usage?.input_tokens ?? 0) + (message.usage?.output_tokens ?? 0);
+    const tokens = tokensOf(message.usage);
+    const actual = tokens.input + tokens.output + tokens.cacheRead + tokens.cacheWrite;
     if (actual > 0) this.spend(day, 0, actual - estimate);
+    const answered = typeof message.model === "string" ? message.model : model;
     const call = message.content?.find((b) => b.type === "tool_use" && b.name === TOOL.name);
     const parsed = Verdict.safeParse(call?.input);
     if (!parsed.success) {
       console.error("Triage answer didn't match the verdict shape");
+      this.record(source, answered, tokens, "invalid");
       return this.failed("invalid");
     }
+    this.record(source, answered, tokens, parsed.data.action);
     this.failures = 0;
     const verdict = { ...parsed.data, rationale: parsed.data.rationale.slice(0, 600) };
     return { ok: true, verdict, model };
@@ -340,6 +353,11 @@ export class TriageClient {
       );
     }
     this.sql.exec("DELETE FROM triage_usage WHERE day < ?", day - 30);
+  }
+
+  /** One ledger row for a call that went out. Codes only: the source, never who caused it. */
+  private record(source: TriageSource, model: string, tokens: TokenCounts, outcome: string) {
+    this.ledger.record({ purpose: "triage", trigger: source, model, tokens, outcome });
   }
 
   private failed(reason: "error" | "invalid"): TriageResult {

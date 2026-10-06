@@ -5,6 +5,7 @@ import { type AgentLinkOptions, parseDailyReads } from "./agent-links";
 import { createApp } from "./app";
 import { bountyWords } from "./bounties";
 import { parseRpcUrls, rpcReader } from "./chain";
+import { ChatterService, chatterConfig } from "./chatter";
 import { FileMediaStore } from "./file-media-store";
 import { MemoryMediaStore } from "./media";
 import { Moderation } from "./moderation";
@@ -161,10 +162,21 @@ function testXReader(endpoint: string | undefined) {
   console.log(`  X checks read from the test endpoint ${url.href}`);
   return { readXPost: oembedReader({ endpoint: url.href }) };
 }
+// Townsfolk chatter (docs/plans/townsfolk-chatter.md): off unless ANTHROPIC_API_KEY is set and
+// TERRAKIN_CHATTER_DAILY_CALLS is above 0, and a dry run until TERRAKIN_CHATTER_MODE says otherwise.
+const chatter = new ChatterService({
+  config: chatterConfig(process.env),
+  social,
+  townsfolk,
+  now,
+  residentAgeDays: (id) => service.residentAgeDays(id),
+});
+
 const server = createApp({
   service,
   social,
   media,
+  chatter,
   trustedProxies,
   ...(sessionsPerMinute ? { sessionsPerMinute } : {}),
   ...(staticDir ? { staticDir: fromCwd(staticDir) } : {}),

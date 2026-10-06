@@ -2106,7 +2106,7 @@ export const ROUTES = [
     auth: "staff",
     internal: true,
     summary:
-      "Staff: who you're signed in as, your role, how AI triage is doing today, and check-in totals.",
+      "Staff: who you're signed in as, your role, how AI triage is doing today, check-in totals, AI spend, and townsfolk chatter.",
     tags: ["Moderation"],
     responses: { 200: json(AdminOverviewResponse) },
     errors: ["unauthorized", "forbidden"],

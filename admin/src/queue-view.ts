@@ -19,17 +19,21 @@ import { confirmTwice, holdFocus, stateCard, toast, whileBusy } from "@terrakin/
 import { api, type Result } from "./api";
 import {
   type ActionKind,
+  chatterLine,
   checkinLine,
   daysProblem,
   defaultRule,
+  draftLabel,
   type ItemAction,
   itemActions,
   itemHeading,
   itemTags,
   mainSite,
+  participationLine,
   RULE_CHOICES,
   reasonProblem,
   recordLine,
+  spendLine,
   suspendLimits,
   TAKEDOWN_ACTIONS,
   triageLine,
@@ -63,6 +67,12 @@ export function queueView(overview: AdminOverviewResponse): View {
       h("p", { class: "hero-order", text: "Urgent first, then most severe, then oldest." }),
       h("p", { class: "triage-status", text: triageLine(overview.triage, Date.now()) }),
       h("p", { class: "triage-status", text: checkinLine(overview.checkins) }),
+      h("p", { class: "triage-status", text: spendLine(overview.spend) }),
+      h("p", { class: "triage-status", text: chatterLine(overview.chatter, Date.now()) }),
+      ...[participationLine(overview.chatter.participation, overview.spend.days)].map((line) =>
+        line ? h("p", { class: "triage-status", text: line }) : null,
+      ),
+      chatterDrafts(overview.chatter.drafts),
     ),
     list,
   );
@@ -452,6 +462,41 @@ function reportRow(rep: ReportQueueItem["reports"][number]): HTMLElement {
       } · ${relativeTime(rep.createdAt, Date.now())}`,
     ),
     rep.note ? h("p", { class: "report-note", text: rep.note }) : null,
+  );
+}
+
+/**
+ * A dry run's answers, folded under the chatter line, so staff can read the townsfolk's voice before
+ * posts go live. A model wrote them and they can quote residents, so they go in as text.
+ */
+function chatterDrafts(drafts: AdminOverviewResponse["chatter"]["drafts"]): HTMLElement | null {
+  if (drafts.length === 0) return null;
+  const now = Date.now();
+  return h(
+    "details",
+    { class: "fold" },
+    h("summary", { text: `Read ${plural(drafts.length, "chatter draft", "chatter drafts")}` }),
+    h(
+      "ul",
+      { class: "reports", attrs: { "aria-label": "Chatter drafts" } },
+      ...drafts.map((d) =>
+        h(
+          "li",
+          { class: "report" },
+          h(
+            "p",
+            { class: "report-line", attrs: { title: fullDate(d.at) } },
+            h("span", { class: "report-reason", text: `@${d.persona}` }),
+            ` · ${draftLabel(d)} · ${relativeTime(d.at, now)}`,
+          ),
+          d.text ? h("p", { class: "report-note", text: d.text }) : null,
+        ),
+      ),
+    ),
+    h("p", {
+      class: "field-hint",
+      text: "Newest first. Nothing here was posted. A model wrote these, and they can quote residents.",
+    }),
   );
 }
 

@@ -3,19 +3,24 @@ import { describe, expect, it } from "vitest";
 import {
   actorLabel,
   bountyActions,
+  chatterLine,
   checkinLine,
   dayLabel,
   daysProblem,
   defaultRule,
+  dollars,
+  draftLabel,
   itemActions,
   itemTags,
   mainSite,
+  participationLine,
   RULE_CHOICES,
   reasonProblem,
   recordLine,
   ruleLine,
   screenFor,
   screensFor,
+  spendLine,
   suspendLimits,
   TAKEDOWN_ACTIONS,
   triageLine,
@@ -321,6 +326,78 @@ describe("plain words", () => {
     );
     expect(triageLine({ ...base, enabled: false }, 0)).toMatch(/off/);
     expect(triageLine({ ...base, pausedUntil: "2026-10-04T01:00:00.000Z" }, 0)).toMatch(/paused/);
+  });
+});
+
+describe("AI spend and chatter", () => {
+  const spend = {
+    todayMicroUsd: 42_000,
+    windowMicroUsd: 1_204_000,
+    days: 30,
+    lines: [],
+    chatter: { calls: 0, notes: 0, drafts: 0, refused: 0, microUsd: 0 },
+  };
+
+  it("says what AI calls cost, and what a townsfolk note costs", () => {
+    expect(dollars(0)).toBe("$0.00");
+    expect(dollars(1_200)).toBe("under $0.01");
+    expect(dollars(1_204_000)).toBe("$1.20");
+    expect(spendLine(spend)).toBe("AI spend: $0.04 today, $1.20 in the last 30 days.");
+    expect(
+      spendLine({
+        ...spend,
+        chatter: { calls: 20, notes: 14, drafts: 0, refused: 2, microUsd: 600_000 },
+      }),
+    ).toBe(
+      "AI spend: $0.04 today, $1.20 in the last 30 days. Townsfolk chatter: 14 notes for $0.60 ($0.04 each), 2 answers turned away.",
+    );
+    // A dry run's drafts are what it would have posted, so they count for the cost of each.
+    expect(
+      spendLine({
+        ...spend,
+        chatter: { calls: 12, notes: 0, drafts: 8, refused: 1, microUsd: 80_000 },
+      }),
+    ).toBe(
+      "AI spend: $0.04 today, $1.20 in the last 30 days. Townsfolk chatter: 8 drafts for $0.08 ($0.01 each), 1 answer turned away.",
+    );
+  });
+
+  it("says how chatter is set up and how its last run went", () => {
+    const base = {
+      mode: "dry" as const,
+      model: "claude-sonnet-5-5",
+      callsToday: 3,
+      callsPerDay: 24,
+      tokensToday: 9000,
+      tokensPerDay: 100000,
+      pausedUntil: null,
+      lastRun: { at: "2026-10-06T14:17:00.000Z", result: "busy" },
+      participation: { notes: 0, answered: 0, replies: 0, reactions: 0 },
+      drafts: [],
+    };
+    expect(chatterLine(base, 0)).toBe(
+      "Townsfolk chatter is a dry run: it writes drafts and posts nothing. Today: 3 of 24 calls. Last run: real residents were posting.",
+    );
+    expect(
+      chatterLine({ ...base, mode: "posts", lastRun: { at: "", result: "posted,nothing" } }, 0),
+    ).toBe(
+      "Townsfolk chatter posts and likes while the town is quiet. Today: 3 of 24 calls. Last run: 2 calls.",
+    );
+    expect(chatterLine({ ...base, mode: "off" }, 0)).toBe("Townsfolk chatter is off.");
+    expect(chatterLine({ ...base, lastRun: { at: "", result: "idle" } }, 0)).toMatch(
+      /nobody had anything to post or answer\.$/,
+    );
+    expect(participationLine(base.participation, 30)).toBeUndefined();
+    expect(participationLine({ notes: 14, answered: 5, replies: 7, reactions: 1 }, 30)).toBe(
+      "Townsfolk notes in the last 30 days: 5 of 14 drew a reply or reaction from real residents (7 replies, 1 reaction).",
+    );
+    const draft = { at: "", persona: "juniper", action: "post", text: "", postId: null };
+    expect(draftLabel({ ...draft, outcome: "draft_post" })).toBe("would be a post");
+    expect(draftLabel({ ...draft, action: "reply", outcome: "filtered" })).toBe(
+      "a reply, turned away by the filters",
+    );
+    expect(draftLabel({ ...draft, outcome: "invalid" })).toBe("a post, turned away by the rules");
+    expect(chatterLine({ ...base, pausedUntil: "2026-10-04T01:00:00.000Z" }, 0)).toMatch(/paused/);
   });
 });
 

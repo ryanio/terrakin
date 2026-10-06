@@ -8,6 +8,7 @@ import { WebSocketServer } from "ws";
 import { adminAssetPath } from "./admin-host";
 import { AGENT_RECHECK_EVERY_MS } from "./agent-links";
 import { Api, type ApiOptions, type ApiResponse, ipKey, MAX_BODY_BYTES } from "./api";
+import { CHATTER_EVERY_MS, type ChatterService } from "./chatter";
 import { MEDIA_ID, mediaHeaders, type ReadableMediaStore, sniffMediaType } from "./media";
 import { applyEdits } from "./meta-html";
 import {
@@ -83,6 +84,8 @@ export interface AppOptions {
   now?: ApiOptions["now"];
   /** See `ApiOptions.photos`. Default: drawn in this process with the cards renderer. `false`: none. */
   photos?: ApiOptions["photos"] | false;
+  /** Townsfolk chatter, run every `CHATTER_EVERY_MS` like the Worker's cron. Default: none. */
+  chatter?: ChatterService;
   /**
    * Tests only (`TERRAKIN_TEST_CLOCK=1`): answers `POST /v1/test/advance-day` by moving the clock
    * a day on. It's deliberately outside the route table, so it never appears in the API docs, and
@@ -147,6 +150,7 @@ export function createApp(options: AppOptions): Server {
       ? {}
       : { ipUploadBytesPerDay: options.ipUploadBytesPerDay }),
     ...(options.onResponse ? { onResponse: options.onResponse } : {}),
+    ...(options.chatter ? { chatter: options.chatter } : {}),
     ...(options.staff ? { staff: options.staff } : {}),
     ...(options.now ? { now: options.now } : {}),
     ...(options.maxWatchers === undefined ? {} : { maxWatchers: options.maxWatchers }),
@@ -356,9 +360,21 @@ export function createApp(options: AppOptions): Server {
     });
   }, AGENT_RECHECK_EVERY_MS);
   recheck.unref();
+  // Townsfolk chatter on the cron's rhythm. It checks its own gate and guard, so a run while it's
+  // off or while the town is busy does nothing.
+  const chatter = options.chatter
+    ? setInterval(() => {
+        api.runChatter().catch((err: unknown) => {
+          console.error("Chatter run failed", err);
+          report(err, "chatter.run");
+        });
+      }, CHATTER_EVERY_MS)
+    : undefined;
+  chatter?.unref();
   server.on("close", () => {
     clearInterval(sweep);
     clearInterval(recheck);
+    if (chatter) clearInterval(chatter);
     for (const client of wss.clients) client.terminate();
     wss.close();
   });

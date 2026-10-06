@@ -4807,8 +4807,9 @@ a.btn-primary {
   min-width: 0;
 }
 
+/* Extra room above: the gesture buttons' shadow fills part of that gap, so this looks even. */
 .streak-line {
-  margin: -2px 0 0;
+  margin: var(--space-2xs) 0 0;
   font-size: var(--text-md);
   font-weight: var(--weight-semibold);
   color: var(--ink-soft);
@@ -4828,7 +4829,6 @@ a.btn-primary {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-sm);
-  margin-top: var(--space-2xs);
   padding-top: var(--space-lg);
   border-top: 1px dashed var(--paper-edge);
 }

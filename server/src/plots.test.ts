@@ -346,4 +346,49 @@ describe("plots to visit over HTTP", () => {
       "Nobody lives on that plot yet. Try visit at px 4, py 0, the nearest plot someone lives on. Or make it yours: try settle at px 0, py 1.",
     );
   });
+  it("refuses a visit across a block either way, with the owner or a co-owner, dry runs too", async () => {
+    const t = await start();
+    const ivy = t.join("Ivy");
+    const dot = t.join("Dot");
+    const wren = t.join("Wren");
+    await t.act(ivy.token, { type: "settle", px: 0, py: 0 });
+    await t.act(ivy.token, { type: "share_plot", with: dot.id });
+    const visit = (dry: boolean) => t.act(wren.token, { type: "visit", px: 0, py: 0, dry });
+    const refused = {
+      ok: false,
+      error: { code: "forbidden", message: "You can't visit this plot." },
+    };
+    const at = { ...t.service.state.residents[wren.id] };
+    // Wren blocks the owner.
+    await t.call("PUT", `/v1/residents/${ivy.id}/block`, undefined, wren.token);
+    expect(await visit(false)).toMatchObject(refused);
+    expect(await visit(true)).toMatchObject({ ...refused, dry: true });
+    await t.call("DELETE", `/v1/residents/${ivy.id}/block`, undefined, wren.token);
+    // The plot's co-owner blocks Wren.
+    await t.call("PUT", `/v1/residents/${wren.id}/block`, undefined, dot.token);
+    expect(await visit(true)).toMatchObject({ ...refused, dry: true });
+    expect(await visit(false)).toMatchObject(refused);
+    expect(t.service.state.residents[wren.id]).toMatchObject({ x: at.x, y: at.y });
+    // With the block gone, the same visit goes through.
+    await t.call("DELETE", `/v1/residents/${wren.id}/block`, undefined, dot.token);
+    expect((await visit(false)).ok).toBe(true);
+  });
+});
+
+describe("the commit hook", () => {
+  it("never fails or undoes an action when it throws", () => {
+    const store = new MemoryStore();
+    const service = new WorldService({ store, config: CONFIG });
+    service.onCommitted = () => {
+      throw new Error("the plots table is gone");
+    };
+    const made = service.createSession({ name: "Wren", kind: "human" });
+    if (!made.ok || !made.residentId) throw new Error("Couldn't join Wren");
+    const result = service.act(made.residentId, { type: "move", dir: "n" });
+    expect(result).toMatchObject({ ok: true, seq: service.state.seq });
+    expect(store.log.at(-1)).toEqual({
+      actor: made.residentId,
+      command: { type: "move", dir: "n" },
+    });
+  });
 });

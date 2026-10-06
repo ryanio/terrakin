@@ -186,10 +186,27 @@ export function gamesView(
   };
 }
 
-/** Each resident's rank on a ladder: 1 plus how many are rated higher. */
+/**
+ * A ladder's rows, best first, each ranked 1 plus how many are rated higher. The rows are sorted
+ * by rating, so equal ratings sit together and one pass ranks them all.
+ */
 function ranked(state: WorldState, ladder: Ladder) {
   const rows = ladderRows(state, ladder);
-  return rows.map((r) => ({ ...r, rank: 1 + rows.filter((o) => o.rating > r.rating).length }));
+  let rank = 1;
+  return rows.map((r, i) => {
+    if (i > 0 && r.rating !== rows[i - 1]?.rating) rank = i + 1;
+    return { ...r, rank };
+  });
+}
+
+/** One resident's standing on a ladder, ranked 1 plus how many are rated higher, or undefined. */
+function standing(state: WorldState, ladder: Ladder, id: string) {
+  const entries = state.games?.ratings?.[ladder];
+  const mine = own(entries, id);
+  if (!mine) return undefined;
+  let higher = 0;
+  for (const e of Object.values(entries ?? {})) if (e.rating > mine.rating) higher++;
+  return { rating: mine.rating, games: mine.games, rank: higher + 1 };
 }
 
 /** `GET /v1/games/ladders`. */
@@ -200,7 +217,7 @@ export function ladderView(
   author: Authors,
 ): LadderResponse {
   const rows = ranked(state, ladder);
-  const mine = viewer === undefined ? undefined : rows.find((r) => r.resident === viewer);
+  const mine = viewer === undefined ? undefined : standing(state, ladder, viewer);
   return {
     ladder,
     rows: rows.slice(0, LADDER_ROWS).map((r) => ({
@@ -210,15 +227,15 @@ export function ladderView(
       rank: r.rank,
     })),
     tally: { ...(state.games?.tally ?? { people: 0, agents: 0 }) },
-    you: mine ? { rating: mine.rating, games: mine.games, rank: mine.rank } : null,
+    you: mine ?? null,
   };
 }
 
-/** A resident's ladders for their profile: each one they've played rated on. */
+/** A resident's ladders for their profile and check-in: each one they've played rated on. */
 export function gameRatings(state: WorldState, id: string): GameRatingView[] {
   return LADDERS.flatMap((ladder) => {
-    const row = ranked(state, ladder).find((r) => r.resident === id);
-    return row ? [{ ladder, rating: row.rating, games: row.games, rank: row.rank }] : [];
+    const mine = standing(state, ladder, id);
+    return mine ? [{ ladder, ...mine }] : [];
   });
 }
 

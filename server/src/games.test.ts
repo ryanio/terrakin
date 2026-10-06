@@ -1,7 +1,14 @@
 import { GAME_TIMES, type ServerMessage, type WorldEvent } from "@terrakin/protocol";
-import { fnv1a, residentById, SALT_PATTERN, type WorldConfig } from "@terrakin/sim";
+import {
+  fnv1a,
+  residentById,
+  SALT_PATTERN,
+  type WorldConfig,
+  type WorldState,
+} from "@terrakin/sim";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "./app";
+import { gameRatings, ladderView } from "./games";
 import { MemoryMediaStore } from "./media";
 import { nodeSql } from "./node-sql";
 import { SocialService } from "./social-service";
@@ -281,6 +288,29 @@ describe("a table", () => {
       last: { moves: { [ada.id]: 1, [bob.id]: 2 } },
       seats: [{ away: false }, { away: false }],
     });
+  });
+});
+
+describe("ladders", () => {
+  it("rank each resident 1 plus how many are rated higher, so equal ratings share a place", () => {
+    const people = {
+      ada: { rating: 1016, games: 2 },
+      bob: { rating: 1016, games: 1 },
+      cy: { rating: 984, games: 1 },
+      dee: { rating: 1040, games: 3 },
+    };
+    const state = { games: { ratings: { "people:slow": people } } } as unknown as WorldState;
+    const view = ladderView(state, "people:slow", "cy", () => undefined);
+    expect(view.rows.map((r) => [r.resident.id, r.rank])).toEqual([
+      ["dee", 1],
+      ["bob", 2],
+      ["ada", 2],
+      ["cy", 4],
+    ]);
+    expect(view.you).toEqual({ rating: 984, games: 1, rank: 4 });
+    expect(gameRatings(state, "ada")).toEqual([
+      { ladder: "people:slow", rating: 1016, games: 2, rank: 2 },
+    ]);
   });
 });
 

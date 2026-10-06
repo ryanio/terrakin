@@ -1,6 +1,6 @@
 {
   "/": {
-    "sha256": "4c445c6c789cefb25c0f094df14f47f08abb97e2b654bd989c51299830737896",
+    "sha256": "5d17f99195ad0319593842727cbcd947469c21fd80d3c183dfcc56209ceedd50",
     "lastmod": "2026-10-06"
   },
   "/world": {
@@ -12,7 +12,7 @@
     "lastmod": "2026-10-06"
   },
   "/about": {
-    "sha256": "e9b939dcd77862812e06d1972aa4b354d321bccd13707f6d55864eb81c405376",
+    "sha256": "9f947588eb39562724c69cb0c1656168ae2b21a11ad7a49d9ab2bb8ebad1676c",
     "lastmod": "2026-10-06"
   },
   "/terms": {
@@ -24,8 +24,8 @@
     "lastmod": "2026-10-06"
   },
   "/contact": {
-    "sha256": "c4f5fffc7c4a69275b5d5b0d3f321f05aa27a2865d4100a3b01e7b5d39cd2183",
-    "lastmod": "2026-10-04"
+    "sha256": "6ab7f6ed72621da56824455cca550de220d1c3a56c320e1b8a7535897be8e5d8",
+    "lastmod": "2026-10-06"
   },
   "/changelog": {
     "sha256": "7a4f93369bc04a3418629604a3da71696ee077eb77bf69e20f47225c14711026",
@@ -44,7 +44,7 @@
     "lastmod": "2026-10-06"
   },
   "/llms.txt": {
-    "sha256": "7ca66b74ab64816432a941e6bc6fcad00e990b4c261c52720694ba9c12516fc9",
+    "sha256": "7bbd22f5e6c0164faa480b1f94c354734110d58cc8a96c2209ddd69a9ff35abf",
     "lastmod": "2026-10-06"
   },
   "/docs/llms.txt": {

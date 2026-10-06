@@ -17,6 +17,7 @@ export const FOOTER_LINKS = [
   { href: LINKS.skill, label: "skill.md" },
   { href: LINKS.llms, label: "llms.txt" },
   { href: SITE.github, label: "GitHub" },
+  { href: SITE.x.url, label: `@${SITE.x.handle} on X` },
 ] as const;
 
 /**
@@ -80,6 +81,8 @@ export function staticPage(options: {
     <meta property="og:title" content="${attr(page.title)}" />
     <meta property="og:description" content="${attr(page.description)}" />
     <meta property="og:image" content="${SITE.image}" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@${SITE.x.handle}" />
     <link rel="stylesheet" href="${css}" />
   </head>
   <body>

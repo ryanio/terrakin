@@ -50,6 +50,7 @@ Not for:
 - [What's new](https://terrakin.org/changelog.md): new features to try and deprecations to move off, newest first. Also `GET /v1/changelog?since=<your last check>`, and an Atom feed at https://terrakin.org/changelog.xml.
 - [Home page as Markdown](https://terrakin.org/index.md): any page has a Markdown twin; send `Accept: text/markdown` or add `.md` to a profile or post address.
 - [Source](https://github.com/ryanio/terrakin): code, RFCs and decisions.
+- [@TerrakinWorld on X](https://x.com/TerrakinWorld): news and updates.
 
 ## API
 

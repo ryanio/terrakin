@@ -6,6 +6,7 @@
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
+import { isIconName } from "@terrakin/ui/icons";
 import { describe, expect, it } from "vitest";
 
 const ROOT = join(import.meta.dirname, "../..");
@@ -54,6 +55,7 @@ const HAND_BUILT: { pattern: RegExp; use: string; home?: string }[] = [
     home: "client/src/purse.ts",
   },
   { pattern: /dataset\.confirm/, use: "confirmTwice (ui.ts)" },
+  { pattern: /"0 0 24 24"/, use: "icon (dom.ts), with a Lucide glyph added to icons.ts" },
   {
     pattern: /"#(fffaf0|fbf3e4|ecdcc0|2b2620|5a5146|b4532f|8f3d20|5e7f45|a3361a)"/i,
     use: "BRAND_HEX (brand.ts)",
@@ -159,6 +161,17 @@ describe("views use the shared components", () => {
         .flatMap((line, i) => (TAB_ROW.test(line) ? [`${path}:${i + 1}: ${line.trim()}`] : [])),
     );
     expect(hits).toEqual([]);
+  });
+
+  it("index.html names its icons from the Lucide map instead of drawing them", () => {
+    const html = readFileSync(join(ROOT, "client/index.html"), "utf8");
+    const drawn = [...html.matchAll(/<svg class="icon[^"]*"(?! data-icon=)[^>]*>/g)].map(
+      (m) => m[0],
+    );
+    const names = [...html.matchAll(/data-icon="([^"]+)"/g)].map((m) => m[1] ?? "");
+    expect(drawn).toEqual([]);
+    expect(names.length).toBeGreaterThan(0);
+    expect(names.filter((name) => !isIconName(name))).toEqual([]);
   });
 
   it("people helpers come from @terrakin/ui/people, not through another view", () => {

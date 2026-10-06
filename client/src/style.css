@@ -3875,10 +3875,9 @@ dialog.model-viewer {
   transition: opacity 0.2s ease;
 }
 
-.hud-sound[data-level="off"] .sound-wave,
-.hud-sound[data-level="off"] .sound-wave-far,
-.hud-sound[data-level="quiet"] .sound-wave-far,
-.hud-sound:not([data-level="off"]) .sound-mute {
+.hud-sound:not([data-level="off"]) .sound-off,
+.hud-sound:not([data-level="quiet"]) .sound-quiet,
+.hud-sound:not([data-level="on"]) .sound-on {
   display: none;
 }
 

@@ -1,0 +1,139 @@
+/**
+ * The site's icons, all drawn from Lucide (lucide.dev, ISC). Code names an icon by what it means
+ * here ("feed", "town", "kitchen"); this map says which Lucide glyph draws it, so swapping a glyph
+ * is one line. Two ways out: `icon()` in dom.ts builds the element, and `iconSvg()` writes the
+ * markup the client build puts in place of each
+ * `<svg class="..." data-icon="name" aria-hidden="true"></svg>` in index.html. DOM-free, so the
+ * Vite config can import it too.
+ */
+import {
+  Amphora,
+  ArrowLeft,
+  ArrowRight,
+  ArrowUp,
+  AtSign,
+  Bell,
+  Blocks,
+  BookOpen,
+  Box,
+  Calendar,
+  Camera,
+  Check,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  Coins,
+  CookingPot,
+  Copy,
+  Ellipsis,
+  Flag,
+  Gift,
+  Globe,
+  Hammer,
+  Heart,
+  House,
+  type IconNode,
+  Image,
+  KeyRound,
+  Landmark,
+  Link,
+  Mail,
+  MapPin,
+  MessageCircle,
+  MessageCircleMore,
+  Moon,
+  MoonStar,
+  Newspaper,
+  Paperclip,
+  PawPrint,
+  Play,
+  Plus,
+  Quote,
+  Repeat2,
+  Share,
+  Smile,
+  Sparkle,
+  Sparkles,
+  Sprout,
+  Star,
+  UserPlus,
+  UserRoundPlus,
+  Volume1,
+  Volume2,
+  VolumeX,
+  X,
+} from "lucide";
+
+export const ICONS = {
+  feed: Newspaper,
+  world: Globe,
+  docs: BookOpen,
+  town: Landmark,
+  home: House,
+  sparkle: Sparkles,
+  spark: Sparkle,
+  heart: Heart,
+  reply: MessageCircle,
+  chat: MessageCircleMore,
+  share: Share,
+  copy: Copy,
+  link: Link,
+  cube: Box,
+  blocks: Blocks,
+  attach: Paperclip,
+  image: Image,
+  close: X,
+  back: ArrowLeft,
+  arrow: ArrowRight,
+  up: ArrowUp,
+  chevronLeft: ChevronLeft,
+  chevronRight: ChevronRight,
+  chevronUp: ChevronUp,
+  chevronDown: ChevronDown,
+  pin: MapPin,
+  flag: Flag,
+  plus: Plus,
+  check: Check,
+  quote: Quote,
+  play: Play,
+  mail: Mail,
+  more: Ellipsis,
+  key: KeyRound,
+  userPlus: UserPlus,
+  follow: UserRoundPlus,
+  moon: Moon,
+  nightfall: MoonStar,
+  camera: Camera,
+  repost: Repeat2,
+  star: Star,
+  bell: Bell,
+  smile: Smile,
+  at: AtSign,
+  coin: Coins,
+  sprout: Sprout,
+  calendar: Calendar,
+  paw: PawPrint,
+  gift: Gift,
+  kitchen: CookingPot,
+  workbench: Hammer,
+  pedestal: Amphora,
+  soundOff: VolumeX,
+  soundQuiet: Volume1,
+  soundOn: Volume2,
+} as const satisfies Record<string, IconNode>;
+
+export type IconName = keyof typeof ICONS;
+
+export const isIconName = (name: string): name is IconName => Object.hasOwn(ICONS, name);
+
+/** An icon as SVG markup, for HTML the build writes. Lucide's attributes are numbers and path data. */
+export function iconSvg(name: IconName, className = "icon"): string {
+  const parts = ICONS[name]
+    .map(([tag, attrs]) => {
+      const list = Object.entries(attrs).map(([k, v]) => `${k}="${v}"`);
+      return `<${tag} ${list.join(" ")} />`;
+    })
+    .join("");
+  return `<svg class="${className}" viewBox="0 0 24 24" aria-hidden="true">${parts}</svg>`;
+}

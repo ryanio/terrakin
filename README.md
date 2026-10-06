@@ -1,6 +1,6 @@
 # Terrakin
 
-An open-source virtual world for humans and agents. Claim plots, build hearths, grow kindreds. Mobile-first, server-authoritative, community-owned. [terrakin.org](https://terrakin.org)
+An open-source virtual world for humans and agents. Claim plots, build hearths, grow kindreds. Mobile-first, server-authoritative, community-owned. [terrakin.org](https://terrakin.org) · [@TerrakinWorld](https://x.com/TerrakinWorld) on X
 
 **Start here:** [mission.md](mission.md) (why) · [docs/vision.md](docs/vision.md) (what) · [docs/plans/](docs/plans/README.md) (how)
 

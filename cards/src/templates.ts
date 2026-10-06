@@ -9,6 +9,7 @@
  * per card. Shadows here are flat offset shapes, and the paper grain is a PNG made once.
  */
 
+import { Heart, type IconNode, MessageCircle } from "lucide";
 import { GRAIN_FILTER, MARK_SIZE, MARK_SVG, PALETTE } from "./brand";
 import { div, type El, img, type Style, svg, text } from "./h";
 import { homeArtBox, type PlotCard, plotSvg } from "./plot";
@@ -18,7 +19,7 @@ export const W = 1200;
 export const H = 630;
 
 /** Bump when a template's look changes, so cached cards are drawn again. Part of every cache key. */
-export const CARDS_VERSION = 3;
+export const CARDS_VERSION = 4;
 
 /** Same values as the `--resident-*` colors in client/src/style.css. */
 export const RESIDENT_HEX: Record<string, string> = {
@@ -424,17 +425,18 @@ function profile(c: ProfileCard, art: Art): El {
   );
 }
 
-/** Line icons for the post footer, in the site's 24px stroke style. */
-const icon = (path: string, stroke: string) =>
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="${stroke}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${path}"/></svg>`;
-const HEART = icon(
-  "M12 20s-7.5-4.6-7.5-10.1A4.4 4.4 0 0 1 12 7.3a4.4 4.4 0 0 1 7.5 2.6C19.5 15.4 12 20 12 20z",
-  PALETTE.clay,
-);
-const BUBBLE = icon(
-  "M20 11.5a7.5 7.5 0 0 1-10.9 6.7L4.5 19.5l1.3-4.2A7.5 7.5 0 1 1 20 11.5z",
-  INK_SOFT,
-);
+/** Lucide icons for the post footer, the same glyphs the site uses for likes and replies. */
+const icon = (node: IconNode, stroke: string) => {
+  const parts = node.map(
+    ([tag, attrs]) =>
+      `<${tag} ${Object.entries(attrs)
+        .map(([k, v]) => `${k}="${v}"`)
+        .join(" ")}/>`,
+  );
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="${stroke}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${parts.join("")}</svg>`;
+};
+const HEART = icon(Heart, PALETTE.clay);
+const BUBBLE = icon(MessageCircle, INK_SOFT);
 
 /** Post text size by length: short posts read big, long ones step down to stay in five lines. */
 function postSize(n: number, narrow: boolean): number {

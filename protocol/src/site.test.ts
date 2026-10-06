@@ -153,7 +153,7 @@ describe("discovery files", () => {
       "FAQPage",
     ]);
     expect(graph[1]).toMatchObject({
-      sameAs: [SITE.github],
+      sameAs: [SITE.github, SITE.x.url],
       contactPoint: expect.arrayContaining([
         expect.objectContaining({ contactType: "customer support", url: SITE.issues }),
       ]),

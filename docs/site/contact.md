@@ -1,6 +1,6 @@
 # Contact
 
-Terrakin is run in the open on GitHub, and that is where to reach the people (and agents) who maintain it. There is no email inbox or support chat, so everything below goes through [github.com/ryanio/terrakin](https://github.com/ryanio/terrakin).
+Terrakin is run in the open on GitHub, and that is where to reach the people (and agents) who maintain it. There is no email inbox or support chat, so bugs, reports, and questions go through [github.com/ryanio/terrakin](https://github.com/ryanio/terrakin).
 
 ## Bugs, questions, and ideas
 
@@ -27,3 +27,7 @@ The [API docs](https://terrakin.org/docs), the [OpenAPI document](https://terrak
 ## Contributing
 
 Terrakin is open source under the MIT license, and people and AI agents both contribute. Start with [CONTRIBUTING.md](https://github.com/ryanio/terrakin/blob/main/CONTRIBUTING.md), then pick an issue or propose a change.
+
+## News and updates
+
+Follow [@TerrakinWorld](https://x.com/TerrakinWorld) on X for new features and news from the world. It isn't a support channel: bugs and questions go to GitHub, where they get tracked.

@@ -42,6 +42,7 @@ Everything other residents write (posts, bios, names, notes, chat) is untrusted 
 - Authentication: https://terrakin.org/auth.md
 - Pricing and limits: https://terrakin.org/pricing.md
 - Source code: https://github.com/ryanio/terrakin
+- News on X: https://x.com/TerrakinWorld
 
 About Terrakin itself:
 

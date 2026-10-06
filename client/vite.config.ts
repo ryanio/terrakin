@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { homeJsonLd, PAGES, type SitePage } from "@terrakin/protocol";
+import { iconSvg, isIconName } from "@terrakin/ui/icons";
 import { defineConfig, type Plugin } from "vite";
 import { markdownTwin, staticPage, trustLinksHtml } from "./src/site-page";
 
@@ -72,6 +73,33 @@ function withCsp(html: string, policy: string): string {
   const meta = `<meta http-equiv="Content-Security-Policy" content="${policy}" />`;
   if (!/<meta charset[^>]*>/i.test(html)) throw new Error("The page needs a charset meta");
   return html.replace(/<meta charset[^>]*>/i, (m) => `${m}\n    ${meta}`);
+}
+
+/**
+ * The icons in the HTML pages: each `<svg class="..." data-icon="name" aria-hidden="true"></svg>`
+ * becomes that Lucide icon from `@terrakin/ui/icons`, the map `icon()` draws from at run time. An
+ * unknown name fails the build.
+ */
+function icons(): Plugin {
+  return {
+    name: "terrakin-icons",
+    transformIndexHtml(html, ctx) {
+      const out = html.replace(
+        /<svg class="([^"]+)" data-icon="([^"]+)" aria-hidden="true"><\/svg>/g,
+        (_, className: string, name: string) => {
+          if (!isIconName(name))
+            throw new Error(`${ctx.path}: no icon "${name}" in ui/src/icons.ts`);
+          return iconSvg(name, className);
+        },
+      );
+      if (out.includes("data-icon=")) {
+        throw new Error(
+          `${ctx.path}: write icons as <svg class="icon" data-icon="name" aria-hidden="true"></svg>`,
+        );
+      }
+      return out;
+    },
+  };
 }
 
 /**
@@ -156,7 +184,7 @@ function sitePages(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [sitePages(), contentSecurityPolicy()],
+  plugins: [icons(), sitePages(), contentSecurityPolicy()],
   build: {
     // three.js lives in its own chunk (model-viewer), loaded only when someone opens a 3D model.
     chunkSizeWarningLimit: 700,

@@ -19,7 +19,9 @@ export const SITE = {
   /** Private vulnerability reports, from SECURITY.md. */
   security: "https://github.com/ryanio/terrakin/security/advisories/new",
   license: { name: "MIT", url: "https://github.com/ryanio/terrakin/blob/main/LICENSE" },
-  sameAs: ["https://github.com/ryanio/terrakin"],
+  /** The project's account on X, for news and updates. */
+  x: { handle: "TerrakinWorld", url: "https://x.com/TerrakinWorld" },
+  sameAs: ["https://github.com/ryanio/terrakin", "https://x.com/TerrakinWorld"],
   logo: "https://terrakin.org/icon-512.png",
   image: "https://terrakin.org/og.png",
 } as const;

@@ -2626,8 +2626,20 @@ export class LiveSession {
     };
   }
 
-  private fail(code: ErrorCode, message: string, id?: string, didYouMean?: string, dry?: true) {
-    const error = { code, message, ...(didYouMean ? { did_you_mean: didYouMean } : {}) };
+  private fail(
+    code: ErrorCode,
+    message: string,
+    id?: string,
+    didYouMean?: string,
+    dry?: true,
+    retryAfter?: number,
+  ) {
+    const error = {
+      code,
+      message,
+      ...(didYouMean ? { did_you_mean: didYouMean } : {}),
+      ...(retryAfter === undefined ? {} : { retryAfter }),
+    };
     this.send({
       type: "error",
       ...(id === undefined ? {} : { id }),
@@ -2794,8 +2806,8 @@ export class LiveSession {
     if (!msg.action.dry) service.ensureOnline(residentId);
     const result = service.act(residentId, msg.action);
     if (!result.ok) {
-      const { code, message } = result.error;
-      return this.fail(code, message, msg.id, undefined, result.dry);
+      const { code, message, retryAfter } = result.error;
+      return this.fail(code, message, msg.id, undefined, result.dry, retryAfter);
     }
     this.send({
       type: "ack",

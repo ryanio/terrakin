@@ -22911,6 +22911,12 @@
           "did_you_mean": {
             "description": "The action type, field name, or value you most likely meant, when the request had a typo.",
             "type": "string"
+          },
+          "retryAfter": {
+            "description": "`rate_limited` from an action's own pacing (`build`, `putter`): seconds until it's worth trying again.",
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           }
         },
         "required": [

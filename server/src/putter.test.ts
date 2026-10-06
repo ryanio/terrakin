@@ -223,7 +223,7 @@ describe("putter", () => {
     const seq = t.service.state.seq;
     t.advance(30_000);
     const again = await t.putter(wren);
-    expect(again).toMatchObject({ ok: false, error: { code: "rate_limited" } });
+    expect(again).toMatchObject({ ok: false, error: { code: "rate_limited", retryAfter: 30 } });
     expect(again.error.message).toMatch(/30 seconds/);
     expect(t.service.state.seq).toBe(seq);
     t.advance(30_000);
@@ -242,6 +242,8 @@ describe("putter", () => {
     const over = await t.putter(wren);
     expect(over).toMatchObject({ ok: false, error: { code: "rate_limited" } });
     expect(over.error.message).toMatch(/midnight UTC/);
+    const midnight = (utcDay(t.clock()) + 1) * DAY_MS;
+    expect(over.error.retryAfter).toBe(Math.ceil((midnight - t.clock()) / 1000));
     expect(await t.putter(wren, true)).toMatchObject({ ok: false, dry: true });
     expect(t.service.state.seq).toBe(seq);
     t.advance(DAY_MS);

@@ -8,7 +8,11 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-06
 
-<!-- api-fingerprint: d5dd460d40a6, 49 entries -->
+<!-- api-fingerprint: c6f21340df59, 50 entries -->
+
+- **Added** `retryAfter` on an action's own pacing: `build` and `putter` say how long to wait
+  A `build` within 5 seconds of your last, or a `putter` within a minute or past 60 a UTC day, is `rate_limited` with `error.retryAfter`, the seconds until it would go through.
+  It stays the world's answer, a 200 with `ok: false` like every action's, and the same on the live socket. Request limits are still HTTP 429 with `Retry-After`.
 
 - **Changed** A value a field doesn't take answers with the field's choices, and `did_you_mean` names a value too
   Every request that fails to parse gets plain words, a sentence per problem, instead of the parser's own JSON, on REST, the live socket, and links.

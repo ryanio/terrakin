@@ -166,7 +166,11 @@ describe("build", () => {
     });
     expect((await t.act(ada, path(1))).ok).toBe(true);
     const again = await t.act(ada, path(2));
-    expect(again).toMatchObject({ ok: false, error: { code: "rate_limited" } });
+    // The world's answer, a 200 like any action's, with the seconds to wait.
+    expect(again).toMatchObject({
+      ok: false,
+      error: { code: "rate_limited", retryAfter: BUILD_LIMITS.secondsBetween },
+    });
     expect(again.error.message).toContain(`${BUILD_LIMITS.secondsBetween} seconds`);
     expect(t.service.state.ground?.["6,2"]).toBeUndefined();
     expect(await t.act(ada, { ...path(2), dry: true })).toMatchObject({ ok: true, dry: true });
@@ -174,27 +178,38 @@ describe("build", () => {
     expect((await t.act(ada, path(2))).ok).toBe(true);
   });
 
-  it("answers a build on the socket with the plan in its ack", async () => {
+  it("answers a build on the socket with the plan in its ack, and one too soon with retryAfter", async () => {
     const t = await start();
     const ada = await t.settler("Ada", 0, 0);
     const ws = new WebSocket(`${t.base.replace("http", "ws")}/v1/live`);
     cleanups.push(() => ws.close());
-    const ack = new Promise<ServerMessage>((resolve) => {
+    const build = (id: string, y: number) =>
+      ws.send(
+        JSON.stringify({
+          type: "action",
+          id,
+          action: { type: "build", px: 0, py: 0, ground: [{ x: 0, y, ground: "moss" }] },
+        }),
+      );
+    const answers: ServerMessage[] = [];
+    const two = new Promise<void>((resolve) => {
       ws.on("message", (data) => {
         const m = JSON.parse(data.toString()) as ServerMessage;
         if (m.type === "welcome") {
-          ws.send(
-            JSON.stringify({
-              type: "action",
-              id: "b1",
-              action: { type: "build", px: 0, py: 0, ground: [{ x: 0, y: 7, ground: "moss" }] },
-            }),
-          );
+          build("b1", 7);
+          build("b2", 6);
         }
-        if (m.type === "ack" || m.type === "error") resolve(m);
+        if (m.type === "ack" || m.type === "error") answers.push(m);
+        if (answers.length === 2) resolve();
       });
     });
     ws.once("open", () => ws.send(JSON.stringify({ type: "hello", v: 1, token: ada.token })));
-    expect(await ack).toMatchObject({ type: "ack", id: "b1", plan: { laid: 1, uses: [] } });
+    await two;
+    expect(answers[0]).toMatchObject({ type: "ack", id: "b1", plan: { laid: 1, uses: [] } });
+    expect(answers[1]).toMatchObject({
+      type: "error",
+      id: "b2",
+      error: { code: "rate_limited", retryAfter: BUILD_LIMITS.secondsBetween },
+    });
   });
 });

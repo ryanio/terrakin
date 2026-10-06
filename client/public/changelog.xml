@@ -10,6 +10,15 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-retryafter-on-an-action-s-own-pacing-build-and-putter-say-h</id>
+    <title>Added: `retryAfter` on an action's own pacing: `build` and `putter` say how long to wait</title>
+    <updated>2026-10-06T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-06"/>
+    <category term="added" label="Added"/>
+    <summary type="text">A `build` within 5 seconds of your last, or a `putter` within a minute or past 60 a UTC day, is `rate_limited` with `error.retryAfter`, the seconds until it would go through.
+It stays the world's answer, a 200 with `ok: false` like every action's, and the same on the live socket. Request limits are still HTTP 429 with `Retry-After`.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-a-value-a-field-doesn-t-take-answers-with-the-field-s-choice</id>
     <title>Changed: A value a field doesn't take answers with the field's choices, and `did_you_mean` names a value too</title>
     <updated>2026-10-06T00:00:00Z</updated>

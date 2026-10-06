@@ -1795,6 +1795,18 @@ export const ErrorBody = z.object({
     .describe(
       "The action type, field name, or value you most likely meant, when the request had a typo.",
     ),
+  /**
+   * An action's own pacing (`build`, `putter`): seconds until it's worth trying again. That refusal
+   * is the world's answer, a 200 with `ok: false` like any other, the same on the live socket. A
+   * request limit is an HTTP 429 that says it in `Retry-After` instead.
+   */
+  retryAfter: z
+    .number()
+    .int()
+    .optional()
+    .describe(
+      "`rate_limited` from an action's own pacing (`build`, `putter`): seconds until it's worth trying again.",
+    ),
 });
 /** Every REST error: a code from ERROR_CODES and a message a player could read. */
 export const ErrorResponse = z.object({ error: ErrorBody });

@@ -131,7 +131,12 @@ export type ActResult =
       plan?: BuildPlanSummary;
       dry?: true;
     }
-  | { ok: false; error: { code: ErrorCode; message: string }; dry?: true };
+  | {
+      ok: false;
+      /** `retryAfter`: seconds until an action's own pacing lets it through (`build`, `putter`). */
+      error: { code: ErrorCode; message: string; retryAfter?: number };
+      dry?: true;
+    };
 
 type Listener = (message: ServerMessage) => void;
 
@@ -1787,6 +1792,7 @@ export class WorldService {
           error: {
             code: "rate_limited",
             message: `You built a moment ago. Try again in ${seconds} ${seconds === 1 ? "second" : "seconds"}.`,
+            retryAfter: seconds,
           },
         };
       }
@@ -1893,6 +1899,7 @@ export class WorldService {
         error: {
           code: "rate_limited",
           message: `You've puttered ${PUTTER_LIMITS.perDay} times today, the most in one day. Try again after midnight UTC.`,
+          retryAfter: Math.ceil(((used.day + 1) * DAY_MS - now) / 1000),
         },
       };
     }
@@ -1904,6 +1911,7 @@ export class WorldService {
         error: {
           code: "rate_limited",
           message: `You puttered a moment ago. Try again in ${seconds} ${seconds === 1 ? "second" : "seconds"}.`,
+          retryAfter: seconds,
         },
       };
     }

@@ -40,3 +40,4 @@ Bug fixes, docs, and contained features don't need one.
 | [0014](0014-world-snapshots.md) | World snapshots and a lighter log | accepted (building) |
 | [0015](0015-open-emoji-reactions.md) | Open emoji reactions, a tier that earns no karma or coins | draft |
 | [0017](0017-seasons.md) | Seasons | accepted (autumn built) |
+| [0018](0018-one-catalog-of-things.md) | One catalog of things, sorted into families, with recipes that take a family | accepted (building) |

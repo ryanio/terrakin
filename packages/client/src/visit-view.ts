@@ -70,7 +70,7 @@ export function visitButton(
     "button",
     {
       class: `pill-button small visit-button ${className}`.trim(),
-      attrs: { type: "button", "aria-label": `Visit ${plotName([plot.owner.name])}` },
+      attrs: { type: "button", "aria-label": `Visit ${plotName(plot)}` },
     },
     icon("world"),
     h("span", { text: "Visit" }),
@@ -124,7 +124,7 @@ export function plotCard(
   navigate: (path: string) => void,
 ): HTMLElement {
   const people = [plot.owner, ...plot.coOwners];
-  const name = plotName(people.map((p) => p.name));
+  const name = plotName(plot);
   return h(
     "section",
     {

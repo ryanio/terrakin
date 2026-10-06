@@ -10,6 +10,7 @@ import {
   type BlockKind,
   type Crop,
   type Direction,
+  type FindKind,
   type Ground,
   type GroundKind,
   groundOf,
@@ -17,10 +18,10 @@ import {
   lookOf,
   mayGatherOn,
   type Pet,
+  type PickupKind,
   pickupOn,
   plotKey,
   type Resident,
-  type ResourceKind,
   type StepRoutine,
   shopTiles,
   tileKey,
@@ -33,6 +34,13 @@ type EventMessage = { seq: number; event: WorldEvent };
 
 /** A made thing on display, as the world shows it. Its `label` is its maker's words. */
 export type DisplayView = Omit<NonNullable<WorldSnapshot["displays"]>[number], "x" | "y">;
+
+/** A find on display (RFC 0021): its kind, who put it up, and the day it went up. No words. */
+export interface ShownFindView {
+  kind: FindKind;
+  by: string;
+  day: number;
+}
 
 /** A pet from the wire, with unset fields left out rather than undefined. */
 export function petFrom(view: PetView): Pet {
@@ -114,10 +122,14 @@ export class Mirror {
   galleries = new Set<string>();
   /** Made things on display on pedestals and frames (RFC 0005 step 3). Labels are untrusted text. */
   displays = new Map<string, DisplayView>();
+  /** Finds on display on pedestals and frames (RFC 0021), by tileKey. */
+  shownFinds = new Map<string, ShownFindView>();
   /** Tiles picked clean today, so a pickup that's gone isn't drawn (phase 1 gathering). */
   gathered = new Set<string>();
   /** Whether a claimed plot's pickups are for its owner and co-owners only (`plot_pickups_owned`). */
   plotPickupsOwned = false;
+  /** Whether finds lie on the ground (`finds_opened`, RFC 0021), so `pickupAt` draws them too. */
+  findsOpen = false;
   /** Today, as the world counts it. A crop is ready once this reaches its `readyDay`. */
   day: number | undefined;
   /** Which way each resident last walked. Only for drawing; nobody faces anywhere in the sim. */
@@ -167,8 +179,12 @@ export class Mirror {
     for (const d of snapshot.displays ?? []) {
       this.displays.set(tileKey(d.x, d.y), { good: { ...d.good }, by: d.by, day: d.day });
     }
+    for (const f of snapshot.displayedFinds ?? []) {
+      this.shownFinds.set(tileKey(f.x, f.y), { kind: f.kind, by: f.by, day: f.day });
+    }
     for (const t of snapshot.gathered ?? []) this.gathered.add(tileKey(t.x, t.y));
     this.plotPickupsOwned = snapshot.plotPickupsOwned === true;
+    this.findsOpen = snapshot.findsOpen === true;
     this.day = snapshot.day;
     for (const t of snapshot.tables ?? []) {
       this.tables.set(t.id, { x: t.x, y: t.y, playing: t.status === "playing" });
@@ -326,9 +342,17 @@ export class Mirror {
           day: this.day ?? 0,
         });
         break;
+      case "find_displayed":
+        this.shownFinds.set(tileKey(event.x, event.y), {
+          kind: event.kind,
+          by: event.by,
+          day: this.day ?? 0,
+        });
+        break;
       case "taken_down":
       case "display_removed":
         this.displays.delete(tileKey(event.x, event.y));
+        this.shownFinds.delete(tileKey(event.x, event.y));
         break;
       case "picture_removed":
         for (const shown of this.displays.values()) {
@@ -365,6 +389,9 @@ export class Mirror {
       }
       case "plot_pickups_owned":
         this.plotPickupsOwned = true;
+        break;
+      case "finds_opened":
+        this.findsOpen = true;
         break;
       case "event_scheduled":
         this.events.set(event.event, {
@@ -469,13 +496,14 @@ export class Mirror {
     return list;
   }
 
-  /** The fallen branch or loose stone lying on a tile today, from the sim's own spawn. */
-  pickupAt(x: number, y: number): ResourceKind | null {
+  /** The fallen branch, loose stone, or find lying on a tile today, from the sim's own spawn. */
+  pickupAt(x: number, y: number): PickupKind | null {
     if (this.day === undefined) return null;
     const key = tileKey(x, y);
     return pickupOn(this.config, x, y, this.day, {
       built: this.blocks.has(key),
       picked: this.gathered.has(key),
+      finds: this.findsOpen,
     });
   }
 

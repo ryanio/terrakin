@@ -1,5 +1,5 @@
 import { KARMA, type ServerMessage, type WorldEvent } from "@terrakin/protocol";
-import { CROP_INFO, ITEMS, TOWN_ACTOR, type WorldConfig } from "@terrakin/sim";
+import { CROP_INFO, ITEMS, isFindKind, TOWN_ACTOR, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
 import { MemoryMediaStore } from "./media";
@@ -35,7 +35,13 @@ afterEach(async () => {
 // biome-ignore lint/suspicious/noExplicitAny: the response checker already holds every body to its schema.
 type Json = Record<string, any>;
 
-async function start(items = true, economy = true, gifts = false, plotPickups = false) {
+async function start(
+  items = true,
+  economy = true,
+  gifts = false,
+  plotPickups = false,
+  finds = false,
+) {
   let now = Date.UTC(2026, 9, 5, 9);
   const store = new MemoryStore();
   const service = new WorldService({
@@ -47,6 +53,7 @@ async function start(items = true, economy = true, gifts = false, plotPickups = 
     items,
     gifts,
     plotPickups,
+    finds,
   });
   const sql = nodeSql();
   const media = new MemoryMediaStore();
@@ -258,6 +265,36 @@ describe("items", () => {
       const onAsh = p.x < S && p.y < S;
       expect(p.ownersOnly, `${p.x},${p.y}`).toBe(onAsh ? true : undefined);
     }
+  });
+
+  it("put finds on the ground once the server logs the switch, once, and list one on display apart", async () => {
+    const t = await start(true, true, false, false, true);
+    const switches = () =>
+      t.store.log.filter((i) => i.command.type === "open_finds").map((i) => i.actor);
+    expect(switches()).toEqual([TOWN_ACTOR]);
+    t.nextDay();
+    expect(switches()).toEqual([TOWN_ACTOR]);
+    let world = (await t.call("GET", "/v1/world")).body;
+    expect(world.findsOpen).toBe(true);
+    // Where they lie is the sim's; the world lists them with the branches and stones.
+    const anyFind = () => (world.pickups as Json[]).some((p) => isFindKind(p.kind));
+    for (let day = 0; day < 10 && !anyFind(); day++) {
+      t.nextDay();
+      world = (await t.call("GET", "/v1/world")).body;
+    }
+    expect(anyFind()).toBe(true);
+    // A find on a pedestal is listed on its own: `displays` stays made things with their makers.
+    const ash = await t.gardener("Ash", 0, 0);
+    const items = t.service.state.items;
+    if (!items) throw new Error("items");
+    // Setup only: a geode in Ash's things without walking to one.
+    items.inventories[ash.id] = { stacks: { geode: 1 }, goods: [] };
+    const at = { x: ash.x0 + 2, y: ash.y0 + 4 };
+    await t.act(ash.token, { type: "place", ...at, block: "pedestal" });
+    expect((await t.act(ash.token, { type: "display", item: "geode", ...at })).ok).toBe(true);
+    const after = (await t.call("GET", "/v1/world")).body;
+    expect(after.displayedFinds).toEqual([{ ...at, kind: "geode", by: ash.id, day: after.day }]);
+    expect(after.displays).toBeUndefined();
   });
 
   it("filter labels, and mark them as someone's words", async () => {

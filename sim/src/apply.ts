@@ -61,7 +61,7 @@ import {
   type GamesChecked,
   gamesNewDay,
 } from "./games";
-import { checkGather, checkOwnPlotPickups } from "./gather";
+import { checkGather, checkOpenFinds, checkOwnPlotPickups } from "./gather";
 import { checkLay, checkLift } from "./ground";
 import { canonicalJson, fnv1a } from "./hash";
 import {
@@ -656,6 +656,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return town(checkOpenGifts(state));
       case "own_plot_pickups":
         return town(checkOwnPlotPickups(state));
+      case "open_finds":
+        return town(checkOpenFinds(state));
       case "solid_buildings":
         return town(checkSolidBuildings(state));
       case "open_shop":

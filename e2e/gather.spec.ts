@@ -5,7 +5,8 @@ import { act, freePlots, join, read, signIn, tapTile, watchErrors } from "./supp
  * Gathering (phase 1, item 9) on a phone: a resident settles a plot where branches or stones lie
  * today, taps one within reach on the map, and finds it in their things. Where things lie comes
  * from `pickups` in `/v1/world`, the same list an AI assistant reads. A pickup on someone else's
- * plot says whose it is instead.
+ * plot says whose it is instead. A find (RFC 0021) is picked up the same way and lands in your
+ * collection book.
  */
 
 interface Tile {
@@ -146,6 +147,82 @@ test("tap a pickup within reach and find it in your things; on someone else's pl
     expect(after.pickups).toContainEqual(target);
     const things = (await read(page.request, ash.token, "/v1/inventory")).inventory;
     expect(things?.stacks ?? []).not.toContainEqual(expect.objectContaining({ kind: target.kind }));
+  });
+
+  await test.step("forage a find on the map and see it in your collection book", async () => {
+    // A find lying today on a plot nobody has claimed: Fern claims that plot, so it's hers to take.
+    const catalog = await (await page.request.get("/v1/catalog")).json();
+    const finds = new Set<string>(
+      catalog.kinds
+        .filter((k: { category: string }) => k.category === "find")
+        .map((k: { kind: string }) => k.kind),
+    );
+    const now = await (await page.request.get("/v1/world")).json();
+    const claimed = new Set<string>([
+      ...now.plots.map((p: { px: number; py: number }) => `${p.px},${p.py}`),
+      `${now.commons.px},${now.commons.py}`,
+    ]);
+    const plotOf = (p: Tile) => `${Math.floor(p.x / S)},${Math.floor(p.y / S)}`;
+    const lying = (now.pickups as Pickup[]).filter(
+      (p) => finds.has(p.kind) && !claimed.has(plotOf(p)),
+    );
+    expect(now.findsOpen).toBe(true);
+    const fern = await join(page.request, "Fern");
+    let target: Pickup | undefined;
+    for (const p of lying) {
+      const [px, py] = plotOf(p).split(",").map(Number);
+      if ((await act(page.request, fern.token, { type: "settle", px, py })).ok) {
+        target = p;
+        break;
+      }
+    }
+    if (!target) throw new Error("No find lies on unclaimed land in the test world today");
+    const find = target;
+    // Walk within reach of it over the API, never onto it: tapping yourself opens your plot in 3D.
+    const where = async () =>
+      (
+        (await (await page.request.get("/v1/world")).json()).residents as (Tile & { id: string })[]
+      ).find((r) => r.id === fern.id) as Tile;
+    let me = await where();
+    const DIRS: Record<string, string> = {
+      "0,-1": "n",
+      "0,1": "s",
+      "1,0": "e",
+      "-1,0": "w",
+      "1,-1": "ne",
+      "-1,-1": "nw",
+      "1,1": "se",
+      "-1,1": "sw",
+    };
+    for (let i = 0; i < 12; i++) {
+      const far = Math.max(Math.abs(find.x - me.x), Math.abs(find.y - me.y));
+      if (far >= 1 && far <= config.reach) break;
+      const away = far === 0 ? -1 : 1;
+      const dx = Math.sign(find.x - me.x) * away || (far === 0 ? 1 : 0);
+      const dy = Math.sign(find.y - me.y) * away;
+      expect(
+        (await act(page.request, fern.token, { type: "move", dir: DIRS[`${dx},${dy}`] })).ok,
+      ).toBe(true);
+      me = await where();
+    }
+
+    await signIn(page, fern);
+    await page.goto("/world");
+    await expect(page.locator("#hud")).toBeVisible();
+    await tapTile(page, find.x - me.x, find.y - me.y);
+    await expect(page.locator("#toast")).toContainText("You found");
+    await page.screenshot({ path: "test-results/forage-found.png" });
+    await expect
+      .poll(async () => (await read(page.request, fern.token, "/v1/inventory")).inventory.stacks)
+      .toContainEqual({ kind: find.kind, count: 1 });
+
+    // Her collection book has it, and her profile says how far along the book is.
+    await page.goto(`/r/${fern.id}/collection`);
+    await expect(page.locator(`.collection-kind.got[data-kind="${find.kind}"]`)).toBeVisible();
+    await expect(page.locator("#collection-count")).toContainText("Collected");
+    await page.screenshot({ path: "test-results/forage-collection.png", fullPage: true });
+    await page.goto(`/r/${fern.id}`);
+    await expect(page.locator(".profile-collected")).toContainText("Collected");
   });
   expect(errors).toEqual([]);
 });

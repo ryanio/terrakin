@@ -1,18 +1,18 @@
 /**
  * The sheet a pedestal or a frame opens in the world (RFC 0005 step 3): what's on display there,
- * who made it and who put it up, or, on your own plot, which of your made things to put up. It only
- * sends actions; the server decides, and its answer shows as a toast in the world. Labels, titles,
- * and names are other residents' words: text only.
+ * who made it and who put it up, or, on your own plot, which of your made things and finds to put
+ * up. It only sends actions; the server decides, and its answer shows as a toast in the world.
+ * Labels, titles, and names are other residents' words: text only.
  */
-import type { Action, GoodView } from "@terrakin/protocol";
-import type { BlockKind } from "@terrakin/sim";
+import { type Action, COLLECTION_WORDS, type GoodView } from "@terrakin/protocol";
+import { type BlockKind, CATALOG, isFindKind } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
-import { thingPicture } from "@terrakin/ui/item-art";
+import { itemArt, thingPicture } from "@terrakin/ui/item-art";
 import { closeOverlay, errorLine, itemRow, itemRows, openOverlay, sheet } from "@terrakin/ui/ui";
 import { api } from "./api";
-import type { DisplayView } from "./mirror";
+import type { DisplayView, ShownFindView } from "./mirror";
 import { openReportSheet, type ReportTarget } from "./report-sheet";
-import { admiredLine, thingName } from "./things";
+import { admiredLine, thingCount, thingName } from "./things";
 
 export interface DisplaySheetOptions {
   block: BlockKind;
@@ -20,6 +20,8 @@ export interface DisplaySheetOptions {
   y: number;
   /** What's on display there, as the world shows it. */
   shown?: DisplayView;
+  /** A find on display there instead (RFC 0021). */
+  find?: ShownFindView;
   /** Whether the tile is on a plot you own or share, as the world shows it. */
   yours: boolean;
   /** The plot the tile is on, and whether it's open as a gallery. */
@@ -180,6 +182,40 @@ export function openDisplaySheet(o: DisplaySheetOptions) {
     return;
   }
 
+  // A find has nobody who made it, so it's never admired or reported: only taken down.
+  const find = o.find;
+  if (find) {
+    const by = o.nameOf(find.by);
+    const name = thingName(find.kind);
+    const where = COLLECTION_WORDS[CATALOG[find.kind].family].hint;
+    body.append(
+      h(
+        "figure",
+        { class: "stack tight showcase" },
+        itemArt(find.kind, { size: 160, className: "showcase-art", title: name }),
+        h(
+          "figcaption",
+          { class: "stack tight showcase-caption" },
+          h("span", { class: "showcase-name", text: name }),
+          h("span", { class: "showcase-line", text: where }),
+          by ? h("span", { class: "showcase-line", text: `Put up by ${by}` }) : null,
+        ),
+      ),
+      ...(o.yours || (o.me !== undefined && o.me === find.by)
+        ? [
+            h("button", {
+              class: "pill-button small",
+              attrs: { type: "button", id: "display-take-down" },
+              text: "Take down",
+              on: { click: () => send({ type: "take_down", x: o.x, y: o.y }) },
+            }),
+          ]
+        : []),
+    );
+    openOverlay(s.dialog);
+    return;
+  }
+
   if (!o.yours) {
     body.append(h("p", { class: "sheet-lede", text: "Nothing on display here yet." }));
     openOverlay(s.dialog);
@@ -195,10 +231,18 @@ export function openDisplaySheet(o: DisplaySheetOptions) {
       return;
     }
     const goods = r.data.inventory?.goods ?? [];
+    const finds = (r.data.inventory?.stacks ?? []).filter((st) => isFindKind(st.kind));
     hint.textContent =
-      goods.length > 0
+      goods.length + finds.length > 0
         ? "Pick something to show. Everyone who passes can see it."
-        : "You have nothing to show yet. Make something at a kitchen or a workbench, or turn one of your pictures into a piece of art on your things page.";
+        : "You have nothing to show yet. Make something at a kitchen or a workbench, turn one of your pictures into a piece of art on your things page, or go for a walk and pick up a find.";
+    const display = (item: string) =>
+      h("button", {
+        class: "btn-primary small",
+        attrs: { type: "button" },
+        text: "Display",
+        on: { click: () => send({ type: "display", item, x: o.x, y: o.y }) },
+      });
     list.replaceChildren(
       ...goods.map((g) =>
         itemRow({
@@ -207,12 +251,17 @@ export function openDisplaySheet(o: DisplaySheetOptions) {
           lead: thingPicture(g, { size: 32 }),
           name: shownName(g),
           lines: [g.maker ? `Made by ${g.maker.name}` : null],
-          trail: h("button", {
-            class: "btn-primary small",
-            attrs: { type: "button" },
-            text: "Display",
-            on: { click: () => send({ type: "display", item: g.id, x: o.x, y: o.y }) },
-          }),
+          trail: display(g.id),
+        }),
+      ),
+      ...finds.map((st) =>
+        itemRow({
+          className: "workshop-row",
+          plain: true,
+          lead: itemArt(st.kind, { size: 32 }),
+          name: thingName(st.kind),
+          lines: [`You have ${thingCount(st.kind, st.count)}`],
+          trail: display(st.kind),
         }),
       ),
     );

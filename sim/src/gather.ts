@@ -1,8 +1,9 @@
-import { biomeAt } from "./biome";
+import { type Biome, biomeAt } from "./biome";
 import { refuse } from "./check";
 import {
   addStack,
   closed,
+  type FindKind,
   ITEMS,
   type ItemsChecked,
   inventory,
@@ -12,6 +13,7 @@ import {
   reachProblem,
 } from "./items";
 import { tileKey } from "./keys";
+import { type Season, seasonOf } from "./season";
 import type {
   Command,
   ItemsState,
@@ -37,6 +39,11 @@ import { canBuildOn, inBounds, plotAtTile } from "./world";
  * Once the server logs `own_plot_pickups`, a claimed plot's pickups are for its owner and
  * co-owners only. The Commons and unclaimed land stay open to everyone. Gathers logged before the
  * switch replay as they were made.
+ *
+ * Once the server logs `open_finds` (RFC 0021), a tile with no branch or stone may hold a find
+ * instead: an acorn, a seashell, a geode, by its biome and the season (`FIND_SPAWNS`). Branches
+ * and stones lie exactly where they did, and before the switch nothing else does, so gathers
+ * logged before it replay as they were made.
  */
 
 /** The numbers. Every count is a whole number of pickups. */
@@ -49,52 +56,145 @@ export const GATHER = {
   perPickup: 1,
 } as const;
 
+/** What can lie on a tile to pick up: a branch, a stone, or (once finds are out) a find. */
+export type PickupKind = ResourceKind | FindKind;
+
+/** One find's place in the spawn: its biome, its chance per tile a day, and its seasons if any. */
+export interface FindSpawn {
+  kind: FindKind;
+  biome: Biome;
+  /** Chance a tile of its biome, with no branch or stone on it, holds one on a day. */
+  chance: number;
+  /** It lies only on days in these seasons. Absent: every day of the year. */
+  seasons?: readonly Season[];
+}
+
+/**
+ * Where finds lie (RFC 0021, decision 0099), frozen: a logged `gather` of a find replays only
+ * while this list, its order, and its chances stay exactly as they are. A tile's biome keeps the
+ * finds in season on the day, in this order, and a roll of its own picks the first whose running
+ * total of chances covers it. A new find, or new numbers, is a new list behind a new logged switch,
+ * never an edit to this one. `gather.test.ts` pins it.
+ */
+export const FIND_SPAWNS = [
+  { kind: "acorn", biome: "forest", chance: 0.003 },
+  { kind: "pinecone", biome: "forest", chance: 0.0025 },
+  { kind: "mushroom", biome: "forest", chance: 0.0012 },
+  { kind: "feather", biome: "forest", chance: 0.0003 },
+  { kind: "chestnut", biome: "forest", chance: 0.003, seasons: ["autumn"] },
+  { kind: "holly", biome: "forest", chance: 0.002, seasons: ["winter"] },
+  { kind: "seashell", biome: "sand", chance: 0.006 },
+  { kind: "driftwood", biome: "sand", chance: 0.003 },
+  { kind: "sea_glass", biome: "sand", chance: 0.0008 },
+  { kind: "starfish", biome: "sand", chance: 0.002, seasons: ["summer"] },
+  { kind: "crystal", biome: "stone", chance: 0.003 },
+  { kind: "fossil", biome: "stone", chance: 0.0012 },
+  { kind: "geode", biome: "stone", chance: 0.0004 },
+  { kind: "four_leaf_clover", biome: "meadow", chance: 0.0002 },
+  { kind: "maple_leaf", biome: "meadow", chance: 0.0025, seasons: ["autumn"] },
+  { kind: "cherry_blossom", biome: "meadow", chance: 0.0025, seasons: ["spring"] },
+] as const satisfies readonly FindSpawn[];
+
+/** The finds that may lie in a biome on a day: its spawns in season, in `FIND_SPAWNS` order. */
+export function findsIn(biome: Biome, day: number): FindSpawn[] {
+  const season = seasonOf(day);
+  return FIND_SPAWNS.filter(
+    (f: FindSpawn) => f.biome === biome && (f.seasons === undefined || f.seasons.includes(season)),
+  );
+}
+
+/**
+ * The roll for a find on a tile and a day, in [0, 1). Its own constants and murmur3's finalizer,
+ * so it never follows the branch-and-stone roll: a tile's two rolls are independent.
+ */
+function findRoll(x: number, y: number, day: number): number {
+  let h = (Math.imul(x, 0x27d4eb2f) + Math.imul(y, 0x165667b1) + Math.imul(day, 0x9e3779b1)) | 0;
+  h ^= h >>> 16;
+  h = Math.imul(h, 0x85ebca6b);
+  h ^= h >>> 13;
+  h = Math.imul(h, 0xc2b2ae35);
+  h ^= h >>> 16;
+  return (h >>> 0) / 0x100000000;
+}
+
+/**
+ * The most a biome's finds can add up to on any day, every season's together. A roll at or past it
+ * holds nothing, which most tiles' rolls are, so the season is only looked up for the rest: the
+ * map asks about every tile on screen each frame.
+ */
+const MOST: Partial<Record<Biome, number>> = {};
+for (const f of FIND_SPAWNS) MOST[f.biome] = (MOST[f.biome] ?? 0) + f.chance;
+
+/** The find on a tile of `biome` on `day`, if its roll lands on one. Pure. */
+function findAt(biome: Biome, x: number, y: number, day: number): FindKind | null {
+  const roll = findRoll(x, y, day);
+  if (roll >= (MOST[biome] ?? 0)) return null;
+  let total = 0;
+  for (const spawn of findsIn(biome, day)) {
+    total += spawn.chance;
+    if (roll < total) return spawn.kind;
+  }
+  return null;
+}
+
 /**
  * What lies on tile (x, y) on `day`, if anything: a fallen branch in a forest, a loose stone on
- * stone ground. Pure: the same tile and day always answer the same, on every client and replay.
+ * stone ground, and, with `finds` on (`open_finds` was logged), a find on a tile with neither.
+ * Pure: the same tile, day, and switch always answer the same, on every client and replay. With
+ * `finds` off it answers exactly as it did before finds.
  */
 export function gatherableAt(
   config: WorldConfig,
   x: number,
   y: number,
   day: number,
-): ResourceKind | null {
+  finds = false,
+): PickupKind | null {
   const biome = biomeAt(config, x, y);
   const kind: ResourceKind | null =
     biome === "forest" ? "wood" : biome === "stone" ? "stone" : null;
-  if (!kind) return null;
-  // Mix the three integers with a finalizer, like biomeAt, so neighboring tiles and days are
-  // independent.
-  let h = (Math.imul(x, 374761393) + Math.imul(y, 668265263) + Math.imul(day, 2246822519)) | 0;
-  h = Math.imul(h ^ (h >>> 13), 1274126177);
-  const roll = ((h ^ (h >>> 16)) >>> 0) / 0x100000000;
-  const chance = kind === "wood" ? GATHER.woodChance : GATHER.stoneChance;
-  return roll < chance ? kind : null;
+  if (kind) {
+    // Mix the three integers with a finalizer, like biomeAt, so neighboring tiles and days are
+    // independent.
+    let h = (Math.imul(x, 374761393) + Math.imul(y, 668265263) + Math.imul(day, 2246822519)) | 0;
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    const roll = ((h ^ (h >>> 16)) >>> 0) / 0x100000000;
+    const chance = kind === "wood" ? GATHER.woodChance : GATHER.stoneChance;
+    if (roll < chance) return kind;
+  }
+  return finds ? findAt(biome, x, y, day) : null;
 }
 
 /**
  * What still lies on (x, y) on `day`: its spawn, unless the tile is built on or was picked clean
- * today. Pure, so a client draws exactly what `gather` would take from its own copy of the world.
+ * today. `finds` says whether finds are out (`findsOpen` in the world). Pure, so a client draws
+ * exactly what `gather` would take from its own copy of the world.
  */
 export function pickupOn(
   config: WorldConfig,
   x: number,
   y: number,
   day: number,
-  tile: { built: boolean; picked: boolean },
-): ResourceKind | null {
+  tile: { built: boolean; picked: boolean; finds?: boolean },
+): PickupKind | null {
   if (tile.built || tile.picked) return null;
-  return gatherableAt(config, x, y, day);
+  return gatherableAt(config, x, y, day, tile.finds === true);
+}
+
+/** Whether finds lie on the ground in this world (`open_finds` was logged). */
+export function findsOpen(state: WorldState): boolean {
+  return state.items?.findsOpen === true;
 }
 
 /** Whether the pickup on a tile is still lying there today. */
-export function pickupLeft(state: WorldState, x: number, y: number): ResourceKind | null {
+export function pickupLeft(state: WorldState, x: number, y: number): PickupKind | null {
   const day = state.day;
   if (day === undefined) return null;
   const key = tileKey(x, y);
   return pickupOn(state.config, x, y, day, {
     built: state.blocks[key] !== undefined,
     picked: state.items?.gathered?.[key] === day,
+    finds: findsOpen(state),
   });
 }
 
@@ -144,7 +244,7 @@ function nearestOpenPickup(state: WorldState, actor: ResidentId, from: Tile): Ti
   return null;
 }
 
-/** `gather {x, y}`: pick up the fallen branch or loose stone on a tile within reach. */
+/** `gather {x, y}`: pick up the fallen branch, loose stone, or find on a tile within reach. */
 export function checkGather(
   state: WorldState,
   actor: ResidentId,
@@ -161,9 +261,12 @@ export function checkGather(
   if (far) return far;
   const kind = pickupLeft(state, x, y);
   if (!kind) {
+    const finds = findsOpen(state)
+      ? " Now and then a tile with neither holds a find instead: an acorn, a seashell, a crystal."
+      : "";
     return refuse(
       "nothing_to_gather",
-      "Nothing to pick up there. Fallen branches lie in forests, loose stones on stone ground, and each tile grows one back a day.",
+      `Nothing to pick up there. Fallen branches lie in forests, loose stones on stone ground, and each tile grows one back a day.${finds} pickups in GET /v1/world lists what's lying today.`,
     );
   }
   const plot = plotAtTile(state, x, y);
@@ -205,5 +308,20 @@ export function checkOwnPlotPickups(state: WorldState): ItemsChecked {
   return () => {
     items.plotPickupsOwned = true;
     return [{ type: "plot_pickups_owned" }];
+  };
+}
+
+/**
+ * `open_finds`, which only TOWN_ACTOR sends (RFC 0021): from now on, a tile with no branch or stone
+ * may hold a find. Needs items open, and comes once.
+ */
+export function checkOpenFinds(state: WorldState): ItemsChecked {
+  const shut = closed(state);
+  if (shut) return shut;
+  const items = state.items as ItemsState;
+  if (items.findsOpen) return refuse("already_open", "Finds are already out.");
+  return () => {
+    items.findsOpen = true;
+    return [{ type: "finds_opened" }];
   };
 }

@@ -1,12 +1,22 @@
 import { describe, expect, it } from "vitest";
 import { apply } from "./apply";
 import { biomeAt } from "./biome";
-import { GATHER, gatherableAt, mayGatherOn, pickupLeft } from "./gather";
+import { CATALOG, FIND_KINDS } from "./catalog";
+import { FINDS_CONFIG, FINDS_HASH, FINDS_LOG } from "./fixtures/finds-log";
+import {
+  FIND_SPAWNS,
+  type FindSpawn,
+  GATHER,
+  gatherableAt,
+  mayGatherOn,
+  pickupLeft,
+} from "./gather";
 import { hashWorld } from "./hash";
 import { ITEM_INFO, ITEMS, RESOURCE_KINDS, STACK_KINDS, type StackKind } from "./items";
 import { replay } from "./replay";
+import { dayOfDate, seasonOf } from "./season";
 import { type Command, type Input, TOWN_ACTOR, type WorldConfig, type WorldEvent } from "./types";
-import { createWorld } from "./world";
+import { createWorld, DEFAULT_CONFIG } from "./world";
 
 const CONFIG: WorldConfig = {
   width: 24,
@@ -410,5 +420,134 @@ describe("gathering on someone's plot", () => {
     expect(hashWorld(replay(CONFIG, w.log))).toBe(hash);
     // Pinned, so a change to the rule or to where it starts shows up here.
     expect(hash).toBe("de0e7cd5");
+  });
+});
+
+describe("finds (RFC 0021)", () => {
+  /** A week in each season of 2027, so every find's season comes up. */
+  const WEEKS = [
+    [2027, 1, 10],
+    [2027, 4, 10],
+    [2027, 7, 10],
+    [2027, 10, 10],
+  ].flatMap(([y, m, d]) => {
+    const start = dayOfDate(y as number, m as number, d as number);
+    return Array.from({ length: 7 }, (_, i) => start + i);
+  });
+  const inSeason = (f: FindSpawn, day: number) =>
+    f.seasons === undefined || f.seasons.includes(seasonOf(day));
+
+  it("each lie somewhere, once, and a family's finds share one ground", () => {
+    const spawned = FIND_SPAWNS.map((f) => f.kind);
+    expect([...spawned].sort()).toEqual([...FIND_KINDS].sort());
+    const grounds = new Map<string, Set<string>>();
+    for (const f of FIND_SPAWNS) {
+      const family = CATALOG[f.kind].family;
+      grounds.set(family, (grounds.get(family) ?? new Set()).add(f.biome));
+    }
+    for (const [family, biomes] of grounds) expect([...biomes], family).toHaveLength(1);
+  });
+
+  it("lie only where no branch or stone does, in their own biome and season", () => {
+    // So turning finds on never moves a branch or a stone, and a client that hasn't heard of
+    // the switch still draws every one of them right.
+    for (const day of WEEKS) {
+      for (let y = 0; y < CONFIG.height; y++) {
+        for (let x = 0; x < CONFIG.width; x++) {
+          const before = gatherableAt(CONFIG, x, y, day, false);
+          const after = gatherableAt(CONFIG, x, y, day, true);
+          if (before) {
+            expect(after, `${x},${y} on ${day}`).toBe(before);
+            continue;
+          }
+          if (!after) continue;
+          const spawn = FIND_SPAWNS.find((f) => f.kind === after) as FindSpawn;
+          expect(spawn.biome, `${after} at ${x},${y}`).toBe(biomeAt(CONFIG, x, y));
+          expect(inSeason(spawn, day), `${after} on ${day}`).toBe(true);
+        }
+      }
+    }
+  });
+
+  it("come about as often as their chances say, and are pinned", () => {
+    // What a week a season holds on the real world's 72 by 72 tiles. Changing a find's chance,
+    // order, biome, or season, or the roll, moves these counts, and logged gathers of finds stop
+    // replaying: a change like that is a new table behind a new switch (decision 0099).
+    const seen: Record<string, number> = {};
+    const expected: Record<string, number> = {};
+    for (const day of WEEKS) {
+      for (let y = 0; y < DEFAULT_CONFIG.height; y++) {
+        for (let x = 0; x < DEFAULT_CONFIG.width; x++) {
+          if (gatherableAt(DEFAULT_CONFIG, x, y, day, false)) continue;
+          const biome = biomeAt(DEFAULT_CONFIG, x, y);
+          for (const f of FIND_SPAWNS) {
+            if (f.biome === biome && inSeason(f, day)) {
+              expected[f.kind] = (expected[f.kind] ?? 0) + f.chance;
+            }
+          }
+          const kind = gatherableAt(DEFAULT_CONFIG, x, y, day, true);
+          if (kind) seen[kind] = (seen[kind] ?? 0) + 1;
+        }
+      }
+    }
+    for (const f of FIND_SPAWNS) {
+      const want = expected[f.kind] ?? 0;
+      // Four standard deviations of a count this rare, and a little room for the smallest.
+      expect(Math.abs((seen[f.kind] ?? 0) - want), f.kind).toBeLessThan(4 * Math.sqrt(want) + 3);
+    }
+    expect(seen).toEqual({
+      acorn: 129,
+      pinecone: 87,
+      mushroom: 46,
+      feather: 12,
+      chestnut: 30,
+      holly: 16,
+      seashell: 137,
+      driftwood: 66,
+      sea_glass: 19,
+      starfish: 18,
+      crystal: 67,
+      fossil: 33,
+      geode: 11,
+      four_leaf_clover: 14,
+      maple_leaf: 27,
+      cherry_blossom: 32,
+    });
+  });
+
+  it("start with open_finds: a find's tile is bare before it and gathers after it", () => {
+    // The finds log puts the switch on day 20023, with a fossil lying at (6, 6) from then on.
+    const at = FINDS_LOG.findIndex((i) => i.command.type === "open_finds");
+    const state = replay(FINDS_CONFIG, FINDS_LOG.slice(0, at));
+    const gather: Input = { actor: "ada", command: { type: "gather", x: 6, y: 6 } };
+    const before = hashWorld(state);
+    expect(apply(state, gather)).toMatchObject({
+      ok: false,
+      rejection: { code: "nothing_to_gather" },
+    });
+    expect(hashWorld(state)).toBe(before);
+    expect(apply(state, FINDS_LOG[at] as Input)).toMatchObject({
+      ok: true,
+      events: [{ type: "finds_opened" }],
+    });
+    expect(apply(state, gather)).toMatchObject({
+      ok: true,
+      events: [{ type: "gathered", x: 6, y: 6, kind: "fossil", by: "ada" }, { type: "inventory" }],
+    });
+  });
+
+  it("replay a log that gathers, shows, gives, and sells them to its pinned hash", () => {
+    expect(hashWorld(replay(FINDS_CONFIG, FINDS_LOG))).toBe(FINDS_HASH);
+  });
+
+  it("are switched on only by the server, once, after items open", () => {
+    const w = world();
+    w.day(DAY);
+    expect(w.code("ada", { type: "open_finds" })).toBe("server_only");
+    expect(w.code(TOWN_ACTOR, { type: "open_finds" })).toBe("items_closed");
+    w.open();
+    expect(w.ok(TOWN_ACTOR, { type: "open_finds" })).toEqual([{ type: "finds_opened" }]);
+    expect(w.state.items?.findsOpen).toBe(true);
+    expect(w.code(TOWN_ACTOR, { type: "open_finds" })).toBe("already_open");
   });
 });

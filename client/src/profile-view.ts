@@ -19,7 +19,7 @@ import { h, icon } from "@terrakin/ui/dom";
 import { compactCount, isMediaUrl, karmaLine, plural } from "@terrakin/ui/format";
 import { garmentName, hairName, mediaUrlOf } from "@terrakin/ui/looks";
 import { openImage, openModelViewer } from "@terrakin/ui/media";
-import { plot3dPath, profilePath } from "@terrakin/ui/paths";
+import { collectionPath, plot3dPath, profilePath } from "@terrakin/ui/paths";
 import {
   avatarEl,
   badges,
@@ -69,7 +69,7 @@ import { postCard, skeletonCards } from "./post-card";
 import { coins, refreshPurse } from "./purse";
 import { openReportSheet } from "./report-sheet";
 import { openRoutines } from "./routines-view";
-import { thingCount, thingName } from "./things";
+import { collectedLine, thingCount, thingName } from "./things";
 import { type GestureInfo, gestureChoices, gestureInfo, sentLine, streakLine } from "./together";
 import { errorCard, notFoundCard, type View, type ViewContext } from "./view";
 import { xRow } from "./x-connect";
@@ -415,6 +415,15 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
           text: ratingWords(g),
         }),
       ),
+      // Their collection book (RFC 0021): public, like the rest of the profile.
+      r.collected
+        ? h(
+            "a",
+            { class: "profile-collected", attrs: { href: collectionPath(r.id) } },
+            icon("star"),
+            h("span", { text: collectedLine(r.collected) }),
+          )
+        : null,
       lookLine(r.look),
     ].filter((f): f is HTMLElement => f !== null);
 

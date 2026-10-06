@@ -72,6 +72,8 @@ describe("router", () => {
     expect(routeTemplate(matchRoute("/nope"))).toBe("/not-found");
     expect(matchRoute("/r/r_secret/3d")).toEqual({ name: "plot3d", id: "r_secret" });
     expect(routeTemplate(matchRoute("/r/r_secret/3d"))).toBe("/r/:id/3d");
+    expect(matchRoute("/r/r_secret/collection")).toEqual({ name: "collection", id: "r_secret" });
+    expect(routeTemplate(matchRoute("/r/r_secret/collection"))).toBe("/r/:id/collection");
     expect(matchRoute("/gallery/3d")).toEqual({ name: "gallery3d" });
     expect(routeTemplate(matchRoute("/gallery/3d"))).toBe("/gallery/3d");
     expect(matchRoute("/gallery")).toEqual({ name: "not-found" });

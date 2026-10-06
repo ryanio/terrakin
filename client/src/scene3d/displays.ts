@@ -8,6 +8,7 @@
  * pictures are held at a time (past that a piece shows its drawn picture), and a texture is freed
  * as soon as the last display using it leaves. Pictures come only from our own `/media/`.
  */
+import type { FindKind } from "@terrakin/sim";
 import { BRAND_HEX } from "@terrakin/ui/brand";
 import { itemArtLoaded, piecePictureUrl } from "@terrakin/ui/item-art";
 import {
@@ -17,6 +18,7 @@ import {
   InstancedMesh,
   Matrix4,
   Mesh,
+  MeshBasicMaterial,
   MeshLambertMaterial,
   PlaneGeometry,
   Sprite,
@@ -26,7 +28,7 @@ import {
 } from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
-import { bakeShade, canvasTexture, paper, type Stage, unindexed } from "./art";
+import { bakeShade, canvasTexture, paper, type Stage, spotTexture, unindexed } from "./art";
 import { framePicturePlane } from "./decor";
 import type { LayoutDisplay, ShownGood } from "./layout";
 import { blockLook, hex } from "./palette";
@@ -290,6 +292,63 @@ export function displayedThings(
     const picture = pictureFor(d.good, pictures);
     if (picture) show(picture, art);
     else show(art());
+  }
+  return group;
+}
+
+/**
+ * Finds lying on the ground (RFC 0021): each one's drawn picture standing on its tile, facing you,
+ * like a jar on a pedestal but small, with a pale glint under it so it reads as something special.
+ * Every find of a kind shares one texture and one material, from the pictures pedestals use.
+ */
+export function foundThings(
+  stage: Stage,
+  origin: { x: number; y: number },
+  list: readonly { x: number; y: number; kind: FindKind }[],
+  pictures: Pictures,
+): Group {
+  const group = new Group();
+  group.name = "finds";
+  if (list.length === 0) return group;
+  let gone = false;
+  const taken: Taken[] = [];
+  stage.keep({
+    dispose() {
+      gone = true;
+      for (const t of taken.splice(0)) t.release();
+    },
+  });
+  const size = 0.6;
+  // A soft round glow on the ground, wider than deep, the way the map draws one.
+  const glint = stage.keep(new PlaneGeometry(0.8, 0.48));
+  glint.rotateX(-Math.PI / 2);
+  const glow = stage.keep(
+    new MeshBasicMaterial({
+      map: stage.keep(spotTexture("255, 250, 240")),
+      transparent: true,
+      opacity: 0.85,
+      depthWrite: false,
+    }),
+  );
+  for (const kind of new Set(list.map((f) => f.kind))) {
+    const art = pictures.take(`art:${kind}`, () => artCanvas(kind, false));
+    taken.push(art);
+    void art.texture.then((map) => {
+      if (gone || !map) return;
+      const material = stage.keep(new SpriteMaterial({ map, alphaTest: 0.5 }));
+      for (const f of list) {
+        if (f.kind !== kind) continue;
+        const at = new Vector3(f.x - origin.x, 0, f.y - origin.y);
+        const under = new Mesh(glint, glow);
+        under.position.copy(at).setY(0.012);
+        under.renderOrder = 1;
+        const shown = new Sprite(material);
+        shown.scale.set(size, size, 1);
+        shown.position.copy(at).setY(size / 2 - 0.03);
+        group.add(under, shown);
+      }
+      stage.invalidate();
+    });
   }
   return group;
 }

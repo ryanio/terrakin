@@ -59,6 +59,7 @@ import {
 import { type AgentLinkOptions, AgentLinkService } from "./agent-links";
 import { AwayLog } from "./away-log";
 import { CheckinLog } from "./checkin-log";
+import { CollectionBook } from "./collection";
 import { type EventContext, EventsSocial } from "./events";
 import { imageSize, sizeFields } from "./image-size";
 import { aimedAtReader, readerMessage } from "./injection";
@@ -564,6 +565,7 @@ export class SocialService {
       triage: options.triage,
     });
     this.events = new EventsSocial({ sql: this.sql, now: this.now });
+    this.collection = new CollectionBook({ sql: this.sql, now: this.now });
     this.plots = new PlotVisits({
       sql: this.sql,
       now: this.now,
@@ -660,6 +662,8 @@ export class SocialService {
   onPetPatted: ((owner: string) => void) | undefined;
   /** Plots worth visiting (RFC 0020): who visited and admired each plot, and when it changed. */
   readonly plots: PlotVisits;
+  /** The collection book (RFC 0021): what each resident has ever held and worn, and since when. */
+  readonly collection: CollectionBook;
   /** When residents check in, for the staff app's numbers. */
   readonly checkins: CheckinLog;
   /** What routines did while their residents were away, and each resident's last call (RFC 0009). */
@@ -1237,6 +1241,7 @@ export class SocialService {
       ...this.partnerField(r.id),
       ...this.agentLinkField(r.id),
       ...this.entitledField(r.id),
+      collected: this.collection.collected(r.id),
       ...this.petField(r, viewerId, quarantined),
     };
   }

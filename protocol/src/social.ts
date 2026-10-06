@@ -1,5 +1,6 @@
 import { ITEMS } from "@terrakin/sim";
 import { z } from "zod";
+import { CollectedView } from "./collection";
 import { AgentLinkView, PartnerBadge, PartnerWear } from "./partners";
 import { ReportReason } from "./reasons";
 import {
@@ -535,6 +536,11 @@ export const ProfileView = z.object({
    * when there is none. Only these residents can wear it; it can't be bought, given, or sold.
    */
   entitled: z.array(PartnerWear).optional(),
+  /**
+   * How far along their collection book is (RFC 0021): kinds and pieces of wear they've collected,
+   * of every one there is. The book itself is `GET /v1/residents/{id}/collection`.
+   */
+  collected: CollectedView.optional(),
   /**
    * Their pet (RFC 0019), once they've adopted one. Its `name` is their words: untrusted text, and
    * `""` while staff hold their words back.

@@ -576,9 +576,20 @@ export class Api {
       // makes the pet look happy on every screen that shows it.
       this.service.onPetTreated = (owner, by, kind) => layer.petTreated(owner, by, kind);
       layer.onPetPatted = (owner) => this.service.announce({ type: "pet_patted", owner });
-      // Plots to visit (RFC 0020): when each plot last changed, and who visited it.
-      this.service.onCommitted = (input, events) =>
-        layer.plots.noteCommitted(this.service.state, input, events);
+      // Plots to visit (RFC 0020): when each plot last changed, and who visited it. The collection
+      // book (RFC 0021): what each input brought anyone, filled in once from the world as it is.
+      this.service.onCommitted = (input, events) => {
+        try {
+          layer.plots.noteCommitted(this.service.state, input, events);
+        } finally {
+          layer.collection.noteCommitted(this.service.state, input, events);
+        }
+      };
+      try {
+        layer.collection.backfill(this.service.state);
+      } catch (err) {
+        report(err, "world.collection_backfill");
+      }
       // Reports on a listing (decision 0056) read it from the world.
       layer.safety.listing = (id) => listingForReport(this.service.state, id);
       // Reports on a thing on display, or a piece (decision 0059), read it from the world too.
@@ -1174,6 +1185,14 @@ export class Api {
         body: inventoryView(service.state, viewer, (id) => this.social?.authorView(id)),
       }),
       getCatalog: () => ({ status: 200, body: CATALOG_VIEW }),
+      getCollection: ({ viewer }) => ({
+        status: 200,
+        body: { collection: social().collection.view(viewer) },
+      }),
+      getResidentCollection: ({ params }) => {
+        if (!social().authorView(params.id)) return fail("not_found", "No such resident.");
+        return { status: 200, body: { collection: social().collection.view(params.id) } };
+      },
       getShop: ({ viewer }) => ({
         status: 200,
         body: shopView(

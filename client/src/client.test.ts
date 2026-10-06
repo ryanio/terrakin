@@ -1,4 +1,5 @@
 import type { WorldSnapshot } from "@terrakin/protocol";
+import { gatherableAt, isFindKind } from "@terrakin/sim";
 import { describe, expect, it } from "vitest";
 import { type Camera, screenToTile, tileToScreen } from "./camera";
 import { Mirror, OUT_MS } from "./mirror";
@@ -101,6 +102,39 @@ describe("Mirror", () => {
     expect(m.mayGatherAt(5, 5, "c")).toBe(true);
     expect(m.mayGatherAt(9, 1, "c")).toBe(true);
     expect(new Mirror({ ...snapshot, plotPickupsOwned: true }).plotPickupsOwned).toBe(true);
+  });
+
+  it("draws finds once the switch is on, and keeps one on display until it comes down", () => {
+    const day = 20_400;
+    const m = new Mirror({ ...snapshot, day });
+    // A tile with a find on it today once finds are out, from the sim's own spawn.
+    let tile: { x: number; y: number } | undefined;
+    for (let d = day; !tile; d++) {
+      for (let y = 0; y < 12 && !tile; y++) {
+        for (let x = 0; x < 12 && !tile; x++) {
+          if (isFindKind(gatherableAt(snapshot.config, x, y, d, true))) tile = { x, y };
+        }
+      }
+      if (!tile) m.apply({ seq: m.seq + 1, event: { type: "day_started", day: d + 1 } });
+    }
+    const { x, y } = tile;
+    expect(m.pickupAt(x, y)).toBeNull();
+    expect(m.apply({ seq: m.seq + 1, event: { type: "finds_opened" } })).toBe("applied");
+    expect(isFindKind(m.pickupAt(x, y))).toBe(true);
+    const shown = { type: "find_displayed", x: 2, y: 2, kind: "geode", by: "a" } as const;
+    expect(m.apply({ seq: m.seq + 1, event: shown })).toBe("applied");
+    expect(m.shownFinds.get("2,2")).toMatchObject({ kind: "geode", by: "a" });
+    m.apply({ seq: m.seq + 1, event: { type: "taken_down", x: 2, y: 2, by: "a" } });
+    expect(m.shownFinds.size).toBe(0);
+    // A new copy reads both from the snapshot.
+    const fresh = new Mirror({
+      ...snapshot,
+      day: m.day as number,
+      findsOpen: true,
+      displayedFinds: [{ x: 2, y: 2, kind: "geode", by: "a", day: 1 }],
+    });
+    expect(fresh.pickupAt(x, y)).toBe(m.pickupAt(x, y));
+    expect(fresh.shownFinds.get("2,2")).toEqual({ kind: "geode", by: "a", day: 1 });
   });
 
   it("mirrors profile changes and hearths", () => {

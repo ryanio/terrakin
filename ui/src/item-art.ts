@@ -6,9 +6,9 @@
  * Most items are drawn from their look in the sim's catalog (RFC 0018): produce from its outline,
  * what grows on top, and its colors; a seed packet from the crop it grows; a jar from what fills it
  * and what's on its label. Decor, furniture, the pantry's staples, made goods without a template,
- * and wear have their own drawings here, under their ids. Each picture sits in a 48 by 48 box on a
- * soft ground shadow. Colors come from the catalog, the brand tokens, and the sim's palette, so a
- * lantern here is the lantern in the world.
+ * finds, and wear have their own drawings here, under their ids. Each picture sits in a 48 by 48
+ * box on a soft ground shadow. Colors come from the catalog, the brand tokens, and the sim's
+ * palette, so a lantern here is the lantern in the world.
  */
 import {
   BLOCK_COLORS,
@@ -856,6 +856,299 @@ function jackOLantern(): ArtShape[] {
   ];
 }
 
+// ---------- finds (RFC 0021) ----------
+
+/** An acorn: a tan nut under a cap of little scales, on a short stem. */
+function acorn(): ArtShape[] {
+  return [
+    shadow(10),
+    path(
+      "M16.5 24c0-1.6 3.4-2.6 7.5-2.6s7.5 1 7.5 2.6c0 9.2-3.4 14.8-7.5 16.8-4.1-2-7.5-7.6-7.5-16.8z",
+      "#c08a48",
+      out(),
+    ),
+    shine(20.5, 29.5, 1.6, 3.6, -8),
+    path(
+      "M14 24.5c0-6.3 4.4-10 10-10s10 3.7 10 10c-3 1.6-6.4 2.2-10 2.2s-7-.6-10-2.2z",
+      "#7a5230",
+      out(),
+    ),
+    line("M17.5 20.5l2.5 2.5M21.5 17.8l3.5 3.6M26.5 17.6l3 3M30.5 20.3l1.4 1.4", "#563820", 1, {
+      opacity: 0.7,
+    }),
+    line("M24 14.5c.2-2 1.4-3.6 3.2-4.4", WOOD_DARK, 1.8),
+  ];
+}
+
+/** A pinecone: a long brown cone of scales. */
+function pinecone(): ArtShape[] {
+  return [
+    shadow(10),
+    path(
+      "M24 7.5c5.4 3 9.5 10.2 9.5 18.5 0 8.2-4.2 14.4-9.5 15.5-5.3-1.1-9.5-7.3-9.5-15.5 0-8.3 4.1-15.5 9.5-18.5z",
+      "#9a6a3c",
+      out(),
+    ),
+    line(
+      "M18 16.5q6 3.6 12 0M16 22.5q8 4.4 16 0M15.6 28.5q8.4 4.6 16.8 0M17 34.5q7 3.8 14 0",
+      WOOD_DARK,
+      1.2,
+    ),
+    line("M24 9v31", WOOD_DARK, 1, { opacity: 0.45 }),
+    shine(19.5, 14, 1.2, 2.6, 25),
+  ];
+}
+
+/** A mushroom: a red cap with pale spots on a cream stem. */
+function mushroom(): ArtShape[] {
+  const spot = "#fff3e2";
+  return [
+    shadow(12),
+    path("M19.5 28h9c.4 5 1 9.2 1.6 12.6h-12.2c.6-3.4 1.2-7.6 1.6-12.6z", "#f1e6cf", out()),
+    path(
+      "M8 28.5c0-9 7.2-15.5 16-15.5s16 6.5 16 15.5c-5 1.9-10.4 2.7-16 2.7S13 30.4 8 28.5z",
+      "#d1453b",
+      out(),
+    ),
+    circle(16.5, 22, 2.3, spot),
+    circle(24.5, 18, 2.7, spot),
+    circle(31.8, 22.6, 2.1, spot),
+    circle(20.8, 26.6, 1.4, spot),
+    circle(28.8, 27, 1.5, spot),
+    line("M14 29.2c6.5 1.3 13.5 1.3 20 0", "#b8a27e", 1, { opacity: 0.6 }),
+  ];
+}
+
+/** A feather: a jay's blue, barred, on a pale quill. */
+function feather(): ArtShape[] {
+  return [
+    shadow(13),
+    path("M12 38C14 26 22 13.5 36.5 7.5c-1.8 13-10.3 25-24.5 30.5z", "#6f9fd3", out()),
+    path("M12.4 37.6C20 28 28 18 36.5 7.5c-1.4 10.8-8.8 21.6-24.1 30.1z", "#a7c7ea"),
+    line(
+      "M18.4 31.2l5.2-.9M21.6 26.4l5.4-1.2M25.4 21.4l5.2-1.5M29.4 16.4l4.4-1.6",
+      "#2f4f78",
+      1.3,
+      {
+        opacity: 0.75,
+      },
+    ),
+    line("M9.5 41.5C17 31 26 18.5 36.5 7.5", "#f6efe1", 1.4),
+  ];
+}
+
+/** A chestnut: glossy and brown, with its pale base and a little tip. */
+function chestnut(): ArtShape[] {
+  const base = "#dcbc8c";
+  return [
+    shadow(12),
+    path(
+      "M24 13c8.2 0 14 7.2 14 15.2 0 7-6 12.3-14 12.3s-14-5.3-14-12.3C10 20.2 15.8 13 24 13z",
+      "#7b3f1d",
+      out(),
+    ),
+    path(
+      "M11.6 32.4c3.8 3.6 8 5 12.4 5s8.6-1.4 12.4-5c-2 4.9-6.8 8.1-12.4 8.1s-10.4-3.2-12.4-8.1z",
+      base,
+      out({ "stroke-width": 1 }),
+    ),
+    path("M22.8 13.4 24 9.8l1.2 3.6z", base, out({ "stroke-width": 1 })),
+    shine(18.5, 21.5, 3.6, 2, -32),
+  ];
+}
+
+/** A sprig of holly: two spiny leaves and three red berries. */
+function holly(): ArtShape[] {
+  const leafy = "#2f6b34";
+  const berry = "#cf2f2f";
+  const spiny =
+    "M24 30C19 31.5 14 29.6 10 24.6l3-.6-.8-3 3 .4.2-3.1 2.9 1.3 1.2-2.8 2.2 2.2 1.8-2.2C22.6 21 24 25.4 24 30z";
+  return [
+    shadow(13),
+    path(spiny, leafy, out()),
+    group("translate(48 0) scale(-1 1)", [path(spiny, leafy, out())]),
+    line("M23.5 29.6c-3.4-2-7-4.3-10.6-7.6M24.5 29.6c3.4-2 7-4.3 10.6-7.6", "#1f4a24", 1),
+    circle(21.4, 31, 3.1, berry, out()),
+    circle(26.8, 32, 3.1, berry, out()),
+    circle(24.2, 27.4, 3.1, berry, out()),
+    shine(23.3, 26.4, 0.9, 0.7),
+  ];
+}
+
+/** A scallop seashell: a ribbed fan with its two little ears. */
+function seashell(): ArtShape[] {
+  return [
+    shadow(12),
+    path(
+      "M24 39C17 33.5 11 27.5 10 21.5 10 15 16 11 24 11s14 4 14 10.5C37 27.5 31 33.5 24 39z",
+      "#f5c8b2",
+      out(),
+    ),
+    line(
+      "M24 38.5 13.6 17.4M24 38.5 18.6 12.8M24 38.5V11.6M24 38.5l5.4-25.7M24 38.5l10.4-21.1",
+      "#dc9a80",
+      1.1,
+    ),
+    path("M18.6 36.2h10.8l-1.6 4.4h-7.6z", "#ebb39b", out()),
+    shine(17.5, 16.8, 2.4, 1.2, -25),
+  ];
+}
+
+/** Driftwood: a weathered grey branch, smoothed by the sea. */
+function driftwood(): ArtShape[] {
+  const grain = "#8d8070";
+  return [
+    shadow(16),
+    path(
+      "M7.5 31c3.2-4.2 9.4-5.4 15.6-5 6.4.4 12.2-.6 17.6-3.6 1.8 1.6 1.8 4.4 0 6-5.2 2.8-11.4 3.4-17.6 3.4-5.8 0-11.4 1-15.6 3.4-1.8-1-1.8-2.8 0-4.2z",
+      "#c3b6a3",
+      out(),
+    ),
+    path("M30 25.6c1.4-2.6 3.6-4.4 6.2-5.2l1 1.8c-2.2.8-3.8 2.2-4.8 4z", "#c3b6a3", out()),
+    line("M12 31.4c5.4-2.2 11.4-2.4 17-2.6M20.4 28c5.2 0 9.8-.6 14-2.4", grain, 1, {
+      opacity: 0.8,
+    }),
+    ellipse(31, 28.8, 1.6, 1.1, grain),
+  ];
+}
+
+/** Sea glass: a frosted green pebble of glass, worn smooth. */
+function seaGlass(): ArtShape[] {
+  return [
+    shadow(11),
+    path(
+      "M13.5 27.5c0-7 5-12.2 11.2-12.2 6.4 0 10.8 4.6 10.8 10.6 0 7-5.6 12.4-12.2 12.4-5.6 0-9.8-4.2-9.8-10.8z",
+      "#86cdb9",
+      out(),
+    ),
+    ellipse(24, 27.4, 7.4, 6.2, "#f2fffa", { opacity: 0.35 }),
+    line("M28 33.6c2.6-1.4 4.4-3.8 4.8-6.6", "#5aa894", 1.2, { opacity: 0.6 }),
+    shine(19.5, 21.5, 3, 1.5, -35),
+  ];
+}
+
+/** A starfish: five arms, sandy orange, dotted. */
+function starfish(): ArtShape[] {
+  const dot = "#f7c592";
+  return [
+    shadow(14),
+    path(
+      "M24 11 27.5 21.2 38.3 21.4 29.7 27.9 32.8 38.1 24 32 15.2 38.1 18.3 27.9 9.7 21.4 20.5 21.2z",
+      "#e8833a",
+      out({ "stroke-width": 1.6 }),
+    ),
+    circle(24, 26, 1.5, dot),
+    circle(24, 18, 1, dot),
+    circle(31.6, 23.5, 1, dot),
+    circle(28.8, 32.2, 1, dot),
+    circle(19.2, 32.2, 1, dot),
+    circle(16.4, 23.5, 1, dot),
+  ];
+}
+
+/** A crystal: three pale violet points rising out of a bit of rock. */
+function crystal(): ArtShape[] {
+  return [
+    shadow(13),
+    ellipse(24, 38, 11.5, 3.6, "#8f887c", out()),
+    path("M13.4 38 12.6 26.4l3.2-5 3.4 4.2.8 12.4z", "#c9b4ef", out()),
+    path("M29.2 38l1.4-10.2 3.6-4 2.6 5.2-1.4 9z", "#e7ddf8", out()),
+    path("M20.6 38V18.2l4.2-7.4 4.2 7.4V38z", "#dccdf4", out()),
+    line("M24.8 11v27", "#b39ae0", 1, { opacity: 0.8 }),
+    shine(22.8, 22, 0.8, 4.4, 0),
+  ];
+}
+
+/** A fossil: an ammonite's spiral in a disc of pale stone. */
+function fossil(): ArtShape[] {
+  const coil = "#8a7a5f";
+  return [
+    shadow(14),
+    ellipse(24, 27, 14.5, 12.5, "#d2c6ae", out()),
+    line(
+      "M24.4 27c0-1.6 1.4-2.6 2.8-2.2 2 .6 2.6 2.9 1.8 4.7-1.2 2.6-4.5 3.3-7 2-3.3-1.7-4-6-2.3-9.1 2.1-3.9 7.4-4.9 11.1-2.6 4.6 2.8 5.5 9.1 2.7 13.4",
+      coil,
+      1.6,
+    ),
+    line("M33 21.6l1.7-1M35 27h1.9M33.6 32.4l1.5 1.2M28.4 18.2l.7-1.8", coil, 1.1),
+    shine(17, 21.5, 3, 1.4, -30),
+  ];
+}
+
+/** A geode: a rough grey stone cracked open on a ring of violet crystals. */
+function geode(): ArtShape[] {
+  const point = "#b98ee8";
+  return [
+    shadow(14),
+    path(
+      "M24 11.5c7.4 0 13.6 5.8 14 13.4.5 8.2-5.6 14.4-14 14.4S9.5 33.1 10 24.9c.4-7.6 6.6-13.4 14-13.4z",
+      "#8f887c",
+      out(),
+    ),
+    ellipse(24, 25.4, 10.6, 10.2, "#f1ebf8"),
+    ellipse(24, 25.4, 8.6, 8.2, "#8a5cc7"),
+    path(
+      "M24 17.6l2.1 5.3h-4.2zM31.6 24.2l-5.2 1.7.9-4.2zM28 32.4l-3.8-4 4.6-.3zM16.6 27.6l5.2-1.6-1 4.2zM18.4 19.6l4.6 3.2-4.6 1z",
+      point,
+    ),
+    circle(24, 25.4, 2.4, "#5a3a8c"),
+    shine(18.5, 19.8, 1.6, 0.8, -30),
+  ];
+}
+
+/** A four-leaf clover: four heart-shaped leaves on a thin stem. */
+function fourLeafClover(): ArtShape[] {
+  const heart =
+    "M24 22.5C21 20.4 17 15 20.4 12.9c2-1.2 3.6.3 3.6 1.8 0-1.5 1.6-3 3.6-1.8C31 15 27 20.4 24 22.5z";
+  return [
+    shadow(11),
+    line("M24 24c1 5 .4 9.6-3 15", STEM, 2),
+    ...[0, 90, 180, 270].map((turn) =>
+      group(`rotate(${turn} 24 22.5)`, [
+        path(heart, "#5aa043", out({ "stroke-width": 1.1 })),
+        line("M24 21.6v-5.8", "#8fc46a", 0.9),
+      ]),
+    ),
+    circle(24, 22.5, 1.2, "#3f7f2f"),
+  ];
+}
+
+/** A maple leaf, turned red in autumn. */
+function mapleLeaf(): ArtShape[] {
+  return [
+    shadow(13),
+    line("M24 34v7.5", "#8a4a26", 1.6),
+    path(
+      "M24 34 21 35l1-4-7 1 1.5-3L10 25l3-1-2-6 5 2 1-3 4 4-1-8 2.5 1.5L24 9l1.5 5.5L28 13l-1 8 4-4 1 3 5-2-2 6 3 1-6.5 4 1.5 3-7-1 1 4z",
+      "#d9482b",
+      out(),
+    ),
+    line("M24 34V13M24 27.5l-8.6-6M24 27.5l8.6-6M24 31l-7 1M24 31l7 1", "#a3321b", 1, {
+      opacity: 0.8,
+    }),
+  ];
+}
+
+/** A cherry blossom: five pale pink petals, each notched, around a yellow heart. */
+function cherryBlossom(): ArtShape[] {
+  return [
+    shadow(11),
+    ...[0, 72, 144, 216, 288].map((turn) =>
+      group(`rotate(${turn} 24 24.5)`, [
+        path(
+          "M24 24.5c-4.2-1.6-6.4-6.6-5-10.8 1-2.8 3-3.4 4-2l1 1.4 1-1.4c1-1.4 3-.8 4 2 1.4 4.2-.8 9.2-5 10.8z",
+          "#f7c6d4",
+          out({ "stroke-width": 1.1 }),
+        ),
+      ]),
+    ),
+    circle(24, 24.5, 3.2, "#f6dc7c"),
+    circle(22.6, 23.4, 0.7, "#d97a3a"),
+    circle(25.6, 23.6, 0.7, "#d97a3a"),
+    circle(24.2, 26, 0.7, "#d97a3a"),
+  ];
+}
+
 // ---------- wear ----------
 
 function strawHat(): ArtShape[] {
@@ -1216,7 +1509,7 @@ function sneakers(): ArtShape[] {
 
 /**
  * Items with their own drawing (`drawn` looks in the catalog): the pantry's staples, materials,
- * decor, furniture, and made things that no template draws.
+ * decor, furniture, made things that no template draws, and finds (RFC 0021).
  */
 const DRAWN: Readonly<Partial<Record<ItemKind, () => ArtShape[]>>> = {
   sugar,
@@ -1247,6 +1540,22 @@ const DRAWN: Readonly<Partial<Record<ItemKind, () => ArtShape[]>>> = {
   flower_wreath: flowerWreath,
   pumpkin_pie: pumpkinPie,
   piece,
+  acorn,
+  pinecone,
+  mushroom,
+  feather,
+  chestnut,
+  holly,
+  seashell,
+  driftwood,
+  sea_glass: seaGlass,
+  starfish,
+  crystal,
+  fossil,
+  geode,
+  four_leaf_clover: fourLeafClover,
+  maple_leaf: mapleLeaf,
+  cherry_blossom: cherryBlossom,
 };
 
 /** Every piece of wear's drawing. */

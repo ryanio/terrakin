@@ -7,10 +7,11 @@ import {
   type BlockKind,
   type Crop,
   type Direction,
+  type FindKind,
   type GroundKind,
   groundTile,
+  type PickupKind,
   type Resident,
-  type ResourceKind,
   type Scenery,
   type Season,
   STEP,
@@ -27,6 +28,7 @@ import {
   type LayoutDisplay,
   plotBounds,
   type ShownGood,
+  shownFind,
 } from "./layout";
 
 /** How far around you the world is drawn, in tiles (Chebyshev, like reach). Fog hides the edge. */
@@ -132,8 +134,8 @@ export interface PlotChunk {
   tufts: { x: number; y: number; turn: number }[];
   flowers: { x: number; y: number; warm: boolean }[];
   leaves: GroundLeaf[];
-  /** Today's fallen branches and loose stones still lying there, from the sim's own spawn. */
-  pickups: { x: number; y: number; kind: ResourceKind }[];
+  /** Today's fallen branches, loose stones, and finds still lying there, from the sim's spawn. */
+  pickups: { x: number; y: number; kind: PickupKind }[];
   /** A home someone's in, so its windows light up after dark (`litHomes`, decision 0098). */
   lit: boolean;
   /** Equal for two reads exactly when what's drawn is the same. */
@@ -149,10 +151,12 @@ export interface ChunkSource {
   paving?: ReadonlyMap<string, GroundKind>;
   plots: ReadonlyMap<string, string>;
   displays?: ReadonlyMap<string, { good: ShownGood }>;
+  /** Finds on display (RFC 0021), by tile key. */
+  shownFinds?: ReadonlyMap<string, { kind: FindKind }>;
   crops?: ReadonlyMap<string, { crop: Crop; plantedDay: number; readyDay: number }>;
   day?: number | undefined;
   /** What lies on a tile to pick up today (`Mirror.pickupAt`). */
-  pickupAt?(x: number, y: number): ResourceKind | null;
+  pickupAt?(x: number, y: number): PickupKind | null;
 }
 
 /**
@@ -170,7 +174,13 @@ function tileThings(
   const block = source.blocks.get(key);
   const ground = source.paving?.get(key);
   const hearth = hearths.has(key);
-  const display = displayOn(block, x, y, source.displays?.get(key));
+  const find = source.shownFinds?.get(key);
+  const display = displayOn(
+    block,
+    x,
+    y,
+    source.displays?.get(key) ?? (find ? shownFind(find.kind) : undefined),
+  );
   const crop = cropIn(block, x, y, source.crops?.get(key), source.day);
   const parts: string[] = [];
   if (block) parts.push(`${key}:${block}${lit && block === "glass" ? ":lit" : ""}`);

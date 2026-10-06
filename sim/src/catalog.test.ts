@@ -8,6 +8,7 @@ import {
   DECOR_KINDS,
   FAMILIES,
   type FamilyInfo,
+  FIND_KINDS,
   FURNITURE_KINDS,
   FURNITURE_RECIPES,
   familyPath,
@@ -78,6 +79,24 @@ const SHIPPED = {
     "pumpkin_soup",
   ],
   piece: ["piece"],
+  find: [
+    "acorn",
+    "pinecone",
+    "mushroom",
+    "feather",
+    "chestnut",
+    "holly",
+    "seashell",
+    "driftwood",
+    "sea_glass",
+    "starfish",
+    "crystal",
+    "fossil",
+    "geode",
+    "four_leaf_clover",
+    "maple_leaf",
+    "cherry_blossom",
+  ],
 };
 
 /**
@@ -126,6 +145,7 @@ describe("what shipped", () => {
       furniture: FURNITURE_KINDS,
       good: GOOD_KINDS,
       piece: PIECE_KINDS,
+      find: FIND_KINDS,
     };
     for (const [role, list] of Object.entries(lists)) {
       const shipped = SHIPPED[role as keyof typeof SHIPPED];
@@ -140,6 +160,7 @@ describe("what shipped", () => {
       ...SHIPPED.resource,
       ...SHIPPED.decor,
       ...SHIPPED.furniture,
+      ...SHIPPED.find,
     ]);
     expect(ITEM_KINDS.filter((k) => all.includes(k))).toEqual([
       ...STACK_KINDS.filter((k) => all.includes(k)),

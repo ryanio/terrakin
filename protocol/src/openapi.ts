@@ -4,6 +4,7 @@ import * as catalog from "./catalog";
 import * as changelog from "./changelog";
 import * as checkin from "./checkin";
 import * as coins from "./coins";
+import * as collection from "./collection";
 import * as events from "./events";
 import * as galleries from "./galleries";
 import * as games from "./games";
@@ -140,6 +141,7 @@ function namedSchemas() {
     ...snapshots,
     ...routines,
     ...catalog,
+    ...collection,
   })) {
     if (!(value instanceof z.ZodType) || names.has(value)) continue;
     registry.add(value, { id: name });

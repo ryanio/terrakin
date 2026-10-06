@@ -9,6 +9,7 @@ import {
   ActionResponse,
   ArchiveResponse,
   BountiesResponse,
+  CollectionResponse,
   type CreateLetterRequest,
   type CreatePostRequest,
   type CreateReportRequest,
@@ -256,6 +257,9 @@ export const api = {
     request("GET", `/v1/residents/by-handle/${encodeURIComponent(handle)}`, ProfileResponse),
   followers: (id: string) =>
     request("GET", `/v1/residents/${encodeURIComponent(id)}/followers`, ResidentListResponse),
+  /** A resident's collection book (RFC 0021): public, like their profile. */
+  collection: (id: string) =>
+    request("GET", `/v1/residents/${encodeURIComponent(id)}/collection`, CollectionResponse),
   friends: (id: string) =>
     request("GET", `/v1/residents/${encodeURIComponent(id)}/friends`, ResidentListResponse),
   following: (id: string) =>

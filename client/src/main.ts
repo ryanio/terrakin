@@ -16,6 +16,7 @@ import { initBell, makeBell, refreshBell } from "./bell";
 import { bountiesView } from "./bounties-view";
 import { initBrandMarks } from "./chrome";
 import { claimView } from "./claim-view";
+import { collectionView } from "./collection-view";
 import { feedView } from "./feed-view";
 import { galleriesView } from "./galleries-view";
 import { gamesView, tableView } from "./games-view";
@@ -336,11 +337,13 @@ function onNavigate(nav: Navigation) {
                                         ? tableView(route.id, ctx)
                                         : route.name === "people"
                                           ? peopleView(route.id, route.tab, ctx)
-                                          : route.name === "plot3d" || route.name === "gallery3d"
-                                            ? view3d(route, ctx)
-                                            : route.name === "claim"
-                                              ? claimView(route.code, ctx)
-                                              : notFoundView(ctx);
+                                          : route.name === "collection"
+                                            ? collectionView(route.id, ctx)
+                                            : route.name === "plot3d" || route.name === "gallery3d"
+                                              ? view3d(route, ctx)
+                                              : route.name === "claim"
+                                                ? claimView(route.code, ctx)
+                                                : notFoundView(ctx);
   view = next;
   page.replaceChildren(next.el);
 

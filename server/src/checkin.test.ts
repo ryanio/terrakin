@@ -7,7 +7,14 @@ import {
 import type { WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
-import { checkinDigest, checkinSince, type DigestParts, fingerprint, pickTryNext } from "./checkin";
+import {
+  checkinDigest,
+  checkinSince,
+  type DigestParts,
+  fingerprint,
+  pickTryNext,
+  TRY_NEXT,
+} from "./checkin";
 import { MemoryMediaStore } from "./media";
 import { nodeSql } from "./node-sql";
 import { SocialService } from "./social-service";
@@ -38,7 +45,13 @@ afterEach(async () => {
 type Json = Record<string, any>;
 
 async function start(
-  world: { days?: boolean; economy?: boolean; items?: boolean; shop?: boolean } = {},
+  world: {
+    days?: boolean;
+    economy?: boolean;
+    items?: boolean;
+    shop?: boolean;
+    finds?: boolean;
+  } = {},
 ) {
   let now = 1_700_000_000_000;
   const service = new WorldService({
@@ -578,6 +591,35 @@ describe("first-visit steps and things to try", () => {
     advance(17 * DAY);
     service.tick();
     expect(pick(wren.id)).toBe("visit");
+  });
+});
+
+describe("suggestions from the collection book (RFC 0021)", () => {
+  it("suggest foraging until the book has a find, then the last find of a family that lies now", async () => {
+    const { join, ok, service } = await start({
+      days: true,
+      economy: true,
+      items: true,
+      finds: true,
+    });
+    const wren = join("Wren");
+    await ok("POST", "/v1/actions", { type: "settle", px: 1, py: 1 }, wren.token);
+    // Every other suggestion set aside, so each is asked about on its own.
+    const only = (id: string) => new Set(TRY_NEXT.map((t) => t.id).filter((other) => other !== id));
+    const pick = (id: string, kinds: string[]) =>
+      pickTryNext(service.state, wren.id, new Set(), only(id), {
+        has: (kind) => kinds.includes(kind),
+      });
+    expect(pick("forage", [])?.id).toBe("forage");
+    expect(pick("forage", ["acorn"])).toBeNull();
+    // The test clock is in autumn. Sea glass lies any time of year, so it's named.
+    const short = pick("finish_family", ["seashell", "driftwood", "starfish"]);
+    expect(short?.id).toBe("finish_family");
+    expect(short?.line).toContain('"Shore finds"');
+    expect(short?.line).toContain("sea glass. It lies on the sand now and then.");
+    // A starfish lies only in summer, and two short is too far: nothing to suggest.
+    expect(pick("finish_family", ["seashell", "driftwood", "sea_glass"])).toBeNull();
+    expect(pick("finish_family", ["seashell", "driftwood"])).toBeNull();
   });
 });
 

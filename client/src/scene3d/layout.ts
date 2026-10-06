@@ -7,6 +7,7 @@ import type { WorldSnapshot } from "@terrakin/protocol";
 import {
   type BlockKind,
   type Crop,
+  type FindKind,
   type GroundKind,
   type MadeKind,
   type Pattern,
@@ -444,7 +445,10 @@ export function plotLayout(
     ground.push({ x: g.x, y: g.y, ground: g.ground, own: d === 0, fade: d / (margin + 1) });
   }
 
-  const shown = new Map((snapshot.displays ?? []).map((d) => [tileKey(d.x, d.y), d]));
+  const shown = new Map<string, { good: ShownGood }>([
+    ...(snapshot.displays ?? []).map((d) => [tileKey(d.x, d.y), d] as const),
+    ...(snapshot.displayedFinds ?? []).map((f) => [tileKey(f.x, f.y), shownFind(f.kind)] as const),
+  ]);
   const planted = new Map((snapshot.crops ?? []).map((c) => [tileKey(c.x, c.y), c]));
   const displays: LayoutDisplay[] = [];
   const crops: LayoutCrop[] = [];
@@ -553,13 +557,18 @@ export function plotLayout(
   };
 }
 
-/** A made thing on display, as the 3D views draw it. */
+/** A made thing on display, or a find (RFC 0021), as the 3D views draw it. */
 export interface ShownGood {
   id: string;
-  kind: MadeKind;
+  kind: MadeKind | FindKind;
   media?: string | undefined;
   model?: true | undefined;
 }
+
+/** A find on display, drawn like a made thing with no picture of its own: `find:<kind>` names it. */
+export const shownFind = (kind: FindKind): { good: ShownGood } => ({
+  good: { id: `find:${kind}`, kind },
+});
 
 /** Something on display on a pedestal or in a frame. */
 export interface LayoutDisplay {

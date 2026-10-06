@@ -7,7 +7,6 @@ import {
 } from "@terrakin/protocol";
 import {
   canBuildOn,
-  displaysOf,
   type Input,
   own,
   type Plot,
@@ -84,6 +83,7 @@ const CHANGES: ReadonlySet<WorldEvent["type"]> = new Set([
   "planted",
   "harvested",
   "displayed",
+  "find_displayed",
   "taken_down",
   "display_removed",
   "hearth_set",
@@ -427,7 +427,8 @@ export function plotViews(
   only?: { px: number; py: number },
 ): PlotView[] {
   const size = state.config.plotSize;
-  const shown = displaysOf(state);
+  // Made things and finds alike: everything standing on a pedestal or hanging in a frame.
+  const shown = state.items?.displays ?? {};
   const blocks = new Map<string, number>();
   const displays = new Map<string, number>();
   if (only) {

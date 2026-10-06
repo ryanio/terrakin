@@ -13,6 +13,7 @@ import {
   EVENT_KINDS,
   EVENTS,
   EXCLUSIVE_WEAR,
+  FIND_KINDS,
   FREE_BLOCKS,
   FURNITURE_KINDS,
   GAME_KINDS,
@@ -392,6 +393,14 @@ export const ItemKind = z.enum(ITEM_KINDS);
 export const StackKind = z.enum(STACK_KINDS);
 /** Made things, one recipe each. */
 export const GoodKind = z.enum(GOOD_KINDS);
+/**
+ * Finds (RFC 0021): rarer things lying on the ground by biome, a few only in their season, picked
+ * up with `gather`. They stack, and one can stand on a pedestal.
+ */
+export const FindKind = z.enum(FIND_KINDS);
+export type FindKind = z.infer<typeof FindKind>;
+/** What can lie on a tile to `gather`: a fallen branch (`wood`), a loose stone, or a find. */
+export const PickupKind = z.enum([...RESOURCE_KINDS, ...FIND_KINDS]);
 /** Everything that's its own item with an id and a maker: made things and pieces of art. */
 export const MadeKind = z.enum(MADE_KINDS);
 export const InventoryReason = z.enum(INVENTORY_REASONS);
@@ -413,7 +422,10 @@ export const HarvestAction = z.object({
   y: coord,
   ...dry,
 });
-/** Pick up a fallen branch or a loose stone on (x, y), within reach, into your inventory. */
+/**
+ * Pick up what lies on (x, y), within reach, into your inventory: a fallen branch, a loose stone,
+ * or a find. `pickups` in `GET /v1/world` lists what's lying today.
+ */
 export const GatherAction = z.object({
   type: z.literal("gather"),
   x: coord,
@@ -477,12 +489,13 @@ export const MakePieceAction = z.object({
   ...dry,
 });
 /**
- * Put one of your made things or pieces (by id) on display on an empty `pedestal` or `frame`
- * within reach, on your plot or one shared with you. Everyone sees it in the world.
+ * Put one of your made things or pieces (by id), or one of a find you hold (by its kind, like
+ * `geode`), on display on an empty `pedestal` or `frame` within reach, on your plot or one shared
+ * with you. Everyone sees it in the world.
  */
 export const DisplayAction = z.object({
   type: z.literal("display"),
-  item: ItemId,
+  item: z.union([ItemId, FindKind]),
   x: coord,
   y: coord,
   ...dry,
@@ -1117,16 +1130,16 @@ export const WorldSnapshot = z.object({
    */
   gathered: z.array(z.object({ x: z.number().int(), y: z.number().int() })).optional(),
   /**
-   * The fallen branches and loose stones lying in the world today, ready to `gather`. Absent until
-   * growing, making, and gathering open. `ownersOnly: true` marks one on a claimed plot once
-   * `plotPickupsOwned` is on: only that plot's owner and co-owners can take it.
+   * The fallen branches, loose stones, and finds lying in the world today, ready to `gather`.
+   * Absent until growing, making, and gathering open. `ownersOnly: true` marks one on a claimed
+   * plot once `plotPickupsOwned` is on: only that plot's owner and co-owners can take it.
    */
   pickups: z
     .array(
       z.object({
         x: z.number().int(),
         y: z.number().int(),
-        kind: z.enum(RESOURCE_KINDS),
+        kind: PickupKind,
         ownersOnly: z.literal(true).optional(),
       }),
     )
@@ -1136,6 +1149,26 @@ export const WorldSnapshot = z.object({
    * unclaimed land are open to everyone. Absent in worlds where anyone may gather anywhere.
    */
   plotPickupsOwned: z.literal(true).optional(),
+  /**
+   * Present once finds lie on the ground (RFC 0021): a tile with no branch or stone may hold one,
+   * by its biome and the season. Clients draw them with the sim's `pickupOn`.
+   */
+  findsOpen: z.literal(true).optional(),
+  /**
+   * Finds on display on pedestals and frames (RFC 0021), with who put each up and the day it went
+   * up. They carry no words. Absent when none are.
+   */
+  displayedFinds: z
+    .array(
+      z.object({
+        x: z.number().int(),
+        y: z.number().int(),
+        kind: FindKind,
+        by: z.string(),
+        day: z.number().int(),
+      }),
+    )
+    .optional(),
   /**
    * Events on the calendar (RFC 0010): where and when, never their words (read those from `GET
    * /v1/events`). `startsAt` is ms since 1970. Absent when there are none.
@@ -1330,6 +1363,8 @@ export const WorldEvent = z.discriminatedUnion("type", [
    * unclaimed land stay open to everyone.
    */
   z.object({ type: z.literal("plot_pickups_owned") }),
+  /** From now on, finds lie on the ground (RFC 0021): `findsOpen` in `GET /v1/world`. */
+  z.object({ type: z.literal("finds_opened") }),
   /** From now on, nobody walks onto the Town Hall or the shop (`solidBuildings`). */
   z.object({ type: z.literal("buildings_solid") }),
   /** The town shop opened (RFC 0008): `GET /v1/shop`. */
@@ -1431,12 +1466,12 @@ export const WorldEvent = z.discriminatedUnion("type", [
     crop: CropKind,
     by: z.string(),
   }),
-  /** Someone picked up a fallen branch or a loose stone. Public, like a harvest. */
+  /** Someone picked up a fallen branch, a loose stone, or a find. Public, like a harvest. */
   z.object({
     type: z.literal("gathered"),
     x: z.number().int(),
     y: z.number().int(),
-    kind: z.enum(RESOURCE_KINDS),
+    kind: PickupKind,
     by: z.string(),
   }),
   /** Someone gave someone a thing. Public, without the count or the note. */
@@ -1452,6 +1487,14 @@ export const WorldEvent = z.discriminatedUnion("type", [
     good: GoodEventView,
     by: z.string(),
     trust: z.literal("untrusted").optional(),
+  }),
+  /** A find went on display on a `pedestal` or `frame` (RFC 0021). Public. It carries no words. */
+  z.object({
+    type: z.literal("find_displayed"),
+    x: z.number().int(),
+    y: z.number().int(),
+    kind: FindKind,
+    by: z.string(),
   }),
   /** What was on display on a tile was taken down, by `by`. Public. */
   z.object({

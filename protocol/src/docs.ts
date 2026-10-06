@@ -7,6 +7,8 @@ import {
   FAMILIES,
   FAMILY_RECIPES,
   type FamilyInfo,
+  FIND_SPAWNS,
+  type FindSpawn,
   FURNITURE_KINDS,
   FURNITURE_RECIPES,
   GOOD_KINDS,
@@ -16,6 +18,7 @@ import {
   RECIPES,
   type StackKind,
 } from "@terrakin/sim";
+import { FIND_GROUND, findRarity } from "./collection";
 import { API_LIFECYCLE } from "./openapi";
 import {
   DAILY_LIMITS,
@@ -174,6 +177,13 @@ export function catalogBlock(): string {
     "| decor | name | at the town shop |",
     "|-------|------|------------------|",
     ...DECOR_KINDS.map((kind) => `| \`${kind}\` | ${ITEM_INFO[kind].name} | ${priceWords(kind)} |`),
+    "",
+    "| find | name | lies | when | how often |",
+    "|------|------|------|------|-----------|",
+    ...(FIND_SPAWNS as readonly FindSpawn[]).map(
+      (f) =>
+        `| \`${f.kind}\` | ${ITEM_INFO[f.kind].name} | ${FIND_GROUND[f.biome]} | ${f.seasons ? `${f.seasons.join(" and ")} only` : "all year"} | ${findRarity(f.chance)} |`,
+    ),
     end,
   ].join("\n");
 }

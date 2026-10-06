@@ -100,7 +100,7 @@ describe("page meta", () => {
       id: "r_0123456789abcdef",
     });
     expect(matchPage("/gallery/3d")).toEqual({ name: "world" });
-    for (const tab of ["followers", "following", "friends"]) {
+    for (const tab of ["followers", "following", "friends", "collection"]) {
       expect(matchPage(`/r/r_0123456789abcdef/${tab}`)).toEqual({
         name: "profile",
         id: "r_0123456789abcdef",

@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { apply } from "./apply";
-import { displayAt, heldAsideOf } from "./display";
+import {
+  displayAt,
+  displaysOf,
+  everyGood,
+  findsHeldAsideOf,
+  findsOnDisplay,
+  heldAsideOf,
+} from "./display";
 import { hashWorld } from "./hash";
 import { ITEMS, inventorySize } from "./items";
 import { replay } from "./replay";
@@ -49,7 +56,7 @@ function world() {
     ok(name, { type: "build_starter_home" });
   };
   const goods = (id: string) => state.items?.inventories[id]?.goods ?? [];
-  return { state, log, ok, code, settle, goods };
+  return { state, log, send, ok, code, settle, goods };
 }
 
 /** Ada on plot (0, 0) with a pedestal at (2, 2) and a frame at (4, 2). */
@@ -234,6 +241,80 @@ describe("display and take_down", () => {
   });
 });
 
+describe("finds on display (RFC 0021)", () => {
+  it("puts one of a find up by its kind and back on its stack, apart from the made things", () => {
+    const w = gallery();
+    expect(w.code("ada", { type: "display", item: "geode", x: 2, y: 2 })).toBe("not_enough_items");
+    stock(w.state, "ada", { geode: 2, wood: 1 });
+    // Wood stacks too, but only a find may stand on a pedestal.
+    expect(w.code("ada", { type: "display", item: "wood", x: 2, y: 2 })).toBe("unknown_item");
+    expect(w.ok("ada", { type: "display", item: "geode", x: 2, y: 2 })).toEqual([
+      {
+        type: "inventory",
+        residentId: "ada",
+        reason: "displayed",
+        changes: [{ kind: "geode", amount: -1, count: 1 }],
+      },
+      { type: "find_displayed", x: 2, y: 2, kind: "geode", by: "ada" },
+    ]);
+    expect(displayAt(w.state, 2, 2)).toEqual({ find: "geode", by: "ada", day: DAY });
+    expect(findsOnDisplay(w.state)).toEqual([{ x: 2, y: 2, kind: "geode", by: "ada", day: DAY }]);
+    // Galleries, reports, and karma read made things only: a find has no maker and no id.
+    expect(displaysOf(w.state)).toEqual({});
+    expect(everyGood(w.state)).toEqual([]);
+    expect(w.code("ada", { type: "remove", x: 2, y: 2 })).toBe("tile_occupied");
+    expect(w.ok("ada", { type: "take_down", x: 2, y: 2 })).toEqual([
+      { type: "taken_down", x: 2, y: 2, by: "ada" },
+      {
+        type: "inventory",
+        residentId: "ada",
+        reason: "off_display",
+        changes: [{ kind: "geode", amount: 1, count: 2 }],
+      },
+    ]);
+    expect(w.state.items?.displays).toEqual({});
+  });
+
+  it("can't be admired, since nobody made it, and says to admire the plot instead", () => {
+    const w = gallery();
+    stock(w.state, "ada", { seashell: 1 });
+    w.ok("ada", { type: "display", item: "seashell", x: 4, y: 2 });
+    w.settle("bob", 2, 0);
+    const refused = w.send("bob", { type: "admire", x: 4, y: 2 });
+    expect(refused).toMatchObject({ ok: false, rejection: { code: "not_eligible" } });
+    expect(refused.ok ? "" : refused.rejection.message).toContain("POST /v1/plots/0/0/admire");
+  });
+
+  it("waits for its owner when it's taken down while their things are full, then rejoins the stack", () => {
+    const w = gallery();
+    w.settle("bob", 2, 0);
+    w.ok("ada", { type: "share_plot", with: "bob" });
+    const bob = w.state.residents.bob;
+    if (!bob) throw new Error("bob");
+    bob.x = 3;
+    bob.y = 2;
+    stock(w.state, "bob", { fossil: 1 });
+    w.ok("bob", { type: "display", item: "fossil", x: 2, y: 2 });
+    w.ok("ada", { type: "unshare_plot", with: "bob" });
+    const room = ITEMS.inventoryMax - inventorySize(w.state.items?.inventories.bob);
+    stock(w.state, "bob", { tomato: room });
+    expect(w.ok("ada", { type: "take_down", x: 2, y: 2 })).toEqual([
+      { type: "taken_down", x: 2, y: 2, by: "ada" },
+    ]);
+    expect(findsHeldAsideOf(w.state, "bob")).toEqual([{ find: "fossil", by: "bob", day: DAY }]);
+    expect(heldAsideOf(w.state, "bob")).toEqual([]);
+    // Bob makes room, and the fossil comes back to his stack with that same action.
+    const events = w.ok("bob", { type: "give", item: "tomato", to: "ada", count: 1 });
+    expect(events).toContainEqual({
+      type: "inventory",
+      residentId: "bob",
+      reason: "held",
+      changes: [{ kind: "fossil", amount: 1, count: 1 }],
+    });
+    expect(w.state.items?.heldAside).toBeUndefined();
+  });
+});
+
 describe("remove_display", () => {
   const remove = (item: string, picture?: true): Command => ({
     type: "remove_display",
@@ -249,7 +330,7 @@ describe("remove_display", () => {
     w.settle("bob", 2, 0);
     expect(w.code("ada", remove("i_1"))).toBe("server_only");
     expect(w.code("bob", remove("i_1", true))).toBe("server_only");
-    expect(displayAt(w.state, 2, 2)?.good.id).toBe("i_1");
+    expect(displaysOf(w.state)["2,2"]?.good.id).toBe("i_1");
   });
 
   it("gives a displayed thing back to whoever put it up, label and picture and all", () => {
@@ -393,7 +474,7 @@ describe("admire", () => {
     ]);
     expect(w.code("bob", { type: "admire", x: 2, y: 2 })).toBe("already_admired");
     w.ok("cy", { type: "admire", x: 2, y: 2 });
-    expect(displayAt(w.state, 2, 2)?.good.admired).toBe(2);
+    expect(displaysOf(w.state)["2,2"]?.good.admired).toBe(2);
     w.ok(TOWN_ACTOR, { type: "new_day", day: DAY + 1 });
     expect(w.state.items?.today.admired).toBeUndefined();
     w.ok("bob", { type: "admire", x: 2, y: 2 });

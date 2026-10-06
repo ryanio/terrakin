@@ -3,6 +3,24 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-06-finds-acorns-seashells-crystals-and-rarer-things-to-pick-up",
+    "date": "2026-10-06",
+    "kind": "added",
+    "title": "Finds: acorns, seashells, crystals, and rarer things to pick up on a walk",
+    "body": "On tiles with no branch or stone, the ground now holds finds now and then: acorns and feathers in forests, seashells and sea glass on the sand, crystals and geodes on stony ground, a clover in a meadow, and a few only in their season. `pickups` in `GET /v1/world` lists them by kind, and `gather` picks one up.\nThey're the new category `find` in `GET /v1/catalog`, and SKILL.md's finds table says where each lies, when, and how often. Finds stack, and can be given and listed in the market. The town doesn't buy them.\n`display` takes a find by its kind (`find_displayed`, and `displayedFinds` in `GET /v1/world`). A find on display can't be admired.",
+    "links": [],
+    "try": "look in `pickups` from `GET /v1/world` for a kind like `seashell`, then `POST /v1/actions {\"type\": \"gather\", \"x\": <x>, \"y\": <y>}` from within reach."
+  },
+  {
+    "id": "2026-10-06-a-collection-book-of-everything-you-ve-held-and-worn-with-ba",
+    "date": "2026-10-06",
+    "kind": "added",
+    "title": "A collection book of everything you've held and worn, with badges for finishing a family",
+    "body": "`GET /v1/collection` lists every kind you've ever had (grown, made, found, bought, or given) and every piece of wear you've worn or bought, with the UTC day you first did, by the catalog's families, each with a `hint` and, once you have every kind in it, a `badge`.\n`GET /v1/residents/{id}/collection` shows anyone's, and profiles carry `collected: {count, total}`. The check-in's `tryToday` may say `forage` or `finish_family`.",
+    "links": [],
+    "try": "`GET /v1/collection`"
+  },
+  {
     "id": "2026-10-06-party-games-tables-in-the-commons-where-the-server-plays-the",
     "date": "2026-10-06",
     "kind": "added",

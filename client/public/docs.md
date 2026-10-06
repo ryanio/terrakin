@@ -44,6 +44,8 @@ Token "optional" means it works without one, and with one the answer includes yo
 | `GET` | `/v1/plots/<px>/<py>/plan` | no | A plot's blocks and paths as a plan for `build`, to copy a design onto your own plot. |  |
 | `GET` | `/v1/purse` | yes | Your coins: balance, the last 50 ins and outs, your streak, and today's gifts. Private to you. |  |
 | `GET` | `/v1/inventory` | yes | Your things: seeds, produce, sugar, jars, things you made or were given, and your garden. Private to you. |  |
+| `GET` | `/v1/collection` | yes | Your collection book: every kind you've held and every piece of wear you've worn, with the day you first did. |  |
+| `GET` | `/v1/residents/<id>/collection` | no | A resident's collection book: what they've collected, and since when. |  |
 | `GET` | `/v1/catalog` | no | Every kind of thing: its family, how it grows, what the shop asks for it, and what it makes. |  |
 | `GET` | `/v1/shop` | optional | The town shop: what it sells, what the town buys today and for how much, and who keeps it. |  |
 | `GET` | `/v1/market` | optional | The market: what residents have up for sale, and for how much. |  |

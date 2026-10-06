@@ -76,6 +76,7 @@ const service = new WorldService({
   items: true,
   gifts: true,
   plotPickups: true,
+  finds: true,
   solidBuildings: true,
   shop: true,
   market: true,

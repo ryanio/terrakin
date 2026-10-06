@@ -2,14 +2,15 @@ import {
   type Crop,
   DECOR_KINDS,
   type DecorKind,
+  type FindKind,
   FURNITURE_KINDS,
   type FurnitureKind,
   type GoodKind,
   type ItemKind,
   type MadeKind,
-  type ResourceKind,
   type StackKind,
 } from "./catalog";
+import type { PickupKind } from "./gather";
 import type { GroundKind } from "./ground";
 import type {
   ExclusiveWear,
@@ -755,6 +756,21 @@ export interface Display {
   day: number;
 }
 
+/**
+ * A find on a `pedestal` or a `frame` (RFC 0021): one of a stack, out of its holder's things until
+ * it's taken down. It has no maker and no id, so nobody admires or reports it.
+ */
+export interface ShownFind {
+  find: FindKind;
+  /** Who put it up. It goes back to them when it's taken down. */
+  by: ResidentId;
+  /** The day it went up. */
+  day: number;
+}
+
+/** What stands on a pedestal or hangs in a frame: a made thing, or a find. */
+export type Shown = Display | ShownFind;
+
 /** What one resident holds. */
 export interface Inventory {
   /** Counts of things that stack. A kind at 0 is absent. */
@@ -819,8 +835,11 @@ export interface ItemsState {
   gifts?: Record<string, GiftRecord>;
   /** The number in the next gift's id. Set with `gifts`. */
   nextGift?: number;
-  /** Made things on display, keyed by tileKey(x, y). Absent until the first `display`. */
-  displays?: Record<string, Display>;
+  /**
+   * Made things and finds on display, keyed by tileKey(x, y). Absent until the first `display`.
+   * A find (`ShownFind`) can stand there only once finds are out.
+   */
+  displays?: Record<string, Shown>;
   /**
    * Tiles picked clean today, by tileKey(x, y) to the day they were gathered. Absent until the
    * first `gather`, so worlds from before gathering replay as they always have. `new_day`
@@ -833,11 +852,16 @@ export interface ItemsState {
    */
   plotPickupsOwned?: true;
   /**
+   * A tile with no branch or stone may hold a find (RFC 0021). Absent until the server logs
+   * `open_finds`, so gathers logged before it replay as they were made.
+   */
+  findsOpen?: true;
+  /**
    * Things taken down from display while whoever put them up had no room for them, oldest first.
    * Each waits for `by` and comes back with their first input that leaves room for it. Absent
    * until the first one.
    */
-  heldAside?: Display[];
+  heldAside?: Shown[];
 }
 
 /** Why an inventory changed. */
@@ -1151,6 +1175,8 @@ export type Command =
   | { type: "open_gifts" }
   /** From now on, only a claimed plot's owner and co-owners may gather on it. */
   | { type: "own_plot_pickups" }
+  /** From now on, a tile with no branch or stone may hold a find (RFC 0021). */
+  | { type: "open_finds" }
   /** From now on, nobody walks onto the Town Hall or the shop. Anyone on one steps off. */
   | { type: "solid_buildings" }
   | { type: "open_shop" }
@@ -1260,6 +1286,7 @@ export const SERVER_COMMANDS = [
   "open_items",
   "open_gifts",
   "own_plot_pickups",
+  "open_finds",
   "solid_buildings",
   "open_shop",
   "set_shop_share",
@@ -1392,6 +1419,8 @@ export type WorldEvent =
   | { type: "items_opened" }
   | { type: "gifts_opened" }
   | { type: "plot_pickups_owned" }
+  /** `open_finds`: finds lie on the ground from now on. Public. */
+  | { type: "finds_opened" }
   /** `solid_buildings` turned on: the Town Hall and the shop stop walkers from now on. */
   | { type: "buildings_solid" }
   | { type: "shop_opened" }
@@ -1452,12 +1481,14 @@ export type WorldEvent =
     }
   /** A crop came out of a planter. Public. */
   | { type: "harvested"; x: number; y: number; crop: Crop; by: ResidentId }
-  /** Someone picked up a fallen branch or a loose stone. Public. */
-  | { type: "gathered"; x: number; y: number; kind: ResourceKind; by: ResidentId }
+  /** Someone picked up a fallen branch, a loose stone, or a find. Public. */
+  | { type: "gathered"; x: number; y: number; kind: PickupKind; by: ResidentId }
   /** Someone gave someone a thing. Public, without the count or the note. */
   | { type: "item_given"; from: ResidentId; to: ResidentId; kind: ItemKind }
   /** A made thing went on display. Public: it shows in the world, label and all. */
   | { type: "displayed"; x: number; y: number; good: Good; by: ResidentId }
+  /** A find went on display (RFC 0021). Public: it has no words on it. */
+  | { type: "find_displayed"; x: number; y: number; kind: FindKind; by: ResidentId }
   /** A displayed thing was taken down by `by`. Public. */
   | { type: "taken_down"; x: number; y: number; by: ResidentId }
   /** Staff took a made thing off display. `by` put it up. Public, like the display was. */

@@ -1,6 +1,6 @@
 /**
  * A tiny History API router. `/` the feed, `/r/:id` a profile (also at `/u/handle`), `/r/:id/3d`
- * their plot in 3D, `/p/:id` a post, `/notifications`, `/purse` your coins, `/inventory` your things, `/letters` and `/letters/:id` your letters,
+ * their plot in 3D, `/r/:id/collection` their collection book, `/p/:id` a post, `/notifications`, `/purse` your coins, `/inventory` your things, `/letters` and `/letters/:id` your letters,
  * `/i/:code` an invite, `/town` the Town Hall, `/shop` the town shop, `/market` the market, `/bounties` bounties, `/galleries` galleries, `/visit` plots to visit, `/games` and `/games/:id` party games, `/claim/:code` where a person confirms an AI's
  * invite, `/world` the canvas world, and `/gallery/3d`
  * the 3D gallery (not linked from anywhere public yet). Anything else is a friendly not-found
@@ -11,6 +11,7 @@ export type Route =
   | { name: "feed" }
   | { name: "profile"; id: string }
   | { name: "plot3d"; id: string }
+  | { name: "collection"; id: string }
   | { name: "people"; id: string; tab: "followers" | "following" | "friends" }
   | { name: "gallery3d" }
   | { name: "post"; id: string }
@@ -38,6 +39,7 @@ const PATTERNS: [RegExp, (m: RegExpExecArray) => Route][] = [
   [/^\/$/, () => ({ name: "feed" })],
   [new RegExp(`^/r/${ID}$`), (m) => ({ name: "profile", id: m[1] ?? "" })],
   [new RegExp(`^/r/${ID}/3d$`), (m) => ({ name: "plot3d", id: m[1] ?? "" })],
+  [new RegExp(`^/r/${ID}/collection$`), (m) => ({ name: "collection", id: m[1] ?? "" })],
   [
     new RegExp(`^/r/${ID}/(followers|following|friends)$`),
     (m) => ({
@@ -89,6 +91,8 @@ export function routeTemplate(route: Route): string {
       return "/r/:id";
     case "plot3d":
       return "/r/:id/3d";
+    case "collection":
+      return "/r/:id/collection";
     case "people":
       return `/r/:id/${route.tab}`;
     case "gallery3d":

@@ -4,6 +4,8 @@ import {
   type Crop,
   DECOR_KINDS,
   type DecorKind,
+  FIND_KINDS,
+  type FindKind,
   familyRecipeMiss,
   GOOD_KINDS,
   type GoodKind,
@@ -69,6 +71,8 @@ export {
   type CropInfo,
   DECOR_KINDS,
   type DecorKind,
+  FIND_KINDS,
+  type FindKind,
   GOOD_KINDS,
   type GoodKind,
   ITEM_INFO,
@@ -159,6 +163,9 @@ export const isCrop = (k: unknown): k is Crop =>
   typeof k === "string" && (CROPS as readonly string[]).includes(k);
 export const isResourceKind = (k: unknown): k is ResourceKind =>
   typeof k === "string" && (RESOURCE_KINDS as readonly string[]).includes(k);
+/** A find (RFC 0021): picked up where it lies, and the one kind of stack that may go on display. */
+export const isFindKind = (k: unknown): k is FindKind =>
+  typeof k === "string" && (FIND_KINDS as readonly string[]).includes(k);
 
 /** "1 lemon", "3 lemons", in plain words. */
 export function countOf(kind: ItemKind, n: number): string {

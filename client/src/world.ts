@@ -608,6 +608,7 @@ function openStation(x: number, y: number) {
   const ownerName = ownerId ? m.residents.get(ownerId)?.name : undefined;
   if (kind === "pedestal" || kind === "frame") {
     const shown = m.displays.get(`${x},${y}`);
+    const find = m.shownFinds.get(`${x},${y}`);
     const { plotSize } = m.config;
     const px = Math.floor(x / plotSize);
     const py = Math.floor(y / plotSize);
@@ -617,6 +618,7 @@ function openStation(x: number, y: number) {
         x,
         y,
         ...(shown ? { shown } : {}),
+        ...(find ? { find } : {}),
         plot: { px, py, gallery: m.galleries.has(`${px},${py}`) },
         yours,
         me,

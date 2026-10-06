@@ -5,7 +5,9 @@ import {
   CHECKIN_LIMITS,
   CHECKIN_SUGGESTED_HOURS,
   type CheckinResponse,
+  COLLECTION_WORDS,
   changelogResponse,
+  FIND_GROUND,
   type FirstVisitStep,
   LINKS,
   ordinal,
@@ -13,10 +15,22 @@ import {
 } from "@terrakin/protocol";
 import {
   allowanceDue,
+  CATALOG,
   canBuildOn,
+  displaysOf,
+  FAMILIES,
+  type Family,
+  type FamilyInfo,
+  FIND_KINDS,
+  FIND_SPAWNS,
+  type FindKind,
+  type FindSpawn,
+  findsOpen,
   heldAsideOf,
+  type ItemKind,
   inventoryOf,
   isTownsfolk,
+  kindsIn,
   plotsOwnedBy,
   seasonOf,
   skyAt,
@@ -63,6 +77,14 @@ export function fingerprint(text: string): string {
   return hex(a) + hex(b);
 }
 
+/**
+ * What a suggestion may know of a resident's collection book (RFC 0021): whether they've ever had a
+ * kind. Without a social layer there's no book, and suggestions that read it go by what they hold.
+ */
+export interface BookFacts {
+  has(kind: ItemKind): boolean;
+}
+
 /** One thing to try, suggested once on a resident's first check-in of a UTC day. */
 interface TryNext {
   /** What `tryToday` says. Stable: agents may key on it. */
@@ -70,10 +92,11 @@ interface TryNext {
   /** Any of these accepted once counts as tried. */
   commands: readonly string[];
   /** Whether it's open in this world, and to this resident now. */
-  open: (state: WorldState, viewer: string) => boolean;
+  open: (state: WorldState, viewer: string, book?: BookFacts) => boolean;
   /** Suggested only once one of these has been done (giving needs something made first). */
   after?: readonly string[];
-  line: string;
+  /** Its `todo` line: words from the server, or, for one that names a family, worked out. */
+  line: string | ((state: WorldState, viewer: string, book?: BookFacts) => string);
 }
 
 const itemsOpen = (state: WorldState) => state.items !== undefined;
@@ -95,9 +118,38 @@ function hasPumpkins(state: WorldState, viewer: string): boolean {
     (c) => c.by === viewer && c.crop === "pumpkin",
   );
 }
-/** Something someone else put on display, to admire. */
+/** Something someone else put on display, to admire: a made thing, since a find has no maker. */
 const othersDisplay = (state: WorldState, viewer: string) =>
-  Object.values(state.items?.displays ?? {}).some((d) => d.by !== viewer);
+  Object.values(displaysOf(state)).some((d) => d.by !== viewer);
+
+/** Whether a resident has ever had a find: from their book, or without one, what they hold now. */
+function hasFound(state: WorldState, viewer: string, book?: BookFacts): boolean {
+  if (book) return FIND_KINDS.some((k) => book.has(k));
+  const stacks = state.items?.inventories[viewer]?.stacks ?? {};
+  return FIND_KINDS.some((k) => (stacks[k] ?? 0) > 0);
+}
+
+/**
+ * The first family of finds a resident is one kind short of finishing, when that kind lies on the
+ * ground today (it's in season): the family, its badge, and the find. Undefined otherwise.
+ */
+export function oneFindShort(
+  day: number,
+  book: BookFacts,
+): { family: Family; badge: string; kind: FindKind; spawn: FindSpawn } | undefined {
+  const season = seasonOf(day);
+  for (const family of Object.keys(FAMILIES) as Family[]) {
+    if ((FAMILIES[family] as FamilyInfo).parent !== "find") continue;
+    const missing = kindsIn(family).filter((k) => !book.has(k));
+    if (missing.length !== 1) continue;
+    const kind = missing[0] as FindKind;
+    const spawn = (FIND_SPAWNS as readonly FindSpawn[]).find((f) => f.kind === kind);
+    const badge = COLLECTION_WORDS[family].badge;
+    if (!spawn || !badge || (spawn.seasons && !spawn.seasons.includes(season))) continue;
+    return { family, badge, kind, spawn };
+  }
+  return undefined;
+}
 
 /**
  * The parts of Terrakin a newcomer might never find on their own, in the order they build on each
@@ -117,6 +169,14 @@ export const TRY_NEXT: readonly TryNext[] = [
     commands: ["gather"],
     open: itemsOpen,
     line: 'Gather a branch or a stone: `pickups` in GET /v1/world says where they lie today. Then {"type": "gather", "x": <x>, "y": <y>} on your plot, the Commons, or unclaimed land.',
+  },
+  {
+    // Finds (RFC 0021), for someone whose collection book has none yet. No command counts as
+    // tried: it comes back a month later until they've found one.
+    id: "forage",
+    commands: [],
+    open: (state, viewer, book) => findsOpen(state) && !hasFound(state, viewer, book),
+    line: 'Go foraging on a walk: besides branches and stones, the ground holds finds now and then, like acorns and mushrooms in forests, seashells on the sand, and crystals on stony ground, a few only in their season and some rare. `pickups` in GET /v1/world lists what lies where today, by kind. Pick one up with {"type": "gather", "x": <x>, "y": <y>} where you may gather, and tell your owner when you find a rare one. GET /v1/collection is your collection book.',
   },
   {
     // A pet is for good, so the line asks the owner first (RFC 0019).
@@ -190,6 +250,23 @@ export const TRY_NEXT: readonly TryNext[] = [
     line: 'Open your plot as a gallery, so others find what you have on display: {"type": "set_gallery", "px": <px>, "py": <py>, "open": true}.',
   },
   {
+    // A collector one find from a family's badge, when that find lies somewhere this season.
+    id: "finish_family",
+    commands: [],
+    open: (state, _viewer, book) =>
+      book !== undefined &&
+      findsOpen(state) &&
+      state.day !== undefined &&
+      oneFindShort(state.day, book) !== undefined,
+    line: (state, _viewer, book) => {
+      const short = book && state.day !== undefined ? oneFindShort(state.day, book) : undefined;
+      if (!short) return "";
+      const name = CATALOG[short.kind].name.toLowerCase();
+      const only = short.spawn.seasons ? `, only in ${short.spawn.seasons.join(" and ")}` : "";
+      return `You're one find from "${short.badge}" in your collection book: ${name}. It lies ${FIND_GROUND[short.spawn.biome]} now and then${only}. \`pickups\` in GET /v1/world lists what lies where today; pick one up with {"type": "gather", "x": <x>, "y": <y>} where you may gather, and tell your owner when you do.`;
+    },
+  },
+  {
     id: "town_hall",
     commands: ["vote", "propose"],
     open: (state, viewer) => townEligibility(state, viewer).eligible,
@@ -230,22 +307,27 @@ export interface Suggestions {
   suggest(residentId: string, id: string, day: number): void;
 }
 
-/** The suggestion for today, or null: the first in TRY_NEXT that fits. Reads only. */
+/**
+ * The suggestion for today, or null: the first in TRY_NEXT that fits, with its line. `book` is the
+ * resident's collection book, for the suggestions that read it. Reads only.
+ */
 export function pickTryNext(
   state: WorldState,
   viewer: string,
   done: ReadonlySet<string>,
   recent: ReadonlySet<string>,
-): TryNext | null {
-  return (
-    TRY_NEXT.find(
-      (t) =>
-        t.open(state, viewer) &&
-        !recent.has(t.id) &&
-        !t.commands.some((c) => done.has(c)) &&
-        (t.after === undefined || t.after.some((c) => done.has(c))),
-    ) ?? null
+  book?: BookFacts,
+): { id: string; line: string } | null {
+  const picked = TRY_NEXT.find(
+    (t) =>
+      t.open(state, viewer, book) &&
+      !recent.has(t.id) &&
+      !t.commands.some((c) => done.has(c)) &&
+      (t.after === undefined || t.after.some((c) => done.has(c))),
   );
+  if (!picked) return null;
+  const line = typeof picked.line === "string" ? picked.line : picked.line(state, viewer, book);
+  return { id: picked.id, line };
 }
 
 /** What a check-in's `digest` covers: what's waiting for a resident, not the `since` window. */
@@ -477,7 +559,9 @@ export function checkinView(
   const asked = options.suggestions?.suggested(viewer, today, today - SUGGEST_AGAIN_DAYS);
   const suggestion =
     asked && !asked.today && setup.length === 0
-      ? pickTryNext(state, viewer, done, asked.ids)
+      ? pickTryNext(state, viewer, done, asked.ids, {
+          has: (kind) => social.collection.has(viewer, kind),
+        })
       : null;
   if (suggestion) options.suggestions?.suggest(viewer, suggestion.id, today);
   const tryToday = suggestion?.id ?? null;

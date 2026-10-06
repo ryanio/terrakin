@@ -1,7 +1,7 @@
 /**
  * The catalog of things (RFC 0018): every kind of thing a resident can hold, one entry each, sorted
  * into families such as food › fruit. Seeds, produce, staples, materials, decor, furniture, made
- * goods, and pieces of art are all entries here, as plain data like the looks catalog.
+ * goods, pieces of art, and finds are all entries here, as plain data like the looks catalog.
  *
  * Ids never change, since logs hold them, and new entries go on the end. The lists and tables below
  * the entries are views of it: each list groups kinds by role, in catalog order, so a new kind
@@ -44,6 +44,12 @@ export const FAMILIES = {
   decor: { name: "Decor" },
   furniture: { name: "Furniture", parent: "decor" },
   art: { name: "Art" },
+  // Finds (RFC 0021): picked up with `gather` where they lie, each family named for its ground.
+  find: { name: "Finds" },
+  forest_find: { name: "Forest", parent: "find" },
+  shore_find: { name: "Shore", parent: "find" },
+  stone_find: { name: "Stony ground", parent: "find" },
+  meadow_find: { name: "Meadow", parent: "find" },
 } as const satisfies Readonly<Record<string, FamilyInfo>>;
 export type Family = keyof typeof FAMILIES;
 
@@ -63,8 +69,9 @@ export function familyPath(family: Family): Family[] {
 /**
  * What a kind is to the rules, which read this and never the family: something to plant, produce
  * from a planter, a kitchen staple, a gathered material, decor that places as a block, furniture
- * made at a workbench that stacks and places like decor (RFC 0016), a made good, or a piece of art.
- * It's the category the API shows, where a piece shows as a good.
+ * made at a workbench that stacks and places like decor (RFC 0016), a made good, a piece of art, or
+ * a find (RFC 0021): something rare picked up where it lies, which stacks and can stand on a
+ * pedestal. It's the category the API shows, where a piece shows as a good.
  */
 export type Role =
   | "seed"
@@ -74,7 +81,8 @@ export type Role =
   | "decor"
   | "furniture"
   | "good"
-  | "piece";
+  | "piece"
+  | "find";
 
 /** Block kinds you craft at. `craft` names the station's tile. */
 export const STATIONS = ["kitchen", "workbench"] as const;
@@ -168,6 +176,13 @@ const entry = <const R extends Role, const F extends Family>(e: Typed<R, F>): Ty
 
 /** A kind's id in plain words, starting with a capital: "sweet_pea" is "Sweet pea". */
 const title = (id: string) => `${id.charAt(0).toUpperCase()}${id.slice(1).replaceAll("_", " ")}`;
+
+/**
+ * A find (RFC 0021): picked up where it lies, in its family's ground, and drawn by hand. Where and
+ * how often it lies is `FIND_SPAWNS` in `gather.ts`, frozen there, never here.
+ */
+const find = <const F extends Family>(name: string, plural: string, family: F) =>
+  entry({ name, plural, family, role: "find", look: { template: "drawn" } });
 
 interface CropSpec<F extends Family> {
   name: string;
@@ -568,6 +583,23 @@ const WRITTEN = {
       jam: { fill: "#8f1d36", cloth: "#a98bd8" },
     },
   }),
+  // Finds (RFC 0021): rarer things lying on the ground, by biome, a few only in their season.
+  acorn: find("Acorn", "Acorns", "forest_find"),
+  pinecone: find("Pinecone", "Pinecones", "forest_find"),
+  mushroom: find("Mushroom", "Mushrooms", "forest_find"),
+  feather: find("Feather", "Feathers", "forest_find"),
+  chestnut: find("Chestnut", "Chestnuts", "forest_find"),
+  holly: find("Sprig of holly", "Sprigs of holly", "forest_find"),
+  seashell: find("Seashell", "Seashells", "shore_find"),
+  driftwood: find("Driftwood", "Driftwood", "shore_find"),
+  sea_glass: find("Sea glass", "Sea glass", "shore_find"),
+  starfish: find("Starfish", "Starfish", "shore_find"),
+  crystal: find("Crystal", "Crystals", "stone_find"),
+  fossil: find("Fossil", "Fossils", "stone_find"),
+  geode: find("Geode", "Geodes", "stone_find"),
+  four_leaf_clover: find("Four-leaf clover", "Four-leaf clovers", "meadow_find"),
+  maple_leaf: find("Maple leaf", "Maple leaves", "meadow_find"),
+  cherry_blossom: find("Cherry blossom", "Cherry blossoms", "meadow_find"),
 };
 
 // ---------- family recipes ----------
@@ -647,13 +679,15 @@ export type DecorKind = With<{ role: "decor" }>;
 export type FurnitureKind = With<{ role: "furniture" }>;
 export type GoodKind = With<{ role: "good" }> | FamilyMade;
 export type PieceKind = With<{ role: "piece" }>;
+export type FindKind = With<{ role: "find" }>;
 export type StackKind =
   | SeedKind
   | ProduceKind
   | StapleKind
   | ResourceKind
   | DecorKind
-  | FurnitureKind;
+  | FurnitureKind
+  | FindKind;
 export type MadeKind = GoodKind | PieceKind;
 
 /** What a family recipe makes from one kind in its family. */
@@ -716,7 +750,12 @@ export const STAPLE_KINDS = withRole("staple") as readonly StapleKind[];
 export const RESOURCE_KINDS = withRole("resource") as readonly ResourceKind[];
 export const DECOR_KINDS = withRole("decor") as readonly DecorKind[];
 export const FURNITURE_KINDS = withRole("furniture") as readonly FurnitureKind[];
-/** Things that stack: you hold a count of each, not separate items. */
+/** Finds (RFC 0021): picked up where they lie, by biome and season. */
+export const FIND_KINDS = withRole("find") as readonly FindKind[];
+/**
+ * Things that stack: you hold a count of each, not separate items. Finds came last, after every
+ * role that shipped before them, so no kind that shipped earlier moves.
+ */
 export const STACK_KINDS: readonly StackKind[] = [
   ...SEED_KINDS,
   ...PRODUCE_KINDS,
@@ -724,6 +763,7 @@ export const STACK_KINDS: readonly StackKind[] = [
   ...RESOURCE_KINDS,
   ...DECOR_KINDS,
   ...FURNITURE_KINDS,
+  ...FIND_KINDS,
 ];
 /** Made things with a recipe. Each one is its own item with an id, its maker, and its made day. */
 export const GOOD_KINDS = withRole("good") as readonly GoodKind[];
@@ -739,7 +779,8 @@ export type ItemCategory =
   | "resource"
   | "good"
   | "decor"
-  | "furniture";
+  | "furniture"
+  | "find";
 
 export interface ItemInfo {
   /** One of it, in plain words. */
@@ -808,7 +849,7 @@ export const SEASON_STOCK: Readonly<Record<Season, readonly StackKind[]>> = {
 /*
  * Lists that rules walk, frozen by name. Old logs replayed through exactly these kinds in exactly
  * this order, so a kind never joins one by being added to the catalog. A kind joins a rule like
- * these only through a new logged input.
+ * these only through a new logged input. Where finds lie is one more, `FIND_SPAWNS` in `gather.ts`.
  */
 
 /** The seeds a first pantry brings, `ITEMS.starterSeeds` of each. */

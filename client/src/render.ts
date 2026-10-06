@@ -44,7 +44,14 @@ import {
   signPx,
 } from "@terrakin/ui/figure";
 import { paintGround } from "@terrakin/ui/ground-art";
-import { CROP_HEX, growth, itemArtImage, onVine } from "@terrakin/ui/item-art";
+import {
+  type ArtKind,
+  CROP_HEX,
+  growth,
+  itemArtImage,
+  onVine,
+  type ThingLook,
+} from "@terrakin/ui/item-art";
 import {
   lookImage,
   lookPalette,
@@ -57,7 +64,7 @@ import { drawPet } from "@terrakin/ui/pet-art";
 import { type Camera, tileToScreen } from "./camera";
 import { eventLanterns } from "./event-format";
 import { type Feelings, idPhase, pose, restingPose } from "./feelings";
-import type { DisplayView, Mirror } from "./mirror";
+import type { Mirror } from "./mirror";
 import { awayPose, type Motion, type Pose as MotionPose } from "./motion";
 import { type Box, bubbleBox, drawBubble, drawDust, drawPoof, stackBubbles } from "./overhead";
 import { lyingOn, type PetMotion, type PetScene } from "./pets";
@@ -550,7 +557,7 @@ function paintPedestal(
  */
 function paintShown(
   ctx: CanvasRenderingContext2D,
-  good: DisplayView["good"],
+  good: ThingLook,
   left: number,
   top: number,
   size: number,
@@ -600,6 +607,42 @@ function paintShown(
   }
   const art = itemArtImage(good.kind);
   if (art) ctx.drawImage(art, cx - side / 2, y, side, side);
+}
+
+/**
+ * A find lying on a tile (RFC 0021): a pale glint on the ground so it reads as something special
+ * among the grass and leaves, its own picture, and a small four-pointed sparkle by it.
+ */
+function paintFind(
+  ctx: CanvasRenderingContext2D,
+  kind: ArtKind,
+  cx: number,
+  cy: number,
+  size: number,
+) {
+  ctx.save();
+  ctx.globalAlpha = 0.6;
+  ctx.fillStyle = PAPER;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + size * 0.2, size * 0.34, size * 0.15, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  const art = itemArtImage(kind);
+  const side = size * 0.76;
+  if (art) ctx.drawImage(art, cx - side / 2, cy - side * 0.55, side, side);
+  // The sparkle, up and to the right of the picture.
+  const sx = cx + side * 0.36;
+  const sy = cy - side * 0.42;
+  const r = Math.max(2, size * 0.09);
+  ctx.fillStyle = PAPER;
+  ctx.beginPath();
+  ctx.moveTo(sx, sy - r);
+  ctx.quadraticCurveTo(sx, sy, sx + r, sy);
+  ctx.quadraticCurveTo(sx, sy, sx, sy + r);
+  ctx.quadraticCurveTo(sx, sy, sx - r, sy);
+  ctx.quadraticCurveTo(sx, sy, sx, sy - r);
+  ctx.fill();
+  ctx.restore();
 }
 
 /**
@@ -1182,9 +1225,11 @@ export function render(
   const tufts = new Path2D();
   const flowers: [Path2D, Path2D] = [new Path2D(), new Path2D()];
   const leaves: [Path2D, Path2D, Path2D] = [new Path2D(), new Path2D(), new Path2D()];
-  // Phase 1 gathering: fallen branches and loose stones, from the sim's own spawn function.
+  // Phase 1 gathering: fallen branches and loose stones, from the sim's own spawn function, and
+  // finds (RFC 0021), each drawn as its own picture once the ground is down.
   const sticks = new Path2D();
   const pebbles = new Path2D();
+  const finds: { kind: ArtKind; cx: number; cy: number; size: number }[] = [];
   for (let y = y0; y <= y1; y++) {
     for (let x = x0; x <= x1; x++) {
       const { sx, sy } = tileToScreen(cam, x, y);
@@ -1231,10 +1276,12 @@ export function render(
           sticks.lineTo(px + w * 0.13, py - h * 0.07);
           sticks.moveTo(px - w * 0.1, py - h * 0.09);
           sticks.lineTo(px + w * 0.11, py + h * 0.1);
-        } else {
+        } else if (pickup === "stone") {
           // A loose stone: one low pebble.
           pebbles.moveTo(px + scale * 0.12, py);
           pebbles.ellipse(px, py, scale * 0.12, scale * 0.085, 0, 0, Math.PI * 2);
+        } else {
+          finds.push({ kind: pickup, cx: px, cy: top + h * 0.5, size: Math.min(w, h) });
         }
       }
     }
@@ -1264,6 +1311,7 @@ export function render(
   ctx.stroke(sticks);
   ctx.fillStyle = blockFill("stone");
   ctx.fill(pebbles);
+  for (const f of finds) paintFind(ctx, f.kind, f.cx, f.cy, f.size);
 
   // ---- plots: owner tint plus a dashed clay border; faint lines between unclaimed plots ----
   const px0 = Math.floor(x0 / S);
@@ -1343,8 +1391,8 @@ export function render(
     // A pedestal is a little plinth; whatever's on display stands on it (RFC 0005 step 3).
     if (block === "pedestal") {
       paintPedestal(ctx, left, top, size, scale);
-      const shown = mirror.displays.get(key);
-      if (shown) paintShown(ctx, shown.good, left, top, size, "pedestal");
+      const shown = mirror.displays.get(key)?.good ?? mirror.shownFinds.get(key);
+      if (shown) paintShown(ctx, shown, left, top, size, "pedestal");
       continue;
     }
     // Furniture from the workbench (RFC 0016): its own picture, standing on the tile.
@@ -1374,8 +1422,11 @@ export function render(
       };
       paintDecor(ctx, block, left, top, size, scale, inset, joins);
       // A frame shows what hangs in it in place of its own little landscape.
-      const shown = block === "frame" ? mirror.displays.get(key) : undefined;
-      if (shown) paintShown(ctx, shown.good, left, top, size, "frame");
+      const shown =
+        block === "frame"
+          ? (mirror.displays.get(key)?.good ?? mirror.shownFinds.get(key))
+          : undefined;
+      if (shown) paintShown(ctx, shown, left, top, size, "frame");
       if (mirror.townBuilt.has(key)) paintTownMark(ctx, left, top, size, scale);
       if (block === "lantern") lanterns.push({ sx: left + size * 0.64, sy: top + size * 0.42 });
       continue;

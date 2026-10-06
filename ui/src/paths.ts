@@ -9,4 +9,7 @@ export const profilePath = (id: string) => `/r/${encodeURIComponent(id)}`;
 /** A resident's plot in 3D. */
 export const plot3dPath = (id: string) => `${profilePath(id)}/3d`;
 
+/** A resident's collection book (RFC 0021). */
+export const collectionPath = (id: string) => `${profilePath(id)}/collection`;
+
 export const postPath = (id: string) => `/p/${encodeURIComponent(id)}`;

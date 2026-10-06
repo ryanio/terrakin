@@ -34,6 +34,7 @@ import {
   type DailyAward,
   DEFAULT_CONFIG,
   type Direction,
+  displaysOf,
   EVENTS,
   entitledTo,
   eventEndsAt,
@@ -42,6 +43,8 @@ import {
   exactWearStyles,
   findBounty,
   findEvent,
+  findsOnDisplay,
+  findsOpen,
   GAME_RULES,
   GAMES,
   type GameTable,
@@ -59,6 +62,7 @@ import {
   listingById,
   own,
   ownerPaired,
+  type PickupKind,
   type Plot,
   type ProfileFields,
   parseKey,
@@ -72,7 +76,6 @@ import {
   prepare,
   REPLAY_VERSION,
   type ResidentKind,
-  type ResourceKind,
   ROUTINES,
   type Routine,
   type RoutineStep,
@@ -177,6 +180,12 @@ export interface WorldServiceOptions {
    * made. Both adapters turn this on. Off by default, like `items`.
    */
   plotPickups?: boolean;
+  /**
+   * Finds on the ground (RFC 0021): once items are open, append `open_finds` if it never has, so
+   * gathers logged before finds replay as they were made. Both adapters turn this on. Off by
+   * default, like `items`.
+   */
+  finds?: boolean;
   /**
    * The Town Hall and the shop stop walkers: once the world counts days, append `solid_buildings`
    * if it never has, so walks logged before the rule replay as they were made. Both adapters turn
@@ -484,6 +493,7 @@ export class WorldService {
   private readonly items: boolean;
   private readonly gifts: boolean;
   private readonly plotPickups: boolean;
+  private readonly finds: boolean;
   private readonly solidBuildings: boolean;
   private readonly shop: boolean;
   private readonly market: boolean;
@@ -556,6 +566,7 @@ export class WorldService {
     this.items = options.items ?? false;
     this.gifts = options.gifts ?? false;
     this.plotPickups = options.plotPickups ?? false;
+    this.finds = options.finds ?? false;
     this.solidBuildings = options.solidBuildings ?? false;
     this.shop = options.shop ?? false;
     this.market = options.market ?? false;
@@ -756,6 +767,10 @@ export class WorldService {
     if (this.plotPickups && this.state.items && !this.state.items.plotPickupsOwned) {
       const owned = this.run({ actor: TOWN_ACTOR, command: { type: "own_plot_pickups" } });
       if (!owned.ok) console.error(`Couldn't keep plot pickups for owners: ${owned.error.message}`);
+    }
+    if (this.finds && this.state.items && !findsOpen(this.state)) {
+      const opened = this.run({ actor: TOWN_ACTOR, command: { type: "open_finds" } });
+      if (!opened.ok) console.error(`Couldn't put finds out: ${opened.error.message}`);
     }
     if (this.shop && !this.state.shop && this.state.economy && this.state.items) {
       const opened = this.run({ actor: TOWN_ACTOR, command: { type: "open_shop" } });
@@ -2260,6 +2275,9 @@ export class WorldService {
   snapshot(): WorldSnapshot {
     const { state } = this;
     const nowMs = this.now();
+    // Made things on display, and finds on display (RFC 0021), each in their own list.
+    const shown = displaysOf(state);
+    const finds = findsOnDisplay(state);
     return {
       v: PROTOCOL_VERSION,
       seq: state.seq,
@@ -2325,15 +2343,16 @@ export class WorldService {
           }
         : {}),
       ...(state.townsfolk?.length ? { townsfolk: [...state.townsfolk] } : {}),
-      ...(state.items?.displays && Object.keys(state.items.displays).length > 0
+      ...(Object.keys(shown).length > 0
         ? {
-            displays: Object.entries(state.items.displays).map(([key, d]) => {
+            displays: Object.entries(shown).map(([key, d]) => {
               const [x, y] = parseKey(key);
               const words = d.good.label !== undefined ? { trust: "untrusted" as const } : {};
               return { x, y, good: { ...d.good }, by: d.by, day: d.day, ...words };
             }),
           }
         : {}),
+      ...(finds.length > 0 ? { displayedFinds: finds } : {}),
       ...(state.items && Object.keys(state.items.crops).length > 0
         ? {
             crops: Object.entries(state.items.crops).map(([key, c]) => {
@@ -2352,6 +2371,7 @@ export class WorldService {
         : {}),
       ...(state.items && state.day !== undefined ? { pickups: pickupsToday(state) } : {}),
       ...(plotPickupsOwned(state) ? { plotPickupsOwned: true as const } : {}),
+      ...(findsOpen(state) ? { findsOpen: true as const } : {}),
       ...(state.events?.list.some(eventOpen)
         ? {
             events: state.events.list.filter(eventOpen).map((e) => ({
@@ -2384,14 +2404,14 @@ export class WorldService {
 }
 
 /**
- * Every fallen branch and loose stone still lying in the world today, row by row. Once the
+ * Every fallen branch, loose stone, and find still lying in the world today, row by row. Once the
  * owners-only rule is on, one on a claimed plot says so.
  */
 function pickupsToday(
   state: WorldState,
-): { x: number; y: number; kind: ResourceKind; ownersOnly?: true }[] {
+): { x: number; y: number; kind: PickupKind; ownersOnly?: true }[] {
   const owned = plotPickupsOwned(state);
-  const out: { x: number; y: number; kind: ResourceKind; ownersOnly?: true }[] = [];
+  const out: { x: number; y: number; kind: PickupKind; ownersOnly?: true }[] = [];
   for (let y = 0; y < state.config.height; y++) {
     for (let x = 0; x < state.config.width; x++) {
       const kind = pickupLeft(state, x, y);

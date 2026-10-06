@@ -11,6 +11,8 @@
 
 import {
   groundTile,
+  isFindKind,
+  isResourceKind,
   OUTSIDE_GROUND,
   plotKey,
   type Resident,
@@ -68,7 +70,7 @@ import {
   shop,
   townHall,
 } from "./buildings";
-import { createPictures, displayedThings } from "./displays";
+import { createPictures, displayedThings, foundThings } from "./displays";
 import {
   cornerLight,
   FIGURE_SCALE,
@@ -380,7 +382,13 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
     }
     if (data.owner) group.add(border(data.bounds, origin, grain));
     group.add(scenery(scope, origin, data.tufts, data.flowers, data.leaves, season));
-    if (data.pickups.length) group.add(pickups(origin, data.pickups));
+    // Branches and stones are shapes; finds (RFC 0021) stand as their pictures.
+    const lying = data.pickups.flatMap((p) =>
+      isResourceKind(p.kind) ? [{ ...p, kind: p.kind }] : [],
+    );
+    const found = data.pickups.flatMap((p) => (isFindKind(p.kind) ? [{ ...p, kind: p.kind }] : []));
+    if (lying.length) group.add(pickups(origin, lying));
+    if (found.length) group.add(foundThings(scope, origin, found, pictures));
     for (const h of data.hearths) {
       const home = hearth(scope, grain, { light: false, ...hearthLook });
       home.position.set(h.x, 0, h.y);

@@ -4,6 +4,7 @@ export * from "./changelog";
 export * from "./changelog.generated";
 export * from "./checkin";
 export * from "./coins";
+export * from "./collection";
 export * from "./discovery";
 export * from "./events";
 export * from "./facing";

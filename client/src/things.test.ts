@@ -1,4 +1,4 @@
-import { apply, type Command, createWorld, TOWN_ACTOR } from "@terrakin/sim";
+import { apply, type Command, createWorld, dayOfDate, TOWN_ACTOR } from "@terrakin/sim";
 import { growth } from "@terrakin/ui/item-art";
 import { describe, expect, it } from "vitest";
 import {
@@ -6,6 +6,7 @@ import {
   byFamily,
   coinsLine,
   cropOfSeed,
+  dayLabel,
   growthLine,
   inventoryLine,
   missingLine,
@@ -75,6 +76,13 @@ describe("things", () => {
         changes: [{ kind: "wood", amount: 1, count: 4 }],
       }),
     ).toBe("You picked up 1 wood.");
+    expect(
+      inventoryLine({
+        ...base,
+        reason: "gather",
+        changes: [{ kind: "geode", amount: 1, count: 1 }],
+      }),
+    ).toBe("You found 1 geode. It's in your collection book.");
     const jam = {
       id: "i_1",
       kind: "lemon_jam" as const,
@@ -293,5 +301,14 @@ describe("byFamily", () => {
       ["Decor › Furniture", ["table"]],
     ]);
     expect(byFamily([], (kind: "lemon") => kind)).toEqual([]);
+  });
+});
+
+describe("collection words", () => {
+  it("dates a first find by its UTC day, with the year only when it isn't this one", () => {
+    const oct6 = dayOfDate(2026, 10, 6);
+    // Late on December 31 in UTC is still this year; the day itself never shifts a timezone.
+    expect(dayLabel(oct6, Date.UTC(2026, 11, 31, 23, 30))).toBe("Oct 6");
+    expect(dayLabel(oct6, Date.UTC(2027, 0, 1, 0, 30))).toBe("Oct 6, 2026");
   });
 });

@@ -1,11 +1,15 @@
 import { refuse } from "./check";
 import {
+  addStack,
+  type FindKind,
+  held,
   ITEM_ID_PATTERN,
   ITEMS,
   type ItemsChecked,
   inventory,
   inventoryEvent,
   inventorySize,
+  isFindKind,
 } from "./items";
 import { parseKey, plotKey, tileKey } from "./keys";
 import { MEDIA_ID_PATTERN } from "./looks";
@@ -17,6 +21,8 @@ import type {
   ItemsState,
   Rejection,
   ResidentId,
+  Shown,
+  ShownFind,
   WorldEvent,
   WorldState,
 } from "./types";
@@ -26,6 +32,11 @@ import { canBuildOn, chebyshev, inBounds, plotAtTile } from "./world";
  * Showing (RFC 0005 step 3): pieces of art made from your own uploads, and made things on display
  * on a `pedestal` or a `frame`. Nothing here runs before `open_items`, and display state is absent
  * until the first `display`, so older logs replay as they did.
+ *
+ * A find (RFC 0021) can go on display too, by its kind: one of the stack stands there until it's
+ * taken down. It has no maker and no id, so it's never admired, reported, or in a gallery, and the
+ * read helpers for made things (`displaysOf`, `displayOfItem`, `heldAsideOf`, `everyGood`) leave
+ * it out.
  */
 
 /** Blocks a made thing can stand or hang on. */
@@ -33,13 +44,32 @@ export const DISPLAY_BLOCKS = ["pedestal", "frame"] as const satisfies readonly 
 export const isDisplayBlock = (block: unknown): boolean =>
   typeof block === "string" && (DISPLAY_BLOCKS as readonly string[]).includes(block);
 
-/** The made thing on display on a tile, if any. */
-export const displayAt = (state: WorldState, x: number, y: number): Display | undefined =>
+/** Whether what's on display is a find, not a made thing. */
+export const isShownFind = (shown: Shown): shown is ShownFind => "find" in shown;
+
+/** What's on display on a tile, a made thing or a find, if anything. */
+export const displayAt = (state: WorldState, x: number, y: number): Shown | undefined =>
   state.items?.displays?.[tileKey(x, y)];
 
-/** Everything on display, by tile key. Empty before the first `display`. */
-export const displaysOf = (state: WorldState): Record<string, Display> =>
-  state.items?.displays ?? {};
+/** Every made thing on display, by tile key. Empty before the first `display`. */
+export function displaysOf(state: WorldState): Record<string, Display> {
+  const out: Record<string, Display> = {};
+  for (const [key, shown] of Object.entries(state.items?.displays ?? {})) {
+    if (!isShownFind(shown)) out[key] = shown;
+  }
+  return out;
+}
+
+/** Every find on display (RFC 0021), where it is, who put it up, and the day it went up. */
+export function findsOnDisplay(
+  state: WorldState,
+): { x: number; y: number; kind: FindKind; by: ResidentId; day: number }[] {
+  return Object.entries(state.items?.displays ?? {}).flatMap(([key, shown]) => {
+    if (!isShownFind(shown)) return [];
+    const [x, y] = parseKey(key);
+    return [{ x, y, kind: shown.find, by: shown.by, day: shown.day }];
+  });
+}
 
 /** Where a made thing is on display, by its id, if it is. */
 export function displayOfItem(
@@ -55,11 +85,15 @@ export function displayOfItem(
 }
 
 /**
- * A resident's things taken down from display while they had no room, oldest first. They come back
- * with that resident's first input that leaves room for them.
+ * A resident's made things taken down from display while they had no room, oldest first. They come
+ * back with that resident's first input that leaves room for them.
  */
 export const heldAsideOf = (state: WorldState, id: ResidentId): Display[] =>
-  (state.items?.heldAside ?? []).filter((d) => d.by === id);
+  (state.items?.heldAside ?? []).filter((d): d is Display => d.by === id && !isShownFind(d));
+
+/** A resident's finds taken down from display while they had no room, oldest first. */
+export const findsHeldAsideOf = (state: WorldState, id: ResidentId): ShownFind[] =>
+  (state.items?.heldAside ?? []).filter((d): d is ShownFind => d.by === id && isShownFind(d));
 
 /**
  * Every made thing in the world and who has it: in someone's things, on display (whoever put it
@@ -72,8 +106,12 @@ export function everyGood(state: WorldState): { good: Good; holder: ResidentId }
   for (const [holder, inv] of Object.entries(items.inventories)) {
     for (const good of inv.goods) out.push({ good, holder });
   }
-  for (const d of Object.values(items.displays ?? {})) out.push({ good: d.good, holder: d.by });
-  for (const d of items.heldAside ?? []) out.push({ good: d.good, holder: d.by });
+  for (const d of Object.values(items.displays ?? {})) {
+    if (!isShownFind(d)) out.push({ good: d.good, holder: d.by });
+  }
+  for (const d of items.heldAside ?? []) {
+    if (!isShownFind(d)) out.push({ good: d.good, holder: d.by });
+  }
   for (const l of Object.values(state.market?.listings ?? {})) {
     for (const good of l.goods ?? []) out.push({ good, holder: l.seller });
   }
@@ -98,32 +136,36 @@ const fitsOne = (items: ItemsState, id: ResidentId) =>
   inventorySize(items.inventories[id]) + 1 <= ITEMS.inventoryMax;
 
 /** Keep a thing taken down from display for whoever put it up, until they have room. */
-function holdAside(items: ItemsState, shown: Display) {
+function holdAside(items: ItemsState, shown: Shown) {
   items.heldAside = [...(items.heldAside ?? []), shown];
 }
 
 /**
  * Bookkeeping in `prepare()`'s commit, after a resident's own input: what's held aside for them
- * comes back, oldest first, as far as their things have room. Nothing changes, and no event, when
- * nothing is held for them or there's no room.
+ * comes back, oldest first, as far as their things have room, made things to their goods and finds
+ * to their stacks. Nothing changes, and no event, when nothing is held for them or there's no room.
  */
 export function returnHeldAside(state: WorldState, id: ResidentId): WorldEvent[] {
   const items = state.items;
-  const held = items?.heldAside;
-  if (!items || !held?.some((d) => d.by === id)) return [];
+  const aside = items?.heldAside;
+  if (!items || !aside?.some((d) => d.by === id)) return [];
   let size = inventorySize(items.inventories[id]);
   const back: Good[] = [];
-  const keep = held.filter((d) => {
+  const finds = new Map<FindKind, number>();
+  const keep = aside.filter((d) => {
     if (d.by !== id || size + 1 > ITEMS.inventoryMax) return true;
     size += 1;
-    back.push(d.good);
+    if (isShownFind(d)) finds.set(d.find, (finds.get(d.find) ?? 0) + 1);
+    else back.push(d.good);
     return false;
   });
-  if (back.length === 0) return [];
+  if (back.length === 0 && finds.size === 0) return [];
   if (keep.length > 0) items.heldAside = keep;
   else delete items.heldAside;
-  inventory(items, id).goods.push(...back);
-  return [inventoryEvent(id, "held", [], { gained: back })];
+  const mine = inventory(items, id);
+  mine.goods.push(...back);
+  const changes = [...finds].map(([kind, n]) => addStack(mine, kind, n));
+  return [inventoryEvent(id, "held", changes, { gained: back })];
 }
 
 function closed(state: WorldState): Rejection | null {
@@ -201,8 +243,9 @@ export function checkMakePiece(
 }
 
 /**
- * `display {item, x, y}`: one of your made things (by id) onto an empty `pedestal` or `frame`
- * within reach, on a plot you can build on. It leaves your things and shows in the world.
+ * `display {item, x, y}`: one of your made things (by id), or one of a find you hold (by its kind,
+ * RFC 0021), onto an empty `pedestal` or `frame` within reach, on a plot you can build on. It
+ * leaves your things and shows in the world.
  */
 export function checkDisplay(
   state: WorldState,
@@ -232,10 +275,24 @@ export function checkDisplay(
   if (items.displays?.[key]) {
     return refuse("tile_occupied", "Something is already on display there. Take it down first.");
   }
+  if (isFindKind(item)) {
+    if (held(items.inventories[actor], item) < 1) {
+      return refuse("not_enough_items", "You don't have that.");
+    }
+    return () => {
+      const change = addStack(inventory(items, actor), item, -1);
+      items.displays ??= {};
+      items.displays[key] = { find: item, by: actor, day };
+      return [
+        inventoryEvent(actor, "displayed", [change]),
+        { type: "find_displayed", x, y, kind: item, by: actor },
+      ];
+    };
+  }
   if (typeof item !== "string" || !ITEM_ID_PATTERN.test(item)) {
     return refuse(
       "unknown_item",
-      "Display a made thing or a piece by its id (i_...). Seeds and produce stay in your things.",
+      "Display a made thing or a piece by its id (i_...), or a find by its kind (like geode). Seeds and produce stay in your things.",
     );
   }
   const good = items.inventories[actor]?.goods.find((g) => g.id === item);
@@ -284,9 +341,9 @@ export function checkTakeDown(
       `You can hold ${ITEMS.inventoryMax} things, and taking this down needs room for one more.`,
     );
   }
-  const { good, by } = shown;
+  const { by } = shown;
   return () => {
-    const displays = items.displays as Record<string, Display>;
+    const displays = items.displays as Record<string, Shown>;
     delete displays[key];
     const events: WorldEvent[] = [{ type: "taken_down", x, y, by: actor }];
     // Someone else took it down and whoever put it up has no room: it waits for them, so a full
@@ -295,6 +352,12 @@ export function checkTakeDown(
       holdAside(items, shown);
       return events;
     }
+    if (isShownFind(shown)) {
+      const change = addStack(inventory(items, by), shown.find, 1);
+      events.push(inventoryEvent(by, "off_display", [change]));
+      return events;
+    }
+    const { good } = shown;
     inventory(items, by).goods.push(good);
     events.push(inventoryEvent(by, "off_display", [], { gained: [good] }));
     return events;
@@ -351,7 +414,7 @@ export function checkRemoveDisplay(
     if (!on) return events;
     const { x, y, key, shown } = on;
     const { good, by } = shown;
-    delete (items.displays as Record<string, Display>)[key];
+    delete (items.displays as Record<string, Shown>)[key];
     events.push({ type: "display_removed", x, y, item, by });
     if (!room) {
       holdAside(items, shown);
@@ -390,6 +453,14 @@ export function checkAdmire(
   }
   const shown = items.displays?.[tileKey(x, y)];
   if (!shown) return refuse("nothing_displayed", "Nothing is on display there.");
+  if (isShownFind(shown)) {
+    const size = state.config.plotSize;
+    const plot = `${Math.floor(x / size)}/${Math.floor(y / size)}`;
+    return refuse(
+      "not_eligible",
+      `A find has nobody who made it to thank. If you like the plot, admire it instead: POST /v1/plots/${plot}/admire.`,
+    );
+  }
   const { good } = shown;
   if (good.maker === actor || shown.by === actor) {
     return refuse("not_eligible", "That's yours. Admire what other residents made.");

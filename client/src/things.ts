@@ -16,6 +16,7 @@ import {
   type GoodKind,
   ITEM_INFO,
   type ItemKind,
+  isFindKind,
   isFurnitureKind,
   OTHERS_PLOT_GATHER,
   RECIPES,
@@ -52,6 +53,31 @@ export function byFamily<T>(things: readonly T[], kindOf: (t: T) => ItemKind): F
     const list = groups.get(family);
     return list ? [{ family, label: familyLabel(family), things: list }] : [];
   });
+}
+
+/** How far along a collection book is (RFC 0021): "Collected 34 of 85". */
+export const collectedLine = (c: { count: number; total: number }) =>
+  `Collected ${c.count} of ${c.total}`;
+
+/**
+ * A UTC day (days since 1970-01-01) as a short date: "Oct 6", with the year when it isn't this
+ * year's.
+ */
+export function dayLabel(day: number, nowMs: number): string {
+  const ms = day * 86_400_000;
+  const year = (t: number) => new Date(t).getUTCFullYear();
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+    ...(year(ms) === year(nowMs) ? {} : { year: "numeric" }),
+  }).format(ms);
+}
+
+/** When something turns up only in some seasons: "In autumn", "In spring and summer". */
+export function seasonsLine(seasons: readonly string[]): string {
+  const names = seasons.join(" and ");
+  return `In ${names}`;
 }
 
 /** How many of a stack kind are in a list of stacks: 0 when it's absent. */
@@ -118,7 +144,10 @@ export function inventoryLine(e: InventoryEvent): string | null {
     case "harvest":
       return `You picked ${list(gained)}.`;
     case "gather":
-      return `You picked up ${list(gained)}.`;
+      // A find (RFC 0021) is something to tell: it goes in your collection book.
+      return gained.some((c) => isFindKind(c.kind))
+        ? `You found ${list(gained)}. It's in your collection book.`
+        : `You picked up ${list(gained)}.`;
     case "craft": {
       const made = e.gained?.[0];
       if (made?.kind === "piece") return "You made a piece of art.";

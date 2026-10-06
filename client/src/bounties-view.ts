@@ -7,7 +7,15 @@
 import type { Action, BountiesResponse, BountyView } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { personLink } from "@terrakin/ui/people";
-import { confirmTwice, emptyNote, itemRow, itemRows, stateCard, toast } from "@terrakin/ui/ui";
+import {
+  confirmTwice,
+  emptyNote,
+  itemRow,
+  itemRows,
+  kindPill,
+  stateCard,
+  toast,
+} from "@terrakin/ui/ui";
 import { actFromButton } from "./act";
 import { api } from "./api";
 import { savedResidentId, savedToken } from "./net";
@@ -140,10 +148,7 @@ export function bountiesView(ctx: ViewContext): View {
       h(
         "div",
         { class: "proposal-head" },
-        h("span", {
-          class: `proposal-kind ${b.town ? "build" : "advisory"}`,
-          text: b.grant ? "Grant" : b.town ? "Town" : "Neighbor",
-        }),
+        kindPill(b.grant ? "Grant" : b.town ? "Town" : "Neighbor", b.town ? "sun" : "moss"),
         h("span", { class: `proposal-status s-${b.status}`, text: bountyStatus(b) }),
       ),
       h("h3", { class: "proposal-title", text: b.title }),

@@ -13,7 +13,7 @@ import type {
 import { h, icon } from "@terrakin/ui/dom";
 import { itemArt } from "@terrakin/ui/item-art";
 import { personLink } from "@terrakin/ui/people";
-import { itemRow, itemRows, stateCard } from "@terrakin/ui/ui";
+import { itemRow, itemRows, kindPill, stateCard } from "@terrakin/ui/ui";
 import { actFromButton } from "./act";
 import { api } from "./api";
 import { savedToken } from "./net";
@@ -55,12 +55,17 @@ export function buyLabel(
 export const sellable = (order: BuyOrderView, held: number) =>
   Math.max(0, Math.min(order.left ?? 0, held));
 
+type Season = NonNullable<ShopItemView["season"]>;
+
+/** What the season's tag says. The buying hint quotes it, so both come from here. */
+const seasonWords = (season: Season) => `This ${season}`;
+
 /**
  * The small "This autumn" tag on seasonal stock and buying (RFC 0017). The server lists them only
  * in their season, so the tag never names another one.
  */
-function seasonTag(season: NonNullable<ShopItemView["season"]>): HTMLElement {
-  return h("span", { class: "proposal-kind build shop-season", text: `This ${season}` });
+function seasonTag(season: Season): HTMLElement {
+  return kindPill(seasonWords(season), "sun", "shop-season");
 }
 
 /** How many of a kind you hold: a stack's count, or how many made things of that kind. */
@@ -201,7 +206,7 @@ export function shopView(ctx: ViewContext): View {
           { class: "purse-hint" },
           "It buys different things each day, at midnight UTC",
           shop.buying.some((o) => o.season)
-            ? `, and what's marked "This ${shop.season}" every day until ${shop.season} ends`
+            ? `, and what's marked "${seasonWords(shop.season)}" every day until ${shop.season} ends`
             : "",
           ". Make something at a kitchen or a workbench to sell, or sell it to your neighbors in ",
           h("a", { attrs: { href: "/market" }, text: "the market" }),

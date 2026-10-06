@@ -162,6 +162,20 @@ export function itemRows(
     : h("ul", { class: className }, ...rows);
 }
 
+// ---------- kind pill ----------
+
+/** A kind pill's colors: moss (green) or sun (warm, with clay text). Each view picks one. */
+export type PillTone = "moss" | "sun";
+
+/**
+ * A small rounded label saying what kind of thing a card or row is: a proposal's kind, who put up
+ * a bounty, a shop item's season. It shows `text` as written, so copy that quotes a pill matches
+ * it. `className` is added to `kind-pill`, so a view can still find it.
+ */
+export function kindPill(text: string, tone: PillTone, className?: string): HTMLSpanElement {
+  return h("span", { class: ["kind-pill", tone, className].filter(Boolean).join(" "), text });
+}
+
 // ---------- chips ----------
 
 /**

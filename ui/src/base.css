@@ -1161,3 +1161,29 @@ a.menu-item {
   font-size: var(--text-md);
   font-variant-numeric: tabular-nums;
 }
+
+/*
+ * kindPill (ui.ts): what kind of thing a card or row is, in a tinted pill. Its words show as
+ * written, not uppercased, so a hint that quotes a pill ("This autumn") reads the same as the pill.
+ * Inline-block, so in a line of text its padding takes room instead of overlapping the lines
+ * around it.
+ */
+.kind-pill {
+  display: inline-block;
+  padding: var(--space-2xs) var(--space-md);
+  border-radius: var(--r-pill);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-snug);
+  white-space: nowrap;
+}
+
+.kind-pill.moss {
+  background: color-mix(in srgb, var(--moss-light) 18%, transparent);
+  color: var(--moss-deep);
+}
+
+.kind-pill.sun {
+  background: color-mix(in srgb, var(--sun) 22%, transparent);
+  color: var(--clay-deep);
+}

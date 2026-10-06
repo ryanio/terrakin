@@ -23,6 +23,7 @@ import {
   confirmTwice,
   emptyNote,
   errorLine,
+  kindPill,
   moreButton,
   openOverlay,
   overlayShowing,
@@ -235,10 +236,7 @@ export function townView(ctx: ViewContext): View {
     const head = h(
       "div",
       { class: "proposal-head" },
-      h("span", {
-        class: `proposal-kind ${p.kind === "advisory" ? "advisory" : "build"}`,
-        text: kindLabel(p.kind),
-      }),
+      kindPill(kindLabel(p.kind), p.kind === "advisory" ? "moss" : "sun"),
       h("span", {
         class: `proposal-status s-${p.status}`,
         text:

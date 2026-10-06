@@ -94,6 +94,12 @@ const randomId = (prefix: string) =>
 const isReason = (value: unknown): value is ReportReason =>
   (REPORT_REASONS as readonly unknown[]).includes(value);
 
+/** A plot key `px,py` (as a `plot_name` report names its target), or undefined. */
+function parsePlotId(id: string): { px: number; py: number } | undefined {
+  const m = /^(\d+),(\d+)$/.exec(id);
+  return m ? { px: Number(m[1]), py: Number(m[2]) } : undefined;
+}
+
 /** `posts.hidden`: 0 shown, 1 hidden by staff, 2 hidden automatically until reviewed. */
 export const HIDDEN = { no: 0, maintainer: 1, auto: 2 } as const;
 
@@ -296,6 +302,12 @@ export class SafetyService {
     undefined;
 
   /**
+   * A plot, for reports on its name (decision 0115): its owner and its name. `Api` wires it to
+   * the world; without it, a plot's name can't be reported.
+   */
+  plot: ((px: number, py: number) => { owner: string; name?: string } | undefined) | undefined;
+
+  /**
    * Clear the picture from every piece made from an upload, through the world log (decision 0065).
    * `Api` wires it to the world; without it, purged uploads leave pieces pointing at a deleted
    * file. Resolves to the affected piece ids, or undefined when the log refused.
@@ -379,6 +391,10 @@ export class SafetyService {
     if (kind === "display" || kind === "piece") return this.madeThing(kind, id)?.owner;
     if (kind === "bounty") return this.o.bounty?.(id)?.author;
     if (kind === "event") return this.o.event?.(id)?.author;
+    if (kind === "plot_name") {
+      const at = parsePlotId(id);
+      return at ? this.plot?.(at.px, at.py)?.owner : undefined;
+    }
     if (kind === "post") {
       const row = this.rows("SELECT author FROM posts WHERE id = ?", id)[0];
       return row ? String(row.author) : undefined;
@@ -848,6 +864,11 @@ export class SafetyService {
         media: t.media ? (this.o.uploadMedia?.(t.media) ?? []) : [],
         onDisplay: t.onDisplay,
       });
+    }
+    if (kind === "plot_name") {
+      const at = parsePlotId(id);
+      const p = at && this.plot?.(at.px, at.py);
+      return p ? base(p.owner, p.name ?? "") : gone;
     }
     const p =
       kind === "bounty"
@@ -1379,6 +1400,7 @@ const NOT_FOUND: Record<ReportKind, string> = {
   display: "That isn't on display.",
   piece: "No piece with that id shows a picture.",
   event: "No such event.",
+  plot_name: "No such plot.",
 };
 
 function reportView(row: Row): ReportView {

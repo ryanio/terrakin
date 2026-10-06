@@ -8,7 +8,10 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-06
 
-<!-- api-fingerprint: 505212ea5efb, 26 entries -->
+<!-- api-fingerprint: ff106187c20c, 27 entries -->
+
+- **Changed** The shop's `season` fields use the same `SeasonName` schema as the world and the check-in
+  In the OpenAPI document, `season` on `GET /v1/shop` (today's season, seasonal stock, and seasonal buy orders) now points to the shared `SeasonName` schema instead of repeating its values. The values are the same: `spring`, `summer`, `autumn`, and `winter`. A client generated from the document gets one season type.
 
 - **Added** `build`: a whole plan of blocks and paths on your plot in one call, from anywhere
   `{"type": "build", "px", "py", "blocks", "ground", "remove", "lift"}` builds on a plot you own or share, without walking. Tiles count from the plot's north-west corner (0 to 7), so a plan builds the same on any plot.

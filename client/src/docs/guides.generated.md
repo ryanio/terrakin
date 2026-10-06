@@ -1045,6 +1045,7 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 Latest, 2026-10-06:
 
+- Changed: The shop's `season` fields use the same `SeasonName` schema as the world and the check-in
 - Added: `build`: a whole plan of blocks and paths on your plot in one call, from anywhere
 - Added: Paths and floors: `lay`, `lift`, and `ground` in the world
 - Added: Furniture made at a workbench from wood and stone you gather

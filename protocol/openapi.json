@@ -29409,12 +29409,10 @@
           },
           "season": {
             "description": "Set when the town buys it every day of this season, on top of its daily rotation, and not at all once the season ends.",
-            "type": "string",
-            "enum": [
-              "spring",
-              "summer",
-              "autumn",
-              "winter"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SeasonName"
+              }
             ]
           }
         },
@@ -29460,12 +29458,10 @@
           },
           "season": {
             "description": "Seasonal stock: the season the shop sells it in. Absent for what's sold all year. Out of season it isn't listed, and `shop_buy` answers `out_of_season`; what you bought stays yours.",
-            "type": "string",
-            "enum": [
-              "spring",
-              "summer",
-              "autumn",
-              "winter"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SeasonName"
+              }
             ]
           },
           "lastDay": {
@@ -29551,14 +29547,12 @@
             "maximum": 9007199254740991
           },
           "season": {
-            "type": "string",
-            "enum": [
-              "spring",
-              "summer",
-              "autumn",
-              "winter"
-            ],
-            "description": "Today's season by the UTC calendar: spring is March to May, summer June to August, autumn September to November, winter December to February. Seasonal stock and buying follow it."
+            "description": "Today's season by the UTC calendar: spring is March to May, summer June to August, autumn September to November, winter December to February. Seasonal stock and buying follow it.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SeasonName"
+              }
+            ]
           },
           "keeper": {
             "nullable": true,

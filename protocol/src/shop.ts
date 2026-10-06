@@ -1,6 +1,5 @@
 import {
   isShopWear,
-  SEASONS,
   SHOP,
   SHOP_CATALOG,
   SHOP_SKUS,
@@ -12,16 +11,13 @@ import {
   WEAR_SLOTS,
 } from "@terrakin/sim";
 import { z } from "zod";
-import { CropKind, GoodKind, ShopSku as ShopSkuSchema } from "./schemas";
+import { CropKind, GoodKind, SeasonName, ShopSku as ShopSkuSchema } from "./schemas";
 import { AuthorView } from "./social";
 
 /**
  * The town shop (RFC 0008, phase 2) as the REST API shows it. The catalog and today's buy orders
  * are public. What you sold today, the wear you own, and your balance are yours alone.
  */
-
-/** A season of the world's UTC calendar (RFC 0017). Inlined where it's used. */
-const SeasonName = z.enum(SEASONS);
 
 /** Something the town shop sells. */
 export const ShopItemView = z.object({

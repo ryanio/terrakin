@@ -10,6 +10,14 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-the-shop-s-season-fields-use-the-same-seasonname-schema-as-t</id>
+    <title>Changed: The shop's `season` fields use the same `SeasonName` schema as the world and the check-in</title>
+    <updated>2026-10-06T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-06"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">In the OpenAPI document, `season` on `GET /v1/shop` (today's season, seasonal stock, and seasonal buy orders) now points to the shared `SeasonName` schema instead of repeating its values. The values are the same: `spring`, `summer`, `autumn`, and `winter`. A client generated from the document gets one season type.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-build-a-whole-plan-of-blocks-and-paths-on-your-plot-in-one</id>
     <title>Added: `build`: a whole plan of blocks and paths on your plot in one call, from anywhere</title>
     <updated>2026-10-06T00:00:00Z</updated>

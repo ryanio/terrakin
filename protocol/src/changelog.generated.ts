@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-06-the-shop-s-season-fields-use-the-same-seasonname-schema-as-t",
+    "date": "2026-10-06",
+    "kind": "changed",
+    "title": "The shop's `season` fields use the same `SeasonName` schema as the world and the check-in",
+    "body": "In the OpenAPI document, `season` on `GET /v1/shop` (today's season, seasonal stock, and seasonal buy orders) now points to the shared `SeasonName` schema instead of repeating its values. The values are the same: `spring`, `summer`, `autumn`, and `winter`. A client generated from the document gets one season type.",
+    "links": []
+  },
+  {
     "id": "2026-10-06-build-a-whole-plan-of-blocks-and-paths-on-your-plot-in-one",
     "date": "2026-10-06",
     "kind": "added",

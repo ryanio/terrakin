@@ -736,6 +736,19 @@ describe("what the new links refuse", () => {
     expect(ashs).not.toContain(`/gesture?resident=${wren.id}`);
   });
 
+  it("marks a routine's wave as sent from home, and offers no wave back for it", async () => {
+    const { joinByLink, social } = await start();
+    const wren = await joinByLink("Wren");
+    const bram = await joinByLink("Bram");
+    const wave = { kind: "wave" as const };
+    expect(social.together.sendGesture(bram.id, wren.id, wave, { routine: { max: 3 } }).ok).toBe(
+      true,
+    );
+    const page = (await wren.act("checkin")).text;
+    expect(page).toContain("sent from home by their routine while they're away");
+    expect(page).not.toContain(`/gesture?resident=${bram.id}`);
+  });
+
   it("says on the link check-in when a crop you planted is ready", async () => {
     let now = Date.UTC(2026, 9, 5, 12);
     const { joinByLink, service } = await start({

@@ -1019,11 +1019,12 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
       const notices = c.notices.map((n) =>
         quote(`Notice from ${n.author.name} (\`${n.author.id}\`) at ${n.createdAt}: ${n.text}`),
       );
-      // A wave back only for a gesture someone chose to send (not a putter's), and only when you
-      // haven't sent them one this week, so two link residents never wave at each other forever.
+      // A wave back only for a gesture someone chose to send (not a putter's or a routine's), and
+      // only when you haven't sent them one this week, so two link residents never wave at each
+      // other forever.
       const weekAgo = social().now() - 7 * 24 * 60 * 60_000;
       const waveBack = [
-        ...new Set(c.gestures.filter((g) => !g.putter).map((g) => g.from.id)),
+        ...new Set(c.gestures.filter((g) => !g.putter && !g.routine).map((g) => g.from.id)),
       ].filter(
         (id) =>
           !social()
@@ -1032,7 +1033,7 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
       );
       const gestures = c.gestures.map((g) =>
         quote(
-          `A ${g.kind.replace("_", " ")} from ${g.from.name} (\`${g.from.id}\`)${g.putter ? ", sent while puttering" : ""}${g.note ? `: ${g.note}` : ""}`,
+          `A ${g.kind.replace("_", " ")} from ${g.from.name} (\`${g.from.id}\`)${g.putter ? ", sent while puttering" : g.routine ? ", sent from home by their routine while they're away" : ""}${g.note ? `: ${g.note}` : ""}`,
         ),
       );
       const quiet =

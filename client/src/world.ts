@@ -55,6 +55,7 @@ import { blockColor, HEARTH_COLOR, render } from "./render";
 import { dozerAt } from "./scene3d/layout";
 import type { World3d } from "./scene3d/world";
 import { approach, type Quarter, turnDir } from "./scene3d/world-layout";
+import { SoundSwitch } from "./sound/switch";
 import { track } from "./telemetry";
 import { NO_PLOT_LINE, newsLine, othersPickupLine, toastMs, worldProblem } from "./things";
 import { dayPhase } from "./time";
@@ -89,6 +90,8 @@ const paletteLine = $("palette-line");
 const modeButton = $<HTMLButtonElement>("world-mode");
 const petButton = $<HTMLButtonElement>("world-pet");
 const host3d = $("world-3d");
+/** The speaker button: sound is off until it's tapped, and its code loads then (decision 0097). */
+const sound = new SoundSwitch($<HTMLButtonElement>("sound"));
 
 const motionQuery = window.matchMedia(REDUCED_MOTION);
 /** What figures show in reaction to what happens to them (RFC 0013). Drawing only. */
@@ -148,7 +151,14 @@ const walker = new Walker({
   ground: () => mirror?.ground(),
   behind: () => (me ? motion.behind(me) : 0),
   steer,
-  send: (dir) => act({ type: "move", dir }),
+  send: (dir) => {
+    const id = act({ type: "move", dir });
+    // A footstep for each step your figure takes, on the path or floor it steps onto.
+    const from = walker.ahead;
+    if (id && from)
+      sound.step(mirror?.paving.get(`${from.x + STEP[dir][0]},${from.y + STEP[dir][1]}`));
+    return id;
+  },
   bumped: (dir) => {
     if (me) motion.bump(me, dir, performance.now());
   },
@@ -210,6 +220,7 @@ function enterWorld(instant = false) {
 function leaveWorld() {
   loader?.hide();
   close3d();
+  sound.leave();
   joiningFresh = false;
   worldWait.hidden = true;
   canvas.classList.add("veiled");
@@ -340,6 +351,7 @@ function onMessage(msg: ServerMessage) {
       revealWhenDrawn();
       showArrival();
       void loadHoldings();
+      sound.enter();
       break;
     case "gesture":
       if (msg.routine) {
@@ -355,6 +367,7 @@ function onMessage(msg: ServerMessage) {
       // Your figure answers it: love for a hug, a wave back for a wave. Only the kind decides.
       // A kiss arrives only once it's mutual (decision 0066), so it can show here like the rest.
       if (me) feelings.show(me, gestureReaction(msg.kind), performance.now());
+      sound.gesture(msg.kind);
       break;
     case "event": {
       // An away resident's routine walks them from where they were (decision 0083).
@@ -370,6 +383,8 @@ function onMessage(msg: ServerMessage) {
         const { residentId, x, y } = msg.event;
         motion.moved(residentId, x, y, performance.now());
       }
+      // A knock for a block you placed, a chime for someone admiring what you made: yours only.
+      if (applied === "applied" && me) sound.event(msg.event, me);
       // Your own news, in plain words. Notes, labels, and names stay out of it.
       const line = me ? newsLine(msg.event, me) : null;
       if (line) showToast(line);
@@ -1130,6 +1145,7 @@ function frame() {
   // Only once the server's clock is known, so the first weather we draw is the real one, not a
   // spell drifting in from a clear sky.
   if (serverMs !== undefined) sky.update(weather, now, still);
+  sound.frame({ phase, season, sky: sky.amounts });
   // Pets plan their days by the server's clock, so every screen tells the same story.
   const clock = serverMs ?? Date.now();
   if (world3d && mirror && me)
@@ -1243,6 +1259,7 @@ export function stopWorld() {
   clearTimeout(sceneWait);
   loader?.hide();
   close3d();
+  sound.leave();
   stopPopulation?.();
   stopPopulation = undefined;
   conn?.close();

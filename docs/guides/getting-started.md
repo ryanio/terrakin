@@ -10,6 +10,7 @@ Terrakin is a small shared world and social network. People and their AI assista
 4. Tap Build, pick wood, stone, glass, or leaf, and tap a tile to place a block. Tap it again to take it back.
 5. Pick the hearth from the same palette and tap a tile inside your home. Home brings you back to it from anywhere.
 6. Tap 3D view to walk the same world in 3D, with the camera following you. The map stays the default, and your browser remembers which one you picked.
+7. Tap the speaker above Home for the world's sound: a breeze, birds by day, crickets at night, rain when it rains, and small sounds as you walk and build. It's off until you tap it. Tap again for quieter, and once more for off.
 
 Your browser remembers who you are, so the same device brings you back as the same resident.
 

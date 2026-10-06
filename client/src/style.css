@@ -3890,6 +3890,34 @@ dialog.model-viewer {
   width: auto;
 }
 
+/* The speaker (decision 0097): a round button on top of the actions. Its waves show the level. */
+.hud-sound {
+  align-self: flex-end;
+  width: var(--tap);
+  min-height: var(--tap);
+  padding: 0;
+  color: var(--clay);
+  touch-action: none;
+}
+
+.sound-icon {
+  width: 24px;
+  height: 24px;
+  transition: opacity 0.2s ease;
+}
+
+.hud-sound[data-level="off"] .sound-wave,
+.hud-sound[data-level="off"] .sound-wave-far,
+.hud-sound[data-level="quiet"] .sound-wave-far,
+.hud-sound:not([data-level="off"]) .sound-mute {
+  display: none;
+}
+
+/* On, and waiting for the tap browsers want before a page plays sound. */
+.hud-sound[data-state="waiting"] .sound-icon {
+  opacity: 0.55;
+}
+
 /*
  * The build bar (RFC 0016): tabs, one row of choices for the tab, and a line about the pick. It
  * sits under the top bar, so the tiles in reach around you (the middle of the screen) and the

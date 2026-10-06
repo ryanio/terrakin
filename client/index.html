@@ -293,6 +293,10 @@
             <div id="palette-furniture" class="palette-row" role="tabpanel" aria-labelledby="palette-tab-furniture" hidden></div>
             <p id="palette-line" class="palette-line" aria-live="polite"></p>
           </fieldset>
+          <!-- Sound (decision 0097): off until tapped, then on, quiet, and off again. The waves show which. -->
+          <button type="button" id="sound" class="pill-button hud-sound" aria-pressed="false" aria-label="Sound" data-level="off">
+            <svg class="icon sound-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 9.5h3l4.5-4v13l-4.5-4h-3z" /><path class="sound-wave" d="M15.5 9.5a3.5 3.5 0 0 1 0 5" /><path class="sound-wave-far" d="M18.2 6.8a7.3 7.3 0 0 1 0 10.4" /><path class="sound-mute" d="M16 9.5l5 5M21 9.5l-5 5" /></svg>
+          </button>
           <button type="button" id="home" class="action">
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5" /><path d="M6 10v9.5h12V10" /><path d="M10 19.5v-5h4v5" /></svg>
             <span>Home</span>

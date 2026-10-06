@@ -7,6 +7,7 @@
 import {
   type Action,
   type ChatChannel,
+  facingToward,
   type ServerMessage,
   WorldSnapshot,
 } from "@terrakin/protocol";
@@ -33,6 +34,7 @@ import { type Camera, fitScale, screenToTile, stepToward } from "./camera";
 import { Feelings, gestureReaction } from "./feelings";
 import { createLanding } from "./landing";
 import { Mirror } from "./mirror";
+import { Motion } from "./motion";
 import { Connection, type Identity, savedToken, saveToken } from "./net";
 import { blockColor, HEARTH_COLOR, render } from "./render";
 import type { World3d } from "./scene3d/world";
@@ -64,6 +66,8 @@ const host3d = $("world-3d");
 const motionQuery = window.matchMedia(REDUCED_MOTION);
 /** What figures show in reaction to what happens to them (RFC 0013). Drawing only. */
 const feelings = new Feelings();
+/** Slides, hops, sways, dozing, and speech bubbles, for the map and the 3D view alike. */
+const motion = new Motion();
 
 let active = false;
 let rafId = 0;
@@ -293,8 +297,9 @@ function onMessage(msg: ServerMessage) {
     }
     case "chat":
       addChat(msg.from.name, msg.from.kind, msg.text, msg.channel);
-      // Figures near the speaker look their way. Who spoke, never what they said.
+      // Figures near the speaker look their way, and the words show over the speaker's head.
       feelings.heard(msg.from.id, performance.now());
+      motion.say(msg.from.id, msg.text, performance.now());
       break;
     case "ack":
       if (msg.id === pendingMove) pendingMove = undefined;
@@ -490,6 +495,13 @@ canvas.addEventListener("pointerdown", (e) => {
 });
 
 /** A tap on the world, as a tile: from the 2D map, or picked in the 3D view. Both act the same. */
+/** Turn to look at something you tapped or are using. Only how you're drawn; the server moves you. */
+function lookAt(tile: { x: number; y: number }) {
+  const r = self();
+  const dir = r && facingToward(tile.x - r.x, tile.y - r.y);
+  if (dir && me) mirror?.facing.set(me, dir);
+}
+
 function tapTile(tile: { x: number; y: number }) {
   const r = self();
   if (!mirror || !r) return;
@@ -520,8 +532,10 @@ function tapTile(tile: { x: number; y: number }) {
   // opens then.
   const here = mirror.blocks.get(`${tile.x},${tile.y}`);
   if (!other && here && STATIONS.includes(here)) {
-    if (inReach(r, tile)) openStation(tile.x, tile.y);
-    else walkTarget = { ...tile, station: true };
+    if (inReach(r, tile)) {
+      lookAt(tile);
+      openStation(tile.x, tile.y);
+    } else walkTarget = { ...tile, station: true };
     return;
   }
   // A fallen branch or a loose stone: tap to pick it up (phase 1 gathering). One farther off is
@@ -534,11 +548,14 @@ function tapTile(tile: { x: number; y: number }) {
       showToast(othersPickupLine(owner ? mirror.residents.get(owner)?.name : undefined));
       return;
     }
-    if (inReach(r, tile)) tryAct({ type: "gather", x: tile.x, y: tile.y });
-    else walkTarget = { ...tile, pickup: true };
+    if (inReach(r, tile)) {
+      lookAt(tile);
+      tryAct({ type: "gather", x: tile.x, y: tile.y });
+    } else walkTarget = { ...tile, pickup: true };
     return;
   }
   if (other && other.id !== me) {
+    lookAt(other);
     const name = other.kind === "agent" ? `${other.name} ⚙` : other.name;
     showToast(other.note ? `${name}: ${other.note}` : name, "player");
     return;
@@ -801,6 +818,7 @@ function frame(t: number) {
         !heldKeys.length &&
         inReach(r, walkTarget)
       ) {
+        lookAt(walkTarget);
         openStation(walkTarget.x, walkTarget.y);
         walkTarget = undefined;
       }
@@ -809,6 +827,7 @@ function frame(t: number) {
       if (walkTarget?.pickup && !queuedSteps.length && !heldKeys.length && inReach(r, walkTarget)) {
         const { x, y } = walkTarget;
         const m = mirror;
+        lookAt(walkTarget);
         if (!m || m.mayGatherAt(x, y, r.id)) tryAct({ type: "gather", x, y });
         else showToast(othersPickupLine(m.residents.get(m.ownerAt(x, y) ?? "")?.name));
         walkTarget = undefined;
@@ -840,7 +859,7 @@ function frame(t: number) {
   paintPad(world3d?.heading() ?? 0, world3d !== undefined);
   const now = performance.now();
   const still = motionQuery.matches;
-  if (world3d && mirror && me) world3d.sync({ mirror, me, buildMode, feelings });
+  if (world3d && mirror && me) world3d.sync({ mirror, me, buildMode, feelings, motion });
   else if (mirror)
     render(ctx, {
       mirror,
@@ -848,6 +867,7 @@ function frame(t: number) {
       cam,
       buildMode,
       feelings,
+      motion,
       now,
       still,
       ...(phase === undefined ? {} : { dayPhase: phase }),

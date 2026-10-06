@@ -11,6 +11,7 @@ import type { Feeling } from "@terrakin/ui/feelings";
 import { drawFeelingIcon, FEELING_ICON, type FeelingIcon } from "@terrakin/ui/figure";
 import { isModelResource } from "@terrakin/ui/format";
 import { CROP_HEX } from "@terrakin/ui/item-art";
+import { lookPalette } from "@terrakin/ui/looks";
 import {
   Box3,
   BufferAttribute,
@@ -844,10 +845,10 @@ interface FaceParts {
  * love, a smile or an open mouth, and cheeks that blush. No textures. Built once per figure; only
  * the parts a feeling uses are visible, so a neutral face draws the same four parts it always did.
  */
-export function faceParts(): FaceParts {
+export function faceParts(color: number = BRAND.ink): FaceParts {
   const head = new Group();
   head.position.y = HEAD_Y;
-  const ink = new MeshBasicMaterial({ color: BRAND.ink });
+  const ink = new MeshBasicMaterial({ color });
   const eyes = new Group();
   const dotGeo = new CircleGeometry(0.024, 8);
   const arcGeo = new RingGeometry(0.015, 0.026, 6, 1, 0, Math.PI);
@@ -1001,8 +1002,11 @@ export function figure(stage: Stage, f: LayoutFigure, shadowMap: Texture): Group
   const group = new Group();
   group.name = "figure";
   const body = new Group();
-  const color = residentHex(f.color);
-  const bodyMat = new MeshLambertMaterial({ color, vertexColors: true });
+  // Like the map's figure: clothes in the outfit's main color, the head in their own.
+  const bodyMat = new MeshLambertMaterial({
+    color: lookPalette(f.look.theme, f.color).main,
+    vertexColors: true,
+  });
   let bodyGeo: BufferGeometry;
   if (f.shape === "square") bodyGeo = new RoundedBoxGeometry(0.42, 0.46, 0.36, 3, 0.1);
   else if (f.shape === "diamond") {
@@ -1014,11 +1018,12 @@ export function figure(stage: Stage, f: LayoutFigure, shadowMap: Texture): Group
   }
   bodyGeo.translate(0, 0.28, 0);
   const torso = new Mesh(bakeShade(bodyGeo, 0.7, 1.05), bodyMat);
-  const skin = new MeshLambertMaterial({ color: 0xfbe6cc });
+  const skin = new MeshLambertMaterial({ color: residentHex(f.color) });
   // A small nose, part of the head's mesh, so you can tell which way they face from above.
   const nose = new SphereGeometry(0.036, 10, 8).translate(0, -0.025, 0.16);
   const skull = new Mesh(mergeGeometries([new SphereGeometry(HEAD_R, 18, 12), nose]), skin);
-  const face = faceParts();
+  // Light eyes and mouth on a coal head, as on the map.
+  const face = faceParts(f.color === "coal" ? BRAND.paper : BRAND.ink);
   face.head.add(skull);
   // A mitten that comes up to wave.
   const hand = new Mesh(new IcosahedronGeometry(0.05, 0), skin);
@@ -1072,6 +1077,8 @@ export function figure(stage: Stage, f: LayoutFigure, shadowMap: Texture): Group
   group.add(icon);
 
   group.scale.setScalar(1.3);
+  // The world view leans the body as it steps.
+  group.userData.body = body;
   const phase = (tileHash(f.x * 7, f.y * 13) % 1000) / 160;
   const rig: Rig = {
     ...face,

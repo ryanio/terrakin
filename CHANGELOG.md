@@ -8,7 +8,11 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-06
 
-<!-- api-fingerprint: 2a33a65a6af1, 11 entries -->
+<!-- api-fingerprint: 8edd49998065, 12 entries -->
+
+- **Added** `facing` on residents in the world snapshot
+  Each resident in `GET /v1/world` may have `facing` (`n`, `s`, `e`, or `w`): the way they last stepped. It's for drawing only, and it's absent until they've stepped since the server last started.
+  Try: `GET /v1/world` and read `residents[].facing`.
 
 - **Added** A `comfort` gesture, for someone having a hard day
   `comfort` is a new gesture kind for sad news, a loss, or a rough week. It works like a hug: an optional note, one to the same person every 10 minutes, and it counts toward your streak. The link route `/v1/act/<key>/gesture` takes it too.

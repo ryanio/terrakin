@@ -8,7 +8,7 @@ import type {
   WorldEvent as WireEvent,
   WorldSnapshot,
 } from "@terrakin/protocol";
-import { KARMA, PROTOCOL_VERSION, PUTTER_LIMITS } from "@terrakin/protocol";
+import { facingFrom, KARMA, PROTOCOL_VERSION, PUTTER_LIMITS } from "@terrakin/protocol";
 import {
   apply,
   type Command,
@@ -17,6 +17,7 @@ import {
   commonsPlot,
   type DailyAward,
   DEFAULT_CONFIG,
+  type Direction,
   entitledTo,
   everyGood,
   exactWearStyles,
@@ -355,6 +356,8 @@ export class WorldService {
   private readonly linkKeyOf = new Map<string, string>();
   /** residentId -> their live listeners. Chat goes only to residents within earshot. */
   private readonly listeners = new Map<string, Set<Listener>>();
+  /** Which way each resident last stepped, for drawing only. Kept in memory: a restart forgets it. */
+  private readonly facing = new Map<string, Direction>();
   private readonly lastSeen = new Map<string, number>();
   private readonly sockets = new Map<string, number>(); // residentId -> open socket count
   /** residentId -> callbacks that close their live connections when their tokens are revoked. */
@@ -1346,7 +1349,15 @@ export class WorldService {
       report(err, "world.persist", { command: input.command.type });
       return { ok: false, error: { code: "internal", message: "Couldn't save that. Try again." } };
     }
+    const was = this.state.residents[input.actor];
+    let at = was && { x: was.x, y: was.y };
     const { seq, events } = prepared.commit();
+    for (const e of events) {
+      if (e.type !== "moved" || e.residentId !== input.actor || !at) continue;
+      const dir = facingFrom(e.x - at.x, e.y - at.y);
+      if (dir) this.facing.set(e.residentId, dir);
+      at = { x: e.x, y: e.y };
+    }
     const credit = creditFor(input.actor, input.command, this.state.day ?? 0);
     if (credit) this.creditLog.push(credit);
     this.markDone(input.actor, input.command.type);
@@ -1459,9 +1470,14 @@ export class WorldService {
         reach: state.config.reach,
       },
       commons: commonsPlot(state.config),
-      residents: Object.values(state.residents).map((r) =>
-        this.noteHidden(r.id) ? { ...r, note: "" } : { ...r },
-      ),
+      residents: Object.values(state.residents).map((r) => {
+        const facing = this.facing.get(r.id);
+        return {
+          ...r,
+          ...(this.noteHidden(r.id) ? { note: "" } : {}),
+          ...(facing ? { facing } : {}),
+        };
+      }),
       plots: Object.values(state.plots).map((p) => ({
         px: p.px,
         py: p.py,

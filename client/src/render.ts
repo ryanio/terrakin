@@ -42,6 +42,8 @@ import {
 import { type Camera, tileToScreen } from "./camera";
 import { type Feelings, idPhase, pose, restingPose } from "./feelings";
 import type { DisplayView, Mirror } from "./mirror";
+import type { Motion, Pose as MotionPose } from "./motion";
+import { drawBubble, drawPoof } from "./overhead";
 import { nightAmount } from "./time";
 
 export { RESIDENT_COLOR_HEX } from "@terrakin/ui/looks";
@@ -718,9 +720,12 @@ export interface RenderState {
   dayPhase?: number;
   /** What each figure feels, at `now` (milliseconds). Without it every face is neutral. */
   feelings?: Feelings;
-  now?: number;
-  /** Reduced motion: faces and signs stay, bounces, blinks and drifting go. */
-  still?: boolean;
+  /** How residents move between tiles, and what they say. */
+  motion: Motion;
+  /** The frame's time, in ms. */
+  now: number;
+  /** Reduced motion: faces, signs, and bubbles stay; slides, bounces, blinks, and drifting go. */
+  still: boolean;
 }
 
 /** Reused every frame, so drawing figures allocates nothing. */
@@ -737,7 +742,7 @@ function iconSprite(icon: FeelingIcon, px: number): HTMLCanvasElement {
 
 export function render(
   ctx: CanvasRenderingContext2D,
-  { mirror, me, cam, buildMode, dayPhase, feelings, now = 0, still = false }: RenderState,
+  { mirror, me, cam, buildMode, dayPhase, feelings, motion, now, still }: RenderState,
 ) {
   const { width, height, scale } = cam;
   const { config, commons } = mirror;
@@ -1033,22 +1038,35 @@ export function render(
   }
 
   // ---- residents: little figures in their looks, each a cached sprite, north to south ----
-  const labels: { text: string; x: number; y: number; mine: boolean }[] = [];
+  const labels: {
+    text: string;
+    x: number;
+    y: number;
+    mine: boolean;
+    top?: number;
+    /** A resident's tag: what they say goes over it. */
+    who?: string;
+  }[] = [];
   const hall = tilesBox(mirror.townHall, cam);
   if (hall)
     labels.push({ text: "Town Hall", x: hall.left + hall.w / 2, y: hall.top - 2, mine: false });
   const shop = tilesBox(mirror.shop, cam);
   if (shop) labels.push({ text: "Shop", x: shop.left + shop.w / 2, y: shop.top - 2, mine: false });
-  const shown: Resident[] = [];
+  // `m` is how they move between tiles (`motion.ts`); `p` below is their face (`feelings.ts`).
+  const shown: { r: Resident; m: MotionPose }[] = [];
+  const online = new Set<string>();
   for (const r of mirror.residents.values()) {
     if (!r.online) continue;
-    const { sx, sy } = tileToScreen(cam, r.x, r.y);
+    online.add(r.id);
+    const m = motion.pose(r, now, still);
+    const { sx, sy } = tileToScreen(cam, m.x, m.y);
     if (sx < -scale || sy < -scale || sx > width + scale || sy > height + scale * 1.5) continue;
-    shown.push(r);
+    shown.push({ r, m });
   }
-  shown.sort((a, b) => a.y - b.y || a.x - b.x);
-  for (const r of shown) {
-    const { sx, sy } = tileToScreen(cam, r.x, r.y);
+  motion.keep(online);
+  shown.sort((a, b) => a.m.y - b.m.y || a.m.x - b.m.x);
+  for (const { r, m } of shown) {
+    const { sx, sy } = tileToScreen(cam, m.x, m.y);
     const feet = sy + scale * 0.38;
     const mine = r.id === me;
     if (mine) {
@@ -1057,25 +1075,29 @@ export function render(
       ctx.ellipse(sx, feet - scale * 0.02, scale * 0.42, scale * 0.17, 0, 0, Math.PI * 2);
       ctx.fill();
     }
-    ctx.fillStyle = "rgba(60, 40, 20, 0.24)";
+    // The shadow stays on the ground and shrinks as they hop.
+    const shade = Math.max(0.5, 1 - m.lift * 2.5);
+    ctx.fillStyle = `rgba(60, 40, 20, ${(0.24 * shade).toFixed(3)})`;
     ctx.beginPath();
-    ctx.ellipse(sx, feet, scale * 0.27, scale * 0.085, 0, 0, Math.PI * 2);
+    ctx.ellipse(sx, feet, scale * 0.27 * shade, scale * 0.085 * shade, 0, 0, Math.PI * 2);
     ctx.fill();
-    // The face of the moment: a feeling, a blink, a wave, a bounce (RFC 0013).
-    const p = pose(feelings?.get(r.id, now), now, idPhase(r.id), still, posed);
+    if (m.poof !== undefined) drawPoof(ctx, sx, feet, scale, m.poof);
+    // The face of the moment: a feeling, a blink, a wave, a bounce (RFC 0013). Dozing is `sleepy`.
+    const p = pose(feelings?.get(r.id, now) ?? m.doze, now, idPhase(r.id), still, posed);
     face.feeling = p.feeling;
     face.blink = p.blink;
     face.wave = p.wave;
-    const fig = figureSprite(r, scale, dpr, mirror.facing.get(r.id), face);
-    const ground = feet - p.lift * scale;
-    if (p.tilt) {
-      // Leaning from the feet.
-      ctx.save();
-      ctx.translate(sx, ground);
-      ctx.rotate(p.tilt * 0.5);
-      ctx.drawImage(fig.canvas, fig.dx, fig.dy, fig.w, fig.h);
-      ctx.restore();
-    } else ctx.drawImage(fig.canvas, sx + fig.dx, ground + fig.dy, fig.w, fig.h);
+    const facing = mirror.facing.get(r.id) ?? "s";
+    const side = facing === "e" ? 1 : facing === "w" ? -1 : 0;
+    const fig = figureSprite(r, scale, dpr, facing, face);
+    const ground = feet - (p.lift + m.lift) * scale;
+    // Leaning, swaying, and squashing from the feet.
+    ctx.save();
+    ctx.translate(sx, ground);
+    ctx.rotate(p.tilt * 0.5 + m.sway + m.lean * side);
+    ctx.scale(m.squash, 1 / m.squash);
+    ctx.drawImage(fig.canvas, fig.dx, fig.dy, fig.w, fig.h);
+    ctx.restore();
     const icon = FEELING_ICON[p.feeling];
     if (icon) {
       const size = Math.round(scale * 0.42);
@@ -1094,6 +1116,7 @@ export function render(
       x: sx,
       y: feet + fig.dy - 1,
       mine,
+      who: r.id,
     });
   }
 
@@ -1184,6 +1207,7 @@ export function render(
       top -= tagH + 3;
     }
     placed.push({ left: l.x - w / 2, right: l.x + w / 2, top });
+    l.top = top;
     ctx.fillStyle = "rgba(74, 52, 28, 0.16)";
     ctx.beginPath();
     ctx.roundRect(l.x - w / 2, top + 1.5, w, tagH, tagH / 2);
@@ -1197,6 +1221,13 @@ export function render(
     ctx.stroke();
     ctx.fillStyle = l.mine ? CLAY_DEEP : INK;
     ctx.fillText(l.text, l.x, top + tagH / 2 + 0.5);
+  }
+
+  // ---- over the name tags: what people are saying, as text ----
+  for (const l of labels) {
+    if (!l.who || l.top === undefined) continue;
+    const said = motion.bubble(l.who, now);
+    if (said) drawBubble(ctx, l.x, l.top - 4, said.lines, said.alpha, fontSize, font, width);
   }
   ctx.textBaseline = "alphabetic";
 }

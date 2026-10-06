@@ -8,6 +8,7 @@
  * come from the plot view's builders (`plot.ts`), and the Town Hall and the shop from
  * `buildings.ts`. Loaded only through `import()` (decision 0013).
  */
+
 import {
   groundTile,
   OUTSIDE_GROUND,
@@ -18,6 +19,7 @@ import {
 } from "@terrakin/sim";
 import {
   BufferGeometry,
+  type CanvasTexture,
   Color,
   Float32BufferAttribute,
   type Fog,
@@ -27,13 +29,18 @@ import {
   type Mesh,
   type Object3D,
   Raycaster,
+  Sprite,
+  SpriteMaterial,
   type Texture,
   Vector2,
   Vector3,
 } from "three";
-import type { Feelings } from "../feelings";
+import type { Feelings, Shown } from "../feelings";
 import type { Mirror } from "../mirror";
+import type { Motion } from "../motion";
+import { bubbleSize, drawBubble } from "../overhead";
 import {
+  canvasTexture,
   createStage,
   disposeTree,
   grainTexture,
@@ -45,7 +52,7 @@ import {
 } from "./art";
 import { type Footprint, footprintOf, seeThrough, shop, townHall } from "./buildings";
 import { createPictures, displayedThings } from "./displays";
-import { cornerLight, type LayoutFigure } from "./layout";
+import { cornerLight, type LayoutFigure, tagHeight } from "./layout";
 import { hex, SKY } from "./palette";
 import {
   blockMeshes,
@@ -97,6 +104,8 @@ export interface World3dFrame {
   buildMode: boolean;
   /** What each figure feels and who just spoke (RFC 0013). */
   feelings?: Feelings;
+  /** How residents move, and what they say: the same the map draws. */
+  motion: Motion;
 }
 
 export interface World3d {
@@ -120,7 +129,16 @@ interface Fig {
   turn: number;
   /** The head's turn from the body, toward whoever is speaking. */
   look: number;
+  /** Where its name tag sits, in world units above the feet. */
+  tagY: number;
+  /** While they doze, the `sleepy` feeling from `motion.ts`. */
+  doze: Shown | undefined;
+  /** What they're saying, in the scene so a hop or squash doesn't bend it. */
+  bubble?: { text: string; sprite: Sprite; height: number };
 }
+
+/** World units per pixel of an overhead canvas, the same scale as the name tags. */
+const OVER_PX = 0.3 / 78;
 
 interface Building {
   group: Group;
@@ -130,10 +148,9 @@ interface Building {
 
 /** How far the camera starts from you, and how close and far a pinch can take it. */
 const START_OFFSET = new Vector3(0, 13, 12);
-const MIN_DISTANCE = 6;
+const MIN_DISTANCE = 3;
 const MAX_DISTANCE = 24;
-/** How quickly figures glide to their tile and turn, per second. */
-const GLIDE = 12;
+/** How quickly figures turn, per second. */
 const TURN = 10;
 /** Figures this close to a speaker turn their heads to them, as far as a neck goes. */
 const LISTEN_RADIUS = 5;
@@ -404,6 +421,36 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
     // Feelings' signs are shared by every figure.
     for (const t of ICON_TEXTURES) shared.add(t);
     disposeTree(f.group, shared);
+    dropBubble(f);
+  }
+
+  function dropBubble(f: Fig) {
+    if (!f.bubble) return;
+    scene.remove(f.bubble.sprite);
+    f.bubble.sprite.material.map?.dispose();
+    f.bubble.sprite.material.dispose();
+    delete f.bubble;
+  }
+
+  /** Put what they're saying over a figure's name tag. True if it changed. */
+  function placeBubble(f: Fig, said: { lines: string[]; alpha: number } | undefined): boolean {
+    const text = said?.lines.join("\n");
+    if (f.bubble && f.bubble.text !== text) dropBubble(f);
+    if (!said || text === undefined) return false;
+    if (!f.bubble) {
+      const { texture, w, h } = bubbleTexture(said.lines);
+      const sprite = new Sprite(
+        new SpriteMaterial({ map: texture, depthWrite: false, transparent: true }),
+      );
+      sprite.renderOrder = 6;
+      sprite.scale.set(w * OVER_PX, h * OVER_PX, 1);
+      scene.add(sprite);
+      f.bubble = { text, sprite, height: h * OVER_PX };
+    }
+    const p = f.group.position;
+    f.bubble.sprite.position.set(p.x, f.tagY + 0.22 + f.bubble.height / 2, p.z);
+    f.bubble.sprite.material.opacity = said.alpha;
+    return true;
   }
 
   /** Who is drawn, and in what look. Runs when the mirror changes. */
@@ -443,42 +490,66 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       group.position.copy(at);
       group.rotation.y = turn;
       scene.add(group);
-      figures.set(r.id, { group, scope, signature, turn, look: 0 });
+      if (have) dropBubble(have);
+      figures.set(r.id, {
+        group,
+        scope,
+        signature,
+        turn,
+        look: 0,
+        tagY: tagHeight(figureOf(r, mine)) * 1.3,
+        doze: undefined,
+      });
     }
   }
 
   /**
-   * Glide each figure to its tile and turn it the way it walked, with its head toward whoever
-   * just spoke nearby. True if anything moved.
+   * Pose each figure the way the map does (a slide and hop for each step, a squash on landing, a
+   * lean, a sway), turn it the way it walked, and turn its head toward whoever just spoke nearby.
+   * True if anything moved.
    */
-  function moveFigures(mirror: Mirror, dt: number, speakerId: string | undefined): boolean {
+  function moveFigures(
+    mirror: Mirror,
+    motion: Motion,
+    dt: number,
+    speakerId: string | undefined,
+  ): boolean {
     let moved = false;
+    const now = performance.now();
     const speaker = speakerId === undefined ? undefined : mirror.residents.get(speakerId);
     for (const [id, f] of figures) {
       const r = mirror.residents.get(id);
       if (!r) continue;
-      const p = f.group.position;
-      const x = still ? r.x : approach(p.x, r.x, dt, GLIDE);
-      const z = still ? r.y : approach(p.z, r.y, dt, GLIDE);
+      const m = motion.pose(r, now, still);
       const want = faceAngle(mirror.facing.get(id));
       const gap = turnBetween(f.turn, want);
       const turn = still || Math.abs(gap) < 1e-3 ? want : f.turn + gap * (1 - Math.exp(-TURN * dt));
-      if (x !== p.x || z !== p.z || turn !== f.turn) moved = true;
-      p.x = x;
-      p.z = z;
+      const g = f.group;
+      const p = g.position;
+      if (m.x !== p.x || m.y !== p.z || m.lift !== p.y || turn !== f.turn) moved = true;
+      p.set(m.x, m.lift, m.y);
       f.turn = turn;
-      f.group.rotation.y = turn;
+      // Turn first, then sway side to side in the figure's own frame.
+      g.rotation.set(0, turn, m.sway);
+      // Landing from a jump, they pop up from small.
+      const pop = m.poof === undefined ? 1 : 0.6 + 0.4 * Math.sin((Math.PI / 2) * m.poof);
+      const sq = m.squash;
+      g.scale.set(1.3 * sq * pop, (1.3 / sq) * pop, 1.3 * sq * pop);
+      const body = g.userData.body as Object3D | undefined;
+      if (body) body.rotation.x = m.lean;
+      f.doze = m.doze;
       let look = 0;
       if (speaker && speaker.id !== id && tileDistance(r, speaker) <= LISTEN_RADIUS) {
-        const toward = turnBetween(turn, Math.atan2(speaker.x - x, speaker.y - z));
+        const toward = turnBetween(turn, Math.atan2(speaker.x - m.x, speaker.y - m.y));
         if (Math.abs(toward) <= BEHIND) look = Math.max(-NECK, Math.min(NECK, toward));
       }
       const head = still ? look : approach(f.look, look, dt, TURN / 2);
       if (head !== f.look) {
         moved = true;
         f.look = head;
-        turnHead(f.group, head);
+        turnHead(g, head);
       }
+      if (placeBubble(f, motion.bubble(id, now))) moved = true;
     }
     return moved;
   }
@@ -607,7 +678,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
   canvas.addEventListener("webglcontextlost", onLost);
 
   return {
-    sync({ mirror, me, buildMode, feelings }) {
+    sync({ mirror, me, buildMode, feelings, motion }) {
       const self = mirror.residents.get(me);
       lastMirror = mirror;
       const now = performance.now();
@@ -638,10 +709,10 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
           seeThrough(b.group, inside);
         }
       }
-      let moved = moveFigures(mirror, dt, feelings?.speaker(now));
-      if (feelings)
-        for (const [id, f] of figures)
-          if (showFeeling(f.group, feelings.get(id, now), now)) moved = true;
+      let moved = moveFigures(mirror, motion, dt, feelings?.speaker(now));
+      // A feeling from what happened to them wins; otherwise a doze shows as `sleepy`.
+      for (const [id, f] of figures)
+        if (showFeeling(f.group, feelings?.get(id, now) ?? f.doze, now)) moved = true;
       const mine = figures.get(me);
       if (mine) follow(mine.group.position);
       placeReach(mirror, self, buildMode);
@@ -665,6 +736,19 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       stage.dispose();
     },
   };
+}
+
+/** A chat bubble on its own canvas, drawn the way the map draws it, at three times the tag's size. */
+function bubbleTexture(lines: string[]): { texture: CanvasTexture; w: number; h: number } {
+  const fontSize = 15 * 3;
+  const font = `600 ${fontSize}px "Figtree Variable", system-ui, sans-serif`;
+  const c = document.createElement("canvas");
+  const g = c.getContext("2d") as CanvasRenderingContext2D;
+  const size = bubbleSize(g, lines, fontSize, font);
+  c.width = Math.ceil(size.w) + 12;
+  c.height = Math.ceil(size.h) + 8;
+  drawBubble(g, c.width / 2, c.height - 2, lines, 1, fontSize, font, c.width);
+  return { texture: canvasTexture(c), w: c.width, h: c.height };
 }
 
 /** Walk up from a hit object to the first ancestor `test` accepts, and return what it says. */

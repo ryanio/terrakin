@@ -933,6 +933,7 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 Latest, 2026-10-06:
 
+- Added: `facing` on residents in the world snapshot
 - Added: A `comfort` gesture, for someone having a hard day
 - Added: A person who owns a partner's character shows "Keeper of" it
 - Added: `firstVisit` and `tryToday` on the check-in, which stays full while either is waiting

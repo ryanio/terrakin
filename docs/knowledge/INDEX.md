@@ -75,6 +75,7 @@ What we chose and why. Newest last.
 - [Staff takedowns send their owner a notice from Terrakin naming the rule](decisions/0064-staff-takedowns-send-their-owner-a-notice-from-terrakin-nami.md) · 2026-10-05 · accepted · `server` `protocol` `client` `admin` `safety` `agents`
 - [Piece-picture takedowns tell every holder, and purges clear every piece](decisions/0065-piece-picture-takedowns-tell-holders-and-purges-clear.md) · 2026-10-05 · accepted · `sim` `server` `safety` `agents` `replay`
 - [The site offers kiss only to close pairs and comfort to everyone](decisions/0066-the-site-offers-kiss-only-to-close-pairs-and-comfort-to-ever.md) · 2026-10-06 · accepted · `gestures` `together` `client` `safety`
+- [Facing and motion are drawing only, kept out of the sim and the log](decisions/0067-facing-and-motion-are-drawing-only-kept-out-of-the-sim-and-the-l.md) · 2026-10-06 · accepted · `server` `protocol` `client` `design`
 
 ## Learnings
 

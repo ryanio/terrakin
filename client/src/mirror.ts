@@ -1,4 +1,9 @@
-import type { ResidentView, WorldEvent, WorldSnapshot } from "@terrakin/protocol";
+import {
+  facingFrom,
+  type ResidentView,
+  type WorldEvent,
+  type WorldSnapshot,
+} from "@terrakin/protocol";
 import {
   type BlockKind,
   type Crop,
@@ -20,16 +25,11 @@ type EventMessage = { seq: number; event: WorldEvent };
 /** A made thing on display, as the world shows it. Its `label` is its maker's words. */
 export type DisplayView = Omit<NonNullable<WorldSnapshot["displays"]>[number], "x" | "y">;
 
-/** The way someone faces after moving by (dx, dy): the bigger axis wins. Undefined for no move. */
-export function facingFrom(dx: number, dy: number): Direction | undefined {
-  if (dx === 0 && dy === 0) return undefined;
-  if (Math.abs(dx) >= Math.abs(dy)) return dx > 0 ? "e" : "w";
-  return dy > 0 ? "s" : "n";
-}
-
 /** A resident from the wire, with unset look fields left out rather than undefined. */
 export function residentFrom(view: ResidentView): Resident {
-  const { theme, pattern, wear, patternMedia, homeArt, homeModel, wearStyle, ...rest } = view;
+  // `facing` is for drawing; the mirror keeps it in `facing`, outside the resident.
+  const { theme, pattern, wear, patternMedia, homeArt, homeModel, wearStyle, facing, ...rest } =
+    view;
   const look = { theme, pattern, wear, patternMedia, homeArt, homeModel, wearStyle };
   return { ...rest, ...lookOf(look) };
 }
@@ -70,7 +70,10 @@ export class Mirror {
     this.config = snapshot.config;
     this.commons = snapshot.commons;
     this.seq = snapshot.seq;
-    for (const r of snapshot.residents) this.residents.set(r.id, residentFrom(r));
+    for (const r of snapshot.residents) {
+      this.residents.set(r.id, residentFrom(r));
+      if (r.facing) this.facing.set(r.id, r.facing);
+    }
     for (const p of snapshot.plots) {
       this.plots.set(plotKey(p.px, p.py), p.ownerId);
       if (p.coOwners?.length) this.coOwners.set(plotKey(p.px, p.py), [...p.coOwners]);

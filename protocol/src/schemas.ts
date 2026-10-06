@@ -640,6 +640,8 @@ export const ResidentView = z.object({
   y: z.number().int(),
   online: z.boolean(),
   hearth: z.object({ x: z.number().int(), y: z.number().int() }).nullable(),
+  /** Which way they last stepped, for drawing only. Absent until they've stepped since a restart. */
+  facing: z.enum(["n", "s", "e", "w"]).optional(),
   ...lookView,
 });
 

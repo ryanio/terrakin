@@ -661,6 +661,24 @@ describe("spatial chat", () => {
   });
 });
 
+describe("facing in the snapshot", () => {
+  it("keeps the way you last stepped, and a jump home doesn't turn you", () => {
+    const service = new WorldService({ store: new MemoryStore() });
+    const a = service.createSession({ name: "Ada", kind: "human" });
+    if (!a.ok || !a.residentId) throw new Error("join failed");
+    const ada = a.residentId;
+    const facing = () => service.snapshot().residents.find((r) => r.id === ada)?.facing;
+    expect(facing()).toBeUndefined();
+    service.act(ada, { type: "move", dir: "w" });
+    expect(facing()).toBe("w");
+    service.act(ada, { type: "move", dir: "n" });
+    expect(facing()).toBe("n");
+    // Going home is a jump, never a step, so it never turns anyone.
+    service.act(ada, { type: "home" });
+    expect(facing()).toBe("n");
+  });
+});
+
 describe("spatial chat after home", () => {
   it("uses where you stand now, so a jump home changes who hears you", () => {
     const service = new WorldService({ store: new MemoryStore() });

@@ -21118,6 +21118,15 @@
               "y"
             ]
           },
+          "facing": {
+            "type": "string",
+            "enum": [
+              "n",
+              "s",
+              "e",
+              "w"
+            ]
+          },
           "theme": {
             "allOf": [
               {

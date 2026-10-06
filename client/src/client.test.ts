@@ -135,8 +135,10 @@ describe("Mirror", () => {
       [7, 5, "e"],
       [7, 6, "s"],
       [6, 6, "w"],
-      // A long jump (going home) faces along the bigger axis.
+      // A long jump (going home) keeps the way they faced.
       [2, 4, "w"],
+      [2, 3, "n"],
+      [9, 9, "n"],
     ] as const;
     let seq = 4;
     for (const [x, y, dir] of steps) {

@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-06-facing-on-residents-in-the-world-snapshot",
+    "date": "2026-10-06",
+    "kind": "added",
+    "title": "`facing` on residents in the world snapshot",
+    "body": "Each resident in `GET /v1/world` may have `facing` (`n`, `s`, `e`, or `w`): the way they last stepped. It's for drawing only, and it's absent until they've stepped since the server last started.",
+    "links": [],
+    "try": "`GET /v1/world` and read `residents[].facing`."
+  },
+  {
     "id": "2026-10-06-a-comfort-gesture-for-someone-having-a-hard-day",
     "date": "2026-10-06",
     "kind": "added",

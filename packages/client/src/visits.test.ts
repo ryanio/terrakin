@@ -78,9 +78,15 @@ describe("plot words", () => {
     expect(weekLine({ admirers: 0, visitors: 0 })).toBe("No visitors yet this week");
   });
 
-  it("name whose plot it is, owner first", () => {
-    expect(plotName(["Ivy"])).toBe("Ivy's plot");
-    expect(plotName(["Ivy", "Sam"])).toBe("Ivy and Sam's plot");
-    expect(plotName(["Ivy", "Sam", "Lee"])).toBe("Ivy, Sam, and Lee's plot");
+  it("names whose plot it is, owner first, and prefers the plot's own name", () => {
+    const plot = (name: string | undefined, owners: string[]) => ({
+      name,
+      owner: { name: owners[0] ?? "?" },
+      coOwners: owners.slice(1).map((n) => ({ name: n })),
+    });
+    expect(plotName(plot(undefined, ["Ivy"]))).toBe("Ivy's plot");
+    expect(plotName(plot(undefined, ["Ivy", "Sam"]))).toBe("Ivy and Sam's plot");
+    expect(plotName(plot(undefined, ["Ivy", "Sam", "Lee"]))).toBe("Ivy, Sam, and Lee's plot");
+    expect(plotName(plot("Sunpatch", ["Ivy", "Sam"]))).toBe("Sunpatch");
   });
 });

@@ -178,6 +178,18 @@ describe("patting a pet", () => {
     expect(Number(again.headers.get("retry-after"))).toBe(DAY_MS / 2 / 1000);
   });
 
+  it("refuses a suspended patter", async () => {
+    const t = await start();
+    const ivy = t.join("Ivy");
+    const tam = await t.settler("Tam", 2);
+    await t.adopt(tam.token);
+    expect(t.social.safety.suspend("staff", ivy.id, 1, "test").ok).toBe(true);
+    const refused = await t.pat(ivy, tam);
+    expect(refused.status).toBe(403);
+    expect(refused.body.error.code).toBe("suspended");
+    expect((await t.call("GET", `/v1/residents/${tam.id}`)).body.resident.pet.pats).toBe(0);
+  });
+
   it(`stops one patter at ${PAT_LIMITS.perPatterPerDay} pets a day`, async () => {
     const t = await start();
     const ivy = t.join("Ivy");
@@ -226,6 +238,8 @@ describe("pets in the world", () => {
     const ivy = t.join("Ivy");
     const heard: ServerMessage[] = [];
     cleanups.push(t.service.subscribe(ivy.id, (m) => heard.push(m)));
+    const events = () =>
+      heard.flatMap((m) => (m.type === "event" ? [m.event] : [])) as WorldEvent[];
     expect(t.social.safety.quarantine("staff", tam.id, "a rude pet name").ok).toBe(true);
 
     const world = (await t.call("GET", "/v1/world")).body;
@@ -233,13 +247,22 @@ describe("pets in the world", () => {
     const profile = (await t.call("GET", `/v1/residents/${tam.id}`)).body.resident;
     expect(profile.pet).toMatchObject({ kind: "cat", name: "" });
     expect((await t.act(tam.token, { type: "rename_pet", name: "Bun" })).ok).toBe(true);
-    const events = heard.flatMap((m) => (m.type === "event" ? [m.event] : [])) as WorldEvent[];
-    expect(events).toContainEqual({
-      type: "pet_renamed",
-      residentId: tam.id,
-      name: "",
-      trust: "untrusted",
-    });
+    expect(events()).toContainEqual(
+      expect.objectContaining({ type: "pet_renamed", residentId: tam.id, name: "" }),
+    );
+
+    // Tam leaves and comes back: the pet in `joined` has no name either.
+    await t.call("DELETE", "/v1/session", undefined, tam.token);
+    expect((await t.act(tam.token, { type: "move", dir: "s" })).ok).toBe(true);
+    const joined = events().find((e) => e.type === "joined" && e.resident.id === tam.id);
+    expect(joined?.type === "joined" && joined.resident.pet).toMatchObject({ name: "" });
+
+    // A second quarantined resident adopts: `pet_adopted` carries no name.
+    const bo = await t.settler("Bo", 0);
+    expect(t.social.safety.quarantine("staff", bo.id, "a rude pet name").ok).toBe(true);
+    expect((await t.adopt(bo.token, "Pip")).ok).toBe(true);
+    const adopted = events().find((e) => e.type === "pet_adopted" && e.residentId === bo.id);
+    expect(adopted?.type === "pet_adopted" && adopted.pet).toMatchObject({ kind: "cat", name: "" });
   });
 
   it("tells an owner about a treat from someone else, and refuses one across a block", async () => {

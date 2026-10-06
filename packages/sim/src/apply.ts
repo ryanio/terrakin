@@ -143,7 +143,13 @@ import type {
   WorldEvent,
   WorldState,
 } from "./types";
-import { BLOCK_KINDS, RESIDENT_COLORS, RESIDENT_SHAPES, TOWN_ACTOR } from "./types";
+import {
+  BLOCK_KINDS,
+  PLOT_NAME_MAX_LENGTH,
+  RESIDENT_COLORS,
+  RESIDENT_SHAPES,
+  TOWN_ACTOR,
+} from "./types";
 import { checkVisit } from "./visit";
 import { checkSolidBuildings, STEPS_GO, stepFrom, walkSteps, worldGround } from "./walk";
 import {
@@ -1153,6 +1159,30 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         // share on an old plot doesn't make a voter on the spot.
         if (state.day !== undefined) plot.sharedDay = { ...plot.sharedDay, [target]: state.day };
         return [{ type: "plot_shared", px, py, residentId: target }];
+      };
+    }
+
+    case "name_plot": {
+      const plot = workingPlot(state, me, false);
+      if (!plot) {
+        return workingPlot(state, me, true)
+          ? reject("not_your_plot", "Only a plot's owner can name it.")
+          : reject("no_plot", `You need a plot of your own first.${settleHint(state, me)}`);
+      }
+      // The server cleans and filters the name before logging; the trim here keeps direct sim
+      // use honest, and the logged name is what replays.
+      const name = command.name.trim();
+      if (name.length > PLOT_NAME_MAX_LENGTH) {
+        return reject(
+          "name_too_long",
+          `A plot's name is at most ${PLOT_NAME_MAX_LENGTH} characters.`,
+        );
+      }
+      const { px, py } = plot;
+      return () => {
+        if (name.length === 0) delete plot.name;
+        else plot.name = name;
+        return [{ type: "plot_named", px, py, name }];
       };
     }
 

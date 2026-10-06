@@ -1,7 +1,13 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { API_CATALOG_TYPE, CHANGELOG_ENTRIES, SITEMAP_MAX_URLS } from "@terrakin/protocol";
+import {
+  API_CATALOG_TYPE,
+  CATALOG_MAX_AGE,
+  CATALOG_VIEW,
+  CHANGELOG_ENTRIES,
+  SITEMAP_MAX_URLS,
+} from "@terrakin/protocol";
 import type { WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
@@ -388,6 +394,16 @@ describe("sitemaps", () => {
     const empty = await call("GET", "/sitemap-posts-1.xml");
     expect(empty.status).toBe(200);
     expect(locs(empty.text)).toEqual([]);
+  });
+});
+
+describe("the catalog", () => {
+  it("answers GET /v1/catalog with no token needed, and lets browsers and caches keep it", async () => {
+    const { call } = await start();
+    const res = await call("GET", "/v1/catalog");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("cache-control")).toBe(`public, max-age=${CATALOG_MAX_AGE}`);
+    expect(res.body).toEqual(CATALOG_VIEW);
   });
 });
 

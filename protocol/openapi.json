@@ -5457,6 +5457,58 @@
         }
       }
     },
+    "/v1/catalog": {
+      "get": {
+        "operationId": "getCatalog",
+        "summary": "Every kind of thing: its family, how it grows, what the shop asks for it, and what it makes.",
+        "description": "The whole catalog (RFC 0018): every family, from the general to the specific (food, then fruit), and every kind of thing you can hold with its one family, its category, what grows it and how many days it takes, its shop price and seasons if the shop sells it, the recipe that makes it, and the recipes that use it up. A family recipe takes any one kind from a family, like jam from any fruit; each kind it makes is listed with its own recipe, so `craft` names it like any other. `version` changes whenever anything here does, and the check-in names it as `catalog`: read this again when it changes. Cached for an hour.",
+        "tags": [
+          "World"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error: internal",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "internal"
+            ]
+          }
+        }
+      }
+    },
     "/v1/shop": {
       "get": {
         "operationId": "getShop",
@@ -31003,6 +31055,10 @@
               }
             ]
           },
+          "catalog": {
+            "description": "The catalog's `version`, as `GET /v1/catalog` has it. When it isn't the one you last read, read the catalog again: kinds, recipes, or prices changed. Present even when `unchanged`.",
+            "type": "string"
+          },
           "notifications": {
             "type": "object",
             "properties": {
@@ -33794,6 +33850,281 @@
           "paused",
           "rules",
           "away"
+        ]
+      },
+      "CatalogFamily": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The family's id, as a kind's `family` and `path` name it."
+          },
+          "name": {
+            "type": "string",
+            "description": "Its name as a heading, like `Fruit`."
+          },
+          "parent": {
+            "description": "The family it sits in. Absent for a top family.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "CatalogFamilyRecipe": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Its id, as a kind's `recipe.familyRecipe` names it, like `jam`."
+          },
+          "name": {
+            "type": "string"
+          },
+          "family": {
+            "type": "string",
+            "description": "It takes `count` of any one kind from this family."
+          },
+          "count": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "plus": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "$ref": "#/components/schemas/StackKind"
+                },
+                "count": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "kind",
+                "count"
+              ]
+            },
+            "description": "What else it uses up."
+          },
+          "station": {
+            "type": "string",
+            "enum": [
+              "kitchen",
+              "workbench"
+            ]
+          },
+          "makes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GoodKind"
+            },
+            "description": "What it makes, one kind for each kind in the family, each listed in `kinds` with its recipe."
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "family",
+          "count",
+          "plus",
+          "station",
+          "makes"
+        ]
+      },
+      "CatalogKind": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/ItemKind"
+          },
+          "name": {
+            "type": "string"
+          },
+          "plural": {
+            "type": "string"
+          },
+          "family": {
+            "type": "string",
+            "description": "The one family it belongs to, the most specific."
+          },
+          "path": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "That family's path from the most general, like `[\"food\", \"fruit\"]`."
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "seed",
+              "produce",
+              "staple",
+              "resource",
+              "good",
+              "decor",
+              "furniture"
+            ],
+            "description": "What it is to the rules: a `good` is a made thing with an id and a maker; everything else stacks."
+          },
+          "grows": {
+            "description": "A seed: the crop it grows.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CropKind"
+              }
+            ]
+          },
+          "crop": {
+            "description": "A crop: the seed it grows from, the days from planting until it's ready, and what a harvest gives (`yield` of it and `seeds` seeds back).",
+            "type": "object",
+            "properties": {
+              "seed": {
+                "$ref": "#/components/schemas/StackKind"
+              },
+              "days": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "yield": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "seeds": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "seed",
+              "days",
+              "yield",
+              "seeds"
+            ]
+          },
+          "shop": {
+            "description": "Sold at the town shop for `price` coins. `GET /v1/shop` says what it sells today.",
+            "type": "object",
+            "properties": {
+              "price": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "seasons": {
+                "description": "Sold only in these seasons. Absent when it's sold all year.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/SeasonName"
+                }
+              }
+            },
+            "required": [
+              "price"
+            ]
+          },
+          "recipe": {
+            "description": "Made with `craft`, naming this kind as `recipe`, at a station from what it uses up.",
+            "type": "object",
+            "properties": {
+              "station": {
+                "type": "string",
+                "enum": [
+                  "kitchen",
+                  "workbench"
+                ]
+              },
+              "needs": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "$ref": "#/components/schemas/StackKind"
+                    },
+                    "count": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "count"
+                  ]
+                }
+              },
+              "familyRecipe": {
+                "description": "The family recipe it comes from, in `familyRecipes`, like `jam`.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "station",
+              "needs"
+            ]
+          },
+          "usedIn": {
+            "description": "The recipes that use it up. Absent when none do.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ItemKind"
+            }
+          }
+        },
+        "required": [
+          "kind",
+          "name",
+          "plural",
+          "family",
+          "path",
+          "category"
+        ]
+      },
+      "CatalogResponse": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "description": "A hash of everything below. It changes whenever a kind, family, recipe, or price does. The check-in's `catalog` names the current one: read this again when it changes."
+          },
+          "families": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CatalogFamily"
+            },
+            "description": "Every family, general ones first. Each kind belongs to one, its most specific."
+          },
+          "kinds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CatalogKind"
+            },
+            "description": "Every kind of thing you can hold. New kinds, families, and categories may appear over time."
+          },
+          "familyRecipes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CatalogFamilyRecipe"
+            },
+            "description": "Recipes that take any one kind from a family, like jam from any fruit. Each kind they make is in `kinds` with its own recipe."
+          }
+        },
+        "required": [
+          "version",
+          "families",
+          "kinds",
+          "familyRecipes"
         ]
       }
     }

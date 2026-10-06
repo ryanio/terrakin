@@ -1,3 +1,21 @@
+import {
+  CATALOG,
+  CROP_INFO,
+  CROPS,
+  countOf,
+  DECOR_KINDS,
+  FAMILIES,
+  FAMILY_RECIPES,
+  type FamilyInfo,
+  FURNITURE_KINDS,
+  FURNITURE_RECIPES,
+  GOOD_KINDS,
+  ITEM_INFO,
+  type ItemKind,
+  kindsIn,
+  RECIPES,
+  type StackKind,
+} from "@terrakin/sim";
 import { API_LIFECYCLE } from "./openapi";
 import {
   DAILY_LIMITS,
@@ -96,6 +114,85 @@ function endpointTables(): string[] {
 /** The endpoint table for SKILL.md, grouped by tag. */
 export function skillApiBlock(): string {
   return [GENERATED_START, NOTICE, "", ...endpointTables(), GENERATED_END].join("\n");
+}
+
+const CATALOG_NOTICE =
+  "<!-- Generated from sim/src/catalog.ts by `pnpm gen`. Edit the catalog, not this block. -->";
+
+/** What a recipe uses, in words: "3 lemons, 1 bag of sugar, 1 jar". */
+const needsWords = (needs: Readonly<Partial<Record<StackKind, number>>>, joiner = ", ") =>
+  (Object.entries(needs) as [StackKind, number][]).map(([k, n]) => countOf(k, n)).join(joiner);
+
+/** A shop price in words, with the season it's sold in when it isn't all year. */
+function priceWords(kind: ItemKind): string {
+  const shop = CATALOG[kind].shop;
+  if (!shop) return "not sold";
+  return `${shop.price} coins${shop.seasons ? `, ${shop.seasons.join(" and ")} only` : ""}`;
+}
+
+/**
+ * SKILL.md's "Things and families" tables, from the sim's catalog (RFC 0018): the families, every
+ * crop, every recipe for a made thing with the family recipes, and the shop's decor.
+ */
+export function catalogBlock(): string {
+  const [start, end] = markers("catalog");
+  const families = Object.entries(FAMILIES as Record<string, FamilyInfo>);
+  const tops = families
+    .filter(([, f]) => f.parent === undefined)
+    .map(([id]) => {
+      const under = families.filter(([, f]) => f.parent === id).map(([c]) => `\`${c}\``);
+      return under.length > 0 ? `\`${id}\` (${under.join(", ")})` : `\`${id}\``;
+    });
+  const familyRecipes = FAMILY_RECIPES.map((r) => {
+    const made = kindsIn(r.from).map((m) => `\`${m}_${r.suffix}\``);
+    const uses = [`${r.count} of any one kind in \`${r.from}\``, needsWords(r.plus)].join(", ");
+    return `**${r.label}** is a family recipe: at a ${r.station}, ${uses} make that kind's ${r.suffix}. Each has its own row above: ${made.join(", ")}.`;
+  });
+  return [
+    start,
+    CATALOG_NOTICE,
+    "",
+    `Every kind belongs to one family: ${tops.join(", ")}.`,
+    "",
+    "| crop | ready in | a harvest gives | its seeds cost |",
+    "|------|----------|-----------------|----------------|",
+    ...CROPS.map((crop) => {
+      const info = CROP_INFO[crop];
+      const back = info.seeds === 1 ? "a seed" : countOf(info.seed, info.seeds);
+      return `| \`${crop}\` | ${info.days} days | ${countOf(crop, info.yield)} and ${back} | ${priceWords(info.seed)} |`;
+    }),
+    "",
+    "| recipe | name | made at | uses |",
+    "|--------|------|---------|------|",
+    ...GOOD_KINDS.map(
+      (kind) =>
+        `| \`${kind}\` | ${ITEM_INFO[kind].name} | ${RECIPES[kind].station} | ${needsWords(RECIPES[kind].needs)} |`,
+    ),
+    "",
+    ...familyRecipes,
+    "",
+    "| decor | name | at the town shop |",
+    "|-------|------|------------------|",
+    ...DECOR_KINDS.map((kind) => `| \`${kind}\` | ${ITEM_INFO[kind].name} | ${priceWords(kind)} |`),
+    end,
+  ].join("\n");
+}
+
+/** SKILL.md's furniture table in Build, from the sim's catalog. */
+export function furnitureBlock(): string {
+  const [start, end] = markers("furniture");
+  return [
+    start,
+    CATALOG_NOTICE,
+    "",
+    "| furniture | name | made from |",
+    "|-----------|------|-----------|",
+    ...FURNITURE_KINDS.map(
+      (kind) =>
+        `| \`${kind}\` | ${ITEM_INFO[kind].name} | ${needsWords(FURNITURE_RECIPES[kind].needs, " and ")} |`,
+    ),
+    end,
+  ].join("\n");
 }
 
 /** One line per route, for llms.txt files. */

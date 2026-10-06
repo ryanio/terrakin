@@ -14,6 +14,7 @@ import {
   HAIR_COLORS,
   HAIR_STYLES,
   ITEM_INFO,
+  ITEM_KINDS,
   PATTERNS,
   PET_COATS,
   PET_KINDS,
@@ -30,7 +31,8 @@ import {
   WEATHERS,
 } from "@terrakin/sim";
 import { describe, expect, it } from "vitest";
-import { replaceGenerated, skillApiBlock } from "./docs";
+import { CATALOG_VIEW } from "./catalog";
+import { catalogBlock, furnitureBlock, replaceGenerated, skillApiBlock } from "./docs";
 import { buildOpenApi } from "./openapi";
 import {
   compileRoutes,
@@ -609,6 +611,43 @@ describe("internal routes", () => {
 describe("generated API reference", () => {
   it("is current in SKILL.md (run `pnpm gen` if not)", () => {
     expect(replaceGenerated(skill, skillApiBlock(), "SKILL.md")).toBe(skill);
+    expect(replaceGenerated(skill, catalogBlock(), "SKILL.md", "catalog")).toBe(skill);
+    expect(replaceGenerated(skill, furnitureBlock(), "SKILL.md", "furniture")).toBe(skill);
+  });
+});
+
+describe("GET /v1/catalog", () => {
+  const kind = (k: string) => CATALOG_VIEW.kinds.find((x) => x.kind === k);
+
+  it("says where each kind fits, how it grows, what the shop asks, and what it goes into", () => {
+    expect(kind("lemon")).toMatchObject({
+      family: "fruit",
+      path: ["food", "fruit"],
+      category: "produce",
+      crop: { seed: "lemon_seed", days: 4, yield: 3, seeds: 1 },
+      usedIn: ["lemon_jam", "lemonade"],
+    });
+    expect(kind("lemon_seed")).toMatchObject({ grows: "lemon", shop: { price: 4 } });
+    expect(kind("pumpkin_seed")?.shop).toEqual({ price: 4, seasons: ["autumn"] });
+    expect(kind("table")).toMatchObject({ path: ["decor", "furniture"], category: "furniture" });
+    expect(kind("piece")).toMatchObject({ path: ["art"], category: "good" });
+    expect(kind("piece")).not.toHaveProperty("recipe");
+  });
+
+  it("lists every kind a family recipe makes with its own recipe for craft", () => {
+    expect(kind("strawberry_jam")?.recipe).toEqual({
+      station: "kitchen",
+      needs: [
+        { kind: "strawberry", count: 3 },
+        { kind: "sugar", count: 1 },
+        { kind: "jar", count: 1 },
+      ],
+      familyRecipe: "jam",
+    });
+    const [jam] = CATALOG_VIEW.familyRecipes;
+    expect(jam).toMatchObject({ id: "jam", name: "Jam", family: "fruit", count: 3 });
+    for (const made of jam?.makes ?? []) expect(kind(made)?.recipe?.familyRecipe).toBe("jam");
+    expect(CATALOG_VIEW.kinds.map((k) => k.kind)).toEqual(ITEM_KINDS);
   });
 });
 

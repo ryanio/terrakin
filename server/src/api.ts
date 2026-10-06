@@ -4,6 +4,7 @@ import {
   absolute,
   acceptsIdempotencyKey,
   type BinaryBody,
+  CATALOG_VIEW,
   CHANGELOG_ENTRIES,
   ClientMessage,
   changelogResponse,
@@ -1157,6 +1158,7 @@ export class Api {
         status: 200,
         body: inventoryView(service.state, viewer, (id) => this.social?.authorView(id)),
       }),
+      getCatalog: () => ({ status: 200, body: CATALOG_VIEW }),
       getShop: ({ viewer }) => ({
         status: 200,
         body: shopView(
@@ -2843,7 +2845,13 @@ function render(route: RouteSpec, reply: HandlerReply | Failure, help?: string):
   }
   const spec = route.responses[reply.status];
   if (!spec) throw new Error(`Route ${route.id} declares no ${reply.status} response.`);
-  if (spec.kind === "json") return json(reply.status, reply.body);
+  if (spec.kind === "json") {
+    const out = json(reply.status, reply.body);
+    // Public data that's the same for everyone, like the catalog, may be kept a while.
+    return spec.maxAge === undefined
+      ? out
+      : { ...out, headers: { ...out.headers, "cache-control": `public, max-age=${spec.maxAge}` } };
+  }
   if (spec.kind === "empty") return { status: reply.status, headers: {}, body: "" };
   if (route.format === "markdown") {
     return { status: reply.status, headers: PRIVATE_PAGE, body: reply.text ?? "" };

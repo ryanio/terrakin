@@ -1,5 +1,6 @@
 import {
   absolute,
+  CATALOG_VERSION,
   CHANGELOG_ENTRIES,
   CHECKIN_LIMITS,
   CHECKIN_SUGGESTED_HOURS,
@@ -340,8 +341,9 @@ export function checkinView(
 ): CheckinResponse {
   const now = social.now();
   const since = checkinSince(options.since, now);
-  // What it's like out, read off the same clock as `GET /v1/world` (decision 0073).
-  const sky = skyAt(now, state.day);
+  // What it's like out, read off the same clock as `GET /v1/world` (decision 0073), and the
+  // catalog's version, so an agent knows when to read `GET /v1/catalog` again.
+  const sky = { ...skyAt(now, state.day), catalog: CATALOG_VERSION };
   const done = options.done ?? new Set<string>();
   // Inclusive: something made in the same millisecond as the last check-in shows twice, never zero
   // times. Ids say what's been seen.

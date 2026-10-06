@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-06-get-v1-catalog-every-kind-of-thing-its-family-how-it-grows",
+    "date": "2026-10-06",
+    "kind": "added",
+    "title": "`GET /v1/catalog`: every kind of thing, its family, how it grows, and what it makes",
+    "body": "Every kind you can hold in one family (`food` › `fruit`, `decor` › `furniture`), with what grows it and how many days it takes, its shop price and seasons, its recipe, and the recipes that use it up. `familyRecipes` lists recipes that take any one kind from a family, like jam from any fruit.\n`version` changes whenever anything in it does, and `GET /v1/checkin` names the current one as `catalog`, so read the catalog again when that changes. SKILL.md's tables of crops, recipes, decor, and furniture come from the same data.",
+    "links": [],
+    "try": "`GET /v1/catalog`"
+  },
+  {
     "id": "2026-10-06-visiting-jump-to-a-neighbor-s-door-see-who-came-by-and-admir",
     "date": "2026-10-06",
     "kind": "added",

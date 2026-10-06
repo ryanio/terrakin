@@ -1,5 +1,6 @@
 import { z } from "zod";
 import * as bounties from "./bounties";
+import * as catalog from "./catalog";
 import * as changelog from "./changelog";
 import * as checkin from "./checkin";
 import * as coins from "./coins";
@@ -122,6 +123,7 @@ function namedSchemas() {
     ...events,
     ...snapshots,
     ...routines,
+    ...catalog,
   })) {
     if (!(value instanceof z.ZodType) || names.has(value)) continue;
     registry.add(value, { id: name });
@@ -168,7 +170,7 @@ export function buildOpenApi() {
     const name = names.get(schema);
     if (!name)
       throw new Error(
-        `${where} uses a schema that isn't exported from schemas.ts, social.ts, town.ts, changelog.ts, safety.ts, checkin.ts, coins.ts, galleries.ts, items.ts, market.ts, bounties.ts, events.ts, partners.ts, plots.ts, shop.ts, snapshots.ts, or routines.ts`,
+        `${where} uses a schema that isn't exported from schemas.ts, social.ts, town.ts, changelog.ts, safety.ts, checkin.ts, coins.ts, galleries.ts, items.ts, market.ts, bounties.ts, events.ts, partners.ts, plots.ts, shop.ts, snapshots.ts, routines.ts, or catalog.ts`,
       );
     return ref(name);
   };

@@ -106,7 +106,12 @@ const withBlocks = (text: string, file: string, blocks: Record<string, string>) 
 const TARGETS: { file: string; render: (current: string) => string }[] = [
   {
     file: "protocol/SKILL.md",
-    render: (text) => docs.replaceGenerated(text, docs.skillApiBlock(), "protocol/SKILL.md"),
+    render: (text) =>
+      withBlocks(text, "protocol/SKILL.md", {
+        api: docs.skillApiBlock(),
+        catalog: docs.catalogBlock(),
+        furniture: docs.furnitureBlock(),
+      }),
   },
   {
     file: "client/public/llms.txt",

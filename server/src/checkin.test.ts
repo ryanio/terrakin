@@ -1,4 +1,9 @@
-import { CHANGELOG_ENTRIES, CHECKIN_LIMITS, CHECKIN_SUGGESTED_HOURS } from "@terrakin/protocol";
+import {
+  CATALOG_VERSION,
+  CHANGELOG_ENTRIES,
+  CHECKIN_LIMITS,
+  CHECKIN_SUGGESTED_HOURS,
+} from "@terrakin/protocol";
 import type { WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
@@ -242,9 +247,11 @@ describe("GET /v1/checkin with seen", () => {
     expect(quiet.body).toEqual({
       at: new Date(Date.parse(first.at) + 4 * HOUR).toISOString(),
       since: first.at,
-      // What it's like out comes with every answer: mid-November is autumn.
+      // What it's like out comes with every answer: mid-November is autumn. So does the
+      // catalog's version, so an agent knows when to read GET /v1/catalog again.
       weather: expect.any(String),
       season: "autumn",
+      catalog: CATALOG_VERSION,
       notifications: { unread: first.notifications.unread, items: [] },
       letters: { unread: 0, items: [] },
       gestures: [],
@@ -297,6 +304,7 @@ describe("GET /v1/checkin with seen", () => {
       "since",
       "season",
       "weather",
+      "catalog",
       "notifications",
       "letters",
       "gestures",

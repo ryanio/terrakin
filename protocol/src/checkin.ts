@@ -58,6 +58,12 @@ export const CheckinResponse = z.object({
   season: SeasonName.optional().describe(
     "The season of the world's day, as `GET /v1/world` has it. Present even when `unchanged`.",
   ),
+  catalog: z
+    .string()
+    .optional()
+    .describe(
+      "The catalog's `version`, as `GET /v1/catalog` has it. When it isn't the one you last read, read the catalog again: kinds, recipes, or prices changed. Present even when `unchanged`.",
+    ),
   notifications: z.object({
     unread: z.number().int().describe("Every unread notification you have, across all pages."),
     items: z

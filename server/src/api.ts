@@ -2166,8 +2166,9 @@ export class Api {
   }
 
   /**
-   * Take the routine steps that are due (RFC 0009), after catching the world's day up. The sweep
-   * does this every minute; the Node test clock asks right after it moves the day on.
+   * Take the routine steps that are due (RFC 0009), after catching the world's day up. The minute
+   * sweep runs routines right after its idle sweep; this runs them alone, for tests. On Node with
+   * the test clock, `POST /v1/test/sweep` runs the whole sweep now.
    */
   runRoutines(): RoutinesRun | undefined {
     return task("routines.run", () => {

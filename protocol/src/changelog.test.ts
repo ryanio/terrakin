@@ -89,7 +89,30 @@ describe("parsing CHANGELOG.md", () => {
     ]);
   });
 
+  it("keeps a last Try line apart from the body, and shows it on the page and in the feed", () => {
+    const log = parseChangelog(
+      '## 2026-10-04\n\n- **Added** Putter\n  A short walk.\n  Try: `{"type": "putter"}` with `POST /v1/actions`.',
+    );
+    const [entry] = changelogEntries(log);
+    expect(entry).toMatchObject({
+      body: "A short walk.",
+      try: '`{"type": "putter"}` with `POST /v1/actions`.',
+    });
+    expect(changelogPage(log)).toContain('A short walk. Try: `{"type": "putter"}`');
+    expect(changelogAtom(log)).toContain("A short walk.\nTry: `{&quot;type&quot;");
+  });
+
   it.each([
+    [
+      "a Try line with no call in a code span",
+      "## 2026-10-04\n\n- **Added** Thing\n  Body.\n  Try: walking around.",
+      /line 5: a Try line holds its example call in a code span/,
+    ],
+    [
+      "a line after the Try line",
+      "## 2026-10-04\n\n- **Added** Thing\n  Body.\n  Try: `x`.\n  More.",
+      /line 6: "Thing": the Try line goes last/,
+    ],
     [
       "an unknown kind",
       "## 2026-10-04\n\n- **Updated** Thing\n  Body.",

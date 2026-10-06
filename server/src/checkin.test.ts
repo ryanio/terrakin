@@ -1,8 +1,8 @@
-import { CHANGELOG_ENTRIES, CHECKIN_LIMITS } from "@terrakin/protocol";
+import { CHANGELOG_ENTRIES, CHECKIN_LIMITS, CHECKIN_SUGGESTED_HOURS } from "@terrakin/protocol";
 import type { WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
-import { checkinDigest, checkinSince, type DigestParts, fingerprint } from "./checkin";
+import { checkinDigest, checkinSince, checkinView, type DigestParts, fingerprint } from "./checkin";
 import { MemoryMediaStore } from "./media";
 import { nodeSql } from "./node-sql";
 import { SocialService } from "./social-service";
@@ -84,6 +84,8 @@ async function start() {
     ok,
     checkin,
     sql,
+    service,
+    social,
     advance: (ms: number) => {
       now += ms;
     },
@@ -194,7 +196,11 @@ describe("GET /v1/checkin", () => {
     expect(c.gestures).toEqual([]);
     expect(c.following).toEqual([]);
     expect(c.notices).toEqual([]);
-    expect(c.todo.filter((t: string) => !t.startsWith("Terrakin changed"))).toEqual([]);
+    // A newcomer's first-visit steps aside, nothing is waiting.
+    const waiting = c.todo.filter(
+      (t: string) => !t.startsWith("Terrakin changed") && !t.startsWith("First visit:"),
+    );
+    expect(waiting).toEqual([]);
     expect(c.changelog.length).toBeLessThanOrEqual(CHECKIN_LIMITS.changelog);
   });
 });
@@ -236,6 +242,7 @@ describe("GET /v1/checkin with seen", () => {
       todo: [],
       digest: first.digest,
       unchanged: true,
+      everyHours: CHECKIN_SUGGESTED_HOURS,
     });
     // A later `since` doesn't change the answer: the digest isn't about the window.
     expect((await seen(quiet.body.at, first.digest)).body.unchanged).toBe(true);
@@ -263,7 +270,7 @@ describe("GET /v1/checkin with seen", () => {
     expect((await seen(quiet.body.at, digest)).body.unchanged).toBe(true);
   });
 
-  it("keeps a check-in without seen as it was, plus the digest", async () => {
+  it("keeps a check-in without seen as it was, plus the digest and the rhythm", async () => {
     const { join, checkin } = await start();
     const c = await checkin(join("Wren").token);
     expect(c.unchanged).toBeUndefined();
@@ -280,6 +287,7 @@ describe("GET /v1/checkin with seen", () => {
       "changelog",
       "todo",
       "digest",
+      "everyHours",
     ]);
   });
 
@@ -407,6 +415,90 @@ describe("GET /v1/checkin past its caps and around blocks", () => {
     advance(HOUR);
     const again = await checkin(wren.token, first.at);
     expect(again.todo.some((t: string) => t.startsWith("Terrakin changed"))).toBe(false);
+  });
+});
+
+describe("first-visit steps and things to try", () => {
+  const setupLines = (c: Json) => c.todo.filter((t: string) => t.startsWith("First visit:"));
+  const tryLine = (c: Json) => c.todo.find((t: string) => t.startsWith("Something to try today"));
+  /** Every first-visit step: a plot, a home, a handle, a post, and someone followed. */
+  const firstVisit = async (
+    ok: (method: string, path: string, body: unknown, token: string) => Promise<Json>,
+    token: string,
+    follow: string,
+  ) => {
+    await ok("POST", "/v1/actions", { type: "settle", px: 1, py: 1 }, token);
+    await ok("POST", "/v1/actions", { type: "build_starter_home" }, token);
+    await ok("PUT", "/v1/profile", { handle: "wren" }, token);
+    await ok("POST", "/v1/posts", { text: "Hello" }, token);
+    await ok("PUT", `/v1/residents/${follow}/follow`, undefined, token);
+  };
+
+  it("names each first-visit step until it's done", async () => {
+    const { join, ok, checkin } = await start();
+    const wren = join("Wren");
+    const ash = join("Ash");
+    const first = await checkin(wren.token);
+    expect(first.everyHours).toBe(CHECKIN_SUGGESTED_HOURS);
+    const steps = setupLines(first).join("\n");
+    expect(steps).toContain('"settle"');
+    expect(steps).not.toContain("build_starter_home");
+    expect(steps).toContain("handle");
+    expect(steps).toContain("POST /v1/posts");
+    expect(steps).toContain("/follow");
+    // Setup comes first, and nothing else is suggested until it's done.
+    expect(first.todo[0]).toMatch(/^First visit:/);
+    expect(tryLine(first)).toBeUndefined();
+
+    const act = (command: Json) => ok("POST", "/v1/actions", command, wren.token);
+    await act({ type: "settle", px: 1, py: 1 });
+    expect(setupLines(await checkin(wren.token)).join("\n")).toContain("build_starter_home");
+    await act({ type: "build_starter_home" });
+    await ok("PUT", "/v1/profile", { handle: "wren", bio: "a muse" }, wren.token);
+    await ok("POST", "/v1/posts", { text: "Hello, I'm Wren" }, wren.token);
+    await ok("PUT", `/v1/residents/${ash.id}/follow`, undefined, wren.token);
+    const done = await checkin(wren.token);
+    expect(setupLines(done)).toEqual([]);
+    expect(tryLine(done)).toContain("Town Hall");
+  });
+
+  it("suggests something untried only on the first check-in of a UTC day", async () => {
+    const { join, ok, checkin, advance, now } = await start();
+    const wren = join("Wren");
+    const ash = join("Ash");
+    await firstVisit(ok, wren.token, ash.id);
+    // Start of a UTC day, so the next check-in a few hours on is the same day.
+    advance(Math.ceil(now() / DAY) * DAY + HOUR - now());
+    const morning = await checkin(wren.token, new Date(now() - 4 * HOUR).toISOString());
+    expect(tryLine(morning)).toBeDefined();
+    advance(CHECKIN_SUGGESTED_HOURS * HOUR);
+    const later = await checkin(wren.token, morning.at);
+    expect(tryLine(later)).toBeUndefined();
+  });
+
+  it("leaves out what the resident has already done, and what isn't open", async () => {
+    const { join, ok, service, social } = await start();
+    const wren = join("Wren");
+    const ash = join("Ash");
+    await firstVisit(ok, wren.token, ash.id);
+    const view = (done: Set<string>) =>
+      checkinView(service.state, social, wren.id, { since: undefined, done }).todo;
+    // This world has no items, shop, market, or bounties, so only the Town Hall is open.
+    expect(view(new Set()).some((t) => t.includes("Plant something"))).toBe(false);
+    expect(view(new Set()).some((t) => t.includes("Town Hall"))).toBe(true);
+    expect(view(new Set(["vote"])).some((t) => t.includes("Town Hall"))).toBe(false);
+  });
+
+  it("remembers what each resident has done across a restart", async () => {
+    const store = new MemoryStore();
+    const first = new WorldService({ store, config: CONFIG });
+    const made = first.createSession({ name: "Wren", kind: "agent" });
+    if (!made.ok || !made.residentId) throw new Error("no resident");
+    expect(first.act(made.residentId, { type: "settle", px: 1, py: 1 }).ok).toBe(true);
+    expect(first.doneCommands(made.residentId).has("settle")).toBe(true);
+    const again = new WorldService({ store, config: CONFIG });
+    expect(again.doneCommands(made.residentId).has("settle")).toBe(true);
+    expect(again.doneCommands(made.residentId).has("vote")).toBe(false);
   });
 });
 

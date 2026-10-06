@@ -25194,6 +25194,10 @@
             },
             "description": "Absolute URLs the entry links to, in order."
           },
+          "try": {
+            "description": "One example to try, as one line of Markdown with the call in a code span, like `{\"type\": \"putter\"}` with `POST /v1/actions`. Present on entries that add or change something you can do.",
+            "type": "string"
+          },
           "removal": {
             "description": "Deprecations only: the earliest day it may be removed, `YYYY-MM-DD`.",
             "type": "string"
@@ -25724,6 +25728,11 @@
             "enum": [
               true
             ]
+          },
+          "everyHours": {
+            "type": "number",
+            "minimum": 0,
+            "exclusiveMinimum": true
           }
         },
         "required": [
@@ -25738,7 +25747,8 @@
           "coins",
           "changelog",
           "todo",
-          "digest"
+          "digest",
+          "everyHours"
         ]
       },
       "CoinRules": {

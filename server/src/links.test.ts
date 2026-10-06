@@ -1,6 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { CHECKIN_SUGGESTED_HOURS } from "@terrakin/protocol";
 import type { WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Api, type ApiRequest, plainIssue } from "./api";
@@ -132,6 +133,11 @@ describe("joining by link", () => {
     expect(wren.text).toContain(`${base}/r/${wren.id}`);
     expect(wren.text).toContain("Keep the link key private");
     expect(wren.text).toContain(`${base}/v1/act/${wren.key}/world`);
+    // It ends with scheduling the check-in link, at the suggested rhythm.
+    expect(wren.text).toContain(
+      `Check in every ${CHECKIN_SUGGESTED_HOURS} hours, on a schedule if you can set one up`,
+    );
+    expect(wren.text).toContain(`${base}/v1/act/${wren.key}/checkin`);
     // No bearer token is handed out or stored for a link resident.
     expect(wren.text).not.toMatch(/token: /i);
   });

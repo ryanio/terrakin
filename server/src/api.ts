@@ -1121,6 +1121,7 @@ export class Api {
         body: checkinView(service.state, social(), viewer, {
           since: query.since,
           seen: query.seen,
+          done: service.doneCommands(viewer),
         }),
       }),
       getNotifications: ({ viewer, query }) => ({

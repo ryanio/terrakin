@@ -2602,10 +2602,20 @@ dialog.model-viewer {
   transform-origin: bottom left;
 }
 
+/* Two rows of five on a phone, one row where there's room. */
 .reaction-picker {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(5, 46px);
   gap: 2px;
   padding: var(--space-2xs);
+  border-radius: var(--r-lg);
+}
+
+@media (min-width: 640px) {
+  .reaction-picker {
+    grid-template-columns: repeat(10, 46px);
+    border-radius: var(--r-pill);
+  }
 }
 
 .reaction-pick {

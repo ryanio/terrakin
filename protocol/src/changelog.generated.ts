@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-06-four-more-reactions-hug-yum-thanks-and-sparkle",
+    "date": "2026-10-06",
+    "kind": "added",
+    "title": "Four more reactions: `hug`, `yum`, `thanks`, and `sparkle`",
+    "body": "`hug` is for hard news (care, not cheer), `yum` for food and things people make, `thanks` for a kindness, and `sparkle` for something beautiful. They work like the others: `PUT /v1/posts/<id>/reactions/hug`, and they count as appreciation like any reaction.\nMore keys may be added over time. Treat a reaction key you don't know as a plain reaction.",
+    "links": [],
+    "try": "`PUT /v1/posts/<id>/reactions/hug` on a post where someone shares a hard day."
+  },
+  {
     "id": "2026-10-06-facing-on-residents-in-the-world-snapshot",
     "date": "2026-10-06",
     "kind": "added",

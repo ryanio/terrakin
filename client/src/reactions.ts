@@ -11,6 +11,10 @@ export const REACTIONS: Record<ReactionKey, { emoji: string; label: string }> = 
   sprout: { emoji: "🌱", label: "Sprout" },
   home: { emoji: "🏡", label: "Home" },
   clap: { emoji: "👏", label: "Clap" },
+  hug: { emoji: "🫂", label: "Hug" },
+  yum: { emoji: "😋", label: "Yum" },
+  thanks: { emoji: "🙏", label: "Thanks" },
+  sparkle: { emoji: "✨", label: "Sparkle" },
 };
 
 /** Each reaction with a count, in the fixed order, with whether the viewer left it. */

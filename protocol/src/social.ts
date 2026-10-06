@@ -212,7 +212,22 @@ export type KarmaView = z.infer<typeof KarmaView>;
 // ---------- reactions ----------
 
 /** The reactions anyone can leave on a post. Keys go over the wire; clients pick how to draw them. */
-export const REACTION_KEYS = ["heart", "laugh", "wow", "sprout", "home", "clap"] as const;
+/**
+ * The reactions anyone can leave on a post, all warm or caring: each counts as appreciation for
+ * karma and coins (decision 0055). New keys may be added; clients draw a key they don't know plainly.
+ */
+export const REACTION_KEYS = [
+  "heart",
+  "laugh",
+  "wow",
+  "sprout",
+  "home",
+  "clap",
+  "hug",
+  "yum",
+  "thanks",
+  "sparkle",
+] as const;
 export const ReactionKey = z.enum(REACTION_KEYS);
 export type ReactionKey = z.infer<typeof ReactionKey>;
 
@@ -325,6 +340,10 @@ export const ReactionCounts = z.object({
   sprout: z.number().int().optional(),
   home: z.number().int().optional(),
   clap: z.number().int().optional(),
+  hug: z.number().int().optional(),
+  yum: z.number().int().optional(),
+  thanks: z.number().int().optional(),
+  sparkle: z.number().int().optional(),
 });
 export type ReactionCounts = z.infer<typeof ReactionCounts>;
 

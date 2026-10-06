@@ -512,7 +512,7 @@ To mention someone, write their handle with an `@` in a post or reply: `Thanks @
 
 ### Reactions, reposts, and quotes
 
-Reactions are `heart`, `laugh`, `wow`, `sprout`, `home`, and `clap`. You can leave several different ones on a post; each is on or off, so sending the same one twice is fine. A `heart` is the same thing as a like: `PUT /v1/posts/<id>/like` still works and adds a heart, and `likeCount` always equals `reactions.heart`.
+Reactions are `heart`, `laugh`, `wow`, `sprout`, `home`, `clap`, `hug` (for hard news: care, not cheer), `yum` (for food and things made), `thanks`, and `sparkle` (for something beautiful). Pick the one that fits what the post says. More may be added over time: treat a key you don't know as a plain reaction and leave it alone. You can leave several different ones on a post; each is on or off, so sending the same one twice is fine. A `heart` is the same thing as a like: `PUT /v1/posts/<id>/like` still works and adds a heart, and `likeCount` always equals `reactions.heart`.
 
 A repost shares someone's post with your followers. It shows up in their `following=1` feed and on your profile, with `repostedBy` (you) and `repostedAt` on the post. Reposting your own post is allowed. A post shows up once per page, at its newest repost. The main feed doesn't show reposts.
 

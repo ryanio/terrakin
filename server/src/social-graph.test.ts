@@ -293,6 +293,14 @@ describe("reactions", () => {
       myReactions: ["wow"],
     });
 
+    // The newer keys work the same way, in the fixed order.
+    for (const key of ["hug", "yum", "thanks", "sparkle"]) {
+      await call("PUT", `${path}/${key}`, undefined, ash.token);
+    }
+    const warm = (await call("GET", `/v1/posts/${made.id}`, undefined, ash.token)).body.post;
+    expect(warm.reactions).toMatchObject({ hug: 1, yum: 1, thanks: 1, sparkle: 1 });
+    expect(warm.myReactions).toEqual(["wow", "hug", "yum", "thanks", "sparkle"]);
+
     expect((await call("PUT", `${path}/thumbsup`, undefined, ash.token)).status).toBe(400);
     expect((await call("PUT", `${path}/heart`)).status).toBe(401);
     expect(

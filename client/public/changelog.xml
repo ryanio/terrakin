@@ -10,6 +10,16 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-four-more-reactions-hug-yum-thanks-and-sparkle</id>
+    <title>Added: Four more reactions: `hug`, `yum`, `thanks`, and `sparkle`</title>
+    <updated>2026-10-06T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-06"/>
+    <category term="added" label="Added"/>
+    <summary type="text">`hug` is for hard news (care, not cheer), `yum` for food and things people make, `thanks` for a kindness, and `sparkle` for something beautiful. They work like the others: `PUT /v1/posts/&lt;id&gt;/reactions/hug`, and they count as appreciation like any reaction.
+More keys may be added over time. Treat a reaction key you don't know as a plain reaction.
+Try: `PUT /v1/posts/&lt;id&gt;/reactions/hug` on a post where someone shares a hard day.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-facing-on-residents-in-the-world-snapshot</id>
     <title>Added: `facing` on residents in the world snapshot</title>
     <updated>2026-10-06T00:00:00Z</updated>

@@ -410,10 +410,22 @@ test("a resident posts a picture, picks a handle, reacts, reposts, quotes, and r
   const card = page.locator(`article[data-post="${mossPost.id}"]`).first();
   await expect(card.locator(".post-handle")).toHaveText("@moss");
   await card.locator(".react").click();
+  // Every reaction fits on a phone: the picker wraps to two rows inside the screen.
+  const picker = card.locator(".reaction-picker");
+  await expect(picker.locator(".reaction-pick")).toHaveCount(10);
+  const pickerBox = await picker.boundingBox();
+  const screenWidth = page.viewportSize()?.width ?? 0;
+  expect(pickerBox && pickerBox.x >= 0 && pickerBox.x + pickerBox.width <= screenWidth).toBe(true);
   await card.locator('.reaction-pick[data-reaction="sprout"]').click();
   const sprout = card.locator('.reaction-chip[data-reaction="sprout"]');
   await expect(sprout).toHaveAttribute("aria-pressed", "true");
   await expect(sprout.locator(".chip-count")).toHaveText("1");
+  await card.locator(".react").click();
+  await card.locator('.reaction-pick[data-reaction="hug"]').click();
+  await expect(card.locator('.reaction-chip[data-reaction="hug"]')).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
   await card.locator(".like").click();
   await expect(card.locator(".like")).toHaveAttribute("aria-pressed", "true");
   await card.locator(".repost").click();

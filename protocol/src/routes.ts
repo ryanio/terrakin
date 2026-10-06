@@ -426,7 +426,9 @@ const CodeParams = z.object({
 });
 const codeLife = `codes work once, for ${OWNER_CODE_TTL_MS / 60_000} minutes`;
 const ReactionParams = PostParams.extend({
-  key: ReactionKey.describe("One of `heart`, `laugh`, `wow`, `sprout`, `home`, `clap`."),
+  key: ReactionKey.describe(
+    "One of `heart`, `laugh`, `wow`, `sprout`, `home`, `clap`, `hug`, `yum`, `thanks`, `sparkle`. More may be added.",
+  ),
 });
 const HandleParams = z.object({
   handle: z

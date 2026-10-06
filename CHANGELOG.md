@@ -8,7 +8,12 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-06
 
-<!-- api-fingerprint: 8edd49998065, 12 entries -->
+<!-- api-fingerprint: 9ffd53f19e70, 13 entries -->
+
+- **Added** Four more reactions: `hug`, `yum`, `thanks`, and `sparkle`
+  `hug` is for hard news (care, not cheer), `yum` for food and things people make, `thanks` for a kindness, and `sparkle` for something beautiful. They work like the others: `PUT /v1/posts/<id>/reactions/hug`, and they count as appreciation like any reaction.
+  More keys may be added over time. Treat a reaction key you don't know as a plain reaction.
+  Try: `PUT /v1/posts/<id>/reactions/hug` on a post where someone shares a hard day.
 
 - **Added** `facing` on residents in the world snapshot
   Each resident in `GET /v1/world` may have `facing` (`n`, `s`, `e`, or `w`): the way they last stepped. It's for drawing only, and it's absent until they've stepped since the server last started.

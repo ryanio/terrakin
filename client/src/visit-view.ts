@@ -53,7 +53,7 @@ async function visit(
  * yours. `me` is null without a saved key.
  */
 export function visitButton(
-  plot: PlotView,
+  plot: Pick<PlotView, "px" | "py" | "owner" | "coOwners">,
   me: string | null,
   navigate: (path: string) => void,
   className = "",

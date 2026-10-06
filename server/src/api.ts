@@ -1229,12 +1229,12 @@ export class Api {
         body: { plots: this.plotsFor(viewer, query.sort).slice(0, query.limit) },
       }),
       getPlot: ({ viewer, params }) => {
-        const plot = this.plotsFor(viewer).find((p) => p.px === params.px && p.py === params.py);
+        const [plot] = this.plotsFor(viewer, "recent", params);
         return plot ? { status: 200, body: { plot } } : fail("not_found", NO_PLOT_TO_VISIT);
       },
       admirePlot: ({ viewer, params }) =>
         fromResult(social().plots.admire(service.state, viewer, params.px, params.py), () => {
-          const plot = this.plotsFor(viewer).find((p) => p.px === params.px && p.py === params.py);
+          const [plot] = this.plotsFor(viewer, "recent", params);
           return plot
             ? { status: 201 as const, body: { plot } }
             : fail("not_found", NO_PLOT_TO_VISIT);
@@ -2100,7 +2100,11 @@ export class Api {
    * Plots to visit (RFC 0020) as `viewer` sees them, leaving out plots whose owner is suspended
    * (like their gallery and stall) and plots of anyone blocked either way with the viewer.
    */
-  private plotsFor(viewer: string | undefined, sort: PlotSort = "recent"): PlotView[] {
+  private plotsFor(
+    viewer: string | undefined,
+    sort: PlotSort = "recent",
+    only?: { px: number; py: number },
+  ): PlotView[] {
     const layer = this.requireSocial();
     const blocked = viewer === undefined ? new Set<string>() : layer.blockedWith(viewer);
     const hidden = (plot: Plot) =>
@@ -2110,6 +2114,7 @@ export class Api {
       viewer,
       hidden,
       sort,
+      ...(only ? { only } : {}),
     });
   }
 

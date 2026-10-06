@@ -92,7 +92,7 @@ export function galleryCard(
       "div",
       { class: "cluster gallery-owners" },
       ...who.map((a) => personLink(a)),
-      navigate && !mine ? galleryVisit(g, me, navigate) : null,
+      navigate && !mine ? visitButton(g, me, navigate, "gallery-visit") : null,
     ),
     g.pieces.length > 0
       ? itemRows(
@@ -103,17 +103,6 @@ export function galleryCard(
           class: "purse-hint",
           text: "Nothing on display yet. What goes up on its pedestals and frames shows here.",
         }),
-  );
-}
-
-/** Visit a gallery's plot, the way a plot card does. */
-function galleryVisit(g: GalleryView, me: string | null, navigate: (path: string) => void) {
-  const plot = { px: g.px, py: g.py, owner: g.owner, coOwners: g.coOwners };
-  return visitButton(
-    { ...plot, changedAt: null, visitors: 0, admirers: 0, blocks: 0, displays: 0 },
-    me,
-    navigate,
-    "gallery-visit",
   );
 }
 

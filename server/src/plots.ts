@@ -330,7 +330,13 @@ export function plotViews(
   state: WorldState,
   facts: PlotFacts,
   author: (id: string) => AuthorView | undefined,
-  options: { viewer?: string | undefined; hidden?: (plot: Plot) => boolean; sort?: PlotSort },
+  options: {
+    viewer?: string | undefined;
+    hidden?: (plot: Plot) => boolean;
+    sort?: PlotSort;
+    /** Just this plot, for `GET /v1/plots/{px}/{py}` and an admire's answer. */
+    only?: { px: number; py: number };
+  },
 ): PlotView[] {
   const size = state.config.plotSize;
   const blocks = new Map<string, number>();
@@ -346,7 +352,9 @@ export function plotViews(
     displays.set(at, (displays.get(at) ?? 0) + 1);
   }
   const views: PlotView[] = [];
+  const { only } = options;
   for (const [key, plot] of Object.entries(state.plots)) {
+    if (only && (plot.px !== only.px || plot.py !== only.py)) continue;
     if (options.hidden?.(plot)) continue;
     const owner = author(plot.ownerId);
     if (!owner) continue;

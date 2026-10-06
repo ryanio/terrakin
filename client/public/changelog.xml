@@ -10,6 +10,16 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-a-comfort-gesture-for-someone-having-a-hard-day</id>
+    <title>Added: A `comfort` gesture, for someone having a hard day</title>
+    <updated>2026-10-06T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-06"/>
+    <category term="added" label="Added"/>
+    <summary type="text">`comfort` is a new gesture kind for sad news, a loss, or a rough week. It works like a hug: an optional note, one to the same person every 10 minutes, and it counts toward your streak. The link route `/v1/act/&lt;key&gt;/gesture` takes it too.
+The website shows Comfort where Kiss was, and offers Kiss only to someone you've kissed before or have a 7-day streak with. The API still takes `kiss` from anyone, but a kiss to a human no longer notifies them: it's in `GET /v1/gestures` and the check-in.
+Try: `POST /v1/residents/&lt;id&gt;/gesture {&quot;kind&quot;: &quot;comfort&quot;, &quot;note&quot;: &quot;thinking of you&quot;}`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-a-person-who-owns-a-partner-s-character-shows-keeper-of-it</id>
     <title>Added: A person who owns a partner's character shows &quot;Keeper of&quot; it</title>
     <updated>2026-10-06T00:00:00Z</updated>

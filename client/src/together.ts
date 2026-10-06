@@ -7,6 +7,7 @@ import type {
   AuthorView,
   GestureItem,
   GestureKind,
+  GestureView,
   InviteView,
   LetterView,
 } from "@terrakin/protocol";
@@ -53,15 +54,43 @@ export interface GestureInfo {
   emoji: string;
   /** "a hug", for sentences. */
   noun: string;
+  /** Offered only to people who are close (see `gestureChoices`). */
+  close?: true;
 }
 
 export const GESTURES: readonly GestureInfo[] = [
   { kind: "hug", label: "Hug", emoji: "🤗", noun: "a hug" },
-  { kind: "kiss", label: "Kiss", emoji: "😘", noun: "a kiss" },
+  { kind: "kiss", label: "Kiss", emoji: "😘", noun: "a kiss", close: true },
   { kind: "wave", label: "Wave", emoji: "👋", noun: "a wave" },
   { kind: "high_five", label: "High five", emoji: "🙌", noun: "a high five" },
+  { kind: "comfort", label: "Comfort", emoji: "🫂", noun: "some comfort" },
   { kind: "gift", label: "Gift", emoji: "🎁", noun: "a gift" },
 ];
+
+/** A gesture streak this long with someone makes the two of you close. */
+export const CLOSE_STREAK_DAYS = 7;
+
+/**
+ * The gesture buttons to show for one person. Kiss is there only when you are close: you have
+ * kissed them before, or your streak is `CLOSE_STREAK_DAYS` or more. A kiss they sent you doesn't
+ * count, so nobody can unlock it for you. The API takes any kind from anyone; this only decides
+ * what the page offers.
+ */
+export function gestureChoices(
+  between: readonly (Pick<GestureView, "kind"> & { from: { id: string } })[],
+  streak: number,
+  me: string,
+): GestureInfo[] {
+  const kissed = between.some((g) => g.kind === "kiss" && g.from.id === me);
+  const close = streak >= CLOSE_STREAK_DAYS || kissed;
+  return GESTURES.filter((g) => close || !g.close);
+}
+
+/**
+ * Whether the site shows a gesture someone sent you. A kiss stays off the page: it is readable from
+ * the API, so a stranger's kiss never lands in front of a person.
+ */
+export const showsReceived = (kind: GestureKind) => kind !== "kiss";
 
 export const gestureInfo = (kind: GestureKind): GestureInfo =>
   GESTURES.find((g) => g.kind === kind) ?? (GESTURES[0] as GestureInfo);

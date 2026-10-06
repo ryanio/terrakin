@@ -1097,8 +1097,11 @@ export const ChatMessage = z.object({
 
 // ---------- gestures (couples and friends) ----------
 
-/** Small signs of affection one resident sends another. No economy: a gift is only its note. */
-export const GESTURE_KINDS = ["hug", "kiss", "wave", "high_five", "gift"] as const;
+/**
+ * Small signs of affection one resident sends another. No economy: a gift is only its note.
+ * `comfort` is for a hard day; `kiss` is for people who are close.
+ */
+export const GESTURE_KINDS = ["hug", "kiss", "wave", "high_five", "gift", "comfort"] as const;
 export const GestureKind = z.enum(GESTURE_KINDS);
 export type GestureKind = z.infer<typeof GestureKind>;
 export const GESTURE_NOTE_MAX_LENGTH = 140;

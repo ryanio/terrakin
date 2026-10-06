@@ -1429,15 +1429,16 @@ export const ROUTES = [
     auth: "linkKey",
     format: "markdown",
     once: true,
-    summary: "Wave (or hug, kiss, or high five) at a resident, like waving back at one who waved.",
+    summary:
+      "Wave (or hug, kiss, high five, or comfort) at a resident, like waving back at one who waved.",
     tags: ["Links", "Together"],
     params: LinkKeyParams,
     query: z.object({
       to: ResidentParams.shape.id.describe("The resident's id."),
       kind: z
-        .enum(["wave", "hug", "kiss", "high_five"])
+        .enum(["wave", "hug", "kiss", "high_five", "comfort"])
         .optional()
-        .describe("wave (default), hug, kiss, or high_five."),
+        .describe("wave (default), hug, kiss, high_five, or comfort."),
     }),
     responses: { 200: text("text/markdown", "Sent") },
     errors: ["bad_request", "unauthorized", "forbidden", "not_found", "rate_limited"],
@@ -1694,7 +1695,7 @@ export const ROUTES = [
     method: "POST",
     path: "/v1/residents/{id}/gesture",
     auth: "bearer",
-    summary: "Send a hug, kiss, wave, high five, or gift, with an optional short note.",
+    summary: "Send a hug, kiss, wave, high five, comfort, or gift, with an optional short note.",
     description:
       "They get it live on any open `/v1/live` socket as a `gesture` message. A gift can carry a thing you hold (`item`, and `count` for a kind), given to them like the `give` action, with its daily limits; without one, a gift is only its note. `streak` is your days in a row together.",
     tags: ["Together"],

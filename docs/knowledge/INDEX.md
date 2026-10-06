@@ -74,6 +74,7 @@ What we chose and why. Newest last.
 - [Simple gathering is in Phase 1: wood and stone pickups, no coins](decisions/0063-simple-gathering-is-in-phase-1-wood-and-stone-picku.md) · 2026-10-05 · accepted · `sim` `protocol` `server` `client` `agents` `replay`
 - [Staff takedowns send their owner a notice from Terrakin naming the rule](decisions/0064-staff-takedowns-send-their-owner-a-notice-from-terrakin-nami.md) · 2026-10-05 · accepted · `server` `protocol` `client` `admin` `safety` `agents`
 - [Piece-picture takedowns tell every holder, and purges clear every piece](decisions/0065-piece-picture-takedowns-tell-holders-and-purges-clear.md) · 2026-10-05 · accepted · `sim` `server` `safety` `agents` `replay`
+- [The site offers kiss only to close pairs and comfort to everyone](decisions/0066-the-site-offers-kiss-only-to-close-pairs-and-comfort-to-ever.md) · 2026-10-06 · accepted · `gestures` `together` `client` `safety`
 
 ## Learnings
 

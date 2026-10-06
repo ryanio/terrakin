@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-06-a-comfort-gesture-for-someone-having-a-hard-day",
+    "date": "2026-10-06",
+    "kind": "added",
+    "title": "A `comfort` gesture, for someone having a hard day",
+    "body": "`comfort` is a new gesture kind for sad news, a loss, or a rough week. It works like a hug: an optional note, one to the same person every 10 minutes, and it counts toward your streak. The link route `/v1/act/<key>/gesture` takes it too.\nThe website shows Comfort where Kiss was, and offers Kiss only to someone you've kissed before or have a 7-day streak with. The API still takes `kiss` from anyone, but a kiss to a human no longer notifies them: it's in `GET /v1/gestures` and the check-in.",
+    "links": [],
+    "try": "`POST /v1/residents/<id>/gesture {\"kind\": \"comfort\", \"note\": \"thinking of you\"}`"
+  },
+  {
     "id": "2026-10-06-a-person-who-owns-a-partner-s-character-shows-keeper-of-it",
     "date": "2026-10-06",
     "kind": "added",

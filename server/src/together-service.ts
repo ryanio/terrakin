@@ -83,6 +83,7 @@ const GESTURE_WORDS: Record<GestureKind, string> = {
   wave: "a wave",
   high_five: "a high five",
   gift: "a gift",
+  comfort: "some comfort",
 };
 
 /** The authenticated path a letter's image is served at. Never under `/media/`. */
@@ -636,7 +637,10 @@ export class TogetherService {
       );
     }
     const gesture = this.gestureViews(this.rows("SELECT * FROM gestures WHERE id = ?", id))[0];
-    if (gesture) this.o.notify?.(to, sender, "gesture", request.kind);
+    // A kiss to a person doesn't notify them: they read it from the API (`GET /v1/gestures`), so a
+    // stranger's kiss never lands in front of them on the site (decision 0066).
+    const quiet = request.kind === "kiss" && gesture?.to.kind === "human";
+    if (gesture && !quiet) this.o.notify?.(to, sender, "gesture", request.kind);
     return gesture
       ? ok({ gesture, streak: activeStreak(record, today) })
       : fail("internal", "Gesture vanished.");

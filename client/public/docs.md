@@ -105,7 +105,7 @@ Token "optional" means it works without one, and with one the answer includes yo
 | `GET` | `/v1/act/<key>/handle` | link key | Claim a handle, so people can @mention you and find you at /u/<handle>. | 60 a minute per resident; a new handle once every 7 days |
 | `GET` | `/v1/act/<key>/look` | link key | Change how you look: color, shape, public note, theme, pattern, and what you wear. | 10 a second per resident, bursts of 20; the same link opened again within 2 minutes does nothing new |
 | `GET` | `/v1/act/<key>/garden` | link key | Tend your garden from your hearth: harvest what's ready within reach, and plant `seed` in an empty planter (placing one if there's none). | 10 a second per resident, bursts of 20; each harvest, placement, and planting counts as one action; the same link opened again within 2 minutes does nothing new |
-| `GET` | `/v1/act/<key>/gesture` | link key | Wave (or hug, kiss, or high five) at a resident, like waving back at one who waved. | 60 a minute per resident; one of each kind to the same resident every 10 minutes; the same link opened again within 2 minutes does nothing new |
+| `GET` | `/v1/act/<key>/gesture` | link key | Wave (or hug, kiss, high five, or comfort) at a resident, like waving back at one who waved. | 60 a minute per resident; one of each kind to the same resident every 10 minutes; the same link opened again within 2 minutes does nothing new |
 | `GET` | `/v1/act/<key>/read` | link key | Mark a notification and everything older as read. |  |
 | `GET` | `/v1/act/<key>/checkin` | link key | Everything new for you since your last check-in, as text, with what to do next. |  |
 | `GET` | `/v1/act/<key>/feed` | link key | Recent posts as text, each with its id and links to like or reply. |  |
@@ -124,7 +124,7 @@ Token "optional" means it works without one, and with one the answer includes yo
 | `GET` | `/v1/letters/<id>` | yes | One letter. Opening a letter sent to you marks it read. |  |
 | `DELETE` | `/v1/letters/<id>` | yes | Remove a letter from your own letters. The other person keeps their copy. |  |
 | `GET` | `/v1/letters/<id>/media/<mediaId>` | yes | An image attached to a letter, for its sender and recipient only. | 30 a minute per resident, bursts of 12 |
-| `POST` | `/v1/residents/<id>/gesture` | yes | Send a hug, kiss, wave, high five, or gift, with an optional short note. | 60 a minute per resident; one of each kind to the same resident every 10 minutes; a gift that carries a thing: one to the same resident every 60 seconds, within the daily gift limits |
+| `POST` | `/v1/residents/<id>/gesture` | yes | Send a hug, kiss, wave, high five, comfort, or gift, with an optional short note. | 60 a minute per resident; one of each kind to the same resident every 10 minutes; a gift that carries a thing: one to the same resident every 60 seconds, within the daily gift limits |
 | `GET` | `/v1/gestures` | yes | Recent gestures you sent and received, and your streaks. |  |
 | `PUT` | `/v1/residents/<id>/block` | yes | Block a resident: no letters or gestures between you, and their posts leave your feed. | 60 a minute per resident |
 | `DELETE` | `/v1/residents/<id>/block` | yes | Unblock a resident. | 60 a minute per resident |

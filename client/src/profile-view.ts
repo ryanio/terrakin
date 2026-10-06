@@ -66,7 +66,7 @@ import { postCard, skeletonCards } from "./post-card";
 import { coins, refreshPurse } from "./purse";
 import { openReportSheet } from "./report-sheet";
 import { thingCount, thingName } from "./things";
-import { GESTURES, gestureInfo, streakLine } from "./together";
+import { type GestureInfo, gestureChoices, gestureInfo, streakLine } from "./together";
 import { errorCard, notFoundCard, type View, type ViewContext } from "./view";
 import { xRow } from "./x-connect";
 
@@ -772,21 +772,18 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
     const me = await myProfile();
     if (!me) return [];
     if (me.id === r.id) return [identityCard(), lookCard(r)];
-    return r.blocked ? [] : [togetherCard(r)];
+    return r.blocked ? [] : [togetherCard(r, me)];
   }
 
   // ---------- someone else: gestures, streak, letters, block ----------
 
-  function togetherCard(r: ProfileView): HTMLElement {
+  function togetherCard(r: ProfileView, me: { id: string }): HTMLElement {
     const streak = h("p", { class: "streak-line", attrs: { "aria-live": "polite" } });
     const paintStreak = (days: number) => {
       streak.textContent = streakLine(days);
       streak.classList.toggle("on", days > 0);
     };
     paintStreak(0);
-    void api.gestures(r.id).then((g) => {
-      if (!destroyed && g.ok) paintStreak(g.data.streaks[0]?.streak ?? 0);
-    });
 
     const giftNote = h("input", {
       class: "field-input",
@@ -825,7 +822,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
 
     const row = h("div", { class: "gesture-row", attrs: { role: "group", "aria-label": "Send" } });
     let giftToggle: { close(): void } | undefined;
-    for (const g of GESTURES) {
+    const button = (g: GestureInfo) => {
       const b = h(
         "button",
         {
@@ -835,7 +832,6 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
         h("span", { class: "gesture-emoji", attrs: { "aria-hidden": "true" }, text: g.emoji }),
         h("span", { class: "gesture-label", text: g.label }),
       );
-      row.append(b);
       // The gift button opens a note form; the others send straight away.
       if (g.kind === "gift")
         giftToggle = disclosure(
@@ -845,7 +841,22 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
           only(() => giftToggle),
         );
       else b.addEventListener("click", () => void whileBusy(b, () => send(g.kind, b)));
-    }
+      return b;
+    };
+    for (const g of gestureChoices([], 0, me.id)) row.append(button(g));
+    // Close-only gestures (a kiss) join the row in their place once the history says you're close.
+    void api.gestures(r.id).then((res) => {
+      if (destroyed || !res.ok) return;
+      paintStreak(res.data.streaks[0]?.streak ?? 0);
+      const choices = gestureChoices(res.data.gestures, res.data.streaks[0]?.streak ?? 0, me.id);
+      choices.forEach((g, i) => {
+        if (row.querySelector(`[data-kind="${g.kind}"]`)) return;
+        const after = choices[i - 1];
+        const prev = after ? row.querySelector(`[data-kind="${after.kind}"]`) : null;
+        if (prev) prev.after(button(g));
+        else row.prepend(button(g));
+      });
+    });
     giftForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       const note = giftNote.value.trim();

@@ -39,7 +39,7 @@ import { type Quarter, turnDir } from "./scene3d/world-layout";
 import { track } from "./telemetry";
 import { NO_PLOT_LINE, newsLine, othersPickupLine, toastMs, worldProblem } from "./things";
 import { dayPhase } from "./time";
-import { ARRIVAL_KEY, gestureLine } from "./together";
+import { ARRIVAL_KEY, gestureLine, showsReceived } from "./together";
 import { offer3d, readSignals, savedMode, saveMode, startMode, type WorldMode } from "./world-mode";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -261,7 +261,8 @@ function onMessage(msg: ServerMessage) {
       break;
     case "gesture":
       // Someone sent you a hug or a wave. Their name and note are their words: shown as text.
-      showToast(gestureLine(msg.kind, msg.from.name, msg.note, msg.putter, msg.item), "player");
+      if (showsReceived(msg.kind))
+        showToast(gestureLine(msg.kind, msg.from.name, msg.note, msg.putter, msg.item), "player");
       break;
     case "event": {
       // Out of step with the server? Reload the truth rather than guessing.

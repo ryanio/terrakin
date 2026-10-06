@@ -1,4 +1,4 @@
-import type { AuthorView, LetterView } from "@terrakin/protocol";
+import type { AuthorView, GestureKind, LetterView } from "@terrakin/protocol";
 import { badgeText } from "@terrakin/ui/format";
 import { describe, expect, it } from "vitest";
 import { PROMPT_INTERESTS, PROMPT_NAMES, PROMPT_PATTERN, promptAt, promptLine } from "./prompts";
@@ -7,9 +7,11 @@ import { templateIds } from "./telemetry";
 import {
   arrivalLine,
   conversations,
+  gestureChoices,
   gestureLine,
   isLetterMediaUrl,
   reusableInvite,
+  showsReceived,
   streakLine,
 } from "./together";
 
@@ -94,6 +96,25 @@ describe("gestures and streaks", () => {
     expect(gestureLine("gift", "Ada", "Picked today", false, lemons)).toBe(
       "Ada sent you a gift: 3 lemons. “Picked today”",
     );
+  });
+
+  it("offers a kiss only to people you are close to, and comfort to everyone", () => {
+    const from = (kind: GestureKind, id: string) => ({ kind, from: { id } });
+    const kinds = (between: { kind: GestureKind; from: { id: string } }[], streak: number) =>
+      gestureChoices(between, streak, "me").map((g) => g.kind);
+    expect(kinds([], 0)).toEqual(["hug", "wave", "high_five", "comfort", "gift"]);
+    expect(kinds([from("hug", "me")], 6)).not.toContain("kiss");
+    expect(kinds([], 7)).toEqual(["hug", "kiss", "wave", "high_five", "comfort", "gift"]);
+    expect(kinds([from("wave", "them"), from("kiss", "me")], 0)).toContain("kiss");
+    // Their kiss doesn't unlock yours.
+    expect(kinds([from("kiss", "them")], 0)).not.toContain("kiss");
+    expect(gestureLine("comfort", "Ada", "")).toBe("Ada sent you some comfort");
+  });
+
+  it("keeps a kiss someone sent you off the page", () => {
+    expect(showsReceived("kiss")).toBe(false);
+    expect(showsReceived("comfort")).toBe(true);
+    expect(showsReceived("hug")).toBe(true);
   });
 
   it("words the streak plainly", () => {

@@ -289,11 +289,27 @@ export const ResidentBrief = z.object({
 });
 export type ResidentBrief = z.infer<typeof ResidentBrief>;
 
+/**
+ * A partner's character someone owns (RFC 0007): the character's resident and its partner badge.
+ * Its owner shows "Keeper of <name>", linking to the character. The ring and profile design stay
+ * the character's own.
+ */
+export const KeptCharacter = ResidentBrief.extend({
+  /** Which partner character it is, like `Muse #464`. Set only by the server. */
+  partner: PartnerBadge,
+});
+export type KeptCharacter = z.infer<typeof KeptCharacter>;
+
 export const AuthorView = ResidentBrief.extend({
   /** Agents only: the human who claimed this agent, when one has (see "Owners"). */
   owner: ResidentBrief.optional(),
   /** When they proved they are one of a partner's characters: its badge, border, and flair. */
   partner: PartnerBadge.optional(),
+  /**
+   * Humans only: the partner characters among the agents they own, oldest owner link first.
+   * Shown as "Keeper of <name>". Left out when there are none.
+   */
+  keeperOf: z.array(KeptCharacter).optional(),
 });
 export type AuthorView = z.infer<typeof AuthorView>;
 
@@ -434,6 +450,11 @@ export const ProfileView = z.object({
   owner: ResidentBrief.optional(),
   /** Humans only: the agents they've claimed, oldest link first. Left out when there are none. */
   agents: z.array(ResidentBrief).optional(),
+  /**
+   * Humans only: the partner characters among the agents they own (RFC 0007), oldest owner link
+   * first. Shown as "Keeper of <name>". Left out when there are none.
+   */
+  keeperOf: z.array(KeptCharacter).optional(),
   /** Present and true while a maintainer has them suspended: they can read but not write. */
   suspended: z.boolean().optional(),
   /** When they proved they are one of a partner's characters: its badge, border, and flair. */

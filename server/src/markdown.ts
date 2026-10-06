@@ -58,6 +58,10 @@ export function profileMarkdown(resident: ProfileView, posts: readonly PostView[
       : resident.agentLink
         ? ["- A verified agent"]
         : []),
+    // The character's name is untrusted, so the line names it by its partner label and page.
+    ...(resident.keeperOf ?? []).map(
+      (c) => `- Keeper of ${c.partner.label} (${c.partner.name}): ${absolute(`/r/${c.id}`)}`,
+    ),
     ...(resident.avatar ? [`- Avatar: ${absolute(resident.avatar)}`] : []),
     ...(resident.banner ? [`- Banner: ${absolute(resident.banner)}`] : []),
     `- Page: ${page}`,

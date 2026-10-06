@@ -231,8 +231,8 @@ async function start(options: AgentLinkOptions = {}, limits: Partial<SocialLimit
   cleanups.push(() => sql.close());
   const base = await listenOnFreePort(server, cleanups);
   const call = jsonCaller(base);
-  function join(name: string) {
-    const { residentId, token } = service.createSession({ name, kind: "agent" });
+  function join(name: string, kind: "agent" | "human" = "agent") {
+    const { residentId, token } = service.createSession({ name, kind });
     if (!residentId || !token) throw new Error(`Couldn't join ${name}`);
     return { residentId, token };
   }
@@ -478,6 +478,67 @@ describe("linking a muse", () => {
     expect(res.status).toBe(503);
     expect(res.body.error.message).toBe("Agent links are off on this server.");
     expect(chain.state.reads).toBe(0);
+  });
+});
+
+describe("keepers (RFC 0007)", () => {
+  it("names a person's partner characters on their profile and posts, until either link ends", async () => {
+    const { base, call, link, join, chain, profile } = await start();
+    const hazel = join("Hazel", "human");
+    const wren = join("Wren");
+    const birch = join("Birch");
+    const { uri } = chain.addMuse(464, [], "Saddlebag · muse #464");
+    chain.setNames(uri, [wren.residentId]);
+    expect((await link(muse(464), wren.token)).status).toBe(201);
+
+    // Hazel owns Wren, a verified muse, and Birch, a plain agent.
+    for (const agent of [wren, birch]) {
+      const claim = (await call("POST", "/v1/owner/claims", undefined, hazel.token)).body;
+      expect(
+        (await call("POST", "/v1/owner/accept", { code: claim.code }, agent.token)).status,
+      ).toBe(200);
+    }
+    const kept = [
+      {
+        id: wren.residentId,
+        name: "Wren",
+        kind: "agent",
+        partner: expect.objectContaining({ id: "musegod", label: "Muse #464", border: "plush" }),
+      },
+    ];
+    const shown = await profile(hazel.residentId);
+    expect(shown.keeperOf).toEqual([expect.objectContaining(kept[0])]);
+    // Only the character wears the ring and the design; its keeper gets the flair alone.
+    expect(shown.partner).toBeUndefined();
+    const twin = await fetch(`${base}/r/${hazel.residentId}.md`).then((r) => r.text());
+    expect(twin).toContain(
+      `- Keeper of Muse #464 (MUSEGOD): https://terrakin.org/r/${wren.residentId}`,
+    );
+    await call("POST", "/v1/posts", { text: "Wren found a lantern" }, hazel.token);
+    const author = async () => (await call("GET", "/v1/feed")).body.posts[0].author;
+    expect((await author()).keeperOf).toEqual([expect.objectContaining(kept[0])]);
+
+    // Nobody else gets it: not the character, not a plain agent's owner.
+    expect((await profile(wren.residentId)).keeperOf).toBeUndefined();
+    expect((await profile(birch.residentId)).keeperOf).toBeUndefined();
+
+    // Ending the character's link takes it away, and linking again brings it back.
+    expect((await call("DELETE", "/v1/agent-link", undefined, wren.token)).status).toBe(204);
+    expect((await profile(hazel.residentId)).keeperOf).toBeUndefined();
+    expect((await author()).keeperOf).toBeUndefined();
+    expect((await link(muse(464), wren.token)).status).toBe(201);
+    expect((await profile(hazel.residentId)).keeperOf).toHaveLength(1);
+
+    // So does ending the owner link.
+    const unlinked = await call(
+      "DELETE",
+      `/v1/owner/link/${wren.residentId}`,
+      undefined,
+      hazel.token,
+    );
+    expect(unlinked.status).toBe(204);
+    expect((await profile(hazel.residentId)).keeperOf).toBeUndefined();
+    expect((await author()).keeperOf).toBeUndefined();
   });
 });
 

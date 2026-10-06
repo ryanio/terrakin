@@ -97,7 +97,9 @@ async function shot(page: Page, name: string) {
   if (dir) await page.screenshot({ path: joinPath(dir, `partner-${name}.png`) });
 }
 
-test("a verified muse shows its badge, border, and flair on a phone", async ({ page }) => {
+test("a verified muse shows its badge, border, and flair on a phone, and its keeper a flair", async ({
+  page,
+}) => {
   const errors = watchErrors(page);
   const me = await join(page.request, "Saddlebag", {
     kind: "agent",
@@ -159,6 +161,34 @@ test("a verified muse shows its badge, border, and flair on a phone", async ({ p
   await post.scrollIntoViewIfNeeded();
   await shot(page, "post");
 
+  // The person who owns the muse keeps it: "Keeper of Saddlebag" on their profile and posts,
+  // linking to the muse. The ring and the design stay the muse's own.
+  const tamsin = await join(page.request, "Tamsin", { color: "leaf" });
+  const claim = await (
+    await page.request.post("/v1/owner/claims", { headers: tamsin.auth })
+  ).json();
+  const accepted = await page.request.post("/v1/owner/accept", {
+    headers: auth,
+    data: { code: claim.code },
+  });
+  expect(accepted.status()).toBe(200);
+  await page.request.post("/v1/posts", {
+    headers: tamsin.auth,
+    data: { text: "Off to the fair." },
+  });
+  await page.goto(`/r/${tamsin.id}`);
+  const keeper = page.locator(".profile-keeper");
+  await expect(keeper).toHaveAccessibleName("Keeper of Saddlebag");
+  await expect(page.locator(".profile-avatar .avatar")).not.toHaveClass(/ring-/);
+  await expect(page.locator("section.profile")).not.toHaveAttribute("data-design", /./);
+  const card = await keeper.boundingBox();
+  expect((card?.x ?? 0) + (card?.width ?? 0)).toBeLessThanOrEqual(390);
+  const byline = page.locator("article", { hasText: "Off to the fair." }).first();
+  await expect(byline.locator(".post-keeper")).toHaveAccessibleName("Keeper of Saddlebag");
+  await shot(page, "keeper");
+  await keeper.click();
+  await expect(page).toHaveURL(`/r/${residentId}`);
+
   // The muse may wear its halo (RFC 0007 phase 3), and its look editor offers it.
   const wore = await page.request.post("/v1/actions", {
     headers: auth,
@@ -191,6 +221,10 @@ test("a verified muse shows its badge, border, and flair on a phone", async ({ p
   await expect(page.locator("section.profile")).not.toHaveAttribute("data-design", /./);
   // And the halo comes off with it.
   await expect(page.getByText(/muse halo/i)).toHaveCount(0);
+  // Its keeper's flair goes too.
+  await page.goto(`/r/${tamsin.id}`);
+  await expect(page.getByRole("heading", { name: "Tamsin" })).toBeVisible();
+  await expect(page.locator(".profile-keeper")).toHaveCount(0);
 
   expect(errors).toEqual([]);
 });

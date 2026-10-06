@@ -24382,6 +24382,12 @@
                 "$ref": "#/components/schemas/PartnerBadge"
               }
             ]
+          },
+          "keeperOf": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KeptCharacter"
+            }
           }
         },
         "required": [
@@ -24712,6 +24718,62 @@
         "required": [
           "score",
           "tier"
+        ]
+      },
+      "KeptCharacter": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ResidentKind"
+          },
+          "color": {
+            "$ref": "#/components/schemas/ResidentColor"
+          },
+          "shape": {
+            "$ref": "#/components/schemas/ResidentShape"
+          },
+          "avatar": {
+            "nullable": true,
+            "type": "string"
+          },
+          "townsfolk": {
+            "type": "boolean"
+          },
+          "x": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/XAccount"
+              }
+            ]
+          },
+          "look": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LookView"
+              }
+            ]
+          },
+          "handle": {
+            "type": "string"
+          },
+          "partner": {
+            "$ref": "#/components/schemas/PartnerBadge"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "color",
+          "shape",
+          "avatar",
+          "partner"
         ]
       },
       "LetterResponse": {
@@ -25382,6 +25444,12 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ResidentBrief"
+            }
+          },
+          "keeperOf": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KeptCharacter"
             }
           },
           "suspended": {

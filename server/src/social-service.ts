@@ -15,6 +15,7 @@ import {
   HANDLE_PATTERN,
   HANDLE_RENAME_DAYS,
   isReservedHandle,
+  type KeptCharacter,
   type LookView,
   MAX_MENTIONS_PER_POST,
   MEDIA_TYPES,
@@ -1138,6 +1139,7 @@ export class SocialService {
       ...(viewerId && this.blocks(viewerId, r.id) ? { blocked: true } : {}),
       ...(this.votesCast ? { votes: this.votesCast(r.id) } : {}),
       ...this.ownerFields(r.id),
+      ...this.keeperField(r),
       ...(this.safety.suspendedUntil(r.id) === undefined ? {} : { suspended: true }),
       ...this.partnerField(r.id),
       ...this.agentLinkField(r.id),
@@ -2168,6 +2170,21 @@ export class SocialService {
     return agents.length > 0 ? { agents } : {};
   }
 
+  /**
+   * `keeperOf` for a person who owns partner characters (RFC 0007): each agent they own that is
+   * linked to a partner character right now, oldest owner link first. A paused partner's
+   * characters show no badge, so they drop out here too.
+   */
+  private keeperField(r: Resident): { keeperOf?: KeptCharacter[] } {
+    if (r.kind !== "human") return {};
+    const kept = this.agentsOf(r.id).flatMap((id) => {
+      const partner = this.agentLinks.badge(id);
+      const character = partner ? this.ref(id) : undefined;
+      return partner && character ? [{ ...character, partner }] : [];
+    });
+    return kept.length > 0 ? { keeperOf: kept } : {};
+  }
+
   // ---------- helpers ----------
 
   private visiblePost(postId: string): Row | undefined {
@@ -2435,6 +2452,7 @@ export class SocialService {
       ...lookField(r),
       ...(owner ? { owner } : {}),
       ...this.partnerField(r.id),
+      ...this.keeperField(r),
     };
   }
 }

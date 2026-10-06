@@ -1,6 +1,7 @@
 /** How a resident shows up anywhere on the feed pages: avatar, badges, and links to them. */
 import {
   type AuthorView,
+  type KeptCharacter,
   type LookView,
   PARTNER_BORDERS,
   type PartnerBadge,
@@ -270,13 +271,39 @@ export function ownerLine(
 }
 
 /**
+ * "Keeper of <character>" for a person who owns partner characters (RFC 0007): one card per
+ * character, each linking to the character. `limit` keeps a byline to the first. The character's
+ * own avatar shows in the card; its owner never wears the character's ring or design.
+ */
+export function keeperCards(
+  who: { keeperOf?: KeptCharacter[] | undefined },
+  className: string,
+  limit = Number.POSITIVE_INFINITY,
+): HTMLElement[] {
+  return (who.keeperOf ?? []).slice(0, limit).map((character) => {
+    const card = tagCard({
+      tag: "Keeper",
+      text: "of",
+      person: character,
+      href: profilePath(character.id),
+      className,
+    });
+    card.title = verifiedLabel(character.partner);
+    return card;
+  });
+}
+
+/**
  * A post's byline: "Wren" and "@wren" on the first line, then a line of tags (AI, townsfolk,
- * flair) and who runs them, which wraps on its own instead of pushing the name around.
+ * flair), who runs them, and the first character they keep. The line wraps on its own instead of
+ * pushing the name around.
  */
 export function who(author: AuthorView, href: string): HTMLElement {
-  const tags = [...badges(author, !hasOwnerCard(author)), ownerLine(author, "post-owner")].filter(
-    (t): t is HTMLElement => t !== null,
-  );
+  const tags = [
+    ...badges(author, !hasOwnerCard(author)),
+    ownerLine(author, "post-owner"),
+    ...keeperCards(author, "post-keeper", 1),
+  ].filter((t): t is HTMLElement => t !== null);
   return h(
     "div",
     { class: "post-who" },

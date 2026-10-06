@@ -24,6 +24,7 @@ import {
   avatarEl,
   badges,
   hasOwnerCard,
+  keeperCards,
   ownerLine,
   paintAvatar,
   TOWNSFOLK_ABOUT,
@@ -385,6 +386,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       h("div", { class: "profile-meta" }, handleWrap, status, x.el),
       verifiedRow(r),
       r.townsfolk ? null : ownerLine(r, "profile-owner"),
+      keeperRow(r),
       r.townsfolk ? h("p", { class: "townsfolk-note", text: TOWNSFOLK_ABOUT }) : null,
       r.suspended
         ? h("p", {
@@ -407,6 +409,12 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       homeSection(r),
     );
     return card;
+  }
+
+  /** "Keeper of <character>", one card for each partner character they own (RFC 0007). */
+  function keeperRow(r: ProfileView): HTMLElement | null {
+    const cards = keeperCards(r, "profile-keeper");
+    return cards.length ? h("div", { class: "cluster profile-keepers" }, ...cards) : null;
   }
 
   /**

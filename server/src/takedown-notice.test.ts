@@ -10,9 +10,10 @@ import { type Cleanup, jsonCaller, listenOnFreePort, responseChecker } from "./t
 import { DAY_MS, WorldService } from "./world-service";
 
 /**
- * Takedown notices (decision 0064): when staff take down something a resident owns, that resident
- * gets exactly one notice from Terrakin naming what came down, the rule, and where it is now.
- * Nobody else gets one, and no notice names who acted, who reported, or what staff wrote.
+ * Takedown notices (decisions 0064, 0065): when staff take down something a resident owns, that
+ * resident gets exactly one notice from Terrakin naming what came down, the rule, and where it is
+ * now. A piece's picture is the exception: everyone holding or displaying a piece made from it is
+ * told too, once per piece. No notice names who acted, who reported, or what staff wrote.
  */
 
 const CONFIG: WorldConfig = {
@@ -381,5 +382,85 @@ describe("takedown notices", () => {
     expect((await t.call("POST", path, { reason: STAFF_REASON }, marlo.token)).status).toBe(200);
     const [notice] = await t.notices(bo);
     expect(notice?.takedown).toMatchObject({ what: "post", rule: "other" });
+  });
+
+  it("tell everyone holding a piece whose picture was deleted, not only its maker", async () => {
+    const t = await start();
+    const ash = await t.settler("Ash", 0, 0);
+    const wren = await t.settler("Wren", 2, 0);
+    const marlo = t.staff();
+    const art = await t.upload(ash.token);
+    await t.act(ash.token, { type: "make_piece", media: art.id, title: "Morning" });
+    await t.act(ash.token, { type: "make_piece", media: art.id, title: "Evening" });
+    const [kept, given] = (await t.call("GET", "/v1/inventory", undefined, ash.token)).body
+      .inventory.goods;
+    expect((await t.act(ash.token, { type: "give", item: given.id, to: wren.id })).ok).toBe(true);
+    await t.report(wren, "piece", kept.id, "sexual");
+
+    const path = `/v1/admin/pieces/${kept.id}/remove`;
+    expect((await t.call("POST", path, { reason: STAFF_REASON }, marlo.token)).status).toBe(200);
+    // The maker hears it once, about the reported piece.
+    const makerNotices = await t.notices(ash);
+    expect(makerNotices).toHaveLength(1);
+    expect((makerNotices[0] as Json).takedown).toEqual({
+      what: "piece",
+      rule: "sexual",
+      outcome: "removed",
+      id: kept.id,
+      kind: "piece",
+    });
+    // Whoever holds a piece made from the picture hears about their own piece.
+    const holderNotices = await t.notices(wren);
+    expect(holderNotices).toHaveLength(1);
+    expect((holderNotices[0] as Json).takedown).toEqual({
+      what: "piece",
+      rule: "sexual",
+      outcome: "removed",
+      id: given.id,
+      kind: "piece",
+    });
+  });
+
+  it("clear a piece's picture when the post its file came from is hidden", async () => {
+    const t = await start();
+    const ash = await t.settler("Ash", 0, 0);
+    const ada = t.join("Ada");
+    const marlo = t.staff();
+    const art = await t.upload(ash.token);
+    const p = (
+      await t.call("POST", "/v1/posts", { text: "Look at this", media: [art.id] }, ash.token)
+    ).body.post;
+    await t.act(ash.token, { type: "make_piece", media: art.id, title: "Framed" });
+    const [piece] = (await t.call("GET", "/v1/inventory", undefined, ash.token)).body.inventory
+      .goods;
+    expect(piece.media).toBe(art.id);
+    await t.report(ada, "post", p.id, "spam");
+    const path = `/v1/admin/posts/${p.id}/hide`;
+    expect((await t.call("POST", path, { reason: STAFF_REASON }, marlo.token)).status).toBe(200);
+    // The piece keeps its title but no longer points at the deleted file.
+    const [after] = (await t.call("GET", "/v1/inventory", undefined, ash.token)).body.inventory
+      .goods;
+    expect(after).toMatchObject({ id: piece.id, label: "Framed" });
+    expect(after.media).toBeUndefined();
+  });
+
+  it("clear a piece's picture when the avatar it came from is deleted", async () => {
+    const t = await start();
+    const bo = t.join("Bo");
+    const ada = t.join("Ada");
+    const marlo = t.staff();
+    const avatar = await t.upload(bo.token);
+    await t.call("PUT", "/v1/profile", { avatar: avatar.id }, bo.token);
+    await t.act(bo.token, { type: "make_piece", media: avatar.id, title: "Me" });
+    const [piece] = (await t.call("GET", "/v1/inventory", undefined, bo.token)).body.inventory
+      .goods;
+    expect(piece.media).toBe(avatar.id);
+    await t.report(ada, "resident", bo.id, "impersonation");
+    const path = `/v1/admin/residents/${bo.id}/remove-pictures`;
+    expect((await t.call("POST", path, { reason: STAFF_REASON }, marlo.token)).status).toBe(200);
+    const [after] = (await t.call("GET", "/v1/inventory", undefined, bo.token)).body.inventory
+      .goods;
+    expect(after).toMatchObject({ id: piece.id, label: "Me" });
+    expect(after.media).toBeUndefined();
   });
 });

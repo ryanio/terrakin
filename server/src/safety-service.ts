@@ -292,6 +292,13 @@ export class SafetyService {
   ) => { owner: string; text: string; media?: string; onDisplay: boolean } | undefined = () =>
     undefined;
 
+  /**
+   * Clear the picture from every piece made from an upload, through the world log (decision 0065).
+   * `Api` wires it to the world; without it, purged uploads leave pieces pointing at a deleted
+   * file. Resolves to the affected piece ids, or undefined when the log refused.
+   */
+  removePiecePictures: ((mediaId: string) => { removed: string[] } | undefined) | undefined;
+
   private rows(query: string, ...bindings: (string | number)[]): Row[] {
     return [...this.o.sql.exec(query, ...bindings)];
   }
@@ -865,6 +872,9 @@ export class SafetyService {
         String(post.text ?? ""),
       );
     }
+    // Decision 0065: pieces made from the post's files stop pointing at them once they're purged.
+    // Capture the ids before the purge deletes the rows.
+    const files = this.o.postMedia(postId).map((m) => m.id);
     const kept = await this.o.dropPostMedia(postId);
     this.close("post", postId, "actioned", by);
     const entry = this.act(by, "hide_post", "post", postId, reason, undefined, cited);
@@ -875,6 +885,7 @@ export class SafetyService {
         `The post is hidden, but ${kept === 1 ? "1 of its files" : `${kept} of its files`} couldn't be deleted from storage yet. Hide it again to retry.`,
       );
     }
+    for (const mediaId of files) this.clearPiecePictures(by, mediaId, reason);
     return ok(entry);
   }
 
@@ -993,6 +1004,8 @@ export class SafetyService {
     this.close("resident", residentId, "actioned", by);
     // Told once, when every file is gone: a retry after a refusal is the call that tells them.
     this.o.takedown?.(residentId, { what: "pictures", rule: cited, outcome: "removed" });
+    // Decision 0065: pieces made from the avatar or banner stop pointing at the deleted file.
+    for (const id of files) this.clearPiecePictures(by, id, reason);
     return ok(entry);
   }
 
@@ -1133,6 +1146,17 @@ export class SafetyService {
    */
   purgeUpload(mediaId: string): Promise<boolean> {
     return this.o.purgeMedia(mediaId);
+  }
+
+  /**
+   * Decision 0065: pieces made from a purged upload stop pointing at the deleted file. A refused
+   * log write leaves the pieces dangling, so it's noted for a retry instead of failing a takedown
+   * that already happened.
+   */
+  private clearPiecePictures(by: string, mediaId: string, reason: string): void {
+    if (this.removePiecePictures?.(mediaId) === undefined) {
+      this.recordNote(by, "remove_piece", "piece", mediaId, reason);
+    }
   }
 
   /** Staff and townsfolk whose things staff can't act on through the queue, like their pictures. */

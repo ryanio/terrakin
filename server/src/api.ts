@@ -514,6 +514,8 @@ export class Api {
       layer.safety.listing = (id) => listingForReport(this.service.state, id);
       // Reports on a thing on display, or a piece (decision 0059), read it from the world too.
       layer.safety.madeThing = (kind, id) => madeThingForReport(this.service.state, kind, id);
+      // Purged uploads clear every piece made from them (decision 0065): the world logs it.
+      layer.safety.removePiecePictures = (mediaId) => this.service.removePiecePictures(mediaId);
       // Appreciation coins (decision 0055): counted from reactions, logged once a day by `tick`.
       this.service.dailyAwards = (day) => layer.karma.awards(day);
       this.service.syncOwnerPairs(layer.ownerPairs());
@@ -1681,6 +1683,19 @@ export class Api {
             rule,
             outcome: "removed",
             id: params.id,
+            kind: "piece",
+          });
+        }
+        // Decision 0065: whoever holds or displays a piece made from the picture hears it too,
+        // once per piece, not only its maker.
+        for (const pieceId of new Set([params.id, ...removed])) {
+          const holder = goodById(service.state, pieceId)?.holder;
+          if (!holder || holder === maker) continue;
+          safety.tellOwner(holder, {
+            what: "piece",
+            rule,
+            outcome: "removed",
+            id: pieceId,
             kind: "piece",
           });
         }

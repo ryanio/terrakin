@@ -26,6 +26,7 @@ export {
   goodById,
   heldAsideOf,
   isDisplayBlock,
+  pieceShowingMedia,
 } from "./display";
 export {
   allowanceDue,

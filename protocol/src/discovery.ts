@@ -87,15 +87,19 @@ export const urlsetXml = (entries: readonly SitemapEntry[]) => sitemapDocument("
 export const sitemapIndexXml = (entries: readonly SitemapEntry[]) =>
   sitemapDocument("sitemapindex", entries);
 
-/** /sitemap-pages.xml: the fixed pages, dated by when their sources last changed. */
-export function pagesSitemapXml(lastmod: LastModified): string {
-  return urlsetXml(
-    pages.map((page) => {
+/**
+ * /sitemap-pages.xml: the fixed pages, dated by when their sources last changed, then `more` (the
+ * devlog's posts, each dated by its day).
+ */
+export function pagesSitemapXml(lastmod: LastModified, more: readonly SitemapEntry[] = []): string {
+  return urlsetXml([
+    ...pages.map((page) => {
       const date = lastmod[page.path];
       if (!date) throw new Error(`No lastmod for ${page.path}`);
       return { loc: absolute(page.path), lastmod: date };
     }),
-  );
+    ...more,
+  ]);
 }
 
 /** The media type of `/.well-known/api-catalog` (RFC 9727). */

@@ -9,6 +9,8 @@ import {
   ClientMessage,
   changelogResponse,
   compileRoutes,
+  DEVLOG_POSTS,
+  devlogResponse,
   type ErrorCode,
   type EventResponse,
   errorStatus,
@@ -1315,6 +1317,7 @@ export class Api {
             seen: query.seen,
             done: service.doneCommands(viewer),
             suggestions: social().checkins,
+            devlogAt: (date) => social().checkins.published(date),
           }),
         };
       },
@@ -2066,6 +2069,18 @@ export class Api {
         status: 200,
         body: changelogResponse(CHANGELOG_ENTRIES, query),
       }),
+      // The devlog's posts, built into the bundle by `pnpm gen` from docs/devlog (decision 0105).
+      getDevlog: ({ query }) => ({ status: 200, body: devlogResponse(DEVLOG_POSTS, query) }),
+      getDevlogPost: ({ params }) => {
+        const post = DEVLOG_POSTS.find((p) => p.date === params.date);
+        if (!post) {
+          return fail(
+            "not_found",
+            "There's no devlog post on that day. GET /v1/devlog lists them.",
+          );
+        }
+        return { status: 200, body: { post } };
+      },
     };
     return handlers;
   }

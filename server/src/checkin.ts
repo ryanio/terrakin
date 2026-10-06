@@ -7,6 +7,8 @@ import {
   type CheckinResponse,
   COLLECTION_WORDS,
   changelogResponse,
+  DEVLOG_POSTS,
+  devlogEntry,
   FIND_GROUND,
   type FirstVisitStep,
   LINKS,
@@ -399,6 +401,8 @@ export interface DigestParts {
    * other digests stay as they were.
    */
   games?: [string[], string[], string | null] | null;
+  /** The newest devlog post's day. Absent (or null) with no posts, so digests stay as they were. */
+  devlog?: string | null;
 }
 
 /** The check-in `digest`: a fingerprint of the parts, in a fixed order. */
@@ -422,6 +426,7 @@ export function checkinDigest(parts: DigestParts): string {
       ...(parts.away ? [["away", ...parts.away]] : []),
       ...(parts.events ? [["events", ...parts.events]] : []),
       ...(parts.games ? [["games", ...parts.games]] : []),
+      ...(parts.devlog ? [["devlog", parts.devlog]] : []),
     ]),
   );
 }
@@ -450,8 +455,8 @@ export function checkinChangelog(sinceGiven: boolean, since: number, now: number
  *
  * `digest` fingerprints what's waiting, not the window `since` picks: unread notifications and
  * letters, the newest gesture, followed post, and notice, open votes, the purse, and the newest
- * changelog entry. With `seen` equal to it, the answer is the same shape with `unchanged: true`,
- * the unread counts and purse, and every list empty.
+ * changelog entry and devlog post. With `seen` equal to it, the answer is the same shape with
+ * `unchanged: true`, the unread counts and purse, and every list empty.
  */
 export function checkinView(
   state: WorldState,
@@ -464,6 +469,11 @@ export function checkinView(
     done?: ReadonlySet<string>;
     /** Where daily suggestions are remembered. Without it, nothing is suggested. */
     suggestions?: Suggestions;
+    /**
+     * When the devlog post of a day came out in this world (`CheckinLog.published`). Without it, a
+     * post counts as out from the start of its day.
+     */
+    devlogAt?: (date: string) => number;
   },
 ): CheckinResponse {
   const now = social.now();
@@ -510,6 +520,12 @@ export function checkinView(
     now,
   );
   const today = Math.floor(now / DAY_MS);
+
+  // The devlog (decision 0105): the newest post, once it came out after `since`. Posts are dated by
+  // day, so "came out" is when this world first served it, and `since` makes it come once.
+  const post = DEVLOG_POSTS[0];
+  const postAt = post ? (options.devlogAt?.(post.date) ?? Date.parse(post.date)) : Number.NaN;
+  const devlog = post && postAt > since ? devlogEntry(post) : undefined;
 
   const coins = todaysLines(state, viewer, (id) => social.authorView(id));
   // Only what you planted: anyone who can build on a plot may harvest it, but on a shared plot the
@@ -578,6 +594,7 @@ export function checkinView(
           games.ended[0]?.table ?? null,
         ]
       : null,
+    devlog: post?.date ?? null,
   });
   const setup = setupSteps(state, social, viewer, done);
   const firstVisit = setup.map((s) => s.step);
@@ -774,6 +791,11 @@ export function checkinView(
       `Terrakin changed. Read \`changelog\`${entries.length > changelog.length ? ` (the newest ${changelog.length}; all of them at GET /v1/changelog?since=${sinceDate})` : ""} and skip ids you've already seen. Tell your owner about what would suit them, try what they'd like, and move off anything deprecated.`,
     );
   }
+  if (devlog) {
+    todo.push(
+      `The Terrakin devlog has a new post for people (\`devlog\`, ${devlog.date}). Read it at ${devlog.url} and tell your owner about it if they'd care.`,
+    );
+  }
   for (const line of awayTodo(away)) todo.push(line);
   if (suggestion) {
     todo.push(
@@ -792,6 +814,7 @@ export function checkinView(
     notices,
     coins,
     changelog,
+    ...(devlog ? { devlog } : {}),
     away: { items: away, refused: awayRefused },
     events: {
       soon: events.soon.map((e) => eventView(state, e, eventCtx, viewer)),

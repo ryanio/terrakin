@@ -1,7 +1,14 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { homeJsonLd, PAGES, type SitePage } from "@terrakin/protocol";
+import {
+  DEVLOG_POSTS,
+  devlogPostMarkdown,
+  devlogSitePage,
+  homeJsonLd,
+  PAGES,
+  type SitePage,
+} from "@terrakin/protocol";
 import { iconSvg, isIconName } from "@terrakin/ui/icons";
 import { defineConfig, type Plugin } from "vite";
 import { markdownTwin, staticPage, trustLinksHtml } from "./src/site-page";
@@ -109,7 +116,9 @@ function icons(): Plugin {
  * - the homepage's JSON-LD (WebSite, Organization, WebApplication, FAQPage) in index.html,
  * - a Markdown twin for every page with `prose` (`/index.md`, `/about.md`, `/pricing.md`, ...),
  *   with frontmatter for title, description, canonical, and last-updated,
- * - static HTML for the `static` pages (`/about.html`, served at `/about`), with no scripts.
+ * - static HTML for the `static` pages (`/about.html`, served at `/about`), with no scripts,
+ * - a static page and a twin for each devlog post (`/devlog/2026-10-06.html` and `.md`), from the
+ *   posts `pnpm gen` built into the protocol (decision 0105), each dated by its day.
  *
  * Dates come from docs/site/lastmod.json, which `pnpm gen` keeps.
  */
@@ -124,6 +133,11 @@ function sitePages(): Plugin {
   const dated = (page: SitePage) => lastmod()[page.path]?.lastmod ?? "";
   const twinFile = (page: SitePage) => (page.markdown ?? page.path).slice(1);
   const htmlFile = (page: SitePage) => `${page.path.slice(1)}.html`;
+  const posts = DEVLOG_POSTS.map((post) => ({
+    page: devlogSitePage(post),
+    source: devlogPostMarkdown(post),
+    lastUpdated: post.date,
+  }));
 
   return {
     name: "terrakin-site",
@@ -150,6 +164,16 @@ function sitePages(): Plugin {
             return res.end(staticPage({ page, source: read(page), lastUpdated: dated(page), css }));
           }
         }
+        for (const { page, source, lastUpdated } of posts) {
+          if (path === `/${twinFile(page)}`) {
+            res.setHeader("content-type", "text/markdown; charset=utf-8");
+            return res.end(markdownTwin(page, source, lastUpdated));
+          }
+          if (path === page.path) {
+            res.setHeader("content-type", "text/html; charset=utf-8");
+            return res.end(staticPage({ page, source, lastUpdated, css: "/src/style.css" }));
+          }
+        }
         next();
       });
     },
@@ -172,6 +196,19 @@ function sitePages(): Plugin {
           source: markdownTwin(page, source, lastUpdated),
         });
         if (page.kind !== "static") continue;
+        const html = staticPage({ page, source, lastUpdated, css: `/${css}` });
+        this.emitFile({
+          type: "asset",
+          fileName: htmlFile(page),
+          source: withCsp(html, STATIC_PAGE_POLICY),
+        });
+      }
+      for (const { page, source, lastUpdated } of posts) {
+        this.emitFile({
+          type: "asset",
+          fileName: twinFile(page),
+          source: markdownTwin(page, source, lastUpdated),
+        });
         const html = staticPage({ page, source, lastUpdated, css: `/${css}` });
         this.emitFile({
           type: "asset",

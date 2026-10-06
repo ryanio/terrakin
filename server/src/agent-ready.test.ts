@@ -6,6 +6,7 @@ import {
   CATALOG_VERSION,
   CATALOG_VIEW,
   CHANGELOG_ENTRIES,
+  DEVLOG_POSTS,
   SITEMAP_MAX_URLS,
 } from "@terrakin/protocol";
 import type { WorldConfig } from "@terrakin/sim";
@@ -54,6 +55,15 @@ function staticDir() {
   writeFileSync(join(dir, "changelog.html"), "<!doctype html><title>What's new</title>");
   writeFileSync(join(dir, "changelog.md"), "# What's new in Terrakin\n");
   writeFileSync(join(dir, "changelog.xml"), '<feed xmlns="http://www.w3.org/2005/Atom"></feed>');
+  writeFileSync(join(dir, "devlog.xml"), '<feed xmlns="http://www.w3.org/2005/Atom"></feed>');
+  mkdirSync(join(dir, "devlog"));
+  for (const post of DEVLOG_POSTS) {
+    writeFileSync(
+      join(dir, "devlog", `${post.date}.html`),
+      `<!doctype html><title>${post.date}</title>`,
+    );
+    writeFileSync(join(dir, "devlog", `${post.date}.md`), `# ${post.title}\n`);
+  }
   return dir;
 }
 
@@ -477,5 +487,59 @@ describe("the changelog", () => {
 
     const twin = await call("GET", "/changelog", { headers: { accept: "text/markdown" } });
     expect(twin.text).toBe("# What's new in Terrakin\n");
+  });
+});
+
+describe("the devlog", () => {
+  type Entry = { date: string; title: string; summary: string; url: string; body?: string };
+
+  it("lists posts newest first without their bodies, from since on, and has each one whole", async () => {
+    const { call } = await start();
+    const all = await call("GET", "/v1/devlog");
+    expect(all.status).toBe(200);
+    const dates = (all.body.posts as Entry[]).map((p) => p.date);
+    expect(dates.length).toBeGreaterThanOrEqual(3);
+    expect(dates).toEqual([...dates].sort().reverse());
+    expect(all.body.latest).toBe(dates[0]);
+    expect((all.body.posts as Entry[]).every((p) => p.body === undefined)).toBe(true);
+
+    const since = await call("GET", `/v1/devlog?since=${dates[1]}`);
+    expect((since.body.posts as Entry[]).map((p) => p.date)).toEqual(dates.slice(0, 2));
+
+    const one = await call("GET", `/v1/devlog/${dates[0]}`);
+    expect(one.status).toBe(200);
+    expect(one.body.post).toMatchObject(all.body.posts[0]);
+    expect(one.body.post.body).toContain(one.body.post.summary.slice(0, 40));
+
+    const none = await call("GET", "/v1/devlog/1999-01-01");
+    expect(none.status).toBe(404);
+    expect(none.body.error.code).toBe("not_found");
+    for (const path of ["/v1/devlog/yesterday", "/v1/devlog?since=2026-10-6"]) {
+      const bad = await call("GET", path);
+      expect(bad.status, path).toBe(400);
+      expect(bad.body.error.code, path).toBe("bad_request");
+    }
+  });
+
+  it("serves its feed as Atom, and a post's Markdown to an agent that asks for it", async () => {
+    const { call } = await start();
+    const newest = DEVLOG_POSTS[0];
+    if (!newest) throw new Error("docs/devlog has no posts");
+    const feed = await call("GET", "/devlog.xml");
+    expect(feed.headers.get("content-type")).toBe("application/atom+xml; charset=utf-8");
+
+    const path = `/devlog/${newest.date}`;
+    const page = await call("GET", path, { headers: { accept: "text/html" } });
+    expect(page.text).toContain(`<title>${newest.date}</title>`);
+    expect(page.headers.get("link")).toContain(
+      `<${path}.md>; rel="alternate"; type="text/markdown"`,
+    );
+    const twin = await call("GET", path, { headers: { accept: "text/markdown" } });
+    expect(twin.text).toBe(`# ${newest.title}\n`);
+    // A day with no post has no twin to offer.
+    const missing = await call("GET", "/devlog/1999-01-01", {
+      headers: { accept: "text/markdown" },
+    });
+    expect(missing.headers.get("content-type")).not.toContain("text/markdown");
   });
 });

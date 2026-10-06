@@ -19,10 +19,14 @@
  * openapi.json and SKILL.md's API block. When the API changes, gen restamps it only if that day
  * has gained an entry since the last stamp, and gen:check fails until it has.
  *
+ * The devlog (decision 0105): the posts in docs/devlog become docs/site/devlog.md (the /devlog
+ * page and its twin), client/public/devlog.xml (Atom), and protocol/src/devlog.generated.ts (the
+ * data behind GET /v1/devlog, the check-in's `devlog`, and each post's page in the client build).
+ *
  * Plain Node (type stripping), no dependencies beyond the workspace packages it renders.
  */
 import { createHash } from "node:crypto";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { registerHooks } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -50,6 +54,7 @@ const discovery = await import("../protocol/src/discovery.ts");
 const { docsGuides } = await import("../protocol/src/guides.ts");
 const { PAGES } = await import("../protocol/src/site.ts");
 const changelog = await import("../protocol/src/changelog.ts");
+const devlog = await import("../protocol/src/devlog.ts");
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const LASTMOD = "docs/site/lastmod.json";
@@ -88,6 +93,16 @@ const apiFingerprint = () =>
 
 /** CHANGELOG.md, parsed. Throws a ChangelogError naming the bad line. */
 const changelogLog = () => changelog.parseChangelog(read("CHANGELOG.md"));
+
+const DEVLOG_DIR = "docs/devlog";
+/** Every devlog post, newest first. Throws a DevlogError naming the file and the fix. */
+const devlogPosts = () =>
+  devlog.parseDevlog(
+    readdirSync(join(ROOT, DEVLOG_DIR)).map((name) => {
+      const file = `${DEVLOG_DIR}/${name}`;
+      return { file, text: read(file) };
+    }),
+  );
 
 type LastmodFile = Record<string, { sha256: string; lastmod: string }>;
 const lastmods = (): Record<string, string> =>
@@ -141,6 +156,12 @@ const TARGETS: { file: string; render: (current: string) => string }[] = [
     render: () => changelog.changelogModule(changelogLog()),
   },
   { file: "client/public/changelog.xml", render: () => changelog.changelogAtom(changelogLog()) },
+  { file: "docs/site/devlog.md", render: () => devlog.devlogPage(devlogPosts()) },
+  {
+    file: "protocol/src/devlog.generated.ts",
+    render: () => devlog.devlogModule(devlogPosts()),
+  },
+  { file: "client/public/devlog.xml", render: () => devlog.devlogAtom(devlogPosts()) },
   {
     file: "docs/site/index.md",
     render: (text) =>
@@ -183,7 +204,15 @@ const TARGETS: { file: string; render: (current: string) => string }[] = [
     },
   },
   { file: "client/public/docs.md", render: () => docs.docsMarkdown(lastmods()["/docs"] ?? today) },
-  { file: "client/public/sitemap-pages.xml", render: () => discovery.pagesSitemapXml(lastmods()) },
+  {
+    file: "client/public/sitemap-pages.xml",
+    // Each devlog post is a page of its own, dated by its day: posts never change.
+    render: () =>
+      discovery.pagesSitemapXml(
+        lastmods(),
+        devlogPosts().map((p) => ({ loc: p.url, lastmod: p.date })),
+      ),
+  },
   { file: "client/public/robots.txt", render: () => discovery.robotsTxt() },
   {
     file: "client/public/.well-known/api-catalog",
@@ -206,7 +235,7 @@ for (const { file, render } of TARGETS) {
   try {
     after = render(before);
   } catch (err) {
-    if (!(err instanceof changelog.ChangelogError)) throw err;
+    if (!(err instanceof changelog.ChangelogError || err instanceof devlog.DevlogError)) throw err;
     errors.push(err.message);
   }
   next.set(file, after);
@@ -224,7 +253,7 @@ if (errors.length > 0) {
 }
 if (check && stale.length > 0) {
   console.error(
-    `Generated files are out of date with protocol/src/routes.ts, protocol/src/site.ts, or CHANGELOG.md:\n${stale.map((f) => `  ${f}`).join("\n")}\nRun \`pnpm gen\` and commit the result.`,
+    `Generated files are out of date with protocol/src/routes.ts, protocol/src/site.ts, CHANGELOG.md, or docs/devlog:\n${stale.map((f) => `  ${f}`).join("\n")}\nRun \`pnpm gen\` and commit the result.`,
   );
   process.exit(1);
 }

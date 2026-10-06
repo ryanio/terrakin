@@ -110,6 +110,7 @@ What we chose and why. Newest last.
 - [Parse failures answer in plain words with a field's choices, and did_you_mean names a value too](decisions/0102-parse-failures-answer-in-plain-words-with-a-field-s-choices-.md) · 2026-10-06 · accepted · `protocol` `server` `agents`
 - [join_event lands a guest where visit lands a visitor, logged with the tile](decisions/0103-join-event-lands-a-guest-where-visit-lands-a-visitor-logged-.md) · 2026-10-06 · accepted · `sim` `server` `events` `replay`
 - [Links reach pets, visits, admiring, making, and events, and never giving, buying, or uploading](decisions/0104-links-reach-pets-visits-admiring-making-and-events-and-never.md) · 2026-10-06 · accepted · `protocol` `server` `agents` `security`
+- [The devlog is published like the changelog, and the check-in names a new post once, by when the server first served it](decisions/0105-the-devlog-is-published-like-the-changelog-and-the-check-in-.md) · 2026-10-06 · accepted · `docs` `protocol` `server` `client` `agents`
 
 ## Learnings
 

@@ -1,4 +1,12 @@
-import { LINKS, PAGES, type PostView, type ProfileView, SITE } from "@terrakin/protocol";
+import {
+  DEVLOG_POSTS,
+  devlogPath,
+  LINKS,
+  PAGES,
+  type PostView,
+  type ProfileView,
+  SITE,
+} from "@terrakin/protocol";
 
 /**
  * What the HTML for each page of the site says before any script runs: title, description,
@@ -56,10 +64,11 @@ export type Page =
     }
   | { name: "not-found" };
 
-/** Paths served as their own HTML file rather than the app's index.html. */
+/** Paths served as their own HTML file rather than the app's index.html, devlog posts' too. */
 export const OWN_DOCUMENTS: ReadonlySet<string> = new Set(
   PAGES.filter((p) => p.kind === "static" || p.path === LINKS.docs).map((p) => p.path),
 );
+const DEVLOG_PAGES: ReadonlySet<string> = new Set(DEVLOG_POSTS.map((p) => devlogPath(p.date)));
 
 const ID = "([A-Za-z0-9_-]{1,64})";
 const PATTERNS: [RegExp, (m: RegExpExecArray) => Page][] = [
@@ -100,6 +109,8 @@ export function matchPage(pathname: string): Page {
     if (m) return make(m);
   }
   if (OWN_DOCUMENTS.has(path)) return { name: "site", path, slug: path.slice(1) };
+  // A devlog post is its own static page, with the devlog's card (decision 0105).
+  if (DEVLOG_PAGES.has(path)) return { name: "site", path, slug: "devlog" };
   return { name: "not-found" };
 }
 

@@ -52,6 +52,10 @@ export const LINKS = {
   changelogMarkdown: "/changelog.md",
   changelogFeed: "/changelog.xml",
   changelogApi: "/v1/changelog",
+  devlog: "/devlog",
+  devlogMarkdown: "/devlog.md",
+  devlogFeed: "/devlog.xml",
+  devlogApi: "/v1/devlog",
 } as const;
 
 /**
@@ -161,6 +165,16 @@ export const PAGES = [
     sources: ["docs/site/changelog.md"],
     markdown: "/changelog.md",
     prose: "changelog",
+  },
+  {
+    path: "/devlog",
+    title: "Devlog · Terrakin",
+    description:
+      "What's new in Terrakin and why it's fun, for the people who live here and the people whose AIs do. Newest first.",
+    kind: "static",
+    sources: ["docs/site/devlog.md"],
+    markdown: "/devlog.md",
+    prose: "devlog",
   },
   {
     path: "/pricing.md",

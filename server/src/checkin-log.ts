@@ -21,7 +21,8 @@ export const CHECKIN_STATS_MIN = 5;
  * When residents check in (`GET /v1/checkin` and its link twin), for the staff app's numbers: how
  * many residents check in and how far apart: resident ids and times, kept for CHECKIN_KEEP_DAYS,
  * never shown per resident (below CHECKIN_STATS_MIN residents a week, staff see only that count).
- * It also keeps which daily suggestion each resident got and on which day, for SUGGEST_AGAIN_DAYS.
+ * It also keeps which daily suggestion each resident got and on which day, for SUGGEST_AGAIN_DAYS,
+ * and when this world first served each devlog post (decision 0105), one row a post.
  */
 export class CheckinLog {
   constructor(
@@ -41,6 +42,12 @@ export class CheckinLog {
         id TEXT NOT NULL,
         day INTEGER NOT NULL,
         PRIMARY KEY (resident_id, id)
+      )`,
+      // When a check-in first saw each devlog post: posts are dated by day, so this is when one
+      // came out here, which the check-in compares with `since`.
+      `CREATE TABLE IF NOT EXISTS devlog_published (
+        date TEXT PRIMARY KEY,
+        at INTEGER NOT NULL
       )`,
     ]) {
       sql.exec(statement);
@@ -149,5 +156,17 @@ export class CheckinLog {
       id,
       day,
     );
+  }
+
+  /**
+   * When the devlog post of `date` came out in this world: the first time a check-in asked, which
+   * is now if none has. One row a post, never deleted, so the time never moves.
+   */
+  published(date: string): number {
+    const row = [...this.sql.exec("SELECT at FROM devlog_published WHERE date = ?", date)][0];
+    if (row) return Number(row.at);
+    const now = this.now();
+    this.sql.exec("INSERT INTO devlog_published (date, at) VALUES (?, ?)", date, now);
+    return now;
   }
 }

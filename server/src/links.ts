@@ -1221,6 +1221,7 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
         since: query.since,
         seen: query.seen,
         done: service.doneCommands(viewer),
+        devlogAt: (date) => social().checkins.published(date),
       });
       // The same steps as the JSON check-in's `firstVisit`, each with the link that does it.
       const stepLinks: Record<FirstVisitStep, string> = {
@@ -1357,6 +1358,14 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
               c.coins.allowanceToday
                 ? "You've had today's coins for coming home."
                 : allowanceDue(state, viewer) && `Come home for today's coins: ${l.home}`,
+            ]),
+          c.devlog &&
+            list([
+              "## New in the devlog",
+              "",
+              `${c.devlog.title} (${c.devlog.date}): ${c.devlog.summary}`,
+              "",
+              `Read it at ${c.devlog.url}, and tell your owner about it if they'd care.`,
             ]),
           news &&
             list([

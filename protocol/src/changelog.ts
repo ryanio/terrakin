@@ -115,7 +115,7 @@ const REMOVAL = /Earliest removal: (\d{4}-\d{2}-\d{2})/;
 const TRY = /^Try: (.+)$/;
 
 /** `2026-10-04` if it is a real day in that form. */
-function isDay(text: string): boolean {
+export function isDay(text: string): boolean {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
   if (!m) return false;
   const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];

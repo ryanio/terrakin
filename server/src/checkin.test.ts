@@ -3,6 +3,7 @@ import {
   CHANGELOG_ENTRIES,
   CHECKIN_LIMITS,
   CHECKIN_SUGGESTED_HOURS,
+  DEVLOG_POSTS,
 } from "@terrakin/protocol";
 import type { WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
@@ -244,7 +245,10 @@ describe("GET /v1/checkin", () => {
     expect(c.notices).toEqual([]);
     // A newcomer's first-visit steps aside, nothing is waiting.
     const waiting = c.todo.filter(
-      (t: string) => !t.startsWith("Terrakin changed") && !t.startsWith("First visit:"),
+      (t: string) =>
+        !t.startsWith("Terrakin changed") &&
+        !t.startsWith("The Terrakin devlog") &&
+        !t.startsWith("First visit:"),
     );
     expect(waiting).toEqual([]);
     expect(c.changelog.length).toBeLessThanOrEqual(CHECKIN_LIMITS.changelog);
@@ -347,6 +351,7 @@ describe("GET /v1/checkin with seen", () => {
       "notices",
       "coins",
       "changelog",
+      "devlog",
       "away",
       "events",
       "todo",
@@ -357,7 +362,7 @@ describe("GET /v1/checkin with seen", () => {
     ]);
   });
 
-  it("moves for a new proposal, a coin line, and a changelog entry too", () => {
+  it("moves for a new proposal, a coin line, a changelog entry, and a devlog post too", () => {
     const base: DigestParts = {
       unreadNotifications: 0,
       notifications: [],
@@ -369,6 +374,7 @@ describe("GET /v1/checkin with seen", () => {
       notice: null,
       coins: [50, true, [12]],
       changelog: "2026-10-05-a",
+      devlog: "2026-10-05",
     };
     const digest = checkinDigest(base);
     expect(checkinDigest({ ...base })).toBe(digest);
@@ -378,6 +384,7 @@ describe("GET /v1/checkin with seen", () => {
       { coins: [60, true, [12]] as DigestParts["coins"] },
       { coins: null },
       { changelog: "2026-10-06-b" },
+      { devlog: "2026-10-06" },
       { notice: "n_1" },
       { items: [["3,3"], 0] as [string[], number] },
     ]) {
@@ -481,6 +488,39 @@ describe("GET /v1/checkin past its caps and around blocks", () => {
     advance(HOUR);
     const again = await checkin(wren.token, first.at);
     expect(again.todo.some((t: string) => t.startsWith("Terrakin changed"))).toBe(false);
+  });
+});
+
+describe("the devlog in the check-in", () => {
+  it("names the newest post once, from when this world first served it", async () => {
+    const { join, checkin, advance } = await start();
+    const newest = DEVLOG_POSTS[0];
+    if (!newest) throw new Error("docs/devlog has no posts");
+    const wren = join("Wren");
+    const ash = join("Ash");
+    const told = (c: Json) => c.todo.filter((t: string) => t.startsWith("The Terrakin devlog"));
+
+    // Wren's is the first check-in since the post came out here, so it has the post.
+    const first = await checkin(wren.token);
+    const { body: _, ...entry } = newest;
+    expect(first.devlog).toEqual(entry);
+    expect(told(first)).toEqual([
+      `The Terrakin devlog has a new post for people (\`devlog\`, ${newest.date}). Read it at ${newest.url} and tell your owner about it if they'd care.`,
+    ]);
+
+    // Sending the last `at` as `since`, it doesn't come again.
+    advance(4 * HOUR);
+    const again = await checkin(wren.token, first.at);
+    expect(again.devlog).toBeUndefined();
+    expect(told(again)).toEqual([]);
+
+    // It came out when Wren first asked, for everyone: a since before then has it, a since
+    // after then doesn't, however long ago the post's own day was.
+    const came = Date.parse(first.at);
+    const before = await checkin(ash.token, new Date(came - HOUR).toISOString());
+    expect(before.devlog?.date).toBe(newest.date);
+    const after = await checkin(ash.token, new Date(came + HOUR).toISOString());
+    expect(after.devlog).toBeUndefined();
   });
 });
 
@@ -700,12 +740,15 @@ describe("GET /v1/act/{key}/checkin", () => {
     expect(first).toContain(`/v1/act/${key}/world`);
     expect(first).toContain("This is your first check-in from this link, so it looks back a day.");
     expect(first).toContain("## What's new in Terrakin");
+    expect(first).toContain("## New in the devlog");
+    expect(first).toContain(DEVLOG_POSTS[0]?.url);
     // The next-time link is the last line, and with steps left the next answer still names them.
     const lastLine = first.trimEnd().split("\n").at(-1) ?? "";
     const next = /\/v1\/act\/k_[\w-]+\/checkin\?since=\S+/.exec(lastLine)?.[0];
     if (!next) throw new Error(`No next link on the last line:\n${first}`);
     const quiet = (await call("GET", next)).text;
     expect(quiet).toContain("## Still to do from your first visit");
+    expect(quiet).not.toContain("## New in the devlog");
     const feed = (await call("GET", `/v1/act/${key}/feed`)).text;
     expect(feed).toContain(`Follow Ash: http`);
     expect(feed).toContain(`/v1/act/${key}/follow?resident=${ash.id}`);

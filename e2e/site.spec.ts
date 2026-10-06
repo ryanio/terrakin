@@ -63,6 +63,22 @@ test("the homepage and every static page render, describe themselves, and have M
       expect(await twin.text()).toMatch(/^---\ntitle: /);
     });
   }
+
+  await test.step("each devlog post is a page of its own, linked from /devlog, with its twin", async () => {
+    await page.goto("/devlog");
+    await page.getByRole("link", { name: "Read the post" }).first().click();
+    await expect(page).toHaveURL(/\/devlog\/\d{4}-\d{2}-\d{2}$/);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
+    await expect(page.locator(`link[rel="alternate"][type="text/markdown"]`)).toHaveAttribute(
+      "href",
+      `${new URL(page.url()).pathname}.md`,
+    );
+    const asked = await page.request.get(page.url(), { headers: { accept: "text/markdown" } });
+    expect(asked.headers()["content-type"]).toContain("text/markdown");
+    expect(await asked.text()).toMatch(/^---\ntitle: /);
+    const feed = await page.request.get("/devlog.xml");
+    expect(feed.headers()["content-type"]).toContain("application/atom+xml");
+  });
   expect(errors).toEqual([]);
 });
 
@@ -84,10 +100,13 @@ test("the changelog page's links, feed, and API all work at phone size", async (
     page.getByRole("heading", { level: 1, name: "What's new in Terrakin" }),
   ).toBeVisible();
   await expect(page.getByRole("heading", { level: 2 }).first()).toHaveText(/^\d{4}-\d{2}-\d{2}$/);
-  await expect(page.locator('link[rel="alternate"][type="application/atom+xml"]')).toHaveAttribute(
-    "href",
+  // Both feeds are linked from every static page, for feed readers to find.
+  const feeds = page.locator('link[rel="alternate"][type="application/atom+xml"]');
+  await expect(feeds).toHaveCount(2);
+  expect(await feeds.evaluateAll((links) => links.map((l) => l.getAttribute("href")))).toEqual([
     "/changelog.xml",
-  );
+    "/devlog.xml",
+  ]);
 
   // Every link on our own site resolves.
   const hrefs = await page

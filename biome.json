@@ -11,6 +11,7 @@
       "**",
       "!protocol/openapi.json",
       "!protocol/src/changelog.generated.ts",
+      "!protocol/src/devlog.generated.ts",
       "!client/public/.well-known",
       "!docs/site/lastmod.json",
       "!.agents/skills/secrets"

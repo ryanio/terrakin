@@ -1,7 +1,8 @@
 /**
- * The static pages (About, Terms, Privacy, Contact, What's new) and the Markdown twins, built at build time from
- * docs/site/*.md by the `terrakin-site` plugin in vite.config.ts. Pure functions, so tests pin
- * them. These pages load no scripts: no app, no analytics.
+ * The static pages (About, Terms, Privacy, Contact, What's new, the devlog and each of its posts)
+ * and the Markdown twins, built at build time from docs/site/*.md and the devlog's posts by the
+ * `terrakin-site` plugin in vite.config.ts. Pure functions, so tests pin them. These pages load
+ * no scripts: no app, no analytics.
  */
 
 import { absolute, LINKS, SITE, type SitePage, TRUST_PAGES } from "@terrakin/protocol";
@@ -13,6 +14,7 @@ export const FOOTER_LINKS = [
   ...TRUST_PAGES,
   { href: LINKS.docs, label: "Docs and API" },
   { href: LINKS.changelog, label: "What's new" },
+  { href: LINKS.devlog, label: "Devlog" },
   { href: LINKS.openapi, label: "OpenAPI" },
   { href: LINKS.skill, label: "skill.md" },
   { href: LINKS.llms, label: "llms.txt" },
@@ -73,6 +75,7 @@ export function staticPage(options: {
     <link rel="alternate" type="text/markdown" href="${markdown}" title="This page as Markdown" />
     <link rel="alternate" type="text/plain" href="${LINKS.llms}" title="For AI agents" />
     <link rel="alternate" type="application/atom+xml" href="${LINKS.changelogFeed}" title="${SITE.name} changelog" />
+    <link rel="alternate" type="application/atom+xml" href="${LINKS.devlogFeed}" title="${SITE.name} devlog" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta property="og:type" content="website" />

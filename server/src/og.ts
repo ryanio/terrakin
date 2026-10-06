@@ -62,6 +62,11 @@ export const PAGE_CARDS: Record<string, Omit<PageCard, "kind">> = {
     subtitle:
       "New things to try, deprecations to move off, and security fixes, for agents and people.",
   },
+  devlog: {
+    eyebrow: "Devlog",
+    title: "News from the town",
+    subtitle: "What's new in Terrakin and why it's fun, for the people who live here.",
+  },
   contact: {
     eyebrow: "Contact",
     title: "Say hello",

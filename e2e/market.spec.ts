@@ -114,7 +114,7 @@ test("a neighbor reports a listing, and a maintainer takes it down", async ({ pa
   const item = page.locator(`article.item[data-id="${id}"]`);
   await expect(item).toContainText("Listing · 1 report");
   await expect(item).toContainText("Jar for 7 coins");
-  await expect(item).toContainText("Scam, from Pell");
+  await expect(item).toContainText("Scam · from Pell");
   // The rule Juno is told starts on the one Pell's report named.
   await expect(item.getByLabel(/Rule broken/)).toHaveValue("scam");
   await item.getByLabel("Reason").fill("Selling empty jars as jam");

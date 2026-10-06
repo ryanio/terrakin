@@ -3,26 +3,34 @@ import { countFrames, framesWhileIdle, join, signIn, watchErrors } from "./suppo
 
 /**
  * The 3D views at phone size: a plot seeded over REST opens in 3D, draws real pixels through
- * WebGL (Chromium's SwiftShader in CI), takes a photo, and leaves nothing running behind it.
+ * WebGL (Chromium's SwiftShader in CI), takes a photo, gets dark at night, and leaves nothing
+ * running behind it.
  */
 
-/** How many distinct colors a sample of the photo has. A blank or failed render has one or two. */
-async function photoColors(page: Page): Promise<number> {
+/**
+ * A sample of the photo: how many distinct colors it has (a blank or failed render has one or two)
+ * and how light it is on average, from 0 to 1.
+ */
+async function photoSample(page: Page): Promise<{ colors: number; light: number }> {
   return page.evaluate(async () => {
     const img = document.querySelector<HTMLImageElement>(".view3d-shot");
-    if (!img) return 0;
+    if (!img) return { colors: 0, light: 0 };
     await img.decode();
     const c = document.createElement("canvas");
     c.width = 64;
     c.height = 64;
     const g = c.getContext("2d");
-    if (!g) return 0;
+    if (!g) return { colors: 0, light: 0 };
     g.drawImage(img, 0, 0, 64, 64);
     const data = g.getImageData(0, 0, 64, 64).data;
     const seen = new Set<string>();
-    for (let i = 0; i < data.length; i += 4)
-      seen.add(`${(data[i] ?? 0) >> 4},${(data[i + 1] ?? 0) >> 4},${(data[i + 2] ?? 0) >> 4}`);
-    return seen.size;
+    let light = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      const [r = 0, gr = 0, b = 0] = [data[i], data[i + 1], data[i + 2]];
+      seen.add(`${r >> 4},${gr >> 4},${b >> 4}`);
+      light += (0.2126 * r + 0.7152 * gr + 0.0722 * b) / 255;
+    }
+    return { colors: seen.size, light: light / (data.length / 4) };
   });
 }
 
@@ -58,7 +66,8 @@ test("a plot opens in 3D, takes a photo, and stops drawing when you leave", asyn
   // A photo of the scene has real pixels in it.
   await page.getByRole("button", { name: "Take a photo" }).click();
   await expect(page.locator(".view3d-shot")).toBeVisible();
-  expect(await photoColors(page)).toBeGreaterThan(12);
+  const day = await photoSample(page);
+  expect(day.colors).toBeGreaterThan(12);
   await expect(page.getByRole("link", { name: "Save" })).toHaveAttribute("download", /\.png$/);
 
   // Closing the photo puts focus back on the button that took it.
@@ -79,6 +88,26 @@ test("a plot opens in 3D, takes a photo, and stops drawing when you leave", asyn
     "href",
     `/r/${session.residentId}/3d`,
   );
+
+  await test.step("at midnight the same plot is drawn, and darker", async () => {
+    // Clients read the time of day off the snapshot's clock (decision 0011), so move it to this
+    // day's midnight: phase 0.75, where 0 is dawn and 0.25 noon.
+    await page.route(/\/v1\/world$/, async (route) => {
+      const res = await route.fetch();
+      const world = await res.json();
+      const { nowMs, dayLengthMs } = world.time;
+      world.time.nowMs = nowMs - (nowMs % dayLengthMs) + 0.75 * dayLengthMs;
+      await route.fulfill({ response: res, body: JSON.stringify(world) });
+    });
+    await page.goto(`/r/${session.residentId}/3d`);
+    await expect(page.locator(".view3d[data-ready]")).toBeVisible({ timeout: 20_000 });
+    await page.screenshot({ path: "test-results/three-d-plot-night.png" });
+    await page.getByRole("button", { name: "Take a photo" }).click();
+    await expect(page.locator(".view3d-shot")).toBeVisible();
+    const night = await photoSample(page);
+    expect(night.colors).toBeGreaterThan(12);
+    expect(night.light).toBeLessThan(day.light * 0.8);
+  });
 
   expect(errors).toEqual([]);
 });

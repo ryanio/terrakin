@@ -60,7 +60,14 @@ import {
   spotTexture,
   stoneTexture,
 } from "./art";
-import { type Footprint, footprintOf, seeThrough, shop, townHall } from "./buildings";
+import {
+  buildingGlows,
+  type Footprint,
+  footprintOf,
+  seeThrough,
+  shop,
+  townHall,
+} from "./buildings";
 import { createPictures, displayedThings } from "./displays";
 import {
   cornerLight,
@@ -68,6 +75,7 @@ import {
   hearthPull,
   hearthStand,
   type LayoutFigure,
+  litHomes,
   signSize,
 } from "./layout";
 import { hex, SKY } from "./palette";
@@ -80,12 +88,14 @@ import {
   groundAtlas,
   groundGrid,
   groundTiles,
+  HEARTH_LIGHT,
   hearth,
   ICON_TEXTURES,
   iconTexture,
   OVERHEAD_ORDER,
   overheadMaterial,
   overheadTop,
+  POOL_LIGHT,
   pickups,
   scenery,
   setUmbrella,
@@ -143,7 +153,10 @@ export interface World3dFrame {
   pets?: PetMotion;
   /** The server's clock, ms, which pets plan their days by. */
   clock?: number;
-  /** Phase of the day, 0 to 1, for pets asleep at night. */
+  /**
+   * The time of day, the map's (`time.ts`: 0 dawn, 0.25 noon), for the light (decision 0098) and
+   * for pets asleep at night. Absent: full day.
+   */
   dayPhase?: number;
 }
 
@@ -186,6 +199,8 @@ interface Building {
   group: Group;
   footprint: Footprint;
   signature: string;
+  /** Stops its windows glowing after dark. */
+  unlight(): void;
 }
 
 /** How far the camera starts from you, and how close and far a pinch can take it. */
@@ -237,13 +252,18 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
   const still = stage.reducedMotion;
   const grain = stage.keep(grainTexture());
   const shadowMap = stage.keep(spotTexture());
-  const surfaces = { plank: stage.keep(plankTexture()), stone: stage.keep(stoneTexture()) };
-  const hearthLook = { stone: surfaces.stone, glow: stage.keep(spotTexture("255, 170, 80")) };
+  const surfaces = {
+    plank: stage.keep(plankTexture()),
+    stone: stage.keep(stoneTexture()),
+    pool: stage.keep(spotTexture(POOL_LIGHT)),
+  };
+  const hearthLook = { stone: surfaces.stone, glow: stage.keep(spotTexture(HEARTH_LIGHT)) };
   const shared = new Set<Texture>([
     grain,
     shadowMap,
     surfaces.plank,
     surfaces.stone,
+    surfaces.pool,
     hearthLook.glow,
   ]);
   /** Every path and floor in one texture (RFC 0016), drawn the first time a plot has any. */
@@ -307,6 +327,8 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
   let lastSync = performance.now();
   let lastMirror: Mirror | undefined;
   let hearths = new Set<string>();
+  /** The plots whose windows light up after dark: someone's home there (`litHomes`). */
+  let homes = new Set<string>();
   /** Where someone on each hearth's tile stands instead (`hearthStand`), by `y * width + x`. */
   let stands = new Map<number, { x: number; y: number }>();
   let standsWidth = 0;
@@ -340,12 +362,17 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
   }
 
   function buildChunk(mirror: Mirror, px: number, py: number): Chunk {
-    const data = readChunk(mirror, px, py, hearths, season);
+    const data = readChunk(mirror, px, py, hearths, season, homes.has(plotKey(px, py)));
     const scope = scoped(stage);
     const group = new Group();
     group.name = `plot ${px},${py}`;
     const origin = { x: 0, y: 0 };
-    const blocks = data.blocks.map((b) => ({ ...b, own: true, fade: 0 }));
+    const blocks = data.blocks.map((b) => ({
+      ...b,
+      own: true,
+      fade: 0,
+      ...(data.lit && b.block === "glass" ? { lit: true as const } : {}),
+    }));
     addAll(group, blockMeshes(scope, origin, blocks, grain, surfaces));
     if (data.ground.length) {
       const paved = groundTiles(origin, data.ground, groundAtlasOnce());
@@ -383,7 +410,9 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       const key = plotKey(p.x, p.y);
       const have = chunks.get(key);
       if (have && !changed) continue;
-      if (have && have.signature === chunkSignature(mirror, p.x, p.y, hearths, season)) continue;
+      const lit = homes.has(key);
+      if (have && have.signature === chunkSignature(mirror, p.x, p.y, hearths, season, lit))
+        continue;
       if (built >= BUILDS_PER_FRAME) {
         pending = true;
         break;
@@ -472,24 +501,34 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
   // ---------- the Town Hall and the shop ----------
 
   function updateBuildings(mirror: Mirror) {
-    for (const [name, tiles, make] of [
-      ["hall", mirror.townHall, townHall],
-      ["shop", mirror.shop, shop],
+    for (const [name, tiles] of [
+      ["hall", mirror.townHall],
+      ["shop", mirror.shop],
     ] as const) {
       const fp = footprintOf(tiles);
       const signature = fp ? `${fp.x},${fp.y},${fp.width},${fp.depth}` : "";
       const have = buildings.get(name);
       if (have?.signature === signature) continue;
       if (have) {
+        have.unlight();
         scene.remove(have.group);
         disposeTree(have.group, shared);
         buildings.delete(name);
       }
       if (!fp) continue;
-      const group = make(fp, grain);
+      const group = name === "shop" ? shop(fp, grain, surfaces.pool) : townHall(fp, grain);
       group.position.set(fp.x, 0, fp.y);
       scene.add(group);
-      buildings.set(name, { group, footprint: fp, signature });
+      // The shop's windows light up after dark, as on the map.
+      const stops = buildingGlows(group).map((g) => stage.glow(g));
+      buildings.set(name, {
+        group,
+        footprint: fp,
+        signature,
+        unlight: () => {
+          for (const stop of stops) stop();
+        },
+      });
     }
   }
 
@@ -1033,7 +1072,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
 
   return {
     sync(frame) {
-      const { mirror, me, buildMode, feelings, motion, season: seasonNow, sky } = frame;
+      const { mirror, me, buildMode, feelings, motion, season: seasonNow, sky, dayPhase } = frame;
       const self = mirror.residents.get(me);
       lastMirror = mirror;
       const now = performance.now();
@@ -1058,6 +1097,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       lastTile = tile;
       if (changed) {
         hearths = hearthKeys(mirror.residents.values());
+        homes = litHomes(mirror.residents.values(), mirror.config.plotSize);
         stands = hearthStands(mirror);
         standsWidth = mirror.config.width;
       }
@@ -1098,6 +1138,8 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
         moved = true;
       }
       placeReach(mirror, self, buildMode);
+      // The map's time of day, then the weather on top of it (decision 0098).
+      stage.timeOfDay(dayPhase);
       weather.set(sky ?? CLEAR);
       const up = (sky?.rain ?? 0) >= UMBRELLA_RAIN;
       if (up !== umbrellasUp) {
@@ -1115,6 +1157,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       );
     },
     dispose() {
+      for (const b of buildings.values()) b.unlight();
       canvas.removeEventListener("webglcontextlost", onLost);
       canvas.removeEventListener("pointerdown", onDown);
       canvas.removeEventListener("pointerup", onUp);

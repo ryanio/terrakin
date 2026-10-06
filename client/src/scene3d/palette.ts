@@ -65,18 +65,43 @@ export interface BlockLook {
    * `height` is how tall it stands.
    */
   form: "voxel" | "clump" | "decor" | "furniture";
+  /**
+   * Lit after dark (decision 0098): a pool of warm light `pool` tiles across on the ground, its
+   * middle `at` from the tile's (x east, z south). With `home`, only in a home someone's in.
+   */
+  glow?: Glow;
+}
+
+/** How a block lights up after dark. Its model's shade or flame glows through `Stage.glow`. */
+export interface Glow {
+  pool: number;
+  at?: readonly [number, number];
+  home?: true;
 }
 
 /** Same base colors as the 2D renderer (render.ts BLOCK_COLORS). */
 const BLOCK_LOOKS: Record<BlockKind, BlockLook> = {
   wood: { color: hex("#c29468"), height: 1.25, opacity: 1, form: "voxel" },
   stone: { color: hex("#a39d93"), height: 1.25, opacity: 1, form: "voxel" },
-  glass: { color: hex("#bfe0ea"), height: 1.25, opacity: 0.42, form: "voxel" },
+  // A window: lit from inside after dark while someone's home.
+  glass: {
+    color: hex("#bfe0ea"),
+    height: 1.25,
+    opacity: 0.42,
+    form: "voxel",
+    glow: { pool: 1.7, home: true },
+  },
   leaf: { color: hex("#6b9a4a"), height: 0.95, opacity: 1, form: "clump" },
   planter: { color: hex("#8a5a36"), height: 0.5, opacity: 1, form: "voxel" },
   kitchen: { color: hex("#c8674a"), height: 0.95, opacity: 1, form: "voxel" },
   workbench: { color: hex("#9a6b43"), height: 0.8, opacity: 1, form: "voxel" },
-  lantern: { color: hex(BLOCK_COLORS.lantern), height: 1.45, opacity: 1, form: "decor" },
+  lantern: {
+    color: hex(BLOCK_COLORS.lantern),
+    height: 1.45,
+    opacity: 1,
+    form: "decor",
+    glow: { pool: 1.8, at: [0.2, 0] },
+  },
   frame: { color: hex(BLOCK_COLORS.frame), height: 1.25, opacity: 1, form: "decor" },
   fence: { color: hex(BLOCK_COLORS.fence), height: 0.8, opacity: 1, form: "decor" },
   bench: { color: hex(BLOCK_COLORS.bench), height: 0.78, opacity: 1, form: "decor" },
@@ -90,16 +115,29 @@ const BLOCK_LOOKS: Record<BlockKind, BlockLook> = {
   bookshelf: { color: hex(BLOCK_COLORS.bookshelf), height: 1.5, opacity: 1, form: "furniture" },
   barrel: { color: hex(BLOCK_COLORS.barrel), height: 0.9, opacity: 1, form: "furniture" },
   signpost: { color: hex(BLOCK_COLORS.signpost), height: 1.35, opacity: 1, form: "furniture" },
-  lamp_post: { color: hex(BLOCK_COLORS.lamp_post), height: 1.75, opacity: 1, form: "furniture" },
+  lamp_post: {
+    color: hex(BLOCK_COLORS.lamp_post),
+    height: 1.75,
+    opacity: 1,
+    form: "furniture",
+    glow: { pool: 2, at: [0, 0.15] },
+  },
   well: { color: hex(BLOCK_COLORS.well), height: 1.6, opacity: 1, form: "furniture" },
   stone_wall: { color: hex(BLOCK_COLORS.stone_wall), height: 0.6, opacity: 1, form: "furniture" },
-  campfire: { color: hex(BLOCK_COLORS.campfire), height: 0.7, opacity: 1, form: "furniture" },
+  campfire: {
+    color: hex(BLOCK_COLORS.campfire),
+    height: 0.7,
+    opacity: 1,
+    form: "furniture",
+    glow: { pool: 2.2 },
+  },
   flower_box: { color: hex(BLOCK_COLORS.flower_box), height: 0.75, opacity: 1, form: "furniture" },
   jack_o_lantern: {
     color: hex(BLOCK_COLORS.jack_o_lantern),
     height: 0.5,
     opacity: 1,
     form: "furniture",
+    glow: { pool: 1.8, at: [0, 0.2] },
   },
 };
 

@@ -136,6 +136,35 @@ describe("plot layout", () => {
     ]);
   });
 
+  it("lights the windows of the home shown, and a neighbor's when someone's home there", () => {
+    const w = world();
+    // Bram, away, has his hearth on the plot next door, so he sleeps there and his glass is lit.
+    w.residents.push(
+      resident({ id: "bram", name: "Bram", x: 0, y: 0, online: false, hearth: { x: 18, y: 12 } }),
+    );
+    w.blocks.push({ x: 17, y: 12, block: "glass" }, { x: 9, y: 17, block: "glass" });
+    const lit = (layout: ReturnType<typeof plotLayout>) =>
+      (layout?.blocks ?? []).filter((b) => b.lit).map((b) => [b.x, b.y]);
+    // Capri's own window lights (she's always drawn home), and Bram's; the one on an empty plot
+    // to the south doesn't, and nothing but glass ever does.
+    expect(lit(plotLayout(w, "capri"))).toEqual([
+      [12, 10],
+      [17, 12],
+    ]);
+    // Without a hearth on the plot it isn't a home, so nothing lights there.
+    const homeless = {
+      ...w,
+      residents: w.residents.map((r) => (r.id === "capri" ? { ...r, hearth: null } : r)),
+      plots: w.plots.filter((p) => p.px !== 0),
+    };
+    expect(lit(plotLayout(homeless, "capri"))).toEqual([[17, 12]]);
+    // The plot view keeps the server's clock, for the time of day.
+    expect(plotLayout({ ...w, time: { nowMs: 5, dayLengthMs: 10 } }, "capri")?.time).toEqual({
+      nowMs: 5,
+      dayLengthMs: 10,
+    });
+  });
+
   it("shows online visitors on the plot and always the owner, standing by the hearth when away", () => {
     const layout = plotLayout(world(), "capri");
     if (!layout) throw new Error("no layout");

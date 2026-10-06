@@ -26,12 +26,13 @@ import { paintGround } from "@terrakin/ui/ground-art";
 import { CROP_HEX, onVine } from "@terrakin/ui/item-art";
 import { lookPalette } from "@terrakin/ui/looks";
 import {
+  AdditiveBlending,
   Box3,
   BufferAttribute,
   BufferGeometry,
   type CanvasTexture,
   CircleGeometry,
-  type Color,
+  Color,
   CylinderGeometry,
   DodecahedronGeometry,
   Group,
@@ -62,6 +63,7 @@ import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.j
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { idPhase, type Pose, pose, restingPose, type Shown } from "../feelings";
+import { dayPhase } from "../time";
 import { UMBRELLA_RAIN, WEATHER_LOOK } from "../weather";
 import {
   addAll,
@@ -81,6 +83,7 @@ import {
   stoneTexture,
   unindexed,
 } from "./art";
+import { glowsAfterDark } from "./daylight";
 import { decorInstances } from "./decor";
 import { createPictures, displayedThings } from "./displays";
 import { furnitureInstances } from "./furniture";
@@ -185,7 +188,21 @@ export function buildPlot(
   // The weather when the snapshot was taken (decision 0073): rain or snow over the plot, a greyer
   // sky, and umbrellas up in the rain.
   const sky = WEATHER_LOOK[layout.weather];
-  createWeather(stage, { radius: layout.size / 2 + layout.margin }).set(sky);
+  const weather = createWeather(stage, { radius: layout.size / 2 + layout.margin });
+  // The time of day on the server's clock, kept going here, so the plot gets dark when the map does
+  // (decision 0098).
+  const clock = layout.time && { ...layout.time, at: performance.now() };
+  const tick = () => {
+    stage.timeOfDay(
+      clock ? dayPhase(clock.nowMs + performance.now() - clock.at, clock.dayLengthMs) : undefined,
+    );
+    weather.set(sky);
+  };
+  tick();
+  if (clock) {
+    const timer = setInterval(tick, 2000);
+    stage.keep({ dispose: () => clearInterval(timer) });
+  }
   const figures: Group[] = [];
   for (const f of layout.figures) {
     const fig = figure(stage, f, shadowMap);
@@ -383,15 +400,16 @@ export function border(
 
 /**
  * Blocks as instanced meshes, one draw per kind (and per part of a decor model), placed relative
- * to `origin` (the tile that sits at the scene's middle). Shared by the plot and the world, which
- * passes one plank and one stone texture for all its plots.
+ * to `origin` (the tile that sits at the scene's middle), with their pools of light after dark.
+ * Shared by the plot and the world, which passes one plank, stone, and pool texture for all its
+ * plots.
  */
 export function blockMeshes(
   stage: Stage,
   origin: { x: number; y: number },
   blocks: readonly LayoutBlock[],
   grain: Texture,
-  shared?: { plank: Texture; stone: Texture },
+  shared?: { plank: Texture; stone: Texture; pool?: Texture },
 ): Object3D[] {
   const out: Object3D[] = [];
   const toX = (x: number) => x - origin.x;
@@ -480,41 +498,47 @@ export function blockMeshes(
     const frame = new InstancedMesh(frameGeo, paper(0xffffff, grain), glass.length);
     const paneGeo = new RoundedBoxGeometry(0.8, h - 0.3, 0.42, 1, 0.04);
     paneGeo.translate(0, 0.22 + (h - 0.3) / 2, 0);
-    const pane = new InstancedMesh(
-      paneGeo,
-      new MeshPhongMaterial({
-        color: blockLook("glass").color,
+    // Panes turn to run along the wall they sit in: across x unless walls run north to south.
+    const place = (b: LayoutBlock) => {
+      const ns = solidAt(blocks, b.x, b.y - 1) || solidAt(blocks, b.x, b.y + 1);
+      const ew = solidAt(blocks, b.x - 1, b.y) || solidAt(blocks, b.x + 1, b.y);
+      q.setFromAxisAngle(UP, ns && !ew ? Math.PI / 2 : 0);
+      return m.compose(new Vector3(toX(b.x), 0, toZ(b.y)), q, one);
+    };
+    glass.forEach((b, i) => {
+      frame.setMatrixAt(i, place(b));
+      frame.setColorAt(i, lin(colorFor(BRAND.paper2, b)));
+    });
+    q.identity();
+    frame.castShadow = true;
+    frame.receiveShadow = true;
+    out.push(frame);
+    // The panes: glassy, and after dark the windows of a home someone's in lit warm from inside
+    // (decision 0098), one draw for each.
+    for (const lit of [false, true]) {
+      const list = glass.filter((b) => Boolean(b.lit) === lit);
+      if (list.length === 0) continue;
+      const material = new MeshPhongMaterial({
+        color: look.color,
         transparent: true,
         opacity: look.opacity,
         shininess: 90,
         specular: 0xffffff,
         depthWrite: false,
-      }),
-      glass.length,
-    );
-    glass.forEach((b, i) => {
-      m.compose(new Vector3(toX(b.x), 0, toZ(b.y)), q, one);
-      frame.setMatrixAt(i, m);
-      pane.setMatrixAt(i, m);
-      frame.setColorAt(i, lin(colorFor(BRAND.paper2, b)));
-      pane.setColorAt(i, lin(colorFor(look.color, b)));
-    });
-    // Panes turn to run along the wall they sit in: across x unless walls run north to south.
-    glass.forEach((b, i) => {
-      const ns = solidAt(blocks, b.x, b.y - 1) || solidAt(blocks, b.x, b.y + 1);
-      const ew = solidAt(blocks, b.x - 1, b.y) || solidAt(blocks, b.x + 1, b.y);
-      if (ns && !ew) {
-        q.setFromAxisAngle(new Vector3(0, 1, 0), Math.PI / 2);
-        m.compose(new Vector3(toX(b.x), 0, toZ(b.y)), q, one);
-        frame.setMatrixAt(i, m);
-        pane.setMatrixAt(i, m);
-        q.identity();
-      }
-    });
-    frame.castShadow = true;
-    frame.receiveShadow = true;
-    pane.renderOrder = 2;
-    out.push(frame, pane);
+        ...(lit ? { emissive: WINDOW_LIGHT } : {}),
+      });
+      if (lit)
+        stage.glow({ kind: "window", material, strength: 1.1, opacity: [look.opacity, 0.8] });
+      // The lit and the dark panes share one shape, freed with the plot.
+      const pane = new InstancedMesh(paneGeo, material, list.length);
+      list.forEach((b, i) => {
+        pane.setMatrixAt(i, place(b));
+        pane.setColorAt(i, lin(colorFor(look.color, b)));
+      });
+      q.identity();
+      pane.renderOrder = 2;
+      out.push(pane);
+    }
   }
 
   // Leaf: a clump of low-poly leaves that sways in the breeze.
@@ -593,7 +617,59 @@ export function blockMeshes(
     }));
     out.push(...furnitureInstances(stage, kind, grain, places));
   }
+
+  // After dark, a pool of warm light under every lamp and fire and around every lit window, for
+  // any kind whose look is marked to glow: one draw for the whole plot (decision 0098).
+  const glows = blocks.filter((b) => glowsAfterDark(b.block, b.lit));
+  if (glows.length > 0) out.push(glowPools(stage, origin, glows, shared?.pool));
   return out;
+}
+
+const UP = new Vector3(0, 1, 0);
+/** The warm light in a window after dark. */
+const WINDOW_LIGHT = hex("#ffa443");
+/** The color of a pool of lamplight, at its middle. */
+export const POOL_LIGHT = "255, 168, 84";
+
+/**
+ * Pools of light on the ground after dark, one for each glowing block (its look's `glow` says how
+ * big and where), added onto the ground so they brighten what's under them. A neighbor's pool fades
+ * into the haze as their blocks do. Hidden by day (`Stage.glow`), so it costs nothing then.
+ */
+function glowPools(
+  stage: Stage,
+  origin: { x: number; y: number },
+  blocks: readonly LayoutBlock[],
+  map: Texture | undefined,
+): InstancedMesh {
+  const geo = new PlaneGeometry(1, 1);
+  geo.rotateX(-Math.PI / 2);
+  const material = new MeshBasicMaterial({
+    map: map ?? stage.keep(spotTexture(POOL_LIGHT)),
+    transparent: true,
+    depthWrite: false,
+    blending: AdditiveBlending,
+  });
+  stage.glow({ kind: "pool", material, opacity: 0.5 });
+  const mesh = new InstancedMesh(geo, material, blocks.length);
+  const m = new Matrix4();
+  const q = new Quaternion();
+  blocks.forEach((b, i) => {
+    const glow = blockLook(b.block).glow;
+    const size = glow?.pool ?? 1;
+    const [ax, az] = glow?.at ?? [0, 0];
+    m.compose(
+      new Vector3(b.x - origin.x + ax, 0.02, b.y - origin.y + az),
+      q,
+      new Vector3(size, 1, size),
+    );
+    mesh.setMatrixAt(i, m);
+    const k = b.own ? 1 : 1 - (0.25 + b.fade * 0.6);
+    mesh.setColorAt(i, new Color(k, k, k));
+  });
+  mesh.renderOrder = 1;
+  mesh.name = "glow pools";
+  return mesh;
 }
 
 function solidAt(blocks: readonly LayoutBlock[], x: number, y: number): boolean {
@@ -1000,10 +1076,14 @@ function vinePatch(
 
 // ---------- the hearth ----------
 
+/** The color of a hearth's pool of firelight, a little deeper than a lamp's. */
+export const HEARTH_LIGHT = "255, 170, 80";
+
 /**
- * A little stone fireplace with a chimney, a flickering fire, a warm glow, and smoke. With
- * `light`, a warm point light on desktop; the world leaves it out, since a light coming into view
- * makes every material recompile. The world passes one `stone` and `glow` texture for every hearth.
+ * A little stone fireplace with a chimney, a flickering fire, and smoke, and after dark a warm pool
+ * of light in front (decision 0098). With `light`, a warm point light on desktop that comes on
+ * after dark; the world leaves it out, since a light coming into view makes every material
+ * recompile. The world passes one `stone` and `glow` texture for every hearth.
  */
 export function hearth(
   stage: Stage,
@@ -1050,26 +1130,25 @@ export function hearth(
     o.receiveShadow = true;
   }
 
-  // A warm pool of light on the ground in front.
-  const glow = new Mesh(
-    new PlaneGeometry(1.8, 1.8),
-    new MeshBasicMaterial({
-      map: glowMap ?? stage.keep(spotTexture("255, 170, 80")),
-      transparent: true,
-      opacity: 0.55,
-      depthWrite: false,
-    }),
-  );
+  // A warm pool of light on the ground in front, after dark.
+  const pool = new MeshBasicMaterial({
+    map: glowMap ?? stage.keep(spotTexture(HEARTH_LIGHT)),
+    transparent: true,
+    depthWrite: false,
+    blending: AdditiveBlending,
+  });
+  stage.glow({ kind: "pool", material: pool, opacity: 0.6 });
+  const glow = new Mesh(new PlaneGeometry(1.8, 1.8), pool);
   glow.rotation.x = -Math.PI / 2;
   glow.position.set(0, 0.015, 0.55);
   glow.renderOrder = 1;
   group.add(glow);
 
-  let light: PointLight | undefined;
   if (withLight && stage.quality === "high") {
-    light = new PointLight(0xffa54d, 1.6, 3.2, 1.6);
+    const light = new PointLight(0xffa54d, 0, 3.2, 1.6);
     light.position.set(0, 0.35, 0.6);
     group.add(light);
+    stage.glow({ kind: "light", light, intensity: 1.6, flicker: true });
   }
 
   // Smoke: a few soft puffs that rise from the chimney, swell, and fade, then start again.
@@ -1107,7 +1186,6 @@ export function hearth(
     const f = 1 + Math.sin(time * 11) * 0.08 + Math.sin(time * 17.3) * 0.06;
     flame.scale.set(1, 1.6 * f, 0.6);
     core.scale.set(1, 1.5 * (2 - f), 0.6);
-    if (light) light.intensity = 1.5 * f;
   });
   return group;
 }

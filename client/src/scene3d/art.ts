@@ -1,7 +1,9 @@
 /**
  * The 3D art direction, shared by every 3D view: storybook low-poly under soft warm light, paper
  * matte materials in the brand palette, shade baked into vertex colors, a soft ground disc that
- * melts into a paper sky, and small idle motions that stop for prefers-reduced-motion.
+ * melts into a paper sky, and small idle motions that stop for prefers-reduced-motion. The light
+ * follows the map's day and night and the weather (`daylight.ts`, decision 0098): a warm dusk, a
+ * blue night with stars, and lamps, fires, and windows that glow after dark.
  *
  * Performance budget (decision 0030): device pixel ratio capped at 2, one shadow-casting sun
  * (2048 soft on desktop, 1024 on phones, dropped if frames run slow), Lambert materials, instanced
@@ -14,7 +16,7 @@ import { BRAND_HEX } from "@terrakin/ui/brand";
 import { reducedMotion } from "@terrakin/ui/motion";
 import {
   BufferAttribute,
-  type BufferGeometry,
+  BufferGeometry,
   CanvasTexture,
   CircleGeometry,
   Color,
@@ -26,10 +28,14 @@ import {
   MeshBasicMaterial,
   MeshLambertMaterial,
   type MeshLambertMaterialParameters,
+  type MeshPhongMaterial,
   NeutralToneMapping,
   type Object3D,
   PCFShadowMap,
   PerspectiveCamera,
+  type PointLight,
+  Points,
+  PointsMaterial,
   RepeatWrapping,
   Scene,
   SRGBColorSpace,
@@ -39,7 +45,7 @@ import {
 } from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { SkyAmounts } from "../weather";
-import { mix, OVERCAST, SKY } from "./palette";
+import { flicker, lampLevel, lightAt, type StageLight } from "./daylight";
 
 export type Quality = "high" | "phone";
 
@@ -56,6 +62,29 @@ export interface FrameInfo {
   /** Seconds since the last frame, capped so a paused tab doesn't jump. */
   dt: number;
 }
+
+/**
+ * Something that glows after dark, in step with the time of day (decision 0098). A pool of light
+ * on the ground shows only after dark, up to `opacity`. A lamp's shade or a flame is lit from
+ * inside from its `day` strength to its `night` one. A window lights up warm, and turns from glassy
+ * to its `opacity[1]`. A point light comes on. With `flicker`, it wavers while motion is allowed.
+ */
+export type Glowing =
+  | { kind: "pool"; material: Material; opacity: number }
+  | {
+      kind: "lamp";
+      material: MeshLambertMaterial | MeshPhongMaterial;
+      day: number;
+      night: number;
+      flicker?: boolean;
+    }
+  | {
+      kind: "window";
+      material: MeshLambertMaterial | MeshPhongMaterial;
+      strength: number;
+      opacity?: readonly [number, number];
+    }
+  | { kind: "light"; light: PointLight; intensity: number; flicker?: boolean };
 
 export interface Stage {
   renderer: WebGLRenderer;
@@ -80,6 +109,15 @@ export interface Stage {
    * greys the sky, and fog pales the haze and pulls it in. Cheap to call every frame.
    */
   skyLook(sky: SkyAmounts): void;
+  /**
+   * Light the scene for a moment of the day (decision 0098), the map's `phase` (0 dawn, 0.25 noon,
+   * 0.5 dusk, 0.75 midnight), or full day without one. Cheap to call every frame.
+   */
+  timeOfDay(phase: number | undefined): void;
+  /** The light now, for this time of day and this weather (`lightAt`). */
+  lightNow(): Readonly<StageLight>;
+  /** Make something glow after dark, from now until the function this returns is called. */
+  glow(thing: Glowing): () => void;
   /** How far the haze reaches in this weather, as a share of a clear day's (1 when clear). */
   hazeReach(): number;
   /** A PNG of the current view at up to 2x, or null if the browser can't make one. */
@@ -115,6 +153,11 @@ export function scoped(stage: Stage): Scope {
     ...stage,
     animate(fn) {
       const stop = stage.animate(fn);
+      stops.push(stop);
+      return stop;
+    },
+    glow(thing) {
+      const stop = stage.glow(thing);
       stops.push(stop);
       return stop;
     },
@@ -154,15 +197,17 @@ export function createStage(host: HTMLElement, options: StageOptions = {}): Stag
   };
 
   const scene = new Scene();
-  const sky = keep(skyTexture());
+  const day = lightAt(undefined, CLEAR);
+  const sky = keep(skyTexture(day.top, day.horizon));
   scene.background = sky.texture;
-  const fog = new Fog(SKY.fog, 18, 42);
+  const fog = new Fog(day.horizon, 18, 42);
   scene.fog = fog;
 
-  // Warm sky over earthy ground, and a low sun from the south-east: storybook light.
-  const hemi = new HemisphereLight(0xfff6e8, 0x8f8a64, 1.3);
+  // Warm sky over earthy ground, and a low sun from the south-east: storybook light. After dark the
+  // same sun is the moon, so shadows never swing round (decision 0098).
+  const hemi = new HemisphereLight(day.hemi.sky, day.hemi.ground, day.hemi.intensity);
   scene.add(hemi);
-  const sun = new DirectionalLight(0xffe8c8, 2.5);
+  const sun = new DirectionalLight(day.sun.color, day.sun.intensity);
   sun.castShadow = true;
   const mapSize = quality === "high" ? 2048 : 1024;
   sun.shadow.mapSize.set(mapSize, mapSize);
@@ -171,20 +216,72 @@ export function createStage(host: HTMLElement, options: StageOptions = {}): Stag
   sun.shadow.normalBias = 0.03;
   scene.add(sun, sun.target);
   // A cool lilac fill from behind keeps shadowed sides from going muddy.
-  const fill = new DirectionalLight(0xd9c8f4, 0.55);
+  const fill = new DirectionalLight(day.fill.color, day.fill.intensity);
   fill.position.set(-6, 4, -8);
   scene.add(fill);
-  const lit = { sun: sun.intensity, hemi: hemi.intensity, fill: fill.intensity };
-  const warmSky = hemi.color.clone();
-  const warmSun = sun.color.clone();
+  // Stars in the backdrop, after dark only. Freed with the scene.
+  const stars = starField(quality === "high" ? 360 : 200);
+  scene.add(stars.points);
   /** How far the haze reaches in this weather, and the framed scene's own haze, set by `fit`. */
   let reach = 1;
   let haze: { distance: number; radius: number } | undefined;
-  let skySeen = "";
   const applyHaze = () => {
     if (!haze) return;
     fog.near = haze.distance + haze.radius * 0.4 * reach;
     fog.far = haze.distance + haze.radius * 3.2 * reach;
+  };
+
+  // ---- the time of day and the weather light the stage together (`lightAt`) ----
+  let phase: number | undefined;
+  let weather: SkyAmounts = CLEAR;
+  let light = day;
+  let lightSeen = "";
+  /** What glows after dark, each with its own flicker so no two lamps waver together. */
+  const glowing = new Map<Glowing, number>();
+  let seeds = 0;
+  const shine = (g: Glowing, wave: number) => {
+    const k = light.glow;
+    if (g.kind === "pool") {
+      g.material.visible = k > 0.004;
+      g.material.opacity = g.opacity * k;
+    } else if (g.kind === "lamp") {
+      g.material.emissiveIntensity = lampLevel(g.day, g.night, k) * (g.flicker ? wave : 1);
+    } else if (g.kind === "window") {
+      g.material.emissiveIntensity = g.strength * k;
+      if (g.opacity) g.material.opacity = g.opacity[0] + (g.opacity[1] - g.opacity[0]) * k;
+    } else g.light.intensity = g.intensity * k * (g.flicker ? wave : 1);
+  };
+  /** Light every glow for now, wavering at `time` seconds, or steady without one. */
+  const shineAll = (time?: number) => {
+    for (const [g, seed] of glowing) shine(g, time === undefined ? 1 : flicker(time, seed));
+  };
+  const relight = () => {
+    const key = `${phase === undefined ? "day" : phase.toFixed(3)}|${[
+      weather.cloud,
+      weather.rain,
+      weather.snow,
+      weather.fog,
+    ]
+      .map((v) => v.toFixed(3))
+      .join()}`;
+    if (key === lightSeen) return;
+    lightSeen = key;
+    light = lightAt(phase, weather);
+    sun.color.set(light.sun.color);
+    sun.intensity = light.sun.intensity;
+    hemi.color.set(light.hemi.sky);
+    hemi.groundColor.set(light.hemi.ground);
+    hemi.intensity = light.hemi.intensity;
+    fill.color.set(light.fill.color);
+    fill.intensity = light.fill.intensity;
+    fog.color.set(light.horizon);
+    sky.paint(light.top, light.horizon);
+    stars.show(light.stars);
+    reach = light.reach;
+    applyHaze();
+    shineAll();
+    dirty = true;
+    start();
   };
 
   const camera = new PerspectiveCamera(34, 1, 0.1, 200);
@@ -270,10 +367,13 @@ export function createStage(host: HTMLElement, options: StageOptions = {}): Stag
     if (moving) {
       clock += dt;
       for (const a of animators) a({ time: clock, dt });
+      // Flames and lamps waver; with reduced motion they burn steady.
+      if (light.glow > 0) shineAll(clock);
     }
     const changed = controls.update();
     if (!(moving || changed || dirty || controls.autoRotate)) return;
     dirty = false;
+    stars.follow(camera, renderer.getPixelRatio());
     renderer.render(scene, camera);
     watchSpeed(dt);
   };
@@ -364,24 +464,23 @@ export function createStage(host: HTMLElement, options: StageOptions = {}): Stag
       start();
     },
     skyLook(look) {
-      const key = [look.cloud, look.rain, look.snow, look.fog].map((v) => v.toFixed(3)).join();
-      if (key === skySeen) return;
-      skySeen = key;
-      const grey = Math.min(1, look.cloud * 0.75 + look.rain * 0.25);
-      const mist = look.fog;
-      sun.intensity = lit.sun * Math.max(0.2, 1 - 0.6 * grey - 0.3 * mist);
-      sun.color.copy(warmSun).lerp(new Color(OVERCAST.light), grey * 0.7);
-      hemi.intensity = lit.hemi * (1 + 0.1 * grey);
-      hemi.color.copy(warmSky).lerp(new Color(OVERCAST.light), grey);
-      fill.intensity = lit.fill * (1 - 0.35 * grey);
-      const tone = (clear: number, overcast: number) =>
-        mix(mix(clear, overcast, grey), OVERCAST.mist, mist * 0.7);
-      fog.color.set(tone(SKY.fog, OVERCAST.fog));
-      sky.paint(tone(SKY.topHex, OVERCAST.top), tone(SKY.fog, OVERCAST.fog));
-      reach = 1 - 0.5 * mist - 0.12 * look.rain - 0.08 * look.snow;
-      applyHaze();
+      weather = look;
+      relight();
+    },
+    timeOfDay(at) {
+      phase = at;
+      relight();
+    },
+    lightNow() {
+      return light;
+    },
+    glow(thing) {
+      glowing.set(thing, (seeds++ * 2.39996) % (Math.PI * 2));
+      shine(thing, 1);
       dirty = true;
-      start();
+      return () => {
+        glowing.delete(thing);
+      };
     },
     hazeReach() {
       return reach;
@@ -393,6 +492,7 @@ export function createStage(host: HTMLElement, options: StageOptions = {}): Stag
       renderer.setPixelRatio(2);
       resize();
       controls.update();
+      stars.follow(camera, 2);
       renderer.render(scene, camera);
       const blob = new Promise<Blob | null>((done) => {
         try {
@@ -412,6 +512,7 @@ export function createStage(host: HTMLElement, options: StageOptions = {}): Stag
       if (raf) cancelAnimationFrame(raf);
       raf = 0;
       animators.length = 0;
+      glowing.clear();
       document.removeEventListener("visibilitychange", onVisibility);
       observer.disconnect();
       controls.dispose();
@@ -425,10 +526,14 @@ export function createStage(host: HTMLElement, options: StageOptions = {}): Stag
       renderer.domElement.remove();
     },
   };
+  relight();
   resize();
   start();
   return stage;
 }
+
+/** A sky with no weather in it. */
+const CLEAR: SkyAmounts = { cloud: 0, rain: 0, snow: 0, fog: 0 };
 
 /**
  * Add every object in `objects` to `parent`. three.js logs an error when `add()` is sent nothing,
@@ -483,9 +588,12 @@ export function canvasTexture(c: HTMLCanvasElement, repeat = false): CanvasTextu
 
 /**
  * Paper sky: warm cream at the top, sand at the horizon, so the fog meets it without a seam. The
- * weather paints it greyer (`skyLook`), with the horizon always the haze's own color.
+ * time of day and the weather paint it (`lightAt`), with the horizon always the haze's own color.
  */
-function skyTexture(): {
+function skyTexture(
+  top: number,
+  horizon: number,
+): {
   texture: CanvasTexture;
   paint(top: number, horizon: number): void;
   dispose(): void;
@@ -502,8 +610,76 @@ function skyTexture(): {
     g.fillRect(0, 0, 4, 256);
     texture.needsUpdate = true;
   };
-  paint(SKY.topHex, SKY.fog);
+  paint(top, horizon);
   return { texture, paint, dispose: () => texture.dispose() };
+}
+
+/** How big a star is drawn, in CSS pixels. */
+const STAR_PX = 2.4;
+
+/**
+ * Stars for the night sky (decision 0098), part of the backdrop like the sky's gradient: `count`
+ * points spread over the top half of the view, held just inside the camera's far plane so whatever
+ * the scene draws hides them and they show only where the backdrop does, fainter toward the haze.
+ * Both 3D cameras look down, so the true horizon is never on screen and a dome of stars would be.
+ * One draw, shown only after dark, never hazed by the fog.
+ */
+function starField(count: number): {
+  points: Points;
+  /** Show this much of the stars' brightness, 0 to 1. */
+  show(amount: number): void;
+  /** Hold them in front of the camera, filling its view, at this pixel ratio. */
+  follow(camera: PerspectiveCamera, pixelRatio: number): void;
+} {
+  const rand = rng(41);
+  const at = new Float32Array(count * 3);
+  const colors = new Float32Array(count * 4);
+  for (let i = 0; i < count; i++) {
+    // Across the view (-1 to 1), and from its middle up past the top edge (0 to 1.05).
+    const x = rand() * 2 - 1;
+    const y = rand() * 1.05;
+    at.set([x, y, 0], i * 3);
+    const bright = 0.45 + rand() * 0.55;
+    const warm = rand() > 0.8 ? 1 : 0.88;
+    const fade = Math.min(1, y / 0.6);
+    colors.set([bright * warm, bright * 0.94, bright, fade * fade], i * 4);
+  }
+  const geometry = new BufferGeometry();
+  geometry.setAttribute("position", new BufferAttribute(at, 3));
+  geometry.setAttribute("color", new BufferAttribute(colors, 4));
+  const material = new PointsMaterial({
+    size: STAR_PX,
+    sizeAttenuation: false,
+    map: spotTexture("255, 255, 255"),
+    vertexColors: true,
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+    fog: false,
+  });
+  const points = new Points(geometry, material);
+  points.name = "stars";
+  // Drawn first of the see-through things, so the ground's soft edge lies over them.
+  points.renderOrder = -2;
+  points.frustumCulled = false;
+  points.visible = false;
+  return {
+    points,
+    show(amount) {
+      points.visible = amount > 0.01;
+      material.opacity = amount;
+    },
+    follow(camera, pixelRatio) {
+      if (!points.visible) return;
+      const far = camera.far * 0.94;
+      const half = far * Math.tan((camera.fov * Math.PI) / 360);
+      points.position.copy(camera.position);
+      points.quaternion.copy(camera.quaternion);
+      points.translateZ(-far);
+      points.scale.set(half * camera.aspect, half, 1);
+      material.size = STAR_PX * pixelRatio;
+    },
+  };
 }
 
 /** Small seeded random for texture noise. Visual only. */

@@ -190,6 +190,24 @@ describe("one plot of the world, read from the mirror", () => {
       ),
     ).toBe(a);
   });
+
+  it("is built again when someone comes home only if it has windows to light", () => {
+    const none = new Set<string>();
+    const hut = source([
+      ["8,8", "wood"],
+      ["9,8", "glass"],
+    ]);
+    const dark = readChunk(hut, 1, 1, none, undefined, false);
+    const lit = readChunk(hut, 1, 1, none, undefined, true);
+    expect([dark.lit, lit.lit]).toEqual([false, true]);
+    expect(lit.signature).not.toBe(dark.signature);
+    expect(chunkSignature(hut, 1, 1, none, undefined, true)).toBe(lit.signature);
+    // No glass: nothing to light, nothing to build again.
+    const shed = source([["8,8", "wood"]]);
+    expect(chunkSignature(shed, 1, 1, none, undefined, true)).toBe(
+      chunkSignature(shed, 1, 1, none, undefined, false),
+    );
+  });
 });
 
 describe("picking a tile from a tap", () => {

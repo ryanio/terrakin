@@ -1,0 +1,31 @@
+---
+title: Evenings and nights in 3D follow the map's clock, with lamps, fires, and lit windows that glow after dark
+date: 2026-10-06
+status: accepted
+tags: [client, 3d, design, performance]
+---
+
+# Evenings and nights in 3D follow the map's clock, with lamps, fires, and lit windows that glow after dark
+
+## Context
+
+The map has had day and night since [decision 0011](0011-day-and-night-is-presentation-anchored-by-the-server-clock.md): the snapshot's `time` anchors a clock every client advances, and `render.ts` darkens the map with `nightAmount` and lights lanterns, lamp posts, campfires, hearths, and the shop's windows after dark. The 3D views, the world and a single plot, drew the weather ([decision 0073](0073-weather-is-a-pure-function-of-the-world-day-and-the-utc-hour.md)) but stayed in daylight at every hour, so switching to 3D at night jumped to noon. Anything new had to keep [decision 0060](0060-the-world-in-3d-draws-a-view-radius-around-you-within-a-fram.md)'s phone budget: one shadow-casting light, no shadow map per light, and no point light coming into view, since that recompiles every material.
+
+## Decision
+
+- One function, `lightAt(phase, weather)` in `client/src/scene3d/daylight.ts`, gives everything that lights a stage at a moment: the sun's color and strength, the light from the sky and the ground, the fill, the backdrop's top and horizon (the haze's color), how far the haze reaches, how strongly things glow, how many stars show, and a tint for rain and snow. `phase` is the map's own (`dayPhase`), and darkness follows the map's `nightAmount`. Day eases into dusk or dawn as the night amount reaches one half, and on into night as it reaches one, each along an S-curve, so a change never pops. Dusk and dawn swap at noon and midnight, where neither shows. Without a clock it's full day, which is where the gallery stays. The weather greys the light on top by decision 0073's rules.
+- Dusk is a low warm sun in dusky rose light under a lilac sky. Night is a blue moon under a deep indigo sky with stars; the moon is the sun's own light from the sun's own side, so shadows never swing round. Dawn is softer, pink and pale lilac. Midnight comes out at about half of noon's brightness, close to the map's, and never black.
+- The stage (`art.ts`) applies it. `timeOfDay(phase)` and `skyLook(weather)` both relight through `lightAt`, and only when the phase moves a thousandth of a day (about 13 seconds) or the weather changes. The world view passes the map's phase every frame; the plot view keeps the snapshot's clock going and checks it every two seconds.
+- What glows after dark is marked on the block's look: `glow` in `scene3d/palette.ts` says how big its pool of light is and where it sits, and `home` keeps a window dark unless someone's home. Lanterns, lamp posts, and campfires are marked, and glass is marked `home`. `glowsAfterDark(kind, lit)` reads the mark, and any kind marked there gets its pool, so a new lamp is one entry.
+- How it's drawn, within decision 0060's budget: no new lights and no shadows. A model's shade or flame is an emissive material handed to `Stage.glow`, lit from a low day strength up to its night strength and wavering a little while motion is allowed; under prefers-reduced-motion flames burn steady. The pools of light for a plot's lamps, fires, and lit windows are one instanced, additive mesh per plot on the shared spot texture, and its material hides by day, so by day the pools cost no draw at all. The hearth keeps its own pool, shown only after dark, and the plot view's desktop hearth light comes on only after dark.
+- Windows are glass blocks lit warm from inside when someone's home: on a plot holding the hearth of someone away (asleep there, [decision 0086](0086-residents-who-are-away-sleep-at-their-hearths-drawn-but-neve.md)) or of someone in the world standing on that plot (`litHomes`). The plot view always draws its owner at home, so its windows light whenever the owner's hearth is on the plot. The world builds a plot again when that changes only if the plot has glass. The shop's two windows light up as they do on the map.
+- Stars are one draw of a few hundred points in the backdrop, held just inside the far plane so the scene covers them, fainter toward the haze, and shown only on a clear night. Both 3D cameras look down, so a dome of stars would sit off the top of the screen.
+- Rain and snow take a tint from the light, so they never glare white in the dark.
+- The plot photo stays a daytime picture. It's a card for sharing, shown small in feeds where a dark picture reads worse, and satori and resvg draw it, where a night tint and pools of light would each need blend modes of their own. The 3D plot view's "Take a photo" takes whatever light is on screen, night included.
+
+## Consequences
+
+- Frame times on the 3D e2e path's scenes (an iPhone 13 viewport in headless Chromium on software WebGL, with vsync off so a frame's interval is its cost), each the median of five rounds on a machine shared with other agents: the world view took 26.2 ms before, at any hour, and takes 23.7 ms by day and 25.3 ms at midnight; the plot view took 21.0 ms before and takes 19.2 ms by day and 21.8 ms at midnight. Draw calls went from 84 to 79 in the world and from 56 to 53 on a plot by day, since the pools hide, and are 84 and 56 at night. A pool is two triangles and a star a point, so triangle counts barely move.
+- The main bundle doesn't grow, and the chunk the map shares with the 3D views grows by 131 bytes gzipped for `litHomes`; the 3D chunks grow by about 2 kB gzipped.
+- Glowing things light only the ground under them. A point light per lamp would light walls and faces too, but a light coming into view recompiles every material, and every light adds to the cost of every pixel. If phones turn out to have room, a few point lights made with the stage, so their count never changes, and moved to the nearest glows are the next step.
+- Code: `client/src/scene3d/daylight.ts`, `Stage.timeOfDay`, `Stage.glow` and `starField` in `scene3d/art.ts`, `glowPools` and the panes in `blockMeshes` in `scene3d/plot.ts`, `litHomes` in `scene3d/layout.ts`, `buildingGlows` in `scene3d/buildings.ts`, tested in `client/src/daylight.test.ts` and by the night step in `e2e/three-d.spec.ts`.

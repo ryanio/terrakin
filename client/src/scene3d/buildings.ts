@@ -2,9 +2,11 @@
  * The Commons buildings in 3D for the world view: the Town Hall and the town shop, drawn after the
  * 2D map's (`drawTownHall` and `drawShop` in render.ts) in the same colors. Each is a handful of
  * merged, shade-baked parts, one draw per material. Nobody walks onto either once buildings are
- * solid; in a world from before that, a building turns see-through while you stand in it.
+ * solid; in a world from before that, a building turns see-through while you stand in it. After
+ * dark the shop's windows light up, as on the map (`buildingGlows`, decision 0098).
  */
 import {
+  AdditiveBlending,
   type BufferGeometry,
   CylinderGeometry,
   DoubleSide,
@@ -12,6 +14,7 @@ import {
   Group,
   type Material,
   Mesh,
+  MeshBasicMaterial,
   MeshLambertMaterial,
   PlaneGeometry,
   Shape,
@@ -21,7 +24,7 @@ import {
 } from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
-import { bakeShade, nameTag, noShade, paper, unindexed } from "./art";
+import { bakeShade, type Glowing, nameTag, noShade, paper, unindexed } from "./art";
 import { BRAND, hex } from "./palette";
 
 /** A building's tiles as a box in tile units: its middle, and how wide and deep it is. */
@@ -146,8 +149,9 @@ export function townHall(f: Footprint, grain: Texture): Group {
 /**
  * The town shop: cream walls on a stone footing under a moss roof, a striped clay awning over two
  * windows, a door, and a clay chimney. Its door faces north, across the square to the Town Hall.
+ * With a `pool` texture, its windows cast pools of light on the square after dark.
  */
-export function shop(f: Footprint, grain: Texture): Group {
+export function shop(f: Footprint, grain: Texture, pool?: Texture): Group {
   const group = new Group();
   group.name = "shop";
   const w = f.width * 0.86;
@@ -188,12 +192,52 @@ export function shop(f: Footprint, grain: Texture): Group {
   const awningPale = part(paleStripes, paper(BRAND.paper2, grain), 0.9);
   const panes: BufferGeometry[] = [];
   for (const k of [-0.3, 0.3]) panes.push(box(w * 0.22, 0.42, 0.04, k * w, 0.62, front));
-  const windows = new Mesh(noShade(mergeGeometries(panes)), paper(GLASS, null));
+  const windows = new Mesh(
+    noShade(mergeGeometries(panes)),
+    paper(GLASS, null, { emissive: SHOP_LIGHT }),
+  );
+  windows.userData.glow = "window";
   for (const p of panes) p.dispose();
   const door = part([box(0.3, 0.66, 0.05, 0, 0.14 + 0.33, front)], paper(WOOD_DARK, grain));
   group.add(footing, walls, roof, chimney, awningClay, awningPale, windows, door);
+  if (pool) {
+    // Light from the windows on the square in front, after dark.
+    const geo = new PlaneGeometry(1.5, 1.1);
+    geo.rotateX(-Math.PI / 2);
+    for (const k of [-0.3, 0.3]) {
+      const spot = new Mesh(
+        k < 0 ? geo : geo.clone(),
+        new MeshBasicMaterial({
+          map: pool,
+          transparent: true,
+          depthWrite: false,
+          blending: AdditiveBlending,
+        }),
+      );
+      spot.position.set(k * w, 0.02, front - 0.5);
+      spot.renderOrder = 1;
+      spot.userData.glow = "pool";
+      group.add(spot);
+    }
+  }
   group.add(label("Shop", roofY + 1.15));
   return group;
+}
+
+/** The warm light in the shop's windows after dark. */
+const SHOP_LIGHT = hex("#ffa443");
+
+/** What lights up on a building after dark (decision 0098): the shop's windows, as on the map. */
+export function buildingGlows(group: Group): Glowing[] {
+  const out: Glowing[] = [];
+  group.traverse((o) => {
+    if (!(o instanceof Mesh)) return;
+    if (o.userData.glow === "window" && o.material instanceof MeshLambertMaterial)
+      out.push({ kind: "window", material: o.material, strength: 0.85 });
+    else if (o.userData.glow === "pool" && o.material instanceof MeshBasicMaterial)
+      out.push({ kind: "pool", material: o.material, opacity: 0.45 });
+  });
+  return out;
 }
 
 /** Make a building see-through while you stand in it, and solid again after. */

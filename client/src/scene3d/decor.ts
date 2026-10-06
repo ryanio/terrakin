@@ -2,14 +2,12 @@
  * The town shop's decor in 3D (RFC 0008): a paper lantern on a shepherd's hook, a picture on an
  * easel, a white fence post whose rails reach the fences beside it, a garden bench, and autumn's
  * hay bale and scarecrow (RFC 0017). Each model is a few merged, shade-baked parts, so a plot full
- * of fence posts is one instanced draw per part (decision 0030). Lanterns glow with an emissive
- * shade and a soft pool of light on the ground, not a light each; only the gallery's single
- * lantern gets a point light, and only on desktop.
+ * of fence posts is one instanced draw per part (decision 0030). After dark a lantern's shade is
+ * lit from inside and a pool of light lies under it (decision 0098), never a light of its own.
  */
 import type { DecorKind } from "@terrakin/sim";
 import { WOOD_DARK as WOOD_BRAND } from "@terrakin/ui/brand";
 import {
-  AdditiveBlending,
   type BufferGeometry,
   ConeGeometry,
   CylinderGeometry,
@@ -18,11 +16,9 @@ import {
   type Material,
   Matrix4,
   Mesh,
-  MeshBasicMaterial,
   MeshLambertMaterial,
   type Object3D,
   PlaneGeometry,
-  PointLight,
   Quaternion,
   SphereGeometry,
   type Texture,
@@ -30,7 +26,7 @@ import {
 } from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
-import { bakeShade, lin, noShade, paper, type Stage, spotTexture } from "./art";
+import { bakeShade, lin, noShade, paper, type Stage } from "./art";
 import { landscapeTexture } from "./items";
 import { BRAND, blockLook, hex } from "./palette";
 
@@ -112,36 +108,19 @@ function lanternParts(stage: Stage, grain: Texture): Part[] {
   const shade = new MeshLambertMaterial({
     color,
     emissive: color,
-    emissiveIntensity: 0.6,
     map: grain,
     flatShading: true,
   });
-  // A slow, small flicker. Stops with the rest of the motion when motion is reduced.
-  stage.animate(({ time }) => {
-    shade.emissiveIntensity = 0.6 + Math.sin(time * 2.3) * 0.05 + Math.sin(time * 5.1) * 0.03;
-  });
+  // Paper by day, lit from inside after dark with a small flicker (decision 0098); its pool of
+  // light comes from its look's `glow` mark, with every other glow on the plot.
+  stage.glow({ kind: "lamp", material: shade, day: 0.2, night: 0.95, flicker: true });
   const tassel = new CylinderGeometry(0, 0.035, 0.12, 5);
   tassel.rotateX(Math.PI);
   tassel.translate(hangX, 0.7, 0);
-  const glowGeo = new PlaneGeometry(1.8, 1.8);
-  glowGeo.rotateX(-Math.PI / 2);
-  glowGeo.translate(hangX, 0.02, 0);
   return [
     { geometry: wood, material: paper(WOOD_DARK, grain), cast: true },
     { geometry: noShade(shadeGeo.toNonIndexed()), material: shade, cast: true },
     { geometry: noShade(tassel.toNonIndexed()), material: paper(BRAND.clay, grain), cast: false },
-    {
-      geometry: glowGeo,
-      material: new MeshBasicMaterial({
-        map: stage.keep(spotTexture("255, 186, 92")),
-        transparent: true,
-        opacity: 0.5,
-        depthWrite: false,
-        blending: AdditiveBlending,
-      }),
-      cast: false,
-      renderOrder: 1,
-    },
   ];
 }
 
@@ -362,8 +341,8 @@ export function placeParts(parts: readonly Part[], places: readonly DecorPlace[]
 }
 
 /**
- * One decor model standing at the origin, for the gallery. A lantern there gets a real warm
- * light on desktop, since it's the only one.
+ * One decor model standing at the origin, for the gallery. The gallery is always in daylight, so a
+ * lantern there is paper, unlit.
  */
 export function decorModel(stage: Stage, kind: DecorKind, grain: Texture): Group {
   const group = new Group();
@@ -380,11 +359,6 @@ export function decorModel(stage: Stage, kind: DecorKind, grain: Texture): Group
     mesh.receiveShadow = part.cast;
     if (part.renderOrder) mesh.renderOrder = part.renderOrder;
     group.add(mesh);
-  }
-  if (kind === "lantern" && stage.quality === "high") {
-    const light = new PointLight(0xffb85c, 1.2, 3, 1.6);
-    light.position.set(0.2, 1.0, 0.25);
-    group.add(light);
   }
   return group;
 }

@@ -134,6 +134,8 @@ export interface PlotChunk {
   leaves: GroundLeaf[];
   /** Today's fallen branches and loose stones still lying there, from the sim's own spawn. */
   pickups: { x: number; y: number; kind: ResourceKind }[];
+  /** A home someone's in, so its windows light up after dark (`litHomes`, decision 0098). */
+  lit: boolean;
   /** Equal for two reads exactly when what's drawn is the same. */
   signature: string;
 }
@@ -153,8 +155,17 @@ export interface ChunkSource {
   pickupAt?(x: number, y: number): ResourceKind | null;
 }
 
-/** What stands on one tile, and the words for it in a chunk's signature. */
-function tileThings(source: ChunkSource, x: number, y: number, hearths: ReadonlySet<string>) {
+/**
+ * What stands on one tile, and the words for it in a chunk's signature. A window's words say
+ * whether its home is `lit`, so a plot is built again when someone comes home only if it has one.
+ */
+function tileThings(
+  source: ChunkSource,
+  x: number,
+  y: number,
+  hearths: ReadonlySet<string>,
+  lit: boolean,
+) {
   const key = tileKey(x, y);
   const block = source.blocks.get(key);
   const ground = source.paving?.get(key);
@@ -162,7 +173,7 @@ function tileThings(source: ChunkSource, x: number, y: number, hearths: Readonly
   const display = displayOn(block, x, y, source.displays?.get(key));
   const crop = cropIn(block, x, y, source.crops?.get(key), source.day);
   const parts: string[] = [];
-  if (block) parts.push(`${key}:${block}`);
+  if (block) parts.push(`${key}:${block}${lit && block === "glass" ? ":lit" : ""}`);
   if (ground) parts.push(`${key}:on:${ground}`);
   if (hearth) parts.push(`${key}:hearth`);
   // The picture too: staff can remove a piece's picture while it stays up (picture_removed).
@@ -175,8 +186,8 @@ function tileThings(source: ChunkSource, x: number, y: number, hearths: Readonly
 }
 
 /**
- * Read one plot from the mirror. `hearths` holds every resident's hearth tile key, and `season`
- * dresses the ground (today's look without one).
+ * Read one plot from the mirror. `hearths` holds every resident's hearth tile key, `season`
+ * dresses the ground (today's look without one), and `lit` says someone's home there.
  */
 export function readChunk(
   source: ChunkSource,
@@ -184,6 +195,7 @@ export function readChunk(
   py: number,
   hearths: ReadonlySet<string>,
   season?: Season,
+  lit = false,
 ): PlotChunk {
   const bounds = plotBounds(source.config.plotSize, px, py);
   const owner = source.plots.get(`${px},${py}`);
@@ -200,7 +212,7 @@ export function readChunk(
   const parts: string[] = [owner ?? "", season ?? ""];
   for (let y = bounds.y0; y <= bounds.y1; y++) {
     for (let x = bounds.x0; x <= bounds.x1; x++) {
-      const at = tileThings(source, x, y, hearths);
+      const at = tileThings(source, x, y, hearths, lit);
       parts.push(...at.parts);
       if (at.block) blocks.push({ x, y, block: at.block });
       if (at.ground) ground.push({ x, y, ground: at.ground });
@@ -241,6 +253,7 @@ export function readChunk(
     flowers,
     leaves,
     pickups,
+    lit,
     signature: parts.join("|"),
   };
 }
@@ -252,12 +265,13 @@ export function chunkSignature(
   py: number,
   hearths: ReadonlySet<string>,
   season?: Season,
+  lit = false,
 ): string {
   const bounds = plotBounds(source.config.plotSize, px, py);
   const parts: string[] = [source.plots.get(`${px},${py}`) ?? "", season ?? ""];
   for (let y = bounds.y0; y <= bounds.y1; y++)
     for (let x = bounds.x0; x <= bounds.x1; x++)
-      parts.push(...tileThings(source, x, y, hearths).parts);
+      parts.push(...tileThings(source, x, y, hearths, lit).parts);
   return parts.join("|");
 }
 

@@ -12,6 +12,7 @@ import {
   type Pattern,
   type PetCoat,
   type PetKind,
+  plotKey,
   type ResidentColor,
   type ResidentShape,
   type Season,
@@ -87,6 +88,8 @@ export interface LayoutBlock {
   own: boolean;
   /** 0 on the plot, rising toward 1 at the edge of the margin, where neighbors melt into the haze. */
   fade: number;
+  /** A window in a home someone's in, lit from inside after dark (decision 0098). */
+  lit?: true | undefined;
 }
 
 export interface LayoutFigure {
@@ -289,6 +292,27 @@ export function dozerAt<R extends { hearth: Tile | null }>(
   return best ?? list.find((d) => d.r.hearth?.x === x && d.r.hearth.y === y);
 }
 
+/**
+ * The plots whose windows light up after dark (decision 0098): each one holding the hearth of
+ * someone at home. Someone away sleeps at their hearth, so they're home; someone in the world is
+ * home while they stand on that plot. A plot with no hearth on it never lights.
+ */
+export function litHomes(
+  residents: Iterable<{ online: boolean; x: number; y: number; hearth: Tile | null }>,
+  plotSize: number,
+): Set<string> {
+  const out = new Set<string>();
+  for (const r of residents) {
+    const h = r.hearth;
+    if (!h) continue;
+    const px = Math.floor(h.x / plotSize);
+    const py = Math.floor(h.y / plotSize);
+    const here = Math.floor(r.x / plotSize) === px && Math.floor(r.y / plotSize) === py;
+    if (!r.online || here) out.add(plotKey(px, py));
+  }
+  return out;
+}
+
 /** A path or floor on a tile (RFC 0016), and how far into the haze it is, like a block. */
 export interface LayoutGround {
   x: number;
@@ -322,6 +346,8 @@ export interface PlotLayout {
   weather: Weather;
   /** The owner's pet, by the hearth (RFC 0019). Absent when they have none, or no hearth here. */
   pet?: LayoutPet;
+  /** The server's clock when the snapshot was taken, for the time of day (decision 0011). */
+  time: { nowMs: number; dayLengthMs: number } | undefined;
   /** Is this tile inside the world at all? */
   inWorld(x: number, y: number): boolean;
 }
@@ -371,7 +397,8 @@ export function petSpot(
  * Everything the 3D plot view draws, read from one snapshot. Undefined when the resident is
  * unknown or owns no plot. Residents on the plot are shown if they're online; anyone away whose
  * hearth is here sleeps at it (`dozers`), at any hour; the owner is always home, standing on their
- * own tile when they're on the plot, else beside the hearth.
+ * own tile when they're on the plot, else beside the hearth. So after dark the plot's windows
+ * light up when its owner's hearth is here, and a neighbor's when someone's home there (`litHomes`).
  */
 export function plotLayout(
   snapshot: WorldSnapshot,
@@ -390,11 +417,24 @@ export function plotLayout(
     y1: bounds.y1 + margin,
   };
 
+  const hearth =
+    owner.hearth && inBounds(bounds, owner.hearth.x, owner.hearth.y) ? owner.hearth : null;
+  // The owner is always drawn at home here, so their windows light whenever their hearth is here.
+  const homes = litHomes(snapshot.residents, plotSize);
+  if (hearth) homes.add(plotKey(plot.px, plot.py));
   const blocks: LayoutBlock[] = [];
   for (const b of snapshot.blocks) {
     if (!inBounds(outer, b.x, b.y)) continue;
     const d = distanceOutside(bounds, b.x, b.y);
-    blocks.push({ x: b.x, y: b.y, block: b.block, own: d === 0, fade: d / (margin + 1) });
+    const home = homes.has(plotKey(Math.floor(b.x / plotSize), Math.floor(b.y / plotSize)));
+    blocks.push({
+      x: b.x,
+      y: b.y,
+      block: b.block,
+      own: d === 0,
+      fade: d / (margin + 1),
+      ...(home && b.block === "glass" ? { lit: true as const } : {}),
+    });
   }
   blocks.sort((a, b) => a.y - b.y || a.x - b.x);
   const ground: LayoutGround[] = [];
@@ -417,8 +457,6 @@ export function plotLayout(
     if (c) crops.push(c);
   }
 
-  const hearth =
-    owner.hearth && inBounds(bounds, owner.hearth.x, owner.hearth.y) ? owner.hearth : null;
   const solid = new Set(blocks.map((b) => `${b.x},${b.y}`));
   const hearths = new Set(
     snapshot.residents.flatMap((r) => (r.hearth ? [tileKey(r.hearth.x, r.hearth.y)] : [])),
@@ -510,6 +548,7 @@ export function plotLayout(
           },
         }
       : {}),
+    time: snapshot.time,
     inWorld: (x, y) => x >= 0 && y >= 0 && x < width && y < height,
   };
 }

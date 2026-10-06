@@ -2,8 +2,9 @@
  * The weather in the 3D views (decision 0073): rain as falling streaks and snow as drifting flakes
  * in a box around what the camera looks at, and the stage's light, sky, and haze greyed for cloud
  * and fog (`Stage.skyLook`). Rain and snow are one draw each, a few hundred points moved on the CPU
- * each frame, each drawn from a small texture made once, and hidden when they aren't falling.
- * Under reduced motion they hold still. Loaded only through `import()`, with the rest of `scene3d/`.
+ * each frame, each drawn from a small texture made once, hidden when they aren't falling, and
+ * dimmed after dark. Under reduced motion they hold still. Loaded only through `import()`, with the
+ * rest of `scene3d/`.
  */
 import {
   BufferAttribute,
@@ -162,6 +163,10 @@ export function createWeather(stage: Stage, { radius = 11, height = 9 } = {}): W
       snow.visible = snowing;
       rainMat.opacity = 0.85 * sky.rain;
       snowMat.opacity = 0.95 * sky.snow;
+      // After dark they fall dimmer and bluer, never glaring white (decision 0098).
+      const tint = stage.lightNow().falling;
+      rainMat.color.set(tint);
+      snowMat.color.set(tint);
       // Something just started falling: put it in place, so a still scene shows it too.
       if (appeared) place(0);
     },

@@ -1,15 +1,15 @@
 /**
  * Furniture from the workbench in 3D (RFC 0016): a table, a chair, a bookshelf of colored books, a
  * hooped barrel, a signpost, a lamp post that glows, a stone well with a roof, a low stone wall that
- * runs on to the walls beside it, a campfire, a flower box, and a jack-o'-lantern lit from inside. Each model is a few merged,
- * shade-baked parts, placed with decor's `placeParts`, so a plot full of chairs is one instanced draw
- * per part (decision 0030). Glows are an emissive shade and a soft pool of light on the ground,
- * never a light of their own, like the shop's lantern (decision 0060).
+ * runs on to the walls beside it, a campfire, a flower box, and a jack-o'-lantern lit from inside.
+ * Each model is a few merged, shade-baked parts, placed with decor's `placeParts`, so a plot full of
+ * chairs is one instanced draw per part (decision 0030). Lamps and fires glow after dark (decision
+ * 0098) with an emissive shade and a soft pool of light on the ground, never a light of their own,
+ * like the shop's lantern (decision 0060).
  */
 import { BLOCK_COLORS, type FurnitureKind } from "@terrakin/sim";
 import { WOOD_DARK as WOOD_BRAND } from "@terrakin/ui/brand";
 import {
-  AdditiveBlending,
   BufferAttribute,
   type BufferGeometry,
   ConeGeometry,
@@ -17,16 +17,14 @@ import {
   DodecahedronGeometry,
   IcosahedronGeometry,
   LatheGeometry,
-  MeshBasicMaterial,
   MeshLambertMaterial,
   type Object3D,
-  PlaneGeometry,
   type Texture,
   TorusGeometry,
   Vector2,
 } from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
-import { lin, paper, type Stage, spotTexture, unindexed } from "./art";
+import { lin, paper, type Stage, unindexed } from "./art";
 import { box, type DecorPlace, merged, type Part, placeParts } from "./decor";
 import { BRAND, hex } from "./palette";
 
@@ -59,38 +57,19 @@ function mixedPart(pieces: BufferGeometry[], grain: Texture, cast = true): Part 
   return { geometry, material: paper(0xffffff, grain), cast };
 }
 
-/** A warm glow: an emissive shade that flickers a little, and a pool of light on the ground. */
-function glow(stage: Stage, color: number, at: [number, number], size: number): Part {
-  const pool = new PlaneGeometry(size, size);
-  pool.rotateX(-Math.PI / 2);
-  pool.translate(at[0], 0.02, at[1]);
-  return {
-    geometry: pool,
-    material: new MeshBasicMaterial({
-      map: stage.keep(spotTexture("255, 186, 92")),
-      color,
-      transparent: true,
-      opacity: 0.5,
-      depthWrite: false,
-      blending: AdditiveBlending,
-    }),
-    cast: false,
-    renderOrder: 1,
-  };
-}
-
-/** A material that glows warm and flickers, stopping with the rest when motion is reduced. */
+/**
+ * A lamp or a flame: lit a little by day and warm from inside after dark, `base` the strength it
+ * glows at as night falls (decision 0098), wavering while motion is allowed. Its pool of light on
+ * the ground comes from the kind's `glow` mark in `palette.ts`, with every other glow on the plot.
+ */
 function flicker(stage: Stage, color: number, grain: Texture, base = 0.65): MeshLambertMaterial {
   const m = new MeshLambertMaterial({
     color,
     emissive: color,
-    emissiveIntensity: base,
     map: grain,
     flatShading: true,
   });
-  stage.animate(({ time }) => {
-    m.emissiveIntensity = base + Math.sin(time * 2.7) * 0.06 + Math.sin(time * 6.3) * 0.04;
-  });
+  stage.glow({ kind: "lamp", material: m, day: base * 0.3, night: base * 1.3, flicker: true });
   return m;
 }
 
@@ -246,7 +225,6 @@ function lampPostParts(stage: Stage, grain: Texture): Part[] {
       material: flicker(stage, hex("#f9d27a"), grain, 0.7),
       cast: false,
     },
-    glow(stage, 0xffffff, [0, 0.15], 2),
   ];
 }
 
@@ -350,7 +328,6 @@ function campfireParts(stage: Stage, grain: Texture): Part[] {
       material: flicker(stage, BRAND.sun, grain, 0.9),
       cast: false,
     },
-    glow(stage, 0xffffff, [0, 0], 2.2),
   ];
 }
 
@@ -411,7 +388,6 @@ function jackOLanternParts(stage: Stage, grain: Texture): Part[] {
     },
     { geometry: merged([stem.toNonIndexed()], 0.8), material: paper(0x6a6136, grain), cast: true },
     { geometry: merged(face, 1), material: flicker(stage, 0xffc45a, grain, 0.9), cast: false },
-    glow(stage, 0xffffff, [0, 0.2], 1.8),
   ];
 }
 

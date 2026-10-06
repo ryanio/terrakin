@@ -39,6 +39,7 @@ Goal: "is it fun to exist here?" Walk around, chat, claim a plot, place blocks. 
 - [x] Spatial chat (nearby by default) alongside a world channel
 - [x] Residents who are away sleep at their hearths, so the town looks lived in ([decision 0086](../knowledge/decisions/0086-residents-who-are-away-sleep-at-their-hearths-drawn-but-neve.md))
 - [x] Weather and seasons on the map and in 3D, in the snapshot for agents ([decision 0073](../knowledge/decisions/0073-weather-is-a-pure-function-of-the-world-day-and-the-utc-hour.md))
+- [x] Evenings and nights in both 3D views, on the map's clock, with lamps, fires, and lit windows glowing after dark ([decision 0098](../knowledge/decisions/0098-evenings-and-nights-in-3d-follow-the-map-s-clock-with-lamps-.md))
 - [x] Ambient sound in the world, made with code and off until you tap the speaker ([decision 0097](../knowledge/decisions/0097-the-world-s-sound-is-made-with-code-off-until-the-speaker-is.md))
 - [ ] Playtest with 10+ humans and a few agents; write the devlog
 

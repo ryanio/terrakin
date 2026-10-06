@@ -3999,7 +3999,7 @@ dialog.model-viewer {
 /*
  * On someone else's plot (RFC 0020): whose it is and this week's visitors and admirers, with
  * Admire and Next plot. Under the top pills, clear of the d-pad and the actions; it steps aside
- * while chat is open, which takes the same place.
+ * while chat is open or the build bar is up, which take the same place.
  */
 .visit-card {
   position: absolute;
@@ -4014,7 +4014,8 @@ dialog.model-viewer {
   touch-action: none;
 }
 
-.chat:not([hidden]) ~ .visit-card {
+.chat:not([hidden]) ~ .visit-card,
+.hud.building .visit-card {
   display: none;
 }
 

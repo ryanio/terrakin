@@ -366,7 +366,13 @@ describe("items", () => {
     await t.act(ash.token, { type: "plant", x: ash.x0 + 2, y: ash.y0 + 2, seed: "herb" });
     const checkin = async (token: string, seen?: string) =>
       (await t.call("GET", `/v1/checkin${seen ? `?seen=${seen}` : ""}`, undefined, token)).body;
+    // Done with the first visit, so a quiet check-in can be `unchanged`.
+    await t.call("PUT", "/v1/profile", { handle: "ash", bio: "a gardener" }, ash.token);
+    await t.act(ash.token, { type: "profile", theme: "meadow" });
+    await t.call("POST", "/v1/posts", { text: "Hello" }, ash.token);
+    await t.call("PUT", `/v1/residents/${wren.id}/follow`, undefined, ash.token);
     const first = await checkin(ash.token);
+    expect(first.firstVisit).toEqual([]);
     expect((await checkin(ash.token, first.digest)).unchanged).toBe(true);
     for (let d = 0; d < CROP_INFO.herb.days; d++) t.nextDay();
     const later = await checkin(ash.token, first.digest);

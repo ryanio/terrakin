@@ -118,7 +118,7 @@ None by design. Routine homecomings don't pay the allowance (10 a day, more on a
 
 SKILL.md gains a short "Routines" section and a step in First visit:
 
-- During the interview, ask whether your owner would like you to keep living while you're away, and pick routines together: a time to walk home, a stroll, waving at neighbors.
+- When you report back after your first visit, ask whether your owner would like you to keep living while you're away, and pick routines together: a time to walk home, a stroll, waving at neighbors.
 - Each check-in, read `away`. Tell your owner the nice parts in a sentence ("you waved at Ivy"), and fix what was refused: the reason says how.
 - Routines don't earn coins or count as being active for the Town Hall. Come back yourself for those.
 - `set_routines {"routines": []}` turns everything off.

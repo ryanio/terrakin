@@ -6,6 +6,7 @@ import type { WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Api, type ApiRequest, plainIssue } from "./api";
 import { createApp } from "./app";
+import { checkinView } from "./checkin";
 import { REPEAT_NOTE } from "./links";
 import { MemoryMediaStore } from "./media";
 import { nodeSql } from "./node-sql";
@@ -381,7 +382,7 @@ describe("action links", () => {
     // Bursts of 4: home and three harvests take them all, so planting is refused.
     const first = await api.handle(request(`/v1/act/${key}/garden`, "seed=herb"));
     expect(first?.body).toMatch(/You harvested .* You harvested .* You harvested/s);
-    expect(first?.body).toContain("code `rate_limited`");
+    expect(first?.body).toContain("Error code: `rate_limited`.");
     expect(first?.body).not.toContain("You planted");
     const second = await api.handle(request(`/v1/act/${key}/garden`, "seed=flower"));
     expect(second?.status).toBe(429);
@@ -606,7 +607,7 @@ describe("links for the rest of a first visit", () => {
     await ash.act(`gesture?to=${wren.id}`);
     await ash.act(`follow?resident=${wren.id}`);
     const checkin = await wren.act("checkin");
-    const back = new RegExp(`/v1/act/${wren.key}/gesture\\?to=${ash.id}`).exec(checkin.text);
+    const back = new RegExp(`/v1/act/${wren.key}/gesture\\?resident=${ash.id}`).exec(checkin.text);
     expect(back).not.toBeNull();
     const sent = await wren.act(`gesture?to=${ash.id}`);
     expect(sent.text).toContain(`You sent a wave to \`${ash.id}\``);
@@ -636,7 +637,7 @@ describe("what the new links refuse", () => {
 
   it("won't place a planter without the seed, and leaves a co-owner's crops alone", async () => {
     let now = Date.UTC(2026, 9, 5, 12);
-    const { joinByLink, service } = await start({
+    const { joinByLink, service, social } = await start({
       world: { days: true, economy: true, items: true, now: () => now },
     });
     const ada = await joinByLink("Ada");
@@ -666,6 +667,11 @@ describe("what the new links refuse", () => {
     service.tick();
     const bos = await bo.act("garden");
     expect(bos.text).toContain("Nothing you planted within reach of your hearth was ready");
+    // The JSON check-in agrees: Ada's ripe lemons aren't Bo's to bring up.
+    const boTodo = checkinView(service.state, social, bo.id, { since: undefined }).todo;
+    expect(boTodo.some((t) => t.includes('"type": "harvest"'))).toBe(false);
+    const adaTodo = checkinView(service.state, social, ada.id, { since: undefined }).todo;
+    expect(adaTodo.some((t) => t.includes('"type": "harvest"'))).toBe(true);
     expect(Object.values(service.state.items?.crops ?? {}).map((c) => c.by)).toEqual([
       ada.id,
       ada.id,
@@ -684,5 +690,82 @@ describe("what the new links refuse", () => {
     const page = (await wren.act("checkin")).text;
     expect(page).toContain("of your 25 unread notifications are here");
     expect(page).not.toContain(`/v1/act/${wren.key}/read?`);
+  });
+
+  it("forgets a refused link, so the same link works once the reason is gone", async () => {
+    const { joinByLink } = await start({ world: { days: true, economy: true, items: true } });
+    const wren = await joinByLink("Wren");
+    expect(codeOf((await wren.act("garden?seed=flower")).text)).toBe("no_hearth");
+    await wren.act("settle?px=0&py=0");
+    await wren.act("build-home");
+    const again = await wren.act("garden?seed=flower");
+    expect(again.text).not.toContain("nothing new happened");
+    expect(again.text).toContain("You planted flower");
+  });
+
+  it("claims a handle with handle=, the name the API uses", async () => {
+    const { joinByLink } = await start();
+    const wren = await joinByLink("Wren");
+    expect((await wren.act("handle?handle=wren_maps")).text).toContain("@wren_maps");
+  });
+
+  it("offers a wave back once, not back and forth", async () => {
+    const { joinByLink } = await start();
+    const wren = await joinByLink("Wren");
+    const ash = await joinByLink("Ash");
+    await ash.act(`gesture?resident=${wren.id}`);
+    const wrens = (await wren.act("checkin")).text;
+    expect(wrens).toContain(`/gesture?resident=${ash.id}`);
+    await wren.act(`gesture?resident=${ash.id}`);
+    // Ash already waved at Wren this week, so Wren's wave back offers nothing more.
+    const ashs = (await ash.act("checkin")).text;
+    expect(ashs).toContain("## Gestures to you");
+    expect(ashs).not.toContain(`/gesture?resident=${wren.id}`);
+  });
+
+  it("says on the link check-in when a crop you planted is ready", async () => {
+    let now = Date.UTC(2026, 9, 5, 12);
+    const { joinByLink, service } = await start({
+      world: { days: true, economy: true, items: true, now: () => now },
+    });
+    const wren = await joinByLink("Wren");
+    await wren.act("settle?px=0&py=0");
+    await wren.act("build-home");
+    await wren.act("garden?seed=flower");
+    expect((await wren.act("checkin")).text).not.toContain("## Your garden");
+    now += 3 * 24 * 60 * 60_000;
+    service.tick();
+    const page = (await wren.act("checkin?since=2026-10-08T00%3A00%3A00.000Z")).text;
+    expect(page).toContain("## Your garden");
+    expect(page).toContain(`/v1/act/${wren.key}/garden?seed=flower`);
+  });
+
+  it("counts a color and shape from the look link as the look step", async () => {
+    const { joinByLink, service, social } = await start();
+    const wren = await joinByLink("Wren");
+    const steps = () =>
+      checkinView(service.state, social, wren.id, {
+        since: undefined,
+        done: service.doneCommands(wren.id),
+      }).firstVisit;
+    expect(steps()).toContain("look");
+    await wren.act("look?color=sky&shape=diamond");
+    expect(steps()).not.toContain("look");
+  });
+
+  it("collects starter seeds the pantry still owes before planting", async () => {
+    const store = new MemoryStore();
+    // Home built before growing opened, so the first pantry (with its seeds) is still to come.
+    const before = new WorldService({ store, config: CONFIG, days: true });
+    const id = before.createResident({ name: "Wren", kind: "agent" }).residentId ?? "";
+    expect(before.act(id, { type: "settle", px: 0, py: 0 }).ok).toBe(true);
+    expect(before.act(id, { type: "build_starter_home" }).ok).toBe(true);
+    const { open, service } = await start({
+      store,
+      world: { days: true, economy: true, items: true },
+    });
+    const key = service.mintLinkKey(id);
+    const page = (await open(`/v1/act/${key}/garden?seed=flower`)).text;
+    expect(page).toContain("You planted flower");
   });
 });

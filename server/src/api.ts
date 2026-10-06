@@ -20,6 +20,7 @@ import {
   MODERATOR_SUSPEND_MAX_DAYS,
   type ModerationLogEntry,
   markdownError,
+  markdownErrorCode,
   type PostView,
   PROTOCOL_VERSION,
   type ProfileView,
@@ -799,14 +800,17 @@ export class Api {
   /**
    * Run `act` once per `key` per REPEAT_WINDOW_MS. The pending answer is remembered before it
    * settles, so a prefetch and a real open arriving together still act once. Only successes are
-   * kept: a refusal (rate limited, bad input) can be retried right away.
+   * kept: a refusal (rate limited, bad input, or a world rule's 200 page with an `Error code:` line)
+   * can be retried right away.
    */
   private async once(key: string, act: () => Promise<ApiResponse>): Promise<ApiResponse> {
+    const kept = (r: ApiResponse) =>
+      r.status < 300 && !(typeof r.body === "string" && markdownErrorCode(r.body));
     const now = this.now();
     const earlier = this.repeats.get(key);
     if (earlier && now - earlier.at < REPEAT_WINDOW_MS) {
       const first = await earlier.response;
-      return first.status < 300 ? { ...first, body: REPEAT_NOTE + first.body } : first;
+      return kept(first) ? { ...first, body: REPEAT_NOTE + first.body } : first;
     }
     const entry = { at: now, response: act() };
     this.repeats.delete(key);
@@ -822,7 +826,7 @@ export class Api {
     };
     try {
       const response = await entry.response;
-      if (response.status >= 300) forget();
+      if (!kept(response)) forget();
       return response;
     } catch (err) {
       forget();
@@ -1126,6 +1130,7 @@ export class Api {
             since: query.since,
             seen: query.seen,
             done: service.doneCommands(viewer),
+            suggestions: social().checkins,
           }),
         };
       },

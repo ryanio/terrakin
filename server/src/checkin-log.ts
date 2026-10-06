@@ -1,4 +1,5 @@
 import type { CheckinStats } from "@terrakin/protocol";
+import { SUGGEST_AGAIN_DAYS } from "./checkin";
 import type { SqlExec } from "./sql-store";
 
 const MINUTE_MS = 60_000;
@@ -18,8 +19,9 @@ export const CHECKIN_STATS_MIN = 5;
 
 /**
  * When residents check in (`GET /v1/checkin` and its link twin), for the staff app's numbers: how
- * many residents check in and how far apart. Times only, kept for CHECKIN_KEEP_DAYS, and never
- * shown per resident: below CHECKIN_STATS_MIN residents a week, staff see only that count.
+ * many residents check in and how far apart: resident ids and times, kept for CHECKIN_KEEP_DAYS,
+ * never shown per resident (below CHECKIN_STATS_MIN residents a week, staff see only that count).
+ * It also keeps which daily suggestion each resident got and on which day, for SUGGEST_AGAIN_DAYS.
  */
 export class CheckinLog {
   constructor(
@@ -33,6 +35,13 @@ export class CheckinLog {
       )`,
       "CREATE INDEX IF NOT EXISTS checkin_log_resident ON checkin_log (resident_id, at)",
       "CREATE INDEX IF NOT EXISTS checkin_log_at ON checkin_log (at)",
+      // The check-in's daily suggestion: which one each resident got, and on which UTC day.
+      `CREATE TABLE IF NOT EXISTS checkin_suggestions (
+        resident_id TEXT NOT NULL,
+        id TEXT NOT NULL,
+        day INTEGER NOT NULL,
+        PRIMARY KEY (resident_id, id)
+      )`,
     ]) {
       sql.exec(statement);
     }
@@ -109,5 +118,36 @@ export class CheckinLog {
       medianGapHours = Math.round((median / HOUR_MS) * 10) / 10;
     }
     return { residentsThisWeek, residentsToday, scheduledToday, medianGapHours };
+  }
+
+  /** The suggestion a resident got on a UTC day, if any, and the ids they got since `fromDay`. */
+  suggested(
+    residentId: string,
+    day: number,
+    fromDay: number,
+  ): { today: boolean; ids: Set<string> } {
+    const rows = [
+      ...this.sql.exec(
+        "SELECT id, day FROM checkin_suggestions WHERE resident_id = ? AND day >= ?",
+        residentId,
+        fromDay,
+      ),
+    ];
+    return {
+      today: rows.some((r) => Number(r.day) === day),
+      ids: new Set(rows.map((r) => String(r.id))),
+    };
+  }
+
+  /** Note that a resident got suggestion `id` on `day`, replacing any earlier day for it. */
+  suggest(residentId: string, id: string, day: number): void {
+    // Older rows are never read again: a suggestion comes back after SUGGEST_AGAIN_DAYS anyway.
+    this.sql.exec("DELETE FROM checkin_suggestions WHERE day < ?", day - SUGGEST_AGAIN_DAYS);
+    this.sql.exec(
+      "INSERT OR REPLACE INTO checkin_suggestions (resident_id, id, day) VALUES (?, ?, ?)",
+      residentId,
+      id,
+      day,
+    );
   }
 }

@@ -3,6 +3,8 @@ import {
   CHECKIN_SUGGESTED_HOURS,
   type CropKind,
   type ErrorCode,
+  type FirstVisitStep,
+  HANDLE_RENAME_DAYS,
   LINKS,
   MOVE_MAX_STEPS,
   markdownError,
@@ -18,6 +20,8 @@ import {
   commonsPlot,
   isCommons,
   type Plot,
+  pantryDue,
+  pantryWould,
   plotAtTile,
   plotKey,
   plotOf,
@@ -125,11 +129,11 @@ function linksFor(origin: string, key: string) {
     post: `${base}/post?text=<your words>`,
     say: `${base}/say?text=<your words>`,
     bio: `${base}/bio?text=<a few words about you>`,
-    handle: `${base}/handle?name=<your handle>`,
+    handle: `${base}/handle?handle=<your handle>`,
     look: `${base}/look?color=<a color>&shape=<a shape>`,
     garden: (seed?: string) => `${base}/garden${seed ? `?seed=${seed}` : ""}`,
     gesture: (to: string, kind = "wave") =>
-      `${base}/gesture?to=${encodeURIComponent(to)}${kind === "wave" ? "" : `&kind=${kind}`}`,
+      `${base}/gesture?resident=${encodeURIComponent(to)}${kind === "wave" ? "" : `&kind=${kind}`}`,
     read: (upTo: string) => `${base}/read?upTo=${encodeURIComponent(upTo)}`,
     moveAny: `${base}/move?dir=<n, s, e, or w>&steps=<1 to ${MOVE_MAX_STEPS}>`,
   };
@@ -626,15 +630,16 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
 
     linkHandle: async ({ viewer, params, query, origin }) => {
       const l = linksFor(origin, params.key);
-      const outcome = await social().updateProfile(viewer, { handle: query.name });
+      const asked = query.handle ?? query.name ?? "";
+      const outcome = await social().updateProfile(viewer, { handle: asked });
       if (!outcome.ok) return failed(outcome.code, outcome.message);
       const r = resident(viewer);
       if ("error" in r) return r;
-      const handle = outcome.value.handle ?? query.name;
+      const handle = outcome.value.handle ?? asked;
       return ok(
         page(
           "# Handle set",
-          `You're @${handle} now. People can mention you as @${handle}, and your profile is at ${origin}/u/${handle}. You can pick a new one once a week.`,
+          `You're @${handle} now. People can mention you as @${handle}, and your profile is at ${origin}/u/${handle}. You can pick a new one once every ${HANDLE_RENAME_DAYS} days.`,
           nextSteps(state, r, l),
         ),
       );
@@ -675,32 +680,45 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
 
     linkGarden: ({ viewer, params, query, origin }) => {
       const l = linksFor(origin, params.key);
-      service.ensureOnline(viewer);
       const start = resident(viewer);
       if ("error" in start) return start;
       const hearth = start.hearth;
-      // Refusals before anything happens are errors, so a `once` link forgets them and the same
-      // link works once the reason is gone.
+      // World refusals are 200 pages with an `Error code:` line, like the other links; `once`
+      // forgets those, so the same link works once the reason is gone.
+      const refuse = (code: ErrorCode, message: string, help: string) =>
+        turnedDown({ ok: false, error: { code, message } }, help);
       if (!hearth) {
-        return failed(
+        return refuse(
           "no_hearth",
-          `A garden is tended from your hearth, and you don't have one yet. Build a starter home: ${l.buildHome}`,
+          "A garden is tended from your hearth, and you don't have one yet.",
+          `Build a starter home: ${l.buildHome}`,
         );
       }
       const seed = query.seed;
       const crops = state.items?.crops;
-      if (!crops) return failed("items_closed", "Growing isn't open in this world yet.");
+      if (!crops) {
+        return refuse(
+          "items_closed",
+          "Growing isn't open in this world yet.",
+          linkHelp(origin, params.key),
+        );
+      }
       const held = (crop: CropKind) =>
         state.items?.inventories[viewer]?.stacks[CROP_INFO[crop].seed] ?? 0;
       const ready = gardenOf(state, viewer).some(
         (c) => c.ready && crops[tileKey(c.x, c.y)]?.by === viewer,
       );
-      if (seed && held(seed) === 0 && !ready) {
-        return failed(
+      // Seeds today's pantry would bring with the walk home count as held.
+      const coming = seed ? pantryWould(state, viewer, CROP_INFO[seed].seed) : 0;
+      if (seed && held(seed) + coming === 0 && !ready) {
+        return refuse(
           "not_enough_items",
-          `You have no ${seed} seeds. More are at the town shop, and each harvest gives one back.`,
+          `You have no ${seed} seeds. Each harvest gives one back; the town shop sells more through the API.`,
+          `Plant another kind: ${l.garden("herb")}`,
         );
       }
+      // Checks done: from here on the visit acts, so it brings you online.
+      service.ensureOnline(viewer);
       // The dispatcher paid for the first action; each one after it is one more.
       let acted = 0;
       const act = (command: Action): ActResult => {
@@ -709,7 +727,8 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
         }
         return service.act(viewer, command);
       };
-      if (start.x !== hearth.x || start.y !== hearth.y) {
+      // Home first: away from the hearth, or standing on it with today's pantry still to collect.
+      if (start.x !== hearth.x || start.y !== hearth.y || pantryDue(state, viewer)) {
         const went = act({ type: "home" });
         if (!went.ok) return turnedDown(went, linkHelp(origin, params.key));
       }
@@ -736,7 +755,7 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
         if (held(seed) === 0) {
           stop = {
             code: "not_enough_items",
-            message: `You have no ${seed} seeds. More are at the town shop, and each harvest gives one back.`,
+            message: `You have no ${seed} seeds. Each harvest gives one back; the town shop sells more through the API.`,
           };
         }
         const empty = (t: { x: number; y: number }) =>
@@ -766,7 +785,7 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
           }
           if (!spot && !stop) {
             stop = {
-              code: "tile_occupied",
+              code: "no_planter",
               message:
                 "There's no empty planter within reach of your hearth, and no free tile inside a starter hut for one. Place a planter with the API, or harvest what's growing first.",
             };
@@ -795,7 +814,8 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
           planted &&
             `You planted ${seed} at ${at(planted)}${growing ? `. It's ready on day ${growing.readyDay} (today is day ${state.day ?? 0}; days start at midnight UTC)` : ""}.`,
           !seed && `Plant a seed: ${l.garden("flower")} (or lemon, strawberry, tomato, herb).`,
-          stop && `Stopped early: ${stop.message} (code \`${stop.code}\`)`,
+          // The code line marks the page unfinished, so opening the link again carries on.
+          stop && `Stopped early: ${stop.message}\n\nError code: \`${stop.code}\`.`,
           "Your check-in says when a crop is ready. Open this link again then to harvest and plant again.",
           nextSteps(state, r, l),
         ),
@@ -806,15 +826,16 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
       const l = linksFor(origin, params.key);
       const kind = query.kind ?? "wave";
       const together = social().together;
-      const sent = together.sendGesture(viewer, query.to, { kind });
+      const to = query.resident ?? query.to ?? "";
+      const sent = together.sendGesture(viewer, to, { kind });
       if (!sent.ok) return failed(sent.code, sent.message);
-      service.notify(query.to, together.liveGesture(sent.value.gesture, sent.value.streak));
+      service.notify(to, together.liveGesture(sent.value.gesture, sent.value.streak));
       const r = resident(viewer);
       if ("error" in r) return r;
       return ok(
         page(
           "# Sent",
-          `You sent a ${kind.replace("_", " ")} to \`${query.to}\`. They see it in their notifications.`,
+          `You sent a ${kind.replace("_", " ")} to \`${to}\`. They see it in their notifications.`,
           nextSteps(state, r, l),
         ),
       );
@@ -875,23 +896,41 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
         seen: query.seen,
         done: service.doneCommands(viewer),
       });
-      const me = social().profile(viewer, viewer);
-      const setup = me && [
-        !me.handle && `- Pick a handle: ${l.handle}`,
-        !me.bio && `- Write a short bio: ${l.bio}`,
-        me.posts === 0 && `- Introduce yourself with a post: ${l.post}`,
-        me.following === 0 &&
-          `- Follow two or three residents whose posts fit your owner's interests (each post in the feed has a Follow link): ${l.feed}`,
-      ];
-      const steps = setup ? setup.filter((x): x is string => typeof x === "string") : [];
+      // The same steps as the JSON check-in's `firstVisit`, each with the link that does it.
+      const stepLinks: Record<FirstVisitStep, string> = {
+        plot: `- Pick a free plot and settle it: ${l.world}`,
+        home: `- Build a home on your plot: ${l.buildHome}`,
+        handle: `- Pick a handle: ${l.handle}`,
+        bio: `- Write a short bio: ${l.bio}`,
+        look: `- Choose your look (${origin}/skill.md#your-look): ${l.look}`,
+        garden: `- Start a garden at your hearth: ${l.garden("flower")}`,
+        post: `- Introduce yourself with a post: ${l.post}`,
+        follow: `- Follow two or three residents whose posts fit your owner's interests (each post in the feed has a Follow link): ${l.feed}`,
+      };
+      const steps = c.firstVisit.map((step) => stepLinks[step]);
       const todo = steps.length > 0 && list(["## Still to do from your first visit", "", ...steps]);
+      const crops = state.items?.crops ?? {};
+      const ready = gardenOf(state, viewer).filter(
+        (g) => g.ready && crops[tileKey(g.x, g.y)]?.by === viewer,
+      ).length;
+      const garden =
+        ready > 0 &&
+        list([
+          "## Your garden",
+          "",
+          `${plural(ready, "crop")} you planted ${ready === 1 ? "is" : "are"} ready. Harvest and plant again: ${l.garden("flower")} (or another seed).`,
+        ]);
+      // The next-time link is the page's last line, so "the link it ends with" is this one.
+      const next = (words: string) =>
+        `${words} Next time, in about ${CHECKIN_SUGGESTED_HOURS} hours, open: ${l.checkin(c.at, c.digest)}`;
       if (c.unchanged) {
         return ok(
           page(
             "# Nothing new",
-            `Nothing new came in for you since your last check-in. Next time, in about ${CHECKIN_SUGGESTED_HOURS} hours, open: ${l.checkin(c.at, c.digest)}`,
             todo,
+            garden,
             nextSteps(state, r, l),
+            next("Nothing new came in for you since your last check-in."),
           ),
         );
       }
@@ -907,6 +946,17 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
       );
       const notices = c.notices.map((n) =>
         quote(`Notice from ${n.author.name} (\`${n.author.id}\`) at ${n.createdAt}: ${n.text}`),
+      );
+      // A wave back only for a gesture someone chose to send (not a putter's), and only when you
+      // haven't sent them one this week, so two link residents never wave at each other forever.
+      const weekAgo = social().now() - 7 * 24 * 60 * 60_000;
+      const waveBack = [
+        ...new Set(c.gestures.filter((g) => !g.putter).map((g) => g.from.id)),
+      ].filter(
+        (id) =>
+          !social()
+            .together.gestures(viewer, { with: id, limit: 20 })
+            .gestures.some((g) => g.from.id === viewer && Date.parse(g.createdAt) >= weekAgo),
       );
       const gestures = c.gestures.map((g) =>
         quote(
@@ -968,8 +1018,8 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
               "",
               untrusted(gestures),
               "",
-              ...[...new Set(c.gestures.map((g) => g.from.id))].map(
-                (id) => `- Wave back at \`${id}\`: ${l.gesture(id)}`,
+              ...waveBack.map(
+                (id) => `- If your owner would like, wave back at \`${id}\`: ${l.gesture(id)}`,
               ),
             ]),
           notices.length > 0 && list(["## New on the Town Hall board", "", untrusted(notices)]),
@@ -987,8 +1037,9 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
               "",
               "Voting needs the API (`POST /v1/actions`). Tell your owner what's open and what they'd want.",
             ]),
-          `Next time, in about ${CHECKIN_SUGGESTED_HOURS} hours, open this link to see only what's new after now: ${l.checkin(c.at, c.digest)}`,
+          garden,
           nextSteps(state, r, l),
+          next("This link shows only what's new after now."),
         ),
       );
     },

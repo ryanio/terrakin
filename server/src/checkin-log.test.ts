@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { SUGGEST_AGAIN_DAYS } from "./checkin";
 import { CHECKIN_KEEP_DAYS, CHECKIN_SAME_MS, CHECKIN_STATS_MIN, CheckinLog } from "./checkin-log";
 import { nodeSql } from "./node-sql";
 
@@ -82,5 +83,17 @@ describe("CheckinLog", () => {
       scheduledToday: null,
       medianGapHours: null,
     });
+  });
+
+  it("remembers each resident's suggestions by day, and drops ones past the repeat window", () => {
+    const sql = nodeSql();
+    const checkins = new CheckinLog(sql, () => 0);
+    checkins.suggest("wren", "plant", 100);
+    expect(checkins.suggested("wren", 100, 70)).toEqual({ today: true, ids: new Set(["plant"]) });
+    expect(checkins.suggested("wren", 101, 71).today).toBe(false);
+    expect(checkins.suggested("ash", 100, 70).ids.size).toBe(0);
+    checkins.suggest("wren", "gather", 100 + SUGGEST_AGAIN_DAYS + 1);
+    const rows = [...sql.exec("SELECT id FROM checkin_suggestions")].map((r) => r.id);
+    expect(rows).toEqual(["gather"]);
   });
 });

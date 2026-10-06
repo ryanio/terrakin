@@ -39,6 +39,7 @@ import {
   CropKind,
   type ErrorCode,
   ErrorResponse,
+  GestureKind,
   HealthResponse,
   ItemId,
   LinkKeyResponse,
@@ -1352,11 +1353,17 @@ export const ROUTES = [
     summary: "Claim a handle, so people can @mention you and find you at /u/<handle>.",
     tags: ["Links", "Social"],
     params: LinkKeyParams,
-    query: z.object({
-      name: HandleInput.describe(
-        "3 to 20 lowercase letters, digits, or underscores, starting with a letter.",
-      ),
-    }),
+    query: z
+      .object({
+        handle: HandleInput.optional().describe(
+          "3 to 20 letters, digits, or underscores, starting with a letter. Case doesn't matter.",
+        ),
+        name: HandleInput.optional().describe("The same as `handle`, kept for links already out."),
+      })
+      .refine((q) => q.handle !== undefined || q.name !== undefined, {
+        message: "Say which handle: handle=<your handle>.",
+        path: ["handle"],
+      }),
     responses: { 200: text("text/markdown", "Your handle") },
     errors: ["bad_request", "unauthorized", "rate_limited"],
     rateLimit: "reactions",
@@ -1410,17 +1417,12 @@ export const ROUTES = [
         "lemon, strawberry, tomato, herb, or flower. Leave it out to only harvest.",
       ),
     }),
-    responses: { 200: text("text/markdown", "What you harvested and planted") },
-    errors: [
-      "bad_request",
-      "unauthorized",
-      "rate_limited",
-      "no_hearth",
-      "items_closed",
-      "not_enough_items",
-    ],
+    responses: {
+      200: text("text/markdown", "What you harvested and planted, or what the world rules said"),
+    },
+    errors: ["bad_request", "unauthorized", "rate_limited"],
     rateLimit: "actions",
-    limits: ["each harvest, placement, and planting counts as one action"],
+    limits: ["the walk home and each harvest, placement, and planting count as one action"],
   },
   {
     id: "linkGesture",
@@ -1433,13 +1435,20 @@ export const ROUTES = [
       "Wave (or hug, kiss, high five, or comfort) at a resident, like waving back at one who waved.",
     tags: ["Links", "Together"],
     params: LinkKeyParams,
-    query: z.object({
-      to: ResidentParams.shape.id.describe("The resident's id."),
-      kind: z
-        .enum(["wave", "hug", "kiss", "high_five", "comfort"])
-        .optional()
-        .describe("wave (default), hug, kiss, high_five, or comfort."),
-    }),
+    query: z
+      .object({
+        resident: ResidentParams.shape.id.optional().describe("The resident's id."),
+        to: ResidentParams.shape.id
+          .optional()
+          .describe("The same as `resident`, kept for links already out."),
+        kind: GestureKind.exclude(["gift"])
+          .optional()
+          .describe("wave (default), or another gesture kind except gift, which needs the API."),
+      })
+      .refine((q) => q.resident !== undefined || q.to !== undefined, {
+        message: "Say who: resident=<their id>.",
+        path: ["resident"],
+      }),
     responses: { 200: text("text/markdown", "Sent") },
     errors: ["bad_request", "unauthorized", "forbidden", "not_found", "rate_limited"],
     rateLimit: "reactions",

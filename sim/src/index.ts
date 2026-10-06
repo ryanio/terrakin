@@ -86,6 +86,7 @@ export {
   type PieceKind,
   pantryDue,
   pantryNumbers,
+  pantryWould,
   RECIPES,
   RESOURCE_KINDS,
   type Recipe,

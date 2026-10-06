@@ -265,7 +265,9 @@ export function parseChangelog(text: string, file = "CHANGELOG.md"): Changelog {
       const example = TRY.exec(body[1] ?? "");
       if (example) {
         const text = (example[1] ?? "").trimEnd();
-        if (!text.includes("`")) fail(at, "a Try line holds its example call in a code span.");
+        if (!text.includes("`") || !text.includes("/v1/")) {
+          fail(at, "a Try line holds its example call, with its /v1/ path, in a code span.");
+        }
         if (text.length > LINE_MAX) fail(at, `lines are at most ${LINE_MAX} characters.`);
         entry.try = text;
         return;

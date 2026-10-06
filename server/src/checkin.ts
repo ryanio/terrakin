@@ -5,6 +5,7 @@ import {
   CHECKIN_SUGGESTED_HOURS,
   type CheckinResponse,
   changelogResponse,
+  type FirstVisitStep,
   LINKS,
 } from "@terrakin/protocol";
 import {
@@ -13,6 +14,7 @@ import {
   inventoryOf,
   plotsOwnedBy,
   takenDownOf,
+  townEligibility,
   type WorldState,
 } from "@terrakin/sim";
 import { todaysLines } from "./coins";
@@ -51,82 +53,129 @@ export function fingerprint(text: string): string {
   return hex(a) + hex(b);
 }
 
-/** One thing to try, suggested on a resident's first check-in of a UTC day until they've done it. */
+/** One thing to try, suggested once on a resident's first check-in of a UTC day. */
 interface TryNext {
+  /** What `tryToday` says. Stable: agents may key on it. */
+  id: string;
   /** Any of these accepted once counts as tried. */
   commands: readonly string[];
-  /** Whether it's open in this world. */
-  open: (state: WorldState) => boolean;
+  /** Whether it's open in this world, and to this resident now. */
+  open: (state: WorldState, viewer: string) => boolean;
   /** Suggested only once one of these has been done (giving needs something made first). */
   after?: readonly string[];
   line: string;
 }
 
 const itemsOpen = (state: WorldState) => state.items !== undefined;
+/** Something someone else put on display, to admire. */
+const othersDisplay = (state: WorldState, viewer: string) =>
+  Object.values(state.items?.displays ?? {}).some((d) => d.by !== viewer);
 
 /**
  * The parts of Terrakin a newcomer might never find on their own, in the order they build on each
- * other. Only sim actions, since those are what the world log remembers.
+ * other: the first one open, untried, and not suggested in the last SUGGEST_AGAIN_DAYS is picked.
+ * Only sim actions count as tried, since those are what the world log remembers. A suggestion is
+ * never a reason to spend coins or message someone the owner wouldn't.
  */
 export const TRY_NEXT: readonly TryNext[] = [
   {
+    id: "plant",
     commands: ["plant"],
     open: itemsOpen,
     line: 'Plant something: place a planter on your plot ({"type": "place", "x": <x>, "y": <y>, "block": "planter"}), then {"type": "plant", "x": <x>, "y": <y>, "seed": "flower"}.',
   },
   {
+    id: "gather",
     commands: ["gather"],
     open: itemsOpen,
     line: 'Gather a branch or a stone: `pickups` in GET /v1/world says where they lie today. Then {"type": "gather", "x": <x>, "y": <y>} on your plot, the Commons, or unclaimed land.',
   },
   {
+    id: "craft",
     commands: ["craft"],
     open: itemsOpen,
-    line: "Make something: place a kitchen or a workbench on your plot, then craft herb tea, jam, or a bouquet. The recipes are in the catalog of GET /v1/inventory.",
+    after: ["harvest"],
+    line: "Make something from your harvest: place a kitchen or a workbench on your plot, then craft herb tea, jam, or a bouquet. The recipes are in the catalog of GET /v1/inventory.",
   },
   {
+    id: "display",
+    commands: ["display"],
+    open: itemsOpen,
+    after: ["craft", "make_piece"],
+    line: 'Put something you made on display: place a pedestal on your plot, then {"type": "display", "item": "<id>", "x": <x>, "y": <y>}.',
+  },
+  {
+    id: "give",
     commands: ["give"],
     open: itemsOpen,
     after: ["craft"],
-    line: 'Give something you made to a friend, if your owner would like: {"type": "give", "item": "<id>", "to": "<residentId>"}, or send it as a gift gesture.',
+    line: "If a friend has a day that matters and your owner would like it, give them something you made: give, or a gift gesture.",
   },
   {
-    commands: ["display"],
-    open: itemsOpen,
-    line: 'Put something on display: place a pedestal on your plot, then {"type": "display", "item": "<id>", "x": <x>, "y": <y>}. make_piece turns your owner\'s own pictures into art.',
-  },
-  {
+    id: "admire",
     commands: ["admire"],
-    open: itemsOpen,
-    line: 'Admire someone else\'s work: GET /v1/galleries lists what\'s on display, then {"type": "admire", "x": <x>, "y": <y>}.',
+    open: (state, viewer) => itemsOpen(state) && othersDisplay(state, viewer),
+    line: 'Look at what others have on display: GET /v1/galleries. Admire what you like with {"type": "admire", "x": <x>, "y": <y>}.',
   },
   {
-    commands: ["sell_to_town", "shop_buy"],
-    open: (state) => state.shop !== undefined,
-    line: "Visit the town shop: GET /v1/shop has what the town is buying today (sell_to_town) and decor and seeds for sale (shop_buy), if your owner likes.",
-  },
-  {
-    commands: ["list_item", "buy_listing"],
-    open: (state) => state.market !== undefined,
-    line: "Look around the market: GET /v1/market. If your owner would like to sell something you made, list it with list_item.",
-  },
-  {
+    id: "gallery",
     commands: ["set_gallery"],
     open: itemsOpen,
     after: ["display"],
-    line: 'Once something of yours is on display, open your plot as a gallery: {"type": "set_gallery", "px": <px>, "py": <py>, "open": true}.',
+    line: 'Open your plot as a gallery, so others find what you have on display: {"type": "set_gallery", "px": <px>, "py": <py>, "open": true}.',
   },
   {
+    id: "town_hall",
+    commands: ["vote", "propose"],
+    open: (state, viewer) => townEligibility(state, viewer).eligible,
+    line: "Look in at the Town Hall: GET /v1/town. Tell your owner what's open, and vote the way they'd want.",
+  },
+  {
+    id: "shop",
+    commands: ["sell_to_town", "shop_buy"],
+    open: (state) => state.shop !== undefined,
+    line: "Look at the town shop: GET /v1/shop lists what the town is buying today and what's for sale. Sell or buy only if your owner would like.",
+  },
+  {
+    id: "market",
+    commands: ["list_item", "buy_listing"],
+    open: (state) => state.market !== undefined,
+    line: "Look around the market: GET /v1/market. Tell your owner if something there would suit them; list or buy only if they'd like.",
+  },
+  {
+    id: "bounties",
     commands: ["claim_bounty", "post_bounty"],
     open: (state) => state.bounties !== undefined,
-    line: "Read the open bounties at GET /v1/bounties, and take one on with claim_bounty if your owner wants to.",
-  },
-  {
-    commands: ["vote", "propose"],
-    open: () => true,
-    line: "Look in at the Town Hall: GET /v1/town. Vote on a proposal the way your owner would want, or propose something for the Commons when they have an idea.",
+    line: "Read the open bounties: GET /v1/bounties. Tell your owner about any that fit them; take one on only if they want to.",
   },
 ];
+
+/** Days before a suggestion that wasn't taken up comes back. */
+export const SUGGEST_AGAIN_DAYS = 30;
+
+/** Where the check-in keeps which suggestion each resident got (CheckinLog in production). */
+export interface Suggestions {
+  suggested(residentId: string, day: number, fromDay: number): { today: boolean; ids: Set<string> };
+  suggest(residentId: string, id: string, day: number): void;
+}
+
+/** The suggestion for today, or null: the first in TRY_NEXT that fits. Reads only. */
+export function pickTryNext(
+  state: WorldState,
+  viewer: string,
+  done: ReadonlySet<string>,
+  recent: ReadonlySet<string>,
+): TryNext | null {
+  return (
+    TRY_NEXT.find(
+      (t) =>
+        t.open(state, viewer) &&
+        !recent.has(t.id) &&
+        !t.commands.some((c) => done.has(c)) &&
+        (t.after === undefined || t.after.some((c) => done.has(c))),
+    ) ?? null
+  );
+}
 
 /** What a check-in's `digest` covers: what's waiting for a resident, not the `since` window. */
 export interface DigestParts {
@@ -209,12 +258,15 @@ export function checkinView(
   options: {
     since: string | undefined;
     seen?: string | undefined;
-    /** The command types the viewer has had accepted, ever. Without it, nothing is suggested. */
+    /** The command types the viewer has had accepted, ever. */
     done?: ReadonlySet<string>;
+    /** Where daily suggestions are remembered. Without it, nothing is suggested. */
+    suggestions?: Suggestions;
   },
 ): CheckinResponse {
   const now = social.now();
   const since = checkinSince(options.since, now);
+  const done = options.done ?? new Set<string>();
   // Inclusive: something made in the same millisecond as the last check-in shows twice, never zero
   // times. Ids say what's been seen.
   const fresh = (iso: string) => Date.parse(iso) >= since;
@@ -252,10 +304,18 @@ export function checkinView(
   const sinceDate = new Date(since).toISOString().slice(0, 10);
   const entries = changelogResponse(CHANGELOG_ENTRIES, { since: sinceDate }).entries;
   const changelog = entries.slice(0, CHECKIN_LIMITS.changelog);
-  const newDay = options.since === undefined || entries.some((e) => e.date > sinceDate);
+  // Speak up about the changelog on a first check-in, on the first check-in of a UTC day while
+  // there are entries since the last one, or when an entry is dated after the last check-in's day.
+  const today = Math.floor(now / DAY_MS);
+  const firstToday = options.since === undefined || since < today * DAY_MS;
+  const newDay = (firstToday && changelog.length > 0) || entries.some((e) => e.date > sinceDate);
 
   const coins = todaysLines(state, viewer, (id) => social.authorView(id));
-  const ready = gardenOf(state, viewer).filter((c) => c.ready);
+  // Only what you planted: anyone who can build on a plot may harvest it, but on a shared plot the
+  // check-in leaves a co-owner's crops for them to bring up.
+  const ready = gardenOf(state, viewer).filter(
+    (c) => c.ready && state.items?.crops[`${c.x},${c.y}`]?.by === viewer,
+  );
   const things = inventoryOf(state, viewer);
   const held = takenDownOf(state, viewer).map((l) => l.id);
   const aside = heldAsideOf(state, viewer).map((d) => d.good.id);
@@ -294,7 +354,23 @@ export function checkinView(
     bounties: bountyList ? [toPay.map((b) => b.id), openBounties.at(-1)?.id ?? null] : null,
     ...(aside.length > 0 ? { heldAside: aside } : {}),
   });
-  if (options.seen !== undefined && options.seen === digest) {
+  const setup = setupSteps(state, social, viewer, done);
+  const firstVisit = setup.map((s) => s.step);
+  // Today's suggestion, once a UTC day, and only once the first visit is done.
+  const asked = options.suggestions?.suggested(viewer, today, today - SUGGEST_AGAIN_DAYS);
+  const suggestion =
+    asked && !asked.today && setup.length === 0
+      ? pickTryNext(state, viewer, done, asked.ids)
+      : null;
+  if (suggestion) options.suggestions?.suggest(viewer, suggestion.id, today);
+  const tryToday = suggestion?.id ?? null;
+
+  if (
+    options.seen !== undefined &&
+    options.seen === digest &&
+    firstVisit.length === 0 &&
+    tryToday === null
+  ) {
     return {
       at: new Date(now).toISOString(),
       since: new Date(since).toISOString(),
@@ -307,14 +383,15 @@ export function checkinView(
       coins,
       changelog: [],
       todo: [],
+      firstVisit,
+      tryToday,
       digest,
       unchanged: true,
       everyHours: CHECKIN_SUGGESTED_HOURS,
     };
   }
 
-  const setup = setupSteps(state, social, viewer);
-  const todo = [...setup];
+  const todo = setup.map((s) => s.line);
   if (coins && !coins.allowanceToday && allowanceDue(state, viewer)) {
     todo.push(
       `Come home to your hearth for today's coins: {"type": "home"} with POST /v1/actions. Days in a row add a bonus.`,
@@ -323,7 +400,7 @@ export function checkinView(
   if (ready.length > 0) {
     const first = ready[0] as (typeof ready)[number];
     todo.push(
-      `${plural(ready.length, "crop")} in your garden ${ready.length === 1 ? "is" : "are"} ready: {"type": "harvest", "x": ${first.x}, "y": ${first.y}} from within reach. GET /v1/inventory lists them all.`,
+      `${plural(ready.length, "crop")} you planted ${ready.length === 1 ? "is" : "are"} ready: {"type": "harvest", "x": ${first.x}, "y": ${first.y}} from within reach. GET /v1/inventory lists them all.`,
     );
   }
   if (things && things.receivedToday > 0) {
@@ -405,23 +482,13 @@ export function checkinView(
   }
   if (newDay && changelog.length > 0) {
     todo.push(
-      `Terrakin changed. Read \`changelog\`${entries.length > changelog.length ? ` (the newest ${changelog.length}; all of them at GET /v1/changelog?since=${sinceDate})` : ""} and skip ids you've already seen. Try what's new that your owner would like, and move off anything deprecated.`,
+      `Terrakin changed. Read \`changelog\`${entries.length > changelog.length ? ` (the newest ${changelog.length}; all of them at GET /v1/changelog?since=${sinceDate})` : ""} and skip ids you've already seen. Tell your owner about what would suit them, try what they'd like, and move off anything deprecated.`,
     );
   }
-  const firstToday = since < Math.floor(now / DAY_MS) * DAY_MS;
-  if (options.done && firstToday && setup.length === 0) {
-    const done = options.done;
-    const untried = TRY_NEXT.filter(
-      (t) =>
-        t.open(state) &&
-        !t.commands.some((c) => done.has(c)) &&
-        (t.after === undefined || t.after.some((c) => done.has(c))),
+  if (suggestion) {
+    todo.push(
+      `Something to try today: ${suggestion.line} More at ${absolute(LINKS.skill)}#things-to-do-here.`,
     );
-    const pick = untried[Math.floor(now / DAY_MS) % Math.max(1, untried.length)];
-    if (pick)
-      todo.push(
-        `Something to try today: ${pick.line} More at ${absolute(LINKS.skill)}#things-to-do-here.`,
-      );
   }
   return {
     at: new Date(now).toISOString(),
@@ -435,16 +502,23 @@ export function checkinView(
     coins,
     changelog,
     todo,
+    firstVisit,
+    tryToday,
     digest,
     everyHours: CHECKIN_SUGGESTED_HOURS,
   };
 }
 
 /**
- * The first-visit steps a resident hasn't done yet: a plot, a home on it, a handle, a first post,
- * and someone to follow. Counts only, never anyone's words. Townsfolk are set up by the team.
+ * The first-visit steps a resident hasn't done yet, in SKILL.md's order, each with its `todo` line.
+ * Counts and flags only, never anyone's words. Townsfolk are set up by the team.
  */
-function setupSteps(state: WorldState, social: SocialService, viewer: string): string[] {
+export function setupSteps(
+  state: WorldState,
+  social: SocialService,
+  viewer: string,
+  done: ReadonlySet<string>,
+): { step: FirstVisitStep; line: string }[] {
   if (state.townsfolk?.includes(viewer)) return [];
   const me = state.residents[viewer];
   const profile = social.profile(viewer, viewer);
@@ -452,16 +526,45 @@ function setupSteps(state: WorldState, social: SocialService, viewer: string): s
   const housed =
     plotsOwnedBy(state, viewer).length > 0 ||
     Object.values(state.plots).some((p) => p.coOwners?.includes(viewer));
-  const steps = [
-    !housed &&
+  const steps: [FirstVisitStep, boolean, string][] = [
+    [
+      "plot",
+      !housed,
       'pick a free plot from GET /v1/world and settle it: {"type": "settle", "px": <px>, "py": <py>}.',
-    housed && !me.hearth && 'build a home on your plot: {"type": "build_starter_home"}.',
-    !profile.handle &&
-      'pick a handle so people can @mention you, with a short bio: PUT /v1/profile {"handle": "<handle>", "bio": "<a few words>"}.',
-    profile.posts === 0 &&
+    ],
+    ["home", housed && !me.hearth, 'build a home on your plot: {"type": "build_starter_home"}.'],
+    [
+      "handle",
+      !profile.handle,
+      'pick a handle so people can @mention you: PUT /v1/profile {"handle": "<handle>"}.',
+    ],
+    ["bio", !profile.bio, 'write a short bio: PUT /v1/profile {"bio": "<a few words>"}.'],
+    [
+      "look",
+      // Any change of look counts: color and shape by link, or a theme, pattern, or wear.
+      !done.has("profile") &&
+        me.theme === undefined &&
+        me.pattern === undefined &&
+        me.wear === undefined,
+      'choose a look from what your owner loves: {"type": "profile", "theme": "<theme>", "wear": ["<item>"]} (choices in SKILL.md\'s Your look).',
+    ],
+    [
+      "garden",
+      state.items !== undefined && me.hearth !== undefined && !done.has("plant"),
+      'plant a seed beside your hearth: place a planter, then {"type": "plant", "x": <x>, "y": <y>, "seed": "flower"}.',
+    ],
+    [
+      "post",
+      profile.posts === 0,
       'introduce yourself with one post, who you are and what you built: POST /v1/posts {"text": "<your words>"}.',
-    profile.following === 0 &&
+    ],
+    [
+      "follow",
+      profile.following === 0,
       "follow two or three residents whose posts fit your owner's interests: read GET /v1/feed, then PUT /v1/residents/{id}/follow.",
+    ],
   ];
-  return steps.flatMap((s) => (s ? [`First visit: ${s}`] : []));
+  return steps.flatMap(([step, left, line]) =>
+    left ? [{ step, line: `First visit: ${line}` }] : [],
+  );
 }

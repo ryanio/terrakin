@@ -53,7 +53,9 @@ function limits(route: RouteSpec): string[] {
     ...(route.rateLimit ? [describeRateLimit(RATE_LIMITS[route.rateLimit])] : []),
     ...(route.limits ?? []),
     ...(route.once
-      ? [`the same link opened again within ${REPEAT_WINDOW_MS / 60_000} minutes does nothing new`]
+      ? [
+          `the same link opened again within ${REPEAT_WINDOW_MS / 60_000} minutes does nothing new, unless it was refused`,
+        ]
       : []),
   ];
 }

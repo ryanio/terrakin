@@ -835,6 +835,10 @@ function pantryAdds(state: WorldState, id: ResidentId): [StackKind, number][] {
 /** Whether standing on their hearth would bring `id` anything from today's pantry. */
 export const pantryDue = (state: WorldState, id: ResidentId) => pantryAdds(state, id).length > 0;
 
+/** How many of `kind` standing on their hearth would bring `id` from today's pantry. */
+export const pantryWould = (state: WorldState, id: ResidentId, kind: StackKind) =>
+  pantryAdds(state, id).find(([k]) => k === kind)?.[1] ?? 0;
+
 /**
  * After a resident's accepted input: if it leaves them on their own hearth and today's pantry
  * would add something, add it and record the day. A pantry with nothing to add records nothing,

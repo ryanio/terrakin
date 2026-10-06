@@ -106,11 +106,11 @@ describe("parsing CHANGELOG.md", () => {
     [
       "a Try line with no call in a code span",
       "## 2026-10-04\n\n- **Added** Thing\n  Body.\n  Try: walking around.",
-      /line 5: a Try line holds its example call in a code span/,
+      /line 5: a Try line holds its example call, with its \/v1\/ path, in a code span/,
     ],
     [
       "a line after the Try line",
-      "## 2026-10-04\n\n- **Added** Thing\n  Body.\n  Try: `x`.\n  More.",
+      "## 2026-10-04\n\n- **Added** Thing\n  Body.\n  Try: `GET /v1/x`.\n  More.",
       /line 6: "Thing": the Try line goes last/,
     ],
     [

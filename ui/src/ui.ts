@@ -178,49 +178,134 @@ export function kindPill(text: string, tone: PillTone, className?: string): HTML
 
 // ---------- link tabs ----------
 
-/** One page in a `linkTabs` row. */
+/** One tab in a `linkTabs` row: a sibling page, or with `pick`, a panel on this page. */
 export interface LinkTab {
-  href: string;
-  /** The page you're on. */
+  /** The sibling page it opens. A panel tab has none. */
+  href?: string;
+  /** The page you're on, or the panel that's showing. */
   current: boolean;
   /** What the tab shows: a label, or a count and a label. */
   content: readonly (string | Node)[];
+  /** A panel tab's id, which its panel names in `aria-labelledby`. */
+  id?: string;
+  /** The id of the panel a panel tab shows (`aria-controls`). */
+  panel?: string;
+}
+
+export interface LinkTabsOptions {
+  /** What the row is, for screen readers. */
+  label: string;
+  /** Added to `link-tabs`. */
+  className?: string;
+  /** Added to each `link-tab`. */
+  tabClass?: string;
+  /** Links: a tap swaps the page in place (the router's navigate, say). */
+  go?: (href: string) => void;
+  /** Panel tabs: called with a tab's index once a tap or an arrow key has picked it. */
+  pick?: (index: number) => void;
 }
 
 /**
- * Links between sibling pages, drawn as a switch: plots and galleries, or someone's followers,
- * following, and friends. The current one carries `aria-current="page"`. With `go` (the router's
- * navigate, say), a tap swaps the page in place; a modified click opens a new browser tab, as a
- * link does. `className` and `tabClass` are added to `link-tabs` and `link-tab`.
+ * A switch between sibling pages, or with `pick`, between panels on one page, the current one
+ * raised on paper.
+ *
+ * Pages (plots and galleries, someone's followers, following, and friends) are links, the current
+ * one `aria-current="page"`. With `go`, a tap swaps the page in place; a modified click opens a new
+ * browser tab, as a link does.
+ *
+ * Panels (the feed's Everyone and Following, the build bar's kinds) are buttons in a tablist, the
+ * current one `aria-selected`. Only it is in the tab order, and the arrow keys, Home, and End pick
+ * another. `pickTab` marks one from outside the row. `className` and `tabClass` are added to
+ * `link-tabs` and `link-tab`.
  */
-export function linkTabs(
-  tabs: readonly LinkTab[],
-  o: { label: string; className?: string; tabClass?: string; go?: (href: string) => void },
-): HTMLElement {
-  return h(
-    "nav",
-    {
-      class: ["link-tabs", o.className].filter(Boolean).join(" "),
-      attrs: { "aria-label": o.label },
-    },
-    ...tabs.map((t) =>
-      h(
-        "a",
-        {
-          class: ["link-tab", o.tabClass].filter(Boolean).join(" "),
-          attrs: { href: t.href, "aria-current": t.current ? "page" : null },
-          on: {
-            click: (e) => {
-              if (!o.go || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-              e.preventDefault();
-              if (!t.current) o.go(t.href);
+export function linkTabs(tabs: readonly LinkTab[], o: LinkTabsOptions): HTMLElement {
+  const className = ["link-tabs", o.className].filter(Boolean).join(" ");
+  const tabClass = ["link-tab", o.tabClass].filter(Boolean).join(" ");
+  const { pick } = o;
+  if (!pick) {
+    return h(
+      "nav",
+      { class: className, attrs: { "aria-label": o.label } },
+      ...tabs.map((t) =>
+        h(
+          "a",
+          {
+            class: tabClass,
+            attrs: { href: t.href, "aria-current": t.current ? "page" : null },
+            on: {
+              click: (e) => {
+                if (!o.go || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                e.preventDefault();
+                if (!t.current && t.href) o.go(t.href);
+              },
             },
           },
-        },
-        ...t.content,
+          ...t.content,
+        ),
       ),
+    );
+  }
+  function choose(i: number, focus: boolean) {
+    pickTab(row, i, { focus });
+    pick?.(i);
+  }
+  const buttons = tabs.map((t, i) =>
+    h(
+      "button",
+      {
+        class: tabClass,
+        attrs: { type: "button", role: "tab", id: t.id, "aria-controls": t.panel },
+        on: { click: () => choose(i, false) },
+      },
+      ...t.content,
     ),
   );
+  const row = h(
+    "div",
+    {
+      class: className,
+      attrs: { role: "tablist", "aria-label": o.label },
+      on: {
+        keydown: (e) => {
+          const at = buttons.findIndex((b) => b.tabIndex === 0);
+          const last = buttons.length - 1;
+          const next =
+            e.key === "ArrowRight"
+              ? (at + 1) % buttons.length
+              : e.key === "ArrowLeft"
+                ? (at + last) % buttons.length
+                : e.key === "Home"
+                  ? 0
+                  : e.key === "End"
+                    ? last
+                    : -1;
+          if (next < 0) return;
+          e.preventDefault();
+          choose(next, true);
+        },
+      },
+    },
+    ...buttons,
+  );
+  pickTab(
+    row,
+    tabs.findIndex((t) => t.current),
+  );
+  return row;
+}
+
+/**
+ * Mark panel tab `index` of a `linkTabs` row as the one showing, without calling `pick`: for a
+ * switch made outside the row, like the feed's "See everyone's posts". `focus` moves focus to it.
+ */
+export function pickTab(row: HTMLElement, index: number, o: { focus?: boolean } = {}): void {
+  const tabs = row.querySelectorAll<HTMLElement>(":scope > [role=tab]");
+  const at = index >= 0 && index < tabs.length ? index : 0;
+  tabs.forEach((tab, i) => {
+    tab.setAttribute("aria-selected", String(i === at));
+    tab.tabIndex = i === at ? 0 : -1;
+  });
+  if (o.focus) tabs[at]?.focus();
 }
 
 // ---------- chips ----------

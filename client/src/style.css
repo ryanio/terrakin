@@ -1029,37 +1029,6 @@ body.in-world .veil {
   text-wrap: pretty;
 }
 
-.feed-tabs {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 3px;
-  padding: 3px;
-  margin-top: var(--space-2xs);
-  border-radius: var(--r-pill);
-  background: rgba(236, 220, 192, 0.42);
-  border: 1px solid rgba(220, 200, 165, 0.6);
-}
-
-.feed-tab {
-  min-height: 44px;
-  padding: 0 var(--space-xl);
-  border: 0;
-  border-radius: var(--r-pill);
-  background: transparent;
-  font-size: var(--text-base);
-  font-weight: var(--weight-bold);
-  color: var(--ink-soft);
-  transition:
-    background 0.15s ease,
-    color 0.15s ease;
-}
-
-.feed-tab[aria-selected="true"] {
-  background: var(--paper-fill);
-  color: var(--ink);
-  box-shadow: var(--shadow-pill);
-}
-
 /* /r/:id/followers, /following, /friends: a three-way switch with counts, then the people. */
 .people-page {
   display: grid;
@@ -3355,9 +3324,9 @@ dialog.model-viewer {
     font-size: var(--text-2xl);
   }
 
+  /* Each tab the width of its words, beside the heading. */
   .feed-tabs {
-    justify-self: start;
-    grid-template-columns: auto auto;
+    grid-auto-columns: auto;
   }
 
   .post {
@@ -3773,7 +3742,7 @@ dialog.model-viewer {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.9),
     0 1px 2px rgba(92, 60, 30, 0.18);
-  background: #fff1dc;
+  background: var(--pressed);
 }
 
 .dpad [data-dir="n"] {
@@ -3938,27 +3907,10 @@ dialog.model-viewer {
   border-radius: var(--r-card);
 }
 
-.palette-tabs {
-  display: flex;
-  gap: var(--space-2xs);
-}
-
-.palette-tabs button {
-  flex: 1;
-  min-height: 44px;
-  padding: 0 var(--space-sm);
-  border: 1px solid transparent;
-  border-radius: var(--r-pill);
-  background: transparent;
+/* The tabs (linkTabs), a little smaller, so "Furniture" fits a third of a phone's bar. */
+.palette-tabs .link-tab {
+  padding-inline: var(--space-sm);
   font-size: var(--text-md);
-  font-weight: var(--weight-bold);
-  color: var(--ink-soft);
-}
-
-.palette-tabs button[aria-selected="true"] {
-  border-color: var(--clay);
-  background: #fff1dc;
-  color: var(--clay-deep);
 }
 
 /* One row, so it covers no more of the world than it must; on a narrow phone it scrolls. */
@@ -4016,7 +3968,7 @@ dialog.model-viewer {
 }
 
 .palette-row button[aria-pressed="true"] {
-  background: #fff1dc;
+  background: var(--pressed);
   box-shadow: inset 0 0 0 2px var(--clay);
 }
 
@@ -6244,7 +6196,6 @@ html.view3d-open body {
 
 .wall-head .feed-tabs {
   flex: 1;
-  margin-top: 0;
 }
 
 .wall-head .feed-heading {

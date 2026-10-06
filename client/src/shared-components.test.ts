@@ -25,6 +25,9 @@ function sources(): { path: string; text: string }[] {
   return out;
 }
 
+/** A tab row of buttons built by hand: a tablist, a tab, or a tab marked picked. */
+const TAB_ROW = /role(: |=)"tab(list)?"|setAttribute\("aria-selected"/;
+
 /** Hand-built versions of a shared component, and the component to use instead. */
 /** `home` is the one file allowed to do it: the helper itself. */
 const HAND_BUILT: { pattern: RegExp; use: string; home?: string }[] = [
@@ -92,6 +95,7 @@ const HAND_BUILT: { pattern: RegExp; use: string; home?: string }[] = [
   { pattern: /class: "[^"]*-(row|line|good|order)-body\b/, use: "itemRow and itemRows (ui.ts)" },
   { pattern: /class: [`"][^`"]*\b(proposal-kind|kind-pill)\b/, use: "kindPill (ui.ts)" },
   { pattern: /class: [`"][^`"]*\blink-tabs?\b/, use: "linkTabs (ui.ts)" },
+  { pattern: TAB_ROW, use: "linkTabs with pick, and pickTab (ui.ts)" },
   {
     pattern: /class: [`"]pulse paper card\b/,
     use: "pulseShell (pulse-cards.ts)",
@@ -140,6 +144,15 @@ describe("views use the shared components", () => {
     );
     expect(calls.length).toBeGreaterThan(0);
     expect(unblurred).toEqual([]);
+  });
+
+  it("the apps' static pages build no tab row by hand either", () => {
+    const hits = ["client/index.html", "admin/index.html"].flatMap((path) =>
+      readFileSync(join(ROOT, path), "utf8")
+        .split("\n")
+        .flatMap((line, i) => (TAB_ROW.test(line) ? [`${path}:${i + 1}: ${line.trim()}`] : [])),
+    );
+    expect(hits).toEqual([]);
   });
 
   it("people helpers come from @terrakin/ui/people, not through another view", () => {

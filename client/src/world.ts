@@ -27,6 +27,7 @@ import {
 import { REDUCED_MOTION } from "@terrakin/ui/motion";
 import { plot3dPath } from "@terrakin/ui/paths";
 import { everyVisible } from "@terrakin/ui/poll";
+import { linkTabs } from "@terrakin/ui/ui";
 import { api, whoseKey } from "./api";
 import {
   blockLine,
@@ -37,6 +38,8 @@ import {
   heldLine,
   heldOf,
   holdingsFromStacks,
+  PALETTE_TAB_WORDS,
+  PALETTE_TABS,
   type PaletteTab,
   paintGroundRow,
   paintHeldRow,
@@ -87,6 +90,22 @@ const paletteRows: Record<PaletteTab, HTMLElement> = {
   furniture: $("palette-furniture"),
 };
 const paletteLine = $("palette-line");
+// The build bar's tabs, over the rows they show.
+palette.prepend(
+  linkTabs(
+    PALETTE_TABS.map((tab) => ({
+      current: tab === "blocks",
+      content: [PALETTE_TAB_WORDS[tab]],
+      id: `palette-tab-${tab}`,
+      panel: `palette-${tab}`,
+    })),
+    {
+      label: "What to build",
+      className: "palette-tabs",
+      pick: (i) => showTab(PALETTE_TABS[i] ?? "blocks"),
+    },
+  ),
+);
 const modeButton = $<HTMLButtonElement>("world-mode");
 const petButton = $<HTMLButtonElement>("world-pet");
 const host3d = $("world-3d");
@@ -981,14 +1000,9 @@ for (const button of paletteRows.blocks.querySelectorAll<HTMLButtonElement>("but
   button.setAttribute("aria-pressed", String(kind === pick));
 }
 
-// One listener for the tabs and every choice, including the rows painted as what you hold changes.
+// One listener for every choice, including the rows painted as what you hold changes.
 palette.addEventListener("click", (e) => {
   const target = e.target as Element;
-  const tabButton = target.closest<HTMLButtonElement>("button[data-tab]");
-  if (tabButton) {
-    showTab(tabButton.dataset.tab as PaletteTab);
-    return;
-  }
   const button = target.closest<HTMLButtonElement>("button[data-block], button[data-ground]");
   if (!button) return;
   selectPick((button.dataset.ground ?? button.dataset.block) as BlockKind | GroundKind | "hearth");
@@ -996,9 +1010,6 @@ palette.addEventListener("click", (e) => {
 
 /** Show one tab's row. A pick from another tab gives way to this tab's first choice. */
 function showTab(next: PaletteTab) {
-  for (const button of palette.querySelectorAll<HTMLButtonElement>("button[data-tab]")) {
-    button.setAttribute("aria-selected", String(button.dataset.tab === next));
-  }
   for (const [name, row] of Object.entries(paletteRows)) row.hidden = name !== next;
   if (tabOf(pick) !== next) {
     pick =

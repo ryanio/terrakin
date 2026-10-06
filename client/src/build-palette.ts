@@ -31,6 +31,12 @@ import { needsLine, thingCount } from "./things";
 
 export const PALETTE_TABS = ["blocks", "ground", "furniture"] as const;
 export type PaletteTab = (typeof PALETTE_TABS)[number];
+/** What each tab says. */
+export const PALETTE_TAB_WORDS: Record<PaletteTab, string> = {
+  blocks: "Blocks",
+  ground: "Paths",
+  furniture: "Furniture",
+};
 
 /** A block you hold before you place it: decor from the shop, or furniture from a workbench. */
 export type HeldKind = DecorKind | FurnitureKind;

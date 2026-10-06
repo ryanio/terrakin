@@ -1169,8 +1169,8 @@ a.menu-item {
 }
 
 /*
- * linkTabs (ui.ts): links between sibling pages as a switch, the current one raised on paper.
- * Each tab takes an equal share of the row.
+ * linkTabs (ui.ts): a switch between sibling pages (links) or panels on one page (buttons), the
+ * current one raised on paper. Each tab takes an equal share of the row.
  */
 .link-tabs {
   display: grid;
@@ -1189,7 +1189,9 @@ a.menu-item {
   align-content: center;
   min-height: 44px;
   padding: var(--space-2xs) var(--space-lg);
+  border: 0;
   border-radius: var(--r-pill);
+  background: transparent;
   font-size: var(--text-base);
   font-weight: var(--weight-bold);
   color: var(--ink-soft);
@@ -1199,7 +1201,8 @@ a.menu-item {
     color 0.15s ease;
 }
 
-.link-tab[aria-current="page"] {
+.link-tab[aria-current="page"],
+.link-tab[aria-selected="true"] {
   background: var(--paper-fill);
   color: var(--ink);
   box-shadow: var(--shadow-pill);

@@ -15,7 +15,7 @@ import { h, icon } from "@terrakin/ui/dom";
 import { REDUCED_MOTION, reducedMotion } from "@terrakin/ui/motion";
 import { postPath, profilePath } from "@terrakin/ui/paths";
 import { residentPerson } from "@terrakin/ui/people";
-import { copyButton, emptyNote, moreButton } from "@terrakin/ui/ui";
+import { copyButton, emptyNote, linkTabs, moreButton, pickTab } from "@terrakin/ui/ui";
 import { refreshTimes } from "@terrakin/ui/when";
 import { api, myProfile } from "./api";
 import { type Composer, composer } from "./composer";
@@ -67,7 +67,9 @@ import { awayCard } from "./routines-view";
 import { track } from "./telemetry";
 import { errorCard, type View, type ViewContext } from "./view";
 
-type Tab = "everyone" | "following";
+const TABS = ["everyone", "following"] as const;
+type Tab = (typeof TABS)[number];
+const TAB_WORDS: Record<Tab, string> = { everyone: "Everyone", following: "Following" };
 
 const POLL_MS = 20_000;
 /** The world and the Town Hall change slower than the feed. */
@@ -434,26 +436,17 @@ export function feedView(ctx: ViewContext): View {
   }
 
   // Tabs for residents, a heading for visitors.
-  const tabs = h("div", {
-    class: "feed-tabs",
-    attrs: { role: "tablist", "aria-label": "Which posts" },
-  });
-  const tabButtons = new Map<Tab, HTMLButtonElement>();
+  const tabs = linkTabs(
+    TABS.map((tab) => ({
+      current: tab === state.tab,
+      content: [TAB_WORDS[tab]],
+      id: `tab-${tab}`,
+      panel: "feed-list",
+    })),
+    { label: "Which posts", className: "feed-tabs", pick: (i) => switchTab(TABS[i] ?? "everyone") },
+  );
   const wallHead = h("div", { class: "wall-head" });
   if (hasToken) {
-    for (const [tab, text] of [
-      ["everyone", "Everyone"],
-      ["following", "Following"],
-    ] as const) {
-      const b = h("button", {
-        class: "feed-tab",
-        attrs: { type: "button", role: "tab", id: `tab-${tab}`, "aria-controls": "feed-list" },
-        text,
-        on: { click: () => switchTab(tab) },
-      });
-      tabButtons.set(tab, b);
-      tabs.append(b);
-    }
     wallHead.append(tabs);
   } else {
     wallHead.append(h("p", { class: "feed-heading eyebrow", text: "Latest from everyone" }));
@@ -829,10 +822,7 @@ export function feedView(ctx: ViewContext): View {
   }
 
   function paintTabs() {
-    for (const [tab, b] of tabButtons) {
-      b.setAttribute("aria-selected", String(tab === state.tab));
-      b.tabIndex = tab === state.tab ? 0 : -1;
-    }
+    pickTab(tabs, TABS.indexOf(state.tab));
     list.setAttribute("aria-labelledby", `tab-${state.tab}`);
   }
 
@@ -841,7 +831,13 @@ export function feedView(ctx: ViewContext): View {
     end.hidden = state.next !== null || state.posts.length < 6;
     empty.replaceChildren(
       ...(state.posts.length === 0 && !loading
-        ? [feedEmpty(state.tab, hasToken, () => switchTab("everyone"))]
+        ? [
+            feedEmpty(state.tab, hasToken, () => {
+              switchTab("everyone");
+              // The button is gone with the empty list: focus goes to the tab it switched to.
+              pickTab(tabs, TABS.indexOf("everyone"), { focus: true });
+            }),
+          ]
         : []),
     );
   }
@@ -894,14 +890,8 @@ export function feedView(ctx: ViewContext): View {
     live.follow(tab === "following");
     hidePill();
     paintTabs();
-    tabButtons.get(tab)?.focus();
     void loadFirst();
   }
-
-  tabs.addEventListener("keydown", (e) => {
-    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
-    switchTab(state.tab === "everyone" ? "following" : "everyone");
-  });
 
   // ---------- new posts ----------
 

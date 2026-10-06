@@ -273,11 +273,7 @@
         </button>
         <div class="actions">
           <fieldset id="palette" class="palette paper" aria-label="Pick what to build" hidden>
-            <div class="palette-tabs" role="tablist" aria-label="What to build">
-              <button type="button" role="tab" id="palette-tab-blocks" data-tab="blocks" aria-selected="true" aria-controls="palette-blocks">Blocks</button>
-              <button type="button" role="tab" id="palette-tab-ground" data-tab="ground" aria-selected="false" aria-controls="palette-ground">Paths</button>
-              <button type="button" role="tab" id="palette-tab-furniture" data-tab="furniture" aria-selected="false" aria-controls="palette-furniture">Furniture</button>
-            </div>
+            <!-- The tabs (linkTabs) go first, from world.ts. -->
             <div id="palette-blocks" class="palette-row" role="tabpanel" aria-labelledby="palette-tab-blocks">
               <button type="button" data-block="wood" aria-label="Wood"><span class="chip"></span></button>
               <button type="button" data-block="stone" aria-label="Stone"><span class="chip"></span></button>

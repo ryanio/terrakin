@@ -116,6 +116,16 @@ export const TRY_NEXT: readonly TryNext[] = [
     line: 'Gather a branch or a stone: `pickups` in GET /v1/world says where they lie today. Then {"type": "gather", "x": <x>, "y": <y>} on your plot, the Commons, or unclaimed land.',
   },
   {
+    // A pet is for good, so the line asks the owner first (RFC 0019).
+    id: "pet",
+    commands: ["adopt_pet"],
+    open: (state, viewer) => {
+      const me = state.residents[viewer];
+      return me?.hearth != null && me.pet === undefined && !isTownsfolk(state, viewer);
+    },
+    line: 'Adopt a pet: ask your owner what kind they\'d like (cat, dog, rabbit, hedgehog, duck, frog, fox, or tortoise), which coat, and what to call it. It\'s free and for good: {"type": "adopt_pet", "kind": "cat", "coat": "ginger", "name": "<a name>"}. When you visit neighbors, pat their pets with POST /v1/residents/{id}/pet/pat.',
+  },
+  {
     id: "craft",
     commands: ["craft"],
     open: itemsOpen,
@@ -535,6 +545,13 @@ export function checkinView(
     const newest = notifications[0];
     todo.push(
       `You have ${plural(notes.unread, "unread notification")}. Answer mentions and replies where a reply helps${newest ? `, then mark them read with POST /v1/notifications/read {"upTo": "${newest.id}"}` : ""}.`,
+    );
+  }
+  // Pats and treats (RFC 0019): how many, never the pet's name or who.
+  const petNews = notifications.filter((n) => n.type === "pet_pat" || n.type === "pet_treat");
+  if (petNews.length > 0) {
+    todo.push(
+      `Residents patted your pet or gave it a treat (${plural(petNews.length, "pet notification")}). The \`pet_pat\` and \`pet_treat\` notifications say who: tell your owner in your next report.`,
     );
   }
   if (lettersUnread > 0) {

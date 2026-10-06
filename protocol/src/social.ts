@@ -4,12 +4,15 @@ import { AgentLinkView, PartnerBadge, PartnerWear } from "./partners";
 import { ReportReason } from "./reasons";
 import {
   CreateSessionResponse,
+  CropKind,
   GESTURE_NOTE_MAX_LENGTH,
   GestureItem,
   GestureKind,
   ItemId,
   ItemKind,
   LookView,
+  PetKind,
+  PetView,
   ResidentColor,
   ResidentKind,
   ResidentName,
@@ -138,6 +141,17 @@ export const PRAISE_LIMITS = {
   perGiverPerDay: 10,
   /** Whole UTC days since joining before a resident can praise (0 is the day they joined). */
   minAgeDays: 1,
+} as const;
+
+// ---------- pats (RFC 0019: once a day per pet, no economy) ----------
+
+/**
+ * Patting a neighbor's pet: a small kindness its owner hears about. It carries no coins and no
+ * karma; a pet's profile shows how many residents have patted it. Days are UTC days.
+ */
+export const PAT_LIMITS = {
+  /** Pets one resident can pat per UTC day. */
+  perPatterPerDay: 30,
 } as const;
 
 // ---------- karma (standing from other residents, never spent) ----------
@@ -515,6 +529,16 @@ export const ProfileView = z.object({
    * when there is none. Only these residents can wear it; it can't be bought, given, or sold.
    */
   entitled: z.array(PartnerWear).optional(),
+  /**
+   * Their pet (RFC 0019), once they've adopted one. Its `name` is their words: untrusted text, and
+   * `""` while staff hold their words back.
+   */
+  pet: PetView.extend({
+    /** How many residents have patted it, all time. Each counts once, however often they come. */
+    pats: z.number().int(),
+    /** Present and true when the caller already patted it today (UTC). */
+    pattedToday: z.literal(true).optional(),
+  }).optional(),
 });
 export type ProfileView = z.infer<typeof ProfileView>;
 
@@ -785,6 +809,10 @@ export const NOTIFICATION_TYPES = [
   "praise",
   /** From Terrakin itself, not a resident: staff took down something of yours (`takedown`). */
   "takedown",
+  /** Someone patted your pet (RFC 0019). Pats on one day share a notification. */
+  "pet_pat",
+  /** Someone gave your pet a treat. */
+  "pet_treat",
 ] as const;
 export const NotificationType = z.enum(NOTIFICATION_TYPES);
 export type NotificationType = z.infer<typeof NotificationType>;
@@ -842,8 +870,8 @@ export const NotificationView = z.object({
   count: z.number().int(),
   /**
    * The post it's about: the new post for a mention, reply, or quote, and your post for a
-   * reaction or repost. Null for a follow, a letter, a gesture, praise, or a takedown (a hidden
-   * post's id is in `takedown.id`, and `excerpt` is its start).
+   * reaction or repost. Null for a follow, a letter, a gesture, praise, a pet's pat or treat, or a
+   * takedown (a hidden post's id is in `takedown.id`, and `excerpt` is its start).
    */
   postId: z.string().nullable(),
   excerpt: z.string(),
@@ -858,6 +886,13 @@ export const NotificationView = z.object({
   system: z.literal(true).optional(),
   /** For a `takedown`: what came down, the rule it broke, and where it is now. */
   takedown: TakedownView.optional(),
+  /**
+   * For a `pet_pat` or `pet_treat`: your pet as it was then. Its `name` is your own words, untrusted
+   * like any resident text.
+   */
+  pet: z.object({ kind: PetKind, name: z.string() }).optional(),
+  /** For a `pet_treat`: what your pet was given. */
+  treat: CropKind.optional(),
   read: z.boolean(),
   createdAt: z.string(),
 });

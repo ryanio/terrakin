@@ -466,7 +466,7 @@ export class SafetyService {
     const run = triage
       .classify(
         {
-          kind: kind === "resident" ? "resident profile (name, note, and bio)" : kind,
+          kind: kind === "resident" ? "resident profile (name, note, bio, and pet's name)" : kind,
           text: target.text,
           notes: reports.map((r) => String(r.note)).filter(Boolean),
           facts,
@@ -820,7 +820,9 @@ export class SafetyService {
       const r = this.o.resident(id);
       if (!r) return gone;
       const bio = this.rows("SELECT bio FROM profiles WHERE resident_id = ?", id)[0]?.bio;
-      return base(id, [r.name, r.note, String(bio ?? "")].filter(Boolean).join("\n"), {
+      // Their pet's name is their words too (RFC 0019), and a quarantine holds it back with them.
+      const pet = r.pet ? `Their ${r.pet.kind}: ${r.pet.name}` : "";
+      return base(id, [r.name, r.note, String(bio ?? ""), pet].filter(Boolean).join("\n"), {
         media: this.o.profileMedia(id),
       });
     }

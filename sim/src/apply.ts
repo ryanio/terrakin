@@ -97,6 +97,14 @@ import {
   type MarketChecked,
 } from "./market";
 import { residentById } from "./own";
+import {
+  checkAdoptPet,
+  checkGroomPet,
+  checkRenamePet,
+  checkTreatPet,
+  type PetsChecked,
+  petView,
+} from "./pets";
 import { checkImplicitPresence, checkLeaveIdle, type PresenceChecked } from "./presence";
 import { isDirection, PUTTER_MAX_STEPS } from "./putter";
 import { checkRoutineStep, checkSetRoutines, type RoutinesChecked } from "./routines";
@@ -551,12 +559,18 @@ function joining(
     y: keepSpot ? me.y : spawn.y,
     online: true,
     hearth: me?.hearth ?? null,
+    // A pet stays theirs while they're away (RFC 0019).
+    ...(me?.pet ? { pet: me.pet } : {}),
   };
 }
 
 const joinedEvent = (resident: Resident): WorldEvent => ({
   type: "joined",
-  resident: { ...resident, ...lookOf(resident) },
+  resident: {
+    ...resident,
+    ...lookOf(resident),
+    ...(resident.pet ? { pet: petView(resident.pet) } : {}),
+  },
 });
 
 /**
@@ -593,6 +607,7 @@ function town(
     | PresenceChecked
     | RoutinesChecked
     | EventsChecked
+    | PetsChecked
     | Mutation
     | Rejection,
 ): Mutation | Prepared {
@@ -1190,5 +1205,13 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       return town(checkCancelEvent(state, actor, command));
     case "join_event":
       return town(checkJoinEvent(state, actor, command, rejoining));
+    case "adopt_pet":
+      return town(checkAdoptPet(state, actor, command));
+    case "rename_pet":
+      return town(checkRenamePet(state, actor, command));
+    case "groom_pet":
+      return town(checkGroomPet(state, actor, command));
+    case "treat_pet":
+      return town(checkTreatPet(state, actor, command));
   }
 }

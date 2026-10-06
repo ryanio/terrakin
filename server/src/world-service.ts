@@ -24,6 +24,7 @@ import {
   type BuildPlan,
   buildSummary,
   type Command,
+  type Crop,
   chebyshev,
   commonsPlot,
   type DailyAward,
@@ -247,6 +248,11 @@ function toWire(events: WorldEvent[], townsfolk: readonly string[] = []): WireEv
       });
       continue;
     }
+    if (e.type === "pet_adopted" || e.type === "pet_renamed") {
+      // A pet's name is its owner's words.
+      out.push({ ...e, trust: "untrusted" });
+      continue;
+    }
     if (e.type === "listed") {
       // A made thing's label is its maker's words.
       const words = e.listing.goods?.some((g) => g.label !== undefined);
@@ -265,6 +271,22 @@ function toWire(events: WorldEvent[], townsfolk: readonly string[] = []): WireEv
     }
   }
   return out;
+}
+
+/**
+ * While staff hold a resident's words back (a quarantine, RFC 0006), their pet's name stays out of
+ * the events everyone gets too, as it does out of the snapshot.
+ */
+function holdBackPetNames(events: WireEvent[], hidden: (id: string) => boolean): WireEvent[] {
+  return events.map((e) => {
+    if ((e.type === "pet_adopted" || e.type === "pet_renamed") && hidden(e.residentId)) {
+      return e.type === "pet_adopted" ? { ...e, pet: { ...e.pet, name: "" } } : { ...e, name: "" };
+    }
+    if (e.type === "joined" && e.resident.pet && hidden(e.resident.id)) {
+      return { ...e, resident: { ...e.resident, pet: { ...e.resident.pet, name: "" } } };
+    }
+    return e;
+  });
 }
 
 /**
@@ -615,6 +637,9 @@ export class WorldService {
 
   /** Hears each admire as it happens, for karma (decision 0059): who admired whose work, and when. */
   onAdmired: ((admirer: string, maker: string, day: number) => void) | undefined;
+
+  /** Hears each treat a pet gets (RFC 0019), so its owner can be told. */
+  onPetTreated: ((owner: string, by: string, kind: Crop) => void) | undefined;
 
   /** Whether a resident is suspended, from the social layer. Their stall can't sell meanwhile. */
   suspended: (residentId: string) => boolean = () => false;
@@ -1370,6 +1395,25 @@ export class WorldService {
       }
       return result;
     }
+    if (action.type === "adopt_pet" || action.type === "rename_pet") {
+      // A pet's name is shown to everyone, agents included, wherever the pet is: cleaned and
+      // filtered like a resident's name before it's logged (RFC 0019).
+      const name = cleanText(action.name);
+      const refused = filtered(this.moderation, "pet_name", name, context);
+      if (refused) return refused;
+      const command: Command =
+        action.type === "adopt_pet"
+          ? { type: "adopt_pet", kind: action.kind, coat: action.coat, name }
+          : { type: "rename_pet", name };
+      return this.run({ actor: residentId, command }, dry);
+    }
+    if (action.type === "treat_pet" && this.blockedEither(residentId, action.owner)) {
+      // Like a gift, a treat can't cross a block either way.
+      return {
+        ok: false,
+        error: { code: "forbidden", message: "You can't give this resident's pet a treat." },
+      };
+    }
     if (action.type === "post_bounty") {
       // A bounty's words are read by everyone, agents included: cleaned and filtered like a
       // proposal's before they're logged (decision 0004).
@@ -1774,8 +1818,9 @@ export class WorldService {
           report(err, "world.event_ended", { command: input.command.type });
         }
       }
+      if (e.type === "pet_treated") this.onPetTreated?.(e.residentId, e.by, e.kind);
     }
-    const wire = toWire(events, this.state.townsfolk);
+    const wire = holdBackPetNames(toWire(events, this.state.townsfolk), this.noteHidden);
     for (const event of publicEvents(wire)) this.broadcast({ type: "event", seq, event });
     // Purse moves and inventory changes go only to their owner (purses and inventories are
     // private).
@@ -1968,6 +2013,14 @@ export class WorldService {
     };
   }
 
+  /**
+   * Send a message to every world socket that isn't part of the world's history: someone patted a
+   * pet (RFC 0019). Nothing here is logged, and it carries no `seq`.
+   */
+  announce(message: Extract<ServerMessage, { type: "pet_patted" }>) {
+    this.broadcast(message);
+  }
+
   /** Send a message to one resident's open sockets only, like a gesture meant for them. */
   notify(residentId: string, message: ServerMessage) {
     for (const listener of this.listeners.get(residentId) ?? []) listener(message);
@@ -2015,9 +2068,12 @@ export class WorldService {
         // Away and out on a routine for a few minutes after its last step (RFC 0009).
         const step = r.online ? undefined : this.routineSteps.get(r.id);
         const out = step && nowMs - step.at < ROUTINE_LIMITS.awakeMinutes * 60_000;
+        const hidden = this.noteHidden(r.id);
         return {
           ...r,
-          ...(this.noteHidden(r.id) ? { note: "" } : {}),
+          ...(hidden ? { note: "" } : {}),
+          // A quarantined owner's pet keeps its name out of view too (RFC 0019).
+          ...(hidden && r.pet ? { pet: { ...r.pet, name: "" } } : {}),
           // Kept any of eight ways, sent as one of the four `facing` has always been.
           ...(facing ? { facing: fourWayFacing(facing) } : {}),
           ...(out ? { routine: step.routine } : {}),

@@ -170,6 +170,20 @@ export {
 } from "./market";
 export { isOwnableKey, own, residentById } from "./own";
 export * from "./palette";
+export {
+  ALL_PET_COATS,
+  isCoatOf,
+  isPetKind,
+  PET_COATS,
+  PET_KINDS,
+  PETS,
+  type Pet,
+  type PetCoat,
+  type PetKind,
+  type PetTreat,
+  petView,
+  treatedToday,
+} from "./pets";
 export { isDirection, PUTTER, PUTTER_MAX_STEPS, planPutter } from "./putter";
 export { REPLAY_VERSION, replay } from "./replay";
 export {

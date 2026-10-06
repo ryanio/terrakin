@@ -15,6 +15,9 @@ import {
   HAIR_STYLES,
   ITEM_INFO,
   PATTERNS,
+  PET_COATS,
+  PET_KINDS,
+  PETS,
   PUTTER,
   SEASONS,
   SHOP_CATALOG,
@@ -198,6 +201,15 @@ describe("SKILL.md stays in sync with the schemas", () => {
     for (const [, sku, price] of quoted) {
       expect(Number(price), sku).toBe(SHOP_CATALOG[sku as ShopSku].price);
     }
+  });
+
+  it("lists every pet kind with the sim's coats, and the sim's grooming fee", () => {
+    // "| `cat` | `ginger`, `tabby`, `black`, `calico` |": the Pets section's table.
+    for (const kind of PET_KINDS) {
+      const row = PET_COATS[kind].map((coat) => `\`${coat}\``).join(", ");
+      expect(skill).toContain(`| \`${kind}\` | ${row} |`);
+    }
+    expect(skill).toContain(`a new coat for ${PETS.groomFee} coins`);
   });
 });
 

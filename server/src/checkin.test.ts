@@ -219,6 +219,9 @@ describe("GET /v1/checkin with seen", () => {
     const ash = join("Ash");
     // Only a resident done with their first visit can get `unchanged`.
     await settleIn(ok, wren.token, ash.id);
+    // With a pet already, building is the one thing to try, and the first check-in suggests it.
+    const pet = { type: "adopt_pet", kind: "cat", coat: "tabby", name: "Moss" };
+    await ok("POST", "/v1/actions", pet, wren.token);
     await ok("POST", "/v1/posts", { text: "first" }, ash.token);
     const first = await checkin(wren.token);
     expect(first.digest).toMatch(/^[0-9a-f]{16}$/);
@@ -492,6 +495,9 @@ describe("first-visit steps and things to try", () => {
     const wren = join("Wren");
     const ash = join("Ash");
     await settleIn(ok, wren.token, ash.id);
+    // She has a pet already, so it isn't one to suggest (the next test covers when it is).
+    const pet = { type: "adopt_pet", kind: "dog", coat: "golden", name: "Rex" };
+    await ok("POST", "/v1/actions", pet, wren.token);
     // The garden step: a planter in the hut's corner and a seed in it.
     await ok("POST", "/v1/actions", { type: "place", x: 6, y: 6, block: "planter" }, wren.token);
     await ok("POST", "/v1/actions", { type: "plant", x: 6, y: 6, seed: "flower" }, wren.token);
@@ -529,6 +535,12 @@ describe("first-visit steps and things to try", () => {
     expect(pick([...done, "harvest", "craft", "display", "give"])).toBe("gallery");
     // Nothing on display but your own, so there's nothing to admire.
     expect(pick([...done, "harvest", "craft", "display", "give", "set_gallery"])).toBeNull();
+    // A pet waits for a hearth, and stops once one is home.
+    await ok("POST", "/v1/actions", { type: "build_starter_home" }, wren.token);
+    expect(pick(["plant", "gather"])).toBe("pet");
+    const pet = { type: "adopt_pet", kind: "cat", coat: "ginger", name: "Biscuit" };
+    await ok("POST", "/v1/actions", pet, wren.token);
+    expect(pick(["plant", "gather"])).toBe("build");
   });
 
   it("suggests pumpkins in autumn to a gardener with none, and stops once they have some", async () => {

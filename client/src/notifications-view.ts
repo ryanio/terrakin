@@ -15,6 +15,7 @@ import { timeAgo } from "@terrakin/ui/when";
 import { api } from "./api";
 import { setUnread } from "./bell";
 import { savedToken } from "./net";
+import { aThing, petCalled } from "./pets";
 import { REACTIONS } from "./reactions";
 import { thingCount, thingName } from "./things";
 import { gestureInfo } from "./together";
@@ -31,11 +32,13 @@ const ICONS: Record<NotificationView["type"], IconName> = {
   gesture: "sparkle",
   praise: "star",
   takedown: "town",
+  pet_pat: "paw",
+  pet_treat: "paw",
 };
 
 /** "Moss and 2 others reacted 🌱 to your post". Pure, so tests pin it. */
 export function notificationLine(
-  n: Pick<NotificationView, "type" | "count" | "reaction" | "gesture"> & {
+  n: Pick<NotificationView, "type" | "count" | "reaction" | "gesture" | "pet" | "treat"> & {
     actor: { name: string };
   },
 ): { who: string; what: string } {
@@ -57,6 +60,8 @@ export function notificationLine(
     gesture: `sent you ${sent}`,
     praise: "praised you",
     takedown: "took something of yours down",
+    pet_pat: `patted ${petCalled(n.pet)}`,
+    pet_treat: `gave ${petCalled(n.pet)} ${n.treat ? aThing(n.treat) : "a treat"}`,
   };
   return { who, what: what[n.type] };
 }

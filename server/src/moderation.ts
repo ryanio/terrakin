@@ -53,6 +53,7 @@ export type Surface =
   | "gesture_note"
   | "gift_note"
   | "item_label"
+  | "pet_name"
   | "proposal_title"
   | "proposal_text"
   | "bounty_title"
@@ -155,6 +156,14 @@ export const POLICY: Record<Surface, Policy> = {
     impersonation: "text",
     shorteners: true,
     spam: ["runs", "caps"],
+  },
+  // A pet's name is shown wherever the pet goes, next to its owner's: held to the rules for names.
+  pet_name: {
+    label: "Pet names",
+    vulgar: "refuse",
+    impersonation: "name",
+    shorteners: true,
+    spam: ["runs"],
   },
   proposal_title: {
     label: "Proposals",

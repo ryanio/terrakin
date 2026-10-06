@@ -561,6 +561,10 @@ export class Api {
       this.service.suspended = (id) => layer.safety.suspendedUntil(id) !== undefined;
       this.service.onAdmired = (admirer, maker, day) =>
         layer.karma.recordAdmire(admirer, maker, day);
+      // Pets (RFC 0019): a treat logged in the world tells its owner, and a pat (a social row)
+      // makes the pet look happy on every screen that shows it.
+      this.service.onPetTreated = (owner, by, kind) => layer.petTreated(owner, by, kind);
+      layer.onPetPatted = (owner) => this.service.announce({ type: "pet_patted", owner });
       // Reports on a listing (decision 0056) read it from the world.
       layer.safety.listing = (id) => listingForReport(this.service.state, id);
       // Reports on a thing on display, or a piece (decision 0059), read it from the world too.
@@ -1286,6 +1290,11 @@ export class Api {
         })),
       praiseResident: ({ viewer, params }) =>
         fromResult(social().givePraise(viewer, params.id), (resident) => ({
+          status: 201 as const,
+          body: { resident },
+        })),
+      patResidentPet: ({ viewer, params }) =>
+        fromResult(social().patPet(viewer, params.id), (resident) => ({
           status: 201 as const,
           body: { resident },
         })),

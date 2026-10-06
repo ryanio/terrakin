@@ -1,5 +1,6 @@
 import {
   facingFrom,
+  type PetView,
   type ResidentView,
   ROUTINE_LIMITS,
   type WorldEvent,
@@ -15,6 +16,7 @@ import {
   LOOK_KEYS,
   lookOf,
   mayGatherOn,
+  type Pet,
   pickupOn,
   plotKey,
   type Resident,
@@ -32,6 +34,17 @@ type EventMessage = { seq: number; event: WorldEvent };
 /** A made thing on display, as the world shows it. Its `label` is its maker's words. */
 export type DisplayView = Omit<NonNullable<WorldSnapshot["displays"]>[number], "x" | "y">;
 
+/** A pet from the wire, with unset fields left out rather than undefined. */
+export function petFrom(view: PetView): Pet {
+  const { adoptedDay, renamedDay, treat, ...rest } = view;
+  return {
+    ...rest,
+    ...(adoptedDay === undefined ? {} : { adoptedDay }),
+    ...(renamedDay === undefined ? {} : { renamedDay }),
+    ...(treat ? { treat: { ...treat } } : {}),
+  };
+}
+
 /** A resident from the wire, with unset look fields left out rather than undefined. */
 export function residentFrom(view: ResidentView): Resident {
   // `facing` and `routine` are for drawing; the mirror keeps them outside the resident.
@@ -47,6 +60,7 @@ export function residentFrom(view: ResidentView): Resident {
     hairColor,
     facing,
     routine,
+    pet,
     ...rest
   } = view;
   const look = {
@@ -60,7 +74,7 @@ export function residentFrom(view: ResidentView): Resident {
     hair,
     hairColor,
   };
-  return { ...rest, ...lookOf(look) };
+  return { ...rest, ...lookOf(look), ...(pet ? { pet: petFrom(pet) } : {}) };
 }
 
 /** How long an away resident is out after a routine's step reaches us, before they sleep again. */
@@ -326,6 +340,22 @@ export class Mirror {
       case "gathered":
         this.gathered.add(tileKey(event.x, event.y));
         break;
+      // Pets (RFC 0019). Where a pet is drawn is up to `pets.ts`; the mirror keeps what it is.
+      case "pet_adopted": {
+        const r = this.residents.get(event.residentId);
+        if (r) r.pet = petFrom(event.pet);
+        break;
+      }
+      case "pet_renamed":
+      case "pet_groomed":
+      case "pet_treated": {
+        const r = this.residents.get(event.residentId);
+        if (!r?.pet) break;
+        if (event.type === "pet_renamed") r.pet = { ...r.pet, name: event.name };
+        else if (event.type === "pet_groomed") r.pet = { ...r.pet, coat: event.coat };
+        else r.pet = { ...r.pet, treat: { day: this.day ?? 0, by: event.by, kind: event.kind } };
+        break;
+      }
       case "plot_pickups_owned":
         this.plotPickupsOwned = true;
         break;

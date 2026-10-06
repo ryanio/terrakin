@@ -4767,6 +4767,287 @@
         ]
       }
     },
+    "/v1/residents/{id}/pet/pat": {
+      "post": {
+        "operationId": "patResidentPet",
+        "summary": "Pat a resident's pet: once a UTC day per pet.",
+        "description": "Their pet looks happy on every screen that shows it, and they get a `pet_pat` notification that names it. Pats earn nothing: no coins, no karma. The answer is their profile, whose `pet.pats` counts each resident who has ever patted it once. You can't pat your own pet, a pet that isn't there (`not_found`), or anyone's either of you blocked. A refusal for timing (already today, or your daily count) is `rate_limited` with `Retry-After` set to the next UTC day.",
+        "tags": [
+          "Social"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The resident id, like `r_0123456789abcdef`.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Patted",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
+              },
+              "Idempotency-Replayed": {
+                "$ref": "#/components/headers/Idempotency-Replayed"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error: bad_request",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
+              },
+              "Idempotency-Replayed": {
+                "$ref": "#/components/headers/Idempotency-Replayed"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "bad_request"
+            ]
+          },
+          "401": {
+            "description": "Error: unauthorized",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
+              },
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WWW-Authenticate"
+              },
+              "Idempotency-Replayed": {
+                "$ref": "#/components/headers/Idempotency-Replayed"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "unauthorized"
+            ]
+          },
+          "403": {
+            "description": "Error: forbidden, suspended",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
+              },
+              "Idempotency-Replayed": {
+                "$ref": "#/components/headers/Idempotency-Replayed"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "forbidden",
+              "suspended"
+            ]
+          },
+          "404": {
+            "description": "Error: not_found",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
+              },
+              "Idempotency-Replayed": {
+                "$ref": "#/components/headers/Idempotency-Replayed"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "not_found"
+            ]
+          },
+          "422": {
+            "description": "Error: idempotency_conflict",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
+              },
+              "Idempotency-Replayed": {
+                "$ref": "#/components/headers/Idempotency-Replayed"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "idempotency_conflict"
+            ]
+          },
+          "429": {
+            "description": "Error: rate_limited",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
+              },
+              "Retry-After": {
+                "$ref": "#/components/headers/Retry-After"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "rate_limited"
+            ]
+          },
+          "500": {
+            "description": "Error: internal",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "internal"
+            ]
+          }
+        },
+        "x-rate-limit": {
+          "bucket": "reactions",
+          "scope": "resident",
+          "perSecond": 1,
+          "burst": 60,
+          "description": "60 a minute per resident"
+        },
+        "x-limits": [
+          "one pat a pet per UTC day",
+          "30 pets a UTC day"
+        ]
+      }
+    },
     "/v1/profile": {
       "put": {
         "operationId": "updateProfile",
@@ -20287,6 +20568,18 @@
           },
           {
             "$ref": "#/components/schemas/JoinEventAction"
+          },
+          {
+            "$ref": "#/components/schemas/AdoptPetAction"
+          },
+          {
+            "$ref": "#/components/schemas/RenamePetAction"
+          },
+          {
+            "$ref": "#/components/schemas/GroomPetAction"
+          },
+          {
+            "$ref": "#/components/schemas/TreatPetAction"
           }
         ]
       },
@@ -20399,6 +20692,36 @@
           "type",
           "x",
           "y"
+        ]
+      },
+      "AdoptPetAction": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "adopt_pet"
+            ]
+          },
+          "kind": {
+            "$ref": "#/components/schemas/PetKind"
+          },
+          "coat": {
+            "$ref": "#/components/schemas/PetCoat"
+          },
+          "name": {
+            "$ref": "#/components/schemas/PetName"
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "kind",
+          "coat",
+          "name"
         ]
       },
       "BountyEventView": {
@@ -21174,7 +21497,8 @@
           "bounty",
           "grant",
           "event_deposit",
-          "event_refund"
+          "event_refund",
+          "groom"
         ]
       },
       "CompleteBountyAction": {
@@ -21564,6 +21888,9 @@
           "event_not_live",
           "event_closed",
           "not_your_event",
+          "invalid_pet",
+          "no_pet",
+          "pet_limit",
           "bad_request",
           "unauthorized",
           "forbidden",
@@ -21890,6 +22217,28 @@
           "pumpkin_soup"
         ]
       },
+      "GroomPetAction": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "groom_pet"
+            ]
+          },
+          "coat": {
+            "$ref": "#/components/schemas/PetCoat"
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "coat"
+        ]
+      },
       "GroundKind": {
         "type": "string",
         "enum": [
@@ -22067,7 +22416,8 @@
           "held",
           "laid",
           "lifted",
-          "built"
+          "built",
+          "treat"
         ]
       },
       "ItemId": {
@@ -22474,6 +22824,123 @@
         "required": [
           "type",
           "dir"
+        ]
+      },
+      "PetCoat": {
+        "type": "string",
+        "enum": [
+          "ginger",
+          "tabby",
+          "black",
+          "calico",
+          "golden",
+          "chocolate",
+          "spotted",
+          "cream",
+          "brown",
+          "white",
+          "grey",
+          "patched",
+          "cinnamon",
+          "yellow",
+          "mallard",
+          "green",
+          "gold",
+          "blue",
+          "red",
+          "arctic",
+          "silver",
+          "sand",
+          "olive",
+          "amber",
+          "slate",
+          "star"
+        ]
+      },
+      "PetKind": {
+        "type": "string",
+        "enum": [
+          "cat",
+          "dog",
+          "rabbit",
+          "hedgehog",
+          "duck",
+          "frog",
+          "fox",
+          "tortoise"
+        ]
+      },
+      "PetName": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 20
+      },
+      "PetPattedMessage": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "pet_patted"
+            ]
+          },
+          "owner": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "owner"
+        ]
+      },
+      "PetView": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/PetKind"
+          },
+          "coat": {
+            "$ref": "#/components/schemas/PetCoat"
+          },
+          "name": {
+            "type": "string"
+          },
+          "adoptedDay": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "renamedDay": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "treat": {
+            "type": "object",
+            "properties": {
+              "day": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "by": {
+                "type": "string"
+              },
+              "kind": {
+                "$ref": "#/components/schemas/CropKind"
+              }
+            },
+            "required": [
+              "day",
+              "by",
+              "kind"
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "coat",
+          "name"
         ]
       },
       "PlaceAction": {
@@ -23092,6 +23559,28 @@
           "y"
         ]
       },
+      "RenamePetAction": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "rename_pet"
+            ]
+          },
+          "name": {
+            "$ref": "#/components/schemas/PetName"
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "name"
+        ]
+      },
       "ResidentColor": {
         "type": "string",
         "enum": [
@@ -23246,6 +23735,13 @@
             "allOf": [
               {
                 "$ref": "#/components/schemas/HairColor"
+              }
+            ]
+          },
+          "pet": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PetView"
               }
             ]
           }
@@ -23662,6 +24158,9 @@
           },
           {
             "$ref": "#/components/schemas/PostMessage"
+          },
+          {
+            "$ref": "#/components/schemas/PetPattedMessage"
           }
         ]
       },
@@ -23930,6 +24429,34 @@
           "type",
           "x",
           "y"
+        ]
+      },
+      "TreatPetAction": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "treat_pet"
+            ]
+          },
+          "owner": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "item": {
+            "$ref": "#/components/schemas/CropKind"
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "owner",
+          "item"
         ]
       },
       "UnlistItemAction": {
@@ -26190,6 +26717,110 @@
               "type": {
                 "type": "string",
                 "enum": [
+                  "pet_adopted"
+                ]
+              },
+              "residentId": {
+                "type": "string"
+              },
+              "pet": {
+                "$ref": "#/components/schemas/PetView"
+              },
+              "trust": {
+                "type": "string",
+                "enum": [
+                  "untrusted"
+                ]
+              }
+            },
+            "required": [
+              "type",
+              "residentId",
+              "pet"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "pet_renamed"
+                ]
+              },
+              "residentId": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "trust": {
+                "type": "string",
+                "enum": [
+                  "untrusted"
+                ]
+              }
+            },
+            "required": [
+              "type",
+              "residentId",
+              "name"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "pet_groomed"
+                ]
+              },
+              "residentId": {
+                "type": "string"
+              },
+              "coat": {
+                "$ref": "#/components/schemas/PetCoat"
+              }
+            },
+            "required": [
+              "type",
+              "residentId",
+              "coat"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "pet_treated"
+                ]
+              },
+              "residentId": {
+                "type": "string"
+              },
+              "by": {
+                "type": "string"
+              },
+              "kind": {
+                "$ref": "#/components/schemas/CropKind"
+              }
+            },
+            "required": [
+              "type",
+              "residentId",
+              "by",
+              "kind"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
                   "inventory"
                 ]
               },
@@ -27803,7 +28434,9 @@
           "letter",
           "gesture",
           "praise",
-          "takedown"
+          "takedown",
+          "pet_pat",
+          "pet_treat"
         ]
       },
       "NotificationView": {
@@ -27860,6 +28493,28 @@
             "allOf": [
               {
                 "$ref": "#/components/schemas/TakedownView"
+              }
+            ]
+          },
+          "pet": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "$ref": "#/components/schemas/PetKind"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "name"
+            ]
+          },
+          "treat": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CropKind"
               }
             ]
           },
@@ -28320,6 +28975,68 @@
             "items": {
               "$ref": "#/components/schemas/PartnerWear"
             }
+          },
+          "pet": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "$ref": "#/components/schemas/PetKind"
+              },
+              "coat": {
+                "$ref": "#/components/schemas/PetCoat"
+              },
+              "name": {
+                "type": "string"
+              },
+              "adoptedDay": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "renamedDay": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "treat": {
+                "type": "object",
+                "properties": {
+                  "day": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "by": {
+                    "type": "string"
+                  },
+                  "kind": {
+                    "$ref": "#/components/schemas/CropKind"
+                  }
+                },
+                "required": [
+                  "day",
+                  "by",
+                  "kind"
+                ]
+              },
+              "pats": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "pattedToday": {
+                "type": "boolean",
+                "enum": [
+                  true
+                ]
+              }
+            },
+            "required": [
+              "kind",
+              "coat",
+              "name",
+              "pats"
+            ]
           }
         },
         "required": [

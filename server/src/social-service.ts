@@ -4,6 +4,7 @@ import {
   BOARD_LIMITS,
   type CreateNoticeRequest,
   type CreatePostRequest,
+  CropKind,
   DAILY_LIMITS,
   type ErrorCode,
   FEED_DEFAULT_LIMIT,
@@ -46,7 +47,14 @@ import {
   xIntentUrl,
   xPostText,
 } from "@terrakin/protocol";
-import { isExclusiveWear, isOwnableKey, lookOf, type Resident } from "@terrakin/sim";
+import {
+  type Crop,
+  isExclusiveWear,
+  isOwnableKey,
+  lookOf,
+  petView,
+  type Resident,
+} from "@terrakin/sim";
 import { type AgentLinkOptions, AgentLinkService } from "./agent-links";
 import { AwayLog } from "./away-log";
 import { CheckinLog } from "./checkin-log";
@@ -57,6 +65,7 @@ import { KarmaService } from "./karma";
 import { type MediaStore, privateMediaKey, sniffMediaType } from "./media";
 import { Moderation, type ReviewContext, refusal, type Surface } from "./moderation";
 import { httpArtReader, PartnerArtService } from "./partner-art";
+import { PetPatService, petDetail, readPetDetail } from "./pets";
 import { PraiseService } from "./praise";
 import { NOT_SUSPENDED, SafetyService } from "./safety-service";
 import type { SqlExec } from "./sql-store";
@@ -219,6 +228,17 @@ const randomId = (prefix: string) =>
   `${prefix}_${Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) => b.toString(16).padStart(2, "0")).join("")}`;
 
 const fail = (code: ErrorCode, message: string) => ({ ok: false as const, code, message });
+
+/** A pet notification's pet (and a treat's kind), from its stored `detail`. */
+function petNotice(detail: string): Pick<NotificationView, "pet" | "treat"> {
+  const pet = readPetDetail(detail);
+  if (!pet) return {};
+  const treat = CropKind.safeParse(pet.treat);
+  return {
+    pet: { kind: pet.kind, name: pet.name },
+    ...(treat.success ? { treat: treat.data } : {}),
+  };
+}
 
 const marks = (n: number) => Array.from({ length: n }, () => "?").join(", ");
 
@@ -506,6 +526,15 @@ export class SocialService {
       ageDays: options.residentAgeDays ?? (() => Number.POSITIVE_INFINITY),
       notify: (recipient, actor) => this.notify(recipient, actor, "praise", ""),
     });
+    this.pets = new PetPatService({
+      sql: this.sql,
+      now: this.now,
+      petOf: (id) => this.resident(id)?.pet,
+      exists: (id) => this.resident(id) !== undefined,
+      blockedEither: (a, b) => this.blockedEither(a, b),
+      notify: (owner, patter, pet) => this.notify(owner, patter, "pet_pat", "", petDetail(pet)),
+      patted: (owner) => this.onPetPatted?.(owner),
+    });
     this.safety = new SafetyService({
       sql: this.sql,
       now: this.now,
@@ -606,6 +635,13 @@ export class SocialService {
   readonly safety: SafetyService;
   /** Praise (issue #36): once a UTC day per pair, a count on profiles, no economy. */
   readonly praise: PraiseService;
+  /** Pats (RFC 0019): once a UTC day per pet, a count on its owner's profile, no economy. */
+  readonly pets: PetPatService;
+  /**
+   * Called with the owner each time someone pats their pet. `Api` tells every world socket, so the
+   * pet looks happy wherever it's drawn.
+   */
+  onPetPatted: ((owner: string) => void) | undefined;
   /** When residents check in, for the staff app's numbers. */
   readonly checkins: CheckinLog;
   /** What routines did while their residents were away, and each resident's last call (RFC 0009). */
@@ -1182,6 +1218,29 @@ export class SocialService {
       ...this.partnerField(r.id),
       ...this.agentLinkField(r.id),
       ...this.entitledField(r.id),
+      ...this.petField(r, viewerId, quarantined),
+    };
+  }
+
+  /**
+   * Their pet (RFC 0019), with how many residents have patted it and whether the caller has today.
+   * A quarantined owner's words stay out of view, its name too.
+   */
+  private petField(
+    r: Resident,
+    viewerId: string | undefined,
+    quarantined: boolean,
+  ): { pet?: NonNullable<ProfileView["pet"]> } {
+    if (!r.pet) return {};
+    return {
+      pet: {
+        ...petView(r.pet),
+        ...(quarantined ? { name: "" } : {}),
+        pats: this.pets.pats(r.id),
+        ...(viewerId && viewerId !== r.id && this.pets.pattedToday(viewerId, r.id)
+          ? { pattedToday: true as const }
+          : {}),
+      },
     };
   }
 
@@ -1356,6 +1415,23 @@ export class SocialService {
       expiresAt: new Date(created + BOARD_LIMITS.days * DAY_MS).toISOString(),
       canRemove: viewerId !== undefined && (viewerId === author.id || this.isMaintainer(viewerId)),
     };
+  }
+
+  /** Pat a resident's pet (RFC 0019) and return their profile as the patter sees it. */
+  patPet(patter: string, owner: string): SocialResult<ProfileView> {
+    const patted = this.pets.pat(patter, owner);
+    if (!patted.ok) return patted;
+    const profile = this.profile(owner, patter);
+    return profile ? { ok: true, value: profile } : fail("not_found", "No such resident.");
+  }
+
+  /**
+   * Tell a pet's owner someone gave it a treat (RFC 0019). The world logged the treat; this is the
+   * notification, through `notify()` with its caps and block check.
+   */
+  petTreated(owner: string, by: string, treat: Crop) {
+    const pet = this.resident(owner)?.pet;
+    if (pet) this.notify(owner, by, "pet_treat", "", petDetail(pet, treat));
   }
 
   /** Praise a resident (issue #36) and return their profile as the giver sees it. */
@@ -1746,10 +1822,14 @@ export class SocialService {
       recipient,
       now,
     );
+    // Reactions and reposts on one post in an hour share a notification, and so do pats on a pet
+    // in a UTC day.
     const groupKey =
       type === "reaction" || type === "repost"
         ? `${type}:${postId}:${Math.floor(now / HOUR_MS)}`
-        : "";
+        : type === "pet_pat"
+          ? `pet_pat:${Math.floor(now / DAY_MS)}`
+          : "";
     const existing = groupKey
       ? this.rows(
           "SELECT id FROM notifications WHERE recipient = ? AND group_key = ?",
@@ -1880,6 +1960,7 @@ export class SocialService {
           excerpt: row.post_text ? excerpt(String(row.post_text)) : "",
           ...(type === "reaction" && isReactionKey(detail) ? { reaction: detail } : {}),
           ...(type === "gesture" && isGestureKind(detail) ? { gesture: detail } : {}),
+          ...(type === "pet_pat" || type === "pet_treat" ? petNotice(detail) : {}),
           read: Number(row.read) > 0,
           createdAt: new Date(Number(row.created_at)).toISOString(),
         },

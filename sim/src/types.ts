@@ -11,6 +11,7 @@ import type {
   WearItem,
   WearStyle,
 } from "./looks";
+import type { Pet, PetCoat, PetKind } from "./pets";
 
 /** Stable id for a resident (human or agent). Assigned by the server, opaque to the sim. */
 export type ResidentId = string;
@@ -180,6 +181,8 @@ export interface Resident extends Look {
   online: boolean;
   /** Home tile on the resident's own plot, or null. `home` returns here. */
   hearth: Tile | null;
+  /** Their pet (RFC 0019). Absent until they adopt one, so older logs hash as they did. */
+  pet?: Pet;
 }
 
 export interface Plot {
@@ -741,6 +744,8 @@ export const INVENTORY_REASONS = [
   "lifted",
   /** A plan built with `build`: what it used and gave back, net. */
   "built",
+  /** Given to a pet as a treat (RFC 0019). */
+  "treat",
 ] as const;
 export type InventoryReason = (typeof INVENTORY_REASONS)[number];
 
@@ -788,6 +793,8 @@ export const COIN_REASONS = [
   "event_deposit",
   /** A Commons booking's deposit back: enough people came, or it was cancelled in time. */
   "event_refund",
+  /** A new coat for your pet (RFC 0019). Burned. */
+  "groom",
 ] as const;
 export type CoinReason = (typeof COIN_REASONS)[number];
 
@@ -953,6 +960,12 @@ export type Command =
   | { type: "cancel_event"; event: string }
   /** While it's live: a free tile in the event's area. */
   | { type: "join_event"; event: string }
+  // Pets (RFC 0019). `name` is untrusted text the server cleaned before logging it.
+  | { type: "adopt_pet"; kind: PetKind; coat: PetCoat; name: string }
+  | { type: "rename_pet"; name: string }
+  | { type: "groom_pet"; coat: PetCoat }
+  /** One of the actor's produce to `owner`'s pet, which is happy until the day ends. */
+  | { type: "treat_pet"; owner: ResidentId; item: Crop }
   // Only the server sends these, as TOWN_ACTOR.
   | { type: "new_day"; day: number }
   | { type: "set_townsfolk"; ids: ResidentId[] }
@@ -1312,6 +1325,14 @@ export type WorldEvent =
     }
   /** An event was called off before it ended, and what happened to a Commons deposit. Public. */
   | { type: "event_cancelled"; event: string; deposit?: "refunded" | "burned" }
+  /** A pet came home with `residentId` (RFC 0019). Public: it lives in the world. */
+  | { type: "pet_adopted"; residentId: ResidentId; pet: Pet }
+  /** `residentId`'s pet has a new name. Public. */
+  | { type: "pet_renamed"; residentId: ResidentId; name: string }
+  /** `residentId`'s pet has a new coat. Public. */
+  | { type: "pet_groomed"; residentId: ResidentId; coat: PetCoat }
+  /** `by` gave `residentId`'s pet a treat of `kind`: it's happy until the day ends. Public. */
+  | { type: "pet_treated"; residentId: ResidentId; by: ResidentId; kind: Crop }
 
   /**
    * One resident's things changed. Private: it belongs to `residentId` alone, and the server sends
@@ -1431,6 +1452,12 @@ export const REJECTION_CODES = [
   /** It has already started, ended, or been called off. */
   "event_closed",
   "not_your_event",
+  /** A pet's kind, coat, or name isn't one the sim takes (RFC 0019). */
+  "invalid_pet",
+  /** That resident has no pet. */
+  "no_pet",
+  /** A pet's once-a-day limit: a rename, or a treat. */
+  "pet_limit",
 ] as const;
 export type RejectionCode = (typeof REJECTION_CODES)[number];
 

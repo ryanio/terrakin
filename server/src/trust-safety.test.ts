@@ -165,6 +165,8 @@ describe("the edge filters on every surface", () => {
       { type: "post_bounty", title: "Water my lemons", text: bad, reward: 5 },
       { ...event, title: bad },
       { ...event, text: bad },
+      { type: "adopt_pet", kind: "cat", coat: "ginger", name: bad },
+      { type: "rename_pet", name: bad },
     ]) {
       const res = await t.call("POST", "/v1/actions", action, await fresh());
       expect(res.body, action.type).toMatchObject({

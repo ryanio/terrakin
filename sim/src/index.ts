@@ -150,6 +150,15 @@ export * from "./palette";
 export { isDirection, PUTTER, PUTTER_MAX_STEPS, planPutter } from "./putter";
 export { REPLAY_VERSION, replay } from "./replay";
 export {
+  isRoutineKind,
+  planStroll,
+  ROUTINES,
+  routineOf,
+  routineRanToday,
+  routinesOf,
+  strollBack,
+} from "./routines";
+export {
   dateOfDay,
   dayOfDate,
   SEASONS,

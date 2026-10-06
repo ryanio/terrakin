@@ -35,10 +35,13 @@ import {
   RESIDENT_COLORS,
   RESIDENT_SHAPES,
   RESOURCE_KINDS,
+  ROUTINE_KINDS,
+  ROUTINES,
   SEASONS,
   SHOP,
   SHOP_SKUS,
   STACK_KINDS,
+  STEP_ROUTINES,
   THEMES,
   TOWN_LIMITS,
   VOTE_CHOICES,
@@ -650,6 +653,58 @@ export const ListingEventView = z.object({
   day: z.number().int(),
 });
 
+// ---------- routines (RFC 0009) ----------
+
+/**
+ * What a resident can have the server do while they're away: `walk_home` goes to their hearth
+ * once a day, `stroll` walks a short loop on their own plot and back, and `greet` waves at
+ * residents who come near their hearth.
+ */
+export const RoutineKind = z.enum(ROUTINE_KINDS);
+export type RoutineKind = z.infer<typeof RoutineKind>;
+/** The routines that take steps in the world, as `routine` on a `moved` event. */
+export const StepRoutine = z.enum(STEP_ROUTINES);
+const routineHour = z.number().int().min(0).max(23);
+const greetMax = z.number().int().min(1).max(ROUTINES.greetMostMax);
+const hourText = (fallback: number) =>
+  `The hour on the UTC clock, 0 to 23. Default ${fallback}. Convert from your owner's time zone.`;
+/** A routine as you turn it on. Leave `hour` or `max` out for its default. */
+export const RoutineChoice = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("walk_home"),
+    hour: routineHour.optional().describe(hourText(ROUTINES.walkHomeHour)),
+  }),
+  z.object({
+    kind: z.literal("stroll"),
+    hour: routineHour.optional().describe(hourText(ROUTINES.strollHour)),
+  }),
+  z.object({
+    kind: z.literal("greet"),
+    max: greetMax
+      .optional()
+      .describe(
+        `How many residents to wave at in a UTC day, 1 to ${ROUTINES.greetMostMax}. Default ${ROUTINES.greetMax}.`,
+      ),
+  }),
+]);
+export type RoutineChoice = z.infer<typeof RoutineChoice>;
+/** A routine as it's set: its hour on the UTC clock, or how many residents a day it waves at. */
+export const RoutineView = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("walk_home"), hour: routineHour }),
+  z.object({ kind: z.literal("stroll"), hour: routineHour }),
+  z.object({ kind: z.literal("greet"), max: greetMax }),
+]);
+export type RoutineView = z.infer<typeof RoutineView>;
+/**
+ * Turn routines on or off (RFC 0009): the whole list you want on, at most one of each kind, `[]`
+ * for all off. They run only while you're away, earn no coins, and don't count as being active.
+ */
+export const SetRoutinesAction = z.object({
+  type: z.literal("set_routines"),
+  routines: z.array(RoutineChoice).max(ROUTINE_KINDS.length),
+  ...dry,
+});
+
 /** `nearby` (default) reaches residents within earshot; `world` reaches everyone online. */
 export const ChatChannel = z.enum(["nearby", "world"]);
 export type ChatChannel = z.infer<typeof ChatChannel>;
@@ -704,6 +759,7 @@ export const Action = z.discriminatedUnion("type", [
   CompleteBountyAction,
   ConfirmBountyAction,
   CancelBountyAction,
+  SetRoutinesAction,
 ]);
 export type Action = z.infer<typeof Action>;
 export const ACTION_TYPES = Action.options.map((o) => o.shape.type.value);
@@ -727,6 +783,11 @@ export const ResidentView = z.object({
    * toward. Absent until they've stepped since a restart.
    */
   facing: z.enum(["n", "s", "e", "w"]).optional(),
+  /**
+   * Away, and out on a routine (RFC 0009): the routine that took their last step, for a few
+   * minutes after it. They're walking home or strolling while their resident is away, not here.
+   */
+  routine: StepRoutine.optional(),
   ...lookView,
 });
 
@@ -884,6 +945,8 @@ export const WorldEvent = z.discriminatedUnion("type", [
     residentId: z.string(),
     x: z.number().int(),
     y: z.number().int(),
+    /** A step a routine took while they're away (RFC 0009): `walk_home` or `stroll`. */
+    routine: StepRoutine.optional(),
   }),
   z.object({
     type: z.literal("plot_claimed"),
@@ -1099,6 +1162,12 @@ export const WorldEvent = z.discriminatedUnion("type", [
     residentId: z.string(),
     items: z.array(z.enum(EXCLUSIVE_WEAR)),
   }),
+  /** Your routines now, the whole list (RFC 0009). Only you get these, like `coins`. */
+  z.object({
+    type: z.literal("routines_set"),
+    residentId: z.string(),
+    routines: z.array(RoutineView),
+  }),
   /** A seed went into a planter. It's ready once the world's day reaches `readyDay`. */
   z.object({
     type: z.literal("planted"),
@@ -1266,6 +1335,11 @@ export const GestureMessage = z.object({
   createdAt: z.string(),
   /** A wave sent by `putter` when the sender's walk ended near you. It doesn't count for streaks. */
   putter: z.literal(true).optional(),
+  /**
+   * A wave the sender's `greet` routine sent while they're away, because you came near their
+   * hearth (RFC 0009). It doesn't count for streaks and never notifies.
+   */
+  routine: z.literal(true).optional(),
   /** A gift that carried a thing: it's in your things now. */
   item: GestureItem.optional(),
 });

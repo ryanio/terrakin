@@ -86,6 +86,7 @@ import {
 import { residentById } from "./own";
 import { checkImplicitPresence, checkLeaveIdle, type PresenceChecked } from "./presence";
 import { isDirection, PUTTER_MAX_STEPS } from "./putter";
+import { checkRoutineStep, checkSetRoutines, type RoutinesChecked } from "./routines";
 import {
   checkOpenShop,
   checkSellToTown,
@@ -110,7 +111,7 @@ import type {
   WorldState,
 } from "./types";
 import { BLOCK_KINDS, RESIDENT_COLORS, RESIDENT_SHAPES, TOWN_ACTOR } from "./types";
-import { checkSolidBuildings, stepFrom, worldGround } from "./walk";
+import { checkSolidBuildings, STEPS_GO, stepFrom, walkSteps, worldGround } from "./walk";
 import {
   canBuildOn,
   chebyshev,
@@ -128,9 +129,6 @@ import {
 
 export const NAME_MAX_LENGTH = 24;
 export const NOTE_MAX_LENGTH = 80;
-
-/** What a step with a direction the sim doesn't know is told. */
-const STEPS_GO = "Steps go n, s, e, w, ne, nw, se, or sw.";
 
 /** How many residents an owner can share one plot with. */
 export const MAX_CO_OWNERS = 3;
@@ -580,6 +578,7 @@ function town(
     | MarketChecked
     | BountiesChecked
     | PresenceChecked
+    | RoutinesChecked
     | Mutation
     | Rejection,
 ): Mutation | Prepared {
@@ -636,6 +635,8 @@ function check(state: WorldState, actor: string, command: Command): Checked {
         return town(checkImplicitPresence(state));
       case "leave_idle":
         return town(checkLeaveIdle(state, command));
+      case "routine_step":
+        return town(checkRoutineStep(state, command));
       case "new_day":
       case "set_townsfolk": {
         const checked = checkTown(state, actor, command);
@@ -717,16 +718,9 @@ function check(state: WorldState, actor: string, command: Command): Checked {
         return reject("out_of_reach", `A putter walks at most ${PUTTER_MAX_STEPS} tiles.`);
       }
       // Each step is checked like a move, from where the last one left off.
-      const ground = worldGround(state);
-      const path: Tile[] = [];
-      let at: Tile = me;
-      for (const dir of steps) {
-        if (!isDirection(dir)) return reject("out_of_bounds", STEPS_GO);
-        const step = stepFrom(ground, at, dir);
-        if (!step.ok) return reject(step.code, step.message);
-        path.push(step.to);
-        at = step.to;
-      }
+      const walked = walkSteps(worldGround(state), me, steps);
+      if (!walked.ok) return reject(walked.code, walked.message);
+      const { path } = walked;
       return () =>
         path.map(({ x, y }) => {
           me.x = x;
@@ -1100,6 +1094,9 @@ function check(state: WorldState, actor: string, command: Command): Checked {
 
     case "give_coins":
       return town(checkGive(state, actor, command));
+
+    case "set_routines":
+      return town(checkSetRoutines(state, actor, command));
 
     case "plant":
       return town(checkPlant(state, actor, command));

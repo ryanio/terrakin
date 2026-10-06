@@ -596,6 +596,11 @@ export const GestureView = z.object({
    * carries a note and doesn't count for streaks.
    */
   putter: z.literal(true).optional(),
+  /**
+   * A wave the sender's `greet` routine sent while they were away, when the recipient came near
+   * their hearth (RFC 0009). No note, never a notification, and it doesn't count for streaks.
+   */
+  routine: z.literal(true).optional(),
   /** A gift that carried a thing: its kind, how many, and the gift's id to send it back. */
   item: GestureItem.optional(),
   /** On a kiss you sent that they haven't answered: they can't see it until they kiss you too. */

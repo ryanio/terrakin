@@ -16,6 +16,7 @@ import {
   KARMA,
   PROTOCOL_VERSION,
   PUTTER_LIMITS,
+  ROUTINE_LIMITS,
 } from "@terrakin/protocol";
 import {
   asJoined,
@@ -49,8 +50,12 @@ import {
   REPLAY_VERSION,
   type ResidentKind,
   type ResourceKind,
+  ROUTINES,
+  type Routine,
+  type RoutineStep,
   residentById,
   SHOP,
+  type StepRoutine,
   shopTiles,
   skyAt,
   TOWN_ACTOR,
@@ -245,11 +250,17 @@ function toWire(events: WorldEvent[], townsfolk: readonly string[] = []): WireEv
   return out;
 }
 
-/** Purse moves, inventory changes, and wear bought at the shop: each belongs to one resident alone. */
+/**
+ * Purse moves, inventory changes, wear bought at the shop, and routines turned on or off: each
+ * belongs to one resident alone.
+ */
 const isPrivate = (
   e: WireEvent,
-): e is Extract<WireEvent, { type: "coins" | "inventory" | "wear_bought" }> =>
-  e.type === "coins" || e.type === "inventory" || e.type === "wear_bought";
+): e is Extract<WireEvent, { type: "coins" | "inventory" | "wear_bought" | "routines_set" }> =>
+  e.type === "coins" ||
+  e.type === "inventory" ||
+  e.type === "wear_bought" ||
+  e.type === "routines_set";
 
 /**
  * What everyone may see: no purse moves and no inventory changes. Never empty, so every client's
@@ -388,6 +399,11 @@ export class WorldService {
   private readonly facing = new Map<string, Direction>();
   /** When each resident last built a plan for real, for `BUILD_LIMITS`. In memory only. */
   private readonly builds = new Map<string, number>();
+  /**
+   * The routine that took each away resident's last step, and when (RFC 0009), so the snapshot
+   * can say they're out on it for `ROUTINE_LIMITS.awakeMinutes`. Drawing only, like `facing`.
+   */
+  private readonly routineSteps = new Map<string, { routine: StepRoutine; at: number }>();
   private readonly lastSeen = new Map<string, number>();
   private readonly sockets = new Map<string, number>(); // residentId -> open socket count
   /** residentId -> callbacks that close their live connections when their tokens are revoked. */
@@ -923,7 +939,18 @@ export class WorldService {
   /** Resolve a link key to a resident id, or undefined if it's unknown or turned off. */
   authenticateLinkKey(key: string): string | undefined {
     if (!key.startsWith("k_")) return undefined;
-    return this.linkKeys.get(hashToken(key));
+    return this.called(this.linkKeys.get(hashToken(key)));
+  }
+
+  /**
+   * Hears every authenticated call, by token or link key, with its resident. Routines pause after
+   * days with none and the next one starts them again (RFC 0009); `Api` wires it to the away log.
+   */
+  onCall: ((residentId: string) => void) | undefined;
+
+  private called(residentId: string | undefined): string | undefined {
+    if (residentId !== undefined) this.onCall?.(residentId);
+    return residentId;
   }
 
   private rememberLinkKey(residentId: string, keyHash: string | null) {
@@ -977,7 +1004,7 @@ export class WorldService {
 
   /** Resolve a bearer token to a resident id, or undefined if unknown. */
   authenticate(token: string): string | undefined {
-    return this.sessions.get(hashToken(token));
+    return this.called(this.sessions.get(hashToken(token)));
   }
 
   /**
@@ -1250,6 +1277,19 @@ export class WorldService {
         };
       }
     }
+    if (action.type === "set_routines") {
+      // Defaults go in before it's logged, so the log holds the hour each routine runs at.
+      const command: Command = {
+        type: "set_routines",
+        routines: action.routines.map((r): Routine => {
+          if (r.kind === "greet") return { kind: r.kind, max: r.max ?? ROUTINES.greetMax };
+          const hour =
+            r.hour ?? (r.kind === "walk_home" ? ROUTINES.walkHomeHour : ROUTINES.strollHour);
+          return { kind: r.kind, hour };
+        }),
+      };
+      return this.run({ actor: residentId, command }, dry);
+    }
     if (action.type === "shop_buy" || action.type === "sell_to_town") {
       const count = action.count === undefined ? {} : { count: action.count };
       const command: Command =
@@ -1320,6 +1360,27 @@ export class WorldService {
     this.facts.putters.set(residentId, { at: now, day: today, count });
     return { ...result, greeted: this.greetNearby(residentId) };
   }
+
+  // ---------- routines (RFC 0009) ----------
+
+  /**
+   * One step of an away resident's routine, logged from the town as `routine_step`. The sim checks
+   * it like any input (they turned it on, they're away, it hasn't used up today, and the step's
+   * own rules), so the runner in `routines.ts` can't take a step the resident didn't choose.
+   */
+  routineStep(resident: string, routine: StepRoutine, step: RoutineStep): ActResult {
+    return this.run({
+      actor: TOWN_ACTOR,
+      command: { type: "routine_step", resident, routine, step },
+    });
+  }
+
+  /**
+   * Hears each accepted command that walked an online resident somewhere (a move, a putter, going
+   * home), with their id, after it's logged. `Api` wires it to routines' `greet`. It must not
+   * throw; whatever it does can't undo the walk.
+   */
+  onWalked: ((residentId: string) => void) | undefined;
 
   /** The refusal when a resident has puttered too recently or too often today. */
   private putterLimited(residentId: string): ActResult | undefined {
@@ -1445,19 +1506,28 @@ export class WorldService {
       report(err, "world.persist", { command: input.command.type });
       return { ok: false, error: { code: "internal", message: "Couldn't save that. Try again." } };
     }
-    const was = this.state.residents[input.actor];
+    // Who walks: the actor, or the away resident a routine's step is for.
+    const command = input.command;
+    const walker = command.type === "routine_step" ? command.resident : input.actor;
+    const was = this.state.residents[walker];
     let at = was && { x: was.x, y: was.y };
     const { seq, events } = prepared.commit();
+    let walked = false;
     for (const e of events) {
       // Coming back with the action can move them first (their spot was built on).
-      if (e.type === "joined" && e.resident.id === input.actor) {
+      if (e.type === "joined" && e.resident.id === walker) {
         at = { x: e.resident.x, y: e.resident.y };
+        this.routineSteps.delete(walker);
         continue;
       }
-      if (e.type !== "moved" || e.residentId !== input.actor || !at) continue;
+      if (e.type !== "moved" || e.residentId !== walker || !at) continue;
+      walked = true;
       const dir = facingFrom(e.x - at.x, e.y - at.y);
       if (dir) this.facing.set(e.residentId, dir);
       at = { x: e.x, y: e.y };
+    }
+    if (command.type === "routine_step") {
+      this.routineSteps.set(walker, { routine: command.routine, at: this.now() });
     }
     this.facts.note(input, this.state.day ?? 0);
     for (const e of events) {
@@ -1469,6 +1539,14 @@ export class WorldService {
     // private).
     for (const event of wire) {
       if (isPrivate(event)) this.notify(event.residentId, { type: "event", seq, event });
+    }
+    // Someone here walked: an away neighbor's routine may wave at them.
+    if (walked && walker === input.actor && this.state.residents[walker]?.online) {
+      try {
+        this.onWalked?.(walker);
+      } catch (err) {
+        report(err, "world.walked", { command: command.type });
+      }
     }
     return { ok: true, seq, events: eventsFor(wire, input.actor), ...planOf(prepared) };
   }
@@ -1503,6 +1581,9 @@ export class WorldService {
     for (const id of this.lastSeen.keys()) {
       if (!this.state.residents[id]?.online) this.lastSeen.delete(id);
     }
+    // Routine steps older than the drawing's window no longer show anyone out on a routine.
+    const awake = this.now() - ROUTINE_LIMITS.awakeMinutes * 60_000;
+    for (const [id, step] of this.routineSteps) if (step.at < awake) this.routineSteps.delete(id);
     // Putters from before today no longer limit anything.
     const today = utcDay(this.now());
     const { facts } = this;
@@ -1689,11 +1770,15 @@ export class WorldService {
       commons: commonsPlot(state.config),
       residents: Object.values(state.residents).map((r) => {
         const facing = this.facing.get(r.id);
+        // Away and out on a routine for a few minutes after its last step (RFC 0009).
+        const step = r.online ? undefined : this.routineSteps.get(r.id);
+        const out = step && nowMs - step.at < ROUTINE_LIMITS.awakeMinutes * 60_000;
         return {
           ...r,
           ...(this.noteHidden(r.id) ? { note: "" } : {}),
           // Kept any of eight ways, sent as one of the four `facing` has always been.
           ...(facing ? { facing: fourWayFacing(facing) } : {}),
+          ...(out ? { routine: step.routine } : {}),
         };
       }),
       plots: Object.values(state.plots).map((p) => ({

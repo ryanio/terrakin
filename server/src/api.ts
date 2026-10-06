@@ -28,6 +28,7 @@ import {
   type RateLimitName,
   REPEAT_WINDOW_MS,
   ROUTES,
+  ROUTINE_RULES,
   type RouteBody,
   type RouteId,
   type RouteMatch,
@@ -57,6 +58,7 @@ import {
   listingById,
   plotPlan,
   REPLAY_VERSION,
+  routinesOf,
 } from "@terrakin/sim";
 import { AiSpend, SUMMARY_DAYS } from "./ai-spend";
 import { bountiesView, bountyView, staffBountiesView } from "./bounties";
@@ -74,6 +76,7 @@ import { OwnerService } from "./owner-service";
 import { partnerViews } from "./partners";
 import { type PlotPhotoRenderer, plotPhotoSpec } from "./plot-photo";
 import { RateLimiters, type Take } from "./rate-limit";
+import { Routines, type RoutinesRun, runRoutines } from "./routines";
 import { SHOP_KEEPER_HANDLE, shopView } from "./shop";
 import { reportable, type SnapshotHeader } from "./snapshots";
 import type { SocialResult, SocialService } from "./social-service";
@@ -508,6 +511,8 @@ export class Api {
   private readonly staffOptions: StaffOptions;
   private readonly chatter: ChatterService | undefined;
   private readonly tips: TownsfolkTips | undefined;
+  /** Offline routines' runner (RFC 0009). Needs the social layer, where the away log lives. */
+  readonly routines: Routines | undefined;
   /** The AI spend ledger, read for the staff overview. Triage and chatter write to it. */
   private readonly spendLedger: AiSpend | undefined;
 
@@ -536,6 +541,14 @@ export class Api {
         this.service.notify(to, layer.together.liveGesture(sent.value.gesture, sent.value.streak));
         return true;
       };
+      // Offline routines (RFC 0009): the sweep takes their steps, a resident here walking past an
+      // away neighbor's hearth may get a wave, and every call keeps a resident's routines going.
+      const routines = new Routines({ world: this.service, social: layer });
+      this.routines = routines;
+      this.service.onWalked = (id) => {
+        routines.greetFor(id);
+      };
+      this.service.onCall = (id) => layer.away.called(id);
       // Who may list in the market (decision 0056): time in Terrakin and karma live out here.
       this.service.listingRefusal = (id) =>
         listingRefusal(this.service.state, id, this.listerFacts(id));
@@ -1178,6 +1191,17 @@ export class Api {
             suggestions: social().checkins,
           }),
         };
+      },
+      getRoutines: ({ viewer, query }) => {
+        const before = query.before === undefined ? undefined : Number(query.before.slice(2));
+        // Without the social layer there's no away log, and nothing runs them.
+        const body = this.routines?.view(viewer, before) ?? {
+          routines: routinesOf(service.state, viewer).map((r) => ({ ...r })),
+          paused: false,
+          rules: { ...ROUTINE_RULES },
+          away: { items: [], next: null },
+        };
+        return { status: 200, body };
       },
       getNotifications: ({ viewer, query }) => ({
         status: 200,
@@ -2141,9 +2165,22 @@ export class Api {
     return this.social?.agentLinks.nextDueAt();
   }
 
+  /**
+   * Take the routine steps that are due (RFC 0009), after catching the world's day up. The sweep
+   * does this every minute; the Node test clock asks right after it moves the day on.
+   */
+  runRoutines(): RoutinesRun | undefined {
+    return task("routines.run", () => {
+      this.service.tick();
+      return runRoutines(this.routines);
+    });
+  }
+
   private sweepNow() {
     this.service.tick();
     this.service.sweepIdle();
+    // After the idle sweep, so whoever just went idle is away for their routines.
+    runRoutines(this.routines);
     this.service.keepSnapshots();
     this.sweepWatchers();
     this.social?.sweep().catch((err: unknown) => {

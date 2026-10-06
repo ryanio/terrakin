@@ -19,6 +19,7 @@ import {
   MEDIA_TYPES,
   type MediaType,
   type MediaView,
+  ROUTINE_LIMITS,
   type StreakView,
 } from "@terrakin/protocol";
 import type { Resident } from "@terrakin/sim";
@@ -179,11 +180,14 @@ export class TogetherService {
       this.o.sql.exec(statement);
     }
     this.createIntimateSent();
-    // Added with putter (decision 0049): 1 on a wave `putter` sent by itself. Older rows are 0.
-    try {
-      this.o.sql.exec("ALTER TABLE gestures ADD COLUMN putter INTEGER NOT NULL DEFAULT 0");
-    } catch {
-      // Already there.
+    // Added with putter (decision 0049): 1 on a wave `putter` sent by itself, and with routines
+    // (RFC 0009): 1 on a wave an away resident's `greet` sent. Older rows are 0.
+    for (const column of ["putter", "routine"]) {
+      try {
+        this.o.sql.exec(`ALTER TABLE gestures ADD COLUMN ${column} INTEGER NOT NULL DEFAULT 0`);
+      } catch {
+        // Already there.
+      }
     }
     // Added with gifts that carry a thing: its kind, count, and the world's gift id. Older rows
     // carry nothing ('' and 0).
@@ -555,16 +559,20 @@ export class TogetherService {
    * Whether a gesture may go: both residents known, no block either way, a note the filters let
    * through, and the kind's cooldown. With `putter`, it's the wave `putter` sends by itself when a
    * walk ends near someone (decision 0049): at most one a UTC day between any two residents, in
-   * either direction. A gift that carries a thing (`item`) needs no note and skips the cooldown:
-   * the world's daily gift limits bound it. The answer is the cleaned note.
+   * either direction. With `routine`, it's the wave an away resident's `greet` sends when someone
+   * comes near their hearth (RFC 0009): at most `routine.max` a UTC day from the sender, one to
+   * each resident, and `ROUTINE_LIMITS.wavesPerRecipient` to anyone from everyone's routines. A
+   * gift that carries a thing (`item`) needs no note and skips the cooldown: the world's daily gift
+   * limits bound it. The answer is the cleaned note.
    */
   checkGesture(
     sender: string,
     to: string,
     request: GestureRequest,
-    options: { putter?: boolean } = {},
+    options: { putter?: boolean; routine?: { max: number } } = {},
   ): SocialResult<{ note: string }> {
     const putter = options.putter === true;
+    const routine = options.routine;
     if (!this.o.resident(sender)) return fail("unauthorized", "Unknown resident.");
     if (to === sender) return fail("bad_request", "Send it to someone else.");
     if (!this.o.resident(to)) return fail("not_found", "No such resident.");
@@ -605,6 +613,33 @@ export class TogetherService {
       );
       if (already > 0) return fail("rate_limited", "You two already waved while puttering today.");
     }
+    if (routine) {
+      // Routine waves carry no note: nobody wrote one, so no text of anyone's rides along.
+      if (request.kind !== "wave" || note !== "") return fail("bad_request", "Routines only wave.");
+      const since = today * DAY_MS;
+      const sent = this.count(
+        "SELECT COUNT(*) AS c FROM gestures WHERE routine = 1 AND sender = ? AND created_at >= ?",
+        sender,
+        since,
+      );
+      if (sent >= routine.max) return fail("rate_limited", "That routine waved enough today.");
+      const pair = this.count(
+        `SELECT COUNT(*) AS c FROM gestures WHERE routine = 1 AND sender = ? AND recipient = ?
+          AND created_at >= ?`,
+        sender,
+        to,
+        since,
+      );
+      if (pair > 0) return fail("rate_limited", "That routine already waved at them today.");
+      const got = this.count(
+        "SELECT COUNT(*) AS c FROM gestures WHERE routine = 1 AND recipient = ? AND created_at >= ?",
+        to,
+        since,
+      );
+      if (got >= ROUTINE_LIMITS.wavesPerRecipient) {
+        return fail("rate_limited", "They've had enough routine waves today.");
+      }
+    }
     if (carries) {
       // The daily gift caps bound how many; this keeps a burst of them from landing at once.
       const wait = GIFT_ITEM_COOLDOWN_SECONDS * 1000;
@@ -644,17 +679,19 @@ export class TogetherService {
   }
 
   /**
-   * Send a gesture. A putter wave leaves the pair's streak alone, so automatic walks can't keep a
-   * streak alive. A gift with `request.item` was checked with `checkGesture` and given in the world
-   * by the caller, so only its record goes here, with `item` (what moved) when known.
+   * Send a gesture. A putter or routine wave leaves the pair's streak alone, so automatic walks
+   * can't keep a streak alive, and a routine wave notifies nobody beyond the live socket. A gift
+   * with `request.item` was checked with `checkGesture` and given in the world by the caller, so
+   * only its record goes here, with `item` (what moved) when known.
    */
   sendGesture(
     sender: string,
     to: string,
     request: GestureRequest,
-    options: { putter?: boolean; item?: GestureItem } = {},
+    options: { putter?: boolean; routine?: { max: number }; item?: GestureItem } = {},
   ): SocialResult<{ gesture: GestureView; streak: number; secret?: true; answered?: true }> {
     const putter = options.putter === true;
+    const routine = options.routine !== undefined;
     const { item } = options;
     // A gift that carries a thing was checked before the thing moved in the world. Nothing may
     // refuse it now, so only its record is written.
@@ -681,8 +718,8 @@ export class TogetherService {
 
     const id = randomId("g");
     this.o.sql.exec(
-      `INSERT INTO gestures (id, sender, recipient, kind, note, created_at, putter, item_kind, item_count, gift)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO gestures (id, sender, recipient, kind, note, created_at, putter, routine, item_kind, item_count, gift)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       id,
       sender,
       to,
@@ -690,16 +727,18 @@ export class TogetherService {
       note,
       now,
       putter ? 1 : 0,
+      routine ? 1 : 0,
       item?.kind ?? "",
       item?.count ?? 0,
       item?.gift ?? "",
     );
     const pair = pairKey(sender, to);
     const before = this.streakRecord(pair);
-    // A putter wave is real, but nobody chose to send it, so it never moves a streak. A secret kiss
-    // doesn't either, or the streak would give it away.
-    const record = putter || secret ? before : nextStreak(before, today);
-    if (record && !putter && !secret) {
+    // A putter or routine wave is real, but nobody chose to send it, so it never moves a streak. A
+    // secret kiss doesn't either, or the streak would give it away.
+    const automatic = putter || routine;
+    const record = automatic || secret ? before : nextStreak(before, today);
+    if (record && !automatic && !secret) {
       const [a, b] = pair.split("|") as [string, string];
       this.o.sql.exec(
         `INSERT INTO streaks (pair, a, b, day, streak) VALUES (?, ?, ?, ?, ?)
@@ -712,7 +751,8 @@ export class TogetherService {
       );
     }
     const gesture = this.gestureViews(this.rows("SELECT * FROM gestures WHERE id = ?", id))[0];
-    if (gesture && !secret) this.o.notify?.(to, sender, "gesture", request.kind);
+    // A routine wave stays on the socket: someone walking past a street of homes isn't paged.
+    if (gesture && !secret && !routine) this.o.notify?.(to, sender, "gesture", request.kind);
     // They sent theirs while it was secret: the sender finds out about it now.
     if (gesture && answered) this.o.notify?.(sender, to, "gesture", request.kind);
     return gesture
@@ -781,6 +821,7 @@ export class TogetherService {
       streak,
       createdAt: gesture.createdAt,
       ...(gesture.putter ? { putter: true as const } : {}),
+      ...(gesture.routine ? { routine: true as const } : {}),
       ...(gesture.item ? { item: gesture.item } : {}),
     };
   }
@@ -821,6 +862,7 @@ export class TogetherService {
           createdAt: iso(Number(row.created_at)),
           ...(secret ? { secret: true as const } : {}),
           ...(Number(row.putter) === 1 ? { putter: true as const } : {}),
+          ...(Number(row.routine) === 1 ? { routine: true as const } : {}),
           ...(row.item_kind ? { item: gestureItem(row) } : {}),
         },
       ];

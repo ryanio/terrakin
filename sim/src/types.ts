@@ -377,7 +377,52 @@ export interface WorldState {
    * did.
    */
   implicitPresence?: true;
+  /**
+   * The routines each resident turned on (RFC 0009), at most one of each kind, in
+   * `ROUTINE_KINDS` order. Absent until the first `set_routines`, and a resident's key goes when
+   * they turn every routine off.
+   */
+  routines?: Record<ResidentId, Routine[]>;
+  /**
+   * What each resident's routines did on the last day one took a step: whether `walk_home` ran,
+   * and how many tiles the stroll walked. Absent until the first `routine_step`. Bookkeeping with
+   * no event of its own: the step's `moved` events show what happened.
+   */
+  routineRuns?: Record<ResidentId, RoutineRuns>;
 }
+
+/**
+ * Routines a resident can turn on (RFC 0009), from a fixed menu. The server's runner takes their
+ * steps while the resident is offline: `walk_home` goes home once a day at its hour, `stroll`
+ * walks a short loop on their own plot, and `greet` waves at residents who come near their hearth
+ * (in the social tables, never the sim).
+ */
+export const ROUTINE_KINDS = ["walk_home", "stroll", "greet"] as const;
+export type RoutineKind = (typeof ROUTINE_KINDS)[number];
+/** The routines that take steps in the world. `greet` only waves. */
+export const STEP_ROUTINES = ["walk_home", "stroll"] as const satisfies readonly RoutineKind[];
+export type StepRoutine = (typeof STEP_ROUTINES)[number];
+
+/** A routine turned on. `hour` is a UTC hour, 0 to 23; `max` is how many residents a day. */
+export type Routine =
+  | { kind: "walk_home"; hour: number }
+  | { kind: "stroll"; hour: number }
+  | { kind: "greet"; max: number };
+
+/** What a resident's routines did on `day`. */
+export interface RoutineRuns {
+  day: number;
+  /** `walk_home` ran. */
+  walk_home?: true;
+  /** Tiles the stroll walked. */
+  stroll?: number;
+}
+
+/**
+ * What one `routine_step` does as its resident: `home` for `walk_home`, and for `stroll` one leg of
+ * the walk, its steps checked like a `putter`'s.
+ */
+export type RoutineStep = { type: "home" } | { type: "putter"; steps: Direction[] };
 
 /**
  * `open` waits for someone to take it, `claimed` is being worked on, `done` is the claimant
@@ -806,6 +851,8 @@ export type Command =
   // The town shop (RFC 0008, phase 2).
   | { type: "shop_buy"; sku: string; count?: number }
   | { type: "sell_to_town"; item: string; count?: number }
+  /** Turn routines on and off (RFC 0009): the whole list, `[]` for all off. */
+  | { type: "set_routines"; routines: Routine[] }
   // The market (RFC 0008, phase 4).
   | { type: "list_item"; item: string; count?: number; price: number }
   | { type: "unlist_item"; listing: string }
@@ -877,7 +924,13 @@ export type Command =
   /** From now on, acting brings a known resident back online in the same input (RFC 0014). */
   | { type: "implicit_presence" }
   /** Everyone in `ids` went idle: each goes offline, as with `leave`. One input per idle sweep. */
-  | { type: "leave_idle"; ids: ResidentId[] };
+  | { type: "leave_idle"; ids: ResidentId[] }
+  /**
+   * One step of an offline resident's routine, which the server's runner decided to take (RFC
+   * 0009). The sim checks that they turned it on, are offline, and haven't used it up today, then
+   * runs `step` as them, with every check their own command would meet.
+   */
+  | { type: "routine_step"; resident: ResidentId; routine: StepRoutine; step: RoutineStep };
 
 /** One resident's award in `daily_awards`. */
 export interface DailyAward {
@@ -922,6 +975,7 @@ export const SERVER_COMMANDS = [
   "reopen_bounty",
   "implicit_presence",
   "leave_idle",
+  "routine_step",
 ] as const satisfies readonly CommandType[];
 
 /** A command plus who issued it. This is the unit the server logs and replays. */
@@ -941,7 +995,8 @@ export type WorldEvent =
       note: string;
       /** The whole look after the change: a field that's absent here is unset. */
     } & Look)
-  | { type: "moved"; residentId: ResidentId; x: number; y: number }
+  /** `routine` marks a step an offline resident's routine took (RFC 0009). */
+  | { type: "moved"; residentId: ResidentId; x: number; y: number; routine?: StepRoutine }
   | { type: "plot_claimed"; px: number; py: number; ownerId: ResidentId }
   | { type: "plot_released"; px: number; py: number; ownerId: ResidentId }
   | { type: "hearth_set"; residentId: ResidentId; x: number; y: number }
@@ -1072,6 +1127,8 @@ export type WorldEvent =
   | { type: "wear_bought"; residentId: ResidentId; wear: WearItem }
   /** The partner wear a resident may put on now. Public: it's a cosmetic their profile shows. */
   | { type: "entitlements_set"; residentId: ResidentId; items: ExclusiveWear[] }
+  /** A resident's routines now, the whole list. Private: it belongs to `residentId` alone. */
+  | { type: "routines_set"; residentId: ResidentId; routines: Routine[] }
   /** A seed went into a planter. Public: crops show in the world. */
   | {
       type: "planted";
@@ -1209,6 +1266,14 @@ export const REJECTION_CODES = [
   "no_ground",
   /** A `build` plan that doesn't fit: empty, too long, a tile off the plot, or one listed twice. */
   "invalid_plan",
+  /** A routine step for a routine its resident hasn't turned on (RFC 0009). */
+  "not_set",
+  /** A routine step while its resident is in the world: routines run only while they're away. */
+  "awake",
+  /** That routine already ran today, or the stroll already walked its tiles. */
+  "ran_today",
+  /** A routine list or a routine step that doesn't fit the menu. */
+  "invalid_routine",
 ] as const;
 export type RejectionCode = (typeof REJECTION_CODES)[number];
 

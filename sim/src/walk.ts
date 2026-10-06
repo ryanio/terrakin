@@ -129,6 +129,31 @@ export function stepFrom(ground: Ground, from: Tile, dir: Direction): Step {
   return { ok: true, to };
 }
 
+/** What a step with a direction the sim doesn't know is told. */
+export const STEPS_GO = "Steps go n, s, e, w, ne, nw, se, or sw.";
+
+/**
+ * The tiles a run of logged steps walks through from `from`, each checked with `stepFrom` from
+ * where the last one left off, or why one can't be taken. A putter's steps and a stroll's are
+ * checked with it.
+ */
+export function walkSteps(
+  ground: Ground,
+  from: Tile,
+  steps: readonly unknown[],
+): { ok: true; path: Tile[] } | { ok: false; code: "out_of_bounds" | "blocked"; message: string } {
+  const path: Tile[] = [];
+  let at = from;
+  for (const dir of steps) {
+    if (!isDirection(dir)) return { ok: false, code: "out_of_bounds", message: STEPS_GO };
+    const step = stepFrom(ground, at, dir);
+    if (!step.ok) return { ok: false, code: step.code, message: step.message };
+    path.push(step.to);
+    at = step.to;
+  }
+  return { ok: true, path };
+}
+
 /** A tile a walk reached: how many steps from the start, and the step that got there. */
 export interface WalkNode extends Tile {
   steps: number;

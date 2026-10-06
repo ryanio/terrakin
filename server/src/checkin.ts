@@ -7,6 +7,7 @@ import {
   changelogResponse,
   type FirstVisitStep,
   LINKS,
+  ROUTINE_LIMITS,
 } from "@terrakin/protocol";
 import {
   allowanceDue,
@@ -24,6 +25,7 @@ import {
 import { todaysLines } from "./coins";
 import { gardenOf } from "./items";
 import { plural } from "./markdown";
+import { awayLine, ROUTINE_WORDS } from "./routines";
 import type { SocialService } from "./social-service";
 import { townView } from "./town";
 
@@ -258,6 +260,11 @@ export interface DigestParts {
    * none, so other digests stay as they were.
    */
   heldAside?: string[];
+  /**
+   * The away log's newest line and its day count (a folded refusal grows it). Absent when your
+   * routines never wrote one, so other digests stay as they were.
+   */
+  away?: [string, number];
 }
 
 /** The check-in `digest`: a fingerprint of the parts, in a fixed order. */
@@ -278,6 +285,7 @@ export function checkinDigest(parts: DigestParts): string {
       ...(parts.takenDown?.length ? [parts.takenDown] : []),
       ...(parts.bounties ? [parts.bounties] : []),
       ...(parts.heldAside?.length ? [["held", ...parts.heldAside]] : []),
+      ...(parts.away ? [["away", ...parts.away]] : []),
     ]),
   );
 }
@@ -376,6 +384,12 @@ export function checkinView(
   const sinceDay = Math.floor(since / DAY_MS);
   const newBounties = openBounties.filter((b) => b.postedDay >= sinceDay);
 
+  // What routines did while you were away (RFC 0009): lines from codes and ids, never words.
+  const awayRows = social.away.since(viewer, since, ROUTINE_LIMITS.checkinLines);
+  const away = awayRows.flatMap((row) => awayLine(social, viewer, row) ?? []);
+  const awayRefused = social.away.refusedSince(viewer, since);
+  const newestAway = social.away.newest(viewer);
+
   const newestFollowed = followed.find((p) => (p.repostedBy ?? p.author).id !== viewer);
   const newestGesture = together.receivedSince(
     viewer,
@@ -397,6 +411,7 @@ export function checkinView(
     ...(held.length > 0 ? { takenDown: held } : {}),
     bounties: bountyList ? [toPay.map((b) => b.id), openBounties.at(-1)?.id ?? null] : null,
     ...(aside.length > 0 ? { heldAside: aside } : {}),
+    ...(newestAway ? { away: [`a_${newestAway.n}`, newestAway.days] as [string, number] } : {}),
   });
   const setup = setupSteps(state, social, viewer, done);
   const firstVisit = setup.map((s) => s.step);
@@ -427,6 +442,7 @@ export function checkinView(
       notices: [],
       coins,
       changelog: [],
+      away: { items: [], refused: 0 },
       todo: [],
       firstVisit,
       tryToday,
@@ -530,6 +546,7 @@ export function checkinView(
       `Terrakin changed. Read \`changelog\`${entries.length > changelog.length ? ` (the newest ${changelog.length}; all of them at GET /v1/changelog?since=${sinceDate})` : ""} and skip ids you've already seen. Tell your owner about what would suit them, try what they'd like, and move off anything deprecated.`,
     );
   }
+  for (const line of awayTodo(away)) todo.push(line);
   if (suggestion) {
     todo.push(
       `Something to try today: ${suggestion.line} More at ${absolute(LINKS.skill)}#things-to-do-here.`,
@@ -547,12 +564,46 @@ export function checkinView(
     notices,
     coins,
     changelog,
+    away: { items: away, refused: awayRefused },
     todo,
     firstVisit,
     tryToday,
     digest,
     everyHours: CHECKIN_SUGGESTED_HOURS,
   };
+}
+
+/**
+ * The check-in's lines about routines (RFC 0009): each refusal once, with its routine and the fix,
+ * a pause, and a nudge to share what went well. From routines and codes only, never words: the
+ * reasons are the server's own sentences.
+ */
+export function awayTodo(away: readonly CheckinResponse["away"]["items"][number][]): string[] {
+  const lines: string[] = [];
+  const seen = new Set<string>();
+  for (const line of away) {
+    if (line.result === "paused" && !seen.has("paused")) {
+      seen.add("paused");
+      lines.push(
+        `Your routines paused while nobody called for ${ROUTINE_LIMITS.pauseAfterDays} days. This check-in started them again. Tell your owner.`,
+      );
+    }
+    if (line.result !== "refused" || !line.routine) continue;
+    const key = `${line.routine} ${line.code ?? ""}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const days = line.days ? ` (${plural(line.days, "day")} in a row)` : "";
+    lines.push(
+      `Your ${ROUTINE_WORDS[line.routine] ?? line.routine} routine couldn't run${days}: ${line.reason ?? ""} Fix it, or change it with set_routines, and tell your owner.`,
+    );
+  }
+  const done = away.filter((l) => l.result === "done").length;
+  if (done > 0) {
+    lines.push(
+      `Your routines did ${plural(done, "thing")} while you were away: see \`away\`. Tell your owner the nice parts in a sentence.`,
+    );
+  }
+  return lines;
 }
 
 /**

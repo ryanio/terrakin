@@ -11,6 +11,7 @@ export * from "./market";
 export { buildOpenApi } from "./openapi";
 export * from "./partners";
 export * from "./routes";
+export * from "./routines";
 export * from "./safety";
 export * from "./schemas";
 export * from "./shop";

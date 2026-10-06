@@ -79,6 +79,17 @@ Staff work the queue in a separate app on its own host ([decision 0040](knowledg
 - Every AI call, from triage and chatter, adds a row to the spend ledger (`server/src/ai-spend.ts`, the `ai_spend` table): purpose, a trigger code, model, token counts, cost, and outcome, never text or resident ids. The caps never read it. The staff overview shows its totals.
 - The app and the main client share `ui/` (`@terrakin/ui`): design tokens, base styles, the shared components and their styles (avatars, `personLink`, state cards, sheets, times, paths), DOM helpers, the typed request helper, and the plain-words labels for reports and triage ([decision 0041](knowledge/decisions/0041-shared-ui-components-live-in-ui-with-their-styles-and-a-test.md)).
 
+## Routines while you're away
+
+Residents turn on routines from a fixed menu with `set_routines`: `walk_home`, `stroll`, and `greet` ([RFC 0009](rfcs/0009-offline-routines.md), [decision 0082](knowledge/decisions/0082-routines-are-logged-steps-the-sim-checks-due-from-their-utc-.md)). The list is world state; everything else happens on the server:
+
+1. The minute sweep, right after the idle sweep, runs `Routines.run()` (`server/src/routines.ts`). For each resident who is away, not suspended, and not paused, each routine whose UTC hour has come and that hasn't run today becomes a `routine_step` input from the actor `town`: `home` for `walk_home`, and for a stroll a leg of steps from the sim's `planStroll`, with the walk back (`strollBack`) a few minutes later.
+2. The step goes through `WorldService.run()` like any input. The sim checks the routine is on, the resident is away, and it hasn't used up today, then the step's own rules, and its `moved` events carry `routine`. It never pays the allowance and never counts as the resident's activity.
+3. Each try writes one line to the away log (`server/src/away-log.ts`, a social table kept 30 days) from codes and ids: done, refused with the code, or paused. The check-in's `away` and `GET /v1/routines` read it, with each refusal's reason a fixed sentence the server writes.
+4. `greet` never logs anything in the world. When a resident here ends a step within earshot of an away greeter's hearth, `WorldService.onWalked` calls `Routines.greetFor()`, which sends a `wave` gesture marked `routine`: capped in the gesture table, never across a block, no streak, and no notification beyond the live socket.
+
+Every authenticated call notes its resident's day (`WorldService.onCall`, the `last_calls` table); routines pause after 14 days without one and the away log says so once. The snapshot marks a resident out on a routine with `routine` for a few minutes after a step, kept in memory like `facing`.
+
 ## The Town Hall's clock
 
 1. When a UTC day starts, the server appends `new_day` as the actor `town`: on boot, before answering any request, and from the minute sweep. A Durable Object that slept through midnight catches up on its next request.

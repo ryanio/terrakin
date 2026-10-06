@@ -22,6 +22,7 @@ import {
   routeErrors,
   TAGS,
 } from "./routes";
+import * as routines from "./routines";
 import * as safety from "./safety";
 import * as schemas from "./schemas";
 import * as shop from "./shop";
@@ -116,6 +117,7 @@ function namedSchemas() {
     ...market,
     ...bounties,
     ...snapshots,
+    ...routines,
   })) {
     if (!(value instanceof z.ZodType) || names.has(value)) continue;
     registry.add(value, { id: name });
@@ -162,7 +164,7 @@ export function buildOpenApi() {
     const name = names.get(schema);
     if (!name)
       throw new Error(
-        `${where} uses a schema that isn't exported from schemas.ts, social.ts, town.ts, changelog.ts, safety.ts, checkin.ts, coins.ts, galleries.ts, items.ts, market.ts, bounties.ts, partners.ts, shop.ts, or snapshots.ts`,
+        `${where} uses a schema that isn't exported from schemas.ts, social.ts, town.ts, changelog.ts, safety.ts, checkin.ts, coins.ts, galleries.ts, items.ts, market.ts, bounties.ts, partners.ts, shop.ts, snapshots.ts, or routines.ts`,
       );
     return ref(name);
   };

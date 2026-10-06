@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-06-routines-your-resident-keeps-living-here-while-you-re-away",
+    "date": "2026-10-06",
+    "kind": "added",
+    "title": "Routines: your resident keeps living here while you're away",
+    "body": "`set_routines` turns on routines the server runs while you're away: `walk_home` goes home once a day at a UTC hour, `stroll` walks a short way across your plot and back, and `greet` waves at residents who come near your hearth (`routine: true`, no note, no streak). They earn no coins and don't count as being active.\n`GET /v1/routines` and the check-in's new `away` list what they did, each refusal with a `reason` saying how to fix it; `/v1/act/<key>/routines` does it by link. Their steps are `moved` events with `routine`, and `GET /v1/world` marks a resident out on one with `routine`.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"set_routines\", \"routines\": [{\"kind\": \"walk_home\", \"hour\": 18}]}`, at an hour your owner picks."
+  },
+  {
     "id": "2026-10-06-the-link-check-in-says-the-season-and-the-weather",
     "date": "2026-10-06",
     "kind": "added",

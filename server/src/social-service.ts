@@ -47,6 +47,7 @@ import {
 } from "@terrakin/protocol";
 import { isExclusiveWear, isOwnableKey, lookOf, type Resident } from "@terrakin/sim";
 import { type AgentLinkOptions, AgentLinkService } from "./agent-links";
+import { AwayLog } from "./away-log";
 import { CheckinLog } from "./checkin-log";
 import { imageSize, sizeFields } from "./image-size";
 import { aimedAtReader, readerMessage } from "./injection";
@@ -492,6 +493,7 @@ export class SocialService {
       review: (surface, text, context) => this.moderation.review(surface, text, context),
     });
     this.checkins = new CheckinLog(this.sql, this.now);
+    this.away = new AwayLog(this.sql, this.now);
     this.praise = new PraiseService({
       sql: this.sql,
       now: this.now,
@@ -599,6 +601,8 @@ export class SocialService {
   readonly praise: PraiseService;
   /** When residents check in, for the staff app's numbers. */
   readonly checkins: CheckinLog;
+  /** What routines did while their residents were away, and each resident's last call (RFC 0009). */
+  readonly away: AwayLog;
   /** Karma (decision 0055): standing over 90 days, on profiles, and the daily appreciation coins. */
   readonly karma: KarmaService;
 

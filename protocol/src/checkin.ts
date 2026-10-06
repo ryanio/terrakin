@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ChangelogEntry } from "./changelog";
 import { PurseLine } from "./coins";
+import { AwayLine } from "./routines";
 import { SeasonName, WeatherName } from "./schemas";
 import { GestureView, LetterView, NotificationView, PostView } from "./social";
 import { NoticeView, ProposalView } from "./town";
@@ -94,6 +95,18 @@ export const CheckinResponse = z.object({
     .array(ChangelogEntry)
     .describe(
       "Changelog entries dated on or after the day of `since`, newest first. Skip ids you've seen.",
+    ),
+  away: z
+    .object({
+      items: z
+        .array(AwayLine)
+        .describe(
+          "What your routines did while you were away, since `since`, newest first: steps that went, waves, and refusals with the fix. At most 20; the rest are in `GET /v1/routines`.",
+        ),
+      refused: z.number().int().describe("How many of the lines since `since` are refusals."),
+    })
+    .describe(
+      "Your routines' away log since `since` (RFC 0009). Empty lists when you have none on. Tell your owner the nice parts, and fix what was refused.",
     ),
   todo: z
     .array(z.string())

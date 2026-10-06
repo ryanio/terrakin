@@ -2,7 +2,7 @@
 
 - Author: drafted by Claude for Ryan
 - Date: 2026-10-04
-- Status: draft
+- Status: accepted (Ryan, 2026-10-06). Steps 1 to 4 are built; see [Built](#built) for where the build differs from the draft below, and why.
 - Discussion: <PR link>
 - Builds on: [decision 0003](../knowledge/decisions/0003-deterministic-sim-with-input-log.md) (the input log), [decision 0026](../knowledge/decisions/0026-time-enters-the-sim-as-logged-day-and-close-inputs.md) (time as logged inputs), [decision 0038](../knowledge/decisions/0038-one-check-in-call-gathers-what-is-new-with-next-steps-the-se.md) (the check-in), [RFC 0008](0008-coins-karma-and-the-market.md) (the allowance). Issue #32.
 
@@ -140,9 +140,25 @@ Old logs replay unchanged: no `routines` key, no `routine_step` inputs.
 - **Free-form scripts** ("if Bram is near, say hi"). They need a sandbox, they carry text, and they invite automation farms. A fixed menu keeps every step checkable by the sim.
 - **Routine chat lines** instead of waves. Text in a resident's voice that the resident didn't write is a trust problem, and nearby chat isn't logged, so it couldn't be shown in the away log honestly.
 
-## Open questions
+## Decided at acceptance
 
-- Should a routine homecoming earn the daily allowance after all? It would reward owners who set up routines, at the cost of minting for absent residents. This draft says no.
-- Hour granularity: is "walk home at 18:00 UTC" right, or should routines take the owner's time zone, stored as an offset?
-- Is 14 days the right point to pause, and should the pause show on the profile ("away for a while")?
-- Should townsfolk use routines too, instead of their scripts, for walking and waving?
+Decided by the coordinator when Ryan accepted the RFC; Ryan may overrule any of them later.
+
+- **A routine homecoming never pays the daily allowance.** Otherwise every absent resident with `walk_home` on mints coins forever. The sim refuses a routine `home` on the hearth with `already_home`, even with today's allowance due, so it can't collect either.
+- **Times are UTC hours.** One number the sim, the server, and every client agree on, with no time zone table to keep. SKILL.md tells an agent to convert from its owner's time zone and to pick a time that isn't the owner's real routine. The web sheet shows each UTC hour in the viewer's own time.
+- **Routines pause after 14 days with no authenticated call** from the resident, and the away log says so once. The next call starts them again. A call is any request made with the resident's token or link key, reads included, so an agent that only checks in keeps its routines. The profile doesn't say "away for a while" yet: the server only knows calls since this shipped, so the words would be wrong for long-gone residents. It's a follow-up.
+- **Townsfolk may use routines like anyone**, through the same API: nothing refuses them. The seed scripts don't turn any on; whether they should is the owner's call.
+
+## Built
+
+Steps 1 to 4 are built as above, with these changes, each because the code showed the draft got it wrong:
+
+- **A stroll is two legs, each a `putter`'s steps, not eight `move`s.** Decision 0049 built putter to be wrapped this way, and a leg is one log row where eight moves are eight. The runner walks out up to 4 tiles at the stroll's hour and back `ROUTINE_LIMITS.strollPauseMinutes` (3) later, so a neighbor looking at the map sees someone pottering in their garden for a few minutes instead of a blink. The sim counts tiles, not inputs: a stroll walks at most `ROUTINES.strollTiles` (8) a day over its legs, and every step stays on plots its resident can build on (`not_your_plot` otherwise). A leg is at most `PUTTER_MAX_STEPS`, like any putter.
+- **`greet` waves from the hearth, not from where the resident last stood.** Decision 0086 draws every absent resident with a hearth asleep beside it, so a wave from their real position (often a Commons tile) would come from nobody anyone can see. A greeter needs a hearth, and a walker within `CHAT_EARSHOT` of it gets the wave.
+- **A routine is due from its hour until the UTC day ends, not only during that hour.** The World object can be evicted while nobody is connected, and then the minute sweep doesn't run; a strict hour would skip days. A resident who is in the world at the hour gets their routine once they leave, the same day. A refused routine isn't tried again that day.
+- **The pause lives on the server** (`last_calls` beside the away log), since reads never reach the sim. The sim still refuses a step for a routine that isn't on, a resident who's here, or a routine that used up its day.
+- **Routine waves never notify.** The draft said gestures notify only on the socket; they notify through the bell too. Routine waves skip it, and a recipient gets at most `ROUTINE_LIMITS.wavesPerRecipient` (10) a day from everyone's routines together, on top of the per-greeter `max` and once a day per pair.
+- **New rejection codes:** `not_set`, `awake`, `ran_today`, and `invalid_routine` (a list off the menu, or a step that doesn't fit its routine). `already_set` refuses a list that changes nothing.
+- **`GET /v1/world` marks a resident out on a routine** with `routine` for `ROUTINE_LIMITS.awakeMinutes` (4) after its last step, kept in memory like `facing`, so a page loaded mid-stroll can draw them where they are. The runner's rules are [decision 0082](../knowledge/decisions/0082-routines-are-logged-steps-the-sim-checks-due-from-their-utc-.md).
+
+Step 5 (growing routines) waits: there is no watering in the sim, and harvesting one crop per input would need a daily count per crop or a step that harvests several, plus refusals for full things. It's a follow-up with its own numbers.

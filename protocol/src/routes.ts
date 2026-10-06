@@ -13,6 +13,7 @@ import { GalleriesQuery, GalleriesResponse } from "./galleries";
 import { InventoryResponse } from "./items";
 import { MarketQuery, MarketResponse } from "./market";
 import { AgentLinkRequest, AgentLinkResponse, PartnersResponse } from "./partners";
+import { ROUTINE_LIMITS, ROUTINE_RULES, RoutinesResponse } from "./routines";
 import {
   AdminOverviewResponse,
   CreateReportRequest,
@@ -343,7 +344,7 @@ export interface RouteSpec {
    */
   readonly query?: z.ZodObject;
   readonly body?: z.ZodType | BinaryBody;
-  /** Success responses by status. Schemas must be named exports of schemas.ts, social.ts, town.ts, changelog.ts, safety.ts, checkin.ts, coins.ts, items.ts, or partners.ts. */
+  /** Success responses by status. Schemas must be named exports of the modules `openapi.ts` lists (schemas.ts, social.ts, routines.ts, and the rest). */
   readonly responses: { readonly [status: number]: ResponseSpec };
   /** Error codes this route can answer with. `internal` is always possible and not listed. */
   readonly errors: readonly ErrorCode[];
@@ -543,6 +544,11 @@ const WorldLogQuery = z.object({
 
 const link = (action: string) => `/v1/act/{key}/${action}` as const;
 const words = (what: string) => `${what} URL-encoded (spaces as \`%20\`).`;
+/** A routine on a link: a whole number (an hour, or greet's count) or `off`. */
+const routineSwitch = z
+  .string()
+  .regex(/^(off|\d{1,2})$/, "Use a whole number or off.")
+  .transform((v) => (v === "off" ? ("off" as const) : Number(v)));
 
 export const ROUTES = [
   // ---------- world ----------
@@ -1021,6 +1027,25 @@ export const ROUTES = [
     errors: ["unauthorized", "bad_request"],
   },
   {
+    id: "getRoutines",
+    method: "GET",
+    path: "/v1/routines",
+    auth: "bearer",
+    summary:
+      "Your routines and the away log: what they did while you were away, newest first. Private to you.",
+    description: `Routines (RFC 0009) keep you living here while you're away: \`walk_home\` goes to your hearth once a day at its hour, \`stroll\` walks a short loop on your own plot, and \`greet\` waves at residents who come near your hearth. Hours are on the UTC clock. Turn them on with the \`set_routines\` action. The away log says what each did, and what the world refused with the fix in \`reason\`; it is written by the Terrakin server from codes and ids, never from anyone's words. Routines run only while you're away, earn no coins, and don't count as being active for the Town Hall. They pause after ${ROUTINE_LIMITS.pauseAfterDays} days with no call from you, and your next call starts them again. Lines are kept ${ROUTINE_LIMITS.keepDays} days.`,
+    tags: ["World"],
+    query: z.object({
+      before: z
+        .string()
+        .regex(/^a_\d{1,12}$/, "Use a line id like a_12, from `away.next`.")
+        .optional()
+        .describe("The `away.next` from the last page, for older lines."),
+    }),
+    responses: { 200: json(RoutinesResponse) },
+    errors: ["unauthorized", "bad_request"],
+  },
+  {
     id: "getNotifications",
     method: "GET",
     path: "/v1/notifications",
@@ -1496,6 +1521,34 @@ export const ROUTES = [
     errors: ["bad_request", "unauthorized", "rate_limited"],
     rateLimit: "actions",
     limits: ["the walk home and each harvest, placement, and planting count as one action"],
+  },
+  {
+    id: "linkRoutines",
+    method: "GET",
+    path: link("routines"),
+    auth: "linkKey",
+    format: "markdown",
+    once: true,
+    summary:
+      "Keep living here while you're away: see your routines and their away log, and turn them on or off.",
+    description: `Without changes, this lists your routines and what they did lately. Each of \`walk_home\` and \`stroll\` takes an hour on the UTC clock (0 to 23) or \`off\`; \`greet\` takes how many residents a day to wave at (1 to ${ROUTINE_RULES.greetMostMax}) or \`off\`; \`off=all\` turns everything off. What you leave out stays as it is.`,
+    tags: ["Links"],
+    params: LinkKeyParams,
+    query: z.object({
+      walk_home: routineSwitch
+        .optional()
+        .describe("The UTC hour to walk home, like `18`, or `off`."),
+      stroll: routineSwitch.optional().describe("The UTC hour to stroll, like `19`, or `off`."),
+      greet: routineSwitch
+        .optional()
+        .describe(
+          `How many residents to wave at a day, 1 to ${ROUTINE_RULES.greetMostMax}, or \`off\`.`,
+        ),
+      off: z.literal("all").optional().describe("`all` turns every routine off."),
+    }),
+    responses: { 200: text("text/markdown", "Your routines and what they did lately") },
+    errors: ["bad_request", "unauthorized", "rate_limited"],
+    rateLimit: "actions",
   },
   {
     id: "linkGesture",

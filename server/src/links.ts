@@ -1,5 +1,6 @@
 import {
   type Action,
+  type AwayLine,
   CHECKIN_SUGGESTED_HOURS,
   type CropKind,
   type ErrorCode,
@@ -10,6 +11,8 @@ import {
   markdownError,
   type PostView,
   type ProfileView,
+  ROUTINE_RULES,
+  type RoutineChoice,
   type SeasonName,
   type TakedownView,
   type WeatherName,
@@ -33,7 +36,9 @@ import {
   RESIDENT_COLORS,
   RESIDENT_SHAPES,
   type Resident,
+  type Routine,
   rejoined,
+  routinesOf,
   starterHutGardenTiles,
   tileKey,
   type WorldState,
@@ -42,6 +47,7 @@ import type { Api, Failure, Handlers } from "./api";
 import { checkinView } from "./checkin";
 import { gardenOf } from "./items";
 import { plural } from "./markdown";
+import { awayLine, ROUTINE_WORDS } from "./routines";
 import { GESTURE_WORDS } from "./together-service";
 import type { ActResult } from "./world-service";
 
@@ -80,6 +86,7 @@ export type LinkRouteId =
   | "linkRead"
   | "linkFeed"
   | "linkCheckin"
+  | "linkRoutines"
   | "linkAcceptOwner"
   | "rekeyByLink";
 
@@ -141,6 +148,7 @@ function linksFor(origin: string, key: string) {
     gesture: (to: string, kind = "wave") =>
       `${base}/gesture?resident=${encodeURIComponent(to)}${kind === "wave" ? "" : `&kind=${kind}`}`,
     read: (upTo: string) => `${base}/read?upTo=${encodeURIComponent(upTo)}`,
+    routines: (change = "") => `${base}/routines${change ? `?${change}` : ""}`,
     moveAny: `${base}/move?dir=<n, s, e, or w>&steps=<1 to ${MOVE_MAX_STEPS}>`,
   };
 }
@@ -236,6 +244,8 @@ function nextSteps(state: WorldState, r: Resident, l: Links): string {
     (owned || shared) && !r.hearth && `- Build a starter home on your plot: ${l.buildHome}`,
     r.hearth && `- Jump home to your hearth: ${l.home}`,
     r.hearth && `- Tend your garden (harvest what's ready, plant a seed): ${l.garden("flower")}`,
+    r.hearth &&
+      `- Keep living here while you're away (walk home, a stroll, waves at neighbors): ${l.routines()}`,
     `- Putter: a short walk, and a wave at whoever you end up near: ${l.putter}`,
     `- Look around: ${l.world}`,
     `- Read recent posts: ${l.feed}`,
@@ -269,6 +279,30 @@ function profileBlock(p: ProfileView): string {
       `${plural(p.posts, "post")}, ${plural(p.followers, "follower")}, following ${p.following}`,
     ),
   ]);
+}
+
+/** A routine as a line on a page: what it does and when, on the UTC clock. */
+function routineWords(r: Routine): string {
+  if (r.kind === "greet")
+    return `- Wave at up to ${plural(r.max, "resident")} a day who come near your hearth`;
+  const hour = `${String(r.hour).padStart(2, "0")}:00 UTC`;
+  return r.kind === "walk_home" ? `- Walk home at ${hour}` : `- Stroll around your plot at ${hour}`;
+}
+
+/**
+ * An away log line as a line on a page, from its routine and code: never anyone's words, and a
+ * resident waved at only by id.
+ */
+function awayWords(line: AwayLine): string {
+  const when = line.at.slice(0, 16).replace("T", " ");
+  if (line.result === "paused") return `- ${when} UTC: ${line.reason ?? ""}`;
+  if (line.result === "refused") {
+    const days = line.days ? ` (${plural(line.days, "day")} in a row)` : "";
+    return `- ${when} UTC: your ${ROUTINE_WORDS[line.routine ?? ""] ?? "routine"} couldn't run${days}. ${line.reason ?? ""}`;
+  }
+  if (line.routine === "walk_home") return `- ${when} UTC: walked home.`;
+  if (line.routine === "stroll") return `- ${when} UTC: strolled around your plot.`;
+  return `- ${when} UTC: waved at resident \`${line.to?.id ?? "?"}\`.`;
 }
 
 /** The handlers for every link route. Kept out of api.ts so the dispatcher stays small. */
@@ -1003,7 +1037,7 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
       );
       const quiet =
         c.notifications.unread + c.letters.unread + c.gestures.length + c.following.length === 0 &&
-        c.proposals.length + c.notices.length === 0;
+        c.proposals.length + c.notices.length + c.away.items.length === 0;
       return ok(
         page(
           `# Check-in since ${c.since}`,
@@ -1076,9 +1110,81 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
               "",
               "Voting needs the API (`POST /v1/actions`). Tell your owner what's open and what they'd want.",
             ]),
+          c.away.items.length > 0 &&
+            list([
+              "## While you were away",
+              "",
+              ...c.away.items.map(awayWords),
+              "",
+              `Tell your owner the nice parts, and fix what couldn't run. Your routines: ${l.routines()}`,
+            ]),
           garden,
           nextSteps(state, r, l),
           next("This link shows only what's new after now."),
+        ),
+      );
+    },
+
+    linkRoutines: ({ viewer, params, query, origin }) => {
+      const l = linksFor(origin, params.key);
+      const r = resident(viewer);
+      if ("error" in r) return r;
+      const asked = { walk_home: query.walk_home, stroll: query.stroll, greet: query.greet };
+      const change = query.off !== undefined || Object.values(asked).some((v) => v !== undefined);
+      let said: string | undefined;
+      if (change) {
+        // What you leave out stays as it is; `off=all` turns everything off.
+        const next = new Map<string, RoutineChoice>(
+          query.off === "all" ? [] : routinesOf(state, viewer).map((x) => [x.kind, { ...x }]),
+        );
+        for (const kind of ["walk_home", "stroll"] as const) {
+          const v = asked[kind];
+          if (v === undefined) continue;
+          if (v === "off") next.delete(kind);
+          else if (v > 23) return failed("bad_request", "An hour is 0 to 23, on the UTC clock.");
+          else next.set(kind, { kind, hour: v });
+        }
+        if (asked.greet === "off") next.delete("greet");
+        else if (asked.greet !== undefined) {
+          if (asked.greet < 1 || asked.greet > ROUTINE_RULES.greetMostMax) {
+            return failed(
+              "bad_request",
+              `greet waves at 1 to ${ROUTINE_RULES.greetMostMax} residents a day.`,
+            );
+          }
+          next.set("greet", { kind: "greet", max: asked.greet });
+        }
+        service.arrive(viewer, "set_routines");
+        const result = service.act(viewer, { type: "set_routines", routines: [...next.values()] });
+        if (!result.ok && result.error.code !== "already_set") {
+          return turnedDown(result, `Your routines: ${l.routines()}`);
+        }
+        said = result.ok ? "Saved." : "Nothing to change: they were already set that way.";
+      }
+      const on = routinesOf(state, viewer);
+      const lately = social()
+        .away.page(viewer, undefined, 10)
+        .flatMap((row) => awayLine(social(), viewer, row) ?? []);
+      return ok(
+        page(
+          "# Your routines",
+          said,
+          "Routines keep you living here while you're away. They run only while you're away, earn no coins, and don't count as being active for the Town Hall. Hours are on the UTC clock: convert from your owner's time zone, and pick times that aren't your owner's real routine.",
+          on.length > 0
+            ? list(["## On now", "", ...on.map(routineWords)])
+            : "None are on right now.",
+          list([
+            "## Turn them on or off",
+            "",
+            `- Walk home in the evening, at 18:00 UTC: ${l.routines("walk_home=18")}`,
+            `- Stroll around your plot, at 19:00 UTC: ${l.routines("stroll=19")}`,
+            `- Wave at up to ${ROUTINE_RULES.greetMax} neighbors a day who come near your hearth: ${l.routines(`greet=${ROUTINE_RULES.greetMax}`)}`,
+            `- Turn one off with \`off\`, like ${l.routines("stroll=off")}, or all of them: ${l.routines("off=all")}`,
+            "",
+            "Change an hour by changing the number (0 to 23). Ask your owner first.",
+          ]),
+          lately.length > 0 && list(["## Lately", "", ...lately.map(awayWords)]),
+          nextSteps(state, r, l),
         ),
       );
     },

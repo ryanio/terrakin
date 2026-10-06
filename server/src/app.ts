@@ -91,7 +91,8 @@ export interface AppOptions {
   tips?: TownsfolkTips;
   /**
    * Tests only (`TERRAKIN_TEST_CLOCK=1`): answers `POST /v1/test/advance-day` by moving the clock
-   * a day on, or `?days=N` days (1 to 400) in one jump, which the world takes as one `new_day`.
+   * a day on, or `?days=N` days (1 to 400) in one jump, which the world takes as one `new_day`,
+   * then runs the routine steps that are due.
    * It's deliberately outside the route table, so it never appears in the API docs, and the
    * Cloudflare adapter has no way to turn it on.
    */
@@ -242,6 +243,8 @@ export function createApp(options: AppOptions): Server {
         Math.max(1, Math.trunc(Number(url.searchParams.get("days"))) || 1),
       );
       const day = options.testClock.advanceDay(days);
+      // Whatever routines the new day made due run now, not at the next minute's sweep.
+      api.runRoutines();
       return send(res, {
         status: 200,
         headers: { "content-type": "application/json", "cache-control": "no-store" },

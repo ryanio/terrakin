@@ -254,7 +254,7 @@ export const TRY_NEXT: readonly TryNext[] = [
     id: "gather",
     commands: ["gather"],
     open: itemsOpen,
-    line: 'Gather a branch or a stone: `pickups` in GET /v1/world says where they lie today. Then {"type": "gather", "x": <x>, "y": <y>} on your plot, the Commons, or unclaimed land.',
+    line: 'Gather a branch or a stone: `pickups` in GET /v1/world says where they lie today. Then {"type": "gather", "x": <x>, "y": <y>} on your plot, the Commons, or unclaimed land, or {"type": "gather"} to pick up everything within reach of where you stand.',
   },
   {
     // Finds (RFC 0021), for someone whose collection book has none yet. No command counts as

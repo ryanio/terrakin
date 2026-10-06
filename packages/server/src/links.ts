@@ -45,18 +45,24 @@ import {
   inCommons,
   inventoryOf,
   isCommons,
+  isFindKind,
   isFurnitureKind,
   isSweetKind,
   isTownEvent,
   lastDeclineDay,
+  mayGatherOn,
+  nearestOpenPickup,
   PET_COATS,
   PET_KINDS,
   type Plot,
   pantryDue,
   pantryWould,
+  pickupLeft,
+  pickupsInReach,
   plotAtTile,
   plotKey,
   plotOf,
+  plotPickupsOwned,
   plotsOwnedBy,
   purseOf,
   RECIPES,
@@ -115,6 +121,7 @@ export type LinkRouteId =
   | "linkHandle"
   | "linkLook"
   | "linkGarden"
+  | "linkGather"
   | "linkThings"
   | "linkJoinEvent"
   | "linkPet"
@@ -173,6 +180,7 @@ function linksFor(origin: string, key: string) {
         : `${base}/checkin`,
     following: `${base}/feed?following=1`,
     things: `${base}/things`,
+    gather: `${base}/gather`,
     joinEvent: (event: string) => `${base}/join-event?event=${encodeURIComponent(event)}`,
     pet: () => `${base}/pet`,
     adopt: `${base}/pet?kind=<a kind>&coat=<a coat>&name=<your pet's name>`,
@@ -296,9 +304,74 @@ const homeStep = (state: WorldState, id: string, l: Links) =>
     ? `Build a starter home on your plot, which sets your hearth: ${l.buildHome}`
     : `A home needs a plot first. Pick a free one and settle it: ${l.world}`;
 
+/**
+ * What `gather` with no tile would pick up for `id` standing at `at`: everything within reach that
+ * they may take, from the sim's own rules. Empty until items open.
+ */
+const gatherable = (state: WorldState, id: string, at: Tile) =>
+  state.items === undefined
+    ? []
+    : pickupsInReach(
+        state.config,
+        at,
+        (x, y) => pickupLeft(state, x, y),
+        (x, y) => mayGatherOn(plotAtTile(state, x, y), id, plotPickupsOwned(state)),
+      );
+
+/**
+ * The move links that bring `to` within reach of `from`: east or west, then north or south, the
+ * walk the sim's refusals name, each link at most `MOVE_MAX_STEPS` steps.
+ */
+function walkLinks(l: Links, from: Tile, to: Tile, reach: number): string[] {
+  const legs: [string, number][] = [
+    [to.x > from.x ? "e" : "w", Math.abs(to.x - from.x) - reach],
+    [to.y > from.y ? "s" : "n", Math.abs(to.y - from.y) - reach],
+  ];
+  const links: string[] = [];
+  for (const [dir, steps] of legs) {
+    for (let left = steps; left > 0; left -= MOVE_MAX_STEPS) {
+      links.push(l.move(dir, Math.min(left, MOVE_MAX_STEPS)));
+    }
+  }
+  return links;
+}
+
+/**
+ * Why the gather link found nothing for `r` to pick up, and the walk to the nearest thing they may
+ * take anywhere in the world, as links.
+ */
+function nothingToGather(state: WorldState, r: Resident, l: Links): { why: string; next: string } {
+  const lying = (x: number, y: number) => pickupLeft(state, x, y);
+  const theirs = pickupsInReach(state.config, r, lying, () => true).length > 0;
+  const why = theirs
+    ? "What lies within reach is on someone else's plot, and only its owner and the people they share it with can gather there."
+    : "Nothing lies within reach of you today.";
+  const { config } = state;
+  const near = nearestOpenPickup(state, r.id, r, Math.max(config.width, config.height));
+  const kind = near && lying(near.x, near.y);
+  if (!near || !kind) {
+    return {
+      why: `${why} Nothing else lies anywhere you may gather today. Fallen branches, loose stones, and finds lie anew every UTC day.`,
+      next: `Look around: ${l.world}`,
+    };
+  }
+  const walk = walkLinks(l, r, near, config.reach);
+  return {
+    why: `${why} The nearest one you may take is ${countOf(kind, 1)} at ${at(near)}.`,
+    next: list([
+      `Walk there with ${walk.length === 1 ? "this link" : "these links, in order"}, then open the gather link again:`,
+      "",
+      ...walk.map((link) => `- ${link}`),
+      "",
+      `Gather: ${l.gather}`,
+    ]),
+  };
+}
+
 /** The next steps that fit where this resident is: plot, then home, then the social side. */
 function nextSteps(state: WorldState, r: Resident, l: Links): string {
   const home = housed(state, r.id);
+  const lying = gatherable(state, r.id, r).length;
   return list([
     "## Next",
     "",
@@ -310,6 +383,8 @@ function nextSteps(state: WorldState, r: Resident, l: Links): string {
       state.items !== undefined &&
       `- Make something at a kitchen or workbench by your hearth: ${l.craft()}`,
     state.items !== undefined && `- What you hold, what you made, and your garden: ${l.things}`,
+    lying > 0 &&
+      `- Pick up what lies within reach (${plural(lying, "thing")}: branches, stones, or finds): ${l.gather}`,
     r.hearth && !r.pet && `- Adopt a pet, once your owner says which: ${l.pet()}`,
     `- Visit a neighbor's plot: ${l.visitAny}`,
     r.hearth &&
@@ -1074,6 +1149,49 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
           // The code line marks the page unfinished, so opening the link again carries on.
           stop && `Stopped early: ${stop.message}\n\nError code: \`${stop.code}\`.`,
           "Your check-in says when a crop is ready. Open this link again then to harvest and plant again.",
+          nextSteps(state, r, l),
+        ),
+      );
+    },
+
+    linkGather: ({ viewer, params, origin }) => {
+      const l = linksFor(origin, params.key);
+      service.arrive(viewer, "gather");
+      const result = service.act(viewer, { type: "gather" });
+      const r = resident(viewer);
+      if ("error" in r) return r;
+      if (!result.ok) {
+        if (result.error.code === "nothing_to_gather") {
+          const { why, next } = nothingToGather(state, r, l);
+          return turnedDown(
+            { ok: false, error: { code: "nothing_to_gather", message: why } },
+            next,
+          );
+        }
+        const help =
+          result.error.code === "inventory_full"
+            ? `What you hold: ${l.things}. Making something at a workbench or kitchen by your hearth uses some up: ${l.craft()}`
+            : linkHelp(origin, params.key);
+        return turnedDown(result, help);
+      }
+      const took = result.events.filter((e) => e.type === "gathered").length;
+      const changes = result.events.flatMap((e) =>
+        e.type === "inventory" && e.residentId === viewer && e.reason === "gather"
+          ? (e.changes ?? [])
+          : [],
+      );
+      const finds = changes.filter((c) => isFindKind(c.kind));
+      const left = gatherable(state, viewer, r).length;
+      return ok(
+        page(
+          "# Gathered",
+          `You picked up ${stackWords(changes)} from ${plural(took, "tile")} within reach of ${at(r)}.`,
+          finds.length > 0 &&
+            `${finds.length === 1 ? "That find is" : "Those finds are"} in your collection book now: ${origin}/r/${viewer}/collection. Tell your owner, more so if one is rare.`,
+          left > 0 &&
+            `Your things are full, so ${plural(left, "more thing")} still ${left === 1 ? "lies" : "lie"} within reach. What you hold: ${l.things}`,
+          r.hearth &&
+            `Wood and stone make furniture at a workbench. What you can make: ${l.craft()}`,
           nextSteps(state, r, l),
         ),
       );

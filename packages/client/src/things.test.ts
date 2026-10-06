@@ -83,6 +83,25 @@ describe("things", () => {
         changes: [{ kind: "geode", amount: 1, count: 1 }],
       }),
     ).toBe("You found 1 geode. It's in your collection book.");
+    // Gathering everything within reach brings several kinds in one event.
+    const all = (changes: { kind: "wood" | "stone" | "acorn"; amount: number }[]) =>
+      inventoryLine({
+        ...base,
+        reason: "gather",
+        changes: changes.map((c) => ({ ...c, count: c.amount })),
+      });
+    expect(
+      all([
+        { kind: "wood", amount: 3 },
+        { kind: "stone", amount: 1 },
+      ]),
+    ).toBe("You picked up 3 wood and 1 stone.");
+    expect(
+      all([
+        { kind: "wood", amount: 3 },
+        { kind: "acorn", amount: 2 },
+      ]),
+    ).toBe("You picked up 3 wood, and found 2 acorns. They're in your collection book.");
     const jam = {
       id: "i_1",
       kind: "lemon_jam" as const,
@@ -304,6 +323,13 @@ describe("things", () => {
     expect(worldProblem("blocked", "A block is in the way.")).toBe("A block is in the way.");
     expect(worldProblem("already_home", "You're already home.")).toBe("You're already home.");
     expect(worldProblem("rate_limited", "Slow down.")).toBe("Slow down.");
+    // The map offers a gather only for what it draws lying there, so a refusal means it's gone.
+    expect(
+      worldProblem(
+        "nothing_to_gather",
+        "Nothing lies within reach today. pickups in GET /v1/world lists what's lying today.",
+      ),
+    ).toBe("Nothing left to pick up there: someone got there first.");
   });
 
   it("keeps a toast up longer for a longer line, within limits", () => {

@@ -1522,6 +1522,17 @@ export class WorldService {
       };
       return this.run({ actor: residentId, command }, dry);
     }
+    if (action.type === "gather") {
+      // Without a tile it gathers everything within reach. Drop absent fields: the sim's types
+      // forbid explicit undefined.
+      const { x, y } = action;
+      const command: Command = {
+        type: "gather",
+        ...(x === undefined ? {} : { x }),
+        ...(y === undefined ? {} : { y }),
+      };
+      return this.run({ actor: residentId, command }, dry);
+    }
     if (action.type === "craft") {
       // A label travels with the thing to everyone who holds it: clean it and filter it first.
       const label = action.label === undefined ? "" : cleanText(action.label);

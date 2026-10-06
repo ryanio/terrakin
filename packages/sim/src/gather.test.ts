@@ -3,6 +3,7 @@ import { apply } from "./apply";
 import { biomeAt } from "./biome";
 import { CATALOG, FIND_KINDS } from "./catalog";
 import { FINDS_CONFIG, FINDS_HASH, FINDS_LOG } from "./fixtures/finds-log";
+import { GATHER_ALL_CONFIG, GATHER_ALL_HASH, GATHER_ALL_LOG } from "./fixtures/gather-all-log";
 import {
   FIND_SPAWNS,
   type FindSpawn,
@@ -420,6 +421,129 @@ describe("gathering on someone's plot", () => {
     expect(hashWorld(replay(CONFIG, w.log))).toBe(hash);
     // Pinned, so a change to the rule or to where it starts shows up here.
     expect(hash).toBe("de0e7cd5");
+  });
+});
+
+describe("gathering everything within reach (decision 0125)", () => {
+  // On DAY, plot (0, 0) has a branch at 5,0 and stones at 0,5 and 7,5, and plot (0, 1) branches at
+  // 0,10, 2,10, and 1,11. The spawn test pins them.
+
+  /** Walk a resident onto (x, y), one tile at a time. No blocks in these worlds. */
+  function stand(w: ReturnType<typeof world>, id: string, to: { x: number; y: number }) {
+    const at = () => w.state.residents[id] as { x: number; y: number };
+    while (at().x !== to.x) w.ok(id, { type: "move", dir: at().x < to.x ? "e" : "w" });
+    while (at().y !== to.y) w.ok(id, { type: "move", dir: at().y < to.y ? "s" : "n" });
+  }
+
+  /** Ada settles plot (0, 0); Bob is a stranger to it. */
+  function neighbors() {
+    const w = world();
+    w.day(DAY);
+    w.open();
+    for (const id of ["ada", "bob"]) w.join(id);
+    w.ok("ada", { type: "settle", px: 0, py: 0 });
+    return w;
+  }
+  const ALL = { type: "gather" } as const;
+
+  it("picks up everything within reach, north to south and west to east, as one total per kind", () => {
+    const w = neighbors();
+    // From (2, 8) the reach runs off the world's west edge, over a stone on Ada's plot and three
+    // branches on the land south of it.
+    stand(w, "bob", { x: 2, y: 8 });
+    const events = w.ok("bob", ALL);
+    expect(events).toEqual([
+      { type: "gathered", x: 0, y: 5, kind: "stone", by: "bob" },
+      { type: "gathered", x: 0, y: 10, kind: "wood", by: "bob" },
+      { type: "gathered", x: 2, y: 10, kind: "wood", by: "bob" },
+      { type: "gathered", x: 1, y: 11, kind: "wood", by: "bob" },
+      {
+        type: "inventory",
+        residentId: "bob",
+        reason: "gather",
+        changes: [
+          { kind: "stone", amount: 1, count: 1 },
+          { kind: "wood", amount: 3, count: 3 },
+        ],
+      },
+    ]);
+    // Each tile is picked clean for the day, so nothing is left to gather here.
+    for (const t of [
+      { x: 0, y: 5 },
+      { x: 0, y: 10 },
+      { x: 2, y: 10 },
+      { x: 1, y: 11 },
+    ]) {
+      expect(pickupLeft(w.state, t.x, t.y)).toBeNull();
+    }
+    expect(w.code("bob", ALL)).toBe("nothing_to_gather");
+  });
+
+  it("leaves what lies on someone else's plot once the server logs own_plot_pickups", () => {
+    const w = neighbors();
+    w.ok(TOWN_ACTOR, { type: "own_plot_pickups" });
+    stand(w, "bob", { x: 2, y: 8 });
+    expect(w.ok("bob", ALL).filter((e) => e.type === "gathered")).toEqual([
+      { type: "gathered", x: 0, y: 10, kind: "wood", by: "bob" },
+      { type: "gathered", x: 2, y: 10, kind: "wood", by: "bob" },
+      { type: "gathered", x: 1, y: 11, kind: "wood", by: "bob" },
+    ]);
+    expect(w.has("bob", "stone")).toBe(0);
+    expect(pickupLeft(w.state, 0, 5)).toBe("stone");
+    // Ada's own stone is still hers to take.
+    stand(w, "ada", { x: 3, y: 3 });
+    expect(w.ok("ada", ALL).filter((e) => e.type === "gathered")).toEqual([
+      { type: "gathered", x: 5, y: 0, kind: "wood", by: "ada" },
+      { type: "gathered", x: 0, y: 5, kind: "stone", by: "ada" },
+    ]);
+  });
+
+  it("takes what fits, in order, and refuses when there's no room at all", () => {
+    const w = neighbors();
+    stand(w, "bob", { x: 2, y: 8 });
+    const items = w.state.items;
+    if (!items) throw new Error("items open");
+    items.inventories.bob = { stacks: { sugar: ITEMS.inventoryMax }, goods: [] };
+    expect(w.code("bob", ALL)).toBe("inventory_full");
+    items.inventories.bob = { stacks: { sugar: ITEMS.inventoryMax - 2 }, goods: [] };
+    expect(w.ok("bob", ALL).filter((e) => e.type === "gathered")).toEqual([
+      { type: "gathered", x: 0, y: 5, kind: "stone", by: "bob" },
+      { type: "gathered", x: 0, y: 10, kind: "wood", by: "bob" },
+    ]);
+    expect(pickupLeft(w.state, 2, 10)).toBe("wood");
+    expect(pickupLeft(w.state, 1, 11)).toBe("wood");
+  });
+
+  it("refuses with nothing for you within reach, and names the nearest one you may take", () => {
+    const w = neighbors();
+    w.ok(TOWN_ACTOR, { type: "own_plot_pickups" });
+    // From (3, 3) only Ada's branch and stone are within reach; the nearest open one is at 0,10.
+    stand(w, "bob", { x: 3, y: 3 });
+    const theirs = w.send("bob", ALL);
+    expect(theirs).toMatchObject({ ok: false, rejection: { code: "nothing_to_gather" } });
+    expect(theirs.ok ? "" : theirs.rejection.message).toBe(
+      'What lies within reach is on someone else\'s plot: only its owner and the people they share it with can gather there. The nearest one you may take is at x 0, y 10. Walk closer first: move s 4 times. Then send {"type": "gather"} again.',
+    );
+    // Out on the bare southeast, nothing lies within reach at all.
+    stand(w, "bob", { x: 20, y: 20 });
+    const bare = w.send("bob", ALL);
+    expect(bare).toMatchObject({ ok: false, rejection: { code: "nothing_to_gather" } });
+    expect(bare.ok ? "" : bare.rejection.message).toContain(
+      "Nothing lies within reach today. The nearest one you may take is at x 15, y 9. Walk closer first: move w 2 times, then move n 8 times.",
+    );
+  });
+
+  it("refuses a tile with only x or only y", () => {
+    const w = neighbors();
+    expect(w.code("bob", { type: "gather", x: 12 })).toBe("out_of_bounds");
+    expect(w.code("bob", { type: "gather", y: 12 })).toBe("out_of_bounds");
+  });
+
+  it("replays a log that gathers everything within reach on both sides of own_plot_pickups to its pinned hash", () => {
+    const state = replay(GATHER_ALL_CONFIG, GATHER_ALL_LOG);
+    expect(hashWorld(state)).toBe(GATHER_ALL_HASH);
+    // The chestnut Bob found on the open land after the switch, beside everything from before it.
+    expect(state.items?.inventories.bob?.stacks).toMatchObject({ wood: 2, stone: 4, chestnut: 1 });
   });
 });
 

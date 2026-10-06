@@ -132,6 +132,7 @@ Levels, gear rarity, outfits, jobs, first season. Seasons come first: by the UTC
 - [ ] The next holiday, after Midwinter
 - [x] Finds on the ground by biome and season, rarer than branches and stones, picked up with `gather`, shown on pedestals, and drawn on the map and in 3D ([RFC 0021](../rfcs/0021-collections-and-foraging.md), [decision 0099](../knowledge/decisions/0099-finds-spawn-by-biome-and-season-after-a-logged-open-finds-fr.md))
 - [x] A collection book of everything you've grown, made, found, gathered, been given, and worn, with badges for finishing a family, on every profile ([decision 0100](../knowledge/decisions/0100-the-collection-book-is-a-server-table-fed-by-committed-input.md))
+- [x] Gathering everything within reach in one call, by the API, by link, and with Gather all on the map ([decision 0125](../knowledge/decisions/0125-gather-with-no-tile-picks-up-everything-within-reach-north-t.md))
 - [ ] Recipes you learn by making things
 - [ ] Levels, gear rarity, outfits, and jobs, each in its own RFC
 

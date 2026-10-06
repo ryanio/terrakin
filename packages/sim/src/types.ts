@@ -1118,8 +1118,11 @@ export type Command =
   // cleaned before logging it.
   | { type: "plant"; x: number; y: number; seed: Crop }
   | { type: "harvest"; x: number; y: number }
-  /** Pick up a fallen branch or a loose stone on the tile, within reach. */
-  | { type: "gather"; x: number; y: number }
+  /**
+   * Pick up the fallen branch, loose stone, or find on the tile, within reach. With neither `x`
+   * nor `y`, everything within reach that you may take, as far as there's room in your things.
+   */
+  | { type: "gather"; x?: number; y?: number }
   /**
    * A good (signed, with an id), or a piece of furniture or a sweet (they stack, and take no
    * label).

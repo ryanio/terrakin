@@ -26,6 +26,7 @@ import {
   SWEET_RECIPES,
   type SweetKind,
 } from "@terrakin/sim";
+import { listOf } from "@terrakin/ui/format";
 import { coins } from "./purse";
 
 /** "Lemon", "Bunch of herbs". */
@@ -157,11 +158,21 @@ export function inventoryLine(e: InventoryEvent): string | null {
       return gained.length > 0 ? `From the pantry: ${list(gained)}.` : null;
     case "harvest":
       return `You picked ${list(gained)}.`;
-    case "gather":
-      // A find (RFC 0021) is something to tell: it goes in your collection book.
-      return gained.some((c) => isFindKind(c.kind))
-        ? `You found ${list(gained)}. It's in your collection book.`
-        : `You picked up ${list(gained)}.`;
+    case "gather": {
+      // A find (RFC 0021) is something to tell: it goes in your collection book. Gathering all
+      // within reach (decision 0125) can bring several kinds at once.
+      const words = (cs: typeof gained) => listOf(cs.map((c) => thingCount(c.kind, c.amount)));
+      const finds = gained.filter((c) => isFindKind(c.kind));
+      const rest = gained.filter((c) => !isFindKind(c.kind));
+      if (finds.length === 0) return `You picked up ${words(rest)}.`;
+      const book =
+        finds.length === 1 && finds[0]?.amount === 1
+          ? "It's in your collection book."
+          : "They're in your collection book.";
+      return rest.length === 0
+        ? `You found ${words(finds)}. ${book}`
+        : `You picked up ${words(rest)}, and found ${words(finds)}. ${book}`;
+    }
     case "craft": {
       const made = e.gained?.[0];
       if (made?.kind === "piece") return "You made a piece of art.";
@@ -363,6 +374,9 @@ export function worldProblem(
       return you.hasPlot === false ? NO_PLOT_LINE : firstSentence(message);
     case "out_of_reach":
       return "That's too far away. Walk closer first.";
+    case "nothing_to_gather":
+      // The map offers only what it draws lying there, so the world moved on first.
+      return "Nothing left to pick up there: someone got there first.";
     case "nowhere_to_go":
       return "There's nowhere to walk from here. Tap Home, or remove a block next to you.";
     case "already_home":

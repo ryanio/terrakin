@@ -144,11 +144,15 @@ async function settleCamera(page: Page) {
   );
 }
 
-/** On the 2D map at /world, tap the tile `dx`, `dy` from where you stand (the middle of the screen). */
+/**
+ * On the 2D map at /world, tap the tile `dx`, `dy` from where you stand (the middle of the screen),
+ * once the loader a returning resident sees has stepped aside.
+ */
 export async function tapTile(page: Page, dx: number, dy: number) {
   const vp = page.viewportSize();
   if (!vp) throw new Error("no viewport");
   const scale = Math.max(16, Math.floor(Math.min(vp.width, vp.height) / 13));
+  await expect(page.locator("#world-loader")).toBeHidden({ timeout: 15_000 });
   await settleCamera(page);
   await page.mouse.click(vp.width / 2 + dx * scale, vp.height / 2 + dy * scale);
 }

@@ -24,12 +24,13 @@ import type {
   WorldEvent,
   WorldState,
 } from "./types";
-import { canBuildOn, inBounds, plotAtTile } from "./world";
+import { canBuildOn, inBounds, plotAtTile, walkHint } from "./world";
 
 /**
  * Simple gathering (phase 1, item 9; decision 0063): fallen branches in forests and loose stones
  * on stone ground. Each tile grows at most one pickup back a UTC day; `gather {x, y}` picks it up
- * into the gatherer's inventory. No coins move: the most grindable thing in phase 1 is a walk.
+ * into the gatherer's inventory, and `gather` with no tile picks up everything within reach the
+ * gatherer may take (decision 0125). No coins move: the most grindable thing in phase 1 is a walk.
  *
  * The spawn is a pure function of the tile and the day, like `biomeAt`, so every client draws the
  * same sticks and stones without the log carrying them. Only the day's pickups live in state
@@ -227,12 +228,18 @@ export const OTHERS_PLOT_GATHER =
 const HINT_RADIUS = 12;
 
 /**
- * The nearest pickup lying today that `actor` may take, within `HINT_RADIUS` of `from`: nearest by
- * Chebyshev distance, then north to south, then west to east. For a refusal's next step only.
+ * The nearest pickup lying today that `actor` may take, within `radius` of `from`: nearest by
+ * Chebyshev distance, then north to south, then west to east. For a refusal's next step, and the
+ * gather link's walk there.
  */
-function nearestOpenPickup(state: WorldState, actor: ResidentId, from: Tile): Tile | null {
+export function nearestOpenPickup(
+  state: WorldState,
+  actor: ResidentId,
+  from: Tile,
+  radius = HINT_RADIUS,
+): Tile | null {
   const ownersOnly = plotPickupsOwned(state);
-  for (let d = 0; d <= HINT_RADIUS; d++) {
+  for (let d = 0; d <= radius; d++) {
     for (let y = from.y - d; y <= from.y + d; y++) {
       for (let x = from.x - d; x <= from.x + d; x++) {
         if (Math.max(Math.abs(x - from.x), Math.abs(y - from.y)) !== d) continue;
@@ -244,7 +251,95 @@ function nearestOpenPickup(state: WorldState, actor: ResidentId, from: Tile): Ti
   return null;
 }
 
-/** `gather {x, y}`: pick up the fallen branch, loose stone, or find on a tile within reach. */
+/** A pickup lying on a tile: where, and what. */
+export type PickupAt = Tile & { kind: PickupKind };
+
+/**
+ * Every pickup within reach of `at` that `mayTake` allows, north to south, then west to east: what
+ * `gather` with no tile picks up, in the order it takes them. `lying` says what still lies on a
+ * tile (`pickupLeft` in the sim, `pickupOn` from a client's copy of the world), so the sim and the
+ * map make the same list.
+ */
+export function pickupsInReach(
+  config: WorldConfig,
+  at: Tile,
+  lying: (x: number, y: number) => PickupKind | null,
+  mayTake: (x: number, y: number) => boolean,
+): PickupAt[] {
+  const found: PickupAt[] = [];
+  for (let y = at.y - config.reach; y <= at.y + config.reach; y++) {
+    for (let x = at.x - config.reach; x <= at.x + config.reach; x++) {
+      if (!inBounds(config, x, y)) continue;
+      const kind = lying(x, y);
+      if (kind && mayTake(x, y)) found.push({ x, y, kind });
+    }
+  }
+  return found;
+}
+
+/**
+ * `gather` with no tile: everything within reach the resident may take, in `pickupsInReach`'s
+ * order, as far as there's room in their things. One `gathered` for each tile, then one `inventory`
+ * with each kind's total, in the order the kinds came up.
+ */
+function checkGatherAll(
+  state: WorldState,
+  actor: ResidentId,
+  me: Tile,
+  items: ItemsState,
+  day: number,
+): ItemsChecked {
+  const ownersOnly = plotPickupsOwned(state);
+  const lying = (x: number, y: number) => pickupLeft(state, x, y);
+  const mine = pickupsInReach(state.config, me, lying, (x, y) =>
+    mayGatherOn(plotAtTile(state, x, y), actor, ownersOnly),
+  );
+  if (mine.length === 0) {
+    // Nothing here is yours to take, so the next step is the nearest one that is.
+    const theirs = pickupsInReach(state.config, me, lying, () => true).length > 0;
+    const near = nearestOpenPickup(state, actor, me);
+    const why = theirs
+      ? `What lies within reach is on someone else's plot: ${OTHERS_PLOT_GATHER}.`
+      : "Nothing lies within reach today.";
+    const finds = findsOpen(state) ? " Now and then a tile with neither holds a find." : "";
+    const next = near
+      ? ` The nearest one you may take is at x ${near.x}, y ${near.y}.${walkHint(me, near, state.config.reach)} Then send {"type": "gather"} again.`
+      : ` Fallen branches lie in forests, loose stones on stone ground, and each tile grows one back a day.${finds} pickups in GET /v1/world lists what's lying today.`;
+    return refuse("nothing_to_gather", `${why}${next}`);
+  }
+  const room = ITEMS.inventoryMax - inventorySize(items.inventories[actor]);
+  const fits = Math.floor(room / GATHER.perPickup);
+  if (fits < 1) {
+    return refuse(
+      "inventory_full",
+      `You can hold ${ITEMS.inventoryMax} things. Make or give something first.`,
+    );
+  }
+  const take = mine.slice(0, fits);
+  return () => {
+    if (!items.gathered) items.gathered = {};
+    const gathered = items.gathered;
+    const events: WorldEvent[] = [];
+    const totals: { kind: PickupKind; amount: number }[] = [];
+    for (const t of take) {
+      gathered[tileKey(t.x, t.y)] = day;
+      events.push({ type: "gathered", x: t.x, y: t.y, kind: t.kind, by: actor });
+      const total = totals.find((c) => c.kind === t.kind);
+      if (total) total.amount += GATHER.perPickup;
+      else totals.push({ kind: t.kind, amount: GATHER.perPickup });
+    }
+    const inv = inventory(items, actor);
+    const changes = totals.map((c) => addStack(inv, c.kind, c.amount));
+    events.push(inventoryEvent(actor, "gather", changes));
+    return events;
+  };
+}
+
+/**
+ * `gather {x, y}`: pick up the fallen branch, loose stone, or find on a tile within reach. With
+ * neither `x` nor `y`, everything within reach (`checkGatherAll`). The API took a gather only with
+ * both until then, so every logged gather names a tile and replays as it was made.
+ */
 export function checkGather(
   state: WorldState,
   actor: ResidentId,
@@ -257,6 +352,13 @@ export function checkGather(
   const me = state.residents[actor];
   if (!me) return refuse("not_joined", "Join the world first.");
   const { x, y } = command;
+  if (x === undefined && y === undefined) return checkGatherAll(state, actor, me, items, day);
+  if (x === undefined || y === undefined) {
+    return refuse(
+      "out_of_bounds",
+      'Send both x and y to pick up what lies on one tile, or neither to gather everything within reach: {"type": "gather"}.',
+    );
+  }
   const far = reachProblem(state, me, { x, y });
   if (far) return far;
   const kind = pickupLeft(state, x, y);

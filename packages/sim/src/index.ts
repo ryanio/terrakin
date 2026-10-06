@@ -158,10 +158,13 @@ export {
   GATHER,
   gatherableAt,
   mayGatherOn,
+  nearestOpenPickup,
   OTHERS_PLOT_GATHER,
+  type PickupAt,
   type PickupKind,
   pickupLeft,
   pickupOn,
+  pickupsInReach,
   plotPickupsOwned,
 } from "./gather";
 export {

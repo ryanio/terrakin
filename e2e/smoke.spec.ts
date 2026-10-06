@@ -46,16 +46,19 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
 
   await test.step("taps walk around the Town Hall, never across it", async () => {
     type Tile = { x: number; y: number };
-    const { townHall, residents } = await page.request.get("/v1/world").then((r) => r.json());
+    const { townHall, residents, pickups } = await page.request
+      .get("/v1/world")
+      .then((r) => r.json());
     const onHall = (t: Tile) => townHall.some((h: Tile) => h.x === t.x && h.y === t.y);
-    // A tap on someone says who they are instead of walking there (Wren stands on spawn), so
-    // each stop is the first of its tiles nobody stands on.
+    // A tap on someone says who they are instead of walking there (Wren stands on spawn), and a
+    // tap on something lying within reach picks it up, so each stop is the first of its tiles
+    // with neither.
     const free = (...tiles: Tile[]) =>
       tiles.find(
         (t) =>
           !residents.some(
             (r: Tile & { online: boolean }) => r.online && r.x === t.x && r.y === t.y,
-          ),
+          ) && !(pickups ?? []).some((p: Tile) => p.x === t.x && p.y === t.y),
       ) ?? (tiles[0] as Tile);
     // From the hall's west end across to its east end, the straight way is through it, and the
     // way round goes north of the hall or south through the Commons.
@@ -63,14 +66,15 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
     const row = spawn.y - 4;
     const west = free({ x: spawn.x - 2, y: row }, { x: spawn.x - 3, y: row });
     const east = free({ x: spawn.x + 2, y: row }, { x: spawn.x + 3, y: row });
-    // Back beside spawn in two short taps, since one far down and to the left lands on the 3D
-    // view button.
-    const front = free({ x: spawn.x, y: spawn.y - 2 }, { x: spawn.x + 1, y: spawn.y - 2 });
-    const back = free({ x: spawn.x - 1, y: spawn.y }, { x: spawn.x - 1, y: spawn.y + 1 });
+    // Back beside spawn: straight down, along the row, and straight down again, since a tap
+    // down and to the left lands on the 3D view button or the ones above it (Pat, Gather all).
+    const down = free({ x: east.x, y: spawn.y - 2 }, { x: east.x, y: spawn.y - 3 });
+    const along = free({ x: spawn.x - 1, y: down.y }, { x: spawn.x - 2, y: down.y });
+    const back = free({ x: along.x, y: spawn.y }, { x: along.x, y: spawn.y + 1 });
     expect(onHall({ x: spawn.x, y: row })).toBe(true);
     const seen: { x: number; y: number }[] = [];
     let at = { x: spawn.x, y: spawn.y };
-    for (const to of [west, east, front, back]) {
+    for (const to of [west, east, down, along, back]) {
       await tapTile(page, to.x - at.x, to.y - at.y);
       await expect
         .poll(

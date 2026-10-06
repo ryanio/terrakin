@@ -232,6 +232,13 @@ describe("Action", () => {
     expect(Action.safeParse({ type: "place", x: 1, y: 2, block: "stone" }).success).toBe(true);
   });
 
+  it("takes gather with a tile, or with neither x nor y to gather everything within reach", () => {
+    expect(Action.parse({ type: "gather" })).toEqual({ type: "gather" });
+    expect(Action.parse({ type: "gather", x: 3, y: 4 })).toEqual({ type: "gather", x: 3, y: 4 });
+    expect(Action.safeParse({ type: "gather", x: 3 }).success).toBe(false);
+    expect(Action.safeParse({ type: "gather", y: 4 }).success).toBe(false);
+  });
+
   it("rejects unknown types, bad blocks, and oversized chat", () => {
     expect(Action.safeParse({ type: "teleport", x: 1, y: 1 }).success).toBe(false);
     expect(Action.safeParse({ type: "place", x: 1, y: 2, block: "gold" }).success).toBe(false);

@@ -50,6 +50,7 @@ The only limits are rate limits and daily caps. They keep the world fair and kee
 | `GET /v1/act/<key>/handle` | 60 a minute per resident; a new handle once every 7 days |
 | `GET /v1/act/<key>/look` | 10 a second per resident, bursts of 20; the same link opened again within 2 minutes does nothing new, unless it was refused |
 | `GET /v1/act/<key>/garden` | 10 a second per resident, bursts of 20; the walk home and each harvest, placement, and planting count as one action; the same link opened again within 2 minutes does nothing new, unless it was refused |
+| `GET /v1/act/<key>/gather` | 10 a second per resident, bursts of 20 |
 | `GET /v1/act/<key>/join-event` | 10 a second per resident, bursts of 20 |
 | `GET /v1/act/<key>/pet` | 60 a minute per resident; one pat a pet per UTC day; 30 pets a UTC day; the same link opened again within 2 minutes does nothing new, unless it was refused |
 | `GET /v1/act/<key>/visit` | 10 a second per resident, bursts of 20 |

@@ -5,8 +5,8 @@ import { act, freePlots, join, read, signIn, tapTile, watchErrors } from "./supp
  * Gathering (phase 1, item 9) on a phone: a resident settles a plot where branches or stones lie
  * today, taps one within reach on the map, and finds it in their things. Where things lie comes
  * from `pickups` in `/v1/world`, the same list an AI assistant reads. A pickup on someone else's
- * plot says whose it is instead. A find (RFC 0021) is picked up the same way and lands in your
- * collection book.
+ * plot says whose it is instead. Gather all picks up everything lying within reach in one tap
+ * (decision 0125). A find (RFC 0021) is picked up the same way and lands in your collection book.
  */
 
 interface Tile {
@@ -147,6 +147,53 @@ test("tap a pickup within reach and find it in your things; on someone else's pl
     expect(after.pickups).toContainEqual(target);
     const things = (await read(page.request, ash.token, "/v1/inventory")).inventory;
     expect(things?.stacks ?? []).not.toContainEqual(expect.objectContaining({ kind: target.kind }));
+  });
+
+  await test.step("gather everything within reach with one tap of Gather all", async () => {
+    // Fay settles a free plot with pickups on it and lands in its middle, where the map offers
+    // Gather all for what lies within her reach: hers, or on land anyone may gather on.
+    const fay = await join(page.request, "Fay");
+    let home: { px: number; py: number } | undefined;
+    for (const p of plots.slice(0, 12)) {
+      if ((await act(page.request, fay.token, { type: "settle", px: p.px, py: p.py })).ok) {
+        home = p;
+        break;
+      }
+    }
+    if (!home) throw new Error("No free plot to settle in the test world");
+    const settled = home;
+    const now = await (await page.request.get("/v1/world")).json();
+    const me = now.residents.find((r: { id: string }) => r.id === fay.id) as Tile;
+    const inReach = (now.pickups as Pickup[]).filter(
+      (p) =>
+        Math.max(Math.abs(p.x - me.x), Math.abs(p.y - me.y)) <= config.reach &&
+        (!p.ownersOnly || inPlot(p, settled.px, settled.py)),
+    );
+    if (inReach.length === 0) throw new Error(`Nothing lies within reach of ${me.x},${me.y}`);
+
+    await signIn(page, fay);
+    await page.goto("/world");
+    await expect(page.locator("#hud")).toBeVisible();
+    const gatherAll = page.locator("#world-gather");
+    await expect(gatherAll).toBeVisible();
+    await expect(gatherAll).toHaveText("Gather all");
+    await expect(page.locator("#world-loader")).toBeHidden();
+    await page.screenshot({ path: "test-results/gather-all.png" });
+    await gatherAll.click();
+    await expect(page.locator("#toast")).toContainText(/You (picked up|found)/);
+    // Nothing is left within her reach, so the button goes.
+    await expect(gatherAll).toBeHidden();
+    await page.screenshot({ path: "test-results/gather-all-done.png" });
+    // Every one of them is in her things, and picked clean for everyone.
+    const want = new Map<string, number>();
+    for (const p of inReach) want.set(p.kind, (want.get(p.kind) ?? 0) + 1);
+    const stacks = (await read(page.request, fay.token, "/v1/inventory")).inventory.stacks as {
+      kind: string;
+      count: number;
+    }[];
+    for (const [kind, count] of want) expect(stacks).toContainEqual({ kind, count });
+    const after = await (await page.request.get("/v1/world")).json();
+    for (const p of inReach) expect(after.gathered).toContainEqual({ x: p.x, y: p.y });
   });
 
   await test.step("forage a find on the map and see it in your collection book", async () => {

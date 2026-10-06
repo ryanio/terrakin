@@ -20,6 +20,7 @@ import {
   ITEM_INFO,
   isGroundKind,
   isHeldBlock,
+  pickupsInReach,
   route,
   STEP,
   type Tile,
@@ -27,7 +28,7 @@ import {
 import { REDUCED_MOTION } from "@terrakin/ui/motion";
 import { plot3dPath } from "@terrakin/ui/paths";
 import { everyVisible } from "@terrakin/ui/poll";
-import { linkTabs } from "@terrakin/ui/ui";
+import { linkTabs, whileBusy } from "@terrakin/ui/ui";
 import { api, whoseKey } from "./api";
 import {
   blockLine,
@@ -108,6 +109,7 @@ palette.prepend(
 );
 const modeButton = $<HTMLButtonElement>("world-mode");
 const petButton = $<HTMLButtonElement>("world-pet");
+const gatherButton = $<HTMLButtonElement>("world-gather");
 const host3d = $("world-3d");
 /** The speaker button: sound is off until it's tapped, and its code loads then (decision 0097). */
 const sound = new SoundSwitch($<HTMLButtonElement>("sound"));
@@ -126,6 +128,10 @@ const PAT_NEAR = 1.6;
 /** Whose pet the Pat button is for now, and when it last looked. */
 let petNear: string | undefined;
 let petCheckAt = 0;
+/** "Gather all" waiting on the server's answer: its action's id, and how to stop waiting. */
+let gathering: { id: string; done: () => void } | undefined;
+/** How long "Gather all" waits on an answer before it can be tapped again. */
+const GATHER_WAIT_MS = 5000;
 /** The pets you've patted today, from here or anywhere else: the server takes one pat a day. */
 const patsToday = new PatsToday(
   async (owner) => {
@@ -438,6 +444,7 @@ function onMessage(msg: ServerMessage) {
       break;
     case "ack":
       if (msg.id !== undefined) walker.answered(msg.id, true);
+      if (gathering && msg.id === gathering.id) gathering.done();
       if (pendingChat && msg.id === pendingChat.id) {
         // Sent: clear the line, unless you've started another one meanwhile.
         if (chatInput.value.trim() === pendingChat.text) chatInput.value = "";
@@ -452,6 +459,7 @@ function onMessage(msg: ServerMessage) {
         walker.answered(msg.id, false);
         visiting.refused(msg.id, code);
       }
+      if (gathering && msg.id === gathering.id) gathering.done();
       // Before the welcome, any refusal is about joining: the form says why.
       if (joiningFresh && !me) return joinRefused(code, message);
       if (code === "unauthorized") return keyNotFound();
@@ -1204,6 +1212,7 @@ function frame() {
   if (now - petCheckAt > 250) {
     petCheckAt = now;
     paintPetButton(now);
+    paintGatherButton();
   }
   // Your own figure's feeling, a name from a fixed list, once you're in: for tests and tools.
   const mine = me ? feelings.feeling(me, now) : "";
@@ -1230,6 +1239,45 @@ function paintPetButton(now: number) {
   if (text && text.textContent !== label) text.textContent = label;
   petButton.setAttribute("aria-pressed", String(done));
 }
+
+/**
+ * Show "Gather all" while something lies within reach that you may pick up (decision 0125): the
+ * sim's own list, from where your steps will have taken you, so a tap gathers what it says.
+ */
+function paintGatherButton() {
+  const m = mirror;
+  const you = me;
+  const at = here();
+  const lying =
+    m && you && at
+      ? pickupsInReach(
+          m.config,
+          at,
+          (x, y) => m.pickupAt(x, y),
+          (x, y) => m.mayGatherAt(x, y, you),
+        ).length
+      : 0;
+  gatherButton.hidden = lying === 0 && !gathering;
+}
+
+gatherButton.addEventListener("click", () => {
+  if (gathering) return;
+  void whileBusy(
+    gatherButton,
+    () =>
+      new Promise<void>((done) => {
+        const id = tryAct({ type: "gather" });
+        if (!id) return done();
+        const finish = () => {
+          clearTimeout(timer);
+          gathering = undefined;
+          done();
+        };
+        const timer = setTimeout(finish, GATHER_WAIT_MS);
+        gathering = { id, done: finish };
+      }),
+  );
+});
 
 petButton.addEventListener("click", async () => {
   const owner = petNear;
@@ -1299,5 +1347,7 @@ export function stopWorld() {
   worldWait.hidden = true;
   petButton.hidden = true;
   petNear = undefined;
+  gatherButton.hidden = true;
+  gathering?.done();
   landing.setJoining(false);
 }

@@ -962,6 +962,33 @@ describe("links for the rest of a link-only resident's week", () => {
     ]);
   });
 
+  it("gathers everything within reach, and walks you to the nearest when nothing lies there", async () => {
+    // World day 20000. Its pickups are pinned in the sim's gather tests: from the spawn at
+    // (12, 12) a branch lies within reach at (15, 9), and the next nearest at (15, 8).
+    const now = 20_000 * DAY + 12 * 60 * 60_000;
+    const { joinByLink, service } = await start({
+      world: { days: true, economy: true, items: true, now: () => now },
+    });
+    const wren = await joinByLink("Wren");
+    expect((await wren.act("me")).text).toContain(
+      `- Pick up what lies within reach (1 thing: branches, stones, or finds): http`,
+    );
+    const first = (await wren.act("gather")).text;
+    expect(first).toContain("You picked up 1 wood from 1 tile within reach of (12, 12).");
+    expect(service.state.items?.inventories[wren.id]?.stacks.wood).toBe(1);
+    // Nothing is left within reach, so the refusal walks her to the next one, by link.
+    const none = (await wren.act("gather")).text;
+    expect(codeOf(none)).toBe("nothing_to_gather");
+    expect(none).toContain(
+      "Nothing lies within reach of you today. The nearest one you may take is 1 wood at (15, 8).",
+    );
+    expect(none).toContain(`/v1/act/${wren.key}/move?dir=n&steps=1\n`);
+    expect(none).toContain(`Gather: http`);
+    await wren.act("move?dir=n&steps=1");
+    expect((await wren.act("gather")).text).toContain("You picked up 1 wood from 1 tile");
+    expect(service.state.items?.inventories[wren.id]?.stacks.wood).toBe(2);
+  });
+
   it("makes candy by link, five at a time at a kitchen, with no label", async () => {
     let now = Date.UTC(2026, 9, 5, 12);
     const { joinByLink, service } = await start({

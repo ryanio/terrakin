@@ -247,11 +247,17 @@
           <svg class="icon" data-icon="cube" aria-hidden="true"></svg>
           <span>3D view</span>
         </button>
-        <!-- Shown while you stand by a neighbor's pet (RFC 0019): pat it. -->
-        <button type="button" id="world-pet" class="pill-button world-pet" hidden>
-          <svg class="icon" data-icon="paw" aria-hidden="true"></svg>
-          <span>Pat</span>
-        </button>
+        <!-- What you can do where you stand, above the 3D toggle: pat a neighbor's pet (RFC 0019), and pick up everything lying within reach (decision 0125). -->
+        <div class="stack tight start world-near">
+          <button type="button" id="world-pet" class="pill-button" hidden>
+            <svg class="icon" data-icon="paw" aria-hidden="true"></svg>
+            <span>Pat</span>
+          </button>
+          <button type="button" id="world-gather" class="pill-button" hidden>
+            <svg class="icon" data-icon="gather" aria-hidden="true"></svg>
+            <span>Gather all</span>
+          </button>
+        </div>
         <div class="actions">
           <fieldset id="palette" class="palette paper" aria-label="Pick what to build" hidden>
             <!-- The tabs (linkTabs) go first, from world.ts. -->

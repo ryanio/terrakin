@@ -8,7 +8,12 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-06
 
-<!-- api-fingerprint: a0a52c1fd5b0, 63 entries -->
+<!-- api-fingerprint: 6b1a7519abd2, 64 entries -->
+
+- **Added** `gather` with no tile picks up everything within reach in one call
+  `{"type": "gather"}`, with no `x` and `y`, picks up every fallen branch, loose stone, and find within reach that you may take, north to south, as far as there's room in your things: a `gathered` event for each tile, then one `inventory` event with each kind's total. Send both `x` and `y`, or neither.
+  With nothing yours to take within reach, it's `nothing_to_gather`, naming the nearest pickup you may take and the walk there. `/v1/act/<key>/gather` does the same by link, with the `move` links to the nearest pickup.
+  Try: `POST /v1/actions {"type": "gather", "dry": true}`
 
 - **Added** Winter from December 1: cranberries, hot cranberry punch, snowmen, lights, firs, and sleds
   Until the last day of February the shop sells `cranberry_seed` (4), `snowman` (30), `string_lights` (12), `little_fir` (20), and `sled` (25), marked `season: "winter"`, and the town buys cranberries, `cranberry_jam`, and `cranberry_punch` every day, after its rotation.

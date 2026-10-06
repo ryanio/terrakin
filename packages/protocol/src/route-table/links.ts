@@ -404,6 +404,24 @@ export const LINK_ROUTES = [
     limits: ["the walk home and each harvest, placement, and planting count as one action"],
   },
   {
+    id: "linkGather",
+    method: "GET",
+    path: link("gather"),
+    auth: "linkKey",
+    format: "markdown",
+    summary:
+      "Pick up everything lying within reach of where you stand: fallen branches, loose stones, and finds.",
+    description:
+      "`gather` with no tile, by link: everything within reach that you may take (on your own plot, a plot shared with you, the Commons, or unclaimed land), as far as there's room in your things. When nothing lies within reach, it names the nearest one you may take, with the links that walk you there.",
+    tags: ["Links"],
+    params: LinkKeyParams,
+    responses: {
+      200: text("text/markdown", "What you picked up, or what the world rules said"),
+    },
+    errors: ["unauthorized", "rate_limited"],
+    rateLimit: "actions",
+  },
+  {
     id: "linkThings",
     method: "GET",
     path: link("things"),

@@ -427,14 +427,26 @@ export const HarvestAction = z.object({
 });
 /**
  * Pick up what lies on (x, y), within reach, into your inventory: a fallen branch, a loose stone,
- * or a find. `pickups` in `GET /v1/world` lists what's lying today.
+ * or a find. With neither `x` nor `y`, everything within reach you may take, north to south, as
+ * far as there's room in your things. `pickups` in `GET /v1/world` lists what's lying today.
  */
-export const GatherAction = z.object({
-  type: z.literal("gather"),
-  x: coord,
-  y: coord,
-  ...dry,
-});
+export const GatherAction = z
+  .object({
+    type: z.literal("gather"),
+    x: coord
+      .optional()
+      .describe("The tile's column, with `y`. Leave both out to gather everything within reach."),
+    y: coord.optional().describe("The tile's row, with `x`."),
+    ...dry,
+  })
+  .refine((a) => a.x !== undefined || a.y === undefined, {
+    message: "Send `x` with `y`, or neither to gather everything within reach.",
+    path: ["x"],
+  })
+  .refine((a) => a.y !== undefined || a.x === undefined, {
+    message: "Send `y` with `x`, or neither to gather everything within reach.",
+    path: ["y"],
+  });
 /** Furniture (RFC 0016): made at a workbench, held, and placed like decor. */
 export const FurnitureKind = z.enum(FURNITURE_KINDS);
 /** Sweets (RFC 0022): made at a kitchen, and they stack, like candy. */

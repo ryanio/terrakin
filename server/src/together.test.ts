@@ -547,6 +547,14 @@ describe("gestures", () => {
       streaks: [],
     });
     expect((await call("GET", "/v1/gestures")).status).toBe(401);
+
+    // A kiss Bo hasn't answered never reaches his socket; the wave after it does.
+    await call("POST", `/v1/residents/${bo.id}/gesture`, { kind: "kiss" }, ada.token);
+    await call("POST", `/v1/residents/${bo.id}/gesture`, { kind: "wave" }, ada.token);
+    await expect
+      .poll(() => boLive.messages.some((m) => m.type === "gesture" && m.kind === "wave"))
+      .toBe(true);
+    expect(boLive.messages.some((m) => m.type === "gesture" && m.kind === "kiss")).toBe(false);
   });
 
   it("allows one of each kind per pair every 10 minutes, and the other person can answer", async () => {
@@ -616,32 +624,60 @@ describe("gestures", () => {
     expect(aimed.status).toBe(400);
   });
 
-  it("takes comfort and kisses from anyone, and keeps a kiss to a person out of their notifications", async () => {
-    const { call, join } = await start();
+  it("keeps a kiss secret until it's kissed back, then tells you both", async () => {
+    const { call, join, social, advance } = await start();
     const ada = await join("Ada");
     const bo = await join("Bo");
     const made = await call("POST", "/v1/session", { name: "Cog", kind: "agent" });
     const cog = { id: made.body.residentId as string, token: made.body.token as string };
-    const send = (to: string, body: unknown) =>
-      call("POST", `/v1/residents/${to}/gesture`, body, ada.token);
+    const send = (from: { token: string }, to: { id: string }, body: unknown) =>
+      call("POST", `/v1/residents/${to.id}/gesture`, body, from.token);
     const notified = async (who: { token: string }) =>
       (await call("GET", "/v1/notifications", undefined, who.token)).body.notifications.map(
-        (n: { gesture?: string }) => n.gesture,
+        (n: { actor: { name: string }; gesture?: string }) => `${n.actor.name} ${n.gesture}`,
+      );
+    const seen = async (who: { token: string }) =>
+      (await call("GET", "/v1/gestures", undefined, who.token)).body.gestures.map(
+        (g: { from: { name: string }; kind: string }) => `${g.from.name} ${g.kind}`,
       );
 
-    const comfort = await send(bo.id, { kind: "comfort", note: "thinking of you" });
+    const comfort = await send(ada, bo, { kind: "comfort", note: "thinking of you" });
     expect(comfort.status).toBe(201);
-    expect(comfort.body.gesture).toMatchObject({ kind: "comfort", note: "thinking of you" });
-    expect((await send(bo.id, { kind: "kiss" })).status).toBe(201);
-    expect(await notified(bo)).toEqual(["comfort"]);
-    const boGestures = await call("GET", "/v1/gestures", undefined, bo.token);
-    expect(boGestures.body.gestures.map((g: { kind: string }) => g.kind)).toEqual([
-      "kiss",
-      "comfort",
-    ]);
+    expect(comfort.body.secret).toBeUndefined();
+    advance(DAY_MS);
 
-    expect((await send(cog.id, { kind: "kiss" })).status).toBe(201);
-    expect(await notified(cog)).toEqual(["kiss"]);
+    // Ada's kiss: she sees it, Bo doesn't, anywhere, and it leaves the streak alone.
+    const kiss = await send(ada, bo, { kind: "kiss" });
+    expect(kiss.status).toBe(201);
+    expect(kiss.body).toMatchObject({ secret: true, streak: 1 });
+    expect(kiss.body.answered).toBeUndefined();
+    expect(await seen(ada)).toEqual(["Ada kiss", "Ada comfort"]);
+    expect(await seen(bo)).toEqual(["Ada comfort"]);
+    expect(await notified(bo)).toEqual(["Ada comfort"]);
+    expect(social.together.receivedSince(bo.id, 0, 10).map((g) => g.kind)).toEqual(["comfort"]);
+    const withAda = await call("GET", `/v1/gestures?with=${ada.id}`, undefined, bo.token);
+    expect(withAda.body.gestures.map((g: { kind: string }) => g.kind)).toEqual(["comfort"]);
+    expect(withAda.body.streaks[0].streak).toBe(1);
+
+    // Bo kisses back: now both know, and it counts for the streak.
+    const back = await send(bo, ada, { kind: "kiss" });
+    expect(back.body).toMatchObject({ answered: true, streak: 2 });
+    expect(back.body.secret).toBeUndefined();
+    expect(await seen(bo)).toEqual(["Bo kiss", "Ada kiss", "Ada comfort"]);
+    expect(await seen(ada)).toEqual(["Bo kiss", "Ada kiss", "Ada comfort"]);
+    expect(await notified(ada)).toEqual(["Bo kiss"]);
+    expect(await notified(bo)).toEqual(["Ada kiss", "Ada comfort"]);
+
+    // After that, kisses between them are ordinary.
+    advance(11 * 60_000);
+    const again = await send(ada, bo, { kind: "kiss" });
+    expect(again.body.secret).toBeUndefined();
+    expect(again.body.answered).toBeUndefined();
+
+    // The same for an agent: kept from them until they kiss back.
+    expect((await send(ada, cog, { kind: "kiss" })).body.secret).toBe(true);
+    expect(await notified(cog)).toEqual([]);
+    expect(await seen(cog)).toEqual([]);
   });
 });
 
@@ -757,6 +793,16 @@ describe("invites", () => {
     expect(bo?.hearth).toEqual({ x: 11, y: 11 });
     expect([bo?.x, bo?.y]).toEqual([11, 11]);
     expect(t.service.state.residents[ada.id]?.online).toBe(false);
+
+    // Living together is close: each sees `sharesPlot` on the other's profile, a stranger doesn't.
+    const boToken = accepted.body.token as string;
+    const profile = (id: string, token?: string) =>
+      t.call("GET", `/v1/residents/${id}`, undefined, token);
+    expect((await profile(ada.id, boToken)).body.resident.sharesPlot).toBe(true);
+    expect((await profile(bo?.id ?? "", ada.token)).body.resident.sharesPlot).toBe(true);
+    const eve = await t.join("Eve");
+    expect((await profile(ada.id, eve.token)).body.resident.sharesPlot).toBeUndefined();
+    expect((await profile(ada.id)).body.resident.sharesPlot).toBeUndefined();
   });
 
   it("settles next door instead when the partner turns sharing down", async () => {

@@ -42,7 +42,7 @@ import { type Quarter, turnDir } from "./scene3d/world-layout";
 import { track } from "./telemetry";
 import { NO_PLOT_LINE, newsLine, othersPickupLine, toastMs, worldProblem } from "./things";
 import { dayPhase } from "./time";
-import { ARRIVAL_KEY, gestureLine, showsReceived } from "./together";
+import { ARRIVAL_KEY, gestureLine } from "./together";
 import { offer3d, readSignals, savedMode, saveMode, startMode, type WorldMode } from "./world-mode";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -268,12 +268,10 @@ function onMessage(msg: ServerMessage) {
       break;
     case "gesture":
       // Someone sent you a hug or a wave. Their name and note are their words: shown as text.
-      if (showsReceived(msg.kind)) {
-        showToast(gestureLine(msg.kind, msg.from.name, msg.note, msg.putter, msg.item), "player");
-        // Your figure answers it: love for a hug, a wave back for a wave. Only the kind decides,
-        // and a kind the site keeps quiet about (a kiss, decision 0066) shows nothing here either.
-        if (me) feelings.show(me, gestureReaction(msg.kind), performance.now());
-      }
+      showToast(gestureLine(msg.kind, msg.from.name, msg.note, msg.putter, msg.item), "player");
+      // Your figure answers it: love for a hug, a wave back for a wave. Only the kind decides.
+      // A kiss arrives only once it's mutual (decision 0066), so it can show here like the rest.
+      if (me) feelings.show(me, gestureReaction(msg.kind), performance.now());
       break;
     case "event": {
       // Out of step with the server? Reload the truth rather than guessing.

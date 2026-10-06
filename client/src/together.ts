@@ -71,26 +71,36 @@ export const GESTURES: readonly GestureInfo[] = [
 export const CLOSE_STREAK_DAYS = 7;
 
 /**
- * The gesture buttons to show for one person. Kiss is there only when you are close: you have
- * kissed them before, or your streak is `CLOSE_STREAK_DAYS` or more. A kiss they sent you doesn't
- * count, so nobody can unlock it for you. The API takes any kind from anyone; this only decides
- * what the page offers.
+ * The gesture buttons to show for one person. Kiss is there only when you are close: you share a
+ * plot, you have kissed them before, or your streak is `CLOSE_STREAK_DAYS` or more. A kiss from
+ * them shows here only once you've kissed back, so it unlocks nothing on its own. The API takes any
+ * kind from anyone; this only decides what the page offers.
  */
 export function gestureChoices(
   between: readonly (Pick<GestureView, "kind"> & { from: { id: string } })[],
   streak: number,
   me: string,
+  sharesPlot = false,
 ): GestureInfo[] {
   const kissed = between.some((g) => g.kind === "kiss" && g.from.id === me);
-  const close = streak >= CLOSE_STREAK_DAYS || kissed;
+  const close = sharesPlot || streak >= CLOSE_STREAK_DAYS || kissed;
   return GESTURES.filter((g) => close || !g.close);
 }
 
 /**
- * Whether the site shows a gesture someone sent you. A kiss stays off the page: it is readable from
- * the API, so a stranger's kiss never lands in front of a person.
+ * What the page says after you send a gesture. A kiss stays secret until they send one back; the
+ * one that answers theirs tells you they had.
  */
-export const showsReceived = (kind: GestureKind) => kind !== "kiss";
+export function sentLine(
+  kind: GestureKind,
+  to: string,
+  sent: { secret?: true | undefined; answered?: true | undefined },
+): string {
+  const { noun } = gestureInfo(kind);
+  if (sent.answered) return `${to} sent you ${noun} too`;
+  if (sent.secret) return `You sent ${to} ${noun}. They'll only know if they send you one too.`;
+  return `You sent ${noun} to ${to}`;
+}
 
 export const gestureInfo = (kind: GestureKind): GestureInfo =>
   GESTURES.find((g) => g.kind === kind) ?? (GESTURES[0] as GestureInfo);

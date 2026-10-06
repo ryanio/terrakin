@@ -1106,6 +1106,13 @@ export const ChatMessage = z.object({
 export const GESTURE_KINDS = ["hug", "kiss", "wave", "high_five", "gift", "comfort"] as const;
 export const GestureKind = z.enum(GESTURE_KINDS);
 export type GestureKind = z.infer<typeof GestureKind>;
+/**
+ * Gestures kept secret until they're mutual: the other person finds out about yours only once
+ * they send you the same kind, and then you both see them (decision 0066).
+ */
+export const INTIMATE_GESTURES = ["kiss"] as const satisfies readonly GestureKind[];
+export const isIntimateGesture = (kind: GestureKind) =>
+  (INTIMATE_GESTURES as readonly GestureKind[]).includes(kind);
 export const GESTURE_NOTE_MAX_LENGTH = 140;
 
 /** The thing a gift gesture carried: what kind, how many, and the gift's id to send it back. */

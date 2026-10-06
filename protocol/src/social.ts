@@ -461,6 +461,8 @@ export const ProfileView = z.object({
    * Public, changes once a day, and can't be spent, given, or bought.
    */
   karma: KarmaView.optional(),
+  /** Present and true when the caller shares a plot with them (an owner and a co-owner). */
+  sharesPlot: z.literal(true).optional(),
   /** Present and true when the caller has blocked them. */
   blocked: z.boolean().optional(),
   /** How many Town Hall proposals they voted on. */
@@ -603,7 +605,17 @@ export const StreakView = z.object({
 });
 export type StreakView = z.infer<typeof StreakView>;
 
-export const GestureResponse = z.object({ gesture: GestureView, streak: z.number().int() });
+export const GestureResponse = z.object({
+  gesture: GestureView,
+  streak: z.number().int(),
+  /**
+   * Present and true for a kiss (any of `INTIMATE_GESTURES`) they haven't sent you: they won't see
+   * it, and it doesn't count for your streak, until they send you one too.
+   */
+  secret: z.literal(true).optional(),
+  /** Present and true when this answered one they'd sent you: now you both see them. */
+  answered: z.literal(true).optional(),
+});
 export const GesturesResponse = z.object({
   /** Recent gestures you sent and received, newest first. */
   gestures: z.array(GestureView),

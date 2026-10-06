@@ -45,7 +45,14 @@ import {
   type WorldEvent as WorldEventView,
   w3cDatetime,
 } from "@terrakin/protocol";
-import { findBounty, findProposal, goodById, heldAsideOf, listingById } from "@terrakin/sim";
+import {
+  canBuildOn,
+  findBounty,
+  findProposal,
+  goodById,
+  heldAsideOf,
+  listingById,
+} from "@terrakin/sim";
 import { bountiesView, bountyView, staffBountiesView } from "./bounties";
 import { checkinView } from "./checkin";
 import { purseView } from "./coins";
@@ -1144,8 +1151,16 @@ export class Api {
           body: { unread },
         })),
       getResident: ({ viewer, params }) => {
-        const resident = social().profile(params.id, viewer);
-        if (!resident) return fail("not_found", "No such resident.");
+        const profile = social().profile(params.id, viewer);
+        if (!profile) return fail("not_found", "No such resident.");
+        // Whether you share a plot with them: the site offers a kiss to the people you live with.
+        const shared =
+          viewer !== undefined &&
+          viewer !== params.id &&
+          Object.values(service.state.plots).some(
+            (p) => canBuildOn(p, viewer) && canBuildOn(p, params.id),
+          );
+        const resident = shared ? { ...profile, sharesPlot: true as const } : profile;
         // An hour-old agent link is checked again in the background; this answer doesn't wait.
         void social().agentLinks.refreshIfStale(params.id);
         return { status: 200, body: { resident } };
@@ -1332,7 +1347,7 @@ export class Api {
           item = givenItem(given.events, viewer);
         }
         const sent = together.sendGesture(viewer, params.id, body, item ? { item } : {});
-        if (sent.ok) {
+        if (sent.ok && !sent.value.secret) {
           service.notify(params.id, together.liveGesture(sent.value.gesture, sent.value.streak));
         }
         return fromResult(sent, (value) => ({ status: 201 as const, body: value }));

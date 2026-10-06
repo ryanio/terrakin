@@ -66,7 +66,7 @@ import { postCard, skeletonCards } from "./post-card";
 import { coins, refreshPurse } from "./purse";
 import { openReportSheet } from "./report-sheet";
 import { thingCount, thingName } from "./things";
-import { type GestureInfo, gestureChoices, gestureInfo, streakLine } from "./together";
+import { type GestureInfo, gestureChoices, gestureInfo, sentLine, streakLine } from "./together";
 import { errorCard, notFoundCard, type View, type ViewContext } from "./view";
 import { xRow } from "./x-connect";
 
@@ -816,7 +816,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       }
       floatUp(from, gestureInfo(kind).emoji);
       paintStreak(res.data.streak);
-      toast(`You sent ${gestureInfo(kind).noun} to ${r.name}`);
+      toast(sentLine(kind, r.name, res.data));
       return true;
     };
 
@@ -843,12 +843,13 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       else b.addEventListener("click", () => void whileBusy(b, () => send(g.kind, b)));
       return b;
     };
-    for (const g of gestureChoices([], 0, me.id)) row.append(button(g));
+    for (const g of gestureChoices([], 0, me.id, r.sharesPlot)) row.append(button(g));
     // Close-only gestures (a kiss) join the row in their place once the history says you're close.
     void api.gestures(r.id).then((res) => {
       if (destroyed || !res.ok) return;
       paintStreak(res.data.streaks[0]?.streak ?? 0);
-      const choices = gestureChoices(res.data.gestures, res.data.streaks[0]?.streak ?? 0, me.id);
+      const streak = res.data.streaks[0]?.streak ?? 0;
+      const choices = gestureChoices(res.data.gestures, streak, me.id, r.sharesPlot);
       choices.forEach((g, i) => {
         if (row.querySelector(`[data-kind="${g.kind}"]`)) return;
         const after = choices[i - 1];

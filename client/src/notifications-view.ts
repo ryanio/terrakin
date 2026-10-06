@@ -17,7 +17,7 @@ import { setUnread } from "./bell";
 import { savedToken } from "./net";
 import { REACTIONS } from "./reactions";
 import { thingCount, thingName } from "./things";
-import { gestureInfo, showsReceived } from "./together";
+import { gestureInfo } from "./together";
 import { errorCard, type View, type ViewContext } from "./view";
 
 const ICONS: Record<NotificationView["type"], IconName> = {
@@ -32,10 +32,6 @@ const ICONS: Record<NotificationView["type"], IconName> = {
   praise: "star",
   takedown: "town",
 };
-
-/** A kiss someone sent you stays off the page; older ones were notified before it did. */
-const shown = (n: Pick<NotificationView, "type" | "gesture">) =>
-  !(n.type === "gesture" && n.gesture && !showsReceived(n.gesture));
 
 /** "Moss and 2 others reacted 🌱 to your post". Pure, so tests pin it. */
 export function notificationLine(
@@ -261,7 +257,7 @@ export function notificationsView(ctx: ViewContext): View {
     const r = await api.notifications({ before: next });
     if (destroyed) return;
     if (!r.ok) return r.message;
-    list.append(...r.data.notifications.filter(shown).map(notificationItem));
+    list.append(...r.data.notifications.map(notificationItem));
     next = r.data.next;
     more.el.hidden = next === null;
   });
@@ -280,7 +276,7 @@ export function notificationsView(ctx: ViewContext): View {
     }
     const { notifications, unread } = r.data;
     next = r.data.next;
-    if (!notifications.some(shown)) {
+    if (notifications.length === 0) {
       body.replaceChildren(
         emptyNote(
           "Nothing yet",
@@ -290,7 +286,7 @@ export function notificationsView(ctx: ViewContext): View {
       setUnread(0);
       return;
     }
-    list.replaceChildren(...notifications.filter(shown).map(notificationItem));
+    list.replaceChildren(...notifications.map(notificationItem));
     more.el.hidden = next === null;
     body.replaceChildren(list, foot);
     const newest = notifications[0];

@@ -37,6 +37,7 @@ import type { Api, Failure, Handlers } from "./api";
 import { checkinView } from "./checkin";
 import { gardenOf } from "./items";
 import { plural } from "./markdown";
+import { GESTURE_WORDS } from "./together-service";
 import type { ActResult } from "./world-service";
 
 /**
@@ -829,13 +830,14 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
       const to = query.resident ?? query.to ?? "";
       const sent = together.sendGesture(viewer, to, { kind });
       if (!sent.ok) return failed(sent.code, sent.message);
-      service.notify(to, together.liveGesture(sent.value.gesture, sent.value.streak));
+      const { secret } = sent.value;
+      if (!secret) service.notify(to, together.liveGesture(sent.value.gesture, sent.value.streak));
       const r = resident(viewer);
       if ("error" in r) return r;
       return ok(
         page(
           "# Sent",
-          `You sent a ${kind.replace("_", " ")} to \`${to}\`. They see it in their notifications.`,
+          `You sent ${GESTURE_WORDS[kind]} to \`${to}\`. ${secret ? "It stays secret until they send you one too." : "They see it in their notifications."}`,
           nextSteps(state, r, l),
         ),
       );

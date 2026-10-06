@@ -24558,6 +24558,18 @@
             "type": "integer",
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
+          },
+          "secret": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "answered": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
           }
         },
         "required": [
@@ -25459,6 +25471,12 @@
               {
                 "$ref": "#/components/schemas/KarmaView"
               }
+            ]
+          },
+          "sharesPlot": {
+            "type": "boolean",
+            "enum": [
+              true
             ]
           },
           "blocked": {

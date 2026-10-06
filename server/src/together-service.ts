@@ -10,8 +10,10 @@ import {
   type GestureRequest,
   type GestureView,
   GIFT_ITEM_COOLDOWN_SECONDS,
+  INTIMATE_GESTURES,
   INVITE_TTL_DAYS,
   type InviteView,
+  isIntimateGesture,
   type LetterView,
   MAX_OPEN_INVITES,
   MEDIA_TYPES,
@@ -77,7 +79,7 @@ const randomId = (prefix: string) =>
 
 /** Gestures older than this are forgotten. Streaks keep their own small record. */
 const GESTURE_RETENTION_MS = 30 * DAY_MS;
-const GESTURE_WORDS: Record<GestureKind, string> = {
+export const GESTURE_WORDS: Record<GestureKind, string> = {
   hug: "a hug",
   kiss: "a kiss",
   wave: "a wave",
@@ -108,6 +110,15 @@ const VISIBLE =
 const FROM_SOMEONE_OK = `sender NOT IN (SELECT blocked FROM blocks WHERE blocker = ?)
   AND sender NOT IN (SELECT blocker FROM blocks WHERE blocked = ?)
   AND ${NOT_SUSPENDED("sender")}`;
+
+/**
+ * A gesture the viewer may see: one they sent, any kind but a kiss (`INTIMATE_GESTURES`), or a kiss
+ * answered with one the other way. Takes the viewer's id as its one parameter.
+ */
+const SEEN_BY = `(gestures.sender = ?
+  OR gestures.kind NOT IN (${INTIMATE_GESTURES.map((k) => `'${k}'`).join(", ")})
+  OR EXISTS (SELECT 1 FROM gestures m WHERE m.sender = gestures.recipient
+    AND m.recipient = gestures.sender AND m.kind = gestures.kind))`;
 
 export class TogetherService {
   private readonly o: TogetherOptions;
@@ -371,12 +382,13 @@ export class TogetherService {
     return this.gestureViews(
       this.rows(
         `SELECT * FROM gestures WHERE recipient = ? AND created_at >= ? AND ${FROM_SOMEONE_OK}
-          ORDER BY n DESC LIMIT ?`,
+          AND ${SEEN_BY} ORDER BY n DESC LIMIT ?`,
         viewer,
         sinceMs,
         viewer,
         viewer,
         this.o.now(),
+        viewer,
         limit,
       ),
     );
@@ -591,7 +603,7 @@ export class TogetherService {
     to: string,
     request: GestureRequest,
     options: { putter?: boolean; item?: GestureItem } = {},
-  ): SocialResult<{ gesture: GestureView; streak: number }> {
+  ): SocialResult<{ gesture: GestureView; streak: number; secret?: true; answered?: true }> {
     const putter = options.putter === true;
     const { item } = options;
     // A gift that carries a thing was checked before the thing moved in the world. Nothing may
@@ -604,6 +616,17 @@ export class TogetherService {
     const { note } = checked.value;
     const now = this.o.now();
     const today = utcDay(now);
+    // A kiss stays secret until they've sent you one too; the one that answers theirs tells you both.
+    const intimate = isIntimateGesture(request.kind);
+    const sentBefore = (from: string, toWhom: string) =>
+      this.rows(
+        "SELECT 1 FROM gestures WHERE sender = ? AND recipient = ? AND kind = ? LIMIT 1",
+        from,
+        toWhom,
+        request.kind,
+      ).length > 0;
+    const secret = intimate && !sentBefore(to, sender);
+    const answered = intimate && !secret && !sentBefore(sender, to);
 
     const id = randomId("g");
     this.o.sql.exec(
@@ -622,9 +645,10 @@ export class TogetherService {
     );
     const pair = pairKey(sender, to);
     const before = this.streakRecord(pair);
-    // A putter wave is real, but nobody chose to send it, so it never moves a streak.
-    const record = putter ? before : nextStreak(before, today);
-    if (record && !putter) {
+    // A putter wave is real, but nobody chose to send it, so it never moves a streak. A secret kiss
+    // doesn't either, or the streak would give it away.
+    const record = putter || secret ? before : nextStreak(before, today);
+    if (record && !putter && !secret) {
       const [a, b] = pair.split("|") as [string, string];
       this.o.sql.exec(
         `INSERT INTO streaks (pair, a, b, day, streak) VALUES (?, ?, ?, ?, ?)
@@ -637,12 +661,16 @@ export class TogetherService {
       );
     }
     const gesture = this.gestureViews(this.rows("SELECT * FROM gestures WHERE id = ?", id))[0];
-    // A kiss to a person doesn't notify them: they read it from the API (`GET /v1/gestures`), so a
-    // stranger's kiss never lands in front of them on the site (decision 0066).
-    const quiet = request.kind === "kiss" && gesture?.to.kind === "human";
-    if (gesture && !quiet) this.o.notify?.(to, sender, "gesture", request.kind);
+    if (gesture && !secret) this.o.notify?.(to, sender, "gesture", request.kind);
+    // They sent theirs while it was secret: the sender finds out about it now.
+    if (gesture && answered) this.o.notify?.(sender, to, "gesture", request.kind);
     return gesture
-      ? ok({ gesture, streak: activeStreak(record, today) })
+      ? ok({
+          gesture,
+          streak: activeStreak(record, today),
+          ...(secret ? { secret: true as const } : {}),
+          ...(answered ? { answered: true as const } : {}),
+        })
       : fail("internal", "Gesture vanished.");
   }
 
@@ -655,16 +683,19 @@ export class TogetherService {
     const other = options.with;
     const rows = other
       ? this.rows(
-          `SELECT * FROM gestures WHERE (sender = ? AND recipient = ?) OR (sender = ? AND recipient = ?)
-            ORDER BY n DESC LIMIT ?`,
+          `SELECT * FROM gestures WHERE ((sender = ? AND recipient = ?) OR (sender = ? AND recipient = ?))
+            AND ${SEEN_BY} ORDER BY n DESC LIMIT ?`,
           viewer,
           other,
           other,
+          viewer,
           viewer,
           limit,
         )
       : this.rows(
-          "SELECT * FROM gestures WHERE sender = ? OR recipient = ? ORDER BY n DESC LIMIT ?",
+          `SELECT * FROM gestures WHERE (sender = ? OR recipient = ?) AND ${SEEN_BY}
+            ORDER BY n DESC LIMIT ?`,
+          viewer,
           viewer,
           viewer,
           limit,

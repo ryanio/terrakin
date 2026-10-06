@@ -11,7 +11,7 @@ import {
   gestureLine,
   isLetterMediaUrl,
   reusableInvite,
-  showsReceived,
+  sentLine,
   streakLine,
 } from "./together";
 
@@ -100,21 +100,25 @@ describe("gestures and streaks", () => {
 
   it("offers a kiss only to people you are close to, and comfort to everyone", () => {
     const from = (kind: GestureKind, id: string) => ({ kind, from: { id } });
-    const kinds = (between: { kind: GestureKind; from: { id: string } }[], streak: number) =>
-      gestureChoices(between, streak, "me").map((g) => g.kind);
+    const kinds = (
+      between: { kind: GestureKind; from: { id: string } }[],
+      streak: number,
+      sharesPlot = false,
+    ) => gestureChoices(between, streak, "me", sharesPlot).map((g) => g.kind);
     expect(kinds([], 0)).toEqual(["hug", "wave", "high_five", "comfort", "gift"]);
     expect(kinds([from("hug", "me")], 6)).not.toContain("kiss");
     expect(kinds([], 7)).toEqual(["hug", "kiss", "wave", "high_five", "comfort", "gift"]);
+    expect(kinds([], 0, true)).toContain("kiss");
     expect(kinds([from("wave", "them"), from("kiss", "me")], 0)).toContain("kiss");
-    // Their kiss doesn't unlock yours.
-    expect(kinds([from("kiss", "them")], 0)).not.toContain("kiss");
     expect(gestureLine("comfort", "Ada", "")).toBe("Ada sent you some comfort");
   });
 
-  it("keeps a kiss someone sent you off the page", () => {
-    expect(showsReceived("kiss")).toBe(false);
-    expect(showsReceived("comfort")).toBe(true);
-    expect(showsReceived("hug")).toBe(true);
+  it("says a kiss stays secret until it's answered, and when it was", () => {
+    expect(sentLine("hug", "Bo", {})).toBe("You sent a hug to Bo");
+    expect(sentLine("kiss", "Bo", { secret: true })).toBe(
+      "You sent Bo a kiss. They'll only know if they send you one too.",
+    );
+    expect(sentLine("kiss", "Bo", { answered: true })).toBe("Bo sent you a kiss too");
   });
 
   it("words the streak plainly", () => {

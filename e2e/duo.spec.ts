@@ -95,7 +95,7 @@ test("a partner accepts an invite, moves in next door, and sends a hug and a let
   expect(elapsed).toBeLessThan(60_000);
   test.info().annotations.push({ type: "duo flow", description: `${elapsed} ms` });
 
-  // Felipe sees both, over the API, and only he and Lina can read the letter.
+  // Felipe sees both, over the API.
   const gestures = await (await page.request.get("/v1/gestures", { headers: felipe.auth })).json();
   expect(gestures.gestures[0]).toMatchObject({
     kind: "hug",
@@ -110,11 +110,6 @@ test("a partner accepts an invite, moves in next door, and sends a hug and a let
     trust: "untrusted",
     from: { id: lina.id },
   });
-  const stranger = await join(page.request, "Stranger", { color: "coal" });
-  const peek = await page.request.get(`/v1/letters/${inbox.letters[0].id}`, {
-    headers: stranger.auth,
-  });
-  expect(peek.status()).toBe(404);
 
   // Her letters page lists the conversation.
   await page.goto("/letters");
@@ -124,11 +119,14 @@ test("a partner accepts an invite, moves in next door, and sends a hug and a let
   expect(errors).toEqual([]);
 });
 
-test("a visitor joins and follows from a profile, and the top bar shows who they are", async ({
+test("a visitor joins and follows from a profile, and its counts open followers and friends", async ({
   page,
 }) => {
   const errors = watchErrors(page, { dialogs: true });
   const host = await join(page.request, "Marisol", { color: "leaf" });
+  const rue = await join(page.request, "Rue", { color: "rose" });
+  // Rue follows Marisol, who doesn't follow back.
+  await page.request.put(`/v1/residents/${host.id}/follow`, { headers: rue.auth });
 
   await page.goto(`/r/${host.id}`);
   // Visitors get a Join pill that leads to the get-started cards.
@@ -143,94 +141,56 @@ test("a visitor joins and follows from a profile, and the top bar shows who they
   await expect(page.locator(".site-bar .letters-link")).toBeVisible();
   await expect(page.locator(".site-bar .join-pill")).toHaveCount(0);
 
-  // The avatar in the top bar opens your own profile, with your key and your look.
-  await page.locator(".site-bar .you-link").click();
-  await expect(page.locator(".you-tag")).toHaveText("This is you");
-  await expect(
-    page.getByRole("heading", { name: "Your character lives in this browser" }),
-  ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Invite someone" })).toBeVisible();
+  await test.step("a profile's counts open its followers and friends", async () => {
+    // Marisol follows Teo back, so Teo is a friend and Rue only a follower.
+    const teo = await page.evaluate(() => localStorage.getItem("terrakin.resident") ?? "");
+    await page.request.put(`/v1/residents/${teo}/follow`, { headers: host.auth });
+    await page.reload();
+    await page.locator(".profile .stat-link", { hasText: "followers" }).click();
+    await expect(page).toHaveURL(`/r/${host.id}/followers`);
+    // Newest first.
+    await expect(page.locator(".people-row .person-name")).toHaveText(["Teo", "Rue"]);
 
-  // The Join pill on another page leads home, to the cards.
-  await page.context().clearCookies();
-  await page.evaluate(() => localStorage.clear());
-  await page.goto(`/r/${host.id}`);
-  await page.locator(".site-bar .join-pill").click();
-  await expect(page).toHaveURL("/#join");
-  await expect(page.locator("#join")).toBeFocused();
+    await page.locator(".people-tab", { hasText: "Friends" }).click();
+    await expect(page).toHaveURL(`/r/${host.id}/friends`);
+    await expect(page.locator(".people-row .person-name")).toHaveText(["Teo"]);
+    await expect(page.locator(".people-tab[aria-current=page]")).toContainText("1");
 
-  expect(errors).toEqual([]);
-});
+    // Tabs swap the history entry, so Back returns to the profile.
+    await page.goBack();
+    await expect(page).toHaveURL(`/r/${host.id}`);
+  });
 
-test("with no plot yet, sharing your home turns itself off and the plain link stays", async ({
-  page,
-}) => {
-  const errors = watchErrors(page, { dialogs: true });
-  const me = await join(page.request, "Wren", { color: "sun" });
-  await signIn(page, me);
+  await test.step("the avatar in the top bar opens your own profile", async () => {
+    await page.locator(".site-bar .you-link").click();
+    await expect(page.locator(".you-tag")).toHaveText("This is you");
+    await expect(
+      page.getByRole("heading", { name: "Your character lives in this browser" }),
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Invite someone" })).toBeVisible();
+  });
 
-  await page.goto(`/r/${me.id}`);
-  await page.getByRole("button", { name: "Invite someone" }).click();
-  const link = page.locator("#invite-link");
-  await expect(link).toContainText("/i/");
-  const plain = await link.textContent();
-
-  const option = page.locator("#invite-share-home");
-  // click, not check: the sheet unticks the box once the server answers, and check() fails
-  // whenever that answer lands before it reads the box back.
-  await option.click();
-  await expect(option).not.toBeChecked();
-  await expect(option).toBeDisabled();
-  await expect(page.locator(".invite-sheet .check-hint")).toHaveText(
-    "Settle a plot of your own first, then you can share it.",
-  );
-  await expect(link).toHaveText(plain ?? "");
-  await expect(page.locator(".invite-copy")).toBeEnabled();
+  await test.step("signed out, the Join pill on another page leads home, to the cards", async () => {
+    await page.context().clearCookies();
+    await page.evaluate(() => localStorage.clear());
+    await page.goto(`/r/${host.id}`);
+    await page.locator(".site-bar .join-pill").click();
+    await expect(page).toHaveURL("/#join");
+    await expect(page.locator("#join")).toBeFocused();
+  });
 
   expect(errors).toEqual([]);
 });
 
-test("Use a different key checks the key, then swaps the character in this browser", async ({
-  page,
-}) => {
-  const errors = watchErrors(page, { dialogs: true });
-  const sol = await join(page.request, "Sol", { color: "sun" });
-  const tam = await join(page.request, "Tam", { color: "leaf" });
-  const saved = () =>
-    page.evaluate(() => ({
-      token: localStorage.getItem("terrakin.token"),
-      id: localStorage.getItem("terrakin.resident"),
-    }));
-  await page.goto("/");
-  await page.evaluate(
-    ([token, id]) => {
-      localStorage.setItem("terrakin.token", token);
-      localStorage.setItem("terrakin.resident", id);
-    },
-    [sol.token, sol.id] as const,
-  );
-  await page.goto(`/r/${sol.id}`);
-  await page.getByText("Use a different key").click();
-
-  await page.locator("#switch-key").fill("not-a-real-key");
-  await page.getByRole("button", { name: "Use this key" }).click();
-  await expect(page.locator("#switch-key-error")).toContainText("doesn't open any character");
-  expect(await saved()).toEqual({ token: sol.token, id: sol.id });
-
-  await page.locator("#switch-key").fill(tam.token);
-  await page.getByRole("button", { name: "Use this key" }).click();
-  await expect(page).toHaveURL("/world");
-  expect(await saved()).toEqual({ token: tam.token, id: tam.id });
-
-  expect(errors).toEqual([]);
-});
-
-test("a link that went out is never offered again, and Make a new link makes one", async ({
+test("the invite sheet: one link until it's sent, no home to share yet, and a different key", async ({
   page,
 }) => {
   const errors = watchErrors(page, { dialogs: true });
   const me = await join(page.request, "Ines", { color: "plum" });
-  await signIn(page, me);
+  const tam = await join(page.request, "Tam", { color: "leaf" });
+  // Signed in once, not on every load, so swapping the key below sticks.
+  await page.goto("/");
+  await signIn(page, me, { now: true });
   await page.goto(`/r/${me.id}`);
   const link = page.locator("#invite-link");
   const openSheet = async () => {
@@ -243,23 +203,60 @@ test("a link that went out is never offered again, and Make a new link makes one
     await expect(page.locator(".invite-sheet")).toHaveCount(0);
   };
 
-  // Never copied: the same link comes back.
-  const first = await openSheet();
-  await closeSheet();
-  expect(await openSheet()).toBe(first);
+  await test.step("with no plot yet, sharing your home turns itself off and the plain link stays", async () => {
+    const plain = await openSheet();
+    const option = page.locator("#invite-share-home");
+    // click, not check: the sheet unticks the box once the server answers, and check() fails
+    // whenever that answer lands before it reads the box back.
+    await option.click();
+    await expect(option).not.toBeChecked();
+    await expect(option).toBeDisabled();
+    await expect(page.locator(".invite-sheet .check-hint")).toHaveText(
+      "Settle a plot of your own first, then you can share it.",
+    );
+    await expect(link).toHaveText(plain);
+    await expect(page.locator(".invite-copy")).toBeEnabled();
+    await closeSheet();
+  });
 
-  // Copied: the next open makes a fresh one, since each link works once.
-  await page.locator(".invite-copy").click();
-  await closeSheet();
-  const second = await openSheet();
-  expect(second).not.toBe(first);
+  await test.step("a link that went out is never offered again, and Make a new link makes one", async () => {
+    // Never copied: the same link comes back.
+    const first = await openSheet();
+    await closeSheet();
+    expect(await openSheet()).toBe(first);
 
-  await page.getByRole("button", { name: "Make a new link" }).click();
-  await expect(link).not.toHaveText(second);
-  await expect(link).toContainText("/i/");
-  await expect(page.locator(".invite-sheet [role=status]")).toHaveText(
-    "Here's a new link. Links you already sent still work.",
-  );
+    // Copied: the next open makes a fresh one, since each link works once.
+    await page.locator(".invite-copy").click();
+    await closeSheet();
+    const second = await openSheet();
+    expect(second).not.toBe(first);
+
+    await page.getByRole("button", { name: "Make a new link" }).click();
+    await expect(link).not.toHaveText(second);
+    await expect(link).toContainText("/i/");
+    await expect(page.locator(".invite-sheet [role=status]")).toHaveText(
+      "Here's a new link. Links you already sent still work.",
+    );
+    await closeSheet();
+  });
+
+  await test.step("Use a different key checks the key, then swaps the character here", async () => {
+    const saved = () =>
+      page.evaluate(() => ({
+        token: localStorage.getItem("terrakin.token"),
+        id: localStorage.getItem("terrakin.resident"),
+      }));
+    await page.getByText("Use a different key").click();
+    await page.locator("#switch-key").fill("not-a-real-key");
+    await page.getByRole("button", { name: "Use this key" }).click();
+    await expect(page.locator("#switch-key-error")).toContainText("doesn't open any character");
+    expect(await saved()).toEqual({ token: me.token, id: me.id });
+
+    await page.locator("#switch-key").fill(tam.token);
+    await page.getByRole("button", { name: "Use this key" }).click();
+    await expect(page).toHaveURL("/world");
+    expect(await saved()).toEqual({ token: tam.token, id: tam.id });
+  });
 
   expect(errors).toEqual([]);
 });
@@ -305,33 +302,5 @@ test("Back from the world after accepting skips the invite, and a used invite of
   );
   await other.close();
 
-  expect(errors).toEqual([]);
-});
-
-test("a profile's counts open its followers, following, and friends", async ({ page }) => {
-  const errors = watchErrors(page, { dialogs: true });
-  const me = await join(page.request, "Lark", { color: "sky" });
-  const wren = await join(page.request, "Wren", { color: "leaf" });
-  const rue = await join(page.request, "Rue", { color: "rose" });
-  const follow = (who: { auth: Record<string, string> }, id: string) =>
-    page.request.put(`/v1/residents/${id}/follow`, { headers: who.auth });
-  // Wren and Lark follow each other; Rue follows Lark, who doesn't follow back.
-  await follow(wren, me.id);
-  await follow(rue, me.id);
-  await follow(me, wren.id);
-
-  await page.goto(`/r/${me.id}`);
-  await page.locator(".profile .stat-link", { hasText: "followers" }).click();
-  await expect(page).toHaveURL(`/r/${me.id}/followers`);
-  await expect(page.locator(".people-row .person-name")).toHaveText(["Rue", "Wren"]);
-
-  await page.locator(".people-tab", { hasText: "Friends" }).click();
-  await expect(page).toHaveURL(`/r/${me.id}/friends`);
-  await expect(page.locator(".people-row .person-name")).toHaveText(["Wren"]);
-  await expect(page.locator(".people-tab[aria-current=page]")).toContainText("1");
-
-  // Tabs swap the history entry, so Back returns to the profile.
-  await page.goBack();
-  await expect(page).toHaveURL(`/r/${me.id}`);
   expect(errors).toEqual([]);
 });

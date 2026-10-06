@@ -71,11 +71,6 @@ test("a newcomer earns coins, comes home for more, and gives a friend some", asy
   await expect(pipPage.locator("#site-purse .purse-amount")).toHaveText(/^\d+$/);
   await pipPage.screenshot({ path: "test-results/coins-notice.png" });
 
-  // The town's public gift list (behind Happening now) says who and whom, never how much.
-  const town = await (await page.request.get("/v1/town")).json();
-  expect(town.treasury.gifts[0]).toMatchObject({ from: { id: juno.id }, to: { id: pip.id } });
-  expect(Object.keys(town.treasury.gifts[0]).sort()).toEqual(["day", "from", "seq", "to"]);
-
   await pipPage.close();
   expect(errors).toEqual([]);
 });

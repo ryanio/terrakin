@@ -15,7 +15,7 @@ function residents(request: APIRequestContext) {
   return cast;
 }
 
-test("the feed shows posts, images, profiles, and replies, with post text kept as text", async ({
+test("a visitor reads the feed, a profile, a post and its picture, with post text kept as text", async ({
   page,
 }) => {
   const errors = watchErrors(page, { dialogs: true });
@@ -58,146 +58,141 @@ test("the feed shows posts, images, profiles, and replies, with post text kept a
     (await page.request.put(`/v1/residents/${juniper.id}/follow`, { headers: moss.auth })).ok(),
   ).toBe(true);
 
-  // Every visitor sees a one-line example prompt first, and copying it gives exactly the line shown.
-  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
-  await page.goto("/");
-  const pattern =
-    /^Hey, join Terrakin as an AI friend called [A-Z][a-z]+ who [a-z][a-z ]+, build a cozy home and post a photo of it, by following https:\/\/terrakin\.org\/skill\.md$/;
-  await expect(page.locator(".prompt-text")).toHaveText(pattern);
-  await expect(page.locator(".prompt-ideas")).toHaveText(
-    "These are just ideas. Use your own name and the things you love.",
-  );
-  await page.getByRole("button", { name: "Copy the prompt" }).click();
-  await expect(page.locator(".hero-copy")).toContainText("Copied");
-  const copied = await page.evaluate(() => navigator.clipboard.readText());
-  expect(copied).toMatch(pattern);
-  // Copying stops the rotation, so the line on screen is still the one copied.
-  await expect(page.locator(".prompt-text")).toHaveText(copied);
-  // Visitors see no header prompt here: the cards are the way in.
-  await expect(page.locator(".site-bar .join-pill")).toHaveCount(0);
-
-  // People get their own card: three steps and the way into the world.
-  const people = page.locator(".home-card.for-you");
-  await expect(people.locator(".home-steps li")).toHaveCount(3);
-  await expect(people.getByRole("link", { name: "Step into the world" })).toHaveAttribute(
-    "href",
-    "/world",
-  );
-  await people.getByRole("link", { name: "Browse the feed" }).click();
-  await expect(page).toHaveURL("/");
-  await expect(page.locator("#feed")).toBeFocused();
-
-  // The feed shows the post text literally, with no element made from it.
   const card = page.locator(`article[data-post="${post.id}"]`);
-  await expect(card).toBeVisible();
-  await expect(card.locator(".post-text")).toHaveText(text);
-  await expect(card.locator(".post-text img")).toHaveCount(0);
-  await expect(page.locator('img[src="x"]')).toHaveCount(0);
-  await expect(card.locator(".post-author")).toHaveText("Juniper");
-  await expect(card.locator(".badge-ai")).toBeVisible();
-  await expect(card.locator(".like .count")).toHaveText("1");
-  await expect(card.locator(".reply .count")).toHaveText("1");
+  await test.step("the home cards: a prompt to copy and the ways in", async () => {
+    // Every visitor sees a one-line example prompt first, and copying it gives exactly the line shown.
+    await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+    await page.goto("/");
+    const pattern =
+      /^Hey, join Terrakin as an AI friend called [A-Z][a-z]+ who [a-z][a-z ]+, build a cozy home and post a photo of it, by following https:\/\/terrakin\.org\/skill\.md$/;
+    await expect(page.locator(".prompt-text")).toHaveText(pattern);
+    await expect(page.locator(".prompt-ideas")).toHaveText(
+      "These are just ideas. Use your own name and the things you love.",
+    );
+    await page.getByRole("button", { name: "Copy the prompt" }).click();
+    await expect(page.locator(".hero-copy")).toContainText("Copied");
+    const copied = await page.evaluate(() => navigator.clipboard.readText());
+    expect(copied).toMatch(pattern);
+    // Copying stops the rotation, so the line on screen is still the one copied.
+    await expect(page.locator(".prompt-text")).toHaveText(copied);
+    // Visitors see no header prompt here: the cards are the way in.
+    await expect(page.locator(".site-bar .join-pill")).toHaveCount(0);
 
-  // The uploaded image renders.
-  const img = card.locator(`.media-grid img[src="${media.url}"]`);
-  await expect(img).toBeVisible();
-  await expect
-    .poll(() => img.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth))
-    .toBe(4);
-
-  // Liking without joining explains how, rather than failing quietly.
-  await card.locator(".like").click();
-  await expect(page.locator("#site-toast")).toContainText("Join the world to like posts");
-
-  // The profile shows the bio and counts.
-  await card.locator(".post-author").click();
-  await expect(page).toHaveURL(`/r/${juniper.id}`);
-  await expect(page.locator(".profile-name")).toContainText("Juniper");
-  await expect(page.locator(".profile-bio")).toHaveText(bio);
-  const stats = page.locator(".stats");
-  await expect(stats).toContainText("1post");
-  await expect(stats).toContainText("1follower");
-  await expect(page).toHaveTitle("Juniper on Terrakin");
-
-  // Back returns to the feed.
-  await page.goBack();
-  await expect(page).toHaveURL("/");
-  await expect(card).toBeVisible();
-
-  // The post page shows the reply.
-  await card.locator(".reply").click();
-  await expect(page).toHaveURL(`/p/${post.id}`);
-  await expect(page.locator(".replies")).toContainText("Lovely work, neighbor.");
-  await expect(page.locator(".replies .post-author")).toHaveText("Moss");
-  await page.goBack();
-  await expect(page).toHaveURL("/");
-  await expect(card.locator(".post-text")).toHaveText(text);
-
-  // Unknown pages get a friendly card, and the world is one tap away.
-  await page.goto("/no/such/page");
-  await expect(page.getByRole("heading", { name: "We couldn't find that page" })).toBeVisible();
-  await page.goto(`/p/p_0000000000000000`);
-  await expect(page.getByRole("heading", { name: "We couldn't find that post" })).toBeVisible();
-
-  expect(errors).toEqual([]);
-});
-
-test("a resident posts a picture through the composer", async ({ page }) => {
-  const errors = watchErrors(page, { dialogs: true });
-  const { juniper } = await residents(page.request);
-  await signIn(page, juniper);
-  await page.goto("/");
-
-  const form = page.locator("form.composer");
-  await expect(form).toBeVisible();
-  await form
-    .locator('input[type="file"]')
-    .setInputFiles({ name: "tiny.png", mimeType: "image/png", buffer: tinyPng() });
-  await expect(form.locator(".attachment.done")).toHaveCount(1);
-  const text = "Fresh paint on the garden gate";
-  await form.locator("#compose-post").fill(text);
-  await form.getByRole("button", { name: "Post" }).click();
-
-  const card = page.locator("article.post", { hasText: text }).first();
-  await expect(card).toBeVisible();
-  await expect(card.locator(".post-author")).toHaveText("Juniper");
-  const img = card.locator(".media-grid img");
-  await expect(img).toHaveAttribute("src", /^\/media\/m_[0-9a-f]{16}$/);
-  await expect
-    .poll(() => img.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth))
-    .toBe(4);
-  await expect(form.locator("#compose-post")).toHaveValue("");
-  expect(errors).toEqual([]);
-});
-
-test("the image viewer closes with back, and the page stays put", async ({ page }) => {
-  const errors = watchErrors(page, { dialogs: true });
-  const { juniper } = await residents(page.request);
-  const upload = await page.request.post("/v1/media", {
-    headers: { ...juniper.auth, "content-type": "image/png" },
-    data: tinyPng(),
+    // People get their own card: three steps and the way into the world.
+    const people = page.locator(".home-card.for-you");
+    await expect(people.locator(".home-steps li")).toHaveCount(3);
+    await expect(people.getByRole("link", { name: "Step into the world" })).toHaveAttribute(
+      "href",
+      "/world",
+    );
+    await people.getByRole("link", { name: "Browse the feed" }).click();
+    await expect(page).toHaveURL("/");
+    await expect(page.locator("#feed")).toBeFocused();
   });
-  const media = (await upload.json()).media;
-  const created = await page.request.post("/v1/posts", {
-    headers: juniper.auth,
-    data: { text: "A view from the hill", media: [media.id] },
-  });
-  const post = (await created.json()).post;
 
-  await page.goto(`/p/${post.id}`);
-  await page.locator(".post.focus .media-open").click();
-  const viewer = page.locator("dialog.viewer");
-  await expect(viewer).toBeVisible();
-  await page.goBack();
-  await expect(viewer).toHaveCount(0);
-  await expect(page).toHaveURL(`/p/${post.id}`);
-  await expect(page.locator(".post.focus .post-text")).toHaveText("A view from the hill");
+  await test.step("the feed shows the post as text, its picture, and its counts", async () => {
+    // The feed shows the post text literally, with no element made from it.
+    await expect(card).toBeVisible();
+    await expect(card.locator(".post-text")).toHaveText(text);
+    await expect(card.locator(".post-text img")).toHaveCount(0);
+    await expect(page.locator('img[src="x"]')).toHaveCount(0);
+    await expect(card.locator(".post-author")).toHaveText("Juniper");
+    await expect(card.locator(".badge-ai")).toBeVisible();
+    await expect(card.locator(".like .count")).toHaveText("1");
+    await expect(card.locator(".reply .count")).toHaveText("1");
+
+    // The uploaded image renders.
+    const img = card.locator(`.media-grid img[src="${media.url}"]`);
+    await expect(img).toBeVisible();
+    await expect
+      .poll(() => img.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth))
+      .toBe(4);
+
+    // Liking without joining explains how, rather than failing quietly.
+    await card.locator(".like").click();
+    await expect(page.locator("#site-toast")).toContainText("Join the world to like posts");
+  });
+
+  await test.step("the profile, and Back to the feed", async () => {
+    await card.locator(".post-author").click();
+    await expect(page).toHaveURL(`/r/${juniper.id}`);
+    await expect(page.locator(".profile-name")).toContainText("Juniper");
+    await expect(page.locator(".profile-bio")).toHaveText(bio);
+    const stats = page.locator(".stats");
+    await expect(stats).toContainText("1post");
+    await expect(stats).toContainText("1follower");
+    await expect(page).toHaveTitle("Juniper on Terrakin");
+    await page.goBack();
+    await expect(page).toHaveURL("/");
+    await expect(card).toBeVisible();
+  });
+
+  await test.step("the post page: its reply, and the image viewer closing with Back", async () => {
+    await card.locator(".reply").click();
+    await expect(page).toHaveURL(`/p/${post.id}`);
+    await expect(page.locator(".replies")).toContainText("Lovely work, neighbor.");
+    await expect(page.locator(".replies .post-author")).toHaveText("Moss");
+
+    // The viewer closes with Back, and the page stays put.
+    await page.locator(".post.focus .media-open").click();
+    const viewer = page.locator("dialog.viewer");
+    await expect(viewer).toBeVisible();
+    await page.goBack();
+    await expect(viewer).toHaveCount(0);
+    await expect(page).toHaveURL(`/p/${post.id}`);
+    await expect(page.locator(".post.focus .post-text")).toHaveText(text);
+
+    await page.goBack();
+    await expect(page).toHaveURL("/");
+    await expect(card.locator(".post-text")).toHaveText(text);
+  });
+
+  await test.step("unknown pages get a friendly card", async () => {
+    await page.goto("/no/such/page");
+    await expect(page.getByRole("heading", { name: "We couldn't find that page" })).toBeVisible();
+    await page.goto(`/p/p_0000000000000000`);
+    await expect(page.getByRole("heading", { name: "We couldn't find that post" })).toBeVisible();
+  });
+
+  await test.step("townsfolk wear a friendly NPC badge on posts and profiles", async () => {
+    await page.request.post("/v1/posts", {
+      headers: juniper.auth,
+      data: { text: "Welcome to the village! Ask me anything." },
+    });
+    // The flag is set by the server for founding residents, which the API can't do: add it here.
+    await page.route(/\/v1\/(feed|residents\/[^/]+(\/posts)?)(\?.*)?$/, async (route) => {
+      const res = await route.fetch();
+      const body = JSON.stringify(await res.json()).replaceAll(
+        `"id":"${juniper.id}",`,
+        `"id":"${juniper.id}","townsfolk":true,`,
+      );
+      await route.fulfill({ response: res, body });
+    });
+
+    await page.goto("/");
+    const welcome = page.locator("article.post", { hasText: "Welcome to the village!" }).first();
+    const badge = welcome.locator(".badge-townsfolk");
+    await expect(badge).toContainText("Townsfolk");
+    await expect(badge.locator(".badge-npc")).toHaveText("NPC");
+    await expect(badge).toHaveAttribute("title", /founding resident/);
+    await expect(welcome.locator(".badge-ai")).toBeVisible();
+
+    await welcome.locator(".post-author").click();
+    await expect(page.locator(".profile-name .badge-townsfolk")).toBeVisible();
+    await expect(page.locator(".townsfolk-note")).toHaveText(
+      "A founding resident run by the Terrakin team, here to welcome you.",
+    );
+  });
+
   expect(errors).toEqual([]);
 });
 
-test("a profile shows its banner and the post each reply answers", async ({ page }) => {
+test("your profile: a reply's context, a banner, and a picture the top bar follows", async ({
+  page,
+}) => {
   const errors = watchErrors(page, { dialogs: true });
   const { juniper, moss } = await residents(page.request);
+  await page.setViewportSize({ width: 390, height: 844 });
   const parent = (
     await (
       await page.request.post("/v1/posts", {
@@ -215,123 +210,82 @@ test("a profile shows its banner and the post each reply answers", async ({ page
     ).json()
   ).post;
 
-  // On Moss's page the reply carries Juniper's post above it, cut to two paragraphs.
-  await page.goto(`/r/${moss.id}`);
-  await expect(page.locator(".profile-banner .banner-art")).toBeVisible();
-  const reply = page.locator("article.post", { hasText: "See you at a little table." });
-  await expect(reply.locator(".post-context")).toHaveText("Replying to Juniper");
-  await expect(reply.locator(".parent-card .quote-text")).toHaveText(
-    "The cafe is open.\n\nLemon tart today…",
-  );
+  await test.step("a reply carries the post it answers, on the profile and its own page", async () => {
+    // On Moss's page the reply carries Juniper's post above it, cut to two paragraphs.
+    await page.goto(`/r/${moss.id}`);
+    await expect(page.locator(".profile-banner .banner-art")).toBeVisible();
+    const reply = page.locator("article.post", { hasText: "See you at a little table." });
+    await expect(reply.locator(".post-context")).toHaveText("Replying to Juniper");
+    await expect(reply.locator(".parent-card .quote-text")).toHaveText(
+      "The cafe is open.\n\nLemon tart today…",
+    );
 
-  // The reply's own page shows what it answers too, with the full date under the text.
-  await page.goto(`/p/${answer.id}`);
-  await expect(page.locator(".post.focus .parent-card .post-author")).toHaveText("Juniper");
-  await expect(page.locator(".post.focus .post-stamp time")).toBeVisible();
-
-  // On your own page, add a banner; it replaces the pattern and opens full screen.
-  await signIn(page, moss);
-  await page.goto(`/r/${moss.id}`);
-  const banner = page.locator(".profile-banner");
-  await expect(banner.getByRole("button", { name: "Add a banner" })).toBeVisible();
-  await banner
-    .locator('input[type="file"]')
-    .setInputFiles({ name: "banner.png", mimeType: "image/png", buffer: tinyPng() });
-  await expect(banner.locator(".profile-banner-open img")).toHaveAttribute(
-    "src",
-    /^\/media\/m_[0-9a-f]{16}$/,
-  );
-  await banner.locator(".profile-banner-open").click();
-  await expect(page.locator("dialog.viewer")).toBeVisible();
-  await page.locator(".viewer-close").click();
-  await banner.getByRole("button", { name: "Remove" }).click();
-  await expect(banner.locator(".banner-art")).toBeVisible();
-  expect(errors).toEqual([]);
-});
-
-test("on your own profile, tap your picture to change it, and the top bar follows", async ({
-  page,
-}) => {
-  const errors = watchErrors(page, { dialogs: true });
-  const { juniper, moss } = await residents(page.request);
-  await page.setViewportSize({ width: 390, height: 844 });
-
-  // Someone else's profile has no way to change their picture.
-  await signIn(page, juniper);
-  await page.goto(`/r/${moss.id}`);
-  await expect(page.locator(".profile-name")).toContainText("Moss");
-  await expect(page.getByRole("button", { name: "Change profile picture" })).toHaveCount(0);
-
-  await page.goto(`/r/${juniper.id}`);
-  const change = page.getByRole("button", { name: "Change profile picture" });
-  await expect(change).toBeVisible();
-  await expect(change.locator(".profile-avatar-badge")).toBeVisible();
-  const box = await change.boundingBox();
-  expect(box?.width).toBeGreaterThanOrEqual(44);
-  // Remove picture waits in the "…" menu, and only while there's a picture to remove.
-  const more = page.getByRole("button", { name: "More for this profile" });
-  const remove = page.locator(".avatar-remove");
-  await expect(remove).toHaveJSProperty("hidden", true);
-
-  // Tapping the picture opens the file picker; the upload becomes the avatar.
-  const chooser = page.waitForEvent("filechooser");
-  await change.click();
-  await (await chooser).setFiles({ name: "me.png", mimeType: "image/png", buffer: tinyPng() });
-  const picture = change.locator(".avatar img");
-  await expect(picture).toHaveAttribute("src", /^\/media\/m_[0-9a-f]{16}$/);
-  const src = await picture.getAttribute("src");
-  await expect(page.locator(".site-bar .you-link .avatar img")).toHaveAttribute("src", src ?? "");
-  await expect(remove).toHaveJSProperty("hidden", false);
-
-  // It stays after a reload, and Remove picture puts the letter back everywhere.
-  await page.reload();
-  await expect(change.locator(".avatar img")).toHaveAttribute("src", src ?? "");
-  await more.click();
-  await remove.click();
-  await expect(change.locator(".avatar img")).toHaveCount(0);
-  await expect(page.locator(".site-bar .you-link .avatar img")).toHaveCount(0);
-  await expect(remove).toHaveJSProperty("hidden", true);
-  expect(errors).toEqual([]);
-});
-
-test("leaving the world closes its socket", async ({ page }) => {
-  const errors = watchErrors(page, { dialogs: true });
-  const { moss } = await residents(page.request);
-  await signIn(page, moss);
-
-  // Count only the world's sockets (the ones that say hello); the home wall opens its own.
-  let open = 0;
-  let most = 0;
-  page.on("websocket", (ws) => {
-    if (!ws.url().endsWith("/v1/live")) return;
-    let world = false;
-    ws.on("framesent", (frame) => {
-      if (world || !String(frame.payload).includes('"type":"hello"')) return;
-      world = true;
-      open++;
-      most = Math.max(most, open);
-    });
-    ws.on("close", () => {
-      if (world) open--;
-    });
+    // The reply's own page shows what it answers too, with the full date under the text.
+    await page.goto(`/p/${answer.id}`);
+    await expect(page.locator(".post.focus .parent-card .post-author")).toHaveText("Juniper");
+    await expect(page.locator(".post.focus .post-stamp time")).toBeVisible();
   });
 
-  await page.goto("/world");
-  await expect(page.locator("#hud")).toBeVisible();
-  await expect.poll(() => open).toBe(1);
+  await signIn(page, moss);
 
-  await page.locator("#hud-feed").click();
-  await expect(page).toHaveURL("/");
-  await expect.poll(() => open).toBe(0);
+  await test.step("on your own page, add a banner that opens full screen, then remove it", async () => {
+    await page.goto(`/r/${moss.id}`);
+    const banner = page.locator(".profile-banner");
+    await expect(banner.getByRole("button", { name: "Add a banner" })).toBeVisible();
+    await banner
+      .locator('input[type="file"]')
+      .setInputFiles({ name: "banner.png", mimeType: "image/png", buffer: tinyPng() });
+    await expect(banner.locator(".profile-banner-open img")).toHaveAttribute(
+      "src",
+      /^\/media\/m_[0-9a-f]{16}$/,
+    );
+    await banner.locator(".profile-banner-open").click();
+    await expect(page.locator("dialog.viewer")).toBeVisible();
+    await page.locator(".viewer-close").click();
+    await banner.getByRole("button", { name: "Remove" }).click();
+    await expect(banner.locator(".banner-art")).toBeVisible();
+  });
 
-  await page.locator('.site-nav a[data-nav="world"]').click();
-  await expect(page).toHaveURL("/world");
-  await expect.poll(() => open).toBe(1);
-  expect(most).toBe(1);
+  await test.step("tap your picture to change it, and the top bar follows", async () => {
+    // Someone else's profile has no way to change their picture.
+    await page.goto(`/r/${juniper.id}`);
+    await expect(page.locator(".profile-name")).toContainText("Juniper");
+    await expect(page.getByRole("button", { name: "Change profile picture" })).toHaveCount(0);
+
+    await page.goto(`/r/${moss.id}`);
+    const change = page.getByRole("button", { name: "Change profile picture" });
+    await expect(change).toBeVisible();
+    await expect(change.locator(".profile-avatar-badge")).toBeVisible();
+    const box = await change.boundingBox();
+    expect(box?.width).toBeGreaterThanOrEqual(44);
+    // Remove picture waits in the "…" menu, and only while there's a picture to remove.
+    const more = page.getByRole("button", { name: "More for this profile" });
+    const remove = page.locator(".avatar-remove");
+    await expect(remove).toHaveJSProperty("hidden", true);
+
+    // Tapping the picture opens the file picker; the upload becomes the avatar.
+    const chooser = page.waitForEvent("filechooser");
+    await change.click();
+    await (await chooser).setFiles({ name: "me.png", mimeType: "image/png", buffer: tinyPng() });
+    const picture = change.locator(".avatar img");
+    await expect(picture).toHaveAttribute("src", /^\/media\/m_[0-9a-f]{16}$/);
+    const src = await picture.getAttribute("src");
+    await expect(page.locator(".site-bar .you-link .avatar img")).toHaveAttribute("src", src ?? "");
+    await expect(remove).toHaveJSProperty("hidden", false);
+
+    // It stays after a reload, and Remove picture puts the letter back everywhere.
+    await page.reload();
+    await expect(change.locator(".avatar img")).toHaveAttribute("src", src ?? "");
+    await more.click();
+    await remove.click();
+    await expect(change.locator(".avatar img")).toHaveCount(0);
+    await expect(page.locator(".site-bar .you-link .avatar img")).toHaveCount(0);
+    await expect(remove).toHaveJSProperty("hidden", true);
+  });
   expect(errors).toEqual([]);
 });
 
-test("a new post reaches the home wall over the socket, which closes when you leave", async ({
+test("the home wall and the world each hold one socket, and close it when you leave", async ({
   page,
 }) => {
   const errors = watchErrors(page, { dialogs: true });
@@ -340,73 +294,70 @@ test("a new post reaches the home wall over the socket, which closes when you le
   const fern = await join(page.request, "Fern", { kind: "agent", color: "sky" });
   await signIn(page, moss);
 
+  // The world's sockets say hello; the home wall's are told they're watching.
+  let world = 0;
+  let mostWorld = 0;
   let watching = 0;
   page.on("websocket", (ws) => {
     if (!ws.url().endsWith("/v1/live")) return;
-    let watch = false;
+    let isWorld = false;
+    let isWall = false;
+    ws.on("framesent", (frame) => {
+      if (isWorld || !String(frame.payload).includes('"type":"hello"')) return;
+      isWorld = true;
+      world++;
+      mostWorld = Math.max(mostWorld, world);
+    });
     ws.on("framereceived", (frame) => {
-      if (watch || !String(frame.payload).includes('"type":"watching"')) return;
-      watch = true;
+      if (isWall || !String(frame.payload).includes('"type":"watching"')) return;
+      isWall = true;
       watching++;
     });
     ws.on("close", () => {
-      if (watch) watching--;
+      if (isWorld) world--;
+      if (isWall) watching--;
     });
   });
 
-  await page.goto("/");
-  await expect(page.locator("#feed-list")).toHaveAttribute("aria-busy", "false");
-  await expect.poll(() => watching).toBe(1);
+  await test.step("a new post reaches the home wall over its socket", async () => {
+    await page.goto("/");
+    await expect(page.locator("#feed-list")).toHaveAttribute("aria-busy", "false");
+    await expect.poll(() => watching).toBe(1);
 
-  // The feed polls every 20 seconds without the socket and every 2 minutes with it, so a post
-  // that shows within a few seconds came over the socket.
-  const text = `Fresh bread on the Commons ${Date.now()}`;
-  const created = await page.request.post("/v1/posts", { headers: fern.auth, data: { text } });
-  expect(created.status()).toBe(201);
-  const card = page.locator("#feed-list .post", { hasText: text });
-  await expect(card).toBeVisible({ timeout: 8_000 });
-  await expect(card).toHaveCount(1);
+    // The feed polls every 20 seconds without the socket and every 2 minutes with it, so a post
+    // that shows within a few seconds came over the socket.
+    const text = `Fresh bread on the Commons ${Date.now()}`;
+    const created = await page.request.post("/v1/posts", { headers: fern.auth, data: { text } });
+    expect(created.status()).toBe(201);
+    const card = page.locator("#feed-list .post", { hasText: text });
+    await expect(card).toBeVisible({ timeout: 8_000 });
+    await expect(card).toHaveCount(1);
+  });
 
-  await page.locator('.site-nav a[data-nav="world"]').click();
-  await expect(page).toHaveURL("/world");
-  await expect.poll(() => watching).toBe(0);
+  await test.step("going to the world closes the wall's socket and opens the world's", async () => {
+    await page.locator('.site-nav a[data-nav="world"]').click();
+    await expect(page).toHaveURL("/world");
+    await expect(page.locator("#hud")).toBeVisible();
+    await expect.poll(() => watching).toBe(0);
+    await expect.poll(() => world).toBe(1);
+  });
+
+  await test.step("leaving the world closes its socket, and coming back opens just one", async () => {
+    await page.locator("#hud-feed").click();
+    await expect(page).toHaveURL("/");
+    await expect.poll(() => world).toBe(0);
+
+    await page.locator('.site-nav a[data-nav="world"]').click();
+    await expect(page).toHaveURL("/world");
+    await expect.poll(() => world).toBe(1);
+    expect(mostWorld).toBe(1);
+  });
   expect(errors).toEqual([]);
 });
 
-test("townsfolk wear a friendly NPC badge on posts and profiles", async ({ page }) => {
-  const errors = watchErrors(page, { dialogs: true });
-  const { juniper } = await residents(page.request);
-  await page.request.post("/v1/posts", {
-    headers: juniper.auth,
-    data: { text: "Welcome to the village! Ask me anything." },
-  });
-  // The flag is set by the server for founding residents, which the API can't do: add it here.
-  await page.route(/\/v1\/(feed|residents\/[^/]+(\/posts)?)(\?.*)?$/, async (route) => {
-    const res = await route.fetch();
-    const body = JSON.stringify(await res.json()).replaceAll(
-      `"id":"${juniper.id}",`,
-      `"id":"${juniper.id}","townsfolk":true,`,
-    );
-    await route.fulfill({ response: res, body });
-  });
-
-  await page.goto("/");
-  const card = page.locator("article.post", { hasText: "Welcome to the village!" }).first();
-  const badge = card.locator(".badge-townsfolk");
-  await expect(badge).toContainText("Townsfolk");
-  await expect(badge.locator(".badge-npc")).toHaveText("NPC");
-  await expect(badge).toHaveAttribute("title", /founding resident/);
-  await expect(card.locator(".badge-ai")).toBeVisible();
-
-  await card.locator(".post-author").click();
-  await expect(page.locator(".profile-name .badge-townsfolk")).toBeVisible();
-  await expect(page.locator(".townsfolk-note")).toHaveText(
-    "A founding resident run by the Terrakin team, here to welcome you.",
-  );
-  expect(errors).toEqual([]);
-});
-
-test("handles, mentions, reactions, reposts, quotes, and notifications", async ({ page }) => {
+test("a resident posts a picture, picks a handle, reacts, reposts, quotes, and reads notifications", async ({
+  page,
+}) => {
   const errors = watchErrors(page, { dialogs: true });
   const { juniper, moss } = await residents(page.request);
 
@@ -430,6 +381,29 @@ test("handles, mentions, reactions, reposts, quotes, and notifications", async (
   await page.locator("#handle-input").fill("Juniper_J");
   await page.locator("#handle-form").getByRole("button", { name: "Save" }).click();
   await expect(page.locator(".profile-handle")).toHaveText("@juniper_j");
+
+  await test.step("a picture posted through the composer", async () => {
+    await page.goto("/");
+    const form = page.locator("form.composer");
+    await expect(form).toBeVisible();
+    await form
+      .locator('input[type="file"]')
+      .setInputFiles({ name: "tiny.png", mimeType: "image/png", buffer: tinyPng() });
+    await expect(form.locator(".attachment.done")).toHaveCount(1);
+    const text = "Fresh paint on the garden gate";
+    await form.locator("#compose-post").fill(text);
+    await form.getByRole("button", { name: "Post" }).click();
+
+    const mine = page.locator("article.post", { hasText: text }).first();
+    await expect(mine).toBeVisible();
+    await expect(mine.locator(".post-author")).toHaveText("Juniper");
+    const img = mine.locator(".media-grid img");
+    await expect(img).toHaveAttribute("src", /^\/media\/m_[0-9a-f]{16}$/);
+    await expect
+      .poll(() => img.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth))
+      .toBe(4);
+    await expect(form.locator("#compose-post")).toHaveValue("");
+  });
 
   // On the feed: a reaction from the picker, a like, and a repost.
   await page.goto("/");

@@ -83,18 +83,9 @@ test("a plot opens in 3D, takes a photo, and stops drawing when you leave", asyn
   expect(errors).toEqual([]);
 });
 
-test("your own plot in 3D, before you have one, points you to the world", async ({ page }) => {
-  const sorrel = await join(page.request, "Sorrel");
-  await signIn(page, sorrel);
-  await page.goto(`/r/${sorrel.id}/3d`);
-  await expect(page.getByRole("heading", { name: "You haven't claimed a plot yet" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Go to the world" })).toHaveAttribute(
-    "href",
-    "/world",
-  );
-});
-
-test("the 3D gallery and one item up close render without errors", async ({ page }) => {
+test("the 3D gallery and one item up close render, and your own plot before you have one points to the world", async ({
+  page,
+}) => {
   const errors = watchErrors(page, { console: "all" });
   await page.goto("/gallery/3d");
   await expect(page.locator(".view3d[data-ready]")).toBeVisible({ timeout: 20_000 });
@@ -102,4 +93,18 @@ test("the 3D gallery and one item up close render without errors", async ({ page
   await expect(page.locator(".view3d[data-ready]")).toBeVisible({ timeout: 20_000 });
   await expect(page.locator(".view3d canvas")).toHaveCount(1);
   expect(errors).toEqual([]);
+
+  // Past the error watch: this step checks only what the page says.
+  await test.step("your own plot in 3D, before you have one, points you to the world", async () => {
+    const sorrel = await join(page.request, "Sorrel");
+    await signIn(page, sorrel);
+    await page.goto(`/r/${sorrel.id}/3d`);
+    await expect(
+      page.getByRole("heading", { name: "You haven't claimed a plot yet" }),
+    ).toBeVisible();
+    await expect(page.getByRole("link", { name: "Go to the world" })).toHaveAttribute(
+      "href",
+      "/world",
+    );
+  });
 });

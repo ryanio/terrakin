@@ -1,29 +1,8 @@
-import { expect, type Page, test } from "@playwright/test";
-import { watchErrors } from "./support";
+import { expect, test } from "@playwright/test";
+import { tapTile, watchErrors } from "./support";
 
 // Default world: spawn (36,36) is inside the Commons (tiles 32..39), so 5 steps west and north
 // reach plot (3,3). See docs/knowledge/learnings/2026-10-02-leaving-the-commons-from-spawn.md.
-
-async function tileSize(page: Page) {
-  const vp = page.viewportSize();
-  if (!vp) throw new Error("no viewport");
-  return { vp, scale: Math.max(16, Math.floor(Math.min(vp.width, vp.height) / 13)) };
-}
-
-/**
- * The camera eases toward the player (20% per frame). Taps below assume it's centered, so wait
- * enough frames for it to land: 0.8^40 is under a thousandth of a tile.
- */
-async function settleCamera(page: Page) {
-  await page.evaluate(
-    () =>
-      new Promise<void>((done) => {
-        let frames = 40;
-        const tick = () => (--frames <= 0 ? done() : requestAnimationFrame(tick));
-        requestAnimationFrame(tick);
-      }),
-  );
-}
 
 test("a human can join, claim, build, and chat safely next to an agent", async ({ page }) => {
   const errors = watchErrors(page, { console: "none" });
@@ -42,6 +21,20 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
   await page.click("#join-color button[data-value=plum]");
   await page.click("#world-join button[type=submit]");
   await expect(page.locator("#hud")).toBeVisible();
+
+  await test.step("with no plot yet, Build and Home say how to get one", async () => {
+    // Nothing to build on: a plain line, not build mode and not the server's hints for agents.
+    await page.click("#build");
+    const toast = page.locator("#toast");
+    await expect(toast).toContainText("You don't have a plot yet");
+    await expect(toast).not.toContainText("px");
+    await expect(page.locator("#build")).toHaveAttribute("aria-pressed", "false");
+    await expect(page.locator("#palette")).toBeHidden();
+    // Nowhere to go home to, said right away.
+    await page.click("#home");
+    await expect(toast).toContainText("You don't have a plot yet");
+    await expect(toast).not.toContainText("settle");
+  });
 
   const me = async () => {
     const world = await page.request.get("/v1/world").then((r) => r.json());
@@ -72,9 +65,7 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
 
   await page.click("#build");
   await page.click('[data-block="stone"]');
-  const { vp, scale } = await tileSize(page);
-  await settleCamera(page);
-  await page.mouse.click(vp.width / 2 - scale, vp.height / 2 - scale);
+  await tapTile(page, -1, -1);
   // Only our own plot: earlier tests may have built homes on the plots next door.
   const plotOf = (t: number, size: number) => Math.floor(t / size);
   await expect
@@ -90,8 +81,7 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
 
   // Set a hearth where we stand, step away, and come home.
   await page.click('[data-block="hearth"]');
-  await settleCamera(page);
-  await page.mouse.click(vp.width / 2, vp.height / 2);
+  await tapTile(page, 0, 0);
   await expect.poll(async () => (await me()).hearth).toEqual({ x, y });
   await page.click('[data-dir="e"]');
   await expect.poll(async () => (await me()).x).toBe(x + 1);
@@ -116,67 +106,51 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
   expect(errors).toEqual([]);
 });
 
-test("with no plot yet, Build and Home say how to get one", async ({ page }) => {
-  await page.goto("/world");
-  await page.fill("#join-name", "Juno");
-  await page.click("#world-join button[type=submit]");
-  await expect(page.locator("#hud")).toBeVisible();
-
-  // Nothing to build on: a plain line, not build mode and not the server's hints for agents.
-  await page.click("#build");
-  const toast = page.locator("#toast");
-  await expect(toast).toContainText("You don't have a plot yet");
-  await expect(toast).not.toContainText("px");
-  await expect(page.locator("#build")).toHaveAttribute("aria-pressed", "false");
-  await expect(page.locator("#palette")).toBeHidden();
-
-  // Nowhere to go home to, said right away.
-  await page.click("#home");
-  await expect(toast).toContainText("You don't have a plot yet");
-  await expect(toast).not.toContainText("settle");
-});
-
-test("a name the server refuses stays on the form and says why", async ({ page }) => {
-  await page.goto("/world");
-  // Official-sounding names are refused by the text filter, after the form sends it.
-  await page.fill("#join-name", "Terrakin Support");
-  await page.click("#world-join button[type=submit]");
-  await expect(page.locator("#join-error")).not.toBeEmpty();
-  await expect(page.locator("#join-error")).not.toContainText("Can't reach");
-  await expect(page.locator("#join-submit-label")).toHaveText("Step inside");
-  await expect(page.locator("#join-name")).toBeFocused();
-  await expect(page.locator("#join-name")).toHaveAttribute("aria-invalid", "true");
-  await expect(page.locator("#hud")).toBeHidden();
-});
-
-test("a saved key the server doesn't know comes back to the landing with a way out", async ({
+test("the landing form refuses a bad name, an unknown key, and never puts either in the address bar", async ({
   page,
 }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("terrakin.token", "not-a-real-key");
-    localStorage.setItem("terrakin.resident", "r_0000000000000000");
-  });
-  await page.goto("/world");
-  await expect(page.locator("#join-error")).toContainText("We couldn't find your character");
-  await expect(page.locator("#restore")).toHaveAttribute("open", "");
-  await expect(page.locator("#hud")).toBeHidden();
-  await expect(page.locator("#world-join button[type=submit]")).toBeEnabled();
-});
-
-test("the landing form never puts a key, name, or note in the address bar", async ({ page }) => {
   const errors = watchErrors(page, { console: "none" });
-  await page.goto("/world");
-  // The fields have no names, so even a native submit couldn't send them.
-  for (const id of ["join-name", "join-note", "restore-key"]) {
-    expect(await page.locator(`#${id}`).getAttribute("name")).toBeNull();
-  }
-  await page.locator("#restore summary").click();
-  await page.fill("#restore-key", "not-a-real-key");
-  await page.press("#restore-key", "Enter");
-  await expect(page.locator("#restore-error")).toContainText("doesn't open any character");
-  await page.fill("#join-note", "Loves lemons");
-  await page.press("#join-note", "Enter");
-  await expect(page.locator("#join-error")).toContainText("Pick a name first");
-  expect(new URL(page.url()).search).toBe("");
+
+  await test.step("a name the server refuses stays on the form and says why", async () => {
+    await page.goto("/world");
+    // Official-sounding names are refused by the text filter, after the form sends it.
+    await page.fill("#join-name", "Terrakin Support");
+    await page.click("#world-join button[type=submit]");
+    await expect(page.locator("#join-error")).not.toBeEmpty();
+    await expect(page.locator("#join-error")).not.toContainText("Can't reach");
+    await expect(page.locator("#join-submit-label")).toHaveText("Step inside");
+    await expect(page.locator("#join-name")).toBeFocused();
+    await expect(page.locator("#join-name")).toHaveAttribute("aria-invalid", "true");
+    await expect(page.locator("#hud")).toBeHidden();
+  });
+
+  await test.step("no key, name, or note ever reaches the address bar", async () => {
+    await page.goto("/world");
+    // The fields have no names, so even a native submit couldn't send them.
+    for (const id of ["join-name", "join-note", "restore-key"]) {
+      expect(await page.locator(`#${id}`).getAttribute("name")).toBeNull();
+    }
+    await page.locator("#restore summary").click();
+    await page.fill("#restore-key", "not-a-real-key");
+    await page.press("#restore-key", "Enter");
+    await expect(page.locator("#restore-error")).toContainText("doesn't open any character");
+    await page.fill("#join-note", "Loves lemons");
+    await page.press("#join-note", "Enter");
+    await expect(page.locator("#join-error")).toContainText("Pick a name first");
+    expect(new URL(page.url()).search).toBe("");
+  });
+
+  await test.step("a saved key the server doesn't know comes back with a way out", async () => {
+    await page.evaluate(() => {
+      localStorage.setItem("terrakin.token", "not-a-real-key");
+      localStorage.setItem("terrakin.resident", "r_0000000000000000");
+    });
+    await page.goto("/world");
+    await expect(page.locator("#join-error")).toContainText("We couldn't find your character");
+    await expect(page.locator("#restore")).toHaveAttribute("open", "");
+    await expect(page.locator("#hud")).toBeHidden();
+    await expect(page.locator("#world-join button[type=submit]")).toBeEnabled();
+  });
+
   expect(errors).toEqual([]);
 });

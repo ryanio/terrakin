@@ -2,68 +2,68 @@ import { expect, test } from "@playwright/test";
 import { PAGES, type SitePage, TRUST_PAGES } from "../protocol/src/site";
 import { settler, signIn, touchingCards, watchErrors } from "./support";
 
-test("the homepage describes itself to machines and links its docs and trust pages", async ({
+test("the homepage and every static page render, describe themselves, and have Markdown twins", async ({
   page,
 }) => {
   const errors = watchErrors(page);
-  await page.goto("/");
 
-  const jsonLd = await page.locator('script[type="application/ld+json"]').textContent();
-  const graph = (JSON.parse(jsonLd ?? "{}")["@graph"] ?? []) as { "@type": string }[];
-  expect(graph.map((node) => node["@type"])).toEqual([
-    "WebSite",
-    "Organization",
-    "WebApplication",
-    "FAQPage",
-  ]);
-  await expect(page.locator('link[rel="alternate"][type="text/markdown"]')).toHaveAttribute(
-    "href",
-    "/index.md",
-  );
+  await test.step("the homepage describes itself to machines and links its docs and trust pages", async () => {
+    await page.goto("/");
+    const jsonLd = await page.locator('script[type="application/ld+json"]').textContent();
+    const graph = (JSON.parse(jsonLd ?? "{}")["@graph"] ?? []) as { "@type": string }[];
+    expect(graph.map((node) => node["@type"])).toEqual([
+      "WebSite",
+      "Organization",
+      "WebApplication",
+      "FAQPage",
+    ]);
+    await expect(page.locator('link[rel="alternate"][type="text/markdown"]')).toHaveAttribute(
+      "href",
+      "/index.md",
+    );
 
-  const foot = page.locator(".site-foot");
-  for (const [name, href] of [
-    ["Docs and API", "/docs"],
-    ["What's new", "/changelog"],
-    ["OpenAPI", "/v1/openapi.json"],
-    ...TRUST_PAGES.map((p) => [p.label, p.href] as const),
-  ] as const) {
-    await expect(foot.getByRole("link", { name, exact: true })).toHaveAttribute("href", href);
+    const foot = page.locator(".site-foot");
+    for (const [name, href] of [
+      ["Docs and API", "/docs"],
+      ["What's new", "/changelog"],
+      ["OpenAPI", "/v1/openapi.json"],
+      ...TRUST_PAGES.map((p) => [p.label, p.href] as const),
+    ] as const) {
+      await expect(foot.getByRole("link", { name, exact: true })).toHaveAttribute("href", href);
+    }
+  });
+
+  await test.step("agents get the home page's Markdown from the same URL", async () => {
+    const home = await page.request.get("/", { headers: { accept: "text/markdown" } });
+    expect(home.headers()["content-type"]).toContain("text/markdown");
+    expect(home.headers().vary).toBe("Accept");
+    expect(await home.text()).toContain("## When to use Terrakin");
+  });
+
+  for (const { path } of (PAGES as readonly SitePage[]).filter((p) => p.kind === "static")) {
+    await test.step(`${path} renders as a real page at phone width`, async () => {
+      const response = await page.goto(path);
+      expect(response?.status()).toBe(200);
+      expect(response?.headers().link).toContain(`<${path}.md>; rel="alternate"`);
+      await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
+      const text = (await page.locator("main").innerText()).trim();
+      expect(text.length).toBeGreaterThan(500);
+      await expect(page.locator(`link[rel="alternate"][type="text/markdown"]`)).toHaveAttribute(
+        "href",
+        `${path}.md`,
+      );
+      // Phone width: nothing scrolls sideways.
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      );
+      expect(overflow).toBeLessThanOrEqual(0);
+
+      const twin = await page.request.get(`${path}.md`);
+      expect(twin.headers()["content-type"]).toContain("text/markdown");
+      expect(await twin.text()).toMatch(/^---\ntitle: /);
+    });
   }
   expect(errors).toEqual([]);
-});
-
-for (const { path } of (PAGES as readonly SitePage[]).filter((p) => p.kind === "static")) {
-  test(`${path} renders as a real page`, async ({ page }) => {
-    const errors = watchErrors(page);
-    const response = await page.goto(path);
-    expect(response?.status()).toBe(200);
-    expect(response?.headers().link).toContain(`<${path}.md>; rel="alternate"`);
-    await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
-    const text = (await page.locator("main").innerText()).trim();
-    expect(text.length).toBeGreaterThan(500);
-    await expect(page.locator(`link[rel="alternate"][type="text/markdown"]`)).toHaveAttribute(
-      "href",
-      `${path}.md`,
-    );
-    // Phone width: nothing scrolls sideways.
-    const overflow = await page.evaluate(
-      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
-    );
-    expect(overflow).toBeLessThanOrEqual(0);
-    expect(errors).toEqual([]);
-
-    const twin = await page.request.get(`${path}.md`);
-    expect(twin.headers()["content-type"]).toContain("text/markdown");
-    expect(await twin.text()).toMatch(/^---\ntitle: /);
-  });
-}
-
-test("agents get Markdown from the same URL", async ({ request }) => {
-  const home = await request.get("/", { headers: { accept: "text/markdown" } });
-  expect(home.headers()["content-type"]).toContain("text/markdown");
-  expect(home.headers().vary).toBe("Accept");
-  expect(await home.text()).toContain("## When to use Terrakin");
 });
 
 test("the changelog page's links, feed, and API all work at phone size", async ({

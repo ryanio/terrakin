@@ -3,13 +3,16 @@ import { join, signIn, watchErrors } from "./support";
 
 /**
  * RFC 0006 on a phone: a resident reports a post, and a maintainer hides it from the staff app on
- * the admin host (admin.localhost here, admin.terrakin.org in production).
+ * the admin host (admin.localhost here, admin.terrakin.org in production), then deletes a reported
+ * resident's profile pictures.
  */
 
 // The full iPhone 13 screen, 390 by 844.
 test.use({ viewport: { width: 390, height: 844 } });
 
-test("a resident reports a post from a phone, and a maintainer hides it", async ({ page }) => {
+test("a resident reports a post from a phone, and a maintainer hides it and deletes a reported avatar", async ({
+  page,
+}) => {
   const errors = watchErrors(page, { dialogs: true });
   expect(page.viewportSize()).toEqual({ width: 390, height: 844 });
 
@@ -28,6 +31,27 @@ test("a resident reports a post from a phone, and a maintainer hides it", async 
   });
   expect(created.status()).toBe(201);
   const post = (await created.json()).post as { id: string };
+
+  // A resident with an avatar, reported by Quill.
+  const tansy = await join(page.request, "Tansy");
+  const png = Buffer.alloc(64);
+  png.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13]);
+  const upload = await page.request.post("/v1/media", {
+    headers: { ...tansy.auth, "content-type": "application/octet-stream" },
+    data: png,
+  });
+  expect(upload.status()).toBe(201);
+  const avatar = (await upload.json()).media as { id: string };
+  const set = await page.request.put("/v1/profile", {
+    headers: tansy.auth,
+    data: { avatar: avatar.id },
+  });
+  expect(set.ok()).toBe(true);
+  const reported = await page.request.post("/v1/reports", {
+    headers: reporter.auth,
+    data: { kind: "resident", id: tansy.id, reason: "sexual" },
+  });
+  expect(reported.status()).toBe(201);
 
   // Quill opens the post and reports it from the post's More menu.
   await page.goto("/");
@@ -77,6 +101,20 @@ test("a resident reports a post from a phone, and a maintainer hides it", async 
   await expect(page.locator("#site-toast")).toContainText("in the log");
   await expect(item).toHaveCount(0);
 
+  await test.step("a reported resident's profile pictures are deleted", async () => {
+    const resident = page.locator(`article.item[data-id="${tansy.id}"]`);
+    // The picture waits behind a tap, like every reported picture.
+    await expect(resident.getByRole("button", { name: "Show picture 1" })).toBeVisible();
+    await resident.getByLabel("Reason").fill("Explicit avatar");
+    await resident.getByRole("button", { name: "Delete profile pictures" }).click();
+    await resident.getByRole("button", { name: "Tap again to delete the pictures" }).click();
+    await expect(page.locator("#site-toast")).toContainText("in the log");
+    await expect(resident).toHaveCount(0);
+    expect((await page.request.get(`/media/${avatar.id}`)).status()).toBe(404);
+    const profile = await (await page.request.get(`/v1/residents/${tansy.id}`)).json();
+    expect(profile.resident.avatar).toBeNull();
+  });
+
   // The log has it, with who did it and why.
   await page.getByRole("link", { name: "Log" }).click();
   await expect(page).toHaveURL(`${adminOrigin}/log`);
@@ -99,52 +137,5 @@ test("a resident reports a post from a phone, and a maintainer hides it", async 
   expect(adminPage.headers()["content-security-policy"]).toContain("script-src 'self'");
   expect((await page.request.get("/_admin/")).status()).toBe(404);
 
-  expect(errors).toEqual([]);
-});
-
-test("a maintainer deletes a reported resident's profile pictures", async ({ page }) => {
-  const errors = watchErrors(page, { console: "none" });
-  const resident = await join(page.request, "Tansy");
-  const reporter = await join(page.request, "Wren");
-  const maintainer = await join(page.request, "Oriel");
-  const grant = await page.request.post("/v1/test/maintainer", {
-    data: { residentId: maintainer.id },
-  });
-  expect(grant.ok()).toBe(true);
-
-  const png = Buffer.alloc(64);
-  png.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13]);
-  const upload = await page.request.post("/v1/media", {
-    headers: { ...resident.auth, "content-type": "application/octet-stream" },
-    data: png,
-  });
-  expect(upload.status()).toBe(201);
-  const avatar = (await upload.json()).media as { id: string };
-  const set = await page.request.put("/v1/profile", {
-    headers: resident.auth,
-    data: { avatar: avatar.id },
-  });
-  expect(set.ok()).toBe(true);
-  const report = await page.request.post("/v1/reports", {
-    headers: reporter.auth,
-    data: { kind: "resident", id: resident.id, reason: "sexual" },
-  });
-  expect(report.status()).toBe(201);
-
-  await page.goto("/admin");
-  await page.getByLabel("Token", { exact: true }).fill(maintainer.token);
-  await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  const item = page.locator(`article.item[data-id="${resident.id}"]`);
-  // The picture waits behind a tap, like every reported picture.
-  await expect(item.getByRole("button", { name: "Show picture 1" })).toBeVisible();
-  await item.getByLabel("Reason").fill("Explicit avatar");
-  await item.getByRole("button", { name: "Delete profile pictures" }).click();
-  await item.getByRole("button", { name: "Tap again to delete the pictures" }).click();
-  await expect(page.locator("#site-toast")).toContainText("in the log");
-  await expect(item).toHaveCount(0);
-
-  expect((await page.request.get(`/media/${avatar.id}`)).status()).toBe(404);
-  const profile = await (await page.request.get(`/v1/residents/${resident.id}`)).json();
-  expect(profile.resident.avatar).toBeNull();
   expect(errors).toEqual([]);
 });

@@ -4,7 +4,8 @@ import { act, join, overflowsSideways, signIn, watchErrors } from "./support";
 /**
  * RFC 0005 looks: Capri loves lemons. She opens the look editor from her profile, picks the lemon
  * theme, citrus slices, and a straw hat, saves, and sees it on her profile and in the world. Then
- * someone styles single garments: a citrus dress in sun yellow and striped socks.
+ * someone at 390x844 picks a color on the card, waits on an upload, and styles single garments: a
+ * citrus dress in sun yellow and striped socks.
  */
 
 test("pick lemon, citrus, and a straw hat, and see it on the profile and in the world", async ({
@@ -68,7 +69,7 @@ test("pick lemon, citrus, and a straw hat, and see it on the profile and in the 
   expect(errors).toEqual([]);
 });
 
-test("style a garment: a citrus dress in sun yellow and striped socks, at 390x844", async ({
+test("style a garment: a citrus dress in sun yellow and striped socks, keeping a color and waiting for an upload", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
@@ -77,9 +78,34 @@ test("style a garment: a citrus dress in sun yellow and striped socks, at 390x84
   await signIn(page, who);
 
   await page.goto(`/r/${who.id}`);
+  // A new color on the look card, not saved there, then on to the editor, which keeps it.
+  await page.locator('.look [data-value="leaf"]').click();
   await page.getByRole("button", { name: "Dress up" }).click();
   const editor = page.getByRole("dialog", { name: "Your look" });
   await expect(editor).toBeVisible();
+
+  await test.step("while an upload is on its way, Save waits for it", async () => {
+    let release = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.route("**/v1/media", async (route) => {
+      await held;
+      await route.abort();
+    });
+    await editor.locator('input[data-media="homeArt"]').setInputFiles({
+      name: "home.png",
+      mimeType: "image/png",
+      buffer: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    });
+    const save = editor.locator(".look-save");
+    await expect(save).toBeDisabled();
+    await expect(save).toHaveText("Uploading…");
+    release();
+    await expect(save).toBeEnabled();
+    await expect(save).toHaveText("Save my look");
+    await page.unroute("**/v1/media");
+  });
 
   // Every slot has a row, each with a None chip.
   for (const slot of ["hat", "top", "accessory", "bottom", "feet"]) {
@@ -132,6 +158,7 @@ test("style a garment: a citrus dress in sun yellow and striped socks, at 390x84
   const world = await (await page.request.get("/v1/world")).json();
   const me = world.residents.find((r: { id: string }) => r.id === who.id);
   expect(me).toMatchObject({
+    color: "leaf",
     wear: ["dress", "socks"],
     wearStyle: { dress: { pattern: "citrus", color: "sun" }, socks: { pattern: "stripes" } },
   });
@@ -149,51 +176,5 @@ test("style a garment: a citrus dress in sun yellow and striped socks, at 390x84
   await editor.locator('a[data-wear="top_hat"]').click();
   await expect(page).toHaveURL(/\/shop$/);
   await expect(editor).toBeHidden();
-  expect(errors).toEqual([]);
-});
-
-test("Dress up keeps a color picked on the card, and Save waits for an upload", async ({
-  page,
-}) => {
-  const errors = watchErrors(page);
-  const dara = await join(page.request, "Dara", { color: "rose" });
-  const residentId = dara.id;
-  await signIn(page, dara);
-
-  await page.goto(`/r/${residentId}`);
-  // A new color on the look card, not saved there, then on to the editor.
-  await page.locator('.look [data-value="leaf"]').click();
-  await page.getByRole("button", { name: "Dress up" }).click();
-  const editor = page.getByRole("dialog", { name: "Your look" });
-  await expect(editor).toBeVisible();
-
-  // While an upload is on its way, Save waits for it.
-  let release = () => {};
-  const held = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  await page.route("**/v1/media", async (route) => {
-    await held;
-    await route.abort();
-  });
-  await editor.locator('input[data-media="homeArt"]').setInputFiles({
-    name: "home.png",
-    mimeType: "image/png",
-    buffer: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
-  });
-  const save = editor.locator(".look-save");
-  await expect(save).toBeDisabled();
-  await expect(save).toHaveText("Uploading…");
-  release();
-  await expect(save).toBeEnabled();
-  await expect(save).toHaveText("Save my look");
-  await page.unroute("**/v1/media");
-
-  await editor.locator('[data-wear="straw_hat"]').click();
-  await save.click();
-  await expect(editor).toBeHidden();
-  const me = (await (await page.request.get(`/v1/residents/${residentId}`)).json()).resident;
-  expect(me.color).toBe("leaf");
-  expect(me.look).toMatchObject({ wear: ["straw_hat"] });
   expect(errors).toEqual([]);
 });

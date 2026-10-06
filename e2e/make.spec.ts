@@ -5,7 +5,9 @@ import { act, freePlots, join, settler, signIn, tapTile, tinyPng, watchErrors } 
  * Growing, making, and giving (RFC 0005) on a phone: a resident taps a planter in the world and
  * plants herbs, comes back two days later to pick them, makes herb tea at a kitchen with a label,
  * finds it on their things page, and gives it to a friend from the friend's profile, who sends it
- * back from their own things page. Runs after coins.spec.ts, since it moves the shared clock on.
+ * back from their own things page. Then a piece of art made from an upload goes on a pedestal, its
+ * plot opens as a gallery, and a neighbor admires it from /galleries. Crops need days to grow, so
+ * this moves its server's clock on.
  */
 
 async function inventory(request: APIRequestContext, token: string) {
@@ -135,7 +137,9 @@ test("grow herbs, make tea, and give it to a friend", async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
-test("make a piece of art and put it on a pedestal", async ({ page }) => {
+test("make a piece of art, put it on a pedestal, and open a gallery a neighbor admires", async ({
+  page,
+}) => {
   const errors = watchErrors(page);
   const iris = await settler(page.request, "Iris");
   await signIn(page, iris);
@@ -191,11 +195,35 @@ test("make a piece of art and put it on a pedestal", async ({ page }) => {
     .poll(async () => (await world()).plots)
     .toContainEqual(expect.objectContaining({ ownerId: iris.id, gallery: true }));
 
-  // A neighbor admires it from wherever they are. Tapping it again shows it large, with its
-  // maker and how often it was admired, and lets Iris take it down. She can't admire her own.
-  const juno = await join(page.request, "Juno");
-  const at = { x: me.x - 1, y: me.y - 1 };
-  expect((await act(page.request, juno.token, { type: "admire", ...at })).ok).toBe(true);
+  await test.step("a neighbor finds the gallery on /galleries and admires it", async () => {
+    const juno = await join(page.request, "Juno");
+    await signIn(page, juno);
+    await page.goto("/galleries");
+    const card = page.locator(".gallery-card", { hasText: "Iris" });
+    const row = card.locator(".gallery-piece", { hasText: "Clay sky" });
+    await expect(row).toContainText("Piece of art “Clay sky”");
+    await expect(row).toContainText("Not admired yet");
+    await expect(row.locator("img.thing-picture")).toBeVisible();
+    await page.screenshot({ path: "test-results/galleries.png" });
+    await row.getByRole("button", { name: "Admire" }).click();
+    await expect(row).toContainText("Admired once");
+    await expect(page.locator("#site-toast")).toContainText("You admired it");
+  });
+
+  await signIn(page, iris);
+  await test.step("Iris's profile shows it under On display, with no Admire button for her", async () => {
+    await page.goto(`/r/${iris.id}`);
+    const shown = page.locator(".profile-galleries");
+    await expect(shown.locator(".gallery-piece", { hasText: "Clay sky" })).toContainText(
+      "Admired once",
+    );
+    await expect(shown.getByRole("button", { name: "Admire" })).toHaveCount(0);
+  });
+
+  // Back in the world, tapping it again shows it large, with its maker and how often it was
+  // admired, and lets Iris take it down. She can't admire her own.
+  await page.goto("/world");
+  await expect(page.locator("#hud")).toBeVisible();
   await tapTile(page, -1, -1);
   await expect(sheet.locator(".showcase-name")).toHaveText("Piece of art “Clay sky”");
   await expect(sheet.locator(".showcase-line")).toHaveText(["Made by Iris", "Admired once"]);

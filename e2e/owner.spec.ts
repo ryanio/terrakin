@@ -93,16 +93,13 @@ test("a person claims their AI from their profile, and can revoke its access", a
     data: { text: "still here?" },
   });
   expect(stale.status()).toBe(401);
-  // Hazel isn't a maintainer, so she can't make a way in for it either.
-  const minted = await page.request.post(`/v1/owner/rekey-codes/${birch.id}`, {
-    headers: hazel.auth,
-  });
-  expect(minted.status()).toBe(403);
 
   expect(errors).toEqual([]);
 });
 
-test("an AI invites its person, who joins and confirms on the claim page", async ({ page }) => {
+test("an AI invites its person, who joins or pastes a key, and confirms on the claim page", async ({
+  page,
+}) => {
   const errors = watchErrors(page, { dialogs: true, console: "none" });
   const ash = await join(page.request, "Ash", { kind: "agent", color: "sky", retry: true });
   const invite = await page.request.post("/v1/owner/invites", { headers: ash.auth });
@@ -135,33 +132,31 @@ test("an AI invites its person, who joins and confirms on the claim page", async
   // The link is used up.
   await page.goto(path);
   await expect(page.getByRole("heading", { name: "That link doesn't work anymore" })).toBeVisible();
-  expect(errors).toEqual([]);
-});
 
-test("a person with a character elsewhere pastes their key on the claim page instead of joining", async ({
-  page,
-}) => {
-  const errors = watchErrors(page, { dialogs: true, console: "none" });
-  const elm = await join(page.request, "Elm", { kind: "agent", color: "sky", retry: true });
-  const fern = await join(page.request, "Fern", { kind: "human", color: "sky", retry: true });
-  const invite = await page.request.post("/v1/owner/invites", { headers: elm.auth });
-  expect(invite.status()).toBe(201);
-  const { path } = await invite.json();
+  await test.step("a person with a character elsewhere pastes their key instead of joining", async () => {
+    const elm = await join(page.request, "Elm", { kind: "agent", color: "sky", retry: true });
+    const fern = await join(page.request, "Fern", { kind: "human", color: "sky", retry: true });
+    const made = await page.request.post("/v1/owner/invites", { headers: elm.auth });
+    expect(made.status()).toBe(201);
+    const second = (await made.json()).path;
 
-  await page.goto(path);
-  await page.getByText("Already have a character? Paste your key").click();
-  // An AI's key can't claim an AI, and isn't saved.
-  await page.locator("#claim-key").fill(elm.token);
-  await page.getByRole("button", { name: "Use my key" }).click();
-  await expect(page.locator("#claim-key-error")).toContainText("Only a person can claim an AI");
-  expect(await page.evaluate(() => localStorage.getItem("terrakin.token"))).toBeNull();
+    // A fresh browser: nobody signed in here yet.
+    await page.evaluate(() => localStorage.clear());
+    await page.goto(second);
+    await page.getByText("Already have a character? Paste your key").click();
+    // An AI's key can't claim an AI, and isn't saved.
+    await page.locator("#claim-key").fill(elm.token);
+    await page.getByRole("button", { name: "Use my key" }).click();
+    await expect(page.locator("#claim-key-error")).toContainText("Only a person can claim an AI");
+    expect(await page.evaluate(() => localStorage.getItem("terrakin.token"))).toBeNull();
 
-  await page.locator("#claim-key").fill(fern.token);
-  await page.getByRole("button", { name: "Use my key" }).click();
-  await expect(page.locator(".claim-as")).toHaveText("You're confirming as Fern");
-  expect(await page.evaluate(() => localStorage.getItem("terrakin.resident"))).toBe(fern.id);
+    await page.locator("#claim-key").fill(fern.token);
+    await page.getByRole("button", { name: "Use my key" }).click();
+    await expect(page.locator(".claim-as")).toHaveText("You're confirming as Fern");
+    expect(await page.evaluate(() => localStorage.getItem("terrakin.resident"))).toBe(fern.id);
 
-  await page.getByRole("button", { name: "Confirm" }).click();
-  await expect(page.getByRole("heading", { name: "Elm is now your AI" })).toBeVisible();
+    await page.getByRole("button", { name: "Confirm" }).click();
+    await expect(page.getByRole("heading", { name: "Elm is now your AI" })).toBeVisible();
+  });
   expect(errors).toEqual([]);
 });

@@ -3,11 +3,13 @@ import { act, advanceDay, overflowsSideways, read, settler, signIn, watchErrors 
 
 /**
  * The town shop (RFC 0008) on a phone: a resident grows herbs, waits for a day the town buys
- * them, sells them from /shop, and buys a lantern with what they have. Runs after make.spec.ts,
- * since it moves the shared clock on.
+ * them, sells them from /shop, and buys a lantern with what they have. A visitor sees the same
+ * shop with a way to join. Moves its server's clock on.
  */
 
-test("sell herbs to the town and buy a lantern", async ({ page }) => {
+test("a visitor sees the shop; a resident sells herbs to the town and buys a lantern", async ({
+  page,
+}) => {
   const errors = watchErrors(page);
   await page.setViewportSize({ width: 390, height: 844 });
   const hazel = await settler(page.request, "Hazel");
@@ -38,6 +40,15 @@ test("sell herbs to the town and buy a lantern", async ({ page }) => {
     true,
   );
   const before = (await read(page.request, hazel.token, "/v1/shop")).you.balance as number;
+
+  await test.step("visitors see the catalog and today's buying, with a way to join", async () => {
+    await page.goto("/shop");
+    await expect(page.locator(".shop-orders li")).toHaveCount(4);
+    await expect(page.locator('.shop-item[data-sku="top_hat"]')).toContainText("80 coins");
+    await expect(page.getByRole("link", { name: "Join to shop" })).toBeVisible();
+    await expect(page.locator(".shop-buy")).toHaveCount(0);
+    expect(await overflowsSideways(page)).toBe(false);
+  });
 
   await signIn(page, hazel);
   await page.goto("/shop");
@@ -81,17 +92,5 @@ test("sell herbs to the town and buy a lantern", async ({ page }) => {
   expect(things.stacks).toContainEqual({ kind: "lantern", count: 1 });
   expect(await overflowsSideways(page)).toBe(false);
   await page.screenshot({ path: "test-results/shop-bought.png", fullPage: true });
-  expect(errors).toEqual([]);
-});
-
-test("visitors see the catalog and today's buying, with a way to join", async ({ page }) => {
-  const errors = watchErrors(page);
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/shop");
-  await expect(page.locator(".shop-orders li")).toHaveCount(4);
-  await expect(page.locator('.shop-item[data-sku="top_hat"]')).toContainText("80 coins");
-  await expect(page.getByRole("link", { name: "Join to shop" })).toBeVisible();
-  await expect(page.locator(".shop-buy")).toHaveCount(0);
-  expect(await overflowsSideways(page)).toBe(false);
   expect(errors).toEqual([]);
 });

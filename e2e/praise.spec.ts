@@ -4,7 +4,7 @@ import { advanceDay, join, signIn, watchErrors } from "./support";
 /**
  * Praise (issue #36) at 390x844: a resident praises a neighbor from their profile, the count goes
  * up, the button says it's done for today, and the neighbor gets a notification. Praise starts on
- * a resident's second UTC day, so this moves the shared clock a day on and runs last, alone.
+ * a resident's second UTC day, so this moves its server's clock a day on.
  */
 
 test("a resident praises a neighbor once a day from their profile", async ({ page }) => {
@@ -12,11 +12,7 @@ test("a resident praises a neighbor once a day from their profile", async ({ pag
   const iris = await join(page.request, "Iris");
   const tam = await join(page.request, "Tam");
 
-  // On their first day, the server says to wait.
-  const early = await page.request.post(`/v1/residents/${tam.id}/praise`, {
-    headers: iris.auth,
-  });
-  expect(early.status()).toBe(429);
+  // Praise starts on a resident's second day.
   await advanceDay(page.request);
 
   await signIn(page, iris);

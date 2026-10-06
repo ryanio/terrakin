@@ -412,7 +412,7 @@ describe("takedown notices", () => {
     // Whoever holds a piece made from the picture hears about their own piece.
     const holderNotices = await t.notices(wren);
     expect(holderNotices).toHaveLength(1);
-    expect(holderNotices[0].takedown).toEqual({
+    expect((holderNotices[0] as Json).takedown).toEqual({
       what: "piece",
       rule: "sexual",
       outcome: "removed",

@@ -17,6 +17,7 @@ import { reportMenu } from "./report-sheet";
 import { admiredLine } from "./things";
 import { errorCard, type View, type ViewContext } from "./view";
 import { placeTabs, visitButton } from "./visit-view";
+import { isMine } from "./visits";
 
 /** Who may admire a piece: someone signed in who neither made it nor put it up. */
 export function canAdmire(piece: GalleryPieceView, me: string | null): boolean {
@@ -81,7 +82,7 @@ export function galleryCard(
   navigate?: (path: string) => void,
 ): HTMLElement {
   const who = [g.owner, ...g.coOwners];
-  const mine = me !== null && who.some((a) => a.id === me);
+  const mine = isMine(g, me);
   return h(
     "section",
     {

@@ -31,6 +31,7 @@ import {
   type ProfileFields,
   parseKey,
   pickupLeft,
+  pieceShowingMedia,
   planPutter,
   plotAtTile,
   plotPickupsOwned,

@@ -807,7 +807,10 @@ export function hearth(
 
 // ---------- residents ----------
 
-/** A soft peg figure: a body in their color and shape, a round head, dot eyes, and their wear. */
+/**
+ * A soft peg figure: a body in their color and shape, a round head with a nose, dot eyes, and
+ * their wear. It faces +z.
+ */
 export function figure(stage: Stage, f: LayoutFigure, shadowMap: Texture): Group {
   const group = new Group();
   group.name = "figure";
@@ -826,7 +829,9 @@ export function figure(stage: Stage, f: LayoutFigure, shadowMap: Texture): Group
   bodyGeo.translate(0, 0.28, 0);
   const torso = new Mesh(bakeShade(bodyGeo, 0.7, 1.05), bodyMat);
   const skin = new MeshLambertMaterial({ color: 0xfbe6cc });
-  const head = new Mesh(new SphereGeometry(0.17, 18, 12), skin);
+  // A small nose, part of the head's mesh, so you can tell which way they face from above.
+  const nose = new SphereGeometry(0.036, 10, 8).translate(0, -0.025, 0.16);
+  const head = new Mesh(mergeGeometries([new SphereGeometry(0.17, 18, 12), nose]), skin);
   head.position.y = 0.66;
   const eyeMat = new MeshBasicMaterial({ color: BRAND.ink });
   const eyeGeo = new SphereGeometry(0.022, 8, 6);

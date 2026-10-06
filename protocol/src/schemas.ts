@@ -1177,7 +1177,12 @@ export const WorldSnapshot = z.object({
     .array(
       z.object({
         id: z.string(),
-        host: z.string(),
+        /** The host's resident id, or `town` for a town event, which says `town: true` too. */
+        host: z
+          .string()
+          .describe(
+            "The host's resident id, or `town` for a town event, which has `town: true` too. `GET /v1/events` names it as `hostId`.",
+          ),
         px: z.number().int(),
         py: z.number().int(),
         status: z.enum(["scheduled", "live"]),

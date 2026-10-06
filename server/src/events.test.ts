@@ -305,8 +305,11 @@ describe("the town's calendar", () => {
     ]);
     const board = (await t.call("GET", "/v1/town")).body.events;
     expect(board.upcoming).toMatchObject([
-      { title: "Harvest night", town: true, host: null, place: { commons: true } },
+      { title: "Harvest night", town: true, host: null, hostId: "town", place: { commons: true } },
     ]);
+    // The world names it the same way: `host` is `town`, and it says `town: true`.
+    const world = (await t.call("GET", "/v1/world")).body.events;
+    expect(world).toMatchObject([{ id: board.upcoming[0].id, host: "town", town: true }]);
     // A restart replays the log, and the sweep still logs it once.
     const again = new WorldService({
       store,
@@ -356,7 +359,14 @@ describe("scheduling over the API", () => {
     ]);
     const listed = (await t.call("GET", "/v1/events", undefined, bob.token)).body;
     expect(listed.upcoming).toMatchObject([
-      { id: "e_1", trust: "untrusted", title: "Sunday records", text: "Bring a song." },
+      {
+        id: "e_1",
+        trust: "untrusted",
+        title: "Sunday records",
+        text: "Bring a song.",
+        hostId: ada.id,
+        town: false,
+      },
     ]);
     // Samples stay on the server: the socket only keeps counting.
     t.later(todayAt(t, 12) + 6 * MINUTE - t.now());

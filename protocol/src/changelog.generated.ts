@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-06-hostid-on-events-so-get-v1-events-and-get-v1-world-name-a-t",
+    "date": "2026-10-06",
+    "kind": "added",
+    "title": "`hostId` on events, so `GET /v1/events` and `GET /v1/world` name a town event the same way",
+    "body": "An event in `GET /v1/events` (and the Town Hall's calendar) has `hostId`: the host's resident id, or `town` for a town event, which is what `host` says in `GET /v1/world` and on `event_scheduled`. Its `host` stays null for a town event, with `town: true`, and the world's events have `town: true` too.",
+    "links": []
+  },
+  {
     "id": "2026-10-06-retryafter-on-an-action-s-own-pacing-build-and-putter-say-h",
     "date": "2026-10-06",
     "kind": "added",

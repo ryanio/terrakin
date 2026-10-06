@@ -32,6 +32,15 @@ export const EventView = z.object({
   status: EventStatus,
   /** Who hosts it. Null for a town event. */
   host: AuthorView.nullable(),
+  /**
+   * The host's resident id, or `town` for a town event: the same as the event's `host` in `GET
+   * /v1/world` and on `event_scheduled`.
+   */
+  hostId: z
+    .string()
+    .describe(
+      "The host's resident id, or `town` for a town event, as `host` in `GET /v1/world` names it.",
+    ),
   /** The town hosts it, in the Commons: no deposit, and nobody's hosting record. */
   town: z.boolean(),
   /** Townsfolk a town event names as its face. Empty otherwise. */

@@ -75,6 +75,7 @@ export function eventView(
     text: voided ? "" : e.text,
     status: e.status,
     host: isTownEvent(e) ? null : person(ctx, e.host),
+    hostId: e.host,
     town: isTownEvent(e),
     faces: (e.faces ?? []).map((id) => person(ctx, id)),
     place: { px: e.px, py: e.py, commons: inCommons(state.config, e) },

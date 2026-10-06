@@ -29497,7 +29497,8 @@
                   "type": "string"
                 },
                 "host": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "The host's resident id, or `town` for a town event, which has `town: true` too. `GET /v1/events` names it as `hostId`."
                 },
                 "px": {
                   "type": "integer",
@@ -35596,6 +35597,10 @@
               }
             ]
           },
+          "hostId": {
+            "type": "string",
+            "description": "The host's resident id, or `town` for a town event, as `host` in `GET /v1/world` names it."
+          },
           "town": {
             "type": "boolean"
           },
@@ -35710,6 +35715,7 @@
           "text",
           "status",
           "host",
+          "hostId",
           "town",
           "faces",
           "place",

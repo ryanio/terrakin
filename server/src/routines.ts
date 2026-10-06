@@ -150,11 +150,13 @@ export class Routines {
 
   /**
    * Whether a resident's routines are paused for want of a call, and if so, the away log says so
-   * once since their last call. Their last call is the away log's, else their last action in the
-   * world.
+   * once since their last call. Their last call is the later of the away log's and their last
+   * action in the world, since acting over a socket opened days ago makes no new call.
    */
   private paused(id: string, day: number): boolean {
-    const last = this.away.lastCall(id) ?? this.world.state.lastActiveDay?.[id];
+    const call = this.away.lastCall(id);
+    const acted = this.world.state.lastActiveDay?.[id];
+    const last = call === undefined ? acted : acted === undefined ? call : Math.max(call, acted);
     if (last === undefined || day - last < ROUTINE_LIMITS.pauseAfterDays) return false;
     const said = `${id} ${last}`;
     if (!this.saidPaused.has(said)) {

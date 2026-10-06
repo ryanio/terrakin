@@ -100,7 +100,7 @@ function direct() {
     expect((await act(token, { type: "set_routines", routines: list })).ok).toBe(true);
   const lines = async (token: string) =>
     (await call("GET", "/v1/routines", undefined, token)).body.away.items as Json[];
-  /** A live socket for one resident, keeping what it hears. */
+  /** A live socket for one resident: what it hears, an action sent over it, and closing it. */
   const live = (token: string) => {
     const heard: ServerMessage[] = [];
     const session = api.live("127.0.0.1", {
@@ -109,7 +109,11 @@ function direct() {
     });
     session.onMessage(JSON.stringify({ type: "hello", v: 1, token }));
     cleanups.push(() => session.onClose());
-    return heard;
+    return {
+      heard,
+      act: (action: Json) => session.onMessage(JSON.stringify({ type: "action", action })),
+      close: () => session.onClose(),
+    };
   };
   return {
     api,
@@ -257,6 +261,22 @@ describe("the routine runner", () => {
   });
 });
 
+describe("pausing", () => {
+  it("counts acting over a socket opened days ago as being here", async () => {
+    const t = direct();
+    const wren = await t.settled("Wren", 0, 0);
+    await t.routines(wren.token, [{ kind: "walk_home", hour: 18 }]);
+    // The socket says hello today; every day after it, Wren acts over it and makes no new call.
+    const socket = t.live(wren.token);
+    t.advance((ROUTINE_LIMITS.pauseAfterDays + 1) * DAY_MS + HOUR);
+    t.service.tick();
+    socket.act({ type: "move", dir: "e" });
+    socket.close();
+    expect(t.service.state.residents[wren.id]).toMatchObject({ x: 4, y: 4, online: false });
+    expect(t.api.runRoutines()).toEqual({ steps: 1, refused: 0, paused: 0 });
+  });
+});
+
 describe("greet", () => {
   it("waves live at whoever walks near an away hearth, capped, never across a block, with no streak", async () => {
     const t = direct();
@@ -270,7 +290,7 @@ describe("greet", () => {
     ).toBe(200);
     t.away(bram.id);
     const ivy = t.join("Ivy");
-    const heard = t.live(ivy.token);
+    const { heard } = t.live(ivy.token);
     const dee = t.join("Dee");
 
     // Everyone joins at (24, 24), out of earshot of (11, 3). Walking within 12 tiles brings a wave.

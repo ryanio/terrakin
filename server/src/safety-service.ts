@@ -1148,6 +1148,17 @@ export class SafetyService {
     return this.o.purgeMedia(mediaId);
   }
 
+  /**
+   * Decision 0065: pieces made from a purged upload stop pointing at the deleted file. A refused
+   * log write leaves the pieces dangling, so it's noted for a retry instead of failing a takedown
+   * that already happened.
+   */
+  private clearPiecePictures(by: string, mediaId: string, reason: string): void {
+    if (this.removePiecePictures?.(mediaId) === undefined) {
+      this.recordNote(by, "remove_piece", "piece", mediaId, reason);
+    }
+  }
+
   /** Staff and townsfolk whose things staff can't act on through the queue, like their pictures. */
   protects(residentId: string): boolean {
     return this.o.cannotBeSuspended(residentId);

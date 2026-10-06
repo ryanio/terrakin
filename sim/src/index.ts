@@ -55,6 +55,9 @@ export {
   type ProduceKind,
   type ProduceLook,
   type Role,
+  SWEET_KINDS,
+  SWEET_RECIPES,
+  type SweetKind,
 } from "./catalog";
 export {
   DISPLAY_BLOCKS,
@@ -172,7 +175,32 @@ export {
   groundShort,
   isGroundKind,
 } from "./ground";
+export {
+  CANDY,
+  CANDY_BOWL,
+  candyFor,
+  knockedToday,
+  nextTrickOrTreat,
+  TRICK_OR_TREAT,
+  trickOrTreatDay,
+  trickOrTreatIn,
+} from "./halloween";
 export { canonicalJson, fnv1a, hashWorld } from "./hash";
+export {
+  dayName,
+  HOLIDAY_INFO,
+  HOLIDAYS,
+  type Holiday,
+  type HolidayInfo,
+  holidayDates,
+  holidayField,
+  holidayLastDay,
+  holidayOf,
+  holidaySpan,
+  inHoliday,
+  type MonthDate,
+  nextHolidayStart,
+} from "./holiday";
 export {
   CROP_INFO,
   CROPS,
@@ -204,6 +232,7 @@ export {
   isMadeKind,
   isReady,
   isResourceKind,
+  isSweetKind,
   lastDeclineDay,
   MADE_KINDS,
   type MadeKind,
@@ -287,6 +316,8 @@ export {
   type BuyOrder,
   type BuyOrderRead,
   buySeason,
+  HOLIDAY_STOCK,
+  holidayOn,
   isShopSku,
   onSale,
   ownsWear,
@@ -306,6 +337,7 @@ export {
   shopFor,
   shopOf,
   skuName,
+  stockHoliday,
   stockSeason,
   townBuys,
   treasuryShareOf,

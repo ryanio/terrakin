@@ -12,6 +12,7 @@
  * export them under the names they always had. `catalog.test.ts` pins every list and recipe as it
  * shipped, so a new entry can only add to them.
  */
+import type { Holiday } from "./holiday";
 import type { Season } from "./season";
 
 // ---------- families ----------
@@ -36,6 +37,7 @@ export const FAMILIES = {
   preserve: { name: "Preserves", parent: "food" },
   drink: { name: "Drinks", parent: "food" },
   baked: { name: "Baked goods", parent: "food" },
+  sweets: { name: "Sweets", parent: "food" },
   flower: { name: "Flowers" },
   keepsake: { name: "Keepsakes" },
   seed: { name: "Seeds" },
@@ -71,7 +73,8 @@ export function familyPath(family: Family): Family[] {
  * from a planter, a kitchen staple, a gathered material, decor that places as a block, furniture
  * made at a workbench that stacks and places like decor (RFC 0016), a made good, a piece of art, or
  * a find (RFC 0021): something rare picked up where it lies, which stacks and can stand on a
- * pedestal. It's the category the API shows, where a piece shows as a good.
+ * pedestal; or a sweet (RFC 0022): made at a kitchen and stacked, to hand out, like candy. It's
+ * the category the API shows, where a piece shows as a good.
  */
 export type Role =
   | "seed"
@@ -82,7 +85,8 @@ export type Role =
   | "furniture"
   | "good"
   | "piece"
-  | "find";
+  | "find"
+  | "sweet";
 
 /** Block kinds you craft at. `craft` names the station's tile. */
 export const STATIONS = ["kitchen", "workbench"] as const;
@@ -96,6 +100,8 @@ export interface KindRecipe {
   station: Station;
   /** Each kind it uses up and how many. Only things that stack. */
   needs: Readonly<Record<string, number>>;
+  /** How many one craft makes, for a sweet. Absent is one, as every good and piece of furniture. */
+  makes?: number;
 }
 
 /** How a crop grows. Planted on day D, it's ready when day D + days starts. */
@@ -161,8 +167,11 @@ export interface KindEntry {
   grows?: string;
   /** A crop: how it grows. */
   crop?: CropNumbers;
-  /** Sold at the town shop for `price` coins: all year, or every day of `seasons` only. */
-  shop?: { price: number; seasons?: readonly Season[] };
+  /**
+   * Sold at the town shop for `price` coins: all year, every day of `seasons` only, or only while
+   * `holiday` runs (RFC 0022).
+   */
+  shop?: { price: number; seasons?: readonly Season[]; holiday?: Holiday };
   /** A made good or a piece of furniture: how it's made. */
   recipe?: KindRecipe;
   look: KindLook;
@@ -600,6 +609,43 @@ const WRITTEN = {
   four_leaf_clover: find("Four-leaf clover", "Four-leaf clovers", "meadow_find"),
   maple_leaf: find("Maple leaf", "Maple leaves", "meadow_find"),
   cherry_blossom: find("Cherry blossom", "Cherry blossoms", "meadow_find"),
+  // Halloween (RFC 0022): candy to hand out at your door, and spooky, cozy decor, all sold only
+  // while Halloween runs. Candy is made at a kitchen any day, five from a pumpkin and a bag of
+  // sugar. Decision 0107 has the numbers.
+  candy: entry({
+    name: "Candy",
+    plural: "Candies",
+    family: "sweets",
+    role: "sweet",
+    shop: { price: 2, holiday: "halloween" },
+    recipe: { station: "kitchen", needs: { pumpkin: 1, sugar: 1 }, makes: 5 },
+    look: { template: "drawn" },
+  }),
+  bat_bunting: entry({
+    name: "Bat bunting",
+    plural: "Strings of bat bunting",
+    family: "decor",
+    role: "decor",
+    shop: { price: 12, holiday: "halloween" },
+    look: { template: "drawn" },
+  }),
+  cauldron: entry({
+    name: "Cauldron",
+    plural: "Cauldrons",
+    family: "decor",
+    role: "decor",
+    shop: { price: 30, holiday: "halloween" },
+    look: { template: "drawn" },
+  }),
+  // Left by the door, it hands out its owner's candy to trick-or-treaters while they're away.
+  candy_bowl: entry({
+    name: "Candy bowl",
+    plural: "Candy bowls",
+    family: "decor",
+    role: "decor",
+    shop: { price: 15, holiday: "halloween" },
+    look: { template: "drawn" },
+  }),
 };
 
 // ---------- family recipes ----------
@@ -680,6 +726,7 @@ export type FurnitureKind = With<{ role: "furniture" }>;
 export type GoodKind = With<{ role: "good" }> | FamilyMade;
 export type PieceKind = With<{ role: "piece" }>;
 export type FindKind = With<{ role: "find" }>;
+export type SweetKind = With<{ role: "sweet" }>;
 export type StackKind =
   | SeedKind
   | ProduceKind
@@ -687,7 +734,8 @@ export type StackKind =
   | ResourceKind
   | DecorKind
   | FurnitureKind
-  | FindKind;
+  | FindKind
+  | SweetKind;
 export type MadeKind = GoodKind | PieceKind;
 
 /** What a family recipe makes from one kind in its family. */
@@ -752,9 +800,11 @@ export const DECOR_KINDS = withRole("decor") as readonly DecorKind[];
 export const FURNITURE_KINDS = withRole("furniture") as readonly FurnitureKind[];
 /** Finds (RFC 0021): picked up where they lie, by biome and season. */
 export const FIND_KINDS = withRole("find") as readonly FindKind[];
+/** Sweets (RFC 0022): made at a kitchen like a good, but they stack, to hand out. */
+export const SWEET_KINDS = withRole("sweet") as readonly SweetKind[];
 /**
- * Things that stack: you hold a count of each, not separate items. Finds came last, after every
- * role that shipped before them, so no kind that shipped earlier moves.
+ * Things that stack: you hold a count of each, not separate items. Finds and then sweets came
+ * last, after every role that shipped before them, so no kind that shipped earlier moves.
  */
 export const STACK_KINDS: readonly StackKind[] = [
   ...SEED_KINDS,
@@ -764,6 +814,7 @@ export const STACK_KINDS: readonly StackKind[] = [
   ...DECOR_KINDS,
   ...FURNITURE_KINDS,
   ...FIND_KINDS,
+  ...SWEET_KINDS,
 ];
 /** Made things with a recipe. Each one is its own item with an id, its maker, and its made day. */
 export const GOOD_KINDS = withRole("good") as readonly GoodKind[];
@@ -780,7 +831,8 @@ export type ItemCategory =
   | "good"
   | "decor"
   | "furniture"
-  | "find";
+  | "find"
+  | "sweet";
 
 export interface ItemInfo {
   /** One of it, in plain words. */
@@ -815,10 +867,14 @@ export const CROP_INFO = Object.fromEntries(
   }),
 ) as Readonly<Record<Crop, CropInfo>>;
 
-/** How a made thing is made: at a station, using up what it needs, in this order. */
+/**
+ * How a made thing is made: at a station, using up what it needs, in this order. A sweet's says how
+ * many one craft makes (`makes`); everything else makes one.
+ */
 export interface Recipe {
   station: Station;
   needs: Readonly<Partial<Record<StackKind, number>>>;
+  makes?: number;
 }
 
 /** One recipe per made good, named after what it makes. */
@@ -830,6 +886,11 @@ export const RECIPES = Object.fromEntries(
 export const FURNITURE_RECIPES = Object.fromEntries(
   FURNITURE_KINDS.map((kind) => [kind, CATALOG[kind].recipe]),
 ) as Readonly<Record<FurnitureKind, Recipe>>;
+
+/** One recipe per sweet, named after what it makes, with how many one craft makes. */
+export const SWEET_RECIPES = Object.fromEntries(
+  SWEET_KINDS.map((kind) => [kind, CATALOG[kind].recipe]),
+) as Readonly<Record<SweetKind, Recipe>>;
 
 /**
  * What the town shop sells in one season only, every day of it. Everything else it sells, it sells
@@ -843,6 +904,13 @@ export const SEASON_STOCK: Readonly<Record<Season, readonly StackKind[]>> = {
   autumn: soldIn("autumn"),
   winter: soldIn("winter"),
 };
+
+/**
+ * What the town shop sells only while a holiday runs (RFC 0022). The shop adds the holiday's wear
+ * (`HOLIDAY_STOCK` in `shop.ts`).
+ */
+export const holidayKinds = (holiday: Holiday): StackKind[] =>
+  STACK_KINDS.filter((kind) => CATALOG[kind].shop?.holiday === holiday);
 
 // ---------- frozen lists ----------
 

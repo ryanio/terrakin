@@ -27,6 +27,7 @@ import {
   STACK_KINDS,
   STAPLE_KINDS,
   STARTER_SEEDS,
+  SWEET_KINDS,
 } from "./catalog";
 import { WEAR_ITEMS } from "./looks";
 import { BLOCK_KINDS, FREE_BLOCKS } from "./types";
@@ -307,13 +308,24 @@ describe("seeds and crops", () => {
 });
 
 describe("recipes", () => {
-  it("make every good and piece of furniture from things that stack, never from nothing", () => {
-    for (const kind of [...GOOD_KINDS, ...FURNITURE_KINDS]) {
+  it("make every good, piece of furniture, and sweet from things that stack, never from nothing", () => {
+    for (const kind of [...GOOD_KINDS, ...FURNITURE_KINDS, ...SWEET_KINDS]) {
       const needs = Object.entries(CATALOG[kind].recipe?.needs ?? {});
       expect(needs.length, kind).toBeGreaterThan(0);
       for (const [need, n] of needs) {
         expect(STACK_KINDS as readonly string[], `${kind} needs ${need}`).toContain(need);
         expect(Number.isInteger(n) && n >= 1, `${kind} needs ${n} ${need}`).toBe(true);
+      }
+    }
+  });
+
+  it("make one of everything but a sweet, which makes a whole number of them", () => {
+    for (const [kind, { recipe, role }] of entries) {
+      if (role === "sweet") {
+        const makes = recipe?.makes ?? 1;
+        expect(Number.isInteger(makes) && makes >= 1, kind).toBe(true);
+      } else {
+        expect(recipe?.makes, kind).toBeUndefined();
       }
     }
   });

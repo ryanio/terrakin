@@ -78,6 +78,12 @@ export const WEAR_ITEMS = [
   "socks",
   "boots",
   "sneakers",
+  "witch_hat",
+  "cat_ears",
+  "pumpkin_head",
+  "ghost_sheet",
+  "bat_wings",
+  // Partner wear stays last (RFC 0007).
   "muse_halo",
   "muse_lantern",
 ] as const;
@@ -85,12 +91,34 @@ export type WearItem = (typeof WEAR_ITEMS)[number];
 
 /**
  * Wear sold at the town shop (RFC 0008). The rest stays free. Wearing one of these takes having
- * bought it, and once bought it's yours for good.
+ * bought it, and once bought it's yours for good. Halloween's costumes are shop wear too, sold
+ * only while Halloween runs (`COSTUMES`, RFC 0022), and worn any day once bought.
  */
-export const SHOP_WEAR = ["top_hat", "raincoat", "umbrella"] as const satisfies readonly WearItem[];
+export const SHOP_WEAR = [
+  "top_hat",
+  "raincoat",
+  "umbrella",
+  "witch_hat",
+  "cat_ears",
+  "pumpkin_head",
+  "ghost_sheet",
+  "bat_wings",
+] as const satisfies readonly WearItem[];
 export type ShopWear = (typeof SHOP_WEAR)[number];
 export const isShopWear = (w: unknown): w is ShopWear =>
   typeof w === "string" && (SHOP_WEAR as readonly string[]).includes(w);
+
+/** Halloween's costumes (RFC 0022): shop wear sold only while Halloween runs. */
+export const COSTUMES = [
+  "witch_hat",
+  "cat_ears",
+  "pumpkin_head",
+  "ghost_sheet",
+  "bat_wings",
+] as const satisfies readonly ShopWear[];
+export type Costume = (typeof COSTUMES)[number];
+export const isCostume = (w: unknown): w is Costume =>
+  typeof w === "string" && (COSTUMES as readonly string[]).includes(w);
 
 /**
  * Partner wear (RFC 0007): only residents the server entitled with `set_entitlements` may put it on,
@@ -357,10 +385,15 @@ export const WEAR_INFO: Record<WearItem, { slot: WearSlot; label: string }> = {
   sneakers: { slot: "feet", label: "Sneakers" },
   muse_halo: { slot: "hat", label: "Muse halo" },
   muse_lantern: { slot: "accessory", label: "Muse lantern" },
+  witch_hat: { slot: "hat", label: "Witch hat" },
+  cat_ears: { slot: "hat", label: "Cat ears" },
+  pumpkin_head: { slot: "hat", label: "Pumpkin head" },
+  ghost_sheet: { slot: "top", label: "Ghost sheet" },
+  bat_wings: { slot: "accessory", label: "Bat wings" },
 };
 
 /** Wear that covers the bottom half too, so nothing goes in the bottom slot with it. */
-export const FULL_LENGTH: readonly WearItem[] = ["dress"];
+export const FULL_LENGTH: readonly WearItem[] = ["dress", "ghost_sheet"];
 
 /** `own` means the resident's own uploaded pattern tile (`patternMedia`). */
 export const GARMENT_PATTERNS = [...PATTERNS, "own"] as const;

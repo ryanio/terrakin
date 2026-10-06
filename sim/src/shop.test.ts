@@ -36,6 +36,7 @@ import {
   type ShopSku,
   shopFor,
   shopOf,
+  stockHoliday,
   stockSeason,
   townBuys,
 } from "./shop";
@@ -188,8 +189,11 @@ describe("the catalog", () => {
   });
 
   it("has the prices decision 0052 records", () => {
-    // Seasonal stock has its own decision (0079), pinned in seasons.test.ts.
-    const allYear = SHOP_SKUS.filter((s) => stockSeason(s) === undefined);
+    // Seasonal stock has its own decision (0079), pinned in seasons.test.ts, and holiday stock its
+    // own (0107), pinned in halloween.test.ts.
+    const allYear = SHOP_SKUS.filter(
+      (s) => stockSeason(s) === undefined && stockHoliday(s) === undefined,
+    );
     const prices = Object.fromEntries(allYear.map((s) => [s, SHOP_CATALOG[s].price]));
     expect(prices).toEqual({
       lantern: 40,

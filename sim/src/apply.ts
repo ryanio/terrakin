@@ -63,6 +63,7 @@ import {
 } from "./games";
 import { checkGather, checkOpenFinds, checkOwnPlotPickups } from "./gather";
 import { checkLay, checkLift } from "./ground";
+import { checkTrickOrTreat, halloweenNewDay } from "./halloween";
 import { canonicalJson, fnv1a } from "./hash";
 import {
   checkCraft,
@@ -700,7 +701,10 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         const bounties = command.type === "new_day" ? bountiesNewDay(state, command.day) : null;
         const events = command.type === "new_day" ? eventsNewDay(state, command.day) : null;
         const games = command.type === "new_day" ? gamesNewDay(state) : null;
-        if (!coins && !items && !shop && !bounties && !events && !games) return checked;
+        const knocks = command.type === "new_day" ? halloweenNewDay(state) : null;
+        if (!coins && !items && !shop && !bounties && !events && !games && !knocks) {
+          return checked;
+        }
         return () => [
           ...checked(),
           ...(coins ? coins() : []),
@@ -709,6 +713,7 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
           ...(bounties ? bounties() : []),
           ...(events ? events() : []),
           ...(games ? games() : []),
+          ...(knocks ? knocks() : []),
         ];
       }
       default:
@@ -1240,5 +1245,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       return town(checkStartGame(state, actor, command));
     case "decide":
       return town(checkDecide(state, actor, command));
+
+    case "trick_or_treat":
+      return town(checkTrickOrTreat(state, actor, command));
   }
 }

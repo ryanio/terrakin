@@ -9,6 +9,7 @@ import {
   type ItemKind,
   type MadeKind,
   type StackKind,
+  type SweetKind,
 } from "./catalog";
 import type { PickupKind } from "./gather";
 import type { GroundKind } from "./ground";
@@ -37,9 +38,10 @@ export type Direction = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
  * and `workbench` are stations to craft at (RFC 0005). Those are placed for free. The next four are
  * decor from the town shop (RFC 0008): placing one uses one from your things, and removing it puts
  * it back. `pedestal` (free) and `frame` hold a made thing on display (RFC 0005 step 3). `hay_bale`
- * and `scarecrow` are decor the shop sells in autumn (RFC 0017). The rest are furniture made at a
- * workbench (RFC 0016), held and placed like decor. New kinds go on the end, and a held one (decor
- * or furniture) is an entry in the catalog too.
+ * and `scarecrow` are decor the shop sells in autumn (RFC 0017). The next eleven are furniture made
+ * at a workbench (RFC 0016), held and placed like decor, and the last three Halloween's decor (RFC
+ * 0022). New kinds go on the end, and a held one (decor or furniture) is an entry in the catalog
+ * too.
  */
 export const BLOCK_KINDS = [
   "wood",
@@ -67,6 +69,9 @@ export const BLOCK_KINDS = [
   "campfire",
   "flower_box",
   "jack_o_lantern",
+  "bat_bunting",
+  "cauldron",
+  "candy_bowl",
 ] as const;
 
 /**
@@ -424,6 +429,11 @@ export interface WorldState {
    * first `open_table`, so worlds from before games hash as they always have.
    */
   games?: GamesState;
+  /**
+   * Today's trick-or-treating (Halloween, RFC 0022): who knocked on which doors, and the candy the
+   * town handed out. Absent until the day's first knock, and `new_day` drops it.
+   */
+  knocks?: KnocksState;
 }
 
 /** The party games (RFC 0011). New games go on the end. */
@@ -541,6 +551,18 @@ export interface GamesToday {
   /** Counted games each pair started today, keyed `a+b` with `a < b`. */
   pairs: Record<string, number>;
 }
+
+/** One day's trick-or-treating (RFC 0022). */
+export interface KnocksState {
+  /** The doors each resident knocked on today, as plot keys, in the order they knocked. */
+  by: Record<ResidentId, string[]>;
+  /** Candy the town handed out today at each door, by plot key. */
+  town: Record<string, number>;
+}
+
+/** Who handed out a trick-or-treater's candy: someone home, a bowl by the door, or the town. */
+export const CANDY_FROM = ["resident", "bowl", "town"] as const;
+export type CandyFrom = (typeof CANDY_FROM)[number];
 
 /** What kind of event a host puts on (RFC 0010). */
 export const EVENT_KINDS = ["show", "class", "market", "listening", "gathering"] as const;
@@ -911,6 +933,10 @@ export const INVENTORY_REASONS = [
   "built",
   /** Given to a pet as a treat (RFC 0019). */
   "treat",
+  /** Candy you got trick-or-treating at a neighbor's door (RFC 0022). */
+  "trick_or_treat",
+  /** Candy you handed out to a trick-or-treater at your door, or from your bowl by it. */
+  "handed_out",
 ] as const;
 export type InventoryReason = (typeof INVENTORY_REASONS)[number];
 
@@ -1090,8 +1116,17 @@ export type Command =
   | { type: "harvest"; x: number; y: number }
   /** Pick up a fallen branch or a loose stone on the tile, within reach. */
   | { type: "gather"; x: number; y: number }
-  /** A good (signed, with an id) or a piece of furniture (it stacks, and takes no label). */
-  | { type: "craft"; recipe: GoodKind | FurnitureKind; x: number; y: number; label?: string }
+  /**
+   * A good (signed, with an id), or a piece of furniture or a sweet (they stack, and take no
+   * label).
+   */
+  | {
+      type: "craft";
+      recipe: GoodKind | FurnitureKind | SweetKind;
+      x: number;
+      y: number;
+      label?: string;
+    }
   | { type: "give"; item: string; to: ResidentId; count?: number; note?: string }
   /** Send a gift back to whoever gave it, within `ITEMS.declineDays` days. */
   | { type: "decline_gift"; gift: string }
@@ -1152,6 +1187,8 @@ export type Command =
   | { type: "stand"; table: string }
   | { type: "start_game"; table: string; at: number; free?: true }
   | { type: "decide"; table: string; round: number; move: number }
+  /** Knock at the door of plot (px, py) on Halloween night, from on or beside it (RFC 0022). */
+  | { type: "trick_or_treat"; px: number; py: number }
   // Only the server sends these, as TOWN_ACTOR.
   | { type: "new_day"; day: number }
   | { type: "set_townsfolk"; ids: ResidentId[] }
@@ -1594,6 +1631,18 @@ export type WorldEvent =
       /** The people-against-AIs tally after it, when this game added to it. */
       tally?: { people: number; agents: number };
     }
+  /**
+   * `by` knocked at the door of plot (px, py) and got a candy (RFC 0022): from `giver`, someone
+   * home or their bowl by the door, or from the town. Public, like a visit.
+   */
+  | {
+      type: "trick_or_treated";
+      by: ResidentId;
+      px: number;
+      py: number;
+      from: CandyFrom;
+      giver?: ResidentId;
+    }
 
   /**
    * One resident's things changed. Private: it belongs to `residentId` alone, and the server sends
@@ -1745,6 +1794,14 @@ export const REJECTION_CODES = [
   "already_decided",
   /** Not one of this game's legal moves. */
   "illegal_move",
+  /** That belongs to a holiday that isn't on today, like a costume out of Halloween (RFC 0022). */
+  "out_of_holiday",
+  /** You already knocked at that door today (RFC 0022). */
+  "already_knocked",
+  /** You knocked on as many doors as you can today. */
+  "knock_limit",
+  /** Nobody there has candy for you, and the town's candy at that door, or for today, is gone. */
+  "no_candy",
 ] as const;
 export type RejectionCode = (typeof REJECTION_CODES)[number];
 

@@ -4,6 +4,7 @@ import {
   DECOR_KINDS,
   type DecorKind,
   type GoodKind,
+  holidayKinds,
   ROTATION_CROPS,
   ROTATION_GOODS,
   type Role,
@@ -12,9 +13,21 @@ import {
   STAPLE_KINDS,
   SEASON_STOCK as STOCK_BY_SEASON,
   type StapleKind,
+  SWEET_KINDS,
+  type SweetKind,
 } from "./catalog";
 import { coinCount as coins, isWhole, refuse } from "./check";
 import { allowanceDue, isTownsfolk, movePurse, moveTreasury } from "./economy";
+import {
+  dayName,
+  HOLIDAY_INFO,
+  HOLIDAYS,
+  type Holiday,
+  holidayDates,
+  holidayLastDay,
+  holidayOf,
+  nextHolidayStart,
+} from "./holiday";
 import {
   addStack,
   held,
@@ -29,8 +42,8 @@ import {
   isStackKind,
   type StackKind,
 } from "./items";
-import { isShopWear, SHOP_WEAR, type ShopWear, WEAR_INFO } from "./looks";
-import { dateOfDay, SEASONS, type Season, seasonOf, seasonSpan } from "./season";
+import { COSTUMES, isShopWear, SHOP_WEAR, type ShopWear, WEAR_INFO } from "./looks";
+import { SEASONS, type Season, seasonOf, seasonSpan } from "./season";
 import type {
   Command,
   EconomyState,
@@ -57,8 +70,20 @@ import { moveOff, offBuildings } from "./walk";
 
 // ---------- the catalog ----------
 
-/** Wear the shop sells, and its price. Every other price is in the catalog (`catalog.ts`). */
-const WEAR_PRICES: Readonly<Record<ShopWear, number>> = { top_hat: 80, raincoat: 90, umbrella: 60 };
+/**
+ * Wear the shop sells, and its price. Every other price is in the catalog (`catalog.ts`).
+ * Halloween's costumes are decision 0107's.
+ */
+const WEAR_PRICES: Readonly<Record<ShopWear, number>> = {
+  top_hat: 80,
+  raincoat: 90,
+  umbrella: 60,
+  witch_hat: 60,
+  cat_ears: 40,
+  pumpkin_head: 70,
+  ghost_sheet: 50,
+  bat_wings: 70,
+};
 
 /** The catalog's kinds the shop sells: those with a shop price, in catalog order. */
 const sold = <K extends StackKind>(kinds: readonly K[]) =>
@@ -66,15 +91,16 @@ const sold = <K extends StackKind>(kinds: readonly K[]) =>
 
 /**
  * What the shop sells. A sku is the name of what you get: a stack kind or a piece of shop wear.
- * Decor, then wear, then seeds, then the pantry's staples.
+ * Decor, then wear, then seeds, then the pantry's staples, then sweets.
  */
 export const SHOP_SKUS: readonly ShopSku[] = [
   ...sold(DECOR_KINDS),
   ...SHOP_WEAR,
   ...sold(SEED_KINDS),
   ...sold(STAPLE_KINDS),
+  ...sold(SWEET_KINDS),
 ];
-export type ShopSku = DecorKind | ShopWear | SeedKind | StapleKind;
+export type ShopSku = DecorKind | ShopWear | SeedKind | StapleKind | SweetKind;
 
 export type ShopSection = "decor" | "wear" | "garden" | "pantry";
 
@@ -102,18 +128,19 @@ export const SHOP = {
   producePerDay: 1,
 } as const;
 
-/** The section of the shop a kind sits in, by what it is to the rules. */
+/** The section of the shop a kind sits in, by what it is to the rules. Candy sits with the pantry. */
 const SECTION: Partial<Record<Role, ShopSection>> = {
   decor: "decor",
   seed: "garden",
   staple: "pantry",
+  sweet: "pantry",
 };
 
 /** Every sku's price and section: wear's from `WEAR_PRICES`, everything else's from the catalog. */
 export const SHOP_CATALOG = Object.fromEntries(
   SHOP_SKUS.map((sku): [ShopSku, ShopEntry] => {
     if (isShopWear(sku)) return [sku, { price: WEAR_PRICES[sku], section: "wear" }];
-    // `sold` kept only decor, seeds, and staples with a price.
+    // `sold` kept only decor, seeds, staples, and sweets with a price.
     const { shop, role } = CATALOG[sku];
     return [
       sku,
@@ -214,34 +241,38 @@ export const stockSeason = (sku: ShopSku): Season | undefined =>
 export const buySeason = (kind: SellKind): Season | undefined =>
   SEASONS.find((s) => SEASON_BUYS[s].includes(kind));
 
-/** Whether the shop sells `sku` on `day`. */
+/** Whether the shop sells `sku` on `day`: in its season, if it has one, and during its holiday. */
 export function onSale(sku: ShopSku, day: number): boolean {
   const season = stockSeason(sku);
-  return season === undefined || season === seasonOf(day);
+  const holiday = stockHoliday(sku);
+  return (
+    (season === undefined || season === seasonOf(day)) &&
+    (holiday === undefined || holiday === holidayOf(day))
+  );
 }
 
 /** The last day of the season `day` is in: the last day its stock is sold. */
 export const seasonLastDay = (day: number) => seasonSpan(day).end - 1;
 
-const MONTHS = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-] as const;
+// ---------- holidays (RFC 0022) ----------
 
-/** "September 1", for a world day. */
-function dayName(day: number): string {
-  const { month, date } = dateOfDay(day);
-  return `${MONTHS[month - 1]} ${date}`;
+/**
+ * Shop stock sold only while a holiday runs, every day of it, and refused (`out_of_holiday`) the
+ * rest of the year: the catalog's kinds with that holiday (candy and its decor), then its wear (the
+ * costumes). What you bought stays yours, to use and wear any day.
+ */
+export const HOLIDAY_STOCK: Readonly<Record<Holiday, readonly ShopSku[]>> = {
+  halloween: [...holidayKinds("halloween"), ...COSTUMES] as ShopSku[],
+};
+
+/** The holiday `sku` is sold for, or undefined when no holiday holds it back. */
+export const stockHoliday = (sku: ShopSku): Holiday | undefined =>
+  HOLIDAYS.find((h) => HOLIDAY_STOCK[h].includes(sku));
+
+/** The holiday on `day` with its first and last day, as the shop shows it, or undefined. */
+export function holidayOn(day: number): { holiday: Holiday; lastDay: number } | undefined {
+  const holiday = holidayOf(day);
+  return holiday ? { holiday, lastDay: holidayLastDay(holiday, day) } : undefined;
 }
 
 /** The first day of the next `season` after the season `day` is in. */
@@ -249,6 +280,20 @@ function nextStart(season: Season, day: number): number {
   let { end } = seasonSpan(day);
   while (seasonOf(end) !== season) end = seasonSpan(end).end;
   return end;
+}
+
+/** Why the shop won't sell holiday stock on `day`, in plain words, or null when it's on sale. */
+function outOfHoliday(sku: ShopSku, day: number): Rejection | null {
+  const holiday = stockHoliday(sku);
+  if (holiday === undefined || holiday === holidayOf(day)) return null;
+  const what = isShopWear(sku)
+    ? `the ${WEAR_INFO[sku].label.toLowerCase()}`
+    : ITEM_INFO[sku].plural.toLowerCase();
+  const { name } = HOLIDAY_INFO[holiday];
+  return refuse(
+    "out_of_holiday",
+    `The shop sells ${what} only for ${name}, ${holidayDates(holiday)}. It's back on ${dayName(nextHolidayStart(holiday, day))} (UTC). What you already have is yours to use and wear any day. GET /v1/shop lists what's sold today.`,
+  );
 }
 
 /** Why the shop won't sell `sku` on `day`, in plain words, or null when it's on sale. */
@@ -275,14 +320,19 @@ export interface BuyOrderRead {
   season?: Season;
 }
 
-/** The shop as everyone sees it, or null before it opens. */
-export function shopOf(
-  state: WorldState,
-): { day: number; season: Season; buying: BuyOrderRead[] } | null {
+/** The shop as everyone sees it, or null before it opens. `holiday` is on while one runs. */
+export function shopOf(state: WorldState): {
+  day: number;
+  season: Season;
+  holiday?: { holiday: Holiday; lastDay: number };
+  buying: BuyOrderRead[];
+} | null {
   if (!state.shop || state.day === undefined) return null;
+  const holiday = holidayOn(state.day);
   return {
     day: state.day,
     season: seasonOf(state.day),
+    ...(holiday ? { holiday } : {}),
     buying: townBuys(state.day).map((kind) => {
       const season = buySeason(kind);
       return { kind, ...BUY_ORDERS[kind], ...(season ? { season } : {}) };
@@ -398,7 +448,7 @@ export function checkShopBuy(
   if (!isShopSku(sku)) {
     return refuse("unknown_item", "The shop doesn't sell that. See GET /v1/shop for what it has.");
   }
-  const season = outOfSeason(sku, day);
+  const season = outOfSeason(sku, day) ?? outOfHoliday(sku, day);
   if (season) return season;
   const count = command.count ?? 1;
   if (!isWhole(count) || count < 1 || count > SHOP.countMax) {

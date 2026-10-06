@@ -59,6 +59,11 @@ export const BLOCK_COLORS: Readonly<Record<BlockKind, string>> = {
   flower_box: "#b8834f",
   // A carved pumpkin with a candle in it.
   jack_o_lantern: "#e8862f",
+  // Halloween decor (RFC 0022): paper bats on a string, an iron pot with a green brew, and a bowl
+  // of candy by the door.
+  bat_bunting: "#3a2f4a",
+  cauldron: "#3b3a40",
+  candy_bowl: "#e8862f",
 };
 
 /**

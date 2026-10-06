@@ -22,6 +22,9 @@ import {
   STACK_KINDS,
   STARTER_SEEDS,
   type StackKind,
+  SWEET_KINDS,
+  SWEET_RECIPES,
+  type SweetKind,
 } from "./catalog";
 import { isWhole, refuse } from "./check";
 import { isTownsfolk, pairSkipsCaps } from "./economy";
@@ -97,6 +100,9 @@ export {
   type StackKind,
   type StapleKind,
   type Station,
+  SWEET_KINDS,
+  SWEET_RECIPES,
+  type SweetKind,
 } from "./catalog";
 
 /**
@@ -166,6 +172,9 @@ export const isResourceKind = (k: unknown): k is ResourceKind =>
 /** A find (RFC 0021): picked up where it lies, and the one kind of stack that may go on display. */
 export const isFindKind = (k: unknown): k is FindKind =>
   typeof k === "string" && (FIND_KINDS as readonly string[]).includes(k);
+/** A sweet (RFC 0022): made at a kitchen, and it stacks. */
+export const isSweetKind = (k: unknown): k is SweetKind =>
+  typeof k === "string" && (SWEET_KINDS as readonly string[]).includes(k);
 
 /** "1 lemon", "3 lemons", in plain words. */
 export function countOf(kind: ItemKind, n: number): string {
@@ -499,7 +508,8 @@ export const GATHER_HINT =
 
 /**
  * `craft {recipe, x, y, label?}` at the right station within reach. A good is a made thing with an
- * id and its maker; a piece of furniture (RFC 0016) stacks, so it takes no label.
+ * id and its maker; a piece of furniture (RFC 0016) or a sweet (RFC 0022) stacks, so it takes no
+ * label. A sweet's recipe can make more than one, so it needs room for what it adds.
  */
 export function checkCraft(
   state: WorldState,
@@ -514,19 +524,20 @@ export function checkCraft(
   if (!me) return refuse("not_joined", "Join the world first.");
   const { recipe, x, y, label } = command;
   const furniture = isFurnitureKind(recipe);
-  if (!furniture && !isGoodKind(recipe)) {
+  const sweet = isSweetKind(recipe);
+  if (!furniture && !sweet && !isGoodKind(recipe)) {
     // A family recipe asked of a kind outside its family: say which kinds it takes.
     const miss = typeof recipe === "string" ? familyRecipeMiss(recipe) : undefined;
     if (miss) return refuse("unknown_item", miss);
     return refuse(
       "unknown_item",
-      `There's no recipe for that. Try one of: ${GOOD_KINDS.join(", ")}, or furniture: ${FURNITURE_KINDS.join(", ")}.`,
+      `There's no recipe for that. Try one of: ${GOOD_KINDS.join(", ")}, or furniture: ${FURNITURE_KINDS.join(", ")}, or sweets: ${SWEET_KINDS.join(", ")}.`,
     );
   }
-  if (furniture && label !== undefined) {
+  if ((furniture || sweet) && label !== undefined) {
     return refuse(
       "invalid_label",
-      "Furniture stacks with others like it, so it takes no label. Leave out label.",
+      `${furniture ? "Furniture stacks" : "Candy stacks"} with others like it, so it takes no label. Leave out label.`,
     );
   }
   if (label !== undefined && (typeof label !== "string" || label.length > ITEMS.labelMax)) {
@@ -534,7 +545,11 @@ export function checkCraft(
   }
   const far = reachProblem(state, me, { x, y });
   if (far) return far;
-  const { station, needs } = furniture ? FURNITURE_RECIPES[recipe] : RECIPES[recipe];
+  const {
+    station,
+    needs,
+    makes = 1,
+  } = furniture ? FURNITURE_RECIPES[recipe] : sweet ? SWEET_RECIPES[recipe] : RECIPES[recipe];
   if (state.blocks[tileKey(x, y)] !== station) {
     return refuse(
       "no_station",
@@ -554,14 +569,23 @@ export function checkCraft(
     const gather = short.some(([kind]) => isResourceKind(kind)) ? ` ${GATHER_HINT}` : "";
     return refuse("not_enough_items", `You need ${missing.join(", ")} more.${gather}`);
   }
-  if (furniture) {
+  // Every good and piece of furniture uses up at least one thing to make one, so only a sweet that
+  // makes more than it uses can run out of room, and only such a craft is checked for it.
+  const used = Object.values(needs).reduce((sum, n) => sum + (n ?? 0), 0);
+  if (makes > used && inventorySize(inv) - used + makes > ITEMS.inventoryMax) {
+    return refuse(
+      "inventory_full",
+      `You can hold ${ITEMS.inventoryMax} things, and this makes ${countOf(recipe, makes)}. Give, place, or sell something first.`,
+    );
+  }
+  if (furniture || sweet) {
     return () => {
       items.today.crafted[actor] = crafted + 1;
       const mine = inventory(items, actor);
       const changes = (Object.entries(needs) as [StackKind, number][]).map(([kind, n]) =>
         addStack(mine, kind, -n),
       );
-      changes.push(addStack(mine, recipe, 1));
+      changes.push(addStack(mine, recipe, makes));
       return [inventoryEvent(actor, "craft", changes)];
     };
   }

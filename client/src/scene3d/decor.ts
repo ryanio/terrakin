@@ -1,15 +1,17 @@
 /**
  * The town shop's decor in 3D (RFC 0008): a paper lantern on a shepherd's hook, a picture on an
- * easel, a white fence post whose rails reach the fences beside it, and a garden bench. Each model
- * is a few merged, shade-baked parts, so a plot full of fence posts is one instanced draw per part
- * (decision 0030). Lanterns glow with an emissive shade and a soft pool of light on the ground,
- * not a light each; only the gallery's single lantern gets a point light, and only on desktop.
+ * easel, a white fence post whose rails reach the fences beside it, a garden bench, and autumn's
+ * hay bale and scarecrow (RFC 0017). Each model is a few merged, shade-baked parts, so a plot full
+ * of fence posts is one instanced draw per part (decision 0030). Lanterns glow with an emissive
+ * shade and a soft pool of light on the ground, not a light each; only the gallery's single
+ * lantern gets a point light, and only on desktop.
  */
 import type { DecorKind } from "@terrakin/sim";
 import { WOOD_DARK as WOOD_BRAND } from "@terrakin/ui/brand";
 import {
   AdditiveBlending,
   type BufferGeometry,
+  ConeGeometry,
   CylinderGeometry,
   Group,
   InstancedMesh,
@@ -63,6 +65,7 @@ interface Part {
 const WOOD_DARK = hex(WOOD_BRAND);
 const WOOD = hex("#9a6b43");
 const GOLD = hex("#d8b45a");
+const STRAW = hex("#e8c878");
 
 /** A rounded box, moved and turned into place, shade baked in. */
 function box(
@@ -232,10 +235,67 @@ function benchParts(grain: Texture): Part[] {
   ];
 }
 
+/** A bale of straw, tied twice with twine. */
+function hayBaleParts(grain: Texture): Part[] {
+  const { color, height: h } = blockLook("hay_bale");
+  const bale = merged([box(0.86, h, 0.62, [0, h / 2, 0], [0, 0, 0], 0.09)], 0.72);
+  // Two bands of twine around the bale, just proud of its sides and top.
+  const twine = merged(
+    [-0.2, 0.2].flatMap((x) => [
+      box(0.035, 0.02, 0.64, [x, h + 0.003, 0]),
+      box(0.035, h, 0.02, [x, h / 2, 0.315]),
+      box(0.035, h, 0.02, [x, h / 2, -0.315]),
+    ]),
+    0.8,
+  );
+  return [
+    { geometry: bale, material: paper(color, grain), cast: true },
+    { geometry: twine, material: paper(WOOD, grain), cast: false },
+  ];
+}
+
+/** A scarecrow on its post: a straw hat, a burlap head, a red shirt, and straw at the hands. */
+function scarecrowParts(grain: Texture): Part[] {
+  const post = merged([box(0.08, 1.2, 0.08, [0, 0.6, 0]), box(0.98, 0.07, 0.07, [0, 0.98, 0])]);
+  const shirt = merged(
+    [
+      box(0.5, 0.48, 0.2, [0, 0.82, 0], [0, 0, 0], 0.05),
+      box(0.74, 0.16, 0.16, [0, 0.98, 0], [0, 0, 0], 0.05),
+    ],
+    0.75,
+  );
+  const head = new SphereGeometry(0.16, 10, 8);
+  head.translate(0, 1.22, 0);
+  const hat = merged(
+    [
+      new CylinderGeometry(0.27, 0.27, 0.03, 12).translate(0, 1.34, 0).toNonIndexed(),
+      new CylinderGeometry(0.12, 0.15, 0.14, 10).translate(0, 1.42, 0).toNonIndexed(),
+    ],
+    0.85,
+  );
+  const straw = merged(
+    [-1, 1].map((side) => {
+      const tuft = new ConeGeometry(0.06, 0.16, 6);
+      tuft.rotateZ((side * Math.PI) / 2);
+      return tuft.translate(side * 0.55, 0.98, 0).toNonIndexed();
+    }),
+    0.85,
+  );
+  return [
+    { geometry: post, material: paper(WOOD, grain), cast: true },
+    { geometry: shirt, material: paper(blockLook("scarecrow").color, grain), cast: true },
+    { geometry: noShade(head.toNonIndexed()), material: paper(hex("#d9bf8f"), grain), cast: true },
+    { geometry: hat, material: paper(STRAW, grain), cast: true },
+    { geometry: straw, material: paper(STRAW, grain), cast: false },
+  ];
+}
+
 function partsOf(stage: Stage, kind: DecorKind, grain: Texture): Part[] {
   if (kind === "lantern") return lanternParts(stage, grain);
   if (kind === "frame") return frameParts(stage, grain);
   if (kind === "fence") return fenceParts(grain);
+  if (kind === "hay_bale") return hayBaleParts(grain);
+  if (kind === "scarecrow") return scarecrowParts(grain);
   return benchParts(grain);
 }
 

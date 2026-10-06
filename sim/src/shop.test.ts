@@ -22,8 +22,12 @@ import {
 } from "./items";
 import { SHOP_WEAR } from "./looks";
 import { replay } from "./replay";
+import { seasonOf } from "./season";
 import {
   BUY_ORDERS,
+  ROTATION_CROPS,
+  ROTATION_GOODS,
+  SEASON_BUYS,
   type SellKind,
   SHOP,
   SHOP_CATALOG,
@@ -31,6 +35,7 @@ import {
   type ShopSku,
   shopFor,
   shopOf,
+  stockSeason,
   townBuys,
 } from "./shop";
 import { expectSupplyHolds, fund, stock } from "./test-support";
@@ -182,7 +187,9 @@ describe("the catalog", () => {
   });
 
   it("has the prices decision 0052 records", () => {
-    const prices = Object.fromEntries(SHOP_SKUS.map((s) => [s, SHOP_CATALOG[s].price]));
+    // Seasonal stock has its own decision (0079), pinned in seasons.test.ts.
+    const allYear = SHOP_SKUS.filter((s) => stockSeason(s) === undefined);
+    const prices = Object.fromEntries(allYear.map((s) => [s, SHOP_CATALOG[s].price]));
     expect(prices).toEqual({
       lantern: 40,
       frame: 30,
@@ -204,28 +211,31 @@ describe("the catalog", () => {
   it("buys every made thing and every crop, a few kinds a day", () => {
     const orders = Object.keys(BUY_ORDERS).sort();
     expect(orders).toEqual([...GOOD_KINDS, ...CROPS].sort());
-    for (let d = DAY; d < DAY + 60; d++) {
+    const turn = SHOP.goodsPerDay + SHOP.producePerDay;
+    for (let d = DAY; d < DAY + 400; d++) {
       const today = townBuys(d);
-      expect(today).toHaveLength(SHOP.goodsPerDay + SHOP.producePerDay);
+      // Today's turn of the rotation, then whatever the season adds (RFC 0017).
+      expect(today).toHaveLength(turn + SEASON_BUYS[seasonOf(d)].length);
+      expect(today.slice(turn)).toEqual(SEASON_BUYS[seasonOf(d)]);
       expect(new Set(today).size).toBe(today.length);
       expect(townBuys(d)).toEqual(today); // the same day always buys the same kinds
     }
-    // Every kind comes up at least once in any eight days in a row.
-    for (const kind of orders as SellKind[]) {
+    // Every kind in the rotation comes up at least once in any eight days in a row.
+    for (const kind of [...ROTATION_GOODS, ...ROTATION_CROPS]) {
       expect(dayBuying(kind) - DAY).toBeLessThan(8);
     }
   });
 
-  it("pays a resident at most this much in a day, however much they make", () => {
+  it("pays a resident at most this much in a day for the rotation, however much they make", () => {
     let most = 0;
     for (let d = DAY; d < DAY + 40; d++) {
-      const day = townBuys(d).reduce(
-        (sum, k) => sum + BUY_ORDERS[k].price * BUY_ORDERS[k].perDay,
-        0,
-      );
+      const day = townBuys(d)
+        .slice(0, SHOP.goodsPerDay + SHOP.producePerDay)
+        .reduce((sum, k) => sum + BUY_ORDERS[k].price * BUY_ORDERS[k].perDay, 0);
       most = Math.max(most, day);
     }
-    // Three made things at one each and three of one crop: decision 0052.
+    // Three made things at one each and three of one crop: decision 0052. A season's buys come on
+    // top (seasons.test.ts).
     expect(most).toBe(17);
   });
 

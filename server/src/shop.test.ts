@@ -1,8 +1,11 @@
 import type { ServerMessage, WorldEvent } from "@terrakin/protocol";
 import {
   BUY_ORDERS,
+  dayOfDate,
   type Input,
   ITEMS,
+  SEASON_BUYS,
+  SEASON_STOCK,
   SHOP,
   TOWN_ACTOR,
   townBuys,
@@ -125,6 +128,33 @@ describe("the town shop", () => {
     const town = (await w.call("GET", "/v1/town")).body;
     expect(town.shop.tiles).toEqual(body.shop.tiles);
     expect(town.shop.buying.map((b: Json) => b.kind)).toEqual(townBuys(w.today()));
+  });
+
+  it("lists autumn's stock and buying with their season while it lasts, and not after", async () => {
+    // The clock starts on 2026-10-05, in autumn.
+    const w = await start();
+    w.service.tick();
+    const autumn = (await w.call("GET", "/v1/shop")).body.shop;
+    expect(autumn.season).toBe("autumn");
+    const seasonal = autumn.items.filter((i: Json) => i.season);
+    expect(seasonal.map((i: Json) => i.sku).sort()).toEqual([...SEASON_STOCK.autumn].sort());
+    for (const item of seasonal) {
+      expect(item).toMatchObject({ season: "autumn", lastDay: dayOfDate(2026, 11, 30) });
+    }
+    expect(autumn.buying.filter((b: Json) => b.season).map((b: Json) => b.kind)).toEqual(
+      SEASON_BUYS.autumn,
+    );
+    // Everything sold all year carries neither field.
+    const lantern = autumn.items.find((i: Json) => i.sku === "lantern");
+    expect(lantern.season).toBeUndefined();
+    expect(lantern.lastDay).toBeUndefined();
+    while (w.today() < dayOfDate(2026, 12, 1)) w.nextDay();
+    const winter = (await w.call("GET", "/v1/shop")).body.shop;
+    expect(winter.season).toBe("winter");
+    expect(winter.items.some((i: Json) => i.season)).toBe(false);
+    expect(winter.items).toHaveLength(autumn.items.length - SEASON_STOCK.autumn.length);
+    expect(winter.buying.some((b: Json) => b.season)).toBe(false);
+    expect(winter.buying.map((b: Json) => b.kind)).toEqual(townBuys(w.today()));
   });
 
   it("stays shut where the adapter leaves it off", async () => {

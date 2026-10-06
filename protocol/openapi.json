@@ -5142,11 +5142,13 @@
                 "tomato_seed",
                 "herb_seed",
                 "flower_seed",
+                "pumpkin_seed",
                 "lemon",
                 "strawberry",
                 "tomato",
                 "herb",
                 "flower",
+                "pumpkin",
                 "sugar",
                 "jar",
                 "wood",
@@ -5155,6 +5157,8 @@
                 "frame",
                 "fence",
                 "bench",
+                "hay_bale",
+                "scarecrow",
                 "lemon_jam",
                 "strawberry_jam",
                 "lemonade",
@@ -5163,6 +5167,8 @@
                 "bouquet",
                 "herb_sachet",
                 "flower_wreath",
+                "pumpkin_pie",
+                "pumpkin_soup",
                 "piece"
               ]
             }
@@ -10968,7 +10974,8 @@
                 "strawberry",
                 "tomato",
                 "herb",
-                "flower"
+                "flower",
+                "pumpkin"
               ]
             }
           }
@@ -19734,7 +19741,8 @@
           "strawberry",
           "tomato",
           "herb",
-          "flower"
+          "flower",
+          "pumpkin"
         ]
       },
       "DeclineGiftAction": {
@@ -19921,6 +19929,7 @@
           "not_your_bounty",
           "bounty_limit",
           "already_set",
+          "out_of_season",
           "bad_request",
           "unauthorized",
           "forbidden",
@@ -20221,7 +20230,9 @@
           "herb_tea",
           "bouquet",
           "herb_sachet",
-          "flower_wreath"
+          "flower_wreath",
+          "pumpkin_pie",
+          "pumpkin_soup"
         ]
       },
       "HarvestAction": {
@@ -20365,11 +20376,13 @@
           "tomato_seed",
           "herb_seed",
           "flower_seed",
+          "pumpkin_seed",
           "lemon",
           "strawberry",
           "tomato",
           "herb",
           "flower",
+          "pumpkin",
           "sugar",
           "jar",
           "wood",
@@ -20378,6 +20391,8 @@
           "frame",
           "fence",
           "bench",
+          "hay_bale",
+          "scarecrow",
           "lemon_jam",
           "strawberry_jam",
           "lemonade",
@@ -20386,6 +20401,8 @@
           "bouquet",
           "herb_sachet",
           "flower_wreath",
+          "pumpkin_pie",
+          "pumpkin_soup",
           "piece"
         ]
       },
@@ -20586,6 +20603,8 @@
           "bouquet",
           "herb_sachet",
           "flower_wreath",
+          "pumpkin_pie",
+          "pumpkin_soup",
           "piece"
         ]
       },
@@ -20673,7 +20692,9 @@
               "frame",
               "fence",
               "bench",
-              "pedestal"
+              "pedestal",
+              "hay_bale",
+              "scarecrow"
             ]
           },
           "dry": {
@@ -21554,6 +21575,8 @@
           "frame",
           "fence",
           "bench",
+          "hay_bale",
+          "scarecrow",
           "top_hat",
           "raincoat",
           "umbrella",
@@ -21562,6 +21585,7 @@
           "tomato_seed",
           "herb_seed",
           "flower_seed",
+          "pumpkin_seed",
           "sugar",
           "jar"
         ]
@@ -21574,11 +21598,13 @@
           "tomato_seed",
           "herb_seed",
           "flower_seed",
+          "pumpkin_seed",
           "lemon",
           "strawberry",
           "tomato",
           "herb",
           "flower",
+          "pumpkin",
           "sugar",
           "jar",
           "wood",
@@ -21586,7 +21612,9 @@
           "lantern",
           "frame",
           "fence",
-          "bench"
+          "bench",
+          "hay_bale",
+          "scarecrow"
         ]
       },
       "TakeDownAction": {
@@ -22439,7 +22467,9 @@
                   "frame",
                   "fence",
                   "bench",
-                  "pedestal"
+                  "pedestal",
+                  "hay_bale",
+                  "scarecrow"
                 ]
               },
               "by": {
@@ -24049,7 +24079,9 @@
                     "frame",
                     "fence",
                     "bench",
-                    "pedestal"
+                    "pedestal",
+                    "hay_bale",
+                    "scarecrow"
                   ]
                 }
               },
@@ -28256,6 +28288,16 @@
             "type": "integer",
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
+          },
+          "season": {
+            "description": "Set when the town buys it every day of this season, on top of its daily rotation, and not at all once the season ends.",
+            "type": "string",
+            "enum": [
+              "spring",
+              "summer",
+              "autumn",
+              "winter"
+            ]
           }
         },
         "required": [
@@ -28297,6 +28339,22 @@
               "bottom",
               "feet"
             ]
+          },
+          "season": {
+            "description": "Seasonal stock: the season the shop sells it in. Absent for what's sold all year. Out of season it isn't listed, and `shop_buy` answers `out_of_season`; what you bought stays yours.",
+            "type": "string",
+            "enum": [
+              "spring",
+              "summer",
+              "autumn",
+              "winter"
+            ]
+          },
+          "lastDay": {
+            "description": "Seasonal stock: the last UTC day it's sold this season (days since 1970-01-01, like `day`).",
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           }
         },
         "required": [
@@ -28374,6 +28432,16 @@
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
           },
+          "season": {
+            "type": "string",
+            "enum": [
+              "spring",
+              "summer",
+              "autumn",
+              "winter"
+            ],
+            "description": "Today's season by the UTC calendar: spring is March to May, summer June to August, autumn September to November, winter December to February. Seasonal stock and buying follow it."
+          },
           "keeper": {
             "nullable": true,
             "allOf": [
@@ -28419,6 +28487,7 @@
         },
         "required": [
           "day",
+          "season",
           "keeper",
           "items",
           "buying",

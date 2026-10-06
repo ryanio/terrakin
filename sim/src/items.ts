@@ -31,8 +31,11 @@ import { canBuildOn, chebyshev, inBounds, plotAtTile } from "./world";
 
 // ---------- the catalog ----------
 
-/** What grows in a planter. Each has a seed kind (`lemon_seed`) and a produce kind (`lemon`). */
-export const CROPS = ["lemon", "strawberry", "tomato", "herb", "flower"] as const;
+/**
+ * What grows in a planter. Each has a seed kind (`lemon_seed`) and a produce kind (`lemon`).
+ * Pumpkins are autumn's crop (RFC 0017): the shop sells their seeds only in autumn.
+ */
+export const CROPS = ["lemon", "strawberry", "tomato", "herb", "flower", "pumpkin"] as const;
 export type Crop = (typeof CROPS)[number];
 
 export const SEED_KINDS = [
@@ -41,8 +44,22 @@ export const SEED_KINDS = [
   "tomato_seed",
   "herb_seed",
   "flower_seed",
+  "pumpkin_seed",
 ] as const;
 export type SeedKind = (typeof SEED_KINDS)[number];
+
+/**
+ * The seeds a first pantry brings, `ITEMS.starterSeeds` of each. Frozen: every first pantry in the
+ * log gave exactly these, so a new crop's seed never joins them (RFC 0017). The items log's pinned
+ * hash fails if it changes.
+ */
+export const STARTER_SEEDS = [
+  "lemon_seed",
+  "strawberry_seed",
+  "tomato_seed",
+  "herb_seed",
+  "flower_seed",
+] as const satisfies readonly SeedKind[];
 
 /** The kitchen's basics, from the daily pantry. */
 export const STAPLE_KINDS = ["sugar", "jar"] as const;
@@ -66,7 +83,11 @@ export const STACK_KINDS = [
 ] as const;
 export type StackKind = (typeof STACK_KINDS)[number];
 
-/** Made things. Each one is its own item with an id, its maker, and the day it was made. */
+/**
+ * Made things. Each one is its own item with an id, its maker, and the day it was made. The town's
+ * daily rotation cycles through its own frozen list (`ROTATION_GOODS` in `shop.ts`), so a new
+ * recipe here never changes what the town bought on a past day.
+ */
 export const GOOD_KINDS = [
   "lemon_jam",
   "strawberry_jam",
@@ -76,12 +97,14 @@ export const GOOD_KINDS = [
   "bouquet",
   "herb_sachet",
   "flower_wreath",
+  "pumpkin_pie",
+  "pumpkin_soup",
 ] as const;
 export type GoodKind = (typeof GOOD_KINDS)[number];
 
 /**
- * A piece of art (RFC 0005 step 3): made with `make_piece` from your own upload, not from a recipe.
- * Kept apart from `GOOD_KINDS`, whose length sets the town's daily buy rotation.
+ * A piece of art (RFC 0005 step 3): made with `make_piece` from your own upload, not from a recipe,
+ * so it has no recipe and the town never buys one.
  */
 export const PIECE_KINDS = ["piece"] as const;
 export type PieceKind = (typeof PIECE_KINDS)[number];
@@ -131,6 +154,13 @@ export const ITEM_INFO: Record<ItemKind, ItemInfo> = {
   herb_sachet: { name: "Herb sachet", plural: "Herb sachets", category: "good" },
   flower_wreath: { name: "Flower wreath", plural: "Flower wreaths", category: "good" },
   piece: { name: "Piece of art", plural: "Pieces of art", category: "good" },
+  // Autumn (RFC 0017): its crop, what the kitchen makes from it, and the shop's autumn decor.
+  pumpkin_seed: { name: "Pumpkin seed", plural: "Pumpkin seeds", category: "seed" },
+  pumpkin: { name: "Pumpkin", plural: "Pumpkins", category: "produce" },
+  pumpkin_pie: { name: "Pumpkin pie", plural: "Pumpkin pies", category: "good" },
+  pumpkin_soup: { name: "Pumpkin soup", plural: "Jars of pumpkin soup", category: "good" },
+  hay_bale: { name: "Hay bale", plural: "Hay bales", category: "decor" },
+  scarecrow: { name: "Scarecrow", plural: "Scarecrows", category: "decor" },
 };
 
 export interface CropInfo {
@@ -149,6 +179,8 @@ export const CROP_INFO: Record<Crop, CropInfo> = {
   tomato: { seed: "tomato_seed", days: 3, yield: 3, seeds: 1 },
   herb: { seed: "herb_seed", days: 2, yield: 3, seeds: 1 },
   flower: { seed: "flower_seed", days: 2, yield: 3, seeds: 1 },
+  // Big and slow: fewer to a harvest, and worth more each (decision 0079).
+  pumpkin: { seed: "pumpkin_seed", days: 5, yield: 2, seeds: 1 },
 };
 
 /** Block kinds you craft at. `craft` names the station's tile. */
@@ -171,6 +203,9 @@ export const RECIPES: Record<GoodKind, Recipe> = {
   bouquet: { station: "workbench", needs: { flower: 3 } },
   herb_sachet: { station: "workbench", needs: { herb: 2, flower: 1 } },
   flower_wreath: { station: "workbench", needs: { flower: 4, herb: 2 } },
+  // Autumn's kitchen (RFC 0017). Recipes work in any season, like seeds you hold.
+  pumpkin_pie: { station: "kitchen", needs: { pumpkin: 2, sugar: 1 } },
+  pumpkin_soup: { station: "kitchen", needs: { pumpkin: 1, herb: 1, jar: 1 } },
 };
 
 /**
@@ -189,7 +224,7 @@ export const ITEMS = {
    */
   shopPantry: { sugar: 1, jar: 1 } as Readonly<Record<StapleKind, number>>,
   shopStapleMax: 6,
-  /** With your very first pantry: this many of every seed. */
+  /** With your very first pantry: this many of each of `STARTER_SEEDS`. */
   starterSeeds: 2,
   /** Things you can make in a UTC day. */
   craftPerDay: 20,
@@ -824,7 +859,9 @@ function pantryAdds(state: WorldState, id: ResidentId): [StackKind, number][] {
       room -= n;
     }
   };
-  if (items.pantry[id] === undefined) for (const seed of SEED_KINDS) add(seed, ITEMS.starterSeeds);
+  if (items.pantry[id] === undefined) {
+    for (const seed of STARTER_SEEDS) add(seed, ITEMS.starterSeeds);
+  }
   const { pantry, stapleMax } = pantryNumbers(state);
   for (const staple of STAPLE_KINDS) {
     add(staple, Math.min(pantry[staple], Math.max(0, stapleMax - held(inv, staple))));

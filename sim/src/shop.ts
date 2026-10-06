@@ -2,11 +2,9 @@ import { coinCount as coins, isWhole, refuse } from "./check";
 import { allowanceDue, isTownsfolk, movePurse, moveTreasury } from "./economy";
 import {
   addStack,
-  CROPS,
   type Crop,
   DECOR_KINDS,
   type DecorKind,
-  GOOD_KINDS,
   type GoodKind,
   held,
   ITEM_ID_PATTERN,
@@ -25,6 +23,7 @@ import {
   type StapleKind,
 } from "./items";
 import { isShopWear, SHOP_WEAR, type ShopWear, WEAR_INFO } from "./looks";
+import { dateOfDay, SEASONS, type Season, seasonOf, seasonSpan } from "./season";
 import type {
   Command,
   EconomyState,
@@ -96,6 +95,10 @@ export const SHOP_CATALOG: Readonly<Record<ShopSku, ShopEntry>> = {
   flower_seed: { price: 3, section: "garden" },
   sugar: { price: 3, section: "pantry" },
   jar: { price: 3, section: "pantry" },
+  // Autumn only (`SEASON_STOCK`, RFC 0017). Decision 0079 has the reasoning.
+  pumpkin_seed: { price: 4, section: "garden" },
+  hay_bale: { price: 8, section: "decor" },
+  scarecrow: { price: 35, section: "decor" },
 };
 
 /** What the town buys: made things and produce. */
@@ -123,6 +126,10 @@ export const BUY_ORDERS: Readonly<Record<SellKind, BuyOrder>> = {
   tomato: { price: 1, perDay: 3 },
   herb: { price: 1, perDay: 3 },
   flower: { price: 1, perDay: 3 },
+  // Bought every day of autumn (`SEASON_BUYS`, RFC 0017). Decision 0079 has the reasoning.
+  pumpkin: { price: 2, perDay: 2 },
+  pumpkin_pie: { price: 6, perDay: 1 },
+  pumpkin_soup: { price: 5, perDay: 1 },
 };
 
 export const isShopSku = (s: unknown): s is ShopSku =>
@@ -133,19 +140,122 @@ export const skuName = (sku: ShopSku) =>
   isShopWear(sku) ? WEAR_INFO[sku].label : ITEM_INFO[sku as StackKind].name;
 
 /**
- * The kinds the town buys on `day`, made things first, in a fixed rotation: every kind comes up
- * every few days, and nobody can make the town buy something it isn't buying today.
+ * The made things and crops the daily rotation cycles through. Frozen: their order and lengths
+ * decide what the town bought on every day in the log, so a new kind never joins them. A season's
+ * kinds go in `SEASON_BUYS` instead (RFC 0017).
+ */
+export const ROTATION_GOODS = [
+  "lemon_jam",
+  "strawberry_jam",
+  "lemonade",
+  "tomato_sauce",
+  "herb_tea",
+  "bouquet",
+  "herb_sachet",
+  "flower_wreath",
+] as const satisfies readonly GoodKind[];
+export const ROTATION_CROPS = [
+  "lemon",
+  "strawberry",
+  "tomato",
+  "herb",
+  "flower",
+] as const satisfies readonly Crop[];
+
+/**
+ * The kinds the town buys on `day`: today's turn of the fixed rotation, made things first, then
+ * whatever the season adds. Every rotation kind comes up every few days, a season's kinds every
+ * day of it, and nobody can make the town buy something it isn't buying today.
  */
 export function townBuys(day: number): SellKind[] {
   const goods = Array.from(
-    { length: Math.min(SHOP.goodsPerDay, GOOD_KINDS.length) },
-    (_, i) => GOOD_KINDS[(day + i * 3) % GOOD_KINDS.length] as GoodKind,
+    { length: Math.min(SHOP.goodsPerDay, ROTATION_GOODS.length) },
+    (_, i) => ROTATION_GOODS[(day + i * 3) % ROTATION_GOODS.length] as GoodKind,
   );
   const produce = Array.from(
-    { length: Math.min(SHOP.producePerDay, CROPS.length) },
-    (_, i) => CROPS[(day + i * 2) % CROPS.length] as Crop,
+    { length: Math.min(SHOP.producePerDay, ROTATION_CROPS.length) },
+    (_, i) => ROTATION_CROPS[(day + i * 2) % ROTATION_CROPS.length] as Crop,
   );
-  return [...goods, ...produce];
+  return [...goods, ...produce, ...SEASON_BUYS[seasonOf(day)]];
+}
+
+// ---------- seasons (RFC 0017) ----------
+
+/**
+ * Shop stock sold in one season only, every day of it, and refused (`out_of_season`) the rest of
+ * the year. Everything else is sold all year. What you bought stays yours when its season ends.
+ */
+export const SEASON_STOCK: Readonly<Record<Season, readonly ShopSku[]>> = {
+  spring: [],
+  summer: [],
+  autumn: ["pumpkin_seed", "hay_bale", "scarecrow"],
+  winter: [],
+};
+
+/** What the town buys every day of a season, on top of the daily rotation. */
+export const SEASON_BUYS: Readonly<Record<Season, readonly SellKind[]>> = {
+  spring: [],
+  summer: [],
+  autumn: ["pumpkin", "pumpkin_pie", "pumpkin_soup"],
+  winter: [],
+};
+
+/** The season `sku` is sold in, or undefined when the shop sells it all year. */
+export const stockSeason = (sku: ShopSku): Season | undefined =>
+  SEASONS.find((s) => SEASON_STOCK[s].includes(sku));
+
+/** The season the town buys `kind` in on top of the rotation, or undefined for the rotation's own. */
+export const buySeason = (kind: SellKind): Season | undefined =>
+  SEASONS.find((s) => SEASON_BUYS[s].includes(kind));
+
+/** Whether the shop sells `sku` on `day`. */
+export function onSale(sku: ShopSku, day: number): boolean {
+  const season = stockSeason(sku);
+  return season === undefined || season === seasonOf(day);
+}
+
+/** The last day of the season `day` is in: the last day its stock is sold. */
+export const seasonLastDay = (day: number) => seasonSpan(day).end - 1;
+
+const MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+] as const;
+
+/** "September 1", for a world day. */
+function dayName(day: number): string {
+  const { month, date } = dateOfDay(day);
+  return `${MONTHS[month - 1]} ${date}`;
+}
+
+/** The first day of the next `season` after the season `day` is in. */
+function nextStart(season: Season, day: number): number {
+  let { end } = seasonSpan(day);
+  while (seasonOf(end) !== season) end = seasonSpan(end).end;
+  return end;
+}
+
+/** Why the shop won't sell `sku` on `day`, in plain words, or null when it's on sale. */
+function outOfSeason(sku: ShopSku, day: number): Rejection | null {
+  const season = stockSeason(sku);
+  if (season === undefined || season === seasonOf(day)) return null;
+  const what = isShopWear(sku)
+    ? `the ${WEAR_INFO[sku].label.toLowerCase()}`
+    : ITEM_INFO[sku].plural.toLowerCase();
+  return refuse(
+    "out_of_season",
+    `The shop sells ${what} only in ${season}. It's ${seasonOf(day)} now, and ${season} starts on ${dayName(nextStart(season, day))} (UTC). What you already have is yours to use in any season. GET /v1/shop lists what's sold today.`,
+  );
 }
 
 // ---------- reading ----------
@@ -155,14 +265,22 @@ export interface BuyOrderRead {
   kind: SellKind;
   price: number;
   perDay: number;
+  /** Set when the town buys it only in this season, every day of it (RFC 0017). */
+  season?: Season;
 }
 
 /** The shop as everyone sees it, or null before it opens. */
-export function shopOf(state: WorldState): { day: number; buying: BuyOrderRead[] } | null {
+export function shopOf(
+  state: WorldState,
+): { day: number; season: Season; buying: BuyOrderRead[] } | null {
   if (!state.shop || state.day === undefined) return null;
   return {
     day: state.day,
-    buying: townBuys(state.day).map((kind) => ({ kind, ...BUY_ORDERS[kind] })),
+    season: seasonOf(state.day),
+    buying: townBuys(state.day).map((kind) => {
+      const season = buySeason(kind);
+      return { kind, ...BUY_ORDERS[kind], ...(season ? { season } : {}) };
+    }),
   };
 }
 
@@ -274,6 +392,8 @@ export function checkShopBuy(
   if (!isShopSku(sku)) {
     return refuse("unknown_item", "The shop doesn't sell that. See GET /v1/shop for what it has.");
   }
+  const season = outOfSeason(sku, day);
+  if (season) return season;
   const count = command.count ?? 1;
   if (!isWhole(count) || count < 1 || count > SHOP.countMax) {
     return refuse("invalid_amount", `Buy 1 to ${SHOP.countMax} at a time.`);

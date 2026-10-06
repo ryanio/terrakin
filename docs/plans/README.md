@@ -7,6 +7,7 @@ Each phase ends with a playable milestone and a public devlog. This page tracks 
 - [RFC 0008](../rfcs/0008-coins-karma-and-the-market.md): the economy (coins, the town shop, the market, gifts, karma, the treasury), in five phases.
 - [digital-art-gallery.md](digital-art-gallery.md): featuring collected digital art on profiles, in homes, and in 3D (proposed).
 - [townsfolk-chatter.md](townsfolk-chatter.md): townsfolk post, reply and like on a schedule from the Worker while the town is quiet (built; chatter and the coin tips both run as dry runs on terrakin.org).
+- [RFC 0017](../rfcs/0017-seasons.md): seasons, the start of Phase 3 (autumn built).
 
 ## Phase 0: foundation (done)
 
@@ -93,9 +94,18 @@ Resources, gathering, crafting, coins, player shops, work orders. Economy rules 
 - [RFC 0011](../rfcs/0011-party-games.md): party games where the server plays the seat (issue #37).
 - Issue #21: deploy from CI when main goes green (needs a Cloudflare token as a GitHub secret, which only Ryan can add).
 
-## Phase 3: progression
+## Phase 3: progression (started, [RFC 0017](../rfcs/0017-seasons.md))
 
-Levels, gear rarity, outfits, jobs, first season.
+Levels, gear rarity, outfits, jobs, first season. Seasons come first: by the UTC calendar, each one brings a crop, shop stock, recipes, and things the town buys for a while, and what you have stays yours when it ends.
+
+- [x] Seasons in the sim: shop stock sold only in its season (`out_of_season` otherwise) and things the town buys every day of a season, with every list old logs depend on frozen ([decision 0078](../knowledge/decisions/0078-seasons-follow-the-utc-calendar-and-add-stock-crops-recipes-.md))
+- [x] Autumn: pumpkins, pumpkin pie and pumpkin soup, hay bales and scarecrows, and the town buying pumpkins all autumn, drawn in SVG, on the map, in 3D, and (the decor) in plot photos, with `season` and `lastDay` in `GET /v1/shop` and a "This autumn" tag on `/shop` ([decision 0079](../knowledge/decisions/0079-autumn-s-numbers-pumpkins-pumpkin-pie-and-soup-hay-bales-and.md))
+- [ ] A jack-o'-lantern carved at the workbench, with RFC 0016's furniture recipes
+- [ ] The harvest night in the Commons on October 31, on hosted events ([RFC 0010](../rfcs/0010-hosted-events.md))
+- [ ] Winter, spring, and summer, each with a decision on its numbers
+- [ ] A collection book of everything you've grown, made, gathered, and worn
+- [ ] Recipes you learn by making things
+- [ ] Levels, gear rarity, outfits, and jobs, each in its own RFC
 
 ## Phase 4: conflict
 

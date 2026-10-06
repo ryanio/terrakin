@@ -46,6 +46,7 @@ export const CROP_HEX: Readonly<Record<Crop, string>> = {
   tomato: "#e0573a",
   herb: "#4f8a3a",
   flower: "#e58fb6",
+  pumpkin: "#e8862f",
 };
 
 /** How far along a crop is, 0 to 1, for drawing it on the map and in 3D. */
@@ -236,7 +237,31 @@ function flower(): ArtShape[] {
   ];
 }
 
-const CROP_ART: Record<Crop, () => ArtShape[]> = { lemon, strawberry, tomato, herb, flower };
+/** Autumn's crop (RFC 0017): three ribbed lobes, a stubby stem, a curl of vine, and a leaf. */
+function pumpkin(): ArtShape[] {
+  const rib = "#c4661c";
+  return [
+    ellipse(15.5, 31, 9, 10.5, CROP_HEX.pumpkin, out()),
+    ellipse(32.5, 31, 9, 10.5, CROP_HEX.pumpkin, out()),
+    ellipse(24, 31, 10, 11.5, CROP_HEX.pumpkin, out()),
+    line("M19.5 22.5c-1.4 5-1.4 12 0 17M28.5 22.5c1.4 5 1.4 12 0 17", rib, 1.1, {
+      opacity: 0.7,
+    }),
+    shine(17.5, 26, 2.6, 1.3),
+    path("M22.6 20.5c-.4-3 .3-5.8 2.2-7.6l2.2 1.1c-1.6 1.7-2.1 3.9-1.8 6.5z", "#76703a", out()),
+    line("M27 14.5c2.5-3 6.5-2.6 6.8 0 .3 2.3-3.4 2.9-3.6.6", STEM, 1.1),
+    leaf(25, 14, 9, -160),
+  ];
+}
+
+const CROP_ART: Record<Crop, () => ArtShape[]> = {
+  lemon,
+  strawberry,
+  tomato,
+  herb,
+  flower,
+  pumpkin,
+};
 
 const produce = (crop: Crop) => (): ArtShape[] => [shadow(13), ...CROP_ART[crop]()];
 
@@ -534,6 +559,75 @@ function bench(): ArtShape[] {
     line("M7 28.7h34M10 11.6h28M10 18.6h28", "#ffffff", 1, { opacity: 0.4 }),
     path("M5 27c-1-4 1-7 4-7h1v7z", green, out({ "stroke-width": 1.1 })),
     path("M43 27c1-4-1-7-4-7h-1v7z", green, out({ "stroke-width": 1.1 })),
+  ];
+}
+
+// ---------- autumn (RFC 0017) ----------
+
+function pumpkinPie(): ArtShape[] {
+  const crust = "#dba660";
+  const crimps: ArtShape[] = [];
+  for (let i = 0; i < 14; i++) {
+    const a = (i / 14) * Math.PI * 2;
+    const x = Math.round((24 + Math.cos(a) * 16.3) * 10) / 10;
+    const y = Math.round((29 + Math.sin(a) * 6.4) * 10) / 10;
+    crimps.push(circle(x, y, 1.9, crust, out({ "stroke-width": 0.8 })));
+  }
+  return [
+    shadow(18, 42),
+    path("M6 29v4.5c0 4.3 8 8 18 8s18-3.7 18-8V29z", "#b9803f", out()),
+    ellipse(24, 29, 18, 7.6, crust, out()),
+    ellipse(24, 29, 14.6, 5.4, "#d5752a", out({ "stroke-width": 1 })),
+    ...crimps,
+    ellipse(26, 27.6, 4.2, 2, PAPER, out({ "stroke-width": 1 })),
+    shine(17, 27.5, 3, 1.1, 0),
+  ];
+}
+
+function pumpkinSoup(): ArtShape[] {
+  return [
+    shadow(12),
+    ...jarBody("#e3913d", 0.85),
+    rect(12.5, 9, 23, 6, 2.2, MOSS, out()),
+    line("M15 12h18", "#ffffff", 1, { opacity: 0.4 }),
+    ...label("pumpkin"),
+    leaf(31, 21, 6, -30),
+  ];
+}
+
+/** A bale of straw in three-quarter view, tied twice with twine. */
+function hayBale(): ArtShape[] {
+  const twine = WOOD;
+  const straw = "#c4963c";
+  return [
+    shadow(19, 43),
+    path("M5 22.5 11 16h31l-6 6.5z", "#f0d68e", out()),
+    path("M36 22.5 42 16v18.5L36 41z", "#d3aa4c", out()),
+    rect(5, 22.5, 31, 18.5, 2, BLOCK_COLORS.hay_bale, out()),
+    line("M14 22.5V41M27 22.5V41M20 16l-6 6.5M33 16l-6 6.5", twine, 1.6),
+    line("M8 28h4M17 33h5M22 27h3M30 36h3.5M9 37h3M30 29h3", straw, 1, { opacity: 0.85 }),
+    line("M38.5 23v8M40.5 21v8", straw, 1, { opacity: 0.6 }),
+  ];
+}
+
+/** A scarecrow on its post: a straw hat, a stitched burlap face, and a patched red shirt. */
+function scarecrow(): ArtShape[] {
+  const burlap = "#d9bf8f";
+  return [
+    shadow(9, 44),
+    line("M24 30v14", WOOD, 2.6),
+    line("M6.5 21.5h35", WOOD, 2.4),
+    line("M7 21.5l-3 3M7 21.5l-3.2-.8M41 21.5l3 3M41 21.5l3.2-.8", STRAW_DEEP, 1.4),
+    path("M10 18.5h28v6.5h-6.5L31 37H17l-.5-12H10z", BLOCK_COLORS.scarecrow, out()),
+    line("M17 19v18M31 19v18", "#ffffff", 1, { opacity: 0.35 }),
+    line("M10 22h28M16.5 30h15", "#8e3524", 1, { opacity: 0.45 }),
+    rect(25, 26.5, 4.5, 4.5, 0.8, SKY, out({ "stroke-width": 0.8 })),
+    circle(24, 13, 6.2, burlap, out()),
+    line("M21 12.3h1.6M26.4 12.3H28", INK, 1.4),
+    line("M21.5 15.4c1.5 1 3.5 1 5 0", INK, 0.9),
+    ellipse(24, 8.2, 9.5, 2.4, STRAW, out({ stroke: STRAW_DEEP })),
+    path("M19 8.2c0-3 2-5 5-5s5 2 5 5", STRAW, out({ stroke: STRAW_DEEP })),
+    line("M19.3 7c3 .8 6.4.8 9.4 0", CLAY, 1.4),
   ];
 }
 
@@ -914,6 +1008,12 @@ const ART: Record<ArtKind, () => ArtShape[]> = {
   frame,
   fence,
   bench,
+  pumpkin_seed: seedPacket("pumpkin"),
+  pumpkin: produce("pumpkin"),
+  pumpkin_pie: pumpkinPie,
+  pumpkin_soup: pumpkinSoup,
+  hay_bale: hayBale,
+  scarecrow,
   lemon_jam: jam("lemon", "#f2c53d", "#e2b23a"),
   strawberry_jam: jam("strawberry", "#c8344a", ROSE),
   lemonade,

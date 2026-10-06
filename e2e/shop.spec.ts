@@ -4,8 +4,24 @@ import { act, advanceDay, overflowsSideways, read, settler, signIn, watchErrors 
 /**
  * The town shop (RFC 0008) on a phone: a resident grows herbs, waits for a day the town buys
  * them, sells them from /shop, and buys a lantern with what they have. A visitor sees the same
- * shop with a way to join. Moves its server's clock on.
+ * shop with a way to join. Then autumn's stock (RFC 0017): tagged and bought in autumn, and gone
+ * from the shelves once autumn ends. Moves its server's clock on, by months if it has to.
  */
+
+const DAY_MS = 86_400_000;
+
+/** Days from world day `day` to the next day in autumn (September to November, UTC): 0 in it. */
+function daysToAutumn(day: number): number {
+  const date = new Date(day * DAY_MS);
+  const month = date.getUTCMonth();
+  if (month >= 8 && month <= 10) return 0;
+  const year = date.getUTCFullYear() + (month === 11 ? 1 : 0);
+  return Date.UTC(year, 8, 1) / DAY_MS - day;
+}
+
+/** Days from an autumn world day to December 1, when winter starts. */
+const daysToWinter = (day: number) =>
+  Date.UTC(new Date(day * DAY_MS).getUTCFullYear(), 11, 1) / DAY_MS - day;
 
 test("a visitor sees the shop; a resident sells herbs to the town and buys a lantern", async ({
   page,
@@ -42,8 +58,9 @@ test("a visitor sees the shop; a resident sells herbs to the town and buys a lan
   const before = (await read(page.request, hazel.token, "/v1/shop")).you.balance as number;
 
   await test.step("visitors see the catalog and today's buying, with a way to join", async () => {
+    const buying = (await read(page.request, hazel.token, "/v1/shop")).shop.buying;
     await page.goto("/shop");
-    await expect(page.locator(".shop-orders li")).toHaveCount(4);
+    await expect(page.locator(".shop-orders li")).toHaveCount(buying.length);
     await expect(page.locator('.shop-item[data-sku="top_hat"]')).toContainText("80 coins");
     await expect(page.getByRole("link", { name: "Join to shop" })).toBeVisible();
     await expect(page.locator(".shop-buy")).toHaveCount(0);
@@ -92,5 +109,25 @@ test("a visitor sees the shop; a resident sells herbs to the town and buys a lan
   expect(things.stacks).toContainEqual({ kind: "lantern", count: 1 });
   expect(await overflowsSideways(page)).toBe(false);
   await page.screenshot({ path: "test-results/shop-bought.png", fullPage: true });
+
+  await test.step("autumn's stock is tagged and sold in autumn, and gone once it ends", async () => {
+    const shopDay = async () => (await read(page.request, hazel.token, "/v1/shop")).shop.day;
+    for (let n = daysToAutumn(await shopDay()); n > 0; n--) await advanceDay(page.request);
+    await page.goto("/shop");
+    const seeds = page.locator('.shop-item[data-sku="pumpkin_seed"]');
+    await expect(seeds.locator(".shop-season")).toHaveText("This autumn");
+    await expect(page.locator('.shop-order[data-kind="pumpkin"]')).toContainText("This autumn");
+    await seeds.getByRole("button", { name: /Buy for 4 coins/ }).click();
+    await expect(page.locator("#site-toast")).toContainText("You bought pumpkin seed");
+    await expect(seeds).toContainText("You have 1");
+    expect(await overflowsSideways(page)).toBe(false);
+    await page.screenshot({ path: "test-results/shop-autumn.png", fullPage: true });
+
+    for (let n = daysToWinter(await shopDay()); n > 0; n--) await advanceDay(page.request);
+    await page.goto("/shop");
+    await expect(page.locator('.shop-item[data-sku="lantern"]')).toBeVisible();
+    await expect(page.locator('.shop-item[data-sku="pumpkin_seed"]')).toHaveCount(0);
+    await expect(page.locator(".shop-season")).toHaveCount(0);
+  });
   expect(errors).toEqual([]);
 });

@@ -18,7 +18,7 @@ export interface PlotGround {
 }
 
 /** Decor from the town shop, drawn as itself rather than a square. Same names as the sim's. */
-export const PLOT_DECOR = ["lantern", "frame", "fence", "bench"] as const;
+export const PLOT_DECOR = ["lantern", "frame", "fence", "bench", "hay_bale", "scarecrow"] as const;
 export type PlotDecor = (typeof PLOT_DECOR)[number];
 
 export interface PlotBlock {
@@ -27,7 +27,7 @@ export interface PlotBlock {
   y: number;
   glass: boolean;
   fill: string;
-  /** Set for a lantern, frame, fence post, or bench; `fill` is then its main color. */
+  /** Set for decor from the town shop; `fill` is then its main color. */
   decor?: PlotDecor | undefined;
 }
 
@@ -158,11 +158,14 @@ export function plotSvg(c: PlotCard, px: number): string {
 
 const WOOD_DARK = "#6e4a2c";
 const EDGE = "rgba(70, 40, 18, 0.5)";
+const STRAW = "#e8c878";
+const BURLAP = "#d9bf8f";
 
 /**
  * One decor block on tile (x, y), following `client/src/render.ts`: a paper lantern on a hook, a
- * picture on an easel, a fence post with rails to the fences beside it, or a garden bench. Only
- * numbers and checked colors go in. No ellipses, so the tests can tell the hearth's shadow apart.
+ * picture on an easel, a fence post with rails to the fences beside it, a garden bench, a hay bale,
+ * or a scarecrow. Only numbers and checked colors go in. No ellipses, so the tests can tell the
+ * hearth's shadow apart.
  */
 function decorSvg(
   kind: PlotDecor,
@@ -222,6 +225,26 @@ function decorSvg(
     return [
       ...rails,
       `<path d="M${X(0.39)} ${Y(0.92)}V${Y(0.24)}L${X(0.5)} ${Y(0.12)}L${X(0.61)} ${Y(0.24)}V${Y(0.92)}z" fill="${fill}" ${stroke}/>`,
+    ];
+  }
+  if (kind === "hay_bale") {
+    return [
+      shade,
+      `<rect x="${X(0.1)}" y="${Y(0.34)}" width="0.8" height="0.56" rx="0.1" fill="${fill}" ${stroke}/>`,
+      `<rect x="${X(0.14)}" y="${Y(0.37)}" width="0.72" height="0.14" rx="0.06" fill="rgba(255, 250, 235, 0.4)"/>`,
+      `<path d="M${X(0.33)} ${Y(0.35)}V${Y(0.89)}M${X(0.67)} ${Y(0.35)}V${Y(0.89)}" stroke="${WOOD_DARK}" stroke-width="0.035"/>`,
+      `<path d="M${X(0.17)} ${Y(0.64)}h0.09M${X(0.43)} ${Y(0.74)}h0.12M${X(0.74)} ${Y(0.6)}h0.08" stroke="${EDGE}" stroke-width="0.03" stroke-linecap="round"/>`,
+    ];
+  }
+  if (kind === "scarecrow") {
+    return [
+      shade,
+      `<path d="M${X(0.5)} ${Y(0.92)}V${Y(0.3)}M${X(0.13)} ${Y(0.44)}H${X(0.87)}" stroke="${WOOD_DARK}" stroke-width="0.06" stroke-linecap="round"/>`,
+      `<path d="M${X(0.24)} ${Y(0.38)}H${X(0.76)}L${X(0.68)} ${Y(0.72)}H${X(0.32)}z" fill="${fill}" ${stroke}/>`,
+      `<path d="M${X(0.13)} ${Y(0.44)}l-0.06 0.08M${X(0.87)} ${Y(0.44)}l0.06 0.08" stroke="${STRAW}" stroke-width="0.045" stroke-linecap="round"/>`,
+      `<circle cx="${X(0.5)}" cy="${Y(0.27)}" r="0.12" fill="${BURLAP}" ${stroke}/>`,
+      `<rect x="${X(0.3)}" y="${Y(0.15)}" width="0.4" height="0.06" rx="0.03" fill="${STRAW}" ${stroke}/>`,
+      `<rect x="${X(0.4)}" y="${Y(0.05)}" width="0.2" height="0.12" rx="0.03" fill="${STRAW}" ${stroke}/>`,
     ];
   }
   return [

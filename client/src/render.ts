@@ -11,6 +11,7 @@ import {
   HEARTH_COLOR,
   HEARTH_DOOR,
   isDecorKind,
+  mixHex,
   OUTSIDE_GROUND,
   plotKey,
   type Resident,
@@ -307,6 +308,10 @@ function paintCrop(
   top: number,
   size: number,
 ) {
+  if (crop === "pumpkin") {
+    paintPumpkin(ctx, done, left, top, size);
+    return;
+  }
   const cx = left + size / 2;
   const base = top + size * 0.66;
   const tall = size * (0.18 + 0.32 * done);
@@ -344,6 +349,69 @@ function paintCrop(
   ctx.restore();
 }
 
+/**
+ * A pumpkin in a planter (RFC 0017): a vine that spreads along the soil, and a pumpkin that swells
+ * from a green bud, ripening to orange with a stem once it's ready.
+ */
+function paintPumpkin(
+  ctx: CanvasRenderingContext2D,
+  done: number,
+  left: number,
+  top: number,
+  size: number,
+) {
+  const cx = left + size / 2;
+  const base = top + size * 0.7;
+  const spread = size * (0.14 + 0.2 * done);
+  ctx.save();
+  ctx.strokeStyle = "#5f9a43";
+  ctx.lineCap = "round";
+  ctx.lineWidth = Math.max(1.5, size / 16);
+  ctx.beginPath();
+  ctx.moveTo(cx - spread, base);
+  ctx.quadraticCurveTo(cx, base - size * 0.14, cx + spread, base);
+  ctx.stroke();
+  ctx.fillStyle = "#6fae4c";
+  const leaf = size * (0.07 + 0.07 * done);
+  for (const side of [-1, 1]) {
+    ctx.beginPath();
+    ctx.ellipse(
+      cx + side * spread * 0.85,
+      base - leaf * 0.3,
+      leaf,
+      leaf * 0.6,
+      side * 0.4,
+      0,
+      Math.PI * 2,
+    );
+    ctx.fill();
+  }
+  if (done > 0.2) {
+    const ripe = done >= 1;
+    const swell = (done - 0.2) / 0.8;
+    const r = size * (0.08 + 0.15 * swell);
+    const y = base - r * 0.55;
+    ctx.fillStyle = ripe ? CROP_HEX.pumpkin : mixHex("#8cbf5a", CROP_HEX.pumpkin, swell * 0.5);
+    ctx.strokeStyle = "rgba(43, 38, 32, 0.35)";
+    ctx.lineWidth = 1;
+    for (const dx of [-0.5, 0.5, 0]) {
+      ctx.beginPath();
+      ctx.ellipse(cx + dx * r, y, r * 0.72, r * 0.82, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+    if (ripe) {
+      ctx.strokeStyle = "#76703a";
+      ctx.lineWidth = Math.max(1.5, size / 18);
+      ctx.beginPath();
+      ctx.moveTo(cx, y - r * 0.7);
+      ctx.lineTo(cx + r * 0.15, y - r * 1.05);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
 // ---------- decor from the town shop (RFC 0008) ----------
 
 /** Which neighbors a fence post joins: the four sides that hold a fence too. */
@@ -356,7 +424,8 @@ interface Joins {
 
 /**
  * A decor block on its tile, drawn as itself rather than a square: a paper lantern on a hook, a
- * picture on an easel, a fence post with rails out to the fences beside it, or a garden bench.
+ * picture on an easel, a fence post with rails out to the fences beside it, a garden bench, or
+ * autumn's hay bale and scarecrow.
  * `left`, `top`, and `size` are the block's box; `edge` is the gap to the tile's edge, so fence
  * rails reach their neighbors' rails.
  */
@@ -387,6 +456,8 @@ function paintDecor(
   if (kind === "lantern") paintLantern(ctx, left, top, size);
   else if (kind === "frame") paintEasel(ctx, left, top, size, outline);
   else if (kind === "fence") paintFence(ctx, left, top, size, edge, joins);
+  else if (kind === "hay_bale") paintHayBale(ctx, left, top, size);
+  else if (kind === "scarecrow") paintScarecrow(ctx, left, top, size, outline);
   else paintBench(ctx, left, top, size);
   ctx.restore();
 }
@@ -692,6 +763,91 @@ function paintBench(ctx: CanvasRenderingContext2D, left: number, top: number, si
   ctx.fillStyle = "rgba(255, 250, 235, 0.35)";
   for (const fy of [0.17, 0.34, 0.53])
     ctx.fillRect(x + w * 0.1, top + size * fy, w * 0.8, Math.max(1, size * 0.03));
+}
+
+/** A bale of straw from the front, tied twice with twine (RFC 0017). */
+function paintHayBale(ctx: CanvasRenderingContext2D, left: number, top: number, size: number) {
+  const x = left + size * 0.08;
+  const w = size * 0.84;
+  const y = top + size * 0.44;
+  const h = size * 0.46;
+  const lid = size * 0.16;
+  ctx.fillStyle = "#f0d68e";
+  ctx.beginPath();
+  ctx.roundRect(x, y - lid, w, lid + size * 0.04, size * 0.05);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = BLOCK_COLORS.hay_bale;
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, size * 0.06);
+  ctx.fill();
+  ctx.stroke();
+  ctx.strokeStyle = WOOD_DARK;
+  ctx.lineWidth = Math.max(1, size * 0.04);
+  ctx.beginPath();
+  for (const fx of [0.3, 0.7]) {
+    ctx.moveTo(x + w * fx, y - lid);
+    ctx.lineTo(x + w * fx, y + h);
+  }
+  ctx.stroke();
+  ctx.strokeStyle = "rgba(150, 105, 40, 0.55)";
+  ctx.lineWidth = Math.max(1, size * 0.025);
+  ctx.beginPath();
+  for (const [fx, fy, len] of [
+    [0.12, 0.62, 0.1],
+    [0.42, 0.74, 0.12],
+    [0.78, 0.58, 0.1],
+    [0.18, 0.82, 0.08],
+  ] as const) {
+    ctx.moveTo(left + size * fx, top + size * fy);
+    ctx.lineTo(left + size * (fx + len), top + size * fy);
+  }
+  ctx.stroke();
+}
+
+/** A scarecrow on its post: a patched red shirt, a burlap head, and a straw hat (RFC 0017). */
+function paintScarecrow(
+  ctx: CanvasRenderingContext2D,
+  left: number,
+  top: number,
+  size: number,
+  outline: number,
+) {
+  const cx = left + size / 2;
+  const base = top + size * 0.92;
+  const edge = "rgba(70, 40, 18, 0.55)";
+  ctx.strokeStyle = WOOD_DARK;
+  ctx.lineWidth = Math.max(1.5, size * 0.07);
+  ctx.beginPath();
+  ctx.moveTo(cx, base);
+  ctx.lineTo(cx, top + size * 0.3);
+  ctx.moveTo(cx - size * 0.38, top + size * 0.44);
+  ctx.lineTo(cx + size * 0.38, top + size * 0.44);
+  ctx.stroke();
+  ctx.strokeStyle = edge;
+  ctx.lineWidth = outline;
+  ctx.fillStyle = BLOCK_COLORS.scarecrow;
+  ctx.beginPath();
+  ctx.moveTo(cx - size * 0.28, top + size * 0.38);
+  ctx.lineTo(cx + size * 0.28, top + size * 0.38);
+  ctx.lineTo(cx + size * 0.19, top + size * 0.74);
+  ctx.lineTo(cx - size * 0.19, top + size * 0.74);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = BRAND_HEX.sun;
+  ctx.fillRect(cx + size * 0.04, top + size * 0.52, size * 0.1, size * 0.1);
+  ctx.fillStyle = "#d9bf8f";
+  ctx.beginPath();
+  ctx.arc(cx, top + size * 0.27, size * 0.12, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = "#e8c878";
+  ctx.beginPath();
+  ctx.roundRect(cx - size * 0.21, top + size * 0.15, size * 0.42, size * 0.06, size * 0.03);
+  ctx.roundRect(cx - size * 0.1, top + size * 0.05, size * 0.2, size * 0.12, size * 0.03);
+  ctx.fill();
+  ctx.stroke();
 }
 
 // Stable hue per owner so neighbors' plots are easy to tell apart.

@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { FONTS } from "./fonts";
 import { imageDataUri, MAX_IMAGE_PIXELS, probeImage } from "./images";
 import { cards } from "./node";
-import { plotSvg, safeColor } from "./plot";
+import { PLOT_DECOR, type PlotDecor, plotSvg, safeColor } from "./plot";
 import { unmask } from "./render";
 import { samplePlot, samples } from "./samples";
 import { type Card, element, H, W } from "./templates";
@@ -273,7 +273,7 @@ describe("renderer", () => {
   });
 
   it("draws the shop's decor as itself, with fence rails only toward other fences", () => {
-    const one = (decor: "lantern" | "frame" | "fence" | "bench", x = 1) =>
+    const one = (decor: PlotDecor, x = 1) =>
       plotSvg(
         { ...samplePlot("Wren"), blocks: [{ x, y: 1, glass: false, fill: "#e8dcc4", decor }] },
         420,
@@ -282,7 +282,7 @@ describe("renderer", () => {
       { ...samplePlot("Wren"), blocks: [{ x: 1, y: 1, glass: false, fill: "#e8dcc4" }] },
       420,
     );
-    for (const kind of ["lantern", "frame", "fence", "bench"] as const) {
+    for (const kind of PLOT_DECOR) {
       expect(one(kind)).not.toBe(square);
       expect(one(kind)).toContain('fill="#e8dcc4"');
     }

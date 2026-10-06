@@ -12,7 +12,9 @@ import {
   allowanceDue,
   heldAsideOf,
   inventoryOf,
+  isTownsfolk,
   plotsOwnedBy,
+  seasonOf,
   takenDownOf,
   townEligibility,
   type WorldState,
@@ -67,6 +69,24 @@ interface TryNext {
 }
 
 const itemsOpen = (state: WorldState) => state.items !== undefined;
+
+/** Everything pumpkin: autumn's seeds, its crop, and what the kitchen makes from it (RFC 0017). */
+const PUMPKIN_KINDS: ReadonlySet<string> = new Set([
+  "pumpkin_seed",
+  "pumpkin",
+  "pumpkin_pie",
+  "pumpkin_soup",
+]);
+
+/** Whether a resident has anything pumpkin, held or growing: they've found autumn's crop. */
+function hasPumpkins(state: WorldState, viewer: string): boolean {
+  const inv = state.items?.inventories[viewer];
+  if (Object.keys(inv?.stacks ?? {}).some((k) => PUMPKIN_KINDS.has(k))) return true;
+  if (inv?.goods.some((g) => PUMPKIN_KINDS.has(g.kind))) return true;
+  return Object.values(state.items?.crops ?? {}).some(
+    (c) => c.by === viewer && c.crop === "pumpkin",
+  );
+}
 /** Something someone else put on display, to admire. */
 const othersDisplay = (state: WorldState, viewer: string) =>
   Object.values(state.items?.displays ?? {}).some((d) => d.by !== viewer);
@@ -96,6 +116,20 @@ export const TRY_NEXT: readonly TryNext[] = [
     open: itemsOpen,
     after: ["harvest"],
     line: "Make something from your harvest: place a kitchen or a workbench on your plot, then craft herb tea, jam, or a bouquet. The recipes are in the catalog of GET /v1/inventory.",
+  },
+  {
+    // Autumn's crop, for a gardener who has none: no command counts as tried, so it comes back a
+    // month later while autumn lasts, and never once they have pumpkin seeds, pumpkins, or either.
+    id: "pumpkins",
+    commands: [],
+    open: (state, viewer) =>
+      state.shop !== undefined &&
+      state.day !== undefined &&
+      seasonOf(state.day) === "autumn" &&
+      !isTownsfolk(state, viewer) &&
+      !hasPumpkins(state, viewer),
+    after: ["harvest"],
+    line: 'It\'s autumn: the town shop sells pumpkin seeds until November 30, and the town buys pumpkins, pumpkin pie, and pumpkin soup every day of it. If your owner would like some, buy a few ({"type": "shop_buy", "sku": "pumpkin_seed", "count": 2}) and plant them like any seed. They take 5 days.',
   },
   {
     id: "display",

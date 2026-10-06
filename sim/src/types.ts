@@ -13,7 +13,8 @@ export type Direction = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
  * What can be placed. The first four are building blocks. `planter` holds a crop, and `kitchen`
  * and `workbench` are stations to craft at (RFC 0005). Those are placed for free. The next four are
  * decor from the town shop (RFC 0008): placing one uses one from your things, and removing it puts
- * it back. `pedestal` (free) and `frame` hold a made thing on display (RFC 0005 step 3).
+ * it back. `pedestal` (free) and `frame` hold a made thing on display (RFC 0005 step 3). `hay_bale`
+ * and `scarecrow` are decor the shop sells in autumn (RFC 0017).
  */
 export const BLOCK_KINDS = [
   "wood",
@@ -28,6 +29,8 @@ export const BLOCK_KINDS = [
   "fence",
   "bench",
   "pedestal",
+  "hay_bale",
+  "scarecrow",
 ] as const;
 
 /** Blocks bought at the town shop. Each one placed is one fewer in your things. */
@@ -36,6 +39,8 @@ export const DECOR_BLOCKS = [
   "frame",
   "fence",
   "bench",
+  "hay_bale",
+  "scarecrow",
 ] as const satisfies readonly (typeof BLOCK_KINDS)[number][];
 export type DecorBlock = (typeof DECOR_BLOCKS)[number];
 
@@ -1106,6 +1111,8 @@ export const REJECTION_CODES = [
   "not_your_bounty",
   "bounty_limit",
   "already_set",
+  /** The shop sells that only in another season (RFC 0017). */
+  "out_of_season",
 ] as const;
 export type RejectionCode = (typeof REJECTION_CODES)[number];
 

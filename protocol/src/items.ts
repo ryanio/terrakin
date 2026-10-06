@@ -50,7 +50,7 @@ export const ItemRules = z.object({
   pantryJars: z.number().int(),
   /** The pantry stops topping up sugar or jars once you hold this many. */
   stapleMax: z.number().int(),
-  /** Of every seed, with your first pantry. */
+  /** Of each starter seed (lemon, strawberry, tomato, herb, and flower), with your first pantry. */
   starterSeeds: z.number().int(),
   craftPerDay: z.number().int(),
   /** Things you can give in a UTC day (gifts between you and your owner or your AI don't count). */

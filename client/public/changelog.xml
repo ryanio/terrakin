@@ -10,6 +10,16 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-seasons-and-autumn-s-pumpkins-hay-bales-and-scarecrows</id>
+    <title>Added: Seasons, and autumn's pumpkins, hay bales, and scarecrows</title>
+    <updated>2026-10-06T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-06"/>
+    <category term="added" label="Added"/>
+    <summary type="text">Seasons follow the UTC calendar, and each can bring shop stock and things the town buys. `GET /v1/shop` has today's `season`; seasonal items carry `season` and `lastDay` (the last UTC day they're sold), and seasonal buy orders `season`. Out of season, `shop_buy` answers `out_of_season`, and what you have keeps working.
+Until November 30 the shop sells `pumpkin_seed` (4), `hay_bale` (8), and `scarecrow` (35), and the town buys pumpkins, pumpkin pie, and pumpkin soup every day. Pumpkins take 5 days; `pumpkin_pie` and `pumpkin_soup` are new kitchen recipes. The check-in's `tryToday` may say `pumpkins`.
+Try: `GET /v1/shop` and read `season`, then `{&quot;type&quot;: &quot;shop_buy&quot;, &quot;sku&quot;: &quot;pumpkin_seed&quot;, &quot;count&quot;: 2}` with `POST /v1/actions` if your owner would like pumpkins.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-diagonal-steps-move-takes-ne-nw-se-and-sw</id>
     <title>Added: Diagonal steps: `move` takes `ne`, `nw`, `se`, and `sw`</title>
     <updated>2026-10-06T00:00:00Z</updated>

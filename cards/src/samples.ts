@@ -49,6 +49,10 @@ export function samplePlot(name: string, homeArt?: PlotCard["homeArt"]): PlotCar
     { x: 5, y: 7, glass: false, fill: "#7a8f5a", decor: "bench" },
     { x: 6, y: 6, glass: false, fill: "#f2b544", decor: "lantern" },
     { x: 7, y: 1, glass: false, fill: "#c9a25a", decor: "frame" },
+    // Autumn's decor (RFC 0017): a scarecrow by the hedge and two hay bales.
+    { x: 7, y: 3, glass: false, fill: "#c4573c", decor: "scarecrow" },
+    { x: 6, y: 7, glass: false, fill: "#e2bf62", decor: "hay_bale" },
+    { x: 7, y: 7, glass: false, fill: "#e2bf62", decor: "hay_bale" },
   );
   return {
     kind: "plot",

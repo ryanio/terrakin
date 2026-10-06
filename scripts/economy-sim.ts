@@ -3,10 +3,12 @@
  * world whose economy, items, and town shop have just opened, and prints supply per active
  * resident each day.
  *
- *   node scripts/economy-sim.ts [--seed 1] [--days 30] [--residents 300] [--no-shop] [--no-appreciation] [--set key=value ...]
+ *   node scripts/economy-sim.ts [--seed 1] [--days 30] [--residents 300] [--start 2024-10-04] [--no-shop] [--no-appreciation] [--set key=value ...]
  *
  *   --seed       PRNG seed, so a run repeats exactly (default 1)
  *   --days       days to play (default 30)
+ *   --start      the UTC date the month starts on (default 2024-10-04, an autumn month, so the
+ *                shop's autumn stock and the town's autumn buying are in it; RFC 0017)
  *   --residents  residents who arrive over those days, not counting the townsfolk (default 300)
  *   --no-shop    play phase 1 only: coins, no gardens, no shop (the decision 0039 baseline)
  *   --no-appreciation  no posts, reactions, or appreciation coins (the decision 0052 baseline)
@@ -57,13 +59,16 @@ const {
   ECONOMY,
   ITEMS,
   isCommons,
+  isDecorKind,
   isGoodKind,
   isReady,
+  onSale,
   RECIPES,
   SHOP,
   SHOP_CATALOG,
   SHOP_SHARE_BEFORE,
   TOWN_ACTOR,
+  dayOfDate,
   tileKey,
   townBuys,
 } = await import("../sim/src/index.ts");
@@ -78,6 +83,7 @@ const { values: args } = parseArgs({
     seed: { type: "string", default: "1" },
     days: { type: "string", default: "30" },
     residents: { type: "string", default: "300" },
+    start: { type: "string", default: "2024-10-04" },
     "no-shop": { type: "boolean", default: false },
     "no-appreciation": { type: "boolean", default: false },
     set: { type: "string", multiple: true, default: [] },
@@ -113,6 +119,10 @@ const APPRECIATION = !args["no-appreciation"];
 const SEED = Number(args.seed);
 const DAYS = Number(args.days);
 const RESIDENTS = Number(args.residents);
+const [startYear = 0, startMonth = 0, startDate = 0] = (args.start ?? "").split("-").map(Number);
+if (!startYear || !startMonth || !startDate) throw new Error("--start wants a date, YYYY-MM-DD");
+/** The world day the month starts on. */
+const DAY0 = dayOfDate(startYear, startMonth, startDate);
 
 // ---------- seeded randomness ----------
 
@@ -187,7 +197,6 @@ function simRules(): Rules {
   for (let py = 0; py < side; py++) {
     for (let px = 0; px < side; px++) if (!isCommons(state.config, px, py)) free.push([px, py]);
   }
-  const DAY0 = 20_000;
   const send = (actor: string, command: Command) => apply(state, { actor, command }).ok;
   const must = (actor: string, command: Command) => {
     const result = apply(state, { actor, command });
@@ -246,11 +255,23 @@ interface Habits {
   wants: ShopSku[];
 }
 
+/** Autumn's decor (RFC 0017) is skipped by anyone shopping in another season. */
 const WISHES: ShopSku[][] = [
-  ["lantern", "bench", "top_hat"],
-  ["fence", "fence", "fence", "fence", "fence", "fence", "frame", "lantern"],
+  ["lantern", "scarecrow", "bench", "top_hat"],
+  [
+    "fence",
+    "fence",
+    "fence",
+    "fence",
+    "fence",
+    "fence",
+    "hay_bale",
+    "hay_bale",
+    "frame",
+    "lantern",
+  ],
   ["umbrella", "lantern", "lantern", "frame"],
-  ["bench", "raincoat", "lantern"],
+  ["bench", "raincoat", "hay_bale", "scarecrow", "lantern"],
   ["frame", "frame", "top_hat", "bench"],
 ];
 
@@ -319,7 +340,8 @@ function tendGarden(rules: Rules, id: string, habits: Habits, planters: Map<stri
   }
   // Grow: buy seeds for a new planter while short of the plan and the purse allows.
   if (SHOP_OPEN && mine.size >= 10 && mine.size < habits.planters && taste.chance(0.5)) {
-    const crop = taste.pick(CROPS) as Crop;
+    // Only seeds the shop sells today: pumpkin seeds are autumn's.
+    const crop = taste.pick(CROPS.filter((c) => onSale(CROP_INFO[c].seed, day))) as Crop;
     const seed = CROP_INFO[crop].seed;
     if (coinsOf(state, id) >= SHOP_CATALOG[seed].price * 2 + 20) buy(rules, id, seed, 2);
   }
@@ -383,13 +405,15 @@ function sell(rules: Rules, id: string, item: string, count: number) {
 /** Maybe buy the next wanted thing, and place it if it's decor. */
 function goShopping(rules: Rules, id: string, habits: Habits) {
   const { state } = rules;
+  // What's only sold in another season is skipped, as a resident would.
+  while (habits.wants[0] && !onSale(habits.wants[0], state.day ?? 0)) habits.wants.shift();
   const next = habits.wants[0];
   if (!SHOP_OPEN || !next || !taste.chance(habits.shops)) return;
   // Everyone keeps a little back.
   if (coinsOf(state, id) < SHOP_CATALOG[next].price + 10) return;
   if (!buy(rules, id, next)) return;
   habits.wants.shift();
-  if (next === "lantern" || next === "frame" || next === "fence" || next === "bench") {
+  if (isDecorKind(next)) {
     const tile = gardenTiles(state, id)[0];
     if (tile) rules.send(id, { type: "place", ...tile, block: next });
   }

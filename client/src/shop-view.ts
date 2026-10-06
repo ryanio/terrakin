@@ -55,6 +55,14 @@ export function buyLabel(
 export const sellable = (order: BuyOrderView, held: number) =>
   Math.max(0, Math.min(order.left ?? 0, held));
 
+/**
+ * The small "This autumn" tag on seasonal stock and buying (RFC 0017). The server lists them only
+ * in their season, so the tag never names another one.
+ */
+function seasonTag(season: NonNullable<ShopItemView["season"]>): HTMLElement {
+  return h("span", { class: "proposal-kind build shop-season", text: `This ${season}` });
+}
+
 /** How many of a kind you hold: a stack's count, or how many made things of that kind. */
 function heldOf(inv: InventoryResponse["inventory"], kind: string): number {
   if (!inv) return 0;
@@ -93,6 +101,7 @@ export function shopView(ctx: ViewContext): View {
       "li",
       { class: "paper shop-item", attrs: { "data-sku": item.sku } },
       itemArt(item.sku, { size: 56 }),
+      item.season ? seasonTag(item.season) : null,
       h("span", { class: "shop-item-name", text: item.name }),
       h("span", {
         class: "shop-item-meta",
@@ -136,7 +145,7 @@ export function shopView(ctx: ViewContext): View {
       attrs: { "data-kind": order.kind },
       lead: itemArt(order.kind, { size: 32 }),
       name: order.name,
-      lines: [`${coins(order.price)} each, ${left}`],
+      lines: [`${coins(order.price)} each, ${left}`, order.season ? seasonTag(order.season) : null],
       trail: signedIn ? sell : null,
     });
   }
@@ -190,7 +199,11 @@ export function shopView(ctx: ViewContext): View {
         h(
           "p",
           { class: "purse-hint" },
-          "It buys different things each day, at midnight UTC. Make something at a kitchen or a workbench to sell, or sell it to your neighbors in ",
+          "It buys different things each day, at midnight UTC",
+          shop.buying.some((o) => o.season)
+            ? `, and what's marked "This ${shop.season}" every day until ${shop.season} ends`
+            : "",
+          ". Make something at a kitchen or a workbench to sell, or sell it to your neighbors in ",
           h("a", { attrs: { href: "/market" }, text: "the market" }),
           ".",
         ),

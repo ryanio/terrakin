@@ -64,6 +64,9 @@ const BLOCK_LOOKS: Record<BlockKind, BlockLook> = {
   fence: { color: hex(BLOCK_COLORS.fence), height: 0.8, opacity: 1, form: "decor" },
   bench: { color: hex(BLOCK_COLORS.bench), height: 0.78, opacity: 1, form: "decor" },
   pedestal: { color: hex(BLOCK_COLORS.pedestal), height: 0.6, opacity: 1, form: "voxel" },
+  // Autumn's decor (RFC 0017), modelled in decor.ts.
+  hay_bale: { color: hex(BLOCK_COLORS.hay_bale), height: 0.62, opacity: 1, form: "decor" },
+  scarecrow: { color: hex(BLOCK_COLORS.scarecrow), height: 1.55, opacity: 1, form: "decor" },
 };
 
 export function blockLook(block: BlockKind): BlockLook {

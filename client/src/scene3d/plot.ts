@@ -644,15 +644,15 @@ function tinted(geometry: BufferGeometry, color: number): BufferGeometry {
 /**
  * Crops growing in planters, the way the map draws them: a sprout that grows with the days, then
  * the crop's color in three small fruit once it's ready. One draw for every plant and one for
- * every ripe crop, about 100 triangles a planter, swaying in the breeze. Shared by the plot and
- * the world.
+ * every ripe crop, about 100 triangles a planter, swaying in the breeze. Pumpkins grow on a vine
+ * instead (`pumpkinPatch`). Shared by the plot and the world.
  */
 export function cropPlants(
   stage: Stage,
   origin: { x: number; y: number },
-  crops: readonly LayoutCrop[],
+  all: readonly LayoutCrop[],
 ): Object3D[] {
-  if (crops.length === 0) return [];
+  if (all.length === 0) return [];
   const out: Object3D[] = [];
   const top = blockLook("planter").height;
   const m = new Matrix4();
@@ -667,6 +667,10 @@ export function cropPlants(
     );
     return m;
   };
+  const pumpkins = all.filter((c) => c.crop === "pumpkin");
+  if (pumpkins.length > 0) out.push(...pumpkinPatch(stage, place, pumpkins));
+  const crops = all.filter((c) => c.crop !== "pumpkin");
+  if (crops.length === 0) return out;
 
   const stem = new CylinderGeometry(0.02, 0.03, 0.5, 5);
   stem.translate(0, 0.25, 0);
@@ -722,6 +726,68 @@ export function cropPlants(
     out.push(mesh);
   }
   return out;
+}
+
+/**
+ * Pumpkins in planters (RFC 0017): a low vine of leaves on the soil, and a ribbed pumpkin that
+ * swells from a green bud and turns orange, stem up, once it's ready. One draw for every vine and
+ * one for every pumpkin, about 160 triangles a planter. The leaves sway; the pumpkins sit still.
+ */
+function pumpkinPatch(
+  stage: Stage,
+  place: (c: LayoutCrop, scale: number) => Matrix4,
+  crops: readonly LayoutCrop[],
+): Object3D[] {
+  const leaves = [
+    [-0.2, 0.04, 0.1, 0.6],
+    [0.21, 0.04, -0.08, -0.5],
+    [0.03, 0.05, -0.23, 2.2],
+    [-0.06, 0.04, 0.25, -2.4],
+  ].map(([x, y, z, turn]) => {
+    const g = new OctahedronGeometry(0.13, 0);
+    g.scale(1, 0.26, 0.7);
+    g.rotateY(turn as number);
+    g.translate(x as number, y as number, z as number);
+    return g;
+  });
+  const vineGeo = mergeGeometries(leaves.map((g) => tinted(g, 0x6fae4c)));
+  for (const g of leaves) g.dispose();
+  const vineMat = new MeshLambertMaterial({ vertexColors: true, flatShading: true });
+  const vineWind = addWind(vineMat, 0.25);
+  stage.animate(({ time }) => vineWind.tick(time));
+  const vines = new InstancedMesh(vineGeo, vineMat, crops.length);
+  crops.forEach((c, i) => {
+    vines.setMatrixAt(i, place(c, 0.6 + 0.4 * c.done));
+  });
+  vines.castShadow = true;
+
+  // Once it's past a fifth of the way, as on the map.
+  const growing = crops.filter((c) => c.done > 0.2);
+  if (growing.length === 0) return [vines];
+  const lobes = [-0.11, 0.11, 0].map((x, i) => {
+    const g = new DodecahedronGeometry(0.16, 0);
+    g.scale(0.8, 0.72, i === 2 ? 1.05 : 0.95);
+    g.translate(x, 0.115, 0);
+    return g;
+  });
+  const stalk = new CylinderGeometry(0.02, 0.032, 0.11, 5);
+  stalk.rotateZ(0.25);
+  stalk.translate(0.015, 0.26, 0);
+  const pumpkinGeo = mergeGeometries([
+    ...lobes.map((g) => tinted(g, 0xffffff)),
+    tinted(stalk, 0x6a6136),
+  ]);
+  for (const g of [...lobes, stalk]) g.dispose();
+  const pumpkinMat = new MeshLambertMaterial({ vertexColors: true, flatShading: true });
+  const body = new InstancedMesh(pumpkinGeo, pumpkinMat, growing.length);
+  const ripe = hex(CROP_HEX.pumpkin);
+  growing.forEach((c, i) => {
+    const swell = (c.done - 0.2) / 0.8;
+    body.setMatrixAt(i, place(c, 0.3 + 0.7 * swell));
+    body.setColorAt(i, lin(c.done >= 1 ? ripe : mix(0x8cbf5a, ripe, swell * 0.5)));
+  });
+  body.castShadow = true;
+  return [vines, body];
 }
 
 // ---------- the hearth ----------

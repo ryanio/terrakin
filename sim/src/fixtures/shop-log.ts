@@ -17,7 +17,7 @@ const town = (command: Input["command"]): Input => ({ actor: TOWN_ACTOR, command
 export const SHOP_LOG: Input[] = [
   ...ITEMS_LOG,
   town({ type: "open_shop" }),
-  // Day 20013: the town buys herb sachets, lemon jam, tomato sauce, and herbs.
+  // Day 20013: the town buys bouquets, lemon jam, tomato sauce, and herbs.
   town({ type: "new_day", day: DAY + 13 }),
   { actor: "ada", command: { type: "home" } },
   { actor: "ada", command: { type: "shop_buy", sku: "fence", count: 2 } },

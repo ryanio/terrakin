@@ -39,6 +39,9 @@ export const BLOCK_COLORS: Readonly<Record<BlockKind, string>> = {
   bench: "#7a8f5a",
   // A pale stone plinth for a made thing on display (RFC 0005 step 3).
   pedestal: "#e9e1d0",
+  // Autumn decor (RFC 0017): golden straw, and the scarecrow's red shirt.
+  hay_bale: "#e2bf62",
+  scarecrow: "#c4573c",
 };
 
 /** The hearth's roof (and the Town Hall's). */

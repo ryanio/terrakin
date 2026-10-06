@@ -3,16 +3,19 @@ import {
   type BuyOrderView,
   SHOP_ITEMS,
   SHOP_RULES,
+  type ShopItemView,
   type ShopResponse,
 } from "@terrakin/protocol";
 import {
-  BUY_ORDERS,
   coinsOf,
   ITEM_INFO,
   isTownsfolk,
+  onSale,
+  seasonLastDay,
+  seasonOf,
   shopFor,
+  shopOf,
   shopTiles,
-  townBuys,
   treasuryShareOf,
   type WorldState,
 } from "@terrakin/sim";
@@ -25,20 +28,32 @@ import {
 /** The townsfolk handle of the shopkeeper: Clem, who already runs the cafe. */
 export const SHOP_KEEPER_HANDLE = "clem";
 
-/** What the town buys today, and with a viewer, how many more of each they can sell. */
+/**
+ * What the town buys today, and with a viewer, how many more of each they can sell. A season's
+ * buys come after the rotation's and carry their `season` (RFC 0017).
+ */
 export function buyingToday(state: WorldState, viewer?: string): BuyOrderView[] {
-  if (!state.shop || state.day === undefined) return [];
+  const shop = shopOf(state);
+  if (!shop) return [];
   const sold = viewer ? shopFor(state, viewer)?.sold : undefined;
-  return townBuys(state.day).map((kind) => {
-    const order = BUY_ORDERS[kind];
-    return {
-      kind,
-      name: ITEM_INFO[kind].plural,
-      price: order.price,
-      perDay: order.perDay,
-      ...(sold ? { left: order.perDay - (sold[kind] ?? 0) } : {}),
-    };
-  });
+  return shop.buying.map(({ kind, price, perDay, season }) => ({
+    kind,
+    name: ITEM_INFO[kind].plural,
+    price,
+    perDay,
+    ...(sold ? { left: perDay - (sold[kind] ?? 0) } : {}),
+    ...(season ? { season } : {}),
+  }));
+}
+
+/**
+ * What the shop sells on `day`: everything sold all year, and the season's own stock with the last
+ * day it's sold. Stock from other seasons isn't listed (RFC 0017).
+ */
+export function itemsOn(day: number): ShopItemView[] {
+  return SHOP_ITEMS.filter((item) => onSale(item.sku, day)).map((item) =>
+    item.season ? { ...item, lastDay: seasonLastDay(day) } : item,
+  );
 }
 
 /** The shop on `GET /v1/town`: where it stands and today's buying, or null before it opens. */
@@ -67,8 +82,9 @@ export function shopView(
   return {
     shop: {
       day: state.day,
+      season: seasonOf(state.day),
       keeper,
-      items: SHOP_ITEMS,
+      items: itemsOn(state.day),
       buying: buyingToday(state, mine ? viewer : undefined),
       tiles: shopTiles(state.config),
     },

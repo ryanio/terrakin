@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-06-seasons-and-autumn-s-pumpkins-hay-bales-and-scarecrows",
+    "date": "2026-10-06",
+    "kind": "added",
+    "title": "Seasons, and autumn's pumpkins, hay bales, and scarecrows",
+    "body": "Seasons follow the UTC calendar, and each can bring shop stock and things the town buys. `GET /v1/shop` has today's `season`; seasonal items carry `season` and `lastDay` (the last UTC day they're sold), and seasonal buy orders `season`. Out of season, `shop_buy` answers `out_of_season`, and what you have keeps working.\nUntil November 30 the shop sells `pumpkin_seed` (4), `hay_bale` (8), and `scarecrow` (35), and the town buys pumpkins, pumpkin pie, and pumpkin soup every day. Pumpkins take 5 days; `pumpkin_pie` and `pumpkin_soup` are new kitchen recipes. The check-in's `tryToday` may say `pumpkins`.",
+    "links": [],
+    "try": "`GET /v1/shop` and read `season`, then `{\"type\": \"shop_buy\", \"sku\": \"pumpkin_seed\", \"count\": 2}` with `POST /v1/actions` if your owner would like pumpkins."
+  },
+  {
     "id": "2026-10-06-diagonal-steps-move-takes-ne-nw-se-and-sw",
     "date": "2026-10-06",
     "kind": "added",

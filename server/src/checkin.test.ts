@@ -32,7 +32,9 @@ afterEach(async () => {
 // biome-ignore lint/suspicious/noExplicitAny: the response checker already holds every body to its schema.
 type Json = Record<string, any>;
 
-async function start(world: { days?: boolean; economy?: boolean; items?: boolean } = {}) {
+async function start(
+  world: { days?: boolean; economy?: boolean; items?: boolean; shop?: boolean } = {},
+) {
   let now = 1_700_000_000_000;
   const service = new WorldService({
     store: new MemoryStore(),
@@ -514,6 +516,26 @@ describe("first-visit steps and things to try", () => {
     expect(
       pick(["plant", "gather", "harvest", "craft", "display", "give", "set_gallery"]),
     ).toBeNull();
+  });
+
+  it("suggests pumpkins in autumn to a gardener with none, and stops once they have some", async () => {
+    const world = { days: true, economy: true, items: true, shop: true };
+    const { join, ok, service, advance } = await start(world);
+    const wren = join("Wren");
+    const ash = join("Ash");
+    await ok("POST", "/v1/actions", { type: "settle", px: 1, py: 1 }, wren.token);
+    await ok("POST", "/v1/actions", { type: "settle", px: 3, py: 1 }, ash.token);
+    const gardener = new Set(["plant", "gather", "harvest", "craft"]);
+    const pick = (id: string) => pickTryNext(service.state, id, gardener, new Set())?.id ?? null;
+    // The test clock starts on 2023-11-14, in autumn.
+    expect(pick(wren.id)).toBe("pumpkins");
+    expect(pick(ash.id)).toBe("pumpkins");
+    await ok("POST", "/v1/actions", { type: "shop_buy", sku: "pumpkin_seed" }, ash.token);
+    expect(pick(ash.id)).not.toBe("pumpkins");
+    // December 1 is winter: the shop has none to sell.
+    advance(17 * DAY);
+    service.tick();
+    expect(pick(wren.id)).not.toBe("pumpkins");
   });
 });
 

@@ -17,7 +17,7 @@ import {
   inventorySize,
   lastDeclineDay,
   RECIPES,
-  SEED_KINDS,
+  STARTER_SEEDS,
   type StackKind,
 } from "./items";
 import { replay } from "./replay";
@@ -175,7 +175,7 @@ describe("the pantry", () => {
     const events = w.ok("ada", { type: "build_starter_home" });
     const [kit] = inventoryEvents(events);
     expect(kit).toMatchObject({ type: "inventory", residentId: "ada", reason: "starter" });
-    for (const seed of SEED_KINDS) expect(w.has("ada", seed)).toBe(ITEMS.starterSeeds);
+    for (const seed of STARTER_SEEDS) expect(w.has("ada", seed)).toBe(ITEMS.starterSeeds);
     expect(w.has("ada", "sugar")).toBe(ITEMS.pantry.sugar);
     expect(w.has("ada", "jar")).toBe(ITEMS.pantry.jar);
     expect(w.state.items?.pantry.ada).toBe(DAY);
@@ -366,8 +366,10 @@ describe("growing and harvest", () => {
   });
 
   it("is ready exactly on its ready day", () => {
-    for (const crop of ["lemon", "strawberry", "tomato", "herb", "flower"] as const) {
+    for (const crop of ["lemon", "strawberry", "tomato", "herb", "flower", "pumpkin"] as const) {
       const w = garden();
+      // Pumpkin seeds come from the shop in autumn, not with the first pantry.
+      stock(w.state, "ada", { pumpkin_seed: 1 });
       w.ok("ada", { type: "plant", x: 2, y: 2, seed: crop });
       w.day(DAY + CROP_INFO[crop].days - 1);
       expect(w.code("ada", { type: "harvest", x: 2, y: 2 })).toBe("not_ready");
@@ -794,8 +796,8 @@ describe("inventoryOf", () => {
     expect(inventoryOf(w.state, "ada")).toMatchObject({ stacks: [], goods: [], size: 0 });
     const g = garden();
     const read = inventoryOf(g.state, "ada");
-    expect(read?.stacks.map((s) => s.kind)).toEqual([...SEED_KINDS, "sugar", "jar"]);
+    expect(read?.stacks.map((s) => s.kind)).toEqual([...STARTER_SEEDS, "sugar", "jar"]);
     expect(read?.pantryToday).toBe(true);
-    expect(read?.size).toBe(SEED_KINDS.length * ITEMS.starterSeeds + 4);
+    expect(read?.size).toBe(STARTER_SEEDS.length * ITEMS.starterSeeds + 4);
   });
 });

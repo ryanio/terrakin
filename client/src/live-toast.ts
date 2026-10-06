@@ -4,7 +4,7 @@
  * snippets are other residents' text, so they only go in as text nodes.
  */
 import { h, icon } from "@terrakin/ui/dom";
-import { avatarEl, type Person } from "@terrakin/ui/people";
+import { avatarStack, type Person } from "@terrakin/ui/people";
 
 export interface LiveNote {
   /** Who it's about, shown as stacked avatars. */
@@ -47,11 +47,7 @@ export function snippet(text: string, max = 90): string {
 
 export function liveToast(note: LiveNote): void {
   const root = liveToastHost();
-  const avatars = h(
-    "span",
-    { class: "lt-people", attrs: { "aria-hidden": "true" } },
-    ...note.people.slice(0, 3).map((p) => avatarEl(p, "sm")),
-  );
+  const avatars = avatarStack(note.people.slice(0, 3));
   const close = h(
     "button",
     {

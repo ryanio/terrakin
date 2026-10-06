@@ -13,13 +13,12 @@ import {
   type GamesResponse,
   type Ladder,
   type LadderResponse,
-  type SeatView,
   type TableView,
 } from "@terrakin/protocol";
 import { GAME_KINDS, GAME_PACES, LADDERS } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
 import { plural } from "@terrakin/ui/format";
-import { avatarEl, personLink } from "@terrakin/ui/people";
+import { avatarStack, personLink } from "@terrakin/ui/people";
 import { everyVisible } from "@terrakin/ui/poll";
 import {
   chips,
@@ -53,15 +52,6 @@ import { errorCard, notFoundCard, type View, type ViewContext } from "./view";
 /** How often a table refreshes: every 2 seconds at a live table, every 15 at a slow one. */
 const LIVE_MS = 2_000;
 const CALM_MS = 15_000;
-
-/** A small row of the seats' faces, for a table's card. */
-function faces(seats: readonly SeatView[]): HTMLElement {
-  return h(
-    "span",
-    { class: "game-faces", attrs: { "aria-hidden": "true" } },
-    ...seats.map((s) => avatarEl(s.resident, "sm")),
-  );
-}
 
 /** Its game (on a list, where there's no title) and pace as pills, and where it stands. */
 function tableHead(t: TableView, named = true): HTMLElement {
@@ -127,7 +117,7 @@ export function gamesView(ctx: ViewContext): View {
       h(
         "a",
         { class: "game-card-link", attrs: { href: `/games/${t.id}` } },
-        faces(t.seats),
+        avatarStack(t.seats.map((s) => s.resident)),
         h("span", { text: t.status === "over" ? "See how it went" : seats }),
         h("span", { class: "game-card-arrow", attrs: { "aria-hidden": "true" } }, icon("arrow")),
       ),

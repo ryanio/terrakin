@@ -7071,15 +7071,6 @@ html.view3d-open body {
   }
 }
 
-.lt-people {
-  display: flex;
-  flex: none;
-}
-
-.lt-people .avatar + .avatar {
-  margin-left: calc(var(--space-md) * -1);
-}
-
 .lt-body {
   flex: 1;
   min-width: 0;
@@ -8232,14 +8223,6 @@ html.view3d-open body {
   display: inline-flex;
   margin-left: auto;
   color: var(--clay);
-}
-
-.game-faces {
-  display: inline-flex;
-}
-
-.game-faces > .avatar + .avatar {
-  margin-left: calc(-1 * var(--space-sm));
 }
 
 .game-your-move {

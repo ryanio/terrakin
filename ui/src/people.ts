@@ -38,6 +38,18 @@ export function avatarEl(person: Person, size: AvatarSize = "md"): HTMLElement {
 }
 
 /**
+ * A few residents' faces in a row, each tucked under the one before: who sits at a table, who a
+ * live notice is about. Words beside it already name them, so screen readers skip it.
+ */
+export function avatarStack(people: readonly Person[], size: AvatarSize = "sm"): HTMLElement {
+  return h(
+    "span",
+    { class: "avatar-stack", attrs: { "aria-hidden": "true" } },
+    ...people.map((p) => avatarEl(p, size)),
+  );
+}
+
+/**
  * Draw an avatar into `el`, replacing what it showed. For a preview that repaints in place, like
  * the join form's token; everything else uses `avatarEl`.
  */

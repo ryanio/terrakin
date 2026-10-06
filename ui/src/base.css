@@ -475,6 +475,16 @@ a {
   box-shadow: 0 0 0 1px var(--paper-edge);
 }
 
+/* avatarStack (people.ts): a few faces in a row, each tucked under the one before. */
+.avatar-stack {
+  display: inline-flex;
+  flex: none;
+}
+
+.avatar-stack > .avatar + .avatar {
+  margin-left: calc(var(--space-md) * -1);
+}
+
 .tag-card-name {
   min-width: 0;
   overflow: hidden;

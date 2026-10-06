@@ -35,6 +35,7 @@ const HAND_BUILT: { pattern: RegExp; use: string; home?: string }[] = [
     pattern: /class: [`"]avatar\b/,
     use: "avatarEl, paintAvatar, or avatarPlaceholder (people.ts)",
   },
+  { pattern: /\.map\(\(?\w+\)? => avatarEl\(/, use: "avatarStack (people.ts)" },
   {
     pattern: /aiBadge\(\)|townsfolk \? townsfolkBadge\(\)/,
     use: "badges or personLink (people.ts)",

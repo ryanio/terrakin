@@ -184,6 +184,8 @@ describe("the edge filters on every surface", () => {
       ["post", `/v1/act/${key}/post?text=${encodeURIComponent(bad)}`, 400],
       ["say", `/v1/act/${key}/say?text=${encodeURIComponent(bad)}`, 200],
       ["bio", `/v1/act/${key}/bio?text=${encodeURIComponent(bad)}`, 400],
+      ["pet", `/v1/act/${key}/pet?kind=cat&coat=ginger&name=${encodeURIComponent(bad)}`, 200],
+      ["craft", `/v1/act/${key}/craft?recipe=bouquet&label=${encodeURIComponent(bad)}`, 200],
     ] as const) {
       const res = await t.call("GET", path);
       expect(res.status, what).toBe(status);

@@ -881,3 +881,125 @@ describe("what the new links refuse", () => {
     expect(page).toContain("You planted 1 flower seed");
   });
 });
+
+describe("links for the rest of a link-only resident's week", () => {
+  const DAY = 24 * 60 * 60_000;
+
+  it("adopts a pet and pats a neighbor's, with the API's checks", async () => {
+    const { joinByLink, service, social } = await start({
+      world: { days: true, economy: true, items: true },
+    });
+    const wren = await joinByLink("Wren");
+    const ash = await joinByLink("Ash");
+    // A pet lives at a hearth: without a plot, the refusal names the first step.
+    const early = (await wren.act("pet?kind=fox&coat=red&name=Ember")).text;
+    expect(codeOf(early)).toBe("no_hearth");
+    expect(early).toContain(`settle it: http`);
+    await wren.act("settle?px=0&py=0");
+    await wren.act("build-home");
+    expect(codeOf((await wren.act("pet?kind=fox&coat=ginger&name=Ember")).text)).toBe(
+      "invalid_pet",
+    );
+    const unfilled = await wren.act("pet?kind=fox&coat=red&name=%3Cyour%20pet's%20name%3E");
+    expect(codeOf(unfilled.text)).toBe("bad_request");
+    expect((await wren.act("pet?kind=fox&coat=red&name=Ember")).text).toContain("# A new pet");
+    expect(service.state.residents[wren.id]?.pet).toMatchObject({ kind: "fox", coat: "red" });
+    expect((await ash.act(`pet?pat=${wren.id}`)).text).toContain("# Patted");
+    const pats = social.notifications(wren.id, { limit: 5 }).notifications;
+    expect(pats.map((n) => n.type)).toContain("pet_pat");
+  });
+
+  it("visits a plot at its door, and admires it from there", async () => {
+    const { joinByLink, service, social } = await start();
+    const ada = await joinByLink("Ada");
+    await ada.act("settle?px=0&py=0");
+    await ada.act("build-home");
+    await ada.act("pet?kind=cat&coat=ginger&name=Biscuit");
+    const wren = await joinByLink("Wren");
+    expect((await wren.act("visit")).text).toContain(`/v1/act/${wren.key}/visit?px=0&py=0`);
+    // Admiring from the Commons is too far, and the refusal links the visit that fixes it.
+    const far = await wren.act("admire?px=0&py=0");
+    expect(codeOf(far.text)).toBe("out_of_reach");
+    expect(far.text).toContain(`/v1/act/${wren.key}/visit?px=0&py=0`);
+    const visit = (await wren.act("visit?px=0&py=0")).text;
+    expect(visit).toContain("# Visiting");
+    // Ada's hut fills (1, 1) to (5, 5), with its door at (3, 5): Wren is in front of it.
+    expect(service.state.residents[wren.id]).toMatchObject({ x: 3, y: 7 });
+    expect(visit).toContain(`/v1/act/${wren.key}/admire?px=0&py=0`);
+    expect(visit).toContain(`/v1/act/${wren.key}/pet?pat=${ada.id}`);
+    expect((await wren.act("admire?px=0&py=0")).text).toContain("# Admired");
+    const told = social.notifications(ada.id, { limit: 5 }).notifications;
+    expect(told.map((n) => n.type)).toContain("plot_admired");
+  });
+
+  it("makes a recipe by name at a station by the hearth, placing one inside the hut", async () => {
+    let now = Date.UTC(2026, 9, 5, 12);
+    const { joinByLink, service } = await start({
+      world: { days: true, economy: true, items: true, now: () => now },
+    });
+    const wren = await joinByLink("Wren");
+    await wren.act("settle?px=0&py=0");
+    await wren.act("build-home");
+    // Nothing to make a bouquet from yet: the refusal says what's missing and where it grows.
+    const early = (await wren.act("craft?recipe=bouquet")).text;
+    expect(codeOf(early)).toBe("not_enough_items");
+    expect(early).toContain("Bouquet takes 3 flowers, and you need 3 flowers more.");
+    expect(early).toContain(`/v1/act/${wren.key}/garden?seed=flower`);
+    await wren.act("garden?seed=flower");
+    now += 2 * DAY;
+    service.tick();
+    await wren.act("garden");
+    const menu = (await wren.act("craft")).text;
+    expect(menu).toContain(`- Bouquet: http`);
+    expect(menu).toContain("- `chair`, at a workbench: 2 wood");
+    const made = (await wren.act("craft?recipe=bouquet&label=For%20Ash")).text;
+    expect(made).toMatch(
+      /You placed a workbench at \(\d+, \d+\)\. You made 1 bouquet at the workbench/,
+    );
+    expect(service.state.items?.inventories[wren.id]?.goods).toEqual([
+      expect.objectContaining({ kind: "bouquet", maker: wren.id, label: "For Ash" }),
+    ]);
+  });
+
+  it("lists events that are on in the check-in, and goes there and stays by link", async () => {
+    let now = Date.UTC(2026, 9, 5, 9);
+    const store = new MemoryStore();
+    const { joinByLink, service } = await start({
+      store,
+      world: { days: true, economy: true, now: () => now },
+    });
+    const ada = await joinByLink("Ada");
+    await ada.act("settle?px=0&py=0");
+    await ada.act("build-home");
+    now += 3 * DAY;
+    service.tick();
+    await ada.act("move?dir=s");
+    const startsAt = new Date(now + 2 * 60 * 60_000).toISOString().replace(/:\d\d\.\d+Z$/, ":00Z");
+    const tea = {
+      type: "schedule_event",
+      kind: "gathering",
+      title: "Tea on the lawn",
+      px: 0,
+      py: 0,
+      startsAt,
+      minutes: 60,
+    } as const;
+    expect(service.act(ada.id, tea).ok).toBe(true);
+    now = Date.parse(startsAt);
+    service.tick();
+    const wren = await joinByLink("Wren");
+    const page = (await wren.act("checkin")).text;
+    expect(page).toContain("## Events");
+    expect(page).toContain(`a gathering at plot (0, 0). Go: http`);
+    expect(page).toContain(`/v1/act/${wren.key}/join-event?event=e_1`);
+    expect(page).toContain("> e_1: Tea on the lawn");
+    expect(page).toContain("open the event's link again every 5 minutes while you stay");
+    const there = (await wren.act("join-event?event=e_1")).text;
+    expect(there).toContain("# At the event");
+    expect(service.state.residents[wren.id]).toMatchObject({ x: 3, y: 7, online: true });
+    // Opening it again keeps her there and counted, and logs nothing.
+    const logged = store.log.length;
+    expect((await wren.act("join-event?event=e_1")).text).toContain("# At the event");
+    expect(store.log).toHaveLength(logged);
+  });
+});

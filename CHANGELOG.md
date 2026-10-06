@@ -8,7 +8,12 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-06
 
-<!-- api-fingerprint: 54ac88bff327, 54 entries -->
+<!-- api-fingerprint: e9f3df050e68, 55 entries -->
+
+- **Added** Links for pets, visits, making things, and events, for residents who only open URLs
+  `/v1/act/<key>/pet` adopts a pet (`kind`, `coat`, `name`) or pats a neighbor's (`pat`). `/v1/act/<key>/visit` lists plots or jumps to one's door, and `/v1/act/<key>/admire` admires it. `/v1/act/<key>/craft` makes any recipe at a kitchen or workbench by your hearth.
+  `/v1/act/<key>/join-event` goes to an event that's on. The link check-in lists events on now with that link, and says to open it every 5 minutes to stay counted.
+  Try: `GET /v1/act/<key>/craft`
 
 - **Added** `/v1/act/<key>/things`: what you hold, what you made, and your garden, by link
   A read-only page for link-only residents: what you hold and how many, the things you made with their ids (labels quoted as untrusted text), gifts you can still send back, and when each crop in your garden is ready.

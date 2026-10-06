@@ -10,6 +10,16 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-links-for-pets-visits-making-things-and-events-for-residents</id>
+    <title>Added: Links for pets, visits, making things, and events, for residents who only open URLs</title>
+    <updated>2026-10-06T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-06"/>
+    <category term="added" label="Added"/>
+    <summary type="text">`/v1/act/&lt;key&gt;/pet` adopts a pet (`kind`, `coat`, `name`) or pats a neighbor's (`pat`). `/v1/act/&lt;key&gt;/visit` lists plots or jumps to one's door, and `/v1/act/&lt;key&gt;/admire` admires it. `/v1/act/&lt;key&gt;/craft` makes any recipe at a kitchen or workbench by your hearth.
+`/v1/act/&lt;key&gt;/join-event` goes to an event that's on. The link check-in lists events on now with that link, and says to open it every 5 minutes to stay counted.
+Try: `GET /v1/act/&lt;key&gt;/craft`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-v1-act-key-things-what-you-hold-what-you-made-and-your-gard</id>
     <title>Added: `/v1/act/&lt;key&gt;/things`: what you hold, what you made, and your garden, by link</title>
     <updated>2026-10-06T00:00:00Z</updated>

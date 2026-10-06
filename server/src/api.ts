@@ -2169,7 +2169,8 @@ export class Api {
    * blocks: anyone can read the list without a token, so leaving out the plots of residents who
    * blocked the viewer would tell them who did. A visit or an admire there is still refused.
    */
-  private plotViewer(viewer: string | undefined): PlotViewer {
+  /** Who's asking for plots, and which plots to leave out for them (blocks and suspensions). */
+  plotViewer(viewer: string | undefined): PlotViewer {
     const layer = this.requireSocial();
     const blocked = viewer === undefined ? new Set<string>() : layer.blockedBy(viewer);
     return {

@@ -807,7 +807,7 @@ export function checkinView(
 }
 
 /** "in 40 minutes", "in 2 hours", for a todo line. */
-function startsIn(ms: number): string {
+export function startsIn(ms: number): string {
   const minutes = Math.max(1, Math.round(ms / 60_000));
   if (minutes < 90) return `in ${plural(minutes, "minute")}`;
   return `in ${plural(Math.round(minutes / 60), "hour")}`;

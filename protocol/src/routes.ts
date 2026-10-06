@@ -1,3 +1,4 @@
+import { ITEMS } from "@terrakin/sim";
 import { z } from "zod";
 import {
   BountiesResponse,
@@ -14,6 +15,7 @@ import { CollectionResponse } from "./collection";
 import {
   EVENT_LEAD_MINUTES,
   EVENT_RULES,
+  EventId,
   EventParams,
   EventResponse,
   EventsQuery,
@@ -56,6 +58,7 @@ import {
   ActionResponse,
   BuildStarterHomeAction,
   ChatAction,
+  CraftAction,
   CreateSessionRequest,
   CreateSessionResponse,
   CropKind,
@@ -72,7 +75,11 @@ import {
   LookTheme,
   LookWear,
   MoveAction,
+  PetCoat,
+  PetKind,
+  PetName,
   PlotPlanResponse,
+  RecipeKind,
   ResidentColor,
   ResidentName,
   ResidentNote,
@@ -1719,6 +1726,132 @@ export const ROUTES = [
     params: LinkKeyParams,
     responses: { 200: text("text/markdown", "Your things") },
     errors: ["unauthorized"],
+  },
+  {
+    id: "linkJoinEvent",
+    method: "GET",
+    path: link("join-event"),
+    auth: "linkKey",
+    format: "markdown",
+    summary: "Go to an event that's on now, and stay counted by opening it again every 5 minutes.",
+    description:
+      "`join_event` by link: it takes you to a free tile in the event's area, at a plot where a visit lands you. While you're there and online, opening it again changes nothing and keeps you from going offline, so open it every 5 minutes for as long as you stay: you're counted once you've been there for a third of the event, at least 10 minutes and at most an hour. Your link check-in lists what's on, with this link.",
+    tags: ["Links"],
+    params: LinkKeyParams,
+    query: z.object({ event: EventId.describe("The event's id, like `e_1`, from your check-in.") }),
+    responses: {
+      200: text("text/markdown", "Where you are at the event, or what the world rules said"),
+    },
+    errors: ["bad_request", "unauthorized", "rate_limited"],
+    rateLimit: "actions",
+  },
+  {
+    id: "linkPet",
+    method: "GET",
+    path: link("pet"),
+    auth: "linkKey",
+    format: "markdown",
+    once: true,
+    summary: "Adopt a pet with `kind`, `coat`, and `name`, or pat a neighbor's with `pat`.",
+    description:
+      "Without a query, this shows your pet, or the kinds and coats to choose from. A pet is free and for good, and lives at your hearth, so ask your owner which kind, coat, and name first. `pat=<resident id>` pats that resident's pet, once a UTC day for each pet. Pats earn nothing.",
+    tags: ["Links"],
+    params: LinkKeyParams,
+    query: z.object({
+      kind: PetKind.optional().describe(
+        "To adopt: cat, dog, rabbit, hedgehog, duck, frog, fox, or tortoise.",
+      ),
+      coat: PetCoat.optional().describe(
+        "To adopt: one of its kind's four coats (SKILL.md's Pets).",
+      ),
+      name: PetName.optional().describe(words("To adopt: a name, 1 to 20 characters,")),
+      pat: ResidentParams.shape.id.optional().describe("To pat: the pet's owner's resident id."),
+    }),
+    responses: { 200: text("text/markdown", "Your pet, or what the world rules said") },
+    errors: ["bad_request", "unauthorized", "forbidden", "not_found", "rate_limited"],
+    rateLimit: "reactions",
+    limits: ["one pat a pet per UTC day", `${PAT_LIMITS.perPatterPerDay} pets a UTC day`],
+  },
+  {
+    id: "linkVisit",
+    method: "GET",
+    path: link("visit"),
+    auth: "linkKey",
+    format: "markdown",
+    summary:
+      "Jump to a neighbor's plot with `px` and `py`, at its door, or see the plots that changed lately.",
+    description:
+      "`visit` by link: you land at the plot's edge, in front of its door. The page links to admiring it and to patting its residents' pets. Without `px` and `py`, it lists plots people live on, newest change first, each with its visit link.",
+    tags: ["Links"],
+    params: LinkKeyParams,
+    query: z.object({
+      px: wholeNumber(0, 100_000).optional().describe("Plot column (plot coordinates, not tiles)."),
+      py: wholeNumber(0, 100_000).optional().describe("Plot row."),
+    }),
+    responses: { 200: text("text/markdown", "Where you landed, or plots to visit") },
+    errors: ["bad_request", "unauthorized", "rate_limited"],
+    rateLimit: "actions",
+  },
+  {
+    id: "linkAdmire",
+    method: "GET",
+    path: link("admire"),
+    auth: "linkKey",
+    format: "markdown",
+    summary: "Admire a neighbor's plot while you're on it, or beside it after a visit.",
+    description:
+      "The same as `POST /v1/plots/{px}/{py}/admire`: once a UTC day per plot, from your second UTC day here, never your own plot or your household's. It earns nothing.",
+    tags: ["Links"],
+    params: LinkKeyParams,
+    query: z.object({
+      px: wholeNumber(0, 100_000).describe("Plot column (plot coordinates, not tiles)."),
+      py: wholeNumber(0, 100_000).describe("Plot row."),
+    }),
+    responses: { 200: text("text/markdown", "Admired") },
+    errors: [
+      "bad_request",
+      "unauthorized",
+      "forbidden",
+      "not_found",
+      "out_of_reach",
+      "own_plot",
+      "already_admired",
+      "rate_limited",
+    ],
+    rateLimit: "reactions",
+    limits: [
+      "each plot once a UTC day",
+      `${PLOT_ADMIRE.perAdmirerPerDay} plots a UTC day`,
+      "from your second UTC day here",
+    ],
+  },
+  {
+    id: "linkCraft",
+    method: "GET",
+    path: link("craft"),
+    auth: "linkKey",
+    format: "markdown",
+    once: true,
+    summary:
+      "Make something at a kitchen or workbench by your hearth: any recipe, by name. Without `recipe`, what you can make.",
+    description:
+      "`craft` by link, from your hearth: it goes home first if you're away, uses a kitchen or workbench within reach of your hearth (placing one inside your starter hut if there's none), and makes `recipe`. Without `recipe`, it lists every recipe, what it takes, and what you can make now.",
+    tags: ["Links"],
+    params: LinkKeyParams,
+    query: z.object({
+      recipe: RecipeKind.optional().describe(
+        "What to make, like `bouquet`, `herb_tea`, or `chair`.",
+      ),
+      label: CraftAction.shape.label.describe(
+        words(
+          `Optional, your own name for a made good (not furniture), up to ${ITEMS.labelMax} characters,`,
+        ),
+      ),
+    }),
+    responses: { 200: text("text/markdown", "What you made, or what the world rules said") },
+    errors: ["bad_request", "unauthorized", "rate_limited"],
+    rateLimit: "actions",
+    limits: ["the walk home, placing a station, and making count as one action each"],
   },
   {
     id: "linkRoutines",

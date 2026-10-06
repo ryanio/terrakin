@@ -23031,6 +23031,9 @@
             "$ref": "#/components/schemas/UnsharePlotAction"
           },
           {
+            "$ref": "#/components/schemas/NamePlotAction"
+          },
+          {
             "$ref": "#/components/schemas/VisitAction"
           },
           {
@@ -24523,6 +24526,7 @@
           "invalid_pet",
           "no_pet",
           "pet_limit",
+          "name_too_long",
           "plot_unclaimed",
           "own_plot",
           "already_there",
@@ -25585,6 +25589,28 @@
           "dir"
         ]
       },
+      "NamePlotAction": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "name_plot"
+            ]
+          },
+          "name": {
+            "$ref": "#/components/schemas/PlotName"
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "name"
+        ]
+      },
       "OpenTableAction": {
         "type": "object",
         "properties": {
@@ -25920,6 +25946,10 @@
           "y",
           "seed"
         ]
+      },
+      "PlotName": {
+        "type": "string",
+        "maxLength": 24
       },
       "PlotPlanResponse": {
         "type": "object",
@@ -28421,6 +28451,42 @@
               "px",
               "py",
               "ownerId"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "plot_named"
+                ]
+              },
+              "px": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "py": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "name": {
+                "type": "string"
+              },
+              "trust": {
+                "type": "string",
+                "enum": [
+                  "untrusted"
+                ]
+              }
+            },
+            "required": [
+              "type",
+              "px",
+              "py",
+              "name"
             ]
           },
           {
@@ -33817,7 +33883,8 @@
           "bounty",
           "display",
           "piece",
-          "event"
+          "event",
+          "plot_name"
         ]
       },
       "ReportReason": {
@@ -36409,6 +36476,9 @@
             "enum": [
               true
             ]
+          },
+          "name": {
+            "type": "string"
           }
         },
         "required": [

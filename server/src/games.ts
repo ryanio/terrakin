@@ -27,6 +27,7 @@ import {
   own,
   residentById,
   roundBoards,
+  roundSettled,
   seatOf,
   seatsHeld,
   sitProblem,
@@ -50,6 +51,18 @@ const iso = (ms: number) => new Date(ms).toISOString();
 /** When a playing table's round closes at the latest, in ms on the server's clock. */
 export const closesAt = (t: GameTable) =>
   (t.roundAt ?? t.openedAt) + GAME_TIMES.roundSeconds[t.pace] * 1000;
+
+/**
+ * Whether the server closes a playing round now: every seat has decided, its window has ended, or
+ * every seat still to decide is away and the round has been open `GAME_TIMES.awayWaitSeconds`, so
+ * an away seat always has a moment to come back, however fast the others choose.
+ */
+export function closeDue(t: GameTable, now: number): boolean {
+  if (t.status !== "playing") return false;
+  if (now >= closesAt(t) || t.seats.every((s) => hasDecided(t, s.resident))) return true;
+  const opened = t.roundAt ?? t.openedAt;
+  return roundSettled(t) && now >= opened + GAME_TIMES.awayWaitSeconds[t.pace] * 1000;
+}
 
 /** When an open table closes if nobody starts it, in ms. */
 export const startBy = (t: GameTable) => t.openedAt + GAME_TIMES.waitMinutes[t.pace] * 60_000;

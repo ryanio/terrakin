@@ -242,7 +242,7 @@ describe("a table", () => {
     });
   });
 
-  it("closes a round when its window ends, playing the default for a seat that didn't decide", async () => {
+  it("closes a round when its window ends, playing the default for a seat that didn't decide, and lets an away seat back", async () => {
     const t = await start();
     const ada = await t.settler("Ada", 0, 0);
     const bob = t.join("Bob", "agent");
@@ -259,14 +259,27 @@ describe("a table", () => {
       last: { moves: { [ada.id]: 3, [bob.id]: null } },
       seats: [{ away: false }, { away: false }],
     });
-    // A second miss in a row, and Bob is away: rounds stop waiting for him.
+    // A second miss in a row, and Bob is away: a round waits for him only a moment once Ada has
+    // chosen, however fast she is.
     await t.decide(ada.token, 2, 3);
     t.later(window);
     expect((await t.table("g_1")).seats[1]).toMatchObject({ away: true });
-    await t.decide(ada.token, 3, 3);
+    const wait = GAME_TIMES.awayWaitSeconds.live * 1000;
+    await t.decide(ada.token, 3, 1);
+    expect((await t.table("g_1")).round).toBe(3);
+    t.later(wait);
     expect(await t.table("g_1")).toMatchObject({
       round: 4,
-      last: { moves: { [ada.id]: 3, [bob.id]: null } },
+      last: { moves: { [ada.id]: 1, [bob.id]: null } },
+    });
+    // Choosing within the wait brings him back.
+    await t.decide(ada.token, 4, 1);
+    t.later(wait - 1_000);
+    expect(await t.decide(bob.token, 4, 2)).toMatchObject({ ok: true });
+    expect(await t.table("g_1")).toMatchObject({
+      round: 5,
+      last: { moves: { [ada.id]: 1, [bob.id]: 2 } },
+      seats: [{ away: false }, { away: false }],
     });
   });
 });

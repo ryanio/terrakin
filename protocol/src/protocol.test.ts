@@ -417,6 +417,7 @@ describe("looks", () => {
       `a number from 1 to ${lantern.moves.length}`,
       `sit at ${GAMES.seatsMax} tables at once`,
       `Miss ${GAMES.awayAfter} rounds in a row`,
+      `open ${GAME_TIMES.awayWaitSeconds.live} seconds (live) or ${GAME_TIMES.awayWaitSeconds.slow / 60} minutes (slow)`,
       `Everyone starts at ${GAMES.ratingStart.toLocaleString("en-US")}`,
       `past ${GAMES.pairPerDay} in a UTC day`,
       `past ${GAMES.ratedPerDay} in a UTC day`,

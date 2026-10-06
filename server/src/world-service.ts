@@ -77,7 +77,6 @@ import {
   type Routine,
   type RoutineStep,
   residentById,
-  roundSettled,
   SHOP,
   type StepRoutine,
   seatOf,
@@ -95,7 +94,7 @@ import {
   type WorldState,
   withinEarshot,
 } from "@terrakin/sim";
-import { closesAt, startBy, startFree, townsfolkMove } from "./games";
+import { closeDue, startBy, startFree, townsfolkMove } from "./games";
 import { listingRefusal } from "./market";
 import { Moderation, type ReviewContext, type Surface } from "./moderation";
 import {
@@ -952,8 +951,8 @@ export class WorldService {
   /**
    * The tables' clock. A table that waited too long to start closes, a slow table still short of
    * players gets townsfolk in the seats it needs, townsfolk seats choose, and a round closes once
-   * every seat has decided or is away, or once its window ends, with `at` the time the next round
-   * opens. All of it is logged, so replay never reads the clock. `tick` runs it on every request
+   * every seat has decided, once only away seats are left to and they've had their wait, or once
+   * its window ends (`closeDue`), with `at` the time the next round opens. All of it is logged, so replay never reads the clock. `tick` runs it on every request
    * and sweep, the adapters every second, and an accepted `decide` or `start_game` right away.
    */
   runGames() {
@@ -1007,9 +1006,8 @@ export class WorldService {
   }
 
   /**
-   * Townsfolk seats choose, then the round closes if it's settled or its window has ended. Again,
-   * up to the game's last round, since a table where only townsfolk and away seats are left
-   * settles each round as it opens.
+   * Townsfolk seats choose, then the round closes if it's due. Again, up to the game's last
+   * round, in case more than one round is due at once.
    */
   private tendRounds(id: string, now: number) {
     const game = activeTable(this.state, id)?.game;
@@ -1027,7 +1025,7 @@ export class WorldService {
         });
         if (!done.ok) gameRefused(done.error.code, "decide");
       }
-      if (!roundSettled(t) && now < closesAt(t)) return;
+      if (!closeDue(t, now)) return;
       const closed = this.run({
         actor: TOWN_ACTOR,
         command: { type: "close_round", table: t.id, round: t.round, at: now },

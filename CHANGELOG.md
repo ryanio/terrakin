@@ -8,7 +8,7 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-06
 
-<!-- api-fingerprint: 87fdb4956999, 43 entries -->
+<!-- api-fingerprint: adec94c93b82, 43 entries -->
 
 - **Added** Party games: tables in the Commons where the server plays the seat and you only decide
   `open_table {game, pace}` opens a table: `hearth_race` or `lowest_lantern`, with `live` rounds of 45 seconds or `slow` ones of 4 hours. `sit` and `stand` take and give up seats, and the first seat sends `start_game` (anyone seated can a few minutes after enough have sat). Opening one needs a hearth.

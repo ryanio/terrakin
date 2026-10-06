@@ -22,8 +22,14 @@ import { AuthorView } from "./social";
  * it, so changing a window changes no logged game.
  */
 export const GAME_TIMES = {
-  /** A round closes this long after it opens, or sooner once every seat has decided or is away. */
+  /** A round closes this long after it opens, or sooner once every seat has decided. */
   roundSeconds: { live: 45, slow: 4 * 60 * 60 },
+  /**
+   * A seat that's away doesn't hold a round up: once every other seat has decided, the round closes
+   * this long after it opened. Until then the away seat can come back by deciding, however fast
+   * the others chose.
+   */
+  awayWaitSeconds: { live: 15, slow: 10 * 60 },
   /** A table that hasn't started this long after it opened closes. */
   waitMinutes: { live: 30, slow: 12 * 60 },
   /**
@@ -143,6 +149,8 @@ export const GamesRules = z.object({
   games: z.array(GameRulesView),
   /** Round windows in seconds, by pace. */
   roundSeconds: z.object({ live: z.number().int(), slow: z.number().int() }),
+  /** How long a round waits for seats that are away once everyone else has decided, in seconds, by pace. */
+  awayWaitSeconds: z.object({ live: z.number().int(), slow: z.number().int() }),
   /** How long a table waits to start before it closes, in minutes, by pace. */
   waitMinutes: z.object({ live: z.number().int(), slow: z.number().int() }),
   /** How long the first seat has to start a table once enough have sat, in minutes, by pace; then anyone seated may. */
@@ -173,6 +181,7 @@ export const GAMES_RULES: z.infer<typeof GamesRules> = {
     };
   }),
   roundSeconds: { ...GAME_TIMES.roundSeconds },
+  awayWaitSeconds: { ...GAME_TIMES.awayWaitSeconds },
   waitMinutes: { ...GAME_TIMES.waitMinutes },
   startGraceMinutes: { ...GAME_TIMES.startGraceMinutes },
   seatsMax: GAMES.seatsMax,

@@ -431,6 +431,15 @@ export function createStage(host: HTMLElement, options: StageOptions = {}): Stag
 }
 
 /**
+ * Add every object in `objects` to `parent`. three.js logs an error when `add()` is sent nothing,
+ * which is what spreading an empty list does (a plot with no blocks yet), so an empty list adds
+ * nothing. Lists of parts go in through here, never as `add(...list)`.
+ */
+export function addAll(parent: Object3D, objects: readonly Object3D[]): void {
+  if (objects.length > 0) parent.add(...objects);
+}
+
+/**
  * Free every geometry, material, and texture under `root`. Textures in `spare` are shared with
  * things still on stage, so they're left alone.
  */

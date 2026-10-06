@@ -64,6 +64,7 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { idPhase, type Pose, pose, restingPose, type Shown } from "../feelings";
 import { UMBRELLA_RAIN, WEATHER_LOOK } from "../weather";
 import {
+  addAll,
   addWind,
   bakeShade,
   blobShadow,
@@ -140,7 +141,7 @@ export function buildPlot(
 
   root.add(ground(layout, solid));
   root.add(border(layout.bounds, origin, grain));
-  root.add(...blockMeshes(stage, origin, blocks, grain));
+  addAll(root, blockMeshes(stage, origin, blocks, grain));
   // Paths and floors (RFC 0016), and no grass tufts poking through them.
   if (layout.ground.length > 0) {
     const paved = groundTiles(origin, layout.ground, stage.keep(groundAtlas()));
@@ -166,8 +167,7 @@ export function buildPlot(
   // Whatever stands under their own model gives way to it, like the blocks.
   const shown = <T extends { x: number; y: number }>(list: readonly T[]) =>
     footprint ? list.filter((t) => !underFootprint(footprint, t.x, t.y)) : list;
-  const crops = cropPlants(stage, origin, shown(layout.crops));
-  if (crops.length) root.add(...crops);
+  addAll(root, cropPlants(stage, origin, shown(layout.crops)));
   root.add(
     displayedThings(stage, origin, shown(layout.displays), stage.keep(createPictures()), grain),
   );

@@ -43,6 +43,7 @@ import { awayPose, type Motion } from "../motion";
 import { bubbleSize, drawBubble, stackBubbles } from "../overhead";
 import { type SkyAmounts, UMBRELLA_RAIN } from "../weather";
 import {
+  addAll,
   canvasTexture,
   createStage,
   disposeTree,
@@ -287,8 +288,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
     group.name = `plot ${px},${py}`;
     const origin = { x: 0, y: 0 };
     const blocks = data.blocks.map((b) => ({ ...b, own: true, fade: 0 }));
-    const parts = blockMeshes(scope, origin, blocks, grain, surfaces);
-    if (parts.length) group.add(...parts);
+    addAll(group, blockMeshes(scope, origin, blocks, grain, surfaces));
     if (data.ground.length) {
       const paved = groundTiles(origin, data.ground, groundAtlasOnce());
       if (paved) group.add(paved);
@@ -301,8 +301,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       home.position.set(h.x, 0, h.y);
       group.add(home);
     }
-    const crops = cropPlants(scope, origin, data.crops);
-    if (crops.length) group.add(...crops);
+    addAll(group, cropPlants(scope, origin, data.crops));
     group.add(displayedThings(scope, origin, data.displays, pictures, grain));
     scene.add(group);
     return { group, scope, signature: data.signature };

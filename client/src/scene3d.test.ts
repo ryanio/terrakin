@@ -11,9 +11,17 @@ import {
 } from "@terrakin/sim";
 import { BRAND_HEX } from "@terrakin/ui/brand";
 import { GARMENT_COLOR, garmentColor } from "@terrakin/ui/figure";
-import { type BufferGeometry, Color, IcosahedronGeometry, Mesh, SphereGeometry } from "three";
-import { describe, expect, it } from "vitest";
+import {
+  type BufferGeometry,
+  Color,
+  Group,
+  IcosahedronGeometry,
+  Mesh,
+  SphereGeometry,
+} from "three";
+import { describe, expect, it, vi } from "vitest";
 import { blockColor, RESIDENT_COLOR_HEX } from "./render";
+import { addAll } from "./scene3d/art";
 import { parseGallery } from "./scene3d/catalog";
 import { hairMesh, hairPieces } from "./scene3d/hair";
 import {
@@ -588,17 +596,45 @@ describe("gallery requests", () => {
   });
 });
 
-describe("three.js stays out of the main bundle", () => {
-  const src = import.meta.dirname;
-  const files = (dir: string): string[] =>
-    readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
-      e.isDirectory()
-        ? files(join(dir, e.name))
-        : e.name.endsWith(".ts") && !e.name.endsWith(".test.ts")
-          ? [join(dir, e.name)]
-          : [],
+const src = import.meta.dirname;
+/** Every source file under `dir`, tests left out. */
+const files = (dir: string): string[] =>
+  readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+    e.isDirectory()
+      ? files(join(dir, e.name))
+      : e.name.endsWith(".ts") && !e.name.endsWith(".test.ts")
+        ? [join(dir, e.name)]
+        : [],
+  );
+const rel = (f: string) => f.slice(src.length + 1);
+
+describe("lists of parts", () => {
+  it("go into the scene through addAll, which sends three.js nothing for an empty list", () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const group = new Group();
+      addAll(group, []);
+      addAll(group, [new Group(), new Group()]);
+      expect(group.children).toHaveLength(2);
+      expect(logged).not.toHaveBeenCalled();
+    } finally {
+      logged.mockRestore();
+    }
+    // add(...list) logs an error whenever the list is empty, like the blocks of a plot with none.
+    const spread = files(join(src, "scene3d")).flatMap((f) =>
+      readFileSync(f, "utf8")
+        .split("\n")
+        .flatMap((line, i) =>
+          /\.add\(\.\.\./.test(line) && !line.includes("parent.add(...objects)")
+            ? [`${rel(f)}:${i + 1}: ${line.trim()}`]
+            : [],
+        ),
     );
-  const rel = (f: string) => f.slice(src.length + 1);
+    expect(spread).toEqual([]);
+  });
+});
+
+describe("three.js stays out of the main bundle", () => {
   const lazy = new Set([
     "model-viewer.ts",
     "scene3d/art.ts",

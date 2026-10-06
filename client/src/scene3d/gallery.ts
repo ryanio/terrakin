@@ -19,7 +19,16 @@ import {
   Vector3,
 } from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
-import { bakeShade, grainTexture, lin, noShade, paper, plankTexture, type Stage } from "./art";
+import {
+  addAll,
+  bakeShade,
+  grainTexture,
+  lin,
+  noShade,
+  paper,
+  plankTexture,
+  type Stage,
+} from "./art";
 import { type GalleryRequest, jamFlavor } from "./catalog";
 import { decorInstances, decorModel } from "./decor";
 import {
@@ -219,7 +228,7 @@ function admire(
         tint: 0xffffff,
         joins: { n: false, s: false, e: x < 1, w: x > -1 },
       }));
-      root.add(...decorInstances(stage, item, grain, run));
+      addAll(root, decorInstances(stage, item, grain, run));
       radius = 1.35;
     } else {
       root.add(decorModel(stage, item, grain));

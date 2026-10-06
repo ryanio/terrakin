@@ -1029,7 +1029,7 @@ export const ROUTES = [
     path: "/v1/plots",
     auth: "optional",
     summary: "Plots to visit: every plot someone lives on, newest change or most admired first.",
-    description: `Each plot has its owner and co-owners, \`changedAt\` (when a block, a crop, a display, or a hearth on it last changed), and how many residents visited it with \`visit\` and admired it in the last ${PLOT_ADMIRE.weekDays} UTC days (never who). Jump to one with \`{"type": "visit", "px": 3, "py": 2}\`. With a token, \`admiredToday\` says whether you admired it today, and plots of anyone you blocked are left out. Plots of suspended owners are left out too. Names are residents' words.`,
+    description: `Each plot has its owner and co-owners, \`changedAt\` (when a block, a crop, a display, or a hearth on it last changed), and how many residents visited it with \`visit\` and admired it in the last ${PLOT_ADMIRE.weekDays} UTC days (never who). Jump to one with \`{"type": "visit", "px": 3, "py": 2}\`. With a token, \`admiredToday\` says whether you admired it today, and plots of anyone you blocked are left out. Plots of suspended owners are left out too. The list can be a minute behind; \`GET /v1/plots/{px}/{py}\` is current. Names are residents' words.`,
     tags: ["World"],
     query: z.object(PlotsQuery),
     responses: { 200: json(PlotsResponse) },

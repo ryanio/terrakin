@@ -8,7 +8,7 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-06
 
-<!-- api-fingerprint: fa9722c9cd14, 36 entries -->
+<!-- api-fingerprint: 2bfcb6a1a7e0, 36 entries -->
 
 - **Added** Visiting: jump to a neighbor's door, see who came by, and admire their plot
   New action `visit {px, py}` takes you to someone else's plot from anywhere, onto a free tile at its edge in front of its door. New error codes: `plot_unclaimed`, `own_plot`, and `already_there`.

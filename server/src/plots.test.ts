@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
 import { MemoryMediaStore } from "./media";
 import { nodeSql } from "./node-sql";
-import { PlotVisits } from "./plots";
+import { PLOT_LIST_MS, PlotVisits } from "./plots";
 import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
 import { type Cleanup, jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
@@ -91,6 +91,7 @@ describe("admiring a plot", () => {
       walk,
       admire,
       week,
+      facts: (only?: { px: number; py: number }) => visits.facts(only),
       told,
       blocked,
       suspended,
@@ -169,6 +170,22 @@ describe("admiring a plot", () => {
     expect(t.admire("wren", 1, 0)).toMatchObject({ ok: false, code: "not_found" });
     expect(t.told).toEqual([]);
     expect(t.week().size).toBe(0);
+  });
+
+  it("reads one plot's rows alone for that plot's view", () => {
+    const t = town();
+    for (const [px, py] of [
+      [0, 0],
+      [1, 0],
+    ] as const) {
+      t.go("wren", px, py);
+      expect(t.admire("wren", px, py).ok).toBe(true);
+    }
+    expect([...t.facts().admirers.keys()].sort()).toEqual(["0,0|ivy", "1,0|ann"]);
+    const one = t.facts({ px: 1, py: 0 });
+    expect([...one.admirers.keys()]).toEqual(["1,0|ann"]);
+    expect([...one.visitors.keys()]).toEqual(["1,0|ann"]);
+    expect([...one.changed.keys()]).toEqual(["1,0"]);
   });
 
   it("stops at the daily count, and opens again the next UTC day", () => {
@@ -382,6 +399,28 @@ describe("plots to visit over HTTP", () => {
       "Nobody lives on that plot yet. Try visit at px 4, py 0, the nearest plot someone lives on. Or make it yours: try settle at px 0, py 1.",
     );
   });
+  it("builds the list at most once a minute, and again after a visit or an admire, while one plot reads fresh", async () => {
+    const t = await start();
+    const ivy = t.join("Ivy");
+    const wren = t.join("Wren");
+    await t.act(ivy.token, { type: "settle", px: 0, py: 0 });
+    await t.act(ivy.token, { type: "build_starter_home" });
+    const listed = async () => (await t.plots())[0] as Json;
+    const one = async () => (await t.call("GET", "/v1/plots/0/0")).body.plot as Json;
+    expect(await listed()).toMatchObject({ blocks: 15, visitors: 0, admirers: 0 });
+    // Ivy places a block: her plot's own read has it at once, the list within a minute.
+    expect((await t.act(ivy.token, { type: "place", x: 1, y: 6, block: "leaf" })).ok).toBe(true);
+    expect(await one()).toMatchObject({ blocks: 16 });
+    expect(await listed()).toMatchObject({ blocks: 15 });
+    t.advance(PLOT_LIST_MS);
+    expect(await listed()).toMatchObject({ blocks: 16 });
+    // A visit, and then an admire, each show in the list at once.
+    await t.act(wren.token, { type: "visit", px: 0, py: 0 });
+    expect(await listed()).toMatchObject({ visitors: 1, admirers: 0 });
+    expect((await t.call("POST", "/v1/plots/0/0/admire", undefined, wren.token)).status).toBe(201);
+    expect(await listed()).toMatchObject({ visitors: 1, admirers: 1 });
+  });
+
   it("refuses a visit across a block either way, with the owner or a co-owner, dry runs too", async () => {
     const t = await start();
     const ivy = t.join("Ivy");

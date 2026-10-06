@@ -22,8 +22,6 @@ import {
   type ModerationLogEntry,
   markdownError,
   markdownErrorCode,
-  type PlotSort,
-  type PlotView,
   type PostView,
   PROTOCOL_VERSION,
   type ProfileView,
@@ -63,7 +61,6 @@ import {
   heldAsideOf,
   isTownEvent,
   listingById,
-  type Plot,
   plotPlan,
   REPLAY_VERSION,
   routinesOf,
@@ -84,7 +81,7 @@ import { COOL_DOWN_MESSAGE, type Moderation } from "./moderation";
 import { OwnerService } from "./owner-service";
 import { partnerViews } from "./partners";
 import { type PlotPhotoRenderer, plotPhotoSpec } from "./plot-photo";
-import { plotViews } from "./plots";
+import type { PlotViewer } from "./plots";
 import { RateLimiters, type Take } from "./rate-limit";
 import { Routines, type RoutinesRun, runRoutines } from "./routines";
 import { SHOP_KEEPER_HANDLE, shopView } from "./shop";
@@ -1224,17 +1221,20 @@ export class Api {
           }),
         };
       },
-      getPlots: ({ viewer, query }) => ({
-        status: 200,
-        body: { plots: this.plotsFor(viewer, query.sort).slice(0, query.limit) },
-      }),
+      getPlots: ({ viewer, query }) => {
+        const layer = social();
+        const author = (id: string) => layer.authorView(id);
+        const sort = query.sort ?? "recent";
+        const plots = layer.plots.list(service.state, author, sort, this.plotViewer(viewer));
+        return { status: 200, body: { plots: plots.slice(0, query.limit) } };
+      },
       getPlot: ({ viewer, params }) => {
-        const [plot] = this.plotsFor(viewer, "recent", params);
+        const plot = this.plotFor(viewer, params);
         return plot ? { status: 200, body: { plot } } : fail("not_found", NO_PLOT_TO_VISIT);
       },
       admirePlot: ({ viewer, params }) =>
         fromResult(social().plots.admire(service.state, viewer, params.px, params.py), () => {
-          const [plot] = this.plotsFor(viewer, "recent", params);
+          const plot = this.plotFor(viewer, params);
           return plot
             ? { status: 201 as const, body: { plot } }
             : fail("not_found", NO_PLOT_TO_VISIT);
@@ -2097,27 +2097,27 @@ export class Api {
   }
 
   /**
-   * Plots to visit (RFC 0020) as `viewer` sees them, leaving out plots whose owner is suspended
-   * (like their gallery and stall) and plots of anyone the viewer blocked. Only the viewer's own
+   * Who reads the plots to visit (RFC 0020): plots whose owner is suspended are left out (like
+   * their gallery and stall), and plots of anyone the viewer blocked. Only the viewer's own
    * blocks: anyone can read the list without a token, so leaving out the plots of residents who
    * blocked the viewer would tell them who did. A visit or an admire there is still refused.
    */
-  private plotsFor(
-    viewer: string | undefined,
-    sort: PlotSort = "recent",
-    only?: { px: number; py: number },
-  ): PlotView[] {
+  private plotViewer(viewer: string | undefined): PlotViewer {
     const layer = this.requireSocial();
     const blocked = viewer === undefined ? new Set<string>() : layer.blockedBy(viewer);
-    const hidden = (plot: Plot) =>
-      layer.safety.suspendedUntil(plot.ownerId) !== undefined ||
-      [plot.ownerId, ...(plot.coOwners ?? [])].some((id) => blocked.has(id));
-    return plotViews(this.service.state, layer.plots.facts(viewer), (id) => layer.authorView(id), {
+    return {
       viewer,
-      hidden,
-      sort,
-      ...(only ? { only } : {}),
-    });
+      hidden: (plot) =>
+        layer.safety.suspendedUntil(plot.owner.id) !== undefined ||
+        [plot.owner, ...plot.coOwners].some((a) => blocked.has(a.id)),
+    };
+  }
+
+  /** Plot (px, py) as `viewer` sees it, read fresh, or undefined when it isn't theirs to see. */
+  private plotFor(viewer: string | undefined, at: { px: number; py: number }) {
+    const layer = this.requireSocial();
+    const author = (id: string) => layer.authorView(id);
+    return layer.plots.one(this.service.state, author, at.px, at.py, this.plotViewer(viewer));
   }
 
   /** What the market's gate on listing reads from outside the sim: time in Terrakin and karma. */

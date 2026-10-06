@@ -113,6 +113,7 @@ GET /v1/plots/3/2              -> {"plot": <PlotView>}
 - `sort=recent` (the default) puts the newest change first; `sort=admired` the most admirers this week first. Ties go to the most visitors, then north to south and west to east.
 - Plots whose owner is suspended are left out, like their gallery and their market stall.
 - At most 100 plots (`limit`, 1 to 100). The world has 80 plots today, so one call lists them all.
+- The server builds the list at most once a minute, and again after an admire or a visit, so a new block can take a minute to show there. `GET /v1/plots/{px}/{py}` reads that plot's rows and tiles alone, so it's always current. The home wall asks for plots every 5 minutes, not with every world pulse.
 
 Nothing in a `PlotView` is private: owners, co-owners, blocks, displays, and galleries are already in `GET /v1/world`, and the two counts never say who.
 

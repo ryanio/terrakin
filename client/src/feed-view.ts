@@ -72,6 +72,8 @@ type Tab = "everyone" | "following";
 const POLL_MS = 20_000;
 /** The world and the Town Hall change slower than the feed. */
 const PULSE_MS = 45_000;
+/** Plots to visit change slower still, and the server builds that list once a minute at most. */
+const PLOTS_MS = 5 * 60_000;
 const TAB_KEY = "terrakin.feedTab";
 const SPARK_HOURS = 12;
 
@@ -84,14 +86,16 @@ interface FeedState {
 }
 
 /**
- * The last world, Town Hall, and plots we saw, so coming back paints the pulse at once, and when the
- * world answered (`Date.now()`), so the server's clock can be read forward from its snapshot.
+ * The last world, Town Hall, and plots we saw, so coming back paints the pulse at once, when the
+ * world answered (`Date.now()`), so the server's clock can be read forward from its snapshot, and
+ * when the plots came.
  */
 const pulse: {
   world?: WorldSnapshot;
   town?: TownResponse;
   plots?: PlotView[];
   worldAt?: number;
+  plotsAt?: number;
 } = {};
 
 /** The server's time now, read forward from the last snapshot's; this device's when there's none. */
@@ -622,7 +626,12 @@ export function feedView(ctx: ViewContext): View {
     if (destroyed || pulseBusy || (!first && document.visibilityState !== "visible")) return;
     // One at a time, so an older snapshot never lands after a newer one and repeats its news.
     pulseBusy = true;
-    const [w, t, p] = await Promise.all([api.world(), api.town(), api.plots()]);
+    const plotsDue = pulse.plotsAt === undefined || Date.now() - pulse.plotsAt >= PLOTS_MS;
+    const [w, t, p] = await Promise.all([
+      api.world(),
+      api.town(),
+      plotsDue ? api.plots() : undefined,
+    ]);
     pulseBusy = false;
     if (destroyed) return;
     const before = { world: pulse.world, town: pulse.town };
@@ -631,7 +640,10 @@ export function feedView(ctx: ViewContext): View {
       pulse.worldAt = Date.now();
     }
     if (t.ok) pulse.town = t.data;
-    if (p.ok) pulse.plots = p.data.plots;
+    if (p?.ok) {
+      pulse.plots = p.data.plots;
+      pulse.plotsAt = Date.now();
+    }
     keepPlace(() => {
       paintPulse();
       if (!first) announceWorld(before.world, before.town);

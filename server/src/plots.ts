@@ -16,6 +16,7 @@ import {
   plotInBounds,
   plotKey,
   residentById,
+  tileKey,
   type WorldEvent,
   type WorldState,
 } from "@terrakin/sim";
@@ -50,15 +51,28 @@ export interface PlotVisitsOptions {
   notify: (recipient: string, actor: string, plot: { px: number; py: number }) => void;
 }
 
-/** What the plot views read from the tables, for one viewer. */
+/** How long `GET /v1/plots` reuses the list it built, unless an admire or a visit comes first. */
+export const PLOT_LIST_MS = 60_000;
+
+/** What the plot views read from the tables: for every plot, or for one. */
 export interface PlotFacts {
   /** When something on a plot last changed, and who owned it then, by plot key. */
   changed: Map<string, { owner: string; at: number }>;
   /** Distinct visitors and admirers this week, by plot key and owner (`"px,py|owner"`). */
   visitors: Map<string, number>;
   admirers: Map<string, number>;
-  /** Plots the viewer admired today, by plot key. */
-  admiredToday: Set<string>;
+}
+
+/** A resident as the plot views name them, or undefined for one who's gone. */
+export type PlotAuthor = (id: string) => AuthorView | undefined;
+
+/**
+ * Who reads the plots. `hidden` leaves out a plot by its residents: a suspended owner, or someone
+ * the viewer blocked.
+ */
+export interface PlotViewer {
+  viewer?: string | undefined;
+  hidden?: (plot: PlotView) => boolean;
 }
 
 /** World events that change how a plot looks, and the tile (or plot) each one is on. */
@@ -120,6 +134,7 @@ export class PlotVisits {
       )`,
       "CREATE INDEX IF NOT EXISTS plot_admires_day ON plot_admires (day)",
       "CREATE INDEX IF NOT EXISTS plot_admires_admirer ON plot_admires (admirer, day)",
+      "CREATE INDEX IF NOT EXISTS plot_admires_plot ON plot_admires (px, py, day)",
       // One row per visitor, plot, and day, kept for the week the counts cover.
       `CREATE TABLE IF NOT EXISTS plot_visits (
         visitor TEXT NOT NULL,
@@ -130,6 +145,7 @@ export class PlotVisits {
         PRIMARY KEY (visitor, px, py, day)
       )`,
       "CREATE INDEX IF NOT EXISTS plot_visits_day ON plot_visits (day)",
+      "CREATE INDEX IF NOT EXISTS plot_visits_plot ON plot_visits (px, py, day)",
       // The newest time something on each plot changed, and who owned it then.
       `CREATE TABLE IF NOT EXISTS plot_changes (
         px INTEGER NOT NULL,
@@ -142,6 +158,9 @@ export class PlotVisits {
       o.sql.exec(statement);
     }
   }
+
+  /** The list `GET /v1/plots` last built, before any viewer's parts, and when. */
+  private listed: { at: number; views: PlotView[] } | null = null;
 
   private count(query: string, ...bindings: (string | number)[]): number {
     return Number([...this.o.sql.exec(query, ...bindings)][0]?.c ?? 0);
@@ -187,6 +206,8 @@ export class PlotVisits {
       plot.ownerId,
       day,
     );
+    // The visitor may be new this week: the list counts again.
+    this.listed = null;
   }
 
   /** Whether `visitor` visited the plot this week while its owner had it: one lookup on the key. */
@@ -291,46 +312,93 @@ export class PlotVisits {
       day,
       this.o.now(),
     );
+    this.listed = null;
     for (const id of residents) this.o.notify(id, admirer, { px, py });
     return { ok: true, value: null };
   }
 
-  /** This week's counts, the newest changes, and what `viewer` admired today. */
-  facts(viewer?: string): PlotFacts {
-    const from = this.weekFrom();
+  /** This week's counts and the newest changes, for every plot, or for `only`. */
+  facts(only?: { px: number; py: number }): PlotFacts {
+    const where = only ? " AND px = ? AND py = ?" : "";
+    const at = only ? [only.px, only.py] : [];
     const tally = (table: "plot_admires" | "plot_visits", who: "admirer" | "visitor") => {
       const counts = new Map<string, number>();
       for (const row of this.o.sql.exec(
-        `SELECT px, py, owner, COUNT(DISTINCT ${who}) AS c FROM ${table} WHERE day >= ? GROUP BY px, py, owner`,
-        from,
+        `SELECT px, py, owner, COUNT(DISTINCT ${who}) AS c FROM ${table}
+          WHERE day >= ?${where} GROUP BY px, py, owner`,
+        this.weekFrom(),
+        ...at,
       )) {
         counts.set(weekKey(Number(row.px), Number(row.py), String(row.owner)), Number(row.c));
       }
       return counts;
     };
     const changed = new Map<string, { owner: string; at: number }>();
-    for (const row of this.o.sql.exec("SELECT px, py, owner, changed_at FROM plot_changes")) {
+    for (const row of this.o.sql.exec(
+      `SELECT px, py, owner, changed_at FROM plot_changes${only ? " WHERE px = ? AND py = ?" : ""}`,
+      ...at,
+    )) {
       changed.set(plotKey(Number(row.px), Number(row.py)), {
         owner: String(row.owner),
         at: Number(row.changed_at),
       });
     }
-    const admiredToday = new Set<string>();
-    if (viewer !== undefined) {
-      for (const row of this.o.sql.exec(
-        "SELECT px, py FROM plot_admires WHERE admirer = ? AND day = ?",
-        viewer,
-        utcDay(this.o.now()),
-      )) {
-        admiredToday.add(plotKey(Number(row.px), Number(row.py)));
-      }
-    }
     return {
       changed,
       visitors: tally("plot_visits", "visitor"),
       admirers: tally("plot_admires", "admirer"),
-      admiredToday,
     };
+  }
+
+  /** The plots `viewer` admired today, by plot key. */
+  admiredToday(viewer: string): Set<string> {
+    const keys = new Set<string>();
+    for (const row of this.o.sql.exec(
+      "SELECT px, py FROM plot_admires WHERE admirer = ? AND day = ?",
+      viewer,
+      utcDay(this.o.now()),
+    )) {
+      keys.add(plotKey(Number(row.px), Number(row.py)));
+    }
+    return keys;
+  }
+
+  /**
+   * Every plot someone lives on, as `GET /v1/plots` lists them for `who`, in `sort` order. The
+   * views are built at most once a minute (`PLOT_LIST_MS`), and again after an admire or a visit,
+   * so a busy home wall costs one build a minute. What's the viewer's (`hidden`, `admiredToday`)
+   * is read on every call.
+   */
+  list(state: WorldState, author: PlotAuthor, sort: PlotSort, who: PlotViewer = {}): PlotView[] {
+    const now = this.o.now();
+    if (!this.listed || now - this.listed.at >= PLOT_LIST_MS) {
+      this.listed = { at: now, views: plotViews(state, this.facts(), author) };
+    }
+    return this.forViewer(this.listed.views, who).sort(ORDER[sort]);
+  }
+
+  /**
+   * Plot (px, py), as `GET /v1/plots/{px}/{py}` and an admire's answer show it: read fresh, from
+   * that plot's rows and tiles only.
+   */
+  one(
+    state: WorldState,
+    author: PlotAuthor,
+    px: number,
+    py: number,
+    who: PlotViewer = {},
+  ): PlotView | undefined {
+    const only = { px, py };
+    return this.forViewer(plotViews(state, this.facts(only), author, only), who)[0];
+  }
+
+  /** The views as `who` reads them: without the plots `hidden` leaves out, with `admiredToday`. */
+  private forViewer(views: readonly PlotView[], who: PlotViewer): PlotView[] {
+    const today = who.viewer === undefined ? undefined : this.admiredToday(who.viewer);
+    return views.flatMap((view) => {
+      if (who.hidden?.(view)) return [];
+      return [today ? { ...view, admiredToday: today.has(plotKey(view.px, view.py)) } : view];
+    });
   }
 }
 
@@ -346,41 +414,48 @@ const ORDER: Record<PlotSort, (a: PlotView, b: PlotView) => number> = {
 };
 
 /**
- * Every plot someone lives on, as `GET /v1/plots` shows them: whose it is, when it last changed,
- * this week's visitors and admirers, and what's on it, from the world and the tables. `hidden`
- * leaves out a plot by any of its residents (a suspended owner, or someone the viewer blocked). Nothing here is private: the world snapshot already shows plots, blocks,
- * and displays, and the counts never say who.
+ * Plots someone lives on, as the plot routes show them: whose it is, when it last changed, this
+ * week's visitors and admirers, and what's on it, from the world and `facts`. Every plot, or only
+ * `only`, which looks at that plot's own tiles rather than every block in the world. Unsorted, and
+ * without the viewer's parts. Nothing here is private: the world snapshot already shows plots,
+ * blocks, and displays, and the counts never say who.
  */
 export function plotViews(
   state: WorldState,
   facts: PlotFacts,
-  author: (id: string) => AuthorView | undefined,
-  options: {
-    viewer?: string | undefined;
-    hidden?: (plot: Plot) => boolean;
-    sort?: PlotSort;
-    /** Just this plot, for `GET /v1/plots/{px}/{py}` and an admire's answer. */
-    only?: { px: number; py: number };
-  },
+  author: PlotAuthor,
+  only?: { px: number; py: number },
 ): PlotView[] {
   const size = state.config.plotSize;
+  const shown = displaysOf(state);
   const blocks = new Map<string, number>();
-  for (const key of Object.keys(state.blocks)) {
-    const [x, y] = parseKey(key);
-    const at = plotKey(Math.floor(x / size), Math.floor(y / size));
-    blocks.set(at, (blocks.get(at) ?? 0) + 1);
-  }
   const displays = new Map<string, number>();
-  for (const key of Object.keys(displaysOf(state))) {
-    const [x, y] = parseKey(key);
-    const at = plotKey(Math.floor(x / size), Math.floor(y / size));
-    displays.set(at, (displays.get(at) ?? 0) + 1);
+  if (only) {
+    let placed = 0;
+    let onDisplay = 0;
+    for (let y = only.py * size; y < (only.py + 1) * size; y++) {
+      for (let x = only.px * size; x < (only.px + 1) * size; x++) {
+        const tile = tileKey(x, y);
+        if (own(state.blocks, tile) !== undefined) placed++;
+        if (own(shown, tile) !== undefined) onDisplay++;
+      }
+    }
+    blocks.set(plotKey(only.px, only.py), placed);
+    displays.set(plotKey(only.px, only.py), onDisplay);
+  } else {
+    const add = (counts: Map<string, number>, tile: string) => {
+      const [x, y] = parseKey(tile);
+      const at = plotKey(Math.floor(x / size), Math.floor(y / size));
+      counts.set(at, (counts.get(at) ?? 0) + 1);
+    };
+    for (const tile of Object.keys(state.blocks)) add(blocks, tile);
+    for (const tile of Object.keys(shown)) add(displays, tile);
   }
+  const one = only ? own(state.plots, plotKey(only.px, only.py)) : undefined;
+  const plots = only ? (one ? [one] : []) : Object.values(state.plots);
   const views: PlotView[] = [];
-  const { only } = options;
-  for (const [key, plot] of Object.entries(state.plots)) {
-    if (only && (plot.px !== only.px || plot.py !== only.py)) continue;
-    if (options.hidden?.(plot)) continue;
+  for (const plot of plots) {
+    const key = plotKey(plot.px, plot.py);
     const owner = author(plot.ownerId);
     if (!owner) continue;
     const change = facts.changed.get(key);
@@ -402,11 +477,10 @@ export function plotViews(
       changedAt: at === undefined ? null : new Date(at).toISOString(),
       visitors: facts.visitors.get(week) ?? 0,
       admirers: facts.admirers.get(week) ?? 0,
-      ...(options.viewer === undefined ? {} : { admiredToday: facts.admiredToday.has(key) }),
       blocks: blocks.get(key) ?? 0,
       displays: displays.get(key) ?? 0,
       ...(plot.gallery ? { gallery: true as const } : {}),
     });
   }
-  return views.sort(ORDER[options.sort ?? "recent"]);
+  return views;
 }

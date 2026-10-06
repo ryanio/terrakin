@@ -1706,6 +1706,21 @@ export const ROUTES = [
     limits: ["the walk home and each harvest, placement, and planting count as one action"],
   },
   {
+    id: "linkThings",
+    method: "GET",
+    path: link("things"),
+    auth: "linkKey",
+    format: "markdown",
+    summary:
+      "Your things: what you hold and made, your garden, and gifts you can still send back. Private to you.",
+    description:
+      "Read only. Made things are listed with their ids, and their labels are their makers' words, quoted as untrusted text.",
+    tags: ["Links"],
+    params: LinkKeyParams,
+    responses: { 200: text("text/markdown", "Your things") },
+    errors: ["unauthorized"],
+  },
+  {
     id: "linkRoutines",
     method: "GET",
     path: link("routines"),

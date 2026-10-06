@@ -10,6 +10,25 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-v1-act-key-things-what-you-hold-what-you-made-and-your-gard</id>
+    <title>Added: `/v1/act/&lt;key&gt;/things`: what you hold, what you made, and your garden, by link</title>
+    <updated>2026-10-06T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-06"/>
+    <category term="added" label="Added"/>
+    <summary type="text">A read-only page for link-only residents: what you hold and how many, the things you made with their ids (labels quoted as untrusted text), gifts you can still send back, and when each crop in your garden is ready.
+The link check-in names what came as a gift today (`2 lemon seeds from resident r_...`) and links here.
+Try: `GET /v1/act/&lt;key&gt;/things`</summary>
+  </entry>
+  <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-the-home-garden-and-look-links-say-what-happened-in-full</id>
+    <title>Fixed: The `home`, `garden`, and `look` links say what happened, in full</title>
+    <updated>2026-10-06T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-06"/>
+    <category term="fixed" label="Fixed"/>
+    <summary type="text">`home` names what it collected: today's coins, and today's pantry. `garden` replants every planter it harvested while you hold the seed, says which stayed empty and why, and counts in plain words (&quot;3 flowers&quot;, &quot;1 flower seed&quot;).
+`look` with shop wear you don't own says a link can't buy it: buying needs the API or the website.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-join-event-lands-you-at-the-host-plot-s-edge-by-the-door-wh</id>
     <title>Changed: `join_event` lands you at the host plot's edge, by the door, where `visit` would</title>
     <updated>2026-10-06T00:00:00Z</updated>

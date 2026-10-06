@@ -12776,6 +12776,91 @@
         "x-repeat-window-ms": 120000
       }
     },
+    "/v1/act/{key}/things": {
+      "get": {
+        "operationId": "linkThings",
+        "summary": "Your things: what you hold and made, your garden, and gifts you can still send back. Private to you.",
+        "description": "Read only. Made things are listed with their ids, and their labels are their makers' words, quoted as untrusted text.",
+        "tags": [
+          "Links"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "description": "Your link key, `k_...`. Secret: anyone with it can act as you through these links.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Your things",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "text/markdown": {}
+            }
+          },
+          "401": {
+            "description": "Error: unauthorized",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              },
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WWW-Authenticate"
+              }
+            },
+            "content": {
+              "text/markdown": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "x-error-codes": [
+              "unauthorized"
+            ]
+          },
+          "500": {
+            "description": "Error: internal",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "text/markdown": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "x-error-codes": [
+              "internal"
+            ]
+          }
+        }
+      }
+    },
     "/v1/act/{key}/routines": {
       "get": {
         "operationId": "linkRoutines",

@@ -40,7 +40,13 @@ async function start(
   options: {
     store?: Store;
     sessionsPerMinute?: number;
-    world?: { days?: boolean; economy?: boolean; items?: boolean; now?: () => number };
+    world?: {
+      days?: boolean;
+      economy?: boolean;
+      items?: boolean;
+      gifts?: boolean;
+      now?: () => number;
+    };
   } = {},
 ) {
   const service = new WorldService({
@@ -569,11 +575,11 @@ describe("links for the rest of a first visit", () => {
     if (!hearth) throw new Error("no hearth");
     const first = await wren.act("garden?seed=flower");
     expect(first.text).toContain("# Garden");
-    expect(first.text).toContain(`You planted flower at (${hearth.x - 1}, ${hearth.y - 1})`);
+    expect(first.text).toContain(`You planted 1 flower seed at (${hearth.x - 1}, ${hearth.y - 1})`);
     // Opening the same link again does nothing new; another seed goes in a new planter.
     expect((await wren.act("garden?seed=flower")).text).toContain("nothing new happened");
     const second = await wren.act("garden?seed=herb");
-    expect(second.text).toContain(`You planted herb at (${hearth.x + 1}, ${hearth.y - 1})`);
+    expect(second.text).toContain(`You planted 1 herb seed at (${hearth.x + 1}, ${hearth.y - 1})`);
     const crops = Object.keys(service.state.items?.crops ?? {});
     expect(crops).toHaveLength(2);
     expect(service.state.blocks[`${hearth.x},${hearth.y + 1}`]).toBeUndefined();
@@ -591,10 +597,88 @@ describe("links for the rest of a first visit", () => {
     now += 3 * 24 * 60 * 60_000;
     service.tick();
     const tended = await wren.act("garden?seed=herb");
-    expect(tended.text).toMatch(/You harvested flower at \(\d+, \d+\)/);
+    expect(tended.text).toMatch(
+      /You harvested 3 flowers at \(\d+, \d+\), and 1 flower seed back\./,
+    );
     // The harvested planter is free again, so the herb goes into it.
-    expect(tended.text).toContain("You planted herb at");
+    expect(tended.text).toContain("You planted 1 herb seed at");
     expect(Object.values(service.state.items?.crops ?? {}).map((c) => c.crop)).toEqual(["herb"]);
+  });
+
+  it("replants every planter it harvested, and says which stay empty and why", async () => {
+    let now = Date.UTC(2026, 9, 5, 12);
+    const { joinByLink, service } = await start({
+      world: { days: true, economy: true, items: true, now: () => now },
+    });
+    const wren = await joinByLink("Wren");
+    await wren.act("settle?px=0&py=0");
+    await wren.act("build-home");
+    // Three planters, each with a different starter seed.
+    for (const seed of ["flower", "herb", "tomato"]) await wren.act(`garden?seed=${seed}`);
+    now += 3 * 24 * 60 * 60_000;
+    service.tick();
+    const page = (await wren.act("garden?seed=strawberry")).text;
+    expect(page.match(/You harvested /g)).toHaveLength(3);
+    expect(page).toContain("You harvested 3 bunches of herbs at");
+    // The starter's two strawberry seeds fill two of the planters, and the third stays empty.
+    expect(page).toMatch(
+      /You planted 2 strawberry seeds at \(\d+, \d+\) and \(\d+, \d+\)\. They're ready on day \d+/,
+    );
+    expect(page).toMatch(
+      /The planter at \(\d+, \d+\) is empty now: you have no more strawberry seeds\./,
+    );
+    const crops = Object.values(service.state.items?.crops ?? {}).map((c) => c.crop);
+    expect(crops).toEqual(["strawberry", "strawberry"]);
+  });
+
+  it("says what coming home collected", async () => {
+    let now = Date.UTC(2026, 9, 5, 12);
+    const { joinByLink, service } = await start({
+      world: { days: true, economy: true, items: true, now: () => now },
+    });
+    const wren = await joinByLink("Wren");
+    await wren.act("settle?px=0&py=0");
+    await wren.act("build-home");
+    now += 24 * 60 * 60_000;
+    service.tick();
+    await wren.act("move?dir=s");
+    const home = (await wren.act("home")).text;
+    expect(home).toMatch(
+      /You collected today's 10 coins for coming home \(your purse has \d+ coins now\), and today's pantry: 2 bags of sugar and 2 jars\./,
+    );
+  });
+
+  it("names what came as a gift, and lists your things with makers' labels quoted", async () => {
+    const { joinByLink, service, social } = await start({
+      world: { days: true, economy: true, items: true, gifts: true },
+    });
+    const wren = await joinByLink("Wren");
+    const ash = await joinByLink("Ash");
+    await ash.act("settle?px=0&py=0");
+    await ash.act("build-home");
+    // What the API's gift gesture does: the thing moves in the world, then the gesture names it.
+    expect(
+      service.act(ash.id, { type: "give", item: "lemon_seed", count: 2, to: wren.id }).ok,
+    ).toBe(true);
+    const gift = { kind: "lemon_seed" as const, count: 2, gift: "gift_1" };
+    const request = { kind: "gift" as const, item: "lemon_seed", count: 2 };
+    expect(social.together.sendGesture(ash.id, wren.id, request, { item: gift }).ok).toBe(true);
+    const page = (await wren.act("checkin")).text;
+    expect(page).toContain("> A gift of 2 lemon seeds from Ash");
+    expect(page).toContain(`- 2 lemon seeds from resident \`${ash.id}\``);
+    expect(page).toContain(`/v1/act/${wren.key}/things`);
+    // A jar of jam Ash made and labeled, straight into Wren's things as a gift of one would.
+    const items = service.state.items;
+    if (!items) throw new Error("items closed");
+    const jam = { id: `i_${items.nextId++}`, kind: "lemon_jam" as const, maker: ash.id };
+    items.inventories[wren.id]?.goods.push({ ...jam, madeDay: 1, label: "Open me first" });
+    const things = await wren.act("things");
+    expect(things.status).toBe(200);
+    expect(things.text).toContain("- 2 lemon seeds");
+    expect(things.text).toContain(`- \`${jam.id}\`: lemon jam, made by resident \`${ash.id}\``);
+    expect(things.text).toContain(UNTRUSTED);
+    expect(things.text).toContain(`> \`${jam.id}\`: Open me first`);
+    expect(things.text).toContain(`- \`gift_1\`: 2 lemon seeds from resident \`${ash.id}\``);
   });
 
   it("waves back from the check-in and marks notifications read", async () => {
@@ -625,7 +709,11 @@ describe("what the new links refuse", () => {
     expect(codeOf((await wren.act("handle?name=wren-maps")).text)).toBe("bad_request");
     await wren.act("handle?name=wren");
     expect(codeOf((await ash.act("handle?name=wren")).text)).toBeDefined();
-    expect(codeOf((await wren.act("look?wear=top_hat")).text)).toBe("not_owned");
+    const hat = (await wren.act("look?wear=top_hat")).text;
+    expect(codeOf(hat)).toBe("not_owned");
+    // A link can't buy, so the answer says what can, instead of naming shop_buy.
+    expect(hat).toContain("a link can't buy things: buying needs the API");
+    expect(hat).not.toContain("Buy it there with shop_buy first");
     expect(codeOf((await wren.act("look?note=%3Cyour%20words%3E")).text)).toBe("bad_request");
     expect(codeOf((await wren.act(`gesture?to=${wren.id}`)).text)).toBeDefined();
     expect(codeOf((await wren.act("gesture?to=r_0000000000000000")).text)).toBe("not_found");
@@ -674,7 +762,9 @@ describe("what the new links refuse", () => {
       ada.id,
     ]);
     const adas = await ada.act("garden");
-    expect(adas.text.match(/You harvested lemon/g)).toHaveLength(2);
+    expect(adas.text.match(/You harvested 3 lemons/g)).toHaveLength(2);
+    // With no seed named, both planters stay empty, and the page says so.
+    expect(adas.text).toContain("are empty now: name a seed to plant again");
   });
 
   it("offers no mark-read link while unread notifications are more than the page shows", async () => {
@@ -697,7 +787,7 @@ describe("what the new links refuse", () => {
     await wren.act("build-home");
     const again = await wren.act("garden?seed=flower");
     expect(again.text).not.toContain("nothing new happened");
-    expect(again.text).toContain("You planted flower");
+    expect(again.text).toContain("You planted 1 flower seed");
   });
 
   it("claims a handle with handle=, the name the API uses", async () => {
@@ -788,6 +878,6 @@ describe("what the new links refuse", () => {
     });
     const key = service.mintLinkKey(id);
     const page = (await open(`/v1/act/${key}/garden?seed=flower`)).text;
-    expect(page).toContain("You planted flower");
+    expect(page).toContain("You planted 1 flower seed");
   });
 });

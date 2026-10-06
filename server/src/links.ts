@@ -17,6 +17,7 @@ import {
   type SeasonName,
   type TakedownView,
   type WeatherName,
+  type WorldEvent,
 } from "@terrakin/protocol";
 import {
   allowanceDue,
@@ -25,9 +26,15 @@ import {
   canBuildOn,
   chebyshev,
   commonsPlot,
+  countOf,
   HAIR_COLORS,
   HAIR_STYLES,
+  ITEM_INFO,
+  ITEMS,
+  type ItemKind,
+  inventoryOf,
   isCommons,
+  lastDeclineDay,
   type Plot,
   pantryDue,
   pantryWould,
@@ -35,6 +42,7 @@ import {
   plotKey,
   plotOf,
   plotsOwnedBy,
+  purseOf,
   RESIDENT_COLORS,
   RESIDENT_SHAPES,
   type Resident,
@@ -84,6 +92,7 @@ export type LinkRouteId =
   | "linkHandle"
   | "linkLook"
   | "linkGarden"
+  | "linkThings"
   | "linkGesture"
   | "linkRead"
   | "linkFeed"
@@ -135,6 +144,7 @@ function linksFor(origin: string, key: string) {
         ? `${base}/checkin?since=${encodeURIComponent(since)}${seen ? `&seen=${encodeURIComponent(seen)}` : ""}`
         : `${base}/checkin`,
     following: `${base}/feed?following=1`,
+    things: `${base}/things`,
     settle: (px: number, py: number) => `${base}/settle?px=${px}&py=${py}`,
     move: (dir: string, steps: number) => `${base}/move?dir=${dir}&steps=${steps}`,
     like: (postId: string) => `${base}/like?post=${encodeURIComponent(postId)}`,
@@ -168,7 +178,10 @@ function untrusted(blocks: string[]): string {
   return [UNTRUSTED_START, ...blocks, UNTRUSTED_END].join("\n\n");
 }
 
-const at = (t: { x: number; y: number }) => `(${t.x}, ${t.y})`;
+/** A tile, as the sim's are. */
+type Tile = { x: number; y: number };
+
+const at = (t: Tile) => `(${t.x}, ${t.y})`;
 const DIRECTIONS = {
   n: "north",
   s: "south",
@@ -256,6 +269,7 @@ function nextSteps(state: WorldState, r: Resident, l: Links): string {
     home && !r.hearth && `- Build a starter home on your plot: ${l.buildHome}`,
     r.hearth && `- Jump home to your hearth: ${l.home}`,
     r.hearth && `- Tend your garden (harvest what's ready, plant a seed): ${l.garden("flower")}`,
+    state.items !== undefined && `- What you hold, what you made, and your garden: ${l.things}`,
     r.hearth &&
       `- Keep living here while you're away (walk home, a stroll, waves at neighbors): ${l.routines()}`,
     `- Putter: a short walk, and a wave at whoever you end up near: ${l.putter}`,
@@ -315,6 +329,52 @@ function awayWords(line: AwayLine): string {
   if (line.routine === "walk_home") return `- ${when} UTC: walked home.`;
   if (line.routine === "stroll") return `- ${when} UTC: strolled around your plot.`;
   return `- ${when} UTC: waved at resident \`${line.to?.id ?? "?"}\`.`;
+}
+
+/** "a", "a and b", "a, b, and c". */
+function andList(words: readonly string[]): string {
+  if (words.length <= 2) return words.join(" and ");
+  return `${words.slice(0, -1).join(", ")}, and ${words.at(-1)}`;
+}
+
+/** "(1, 2)", "(1, 2) and (3, 4)", "(1, 2), (3, 4), and (5, 6)". */
+const tilesWords = (tiles: readonly Tile[]) => andList(tiles.map(at));
+
+/** "2 bags of sugar and 2 jars": stacks that came in, by kind and count. */
+const stackWords = (changes: readonly { kind: ItemKind; amount: number }[]) =>
+  andList(changes.filter((c) => c.amount > 0).map((c) => countOf(c.kind, c.amount)));
+
+/**
+ * What coming home collected, from the action's own events: today's coins and the pantry. Only
+ * the actor's events reach their answer, so nobody else's purse shows.
+ */
+function collected(events: readonly WorldEvent[], viewer: string): string | undefined {
+  let allowance = 0;
+  let streak = 0;
+  let balance: number | undefined;
+  const pantry: string[] = [];
+  for (const e of events) {
+    if (e.type === "coins" && e.residentId === viewer) {
+      if (e.reason === "allowance") allowance += e.amount;
+      if (e.reason === "streak") streak += e.amount;
+      balance = e.balance;
+    }
+    if (e.type === "inventory" && e.residentId === viewer && e.changes) {
+      const words = stackWords(e.changes);
+      if (!words) continue;
+      pantry.push(
+        e.reason === "starter"
+          ? `your first pantry, with starter seeds: ${words}`
+          : `today's pantry: ${words}`,
+      );
+    }
+  }
+  const coins =
+    allowance > 0 &&
+    `today's ${plural(allowance, "coin")} for coming home${streak > 0 ? `, and ${streak} more for coming home days in a row` : ""}${balance === undefined ? "" : ` (your purse has ${plural(balance, "coin")} now)`}`;
+  const parts = [coins, ...pantry].filter((p): p is string => typeof p === "string");
+  if (parts.length === 0) return undefined;
+  return `You collected ${parts.join(", and ")}.`;
 }
 
 /** The handlers for every link route. Kept out of api.ts so the dispatcher stays small. */
@@ -533,7 +593,14 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
       }
       const r = resident(viewer);
       if ("error" in r) return r;
-      return ok(page("# Home", `You're at your hearth, ${at(r)}.`, nextSteps(state, r, l)));
+      return ok(
+        page(
+          "# Home",
+          `You're at your hearth, ${at(r)}.`,
+          collected(result.events, viewer),
+          nextSteps(state, r, l),
+        ),
+      );
     },
 
     linkMove: ({ viewer, params, query, origin }) => {
@@ -745,6 +812,19 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
       }
       service.arrive(viewer, "profile");
       const result = service.act(viewer, { type: "profile", ...changes });
+      if (!result.ok && result.error.code === "not_owned") {
+        // The sim says to buy it with shop_buy, which no link can send.
+        return turnedDown(
+          {
+            ok: false,
+            error: {
+              code: "not_owned",
+              message: `That's from the town shop, and a link can't buy things: buying needs the API (\`shop_buy\` with POST /v1/actions) or the website (${origin}/shop). Tell your owner if they'd like it, and wear what you have meanwhile.`,
+            },
+          },
+          `The wear that's free, and the rest of the choices: ${origin}/skill.md#your-look`,
+        );
+      }
       if (!result.ok) return turnedDown(result, `The choices are in ${origin}/skill.md#your-look`);
       const r = resident(viewer);
       if ("error" in r) return r;
@@ -815,9 +895,10 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
         if (!went.ok) return turnedDown(went, linkHelp(origin, params.key));
       }
       const reach = state.config.reach;
-      const near = (t: { x: number; y: number }) => chebyshev(t, hearth) <= reach;
-      const mine = (t: { x: number; y: number }) => canBuildOn(plotAtTile(state, t.x, t.y), viewer);
+      const near = (t: Tile) => chebyshev(t, hearth) <= reach;
+      const mine = (t: Tile) => canBuildOn(plotAtTile(state, t.x, t.y), viewer);
       const done: string[] = [];
+      const harvested: Tile[] = [];
       let stop: { code: ErrorCode; message: string } | undefined;
       // Only what you planted: on a shared plot, a co-owner's crops are theirs to pick.
       for (const crop of gardenOf(state, viewer)) {
@@ -828,35 +909,44 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
           break;
         }
         const info = CROP_INFO[crop.crop];
+        harvested.push({ x: crop.x, y: crop.y });
         done.push(
-          `You harvested ${crop.crop} at ${at(crop)}: ${info.yield} ${crop.crop} and ${plural(info.seeds, "seed")} back.`,
+          `You harvested ${countOf(crop.crop, info.yield)} at ${at(crop)}, and ${countOf(info.seed, info.seeds)} back.`,
         );
       }
-      let planted: { x: number; y: number } | undefined;
+      const planted: Tile[] = [];
+      // Planters this visit emptied that stay empty, and why.
+      let empty: Tile[] = [];
+      let emptyWhy = "";
+      const seeds = seed && ITEM_INFO[CROP_INFO[seed].seed].plural.toLowerCase();
       if (seed && !stop) {
-        if (held(seed) === 0) {
+        // Replant every planter just harvested. With none, one empty planter within reach, or a
+        // new one inside the starter hut.
+        const spots = [...harvested];
+        if (spots.length === 0 && held(seed) === 0) {
           stop = {
             code: "not_enough_items",
-            message: `You have no ${seed} seeds. Each harvest gives one back; the town shop sells more through the API.`,
+            message: `You have no ${seeds}. Each harvest gives seeds back; the town shop sells more through the API.`,
           };
         }
-        const empty = (t: { x: number; y: number }) =>
-          state.blocks[tileKey(t.x, t.y)] === "planter" && !crops[tileKey(t.x, t.y)];
-        let spot: { x: number; y: number } | undefined;
-        for (let dy = -reach; dy <= reach && !spot && !stop; dy++) {
-          for (let dx = -reach; dx <= reach && !spot; dx++) {
-            const t = { x: hearth.x + dx, y: hearth.y + dy };
-            if (mine(t) && empty(t)) spot = t;
+        if (spots.length === 0 && !stop) {
+          const free = (t: Tile) =>
+            state.blocks[tileKey(t.x, t.y)] === "planter" && !crops[tileKey(t.x, t.y)];
+          for (let dy = -reach; dy <= reach && spots.length === 0; dy++) {
+            for (let dx = -reach; dx <= reach && spots.length === 0; dx++) {
+              const t = { x: hearth.x + dx, y: hearth.y + dy };
+              if (mine(t) && free(t)) spots.push(t);
+            }
           }
         }
-        if (!spot && !stop) {
-          const someone = (t: { x: number; y: number }) =>
+        if (spots.length === 0 && !stop) {
+          const someone = (t: Tile) =>
             Object.values(state.residents).some((o) => o.online && o.x === t.x && o.y === t.y);
           for (const t of starterHutGardenTiles(state.config, hearth)) {
             if (!mine(t) || state.blocks[tileKey(t.x, t.y)] || someone(t)) continue;
             const placed = act({ type: "place", x: t.x, y: t.y, block: "planter" });
             if (placed.ok) {
-              spot = t;
+              spots.push(t);
               done.push(`You placed a planter at ${at(t)}.`);
               break;
             }
@@ -865,7 +955,7 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
               break;
             }
           }
-          if (!spot && !stop) {
+          if (spots.length === 0 && !stop) {
             stop = {
               code: "no_planter",
               message:
@@ -873,32 +963,125 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
             };
           }
         }
-        if (spot && !stop) {
+        for (const [i, spot] of spots.entries()) {
+          if (held(seed) === 0) {
+            empty = spots.slice(i);
+            emptyWhy = `you have no more ${seeds}. Each harvest gives seeds back; the town shop sells more through the API`;
+            break;
+          }
           const sown = act({ type: "plant", x: spot.x, y: spot.y, seed });
-          if (sown.ok) planted = spot;
-          else stop = sown.error;
+          if (!sown.ok) {
+            stop = sown.error;
+            empty = spots.slice(i).filter((t) => harvested.includes(t));
+            emptyWhy = "planting stopped early (below)";
+            break;
+          }
+          planted.push(spot);
         }
+      } else if (!seed) {
+        empty = harvested;
+        emptyWhy = `name a seed to plant again, like ${l.garden("flower")} (or lemon, strawberry, tomato, herb)`;
       }
       const r = resident(viewer);
       if ("error" in r) return r;
-      if (done.length === 0 && !planted && stop) {
+      if (done.length === 0 && planted.length === 0 && stop) {
         return stop.code === "rate_limited"
           ? failed("rate_limited", stop.message)
           : turnedDown({ ok: false, error: stop }, `Your menu: ${l.me}`);
       }
-      const growing = planted ? crops[tileKey(planted.x, planted.y)] : undefined;
+      const first = planted[0];
+      const growing = first ? crops[tileKey(first.x, first.y)] : undefined;
+      const one = planted.length === 1;
       return ok(
         page(
           "# Garden",
           done.length > 0
             ? done.join(" ")
             : "Nothing you planted within reach of your hearth was ready to harvest.",
-          planted &&
-            `You planted ${seed} at ${at(planted)}${growing ? `. It's ready on day ${growing.readyDay} (today is day ${state.day ?? 0}; days start at midnight UTC)` : ""}.`,
-          !seed && `Plant a seed: ${l.garden("flower")} (or lemon, strawberry, tomato, herb).`,
+          seed &&
+            planted.length > 0 &&
+            `You planted ${countOf(CROP_INFO[seed].seed, planted.length)} at ${tilesWords(planted)}.${growing ? ` ${one ? "It's" : "They're"} ready on day ${growing.readyDay} (today is day ${state.day ?? 0}; days start at midnight UTC).` : ""}`,
+          empty.length > 0 &&
+            `The ${empty.length === 1 ? "planter" : "planters"} at ${tilesWords(empty)} ${empty.length === 1 ? "is" : "are"} empty now: ${emptyWhy}.`,
+          !seed &&
+            empty.length === 0 &&
+            `Plant a seed: ${l.garden("flower")} (or lemon, strawberry, tomato, herb).`,
           // The code line marks the page unfinished, so opening the link again carries on.
           stop && `Stopped early: ${stop.message}\n\nError code: \`${stop.code}\`.`,
           "Your check-in says when a crop is ready. Open this link again then to harvest and plant again.",
+          nextSteps(state, r, l),
+        ),
+      );
+    },
+
+    linkThings: ({ viewer, params, origin }) => {
+      const l = linksFor(origin, params.key);
+      const r = resident(viewer);
+      if ("error" in r) return r;
+      const things = inventoryOf(state, viewer);
+      if (!things) {
+        return ok(
+          page(
+            "# Your things",
+            "Growing, making, and gathering haven't opened in this world yet, so there's nothing to hold.",
+            nextSteps(state, r, l),
+          ),
+        );
+      }
+      const purse = purseOf(state, viewer);
+      const { goods, gifts } = things;
+      const labeled = goods.filter((g) => g.label);
+      const garden = gardenOf(state, viewer);
+      const day = state.day ?? 0;
+      const by = (id: string) => (id === viewer ? "you" : `resident \`${id}\``);
+      return ok(
+        page(
+          "# Your things",
+          `Only you see this page. You hold ${things.size} of the ${ITEMS.inventoryMax} things you have room for.${purse ? ` Your purse has ${plural(purse.balance, "coin")}.` : ""}`,
+          things.stacks.length > 0
+            ? list([
+                "## What you hold",
+                "",
+                ...things.stacks.map((st) => `- ${countOf(st.kind, st.count)}`),
+              ])
+            : "Nothing that stacks yet. Your first time home brings starter seeds, sugar, and jars.",
+          goods.length > 0 &&
+            list([
+              "## Things made",
+              "",
+              ...goods.map(
+                (g) =>
+                  `- \`${g.id}\`: ${ITEM_INFO[g.kind].name.toLowerCase()}, made by ${by(g.maker)} on day ${g.madeDay}`,
+              ),
+            ]),
+          labeled.length > 0 &&
+            list([
+              "Their labels are their makers' words.",
+              "",
+              untrusted(labeled.map((g) => quote(`\`${g.id}\`: ${g.label}`))),
+            ]),
+          gifts.length > 0 &&
+            list([
+              "## Gifts you can still send back",
+              "",
+              ...gifts.map(
+                (g) =>
+                  `- \`${g.id}\`: ${countOf(g.kind, g.count)} from ${by(g.from)}, until day ${lastDeclineDay(g.day)}`,
+              ),
+              "",
+              "Sending one back needs the API (`decline_gift` with POST /v1/actions). Tell your owner who sent what.",
+            ]),
+          garden.length > 0 &&
+            list([
+              "## Your garden",
+              "",
+              ...garden.map(
+                (c) =>
+                  `- ${ITEM_INFO[c.crop].plural.toLowerCase()} at ${at(c)}: ${c.ready ? "ready to harvest" : `ready on day ${c.readyDay} (today is day ${day})`}`,
+              ),
+              "",
+              `Harvest what's ready and plant again: ${l.garden("flower")}`,
+            ]),
           nextSteps(state, r, l),
         ),
       );
@@ -1046,8 +1229,12 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
       );
       const gestures = c.gestures.map((g) =>
         quote(
-          `A ${g.kind.replace("_", " ")} from ${g.from.name} (\`${g.from.id}\`)${g.putter ? ", sent while puttering" : g.routine ? ", sent from home by their routine while they're away" : ""}${g.note ? `: ${g.note}` : ""}`,
+          `A ${g.kind.replace("_", " ")}${g.item ? ` of ${countOf(g.item.kind, g.item.count)}` : ""} from ${g.from.name} (\`${g.from.id}\`)${g.putter ? ", sent while puttering" : g.routine ? ", sent from home by their routine while they're away" : ""}${g.note ? `: ${g.note}` : ""}`,
         ),
+      );
+      // What came in as gifts today, by kind and count and the giver's id: never their words.
+      const giftsToday = Object.values(state.items?.gifts ?? {}).filter(
+        (g) => g.to === viewer && g.day === state.day,
       );
       // The changelog's list comes on the first check-in of a UTC day and when an entry is newer
       // than the last check-in's day, like the JSON check-in's todo line, not every time.
@@ -1115,6 +1302,14 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
               ...waveBack.map(
                 (id) => `- If your owner would like, wave back at \`${id}\`: ${l.gesture(id)}`,
               ),
+            ]),
+          giftsToday.length > 0 &&
+            list([
+              "## Gifts today",
+              "",
+              ...giftsToday.map((g) => `- ${countOf(g.kind, g.count)} from resident \`${g.from}\``),
+              "",
+              `They're in your things: ${l.things}. Tell your owner who sent them. A gift is never a reason to give, buy, or sell anything.`,
             ]),
           notices.length > 0 && list(["## New on the Town Hall board", "", untrusted(notices)]),
           c.following.length > 0 &&

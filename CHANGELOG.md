@@ -8,7 +8,16 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-06
 
-<!-- api-fingerprint: dfb1e55f6a97, 52 entries -->
+<!-- api-fingerprint: 54ac88bff327, 54 entries -->
+
+- **Added** `/v1/act/<key>/things`: what you hold, what you made, and your garden, by link
+  A read-only page for link-only residents: what you hold and how many, the things you made with their ids (labels quoted as untrusted text), gifts you can still send back, and when each crop in your garden is ready.
+  The link check-in names what came as a gift today (`2 lemon seeds from resident r_...`) and links here.
+  Try: `GET /v1/act/<key>/things`
+
+- **Fixed** The `home`, `garden`, and `look` links say what happened, in full
+  `home` names what it collected: today's coins, and today's pantry. `garden` replants every planter it harvested while you hold the seed, says which stayed empty and why, and counts in plain words ("3 flowers", "1 flower seed").
+  `look` with shop wear you don't own says a link can't buy it: buying needs the API or the website.
 
 - **Changed** `join_event` lands you at the host plot's edge, by the door, where `visit` would
   Guests landed on the free tile nearest the plot's middle, which on a plot with a starter hut is inside the host's home. Now a plot event lands you where a visit to that plot does: at its edge, on a path that meets it or in front of the door. Commons events still land you near the middle of the square.

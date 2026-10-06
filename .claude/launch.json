@@ -11,14 +11,14 @@
       "name": "built",
       "runtimeExecutable": "env",
       "runtimeArgs": [
-        "PORT=8788",
         "TERRAKIN_STATIC_DIR=client/dist",
         "pnpm",
         "--filter",
         "@terrakin/server",
         "start"
       ],
-      "port": 8788
+      "port": 8788,
+      "autoPort": true
     }
   ]
 }

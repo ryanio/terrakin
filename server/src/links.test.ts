@@ -35,8 +35,18 @@ afterEach(async () => {
   expect(problems.splice(0)).toEqual([]);
 });
 
-async function start(options: { store?: Store; sessionsPerMinute?: number } = {}) {
-  const service = new WorldService({ store: options.store ?? new MemoryStore(), config: CONFIG });
+async function start(
+  options: {
+    store?: Store;
+    sessionsPerMinute?: number;
+    world?: { days?: boolean; economy?: boolean; items?: boolean; now?: () => number };
+  } = {},
+) {
+  const service = new WorldService({
+    store: options.store ?? new MemoryStore(),
+    config: CONFIG,
+    ...options.world,
+  });
   const sql = nodeSql();
   const media = new MemoryMediaStore();
   const social = new SocialService({
@@ -339,6 +349,44 @@ describe("action links", () => {
     expect(second?.status).toBe(429);
   });
 
+  it("charges one action per step of a garden visit", async () => {
+    let now = Date.UTC(2026, 9, 5, 12);
+    const service = new WorldService({
+      store: new MemoryStore(),
+      config: CONFIG,
+      now: () => now,
+      days: true,
+      economy: true,
+      items: true,
+    });
+    const api = new Api({ service, skill: "", openapi: "", actionsPerSecond: 2, onResponse });
+    const id = service.createResident({ name: "Wren", kind: "agent" }).residentId ?? "";
+    const act = (command: Parameters<typeof service.act>[1]) =>
+      expect(service.act(id, command).ok, JSON.stringify(command)).toBe(true);
+    act({ type: "settle", px: 0, py: 0 });
+    act({ type: "build_starter_home" });
+    // Three crops in the hut's corners, ready three days on.
+    for (const [x, y, seed] of [
+      [2, 2, "flower"],
+      [4, 2, "flower"],
+      [2, 4, "herb"],
+    ] as const) {
+      act({ type: "place", x, y, block: "planter" });
+      act({ type: "plant", x, y, seed });
+    }
+    now += 3 * 24 * 60 * 60_000;
+    service.tick();
+    act({ type: "move", dir: "n" });
+    const key = service.mintLinkKey(id);
+    // Bursts of 4: home and three harvests take them all, so planting is refused.
+    const first = await api.handle(request(`/v1/act/${key}/garden`, "seed=herb"));
+    expect(first?.body).toMatch(/You harvested .* You harvested .* You harvested/s);
+    expect(first?.body).toContain("code `rate_limited`");
+    expect(first?.body).not.toContain("You planted");
+    const second = await api.handle(request(`/v1/act/${key}/garden`, "seed=flower"));
+    expect(second?.status).toBe(429);
+  });
+
   it("posts, replies, likes, follows, sets a bio, and reads the feed", async () => {
     const { joinByLink, base, call } = await start();
     const wren = await joinByLink("Wren");
@@ -496,3 +544,145 @@ function request(pathname: string, query = ""): ApiRequest {
     origin: "https://terrakin.org",
   };
 }
+
+describe("links for the rest of a first visit", () => {
+  it("claims a handle and changes the look", async () => {
+    const { joinByLink, service } = await start();
+    const wren = await joinByLink("Wren");
+    const handle = await wren.act("handle?name=wren_birds");
+    expect(handle.text).toContain("# Handle set");
+    expect(handle.text).toContain("/u/wren_birds");
+    const look = await wren.act("look?color=sky&shape=diamond&wear=straw_hat,apron");
+    expect(look.text).toContain("# Your look");
+    expect(service.state.residents[wren.id]).toMatchObject({ color: "sky", shape: "diamond" });
+    expect(service.state.residents[wren.id]?.wear).toEqual(["straw_hat", "apron"]);
+    expect(codeOf((await wren.act("look")).text)).toBe("bad_request");
+  });
+
+  it("plants beside the hearth, placing a planter, and never on the way to the door", async () => {
+    const { joinByLink, service } = await start({
+      world: { days: true, economy: true, items: true },
+    });
+    const wren = await joinByLink("Wren");
+    expect(codeOf((await wren.act("garden?seed=tomato")).text)).toBe("no_hearth");
+    await wren.act("settle?px=0&py=0");
+    await wren.act("build-home");
+    const hearth = service.state.residents[wren.id]?.hearth;
+    if (!hearth) throw new Error("no hearth");
+    const first = await wren.act("garden?seed=flower");
+    expect(first.text).toContain("# Garden");
+    expect(first.text).toContain(`You planted flower at (${hearth.x - 1}, ${hearth.y - 1})`);
+    // Opening the same link again does nothing new; another seed goes in a new planter.
+    expect((await wren.act("garden?seed=flower")).text).toContain("nothing new happened");
+    const second = await wren.act("garden?seed=herb");
+    expect(second.text).toContain(`You planted herb at (${hearth.x + 1}, ${hearth.y - 1})`);
+    const crops = Object.keys(service.state.items?.crops ?? {});
+    expect(crops).toHaveLength(2);
+    expect(service.state.blocks[`${hearth.x},${hearth.y + 1}`]).toBeUndefined();
+  });
+
+  it("harvests what's ready within reach, then plants again", async () => {
+    let now = Date.UTC(2026, 9, 5, 12);
+    const { joinByLink, service } = await start({
+      world: { days: true, economy: true, items: true, now: () => now },
+    });
+    const wren = await joinByLink("Wren");
+    await wren.act("settle?px=0&py=0");
+    await wren.act("build-home");
+    await wren.act("garden?seed=flower");
+    now += 3 * 24 * 60 * 60_000;
+    service.tick();
+    const tended = await wren.act("garden?seed=herb");
+    expect(tended.text).toMatch(/You harvested flower at \(\d+, \d+\)/);
+    // The harvested planter is free again, so the herb goes into it.
+    expect(tended.text).toContain("You planted herb at");
+    expect(Object.values(service.state.items?.crops ?? {}).map((c) => c.crop)).toEqual(["herb"]);
+  });
+
+  it("waves back from the check-in and marks notifications read", async () => {
+    const { joinByLink, social } = await start();
+    const wren = await joinByLink("Wren");
+    const ash = await joinByLink("Ash");
+    await ash.act(`gesture?to=${wren.id}`);
+    await ash.act(`follow?resident=${wren.id}`);
+    const checkin = await wren.act("checkin");
+    const back = new RegExp(`/v1/act/${wren.key}/gesture\\?to=${ash.id}`).exec(checkin.text);
+    expect(back).not.toBeNull();
+    const sent = await wren.act(`gesture?to=${ash.id}`);
+    expect(sent.text).toContain(`You sent a wave to \`${ash.id}\``);
+    expect(social.together.receivedSince(ash.id, 0, 5).map((g) => g.kind)).toEqual(["wave"]);
+    const read = /\/v1\/act\/k_[\w-]+\/read\?upTo=(\S+)/.exec(checkin.text);
+    if (!read) throw new Error(`No read link in:\n${checkin.text}`);
+    const marked = await wren.act(`read?upTo=${read[1]}`);
+    expect(marked.text).toContain("# Marked read");
+    expect(social.notifications(wren.id, { limit: 10 }).unread).toBe(0);
+  });
+});
+
+describe("what the new links refuse", () => {
+  it("refuses a bad or taken handle, an empty or unowned look, and bad gestures and reads", async () => {
+    const { joinByLink } = await start();
+    const wren = await joinByLink("Wren");
+    const ash = await joinByLink("Ash");
+    expect(codeOf((await wren.act("handle?name=wren-maps")).text)).toBe("bad_request");
+    await wren.act("handle?name=wren");
+    expect(codeOf((await ash.act("handle?name=wren")).text)).toBeDefined();
+    expect(codeOf((await wren.act("look?wear=top_hat")).text)).toBe("not_owned");
+    expect(codeOf((await wren.act("look?note=%3Cyour%20words%3E")).text)).toBe("bad_request");
+    expect(codeOf((await wren.act(`gesture?to=${wren.id}`)).text)).toBeDefined();
+    expect(codeOf((await wren.act("gesture?to=r_0000000000000000")).text)).toBe("not_found");
+    expect(codeOf((await wren.act("read?upTo=n_missing")).text)).toBe("not_found");
+  });
+
+  it("won't place a planter without the seed, and leaves a co-owner's crops alone", async () => {
+    let now = Date.UTC(2026, 9, 5, 12);
+    const { joinByLink, service } = await start({
+      world: { days: true, economy: true, items: true, now: () => now },
+    });
+    const ada = await joinByLink("Ada");
+    const bo = await joinByLink("Bo");
+    await ada.act("settle?px=0&py=0");
+    await ada.act("build-home");
+    const act = (who: string, command: Parameters<typeof service.act>[1]) =>
+      expect(service.act(who, command).ok, JSON.stringify(command)).toBe(true);
+    // Ada uses both lemon seeds, so a lemon garden has nothing to plant.
+    for (const [x, y] of [
+      [2, 2],
+      [4, 2],
+    ] as const) {
+      act(ada.id, { type: "place", x, y, block: "planter" });
+      act(ada.id, { type: "plant", x, y, seed: "lemon" });
+    }
+    const planters = () => Object.values(service.state.blocks).filter((b) => b === "planter");
+    expect(codeOf((await ada.act("garden?seed=lemon")).text)).toBe("not_enough_items");
+    expect(planters()).toHaveLength(2);
+    // Bo shares the plot and keeps his hearth at (6, 2), in reach of Ada's lemon at (4, 2).
+    act(ada.id, { type: "share_plot", with: bo.id });
+    const spot = service.state.residents[bo.id];
+    for (let x = spot?.x ?? 0; x > 6; x--) act(bo.id, { type: "move", dir: "w" });
+    for (let y = spot?.y ?? 0; y > 2; y--) act(bo.id, { type: "move", dir: "n" });
+    act(bo.id, { type: "set_hearth", x: 6, y: 2 });
+    now += 5 * 24 * 60 * 60_000;
+    service.tick();
+    const bos = await bo.act("garden");
+    expect(bos.text).toContain("Nothing you planted within reach of your hearth was ready");
+    expect(Object.values(service.state.items?.crops ?? {}).map((c) => c.by)).toEqual([
+      ada.id,
+      ada.id,
+    ]);
+    const adas = await ada.act("garden");
+    expect(adas.text.match(/You harvested lemon/g)).toHaveLength(2);
+  });
+
+  it("offers no mark-read link while unread notifications are more than the page shows", async () => {
+    const { joinByLink, service, social } = await start();
+    const wren = await joinByLink("Wren");
+    for (let i = 0; i < 25; i++) {
+      const fan = service.createResident({ name: `Fan${i}`, kind: "agent" }).residentId ?? "";
+      expect(social.setFollow(fan, wren.id, true).ok).toBe(true);
+    }
+    const page = (await wren.act("checkin")).text;
+    expect(page).toContain("of your 25 unread notifications are here");
+    expect(page).not.toContain(`/v1/act/${wren.key}/read?`);
+  });
+});

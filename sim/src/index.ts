@@ -168,6 +168,7 @@ export {
   shopTiles,
   spawnTile,
   starterHome,
+  starterHutGardenTiles,
   townHallTile,
   townHallTiles,
   validateConfig,

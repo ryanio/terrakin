@@ -3,7 +3,13 @@ import { apply, prepare } from "./apply";
 import { hashWorld } from "./hash";
 import { replay } from "./replay";
 import { type Command, type Input, TOWN_ACTOR, type WorldConfig, type WorldState } from "./types";
-import { CHAT_EARSHOT, createWorld, spawnTile, withinEarshot } from "./world";
+import {
+  CHAT_EARSHOT,
+  createWorld,
+  spawnTile,
+  starterHutGardenTiles,
+  withinEarshot,
+} from "./world";
 
 // 3x3 plots of 4 tiles. Commons is plot (1,1), tiles 4..7. Spawn is tile (6,6).
 const CONFIG: WorldConfig = {
@@ -505,6 +511,27 @@ describe("settle", () => {
     run(quiet, "bob", { type: "leave" });
     run(quiet, "ada", { type: "settle", px: 0, py: 0 });
     expect(quiet.residents.ada).toMatchObject({ x: 3, y: 3 });
+  });
+});
+
+describe("starterHutGardenTiles", () => {
+  it("names free tiles inside the hut that leave the way from the door to the hearth open", () => {
+    const state = roomy("ada");
+    run(state, "ada", { type: "settle", px: 0, py: 0 }, { type: "build_starter_home" });
+    const tiles = starterHutGardenTiles(ROOMY, { x: 3, y: 3 });
+    expect(tiles).toHaveLength(7);
+    for (const t of tiles) {
+      expect(blockAt(state, t.x, t.y), `${t.x},${t.y}`).toBeUndefined();
+      expect(t.x >= 2 && t.x <= 4 && t.y >= 2 && t.y <= 4).toBe(true);
+    }
+    // Never the hearth, and never the tile between it and the door at (3, 5).
+    expect(tiles).not.toContainEqual({ x: 3, y: 3 });
+    expect(tiles).not.toContainEqual({ x: 3, y: 4 });
+  });
+
+  it("names nothing for a hearth that isn't where the starter hut puts it", () => {
+    expect(starterHutGardenTiles(ROOMY, { x: 3, y: 5 })).toEqual([]);
+    expect(starterHutGardenTiles(ROOMY, { x: 6, y: 6 })).toEqual([]);
   });
 });
 

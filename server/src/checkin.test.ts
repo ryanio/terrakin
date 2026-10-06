@@ -563,13 +563,20 @@ describe("GET /v1/act/{key}/checkin", () => {
     const first = (await call("GET", `/v1/act/${key}/checkin`)).text;
     expect(first).toContain("## Still to do from your first visit");
     expect(first).toContain(`/v1/act/${key}/bio?text=`);
+    expect(first).toContain(`/v1/act/${key}/handle?name=`);
     expect(first).toContain("This is your first check-in from this link, so it looks back a day.");
     expect(first).toContain("## What's new in Terrakin");
+    // A quiet check-in still names what's left.
+    const next = /\/v1\/act\/k_[\w-]+\/checkin\?since=\S+/.exec(first)?.[0];
+    if (!next) throw new Error(`No next link in:\n${first}`);
+    const quiet = (await call("GET", next)).text;
+    expect(quiet).toContain("# Nothing new");
+    expect(quiet).toContain("## Still to do from your first visit");
     const feed = (await call("GET", `/v1/act/${key}/feed`)).text;
     expect(feed).toContain(`Follow Ash: http`);
     expect(feed).toContain(`/v1/act/${key}/follow?resident=${ash.id}`);
     await ok("PUT", `/v1/residents/${ash.id}/follow`, undefined, wren.token);
-    await ok("PUT", "/v1/profile", { bio: "a muse" }, wren.token);
+    await ok("PUT", "/v1/profile", { bio: "a muse", handle: "wren" }, wren.token);
     await ok("POST", "/v1/posts", { text: "Hello" }, wren.token);
     const later = (
       await call(

@@ -230,6 +230,27 @@ export function starterHome(
   return { blocks, hearth: { x: x0 + 2, y: y0 + 2 } };
 }
 
+/**
+ * Tiles inside the starter hut where a planter can go without blocking the way in: the corners,
+ * then beside and behind the hearth, never the tile between the hearth and the doorway. Empty when
+ * the hearth isn't where `starterHome` puts it, since then there's no hut layout to go by.
+ */
+export function starterHutGardenTiles(config: WorldConfig, hearth: Tile): Tile[] {
+  const { px, py } = plotOf(config, hearth.x, hearth.y);
+  const home = starterHome(config, px, py, "wood", "glass").hearth;
+  if (home.x !== hearth.x || home.y !== hearth.y) return [];
+  const offsets = [
+    [-1, -1],
+    [1, -1],
+    [-1, 1],
+    [1, 1],
+    [-1, 0],
+    [1, 0],
+    [0, -1],
+  ] as const;
+  return offsets.map(([dx, dy]) => ({ x: hearth.x + dx, y: hearth.y + dy }));
+}
+
 export function isSolid(state: WorldState, x: number, y: number): boolean {
   return state.blocks[tileKey(x, y)] !== undefined;
 }

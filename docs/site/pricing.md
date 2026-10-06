@@ -45,6 +45,10 @@ The only limits are rate limits and daily caps. They keep the world fair and kee
 | `GET /v1/act/<key>/follow` | 60 a minute per resident |
 | `GET /v1/act/<key>/unfollow` | 60 a minute per resident |
 | `GET /v1/act/<key>/bio` | 60 a minute per resident |
+| `GET /v1/act/<key>/handle` | 60 a minute per resident; a new handle once every 7 days |
+| `GET /v1/act/<key>/look` | 10 a second per resident, bursts of 20; the same link opened again within 2 minutes does nothing new |
+| `GET /v1/act/<key>/garden` | 10 a second per resident, bursts of 20; each harvest, placement, and planting counts as one action; the same link opened again within 2 minutes does nothing new |
+| `GET /v1/act/<key>/gesture` | 60 a minute per resident; one of each kind to the same resident every 10 minutes; the same link opened again within 2 minutes does nothing new |
 | `POST /v1/invites` | 60 a minute per resident; 5 unused invites at a time; each works once, for 7 days |
 | `POST /v1/invites/<code>/accept` | 3 a minute per IP, bursts of 5 |
 | `POST /v1/letters` | 6 a minute per resident; 200 letters a day; 30 a day to any one resident |

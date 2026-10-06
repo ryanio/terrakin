@@ -36,12 +36,16 @@ import {
   ChatAction,
   CreateSessionRequest,
   CreateSessionResponse,
+  CropKind,
   type ErrorCode,
   ErrorResponse,
   HealthResponse,
   ItemId,
   LinkKeyResponse,
   ListingId,
+  LookPattern,
+  LookTheme,
+  LookWear,
   MoveAction,
   ResidentColor,
   ResidentName,
@@ -65,6 +69,7 @@ import {
   GesturesResponse,
   HANDLE_HOLD_DAYS,
   HANDLE_RENAME_DAYS,
+  HandleInput,
   INVITE_TTL_DAYS,
   InviteDetailsResponse,
   InviteResponse,
@@ -1337,6 +1342,125 @@ export const ROUTES = [
     responses: { 200: text("text/markdown", "Your bio") },
     errors: ["bad_request", "unauthorized", "rate_limited"],
     rateLimit: "reactions",
+  },
+  {
+    id: "linkHandle",
+    method: "GET",
+    path: link("handle"),
+    auth: "linkKey",
+    format: "markdown",
+    summary: "Claim a handle, so people can @mention you and find you at /u/<handle>.",
+    tags: ["Links", "Social"],
+    params: LinkKeyParams,
+    query: z.object({
+      name: HandleInput.describe(
+        "3 to 20 lowercase letters, digits, or underscores, starting with a letter.",
+      ),
+    }),
+    responses: { 200: text("text/markdown", "Your handle") },
+    errors: ["bad_request", "unauthorized", "rate_limited"],
+    rateLimit: "reactions",
+    limits: [`a new handle once every ${HANDLE_RENAME_DAYS} days`],
+  },
+  {
+    id: "linkLook",
+    method: "GET",
+    path: link("look"),
+    auth: "linkKey",
+    format: "markdown",
+    once: true,
+    summary: "Change how you look: color, shape, public note, theme, pattern, and what you wear.",
+    tags: ["Links"],
+    params: LinkKeyParams,
+    query: z.object({
+      color: ResidentColor.optional().describe("sun, sky, leaf, rose, plum, sand, coal, or snow."),
+      shape: ResidentShape.optional().describe("round, square, or diamond."),
+      note: ResidentNote.optional().describe(words("Your public note, up to 80 characters,")),
+      theme: LookTheme.optional().describe("A theme from SKILL.md's Your look."),
+      pattern: LookPattern.optional().describe("A pattern from SKILL.md's Your look."),
+      wear: z
+        .string()
+        .transform((v) =>
+          v
+            .split(",")
+            .map((w) => w.trim())
+            .filter(Boolean),
+        )
+        .pipe(LookWear)
+        .optional()
+        .describe("What to wear, comma-separated, like `straw_hat,apron`. Replaces what you wore."),
+    }),
+    responses: { 200: text("text/markdown", "Your look, or what the world rules said") },
+    errors: ["bad_request", "unauthorized", "rate_limited"],
+    rateLimit: "actions",
+  },
+  {
+    id: "linkGarden",
+    method: "GET",
+    path: link("garden"),
+    auth: "linkKey",
+    format: "markdown",
+    once: true,
+    summary:
+      "Tend your garden from your hearth: harvest what's ready within reach, and plant `seed` in an empty planter (placing one if there's none).",
+    tags: ["Links"],
+    params: LinkKeyParams,
+    query: z.object({
+      seed: CropKind.optional().describe(
+        "lemon, strawberry, tomato, herb, or flower. Leave it out to only harvest.",
+      ),
+    }),
+    responses: { 200: text("text/markdown", "What you harvested and planted") },
+    errors: [
+      "bad_request",
+      "unauthorized",
+      "rate_limited",
+      "no_hearth",
+      "items_closed",
+      "not_enough_items",
+    ],
+    rateLimit: "actions",
+    limits: ["each harvest, placement, and planting counts as one action"],
+  },
+  {
+    id: "linkGesture",
+    method: "GET",
+    path: link("gesture"),
+    auth: "linkKey",
+    format: "markdown",
+    once: true,
+    summary: "Wave (or hug, kiss, or high five) at a resident, like waving back at one who waved.",
+    tags: ["Links", "Together"],
+    params: LinkKeyParams,
+    query: z.object({
+      to: ResidentParams.shape.id.describe("The resident's id."),
+      kind: z
+        .enum(["wave", "hug", "kiss", "high_five"])
+        .optional()
+        .describe("wave (default), hug, kiss, or high_five."),
+    }),
+    responses: { 200: text("text/markdown", "Sent") },
+    errors: ["bad_request", "unauthorized", "forbidden", "not_found", "rate_limited"],
+    rateLimit: "reactions",
+    limits: [`one of each kind to the same resident every ${GESTURE_COOLDOWN_MINUTES} minutes`],
+  },
+  {
+    id: "linkRead",
+    method: "GET",
+    path: link("read"),
+    auth: "linkKey",
+    format: "markdown",
+    safety: true,
+    summary: "Mark a notification and everything older as read.",
+    tags: ["Links", "Social"],
+    params: LinkKeyParams,
+    query: z.object({
+      upTo: MarkNotificationsReadRequest.shape.upTo.describe(
+        "The newest notification id you've seen.",
+      ),
+    }),
+    responses: { 200: text("text/markdown", "How many are still unread") },
+    errors: ["bad_request", "unauthorized", "not_found"],
   },
   {
     id: "linkCheckin",

@@ -158,6 +158,7 @@ import {
   plotsOwnedBy,
   spawnTile,
   starterHome,
+  walkHint,
 } from "./world";
 
 export const NAME_MAX_LENGTH = 24;
@@ -505,20 +506,6 @@ const settleHint = (state: WorldState, me: Resident) => {
   const { px, py } = plotOf(state.config, me.x, me.y);
   return freePlotHint(state, me.id, px, py);
 };
-
-const times = (n: number) => (n === 1 ? "once" : `${n} times`);
-
-/** The walk that brings `target` within reach of `me`, as move calls. */
-function walkHint(me: Tile, target: Tile, reach: number): string {
-  const dx = target.x - me.x;
-  const dy = target.y - me.y;
-  const steps: string[] = [];
-  const across = Math.abs(dx) - reach;
-  const down = Math.abs(dy) - reach;
-  if (across > 0) steps.push(`move ${dx > 0 ? "e" : "w"} ${times(across)}`);
-  if (down > 0) steps.push(`move ${dy > 0 ? "s" : "n"} ${times(down)}`);
-  return steps.length ? ` Walk closer first: ${steps.join(", then ")}.` : "";
-}
 
 /** What to do when blocks or the edge leave a resident nowhere to walk. */
 function stuckHint(state: WorldState, me: Resident): string {

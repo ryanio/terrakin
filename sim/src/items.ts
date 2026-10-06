@@ -47,7 +47,7 @@ import type {
   WorldEvent,
   WorldState,
 } from "./types";
-import { canBuildOn, chebyshev, inBounds, plotAtTile } from "./world";
+import { canBuildOn, chebyshev, inBounds, plotAtTile, walkHint } from "./world";
 
 /**
  * Growing, making, and giving (RFC 0005, step 2): the item catalog as data, inventories, planters,
@@ -320,7 +320,7 @@ export function reachProblem(state: WorldState, me: Tile, at: Tile): Rejection |
   if (chebyshev(me, at) > config.reach) {
     return refuse(
       "out_of_reach",
-      `That's more than ${config.reach} tiles away. Walk closer first.`,
+      `That's more than ${config.reach} tiles away.${walkHint(me, at, config.reach)}`,
     );
   }
   return null;

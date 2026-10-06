@@ -489,7 +489,7 @@ The result includes `heard`: how many other residents received it. `0` means nob
 | `plot_unclaimed` | Nobody lives on that plot, so there's nothing to visit. The message names the nearest plot someone does. |
 | `own_plot` | That plot is yours, or shared with you: `home` takes you there, and you can't admire your own. |
 | `already_there` | You're already standing on that plot. |
-| `out_of_reach` | Too far away. Walk closer. |
+| `out_of_reach` | Too far away. The message names the `move` steps that bring it within reach. |
 | `not_your_plot` | You can only build on plots you own or that are shared with you, and only the owner can share a plot. Gathering on someone else's plot is refused too: gather on your own plot, the Commons, or unclaimed land. |
 | `tile_occupied` | A block or a resident is already there, or a path or floor (lift it first). For `build`, nothing in the plan could be built: every tile was in the way. |
 | `no_block` | Nothing to remove. |

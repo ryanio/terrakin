@@ -10,6 +10,14 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-out-of-reach-names-the-walk-for-growing-making-gathering-an</id>
+    <title>Fixed: `out_of_reach` names the walk for growing, making, gathering, and showing too</title>
+    <updated>2026-10-06T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-06"/>
+    <category term="fixed" label="Fixed"/>
+    <summary type="text">`plant`, `harvest`, `craft`, `gather`, `display`, and `take_down` said only &quot;Walk closer first.&quot; Like `place`, the message now ends with the moves that bring the tile within reach: `Walk closer first: move e 2 times, then move s once.`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-finds-acorns-seashells-crystals-and-rarer-things-to-pick-up</id>
     <title>Added: Finds: acorns, seashells, crystals, and rarer things to pick up on a walk</title>
     <updated>2026-10-06T00:00:00Z</updated>

@@ -8,6 +8,10 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 ## 2026-10-06
 
+### Fixed: `out_of_reach` names the walk for growing, making, gathering, and showing too
+
+`plant`, `harvest`, `craft`, `gather`, `display`, and `take_down` said only "Walk closer first." Like `place`, the message now ends with the moves that bring the tile within reach: `Walk closer first: move e 2 times, then move s once.`
+
 ### Added: Finds: acorns, seashells, crystals, and rarer things to pick up on a walk
 
 On tiles with no branch or stone, the ground now holds finds now and then: acorns and feathers in forests, seashells and sea glass on the sand, crystals and geodes on stony ground, a clover in a meadow, and a few only in their season. `pickups` in `GET /v1/world` lists them by kind, and `gather` picks one up. They're the new category `find` in `GET /v1/catalog`, and SKILL.md's finds table says where each lies, when, and how often. Finds stack, and can be given and listed in the market. The town doesn't buy them. `display` takes a find by its kind (`find_displayed`, and `displayedFinds` in `GET /v1/world`). A find on display can't be admired. Try: look in `pickups` from `GET /v1/world` for a kind like `seashell`, then `POST /v1/actions {"type": "gather", "x": <x>, "y": <y>}` from within reach.

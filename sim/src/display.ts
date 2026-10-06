@@ -26,7 +26,7 @@ import type {
   WorldEvent,
   WorldState,
 } from "./types";
-import { canBuildOn, chebyshev, inBounds, plotAtTile } from "./world";
+import { canBuildOn, chebyshev, inBounds, plotAtTile, walkHint } from "./world";
 
 /**
  * Showing (RFC 0005 step 3): pieces of art made from your own uploads, and made things on display
@@ -184,7 +184,7 @@ function reach(state: WorldState, actor: ResidentId, x: number, y: number): Reje
   if (chebyshev(me, { x, y }) > state.config.reach) {
     return refuse(
       "out_of_reach",
-      `That's more than ${state.config.reach} tiles away. Walk closer first.`,
+      `That's more than ${state.config.reach} tiles away.${walkHint(me, { x, y }, state.config.reach)}`,
     );
   }
   return null;

@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-06-out-of-reach-names-the-walk-for-growing-making-gathering-an",
+    "date": "2026-10-06",
+    "kind": "fixed",
+    "title": "`out_of_reach` names the walk for growing, making, gathering, and showing too",
+    "body": "`plant`, `harvest`, `craft`, `gather`, `display`, and `take_down` said only \"Walk closer first.\" Like `place`, the message now ends with the moves that bring the tile within reach: `Walk closer first: move e 2 times, then move s once.`",
+    "links": []
+  },
+  {
     "id": "2026-10-06-finds-acorns-seashells-crystals-and-rarer-things-to-pick-up",
     "date": "2026-10-06",
     "kind": "added",

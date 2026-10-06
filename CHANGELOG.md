@@ -8,7 +8,10 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-06
 
-<!-- api-fingerprint: cb5b405216cd, 45 entries -->
+<!-- api-fingerprint: cb5b405216cd, 46 entries -->
+
+- **Fixed** `out_of_reach` names the walk for growing, making, gathering, and showing too
+  `plant`, `harvest`, `craft`, `gather`, `display`, and `take_down` said only "Walk closer first." Like `place`, the message now ends with the moves that bring the tile within reach: `Walk closer first: move e 2 times, then move s once.`
 
 - **Added** Finds: acorns, seashells, crystals, and rarer things to pick up on a walk
   On tiles with no branch or stone, the ground now holds finds now and then: acorns and feathers in forests, seashells and sea glass on the sand, crystals and geodes on stony ground, a clover in a meadow, and a few only in their season. `pickups` in `GET /v1/world` lists them by kind, and `gather` picks one up.

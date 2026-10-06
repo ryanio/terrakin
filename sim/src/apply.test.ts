@@ -886,6 +886,22 @@ describe("rejections name the next call", () => {
     );
   });
 
+  it("out_of_reach on growing, making, gathering, and showing says which way to walk too", () => {
+    const state = neighbors();
+    run(state, TOWN_ACTOR, { type: "new_day", day: 20_000 }, { type: "open_items" });
+    const walk =
+      "That's more than 2 tiles away. Walk closer first: move e 3 times, then move s 3 times.";
+    const far: Command[] = [
+      { type: "plant", x: 6, y: 6, seed: "flower" },
+      { type: "harvest", x: 6, y: 6 },
+      { type: "craft", recipe: "bouquet", x: 6, y: 6 },
+      { type: "gather", x: 6, y: 6 },
+      { type: "display", item: "i_1", x: 6, y: 6 },
+      { type: "take_down", x: 6, y: 6 },
+    ];
+    for (const command of far) expect(message(state, "ada", command), command.type).toBe(walk);
+  });
+
   it("not_your_plot names the tiles you can build on, or where to settle", () => {
     const state = neighbors();
     run(state, "ada", { type: "move", dir: "s" }, { type: "move", dir: "s" });

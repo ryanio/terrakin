@@ -182,6 +182,43 @@ describe("walking", () => {
     expect(m.pose(at(5, 5), 1000 + BUMP_MS, false)).toMatchObject({ x: 5, y: 5, facing: "nw" });
   });
 
+  it("nudges toward a wall it walked into once the step it was on lands", () => {
+    const m = you();
+    m.ahead = { x: 6, y: 5 };
+    m.pose(at(5, 5), 0, false);
+    m.bump("a", "e", 100);
+    // Still walking: no nudge yet, just the step.
+    expect(m.pose(at(5, 5), 150, false).x).toBeLessThanOrEqual(6);
+    let furthest = 0;
+    let facing: string | undefined;
+    for (let t = 166; t <= 1000; t += 16) {
+      const p = m.pose(at(5, 5), t, false);
+      furthest = Math.max(furthest, p.x);
+      facing = p.facing;
+    }
+    expect(furthest).toBeGreaterThan(6.05);
+    expect(facing).toBe("e");
+    expect(m.pose(at(5, 5), 1000, false).x).toBe(6);
+  });
+
+  it("walks your figure back, without a puff, when the server turns its steps down", () => {
+    const m = you();
+    m.ahead = { x: 6, y: 5 };
+    m.pose(at(5, 5), 0, false);
+    m.ahead = { x: 7, y: 5 };
+    m.pose(at(5, 5), 200, false);
+    // Turned down: back to where the server says, two tiles behind.
+    m.ahead = { x: 5, y: 5 };
+    const frames: { x: number; poof: number | undefined }[] = [];
+    for (let t = 216; t <= 1500; t += 16) {
+      const p = m.pose(at(5, 5), t, false);
+      frames.push({ x: p.x, poof: p.poof });
+    }
+    expect(frames.every((f) => f.poof === undefined)).toBe(true);
+    expect(frames[0]?.x).toBeGreaterThan(5.5);
+    expect(frames.at(-1)?.x).toBe(5);
+  });
+
   it("stands on its tile with reduced motion, and keeps the walk's pace", () => {
     const m = you();
     m.ahead = { x: 6, y: 5 };

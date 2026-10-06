@@ -90,7 +90,8 @@ export class Walker {
   /** The way the d-pad is held, on screen. */
   private pad: Direction | undefined;
   private readonly taps: Tap[] = [];
-  private route: (Route & { steps: Direction[] }) | undefined;
+  /** Where a tap sent you: its steps, planned from `from`, the tile the first one leaves. */
+  private route: (Route & { steps: Direction[]; from: Tile | undefined }) | undefined;
   /** Steps and moves sent and not yet answered. `to` is undefined for a move that isn't a step. */
   private readonly flying: { id: string; to: Tile | undefined; at: number }[] = [];
   /** The server turned something down: wait for every answer, then start over from its word. */
@@ -151,15 +152,19 @@ export class Walker {
     this.queue({ dir, at: now, source: "pad" });
   }
 
-  /** Walk somewhere, instead of whatever was queued. */
+  /**
+   * Walk somewhere, instead of whatever was queued or held. It's planned when the first step is
+   * due, from wherever you are by then (after a jump home that's still on its way, say), and
+   * planned again whenever you aren't where its next step starts.
+   */
   walkTo(route: Route) {
+    this.letGo();
     this.taps.length = 0;
-    this.route = { ...route, steps: [] };
-    this.replan();
+    this.route = { ...route, steps: [], from: undefined };
   }
 
   /**
-   * Something that may move you is on its way to the server (home, settle): walk no further until
+   * Something that may move you is on its way to the server (going home): walk no further until
    * it's answered, then from wherever the server says you are.
    */
   awaiting(id: string, now: number) {
@@ -180,12 +185,25 @@ export class Walker {
 
   /** Stop walking: let go of every key and the d-pad, and forget taps and routes. */
   stop() {
-    for (const k of this.keys.values())
-      Object.assign(k, { down: false, upAt: Number.NEGATIVE_INFINITY });
-    this.pad = undefined;
+    this.letGo();
     this.taps.length = 0;
     this.route = undefined;
     this.stuck = undefined;
+  }
+
+  /**
+   * Count every walk key as let go, whatever the keyboard says next: macOS sends no keyup for a key
+   * let go while Command is down, so Command lets go of them all.
+   */
+  releaseKeys() {
+    for (const k of this.keys.values())
+      Object.assign(k, { down: false, upAt: Number.NEGATIVE_INFINITY });
+  }
+
+  /** Let go of the keys and the d-pad. */
+  private letGo() {
+    this.releaseKeys();
+    this.pad = undefined;
   }
 
   /** A new connection or a new world: nothing in flight, nothing ahead. */
@@ -218,11 +236,12 @@ export class Walker {
     if (!ahead || !ground || this.unsure || now < this.startAt) return;
     if (this.flying.length >= IN_FLIGHT || this.flying.some((f) => !f.to)) return;
     if (this.world.behind() > LEAD) return;
-    const tries = this.next(now);
-    if (!tries) {
+    const ask = this.next(now);
+    if (!ask) {
       this.arrive();
       return;
     }
+    const { tries, routed } = ask;
     for (const dir of tries) {
       const step = stepFrom(ground, ahead, dir);
       if (!step.ok) continue;
@@ -234,12 +253,15 @@ export class Walker {
       this.flying.push({ id, to: step.to, at: now });
       this.ahead = step.to;
       this.stuck = undefined;
-      if (this.route && this.route.steps[0] === dir) this.route.steps.shift();
+      if (routed && this.route) {
+        this.route.steps.shift();
+        this.route.from = step.to;
+      }
       return;
     }
     // Nothing open that way. A route looks for another way; a key or the d-pad bumps, once.
     const way = tries[0] as Direction;
-    if (this.route) {
+    if (routed) {
       if (!this.replan()) this.arrive();
     } else if (this.stuck !== way) {
       this.world.bumped(way);
@@ -291,9 +313,10 @@ export class Walker {
 
   /**
    * The next step to try, in the world's directions, and what to slide along instead when it's a
-   * blocked diagonal. Takes a tap off the queue. Undefined when nothing asks to walk.
+   * blocked diagonal; `routed` when it's a route's. Takes a tap off the queue. Undefined when
+   * nothing asks to walk.
    */
-  private next(now: number): Direction[] | undefined {
+  private next(now: number): { tries: Direction[]; routed: boolean } | undefined {
     const steer = (d: Direction) => this.world.steer(d);
     const tap = this.taps.shift();
     let want: Direction | undefined;
@@ -308,14 +331,20 @@ export class Walker {
     }
     if (want) {
       const [dx, dy] = STEP[want];
-      if (!dx || !dy) return [steer(want)];
+      if (!dx || !dy) return { tries: [steer(want)], routed: false };
       const across = directionOf(dx, 0) as Direction;
       const along = directionOf(0, dy) as Direction;
       const first = tap?.source === "pad" || this.pad ? "x" : this.newestAxis();
-      return [want, ...(first === "x" ? [across, along] : [along, across])].map(steer);
+      const slide = first === "x" ? [across, along] : [along, across];
+      return { tries: [want, ...slide].map(steer), routed: false };
     }
-    const step = this.route?.steps[0];
-    return step ? [step] : undefined;
+    // A route walks from where it was planned; anywhere else, it's planned again from here.
+    const route = this.route;
+    const from = this.ahead;
+    if (!route || !from) return undefined;
+    if (route.from?.x !== from.x || route.from?.y !== from.y) this.replan();
+    const step = route.steps[0];
+    return step ? { tries: [step], routed: true } : undefined;
   }
 
   /** Plan the route again from where you're headed. False when there's no way on from here. */
@@ -324,6 +353,7 @@ export class Walker {
     const from = this.ahead ?? this.world.at();
     if (!route || !from) return false;
     route.steps = route.plan(from);
+    route.from = { x: from.x, y: from.y };
     return route.steps.length > 0;
   }
 

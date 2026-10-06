@@ -45,19 +45,29 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
   await expect.poll(async () => (await me()) !== undefined).toBe(true);
 
   await test.step("taps walk around the Town Hall, never across it", async () => {
-    const { townHall } = await page.request.get("/v1/world").then((r) => r.json());
-    const onHall = (t: { x: number; y: number }) =>
-      townHall.some((h: { x: number; y: number }) => h.x === t.x && h.y === t.y);
-    // From the hall's west end across to its east end, the straight way is through it. All of
-    // it is the Commons, where nobody builds, so other specs can't wall the way.
+    type Tile = { x: number; y: number };
+    const { townHall, residents } = await page.request.get("/v1/world").then((r) => r.json());
+    const onHall = (t: Tile) => townHall.some((h: Tile) => h.x === t.x && h.y === t.y);
+    // A tap on someone says who they are instead of walking there (Wren stands on spawn), so
+    // each stop is the first of its tiles nobody stands on.
+    const free = (...tiles: Tile[]) =>
+      tiles.find(
+        (t) =>
+          !residents.some(
+            (r: Tile & { online: boolean }) => r.online && r.x === t.x && r.y === t.y,
+          ),
+      ) ?? (tiles[0] as Tile);
+    // From the hall's west end across to its east end, the straight way is through it, and the
+    // way round goes north of the hall or south through the Commons.
     const spawn = await me();
-    const west = { x: spawn.x - 2, y: spawn.y - 4 };
-    const east = { x: spawn.x + 2, y: spawn.y - 4 };
-    // Back beside spawn, not on it: a tap on someone (Wren stands on spawn) says who they are.
-    // Two short taps, since one far down and to the left lands on the 3D view button.
-    const front = { x: spawn.x, y: spawn.y - 2 };
-    const back = { x: spawn.x - 1, y: spawn.y };
-    expect(onHall({ x: spawn.x, y: west.y })).toBe(true);
+    const row = spawn.y - 4;
+    const west = free({ x: spawn.x - 2, y: row }, { x: spawn.x - 3, y: row });
+    const east = free({ x: spawn.x + 2, y: row }, { x: spawn.x + 3, y: row });
+    // Back beside spawn in two short taps, since one far down and to the left lands on the 3D
+    // view button.
+    const front = free({ x: spawn.x, y: spawn.y - 2 }, { x: spawn.x + 1, y: spawn.y - 2 });
+    const back = free({ x: spawn.x - 1, y: spawn.y }, { x: spawn.x - 1, y: spawn.y + 1 });
+    expect(onHall({ x: spawn.x, y: row })).toBe(true);
     const seen: { x: number; y: number }[] = [];
     let at = { x: spawn.x, y: spawn.y };
     for (const to of [west, east, front, back]) {
@@ -124,11 +134,15 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
   await page.screenshot({ path: "test-results/hearth.png" });
 
   await test.step("two arrow keys held together walk diagonally", async () => {
-    await page.keyboard.down("ArrowDown");
-    await page.keyboard.down("ArrowRight");
+    // Both keys in one go, so a slow runner can't land them further apart than a person would.
+    const both = (type: "keydown" | "keyup") =>
+      page.evaluate((type) => {
+        for (const key of ["ArrowDown", "ArrowRight"])
+          window.dispatchEvent(new KeyboardEvent(type, { key, bubbles: true }));
+      }, type);
+    await both("keydown");
     await expect.poll(async () => (await me()).x, { intervals: [100] }).toBeGreaterThan(x + 1);
-    await page.keyboard.up("ArrowDown");
-    await page.keyboard.up("ArrowRight");
+    await both("keyup");
     // Every step went south-east: as far down as across.
     await expect
       .poll(async () => {

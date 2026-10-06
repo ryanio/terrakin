@@ -37,7 +37,7 @@ import type {
   WorldEvent,
   WorldState,
 } from "./types";
-import { stepOffBuildings } from "./walk";
+import { moveOff, offBuildings } from "./walk";
 
 /**
  * The town shop (RFC 0008, phase 2): a catalog the town sells from, buy orders the town pays for,
@@ -203,10 +203,11 @@ export function checkOpenShop(state: WorldState): ShopChecked {
   if (!state.economy || !state.items || state.day === undefined) {
     return refuse("not_due", "The town shop opens once coins and items are open.");
   }
+  // Once buildings are solid, anyone standing where the shop goes steps off it.
+  const off = state.solidBuildings ? offBuildings(state, { shopOpen: true }) : [];
   return () => {
     state.shop = { wardrobe: {}, today: emptyToday() };
-    // Once buildings are solid, anyone standing where the shop goes steps off it.
-    return [{ type: "shop_opened" }, ...(state.solidBuildings ? stepOffBuildings(state) : [])];
+    return [{ type: "shop_opened" }, ...moveOff(state, off)];
   };
 }
 

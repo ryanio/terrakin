@@ -4,6 +4,7 @@ import type {
   Direction,
   Rejection,
   Resident,
+  ResidentId,
   Tile,
   WorldConfig,
   WorldEvent,
@@ -194,31 +195,53 @@ type Mutation = () => WorldEvent[];
  */
 export function checkSolidBuildings(state: WorldState): Mutation | Rejection {
   if (state.solidBuildings) return refuse("already_open", "The buildings are already solid.");
+  const off = offBuildings(state, { solidBuildings: true });
   return () => {
     state.solidBuildings = true;
-    return [{ type: "buildings_solid" }, ...stepOffBuildings(state)];
+    return [{ type: "buildings_solid" }, ...moveOff(state, off)];
   };
 }
 
+/** Someone to move off a building, and where to. */
+export interface SteppingOff extends Tile {
+  id: ResidentId;
+}
+
 /**
- * Move everyone standing on a solid building, online or not, to the nearest tile they can stand
- * on, so nobody is left inside one: nearest by Chebyshev distance, then straight out before
- * diagonally, then north to south and west to east. In id order, so every replay agrees.
+ * Who would stand on a solid building once `change` happens (the switch turning on, or the shop
+ * opening), online or not, and the nearest tile each can stand on: nearest by Chebyshev distance,
+ * then straight out before diagonally, then north to south and west to east. In id order, so
+ * every replay agrees. It only reads, for a check; `moveOff` moves them in the commit.
  */
-export function stepOffBuildings(state: WorldState): WorldEvent[] {
-  const ground = worldGround(state);
-  const events: WorldEvent[] = [];
+export function offBuildings(
+  state: WorldState,
+  change: { solidBuildings?: true; shopOpen?: true },
+): SteppingOff[] {
+  const ground = groundOf({
+    config: state.config,
+    hasBlock: (x, y) => isSolid(state, x, y),
+    solidBuildings: change.solidBuildings ?? state.solidBuildings === true,
+    shopOpen: change.shopOpen ?? state.shop !== undefined,
+  });
+  const off: SteppingOff[] = [];
   for (const id of Object.keys(state.residents).sort()) {
     const r = state.residents[id] as Resident;
     const on = ground.obstacle(r.x, r.y);
     if (on !== "town_hall" && on !== "shop") continue;
     const to = nearestOpen(ground, r);
-    if (!to) continue;
-    r.x = to.x;
-    r.y = to.y;
-    events.push({ type: "moved", residentId: id, x: to.x, y: to.y });
+    if (to) off.push({ id, ...to });
   }
-  return events;
+  return off;
+}
+
+/** Move everyone `offBuildings` found, with a `moved` event each. */
+export function moveOff(state: WorldState, off: readonly SteppingOff[]): WorldEvent[] {
+  return off.map(({ id, x, y }) => {
+    const r = state.residents[id] as Resident;
+    r.x = x;
+    r.y = y;
+    return { type: "moved", residentId: id, x, y };
+  });
 }
 
 function nearestOpen(ground: Ground, from: Tile): Tile | undefined {

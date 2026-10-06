@@ -65,6 +65,17 @@ describe("walking", () => {
     t.service.tick();
     expect(switches()).toEqual([TOWN_ACTOR]);
     expect((await t.call("GET", "/v1/world")).body.solidBuildings).toBe(true);
+    // A restart reads the switch back from the log and doesn't log it again.
+    const now = () => Date.UTC(2026, 9, 6, 12);
+    const again = new WorldService({
+      store: t.store,
+      config: CONFIG,
+      now,
+      days: true,
+      solidBuildings: true,
+    });
+    expect(again.state.solidBuildings).toBe(true);
+    expect(switches()).toEqual([TOWN_ACTOR]);
   });
 
   it("turns away a step onto the Town Hall, while diagonal steps around it go through", async () => {

@@ -105,6 +105,8 @@ interface Track {
   activeAt: number;
   jumpAt: number;
   bump: { dx: number; dy: number; at: number } | undefined;
+  /** A bump asked for mid-step, shown once the walk comes to a stop. */
+  bumpNext: Direction | undefined;
   phase: number;
   doze?: Shown;
 }
@@ -212,15 +214,16 @@ export class Motion {
     if (t && id !== this.self) this.head(t, x, y, now, true);
   }
 
-  /** Something stopped a step that way: turn to it and nudge toward it, if standing. */
+  /**
+   * Something stopped a step that way: turn to it and nudge toward it. Asked mid-step, as a held
+   * key runs into a wall, it shows once the figure stops on the tile in front.
+   */
   bump(id: string, dir: Direction, now: number) {
     const t = this.tracks.get(id);
-    if (!t || t.path.length > 0) return;
-    const [dx, dy] = STEP[dir];
-    const len = Math.hypot(dx, dy);
-    t.bump = { dx: dx / len, dy: dy / len, at: now };
-    t.facing = dir;
+    if (!t) return;
     t.activeAt = now;
+    if (t.path.length > 0) t.bumpNext = dir;
+    else nudge(t, dir, now);
   }
 
   /** Turn someone to face a way (looking at what they tapped), until they next move. */
@@ -263,6 +266,7 @@ export class Motion {
         activeAt: this.woke.get(r.id) ?? now,
         jumpAt: Number.NEGATIVE_INFINITY,
         bump: undefined,
+        bumpNext: undefined,
         phase: phaseOf(r.id),
       };
       this.woke.delete(r.id);
@@ -345,7 +349,9 @@ export class Motion {
   private head(t: Track, x: number, y: number, now: number, theirs: boolean) {
     if (x === t.toX && y === t.toY) return;
     t.activeAt = now;
+    t.bumpNext = undefined;
     const step = Math.max(Math.abs(x - t.toX), Math.abs(y - t.toY)) === 1;
+    const near = Math.max(Math.abs(x - t.x), Math.abs(y - t.y)) <= 2;
     if (step && remaining(t) + 1 <= MAX_BEHIND) {
       const resting = t.path.length === 0 && now - t.stopAt > REST_MS;
       if (!theirs || resting) {
@@ -364,6 +370,13 @@ export class Motion {
       }
       t.lastStepAt = now;
       t.path.push({ x, y });
+    } else if (!theirs && near) {
+      // Your own figure sent back to where the server says you are (it turned a step down):
+      // walk straight there from wherever the figure had got to, rather than jump.
+      t.path = [{ x, y }];
+      t.leg = undefined;
+      t.pace = WALK_SPEED;
+      t.startAt = now;
     } else {
       // A jump, or a walk too far behind to be worth walking: there at once.
       if (!step) t.jumpAt = now;
@@ -412,10 +425,20 @@ export class Motion {
           t.leg = undefined;
           t.speed = 0;
           t.stopAt = clock;
+          if (t.bumpNext) nudge(t, t.bumpNext, clock);
+          t.bumpNext = undefined;
         }
       }
     }
   }
+}
+
+/** Turn to `dir` and nudge toward it, from standing. */
+function nudge(t: Track, dir: Direction, at: number) {
+  const [dx, dy] = STEP[dir];
+  const len = Math.hypot(dx, dy);
+  t.bump = { dx: dx / len, dy: dy / len, at };
+  t.facing = dir;
 }
 
 /** A new step pushes off from where they stand: turn that way, and kick up dust. */

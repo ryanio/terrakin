@@ -39,7 +39,10 @@ function world(
       pending.push({ id, dir, due: now + (opts.lag ?? 40) });
       return id;
     },
-    bumped: (dir) => bumps.push(dir),
+    bumped: (dir) => {
+      bumps.push(dir);
+      motion.bump("me", dir, now);
+    },
   });
   /** Run frames until `until`, answering steps as they come due. */
   const run = (until: number) => {
@@ -56,6 +59,11 @@ function world(
     }
   };
   const dirs = () => sent.map((s) => s.dir);
+  /** The server answers `id` itself, moving you to `to` (a jump home, say). */
+  const answer = (id: string, ok: boolean, to?: Tile) => {
+    if (to) at = to;
+    walker.answered(id, ok);
+  };
   const wall = (...tiles: Tile[]) => {
     for (const t of tiles) blocks.add(tileKey(t.x, t.y));
   };
@@ -68,6 +76,7 @@ function world(
     dirs,
     bumps,
     pending,
+    answer,
     wall,
     at: () => at,
     get now() {
@@ -174,6 +183,22 @@ describe("a held key", () => {
     w.walker.press("e", 1100);
     w.run(1500);
     expect(w.bumps).toEqual(["e", "e"]);
+  });
+
+  it("into a wall nudges the figure once it stops on the tile in front", () => {
+    const w = world();
+    w.wall({ x: 8, y: 5 });
+    w.walker.press("e", 0);
+    const xs: number[] = [];
+    for (let t = 0; t <= 1500; t += FRAME) {
+      w.run(t);
+      xs.push(w.motion.pose({ id: "me", x: w.at().x, y: w.at().y }, t, false).x);
+    }
+    expect(w.dirs()).toEqual(["e", "e"]);
+    expect(w.bumps).toEqual(["e"]);
+    // Past the tile in front of the wall for a moment, then back on it.
+    expect(Math.max(...xs)).toBeGreaterThan(7.05);
+    expect(xs.at(-1)).toBe(7);
   });
 
   it("stops at the Town Hall like at a block", () => {
@@ -290,6 +315,30 @@ describe("ahead of the server", () => {
     expect(w.sent).toHaveLength(2);
   });
 
+  it("taken while going home walks from the hearth", () => {
+    const w = world({ answer: false });
+    w.walker.awaiting("home", 0);
+    let arrived = 0;
+    w.walker.walkTo({
+      plan: (from) => route(w.ground, from, { x: 18, y: 18 }),
+      arrive: () => arrived++,
+    });
+    w.run(300);
+    expect(w.sent).toEqual([]);
+    // The jump lands at the hearth, (20, 20), and only then does the walk plan its way.
+    w.answer("home", true, { x: 20, y: 20 });
+    for (let t = 316; t <= 2500; t += FRAME) {
+      for (const p of w.pending.splice(0)) {
+        const [dx, dy] = STEP[p.dir];
+        w.answer(p.id, true, { x: w.at().x + dx, y: w.at().y + dy });
+      }
+      w.run(t);
+    }
+    expect(w.at()).toEqual({ x: 18, y: 18 });
+    expect(w.dirs()).toEqual(["nw", "nw"]);
+    expect(arrived).toBe(1);
+  });
+
   it("waits for anything else that may move you before stepping on", () => {
     const w = world();
     w.walker.awaiting("home", 0);
@@ -323,6 +372,19 @@ describe("a route", () => {
     for (let y = 0; y <= 4; y++) w.wall({ x: 5, y });
     w.run(5000);
     expect(w.at()).toEqual({ x: 8, y: 2 });
+  });
+
+  it("tapped while a key is held takes over from the key", () => {
+    const w = world();
+    w.walker.press("e", 0);
+    w.run(400);
+    w.walker.walkTo({ plan: (from) => route(w.ground, from, { x: 6, y: 1 }) });
+    w.run(3000);
+    expect(w.at()).toEqual({ x: 6, y: 1 });
+    // Letting go of the key afterwards changes nothing.
+    w.walker.release("e", 3000);
+    w.run(3500);
+    expect(w.at()).toEqual({ x: 6, y: 1 });
   });
 
   it("gives way to a key", () => {

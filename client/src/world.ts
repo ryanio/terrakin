@@ -246,6 +246,8 @@ async function resync() {
     if (!wasIn && me) return;
     if (parsed.success) {
       mirror = new Mirror(parsed.data);
+      // Steps taken against the old copy may have missed what changed: start over from this one.
+      walker.reset();
       dayAnchor = anchor(parsed.data.time);
       updatePopulation();
     } else console.warn("Bad snapshot from server", parsed.error);
@@ -540,11 +542,8 @@ function tapTile(tile: { x: number; y: number }) {
   if (!mirror || !r || !at) return;
   if (buildMode) {
     const hasBlock = mirror.blocks.has(`${tile.x},${tile.y}`);
-    if (block === "hearth") {
-      // A new hearth takes you home to it: no more steps until the server says where you are.
-      const id = tryAct({ type: "set_hearth", ...tile });
-      if (id) walker.awaiting(id, performance.now());
-    } else tryAct(hasBlock ? { type: "remove", ...tile } : { type: "place", ...tile, block });
+    if (block === "hearth") tryAct({ type: "set_hearth", ...tile });
+    else tryAct(hasBlock ? { type: "remove", ...tile } : { type: "place", ...tile, block });
     return;
   }
   // Tapping yourself while you stand on your own plot opens it in 3D.
@@ -765,6 +764,11 @@ const walkKey = (e: KeyboardEvent): Direction | undefined =>
   KEYS[e.key.length === 1 ? e.key.toLowerCase() : e.key];
 
 window.addEventListener("keydown", (e) => {
+  // macOS sends no keyup for a key let go while Command is down, so Command lets go of them all.
+  if (e.key === "Meta") {
+    walker.releaseKeys();
+    return;
+  }
   if (!active || !me || keysTaken() || e.metaKey || e.ctrlKey || e.altKey) return;
   const dir = walkKey(e);
   if (!dir) return;
@@ -920,7 +924,8 @@ function frame() {
   paintPad(world3d?.heading() ?? 0, world3d !== undefined);
   const r = self();
   if (r) {
-    walker.tick(now);
+    // While the world reloads, the mirror is behind the server: no steps checked against it.
+    if (!resyncing) walker.tick(now);
     motion.ahead = walker.ahead;
     // The map's camera follows your figure as it's drawn, so the world glides under a walk.
     const p = motion.pose(r, now, still);

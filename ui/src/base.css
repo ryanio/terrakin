@@ -802,8 +802,8 @@ a.tag-card:focus-visible {
 
 .check-input {
   flex: none;
-  width: 22px;
-  height: 22px;
+  width: var(--check);
+  height: var(--check);
   margin: 1px 0 0;
   accent-color: var(--clay);
 }

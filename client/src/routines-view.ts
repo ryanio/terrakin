@@ -296,7 +296,7 @@ export async function awayCard(): Promise<HTMLElement | null> {
       class: "paper card stack away-card",
       attrs: { id: "away-card", "aria-labelledby": "away-title" },
     },
-    h("h2", { class: "away-title", attrs: { id: "away-title" }, text: "While you were away" }),
+    h("h2", { class: "card-title", attrs: { id: "away-title" }, text: "While you were away" }),
     awayList(recent),
     h("div", { class: "cluster" }, open),
   );

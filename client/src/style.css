@@ -7717,7 +7717,8 @@ html.view3d-open body {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  padding: 0 var(--space-md) var(--space-md) calc(var(--space-md) + 22px + var(--space-md));
+  /* The check row's padding, its box, and the gap after it. */
+  padding: 0 var(--space-md) var(--space-md) calc(var(--space-md) + var(--check) + var(--space-md));
 }
 
 .routine-word {
@@ -7728,14 +7729,6 @@ html.view3d-open body {
 
 .routine-when .field-input:disabled {
   opacity: 0.55;
-}
-
-.away-title {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: var(--text-2xl);
-  font-weight: var(--weight-semibold);
-  line-height: var(--leading-tight);
 }
 
 /* The mark beside a line: moss for what went, clay for what couldn't. */

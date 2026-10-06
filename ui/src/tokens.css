@@ -42,6 +42,8 @@
   --resident-snow: #fbf7ee;
 
   --tap: 52px;
+  /* A checkbox or radio in a check row (ui.ts checkRow). */
+  --check: 22px;
 
   /*
    * Spacing. Every gap, padding and margin of 4px or more is one of these (a test checks).

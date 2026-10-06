@@ -1255,8 +1255,10 @@ export class SafetyService {
         VALUES (${values.map(() => "?").join(", ")})`,
       ...values,
     );
-    // Who and what, never the text that was moderated.
-    console.info(`Moderation log: ${action} ${kind} ${id} by ${actor}`);
+    // Who and what, never the text that was moderated, and never a staff email: the table keeps
+    // the Access sign-in, the console line says only "staff".
+    const by = actor.startsWith("access:") ? "staff" : actor;
+    console.info(`Moderation log: ${action} ${kind} ${id} by ${by}`);
     return {
       action,
       kind,

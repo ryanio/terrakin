@@ -3,7 +3,7 @@ import { request as httpRequest } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { WorldConfig } from "@terrakin/sim";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { Api, type ApiRequest } from "./api";
 import { createApp } from "./app";
 import { MemoryMediaStore } from "./media";
@@ -314,6 +314,30 @@ describe("with Cloudflare Access set up", () => {
     expect((await t.call("POST", "/v1/admin/listings/l_1/remove", takeDown, mod)).status).toBe(404);
     const log = (await t.call("GET", "/v1/admin/log", undefined, ryan)).body.entries;
     expect(log[0]).toMatchObject({ actor: "access:ryan@example.com", actorView: null });
+  });
+
+  it("keeps a staff email out of the moderation log's console line", async () => {
+    const lines: string[] = [];
+    for (const level of ["log", "info", "warn", "error", "debug"] as const) {
+      const spy = vi.spyOn(console, level).mockImplementation((...args: unknown[]) => {
+        lines.push(args.map(String).join(" "));
+      });
+      cleanups.push(() => spy.mockRestore());
+    }
+    const t = direct(true);
+    const bo = await t.join("Bo");
+    const post = t.social.createPost(bo.id, { text: "Finished the greenhouse today." });
+    if (!post.ok) throw new Error(post.message);
+    const id = post.value.id;
+    const ryan = { staffEmail: "ryan@example.com" };
+    expect((await t.call("POST", `/v1/admin/posts/${id}/hide`, { reason: "x" }, ryan)).status).toBe(
+      200,
+    );
+    expect(lines).toContain(`Moderation log: hide_post post ${id} by staff`);
+    expect(lines.join("\n")).not.toMatch(/@|example\.com|ryan/i);
+    // The table still names who did it, for staff.
+    const log = (await t.call("GET", "/v1/admin/log", undefined, ryan)).body.entries;
+    expect(log[0]).toMatchObject({ action: "hide_post", actor: "access:ryan@example.com" });
   });
 });
 

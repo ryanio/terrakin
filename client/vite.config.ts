@@ -11,7 +11,7 @@ import {
 } from "@terrakin/protocol";
 import { iconSvg, isIconName } from "@terrakin/ui/icons";
 import { defineConfig, type Plugin } from "vite";
-import { markdownTwin, staticPage, trustLinksHtml } from "./src/site-page";
+import { footerHtml, markdownTwin, staticPage } from "./src/site-page";
 
 const server = process.env.TERRAKIN_SERVER ?? "http://localhost:8787";
 const repo = (path: string) => fileURLToPath(new URL(`../${path}`, import.meta.url));
@@ -112,7 +112,7 @@ function icons(): Plugin {
 /**
  * The site pages from docs/site/*.md and protocol/src/site.ts (the one source for each):
  *
- * - the trust links (About, Terms, Privacy, Contact) in place of `<!-- site:trust-links -->`,
+ * - the footer in place of `<!-- site:footer -->`,
  * - the homepage's JSON-LD (WebSite, Organization, WebApplication, FAQPage) in index.html,
  * - a Markdown twin for every page with `prose` (`/index.md`, `/about.md`, `/pricing.md`, ...),
  *   with frontmatter for title, description, canonical, and last-updated,
@@ -142,7 +142,7 @@ function sitePages(): Plugin {
   return {
     name: "terrakin-site",
     transformIndexHtml(raw, ctx) {
-      const html = raw.replaceAll("<!-- site:trust-links -->", trustLinksHtml());
+      const html = raw.replaceAll("<!-- site:footer -->", footerHtml());
       // The homepage's description; the docs page (docs.html) has its own.
       if (ctx.path !== "/index.html") return html;
       const json = JSON.stringify(homeJsonLd()).replace(/</g, "\\u003c");

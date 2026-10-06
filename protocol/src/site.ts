@@ -59,8 +59,9 @@ export const LINKS = {
 } as const;
 
 /**
- * The pages about Terrakin itself, in the order every footer and link list shows them: the
- * static pages' footer, both footers in index.html, the home twin, and llms.txt.
+ * The pages about Terrakin itself, in the order link lists show them: the home twin and llms.txt.
+ * The footer (client/src/site-page.ts) puts About and Contact in its groups and the other two in
+ * its fine print.
  */
 export const TRUST_PAGES = [
   { href: LINKS.about, label: "About" },

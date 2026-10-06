@@ -509,29 +509,6 @@ body.in-world .veil {
   color: var(--clay);
 }
 
-.foot {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  align-items: center;
-  gap: var(--space-2xs) var(--space-2xl);
-  padding: 8px 16px calc(24px + env(safe-area-inset-bottom));
-  font-size: var(--text-md);
-  color: var(--ink-soft);
-}
-
-.foot a {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  font-weight: var(--weight-semibold);
-}
-
-/* The links wrap, and a dot between groups would dangle at a line's end: space them instead. */
-.foot > [aria-hidden="true"] {
-  display: none;
-}
-
 /* Desktop: the card and the notes sit side by side. */
 @media (min-width: 560px) {
   .join {
@@ -636,10 +613,6 @@ body.in-world .veil {
 
   .note-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .foot {
-    padding-top: var(--space-xl);
   }
 }
 
@@ -779,8 +752,126 @@ body.in-world .veil {
   outline: none;
 }
 
+/*
+ * The footer (footerHtml in site-page.ts), on every page and the world landing: a paper card with
+ * the village from the X header on top, the brand with X and GitHub as pills, the link groups,
+ * then the fine print. Two groups a row on a phone, all three under the brand on a tablet, and
+ * beside it on a desktop.
+ */
 .site-foot {
-  padding-top: 0;
+  padding: var(--space-3xl) 0 calc(var(--space-2xl) + env(safe-area-inset-bottom));
+}
+
+.site-foot-card {
+  overflow: hidden;
+  border-radius: var(--r-lg);
+}
+
+/* The art's sky is paper too; its foot fades into the card so there's no seam. */
+.site-foot-art {
+  display: block;
+  width: 100%;
+  height: auto;
+  mask-image: linear-gradient(to bottom, #000 78%, transparent);
+}
+
+.site-foot-body {
+  display: grid;
+  gap: var(--space-2xl);
+  padding: 0 var(--space-xl) var(--space-2xl);
+}
+
+.site-foot-home {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-height: 44px;
+  text-decoration: none;
+}
+
+.site-foot-home .mark {
+  width: 36px;
+  height: 36px;
+}
+
+.site-foot-tagline {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-style: italic;
+  line-height: var(--leading-snug);
+  color: var(--ink-soft);
+}
+
+.site-foot-follow {
+  margin-top: var(--space-xs);
+}
+
+.site-foot-follow .site-foot-out {
+  margin-left: calc(-1 * var(--space-2xs));
+}
+
+.site-foot-groups {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2xl) var(--space-lg);
+}
+
+.site-foot-group a,
+.site-foot-fine a {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  min-height: 40px;
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.site-foot-group a {
+  color: var(--ink);
+}
+
+.site-foot-group a:hover,
+.site-foot-fine a:hover {
+  color: var(--clay);
+}
+
+.site-foot-out {
+  width: 14px;
+  height: 14px;
+  opacity: 0.6;
+}
+
+.site-foot-fine {
+  justify-content: center;
+  gap: 0 var(--space-xl);
+  margin: var(--space-md) 0 0;
+  font-size: var(--text-sm);
+}
+
+.site-foot-fine a {
+  color: var(--ink-soft);
+}
+
+@media (min-width: 720px) {
+  .site-foot-body {
+    padding: 0 var(--space-3xl) var(--space-3xl);
+  }
+
+  .site-foot-groups {
+    grid-template-columns: repeat(3, max-content);
+    justify-content: space-between;
+  }
+}
+
+@media (min-width: 1000px) {
+  .site-foot-body {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.6fr);
+    align-items: start;
+    column-gap: var(--space-5xl);
+  }
 }
 
 /* ---------- feed pages: hero, tabs, states ---------- */

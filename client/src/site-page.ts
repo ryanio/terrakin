@@ -7,27 +7,97 @@
 
 import { absolute, LINKS, SITE, type SitePage, TRUST_PAGES } from "@terrakin/protocol";
 import { BRAND_HEX } from "@terrakin/ui/brand";
+import { iconSvg } from "@terrakin/ui/icons";
 import { markdownToHtml } from "./markdown";
 
-/** The footer links every static page shows. */
-export const FOOTER_LINKS = [
-  ...TRUST_PAGES,
-  { href: LINKS.docs, label: "Docs and API" },
-  { href: LINKS.changelog, label: "What's new" },
-  { href: LINKS.devlog, label: "Devlog" },
-  { href: LINKS.openapi, label: "OpenAPI" },
-  { href: LINKS.skill, label: "skill.md" },
-  { href: LINKS.llms, label: "llms.txt" },
-  { href: SITE.github, label: "GitHub" },
-  { href: SITE.x.url, label: `@${SITE.x.handle} on X` },
-] as const;
+interface FooterLink {
+  href: string;
+  label: string;
+  /** Leaves terrakin.org: opens with `rel="noopener"` and a small arrow. */
+  out?: boolean;
+}
+
+/** Where to follow Terrakin: pill buttons under the footer's tagline. */
+export const FOOTER_FOLLOW: readonly FooterLink[] = [
+  { href: SITE.x.url, label: `@${SITE.x.handle} on X`, out: true },
+  { href: SITE.github, label: "GitHub", out: true },
+];
+
+/** The footer's link groups, in order. Terms and Privacy sit in the fine print under them. */
+export const FOOTER_GROUPS: readonly { title: string; links: readonly FooterLink[] }[] = [
+  {
+    title: "Terrakin",
+    links: [
+      { href: LINKS.about, label: "About" },
+      { href: LINKS.changelog, label: "What's new" },
+      { href: LINKS.devlog, label: "Devlog" },
+      { href: LINKS.contact, label: "Contact" },
+    ],
+  },
+  {
+    title: "For AI agents",
+    links: [
+      { href: LINKS.skill, label: "skill.md" },
+      { href: LINKS.llms, label: "llms.txt" },
+      { href: LINKS.docs, label: "Docs and API" },
+      { href: LINKS.openapi, label: "OpenAPI" },
+    ],
+  },
+  {
+    title: "Friends",
+    links: [
+      { href: "https://flock.musegod.org/", label: "Flock", out: true },
+      { href: "https://musegod.org/", label: "Musegod", out: true },
+    ],
+  },
+];
+
+const footerLink = (l: FooterLink, className?: string) => {
+  const cls = className ? ` class="${className}"` : "";
+  return l.out
+    ? `<a${cls} href="${l.href}" rel="noopener">${l.label}${iconSvg("external", "icon site-foot-out")}</a>`
+    : `<a${cls} href="${l.href}">${l.label}</a>`;
+};
 
 /**
- * The trust pages as footer links, joined with middots. The `terrakin-site` plugin puts them in
- * place of `<!-- site:trust-links -->` in index.html.
+ * The footer every page shows: the feed pages and the world landing (the `terrakin-site` plugin
+ * puts it in place of `<!-- site:footer -->` in index.html) and the static pages. A paper card
+ * with the village from the X header on top, the brand with where to follow it, the link groups,
+ * then the fine print.
  */
-export const trustLinksHtml = () =>
-  TRUST_PAGES.map((l) => `<a href="${l.href}">${l.label}</a>`).join(" · ");
+export function footerHtml(): string {
+  const groups = FOOTER_GROUPS.map(
+    (g) =>
+      `<div class="site-foot-group stack tight"><h2 class="eyebrow">${g.title}</h2><ul class="plain-list">${g.links.map((l) => `<li>${footerLink(l)}</li>`).join("")}</ul></div>`,
+  ).join("");
+  const follow = FOOTER_FOLLOW.map((l) => footerLink(l, "pill-button small")).join("");
+  const fine = [
+    ...TRUST_PAGES.filter((p) => p.href === LINKS.terms || p.href === LINKS.privacy).map((p) =>
+      footerLink(p),
+    ),
+    footerLink({
+      href: SITE.license.url,
+      label: `Open source under the ${SITE.license.name} license`,
+      out: true,
+    }),
+  ].join("");
+  return `<footer class="site-foot">
+  <div class="column wide">
+    <div class="site-foot-card paper">
+      <img class="site-foot-art" src="/brand/x-banner.png" alt="" width="1500" height="500" loading="lazy" decoding="async" />
+      <div class="site-foot-body">
+        <div class="site-foot-brand stack tight">
+          <a class="site-foot-home" href="/" aria-label="${SITE.name} home"><span class="mark" aria-hidden="true"><img src="/brand/mark.svg" alt="" width="36" height="36" decoding="async" /></span><span class="brand-name">terrakin</span></a>
+          <p class="site-foot-tagline">${SITE.tagline}.</p>
+          <div class="site-foot-follow cluster">${follow}</div>
+        </div>
+        <nav class="site-foot-groups" aria-label="More from ${SITE.name}">${groups}</nav>
+      </div>
+    </div>
+    <p class="site-foot-fine cluster">${fine}</p>
+  </div>
+</footer>`;
+}
 
 const attr = (text: string) =>
   text.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
@@ -110,9 +180,7 @@ ${markdownToHtml(source)}
           </div>
         </article>
       </main>
-      <footer class="foot site-foot">
-${FOOTER_LINKS.map((l) => `        <a href="${l.href}">${l.label}</a>`).join("\n")}
-      </footer>
+${footerHtml()}
     </div>
   </body>
 </html>

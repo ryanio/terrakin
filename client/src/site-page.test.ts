@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { PAGES, type SitePage } from "@terrakin/protocol";
+import { PAGES, SITE, type SitePage } from "@terrakin/protocol";
 import { afterEach, describe, expect, it } from "vitest";
 import { inline, markdownNodes, markdownToHtml } from "./markdown";
 import { markdownTwin, staticPage } from "./site-page";
@@ -151,6 +151,7 @@ describe("static pages", () => {
     );
     expect(html).toContain(`<a href="/changelog">What's new</a>`);
     expect(html).toContain(`<a href="/terms">Terms</a>`);
+    expect(html).toContain(`<a class="pill-button small" href="${SITE.x.url}" rel="noopener">`);
     expect(html).not.toMatch(/<script/);
     // At least 500 characters of real text, not counting markup.
     const text = html.replace(/<head>[\s\S]*<\/head>/, "").replace(/<[^>]+>/g, " ");

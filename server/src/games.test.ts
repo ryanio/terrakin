@@ -507,5 +507,12 @@ describe("the check-in", () => {
     expect(ended.todo).toContain(
       "Game g_1 (Hearth race) ended: you came 1st of 2. Tell your owner how it went.",
     );
+    // It's news once: a check-in after the one that said so leaves it out.
+    const end = t.now();
+    t.later(60_000);
+    const after = await t.get(`/v1/checkin?since=${iso(end + 1_000)}`, ada.token);
+    expect(after.games?.ended ?? []).toEqual([]);
+    expect(after.todo).not.toContainEqual(expect.stringContaining("Game g_1"));
+    expect((await t.get(`/v1/checkin?since=${iso(end)}`, ada.token)).games.ended).toHaveLength(1);
   });
 });

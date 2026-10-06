@@ -502,8 +502,8 @@ export interface GameTable {
   places?: Record<ResidentId, number>;
   /** The ratings it moved, once it's over. */
   changes?: RatingChange[];
-  /** The day it ended. */
-  endedDay?: number;
+  /** When its last round closed, in ms on the server's clock, from that `close_round`. */
+  endedAt?: number;
 }
 
 /** One resident's standing on one ladder. */

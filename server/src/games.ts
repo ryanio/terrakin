@@ -269,11 +269,14 @@ export function ordinal(n: number): string {
   return `${n}${["th", "st", "nd", "rd"][n % 10] ?? "th"}`;
 }
 
-/** A viewer's games for the check-in: tables waiting on their choice, theirs to start, and ended. */
+/**
+ * A viewer's games for the check-in: tables waiting on their choice, ones they can start, and
+ * games that ended since `since` (ms), so each ending is news once.
+ */
 export function gamesCheckin(
   state: WorldState,
   viewer: string,
-  sinceDay: number,
+  since: number,
   now: number,
 ): {
   yourMove: { table: string; game: GameKind; pace: GamePace; round: number; closesAt: string }[];
@@ -301,7 +304,7 @@ export function gamesCheckin(
     .map((t) => t.id);
   const ended = [...(state.games?.finished ?? [])]
     .reverse()
-    .filter((t) => (t.endedDay ?? 0) >= sinceDay && seatOf(t, viewer))
+    .filter((t) => (t.endedAt ?? 0) >= since && seatOf(t, viewer))
     .map((t) => ({
       table: t.id,
       game: t.game,

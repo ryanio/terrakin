@@ -396,12 +396,19 @@ describe("Hearth race", () => {
     for (let i = 0; i < 3; i++) w.play(id, { ada: 3, bob: 2, cy: 1 });
     w.play(id, { ada: 2, bob: 3, cy: 1 });
     // Ada at 11 and Bob at 9 both get home: Bob's 3 beats Ada's 1.
-    const events = w.play(id, { ada: 1, bob: 3, cy: 2 });
+    for (const [who, move] of [
+      ["ada", 1],
+      ["bob", 3],
+      ["cy", 2],
+    ] as const) {
+      w.ok(who, { type: "decide", table: id, round: 5, move });
+    }
+    const events = w.town({ type: "close_round", table: id, round: 5, at: 99_000 });
     expect(events[0]).toMatchObject({ board: { ada: 12, bob: 12, cy: 6 } });
     expect(events[0]).not.toHaveProperty("next");
     expect(over(events)).toMatchObject({ places: { bob: 1, ada: 2, cy: 3 }, salt: SALT });
     expect(activeTable(w.state, id)).toBeUndefined();
-    expect(tableById(w.state, id)).toMatchObject({ status: "over", endedDay: DAY + 3 });
+    expect(tableById(w.state, id)).toMatchObject({ status: "over", endedAt: 99_000 });
     expect(w.code("ada", { type: "decide", table: id, round: 6, move: 1 })).toBe("wrong_round");
     expect(w.code("ada", { type: "sit", table: id, at: 1 })).toBe("table_not_open");
   });

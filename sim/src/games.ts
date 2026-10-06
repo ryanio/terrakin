@@ -859,7 +859,7 @@ export function checkCloseRound(
     t.status = "over";
     t.places = { ...end.places };
     t.changes = end.changes.map((c) => ({ ...c }));
-    if (state.day !== undefined) t.endedDay = state.day;
+    t.endedAt = at;
     delete t.roundAt;
     delete games.tables[t.id];
     games.finished.push(t);

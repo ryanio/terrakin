@@ -435,7 +435,7 @@ export function checkinView(
   const awayRefused = social.away.refusedSince(viewer, since);
   const newestAway = social.away.newest(viewer);
   // Party games (RFC 0011): tables and rounds by id, never a name or anyone's choice.
-  const games = gamesCheckin(state, viewer, sinceDay, now);
+  const games = gamesCheckin(state, viewer, since, now);
 
   const newestFollowed = followed.find((p) => (p.repostedBy ?? p.author).id !== viewer);
   const newestGesture = together.receivedSince(

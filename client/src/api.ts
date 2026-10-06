@@ -209,7 +209,7 @@ export const api = {
   /** Plots to visit (RFC 0020): every plot someone lives on, newest change or most admired first. */
   plots: (sort?: PlotSort) => request("GET", `/v1/plots${query({ sort })}`, PlotsResponse),
   plot: (px: number, py: number) => request("GET", `/v1/plots/${px}/${py}`, PlotResponse),
-  /** Admire a plot you're on or beside, once a UTC day. */
+  /** Admire a plot you're on (or beside, after a visit this week), once a UTC day. */
   admirePlot: (px: number, py: number) =>
     request("POST", `/v1/plots/${px}/${py}/admire`, PlotResponse),
   /** A world action. A 200 can still be a refusal by the rules: check `ok` in the body. */

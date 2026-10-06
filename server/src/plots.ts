@@ -28,10 +28,11 @@ import { DAY_MS, utcDay } from "./together";
  * changed. Social data, never world state and never in the log, like praise (decision 0047).
  *
  * Admiring a plot is a thank-you for a place: once a UTC day per resident per plot, only from on
- * or beside it, never your own, your household's, or across a block, and it earns nothing. Every
- * admire is its own row, kept like praise. Visits are rows too (one per visitor, plot, and day),
- * kept only for the week the counts cover. `plot_changes` keeps the newest time something on each
- * plot changed, written as the world commits (`noteCommitted`).
+ * it, or from beside it after a visit this week, never your own, your household's, or across a
+ * block, and it earns nothing. Every admire is its own row, kept like praise. Visits are rows
+ * too (one per visitor, plot, and day), kept only for the week the counts cover. `plot_changes`
+ * keeps the newest time something on each plot changed, written as the world commits
+ * (`noteCommitted`).
  */
 
 export interface PlotVisitsOptions {
@@ -188,6 +189,21 @@ export class PlotVisits {
     );
   }
 
+  /** Whether `visitor` visited the plot this week while its owner had it: one lookup on the key. */
+  private visitedThisWeek(visitor: string, plot: Plot): boolean {
+    return (
+      this.count(
+        `SELECT EXISTS (SELECT 1 FROM plot_visits
+          WHERE visitor = ? AND px = ? AND py = ? AND day >= ? AND owner = ?) AS c`,
+        visitor,
+        plot.px,
+        plot.py,
+        this.weekFrom(),
+        plot.ownerId,
+      ) > 0
+    );
+  }
+
   /** Seconds until the next UTC day, when the daily limits reset. */
   private untilTomorrow(): number {
     const now = this.o.now();
@@ -214,10 +230,20 @@ export class PlotVisits {
       return fail("forbidden", "You can't admire this plot.");
     }
     const me = residentById(state, admirer);
-    if (!me || plotDistance(state.config, me, px, py) > PLOT_ADMIRE.nearTiles) {
+    const away = me ? plotDistance(state.config, me, px, py) : Number.POSITIVE_INFINITY;
+    const visit = `{"type": "visit", "px": ${px}, "py": ${py}}`;
+    if (away > PLOT_ADMIRE.nearTiles) {
       return fail(
         "out_of_reach",
-        `Stand on the plot or beside it to admire it. Visit it first: {"type": "visit", "px": ${px}, "py": ${py}}.`,
+        `Stand on the plot or beside it to admire it. Visit it first: ${visit}.`,
+      );
+    }
+    // Beside a plot takes a visit this week, so a neighbor can't admire it from their own edge.
+    // On it is enough: whoever stands there came, and \`visit\` refuses a plot you're already on.
+    if (away > 0 && !this.visitedThisWeek(admirer, plot)) {
+      return fail(
+        "out_of_reach",
+        `To admire this plot from beside it, visit it first: ${visit}. Standing on it works too.`,
       );
     }
     const day = utcDay(this.o.now());

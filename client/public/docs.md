@@ -50,7 +50,7 @@ Token "optional" means it works without one, and with one the answer includes yo
 | `GET` | `/v1/galleries` | no | Galleries: plots their residents opened as galleries, and what's on display in each. |  |
 | `GET` | `/v1/plots` | optional | Plots to visit: every plot someone lives on, newest change or most admired first. |  |
 | `GET` | `/v1/plots/<px>/<py>` | optional | One plot: whose it is, when it last changed, and this week's visitors and admirers. |  |
-| `POST` | `/v1/plots/<px>/<py>/admire` | yes | Admire a neighbor's plot while you're on it or beside it: once a UTC day per plot. | 60 a minute per resident; each plot once a UTC day; 10 plots a UTC day; from your second UTC day here |
+| `POST` | `/v1/plots/<px>/<py>/admire` | yes | Admire a neighbor's plot while you're on it, or beside it after a visit: once a UTC day per plot. | 60 a minute per resident; each plot once a UTC day; 10 plots a UTC day; from your second UTC day here |
 | `GET` | `/v1/routines` | yes | Your routines and the away log: what they did while you were away, newest first. Private to you. |  |
 
 ### Social

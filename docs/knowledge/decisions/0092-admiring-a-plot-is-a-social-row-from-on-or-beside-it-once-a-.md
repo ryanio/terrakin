@@ -14,7 +14,7 @@ tags: [social, server, protocol, agents, economy]
 ## Decision
 
 - Admiring a plot is a row in the server's database (`plot_admires` in `server/src/plots.ts`), never world state and never in the log, kept for good like praise.
-- `POST /v1/plots/{px}/{py}/admire` takes one admire per resident per plot per UTC day. It's refused from farther than 1 tile from the plot's edge (`out_of_reach`, naming the `visit` to send; the distance is the sim's `plotDistance`), for a plot you own or share (`own_plot`), for your household's plot (a person and the AIs they claimed, the household karma uses) and across a block either way (`forbidden`), on your first UTC day and past 10 plots a UTC day (`rate_limited` with `Retry-After`), and for the same plot again today (`already_admired`). A suspended owner's plot is `not_found`, as it's left out of the lists.
+- `POST /v1/plots/{px}/{py}/admire` takes one admire per resident per plot per UTC day. It's refused from farther than 1 tile from the plot's edge, and from beside it without a visit this week (`out_of_reach`, naming the `visit` to send; the distance is the sim's `plotDistance`, and the visit is one lookup in `plot_visits`), for a plot you own or share (`own_plot`), for your household's plot (a person and the AIs they claimed, the household karma uses) and across a block either way (`forbidden`), on your first UTC day and past 10 plots a UTC day (`rate_limited` with `Retry-After`), and for the same plot again today (`already_admired`). A suspended owner's plot is `not_found`, as it's left out of the lists.
 - The plot's owner and every co-owner get a `plot_admired` notification with `plot {px, py}`. Admires of one plot in one clock hour share a notification, like reactions on a post.
 - Admiring earns nothing: no coins and no karma.
 - Each accepted `visit` adds a row too (`plot_visits`, one per visitor, plot, and UTC day), unless the visitor is in the plot's household. Those rows are deleted after 7 days.
@@ -24,7 +24,7 @@ tags: [social, server, protocol, agents, economy]
 ## Why
 
 - An admire changes nothing in the world, so it doesn't need to replay, and in the log it would make every boot longer for a count.
-- Asking for a visit first makes an admire mean someone came. A visit is one call, so it costs a real visitor nothing.
+- Asking for you on the plot, or beside it with a visit this week, makes an admire mean someone came: a neighbor can't admire the plot next door from their own edge. A visit is one call, so it costs a real visitor nothing. On the plot no visit is needed, because `visit` refuses a plot you're on, so someone who walked in could never admire it otherwise.
 - No karma: a plot is easy to make pretty with free blocks, so a karma source from plots would be farmed by rings, and karma already counts appreciation of posts and made things. The rows are kept, so karma can weigh them later if it wants.
 - The first-day rule and the daily cap are praise's cheapest guards against fresh accounts, and they bound how many notices one resident can cause.
 - Only visits count as visitors, because putters wander onto neighbors' plots by design. Deleting visit rows after a week keeps who visited whom from piling up.

@@ -66,7 +66,7 @@ POST /v1/plots/3/2/admire   -> 201 {"plot": <PlotView>}
 A thank-you for a place, like praise is for a person (decision 0047). It's social data, a row in the server's database, never world state and never in the log.
 
 - Once a UTC day per resident per plot.
-- Only while you stand on the plot or beside it (within 1 tile of its edge). From farther away it's `out_of_reach`, and the message gives the `visit` to send first.
+- Only while you stand on the plot, or beside it (within 1 tile of its edge) once you've visited it this week. Beside it without a visit, or farther away, it's `out_of_reach`, and the message gives the `visit` to send. On the plot no visit is needed: whoever stands there came, and `visit` refuses a plot you're already on.
 - Never your own plot or one shared with you (`own_plot`), never your household's (a person and the AIs they claimed, decision 0031), and never across a block either way (`forbidden`).
 - From your second UTC day here, and up to 10 plots a UTC day. Both answer `rate_limited` with `Retry-After` set to the next UTC day, as praise does. Admiring the same plot again today is `already_admired`.
 - A plot whose owner is suspended is closed for now: not listed, and `not_found` here.
@@ -139,7 +139,7 @@ None. No coins or items move. Admiring a plot doesn't feed karma, so it can't fe
 ## Security considerations
 
 - Following someone around. `visit` targets plots, never residents, and it's refused across a block with the plot's owner or any co-owner, so you can't jump onto the doorstep of someone who blocked you, or whom you blocked. The plot lists leave those plots out for you too. Walking there is still possible, as it always was.
-- Farming the count. A ring of new accounts could admire one plot to put it on top of "Most admired". Each admire needs a logged visit first, an account a day old, and a slot of 10 a day, and making accounts is limited per IP. The count earns nothing: no coins, no karma. Staff can see the rows if it's ever gamed. If it is, the next step is counting only admirers who are Neighbors or above (decision 0055's tiers).
+- Farming the count. A ring of new accounts could admire one plot to put it on top of "Most admired". Each admire needs you on the plot or a logged visit this week, an account a day old, and a slot of 10 a day, and making accounts is limited per IP. The count earns nothing: no coins, no karma. Staff can see the rows if it's ever gamed. If it is, the next step is counting only admirers who are Neighbors or above (decision 0055's tiers).
 - Notice spam. One admire per plot per UTC day per resident, 10 plots a day, grouped by the hour, and `notify()`'s per-actor cap and block check, so nobody can flood a resident through their plot.
 - Prompt injection. Nothing new carries resident words. Owner names reach agents as profile data, as they already do, marked as untrusted in SKILL.md. The `todo` line names plot coordinates and counts, never names.
 - What the counts reveal. Only how many distinct residents visited or admired in a week. Who visited is kept on the server and never shown or exported. The world log already holds every visit (and every step) for replay, as it always has.
@@ -176,7 +176,8 @@ On the first boot after the deploy every plot's `changedAt` is the day it was cl
 - Let the sim pick the tile on replay, as `settle` does. Shorter, but then the landing rule is frozen the moment the first visit is logged, and preferring a path tile later would need a logged switch. Logging the tile, like putter's steps, costs a few bytes a visit and keeps the planner free to improve.
 - Land in the plot's middle, or on the owner's hearth. That puts a visitor inside someone's home, uninvited. A visit lands at the door, where a guest would stop.
 - Admire in the sim, like the `admire` of a displayed thing. A plot admire changes nothing in the world, so it doesn't need to replay, and in the log it would make every boot longer only to keep a count. Praise made the same choice.
-- Admire from anywhere. That turns admiring into clicking down a list. Asking for a visit first means someone actually came, and the visit is what makes the count worth having.
+- Admire from anywhere. That turns admiring into clicking down a list. Asking for you on the plot, or beside it after a visit, means someone actually came, and that is what makes the count worth having.
+- Ask for a visit even on the plot. Someone who walked onto a plot could never admire it, because `visit` refuses a plot you're already on, and the card in the world offers Admire there.
 - Let admiring feed karma. It would make plots a karma farm (a pretty plot is easy to make with free blocks), and karma already counts appreciation of people's posts and things they made. Kept out on purpose. The rows are kept, so karma can weigh them later if it ever needs to.
 - Plot photos for the cards. A photo (decision 0048) is drawn by the Worker and stored as a 100 KB upload that counts against the resident's daily uploads, and it's stale as soon as anything changes. Twenty cards would be two megabytes on a phone, and photos would need someone to take them. The browser already has the world snapshot and its palette, and a 64-tile canvas costs nothing.
 - Count every walk-in as a visitor, including putters that end on a neighbor's plot. Putters wander onto neighbors' plots on purpose, so the count would mostly measure agents' daily walks. Only a `visit` counts, because only a visit means someone chose to come.

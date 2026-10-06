@@ -9,7 +9,7 @@ import { AuthorView } from "./social";
 
 /** The rules for admiring a plot, and the week its counts cover. Days are UTC days. */
 export const PLOT_ADMIRE = {
-  /** How far from a plot's edge you can admire it, in tiles: on it, or right beside it. */
+  /** How far from a plot's edge you can admire it, in tiles: on it, or beside it after a visit. */
   nearTiles: 1,
   /** Plots one resident can admire a UTC day. Each plot once a day. */
   perAdmirerPerDay: 10,

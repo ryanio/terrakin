@@ -1,4 +1,4 @@
-import type { ErrorCode } from "@terrakin/protocol";
+import { type ErrorCode, PLOT_ADMIRE } from "@terrakin/protocol";
 import { apply, type Command, createWorld, visitTile, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
@@ -40,21 +40,6 @@ describe("admiring a plot", () => {
    */
   function town() {
     const state = createWorld(CONFIG);
-    const run = (actor: string, command: Command) =>
-      expect(apply(state, { actor, command }).ok, `${actor} ${command.type}`).toBe(true);
-    const plots: [string, number, number][] = [
-      ["ivy", 0, 0],
-      ["ann", 1, 0],
-      ["bo", 2, 0],
-      ["cal", 3, 0],
-      ["eli", 4, 0],
-      ["wren", 4, 4],
-    ];
-    for (const id of ["ivy", "dot", "felix", "ann", "bo", "cal", "eli", "wren", "zed", "new"]) {
-      run(id, { type: "join", name: id, kind: "human" });
-    }
-    for (const [id, px, py] of plots) run(id, { type: "settle", px, py });
-    run("ivy", { type: "share_plot", with: "dot" });
     let now = NOON;
     const blocked = new Set<string>();
     const fresh = new Set(["new"]);
@@ -72,15 +57,38 @@ describe("admiring a plot", () => {
       suspended: (id) => suspended.has(id),
       notify: (to, from, plot) => told.push(`${from} -> ${to} (${plot.px}, ${plot.py})`),
     });
+    /** Apply an input and hand what it did to the plot tables, as the world service does. */
+    const run = (actor: string, command: Command) => {
+      const result = apply(state, { actor, command });
+      expect(result.ok, `${actor} ${command.type}`).toBe(true);
+      if (result.ok) visits.noteCommitted(state, { actor, command }, result.events);
+    };
+    const plots: [string, number, number][] = [
+      ["ivy", 0, 0],
+      ["ann", 1, 0],
+      ["bo", 2, 0],
+      ["cal", 3, 0],
+      ["eli", 4, 0],
+      ["wren", 4, 4],
+    ];
+    for (const id of ["ivy", "dot", "felix", "ann", "bo", "cal", "eli", "wren", "zed", "new"]) {
+      run(id, { type: "join", name: id, kind: "human" });
+    }
+    for (const [id, px, py] of plots) run(id, { type: "settle", px, py });
+    run("ivy", { type: "share_plot", with: "dot" });
     /** Jump to a plot the way the server sends a visit. */
     const go = (actor: string, px: number, py: number) =>
       run(actor, { type: "visit", px, py, ...visitTile(state, actor, px, py) });
+    const walk = (actor: string, dir: "e" | "w", tiles: number) => {
+      for (let i = 0; i < tiles; i++) run(actor, { type: "move", dir });
+    };
     const admire = (actor: string, px: number, py: number) => visits.admire(state, actor, px, py);
     const week = () => visits.facts().admirers;
     return {
       state,
       run,
       go,
+      walk,
       admire,
       week,
       told,
@@ -90,7 +98,7 @@ describe("admiring a plot", () => {
     };
   }
 
-  it("counts once a UTC day per resident per plot, from on the plot or right beside it", () => {
+  it("counts once a UTC day per resident per plot, from on it, or beside it after a visit this week", () => {
     const t = town();
     // Wren stands on her own plot, far from Ivy's.
     expect(t.admire("wren", 0, 0)).toMatchObject({
@@ -99,23 +107,40 @@ describe("admiring a plot", () => {
       message:
         'Stand on the plot or beside it to admire it. Visit it first: {"type": "visit", "px": 0, "py": 0}.',
     });
-    // Ann's plot is next door, x 8 to 15: Wren lands at (11, 0), and walks west to (9, 0), two
-    // tiles from Ivy's plot, which is too far, then one more, which is beside it.
-    t.go("wren", 1, 0);
-    t.run("wren", { type: "move", dir: "w" });
-    t.run("wren", { type: "move", dir: "w" });
-    expect(t.state.residents.wren).toMatchObject({ x: 9, y: 0 });
-    expect(t.admire("wren", 0, 0)).toMatchObject({ ok: false, code: "out_of_reach" });
-    t.run("wren", { type: "move", dir: "w" });
-    expect(t.admire("wren", 0, 0)).toEqual({ ok: true, value: null });
-    expect(t.admire("wren", 0, 0)).toMatchObject({ ok: false, code: "already_admired" });
+    // Ann's plot is next door, x 8 to 15, and she settled at its center, (11, 3). Two tiles west,
+    // at (9, 3), she's too far from Ivy's plot. One more, at her own plot's edge, she's beside it,
+    // but she hasn't visited it, so that isn't enough.
+    expect(t.state.residents.ann).toMatchObject({ x: 11, y: 3 });
+    t.walk("ann", "w", 2);
+    expect(t.admire("ann", 0, 0)).toMatchObject({ ok: false, code: "out_of_reach" });
+    t.walk("ann", "w", 1);
+    expect(t.state.residents.ann).toMatchObject({ x: 8, y: 3 });
+    expect(t.admire("ann", 0, 0)).toMatchObject({
+      ok: false,
+      code: "out_of_reach",
+      message:
+        'To admire this plot from beside it, visit it first: {"type": "visit", "px": 0, "py": 0}. Standing on it works too.',
+    });
+    expect(t.told).toEqual([]);
+    // She visits, landing at (3, 0), and walks back to her own edge: now beside it is enough.
+    t.go("ann", 0, 0);
+    expect(t.state.residents.ann).toMatchObject({ x: 3, y: 0 });
+    t.walk("ann", "e", 5);
+    expect(t.admire("ann", 0, 0)).toEqual({ ok: true, value: null });
+    expect(t.admire("ann", 0, 0)).toMatchObject({ ok: false, code: "already_admired" });
     // Both of the plot's residents hear about it.
-    expect(t.told).toEqual(["wren -> ivy (0, 0)", "wren -> dot (0, 0)"]);
+    expect(t.told).toEqual(["ann -> ivy (0, 0)", "ann -> dot (0, 0)"]);
     expect(t.week().get("0,0|ivy")).toBe(1);
+    // The next day the visit still counts, and she's still one neighbor this week, however many
+    // days she admires it.
     t.advance(DAY_MS);
-    expect(t.admire("wren", 0, 0)).toEqual({ ok: true, value: null });
-    // Still one neighbor this week, however many days they admire it.
+    expect(t.admire("ann", 0, 0)).toEqual({ ok: true, value: null });
     expect(t.week().get("0,0|ivy")).toBe(1);
+    // A week later the visit is too old: beside the plot needs a new one, and on it is enough.
+    t.advance(PLOT_ADMIRE.weekDays * DAY_MS);
+    expect(t.admire("ann", 0, 0)).toMatchObject({ ok: false, code: "out_of_reach" });
+    t.walk("ann", "w", 1);
+    expect(t.admire("ann", 0, 0)).toEqual({ ok: true, value: null });
   });
 
   it("refuses your own plot, your household's, a block, a first day, and plots nobody lives on", () => {

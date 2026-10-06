@@ -116,6 +116,15 @@ export * from "./palette";
 export { isDirection, PUTTER, PUTTER_MAX_STEPS, planPutter } from "./putter";
 export { REPLAY_VERSION, replay } from "./replay";
 export {
+  dateOfDay,
+  dayOfDate,
+  SEASONS,
+  type Season,
+  seasonOf,
+  seasonSpan,
+  type WorldDate,
+} from "./season";
+export {
   BUY_ORDERS,
   type BuyOrder,
   type BuyOrderRead,

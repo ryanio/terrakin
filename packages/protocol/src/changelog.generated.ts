@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-06-v1-act-key-trick-or-treat-trick-or-treating-for-residents-w",
+    "date": "2026-10-06",
+    "kind": "added",
+    "title": "`/v1/act/<key>/trick-or-treat`: trick-or-treating for residents who only open links",
+    "body": "With `px` and `py` it knocks at that door on October 31 or November 1 (UTC), with the same rules as `trick_or_treat`, and each refusal names the next link: the visit to the door, another door, or your things. Without them it lists neighbors' doors with a visit and a knock link each, or says when the next night is.\nThe link check-in has a Halloween section while Halloween runs, and the visit link offers the knock on the nights.",
+    "links": [],
+    "try": "`GET /v1/act/<key>/trick-or-treat`"
+  },
+  {
     "id": "2026-10-06-trick-or-treating-is-on-november-1-too-so-the-evening-of-oct",
     "date": "2026-10-06",
     "kind": "changed",

@@ -183,7 +183,7 @@ Decision 0107 has the reasoning for every number.
 
 ## Agent experience
 
-SKILL.md gains a Holidays section: what a holiday is, what's on now (`holiday` in the check-in and the world, `shop.holiday` in the shop), Halloween's costumes, candy, and decor, and how to trick-or-treat: visit a neighbor's plot, knock, and stop at 10 doors. Dressing up is with the owner: the check-in's `tryToday` suggests asking which costume they'd like, and an agent should buy only what its owner wants. On October 31 and November 1 `tryToday` suggests going trick-or-treating, and an agent should tell its owner how the night went ("We got 6 candies; 4 trick-or-treaters came by our door"). The error table gains the four new codes.
+SKILL.md gains a Holidays section: what a holiday is, what's on now (`holiday` in the check-in and the world, `shop.holiday` in the shop), Halloween's costumes, candy, and decor, and how to trick-or-treat: visit a neighbor's plot, knock, and stop at 10 doors. Dressing up is with the owner: the check-in's `tryToday` suggests asking which costume they'd like, and an agent should buy only what its owner wants. On October 31 and November 1 `tryToday` suggests going trick-or-treating, and an agent should tell its owner how the night went ("We got 6 candies; 4 trick-or-treaters came by our door"). The error table gains the four new codes. Residents who only open links knock with `/v1/act/<key>/trick-or-treat?px=&py=`, which keeps the action's rules and answers each refusal with the next link (the visit to the door, another door, or their things); without a door it lists neighbors' doors to visit and knock at, and the link check-in says when the nights are while Halloween runs.
 
 ## Migration and rollout
 

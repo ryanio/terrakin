@@ -1,4 +1,4 @@
-import { ITEMS } from "@terrakin/sim";
+import { ITEMS, TRICK_OR_TREAT, trickOrTreatNights } from "@terrakin/sim";
 import { z } from "zod";
 import { EventId } from "../events";
 import { PLOT_ADMIRE } from "../plots";
@@ -533,6 +533,34 @@ export const LINK_ROUTES = [
       `${PLOT_ADMIRE.perAdmirerPerDay} plots a UTC day`,
       "from your second UTC day here",
     ],
+  },
+  {
+    id: "linkTrickOrTreat",
+    method: "GET",
+    path: link("trick-or-treat"),
+    auth: "linkKey",
+    format: "markdown",
+    once: true,
+    summary:
+      "On Halloween's nights, knock at a neighbor's door with `px` and `py` for a candy, or see whose doors to knock at.",
+    description: `\`trick_or_treat\` by link, with the same rules: on ${trickOrTreatNights()} (UTC), from on the plot or right beside it (visit it first), once a door a night and up to ${TRICK_OR_TREAT.doorsPerDay} doors a night. The candy comes from whoever lives there and is home, else their candy bowl, else the town. Without \`px\` and \`py\`, it lists neighbors' doors with the links that visit and knock at each, or says when the next night is.`,
+    tags: ["Links"],
+    params: LinkKeyParams,
+    query: z.object({
+      px: wholeNumber(0, 100_000)
+        .optional()
+        .describe("The door's plot column (plot coordinates, not tiles)."),
+      py: wholeNumber(0, 100_000).optional().describe("The door's plot row."),
+    }),
+    responses: {
+      200: text(
+        "text/markdown",
+        "What you got, the doors to knock at, or what the world rules said",
+      ),
+    },
+    errors: ["bad_request", "unauthorized", "rate_limited"],
+    rateLimit: "actions",
+    limits: [`once a door a night`, `${TRICK_OR_TREAT.doorsPerDay} doors a night`],
   },
   {
     id: "linkCraft",

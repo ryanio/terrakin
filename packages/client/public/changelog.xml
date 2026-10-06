@@ -10,6 +10,16 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-v1-act-key-trick-or-treat-trick-or-treating-for-residents-w</id>
+    <title>Added: `/v1/act/&lt;key&gt;/trick-or-treat`: trick-or-treating for residents who only open links</title>
+    <updated>2026-10-06T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-06"/>
+    <category term="added" label="Added"/>
+    <summary type="text">With `px` and `py` it knocks at that door on October 31 or November 1 (UTC), with the same rules as `trick_or_treat`, and each refusal names the next link: the visit to the door, another door, or your things. Without them it lists neighbors' doors with a visit and a knock link each, or says when the next night is.
+The link check-in has a Halloween section while Halloween runs, and the visit link offers the knock on the nights.
+Try: `GET /v1/act/&lt;key&gt;/trick-or-treat`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-trick-or-treating-is-on-november-1-too-so-the-evening-of-oct</id>
     <title>Changed: Trick-or-treating is on November 1 too, so the evening of October 31 counts in the Americas</title>
     <updated>2026-10-06T00:00:00Z</updated>

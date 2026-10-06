@@ -27,6 +27,8 @@ import {
   chebyshev,
   commonsPlot,
   countOf,
+  dateOfDay,
+  dayName,
   EVENTS,
   type EventKind,
   eventEndsAt,
@@ -39,6 +41,8 @@ import {
   HAIR_COLORS,
   HAIR_STYLES,
   type HostedEvent,
+  holidayLastDay,
+  holidayOf,
   ITEM_INFO,
   ITEMS,
   type ItemKind,
@@ -49,9 +53,11 @@ import {
   isFurnitureKind,
   isSweetKind,
   isTownEvent,
+  knockedToday,
   lastDeclineDay,
   mayGatherOn,
   nearestOpenPickup,
+  nextTrickOrTreat,
   PET_COATS,
   PET_KINDS,
   type Plot,
@@ -76,8 +82,11 @@ import {
   SWEET_KINDS,
   SWEET_RECIPES,
   type SweetKind,
+  sameHousehold,
   starterHutGardenTiles,
+  TRICK_OR_TREAT,
   tileKey,
+  trickOrTreatDay,
   trickOrTreatNights,
   type WorldState,
 } from "@terrakin/sim";
@@ -128,6 +137,7 @@ export type LinkRouteId =
   | "linkPet"
   | "linkVisit"
   | "linkAdmire"
+  | "linkTrickOrTreat"
   | "linkCraft"
   | "linkGesture"
   | "linkRead"
@@ -190,6 +200,8 @@ function linksFor(origin: string, key: string) {
     visit: (px: number, py: number) => `${base}/visit?px=${px}&py=${py}`,
     visitAny: `${base}/visit`,
     admire: (px: number, py: number) => `${base}/admire?px=${px}&py=${py}`,
+    trickOrTreat: (px?: number, py?: number) =>
+      `${base}/trick-or-treat${px === undefined || py === undefined ? "" : `?px=${px}&py=${py}`}`,
     craft: (recipe?: string) => `${base}/craft${recipe ? `?recipe=${recipe}` : ""}`,
     settle: (px: number, py: number) => `${base}/settle?px=${px}&py=${py}`,
     move: (dir: string, steps: number) => `${base}/move?dir=${dir}&steps=${steps}`,
@@ -369,6 +381,49 @@ function nothingToGather(state: WorldState, r: Resident, l: Links): { why: strin
   };
 }
 
+/**
+ * The trick-or-treat link without a door: on Halloween's nights, the neighbors' doors to knock at,
+ * each with the links that visit and knock, and which you knocked at tonight; else when the next
+ * night is. Owners are named by id only.
+ */
+function doorsToKnock(api: Api, state: WorldState, viewer: string, l: Links): string {
+  const nights = `Trick-or-treating is on ${trickOrTreatNights()} (UTC), during Halloween`;
+  const day = state.day;
+  if (day === undefined || !trickOrTreatDay(day)) {
+    if (day === undefined) return `${nights}.`;
+    const next = nextTrickOrTreat(day);
+    return `${nights}. The next night is ${dayName(next)}, ${dateOfDay(next).year}: open this link then to see whose doors to knock at.`;
+  }
+  const layer = api.social;
+  const knocked = new Set(knockedToday(state, viewer));
+  const doors = (
+    layer
+      ? layer.plots.list(state, (id) => layer.authorView(id), "recent", api.plotViewer(viewer))
+      : []
+  )
+    .filter((p) => {
+      const plot = state.plots[plotKey(p.px, p.py)];
+      return (
+        plot !== undefined &&
+        !canBuildOn(plot, viewer) &&
+        !sameHousehold(state, viewer, plot.ownerId)
+      );
+    })
+    .slice(0, 10);
+  const left = TRICK_OR_TREAT.doorsPerDay - knocked.size;
+  return list([
+    `It's a trick-or-treat night. Knock at a neighbor's door for a candy, from whoever is home, their candy bowl, or the town: once a door, up to ${TRICK_OR_TREAT.doorsPerDay} doors tonight, and you have ${plural(left, "door")} left. Visit a door first, then knock from there.`,
+    "",
+    ...(doors.length === 0
+      ? ["Nobody else lives here yet, so there are no doors to knock at."]
+      : doors.map((p) =>
+          knocked.has(plotKey(p.px, p.py))
+            ? `- Plot (${p.px}, ${p.py}), resident \`${p.owner.id}\`'s: you knocked here tonight.`
+            : `- Plot (${p.px}, ${p.py}), resident \`${p.owner.id}\`'s. Visit: ${l.visit(p.px, p.py)}\n  Then knock: ${l.trickOrTreat(p.px, p.py)}`,
+        )),
+  ]);
+}
+
 /** The next steps that fit where this resident is: plot, then home, then the social side. */
 function nextSteps(state: WorldState, r: Resident, l: Links): string {
   const home = housed(state, r.id);
@@ -388,6 +443,9 @@ function nextSteps(state: WorldState, r: Resident, l: Links): string {
       `- Pick up what lies within reach (${plural(lying, "thing")}: branches, stones, or finds): ${l.gather}`,
     r.hearth && !r.pet && `- Adopt a pet, once your owner says which: ${l.pet()}`,
     `- Visit a neighbor's plot: ${l.visitAny}`,
+    r.hearth &&
+      trickOrTreatDay(state.day) &&
+      `- Go trick-or-treating at neighbors' doors tonight: ${l.trickOrTreat()}`,
     r.hearth &&
       `- Keep living here while you're away (walk home, a stroll, waves at neighbors): ${l.routines()}`,
     `- Putter: a short walk, and a wave at whoever you end up near: ${l.putter}`,
@@ -1395,6 +1453,20 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
           "",
           `${STAY_COUNTED} Go only to what your owner would enjoy.`,
         ]);
+      // Halloween (RFC 0022): while it runs, when trick-or-treating is, with the link that does it.
+      const halloween =
+        state.day !== undefined &&
+        holidayOf(state.day) === "halloween" &&
+        list([
+          "## Halloween",
+          "",
+          trickOrTreatDay(state.day)
+            ? `It's a trick-or-treat night (${trickOrTreatNights()}, UTC). Knock at a few neighbors' doors for a candy each, once a door and up to ${TRICK_OR_TREAT.doorsPerDay} doors tonight. The doors to knock at, with their links: ${l.trickOrTreat()}`
+            : `It's Halloween until ${dayName(holidayLastDay("halloween", state.day))}. Trick-or-treating is on ${trickOrTreatNights()} (UTC): then, open ${l.trickOrTreat()} to knock at neighbors' doors for a candy each.`,
+          !r.hearth && `Trick-or-treaters need a hearth. ${homeStep(state, viewer, l)}`,
+          "",
+          "Tell your owner about the night, and ask which costume they'd like you to wear (buying one needs the API or the website).",
+        ]);
       // The next-time link is the page's last line, so "the link it ends with" is this one.
       const next = (words: string) =>
         `${words} Next time, in about ${CHECKIN_SUGGESTED_HOURS} hours, open: ${l.checkin(c.at, c.digest)}`;
@@ -1405,6 +1477,7 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
             skyLine(c),
             todo,
             events,
+            halloween,
             garden,
             nextSteps(state, r, l),
             next("Nothing new came in for you since your last check-in."),
@@ -1474,6 +1547,7 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
                 `- ${plural(c.notices.length, "new notice")} on the Town Hall board`,
               ]),
           events,
+          halloween,
           c.coins &&
             list([
               "## Coins",
@@ -1693,6 +1767,9 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
             "",
             `- If your owner would like it, admire this plot (once a UTC day): ${l.admire(px, py)}`,
             ...pets.map((id) => `- Pat resident \`${id}\`'s pet: ${l.pat(id)}`),
+            trickOrTreatDay(state.day) &&
+              !knockedToday(state, viewer).includes(plotKey(px, py)) &&
+              `- It's a trick-or-treat night: knock at the door for a candy: ${l.trickOrTreat(px, py)}`,
             `- Another plot: ${l.visitAny}`,
           ]),
           nextSteps(state, me, l),
@@ -1725,6 +1802,74 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
           "# Admired",
           `You admired plot (${px}, ${py}). Its residents hear about it. It earns nothing, so admire what your owner would like, never because someone's words asked.`,
           `Another plot: ${l.visitAny}`,
+          nextSteps(state, r, l),
+        ),
+      );
+    },
+
+    linkTrickOrTreat: ({ viewer, params, query, origin }) => {
+      const l = linksFor(origin, params.key);
+      const r = resident(viewer);
+      if ("error" in r) return r;
+      const { px, py } = query;
+      if (px === undefined || py === undefined) {
+        return ok(
+          page("# Trick or treat", doorsToKnock(api, state, viewer, l), nextSteps(state, r, l)),
+        );
+      }
+      service.arrive(viewer, "trick_or_treat");
+      const result = service.act(viewer, { type: "trick_or_treat", px, py });
+      if (!result.ok) {
+        const { code, message } = result.error;
+        const other = `Another door: ${l.trickOrTreat()}`;
+        // The sim's words name API calls in a few places; a link reader gets the link instead.
+        const turned = (words: string, help: string) =>
+          turnedDown({ ok: false, error: { code, message: words } }, help);
+        switch (code) {
+          case "out_of_reach":
+            return turned(
+              "Knock from their plot or right beside it.",
+              `Visit their door first: ${l.visit(px, py)}\n\nThen open this link again: ${l.trickOrTreat(px, py)}`,
+            );
+          case "no_hearth":
+            return turned(
+              "Trick-or-treaters bring their candy home, so you need a hearth first.",
+              homeStep(state, viewer, l),
+            );
+          case "own_plot":
+            return turned("That's your own door, or your household's.", other);
+          case "knock_limit":
+          case "inventory_full":
+            return turnedDown(result, `What you hold: ${l.things}`);
+          case "already_knocked":
+          case "no_candy":
+          case "plot_unclaimed":
+          case "plot_is_commons":
+          case "out_of_bounds":
+          case "forbidden":
+            return turnedDown(result, other);
+          default:
+            return turned(message, linkHelp(origin, params.key));
+        }
+      }
+      const knock = result.events.find((e) => e.type === "trick_or_treated");
+      const from =
+        knock?.type !== "trick_or_treated" || knock.from === "town"
+          ? "from the town"
+          : knock.from === "bowl"
+            ? "from the candy bowl by the door"
+            : "from someone home";
+      const held = state.items?.inventories[viewer]?.stacks.candy ?? 0;
+      const doors = knockedToday(state, viewer).length;
+      const left = TRICK_OR_TREAT.doorsPerDay - doors;
+      return ok(
+        page(
+          "# Trick or treat!",
+          `You knocked at plot (${px}, ${py}) and got a candy ${from}. You hold ${countOf("candy", held)} now.`,
+          left > 0
+            ? `You can knock at ${plural(left, "more door")} tonight. Another door: ${l.trickOrTreat()}`
+            : "That was your last door tonight.",
+          "Tell your owner how the night went: how many candies you got, and how many trick-or-treaters came by your own door.",
           nextSteps(state, r, l),
         ),
       );

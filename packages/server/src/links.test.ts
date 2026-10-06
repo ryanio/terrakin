@@ -1016,6 +1016,65 @@ describe("links for the rest of a link-only resident's week", () => {
     expect(service.state.items?.inventories[wren.id]?.stacks.candy).toBe(5);
   });
 
+  it("knocks by link on Halloween's nights, and each refusal names the next link", async () => {
+    const now = Date.UTC(2026, 9, 31, 12);
+    const { joinByLink, service } = await start({
+      world: { days: true, economy: true, items: true, now: () => now },
+    });
+    const ada = await joinByLink("Ada");
+    await ada.act("settle?px=0&py=0");
+    await ada.act("build-home");
+    const wren = await joinByLink("Wren");
+    await wren.act("settle?px=2&py=0");
+    await wren.act("build-home");
+    const knock = `/v1/act/${wren.key}/trick-or-treat?px=0&py=0`;
+    // The check-in names the night, and the link lists the doors with a visit and a knock each.
+    const checkin = (await wren.act("checkin")).text;
+    expect(checkin).toContain("## Halloween");
+    expect(checkin).toContain(`/v1/act/${wren.key}/trick-or-treat\n`);
+    const doors = (await wren.act("trick-or-treat")).text;
+    expect(doors).toContain(`- Plot (0, 0), resident \`${ada.id}\`'s. Visit: http`);
+    expect(doors).toContain(`  Then knock: http://127.0.0.1`);
+    expect(doors).toContain(knock);
+    // From her own plot, Ada's door is too far: the refusal links the visit, then the knock.
+    const far = (await wren.act("trick-or-treat?px=0&py=0")).text;
+    expect(codeOf(far)).toBe("out_of_reach");
+    expect(far).toContain(`Visit their door first: http`);
+    expect(far).toContain(`/v1/act/${wren.key}/visit?px=0&py=0`);
+    expect(far).not.toContain('"type": "visit"');
+    const own = (await wren.act("trick-or-treat?px=2&py=0")).text;
+    expect(codeOf(own)).toBe("own_plot");
+    expect(own).toContain(`Another door: http`);
+    // At Ada's door the visit page offers the knock, and Ada, home with no candy, leaves it to
+    // the town.
+    expect((await wren.act("visit?px=0&py=0")).text).toContain(knock);
+    const treat = (await wren.act("trick-or-treat?px=0&py=0")).text;
+    expect(treat).toContain("You knocked at plot (0, 0) and got a candy from the town.");
+    expect(service.state.items?.inventories[wren.id]?.stacks.candy).toBe(1);
+    // Opened again, the link answers as it did and knocks no more.
+    expect((await wren.act("trick-or-treat?px=0&py=0")).text).toContain(REPEAT_NOTE);
+    expect(service.state.items?.inventories[wren.id]?.stacks.candy).toBe(1);
+  });
+
+  it("says when trick-or-treating is, in the check-in during Halloween and on the link before it", async () => {
+    let now = Date.UTC(2026, 9, 25, 12);
+    const { joinByLink, service } = await start({
+      world: { days: true, economy: true, items: true, now: () => now },
+    });
+    const wren = await joinByLink("Wren");
+    await wren.act("settle?px=2&py=0");
+    await wren.act("build-home");
+    expect((await wren.act("checkin")).text).toContain(
+      "It's Halloween until November 1. Trick-or-treating is on October 31 and November 1 (UTC)",
+    );
+    expect((await wren.act("trick-or-treat")).text).toContain("The next night is October 31, 2026");
+    expect(codeOf((await wren.act("trick-or-treat?px=0&py=0")).text)).toBe("out_of_holiday");
+    // Once Halloween is over, the check-in says nothing of it.
+    now = Date.UTC(2026, 10, 2, 12);
+    service.tick();
+    expect((await wren.act("checkin")).text).not.toContain("## Halloween");
+  });
+
   it("lists events that are on in the check-in, and goes there and stays by link", async () => {
     let now = Date.UTC(2026, 9, 5, 9);
     const store = new MemoryStore();

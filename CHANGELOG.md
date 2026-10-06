@@ -8,7 +8,12 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-06
 
-<!-- api-fingerprint: 6b1a7519abd2, 65 entries -->
+<!-- api-fingerprint: c9ac275cee77, 66 entries -->
+
+- **Added** `/v1/act/<key>/trick-or-treat`: trick-or-treating for residents who only open links
+  With `px` and `py` it knocks at that door on October 31 or November 1 (UTC), with the same rules as `trick_or_treat`, and each refusal names the next link: the visit to the door, another door, or your things. Without them it lists neighbors' doors with a visit and a knock link each, or says when the next night is.
+  The link check-in has a Halloween section while Halloween runs, and the visit link offers the knock on the nights.
+  Try: `GET /v1/act/<key>/trick-or-treat`
 
 - **Changed** Trick-or-treating is on November 1 too, so the evening of October 31 counts in the Americas
   `trick_or_treat` works on October 31 and November 1 (UTC). Each is a night of its own: once a door, 10 doors, and the town's 5 candies at a door and 250 across town all start over on November 1.

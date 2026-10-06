@@ -84,6 +84,19 @@ export interface PlotBlock {
   furniture?: PlotFurniture | undefined;
 }
 
+/** Something growing in a planter, drawn over it as the map draws it. */
+export interface PlotCrop {
+  /** Tiles from the plot's top left corner: the planter's tile. */
+  x: number;
+  y: number;
+  /** The sim's name for it. A pumpkin grows on a vine along the soil, the rest on a stem. */
+  crop: string;
+  /** How far along it is: 0 just planted, 1 ready to pick. */
+  done: number;
+  /** Its color once it's ready, from the sim's palette. */
+  fill: string;
+}
+
 /** The colors the drawing needs beyond the ground and blocks, from the sim's palette. */
 export interface PlotInk {
   roof: string;
@@ -107,6 +120,8 @@ export interface PlotCard {
   /** The owner's theme laid over the plot, when they have one. */
   tint?: string | undefined;
   blocks: PlotBlock[];
+  /** What's growing in the plot's planters. */
+  crops?: PlotCrop[] | undefined;
   /** The hearth's tile, when it's on this plot. */
   hearth?: { x: number; y: number } | undefined;
   /** The owner's own picture of their home, standing over the hearth (a data URI and its size). */
@@ -213,6 +228,11 @@ export function plotSvg(c: PlotCard, px: number): string {
         `<path d="M${n(left + size * 0.3)} ${n(top + size * 0.68)}L${n(left + size * 0.62)} ${n(top + size * 0.36)}" stroke="rgba(255, 255, 255, 0.75)" stroke-width="0.045" stroke-linecap="round"/>`,
       );
     }
+  }
+
+  // What's growing, over its planter.
+  for (const crop of c.crops ?? []) {
+    if (inPlot(crop.x, S) && inPlot(crop.y, S)) parts.push(...cropSvg(crop));
   }
 
   // The hearth: a little house with a door and a clay roof.
@@ -344,6 +364,118 @@ function decorSvg(
     `<rect x="${X(0.11)}" y="${Y(0.33)}" width="0.78" height="0.12" rx="0.03" fill="${fill}" ${stroke}/>`,
     `<rect x="${X(0.06)}" y="${Y(0.52)}" width="0.88" height="0.14" rx="0.04" fill="${fill}" ${stroke}/>`,
   ];
+}
+
+const STEM = "#5f9a43";
+const LEAF = "#6fae4c";
+/** A pumpkin before it ripens, swelling toward its color. */
+const BUD = "#8cbf5a";
+const PUMPKIN_STEM = "#76703a";
+/** The thin dark edge around each fruit. */
+const FRUIT_EDGE = ' stroke="rgba(43, 38, 32, 0.35)" stroke-width="0.02"';
+
+/** `a` moved `t` of the way toward `b`, both #rrggbb; `a` when either isn't one. */
+function mixColor(a: string, b: string, t: number): string {
+  const hex = /^#[0-9a-f]{6}$/i;
+  if (!hex.test(a) || !hex.test(b)) return a;
+  const k = Number.isFinite(t) ? Math.max(0, Math.min(1, t)) : 0;
+  let out = "#";
+  for (let i = 1; i < 7; i += 2) {
+    const from = Number.parseInt(a.slice(i, i + 2), 16);
+    const to = Number.parseInt(b.slice(i, i + 2), 16);
+    out += Math.round(from + (to - from) * k)
+      .toString(16)
+      .padStart(2, "0");
+  }
+  return out;
+}
+
+/**
+ * An oval as a path, turned `turn` degrees, so the hearth's shadow stays the photo's only ellipse.
+ * `edge` is our own stroke attributes, or nothing.
+ */
+function oval(
+  cx: number,
+  cy: number,
+  rx: number,
+  ry: number,
+  turn: number,
+  fill: string,
+  edge = "",
+): string {
+  const x = n(cx);
+  const y = n(cy);
+  const spin = turn ? ` transform="rotate(${n(turn)} ${x} ${y})"` : "";
+  return `<path d="M${n(cx - rx)} ${y}a${n(rx)} ${n(ry)} 0 1 0 ${n(rx * 2)} 0a${n(rx)} ${n(ry)} 0 1 0 -${n(rx * 2)} 0z"${spin} fill="${fill}"${edge}/>`;
+}
+
+/**
+ * A crop on its planter, as `client/src/render.ts` paints it: a sprout that grows taller, with three
+ * fruit or flowers in its color once it's ready; or a pumpkin vine along the soil, its pumpkin
+ * swelling from a green bud and turning its color, with a stem once it's ripe. The planter is the
+ * block under it, so the same 0.05 inset and 0.9 tile size apply.
+ */
+function cropSvg(c: PlotCrop): string[] {
+  const done = Number.isFinite(c.done) ? Math.max(0, Math.min(1, c.done)) : 0;
+  const fill = safeColor(c.fill);
+  const size = 0.9;
+  const cx = c.x + 0.05 + size / 2;
+  const top = c.y + 0.05;
+  const line = (d: string, stroke: string, width: number) =>
+    `<path d="${d}" stroke="${stroke}" stroke-width="${n(width)}" stroke-linecap="round" fill="none"/>`;
+  if (c.crop === "pumpkin") {
+    const base = top + size * 0.7;
+    const spread = size * (0.14 + 0.2 * done);
+    const leaf = size * (0.07 + 0.07 * done);
+    const out = [
+      line(
+        `M${n(cx - spread)} ${n(base)}Q${n(cx)} ${n(base - size * 0.14)} ${n(cx + spread)} ${n(base)}`,
+        STEM,
+        size / 16,
+      ),
+      ...[-1, 1].map((side) =>
+        oval(cx + side * spread * 0.85, base - leaf * 0.3, leaf, leaf * 0.6, side * 23, LEAF),
+      ),
+    ];
+    if (done <= 0.2) return out;
+    const ripe = done >= 1;
+    const swell = (done - 0.2) / 0.8;
+    const r = size * (0.08 + 0.15 * swell);
+    const y = base - r * 0.55;
+    const skin = ripe ? fill : mixColor(BUD, fill, swell * 0.5);
+    for (const dx of [-0.5, 0.5, 0])
+      out.push(oval(cx + dx * r, y, r * 0.72, r * 0.82, 0, skin, FRUIT_EDGE));
+    if (ripe)
+      out.push(
+        line(
+          `M${n(cx)} ${n(y - r * 0.7)}L${n(cx + r * 0.15)} ${n(y - r * 1.05)}`,
+          PUMPKIN_STEM,
+          size / 18,
+        ),
+      );
+    return out;
+  }
+  const base = top + size * 0.66;
+  const tall = size * (0.18 + 0.32 * done);
+  const leaf = size * (0.08 + 0.08 * done);
+  const out = [
+    line(`M${n(cx)} ${n(base)}V${n(base - tall)}`, STEM, size / 14),
+    ...[-1, 1].map((side) =>
+      oval(cx + side * leaf, base - tall * 0.55, leaf, leaf * 0.5, side * 29, LEAF),
+    ),
+  ];
+  if (done >= 1) {
+    for (const [dx, dy] of [
+      [-0.16, -0.05],
+      [0.16, -0.1],
+      [0, -0.2],
+    ] as const) {
+      out.push(
+        `<circle cx="${n(cx + dx * size)}" cy="${n(base - tall + dy * size + tall * 0.4)}" r="${n(size * 0.09)}" fill="${fill}"${FRUIT_EDGE}/>`,
+      );
+    }
+  }
+  return out;
 }
 
 /** A number kept to a tile's own small range, or 0. */

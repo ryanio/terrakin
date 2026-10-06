@@ -3,7 +3,7 @@
  * Tests render them all; to look at them, run `pnpm --filter @terrakin/cards samples <dir>`.
  */
 
-import type { PlotBlock, PlotCard, PlotGround } from "./plot";
+import type { PlotBlock, PlotCard, PlotCrop, PlotGround } from "./plot";
 import type { Card } from "./templates";
 
 /** A plot like a starter home on meadow and forest, with a few signature blocks. */
@@ -61,7 +61,19 @@ export function samplePlot(name: string, homeArt?: PlotCard["homeArt"]): PlotCar
     { x: 4, y: 7, glass: false, fill: "#a8a196", furniture: "stone_wall" },
     { x: 5, y: 6, glass: false, fill: "#b8834f", furniture: "flower_box" },
     { x: 2, y: 6, glass: false, fill: "#4a5a48", furniture: "lamp_post" },
+    // A garden by the hedge: four planters.
+    { x: 6, y: 0, glass: false, fill: "#8a5a36" },
+    { x: 7, y: 0, glass: false, fill: "#8a5a36" },
+    { x: 6, y: 1, glass: false, fill: "#8a5a36" },
+    { x: 6, y: 3, glass: false, fill: "#8a5a36" },
   );
+  // A ripe pumpkin, one still swelling, ripe strawberries, and herbs not long in.
+  const crops: PlotCrop[] = [
+    { x: 6, y: 0, crop: "pumpkin", done: 1, fill: "#e8862f" },
+    { x: 7, y: 0, crop: "pumpkin", done: 0.6, fill: "#e8862f" },
+    { x: 6, y: 1, crop: "strawberry", done: 1, fill: "#d9434f" },
+    { x: 6, y: 3, crop: "herb", done: 0.4, fill: "#4f8a3a" },
+  ];
   // A cobble path out of the door, a plank floor inside, and fallen leaves by the well.
   const cobble = {
     fill: "#857e73",
@@ -142,6 +154,7 @@ export function samplePlot(name: string, homeArt?: PlotCard["homeArt"]): PlotCar
     ground,
     tint: "rgba(242, 184, 75, 0.34)",
     blocks,
+    crops,
     hearth: { x: 3, y: 3 },
     ...(homeArt ? { homeArt } : {}),
     ink: { roof: "#d9653a", door: "#f2b84b", walls: "#fffaf0", tuft: "rgba(78, 112, 54, 0.45)" },

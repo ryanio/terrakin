@@ -4,6 +4,7 @@ import {
   alphaHex,
   BLOCK_COLORS,
   blockFill,
+  CROP_HEX,
   dayOfDate,
   GROUND_LOOK,
   groundTile,
@@ -44,6 +45,8 @@ beforeAll(async () => {
 }, 30_000);
 
 interface Options {
+  /** Count days and open growing, for photos of a garden. */
+  garden?: boolean;
   limits?: Partial<SocialLimits>;
   ipUploadBytesPerDay?: number;
   /** Default: a counting fake that returns PNG. */
@@ -51,7 +54,11 @@ interface Options {
 }
 
 async function start(options: Options = {}) {
-  const service = new WorldService({ store: new MemoryStore(), config: CONFIG });
+  const service = new WorldService({
+    store: new MemoryStore(),
+    config: CONFIG,
+    ...(options.garden ? { days: true, items: true } : {}),
+  });
   const sql = nodeSql();
   const media = new MemoryMediaStore();
   const social = new SocialService({
@@ -185,6 +192,29 @@ describe("plot photo data", () => {
     });
     // Stepping stones let the grass under them show: no fill of their own.
     expect(spec.ground[7 * 8 + 3]?.paving).toEqual({ marks: GROUND_LOOK.stepping_stones.marks });
+  });
+
+  it("draws what grows in its planters, as far along as the world's day has it", async () => {
+    const { settled, service } = await start({ garden: true });
+    const wren = await settled("Wren");
+    const items = service.state.items;
+    if (!items) throw new Error("growing isn't open");
+    // Set straight into the world for this read-model test: planting and growing are tested in
+    // the sim. A lemon ready today, a pumpkin two days into five, and nothing in the third planter.
+    const day = 20_000;
+    for (const key of ["2,6", "6,6", "4,7"]) service.state.blocks[key] = "planter";
+    items.crops["6,6"] = {
+      crop: "pumpkin",
+      by: wren.residentId,
+      plantedDay: day - 2,
+      readyDay: day + 3,
+    };
+    items.crops["2,6"] = { crop: "lemon", by: wren.residentId, plantedDay: day - 4, readyDay: day };
+    const spec = plotPhotoSpec({ ...service.state, day }, wren.residentId);
+    expect(spec?.crops).toEqual([
+      { x: 2, y: 6, crop: "lemon", done: 1, fill: CROP_HEX.lemon },
+      { x: 6, y: 6, crop: "pumpkin", done: 0.4, fill: CROP_HEX.pumpkin },
+    ]);
   });
 
   it("is undefined without a plot", async () => {

@@ -341,6 +341,39 @@ describe("renderer", () => {
     expect(one("stone_wall")).not.toContain('width="0.8" height="0.48"');
   });
 
+  it("draws what grows over its planter, its fruit once ripe, and a pumpkin on a vine", () => {
+    const garden = {
+      ...samplePlot("Wren"),
+      blocks: [{ x: 1, y: 1, glass: false, fill: "#8a5a36" }],
+    };
+    const grown = (crop: string, done: number, fill: string) =>
+      plotSvg({ ...garden, crops: [{ x: 1, y: 1, crop, done, fill }] }, 420);
+    const bare = plotSvg({ ...garden, crops: [] }, 420);
+    const fruit = (svg: string, fill: string) => svg.split(`fill="${fill}"`).length - 1;
+    // A sprout from the day it's planted, and three strawberries in their color once it's ready.
+    expect(grown("strawberry", 0, "#d9434f")).not.toBe(bare);
+    expect(fruit(grown("strawberry", 0.5, "#d9434f"), "#d9434f")).toBe(0);
+    expect(fruit(grown("strawberry", 1, "#d9434f"), "#d9434f")).toBe(3);
+    // A pumpkin is a vine at first, then swells from green, and is its own orange once ripe.
+    expect(fruit(grown("pumpkin", 0.1, "#e8862f"), "#e8862f")).toBe(0);
+    expect(fruit(grown("pumpkin", 0.6, "#e8862f"), "#e8862f")).toBe(0);
+    expect(grown("pumpkin", 0.6, "#e8862f")).not.toBe(grown("pumpkin", 0.1, "#e8862f"));
+    expect(fruit(grown("pumpkin", 1, "#e8862f"), "#e8862f")).toBe(3);
+    // Only numbers and checked colors reach the markup, only on the plot, and no ellipses.
+    const odd = plotSvg(
+      {
+        ...garden,
+        crops: [
+          { x: 1, y: 1, crop: '"/><script>', done: Number.NaN, fill: '"/><script>' },
+          { x: 99, y: 1, crop: "herb", done: 1, fill: "#4f8a3a" },
+        ],
+      },
+      420,
+    );
+    expect(odd).not.toMatch(/<script|NaN|#4f8a3a/);
+    expect(odd.match(/<ellipse/g)).toHaveLength(1);
+  });
+
   it("draws the shop's decor as itself, with fence rails only toward other fences", () => {
     const one = (decor: PlotDecor, x = 1) =>
       plotSvg(

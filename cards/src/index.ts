@@ -9,6 +9,7 @@ export {
   PLOT_FURNITURE,
   type PlotBlock,
   type PlotCard,
+  type PlotCrop,
   type PlotFurniture,
   type PlotGround,
   type PlotInk,

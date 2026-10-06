@@ -9,7 +9,9 @@
  */
 import {
   BLOCK_COLORS,
+  CROP_HEX,
   type Crop,
+  growth,
   ITEM_KINDS,
   type ItemKind,
   WEAR_ITEMS,
@@ -39,21 +41,11 @@ export interface ArtShape {
 /** The side of the box every picture is drawn in. */
 export const ART_BOX = 48;
 
-/** Each crop's color when it's ready to pick. The 2D map draws ripe crops in these too. */
-export const CROP_HEX: Readonly<Record<Crop, string>> = {
-  lemon: "#f2d04b",
-  strawberry: "#d9434f",
-  tomato: "#e0573a",
-  herb: "#4f8a3a",
-  flower: "#e58fb6",
-  pumpkin: "#e8862f",
-};
-
-/** How far along a crop is, 0 to 1, for drawing it on the map and in 3D. */
-export function growth(plantedDay: number, readyDay: number, today: number | undefined): number {
-  if (today === undefined || readyDay <= plantedDay) return 0;
-  return Math.max(0, Math.min(1, (today - plantedDay) / (readyDay - plantedDay)));
-}
+/**
+ * Each crop's color when it's ready to pick, and how far along a crop is: the sim's palette, which
+ * the map and the 3D views draw crops with, and plot photos too.
+ */
+export { CROP_HEX, growth };
 
 // ---------- colors ----------
 

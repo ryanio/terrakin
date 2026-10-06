@@ -2,6 +2,7 @@ import {
   imageDataUri,
   type PlotBlock,
   type PlotCard,
+  type PlotCrop,
   type PlotGround,
   probeImage,
 } from "@terrakin/cards";
@@ -9,9 +10,11 @@ import {
   alphaHex,
   type Biome,
   blockFill,
+  CROP_HEX,
   FLOWER_TONES,
   GROUND_LOOK,
   groundTile,
+  growth,
   HEARTH_COLOR,
   HEARTH_DOOR,
   isDecorKind,
@@ -115,10 +118,23 @@ export function plotPhotoSpec(state: WorldState, residentId: string): PlotPhotoS
 
   // The plot's own tiles, row by row: S * S lookups, however big the world is.
   const blocks: PlotBlock[] = [];
+  const crops: PlotCrop[] = [];
   for (let y = 0; y < S; y++) {
     for (let x = 0; x < S; x++) {
-      const block = state.blocks[tileKey(x0 + x, y0 + y)];
+      const key = tileKey(x0 + x, y0 + y);
+      const block = state.blocks[key];
       if (!block) continue;
+      // What grows in a planter, as far along as the world's day has it, as the map draws it.
+      const planting = state.items?.crops[key];
+      if (planting) {
+        crops.push({
+          x,
+          y,
+          crop: planting.crop,
+          done: growth(planting.plantedDay, planting.readyDay, state.day),
+          fill: CROP_HEX[planting.crop],
+        });
+      }
       // Glass keeps its own color on a themed plot, as in the world.
       blocks.push({
         x,
@@ -150,6 +166,7 @@ export function plotPhotoSpec(state: WorldState, residentId: string): PlotPhotoS
     ground,
     ...(palette ? { tint: alphaHex(palette.ground, THEME_TINT_ALPHA) } : {}),
     blocks,
+    ...(crops.length > 0 ? { crops } : {}),
     ...(hearth ? { hearth: { x: hearth.x - x0, y: hearth.y - y0 } } : {}),
     ...(owner?.homeArt ? { homeArt: owner.homeArt } : {}),
     ink: { roof: HEARTH_COLOR, door: HEARTH_DOOR, walls: PAPER, tuft: tuftStroke(season) },

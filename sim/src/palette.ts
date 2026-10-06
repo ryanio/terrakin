@@ -1,14 +1,15 @@
 /**
- * The world's palette: ground tones per biome, blocks, the hearth, and paths and floors, plus the
- * per-tile scenery (tufts, flowers, and autumn's fallen leaves) the ground grows, and how each
- * season dresses it. Presentation only, like the looks catalog: no rule reads any of it. It lives
- * here so the client's world renderer (`client/src/render.ts`) and the plot photos drawn at the edge
- * (`cards/`, through `server/src/plot-photo.ts`) use the same colors and put the same tuft on the
- * same tile.
+ * The world's palette: ground tones per biome, blocks, the hearth, paths and floors, and crops,
+ * plus the per-tile scenery (tufts, flowers, and autumn's fallen leaves) the ground grows, and how
+ * each season dresses it. Presentation only, like the looks catalog: no rule reads any of it. It
+ * lives here so the client's world renderer (`client/src/render.ts`) and the plot photos drawn at
+ * the edge (`cards/`, through `server/src/plot-photo.ts`) use the same colors and put the same tuft
+ * on the same tile.
  */
 
 import { type Biome, biomeAt } from "./biome";
 import type { GroundKind } from "./ground";
+import type { Crop } from "./items";
 import type { ThemePalette } from "./looks";
 import type { Season } from "./season";
 import { type BlockKind, BUILDING_BLOCKS, type WorldConfig } from "./types";
@@ -283,6 +284,25 @@ export const TUFT_STROKE = "rgba(78, 112, 54, 0.45)";
 export const FLOWER_TONES: readonly [string, string] = ["#fff4d6", "#f2b84b"];
 /** Fallen leaves in autumn: rust, amber, and gold. */
 export const LEAF_TONES: readonly [string, string, string] = ["#c8643a", "#e0913a", "#e8b84a"];
+
+/**
+ * Each crop's color when it's ready to pick. The map, the 3D views, the item pictures, and plot
+ * photos all draw ripe crops in it.
+ */
+export const CROP_HEX: Readonly<Record<Crop, string>> = {
+  lemon: "#f2d04b",
+  strawberry: "#d9434f",
+  tomato: "#e0573a",
+  herb: "#4f8a3a",
+  flower: "#e58fb6",
+  pumpkin: "#e8862f",
+};
+
+/** How far along a crop is, 0 to 1, by the world's day: how the map, 3D, and photos draw it. */
+export function growth(plantedDay: number, readyDay: number, today: number | undefined): number {
+  if (today === undefined || readyDay <= plantedDay) return 0;
+  return Math.max(0, Math.min(1, (today - plantedDay) / (readyDay - plantedDay)));
+}
 /** How much a theme tints its owner's plot. */
 export const THEME_TINT_ALPHA = 0.34;
 

@@ -86,7 +86,10 @@ const clockServers = {
 /** Phone-first tests of the real build: the client served by the real server. */
 export default defineConfig({
   testDir: "e2e",
-  timeout: 30_000,
+  // A CI runner takes two to four times as long as a laptop for the same spec, and more with
+  // other specs beside it, so CI gives each test twice the time. Locally a test still has 30
+  // seconds, so one that grows too slow fails on the laptop first (decision 0109).
+  timeout: process.env.CI ? 60_000 : 30_000,
   retries: 0,
   reporter: process.env.CI ? "github" : "list",
   use: { baseURL: `http://localhost:${PORT}`, trace: "retain-on-failure" },

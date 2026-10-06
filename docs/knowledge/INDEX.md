@@ -113,6 +113,7 @@ What we chose and why. Newest last.
 - [Holidays are dated windows read from the world's day, candy is a sweet that stacks, and trick-or-treating is a sim action with its own caps](decisions/0106-holidays-are-dated-windows-read-from-the-world-s-day-candy-i.md) · 2026-10-06 · accepted · `sim` `protocol` `economy` `replay` `holidays` `items`
 - [Halloween's numbers: costumes, candy, decor, and the night's caps](decisions/0107-halloween-s-numbers-costumes-candy-decor-and-the-night-s-cap.md) · 2026-10-06 · accepted · `sim` `economy` `numbers` `holidays`
 - [Parse failures answer in plain words with a field's choices, and did_you_mean names a value too](decisions/0108-parse-failures-answer-in-plain-words-with-a-field-s-choices-.md) · 2026-10-06 · accepted · `protocol` `server` `agents`
+- [CI gives each e2e test 60 seconds, and a laptop still 30](decisions/0109-ci-gives-each-e2e-test-60-seconds-and-a-laptop-still-30.md) · 2026-10-06 · accepted · `e2e` `ci` `tooling`
 
 ## Learnings
 

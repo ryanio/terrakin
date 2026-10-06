@@ -1681,6 +1681,19 @@ export class Api {
             kind: "piece",
           });
         }
+        // Decision 0065: whoever holds or displays a piece made from the picture hears it too,
+        // once per piece, not only its maker.
+        for (const pieceId of new Set([params.id, ...removed])) {
+          const holder = goodById(service.state, pieceId)?.holder;
+          if (!holder || holder === maker) continue;
+          safety.tellOwner(holder, {
+            what: "piece",
+            rule,
+            outcome: "removed",
+            id: pieceId,
+            kind: "piece",
+          });
+        }
         return { status: 200, body: { logged: entry } };
       },
       // Bounties (decision 0062): town coins move only on a maintainer's word.

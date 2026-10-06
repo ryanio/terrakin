@@ -342,7 +342,7 @@ export function socialHandlers(api: Api): Pick<Handlers, AreaRouteIds["social"]>
       return fromResult(await social().agentLinks.link(viewer, body), (reply) => reply);
     },
     unlinkAgent: async ({ viewer }) => {
-      await social().agentLinks.unlink(viewer);
+      await social().agentLinks.remove(viewer);
       return { status: 204 };
     },
     getPartners: () => {

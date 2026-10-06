@@ -488,6 +488,9 @@ export class Api {
       // promos start and end on the server's clock. At boot, everything at once.
       layer.onPartnerPerks = (id) =>
         this.service.syncEntitlements(id, layer.agentLinks.entitled(id));
+      // A kept agent link ask finishes only while the resident's own call would get through
+      // (decision 0128). Not a request, so a pause isn't counted.
+      layer.agentLinks.writeBlocked = (id) => this.writeBlock(id, false) !== undefined;
       this.service.entitlements = () => layer.agentLinks.allEntitled();
       this.service.reconcileEntitlements(true);
     }
@@ -1178,8 +1181,9 @@ export class Api {
   }
 
   /**
-   * Recheck agent links that are due (RFC 0007): bounded per run and by the day's read cap. The
-   * Worker's alarm and the Node server's timer call this every few minutes.
+   * Recheck agent links that are due (RFC 0007), then try kept link asks again (decision 0128):
+   * bounded per run and by the day's read cap. The Worker's alarm and the Node server's timer call
+   * this every few minutes.
    */
   async recheckAgentLinks(): Promise<number> {
     if (!this.social) return 0;
@@ -1337,8 +1341,8 @@ export class Api {
   }
 
   /**
-   * When the next agent link recheck is due (ms), or undefined when there are no links, so the
-   * Worker keeps its alarm only while they exist.
+   * When the next agent link recheck, or retry of a kept ask, is due (ms), or undefined when there
+   * are neither, so the Worker keeps its alarm only while they exist.
    */
   nextAgentRecheckAt(): number | undefined {
     return this.social?.agentLinks.nextDueAt();
@@ -1390,9 +1394,10 @@ export class Api {
 
   /**
    * Why a resident can't write right now, or undefined: a maintainer's suspension, or the filters'
-   * cool-down after repeated refusals (RFC 0006). Maintainers are never paused.
+   * cool-down after repeated refusals (RFC 0006). Maintainers are never paused. `countPause` false
+   * asks without counting a pause on the transparency page, for checks that aren't a request.
    */
-  writeBlock(residentId: string): Failure | undefined {
+  writeBlock(residentId: string, countPause = true): Failure | undefined {
     const until = this.social?.safety.suspendedUntil(residentId);
     if (until !== undefined) {
       return fail(
@@ -1412,7 +1417,7 @@ export class Api {
       if (left > wait) [wait, paused] = [left, m];
     }
     if (paused) {
-      paused.pause(residentId, wait);
+      if (countPause) paused.pause(residentId, wait);
       return fail("rate_limited", COOL_DOWN_MESSAGE, wait);
     }
     return undefined;

@@ -459,10 +459,10 @@ class WorldObject extends DurableObject<Env> {
 
   /**
    * The object's alarm wakes it even when nobody is connected, for two things. Agent links are
-   * rechecked (RFC 0007): only while links exist, for when the next one is due, and never sooner
-   * than AGENT_RECHECK_EVERY_MS from now. And events (RFC 0010): every minute while one is live, so
-   * the object stays in memory, samples land on time, and guests calling over REST stay online
-   * between calls; else when the next one starts.
+   * rechecked (RFC 0007), and kept link asks tried again (decision 0128): only while either exists,
+   * for when the next one is due, and never sooner than AGENT_RECHECK_EVERY_MS from now. And
+   * events (RFC 0010): every minute while one is live, so the object stays in memory, samples land
+   * on time, and guests calling over REST stay online between calls; else when the next one starts.
    */
   private nextRecheck(): number | undefined {
     const recheck = nextRecheckAt(Date.now(), this.api.nextAgentRecheckAt());

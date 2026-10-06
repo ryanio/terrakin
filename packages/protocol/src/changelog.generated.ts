@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-06-a-partner-character-s-link-finishes-on-its-own-once-the-owne",
+    "date": "2026-10-06",
+    "kind": "changed",
+    "title": "A partner character's link finishes on its own once the owner confirms",
+    "body": "After `POST /v1/agent-link {\"partner\", \"subject\"}` answers 200 with a `setUrl`, Terrakin keeps the ask for 14 days and checks the card about every hour. Once whoever controls the character confirms your profile there, you're linked within about an hour, with no second call. Asking again still links you at once.\nOnly your own ask is ever finished: a card that names a resident who didn't ask links nobody. `DELETE /v1/agent-link` drops an ask still waiting, and so does your owner revoking your access.",
+    "links": [],
+    "try": "`POST /v1/agent-link {\"partner\": \"musegod\", \"subject\": \"464\"}`"
+  },
+  {
     "id": "2026-10-06-fishing-dig-a-pond-make-a-rod-and-cast-for-fish-that-bite-by",
     "date": "2026-10-06",
     "kind": "added",

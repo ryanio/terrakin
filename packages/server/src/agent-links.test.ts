@@ -4,6 +4,7 @@ import type { AgentCard, CardRead } from "./agent-card";
 import {
   type AgentLinkOptions,
   AgentLinkService,
+  ASK_KEEP_MS,
   BAD_CARD_LIMIT,
   DOWN_BACKOFF_MS,
   DOWN_LIMIT,
@@ -929,6 +930,172 @@ describe("rechecks", () => {
     advance(RECHECK_MS);
     expect(await links.recheckDue()).toBe(2);
     expect(await links.recheckDue()).toBe(1);
+  });
+});
+
+describe("kept asks (decision 0128)", () => {
+  it("finishes the link on its own once the card names the resident that asked", async () => {
+    const { link, join, chain, links, profile, advance } = await start();
+    const wren = join("Wren");
+    const { uri } = chain.addMuse(464);
+    const first = await link(muse(464), wren.token);
+    expect(first.status).toBe(200);
+    expect(first.body.message).toMatch(/within about an hour/);
+    // No links yet, so the ask alone keeps the Worker's alarm set.
+    expect(links.nextDueAt()).toBe(Date.UTC(2026, 9, 4, 12) + RECHECK_MS);
+
+    // Whoever holds the muse confirms on musegod.org. Nothing is read before the ask is due.
+    chain.setNames(uri, [wren.residentId]);
+    const reads = chain.state.reads;
+    await links.recheckDue();
+    expect(chain.state.reads).toBe(reads);
+    expect((await profile(wren.residentId)).partner).toBeUndefined();
+
+    advance(RECHECK_MS);
+    await links.recheckDue();
+    const shown = await profile(wren.residentId);
+    expect(shown.partner?.label).toBe("Muse #464");
+    expect(shown.agentLink).toMatchObject({ agent: agentRef(7055) });
+    // The ask is answered: what is due next is the link's own recheck.
+    expect(links.nextDueAt()).toBe(Date.UTC(2026, 9, 4, 12) + 2 * RECHECK_MS);
+  });
+
+  it("never links a resident the card names that didn't ask for that character", async () => {
+    const { link, join, chain, links, profile, advance } = await start();
+    const wren = join("Wren");
+    const moss = join("Moss");
+    const fern = join("Fern");
+    const { uri } = chain.addMuse(464);
+    chain.addMuse(465);
+    expect((await link(muse(464), wren.token)).status).toBe(200);
+    expect((await link(muse(465), fern.token)).status).toBe(200);
+    // Muse #464's card names Moss, who never asked, and Fern, who asked for another muse.
+    chain.setNames(uri, [moss.residentId, fern.residentId]);
+    advance(RECHECK_MS);
+    const reads = chain.state.reads;
+    await links.recheckDue();
+    // Both asks were read again, and neither linked anyone.
+    expect(chain.state.reads).toBeGreaterThan(reads);
+    for (const r of [wren, moss, fern]) {
+      expect((await profile(r.residentId)).agentLink).toBeUndefined();
+    }
+
+    // Once the card names the resident that asked, the same run links it.
+    chain.setNames(uri, [moss.residentId, wren.residentId]);
+    advance(RECHECK_MS);
+    await links.recheckDue();
+    expect((await profile(wren.residentId)).partner?.label).toBe("Muse #464");
+    expect((await profile(moss.residentId)).agentLink).toBeUndefined();
+    expect((await profile(fern.residentId)).agentLink).toBeUndefined();
+  });
+
+  it(`forgets an ask after ${ASK_KEEP_MS / 86_400_000} days, and asking again still links at once`, async () => {
+    const { link, join, chain, links, profile, advance } = await start();
+    const wren = join("Wren");
+    const { uri } = chain.addMuse(464);
+    await link(muse(464), wren.token);
+    // Tried hourly while the card doesn't name Wren; the last try inside the window keeps it.
+    advance(ASK_KEEP_MS - RECHECK_MS);
+    await links.recheckDue();
+    expect(links.nextDueAt()).toBe(Date.UTC(2026, 9, 4, 12) + ASK_KEEP_MS);
+
+    chain.setNames(uri, [wren.residentId]);
+    advance(RECHECK_MS);
+    const reads = chain.state.reads;
+    await links.recheckDue();
+    expect(chain.state.reads).toBe(reads);
+    expect((await profile(wren.residentId)).agentLink).toBeUndefined();
+    expect(links.nextDueAt()).toBeUndefined();
+
+    expect((await link(muse(464), wren.token)).status).toBe(201);
+  });
+
+  it("tries at most asksPerRun asks a run, from the link pool only while it is under half spent", async () => {
+    const { link, join, chain, links, profile, advance } = await start({ asksPerRun: 2 });
+    const asked = ["A", "B", "C"].map((name, i) => {
+      const r = join(name);
+      return { ...r, uri: chain.addMuse(30 + i).uri, n: 30 + i };
+    });
+    for (const r of asked) expect((await link(muse(r.n), r.token)).status).toBe(200);
+    for (const r of asked) chain.setNames(r.uri, [r.residentId]);
+    const linked = async () =>
+      (await Promise.all(asked.map((r) => profile(r.residentId)))).filter((p) => p.agentLink)
+        .length;
+    advance(RECHECK_MS);
+    const reads = links.readsToday("link");
+    await links.recheckDue();
+    expect(await linked()).toBe(2);
+    // Two attempts of at most 6 reads, and one art copy each.
+    expect(links.readsToday("link") - reads).toBeLessThanOrEqual(2 * 7);
+    expect(links.readsToday("recheck")).toBe(0);
+    await links.recheckDue();
+    expect(await linked()).toBe(3);
+
+    // A link pool of 48: the three asks spent 18, so one try (6) fits under half (24) and the
+    // next doesn't. Residents' own calls still have the other half.
+    const t = await start({ readsPerDay: 100, recheckShare: 0.52, asksPerRun: 20 });
+    const waiting = ["D", "E", "F"].map((name, i) => {
+      const r = t.join(name);
+      return { ...r, uri: t.chain.addMuse(40 + i).uri, n: 40 + i };
+    });
+    for (const r of waiting) expect((await t.link(muse(r.n), r.token)).status).toBe(200);
+    expect(t.links.readsToday("link")).toBe(18);
+    for (const r of waiting) t.chain.setNames(r.uri, [r.residentId]);
+    t.advance(RECHECK_MS);
+    await t.links.recheckDue();
+    const views = async () => Promise.all(waiting.map((r) => t.profile(r.residentId)));
+    expect((await views()).filter((p) => p.agentLink)).toHaveLength(1);
+    t.advance(RECHECK_MS);
+    await t.links.recheckDue();
+    expect((await views()).filter((p) => p.agentLink)).toHaveLength(1);
+    const own = waiting[(await views()).findIndex((p) => !p.agentLink)];
+    if (!own) throw new Error("A resident should still be waiting.");
+    expect((await t.link(muse(own.n), own.token)).status).toBe(201);
+
+    // A new day's pool takes the last one.
+    t.advance(24 * 60 * 60_000);
+    await t.links.recheckDue();
+    expect((await views()).filter((p) => p.agentLink)).toHaveLength(3);
+  });
+
+  it("holds an ask while the resident is suspended, and drops it on DELETE or its owner's revoke", async () => {
+    const { call, link, join, chain, links, social, profile, advance } = await start();
+    const named = (n: number, r: { residentId: string }) => {
+      const { uri } = chain.addMuse(n);
+      return () => chain.setNames(uri, [r.residentId]);
+    };
+    const wren = join("Wren");
+    const moss = join("Moss");
+    const fern = join("Fern");
+    const hazel = join("Hazel", "human");
+    const issued = await call("POST", "/v1/owner/claims", undefined, hazel.token);
+    expect(
+      (await call("POST", "/v1/owner/accept", { code: issued.body.code }, fern.token)).status,
+    ).toBe(200);
+    const confirms = [named(50, wren), named(51, moss), named(52, fern)];
+    for (const [i, r] of [wren, moss, fern].entries()) {
+      expect((await link(muse(50 + i), r.token)).status).toBe(200);
+    }
+    for (const confirm of confirms) confirm();
+    expect(social.safety.suspend("staff", wren.residentId, 1, "test").ok).toBe(true);
+    expect((await call("DELETE", "/v1/agent-link", undefined, moss.token)).status).toBe(204);
+    expect(
+      (await call("POST", `/v1/owner/link/${fern.residentId}/revoke`, undefined, hazel.token))
+        .status,
+    ).toBe(204);
+
+    advance(RECHECK_MS);
+    await links.recheckDue();
+    for (const r of [wren, moss, fern]) {
+      expect((await profile(r.residentId)).agentLink).toBeUndefined();
+    }
+
+    // The suspension ends inside the ask's 14 days: the next try links. The others stay unlinked.
+    advance(24 * 60 * 60_000);
+    await links.recheckDue();
+    expect((await profile(wren.residentId)).partner?.label).toBe("Muse #50");
+    expect((await profile(moss.residentId)).agentLink).toBeUndefined();
+    expect((await profile(fern.residentId)).agentLink).toBeUndefined();
   });
 });
 

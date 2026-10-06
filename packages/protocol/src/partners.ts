@@ -283,3 +283,9 @@ export type PartnerResidentsResponse = z.infer<typeof PartnerResidentsResponse>;
 
 /** How often the server confirms a link's agent card still names the resident. */
 export const AGENT_LINK_RECHECK_MINUTES = 60;
+
+/**
+ * How long the server keeps a resident's ask for a partner's character whose card didn't name it
+ * yet, checking the card about every AGENT_LINK_RECHECK_MINUTES and linking once it does.
+ */
+export const AGENT_LINK_ASK_DAYS = 14;

@@ -1,4 +1,5 @@
 import {
+  AGENT_LINK_ASK_DAYS,
   AGENT_LINK_RECHECK_MINUTES,
   type AgentLinkRequest,
   type AgentLinkResponse,
@@ -60,6 +61,12 @@ import { cleanText } from "./text";
  * a check that stopped early costs nothing. Requests refused before reading (a bad id, another
  * registry, the per-resident attempt cap) cost nothing either. Cards are always fetched fresh,
  * since a fresh card is the point of asking again.
+ *
+ * An ask by partner and subject that the card doesn't answer yet is kept (`agent_link_asks`, one
+ * per resident, for AGENT_LINK_ASK_DAYS), and each recheck run tries a few due ones again through
+ * the same `attempt` the resident's own call runs, so the link finishes once whoever controls the
+ * character confirms the profile (decision 0128). Only the resident's own ask starts one: a card
+ * that names a resident who never asked links nobody.
  */
 
 export interface AgentLinkOptions {
@@ -80,23 +87,30 @@ export interface AgentLinkOptions {
   recheckShare?: number;
   /** Most links one recheck run looks at. */
   perRun?: number;
+  /** Most kept asks one recheck run tries again. */
+  asksPerRun?: number;
   /** Link attempts one resident may make per UTC day. */
   attemptsPerDay?: number;
   partners?: readonly PartnerConfig[];
   chains?: Readonly<Record<number, ChainConfig>>;
-  /** Called after a link is stored, so the Worker can make sure its recheck alarm is set. */
+  /**
+   * Called after a link or a kept ask is stored, so the Worker can make sure its recheck alarm is
+   * set.
+   */
   onLinked?: () => void;
 }
 
 /**
  * Sized for MUSEGOD's 999 muses all linked: a recheck takes at most 5 reads, so 999 links checked
  * hourly is about 120,000 reads a day, inside the recheck pool (85% of 150,000). A run every 5
- * minutes of up to 100 links covers 1,200 links an hour.
+ * minutes of up to 100 links covers 1,200 links an hour. Kept asks are tried again 20 a run at most
+ * (20 card fetches, 120 reads), from the link pool and only while it is less than half spent.
  */
 export const AGENT_LINK_DEFAULTS = {
   readsPerDay: 150_000,
   recheckShare: 0.85,
   perRun: 100,
+  asksPerRun: 20,
   attemptsPerDay: 20,
 } as const;
 
@@ -119,6 +133,13 @@ export const GONE_LIMIT = 2;
 export const BAD_CARD_LIMIT = 24;
 /** How often the Worker's alarm and the Node timer run `recheckDue`, at the soonest. */
 export const AGENT_RECHECK_EVERY_MS = 5 * 60_000;
+/** How long an ask whose card didn't name the resident is kept and tried again. */
+export const ASK_KEEP_MS = AGENT_LINK_ASK_DAYS * 86_400_000;
+/**
+ * Kept asks are tried again only while the day's link pool is less than this share spent, so a
+ * backlog of asks never takes the reads residents' own link attempts need.
+ */
+export const ASK_SHARE = 0.5;
 
 /** When the Worker's alarm should next fire: when the next link is due, never sooner than 5 minutes out. */
 export function nextRecheckAt(now: number, due: number | undefined): number | undefined {
@@ -174,6 +195,21 @@ interface Meter {
 
 type LinkReply = { status: 200 | 201; body: AgentLinkResponse };
 
+/** A partner's character a resident asked for, checked before anything is read. */
+interface Wanted {
+  partner: PartnerConfig;
+  subject: string;
+  chain: ChainConfig;
+}
+
+interface AskRow {
+  resident_id: string;
+  partner_id: string;
+  subject: string;
+  asked_at: number;
+  due_at: number;
+}
+
 /** How a recheck went: done (or nothing to do), or stopped because its pool is spent. */
 type Recheck = "done" | "skipped" | "spent";
 
@@ -212,6 +248,7 @@ export class AgentLinkService {
   private readonly readsPerDay: number;
   private readonly recheckShare: number;
   private readonly perRun: number;
+  private readonly asksPerRun: number;
   private readonly attemptsPerDay: number;
   private readonly partners: readonly PartnerConfig[];
   private readonly chains: Readonly<Record<number, ChainConfig>>;
@@ -224,6 +261,11 @@ export class AgentLinkService {
    * Awaited, so a link's answer comes back after its art is copied.
    */
   onChange: ((residentIds: string[], pool: Pool) => Promise<void>) | undefined;
+  /**
+   * Whether a resident can't write right now (suspended, or paused by the filters), the check the
+   * dispatcher makes before the resident's own call. `Api` sets it; a kept ask waits while it holds.
+   */
+  writeBlocked: ((residentId: string) => boolean) | undefined;
 
   constructor(
     deps: {
@@ -244,6 +286,7 @@ export class AgentLinkService {
     this.readsPerDay = options.readsPerDay ?? AGENT_LINK_DEFAULTS.readsPerDay;
     this.recheckShare = options.recheckShare ?? AGENT_LINK_DEFAULTS.recheckShare;
     this.perRun = options.perRun ?? AGENT_LINK_DEFAULTS.perRun;
+    this.asksPerRun = options.asksPerRun ?? AGENT_LINK_DEFAULTS.asksPerRun;
     this.attemptsPerDay = options.attemptsPerDay ?? AGENT_LINK_DEFAULTS.attemptsPerDay;
     this.partners = options.partners ?? PARTNERS;
     this.chains = options.chains ?? CHAINS;
@@ -291,6 +334,16 @@ export class AgentLinkService {
         resident_id TEXT NOT NULL, day INTEGER NOT NULL, attempts INTEGER NOT NULL,
         PRIMARY KEY (resident_id, day)
       )`,
+      // A resident's newest ask by partner and subject that the card didn't answer yet, tried
+      // again from \`due_at\` until \`asked_at\` is ASK_KEEP_MS old.
+      `CREATE TABLE IF NOT EXISTS agent_link_asks (
+        resident_id TEXT PRIMARY KEY,
+        partner_id TEXT NOT NULL,
+        subject TEXT NOT NULL,
+        asked_at INTEGER NOT NULL,
+        due_at INTEGER NOT NULL
+      )`,
+      "CREATE INDEX IF NOT EXISTS agent_link_asks_due ON agent_link_asks (due_at)",
     ]) {
       this.sql.exec(statement);
     }
@@ -300,7 +353,7 @@ export class AgentLinkService {
 
   async link(residentId: string, request: AgentLinkRequest): Promise<SocialResult<LinkReply>> {
     if (this.readsPerDay <= 0) return fail("unavailable", OFF);
-    let wanted: { partner: PartnerConfig; subject: string; chain: ChainConfig } | undefined;
+    let wanted: Wanted | undefined;
     let given: AgentRef | undefined;
     if (request.agent !== undefined) {
       given = parseAgentRef(request.agent);
@@ -316,17 +369,9 @@ export class AgentLinkService {
         return fail("bad_request", "That isn't the agent registry Terrakin reads on that network.");
       }
     } else {
-      const partner = findPartner(request.partner ?? "", this.partners);
-      if (partner?.status !== "active") {
-        return fail("bad_request", "No partner by that id. GET /v1/partners lists them.");
-      }
-      const subject = request.subject ?? "";
-      if (!partner.subject.test(subject)) {
-        return fail("bad_request", `${partner.name} has no ${partnerLabel(partner, subject)}.`);
-      }
-      const chain = this.chains[partner.match.chainId];
-      if (!chain) return fail("unavailable", UNAVAILABLE);
-      wanted = { partner, subject, chain };
+      const found = this.wantedFor(request.partner ?? "", request.subject ?? "");
+      if (!found.ok) return found;
+      wanted = found.value;
     }
 
     // Only now does anything cost: one attempt for this resident, and the most it could read.
@@ -344,17 +389,44 @@ export class AgentLinkService {
     this.countAttempt(residentId);
     const meter = this.meter();
     try {
-      return await this.attempt(residentId, meter, given, wanted);
+      const reply = await this.attempt(residentId, meter, given, wanted, "link");
+      // Asked by partner and subject, and the card doesn't name the resident yet: keep the ask,
+      // so the link finishes once whoever controls the character confirms (decision 0128).
+      if (wanted && reply.ok && reply.value.status === 200) this.keepAsk(residentId, wanted);
+      return reply;
     } finally {
       this.settle("link", day, LINK_READS, meter.reads);
     }
   }
 
+  /** A partner's character by id and subject, checked before anything is read or spent. */
+  private wantedFor(
+    partnerId: string,
+    subject: string,
+  ): { ok: true; value: Wanted } | ReturnType<typeof fail> {
+    const partner = findPartner(partnerId, this.partners);
+    if (partner?.status !== "active") {
+      return fail("bad_request", "No partner by that id. GET /v1/partners lists them.");
+    }
+    if (!partner.subject.test(subject)) {
+      return fail("bad_request", `${partner.name} has no ${partnerLabel(partner, subject)}.`);
+    }
+    const chain = this.chains[partner.match.chainId];
+    if (!chain) return fail("unavailable", UNAVAILABLE);
+    return { ok: true, value: { partner, subject, chain } };
+  }
+
+  /**
+   * One link attempt for a resident: the resident's own call, or a kept ask tried again from a
+   * recheck run (`during: "ask"`). Both take the same path, so an ask links only when the call
+   * would.
+   */
   private async attempt(
     residentId: string,
     meter: Meter,
     given: AgentRef | undefined,
-    wanted: { partner: PartnerConfig; subject: string; chain: ChainConfig } | undefined,
+    wanted: Wanted | undefined,
+    during: "link" | "ask",
   ): Promise<SocialResult<LinkReply>> {
     let ref = given;
     if (wanted) {
@@ -363,7 +435,7 @@ export class AgentLinkService {
       if (!found.ok && found.bad) return fail("bad_request", UNREADABLE_PARTNER);
       if (!found.ok && !found.missing) {
         console.info("Agent link: down at partner");
-        count("agent_link.check", { during: "link", result: "down", where: "partner" });
+        count("agent_link.check", { during, result: "down", where: "partner" });
         return fail("unavailable", UNAVAILABLE);
       }
       if (!found.ok || !found.value.registered) {
@@ -375,7 +447,7 @@ export class AgentLinkService {
 
     const check = await this.check(ref, meter);
     count("agent_link.check", {
-      during: "link",
+      during,
       result: check.kind,
       ...(check.kind === "down" ? { where: check.where } : {}),
     });
@@ -407,7 +479,9 @@ export class AgentLinkService {
           body: {
             link: null,
             message: setUrl
-              ? "The agent's card doesn't name you yet. Ask whoever controls it to open setUrl and confirm this profile, then ask again."
+              ? wanted
+                ? `The agent's card doesn't name you yet. Ask whoever controls it to open setUrl and confirm this profile. Terrakin keeps this ask for ${AGENT_LINK_ASK_DAYS} days and links you within about an hour of that, or at once if you ask again.`
+                : "The agent's card doesn't name you yet. Ask whoever controls it to open setUrl and confirm this profile, then ask again."
               : `The agent's card doesn't name you yet. Its services need {"name": "terrakin", "endpoint": "${residentEndpoint(residentId)}"}; ask whoever controls it to add that, then ask again.`,
             ...(setUrl ? { setUrl } : {}),
           },
@@ -453,12 +527,20 @@ export class AgentLinkService {
       now,
       now + RECHECK_MS,
     );
+    // Linked: whatever the resident was still waiting for is answered.
+    this.dropAsk(residentId);
     this.onLinked?.();
     // Residents who lost the character first, so their copies go before the new one is made.
     await this.changed([...others, residentId], "link");
     const link = this.view(residentId);
     if (!link) return fail("unavailable", UNAVAILABLE);
     return { ok: true, value: { status: 201, body: { link } } };
+  }
+
+  /** A resident's own DELETE: ends its link and drops an ask still waiting for the card. */
+  async remove(residentId: string) {
+    this.dropAsk(residentId);
+    await this.unlink(residentId);
   }
 
   /** End a resident's link. Its perks go with it: partner art, entitlements. */
@@ -567,9 +649,16 @@ export class AgentLinkService {
     };
   }
 
-  /** When the next recheck is due, or undefined when there are no links. */
+  /** When the next recheck of a link or a kept ask is due, or undefined when there are none. */
   nextDueAt(): number | undefined {
-    const row = [...this.sql.exec("SELECT MIN(due_at) AS due FROM agent_links")][0];
+    const link = this.dueAt("agent_links");
+    const ask = this.dueAt("agent_link_asks");
+    if (link === undefined) return ask;
+    return ask === undefined ? link : Math.min(link, ask);
+  }
+
+  private dueAt(table: "agent_links" | "agent_link_asks"): number | undefined {
+    const row = [...this.sql.exec(`SELECT MIN(due_at) AS due FROM ${table}`)][0];
     return row?.due === null || row?.due === undefined ? undefined : Number(row.due);
   }
 
@@ -577,11 +666,12 @@ export class AgentLinkService {
 
   /**
    * Recheck links that are due, oldest first, up to `perRun`, and stop early when the day's
-   * recheck pool is spent. Returns how many were checked.
+   * recheck pool is spent; then try kept asks again (`retryAsks`). Returns how many links were
+   * checked.
    */
   async recheckDue(): Promise<number> {
     const now = this.now();
-    const oldest = this.nextDueAt();
+    const oldest = this.dueAt("agent_links");
     // How far behind rechecks are, so a backlog shows before links go stale.
     if (oldest !== undefined) {
       gauge("agent_link.recheck_lag_seconds", Math.max(0, Math.round((now - oldest) / 1000)));
@@ -599,6 +689,7 @@ export class AgentLinkService {
       if (result === "spent") break;
       if (result === "done") checked++;
     }
+    await this.retryAsks();
     return checked;
   }
 
@@ -743,6 +834,89 @@ export class AgentLinkService {
     await this.changed([id], "recheck");
   }
 
+  // ---------- kept asks ----------
+
+  /** Keep a resident's ask, replacing an older one: the newest ask is what the resident wants. */
+  private keepAsk(residentId: string, wanted: Wanted) {
+    const now = this.now();
+    this.sql.exec(
+      `INSERT INTO agent_link_asks (resident_id, partner_id, subject, asked_at, due_at)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT (resident_id) DO UPDATE SET partner_id = excluded.partner_id,
+          subject = excluded.subject, asked_at = excluded.asked_at, due_at = excluded.due_at`,
+      residentId,
+      wanted.partner.id,
+      wanted.subject,
+      now,
+      now + RECHECK_MS,
+    );
+    this.onLinked?.();
+  }
+
+  /** Forget a resident's ask: linked, taken back, or its owner revoked its access. */
+  dropAsk(residentId: string) {
+    this.sql.exec("DELETE FROM agent_link_asks WHERE resident_id = ?", residentId);
+  }
+
+  private askRow(residentId: string): AskRow | undefined {
+    return [
+      ...this.sql.exec("SELECT * FROM agent_link_asks WHERE resident_id = ?", residentId),
+    ][0] as AskRow | undefined;
+  }
+
+  /**
+   * Try kept asks again (decision 0128): drop the ones ASK_KEEP_MS old, then the due ones, oldest
+   * first, up to `asksPerRun`, each through `attempt` like the resident's own call. Reads come from
+   * the link pool, and only while it is less than ASK_SHARE spent; a run stops there.
+   */
+  private async retryAsks(): Promise<void> {
+    const now = this.now();
+    this.sql.exec("DELETE FROM agent_link_asks WHERE asked_at <= ?", now - ASK_KEEP_MS);
+    const due = [
+      ...this.sql.exec(
+        "SELECT resident_id FROM agent_link_asks WHERE due_at <= ? ORDER BY due_at LIMIT ?",
+        now,
+        this.asksPerRun,
+      ),
+    ].map((r) => String(r.resident_id));
+    for (const residentId of due) {
+      if ((await this.retryAsk(residentId)) === "spent") break;
+    }
+  }
+
+  private async retryAsk(residentId: string): Promise<Recheck> {
+    const ask = this.askRow(residentId);
+    // Gone, or tried since this run was planned.
+    if (!ask || ask.due_at > this.now()) return "skipped";
+    const later = () =>
+      this.sql.exec(
+        "UPDATE agent_link_asks SET due_at = ? WHERE resident_id = ? AND asked_at = ?",
+        this.now() + RECHECK_MS,
+        residentId,
+        ask.asked_at,
+      );
+    // The resident's own call would be turned away now; the ask waits, and ends with its time.
+    const wanted = this.wantedFor(ask.partner_id, ask.subject);
+    if (!wanted.ok || this.writeBlocked?.(residentId)) {
+      later();
+      return "skipped";
+    }
+    const day = this.reserve("link", LINK_READS, Math.floor(this.poolCap("link") * ASK_SHARE));
+    if (day === undefined) return "spent";
+    // Due again in an hour before anything is read, so a run that overlaps this one skips it.
+    later();
+    const meter = this.meter();
+    try {
+      const reply = await this.attempt(residentId, meter, undefined, wanted.value, "ask");
+      count("agent_link.ask", {
+        result: !reply.ok ? reply.code : reply.value.status === 201 ? "linked" : "waiting",
+      });
+      return "done";
+    } finally {
+      this.settle("link", day, LINK_READS, meter.reads);
+    }
+  }
+
   // ---------- reading an agent ----------
 
   /** Readers for one check that count the reads that really go out. */
@@ -860,12 +1034,13 @@ export class AgentLinkService {
   }
 
   /**
-   * Reserve `reads` from today's pool if they fit. Reserved up front, at the most a check can take,
-   * so concurrent checks can't push a day past its cap; `settle` gives back what wasn't used.
+   * Reserve `reads` from today's pool if they fit under `cap` (the pool's own, or less). Reserved up
+   * front, at the most a check can take, so concurrent checks can't push a day past its cap;
+   * `settle` gives back what wasn't used.
    */
-  private reserve(pool: Pool, reads: number): number | undefined {
+  private reserve(pool: Pool, reads: number, cap = this.poolCap(pool)): number | undefined {
     const day = this.day();
-    if (this.readsToday(pool) + reads > this.poolCap(pool)) return undefined;
+    if (this.readsToday(pool) + reads > cap) return undefined;
     this.addReads(pool, day, reads);
     this.sql.exec("DELETE FROM agent_reads WHERE day < ?", day - 30);
     return day;

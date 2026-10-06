@@ -231,6 +231,8 @@ export class OwnerService {
     this.credentials.revokeTokens(agentId);
     this.credentials.revokeLinkKey(agentId);
     this.drop("rekey", agentId);
+    // An agent link it asked for with those credentials doesn't finish on its own.
+    this.social.agentLinks.dropAsk(agentId);
     this.social.sql.exec(
       `INSERT INTO owner_revocations (agent_id, owner_id, revoked_at) VALUES (?, ?, ?)
         ON CONFLICT (agent_id) DO UPDATE SET owner_id = excluded.owner_id, revoked_at = excluded.revoked_at`,

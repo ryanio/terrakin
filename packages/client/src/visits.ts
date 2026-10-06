@@ -79,10 +79,17 @@ export function weekLine(plot: Pick<PlotView, "admirers" | "visitors">): string 
 }
 
 /**
- * "Ivy's plot", "Ivy and Sam's plot", "Ivy, Sam, and Lee's plot": the owner first, then the
- * residents it's shared with. Names are residents' words, so this goes in as text.
+ * A plot's own name when it has one, else "Ivy's plot", "Ivy and Sam's plot", "Ivy, Sam, and
+ * Lee's plot": the owner first, then the residents it's shared with. Names are residents' words,
+ * so this goes in as text.
  */
-export function plotName(names: readonly string[]): string {
+export function plotName(plot: {
+  name?: string | undefined;
+  owner: { name: string };
+  coOwners: { name: string }[];
+}): string {
+  if (plot.name) return plot.name;
+  const names = [plot.owner.name, ...plot.coOwners.map((c) => c.name)];
   const who =
     names.length <= 2
       ? names.join(" and ")

@@ -155,6 +155,11 @@ export async function sweep(request: APIRequestContext) {
   expect((await request.post("/v1/test/sweep")).ok()).toBe(true);
 }
 
+/** Move the shared test clock on `minutes` (1 to 1,440), for an event's start. Own project only. */
+export async function advanceMinutes(request: APIRequestContext, minutes: number) {
+  expect((await request.post(`/v1/test/advance-day?minutes=${minutes}`)).ok()).toBe(true);
+}
+
 export interface WatchOptions {
   /** Fail on any dialog the page opens (and dismiss it). */
   dialogs?: boolean;

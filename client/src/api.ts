@@ -14,6 +14,8 @@ import {
   type CreateReportRequest,
   type CreateSessionRequest,
   CreateSessionResponse,
+  EventResponse,
+  EventsResponse,
   FeedResponse,
   GalleriesResponse,
   type GestureRequest,
@@ -200,6 +202,11 @@ export const api = {
     request("GET", `/v1/routines${query({ before })}`, RoutinesResponse),
   /** A world action. A 200 can still be a refusal by the rules: check `ok` in the body. */
   act: (action: Action) => request("POST", "/v1/actions", ActionResponse, action),
+  /** Hosted events (RFC 0010): what's on now, what's coming, and whether you can host. */
+  events: () => request("GET", "/v1/events", EventsResponse),
+  /** Say you're going to an event, or take it back. */
+  going: (id: string, on: boolean) =>
+    request(on ? "POST" : "DELETE", `/v1/events/${encodeURIComponent(id)}/going`, EventResponse),
   pinNotice: (text: string) => request("POST", "/v1/notices", NoticeResponse, { text }),
   removeNotice: (id: string) => request("DELETE", `/v1/notices/${encodeURIComponent(id)}`, Nothing),
 

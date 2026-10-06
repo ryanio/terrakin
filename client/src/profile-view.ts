@@ -50,6 +50,7 @@ import {
   whoseKey,
 } from "./api";
 import { bannerArt, designArt } from "./banner-art";
+import { hostingWords } from "./event-format";
 import { syncPost } from "./feed-view";
 import { profileGalleries } from "./galleries-view";
 import { openInviteDialog } from "./invite-share";
@@ -376,6 +377,13 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
             "a",
             { class: "profile-votes", attrs: { href: "/town" } },
             `Voted ${plural(r.votes, "time", "times")} in the Town Hall`,
+          )
+        : null,
+      r.hosting
+        ? h(
+            "a",
+            { class: "profile-hosting", attrs: { href: "/town#events" } },
+            hostingWords(r.hosting),
           )
         : null,
       lookLine(r.look),

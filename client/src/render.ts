@@ -49,6 +49,7 @@ import {
   withAlpha,
 } from "@terrakin/ui/looks";
 import { type Camera, tileToScreen } from "./camera";
+import { eventLanterns } from "./event-format";
 import { type Feelings, idPhase, pose, restingPose } from "./feelings";
 import type { DisplayView, Mirror } from "./mirror";
 import { awayPose, type Motion, type Pose as MotionPose } from "./motion";
@@ -1297,6 +1298,31 @@ export function render(
 
   drawTownHall(ctx, mirror, cam);
   drawShop(ctx, mirror, cam);
+
+  // ---- events (RFC 0010): a lantern on an event's plot on its day, lit while it's on ----
+  for (const l of eventLanterns(mirror.events.values(), {
+    plotSize: S,
+    day: mirror.day,
+    taken: (x, y) =>
+      mirror.blocks.has(tileKey(x, y)) || mirror.isTownHall(x, y) || mirror.isShop(x, y),
+  })) {
+    if (l.x < x0 || l.x > x1 || l.y < y0 || l.y > y1) continue;
+    const { sx, sy } = tileToScreen(cam, l.x, l.y);
+    const left = Math.round(sx - half) + inset;
+    const top = Math.round(sy - half) + inset;
+    const size = Math.round(scale) - inset * 2;
+    const shade = { sx: left + size * 0.64, sy: top + size * 0.42 };
+    // Lit, it glows in daylight too, and joins the paper lanterns that glow after dark.
+    if (l.lit) {
+      const g = ctx.createRadialGradient(shade.sx, shade.sy, 0, shade.sx, shade.sy, scale * 0.9);
+      g.addColorStop(0, "rgba(255, 206, 110, 0.55)");
+      g.addColorStop(1, "rgba(255, 196, 92, 0)");
+      ctx.fillStyle = g;
+      ctx.fillRect(shade.sx - scale, shade.sy - scale, scale * 2, scale * 2);
+      lanterns.push(shade);
+    }
+    paintLantern(ctx, left, top, size);
+  }
 
   // ---- hearths: a little house, drawn under residents ----
   for (const r of mirror.residents.values()) {

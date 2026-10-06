@@ -13,6 +13,8 @@ import { copyButton, emptyNote, moreButton } from "@terrakin/ui/ui";
 import { refreshTimes } from "@terrakin/ui/when";
 import { api, myProfile } from "./api";
 import { type Composer, composer } from "./composer";
+import { happeningCard } from "./event-cards";
+import { whenWords } from "./event-format";
 import {
   EVERYONE_GAP_MS,
   FOLLOWING_GAP_MS,
@@ -74,8 +76,19 @@ interface FeedState {
   mode: TownsfolkMode;
 }
 
-/** The last world and Town Hall we saw, so coming back paints the pulse at once. */
-const pulse: { world?: WorldSnapshot; town?: TownResponse } = {};
+/**
+ * The last world and Town Hall we saw, so coming back paints the pulse at once, and when the world
+ * answered (`Date.now()`), so the server's clock can be read forward from its snapshot.
+ */
+const pulse: { world?: WorldSnapshot; town?: TownResponse; worldAt?: number } = {};
+
+/** The server's time now, read forward from the last snapshot's; this device's when there's none. */
+function serverNow(): number {
+  const time = pulse.world?.time;
+  return time && pulse.worldAt !== undefined
+    ? time.nowMs + (Date.now() - pulse.worldAt)
+    : Date.now();
+}
 
 /** Feeds we've shown, by history entry, so back returns to the same posts at the same place. */
 const cache = new Map<string, FeedState>();
@@ -506,7 +519,12 @@ export function feedView(ctx: ViewContext): View {
   const sky = skyCard();
   const town = townCard();
   const activity = activityCard();
-  const pulseEls = [stats.el, activity.el, around.el, town.el, sky.el];
+  // Events (RFC 0010): what's on now, with Go, leads the pulse cards.
+  const happening = happeningCard(
+    (path) => ctx.navigate(path),
+    () => savedResidentId() ?? undefined,
+  );
+  const pulseEls = [happening.el, stats.el, activity.el, around.el, town.el, sky.el];
   const wide = window.matchMedia("(min-width: 1000px)");
 
   /**
@@ -576,7 +594,10 @@ export function feedView(ctx: ViewContext): View {
       around.update(a.shown, a.more, ids);
       sky.update(world, s.online);
     }
-    if (pulse.town) town.update(pulse.town);
+    if (pulse.town) {
+      town.update(pulse.town);
+      happening.update(pulse.town.events, serverNow());
+    }
   }
 
   let pulseBusy = false;
@@ -588,7 +609,10 @@ export function feedView(ctx: ViewContext): View {
     pulseBusy = false;
     if (destroyed) return;
     const before = { world: pulse.world, town: pulse.town };
-    if (w.ok) pulse.world = w.data;
+    if (w.ok) {
+      pulse.world = w.data;
+      pulse.worldAt = Date.now();
+    }
     if (t.ok) pulse.town = t.data;
     keepPlace(() => {
       paintPulse();
@@ -673,6 +697,27 @@ export function feedView(ctx: ViewContext): View {
           }),
         true,
       );
+      // Someone put an event on the calendar: who's hosting, what, and when, as text.
+      const known = new Set(
+        [...townBefore.events.live, ...townBefore.events.upcoming].map((e) => e.id),
+      );
+      const fresh = pulse.town.events.upcoming.filter((e) => !known.has(e.id));
+      if (fresh.length > 0) {
+        activity.add(
+          fresh.map(
+            (e): ActivityEntry => ({
+              key: `event:${e.id}`,
+              ...(e.host ? { who: e.host } : {}),
+              lead: e.host?.name ?? "The town",
+              rest: `is hosting ${snippet(e.title, 60)}, ${whenWords(e.startsAt, serverNow())}`,
+              href: "/town#events",
+              at,
+              tone: "town",
+            }),
+          ),
+          true,
+        );
+      }
       const had = new Set(townBefore.open.map((p) => p.id));
       for (const p of pulse.town.open.filter((p) => !had.has(p.id)).slice(0, 2)) {
         activity.add(

@@ -24,6 +24,7 @@ import {
   tileKey,
   type WorldConfig,
 } from "@terrakin/sim";
+import type { EventMark } from "./event-format";
 import { type Dozer, dozers } from "./scene3d/layout";
 
 type EventMessage = { seq: number; event: WorldEvent };
@@ -109,6 +110,8 @@ export class Mirror {
   facing = new Map<string, Direction>();
   /** Who is asleep at home and where, worked out again after any event (`asleep`). */
   #dozing: { me: string | undefined; list: readonly Dozer<Resident>[] } | undefined;
+  /** Events on the calendar (RFC 0010): where and when, never their words. By id. */
+  events = new Map<string, EventMark>();
   /**
    * Away residents out on a routine (decision 0083): the routine, and when its last step reached
    * this copy, on `clock`. They're drawn where they are, awake, until `OUT_MS` after it.
@@ -151,6 +154,16 @@ export class Mirror {
     for (const t of snapshot.gathered ?? []) this.gathered.add(tileKey(t.x, t.y));
     this.plotPickupsOwned = snapshot.plotPickupsOwned === true;
     this.day = snapshot.day;
+    for (const e of snapshot.events ?? []) {
+      this.events.set(e.id, {
+        id: e.id,
+        px: e.px,
+        py: e.py,
+        status: e.status,
+        startsAt: e.startsAt,
+        ...(e.town ? { town: true as const } : {}),
+      });
+    }
   }
 
   isTownHall(x: number, y: number): boolean {
@@ -315,6 +328,25 @@ export class Mirror {
         break;
       case "plot_pickups_owned":
         this.plotPickupsOwned = true;
+        break;
+      case "event_scheduled":
+        this.events.set(event.event, {
+          id: event.event,
+          px: event.px,
+          py: event.py,
+          status: "scheduled",
+          startsAt: event.startsAt,
+          ...(event.town ? { town: true as const } : {}),
+        });
+        break;
+      case "event_started": {
+        const e = this.events.get(event.event);
+        if (e) e.status = "live";
+        break;
+      }
+      case "event_ended":
+      case "event_cancelled":
+        this.events.delete(event.event);
         break;
       // The blocks themselves arrive as block_placed and block_removed just before this.
       case "town_built":

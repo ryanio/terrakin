@@ -1,7 +1,7 @@
 /**
  * `/town` the Town Hall: open proposals with live tallies and vote buttons, the Propose sheet (an
- * advisory, a build drawn on a map of the Commons, a grant, or a town bounty), the notice board, a
- * way to the bounties, and past results.
+ * advisory, a build drawn on a map of the Commons, a grant, or a town bounty), the town's calendar
+ * of events with the Schedule sheet, the notice board, a way to the bounties, and past results.
  * Titles, texts, notices, and names are other residents' words: textContent only. The server
  * decides who may vote and what passes; this page shows its answers and its reasons.
  */
@@ -33,7 +33,8 @@ import {
 } from "@terrakin/ui/ui";
 import { timeAgo } from "@terrakin/ui/when";
 import { actProblem, api } from "./api";
-import { savedToken } from "./net";
+import { eventRow, openScheduleSheet } from "./event-cards";
+import { savedResidentId, savedToken } from "./net";
 import { skeletonCards } from "./post-card";
 import { coins } from "./purse";
 import {
@@ -81,6 +82,9 @@ export function townView(ctx: ViewContext): View {
   let commons: Commons | undefined;
   let sheetOpen = false;
   let busy = false;
+  /** The server's clock from the last world snapshot, and when it came, to read it forward. */
+  let clock: { ms: number; at: number } | undefined;
+  const serverNow = () => (clock ? clock.ms + (Date.now() - clock.at) : Date.now());
 
   const hero = h("section", {
     class: "stack start paper card town-hero",
@@ -92,6 +96,10 @@ export function townView(ctx: ViewContext): View {
   const board = h("section", {
     class: "stack paper card board",
     attrs: { "aria-labelledby": "board-title" },
+  });
+  const calendar = h("section", {
+    class: "stack paper card events-board",
+    attrs: { "aria-labelledby": "events-title", id: "events" },
   });
   const archiveList = h("div", { class: "stack archive-list" });
   const more = moreButton("Show more results", async () => {
@@ -117,13 +125,18 @@ export function townView(ctx: ViewContext): View {
       return;
     }
     town = t.data;
-    if (w.ok) commons = commonsOf(w.data);
+    if (w.ok) {
+      commons = commonsOf(w.data);
+      if (w.data.time) clock = { ms: w.data.time.nowMs, at: Date.now() };
+    }
     el.replaceChildren(
       hero,
       h("h2", { class: "section-title", text: "Open proposals" }),
       openList,
       queuedTitle,
       queuedList,
+      h("h2", { class: "section-title", attrs: { id: "events-title" }, text: "Coming up" }),
+      calendar,
       h("h2", { class: "section-title", attrs: { id: "board-title" }, text: "Notice board" }),
       board,
       ...(town.shop ? [shopCard(town.shop)] : []),
@@ -134,6 +147,7 @@ export function townView(ctx: ViewContext): View {
       h("div", { class: "feed-foot" }, more.el),
     );
     paint();
+    paintEvents();
     paintBoard(true);
     archiveList.replaceChildren();
     if (past.ok) addArchive(past.data.proposals, past.data.next);
@@ -144,11 +158,77 @@ export function townView(ctx: ViewContext): View {
     const [t, w] = await Promise.all([api.town(), api.world()]);
     if (destroyed || !t.ok) return;
     town = t.data;
-    if (w.ok) commons = commonsOf(w.data);
+    if (w.ok) {
+      commons = commonsOf(w.data);
+      if (w.data.time) clock = { ms: w.data.time.nowMs, at: Date.now() };
+    }
     // Only what changed gets drawn again, so a vote you're about to tap stays put.
     paint();
+    paintEvents();
     const board = JSON.stringify(town.board);
     if (board !== paintedBoard) paintBoard(false);
+  }
+
+  // ---------- the calendar (RFC 0010) ----------
+
+  /** What the calendar last showed, so a refresh with nothing new leaves it alone. */
+  let paintedEvents = "";
+
+  function paintEvents() {
+    if (!town) return;
+    const { live, upcoming } = town.events;
+    const next = JSON.stringify(town.events);
+    if (next === paintedEvents) return;
+    paintedEvents = next;
+    const now = serverNow();
+    const rows = [...live, ...upcoming].map((e) =>
+      eventRow(e, {
+        now,
+        me: savedResidentId() ?? undefined,
+        navigate: ctx.navigate,
+        changed: () => void refresh(),
+      }),
+    );
+    const host = savedToken()
+      ? h(
+          "button",
+          { class: "pill-button", attrs: { type: "button", id: "event-host" } },
+          icon("calendar"),
+          h("span", { text: "Host an event" }),
+        )
+      : null;
+    host?.addEventListener("click", () => void openHost(host));
+    calendar.replaceChildren(
+      h("p", {
+        class: "town-lede",
+        text: "Shows, classes, markets, listening sessions, and gatherings around town. While one is on, Go takes you there.",
+      }),
+      rows.length > 0
+        ? h("ol", { class: "stack plain-list event-list" }, ...rows)
+        : emptyNote(
+            "Nothing on the calendar yet",
+            "Host something at your place: a few friends and a playlist is plenty.",
+          ),
+      ...(host ? [host] : []),
+    );
+  }
+
+  /** The Schedule sheet, with where you can host read fresh, or why you can't yet. */
+  async function openHost(button: HTMLButtonElement) {
+    const [r, w] = await whileBusy(button, () => Promise.all([api.events(), api.world()]));
+    if (destroyed) return;
+    if (!r.ok) return toast(r.message);
+    const you = r.data.you;
+    if (!you?.canHost) return toast(you?.why ?? "Step into the world once to host here.");
+    sheetOpen = true;
+    openScheduleSheet({
+      events: r.data,
+      commons: w.ok ? w.data.commons : { px: 0, py: 0 },
+      done: () => void refresh(),
+      closed: () => {
+        sheetOpen = false;
+      },
+    });
   }
 
   // ---------- hero and proposals ----------

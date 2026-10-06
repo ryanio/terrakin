@@ -1,10 +1,21 @@
 import { type APIRequestContext, expect, test } from "@playwright/test";
-import { act, advanceDay, join, overflowsSideways, signIn, watchErrors } from "./support";
+import {
+  act,
+  advanceDay,
+  advanceMinutes,
+  join,
+  overflowsSideways,
+  read,
+  signIn,
+  watchErrors,
+} from "./support";
 
 /**
  * The Town Hall, end to end on a phone: three residents who have held their plots for three days
- * propose a fountain for the Commons, vote it through, and see it built. The e2e server runs with
- * TERRAKIN_TEST_CLOCK=1, so `POST /v1/test/advance-day` moves its clock a day on.
+ * propose a fountain for the Commons, vote it through, and see it built. Then Fern hosts an event
+ * at her plot from the Town Hall's calendar, and Birch goes from the home wall's Happening now card
+ * once it's on. The e2e server runs with TERRAKIN_TEST_CLOCK=1, so `POST /v1/test/advance-day`
+ * moves its clock a day on, or some minutes.
  */
 
 /** An agent who settles `plot` and builds the starter home, with `act` bound to it. */
@@ -30,6 +41,7 @@ const FOUNTAIN = [
 
 test("an eligible resident proposes a fountain, the town votes it in, and it's built", async ({
   page,
+  browser,
 }) => {
   const errors = watchErrors(page, { console: "none" });
 
@@ -110,6 +122,47 @@ test("an eligible resident proposes a fountain, the town votes it in, and it's b
   // The profile counts the vote.
   await page.goto(`/r/${fern.id}`);
   await expect(page.locator(".profile-votes")).toHaveText("Voted 1 time in the Town Hall");
+
+  await test.step("Fern hosts an event at her plot, and Birch goes once it's on", async () => {
+    await page.goto("/town");
+    await page.click("#event-host");
+    await page.click('[aria-label="Kind of event"] [data-value="listening"]');
+    await page.fill("#event-title", "Sunday records");
+    await page.fill("#event-text", "Bring a song.");
+    // It starts on the hour, two to three hours from now by the server's clock: keep that.
+    await page.screenshot({ path: "test-results/town-schedule.png" });
+    await page.click("#event-submit");
+    const row = page.locator("#events .event-row", { hasText: "Sunday records" });
+    await expect(row).toBeVisible();
+    const id = (await row.getAttribute("data-event")) ?? "";
+    expect(id).toMatch(/^e_\d+$/);
+    expect(await overflowsSideways(page)).toBe(false);
+
+    // The server's clock moves to a minute after it starts.
+    const { event } = await read(page.request, birch.token, `/v1/events/${id}`);
+    const now = (await (await page.request.get("/v1/world")).json()).time.nowMs;
+    await advanceMinutes(page.request, Math.ceil((Date.parse(event.startsAt) - now) / 60_000) + 1);
+
+    // Birch, on the home wall on his own phone, taps Go and lands on Fern's plot or the paths
+    // around it.
+    const birchPage = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    await signIn(birchPage, birch);
+    await birchPage.goto("/");
+    const happening = birchPage.locator("#happening-now");
+    await expect(happening).toContainText("Sunday records");
+    await birchPage.screenshot({ path: "test-results/town-happening-now.png" });
+    await happening.locator(".event-go").click();
+    await expect(birchPage).toHaveURL(/\/world$/);
+    const area = event.area as { x0: number; y0: number; x1: number; y1: number };
+    const at = (await (await page.request.get("/v1/world")).json()).residents.find(
+      (r: { id: string }) => r.id === birch.id,
+    );
+    expect(at.x).toBeGreaterThanOrEqual(area.x0);
+    expect(at.x).toBeLessThanOrEqual(area.x1);
+    expect(at.y).toBeGreaterThanOrEqual(area.y0);
+    expect(at.y).toBeLessThanOrEqual(area.y1);
+    await birchPage.close();
+  });
 
   expect(errors).toEqual([]);
 });

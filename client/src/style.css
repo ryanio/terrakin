@@ -5650,6 +5650,112 @@ dialog.look-editor {
   color: var(--paper);
 }
 
+/* Hosted events (RFC 0010): rows on the Town Hall's calendar and the home wall's card. */
+.event-row {
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--paper-edge);
+}
+
+.event-row:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+/* What's on now sits on a soft warm fill, like light from its lanterns. */
+.event-row.is-live {
+  padding: var(--space-md);
+  border: 0;
+  border-radius: var(--r-md);
+  background: rgba(242, 184, 75, 0.16);
+}
+
+.event-row.is-live + .event-row {
+  margin-top: var(--space-xs);
+}
+
+.event-meta {
+  align-items: center;
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}
+
+.event-when {
+  font-weight: var(--weight-semibold);
+}
+
+.event-live {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-weight: var(--weight-bold);
+  color: var(--moss-deep);
+}
+
+.event-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-snug);
+  overflow-wrap: anywhere;
+}
+
+.event-text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--ink-soft);
+}
+
+.event-by {
+  align-items: center;
+  margin: 0;
+  font-size: var(--text-md);
+  color: var(--ink-soft);
+}
+
+.event-town {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  font-weight: var(--weight-bold);
+  color: var(--ink);
+}
+
+.event-actions {
+  align-items: center;
+}
+
+.event-count {
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  color: var(--ink-soft);
+}
+
+.event-going-toggle[aria-pressed="true"] {
+  border-color: var(--moss-light);
+  background: rgba(143, 179, 106, 0.2);
+  color: var(--moss-deep);
+}
+
+.events-board > .pill-button {
+  justify-self: start;
+}
+
+.pulse-events.is-live {
+  background: linear-gradient(180deg, rgba(242, 184, 75, 0.2), var(--paper) 70%);
+}
+
+.event-lengths {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.profile-facts > .profile-hosting::before {
+  content: "🏮";
+  margin-right: var(--space-xs);
+}
+
 .sheet-input {
   width: 100%;
   min-height: 48px;

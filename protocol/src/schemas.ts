@@ -4,6 +4,7 @@ import {
   BOUNTIES,
   BUILD_PARTS,
   BUILD_SKIPS,
+  CANDY_FROM,
   COIN_REASONS,
   COMMONS_BLOCKS,
   CROPS,
@@ -24,6 +25,7 @@ import {
   GROUND_KINDS,
   HAIR_COLORS,
   HAIR_STYLES,
+  HOLIDAYS,
   INVENTORY_REASONS,
   ITEM_ID_PATTERN,
   ITEM_KINDS,
@@ -51,6 +53,7 @@ import {
   SHOP_SKUS,
   STACK_KINDS,
   STEP_ROUTINES,
+  SWEET_KINDS,
   TABLE_ID_PATTERN,
   TABLE_STATUSES,
   THEMES,
@@ -434,11 +437,17 @@ export const GatherAction = z.object({
 });
 /** Furniture (RFC 0016): made at a workbench, held, and placed like decor. */
 export const FurnitureKind = z.enum(FURNITURE_KINDS);
-/** What `craft` makes: a good, signed with your name, or a piece of furniture, which stacks. */
-export const RecipeKind = z.enum([...GOOD_KINDS, ...FURNITURE_KINDS]);
+/** Sweets (RFC 0022): made at a kitchen, and they stack, like candy. */
+export const SweetKind = z.enum(SWEET_KINDS);
+/**
+ * What `craft` makes: a good, signed with your name, or a piece of furniture or a sweet, which
+ * stack.
+ */
+export const RecipeKind = z.enum([...GOOD_KINDS, ...FURNITURE_KINDS, ...SWEET_KINDS]);
 /**
  * Make something at the station on (x, y), within reach: a `kitchen` or a `workbench`. `label` is
- * your own name for a good, untrusted text that travels with it. Furniture takes no label.
+ * your own name for a good, untrusted text that travels with it. Furniture and sweets take no
+ * label, and a sweet's recipe can make more than one (candy makes 5).
  */
 export const CraftAction = z.object({
   type: z.literal("craft"),
@@ -711,6 +720,26 @@ export const TreatPetAction = z.object({
   ...dry,
 });
 
+// ---------- Holidays (RFC 0022) ----------
+
+/** The holidays, by the UTC calendar. Halloween runs from October 24 to November 1. */
+export const HolidayName = z.enum(HOLIDAYS);
+export type HolidayName = z.infer<typeof HolidayName>;
+/** Who handed out a trick-or-treater's candy: someone home, a bowl by the door, or the town. */
+export const CandyFrom = z.enum(CANDY_FROM);
+/**
+ * On October 31 (UTC), knock at the door of plot (px, py), standing on it or right beside it
+ * (`visit` takes you there), and get a candy: from whoever lives there and is home with some, else
+ * from a candy bowl by the door, else from the town. Once a door a night, 10 doors a night. Never
+ * your own door, one shared with you, or your household's.
+ */
+export const TrickOrTreatAction = z.object({
+  type: z.literal("trick_or_treat"),
+  px: coord,
+  py: coord,
+  ...dry,
+});
+
 /** A bounty as an event carries it. Its words aren't here: read them from `GET /v1/bounties`. */
 export const BountyEventView = z.object({
   id: z.string(),
@@ -966,6 +995,7 @@ export const Action = z.discriminatedUnion("type", [
   StandAction,
   StartGameAction,
   DecideAction,
+  TrickOrTreatAction,
 ]);
 export type Action = z.infer<typeof Action>;
 export const ACTION_TYPES = Action.options.map((o) => o.shape.type.value);
@@ -1046,6 +1076,9 @@ export const WorldSnapshot = z.object({
   ),
   weather: WeatherName.optional().describe(
     "The weather now, worked out from the server's clock: it comes in spells of a few hours, and snow falls only in winter. It is cosmetic and changes no rules.",
+  ),
+  holiday: HolidayName.optional().describe(
+    "The holiday the world's day falls in, by the UTC calendar (`halloween`: October 24 to November 1). Absent on ordinary days.",
   ),
   config: z.object({
     width: z.number().int(),
@@ -1569,6 +1602,18 @@ export const WorldEvent = z.discriminatedUnion("type", [
     residentId: z.string(),
     by: z.string(),
     kind: CropKind,
+  }),
+  /**
+   * `by` knocked at the door of plot (px, py) on Halloween night and got a candy (RFC 0022): from
+   * `giver`, someone home or their bowl by the door (`from` says which), or from the town.
+   */
+  z.object({
+    type: z.literal("trick_or_treated"),
+    by: z.string(),
+    px: z.number().int(),
+    py: z.number().int(),
+    from: CandyFrom,
+    giver: z.string().optional(),
   }),
   /**
    * Your things changed. Only you get these, like `coins`. `changes` are stacks (signed `amount`,

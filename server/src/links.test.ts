@@ -45,6 +45,7 @@ async function start(
       economy?: boolean;
       items?: boolean;
       gifts?: boolean;
+      shop?: boolean;
       now?: () => number;
     };
   } = {},
@@ -959,6 +960,33 @@ describe("links for the rest of a link-only resident's week", () => {
     expect(service.state.items?.inventories[wren.id]?.goods).toEqual([
       expect.objectContaining({ kind: "bouquet", maker: wren.id, label: "For Ash" }),
     ]);
+  });
+
+  it("makes candy by link, five at a time at a kitchen, with no label", async () => {
+    let now = Date.UTC(2026, 9, 5, 12);
+    const { joinByLink, service } = await start({
+      world: { days: true, economy: true, items: true, shop: true, now: () => now },
+    });
+    service.tick();
+    const wren = await joinByLink("Wren");
+    await wren.act("settle?px=0&py=0");
+    await wren.act("build-home");
+    const menu = (await wren.act("craft")).text;
+    expect(menu).toContain("- `candy`, at a kitchen: 1 pumpkin and 1 bag of sugar, makes 5");
+    // Candy stacks, so a label is refused before anything is placed.
+    expect(codeOf((await wren.act("craft?recipe=candy&label=Treats")).text)).toBe("invalid_label");
+    // Pumpkins from autumn's seeds, and sugar from the pantry.
+    expect(service.act(wren.id, { type: "shop_buy", sku: "pumpkin_seed" }).ok).toBe(true);
+    await wren.act("garden?seed=pumpkin");
+    now += 5 * DAY;
+    service.tick();
+    await wren.act("garden");
+    const made = (await wren.act("craft?recipe=candy")).text;
+    expect(made).toMatch(
+      /You placed a kitchen at \(\d+, \d+\)\. You made 5 candies at the kitchen/,
+    );
+    expect(made).toContain("Candy is for trick-or-treaters on October 31");
+    expect(service.state.items?.inventories[wren.id]?.stacks.candy).toBe(5);
   });
 
   it("lists events that are on in the check-in, and goes there and stays by link", async () => {

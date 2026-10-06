@@ -1,6 +1,6 @@
 import type { Biome, Family } from "@terrakin/sim";
 import { z } from "zod";
-import { SeasonName } from "./schemas";
+import { HolidayName, SeasonName } from "./schemas";
 
 /**
  * The collection book (RFC 0021): every kind of thing a resident has ever held and every piece of
@@ -27,6 +27,7 @@ export const COLLECTION_WORDS: Readonly<
   preserve: { hint: "Made at a kitchen", badge: "Every preserve" },
   drink: { hint: "Made at a kitchen", badge: "Every drink" },
   baked: { hint: "Made at a kitchen" },
+  sweets: { hint: "Made at a kitchen, or sold at the shop for Halloween" },
   flower: { hint: "Grown from seed in a planter" },
   keepsake: { hint: "Made at a workbench", badge: "Every keepsake" },
   seed: { hint: "From the pantry, the town shop, or a harvest", badge: "Every seed" },
@@ -76,6 +77,9 @@ export const CollectionKind = z.object({
     .describe(
       "Found on the ground, or sold at the shop, only in these seasons. Absent when it's any time of year.",
     ),
+  holiday: HolidayName.optional().describe(
+    "Sold at the shop only while this holiday runs, like `halloween` (RFC 0022). Absent otherwise.",
+  ),
 });
 export type CollectionKind = z.infer<typeof CollectionKind>;
 

@@ -17,6 +17,8 @@ import {
   groundCostWords,
   HAIR_COLORS,
   HAIR_STYLES,
+  HOLIDAY_STOCK,
+  holidayDates,
   ITEM_INFO,
   ITEM_KINDS,
   PATTERNS,
@@ -31,6 +33,7 @@ import {
   spawnTile,
   THEMES,
   TOWN_ACTOR,
+  TRICK_OR_TREAT,
   WEAR_ITEMS,
   WEATHERS,
 } from "@terrakin/sim";
@@ -419,6 +422,16 @@ describe("looks", () => {
       "111th",
       "112th",
     ]);
+  });
+
+  it("gives Halloween's dates, stock, and trick-or-treating's numbers as the sim has them", () => {
+    const section = skill.slice(skill.indexOf("## Holidays"), skill.indexOf("## Build: paths"));
+    expect(section).toContain(`**Halloween** runs from ${holidayDates("halloween")}.`);
+    expect(section).toContain(
+      `up to ${TRICK_OR_TREAT.townPerDoor} at a door and ${TRICK_OR_TREAT.townPerDay} across town`,
+    );
+    expect(section).toContain(`up to ${TRICK_OR_TREAT.doorsPerDay} doors`);
+    for (const sku of HOLIDAY_STOCK.halloween) expect(section, sku).toContain(`\`${sku}\``);
   });
 
   it("gives the games' numbers as the sim and the server's clock use them", () => {

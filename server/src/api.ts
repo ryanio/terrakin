@@ -579,6 +579,9 @@ export class Api {
       // Pets (RFC 0019): a treat logged in the world tells its owner, and a pat (a social row)
       // makes the pet look happy on every screen that shows it.
       this.service.onPetTreated = (owner, by, kind) => layer.petTreated(owner, by, kind);
+      // Halloween (RFC 0022): a knock logged in the world tells everyone who lives at the door.
+      this.service.onTrickOrTreated = (knocker, plot, residents) =>
+        layer.trickOrTreated(knocker, plot, residents);
       layer.onPetPatted = (owner) => this.service.announce({ type: "pet_patted", owner });
       // Plots to visit (RFC 0020): when each plot last changed, and who visited it. The collection
       // book (RFC 0021): what each input brought anyone, filled in once from the world as it is.

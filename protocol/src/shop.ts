@@ -6,12 +6,13 @@ import {
   SHOP_WEAR,
   type ShopSku,
   skuName,
+  stockHoliday,
   stockSeason,
   WEAR_INFO,
   WEAR_SLOTS,
 } from "@terrakin/sim";
 import { z } from "zod";
-import { CropKind, GoodKind, SeasonName, ShopSku as ShopSkuSchema } from "./schemas";
+import { CropKind, GoodKind, HolidayName, SeasonName, ShopSku as ShopSkuSchema } from "./schemas";
 import { AuthorView } from "./social";
 
 /**
@@ -31,12 +32,15 @@ export const ShopItemView = z.object({
   season: SeasonName.optional().describe(
     "Seasonal stock: the season the shop sells it in. Absent for what's sold all year. Out of season it isn't listed, and `shop_buy` answers `out_of_season`; what you bought stays yours.",
   ),
+  holiday: HolidayName.optional().describe(
+    "Holiday stock (RFC 0022): the holiday the shop sells it for, like `halloween`. Absent otherwise. Outside the holiday it isn't listed, and `shop_buy` answers `out_of_holiday`; what you bought stays yours, to wear and use any day.",
+  ),
   lastDay: z
     .number()
     .int()
     .optional()
     .describe(
-      "Seasonal stock: the last UTC day it's sold this season (days since 1970-01-01, like `day`).",
+      "Seasonal or holiday stock: the last UTC day it's sold this season or this holiday (days since 1970-01-01, like `day`).",
     ),
 });
 export type ShopItemView = z.infer<typeof ShopItemView>;
@@ -76,11 +80,12 @@ export const SHOP_RULES = {
 } as const;
 
 /**
- * Every sku, in catalog order, from the sim's data. Seasonal stock carries its `season`; the shop
- * lists it only in that season, with its `lastDay`.
+ * Every sku, in catalog order, from the sim's data. Seasonal stock carries its `season` and holiday
+ * stock its `holiday`; the shop lists them only then, with their `lastDay`.
  */
 export const SHOP_ITEMS: ShopItemView[] = SHOP_SKUS.map((sku: ShopSku) => {
   const season = stockSeason(sku);
+  const holiday = stockHoliday(sku);
   return {
     sku,
     name: skuName(sku),
@@ -88,6 +93,7 @@ export const SHOP_ITEMS: ShopItemView[] = SHOP_SKUS.map((sku: ShopSku) => {
     section: SHOP_CATALOG[sku].section,
     ...(isShopWear(sku) ? { slot: WEAR_INFO[sku].slot } : {}),
     ...(season ? { season } : {}),
+    ...(holiday ? { holiday } : {}),
   };
 });
 
@@ -103,9 +109,19 @@ export const ShopView = z.object({
   season: SeasonName.describe(
     "Today's season by the UTC calendar: spring is March to May, summer June to August, autumn September to November, winter December to February. Seasonal stock and buying follow it.",
   ),
+  holiday: z
+    .object({
+      id: HolidayName,
+      /** Its last UTC day this year: the last day its stock is sold. */
+      lastDay: z.number().int(),
+    })
+    .optional()
+    .describe(
+      "The holiday on today (RFC 0022), while one runs: its stock is in `items`, marked with `holiday`. Absent on ordinary days.",
+    ),
   /** The townsfolk resident who keeps the shop, when they're around. */
   keeper: AuthorView.nullable(),
-  /** What the shop sells today: everything sold all year, and this season's stock. */
+  /** What the shop sells today: everything sold all year, this season's stock, and a holiday's. */
   items: z.array(ShopItemView),
   /** What the town buys today: its daily rotation, then anything the season adds. */
   buying: z.array(BuyOrderView),

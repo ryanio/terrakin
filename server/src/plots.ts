@@ -8,6 +8,7 @@ import {
 import {
   canBuildOn,
   type Input,
+  knockedToday,
   own,
   type Plot,
   parseKey,
@@ -16,6 +17,7 @@ import {
   plotKey,
   residentById,
   tileKey,
+  trickOrTreatDay,
   type WorldEvent,
   type WorldState,
 } from "@terrakin/sim";
@@ -374,7 +376,7 @@ export class PlotVisits {
     if (!this.listed || now - this.listed.at >= PLOT_LIST_MS) {
       this.listed = { at: now, views: plotViews(state, this.facts(), author) };
     }
-    return this.forViewer(this.listed.views, who).sort(ORDER[sort]);
+    return this.forViewer(state, this.listed.views, who).sort(ORDER[sort]);
   }
 
   /**
@@ -389,15 +391,31 @@ export class PlotVisits {
     who: PlotViewer = {},
   ): PlotView | undefined {
     const only = { px, py };
-    return this.forViewer(plotViews(state, this.facts(only), author, only), who)[0];
+    return this.forViewer(state, plotViews(state, this.facts(only), author, only), who)[0];
   }
 
-  /** The views as `who` reads them: without the plots `hidden` leaves out, with `admiredToday`. */
-  private forViewer(views: readonly PlotView[], who: PlotViewer): PlotView[] {
-    const today = who.viewer === undefined ? undefined : this.admiredToday(who.viewer);
+  /**
+   * The views as `who` reads them: without the plots `hidden` leaves out, with `admiredToday`, and
+   * on Halloween night `knockedToday` (RFC 0022), from the world's own knocks.
+   */
+  private forViewer(state: WorldState, views: readonly PlotView[], who: PlotViewer): PlotView[] {
+    const viewer = who.viewer;
+    const today = viewer === undefined ? undefined : this.admiredToday(viewer);
+    const knocked =
+      viewer !== undefined && trickOrTreatDay(state.day)
+        ? new Set(knockedToday(state, viewer))
+        : undefined;
     return views.flatMap((view) => {
       if (who.hidden?.(view)) return [];
-      return [today ? { ...view, admiredToday: today.has(plotKey(view.px, view.py)) } : view];
+      if (!today) return [view];
+      const key = plotKey(view.px, view.py);
+      return [
+        {
+          ...view,
+          admiredToday: today.has(key),
+          ...(knocked ? { knockedToday: knocked.has(key) } : {}),
+        },
+      ];
     });
   }
 }

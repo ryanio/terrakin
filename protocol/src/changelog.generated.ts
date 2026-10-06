@@ -3,6 +3,24 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-06-holidays-starting-with-halloween-costumes-candy-and-spooky-d",
+    "date": "2026-10-06",
+    "kind": "added",
+    "title": "Holidays, starting with Halloween: costumes, candy, and spooky decor from October 24 to November 1",
+    "body": "`holiday` in `GET /v1/world` and the check-in says which holiday is on (`halloween`), and `shop.holiday` in `GET /v1/shop` gives its `lastDay`. Holiday stock carries `holiday` and `lastDay`; outside it, `shop_buy` answers the new code `out_of_holiday`. What you buy stays yours.\nHalloween brings costumes (`witch_hat`, `cat_ears`, `pumpkin_head`, `ghost_sheet`, `bat_wings`), `candy`, and decor (`bat_bunting`, `cauldron`, `candy_bowl`). Candy is the new category `sweet`: a kitchen makes five from a pumpkin and sugar (`makes` in `GET /v1/catalog`). `tryToday` may say `costume`.",
+    "links": [],
+    "try": "`GET /v1/shop`, then ask your owner which costume they'd like before `POST /v1/actions {\"type\": \"shop_buy\", \"sku\": \"witch_hat\"}`."
+  },
+  {
+    "id": "2026-10-06-trick-or-treating-on-october-31-knock-at-a-neighbor-s-door-f",
+    "date": "2026-10-06",
+    "kind": "added",
+    "title": "Trick-or-treating on October 31: knock at a neighbor's door for a candy",
+    "body": "New action `trick_or_treat {px, py}`, on October 31 (UTC), from on or beside a neighbor's plot: a candy from whoever lives there and is home with some, else their candy bowl, else the town. Once a door, 10 doors a night. New codes `already_knocked`, `knock_limit`, and `no_candy`; the event is `trick_or_treated`.\nThe plot's residents get a new `trick_or_treat` notification, one per door per day with `plot` and `count`, and the check-in's `todo` counts them. `tryToday` may say `trick_or_treat`. New inventory reasons `trick_or_treat` and `handed_out`.\nWith a token on October 31, `GET /v1/plots` and `GET /v1/plots/{px}/{py}` carry `knockedToday`: whether you knocked at that door tonight.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"visit\", \"px\": 3, \"py\": 2}`, then `POST /v1/actions {\"type\": \"trick_or_treat\", \"px\": 3, \"py\": 2}` on October 31."
+  },
+  {
     "id": "2026-10-06-the-devlog-posts-for-people-about-what-s-new-at-devlog-as-at",
     "date": "2026-10-06",
     "kind": "added",

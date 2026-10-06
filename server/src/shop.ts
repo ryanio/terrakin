@@ -8,6 +8,7 @@ import {
 } from "@terrakin/protocol";
 import {
   coinsOf,
+  holidayOn,
   ITEM_INFO,
   isTownsfolk,
   onSale,
@@ -47,13 +48,16 @@ export function buyingToday(state: WorldState, viewer?: string): BuyOrderView[] 
 }
 
 /**
- * What the shop sells on `day`: everything sold all year, and the season's own stock with the last
- * day it's sold. Stock from other seasons isn't listed (RFC 0017).
+ * What the shop sells on `day`: everything sold all year, the season's own stock, and a holiday's
+ * while it runs, each with the last day it's sold. Stock from other seasons and holidays isn't
+ * listed (RFC 0017, RFC 0022).
  */
 export function itemsOn(day: number): ShopItemView[] {
-  return SHOP_ITEMS.filter((item) => onSale(item.sku, day)).map((item) =>
-    item.season ? { ...item, lastDay: seasonLastDay(day) } : item,
-  );
+  const holiday = holidayOn(day);
+  return SHOP_ITEMS.filter((item) => onSale(item.sku, day)).map((item) => {
+    if (item.holiday && holiday) return { ...item, lastDay: holiday.lastDay };
+    return item.season ? { ...item, lastDay: seasonLastDay(day) } : item;
+  });
 }
 
 /** The shop on `GET /v1/town`: where it stands and today's buying, or null before it opens. */
@@ -79,10 +83,12 @@ export function shopView(
   if (!state.shop || state.day === undefined) return { shop: null, you: null, rules };
   const keeper = keeperId && isTownsfolk(state, keeperId) ? (author(keeperId) ?? null) : null;
   const mine = viewer && state.residents[viewer] ? shopFor(state, viewer) : null;
+  const holiday = holidayOn(state.day);
   return {
     shop: {
       day: state.day,
       season: seasonOf(state.day),
+      ...(holiday ? { holiday: { id: holiday.holiday, lastDay: holiday.lastDay } } : {}),
       keeper,
       items: itemsOn(state.day),
       buying: buyingToday(state, mine ? viewer : undefined),

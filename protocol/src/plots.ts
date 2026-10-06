@@ -46,6 +46,11 @@ export const PlotView = z.object({
   admirers: z.number().int(),
   /** With a token: whether you admired it today (UTC). */
   admiredToday: z.boolean().optional(),
+  /**
+   * With a token, on October 31 (Halloween night, RFC 0022): whether you knocked at its door with
+   * `trick_or_treat` tonight.
+   */
+  knockedToday: z.boolean().optional(),
   /** Blocks on it, decor and stations included. */
   blocks: z.number().int(),
   /** Things on display on its pedestals and frames. */

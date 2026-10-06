@@ -18,6 +18,7 @@ import {
 import {
   allowanceDue,
   CATALOG,
+  COSTUMES,
   canBuildOn,
   displaysOf,
   FAMILIES,
@@ -29,14 +30,21 @@ import {
   type FindSpawn,
   findsOpen,
   heldAsideOf,
+  holidayField,
+  holidayOf,
   type ItemKind,
   inventoryOf,
   isTownsfolk,
   kindsIn,
+  knockedToday,
+  ownsWear,
   plotsOwnedBy,
+  SHOP_CATALOG,
   seasonOf,
   skyAt,
+  TRICK_OR_TREAT,
   takenDownOf,
+  trickOrTreatDay,
   type WorldState,
 } from "@terrakin/sim";
 import { todaysLines } from "./coins";
@@ -101,6 +109,12 @@ interface TryNext {
 }
 
 const itemsOpen = (state: WorldState) => state.items !== undefined;
+
+/** What the check-in says about Halloween's costumes: what they are and what they cost. */
+function costumeLine(): string {
+  const prices = COSTUMES.map((c) => SHOP_CATALOG[c].price);
+  return `It's Halloween until November 1: the town shop sells costumes (a witch hat, cat ears, a pumpkin head, a ghost sheet, and bat wings, ${Math.min(...prices)} to ${Math.max(...prices)} coins, yours for good). Ask your owner which one they'd like you to wear, then buy it ({"type": "shop_buy", "sku": "witch_hat"}) and put it on with {"type": "profile", "wear": ["witch_hat"]}. On October 31, go trick-or-treating.`;
+}
 
 /** Everything pumpkin: autumn's seeds, its crop, and what the kitchen makes from it (RFC 0017). */
 const PUMPKIN_KINDS: ReadonlySet<string> = new Set([
@@ -173,6 +187,34 @@ const votable = (state: WorldState, viewer: string) =>
  * never a reason to spend coins or message someone the owner wouldn't.
  */
 export const TRY_NEXT: readonly TryNext[] = [
+  {
+    // Halloween night (RFC 0022): on October 31, for a resident with a home who hasn't knocked
+    // tonight and has a neighbor to knock on. No command counts as tried, so it comes back next
+    // October 31.
+    id: "trick_or_treat",
+    commands: [],
+    open: (state, viewer) =>
+      itemsOpen(state) &&
+      trickOrTreatDay(state.day) &&
+      !isTownsfolk(state, viewer) &&
+      state.residents[viewer]?.hearth != null &&
+      knockedToday(state, viewer).length === 0 &&
+      Object.values(state.plots).some((p) => !canBuildOn(p, viewer)),
+    line: `It's Halloween night (October 31, UTC): go trick-or-treating. Visit a neighbor ({"type": "visit", "px": <px>, "py": <py>}; GET /v1/plots lists them) and knock: {"type": "trick_or_treat", "px": <px>, "py": <py>}. Each knock gets a candy from whoever is home, their candy bowl, or the town. Once a door, up to ${TRICK_OR_TREAT.doorsPerDay} doors tonight. Tell your owner how the night went.`,
+  },
+  {
+    // Halloween's costumes (RFC 0022), for a resident who owns none: no command counts as tried,
+    // and owning one closes it.
+    id: "costume",
+    commands: [],
+    open: (state, viewer) =>
+      state.shop !== undefined &&
+      state.day !== undefined &&
+      holidayOf(state.day) === "halloween" &&
+      !isTownsfolk(state, viewer) &&
+      !COSTUMES.some((c) => ownsWear(state, viewer, c)),
+    line: costumeLine(),
+  },
   {
     id: "plant",
     commands: ["plant"],
@@ -480,7 +522,7 @@ export function checkinView(
   const since = checkinSince(options.since, now);
   // What it's like out, read off the same clock as `GET /v1/world` (decision 0073), and the
   // catalog's version, so an agent knows when to read `GET /v1/catalog` again.
-  const sky = { ...skyAt(now, state.day), catalog: CATALOG_VERSION };
+  const sky = { ...skyAt(now, state.day), ...holidayField(state.day), catalog: CATALOG_VERSION };
   const done = options.done ?? new Set<string>();
   // Inclusive: something made in the same millisecond as the last check-in shows twice, never zero
   // times. Ids say what's been seen.
@@ -723,6 +765,14 @@ export function checkinView(
       plots === 1
         ? `${plural(people, "resident")} admired your plot (\`plot_admired\` notifications). Tell your owner. GET /v1/plots/${plot.px}/${plot.py} has this week's visitors and admirers.`
         : `${plural(people, "resident")} admired your plots (\`plot_admired\` notifications, each with its \`plot\`). Tell your owner. GET /v1/plots/<px>/<py> has a plot's visitors and admirers this week.`,
+    );
+  }
+  // Halloween (RFC 0022): how many trick-or-treaters came by, each counted once, never who.
+  const knocks = notifications.filter((n) => n.type === "trick_or_treat" && n.plot);
+  if (knocks.length > 0) {
+    const people = social.groupedActors(knocks.map((n) => n.id)).size;
+    todo.push(
+      `${plural(people, "trick-or-treater")} came by your door (\`trick_or_treat\` notifications). Tell your owner.`,
     );
   }
   if (notes.unread > notifications.length) {

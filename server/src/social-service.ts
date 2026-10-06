@@ -1464,6 +1464,17 @@ export class SocialService {
     if (pet) this.notify(owner, by, "pet_treat", "", petDetail(pet, treat));
   }
 
+  /**
+   * Tell everyone who lives at a door that a trick-or-treater knocked there (RFC 0022). The world
+   * logged the knock; this is the notification, one per door per UTC day with every knocker in it,
+   * through `notify()` with its caps and block check.
+   */
+  trickOrTreated(knocker: string, plot: { px: number; py: number }, residents: readonly string[]) {
+    for (const id of residents) {
+      this.notify(id, knocker, "trick_or_treat", "", `${plot.px},${plot.py}`);
+    }
+  }
+
   /** Praise a resident (issue #36) and return their profile as the giver sees it. */
   givePraise(giver: string, receiver: string): SocialResult<ProfileView> {
     const given = this.praise.give(giver, receiver);
@@ -1859,7 +1870,8 @@ export class SocialService {
       now,
     );
     // Reactions and reposts on one post in an hour share a notification, and so do admires of one
-    // plot in an hour (its coordinates are the detail) and pats on a pet in a UTC day.
+    // plot in an hour (its coordinates are the detail), pats on a pet in a UTC day, and
+    // trick-or-treaters at one door in a UTC day.
     const groupKey =
       type === "reaction" || type === "repost"
         ? `${type}:${postId}:${Math.floor(now / HOUR_MS)}`
@@ -1867,7 +1879,9 @@ export class SocialService {
           ? `${type}:${detail}:${Math.floor(now / HOUR_MS)}`
           : type === "pet_pat"
             ? `pet_pat:${Math.floor(now / DAY_MS)}`
-            : "";
+            : type === "trick_or_treat"
+              ? `${type}:${detail}:${Math.floor(now / DAY_MS)}`
+              : "";
     const existing = groupKey
       ? this.rows(
           "SELECT id FROM notifications WHERE recipient = ? AND group_key = ?",
@@ -2012,7 +2026,7 @@ export class SocialService {
           ...(type === "reaction" && isReactionKey(detail) ? { reaction: detail } : {}),
           ...(type === "gesture" && isGestureKind(detail) ? { gesture: detail } : {}),
           ...(type === "pet_pat" || type === "pet_treat" ? petNotice(detail) : {}),
-          ...(type === "plot_admired" ? plotDetail(detail) : {}),
+          ...(type === "plot_admired" || type === "trick_or_treat" ? plotDetail(detail) : {}),
           read: Number(row.read) > 0,
           createdAt: new Date(Number(row.created_at)).toISOString(),
         },

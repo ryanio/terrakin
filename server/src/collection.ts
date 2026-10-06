@@ -16,14 +16,17 @@ import {
   FIND_SPAWNS,
   type FindSpawn,
   familyPath,
+  type Holiday,
   type Input,
   ITEM_INFO,
   type ItemKind,
   isExclusiveWear,
+  isShopSku,
   isShownFind,
   kindsIn,
   type Season,
   sortWear,
+  stockHoliday,
   WEAR_INFO,
   WEAR_ITEMS,
   type WorldEvent,
@@ -63,10 +66,16 @@ function seasonsOf(kind: ItemKind): readonly Season[] | undefined {
   return spawn ? spawn.seasons : CATALOG[kind].shop?.seasons;
 }
 
+/** The holiday the shop sells a kind or a piece of wear for, if it's holiday stock (RFC 0022). */
+const holidayOf = (kind: string): Holiday | undefined =>
+  isShopSku(kind) ? stockHoliday(kind) : undefined;
+
 function entry(kind: string, name: string, first: number | undefined, seasons?: readonly Season[]) {
   const out: CollectionKind = { kind, name };
   if (first !== undefined) out.firstDay = first;
   if (seasons) out.seasons = [...seasons];
+  const holiday = holidayOf(kind);
+  if (holiday) out.holiday = holiday;
   return out;
 }
 

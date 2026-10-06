@@ -51,6 +51,7 @@ import {
   type HostedEvent,
   hasDecided,
   hashWorld,
+  holidayField,
   type Input,
   inEventArea,
   isTownEvent,
@@ -684,6 +685,14 @@ export class WorldService {
 
   /** Hears each treat a pet gets (RFC 0019), so its owner can be told. */
   onPetTreated: ((owner: string, by: string, kind: Crop) => void) | undefined;
+
+  /**
+   * Hears each trick-or-treater's knock (RFC 0022), with everyone who lives at the door, so they
+   * can be told.
+   */
+  onTrickOrTreated:
+    | ((knocker: string, plot: { px: number; py: number }, residents: string[]) => void)
+    | undefined;
   /**
    * Hears every input the world commits, with its events, after it's logged and broadcast:
    * plots to visit (RFC 0020) keep when each plot changed and who visited it. A failure here is
@@ -1425,6 +1434,12 @@ export class WorldService {
       return this.build(residentId, command, dry);
     }
     if (action.type === "visit") return this.visit(residentId, action.px, action.py, dry);
+    if (action.type === "trick_or_treat") {
+      const { px, py } = action;
+      const refused = this.closedDoor(residentId, px, py, "You can't knock at this door.");
+      if (refused) return refused;
+      return this.run({ actor: residentId, command: { type: "trick_or_treat", px, py } }, dry);
+    }
     if (action.type === "build_starter_home") {
       // Drop absent fields: the sim's types forbid explicit undefined.
       const { walls, windows } = action;
@@ -1825,19 +1840,10 @@ export class WorldService {
    * now like their stall. A plot nobody lives on gets a hint that names one the resident can visit.
    */
   private visit(residentId: string, px: number, py: number, dry: boolean): ActResult {
-    const plot = plotInBounds(this.state.config, px, py)
-      ? own(this.state.plots, plotKey(px, py))
-      : undefined;
+    const refused = this.closedDoor(residentId, px, py, "You can't visit this plot.");
+    if (refused) return refused;
     const blocked = (p: Plot) =>
       [p.ownerId, ...(p.coOwners ?? [])].some((id) => this.blockedEither(residentId, id));
-    if (plot && !canBuildOn(plot, residentId)) {
-      if (this.suspended(plot.ownerId)) {
-        return { ok: false, error: { code: "forbidden", message: "That plot is closed for now." } };
-      }
-      if (blocked(plot)) {
-        return { ok: false, error: { code: "forbidden", message: "You can't visit this plot." } };
-      }
-    }
     const view = asJoined(this.state, residentId);
     const tile = visitTile(view, residentId, px, py);
     const command: Command = { type: "visit", px, py, ...(tile ? { x: tile.x, y: tile.y } : {}) };
@@ -1846,6 +1852,31 @@ export class WorldService {
     const closed = (p: Plot) => this.suspended(p.ownerId) || blocked(p);
     const message = unclaimedMessage(view, residentId, px, py, closed);
     return { ...result, error: { ...result.error, message } };
+  }
+
+  /**
+   * Why a resident can't come to the door of plot (px, py), from what the sim can't see: a
+   * suspended owner's plot is closed for now, and nobody comes to the door of anyone blocked either
+   * way, owner or co-owner. A visit (RFC 0020) and a trick-or-treater's knock (RFC 0022) both ask.
+   * Undefined when nothing out here stands in the way.
+   */
+  private closedDoor(
+    residentId: string,
+    px: number,
+    py: number,
+    blockedLine: string,
+  ): ActResult | undefined {
+    const plot = plotInBounds(this.state.config, px, py)
+      ? own(this.state.plots, plotKey(px, py))
+      : undefined;
+    if (!plot || canBuildOn(plot, residentId)) return undefined;
+    if (this.suspended(plot.ownerId)) {
+      return { ok: false, error: { code: "forbidden", message: "That plot is closed for now." } };
+    }
+    if ([plot.ownerId, ...(plot.coOwners ?? [])].some((id) => this.blockedEither(residentId, id))) {
+      return { ok: false, error: { code: "forbidden", message: blockedLine } };
+    }
+    return undefined;
   }
 
   // ---------- putter (decision 0049) ----------
@@ -2063,6 +2094,16 @@ export class WorldService {
         }
       }
       if (e.type === "pet_treated") this.onPetTreated?.(e.residentId, e.by, e.kind);
+      if (e.type === "trick_or_treated") {
+        const plot = own(this.state.plots, plotKey(e.px, e.py));
+        const residents = plot ? [plot.ownerId, ...(plot.coOwners ?? [])] : [];
+        try {
+          this.onTrickOrTreated?.(e.by, { px: e.px, py: e.py }, residents);
+        } catch (err) {
+          // The candy moved; the owner's notice misses this knock.
+          report(err, "world.trick_or_treated", { command: input.command.type });
+        }
+      }
     }
     const wire = holdBackPetNames(toWire(events, this.state.townsfolk), this.noteHidden);
     for (const event of publicEvents(wire)) this.broadcast({ type: "event", seq, event });
@@ -2307,6 +2348,7 @@ export class WorldService {
       // weather and the season it reads off the same clock (decision 0073).
       time: { nowMs, dayLengthMs: DAY_LENGTH_MS },
       ...skyAt(nowMs, state.day),
+      ...holidayField(state.day),
       config: {
         width: state.config.width,
         height: state.config.height,

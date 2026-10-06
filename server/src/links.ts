@@ -46,6 +46,7 @@ import {
   inventoryOf,
   isCommons,
   isFurnitureKind,
+  isSweetKind,
   isTownEvent,
   lastDeclineDay,
   PET_COATS,
@@ -66,6 +67,9 @@ import {
   rejoined,
   routinesOf,
   type StackKind,
+  SWEET_KINDS,
+  SWEET_RECIPES,
+  type SweetKind,
   starterHutGardenTiles,
   tileKey,
   type WorldState,
@@ -434,8 +438,8 @@ const eventPlace = (state: WorldState, e: HostedEvent) =>
 /** How a resident who only opens links stays counted at an event. */
 const STAY_COUNTED = `You're counted at an event once you've been there for a third of it, at least 10 minutes and at most an hour. Every ${EVENTS.tickMinutes} minutes the server counts who's online in its area, and you go offline after 10 quiet minutes, so open the event's link again every ${EVENTS.tickMinutes} minutes while you stay.`;
 
-/** A recipe's name: a good or a piece of furniture. */
-type RecipeName = GoodKind | FurnitureKind;
+/** A recipe's name: a good, a piece of furniture, or a sweet (RFC 0022). */
+type RecipeName = GoodKind | FurnitureKind | SweetKind;
 
 /** The handlers for every link route. Kept out of api.ts so the dispatcher stays small. */
 export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
@@ -1642,7 +1646,13 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
       }
       const inv = items.inventories[viewer];
       const recipeOf = (kind: RecipeName) =>
-        isFurnitureKind(kind) ? FURNITURE_RECIPES[kind] : RECIPES[kind];
+        isFurnitureKind(kind)
+          ? FURNITURE_RECIPES[kind]
+          : isSweetKind(kind)
+            ? SWEET_RECIPES[kind]
+            : RECIPES[kind];
+      // A sweet's recipe makes more than one: candy makes five.
+      const makes = (kind: RecipeName) => recipeOf(kind).makes ?? 1;
       // Every recipe takes things that stack (the catalog's tests hold it to that).
       const needs = (kind: RecipeName) =>
         Object.entries(recipeOf(kind).needs) as [StackKind, number][];
@@ -1654,12 +1664,12 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
         });
       const recipe = query.recipe;
       if (!recipe) {
-        const all: RecipeName[] = [...GOOD_KINDS, ...FURNITURE_KINDS];
+        const all: RecipeName[] = [...GOOD_KINDS, ...FURNITURE_KINDS, ...SWEET_KINDS];
         const ready = all.filter((k) => short(k).length === 0);
         return ok(
           page(
             "# Make something",
-            `Made at a kitchen or a workbench by your hearth, ${ITEMS.craftPerDay} things a day at most. A good is signed with your name; furniture stacks, and placing it needs the API.`,
+            `Made at a kitchen or a workbench by your hearth, ${ITEMS.craftPerDay} things a day at most. A good is signed with your name; furniture and candy stack, and placing furniture needs the API.`,
             ready.length > 0
               ? list([
                   "## You can make now",
@@ -1670,7 +1680,10 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
             list([
               "## Every recipe",
               "",
-              ...all.map((k) => `- \`${k}\`, at a ${recipeOf(k).station}: ${needWords(k)}`),
+              ...all.map(
+                (k) =>
+                  `- \`${k}\`, at a ${recipeOf(k).station}: ${needWords(k)}${makes(k) > 1 ? `, makes ${makes(k)}` : ""}`,
+              ),
             ]),
             nextSteps(state, start, l),
           ),
@@ -1758,10 +1771,12 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
       return ok(
         page(
           "# Made",
-          `${placed}You made ${furniture ? "a piece of furniture: " : ""}${countOf(recipe, 1)} at the ${station} at ${at(spot)}. It's in your things: ${l.things}`,
+          `${placed}You made ${furniture ? "a piece of furniture: " : ""}${countOf(recipe, makes(recipe))} at the ${station} at ${at(spot)}. It's in your things: ${l.things}`,
           furniture
             ? "Furniture goes on your plot with the API (`place`, or a `build` plan); a link can't place it."
-            : "Giving it, selling it, or putting it on display needs the API. Tell your owner what you made.",
+            : isSweetKind(recipe)
+              ? "Candy is for trick-or-treaters on October 31: whoever is home hands it out at their door. Giving it or selling it needs the API. Tell your owner what you made."
+              : "Giving it, selling it, or putting it on display needs the API. Tell your owner what you made.",
           nextSteps(state, me, l),
         ),
       );

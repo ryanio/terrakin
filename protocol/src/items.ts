@@ -12,6 +12,8 @@ import {
   RECIPES,
   STATIONS,
   type StackKind,
+  SWEET_KINDS,
+  SWEET_RECIPES,
 } from "@terrakin/sim";
 import { z } from "zod";
 import {
@@ -75,7 +77,17 @@ export const CatalogItem = z.object({
   kind: ItemKind,
   name: z.string(),
   plural: z.string(),
-  category: z.enum(["seed", "produce", "staple", "resource", "good", "decor", "furniture", "find"]),
+  category: z.enum([
+    "seed",
+    "produce",
+    "staple",
+    "resource",
+    "good",
+    "decor",
+    "furniture",
+    "find",
+    "sweet",
+  ]),
 });
 
 export const CatalogCrop = z.object({
@@ -99,6 +111,10 @@ export const CatalogRecipe = z.object({
   needs: needsList,
   /** Present on furniture (RFC 0016): it stacks in your things, places like decor, and takes no label. */
   furniture: z.literal(true).optional(),
+  /** Present on a sweet (RFC 0022), like candy: it stacks in your things and takes no label. */
+  sweet: z.literal(true).optional(),
+  /** How many one craft makes, when it's more than one (candy makes 5). */
+  makes: z.number().int().optional(),
 });
 
 /** A path or floor (RFC 0016): what one tile of it takes from your things. Empty `needs` is free. */
@@ -138,6 +154,17 @@ export const ITEM_CATALOG: ItemCatalog = {
       needs: needsOf(FURNITURE_RECIPES[recipe].needs),
       furniture: true as const,
     })),
+    ...SWEET_KINDS.map((recipe) => {
+      const { station, needs, makes } = SWEET_RECIPES[recipe];
+      return {
+        recipe,
+        name: ITEM_INFO[recipe].name,
+        station,
+        needs: needsOf(needs),
+        sweet: true as const,
+        ...(makes && makes > 1 ? { makes } : {}),
+      };
+    }),
   ],
   ground: GROUND_KINDS.map((kind) => ({
     kind,

@@ -5800,6 +5800,9 @@
                 "bench",
                 "hay_bale",
                 "scarecrow",
+                "bat_bunting",
+                "cauldron",
+                "candy_bowl",
                 "table",
                 "chair",
                 "bookshelf",
@@ -5827,6 +5830,7 @@
                 "four_leaf_clover",
                 "maple_leaf",
                 "cherry_blossom",
+                "candy",
                 "lemon_jam",
                 "strawberry_jam",
                 "lemonade",
@@ -13883,7 +13887,8 @@
                 "stone_wall",
                 "campfire",
                 "flower_box",
-                "jack_o_lantern"
+                "jack_o_lantern",
+                "candy"
               ]
             }
           },
@@ -23144,6 +23149,9 @@
           },
           {
             "$ref": "#/components/schemas/DecideAction"
+          },
+          {
+            "$ref": "#/components/schemas/TrickOrTreatAction"
           }
         ]
       },
@@ -23396,7 +23404,10 @@
                     "stone_wall",
                     "campfire",
                     "flower_box",
-                    "jack_o_lantern"
+                    "jack_o_lantern",
+                    "bat_bunting",
+                    "cauldron",
+                    "candy_bowl"
                   ]
                 }
               },
@@ -23731,6 +23742,14 @@
         "required": [
           "type",
           "event"
+        ]
+      },
+      "CandyFrom": {
+        "type": "string",
+        "enum": [
+          "resident",
+          "bowl",
+          "town"
         ]
       },
       "ChatAction": {
@@ -24519,6 +24538,10 @@
           "wrong_round",
           "already_decided",
           "illegal_move",
+          "out_of_holiday",
+          "already_knocked",
+          "knock_limit",
+          "no_candy",
           "bad_request",
           "unauthorized",
           "forbidden",
@@ -25066,6 +25089,12 @@
           "online"
         ]
       },
+      "HolidayName": {
+        "type": "string",
+        "enum": [
+          "halloween"
+        ]
+      },
       "HomeAction": {
         "type": "object",
         "properties": {
@@ -25111,7 +25140,9 @@
           "laid",
           "lifted",
           "built",
-          "treat"
+          "treat",
+          "trick_or_treat",
+          "handed_out"
         ]
       },
       "ItemId": {
@@ -25145,6 +25176,9 @@
           "bench",
           "hay_bale",
           "scarecrow",
+          "bat_bunting",
+          "cauldron",
+          "candy_bowl",
           "table",
           "chair",
           "bookshelf",
@@ -25172,6 +25206,7 @@
           "four_leaf_clover",
           "maple_leaf",
           "cherry_blossom",
+          "candy",
           "lemon_jam",
           "strawberry_jam",
           "lemonade",
@@ -25762,7 +25797,10 @@
               "stone_wall",
               "campfire",
               "flower_box",
-              "jack_o_lantern"
+              "jack_o_lantern",
+              "bat_bunting",
+              "cauldron",
+              "candy_bowl"
             ]
           },
           "dry": {
@@ -25813,7 +25851,10 @@
               "stone_wall",
               "campfire",
               "flower_box",
-              "jack_o_lantern"
+              "jack_o_lantern",
+              "bat_bunting",
+              "cauldron",
+              "candy_bowl"
             ]
           }
         },
@@ -25946,7 +25987,10 @@
                         "stone_wall",
                         "campfire",
                         "flower_box",
-                        "jack_o_lantern"
+                        "jack_o_lantern",
+                        "bat_bunting",
+                        "cauldron",
+                        "candy_bowl"
                       ]
                     }
                   },
@@ -26382,7 +26426,8 @@
           "stone_wall",
           "campfire",
           "flower_box",
-          "jack_o_lantern"
+          "jack_o_lantern",
+          "candy"
         ]
       },
       "ReleaseAction": {
@@ -27218,9 +27263,17 @@
           "bench",
           "hay_bale",
           "scarecrow",
+          "bat_bunting",
+          "cauldron",
+          "candy_bowl",
           "top_hat",
           "raincoat",
           "umbrella",
+          "witch_hat",
+          "cat_ears",
+          "pumpkin_head",
+          "ghost_sheet",
+          "bat_wings",
           "lemon_seed",
           "strawberry_seed",
           "tomato_seed",
@@ -27229,7 +27282,8 @@
           "pumpkin_seed",
           "pomegranate_seed",
           "sugar",
-          "jar"
+          "jar",
+          "candy"
         ]
       },
       "SitAction": {
@@ -27281,6 +27335,9 @@
           "bench",
           "hay_bale",
           "scarecrow",
+          "bat_bunting",
+          "cauldron",
+          "candy_bowl",
           "table",
           "chair",
           "bookshelf",
@@ -27307,7 +27364,8 @@
           "geode",
           "four_leaf_clover",
           "maple_leaf",
-          "cherry_blossom"
+          "cherry_blossom",
+          "candy"
         ]
       },
       "StandAction": {
@@ -27359,6 +27417,12 @@
         "enum": [
           "walk_home",
           "stroll"
+        ]
+      },
+      "SweetKind": {
+        "type": "string",
+        "enum": [
+          "candy"
         ]
       },
       "TableId": {
@@ -27429,6 +27493,36 @@
           "type",
           "owner",
           "item"
+        ]
+      },
+      "TrickOrTreatAction": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "trick_or_treat"
+            ]
+          },
+          "px": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "py": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "px",
+          "py"
         ]
       },
       "UnlistItemAction": {
@@ -27568,6 +27662,11 @@
           "socks",
           "boots",
           "sneakers",
+          "witch_hat",
+          "cat_ears",
+          "pumpkin_head",
+          "ghost_sheet",
+          "bat_wings",
           "muse_halo",
           "muse_lantern"
         ]
@@ -27780,6 +27879,46 @@
               }
             ]
           },
+          "witch_hat": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyle"
+              }
+            ]
+          },
+          "cat_ears": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyle"
+              }
+            ]
+          },
+          "pumpkin_head": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyle"
+              }
+            ]
+          },
+          "ghost_sheet": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyle"
+              }
+            ]
+          },
+          "bat_wings": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyle"
+              }
+            ]
+          },
           "muse_halo": {
             "nullable": true,
             "allOf": [
@@ -27978,6 +28117,41 @@
             ]
           },
           "sneakers": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyleView"
+              }
+            ]
+          },
+          "witch_hat": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyleView"
+              }
+            ]
+          },
+          "cat_ears": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyleView"
+              }
+            ]
+          },
+          "pumpkin_head": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyleView"
+              }
+            ]
+          },
+          "ghost_sheet": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyleView"
+              }
+            ]
+          },
+          "bat_wings": {
             "allOf": [
               {
                 "$ref": "#/components/schemas/WearStyleView"
@@ -28325,7 +28499,10 @@
                   "stone_wall",
                   "campfire",
                   "flower_box",
-                  "jack_o_lantern"
+                  "jack_o_lantern",
+                  "bat_bunting",
+                  "cauldron",
+                  "candy_bowl"
                 ]
               },
               "by": {
@@ -29316,6 +29493,11 @@
                   "socks",
                   "boots",
                   "sneakers",
+                  "witch_hat",
+                  "cat_ears",
+                  "pumpkin_head",
+                  "ghost_sheet",
+                  "bat_wings",
                   "muse_halo",
                   "muse_lantern"
                 ]
@@ -29865,6 +30047,43 @@
               "residentId",
               "by",
               "kind"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "trick_or_treated"
+                ]
+              },
+              "by": {
+                "type": "string"
+              },
+              "px": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "py": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "from": {
+                "$ref": "#/components/schemas/CandyFrom"
+              },
+              "giver": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "by",
+              "px",
+              "py",
+              "from"
             ]
           },
           {
@@ -30524,6 +30743,14 @@
               }
             ]
           },
+          "holiday": {
+            "description": "The holiday the world's day falls in, by the UTC calendar (`halloween`: October 24 to November 1). Absent on ordinary days.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/HolidayName"
+              }
+            ]
+          },
           "config": {
             "type": "object",
             "properties": {
@@ -30671,7 +30898,10 @@
                     "stone_wall",
                     "campfire",
                     "flower_box",
-                    "jack_o_lantern"
+                    "jack_o_lantern",
+                    "bat_bunting",
+                    "cauldron",
+                    "candy_bowl"
                   ]
                 }
               },
@@ -31894,7 +32124,8 @@
           "takedown",
           "pet_pat",
           "pet_treat",
-          "plot_admired"
+          "plot_admired",
+          "trick_or_treat"
         ]
       },
       "NotificationView": {
@@ -33943,6 +34174,14 @@
               }
             ]
           },
+          "holiday": {
+            "description": "The holiday the world's day falls in, as `GET /v1/world` has it (`halloween`: October 24 to November 1). Absent on ordinary days. Present even when `unchanged`.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/HolidayName"
+              }
+            ]
+          },
           "catalog": {
             "description": "The catalog's `version`, as `GET /v1/catalog` has it. When it isn't the one you last read, read the catalog again: kinds, recipes, or prices changed. Present even when `unchanged`.",
             "type": "string"
@@ -35369,7 +35608,8 @@
               "good",
               "decor",
               "furniture",
-              "find"
+              "find",
+              "sweet"
             ]
           }
         },
@@ -35421,6 +35661,17 @@
             "enum": [
               true
             ]
+          },
+          "sweet": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "makes": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           }
         },
         "required": [
@@ -36134,6 +36385,9 @@
           "admiredToday": {
             "type": "boolean"
           },
+          "knockedToday": {
+            "type": "boolean"
+          },
           "blocks": {
             "type": "integer",
             "minimum": -9007199254740991,
@@ -36265,8 +36519,16 @@
               }
             ]
           },
+          "holiday": {
+            "description": "Holiday stock (RFC 0022): the holiday the shop sells it for, like `halloween`. Absent otherwise. Outside the holiday it isn't listed, and `shop_buy` answers `out_of_holiday`; what you bought stays yours, to wear and use any day.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/HolidayName"
+              }
+            ]
+          },
           "lastDay": {
-            "description": "Seasonal stock: the last UTC day it's sold this season (days since 1970-01-01, like `day`).",
+            "description": "Seasonal or holiday stock: the last UTC day it's sold this season or this holiday (days since 1970-01-01, like `day`).",
             "type": "integer",
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
@@ -36355,6 +36617,24 @@
               }
             ]
           },
+          "holiday": {
+            "description": "The holiday on today (RFC 0022), while one runs: its stock is in `items`, marked with `holiday`. Absent on ordinary days.",
+            "type": "object",
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/HolidayName"
+              },
+              "lastDay": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "id",
+              "lastDay"
+            ]
+          },
           "keeper": {
             "nullable": true,
             "allOf": [
@@ -36422,7 +36702,12 @@
               "enum": [
                 "top_hat",
                 "raincoat",
-                "umbrella"
+                "umbrella",
+                "witch_hat",
+                "cat_ears",
+                "pumpkin_head",
+                "ghost_sheet",
+                "bat_wings"
               ]
             }
           }
@@ -37593,7 +37878,8 @@
               "good",
               "decor",
               "furniture",
-              "find"
+              "find",
+              "sweet"
             ],
             "description": "What it is to the rules: a `good` is a made thing with an id and a maker; everything else stacks."
           },
@@ -37851,6 +38137,14 @@
             "items": {
               "$ref": "#/components/schemas/SeasonName"
             }
+          },
+          "holiday": {
+            "description": "Sold at the shop only while this holiday runs, like `halloween` (RFC 0022). Absent otherwise.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/HolidayName"
+              }
+            ]
           }
         },
         "required": [

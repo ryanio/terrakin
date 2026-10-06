@@ -5,7 +5,7 @@ import { DevlogEntry } from "./devlog";
 import { EventView } from "./events";
 import { YourMoveView } from "./games";
 import { AwayLine } from "./routines";
-import { GameKind, SeasonName, TableId, WeatherName } from "./schemas";
+import { GameKind, HolidayName, SeasonName, TableId, WeatherName } from "./schemas";
 import { GestureView, LetterView, NotificationView, PostView } from "./social";
 import { NoticeView, ProposalView } from "./town";
 
@@ -59,6 +59,9 @@ export const CheckinResponse = z.object({
   ),
   season: SeasonName.optional().describe(
     "The season of the world's day, as `GET /v1/world` has it. Present even when `unchanged`.",
+  ),
+  holiday: HolidayName.optional().describe(
+    "The holiday the world's day falls in, as `GET /v1/world` has it (`halloween`: October 24 to November 1). Absent on ordinary days. Present even when `unchanged`.",
   ),
   catalog: z
     .string()

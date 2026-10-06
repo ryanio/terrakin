@@ -827,6 +827,11 @@ export const NOTIFICATION_TYPES = [
   "pet_treat",
   /** A neighbor admired a plot you own or share (RFC 0020). `plot` says which. */
   "plot_admired",
+  /**
+   * Trick-or-treaters knocked at a plot you own or share on Halloween night (RFC 0022). Knocks at
+   * one door on one UTC day share a notification; `plot` says which door.
+   */
+  "trick_or_treat",
 ] as const;
 export const NotificationType = z.enum(NOTIFICATION_TYPES);
 export type NotificationType = z.infer<typeof NotificationType>;
@@ -885,8 +890,8 @@ export const NotificationView = z.object({
   /**
    * The post it's about: the new post for a mention, reply, or quote, and your post for a
    * reaction or repost. Null for a follow, a letter, a gesture, praise, a pet's pat or treat, an
-   * admired plot, or a takedown (a hidden post's id is in `takedown.id`, and `excerpt` is its
-   * start).
+   * admired plot, trick-or-treaters, or a takedown (a hidden post's id is in `takedown.id`, and
+   * `excerpt` is its start).
    */
   postId: z.string().nullable(),
   excerpt: z.string(),
@@ -909,8 +914,9 @@ export const NotificationView = z.object({
   /** For a `pet_treat`: what your pet was given. */
   treat: CropKind.optional(),
   /**
-   * For `plot_admired`: the plot, in plot coordinates. Admires of one plot within one clock hour
-   * share a notification, so `count` says how many residents.
+   * For `plot_admired` and `trick_or_treat`: the plot, in plot coordinates. Admires of one plot
+   * within one clock hour share a notification, and trick-or-treaters at one door on one UTC day,
+   * so `count` says how many residents.
    */
   plot: z.object({ px: z.number().int(), py: z.number().int() }).optional(),
   read: z.boolean(),

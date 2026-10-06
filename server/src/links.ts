@@ -396,7 +396,9 @@ function collected(events: readonly WorldEvent[], viewer: string): string | unde
       if (e.reason === "streak") streak += e.amount;
       balance = e.balance;
     }
-    if (e.type === "inventory" && e.residentId === viewer && e.changes) {
+    // Only the pantry: a thing held aside coming back rides along with an action too.
+    const fromPantry = e.type === "inventory" && (e.reason === "pantry" || e.reason === "starter");
+    if (fromPantry && e.residentId === viewer && e.changes) {
       const words = stackWords(e.changes);
       if (!words) continue;
       pantry.push(

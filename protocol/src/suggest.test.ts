@@ -163,8 +163,12 @@ describe("plainProblem", () => {
     const jam = words(Action, { type: "craft", recipe: "jam", x: 1, y: 1 });
     expect(jam.didYouMean).toBeUndefined();
     expect(jam.lines[0]).toMatch(/Did you mean one of: lemon_jam, strawberry_jam, [a-z_, ]+\?$/);
-    expect(words(Action, { type: "display", item: "chair", x: 1, y: 1 }).lines).toEqual([
-      "`item` must be a made thing's id from your things, like `i_12`.",
+    // `display` takes a made thing's id or a find's kind, and an id alone is named in words.
+    expect(words(Action, { type: "display", item: "chair", x: 1, y: 1 }).lines[0]).toMatch(
+      /^`item` must be a made thing's id from your things, like `i_12`, or one of: acorn, /,
+    );
+    expect(words(Action, { type: "decline_gift", gift: "chair" }).lines).toEqual([
+      "`gift` must be a gift's id, like `gift_3`.",
     ]);
     // `give` takes a made thing's id or a kind: both are named, and a typo of a kind is caught.
     const give = words(Action, { type: "give", item: "chiar", to: "r_1" });

@@ -46,6 +46,7 @@ import {
 } from "@terrakin/protocol";
 import { isExclusiveWear, isOwnableKey, lookOf, type Resident } from "@terrakin/sim";
 import { type AgentLinkOptions, AgentLinkService } from "./agent-links";
+import { CheckinLog } from "./checkin-log";
 import { imageSize, sizeFields } from "./image-size";
 import { aimedAtReader, readerMessage } from "./injection";
 import { KarmaService } from "./karma";
@@ -489,6 +490,7 @@ export class SocialService {
       notify: (recipient, actor, type, detail) => this.notify(recipient, actor, type, "", detail),
       review: (surface, text, context) => this.moderation.review(surface, text, context),
     });
+    this.checkins = new CheckinLog(this.sql, this.now);
     this.praise = new PraiseService({
       sql: this.sql,
       now: this.now,
@@ -594,6 +596,8 @@ export class SocialService {
   readonly safety: SafetyService;
   /** Praise (issue #36): once a UTC day per pair, a count on profiles, no economy. */
   readonly praise: PraiseService;
+  /** When residents check in, for the staff app's numbers. */
+  readonly checkins: CheckinLog;
   /** Karma (decision 0055): standing over 90 days, on profiles, and the daily appreciation coins. */
   readonly karma: KarmaService;
 

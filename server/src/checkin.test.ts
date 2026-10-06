@@ -32,9 +32,14 @@ afterEach(async () => {
 // biome-ignore lint/suspicious/noExplicitAny: the response checker already holds every body to its schema.
 type Json = Record<string, any>;
 
-async function start() {
+async function start(world: { days?: boolean; economy?: boolean; items?: boolean } = {}) {
   let now = 1_700_000_000_000;
-  const service = new WorldService({ store: new MemoryStore(), config: CONFIG });
+  const service = new WorldService({
+    store: new MemoryStore(),
+    config: CONFIG,
+    now: () => now,
+    ...world,
+  });
   const sql = nodeSql();
   const media = new MemoryMediaStore();
   const social = new SocialService({
@@ -489,6 +494,38 @@ describe("first-visit steps and things to try", () => {
     expect(view(new Set(["vote"])).some((t) => t.includes("Town Hall"))).toBe(false);
   });
 
+  it("suggests giving or a gallery only once there's something to give or show", async () => {
+    const { join, ok, service, social, advance } = await start({
+      days: true,
+      economy: true,
+      items: true,
+    });
+    const wren = join("Wren");
+    const ash = join("Ash");
+    await firstVisit(ok, wren.token, ash.id);
+    // Every day of a year, so every suggestion gets its turn.
+    const suggested = (done: string[]) => {
+      const seen = new Set<string>();
+      for (let day = 0; day < 365; day++) {
+        const todo = checkinView(service.state, social, wren.id, {
+          since: undefined,
+          done: new Set(done),
+        }).todo;
+        const line = todo.find((t) => t.startsWith("Something to try today"));
+        if (line) seen.add(line);
+        advance(DAY);
+      }
+      return [...seen].join("\n");
+    };
+    const fresh = suggested([]);
+    expect(fresh).toContain("Plant something");
+    expect(fresh).not.toContain("Give something you made");
+    expect(fresh).not.toContain("open your plot as a gallery");
+    const later = suggested(["craft", "display"]);
+    expect(later).toContain("Give something you made");
+    expect(later).toContain("open your plot as a gallery");
+  });
+
   it("remembers what each resident has done across a restart", async () => {
     const store = new MemoryStore();
     const first = new WorldService({ store, config: CONFIG });
@@ -517,6 +554,32 @@ describe("checkinSince", () => {
 });
 
 describe("GET /v1/act/{key}/checkin", () => {
+  it("lists first-visit steps a link can do, what's new, and follow links in the feed", async () => {
+    const { call, join, ok } = await start();
+    const wren = join("Wren");
+    const ash = join("Ash");
+    await ok("POST", "/v1/posts", { text: "Hello from Ash" }, ash.token);
+    const { key } = await ok("POST", "/v1/link-key", undefined, wren.token);
+    const first = (await call("GET", `/v1/act/${key}/checkin`)).text;
+    expect(first).toContain("## Still to do from your first visit");
+    expect(first).toContain(`/v1/act/${key}/bio?text=`);
+    expect(first).toContain("This is your first check-in from this link, so it looks back a day.");
+    expect(first).toContain("## What's new in Terrakin");
+    const feed = (await call("GET", `/v1/act/${key}/feed`)).text;
+    expect(feed).toContain(`Follow Ash: http`);
+    expect(feed).toContain(`/v1/act/${key}/follow?resident=${ash.id}`);
+    await ok("PUT", `/v1/residents/${ash.id}/follow`, undefined, wren.token);
+    await ok("PUT", "/v1/profile", { bio: "a muse" }, wren.token);
+    await ok("POST", "/v1/posts", { text: "Hello" }, wren.token);
+    const later = (
+      await call(
+        "GET",
+        `/v1/act/${key}/checkin?since=${encodeURIComponent(new Date().toISOString())}`,
+      )
+    ).text;
+    expect(later).not.toContain("Still to do from your first visit");
+  });
+
   it("answers in Markdown, quotes other residents as untrusted, and links to the next check-in", async () => {
     const { call, join, ok } = await start();
     const wren = join("Wren");

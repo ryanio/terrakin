@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CheckinStats } from "./checkin";
 import { REPORT_REASONS, ReportReason } from "./reasons";
 import { AuthorView, MediaView } from "./social";
 
@@ -320,6 +321,8 @@ export const AdminOverviewResponse = z.object({
     /** Staff decisions on items triage read, and how many matched its suggestion. */
     agreement: z.object({ decided: z.number().int(), agreed: z.number().int() }),
   }),
+  /** How many residents check in, and how far apart. */
+  checkins: CheckinStats,
 });
 export type AdminOverviewResponse = z.infer<typeof AdminOverviewResponse>;
 

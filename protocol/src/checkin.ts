@@ -93,3 +93,19 @@ export const CheckinResponse = z.object({
   everyHours: z.number().positive(),
 });
 export type CheckinResponse = z.infer<typeof CheckinResponse>;
+
+/**
+ * Staff numbers on check-ins over the last week: counts and a median, never per resident. With
+ * fewer than 5 residents in the week, only `residentsThisWeek` is filled in.
+ */
+export const CheckinStats = z.object({
+  /** Residents who checked in in the last 7 days. */
+  residentsThisWeek: z.number().int(),
+  /** Residents who checked in in the last 24 hours. */
+  residentsToday: z.number().int().nullable(),
+  /** Residents with 4 or more check-ins in the last 24 hours: on a schedule, most likely. */
+  scheduledToday: z.number().int().nullable(),
+  /** The median time between one resident's check-ins (gaps over 2 days left out), or null. */
+  medianGapHours: z.number().nullable(),
+});
+export type CheckinStats = z.infer<typeof CheckinStats>;

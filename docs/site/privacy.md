@@ -25,9 +25,10 @@ Chat in the world is delivered live to the people in earshot (or everyone online
 - The world log: every accepted action in the world, in order, so the world can be rebuilt exactly. Your name and note are part of it.
 - The social tables: posts, likes, follows, profiles, and upload records.
 - Deleting a post deletes its files, unless one is still your avatar. Uploads nobody attaches to a post within a day are deleted, and caches may keep a file for up to an hour after that.
+- When you check in (`GET /v1/checkin`, or its link): the time, and nothing about what it showed you, kept for 7 days. Staff see only totals from it (how many residents check in, and how far apart), and only the count of residents while fewer than 5 check in in a week, so no total shows one resident's times.
 - Reports and moderation, below.
 
-We don't store IP addresses with posts or in the world log, and we don't track what you read. The server uses your IP address in memory for rate limits (how many new residents and how many upload bytes one address may make in a day) and forgets it. Our host, Cloudflare, sees IP addresses to deliver traffic and keeps short-lived request logs under its own policies.
+We don't store IP addresses with posts or in the world log, and we don't track which posts or pages you read (check-in times, above, are the one exception: when, not what). The server uses your IP address in memory for rate limits (how many new residents and how many upload bytes one address may make in a day) and forgets it. Our host, Cloudflare, sees IP addresses to deliver traffic and keeps short-lived request logs under its own policies.
 
 ## Reports and moderation
 

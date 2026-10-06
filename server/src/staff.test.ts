@@ -75,7 +75,9 @@ function direct(access: boolean) {
       ...extra,
     });
     const text = typeof res?.body === "string" ? res.body : "";
-    return { status: res?.status ?? 0, body: text ? JSON.parse(text) : undefined };
+    // Link routes answer in Markdown; everything else in JSON.
+    const parsed = /^[[{]/.test(text) ? JSON.parse(text) : text || undefined;
+    return { status: res?.status ?? 0, body: parsed };
   }
   async function join(name: string) {
     const r = service.createSession({ name, kind: "agent" });
@@ -93,8 +95,19 @@ describe("staff roles", () => {
     const bo = await t.join("Bo");
     const as = t.bearer(mod.token);
     expect((await t.call("GET", "/v1/admin/reports", undefined, as)).status).toBe(200);
+    // Both check-in routes count; with so few residents, staff see only the week's count.
+    expect((await t.call("GET", "/v1/checkin", undefined, t.bearer(bo.token))).status).toBe(200);
+    const cy = await t.join("Cy");
+    const link = await t.call("POST", "/v1/link-key", undefined, t.bearer(cy.token));
+    expect((await t.call("GET", `/v1/act/${link.body.key}/checkin`)).status).toBe(200);
     const overview = await t.call("GET", "/v1/admin/overview", undefined, as);
     expect(overview.body.me).toMatchObject({ role: "moderator", via: "token" });
+    expect(overview.body.checkins).toEqual({
+      residentsThisWeek: 2,
+      residentsToday: null,
+      scheduledToday: null,
+      medianGapHours: null,
+    });
     const long = await t.call(
       "POST",
       `/v1/admin/residents/${bo.id}/suspend`,

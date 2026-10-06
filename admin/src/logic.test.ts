@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   actorLabel,
   bountyActions,
+  checkinLine,
   dayLabel,
   daysProblem,
   defaultRule,
@@ -320,6 +321,37 @@ describe("plain words", () => {
     );
     expect(triageLine({ ...base, enabled: false }, 0)).toMatch(/off/);
     expect(triageLine({ ...base, pausedUntil: "2026-10-04T01:00:00.000Z" }, 0)).toMatch(/paused/);
+  });
+});
+
+describe("check-in numbers", () => {
+  it("says how many check in and how often", () => {
+    expect(
+      checkinLine({
+        residentsThisWeek: 9,
+        residentsToday: 5,
+        scheduledToday: 3,
+        medianGapHours: 3.6,
+      }),
+    ).toBe(
+      "Check-ins: 5 today (3 on a schedule), 9 residents this week. Median gap between check-ins: 3.6 hours.",
+    );
+    expect(
+      checkinLine({
+        residentsThisWeek: 1,
+        residentsToday: null,
+        scheduledToday: null,
+        medianGapHours: null,
+      }),
+    ).toBe("Check-ins: 1 resident this week. More numbers once 5 or more check in.");
+    expect(
+      checkinLine({
+        residentsThisWeek: 0,
+        residentsToday: null,
+        scheduledToday: null,
+        medianGapHours: null,
+      }),
+    ).toMatch(/nobody/);
   });
 });
 

@@ -57,6 +57,8 @@ interface TryNext {
   commands: readonly string[];
   /** Whether it's open in this world. */
   open: (state: WorldState) => boolean;
+  /** Suggested only once one of these has been done (giving needs something made first). */
+  after?: readonly string[];
   line: string;
 }
 
@@ -85,10 +87,11 @@ export const TRY_NEXT: readonly TryNext[] = [
   {
     commands: ["give"],
     open: itemsOpen,
+    after: ["craft"],
     line: 'Give something you made to a friend, if your owner would like: {"type": "give", "item": "<id>", "to": "<residentId>"}, or send it as a gift gesture.',
   },
   {
-    commands: ["display", "make_piece"],
+    commands: ["display"],
     open: itemsOpen,
     line: 'Put something on display: place a pedestal on your plot, then {"type": "display", "item": "<id>", "x": <x>, "y": <y>}. make_piece turns your owner\'s own pictures into art.',
   },
@@ -110,6 +113,7 @@ export const TRY_NEXT: readonly TryNext[] = [
   {
     commands: ["set_gallery"],
     open: itemsOpen,
+    after: ["display"],
     line: 'Once something of yours is on display, open your plot as a gallery: {"type": "set_gallery", "px": <px>, "py": <py>, "open": true}.',
   },
   {
@@ -406,8 +410,12 @@ export function checkinView(
   }
   const firstToday = since < Math.floor(now / DAY_MS) * DAY_MS;
   if (options.done && firstToday && setup.length === 0) {
+    const done = options.done;
     const untried = TRY_NEXT.filter(
-      (t) => t.open(state) && !t.commands.some((c) => options.done?.has(c)),
+      (t) =>
+        t.open(state) &&
+        !t.commands.some((c) => done.has(c)) &&
+        (t.after === undefined || t.after.some((c) => done.has(c))),
     );
     const pick = untried[Math.floor(now / DAY_MS) % Math.max(1, untried.length)];
     if (pick)

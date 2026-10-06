@@ -6,6 +6,19 @@
       "runtimeExecutable": "env",
       "runtimeArgs": ["PORT=8787", "pnpm", "dev"],
       "port": 5173
+    },
+    {
+      "name": "built",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "PORT=8788",
+        "TERRAKIN_STATIC_DIR=client/dist",
+        "pnpm",
+        "--filter",
+        "@terrakin/server",
+        "start"
+      ],
+      "port": 8788
     }
   ]
 }

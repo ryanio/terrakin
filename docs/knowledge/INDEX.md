@@ -150,6 +150,7 @@ Gotchas, surprises, and things we'd tell our past selves.
 
 End-of-session notes. Read the latest one before starting work.
 
+- [Plot names, fishing, winter, gather all, and the townsfolk's routines and pets](handoffs/2026-10-06-2255-plot-names-fishing-winter-gather-all-and-the-townsfolk-s-rou.md) · 2026-10-06 · `process` `roadmap` `sim` `client` `server` `economy` `townsfolk`
 - [Seasons, pets, building, events, games and more, and the move to packages](handoffs/2026-10-06-1847-seasons-pets-building-events-games-and-more-and-the-move-to-.md) · 2026-10-06 · `process` `roadmap` `sim` `client` `server` `economy` `agents` `deploy`
 - [e2e timeouts fixed, routes and handlers split by area, a first-load budget, agent-link diagnostics](handoffs/2026-10-06-1829-e2e-timeouts-fixed-routes-and-handlers-split-by-area-a-first-l.md) · 2026-10-06 · `ci` `e2e` `protocol` `server` `client` `performance` `agents`
 - [World snapshots, a streamed boot, and one row per check-in](handoffs/2026-10-06-0745-world-snapshots-a-streamed-boot-and-one-row-per-check-in.md) · 2026-10-06 · `server` `sim` `storage` `presence` `replay`

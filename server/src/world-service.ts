@@ -14,12 +14,15 @@ import {
   EVENT_LEAD_MINUTES,
   facingFrom,
   fourWayFacing,
+  GAME_TIMES,
   KARMA,
   PROTOCOL_VERSION,
   PUTTER_LIMITS,
   ROUTINE_LIMITS,
 } from "@terrakin/protocol";
 import {
+  activeTable,
+  activeTables,
   asJoined,
   type BuildPlan,
   buildSummary,
@@ -39,11 +42,16 @@ import {
   exactWearStyles,
   findBounty,
   findEvent,
+  GAME_RULES,
+  GAMES,
+  type GameTable,
   type HostedEvent,
+  hasDecided,
   hashWorld,
   type Input,
   inEventArea,
   isTownEvent,
+  isTownsfolk,
   LOOK_MEDIA_KEYS,
   type LookMediaKey,
   type LooseWearStyles,
@@ -69,8 +77,11 @@ import {
   type Routine,
   type RoutineStep,
   residentById,
+  roundSettled,
   SHOP,
   type StepRoutine,
+  seatOf,
+  seatsHeld,
   shopTiles,
   skyAt,
   TOWN_ACTOR,
@@ -83,6 +94,7 @@ import {
   type WorldState,
   withinEarshot,
 } from "@terrakin/sim";
+import { closesAt, startBy, townsfolkMove } from "./games";
 import { listingRefusal } from "./market";
 import { Moderation, type ReviewContext, type Surface } from "./moderation";
 import {
@@ -278,6 +290,11 @@ function toWire(events: WorldEvent[], townsfolk: readonly string[] = []): WireEv
     }
   }
   return out;
+}
+
+/** A game input the server meant to log was refused. Reported by its code, never an id. */
+function gameRefused(code: string, command: string) {
+  report(new Error(`${command} refused: ${code}`), "world.games", { command });
 }
 
 /**
@@ -700,11 +717,16 @@ export class WorldService {
   }
 
   /**
-   * Move the world's day forward to today (UTC) and close proposals whose closing day has started.
-   * Cheap when nothing is due, so the adapters call it on every request and once a minute. Each
-   * step is a logged input, so replay never needs the clock.
+   * Move the world's day forward to today (UTC), close proposals whose closing day has started,
+   * and keep the game tables' clock. Cheap when nothing is due, so the adapters call it on every
+   * request and once a minute. Each step is a logged input, so replay never needs the clock.
    */
   tick() {
+    this.tickDays();
+    this.runGames();
+  }
+
+  private tickDays() {
     this.reconcileEntitlements();
     if (this.presence && !this.state.implicitPresence) {
       const on = this.run({ actor: TOWN_ACTOR, command: { type: "implicit_presence" } });
@@ -918,6 +940,97 @@ export class WorldService {
       report(new Error(`daily_awards refused: ${done.error.code}`), "world.daily_awards", {
         command: "daily_awards",
       });
+    }
+  }
+
+  // ---------- the game tables' clock (RFC 0011) ----------
+
+  /** Set while `runGames` logs, so what it logs can't start it again. */
+  private gamesRunning = false;
+
+  /**
+   * The tables' clock. A table that waited too long to start closes, a slow table still short of
+   * players gets townsfolk in the seats it needs, townsfolk seats choose, and a round closes once
+   * every seat has decided or is away, or once its window ends, with `at` the time the next round
+   * opens. All of it is logged, so replay never reads the clock. `tick` runs it on every request
+   * and sweep, the adapters every second, and an accepted `decide` or `start_game` right away.
+   */
+  runGames() {
+    if (this.gamesRunning || !this.state.games) return;
+    this.gamesRunning = true;
+    try {
+      const now = this.now();
+      for (const t of activeTables(this.state)) {
+        if (t.status === "open") this.tendOpenTable(t, now);
+        else this.tendRounds(t.id, now);
+      }
+    } finally {
+      this.gamesRunning = false;
+    }
+  }
+
+  /** An open table closes once it has waited `GAME_TIMES.waitMinutes`, and a slow one gets townsfolk. */
+  private tendOpenTable(t: GameTable, now: number) {
+    if (now >= startBy(t)) {
+      const closed = this.run({ actor: TOWN_ACTOR, command: { type: "close_table", table: t.id } });
+      if (!closed.ok) gameRefused(closed.error.code, "close_table");
+      return;
+    }
+    const waited = now - t.openedAt >= GAME_TIMES.townsfolkAfterMinutes * 60_000;
+    if (t.pace === "slow" && waited) this.fillWithTownsfolk(t);
+  }
+
+  /**
+   * Townsfolk sit in the seats a slow table still needs to start, never more, so they never take a
+   * seat a person or an agent wants. They play unrated. Each sits as themselves, logged like anyone.
+   */
+  private fillWithTownsfolk(t: GameTable) {
+    const need = GAME_RULES[t.game].minSeats - t.seats.length;
+    if (need <= 0) return;
+    const free = (this.state.townsfolk ?? []).filter(
+      (id) =>
+        residentById(this.state, id) !== undefined &&
+        !seatOf(t, id) &&
+        seatsHeld(this.state, id) < GAMES.seatsMax &&
+        !t.seats.some((s) => this.blockedEither(id, s.resident)),
+    );
+    for (const id of free.slice(0, need)) {
+      if (!this.arrive(id, "sit").ok) continue;
+      const sat = this.run({ actor: id, command: { type: "sit", table: t.id } });
+      if (!sat.ok) gameRefused(sat.error.code, "sit");
+    }
+  }
+
+  /**
+   * Townsfolk seats choose, then the round closes if it's settled or its window has ended. Again,
+   * up to the game's last round, since a table where only townsfolk and away seats are left
+   * settles each round as it opens.
+   */
+  private tendRounds(id: string, now: number) {
+    const game = activeTable(this.state, id)?.game;
+    if (!game) return;
+    for (let i = 0; i < GAME_RULES[game].roundsMax; i++) {
+      const t = activeTable(this.state, id);
+      if (t?.status !== "playing") return;
+      for (const s of t.seats) {
+        if (!isTownsfolk(this.state, s.resident) || hasDecided(t, s.resident)) continue;
+        if (!this.arrive(s.resident, "decide").ok) continue;
+        const move = townsfolkMove(t, s.resident);
+        const done = this.run({
+          actor: s.resident,
+          command: { type: "decide", table: t.id, round: t.round, move },
+        });
+        if (!done.ok) gameRefused(done.error.code, "decide");
+      }
+      if (!roundSettled(t) && now < closesAt(t)) return;
+      const closed = this.run({
+        actor: TOWN_ACTOR,
+        command: { type: "close_round", table: t.id, round: t.round, at: now },
+      });
+      if (!closed.ok) {
+        gameRefused(closed.error.code, "close_round");
+        return;
+      }
     }
   }
 
@@ -1543,6 +1656,37 @@ export class WorldService {
           ? { type: "shop_buy", sku: action.sku, ...count }
           : { type: "sell_to_town", item: action.item, ...count };
       return this.run({ actor: residentId, command }, dry);
+    }
+    // Party games (RFC 0011). The server stamps tables with its salt and clock before logging.
+    if (action.type === "open_table") {
+      const command: Command = {
+        type: "open_table",
+        game: action.game,
+        pace: action.pace,
+        salt: toHex(randomBytes(16)),
+        at: this.now(),
+      };
+      return this.run({ actor: residentId, command }, dry);
+    }
+    if (action.type === "sit") {
+      // Like a gift, a seat can't cross a block either way.
+      const t = activeTable(this.state, action.table);
+      if (t?.seats.some((s) => this.blockedEither(residentId, s.resident))) {
+        return {
+          ok: false,
+          error: { code: "forbidden", message: "You can't sit at this table." },
+        };
+      }
+    }
+    if (action.type === "start_game" || action.type === "decide") {
+      const command: Command =
+        action.type === "start_game"
+          ? { type: "start_game", table: action.table, at: this.now() }
+          : { type: "decide", table: action.table, round: action.round, move: action.move };
+      const result = this.run({ actor: residentId, command }, dry);
+      // Townsfolk take their turn, and a round everyone has settled closes now, not at its end.
+      if (result.ok && !dry) this.runGames();
+      return result;
     }
     return this.run({ actor: residentId, command: action satisfies Command }, dry);
   }
@@ -2207,6 +2351,19 @@ export class WorldService {
               startsAt: e.startsAt,
               minutes: e.minutes,
               ...(isTownEvent(e) ? { town: true as const } : {}),
+            })),
+          }
+        : {}),
+      // Where tables stand, and nothing about the play: choices stay sealed (RFC 0011).
+      ...(state.games && Object.keys(state.games.tables).length > 0
+        ? {
+            tables: activeTables(state).map((t) => ({
+              id: t.id,
+              game: t.game,
+              pace: t.pace,
+              status: t.status,
+              x: t.place.x,
+              y: t.place.y,
             })),
           }
         : {}),

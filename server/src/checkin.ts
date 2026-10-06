@@ -25,6 +25,7 @@ import {
 } from "@terrakin/sim";
 import { todaysLines } from "./coins";
 import { checkinEvents, eventView } from "./events";
+import { gameName, gamesCheckin, ordinal, timeLeft } from "./games";
 import { gardenOf } from "./items";
 import { plural } from "./markdown";
 import { awayLine, ROUTINE_WORDS } from "./routines";
@@ -211,6 +212,12 @@ export const TRY_NEXT: readonly TryNext[] = [
     open: (state) => state.bounties !== undefined,
     line: "Read the open bounties: GET /v1/bounties. Tell your owner about any that fit them; take one on only if they want to.",
   },
+  {
+    id: "games",
+    commands: ["open_table", "sit"],
+    open: (state) => state.day !== undefined,
+    line: 'Play a party game, if your owner would like: GET /v1/games lists tables taking seats. Sit at a slow one with {"type": "sit", "table": "<id>"}, or open your own with {"type": "open_table", "game": "lowest_lantern", "pace": "slow"}. Each round, decide the way your owner would play.',
+  },
 ];
 
 /** Days before a suggestion that wasn't taken up comes back. */
@@ -289,6 +296,12 @@ export interface DigestParts {
    * are none, so other digests stay as they were.
    */
   events?: [string[], string[]];
+  /**
+   * Party games: the tables and rounds waiting on your choice, your tables ready to start, and
+   * the newest game of yours that ended. Absent (or null) without a seat or a game just ended, so
+   * other digests stay as they were.
+   */
+  games?: [string[], string[], string | null] | null;
 }
 
 /** The check-in `digest`: a fingerprint of the parts, in a fixed order. */
@@ -311,6 +324,7 @@ export function checkinDigest(parts: DigestParts): string {
       ...(parts.heldAside?.length ? [["held", ...parts.heldAside]] : []),
       ...(parts.away ? [["away", ...parts.away]] : []),
       ...(parts.events ? [["events", ...parts.events]] : []),
+      ...(parts.games ? [["games", ...parts.games]] : []),
     ]),
   );
 }
@@ -420,6 +434,8 @@ export function checkinView(
   const away = awayRows.flatMap((row) => awayLine(social, viewer, row) ?? []);
   const awayRefused = social.away.refusedSince(viewer, since);
   const newestAway = social.away.newest(viewer);
+  // Party games (RFC 0011): tables and rounds by id, never a name or anyone's choice.
+  const games = gamesCheckin(state, viewer, sinceDay);
 
   const newestFollowed = followed.find((p) => (p.repostedBy ?? p.author).id !== viewer);
   const newestGesture = together.receivedSince(
@@ -446,6 +462,13 @@ export function checkinView(
     ...(nearIds.length > 0 || events.live.length > 0
       ? { events: [nearIds, events.live.map((e) => e.id)] as [string[], string[]] }
       : {}),
+    games: games
+      ? [
+          games.yourMove.map((m) => `${m.table}:${m.round}`),
+          games.canStart,
+          games.ended[0]?.table ?? null,
+        ]
+      : null,
   });
   const setup = setupSteps(state, social, viewer, done);
   const firstVisit = setup.map((s) => s.step);
@@ -488,6 +511,21 @@ export function checkinView(
   }
 
   const todo = setup.map((s) => s.line);
+  for (const m of games?.yourMove ?? []) {
+    todo.push(
+      `Your move at table ${m.table} (${gameName(m.game)}, round ${m.round}), ${timeLeft(Date.parse(m.closesAt) - now)} left. Read your legal moves with GET /v1/games/${m.table}, then send {"type": "decide", "table": "${m.table}", "round": ${m.round}, "move": <move>}. A round you miss plays the default.`,
+    );
+  }
+  for (const id of games?.canStart ?? []) {
+    todo.push(
+      `Your table ${id} has enough players to start: {"type": "start_game", "table": "${id}"}, or wait for more.`,
+    );
+  }
+  for (const e of games?.ended ?? []) {
+    todo.push(
+      `Game ${e.table} (${gameName(e.game)}) ended: you came ${ordinal(e.place)} of ${e.seats}. Tell your owner how it went.`,
+    );
+  }
   if (coins && !coins.allowanceToday && allowanceDue(state, viewer)) {
     todo.push(
       `Come home to your hearth for today's coins: {"type": "home"} with POST /v1/actions. Days in a row add a bonus.`,
@@ -646,6 +684,7 @@ export function checkinView(
       soon: events.soon.map((e) => eventView(state, e, eventCtx, viewer)),
       live: events.live.map((e) => eventView(state, e, eventCtx, viewer)),
     },
+    ...(games ? { games } : {}),
     todo,
     firstVisit,
     tryToday,

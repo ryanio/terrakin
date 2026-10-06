@@ -44,6 +44,8 @@ function world(): WorldState {
     startsAt: (day + 1) * 86_400_000,
     minutes: 60,
   });
+  ok("ada", { type: "open_table", game: "hearth_race", pace: "slow", salt: "0".repeat(32), at: 1 });
+  ok("bob", { type: "sit", table: "g_1" });
   return state;
 }
 
@@ -82,6 +84,17 @@ function inputs(id: string, day: number): [string, Command][] {
     ada({ type: "complete_bounty", bounty: id }),
     ["dee", { type: "confirm_bounty", bounty: id, to: "ada" }],
     ["dee", { type: "cancel_bounty", bounty: id }],
+    ["cy", { type: "open_table", game: id, pace: "slow", salt: "0".repeat(32), at: 1 } as Command],
+    [
+      "cy",
+      { type: "open_table", game: "hearth_race", pace: id, salt: "0".repeat(32), at: 1 } as Command,
+    ],
+    ["cy", { type: "sit", table: id }],
+    ada({ type: "stand", table: id }),
+    ada({ type: "start_game", table: id, at: 2 }),
+    ada({ type: "decide", table: id, round: 1, move: 1 }),
+    town({ type: "close_round", table: id, round: 1, at: 2 }),
+    town({ type: "close_table", table: id }),
     town({ type: "close_proposal", proposal: id }),
     town({ type: "void_proposal", proposal: id, by: "staff_0123456789ab" }),
     town({ type: "remove_listing", listing: id }),

@@ -62,10 +62,12 @@ import {
   type HostedEvent,
   heldAsideOf,
   isTownEvent,
+  LADDERS,
   listingById,
   plotPlan,
   REPLAY_VERSION,
   routinesOf,
+  tableById,
 } from "@terrakin/sim";
 import { AiSpend, SUMMARY_DAYS } from "./ai-spend";
 import { bountiesView, bountyView, staffBountiesView } from "./bounties";
@@ -74,6 +76,7 @@ import { checkinView } from "./checkin";
 import { purseView } from "./coins";
 import { countGuests, eventsView, eventView } from "./events";
 import { galleriesView, madeThingForReport } from "./galleries";
+import { gameRatings, gamesView, ladderView, tableView } from "./games";
 import { IdempotencyStore, type StoredResponse, sha256Hex } from "./idempotency";
 import { inventoryView } from "./items";
 import { BAD_LINK_KEY, DEFAULT_ORIGIN, linkHandlers, linkHelp, REPEAT_NOTE } from "./links";
@@ -608,6 +611,8 @@ export class Api {
           report(err, "world.event_ended");
         }
       }
+      // Party-game ladders (RFC 0011) live in the world; profiles show them.
+      layer.gameRatings = (id) => gameRatings(this.service.state, id);
       this.service.syncOwnerPairs(layer.ownerPairs());
       // Partner wear (RFC 0007 phase 3): logged as each link changes, and caught up on a timer so
       // promos start and end on the server's clock. At boot, everything at once.
@@ -1220,6 +1225,28 @@ export class Api {
         return {
           status: 200,
           body: bountiesView(service.state, viewer, (id) => layer.authorView(id), hidden),
+        };
+      },
+      getGames: ({ viewer }) => ({
+        status: 200,
+        body: gamesView(service.state, viewer, (id) => this.social?.authorView(id)),
+      }),
+      getGameLadder: ({ viewer, query }) => ({
+        status: 200,
+        body: ladderView(service.state, query.ladder ?? LADDERS[0], viewer, (id) =>
+          this.social?.authorView(id),
+        ),
+      }),
+      getGame: ({ viewer, params }) => {
+        const t = tableById(service.state, params.table);
+        if (!t) return fail("not_found", "No table has that id. GET /v1/games lists them.");
+        return {
+          status: 200,
+          body: {
+            table: tableView(service.state, t, (id) => this.social?.authorView(id), viewer, {
+              history: true,
+            }),
+          },
         };
       },
       getGalleries: ({ query }) => {
@@ -2215,6 +2242,21 @@ export class Api {
   /** Housekeeping: mark idle residents offline and forget full rate-limit buckets. Call about once a minute. */
   sweep() {
     task("world.sweep", () => this.sweepNow());
+  }
+
+  /**
+   * The game tables' clock (RFC 0011): closes rounds whose window has ended, so a live table's
+   * 45 seconds hold with nobody making a request. The adapters call it every second; it does
+   * nothing while no table is open or playing.
+   */
+  gameClock() {
+    if (!this.service.state.games) return;
+    try {
+      this.service.runGames();
+    } catch (err) {
+      console.error("Game clock failed", err);
+      report(err, "world.games");
+    }
   }
 
   /**

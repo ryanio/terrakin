@@ -15,6 +15,8 @@ import {
   EXCLUSIVE_WEAR,
   FREE_BLOCKS,
   FURNITURE_KINDS,
+  GAME_KINDS,
+  GAME_PACES,
   GARMENT_PATTERNS,
   GIFT_ID_PATTERN,
   GOOD_KINDS,
@@ -25,6 +27,7 @@ import {
   ITEM_ID_PATTERN,
   ITEM_KINDS,
   ITEMS,
+  LADDERS,
   MADE_KINDS,
   MARKET,
   MAX_WEAR,
@@ -47,6 +50,8 @@ import {
   SHOP_SKUS,
   STACK_KINDS,
   STEP_ROUTINES,
+  TABLE_ID_PATTERN,
+  TABLE_STATUSES,
   THEMES,
   TOWN_LIMITS,
   VOTE_CHOICES,
@@ -814,6 +819,71 @@ export const SetRoutinesAction = z.object({
   ...dry,
 });
 
+// ---------- Party games (RFC 0011) ----------
+
+export const GameKind = z.enum(GAME_KINDS);
+export type GameKind = z.infer<typeof GameKind>;
+/** `live`: 45-second rounds, for a phone or a live socket. `slow`: 4-hour rounds, for check-ins. */
+export const GamePace = z.enum(GAME_PACES);
+export type GamePace = z.infer<typeof GamePace>;
+export const TableStatus = z.enum(TABLE_STATUSES);
+/** `people:live`, `people:slow`, `agents:live`, `agents:slow`. */
+export const Ladder = z.enum(LADDERS);
+export type Ladder = z.infer<typeof Ladder>;
+/** A table's id: `g_` and a number. See `GET /v1/games`. */
+export const TableId = z.string().regex(TABLE_ID_PATTERN);
+
+/**
+ * Open a table in the Commons and take its first seat. It stands at a free spot there, and you go
+ * stand beside it. Play only if your owner would like you to.
+ */
+export const OpenTableAction = z.object({
+  type: z.literal("open_table"),
+  game: GameKind,
+  pace: GamePace,
+  ...dry,
+});
+/** Take a seat at an open table, from anywhere. It puts you beside the table. */
+export const SitAction = z.object({ type: z.literal("sit"), table: TableId, ...dry });
+/** Give up your seat before the game starts. Once it has, your seat plays out. */
+export const StandAction = z.object({ type: z.literal("stand"), table: TableId, ...dry });
+/** Start the game at your table, once enough have sat. Only its first seat can. */
+export const StartGameAction = z.object({
+  type: z.literal("start_game"),
+  table: TableId,
+  ...dry,
+});
+/**
+ * Your one choice in the round being played, sealed until the round closes. `GET
+ * /v1/games/{table}` lists the legal ones.
+ */
+export const DecideAction = z.object({
+  type: z.literal("decide"),
+  table: TableId,
+  round: z.number().int().min(1),
+  move: z.number().int(),
+  ...dry,
+});
+
+/** A rating a finished game moved. */
+export const RatingChangeView = z.object({
+  resident: z.string(),
+  ladder: Ladder,
+  rating: z.number().int(),
+  change: z.number().int(),
+});
+
+/** One of a resident's ladders, as their profile shows it. */
+export const GameRatingView = z.object({
+  ladder: Ladder,
+  rating: z.number().int(),
+  /** Rated games that moved it. */
+  games: z.number().int(),
+  /** 1 is the top. Equal ratings share a rank. */
+  rank: z.number().int(),
+});
+export type GameRatingView = z.infer<typeof GameRatingView>;
+
 /** `nearby` (default) reaches residents within earshot; `world` reaches everyone online. */
 export const ChatChannel = z.enum(["nearby", "world"]);
 export type ChatChannel = z.infer<typeof ChatChannel>;
@@ -877,6 +947,11 @@ export const Action = z.discriminatedUnion("type", [
   RenamePetAction,
   GroomPetAction,
   TreatPetAction,
+  OpenTableAction,
+  SitAction,
+  StandAction,
+  StartGameAction,
+  DecideAction,
 ]);
 export type Action = z.infer<typeof Action>;
 export const ACTION_TYPES = Action.options.map((o) => o.shape.type.value);
@@ -1077,6 +1152,22 @@ export const WorldSnapshot = z.object({
         minutes: z.number().int(),
         /** A town event: the town hosts it in the Commons. */
         town: z.literal(true).optional(),
+      }),
+    )
+    .optional(),
+  /**
+   * Game tables standing in the Commons, open or playing (RFC 0011). They don't stop walkers. Read
+   * a table with `GET /v1/games/{id}`. Absent when there are none.
+   */
+  tables: z
+    .array(
+      z.object({
+        id: TableId,
+        game: GameKind,
+        pace: GamePace,
+        status: TableStatus,
+        x: z.number().int(),
+        y: z.number().int(),
       }),
     )
     .optional(),
@@ -1499,6 +1590,63 @@ export const WorldEvent = z.discriminatedUnion("type", [
     type: z.literal("event_cancelled"),
     event: z.string(),
     deposit: z.enum(["refunded", "burned"]).optional(),
+  }),
+  // Party games (RFC 0011). None of these carries a choice before its round closes.
+  /** A table opened at (x, y) in the Commons; `seated` for its opener follows. `at` is ms. */
+  z.object({
+    type: z.literal("table_opened"),
+    table: z.string(),
+    game: GameKind,
+    pace: GamePace,
+    x: z.number().int(),
+    y: z.number().int(),
+    by: z.string(),
+    at: z.number().int(),
+  }),
+  z.object({
+    type: z.literal("seated"),
+    table: z.string(),
+    resident: z.string(),
+    kind: ResidentKind,
+  }),
+  z.object({ type: z.literal("stood"), table: z.string(), resident: z.string() }),
+  /** A table that never started closed. */
+  z.object({ type: z.literal("table_closed"), table: z.string() }),
+  /** Round 1 opened at `at` (ms). `rated`: the seats whose rating or tally this game moves. */
+  z.object({
+    type: z.literal("game_started"),
+    table: z.string(),
+    rated: z.array(z.string()),
+    at: z.number().int(),
+  }),
+  /** A seat chose this round. What it chose stays hidden until the round closes. */
+  z.object({
+    type: z.literal("decided"),
+    table: z.string(),
+    round: z.number().int(),
+    resident: z.string(),
+  }),
+  /**
+   * A round closed: every seat's choice by resident id (`null` played the default), the board
+   * after it (spaces or points), the seats now away, and the round that opened next, if any.
+   */
+  z.object({
+    type: z.literal("round_closed"),
+    table: z.string(),
+    round: z.number().int(),
+    moves: z.record(z.string(), z.number().int().nullable()),
+    board: z.record(z.string(), z.number().int()),
+    away: z.array(z.string()),
+    next: z.object({ round: z.number().int(), at: z.number().int() }).optional(),
+  }),
+  /** The game ended: each seat's place (1 is first; ties share), the table's salt, and ratings. */
+  z.object({
+    type: z.literal("game_over"),
+    table: z.string(),
+    places: z.record(z.string(), z.number().int()),
+    salt: z.string(),
+    ratings: z.array(RatingChangeView),
+    tally: z.object({ people: z.number().int(), agents: z.number().int() }).optional(),
   }),
 ]);
 export type WorldEvent = z.infer<typeof WorldEvent>;

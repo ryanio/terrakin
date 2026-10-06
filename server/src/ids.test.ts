@@ -87,6 +87,7 @@ describe("ids an object inherits", () => {
         ["GET", `/v1/town/proposals/${id}`],
         ["GET", `/v1/galleries?resident=${id}`],
         ["GET", `/v1/market?seller=${id}`],
+        ["GET", `/v1/games/${id}`],
         ...["resident", "proposal", "listing", "bounty", "display", "piece", "post"].map(
           (kind): [string, string, unknown] => [
             "POST",
@@ -102,6 +103,8 @@ describe("ids an object inherits", () => {
           { type: "buy_listing", listing: id },
           { type: "claim_bounty", bounty: id },
           { type: "vote", proposal: id, choice: "yes" },
+          { type: "sit", table: id },
+          { type: "decide", table: id, round: 1, move: 1 },
         ].map((action): [string, string, unknown] => ["POST", "/v1/actions", action]),
       ];
       const asStaff: [string, string, unknown][] = [
@@ -122,7 +125,12 @@ describe("ids an object inherits", () => {
         // Refused by the schema (400) or by the world (`ok: false`).
         if (path === "/v1/actions")
           expect(res.status >= 400 || res.body.ok === false, what).toBe(true);
-        else if (method !== "GET" || path.includes("residents/") || path.includes("proposals/")) {
+        else if (
+          method !== "GET" ||
+          path.includes("residents/") ||
+          path.includes("proposals/") ||
+          path.includes("games/")
+        ) {
           expect(res.status, what).toBeGreaterThanOrEqual(400);
         }
       }

@@ -10,6 +10,7 @@ import {
   FEED_DEFAULT_LIMIT,
   FEED_MAX_LIMIT,
   findMentions,
+  type GameRatingView,
   GESTURE_KINDS,
   type GestureKind,
   HANDLE_HOLD_DAYS,
@@ -641,6 +642,9 @@ export class SocialService {
    */
   onPartnerPerks: ((residentId: string) => void) | undefined;
 
+  /** A resident's party-game ladders (RFC 0011), from the world. `Api` wires it; profiles show it. */
+  gameRatings: (residentId: string) => GameRatingView[] = () => [];
+
   /** Letters, gestures, streaks, and invites (decision 0024). Shares this service's tables. */
   readonly together: TogetherService;
   /** Reports, hiding, suspensions, and the moderation log (RFC 0006). Shares this service's tables. */
@@ -1226,6 +1230,7 @@ export class SocialService {
       ...(viewerId && this.blocks(viewerId, r.id) ? { blocked: true } : {}),
       ...(this.votesCast ? { votes: this.votesCast(r.id) } : {}),
       ...this.hostingField(r.id),
+      ...this.gamesField(r.id),
       ...this.ownerFields(r.id),
       ...this.keeperField(r),
       ...(this.safety.suspendedUntil(r.id) === undefined ? {} : { suspended: true }),
@@ -1262,6 +1267,12 @@ export class SocialService {
   private hostingField(id: string): { hosting?: HostingView } {
     const hosting = this.events.hostingOf(id);
     return hosting ? { hosting } : {};
+  }
+
+  /** Their party-game ladders, when they've played rated (RFC 0011). */
+  private gamesField(id: string): { games?: GameRatingView[] } {
+    const games = this.gameRatings(id);
+    return games.length > 0 ? { games } : {};
   }
 
   /** Partner wear they may put on now (RFC 0007 phase 3), from the world's own list. */

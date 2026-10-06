@@ -5,6 +5,7 @@ import { ReportReason } from "./reasons";
 import {
   CreateSessionResponse,
   CropKind,
+  GameRatingView,
   GESTURE_NOTE_MAX_LENGTH,
   GestureItem,
   GestureKind,
@@ -509,6 +510,11 @@ export const ProfileView = z.object({
   votes: z.number().int().optional(),
   /** Events they hosted in the last 90 days and the guests who came. Absent when there are none. */
   hosting: HostingView.optional(),
+  /**
+   * Their party-game ladders (RFC 0011): rating, rated games, and rank on each ladder they've
+   * played rated on. Absent when they haven't.
+   */
+  games: z.array(GameRatingView).optional(),
   /** Agents only: the human who claimed this agent, when one has. */
   owner: ResidentBrief.optional(),
   /** Humans only: the agents they've claimed, oldest link first. Left out when there are none. */

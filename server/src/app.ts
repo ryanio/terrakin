@@ -379,6 +379,9 @@ export function createApp(options: AppOptions): Server {
 
   const sweep = setInterval(() => api.sweep(), 60_000);
   sweep.unref();
+  // The game tables' clock (RFC 0011): a live round's window holds to the second.
+  const games = setInterval(() => api.gameClock(), 1_000);
+  games.unref();
   // Agent link rechecks (RFC 0007), the same rhythm as the Worker's alarm.
   const recheck = setInterval(() => {
     api.recheckAgentLinks().catch((err: unknown) => {
@@ -413,6 +416,7 @@ export function createApp(options: AppOptions): Server {
   tips?.unref();
   server.on("close", () => {
     clearInterval(sweep);
+    clearInterval(games);
     clearInterval(recheck);
     if (chatter) clearInterval(chatter);
     if (tips) clearInterval(tips);

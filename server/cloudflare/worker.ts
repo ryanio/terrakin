@@ -430,6 +430,9 @@ class WorldObject extends DurableObject<Env> {
       this.api.sweep();
       void this.armRecheck();
     }, 60_000);
+    // The game tables' clock (RFC 0011), so a live round's window holds to the second. Started
+    // once, here, it keeps the object in memory no longer than the sweep's interval does.
+    setInterval(() => this.api.gameClock(), 1_000);
     // A link made before a restart still needs its rechecks.
     void this.armRecheck();
   }

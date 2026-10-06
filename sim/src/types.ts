@@ -418,6 +418,113 @@ export interface WorldState {
    * scheduled, so worlds from before events hash as they always have.
    */
   events?: EventsState;
+  /**
+   * Party games (RFC 0011): tables in the Commons, sealed rounds, and the ladders. Absent until the
+   * first `open_table`, so worlds from before games hash as they always have.
+   */
+  games?: GamesState;
+}
+
+/** The party games (RFC 0011). New games go on the end. */
+export const GAME_KINDS = ["hearth_race", "lowest_lantern"] as const;
+export type GameKind = (typeof GAME_KINDS)[number];
+
+/** How long a round's window is: `live` for people on a phone, `slow` for scheduled check-ins. */
+export const GAME_PACES = ["live", "slow"] as const;
+export type GamePace = (typeof GAME_PACES)[number];
+
+/** A table taking seats, playing rounds, or finished. */
+export const TABLE_STATUSES = ["open", "playing", "over"] as const;
+export type TableStatus = (typeof TABLE_STATUSES)[number];
+
+/** The four ladders: people and agents, each at both paces. */
+export const LADDERS = ["people:live", "people:slow", "agents:live", "agents:slow"] as const;
+export type Ladder = (typeof LADDERS)[number];
+
+/** One seat at a table. The server plays it whenever its resident doesn't decide in time. */
+export interface GameSeat {
+  resident: ResidentId;
+  /** The resident's kind when they sat, which picks their ladder. */
+  kind: ResidentKind;
+  /** Rounds in a row this seat didn't decide. At `GAMES.awayAfter` it's away. */
+  missed: number;
+  /** This game moves the seat's rating or the tally. Set at the start; absent when it doesn't. */
+  rated?: true;
+}
+
+/** A game table in the Commons. */
+export interface GameTable {
+  /** `g_1`, `g_2`, ... from the counter. */
+  id: string;
+  game: GameKind;
+  pace: GamePace;
+  /** Where it stands: one of `gameTableTiles`. */
+  place: Tile;
+  /** In the order residents sat. The first seat starts the game. */
+  seats: GameSeat[];
+  status: TableStatus;
+  openedDay: number;
+  /**
+   * When it opened, in ms on the server's clock, logged with `open_table`. The sim never compares
+   * it to anything: it's for the server's runner and for views.
+   */
+  openedAt: number;
+  /** The round being played, from 1. 0 while it's open; the last round once it's over. */
+  round: number;
+  /** When the current round opened, in ms on the server's clock, logged like `openedAt`. */
+  roundAt?: number;
+  /**
+   * This round's choices, by resident. Hidden from every view and event until the round closes,
+   * and empty between rounds.
+   */
+  sealed: Record<ResidentId, number>;
+  /**
+   * 128 random bits from the server, as 32 hex characters, logged with `open_table`. It's part of
+   * the hashed world, so a guess at the sealed choices can't be checked against `/v1/health`, and
+   * nothing shows it until the game is over.
+   */
+  salt: string;
+  /** Places on the track (Hearth race) or points (Lowest lantern), by resident. Set at the start. */
+  board: Record<ResidentId, number>;
+  /** Every closed round's choices in order, by resident: `null` where the seat played the default. */
+  rounds: Record<ResidentId, number | null>[];
+  /** Pairs of seats whose result counts, each sorted. Set at the start. */
+  pairs?: [ResidentId, ResidentId][];
+  /** Each seat's place once it's over: 1 is first, and ties share a place. */
+  places?: Record<ResidentId, number>;
+  /** The ratings it moved, once it's over. */
+  changes?: RatingChange[];
+  /** The day it ended. */
+  endedDay?: number;
+}
+
+/** One resident's standing on one ladder. */
+export interface LadderEntry {
+  rating: number;
+  /** Rated games that moved it. */
+  games: number;
+}
+
+export interface GamesState {
+  /** The number in the next table's id. */
+  nextId: number;
+  /** Tables that are open or playing, by id. */
+  tables: Record<string, GameTable>;
+  /** The newest finished games, oldest first, at most `GAMES.keepFinished`. */
+  finished: GameTable[];
+  /** Ratings by ladder, then resident. Absent until the first rated result. */
+  ratings?: Partial<Record<Ladder, Record<ResidentId, LadderEntry>>>;
+  /** People against AIs: wins each side took from the other in counted pairs. Absent until the first. */
+  tally?: { people: number; agents: number };
+  /** Today's counts for the daily caps on rated play. Reset at each `new_day`. */
+  today: GamesToday;
+}
+
+export interface GamesToday {
+  /** Rated games each resident started today. */
+  rated: Record<ResidentId, number>;
+  /** Counted games each pair started today, keyed `a+b` with `a < b`. */
+  pairs: Record<string, number>;
 }
 
 /** What kind of event a host puts on (RFC 0010). */
@@ -995,6 +1102,12 @@ export type Command =
   | { type: "groom_pet"; coat: PetCoat }
   /** One of the actor's produce to `owner`'s pet, which is happy until the day ends. */
   | { type: "treat_pet"; owner: ResidentId; item: Crop }
+  // Party games (RFC 0011). The server fills in `salt` and `at` (its clock, in ms) before logging.
+  | { type: "open_table"; game: GameKind; pace: GamePace; salt: string; at: number }
+  | { type: "sit"; table: string }
+  | { type: "stand"; table: string }
+  | { type: "start_game"; table: string; at: number }
+  | { type: "decide"; table: string; round: number; move: number }
   // Only the server sends these, as TOWN_ACTOR.
   | { type: "new_day"; day: number }
   | { type: "set_townsfolk"; ids: ResidentId[] }
@@ -1086,7 +1199,22 @@ export type Command =
    * maintainer is in the log, and `resident`, when the server knows it, the resident they also
    * are: one in the host's household is refused, as for bounties (decision 0062).
    */
-  | { type: "void_event"; event: string; by: string; resident?: ResidentId };
+  | { type: "void_event"; event: string; by: string; resident?: ResidentId }
+  /**
+   * A table's round ends: everyone decided, or its window ran out. Seats that didn't decide play
+   * the default. `at` is when the next round opens, on the server's clock (RFC 0011).
+   */
+  | { type: "close_round"; table: string; round: number; at: number }
+  /** A table that never started closes. */
+  | { type: "close_table"; table: string };
+
+/** A rating a finished game moved: the rating after, and by how much. */
+export interface RatingChange {
+  resident: ResidentId;
+  ladder: Ladder;
+  rating: number;
+  change: number;
+}
 
 /** One resident's award in `daily_awards`. */
 export interface DailyAward {
@@ -1137,6 +1265,8 @@ export const SERVER_COMMANDS = [
   "event_tick",
   "event_end",
   "void_event",
+  "close_round",
+  "close_table",
 ] as const satisfies readonly CommandType[];
 
 /** A command plus who issued it. This is the unit the server logs and replays. */
@@ -1370,6 +1500,49 @@ export type WorldEvent =
   | { type: "pet_groomed"; residentId: ResidentId; coat: PetCoat }
   /** `by` gave `residentId`'s pet a treat of `kind`: it's happy until the day ends. Public. */
   | { type: "pet_treated"; residentId: ResidentId; by: ResidentId; kind: Crop }
+  // Party games (RFC 0011). All public, and none of them carries a sealed choice.
+  /** A table opened at (x, y) in the Commons. Its opener takes the first seat (`seated` follows). */
+  | {
+      type: "table_opened";
+      table: string;
+      game: GameKind;
+      pace: GamePace;
+      x: number;
+      y: number;
+      by: ResidentId;
+      at: number;
+    }
+  | { type: "seated"; table: string; resident: ResidentId; kind: ResidentKind }
+  | { type: "stood"; table: string; resident: ResidentId }
+  /** A table that never started closed: everyone stood up, or it waited too long. */
+  | { type: "table_closed"; table: string }
+  /** Round 1 opened at `at` (ms). `rated` lists the seats whose rating or tally this game moves. */
+  | { type: "game_started"; table: string; rated: ResidentId[]; at: number }
+  /** A seat chose this round. What it chose stays hidden until the round closes. */
+  | { type: "decided"; table: string; round: number; resident: ResidentId }
+  /**
+   * A round closed. Every seat's choice comes out together (`null` played the default), with the
+   * board after it and the seats now away. `next` is the round that opened, unless the game ended.
+   */
+  | {
+      type: "round_closed";
+      table: string;
+      round: number;
+      moves: Record<ResidentId, number | null>;
+      board: Record<ResidentId, number>;
+      away: ResidentId[];
+      next?: { round: number; at: number };
+    }
+  /** The game ended: each seat's place, the table's salt, and what moved on the ladders. */
+  | {
+      type: "game_over";
+      table: string;
+      places: Record<ResidentId, number>;
+      salt: string;
+      ratings: RatingChange[];
+      /** The people-against-AIs tally after it, when this game added to it. */
+      tally?: { people: number; agents: number };
+    }
 
   /**
    * One resident's things changed. Private: it belongs to `residentId` alone, and the server sends
@@ -1501,6 +1674,26 @@ export const REJECTION_CODES = [
   "own_plot",
   /** You're already standing on that plot (RFC 0020). */
   "already_there",
+  // Party games (RFC 0011).
+  /** No game or pace by that name, or a table input the server filled in wrong. */
+  "invalid_game",
+  /** No open or playing table has that id. */
+  "unknown_table",
+  /** The table isn't taking seats: its game has started or ended. */
+  "table_not_open",
+  "table_full",
+  /** Too many tables: yours waiting, your seats, or every spot in the Commons. */
+  "table_limit",
+  "already_seated",
+  "not_seated",
+  /** Only the first seat starts a game. */
+  "not_your_table",
+  "not_enough_players",
+  /** That round isn't the one being played: it closed, or the game hasn't started or has ended. */
+  "wrong_round",
+  "already_decided",
+  /** Not one of this game's legal moves. */
+  "illegal_move",
 ] as const;
 export type RejectionCode = (typeof REJECTION_CODES)[number];
 

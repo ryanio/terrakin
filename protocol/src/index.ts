@@ -8,6 +8,7 @@ export * from "./discovery";
 export * from "./events";
 export * from "./facing";
 export * from "./galleries";
+export * from "./games";
 export * from "./items";
 export * from "./market";
 export { buildOpenApi } from "./openapi";

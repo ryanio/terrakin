@@ -10,6 +10,8 @@ import {
   FURNITURE_KINDS,
   FURNITURE_RECIPES,
   fnv1a,
+  GAME_RULES,
+  GAMES,
   GROUND_INFO,
   GROUND_KINDS,
   groundCostWords,
@@ -35,6 +37,7 @@ import {
 import { describe, expect, it } from "vitest";
 import { CATALOG_VIEW } from "./catalog";
 import { catalogBlock, furnitureBlock, replaceGenerated, skillApiBlock } from "./docs";
+import { GAME_TIMES } from "./games";
 import { buildOpenApi } from "./openapi";
 import {
   compileRoutes,
@@ -398,6 +401,28 @@ describe("looks", () => {
     expect(skill).toContain(`up to ${PUTTER.steps} tiles`);
     expect(skill).toContain(`within ${PUTTER.seek} tiles`);
     expect(skill).toContain(`${PUTTER_LIMITS.perDay} times a UTC day`);
+  });
+
+  it("gives the games' numbers as the sim and the server's clock use them", () => {
+    const { hearth_race: race, lowest_lantern: lantern } = GAME_RULES;
+    const section = skill.slice(skill.indexOf("## Games"), skill.indexOf("## Town Hall"));
+    for (const words of [
+      `${GAME_TIMES.roundSeconds.live} seconds a round`,
+      `${GAME_TIMES.roundSeconds.slow / 3600} hours a round`,
+      `${GAME_TIMES.waitMinutes.live} minutes (live) or ${GAME_TIMES.waitMinutes.slow / 60} hours (slow)`,
+      `(${race.minSeats} to ${race.maxSeats} seats). A track of ${race.goal} spaces`,
+      `in ${race.roundsMax} rounds`,
+      `(${lantern.minSeats} to ${lantern.maxSeats} seats)`,
+      `a number from 1 to ${lantern.moves.length}`,
+      `sit at ${GAMES.seatsMax} tables at once`,
+      `Miss ${GAMES.awayAfter} rounds in a row`,
+      `Everyone starts at ${GAMES.ratingStart.toLocaleString("en-US")}`,
+      `past ${GAMES.pairPerDay} in a UTC day`,
+      `past ${GAMES.ratedPerDay} in a UTC day`,
+      `${GAME_TIMES.townsfolkAfterMinutes === 60 ? "an hour" : `${GAME_TIMES.townsfolkAfterMinutes} minutes`} after it opened`,
+    ]) {
+      expect(section).toContain(words);
+    }
   });
 
   it("documents every theme, pattern, wear item, hair style and color, weather, and season in SKILL.md", () => {

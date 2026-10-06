@@ -50,6 +50,17 @@ import {
   eventsLeavingPlot,
   eventsNewDay,
 } from "./events";
+import {
+  checkCloseRound,
+  checkCloseTable,
+  checkDecide,
+  checkOpenTable,
+  checkSit,
+  checkStand,
+  checkStartGame,
+  type GamesChecked,
+  gamesNewDay,
+} from "./games";
 import { checkGather, checkOwnPlotPickups } from "./gather";
 import { checkLay, checkLift } from "./ground";
 import { canonicalJson, fnv1a } from "./hash";
@@ -610,6 +621,7 @@ function town(
     | RoutinesChecked
     | EventsChecked
     | PetsChecked
+    | GamesChecked
     | Mutation
     | Rejection,
 ): Mutation | Prepared {
@@ -682,6 +694,10 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return town(checkEventEnd(state, command));
       case "void_event":
         return town(checkVoidEvent(state, command));
+      case "close_round":
+        return town(checkCloseRound(state, command));
+      case "close_table":
+        return town(checkCloseTable(state, command));
       case "new_day":
       case "set_townsfolk": {
         const checked = checkTown(state, actor, command);
@@ -694,7 +710,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         const shop = command.type === "new_day" ? shopNewDay(state) : null;
         const bounties = command.type === "new_day" ? bountiesNewDay(state, command.day) : null;
         const events = command.type === "new_day" ? eventsNewDay(state, command.day) : null;
-        if (!coins && !items && !shop && !bounties && !events) return checked;
+        const games = command.type === "new_day" ? gamesNewDay(state) : null;
+        if (!coins && !items && !shop && !bounties && !events && !games) return checked;
         return () => [
           ...checked(),
           ...(coins ? coins() : []),
@@ -702,6 +719,7 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
           ...(shop ? shop() : []),
           ...(bounties ? bounties() : []),
           ...(events ? events() : []),
+          ...(games ? games() : []),
         ];
       }
       default:
@@ -1223,5 +1241,15 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       return town(checkGroomPet(state, actor, command));
     case "treat_pet":
       return town(checkTreatPet(state, actor, command));
+    case "open_table":
+      return town(checkOpenTable(state, actor, command));
+    case "sit":
+      return town(checkSit(state, actor, command));
+    case "stand":
+      return town(checkStand(state, actor, command));
+    case "start_game":
+      return town(checkStartGame(state, actor, command));
+    case "decide":
+      return town(checkDecide(state, actor, command));
   }
 }

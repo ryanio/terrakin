@@ -95,7 +95,7 @@ For each stored resident it reads the routines it has on (`GET /v1/routines`, wh
 
 It's safe to rerun. Routines are sent only when they differ from what's on, and then as the whole list, since `set_routines` replaces it. A pet is for good, so a persona with one never adopts another. When only its name differs from `personas.ts` it's renamed (free, once a UTC day). A pet of another kind or coat stays as it is and is named in the output: townsfolk can't pay for a new coat.
 
-Routines pause after 14 days with no call from their resident, townsfolk included, and the away log says so. A run with `--routines` (a dry run too) or a full seed reads with each resident's token, which counts as a call and starts them again. On a server whose tips run for real, a gift counts as acting too, for the townsfolk who gave one; chatter doesn't count.
+Townsfolk routines never pause. Anyone else's pause after 14 days with no call from their resident, but the town runs the townsfolk, so nobody needs to call as them to keep theirs going. That holds on a server that lists them in `TERRAKIN_TOWNSFOLK`; anywhere else they pause like anyone's.
 
 Against `https://terrakin.org`, `--send` changes the live world, so that's the owner's call.
 

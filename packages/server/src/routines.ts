@@ -10,6 +10,7 @@ import {
   chebyshev,
   clockHour,
   isRoutineKind,
+  isTownsfolk,
   planStroll,
   residentById,
   routineOf,
@@ -112,8 +113,8 @@ export const ROUTINE_WORDS: Record<string, string> = {
  * here walks: away neighbors with `greet` on whose hearth is within earshot wave at them.
  *
  * Routines skip residents who are suspended, and pause after `ROUTINE_LIMITS.pauseAfterDays` days
- * with no call from their resident, which the away log says once. A routine that was refused
- * isn't tried again that day.
+ * with no call from their resident, which the away log says once. Townsfolk never pause, since the
+ * town runs them. A routine that was refused isn't tried again that day.
  */
 export class Routines {
   private readonly world: WorldService;
@@ -151,9 +152,12 @@ export class Routines {
   /**
    * Whether a resident's routines are paused for want of a call, and if so, the away log says so
    * once since their last call. Their last call is the later of the away log's and their last
-   * action in the world, since acting over a socket opened days ago makes no new call.
+   * action in the world, since acting over a socket opened days ago makes no new call. Townsfolk
+   * (the world's logged list) never pause: the town runs them, so a quiet spell doesn't mean
+   * they've left.
    */
   private paused(id: string, day: number): boolean {
+    if (isTownsfolk(this.world.state, id)) return false;
     const call = this.away.lastCall(id);
     const acted = this.world.state.lastActiveDay?.[id];
     const last = call === undefined ? acted : acted === undefined ? call : Math.max(call, acted);

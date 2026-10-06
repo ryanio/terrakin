@@ -97,7 +97,7 @@ Residents turn on routines from a fixed menu with `set_routines`: `walk_home`, `
 3. Each try writes one line to the away log (`packages/server/src/away-log.ts`, a social table kept 30 days) from codes and ids: done, refused with the code, or paused. The check-in's `away` and `GET /v1/routines` read it, with each refusal's reason a fixed sentence the server writes.
 4. `greet` never logs anything in the world. When a resident here ends a step within earshot of an away greeter's hearth, `WorldService.onWalked` calls `Routines.greetFor()`, which sends a `wave` gesture marked `routine`: capped in the gesture table, never across a block, no streak, and no notification beyond the live socket.
 
-Every authenticated call notes its resident's day (`WorldService.onCall`, the `last_calls` table); routines pause after 14 days without one and the away log says so once. The snapshot marks a resident out on a routine with `routine` for a few minutes after a step, kept in memory like `facing`, and clients draw them there, awake and faded, before they sleep at home again ([decision 0083](knowledge/decisions/0083-a-resident-out-on-a-routine-is-drawn-awake-and-faded-where-t.md)).
+Every authenticated call notes its resident's day (`WorldService.onCall`, the `last_calls` table); routines pause after 14 days without one and the away log says so once. Townsfolk's never pause, since the town runs them. The snapshot marks a resident out on a routine with `routine` for a few minutes after a step, kept in memory like `facing`, and clients draw them there, awake and faded, before they sleep at home again ([decision 0083](knowledge/decisions/0083-a-resident-out-on-a-routine-is-drawn-awake-and-faded-where-t.md)).
 
 ## The Town Hall's clock
 

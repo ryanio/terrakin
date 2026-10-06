@@ -275,6 +275,23 @@ describe("pausing", () => {
     expect(t.service.state.residents[wren.id]).toMatchObject({ x: 4, y: 4, online: false });
     expect(t.api.runRoutines()).toEqual({ steps: 1, refused: 0, paused: 0 });
   });
+
+  it("never pauses townsfolk, whom the town runs, while anyone else still pauses", async () => {
+    const t = direct();
+    const wren = await t.settled("Wren", 0, 0);
+    const clem = await t.settled("Clem", 1, 0);
+    t.service.syncTownsfolk(new Set([clem.id]));
+    for (const who of [wren, clem]) {
+      await t.routines(who.token, [{ kind: "stroll", hour: 18 }]);
+      t.away(who.id);
+    }
+    // 20 days with no call or action from either of them.
+    t.advance(20 * DAY_MS + HOUR);
+    expect(t.api.runRoutines()).toEqual({ steps: 1, refused: 0, paused: 1 });
+    expect(t.service.state.residents[wren.id]).toMatchObject({ x: 3, y: 4 });
+    expect(t.service.state.residents[clem.id]).not.toMatchObject({ x: 11, y: 4 });
+    expect((await t.lines(clem.token)).map((l) => l.result)).toEqual(["done"]);
+  });
 });
 
 describe("greet", () => {

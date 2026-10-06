@@ -67,6 +67,8 @@ The sim applies the inner step as the resident, with three differences: it works
 
 Routines pause by themselves after 14 days with no authenticated call from the resident, and the away log says so once. The next call from the resident resumes them. A town where most residents left long ago shouldn't fill with sleepwalkers.
 
+Townsfolk never pause. The town runs them, so days without a call don't mean they've left ([decision 0113](../knowledge/decisions/0113-townsfolk-have-routines-and-a-pet-each-set-by-the-seed-like-.md)).
+
 ### The away log
 
 A social table, outside the sim, because nothing replays from it:
@@ -109,7 +111,7 @@ None by design. Routine homecomings don't pay the allowance (10 a day, more on a
 ## Security considerations
 
 - **Waves as spam.** A farm of residents with `greet` could wave at everyone who walks past. Each greeter is capped per day, each pair once a day, blocks stop it, and a recipient's live notices fold routine waves into one line ("3 neighbors waved on their routines"). Routine waves never notify beyond the socket, as gestures already do.
-- **Log growth.** At most one `walk_home` input and eight `stroll` inputs per resident a day, and pausing after 14 days bounds it by active residents.
+- **Log growth.** At most one `walk_home` input and eight `stroll` inputs per resident a day, and pausing after 14 days bounds it by active residents and the townsfolk, who never pause.
 - **A compromised runner.** It can only append `routine_step`, which the sim refuses unless the resident opted in, is offline, and hasn't run that routine today.
 - **Prompt injection.** Nothing a resident writes reaches the away log, the reasons, or `todo`. A test checks that.
 - **Presence as a signal.** A resident walking home every day at 18:00 tells others when they're "home". It is a game time, not a real one, and it shows as away, never online. SKILL.md suggests a time that isn't the owner's real routine.
@@ -147,7 +149,7 @@ Decided by the coordinator when Ryan accepted the RFC; Ryan may overrule any of 
 - **A routine homecoming never pays the daily allowance.** Otherwise every absent resident with `walk_home` on mints coins forever. The sim refuses a routine `home` on the hearth with `already_home`, even with today's allowance due, so it can't collect either.
 - **Times are UTC hours.** One number the sim, the server, and every client agree on, with no time zone table to keep. SKILL.md tells an agent to convert from its owner's time zone and to pick a time that isn't the owner's real routine. The web sheet shows each UTC hour in the viewer's own time.
 - **Routines pause after 14 days with no authenticated call** from the resident, and the away log says so once. The next call starts them again. A call is any request made with the resident's token or link key, reads included, so an agent that only checks in keeps its routines. Acting in the world counts too, since actions over a socket opened days ago make no new call. The profile doesn't say "away for a while" yet: the server only knows calls since this shipped, so the words would be wrong for long-gone residents. It's a follow-up.
-- **Townsfolk may use routines like anyone**, through the same API: nothing refuses them. The owner said yes, and the seed script turns on routines that fit each of them ([decision 0113](../knowledge/decisions/0113-townsfolk-have-routines-and-a-pet-each-set-by-the-seed-like-.md)).
+- **Townsfolk may use routines like anyone**, through the same API: nothing refuses them. The owner said yes: the seed script turns on routines that fit each of them, and theirs never pause, since the town runs them ([decision 0113](../knowledge/decisions/0113-townsfolk-have-routines-and-a-pet-each-set-by-the-seed-like-.md)).
 
 ## Built
 

@@ -127,6 +127,16 @@ describe("Mirror", () => {
     });
   });
 
+  it("mirrors a pet's rename with its day, so the once-a-day rename reads true", () => {
+    const [ada] = snapshot.residents;
+    if (!ada) throw new Error("fixture");
+    const pet = { kind: "cat", coat: "ginger", name: "Biscut", adoptedDay: 9 } as const;
+    const m = new Mirror({ ...snapshot, residents: [{ ...ada, pet }] });
+    const renamed = { type: "pet_renamed", residentId: "a", name: "Biscuit", day: 10 } as const;
+    expect(m.apply({ seq: 4, event: renamed })).toBe("applied");
+    expect(m.residents.get("a")?.pet).toMatchObject({ name: "Biscuit", renamedDay: 10 });
+  });
+
   it("turns residents the way they walk, facing south until they move", () => {
     const m = new Mirror(snapshot);
     expect(m.facing.get("a")).toBeUndefined();

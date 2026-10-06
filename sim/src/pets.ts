@@ -180,7 +180,9 @@ export function checkRenamePet(
   }
   return () => {
     me.pet = { ...pet, name, ...(day === undefined ? {} : { renamedDay: day }) };
-    return [{ type: "pet_renamed", residentId: actor, name }];
+    return [
+      { type: "pet_renamed", residentId: actor, name, ...(day === undefined ? {} : { day }) },
+    ];
   };
 }
 

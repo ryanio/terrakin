@@ -106,7 +106,7 @@ describe("renaming a pet", () => {
     refused(state, "ada", { type: "rename_pet", name: "Bun" }, "no_pet");
     act(state, "ada", adopt("Biscut"));
     expect(act(state, "ada", { type: "rename_pet", name: "Biscuit" })).toEqual([
-      { type: "pet_renamed", residentId: "ada", name: "Biscuit" },
+      { type: "pet_renamed", residentId: "ada", name: "Biscuit", day: state.day },
     ]);
     refused(state, "ada", { type: "rename_pet", name: "Bun" }, "pet_limit");
     nextDay(state);
@@ -114,7 +114,7 @@ describe("renaming a pet", () => {
     refused(state, "ada", { type: "rename_pet", name: "" }, "invalid_pet");
     // No coins move: the only event is the rename.
     expect(act(state, "ada", { type: "rename_pet", name: "Bun" })).toEqual([
-      { type: "pet_renamed", residentId: "ada", name: "Bun" },
+      { type: "pet_renamed", residentId: "ada", name: "Bun", day: state.day },
     ]);
     expect(state.residents.ada?.pet).toMatchObject({ name: "Bun", renamedDay: state.day });
   });

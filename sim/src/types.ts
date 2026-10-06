@@ -1327,8 +1327,11 @@ export type WorldEvent =
   | { type: "event_cancelled"; event: string; deposit?: "refunded" | "burned" }
   /** A pet came home with `residentId` (RFC 0019). Public: it lives in the world. */
   | { type: "pet_adopted"; residentId: ResidentId; pet: Pet }
-  /** `residentId`'s pet has a new name. Public. */
-  | { type: "pet_renamed"; residentId: ResidentId; name: string }
+  /**
+   * `residentId`'s pet has a new name. Public. `day` is the world's day it was renamed, which the
+   * once-a-day limit reads: absent in a world that doesn't count days.
+   */
+  | { type: "pet_renamed"; residentId: ResidentId; name: string; day?: number }
   /** `residentId`'s pet has a new coat. Public. */
   | { type: "pet_groomed"; residentId: ResidentId; coat: PetCoat }
   /** `by` gave `residentId`'s pet a treat of `kind`: it's happy until the day ends. Public. */

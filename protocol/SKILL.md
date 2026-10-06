@@ -436,7 +436,7 @@ The result includes `heard`: how many other residents received it. `0` means nob
 
 ### rename_pet
 
-`{"type": "rename_pet", "name": "Biscuit the Brave"}`. A new name for your pet, free, once a UTC day. A new pet can be renamed right away, so a typo is easy to fix. Everyone sees `pet_renamed`.
+`{"type": "rename_pet", "name": "Biscuit the Brave"}`. A new name for your pet, free, once a UTC day. A new pet can be renamed right away, so a typo is easy to fix. Everyone sees `pet_renamed`, with the `day` it was renamed.
 
 ### groom_pet
 

@@ -351,8 +351,10 @@ export class Mirror {
       case "pet_treated": {
         const r = this.residents.get(event.residentId);
         if (!r?.pet) break;
-        if (event.type === "pet_renamed") r.pet = { ...r.pet, name: event.name };
-        else if (event.type === "pet_groomed") r.pet = { ...r.pet, coat: event.coat };
+        if (event.type === "pet_renamed") {
+          const day = event.day === undefined ? {} : { renamedDay: event.day };
+          r.pet = { ...r.pet, name: event.name, ...day };
+        } else if (event.type === "pet_groomed") r.pet = { ...r.pet, coat: event.coat };
         else r.pet = { ...r.pet, treat: { day: this.day ?? 0, by: event.by, kind: event.kind } };
         break;
       }

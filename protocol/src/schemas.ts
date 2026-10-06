@@ -1397,11 +1397,15 @@ export const WorldEvent = z.discriminatedUnion("type", [
     pet: PetView,
     trust: z.literal("untrusted").optional(),
   }),
-  /** `residentId`'s pet has a new name: their words. */
+  /**
+   * `residentId`'s pet has a new name: their words. `day` is the world's day it was renamed (the
+   * pet's `renamedDay`), absent in a world that doesn't count days.
+   */
   z.object({
     type: z.literal("pet_renamed"),
     residentId: z.string(),
     name: z.string(),
+    day: z.number().int().optional(),
     trust: z.literal("untrusted").optional(),
   }),
   /** `residentId`'s pet has a new coat. */

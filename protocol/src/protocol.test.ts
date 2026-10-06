@@ -39,6 +39,7 @@ import {
   WorldEvent,
   WorldSnapshot,
 } from "./schemas";
+import { PAGES, type SitePage } from "./site";
 import {
   findMentions,
   HANDLE_PATTERN,
@@ -529,13 +530,7 @@ describe("internal routes", () => {
     "client/public/.well-known/agent-skills/index.json",
     "client/src/docs/guides.generated.md",
     "CHANGELOG.md",
-    "docs/site/index.md",
-    "docs/site/about.md",
-    "docs/site/privacy.md",
-    "docs/site/contact.md",
-    "docs/site/pricing.md",
-    "docs/site/auth.md",
-    "docs/site/changelog.md",
+    ...(PAGES as readonly SitePage[]).flatMap((p) => (p.prose ? [`docs/site/${p.prose}.md`] : [])),
   ];
 
   it("covers every staff route, and only staff routes", () => {

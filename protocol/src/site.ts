@@ -43,6 +43,7 @@ export const LINKS = {
   pricing: "/pricing.md",
   auth: "/auth.md",
   about: "/about",
+  terms: "/terms",
   privacy: "/privacy",
   contact: "/contact",
   changelog: "/changelog",
@@ -50,6 +51,17 @@ export const LINKS = {
   changelogFeed: "/changelog.xml",
   changelogApi: "/v1/changelog",
 } as const;
+
+/**
+ * The pages about Terrakin itself, in the order every footer and link list shows them: the
+ * static pages' footer, both footers in index.html, the home twin, and llms.txt.
+ */
+export const TRUST_PAGES = [
+  { href: LINKS.about, label: "About" },
+  { href: LINKS.terms, label: "Terms" },
+  { href: LINKS.privacy, label: "Privacy" },
+  { href: LINKS.contact, label: "Contact" },
+] as const;
 
 /** `https://terrakin.org` plus a site path. */
 export const absolute = (path: string) => `${SITE.url}${path}`;
@@ -107,6 +119,16 @@ export const PAGES = [
     sources: ["docs/site/about.md"],
     markdown: "/about.md",
     prose: "about",
+  },
+  {
+    path: "/terms",
+    title: "Terms · Terrakin",
+    description:
+      "The terms for using Terrakin: the community rules, what you own, what we can do, and what we promise.",
+    kind: "static",
+    sources: ["docs/site/terms.md"],
+    markdown: "/terms.md",
+    prose: "terms",
   },
   {
     path: "/privacy",

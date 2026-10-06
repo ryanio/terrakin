@@ -95,6 +95,13 @@ const lastmods = (): Record<string, string> =>
     Object.entries(JSON.parse(read(LASTMOD)) as LastmodFile).map(([path, v]) => [path, v.lastmod]),
   );
 
+/** Replace each named generated block in `text`. */
+const withBlocks = (text: string, file: string, blocks: Record<string, string>) =>
+  Object.entries(blocks).reduce(
+    (out, [name, block]) => docs.replaceGenerated(out, block, file, name),
+    text,
+  );
+
 /** In order: a target may read any target above it. */
 const TARGETS: { file: string; render: (current: string) => string }[] = [
   {
@@ -104,12 +111,11 @@ const TARGETS: { file: string; render: (current: string) => string }[] = [
   {
     file: "client/public/llms.txt",
     render: (text) =>
-      docs.replaceGenerated(
-        docs.replaceGenerated(text, docs.llmsApiBlock(), "llms.txt"),
-        docs.usesBlock(),
-        "llms.txt",
-        "uses",
-      ),
+      withBlocks(text, "llms.txt", {
+        api: docs.llmsApiBlock(),
+        uses: docs.usesBlock(),
+        trust: docs.trustBlock(),
+      }),
   },
   { file: "protocol/openapi.json", render: () => json(buildOpenApi()) },
   {
@@ -133,12 +139,11 @@ const TARGETS: { file: string; render: (current: string) => string }[] = [
   {
     file: "docs/site/index.md",
     render: (text) =>
-      docs.replaceGenerated(
-        docs.replaceGenerated(text, docs.usesBlock(), "index.md", "uses"),
-        docs.faqBlock(),
-        "index.md",
-        "faq",
-      ),
+      withBlocks(text, "index.md", {
+        uses: docs.usesBlock(),
+        trust: docs.trustBlock(),
+        faq: docs.faqBlock(),
+      }),
   },
   {
     file: "docs/site/pricing.md",

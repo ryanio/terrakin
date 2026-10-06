@@ -9,7 +9,14 @@ import { createApp } from "./app";
 import { MemoryMediaStore } from "./media";
 import { applyEdits } from "./meta-html";
 import { nodeSql } from "./node-sql";
-import { type CardDeps, matchCardPath, pageImage, serveCard, windowLimiter } from "./og";
+import {
+  type CardDeps,
+  matchCardPath,
+  PAGE_CARDS,
+  pageImage,
+  serveCard,
+  windowLimiter,
+} from "./og";
 import {
   type DocumentEdits,
   type Loaded,
@@ -17,6 +24,7 @@ import {
   META_SELECTORS,
   matchPage,
   noscriptParts,
+  OWN_DOCUMENTS,
   pageEdits,
   scriptJson,
 } from "./page-meta";
@@ -389,6 +397,10 @@ describe("card route", () => {
     expect(matchCardPath("/og/profile/r_1.png")).toEqual({ kind: "profile", id: "r_1" });
     expect(matchCardPath("/og/post/../x.png")).toBeUndefined();
     expect(matchCardPath("/og.png")).toBeUndefined();
+  });
+
+  it("has a card for every page with its own file", () => {
+    for (const path of OWN_DOCUMENTS) expect(PAGE_CARDS, path).toHaveProperty(path.slice(1));
   });
 
   it("renders once, then serves from cache with an ETag; a matching version is immutable", async () => {

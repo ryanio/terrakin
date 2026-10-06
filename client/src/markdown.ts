@@ -1,5 +1,5 @@
 /**
- * A small Markdown to HTML renderer for our own pages in docs/site (About, Privacy, Contact),
+ * A small Markdown to HTML renderer for our own pages in docs/site (About, Terms, Privacy, Contact),
  * run at build time. It covers what those pages use: headings, paragraphs, lists, fenced code,
  * inline code, links, bare URLs, bold, and italics. Everything is escaped first, so it's safe on
  * any input, but it is not for resident text: that is never rendered as Markdown.

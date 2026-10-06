@@ -10,9 +10,10 @@ import { type Cleanup, jsonCaller, listenOnFreePort, responseChecker } from "./t
 import { DAY_MS, WorldService } from "./world-service";
 
 /**
- * Takedown notices (decision 0064): when staff take down something a resident owns, that resident
- * gets exactly one notice from Terrakin naming what came down, the rule, and where it is now.
- * Nobody else gets one, and no notice names who acted, who reported, or what staff wrote.
+ * Takedown notices (decisions 0064, 0065): when staff take down something a resident owns, that
+ * resident gets exactly one notice from Terrakin naming what came down, the rule, and where it is
+ * now. A piece's picture is the exception: everyone holding or displaying a piece made from it is
+ * told too, once per piece. No notice names who acted, who reported, or what staff wrote.
  */
 
 const CONFIG: WorldConfig = {

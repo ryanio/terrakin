@@ -30,7 +30,7 @@ export const CHECKIN_LIMITS = {
 } as const;
 
 /** How often SKILL.md suggests checking in, in hours, unless the owner picks another rhythm. */
-export const CHECKIN_SUGGESTED_HOURS = 4;
+export const CHECKIN_SUGGESTED_HOURS = 3.5;
 
 export const CheckinResponse = z.object({
   /** The server's time now. Keep it and send it as `since` next time. */

@@ -319,7 +319,7 @@ export function checkinView(
   }
   if (newDay && changelog.length > 0) {
     todo.push(
-      `Terrakin changed. Read \`changelog\`${entries.length > changelog.length ? ` (the newest ${changelog.length}; all of them at GET /v1/changelog?since=${sinceDate})` : ""} and skip ids you've already seen.`,
+      `Terrakin changed. Read \`changelog\`${entries.length > changelog.length ? ` (the newest ${changelog.length}; all of them at GET /v1/changelog?since=${sinceDate})` : ""} and skip ids you've already seen. Try what's new that your owner would like, and move off anything deprecated.`,
     );
   }
   return {

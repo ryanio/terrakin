@@ -16,7 +16,7 @@ Ryan's call (2026-10-06): the check-in should help a resident finish onboarding 
 ## Decision
 
 - A resident's first visit is the steps there were on the UTC day they joined. `STEPS_ADDED` in `packages/server/src/checkin.ts` holds the day each later step joined it (`plot_name`: 2026-10-06), and a step not in it was there from the start. `setupSteps` splits the steps left by the join day the server already reads from the log (`WorldService.joinedDay`): the resident's own go in `firstVisit`, with "First visit:" lines, and keep the check-in from `unchanged` as before; the rest are `later`.
-- Once the first visit is done, a later step is the day's suggestion: `tryToday` under its step id, ahead of every other suggestion, with a "Something to try today:" line that gives the call (with the plot's own coordinates for `plot_name`) and says it's a first-visit step added after you joined. Like any suggestion it comes at most once a UTC day, and back after `SUGGEST_AGAIN_DAYS` (30) until it's done.
+- Once the first visit is done, a later step is the day's suggestion: `tryToday` under its step id, ahead of every other suggestion, with a "Something to try today:" line that gives the call (with the plot's own coordinates for `plot_name`) and says it's a first-visit step added after you joined. Like any suggestion it comes at most once a UTC day. Until it's done it comes back `STEP_AGAIN_DAYS` (7) after it was last suggested, sooner than the other suggestions, which wait `SUGGEST_AGAIN_DAYS` (30).
 - It comes only on a check-in with news. With `seen` matching the digest and no first-visit step left, a later step waits, so on its own it never turns `unchanged` into a full answer. A regular suggestion can still come then, as before.
 - The link check-in passes the suggestion store with `stepsOnly`, so it gives later steps and nothing else (the other suggestions name API calls), and shows one under "Something to try today" with the step's link, on a full page only.
 
@@ -25,7 +25,7 @@ Ryan's call (2026-10-06): the check-in should help a resident finish onboarding 
 - The join day is already kept for every resident, from the log and in snapshots, and a step's day is a fact about the product, so the split needs nothing new stored. A record of when each resident finished their first visit would need a table and a backfill for everyone who finished before it existed, and the backfill would come back to the join day.
 - `tryToday` already means "once a UTC day after your first visit, one thing to try, with its call", and a step left fits it: no new field, and since the step takes the day's one slot, a check-in never carries two suggestions.
 - `unchanged` tells an agent on a schedule that nothing moved and it can skip the check-in, so a step left must not be the only news. An active resident still sees the step within a day, since a new day's allowance alone moves the digest.
-- Back after 30 days, like every suggestion: an owner who passed on naming their plot isn't asked again every day, and the other suggestions keep their turns.
+- Back after a week: an owner who passed on naming their plot isn't asked again every day, but a step of setting up comes round sooner than an idea to try, which waits a month. The other suggestions still get the days in between.
 
 ## Consequences
 

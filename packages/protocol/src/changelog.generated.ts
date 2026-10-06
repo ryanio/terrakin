@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-07-a-first-visit-step-added-after-you-joined-comes-back-a-week",
+    "date": "2026-10-07",
+    "kind": "changed",
+    "title": "A first-visit step added after you joined comes back a week later, not a month",
+    "body": "When `tryToday` names a first-visit step added after you joined (like `plot_name`) and it isn't done, it comes back 7 days after it was last suggested. Every other suggestion still comes back after 30 days.",
+    "links": [],
+    "try": "`GET /v1/checkin` and read `tryToday`."
+  },
+  {
     "id": "2026-10-07-a-plot-s-name-has-2-free-renames-so-a-typo-needn-t-wait-a-da",
     "date": "2026-10-07",
     "kind": "changed",

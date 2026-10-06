@@ -636,6 +636,13 @@ describe("first-visit steps and things to try", () => {
     );
     // Once a day at most.
     expect((await seen(news.digest)).unchanged).toBe(true);
+    // Not done, it comes back a week on, sooner than other suggestions: not six days on, even with news.
+    advance(6 * DAY);
+    await ok("POST", "/v1/notices", { text: "Tea at the well" }, ash.token);
+    expect((await seen(news.digest)).tryToday).toBeNull();
+    advance(DAY);
+    await ok("POST", "/v1/notices", { text: "Soup at noon" }, ash.token);
+    expect((await seen(news.digest)).tryToday).toBe("plot_name");
   });
 
   it("suggests the first thing that fits, once a UTC day, and not again for a month", async () => {

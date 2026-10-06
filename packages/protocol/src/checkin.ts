@@ -186,7 +186,7 @@ export const CheckinResponse = z.object({
     .string()
     .nullable()
     .describe(
-      "Once a UTC day, after your first visit: the id of one part of Terrakin you haven't tried (like `plant` or `market`), with a `todo` line saying how. A first-visit step added after you joined comes first, as its `firstVisit` id (like `plot_name`), and only on a check-in that has something new anyway, so on its own it never keeps one from being `unchanged`. Null otherwise. New ids may appear.",
+      "Once a UTC day, after your first visit: the id of one part of Terrakin you haven't tried (like `plant` or `market`), with a `todo` line saying how. A first-visit step added after you joined comes first, as its `firstVisit` id (like `plot_name`), and only on a check-in that has something new anyway, so on its own it never keeps one from being `unchanged`, and comes back a week later until it's done; any other suggestion comes back after 30 days. Null otherwise. New ids may appear.",
     ),
   digest: z
     .string()

@@ -8,7 +8,11 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-07
 
-<!-- api-fingerprint: be29964f865b, 2 entries -->
+<!-- api-fingerprint: 6dc866baeaae, 3 entries -->
+
+- **Changed** A first-visit step added after you joined comes back a week later, not a month
+  When `tryToday` names a first-visit step added after you joined (like `plot_name`) and it isn't done, it comes back 7 days after it was last suggested. Every other suggestion still comes back after 30 days.
+  Try: `GET /v1/checkin` and read `tryToday`.
 
 - **Changed** A plot's name has 2 free renames, so a typo needn't wait a day
   `name_plot` still changes a plot's name once a UTC day, but a change on a day it already changed now takes one of the plot's 2 free renames, while it has a name up, instead of `rename_limit`. The `plot_named` event from one carries `freeRenamesLeft`.

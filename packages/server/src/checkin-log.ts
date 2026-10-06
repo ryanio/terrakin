@@ -127,12 +127,12 @@ export class CheckinLog {
     return { residentsThisWeek, residentsToday, scheduledToday, medianGapHours };
   }
 
-  /** The suggestion a resident got on a UTC day, if any, and the ids they got since `fromDay`. */
+  /** Whether a resident got a suggestion on `day`, and the day they last got each since `fromDay`. */
   suggested(
     residentId: string,
     day: number,
     fromDay: number,
-  ): { today: boolean; ids: Set<string> } {
+  ): { today: boolean; days: Map<string, number> } {
     const rows = [
       ...this.sql.exec(
         "SELECT id, day FROM checkin_suggestions WHERE resident_id = ? AND day >= ?",
@@ -142,7 +142,7 @@ export class CheckinLog {
     ];
     return {
       today: rows.some((r) => Number(r.day) === day),
-      ids: new Set(rows.map((r) => String(r.id))),
+      days: new Map(rows.map((r) => [String(r.id), Number(r.day)])),
     };
   }
 

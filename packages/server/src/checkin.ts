@@ -409,9 +409,21 @@ export const TRY_NEXT: readonly TryNext[] = [
 /** Days before a suggestion that wasn't taken up comes back. */
 export const SUGGEST_AGAIN_DAYS = 30;
 
+/**
+ * Days before a first-visit step added after the resident joined comes back as the suggestion, if
+ * they haven't done it: on the same weekday a week later. It's part of setting up, so it comes back
+ * sooner than the rest (decision 0129).
+ */
+export const STEP_AGAIN_DAYS = 7;
+
 /** Where the check-in keeps which suggestion each resident got (CheckinLog in production). */
 export interface Suggestions {
-  suggested(residentId: string, day: number, fromDay: number): { today: boolean; ids: Set<string> };
+  /** Whether the resident got a suggestion on `day`, and the day they last got each since `fromDay`. */
+  suggested(
+    residentId: string,
+    day: number,
+    fromDay: number,
+  ): { today: boolean; days: Map<string, number> };
   suggest(residentId: string, id: string, day: number): void;
 }
 
@@ -423,7 +435,7 @@ export function pickTryNext(
   state: WorldState,
   viewer: string,
   done: ReadonlySet<string>,
-  recent: ReadonlySet<string>,
+  recent: Pick<ReadonlySet<string>, "has">,
   book?: BookFacts,
 ): { id: string; line: string } | null {
   const picked = TRY_NEXT.find(
@@ -714,11 +726,13 @@ export function checkinView(
   const asked = options.suggestions?.suggested(viewer, today, today - SUGGEST_AGAIN_DAYS);
   let suggestion: { id: string; line: string; step: boolean } | null = null;
   if (asked && !asked.today && firstVisit.length === 0) {
-    const step = quiet ? undefined : setup.later.find((s) => !asked.ids.has(s.step));
+    const step = quiet
+      ? undefined
+      : setup.later.find((s) => (asked.days.get(s.step) ?? -Infinity) <= today - STEP_AGAIN_DAYS);
     const next =
       step || options.stepsOnly
         ? null
-        : pickTryNext(state, viewer, done, asked.ids, {
+        : pickTryNext(state, viewer, done, asked.days, {
             has: (kind) => social.collection.has(viewer, kind),
           });
     if (step) suggestion = { id: step.step, line: step.line, step: true };

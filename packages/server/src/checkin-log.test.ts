@@ -89,9 +89,12 @@ describe("CheckinLog", () => {
     const sql = nodeSql();
     const checkins = new CheckinLog(sql, () => 0);
     checkins.suggest("wren", "plant", 100);
-    expect(checkins.suggested("wren", 100, 70)).toEqual({ today: true, ids: new Set(["plant"]) });
+    expect(checkins.suggested("wren", 100, 70)).toEqual({
+      today: true,
+      days: new Map([["plant", 100]]),
+    });
     expect(checkins.suggested("wren", 101, 71).today).toBe(false);
-    expect(checkins.suggested("ash", 100, 70).ids.size).toBe(0);
+    expect(checkins.suggested("ash", 100, 70).days.size).toBe(0);
     checkins.suggest("wren", "gather", 100 + SUGGEST_AGAIN_DAYS + 1);
     const rows = [...sql.exec("SELECT id FROM checkin_suggestions")].map((r) => r.id);
     expect(rows).toEqual(["gather"]);

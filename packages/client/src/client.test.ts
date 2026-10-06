@@ -90,6 +90,28 @@ describe("Mirror", () => {
     expect(m.residents.get("b")?.hearth).toBeNull();
   });
 
+  it("keeps plot names from the snapshot and events, and drops one with its plot", () => {
+    const m = new Mirror({
+      ...snapshot,
+      plots: [
+        { px: 0, py: 0, ownerId: "a", name: "Lemon Grove", trust: "untrusted" },
+        { px: 2, py: 0, ownerId: "b" },
+      ],
+    });
+    expect(m.plotNames.get("0,0")).toBe("Lemon Grove");
+    const named = { type: "plot_named", px: 2, py: 0, name: "Moss Hollow", by: "b" } as const;
+    expect(m.apply({ seq: 4, event: { ...named, trust: "untrusted" } })).toBe("applied");
+    expect(m.plotNames.get("2,0")).toBe("Moss Hollow");
+    // A clear, a staff takedown, and a release each leave a plot with no name.
+    m.apply({ seq: 5, event: { ...named, name: null } });
+    expect(m.plotNames.has("2,0")).toBe(false);
+    m.apply({ seq: 6, event: { ...named, trust: "untrusted" } });
+    m.apply({ seq: 7, event: { type: "plot_name_removed", px: 2, py: 0 } });
+    expect(m.plotNames.has("2,0")).toBe(false);
+    m.apply({ seq: 8, event: { type: "plot_released", px: 0, py: 0, ownerId: "a" } });
+    expect(m.plotNames.size).toBe(0);
+  });
+
   it("asks the sim's rule whose pickups a resident may take, from the snapshot and live", () => {
     const m = new Mirror({ ...snapshot, plots: [{ px: 0, py: 0, ownerId: "a", coOwners: ["b"] }] });
     // Before the switch, anyone may gather anywhere.

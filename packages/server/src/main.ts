@@ -1,5 +1,5 @@
 import { resolve } from "node:path";
-import { entitledTo, findProposal, residentById, votesCast } from "@terrakin/sim";
+import { entitledTo, findProposal, plotNamesOf, residentById, votesCast } from "@terrakin/sim";
 import { httpCardReader } from "./agent-card";
 import { type AgentLinkOptions, parseDailyReads } from "./agent-links";
 import { createApp } from "./app";
@@ -106,6 +106,7 @@ const social = new SocialService({
   proposal: (id) => findProposal(service.state, id),
   bounty: (id) => bountyWords(service.state, id),
   event: (id) => eventWords(service.state, id),
+  plotNames: (id) => plotNamesOf(service.state, id),
   moderators,
   // AI triage only with ANTHROPIC_API_KEY set; otherwise reports wait for people (decision 0040).
   triage: new TriageClient(triageConfig(process.env), socialSql, undefined, now),

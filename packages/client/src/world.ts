@@ -55,6 +55,7 @@ import { Motion } from "./motion";
 import { Connection, type Identity, savedToken, saveToken } from "./net";
 import { openWorldPetSheet, patPet } from "./pet-sheet";
 import { PatsToday, PetMotion, petCalled } from "./pets";
+import { openPlotNameSheet } from "./plot-name-sheet";
 import { blockColor, HEARTH_COLOR, render } from "./render";
 import { dozerAt } from "./scene3d/layout";
 import type { World3d } from "./scene3d/world";
@@ -414,6 +415,11 @@ function onMessage(msg: ServerMessage) {
       // Halloween night (RFC 0022): the card on a neighbor's plot marks a door you knocked at.
       if (msg.event.type === "trick_or_treated" && msg.event.by === me) {
         visiting.knocked(msg.event.px, msg.event.py);
+      }
+      // A plot you just claimed asks for a name (decision 0121); it can wait for your profile.
+      if (applied === "applied" && msg.event.type === "plot_claimed" && msg.event.ownerId === me) {
+        const { px, py } = msg.event;
+        openPlotNameSheet({ px, py }, { say: showToast, claimed: true });
       }
       // Your own news, in plain words. Notes, labels, and names stay out of it.
       const line = me ? newsLine(msg.event, me) : null;
@@ -1138,6 +1144,9 @@ function snapCamera() {
   cam.scale = targetScale();
 }
 
+/** How far down the top bar's pills reach, in CSS pixels: where the visit card starts. */
+const TOP_BAR_PX = 60;
+
 function frame() {
   const now = performance.now();
   const dt = Math.min(0.1, (now - lastFrame) / 1000);
@@ -1207,6 +1216,8 @@ function frame() {
       sky: sky.amounts,
       pets,
       clock,
+      // Plots' names keep clear of the top bar and the visit card (decision 0121).
+      labelTop: Math.max(TOP_BAR_PX, visiting.bottom()),
       ...(phase === undefined ? {} : { dayPhase: phase }),
     });
   if (now - petCheckAt > 250) {

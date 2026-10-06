@@ -406,6 +406,7 @@ describe("items", () => {
     // Done with the first visit, so a quiet check-in can be `unchanged`.
     await t.call("PUT", "/v1/profile", { handle: "ash", bio: "a gardener" }, ash.token);
     await t.act(ash.token, { type: "profile", theme: "meadow" });
+    await t.act(ash.token, { type: "name_plot", px: 0, py: 0, name: "Herb Corner" });
     await t.call("POST", "/v1/posts", { text: "Hello" }, ash.token);
     await t.call("PUT", `/v1/residents/${wren.id}/follow`, undefined, ash.token);
     const first = await checkin(ash.token);

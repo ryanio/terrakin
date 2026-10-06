@@ -19,7 +19,7 @@ export const W = 1200;
 export const H = 630;
 
 /** Bump when a template's look changes, so cached cards are drawn again. Part of every cache key. */
-export const CARDS_VERSION = 4;
+export const CARDS_VERSION = 5;
 
 /** Same values as the `--resident-*` colors in packages/client/src/style.css. */
 export const RESIDENT_HEX: Record<string, string> = {
@@ -571,7 +571,10 @@ function plot(c: PlotCard, art: Art): El {
   const frameW = photo + pad * 2;
   const caption = 112;
   const frameH = pad + photo + caption;
-  const title = homeTitle(c.name);
+  // A named plot (decision 0121) wears its name as the title, and whose home it is goes below.
+  const named = c.title ? drawable(c.title, 40) : undefined;
+  const title = named ?? homeTitle(c.name);
+  const lines = named ? [homeTitle(c.name), c.place] : [c.place, ...c.facts];
   const homeArt = c.homeArt ? homeArtBox(c, photo) : undefined;
   return stage(
     art,
@@ -615,7 +618,8 @@ function plot(c: PlotCard, art: Art): El {
           {
             fontFamily: SERIF,
             fontWeight: 600,
-            fontSize: fit(title, photo, 40, SERIF_ADVANCE, 26),
+            // A plot's own name runs to 40 characters, so it may shrink further to stay one line.
+            fontSize: fit(title, photo, 40, SERIF_ADVANCE, named ? 18 : 26),
             lineHeight: 1.1,
             marginTop: 16,
           },
@@ -623,7 +627,7 @@ function plot(c: PlotCard, art: Art): El {
         ),
         text(
           { fontSize: 22, fontWeight: 600, color: INK_SOFT, marginTop: 6 },
-          clip([c.place, ...c.facts].join("  ·  "), 60),
+          clip(lines.join("  ·  "), 60),
         ),
       ),
     ),

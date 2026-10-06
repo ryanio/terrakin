@@ -11,6 +11,7 @@ import {
   goodById,
   heldAsideOf,
   listingById,
+  plotNamesOf,
   REPLAY_VERSION,
 } from "@terrakin/sim";
 import { SUMMARY_DAYS } from "../ai-spend";
@@ -138,6 +139,35 @@ export function safetyHandlers(api: Api): Pick<Handlers, AreaRouteIds["safety"]>
     },
     removeResidentPictures: async ({ viewer, params, body }) =>
       logged(await social().safety.removePictures(viewer, params.id, body.reason, body.rule)),
+    // Decision 0121: every name that's theirs to answer for comes down, on plots they own and names
+    // they wrote on plots shared with them. Whoever wrote each one hears it (decision 0064).
+    clearPlotNames: ({ viewer, params, body }) => {
+      const names = plotNamesOf(service.state, params.id);
+      if (names.length === 0) return fail("not_found", "They have no plot names to take down.");
+      const safety = social().safety;
+      const rule = safety.ruleFor(["resident"], params.id, body.rule);
+      for (const p of names) {
+        const done = service.clearPlotName(p.px, p.py);
+        if (!done.ok) return fail(done.error.code, done.error.message);
+      }
+      const entry = safety.recordAction(
+        viewer,
+        "clear_plot_names",
+        "resident",
+        params.id,
+        body.reason,
+        rule,
+      );
+      for (const p of names) {
+        safety.tellOwner(p.namedBy, {
+          what: "plot_name",
+          rule,
+          outcome: "removed",
+          plot: { px: p.px, py: p.py },
+        });
+      }
+      return { status: 200, body: { logged: entry } };
+    },
     // Decision 0056: the lot goes back to its seller, or waits out of view when they're full.
     removeListing: ({ viewer, params, body }) => {
       const listing = listingById(service.state, params.id);

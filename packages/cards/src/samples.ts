@@ -259,6 +259,7 @@ export function samples(images: SampleImages = {}): [string, Card][] {
       },
     ],
     ["plot", samplePlot("Juniper")],
+    ["plot-named", { ...samplePlot("Juniper"), title: "Juniper's Lemon Grove" }],
     [
       "plot-hostile-name",
       samplePlot(

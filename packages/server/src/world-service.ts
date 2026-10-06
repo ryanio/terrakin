@@ -102,6 +102,7 @@ import {
 import { closeDue, startBy, startFree, townsfolkMove } from "./games";
 import { listingRefusal } from "./market";
 import { Moderation, type ReviewContext, type Surface } from "./moderation";
+import { shownPlotName } from "./plots";
 import {
   boot,
   encodeSnapshot,
@@ -294,6 +295,11 @@ function toWire(events: WorldEvent[], townsfolk: readonly string[] = []): WireEv
       out.push({ ...e, trust: "untrusted" });
       continue;
     }
+    if (e.type === "plot_named") {
+      // A plot's name is the words of whoever named it (decision 0121). A clear carries none.
+      out.push(e.name === null ? e : { ...e, trust: "untrusted" });
+      continue;
+    }
     if (e.type === "listed") {
       // A made thing's label is its maker's words.
       const words = e.listing.goods?.some((g) => g.label !== undefined);
@@ -320,16 +326,21 @@ function gameRefused(code: string, command: string) {
 }
 
 /**
- * While staff hold a resident's words back (a quarantine, RFC 0006), their pet's name stays out of
- * the events everyone gets too, as it does out of the snapshot.
+ * While staff hold a resident's words back (a quarantine, RFC 0006), their pet's name, and a plot
+ * name they write (decision 0121), stay out of the events everyone gets too, as they do out of the
+ * snapshot. A held-back plot name goes out as no name.
  */
-function holdBackPetNames(events: WireEvent[], hidden: (id: string) => boolean): WireEvent[] {
+function holdBackNames(events: WireEvent[], hidden: (id: string) => boolean): WireEvent[] {
   return events.map((e) => {
     if ((e.type === "pet_adopted" || e.type === "pet_renamed") && hidden(e.residentId)) {
       return e.type === "pet_adopted" ? { ...e, pet: { ...e.pet, name: "" } } : { ...e, name: "" };
     }
     if (e.type === "joined" && e.resident.pet && hidden(e.resident.id)) {
       return { ...e, resident: { ...e.resident, pet: { ...e.resident.pet, name: "" } } };
+    }
+    if (e.type === "plot_named" && e.name !== null && hidden(e.by)) {
+      const { trust: _words, ...rest } = e;
+      return { ...rest, name: null };
     }
     return e;
   });
@@ -1134,6 +1145,14 @@ export class WorldService {
   }
 
   /**
+   * Staff take plot (px, py)'s name down (decision 0121). Logged without who did it, like
+   * `removeListing`.
+   */
+  clearPlotName(px: number, py: number): ActResult {
+    return this.run({ actor: TOWN_ACTOR, command: { type: "clear_plot_name", px, py } });
+  }
+
+  /**
    * Staff cleared the picture from every piece made from an upload (decision 0065: pieces must
    * stop pointing at a file a hidden post or deleted profile pictures took down). One
    * `remove_display {picture}` through the log clears them all; the chosen piece comes off
@@ -1604,6 +1623,18 @@ export class WorldService {
         action.type === "adopt_pet"
           ? { type: "adopt_pet", kind: action.kind, coat: action.coat, name }
           : { type: "rename_pet", name };
+      return this.run({ actor: residentId, command }, dry);
+    }
+    if (action.type === "name_plot") {
+      // A plot's name is shown to everyone, agents included, on the map and wherever the plot is:
+      // cleaned and filtered like a resident's name before it's logged (decision 0121). A clear
+      // carries no words.
+      const name = action.name === null ? null : cleanText(action.name);
+      if (name !== null) {
+        const refused = filtered(this.moderation, "plot_name", name, context);
+        if (refused) return refused;
+      }
+      const command: Command = { type: "name_plot", px: action.px, py: action.py, name };
       return this.run({ actor: residentId, command }, dry);
     }
     if (action.type === "treat_pet" && this.blockedEither(residentId, action.owner)) {
@@ -2133,7 +2164,7 @@ export class WorldService {
         }
       }
     }
-    const wire = holdBackPetNames(toWire(events, this.state.townsfolk), this.noteHidden);
+    const wire = holdBackNames(toWire(events, this.state.townsfolk), this.noteHidden);
     for (const event of publicEvents(wire)) this.broadcast({ type: "event", seq, event });
     // Purse moves and inventory changes go only to their owner (purses and inventories are
     // private).
@@ -2401,14 +2432,19 @@ export class WorldService {
           ...(out ? { routine: step.routine } : {}),
         };
       }),
-      plots: Object.values(state.plots).map((p) => ({
-        px: p.px,
-        py: p.py,
-        ownerId: p.ownerId,
-        ...(p.coOwners ? { coOwners: [...p.coOwners] } : {}),
-        ...(p.claimedDay === undefined ? {} : { claimedDay: p.claimedDay }),
-        ...(p.gallery ? { gallery: true as const } : {}),
-      })),
+      plots: Object.values(state.plots).map((p) => {
+        const name = shownPlotName(p, this.noteHidden);
+        return {
+          px: p.px,
+          py: p.py,
+          ownerId: p.ownerId,
+          ...(p.coOwners ? { coOwners: [...p.coOwners] } : {}),
+          ...(p.claimedDay === undefined ? {} : { claimedDay: p.claimedDay }),
+          ...(p.gallery ? { gallery: true as const } : {}),
+          // Its residents' words (decision 0121).
+          ...(name === undefined ? {} : { name, trust: "untrusted" as const }),
+        };
+      }),
       blocks: Object.entries(state.blocks).map(([key, block]) => {
         const [x, y] = parseKey(key);
         return { x, y, block };

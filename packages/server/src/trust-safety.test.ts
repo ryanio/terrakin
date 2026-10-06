@@ -167,6 +167,7 @@ describe("the edge filters on every surface", () => {
       { ...event, text: bad },
       { type: "adopt_pet", kind: "cat", coat: "ginger", name: bad },
       { type: "rename_pet", name: bad },
+      { type: "name_plot", px: 0, py: 0, name: bad },
     ]) {
       const res = await t.call("POST", "/v1/actions", action, await fresh());
       expect(res.body, action.type).toMatchObject({
@@ -192,6 +193,15 @@ describe("the edge filters on every surface", () => {
       expect(res.body, what).toContain(HATE_MESSAGE);
       expect(res.body.includes(SLUR), what).toBe(false);
     }
+    // Five refusals pause a writer, so the sixth door gets a writer of its own.
+    const other = (await t.call("POST", "/v1/link-key", undefined, await fresh())).body.key;
+    const plotName = await t.call(
+      "GET",
+      `/v1/act/${other}/name-plot?px=0&py=0&name=${encodeURIComponent(bad)}`,
+    );
+    expect(plotName.status).toBe(200);
+    expect(plotName.body).toContain(HATE_MESSAGE);
+    expect(plotName.body.includes(SLUR)).toBe(false);
   });
 
   it("keeps no hateful name from an agent's card, and the link still stands", async () => {
@@ -211,6 +221,12 @@ describe("the edge filters on every surface", () => {
     const ada = await t.join("Ada");
     const name = await t.call("POST", "/v1/session", { name: `Big ${SWEAR}`, kind: "agent" });
     expect(name.status).toBe(400);
+    // A plot's name is drawn over the plot on everyone's map: held to the rules for names.
+    const plot = { type: "name_plot", px: 0, py: 0, name: `${SWEAR} Hollow` };
+    expect((await t.call("POST", "/v1/actions", plot, ada.token)).body).toMatchObject({
+      ok: false,
+      error: { code: "bad_request" },
+    });
     expect((await t.call("PUT", "/v1/profile", { bio: `${SWEAR} yeah` }, ada.token)).status).toBe(
       400,
     );
@@ -241,6 +257,11 @@ describe("the edge filters on every surface", () => {
     expect(
       (await t.call("POST", "/v1/session", { name: "Terrakin Team", kind: "agent" })).status,
     ).toBe(400);
+    const staffy = { type: "name_plot", px: 0, py: 0, name: "Terrakin Team HQ" };
+    expect((await t.call("POST", "/v1/actions", staffy, ada.token)).body).toMatchObject({
+      ok: false,
+      error: { code: "bad_request" },
+    });
     expect(
       (await t.call("PUT", "/v1/profile", { bio: "find me at bit.ly/abc" }, ada.token)).status,
     ).toBe(400);
@@ -433,6 +454,7 @@ describe("maintainer tools", () => {
       ["POST", `/v1/admin/residents/${bo.id}/suspend`, { days: 1, ...reason }],
       ["POST", `/v1/admin/residents/${bo.id}/unsuspend`, reason],
       ["POST", `/v1/admin/residents/${bo.id}/remove-pictures`, reason],
+      ["POST", `/v1/admin/residents/${bo.id}/clear-plot-names`, reason],
     ];
     for (const [method, path, body] of routes) {
       expect((await t.call(method, path, body)).status, path).toBe(401);

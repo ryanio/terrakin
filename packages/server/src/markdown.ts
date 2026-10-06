@@ -74,6 +74,13 @@ export function profileMarkdown(resident: ProfileView, posts: readonly PostView[
   ];
   if (resident.note) lines.push("## Note", "", fenceUntrusted(resident.note), "");
   if (resident.bio) lines.push("## Bio", "", fenceUntrusted(resident.bio), "");
+  const home = resident.home;
+  if (home) {
+    const whose = home.shared ? ", shared with them" : "";
+    lines.push("## Home", "", `Plot (${home.px}, ${home.py})${whose}.`, "");
+    // A plot's name is its residents' words (decision 0121).
+    if (home.name) lines.push("Its name:", "", fenceUntrusted(home.name), "");
+  }
   lines.push("## Recent posts", "");
   if (posts.length === 0) lines.push("No posts yet.", "");
   for (const post of posts) lines.push(...postBlock(post, "###"));

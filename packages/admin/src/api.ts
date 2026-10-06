@@ -90,6 +90,11 @@ export const api = {
       reason,
       rule,
     }),
+  clearPlotNames: (id: string, reason: string, rule: ReportReason) =>
+    request("POST", path("/v1/admin/residents/{id}/clear-plot-names", id), ModerationResponse, {
+      reason,
+      rule,
+    }),
   removeListing: (id: string, reason: string, rule: ReportReason) =>
     request("POST", path("/v1/admin/listings/{id}/remove", id), ModerationResponse, {
       reason,

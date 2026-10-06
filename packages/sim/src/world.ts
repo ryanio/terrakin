@@ -205,6 +205,25 @@ export function plotsOwnedBy(state: WorldState, residentId: ResidentId): Plot[] 
   return Object.values(state.plots).filter((p) => p.ownerId === residentId);
 }
 
+/**
+ * The plot a resident calls home: the one their hearth is on, else the first they own, else the
+ * first shared with them, each north to south, then west to east. Undefined when they live on none.
+ */
+export function homePlotOf(state: WorldState, residentId: ResidentId): Plot | undefined {
+  const plots = Object.values(state.plots)
+    .filter((p) => canBuildOn(p, residentId))
+    .sort((a, b) => a.py - b.py || a.px - b.px);
+  const hearth = Object.hasOwn(state.residents, residentId)
+    ? state.residents[residentId]?.hearth
+    : undefined;
+  if (hearth) {
+    const at = plotOf(state.config, hearth.x, hearth.y);
+    const there = plots.find((p) => p.px === at.px && p.py === at.py);
+    if (there) return there;
+  }
+  return plots.find((p) => p.ownerId === residentId) ?? plots[0];
+}
+
 /** Whether a resident may build on a plot: its owner, or someone the owner shared it with. */
 export function canBuildOn(
   plot: Pick<Plot, "ownerId" | "coOwners"> | undefined,

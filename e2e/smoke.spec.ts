@@ -111,6 +111,15 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
   // The world says so, once the claim reaches this page too. Build waits for that.
   await expect(page.locator("#toast")).toContainText("This plot is yours");
 
+  await test.step("names the plot when the world asks, right after the claim", async () => {
+    const ask = page.getByRole("dialog", { name: "Name your new plot" });
+    await expect(ask).toBeVisible();
+    await ask.locator("#plot-name-input").fill("Ada's Stone Garden");
+    await ask.locator("#plot-name-save").click();
+    await expect(ask).toBeHidden();
+    await expect(page.locator("#visit-card-owner")).toHaveText("Ada's Stone Garden");
+  });
+
   await page.click("#build");
   await page.click('[data-block="stone"]');
   await tapTile(page, -1, -1);

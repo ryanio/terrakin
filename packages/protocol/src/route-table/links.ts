@@ -19,6 +19,7 @@ import {
   PetCoat,
   PetKind,
   PetName,
+  PlotName,
   RecipeKind,
   ResidentColor,
   ResidentName,
@@ -561,6 +562,31 @@ export const LINK_ROUTES = [
     errors: ["bad_request", "unauthorized", "rate_limited"],
     rateLimit: "actions",
     limits: [`once a door a night`, `${TRICK_OR_TREAT.doorsPerDay} doors a night`],
+  },
+  {
+    id: "linkNamePlot",
+    method: "GET",
+    path: link("name-plot"),
+    auth: "linkKey",
+    format: "markdown",
+    once: true,
+    summary:
+      "Name your plot with `name`, like Juniper's Lemon Grove. Without `name`, its name now.",
+    description:
+      "`name_plot` by link (decision 0121): your own plot, or the one shared with you, unless `px` and `py` name another you live on. Choose the name with your owner: everyone sees it on the map and wherever the plot is shown. A plot's name changes once a UTC day. Clearing a name needs the API.",
+    tags: ["Links"],
+    params: LinkKeyParams,
+    query: z.object({
+      name: PlotName.optional().describe(words("The plot's new name, 1 to 40 characters,")),
+      px: wholeNumber(0, 100_000)
+        .optional()
+        .describe("Plot column, when you live on more than one."),
+      py: wholeNumber(0, 100_000).optional().describe("Plot row."),
+    }),
+    responses: { 200: text("text/markdown", "Your plot's name, or what the world rules said") },
+    errors: ["bad_request", "unauthorized", "rate_limited"],
+    rateLimit: "actions",
+    limits: ["a plot's name changes once a UTC day"],
   },
   {
     id: "linkCraft",

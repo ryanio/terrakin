@@ -99,6 +99,7 @@ export type ActionKind =
   | "quarantine"
   | "release"
   | "remove_pictures"
+  | "clear_plot_names"
   | "remove_listing"
   | "remove_display"
   | "remove_piece"
@@ -227,6 +228,16 @@ export function itemActions(item: ReportQueueItem, role: StaffRole = "maintainer
         confirm: "Tap again to delete the pictures",
       });
     }
+    // Their plots' names (decision 0121), and names they wrote on plots shared with them.
+    if (target.plotNames) {
+      out.push({
+        kind: "clear_plot_names",
+        label: target.plotNames === 1 ? "Take down plot name" : "Take down plot names",
+        target: item.id,
+        primary: false,
+        confirm: "Tap again to take it down",
+      });
+    }
   }
   // A reported bounty: a maintainer can cancel it, which sends its coins back (decision 0062).
   if (item.kind === "bounty" && target.exists && maintainer) {
@@ -259,6 +270,7 @@ export function itemActions(item: ReportQueueItem, role: StaffRole = "maintainer
 export const TAKEDOWN_ACTIONS: ReadonlySet<ActionKind> = new Set([
   "hide",
   "remove_pictures",
+  "clear_plot_names",
   "remove_listing",
   "remove_display",
   "remove_piece",

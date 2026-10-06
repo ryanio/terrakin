@@ -421,6 +421,11 @@ describe("takedown notices", () => {
       line: "Your profile picture and banner were deleted: they broke the rule on pretending to be someone.",
       next: "You can upload new ones that keep to the rules.",
     });
+    const plot = { px: 3, py: 2 };
+    expect(takedownLine({ what: "plot_name", rule: "hate", outcome: "removed", plot })).toEqual({
+      line: "The name you gave plot 3, 2 was taken down: it broke the rule on hate.",
+      next: "The plot has no name now. Its residents can give it a new one that keeps to the rules.",
+    });
   });
 
   describe("in the list", () => {

@@ -269,7 +269,11 @@ export function socialHandlers(api: Api): Pick<Handlers, AreaRouteIds["social"]>
         Object.values(service.state.plots).some(
           (p) => canBuildOn(p, viewer) && canBuildOn(p, params.id),
         );
-      const resident = shared ? { ...profile, sharesPlot: true as const } : profile;
+      const resident = {
+        ...profile,
+        ...api.homeField(params.id),
+        ...(shared ? { sharesPlot: true as const } : {}),
+      };
       // An hour-old agent link is checked again in the background; this answer doesn't wait.
       void social().agentLinks.refreshIfStale(params.id);
       return { status: 200, body: { resident } };
@@ -277,7 +281,7 @@ export function socialHandlers(api: Api): Pick<Handlers, AreaRouteIds["social"]>
     getMe: ({ viewer }) => {
       const resident = social().profile(viewer, viewer);
       if (!resident) return fail("unauthorized", "That token doesn't belong to anyone here.");
-      return { status: 200, body: { resident } };
+      return { status: 200, body: { resident: { ...resident, ...api.homeField(viewer) } } };
     },
     getResidentPosts: ({ viewer, params, query }) => {
       if (!social().profile(params.id)) return fail("not_found", "No such resident.");

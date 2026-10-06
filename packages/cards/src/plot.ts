@@ -141,6 +141,12 @@ export interface PlotCard {
   kind: "plot";
   /** The owner's name, untrusted: drawn as text, or "A resident" when nothing in it can be drawn. */
   name: string;
+  /**
+   * The plot's own name (decision 0121), untrusted: drawn as text as the photo's title, with the
+   * owner's home under it. Without it, or when nothing in it can be drawn, the owner's home is the
+   * title.
+   */
+  title?: string | undefined;
   /** Where it is, in our own words, like "Plot 3, 2". */
   place: string;
   /** Short lines under the photo in our own words, like "Meadow and forest" or "24 blocks". */

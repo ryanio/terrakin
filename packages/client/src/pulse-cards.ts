@@ -25,7 +25,7 @@ import { type PulseStats, phaseName, type WallItem } from "./pulse";
 import { dayPhase, nightAmount } from "./time";
 import { closesIn, tallyBar } from "./town-format";
 import { visitTap } from "./visit-view";
-import { plotName, stripPlots } from "./visits";
+import { plotTitles, stripPlots } from "./visits";
 
 type Resident = WorldSnapshot["residents"][number];
 type CardFn = (post: PostView, variant?: "compact") => HTMLElement;
@@ -526,24 +526,26 @@ export function plotsCard(o: { me: string | null; navigate: (path: string) => vo
       // Repaint only when what's shown changed, so a poll doesn't redraw the same drawings.
       const key = JSON.stringify([
         world?.seq ?? null,
-        picks.map((p) => [p.px, p.py, p.owner.name, ...p.coOwners.map((c) => c.name)]),
+        picks.map((p) => [p.px, p.py, p.owner.name, ...p.coOwners.map((c) => c.name), p.name]),
       ]);
       if (key === painted) return;
       painted = key;
       list.replaceChildren(
         ...picks.map((p) => {
-          const name = plotName([p.owner.name, ...p.coOwners.map((c) => c.name)]);
+          // Its own name first when it has one (decision 0121), then whose it is.
+          const { title, whose } = plotTitles(p, [p.owner.name, ...p.coOwners.map((c) => c.name)]);
           return h(
             "li",
             { class: "plots-strip-item", attrs: { "data-plot": `${p.px},${p.py}` } },
             visitTap(
               p,
-              name,
+              title,
               o.me,
               o.navigate,
               "plots-strip-visit",
-              world ? plotThumb(world, p, `${name}, from above`, 112) : null,
-              h("span", { class: "plots-strip-name", text: name }),
+              world ? plotThumb(world, p, `${title}, from above`, 112) : null,
+              h("span", { class: "plots-strip-name", text: title }),
+              whose ? h("span", { class: "plots-strip-whose", text: whose }) : null,
             ),
           );
         }),

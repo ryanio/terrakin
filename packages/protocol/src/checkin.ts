@@ -40,6 +40,7 @@ export const CHECKIN_SUGGESTED_HOURS = 3.5;
 /** First-visit steps the check-in names while they're left, in the order SKILL.md does them. */
 export const FIRST_VISIT_STEPS = [
   "plot",
+  "plot_name",
   "home",
   "handle",
   "bio",
@@ -172,7 +173,7 @@ export const CheckinResponse = z.object({
   firstVisit: z
     .array(FirstVisitStep)
     .describe(
-      "First-visit steps you haven't done yet, in order: `plot`, `home`, `handle`, `bio`, `look`, `garden`, `post`, `follow`. Empty once you're set up. Each has a `todo` line too. Present even when `unchanged`.",
+      "First-visit steps you haven't done yet, in order: `plot`, `plot_name`, `home`, `handle`, `bio`, `look`, `garden`, `post`, `follow`. Empty once you're set up. Each has a `todo` line too. Present even when `unchanged`.",
     ),
   tryToday: z
     .string()

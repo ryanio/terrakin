@@ -32,8 +32,9 @@ import { DAY_MS, utcDay } from "./together";
  * Admiring a plot is a thank-you for a place: once a UTC day per resident per plot, only from on
  * it, or from beside it after a visit this week, never your own, your household's, or across a
  * block, and it earns nothing. Every admire is its own row, kept like praise. Visits are rows
- * too (one per visitor, plot, and day), kept only for the week the counts cover. `plot_changes`
- * keeps the newest time something on each plot changed, written as the world commits
+ * too (one per visitor, plot, and day), kept only for the week the counts cover: a `visit`, or a
+ * resident's own step or putter that lands on someone else's plot (decision 0092). `plot_changes`
+ * keeps the newest time something on each plot changed. Both are written as the world commits
  * (`noteCommitted`).
  */
 
@@ -48,6 +49,11 @@ export interface PlotVisitsOptions {
   ageDays: (id: string) => number;
   /** A suspended owner's plot is closed for now, like their gallery and their stall. */
   suspended: (id: string) => boolean;
+  /**
+   * Whether staff hold a resident's words back (a quarantine, RFC 0006): a plot name they wrote
+   * stays out of view (decision 0121). Default: nobody's are.
+   */
+  held?: (id: string) => boolean;
   /** Tell one of the plot's residents (the social layer's notifications, with its caps). */
   notify: (recipient: string, actor: string, plot: { px: number; py: number }) => void;
 }
@@ -107,6 +113,18 @@ export function plotsChangedBy(state: WorldState, events: readonly WorldEvent[])
   });
 }
 
+/**
+ * A plot's name as everyone sees it (decision 0121): undefined when it has none, or while staff
+ * hold back the words of whoever named it (a quarantine, RFC 0006).
+ */
+export function shownPlotName(
+  plot: Pick<Plot, "name" | "namedBy" | "ownerId">,
+  hidden: (residentId: string) => boolean,
+): string | undefined {
+  if (plot.name === undefined) return undefined;
+  return hidden(plot.namedBy ?? plot.ownerId) ? undefined : plot.name;
+}
+
 const fail = (code: ErrorCode, message: string, retryAfter?: number) => ({
   ok: false as const,
   code,
@@ -164,6 +182,13 @@ export class PlotVisits {
   /** The list `GET /v1/plots` last built, before any viewer's parts, and when. */
   private listed: { at: number; views: PlotView[] } | null = null;
 
+  /**
+   * Visits already written today, as `visitor|px,py`, so a walk across a plot costs one write a
+   * day, not a lookup a step. Forgotten when the UTC day changes, and on a restart, when the
+   * table's key keeps a visit from counting twice anyway.
+   */
+  private visited = { day: -1, keys: new Set<string>() };
+
   private count(query: string, ...bindings: (string | number)[]): number {
     return Number([...this.o.sql.exec(query, ...bindings)][0]?.c ?? 0);
   }
@@ -174,8 +199,9 @@ export class PlotVisits {
   }
 
   /**
-   * After the world commits an input: note when each plot it changed changed, and a visit. A visit
-   * by someone in the plot's household isn't counted.
+   * After the world commits an input: note when each plot it changed changed, and a visit: a
+   * `visit`, or a resident's own `move` or `putter` step that lands on someone else's plot
+   * (decision 0092). A routine's steps are the town's input, so they never count.
    */
   noteCommitted(state: WorldState, input: Input, events: readonly WorldEvent[]): void {
     const now = this.o.now();
@@ -190,24 +216,50 @@ export class PlotVisits {
       );
     }
     const { actor, command } = input;
-    if (command.type !== "visit" || !events.some((e) => e.type === "moved")) return;
-    const plot = plotAt(state, command.px, command.py);
+    const day = utcDay(now);
+    if (command.type === "visit") {
+      const plot = plotAt(state, command.px, command.py);
+      if (plot && events.some((e) => e.type === "moved")) this.noteVisit(actor, plot, day, false);
+      return;
+    }
+    if (command.type !== "move" && command.type !== "putter") return;
+    const size = state.config.plotSize;
+    for (const e of events) {
+      if (e.type !== "moved" || e.residentId !== actor) continue;
+      const plot = plotAt(state, Math.floor(e.x / size), Math.floor(e.y / size));
+      if (plot) this.noteVisit(actor, plot, day, true);
+    }
+  }
+
+  /**
+   * A visit to `plot` on UTC `day`: one row per visitor, plot, and day, never for the plot's own
+   * household (its owner, a resident it's shared with, or a person and their AIs). A walk-in also
+   * never counts across a block or on a suspended owner's plot, which `visit` refuses before it's
+   * logged.
+   */
+  private noteVisit(visitor: string, plot: Plot, day: number, walked: boolean) {
+    if (canBuildOn(plot, visitor)) return;
+    if (this.visited.day !== day) this.visited = { day, keys: new Set() };
+    const key = `${visitor}|${plotKey(plot.px, plot.py)}`;
+    if (this.visited.keys.has(key)) return;
+    const residents = [plot.ownerId, ...(plot.coOwners ?? [])];
+    if (residents.some((id) => this.o.household(visitor, id))) return;
     if (
-      !plot ||
-      [plot.ownerId, ...(plot.coOwners ?? [])].some((id) => this.o.household(actor, id))
+      walked &&
+      (this.o.suspended(plot.ownerId) || residents.some((id) => this.o.blockedEither(visitor, id)))
     ) {
       return;
     }
-    const day = utcDay(now);
     this.o.sql.exec("DELETE FROM plot_visits WHERE day < ?", this.weekFrom());
     this.o.sql.exec(
       "INSERT OR IGNORE INTO plot_visits (visitor, px, py, owner, day) VALUES (?, ?, ?, ?, ?)",
-      actor,
+      visitor,
       plot.px,
       plot.py,
       plot.ownerId,
       day,
     );
+    this.visited.keys.add(key);
     // The visitor may be new this week: the list counts again.
     this.listed = null;
   }
@@ -395,8 +447,10 @@ export class PlotVisits {
   }
 
   /**
-   * The views as `who` reads them: without the plots `hidden` leaves out, with `admiredToday`, and
-   * on Halloween night `knockedToday` (RFC 0022), from the world's own knocks.
+   * The views as `who` reads them: without the plots `hidden` leaves out, with each plot's name as
+   * the world has it now (decision 0121), so a new name never waits for the list to be built
+   * again, and with `admiredToday` and on Halloween night `knockedToday` (RFC 0022), from the
+   * world's own knocks.
    */
   private forViewer(state: WorldState, views: readonly PlotView[], who: PlotViewer): PlotView[] {
     const viewer = who.viewer;
@@ -407,16 +461,27 @@ export class PlotVisits {
         : undefined;
     return views.flatMap((view) => {
       if (who.hidden?.(view)) return [];
-      if (!today) return [view];
       const key = plotKey(view.px, view.py);
+      const name = this.nameOf(state, view);
       return [
         {
           ...view,
-          admiredToday: today.has(key),
-          ...(knocked ? { knockedToday: knocked.has(key) } : {}),
+          ...(name === undefined ? {} : { name, trust: "untrusted" as const }),
+          ...(today ? { admiredToday: today.has(key) } : {}),
+          ...(today && knocked ? { knockedToday: knocked.has(key) } : {}),
         },
       ];
     });
+  }
+
+  /**
+   * A plot's name as the world has it now, while the plot is still the one the view shows (same
+   * owner), unless staff hold back the words of whoever named it.
+   */
+  private nameOf(state: WorldState, view: PlotView): string | undefined {
+    const plot = own(state.plots, plotKey(view.px, view.py));
+    if (!plot || plot.ownerId !== view.owner.id) return undefined;
+    return shownPlotName(plot, this.o.held ?? (() => false));
   }
 }
 

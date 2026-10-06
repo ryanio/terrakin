@@ -223,6 +223,18 @@ export interface Plot {
   sharedDay?: Record<ResidentId, number>;
   /** Marked a gallery (`set_gallery`): what's on display here is listed on the Galleries page. */
   gallery?: true;
+  /**
+   * Its name (`name_plot`, decision 0121), like "Juniper's Lemon Grove". Untrusted text the server
+   * cleaned and filtered before it was logged. Absent until one of its residents names it.
+   */
+  name?: string;
+  /** Who set `name`: the owner or a resident it's shared with. Absent with it. */
+  namedBy?: ResidentId;
+  /**
+   * The world's day it was last named, which the once-a-day limit reads. Absent until the first
+   * name, and kept when a name is cleared, so clearing never makes room for another the same day.
+   */
+  namedDay?: number;
 }
 
 export const VOTE_CHOICES = ["yes", "no", "abstain"] as const;
@@ -1150,6 +1162,11 @@ export type Command =
   | { type: "take_down"; x: number; y: number }
   | { type: "admire"; x: number; y: number }
   | { type: "set_gallery"; px: number; py: number; open: boolean }
+  /**
+   * Name plot (px, py), or clear its name with `null` (decision 0121). `name` is untrusted text the
+   * server cleaned and filtered before logging it.
+   */
+  | { type: "name_plot"; px: number; py: number; name: string | null }
   // The town shop (RFC 0008, phase 2).
   | { type: "shop_buy"; sku: string; count?: number }
   | { type: "sell_to_town"; item: string; count?: number }
@@ -1219,6 +1236,11 @@ export type Command =
    * piece needn't be on display). Who did it is in the moderation log, not here.
    */
   | { type: "remove_display"; item: string; picture?: true }
+  /**
+   * Staff took plot (px, py)'s name down after a report (decision 0121). Who did it is in the
+   * moderation log, not here.
+   */
+  | { type: "clear_plot_name"; px: number; py: number }
   | { type: "open_economy" }
   | { type: "set_owner_pairs"; pairs: [ResidentId, ResidentId][] }
   /** One owner pair linked or unlinked, so the log grows by one pair per change, not the list. */
@@ -1351,6 +1373,7 @@ export const SERVER_COMMANDS = [
   "open_market",
   "remove_listing",
   "remove_display",
+  "clear_plot_name",
   "set_entitlements",
   "open_bounties",
   "confirm_town_bounty",
@@ -1557,6 +1580,21 @@ export type WorldEvent =
   | { type: "picture_removed"; items: string[] }
   /** A plot was marked a gallery, or stopped being one, by `by`. Public. */
   | { type: "gallery_set"; px: number; py: number; open: boolean; by: ResidentId }
+  /**
+   * `by`, one of plot (px, py)'s residents, named it, or cleared its name (`null`). Public. `day` is
+   * the world's day, which the once-a-day limit reads: absent in a world that doesn't count days,
+   * and on a clear.
+   */
+  | {
+      type: "plot_named";
+      px: number;
+      py: number;
+      name: string | null;
+      by: ResidentId;
+      day?: number;
+    }
+  /** Staff took plot (px, py)'s name down after a report. Public, like the name was. */
+  | { type: "plot_name_removed"; px: number; py: number }
   /** `by` admired what's on display: the thing, its maker, and its count after. Public. */
   | {
       type: "admired";
@@ -1820,6 +1858,8 @@ export const REJECTION_CODES = [
   "knock_limit",
   /** Nobody there has candy for you, and the town's candy at that door, or for today, is gone. */
   "no_candy",
+  /** That plot was already named today: a plot's name changes once a UTC day (decision 0121). */
+  "rename_limit",
 ] as const;
 export type RejectionCode = (typeof REJECTION_CODES)[number];
 

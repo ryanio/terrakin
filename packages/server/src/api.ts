@@ -18,6 +18,7 @@ import {
   markdownErrorCode,
   type PostView,
   PROTOCOL_VERSION,
+  type ProfileView,
   plainProblem,
   RATE_LIMITS,
   type RateLimitName,
@@ -39,6 +40,7 @@ import {
   findBounty,
   findEvent,
   type HostedEvent,
+  homePlotOf,
   isTownEvent,
   routinesOf,
 } from "@terrakin/sim";
@@ -82,7 +84,7 @@ import { OwnerService } from "./owner-service";
 import { PartnerResidents } from "./partner-residents";
 import { findPartner } from "./partners";
 import { type PlotPhotoRenderer, plotPhotoSpec } from "./plot-photo";
-import type { PlotViewer } from "./plots";
+import { type PlotViewer, shownPlotName } from "./plots";
 import { RateLimiters, type Take } from "./rate-limit";
 import { Routines, type RoutinesRun, runRoutines } from "./routines";
 import type { SocialService } from "./social-service";
@@ -875,7 +877,7 @@ export class Api {
     if (!this.photos) return fail("unavailable", "Photos aren't available on this server.");
     const key = ipKey(ip);
     if (!this.limiters.photosIp.take(key)) return fail("rate_limited", RATE_LIMITED.photosIp);
-    const spec = plotPhotoSpec(this.service.state, viewer);
+    const spec = plotPhotoSpec(this.service.state, viewer, this.service.noteHidden);
     if (!spec) {
       return fail(
         "bad_request",
@@ -1047,6 +1049,24 @@ export class Api {
       hidden: (plot) =>
         layer.safety.suspendedUntil(plot.owner.id) !== undefined ||
         [plot.owner, ...plot.coOwners].some((a) => blocked.has(a.id)),
+    };
+  }
+
+  /**
+   * The plot a resident calls home, as their profile shows it, with its name unless staff hold
+   * back the words of whoever named it (decision 0121). Nothing when they live on no plot.
+   */
+  homeField(id: string): Pick<ProfileView, "home"> {
+    const plot = homePlotOf(this.service.state, id);
+    if (!plot) return {};
+    const name = shownPlotName(plot, this.service.noteHidden);
+    return {
+      home: {
+        px: plot.px,
+        py: plot.py,
+        ...(name === undefined ? {} : { name }),
+        ...(plot.ownerId === id ? {} : { shared: true as const }),
+      },
     };
   }
 

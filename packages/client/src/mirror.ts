@@ -120,6 +120,8 @@ export class Mirror {
   crops = new Map<string, { crop: Crop; plantedDay: number; readyDay: number }>();
   /** Plots opened as galleries (`set_gallery`), by plotKey. */
   galleries = new Set<string>();
+  /** Plots' names (`name_plot`, decision 0121), by plotKey. Residents' words: text only. */
+  plotNames = new Map<string, string>();
   /** Made things on display on pedestals and frames (RFC 0005 step 3). Labels are untrusted text. */
   displays = new Map<string, DisplayView>();
   /** Finds on display on pedestals and frames (RFC 0021), by tileKey. */
@@ -162,6 +164,7 @@ export class Mirror {
       this.plots.set(plotKey(p.px, p.py), p.ownerId);
       if (p.coOwners?.length) this.coOwners.set(plotKey(p.px, p.py), [...p.coOwners]);
       if (p.gallery) this.galleries.add(plotKey(p.px, p.py));
+      if (p.name !== undefined) this.plotNames.set(plotKey(p.px, p.py), p.name);
     }
     for (const b of snapshot.blocks) this.blocks.set(tileKey(b.x, b.y), b.block);
     for (const g of snapshot.ground ?? []) this.paving.set(tileKey(g.x, g.y), g.ground);
@@ -269,8 +272,19 @@ export class Mirror {
         this.plots.delete(key);
         this.coOwners.delete(key);
         this.galleries.delete(key);
+        // A plot's name goes with it (decision 0121).
+        this.plotNames.delete(key);
         break;
       }
+      case "plot_named": {
+        const key = plotKey(event.px, event.py);
+        if (event.name === null) this.plotNames.delete(key);
+        else this.plotNames.set(key, event.name);
+        break;
+      }
+      case "plot_name_removed":
+        this.plotNames.delete(plotKey(event.px, event.py));
+        break;
       case "gallery_set": {
         const key = plotKey(event.px, event.py);
         if (event.open) this.galleries.add(key);

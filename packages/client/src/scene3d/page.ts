@@ -13,7 +13,7 @@ import { errorCard, notFoundCard, type ViewContext } from "../view";
 import { createStage, type Stage } from "./art";
 import { parseGallery } from "./catalog";
 import { buildGallery } from "./gallery";
-import { homeExtras, plotLayout, rawResident } from "./layout";
+import { homeExtras, homePlot, plotLayout, rawResident } from "./layout";
 import { buildPlot } from "./plot";
 
 const PHOTO_FILE = "terrakin-photo.png";
@@ -129,9 +129,17 @@ export function mount3d(
           cleanup();
           return;
         }
-        ctx.setTitle(`${resident.name}'s home in 3D · Terrakin`);
-        title.textContent = `${resident.name}'s home`;
-        place = route.id === savedResidentId() ? "My home" : `${resident.name}'s home`;
+        // A named plot (decision 0121) wears its name; its residents' words, as text.
+        const home = homePlot(snapshot, route.id);
+        const named = home
+          ? snapshot.plots.find((p) => p.px === home.px && p.py === home.py)?.name
+          : undefined;
+        const heading = named ?? `${resident.name}'s home`;
+        ctx.setTitle(`${heading} in 3D · Terrakin`);
+        // A name runs to two lines, clamped inside the pill's padding.
+        title.replaceChildren(h("span", { class: "view3d-title-text", text: heading }));
+        title.classList.toggle("named", named !== undefined);
+        place = named ?? (route.id === savedResidentId() ? "My home" : `${resident.name}'s home`);
         const layout = plotLayout(snapshot, route.id);
         if (!layout) {
           el.replaceChildren(noPlot(resident.name, route.id, route.id === savedResidentId()));

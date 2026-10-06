@@ -293,6 +293,7 @@ export {
   petView,
   treatedToday,
 } from "./pets";
+export { PLOT_NAMES, plotNamesOf } from "./plot-names";
 export { isDirection, PUTTER, PUTTER_MAX_STEPS, planPutter } from "./putter";
 export { REPLAY_VERSION, replay } from "./replay";
 export {
@@ -393,6 +394,7 @@ export {
   createWorld,
   DEFAULT_CONFIG,
   gameTableTiles,
+  homePlotOf,
   inBounds,
   isCommons,
   isShopTile,

@@ -26,7 +26,8 @@ import {
 /**
  * The edge filters (RFC 0006, decision 0032). Every piece of text a resident writes passes through
  * `Moderation.review` before it's stored, logged in the world, or sent to anyone: names, handles,
- * notes, bios, posts, replies, letters, chat, gesture notes, gift notes, proposals, and notices.
+ * notes, bios, posts, replies, letters, chat, gesture notes, gift notes, pet and plot names,
+ * proposals, and notices.
  *
  * In order: text aimed at AI readers (injection.ts), hate, scams (including sounding like staff and
  * bad links), strong language, then spam. What each surface allows is `POLICY`; the words, patterns,
@@ -54,6 +55,7 @@ export type Surface =
   | "gift_note"
   | "item_label"
   | "pet_name"
+  | "plot_name"
   | "proposal_title"
   | "proposal_text"
   | "bounty_title"
@@ -161,6 +163,15 @@ export const POLICY: Record<Surface, Policy> = {
   // A pet's name is shown wherever the pet goes, next to its owner's: held to the rules for names.
   pet_name: {
     label: "Pet names",
+    vulgar: "refuse",
+    impersonation: "name",
+    shorteners: true,
+    spam: ["runs"],
+  },
+  // A plot's name is drawn over the plot on everyone's map and shown wherever the plot is: held to
+  // the rules for names (decision 0121).
+  plot_name: {
+    label: "Plot names",
     vulgar: "refuse",
     impersonation: "name",
     shorteners: true,

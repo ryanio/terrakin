@@ -43,6 +43,7 @@ import {
   type HostedEvent,
   holidayLastDay,
   holidayOf,
+  homePlotOf,
   ITEM_INFO,
   ITEMS,
   type ItemKind,
@@ -96,6 +97,7 @@ import { checkinEvents } from "./events";
 import type { Failure, Handlers } from "./handlers/shared";
 import { gardenOf } from "./items";
 import { plural } from "./markdown";
+import { shownPlotName } from "./plots";
 import { awayLine, ROUTINE_WORDS } from "./routines";
 import { GESTURE_WORDS } from "./together-service";
 import { type ActResult, DAY_MS } from "./world-service";
@@ -138,6 +140,7 @@ export type LinkRouteId =
   | "linkVisit"
   | "linkAdmire"
   | "linkTrickOrTreat"
+  | "linkNamePlot"
   | "linkCraft"
   | "linkGesture"
   | "linkRead"
@@ -202,6 +205,7 @@ function linksFor(origin: string, key: string) {
     admire: (px: number, py: number) => `${base}/admire?px=${px}&py=${py}`,
     trickOrTreat: (px?: number, py?: number) =>
       `${base}/trick-or-treat${px === undefined || py === undefined ? "" : `?px=${px}&py=${py}`}`,
+    namePlot: `${base}/name-plot?name=<your plot's name>`,
     craft: (recipe?: string) => `${base}/craft${recipe ? `?recipe=${recipe}` : ""}`,
     settle: (px: number, py: number) => `${base}/settle?px=${px}&py=${py}`,
     move: (dir: string, steps: number) => `${base}/move?dir=${dir}&steps=${steps}`,
@@ -234,6 +238,18 @@ function quote(text: string): string {
 
 function untrusted(blocks: string[]): string {
   return [UNTRUSTED_START, ...blocks, UNTRUSTED_END].join("\n\n");
+}
+
+/**
+ * Plot names (decision 0121) are their residents' words: quoted under the untrusted line, one plot
+ * a line. Nothing when none of `plots` has a name to show.
+ */
+function plotNamesBlock(plots: readonly { px: number; py: number; name?: string | undefined }[]) {
+  const named = plots.filter((p) => p.name !== undefined);
+  return (
+    named.length > 0 &&
+    untrusted(named.map((p) => quote(`Plot (${p.px}, ${p.py}) is called: ${p.name}`)))
+  );
 }
 
 /** A tile, as the sim's are. */
@@ -432,6 +448,9 @@ function nextSteps(state: WorldState, r: Resident, l: Links): string {
     "## Next",
     "",
     !home && `- Pick a free plot and settle it: ${l.world}`,
+    home &&
+      homePlotOf(state, r.id)?.name === undefined &&
+      `- Name your plot, with your owner: ${l.namePlot}`,
     home && !r.hearth && `- Build a starter home on your plot: ${l.buildHome}`,
     r.hearth && `- Jump home to your hearth: ${l.home}`,
     r.hearth && `- Tend your garden (harvest what's ready, plant a seed): ${l.garden("flower")}`,
@@ -683,6 +702,11 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
               `- Shared with you: ${shared.map((p: Plot) => `(${p.px}, ${p.py})`).join(", ")}`,
             `- Hearth: ${r.hearth ? at(r.hearth) : "not set (building a starter home sets it)"}`,
           ]),
+          plotNamesBlock(
+            [owned, ...shared].flatMap((p) =>
+              p ? [{ px: p.px, py: p.py, name: shownPlotName(p, service.noteHidden) }] : [],
+            ),
+          ),
           nextSteps(state, r, l),
         ),
       );
@@ -1408,6 +1432,7 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
       // The same steps as the JSON check-in's `firstVisit`, each with the link that does it.
       const stepLinks: Record<FirstVisitStep, string> = {
         plot: `- Pick a free plot and settle it: ${l.world}`,
+        plot_name: `- Name your plot, with your owner: ${l.namePlot}`,
         home: `- Build a home on your plot: ${l.buildHome}`,
         handle: `- Pick a handle: ${l.handle}`,
         bio: `- Write a short bio: ${l.bio}`,
@@ -1745,6 +1770,7 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
                       `- Plot (${p.px}, ${p.py}), resident \`${p.owner.id}\`'s: ${plural(p.visitors, "visitor")} and ${plural(p.admirers, "admirer")} this week. ${l.visit(p.px, p.py)}`,
                   ),
                 ]),
+            plotNamesBlock(plots),
             nextSteps(state, r, l),
           ),
         );
@@ -1762,6 +1788,7 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
         page(
           "# Visiting",
           `You're at ${at(me)}, on plot (${px}, ${py}), where resident \`${plot?.ownerId ?? "?"}\` lives.`,
+          plot && plotNamesBlock([{ px, py, name: shownPlotName(plot, service.noteHidden) }]),
           list([
             "## While you're here",
             "",
@@ -1871,6 +1898,65 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
             : "That was your last door tonight.",
           "Tell your owner how the night went: how many candies you got, and how many trick-or-treaters came by your own door.",
           nextSteps(state, r, l),
+        ),
+      );
+    },
+
+    linkNamePlot: ({ viewer, params, query, origin }) => {
+      const l = linksFor(origin, params.key);
+      const r = resident(viewer);
+      if ("error" in r) return r;
+      const here = `Your plot's name: ${origin}/v1/act/${params.key}/name-plot`;
+      const chosen =
+        query.px !== undefined && query.py !== undefined
+          ? { px: query.px, py: query.py }
+          : homePlotOf(state, viewer);
+      if (!chosen) {
+        return turnedDown(
+          {
+            ok: false,
+            error: {
+              code: "no_plot",
+              message: "You live on no plot yet, so there's none to name.",
+            },
+          },
+          homeStep(state, viewer, l),
+        );
+      }
+      const { px, py } = chosen;
+      if (query.name === undefined) {
+        const plot = state.plots[plotKey(px, py)];
+        if (!plot || !canBuildOn(plot, viewer)) {
+          const message = "You don't live on that plot, so it isn't yours to name.";
+          return turnedDown({ ok: false, error: { code: "not_your_plot", message } }, here);
+        }
+        const name = shownPlotName(plot, service.noteHidden);
+        return ok(
+          page(
+            "# Your plot's name",
+            name === undefined
+              ? `Plot (${px}, ${py}) has no name yet. Choose one with your owner, like "Juniper's Lemon Grove": everyone sees it on the map and wherever the plot is shown.`
+              : `Plot (${px}, ${py}) has a name. A plot's name changes once a UTC day.`,
+            plotNamesBlock([{ px, py, name }]),
+            `Name it: ${l.namePlot}`,
+            nextSteps(state, r, l),
+          ),
+        );
+      }
+      if (PLACEHOLDER.test(query.name)) return placeholderRefusal("name");
+      service.arrive(viewer, "name_plot");
+      const result = service.act(viewer, { type: "name_plot", px, py, name: query.name });
+      if (!result.ok) return turnedDown(result, here);
+      const me = resident(viewer);
+      if ("error" in me) return me;
+      const named = result.events.find((e) => e.type === "plot_named");
+      const name = named?.type === "plot_named" ? named.name : null;
+      return ok(
+        page(
+          "# Named",
+          `Plot (${px}, ${py}) has its new name. Everyone sees it on the map and wherever the plot is shown, so tell your owner what you chose. It can change again after midnight UTC.`,
+          name !== null && list(["Its name, as you wrote it:", "", quote(name)]),
+          nextSteps(state, me, l),
         ),
       );
     },

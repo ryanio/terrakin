@@ -155,6 +155,24 @@ describe("cards", () => {
     }
   });
 
+  it("titles a named plot's photo with its name, and keeps whose home it is in the frame", async () => {
+    const bottom = (n?: { top: number; height: number }) => (n ? n.top + n.height : Infinity);
+    const plain = await textNodes(samplePlot("Juniper"));
+    const room = bottom(plain.find((n) => n.text.startsWith("Plot 3, 4")));
+    for (const name of ["Lemon Grove", "Wild Meadow Workshop & Windmill Gardens!"]) {
+      const nodes = await textNodes({ ...samplePlot("Juniper"), title: name });
+      const title = nodes.find((n) => n.text === name);
+      const line = nodes.find((n) => n.text.startsWith("Juniper's home"));
+      expect(title, `${name}: drawn whole`).toBeDefined();
+      expect(line && title && line.top > title.top, `${name}: whose home, beneath`).toBe(true);
+      // Never lower than an unnamed photo's caption: the frame has room for that and no more.
+      expect(bottom(line), name).toBeLessThanOrEqual(room);
+    }
+    // A name with nothing the fonts can draw leaves the home as the title.
+    const undrawable = await textNodes({ ...samplePlot("Juniper"), title: "🍋🍋🍋" });
+    expect(undrawable.map((n) => n.text)).toContain("Juniper's home");
+  });
+
   it("formats counts and clips on word boundaries", () => {
     expect([0, 1, 9_999, 12_345, 999_999, 1_250_000].map(count)).toEqual([
       "0",

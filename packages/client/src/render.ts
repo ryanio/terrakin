@@ -23,6 +23,7 @@ import {
   type PetFace,
   type PetKind,
   type PetPosture,
+  plotDistance,
   plotKey,
   type Resident,
   type Season,
@@ -73,6 +74,7 @@ import { awayPose, type Motion, type Pose as MotionPose } from "./motion";
 import { type Box, bubbleBox, drawBubble, drawDust, drawPoof, stackBubbles } from "./overhead";
 import { lyingOn, type PetMotion, type PetScene } from "./pets";
 import { nightAmount } from "./time";
+import { plotLabelFade } from "./visits";
 import { drawWeather, type SkyAmounts, UMBRELLA_RAIN } from "./weather";
 
 export { RESIDENT_COLOR_HEX } from "@terrakin/ui/looks";
@@ -1511,6 +1513,58 @@ function labelWidth(ctx: CanvasRenderingContext2D, font: string, text: string): 
   return w;
 }
 
+/** `text`, cut with an ellipsis to fit `max` pixels in the context's current font. */
+function fitText(ctx: CanvasRenderingContext2D, font: string, text: string, max: number): string {
+  if (labelWidth(ctx, font, text) <= max) return text;
+  const chars = [...text];
+  let n = chars.length - 1;
+  while (n > 1 && labelWidth(ctx, font, `${chars.slice(0, n).join("").trimEnd()}…`) > max) n--;
+  return `${chars.slice(0, n).join("").trimEnd()}…`;
+}
+
+/**
+ * Plots' names as soft paper labels, centred along the top of each plot (decision 0121). A label
+ * stays in view while its plot does: it slides down the plot when the plot's top edge is off the
+ * screen or under the top bar and the visit card (`labelTop`), and along it when the plot's middle
+ * is off one side. Canvas text can't execute anything, so a name is drawn as written.
+ */
+function paintPlotLabels(
+  ctx: CanvasRenderingContext2D,
+  labels: readonly { text: string; left: number; top: number; fade: number; mine: boolean }[],
+  view: { plotPx: number; scale: number; width: number; height: number; labelTop: number },
+) {
+  const { plotPx, scale, width, height, labelTop } = view;
+  const fontSize = Math.min(20, Math.max(12, Math.round(scale / 2.4)));
+  const font = `italic 600 ${fontSize}px "Fraunces Variable", Georgia, serif`;
+  const padX = fontSize * 0.7;
+  const tagH = Math.round(fontSize * 1.7);
+  const inset = Math.max(4, Math.round(scale * 0.22));
+  ctx.font = font;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  for (const l of labels) {
+    const text = fitText(ctx, font, l.text, plotPx - inset * 2 - padX * 2);
+    const w = labelWidth(ctx, font, text) + padX * 2;
+    // On screen where the plot is, and on the plot where the screen is.
+    const onScreen = Math.min(Math.max(l.left + plotPx / 2, inset + w / 2), width - inset - w / 2);
+    const x = Math.min(Math.max(onScreen, l.left + w / 2), l.left + plotPx - w / 2);
+    const lowest = l.top + plotPx - tagH - inset;
+    const y = Math.min(Math.max(l.top + inset, labelTop + inset), lowest);
+    if (y + tagH < 0 || y > height) continue;
+    ctx.globalAlpha = l.fade * 0.92;
+    ctx.fillStyle = "rgba(255, 250, 240, 0.86)";
+    ctx.strokeStyle = l.mine ? CLAY : PAPER_EDGE;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(x - w / 2, y, w, tagH, tagH / 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = l.mine ? CLAY_DEEP : INK;
+    ctx.fillText(text, x, y + tagH / 2 + 0.5);
+  }
+  ctx.globalAlpha = 1;
+}
+
 export interface RenderState {
   mirror: Mirror;
   me: string | undefined;
@@ -1534,6 +1588,11 @@ export interface RenderState {
   pets?: PetMotion;
   /** The server's clock, ms, which pets plan their days by. */
   clock?: number;
+  /**
+   * How far down the screen, in CSS pixels, the top bar and the visit card reach. A plot's name
+   * slides down below them rather than sit under them. Absent: the top of the screen.
+   */
+  labelTop?: number;
 }
 
 /** A pet's box across, in tiles: about half a resident's height. */
@@ -1590,6 +1649,7 @@ export function render(
     sky,
     pets,
     clock,
+    labelTop = 0,
   }: RenderState,
 ) {
   const { width, height, scale } = cam;
@@ -1705,12 +1765,21 @@ export function render(
   const py0 = Math.floor(y0 / S);
   const py1 = Math.floor(y1 / S);
   const plotPx = S * scale;
+  // Named plots near you, or every one on a map drawn big (decision 0121), labelled after the
+  // night so they stay readable.
+  const here = { x: Math.round(cam.cx), y: Math.round(cam.cy) };
+  const plotLabels: { text: string; left: number; top: number; fade: number; mine: boolean }[] = [];
   for (let py = py0; py <= py1; py++) {
     for (let px = px0; px <= px1; px++) {
       const { sx, sy } = tileToScreen(cam, px * S, py * S);
       const left = Math.round(sx - half);
       const top = Math.round(sy - half);
       const owner = mirror.plots.get(plotKey(px, py));
+      const named = owner ? mirror.plotNames.get(plotKey(px, py)) : undefined;
+      const fade = named ? plotLabelFade(plotDistance(config, here, px, py), scale) : 0;
+      if (named && fade > 0) {
+        plotLabels.push({ text: named, left, top, fade, mine: owner === me });
+      }
       const isCommons = px === commons.px && py === commons.py;
       ctx.setLineDash([]);
       if (owner) {
@@ -2253,6 +2322,11 @@ export function render(
         ctx.fill();
       });
     }
+  }
+
+  // ---- plots' names, softly, along the top of each named plot near you (decision 0121) ----
+  if (plotLabels.length > 0) {
+    paintPlotLabels(ctx, plotLabels, { plotPx, scale, width, height, labelTop });
   }
 
   // ---- name labels on little paper tags, above the night so they stay readable ----

@@ -77,9 +77,9 @@ Admiring earns no coins and no karma.
 
 ### 3. Visitors and admirers this week
 
-Each accepted `visit` is also a row (visitor, plot, owner, UTC day), so a plot can show how many neighbors came by. A visit by the plot's household (your own AI visiting your plot) isn't counted. A plot shows two numbers, each counting distinct residents over the last 7 UTC days, today included:
+Each accepted `visit` is also a row (visitor, plot, owner, UTC day), so a plot can show how many neighbors came by. So is walking in: a resident's own `move`, or a step of their own `putter`, that lands on someone else's plot, once a UTC day per visitor and plot, never across a block either way, and never on a suspended owner's plot ([decision 0092](../knowledge/decisions/0092-admiring-a-plot-is-a-social-row-from-on-or-beside-it-once-a-.md)). A routine's steps are the town's, so they don't count. A visit by the plot's household (your own AI visiting your plot) isn't counted either way. A plot shows two numbers, each counting distinct residents over the last 7 UTC days, today included:
 
-- `visitors`: residents who visited it with `visit`.
+- `visitors`: residents who visited it with `visit` or walked onto it.
 - `admirers`: residents who admired it.
 
 Both count only while the same resident owns the plot. Who came is never shown; the residents get a notice only for an admire.
@@ -181,7 +181,7 @@ On the first boot after the deploy every plot's `changedAt` is the day it was cl
 - Ask for a visit even on the plot. Someone who walked onto a plot could never admire it, because `visit` refuses a plot you're already on, and the card in the world offers Admire there.
 - Let admiring feed karma. It would make plots a karma farm (a pretty plot is easy to make with free blocks), and karma already counts appreciation of people's posts and things they made. Kept out on purpose. The rows are kept, so karma can weigh them later if it ever needs to.
 - Plot photos for the cards. A photo (decision 0048) is drawn by the Worker and stored as a 100 KB upload that counts against the resident's daily uploads, and it's stale as soon as anything changes. Twenty cards would be two megabytes on a phone, and photos would need someone to take them. The browser already has the world snapshot and its palette, and a 64-tile canvas costs nothing.
-- Count every walk-in as a visitor, including putters that end on a neighbor's plot. Putters wander onto neighbors' plots on purpose, so the count would mostly measure agents' daily walks. Only a `visit` counts, because only a visit means someone chose to come.
+- Count only `visit`, never a walk-in. Putters wander onto neighbors' plots on purpose, so walk-ins raise the count for agents' daily walks too. But someone who walked over came by as much as someone who jumped, and without a visit they couldn't admire from beside the plot. Walking in counts, once a day per plot.
 - Notify on every visit. A notice each time someone comes by would be noise, and it would make the world feel watched. The weekly count is enough, and a notice comes only with an admire.
 
 ## Open questions

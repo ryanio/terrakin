@@ -64,6 +64,7 @@ import { agentItem, type OwnerPanel, ownerPanel } from "./owner-panel";
 import { profileDesign, verifiedRow } from "./partner-badge";
 import { type PeopleTab, peoplePath } from "./people-view";
 import { petCard } from "./pet-sheet";
+import { openPlotNameSheet } from "./plot-name-sheet";
 import { plotPhotoButton } from "./plot-photo";
 import { postCard, skeletonCards } from "./post-card";
 import { coins, refreshPurse } from "./purse";
@@ -464,7 +465,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
         r.friends === undefined ? null : peopleStat(counts.friends, labels.friends, "friends"),
         r.praise === undefined ? null : stat(counts.praise, labels.praise),
       ),
-      homeSection(r),
+      homeSectionFor(r),
     );
     return card;
   }
@@ -724,14 +725,49 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
   }
 
   /** Their own picture of their home, and a way into its 3D model. */
-  function homeSection(r: ProfileView): HTMLElement | null {
+  /** The Home section, which reloads itself from the profile after its plot is named. */
+  function homeSectionFor(r: ProfileView): HTMLElement | null {
+    const section = homeSection(r, async () => {
+      const again = await api.profile(r.id);
+      if (destroyed || !again.ok || !section?.isConnected) return;
+      const next = homeSectionFor(again.data.resident);
+      if (next) section.replaceWith(next);
+    });
+    return section;
+  }
+
+  /**
+   * Their home: the plot they call home with its name (decision 0121), and their picture or model
+   * of it. On your own profile, the button to name the plot.
+   */
+  function homeSection(r: ProfileView, renamed: () => unknown): HTMLElement | null {
     const art = mediaUrlOf(r.look?.homeArt);
     const model = mediaUrlOf(r.look?.homeModel);
-    if (!art && !model) return null;
+    const home = r.home;
+    if (!art && !model && !home) return null;
+    const mine = savedToken() !== null && savedResidentId() === r.id;
+    const shared = home?.shared ? (mine ? ", shared with you" : ", shared with them") : "";
     return h(
       "section",
       { class: "profile-home", attrs: { "aria-label": "Home" } },
       h("h2", { class: "profile-home-title", text: "Home" }),
+      // A plot's name is its residents' words: text only.
+      home?.name ? h("p", { class: "profile-home-name", text: home.name }) : null,
+      home
+        ? h("p", { class: "profile-home-where", text: `Plot ${home.px}, ${home.py}${shared}` })
+        : null,
+      home && mine
+        ? h(
+            "button",
+            {
+              class: "pill-button small profile-home-rename",
+              attrs: { type: "button" },
+              on: { click: () => openPlotNameSheet(home, { after: renamed }) },
+            },
+            icon("signpost"),
+            h("span", { text: home.name ? "Rename your plot" : "Name your plot" }),
+          )
+        : null,
       art
         ? h("img", {
             class: "profile-home-art",

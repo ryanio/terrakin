@@ -1,11 +1,12 @@
 /**
- * The card in the world while you stand on someone else's plot (RFC 0020): whose plot it is, this
- * week's visitors and admirers, Admire, and Next plot, which visits the next plot in the Visit
- * page's order so you can tour the town without leaving the world. On October 31 and November 1 it
- * also has Trick or treat (RFC 0022), shown by the sim's own `trickOrTreatDay`, which knocks at the
- * plot's door.
- * `world.ts` calls `update` every frame with where the server has you; the card only changes when
- * the plot under you, or the world's day, does. Names are residents' words: text only.
+ * The card in the world while you stand on a plot someone lives on (RFC 0020): the plot's name and
+ * whose plot it is (decision 0121), this week's visitors and admirers, and Next plot, which visits
+ * the next plot in the Visit page's order so you can tour the town without leaving the world. On
+ * someone else's plot it has Admire, and on October 31 and November 1 Trick or treat (RFC 0022),
+ * shown by the sim's own `trickOrTreatDay`, which knocks at the plot's door. On your own, or one
+ * shared with you, it has Name your plot instead. `world.ts` calls `update` every frame with where
+ * the server has you; the card only changes when the plot under you, its name, or the world's day
+ * does. Names are residents' words: text only.
  */
 import type { PlotView } from "@terrakin/protocol";
 import { canBuildOn, plotKey, plotOf, trickOrTreatDay } from "@terrakin/sim";
@@ -13,6 +14,7 @@ import { profilePath } from "@terrakin/ui/paths";
 import { whileBusy } from "@terrakin/ui/ui";
 import { api } from "./api";
 import type { Mirror } from "./mirror";
+import { openPlotNameSheet } from "./plot-name-sheet";
 import { nextPlot, plotName, weekLine } from "./visits";
 
 /** How long the tour's list of plots is good for before Next plot asks again. */
@@ -47,14 +49,19 @@ export interface VisitCard {
   refused(id: string, code?: string): void;
   /** You knocked at plot (px, py) tonight: the server said so with `trick_or_treated`. */
   knocked(px: number, py: number): void;
+  /** How far down the screen the card reaches, in CSS pixels: 0 while it's hidden. */
+  bottom(): number;
 }
 
 export function visitCard(o: VisitCardOptions): VisitCard {
   const el = $("visit-card");
   const owner = $<HTMLAnchorElement>("visit-card-owner");
+  const whose = $("visit-card-whose");
   const week = $("visit-card-week");
   const admire = $<HTMLButtonElement>("visit-admire");
   const admireLabel = admire.querySelector("span") as HTMLSpanElement;
+  const nameIt = $<HTMLButtonElement>("visit-name");
+  const nameLabel = nameIt.querySelector("span") as HTMLSpanElement;
   const knock = $<HTMLButtonElement>("visit-knock");
   const knockLabel = knock.querySelector("span") as HTMLSpanElement;
   const next = $<HTMLButtonElement>("visit-next");
@@ -63,6 +70,9 @@ export function visitCard(o: VisitCardOptions): VisitCard {
   let key: string | null = null;
   let plot: { px: number; py: number } | null = null;
   let me: string | null = null;
+  /** Whether it's yours or shared with you, and its name as the mirror has it. */
+  let yours = false;
+  let named: string | undefined;
   /** Bumped whenever the card moves to another plot, so a late answer for the last one is dropped. */
   let generation = 0;
   /** Where you were and the mirror's `seq` at the last look, so a still frame does no work. */
@@ -77,11 +87,11 @@ export function visitCard(o: VisitCardOptions): VisitCard {
   let knocking: { id: string; key: string } | null = null;
 
   /**
-   * Trick or treat: there on October 31 and November 1 only, and "Knocked" once you have at this
-   * door that UTC day.
+   * Trick or treat: there on October 31 and November 1 only, at a neighbor's door, and "Knocked"
+   * once you have at this door that UTC day.
    */
   function paintKnock() {
-    knock.hidden = !trickOrTreatDay(day);
+    knock.hidden = yours || !trickOrTreatDay(day);
     const done = key !== null && knocked.has(key);
     knockLabel.textContent = done ? "Knocked" : "Trick or treat";
     knock.disabled = done || (knocking !== null && knocking.key === key);
@@ -99,19 +109,33 @@ export function visitCard(o: VisitCardOptions): VisitCard {
     }
   }
 
-  function show(mirror: Mirror, px: number, py: number) {
-    generation++;
-    key = plotKey(px, py);
-    plot = { px, py };
+  /** The plot's name as the title, with whose it is under it; whose it is alone without a name. */
+  function paintNames(mirror: Mirror) {
+    if (key === null) return;
     const ownerId = mirror.plots.get(key) ?? "";
+    named = mirror.plotNames.get(key);
     const names = [ownerId, ...(mirror.coOwners.get(key) ?? [])].map(
       (id) => mirror.residents.get(id)?.name ?? "A neighbor",
     );
-    owner.textContent = plotName(names);
+    const whoseLine = ownerId === me ? "Your plot" : plotName(names);
+    owner.textContent = named ?? whoseLine;
     owner.href = profilePath(ownerId);
+    whose.textContent = named ? whoseLine : "";
+    whose.hidden = !named;
+    nameLabel.textContent = named ? "Rename" : "Name your plot";
+  }
+
+  function show(mirror: Mirror, px: number, py: number, own: boolean) {
+    generation++;
+    key = plotKey(px, py);
+    plot = { px, py };
+    yours = own;
+    paintNames(mirror);
     week.textContent = "";
+    admire.hidden = own;
     admire.disabled = false;
     admireLabel.textContent = "Admire";
+    nameIt.hidden = !own;
     paintKnock();
     el.hidden = false;
     const mine = generation;
@@ -127,6 +151,11 @@ export function visitCard(o: VisitCardOptions): VisitCard {
     looked = "";
     el.hidden = true;
   }
+
+  nameIt.addEventListener("click", () => {
+    if (!plot) return;
+    openPlotNameSheet({ ...plot, name: named }, { say: o.toast });
+  });
 
   admire.addEventListener("click", async () => {
     const here = plot;
@@ -187,14 +216,14 @@ export function visitCard(o: VisitCardOptions): VisitCard {
       if (look === looked) return;
       looked = look;
       const ownerId = mirror.plots.get(here);
-      const yours =
-        ownerId !== undefined &&
-        canBuildOn({ ownerId, coOwners: [...(mirror.coOwners.get(here) ?? [])] }, who);
-      if (ownerId === undefined || yours) {
+      if (ownerId === undefined) {
         if (key !== null) hide();
         return;
       }
-      if (here !== key) show(mirror, px, py);
+      const own = canBuildOn({ ownerId, coOwners: [...(mirror.coOwners.get(here) ?? [])] }, who);
+      // A share given or taken back changes which card this is; anything else, only its words.
+      if (here !== key || own !== yours) show(mirror, px, py, own);
+      else paintNames(mirror);
     },
     hide,
     refused(id, code) {
@@ -216,5 +245,7 @@ export function visitCard(o: VisitCardOptions): VisitCard {
       if (knocking?.key === at) knocking = null;
       if (key !== null) paintKnock();
     },
+    // Hidden by the stylesheet too, while chat is open or building: then it has no height.
+    bottom: () => (el.hidden ? 0 : el.getBoundingClientRect().bottom),
   };
 }

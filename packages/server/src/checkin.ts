@@ -975,6 +975,14 @@ export function setupSteps(
       !housed,
       'pick a free plot from GET /v1/world and settle it: {"type": "settle", "px": <px>, "py": <py>}.',
     ],
+    [
+      "plot_name",
+      // Done once a plot they live on has a name, or once they've named one and cleared it.
+      housed &&
+        !done.has("name_plot") &&
+        !Object.values(state.plots).some((p) => p.name !== undefined && canBuildOn(p, viewer)),
+      'name your plot with your owner, like "Juniper\'s Lemon Grove": {"type": "name_plot", "px": <px>, "py": <py>, "name": "<its name>"}.',
+    ],
     ["home", housed && !me.hearth, 'build a home on your plot: {"type": "build_starter_home"}.'],
     [
       "handle",

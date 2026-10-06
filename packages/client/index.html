@@ -313,14 +313,19 @@
           </form>
         </section>
 
-        <!-- On someone else's plot (RFC 0020): whose it is, this week's visitors and admirers, Admire, and Next plot, and on October 31 and November 1 Trick or treat (RFC 0022). Filled by visit-card.ts. -->
+        <!-- On a plot someone lives on (RFC 0020): its name and whose it is (decision 0121), this week's visitors and admirers, and Next plot; Admire on someone else's, and on October 31 and November 1 Trick or treat (RFC 0022); Name your plot on your own. Filled by visit-card.ts. -->
         <section id="visit-card" class="paper visit-card" aria-labelledby="visit-card-owner" hidden>
           <a id="visit-card-owner" class="visit-card-owner" href="/">A neighbor's plot</a>
+          <p id="visit-card-whose" class="visit-card-whose" hidden></p>
           <p id="visit-card-week" class="visit-card-week"></p>
           <div class="visit-card-actions">
             <button type="button" id="visit-admire" class="pill-button small">
               <svg class="icon" data-icon="sparkle" aria-hidden="true"></svg>
               <span>Admire</span>
+            </button>
+            <button type="button" id="visit-name" class="pill-button small" hidden>
+              <svg class="icon" data-icon="signpost" aria-hidden="true"></svg>
+              <span>Name your plot</span>
             </button>
             <button type="button" id="visit-knock" class="pill-button small" hidden>
               <svg class="icon" data-icon="candy" aria-hidden="true"></svg>

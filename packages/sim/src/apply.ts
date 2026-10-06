@@ -117,6 +117,7 @@ import {
   type PetsChecked,
   petView,
 } from "./pets";
+import { checkClearPlotName, checkNamePlot } from "./plot-names";
 import { checkImplicitPresence, checkLeaveIdle, type PresenceChecked } from "./presence";
 import { isDirection, PUTTER_MAX_STEPS } from "./putter";
 import { checkRoutineStep, checkSetRoutines, type RoutinesChecked } from "./routines";
@@ -667,6 +668,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return town(checkRemoveListing(state, command));
       case "remove_display":
         return town(checkRemoveDisplay(state, command));
+      case "clear_plot_name":
+        return town(checkClearPlotName(state, command));
       case "set_entitlements":
         return town(checkSetEntitlements(state, command));
       case "open_bounties":
@@ -1204,6 +1207,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       return town(checkAdmire(state, actor, command));
     case "set_gallery":
       return town(checkSetGallery(state, actor, command));
+    case "name_plot":
+      return town(checkNamePlot(state, actor, command));
 
     case "shop_buy":
       return town(checkShopBuy(state, actor, command));

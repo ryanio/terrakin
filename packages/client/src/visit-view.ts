@@ -1,8 +1,9 @@
 /**
  * `/visit`: plots to visit (RFC 0020). Every plot someone lives on as a card: a drawing of it from
- * above, whose it is, when it last changed, and this week's visitors and admirers, with a Visit
- * button that jumps you there and opens the world. Newest change first, or most admired. The
- * Galleries page is the other tab of the same place. Names are residents' words: text only.
+ * above, its name (decision 0121) and whose it is, when it last changed, and this week's visitors
+ * and admirers, with a Visit button that jumps you there and opens the world. Newest change first,
+ * or most admired. The Galleries page is the other tab of the same place. Names are residents'
+ * words: text only.
  */
 import { PLOT_SORTS, type PlotSort, type PlotView, type WorldSnapshot } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
@@ -14,7 +15,7 @@ import { savedResidentId, savedToken } from "./net";
 import { plotThumb } from "./plot-thumb";
 import { skeletonCards } from "./post-card";
 import { errorCard, type View, type ViewContext } from "./view";
-import { isMine, plotName, weekLine } from "./visits";
+import { isMine, plotTitles, weekLine } from "./visits";
 
 const SORT_WORDS: Record<PlotSort, string> = {
   recent: "Recently changed",
@@ -53,7 +54,7 @@ async function visit(
  * yours. `me` is null without a saved key.
  */
 export function visitButton(
-  plot: Pick<PlotView, "px" | "py" | "owner" | "coOwners">,
+  plot: Pick<PlotView, "px" | "py" | "owner" | "coOwners" | "name">,
   me: string | null,
   navigate: (path: string) => void,
   className = "",
@@ -70,7 +71,7 @@ export function visitButton(
     "button",
     {
       class: `pill-button small visit-button ${className}`.trim(),
-      attrs: { type: "button", "aria-label": `Visit ${plotName([plot.owner.name])}` },
+      attrs: { type: "button", "aria-label": `Visit ${plotTitles(plot, [plot.owner.name]).title}` },
     },
     icon("world"),
     h("span", { text: "Visit" }),
@@ -116,7 +117,10 @@ function changedLine(plot: PlotView): HTMLElement | null {
   return h("span", { class: "plot-card-changed" }, "Changed ", when);
 }
 
-/** One plot to visit: its drawing, whose it is, how lately it changed, and this week's counts. */
+/**
+ * One plot to visit: its drawing, its name and whose it is, how lately it changed, and this week's
+ * counts.
+ */
 export function plotCard(
   plot: PlotView,
   world: WorldSnapshot | undefined,
@@ -124,17 +128,21 @@ export function plotCard(
   navigate: (path: string) => void,
 ): HTMLElement {
   const people = [plot.owner, ...plot.coOwners];
-  const name = plotName(people.map((p) => p.name));
+  const { title } = plotTitles(
+    plot,
+    people.map((p) => p.name),
+  );
   return h(
     "section",
     {
       class: "paper card plot-card",
-      attrs: { "data-plot": `${plot.px},${plot.py}`, "aria-label": name },
+      attrs: { "data-plot": `${plot.px},${plot.py}`, "aria-label": title },
     },
-    world ? plotThumb(world, plot, `${name}, from above`) : h("span", { class: "plot-thumb" }),
+    world ? plotThumb(world, plot, `${title}, from above`) : h("span", { class: "plot-thumb" }),
     h(
       "div",
       { class: "stack tight plot-card-body" },
+      plot.name ? h("h2", { class: "plot-card-name", text: plot.name }) : null,
       h("div", { class: "cluster plot-card-people" }, ...people.map((p) => personLink(p))),
       changedLine(plot),
       h("span", { class: "plot-card-week", text: weekLine(plot) }),

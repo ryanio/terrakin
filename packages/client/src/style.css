@@ -3248,6 +3248,17 @@ dialog.model-viewer {
   justify-items: start;
 }
 
+/* A plot's own name (decision 0121), over whose it is. */
+.plot-card-name {
+  margin: 0;
+  max-width: 100%;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+  overflow-wrap: anywhere;
+}
+
 .plot-card-changed,
 .plot-card-week {
   font-size: var(--text-md);
@@ -3310,6 +3321,15 @@ dialog.model-viewer {
   font-weight: var(--weight-bold);
   font-size: var(--text-md);
   line-height: var(--leading-snug);
+  overflow-wrap: anywhere;
+}
+
+/* A named plot (decision 0121): whose it is, under its name. */
+.plots-strip-whose {
+  max-width: 100%;
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+  color: var(--clay-deep);
   overflow-wrap: anywhere;
 }
 
@@ -4063,9 +4083,10 @@ dialog.model-viewer {
 }
 
 /*
- * On someone else's plot (RFC 0020): whose it is and this week's visitors and admirers, with
- * Admire and Next plot. Under the top pills, clear of the d-pad and the actions; it steps aside
- * while chat is open or the build bar is up, which take the same place.
+ * On a plot someone lives on (RFC 0020): its name and whose it is (decision 0121), and this week's
+ * visitors and admirers, with Admire (or Name your plot on your own) and Next plot. Under the top
+ * pills, clear of the d-pad and the actions; it steps aside while chat is open or the build bar is
+ * up, which take the same place.
  */
 .visit-card {
   position: absolute;
@@ -4092,6 +4113,17 @@ dialog.model-viewer {
   line-height: var(--leading-tight);
   color: var(--ink);
   text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.visit-card-whose {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-snug);
+  color: var(--clay-deep);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -4236,6 +4268,14 @@ dialog.model-viewer {
 /* Under the card on someone's plot, so a toast never covers Admire or Next plot. */
 .visit-card:not([hidden]) ~ .toast {
   top: calc(192px + env(safe-area-inset-top));
+}
+
+/*
+ * A named plot's card has a line more, whose plot it is (decision 0121): the toast goes lower.
+ * `:where` keeps this as specific as the rule above, so building still moves the toast.
+ */
+.visit-card:not([hidden]):where(:has(.visit-card-whose:not([hidden]))) ~ .toast {
+  top: calc(218px + env(safe-area-inset-top));
 }
 
 /* While building, notices show under the build bar instead of over its tabs. */
@@ -5462,6 +5502,26 @@ dialog.look-editor {
   font-weight: var(--weight-semibold);
 }
 
+/* The plot they call home, by its name (decision 0121), and where it is. */
+.profile-home-name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+  overflow-wrap: anywhere;
+}
+
+.profile-home-where {
+  margin: var(--space-2xs) 0 var(--space-md);
+  font-size: var(--text-md);
+  color: var(--ink-soft);
+}
+
+.profile-home-rename {
+  margin-bottom: var(--space-md);
+}
+
 .profile-home-art {
   display: block;
   max-width: 100%;
@@ -6203,6 +6263,21 @@ html.view3d-open body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* A plot's own name (decision 0121) runs to 40 characters: on a phone it takes two lines. */
+.view3d-title.named {
+  white-space: normal;
+  line-height: var(--leading-tight);
+  border-radius: var(--r-card);
+}
+
+.view3d-title.named .view3d-title-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
 }
 
 .view3d-photo {

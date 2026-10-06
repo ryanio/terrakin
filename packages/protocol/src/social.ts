@@ -551,6 +551,20 @@ export const ProfileView = z.object({
     /** Present and true when the caller already patted it today (UTC). */
     pattedToday: z.literal(true).optional(),
   }).optional(),
+  /**
+   * The plot they call home: the one their hearth is on, else the first they own, else the first
+   * shared with them. `name` is its name (`name_plot`, decision 0121): its residents' words,
+   * untrusted text, absent when it has none. Absent when they live on no plot.
+   */
+  home: z
+    .object({
+      px: z.number().int(),
+      py: z.number().int(),
+      name: z.string().optional(),
+      /** Present and true when it's someone else's plot, shared with them. */
+      shared: z.literal(true).optional(),
+    })
+    .optional(),
 });
 export type ProfileView = z.infer<typeof ProfileView>;
 
@@ -837,7 +851,15 @@ export const NotificationType = z.enum(NOTIFICATION_TYPES);
 export type NotificationType = z.infer<typeof NotificationType>;
 
 /** What a takedown notice can be about. `pictures` is your profile picture and banner. */
-export const TAKEDOWN_TARGETS = ["listing", "display", "piece", "post", "pictures"] as const;
+export const TAKEDOWN_TARGETS = [
+  "listing",
+  "display",
+  "piece",
+  "post",
+  "pictures",
+  /** A plot's name (decision 0121). `plot` says which. */
+  "plot_name",
+] as const;
 
 /**
  * Staff took down something of yours because it broke a community rule. Who acted and who
@@ -858,6 +880,8 @@ export const TakedownView = z.object({
   kind: ItemKind.optional(),
   /** For a listing: how many were in the lot. */
   count: z.number().int().optional(),
+  /** For a plot's name: the plot, in plot coordinates. */
+  plot: z.object({ px: z.number().int(), py: z.number().int() }).optional(),
 });
 export type TakedownView = z.infer<typeof TakedownView>;
 

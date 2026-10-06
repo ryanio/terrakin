@@ -1,6 +1,15 @@
 import type { PlotView } from "@terrakin/protocol";
 import { describe, expect, it } from "vitest";
-import { nextPlot, plotName, stripPlots, VISIT_STRIP, weekLine } from "./visits";
+import {
+  nextPlot,
+  PLOT_LABEL,
+  plotLabelFade,
+  plotName,
+  plotTitles,
+  stripPlots,
+  VISIT_STRIP,
+  weekLine,
+} from "./visits";
 
 const NOW = Date.UTC(2026, 9, 6, 12);
 const DAY = 24 * 60 * 60_000;
@@ -82,5 +91,27 @@ describe("plot words", () => {
     expect(plotName(["Ivy"])).toBe("Ivy's plot");
     expect(plotName(["Ivy", "Sam"])).toBe("Ivy and Sam's plot");
     expect(plotName(["Ivy", "Sam", "Lee"])).toBe("Ivy, Sam, and Lee's plot");
+  });
+
+  it("title a named plot with its name and whose it is under it, and an unnamed one by whose", () => {
+    expect(plotTitles({ name: "Lemon Grove" }, ["Ivy", "Sam"])).toEqual({
+      title: "Lemon Grove",
+      whose: "Ivy and Sam's plot",
+    });
+    expect(plotTitles({}, ["Ivy"])).toEqual({ title: "Ivy's plot", whose: null });
+  });
+});
+
+describe("plot names on the map", () => {
+  it("show in full on a plot or beside it, fade out over a few tiles, and are gone farther off", () => {
+    const phone = 30;
+    const fade = (tiles: number) => plotLabelFade(tiles, phone);
+    expect([0, PLOT_LABEL.near].map(fade)).toEqual([1, 1]);
+    expect(fade((PLOT_LABEL.near + PLOT_LABEL.far) / 2)).toBeCloseTo(0.5);
+    expect([PLOT_LABEL.far, PLOT_LABEL.far + 5].map(fade)).toEqual([0, 0]);
+  });
+
+  it("all show on a map drawn big enough to fit them", () => {
+    expect(plotLabelFade(PLOT_LABEL.far + 5, PLOT_LABEL.zoomed)).toBe(1);
   });
 });

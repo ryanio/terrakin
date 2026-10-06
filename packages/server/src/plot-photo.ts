@@ -34,6 +34,7 @@ import {
   type WorldState,
   worldGround,
 } from "@terrakin/sim";
+import { shownPlotName } from "./plots";
 
 /**
  * Plot photos (issue #34): a picture of a resident's plot, drawn with the world's own palette
@@ -83,10 +84,19 @@ export function photoPlot(state: WorldState, residentId: string) {
   );
 }
 
-/** The photo of `residentId`'s plot, from world state alone. Undefined when they have no plot. */
-export function plotPhotoSpec(state: WorldState, residentId: string): PlotPhotoSpec | undefined {
+/**
+ * The photo of `residentId`'s plot, from world state alone. Undefined when they have no plot. Its
+ * name is the photo's title (decision 0121), unless `held` says staff hold back the words of
+ * whoever named it.
+ */
+export function plotPhotoSpec(
+  state: WorldState,
+  residentId: string,
+  held: (id: string) => boolean = () => false,
+): PlotPhotoSpec | undefined {
   const plot = photoPlot(state, residentId);
   if (!plot) return undefined;
+  const title = shownPlotName(plot, held);
   const { config } = state;
   const S = config.plotSize;
   const x0 = plot.px * S;
@@ -175,6 +185,7 @@ export function plotPhotoSpec(state: WorldState, residentId: string): PlotPhotoS
   return {
     kind: "plot",
     name: owner?.name ?? "",
+    ...(title === undefined ? {} : { title }),
     place: `Plot ${plot.px}, ${plot.py}`,
     facts: [biomeLine(biomes), `${blocks.length} ${blocks.length === 1 ? "block" : "blocks"}`],
     size: S,

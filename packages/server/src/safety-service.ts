@@ -60,6 +60,13 @@ export interface SafetyOptions {
     | undefined;
   /** A hosted event from the world, for reports on one. Its author is its host. Default: none. */
   event?: ((id: string) => { author: string; title: string; text: string } | undefined) | undefined;
+  /**
+   * The names on plots a resident owns or named (the sim's `plotNamesOf`), for reports on them
+   * (decision 0121). Default: none.
+   */
+  plotNames?:
+    | ((id: string) => readonly { px: number; py: number; name: string; namedBy: string }[])
+    | undefined;
   /** A post's files, as its view shows them. */
   postMedia: (postId: string) => MediaView[];
   /** A resident's avatar and banner files, so a profile report shows its pictures. */
@@ -822,8 +829,18 @@ export class SafetyService {
       const bio = this.rows("SELECT bio FROM profiles WHERE resident_id = ?", id)[0]?.bio;
       // Their pet's name is their words too (RFC 0019), and a quarantine holds it back with them.
       const pet = r.pet ? `Their ${r.pet.kind}: ${r.pet.name}` : "";
-      return base(id, [r.name, r.note, String(bio ?? ""), pet].filter(Boolean).join("\n"), {
+      // So are the names of their plots, and names they wrote on plots shared with them (decision
+      // 0121). A name someone else wrote on their plot says who.
+      const plots = this.o.plotNames?.(id) ?? [];
+      const plotLines = plots.map((p) => {
+        const by =
+          p.namedBy === id ? "" : `, named by ${this.o.author(p.namedBy)?.name ?? p.namedBy}`;
+        return `Plot (${p.px}, ${p.py})${by}: ${p.name}`;
+      });
+      const text = [r.name, r.note, String(bio ?? ""), pet, ...plotLines].filter(Boolean);
+      return base(id, text.join("\n"), {
         media: this.o.profileMedia(id),
+        ...(plots.length > 0 ? { plotNames: plots.length } : {}),
       });
     }
     if (kind === "letter") {

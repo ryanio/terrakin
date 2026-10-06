@@ -209,6 +209,11 @@ export interface SocialServiceOptions {
   /** A hosted event, for reports on one; `author` is its host. Default: none exist. */
   event?: (id: string) => { author: string; title: string; text: string } | undefined;
   /**
+   * The names on plots a resident owns or named, from the world (the sim's `plotNamesOf`), for
+   * reports on them (decision 0121). Default: none.
+   */
+  plotNames?: (id: string) => readonly { px: number; py: number; name: string; namedBy: string }[];
+  /**
    * Residents who can work the review queue but hold no other maintainer powers
    * (`TERRAKIN_MODERATORS`, RFC 0006). A server grant, like maintainers.
    */
@@ -566,6 +571,7 @@ export class SocialService {
       proposal: options.proposal ?? (() => undefined),
       bounty: options.bounty,
       event: options.event,
+      plotNames: options.plotNames,
       postMedia: (postId) => this.mediaFor([postId]).get(postId) ?? [],
       profileMedia: (residentId) => this.profileMedia(residentId),
       uploadMedia: (mediaId) => this.uploadMedia(mediaId),
@@ -590,6 +596,7 @@ export class SocialService {
       household: (a, b) => (this.ownerOf(a) ?? a) === (this.ownerOf(b) ?? b),
       ageDays: options.residentAgeDays ?? (() => Number.POSITIVE_INFINITY),
       suspended: (id) => this.safety.suspendedUntil(id) !== undefined,
+      held: (id) => this.safety.isQuarantined(id),
       notify: (recipient, actor, plot) =>
         this.notify(recipient, actor, "plot_admired", "", `${plot.px},${plot.py}`),
     });

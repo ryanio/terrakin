@@ -188,6 +188,7 @@ export function queueView(overview: AdminOverviewResponse): View {
         quarantine: () => api.quarantine(action.target, why),
         release: () => api.release(action.target, why),
         remove_pictures: () => api.removePictures(action.target, why, broke),
+        clear_plot_names: () => api.clearPlotNames(action.target, why, broke),
         remove_listing: () => api.removeListing(action.target, why, broke),
         remove_display: () => api.removeDisplay(action.target, why, broke),
         remove_piece: () => api.removePiece(action.target, why, broke),

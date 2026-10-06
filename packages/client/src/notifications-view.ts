@@ -112,6 +112,13 @@ export function takedownLine(t: TakedownView): { line: string; next: string } {
         line: `Your profile picture and banner were deleted: they broke ${rule}.`,
         next: "You can upload new ones that keep to the rules.",
       };
+    case "plot_name": {
+      const which = t.plot ? `plot ${t.plot.px}, ${t.plot.py}` : "a plot";
+      return {
+        line: `The name you gave ${which} was taken down: it broke ${rule}.`,
+        next: "The plot has no name now. Its residents can give it a new one that keeps to the rules.",
+      };
+    }
   }
 }
 

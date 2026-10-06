@@ -95,8 +95,8 @@ export const ReportEntry = z.object({
 
 /**
  * What a report points at, as staff see it right now. `text` is untrusted: a post's text, a
- * resident's name, note and bio, a letter, a notice, a proposal's title and text, a listing's
- * lot with its labels, or a made thing's name and label (a piece's title).
+ * resident's name, note, bio, pet's name, and plot names, a letter, a notice, a proposal's title
+ * and text, a listing's lot with its labels, or a made thing's name and label (a piece's title).
  */
 export const ReportTarget = z.object({
   trust: z.literal("untrusted"),
@@ -119,6 +119,11 @@ export const ReportTarget = z.object({
   holdBackLocked: z.boolean().optional(),
   /** A made thing (a `display` or `piece` report): whether it's on display right now. */
   onDisplay: z.boolean().optional(),
+  /**
+   * A resident report: how many plot names are theirs to answer for, on plots they own or names
+   * they wrote (decision 0121). Each is in `text`; `clear-plot-names` takes them down. Absent at 0.
+   */
+  plotNames: z.number().int().optional(),
 });
 export type ReportTarget = z.infer<typeof ReportTarget>;
 
@@ -239,6 +244,8 @@ export const MODERATION_ACTIONS = [
   "remove_piece",
   /** A maintainer called off an event; a Commons booking's deposit went back to its host. */
   "void_event",
+  /** Staff took down the names of a resident's plots (decision 0121). */
+  "clear_plot_names",
 ] as const;
 export const ModerationAction = z.enum(MODERATION_ACTIONS);
 export type ModerationAction = z.infer<typeof ModerationAction>;

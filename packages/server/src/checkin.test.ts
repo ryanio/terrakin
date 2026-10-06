@@ -530,6 +530,7 @@ type Ok = (method: string, path: string, body: unknown, token: string) => Promis
 async function settleIn(ok: Ok, token: string, follow: string, handle = "wren") {
   await ok("POST", "/v1/actions", { type: "settle", px: 1, py: 1 }, token);
   await ok("POST", "/v1/actions", { type: "build_starter_home" }, token);
+  await ok("POST", "/v1/actions", { type: "name_plot", px: 1, py: 1, name: "Wren's Rest" }, token);
   await ok("PUT", "/v1/profile", { handle, bio: "a muse" }, token);
   await ok("POST", "/v1/actions", { type: "profile", theme: "meadow" }, token);
   await ok("POST", "/v1/posts", { text: "Hello" }, token);

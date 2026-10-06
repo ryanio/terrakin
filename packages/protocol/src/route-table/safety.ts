@@ -243,6 +243,21 @@ export const SAFETY_ROUTES = [
     errors: ["bad_request", "unauthorized", "forbidden", "not_found"],
   },
   {
+    id: "clearPlotNames",
+    method: "POST",
+    path: "/v1/admin/residents/{id}/clear-plot-names",
+    auth: "staff",
+    internal: true,
+    summary: "Staff: take down the names of a resident's plots.",
+    description:
+      "Every name that's theirs to answer for comes down: on plots they own, and names they wrote on plots shared with them (decision 0121). Each one is logged in the world as `clear_plot_name`. Whoever wrote a name gets a takedown notice naming the rule. The day each was named stays, so no new name goes up on that plot the same day. Their open reports close. A resident with no plot names answers `not_found`.",
+    tags: ["Moderation"],
+    params: ResidentParams,
+    body: TakedownRequest,
+    responses: { 200: json(ModerationResponse) },
+    errors: ["bad_request", "unauthorized", "forbidden", "not_found"],
+  },
+  {
     id: "removeListing",
     method: "POST",
     path: "/v1/admin/listings/{id}/remove",

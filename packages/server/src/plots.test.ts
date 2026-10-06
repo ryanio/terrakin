@@ -32,75 +32,81 @@ afterEach(async () => {
 // biome-ignore lint/suspicious/noExplicitAny: the response checker already holds every body to its schema.
 type Json = Record<string, any>;
 
-describe("admiring a plot", () => {
-  /**
-   * Ivy owns plot (0, 0) and shares it with Dot; Felix is Ivy's AI. Wren lives on (4, 4), and the
-   * other plots in the top row belong to Ann, Bo, Cal, and Eli. Everyone has been here a while
-   * unless they're in `fresh`.
-   */
-  function town() {
-    const state = createWorld(CONFIG);
-    let now = NOON;
-    const blocked = new Set<string>();
-    const fresh = new Set(["new"]);
-    const suspended = new Set<string>();
-    const told: string[] = [];
-    const sql = nodeSql();
-    cleanups.push(() => sql.close());
-    const visits = new PlotVisits({
-      sql,
-      now: () => now,
-      exists: (id) => state.residents[id] !== undefined,
-      blockedEither: (a, b) => blocked.has([a, b].sort().join(" ")),
-      household: (a, b) => a === b || [a, b].sort().join(" ") === "felix ivy",
-      ageDays: (id) => (fresh.has(id) ? 0 : 30),
-      suspended: (id) => suspended.has(id),
-      notify: (to, from, plot) => told.push(`${from} -> ${to} (${plot.px}, ${plot.py})`),
-    });
-    /** Apply an input and hand what it did to the plot tables, as the world service does. */
-    const run = (actor: string, command: Command) => {
-      const result = apply(state, { actor, command });
-      expect(result.ok, `${actor} ${command.type}`).toBe(true);
-      if (result.ok) visits.noteCommitted(state, { actor, command }, result.events);
-    };
-    const plots: [string, number, number][] = [
-      ["ivy", 0, 0],
-      ["ann", 1, 0],
-      ["bo", 2, 0],
-      ["cal", 3, 0],
-      ["eli", 4, 0],
-      ["wren", 4, 4],
-    ];
-    for (const id of ["ivy", "dot", "felix", "ann", "bo", "cal", "eli", "wren", "zed", "new"]) {
-      run(id, { type: "join", name: id, kind: "human" });
-    }
-    for (const [id, px, py] of plots) run(id, { type: "settle", px, py });
-    run("ivy", { type: "share_plot", with: "dot" });
-    /** Jump to a plot the way the server sends a visit. */
-    const go = (actor: string, px: number, py: number) =>
-      run(actor, { type: "visit", px, py, ...visitTile(state, actor, px, py) });
-    const walk = (actor: string, dir: "e" | "w", tiles: number) => {
-      for (let i = 0; i < tiles; i++) run(actor, { type: "move", dir });
-    };
-    const admire = (actor: string, px: number, py: number) => visits.admire(state, actor, px, py);
-    const week = () => visits.facts().admirers;
-    return {
-      state,
-      run,
-      go,
-      walk,
-      admire,
-      week,
-      facts: (only?: { px: number; py: number }) => visits.facts(only),
-      told,
-      blocked,
-      suspended,
-      advance: (ms: number) => (now += ms),
-    };
+/**
+ * Ivy owns plot (0, 0) and shares it with Dot; Felix is Ivy's AI. Wren lives on (4, 4), and the
+ * other plots in the top row belong to Ann, Bo, Cal, and Eli. Everyone has been here a while
+ * unless they're in `fresh`.
+ */
+function admiring() {
+  const state = createWorld(CONFIG);
+  let now = NOON;
+  const blocked = new Set<string>();
+  const fresh = new Set(["new"]);
+  const suspended = new Set<string>();
+  const told: string[] = [];
+  const sql = nodeSql();
+  cleanups.push(() => sql.close());
+  const visits = new PlotVisits({
+    sql,
+    now: () => now,
+    exists: (id) => state.residents[id] !== undefined,
+    blockedEither: (a, b) => blocked.has([a, b].sort().join(" ")),
+    household: (a, b) => a === b || [a, b].sort().join(" ") === "felix ivy",
+    ageDays: (id) => (fresh.has(id) ? 0 : 30),
+    suspended: (id) => suspended.has(id),
+    notify: (to, from, plot) => told.push(`${from} -> ${to} (${plot.px}, ${plot.py})`),
+  });
+  /** Apply an input and hand what it did to the plot tables, as the world service does. */
+  const run = (actor: string, command: Command) => {
+    const result = apply(state, { actor, command });
+    expect(result.ok, `${actor} ${command.type}`).toBe(true);
+    if (result.ok) visits.noteCommitted(state, { actor, command }, result.events);
+  };
+  const plots: [string, number, number][] = [
+    ["ivy", 0, 0],
+    ["ann", 1, 0],
+    ["bo", 2, 0],
+    ["cal", 3, 0],
+    ["eli", 4, 0],
+    ["wren", 4, 4],
+  ];
+  for (const id of ["ivy", "dot", "felix", "ann", "bo", "cal", "eli", "wren", "zed", "new"]) {
+    run(id, { type: "join", name: id, kind: "human" });
   }
+  for (const [id, px, py] of plots) run(id, { type: "settle", px, py });
+  run("ivy", { type: "share_plot", with: "dot" });
+  /** Jump to a plot the way the server sends a visit. */
+  const go = (actor: string, px: number, py: number) =>
+    run(actor, { type: "visit", px, py, ...visitTile(state, actor, px, py) });
+  const walk = (actor: string, dir: "e" | "w", tiles: number) => {
+    for (let i = 0; i < tiles; i++) run(actor, { type: "move", dir });
+  };
+  const admire = (actor: string, px: number, py: number) => visits.admire(state, actor, px, py);
+  const week = () => visits.facts().admirers;
+  /** Every visit row, as "visitor (px, py) day", oldest first. */
+  const visitRows = () =>
+    [...sql.exec("SELECT visitor, px, py, day FROM plot_visits ORDER BY rowid")].map(
+      (r) => `${r.visitor} (${r.px}, ${r.py}) ${r.day}`,
+    );
+  return {
+    state,
+    run,
+    go,
+    walk,
+    admire,
+    week,
+    facts: (only?: { px: number; py: number }) => visits.facts(only),
+    visitRows,
+    told,
+    blocked,
+    suspended,
+    advance: (ms: number) => (now += ms),
+  };
+}
 
+describe("admiring a plot", () => {
   it("counts once a UTC day per resident per plot, from on it, or beside it after a visit this week", () => {
-    const t = town();
+    const t = admiring();
     // Wren stands on her own plot, far from Ivy's.
     expect(t.admire("wren", 0, 0)).toMatchObject({
       ok: false,
@@ -145,7 +151,7 @@ describe("admiring a plot", () => {
   });
 
   it("refuses your own plot, your household's, a block, a first day, and plots nobody lives on", () => {
-    const t = town();
+    const t = admiring();
     for (const id of ["felix", "zed", "new"]) t.go(id, 0, 0);
     t.blocked.add(["ivy", "zed"].sort().join(" "));
     const cases: [string, number, number, ErrorCode][] = [
@@ -173,7 +179,7 @@ describe("admiring a plot", () => {
   });
 
   it("reads one plot's rows alone for that plot's view", () => {
-    const t = town();
+    const t = admiring();
     for (const [px, py] of [
       [0, 0],
       [1, 0],
@@ -189,7 +195,7 @@ describe("admiring a plot", () => {
   });
 
   it("stops at the daily count, and opens again the next UTC day", () => {
-    const t = town();
+    const t = admiring();
     // Ten plots that aren't Wren's: she can admire all ten in a day.
     const state = t.state;
     const extra: [string, number, number][] = [
@@ -220,6 +226,65 @@ describe("admiring a plot", () => {
     });
     t.advance(DAY_MS);
     expect(t.admire("wren", 1, 2)).toEqual({ ok: true, value: null });
+  });
+});
+
+describe("walking onto a plot (decision 0092)", () => {
+  /** Ivy's plot (0, 0) covers x 0 to 7; Ann stands at (11, 3) on hers, next door. */
+  const today = Math.floor(NOON / DAY_MS);
+
+  it("counts a resident's own step onto someone else's plot as a visit, once a UTC day", () => {
+    const t = admiring();
+    t.walk("ann", "w", 4);
+    expect(t.state.residents.ann).toMatchObject({ x: 7, y: 3 });
+    // Back and forth across the edge, and further in: still one visit today.
+    t.walk("ann", "e", 1);
+    t.walk("ann", "w", 2);
+    expect(t.visitRows()).toEqual([`ann (0, 0) ${today}`]);
+    expect(t.facts().visitors.get("0,0|ivy")).toBe(1);
+    // A visit, so she can admire it from beside it, back on her own plot's edge.
+    t.walk("ann", "e", 2);
+    expect(t.state.residents.ann).toMatchObject({ x: 8 });
+    expect(t.admire("ann", 0, 0)).toEqual({ ok: true, value: null });
+    // The next UTC day it counts again.
+    t.advance(DAY_MS);
+    t.walk("ann", "w", 1);
+    expect(t.visitRows()).toEqual([`ann (0, 0) ${today}`, `ann (0, 0) ${today + 1}`]);
+  });
+
+  it("counts each plot a putter's steps land on", () => {
+    const t = admiring();
+    t.run("ann", { type: "putter", steps: ["w", "w", "w", "w"] });
+    expect(t.visitRows()).toEqual([`ann (0, 0) ${today}`]);
+  });
+
+  it("never counts the plot's household: its owner, who it's shared with, or their AI", () => {
+    const t = admiring();
+    // Dot shares Ivy's plot and Felix is Ivy's AI; both walk in from Ann's plot.
+    for (const id of ["dot", "felix"]) t.go(id, 1, 0);
+    expect(t.visitRows()).toEqual([`dot (1, 0) ${today}`, `felix (1, 0) ${today}`]);
+    for (const id of ["dot", "felix"]) {
+      while ((t.state.residents[id]?.x ?? 0) > 6) t.walk(id, "w", 1);
+    }
+    // Ivy walking about her own plot counts for nothing either.
+    t.walk("ivy", "e", 1);
+    expect(t.visitRows()).toEqual([`dot (1, 0) ${today}`, `felix (1, 0) ${today}`]);
+  });
+
+  it("never counts across a block, either way, or onto a suspended owner's plot", () => {
+    const t = admiring();
+    t.blocked.add(["ann", "ivy"].sort().join(" "));
+    t.walk("ann", "w", 4);
+    t.suspended.add("ann");
+    // Bo visits Ivy, then walks east onto Ann's plot (x 8 to 15) while she's suspended.
+    t.go("bo", 0, 0);
+    while ((t.state.residents.bo?.x ?? 0) < 9) t.walk("bo", "e", 1);
+    expect(t.visitRows()).toEqual([`bo (0, 0) ${today}`]);
+    // The block lifted, the same walk counts.
+    t.blocked.clear();
+    t.walk("ann", "e", 1);
+    t.walk("ann", "w", 1);
+    expect(t.visitRows()).toContain(`ann (0, 0) ${today}`);
   });
 });
 

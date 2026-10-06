@@ -187,6 +187,16 @@ describe("the actions an item offers", () => {
     expect(kinds(item({}, { media: [picture] }))).not.toContain(`remove_pictures:${author.id}`);
   });
 
+  it("offers to take down a reported resident's plot names only when they have some", () => {
+    const named = item({ kind: "resident", id: author.id }, { plotNames: 2 });
+    const offered = itemActions(named).find((a) => a.kind === "clear_plot_names");
+    expect(offered).toMatchObject({ label: "Take down plot names", target: author.id });
+    expect(offered?.confirm).toMatch(/^Tap again to /);
+    expect(kinds(item({ kind: "resident", id: author.id }))).not.toContain(
+      `clear_plot_names:${author.id}`,
+    );
+  });
+
   it("never offers anything for a letter but the author's suspension and dismiss", () => {
     expect(kinds(item({ kind: "letter", id: "l_1" }))).toEqual([
       `suspend:${author.id}`,
@@ -240,7 +250,14 @@ describe("the rule a takedown cites", () => {
 
   it("is asked for on every action that takes down something a resident owns", () => {
     expect([...TAKEDOWN_ACTIONS].sort()).toEqual(
-      ["hide", "remove_display", "remove_listing", "remove_pictures", "remove_piece"].sort(),
+      [
+        "clear_plot_names",
+        "hide",
+        "remove_display",
+        "remove_listing",
+        "remove_pictures",
+        "remove_piece",
+      ].sort(),
     );
     expect(TAKEDOWN_ACTIONS.has("suspend")).toBe(false);
     expect(ruleLine("impersonation")).toBe("Rule told to them: Pretending to be someone");

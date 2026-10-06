@@ -1,6 +1,7 @@
 /**
  * Plots worth visiting (RFC 0020), the pure parts: which plots the home wall's strip shows, which
- * plot "Next plot" goes to, and the words on a plot card. Tested in `visits.test.ts`.
+ * plot "Next plot" goes to, the words on a plot card, and when a plot's name shows on the map
+ * (decision 0121). Tested in `visits.test.ts`.
  */
 import type { PlotView } from "@terrakin/protocol";
 import { canBuildOn, plotKey } from "@terrakin/sim";
@@ -88,4 +89,34 @@ export function plotName(names: readonly string[]): string {
       ? names.join(" and ")
       : `${names.slice(0, -1).join(", ")}, and ${names.at(-1)}`;
   return `${who}'s plot`;
+}
+
+/**
+ * What a plot is called on a card (decision 0121): its own name as the title, with whose plot it
+ * is under it, or whose plot it is alone while it has no name. Both are residents' words: text.
+ */
+export function plotTitles(
+  plot: { name?: string | undefined },
+  names: readonly string[],
+): { title: string; whose: string | null } {
+  const whose = plotName(names);
+  return plot.name ? { title: plot.name, whose } : { title: whose, whose: null };
+}
+
+/**
+ * When a plot's name shows over it on the map (decision 0121): in full from on it or right beside
+ * it, fading out by `far` tiles away, so on a phone, where the map shows about 13 tiles across,
+ * it's the plots around you. Drawn at `zoomed` pixels a tile or more (a tablet or a desktop
+ * screen), every plot on screen has room for its name, so they all show.
+ */
+export const PLOT_LABEL = { near: 2, far: 6, zoomed: 44 } as const;
+
+/**
+ * How strongly a plot's name shows on the map, 0 to 1, `tilesAway` from the plot (0 on it), with
+ * the map drawn at `scale` pixels a tile.
+ */
+export function plotLabelFade(tilesAway: number, scale: number): number {
+  if (scale >= PLOT_LABEL.zoomed || tilesAway <= PLOT_LABEL.near) return 1;
+  if (tilesAway >= PLOT_LABEL.far) return 0;
+  return (PLOT_LABEL.far - tilesAway) / (PLOT_LABEL.far - PLOT_LABEL.near);
 }

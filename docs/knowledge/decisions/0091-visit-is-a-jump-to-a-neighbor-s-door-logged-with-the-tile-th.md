@@ -9,7 +9,7 @@ tags: [sim, protocol, server, agents, replay]
 
 ## Context
 
-[RFC 0020](../../rfcs/0020-plots-worth-visiting.md) makes visiting a neighbor's plot one call. Walking there is a rate-limited request per tile, the cost decision 0009 removed for going home and decision 0016 for settling. A visitor should arrive where a guest would: at the edge of the plot, in front of its door, never on a hearth or in the middle of someone's home. Residents build any shape they like, so the door has to be found from the blocks, and the way it's found will get better (RFC 0016 adds paths). A rule the sim runs on replay is frozen once a logged input depends on it.
+[RFC 0020](../../rfcs/0020-plots-worth-visiting.md) makes visiting a neighbor's plot one call. Walking there is a rate-limited request per tile, the cost decision 0009 removed for going home and decision 0016 for settling. A visitor should arrive where a guest would: at the edge of the plot, in front of its door, never on a hearth or in the middle of someone's home. Residents build any shape they like, so the door has to be found from the blocks, and the way it's found will change (RFC 0016 adds paths). A rule the sim runs on replay is frozen once a logged input depends on it.
 
 ## Decision
 
@@ -23,7 +23,7 @@ tags: [sim, protocol, server, agents, replay]
 
 - Logging the outcome follows putter ([decision 0049](0049-putter-is-a-planned-short-walk-logged-as-its-steps-with-a-on.md)): a better planner changes where later visits land and never how a logged one replays. Running the rule in the sim, as `settle` does for its landing tile, would need a logged switch for every improvement.
 - The ring, then the walk, finds the way in for any building without a notion of a door.
-- A block never closes the map, but a one-call jump to someone's doorstep is what a block should stop, so it does, for every resident of the plot.
+- Blocking someone never closes the map to them, but it should stop a one-call jump to their doorstep, so a visit checks for a block with every resident of the plot.
 
 ## Consequences
 

@@ -49,6 +49,8 @@ export function visitCard(o: VisitCardOptions): VisitCard {
   let me: string | null = null;
   /** Bumped whenever the card moves to another plot, so a late answer for the last one is dropped. */
   let generation = 0;
+  /** Where you were and the mirror's `seq` at the last look, so a still frame does no work. */
+  let looked = "";
   let tour: { plots: PlotView[]; at: number } | null = null;
 
   function paint(view: PlotView) {
@@ -82,6 +84,7 @@ export function visitCard(o: VisitCardOptions): VisitCard {
     generation++;
     key = null;
     plot = null;
+    looked = "";
     el.hidden = true;
   }
 
@@ -89,10 +92,11 @@ export function visitCard(o: VisitCardOptions): VisitCard {
     const here = plot;
     if (!here) return;
     const mine = generation;
+    const name = owner.textContent ?? "this plot";
     const r = await whileBusy(admire, () => api.admirePlot(here.px, here.py));
     if (!r.ok) return o.toast(r.message);
     if (mine === generation) paint(r.data.plot);
-    o.toast(`You admired ${owner.textContent ?? "this plot"}. They'll be glad.`);
+    o.toast(`You admired ${name}. They'll be glad.`);
   });
 
   /** The plots to tour, in the Visit page's order, fetched again once a minute. */
@@ -121,6 +125,10 @@ export function visitCard(o: VisitCardOptions): VisitCard {
       }
       const { px, py } = plotOf(mirror.config, at.x, at.y);
       const here = plotKey(px, py);
+      // A plot changes hands, or gets shared, only with an event, which moves `seq`.
+      const look = `${who} ${here} ${mirror.seq}`;
+      if (look === looked) return;
+      looked = look;
       const ownerId = mirror.plots.get(here);
       const yours =
         ownerId !== undefined &&

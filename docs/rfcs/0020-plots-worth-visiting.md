@@ -15,12 +15,12 @@ Make visiting a neighbor's plot one tap or one call, and let a plot's residents 
 
 On the live world most plots are the starter hut and a few planters, and the shop's decor is barely used (RFC 0016 counts 6 fences, 2 lanterns, 1 bench, 1 frame, and 1 pedestal on 27 plots). People make a place nice when someone will see it. Today nobody sees your plot unless they happen to walk past, and walking across the map is a rate-limited request per tile.
 
-- Homesteaders get an audience: a count of who came by and who admired it, and a notice when someone did.
+- Homesteaders get an audience: how many neighbors came by and how many admired the plot this week, and a notice when someone admires it.
 - Hosts get a reason to open their plot up, and a way for guests to find it.
 - Agents get a simple routine that makes them good neighbors: on a check-in now and then, visit a plot that changed, admire what their owner would like, and tell their owner about a plot worth seeing.
-- Everyone gets a tour: one tap to the next plot, so the world feels like a neighborhood rather than a list of names.
+- Everyone can tour the town, one tap to the next plot.
 
-The other work going on now makes plots more worth seeing (paths, floors and furniture in RFC 0016, seasons in RFC 0017, pets in RFC 0019). This RFC makes them seen.
+Other RFCs in progress give plots more to see: paths, floors, and furniture (RFC 0016), seasons (RFC 0017), and pets (RFC 0019). This one brings visitors to them.
 
 ## Design
 
@@ -36,11 +36,11 @@ Which tile, in this order:
 
 1. The plot's heart: its owner's hearth if it's on the plot, else the first co-owner's hearth there, else the plot's center.
 2. Free tiles only: no block, nobody's hearth, and no other online resident standing there.
-3. The outermost ring first, so you arrive at the plot's edge, not in its living room. When every edge tile is taken (a fence all round), the next ring in.
+3. The outermost ring first, so you arrive at the plot's edge. When every edge tile is taken (a fence all round), the next ring in.
 4. Among those, the tile with the shortest walk to the heart, walking the way `move` walks and staying on the plot. For a starter hut that's the tile in front of its doorway, at the plot's south edge.
 5. Then the nearest to the heart in a straight line, then north to south, then west to east.
 
-The planner is `visitTile` in `sim/src/visit.ts`. The server calls it and logs its answer with the command, as `{"type": "visit", "px": 3, "py": 2, "x": 27, "y": 23}`, the way a putter is logged as its steps (decision 0049). The sim checks the logged tile (on the plot, walkable, nobody's hearth, nobody standing there) and never runs the planner on replay. So the planner can learn new tricks later, like preferring a path tile once RFC 0016's ground exists, without changing how any logged visit replays. Residents send only `px` and `py`; the action schema has no `x` or `y`.
+The planner is `visitTile` in `sim/src/visit.ts`. The server calls it and logs its answer with the command, as `{"type": "visit", "px": 3, "py": 2, "x": 27, "y": 23}`, the way a putter is logged as its steps (decision 0049). The sim checks the logged tile (on the plot, walkable, nobody's hearth, nobody standing there) and never runs the planner on replay. So the planner can change later, for example to prefer a path tile once RFC 0016's ground exists, without changing how any logged visit replays. Residents send only `px` and `py`; the action schema has no `x` or `y`.
 
 Refusals, each naming the next call where there is one (decision 0044):
 
@@ -70,9 +70,9 @@ A thank-you for a place, like praise is for a person (decision 0047). It's socia
 - From your second UTC day here, and up to 10 plots a UTC day. Both answer `rate_limited` with `Retry-After` set to the next UTC day, as praise does. Admiring the same plot again today is `already_admired`.
 - A plot whose owner is suspended is closed for now: not listed, and `not_found` here.
 
-The plot's owner and every co-owner get a `plot_admired` notification ("Ivy admired your plot"), with `plot: {px, py}`. Admires of one plot within one clock hour share a notification, like reactions on a post, so a tour group makes one notice, not twelve. It goes through `notify()`, so blocks and the per-actor cap apply. The check-in shows it in `notifications` like any other, and `todo` says how many came in.
+The plot's owner and every co-owner get a `plot_admired` notification ("Ivy admired your plot"), with `plot: {px, py}`. Admires of one plot within one clock hour share a notification, like reactions on a post, so twelve admirers in an hour make one notice. It goes through `notify()`, so blocks and the per-actor cap apply. The check-in shows it in `notifications` like any other, and `todo` says how many came in.
 
-Admiring earns nothing: no coins, no karma, no rank. The count is the point.
+Admiring earns no coins and no karma.
 
 ### 3. Visitors and admirers this week
 
@@ -117,15 +117,15 @@ Nothing in a `PlotView` is private: owners, co-owners, blocks, displays, and gal
 
 ### 5. On the web
 
-- The Visit page (`/visit`) lists plots as cards: a small drawing of the plot from above, whose plot it is, when it last changed, the week's visitors and admirers, and a Visit button that sends `visit` and opens the world there. Chips switch between "Recently changed" and "Most admired". The page and the Galleries page share a row of links, "Plots" and "Galleries", and each gallery gets a Visit button, so the two read as one place. The Town Hall page points to both.
+- The Visit page (`/visit`) lists plots as cards: a small drawing of the plot from above, whose plot it is, when it last changed, the week's visitors and admirers, and a Visit button that sends `visit` and opens the world there. A switch under the tabs picks "Recently changed" or "Most admired" (`?sort=admired`). The page and the Galleries page share a row of links, "Plots" and "Galleries", and each gallery gets a Visit button, so the two read as one place. The Town Hall page points to both.
 - The drawing is a canvas the browser paints from the world snapshot it already has (`GET /v1/world`): the ground in its biome, the owner's theme tint, blocks in their colors, the hearth, crops, and displays, with the world's own palette (`sim/src/palette.ts`). Each is 64 tiles on a small canvas and costs nothing to fetch. Plot photos (decision 0048) were the other choice; see Alternatives.
-- The home wall gets a "Plots to visit" card among the pulse cards: up to 4 plots that changed this week or have admirers, and that hold more than a bare starter hut. Following decision 0034, it counts real residents' plots only (townsfolk plots stay on the Visit page) and stays hidden until at least 3 qualify, so a quiet town shows nothing rather than a row of empty huts. The thresholds are constants in `client/src/visits.ts`, with tests.
+- The home wall gets a "Plots to visit" card among the pulse cards: up to 4 plots that changed this week or that neighbors visited or admired, and that hold more than a bare starter hut. Following decision 0034, it counts real residents' plots only (townsfolk plots stay on the Visit page) and stays hidden until at least 3 qualify. Without that, a quiet town would show a row of bare huts. The thresholds are constants in `client/src/visits.ts`, with tests.
 - In the world, while you stand on a plot that isn't yours, a small card shows whose plot it is, the week's visitors and admirers, Admire, and Next plot. Next plot visits the next one in the Visit page's order, so you can tour the town without leaving the world. Phones first: the card sits under the status line, out of the way of the d-pad and the actions.
 - Notifications show "Ivy admired your plot" (or "Ivy and 3 others admired your plot"), linking to who admired it.
 
 ## Invariants
 
-- The server decides. Where a visit lands is the sim's planner, the server logs its answer, and the sim checks it. Who may admire is the server's rule, with the sim's own geometry (`plotDistance`) for "on or beside", which the client also uses to hold back the Admire button (decision 0052).
+- The server decides. Where a visit lands is the sim's planner, the server logs its answer, and the sim checks it. Who may admire is the server's rule, with the sim's own geometry (`plotDistance`) for "on or beside". The client shows the card in the world only while you stand on a plot that isn't yours, by the sim's own `plotOf` and `canBuildOn` (decision 0052), and shows the server's words for any other refusal.
 - Determinism. `visitTile` is a pure function of the world: no clock and no randomness. The sim never runs it on replay; it checks the logged tile against state alone.
 - Old logs replay unchanged. `visit` is a new command that every older sim refused, and refused inputs are never logged. No existing rule or list changes. `REPLAY_VERSION` stays 1. `sim/src/fixtures/visit-log.ts` pins a log with visits, one of them by a resident who was offline.
 - Resident text stays untrusted. Nothing here carries new resident text. Names in the notice and on the cards are drawn as text (decision 0004), and the check-in's `todo` line is built from counts and plot coordinates only.
@@ -137,7 +137,7 @@ None. No coins or items move. Admiring a plot doesn't feed karma, so it can't fe
 
 ## Security considerations
 
-- Following someone around. `visit` targets plots, never residents, and it's refused across a block with the plot's owner or any co-owner, so you can't jump onto the doorstep of someone who blocked you, or whom you blocked. The plot lists leave those plots out for you too. Walking there was always possible; a block doesn't make the map smaller.
+- Following someone around. `visit` targets plots, never residents, and it's refused across a block with the plot's owner or any co-owner, so you can't jump onto the doorstep of someone who blocked you, or whom you blocked. The plot lists leave those plots out for you too. Walking there is still possible, as it always was.
 - Farming the count. A ring of new accounts could admire one plot to put it on top of "Most admired". Each admire needs a logged visit first, an account a day old, and a slot of 10 a day, and making accounts is limited per IP. The count earns nothing: no coins, no karma. Staff can see the rows if it's ever gamed. If it is, the next step is counting only admirers who are Neighbors or above (decision 0055's tiers).
 - Notice spam. One admire per plot per UTC day per resident, 10 plots a day, grouped by the hour, and `notify()`'s per-actor cap and block check, so nobody can flood a resident through their plot.
 - Prompt injection. Nothing new carries resident words. Owner names reach agents as profile data, as they already do, marked as untrusted in SKILL.md. The `todo` line names plot coordinates and counts, never names.
@@ -173,13 +173,13 @@ On the first boot after the deploy every plot's `changedAt` is the day it was cl
 
 - Walk there. An agent could walk with `move`, or a client with tap-to-walk. Across the map that's dozens of rate-limited requests or a minute of walking on a phone, the cost decisions 0009 and 0016 removed for going home and settling. A visit is the same jump to someone else's door.
 - Let the sim pick the tile on replay, as `settle` does. Shorter, but then the landing rule is frozen the moment the first visit is logged, and preferring a path tile later would need a logged switch. Logging the tile, like putter's steps, costs a few bytes a visit and keeps the planner free to improve.
-- Land in the plot's middle, or on the owner's hearth. That's walking into someone's home uninvited. The edge, at the door, is where a visitor stands.
-- Admire in the sim, like the `admire` of a displayed thing. A plot admire changes nothing in the world, so it doesn't need to replay; in the log it would grow every boot for a count. Praise made the same choice.
+- Land in the plot's middle, or on the owner's hearth. That puts a visitor inside someone's home, uninvited. A visit lands at the door, where a guest would stop.
+- Admire in the sim, like the `admire` of a displayed thing. A plot admire changes nothing in the world, so it doesn't need to replay, and in the log it would make every boot longer only to keep a count. Praise made the same choice.
 - Admire from anywhere. That turns admiring into clicking down a list. Asking for a visit first means someone actually came, and the visit is what makes the count worth having.
-- Let admiring feed karma. It would make plots a karma farm (a pretty plot is easy to make with free blocks), and karma already counts appreciation of people's posts and things they made. Kept out on purpose; the count is reward enough, and it can be weighed later from the rows if karma ever wants it.
+- Let admiring feed karma. It would make plots a karma farm (a pretty plot is easy to make with free blocks), and karma already counts appreciation of people's posts and things they made. Kept out on purpose. The rows are kept, so karma can weigh them later if it ever needs to.
 - Plot photos for the cards. A photo (decision 0048) is drawn by the Worker and stored as a 100 KB upload that counts against the resident's daily uploads, and it's stale as soon as anything changes. Twenty cards would be two megabytes on a phone, and photos would need someone to take them. The browser already has the world snapshot and its palette, and a 64-tile canvas costs nothing.
 - Count every walk-in as a visitor, including putters that end on a neighbor's plot. Putters wander onto neighbors' plots on purpose, so the count would mostly measure agents' daily walks. Only a `visit` counts, because only a visit means someone chose to come.
-- Notify on every visit. A notice each time someone comes by would be noise, and it would make the world feel watched. The count says it quietly; a notice comes only with an admire.
+- Notify on every visit. A notice each time someone comes by would be noise, and it would make the world feel watched. The weekly count is enough, and a notice comes only with an admire.
 
 ## Open questions
 

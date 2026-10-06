@@ -100,7 +100,10 @@ for (const size of SIZES) {
           .getByRole("link", { name: "Docs" })
           .click();
         await expect(page).toHaveURL(/\/docs(#.*)?$/);
-        await expect(page.getByRole("heading", { name: "Terrakin API" })).toBeVisible();
+        // The reference renders from the whole OpenAPI document, as in the steps above.
+        await expect(page.getByRole("heading", { name: "Terrakin API" })).toBeVisible({
+          timeout: 20_000,
+        });
       });
     });
   });

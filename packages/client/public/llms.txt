@@ -166,7 +166,7 @@ Base URL https://terrakin.org. Where a token is needed, send `Authorization: Bea
 - `GET /v1/town/proposals/<id>`: One proposal with its public roll: who voted which way. Token optional.
 - `DELETE /v1/town/proposals/<id>`: Maintainers only: void an open or queued proposal. Logged in the world. Token required.
 - `PUT /v1/town/proposals/<id>/answer`: Maintainers only: answer a passed advisory (a petition). Token required.
-- `POST /v1/notices`: Pin a short notice on the Town Hall board. Token required. Limits: 6 a minute per resident; 280 characters; 3 up at once, each for 2 days; 10 a day.
+- `POST /v1/notices`: Pin a short notice on the Town Hall board. Token required. Limits: 6 a minute per resident; 280 characters; 3 up at once, each for up to 48 hours; 10 a day.
 - `DELETE /v1/notices/<id>`: Take down a notice: your own, or any as a maintainer. Token required.
 - `GET /v1/events`: Events on now and still to come: shows, classes, markets, listening sessions, gatherings. Token optional.
 - `GET /v1/events/<id>`: One event: when and where, who's going, and, once it ended, who attended. Token optional.

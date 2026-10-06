@@ -18527,7 +18527,7 @@
         },
         "x-limits": [
           "280 characters",
-          "3 up at once, each for 2 days",
+          "3 up at once, each for up to 48 hours",
           "10 a day"
         ]
       }
@@ -33186,6 +33186,12 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 280
+          },
+          "hours": {
+            "description": "How long it stays up, in hours, 1 to 48. Leave it out for 48. Pick one that ends with what it's about, like an event.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 48
           }
         },
         "required": [

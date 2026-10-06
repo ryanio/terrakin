@@ -74,6 +74,7 @@ import {
   planWords,
   proposalPlan,
   statusWord,
+  stayWords,
   tallyBar,
   tapPlan,
   townPaintKey,
@@ -82,6 +83,8 @@ import { errorCard, type View, type ViewContext } from "./view";
 
 /** How often the page asks for fresh tallies while it's on screen. */
 const REFRESH_MS = 15_000;
+/** The choices for how long a notice stays up, in hours; the server takes any from 1 to 48. */
+const NOTICE_HOURS = [3, 12, 24, 48] as const;
 
 interface Commons {
   x0: number;
@@ -966,12 +969,29 @@ export function townView(ctx: ViewContext): View {
       icon("pin"),
       h("span", { text: "Pin" }),
     );
-    const form = h("form", { class: "notice-form" }, input, pin);
+    // How long it stays up: a notice about tonight's event can come down once it's over.
+    const stay = chips<string>(
+      NOTICE_HOURS.map(String),
+      String(BOARD_LIMITS.maxHours),
+      (v) => [h("span", { text: stayWords(Number(v)) })],
+      () => {},
+      h("div", {
+        class: "kind-row notice-hours",
+        attrs: { id: "notice-hours", "aria-labelledby": "notice-hours-label" },
+      }),
+    );
+    const form = h(
+      "form",
+      { class: "stack tight notice-form" },
+      h("div", { class: "notice-compose" }, input, pin),
+      h("p", { class: "field-label", attrs: { id: "notice-hours-label" }, text: "Stays up for" }),
+      stay.row,
+    );
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
       const text = input.value.trim();
       if (!text) return;
-      const r = await whileBusy(pin, () => api.pinNotice(text));
+      const r = await whileBusy(pin, () => api.pinNotice(text, Number(stay.value())));
       if (destroyed) return;
       if (!r.ok) return toast(r.message);
       input.value = "";

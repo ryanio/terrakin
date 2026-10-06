@@ -191,18 +191,24 @@ test("an eligible resident proposes a fountain, a path, and a bench, the town vo
   await test.step("Fern pins a notice, and the board says when it comes down", async () => {
     await page.goto("/town");
     const board = page.locator("section.board");
-    await expect(board.locator(".board-hint")).toHaveText(
-      "Notices stay up for 2 days. You can have 3 up at once.",
-    );
+    await expect(board.locator(".board-hint")).toHaveText("You can have 3 up at once.");
+    // It's about tonight, so it comes down in 3 hours instead of the 2 days it would by default.
     await page.fill("#notice-text", "Lantern walk at dusk, meet by the hall.");
+    await expect(page.locator('#notice-hours [data-value="48"]')).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await page.click('#notice-hours [data-value="3"]');
+    expect(await overflowsSideways(page)).toBe(false);
+    await board.screenshot({ path: "test-results/town-notice-form.png" });
     await page.click("#notice-pin");
     const notice = board.locator(".notice", { hasText: "Lantern walk at dusk" });
     // When it went up, with when it comes down on hover, and in a toast on a tap.
     const when = notice.locator(".notice-when");
     await expect(when).toHaveText("now");
-    await expect(when.locator("time")).toHaveAttribute("title", "Comes down in 2 days");
+    await expect(when.locator("time")).toHaveAttribute("title", "Comes down in 3 hours");
     await when.click();
-    await expect(page.locator("#site-toast")).toContainText("Comes down in 2 days");
+    await expect(page.locator("#site-toast")).toContainText("Comes down in 3 hours");
     await expect(notice.getByRole("button", { name: "Take down" })).toBeVisible();
     expect(await overflowsSideways(page)).toBe(false);
     await notice.screenshot({ path: "test-results/town-notice.png" });

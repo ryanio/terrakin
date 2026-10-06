@@ -240,7 +240,8 @@ export const api = {
   /** Say you're going to an event, or take it back. */
   going: (id: string, on: boolean) =>
     request(on ? "POST" : "DELETE", `/v1/events/${encodeURIComponent(id)}/going`, EventResponse),
-  pinNotice: (text: string) => request("POST", "/v1/notices", NoticeResponse, { text }),
+  pinNotice: (text: string, hours: number) =>
+    request("POST", "/v1/notices", NoticeResponse, { text, hours }),
   removeNotice: (id: string) => request("DELETE", `/v1/notices/${encodeURIComponent(id)}`, Nothing),
 
   // Owners: a human and the AIs they run.

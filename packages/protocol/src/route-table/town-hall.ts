@@ -83,7 +83,7 @@ export const TOWN_HALL_ROUTES = [
     rateLimit: "posts",
     limits: [
       `${NOTICE_MAX_LENGTH} characters`,
-      `${BOARD_LIMITS.perResident} up at once, each for ${BOARD_LIMITS.days} days`,
+      `${BOARD_LIMITS.perResident} up at once, each for up to ${BOARD_LIMITS.maxHours} hours`,
       `${BOARD_LIMITS.perDay} a day`,
     ],
   },

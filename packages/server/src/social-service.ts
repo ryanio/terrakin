@@ -145,6 +145,13 @@ export const DEFAULT_SOCIAL_LIMITS: SocialLimits = {
 
 const HOUR_MS = 60 * 60_000;
 const DAY_MS = 24 * HOUR_MS;
+/** The longest a notice stays up. Rows from before authors chose have no `expires_at`. */
+const NOTICE_MAX_MS = BOARD_LIMITS.maxHours * HOUR_MS;
+/**
+ * A notice still up, given (now - NOTICE_MAX_MS, NOTICE_MAX_MS, now). The first test lets the
+ * created_at index skip everything older than the longest a notice can stay up.
+ */
+const NOTICE_UP = "created_at > ? AND COALESCE(expires_at, created_at + ?) > ?";
 /** Notifications older than this are pruned by the sweep. */
 const NOTIFICATION_KEEP_MS = 90 * DAY_MS;
 /** How much of a post a notification quotes. */
@@ -498,6 +505,13 @@ export class SocialService {
         COALESCE((SELECT created_at FROM posts WHERE posts.id = reactions.post_id), 0)
         WHERE created_at = 0`,
     );
+    // Added when authors could choose how long a notice stays up. Older rows stay null and come
+    // down at the longest a notice can stay up, as they always did.
+    try {
+      this.sql.exec("ALTER TABLE notices ADD COLUMN expires_at INTEGER");
+    } catch {
+      // Already there.
+    }
     // Added later: an image's size in pixels, read from its header at upload. Null for older
     // uploads, videos, models, and images whose header we couldn't read.
     for (const column of ["width INTEGER", "height INTEGER"]) {
@@ -1315,12 +1329,15 @@ export class SocialService {
     return this.townsfolk.has(residentId);
   }
 
-  /** The board, newest first: notices up for less than two days and not taken down. */
+  /** The board, newest first: notices still up and not taken down. */
   board(viewerId?: string): NoticeView[] {
+    const now = this.now();
     const rows = this.rows(
-      `SELECT id, author, text, created_at FROM notices
-        WHERE removed_at IS NULL AND created_at > ? ORDER BY n DESC LIMIT ?`,
-      this.now() - BOARD_LIMITS.days * DAY_MS,
+      `SELECT id, author, text, created_at, expires_at FROM notices
+        WHERE removed_at IS NULL AND ${NOTICE_UP} ORDER BY n DESC LIMIT ?`,
+      now - NOTICE_MAX_MS,
+      NOTICE_MAX_MS,
+      now,
       BOARD_LIMITS.size,
     );
     return rows.flatMap((row) => {
@@ -1337,9 +1354,11 @@ export class SocialService {
     if (!verdict.ok) return refusal(verdict) ?? fail("bad_request", "Not pinned.");
     const now = this.now();
     const up = this.count(
-      "SELECT COUNT(*) AS c FROM notices WHERE author = ? AND removed_at IS NULL AND created_at > ?",
+      `SELECT COUNT(*) AS c FROM notices WHERE author = ? AND removed_at IS NULL AND ${NOTICE_UP}`,
       authorId,
-      now - BOARD_LIMITS.days * DAY_MS,
+      now - NOTICE_MAX_MS,
+      NOTICE_MAX_MS,
+      now,
     );
     if (up >= BOARD_LIMITS.perResident) {
       return fail(
@@ -1357,15 +1376,19 @@ export class SocialService {
     }
     const id = randomId("n");
     this.sql.exec(
-      "INSERT INTO notices (id, author, text, created_at) VALUES (?, ?, ?, ?)",
+      "INSERT INTO notices (id, author, text, created_at, expires_at) VALUES (?, ?, ?, ?, ?)",
       id,
       authorId,
       text,
       now,
+      now + (request.hours ?? BOARD_LIMITS.maxHours) * HOUR_MS,
     );
     verdict.commit();
     if (verdict.borderline) this.safety.requestTriage("notice", id);
-    const row = this.rows("SELECT id, author, text, created_at FROM notices WHERE id = ?", id)[0];
+    const row = this.rows(
+      "SELECT id, author, text, created_at, expires_at FROM notices WHERE id = ?",
+      id,
+    )[0];
     const view = row ? this.noticeView(row, authorId) : undefined;
     return view ? { ok: true, value: view } : fail("internal", "Notice vanished.");
   }
@@ -1442,7 +1465,9 @@ export class SocialService {
       author,
       text: String(row.text),
       createdAt: new Date(created).toISOString(),
-      expiresAt: new Date(created + BOARD_LIMITS.days * DAY_MS).toISOString(),
+      expiresAt: new Date(
+        row.expires_at == null ? created + NOTICE_MAX_MS : Number(row.expires_at),
+      ).toISOString(),
       canRemove: viewerId !== undefined && (viewerId === author.id || this.isMaintainer(viewerId)),
     };
   }

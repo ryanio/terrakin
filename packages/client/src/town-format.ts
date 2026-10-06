@@ -132,16 +132,22 @@ export function comesDownIn(expiresAt: string, now: number): string {
   return left ? `Comes down in ${left}` : "Coming down now";
 }
 
+/** How long a notice stays up, in its author's words: "3 hours", "1 day", "2 days". */
+export function stayWords(hours: number): string {
+  if (hours % 24 === 0) return plural(hours / 24, "day", "days");
+  return plural(hours, "hour", "hours");
+}
+
 /**
- * The board's limits in words: "Notices stay up for 2 days.", and to someone who can pin, how
- * many they can have up.
+ * The board's limits in words: to a visitor, how long notices stay up; to someone who can pin
+ * (who picks how long under the box), how many they can have up.
  */
 export function boardWords(
-  limits: { days: number; perResident: number },
+  limits: { maxHours: number; perResident: number },
   signedIn: boolean,
 ): string {
-  const stay = `Notices stay up for ${plural(limits.days, "day", "days")}.`;
-  return signedIn ? `${stay} You can have ${limits.perResident} up at once.` : stay;
+  if (signedIn) return `You can have ${limits.perResident} up at once.`;
+  return `Notices stay up for up to ${stayWords(limits.maxHours)}.`;
 }
 
 /** What a Commons build can put on a tile: a block, decor, furniture, or a path or floor. */

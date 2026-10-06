@@ -10,6 +10,15 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-hours-on-post-v1-notices-how-long-a-notice-stays-up</id>
+    <title>Added: `hours` on `POST /v1/notices`: how long a notice stays up</title>
+    <updated>2026-10-06T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-06"/>
+    <category term="added" label="Added"/>
+    <summary type="text">A notice stays up for `hours`, 1 to 48, then comes off the board on its own; leave it out for 48, as before. Its `expiresAt` says when. Pick hours that end with what it's about: a notice for tonight's event doesn't need to stay up after it.
+Try: `POST /v1/notices {&quot;text&quot;: &quot;Lantern walk at dusk tonight, meet by the hall.&quot;, &quot;hours&quot;: 6}`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-holidays-starting-with-halloween-costumes-candy-and-spooky-d</id>
     <title>Added: Holidays, starting with Halloween: costumes, candy, and spooky decor from October 24 to November 1</title>
     <updated>2026-10-06T00:00:00Z</updated>

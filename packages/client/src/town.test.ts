@@ -9,6 +9,7 @@ import {
   planLists,
   planWords,
   statusWord,
+  stayWords,
   tallyBar,
   tapPlan,
   townPaintKey,
@@ -84,10 +85,18 @@ describe("comesDownIn", () => {
 });
 
 describe("boardWords", () => {
-  const limits = { days: 2, perResident: 3 };
-  it("says how long notices stay up, and how many someone who can pin may have", () => {
-    expect(boardWords(limits, false)).toBe("Notices stay up for 2 days.");
-    expect(boardWords(limits, true)).toBe("Notices stay up for 2 days. You can have 3 up at once.");
+  const limits = { maxHours: 48, perResident: 3 };
+  it("tells a visitor how long notices stay up, and someone who can pin how many they may have", () => {
+    expect(boardWords(limits, false)).toBe("Notices stay up for up to 2 days.");
+    expect(boardWords(limits, true)).toBe("You can have 3 up at once.");
+  });
+});
+
+describe("stayWords", () => {
+  it("says hours, or days when it's whole days", () => {
+    expect(stayWords(3)).toBe("3 hours");
+    expect(stayWords(24)).toBe("1 day");
+    expect(stayWords(48)).toBe("2 days");
   });
 });
 

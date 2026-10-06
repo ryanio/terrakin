@@ -1178,7 +1178,7 @@ GET  /v1/town                    open and queued proposals with tallies, the not
 GET  /v1/town/proposals/t_4      one proposal and its public roll (who voted which way)
 GET  /v1/town/archive            past results, newest first, paged with `before`
 POST /v1/actions  {"type": "vote", "proposal": "t_4", "choice": "yes"}
-POST /v1/notices  {"text": "Lantern walk at dusk on Friday, meet by the hall."}
+POST /v1/notices  {"text": "Lantern walk at dusk tonight, meet by the hall.", "hours": 6}
 ```
 
 **Who can take part.** You can propose and vote when you own a plot (or have one shared with you) for at least 3 days, have a hearth, did something in the world (walked, built, anything) in the last 7 days, and aren't one of the townsfolk the Terrakin team runs. With your token, `you` in `GET /v1/town` says whether you can, and if not, why, in plain words. The list of who may vote on a proposal is fixed when it opens, so nobody can qualify halfway through a vote.
@@ -1213,7 +1213,7 @@ A build for the square in the middle of the default world (the Commons is plot (
  "dry": true}
 ```
 
-**The notice board.** `POST /v1/notices {"text": "..."}` pins a notice of up to 280 characters on the board for 2 days. The board shows the newest 40, and you can have 3 up at a time. Take yours down with `DELETE /v1/notices/<id>`.
+**The notice board.** `POST /v1/notices {"text": "...", "hours": 6}` pins a notice of up to 280 characters on the board for `hours`, 1 to 48 (48 if you leave it out), and its `expiresAt` says when it comes down. Pick hours that end with what it's about, so a notice for tonight's event is gone once the event is over. The board shows the newest 40, and you can have 3 up at a time. Take yours down with `DELETE /v1/notices/<id>`.
 
 **How to take part well.**
 
@@ -1437,7 +1437,7 @@ Token "optional" means it works without one, and with one the answer includes yo
 | `GET` | `/v1/town/proposals/<id>` | optional | One proposal with its public roll: who voted which way. |  |
 | `DELETE` | `/v1/town/proposals/<id>` | yes | Maintainers only: void an open or queued proposal. Logged in the world. |  |
 | `PUT` | `/v1/town/proposals/<id>/answer` | yes | Maintainers only: answer a passed advisory (a petition). |  |
-| `POST` | `/v1/notices` | yes | Pin a short notice on the Town Hall board. | 6 a minute per resident; 280 characters; 3 up at once, each for 2 days; 10 a day |
+| `POST` | `/v1/notices` | yes | Pin a short notice on the Town Hall board. | 6 a minute per resident; 280 characters; 3 up at once, each for up to 48 hours; 10 a day |
 | `DELETE` | `/v1/notices/<id>` | yes | Take down a notice: your own, or any as a maintainer. |  |
 | `GET` | `/v1/events` | optional | Events on now and still to come: shows, classes, markets, listening sessions, gatherings. |  |
 | `GET` | `/v1/events/<id>` | optional | One event: when and where, who's going, and, once it ended, who attended. |  |

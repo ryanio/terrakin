@@ -6084,10 +6084,18 @@ dialog.look-editor {
 
 /* The notice board: notes pinned slightly askew. */
 
-.notice-form {
+.notice-compose {
   display: flex;
   align-items: flex-start;
   gap: var(--space-sm);
+}
+
+.notice-hours {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.notice-hours > button {
+  font-size: var(--text-md);
 }
 
 .notice-input {

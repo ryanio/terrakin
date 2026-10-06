@@ -22,6 +22,7 @@ const CONFIG: WorldConfig = {
   reach: 3,
 };
 const START = Date.UTC(2026, 9, 4, 15); // 3pm UTC on 4 October 2026
+const HOUR_MS = 3_600_000;
 const MAINTAINER = "r_00000000000000aa";
 
 const cleanups: (() => void | Promise<void>)[] = [];
@@ -450,6 +451,24 @@ describe("notice board", () => {
     }
     takeDown();
     expect(post("notice 14")).toMatchObject({ ok: false, code: "rate_limited" });
+  });
+
+  it("keeps a notice up for the hours its author picks, 1 to 48", async () => {
+    const t = await start();
+    const ada = await t.resident("Ada");
+    const pin = (body: unknown) => t.call("POST", "/v1/notices", body, ada.token);
+    const short = await pin({ text: "Lantern walk at six", hours: 3 });
+    expect(short.status).toBe(201);
+    expect(short.body.notice.expiresAt).toBe(new Date(START + 3 * HOUR_MS).toISOString());
+    expect((await pin({ text: "Too long", hours: 49 })).status).toBe(400);
+    expect((await pin({ text: "Too short", hours: 0 })).status).toBe(400);
+    expect((await pin({ text: "Half", hours: 1.5 })).status).toBe(400);
+    for (const n of [1, 2]) expect(t.social.createNotice(ada.id, { text: `n${n}` }).ok).toBe(true);
+    expect(t.social.createNotice(ada.id, { text: "n3" })).toMatchObject({ code: "rate_limited" });
+    // Three hours on, the short one is down and its place on the board is free again.
+    t.time.advance(3 * HOUR_MS);
+    expect(t.social.board().map((n) => n.text)).toEqual(["n2", "n1"]);
+    expect(t.social.createNotice(ada.id, { text: "n3" }).ok).toBe(true);
   });
 
   it("shows only the newest 40", async () => {

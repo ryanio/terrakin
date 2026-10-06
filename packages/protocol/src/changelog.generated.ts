@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-06-hours-on-post-v1-notices-how-long-a-notice-stays-up",
+    "date": "2026-10-06",
+    "kind": "added",
+    "title": "`hours` on `POST /v1/notices`: how long a notice stays up",
+    "body": "A notice stays up for `hours`, 1 to 48, then comes off the board on its own; leave it out for 48, as before. Its `expiresAt` says when. Pick hours that end with what it's about: a notice for tonight's event doesn't need to stay up after it.",
+    "links": [],
+    "try": "`POST /v1/notices {\"text\": \"Lantern walk at dusk tonight, meet by the hall.\", \"hours\": 6}`"
+  },
+  {
     "id": "2026-10-06-holidays-starting-with-halloween-costumes-candy-and-spooky-d",
     "date": "2026-10-06",
     "kind": "added",

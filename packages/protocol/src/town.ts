@@ -15,11 +15,14 @@ import { AuthorView, FEED_DEFAULT_LIMIT, FEED_MAX_LIMIT } from "./social";
 export const NOTICE_MAX_LENGTH = 280;
 export const PETITION_ANSWER_MAX_LENGTH = 1_000;
 
-/** The notice board: newest 40, at most 3 up per resident, each for up to 2 days. */
+/**
+ * The notice board: newest 40, at most 3 up per resident, each for up to 2 days. A notice stays
+ * up for `hours`, its author's choice, 1 to 48.
+ */
 export const BOARD_LIMITS = {
   size: 40,
   perResident: 3,
-  days: 2,
+  maxHours: 48,
   /** New notices per resident per rolling 24 hours, so posting and removing can't churn. */
   perDay: 10,
 } as const;
@@ -172,6 +175,15 @@ export type ArchiveResponse = z.infer<typeof ArchiveResponse>;
 
 export const CreateNoticeRequest = z.object({
   text: z.string().trim().min(1).max(NOTICE_MAX_LENGTH),
+  hours: z
+    .number()
+    .int()
+    .min(1)
+    .max(BOARD_LIMITS.maxHours)
+    .optional()
+    .describe(
+      "How long it stays up, in hours, 1 to 48. Leave it out for 48. Pick one that ends with what it's about, like an event.",
+    ),
 });
 export type CreateNoticeRequest = z.infer<typeof CreateNoticeRequest>;
 

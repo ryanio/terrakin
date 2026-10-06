@@ -21,6 +21,7 @@ import {
   COSTUMES,
   canBuildOn,
   countOf,
+  dayOfDate,
   displaysOf,
   FAMILIES,
   type Family,
@@ -35,6 +36,7 @@ import {
   heldAsideOf,
   holidayField,
   holidayOf,
+  homePlotOf,
   type ItemKind,
   inventoryOf,
   isTownsfolk,
@@ -560,6 +562,16 @@ export function checkinView(
     /** Where daily suggestions are remembered. Without it, nothing is suggested. */
     suggestions?: Suggestions;
     /**
+     * Suggest only first-visit steps added after the viewer joined: the link check-in's choice,
+     * since the rest of the suggestions name API calls.
+     */
+    stepsOnly?: boolean;
+    /**
+     * The UTC day the viewer joined, which says which first-visit steps are theirs (decision
+     * 0129). Without it, every step is.
+     */
+    joinedDay?: number | undefined;
+    /**
      * When the devlog post of a day came out in this world (`CheckinLog.published`). Without it, a
      * post counts as out from the start of its day.
      */
@@ -691,25 +703,31 @@ export function checkinView(
       : null,
     devlog: post?.date ?? null,
   });
-  const setup = setupSteps(state, social, viewer, done);
-  const firstVisit = setup.map((s) => s.step);
-  // Today's suggestion, once a UTC day, and only once the first visit is done.
+  const setup = setupSteps(state, social, viewer, done, options.joinedDay);
+  const firstVisit = setup.firstVisit.map((s) => s.step);
+  // Nothing moved since `seen` and no first-visit step is left: `unchanged`, unless today's
+  // suggestion is waiting.
+  const quiet = options.seen !== undefined && options.seen === digest && firstVisit.length === 0;
+  // Today's suggestion, once a UTC day, and only once the first visit is done. A step the first
+  // visit gained after the viewer joined comes first, but only on a check-in that isn't quiet, so
+  // on its own it never turns `unchanged` into a full answer (decision 0129).
   const asked = options.suggestions?.suggested(viewer, today, today - SUGGEST_AGAIN_DAYS);
-  const suggestion =
-    asked && !asked.today && setup.length === 0
-      ? pickTryNext(state, viewer, done, asked.ids, {
-          has: (kind) => social.collection.has(viewer, kind),
-        })
-      : null;
+  let suggestion: { id: string; line: string; step: boolean } | null = null;
+  if (asked && !asked.today && firstVisit.length === 0) {
+    const step = quiet ? undefined : setup.later.find((s) => !asked.ids.has(s.step));
+    const next =
+      step || options.stepsOnly
+        ? null
+        : pickTryNext(state, viewer, done, asked.ids, {
+            has: (kind) => social.collection.has(viewer, kind),
+          });
+    if (step) suggestion = { id: step.step, line: step.line, step: true };
+    else if (next) suggestion = { ...next, step: false };
+  }
   if (suggestion) options.suggestions?.suggest(viewer, suggestion.id, today);
   const tryToday = suggestion?.id ?? null;
 
-  if (
-    options.seen !== undefined &&
-    options.seen === digest &&
-    firstVisit.length === 0 &&
-    tryToday === null
-  ) {
+  if (quiet && tryToday === null) {
     return {
       at: new Date(now).toISOString(),
       since: new Date(since).toISOString(),
@@ -733,7 +751,7 @@ export function checkinView(
     };
   }
 
-  const todo = setup.map((s) => s.line);
+  const todo = setup.firstVisit.map((s) => `First visit: ${s.line}`);
   for (const m of games?.yourMove ?? []) {
     todo.push(
       `Your move at table ${m.table} (${gameName(m.game)}, round ${m.round}), ${timeLeft(Date.parse(m.closesAt) - now)} left. Read your legal moves with GET /v1/games/${m.table}, then send {"type": "decide", "table": "${m.table}", "round": ${m.round}, "move": <move>}. A round you miss plays the default.`,
@@ -902,7 +920,9 @@ export function checkinView(
   for (const line of awayTodo(away)) todo.push(line);
   if (suggestion) {
     todo.push(
-      `Something to try today: ${suggestion.line} More at ${absolute(LINKS.skill)}#things-to-do-here.`,
+      suggestion.step
+        ? `Something to try today: ${suggestion.line} It's a first-visit step added after you joined. More at ${absolute(LINKS.skill)}#first-visit.`
+        : `Something to try today: ${suggestion.line} More at ${absolute(LINKS.skill)}#things-to-do-here.`,
     );
   }
   return {
@@ -973,22 +993,44 @@ export function awayTodo(away: readonly CheckinResponse["away"]["items"][number]
 }
 
 /**
- * The first-visit steps a resident hasn't done yet, in SKILL.md's order, each with its `todo` line.
- * Counts and flags only, never anyone's words. Townsfolk are set up by the team.
+ * The UTC day each first-visit step joined the first visit, for the steps added after it began
+ * (decision 0129). A resident who joined before a step's day had a first visit without it, so it
+ * never stands in their `firstVisit`: the check-in suggests it instead. Steps not listed here
+ * were there from the start.
+ */
+const STEPS_ADDED: Partial<Record<FirstVisitStep, number>> = {
+  plot_name: dayOfDate(2026, 10, 6),
+};
+
+/** A first-visit step not done yet, with what its `todo` line says to do. */
+export interface StepLeft {
+  step: FirstVisitStep;
+  line: string;
+}
+
+/**
+ * The first-visit steps a resident hasn't done yet, in SKILL.md's order: `firstVisit`, the steps
+ * of their own first visit, and `later`, the steps it gained after the UTC day they joined
+ * (`STEPS_ADDED`), which the check-in brings up as the day's suggestion instead. Without
+ * `joinedDay`, every step is theirs. Counts and flags only, never anyone's words. Townsfolk are set
+ * up by the team.
  */
 export function setupSteps(
   state: WorldState,
   social: SocialService,
   viewer: string,
   done: ReadonlySet<string>,
-): { step: FirstVisitStep; line: string }[] {
-  if (state.townsfolk?.includes(viewer)) return [];
+  joinedDay?: number,
+): { firstVisit: StepLeft[]; later: StepLeft[] } {
+  const none = { firstVisit: [], later: [] };
+  if (state.townsfolk?.includes(viewer)) return none;
   const me = state.residents[viewer];
   const profile = social.profile(viewer, viewer);
-  if (!me || !profile) return [];
+  if (!me || !profile) return none;
   const housed =
     plotsOwnedBy(state, viewer).length > 0 ||
     Object.values(state.plots).some((p) => p.coOwners?.includes(viewer));
+  const home = homePlotOf(state, viewer);
   const steps: [FirstVisitStep, boolean, string][] = [
     [
       "plot",
@@ -1001,7 +1043,7 @@ export function setupSteps(
       housed &&
         !done.has("name_plot") &&
         !Object.values(state.plots).some((p) => p.name !== undefined && canBuildOn(p, viewer)),
-      'name your plot with your owner, like "Juniper\'s Lemon Grove": {"type": "name_plot", "px": <px>, "py": <py>, "name": "<its name>"}.',
+      `name your plot with your owner, like "Juniper's Lemon Grove": {"type": "name_plot", "px": ${home?.px ?? "<px>"}, "py": ${home?.py ?? "<py>"}, "name": "<its name>"}.`,
     ],
     ["home", housed && !me.hearth, 'build a home on your plot: {"type": "build_starter_home"}.'],
     [
@@ -1036,7 +1078,11 @@ export function setupSteps(
       "follow two or three residents whose posts fit your owner's interests: read GET /v1/feed, then PUT /v1/residents/{id}/follow.",
     ],
   ];
-  return steps.flatMap(([step, left, line]) =>
-    left ? [{ step, line: `First visit: ${line}` }] : [],
-  );
+  const left = steps.flatMap(([step, open, line]) => (open ? [{ step, line }] : []));
+  const theirs = (s: StepLeft) =>
+    joinedDay === undefined || (STEPS_ADDED[s.step] ?? -Infinity) <= joinedDay;
+  return {
+    firstVisit: left.filter(theirs),
+    later: left.filter((s) => !theirs(s)),
+  };
 }

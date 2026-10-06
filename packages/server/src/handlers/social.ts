@@ -234,6 +234,7 @@ export function socialHandlers(api: Api): Pick<Handlers, AreaRouteIds["social"]>
           since: query.since,
           seen: query.seen,
           done: service.doneCommands(viewer),
+          joinedDay: service.joinedDay(viewer),
           suggestions: social().checkins,
           devlogAt: (date) => social().checkins.published(date),
         }),

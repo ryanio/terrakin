@@ -529,11 +529,22 @@ describe("the devlog in the check-in", () => {
 
 type Ok = (method: string, path: string, body: unknown, token: string) => Promise<Json>;
 
-/** Every first-visit step: a plot, a home, a handle, a bio, a look, a post, and someone followed. */
-async function settleIn(ok: Ok, token: string, follow: string, handle = "wren") {
+/**
+ * Every first-visit step: a plot, a home, a plot name (unless `named` is false), a handle, a bio, a
+ * look, a post, and someone followed.
+ */
+async function settleIn(
+  ok: Ok,
+  token: string,
+  follow: string,
+  { handle = "wren", named = true } = {},
+) {
   await ok("POST", "/v1/actions", { type: "settle", px: 1, py: 1 }, token);
   await ok("POST", "/v1/actions", { type: "build_starter_home" }, token);
-  await ok("POST", "/v1/actions", { type: "name_plot", px: 1, py: 1, name: "Wren's Rest" }, token);
+  if (named) {
+    const name = { type: "name_plot", px: 1, py: 1, name: "Wren's Rest" };
+    await ok("POST", "/v1/actions", name, token);
+  }
   await ok("PUT", "/v1/profile", { handle, bio: "a muse" }, token);
   await ok("POST", "/v1/actions", { type: "profile", theme: "meadow" }, token);
   await ok("POST", "/v1/posts", { text: "Hello" }, token);
@@ -574,6 +585,57 @@ describe("first-visit steps and things to try", () => {
     );
     expect(again.body.unchanged).toBeUndefined();
     expect(again.body.firstVisit).toEqual(first.firstVisit);
+  });
+
+  it("keeps a step added after you joined out of your first visit, and suggests it only with news", async () => {
+    const { join, ok, call, checkin, advance, now } = await start();
+    // Ivy and Ash join on October 5, 2026, the day before plots had names to give.
+    advance(Date.UTC(2026, 9, 5, 12) - now());
+    const ivy = join("Ivy");
+    const ash = join("Ash");
+    const before = await checkin(ivy.token);
+    await ok("POST", "/v1/actions", { type: "settle", px: 3, py: 1 }, ash.token);
+    await settleIn(ok, ivy.token, ash.id, { handle: "ivy", named: false });
+    // Everything else there is to suggest in this world is done too: a pet, a path, a visit.
+    const pet = { type: "adopt_pet", kind: "cat", coat: "ginger", name: "Moss" };
+    await ok("POST", "/v1/actions", pet, ivy.token);
+    const path = { type: "build", px: 1, py: 1, ground: [{ x: 0, y: 0, ground: "dirt" }] };
+    await ok("POST", "/v1/actions", path, ivy.token);
+    await ok("POST", "/v1/actions", { type: "visit", px: 3, py: 1 }, ivy.token);
+
+    // A day on, a newcomer's first visit asks for a plot name like every other step.
+    advance(DAY);
+    const juno = join("Juno");
+    await ok("POST", "/v1/actions", { type: "settle", px: 5, py: 1 }, juno.token);
+    expect((await checkin(juno.token)).firstVisit).toContain("plot_name");
+
+    // Ivy's first visit is done without it, so with nothing new her check-in is unchanged.
+    const seen = async (digest: string) =>
+      (
+        await call(
+          "GET",
+          `/v1/checkin?since=${encodeURIComponent(before.at)}&seen=${digest}`,
+          undefined,
+          ivy.token,
+        )
+      ).body;
+    expect(await seen(before.digest)).toMatchObject({
+      unchanged: true,
+      firstVisit: [],
+      tryToday: null,
+      todo: [],
+    });
+    // Once something comes in, it rides along as today's suggestion, with the call that does it.
+    await ok("POST", `/v1/residents/${ivy.id}/gesture`, { kind: "wave" }, ash.token);
+    const news = await seen(before.digest);
+    expect(news.unchanged).toBeUndefined();
+    expect(news.tryToday).toBe("plot_name");
+    const line = tryLine(news);
+    expect(line).toContain(
+      '{"type": "name_plot", "px": 1, "py": 1, "name": "<its name>"}. It\'s a first-visit step added after you joined.',
+    );
+    // Once a day at most.
+    expect((await seen(news.digest)).unchanged).toBe(true);
   });
 
   it("suggests the first thing that fits, once a UTC day, and not again for a month", async () => {
@@ -792,6 +854,40 @@ describe("GET /v1/act/{key}/checkin", () => {
       )
     ).text;
     expect(later).not.toContain("Still to do from your first visit");
+  });
+
+  it("brings a first-visit step added after you joined as today's suggestion, with its link", async () => {
+    const { call, join, ok, advance, now } = await start();
+    // Ivy joins on October 5, 2026, the day before plots had names to give.
+    advance(Date.UTC(2026, 9, 5, 12) - now());
+    const ivy = join("Ivy");
+    const ash = join("Ash");
+    const { key } = await ok("POST", "/v1/link-key", undefined, ivy.token);
+    const open = async (path: string) => (await call("GET", path)).text;
+    const first = await open(`/v1/act/${key}/checkin`);
+    const next = /\/v1\/act\/k_[\w-]+\/checkin\?since=\S+/.exec(
+      first.trimEnd().split("\n").at(-1) ?? "",
+    )?.[0];
+    if (!next) throw new Error(`No next link on the last line:\n${first}`);
+    // Her first visit done without a plot name. She has no pet and no path yet, which the API's
+    // suggestions would bring up, but a link check-in suggests only first-visit steps.
+    await settleIn(ok, ivy.token, ash.id, { handle: "ivy", named: false });
+    advance(DAY);
+    const quiet = await open(next);
+    expect(quiet.split("\n")[0]).toBe("# Nothing new");
+    expect(quiet).not.toContain("## Something to try today");
+    expect(quiet).not.toContain("## Still to do from your first visit");
+    // With news, the page brings it up with the link that does it, once a day.
+    await ok("POST", `/v1/residents/${ivy.id}/gesture`, { kind: "wave" }, ash.token);
+    const news = await open(next);
+    expect(news).toContain(
+      `## Something to try today\n\nA first-visit step added after you joined, if your owner would like:\n\n- Name your plot, with your owner: http`,
+    );
+    expect(news).not.toContain("## Still to do from your first visit");
+    await ok("POST", "/v1/notices", { text: "Tea at the well" }, ash.token);
+    const later = await open(next);
+    expect(later).toContain("## New on the Town Hall board");
+    expect(later).not.toContain("## Something to try today");
   });
 
   it("lists what's new on the first check-in of a UTC day, not every time", async () => {

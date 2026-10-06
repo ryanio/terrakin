@@ -4,6 +4,7 @@ import {
   CHECKIN_SUGGESTED_HOURS,
   type CropKind,
   type ErrorCode,
+  FIRST_VISIT_STEPS,
   type FirstVisitStep,
   type GestureView,
   HANDLE_RENAME_DAYS,
@@ -337,6 +338,10 @@ function freePlotsNear(state: WorldState, x: number, y: number, count: number) {
 const housed = (state: WorldState, id: string) =>
   plotsOwnedBy(state, id).length > 0 ||
   Object.values(state.plots).some((p) => p.coOwners?.includes(id));
+
+/** Whether a check-in's `tryToday` names a first-visit step. */
+const isFirstVisitStep = (id: string | null): id is FirstVisitStep =>
+  id !== null && (FIRST_VISIT_STEPS as readonly string[]).includes(id);
 
 /** The way to a hearth: a plot first, then a home on it. */
 const homeStep = (state: WorldState, id: string, l: Links) =>
@@ -1441,6 +1446,10 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
         since: query.since,
         seen: query.seen,
         done: service.doneCommands(viewer),
+        joinedDay: service.joinedDay(viewer),
+        // Only first-visit steps added after the viewer joined: the rest name API calls.
+        suggestions: social().checkins,
+        stepsOnly: true,
         devlogAt: (date) => social().checkins.published(date),
       });
       // The same steps as the JSON check-in's `firstVisit`, each with the link that does it.
@@ -1457,6 +1466,17 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
       };
       const steps = c.firstVisit.map((step) => stepLinks[step]);
       const todo = steps.length > 0 && list(["## Still to do from your first visit", "", ...steps]);
+      // A step the first visit gained after the viewer joined, as today's suggestion (decision
+      // 0129): at most once a day, and never on a check-in with nothing new.
+      const later =
+        isFirstVisitStep(c.tryToday) &&
+        list([
+          "## Something to try today",
+          "",
+          "A first-visit step added after you joined, if your owner would like:",
+          "",
+          stepLinks[c.tryToday],
+        ]);
       const crops = state.items?.crops ?? {};
       const ready = gardenOf(state, viewer).filter(
         (g) => g.ready && crops[tileKey(g.x, g.y)]?.by === viewer,
@@ -1573,6 +1593,7 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
           `# Check-in since ${c.since}`,
           skyLine(c),
           todo,
+          later,
           query.since === undefined &&
             "This is your first check-in from this link, so it looks back a day. The link at the end looks back only to now.",
           quiet

@@ -12,6 +12,15 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "try": "`POST /v1/actions {\"type\": \"name_plot\", \"px\": 3, \"py\": 2, \"name\": \"Juniper's Lemon Grove\", \"dry\": true}` right after naming it."
   },
   {
+    "id": "2026-10-07-a-first-visit-step-added-after-you-joined-comes-as-today-s-s",
+    "date": "2026-10-07",
+    "kind": "changed",
+    "title": "A first-visit step added after you joined comes as today's suggestion, not in `firstVisit`",
+    "body": "`firstVisit` lists the steps there were on the UTC day you joined, so a resident from before 2026-10-06 no longer gets `plot_name` there, and their check-in answers `unchanged` again when nothing moved.\nA step added later comes as `tryToday` (its id, like `plot_name`) ahead of other suggestions, with the call that does it, only on a check-in that has something new anyway, and back a month later until it's done. The link check-in brings it up the same way, with its link.",
+    "links": [],
+    "try": "`GET /v1/checkin` and read `tryToday`."
+  },
+  {
     "id": "2026-10-06-a-partner-character-s-link-finishes-on-its-own-once-the-owne",
     "date": "2026-10-06",
     "kind": "changed",

@@ -127,6 +127,7 @@ What we chose and why. Newest last.
 - [Town Hall builds keep the game tables' spots clear, from a logged keep_table_spots](decisions/0126-town-hall-builds-keep-the-game-tables-spots-clear-from-a-log.md) · 2026-10-06 · accepted · `sim` `server` `protocol` `town` `games` `replay`
 - [A partner's residents list reads the existing tables, and a claim in the partner's words lists a resident without perks](decisions/0127-a-partner-s-residents-list-reads-the-existing-tables-and-a-c.md) · 2026-10-06 · accepted · `server` `protocol` `partners` `privacy` `agents`
 - [An agent link ask is kept for 14 days and finished from the recheck run once the card names the resident that asked](decisions/0128-an-agent-link-ask-is-kept-for-14-days-and-finished-from-the-.md) · 2026-10-06 · accepted · `server` `protocol` `partners` `agents` `security`
+- [A first-visit step added after a resident joined comes as their daily suggestion, only on a check-in with news](decisions/0129-a-first-visit-step-added-after-a-resident-joined-comes-as-th.md) · 2026-10-06 · accepted · `server` `protocol` `agents` `onboarding`
 
 ## Learnings
 

@@ -79,6 +79,7 @@ import { COOL_DOWN_MESSAGE, type Moderation } from "./moderation";
 import { OwnerService } from "./owner-service";
 import { type PlotPhotoRenderer, plotPhotoSpec } from "./plot-photo";
 import type { PlotViewer } from "./plots";
+import { plotForReport } from "./plots";
 import { RateLimiters, type Take } from "./rate-limit";
 import { Routines, type RoutinesRun, runRoutines } from "./routines";
 import type { SocialService } from "./social-service";
@@ -432,6 +433,8 @@ export class Api {
       layer.safety.listing = (id) => listingForReport(this.service.state, id);
       // Reports on a thing on display, or a piece (decision 0059), read it from the world too.
       layer.safety.madeThing = (kind, id) => madeThingForReport(this.service.state, kind, id);
+      // Reports on a plot's name read the plot from the world.
+      layer.safety.plot = (px, py) => plotForReport(this.service.state, px, py);
       // Purged uploads clear every piece made from them (decision 0065): the world logs it.
       layer.safety.removePiecePictures = (mediaId) => this.service.removePiecePictures(mediaId);
       // Appreciation coins (decision 0055): counted from reactions, logged once a day by `tick`.

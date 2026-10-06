@@ -219,7 +219,15 @@ export interface Plot {
   sharedDay?: Record<ResidentId, number>;
   /** Marked a gallery (`set_gallery`): what's on display here is listed on the Galleries page. */
   gallery?: true;
+  /**
+   * The owner's name for the plot (`name_plot`). Absent when unnamed, so plots that were never
+   * named hash exactly as they always have. Untrusted text: filtered and capped before logging.
+   */
+  name?: string;
 }
+
+/** A plot's name: 1 to 24 characters, like a resident's. Empty clears it. */
+export const PLOT_NAME_MAX_LENGTH = 24;
 
 export const VOTE_CHOICES = ["yes", "no", "abstain"] as const;
 export type VoteChoice = (typeof VOTE_CHOICES)[number];
@@ -1091,6 +1099,12 @@ export type Command =
   | { type: "build_starter_home"; walls?: BlockKind; windows?: BlockKind }
   | { type: "share_plot"; with: ResidentId }
   | { type: "unshare_plot"; with: ResidentId }
+  /**
+   * Name the plot you stand on, or your first plot when you're not on one (`name_plot`). Only
+   * its owner can name it. An empty name clears it. The server cleans and filters the name like
+   * a resident's before logging; the sim caps it at `PLOT_NAME_MAX_LENGTH`.
+   */
+  | { type: "name_plot"; name: string }
   | {
       type: "propose";
       kind: ProposalKind;
@@ -1373,6 +1387,7 @@ export type WorldEvent =
   /** `routine` marks a step an offline resident's routine took (RFC 0009). */
   | { type: "moved"; residentId: ResidentId; x: number; y: number; routine?: StepRoutine }
   | { type: "plot_claimed"; px: number; py: number; ownerId: ResidentId }
+  | { type: "plot_named"; px: number; py: number; name: string }
   | { type: "plot_released"; px: number; py: number; ownerId: ResidentId }
   | { type: "hearth_set"; residentId: ResidentId; x: number; y: number }
   | { type: "block_placed"; x: number; y: number; block: BlockKind; by: ResidentId }
@@ -1768,6 +1783,8 @@ export const REJECTION_CODES = [
   "no_pet",
   /** A pet's once-a-day limit: a rename, or a treat. */
   "pet_limit",
+  /** A plot's name that isn't 1 to `PLOT_NAME_MAX_LENGTH` characters. */
+  "name_too_long",
   /** Nobody lives on that plot (RFC 0020). */
   "plot_unclaimed",
   /** That plot is yours, or shared with you: `home` goes there (RFC 0020). */

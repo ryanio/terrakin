@@ -552,9 +552,12 @@ class WorldObject extends DurableObject<Env> {
       browserOrigin: request.headers.get("origin") ?? undefined,
       fetchSite: request.headers.get("sec-fetch-site") ?? undefined,
       contentType: request.headers.get("content-type") ?? undefined,
+      ifNoneMatch: request.headers.get("if-none-match") ?? undefined,
     });
     if (!response) return jsonError(404, "not_found", "Not found.");
-    return new Response(response.status === 204 ? null : response.body, {
+    // 204 and 304 answers carry no body: a Response with one would throw.
+    const empty = response.status === 204 || response.status === 304;
+    return new Response(empty ? null : response.body, {
       status: response.status,
       headers: response.headers,
     });

@@ -3,11 +3,13 @@ import {
   apply,
   CHAT_EARSHOT,
   type Command,
+  canonicalJson,
   countOf,
   createWorld,
   DEFAULT_CONFIG,
   FURNITURE_KINDS,
   FURNITURE_RECIPES,
+  fnv1a,
   GROUND_INFO,
   GROUND_KINDS,
   groundCostWords,
@@ -648,6 +650,15 @@ describe("GET /v1/catalog", () => {
     expect(jam).toMatchObject({ id: "jam", name: "Jam", family: "fruit", count: 3 });
     for (const made of jam?.makes ?? []) expect(kind(made)?.recipe?.familyRecipe).toBe("jam");
     expect(CATALOG_VIEW.kinds.map((k) => k.kind)).toEqual(ITEM_KINDS);
+  });
+
+  it("is versioned by a hash of everything else in it, 8 hex characters long", () => {
+    const { version, ...rest } = CATALOG_VIEW;
+    // A new field joins the hash, so the version changes whenever anything an agent reads does.
+    expect(Object.keys(rest)).toEqual(["families", "kinds", "familyRecipes"]);
+    const { families, kinds, familyRecipes } = CATALOG_VIEW;
+    expect(version).toBe(fnv1a(canonicalJson({ families, kinds, familyRecipes })));
+    expect(version).toMatch(/^[0-9a-f]{8}$/);
   });
 });
 

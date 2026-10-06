@@ -360,6 +360,7 @@ export function createApp(options: AppOptions): Server {
       browserOrigin: req.headers.origin,
       fetchSite: header(req.headers["sec-fetch-site"]),
       contentType: req.headers["content-type"],
+      ifNoneMatch: header(req.headers["if-none-match"]),
       ...requestOrigin(req, options.trustedProxies),
     });
   }

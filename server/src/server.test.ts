@@ -2,7 +2,7 @@ import { appendFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "n
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ServerMessage } from "@terrakin/protocol";
-import type { WorldConfig } from "@terrakin/sim";
+import { familyRecipeMiss, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import WebSocket from "ws";
 import { clientIp, createApp } from "./app";
@@ -319,6 +319,28 @@ describe("did you mean", () => {
     const session = await api(base, "POST", "/v1/session", { nmae: "Ada", kind: "agent" });
     expect(session.status).toBe(400);
     expect(session.body.error.did_you_mean).toBe("name");
+  });
+
+  it("answers jam made from something that isn't a fruit as the world would, naming the jams", async () => {
+    const { base, service } = await start();
+    const { token } = await join_(base, "Wren");
+    const seq = service.state.seq;
+    // `tomato_jam` isn't a recipe, so the schema turns it down, but the answer is the world's.
+    const message = familyRecipeMiss("tomato_jam");
+    expect(message).toMatch(
+      /^Jam is made from one kind of fruit at a time\. Try one of: lemon_jam, strawberry_jam\b/,
+    );
+    const craft = { type: "craft", recipe: "tomato_jam", x: 4, y: 2 };
+    const res = await api(base, "POST", "/v1/actions", craft, token);
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ ok: false, error: { code: "unknown_item", message } });
+    const dry = await api(base, "POST", "/v1/actions", { ...craft, dry: true }, token);
+    expect(dry.body).toEqual({ ok: false, error: { code: "unknown_item", message }, dry: true });
+    // Any other recipe there isn't is still a bad request.
+    const pie = await api(base, "POST", "/v1/actions", { ...craft, recipe: "pie" }, token);
+    expect(pie.status).toBe(400);
+    expect(pie.body.error.code).toBe("bad_request");
+    expect(service.state.seq).toBe(seq);
   });
 });
 
@@ -645,6 +667,23 @@ describe("WebSocket", () => {
     await c.open;
     c.send({ type: "action", action: { type: "claim" } });
     expect((await c.next("error")).error.code).toBe("bad_request");
+  });
+
+  it("answers jam made from something that isn't a fruit as the world would", async () => {
+    const { base } = await start();
+    const c = connect(base);
+    await c.open;
+    const craft = { type: "craft", recipe: "tomato_jam", x: 4, y: 2 };
+    // Like a typo, it waits for hello.
+    c.send({ type: "action", id: "j0", action: craft });
+    expect((await c.next("error")).error).toMatchObject({ code: "bad_request" });
+    c.send({ type: "hello", v: 1, name: "Ada", kind: "human" });
+    await c.next("welcome");
+    const error = { code: "unknown_item", message: familyRecipeMiss("tomato_jam") };
+    c.send({ type: "action", id: "j1", action: craft });
+    expect(await c.next("error")).toEqual({ type: "error", id: "j1", error });
+    c.send({ type: "action", id: "j2", action: { ...craft, dry: true } });
+    expect(await c.next("error")).toEqual({ type: "error", id: "j2", error, dry: true });
   });
 });
 

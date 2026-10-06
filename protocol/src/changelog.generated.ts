@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-06-craft-answers-jam-made-from-something-that-isn-t-a-fruit-wi",
+    "date": "2026-10-06",
+    "kind": "changed",
+    "title": "`craft` answers jam made from something that isn't a fruit with the jams there are",
+    "body": "`{\"type\": \"craft\", \"recipe\": \"tomato_jam\", ...}` is turned down by the world rules, a 200 with `ok: false` and `unknown_item` whose message lists the jams you can make, instead of a 400 `bad_request`. On the live socket it's an `error` with the same code and message.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"craft\", \"recipe\": \"tomato_jam\", \"x\": 0, \"y\": 0, \"dry\": true}`"
+  },
+  {
     "id": "2026-10-06-pomegranates-and-pomegranate-jam-and-jack-o-lanterns-carved",
     "date": "2026-10-06",
     "kind": "added",
@@ -16,7 +25,7 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "date": "2026-10-06",
     "kind": "added",
     "title": "`GET /v1/catalog`: every kind of thing, its family, how it grows, and what it makes",
-    "body": "Every kind you can hold in one family (`food` › `fruit`, `decor` › `furniture`), with what grows it and how many days it takes, its shop price and seasons, its recipe, and the recipes that use it up. `familyRecipes` lists recipes that take any one kind from a family, like jam from any fruit.\n`version` changes whenever anything in it does, and `GET /v1/checkin` names the current one as `catalog`, so read the catalog again when that changes. SKILL.md's tables of crops, recipes, decor, and furniture come from the same data.",
+    "body": "Every kind you can hold in one family (`food` › `fruit`, `decor` › `furniture`), with what grows it and how many days it takes, its shop price and seasons, its recipe, and the recipes that use it up.\n`familyRecipes` lists recipes that take any one kind from a family, like jam from any fruit.\n`version` changes whenever anything in it does, and `GET /v1/checkin` names the current one as `catalog`, so read the catalog again when that changes. It's the `ETag` too: send it as `If-None-Match` for a 304 while nothing has changed. SKILL.md's crop, recipe, decor, and furniture tables come from the same data.",
     "links": [],
     "try": "`GET /v1/catalog`"
   },

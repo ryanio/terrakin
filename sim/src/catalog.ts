@@ -696,6 +696,18 @@ const withRole = (role: Role) => KINDS.filter((kind) => CATALOG[kind].role === r
 export const kindsIn = (family: Family): ItemKind[] =>
   KINDS.filter((kind) => CATALOG[kind].family === family);
 
+/**
+ * What to tell someone who asks a family recipe of a kind outside its family, like `tomato_jam`:
+ * the kinds it takes. Undefined when the name is a kind, or asks no family recipe.
+ */
+export function familyRecipeMiss(name: string): string | undefined {
+  const recipe = familyRecipeOf(name);
+  if (!recipe || Object.hasOwn(CATALOG, name)) return undefined;
+  const made = kindsIn(recipe.from).map((kind) => `${kind}_${recipe.suffix}`);
+  const from = FAMILIES[recipe.from].name.toLowerCase();
+  return `${recipe.label} is made from one kind of ${from} at a time. Try one of: ${made.join(", ")}.`;
+}
+
 export const SEED_KINDS = withRole("seed") as readonly SeedKind[];
 export const PRODUCE_KINDS = withRole("produce") as readonly ProduceKind[];
 /** What grows in a planter. Each has a seed kind that grows it. */

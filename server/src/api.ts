@@ -54,6 +54,7 @@ import {
 import {
   canBuildOn,
   eventOpen,
+  familyRecipeMiss,
   findBounty,
   findEvent,
   findProposal,
@@ -92,7 +93,7 @@ import { count, crumb, nameRequest, report, span, task } from "./telemetry";
 import { anchorPlot, suggestPlots } from "./together";
 import { archiveView, proposalDetail, townView } from "./town";
 import type { TipsResult, TownsfolkTips } from "./townsfolk-tips";
-import { DAY_MS, utcDay, type WorldService } from "./world-service";
+import { type ActResult, DAY_MS, utcDay, type WorldService } from "./world-service";
 
 /**
  * The runtime-neutral front door: routes, auth, rate limits, and the `/v1/live` message protocol.
@@ -260,6 +261,8 @@ export interface ApiRequest {
   fetchSite?: string | undefined;
   /** The `Content-Type` header. */
   contentType?: string | undefined;
+  /** The `If-None-Match` header, for a route whose answer has an `ETag`. */
+  ifNoneMatch?: string | undefined;
 }
 
 /** Who may use staff routes, and how they sign in (RFC 0006, decision 0040). */
@@ -824,6 +827,8 @@ export class Api {
         const hint = suggestFor(route.body, raw);
         if (hint) return error("bad_request", hint.message, undefined, hint.didYouMean);
       }
+      const missed = !parsed.success && route.body === Action ? familyMiss(raw) : undefined;
+      if (missed) return render(route, { status: 200, body: missed }, help);
       if (!parsed.success) return reject("bad_request", problem(parsed.error));
       body = parsed.data;
     }
@@ -831,7 +836,12 @@ export class Api {
     const handler = this.handlers[route.id as RouteId] as unknown as AnyHandler;
     const run = () =>
       span(route.id, "api.handler", async () =>
-        render(route, await handler({ params, query, body, viewer, ip: req.ip, origin }), help),
+        render(
+          route,
+          await handler({ params, query, body, viewer, ip: req.ip, origin }),
+          help,
+          req.ifNoneMatch,
+        ),
       );
     return withHeaders(
       await this.idempotent(route, req.idempotencyKey, viewer, [params, query, body], run),
@@ -2588,14 +2598,14 @@ export class LiveSession {
       return this.fail("bad_request", "Messages must be JSON.");
     }
     const parsed = ClientMessage.safeParse(raw);
-    // A typo answer waits for hello and takes an action slot, in the same order as REST.
-    const hint = actionHint(raw);
+    // An answer before the world waits for hello and takes an action slot, in the same order as REST.
+    const hint = actionHint(raw, parsed.success);
     if (hint) {
       if (!this.residentId) return this.fail("bad_request", "Say hello first.");
       if (!this.api.takeAction(this.residentId)) {
         return this.fail("rate_limited", "Slow down.", hint.id);
       }
-      return this.fail("bad_request", hint.message, hint.id, hint.didYouMean);
+      return this.fail(hint.code, hint.message, hint.id, hint.didYouMean, hint.dry);
     }
     if (!parsed.success) return this.fail("bad_request", parsed.error.message);
     const msg = parsed.data;
@@ -2729,19 +2739,39 @@ export class LiveSession {
 }
 
 /**
- * A typo in a socket action's type or field names, with the message's `id` when it has a usable
- * one. Like `POST /v1/actions`, a near-miss field is refused even when the rest parses.
+ * What a socket action gets before it reaches the world, with the message's `id` when it has a
+ * usable one: a typo in its type or field names (like `POST /v1/actions`, a near-miss field is
+ * refused even when the rest parses), or, when it didn't parse, a family recipe's thing for a kind
+ * outside its family ({@link familyMiss}).
  */
 function actionHint(
   raw: unknown,
-): { message: string; didYouMean: string; id?: string } | undefined {
+  parsed: boolean,
+): { code: ErrorCode; message: string; didYouMean?: string; id?: string; dry?: true } | undefined {
   if (typeof raw !== "object" || raw === null) return undefined;
   const { type, id, action } = raw as Record<string, unknown>;
   if (type !== "action") return undefined;
-  const hint = suggestFor(Action, action);
-  if (!hint) return undefined;
   const usableId = typeof id === "string" && id.length >= 1 && id.length <= 64 ? id : undefined;
-  return { ...hint, ...(usableId === undefined ? {} : { id: usableId }) };
+  const withId = usableId === undefined ? {} : { id: usableId };
+  const hint = suggestFor(Action, action);
+  if (hint) return { code: "bad_request", ...hint, ...withId };
+  const missed = parsed ? undefined : familyMiss(action);
+  if (missed) return { ...missed.error, ...withId, ...(missed.dry ? { dry: missed.dry } : {}) };
+  return undefined;
+}
+
+/**
+ * A `craft` of a family recipe's thing for a kind outside its family, like `tomato_jam`. It isn't a
+ * recipe, so the schema turns it down before the world sees it; this gives the world's answer
+ * instead, a refusal that names the kinds the recipe takes.
+ */
+function familyMiss(action: unknown): Extract<ActResult, { ok: false }> | undefined {
+  if (typeof action !== "object" || action === null) return undefined;
+  const { type, recipe, dry } = action as Record<string, unknown>;
+  if (type !== "craft" || typeof recipe !== "string") return undefined;
+  const message = familyRecipeMiss(recipe);
+  if (message === undefined) return undefined;
+  return { ok: false, error: { code: "unknown_item", message }, ...(dry === true ? { dry } : {}) };
 }
 
 /** A stored snapshot as staff see it. */
@@ -2833,8 +2863,28 @@ const PRIVATE_PAGE = {
   "referrer-policy": "no-referrer",
 };
 
-/** Turn a handler's reply into HTTP, using the route's declared response for that status. */
-function render(route: RouteSpec, reply: HandlerReply | Failure, help?: string): ApiResponse {
+/**
+ * Whether an `If-None-Match` header names `tag`: any one of its tags, weak or strong (a proxy that
+ * compresses the answer may weaken the `ETag` it saw), or `*`.
+ */
+function etagMatches(header: string | undefined, tag: string): boolean {
+  if (!header) return false;
+  return header.split(",").some((t) => {
+    const one = t.trim();
+    return one === "*" || one.replace(/^W\//, "") === tag;
+  });
+}
+
+/**
+ * Turn a handler's reply into HTTP, using the route's declared response for that status. A JSON
+ * reply with an `etag` gets one, and a 304 when `ifNoneMatch` already names it.
+ */
+function render(
+  route: RouteSpec,
+  reply: HandlerReply | Failure,
+  help?: string,
+  ifNoneMatch?: string,
+): ApiResponse {
   if ("error" in reply) {
     if (route.format !== "markdown") return error(reply.error, reply.message, reply.retryAfter);
     return {
@@ -2846,11 +2896,13 @@ function render(route: RouteSpec, reply: HandlerReply | Failure, help?: string):
   const spec = route.responses[reply.status];
   if (!spec) throw new Error(`Route ${route.id} declares no ${reply.status} response.`);
   if (spec.kind === "json") {
+    if (!spec.etag) return json(reply.status, reply.body);
+    // Public data that's the same for everyone, like the catalog: a cache keeps it, and asks each
+    // time whether it's still current.
+    const headers = { etag: `"${spec.etag(reply.body)}"`, "cache-control": "public, no-cache" };
+    if (etagMatches(ifNoneMatch, headers.etag)) return { status: 304, headers, body: "" };
     const out = json(reply.status, reply.body);
-    // Public data that's the same for everyone, like the catalog, may be kept a while.
-    return spec.maxAge === undefined
-      ? out
-      : { ...out, headers: { ...out.headers, "cache-control": `public, max-age=${spec.maxAge}` } };
+    return { ...out, headers: { ...out.headers, ...headers } };
   }
   if (spec.kind === "empty") return { status: reply.status, headers: {}, body: "" };
   if (route.format === "markdown") {

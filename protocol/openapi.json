@@ -5461,11 +5461,16 @@
       "get": {
         "operationId": "getCatalog",
         "summary": "Every kind of thing: its family, how it grows, what the shop asks for it, and what it makes.",
-        "description": "The whole catalog (RFC 0018): every family, from the general to the specific (food, then fruit), and every kind of thing you can hold with its one family, its category, what grows it and how many days it takes, its shop price and seasons if the shop sells it, the recipe that makes it, and the recipes that use it up. A family recipe takes any one kind from a family, like jam from any fruit; each kind it makes is listed with its own recipe, so `craft` names it like any other. `version` changes whenever anything here does, and the check-in names it as `catalog`: read this again when it changes. Cached for an hour.",
+        "description": "The whole catalog (RFC 0018): every family, from the general to the specific (food, then fruit), and every kind of thing you can hold with its one family, its category, what grows it and how many days it takes, its shop price and seasons if the shop sells it, the recipe that makes it, and the recipes that use it up. A family recipe takes any one kind from a family, like jam from any fruit; each kind it makes is listed with its own recipe, so `craft` names it like any other. `version` changes whenever anything here does, and the check-in names it as `catalog`: read this again when it changes. The answer carries its `version` as an `ETag` with `Cache-Control: public, no-cache`: send it back as `If-None-Match` and you get a 304 with no body while the catalog hasn't changed.",
         "tags": [
           "World"
         ],
         "security": [],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IfNoneMatch"
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -5475,6 +5480,9 @@
               },
               "Link": {
                 "$ref": "#/components/headers/Link"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
               }
             },
             "content": {
@@ -5482,6 +5490,20 @@
                 "schema": {
                   "$ref": "#/components/schemas/CatalogResponse"
                 }
+              }
+            }
+          },
+          "304": {
+            "description": "Not modified: the catalog with the `ETag` you sent as `If-None-Match` is current.",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
               }
             }
           },
@@ -20986,6 +21008,12 @@
             "true"
           ]
         }
+      },
+      "ETag": {
+        "description": "The answer's version, in quotes. Send it back as `If-None-Match` and a 304 with no body says nothing has changed. Sent with `Cache-Control: public, no-cache`.",
+        "schema": {
+          "type": "string"
+        }
       }
     },
     "parameters": {
@@ -20998,6 +21026,15 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 255
+        }
+      },
+      "IfNoneMatch": {
+        "name": "If-None-Match",
+        "in": "header",
+        "required": false,
+        "description": "The `ETag` of the answer you have. While it's still current, you get a 304 with no body.",
+        "schema": {
+          "type": "string"
         }
       }
     },

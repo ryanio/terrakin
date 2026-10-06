@@ -25,9 +25,6 @@ import { CropKind, GoodKind, ItemKind, SeasonName, StackKind } from "./schemas";
  * it changes whenever anything in it does, and the check-in names it as `catalog`.
  */
 
-/** How long browsers and caches may keep the catalog, in seconds. It changes only with a deploy. */
-export const CATALOG_MAX_AGE = 3600;
-
 const needsList = z.array(z.object({ kind: StackKind, count: z.number().int() }));
 
 export const CatalogFamily = z.object({

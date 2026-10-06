@@ -4,14 +4,12 @@ import {
   type Crop,
   DECOR_KINDS,
   type DecorKind,
-  FAMILIES,
-  familyRecipeOf,
+  familyRecipeMiss,
   GOOD_KINDS,
   type GoodKind,
   ITEM_INFO,
   ITEM_KINDS,
   type ItemKind,
-  kindsIn,
   MADE_KINDS,
   type MadeKind,
   PANTRY_STAPLES,
@@ -511,14 +509,8 @@ export function checkCraft(
   const furniture = isFurnitureKind(recipe);
   if (!furniture && !isGoodKind(recipe)) {
     // A family recipe asked of a kind outside its family: say which kinds it takes.
-    const family = typeof recipe === "string" ? familyRecipeOf(recipe) : undefined;
-    if (family) {
-      const made = kindsIn(family.from).map((kind) => `${kind}_${family.suffix}`);
-      return refuse(
-        "unknown_item",
-        `${family.label} is made from one kind of ${FAMILIES[family.from].name.toLowerCase()} at a time. Try one of: ${made.join(", ")}.`,
-      );
-    }
+    const miss = typeof recipe === "string" ? familyRecipeMiss(recipe) : undefined;
+    if (miss) return refuse("unknown_item", miss);
     return refuse(
       "unknown_item",
       `There's no recipe for that. Try one of: ${GOOD_KINDS.join(", ")}, or furniture: ${FURNITURE_KINDS.join(", ")}.`,

@@ -6,7 +6,7 @@ import {
   StaffBountiesResponse,
   StaffBountyResponse,
 } from "./bounties";
-import { CATALOG_MAX_AGE, CatalogResponse } from "./catalog";
+import { CatalogResponse } from "./catalog";
 import { ChangelogKind, ChangelogResponse } from "./changelog";
 import { CHECKIN_LIMITS, CHECKIN_SUGGESTED_HOURS, CheckinResponse } from "./checkin";
 import { PurseResponse } from "./coins";
@@ -260,8 +260,12 @@ export interface JsonReply<S extends z.ZodType = z.ZodType> {
   readonly kind: "json";
   readonly schema: S;
   readonly description: string;
-  /** Lets browsers and caches keep it this many seconds (`Cache-Control: public, max-age`). */
-  readonly maxAge?: number;
+  /**
+   * For public data that's the same for everyone: the answer's version, sent as its `ETag` with
+   * `Cache-Control: public, no-cache`, so a cache keeps it but asks again each time, and a request
+   * whose `If-None-Match` names it gets a 304 with no body.
+   */
+  readonly etag?: (body: z.infer<S>) => string;
 }
 export interface TextReply {
   readonly kind: "text";
@@ -406,12 +410,12 @@ export function routeErrors(route: RouteSpec): readonly ErrorCode[] {
 const json = <S extends z.ZodType>(
   schema: S,
   description = "OK",
-  maxAge?: number,
+  etag?: (body: z.infer<S>) => string,
 ): JsonReply<S> => ({
   kind: "json",
   schema,
   description,
-  ...(maxAge === undefined ? {} : { maxAge }),
+  ...(etag === undefined ? {} : { etag }),
 });
 const text = (contentType: string, description: string, maxAge?: number): TextReply => ({
   kind: "text",
@@ -987,9 +991,14 @@ export const ROUTES = [
     summary:
       "Every kind of thing: its family, how it grows, what the shop asks for it, and what it makes.",
     description:
-      "The whole catalog (RFC 0018): every family, from the general to the specific (food, then fruit), and every kind of thing you can hold with its one family, its category, what grows it and how many days it takes, its shop price and seasons if the shop sells it, the recipe that makes it, and the recipes that use it up. A family recipe takes any one kind from a family, like jam from any fruit; each kind it makes is listed with its own recipe, so `craft` names it like any other. `version` changes whenever anything here does, and the check-in names it as `catalog`: read this again when it changes. Cached for an hour.",
+      "The whole catalog (RFC 0018): every family, from the general to the specific (food, then fruit), and every kind of thing you can hold with its one family, its category, what grows it and how many days it takes, its shop price and seasons if the shop sells it, the recipe that makes it, and the recipes that use it up. A family recipe takes any one kind from a family, like jam from any fruit; each kind it makes is listed with its own recipe, so `craft` names it like any other. `version` changes whenever anything here does, and the check-in names it as `catalog`: read this again when it changes. The answer carries its `version` as an `ETag` with `Cache-Control: public, no-cache`: send it back as `If-None-Match` and you get a 304 with no body while the catalog hasn't changed.",
     tags: ["World"],
-    responses: { 200: json(CatalogResponse, "OK", CATALOG_MAX_AGE) },
+    responses: {
+      200: json(CatalogResponse, "OK", (catalog) => catalog.version),
+      304: empty(
+        "Not modified: the catalog with the `ETag` you sent as `If-None-Match` is current.",
+      ),
+    },
     errors: [],
   },
   {

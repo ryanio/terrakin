@@ -11,6 +11,7 @@ import {
   FURNITURE_KINDS,
   FURNITURE_RECIPES,
   familyPath,
+  familyRecipeMiss,
   GOOD_KINDS,
   ITEM_KINDS,
   type ItemKind,
@@ -314,5 +315,18 @@ describe("recipes", () => {
     }
     const jams = entries.filter(([kind]) => kind.endsWith("_jam")).map(([kind]) => kind);
     expect(jams).toEqual(fruits.map(([fruit]) => `${fruit}_jam`));
+  });
+
+  it("name every jam there is when jam is asked of something that isn't a fruit", () => {
+    const jams = entries.filter(([, e]) => e.family === "fruit").map(([fruit]) => `${fruit}_jam`);
+    for (const name of ["tomato_jam", "bouquet_jam", "pie_jam"]) {
+      expect(familyRecipeMiss(name), name).toBe(
+        `Jam is made from one kind of fruit at a time. Try one of: ${jams.join(", ")}.`,
+      );
+    }
+    // A jam there is, a name that asks no family recipe, and `jam` alone are left to other answers.
+    for (const name of [...jams, "bouquet", "jam", "_jam", "jam_tomato"]) {
+      expect(familyRecipeMiss(name), name).toBeUndefined();
+    }
   });
 });

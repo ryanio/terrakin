@@ -41,6 +41,7 @@ export {
   type FamilyInfo,
   type FamilyRecipe,
   familyPath,
+  familyRecipeMiss,
   familyRecipeOf,
   JAM,
   type JarLook,

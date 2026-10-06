@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   API_CATALOG_TYPE,
-  CATALOG_MAX_AGE,
+  CATALOG_VERSION,
   CATALOG_VIEW,
   CHANGELOG_ENTRIES,
   SITEMAP_MAX_URLS,
@@ -398,12 +398,26 @@ describe("sitemaps", () => {
 });
 
 describe("the catalog", () => {
-  it("answers GET /v1/catalog with no token needed, and lets browsers and caches keep it", async () => {
+  it("answers GET /v1/catalog with its version as an ETag, and a 304 while it hasn't changed", async () => {
     const { call } = await start();
+    const tag = `"${CATALOG_VERSION}"`;
     const res = await call("GET", "/v1/catalog");
     expect(res.status).toBe(200);
-    expect(res.headers.get("cache-control")).toBe(`public, max-age=${CATALOG_MAX_AGE}`);
+    expect(res.headers.get("etag")).toBe(tag);
+    // Kept by caches, but asked about each time, so a new version reaches everyone at once.
+    expect(res.headers.get("cache-control")).toBe("public, no-cache");
     expect(res.body).toEqual(CATALOG_VIEW);
+    // Its own tag, weakened by a proxy, or among others: not modified, and no body.
+    for (const ifNoneMatch of [tag, `W/${tag}`, `"0f0f0f0f", ${tag}`]) {
+      const same = await call("GET", "/v1/catalog", { headers: { "if-none-match": ifNoneMatch } });
+      expect(same.status, ifNoneMatch).toBe(304);
+      expect(same.text, ifNoneMatch).toBe("");
+      expect(same.headers.get("etag")).toBe(tag);
+    }
+    // An older version gets the catalog as it is now.
+    const stale = await call("GET", "/v1/catalog", { headers: { "if-none-match": '"0f0f0f0f"' } });
+    expect(stale.status).toBe(200);
+    expect(stale.body).toEqual(CATALOG_VIEW);
   });
 });
 

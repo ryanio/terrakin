@@ -88,6 +88,11 @@ const HEADERS = {
       "`true` when this is the stored response to an earlier request with the same Idempotency-Key, not a new one.",
     schema: { type: "string", enum: ["true"] },
   },
+  ETag: {
+    description:
+      "The answer's version, in quotes. Send it back as `If-None-Match` and a 304 with no body says nothing has changed. Sent with `Cache-Control: public, no-cache`.",
+    schema: { type: "string" },
+  },
 } as const;
 
 const IDEMPOTENCY_KEY = {
@@ -96,6 +101,15 @@ const IDEMPOTENCY_KEY = {
   required: false,
   description: `Makes a retry safe. Send a new unique value (a UUID works) with each new request. If the same resident sends the same key again within ${IDEMPOTENCY_WINDOW_SECONDS / 3600} hours, the first response comes back (with \`Idempotency-Replayed: true\`) and nothing happens twice. The same key with a different request gets \`idempotency_conflict\` (422). Uploads are matched on size. Keys live in server memory, so a restart forgets them. 1 to 255 visible ASCII characters.`,
   schema: { type: "string", minLength: 1, maxLength: 255 },
+} as const;
+
+const IF_NONE_MATCH = {
+  name: "If-None-Match",
+  in: "header",
+  required: false,
+  description:
+    "The `ETag` of the answer you have. While it's still current, you get a 304 with no body.",
+  schema: { type: "string" },
 } as const;
 
 /**
@@ -230,7 +244,7 @@ export function buildOpenApi() {
         },
       },
       headers: HEADERS,
-      parameters: { IdempotencyKey: IDEMPOTENCY_KEY },
+      parameters: { IdempotencyKey: IDEMPOTENCY_KEY, IfNoneMatch: IF_NONE_MATCH },
       schemas: components,
     },
     "x-websocket": {
@@ -256,9 +270,12 @@ function operation(route: RouteSpec, named: (schema: z.ZodType, where: string) =
   }[route.auth];
 
   const idempotent = acceptsIdempotencyKey(route);
+  // An answer with a version sends it as its ETag, and a 304 when If-None-Match names it.
+  const versioned = Object.values(route.responses).some((r) => r.kind === "json" && r.etag);
   /** The headers a response with this status carries. */
   const headers = (status: number) => {
     const names = ["API-Version", "Link"];
+    if (versioned && (status === 200 || status === 304)) names.push("ETag");
     if (route.rateLimit) names.push("RateLimit", "RateLimit-Policy");
     if (status === 429) names.push("Retry-After");
     if (status === 401) names.push("WWW-Authenticate");
@@ -313,12 +330,13 @@ function operation(route: RouteSpec, named: (schema: z.ZodType, where: string) =
     ...(route.description ? { description: route.description } : {}),
     tags: [...route.tags],
     security,
-    ...(route.params || route.query || idempotent
+    ...(route.params || route.query || idempotent || versioned
       ? {
           parameters: [
             ...parameters(route.params, "path"),
             ...parameters(route.query, "query"),
             ...(idempotent ? [{ $ref: "#/components/parameters/IdempotencyKey" }] : []),
+            ...(versioned ? [{ $ref: "#/components/parameters/IfNoneMatch" }] : []),
           ],
         }
       : {}),

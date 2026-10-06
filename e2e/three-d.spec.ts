@@ -84,11 +84,27 @@ test.describe("a plot in 3D", () => {
     const photo = await photoSample(page);
     expect(photo.colors).toBeGreaterThan(12);
     day = { residentId: session.residentId, light: photo.light };
-    await expect(page.getByRole("link", { name: "Save" })).toHaveAttribute("download", /\.png$/);
+    const sheet = page.getByRole("dialog", { name: "Your photo" });
+    await expect(sheet.getByRole("link", { name: "Save" })).toHaveAttribute("download", /\.png$/);
+    const intent = new URL(
+      (await sheet.getByRole("link", { name: "Share on X" }).getAttribute("href")) ?? "",
+    );
+    expect(intent.origin + intent.pathname).toBe("https://x.com/intent/post");
+    expect(intent.searchParams.get("text")).toBe(
+      `Rowan's home on Terrakin ${new URL(`/r/${session.residentId}/3d`, page.url()).href}`,
+    );
+    // On a phone it is a bottom sheet: the full width, flush with the bottom edge.
+    const screen = page.viewportSize();
+    await expect
+      .poll(async () => {
+        const b = await sheet.locator(".sheet-card").boundingBox();
+        return b && [Math.round(b.x), Math.round(b.width), Math.round(b.y + b.height)];
+      })
+      .toEqual([0, screen?.width, screen?.height]);
 
     // Closing the photo puts focus back on the button that took it.
     await page.keyboard.press("Escape");
-    await expect(page.locator(".view3d-shot")).toBeHidden();
+    await expect(sheet).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Take a photo" })).toBeFocused();
 
     // Back goes to the profile, and nothing keeps drawing.

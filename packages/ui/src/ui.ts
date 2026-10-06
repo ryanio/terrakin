@@ -3,7 +3,9 @@
  * closes, checkbox rows, and copy-to-clipboard. Everything takes plain strings and sets them with
  * textContent.
  */
+import { xIntentUrl } from "@terrakin/protocol";
 import { h, icon } from "./dom";
+import { reducedMotion } from "./motion";
 
 // ---------- toast ----------
 
@@ -475,12 +477,43 @@ const pushOverlayEntry = () => history.pushState({ ...(history.state ?? {}), ove
 const onScreen = (el: Element | null | undefined): el is HTMLElement =>
   el instanceof HTMLElement && el.isConnected && el.getClientRects().length > 0;
 
-function teardown(o: Open, refocus = true) {
-  if (o.dialog.open) o.dialog.close();
-  o.dialog.remove();
-  document.documentElement.classList.remove("overlay-open");
+/**
+ * Close `o`. Its state goes at once, so `onClosed` and the next overlay never wait; with `animate`,
+ * the dialog plays its closing animation (`.closing` in base.css) before it leaves the page.
+ */
+function teardown(o: Open, { refocus = true, animate = false } = {}) {
   o.onClosed();
-  if (refocus) o.focusBack.find(onScreen)?.focus({ preventScroll: true });
+  const gone = () => {
+    // Opened again while it animated out: it stays.
+    if (current?.dialog === o.dialog) return;
+    o.dialog.classList.remove("closing");
+    if (o.dialog.open) o.dialog.close();
+    o.dialog.remove();
+    // Another overlay opened while this one animated out: the page stays locked, focus stays there.
+    if (current) return;
+    document.documentElement.classList.remove("overlay-open");
+    if (refocus) o.focusBack.find(onScreen)?.focus({ preventScroll: true });
+  };
+  if (animate) playOut(o.dialog, gone);
+  else gone();
+}
+
+/** Play `dialog`'s closing animation, then `done`. None in its styles, or reduced motion: now. */
+function playOut(dialog: HTMLDialogElement, done: () => void) {
+  if (reducedMotion()) return done();
+  dialog.classList.add("closing");
+  const running = dialog.getAnimations({ subtree: true });
+  if (!running.length) return done();
+  let finished = false;
+  const finish = () => {
+    if (finished) return;
+    finished = true;
+    clearTimeout(timer);
+    done();
+  };
+  // A hidden tab can hold an animation's end back, so a timer backs it up.
+  const timer = setTimeout(finish, 500);
+  void Promise.allSettled(running.map((a) => a.finished)).then(finish);
 }
 
 /**
@@ -500,11 +533,12 @@ export function openOverlay(
     // One overlay replaces another in the same history entry. Going back and pushing in the same
     // tick races, and the browser can drop the new entry.
     current = undefined;
-    teardown(prev, false);
+    teardown(prev, { refocus: false });
     focusBack.push(...prev.focusBack);
   }
+  dialog.classList.remove("closing");
   document.body.append(dialog);
-  dialog.showModal();
+  if (!dialog.open) dialog.showModal();
   document.documentElement.classList.add("overlay-open");
   current = { dialog, onClosed, focusBack };
   // A step back still on its way: push once it lands (interceptPop), never in the same tick.
@@ -530,7 +564,8 @@ export function closeOverlay(dialog?: HTMLDialogElement, o: { leaving?: boolean 
   const open = current;
   if (!open || (dialog && open.dialog !== dialog)) return;
   current = undefined;
-  teardown(open, !o.leaving);
+  // Leaving for another page: it goes at once, since the page under it is about to change.
+  teardown(open, { refocus: !o.leaving, animate: !o.leaving });
   if (entryOwed) {
     // It never got an entry, so there is nothing to step back from.
     entryOwed = false;
@@ -564,7 +599,7 @@ export function interceptPop(): boolean {
   const o = current;
   if (!o) return false;
   current = undefined;
-  teardown(o);
+  teardown(o, { animate: true });
   return true;
 }
 
@@ -582,9 +617,13 @@ export interface SheetOptions {
   closeOnBackdrop?: boolean;
 }
 
+/** Wide enough for a sheet to be a centered card. Narrower, it's a bottom sheet (base.css). */
+const SHEET_AS_CARD = "(min-width: 640px)";
+
 /**
- * A sheet: rises from the bottom on a phone, a centered card on a wide screen. Show it with
- * `openOverlay(sheet.dialog)`; the close button and the back gesture both close it.
+ * A sheet: a bottom sheet on a phone, which a pull down on it closes, and a centered card on a wide
+ * screen. Show it with `openOverlay(sheet.dialog)`; the close button, Escape, and the back gesture
+ * close it too, and it slides away as it goes.
  */
 export function sheet(o: SheetOptions, ...body: (Node | null)[]) {
   const close = h(
@@ -597,36 +636,115 @@ export function sheet(o: SheetOptions, ...body: (Node | null)[]) {
     icon("close"),
   );
   const title = h("h2", { class: "sheet-title", attrs: { id: o.id }, text: o.title });
+  const card = h(
+    "div",
+    { class: "sheet-card paper" },
+    h("div", { class: "sheet-head" }, title, close),
+    o.lede ? h("p", { class: "sheet-lede", text: o.lede }) : null,
+    ...body,
+  );
   const dialog = h(
     "dialog",
     {
       class: ["sheet", o.className].filter(Boolean).join(" "),
       attrs: { "aria-labelledby": o.id },
     },
-    h(
-      "div",
-      { class: "sheet-card paper" },
-      h("div", { class: "sheet-head" }, title, close),
-      o.lede ? h("p", { class: "sheet-lede", text: o.lede }) : null,
-      ...body,
-    ),
+    card,
   );
+  // Something typed in one of its fields: a stray tap outside or a pull down never throws it away.
+  const typed = () =>
+    [...dialog.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>("input, textarea")].some(
+      (f) => f.value !== f.defaultValue,
+    );
   if (o.closeOnBackdrop) {
     // Only a tap that starts and ends outside the card: a drag that selects text in a field and
-    // lets go outside is not a tap out. And never once something is typed, so nothing is lost.
+    // lets go outside is not a tap out.
     let downOutside = false;
     dialog.addEventListener("pointerdown", (e) => {
       downOutside = e.target === dialog;
     });
-    const typed = () =>
-      [...dialog.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>("input, textarea")].some(
-        (f) => f.value !== f.defaultValue,
-      );
     dialog.addEventListener("click", (e) => {
       if (e.target === dialog && downOutside && !typed()) closeOverlay(dialog);
     });
   }
+  pullToClose(dialog, card, typed);
   return { dialog, title, close };
+}
+
+/**
+ * On a phone, a pull down that starts while the card is scrolled to the top drags the card with the
+ * finger. Let go far enough or fast enough and it closes; short of that, or with something typed, it
+ * springs back. Touch events, so the pull can claim the gesture (preventDefault) once it is clearly
+ * a pull, and leave a scroll, a sideways swipe, or a scrolled list inside the card alone.
+ */
+function pullToClose(dialog: HTMLDialogElement, card: HTMLElement, typed: () => boolean) {
+  const asCard = matchMedia(SHEET_AS_CARD);
+  let from: { x: number; y: number; t: number } | undefined;
+  let pulling = false;
+  let dy = 0;
+  card.addEventListener(
+    "touchstart",
+    (e) => {
+      const t = e.touches[0];
+      from = undefined;
+      if (!t || e.touches.length !== 1 || asCard.matches || !overlayShowing(dialog)) return;
+      if (scrolledWithin(e.target, card)) return;
+      from = { x: t.clientX, y: t.clientY, t: performance.now() };
+      pulling = false;
+      dy = 0;
+    },
+    { passive: true },
+  );
+  card.addEventListener(
+    "touchmove",
+    (e) => {
+      const t = e.touches[0];
+      if (!from || !t) return;
+      dy = Math.max(0, t.clientY - from.y);
+      if (!pulling) {
+        const dx = Math.abs(t.clientX - from.x);
+        const up = t.clientY < from.y;
+        if (!up && dy === 0 && dx === 0) return;
+        // Up, more sideways than down, or a scroll the browser already began: not a pull.
+        if (up || dx > dy || !e.cancelable) {
+          from = undefined;
+          return;
+        }
+        pulling = true;
+        card.classList.add("pulling");
+      }
+      e.preventDefault();
+      card.style.translate = `0 ${dy}px`;
+    },
+    { passive: false },
+  );
+  const release = () => {
+    if (!from) return;
+    const ms = performance.now() - from.t;
+    from = undefined;
+    if (!pulling) return;
+    pulling = false;
+    card.classList.remove("pulling");
+    const flick = dy / Math.max(1, ms) > 0.6 && dy > 30;
+    const far = dy > Math.min(140, card.offsetHeight * 0.25);
+    // Closing slides it on from where the finger left it; the closing animation adds to `translate`.
+    if ((far || flick) && !typed()) closeOverlay(dialog);
+    else card.style.translate = "";
+  };
+  card.addEventListener("touchend", release);
+  card.addEventListener("touchcancel", release);
+  dialog.addEventListener("close", () => {
+    card.style.translate = "";
+  });
+}
+
+/** True when `target`, or something between it and `card`, is scrolled down from its top. */
+function scrolledWithin(target: EventTarget | null, card: HTMLElement): boolean {
+  for (let el = target instanceof Element ? target : null; el; el = el.parentElement) {
+    if (el.scrollTop > 0) return true;
+    if (el === card) return false;
+  }
+  return false;
 }
 
 // ---------- small popover ----------
@@ -927,4 +1045,52 @@ export async function shareLink(path: string, title: string) {
     }
   }
   toast((await copyText(url)) ? "Link copied" : "Couldn't copy the link");
+}
+
+export interface ShareOnXOptions {
+  /** The words the post starts with. The page's link goes after them. */
+  text: string;
+  /** A page of ours, as a path. */
+  path: string;
+  /** A picture to go with the post. */
+  picture?: File;
+  className?: string;
+}
+
+/**
+ * "Share on X": a link to X's post box with the words and the link filled in. X's link can't carry a
+ * picture, so with one, a phone hands it to its share sheet, where X takes the picture and the words
+ * together; anywhere else the picture is copied as the link opens, to paste into the post.
+ */
+export function shareOnX(o: ShareOnXOptions): HTMLAnchorElement {
+  const words = `${o.text} ${new URL(o.path, location.origin).href}`;
+  const link = h(
+    "a",
+    {
+      class: ["pill-button small", o.className].filter(Boolean).join(" "),
+      attrs: { href: xIntentUrl(words), target: "_blank", rel: "noopener noreferrer" },
+    },
+    h("span", { text: "Share on X" }),
+  );
+  const { picture } = o;
+  if (!picture) return link;
+  link.addEventListener("click", (e) => {
+    const files = [picture];
+    if (matchMedia("(pointer: coarse)").matches && navigator.canShare?.({ files })) {
+      e.preventDefault();
+      navigator.share({ files, text: words }).catch((err: unknown) => {
+        if (!(err instanceof DOMException && err.name === "AbortError")) {
+          toast("Couldn't open the share sheet. Save the picture and add it to a post on X.");
+        }
+      });
+      return;
+    }
+    // Now, before X's tab opens: a page that has lost focus can't write to the clipboard.
+    if (typeof ClipboardItem !== "function" || !navigator.clipboard?.write) return;
+    navigator.clipboard
+      .write([new ClipboardItem({ [picture.type]: picture })])
+      .then(() => toast("Picture copied. Paste it into your post on X."))
+      .catch(() => {});
+  });
+  return link;
 }

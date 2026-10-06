@@ -87,7 +87,11 @@ const HAND_BUILT: { pattern: RegExp; use: string; home?: string }[] = [
     home: "packages/client/src/act.ts",
   },
   { pattern: /`\/[rp]\/\$\{/, use: "profilePath, postPath, or plot3dPath (paths.ts)" },
-  { pattern: /class: "sheet[ "]|class: "sheet-(card|head|title|close)"/, use: "sheet (ui.ts)" },
+  {
+    pattern: /class: "sheet[ "]|class: "sheet-(card|head|title|close)"|role: "dialog"/,
+    use: "sheet (ui.ts)",
+  },
+  { pattern: /"Share on X"|xIntentUrl\(/, use: "shareOnX (ui.ts)" },
   { pattern: /["'`]item-art\b|CROP_COLORS/, use: "itemArt or CROP_HEX (item-art.ts)" },
   { pattern: /GROUND_LOOK|["'`]ground-art\b/, use: "paintGround or groundArt (ground-art.ts)" },
   { pattern: /petShapes\(|["'`]pet-art\b/, use: "petArt or drawPet (pet-art.ts)" },

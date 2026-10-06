@@ -5,8 +5,8 @@
  */
 import { WorldSnapshot } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
-import { profilePath } from "@terrakin/ui/paths";
-import { stateCard, toast } from "@terrakin/ui/ui";
+import { plot3dPath, profilePath } from "@terrakin/ui/paths";
+import { openOverlay, shareOnX, sheet, stateCard, toast } from "@terrakin/ui/ui";
 import { queueAttachment } from "../composer";
 import { savedResidentId, savedToken } from "../net";
 import { errorCard, notFoundCard, type ViewContext } from "../view";
@@ -15,6 +15,8 @@ import { parseGallery } from "./catalog";
 import { buildGallery } from "./gallery";
 import { homeExtras, plotLayout, rawResident } from "./layout";
 import { buildPlot } from "./plot";
+
+const PHOTO_FILE = "terrakin-photo.png";
 
 export type Route3d = { name: "plot3d"; id: string } | { name: "gallery3d" };
 
@@ -31,6 +33,8 @@ export function mount3d(
   let stage: Stage | undefined;
   let gone = false;
   const urls: string[] = [];
+  /** What a photo shows, as a post about it starts. A plot's is set once its resident is known. */
+  let place = "The gallery";
 
   const host = h("div", { class: "view3d-stage" });
   const title = h("h1", {
@@ -63,17 +67,12 @@ export function mount3d(
     h("span", { text: "Take a photo" }),
   );
   const help = h("p", { class: "view3d-help", text: "Drag to turn. Pinch or scroll to zoom." });
-  const sheet = h("div", {
-    class: "paper view3d-sheet",
-    attrs: { role: "dialog", "aria-label": "Your photo", hidden: true },
-  });
   const section = h(
     "section",
     { class: "view3d", attrs: { "aria-label": "3D view" } },
     host,
     h("header", { class: "view3d-bar" }, back, title, photoBtn),
     h("div", { class: "view3d-foot" }, status, note, help),
-    sheet,
   );
   el.replaceChildren(section);
   document.documentElement.classList.add("view3d-open");
@@ -82,15 +81,10 @@ export function mount3d(
     if (ctx.canGoBack()) history.back();
     else ctx.navigate(route.name === "plot3d" ? profilePath(route.id) : "/");
   }
-  /** Close the photo panel and put focus back on the button that opened it. */
-  function closeSheet() {
-    sheet.hidden = true;
-    photoBtn.focus();
-  }
   const onKey = (e: KeyboardEvent) => {
-    if (e.key !== "Escape") return;
-    if (!sheet.hidden) closeSheet();
-    else leave();
+    // Escape in the photo's sheet closes the sheet, not the page.
+    if (e.key !== "Escape" || (e.target instanceof Element && e.target.closest("dialog"))) return;
+    leave();
   };
   document.addEventListener("keydown", onKey);
 
@@ -137,6 +131,7 @@ export function mount3d(
         }
         ctx.setTitle(`${resident.name}'s home in 3D · Terrakin`);
         title.textContent = `${resident.name}'s home`;
+        place = route.id === savedResidentId() ? "My home" : `${resident.name}'s home`;
         const layout = plotLayout(snapshot, route.id);
         if (!layout) {
           el.replaceChildren(noPlot(resident.name, route.id, route.id === savedResidentId()));
@@ -181,21 +176,24 @@ export function mount3d(
     }
     const url = URL.createObjectURL(blob);
     urls.push(url);
-    const file = new File([blob], "terrakin-photo.png", { type: "image/png" });
-    const close = h(
-      "button",
-      {
-        class: "viewer-close view3d-sheet-close",
-        attrs: { type: "button", "aria-label": "Close" },
-        on: { click: closeSheet },
-      },
-      icon("close"),
-    );
+    const file = new File([blob], PHOTO_FILE, { type: "image/png" });
+    const shot = h("img", {
+      class: "view3d-shot",
+      attrs: { src: url, alt: "Your photo of this scene" },
+    });
+    // Its size known before the sheet rises, so the sheet doesn't grow under the finger.
+    await shot.decode().catch(() => {});
+    if (gone) return;
     const save = h(
       "a",
-      { class: "pill-button small", attrs: { href: url, download: "terrakin-photo.png" } },
+      { class: "pill-button small", attrs: { href: url, download: PHOTO_FILE } },
       h("span", { text: "Save" }),
     );
+    const share = shareOnX({
+      text: `${place} on Terrakin`,
+      path: route.name === "plot3d" ? plot3dPath(route.id) : location.pathname + location.search,
+      picture: file,
+    });
     const post = savedToken()
       ? h(
           "button",
@@ -212,13 +210,22 @@ export function mount3d(
           h("span", { text: "Post it" }),
         )
       : null;
-    sheet.replaceChildren(
-      close,
-      h("img", { class: "view3d-shot", attrs: { src: url, alt: "Your photo of this scene" } }),
-      h("div", { class: "view3d-sheet-actions" }, save, post),
+    const { dialog } = sheet(
+      {
+        id: "view3d-photo-title",
+        title: "Your photo",
+        className: "view3d-photo-sheet",
+        closeOnBackdrop: true,
+      },
+      h(
+        "div",
+        { class: "sheet-body" },
+        shot,
+        h("div", { class: "cluster view3d-photo-actions" }, save, share, post),
+      ),
     );
-    sheet.hidden = false;
-    (post ?? save).focus();
+    openOverlay(dialog, undefined, photoBtn);
+    (post ?? save).focus({ preventScroll: true });
   }
 
   function cleanup() {

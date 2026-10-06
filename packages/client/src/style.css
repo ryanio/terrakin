@@ -6244,41 +6244,18 @@ html.view3d-open body {
   }
 }
 
-.view3d-sheet {
-  position: absolute;
-  left: 50%;
-  bottom: calc(16px + env(safe-area-inset-bottom));
-  transform: translateX(-50%);
-  width: min(100% - 32px, 380px);
-  padding: var(--space-lg);
-  border-radius: var(--r-card);
-  box-shadow: var(--shadow-paper);
-  display: grid;
-  gap: var(--space-md);
-}
-
+/* The photo in its sheet, whole and short enough that the buttons under it stay on screen. */
 .view3d-shot {
   display: block;
-  width: 100%;
-  max-height: 46vh;
-  object-fit: cover;
+  justify-self: center;
+  max-width: 100%;
+  max-height: 56dvh;
   border-radius: var(--r-md);
   border: 1px solid var(--paper-edge);
 }
 
-.view3d-sheet-actions {
-  display: flex;
+.view3d-photo-actions {
   justify-content: flex-end;
-  gap: var(--space-sm);
-}
-
-.view3d-sheet .view3d-sheet-close {
-  top: 22px;
-  right: 22px;
-  width: 44px;
-  height: 44px;
-  background: var(--scrim);
-  z-index: 1;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -856,7 +856,9 @@ dialog.fullscreen::backdrop {
 }
 
 /* ---------- sheet (ui.ts sheet) ----------
- * Rises from the bottom on a phone, a centered card on a wide screen. */
+ * A bottom sheet on a phone: flush with the bottom edge, a grab bar on top, sliding up as it opens
+ * and down as it closes, and following a finger that pulls it down (`.pulling`). From 640px, a
+ * centered card that rises a little as it opens. */
 
 dialog.sheet {
   position: fixed;
@@ -872,23 +874,60 @@ dialog.sheet {
   align-items: flex-end;
   justify-content: center;
   background: transparent;
+  /* Never a scroll container: focus landing in a card still sliding up from below the edge can't
+   * scroll the dialog to it, so the sheet never jumps. The card scrolls inside itself. */
+  overflow: clip;
   overscroll-behavior: contain;
-  animation: fade-in 0.2s ease-out;
 }
 
 dialog.sheet::backdrop {
   background: var(--scrim);
+  animation: fade-in 0.2s ease-out;
+}
+
+dialog.sheet.closing::backdrop,
+dialog.fullscreen.closing::backdrop {
+  opacity: 0;
+  transition: opacity 0.2s ease-in;
 }
 
 .sheet-card {
+  position: relative;
   width: 100%;
   max-width: 520px;
   max-height: calc(100% - 24px - env(safe-area-inset-top));
   overflow-y: auto;
-  padding: 18px max(20px, env(safe-area-inset-left)) calc(22px + env(safe-area-inset-bottom))
-    max(20px, env(safe-area-inset-right));
-  border-radius: var(--r-card) var(--r-card) 0 0;
-  animation: sheet-up 0.28s cubic-bezier(0.2, 0.7, 0.2, 1);
+  overscroll-behavior: contain;
+  padding: var(--space-2xl) max(20px, env(safe-area-inset-left))
+    calc(22px + env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-right));
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  animation: sheet-up 0.34s cubic-bezier(0.2, 0.7, 0.2, 1);
+  transition: translate 0.25s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+/* The grab bar: this sheet can be pulled down. */
+.sheet-card::before {
+  content: "";
+  position: absolute;
+  top: var(--space-sm);
+  left: 50%;
+  translate: -50% 0;
+  width: 40px;
+  height: 5px;
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--ink-soft) 28%, transparent);
+}
+
+.sheet-card.pulling {
+  transition: none;
+}
+
+dialog.sheet.closing .sheet-card {
+  animation: sheet-down 0.22s ease-in forwards;
+}
+
+dialog.fullscreen.closing {
+  animation: fade-out 0.16s ease-in forwards;
 }
 
 @media (min-width: 640px) {
@@ -898,19 +937,54 @@ dialog.sheet::backdrop {
 
   .sheet-card {
     border-radius: var(--r-card);
+    padding-top: var(--space-xl);
     padding-bottom: var(--space-2xl);
+    animation: card-rise 0.28s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+
+  .sheet-card::before {
+    content: none;
+  }
+
+  dialog.sheet.closing .sheet-card {
+    animation: card-sink 0.16s ease-in forwards;
   }
 }
 
 @keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes sheet-down {
+  to {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes card-rise {
   from {
     transform: translateY(24px);
     opacity: 0;
   }
 }
 
+@keyframes card-sink {
+  to {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+}
+
 @keyframes fade-in {
   from {
+    opacity: 0;
+  }
+}
+
+@keyframes fade-out {
+  to {
     opacity: 0;
   }
 }

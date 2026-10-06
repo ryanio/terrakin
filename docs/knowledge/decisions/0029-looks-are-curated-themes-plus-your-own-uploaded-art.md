@@ -22,6 +22,6 @@ The sim holds a small catalog as data (`packages/sim/src/looks.ts`): 12 themes, 
 ## Consequences
 
 - Old logs replay byte-identically: a world that never used looks has no look keys anywhere (pinned by a golden hash in `packages/sim/src/looks.test.ts`).
-- Adding a theme, pattern, or wear item is additive: a new enum value in the sim catalog, a palette, and a drawing in `packages/client/src/figure.ts` or `packages/client/src/looks.ts`. Removing one would break old logs and needs an RFC.
+- Adding a theme, pattern, or wear item is additive: a new enum value in the sim catalog, a palette, and a drawing in `packages/ui/src/figure.ts` or `packages/ui/src/looks.ts`. Removing one would break old logs and needs an RFC.
 - Custom art is public media under the same caps, metadata stripping, and moderation as posts. Pattern tiles are drawn small, so a large upload costs bandwidth, not render time.
 - Rendering stays cheap on phones: each look is drawn once into a cached sprite and each pattern once into a `CanvasPattern`.

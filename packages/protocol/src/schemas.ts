@@ -70,10 +70,10 @@ import { z } from "zod";
 /** Bump only with an RFC. Old versions keep working until a published sunset date. */
 export const PROTOCOL_VERSION = 1;
 
-export const CHAT_MAX_LENGTH = 280;
+const CHAT_MAX_LENGTH = 280;
 
 /** Errors the protocol layer adds on top of the sim's rejection codes. */
-export const PROTOCOL_ERROR_CODES = [
+const PROTOCOL_ERROR_CODES = [
   "bad_request",
   "unauthorized",
   "forbidden",
@@ -260,7 +260,7 @@ const planCoord = z
   .max(DEFAULT_CONFIG.plotSize - 1);
 const planTile = z.object({ x: planCoord, y: planCoord });
 /** The most entries in each of a plan's lists: a whole plot. */
-export const PLAN_MAX = DEFAULT_CONFIG.plotSize * DEFAULT_CONFIG.plotSize;
+const PLAN_MAX = DEFAULT_CONFIG.plotSize * DEFAULT_CONFIG.plotSize;
 /**
  * Build a plan on plot (`px`, `py`), one you own or share, in one action from anywhere (RFC 0016).
  * Tiles count from the plot's north-west corner, so a plan builds the same thing on any plot.

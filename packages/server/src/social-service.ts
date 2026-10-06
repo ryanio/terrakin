@@ -131,7 +131,7 @@ export interface SocialLimits {
   notificationsPerActorPerDay: number;
 }
 
-export const DEFAULT_SOCIAL_LIMITS: SocialLimits = {
+const DEFAULT_SOCIAL_LIMITS: SocialLimits = {
   // The per-resident caps are part of the published API (see the route table).
   postsPerDay: DAILY_LIMITS.postsPerResident,
   lettersPerDay: DAILY_LIMITS.lettersPerResident,
@@ -2729,6 +2729,6 @@ export function parseTownsfolk(value: string | undefined): Set<string> {
 /** Same format as the townsfolk grant. */
 export const parseMaintainers = parseTownsfolk;
 
-export const mediaUrl = (id: string) => `/media/${id}`;
+const mediaUrl = (id: string) => `/media/${id}`;
 
 export { readerMessage };

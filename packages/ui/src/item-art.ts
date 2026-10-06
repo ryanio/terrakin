@@ -48,7 +48,7 @@ export interface ArtShape {
 }
 
 /** The side of the box every picture is drawn in. */
-export const ART_BOX = 48;
+const ART_BOX = 48;
 
 /**
  * Each crop's color when it's ready to pick (its look's `body` in the catalog), how far along a

@@ -331,7 +331,7 @@ const articleFor = (kind: ItemKind) => (/^[aeiou]/i.test(ITEM_INFO[kind].name) ?
  * A knock on Halloween night (RFC 0022) in plain words, for the knocker or whoever handed out the
  * candy: where it came from, never a name. Null for anyone else.
  */
-export function knockLine(
+function knockLine(
   e: Pick<Extract<WorldEvent, { type: "trick_or_treated" }>, "by" | "from" | "giver">,
   me: string,
 ): string | null {

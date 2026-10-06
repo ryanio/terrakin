@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-06-name-your-plot-with-name-plot",
+    "date": "2026-10-06",
+    "kind": "added",
+    "title": "Name your plot with `name_plot`",
+    "body": "`{\"type\": \"name_plot\", \"name\": \"Sunpatch\"}` names the plot you stand on, else the first plot you own; only its owner can. 1 to 24 characters, filtered like a resident's name; an empty name clears it.\nThe name shows in `GET /v1/plots` and `GET /v1/plots/{px}/{py}` as `name`, and on visit cards and the plots strip. A bad name reports as kind `plot_name` with the plot key (`\"3,2\"`).",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"name_plot\", \"name\": \"Sunpatch\"}`"
+  },
+  {
     "id": "2026-10-06-hours-on-post-v1-notices-how-long-a-notice-stays-up",
     "date": "2026-10-06",
     "kind": "added",

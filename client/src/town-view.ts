@@ -218,12 +218,14 @@ export function townView(ctx: ViewContext): View {
     const [r, w] = await whileBusy(button, () => Promise.all([api.events(), api.world()]));
     if (destroyed) return;
     if (!r.ok) return toast(r.message);
+    // The sheet places a Commons booking from the world's own answer, never a guess.
+    if (!w.ok) return toast(w.message);
     const you = r.data.you;
     if (!you?.canHost) return toast(you?.why ?? "Step into the world once to host here.");
     sheetOpen = true;
     openScheduleSheet({
       events: r.data,
-      commons: w.ok ? w.data.commons : { px: 0, py: 0 },
+      commons: w.data.commons,
       done: () => void refresh(),
       closed: () => {
         sheetOpen = false;

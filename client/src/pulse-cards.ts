@@ -31,7 +31,8 @@ function countStat(el: HTMLElement, to: number) {
   if (countTo(el, to)) replay(el, "bump");
 }
 
-function pulseShell(cls: string, label: string, ...children: (Node | null)[]): HTMLElement {
+/** A home wall card: hidden until it has something to show. */
+export function pulseShell(cls: string, label: string, ...children: (Node | null)[]): HTMLElement {
   return h(
     "article",
     { class: `pulse paper card ${cls}`, attrs: { "aria-label": label, hidden: true } },

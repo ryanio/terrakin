@@ -85,6 +85,8 @@ describe("the purse page", () => {
     expect(lineLabel({ reason: "shop" })).toBe("At the town shop");
     expect(lineLabel({ reason: "sold" })).toBe("Sold to the town");
     expect(lineLabel({ reason: "appreciation" })).toBe("Neighbors who liked your posts");
+    expect(lineLabel({ reason: "event_deposit" })).toBe("Deposit for your Commons event");
+    expect(lineLabel({ reason: "event_refund" })).toBe("Your Commons deposit back");
     expect(signed(10)).toBe("+10");
     expect(signed(-1500)).toBe("−1,500");
   });

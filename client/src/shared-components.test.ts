@@ -91,6 +91,11 @@ const HAND_BUILT: { pattern: RegExp; use: string; home?: string }[] = [
   { pattern: /class: "[^"]*-(row|line|good|order)-body\b/, use: "itemRow and itemRows (ui.ts)" },
   { pattern: /class: [`"][^`"]*\b(proposal-kind|kind-pill)\b/, use: "kindPill (ui.ts)" },
   {
+    pattern: /class: [`"]pulse paper card\b/,
+    use: "pulseShell (pulse-cards.ts)",
+    home: "client/src/pulse-cards.ts",
+  },
+  {
     pattern: /history\.state as \{ overlay/,
     use: "the router, which closes an open overlay as it navigates (leaveOverlay in ui.ts)",
   },

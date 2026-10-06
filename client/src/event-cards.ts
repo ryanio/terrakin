@@ -1,6 +1,6 @@
 /**
  * Hosted events on the page (RFC 0010): one row per event (on the Town Hall board and the home
- * wall), the Happening now card, and the Schedule sheet. Titles, texts, and names are other
+ * wall), the home wall's events card, and the Schedule sheet. Titles, texts, and names are other
  * residents' words: textContent only. The server decides what can be scheduled, joined, or called
  * off; these send its actions and show its answers.
  */
@@ -32,6 +32,7 @@ import {
   toLocalInput,
   whenWords,
 } from "./event-format";
+import { pulseShell } from "./pulse-cards";
 import { coins } from "./purse";
 import { reportMenu } from "./report-sheet";
 
@@ -155,12 +156,9 @@ export function happeningCard(navigate: (path: string) => void, me: () => string
   const eyebrow = h("p", { class: "eyebrow pulse-eyebrow" });
   const title = h("h2", { class: "pulse-title" });
   const list = h("ol", { class: "stack plain-list event-list" });
-  const el = h(
-    "article",
-    {
-      class: "pulse paper card pulse-events",
-      attrs: { "aria-label": "Events", hidden: true, id: "happening-now" },
-    },
+  const el = pulseShell(
+    "pulse-events",
+    "Events",
     eyebrow,
     title,
     list,
@@ -171,6 +169,7 @@ export function happeningCard(navigate: (path: string) => void, me: () => string
       icon("arrow"),
     ),
   );
+  el.id = "happening-now";
   let last: { events: { live: EventView[]; upcoming: EventView[] }; now: number } | undefined;
   const paint = () => {
     if (!last) return;
@@ -178,18 +177,14 @@ export function happeningCard(navigate: (path: string) => void, me: () => string
     const shown = live.length > 0 ? live : upcoming.slice(0, 2);
     el.hidden = shown.length === 0;
     el.classList.toggle("is-live", live.length > 0);
+    // The wall's live activity is "Happening now"; this card is the events.
     eyebrow.replaceChildren(
       live.length > 0
         ? h("span", { class: "live-dot", attrs: { "aria-hidden": "true" } })
         : icon("calendar", "icon pulse-icon"),
-      live.length > 0 ? "Happening now" : "Coming up",
+      "Events",
     );
-    title.textContent =
-      live.length > 0
-        ? live.length === 1
-          ? "An event is on"
-          : `${live.length} events are on`
-        : "On the calendar";
+    title.textContent = live.length > 0 ? "On now" : "Coming up";
     list.replaceChildren(
       ...shown.map((e) =>
         eventRow(e, {

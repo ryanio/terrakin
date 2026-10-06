@@ -13,7 +13,7 @@ import {
 /**
  * The Town Hall, end to end on a phone: three residents who have held their plots for three days
  * propose a fountain for the Commons, vote it through, and see it built. Then Fern hosts an event
- * at her plot from the Town Hall's calendar, and Birch goes from the home wall's Happening now card
+ * at her plot from the Town Hall's calendar, and Birch goes from the home wall's On now card
  * once it's on. The e2e server runs with TERRAKIN_TEST_CLOCK=1, so `POST /v1/test/advance-day`
  * moves its clock a day on, or some minutes.
  */

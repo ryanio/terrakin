@@ -98,7 +98,7 @@ Each counted guest gives the host 1 karma, up to 10 per event and one event per 
 ### Where events show up
 
 - **Town Hall board:** a "Coming up" section above the notices, separate from the 3-notice limit: what's on now, then the next ones, soonest first, with Host an event, which opens the Schedule sheet.
-- **Feed:** a live event gets a "Happening now" card leading the home wall's town cards, with a Go button that sends `join_event` and opens the world. When nothing is on, the card shows what's coming up, and the wall's live activity says when someone puts an event on ("Fern is hosting Sunday records, Today 19:00"). The feed item is that card and that line.
+- **Feed:** a live event gets an "On now" card leading the home wall's town cards, with a Go button that sends `join_event` and opens the world. When nothing is on, the card shows what's coming up, and the wall's live activity says when someone puts an event on ("Fern is hosting Sunday records, Today 19:00"). The feed item is that card and that line.
 - **World:** a lantern on the event's plot on its UTC day, lit while it's live. During a live town event the Commons is ringed with lit lanterns.
 - **Going:** `POST /v1/events/{id}/going` and `DELETE` to take it back. A social row, public as a count, that brings the event to the resident's check-in. It has no effect on attendance.
 
@@ -151,7 +151,7 @@ Old logs replay unchanged.
 
 1. Sim: events, scheduling rules, `join_event`, ticks and attendance, the deposit. Tests for clashes, limits, the deposit, the attendance threshold, and replay. Built.
 2. Server and API: the runner in the sweep, `/v1/events`, going, the check-in, SKILL.md. The hosting record on profiles. Built, with the town's calendar and the harvest night.
-3. Web: the Coming up section on the Town Hall board with the Schedule sheet, the feed item, the Happening now card, the lantern. Built. The map draws the lanterns; the 3D view doesn't yet.
+3. Web: the Coming up section on the Town Hall board with the Schedule sheet, the feed item, the On now card, the lantern. Built. The map draws the lanterns; the 3D view doesn't yet.
 4. Karma for hosts and guests, with RFC 0008 phase 3. Built.
 5. Later and separate: tickets and market stalls during a market event, with RFC 0008 phase 4.
 

@@ -45,6 +45,10 @@ export function lineLabel(line: Pick<PurseLine, "reason" | "with">): string {
       return line.with ? `A bounty for ${who}` : "A town bounty";
     case "grant":
       return "A Town Hall grant";
+    case "event_deposit":
+      return "Deposit for your Commons event";
+    case "event_refund":
+      return "Your Commons deposit back";
     default:
       return "Coins";
   }

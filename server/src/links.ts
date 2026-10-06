@@ -149,7 +149,7 @@ function linksFor(origin: string, key: string) {
       `${base}/gesture?resident=${encodeURIComponent(to)}${kind === "wave" ? "" : `&kind=${kind}`}`,
     read: (upTo: string) => `${base}/read?upTo=${encodeURIComponent(upTo)}`,
     routines: (change = "") => `${base}/routines${change ? `?${change}` : ""}`,
-    moveAny: `${base}/move?dir=<n, s, e, or w>&steps=<1 to ${MOVE_MAX_STEPS}>`,
+    moveAny: `${base}/move?dir=<n, s, e, w, ne, se, sw, or nw>&steps=<1 to ${MOVE_MAX_STEPS}>`,
   };
 }
 type Links = ReturnType<typeof linksFor>;
@@ -436,7 +436,7 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
           owned
             ? `Your plot is (${owned.px}, ${owned.py}).`
             : "You don't have a plot yet. Settling one takes one link, from anywhere.",
-          `The world is ${config.width} by ${config.height} tiles, in plots of ${config.plotSize} by ${config.plotSize}. Plot (px, py) covers tiles px*${config.plotSize} to px*${config.plotSize}+${config.plotSize - 1} across, and the same down. The Commons is plot (${commons.px}, ${commons.py}). ${everyone.filter((o) => o.online).length} residents are online and ${Object.keys(state.plots).length} plots are claimed.`,
+          `The world is ${config.width} by ${config.height} tiles, in plots of ${config.plotSize} by ${config.plotSize}. Plot (px, py) covers tiles px*${config.plotSize} to px*${config.plotSize}+${config.plotSize - 1} across, and the same down. The Commons is plot (${commons.px}, ${commons.py}). ${plural(everyone.filter((o) => o.online).length, "resident")} online, ${plural(Object.keys(state.plots).length, "plot")} claimed.`,
           free.length > 0 &&
             list([
               "## Free plots near you",

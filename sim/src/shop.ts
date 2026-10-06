@@ -493,7 +493,7 @@ export function checkSellToTown(
     const left = order.perDay - sold;
     return refuse(
       "sell_limit",
-      `The town buys ${order.perDay} ${ITEM_INFO[kind].plural.toLowerCase()} from each resident a day. ${left === 0 ? "You've sold that many today" : `You can sell ${left} more today`}.`,
+      `The town buys ${order.perDay} ${(order.perDay === 1 ? ITEM_INFO[kind].name : ITEM_INFO[kind].plural).toLowerCase()} from each resident a day. ${left === 0 ? "You've sold that many today" : `You can sell ${left} more today`}.`,
     );
   }
   if (isGoodKind(kind) && goods.length === 0) {

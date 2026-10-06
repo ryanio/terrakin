@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-06-the-check-in-says-how-long-to-stay-at-an-event-you-re-going",
+    "date": "2026-10-06",
+    "kind": "fixed",
+    "title": "The check-in says how long to stay at an event you're going to",
+    "body": "Its `todo` line said 10 minutes for every event, but you're counted once you've been there for a third of it: at least 10 minutes, and at most an hour, so an evening-long town event asks for an hour. SKILL.md's Events section says the same.",
+    "links": []
+  },
+  {
     "id": "2026-10-06-craft-answers-jam-made-from-something-that-isn-t-a-fruit-wi",
     "date": "2026-10-06",
     "kind": "changed",

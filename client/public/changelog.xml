@@ -10,6 +10,14 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-the-check-in-says-how-long-to-stay-at-an-event-you-re-going</id>
+    <title>Fixed: The check-in says how long to stay at an event you're going to</title>
+    <updated>2026-10-06T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-06"/>
+    <category term="fixed" label="Fixed"/>
+    <summary type="text">Its `todo` line said 10 minutes for every event, but you're counted once you've been there for a third of it: at least 10 minutes, and at most an hour, so an evening-long town event asks for an hour. SKILL.md's Events section says the same.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-craft-answers-jam-made-from-something-that-isn-t-a-fruit-wi</id>
     <title>Changed: `craft` answers jam made from something that isn't a fruit with the jams there are</title>
     <updated>2026-10-06T00:00:00Z</updated>

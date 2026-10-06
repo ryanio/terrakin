@@ -5,10 +5,14 @@
  */
 import type { WorldEvent } from "@terrakin/protocol";
 import {
+  CATALOG,
   CROP_INFO,
   type Crop,
+  FAMILIES,
+  type Family,
   FURNITURE_RECIPES,
   type FurnitureKind,
+  familyPath,
   type GoodKind,
   ITEM_INFO,
   type ItemKind,
@@ -20,6 +24,35 @@ import { coins } from "./purse";
 
 /** "Lemon", "Bunch of herbs". */
 export const thingName = (kind: ItemKind) => ITEM_INFO[kind].name;
+
+/** A family's name as a heading, from the most general: "Food › Fruit". */
+export const familyLabel = (family: Family) =>
+  familyPath(family)
+    .map((f) => FAMILIES[f].name)
+    .join(" › ");
+
+/** One family's things, under its heading. */
+export interface FamilyGroup<T> {
+  family: Family;
+  label: string;
+  things: T[];
+}
+
+/**
+ * Things grouped by the family their kind belongs to, families in the catalog's order and each
+ * group's things in the order given. Your things page lists what you hold this way.
+ */
+export function byFamily<T>(things: readonly T[], kindOf: (t: T) => ItemKind): FamilyGroup<T>[] {
+  const groups = new Map<Family, T[]>();
+  for (const t of things) {
+    const family = CATALOG[kindOf(t)].family;
+    groups.set(family, [...(groups.get(family) ?? []), t]);
+  }
+  return (Object.keys(FAMILIES) as Family[]).flatMap((family) => {
+    const list = groups.get(family);
+    return list ? [{ family, label: familyLabel(family), things: list }] : [];
+  });
+}
 
 /** How many of a stack kind are in a list of stacks: 0 when it's absent. */
 export const stackCount = (stacks: readonly { kind: string; count: number }[], kind: string) =>

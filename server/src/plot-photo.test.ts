@@ -214,7 +214,7 @@ describe("plot photo data", () => {
     const spec = plotPhotoSpec({ ...service.state, day }, wren.residentId);
     expect(spec?.crops).toEqual([
       { x: 2, y: 6, crop: "lemon", done: 1, fill: CROP_HEX.lemon },
-      { x: 6, y: 6, crop: "pumpkin", done: 0.4, fill: CROP_HEX.pumpkin },
+      { x: 6, y: 6, crop: "pumpkin", done: 0.4, fill: CROP_HEX.pumpkin, vine: true },
     ]);
   });
 

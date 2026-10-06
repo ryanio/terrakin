@@ -21,6 +21,7 @@ import {
   isDecorKind,
   isFurnitureKind,
   LEAF_TONES,
+  onVine,
   PAPER,
   PET_BOX,
   petBed,
@@ -138,6 +139,7 @@ export function plotPhotoSpec(state: WorldState, residentId: string): PlotPhotoS
           crop: planting.crop,
           done: growth(planting.plantedDay, planting.readyDay, state.day),
           fill: CROP_HEX[planting.crop],
+          ...(onVine(planting.crop) ? { vine: true } : {}),
         });
       }
       // Glass keeps its own color on a themed plot, as in the world.

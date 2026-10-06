@@ -23,7 +23,7 @@ import type { Feeling } from "@terrakin/ui/feelings";
 import { drawFeelingIcon, FEELING_ICON, type FeelingIcon } from "@terrakin/ui/figure";
 import { isModelResource } from "@terrakin/ui/format";
 import { paintGround } from "@terrakin/ui/ground-art";
-import { CROP_HEX } from "@terrakin/ui/item-art";
+import { CROP_HEX, onVine } from "@terrakin/ui/item-art";
 import { lookPalette } from "@terrakin/ui/looks";
 import {
   Box3,
@@ -850,8 +850,9 @@ function tinted(geometry: BufferGeometry, color: number): BufferGeometry {
 /**
  * Crops growing in planters, the way the map draws them: a sprout that grows with the days, then
  * the crop's color in three small fruit once it's ready. One draw for every plant and one for
- * every ripe crop, about 100 triangles a planter, swaying in the breeze. Pumpkins grow on a vine
- * instead (`pumpkinPatch`). Shared by the plot and the world.
+ * every ripe crop, about 100 triangles a planter, swaying in the breeze. A crop whose look has a
+ * vine on top, like a pumpkin, grows along the soil instead (`vinePatch`). Each ripe crop takes its
+ * color from its entry in the catalog. Shared by the plot and the world.
  */
 export function cropPlants(
   stage: Stage,
@@ -873,9 +874,9 @@ export function cropPlants(
     );
     return m;
   };
-  const pumpkins = all.filter((c) => c.crop === "pumpkin");
-  if (pumpkins.length > 0) out.push(...pumpkinPatch(stage, place, pumpkins));
-  const crops = all.filter((c) => c.crop !== "pumpkin");
+  const vines = all.filter((c) => onVine(c.crop));
+  if (vines.length > 0) out.push(...vinePatch(stage, place, vines));
+  const crops = all.filter((c) => !onVine(c.crop));
   if (crops.length === 0) return out;
 
   const stem = new CylinderGeometry(0.02, 0.03, 0.5, 5);
@@ -935,11 +936,12 @@ export function cropPlants(
 }
 
 /**
- * Pumpkins in planters (RFC 0017): a low vine of leaves on the soil, and a ribbed pumpkin that
- * swells from a green bud and turns orange, stem up, once it's ready. One draw for every vine and
- * one for every pumpkin, about 160 triangles a planter. The leaves sway; the pumpkins sit still.
+ * Crops on a vine in planters, like pumpkins (RFC 0017): a low vine of leaves on the soil, and a
+ * ribbed fruit that swells from a green bud and turns the crop's color, stem up, once it's ready.
+ * One draw for every vine and one for every fruit, about 160 triangles a planter. The leaves sway;
+ * the fruit sits still.
  */
-function pumpkinPatch(
+function vinePatch(
   stage: Stage,
   place: (c: LayoutCrop, scale: number) => Matrix4,
   crops: readonly LayoutCrop[],
@@ -979,15 +981,15 @@ function pumpkinPatch(
   const stalk = new CylinderGeometry(0.02, 0.032, 0.11, 5);
   stalk.rotateZ(0.25);
   stalk.translate(0.015, 0.26, 0);
-  const pumpkinGeo = mergeGeometries([
+  const fruitGeo = mergeGeometries([
     ...lobes.map((g) => tinted(g, 0xffffff)),
     tinted(stalk, 0x6a6136),
   ]);
   for (const g of [...lobes, stalk]) g.dispose();
-  const pumpkinMat = new MeshLambertMaterial({ vertexColors: true, flatShading: true });
-  const body = new InstancedMesh(pumpkinGeo, pumpkinMat, growing.length);
-  const ripe = hex(CROP_HEX.pumpkin);
+  const fruitMat = new MeshLambertMaterial({ vertexColors: true, flatShading: true });
+  const body = new InstancedMesh(fruitGeo, fruitMat, growing.length);
   growing.forEach((c, i) => {
+    const ripe = hex(CROP_HEX[c.crop]);
     const swell = (c.done - 0.2) / 0.8;
     body.setMatrixAt(i, place(c, 0.3 + 0.7 * swell));
     body.setColorAt(i, lin(c.done >= 1 ? ripe : mix(0x8cbf5a, ripe, swell * 0.5)));

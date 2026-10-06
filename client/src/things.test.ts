@@ -3,6 +3,7 @@ import { growth } from "@terrakin/ui/item-art";
 import { describe, expect, it } from "vitest";
 import {
   admiredLine,
+  byFamily,
   coinsLine,
   cropOfSeed,
   growthLine,
@@ -276,5 +277,21 @@ describe("things", () => {
     expect(toastMs("Hi", "player")).toBe(4000);
     expect(toastMs(NO_PLOT_LINE)).toBeGreaterThan(5000);
     expect(toastMs("x".repeat(400))).toBe(7000);
+  });
+});
+
+describe("byFamily", () => {
+  it("groups what you hold under its family's heading, in the catalog's family order", () => {
+    const held = ["sugar", "table", "lemon_jam", "lemon_seed", "lemon", "tomato", "jar"] as const;
+    const groups = byFamily(held, (kind) => kind);
+    expect(groups.map((g) => [g.label, g.things])).toEqual([
+      ["Food › Fruit", ["lemon"]],
+      ["Food › Vegetables", ["tomato"]],
+      ["Food › Preserves", ["lemon_jam"]],
+      ["Seeds", ["lemon_seed"]],
+      ["Pantry", ["sugar", "jar"]],
+      ["Decor › Furniture", ["table"]],
+    ]);
+    expect(byFamily([], (kind: "lemon") => kind)).toEqual([]);
   });
 });

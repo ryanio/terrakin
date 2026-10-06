@@ -1,19 +1,27 @@
 /**
- * Little storybook pictures of things: every item you can hold (seeds as packets with their crop
- * on the front, produce, sugar, a jar, each made good, the town shop's decor, and furniture from
- * the workbench) and every piece of wear. Drawn with code (decision 0035): `itemShapes` is pure data, so tests can check it, and
- * `itemArt` builds it into an SVG with `createElementNS`, never markup from a string.
+ * Little storybook pictures of things: every item you can hold and every piece of wear. Drawn with
+ * code (decision 0035): `itemShapes` is pure data, so tests can check it, and `itemArt` builds it
+ * into an SVG with `createElementNS`, never markup from a string.
  *
- * Each picture sits in a 48 by 48 box on a soft ground shadow. Colors come from the brand tokens
- * and the sim's palette, so a lantern here is the lantern in the world.
+ * Most items are drawn from their look in the sim's catalog (RFC 0018): produce from its outline,
+ * what grows on top, and its colors; a seed packet from the crop it grows; a jar from what fills it
+ * and what's on its label. Decor, furniture, the pantry's staples, made goods without a template,
+ * and wear have their own drawings here, under their ids. Each picture sits in a 48 by 48 box on a
+ * soft ground shadow. Colors come from the catalog, the brand tokens, and the sim's palette, so a
+ * lantern here is the lantern in the world.
  */
 import {
   BLOCK_COLORS,
+  CATALOG,
   CROP_HEX,
   type Crop,
   growth,
   ITEM_KINDS,
   type ItemKind,
+  type JarLook,
+  type KindLook,
+  onVine,
+  type ProduceLook,
   WEAR_ITEMS,
   type WearItem,
 } from "@terrakin/sim";
@@ -42,10 +50,11 @@ export interface ArtShape {
 export const ART_BOX = 48;
 
 /**
- * Each crop's color when it's ready to pick, and how far along a crop is: the sim's palette, which
- * the map and the 3D views draw crops with, and plot photos too.
+ * Each crop's color when it's ready to pick (its look's `body` in the catalog), how far along a
+ * crop is, and whether it grows on a vine along the soil: the sim's palette, which the map and the
+ * 3D views draw crops with, and plot photos too.
  */
-export { CROP_HEX, growth };
+export { CROP_HEX, growth, onVine };
 
 // ---------- colors ----------
 
@@ -141,66 +150,95 @@ const leaf = (x: number, y: number, len: number, turn: number, fill = LEAF): Art
     { transform: `rotate(${turn} ${x} ${y})`, ...out({ "stroke-width": 1.1 }) },
   );
 
-// ---------- produce ----------
+// ---------- produce, from its look ----------
 
-function lemon(): ArtShape[] {
-  return [
-    leaf(25, 15, 11, -40),
-    path("M8 28c0-8 7-13.5 16-13.5S40 20 40 28s-7 11.5-16 11.5S8 36 8 28z", CROP_HEX.lemon, out()),
-    path("M8.2 27.2 5.5 28l2.8 1.1M39.8 27.2l2.7.8-2.7 1.1", CROP_HEX.lemon, out()),
+type Paint = (body: string, detail: string) => ArtShape[];
+
+const BERRY_SEEDS: readonly [number, number][] = [
+  [19, 24],
+  [25, 23],
+  [30, 26],
+  [17, 30],
+  [23, 29],
+  [29, 32],
+  [21, 35],
+  [26, 37],
+];
+
+/** Each produce outline: its skin in `body`, and its speckles, seeds, or ribs in `detail`. */
+const SHAPES: Readonly<Record<ProduceLook["shape"], Paint>> = {
+  // An oval with pointed ends, like a lemon, and a few speckles.
+  oval: (body, detail) => [
+    path("M8 28c0-8 7-13.5 16-13.5S40 20 40 28s-7 11.5-16 11.5S8 36 8 28z", body, out()),
+    path("M8.2 27.2 5.5 28l2.8 1.1M39.8 27.2l2.7.8-2.7 1.1", body, out()),
     shine(18, 22, 5, 2.2),
-    circle(31, 33, 0.9, SUN),
-    circle(27, 35, 0.9, SUN),
-  ];
-}
-
-function strawberry(): ArtShape[] {
-  const seeds: [number, number][] = [
-    [19, 24],
-    [25, 23],
-    [30, 26],
-    [17, 30],
-    [23, 29],
-    [29, 32],
-    [21, 35],
-    [26, 37],
-  ];
-  return [
+    circle(31, 33, 0.9, detail),
+    circle(27, 35, 0.9, detail),
+  ],
+  // A berry, seeds and all.
+  berry: (body, detail) => [
     path(
       "M24 41.5c-9-4-14-11-13-18 .7-5 5.5-7.5 13-7 7.5-.5 12.3 2 13 7 1 7-4 14-13 18z",
-      CROP_HEX.strawberry,
+      body,
       out(),
     ),
-    ...seeds.map(([x, y]) => ellipse(x, y, 0.9, 1.3, "#ffe7a3")),
+    ...BERRY_SEEDS.map(([x, y]) => ellipse(x, y, 0.9, 1.3, detail)),
     shine(17.5, 22, 3.2, 1.6),
-    path("M24 17.5 19 13l4.2 1.4L24 10l.8 4.4L29 13z", LEAF, out({ "stroke-width": 1.1 })),
-    path(
-      "M14.5 19.5c3-1.5 5.5-2 9.5-2s6.5.5 9.5 2l-3.4 1-2.8-.9-3.3 1.3-3.3-1.3-2.8.9z",
-      LEAF,
-      out({ "stroke-width": 1.1 }),
-    ),
-  ];
-}
-
-function tomato(): ArtShape[] {
-  return [
-    path(
-      "M24 16c9.5 0 15 5.5 15 12.5S33 41 24 41 9 35.5 9 28.5 14.5 16 24 16z",
-      CROP_HEX.tomato,
-      out(),
-    ),
-    line("M18 18.5c-1 4 0 8 2 11M30 18.5c1 4 0 8-2 11", "#c4462c", 1, { opacity: 0.6 }),
+  ],
+  // Round, with two faint ribs.
+  round: (body, detail) => [
+    path("M24 16c9.5 0 15 5.5 15 12.5S33 41 24 41 9 35.5 9 28.5 14.5 16 24 16z", body, out()),
+    line("M18 18.5c-1 4 0 8 2 11M30 18.5c1 4 0 8-2 11", detail, 1, { opacity: 0.6 }),
     shine(16.5, 23.5, 3.6, 1.8),
-    path(
-      "M24 19.5 18 17.5l4-1.2-2.6-3.3 4.6 1.6 4.6-1.6-2.6 3.3 4 1.2z",
-      LEAF,
-      out({ "stroke-width": 1.1 }),
-    ),
-    line("M24 14.5V10.5", STEM, 1.8),
-  ];
-}
+  ],
+  // Three ribbed lobes, like a pumpkin.
+  lobed: (body, detail) => [
+    ellipse(15.5, 31, 9, 10.5, body, out()),
+    ellipse(32.5, 31, 9, 10.5, body, out()),
+    ellipse(24, 31, 10, 11.5, body, out()),
+    line("M19.5 22.5c-1.4 5-1.4 12 0 17M28.5 22.5c1.4 5 1.4 12 0 17", detail, 1.1, {
+      opacity: 0.7,
+    }),
+    shine(17.5, 26, 2.6, 1.3),
+  ],
+};
 
-function herb(): ArtShape[] {
+/** What grows on top of produce: drawn behind its outline (`back`) or in front (`front`). */
+const TOPS: Readonly<
+  Record<ProduceLook["top"], { back?: () => ArtShape[]; front?: () => ArtShape[] }>
+> = {
+  leaf: { back: () => [leaf(25, 15, 11, -40)] },
+  cap: {
+    front: () => [
+      path("M24 17.5 19 13l4.2 1.4L24 10l.8 4.4L29 13z", LEAF, out({ "stroke-width": 1.1 })),
+      path(
+        "M14.5 19.5c3-1.5 5.5-2 9.5-2s6.5.5 9.5 2l-3.4 1-2.8-.9-3.3 1.3-3.3-1.3-2.8.9z",
+        LEAF,
+        out({ "stroke-width": 1.1 }),
+      ),
+    ],
+  },
+  star: {
+    front: () => [
+      path(
+        "M24 19.5 18 17.5l4-1.2-2.6-3.3 4.6 1.6 4.6-1.6-2.6 3.3 4 1.2z",
+        LEAF,
+        out({ "stroke-width": 1.1 }),
+      ),
+      line("M24 14.5V10.5", STEM, 1.8),
+    ],
+  },
+  vine: {
+    front: () => [
+      path("M22.6 20.5c-.4-3 .3-5.8 2.2-7.6l2.2 1.1c-1.6 1.7-2.1 3.9-1.8 6.5z", "#76703a", out()),
+      line("M27 14.5c2.5-3 6.5-2.6 6.8 0 .3 2.3-3.4 2.9-3.6.6", STEM, 1.1),
+      leaf(25, 14, 9, -160),
+    ],
+  },
+};
+
+/** A sprig of leaves, like a bunch of herbs. */
+function sprig(): ArtShape[] {
   return [
     line("M24 41C24 33 23 24 25 12", STEM, 1.8),
     leaf(24.5, 35, 11, -150),
@@ -213,9 +251,10 @@ function herb(): ArtShape[] {
   ];
 }
 
-function flower(): ArtShape[] {
+/** A flower on its stem, its petals in `body`. */
+function bloom(body: string): ArtShape[] {
   const petals = [0, 72, 144, 216, 288].map((a) =>
-    ellipse(24, 12, 4.2, 6, CROP_HEX.flower, {
+    ellipse(24, 12, 4.2, 6, body, {
       transform: `rotate(${a} 24 19)`,
       ...out({ "stroke-width": 1.1 }),
     }),
@@ -229,44 +268,32 @@ function flower(): ArtShape[] {
   ];
 }
 
-/** Autumn's crop (RFC 0017): three ribbed lobes, a stubby stem, a curl of vine, and a leaf. */
-function pumpkin(): ArtShape[] {
-  const rib = "#c4661c";
-  return [
-    ellipse(15.5, 31, 9, 10.5, CROP_HEX.pumpkin, out()),
-    ellipse(32.5, 31, 9, 10.5, CROP_HEX.pumpkin, out()),
-    ellipse(24, 31, 10, 11.5, CROP_HEX.pumpkin, out()),
-    line("M19.5 22.5c-1.4 5-1.4 12 0 17M28.5 22.5c1.4 5 1.4 12 0 17", rib, 1.1, {
-      opacity: 0.7,
-    }),
-    shine(17.5, 26, 2.6, 1.3),
-    path("M22.6 20.5c-.4-3 .3-5.8 2.2-7.6l2.2 1.1c-1.6 1.7-2.1 3.9-1.8 6.5z", "#76703a", out()),
-    line("M27 14.5c2.5-3 6.5-2.6 6.8 0 .3 2.3-3.4 2.9-3.6.6", STEM, 1.1),
-    leaf(25, 14, 9, -160),
-  ];
+/** A crop drawn from its look, without the shadow: on its own, on a packet, or on a jar's label. */
+function cropArt(kind: ItemKind): ArtShape[] {
+  const look = CATALOG[kind].look;
+  if (look.template === "produce") {
+    const top = TOPS[look.top];
+    return [
+      ...(top.back?.() ?? []),
+      ...SHAPES[look.shape](look.body, look.detail),
+      ...(top.front?.() ?? []),
+    ];
+  }
+  if (look.template === "sprig") return sprig();
+  if (look.template === "bloom") return bloom(look.body);
+  throw new Error(`${kind} isn't drawn as produce.`);
 }
-
-const CROP_ART: Record<Crop, () => ArtShape[]> = {
-  lemon,
-  strawberry,
-  tomato,
-  herb,
-  flower,
-  pumpkin,
-};
-
-const produce = (crop: Crop) => (): ArtShape[] => [shadow(13), ...CROP_ART[crop]()];
 
 // ---------- seeds, sugar, and jars ----------
 
-/** A paper seed packet with its crop on the front. */
-const seedPacket = (crop: Crop) => (): ArtShape[] => [
+/** A paper seed packet with the crop it grows on the front, its band in that crop's color. */
+const seedPacket = (crop: Crop): ArtShape[] => [
   shadow(12, 44),
   rect(11, 6, 26, 37, 3, KRAFT, out()),
   path("M11 12.5h26V9a3 3 0 0 0-3-3H14a3 3 0 0 0-3 3z", CROP_HEX[crop], out()),
   line("M14 9.3h20", PAPER, 1, { "stroke-dasharray": "1.6 1.6", opacity: 0.8 }),
   rect(14, 15.5, 20, 20, 2.5, PAPER, { opacity: 0.85 }),
-  group("translate(24 25.5) scale(0.5) translate(-24 -26)", CROP_ART[crop]()),
+  group("translate(24 25.5) scale(0.5) translate(-24 -26)", cropArt(crop)),
   ellipse(19, 39.3, 1, 1.5, WOOD, { transform: "rotate(30 19 39.3)" }),
   ellipse(24, 39.6, 1, 1.5, WOOD),
   ellipse(29, 39.3, 1, 1.5, WOOD, { transform: "rotate(-30 29 39.3)" }),
@@ -313,10 +340,27 @@ function cloth(color: string): ArtShape[] {
 }
 
 /** A paper label on a jar with a little picture of what's in it. */
-function label(crop: Crop): ArtShape[] {
+function label(kind: ItemKind): ArtShape[] {
   return [
     rect(16.5, 24, 15, 12, 2, PAPER, out({ "stroke-width": 1 })),
-    group("translate(24 30) scale(0.3) translate(-24 -27)", CROP_ART[crop]()),
+    group("translate(24 30) scale(0.3) translate(-24 -27)", cropArt(kind)),
+  ];
+}
+
+/**
+ * A jar from its look: filled with `fill`, with what's in it on the label, and either a cloth
+ * tied over the top (a jam) or a lid and a sprig of leaves (a sauce or a soup).
+ */
+function jarArt(look: JarLook): ArtShape[] {
+  const inside = [shadow(12), ...jarBody(look.fill, 0.85)];
+  const what = look.label as ItemKind;
+  if ("cloth" in look) return [...inside, ...cloth(look.cloth), ...label(what)];
+  return [
+    ...inside,
+    rect(12.5, 9, 23, 6, 2.2, look.lid, out()),
+    line("M15 12h18", "#ffffff", 1, { opacity: 0.4 }),
+    ...label(what),
+    leaf(31, 21, 6, -30),
   ];
 }
 
@@ -346,13 +390,6 @@ function stone(): ArtShape[] {
   ];
 }
 
-const jam = (crop: Crop, color: string, gingham: string) => (): ArtShape[] => [
-  shadow(12),
-  ...jarBody(color, 0.85),
-  ...cloth(gingham),
-  ...label(crop),
-];
-
 function lemonade(): ArtShape[] {
   return [
     shadow(11),
@@ -366,17 +403,6 @@ function lemonade(): ArtShape[] {
     circle(33.5, 13.5, 5.5, CROP_HEX.lemon, out()),
     circle(33.5, 13.5, 3.6, "#fff1a8"),
     line("M33.5 10v7M30 13.5h7M31 11l5 5M36 11l-5 5", CROP_HEX.lemon, 0.8),
-  ];
-}
-
-function tomatoSauce(): ArtShape[] {
-  return [
-    shadow(12),
-    ...jarBody("#b8322a", 0.85),
-    rect(12.5, 9, 23, 6, 2.2, CLAY, out()),
-    line("M15 12h18", "#ffffff", 1, { opacity: 0.4 }),
-    ...label("tomato"),
-    leaf(31, 21, 6, -30),
   ];
 }
 
@@ -573,17 +599,6 @@ function pumpkinPie(): ArtShape[] {
     ...crimps,
     ellipse(26, 27.6, 4.2, 2, PAPER, out({ "stroke-width": 1 })),
     shine(17, 27.5, 3, 1.1, 0),
-  ];
-}
-
-function pumpkinSoup(): ArtShape[] {
-  return [
-    shadow(12),
-    ...jarBody("#e3913d", 0.85),
-    rect(12.5, 9, 23, 6, 2.2, MOSS, out()),
-    line("M15 12h18", "#ffffff", 1, { opacity: 0.4 }),
-    ...label("pumpkin"),
-    leaf(31, 21, 6, -30),
   ];
 }
 
@@ -1166,17 +1181,11 @@ function sneakers(): ArtShape[] {
 
 // ---------- the catalog ----------
 
-const ART: Record<ArtKind, () => ArtShape[]> = {
-  lemon_seed: seedPacket("lemon"),
-  strawberry_seed: seedPacket("strawberry"),
-  tomato_seed: seedPacket("tomato"),
-  herb_seed: seedPacket("herb"),
-  flower_seed: seedPacket("flower"),
-  lemon: produce("lemon"),
-  strawberry: produce("strawberry"),
-  tomato: produce("tomato"),
-  herb: produce("herb"),
-  flower: produce("flower"),
+/**
+ * Items with their own drawing (`drawn` looks in the catalog): the pantry's staples, materials,
+ * decor, furniture, and made things that no template draws.
+ */
+const DRAWN: Readonly<Partial<Record<ItemKind, () => ArtShape[]>>> = {
   sugar,
   jar,
   wood,
@@ -1185,10 +1194,6 @@ const ART: Record<ArtKind, () => ArtShape[]> = {
   frame,
   fence,
   bench,
-  pumpkin_seed: seedPacket("pumpkin"),
-  pumpkin: produce("pumpkin"),
-  pumpkin_pie: pumpkinPie,
-  pumpkin_soup: pumpkinSoup,
   hay_bale: hayBale,
   scarecrow,
   table,
@@ -1201,15 +1206,17 @@ const ART: Record<ArtKind, () => ArtShape[]> = {
   stone_wall: stoneWall,
   campfire,
   flower_box: flowerBox,
-  lemon_jam: jam("lemon", "#f2c53d", "#e2b23a"),
-  strawberry_jam: jam("strawberry", "#c8344a", ROSE),
   lemonade,
-  tomato_sauce: tomatoSauce,
   herb_tea: herbTea,
   bouquet,
   herb_sachet: herbSachet,
   flower_wreath: flowerWreath,
+  pumpkin_pie: pumpkinPie,
   piece,
+};
+
+/** Every piece of wear's drawing. */
+const WEAR_ART: Readonly<Record<WearItem, () => ArtShape[]>> = {
   straw_hat: strawHat,
   beret,
   flower_crown: flowerCrown,
@@ -1236,9 +1243,30 @@ const ART: Record<ArtKind, () => ArtShape[]> = {
   sneakers,
 };
 
+/** An item's picture from its look in the catalog, or its own drawing. */
+function lookShapes(kind: ItemKind, look: KindLook): ArtShape[] {
+  switch (look.template) {
+    case "produce":
+    case "sprig":
+    case "bloom":
+      return [shadow(13), ...cropArt(kind)];
+    case "packet":
+      return seedPacket(CATALOG[kind].grows as Crop);
+    case "jar":
+      return jarArt(look);
+    case "drawn": {
+      const draw = DRAWN[kind];
+      if (!draw) throw new Error(`${kind} is drawn by hand, and item-art.ts has no picture of it.`);
+      return draw();
+    }
+  }
+}
+
 /** The shapes of one picture, back to front, in a 48 by 48 box. Pure. */
 export function itemShapes(kind: ArtKind): ArtShape[] {
-  return ART[kind]();
+  if (Object.hasOwn(CATALOG, kind))
+    return lookShapes(kind as ItemKind, CATALOG[kind as ItemKind].look);
+  return WEAR_ART[kind as WearItem]();
 }
 
 export interface ItemArtOptions {

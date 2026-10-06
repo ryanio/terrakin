@@ -89,12 +89,14 @@ export interface PlotCrop {
   /** Tiles from the plot's top left corner: the planter's tile. */
   x: number;
   y: number;
-  /** The sim's name for it. A pumpkin grows on a vine along the soil, the rest on a stem. */
+  /** The sim's name for it. */
   crop: string;
   /** How far along it is: 0 just planted, 1 ready to pick. */
   done: number;
-  /** Its color once it's ready, from the sim's palette. */
+  /** Its color once it's ready, from the sim's palette (its look in the catalog). */
   fill: string;
+  /** Set when it grows on a vine along the soil, like a pumpkin; the rest grow on a stem. */
+  vine?: boolean | undefined;
 }
 
 /** The colors the drawing needs beyond the ground and blocks, from the sim's palette. */
@@ -474,8 +476,9 @@ function oval(
 
 /**
  * A crop on its planter, as `client/src/render.ts` paints it: a sprout that grows taller, with three
- * fruit or flowers in its color once it's ready; or a pumpkin vine along the soil, its pumpkin
- * swelling from a green bud and turning its color, with a stem once it's ripe. The planter is the
+ * fruit or flowers in its color once it's ready; or, for a crop on a vine like a pumpkin, a vine
+ * along the soil, its fruit swelling from a green bud and turning its color, with a stem once it's
+ * ripe. The planter is the
  * block under it, so the same 0.05 inset and 0.9 tile size apply.
  */
 function cropSvg(c: PlotCrop): string[] {
@@ -486,7 +489,7 @@ function cropSvg(c: PlotCrop): string[] {
   const top = c.y + 0.05;
   const line = (d: string, stroke: string, width: number) =>
     `<path d="${d}" stroke="${stroke}" stroke-width="${n(width)}" stroke-linecap="round" fill="none"/>`;
-  if (c.crop === "pumpkin") {
+  if (c.vine) {
     const base = top + size * 0.7;
     const spread = size * (0.14 + 0.2 * done);
     const leaf = size * (0.07 + 0.07 * done);

@@ -44,7 +44,7 @@ import {
   signPx,
 } from "@terrakin/ui/figure";
 import { paintGround } from "@terrakin/ui/ground-art";
-import { CROP_HEX, growth, itemArtImage } from "@terrakin/ui/item-art";
+import { CROP_HEX, growth, itemArtImage, onVine } from "@terrakin/ui/item-art";
 import {
   lookImage,
   lookPalette,
@@ -332,8 +332,9 @@ function paintWorkshop(
 }
 
 /**
- * A crop in a planter, drawn from how far along it is (0 to 1): a sprout that grows, then the
- * crop's color in small fruit or petals once it's ready.
+ * A crop in a planter, drawn from its entry in the catalog and how far along it is (0 to 1): a
+ * sprout that grows, then the crop's color in small fruit or petals once it's ready, or, for a crop
+ * that grows on a vine, a vine along the soil.
  */
 function paintCrop(
   ctx: CanvasRenderingContext2D,
@@ -343,8 +344,8 @@ function paintCrop(
   top: number,
   size: number,
 ) {
-  if (crop === "pumpkin") {
-    paintPumpkin(ctx, done, left, top, size);
+  if (onVine(crop)) {
+    paintVine(ctx, crop, done, left, top, size);
     return;
   }
   const cx = left + size / 2;
@@ -385,11 +386,12 @@ function paintCrop(
 }
 
 /**
- * A pumpkin in a planter (RFC 0017): a vine that spreads along the soil, and a pumpkin that swells
- * from a green bud, ripening to orange with a stem once it's ready.
+ * A crop on a vine in a planter, like a pumpkin: a vine that spreads along the soil, and its fruit
+ * swelling from a green bud, ripening to the crop's color with a stem once it's ready.
  */
-function paintPumpkin(
+function paintVine(
   ctx: CanvasRenderingContext2D,
+  crop: Crop,
   done: number,
   left: number,
   top: number,
@@ -426,7 +428,7 @@ function paintPumpkin(
     const swell = (done - 0.2) / 0.8;
     const r = size * (0.08 + 0.15 * swell);
     const y = base - r * 0.55;
-    ctx.fillStyle = ripe ? CROP_HEX.pumpkin : mixHex("#8cbf5a", CROP_HEX.pumpkin, swell * 0.5);
+    ctx.fillStyle = ripe ? CROP_HEX[crop] : mixHex("#8cbf5a", CROP_HEX[crop], swell * 0.5);
     ctx.strokeStyle = "rgba(43, 38, 32, 0.35)";
     ctx.lineWidth = 1;
     for (const dx of [-0.5, 0.5, 0]) {

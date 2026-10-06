@@ -8,8 +8,8 @@
  */
 
 import { type Biome, biomeAt } from "./biome";
+import { CATALOG, CROPS, type Crop } from "./catalog";
 import type { GroundKind } from "./ground";
-import type { Crop } from "./items";
 import type { ThemePalette } from "./looks";
 import type { Season } from "./season";
 import { type BlockKind, BUILDING_BLOCKS, type WorldConfig } from "./types";
@@ -286,17 +286,25 @@ export const FLOWER_TONES: readonly [string, string] = ["#fff4d6", "#f2b84b"];
 export const LEAF_TONES: readonly [string, string, string] = ["#c8643a", "#e0913a", "#e8b84a"];
 
 /**
- * Each crop's color when it's ready to pick. The map, the 3D views, the item pictures, and plot
- * photos all draw ripe crops in it.
+ * Each crop's color when it's ready to pick: its look's `body` in the catalog (RFC 0018). The map,
+ * the 3D views, the item pictures, and plot photos all draw ripe crops in it.
  */
-export const CROP_HEX: Readonly<Record<Crop, string>> = {
-  lemon: "#f2d04b",
-  strawberry: "#d9434f",
-  tomato: "#e0573a",
-  herb: "#4f8a3a",
-  flower: "#e58fb6",
-  pumpkin: "#e8862f",
-};
+export const CROP_HEX = Object.fromEntries(
+  CROPS.map((crop) => {
+    const look = CATALOG[crop].look;
+    return [crop, "body" in look ? look.body : "#6b9a4a"];
+  }),
+) as Readonly<Record<Crop, string>>;
+
+/**
+ * Whether a crop grows on a vine along the soil, like a pumpkin: its look in the catalog has a vine
+ * on top. The map, the 3D views, and plot photos draw it as a vine with its fruit swelling on it,
+ * and every other crop as a plant with its fruit or flowers on top.
+ */
+export function onVine(crop: Crop): boolean {
+  const look = CATALOG[crop].look;
+  return look.template === "produce" && look.top === "vine";
+}
 
 /** How far along a crop is, 0 to 1, by the world's day: how the map, 3D, and photos draw it. */
 export function growth(plantedDay: number, readyDay: number, today: number | undefined): number {

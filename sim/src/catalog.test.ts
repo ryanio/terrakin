@@ -268,6 +268,10 @@ describe("seeds and crops", () => {
     }
   });
 
+  it("each have one color of their own to stand for them, on the map and on their packet", () => {
+    for (const crop of CROPS) expect(CATALOG[crop].look, crop).toHaveProperty("body");
+  });
+
   it("take whole days and give back at most their seed, so gardens grow only by the shop and gifts", () => {
     // A crop ready the day it's planted could be picked over and over in one day, and more than one
     // seed back would let a garden grow by itself (decision 0051).

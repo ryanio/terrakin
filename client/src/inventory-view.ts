@@ -1,9 +1,10 @@
 /**
- * `/inventory`: your things (RFC 0005). Private to you: your garden, what you made or were given,
- * and your seeds, produce, sugar, and jars. Labels and makers' names are other residents' words:
- * textContent only.
+ * `/inventory`: your things (RFC 0005). Private to you: your garden, and everything you hold,
+ * grouped by family as the catalog sorts it (RFC 0018): Food › Fruit, Food › Preserves, Seeds, and
+ * so on. Labels and makers' names are other residents' words: textContent only.
  */
 import type { GiftView, GoodView, InventoryResponse } from "@terrakin/protocol";
+import type { ItemKind } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
 import { itemArt, thingPicture } from "@terrakin/ui/item-art";
 import { personLink } from "@terrakin/ui/people";
@@ -11,7 +12,16 @@ import { confirmTwice, itemRow, itemRows, stateCard, toast, whileBusy } from "@t
 import { actProblem, api, uploadMedia } from "./api";
 import { savedToken } from "./net";
 import { comeHomeButton } from "./purse-view";
-import { admiredLine, growthLine, sendBackLine, stackCount, thingCount, thingName } from "./things";
+import {
+  admiredLine,
+  byFamily,
+  type FamilyGroup,
+  growthLine,
+  sendBackLine,
+  stackCount,
+  thingCount,
+  thingName,
+} from "./things";
 import { errorCard, type View, type ViewContext } from "./view";
 
 function goodItem(g: GoodView): HTMLLIElement {
@@ -31,6 +41,38 @@ function goodItem(g: GoodView): HTMLLIElement {
       admiredLine(g.admired),
     ],
   });
+}
+
+/** One family's things: what stacks as counts, and made things as rows with their makers. */
+function familyGroup(
+  group: FamilyGroup<{
+    kind: ItemKind;
+    stack?: { kind: ItemKind; count: number };
+    good?: GoodView;
+  }>,
+): HTMLElement {
+  const stacks = group.things.flatMap((t) => (t.stack ? [t.stack] : []));
+  const goods = group.things.flatMap((t) => (t.good ? [t.good] : []));
+  return h(
+    "div",
+    { class: "stack tight things-family", attrs: { "data-family": group.family } },
+    h("h3", { class: "eyebrow", text: group.label }),
+    stacks.length > 0
+      ? h(
+          "ul",
+          { class: "cluster plain-list things-stacks" },
+          ...stacks.map((st) =>
+            h(
+              "li",
+              { class: "pill things-stack has-art" },
+              itemArt(st.kind, { size: 24 }),
+              h("span", { text: thingCount(st.kind, st.count) }),
+            ),
+          ),
+        )
+      : null,
+    goods.length > 0 ? itemRows(goods.map(goodItem), { className: "things-goods" }) : null,
+  );
 }
 
 /**
@@ -330,42 +372,23 @@ export function inventoryView(ctx: ViewContext): View {
         : []),
       h(
         "section",
-        { class: "stack things-section", attrs: { "aria-labelledby": "things-made-title" } },
+        { class: "stack things-section", attrs: { "aria-labelledby": "things-hold-title" } },
         h("h2", {
           class: "section-title",
-          attrs: { id: "things-made-title" },
-          text: "Made things",
+          attrs: { id: "things-hold-title" },
+          text: "What you hold",
         }),
-        inv.goods.length > 0
-          ? itemRows(inv.goods.map(goodItem), { className: "things-goods" })
-          : h("p", {
-              class: "purse-hint",
-              text: "Nothing yet. Tap a kitchen or a workbench in the world to make something.",
-            }),
-      ),
-      pieceCard(rules.labelMax, () => {
-        if (!destroyed) void load();
-      }),
-      h(
-        "section",
-        { class: "stack things-section", attrs: { "aria-labelledby": "things-stacks-title" } },
-        h("h2", {
-          class: "section-title",
-          attrs: { id: "things-stacks-title" },
-          text: "Seeds, harvest, pantry, wood, stone, decor, and furniture",
-        }),
-        inv.stacks.length > 0
+        inv.stacks.length + inv.goods.length > 0
           ? h(
-              "ul",
-              { class: "cluster plain-list things-stacks" },
-              ...inv.stacks.map((s) =>
-                h(
-                  "li",
-                  { class: "pill things-stack has-art" },
-                  itemArt(s.kind, { size: 24 }),
-                  h("span", { text: thingCount(s.kind, s.count) }),
-                ),
-              ),
+              "div",
+              { class: "stack things-families" },
+              ...byFamily(
+                [
+                  ...inv.stacks.map((stack) => ({ kind: stack.kind, stack })),
+                  ...inv.goods.map((good) => ({ kind: good.kind, good })),
+                ],
+                (held) => held.kind,
+              ).map((group) => familyGroup(group)),
             )
           : h("p", {
               class: "purse-hint",
@@ -375,6 +398,12 @@ export function inventoryView(ctx: ViewContext): View {
                   ? "Empty. The pantry tops you up again tomorrow."
                   : "Empty. Come home to your hearth for today's pantry.",
             }),
+        inv.goods.length === 0
+          ? h("p", {
+              class: "purse-hint",
+              text: "Nothing made yet. Tap a kitchen or a workbench in the world to make something.",
+            })
+          : null,
         h("p", {
           class: "purse-hint",
           text: `${inv.size} of ${rules.inventoryMax} things. Give from someone's profile: up to ${rules.giveCap} a day. Only you see this page.`,
@@ -385,6 +414,9 @@ export function inventoryView(ctx: ViewContext): View {
           "Sell in the market",
         ),
       ),
+      pieceCard(rules.labelMax, () => {
+        if (!destroyed) void load();
+      }),
     );
   }
 

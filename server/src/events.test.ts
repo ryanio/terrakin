@@ -436,6 +436,10 @@ describe("staff", () => {
     expect(queue).toMatchObject([{ kind: "event", id: "e_1", target: { exists: true } }]);
     const why = { reason: "Not an event, an ad." };
     expect((await t.call("POST", "/v1/admin/events/e_1/void", why, bob.token)).status).toBe(403);
+    // A maintainer can't call off their own event to save the deposit.
+    t.maintainers.add(ada.id);
+    const own = await t.call("POST", "/v1/admin/events/e_1/void", why, ada.token);
+    expect(own.body.error.code).toBe("not_eligible");
     // The deposit is coins the world still holds: snapshots count it, and so does the treasury.
     expect(supplyHolds(t.service.state)).toBe(true);
     const treasury = (await t.call("GET", "/v1/town")).body.treasury;

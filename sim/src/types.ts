@@ -1039,8 +1039,12 @@ export type Command =
   | { type: "event_tick"; event: string; slot: number }
   /** An event's end time came: attendance and the deposit are settled. */
   | { type: "event_end"; event: string }
-  /** A maintainer calls off an event that hasn't ended. A Commons deposit goes back. */
-  | { type: "void_event"; event: string; by: string };
+  /**
+   * A maintainer calls off an event that hasn't ended. A Commons deposit goes back. `by` is who the
+   * maintainer is in the log, and `resident`, when the server knows it, the resident they also
+   * are: one in the host's household is refused, as for bounties (decision 0062).
+   */
+  | { type: "void_event"; event: string; by: string; resident?: ResidentId };
 
 /** One resident's award in `daily_awards`. */
 export interface DailyAward {

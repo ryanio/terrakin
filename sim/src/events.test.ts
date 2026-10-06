@@ -438,12 +438,21 @@ describe("an event's life", () => {
     ok(act(state, "dee", schedule({ ...COMMONS })));
     ok(town(state, { type: "event_start", event: "e_1" }));
     expect(code(town(state, { type: "void_event", event: "e_1", by: "" }))).toBe("server_only");
-    expect(ok(town(state, { type: "void_event", event: "e_1", by: "staff_0123456789ab" }))).toEqual(
-      [
-        { type: "event_cancelled", event: "e_1", deposit: "refunded" },
-        { type: "coins", residentId: "dee", amount: 10, balance: 60, reason: "event_refund" },
-      ],
+    // Not a maintainer who is Dee, or in her household: they'd keep a deposit the end might burn.
+    ok(town(state, { type: "add_owner_pair", pair: ["cy", "dee"] }));
+    const by = "staff_0123456789ab";
+    for (const resident of ["dee", "cy"]) {
+      expect(code(town(state, { type: "void_event", event: "e_1", by, resident }))).toBe(
+        "not_eligible",
+      );
+    }
+    expect(code(town(state, { type: "void_event", event: "e_1", by, resident: "" }))).toBe(
+      "server_only",
     );
+    expect(ok(town(state, { type: "void_event", event: "e_1", by, resident: "ada" }))).toEqual([
+      { type: "event_cancelled", event: "e_1", deposit: "refunded" },
+      { type: "coins", residentId: "dee", amount: 10, balance: 60, reason: "event_refund" },
+    ]);
     expect(findEvent(state, "e_1")).toMatchObject({
       status: "cancelled",
       voidedBy: "staff_0123456789ab",

@@ -835,8 +835,11 @@ export class WorldService {
   }
 
   /** A maintainer calls off an event that hasn't ended. Logged as a world input naming them. */
-  voidEvent(event: string, by: string): ActResult {
-    return this.run({ actor: TOWN_ACTOR, command: { type: "void_event", event, by } });
+  voidEvent(event: string, by: string, resident?: string): ActResult {
+    return this.run({
+      actor: TOWN_ACTOR,
+      command: { type: "void_event", event, by, ...(resident ? { resident } : {}) },
+    });
   }
 
   /**

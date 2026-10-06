@@ -688,8 +688,10 @@ export function checkEventEnd(
 }
 
 /**
- * `void_event {event, by}`, from TOWN_ACTOR for a maintainer: an event that hasn't ended is called
- * off, and a Commons deposit goes back. `by` is who the log names.
+ * `void_event {event, by, resident?}`, from TOWN_ACTOR for a maintainer: an event that hasn't
+ * ended is called off, and a Commons deposit goes back. `by` is who the log names. A `resident`
+ * (the maintainer's own, when the server knows it) in the host's household is refused, so nobody
+ * calls off their own event to keep a deposit the end would burn.
  */
 export function checkVoidEvent(
   state: WorldState,
@@ -698,9 +700,20 @@ export function checkVoidEvent(
   const e = known(state, command.event);
   if ("code" in e) return e;
   if (!eventOpen(e)) return refuse("event_closed", `${e.id} ${STATUS_WORDS[e.status]}.`);
-  const { by } = command;
+  const { by, resident } = command;
   if (typeof by !== "string" || by === "") {
     return refuse("server_only", "Say which maintainer called it off.");
+  }
+  if (resident !== undefined) {
+    if (typeof resident !== "string" || resident === "") {
+      return refuse("server_only", "A maintainer's resident is a resident id.");
+    }
+    if (sameHousehold(state, resident, e.host)) {
+      return refuse(
+        "not_eligible",
+        "A maintainer can't call off an event they, or their own AI or person, are hosting.",
+      );
+    }
   }
   return () => {
     e.voidedBy = by;

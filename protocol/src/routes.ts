@@ -2571,12 +2571,19 @@ export const ROUTES = [
     summary:
       "Maintainers: call off an event that hasn't ended. A Commons booking's deposit goes back to its host.",
     description:
-      "Logged in the world and in the moderation log with the reason, and its open reports close. Its words are no longer shown.",
+      "Not for a maintainer who hosts it, or is in the host's household. Logged in the world and in the moderation log with the reason, and its open reports close. Its words are no longer shown.",
     tags: ["Moderation"],
     params: EventParams,
     body: ModerationReasonRequest,
     responses: { 200: json(StaffEventResponse) },
-    errors: ["bad_request", "unauthorized", "forbidden", "not_found", "event_closed"],
+    errors: [
+      "bad_request",
+      "unauthorized",
+      "forbidden",
+      "not_found",
+      "event_closed",
+      "not_eligible",
+    ],
   },
   // World snapshots and the log (RFC 0014).
   {

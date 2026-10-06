@@ -1894,7 +1894,11 @@ export class Api {
           return fail("forbidden", WORLD_MAINTAINERS_ONLY);
         }
         if (!findEvent(service.state, params.id)) return fail("not_found", "No such event.");
-        const done = service.voidEvent(params.id, await worldStaffId(viewer));
+        const done = service.voidEvent(
+          params.id,
+          await worldStaffId(viewer),
+          this.staffResident(viewer),
+        );
         if (!done.ok) return fail(done.error.code, done.error.message);
         social().safety.recordAction(viewer, "void_event", "event", params.id, body.reason);
         const e = findEvent(service.state, params.id);

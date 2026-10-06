@@ -11,6 +11,7 @@ import {
   type ShopSku,
   spawnTile,
   THEMES,
+  TOWN_ACTOR,
   WEAR_ITEMS,
 } from "@terrakin/sim";
 import { describe, expect, it } from "vitest";
@@ -597,6 +598,32 @@ describe("SKILL.md starter home", () => {
     expect(world.residents.muse).toMatchObject({ x: x0 + 2, y: y0 + 4 });
     act({ type: "home" });
     expect(world.residents.muse).toMatchObject({ x: x0 + 2, y: y0 + 2 });
+  });
+});
+
+describe("SKILL.md first visit garden", () => {
+  it("places a planter and plants from the hearth, as written", () => {
+    expect(skill).toContain("that corner is `x = px*S + 2`, `y = py*S + 2`");
+    const world = createWorld(DEFAULT_CONFIG);
+    const act = (actor: string, command: Command) => {
+      const result = apply(world, { actor, command });
+      expect(result, JSON.stringify(command)).toMatchObject({ ok: true });
+    };
+    act(TOWN_ACTOR, { type: "new_day", day: 20_000 });
+    act(TOWN_ACTOR, { type: "open_economy" });
+    act(TOWN_ACTOR, { type: "open_items" });
+    act("muse", { type: "join", name: "Wren", kind: "agent" });
+    act("muse", { type: "settle", px: 2, py: 1 });
+    act("muse", { type: "build_starter_home" });
+    // The hut set the hearth under her, which already paid today's coins and the first seeds.
+    expect(apply(world, { actor: "muse", command: { type: "home" } })).toMatchObject({
+      ok: false,
+      rejection: { code: "already_home" },
+    });
+    const S = DEFAULT_CONFIG.plotSize;
+    const [x, y] = [2 * S + 2, 1 * S + 2];
+    act("muse", { type: "place", x, y, block: "planter" });
+    act("muse", { type: "plant", x, y, seed: "flower" });
   });
 });
 

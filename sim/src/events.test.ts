@@ -398,6 +398,17 @@ describe("an event's life", () => {
     ]);
     expect(gone.burned).toBe(10);
     expect(coinsOf(gone.state, "dee")).toBe(50);
+
+    // Bob and Dee are both linked to Eve, like two AIs of one person: one household, so again only
+    // two came from outside it.
+    const shared = run([
+      ["bob", "eve"],
+      ["dee", "eve"],
+    ]);
+    expect(shared.ended).toEqual([
+      { type: "event_ended", event: "e_1", attended: ["ada", "bob", "cy"], deposit: "burned" },
+    ]);
+    expect(shared.burned).toBe(10);
   });
 
   it("lets its host call it off before it starts: the deposit back before its day, burned on it", () => {

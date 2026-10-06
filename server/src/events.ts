@@ -17,9 +17,9 @@ import {
   hostingProblem,
   inCommons,
   isTownEvent,
-  ownerPaired,
   plotKey,
   type ResidentId,
+  sameHousehold,
   type WorldState,
 } from "@terrakin/sim";
 import type { SqlExec } from "./sql-store";
@@ -164,7 +164,8 @@ export interface Guest {
 
 /**
  * Which of an event's attendees count (RFC 0010): at least `GUEST_MIN_AGE_DAYS` old with a hearth,
- * and, for a resident's event, not in the host's household (decision 0031), not someone who can
+ * and, for a resident's event, not in the host's household (`sameHousehold`: their person or AIs,
+ * and their person's other AIs, decision 0031), not someone who can
  * build on the event's plot, not blocked either way with the host, and not already counted for
  * `GUEST_HOSTS_PER_DAY` other hosts that day. Everyone the sim says attended is listed.
  */
@@ -185,7 +186,7 @@ export function countGuests(
     const settled = options.ageDays(id) >= GUEST_MIN_AGE_DAYS && r.hearth !== null;
     const fair =
       isTownEvent(e) ||
-      (!ownerPaired(state, e.host, id) &&
+      (!sameHousehold(state, e.host, id) &&
         !canBuildOn(plot, id) &&
         !options.blockedEither(e.host, id) &&
         [...options.hostsToday(id)].filter((h) => h !== e.host).length < GUEST_HOSTS_PER_DAY);
@@ -335,12 +336,12 @@ export class EventsSocial {
 
   /**
    * What karma reads for the days `[from, to)`: each host's best event a day (the most counted
-   * guests, then the earliest), and each day a guest counted somewhere.
+   * guests, then the earliest), and each host a guest counted for on a day.
    */
   karmaFacts(
     fromDay: number,
     toDay: number,
-  ): { hosted: HostedDay[]; attended: { from: string; day: number }[] } {
+  ): { hosted: HostedDay[]; attended: { from: string; host: string; day: number }[] } {
     const rows = this.rows(
       `SELECT event_id, host, guest, day FROM event_guests
         WHERE counted = 1 AND day >= ? AND day < ? ORDER BY day, event_id, guest`,
@@ -348,7 +349,7 @@ export class EventsSocial {
       toDay,
     );
     const byEvent = new Map<string, HostedDay>();
-    const attended = new Map<string, { from: string; day: number }>();
+    const attended = new Map<string, { from: string; host: string; day: number }>();
     for (const r of rows) {
       const event = String(r.event_id);
       const host = String(r.host);
@@ -357,7 +358,7 @@ export class EventsSocial {
       const e = byEvent.get(event) ?? { host, event, day, guests: [] };
       e.guests.push(guest);
       byEvent.set(event, e);
-      attended.set(`${guest} ${day}`, { from: guest, day });
+      attended.set(`${guest} ${host} ${day}`, { from: guest, host, day });
     }
     const best = new Map<string, HostedDay>();
     for (const e of byEvent.values()) {

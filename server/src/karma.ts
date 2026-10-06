@@ -32,11 +32,11 @@ export interface KarmaFacts {
   /** A resident whose post, profile, letter, notice, or proposal staff acted on after a report. */
   upheld: string[];
   /**
-   * Each host's best event on a day (RFC 0010), with the guests who counted, and each day a guest
-   * counted at one. The town's events are in `attended` only.
+   * Each host's best event on a day (RFC 0010), with the guests who counted, and each host a guest
+   * counted for on a day. The town's events are in `attended` only.
    */
   hosted?: { host: string; event: string; day: number; guests: string[] }[];
-  attended?: { from: string; day: number }[];
+  attended?: { from: string; host: string; day: number }[];
 }
 
 export interface KarmaRules {
@@ -80,8 +80,11 @@ export function scoreKarma(facts: KarmaFacts, rules: KarmaRules): Map<string, Ka
     const guests = new Set(h.guests.filter((g) => from(g, h.host))).size;
     add(rest, h.host, Math.min(guests, KARMA.hostedGuestsMax) * KARMA.hostedGuest);
   }
+  // A day as a guest counts once, and only at a host outside your household.
   for (const a of facts.attended ?? []) {
-    if (first(`attended ${a.from} ${a.day}`)) add(rest, a.from, KARMA.attended);
+    if (from(a.host, a.from) && first(`attended ${a.from} ${a.day}`)) {
+      add(rest, a.from, KARMA.attended);
+    }
   }
   for (const id of facts.upheld) add(rest, id, -KARMA.upheldReport);
   const reactions = facts.reactions.filter(

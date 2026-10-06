@@ -399,15 +399,18 @@ describe("who counts as a guest", () => {
       ["eve", 1, 0],
       ["fay", 0, 1],
       ["gus", 2, 1],
+      ["hal", 1, 2],
     ] as const;
     // Everyone has a plot and a hearth, so each one left out below is left out for one reason.
     for (const [id, px, py] of homes) {
-      ok(id, { type: "join", name: id, kind: id === "bob" ? "agent" : "human" });
+      ok(id, { type: "join", name: id, kind: id === "bob" || id === "hal" ? "agent" : "human" });
       ok(id, { type: "settle", px, py });
       ok(id, { type: "build_starter_home" });
     }
     ok("ada", { type: "share_plot", with: "fay" });
+    // Dee is linked to Ada and to Hal: Hal is in Ada's household too, like two AIs of one person.
     ok(TOWN_ACTOR, { type: "add_owner_pair", pair: ["ada", "dee"] });
+    ok(TOWN_ACTOR, { type: "add_owner_pair", pair: ["dee", "hal"] });
     ok(TOWN_ACTOR, { type: "new_day", day: 20_003 });
     ok("ada", { type: "move", dir: "n" });
     ok("ada", {
@@ -422,7 +425,7 @@ describe("who counts as a guest", () => {
     const e = state.events?.list[0];
     if (!e) throw new Error("no event");
     e.status = "ended";
-    e.attended = ["bob", "cy", "dee", "eve", "fay", "gus"];
+    e.attended = ["bob", "cy", "dee", "eve", "fay", "gus", "hal"];
     return state;
   }
 
@@ -444,6 +447,7 @@ describe("who counts as a guest", () => {
       { id: "eve", kind: "human", counted: false },
       { id: "fay", kind: "human", counted: false },
       { id: "gus", kind: "human", counted: false },
+      { id: "hal", kind: "agent", counted: false },
     ]);
     // With room in Cy's day, Cy counts.
     const roomy = countGuests(state, e, {
@@ -452,5 +456,17 @@ describe("who counts as a guest", () => {
       hostsToday: (id) => new Set(id === "cy" ? ["r_x"] : []),
     });
     expect(roomy.find((g) => g.id === "cy")?.counted).toBe(true);
+    // Once Hal and Dee aren't linked, Hal is outside Ada's household and counts.
+    const unlink = apply(state, {
+      actor: TOWN_ACTOR,
+      command: { type: "remove_owner_pair", pair: ["dee", "hal"] },
+    });
+    expect(unlink.ok).toBe(true);
+    const apart = countGuests(state, e, {
+      ageDays: () => 3,
+      blockedEither: () => false,
+      hostsToday: () => new Set(),
+    });
+    expect(apart.find((g) => g.id === "hal")?.counted).toBe(true);
   });
 });

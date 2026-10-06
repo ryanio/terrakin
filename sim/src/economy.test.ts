@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { apply, prepare } from "./apply";
-import { coinsOf, ECONOMY, purseOf, treasuryOf } from "./economy";
+import { coinsOf, ECONOMY, purseOf, sameHousehold, treasuryOf } from "./economy";
 import {
   POST_ECONOMY_CONFIG,
   POST_ECONOMY_HASH,
@@ -925,6 +925,27 @@ describe("add_owner_pair and remove_owner_pair", () => {
     expect(w.messages.at(-1)).toBe("Those two are already an owner pair.");
     expect(w.code(TOWN_ACTOR, remove("r_a", "r_c"))).toBe("server_only");
     expect(w.messages.at(-1)).toBe("Those two aren't an owner pair.");
+  });
+
+  it("make one household of a resident, those linked to them, and two linked to the same one", () => {
+    const w = world();
+    w.ok(TOWN_ACTOR, add("ai_1", "ada"));
+    w.ok(TOWN_ACTOR, add("ai_2", "ada"));
+    w.ok(TOWN_ACTOR, add("ai_3", "bob"));
+    const same = (a: string, b: string) => sameHousehold(w.state, a, b);
+    expect(same("ada", "ada")).toBe(true);
+    expect(same("ai_1", "ada")).toBe(true);
+    // Two AIs of one person.
+    expect(same("ai_1", "ai_2")).toBe(true);
+    expect(same("ai_2", "ai_1")).toBe(true);
+    for (const [a, b] of [
+      ["ai_1", "bob"],
+      ["ai_1", "ai_3"],
+      ["ada", "bob"],
+      ["cy", "dee"],
+    ] as const) {
+      expect(same(a, b), `${a} and ${b}`).toBe(false);
+    }
   });
 
   it("stamp a new pair with today once coins are open, and day 0 before", () => {

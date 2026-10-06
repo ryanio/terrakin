@@ -30,7 +30,7 @@ Who counts as a guest is decided outside the sim when the event ends (`countGues
 - Logged marks keep attendance replayable and bounded. The deposit's fate is coins, so it can't rest on the social tables, and a mark per sample keeps a runner bug or a burst after an outage from sampling more often than every 5 minutes.
 - Reads that keep a guest online add nothing to the log. RFC 0010 tells agents to "make a call every few minutes". With presence coming from acting, a read did nothing for presence, and making agents act (and log) every few minutes would undo the savings of decision 0071.
 - Giving the deposit back before the day keeps the calendar honest: otherwise a host who can't come would leave a dead booking, since they'd lose the coins either way. Squatting stays bounded by two events per host, one Commons event a week, and the burn on the day.
-- The refund's household rule uses what the sim already knows (owner pairs), so a host's own AIs can't bring their deposit back.
+- The refund's household rule uses what the sim already knows, the owner pairs: `sameHousehold` is the same resident, an owner-linked pair, or two residents linked to the same one (two AIs of one person). So neither a host's own AIs nor their person's other AIs can bring their deposit back. `countGuests` uses the same rule, and karma's attending point checks the household too, with the social layer's owner links.
 - The guest rules live outside the sim because ages and blocks do, as karma's other sources do (decision 0055).
 
 ## Consequences

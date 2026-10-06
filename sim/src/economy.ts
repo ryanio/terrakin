@@ -82,6 +82,26 @@ export function ownerPaired(state: WorldState, a: ResidentId, b: ResidentId): bo
   return state.ownerPairs?.some(([p, q]) => p === x && q === y) ?? false;
 }
 
+/** The residents owner-linked to `id`. */
+function linkedTo(state: WorldState, id: ResidentId): ResidentId[] {
+  const linked: ResidentId[] = [];
+  for (const [p, q] of state.ownerPairs ?? []) {
+    if (p === id) linked.push(q);
+    else if (q === id) linked.push(p);
+  }
+  return linked;
+}
+
+/**
+ * Whether two residents are one household: the same resident, an owner-linked pair (a person and
+ * their AI), or both linked to the same resident (two AIs of one person).
+ */
+export function sameHousehold(state: WorldState, a: ResidentId, b: ResidentId): boolean {
+  if (a === b || ownerPaired(state, a, b)) return true;
+  const ofA = linkedTo(state, a);
+  return ofA.length > 0 && linkedTo(state, b).some((id) => ofA.includes(id));
+}
+
 /**
  * Whether a gift between two residents skips the daily caps: they're an owner pair, and the pair
  * has been linked since before today. A pair linked today is capped until tomorrow, so linking a

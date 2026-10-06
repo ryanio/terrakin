@@ -185,9 +185,14 @@ describe("scoreKarma", () => {
           { host: "town", event: "e_3", day: 2, guests: guests(5) },
         ],
         attended: [
-          { from: "g0", day: 1 },
-          { from: "g0", day: 2 },
-          { from: "g1", day: 1 },
+          { from: "g0", host: "ash", day: 1 },
+          { from: "g0", host: "ash", day: 2 },
+          // Two hosts in one day still make one day.
+          { from: "g1", host: "ash", day: 1 },
+          { from: "g1", host: "town", day: 1 },
+          // Nothing at a host in your own household, or at a townsfolk's event.
+          { from: "ai", host: "ash", day: 2 },
+          { from: "g2", host: "clem", day: 2 },
         ],
       },
       {
@@ -199,6 +204,8 @@ describe("scoreKarma", () => {
     expect(scores.get("ash")?.score).toBe(10 + 1);
     expect(scores.get("g0")?.score).toBe(2);
     expect(scores.get("g1")?.score).toBe(1);
+    expect(scores.get("ai")).toBeUndefined();
+    expect(scores.get("g2")).toBeUndefined();
     expect(scores.get("town")).toBeUndefined();
   });
 

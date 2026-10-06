@@ -53,6 +53,7 @@ export {
   type Purse,
   pairSkipsCaps,
   purseOf,
+  sameHousehold,
   treasuryOf,
 } from "./economy";
 export * from "./entitlements";

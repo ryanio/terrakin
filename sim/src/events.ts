@@ -1,5 +1,5 @@
 import { coinCount as coins, isWhole, refuse } from "./check";
-import { isTownsfolk, movePurse, ownerPaired } from "./economy";
+import { isTownsfolk, movePurse, sameHousehold } from "./economy";
 import { plotKey, tileKey } from "./keys";
 import { own, residentById } from "./own";
 import { townEligibility } from "./town";
@@ -654,8 +654,8 @@ export function attendedOf(state: WorldState, e: HostedEvent): ResidentId[] {
 
 /**
  * `event_end {event}`, from TOWN_ACTOR: a live event's time is up. Its attendance is settled, and a
- * Commons deposit goes back when `refundAt` attendees came from outside the host's household, and
- * is burned otherwise.
+ * Commons deposit goes back when `refundAt` attendees came from outside the host's household
+ * (`sameHousehold`: their person or AIs, and their person's other AIs), and is burned otherwise.
  */
 export function checkEventEnd(
   state: WorldState,
@@ -667,7 +667,7 @@ export function checkEventEnd(
     return refuse("event_not_live", `${e.id} isn't on: it ${STATUS_WORDS[e.status]}.`);
   }
   const attended = attendedOf(state, e);
-  const guests = attended.filter((id) => !ownerPaired(state, e.host, id)).length;
+  const guests = attended.filter((id) => !sameHousehold(state, e.host, id)).length;
   const refund = guests >= EVENTS.refundAt;
   return () => {
     const settled = settleDeposit(state, e, refund, state.seq + 1);

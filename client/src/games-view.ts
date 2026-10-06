@@ -13,6 +13,7 @@ import {
   type GamesResponse,
   type Ladder,
   type LadderResponse,
+  ordinal,
   type TableView,
 } from "@terrakin/protocol";
 import { GAME_KINDS, GAME_PACES, LADDERS } from "@terrakin/sim";
@@ -39,7 +40,6 @@ import {
   gameName,
   ladderTab,
   moveLabel,
-  ordinal,
   PACE_WORDS,
   pickWords,
   roundWords,

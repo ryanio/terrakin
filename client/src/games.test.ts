@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { pickWords, ratingWords, roundWords, timeLeftWords, winnerWords } from "./game-format";
+import {
+  GAME_ABOUT,
+  pickWords,
+  ratingWords,
+  roundWords,
+  timeLeftWords,
+  winnerWords,
+} from "./game-format";
 
 const round = {
   round: 2,
@@ -58,6 +65,12 @@ describe("game words", () => {
       winnerWords({ status: "over", seats: [seat("Ada", 1), seat("Bob", 1), seat("Cy", 1)] }),
     ).toBe("Ada, Bob and Cy share first place.");
     expect(winnerWords({ status: "playing", seats: [seat("Ada", null)] })).toBe("");
+  });
+
+  it("tell how each game goes, from its rules", () => {
+    expect(GAME_ABOUT.hearth_race).toContain("picks 1, 2, or 3 steps along a track of 12.");
+    expect(GAME_ABOUT.lowest_lantern).toContain("a number from 1 to 10.");
+    expect(GAME_ABOUT.lowest_lantern).toContain("5 rounds; most points wins.");
   });
 
   it("put a ladder on a profile as its pace, rating, and rank", () => {

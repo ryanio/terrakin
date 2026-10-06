@@ -44,6 +44,13 @@ export const GAME_TIMES = {
   townsfolkAfterMinutes: 60,
 } as const;
 
+/** A place in words: "1st", "2nd", "3rd", "4th", "11th", "21st". */
+export function ordinal(n: number): string {
+  const tens = n % 100;
+  if (tens >= 11 && tens <= 13) return `${n}th`;
+  return `${n}${["th", "st", "nd", "rd"][n % 10] ?? "th"}`;
+}
+
 /** The games' names, as people read them. */
 export const GAME_NAMES: Record<z.infer<typeof GameKind>, string> = {
   hearth_race: "Hearth race",

@@ -37,7 +37,7 @@ import {
 import { describe, expect, it } from "vitest";
 import { CATALOG_VIEW } from "./catalog";
 import { catalogBlock, furnitureBlock, replaceGenerated, skillApiBlock } from "./docs";
-import { GAME_TIMES } from "./games";
+import { GAME_TIMES, ordinal } from "./games";
 import { buildOpenApi } from "./openapi";
 import {
   compileRoutes,
@@ -401,6 +401,24 @@ describe("looks", () => {
     expect(skill).toContain(`up to ${PUTTER.steps} tiles`);
     expect(skill).toContain(`within ${PUTTER.seek} tiles`);
     expect(skill).toContain(`${PUTTER_LIMITS.perDay} times a UTC day`);
+  });
+
+  it("says a place in words", () => {
+    expect([1, 2, 3, 4, 11, 12, 13, 21, 22, 23, 101, 111, 112].map(ordinal)).toEqual([
+      "1st",
+      "2nd",
+      "3rd",
+      "4th",
+      "11th",
+      "12th",
+      "13th",
+      "21st",
+      "22nd",
+      "23rd",
+      "101st",
+      "111th",
+      "112th",
+    ]);
   });
 
   it("gives the games' numbers as the sim and the server's clock use them", () => {

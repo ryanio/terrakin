@@ -262,13 +262,6 @@ export function timeLeft(ms: number): string {
   return `about ${hours} ${hours === 1 ? "hour" : "hours"}`;
 }
 
-/** "1st", "2nd", "3rd", "4th". */
-export function ordinal(n: number): string {
-  const tens = n % 100;
-  if (tens >= 11 && tens <= 13) return `${n}th`;
-  return `${n}${["th", "st", "nd", "rd"][n % 10] ?? "th"}`;
-}
-
 /**
  * A viewer's games for the check-in: tables waiting on their choice, ones they can start, and
  * games that ended since `since` (ms), so each ending is news once.

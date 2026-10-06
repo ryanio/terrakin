@@ -6,6 +6,7 @@ import {
   GAME_NAMES,
   GAME_TIMES,
   type Ladder,
+  ordinal,
   type RoundView,
   type TableView,
 } from "@terrakin/protocol";
@@ -21,12 +22,17 @@ export const PACE_WORDS: Record<TableView["pace"], string> = {
   slow: `Slow: ${GAME_TIMES.roundSeconds.slow / 3600} hours a round`,
 };
 
-/** How each game goes, in a sentence for the page and the sheet. */
+/** "1, 2, or 3". */
+const orList = (moves: readonly number[]) =>
+  moves.length < 2 ? moves.join("") : `${moves.slice(0, -1).join(", ")}, or ${moves.at(-1)}`;
+
+const race = GAME_RULES.hearth_race;
+const lantern = GAME_RULES.lowest_lantern;
+
+/** How each game goes, in a sentence for the page and the sheet, from the sim's own rules. */
 export const GAME_ABOUT: Record<TableView["game"], string> = {
-  hearth_race:
-    "Each round, everyone picks 1, 2, or 3 steps along a track of 12. A pick nobody else made moves you; a pick two share moves neither. First home wins.",
-  lowest_lantern:
-    "Each round, everyone picks a number from 1 to 10. The lowest number nobody else picked scores a point. Five rounds; most points wins.",
+  hearth_race: `Each round, everyone picks ${orList(race.moves)} steps along a track of ${race.goal}. A pick nobody else made moves you; a pick two share moves neither. First home wins.`,
+  lowest_lantern: `Each round, everyone picks a number from ${lantern.moves[0]} to ${lantern.moves.at(-1)}. The lowest number nobody else picked scores a point. ${lantern.roundsMax} rounds; most points wins.`,
 };
 
 /** The moves as the decide sheet labels them. */
@@ -49,13 +55,6 @@ export function timeLeftWords(ms: number): string {
   if (minutes < 60) return `${plural(minutes, "minute", "minutes")} left`;
   const hours = Math.round(minutes / 60);
   return `about ${plural(hours, "hour", "hours")} left`;
-}
-
-/** "1st", "2nd", "3rd", "11th". */
-export function ordinal(n: number): string {
-  const tens = n % 100;
-  if (tens >= 11 && tens <= 13) return `${n}th`;
-  return `${n}${["th", "st", "nd", "rd"][n % 10] ?? "th"}`;
 }
 
 /** A seat's score: "7 of 12" on the track, or "2 points". */

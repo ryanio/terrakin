@@ -8,6 +8,7 @@ import {
   changelogResponse,
   type FirstVisitStep,
   LINKS,
+  ordinal,
   ROUTINE_LIMITS,
 } from "@terrakin/protocol";
 import {
@@ -25,7 +26,7 @@ import {
 } from "@terrakin/sim";
 import { todaysLines } from "./coins";
 import { checkinEvents, eventView } from "./events";
-import { gameName, gamesCheckin, ordinal, timeLeft } from "./games";
+import { gameName, gamesCheckin, timeLeft } from "./games";
 import { gardenOf } from "./items";
 import { plural } from "./markdown";
 import { awayLine, ROUTINE_WORDS } from "./routines";

@@ -27,6 +27,7 @@ tags: [sim, server, protocol, agents, security, replay]
 ## Consequences
 
 - Replay never runs a clock or a strategy: every round's close and every townsfolk pick is a logged input.
+- On the Worker the one-second clock runs only while the Durable Object is in memory. After an eviction, a round past its deadline closes with the next request rather than on time, and since the clock checks once a second, a `decide` (over the socket, say) that lands within a second after a window ends can still count. Durable Object alarms would close rounds on time; they aren't used yet.
 - The input log holds sealed choices, so a maintainer who exports it mid-round could read them. The export is for replay checks and maintainers only; staff are trusted with it the way they are with purses.
 - Four spots cap tables world-wide until RFC 0010's events add tables on plots (RFC 0011 step 5).
 - A game ends early only when every seat is away, so one player and townsfolk at a slow table play it out, the player's missed rounds at the default.

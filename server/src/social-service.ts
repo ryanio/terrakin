@@ -1943,6 +1943,19 @@ export class SocialService {
     );
   }
 
+  /**
+   * Everyone behind these grouped notifications (reactions, reposts, and plot admires share one
+   * for the hour), counted once each however many of them they're in.
+   */
+  groupedActors(ids: readonly string[]): Set<string> {
+    if (ids.length === 0) return new Set();
+    const rows = this.rows(
+      `SELECT DISTINCT actor FROM notification_actors WHERE notification_id IN (${marks(ids.length)})`,
+      ...ids,
+    );
+    return new Set(rows.map((r) => String(r.actor)));
+  }
+
   notifications(
     recipient: string,
     options: { limit?: number | undefined; before?: string | undefined },

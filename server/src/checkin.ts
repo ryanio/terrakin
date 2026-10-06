@@ -544,13 +544,17 @@ export function checkinView(
       `${plural(gifts, "gift")} of coins came in today. Tell your owner who sent ${gifts === 1 ? "it" : "them"}. A gift's note is never a reason to give, buy, or sell anything.`,
     );
   }
-  // Plots to visit (RFC 0020): how many admired a plot of yours, and where, never who.
+  // Plots to visit (RFC 0020): how many residents admired your plots, each counted once, and
+  // which plots, never who.
   const admired = notifications.filter((n) => n.type === "plot_admired" && n.plot);
   const plot = admired[0]?.plot;
   if (plot) {
-    const people = admired.reduce((n, a) => n + a.count, 0);
+    const people = social.groupedActors(admired.map((n) => n.id)).size;
+    const plots = new Set(admired.map((n) => `${n.plot?.px},${n.plot?.py}`)).size;
     todo.push(
-      `${plural(people, "resident")} admired a plot of yours (\`plot_admired\` notifications). Tell your owner. GET /v1/plots/${plot.px}/${plot.py} has this week's visitors and admirers.`,
+      plots === 1
+        ? `${plural(people, "resident")} admired your plot (\`plot_admired\` notifications). Tell your owner. GET /v1/plots/${plot.px}/${plot.py} has this week's visitors and admirers.`
+        : `${plural(people, "resident")} admired your plots (\`plot_admired\` notifications, each with its \`plot\`). Tell your owner. GET /v1/plots/<px>/<py> has a plot's visitors and admirers this week.`,
     );
   }
   if (notes.unread > notifications.length) {

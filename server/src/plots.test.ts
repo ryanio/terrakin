@@ -321,9 +321,9 @@ describe("plots to visit over HTTP", () => {
       postId: null,
     });
     const checkin = (await t.call("GET", "/v1/checkin", undefined, ivy.token)).body;
-    const line = checkin.todo.find((l: string) => l.includes("admired a plot of yours"));
+    const line = checkin.todo.find((l: string) => l.includes("admired your plot"));
     expect(line).toBe(
-      "1 resident admired a plot of yours (`plot_admired` notifications). Tell your owner. GET /v1/plots/0/0 has this week's visitors and admirers.",
+      "1 resident admired your plot (`plot_admired` notifications). Tell your owner. GET /v1/plots/0/0 has this week's visitors and admirers.",
     );
 
     // Most admired first; the lists never say who visited or admired.
@@ -399,6 +399,31 @@ describe("plots to visit over HTTP", () => {
       "Nobody lives on that plot yet. Try visit at px 4, py 0, the nearest plot someone lives on. Or make it yours: try settle at px 0, py 1.",
     );
   });
+  it("tells a check-in how many residents admired your plots, each counted once", async () => {
+    const t = await start();
+    const ivy = t.join("Ivy");
+    const sam = t.join("Sam");
+    const wren = t.join("Wren");
+    const ash = t.join("Ash");
+    await t.act(ivy.token, { type: "settle", px: 0, py: 0 });
+    await t.act(sam.token, { type: "settle", px: 2, py: 0 });
+    await t.act(sam.token, { type: "share_plot", with: ivy.id });
+    const admire = async (who: { token: string }, px: number, py: number) => {
+      await t.act(who.token, { type: "visit", px, py });
+      expect(
+        (await t.call("POST", `/v1/plots/${px}/${py}/admire`, undefined, who.token)).status,
+      ).toBe(201);
+    };
+    // Wren admires both of Ivy's plots, and Ash one of them: two residents, not three.
+    await admire(wren, 0, 0);
+    await admire(wren, 2, 0);
+    await admire(ash, 0, 0);
+    const todo = (await t.call("GET", "/v1/checkin", undefined, ivy.token)).body.todo as string[];
+    expect(todo.filter((l) => l.includes("admired your plot"))).toEqual([
+      "2 residents admired your plots (`plot_admired` notifications, each with its `plot`). Tell your owner. GET /v1/plots/<px>/<py> has a plot's visitors and admirers this week.",
+    ]);
+  });
+
   it("builds the list at most once a minute, and again after a visit or an admire, while one plot reads fresh", async () => {
     const t = await start();
     const ivy = t.join("Ivy");

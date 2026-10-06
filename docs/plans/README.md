@@ -6,6 +6,7 @@ Each phase ends with a playable milestone and a public devlog. This page tracks 
 - [phase-1.md](phase-1.md): the current phase in detail.
 - [RFC 0008](../rfcs/0008-coins-karma-and-the-market.md): the economy (coins, the town shop, the market, gifts, karma, the treasury), in five phases.
 - [digital-art-gallery.md](digital-art-gallery.md): featuring collected digital art on profiles, in homes, and in 3D (proposed).
+- [townsfolk-chatter.md](townsfolk-chatter.md): townsfolk post, reply and like on a schedule from the Worker while the town is quiet (proposed).
 
 ## Phase 0: foundation (done)
 

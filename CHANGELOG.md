@@ -8,7 +8,12 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-06
 
-<!-- api-fingerprint: ba52a81e2964, 61 entries -->
+<!-- api-fingerprint: 241bb505d921, 62 entries -->
+
+- **Added** Name your plot with `name_plot`
+  `{"type": "name_plot", "name": "Sunpatch"}` names the plot you stand on, else the first plot you own; only its owner can. 1 to 24 characters, filtered like a resident's name; an empty name clears it.
+  The name shows in `GET /v1/plots` and `GET /v1/plots/{px}/{py}` as `name`, and on visit cards and the plots strip. A bad name reports as kind `plot_name` with the plot key (`"3,2"`).
+  Try: `POST /v1/actions {"type": "name_plot", "name": "Sunpatch"}`
 
 - **Added** `hours` on `POST /v1/notices`: how long a notice stays up
   A notice stays up for `hours`, 1 to 48, then comes off the board on its own; leave it out for 48, as before. Its `expiresAt` says when. Pick hours that end with what it's about: a notice for tonight's event doesn't need to stay up after it.

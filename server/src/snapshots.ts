@@ -31,6 +31,8 @@ export const SNAPSHOT_TAIL = 50_000;
 export const KEEP_VERIFIED = 3;
 /** The most inputs one minute's sweep replays while verifying a snapshot. */
 export const VERIFY_SLICE = 25_000;
+/** About the most JSON one page of the staff log export holds, whatever its row count. */
+export const LOG_PAGE_BYTES = 4_000_000;
 
 /**
  * A gift, a Town Hall vote, or a bounty paid, read from the log for karma (decisions 0055 and
@@ -343,6 +345,32 @@ function replayOnto(
     until,
   );
   return n;
+}
+
+/**
+ * Rows of the log after `after`, up to `end`, for the staff export: it stops before a row that
+ * would take the page past `maxBytes` of JSON, though a page always holds at least one row. `full`
+ * says it stopped there.
+ */
+export function pageRows(store: Store, after: number, end: number, maxBytes = LOG_PAGE_BYTES) {
+  const rows: { seq: number; input: Input }[] = [];
+  let bytes = 0;
+  let full = false;
+  store.eachInput(
+    after,
+    (input, seq) => {
+      const size = JSON.stringify(input).length;
+      if (rows.length > 0 && bytes + size > maxBytes) {
+        full = true;
+        return false;
+      }
+      rows.push({ seq, input });
+      bytes += size;
+      return true;
+    },
+    end,
+  );
+  return { rows, full };
 }
 
 export interface Booted {

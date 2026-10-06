@@ -8,6 +8,12 @@
  * commit is no longer the tip of main skips, because the newer commit's own run deploys it, unless
  * every newer commit says `[skip ci]`: those get no run, so this one deploys.
  *
+ * Before uploading, it replays the live world's log under the sim being deployed
+ * (`replay-check.ts`, RFC 0014) and refuses when the hashes differ, or when an input is refused or
+ * throws. That needs a staff sign-in; without one (CI has none yet) it says so and deploys, and the
+ * World object's weekly replay from the first input still catches a rule that replays old inputs
+ * differently. `TERRAKIN_SKIP_REPLAY_CHECK=1` skips it on purpose.
+ *
  *   node scripts/deploy.ts [wrangler deploy args]
  */
 import { execFileSync } from "node:child_process";
@@ -79,6 +85,23 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   if (!check.go) {
     console.error(`${check.skip ? "Not deploying" : "Refusing to deploy"}: ${check.why}`);
     process.exit(check.skip ? 0 : 1);
+  }
+  if (process.env.TERRAKIN_SKIP_REPLAY_CHECK === "1") {
+    console.log("Replay check: skipped (TERRAKIN_SKIP_REPLAY_CHECK=1).");
+  } else {
+    const { checkLive, describeError } = await import("./replay-check.ts");
+    try {
+      const replay = await checkLive("https://admin.terrakin.org");
+      for (const line of replay.lines) console.log(`Replay check: ${line}`);
+      if (replay.status === "failed") {
+        console.error(
+          "Refusing to deploy: this sim replays the live world's log differently. To deploy anyway, set TERRAKIN_SKIP_REPLAY_CHECK=1.",
+        );
+        process.exit(1);
+      }
+    } catch (err) {
+      console.error(`Replay check couldn't run: ${describeError(err)}`);
+    }
   }
   execFileSync("wrangler", ["deploy", ...process.argv.slice(2)], { stdio: "inherit" });
 }

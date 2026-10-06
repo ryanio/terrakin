@@ -10,9 +10,13 @@ import {
   type WorldState,
 } from "@terrakin/sim";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { replayCheck } from "../../scripts/replay-check";
+import { Api } from "./api";
 import { createApp } from "./app";
+import { MemoryMediaStore } from "./media";
 import { nodeSql } from "./node-sql";
-import { SNAPSHOT_TAIL, type SnapshotHeader, splitUtf8 } from "./snapshots";
+import { pageRows, SNAPSHOT_TAIL, type SnapshotHeader, splitUtf8 } from "./snapshots";
+import { SocialService } from "./social-service";
 import { type SqlExec, SqlStore } from "./sql-store";
 import { JsonlStore, MemoryStore, type Store } from "./store";
 import { jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
@@ -226,7 +230,13 @@ describe("Store.eachInput", () => {
       for (const input of log) store.appendInput(input);
       const seen = (after: number, until?: number) => {
         const out: [number, string][] = [];
-        store.eachInput(after, (input, seq) => out.push([seq, JSON.stringify(input)]), until);
+        store.eachInput(
+          after,
+          (input, seq) => {
+            out.push([seq, JSON.stringify(input)]);
+          },
+          until,
+        );
         return out;
       };
       expect(seen(0).map(([seq]) => seq)).toEqual([1, 2, 3, 4, 5]);
@@ -533,5 +543,209 @@ describe("snapshots", () => {
     expect(h.headers()).toEqual([]);
     service.keepSnapshots();
     expect(h.headers()).toMatchObject([{ seq: service.state.seq, verified: 0 }]);
+  });
+});
+
+describe("staff routes for snapshots and the log", () => {
+  /**
+   * The Api as the Worker calls it after verifying an Access sign-in (`email`), or, with
+   * `access: false`, as a server without Access calls it with a bearer token.
+   */
+  function staffApi(service: WorldService, access = true) {
+    const api = new Api({
+      service,
+      skill: "",
+      openapi: "",
+      onResponse,
+      staff: {
+        access,
+        maintainerEmails: new Set(["ryan@example.com"]),
+        moderatorEmails: new Set(["mod@example.com"]),
+      },
+    });
+    return async (
+      method: string,
+      path: string,
+      who: { email?: string; bearer?: string; origin?: string } = { email: "ryan@example.com" },
+    ) => {
+      const url = new URL(path, who.origin ?? "https://admin.terrakin.org");
+      const res = await api.handle({
+        method,
+        pathname: url.pathname,
+        ip: "127.0.0.1",
+        authorization: who.bearer ? `Bearer ${who.bearer}` : undefined,
+        query: url.searchParams,
+        readJson: async () => ({}),
+        readBytes: async () => undefined,
+        contentLength: undefined,
+        origin: url.origin,
+        ...(who.email ? { staffEmail: who.email } : {}),
+        ...(method === "POST" ? { contentType: "application/json" } : {}),
+      });
+      return {
+        status: res?.status ?? 0,
+        headers: res?.headers ?? {},
+        body: JSON.parse(String(res?.body ?? "null")),
+      };
+    };
+  }
+
+  it("are for maintainers only", async () => {
+    const call = staffApi(harness().boot());
+    for (const [method, path] of [
+      ["GET", "/v1/admin/snapshots"],
+      ["POST", "/v1/admin/snapshots"],
+      ["GET", "/v1/admin/world-log"],
+    ] as const) {
+      expect((await call(method, path, { email: "mod@example.com" })).status).toBe(403);
+      expect((await call(method, path, { email: "someone@example.com" })).status).toBe(403);
+      // With Access on, only the sign-in the Worker verified counts, never a token.
+      expect((await call(method, path, {})).status).toBe(401);
+      expect((await call(method, path, { bearer: "anything" })).status).toBe(401);
+    }
+  });
+
+  it("list snapshots and take one now, one waiting at a time", async () => {
+    const h = harness();
+    const service = h.boot();
+    people(service);
+    const call = staffApi(service);
+    // The day's own snapshot is still waiting to be verified.
+    expect(await call("POST", "/v1/admin/snapshots")).toMatchObject({
+      status: 400,
+      body: { error: { code: "bad_request", message: expect.stringMatching(/waiting/) } },
+    });
+    h.verifyAll(service);
+    const taken = await call("POST", "/v1/admin/snapshots");
+    expect(taken).toMatchObject({
+      status: 200,
+      body: { snapshot: { seq: service.state.seq, status: "pending", replayVersion: 1 } },
+    });
+    expect(await call("POST", "/v1/admin/snapshots")).toMatchObject({
+      status: 400,
+      body: { error: { code: "bad_request" } },
+    });
+    h.verifyAll(service);
+    const listed = await call("GET", "/v1/admin/snapshots");
+    expect(listed.body).toMatchObject({ kept: true, replayVersion: 1, seq: service.state.seq });
+    expect(listed.body.snapshots.map((x: { status: string }) => x.status)).toEqual([
+      "verified",
+      "verified",
+    ]);
+  });
+
+  it("refuse to take one where the world keeps none", async () => {
+    const service = new WorldService({ store: new MemoryStore(), config: CONFIG });
+    const call = staffApi(service);
+    expect(await call("POST", "/v1/admin/snapshots")).toMatchObject({
+      status: 400,
+      body: { error: { code: "bad_request" } },
+    });
+    expect((await call("GET", "/v1/admin/snapshots")).body).toMatchObject({
+      kept: false,
+      snapshots: [],
+    });
+  });
+
+  it("page through the log, and the replay check reproduces the live world from it", async () => {
+    const { first } = grown();
+    const call = staffApi(first);
+    const page = await call("GET", "/v1/admin/world-log?after=2&limit=3");
+    expect(page.headers["cache-control"]).toBe("no-store");
+    expect(page.body).toMatchObject({
+      seq: first.state.seq,
+      hash: first.hash(),
+      replayVersion: 1,
+      next: 5,
+    });
+    expect(page.body.rows.map((r: { seq: number }) => r.seq)).toEqual([3, 4, 5]);
+    expect(page.body.snapshot).toEqual(first.snapshotInfo());
+    const last = await call("GET", `/v1/admin/world-log?after=5&until=6&limit=3`);
+    expect(last.body.rows.map((r: { seq: number }) => r.seq)).toEqual([6]);
+    expect(last.body.next).toBeUndefined();
+
+    const read = async (after: number, until: number | undefined) =>
+      (
+        await call(
+          "GET",
+          `/v1/admin/world-log?after=${after}&limit=4${until === undefined ? "" : `&until=${until}`}`,
+        )
+      ).body;
+    const passed = await replayCheck(read, CONFIG);
+    expect(passed.status).toBe("passed");
+    expect(passed.lines.join("\n")).toContain(`Replayed ${first.state.seq} inputs`);
+
+    // A sim that replayed the log differently would fail it: here, a wider world.
+    const narrow = await replayCheck(read, {
+      ...CONFIG,
+      width: CONFIG.width + 2 * CONFIG.plotSize,
+    });
+    expect(narrow.status).toBe("failed");
+  });
+
+  it("refuse bad paging", async () => {
+    const call = staffApi(harness().boot());
+    for (const query of ["limit=0", "limit=10001", "after=-1", "after=abc", "until=1.5"]) {
+      expect((await call("GET", `/v1/admin/world-log?${query}`)).status, query).toBe(400);
+    }
+  });
+
+  it("export the log only through Access on terrakin.org", async () => {
+    const service = new WorldService({ store: new MemoryStore(), config: CONFIG });
+    const created = service.createSession({ name: "Ryan", kind: "human" });
+    const { residentId, token } = created as { residentId: string; token: string };
+    const sql = nodeSql();
+    cleanups.push(() => sql.close());
+    const social = new SocialService({
+      sql,
+      media: new MemoryMediaStore(),
+      resident: (id) => service.state.residents[id],
+      maintainers: new Set([residentId]),
+    });
+    const api = new Api({ service, social, skill: "", openapi: "", onResponse });
+    const get = async (origin: string) => {
+      const res = await api.handle({
+        method: "GET",
+        pathname: "/v1/admin/world-log",
+        ip: "127.0.0.1",
+        authorization: `Bearer ${token}`,
+        query: new URLSearchParams(),
+        readJson: async () => undefined,
+        readBytes: async () => undefined,
+        contentLength: undefined,
+        origin,
+      });
+      return res?.status;
+    };
+    expect(await get("https://terrakin.org")).toBe(403);
+    expect(await get("http://localhost:8787")).toBe(200);
+  });
+
+  it("answer internal, reporting only the kind, when a row won't parse", async () => {
+    const { h, first } = grown();
+    h.sql.exec(
+      "UPDATE world_log SET input = ? WHERE seq = 3",
+      '{"actor":"ada","command":{"type":"profile","note":"my secret note"',
+    );
+    const res = await staffApi(first)("GET", "/v1/admin/world-log");
+    expect(res).toMatchObject({ status: 500, body: { error: { code: "internal" } } });
+    expect(reports).toEqual(["Log or snapshot storage failed: SyntaxError"]);
+  });
+
+  it("stop a page at its byte budget, after at least one row", () => {
+    const store = new MemoryStore();
+    for (let i = 0; i < 5; i++) {
+      store.appendInput({ actor: "ada", command: { type: "chat", text: "x".repeat(50) } as never });
+    }
+    const size = JSON.stringify(store.log[0]).length;
+    expect(pageRows(store, 0, 5, size * 2)).toMatchObject({
+      full: true,
+      rows: [{ seq: 1 }, { seq: 2 }],
+    });
+    expect(pageRows(store, 0, 5, 1).rows.map((r) => r.seq)).toEqual([1]);
+    expect(pageRows(store, 3, 5, size * 10)).toMatchObject({
+      full: false,
+      rows: [{ seq: 4 }, { seq: 5 }],
+    });
   });
 });

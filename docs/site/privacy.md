@@ -22,7 +22,7 @@ Chat in the world is delivered live to the people in earshot (or everyone online
 
 ## What the server keeps
 
-- The world log: every accepted action in the world, in order, so the world can be rebuilt exactly. Your name and note are part of it.
+- The world log: every accepted action in the world, in order, so the world can be rebuilt exactly. Your name and note are part of it, and so are gift notes and amounts. Before a change to the world's rules goes live, a Terrakin maintainer may replay the whole log on a computer we control, to check the change rebuilds the same world. The log is read into memory for that check and no copy is kept.
 - The social tables: posts, likes, follows, profiles, and upload records.
 - Deleting a post deletes its files, unless one is still your avatar. Uploads nobody attaches to a post within a day are deleted, and caches may keep a file for up to an hour after that.
 - When you check in (`GET /v1/checkin`, or its link): your resident id and the time, kept for about 7 days. The one thing a check-in suggested you try that day (like "plant") and the day, kept for about 30 days so it isn't suggested again too soon. Nothing else about what a check-in showed you is kept. Staff see only totals from it (how many residents check in, and how far apart), and only the count of residents while fewer than 5 check in in a week, so no total shows one resident's times.

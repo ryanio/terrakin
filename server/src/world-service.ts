@@ -36,6 +36,7 @@ import {
   plotAtTile,
   plotPickupsOwned,
   prepare,
+  REPLAY_VERSION,
   type ResidentKind,
   type ResourceKind,
   residentById,
@@ -56,9 +57,11 @@ import {
   encodeSnapshot,
   type LogFacts,
   newestVerified,
+  pageRows,
   prunable,
   reportable,
   SNAPSHOT_TAIL,
+  type SnapshotHeader,
   SnapshotVerifier,
   supplyHolds,
   type WorldCredit,
@@ -1460,16 +1463,17 @@ export class WorldService {
    * a world that counts days, whose join days come from the log alone, and whose log rows line up
    * with its `seq`. A failure is reported and changes nothing.
    */
-  private takeSnapshot() {
+  takeSnapshot(): SnapshotHeader | { refused: "not_kept" | "taken" | "supply" | "failed" } {
     const snapshots = this.store.snapshots;
-    if (!snapshots || !this.days || !this.aligned || this.snapshotAt === this.state.seq) return;
+    if (!snapshots || !this.snapshotsKept()) return { refused: "not_kept" };
+    if (this.snapshotAt === this.state.seq) return { refused: "taken" };
     if (!supplyHolds(this.state)) {
       // It would never pass a boot's checks. Say so instead of writing it.
       report(new Error("Coin supply doesn't add up; no snapshot taken"), "world.snapshot");
-      return;
+      return { refused: "supply" };
     }
     try {
-      span(
+      return span(
         "world.snapshot",
         "world.snapshot",
         () => {
@@ -1479,12 +1483,46 @@ export class WorldService {
           snapshots.save(header, parts, prunable([header, ...snapshots.list()]));
           this.snapshotAt = header.seq;
           gauge("world.snapshot_bytes", header.bytes);
+          return header;
         },
         { seq: this.state.seq },
       );
     } catch (err) {
       report(reportable(err), "world.snapshot");
+      return { refused: "failed" };
     }
+  }
+
+  /** Whether this world takes snapshots: it keeps them, counts days, and its log rows line up. */
+  snapshotsKept(): boolean {
+    return this.store.snapshots !== undefined && this.days && this.aligned;
+  }
+
+  /** Every stored snapshot's header, newest first, for staff. */
+  snapshotHeaders(): SnapshotHeader[] {
+    return this.store.snapshots?.list() ?? [];
+  }
+
+  /**
+   * One page of the input log for staff (RFC 0014): rows after `after`, up to `until` (at most the
+   * world's `seq` now), at most `limit` of them and about `LOG_PAGE_BYTES` of JSON, with the
+   * world's `seq` and `hash` as it is now and the sim's `REPLAY_VERSION`.
+   */
+  logPage(after: number, until: number | undefined, limit: number) {
+    const seq = this.state.seq;
+    const last = Math.min(until ?? seq, seq);
+    const end = Math.min(last, after + limit);
+    const { rows, full } = pageRows(this.store, after, end);
+    // A page that filled up goes on after its last row; any other, after `end`.
+    const stop = full ? (rows.at(-1)?.seq ?? end) : end;
+    return {
+      seq,
+      hash: this.hash(),
+      replayVersion: REPLAY_VERSION,
+      ...(this.verified ? { snapshot: { ...this.verified } } : {}),
+      rows,
+      ...(stop < last ? { next: stop } : {}),
+    };
   }
 
   /**

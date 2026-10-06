@@ -38,11 +38,14 @@ import {
   type RouteViewer,
   type ServerMessage,
   SITEMAP_MAX_URLS,
+  type SnapshotView,
   type StaffRole,
   sitemapIndexXml,
   suggestFor,
   urlsetXml,
+  WORLD_LOG_PAGE_MAX,
   type WorldEvent as WorldEventView,
+  type WorldLogResponse,
   w3cDatetime,
 } from "@terrakin/protocol";
 import {
@@ -52,6 +55,7 @@ import {
   goodById,
   heldAsideOf,
   listingById,
+  REPLAY_VERSION,
 } from "@terrakin/sim";
 import { AiSpend, SUMMARY_DAYS } from "./ai-spend";
 import { bountiesView, bountyView, staffBountiesView } from "./bounties";
@@ -70,6 +74,7 @@ import { partnerViews } from "./partners";
 import { type PlotPhotoRenderer, plotPhotoSpec } from "./plot-photo";
 import { RateLimiters, type Take } from "./rate-limit";
 import { SHOP_KEEPER_HANDLE, shopView } from "./shop";
+import { reportable, type SnapshotHeader } from "./snapshots";
 import type { SocialResult, SocialService } from "./social-service";
 import { count, crumb, nameRequest, report, span, task } from "./telemetry";
 import { anchorPlot, suggestPlots } from "./together";
@@ -370,6 +375,7 @@ interface HandlerReply {
 
 const STAFF_ONLY = "Only Terrakin's maintainers and moderators can do that.";
 const MAINTAINERS_ONLY = "Only Terrakin's maintainers can move town coins.";
+const WORLD_MAINTAINERS_ONLY = "Only Terrakin's maintainers can do that.";
 
 /**
  * Who a staff member is in the world log, which is kept for good: their resident id when they
@@ -1809,6 +1815,56 @@ export class Api {
         social().safety.recordAction(viewer, "void_bounty", "bounty", params.id, body.reason);
         return this.staffBounty(params.id);
       },
+      // World snapshots and the log (RFC 0014): maintainers only.
+      getStaffSnapshots: ({ viewer }) => {
+        if (this.staffRole(viewer) !== "maintainer") {
+          return fail("forbidden", WORLD_MAINTAINERS_ONLY);
+        }
+        return {
+          status: 200,
+          body: {
+            snapshots: service.snapshotHeaders().map(snapshotView),
+            replayVersion: REPLAY_VERSION,
+            kept: service.snapshotsKept(),
+            seq: service.state.seq,
+            hash: service.hash(),
+          },
+        };
+      },
+      takeSnapshot: ({ viewer }) => {
+        if (this.staffRole(viewer) !== "maintainer") {
+          return fail("forbidden", WORLD_MAINTAINERS_ONLY);
+        }
+        // One at a time: each is a copy of the whole world, and the sweep verifies them slowly.
+        if (service.snapshotHeaders().some((h) => h.verified === 0)) {
+          return fail("bad_request", SNAPSHOT_REFUSED.pending);
+        }
+        const taken = service.takeSnapshot();
+        if (!("refused" in taken)) return { status: 200, body: { snapshot: snapshotView(taken) } };
+        return taken.refused === "failed"
+          ? fail("internal", "Couldn't save the snapshot. Nothing changed; try again.")
+          : fail("bad_request", SNAPSHOT_REFUSED[taken.refused]);
+      },
+      getWorldLog: ({ viewer, query, origin }) => {
+        if (this.staffRole(viewer) !== "maintainer") {
+          return fail("forbidden", WORLD_MAINTAINERS_ONLY);
+        }
+        // The whole log is everyone's words and gift amounts. On terrakin.org it needs an Access
+        // sign-in, even if the Worker lost its Access settings and staff fell back to tokens.
+        if (!this.staffOptions.access && origin === DEFAULT_ORIGIN) {
+          return fail("forbidden", "The log export needs a Cloudflare Access sign-in here.");
+        }
+        let page: ReturnType<typeof service.logPage>;
+        try {
+          page = service.logPage(query.after ?? 0, query.until, query.limit ?? WORLD_LOG_PAGE_MAX);
+        } catch (err) {
+          // A row that won't parse would quote itself in the error: report its kind alone.
+          report(reportable(err), "world.log_export");
+          return fail("internal", "Couldn't read the log. Try again.");
+        }
+        // The sim's command types are interfaces, which the wire's open object type can't name.
+        return { status: 200, body: { ...page, rows: page.rows as WorldLogResponse["rows"] } };
+      },
 
       // ---------- docs ----------
       getSkill: () => ({ status: 200, text: this.skill }),
@@ -2483,6 +2539,27 @@ function actionHint(
   const usableId = typeof id === "string" && id.length >= 1 && id.length <= 64 ? id : undefined;
   return { ...hint, ...(usableId === undefined ? {} : { id: usableId }) };
 }
+
+/** A stored snapshot as staff see it. */
+const snapshotView = (h: SnapshotHeader): SnapshotView => ({
+  seq: h.seq,
+  format: h.format,
+  replayVersion: h.replayVersion,
+  hash: h.hash,
+  parts: h.parts,
+  bytes: h.bytes,
+  status: h.verified === 1 ? "verified" : h.verified === 0 ? "pending" : "failed",
+});
+
+/** Why `POST /v1/admin/snapshots` took none. */
+const SNAPSHOT_REFUSED = {
+  not_kept:
+    "This world keeps no snapshots: it needs SQLite storage, a world that counts days, and a log whose rows match its seq.",
+  taken: "There's already a snapshot at this seq. Take another once the world has moved on.",
+  supply: "The world's coins don't add up, so a snapshot would never pass its checks.",
+  pending:
+    "A snapshot is still waiting to be verified. Take another once the sweep has checked it.",
+} as const;
 
 function json(status: number, body: unknown): ApiResponse {
   return {

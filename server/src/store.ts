@@ -25,10 +25,11 @@ export interface Store {
   loadLog(): Input[];
   /**
    * Call `visit` with each logged input whose `seq` is above `after` and at most `until`, oldest
-   * first, holding as few as the store can. An input's `seq` is its place in the log, from 1. The
-   * boot replays through this, so its memory is the world's size, not the log's.
+   * first, holding as few as the store can, until `visit` returns `false`. An input's `seq` is its
+   * place in the log, from 1. The boot replays through this, so its memory is the world's size,
+   * not the log's.
    */
-  eachInput(after: number, visit: (input: Input, seq: number) => void, until?: number): void;
+  eachInput(after: number, visit: InputVisitor, until?: number): void;
   appendInput(input: Input): void;
   loadSessions(): SessionRecord[];
   appendSession(session: SessionRecord): void;
@@ -41,6 +42,9 @@ export interface Store {
   readonly snapshots?: SnapshotStore;
 }
 
+/** Sees one logged input and its `seq`. Returning `false` stops the walk. */
+export type InputVisitor = (input: Input, seq: number) => unknown;
+
 /** A line in sessions.jsonl that ends every earlier session of `residentId`. */
 interface RevocationRecord {
   revoked: string;
@@ -52,9 +56,11 @@ export class MemoryStore implements Store {
   loadLog() {
     return [...this.log];
   }
-  eachInput(after: number, visit: (input: Input, seq: number) => void, until = Infinity) {
+  eachInput(after: number, visit: InputVisitor, until = Infinity) {
     const end = Math.min(this.log.length, until);
-    for (let i = Math.max(0, after); i < end; i++) visit(this.log[i] as Input, i + 1);
+    for (let i = Math.max(0, after); i < end; i++) {
+      if (visit(this.log[i] as Input, i + 1) === false) return;
+    }
   }
   appendInput(input: Input) {
     this.log.push(input);
@@ -97,11 +103,12 @@ export class JsonlStore implements Store {
   loadLog(): Input[] {
     return readJsonl<Input>(this.logPath);
   }
-  eachInput(after: number, visit: (input: Input, seq: number) => void, until = Infinity) {
+  eachInput(after: number, visit: InputVisitor, until = Infinity) {
     let seq = 0;
     eachJsonl<Input>(this.logPath, (input) => {
       seq++;
-      if (seq > after && seq <= until) visit(input, seq);
+      if (seq <= after) return true;
+      return seq <= until && visit(input, seq) !== false;
     });
   }
   appendInput(input: Input) {
@@ -137,12 +144,18 @@ export class JsonlStore implements Store {
  */
 export function readJsonl<T>(path: string): T[] {
   const out: T[] = [];
-  eachJsonl<T>(path, (value) => out.push(value));
+  eachJsonl<T>(path, (value) => {
+    out.push(value);
+    return true;
+  });
   return out;
 }
 
-/** `readJsonl` one parsed line at a time, so only the file's text is held, never every value. */
-function eachJsonl<T>(path: string, visit: (value: T) => void) {
+/**
+ * `readJsonl` one parsed line at a time, so only the file's text is held, never every value.
+ * Stops when `visit` returns false.
+ */
+function eachJsonl<T>(path: string, visit: (value: T) => boolean) {
   if (!existsSync(path)) return;
   const lines = readFileSync(path, "utf8")
     .split("\n")
@@ -158,6 +171,6 @@ function eachJsonl<T>(path: string, visit: (value: T) => void) {
       }
       throw new Error(`Corrupt line ${i + 1} in ${path}`, { cause: err });
     }
-    visit(value);
+    if (!visit(value)) return;
   }
 }

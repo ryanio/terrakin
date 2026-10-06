@@ -56,6 +56,13 @@ import {
 } from "./schemas";
 import { ShopResponse } from "./shop";
 import {
+  StaffSnapshotsResponse,
+  TakeSnapshotRequest,
+  TakeSnapshotResponse,
+  WORLD_LOG_PAGE_MAX,
+  WorldLogResponse,
+} from "./snapshots";
+import {
   AcceptInviteRequest,
   AcceptInviteResponse,
   BIO_MAX_LENGTH,
@@ -493,6 +500,29 @@ const LinkKeyParams = z.object({
     .max(128)
     .describe("Your link key, `k_...`. Secret: anyone with it can act as you through these links."),
 });
+/** A `seq` in a query string. */
+const seqParam = z
+  .string()
+  .regex(/^\d{1,12}$/, "Use a whole number.")
+  .transform(Number)
+  .pipe(z.number().int().min(0));
+
+const WorldLogQuery = z.object({
+  after: seqParam.optional().describe("Rows after this `seq`. Default 0, the start of the log."),
+  until: seqParam
+    .optional()
+    .describe(
+      "Stop at this `seq`. Pass the `seq` the first page gave, so every page reads the same log.",
+    ),
+  limit: z
+    .string()
+    .regex(/^\d{1,5}$/, "Use a whole number.")
+    .transform(Number)
+    .pipe(z.number().int().min(1).max(WORLD_LOG_PAGE_MAX))
+    .optional()
+    .describe(`Rows per page, 1 to ${WORLD_LOG_PAGE_MAX}. Default ${WORLD_LOG_PAGE_MAX}.`),
+});
+
 const link = (action: string) => `/v1/act/{key}/${action}` as const;
 const words = (what: string) => `${what} URL-encoded (spaces as \`%20\`).`;
 
@@ -2375,6 +2405,46 @@ export const ROUTES = [
       "bounty_not_open",
       "not_eligible",
     ],
+  },
+  // World snapshots and the log (RFC 0014).
+  {
+    id: "getStaffSnapshots",
+    method: "GET",
+    path: "/v1/admin/snapshots",
+    auth: "staff",
+    internal: true,
+    summary: "Maintainers: the world snapshots stored, newest first, and whether each is verified.",
+    tags: ["World"],
+    responses: { 200: json(StaffSnapshotsResponse) },
+    errors: ["unauthorized", "forbidden"],
+  },
+  {
+    id: "takeSnapshot",
+    method: "POST",
+    path: "/v1/admin/snapshots",
+    auth: "staff",
+    internal: true,
+    summary: "Maintainers: take a world snapshot now, for testing a rollout.",
+    description:
+      "The minute sweep verifies it like any other. Refused where the world keeps no snapshots, and when one is already at this `seq`.",
+    tags: ["World"],
+    body: TakeSnapshotRequest,
+    responses: { 200: json(TakeSnapshotResponse) },
+    errors: ["bad_request", "unauthorized", "forbidden", "internal"],
+  },
+  {
+    id: "getWorldLog",
+    method: "GET",
+    path: "/v1/admin/world-log",
+    auth: "staff",
+    internal: true,
+    summary: "Maintainers: the world's input log, a page at a time, to replay it elsewhere.",
+    description:
+      "Every accepted input with its `seq`, oldest first. Replaying rows 1 to the first page's `seq` under the same sim gives its `hash`; `scripts/replay-check.ts` does that before a deploy. It holds residents' words, gift notes, and gift amounts: never cache it, log it, or keep a copy longer than the check needs.",
+    tags: ["World"],
+    query: WorldLogQuery,
+    responses: { 200: json(WorldLogResponse) },
+    errors: ["bad_request", "unauthorized", "forbidden", "internal"],
   },
 
   // ---------- docs ----------

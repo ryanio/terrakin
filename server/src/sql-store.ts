@@ -1,6 +1,6 @@
 import type { Input } from "@terrakin/sim";
 import type { SnapshotHeader, SnapshotStore, Verified } from "./snapshots";
-import type { LinkKeyRecord, SessionRecord, Store } from "./store";
+import type { InputVisitor, LinkKeyRecord, SessionRecord, Store } from "./store";
 
 /**
  * The slice of a synchronous SQLite API that `SqlStore` needs. Cloudflare Durable Objects
@@ -64,14 +64,16 @@ export class SqlStore implements Store {
   }
 
   /** One row at a time from the cursor: the parsed log is never in memory all at once. */
-  eachInput(after: number, visit: (input: Input, seq: number) => void, until = Infinity) {
+  eachInput(after: number, visit: InputVisitor, until = Infinity) {
     const last = Number.isFinite(until) ? until : Number.MAX_SAFE_INTEGER;
     const rows = this.sql.exec(
       "SELECT seq, input FROM world_log WHERE seq > ? AND seq <= ? ORDER BY seq",
       after,
       last,
     );
-    for (const row of rows) visit(JSON.parse(String(row.input)) as Input, Number(row.seq));
+    for (const row of rows) {
+      if (visit(JSON.parse(String(row.input)) as Input, Number(row.seq)) === false) return;
+    }
   }
 
   appendInput(input: Input) {

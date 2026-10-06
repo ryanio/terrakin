@@ -26,7 +26,7 @@ tags: [server, sim, storage, presence, replay]
 
 1. After the first midnight UTC following the deploy, check `GET /v1/health` for `snapshot`, and Sentry for any `world.snapshot*` or `world.boot` report (a misaligned log or coins that don't add up both turn snapshots off).
 2. Read the `world.boot` span and `world.boot_inputs` gauge to see how much slower a Workers isolate is than the M4 Max numbers in the RFC.
-3. A staff-only export of `world_log` (behind Access, never cached or logged), then a CI step that replays it before a deploy touching `sim/` and fails on a hash mismatch at the newest snapshot's `seq`. The every-seventh-day replay covers it until then.
+3. Let CI run `scripts/replay-check.ts`: an Access service token for the deploy job, and a way for staff routes to accept it for the log export only (today they take an Access email or, without Access, a maintainer's token). The staff export, the script, and the deploy step already exist; from a laptop signed in with `cloudflared access login https://admin.terrakin.org`, `pnpm cf:deploy` runs it.
 
 ## Open questions
 

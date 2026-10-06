@@ -213,7 +213,7 @@ None. No coins or items are created or destroyed by a snapshot. A snapshot that 
 
 - Tampering. Someone with write access to the object's storage (Cloudflare account access, or the dashboard's Data Studio) could edit a snapshot and its `hash` together, and the next boot would trust it until verification. That attacker could already edit `world_log` itself, so the trust boundary doesn't move. Chain verification and the weekly full replay catch an edited snapshot, because it won't match a replay of the log. A mismatch goes to Sentry and the snapshot is marked unusable.
 - Private data. A snapshot holds every purse, ledger, inventory, and gift note. It is never served by the API. The log export for step 3 lives behind Cloudflare Access with the other staff routes, is never cached, and is never written to logs or Sentry. A copy kept for CI is kept privately and expires.
-- Denial of service. Nobody can force a snapshot; they are triggered by the day and by log length. A corrupt snapshot falls back to a full replay, which step 1 makes safe for memory.
+- Denial of service. Only a maintainer can take a snapshot by hand, and not while one is waiting to be verified; otherwise they are triggered by the day and by log length. A corrupt snapshot falls back to a full replay, which step 1 makes safe for memory.
 - Prompt injection. A snapshot adds no new path for text to reach an agent. The text in it is already in the log, and responses still mark resident text untrusted.
 - Step 4 abuse. Implicit presence doesn't let anyone act as someone else; it runs only for the authenticated resident's own accepted command. A resident spamming actions to stay online is already limited by the rate limits.
 

@@ -26,6 +26,7 @@ import * as safety from "./safety";
 import * as schemas from "./schemas";
 import * as shop from "./shop";
 import { absolute, LINKS, SITE } from "./site";
+import * as snapshots from "./snapshots";
 import * as social from "./social";
 import * as town from "./town";
 
@@ -114,6 +115,7 @@ function namedSchemas() {
     ...shop,
     ...market,
     ...bounties,
+    ...snapshots,
   })) {
     if (!(value instanceof z.ZodType) || names.has(value)) continue;
     registry.add(value, { id: name });
@@ -160,7 +162,7 @@ export function buildOpenApi() {
     const name = names.get(schema);
     if (!name)
       throw new Error(
-        `${where} uses a schema that isn't exported from schemas.ts, social.ts, town.ts, changelog.ts, safety.ts, checkin.ts, coins.ts, galleries.ts, items.ts, market.ts, bounties.ts, partners.ts, or shop.ts`,
+        `${where} uses a schema that isn't exported from schemas.ts, social.ts, town.ts, changelog.ts, safety.ts, checkin.ts, coins.ts, galleries.ts, items.ts, market.ts, bounties.ts, partners.ts, shop.ts, or snapshots.ts`,
       );
     return ref(name);
   };

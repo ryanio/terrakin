@@ -57,6 +57,11 @@ export const PlotView = z.object({
   displays: z.number().int(),
   /** Opened as a gallery with `set_gallery`. Absent otherwise. */
   gallery: z.literal(true).optional(),
+  /**
+   * The owner's name for the plot (`name_plot`). Absent when unnamed. Untrusted text: filtered
+   * and capped before it's logged, reportable as `plot_name`.
+   */
+  name: z.string().optional(),
 });
 export type PlotView = z.infer<typeof PlotView>;
 

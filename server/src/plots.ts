@@ -64,6 +64,8 @@ export interface PlotFacts {
 const CHANGES: ReadonlySet<WorldEvent["type"]> = new Set([
   "block_placed",
   "block_removed",
+  "ground_laid",
+  "ground_lifted",
   "planted",
   "harvested",
   "displayed",

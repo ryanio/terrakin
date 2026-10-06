@@ -35,7 +35,7 @@ export const PlotView = z.object({
   /** Residents the owner shares the plot with. */
   coOwners: z.array(AuthorView),
   /**
-   * When something on it last changed: a block placed or taken away, a crop planted or picked,
+   * When something on it last changed: a block or a path placed or taken away, a crop planted or picked,
    * a thing put on display or taken down, a hearth set, or the plot claimed. Before anything has,
    * the day it was claimed; null when that was before the world counted days.
    */

@@ -1,4 +1,5 @@
 import { isWhole, refuse } from "./check";
+import type { GroundKind } from "./ground";
 import { plotKey, tileKey } from "./keys";
 import { residentById } from "./own";
 import type {
@@ -40,6 +41,19 @@ export function plotHeart(state: WorldState, plot: Plot): Tile {
   return plotCenter(config, plot.px, plot.py);
 }
 
+/**
+ * Ground laid for walking on (RFC 0016). A visitor lands where one of these meets the plot's edge,
+ * so a path the owner laid to the door is the way in. Flower beds, rugs, and scattered leaves or
+ * moss are for looking at.
+ */
+const PATHS: ReadonlySet<GroundKind> = new Set([
+  "dirt",
+  "cobble",
+  "stepping_stones",
+  "brick",
+  "planks",
+]);
+
 /** Whether `a` sorts before `b`, comparing one number at a time. */
 function before(a: readonly number[], b: readonly number[]): boolean {
   for (let i = 0; i < a.length; i++) {
@@ -53,10 +67,11 @@ function before(a: readonly number[], b: readonly number[]): boolean {
 /**
  * Where `visit` puts `actor` on plot (px, py), or undefined when nobody lives there or no tile on
  * it is free. Free is no block, nobody's hearth, and no other online resident standing there. Of
- * the free tiles: the outermost ring first, so a visitor arrives at the plot's edge; then the
- * shortest walk to the plot's heart (`plotHeart`), walking as `move` does and staying on the plot,
- * which puts a visitor in front of a hut's doorway; then the nearest to the heart in a straight
- * line; then north to south, and west to east.
+ * the free tiles: the outermost ring first, so a visitor arrives at the plot's edge; then a tile
+ * on a path (`PATHS`), so a path laid to the door is where they come in; then the shortest walk to
+ * the plot's heart (`plotHeart`), walking as `move` does and staying on the plot, which puts a
+ * visitor in front of a hut's doorway; then the nearest to the heart in a straight line; then
+ * north to south, and west to east.
  */
 export function visitTile(
   state: WorldState,
@@ -93,9 +108,11 @@ export function visitTile(
       const key = tileKey(x, y);
       if (ground.obstacle(x, y) || taken.has(key)) continue;
       const ring = Math.min(x - x0, x0 + size - 1 - x, y - y0, y0 + size - 1 - y);
+      const kind = state.ground?.[key];
+      const path = kind !== undefined && PATHS.has(kind) ? 0 : 1;
       const walk = steps.get(key) ?? Number.POSITIVE_INFINITY;
       const line = (x - heart.x) ** 2 + (y - heart.y) ** 2;
-      const rank = [ring, walk, line];
+      const rank = [ring, path, walk, line];
       if (!best || before(rank, best.rank)) best = { tile: { x, y }, rank };
     }
   }

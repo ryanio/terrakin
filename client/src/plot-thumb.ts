@@ -9,6 +9,7 @@ import type { WorldSnapshot } from "@terrakin/protocol";
 import {
   alphaHex,
   blockFill,
+  type GroundKind,
   groundTile,
   HEARTH_COLOR,
   HEARTH_DOOR,
@@ -18,11 +19,13 @@ import {
   THEME_TINT_ALPHA,
 } from "@terrakin/sim";
 import { h } from "@terrakin/ui/dom";
+import { paintGround } from "@terrakin/ui/ground-art";
 import { CROP_HEX } from "@terrakin/ui/item-art";
 
 /** One tile's worth of a plot drawing, in tiles from the plot's north-west corner. */
 export type PlotMark =
   | { x: number; y: number; kind: "ground"; fill: string }
+  | { x: number; y: number; kind: "path"; ground: GroundKind }
   | { x: number; y: number; kind: "block"; fill: string; glass: boolean; decor: boolean }
   | { x: number; y: number; kind: "crop"; fill: string; ripe: boolean }
   | { x: number; y: number; kind: "display" }
@@ -32,8 +35,9 @@ export type PlotMark =
 const GROWING = "#7fae55";
 
 /**
- * What to paint for plot (px, py), back to front: the ground, then blocks, crops, displays, and
- * hearths. `tint` is the owner's theme over the ground. Pure, so tests pin it.
+ * What to paint for plot (px, py), back to front: the ground in its season, then paths and floors,
+ * blocks, crops, displays, and hearths. `tint` is the owner's theme over the ground, under the
+ * paths. Pure, so tests pin it.
  */
 export function plotMarks(
   world: WorldSnapshot,
@@ -55,9 +59,13 @@ export function plotMarks(
         x,
         y,
         kind: "ground",
-        fill: groundTile(world.config, x0 + x, y0 + y, false).fill,
+        fill: groundTile(world.config, x0 + x, y0 + y, false, world.season).fill,
       });
     }
+  }
+  for (const g of world.ground ?? []) {
+    if (!here(g)) continue;
+    marks.push({ x: g.x - x0, y: g.y - y0, kind: "path", ground: g.ground });
   }
   for (const b of world.blocks) {
     if (!here(b)) continue;
@@ -110,6 +118,9 @@ function paint(
     case "ground":
       ctx.fillStyle = mark.fill;
       ctx.fillRect(left, top, t, t);
+      return;
+    case "path":
+      paintGround(ctx, mark.ground, left, top, t, t);
       return;
     case "block":
       ctx.globalAlpha = mark.glass ? 0.75 : 1;

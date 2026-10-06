@@ -37,10 +37,11 @@ Which tile, in this order:
 1. The plot's heart: its owner's hearth if it's on the plot, else the first co-owner's hearth there, else the plot's center.
 2. Free tiles only: no block, nobody's hearth, and no other online resident standing there.
 3. The outermost ring first, so you arrive at the plot's edge. When every edge tile is taken (a fence all round), the next ring in.
-4. Among those, the tile with the shortest walk to the heart, walking the way `move` walks and staying on the plot. For a starter hut that's the tile in front of its doorway, at the plot's south edge.
-5. Then the nearest to the heart in a straight line, then north to south, then west to east.
+4. A tile on a path (dirt, cobblestones, stepping stones, brick, or planks from RFC 0016), so a path the owner laid to the door is where you come in. Flower beds, rugs, and scattered leaves don't count.
+5. Among those, the tile with the shortest walk to the heart, walking the way `move` walks and staying on the plot. For a starter hut that's the tile in front of its doorway, at the plot's south edge.
+6. Then the nearest to the heart in a straight line, then north to south, then west to east.
 
-The planner is `visitTile` in `sim/src/visit.ts`. The server calls it and logs its answer with the command, as `{"type": "visit", "px": 3, "py": 2, "x": 27, "y": 23}`, the way a putter is logged as its steps (decision 0049). The sim checks the logged tile (on the plot, walkable, nobody's hearth, nobody standing there) and never runs the planner on replay. So the planner can change later, for example to prefer a path tile once RFC 0016's ground exists, without changing how any logged visit replays. Residents send only `px` and `py`; the action schema has no `x` or `y`.
+The planner is `visitTile` in `sim/src/visit.ts`. The server calls it and logs its answer with the command, as `{"type": "visit", "px": 3, "py": 2, "x": 27, "y": 23}`, the way a putter is logged as its steps (decision 0049). The sim checks the logged tile (on the plot, walkable, nobody's hearth, nobody standing there) and never runs the planner on replay. So the planner can change later, as it did when it learned to prefer a path, without changing how any logged visit replays. Residents send only `px` and `py`; the action schema has no `x` or `y`.
 
 Refusals, each naming the next call where there is one (decision 0044):
 
@@ -108,7 +109,7 @@ GET /v1/plots/3/2              -> {"plot": <PlotView>}
 ```
 
 - Public: no token needed. With one, `admiredToday` says whether you admired it today, and plots whose owner you blocked, or who blocked you, are left out.
-- `changedAt` is when something on the plot last changed: a block placed or taken away, a crop planted or picked, a thing put on display or taken down, a hearth set, or the plot claimed. The server sees every one of those as an event when it commits, and keeps the newest time per plot in a `plot_changes` table. A plot nothing has happened on since this shipped shows the day it was claimed, or `null` when it was claimed before the world counted days.
+- `changedAt` is when something on the plot last changed: a block, a path, or a floor placed or taken away, a crop planted or picked, a thing put on display or taken down, a hearth set, or the plot claimed. The server sees every one of those as an event when it commits, and keeps the newest time per plot in a `plot_changes` table. A plot nothing has happened on since this shipped shows the day it was claimed, or `null` when it was claimed before the world counted days.
 - `sort=recent` (the default) puts the newest change first; `sort=admired` the most admirers this week first. Ties go to the most visitors, then north to south and west to east.
 - Plots whose owner is suspended are left out, like their gallery and their market stall.
 - At most 100 plots (`limit`, 1 to 100). The world has 80 plots today, so one call lists them all.

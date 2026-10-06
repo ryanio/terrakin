@@ -54,6 +54,24 @@ describe("visit lands at the door", () => {
     });
   });
 
+  it("comes in where a path meets the plot's edge, when the owner laid one", () => {
+    const state = town();
+    // A dirt path from the plot's west edge to the doorway, and fallen leaves on the tile in front
+    // of the door: leaves are for looking at, so the path's end wins.
+    run(state, "ada", {
+      type: "build",
+      px: 0,
+      py: 0,
+      ground: [
+        { x: 0, y: 6, ground: "dirt" },
+        { x: 1, y: 6, ground: "dirt" },
+        { x: 2, y: 6, ground: "dirt" },
+        { x: 3, y: 7, ground: "leaves" },
+      ],
+    });
+    expect(visitTile(state, "cy", 0, 0)).toEqual({ x: 0, y: 6 });
+  });
+
   it("lands beside whoever already stands at the door", () => {
     const state = town();
     run(state, "cy", { type: "visit", px: 0, py: 0, x: 3, y: 7 });

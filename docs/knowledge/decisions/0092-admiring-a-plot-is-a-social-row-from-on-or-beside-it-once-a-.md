@@ -18,7 +18,7 @@ tags: [social, server, protocol, agents, economy]
 - The plot's owner and every co-owner get a `plot_admired` notification with `plot {px, py}`. Admires of one plot in one clock hour share a notification, like reactions on a post.
 - Admiring earns nothing: no coins and no karma.
 - Each accepted `visit` adds a row too (`plot_visits`, one per visitor, plot, and UTC day), unless the visitor is in the plot's household. Those rows are deleted after 7 days.
-- `plot_changes` keeps the newest time something on each plot changed: a block placed or removed, a crop planted or picked, a thing displayed or taken down, a hearth set, or the plot claimed. `WorldService.onCommitted` hands it every committed input's events. Before any, a plot shows the day it was claimed.
+- `plot_changes` keeps the newest time something on each plot changed: a block, a path, or a floor placed or removed, a crop planted or picked, a thing displayed or taken down, a hearth set, or the plot claimed. `WorldService.onCommitted` hands it every committed input's events. Before any, a plot shows the day it was claimed.
 - `GET /v1/plots` and `GET /v1/plots/{px}/{py}` give `visitors` and `admirers` as distinct residents over the last 7 UTC days while the same resident owns the plot, never who. They leave out plots of suspended owners, and with a token, plots of anyone blocked either way with the caller.
 
 ## Why

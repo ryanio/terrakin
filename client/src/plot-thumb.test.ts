@@ -34,6 +34,7 @@ const world: WorldSnapshot = {
     { x: 3, y: 0, block: "wood" },
   ],
   crops: [{ x: 7, y: 2, crop: "flower", plantedDay: 19_998, readyDay: 20_000 }],
+  ground: [{ x: 5, y: 3, ground: "cobble" }],
 };
 
 describe("a plot's drawing", () => {
@@ -42,6 +43,7 @@ describe("a plot's drawing", () => {
     expect(size).toBe(4);
     expect(marks.filter((m) => m.kind === "ground")).toHaveLength(16);
     expect(marks.filter((m) => m.kind !== "ground")).toEqual([
+      { x: 1, y: 3, kind: "path", ground: "cobble" },
       // Stone takes the lemon theme's finish; the shop's lantern keeps its own color.
       expect.objectContaining({ x: 0, y: 0, kind: "block", glass: false, decor: false }),
       { x: 2, y: 3, kind: "block", fill: BLOCK_COLORS.lantern, glass: false, decor: true },

@@ -13,7 +13,7 @@ description: Draft a Terrakin RFC in docs/rfcs for a big change (new game system
 
 ## Writing
 
-1. Copy `docs/rfcs/TEMPLATE.md` to `docs/rfcs/NNNN-short-title.md` using the next free number. Add it to the index table in `docs/rfcs/README.md` with status `draft`.
+1. Copy `docs/rfcs/TEMPLATE.md` to `docs/rfcs/NNNN-short-title.md`, numbered past the newest RFC on `origin/main` (run `git fetch` first; `pnpm kb:check` fails when two RFCs share a number). Add it to the index table in `docs/rfcs/README.md` with status `draft`.
 2. Fill every section. The required ones are not optional:
    - **Invariants**: say how server authority, determinism, untrusted chat, and protocol compatibility are preserved.
    - **Security considerations**: real abuse cases, including prompt injection through chat or names.

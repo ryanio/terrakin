@@ -2,13 +2,15 @@
  * Knowledge base tool. Run with `pnpm kb <command>`.
  *
  *   pnpm kb                         rebuild docs/knowledge/INDEX.md
- *   pnpm kb --check                 fail if INDEX.md is stale or an entry is malformed (CI runs this)
- *   pnpm kb new decision "Title"    create a numbered decision record
+ *   pnpm kb --check                 fail if INDEX.md is stale, an entry is malformed, or two
+ *                                   decisions or RFCs share a number (CI runs this)
+ *   pnpm kb new decision "Title"    create a decision record, numbered past origin/main's newest
  *   pnpm kb new learning "Title"    create a dated learning note
  *   pnpm kb new handoff "Title"     create a dated session handoff
  *
  * Plain Node (type stripping), no dependencies, so any agent can run it right after cloning.
  */
+import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -16,6 +18,15 @@ import { fileURLToPath } from "node:url";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const KB = join(ROOT, "docs", "knowledge");
 const INDEX = join(KB, "INDEX.md");
+
+/**
+ * Folders whose files start with a four-digit number, and the numbers two files already share.
+ * Those stay, since prose cites them by number; any other shared number fails the check.
+ */
+const NUMBERED = [
+  { dir: join(KB, "decisions"), shared: ["0052"] },
+  { dir: join(ROOT, "docs", "rfcs"), shared: ["0004"] },
+];
 
 const KINDS = {
   decision: {
@@ -98,7 +109,48 @@ function load(): { entries: Entry[]; problems: string[] } {
       });
     }
   }
-  return { entries, problems };
+  return { entries, problems: [...problems, ...numberClashes()] };
+}
+
+function numberClashes(): string[] {
+  const problems: string[] = [];
+  for (const { dir, shared } of NUMBERED) {
+    const byNumber = new Map<string, string[]>();
+    for (const name of readdirSync(dir)) {
+      const number = /^(\d{4})-/.exec(name)?.[1];
+      if (number) byNumber.set(number, [...(byNumber.get(number) ?? []), name]);
+    }
+    for (const [number, names] of byNumber) {
+      if (names.length > 1 && !shared.includes(number)) {
+        problems.push(
+          `${relative(ROOT, dir)}: ${names.join(" and ")} share ${number}; renumber the newer one`,
+        );
+      }
+    }
+  }
+  return problems;
+}
+
+/**
+ * Decision numbers on origin/main, fetched first, so a checkout or worktree made before someone
+ * else's push still numbers past theirs. Offline, or outside git, it's none.
+ */
+function numbersOnMain(dir: string): number[] {
+  const git = (...args: string[]) =>
+    execFileSync("git", args, { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+  try {
+    git("fetch", "--quiet", "origin", "main");
+  } catch {
+    // Offline: origin/main as last fetched.
+  }
+  try {
+    return git("ls-tree", "--name-only", "origin/main", `${relative(ROOT, dir)}/`)
+      .split("\n")
+      .map((path) => Number.parseInt(path.slice(path.lastIndexOf("/") + 1), 10))
+      .filter((n) => !Number.isNaN(n));
+  } catch {
+    return [];
+  }
 }
 
 function renderIndex(entries: Entry[]): string {
@@ -147,9 +199,12 @@ function create(kind: Kind, title: string) {
   const template = readFileSync(join(dir, "TEMPLATE.md"), "utf8");
   let name: string;
   if (kind === "decision") {
-    const numbers = readdirSync(dir)
-      .map((f) => Number.parseInt(f, 10))
-      .filter((n) => !Number.isNaN(n));
+    const numbers = [
+      ...readdirSync(dir)
+        .map((f) => Number.parseInt(f, 10))
+        .filter((n) => !Number.isNaN(n)),
+      ...numbersOnMain(dir),
+    ];
     const next = String(Math.max(0, ...numbers) + 1).padStart(4, "0");
     name = `${next}-${slugify(title)}.md`;
   } else if (kind === "handoff") {

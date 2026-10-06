@@ -13,7 +13,7 @@ Bug fixes, docs, and contained features don't need one.
 
 ## Process
 
-1. Copy `TEMPLATE.md` to `NNNN-short-title.md` (next free number).
+1. Copy `TEMPLATE.md` to `NNNN-short-title.md`, numbered past the newest RFC on `origin/main` (fetch first). `pnpm kb:check` fails when two RFCs share a number.
 2. Open a PR with `Status: draft`. Discussion happens on the PR.
 3. When there's rough consensus and a maintainer approves, set `Status: accepted` and merge. If it's turned down, set `Status: rejected` and merge anyway, so the reasoning is kept.
 4. Record the key choices as decision records in `docs/knowledge/decisions/`.

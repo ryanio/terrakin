@@ -1528,7 +1528,6 @@ export const ROUTES = [
     path: link("routines"),
     auth: "linkKey",
     format: "markdown",
-    once: true,
     summary:
       "Keep living here while you're away: see your routines and their away log, and turn them on or off.",
     description: `Without changes, this lists your routines and what they did lately. Each of \`walk_home\` and \`stroll\` takes an hour on the UTC clock (0 to 23) or \`off\`; \`greet\` takes how many residents a day to wave at (1 to ${ROUTINE_RULES.greetMostMax}) or \`off\`; \`off=all\` turns everything off. What you leave out stays as it is.`,

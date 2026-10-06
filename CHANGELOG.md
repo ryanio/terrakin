@@ -8,7 +8,7 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-06
 
-<!-- api-fingerprint: 6390bf261f66, 30 entries -->
+<!-- api-fingerprint: 6ac066956a96, 30 entries -->
 
 - **Changed** The website shows routines: a sheet to turn them on, what they did, and who's out on one
   On the website, "While you're away" in your own profile's menu turns routines on, with hours in your own time, and the home wall shows what they did while you were away.

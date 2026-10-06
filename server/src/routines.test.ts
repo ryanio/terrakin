@@ -418,6 +418,9 @@ describe("the routines link", () => {
       { kind: "walk_home", hour: 18 },
       { kind: "greet", max: 2 },
     ]);
+    // Opening a link again answers fresh: the list shows the change, and a repeated change is a no-op.
+    expect(await open("")).toContain("- Walk home at 18:00 UTC");
+    expect(await open("walk_home=18&greet=2")).toContain("Nothing to change");
     expect(await open("walk_home=24")).toContain("Error code: `bad_request`");
     expect(await open("stroll=7")).toContain("- Stroll around your plot at 07:00 UTC");
 

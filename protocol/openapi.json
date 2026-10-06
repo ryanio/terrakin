@@ -11686,8 +11686,7 @@
           "perSecond": 10,
           "burst": 20,
           "description": "10 a second per resident, bursts of 20"
-        },
-        "x-repeat-window-ms": 120000
+        }
       }
     },
     "/v1/act/{key}/gesture": {

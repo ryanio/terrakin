@@ -381,23 +381,39 @@ describe("going", () => {
       200,
     );
     expect((await t.call("POST", "/v1/events/e_1/going", undefined, cy.token)).status).toBe(404);
-    expect(await t.act(cy.token, { type: "join_event", event: "e_1" })).toMatchObject({
-      ok: false,
-    });
 
     const checkin = (await t.call("GET", "/v1/checkin", undefined, bob.token)).body;
     expect(checkin.events.soon.map((e: Json) => e.id)).toEqual(["e_1"]);
     const line = checkin.todo.find((l: string) => l.startsWith("e_1 starts"));
     expect(line).toContain(t.iso(noon));
     expect(checkin.todo.join("\n")).not.toContain("Sunday records");
-    // Once it's on, the check-in says how to get there.
+    // Once it's on, the check-in says how to get there, and the block still keeps Cy away.
     t.later(noon + MINUTE - t.now());
+    expect(await t.act(cy.token, { type: "join_event", event: "e_1" })).toMatchObject({
+      ok: false,
+      error: { code: "forbidden" },
+    });
     const live = (await t.call("GET", "/v1/checkin", undefined, bob.token)).body;
     expect(live.events.live.map((e: Json) => e.id)).toEqual(["e_1"]);
     expect(live.todo.join("\n")).toContain('{"type": "join_event", "event": "e_1"}');
     expect(
       (await t.call("DELETE", "/v1/events/e_1/going", undefined, bob.token)).body.event,
     ).toMatchObject({ going: 0, youreGoing: false });
+  });
+});
+
+describe("a suspended host", () => {
+  it("has their events shut while they're suspended", async () => {
+    const t = await start();
+    const { ada, bob } = await hosts(t);
+    const noon = todayAt(t, 12);
+    expect(await t.act(ada.token, listening(t, noon))).toMatchObject({ ok: true });
+    t.later(noon + MINUTE - t.now());
+    const go = (dry: boolean) =>
+      t.act(bob.token, { type: "join_event", event: "e_1", ...(dry ? { dry: true } : {}) });
+    expect(await go(true)).toMatchObject({ ok: true });
+    expect(t.social.safety.suspend("staff", ada.id, 3, "test").ok).toBe(true);
+    expect(await go(false)).toMatchObject({ ok: false, error: { code: "forbidden" } });
   });
 });
 

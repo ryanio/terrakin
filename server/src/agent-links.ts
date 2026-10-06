@@ -155,7 +155,8 @@ interface LinkRow {
 /** What one read of an agent found. */
 type Check =
   | { kind: "gone" }
-  | { kind: "down" }
+  /** A read that didn't come back: from the registry, the partner's contracts, or the card host. */
+  | { kind: "down"; where: "registry" | "partner" | "card" }
   | { kind: "bad"; message: string }
   | {
       kind: "ok";
@@ -360,7 +361,11 @@ export class AgentLinkService {
       const { partner, subject, chain } = wanted;
       const found = await readAgentOf(meter.call, chain.chainId, partner.match.agentOf, subject);
       if (!found.ok && found.bad) return fail("bad_request", UNREADABLE_PARTNER);
-      if (!found.ok && !found.missing) return fail("unavailable", UNAVAILABLE);
+      if (!found.ok && !found.missing) {
+        console.info("Agent link: down at partner");
+        count("agent_link.check", { during: "link", result: "down", where: "partner" });
+        return fail("unavailable", UNAVAILABLE);
+      }
       if (!found.ok || !found.value.registered) {
         return fail("not_found", `${partnerLabel(partner, subject)} has no agent yet.`);
       }
@@ -369,7 +374,13 @@ export class AgentLinkService {
     if (!ref) return fail("bad_request", "Send either `agent`, or `partner` with `subject`.");
 
     const check = await this.check(ref, meter);
-    count("agent_link.check", { during: "link", result: check.kind });
+    count("agent_link.check", {
+      during: "link",
+      result: check.kind,
+      ...(check.kind === "down" ? { where: check.where } : {}),
+    });
+    // Codes only (decision 0037): which read failed, so a run of 503s says where to look.
+    if (check.kind === "down") console.info(`Agent link: down at ${check.where}`);
     if (check.kind === "gone") return fail("not_found", "No agent with that id in the registry.");
     if (check.kind === "down") return fail("unavailable", UNAVAILABLE);
     if (check.kind === "bad") return fail("bad_request", check.message);
@@ -627,7 +638,11 @@ export class AgentLinkService {
     const id = row.resident_id;
     const ref = { chainId: Number(row.chain_id), registry: row.registry, agentId: row.agent_id };
     const check = await this.check(ref, meter);
-    count("agent_link.check", { during: "recheck", result: check.kind });
+    count("agent_link.check", {
+      during: "recheck",
+      result: check.kind,
+      ...(check.kind === "down" ? { where: check.where } : {}),
+    });
     const now = this.now();
     // Linked again (to this agent or another) or unlinked while we read: that newer state wins.
     const current = this.row(id);
@@ -765,7 +780,7 @@ export class AgentLinkService {
     if (!holder.ok && holder.bad) {
       return { kind: "bad", message: "The agent's registry entry can't be read." };
     }
-    if (!uri.ok || !holder.ok) return { kind: "down" };
+    if (!uri.ok || !holder.ok) return { kind: "down", where: "registry" };
 
     let partner: { id: string; subject: string; holderHash: string } | undefined;
     for (const p of this.partners) {
@@ -774,7 +789,9 @@ export class AgentLinkService {
       const binding = await readBinding(meter.call, ref.chainId, match.owner, ref.agentId);
       if (!binding.ok) {
         if (binding.missing) continue;
-        return binding.bad ? { kind: "bad", message: UNREADABLE_PARTNER } : { kind: "down" };
+        return binding.bad
+          ? { kind: "bad", message: UNREADABLE_PARTNER }
+          : { kind: "down", where: "partner" };
       }
       const { standard, bound, tokenId } = binding.value;
       // 0 is ERC-721: one item in the partner's own collection.
@@ -783,7 +800,9 @@ export class AgentLinkService {
         const item = await readItemHolder(meter.call, ref.chainId, match.collection, tokenId);
         if (!item.ok) {
           if (item.missing) break;
-          return item.bad ? { kind: "bad", message: UNREADABLE_PARTNER } : { kind: "down" };
+          return item.bad
+            ? { kind: "bad", message: UNREADABLE_PARTNER }
+            : { kind: "down", where: "partner" };
         }
         partner = { id: p.id, subject: tokenId, holderHash: await holderHash(p.id, item.value) };
         break;
@@ -791,7 +810,9 @@ export class AgentLinkService {
     }
 
     const card = await meter.readCard(uri.value);
-    if (!card.ok) return card.bad ? { kind: "bad", message: card.message } : { kind: "down" };
+    if (!card.ok) {
+      return card.bad ? { kind: "bad", message: card.message } : { kind: "down", where: "card" };
+    }
     return {
       kind: "ok",
       cardName: card.card.name,

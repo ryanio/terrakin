@@ -23,13 +23,17 @@ import {
 import {
   BufferGeometry,
   type CanvasTexture,
+  CircleGeometry,
   Color,
   Float32BufferAttribute,
   type Fog,
   Group,
+  InstancedMesh,
   LineDashedMaterial,
   LineLoop,
-  type Mesh,
+  Matrix4,
+  Mesh,
+  MeshBasicMaterial,
   type Object3D,
   Raycaster,
   Sprite,
@@ -41,6 +45,8 @@ import type { Feelings, Shown } from "../feelings";
 import type { Mirror } from "../mirror";
 import { awayPose, type Motion } from "../motion";
 import { bubbleSize, drawBubble, stackBubbles } from "../overhead";
+import { lyingOn, type PetMotion, type PetScene } from "../pets";
+import { nightAmount } from "../time";
 import { type SkyAmounts, UMBRELLA_RAIN } from "../weather";
 import {
   addAll,
@@ -65,6 +71,7 @@ import {
   signSize,
 } from "./layout";
 import { hex, SKY } from "./palette";
+import { petGeometries, petMaterial } from "./pets";
 import {
   blockMeshes,
   border,
@@ -75,6 +82,7 @@ import {
   groundTiles,
   hearth,
   ICON_TEXTURES,
+  iconTexture,
   OVERHEAD_ORDER,
   overheadMaterial,
   overheadTop,
@@ -131,6 +139,12 @@ export interface World3dFrame {
   season?: Season | undefined;
   /** How much cloud, rain, snow, and fog to draw (`weather.ts`). Absent: a clear sky. */
   sky?: SkyAmounts | undefined;
+  /** Where pets are and what they're doing (RFC 0019): the same the map draws. */
+  pets?: PetMotion;
+  /** The server's clock, ms, which pets plan their days by. */
+  clock?: number;
+  /** Phase of the day, 0 to 1, for pets asleep at night. */
+  dayPhase?: number;
 }
 
 export interface World3d {
@@ -185,6 +199,24 @@ const LISTEN_RADIUS = 5;
 const NECK = 0.8;
 /** A speaker further round than this is behind them: they don't strain to look. */
 const BEHIND = 2.2;
+/**
+ * The most pets drawn at once, the nearest you: one draw each, plus one for all their shadows, on
+ * top of decision 0060's crowd.
+ */
+const MAX_PETS = 16;
+/** How quickly a pet turns, per second. */
+const PET_TURN = 8;
+/** Pets a little bigger than life beside the pegs, so they read from the camera's height. */
+const PET_SCALE = 1.4;
+
+interface PetFig {
+  mesh: Mesh;
+  /** Its kind, coat, and posture, so the geometry swaps only when one changes. */
+  look: string;
+  heading: number;
+  heart?: Sprite;
+}
+
 /** Ground beyond the view radius, fading out, so the fog has something to swallow. */
 const GROUND_RING = VIEW_RADIUS + GROUND_STEP + 4;
 
@@ -239,6 +271,28 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
 
   const chunks = new Map<string, Chunk>();
   const figures = new Map<string, Fig>();
+  // Pets (RFC 0019): one shared material and a geometry per look, and their shadows in one draw.
+  const petGeo = petGeometries();
+  const petMat = petMaterial();
+  const petFigs = new Map<string, PetFig>();
+  const petShadowGeo = new CircleGeometry(0.24, 16);
+  petShadowGeo.rotateX(-Math.PI / 2);
+  const petShadows = new InstancedMesh(
+    petShadowGeo,
+    new MeshBasicMaterial({
+      map: shadowMap,
+      color: 0x3c2a14,
+      transparent: true,
+      opacity: 0.26,
+      depthWrite: false,
+    }),
+    MAX_PETS,
+  );
+  petShadows.count = 0;
+  petShadows.renderOrder = 1;
+  petShadows.frustumCulled = false;
+  scene.add(petShadows);
+  const petAt = new Matrix4();
   const buildings = new Map<"hall" | "shop", Building>();
   let ground: { mesh: Mesh; signature: string } | undefined;
   let mirrorSeen: Mirror | undefined;
@@ -704,6 +758,125 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
     return moved;
   }
 
+  function dropPet(id: string) {
+    const p = petFigs.get(id);
+    if (!p) return;
+    petFigs.delete(id);
+    scene.remove(p.mesh);
+    if (p.heart) {
+      scene.remove(p.heart);
+      p.heart.material.dispose();
+    }
+  }
+
+  /**
+   * Draw the pets nearest you where `pets.ts` says they are, the way the map does: beside their
+   * owners, or at home by the hearth. True if anything moved.
+   */
+  function movePets(
+    mirror: Mirror,
+    tile: Tile,
+    frame: World3dFrame,
+    dt: number,
+    now: number,
+  ): boolean {
+    const { pets, motion } = frame;
+    if (!pets) return false;
+    const near = [...mirror.residents.values()]
+      .filter((r) => {
+        if (!r.pet) return false;
+        const anchor = r.online ? r : r.hearth;
+        return anchor !== null && tileDistance(tile, anchor) <= VIEW_RADIUS + 2;
+      })
+      .sort(
+        (a, b) =>
+          tileDistance(tile, a.online ? a : (a.hearth ?? a)) -
+          tileDistance(tile, b.online ? b : (b.hearth ?? b)),
+      )
+      .slice(0, MAX_PETS);
+    const scenePets: PetScene = {
+      now,
+      clock: frame.clock ?? now,
+      night: frame.dayPhase !== undefined && nightAmount(frame.dayPhase) > 0.55,
+      still,
+      ground: mirror.ground(),
+      config: mirror.config,
+      day: mirror.day,
+      lying: lyingOn(mirror.asleep(frame.me)),
+    };
+    const shown = new Set<string>();
+    let moved = false;
+    let n = 0;
+    for (const r of near) {
+      const pet = r.pet;
+      if (!pet) continue;
+      const m = r.online ? motion.pose(r, now, still) : undefined;
+      const p = pets.pose(r, {
+        ...scenePets,
+        drawn: m && { x: m.x, y: m.y },
+      });
+      if (!p) continue;
+      shown.add(r.id);
+      const posture = p.asleep ? "asleep" : "awake";
+      const look = `${pet.kind}|${pet.coat}|${posture}`;
+      let f = petFigs.get(r.id);
+      if (!f) {
+        const mesh = new Mesh(petGeo.get(pet.kind, pet.coat, posture), petMat);
+        mesh.castShadow = false;
+        scene.add(mesh);
+        f = { mesh, look, heading: p.heading };
+        petFigs.set(r.id, f);
+      } else if (f.look !== look) {
+        f.mesh.geometry = petGeo.get(pet.kind, pet.coat, posture);
+        f.look = look;
+      }
+      const gap = turnBetween(f.heading, p.heading);
+      f.heading =
+        still || Math.abs(gap) < 1e-3
+          ? p.heading
+          : f.heading + gap * (1 - Math.exp(-PET_TURN * dt));
+      const breath = p.asleep && !still ? 1 + Math.sin(now / 700 + p.x) * 0.03 : 1;
+      const mesh = f.mesh;
+      if (
+        mesh.position.x !== p.x ||
+        mesh.position.z !== p.y ||
+        mesh.position.y !== p.lift ||
+        p.asleep
+      )
+        moved = true;
+      mesh.position.set(p.x, p.lift, p.y);
+      mesh.rotation.set(0, f.heading, 0);
+      mesh.scale.set(PET_SCALE, PET_SCALE * breath, PET_SCALE);
+      if (n < MAX_PETS) {
+        petAt.makeTranslation(p.x, 0.013, p.y);
+        petShadows.setMatrixAt(n++, petAt);
+      }
+      // A heart floats up after a pat, as on the map.
+      if (p.heart !== undefined) {
+        if (!f.heart) {
+          f.heart = new Sprite(overheadMaterial(iconTexture("heart")));
+          f.heart.renderOrder = OVERHEAD_ORDER.sign;
+          scene.add(f.heart);
+        }
+        f.heart.scale.setScalar(0.3);
+        f.heart.position.set(p.x, 0.75 + p.heart * 0.5, p.y);
+        f.heart.material.opacity = Math.min(1, (1 - p.heart) * 3);
+        moved = true;
+      } else if (f.heart) {
+        scene.remove(f.heart);
+        f.heart.material.dispose();
+        delete f.heart;
+        moved = true;
+      }
+    }
+    for (const id of [...petFigs.keys()]) if (!shown.has(id)) dropPet(id);
+    if (petShadows.count !== n) moved = true;
+    petShadows.count = n;
+    petShadows.instanceMatrix.needsUpdate = true;
+    pets.keep(shown);
+    return moved;
+  }
+
   /** Where someone on each hearth's tile stands, clear of the stonework. */
   function hearthStands(mirror: Mirror): Map<number, { x: number; y: number }> {
     const { width, height } = mirror.config;
@@ -859,7 +1032,8 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
   canvas.addEventListener("webglcontextlost", onLost);
 
   return {
-    sync({ mirror, me, buildMode, feelings, motion, season: seasonNow, sky }) {
+    sync(frame) {
+      const { mirror, me, buildMode, feelings, motion, season: seasonNow, sky } = frame;
       const self = mirror.residents.get(me);
       lastMirror = mirror;
       const now = performance.now();
@@ -909,6 +1083,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       bubblePx =
         (viewHeight / Math.max(1, host.clientHeight)) * (BUBBLE_SCREEN_PX / BUBBLE_FONT_PX);
       let moved = moveFigures(mirror, motion, dt, feelings?.speaker(now));
+      if (movePets(mirror, tile, frame, dt, now)) moved = true;
       stackBubbles3d();
       // A feeling from what happened to them wins; otherwise a doze shows as `sleepy`.
       for (const [id, f] of figures)
@@ -946,6 +1121,12 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       canvas.removeEventListener("pointercancel", onCancel);
       for (const key of [...chunks.keys()]) dropChunk(key);
       for (const id of [...figures.keys()]) dropFigure(id);
+      for (const id of [...petFigs.keys()]) dropPet(id);
+      petGeo.dispose();
+      petMat.dispose();
+      petShadowGeo.dispose();
+      (petShadows.material as MeshBasicMaterial).dispose();
+      petShadows.dispose();
       pictures.dispose();
       stage.dispose();
     },

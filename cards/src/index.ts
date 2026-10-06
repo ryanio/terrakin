@@ -15,6 +15,7 @@ export {
   type PlotInk,
   type PlotMark,
   type PlotPaving,
+  type PlotPet,
   plotSvg,
   safeColor,
 } from "./plot";

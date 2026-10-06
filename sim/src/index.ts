@@ -171,6 +171,17 @@ export {
 export { isOwnableKey, own, residentById } from "./own";
 export * from "./palette";
 export {
+  PET_BOX,
+  PET_PALETTE,
+  type PetColors,
+  type PetFace,
+  type PetPosture,
+  type PetShape,
+  petBed,
+  petColors,
+  petShapes,
+} from "./pet-art";
+export {
   ALL_PET_COATS,
   isCoatOf,
   isPetKind,

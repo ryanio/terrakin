@@ -8,6 +8,7 @@ import {
   dayOfDate,
   GROUND_LOOK,
   groundTile,
+  petShapes,
   THEME_INFO,
   THEME_TINT_ALPHA,
   tuftStroke,
@@ -215,6 +216,24 @@ describe("plot photo data", () => {
       { x: 2, y: 6, crop: "lemon", done: 1, fill: CROP_HEX.lemon },
       { x: 6, y: 6, crop: "pumpkin", done: 0.4, fill: CROP_HEX.pumpkin },
     ]);
+  });
+
+  it("draws the owner's pet asleep beside the hearth, facing it", async () => {
+    const { settled, service, call } = await start();
+    const wren = await settled("Wren");
+    expect(plotPhotoSpec(service.state, wren.residentId)?.pet).toBeUndefined();
+    await call("POST", "/v1/actions", wren.token, {
+      type: "adopt_pet",
+      kind: "fox",
+      coat: "red",
+      name: "Ember",
+    });
+    const pet = plotPhotoSpec(service.state, wren.residentId)?.pet;
+    // The hearth is at (3, 3); the first open tile beside it is east, so the fox faces west.
+    expect(pet).toMatchObject({ size: 1, flip: true });
+    expect(pet?.x).toBeGreaterThan(3.5);
+    expect(pet?.x).toBeLessThan(4);
+    expect(pet?.shapes).toEqual(petShapes("fox", "red", "asleep"));
   });
 
   it("is undefined without a plot", async () => {

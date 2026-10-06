@@ -17,6 +17,11 @@ import {
   LEAF_TONES,
   mixHex,
   OUTSIDE_GROUND,
+  PET_BOX,
+  type PetCoat,
+  type PetFace,
+  type PetKind,
+  type PetPosture,
   plotKey,
   type Resident,
   type Season,
@@ -48,12 +53,14 @@ import {
   patternMotifs as patternMotifsFor,
   withAlpha,
 } from "@terrakin/ui/looks";
+import { drawPet } from "@terrakin/ui/pet-art";
 import { type Camera, tileToScreen } from "./camera";
 import { eventLanterns } from "./event-format";
 import { type Feelings, idPhase, pose, restingPose } from "./feelings";
 import type { DisplayView, Mirror } from "./mirror";
 import { awayPose, type Motion, type Pose as MotionPose } from "./motion";
 import { type Box, bubbleBox, drawBubble, drawDust, drawPoof, stackBubbles } from "./overhead";
+import { lyingOn, type PetMotion, type PetScene } from "./pets";
 import { nightAmount } from "./time";
 import { drawWeather, type SkyAmounts, UMBRELLA_RAIN } from "./weather";
 
@@ -1026,6 +1033,36 @@ export interface RenderState {
   season?: Season | undefined;
   /** How much cloud, rain, snow, and fog to draw (`weather.ts`). Absent: a clear sky. */
   sky?: SkyAmounts | undefined;
+  /** Where pets are and what they're doing (RFC 0019). Without it no pets are drawn. */
+  pets?: PetMotion;
+  /** The server's clock, ms, which pets plan their days by. */
+  clock?: number;
+}
+
+/** A pet's box across, in tiles: about half a resident's height. */
+export const PET_TILES = 1;
+/** Where a pet's feet are in its box, from the top, out of `PET_BOX`. */
+const PET_FEET = 42.5;
+
+/** A pet as a sprite, `size` CSS pixels across: drawn once for each kind, coat, pose, and face. */
+function petSprite(
+  kind: PetKind,
+  coat: PetCoat,
+  pose: PetPosture,
+  look: PetFace,
+  facing: 1 | -1,
+  size: number,
+  dpr: number,
+): HTMLCanvasElement {
+  const px = Math.max(1, Math.round(size * dpr));
+  return sprite(`pet|${kind}|${coat}|${pose}|${look}|${facing}|${px}`, px, px, (c) => {
+    const k = px / PET_BOX;
+    if (facing === -1) {
+      c.translate(px, 0);
+      c.scale(-k, k);
+    } else c.scale(k, k);
+    drawPet(c, kind, coat, pose, look);
+  });
 }
 
 /** Reused every frame, so drawing figures allocates nothing. */
@@ -1042,7 +1079,21 @@ function iconSprite(icon: FeelingIcon, px: number): HTMLCanvasElement {
 
 export function render(
   ctx: CanvasRenderingContext2D,
-  { mirror, me, cam, buildMode, dayPhase, feelings, motion, now, still, season, sky }: RenderState,
+  {
+    mirror,
+    me,
+    cam,
+    buildMode,
+    dayPhase,
+    feelings,
+    motion,
+    now,
+    still,
+    season,
+    sky,
+    pets,
+    clock,
+  }: RenderState,
 ) {
   const { width, height, scale } = cam;
   const { config, commons } = mirror;
@@ -1386,6 +1437,86 @@ export function render(
     ctx.roundRect(sx - half, sy - half, scale * (2 * r + 1), scale * (2 * r + 1), scale * 0.25);
     ctx.stroke();
     ctx.setLineDash([]);
+  }
+
+  // ---- pets: beside their owners, or at home by the hearth (RFC 0019), under the residents ----
+  if (pets) {
+    const scene: PetScene = {
+      now,
+      clock: clock ?? now,
+      night: dayPhase !== undefined && nightAmount(dayPhase) > 0.55,
+      still,
+      ground: mirror.ground(),
+      config,
+      day: mirror.day,
+      lying: lyingOn(mirror.asleep(me)),
+    };
+    const size = scale * PET_TILES;
+    const drawn = new Set<string>();
+    for (const r of mirror.residents.values()) {
+      if (!r.pet) continue;
+      // Pets keep within a few tiles of their owner or their hearth: skip the ones far off screen.
+      const anchor = r.online ? r : r.hearth;
+      if (
+        !anchor ||
+        anchor.x < x0 - 4 ||
+        anchor.x > x1 + 4 ||
+        anchor.y < y0 - 4 ||
+        anchor.y > y1 + 4
+      )
+        continue;
+      const m = r.online ? motion.pose(r, now, still) : undefined;
+      const p = pets.pose(r, {
+        ...scene,
+        drawn: m && { x: m.x, y: m.y },
+      });
+      if (!p) continue;
+      drawn.add(r.id);
+      const { sx, sy } = tileToScreen(cam, p.x, p.y);
+      if (sx < -size || sy < -size || sx > width + size || sy > height + size) continue;
+      const feet = sy + scale * 0.32;
+      const art = petSprite(
+        r.pet.kind,
+        r.pet.coat,
+        p.asleep ? "asleep" : "awake",
+        p.happy ? "happy" : "open",
+        p.facing,
+        size,
+        dpr,
+      );
+      // Breathing, slow and soft asleep.
+      const breath = p.asleep && !still ? 1 + Math.sin(now / 700 + sx * 0.01) * 0.025 : 1;
+      const top = feet - p.lift * scale - (size * PET_FEET * breath) / PET_BOX;
+      ctx.drawImage(art, sx - size / 2, top, size, size * breath);
+      if (p.asleep && !still) {
+        // Little "z"s drifting up from a sleeping pet.
+        const t = (((now / 2400 + (sx + sy) * 0.003) % 1) + 1) % 1;
+        ctx.globalAlpha = Math.sin(Math.PI * t) * 0.7;
+        ctx.fillStyle = PAPER;
+        ctx.strokeStyle = "rgba(43, 38, 32, 0.55)";
+        ctx.lineWidth = Math.max(1, scale / 30);
+        ctx.font = `700 ${Math.round(scale * (0.16 + t * 0.08))}px "Figtree Variable", system-ui, sans-serif`;
+        const zx = sx + p.facing * size * (0.12 + t * 0.1);
+        const zy = feet - size * (0.48 + t * 0.32);
+        ctx.strokeText("z", zx, zy);
+        ctx.fillText("z", zx, zy);
+        ctx.globalAlpha = 1;
+      }
+      if (p.heart !== undefined) {
+        // A heart floats up after a pat.
+        const px = Math.round(signPx(scale) * 0.8);
+        ctx.globalAlpha = Math.min(1, (1 - p.heart) * 3);
+        ctx.drawImage(
+          iconSprite("heart", Math.round(px * dpr)),
+          sx - px / 2,
+          feet - size * 0.85 - px - p.heart * scale * 0.5,
+          px,
+          px,
+        );
+        ctx.globalAlpha = 1;
+      }
+    }
+    pets.keep(drawn);
   }
 
   // ---- residents: little figures in their looks, each a cached sprite, north to south ----

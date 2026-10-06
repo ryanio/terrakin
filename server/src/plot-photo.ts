@@ -4,6 +4,7 @@ import {
   type PlotCard,
   type PlotCrop,
   type PlotGround,
+  type PlotPet,
   probeImage,
 } from "@terrakin/cards";
 import {
@@ -21,12 +22,16 @@ import {
   isFurnitureKind,
   LEAF_TONES,
   PAPER,
+  PET_BOX,
+  petBed,
+  petShapes,
   seasonOf,
   THEME_INFO,
   THEME_TINT_ALPHA,
   tileKey,
   tuftStroke,
   type WorldState,
+  worldGround,
 } from "@terrakin/sim";
 
 /**
@@ -156,6 +161,13 @@ export function plotPhotoSpec(state: WorldState, residentId: string): PlotPhotoS
       .map((r) => onPlot(r.hearth))
       .find((h) => h !== undefined);
 
+  // The owner's pet, curled up beside their hearth where the map puts it (RFC 0019).
+  const ownHearth = onPlot(owner?.hearth);
+  const pet =
+    owner?.pet && ownHearth
+      ? petPicture(owner.pet, ownHearth, petBed(worldGround(state), ownHearth), x0, y0)
+      : undefined;
+
   const biomes = [...biomeCounts.entries()].sort((a, b) => b[1] - a[1]).map(([b]) => b);
   return {
     kind: "plot",
@@ -169,7 +181,31 @@ export function plotPhotoSpec(state: WorldState, residentId: string): PlotPhotoS
     ...(crops.length > 0 ? { crops } : {}),
     ...(hearth ? { hearth: { x: hearth.x - x0, y: hearth.y - y0 } } : {}),
     ...(owner?.homeArt ? { homeArt: owner.homeArt } : {}),
+    ...(pet ? { pet } : {}),
     ink: { roof: HEARTH_COLOR, door: HEARTH_DOOR, walls: PAPER, tuft: tuftStroke(season) },
+  };
+}
+
+/** A pet's box across, in tiles, as the map draws it, and how far it leans toward the hearth. */
+const PET_TILES = 1;
+const SNUGGLE = 0.32;
+
+/** A pet asleep on `bed`, snuggled toward `hearth`, as a plot photo draws it. */
+function petPicture(
+  pet: NonNullable<WorldState["residents"][string]["pet"]>,
+  hearth: { x: number; y: number },
+  bed: { x: number; y: number },
+  x0: number,
+  y0: number,
+): PlotPet {
+  const cx = bed.x - x0 + 0.5 + (hearth.x - bed.x) * SNUGGLE;
+  const feet = bed.y - y0 + 0.5 + (hearth.y - bed.y) * SNUGGLE + 0.32;
+  return {
+    x: cx - PET_TILES / 2,
+    y: feet - (PET_TILES * 42.5) / PET_BOX,
+    size: PET_TILES,
+    ...(hearth.x < bed.x ? { flip: true } : {}),
+    shapes: petShapes(pet.kind, pet.coat, "asleep"),
   };
 }
 

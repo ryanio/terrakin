@@ -105,6 +105,20 @@ export interface PlotInk {
   tuft: string;
 }
 
+/**
+ * A pet asleep by the hearth (RFC 0019), from the pictures the sim keeps as data: plain shapes whose
+ * every attribute is a number, a color, a path of numbers, or a fixed word, all checked here.
+ */
+export interface PlotPet {
+  /** Its box's top left corner, in tiles from the plot's, and the box's side in tiles. */
+  x: number;
+  y: number;
+  size: number;
+  /** Faces left. */
+  flip?: boolean | undefined;
+  shapes: { tag: string; attrs: Record<string, string | number> }[];
+}
+
 export interface PlotCard {
   kind: "plot";
   /** The owner's name, untrusted: drawn as text, or "A resident" when nothing in it can be drawn. */
@@ -126,6 +140,8 @@ export interface PlotCard {
   hearth?: { x: number; y: number } | undefined;
   /** The owner's own picture of their home, standing over the hearth (a data URI and its size). */
   homeArt?: { src: string; width: number; height: number } | undefined;
+  /** The owner's pet, curled up by the hearth. */
+  pet?: PlotPet | undefined;
   ink: PlotInk;
 }
 
@@ -248,6 +264,7 @@ export function plotSvg(c: PlotCard, px: number): string {
       `<path d="M${n(sx - half * 0.72)} ${n(sy - half * 0.12)}L${n(sx)} ${n(sy - half * 0.78)}L${n(sx + half * 0.72)} ${n(sy - half * 0.12)}z" fill="${safeColor(c.ink.roof)}"/>`,
     );
   }
+  if (c.pet) parts.push(...petSvg(c.pet, S));
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="0 0 ${S} ${S}" shape-rendering="geometricPrecision">${parts.join("")}</svg>`;
 }
 
@@ -264,6 +281,52 @@ function leafPath(cx: number, cy: number, turn: number): string | undefined {
   const tip = (k: number) => `${n(cx + dx * long * k)} ${n(cy + dy * long * k)}`;
   const side = (k: number) => `${n(cx - dy * wide * k)} ${n(cy + dx * wide * k)}`;
   return `M${tip(1)}Q${side(1)} ${tip(-1)}Q${side(-1)} ${tip(1)}`;
+}
+
+/** The side of a pet picture's box, in its own units, as the sim draws it. */
+const PET_BOX = 48;
+const PET_TAGS = new Set(["path", "circle", "ellipse"]);
+const NUMERIC = new Set(["cx", "cy", "r", "rx", "ry", "stroke-width", "opacity"]);
+const WORDS: Record<string, ReadonlySet<string>> = {
+  "stroke-linejoin": new Set(["round", "miter", "bevel"]),
+  "stroke-linecap": new Set(["round", "butt", "square"]),
+};
+/** A path made only of commands and numbers: nothing that could close the attribute. */
+const PATH_DATA = /^[MmLlHhVvCcSsQqTtAaZz0-9.,\s-]{1,1500}$/;
+
+/** One attribute of a pet's shape as markup, or "" when it isn't one we draw or doesn't check out. */
+function petAttr(name: string, value: string | number): string {
+  if (NUMERIC.has(name)) {
+    const v = Number(value);
+    return typeof value === "number" && Number.isFinite(v) && Math.abs(v) < 1000
+      ? ` ${name}="${n(v)}"`
+      : "";
+  }
+  if (name === "fill" || name === "stroke") {
+    return value === "none" ? ` ${name}="none"` : ` ${name}="${safeColor(String(value))}"`;
+  }
+  if (name === "d") return PATH_DATA.test(String(value)) ? ` d="${String(value)}"` : "";
+  const words = WORDS[name];
+  return words?.has(String(value)) ? ` ${name}="${String(value)}"` : "";
+}
+
+/** A pet on the plot, its picture scaled into its box and flipped to face left when it does. */
+function petSvg(p: PlotPet, S: number): string[] {
+  const { x, y, size } = p;
+  const ok = [x, y, size].every(Number.isFinite) && size > 0 && size <= 4;
+  if (!ok || x < -size || y < -size || x > S || y > S || !Array.isArray(p.shapes)) return [];
+  const k = size / PET_BOX;
+  const place = p.flip
+    ? `translate(${n(x + size)} ${n(y)}) scale(${n(-k)} ${n(k)})`
+    : `translate(${n(x)} ${n(y)}) scale(${n(k)})`;
+  const shapes = p.shapes.slice(0, 80).flatMap((s) => {
+    if (!PET_TAGS.has(s.tag) || !s.attrs || typeof s.attrs !== "object") return [];
+    const attrs = Object.entries(s.attrs)
+      .map(([name, value]) => petAttr(name, value))
+      .join("");
+    return [`<${s.tag}${attrs}/>`];
+  });
+  return [`<g transform="${place}">${shapes.join("")}</g>`];
 }
 
 const WOOD_DARK = "#6e4a2c";

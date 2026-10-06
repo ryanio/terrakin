@@ -10,6 +10,8 @@
  */
 
 import type { PetCoat, PetKind } from "./pets";
+import type { Tile } from "./types";
+import type { Ground } from "./walk";
 
 /** One shape: an SVG element by tag, its attributes, and a group's children. */
 export interface PetShape {
@@ -19,7 +21,7 @@ export interface PetShape {
 }
 
 /** Awake (sitting or standing) or curled up asleep. */
-export type PetPose = "awake" | "asleep";
+export type PetPosture = "awake" | "asleep";
 /** An awake pet's face: its eyes open, or happy (arcs and a blush). */
 export type PetFace = "open" | "happy";
 
@@ -182,7 +184,7 @@ const spots = (list: readonly (readonly [number, number, number, number])[], fil
 
 // ---------- cat ----------
 
-function cat(c: PetColors, coat: string, pose: PetPose, face: PetFace): PetShape[] {
+function cat(c: PetColors, coat: string, pose: PetPosture, face: PetFace): PetShape[] {
   const striped = coat === "ginger" || coat === "tabby";
   const socks = coat === "black" ? c.belly : c.fur;
   if (pose === "asleep") {
@@ -252,7 +254,7 @@ function cat(c: PetColors, coat: string, pose: PetPose, face: PetFace): PetShape
 
 // ---------- dog ----------
 
-function dog(c: PetColors, coat: string, pose: PetPose, face: PetFace): PetShape[] {
+function dog(c: PetColors, coat: string, pose: PetPosture, face: PetFace): PetShape[] {
   const spotted = coat === "spotted";
   if (pose === "asleep") {
     return [
@@ -311,7 +313,7 @@ function dog(c: PetColors, coat: string, pose: PetPose, face: PetFace): PetShape
 
 // ---------- rabbit ----------
 
-function rabbit(c: PetColors, coat: string, pose: PetPose, face: PetFace): PetShape[] {
+function rabbit(c: PetColors, coat: string, pose: PetPosture, face: PetFace): PetShape[] {
   const patched = coat === "patched";
   if (pose === "asleep") {
     return [
@@ -389,7 +391,7 @@ function spines(
   return d;
 }
 
-function hedgehog(c: PetColors, _coat: string, pose: PetPose, face: PetFace): PetShape[] {
+function hedgehog(c: PetColors, _coat: string, pose: PetPosture, face: PetFace): PetShape[] {
   if (pose === "asleep") {
     return [
       shadow(13),
@@ -428,7 +430,7 @@ function hedgehog(c: PetColors, _coat: string, pose: PetPose, face: PetFace): Pe
 
 // ---------- duck ----------
 
-function duck(c: PetColors, coat: string, pose: PetPose, face: PetFace): PetShape[] {
+function duck(c: PetColors, coat: string, pose: PetPosture, face: PetFace): PetShape[] {
   const mallard = coat === "mallard";
   const bill = c.bill ?? "#f2a33a";
   const head = mallard ? c.mark : c.fur;
@@ -483,7 +485,7 @@ function duck(c: PetColors, coat: string, pose: PetPose, face: PetFace): PetShap
 
 // ---------- frog ----------
 
-function frog(c: PetColors, coat: string, pose: PetPose, face: PetFace): PetShape[] {
+function frog(c: PetColors, coat: string, pose: PetPosture, face: PetFace): PetShape[] {
   const spotted = coat === "spotted" || coat === "blue";
   const back: [number, number, number, number][] = [
     [17, 32.4, 1.8, 1.4],
@@ -529,7 +531,7 @@ function frog(c: PetColors, coat: string, pose: PetPose, face: PetFace): PetShap
 
 // ---------- fox ----------
 
-function fox(c: PetColors, _coat: string, pose: PetPose, face: PetFace): PetShape[] {
+function fox(c: PetColors, _coat: string, pose: PetPosture, face: PetFace): PetShape[] {
   if (pose === "asleep") {
     return [
       shadow(15),
@@ -596,7 +598,7 @@ function rays(x: number, y: number, r: number): string {
   return d;
 }
 
-function tortoise(c: PetColors, coat: string, pose: PetPose, face: PetFace): PetShape[] {
+function tortoise(c: PetColors, coat: string, pose: PetPosture, face: PetFace): PetShape[] {
   const skin = c.bill ?? c.belly;
   const star = coat === "star";
   const plates: [number, number, number][] = [
@@ -647,15 +649,34 @@ function tortoise(c: PetColors, coat: string, pose: PetPose, face: PetFace): Pet
 
 const DRAW: Record<
   PetKind,
-  (c: PetColors, coat: string, pose: PetPose, face: PetFace) => PetShape[]
+  (c: PetColors, coat: string, pose: PetPosture, face: PetFace) => PetShape[]
 > = { cat, dog, rabbit, hedgehog, duck, frog, fox, tortoise };
 
 /** The shapes of one pet picture, back to front, in a 48 by 48 box, facing right. Pure. */
 export function petShapes(
   kind: PetKind,
   coat: PetCoat | string,
-  pose: PetPose = "awake",
+  pose: PetPosture = "awake",
   face: PetFace = "open",
 ): PetShape[] {
   return DRAW[kind](petColors(kind, coat), coat, pose, face);
+}
+
+/**
+ * Where a pet sleeps: the first open tile east, west, south, or north of its owner's hearth, or the
+ * hearth itself when it's walled in. The map, the 3D world, and plot photos all put it there.
+ */
+export function petBed(ground: Ground, hearth: Tile): Tile {
+  const { width, height } = ground.config;
+  for (const [dx, dy] of [
+    [1, 0],
+    [-1, 0],
+    [0, 1],
+    [0, -1],
+  ] as const) {
+    const x = hearth.x + dx;
+    const y = hearth.y + dy;
+    if (x >= 0 && y >= 0 && x < width && y < height && !ground.obstacle(x, y)) return { x, y };
+  }
+  return { x: hearth.x, y: hearth.y };
 }

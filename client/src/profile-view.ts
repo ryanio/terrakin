@@ -62,6 +62,7 @@ import { savedResidentId, savedToken, saveToken } from "./net";
 import { agentItem, type OwnerPanel, ownerPanel } from "./owner-panel";
 import { profileDesign, verifiedRow } from "./partner-badge";
 import { type PeopleTab, peoplePath } from "./people-view";
+import { petCard } from "./pet-sheet";
 import { plotPhotoButton } from "./plot-photo";
 import { postCard, skeletonCards } from "./post-card";
 import { coins, refreshPurse } from "./purse";
@@ -153,6 +154,9 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
     }
     const postsTitle = h("h2", { class: "section-title", text: "Posts" });
     el.append(postsTitle);
+    // Their pet (RFC 0019), or on your own profile an invitation to adopt one.
+    const pet = petCardFor(resident);
+    if (pet) postsTitle.before(pet);
     void stallCard(resident).then((card) => {
       if (card && !destroyed && postsTitle.isConnected) postsTitle.before(card);
     });
@@ -169,6 +173,23 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       return;
     }
     paging(list, posts.data.posts, posts.data.next, resident.name);
+  }
+
+  /** The pet card, which reloads itself from the profile after a pat, a treat, or a change. */
+  function petCardFor(r: Pick<ProfileView, "id" | "name" | "pet">): HTMLElement | undefined {
+    const card = petCard({
+      owner: r,
+      pet: r.pet,
+      mine: savedToken() !== null && savedResidentId() === r.id,
+      signedIn: savedToken() !== null,
+      refresh: async () => {
+        const again = await api.profile(r.id);
+        if (destroyed || !again.ok || !card?.isConnected) return;
+        const next = petCardFor(again.data.resident);
+        if (next) card.replaceWith(next);
+      },
+    });
+    return card;
   }
 
   function paging(list: HTMLElement, first: PostView[], firstNext: string | null, name: string) {

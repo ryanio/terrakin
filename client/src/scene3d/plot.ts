@@ -110,6 +110,7 @@ import {
   underFootprint,
 } from "./layout";
 import { BRAND, blockLook, hex, mix, residentHex, SKY, shade } from "./palette";
+import { petGeometry, petMaterial } from "./pets";
 import { wearGroup } from "./wear";
 import { createWeather } from "./weather";
 
@@ -197,6 +198,28 @@ export function buildPlot(
     setUmbrella(fig, sky.rain >= UMBRELLA_RAIN && !f.away);
     root.add(fig);
     figures.push(fig);
+  }
+
+  // The owner's pet by the hearth (RFC 0019): breathing slowly while it sleeps.
+  const pet = layout.pet;
+  if (pet) {
+    const mesh = new Mesh(
+      stage.keep(petGeometry(pet.kind, pet.coat, pet.asleep ? "asleep" : "awake")),
+      stage.keep(petMaterial()),
+    );
+    mesh.position.set(toX(pet.x), 0, toZ(pet.y));
+    mesh.rotation.y = pet.heading;
+    mesh.scale.setScalar(1.15);
+    mesh.castShadow = true;
+    const shadow = blobShadow(shadowMap, 0.26, 0.24);
+    shadow.position.set(toX(pet.x), shadow.position.y, toZ(pet.y));
+    root.add(mesh, shadow);
+    if (!stage.reducedMotion) {
+      stage.animate(({ time }) => {
+        mesh.scale.y =
+          1.15 * (1 + Math.sin(time * (pet.asleep ? 1.4 : 2.2)) * (pet.asleep ? 0.03 : 0.015));
+      });
+    }
   }
 
   if (extras.homeModel && footprint) {
@@ -1176,7 +1199,7 @@ const icons = new Map<FeelingIcon, CanvasTexture>();
 /** The signs drawn so far: shared, so dropping one figure must not free them. */
 export const ICON_TEXTURES: ReadonlySet<Texture> = new Set<Texture>();
 
-function iconTexture(icon: FeelingIcon): CanvasTexture {
+export function iconTexture(icon: FeelingIcon): CanvasTexture {
   let texture = icons.get(icon);
   if (!texture) {
     const c = document.createElement("canvas");

@@ -10,6 +10,8 @@ import {
   type GroundKind,
   type MadeKind,
   type Pattern,
+  type PetCoat,
+  type PetKind,
   type ResidentColor,
   type ResidentShape,
   type Season,
@@ -25,6 +27,7 @@ import type { Feeling } from "@terrakin/ui/feelings";
 import { type FigureLook, garmentColor, garmentLook } from "@terrakin/ui/figure";
 import { isMediaUrl } from "@terrakin/ui/format";
 import { growth } from "@terrakin/ui/item-art";
+import { dayPhase, nightAmount } from "../time";
 import { skyNow } from "../weather";
 
 /** Inclusive tile range. */
@@ -317,8 +320,51 @@ export interface PlotLayout {
   /** The world's season, for the ground, and the weather when the snapshot was taken. */
   season: Season | undefined;
   weather: Weather;
+  /** The owner's pet, by the hearth (RFC 0019). Absent when they have none, or no hearth here. */
+  pet?: LayoutPet;
   /** Is this tile inside the world at all? */
   inWorld(x: number, y: number): boolean;
+}
+
+/** A pet in the plot view: where it is, which way it faces, and whether it's curled up asleep. */
+export interface LayoutPet {
+  kind: PetKind;
+  coat: PetCoat;
+  x: number;
+  y: number;
+  /** Radians from south toward east, as the world view turns pets. */
+  heading: number;
+  asleep: boolean;
+}
+
+/** Night enough for a pet to curl up by its hearth: past dusk and before dawn. */
+export function isNight(time: WorldSnapshot["time"]): boolean {
+  return time ? nightAmount(dayPhase(time.nowMs, time.dayLengthMs)) > 0.5 : false;
+}
+
+/**
+ * Where the owner's pet is in the plot view: beside the hearth on the first open tile east, west,
+ * south, or north that no figure stands on, curled up and snuggled toward the hearth at night or
+ * while its owner is away, and sitting up facing the camera otherwise.
+ */
+export function petSpot(
+  hearth: { x: number; y: number },
+  free: (x: number, y: number) => boolean,
+  asleep: boolean,
+): { x: number; y: number; heading: number } | undefined {
+  for (const [dx, dy] of [
+    [1, 0],
+    [-1, 0],
+    [0, 1],
+    [0, -1],
+  ] as const) {
+    const x = hearth.x + dx;
+    const y = hearth.y + dy;
+    if (!free(x, y)) continue;
+    if (!asleep) return { x, y, heading: 0.5 };
+    return { x: x - dx * 0.32, y: y - dy * 0.32, heading: Math.atan2(-dx, -dy) };
+  }
+  return undefined;
 }
 
 /**
@@ -425,6 +471,19 @@ export function plotLayout(
   }
   const { season, weather } = skyNow(snapshot.time?.nowMs, snapshot.day);
 
+  // The owner's pet, beside the hearth and clear of everyone drawn there, sleepers too: they lie
+  // between tiles, so each takes the tile they're nearest.
+  const taken = new Set(figures.map((f) => `${Math.round(f.x)},${Math.round(f.y)}`));
+  const night = isNight(snapshot.time);
+  const pet =
+    owner.pet && hearth
+      ? petSpot(
+          hearth,
+          (x, y) => inBounds(bounds, x, y) && !solid.has(`${x},${y}`) && !taken.has(`${x},${y}`),
+          night || !owner.online,
+        )
+      : undefined;
+
   return {
     ownerId: owner.id,
     ownerName: owner.name,
@@ -441,6 +500,16 @@ export function plotLayout(
     crops,
     season,
     weather,
+    ...(owner.pet && pet
+      ? {
+          pet: {
+            kind: owner.pet.kind,
+            coat: owner.pet.coat,
+            ...pet,
+            asleep: night || !owner.online,
+          },
+        }
+      : {}),
     inWorld: (x, y) => x >= 0 && y >= 0 && x < width && y < height,
   };
 }

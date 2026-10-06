@@ -49,6 +49,8 @@ import { createLanding } from "./landing";
 import { Mirror } from "./mirror";
 import { Motion } from "./motion";
 import { Connection, type Identity, savedToken, saveToken } from "./net";
+import { openWorldPetSheet, patPet } from "./pet-sheet";
+import { PetMotion, petCalled } from "./pets";
 import { blockColor, HEARTH_COLOR, render } from "./render";
 import { dozerAt } from "./scene3d/layout";
 import type { World3d } from "./scene3d/world";
@@ -84,6 +86,7 @@ const paletteRows: Record<PaletteTab, HTMLElement> = {
 };
 const paletteLine = $("palette-line");
 const modeButton = $<HTMLButtonElement>("world-mode");
+const petButton = $<HTMLButtonElement>("world-pet");
 const host3d = $("world-3d");
 
 const motionQuery = window.matchMedia(REDUCED_MOTION);
@@ -93,6 +96,13 @@ const feelings = new Feelings();
 const motion = new Motion();
 /** The weather drifting in and out, for the map and the 3D view alike (decision 0073). */
 const sky = new Sky();
+/** Where pets are and what they're doing (RFC 0019), for the map and the 3D view alike. */
+const pets = new PetMotion();
+/** Standing this close to someone's pet, in tiles, offers to pat it. */
+const PAT_NEAR = 1.6;
+/** Whose pet the Pat button is for now, and when it last looked. */
+let petNear: string | undefined;
+let petCheckAt = 0;
 
 let active = false;
 let rafId = 0;
@@ -357,6 +367,10 @@ function onMessage(msg: ServerMessage) {
       }
       break;
     }
+    case "pet_patted":
+      // Someone patted a pet: it looks happy wherever it's drawn. Who did isn't said.
+      pets.pat(msg.owner, performance.now());
+      break;
     case "chat":
       addChat(msg.from.name, msg.from.kind, msg.text, msg.channel);
       // Figures near the speaker look their way, and the words show over the speaker's head.
@@ -652,6 +666,21 @@ function tapTile(tile: { x: number; y: number }) {
       const m = mirror;
       if (!m || m.mayGatherAt(tile.x, tile.y, r.id)) tryAct({ type: "gather", ...tile });
       else showToast(othersPickupLine(m.residents.get(m.ownerAt(tile.x, tile.y) ?? "")?.name));
+    });
+    return;
+  }
+  // A pet drawn on or right by the tapped tile opens its sheet: Pat and Give a treat, or, for your
+  // own, Rename and New coat. Pets are drawing only, so this asks where they were last drawn.
+  const petOwner = other ? undefined : pets.nearest(tile.x, tile.y, 0.75);
+  const owned = petOwner ? mirror.residents.get(petOwner) : undefined;
+  if (owned?.pet) {
+    lookAt(tile);
+    openWorldPetSheet({
+      owner: { id: owned.id, name: owned.name },
+      pet: owned.pet,
+      mine: owned.id === me,
+      patted: () => pets.pat(owned.id, performance.now()),
+      say: (text) => showToast(text),
     });
     return;
   }
@@ -1073,8 +1102,21 @@ function frame() {
   // Only once the server's clock is known, so the first weather we draw is the real one, not a
   // spell drifting in from a clear sky.
   if (serverMs !== undefined) sky.update(weather, now, still);
+  // Pets plan their days by the server's clock, so every screen tells the same story.
+  const clock = serverMs ?? Date.now();
   if (world3d && mirror && me)
-    world3d.sync({ mirror, me, buildMode, feelings, motion, season, sky: sky.amounts });
+    world3d.sync({
+      mirror,
+      me,
+      buildMode,
+      feelings,
+      motion,
+      season,
+      sky: sky.amounts,
+      pets,
+      clock,
+      ...(phase === undefined ? {} : { dayPhase: phase }),
+    });
   else if (mirror)
     render(ctx, {
       mirror,
@@ -1087,8 +1129,14 @@ function frame() {
       still,
       season,
       sky: sky.amounts,
+      pets,
+      clock,
       ...(phase === undefined ? {} : { dayPhase: phase }),
     });
+  if (now - petCheckAt > 250) {
+    petCheckAt = now;
+    paintPetButton(now);
+  }
   // Your own figure's feeling, a name from a fixed list, once you're in: for tests and tools.
   const mine = me ? feelings.feeling(me, now) : "";
   if (canvas.dataset.feeling !== mine) canvas.dataset.feeling = mine;
@@ -1097,6 +1145,29 @@ function frame() {
 
 window.addEventListener("resize", () => {
   if (active) resize();
+});
+
+/** Show "Pat Biscuit" while you stand by someone's pet (RFC 0019), and hide it otherwise. */
+function paintPetButton(now: number) {
+  const r = self();
+  const at = r && me ? motion.pose(r, now, motionQuery.matches) : undefined;
+  const owner = at ? pets.nearest(at.x, at.y, PAT_NEAR, me) : undefined;
+  const pet = owner ? mirror?.residents.get(owner)?.pet : undefined;
+  petNear = pet ? owner : undefined;
+  petButton.hidden = !pet;
+  if (!pet) return;
+  const label = `Pat ${petCalled(pet, "their")}`;
+  const text = petButton.querySelector("span");
+  if (text && text.textContent !== label) text.textContent = label;
+}
+
+petButton.addEventListener("click", async () => {
+  const owner = petNear;
+  const pet = owner ? mirror?.residents.get(owner)?.pet : undefined;
+  if (!owner || !pet) return;
+  if (await patPet(petButton, owner, pet, (text) => showToast(text))) {
+    pets.pat(owner, performance.now());
+  }
 });
 
 /** Show the world: start drawing, and connect if we have a token. */
@@ -1148,5 +1219,7 @@ export function stopWorld() {
   stopWalking();
   hud.hidden = true;
   worldWait.hidden = true;
+  petButton.hidden = true;
+  petNear = undefined;
   landing.setJoining(false);
 }

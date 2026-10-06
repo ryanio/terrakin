@@ -7850,3 +7850,189 @@ html.view3d-open body {
 .away-mark.paused {
   color: var(--ink-soft);
 }
+
+/* ---------- pets (RFC 0019): the Adopt sheet, a profile's pet card, and a pet's sheet ---------- */
+
+.pet-stage {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2xs);
+  padding: var(--space-md) 0 var(--space-xs);
+  border-radius: var(--r-card);
+  background:
+    radial-gradient(ellipse at 50% 92%, rgba(94, 127, 69, 0.22), transparent 62%),
+    linear-gradient(180deg, var(--paper-2), #eef3df);
+}
+
+.pet-preview {
+  display: grid;
+  place-items: center;
+  min-height: 150px;
+}
+
+.pet-preview-line {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  color: var(--ink-soft);
+}
+
+/* Kinds: four to a row on a phone, each the pet over its name. */
+.pet-kinds,
+.pet-coats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-xs);
+}
+
+.pet-kinds button,
+.pet-coats button {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  min-height: 44px;
+  padding: var(--space-2xs) 2px var(--space-xs);
+  border: 1.5px solid var(--paper-edge);
+  border-radius: var(--r-md);
+  background: var(--field);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--ink-soft);
+}
+
+.pet-kinds button[aria-pressed="true"],
+.pet-coats button[aria-pressed="true"] {
+  border-color: var(--clay);
+  background: var(--pressed);
+  color: var(--clay-deep);
+  box-shadow: 0 0 0 3px rgba(242, 184, 75, 0.28);
+}
+
+.pet-sheet .field-label {
+  margin-top: var(--space-md);
+}
+
+.pet-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+.pet-rename {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: center;
+}
+
+.pet-rename .field-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.pet-treat {
+  gap: var(--space-xs);
+}
+
+.pet-card-body {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+}
+
+.pet-card-art {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 104px;
+  height: 104px;
+  border-radius: 50%;
+  background:
+    radial-gradient(ellipse at 50% 88%, rgba(94, 127, 69, 0.26), transparent 64%), var(--paper-2);
+}
+
+.pet-card-name {
+  margin: 0;
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-tight);
+  overflow-wrap: anywhere;
+}
+
+.pet-card-line,
+.pet-card-pats {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--text-md);
+}
+
+.pet-card-pats {
+  font-weight: var(--weight-semibold);
+  color: var(--moss-deep);
+}
+
+.pet-teaser {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-xs);
+}
+
+/* A heart that floats up from a pet when you pat it. */
+.pet-heart {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  width: 22px;
+  height: 22px;
+  opacity: 0;
+  background: var(--clay);
+  clip-path: path("M11 20s-9-5.2-9-11.3A5 5 0 0 1 11 6a5 5 0 0 1 9 2.7C20 14.8 11 20 11 20z");
+}
+
+.pet-card.happy .pet-heart {
+  animation: pet-heart 1.6s ease-out;
+}
+
+@keyframes pet-heart {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.6);
+  }
+  20% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-22px) scale(1.1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pet-card.happy .pet-heart {
+    animation: none;
+  }
+}
+
+/* "Pat Biscuit": above the 3D toggle while you stand by a neighbor's pet, clear of the actions. */
+.world-pet {
+  position: absolute;
+  left: calc(14px + env(safe-area-inset-left));
+  bottom: calc(
+    14px +
+    env(safe-area-inset-bottom) +
+    var(--tap) *
+    4 +
+    var(--space-2xs) *
+    2 +
+    var(--space-md) *
+    2
+  );
+  max-width: calc(100vw - 180px);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  box-shadow: 0 4px 14px rgba(74, 52, 28, 0.18);
+}

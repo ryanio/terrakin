@@ -374,6 +374,40 @@ describe("renderer", () => {
     expect(odd.match(/<ellipse/g)).toHaveLength(1);
   });
 
+  it("draws a pet only from shapes that check out: numbers, colors, and paths of numbers", () => {
+    const pet = {
+      x: 3.7,
+      y: 3,
+      size: 0.9,
+      flip: true,
+      shapes: [
+        { tag: "ellipse", attrs: { cx: 24, cy: 34, rx: 10, ry: 6, fill: "#df7a3c" } },
+        {
+          tag: "path",
+          attrs: { d: "M10 40l4-6z", fill: "none", stroke: "#5a5146", "stroke-linecap": "round" },
+        },
+        { tag: "script", attrs: { d: "M0 0z" } },
+        { tag: "path", attrs: { d: 'M0 0"/><script>x</script>', fill: '"/><image href="x' } },
+        {
+          tag: "circle",
+          attrs: { cx: "4", cy: 4, r: Number.NaN, onload: "x()", href: "https://example.com" },
+        },
+        { tag: "path", attrs: { d: "M1 1z", "stroke-linejoin": "url(#x)" } },
+      ],
+    };
+    const svg = plotSvg({ ...samplePlot("Wren"), pet }, 420);
+    expect(svg).not.toMatch(/<script|<image|href|onload|example\.com|NaN|url\(/);
+    expect(svg).toContain('<ellipse cx="24" cy="34" rx="10" ry="6" fill="#df7a3c"/>');
+    expect(svg).toContain(
+      '<path d="M10 40l4-6z" fill="none" stroke="#5a5146" stroke-linecap="round"/>',
+    );
+    // Facing left: flipped about its box.
+    expect(svg).toContain('<g transform="translate(4.6 3) scale(-0.019 0.019)">');
+    // A pet off the plot, or a box too big, draws nothing.
+    expect(plotSvg({ ...samplePlot("Wren"), pet: { ...pet, x: 99 } }, 420)).not.toContain("<g ");
+    expect(plotSvg({ ...samplePlot("Wren"), pet: { ...pet, size: 40 } }, 420)).not.toContain("<g ");
+  });
+
   it("draws the shop's decor as itself, with fence rails only toward other fences", () => {
     const one = (decor: PlotDecor, x = 1) =>
       plotSvg(

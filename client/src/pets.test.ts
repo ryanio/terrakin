@@ -2,14 +2,17 @@ import { groundOf, type Pet, tileKey, type WorldConfig } from "@terrakin/sim";
 import { describe, expect, it } from "vitest";
 import {
   aThing,
+  bedBy,
+  DOZE_OFF_MS,
   followSpot,
   HAPPY_MS,
   homePlan,
+  lyingOn,
   PetMotion,
   type PetScene,
   petCalled,
+  petLine,
   SLOT_MS,
-  sleepSpot,
   WANDER,
 } from "./pets";
 
@@ -71,37 +74,32 @@ function film(m: PetMotion, o: ReturnType<typeof owner>, s: PetScene, ms: number
 }
 
 describe("where a pet sleeps", () => {
-  it("curls up east of the hearth, else west, south, or north, else on it", () => {
-    expect(sleepSpot(hut(), HEARTH)).toEqual({ x: 4, y: 3 });
-    expect(sleepSpot(hut([[4, 3]]), HEARTH)).toEqual({ x: 2, y: 3 });
-    expect(
-      sleepSpot(
-        hut([
-          [4, 3],
-          [2, 3],
-        ]),
-        HEARTH,
-      ),
-    ).toEqual({ x: 3, y: 4 });
-    expect(
-      sleepSpot(
-        hut([
-          [4, 3],
-          [2, 3],
-          [3, 4],
-          [3, 2],
-        ]),
-        HEARTH,
-      ),
-    ).toEqual(HEARTH);
-  });
-
   it("sleeps there all night, snuggled up against the hearth", () => {
     const m = new PetMotion();
     const last = film(m, owner(), scene({ night: true }), 3_000).at(-1);
     expect(last).toMatchObject({ asleep: true, doing: "sleep", facing: -1 });
     expect(last?.x).toBeGreaterThan(3.5);
     expect(last?.x).toBeLessThan(4);
+  });
+
+  it("beds down beside its owner asleep at the hearth, never on top of them", () => {
+    const ground = hut();
+    // Away, its owner lies east of the hearth (decision 0086), so the pet takes the west side.
+    const lying = lyingOn([{ x: HEARTH.x + 0.72, y: HEARTH.y }]);
+    expect(bedBy(ground, HEARTH)).toEqual({ x: 4, y: 3 });
+    expect(bedBy(ground, HEARTH, lying)).toEqual({ x: 2, y: 3 });
+    // Every side taken, it finds a corner.
+    const sides = [
+      { x: 3.72, y: 3 },
+      { x: 2.28, y: 3 },
+      { x: 3, y: 3.6 },
+      { x: 3, y: 2.4 },
+    ];
+    expect(bedBy(ground, HEARTH, lyingOn(sides))).toEqual({ x: 4, y: 4 });
+    const last = film(new PetMotion(), owner(), scene({ night: true, lying }), 3_000).at(-1);
+    expect(last).toMatchObject({ asleep: true, doing: "sleep", facing: 1 });
+    expect(last?.x).toBeGreaterThan(2);
+    expect(last?.x).toBeLessThan(2.5);
   });
 });
 
@@ -144,21 +142,27 @@ describe("out with its owner", () => {
     const m = new PetMotion();
     const o = owner({ online: true });
     // They walk from the hearth out of the door to (3, 7).
-    const s = scene({ drawn: { x: 3, y: 7, facing: "s" } });
+    const s = scene({ drawn: { x: 3, y: 7 } });
     const last = film(m, o, s, 3_000).at(-1);
     expect(last?.doing).toBe("follow");
     expect(Math.max(Math.abs((last?.x ?? 0) - 3), Math.abs((last?.y ?? 0) - 7))).toBe(1);
     expect(last?.asleep).toBe(false);
   });
 
+  it("curls up at their feet at night once they've stood still a while, and wakes when they move", () => {
+    const m = new PetMotion();
+    const o = owner({ online: true });
+    const s = scene({ night: true, drawn: { x: 3, y: 7 } });
+    expect(film(m, o, s, 2_000).at(-1)?.asleep).toBe(false);
+    const later = { ...s, now: DOZE_OFF_MS + 2_500, clock: DOZE_OFF_MS + 2_500 };
+    expect(m.pose(o, later)).toMatchObject({ doing: "follow", asleep: true });
+    const moved = { ...later, now: later.now + 16, drawn: { x: 4, y: 7 } };
+    expect(m.pose(o, moved)?.asleep).toBe(false);
+  });
+
   it("stays home while they're off the plot", () => {
     const m = new PetMotion();
-    const last = film(
-      m,
-      owner({ online: true }),
-      scene({ drawn: { x: 12, y: 12, facing: "s" } }),
-      2_000,
-    ).at(-1);
+    const last = film(m, owner({ online: true }), scene({ drawn: { x: 12, y: 12 } }), 2_000).at(-1);
     expect(last?.doing).not.toBe("follow");
     expect(Math.abs((last?.x ?? 99) - HEARTH.x)).toBeLessThanOrEqual(WANDER);
   });
@@ -166,16 +170,19 @@ describe("out with its owner", () => {
   it("follows a hearthless owner anywhere, and isn't drawn while they're away", () => {
     const m = new PetMotion();
     const o = owner({ online: true, hearth: null });
-    expect(m.pose(o, scene({ drawn: { x: 12, y: 12, facing: "e" } }))?.doing).toBe("follow");
+    expect(m.pose(o, scene({ drawn: { x: 12, y: 12 } }))?.doing).toBe("follow");
     expect(m.pose({ ...o, online: false }, scene())).toBeUndefined();
   });
 
-  it("goes behind them, else beside them, and keeps its seat when already beside them", () => {
+  it("sits at their heel, beside or in front of them, never behind their head", () => {
     const ground = hut();
-    expect(followSpot(ground, { x: 3, y: 7 }, "s", { x: 9, y: 9 })).toEqual({ x: 3, y: 6 });
-    expect(followSpot(ground, { x: 3, y: 7 }, "s", { x: 4, y: 8 })).toEqual({ x: 4, y: 8 });
-    // Behind them is the hut's wall: the nearest open tile beside them instead.
-    expect(followSpot(ground, { x: 2, y: 6 }, "s", { x: 9, y: 9 })).not.toEqual({ x: 2, y: 5 });
+    // Nearest the pet among the spots at heel: east or west, or the row in front.
+    expect(followSpot(ground, { x: 9, y: 9 }, { x: 12, y: 9 })).toEqual({ x: 10, y: 9 });
+    expect(followSpot(ground, { x: 9, y: 9 }, { x: 4, y: 9 })).toEqual({ x: 8, y: 9 });
+    expect(followSpot(ground, { x: 9, y: 9 }, { x: 9, y: 6 })).toEqual({ x: 10, y: 9 });
+    expect(followSpot(ground, { x: 9, y: 9 }, { x: 9, y: 14 })).toEqual({ x: 9, y: 10 });
+    // In the hut's doorway the walls are either side, so it sits in front.
+    expect(followSpot(ground, { x: 3, y: 5 }, { x: 9, y: 9 })).toEqual({ x: 4, y: 6 });
   });
 });
 
@@ -207,6 +214,8 @@ describe("words", () => {
   it("calls a pet by its name, or by its kind while its name is held back", () => {
     expect(petCalled(PET)).toBe("Biscuit");
     expect(petCalled({ kind: "fox", name: "" }, "their")).toBe("their fox");
+    expect(petLine({ kind: "fox", coat: "arctic" })).toBe("an arctic fox");
+    expect(petLine({ kind: "cat", coat: "ginger" })).toBe("a ginger cat");
     expect(aThing("strawberry")).toBe("a strawberry");
     expect(aThing("herb")).toBe("a bunch of herbs");
   });

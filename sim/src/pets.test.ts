@@ -3,10 +3,13 @@ import { apply } from "./apply";
 import { MARKET_CONFIG, MARKET_LOG } from "./fixtures/market-log";
 import { PETS_CONFIG, PETS_HASH, PETS_LOG } from "./fixtures/pets-log";
 import { hashWorld } from "./hash";
+import { tileKey } from "./keys";
+import { petBed } from "./pet-art";
 import { PETS, treatedToday } from "./pets";
 import { replay } from "./replay";
 import { expectSupplyHolds, fund, stock } from "./test-support";
 import { type Command, type RejectionCode, TOWN_ACTOR, type WorldState } from "./types";
+import { groundOf } from "./walk";
 import { createWorld, DEFAULT_CONFIG } from "./world";
 
 function act(state: WorldState, actor: string, command: Command) {
@@ -258,5 +261,25 @@ describe("the pets log", () => {
     expect(state.residents.bob?.pet).toMatchObject({ kind: "tortoise", name: "Shelly" });
     expectSupplyHolds(state);
     expect(hashWorld(state)).toBe(PETS_HASH);
+  });
+});
+
+describe("where a pet sleeps", () => {
+  it("is the first open tile east, west, south, or north of the hearth, else the hearth", () => {
+    const hearth = { x: 3, y: 3 };
+    const bed = (...blocked: [number, number][]) =>
+      petBed(
+        groundOf({
+          config: DEFAULT_CONFIG,
+          hasBlock: (x, y) => blocked.some(([bx, by]) => tileKey(bx, by) === tileKey(x, y)),
+          solidBuildings: false,
+          shopOpen: false,
+        }),
+        hearth,
+      );
+    expect(bed()).toEqual({ x: 4, y: 3 });
+    expect(bed([4, 3])).toEqual({ x: 2, y: 3 });
+    expect(bed([4, 3], [2, 3])).toEqual({ x: 3, y: 4 });
+    expect(bed([4, 3], [2, 3], [3, 4], [3, 2])).toEqual(hearth);
   });
 });

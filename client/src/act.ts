@@ -13,6 +13,8 @@ export interface ActOptions {
   gone?: () => boolean;
   /** What to do after it worked, such as reloading the page's data. */
   after?: () => unknown;
+  /** Where to say how it went, when not the site's toast (the world has its own). */
+  say?: (text: string) => void;
 }
 
 /** Send `action` from `button` and say `done` when it worked. True when it did. */
@@ -20,12 +22,12 @@ export async function actFromButton(
   button: HTMLButtonElement,
   action: Action,
   done: string,
-  { gone, after }: ActOptions = {},
+  { gone, after, say = toast }: ActOptions = {},
 ): Promise<boolean> {
   const r = await whileBusy(button, () => api.act(action));
   if (gone?.()) return false;
   const problem = actProblem(r);
-  toast(problem ?? done);
+  say(problem ?? done);
   if (problem) return false;
   refreshPurse(true);
   await after?.();

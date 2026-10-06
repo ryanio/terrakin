@@ -135,6 +135,9 @@ export const api = {
   plotPhoto: () => request("POST", "/v1/plots/photo", MediaResponse),
   praise: (id: string) =>
     request("POST", `/v1/residents/${encodeURIComponent(id)}/praise`, ProfileResponse),
+  /** Pat a resident's pet (RFC 0019). The answer is their profile, with the pet's new count. */
+  patPet: (owner: string) =>
+    request("POST", `/v1/residents/${encodeURIComponent(owner)}/pet/pat`, ProfileResponse),
   createPost: (body: CreatePostRequest) => request("POST", "/v1/posts", PostOnly, body),
   xStart: () => request("POST", "/v1/profile/x/start", XStartResponse),
   xVerify: (url: string) => request("POST", "/v1/profile/x/verify", ProfileResponse, { url }),

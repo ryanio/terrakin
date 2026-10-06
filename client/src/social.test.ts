@@ -362,6 +362,20 @@ describe("notification lines", () => {
     );
     expect(notificationLine({ type: "follow", count: 1, actor }).what).toBe("followed you");
   });
+
+  it("names your pet, or its kind while its name is held back, and a treat", () => {
+    const pet = { kind: "cat" as const, name: "Biscuit" };
+    expect(notificationLine({ type: "pet_pat", count: 3, pet, actor })).toEqual({
+      who: "Moss and 2 others",
+      what: "patted Biscuit",
+    });
+    expect(
+      notificationLine({ type: "pet_pat", count: 1, pet: { ...pet, name: "" }, actor }).what,
+    ).toBe("patted your cat");
+    expect(
+      notificationLine({ type: "pet_treat", count: 1, pet, treat: "strawberry", actor }).what,
+    ).toBe("gave Biscuit a strawberry");
+  });
 });
 
 describe("takedown notices", () => {

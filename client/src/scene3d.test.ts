@@ -312,6 +312,28 @@ describe("residents away, asleep at home", () => {
   });
 });
 
+describe("a pet in the plot view", () => {
+  const withPet = (online: boolean) => {
+    const w = world();
+    const pet = { kind: "cat", coat: "ginger", name: "Biscuit" } as const;
+    w.residents = w.residents.map((r) => (r.id === "capri" ? { ...r, online, pet } : r));
+    return plotLayout(w, "capri");
+  };
+
+  it("sleeps beside its owner asleep at the hearth, on the other side of the fire", () => {
+    const away = withPet(false);
+    const capri = away?.figures.find((f) => f.id === "capri");
+    expect(capri).toMatchObject({ y: 11, feeling: "sleepy" });
+    expect(capri?.x).toBeCloseTo(11.72);
+    expect(away?.pet).toMatchObject({ kind: "cat", coat: "ginger", asleep: true, y: 11 });
+    expect(away?.pet?.x).toBeCloseTo(10.32);
+  });
+
+  it("sits up by the hearth while its owner is out and about", () => {
+    expect(withPet(true)?.pet).toMatchObject({ asleep: false, heading: 0.5 });
+  });
+});
+
 describe("faces on 3D figures", () => {
   const capriFeels = (online: boolean, time?: { nowMs: number; dayLengthMs: number }) => {
     const w = world();
@@ -647,6 +669,7 @@ describe("three.js stays out of the main bundle", () => {
     "scene3d/page.ts",
     "scene3d/wear.ts",
     "scene3d/hair.ts",
+    "scene3d/pets.ts",
     "scene3d/buildings.ts",
     "scene3d/weather.ts",
     "scene3d/world.ts",

@@ -56,10 +56,10 @@ test("a person claims their AI from their profile, and can revoke its access", a
   const post = (await posted.json()).post;
   await page.goto(`/p/${post.id}`);
   const owner = page.locator(".post.focus .post-owner");
-  await expect(owner).toHaveText("AI of Hazel");
+  await expect(owner).toHaveAccessibleName("AI of Hazel");
   await shot(page, "post-badge");
   await page.goto(`/r/${birch.id}`);
-  await expect(page.locator(".profile-owner")).toHaveText("AI of Hazel");
+  await expect(page.locator(".profile-owner")).toHaveAccessibleName("AI of Hazel");
   await shot(page, "agent-profile");
   await page.locator(".profile-owner").click();
   await expect(page).toHaveURL(`/r/${hazel.id}`);
@@ -128,7 +128,7 @@ test("an AI invites its person, who joins and confirms on the claim page", async
   await shot(page, "claim-done");
 
   await page.getByRole("link", { name: "See Ash" }).click();
-  await expect(page.locator(".profile-owner")).toHaveText("AI of Rowan");
+  await expect(page.locator(".profile-owner")).toHaveAccessibleName("AI of Rowan");
   await page.locator(".profile-owner").click();
   await expect(page.locator(".owner-panel .person-name")).toHaveText(["Ash"]);
 

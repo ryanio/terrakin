@@ -1,5 +1,6 @@
 /**
- * Halloween's own rules (RFC 0022): trick-or-treating on October 31.
+ * Halloween's own rules (RFC 0022): trick-or-treating on October 31 and November 1 (UTC), so the
+ * evening of October 31 counts in the Americas too.
  *
  * A resident at a neighbor's door (on their plot or beside it) knocks with `trick_or_treat`, once a
  * door a day, and goes home with a candy. It comes from whoever lives there and is home (online and
@@ -12,7 +13,14 @@
  */
 import { isWhole, refuse } from "./check";
 import { isTownsfolk, sameHousehold } from "./economy";
-import { dayName, dayOn, HOLIDAY_INFO, holidayOf, type MonthDate, nextDayOn } from "./holiday";
+import {
+  dayName,
+  HOLIDAY_INFO,
+  holidayOf,
+  type MonthDate,
+  monthDateName,
+  nextDayOn,
+} from "./holiday";
 import { addStack, closed, held, ITEMS, inventory, inventoryEvent, inventorySize } from "./items";
 import { plotKey, tileKey } from "./keys";
 import { residentById } from "./own";
@@ -32,8 +40,16 @@ import { canBuildOn, isCommons, plotDistance, plotInBounds, plotOf } from "./wor
 
 /** The numbers (decision 0107). */
 export const TRICK_OR_TREAT = {
-  /** The night: October 31, by the UTC calendar, during Halloween. */
-  on: { month: 10, date: 31 } as MonthDate,
+  /**
+   * The nights, by the UTC calendar, during Halloween: October 31, and November 1, when it's still
+   * the evening of October 31 in the Americas. Each is a UTC day of its own, so the caps below
+   * start over on November 1. A night may be added, which only accepts knocks that were refused,
+   * but never taken away: logged knocks replay only while their day still counts.
+   */
+  nights: [
+    { month: 10, date: 31 },
+    { month: 11, date: 1 },
+  ] as readonly MonthDate[],
   /** Doors one resident can knock on in a day, each once. */
   doorsPerDay: 10,
   /** Candy the town hands out at one door in a day, when nobody there has any to give. */
@@ -48,18 +64,19 @@ export const CANDY = "candy" as const;
 /** The decor that hands out its owner's candy while they're away. */
 export const CANDY_BOWL = "candy_bowl" as const;
 
-/** Whether `day` is trick-or-treat night: October 31, inside Halloween. */
+/** Whether `day` is a trick-or-treat night: October 31 or November 1, inside Halloween. */
 export function trickOrTreatDay(day: number | undefined): boolean {
   if (day === undefined || holidayOf(day) !== "halloween") return false;
   const { month, date } = dateOfDay(day);
-  return month === TRICK_OR_TREAT.on.month && date === TRICK_OR_TREAT.on.date;
+  return TRICK_OR_TREAT.nights.some((n) => n.month === month && n.date === date);
 }
 
 /** The next trick-or-treat night on or after `day`. */
-export const nextTrickOrTreat = (day: number) => nextDayOn(TRICK_OR_TREAT.on, day);
+export const nextTrickOrTreat = (day: number) =>
+  Math.min(...TRICK_OR_TREAT.nights.map((n) => nextDayOn(n, day)));
 
-/** Trick-or-treat night in the year of `day`. */
-export const trickOrTreatIn = (day: number) => dayOn(dateOfDay(day).year, TRICK_OR_TREAT.on);
+/** "October 31 and November 1": the trick-or-treat nights in words. */
+export const trickOrTreatNights = () => TRICK_OR_TREAT.nights.map(monthDateName).join(" and ");
 
 /** Who lives on a plot, in the order they answer the door: its owner, then each co-owner. */
 const residentsOf = (plot: Plot) => [plot.ownerId, ...(plot.coOwners ?? [])];
@@ -112,7 +129,7 @@ export function candyFor(
 type Mutation = () => WorldEvent[];
 export type HalloweenChecked = Mutation | Rejection;
 
-/** `trick_or_treat {px, py}`: knock at a neighbor's door on Halloween night and get a candy. */
+/** `trick_or_treat {px, py}`: knock at a neighbor's door on a Halloween night and get a candy. */
 export function checkTrickOrTreat(
   state: WorldState,
   actor: ResidentId,
@@ -128,7 +145,7 @@ export function checkTrickOrTreat(
     const night = nextTrickOrTreat(day);
     return refuse(
       "out_of_holiday",
-      `Trick-or-treating is on October 31 (UTC), the night of ${HOLIDAY_INFO.halloween.name}. The next one is ${dayName(night)}, ${dateOfDay(night).year}.`,
+      `Trick-or-treating is on ${trickOrTreatNights()} (UTC), the nights of ${HOLIDAY_INFO.halloween.name}. The next one is ${dayName(night)}, ${dateOfDay(night).year}.`,
     );
   }
   if (isTownsfolk(state, actor)) {

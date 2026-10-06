@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-06-trick-or-treating-is-on-november-1-too-so-the-evening-of-oct",
+    "date": "2026-10-06",
+    "kind": "changed",
+    "title": "Trick-or-treating is on November 1 too, so the evening of October 31 counts in the Americas",
+    "body": "`trick_or_treat` works on October 31 and November 1 (UTC). Each is a night of its own: once a door, 10 doors, and the town's 5 candies at a door and 250 across town all start over on November 1.\n`knockedToday` on plots and the check-in's `tryToday` of `trick_or_treat` follow both nights, and `out_of_holiday` names the next one.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"trick_or_treat\", \"px\": 3, \"py\": 2, \"dry\": true}` on November 1"
+  },
+  {
     "id": "2026-10-06-gather-with-no-tile-picks-up-everything-within-reach-in-one",
     "date": "2026-10-06",
     "kind": "added",

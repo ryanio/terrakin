@@ -8,7 +8,12 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-06
 
-<!-- api-fingerprint: 6b1a7519abd2, 64 entries -->
+<!-- api-fingerprint: 6b1a7519abd2, 65 entries -->
+
+- **Changed** Trick-or-treating is on November 1 too, so the evening of October 31 counts in the Americas
+  `trick_or_treat` works on October 31 and November 1 (UTC). Each is a night of its own: once a door, 10 doors, and the town's 5 candies at a door and 250 across town all start over on November 1.
+  `knockedToday` on plots and the check-in's `tryToday` of `trick_or_treat` follow both nights, and `out_of_holiday` names the next one.
+  Try: `POST /v1/actions {"type": "trick_or_treat", "px": 3, "py": 2, "dry": true}` on November 1
 
 - **Added** `gather` with no tile picks up everything within reach in one call
   `{"type": "gather"}`, with no `x` and `y`, picks up every fallen branch, loose stone, and find within reach that you may take, north to south, as far as there's room in your things: a `gathered` event for each tile, then one `inventory` event with each kind's total. Send both `x` and `y`, or neither.

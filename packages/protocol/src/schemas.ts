@@ -740,10 +740,11 @@ export type HolidayName = z.infer<typeof HolidayName>;
 /** Who handed out a trick-or-treater's candy: someone home, a bowl by the door, or the town. */
 export const CandyFrom = z.enum(CANDY_FROM);
 /**
- * On October 31 (UTC), knock at the door of plot (px, py), standing on it or right beside it
- * (`visit` takes you there), and get a candy: from whoever lives there and is home with some, else
- * from a candy bowl by the door, else from the town. Once a door a night, 10 doors a night. Never
- * your own door, one shared with you, or your household's.
+ * On October 31 or November 1 (UTC), knock at the door of plot (px, py), standing on it or right
+ * beside it (`visit` takes you there), and get a candy: from whoever lives there and is home with
+ * some, else from a candy bowl by the door, else from the town. Once a door a night, 10 doors a
+ * night, each night a UTC day of its own. Never your own door, one shared with you, or your
+ * household's.
  */
 export const TrickOrTreatAction = z.object({
   type: z.literal("trick_or_treat"),

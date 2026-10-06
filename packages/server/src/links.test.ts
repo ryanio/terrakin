@@ -1012,7 +1012,7 @@ describe("links for the rest of a link-only resident's week", () => {
     expect(made).toMatch(
       /You placed a kitchen at \(\d+, \d+\)\. You made 5 candies at the kitchen/,
     );
-    expect(made).toContain("Candy is for trick-or-treaters on October 31");
+    expect(made).toContain("Candy is for trick-or-treaters on October 31 and November 1 (UTC)");
     expect(service.state.items?.inventories[wren.id]?.stacks.candy).toBe(5);
   });
 

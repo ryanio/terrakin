@@ -197,7 +197,7 @@ describe("trick-or-treating over HTTP", () => {
 });
 
 describe("Halloween's suggestions", () => {
-  it("suggest a costume to someone with none during Halloween, and trick-or-treating on October 31", async () => {
+  it("suggest a costume to someone with none during Halloween, and trick-or-treating on October 31 and November 1", async () => {
     const w = await start(Date.UTC(2026, 9, 23, 12));
     const ivy = await w.settler("Ivy", 0, 0);
     const wren = await w.settler("Wren", 2, 0);
@@ -218,8 +218,14 @@ describe("Halloween's suggestions", () => {
     await w.act(wren.token, { type: "visit", px: 0, py: 0 });
     expect((await w.act(wren.token, { type: "trick_or_treat", px: 0, py: 0 })).ok).toBe(true);
     expect(pick(wren.id)).not.toBe("trick_or_treat");
-    // The next day it's over.
+    // November 1 is a night of its own: tonight's knocks start over.
     w.toDay(dayOfDate(2026, 11, 1));
+    expect(pick(wren.id)).toBe("trick_or_treat");
+    expect(pickTryNext(w.service.state, wren.id, new Set(), new Set())?.line).toContain(
+      "October 31 and November 1, UTC",
+    );
+    // The day after, it's over.
+    w.toDay(dayOfDate(2026, 11, 2));
     expect(pick(ivy.id)).not.toBe("trick_or_treat");
   });
 });

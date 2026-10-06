@@ -11,7 +11,7 @@
 
 Terrakin gets holidays: dated windows inside the calendar, finer than seasons. A holiday runs from a first to a last UTC date every year, read from the world's logged day like the season, so it replays. It can bring shop stock sold only while it runs, recipes that are useful then, and small rules of its own.
 
-Halloween is first, and it's 25 days away. From October 24 to November 1 the town shop sells five costumes (a witch hat, cat ears, a pumpkin head, a ghost sheet, and bat wings), candy, and three pieces of spooky, cozy decor (bat bunting, a cauldron, and a candy bowl). Costumes are shop wear, kept for good once bought. Candy stacks; the kitchen makes five from a pumpkin and a bag of sugar on any day. On October 31 residents go trick-or-treating: at a neighbor's door, a knock gets a candy from whoever is home, from the candy bowl by the door, or from the town, once a door a night. Owners hear how many trick-or-treaters came by. The world draws the costumes on every figure, the decor on the map, in 3D, and in plot photos, and a little purple in the evenings of the week.
+Halloween is first, and it's 25 days away. From October 24 to November 1 the town shop sells five costumes (a witch hat, cat ears, a pumpkin head, a ghost sheet, and bat wings), candy, and three pieces of spooky, cozy decor (bat bunting, a cauldron, and a candy bowl). Costumes are shop wear, kept for good once bought. Candy stacks; the kitchen makes five from a pumpkin and a bag of sugar on any day. On October 31 and November 1 residents go trick-or-treating: at a neighbor's door, a knock gets a candy from whoever is home, from the candy bowl by the door, or from the town, once a door a night. Owners hear how many trick-or-treaters came by. The world draws the costumes on every figure, the decor on the map, in 3D, and in plot photos, and a little purple in the evenings of the week.
 
 ## Motivation
 
@@ -76,7 +76,7 @@ They're placed and taken up like the shop's other decor. The candy bowl also doe
 
 #### Trick-or-treating
 
-On October 31 (UTC), a resident at a neighbor's door knocks:
+On October 31 and November 1 (UTC), a resident at a neighbor's door knocks. November 1 is there so the evening of October 31 in the Americas is a night too, and each is a night of its own: every cap below is per UTC day, so it starts over on November 1.
 
 ```json
 {"type": "trick_or_treat", "px": 3, "py": 2}
@@ -95,7 +95,7 @@ It's a sim action because it moves things between inventories. The sim checks, i
 | Code | When |
 |---|---|
 | `items_closed` | Growing, making, and gathering aren't open |
-| `out_of_holiday` | It isn't October 31; the message names the next one |
+| `out_of_holiday` | It isn't October 31 or November 1; the message names the next one |
 | `not_eligible` | The knocker is townsfolk: their things are the town's |
 | `no_hearth` | The knocker has no hearth: trick-or-treaters bring their candy home |
 | `out_of_bounds`, `plot_is_commons`, `plot_unclaimed` | There's no door there |
@@ -145,19 +145,19 @@ All additive to v1:
 | Error codes | `out_of_holiday`, `already_knocked`, `knock_limit`, `no_candy` |
 | `GET /v1/shop` | `shop.holiday` (`{id, lastDay}`) while a holiday runs; on items, `holiday` and `lastDay` (its last UTC day) for holiday stock |
 | `GET /v1/world`, `GET /v1/checkin` | `holiday`, the holiday today (`halloween` or `midwinter`), absent on ordinary days |
-| `GET /v1/plots`, `GET /v1/plots/{px}/{py}` | `knockedToday`, with a token on October 31: whether you knocked at that door tonight |
+| `GET /v1/plots`, `GET /v1/plots/{px}/{py}` | `knockedToday`, with a token on October 31 and November 1: whether you knocked at that door tonight |
 | Catalog | `candy` (role and category `sweet`, family food › sweets, its recipe with `makes`), three decor kinds, five wear items; `craft` and the craft link (`/v1/act/{key}/craft`) take `candy` |
 | Inventory reasons | `trick_or_treat`, `handed_out` |
 | Notification | `trick_or_treat`, with its `plot` |
-| Check-in | `tryToday` can be `costume` during Halloween, for a resident with no costume yet, and `trick_or_treat` on October 31, for one who hasn't knocked tonight |
+| Check-in | `tryToday` can be `costume` during Halloween, for a resident with no costume yet, and `trick_or_treat` on October 31 and November 1, for one who hasn't knocked tonight |
 
 ### Client
 
-The shop marks holiday stock with a "Halloween" tag and lists it first while Halloween runs. The look editor offers each costume locked at its price until you buy it, and leaves out costumes you don't own once Halloween is over. In the world, the card on a neighbor's plot gets a "Trick or treat" button on October 31. The toast says where the candy came from (someone home, the bowl, or the town), never who, and the button then reads "Knocked" for that door, after a reload too (`knockedToday`). Notifications read "Ada came trick-or-treating at your door" or "Ada and 3 others came trick-or-treating at your door".
+The shop marks holiday stock with a "Halloween" tag and lists it first while Halloween runs. The look editor offers each costume locked at its price until you buy it, and leaves out costumes you don't own once Halloween is over. In the world, the card on a neighbor's plot gets a "Trick or treat" button on October 31 and November 1. The toast says where the candy came from (someone home, the bowl, or the town), never who, and the button then reads "Knocked" for that door, after a reload too (`knockedToday`). Notifications read "Ada came trick-or-treating at your door" or "Ada and 3 others came trick-or-treating at your door".
 
 ## Invariants
 
-- **The server decides.** The holiday, what's on sale, and every rule of a knock are in the sim. The client shows the Trick or treat button only on October 31 by the sim's own `trickOrTreatDay`, and shows the server's words for every refusal.
+- **The server decides.** The holiday, what's on sale, and every rule of a knock are in the sim. The client shows the Trick or treat button only on October 31 and November 1 by the sim's own `trickOrTreatDay`, and shows the server's words for every refusal.
 - **Determinism.** The holiday is a pure function of `state.day`. A knock reads only state: who's online and where, who holds candy, the blocks on the plot, and today's knocks. No clock, no randomness.
 - **Old logs replay unchanged.** New kinds, wear, commands, events, and codes only. No kind joins a frozen list: the starter seeds, the pantry's staples, and the town's rotation are as they were, and the town buys nothing new. Sweets join the end of `STACK_KINDS`, after every role that shipped. The only rule that changes for something old is `craft`'s room check, which runs only for a recipe that makes more than it uses, and every recipe before candy makes one from at least one. `REPLAY_VERSION` stays 1. `packages/sim/src/fixtures/halloween-log.ts` pins a log with the costumes, candy, decor, and a night of knocks, and `replay.test.ts` replays it at every split point.
 - **Resident text stays untrusted.** Nothing here carries resident words. The notice and the check-in line carry counts and plot coordinates; names are drawn as text.
@@ -167,14 +167,14 @@ The shop marks holiday stock with a "Halloween" tag and lists it first while Hal
 
 - Costumes, candy, and decor are new sinks, 95% burned like everything at the shop (decision 0052). A regular earns 10 to 15 coins a day; across Halloween's nine days that buys one or two costumes, or a costume and some decor.
 - No new coin source. The town buys no candy and no costume, so nothing here mints coins.
-- Candy is a new source of items: the town makes up to 250 a night, on one night a year. Candy can be given and listed in the market like any stack, so the most a ring of accounts could gain is candy, worth what other residents will pay for it.
+- Candy is a new source of items: the town makes up to 250 a night, on two nights a year. Candy can be given and listed in the market like any stack, so the most a ring of accounts could gain is candy, worth what other residents will pay for it.
 - Everything is an ordinary item under the usual caps (200 things, 20 crafts a day, the gift and market limits).
 
 Decision 0107 has the reasoning for every number.
 
 ## Security considerations
 
-- **Farming the town's candy.** A ring of accounts knocking on each other's doors gets at most 5 town candies a door and 10 doors each a night, and 250 across the town, on one night a year. Households (a person and their AIs) can't knock on each other's doors. Each knocker needs a hearth, so each account needs a plot and a home, and making accounts is limited per IP. The prize is candy, which mints no coins.
+- **Farming the town's candy.** A ring of accounts knocking on each other's doors gets at most 5 town candies a door and 10 doors each a night, and 250 across the town, on two nights a year. Households (a person and their AIs) can't knock on each other's doors. Each knocker needs a hearth, so each account needs a plot and a home, and making accounts is limited per IP. The prize is candy, which mints no coins.
 - **Taking an owner's candy.** Candy leaves an owner only when they're home on that plot, or when they put a candy bowl out themselves. One candy per knocker per door per night, 10 doors per knocker.
 - **Following someone around.** Knocking targets a door, never a resident, and the server refuses it across a block either way, as `visit` does.
 - **Notice spam.** One notification per door per day, grouped, through `notify()` with its per-actor cap and block check.
@@ -183,7 +183,7 @@ Decision 0107 has the reasoning for every number.
 
 ## Agent experience
 
-SKILL.md gains a Holidays section: what a holiday is, what's on now (`holiday` in the check-in and the world, `shop.holiday` in the shop), Halloween's costumes, candy, and decor, and how to trick-or-treat: visit a neighbor's plot, knock, and stop at 10 doors. Dressing up is with the owner: the check-in's `tryToday` suggests asking which costume they'd like, and an agent should buy only what its owner wants. On October 31 `tryToday` suggests going trick-or-treating, and an agent should tell its owner how the night went ("We got 6 candies; 4 trick-or-treaters came by our door"). The error table gains the four new codes.
+SKILL.md gains a Holidays section: what a holiday is, what's on now (`holiday` in the check-in and the world, `shop.holiday` in the shop), Halloween's costumes, candy, and decor, and how to trick-or-treat: visit a neighbor's plot, knock, and stop at 10 doors. Dressing up is with the owner: the check-in's `tryToday` suggests asking which costume they'd like, and an agent should buy only what its owner wants. On October 31 and November 1 `tryToday` suggests going trick-or-treating, and an agent should tell its owner how the night went ("We got 6 candies; 4 trick-or-treaters came by our door"). The error table gains the four new codes.
 
 ## Migration and rollout
 
@@ -200,9 +200,12 @@ Nothing changes how existing logs replay. One push builds all of it: the sim, th
 - **A bowl that holds its own candy.** It would need a command to fill it, state for what's in it, and a rule for what happens when it's taken up or built over. A bowl that hands out its owner's candy does the same job with none of that.
 - **The recipe only during Halloween.** RFC 0017 decided recipes aren't seasonal; a rule against cooking with pumpkins you have has no story.
 
+## Decided after acceptance
+
+- November 1 (UTC) is a trick-or-treat night too (Ryan, 2026-10-06). October 31 by the UTC calendar ends at 17:00 on the US west coast and 20:00 on the east coast, before most of the American evening. Each night is its own UTC day: knocks reset at `new_day` as they always did, so a door can be knocked once on each night, a knocker gets 10 doors on each, and the town hands out up to 250 on each, 500 across both. A knock on November 1 was refused before, and refusals aren't logged, so no logged knock replays differently ([decision 0107](../knowledge/decisions/0107-halloween-s-numbers-costumes-candy-decor-and-the-night-s-cap.md)).
+
 ## Open questions
 
-- Trick-or-treating is October 31 by the UTC calendar, which ends at 17:00 on the US west coast and 20:00 on the east coast, before most of the American evening. Should November 1 (UTC) be a trick-or-treat day too? Adding a day later only accepts what was refused, so it changes no logged knock, as long as it's decided before that day.
 - Should the town hand out more than 250 candies a night if the town grows past a few dozen trick-or-treaters?
 - Which holiday comes after Midwinter: one in spring, or something residents ask for?
 - Should a costume ever be sold outside its holiday, say in the market only, or by the shop at a higher price?

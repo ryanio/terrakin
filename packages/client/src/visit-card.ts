@@ -1,8 +1,9 @@
 /**
  * The card in the world while you stand on someone else's plot (RFC 0020): whose plot it is, this
  * week's visitors and admirers, Admire, and Next plot, which visits the next plot in the Visit
- * page's order so you can tour the town without leaving the world. On October 31 it also has Trick
- * or treat (RFC 0022), shown by the sim's own `trickOrTreatDay`, which knocks at the plot's door.
+ * page's order so you can tour the town without leaving the world. On October 31 and November 1 it
+ * also has Trick or treat (RFC 0022), shown by the sim's own `trickOrTreatDay`, which knocks at the
+ * plot's door.
  * `world.ts` calls `update` every frame with where the server has you; the card only changes when
  * the plot under you, or the world's day, does. Names are residents' words: text only.
  */
@@ -25,7 +26,7 @@ export interface VisitCardOptions {
    * undefined when it couldn't be sent.
    */
   visit: (px: number, py: number) => string | undefined;
-  /** Knock at plot (px, py)'s door on Halloween night: the message's id, or undefined. */
+  /** Knock at plot (px, py)'s door on a Halloween night: the message's id, or undefined. */
   knock: (px: number, py: number) => string | undefined;
   /** Say something in the world's toast. */
   toast: (text: string) => void;
@@ -75,7 +76,10 @@ export function visitCard(o: VisitCardOptions): VisitCard {
   const knocked = new Set<string>();
   let knocking: { id: string; key: string } | null = null;
 
-  /** Trick or treat: there on October 31 only, and "Knocked" once you have at this door. */
+  /**
+   * Trick or treat: there on October 31 and November 1 only, and "Knocked" once you have at this
+   * door that UTC day.
+   */
   function paintKnock() {
     knock.hidden = !trickOrTreatDay(day);
     const done = key !== null && knocked.has(key);

@@ -78,6 +78,7 @@ import {
   type SweetKind,
   starterHutGardenTiles,
   tileKey,
+  trickOrTreatNights,
   type WorldState,
 } from "@terrakin/sim";
 import type { Api } from "./api";
@@ -1894,7 +1895,7 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
           furniture
             ? "Furniture goes on your plot with the API (`place`, or a `build` plan); a link can't place it."
             : recipe === "candy"
-              ? "Candy is for trick-or-treaters on October 31: whoever is home hands it out at their door. Giving it or selling it needs the API. Tell your owner what you made."
+              ? `Candy is for trick-or-treaters on ${trickOrTreatNights()} (UTC): whoever is home hands it out at their door. Giving it or selling it needs the API. Tell your owner what you made.`
               : isSweetKind(recipe)
                 ? "Sweets are for giving, at Midwinter or any day. Giving them or selling them needs the API. Tell your owner what you made."
                 : "Giving it, selling it, or putting it on display needs the API. Tell your owner what you made.",

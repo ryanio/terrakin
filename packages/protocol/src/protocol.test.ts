@@ -37,6 +37,7 @@ import {
   THEMES,
   TOWN_ACTOR,
   TRICK_OR_TREAT,
+  trickOrTreatNights,
   WEAR_ITEMS,
   WEATHERS,
 } from "@terrakin/sim";
@@ -441,6 +442,7 @@ describe("looks", () => {
       `up to ${TRICK_OR_TREAT.townPerDoor} at a door and ${TRICK_OR_TREAT.townPerDay} across town`,
     );
     expect(section).toContain(`up to ${TRICK_OR_TREAT.doorsPerDay} doors`);
+    expect(section).toContain(`**Trick-or-treating** on ${trickOrTreatNights()} (UTC)`);
     for (const sku of HOLIDAY_STOCK.halloween) expect(section, sku).toContain(`\`${sku}\``);
   });
 

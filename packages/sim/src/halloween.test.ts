@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { apply } from "./apply";
 import { CATALOG } from "./catalog";
 import { HALLOWEEN_CONFIG, HALLOWEEN_HASH, HALLOWEEN_LOG } from "./fixtures/halloween-log";
-import { TRICK_OR_TREAT, trickOrTreatDay } from "./halloween";
+import { nextTrickOrTreat, TRICK_OR_TREAT, trickOrTreatDay } from "./halloween";
 import { hashWorld } from "./hash";
 import { ITEMS, inventorySize, RECIPES } from "./items";
 import { plotKey } from "./keys";
@@ -24,8 +24,8 @@ import { createWorld } from "./world";
 
 /**
  * Halloween (RFC 0022): its stock sold only while it runs, candy from the kitchen any day, and
- * trick-or-treating on October 31, with every guard on what moves refusing and leaving the world
- * as it was.
+ * trick-or-treating on October 31 and November 1, with every guard on what moves refusing and
+ * leaving the world as it was.
  */
 
 const CONFIG: WorldConfig = {
@@ -137,7 +137,10 @@ describe("Halloween's numbers", () => {
       makes: 5,
     });
     expect(TRICK_OR_TREAT).toEqual({
-      on: { month: 10, date: 31 },
+      nights: [
+        { month: 10, date: 31 },
+        { month: 11, date: 1 },
+      ],
       doorsPerDay: 10,
       townPerDoor: 5,
       townPerDay: 250,
@@ -238,17 +241,57 @@ describe("candy from the kitchen", () => {
 });
 
 describe("trick-or-treating", () => {
-  it("is on October 31 only", () => {
+  it("is on October 31 and November 1, and no other day", () => {
     expect(trickOrTreatDay(NIGHT)).toBe(true);
+    expect(trickOrTreatDay(LAST)).toBe(true);
     expect(trickOrTreatDay(NIGHT - 1)).toBe(false);
-    expect(trickOrTreatDay(NIGHT + 1)).toBe(false);
+    expect(trickOrTreatDay(LAST + 1)).toBe(false);
     expect(trickOrTreatDay(dayOfDate(2027, 10, 31))).toBe(true);
-    for (const day of [NIGHT - 1, NIGHT + 1, dayOfDate(2027, 7, 4)]) {
+    expect(trickOrTreatDay(dayOfDate(2027, 11, 1))).toBe(true);
+    for (const day of [NIGHT - 1, LAST + 1, dayOfDate(2027, 7, 4)]) {
       const state = town(day);
       goTo(state, "bob", "dee");
       const message = refused(state, "bob", knock("dee"), "out_of_holiday");
-      expect(message).toContain("October 31");
+      expect(message).toContain("October 31 and November 1 (UTC)");
     }
+    // The refusal names the next night: tomorrow's, or next year's first.
+    expect(nextTrickOrTreat(NIGHT - 1)).toBe(NIGHT);
+    expect(nextTrickOrTreat(LAST)).toBe(LAST);
+    expect(nextTrickOrTreat(LAST + 1)).toBe(dayOfDate(2027, 10, 31));
+  });
+
+  it("still takes a knock on every day it ever took one, so logged knocks replay as they were made", () => {
+    // Until November 1 counted, a knock was accepted only on October 31, so every knock in a log
+    // is from an October 31: a November 1 knock was refused, and refusals aren't logged. The
+    // Halloween log's pinned hash covers a night of them.
+    for (let year = 2026; year <= 2036; year++) {
+      expect(trickOrTreatDay(dayOfDate(year, 10, 31)), `${year}`).toBe(true);
+    }
+  });
+
+  it("counts each night's caps by its own UTC day: November 1 starts over", () => {
+    const state = town();
+    ok(state, "dee", { type: "leave" });
+    goTo(state, "bob", "dee");
+    ok(state, "bob", knock("dee"));
+    refused(state, "bob", knock("dee"), "already_knocked");
+    // Ten doors and the town's candy at Dee's door, used up on October 31.
+    state.knocks = {
+      by: { bob: Array.from({ length: TRICK_OR_TREAT.doorsPerDay }, (_, i) => `9${i},9`) },
+      town: { [plotKey(2, 2)]: TRICK_OR_TREAT.townPerDoor },
+    };
+    refused(state, "bob", knock("dee"), "knock_limit");
+    ok(state, TOWN_ACTOR, { type: "new_day", day: LAST });
+    expect(state.knocks).toBeUndefined();
+    // On November 1 the same door answers again, from the town's candy for the new night.
+    expect(ok(state, "bob", knock("dee"))[0]).toEqual({
+      type: "trick_or_treated",
+      by: "bob",
+      px: 2,
+      py: 2,
+      from: "town",
+    });
+    expect(state.knocks).toEqual({ by: { bob: [plotKey(2, 2)] }, town: { [plotKey(2, 2)]: 1 } });
   });
 
   it("gets a candy from the town when nobody living there is home", () => {

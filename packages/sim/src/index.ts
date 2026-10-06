@@ -186,7 +186,7 @@ export {
   nextTrickOrTreat,
   TRICK_OR_TREAT,
   trickOrTreatDay,
-  trickOrTreatIn,
+  trickOrTreatNights,
 } from "./halloween";
 export { canonicalJson, fnv1a, hashWorld } from "./hash";
 export {

@@ -113,6 +113,9 @@ export function dayName(day: number): string {
   return `${MONTHS[month - 1]} ${date}`;
 }
 
+/** "October 31": a day of the year in words. */
+export const monthDateName = (on: MonthDate) => `${MONTHS[on.month - 1]} ${on.date}`;
+
 /** "October 24 to November 1": a holiday's dates in words. */
 export function holidayDates(holiday: Holiday): string {
   const { first, last } = HOLIDAY_INFO[holiday];

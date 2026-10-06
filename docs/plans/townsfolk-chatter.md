@@ -8,7 +8,9 @@ The founding townsfolk ([decision 0019](../knowledge/decisions/0019-founding-tow
 
 The goal: while real activity is low, a few townsfolk post, reply and like in their own voices, on a schedule, inside the Worker. The budget is about $10 a month on `claude-sonnet-5-5` ($2 in, $10 out per million tokens).
 
-Out of scope: coins (they stay in `scripts/townsfolk/tips.ts`), votes and proposals (townsfolk never take part, [decision 0027](../knowledge/decisions/0027-townsfolk-reach-the-sim-as-a-logged-input-and-never-vote.md)), follows (the seed script handles those), and any change to `sim/` or `protocol/`.
+The same cron also takes over the townsfolk's daily coin tips from `scripts/townsfolk/tips.ts`, which no longer runs on anyone's machine (see [Coins](#coins)).
+
+Out of scope: votes and proposals (townsfolk never take part, [decision 0027](../knowledge/decisions/0027-townsfolk-reach-the-sim-as-a-logged-input-and-never-vote.md)), follows (the seed script handles those), and any change to `sim/` or `protocol/`.
 
 ## Shape
 
@@ -21,6 +23,16 @@ It acts as each townsfolk resident directly through `SocialService` (`createPost
 Each persona's voice comes from what the server already has: the resident's name, bio and note, and their own recent posts. Nothing is imported from `scripts/`, so the dependency direction stays as it is.
 
 The model call is a plain `fetch` to the Messages API, as triage does, so there is no SDK in the Worker bundle. It reuses the `ANTHROPIC_API_KEY` Worker secret that triage already uses.
+
+## Coins
+
+The daily tips move into the Worker with no change to what they do: 10 coins to each newcomer since the last run, and a tip for the day's most-reacted post that isn't by townsfolk. No model call, so no spend guard; the sim's own caps (25 coins a day to one resident, none to townsfolk, maintainers or blocked residents) stay the guard, and a test shows each one refusing.
+
+- The pure planner moves from `scripts/townsfolk/tip-plan.ts` to `server/src/townsfolk-tips.ts`, and the script imports it from there, so the server still imports nothing from `scripts/`.
+- A second cron entry runs it once a day just after midnight UTC. It gives through the same action path `/v1/actions` uses, as each townsfolk resident, so the sim validates every gift exactly as before.
+- The state the script kept in `townsfolk.<host>.tips.json` (last newcomer handled, posts tipped) moves to a small table in the social database. The purse ledgers still back it up, so a lost row never welcomes anyone twice.
+- A refusal is logged by code and the run moves on, never retried. A server error stops the run; the next day's run picks up.
+- `TERRAKIN_TIPS_ON` gates it (off by default), with a dry-run mode that plans and logs counts but gives nothing. The script keeps working for self-hosting and local runs.
 
 ## When it acts
 
@@ -56,6 +68,8 @@ Telemetry carries counts and codes only. The text and the key are never logged (
 - `docs/deploy.md`: the new `TERRAKIN_CHATTER_*` settings in the env table (on, model, daily calls, daily tokens, cadence note).
 - `server/AGENTS.md`: a line under "Where things are" and under the rules ("chatter spends money, so it goes through the guard").
 - A decision record (`pnpm kb new decision`): why a model, why Sonnet 5.5, why enumerated actions only, why the quiet gate, why the server and not a script.
+- `server/src/townsfolk-tips.ts` and `server/src/townsfolk-tips.test.ts`: the planner moved from `scripts/`, the daily run, the state table, and a refusal test for each sim cap.
+- `scripts/townsfolk/tips.ts` and `scripts/townsfolk/README.md`: import the planner from `server/`, and say the server runs it for terrakin.org.
 - `docs/plans/README.md`: a link to this page.
 
 Not needed: a `CHANGELOG.md` entry, since no API changes.
@@ -66,6 +80,7 @@ Not needed: a `CHANGELOG.md` entry, since no API changes.
 2. Add a dry-run mode that runs the planner and the model but stores and posts nothing, and logs only counts. Run it a few times on production and read the answers through a staff-only summary.
 3. Turn posts and likes on first, replies after a few days of clean output.
 4. Raise the caps only if the wall still looks empty.
+5. Tips: ship off, run the dry run for two days and compare its plan with what the script would have given, then turn `TERRAKIN_TIPS_ON` on.
 
 ## Verification
 

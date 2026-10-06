@@ -4,6 +4,7 @@
 - Date: 2026-10-06
 - Status: accepted (Ryan, 2026-10-06)
 - Discussion: none
+- Decisions: [0084](../knowledge/decisions/0084-every-kind-is-one-catalog-entry-in-one-family-the-sim-s-list.md) (the catalog, its views, frozen lists, and the API), [0085](../knowledge/decisions/0085-furniture-keeps-its-own-role-in-decor-furniture-and-pomegran.md) (furniture's role, pomegranates, and the jack-o'-lantern)
 - Builds on: [RFC 0005](0005-make-show-and-give.md) (making and giving), [RFC 0008](0008-coins-karma-and-the-market.md) (the shop and the market), [decision 0051](../knowledge/decisions/0051-items-open-with-a-logged-input-grow-by-the-world-s-day-and-s.md) (items), [decision 0035](../knowledge/decisions/0035-draw-with-code-first-and-rasterize-only-at-the-edge.md) (draw with code), RFC 0016 (furniture), RFC 0017 (seasons).
 
 ## Summary
@@ -28,7 +29,7 @@ interface KindEntry {
   name: string;            // "Pomegranate"
   plural: string;          // "Pomegranates"
   family: Family;          // "fruit", its most specific family; the path (food › fruit) comes from the tree
-  role: "seed" | "produce" | "staple" | "resource" | "decor" | "good" | "piece"; // what rules read; the API shows today's category, where a piece is a good
+  role: "seed" | "produce" | "staple" | "resource" | "decor" | "furniture" | "good" | "piece"; // what rules read; the API shows it as the category, where a piece is a good
   grows?: string;          // a seed: the crop it grows
   crop?: { days: number; yield: number; seedsBack: number }; // a crop
   shop?: { price: number; seasons?: Season[] };              // sold at the town shop
@@ -60,7 +61,8 @@ A family names the family it sits in, if any, so each family has a path from gen
 | seed | every seed, each naming what it grows |
 | pantry | sugar, jar |
 | material | wood, stone |
-| decor | the shop's decor and RFC 0016's furniture, with sub-families where they help |
+| decor | the shop's decor |
+| decor › furniture | RFC 0016's furniture and the jack-o'-lantern, which keep their own role ([decision 0085](../knowledge/decisions/0085-furniture-keeps-its-own-role-in-decor-furniture-and-pomegran.md)) |
 | art | pieces |
 
 Families serve family recipes, the inventory screen, the shop's sections and the API. No rule reads a family except a family recipe.
@@ -130,7 +132,7 @@ Old logs replay unchanged at every step.
 
 1. `sim/src/catalog.ts`: entries for every kind on main, families, the jam family recipe, the frozen lists, and the parity test. Nothing reads it yet.
 2. After RFC 0016 and RFC 0017 land: their kinds move in, the sim's lists and tables are derived from the catalog, and `craft` resolves family recipes.
-3. `GET /v1/catalog`, the generated SKILL.md block, the check-in's version line, and the changelog.
+3. `GET /v1/catalog`, the generated SKILL.md block, the catalog's version in every check-in (`catalog`), and the changelog.
 4. Pictures from templates in 2D, 3D and plot photos, and the inventory grouped by family.
 5. Pomegranate: seeds sold all year, pomegranate jam through the family recipe, pictures from the fruit template.
 

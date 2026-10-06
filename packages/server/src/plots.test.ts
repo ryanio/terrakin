@@ -473,6 +473,22 @@ describe("plots to visit over HTTP", () => {
     await t.call("DELETE", `/v1/residents/${wren.id}/block`, undefined, dot.token);
     expect((await visit(false)).ok).toBe(true);
   });
+
+  it("carries a plot's name in the list and the single plot view", async () => {
+    const t = await start();
+    const ivy = t.join("Ivy");
+    await t.act(ivy.token, { type: "settle", px: 0, py: 0 });
+    expect(await t.act(ivy.token, { type: "name_plot", name: "Sunpatch" })).toMatchObject({
+      ok: true,
+    });
+    const listed = await t.plots();
+    expect(listed.find((p) => p.px === 0 && p.py === 0)?.name).toBe("Sunpatch");
+    const one = (await t.call("GET", "/v1/plots/0/0")).body.plot;
+    expect(one.name).toBe("Sunpatch");
+    // Clearing drops the field, like a plot that was never named.
+    expect(await t.act(ivy.token, { type: "name_plot", name: "" })).toMatchObject({ ok: true });
+    expect((await t.call("GET", "/v1/plots/0/0")).body.plot).not.toHaveProperty("name");
+  });
 });
 
 describe("the commit hook", () => {

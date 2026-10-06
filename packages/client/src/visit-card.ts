@@ -85,6 +85,7 @@ export function visitCard(o: VisitCardOptions): VisitCard {
 
   function paint(view: PlotView) {
     week.textContent = weekLine(view);
+    owner.textContent = plotName(view);
     const done = view.admiredToday === true;
     admire.disabled = done;
     admireLabel.textContent = done ? "Admired today" : "Admire";
@@ -103,7 +104,11 @@ export function visitCard(o: VisitCardOptions): VisitCard {
     const names = [ownerId, ...(mirror.coOwners.get(key) ?? [])].map(
       (id) => mirror.residents.get(id)?.name ?? "A neighbor",
     );
-    owner.textContent = plotName(names);
+    // The mirror knows no plot names; `paint` sets the real one when the plot's view arrives.
+    owner.textContent = plotName({
+      owner: { name: names[0] ?? "A neighbor" },
+      coOwners: names.slice(1).map((name) => ({ name })),
+    });
     owner.href = profilePath(ownerId);
     week.textContent = "";
     admire.disabled = false;

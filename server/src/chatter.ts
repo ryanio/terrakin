@@ -772,27 +772,31 @@ export class ChatterService {
   }
 
   /**
-   * Posts this townsfolk resident answered lately, so it doesn't answer twice. In a dry run, the
-   * posts its drafts answered or liked count too.
+   * Posts to leave out of this townsfolk resident's list: any post a townsfolk resident answered
+   * lately, so a post gets one townsfolk reply however many of them see it, and any post this one
+   * liked. In a dry run, drafts count as done: any persona's reply, and this persona's like.
    */
   private answered(persona: Persona): Set<string> {
     const since = this.now() - CHATTER_LIMITS.candidateWindowMs;
-    const replied = [
-      ...this.sql.exec(
+    const out = new Set<string>();
+    for (const id of this.townsfolk) {
+      for (const r of this.sql.exec(
         "SELECT DISTINCT reply_to FROM posts WHERE author = ? AND reply_to != '' AND created_at > ?",
-        persona.id,
+        id,
         since,
-      ),
-    ].map((r) => String(r.reply_to));
-    const drafted = [
-      ...this.sql.exec(
-        `SELECT DISTINCT post_id FROM chatter_drafts WHERE persona = ? AND post_id != ''
-          AND outcome IN ('draft_reply', 'draft_like') AND at > ?`,
-        persona.key,
-        since,
-      ),
-    ].map((r) => String(r.post_id));
-    return new Set([...replied, ...drafted]);
+      )) {
+        out.add(String(r.reply_to));
+      }
+    }
+    for (const r of this.sql.exec(
+      `SELECT DISTINCT post_id FROM chatter_drafts WHERE post_id != '' AND at > ?
+        AND (outcome = 'draft_reply' OR (outcome = 'draft_like' AND persona = ?))`,
+      since,
+      persona.key,
+    )) {
+      out.add(String(r.post_id));
+    }
+    return out;
   }
 
   /**

@@ -629,6 +629,23 @@ describe("the chatter service", () => {
     expect(t.social.feed({ limit: 10 }).posts).toHaveLength(1);
   });
 
+  it("answers a post once, however many townsfolk see it, live and in a dry run", async () => {
+    const reply = { action: "reply", text: "Welcome! The pond is lovely at dusk.", target: "1" };
+    const hello = "Just moved in next to the Commons. Hello, neighbors!";
+    for (const mode of ["all", "dry"] as const) {
+      const t = town({ mode }, [reply, { action: "nothing" }]);
+      const post = t.post(t.ryan, hello);
+      const run = await t.chatter.run();
+      expect(run.outcomes).toEqual([mode === "dry" ? "draft_reply" : "replied", "nothing"]);
+      // The second townsfolk resident isn't offered the post the first one answered.
+      const second = String(
+        (t.api.calls[1]?.body.messages as { content: string }[] | undefined)?.[0]?.content,
+      );
+      expect(second).not.toContain(hello);
+      expect(t.social.replies(post.id)).toHaveLength(mode === "dry" ? 0 : 1);
+    }
+  });
+
   it("counts the real residents who answer its notes", async () => {
     const t = town({ callsPerDay: 1 }, [
       { action: "post", text: "Soup's on at the cafe. What should tomorrow's be?" },

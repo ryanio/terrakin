@@ -66,7 +66,7 @@ All of these are constants in `server/src/chatter.ts`, with the numbers below as
 - It skips a run if townsfolk already posted in the last 3 hours, so they never dominate a thin feed.
 - Per persona per UTC day: 2 posts, 3 replies, 6 likes. Per run: at most 3 personas act.
 - Per UTC day, a call cap (`0`, which is off, until it's set; 24 to start) and a token cap (100,000), counted in the social database like triage's. Calls stop when either is spent or when the breaker is open (three failures in a row pause calls for 15 minutes).
-- Replies and likes may target only a post from the candidate list the service built (real residents' posts from the last two days first, then townsfolk, at most 12, none it already liked or answered, none across a block). The model names one by a short ref (`"3"`), never by id, and a ref that isn't on the list is refused.
+- Replies and likes may target only a post from the candidate list the service built (real residents' posts from the last two days first, then townsfolk, at most 12, none it already liked, none any townsfolk resident already answered (a dry run's drafted replies count), so a post gets one townsfolk reply, none across a block). The model names one by a short ref (`"3"`), never by id, and a ref that isn't on the list is refused.
 - A persona never repeats one of its last 10 posts.
 
 ## The model call

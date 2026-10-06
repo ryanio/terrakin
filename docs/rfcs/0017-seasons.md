@@ -10,7 +10,7 @@
 
 Terrakin gets seasons, by the UTC calendar: spring is March to May, summer June to August, autumn September to November, and winter December to February. Each season can bring a crop whose seeds the town shop sells only then, decor for your plot, kitchen recipes, and things the town buys every day of it. All of it is decided in the sim from the world's day, so it replays. When a season ends, the shop stops selling its stock and the town stops buying its goods, but nothing you have goes away: seeds you hold still plant, and what you made or bought stays yours.
 
-Autumn is now, so it's built: pumpkins, pumpkin pie and pumpkin soup, hay bales and scarecrows, and a town that buys pumpkins all autumn. This is the first step of Phase 3 (progression). It also says where the rest of Phase 3 goes: a collection book of everything you've grown, made, gathered, and worn, and recipes you learn by making things. A harvest night in the Commons on the last evening of October comes later, on hosted events.
+Autumn is now, so it's built: pumpkins, pumpkin pie and pumpkin soup, hay bales and scarecrows, and a town that buys pumpkins all autumn. Winter is built too: cranberries, cranberry jam and hot cranberry punch, snowmen, strings of lights, little firs, and sleds, and a town that buys cranberries all winter. This is the first step of Phase 3 (progression). It also says where the rest of Phase 3 goes: a collection book of everything you've grown, made, gathered, and worn, and recipes you learn by making things. A harvest night in the Commons on the last evening of October comes later, on hosted events.
 
 ## Motivation
 
@@ -83,13 +83,34 @@ The pie needs no flour. Decision 0051 held pies back for a grain crop; a pumpkin
 
 A jack-o'-lantern is coming too: a pumpkin carved at the workbench into a lantern you place. It arrives with the workbench's furniture recipes in RFC 0016 (paths, floors, and furniture), which is being built alongside this one.
 
-### Winter, spring, and summer (sketches)
+### Winter (built now)
+
+Winter runs from December 1 to the last day of February.
+
+| Thing | Kind | What it is | Numbers |
+|---|---|---|---|
+| Cranberry | crop `cranberry`, seed `cranberry_seed` | A fruit that likes cold ground: deep red berries on a low plant in a planter | 4 days; 3 cranberries and a seed back |
+| Cranberry jam | made at a kitchen | The jam family recipe's (RFC 0018), like every fruit's | 3 cranberries, a bag of sugar, and a jar |
+| Hot cranberry punch | made at a kitchen | A steaming mug of punch with a slice of lemon | 2 cranberries, a lemon, and a jar |
+| Cranberry seed | shop stock, winter only | | 4 coins |
+| Snowman | shop decor, winter only | Three balls of snow with coal eyes, a carrot nose, a red scarf, twig arms, and a hat | 30 coins |
+| String of lights | shop decor, winter only | Colored bulbs on a wire between two posts, which glow after dark | 12 coins |
+| Little fir | shop decor, winter only | A small fir in a clay pot, snow on its branches and a gold star on top | 20 coins |
+| Sled | shop decor, winter only | Red slats on runners that curl up in front, with a rope | 25 coins |
+| The town buys | every day of winter | Cranberries, cranberry jam, and hot cranberry punch | 1 coin (3 a day), 5, and 5 |
+
+Cranberry seeds aren't in the starter kit, as pumpkin seeds aren't. Sprigs of holly lie in the forests all winter ([RFC 0021](0021-collections-and-foraging.md)), and Midwinter, December 21 to 31, sells candy canes ([RFC 0022](0022-holidays.md)). On a check-in in winter, a gardener with no cranberries may get `tryToday: "cranberries"`. [Decision 0124](../knowledge/decisions/0124-winter-s-numbers-cranberries-hot-cranberry-punch-winter-deco.md) has the reasoning for every number, and the simulated winter month it was checked with: at most 13 coins a day from winter's buys, under autumn's 15.
+
+A cranberry is a fruit, so its jam comes from the catalog's jam family recipe, and there's no separate sauce. The world has no apples for a cider, so the warm drink is a punch from what a winter garden grows.
+
+The ground lies under snow all winter and snow falls in spells (decision 0073), so the new decor is drawn to read on it: the snowman has a cool outline and a shaded side on the map and in plot photos, and a string of lights glows after dark through decision 0098's glow marks, each bulb in its own color with a pool of light on the snow, on the map and in both 3D views. Plot photos stay in daylight.
+
+### Spring and summer (sketches)
 
 Each gets its own decision with its numbers when it's built, and any of this can change by then:
 
 | Season | Crop | Kitchen and workbench | Decor | The town buys |
 |---|---|---|---|---|
-| Winter, December to February | cranberries | cranberry sauce; mulled cider | a little fir in a pot; string lights | cranberry sauce |
 | Spring, March to May | sweet peas | a pea and herb soup; a sweet pea posy | a birdhouse; a flower arch | posies |
 | Summer, June to August | watermelons, and wheat | watermelon juice; flour at the workbench, then bread and more pies | a parasol; a hammock | watermelons and juice |
 
@@ -117,7 +138,7 @@ All additive to v1:
 | `GET /v1/shop` | `shop.season`; on items, `season` and `lastDay` (the last UTC day it's sold) for seasonal stock; on buy orders, `season` for a season's buys. Items list only what's sold today. |
 | Error code | `out_of_season` |
 | Catalog | new kinds in `GET /v1/inventory`'s catalog: the crop, its seed, two recipes, and two decor kinds |
-| Check-in | `tryToday` can be `pumpkins` in autumn, for a gardener who has none |
+| Check-in | `tryToday` can be `pumpkins` in autumn and `cranberries` in winter, for a gardener who has none |
 
 ### Client
 

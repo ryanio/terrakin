@@ -4,7 +4,7 @@
 - Date: 2026-10-06
 - Status: accepted (Ryan, 2026-10-06)
 - Discussion: none
-- Decisions: [0106](../knowledge/decisions/0106-holidays-are-dated-windows-read-from-the-world-s-day-candy-i.md) (holidays, candy, and trick-or-treating), [0107](../knowledge/decisions/0107-halloween-s-numbers-costumes-candy-decor-and-the-night-s-cap.md) (Halloween's numbers)
+- Decisions: [0106](../knowledge/decisions/0106-holidays-are-dated-windows-read-from-the-world-s-day-candy-i.md) (holidays, candy, and trick-or-treating), [0107](../knowledge/decisions/0107-halloween-s-numbers-costumes-candy-decor-and-the-night-s-cap.md) (Halloween's numbers), [0124](../knowledge/decisions/0124-winter-s-numbers-cranberries-hot-cranberry-punch-winter-deco.md) (Midwinter's candy canes, with winter's numbers)
 - Builds on: [RFC 0017](0017-seasons.md) and [decision 0078](../knowledge/decisions/0078-seasons-follow-the-utc-calendar-and-add-stock-crops-recipes-.md) (seasons), [RFC 0018](0018-one-catalog-of-things.md) (the catalog), [decision 0052](../knowledge/decisions/0052-the-town-shop-sells-decor-and-wear-buys-a-rotating-few-goods.md) (shop wear), [decisions 0029](../knowledge/decisions/0029-looks-are-curated-themes-plus-your-own-uploaded-art.md) and [0053](../knowledge/decisions/0053-any-garment-can-carry-its-own-pattern-and-color-with-bottoms.md) (looks and wear), [RFC 0020](0020-plots-worth-visiting.md) (visiting a neighbor's door), [RFC 0010](0010-hosted-events.md) and [decision 0081](../knowledge/decisions/0081-the-town-hosts-events-from-a-calendar-in-server-config-start.md) (the harvest night), [decision 0098](../knowledge/decisions/0098-evenings-and-nights-in-3d-follow-the-map-s-clock-with-lamps-.md) (nights in 3D).
 
 ## Summary
@@ -124,6 +124,16 @@ The town's harvest night in the Commons (decision 0081) runs on the same evening
 - Candy and the decor in item pictures, on the map, in both 3D views, and in plot photos. The candy bowl shows its candy, and the cauldron's brew glows after dark through the 3D night's glow marks (decision 0098).
 - The evenings and nights of the week take a little purple and pumpkin orange, on the map and in 3D. It's presentation, worked out from the world's day like the season.
 
+### Midwinter (built now)
+
+Midwinter runs from December 21, the longest night in the north, to December 31, the last night of the year. It stops there because a holiday never runs into the next year. It's kept small: one thing to buy, and no rule of its own.
+
+The thing to buy is a candy cane. `candy_cane` is a sweet in food › sweets, like candy: the shop sells it for 2 coins while Midwinter runs, and a kitchen makes five from a bunch of herbs (the mint) and a bag of sugar on any day. It stacks, so it's easy to give a few to neighbors with `give`, and the town buys no sweets.
+
+The evenings glow gold on the map and in 3D, and lanterns, lamp posts, campfires, and winter's strings of lights shine a fifth brighter after dark. That's drawing only, from the world's day, like Halloween's purple.
+
+The shop shows a "For Midwinter" shelf while it runs, with each candy cane tagged "Midwinter". Winter's own stock, strings of lights included, is the season's ([RFC 0017](0017-seasons.md)), sold all winter. [Decision 0124](../knowledge/decisions/0124-winter-s-numbers-cranberries-hot-cranberry-punch-winter-deco.md) has the numbers.
+
 ### Protocol
 
 All additive to v1:
@@ -134,7 +144,7 @@ All additive to v1:
 | Event | `trick_or_treated {by, px, py, from: "resident" \| "bowl" \| "town", giver?}` |
 | Error codes | `out_of_holiday`, `already_knocked`, `knock_limit`, `no_candy` |
 | `GET /v1/shop` | `shop.holiday` (`{id, lastDay}`) while a holiday runs; on items, `holiday` and `lastDay` (its last UTC day) for holiday stock |
-| `GET /v1/world`, `GET /v1/checkin` | `holiday`, the holiday today, absent on ordinary days |
+| `GET /v1/world`, `GET /v1/checkin` | `holiday`, the holiday today (`halloween` or `midwinter`), absent on ordinary days |
 | `GET /v1/plots`, `GET /v1/plots/{px}/{py}` | `knockedToday`, with a token on October 31: whether you knocked at that door tonight |
 | Catalog | `candy` (role and category `sweet`, family food › sweets, its recipe with `makes`), three decor kinds, five wear items; `craft` and the craft link (`/v1/act/{key}/craft`) take `candy` |
 | Inventory reasons | `trick_or_treat`, `handed_out` |
@@ -194,5 +204,5 @@ Nothing changes how existing logs replay. One push builds all of it: the sim, th
 
 - Trick-or-treating is October 31 by the UTC calendar, which ends at 17:00 on the US west coast and 20:00 on the east coast, before most of the American evening. Should November 1 (UTC) be a trick-or-treat day too? Adding a day later only accepts what was refused, so it changes no logged knock, as long as it's decided before that day.
 - Should the town hand out more than 250 candies a night if the town grows past a few dozen trick-or-treaters?
-- Which holiday is next: a winter one in December, or something residents ask for?
+- Which holiday comes after Midwinter: one in spring, or something residents ask for?
 - Should a costume ever be sold outside its holiday, say in the market only, or by the shop at a higher price?

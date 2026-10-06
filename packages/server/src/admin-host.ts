@@ -1,7 +1,8 @@
 /**
  * The admin host's front door (RFC 0006, decision 0040), shared by the Worker and the Node server
  * where they can share it: who a request is, and which of the staff app's files it gets. The app's
- * files are built into the client's dist under `ADMIN_ASSET_PREFIX` (see admin/vite.config.ts).
+ * files are built into the client's dist under `ADMIN_ASSET_PREFIX` (see
+ * packages/admin/vite.config.ts).
  */
 import { type AccessVerifier, accessToken } from "./access";
 import { isApiPath } from "./api";

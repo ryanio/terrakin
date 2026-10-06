@@ -279,7 +279,7 @@ export const api = {
       NotificationsResponse,
     ),
   markRead: (upTo: string) => request("POST", "/v1/notifications/read", UnreadResponse, { upTo }),
-  // Trust and safety (RFC 0006). Staff tools are in the admin app (admin/).
+  // Trust and safety (RFC 0006). Staff tools are in the admin app (packages/admin/).
   report: (body: CreateReportRequest) => request("POST", "/v1/reports", ReportResponse, body),
 };
 

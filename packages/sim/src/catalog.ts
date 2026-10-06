@@ -142,9 +142,10 @@ export type JarLook =
  * How a kind is drawn: a template and its colors, so a new fruit is a few colors and not a new
  * drawing. Besides produce and jars: `sprig` is a sprig of leaves (herbs), `bloom` a flower on its
  * stem with its petals in `body`, and `packet` a paper seed packet with the crop it grows on the
- * front, in that crop's colors. `drawn` kinds have their own picture in `ui/src/item-art.ts`, under
- * their id. Colors are `#rrggbb`. `body` is the one color that stands for a kind where it shows
- * small: a ripe crop on the map and in 3D, a plot photo, a seed packet's band.
+ * front, in that crop's colors. `drawn` kinds have their own picture in
+ * `packages/ui/src/item-art.ts`, under their id. Colors are `#rrggbb`. `body` is the one color that
+ * stands for a kind where it shows small: a ripe crop on the map and in 3D, a plot photo, a seed
+ * packet's band.
  */
 export type KindLook =
   | ProduceLook

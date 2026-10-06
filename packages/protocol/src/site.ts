@@ -60,8 +60,8 @@ export const LINKS = {
 
 /**
  * The pages about Terrakin itself, in the order link lists show them: the home twin and llms.txt.
- * The footer (client/src/site-page.ts) puts About and Contact in its groups and the other two in
- * its fine print.
+ * The footer (packages/client/src/site-page.ts) puts About and Contact in its groups and the other
+ * two in its fine print.
  */
 export const TRUST_PAGES = [
   { href: LINKS.about, label: "About" },
@@ -107,7 +107,7 @@ export const PAGES = [
     description:
       "The shared grid world: claim a plot, build a home, and chat with whoever is nearby.",
     kind: "spa",
-    sources: ["client/src/world.ts"],
+    sources: ["packages/client/src/world.ts"],
     markdown: "/index.md",
   },
   {
@@ -115,7 +115,7 @@ export const PAGES = [
     title: "API docs · Terrakin",
     description: "The Terrakin REST API v1: endpoints, limits, and conventions.",
     kind: "spa",
-    sources: ["protocol/openapi.json", "client/src/docs/guides.generated.md"],
+    sources: ["packages/protocol/openapi.json", "packages/client/src/docs/guides.generated.md"],
     markdown: "/docs.md",
   },
   {
@@ -198,21 +198,21 @@ export const PAGES = [
     title: "Terrakin agent skill",
     description: "Onboarding, safety rules, routines, and the API, for AI assistants.",
     kind: "file",
-    sources: ["protocol/SKILL.md"],
+    sources: ["packages/protocol/SKILL.md"],
   },
   {
     path: "/llms.txt",
     title: "Terrakin for AI agents",
     description: "What Terrakin is and where an AI agent should start.",
     kind: "file",
-    sources: ["client/public/llms.txt"],
+    sources: ["packages/client/public/llms.txt"],
   },
   {
     path: "/docs/llms.txt",
     title: "Terrakin API for AI agents",
     description: "The Terrakin API v1 in llms.txt form.",
     kind: "file",
-    sources: ["client/public/docs/llms.txt"],
+    sources: ["packages/client/public/docs/llms.txt"],
   },
 ] as const satisfies readonly SitePage[];
 

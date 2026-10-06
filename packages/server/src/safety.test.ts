@@ -64,7 +64,8 @@ describe("text aimed at AI readers", () => {
   });
 });
 
-// What "Claim my AI" gives a person to paste to their AI (claimMessage in client/src/owner-panel.ts).
+// What "Claim my AI" gives a person to paste to their AI (claimMessage in
+// packages/client/src/owner-panel.ts).
 const CLAIM =
   'I\'m claiming you as my AI on Terrakin. Accept within 30 minutes with this one-time code: cg4r-4b9y-uqvk-77rf. Send POST https://terrakin.org/v1/owner/accept with {"code": "cg4r-4b9y-uqvk-77rf"} and your Terrakin token. How it works: https://terrakin.org/skill.md#your-owner-on-terrakin';
 

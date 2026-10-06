@@ -1,27 +1,30 @@
 /**
- * Regenerates everything derived from the route table (protocol/src/routes.ts) and the site
- * config (protocol/src/site.ts).
+ * Regenerates everything derived from the route table (packages/protocol/src/routes.ts) and the
+ * site config (packages/protocol/src/site.ts).
  *
  *   pnpm gen          rewrite the generated files
  *   pnpm gen:check    fail if any generated file is stale (verify and CI run this)
  *
- * Writes the generated blocks in protocol/SKILL.md, client/public/llms.txt, and docs/site/*.md,
- * the protocol/openapi.json snapshot, the discovery files under client/public (sitemap-pages.xml,
- * robots.txt, docs.md, docs/llms.txt, .well-known/*), docs/site/lastmod.json, and the guides on
- * the docs page (client/src/docs/guides.generated.md, from docs/guides, SKILL.md, and OpenAPI).
+ * Writes the generated blocks in packages/protocol/SKILL.md, packages/client/public/llms.txt, and
+ * docs/site/*.md, the packages/protocol/openapi.json snapshot, the discovery files under
+ * packages/client/public (sitemap-pages.xml, robots.txt, docs.md, docs/llms.txt, .well-known/*),
+ * docs/site/lastmod.json, and the guides on the docs page
+ * (packages/client/src/docs/guides.generated.md, from docs/guides, SKILL.md, and OpenAPI).
  *
  * Dates are deterministic: lastmod.json stores a hash of each page's sources, and a page's date
  * moves to today only when that hash changes. Check mode compares hashes, never dates.
  *
  * The changelog (decision 0036): CHANGELOG.md becomes docs/site/changelog.md (the /changelog page
- * and its twin), client/public/changelog.xml (Atom), and protocol/src/changelog.generated.ts (the
- * data behind GET /v1/changelog). Its newest day carries the API fingerprint, a hash of
- * openapi.json and SKILL.md's API block. When the API changes, gen restamps it only if that day
- * has gained an entry since the last stamp, and gen:check fails until it has.
+ * and its twin), packages/client/public/changelog.xml (Atom), and
+ * packages/protocol/src/changelog.generated.ts (the data behind GET /v1/changelog). Its newest day
+ * carries the API fingerprint, a hash of openapi.json and SKILL.md's API block. When the API
+ * changes, gen restamps it only if that day has gained an entry since the last stamp, and gen:check
+ * fails until it has.
  *
- * The devlog (decision 0105): the posts in docs/devlog become docs/site/devlog.md (the /devlog
- * page and its twin), client/public/devlog.xml (Atom), and protocol/src/devlog.generated.ts (the
- * data behind GET /v1/devlog, the check-in's `devlog`, and each post's page in the client build).
+ * The devlog (decision 0105): the posts in docs/devlog become docs/site/devlog.md (the /devlog page
+ * and its twin), packages/client/public/devlog.xml (Atom), and
+ * packages/protocol/src/devlog.generated.ts (the data behind GET /v1/devlog, the check-in's
+ * `devlog`, and each post's page in the client build).
  *
  * Plain Node (type stripping), no dependencies beyond the workspace packages it renders.
  */
@@ -48,13 +51,13 @@ registerHooks({
   },
 });
 
-const { buildOpenApi } = await import("../protocol/src/openapi.ts");
-const docs = await import("../protocol/src/docs.ts");
-const discovery = await import("../protocol/src/discovery.ts");
-const { docsGuides } = await import("../protocol/src/guides.ts");
-const { PAGES } = await import("../protocol/src/site.ts");
-const changelog = await import("../protocol/src/changelog.ts");
-const devlog = await import("../protocol/src/devlog.ts");
+const { buildOpenApi } = await import("../packages/protocol/src/openapi.ts");
+const docs = await import("../packages/protocol/src/docs.ts");
+const discovery = await import("../packages/protocol/src/discovery.ts");
+const { docsGuides } = await import("../packages/protocol/src/guides.ts");
+const { PAGES } = await import("../packages/protocol/src/site.ts");
+const changelog = await import("../packages/protocol/src/changelog.ts");
+const devlog = await import("../packages/protocol/src/devlog.ts");
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const LASTMOD = "docs/site/lastmod.json";
@@ -89,7 +92,7 @@ const check = process.argv.includes("--check");
  * generated API block, as this run will write them.
  */
 const apiFingerprint = () =>
-  sha256(`${read("protocol/openapi.json")}\0${docs.skillApiBlock()}`).slice(0, 12);
+  sha256(`${read("packages/protocol/openapi.json")}\0${docs.skillApiBlock()}`).slice(0, 12);
 
 /** CHANGELOG.md, parsed. Throws a ChangelogError naming the bad line. */
 const changelogLog = () => changelog.parseChangelog(read("CHANGELOG.md"));
@@ -120,16 +123,16 @@ const withBlocks = (text: string, file: string, blocks: Record<string, string>) 
 /** In order: a target may read any target above it. */
 const TARGETS: { file: string; render: (current: string) => string }[] = [
   {
-    file: "protocol/SKILL.md",
+    file: "packages/protocol/SKILL.md",
     render: (text) =>
-      withBlocks(text, "protocol/SKILL.md", {
+      withBlocks(text, "packages/protocol/SKILL.md", {
         api: docs.skillApiBlock(),
         catalog: docs.catalogBlock(),
         furniture: docs.furnitureBlock(),
       }),
   },
   {
-    file: "client/public/llms.txt",
+    file: "packages/client/public/llms.txt",
     render: (text) =>
       withBlocks(text, "llms.txt", {
         api: docs.llmsApiBlock(),
@@ -137,7 +140,7 @@ const TARGETS: { file: string; render: (current: string) => string }[] = [
         trust: docs.trustBlock(),
       }),
   },
-  { file: "protocol/openapi.json", render: () => json(buildOpenApi()) },
+  { file: "packages/protocol/openapi.json", render: () => json(buildOpenApi()) },
   {
     // After openapi.json and SKILL.md, so the fingerprint covers what this run writes.
     file: "CHANGELOG.md",
@@ -152,16 +155,19 @@ const TARGETS: { file: string; render: (current: string) => string }[] = [
   },
   { file: "docs/site/changelog.md", render: () => changelog.changelogPage(changelogLog()) },
   {
-    file: "protocol/src/changelog.generated.ts",
+    file: "packages/protocol/src/changelog.generated.ts",
     render: () => changelog.changelogModule(changelogLog()),
   },
-  { file: "client/public/changelog.xml", render: () => changelog.changelogAtom(changelogLog()) },
+  {
+    file: "packages/client/public/changelog.xml",
+    render: () => changelog.changelogAtom(changelogLog()),
+  },
   { file: "docs/site/devlog.md", render: () => devlog.devlogPage(devlogPosts()) },
   {
-    file: "protocol/src/devlog.generated.ts",
+    file: "packages/protocol/src/devlog.generated.ts",
     render: () => devlog.devlogModule(devlogPosts()),
   },
-  { file: "client/public/devlog.xml", render: () => devlog.devlogAtom(devlogPosts()) },
+  { file: "packages/client/public/devlog.xml", render: () => devlog.devlogAtom(devlogPosts()) },
   {
     file: "docs/site/index.md",
     render: (text) =>
@@ -177,16 +183,16 @@ const TARGETS: { file: string; render: (current: string) => string }[] = [
   },
   {
     // After SKILL.md, so the guides render its freshly generated text.
-    file: "client/src/docs/guides.generated.md",
+    file: "packages/client/src/docs/guides.generated.md",
     render: () =>
       docsGuides({
         gettingStarted: read("docs/guides/getting-started.md"),
-        skill: read("protocol/SKILL.md"),
+        skill: read("packages/protocol/SKILL.md"),
         openapi: buildOpenApi(),
         changelog: changelogLog(),
       }),
   },
-  { file: "client/public/docs/llms.txt", render: () => docs.apiLlmsTxt() },
+  { file: "packages/client/public/docs/llms.txt", render: () => docs.apiLlmsTxt() },
   {
     file: LASTMOD,
     render: (text) => {
@@ -203,9 +209,12 @@ const TARGETS: { file: string; render: (current: string) => string }[] = [
       return json(fresh);
     },
   },
-  { file: "client/public/docs.md", render: () => docs.docsMarkdown(lastmods()["/docs"] ?? today) },
   {
-    file: "client/public/sitemap-pages.xml",
+    file: "packages/client/public/docs.md",
+    render: () => docs.docsMarkdown(lastmods()["/docs"] ?? today),
+  },
+  {
+    file: "packages/client/public/sitemap-pages.xml",
     // Each devlog post is a page of its own, dated by its day: posts never change.
     render: () =>
       discovery.pagesSitemapXml(
@@ -213,19 +222,22 @@ const TARGETS: { file: string; render: (current: string) => string }[] = [
         devlogPosts().map((p) => ({ loc: p.url, lastmod: p.date })),
       ),
   },
-  { file: "client/public/robots.txt", render: () => discovery.robotsTxt() },
+  { file: "packages/client/public/robots.txt", render: () => discovery.robotsTxt() },
   {
-    file: "client/public/.well-known/api-catalog",
+    file: "packages/client/public/.well-known/api-catalog",
     render: () => json(discovery.apiCatalog()),
   },
   {
-    file: "client/public/.well-known/agent-skills/index.json",
+    file: "packages/client/public/.well-known/agent-skills/index.json",
     render: () => {
-      const skill = read("protocol/SKILL.md");
+      const skill = read("packages/protocol/SKILL.md");
       return json(discovery.agentSkillsIndex(skill, sha256(skill)));
     },
   },
-  { file: "client/public/.well-known/ard.json", render: () => json(discovery.ardJson(lastmods())) },
+  {
+    file: "packages/client/public/.well-known/ard.json",
+    render: () => json(discovery.ardJson(lastmods())),
+  },
 ];
 
 const stale: string[] = [];
@@ -253,7 +265,7 @@ if (errors.length > 0) {
 }
 if (check && stale.length > 0) {
   console.error(
-    `Generated files are out of date with protocol/src/routes.ts, protocol/src/site.ts, CHANGELOG.md, or docs/devlog:\n${stale.map((f) => `  ${f}`).join("\n")}\nRun \`pnpm gen\` and commit the result.`,
+    `Generated files are out of date with packages/protocol/src/routes.ts, packages/protocol/src/site.ts, CHANGELOG.md, or docs/devlog:\n${stale.map((f) => `  ${f}`).join("\n")}\nRun \`pnpm gen\` and commit the result.`,
   );
   process.exit(1);
 }

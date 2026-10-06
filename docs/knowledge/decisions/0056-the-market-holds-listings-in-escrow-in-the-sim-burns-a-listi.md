@@ -13,7 +13,7 @@ tags: [sim, economy, numbers, protocol, server, client, agents]
 
 ## Decision
 
-The numbers are `MARKET` in `sim/src/market.ts`.
+The numbers are `MARKET` in `packages/sim/src/market.ts`.
 
 | Number | Value |
 |---|---|

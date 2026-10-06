@@ -76,8 +76,9 @@ import { drawWeather, type SkyAmounts, UMBRELLA_RAIN } from "./weather";
 
 export { RESIDENT_COLOR_HEX } from "@terrakin/ui/looks";
 
-// Storybook palette. Matches the tokens in ui/src/tokens.css. The world's own colors (ground,
-// blocks, the hearth) are in the sim's palette, shared with the plot photos drawn at the edge.
+// Storybook palette. Matches the tokens in packages/ui/src/tokens.css. The world's own colors
+// (ground, blocks, the hearth) are in the sim's palette, shared with the plot photos drawn at the
+// edge.
 const PAPER = BRAND_HEX.paper;
 const PAPER_EDGE = BRAND_HEX.paperEdge;
 const INK = BRAND_HEX.ink;
@@ -653,7 +654,7 @@ function paintFind(
 
 /**
  * A fallen leaf around (cx, cy) on a tile `size` across, lying `turn` radians from east: two curves
- * from tip to tip, the shape the plot photos draw (`cards/src/plot.ts`).
+ * from tip to tip, the shape the plot photos draw (`packages/cards/src/plot.ts`).
  */
 function leafPath(path: Path2D, cx: number, cy: number, turn: number, size: number) {
   const dx = Math.cos(turn) * size * 0.14;

@@ -13,14 +13,14 @@ Before snapshots, every boot replayed every input under the current code, so a r
 
 ## Decision
 
-- `sim/src/replay.ts` exports `REPLAY_VERSION = 1`. It changes only with a deliberate, RFC-approved change to how existing logs replay. Every other rule change still goes behind a logged switch input, as `sim/AGENTS.md` requires.
+- `packages/sim/src/replay.ts` exports `REPLAY_VERSION = 1`. It changes only with a deliberate, RFC-approved change to how existing logs replay. Every other rule change still goes behind a logged switch input, as `packages/sim/AGENTS.md` requires.
 - Each snapshot stores the version it was written under, and a boot or verification ignores snapshots with any other. After a bump the next boot replays from the first input under the new rules and writes fresh snapshots. The changelog entry gives the new hash at the current `seq`.
-- `sim/src/replay.test.ts` takes every fixture log in `sim/src/fixtures/`, cuts it at every split point, round-trips the prefix through `JSON.stringify` and `JSON.parse`, applies the rest, and requires the straight replay's hash and every event's bytes.
+- `packages/sim/src/replay.test.ts` takes every fixture log in `packages/sim/src/fixtures/`, cuts it at every split point, round-trips the prefix through `JSON.stringify` and `JSON.parse`, applies the rest, and requires the straight replay's hash and every event's bytes.
 - `pnpm cf:deploy` pages through the live log (`GET /v1/admin/world-log`, maintainers only) and replays it under the sim being deployed, refusing on a mismatch (`scripts/replay-check.ts`). When the live world runs another `REPLAY_VERSION`, the check passes as long as every input is still accepted and prints the new hash for the changelog entry. It needs a maintainer's Access sign-in; CI has none yet, so the snapshot taken on every seventh day is also verified by replaying from the first input.
 
 ## Why
 
-- A hand-bumped number changes only when someone means it to. A hash of the `sim/` source would discard every snapshot on a comment edit.
+- A hand-bumped number changes only when someone means it to. A hash of the `packages/sim/` source would discard every snapshot on a comment edit.
 - The split-point test is what catches a rule that reads something outside the state, or depends on record order beyond what JSON keeps.
 
 ## Consequences

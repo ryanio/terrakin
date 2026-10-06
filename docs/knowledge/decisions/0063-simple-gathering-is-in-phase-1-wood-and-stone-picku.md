@@ -9,12 +9,12 @@ tags: [sim, protocol, server, client, agents, replay]
 
 ## Context
 
-`docs/plans/phase-1.md` lists simple gathering (pick up wood/stone) as its last unstarted item, while [RFC 0001](../rfcs/0001-phase-1-prototype.md) said "No coins or resources in Phase 1." Issue #41 asked for the scope call. Ryan's call (2026-10-05): build the right thing, don't stall on old decisions. Gathering is in.
+`docs/plans/phase-1.md` lists simple gathering (pick up wood/stone) as its last unstarted item, while [RFC 0001](../../rfcs/0001-phase-1-prototype.md) said "No coins or resources in Phase 1." Issue #41 asked for the scope call. Ryan's call (2026-10-05): build the right thing, don't stall on old decisions. Gathering is in.
 
 ## Decision
 
 - **Gathering ships in Phase 1.** New action `gather {x, y}`: fallen branches (`wood`) in forests and loose stones (`stone`) on stone ground, within reach, into the gatherer's inventory.
-- **The spawn is a pure function of tile and day** (`gatherableAt` in `sim/src/gather.ts`), like `biomeAt`: every client draws the same sticks and stones, and the log never carries them. One pickup per tile per UTC day; `new_day` forgets yesterday's pickups.
+- **The spawn is a pure function of tile and day** (`gatherableAt` in `packages/sim/src/gather.ts`), like `biomeAt`: every client draws the same sticks and stones, and the log never carries them. One pickup per tile per UTC day; `new_day` forgets yesterday's pickups.
 - **No coins move.** Wood and stone are `resource` stack kinds: they count toward the 200-thing cap, can be given and traded in the market, and neither cost nor mint coins. Picking up what the town buys is untouched: the town doesn't buy them.
 - **Biomes now have a gameplay effect** ([decision 0045](0045-biomes-are-a-pure-function-of-position-presentation-only.md) said they had none). Where pickups fall reads `biomeAt`, so a change to `biomeAt`, `BIOME_REGION`, the spawn hash, or `GATHER`'s chances changes which logged `gather`s replay. That change needs an RFC. `gather.test.ts` pins the spawn and a gather log's hash.
 - **A claimed plot's pickups are its owners'.** Ryan's call (2026-10-05, after launch): on a claimed plot, only its owner and co-owners can `gather`. The Commons and unclaimed land stay open to everyone. Anyone else is refused with `not_your_plot`, whose message names the plot's owner by id and the nearest pickup within 12 tiles they may take (decision 0044's next-step hint). The check comes after `nothing_to_gather`, so an empty tile still says it's empty. Gathering shipped first with no such rule ("a pickup belongs to whoever gets there"), and the live log may hold gathers on other residents' plots.

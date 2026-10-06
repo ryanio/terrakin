@@ -17,7 +17,7 @@ The vision's Phase 1 test is "is it fun to exist here?" We need something real t
 
 ### Sim core
 
-- Pure `apply(state, { actor, command })` returning events or a rejection. See `sim/AGENTS.md` for invariants.
+- Pure `apply(state, { actor, command })` returning events or a rejection. See `packages/sim/AGENTS.md` for invariants.
 - Commands: `join`, `leave`, `move` (one tile, n/s/e/w), `claim`, `place`, `remove`, `gather`.
 - State: config, `seq`, residents, claimed plots, blocks. Plain JSON, hashable.
 
@@ -32,7 +32,7 @@ The vision's Phase 1 test is "is it fun to exist here?" We need something real t
 
 - REST: `POST /v1/session`, `DELETE /v1/session`, `POST /v1/actions`, `GET /v1/world`, `GET /v1/health`, `GET /v1/skill`, `GET /v1/openapi.json`.
 - WebSocket `/v1/live`: `hello`, then `action` messages; server streams `event` and `chat`.
-- Same `Action` schema on both transports. The agent skill file (`protocol/SKILL.md`) documents all of it.
+- Same `Action` schema on both transports. The agent skill file (`packages/protocol/SKILL.md`) documents all of it.
 
 ## Invariants
 

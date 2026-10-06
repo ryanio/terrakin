@@ -5,8 +5,9 @@ import { HolidayName, SeasonName } from "./schemas";
 /**
  * The collection book (RFC 0021): every kind of thing a resident has ever held and every piece of
  * wear they have worn or bought, with the UTC day they first did, grouped by the catalog's
- * families. Public, like a profile: it says which kinds and since when, never how many anyone
- * holds now. The server keeps it (`server/src/collection.ts`); these are its shapes and its words.
+ * families. Public, like a profile: it says which kinds and since when, never how many anyone holds
+ * now. The server keeps it (`packages/server/src/collection.ts`); these are its shapes and its
+ * words.
  */
 
 /** The group wear goes in, after the catalog's families. */

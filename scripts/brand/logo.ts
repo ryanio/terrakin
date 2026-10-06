@@ -1,6 +1,6 @@
 /**
  * Brand generator. The Terrakin mark is defined here as code, and every logo, favicon,
- * app icon and social card in client/public is generated from it.
+ * app icon and social card in packages/client/public is generated from it.
  *
  *   pnpm brand                      regenerate every brand asset
  *   pnpm brand --preview <dir>      also write preview.png (mark at 512, 64, 32, 16) to <dir>
@@ -711,9 +711,9 @@ function manifest(): string {
 }
 
 /**
- * The brand as a module for the link preview cards (cards/src/brand.ts): the palette, the mark
- * as one SVG (with a paper-colored outline variant for dark cards), its size, and the grain filter.
- * Written in Biome's style so `pnpm lint` passes on the generated file.
+ * The brand as a module for the link preview cards (packages/cards/src/brand.ts): the palette, the
+ * mark as one SVG (with a paper-colored outline variant for dark cards), its size, and the grain
+ * filter. Written in Biome's style so `pnpm lint` passes on the generated file.
  */
 function cardsBrand(): string {
   const { w, h } = markSize(BRAND.mark);
@@ -808,14 +808,14 @@ function main(): void {
       ["site.webmanifest", manifest()],
       ["og.png", png(ogSvg(type), 1200)],
     ]);
-    const out = join(ROOT, "client", "public");
+    const out = join(ROOT, "packages", "client", "public");
     for (const [name, data] of assets) {
       const file = join(out, name);
       mkdirSync(dirname(file), { recursive: true });
       writeFileSync(file, data);
       console.log(`wrote ${relative(ROOT, file)}`);
     }
-    const cardsFile = join(ROOT, "cards", "src", "brand.ts");
+    const cardsFile = join(ROOT, "packages", "cards", "src", "brand.ts");
     writeFileSync(cardsFile, cardsBrand());
     console.log(`wrote ${relative(ROOT, cardsFile)}`);
     const dir = args[previewAt + 1];

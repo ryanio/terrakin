@@ -87,8 +87,9 @@ export const POLICY: Record<Surface, Policy> = {
     shorteners: true,
     spam: ["runs"],
   },
-  // Handles also pass `isReservedHandle` (protocol/src/routes.ts) first, which keeps route words and
-  // names that start like staff ("admin_...", "terrakin...") for the team. This adds the rest.
+  // Handles also pass `isReservedHandle` (packages/protocol/src/routes.ts) first, which keeps route
+  // words and names that start like staff ("admin_...", "terrakin...") for the team. This adds the
+  // rest.
   handle: {
     label: "Handles",
     vulgar: "refuse",

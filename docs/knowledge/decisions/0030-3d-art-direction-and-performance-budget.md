@@ -13,7 +13,7 @@ RFC 0005 steps A and B add 3D views: "Admire in 3D" for items and "Visit in 3D" 
 
 ## Decision
 
-One shared stage, `client/src/scene3d/art.ts`, sets the look and the budget for every 3D view.
+One shared stage, `packages/client/src/scene3d/art.ts`, sets the look and the budget for every 3D view.
 
 The look is storybook low-poly. Light is a warm hemisphere plus one low sun with soft shadows and a lilac fill from behind. Materials are matte Lambert in the brand palette (`scene3d/palette.ts`, pinned to `tokens.css` and `render.ts` by tests), with a paper grain texture. Shade is baked into vertex colors (bases darker, ground darker next to blocks) instead of any post-processed ambient occlusion. Ground melts into a paper-colored sky through fog and vertex alpha. Small idle motions (wind on leaves and grass in the vertex shader, chimney smoke, breathing figures, a slow turn) all stop under `prefers-reduced-motion`, and then the stage draws only when the camera moves.
 
@@ -27,7 +27,7 @@ The budget:
 - Rendering pauses while the tab is hidden. `dispose()` frees every geometry, material, texture, instance buffer, shadow map, and the WebGL context, and the e2e test checks that no animation frames run after leaving.
 - Textures come only from canvases drawn in code, or from our own media through a `LoadingManager` that refuses anything `isModelResource` doesn't allow. No new origins in the Content-Security-Policy.
 
-All 3D code lives in `client/src/scene3d/` and `model-viewer.ts`, reached only through `import()`. A test fails if any other file imports `three` or statically imports one of those files.
+All 3D code lives in `packages/client/src/scene3d/` and `model-viewer.ts`, reached only through `import()`. A test fails if any other file imports `three` or statically imports one of those files.
 
 ## Consequences
 

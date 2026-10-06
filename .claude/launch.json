@@ -11,7 +11,7 @@
       "name": "built",
       "runtimeExecutable": "env",
       "runtimeArgs": [
-        "TERRAKIN_STATIC_DIR=client/dist",
+        "TERRAKIN_STATIC_DIR=packages/client/dist",
         "pnpm",
         "--filter",
         "@terrakin/server",

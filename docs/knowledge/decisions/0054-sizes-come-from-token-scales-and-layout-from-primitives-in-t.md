@@ -17,16 +17,16 @@ Each view also wrapped its cards in its own body element. `/purse` forgot the ga
 
 ## Decision
 
-- `ui/src/tokens.css` has a spacing scale (`--space-2xs` 4px to `--space-6xl` 64px), a type scale (`--text-2xs` 11px to `--text-6xl` 44px, plus `--text-input` at 17px), a corner scale (`--r-xs` to `--r-pill`), line heights (`--leading-none` to `--leading-normal`), weights (`--weight-medium` to `--weight-heavy`), and the page rhythm (`--gap-page`, `--gap-section-head`).
+- `packages/ui/src/tokens.css` has a spacing scale (`--space-2xs` 4px to `--space-6xl` 64px), a type scale (`--text-2xs` 11px to `--text-6xl` 44px, plus `--text-input` at 17px), a corner scale (`--r-xs` to `--r-pill`), line heights (`--leading-none` to `--leading-normal`), weights (`--weight-medium` to `--weight-heavy`), and the page rhythm (`--gap-page`, `--gap-section-head`).
   - Any gap, padding, margin, font size or radius of 4px or more is a token.
   - Less than 4px is a hairline or an optical nudge.
   - Geometry tied to a fixed size goes in a `calc()` that names what it measures.
   - Off-scale values moved to the nearest step, rounding up on a tie, so most moved toward more room.
-- `ui/src/base.css` has layout primitives that views put in the class list: `stack` (`.tight`, `.cards`, `.start`), `cluster` and `plain-list`. They sit inside `:where()`, so a component's own rule always wins over them, and an empty `stack` or `cluster` takes no room.
+- `packages/ui/src/base.css` has layout primitives that views put in the class list: `stack` (`.tight`, `.cards`, `.start`), `cluster` and `plain-list`. They sit inside `:where()`, so a component's own rule always wins over them, and an empty `stack` or `cluster` takes no room.
 - A view's body inside `.page` is a `stack cards`. `.section-title` lives in `base.css`, and a column of cards gives it (or a section that opens with it) the extra room above it. That keeps a heading closer to what it names than to what came before.
-- `itemRow` and `itemRows` in `ui/src/ui.ts` draw the list row. The views keep their own class on it (`purse-line`, `shop-order`), so e2e selectors and contextual colors still work.
+- `itemRow` and `itemRows` in `packages/ui/src/ui.ts` draw the list row. The views keep their own class on it (`purse-line`, `shop-order`), so e2e selectors and contextual colors still work.
 - Enforcement:
-  - `client/src/shared-components.test.ts` fails on a raw size of 4px or more, a unitless line height or numeric weight, on a scale token that isn't defined, on an app rule that only restates a primitive, and on a hand-built row.
+  - `packages/client/src/shared-components.test.ts` fails on a raw size of 4px or more, a unitless line height or numeric weight, on a scale token that isn't defined, on an app rule that only restates a primitive, and on a hand-built row.
   - `touchingCards` in `e2e/support.ts` fails `site.spec.ts` when two stacked cards on a resident's main pages are less than 8px apart.
 
 ## Consequences

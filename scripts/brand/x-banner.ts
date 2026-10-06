@@ -20,7 +20,7 @@ import { fmt, GRAIN, MARK, markElements, markSize, PALETTE, png, svgDoc } from "
 const W = 1500;
 const H = 500;
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const OUT = join(ROOT, "client", "public", "brand", "x-banner.png");
+const OUT = join(ROOT, "packages", "client", "public", "brand", "x-banner.png");
 
 /** Where a plot's center lands, and its scale (drawing units to pixels). Back to front. */
 interface Spot {

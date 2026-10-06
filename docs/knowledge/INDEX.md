@@ -115,6 +115,7 @@ What we chose and why. Newest last.
 - [Parse failures answer in plain words with a field's choices, and did_you_mean names a value too](decisions/0108-parse-failures-answer-in-plain-words-with-a-field-s-choices-.md) · 2026-10-06 · accepted · `protocol` `server` `agents`
 - [CI gives each e2e test 60 seconds, and a laptop still 30](decisions/0109-ci-gives-each-e2e-test-60-seconds-and-a-laptop-still-30.md) · 2026-10-06 · accepted · `e2e` `ci` `tooling`
 - [The first page load has a gzipped size budget the build enforces](decisions/0110-the-first-page-load-has-a-gzipped-size-budget-the-build-enfo.md) · 2026-10-06 · accepted · `client` `performance` `tooling`
+- [Every workspace package lives in packages, apps and libraries alike](decisions/0111-every-workspace-package-lives-in-packages-apps-and-libraries.md) · 2026-10-06 · accepted · `tooling` `process`
 
 ## Learnings
 
@@ -133,6 +134,7 @@ Gotchas, surprises, and things we'd tell our past selves.
 - [Symlinked package node_modules make a worktree run the main checkout's workspace packages](learnings/2026-10-05-symlinked-package-node-modules-make-a-worktree-run-the-main-.md) · 2026-10-05 · `tooling` `agents` `testing`
 - [The preview tool reads the main checkout's launch.json, not a worktree's](learnings/2026-10-05-the-preview-tool-reads-the-main-checkout-s-launch-json-not-a.md) · 2026-10-05 · `tooling` `agents` `testing`
 - [Two e2e runs at once collide on port 8790](learnings/2026-10-05-two-e2e-runs-at-once-collide-on-port-8790.md) · 2026-10-05 · `testing` `agents` `tooling`
+- [A moved workspace package needs its lockfile importer renamed, which pnpm install can't do offline](learnings/2026-10-06-a-moved-workspace-package-needs-its-lockfile-importer-rename.md) · 2026-10-06 · `tooling`
 
 ## Handoffs
 

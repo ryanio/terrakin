@@ -303,7 +303,9 @@ export function devlogAtom(posts: readonly DevlogPost[]): string {
   ].join("\n");
 }
 
-/** protocol/src/devlog.generated.ts: every post, embedded so the Worker needs no file I/O. */
+/**
+ * packages/protocol/src/devlog.generated.ts: every post, embedded so the Worker needs no file I/O.
+ */
 export function devlogModule(posts: readonly DevlogPost[]): string {
   return [
     "// Generated from docs/devlog by `pnpm gen`. Write a new post there, not here.",

@@ -44,4 +44,4 @@ Why these values:
 
 - These numbers replay. `halloween.test.ts` pins them and the Halloween log's hash, so changing a price, the recipe, or a cap needs a decision that says how old logs replay. Raising a cap only accepts what was refused, so it changes no logged knock; lowering one does.
 - If the town grows enough that 250 runs out early on the night, raise `townPerDay` before the next October 31.
-- Code: `WEAR_PRICES` and `HOLIDAY_STOCK` in `sim/src/shop.ts`, the `candy`, `bat_bunting`, `cauldron`, and `candy_bowl` entries in `sim/src/catalog.ts`, and `TRICK_OR_TREAT` in `sim/src/halloween.ts`.
+- Code: `WEAR_PRICES` and `HOLIDAY_STOCK` in `packages/sim/src/shop.ts`, the `candy`, `bat_bunting`, `cauldron`, and `candy_bowl` entries in `packages/sim/src/catalog.ts`, and `TRICK_OR_TREAT` in `packages/sim/src/halloween.ts`.

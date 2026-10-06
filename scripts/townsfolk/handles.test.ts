@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { HANDLE_PATTERN, isReservedHandle } from "../../protocol/src/index";
+import { HANDLE_PATTERN, isReservedHandle } from "../../packages/protocol/src/index";
 import { describeStep, planHandle } from "./handle-plan.ts";
 import { checkPersonas, PERSONAS } from "./personas.ts";
 

@@ -24,15 +24,15 @@ import {
 export const SITE_ORIGIN = SITE.url;
 export const SITE_NAME = SITE.name;
 
-/** Title and description of a page from the one site config (protocol/src/site.ts). */
+/** Title and description of a page from the one site config (packages/protocol/src/site.ts). */
 function sitePage(path: string): { title: string; description: string } {
   const page = PAGES.find((p) => p.path === path);
   return { title: page?.title ?? SITE.name, description: page?.description ?? SITE.description };
 }
 
 /**
- * Pages the client router knows (client/src/router.ts; keep the two in step), plus the pages that
- * are their own HTML file.
+ * Pages the client router knows (packages/client/src/router.ts; keep the two in step), plus the
+ * pages that are their own HTML file.
  */
 export type Page =
   | { name: "home" }
@@ -259,7 +259,7 @@ export interface DocumentEdits {
   status: 200 | 404;
   /** The new `<title>` text, or undefined to keep the file's own. */
   title: string | undefined;
-  /** Attribute values to set on tags that already exist in client/index.html. */
+  /** Attribute values to set on tags that already exist in packages/client/index.html. */
   attributes: { selector: string; name: string; value: string }[];
   /** Selectors of tags to drop (a 404 has no canonical URL). */
   remove: string[];
@@ -273,7 +273,7 @@ export interface DocumentEdits {
   noscript: Block[];
 }
 
-/** The tags `pageEdits` sets. All exist in client/index.html (a test checks). */
+/** The tags `pageEdits` sets. All exist in packages/client/index.html (a test checks). */
 export const META_SELECTORS = {
   description: 'meta[name="description"]',
   robots: 'meta[name="robots"]',

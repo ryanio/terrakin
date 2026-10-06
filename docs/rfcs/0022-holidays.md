@@ -26,7 +26,7 @@ Ryan asked for the world to be more fun and more your own. Seasons (RFC 0017) gi
 
 ### What a holiday is
 
-`sim/src/holiday.ts` lists the holidays (`HOLIDAYS`) with their first and last UTC dates (`HOLIDAY_INFO`). `holidayOf(day)` gives the holiday a world day falls in, or none. Like `seasonOf`, it's a pure function of the logged day: never state, never an input, and a replay sees the same holiday on the same day. Holidays never overlap and never run into the next year (a test pins it), so a day is in one holiday at most.
+`packages/sim/src/holiday.ts` lists the holidays (`HOLIDAYS`) with their first and last UTC dates (`HOLIDAY_INFO`). `holidayOf(day)` gives the holiday a world day falls in, or none. Like `seasonOf`, it's a pure function of the logged day: never state, never an input, and a replay sees the same holiday on the same day. Holidays never overlap and never run into the next year (a test pins it), so a day is in one holiday at most.
 
 The dates are the same every year. A holiday's stock comes back each year, like a season's.
 
@@ -58,7 +58,7 @@ Five costumes, sold only during Halloween, bought once and kept for good like th
 | Ghost sheet | top | 50 | A white sheet over the head and body with a wavy hem. It covers the bottom half like a dress, hides the hair, and the face shows through it. |
 | Bat wings | accessory | 70 | Two scalloped wings behind the shoulders, spread wide from the back. |
 
-`COSTUMES` in `sim/src/looks.ts` names them; they're in `SHOP_WEAR` and on the end of `WEAR_ITEMS`, before the partner wear, which stays last.
+`COSTUMES` in `packages/sim/src/looks.ts` names them; they're in `SHOP_WEAR` and on the end of `WEAR_ITEMS`, before the partner wear, which stays last.
 
 #### Candy
 
@@ -120,7 +120,7 @@ The town's harvest night in the Commons (decision 0081) runs on the same evening
 
 #### How the world draws it
 
-- Costumes everywhere figures are drawn: the 2D figure from the front, the side, and the back (`ui/src/figure.ts`), the 3D peg figures (`client/src/scene3d/wear.ts`), the item pictures, and the look editor. Plot photos draw no figures, so no costumes there.
+- Costumes everywhere figures are drawn: the 2D figure from the front, the side, and the back (`packages/ui/src/figure.ts`), the 3D peg figures (`packages/client/src/scene3d/wear.ts`), the item pictures, and the look editor. Plot photos draw no figures, so no costumes there.
 - Candy and the decor in item pictures, on the map, in both 3D views, and in plot photos. The candy bowl shows its candy, and the cauldron's brew glows after dark through the 3D night's glow marks (decision 0098).
 - The evenings and nights of the week take a little purple and pumpkin orange, on the map and in 3D. It's presentation, worked out from the world's day like the season.
 
@@ -149,7 +149,7 @@ The shop marks holiday stock with a "Halloween" tag and lists it first while Hal
 
 - **The server decides.** The holiday, what's on sale, and every rule of a knock are in the sim. The client shows the Trick or treat button only on October 31 by the sim's own `trickOrTreatDay`, and shows the server's words for every refusal.
 - **Determinism.** The holiday is a pure function of `state.day`. A knock reads only state: who's online and where, who holds candy, the blocks on the plot, and today's knocks. No clock, no randomness.
-- **Old logs replay unchanged.** New kinds, wear, commands, events, and codes only. No kind joins a frozen list: the starter seeds, the pantry's staples, and the town's rotation are as they were, and the town buys nothing new. Sweets join the end of `STACK_KINDS`, after every role that shipped. The only rule that changes for something old is `craft`'s room check, which runs only for a recipe that makes more than it uses, and every recipe before candy makes one from at least one. `REPLAY_VERSION` stays 1. `sim/src/fixtures/halloween-log.ts` pins a log with the costumes, candy, decor, and a night of knocks, and `replay.test.ts` replays it at every split point.
+- **Old logs replay unchanged.** New kinds, wear, commands, events, and codes only. No kind joins a frozen list: the starter seeds, the pantry's staples, and the town's rotation are as they were, and the town buys nothing new. Sweets join the end of `STACK_KINDS`, after every role that shipped. The only rule that changes for something old is `craft`'s room check, which runs only for a recipe that makes more than it uses, and every recipe before candy makes one from at least one. `REPLAY_VERSION` stays 1. `packages/sim/src/fixtures/halloween-log.ts` pins a log with the costumes, candy, decor, and a night of knocks, and `replay.test.ts` replays it at every split point.
 - **Resident text stays untrusted.** Nothing here carries resident words. The notice and the check-in line carry counts and plot coordinates; names are drawn as text.
 - **The protocol only grows.**
 

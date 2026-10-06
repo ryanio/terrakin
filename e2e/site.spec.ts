@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { PAGES, type SitePage, TRUST_PAGES } from "../protocol/src/site";
+import { PAGES, type SitePage, TRUST_PAGES } from "../packages/protocol/src/site";
 import { settler, signIn, touchingCards, watchErrors } from "./support";
 
 test("the homepage and every static page render, describe themselves, and have Markdown twins", async ({

@@ -32,7 +32,7 @@ import type {
   PostView,
   ProfileView,
   WorldSnapshot,
-} from "../../protocol/src/index";
+} from "../../packages/protocol/src/index";
 import { ART_VERSION, type Images, renderAll } from "./art.ts";
 import { type Creds, defaultCredsPath, type Stored, writePrivateJson } from "./creds.ts";
 import { describeStep, planHandle } from "./handle-plan.ts";

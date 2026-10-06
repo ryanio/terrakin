@@ -13,7 +13,7 @@ tags: [client, performance, 3d, design]
 
 ## Decision
 
-The 3D world is a second renderer of the same mirror. `client/src/world.ts` keeps the connection, walking, and every action; `client/src/scene3d/world.ts` only draws, and hands a tap back as a tile, so a tap in 3D sends what the same tap on the map sends. Blocks, plot borders, grass, hearths, and figures come from the plot view's builders in `scene3d/plot.ts`; the Town Hall and the shop are new models in `scene3d/buildings.ts`. The scene code and three.js load through `import()` the first time someone turns 3D on, so the 2D path pays nothing.
+The 3D world is a second renderer of the same mirror. `packages/client/src/world.ts` keeps the connection, walking, and every action; `packages/client/src/scene3d/world.ts` only draws, and hands a tap back as a tile, so a tap in 3D sends what the same tap on the map sends. Blocks, plot borders, grass, hearths, and figures come from the plot view's builders in `scene3d/plot.ts`; the Town Hall and the shop are new models in `scene3d/buildings.ts`. The scene code and three.js load through `import()` the first time someone turns 3D on, so the 2D path pays nothing.
 
 **What is drawn around you** (`scene3d/world-layout.ts`):
 
@@ -38,7 +38,7 @@ The 3D world is a second renderer of the same mirror. `client/src/world.ts` keep
 
 Figures in the world cast blob shadows only, since a real shadow per figure doubles its draws. Hearths have no point light, because a light coming into view recompiles every material. The rest of decision 0030 holds: pixel ratio capped at 2, one shadow-casting sun (it follows you and covers the view radius), Lambert paper materials, instancing, no post-processing.
 
-**When 3D is offered.** The map is the default everywhere. The "3D view" toggle, just above the d-pad where a thumb reaches it, shows when the browser has WebGL 2 and the device isn't low end: under 4 GB of memory (`navigator.deviceMemory`, where the browser reports it), under 4 cores, or Save-Data on. The choice is remembered on the device (`terrakin.worldMode` in localStorage) and the world reopens in 3D next time, if 3D is still offered (`client/src/world-mode.ts`).
+**When 3D is offered.** The map is the default everywhere. The "3D view" toggle, just above the d-pad where a thumb reaches it, shows when the browser has WebGL 2 and the device isn't low end: under 4 GB of memory (`navigator.deviceMemory`, where the browser reports it), under 4 cores, or Save-Data on. The choice is remembered on the device (`terrakin.worldMode` in localStorage) and the world reopens in 3D next time, if 3D is still offered (`packages/client/src/world-mode.ts`).
 
 **How it falls back.** If frames still take longer than 1/15 s (the median over about two seconds) after the stage has stepped down, or the scene code fails to load, the world goes back to the map with a short note and remembers the map for this device. If the WebGL context is lost (a phone can reclaim it while the app is in the background), it goes back to the map for this visit only. Turning 3D back on is one tap.
 

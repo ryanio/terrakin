@@ -22,4 +22,4 @@ tags: [client, ux, design]
 
 - The bar is further from a thumb than before. Building is careful, deliberate tapping, so we chose seeing your reach over reaching the bar. If people miss it at the bottom, a camera that lifts the resident while building is the other way, which would mean `tapTile` in `e2e/support.ts` stops assuming the resident is in the middle.
 - A dimmed choice isn't `aria-disabled`, because it still works; its label says "not enough" or "none left".
-- Code: `client/src/build-palette.ts`, `setBuildMode`, `showTab`, and `tapTile` in `client/src/world.ts`, `.palette` and `.hud.building .toast` in `client/src/style.css`, and `e2e/build.spec.ts`.
+- Code: `packages/client/src/build-palette.ts`, `setBuildMode`, `showTab`, and `tapTile` in `packages/client/src/world.ts`, `.palette` and `.hud.building .toast` in `packages/client/src/style.css`, and `e2e/build.spec.ts`.

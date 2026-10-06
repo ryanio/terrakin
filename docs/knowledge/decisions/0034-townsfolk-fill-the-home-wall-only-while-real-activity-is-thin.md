@@ -22,6 +22,6 @@ The world snapshot didn't say who the townsfolk are. Only post authors and profi
 
 ## Consequences
 
-- The rules are pure functions in `client/src/pulse.ts` with tests in `pulse.test.ts`. The thresholds are constants there, so raising them as the town grows is a one-line change.
+- The rules are pure functions in `packages/client/src/pulse.ts` with tests in `pulse.test.ts`. The thresholds are constants there, so raising them as the town grows is a one-line change.
 - The client also learns townsfolk ids from post authors, so the wall still works against a server that predates the snapshot field.
 - Townsfolk keep their badge everywhere. Folding changes where they appear, never whether they're labeled.

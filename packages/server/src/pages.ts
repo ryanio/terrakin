@@ -71,7 +71,10 @@ export const twinHeaders = (): Record<string, string> => ({
 
 // ---------- admin.terrakin.org (RFC 0006, decision 0040) ----------
 
-/** Where the admin app's built files live inside the client's assets (`admin/` builds into it). */
+/**
+ * Where the admin app's built files live inside the client's assets (`packages/admin/` builds into
+ * it).
+ */
 export const ADMIN_ASSET_PREFIX = "/_admin/";
 
 /**

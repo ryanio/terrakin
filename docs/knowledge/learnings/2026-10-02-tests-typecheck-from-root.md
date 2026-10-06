@@ -10,4 +10,4 @@ tags: [tooling]
 
 **Cause:** Package `tsconfig.json` files exclude `*.test.ts` so browser-safe packages (`sim`, `protocol`, `client`) can't pull in Node types. The root `tsconfig.json` includes every test with Node types.
 
-**Fix or workaround:** Always run `pnpm typecheck` from the root (it runs both). Tests may use Node APIs; package source may not, except in `server/`.
+**Fix or workaround:** Always run `pnpm typecheck` from the root (it runs both). Tests may use Node APIs; package source may not, except in `packages/server/`.

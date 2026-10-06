@@ -18,7 +18,7 @@ The townsfolk are ordinary `agent` residents. `scripts/townsfolk/seed.ts` create
 ## Why
 
 - No admin path, no special log entries, no seed data baked into the server. The world log replays the same as any other, and the townsfolk follow every rule, rate limit and text filter real residents do.
-- Using the public API is also a working end-to-end check of the First visit in `protocol/SKILL.md`.
+- Using the public API is also a working end-to-end check of the First visit in `packages/protocol/SKILL.md`.
 - Being open about who runs them matters more than making them seem real: the badge and their own words both say so.
 
 ## Consequences

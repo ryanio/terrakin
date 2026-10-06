@@ -23,7 +23,7 @@ import { DAY_LENGTH_MS, DAY_MS, WorldService } from "./world-service";
 import { oembedReader } from "./x-link";
 
 // Resolve relative paths from where the user ran the command. `pnpm --filter` runs this file
-// from server/, but pnpm records the original directory in INIT_CWD.
+// from packages/server/, but pnpm records the original directory in INIT_CWD.
 const fromCwd = (path: string) => resolve(process.env.INIT_CWD ?? process.cwd(), path);
 
 const port = Number(process.env.PORT ?? 8787);

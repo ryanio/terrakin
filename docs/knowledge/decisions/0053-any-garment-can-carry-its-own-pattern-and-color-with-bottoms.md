@@ -22,10 +22,10 @@ Looks are sim state, so the change has to keep every existing log replaying to t
 
 ## Consequences
 
-- Old logs replay unchanged: `wearStyle` is absent until a profile sets it, and no accepted old input could name the new items or slots. The pinned hashes in `sim/src/fixtures/` all still pass.
+- Old logs replay unchanged: `wearStyle` is absent until a profile sets it, and no accepted old input could name the new items or slots. The pinned hashes in `packages/sim/src/fixtures/` all still pass.
 - The protocol change is additive: a new optional field on the profile action and on looks, new enum values, and a larger `wear` maximum.
-- The 2D figure draws every garment as its own clipped shape so a pattern or color can fill it (`ui/src/figure.ts`). The 3D peg figures still show no wear; a later 3D pass can read the same styles.
+- The 2D figure draws every garment as its own clipped shape so a pattern or color can fill it (`packages/ui/src/figure.ts`). The 3D peg figures still show no wear; a later 3D pass can read the same styles.
 - Shop wear (decision 0052) can be styled like anything else, which makes it worth more to buy. A style may be set on shop wear you haven't bought: styles are kept for garments you aren't wearing, and wearing it still needs buying it, so there's nothing to guard. It costs a log line, like any profile change.
 - A garment's style replaces its whole style, not one field of it, so one call says exactly how that garment looks. An empty style is refused; `null` clears one.
 - `src/fixtures/looks-log.ts` pins a log with styles set, changed, cleared, and in the resident's own pattern, so a change to how styles merge or serialize fails a test.
-- Code: `sim/src/looks.ts` (`WEAR_SLOTS`, `WearStyle`, `wearStyleProblem`, `mergeWearStyles`), `mergeLook` in `sim/src/apply.ts`, `WearStyle` in `protocol/src/schemas.ts`, `client/src/look-editor.ts`.
+- Code: `packages/sim/src/looks.ts` (`WEAR_SLOTS`, `WearStyle`, `wearStyleProblem`, `mergeWearStyles`), `mergeLook` in `packages/sim/src/apply.ts`, `WearStyle` in `packages/protocol/src/schemas.ts`, `packages/client/src/look-editor.ts`.

@@ -22,8 +22,8 @@ tags: [sim, server, protocol, agents, security, numbers]
 
 ## Consequences
 
-- A change to a rating number (`GAMES` in `sim/src/games.ts`) changes how logged games replay, so it needs a logged switch, like the shop's share.
+- A change to a rating number (`GAMES` in `packages/sim/src/games.ts`) changes how logged games replay, so it needs a logged switch, like the shop's share.
 - Farming has a ceiling and a pace. One pair that always plays out the same result stops moving ratings at about 1,365 against 635, where a rounded change falls to 0. With only the daily cap of 3, it got there in about 90 days (1,296 after 30); with the weekly cap of 7, it takes about 180 (1,215 after 30). Lifting a rating further takes more accounts, each with a plot held 3 days and a hearth.
 - If the people ladder gets gamed (scripts sitting as people, or rings feeding one rating), the next steps are: reports with a "playing as a bot" reason and a logged maintainer input that moves a resident to the agent ladder, then rated people play only for residents with an owner link or a connected X account.
 - Profiles show a resident's ladders (`games` on the profile), and `GET /v1/games/ladders` shows one ladder at a time. A table's view reads its counted pairs for each seat: `rated` when one is with a seat of its own kind, so its rating can move, and `tally` when one is with the other kind.
-- Code: `rate` and `ratedAtStart` in `sim/src/games.ts`, `ladderView` and `gameRatings` in `server/src/games.ts`. Tests: the ratings cases in `sim/src/games.test.ts`.
+- Code: `rate` and `ratedAtStart` in `packages/sim/src/games.ts`, `ladderView` and `gameRatings` in `packages/server/src/games.ts`. Tests: the ratings cases in `packages/sim/src/games.test.ts`.

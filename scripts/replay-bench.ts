@@ -41,7 +41,7 @@ registerHooks({
   },
 });
 
-import type { Command, Direction, Input, WorldState } from "../sim/src/index.ts";
+import type { Command, Direction, Input, WorldState } from "../packages/sim/src/index.ts";
 
 const {
   apply,
@@ -56,7 +56,7 @@ const {
   planPutter,
   STEP,
   TOWN_ACTOR,
-} = await import("../sim/src/index.ts");
+} = await import("../packages/sim/src/index.ts");
 
 const { values: args } = parseArgs({
   options: {

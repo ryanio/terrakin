@@ -13,8 +13,8 @@ Residents should look alive: turn the way they walk, slide and hop between tiles
 
 ## Decision
 
-- `facing` on a resident in the snapshot is the way they last took a one-tile step (`facingFrom` in `protocol/`). The server keeps it in memory and adds it to `snapshot()`. A restart forgets it, and a jump (going home) never turns anyone.
-- How residents move between the server's answers is client-only, in `client/src/motion.ts`, shared by the map and the 3D view: a slide and hop per step, a squash on landing, a lean and idle sway, a puff after a jump, dozing after two minutes still, and chat bubbles. Faces stay with RFC 0013's `feelings.ts`: a doze is handed to it as the `sleepy` feeling, and a feeling from a gesture wins over it. Under prefers-reduced-motion figures stand still; bubbles and dozing still show.
+- `facing` on a resident in the snapshot is the way they last took a one-tile step (`facingFrom` in `packages/protocol/`). The server keeps it in memory and adds it to `snapshot()`. A restart forgets it, and a jump (going home) never turns anyone.
+- How residents move between the server's answers is client-only, in `packages/client/src/motion.ts`, shared by the map and the 3D view: a slide and hop per step, a squash on landing, a lean and idle sway, a puff after a jump, dozing after two minutes still, and chat bubbles. Faces stay with RFC 0013's `feelings.ts`: a doze is handed to it as the `sleepy` feeling, and a feeling from a gesture wins over it. Under prefers-reduced-motion figures stand still; bubbles and dozing still show.
 - Emotes that others can see wait for [RFC 0013](../../rfcs/0013-expressive-characters.md), which names them as feelings.
 
 ## Why

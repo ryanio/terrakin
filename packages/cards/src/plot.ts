@@ -1,11 +1,12 @@
 /**
  * A plot photo (issue #34): one resident's plot drawn from above, in the world's own palette, as
  * SVG markup the card template places in a photo frame. The server fills a `PlotCard` from the
- * world (`server/src/plot-photo.ts`): every color comes from the sim's palette and every number
- * from world state. Nothing a resident wrote reaches this markup; their name is drawn by the
+ * world (`packages/server/src/plot-photo.ts`): every color comes from the sim's palette and every
+ * number from world state. Nothing a resident wrote reaches this markup; their name is drawn by the
  * template as text, and their home picture as an image checked by `imageDataUri`.
  *
- * The shapes follow `client/src/render.ts`, so a photo looks like the plot does in the world.
+ * The shapes follow `packages/client/src/render.ts`, so a photo looks like the plot does in the
+ * world.
  */
 
 /**
@@ -283,7 +284,7 @@ export function plotSvg(c: PlotCard, px: number): string {
 
 /**
  * A fallen leaf around (cx, cy), lying `turn` radians from east: two curves from tip to tip, as
- * `client/src/render.ts` draws it. Undefined for anything that isn't a finite number.
+ * `packages/client/src/render.ts` draws it. Undefined for anything that isn't a finite number.
  */
 function leafPath(cx: number, cy: number, turn: number): string | undefined {
   if (![cx, cy, turn].every(Number.isFinite)) return undefined;
@@ -346,14 +347,19 @@ const WOOD_DARK = "#6e4a2c";
 const EDGE = "rgba(70, 40, 18, 0.5)";
 const STRAW = "#e8c878";
 const BURLAP = "#d9bf8f";
-/** Halloween's colors (RFC 0022), as `ui/src/looks.ts` has them. Bunting's bats are its `fill`. */
+/**
+ * Halloween's colors (RFC 0022), as `packages/ui/src/looks.ts` has them. Bunting's bats are its
+ * `fill`.
+ */
 const PENNANT = "#e8862f";
 const IRON_RIM = "#56545e";
 const BREW = "#8fd16a";
 const BREW_LIGHT = "#c8f0a8";
 const STAND = "#c4661c";
 const CANDY = ["#f08a3c", "#a98bd8", "#ea8a9d", "#7fd1b0", "#f2b84b"] as const;
-/** A bat with its wings spread, as `BAT_POINTS` in `ui/src/looks.ts`: half its span is 1. */
+/**
+ * A bat with its wings spread, as `BAT_POINTS` in `packages/ui/src/looks.ts`: half its span is 1.
+ */
 const BAT_POINTS: readonly (readonly [number, number])[] = [
   [0, -0.2],
   [-0.12, -0.42],
@@ -378,10 +384,10 @@ const BAT_POINTS: readonly (readonly [number, number])[] = [
 ];
 
 /**
- * One decor block on tile (x, y), following `client/src/render.ts`: a paper lantern on a hook, a
- * picture on an easel, a fence post with rails to the fences beside it, a garden bench, a hay bale,
- * a scarecrow, bat bunting, a cauldron, or a candy bowl. Only numbers and checked colors go in. No
- * ellipses, so the tests can tell the hearth's shadow apart.
+ * One decor block on tile (x, y), following `packages/client/src/render.ts`: a paper lantern on a
+ * hook, a picture on an easel, a fence post with rails to the fences beside it, a garden bench, a
+ * hay bale, a scarecrow, bat bunting, a cauldron, or a candy bowl. Only numbers and checked colors
+ * go in. No ellipses, so the tests can tell the hearth's shadow apart.
  */
 function decorSvg(
   kind: PlotDecor,
@@ -574,11 +580,11 @@ function oval(
 }
 
 /**
- * A crop on its planter, as `client/src/render.ts` paints it: a sprout that grows taller, with three
- * fruit or flowers in its color once it's ready; or, for a crop on a vine like a pumpkin, a vine
- * along the soil, its fruit swelling from a green bud and turning its color, with a stem once it's
- * ripe. The planter is the
- * block under it, so the same 0.05 inset and 0.9 tile size apply.
+ * A crop on its planter, as `packages/client/src/render.ts` paints it: a sprout that grows taller,
+ * with three fruit or flowers in its color once it's ready; or, for a crop on a vine like a
+ * pumpkin, a vine along the soil, its fruit swelling from a green bud and turning its color, with a
+ * stem once it's ripe. The planter is the block under it, so the same 0.05 inset and 0.9 tile size
+ * apply.
  */
 function cropSvg(c: PlotCrop): string[] {
   const done = Number.isFinite(c.done) ? Math.max(0, Math.min(1, c.done)) : 0;

@@ -22,7 +22,7 @@ Some places do need pixels: link previews on other sites, a "Take a photo" downl
 
 ## Consequences
 
-- Drawing code is shared between the client and the edge renderer where both draw the same thing (`cards/` for previews). Keep it free of DOM-only APIs where the edge needs it.
+- Drawing code is shared between the client and the edge renderer where both draw the same thing (`packages/cards/` for previews). Keep it free of DOM-only APIs where the edge needs it.
 - Inline SVG needs the same care as text: a title for screen readers, and resident text only through text nodes, never into SVG markup.
 - Follow-ups: the townsfolk postcards become posts drawn from data, rendered in the client (their art is already SVG in `art.ts`). Partner borders and profile designs (RFC 0007) and the digital art gallery's frames ([plan](../../plans/digital-art-gallery.md)) are drawn, not stored.
 - Art people bring (uploads, collected digital art) stays pixels or models, because it isn't ours to redraw.

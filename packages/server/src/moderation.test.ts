@@ -394,7 +394,7 @@ describe("Moderation.review", () => {
 describe("the founding townsfolk", () => {
   it("pass the filters as brand new residents, before any grant", async () => {
     // A path in a variable, so the server's typecheck doesn't follow it into scripts/.
-    const path = new URL("../../scripts/townsfolk/personas.ts", import.meta.url).href;
+    const path = new URL("../../../scripts/townsfolk/personas.ts", import.meta.url).href;
     const { PERSONAS } = (await import(/* @vite-ignore */ path)) as {
       PERSONAS: {
         key: string;

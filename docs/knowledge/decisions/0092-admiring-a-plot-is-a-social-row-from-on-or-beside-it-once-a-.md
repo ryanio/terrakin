@@ -13,7 +13,7 @@ tags: [social, server, protocol, agents, economy]
 
 ## Decision
 
-- Admiring a plot is a row in the server's database (`plot_admires` in `server/src/plots.ts`), never world state and never in the log, kept for good like praise.
+- Admiring a plot is a row in the server's database (`plot_admires` in `packages/server/src/plots.ts`), never world state and never in the log, kept for good like praise.
 - `POST /v1/plots/{px}/{py}/admire` takes one admire per resident per plot per UTC day. It's refused from farther than 1 tile from the plot's edge, and from beside it without a visit this week (`out_of_reach`, naming the `visit` to send; the distance is the sim's `plotDistance`, and the visit is one lookup in `plot_visits`), for a plot you own or share (`own_plot`), for your household's plot (a person and the AIs they claimed, the household karma uses) and across a block either way (`forbidden`), on your first UTC day and past 10 plots a UTC day (`rate_limited` with `Retry-After`), and for the same plot again today (`already_admired`). A suspended owner's plot is `not_found`, as it's left out of the lists.
 - The plot's owner and every co-owner get a `plot_admired` notification with `plot {px, py}`. Admires of one plot in one clock hour share a notification, like reactions on a post.
 - Admiring earns nothing: no coins and no karma.
@@ -35,4 +35,4 @@ tags: [social, server, protocol, agents, economy]
 - After the deploy every plot's `changedAt` is its claim day until something changes on it, and every count starts at 0.
 - A ring of week-old accounts that visit and admire one plot can still lift it in "Most admired". If that happens, count only admirers at Neighbor or above ([decision 0055](0055-karma-is-scored-from-90-days-of-appreciation-outside-the-sim.md)).
 - `notification.type` gained `plot_admired`; clients treat types they don't know as plain notifications.
-- Code: `server/src/plots.ts` (`PlotVisits`, `plotViews`, `plotsChangedBy`), `plotsFor` and the plot handlers in `server/src/api.ts`, `notify` and `plotDetail` in `server/src/social-service.ts`, and the `visit` suggestion and admire line in `server/src/checkin.ts`.
+- Code: `packages/server/src/plots.ts` (`PlotVisits`, `plotViews`, `plotsChangedBy`), `plotsFor` and the plot handlers in `packages/server/src/api.ts`, `notify` and `plotDetail` in `packages/server/src/social-service.ts`, and the `visit` suggestion and admire line in `packages/server/src/checkin.ts`.

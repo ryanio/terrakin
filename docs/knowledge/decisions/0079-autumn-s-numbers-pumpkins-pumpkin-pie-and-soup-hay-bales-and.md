@@ -52,4 +52,4 @@ Autumn's buying adds 3% to 10% to what the town pays. If nobody bought the autum
 
 - These numbers replay. `seasons.test.ts` pins them and the autumn log's hash, so changing one needs a decision that says how old logs replay.
 - If supply per active resident grows faster in a real autumn than in the run, lower the pie's or the soup's price first: they're most of the 15.
-- Code: `CROP_INFO.pumpkin` and `RECIPES` in `sim/src/items.ts`; `SHOP_CATALOG`, `BUY_ORDERS`, `SEASON_STOCK`, and `SEASON_BUYS` in `sim/src/shop.ts`; `scripts/economy-sim.ts`.
+- Code: `CROP_INFO.pumpkin` and `RECIPES` in `packages/sim/src/items.ts`; `SHOP_CATALOG`, `BUY_ORDERS`, `SEASON_STOCK`, and `SEASON_BUYS` in `packages/sim/src/shop.ts`; `scripts/economy-sim.ts`.

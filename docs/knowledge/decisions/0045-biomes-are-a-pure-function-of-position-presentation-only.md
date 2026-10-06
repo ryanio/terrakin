@@ -18,7 +18,7 @@ function. Ground scenery must never be able to desync two servers or change a re
 
 ## Decision
 
-- `biomeAt(config, x, y)` in `sim/` is a pure function of tile position: `meadow | forest | stone | sand`.
+- `biomeAt(config, x, y)` in `packages/sim/` is a pure function of tile position: `meadow | forest | stone | sand`.
 - Biomes are hashed per 4x4-tile region (`BIOME_REGION`), so the world reads as broad organic
   patches instead of per-tile confetti, while the plot grid stays the legible unit.
 - Biomes are presentation only in phase 1: no world state, no log entries, no protocol fields,

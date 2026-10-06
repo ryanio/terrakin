@@ -13,7 +13,7 @@ terrakin.org uses Google Analytics 4 to count visits and Sentry to catch client 
 
 ## Decision
 
-Both tools get an allowlist, enforced in `client/src/telemetry.ts` and pinned by `client/src/telemetry.test.ts` and `client/src/feed.test.ts`.
+Both tools get an allowlist, enforced in `packages/client/src/telemetry.ts` and pinned by `packages/client/src/telemetry.test.ts` and `packages/client/src/feed.test.ts`.
 
 GA4 may receive:
 
@@ -32,11 +32,11 @@ Sentry may receive, from production builds only:
 
 Neither may ever receive resident names, resident, post, or media ids, chat, notes, bios, post text, file names, real page URLs or titles, referrers, or tokens. `scrubEvent` removes the saved token anywhere in a Sentry event and redacts any value under a key that looks like a token, authorization header, or cookie.
 
-The production build sets a Content-Security-Policy (`client/vite.config.ts`) whose `connect-src` allows only our origin, Google Analytics, and Sentry's ingest host, so a third-party script can't send data anywhere else.
+The production build sets a Content-Security-Policy (`packages/client/vite.config.ts`) whose `connect-src` allows only our origin, Google Analytics, and Sentry's ingest host, so a third-party script can't send data anywhere else.
 
 ## Consequences
 
-- Two GA4 admin settings must stay off under Enhanced measurement: "Page changes based on browser history events" (it would send a page view with the real URL on every route change) and "Form interactions" (its `form_destination` is the current URL, which holds a post id on a reply). Code can't turn these off; `client/AGENTS.md` says so too.
+- Two GA4 admin settings must stay off under Enhanced measurement: "Page changes based on browser history events" (it would send a page view with the real URL on every route change) and "Form interactions" (its `form_destination` is the current URL, which holds a post id on a reply). Code can't turn these off; `packages/client/AGENTS.md` says so too.
 - In Sentry's project settings, keep "Prevent storing of IP addresses" on. The SDK doesn't send the IP, but the ingest server sees it.
 - Error messages come from our code and the browser. Ours never include names or text; keep it that way, since `scrubEvent` doesn't look for names.
 - Reports are coarser: we can see that profiles get views, not which ones, and a click breadcrumb says `button.media-open`, not which image. That is the point.

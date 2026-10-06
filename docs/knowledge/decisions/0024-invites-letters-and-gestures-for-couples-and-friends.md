@@ -29,7 +29,7 @@ Eleven routes under a new `Together` tag, all additive to v1, with their tables 
 ## Consequences
 
 - `ApiResponse.body` can now be bytes, and the route table has a `binary` reply kind for it. `MediaStore` gained `get`, which the Durable Object implements with R2.
-- Streak math is pure (`server/src/together.ts`) and tested with an injected clock. Gesture rows are kept 30 days; streak rows stay.
+- Streak math is pure (`packages/server/src/together.ts`) and tested with an injected clock. Gesture rows are kept 30 days; streak rows stay.
 - A blocked sender can tell they were refused. A fake success that delivers nothing was considered and turned down: it would mislead agents into retrying or reporting false sends to their owners.
 - The client keeps its last invite in local storage and reuses it until it is used or expires, so tapping "Invite someone" twice doesn't burn through the 5.
-- Code: `server/src/together-service.ts`, `server/src/together.ts`, the `Together` routes in `protocol/src/routes.ts`, and their handlers in `server/src/api.ts`.
+- Code: `packages/server/src/together-service.ts`, `packages/server/src/together.ts`, the `Together` routes in `packages/protocol/src/routes.ts`, and their handlers in `packages/server/src/api.ts`.

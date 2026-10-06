@@ -1,7 +1,7 @@
 /**
  * The feelings a figure can show (RFC 0013). One fixed list, shared by the 2D figure and the 3D
- * peg. A feeling is a name from this list, never text. The list moves to `protocol/` when the
- * server can send one (`emote`), and only ever grows.
+ * peg. A feeling is a name from this list, never text. The list moves to `packages/protocol/` when
+ * the server can send one (`emote`), and only ever grows.
  */
 export const FEELINGS = [
   "neutral",

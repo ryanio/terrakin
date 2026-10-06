@@ -2,8 +2,8 @@ import { absolute, FAQ, LINKS, PAGES, SITE, type SitePage } from "./site";
 
 /**
  * The machine-readable discovery files, rendered from the site config. `pnpm gen` writes them to
- * client/public and `pnpm gen:check` fails when a committed copy is stale. Pure functions: dates
- * and digests come in as arguments.
+ * packages/client/public and `pnpm gen:check` fails when a committed copy is stale. Pure functions:
+ * dates and digests come in as arguments.
  */
 
 /** Last-modified dates (YYYY-MM-DD) by page path. */

@@ -74,7 +74,7 @@ export const PAGE_CARDS: Record<string, Omit<PageCard, "kind">> = {
   },
 };
 
-/** The static card in client/public, for anything that can't be drawn. */
+/** The static card in packages/client/public, for anything that can't be drawn. */
 export const FALLBACK_CARD = "/og.png";
 
 export type CardRoute =

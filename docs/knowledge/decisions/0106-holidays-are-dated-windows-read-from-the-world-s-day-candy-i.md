@@ -13,7 +13,7 @@ tags: [sim, protocol, economy, replay, holidays, items]
 
 ## Decision
 
-- **A holiday is a dated window.** `HOLIDAY_INFO` in `sim/src/holiday.ts` gives each holiday a first and last UTC date, both in it, the same every year. `holidayOf(day)` reads the logged day with `dateOfDay`, like `seasonOf`: no state, no input. Holidays never overlap and never cross a year end, so a day is in one at most (`holiday.test.ts`).
+- **A holiday is a dated window.** `HOLIDAY_INFO` in `packages/sim/src/holiday.ts` gives each holiday a first and last UTC date, both in it, the same every year. `holidayOf(day)` reads the logged day with `dateOfDay`, like `seasonOf`: no state, no input. Holidays never overlap and never cross a year end, so a day is in one at most (`holiday.test.ts`).
 - **Holiday stock is sold only while it runs.** A catalog entry's `shop.holiday` and the shop's `COSTUMES` make up `HOLIDAY_STOCK`. `shop_buy` refuses it outside the window with `out_of_holiday`, naming the dates and the day it's back. Recipes are never held back by date, as RFC 0017 decided for seasons.
 - **Candy is a sweet.** A new role, `sweet`, in a new family, food › sweets: made at a kitchen like a good, but it stacks like furniture and takes no label. A recipe can say how many one craft makes (`makes`, five for candy); everything before it makes one. Sweets join the end of `STACK_KINDS`, after every role that shipped. `craft` checks for room only when a recipe makes more than it uses.
 - **Trick-or-treating is a sim action.** `trick_or_treat {px, py}` moves a candy between inventories, or makes one from the town, so it's an input the sim checks and replays. Nothing in it is random, so no roll is logged. The candy comes from whoever lives there and is home (online and on that plot) with some, else through a candy bowl on the plot from the first of them who holds any, else from the town. Today's knocks live in `state.knocks`, absent until the first and dropped at `new_day`.
@@ -31,8 +31,8 @@ tags: [sim, protocol, economy, replay, holidays, items]
 
 ## Consequences
 
-- Old logs replay unchanged: new kinds, wear, a command, an event, and codes, and no frozen list grows. `REPLAY_VERSION` stays 1. `sim/src/fixtures/halloween-log.ts` pins a log with costumes, candy, decor, and a night of knocks, and `replay.test.ts` replays it at every split point.
+- Old logs replay unchanged: new kinds, wear, a command, an event, and codes, and no frozen list grows. `REPLAY_VERSION` stays 1. `packages/sim/src/fixtures/halloween-log.ts` pins a log with costumes, candy, decor, and a night of knocks, and `replay.test.ts` replays it at every split point.
 - A future holiday is an entry in `HOLIDAY_INFO`, its stock (`shop.holiday` on kinds, or a wear list in `shop.ts`), and a module for its own rules, with a decision on its numbers.
 - Adding a trick-or-treat day, or raising a cap, only accepts what was refused, which changes no logged knock. Lowering a cap or taking a day away changes replay.
 - A sweet that isn't candy would join `SWEET_KINDS` and `craft` with no new rule. A new role, family, or recipe field after this one is its own decision.
-- Code: `sim/src/holiday.ts`, `sim/src/halloween.ts`, `HOLIDAY_STOCK` and `out_of_holiday` in `sim/src/shop.ts`, `COSTUMES` in `sim/src/looks.ts`, `SWEET_KINDS` and `makes` in `sim/src/catalog.ts`, sweets in `checkCraft` (`sim/src/items.ts`).
+- Code: `packages/sim/src/holiday.ts`, `packages/sim/src/halloween.ts`, `HOLIDAY_STOCK` and `out_of_holiday` in `packages/sim/src/shop.ts`, `COSTUMES` in `packages/sim/src/looks.ts`, `SWEET_KINDS` and `makes` in `packages/sim/src/catalog.ts`, sweets in `checkCraft` (`packages/sim/src/items.ts`).

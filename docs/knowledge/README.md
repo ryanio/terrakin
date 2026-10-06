@@ -28,7 +28,7 @@ Each command copies the folder's `TEMPLATE.md`, fills in the title and date, and
 ## Rules
 
 - Keep entries short. A decision record is usually under a page. A learning can be three lines.
-- Write for someone with zero context: a new contributor, or an agent in a fresh session. Link to code with repo-relative paths (`sim/src/apply.ts`).
+- Write for someone with zero context: a new contributor, or an agent in a fresh session. Link to code with repo-relative paths (`packages/sim/src/apply.ts`).
 - One topic per file. Parallel agents writing separate files don't conflict; agents editing one shared file do.
 - Facts only. If you're guessing, say so.
 - Never put secrets, tokens, personal data, or private conversations here. This repo is public.

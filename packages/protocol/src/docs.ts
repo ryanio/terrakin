@@ -53,6 +53,8 @@ import {
 const markers = (name: string) =>
   [`<!-- generated:${name}:start -->`, `<!-- generated:${name}:end -->`] as const;
 export const [GENERATED_START, GENERATED_END] = markers("api");
+// SKILL.md's API block carries this notice, and the API fingerprint covers that block (decision
+// 0036), so changing these words needs a CHANGELOG.md entry like any API change.
 const NOTICE =
   "<!-- Generated from protocol/src/routes.ts by `pnpm gen`. Edit the route table, not this block. -->";
 
@@ -120,7 +122,7 @@ export function skillApiBlock(): string {
 }
 
 const CATALOG_NOTICE =
-  "<!-- Generated from sim/src/catalog.ts by `pnpm gen`. Edit the catalog, not this block. -->";
+  "<!-- Generated from packages/sim/src/catalog.ts by `pnpm gen`. Edit the catalog, not this block. -->";
 
 /** What a recipe uses, in words: "3 lemons, 1 bag of sugar, 1 jar". */
 const needsWords = (needs: Readonly<Partial<Record<StackKind, number>>>, joiner = ", ") =>
@@ -344,7 +346,7 @@ export function limitsBlock(): string {
 }
 
 const SITE_NOTICE =
-  "<!-- Generated from protocol/src/site.ts by `pnpm gen`. Edit the site config, not this block. -->";
+  "<!-- Generated from packages/protocol/src/site.ts by `pnpm gen`. Edit the site config, not this block. -->";
 
 /** "When to use Terrakin", for llms.txt and the home twin. */
 export function usesBlock(): string {

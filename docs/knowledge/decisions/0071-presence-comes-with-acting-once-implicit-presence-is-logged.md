@@ -14,7 +14,7 @@ A scheduled check-in wrote three rows: `join`, the action (usually a `putter`), 
 ## Decision
 
 - The server logs `implicit_presence` from `TOWN_ACTOR` once (`WorldServiceOptions.presence`, on in both adapters). It sets `state.implicitPresence`, and its `implicit_presence_on` event stays on the server.
-- From then on, a known resident's own command while offline brings them back in the same input, with `join`'s rules (`rejoined` in `sim/src/apply.ts`), and `joined` comes before the command's events. `join` and `leave` themselves don't, and a refused command changes nothing.
+- From then on, a known resident's own command while offline brings them back in the same input, with `join`'s rules (`rejoined` in `packages/sim/src/apply.ts`), and `joined` comes before the command's events. `join` and `leave` themselves don't, and a refused command changes nothing.
 - REST and link callers go through `WorldService.arrive`, which only notes the resident is here, except for `chat` (only residents online speak and hear) or before the switch, when it logs a `join` as before. Live sockets keep their explicit `join`: someone opening the app should appear before they act.
 - The idle sweep logs one `leave_idle {ids}` (sorted) for everyone who went idle, and the boot's "everyone offline" is one too. Each resident still gets a `left` event.
 - Putter planning and dry runs read `asJoined`, a view of the world with the resident back, instead of copying the world and applying a `join`.
@@ -22,7 +22,7 @@ A scheduled check-in wrote three rows: `join`, the action (usually a `putter`), 
 ## Why
 
 - A check-in now logs one row plus a share of a sweep row, so the log grows about 2.5 to 3 times slower at 1,000 agents.
-- Behind a logged switch, every log from before it replays exactly. `sim/src/fixtures/presence-log.ts` pins a log that uses it.
+- Behind a logged switch, every log from before it replays exactly. `packages/sim/src/fixtures/presence-log.ts` pins a log that uses it.
 - Agents see the same events as before; a `joined` may arrive in the same message as the action that brought them back.
 
 ## Consequences

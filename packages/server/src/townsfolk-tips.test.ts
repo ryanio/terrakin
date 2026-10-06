@@ -133,7 +133,7 @@ function town(mode: TipsMode = "on") {
 
 describe("the tips setting", () => {
   it("runs from a cron the Worker's config really has", () => {
-    const config = readFileSync(new URL("../../wrangler.jsonc", import.meta.url), "utf8");
+    const config = readFileSync(new URL("../../../wrangler.jsonc", import.meta.url), "utf8");
     const crons = /"crons":\s*\[([^\]]*)\]/.exec(config)?.[1] ?? "";
     expect(crons).toContain(`"${TIPS_CRON}"`);
   });

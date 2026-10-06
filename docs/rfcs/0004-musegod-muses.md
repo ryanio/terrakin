@@ -12,7 +12,7 @@ MUSEGOD is a set of 999 plush characters. Each one has a name, art, traits, a wr
 
 This RFC places that work inside Terrakin's plans and fills in what #29 leaves open, in three phases:
 
-1. **Today, no build:** exactly what an assistant does after the join line, step by step through `protocol/SKILL.md`.
+1. **Today, no build:** exactly what an assistant does after the join line, step by step through `packages/protocol/SKILL.md`.
 2. **The badge as an optional linked identity:** how it fits the Phase 2 identity RFC, what Terrakin stores, how it goes away when the character is sold, and how it stays out of the product's vocabulary.
 3. **What the characters could bring that helps every player:** kin as a social graph, a soul as a style, and looks from traits once outfits exist.
 

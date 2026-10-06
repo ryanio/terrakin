@@ -13,7 +13,7 @@ tags: [sim, protocol, client, agents, replay, items]
 
 ## Decision
 
-- The catalog is code: `sim/src/catalog.ts` holds one entry per kind: its name and plural, one family (its most specific; families form a tree through `parent`), its role, crop numbers, shop price and seasons, recipe, and look. Rules read roles (seed, produce, staple, resource, decor, furniture, good, piece), never families. Only a family recipe reads a family.
+- The catalog is code: `packages/sim/src/catalog.ts` holds one entry per kind: its name and plural, one family (its most specific; families form a tree through `parent`), its role, crop numbers, shop price and seasons, recipe, and look. Rules read roles (seed, produce, staple, resource, decor, furniture, good, piece), never families. Only a family recipe reads a family.
 - The sim's lists and tables are views of it, under the names they always had. Each list groups kinds by role in catalog order, and new entries go on the end, so a new kind joins the end of its role's list and every kind already listed keeps its place. The kind types are derived from the entries too, so a table keyed by kind still has to cover every kind to typecheck. An entry's recipe names its needs as plain strings, since typing them by kind would make the catalog's type depend on itself, and `catalog.test.ts` checks them instead.
 - Lists that rules walk are frozen by name: `STARTER_SEEDS`, `PANTRY_STAPLES` (which the pantry now walks in place of every staple), `ROTATION_GOODS`, and `ROTATION_CROPS`. The town buys only kinds with a buy order (`SellKind`), so no kind joins what the town buys by joining the catalog. `catalog.test.ts` pins every shipped kind, recipe, and crop literally, and replay.test.ts and every fixture pass unchanged.
 - A family recipe adds one ordinary entry per member, right after the member: jam is 3 of one fruit, a bag of sugar, and a jar, and makes `<fruit>_jam`, so `lemon_jam` and `strawberry_jam` are instances of it. Asked for one with a kind outside the family (`tomato_jam`), `craft` names the kinds it takes. Jam is the only one.
@@ -22,7 +22,7 @@ tags: [sim, protocol, client, agents, replay, items]
 
 ## Consequences
 
-- Adding a fruit is one `fruit(...)` call: its seed, its jam, its pictures, its rows in SKILL.md and the API, and the tests that run over every entry come with it. `sim/AGENTS.md` has "Adding a kind".
+- Adding a fruit is one `fruit(...)` call: its seed, its jam, its pictures, its rows in SKILL.md and the API, and the tests that run over every entry come with it. `packages/sim/AGENTS.md` has "Adding a kind".
 - `ITEM_INFO` now lists kinds in `ITEM_KINDS` order. Nothing walks a table's keys, so nothing changes for anyone.
 - A second family recipe, a new template, role, or family is a decision of its own. So is anything new the town buys, a new starter seed, or a longer rotation, since each changes what old inputs did or what the town mints.
-- Code: `sim/src/catalog.ts`, `sim/src/catalog.test.ts`, `protocol/src/catalog.ts`, `catalogBlock` and `furnitureBlock` in `protocol/src/docs.ts`, `ui/src/item-art.ts`, and `byFamily` in `client/src/things.ts`.
+- Code: `packages/sim/src/catalog.ts`, `packages/sim/src/catalog.test.ts`, `packages/protocol/src/catalog.ts`, `catalogBlock` and `furnitureBlock` in `packages/protocol/src/docs.ts`, `packages/ui/src/item-art.ts`, and `byFamily` in `packages/client/src/things.ts`.

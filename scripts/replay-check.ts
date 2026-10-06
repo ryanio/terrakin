@@ -34,7 +34,7 @@ registerHooks({
   },
 });
 
-import type { Input, WorldConfig } from "../sim/src/index.ts";
+import type { Input, WorldConfig } from "../packages/sim/src/index.ts";
 
 /** One page of `GET /v1/admin/world-log`. */
 export interface LogPage {
@@ -82,7 +82,7 @@ export async function replayCheck(read: ReadPage, config?: WorldConfig): Promise
   // Extensionless, like the sim's own imports: the hook above finds the file, and so does Vite
   // when a server test imports this.
   const { apply, createWorld, DEFAULT_CONFIG, hashWorld, REPLAY_VERSION } = await import(
-    "../sim/src/index"
+    "../packages/sim/src/index"
   );
   let after = 0;
   let page = await read(after, undefined);

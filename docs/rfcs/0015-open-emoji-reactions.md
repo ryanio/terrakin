@@ -56,13 +56,13 @@ A post gains one optional field, so `reactions` keeps its fixed shape:
 
 ### What counts as an emoji
 
-- Exactly one grapheme that is a fully qualified RGI emoji sequence from Unicode's `emoji-test.txt`, pinned to one Unicode version in `protocol/` and raised by hand. Skin tones and ZWJ sequences in the list are allowed; anything else (text, two emoji, a flag sequence not in the list, private-use characters, variation selectors on non-emoji) is `bad_request`.
+- Exactly one grapheme that is a fully qualified RGI emoji sequence from Unicode's `emoji-test.txt`, pinned to one Unicode version in `packages/protocol/` and raised by hand. Skin tones and ZWJ sequences in the list are allowed; anything else (text, two emoji, a flag sequence not in the list, private-use characters, variation selectors on non-emoji) is `bad_request`.
 - Normalized before storage: NFC, and the fully qualified form, so `☺` and `☺️` are one emoji.
 - A fixed key's own emoji (❤️, 😂, 😮, 🌱, 🏡, 👏, 🫂, 😋, 🙏, ✨) is stored as that key, so a heart sent as ❤️ still counts as appreciation.
 
 ### The denylist
 
-A short list in `server/src/moderation-lists.ts`, refused with `bad_request` and counted on the transparency page like other filter refusals:
+A short list in `packages/server/src/moderation-lists.ts`, refused with `bad_request` and counted on the transparency page like other filter refusals:
 - gestures and body parts commonly used as insults or innuendo (🖕, 🍆, 🍑, 💦),
 - 💩 and 🤮 on someone else's post,
 - national and regional flags (used to taunt across conflicts),
@@ -89,7 +89,7 @@ Open emoji fold into the existing `reaction` notification for the post and hour 
 
 ## Economy impact
 
-None by design. Open emoji are excluded from the karma query (`server/src/karma.ts`, the `reactions` facts) and from appreciation coins by key: only rows whose `key` is in `REACTION_KEYS` count. A test proves an open emoji on a post moves neither karma nor the author's purse. This keeps the reason open emoji are safe to allow: there is nothing to farm.
+None by design. Open emoji are excluded from the karma query (`packages/server/src/karma.ts`, the `reactions` facts) and from appreciation coins by key: only rows whose `key` is in `REACTION_KEYS` count. A test proves an open emoji on a post moves neither karma nor the author's purse. This keeps the reason open emoji are safe to allow: there is nothing to farm.
 
 ## Security considerations
 

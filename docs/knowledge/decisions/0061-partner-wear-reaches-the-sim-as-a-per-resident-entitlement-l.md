@@ -21,7 +21,7 @@ RFC 0007 phase 3: exclusive items and promos. Wear is validated by the sim ([dec
 
 ## Consequences
 
-- Worlds that never log `set_entitlements` hash exactly as before; `sim/src/fixtures/entitlements-log.ts` pins a log that sets, wears, grows, and shrinks entitlements.
+- Worlds that never log `set_entitlements` hash exactly as before; `packages/sim/src/fixtures/entitlements-log.ts` pins a log that sets, wears, grows, and shrinks entitlements.
 - Profiles carry `entitled`, and the look editor offers partner wear only to residents who may wear it, never locked or for sale.
 - A promo item that should stay after its promo would need a `kept` flag in config and a review; none does today.
-- Code: `sim/src/entitlements.ts`, `EXCLUSIVE_WEAR` in `sim/src/looks.ts`, `partnerItems` and `promoRuns` in `server/src/partners.ts`, `syncEntitlements` and `reconcileEntitlements` in `server/src/world-service.ts`, `wearChoices` in `client/src/look-editor.ts`, and the halo and lantern in `ui/src/figure.ts`, `ui/src/item-art.ts`, and `client/src/scene3d/wear.ts`.
+- Code: `packages/sim/src/entitlements.ts`, `EXCLUSIVE_WEAR` in `packages/sim/src/looks.ts`, `partnerItems` and `promoRuns` in `packages/server/src/partners.ts`, `syncEntitlements` and `reconcileEntitlements` in `packages/server/src/world-service.ts`, `wearChoices` in `packages/client/src/look-editor.ts`, and the halo and lantern in `packages/ui/src/figure.ts`, `packages/ui/src/item-art.ts`, and `packages/client/src/scene3d/wear.ts`.

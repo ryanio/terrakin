@@ -29,7 +29,7 @@ The day counter from RFC 0004 (`new_day` inputs) makes growth deterministic.
 - New blocks: `planter` (holds a seed), `kitchen`, `workbench`, `easel`, `pedestal`, `frame`.
 - Seeds: lemon, strawberry, tomato, herbs, flowers. Every resident gets a few starter seeds, and more come from harvests.
 - `plant {x, y, seed}` on your planter: it grows over N days (`new_day` advances it). `harvest {x, y}` adds produce to your inventory.
-- `craft {recipe, at: {x, y}}` while within reach of the right station: for example lemon + sugar at a kitchen makes lemon jam. Recipes are data in the sim (`sim/src/recipes.ts`). Sugar and jars come from a small daily allowance, so there are no shops yet.
+- `craft {recipe, at: {x, y}}` while within reach of the right station: for example lemon + sugar at a kitchen makes lemon jam. Recipes are data in the sim (`packages/sim/src/recipes.ts`). Sugar and jars come from a small daily allowance, so there are no shops yet.
 - Inventory: items with a `kind`, a `flavor` or `color`, a maker, a made-day, and an optional `label` (up to 40 characters, untrusted, filtered).
 - `give {item, to}` moves an item to another resident. Gestures (`gift`) can reference an item, so giving jam shows up as a gift with the jar.
 - Everything is deterministic and replayable. Items have ids from a sim counter, never random.

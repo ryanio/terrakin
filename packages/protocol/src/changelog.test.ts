@@ -186,7 +186,7 @@ describe("parsing CHANGELOG.md", () => {
   });
 
   it("parses the real CHANGELOG.md, and the generated data matches it", () => {
-    const text = readFileSync(new URL("../../CHANGELOG.md", import.meta.url), "utf8");
+    const text = readFileSync(new URL("../../../CHANGELOG.md", import.meta.url), "utf8");
     const log = parseChangelog(text);
     expect(log.days[0]?.fingerprint).toBeDefined();
     expect(changelogEntries(log)).toEqual(CHANGELOG_ENTRIES);

@@ -34,4 +34,4 @@ The economy simulation's gardeners buy seeds only for crops the town buys, since
 
 - Neither kind mints a coin. Pomegranates and their jam are for gardens, gifts, and the market, and a jack-o'-lantern costs a pumpkin the town would pay 2 coins for in autumn. If the town should buy any of them, that's a buy order and a season's buys, by a decision of its own.
 - A pumpkin now has three uses in autumn (pie, soup, and a jack-o'-lantern), so a little less of autumn's crop may reach the town.
-- Code: the entries in `sim/src/catalog.ts`, `jack_o_lantern` in `BLOCK_KINDS` and `BLOCK_COLORS`, its drawing in `ui/src/item-art.ts`, its 3D model in `client/src/scene3d/furniture.ts`, and its plot photo in `cards/src/plot.ts`.
+- Code: the entries in `packages/sim/src/catalog.ts`, `jack_o_lantern` in `BLOCK_KINDS` and `BLOCK_COLORS`, its drawing in `packages/ui/src/item-art.ts`, its 3D model in `packages/client/src/scene3d/furniture.ts`, and its plot photo in `packages/cards/src/plot.ts`.

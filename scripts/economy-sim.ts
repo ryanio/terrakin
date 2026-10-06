@@ -18,10 +18,10 @@
  *                the shop is open (`shopPantry.jar=2`, `shopStapleMax=8`)
  *
  * Every step is an input to the real sim (apply), and the numbers are the sim's own (ECONOMY in
- * sim/src/economy.ts, ITEMS in sim/src/items.ts, the catalog and buy orders in sim/src/shop.ts),
- * so the script and the rules can't drift. Karma is scored by the server's own `scoreKarma` with
- * `KARMA` from the protocol. Change a number there, rerun this, and record why in a decision
- * (decisions 0039, 0052, and 0055).
+ * packages/sim/src/economy.ts, ITEMS in packages/sim/src/items.ts, the catalog and buy orders in
+ * packages/sim/src/shop.ts), so the script and the rules can't drift. Karma is scored by the
+ * server's own `scoreKarma` with `KARMA` from the protocol. Change a number there, rerun this, and
+ * record why in a decision (decisions 0039, 0052, and 0055).
  */
 import { registerHooks } from "node:module";
 import { parseArgs } from "node:util";
@@ -38,7 +38,7 @@ registerHooks({
   },
 });
 
-import type { KarmaFacts } from "../server/src/karma.ts";
+import type { KarmaFacts } from "../packages/server/src/karma.ts";
 import type {
   Command,
   Crop,
@@ -47,7 +47,7 @@ import type {
   ShopSku,
   StackKind,
   WorldState,
-} from "../sim/src/index.ts";
+} from "../packages/sim/src/index.ts";
 
 const {
   apply,
@@ -71,9 +71,9 @@ const {
   dayOfDate,
   tileKey,
   townBuys,
-} = await import("../sim/src/index.ts");
-const { KARMA, KARMA_TIERS, tierAtLeast } = await import("../protocol/src/social.ts");
-const { scoreKarma } = await import("../server/src/karma.ts");
+} = await import("../packages/sim/src/index.ts");
+const { KARMA, KARMA_TIERS, tierAtLeast } = await import("../packages/protocol/src/social.ts");
+const { scoreKarma } = await import("../packages/server/src/karma.ts");
 
 type Numbers = { -readonly [K in keyof typeof ECONOMY]: number };
 type Mutable = Record<string, number | Record<string, number | Record<string, number>>>;

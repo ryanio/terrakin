@@ -632,18 +632,18 @@ describe("OpenAPI", () => {
 
 describe("internal routes", () => {
   const internal = (ROUTES as readonly RouteSpec[]).filter((r) => r.internal);
-  const repo = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), "utf8");
+  const repo = (path: string) => readFileSync(new URL(`../../../${path}`, import.meta.url), "utf8");
   const published = [
-    "protocol/openapi.json",
-    "protocol/SKILL.md",
-    "client/public/llms.txt",
-    "client/public/docs.md",
-    "client/public/docs/llms.txt",
-    "client/public/sitemap-pages.xml",
-    "client/public/.well-known/ard.json",
-    "client/public/.well-known/api-catalog",
-    "client/public/.well-known/agent-skills/index.json",
-    "client/src/docs/guides.generated.md",
+    "packages/protocol/openapi.json",
+    "packages/protocol/SKILL.md",
+    "packages/client/public/llms.txt",
+    "packages/client/public/docs.md",
+    "packages/client/public/docs/llms.txt",
+    "packages/client/public/sitemap-pages.xml",
+    "packages/client/public/.well-known/ard.json",
+    "packages/client/public/.well-known/api-catalog",
+    "packages/client/public/.well-known/agent-skills/index.json",
+    "packages/client/src/docs/guides.generated.md",
     "CHANGELOG.md",
     ...(PAGES as readonly SitePage[]).flatMap((p) => (p.prose ? [`docs/site/${p.prose}.md`] : [])),
   ];

@@ -13,7 +13,7 @@ The World object booted by loading the whole input log into memory and replaying
 
 ## Decision
 
-- The boot streams the log one row at a time (`Store.eachInput`) and builds the server's own facts in the same pass: join days, done kinds, today's putters, and karma's credits (`LogFacts` in `server/src/snapshots.ts`, which also keeps them up as inputs commit).
+- The boot streams the log one row at a time (`Store.eachInput`) and builds the server's own facts in the same pass: join days, done kinds, today's putters, and karma's credits (`LogFacts` in `packages/server/src/snapshots.ts`, which also keeps them up as inputs commit).
 - Snapshots live in the object's SQLite next to `world_log`: `world_snapshot` (one row each: `seq`, `format`, `replay_version`, `hash`, `sha256`, `parts`, `bytes`, `verified`) and `world_snapshot_part` (the body in parts of at most 1 MB of UTF-8, never cut inside a surrogate pair, since a row holds at most 2 MB).
 - The body is `JSON.stringify({format, world, server})`. Plain `JSON.stringify` keeps the order records were made in; `canonicalJson` sorts keys, and a world parsed back from it emits some later events with their keys in another order.
 - One is taken right after `tick()` commits a `new_day`, and from the minute sweep when the log is 50,000 inputs past the newest. It's written in one transaction (`ctx.storage.transactionSync` on Cloudflare, which refuses `BEGIN`). Only a world that counts days takes them, since its join days come from the log alone, only when every `world_log` row's `seq` matches the world's, and only while the coin supply adds up. Either of the last two failing is reported, and a `world.supply_holds` gauge is set at every boot.

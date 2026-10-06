@@ -15,8 +15,8 @@ The risk is a second copy of a rule drifting from the sim, so the client greys o
 
 ## Decision
 
-The client may hold back a button the server would refuse, as long as the reason is on screen, and it decides with the sim's own exported checks (`canBuildOn`, `isReady`, `harvestFits` from `@terrakin/sim`), never a restated copy. The server still validates every action, and the client still shows its refusal in plain words (`worldProblem` in `client/src/things.ts`) for anything it couldn't foresee.
+The client may hold back a button the server would refuse, as long as the reason is on screen, and it decides with the sim's own exported checks (`canBuildOn`, `isReady`, `harvestFits` from `@terrakin/sim`), never a restated copy. The server still validates every action, and the client still shows its refusal in plain words (`worldProblem` in `packages/client/src/things.ts`) for anything it couldn't foresee.
 
 ## Consequences
 
-Fewer dead-end taps, and the HUD explains what to do next. A rule change in the sim reaches the client through the shared function, so the two can't disagree. A check that needs data the client doesn't have stays server-only. Code: `client/src/garden-sheet.ts`, `openStation` and `hasPlot` in `client/src/world.ts`, `harvestFits` in `sim/src/items.ts`, and the "No game rules" rule in `client/AGENTS.md`.
+Fewer dead-end taps, and the HUD explains what to do next. A rule change in the sim reaches the client through the shared function, so the two can't disagree. A check that needs data the client doesn't have stays server-only. Code: `packages/client/src/garden-sheet.ts`, `openStation` and `hasPlot` in `packages/client/src/world.ts`, `harvestFits` in `packages/sim/src/items.ts`, and the "No game rules" rule in `packages/client/AGENTS.md`.

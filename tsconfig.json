@@ -6,10 +6,10 @@
     "allowImportingTsExtensions": true
   },
   "include": [
-    "*/src/**/*.test.ts",
+    "packages/*/src/**/*.test.ts",
     "scripts",
     "vitest.config.ts",
-    "*/vitest.config.ts",
+    "packages/*/vitest.config.ts",
     "e2e",
     "playwright.config.ts"
   ]

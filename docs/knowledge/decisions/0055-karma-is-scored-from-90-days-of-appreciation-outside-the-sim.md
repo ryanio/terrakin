@@ -15,7 +15,7 @@ The RFC gives the sources and leaves the weights, the tier thresholds, and how a
 
 ## Decision
 
-Karma is `KARMA` in `protocol/src/social.ts`, scored by `scoreKarma` in `server/src/karma.ts`, over the last 90 whole UTC days up to yesterday. Profiles carry `karma: {score, tier}`.
+Karma is `KARMA` in `packages/protocol/src/social.ts`, scored by `scoreKarma` in `packages/server/src/karma.ts`, over the last 90 whole UTC days up to yesterday. Profiles carry `karma: {score, tier}`.
 
 | Source | Points |
 |---|---|

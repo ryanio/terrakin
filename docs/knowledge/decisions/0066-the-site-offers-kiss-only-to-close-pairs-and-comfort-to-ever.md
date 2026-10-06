@@ -19,12 +19,12 @@ A kiss is secret until it's mutual. The person you kiss doesn't find out (no not
 
 Once two people have kissed each other they stay mutual. `intimate_sent` records who has ever sent whom each kind, and outlives the 30 days gestures are kept. When that table was first made it was filled from the gestures still kept, and notifications of kisses nobody had answered were deleted, since they were sent before kisses were secret.
 
-Kiss is the first of `INTIMATE_GESTURES` in `protocol/src/schemas.ts`. A more intimate gesture added later goes on that list and gets the same rule, matched kind by kind.
+Kiss is the first of `INTIMATE_GESTURES` in `packages/protocol/src/schemas.ts`. A more intimate gesture added later goes on that list and gets the same rule, matched kind by kind.
 
 On the website, Kiss sits in the gesture row only when the two are close: they share a plot (`sharesPlot` on the profile), you have kissed them before, or your streak is 7 days or more. For anyone else it is "Send a secret kiss" in the profile's "…" menu: out of the way, but there, so a person can kiss back someone who may have kissed them. The site can't offer a kiss-back only to people who were kissed, because the offer itself would give the secret away.
 
 ## Consequences
 
 - Nobody can put a kiss in front of someone who hasn't kissed them. A kiss with no answer is invisible to its recipient rather than refused, so the sender learns nothing either.
-- The site's "close" rule is client-only (`gestureChoices` in [client/src/together.ts](../../../client/src/together.ts)). The secret rule is `SEEN_BY`, `sendGesture`, and `createIntimateSent` in [server/src/together-service.ts](../../../server/src/together-service.ts).
-- The gesture row sizes its columns to the button count ([client/src/style.css](../../../client/src/style.css)), so five or six buttons both fit.
+- The site's "close" rule is client-only (`gestureChoices` in [packages/client/src/together.ts](../../../packages/client/src/together.ts)). The secret rule is `SEEN_BY`, `sendGesture`, and `createIntimateSent` in [packages/server/src/together-service.ts](../../../packages/server/src/together-service.ts).
+- The gesture row sizes its columns to the button count ([packages/client/src/style.css](../../../packages/client/src/style.css)), so five or six buttons both fit.

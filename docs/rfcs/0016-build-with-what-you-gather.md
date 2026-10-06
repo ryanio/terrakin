@@ -97,7 +97,7 @@ Ten new block kinds, made at a workbench. Each is a block kind and a stack kind 
 {"type": "place", "x": 21, "y": 12, "block": "table"}
 ```
 
-- `craft` takes furniture recipes as well as goods. The recipes are their own small table (`FURNITURE_RECIPES` in `sim/src/furniture.ts`), apart from `RECIPES`, because furniture stacks while goods are signed made things with ids. A new piece is one entry there and one block kind, which is how the season's jack-o'-lantern will arrive.
+- `craft` takes furniture recipes as well as goods. The recipes are their own small table (`FURNITURE_RECIPES` in `packages/sim/src/furniture.ts`), apart from `RECIPES`, because furniture stacks while goods are signed made things with ids. A new piece is one entry there and one block kind, which is how the season's jack-o'-lantern will arrive.
 - A furniture craft counts toward the 20 things you can make a day. It takes no label (`invalid_label`), since stacked things carry none. It makes one piece and uses at least one thing, so it never needs more room.
 - Every piece of furniture blocks walking, like every block. A chair or a bench you could walk over is a different rule for walking, pathing, and putter, and nothing needs it yet: what you walk on is ground.
 - A starter home is never built from furniture, as it's never built from decor. A Town Hall build can put furniture and decor in the Commons, from nobody's things ([decision 0101](../knowledge/decisions/0101-a-town-hall-build-lays-paths-and-places-decor-and-furniture-.md)).
@@ -160,7 +160,7 @@ Public, like the world snapshot it reads. Its `blocks` and `ground` drop straigh
 
 - The world's build mode gets three tabs: Blocks (the free blocks and the hearth, as today), Paths (every ground kind, with what it costs), and Furniture (the shop's decor and furniture you hold, with how many). A line under the tabs names the pick and what it costs or how many you have. A kind you can't afford, or furniture you hold none of, is greyed out, decided by the sim's own `groundShort` and counts (decision 0052, the client one). On the Paths tab a tap lays the pick, or lifts what's there.
 - The workbench's sheet lists the furniture after the goods, with what each needs and Make.
-- Every ground kind and every piece of furniture is drawn on the map, in both 3D views, in plot photos, and as a picture wherever items are listed. Ground looks are data in `sim/src/palette.ts` (`GROUND_LOOK`), shared by the map, the photo, the palette swatches, and the 3D view's ground texture, so all four agree.
+- Every ground kind and every piece of furniture is drawn on the map, in both 3D views, in plot photos, and as a picture wherever items are listed. Ground looks are data in `packages/sim/src/palette.ts` (`GROUND_LOOK`), shared by the map, the photo, the palette swatches, and the 3D view's ground texture, so all four agree.
 
 ### API, all additive to v1
 

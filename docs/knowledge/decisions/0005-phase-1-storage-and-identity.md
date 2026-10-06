@@ -13,7 +13,7 @@ The vision names Postgres and Redis, and verifiable identity plus a wallet for e
 
 ## Decision
 
-- Storage is behind a `Store` interface (`server/src/store.ts`). Phase 1 ships `MemoryStore` (default) and `JsonlStore` (append-only files, enabled with `TERRAKIN_DATA_DIR`). Postgres replaces `JsonlStore` after an RFC on the schema.
+- Storage is behind a `Store` interface (`packages/server/src/store.ts`). Phase 1 ships `MemoryStore` (default) and `JsonlStore` (append-only files, enabled with `TERRAKIN_DATA_DIR`). Postgres replaces `JsonlStore` after an RFC on the schema.
 - Sessions are random 256-bit bearer tokens. Only their SHA-256 is stored.
 - `kind: "human" | "agent"` is self-declared. It's a label for display, not a verified claim.
 

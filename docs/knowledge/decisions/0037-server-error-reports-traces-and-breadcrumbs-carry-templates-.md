@@ -13,7 +13,7 @@ The Worker had no error tracking (issue #22). A thrown error became a polite 500
 
 ## Decision
 
-The Worker and the World object report to Sentry's `terrakin-api` project through `@sentry/cloudflare`. Shared server code calls `server/src/telemetry.ts`, which uses `@sentry/core` and does nothing until the Worker starts a client, so Node and the tests send nothing.
+The Worker and the World object report to Sentry's `terrakin-api` project through `@sentry/cloudflare`. Shared server code calls `packages/server/src/telemetry.ts`, which uses `@sentry/core` and does nothing until the Worker starts a client, so Node and the tests send nothing.
 
 The server may send:
 
@@ -25,7 +25,7 @@ The server may send:
 
 The browser now traces a fifth of page loads and the API calls they make, named by template, and sends `sentry-trace` and `baggage` only to our own `/v1/` paths, so a client error links to the server's trace. Web vital and interaction spans lose the element descriptions Sentry builds from `alt`, `aria-label`, and `title`, which hold names. It adds `api` crumbs (method, templated path, status, error code) and `live` crumbs (socket state and error codes), and reports a response that fails its schema with the route template and the failing field names.
 
-Every event, span, breadcrumb, log, and metric goes through a scrubber before it leaves (console output becomes breadcrumbs, which are dropped; logs are scrubbed in case they're ever turned on): paths become templates, query strings go, ids, handles, codes, link keys, and anything token-shaped are replaced, and keys like `authorization`, `cookie`, `token`, `ip`, `headers`, and `body` are dropped. `dataCollection` is all off. `server/src/telemetry.test.ts` and `client/src/telemetry.test.ts` pin this.
+Every event, span, breadcrumb, log, and metric goes through a scrubber before it leaves (console output becomes breadcrumbs, which are dropped; logs are scrubbed in case they're ever turned on): paths become templates, query strings go, ids, handles, codes, link keys, and anything token-shaped are replaced, and keys like `authorization`, `cookie`, `token`, `ip`, `headers`, and `body` are dropped. `dataCollection` is all off. `packages/server/src/telemetry.test.ts` and `packages/client/src/telemetry.test.ts` pin this.
 
 ## Consequences
 

@@ -7,7 +7,7 @@ import { markdownTwin, staticPage } from "./site-page";
 const page = (path: string) =>
   (PAGES as readonly SitePage[]).find((p) => p.path === path) as SitePage;
 const source = (name: string) =>
-  readFileSync(new URL(`../../docs/site/${name}.md`, import.meta.url), "utf8");
+  readFileSync(new URL(`../../../docs/site/${name}.md`, import.meta.url), "utf8");
 
 describe("markdownToHtml", () => {
   it("renders the pieces our pages use", () => {

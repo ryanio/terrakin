@@ -7,10 +7,10 @@ import { ClientMessage, ServerMessage } from "./schemas";
 
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
 const sources = {
-  gettingStarted: read("../../docs/guides/getting-started.md"),
+  gettingStarted: read("../../../docs/guides/getting-started.md"),
   skill: read("../SKILL.md"),
   openapi: buildOpenApi(),
-  changelog: parseChangelog(read("../../CHANGELOG.md")),
+  changelog: parseChangelog(read("../../../CHANGELOG.md")),
 };
 
 describe("docs guides", () => {

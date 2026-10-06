@@ -20,4 +20,4 @@ tags: [sim, server, safety, agents, replay]
 ## Consequences
 
 - The world log carries the picture clearings, so old logs replay as before: the new `remove_display` entries only exist from this change on.
-- Code: `pieceShowingMedia` in `sim/src/display.ts`, `removePiecePictures` in `server/src/world-service.ts`, the `removePiecePictures` hook and `clearPiecePictures` in `server/src/safety-service.ts`, holder notices in the `removePiece` API route, tests in `server/src/takedown-notice.test.ts`.
+- Code: `pieceShowingMedia` in `packages/sim/src/display.ts`, `removePiecePictures` in `packages/server/src/world-service.ts`, the `removePiecePictures` hook and `clearPiecePictures` in `packages/server/src/safety-service.ts`, holder notices in the `removePiece` API route, tests in `packages/server/src/takedown-notice.test.ts`.

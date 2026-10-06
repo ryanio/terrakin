@@ -112,7 +112,7 @@ describe("page meta", () => {
     expect(matchPage("/nope")).toEqual({ name: "not-found" });
   });
 
-  it("only sets tags that exist in client/index.html", () => {
+  it("only sets tags that exist in packages/client/index.html", () => {
     for (const selector of Object.values(META_SELECTORS)) {
       expect(
         attr(INDEX_HTML, selector, selector.startsWith("link") ? "href" : "content"),

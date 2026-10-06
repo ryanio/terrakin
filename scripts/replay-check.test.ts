@@ -1,11 +1,11 @@
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
-import { PRESENCE_CONFIG, PRESENCE_LOG } from "../sim/src/fixtures/presence-log";
-import { hashWorld } from "../sim/src/hash";
-import { replay } from "../sim/src/replay";
-import type { Input, WorldConfig } from "../sim/src/types";
-import { DEFAULT_CONFIG } from "../sim/src/world";
+import { PRESENCE_CONFIG, PRESENCE_LOG } from "../packages/sim/src/fixtures/presence-log";
+import { hashWorld } from "../packages/sim/src/hash";
+import { replay } from "../packages/sim/src/replay";
+import type { Input, WorldConfig } from "../packages/sim/src/types";
+import { DEFAULT_CONFIG } from "../packages/sim/src/world";
 import {
   CheckError,
   checkLive,

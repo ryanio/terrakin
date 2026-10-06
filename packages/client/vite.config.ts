@@ -15,7 +15,7 @@ import { defineConfig, type Plugin } from "vite";
 import { footerHtml, markdownTwin, staticPage } from "./src/site-page";
 
 const server = process.env.TERRAKIN_SERVER ?? "http://localhost:8787";
-const repo = (path: string) => fileURLToPath(new URL(`../${path}`, import.meta.url));
+const repo = (path: string) => fileURLToPath(new URL(`../../${path}`, import.meta.url));
 
 /**
  * A Content-Security-Policy for the production build, as a meta tag at the top of every page
@@ -96,7 +96,7 @@ function icons(): Plugin {
         /<svg class="([^"]+)" data-icon="([^"]+)" aria-hidden="true"><\/svg>/g,
         (_, className: string, name: string) => {
           if (!isIconName(name))
-            throw new Error(`${ctx.path}: no icon "${name}" in ui/src/icons.ts`);
+            throw new Error(`${ctx.path}: no icon "${name}" in packages/ui/src/icons.ts`);
           return iconSvg(name, className);
         },
       );
@@ -111,7 +111,7 @@ function icons(): Plugin {
 }
 
 /**
- * The site pages from docs/site/*.md and protocol/src/site.ts (the one source for each):
+ * The site pages from docs/site/*.md and packages/protocol/src/site.ts (the one source for each):
  *
  * - the footer in place of `<!-- site:footer -->`,
  * - the homepage's JSON-LD (WebSite, Organization, WebApplication, FAQPage) in index.html,

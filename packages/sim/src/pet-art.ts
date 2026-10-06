@@ -1,9 +1,9 @@
 /**
  * Pictures of pets (RFC 0019): each kind awake and asleep, as SVG shapes in a 48 by 48 box, facing
  * right, colored from its coat. Presentation only, like the world's palette: no rule reads any of
- * it. It lives here so the map (`client/src/render.ts`), the adopt sheet and profiles (through
- * `ui/src/pet-art.ts`), and the plot photos drawn at the edge (`cards/`, through
- * `server/src/plot-photo.ts`) all draw the same pet (decision 0035).
+ * it. It lives here so the map (`packages/client/src/render.ts`), the adopt sheet and profiles
+ * (through `packages/ui/src/pet-art.ts`), and the plot photos drawn at the edge (`packages/cards/`,
+ * through `packages/server/src/plot-photo.ts`) all draw the same pet (decision 0035).
  *
  * Every attribute is a number, a hex color, a path made of numbers, or one of a few fixed words,
  * so the shapes can cross to the edge renderer as data and be checked there.
@@ -106,7 +106,7 @@ export function petColors(kind: PetKind, coat: PetCoat | string): PetColors {
   return coats[coat] ?? (Object.values(coats)[0] as PetColors);
 }
 
-// ---------- ink, as the brand tokens have it (ui/src/brand.ts) ----------
+// ---------- ink, as the brand tokens have it (packages/ui/src/brand.ts) ----------
 
 const INK = "#2b2620";
 const LINE = "#5a5146";

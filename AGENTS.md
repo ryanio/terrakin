@@ -14,15 +14,15 @@ Why it exists: [mission.md](mission.md). What it is: [docs/vision.md](docs/visio
 
 1. **Owner's work goes to `main`.** Ryan and agents working for him push to `main` after `pnpm verify` (plus `pnpm e2e` for client changes), running the `reviewer` subagent on risky diffs. Everyone else opens a PR and discloses AI help. Big changes get an RFC in `docs/rfcs/` first.
 2. **Mobile-first.** If it isn't usable on a phone, it doesn't ship.
-3. **Server-authoritative.** Rules live in `sim/`. The server validates everything; the client only renders.
-4. **Deterministic sim.** No clocks, randomness, or I/O in `sim/`. Same log in, same world out.
+3. **Server-authoritative.** Rules live in `packages/sim/`. The server validates everything; the client only renders.
+4. **Deterministic sim.** No clocks, randomness, or I/O in `packages/sim/`. Same log in, same world out.
 5. **Tests for numbers.** Economy, progression, limits, and sim rules are proven by tests. Code that guards money (upload caps, rate limits) ships with a test that shows the guard refuses.
 6. **Resident text is untrusted.** Chat, names, posts, and notes never become an action or a grant, and reach the DOM only as text ([decision 0004](docs/knowledge/decisions/0004-chat-is-untrusted-data.md)).
-7. **Protocol is a contract.** `v1` changes are additive only, and `protocol/SKILL.md` changes with them (a test enforces it).
+7. **Protocol is a contract.** `v1` changes are additive only, and `packages/protocol/SKILL.md` changes with them (a test enforces it).
 8. **Generated files are generated.** Run `pnpm gen` after touching routes, the site config, `SKILL.md`, or `docs/site/`; never hand-edit its output.
 9. **Plain words, no em dashes** in user-facing copy and docs.
 10. **No secrets** in code, logs, docs, commits, or the knowledge base. The repo is public, so never point docs, plans, handoffs or code at files on a maintainer's machine (`~/Desktop`, `/Users/...`); write the content in, or say "kept privately" with no path. Check with `git grep -nE "~/Desktop|/Users/"` before committing docs (existing hits are examples).
-11. **Reuse before you build.** Before writing UI, check `ui/` ([ui/AGENTS.md](ui/AGENTS.md)) for a component or helper that already does it: layout (`stack`, `cluster`), list rows (`itemRow`), avatars, people links, times, cards, sheets, menus, copy, chips, error lines, busy and "show more" buttons, disclosures and dropdowns, polling, paths, motion, brand colors. If something you need exists in one view, move it into `ui/` and use it from both; never copy it. Styles for a shared piece live in `ui/src/base.css`; colors, spacing, type sizes and corners come from tokens. `client/src/shared-components.test.ts` fails on known copies; when you add a shared piece, add its pattern there.
+11. **Reuse before you build.** Before writing UI, check `packages/ui/` ([packages/ui/AGENTS.md](packages/ui/AGENTS.md)) for a component or helper that already does it: layout (`stack`, `cluster`), list rows (`itemRow`), avatars, people links, times, cards, sheets, menus, copy, chips, error lines, busy and "show more" buttons, disclosures and dropdowns, polling, paths, motion, brand colors. If something you need exists in one view, move it into `packages/ui/` and use it from both; never copy it. Styles for a shared piece live in `packages/ui/src/base.css`; colors, spacing, type sizes and corners come from tokens. `packages/client/src/shared-components.test.ts` fails on known copies; when you add a shared piece, add its pattern there.
 
 ## Words
 
@@ -30,15 +30,17 @@ Plot (owned land), hearth (home tile), kindred (clan), coins (earned currency), 
 
 ## Map
 
+Every workspace package is a folder in `packages/` named for its package (`packages/sim` is `@terrakin/sim`); end-to-end tests, tooling, and docs stay at the root ([decision 0111](docs/knowledge/decisions/0111-every-workspace-package-lives-in-packages-apps-and-libraries.md)).
+
 | Path | What |
 |------|------|
-| [`sim/`](sim/AGENTS.md) | Deterministic rules engine. The only place game rules live. |
-| [`protocol/`](protocol/AGENTS.md) | API v1: schemas, the route table, OpenAPI, and `SKILL.md` (the onboarding for AI assistants). |
-| [`server/`](server/AGENTS.md) | HTTP and WebSocket front door, persistence, social tables. Runs on Node and as the Cloudflare Worker behind terrakin.org. |
-| [`client/`](client/AGENTS.md) | Mobile-first web client and the `/docs` page. Renders, never decides. |
-| [`admin/`](admin/AGENTS.md) | The staff app at admin.terrakin.org: review queue, AI triage suggestions, moderation log. Behind Cloudflare Access. |
-| [`ui/`](ui/AGENTS.md) | `@terrakin/ui`: the components, styles, design tokens, DOM helpers, and request helper `client/` and `admin/` share. Build a piece once, here. |
-| [`cards/`](cards/AGENTS.md) | Link preview cards, drawn with satori and resvg-wasm. |
+| [`packages/sim/`](packages/sim/AGENTS.md) | Deterministic rules engine. The only place game rules live. |
+| [`packages/protocol/`](packages/protocol/AGENTS.md) | API v1: schemas, the route table, OpenAPI, and `SKILL.md` (the onboarding for AI assistants). |
+| [`packages/server/`](packages/server/AGENTS.md) | HTTP and WebSocket front door, persistence, social tables. Runs on Node and as the Cloudflare Worker behind terrakin.org. |
+| [`packages/client/`](packages/client/AGENTS.md) | Mobile-first web client and the `/docs` page. Renders, never decides. |
+| [`packages/admin/`](packages/admin/AGENTS.md) | The staff app at admin.terrakin.org: review queue, AI triage suggestions, moderation log. Behind Cloudflare Access. |
+| [`packages/ui/`](packages/ui/AGENTS.md) | `@terrakin/ui`: the components, styles, design tokens, DOM helpers, and request helper `packages/client/` and `packages/admin/` share. Build a piece once, here. |
+| [`packages/cards/`](packages/cards/AGENTS.md) | Link preview cards, drawn with satori and resvg-wasm. |
 | [`e2e/`](e2e/AGENTS.md) | Playwright tests on a phone viewport against the real build. |
 | [`scripts/`](scripts/AGENTS.md) | Repo tooling: `gen`, `kb`, the brand generator, the coin simulation, the townsfolk seed and tips, and the Sentry reader. |
 | [`docs/`](docs/AGENTS.md) | Vision, plans, architecture, RFCs, guides, site pages, knowledge base. |
@@ -61,7 +63,7 @@ pnpm cf:deploy    # deploy to terrakin.org by hand; main also deploys itself onc
 ## Definition of done
 
 1. `pnpm verify` passes (and `pnpm e2e` for client changes).
-2. New behavior has a test at the lowest level that catches the bug: sim rule in `sim/`, wire format in `protocol/`, routing and auth in `server/`, a user flow in `e2e/`.
+2. New behavior has a test at the lowest level that catches the bug: sim rule in `packages/sim/`, wire format in `packages/protocol/`, routing and auth in `packages/server/`, a user flow in `e2e/`.
 3. Docs that describe the behavior change in the same commit: the folder `AGENTS.md`, `SKILL.md`, `docs/architecture.md`, `docs/plans/README.md`.
 4. Notable changes (new routes, fields, actions, behavior agents would notice, deprecations, removals, security fixes) get a `CHANGELOG.md` entry in the same push. Deprecations name the replacement and the earliest removal date; v1 never removes anything without a deprecation entry first. `pnpm gen:check` fails when the API changed and the changelog didn't ([decision 0036](docs/knowledge/decisions/0036-the-agent-changelog-is-one-file-published-as-a-page-a-feed-a.md)).
 5. A choice someone could question has a decision record (`pnpm kb new decision "..."`).

@@ -2,14 +2,14 @@
   // terrakin.org on Cloudflare Workers. See docs/deploy.md.
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "terrakin",
-  "main": "server/cloudflare/worker.ts",
+  "main": "packages/server/cloudflare/worker.ts",
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true },
   "workers_dev": false,
   "preview_urls": false,
   "assets": {
-    "directory": "client/dist",
+    "directory": "packages/client/dist",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
     // Every request reaches the Worker first so it can redirect www and route /v1/* to the world.
@@ -35,7 +35,7 @@
     // drafts for staff and posts nothing. `posts` posts and likes; `all` replies too.
     "TERRAKIN_CHATTER_DAILY_CALLS": "12",
     "TERRAKIN_CHATTER_MODE": "dry",
-    // The townsfolk's daily coin tips (server/src/townsfolk-tips.ts): `dry` checks each gift with
+    // The townsfolk's daily coin tips (packages/server/src/townsfolk-tips.ts): `dry` checks each gift with
     // the sim and gives nothing; `on` gives.
     "TERRAKIN_TIPS": "dry"
   },
@@ -43,16 +43,16 @@
   "version_metadata": { "binding": "CF_VERSION_METADATA" },
   "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "terrakin-media" }],
   // This Worker's own PlotPhotos entrypoint: the World object asks it to draw plot photos, so the
-  // drawing runs in the Worker and never in the world (server/AGENTS.md).
+  // drawing runs in the Worker and never in the world (packages/server/AGENTS.md).
   "services": [{ "binding": "PHOTOS", "service": "terrakin", "entrypoint": "PlotPhotos" }],
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["World"] }],
-  // Townsfolk chatter every two hours (server/src/chatter.ts, CHATTER_EVERY_MS), off until
+  // Townsfolk chatter every two hours (packages/server/src/chatter.ts, CHATTER_EVERY_MS), off until
   // TERRAKIN_CHATTER_DAILY_CALLS is above 0, and the townsfolk's coin tips just after midnight UTC
-  // (server/src/townsfolk-tips.ts, TIPS_CRON in the Worker), off until TERRAKIN_TIPS is set.
+  // (packages/server/src/townsfolk-tips.ts, TIPS_CRON in the Worker), off until TERRAKIN_TIPS is set.
   "triggers": { "crons": ["17 */2 * * *", "7 0 * * *"] },
   "rules": [
     { "type": "Text", "globs": ["**/*.md"], "fallthrough": true },
-    // Card fonts (cards/src/worker.ts): @fontsource WOFF files as ArrayBuffers.
+    // Card fonts (packages/cards/src/worker.ts): @fontsource WOFF files as ArrayBuffers.
     { "type": "Data", "globs": ["**/*.woff"], "fallthrough": true }
   ],
   "routes": [

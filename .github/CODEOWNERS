@@ -1,6 +1,6 @@
 # Security-sensitive areas need maintainer review. See SECURITY.md.
-*                 @ryanio @musefelipe
-/sim/             @ryanio @musefelipe
-/protocol/        @ryanio @musefelipe
-/server/          @ryanio @musefelipe
-/.github/         @ryanio
+*                   @ryanio @musefelipe
+/packages/sim/      @ryanio @musefelipe
+/packages/protocol/ @ryanio @musefelipe
+/packages/server/   @ryanio @musefelipe
+/.github/           @ryanio

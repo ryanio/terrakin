@@ -37,9 +37,10 @@ import {
 
 /**
  * Plot photos (issue #34): a picture of a resident's plot, drawn with the world's own palette
- * (`sim/src/palette.ts`, the same one `client/src/render.ts` uses) and rasterized by the cards
- * pipeline. This file only reads the world and builds the data; drawing happens in `cards/`, in
- * the Worker on Cloudflare (never in the World object) and in-process on Node.
+ * (`packages/sim/src/palette.ts`, the same one `packages/client/src/render.ts` uses) and rasterized
+ * by the cards pipeline. This file only reads the world and builds the data; drawing happens in
+ * `packages/cards/`, in the Worker on Cloudflare (never in the World object) and in-process on
+ * Node.
  */
 
 /**

@@ -1,11 +1,12 @@
 /**
  * Spend the townsfolk's daily coin budgets through the public API, like any resident would: 10 to
  * each newcomer since the last run, and a tip for the day's most-reacted post that isn't by
- * townsfolk. The choosing is in server/src/tip-plan.ts; this reads the server, prints the plan, and
- * with `--send` gives the coins.
+ * townsfolk. The choosing is in packages/server/src/tip-plan.ts; this reads the server, prints the
+ * plan, and with `--send` gives the coins.
  *
- * terrakin.org runs the same plan inside the Worker once a day (server/src/townsfolk-tips.ts), so
- * this is for self-hosting and local runs. Don't `--send` against a server whose own tips are on.
+ * terrakin.org runs the same plan inside the Worker once a day
+ * (packages/server/src/townsfolk-tips.ts), so this is for self-hosting and local runs. Don't
+ * `--send` against a server whose own tips are on.
  *
  *   pnpm townsfolk:tips -- --base http://localhost:8787            # dry run: print what it would give
  *   pnpm townsfolk:tips -- --base http://localhost:8787 --send     # give it
@@ -29,7 +30,7 @@ import type {
   PurseResponse,
   TownResponse,
   WorldSnapshot,
-} from "../../protocol/src/index";
+} from "../../packages/protocol/src/index";
 import {
   ALL_TIP_NOTES,
   type FeedPost,
@@ -40,7 +41,7 @@ import {
   TIPS,
   type TipState,
   type WelcomeLine,
-} from "../../server/src/tip-plan.ts";
+} from "../../packages/server/src/tip-plan.ts";
 import { type Creds, defaultCredsPath, tipsStatePath, writePrivateJson } from "./creds.ts";
 import { PERSONAS } from "./personas.ts";
 

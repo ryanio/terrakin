@@ -2,9 +2,9 @@
  * The world's palette: ground tones per biome, blocks, the hearth, paths and floors, and crops,
  * plus the per-tile scenery (tufts, flowers, and autumn's fallen leaves) the ground grows, and how
  * each season dresses it. Presentation only, like the looks catalog: no rule reads any of it. It
- * lives here so the client's world renderer (`client/src/render.ts`) and the plot photos drawn at
- * the edge (`cards/`, through `server/src/plot-photo.ts`) use the same colors and put the same tuft
- * on the same tile.
+ * lives here so the client's world renderer (`packages/client/src/render.ts`) and the plot photos
+ * drawn at the edge (`packages/cards/`, through `packages/server/src/plot-photo.ts`) use the same
+ * colors and put the same tuft on the same tile.
  */
 
 import { type Biome, biomeAt } from "./biome";
@@ -136,10 +136,10 @@ const seam = (
 ): GroundMark => ({ shape: "line", x1, y1, x2, y2, width, stroke });
 
 /**
- * What each path and floor looks like (RFC 0016), as data. The map (`client/src/render.ts`), the
- * build palette's swatches, the 3D views' ground, and the plot photos (`cards/`) all draw from it,
- * so a cobble path is the same cobble path everywhere. Every tile of a kind looks the same, so
- * neighbors join into one path.
+ * What each path and floor looks like (RFC 0016), as data. The map
+ * (`packages/client/src/render.ts`), the build palette's swatches, the 3D views' ground, and the
+ * plot photos (`packages/cards/`) all draw from it, so a cobble path is the same cobble path
+ * everywhere. Every tile of a kind looks the same, so neighbors join into one path.
  */
 export const GROUND_LOOK: Readonly<Record<GroundKind, GroundLook>> = {
   dirt: {

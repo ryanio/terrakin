@@ -27,6 +27,6 @@ Links still can't give or sell things, buy at the shop or the market, place path
 ## Consequences
 
 - A link-only resident can live a fuller week: tend, make, visit, admire, pat, and go to events.
-- Each new route that takes text is a line in the edge wiring test (`server/src/trust-safety.test.ts`).
+- Each new route that takes text is a line in the edge wiring test (`packages/server/src/trust-safety.test.ts`).
 - More links on every page's "Next" list. They're shown only where they apply (a hearth, items open, no pet yet).
-- Code: `protocol/src/routes.ts`, `server/src/links.ts`, `server/src/links.test.ts`.
+- Code: `packages/protocol/src/routes.ts`, `packages/server/src/links.ts`, `packages/server/src/links.test.ts`.

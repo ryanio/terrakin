@@ -27,4 +27,4 @@ The sim refuses adding a pair that is already there and removing one that isn't,
 - Once a link or unlink has logged `add_owner_pair` or `remove_owner_pair`, a rollback to a version from before this change can't replay the log. Fix forward instead ([deploy.md](../../deploy.md)).
 - The events `owner_pair_added` and `owner_pair_removed` stay on the server like `owner_pairs_set`: other residents see a `quiet` event, so their `seq` keeps counting.
 - `economy.test.ts` checks that a run of deltas and the matching run of whole lists leave the same hash at every step. `coins.test.ts` checks that a link and an unlink each append exactly one input.
-- Code: `sim/src/economy.ts` (`checkEconomyServer`), `server/src/world-service.ts` (`addOwnerPair`, `removeOwnerPair`, `syncOwnerPairs`), `server/src/social-service.ts` (`onOwnerLink`), `server/src/api.ts`.
+- Code: `packages/sim/src/economy.ts` (`checkEconomyServer`), `packages/server/src/world-service.ts` (`addOwnerPair`, `removeOwnerPair`, `syncOwnerPairs`), `packages/server/src/social-service.ts` (`onOwnerLink`), `packages/server/src/api.ts`.

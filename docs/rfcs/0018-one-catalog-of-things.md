@@ -13,7 +13,7 @@ Every kind of thing in Terrakin (seeds, produce, staples, materials, decor, furn
 
 ## Motivation
 
-- Residents ask for things the world doesn't have yet: a fruit, a jam, a piece of furniture. Today each new kind is a small project. A crop is named in `CROPS`, `SEED_KINDS`, `ITEM_INFO`, `CROP_INFO`, `RECIPES` (for its jam), the shop's SKUs, `CROP_HEX` and three drawing functions in `ui/src/item-art.ts`, the 3D garden, SKILL.md's recipe list, and tests in a dozen files.
+- Residents ask for things the world doesn't have yet: a fruit, a jam, a piece of furniture. Today each new kind is a small project. A crop is named in `CROPS`, `SEED_KINDS`, `ITEM_INFO`, `CROP_INFO`, `RECIPES` (for its jam), the shop's SKUs, `CROP_HEX` and three drawing functions in `packages/ui/src/item-art.ts`, the 3D garden, SKILL.md's recipe list, and tests in a dozen files.
 - Homesteaders get more to grow and make, added faster.
 - Agents get one place to learn what exists and what makes what, with families they can reason about ("any fruit makes jam") instead of hand-kept lists that drift from SKILL.md.
 - Contributors get a small, reviewable change for a new kind, with its tests already written.
@@ -22,7 +22,7 @@ Every kind of thing in Terrakin (seeds, produce, staples, materials, decor, furn
 
 ### Entries
 
-The catalog is plain data in `sim/src/catalog.ts`, one entry per kind, keyed by its id. Ids never change, since logs hold them, and new entries go on the end.
+The catalog is plain data in `packages/sim/src/catalog.ts`, one entry per kind, keyed by its id. Ids never change, since logs hold them, and new entries go on the end.
 
 ```ts
 interface KindEntry {
@@ -87,7 +87,7 @@ Each entry has a `look`: a template and its colors, for example a pomegranate's 
 - seed packet, drawn from what it grows.
 - jar, filled with its color and labelled with what's in it, under a cloth like a jam or a lid like a sauce.
 
-`body` is the one color that stands for a kind where it shows small: a ripe crop on the map and in 3D, a plot photo, a seed packet's band. `ui/src/item-art.ts` draws from the template; the 2D map and the 3D garden draw a growing crop from its entry; plot photos read the same colors. Things that need their own drawing (decor, furniture, wear, and drinks and dishes until two of them share a shape) keep it, as `{ template: "drawn" }`, drawn by the existing function for their id. A test draws every entry and fails on any kind without a picture.
+`body` is the one color that stands for a kind where it shows small: a ripe crop on the map and in 3D, a plot photo, a seed packet's band. `packages/ui/src/item-art.ts` draws from the template; the 2D map and the 3D garden draw a growing crop from its entry; plot photos read the same colors. Things that need their own drawing (decor, furniture, wear, and drinks and dishes until two of them share a shape) keep it, as `{ template: "drawn" }`, drawn by the existing function for their id. A test draws every entry and fails on any kind without a picture.
 
 ### The API
 
@@ -101,7 +101,7 @@ Things you hold are grouped by family (Food › Fruit, Food › Preserves, Seeds
 
 ### Adding a kind
 
-`sim/AGENTS.md` gets "Adding a kind": one entry (or one `fruit(...)` call) on the end of the catalog, its look, and a shop price if it's sold. The tests that run over every entry cover the rest. A new family recipe, template, role or family is bigger and needs a decision record.
+`packages/sim/AGENTS.md` gets "Adding a kind": one entry (or one `fruit(...)` call) on the end of the catalog, its look, and a shop price if it's sold. The tests that run over every entry cover the rest. A new family recipe, template, role or family is bigger and needs a decision record.
 
 ## Invariants
 
@@ -130,7 +130,7 @@ None by itself. A new kind is priced like its neighbors: a fruit's seeds cost wh
 
 Old logs replay unchanged at every step.
 
-1. `sim/src/catalog.ts`: entries for every kind on main, families, the jam family recipe, the frozen lists, and the parity test. Nothing reads it yet.
+1. `packages/sim/src/catalog.ts`: entries for every kind on main, families, the jam family recipe, the frozen lists, and the parity test. Nothing reads it yet.
 2. After RFC 0016 and RFC 0017 land: their kinds move in, the sim's lists and tables are derived from the catalog, and `craft` resolves family recipes.
 3. `GET /v1/catalog`, the generated SKILL.md block, the catalog's version in every check-in (`catalog`), and the changelog.
 4. Pictures from templates in 2D, 3D and plot photos, and the inventory grouped by family.

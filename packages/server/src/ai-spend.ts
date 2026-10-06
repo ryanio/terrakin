@@ -9,7 +9,8 @@ import type { SqlExec } from "./sql-store";
  *
  * A row holds codes and counts only: the purpose, a trigger code (`report` or `filter` for triage,
  * the persona's handle for chatter), the model, the token counts from the response's `usage`, the
- * cost, and the outcome. Never resident text, never a resident id (server/AGENTS.md, telemetry).
+ * cost, and the outcome. Never resident text, never a resident id (packages/server/AGENTS.md,
+ * telemetry).
  */
 
 export type SpendPurpose = "triage" | "chatter";

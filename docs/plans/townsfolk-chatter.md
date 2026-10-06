@@ -12,11 +12,11 @@ Success is participation, not volume: real residents replying to and reacting to
 
 A second cron also takes over the townsfolk's daily coin tips from `scripts/townsfolk/tips.ts`, which no longer runs on anyone's machine (see [Coins](#coins)).
 
-Out of scope: votes and proposals (townsfolk never take part, [decision 0027](../knowledge/decisions/0027-townsfolk-reach-the-sim-as-a-logged-input-and-never-vote.md)), follows (the seed script handles those), and any change to `sim/` or `protocol/`.
+Out of scope: votes and proposals (townsfolk never take part, [decision 0027](../knowledge/decisions/0027-townsfolk-reach-the-sim-as-a-logged-input-and-never-vote.md)), follows (the seed script handles those), and any change to `packages/sim/` or `packages/protocol/`.
 
 ## Shape
 
-A `ChatterService` in `server/src/chatter.ts`, built like `TriageClient` in `server/src/triage.ts`: it checks its own guard before every model call, the network and the clock are injected, and tests never touch either.
+A `ChatterService` in `packages/server/src/chatter.ts`, built like `TriageClient` in `packages/server/src/triage.ts`: it checks its own guard before every model call, the network and the clock are injected, and tests never touch either.
 
 It runs from a Cloudflare cron trigger: `wrangler.jsonc` has `"17 */2 * * *"`, every two hours. The Worker's `scheduled` handler calls the `World` object's `chatter()` RPC method, so there is no public route, and the work happens inside the world object, next to the services it uses. On Node, a timer calls the same `Api.runChatter()` every `CHATTER_EVERY_MS`.
 
@@ -30,8 +30,8 @@ The model call is a plain `fetch` to the Messages API, as triage does, so there 
 
 The daily tips move into the Worker with no change to what they do: 10 coins to each newcomer since the last run, and a tip for the day's most-reacted post that isn't by townsfolk. No model call, so no spend guard; the sim's own caps (25 coins a day to one resident, none to townsfolk, maintainers or blocked residents) stay the guard, and a test shows each one refusing.
 
-- The pure planner and the gift notes live in `server/src/tip-plan.ts` (`planTips`, `TIP_NOTES`), with no imports, so the script and `personas.ts` load it as it is and the server imports nothing from `scripts/`. Both runners use the same notes, so each recognizes the other's gifts in the purse ledgers.
-- `server/src/townsfolk-tips.ts` is the daily run. A cron entry (`"7 0 * * *"`, `TIPS_CRON` in the Worker) calls the World object's `tips()` RPC method just after midnight UTC; Node asks every hour. `Api.runTips()` catches the world's day up first, so the day's budgets are paid, and the run goes at most once a UTC day per mode.
+- The pure planner and the gift notes live in `packages/server/src/tip-plan.ts` (`planTips`, `TIP_NOTES`), with no imports, so the script and `personas.ts` load it as it is and the server imports nothing from `scripts/`. Both runners use the same notes, so each recognizes the other's gifts in the purse ledgers.
+- `packages/server/src/townsfolk-tips.ts` is the daily run. A cron entry (`"7 0 * * *"`, `TIPS_CRON` in the Worker) calls the World object's `tips()` RPC method just after midnight UTC; Node asks every hour. `Api.runTips()` catches the world's day up first, so the day's budgets are paid, and the run goes at most once a UTC day per mode.
 - It reads purses, the treasury ledger, and the feed straight from the world. Newcomers come from each resident's own welcome line as well as the treasury's last 50 lines, so a busy day can't push one out of view before the run. It gives through `WorldService.act`, the action path `/v1/actions` uses, as each townsfolk resident, so the sim validates every gift exactly as before. Like the route, it calls `WorldService.arrive` before each gift, so with implicit presence ([decision 0071](../knowledge/decisions/0071-presence-comes-with-acting-once-implicit-presence-is-logged.md)) a giver who was away comes back with the gift itself, and the idle sweep takes them out again.
 - The state the script kept in `townsfolk.<host>.tips.json` (last newcomer handled, posts tipped) lives in the `townsfolk_tips` table, saved after each gift. The purse ledgers still back it up, so a lost row never welcomes anyone twice.
 - A refusal is counted by its code and the run moves on, never retried. A thrown error stops the run; the next day's run picks up.
@@ -52,7 +52,7 @@ Columns:
 - `outcome`: for chatter, posted, replied, liked, nothing, refused by the filters, refused by the validator, a refusal stop, or an error; for triage, the verdict's action or an error. This is what gives cost per posted note.
 - `action`: post, reply, like, or none.
 
-It holds no resident text and no resident ids, only the persona key, so it follows the telemetry rule of codes and counts ([server/AGENTS.md](../../server/AGENTS.md)). A call the guard refuses before fetching spends nothing and writes no row.
+It holds no resident text and no resident ids, only the persona key, so it follows the telemetry rule of codes and counts ([packages/server/AGENTS.md](../../packages/server/AGENTS.md)). A call the guard refuses before fetching spends nothing and writes no row.
 
 Staff read it on the admin app's queue page: a line with today's total, the last 30 days, and what a townsfolk note costs and how many answers were turned away. The overview (`GET /v1/admin/overview`, internal) also carries the 30-day lines by purpose and model with each one's cache read share.
 
@@ -60,9 +60,9 @@ It goes in first, with triage writing to it, so triage spend is recorded before 
 
 ## When it acts
 
-All of these are constants in `server/src/chatter.ts`, with the numbers below as starting points.
+All of these are constants in `packages/server/src/chatter.ts`, with the numbers below as starting points.
 
-- It runs only while real (non-townsfolk) top-level posts in the last 6 hours are under a threshold, set equal to `REAL_ENOUGH` in `client/src/pulse.ts` (a test pins the two together).
+- It runs only while real (non-townsfolk) top-level posts in the last 6 hours are under a threshold, set equal to `REAL_ENOUGH` in `packages/client/src/pulse.ts` (a test pins the two together).
 - It skips a run if townsfolk already posted in the last 3 hours, so they never dominate a thin feed.
 - Per persona per UTC day: 2 posts, 3 replies, 6 likes. Per run: at most 3 personas act.
 - Per UTC day, a call cap (`0`, which is off, until it's set; 24 to start) and a token cap (100,000), counted in the social database like triage's. Calls stop when either is spent or when the breaker is open (three failures in a row pause calls for 15 minutes).
@@ -81,23 +81,23 @@ All of these are constants in `server/src/chatter.ts`, with the numbers below as
 
 Townsfolk are exempt from the edge filters ([decision 0032](../knowledge/decisions/0032-lite-text-filters-at-the-edge.md)), and the model's words are not the team's words. So chatter text goes through `cleanText`, the injection check and `Moderation.review()` as an ordinary resident would, with the townsfolk exemption left off. It is also refused for: over 280 characters, a URL or `@` mention, the words coin, vote, proposal or bounty, a repeat of a recent own post, a target outside the candidate list, or an action over a cap. Refusals are logged by code, never by text, and never retried with a looser rule.
 
-Telemetry carries counts and codes only. The text and the key are never logged ([server/AGENTS.md](../../server/AGENTS.md)).
+Telemetry carries counts and codes only. The text and the key are never logged ([packages/server/AGENTS.md](../../packages/server/AGENTS.md)).
 
 ## Files
 
-- `server/src/chatter.ts`: the service, the planner (pure), the prompt, and the answer validator.
-- `server/src/chatter.test.ts`: the gate and every cap refusing, a bad answer refused for each reason above, injection text in a fixture feed changing nothing, and the call cap stopping a run (rule 5: the guard test shows it refuses).
-- `server/src/trust-safety.test.ts`: a case for the new door for text.
-- `server/cloudflare/worker.ts` and `wrangler.jsonc`: the `scheduled` handler, the RPC method, the cron.
+- `packages/server/src/chatter.ts`: the service, the planner (pure), the prompt, and the answer validator.
+- `packages/server/src/chatter.test.ts`: the gate and every cap refusing, a bad answer refused for each reason above, injection text in a fixture feed changing nothing, and the call cap stopping a run (rule 5: the guard test shows it refuses).
+- `packages/server/src/trust-safety.test.ts`: a case for the new door for text.
+- `packages/server/cloudflare/worker.ts` and `wrangler.jsonc`: the `scheduled` handler, the RPC method, the cron.
 - `docs/deploy.md`: the `TERRAKIN_CHATTER_*` settings in the env table (daily calls, where `0` is off; daily tokens; mode; model).
-- `server/AGENTS.md`: a line under "Where things are" and under the rules ("chatter spends money, so it goes through the guard").
+- `packages/server/AGENTS.md`: a line under "Where things are" and under the rules ("chatter spends money, so it goes through the guard").
 - A decision record (`pnpm kb new decision`): why a model, why Sonnet 5.5, why enumerated actions only, why the quiet gate, why the server and not a script.
-- `server/src/tip-plan.ts` and `server/src/tip-plan.test.ts`: the planner and the notes, moved from `scripts/`.
-- `server/src/townsfolk-tips.ts` and `server/src/townsfolk-tips.test.ts`: the daily run, its tables, and a refusal test for each sim cap.
-- `scripts/townsfolk/tips.ts` and `scripts/townsfolk/README.md`: import the planner from `server/`, and say the server runs it for terrakin.org.
-- `server/src/ai-spend.ts` and `server/src/ai-spend.test.ts`: the `ai_spend` table, the price table, `record()`, and the day summary. Tests show a row per call with the right cost, no row for a refused call, and no text or ids in any row.
-- `server/src/triage.ts`: writes a ledger row after each call. The staff overview carries the ledger's summary and chatter's status and drafts (`protocol/src/safety.ts`, `server/src/api.ts`); it is an internal route, so no `CHANGELOG.md` entry.
-- `admin/`: the spend and chatter lines on the queue page, with a dry run's drafts folded under them (`spendLine`, `chatterLine`, `draftLabel` in `src/logic.ts`).
+- `packages/server/src/tip-plan.ts` and `packages/server/src/tip-plan.test.ts`: the planner and the notes, moved from `scripts/`.
+- `packages/server/src/townsfolk-tips.ts` and `packages/server/src/townsfolk-tips.test.ts`: the daily run, its tables, and a refusal test for each sim cap.
+- `scripts/townsfolk/tips.ts` and `scripts/townsfolk/README.md`: import the planner from `packages/server/`, and say the server runs it for terrakin.org.
+- `packages/server/src/ai-spend.ts` and `packages/server/src/ai-spend.test.ts`: the `ai_spend` table, the price table, `record()`, and the day summary. Tests show a row per call with the right cost, no row for a refused call, and no text or ids in any row.
+- `packages/server/src/triage.ts`: writes a ledger row after each call. The staff overview carries the ledger's summary and chatter's status and drafts (`packages/protocol/src/safety.ts`, `packages/server/src/api.ts`); it is an internal route, so no `CHANGELOG.md` entry.
+- `packages/admin/`: the spend and chatter lines on the queue page, with a dry run's drafts folded under them (`spendLine`, `chatterLine`, `draftLabel` in `src/logic.ts`).
 - `docs/plans/README.md`: a link to this page.
 
 Chatter and tips add no public API, so they need no `CHANGELOG.md` entry.

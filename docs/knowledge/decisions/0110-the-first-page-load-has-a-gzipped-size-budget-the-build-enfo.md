@@ -14,7 +14,7 @@ Terrakin is mobile-first, and every visitor downloads the app's entry script, ev
 ## Decision
 
 - `@terrakin/protocol` declares `"sideEffects": false`, so the bundler leaves out the modules the client doesn't use. That brought the first load to 204.7 kB.
-- The client build measures the first load (`firstLoadBudget` in `client/vite.config.ts`) and fails past `FIRST_LOAD_BUDGET`: 215 kB of gzipped script and 32 kB of gzipped styles. Lazy chunks (3D, sound, the API reference) don't count.
+- The client build measures the first load (`firstLoadBudget` in `packages/client/vite.config.ts`) and fails past `FIRST_LOAD_BUDGET`: 215 kB of gzipped script and 32 kB of gzipped styles. Lazy chunks (3D, sound, the API reference) don't count.
 
 ## Consequences
 

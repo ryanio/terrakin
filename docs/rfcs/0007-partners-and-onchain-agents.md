@@ -81,7 +81,7 @@ One agent links to one resident, and a resident has at most one agent link. A ne
 
 ### 2. Partners
 
-A partner is config in the repo, reviewed like code (`server/src/partners.ts`, with art in `client/public/partners/<id>/`). No admin panel and no database rows: adding or changing a partner is a commit that maintainers approve.
+A partner is config in the repo, reviewed like code (`packages/server/src/partners.ts`, with art in `packages/client/public/partners/<id>/`). No admin panel and no database rows: adding or changing a partner is a commit that maintainers approve.
 
 ```ts
 {

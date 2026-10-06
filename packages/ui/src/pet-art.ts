@@ -1,8 +1,8 @@
 /**
  * Pets drawn in the browser (RFC 0019), from the pictures the sim keeps as data
- * (`sim/src/pet-art.ts`), so a pet on a profile is the pet on the map and in a plot photo. `petArt`
- * builds an inline SVG with `createElementNS`, never markup from a string; `drawPet` paints the
- * same shapes on a canvas, for the map's sprites and the 3D views' textures.
+ * (`packages/sim/src/pet-art.ts`), so a pet on a profile is the pet on the map and in a plot photo.
+ * `petArt` builds an inline SVG with `createElementNS`, never markup from a string; `drawPet`
+ * paints the same shapes on a canvas, for the map's sprites and the 3D views' textures.
  */
 import {
   PET_BOX,

@@ -40,7 +40,7 @@ Later kinds (watering planters, harvesting) arrive with RFC 0005's growing, usin
 
 ### The runner
 
-`server/src/routines.ts` runs from the minute sweep that already appends `new_day`.
+`packages/server/src/routines.ts` runs from the minute sweep that already appends `new_day`.
 
 1. For each resident who is offline and has a routine due this hour that hasn't run today, it builds the step.
 2. It calls `sim.prepare()` on the step. If the sim accepts, the server appends the input and commits it, exactly like an action. If the sim refuses, nothing goes in the world log.
@@ -89,7 +89,7 @@ Lines are kept 30 days. A run of the same refusal on consecutive days folds into
 
 All additive within v1.
 
-- Action `set_routines`. Its schema is in `protocol/`; `routine_step` is a server command, never accepted from a client.
+- Action `set_routines`. Its schema is in `packages/protocol/`; `routine_step` is a server command, never accepted from a client.
 - `GET /v1/routines`: your routines, whether they're paused, and the away log, newest first, paged with `before`.
 - `GET /v1/checkin` gains `away: {items, refused}`: away log lines since `since` (capped at 20) and how many were refused. `todo` adds a line when something was refused, naming the routine and the fix.
 - `/v1/act/{key}/routines` for link-only assistants.

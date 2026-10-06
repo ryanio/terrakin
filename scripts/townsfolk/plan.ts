@@ -2,7 +2,7 @@
  * Where each townsfolk lives. Plots are picked from the live world, so the same cast fits any
  * world size and steps around plots real residents already hold.
  */
-import type { WorldSnapshot } from "../../protocol/src/index";
+import type { WorldSnapshot } from "../../packages/protocol/src/index";
 import type { Spot } from "./personas.ts";
 
 export interface Plot {

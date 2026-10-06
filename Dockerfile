@@ -8,11 +8,13 @@ ARG NODE_IMAGE=node:22-slim
 FROM ${NODE_IMAGE} AS build
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
-COPY sim/package.json sim/
-COPY protocol/package.json protocol/
-COPY cards/package.json cards/
-COPY server/package.json server/
-COPY client/package.json client/
+COPY packages/sim/package.json packages/sim/
+COPY packages/protocol/package.json packages/protocol/
+COPY packages/cards/package.json packages/cards/
+COPY packages/ui/package.json packages/ui/
+COPY packages/server/package.json packages/server/
+COPY packages/client/package.json packages/client/
+COPY packages/admin/package.json packages/admin/
 # Optional extra CA certs for networks with a TLS proxy:
 #   docker build --secret id=ca,src=/path/to/ca.pem .
 RUN --mount=type=secret,id=ca,required=false \
@@ -22,7 +24,7 @@ COPY . .
 RUN --mount=type=secret,id=ca,required=false \
     pnpm build \
  && NODE_EXTRA_CA_CERTS=/run/secrets/ca pnpm --filter @terrakin/server deploy --prod --legacy /out \
- && cp -r client/dist /out/public
+ && cp -r packages/client/dist /out/public
 
 FROM ${NODE_IMAGE}
 ENV NODE_ENV=production \

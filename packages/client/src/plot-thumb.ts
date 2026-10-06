@@ -1,9 +1,10 @@
 /**
- * A small drawing of one plot from above, painted from the world snapshot the page already has:
- * the ground in its biome, the owner's theme tint, blocks in their colors (themed as in the world),
- * crops, things on display, and hearths. It uses the world's own palette (`sim/src/palette.ts`),
- * so a plot looks the same here, on the map, and in a plot photo. A drawing costs no request and
- * no upload, which is why the plot cards use it rather than plot photos (RFC 0020).
+ * A small drawing of one plot from above, painted from the world snapshot the page already has: the
+ * ground in its biome, the owner's theme tint, blocks in their colors (themed as in the world),
+ * crops, things on display, and hearths. It uses the world's own palette
+ * (`packages/sim/src/palette.ts`), so a plot looks the same here, on the map, and in a plot photo.
+ * A drawing costs no request and no upload, which is why the plot cards use it rather than plot
+ * photos (RFC 0020).
  */
 import type { WorldSnapshot } from "@terrakin/protocol";
 import {

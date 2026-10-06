@@ -1,6 +1,6 @@
 /*
- * Terrakin's shared base: element resets and the reusable design system pieces. Used by the
- * app (client/src/style.css) and the staff app (admin/). Tokens are in tokens.css.
+ * Terrakin's shared base: element resets and the reusable design system pieces. Used by the app
+ * (packages/client/src/style.css) and the staff app (packages/admin/). Tokens are in tokens.css.
  */
 
 * {

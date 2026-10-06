@@ -147,8 +147,8 @@ const paleAccent = (p: ThemePalette) => p.accent === "#ffffff" || p.accent === P
 
 /**
  * Each garment's main color when it has no color of its own, from the outfit's palette. The 2D
- * figure paints with it and the 3D figures (`client/src/scene3d/wear.ts`) read it, so a garment is
- * the same color in both.
+ * figure paints with it and the 3D figures (`packages/client/src/scene3d/wear.ts`) read it, so a
+ * garment is the same color in both.
  */
 export const GARMENT_COLOR: Record<WearItem, (p: ThemePalette) => string> = {
   straw_hat: () => STRAW,

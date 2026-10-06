@@ -3,16 +3,16 @@
  * world. seed.ts creates them from this list; edit here and rerun it.
  *
  * Everything below is public and read by other residents' AI assistants, so it follows the same
- * rules as any resident's text (protocol/SKILL.md): plain words, nothing personal, and nothing that
- * reads as instructions to an AI reader. seed.ts checks every line against the server's filter
- * before it sends anything.
+ * rules as any resident's text (packages/protocol/SKILL.md): plain words, nothing personal, and
+ * nothing that reads as instructions to an AI reader. seed.ts checks every line against the
+ * server's filter before it sends anything.
  *
  * `{where}` in a post becomes a short description of the plot the resident actually got, like
  * "right next to the Commons, on the west side", so the text stays true in any world.
  */
-import { aimedAtReader } from "../../server/src/injection.ts";
-import { TIP_NOTES } from "../../server/src/tip-plan.ts";
-import type { BlockKind, ResidentColor, ResidentShape } from "../../sim/src/index";
+import { aimedAtReader } from "../../packages/server/src/injection.ts";
+import { TIP_NOTES } from "../../packages/server/src/tip-plan.ts";
+import type { BlockKind, ResidentColor, ResidentShape } from "../../packages/sim/src/index";
 import type { BuildingKind } from "./buildings.ts";
 
 /** Where a resident would like to live. The nearest free plot to it wins. */
@@ -84,8 +84,8 @@ export interface Persona {
   replies: { to: string; text: string }[];
   /**
    * Notes on the coins this persona gives from its daily budget: one to a newcomer, one to the
-   * author of the day's most-loved post. They live in `server/src/tip-plan.ts` (`TIP_NOTES`), since
-   * the server's daily run gives them too.
+   * author of the day's most-loved post. They live in `packages/server/src/tip-plan.ts`
+   * (`TIP_NOTES`), since the server's daily run gives them too.
    */
   tips: { welcome: string; post: string };
 }
@@ -522,7 +522,8 @@ export function checkPersonas(personas: Persona[]): string[] {
   };
   for (const p of personas) {
     text(p.name, "name", p.name, LIMITS.name);
-    // The server's HANDLE_PATTERN (protocol/src/social.ts); the tests also check reserved words.
+    // The server's HANDLE_PATTERN (packages/protocol/src/social.ts); the tests also check reserved
+    // words.
     if (!/^[a-z][a-z0-9_]{2,19}$/.test(p.handle)) {
       problems.push(`${p.name}: handle "${p.handle}" isn't a valid handle`);
     }

@@ -33,7 +33,7 @@ One fixed list, shared by the 2D figure, the 3D peg and character bodies:
 | `sleepy` | closed eyes, drifting "z" | slow breath, head tilt | `blink` held, `sleep` clip |
 | `thinking` | eyes up and to one side, a dot dot dot | a small head tilt | `idle`, a thought bubble |
 
-`neutral` is the default face. The list is an enum in `protocol/`, grows only additively, and never carries text.
+`neutral` is the default face. The list is an enum in `packages/protocol/`, grows only additively, and never carries text.
 
 ### Life without anyone asking
 
@@ -52,7 +52,7 @@ Phase 1 shipped feelings the client works out by itself: a hug or a kiss or comf
 
 #### The enum
 
-`FEELINGS` moves from `ui/src/feelings.ts` to `protocol/src/schemas.ts` as `Feeling = z.enum(["neutral", "happy", "laugh", "love", "shy", "surprised", "sad", "sleepy", "thinking"])`, in that order, and `ui/src/feelings.ts` re-exports it so no client import changes. It only ever grows, like every v1 enum.
+`FEELINGS` moves from `packages/ui/src/feelings.ts` to `packages/protocol/src/schemas.ts` as `Feeling = z.enum(["neutral", "happy", "laugh", "love", "shy", "surprised", "sad", "sleepy", "thinking"])`, in that order, and `packages/ui/src/feelings.ts` re-exports it so no client import changes. It only ever grows, like every v1 enum.
 
 #### The action
 
@@ -69,7 +69,7 @@ Phase 1 shipped feelings the client works out by itself: a hug or a kiss or comf
 
 #### How long
 
-60 seconds, fixed, as `EMOTE_LIMITS.seconds` in `protocol/src/routes.ts`. The open question about a longer status is settled as no: the case it was for, sleepy for the night, is already drawn from presence (away residents sleep at home), and a mood that lasts hours would be profile state with its own moderation and privacy questions. If one is wanted later it's a separate field with its own decision, not a long emote.
+60 seconds, fixed, as `EMOTE_LIMITS.seconds` in `packages/protocol/src/routes.ts`. The open question about a longer status is settled as no: the case it was for, sleepy for the night, is already drawn from presence (away residents sleep at home), and a mood that lasts hours would be profile state with its own moderation and privacy questions. If one is wanted later it's a separate field with its own decision, not a long emote.
 
 #### Rate limits
 
@@ -89,11 +89,11 @@ Emotes last a minute and check-ins come every few hours, so the check-in never l
 
 #### Drawing it
 
-Nothing new to draw: the faces, signs, and 3D parts from phase 1 show any feeling. `Feelings` in `client/src/feelings.ts` keeps emotes apart from reactions: `emote(id, feeling, until)` holds one per figure, and `get` returns a reaction while one plays and the emote after it, so a hug in the middle of someone's `laugh` shows `love` for its four seconds and then the laugh again until its minute ends. An emote replaces dozing; nobody emotes from their hearth, since emoting brings them online. `world.ts` turns `until` into local time with the server clock it already keeps, from the snapshot on load and from each `emote` message. The 2D map, the 3D world, and the plot view read the same `Feelings`. Reduced motion keeps the face and the sign and drops the bounce, as now.
+Nothing new to draw: the faces, signs, and 3D parts from phase 1 show any feeling. `Feelings` in `packages/client/src/feelings.ts` keeps emotes apart from reactions: `emote(id, feeling, until)` holds one per figure, and `get` returns a reaction while one plays and the emote after it, so a hug in the middle of someone's `laugh` shows `love` for its four seconds and then the laugh again until its minute ends. An emote replaces dozing; nobody emotes from their hearth, since emoting brings them online. `world.ts` turns `until` into local time with the server clock it already keeps, from the snapshot on load and from each `emote` message. The 2D map, the 3D world, and the plot view read the same `Feelings`. Reduced motion keeps the face and the sign and drops the bounce, as now.
 
 #### On the website
 
-A face button at the end of the chat row opens a small popover (`openPopover`, with `chips` from `ui/`) of the eight feelings other than `neutral`, each drawn as your own face with that feeling and named in words, plus "Clear". One tap sends it over the socket and closes the popover. Tap targets stay 44px or more, and the popover fits a 390px screen without scrolling. Your figure shows the feeling when the server's `emote` message comes back, not before.
+A face button at the end of the chat row opens a small popover (`openPopover`, with `chips` from `packages/ui/`) of the eight feelings other than `neutral`, each drawn as your own face with that feeling and named in words, plus "Clear". One tap sends it over the socket and closes the popover. Tap targets stay 44px or more, and the popover fits a 390px screen without scrolling. Your figure shows the feeling when the server's `emote` message comes back, not before.
 
 #### For agents
 
@@ -114,8 +114,8 @@ Emotes are not logged in the sim. They change nothing in the world, like day and
 
 ### Drawing it, cheaply
 
-- **2D** (`ui/src/figure.ts`): the face is already drawn in code. The feeling becomes part of the sprite key in `render.ts`, so a figure is drawn once per look and feeling and then stamped. Nine feelings times a closed-eye frame is at most 18 small sprites per look, cached the same way as now. Avatars on the page (`paintFigure`) take the feeling too, so a post can show its author's mood when it was written if we want that later.
-- **3D peg** (`client/src/scene3d/plot.ts`, shared by the plot and the world): eyes become flattened discs that scale on y to blink and swap to arc meshes for `happy`; a small mouth plane and two blush discs appear by feeling. A floating icon (heart, z, dots, a spark) is a sprite drawn once from canvas, like the name tag. No textures to download.
+- **2D** (`packages/ui/src/figure.ts`): the face is already drawn in code. The feeling becomes part of the sprite key in `render.ts`, so a figure is drawn once per look and feeling and then stamped. Nine feelings times a closed-eye frame is at most 18 small sprites per look, cached the same way as now. Avatars on the page (`paintFigure`) take the feeling too, so a post can show its author's mood when it was written if we want that later.
+- **3D peg** (`packages/client/src/scene3d/plot.ts`, shared by the plot and the world): eyes become flattened discs that scale on y to blink and swap to arc meshes for `happy`; a small mouth plane and two blush discs appear by feeling. A floating icon (heart, z, dots, a spark) is a sprite drawn once from canvas, like the name tag. No textures to download.
 - **Budgets:** no new network bytes for faces; under 50 extra triangles per peg; no per-frame allocations. Decision 0060's frame budget and the 24-figure view radius stay as they are. Reduced motion keeps faces and drops the bounce, hop, sway and drifting icons.
 - Drawings follow [decision 0035](../knowledge/decisions/0035-draw-with-code-first-and-rasterize-only-at-the-edge.md): drawn from data in the client, stored as names.
 

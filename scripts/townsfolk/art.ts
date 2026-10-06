@@ -26,7 +26,7 @@ export { mix };
  */
 export const ART_VERSION = 2;
 
-/** Resident colors, the same as the world client's (client/src/render.ts). */
+/** Resident colors, the same as the world client's (packages/client/src/render.ts). */
 export const RESIDENT_HEX = {
   sun: "#f2b84b",
   sky: "#7cb9dd",

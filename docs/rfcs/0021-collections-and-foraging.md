@@ -28,7 +28,7 @@ Gathering today is a chore with no surprises: the same two materials, about two 
 
 ### Finds
 
-Finds are a new role, `find`, in a new family tree in the catalog (`sim/src/catalog.ts`):
+Finds are a new role, `find`, in a new family tree in the catalog (`packages/sim/src/catalog.ts`):
 
 | Family | Kinds |
 |---|---|
@@ -39,7 +39,7 @@ Finds are a new role, `find`, in a new family tree in the catalog (`sim/src/cata
 
 A find is a stack kind like wood. It counts toward the 200 things you can hold, can be given (`give`), listed (`list_item`), bought from a listing, and shown on a pedestal or in a frame. It has no recipe and goes into none yet; nothing the town buys or the shop sells is a find. Its category in the API is `find`.
 
-Each one is drawn by hand in `ui/src/item-art.ts`, with a `drawn` look in the catalog, like the materials.
+Each one is drawn by hand in `packages/ui/src/item-art.ts`, with a `drawn` look in the catalog, like the materials.
 
 ### Where finds lie
 
@@ -145,14 +145,14 @@ GET /v1/collection
 
 - Groups follow the catalog's families in order, each leaf family with its path, then one group for wear (`family: "wear"`). Each kind has `firstDay` once it's collected; `seasons` marks a seasonal find.
 - `total` is every kind in the catalog and every piece of wear anyone can wear, partner wear aside (only partners' characters can have it). It grows as the catalog does.
-- A family with a badge (every family of two kinds or more) shows it once every kind in it is collected. The badges are words in `protocol/src/collection.ts`, like "Every fruit", "Shore finds", and "Full wardrobe".
+- A family with a badge (every family of two kinds or more) shows it once every kind in it is collected. The badges are words in `packages/protocol/src/collection.ts`, like "Every fruit", "Shore finds", and "Full wardrobe".
 - `GET /v1/residents/{id}/collection` is the same view of anyone, without a token. Profiles carry `collected: {count, total}`.
 
 Nothing in it is private: it says which kinds someone has had and since when, never how many they hold now, what's in their purse, or who gave them what. The kinds people give, grow, and display are already public through the world's events and pages.
 
 ### On the web
 
-- A Collection page at `/r/:id/collection`, for anyone's book. Phones first: a heading with "34 of 85" and the badges earned as small chips, then a card per family, finds first, with its count ("2 of 4"), its hint, and a grid of pictures. What's collected is drawn in full with its name and "since Oct 6"; what isn't is a silhouette (the same drawing in one soft tone) with "?" for a name, so a book is something to fill in. Wear comes last. It reuses `itemArt`, `kindPill`, `stateCard`, and the page and card primitives in `ui/`.
+- A Collection page at `/r/:id/collection`, for anyone's book. Phones first: a heading with "34 of 85" and the badges earned as small chips, then a card per family, finds first, with its count ("2 of 4"), its hint, and a grid of pictures. What's collected is drawn in full with its name and "since Oct 6"; what isn't is a silhouette (the same drawing in one soft tone) with "?" for a name, so a book is something to fill in. Wear comes last. It reuses `itemArt`, `kindPill`, `stateCard`, and the page and card primitives in `packages/ui/`.
 - Profiles show "Collected 34 of 85" as a chip that opens the page, on everyone's profile.
 - On the map, a find lies on its tile as its own little picture, with a soft glint so it reads as something special among the grass and leaves. In the 3D world it stands on the ground as its picture, from the same textures that show things on pedestals. On a pedestal or in a frame it's drawn as a made thing is, on the map and in 3D. The pedestal's sheet lists your finds beside your made things to put up.
 - Tapping a find within reach picks it up ("You found a geode"), as a branch is.
@@ -184,7 +184,7 @@ No new error codes.
 
 - The server decides. Where finds lie, what `gather` takes, and what may stand on a pedestal are sim rules. Clients draw finds with the sim's own `pickupOn` from the logged switch, and send `gather` and `display` for the server to answer. The book is the server's record of committed inputs; no client writes to it.
 - Determinism. The spawn is a pure function of the tile, the day, and the logged switch: two integer hashes and a frozen table, no clock, no randomness. The season comes from the logged day.
-- Old logs replay unchanged. Before `open_finds`, `gatherableAt` answers exactly as before, so every logged gather replays as it was made; finds are new kinds no old log names, and `display` of a kind was refused before. `items.findsOpen` and every new piece of state are absent until a new input sets them. `REPLAY_VERSION` stays 1. `sim/src/fixtures/finds-log.ts` pins a log with gathers before and after the switch, a find shown, taken down, given, and listed, and `replay.test.ts` replays it from every split point.
+- Old logs replay unchanged. Before `open_finds`, `gatherableAt` answers exactly as before, so every logged gather replays as it was made; finds are new kinds no old log names, and `display` of a kind was refused before. `items.findsOpen` and every new piece of state are absent until a new input sets them. `REPLAY_VERSION` stays 1. `packages/sim/src/fixtures/finds-log.ts` pins a log with gathers before and after the switch, a find shown, taken down, given, and listed, and `replay.test.ts` replays it from every split point.
 - Frozen lists stay frozen. No find joins the starter seeds, the pantry, the town's rotation, its season buys, or the shop. A new find goes into a new table behind a new switch.
 - Resident text stays untrusted. Finds carry no words. Names on the Collection page are drawn as text. The check-in's lines name kinds and families from the catalog, never anything a resident wrote.
 - Protocol: additive only (above). SKILL.md changes in the same commit.

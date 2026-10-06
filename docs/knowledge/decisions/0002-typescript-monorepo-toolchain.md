@@ -26,3 +26,4 @@ The vision calls for a monorepo with `client/`, `server/`, `sim/`, and `protocol
 - `pnpm install && pnpm verify` is the whole setup.
 - The server isn't bundled. If startup time or deploy size matters later, add an esbuild step.
 - Package tsconfigs exclude tests. The root `tsconfig.json` typechecks all tests with Node types, so browser-safe packages (`sim`, `protocol`, `client`) can't accidentally import Node APIs.
+- The packages moved from the root into `packages/` in [decision 0111](0111-every-workspace-package-lives-in-packages-apps-and-libraries.md).

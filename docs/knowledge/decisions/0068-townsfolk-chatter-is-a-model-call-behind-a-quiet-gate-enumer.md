@@ -13,7 +13,7 @@ The founding townsfolk ([decision 0019](0019-founding-townsfolk-are-ordinary-res
 
 ## Decision
 
-- `server/src/chatter.ts` runs inside the World object every two hours, from a Cloudflare cron that calls the object's `chatter()` RPC method (a timer on Node). There is no public route.
+- `packages/server/src/chatter.ts` runs inside the World object every two hours, from a Cloudflare cron that calls the object's `chatter()` RPC method (a timer on Node). There is no public route.
 - It acts only while real residents posted fewer than `REAL_ENOUGH` top-level posts in 6 hours and no townsfolk posted in 3. At most 3 townsfolk act a run, one Messages API call each, with per-day caps per action and per-day call and token caps in the social database, plus a breaker.
 - The model is Sonnet 5.5 at low effort with thinking off (`between_tools`, its only way to turn thinking off), structured output, a cached system prompt, and `fallbacks: "default"`. It picks from `post`, `reply`, `like`, or `nothing`, and names a post only by a short ref from the list the service built.
 - The code decides what happens: `checkAnswer` refuses a closed action, an unknown ref, over 280 characters, links, mentions, the economy and the Town Hall, dashes, and repeats, then the edge filters run without the townsfolk privilege, then `createPost` runs them again.
@@ -32,5 +32,5 @@ The founding townsfolk ([decision 0019](0019-founding-townsfolk-are-ordinary-res
 ## Consequences
 
 - Staff read cost, participation, and the dry run's drafts on the admin queue page (`spendLine`, `chatterLine`, `participationLine`).
-- A new model needs a `PRICES` row in `server/src/ai-spend.ts`; an unknown one is priced as the dearest.
+- A new model needs a `PRICES` row in `packages/server/src/ai-spend.ts`; an unknown one is priced as the dearest.
 - The daily coin tips run from a second cron in the same World object, with no model call; the sim's caps are their guard ([plan](../../plans/townsfolk-chatter.md#coins)).

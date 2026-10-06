@@ -14,7 +14,7 @@ This RFC proposes four steps, each shippable alone:
 
 1. Stream the log at boot instead of loading it whole. This removes the memory wall and changes nothing else.
 2. Write a snapshot of the world state once a day and boot from the newest verified snapshot plus the inputs after it. The log stays the source of truth. A snapshot is a cache that must hash to what `GET /v1/health` reported at its `seq`.
-3. Make the rules for when a code change makes old snapshots unusable: a hand-bumped `REPLAY_VERSION` in `sim/`, and a full replay from the first input before any deploy that touches `sim/`.
+3. Make the rules for when a code change makes old snapshots unusable: a hand-bumped `REPLAY_VERSION` in `packages/sim/`, and a full replay from the first input before any deploy that touches `packages/sim/`.
 4. Optionally, behind a logged switch, stop logging a separate `join` and per-resident `leave` for REST and link callers. Today those are two of the three rows each check-in writes.
 
 ## Motivation
@@ -80,7 +80,7 @@ interface Store {
 }
 ```
 
-`SqlStore` iterates the Durable Object's SQL cursor (`SELECT seq, input FROM world_log WHERE seq > ? ORDER BY seq`) and never spreads it. `WorldService` replays with `apply` row by row and builds its own maps (`joinedDay`, karma `creditLog`, `done`, today's `putters`) in the same pass, so the log is read once instead of twice. `replay()` in `sim/` keeps its signature; the server uses a small loop that does the same thing and throws on the first rejected input, as today.
+`SqlStore` iterates the Durable Object's SQL cursor (`SELECT seq, input FROM world_log WHERE seq > ? ORDER BY seq`) and never spreads it. `WorldService` replays with `apply` row by row and builds its own maps (`joinedDay`, karma `creditLog`, `done`, today's `putters`) in the same pass, so the log is read once instead of twice. `replay()` in `packages/sim/` keeps its signature; the server uses a small loop that does the same thing and throws on the first rejected input, as today.
 
 This needs no RFC on its own, since nothing replays differently. It is listed here so the order is clear.
 
@@ -127,7 +127,7 @@ The body is one JSON document split into parts, because SQLite rows in a Durable
 
 `world` is the whole `WorldState`, purses and inventories included. `server` holds what `WorldService` reads from the log at boot today: join days, the command kinds each resident has done, today's putter counts, and the karma credits inside `KARMA.windowDays` of the snapshot's day. `server` is derived from the log too, so it can be rebuilt by a full replay, but it isn't part of `hashWorld`; the `sha256` covers it.
 
-The body is written with plain `JSON.stringify`, not `canonicalJson`. `canonicalJson` sorts keys, and a state parsed back from sorted JSON iterates its records in a different order than the replayed one. A check on every split point of every fixture log in `sim/src/fixtures/` found that the world hash after the tail always matched either way, but with sorted snapshots the tail's events came out with their keys in a different order at 10 to 12 split points in every fixture from the economy onward (none in the pre-town fixture). `JSON.stringify` keeps insertion order, and `JSON.parse` rebuilds it, so both the world and the event bytes match. `hashWorld` still verifies the result, since it canonicalizes on its own.
+The body is written with plain `JSON.stringify`, not `canonicalJson`. `canonicalJson` sorts keys, and a state parsed back from sorted JSON iterates its records in a different order than the replayed one. A check on every split point of every fixture log in `packages/sim/src/fixtures/` found that the world hash after the tail always matched either way, but with sorted snapshots the tail's events came out with their keys in a different order at 10 to 12 split points in every fixture from the economy onward (none in the pre-town fixture). `JSON.stringify` keeps insertion order, and `JSON.parse` rebuilds it, so both the world and the event bytes match. `hashWorld` still verifies the result, since it canonicalizes on its own.
 
 #### Booting from a snapshot
 
@@ -170,13 +170,13 @@ so a mirror or an auditor can see which verified checkpoint the world booted fro
 
 Today, every boot replays every input under the current code, so a rule change that alters how old inputs replay shows up at the next boot as a different hash or a thrown `Replay diverged`. With snapshots, a boot no longer re-runs old inputs. A change like that would go unnoticed in production: the live world would carry on from its snapshot while a replay from the first input would give a different world, and "same log in, same world out" would no longer hold.
 
-The rule that prevents this is the one `sim/AGENTS.md` already has: an accepted log replays to the same hash forever, and a rule change that would change that goes behind a logged switch input (`open_items`, `own_plot_pickups`, `set_shop_share` are examples). Under that rule old snapshots stay valid across deploys with no special handling. This RFC adds three things so the rule stays enforced once boot stops checking it:
+The rule that prevents this is the one `packages/sim/AGENTS.md` already has: an accepted log replays to the same hash forever, and a rule change that would change that goes behind a logged switch input (`open_items`, `own_plot_pickups`, `set_shop_share` are examples). Under that rule old snapshots stay valid across deploys with no special handling. This RFC adds three things so the rule stays enforced once boot stops checking it:
 
-1. A `REPLAY_VERSION` integer exported from `sim/`. It changes only when a deliberate, RFC-approved change alters how existing logs replay. A boot ignores snapshots with any other `replay_version` and does a full streamed replay under the new rules, then writes a new snapshot. The changelog entry for such a change gives the new hash at the current `seq`.
-2. A split-point test in `sim/`: for each fixture log, at every split point, snapshot the prefix with `JSON.stringify`, parse it, apply the tail, and compare both the final hash and every event with a straight replay. This is the test that catches a rule depending on record order or on something outside the state.
-3. A full replay from the first input against a copy of the production log before any deploy that touches `sim/`, failing the deploy when the hash at the latest snapshot's `seq` differs. This needs a staff-only export of `world_log` (see Security). Until that exists, the same check runs from the object's alarm once a week as a streamed replay (split across several alarm runs if one would pass the CPU limit), reporting a mismatch to Sentry.
+1. A `REPLAY_VERSION` integer exported from `packages/sim/`. It changes only when a deliberate, RFC-approved change alters how existing logs replay. A boot ignores snapshots with any other `replay_version` and does a full streamed replay under the new rules, then writes a new snapshot. The changelog entry for such a change gives the new hash at the current `seq`.
+2. A split-point test in `packages/sim/`: for each fixture log, at every split point, snapshot the prefix with `JSON.stringify`, parse it, apply the tail, and compare both the final hash and every event with a straight replay. This is the test that catches a rule depending on record order or on something outside the state.
+3. A full replay from the first input against a copy of the production log before any deploy that touches `packages/sim/`, failing the deploy when the hash at the latest snapshot's `seq` differs. This needs a staff-only export of `world_log` (see Security). Until that exists, the same check runs from the object's alarm once a week as a streamed replay (split across several alarm runs if one would pass the CPU limit), reporting a mismatch to Sentry.
 
-A hash of the `sim/` source was considered as the version instead of a hand-bumped number. It loses because every comment edit would discard every snapshot and force a full replay on the next boot.
+A hash of the `packages/sim/` source was considered as the version instead of a hand-bumped number. It loses because every comment edit would discard every snapshot and force a full replay on the next boot.
 
 Rolling back is no worse than today. An older Worker that meets a snapshot with a higher `replay_version` or an unknown `format` ignores it and replays from the first input, which fails exactly as it does today on inputs it doesn't know. `scripts/deploy.ts` already refuses stale deploys. New state fields are absent until a new input uses them, so a snapshot only carries a field the older code can't handle when the log also carries an input it can't replay.
 
@@ -240,7 +240,7 @@ The first snapshot of the live world is taken at the first `new_day` after step 
 - Make the snapshot the new start of the log and delete the rows before it. It loses the audit trail that decision 0003 is for. Archiving old rows elsewhere is an open question instead.
 - Store the snapshot as a logged input (a `checkpoint` command). A grown snapshot is over the 2 MB row cap, and it would make the log heavier, not lighter.
 - Store snapshots in R2. R2 is asynchronous and outside the object's SQLite transaction, so a snapshot couldn't be written atomically at an exact `seq`. SQLite in the object is synchronous and next to the log.
-- Hash the `sim/` source as the replay version. Every unrelated edit would force a full replay. Rejected in step 3.
+- Hash the `packages/sim/` source as the replay version. Every unrelated edit would force a full replay. Rejected in step 3.
 - Take presence out of the sim, as a server-side map like facing. The rules above read `online`, so either they would have to stop caring who is standing where (a gameplay change), or the sim would depend on state the log doesn't carry, which breaks determinism. Rejected.
 - Separate SQL tables for the server's derived maps instead of a `server` section. Viable: they would be updated as each input commits. It spreads boot state across more places, so the RFC keeps one snapshot document; see open questions.
 

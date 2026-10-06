@@ -13,7 +13,7 @@ terrakin.org needed a host. The world is one process that must never run twice (
 
 ## Decision
 
-The Worker serves the built client from static assets and forwards `/v1/*` to a single Durable Object (`idFromName("world")`). The object runs the same `WorldService` and the same runtime-neutral `Api` (`server/src/api.ts`) as the Node server, and stores the log and session hashes in its SQLite storage (`SqlStore`). The Node server and Docker image stay for local play and self-hosting.
+The Worker serves the built client from static assets and forwards `/v1/*` to a single Durable Object (`idFromName("world")`). The object runs the same `WorldService` and the same runtime-neutral `Api` (`packages/server/src/api.ts`) as the Node server, and stores the log and session hashes in its SQLite storage (`SqlStore`). The Node server and Docker image stay for local play and self-hosting.
 
 ## Consequences
 

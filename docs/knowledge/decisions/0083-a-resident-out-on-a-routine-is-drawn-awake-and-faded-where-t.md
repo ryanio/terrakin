@@ -31,4 +31,4 @@ Presentation only, like facing and motion ([decision 0067](0067-facing-and-motio
 
 - `Mirror.outOnRoutine` (with a clock it takes, so tests drive it) and `Mirror.asleep` split the away residents; the map, the 3D world, and taps read both.
 - A client that misses the step (it loaded after the window) draws a sleeper, which is what the world will look like a minute later anyway.
-- Code: `client/src/mirror.ts`, `client/src/render.ts`, `client/src/scene3d/world.ts`, `setOut` in `client/src/motion.ts`, the `moon` sign in `ui/src/figure.ts`, `foldWaves` in `client/src/together.ts`, and the `routine` field on residents in `server/src/world-service.ts`.
+- Code: `packages/client/src/mirror.ts`, `packages/client/src/render.ts`, `packages/client/src/scene3d/world.ts`, `setOut` in `packages/client/src/motion.ts`, the `moon` sign in `packages/ui/src/figure.ts`, `foldWaves` in `packages/client/src/together.ts`, and the `routine` field on residents in `packages/server/src/world-service.ts`.

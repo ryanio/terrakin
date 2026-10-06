@@ -36,7 +36,7 @@ The steps:
 - `void_bounty {bounty, by}` is a maintainer cancelling any bounty or held grant that hasn't paid. `void_proposal` still stops a grant before its vote closes.
 - Nothing runs until the server sends `open_bounties`, which needs coins open.
 
-**The numbers** are `BOUNTIES` in `sim/src/bounties.ts`.
+**The numbers** are `BOUNTIES` in `packages/sim/src/bounties.ts`.
 
 | Number | Value |
 |---|---|
@@ -69,10 +69,10 @@ The steps:
 
 ## Consequences
 
-- Staff confirm town bounties in the staff app (`admin/`, Bounties). If the town outgrows that, a second vote is the next step, by decision, as a new input that the sim accepts alongside this one.
+- Staff confirm town bounties in the staff app (`packages/admin/`, Bounties). If the town outgrows that, a second vote is the next step, by decision, as a new input that the sim accepts alongside this one.
 - An Access maintainer whose email isn't in `TERRAKIN_STAFF_RESIDENTS` is still only an opaque staff id, so the sim can't check their household. Map every maintainer's email.
 - `resident` is a new field, not a new `by`. Logging the resident as `by` would have been simpler, but then world state (a bounty keeps its `by`) would name which resident did a staff action, and staff identity is never shown to residents ([decision 0040](0040-a-staff-app-on-its-own-host-behind-cloudflare-access-with-st.md)). The field lives only in the logged input, which no route serves, and never in state or an event. Older inputs don't have it and replay as before. A `staff_` id is an unsalted hash of the sign-in, so anyone holding a copy of the log who guesses a maintainer's email could tie it to their resident; treat a copy of the world log as private.
 - `reopen_bounty` and `void_bounty` check only `resident`, never `by`, so an input logged before the field existed can't be refused on replay. A token maintainer gets the check because the server sends their own id as `resident`.
 - The RFC's proposal deposit (20 coins) still isn't built.
 - Changing `BOUNTIES` changes how a log with bounties replays, like every sim number. Raise a cap with a logged input that switches it, as `set_shop_share` does.
-- Code: `sim/src/bounties.ts`, the `grant` and `bounty` kinds in `sim/src/town.ts`, `protocol/src/bounties.ts`, `server/src/bounties.ts`, `client/src/bounties-view.ts`, `admin/src/bounties-view.ts`.
+- Code: `packages/sim/src/bounties.ts`, the `grant` and `bounty` kinds in `packages/sim/src/town.ts`, `packages/protocol/src/bounties.ts`, `packages/server/src/bounties.ts`, `packages/client/src/bounties-view.ts`, `packages/admin/src/bounties-view.ts`.

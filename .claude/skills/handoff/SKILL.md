@@ -17,7 +17,7 @@ The next session starts with zero memory of this one. The handoff is how it catc
 3. Fill in the template:
    - **Done**: what changed, with links to PRs, commits, or files.
    - **State of things**: what works, what's half-built, what's broken. If `pnpm verify` is red, say exactly what fails.
-   - **Next**: ordered, concrete next steps. Each should be startable without questions ("Add `release` command to `sim/src/apply.ts` mirroring `claim`").
+   - **Next**: ordered, concrete next steps. Each should be startable without questions ("Add `release` command to `packages/sim/src/apply.ts` mirroring `claim`").
    - **Open questions**: decisions that need a human.
 4. If the session produced decisions or learnings, capture them as separate entries too (see `capture-knowledge`). The handoff links them.
 5. If the roadmap moved, tick boxes in `docs/plans/README.md`.

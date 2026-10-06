@@ -18,7 +18,7 @@ description: Draft a Terrakin RFC in docs/rfcs for a big change (new game system
    - **Invariants**: say how server authority, determinism, untrusted chat, and protocol compatibility are preserved.
    - **Security considerations**: real abuse cases, including prompt injection through chat or names.
    - **Economy impact**: new sources and sinks; how duplication and inflation are prevented.
-   - **Agent experience**: what changes in `protocol/SKILL.md`.
+   - **Agent experience**: what changes in `packages/protocol/SKILL.md`.
    - **Migration**: does this change how existing logs replay?
 3. Prefer concrete examples (JSON messages, command shapes) over prose.
 4. List real alternatives and why they lost.

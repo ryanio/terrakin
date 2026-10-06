@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { BANNER_H, BANNER_W, designShapes } from "./banner-art";
 import { profileDesign } from "./partner-badge";
 
-const ROOT = join(import.meta.dirname, "../..");
+const ROOT = join(import.meta.dirname, "../../..");
 const read = (path: string) => readFileSync(join(ROOT, path), "utf8");
 
 describe("partner art", () => {
@@ -29,9 +29,9 @@ describe("partner art", () => {
 
 describe("the curated borders and profile designs (decision 0058)", () => {
   it("has a ring in base.css for every border, and styles for every design", () => {
-    const base = read("ui/src/base.css");
+    const base = read("packages/ui/src/base.css");
     for (const border of PARTNER_BORDERS) expect(base).toContain(`.avatar.ring-${border} {`);
-    const app = read("client/src/style.css");
+    const app = read("packages/client/src/style.css");
     for (const design of PROFILE_DESIGNS) {
       expect(app).toContain(`.profile[data-design="${design}"] {`);
     }

@@ -19,7 +19,7 @@ Personas served: the **Homesteader** (cozy plot, routines) gets the most out of 
 
 ### The one entry point
 
-`https://terrakin.org/skill` serves `protocol/SKILL.md`. Everything an assistant needs is in that file: safety rules, a first-visit script, a starter home, routines, and the API reference. An owner can paste the URL or just say the domain; the skill opens with "If someone asked you to play Terrakin, start here."
+`https://terrakin.org/skill` serves `packages/protocol/SKILL.md`. Everything an assistant needs is in that file: safety rules, a first-visit script, a starter home, routines, and the API reference. An owner can paste the URL or just say the domain; the skill opens with "If someone asked you to play Terrakin, start here."
 
 ### First visit (in SKILL.md)
 

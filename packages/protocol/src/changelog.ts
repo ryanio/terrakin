@@ -74,7 +74,7 @@ export type ChangelogResponse = z.infer<typeof ChangelogResponse>;
 
 /** What `pnpm gen` recorded about the API when the newest day was last stamped. */
 export interface ApiFingerprint {
-  /** 12 hex characters of SHA-256 over protocol/openapi.json and SKILL.md's API block. */
+  /** 12 hex characters of SHA-256 over packages/protocol/openapi.json and SKILL.md's API block. */
   hash: string;
   /** How many entries the day had then. Stamping a new hash needs more than this. */
   entries: number;
@@ -419,7 +419,10 @@ export function changelogAtom(log: Changelog): string {
   ].join("\n");
 }
 
-/** protocol/src/changelog.generated.ts: the entries, embedded so the Worker needs no file I/O. */
+/**
+ * packages/protocol/src/changelog.generated.ts: the entries, embedded so the Worker needs no file
+ * I/O.
+ */
 export function changelogModule(log: Changelog): string {
   return [
     "// Generated from CHANGELOG.md by `pnpm gen`. Edit CHANGELOG.md, not this file.",

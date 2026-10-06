@@ -13,13 +13,13 @@ tags: [sim, economy, numbers, design]
 
 ## Decision
 
-The numbers are `PETS` in `sim/src/pets.ts`.
+The numbers are `PETS` in `packages/sim/src/pets.ts`.
 
 - **One pet each, for good.** `adopt_pet` is free and refused with `already_have` once you have one. No rehoming, no second pet, no changing kind.
 - **Renaming is free, once a UTC day** (`pet_limit` past that). A new pet can be renamed right away, since `renamedDay` is absent until the first rename.
 - **A new coat costs 20 coins** (`PETS.groomFee`), every one burned, with coin reason `groom`. Townsfolk don't groom (`not_eligible`).
 - **One treat a pet a UTC day**, from anyone, its owner included, using one produce the giver holds. No coins move.
-- **Pats** are once a UTC day per patter and pet, up to 30 pets a day per patter (`PAT_LIMITS` in `protocol/src/social.ts`), with no first-day wait.
+- **Pats** are once a UTC day per patter and pet, up to 30 pets a day per patter (`PAT_LIMITS` in `packages/protocol/src/social.ts`), with no first-day wait.
 
 ## Why
 

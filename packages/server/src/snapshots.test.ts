@@ -10,7 +10,7 @@ import {
   type WorldState,
 } from "@terrakin/sim";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { replayCheck } from "../../scripts/replay-check";
+import { replayCheck } from "../../../scripts/replay-check";
 import { Api } from "./api";
 import { createApp } from "./app";
 import { MemoryMediaStore } from "./media";

@@ -25,7 +25,7 @@ The world looks and plays the same every day of the year. Phase 3 in the [foundi
 
 ### What a season is
 
-`seasonOf(day)` in `sim/src/season.ts` gives the season of a world day (UTC days since 1970-01-01). It's a pure function of the day, like `biomeAt` is of a tile: never state, never an input. The day only moves with the logged `new_day` (decision 0026), so a replay sees the same season on the same day. `seasonSpan(day)` gives where the season starts and ends.
+`seasonOf(day)` in `packages/sim/src/season.ts` gives the season of a world day (UTC days since 1970-01-01). It's a pure function of the day, like `biomeAt` is of a tile: never state, never an input. The day only moves with the logged `new_day` (decision 0026), so a replay sees the same season on the same day. `seasonSpan(day)` gives where the season starts and ends.
 
 The seasons are the northern ones, for everyone: one world, one calendar. The founding plan's season also had a fresh leaderboard, exclusive gear, and a soft reset. There's nothing to rank or reset yet, so seasons here are themes and stock; nothing anyone has is reset.
 
@@ -61,7 +61,7 @@ Old logs must replay to the same hash (decision 0003), and since the server boot
 - The town's daily rotation cycles through `ROTATION_GOODS` and `ROTATION_CROPS`, the lists it always had. A season's buys come after the rotation (`SEASON_BUYS`), so every past day's rotation is what it was, and every old `sell_to_town` replays the same.
 - Only `shop_buy` and `sell_to_town` read the season. Seasonal stock was never sold before, so no old purchase can be refused by it.
 
-`sim/src/fixtures/autumn-log.ts` pins a log with autumn's things bought, grown, made, and sold on autumn days and used in winter, and `replay.test.ts` replays it at every split point. Decision 0078 records the choices.
+`packages/sim/src/fixtures/autumn-log.ts` pins a log with autumn's things bought, grown, made, and sold on autumn days and used in winter, and `replay.test.ts` replays it at every split point. Decision 0078 records the choices.
 
 ### Autumn (built now)
 

@@ -15,7 +15,7 @@ The output is deterministic: rerunning without a config change produces identica
 
 Do not hand-edit these. Change `logo.ts` and rerun instead.
 
-| File (under `client/public/`) | What |
+| File (under `packages/client/public/`) | What |
 |------|------|
 | `brand/mark.svg` | The mark alone, transparent background |
 | `brand/wordmark.svg` | Mark plus "terrakin" in Fraunces, outlined as paths (no font needed). The text turns paper-colored under `prefers-color-scheme: dark` |
@@ -30,7 +30,7 @@ Do not hand-edit these. Change `logo.ts` and rerun instead.
 
 ## Used elsewhere
 
-`logo.ts` also exports its drawing helpers (`markElements` with a `palette` override, `withTypesetter`, `png`). The townsfolk seed (`scripts/townsfolk/art.ts`) uses them to draw each resident's home as the mark's house in that resident's colors. Importing the file doesn't regenerate anything; only running it does. After changing the helpers, run `pnpm brand` and check that `git status` shows nothing new under `client/public`.
+`logo.ts` also exports its drawing helpers (`markElements` with a `palette` override, `withTypesetter`, `png`). The townsfolk seed (`scripts/townsfolk/art.ts`) uses them to draw each resident's home as the mark's house in that resident's colors. Importing the file doesn't regenerate anything; only running it does. After changing the helpers, run `pnpm brand` and check that `git status` shows nothing new under `packages/client/public`.
 
 ## How it works
 

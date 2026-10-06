@@ -1,16 +1,16 @@
 /**
- * Both apps draw residents, times, cards, sheets, and form rows with the components in `ui/`
- * (people.ts, ui.ts, when.ts) and style them from `ui/src/base.css`. These checks fail when a view
- * builds one by hand again or an app stylesheet redefines a rule, which is how two copies of the
- * same thing start to drift apart.
+ * Both apps draw residents, times, cards, sheets, and form rows with the components in
+ * `packages/ui/` (people.ts, ui.ts, when.ts) and style them from `packages/ui/src/base.css`. These
+ * checks fail when a view builds one by hand again or an app stylesheet redefines a rule, which is
+ * how two copies of the same thing start to drift apart.
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { isIconName } from "@terrakin/ui/icons";
 import { describe, expect, it } from "vitest";
 
-const ROOT = join(import.meta.dirname, "../..");
-const APP_DIRS = ["client/src", "admin/src"];
+const ROOT = join(import.meta.dirname, "../../..");
+const APP_DIRS = ["packages/client/src", "packages/admin/src"];
 
 function sources(): { path: string; text: string }[] {
   const out: { path: string; text: string }[] = [];
@@ -52,7 +52,7 @@ const HAND_BUILT: { pattern: RegExp; use: string; home?: string }[] = [
   {
     pattern: /\} \$\{\w+ === 1 \? "\w+" : "\w+"\}|=== 1 \? "1 \w+"/,
     use: "plural (format.ts), or coins (purse.ts) for money",
-    home: "client/src/purse.ts",
+    home: "packages/client/src/purse.ts",
   },
   { pattern: /dataset\.confirm/, use: "confirmTwice (ui.ts)" },
   { pattern: /"0 0 24 24"/, use: "icon (dom.ts), with a Lucide glyph added to icons.ts" },
@@ -64,27 +64,27 @@ const HAND_BUILT: { pattern: RegExp; use: string; home?: string }[] = [
     pattern: /(\w+)\.hidden = !\1\.hidden/,
     use: "disclosure (ui.ts)",
     // The world's HUD buttons are pressed toggles, styled by aria-pressed.
-    home: "client/src/world.ts",
+    home: "packages/client/src/world.ts",
   },
   { pattern: /document\.addEventListener\("pointerdown"/, use: "dropdown or moreMenu (ui.ts)" },
   { pattern: /"[^"]*\bload-more\b/, use: "moreButton (ui.ts)" },
   {
     pattern: /"swatch-dot"|createElement\("button"\)/,
     use: "chips (ui.ts), colorChips or shapeChips (join-form.ts)",
-    home: "client/src/join-form.ts",
+    home: "packages/client/src/join-form.ts",
   },
   { pattern: /"\(prefers-reduced-motion/, use: "reducedMotion or REDUCED_MOTION (motion.ts)" },
   { pattern: /void \w+\.offsetWidth/, use: "replay (motion.ts)" },
   { pattern: /class: "[^"]*\b(form-error|error|composer-error)\b/, use: "errorLine (ui.ts)" },
   {
     pattern: /\.data\.error\.message/,
-    use: "actProblem (client/src/api.ts)",
-    home: "client/src/api.ts",
+    use: "actProblem (packages/client/src/api.ts)",
+    home: "packages/client/src/api.ts",
   },
   {
     pattern: /toast\(problem \?\? \w+\)|whileBusy\(\w+, \(\) => api\.act\(action\)\)/,
-    use: "actFromButton (client/src/act.ts)",
-    home: "client/src/act.ts",
+    use: "actFromButton (packages/client/src/act.ts)",
+    home: "packages/client/src/act.ts",
   },
   { pattern: /`\/[rp]\/\$\{/, use: "profilePath, postPath, or plot3dPath (paths.ts)" },
   { pattern: /class: "sheet[ "]|class: "sheet-(card|head|title|close)"/, use: "sheet (ui.ts)" },
@@ -101,13 +101,13 @@ const HAND_BUILT: { pattern: RegExp; use: string; home?: string }[] = [
   {
     pattern: /["'`]palette-(choice|chip)\b/,
     use: "paintBlockRow, paintGroundRow, or paintHeldRow (build-palette.ts)",
-    home: "client/src/build-palette.ts",
+    home: "packages/client/src/build-palette.ts",
   },
   { pattern: TAB_ROW, use: "linkTabs with pick, and pickTab (ui.ts)" },
   {
     pattern: /class: [`"]pulse paper card\b/,
     use: "pulseShell (pulse-cards.ts)",
-    home: "client/src/pulse-cards.ts",
+    home: "packages/client/src/pulse-cards.ts",
   },
   {
     pattern: /history\.state as \{ overlay/,
@@ -119,8 +119,8 @@ describe("views use the shared components", () => {
   const files = sources();
 
   it("finds the app sources", () => {
-    expect(files.some((f) => f.path === "client/src/post-card.ts")).toBe(true);
-    expect(files.some((f) => f.path === "admin/src/queue-view.ts")).toBe(true);
+    expect(files.some((f) => f.path === "packages/client/src/post-card.ts")).toBe(true);
+    expect(files.some((f) => f.path === "packages/admin/src/queue-view.ts")).toBe(true);
   });
 
   for (const { pattern, use, home } of HAND_BUILT) {
@@ -139,7 +139,7 @@ describe("views use the shared components", () => {
   }
 
   it("the staff app never shows a resident's picture outside the tap-to-reveal", () => {
-    const admin = files.filter((f) => f.path.startsWith("admin/"));
+    const admin = files.filter((f) => f.path.startsWith("packages/admin/"));
     const calls = admin.flatMap((f) => [
       ...f.text.matchAll(/(avatarEl|paintAvatar|personLink)\(/g),
     ]);
@@ -155,7 +155,7 @@ describe("views use the shared components", () => {
   });
 
   it("the apps' static pages build no tab row by hand either", () => {
-    const hits = ["client/index.html", "admin/index.html"].flatMap((path) =>
+    const hits = ["packages/client/index.html", "packages/admin/index.html"].flatMap((path) =>
       readFileSync(join(ROOT, path), "utf8")
         .split("\n")
         .flatMap((line, i) => (TAB_ROW.test(line) ? [`${path}:${i + 1}: ${line.trim()}`] : [])),
@@ -164,7 +164,7 @@ describe("views use the shared components", () => {
   });
 
   it("index.html names its icons from the Lucide map instead of drawing them", () => {
-    const html = readFileSync(join(ROOT, "client/index.html"), "utf8");
+    const html = readFileSync(join(ROOT, "packages/client/index.html"), "utf8");
     const drawn = [...html.matchAll(/<svg class="icon[^"]*"(?! data-icon=)[^>]*>/g)].map(
       (m) => m[0],
     );
@@ -241,7 +241,7 @@ const selectors = (lists: string[]) => lists.flatMap((l) => l.split(",").map((x)
 
 describe("one definition per rule", () => {
   const read = (path: string) => readFileSync(join(ROOT, path), "utf8");
-  const base = new Set(selectors(cssRules(read("ui/src/base.css")).top));
+  const base = new Set(selectors(cssRules(read("packages/ui/src/base.css")).top));
 
   it("parses selector lists, keyframes, and rules inside media queries", () => {
     const css =
@@ -249,7 +249,11 @@ describe("one definition per rule", () => {
     expect(cssRules(css)).toEqual({ top: [".a, .b", "@keyframes k"], nested: [".c"] });
   });
 
-  for (const path of ["ui/src/base.css", "client/src/style.css", "admin/src/style.css"]) {
+  for (const path of [
+    "packages/ui/src/base.css",
+    "packages/client/src/style.css",
+    "packages/admin/src/style.css",
+  ]) {
     it(`${path} defines each selector once`, () => {
       const seen = new Set<string>();
       const twice = cssRules(read(path)).top.filter((r) => seen.has(r) || !seen.add(r));
@@ -259,17 +263,19 @@ describe("one definition per rule", () => {
 
   it("stylesheets name a token instead of spelling out its color", () => {
     const tokens = new Map(
-      [...read("ui/src/tokens.css").matchAll(/(--[\w-]+):\s*(#[0-9a-f]{6});/gi)].map((m) => [
-        m[2]?.toLowerCase(),
-        m[1],
-      ]),
+      [...read("packages/ui/src/tokens.css").matchAll(/(--[\w-]+):\s*(#[0-9a-f]{6});/gi)].map(
+        (m) => [m[2]?.toLowerCase(), m[1]],
+      ),
     );
-    const spelled = ["ui/src/base.css", "client/src/style.css", "admin/src/style.css"].flatMap(
-      (path) =>
-        [...read(path).matchAll(/#[0-9a-f]{6}\b/gi)].flatMap((m) => {
-          const token = tokens.get(m[0].toLowerCase());
-          return token ? [`${path}: ${m[0]} is var(${token})`] : [];
-        }),
+    const spelled = [
+      "packages/ui/src/base.css",
+      "packages/client/src/style.css",
+      "packages/admin/src/style.css",
+    ].flatMap((path) =>
+      [...read(path).matchAll(/#[0-9a-f]{6}\b/gi)].flatMap((m) => {
+        const token = tokens.get(m[0].toLowerCase());
+        return token ? [`${path}: ${m[0]} is var(${token})`] : [];
+      }),
     );
     expect(tokens.size).toBeGreaterThan(10);
     expect(spelled).toEqual([]);
@@ -282,10 +288,10 @@ describe("one definition per rule", () => {
     const scaled =
       /^\s*(gap|row-gap|column-gap|padding[\w-]*|margin[\w-]*|font-size|border[\w-]*radius)\s*:\s*(.+?);/;
     const off = [
-      "ui/src/base.css",
-      "client/src/style.css",
-      "admin/src/style.css",
-      "client/src/docs/docs.css",
+      "packages/ui/src/base.css",
+      "packages/client/src/style.css",
+      "packages/admin/src/style.css",
+      "packages/client/src/docs/docs.css",
     ].flatMap((path) =>
       read(path)
         .split("\n")
@@ -304,10 +310,10 @@ describe("one definition per rule", () => {
   it("line heights and weights come from their scales", () => {
     // A unitless line height or a numeric weight is a token. A px line height is a tap target.
     const off = [
-      "ui/src/base.css",
-      "client/src/style.css",
-      "admin/src/style.css",
-      "client/src/docs/docs.css",
+      "packages/ui/src/base.css",
+      "packages/client/src/style.css",
+      "packages/admin/src/style.css",
+      "packages/client/src/docs/docs.css",
     ].flatMap((path) =>
       read(path)
         .split("\n")
@@ -337,43 +343,47 @@ describe("one definition per rule", () => {
     ]);
     const cluster = "display: flex; flex-wrap: wrap; gap: var(--space-sm)";
     // The lookbehind leaves each rule's closing brace for the next match, so no rule is skipped.
-    const copies = ["client/src/style.css", "admin/src/style.css"].flatMap((path) =>
-      [
-        ...topLevel(read(path).replace(/\/\*[\s\S]*?\*\//g, "")).matchAll(
-          /(?<=^|\})\s*([^{}@]+?)\s*\{([^{}]*)\}/g,
-        ),
-      ].flatMap(([, selector, body]) => {
-        const decls = (body ?? "")
-          .split(";")
-          .map((d) => d.trim().replace(/\s+/g, " "))
-          .filter(Boolean);
-        const list = ["margin: 0", "padding: 0", "list-style: none"];
-        const restates =
-          decls.length > 0 &&
-          ((decls.includes("display: grid") && decls.every((d) => primitive.has(d))) ||
-            [...decls].sort().join("; ") === cluster ||
-            (decls.length === 3 && list.every((d) => decls.includes(d))));
-        return restates ? [`${path}: ${selector?.trim()} { ${decls.join("; ")} }`] : [];
-      }),
+    const copies = ["packages/client/src/style.css", "packages/admin/src/style.css"].flatMap(
+      (path) =>
+        [
+          ...topLevel(read(path).replace(/\/\*[\s\S]*?\*\//g, "")).matchAll(
+            /(?<=^|\})\s*([^{}@]+?)\s*\{([^{}]*)\}/g,
+          ),
+        ].flatMap(([, selector, body]) => {
+          const decls = (body ?? "")
+            .split(";")
+            .map((d) => d.trim().replace(/\s+/g, " "))
+            .filter(Boolean);
+          const list = ["margin: 0", "padding: 0", "list-style: none"];
+          const restates =
+            decls.length > 0 &&
+            ((decls.includes("display: grid") && decls.every((d) => primitive.has(d))) ||
+              [...decls].sort().join("; ") === cluster ||
+              (decls.length === 3 && list.every((d) => decls.includes(d))));
+          return restates ? [`${path}: ${selector?.trim()} { ${decls.join("; ")} }`] : [];
+        }),
     );
     expect(copies).toEqual([]);
   });
 
   it("the scales the stylesheets use are all defined", () => {
     const defined = new Set(
-      [...read("ui/src/tokens.css").matchAll(/(--[\w-]+):/g)].map((m) => m[1]),
+      [...read("packages/ui/src/tokens.css").matchAll(/(--[\w-]+):/g)].map((m) => m[1]),
     );
-    const used = ["ui/src/base.css", "client/src/style.css", "admin/src/style.css"].flatMap(
-      (path) =>
-        [...read(path).matchAll(/var\((--(?:space|text|r|gap|leading|weight)-[\w-]+)\)/g)].map(
-          (m) => m[1],
-        ),
+    const used = [
+      "packages/ui/src/base.css",
+      "packages/client/src/style.css",
+      "packages/admin/src/style.css",
+    ].flatMap((path) =>
+      [...read(path).matchAll(/var\((--(?:space|text|r|gap|leading|weight)-[\w-]+)\)/g)].map(
+        (m) => m[1],
+      ),
     );
     expect(used.length).toBeGreaterThan(500);
     expect([...new Set(used)].filter((t) => !defined.has(t))).toEqual([]);
   });
 
-  for (const path of ["client/src/style.css", "admin/src/style.css"]) {
+  for (const path of ["packages/client/src/style.css", "packages/admin/src/style.css"]) {
     it(`${path} leaves the shared components' rules to base.css, at every screen size`, () => {
       const { top, nested } = cssRules(read(path));
       expect(selectors([...top, ...nested]).filter((r) => base.has(r))).toEqual([]);

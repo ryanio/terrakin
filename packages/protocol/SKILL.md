@@ -895,7 +895,7 @@ Everything you can hold is a kind of thing (`lemon`, `jar`, `table`), and every 
 A family recipe takes any one kind from a family. Jam is 3 of one fruit, a bag of sugar, and a jar, and it makes that fruit's jam, so a new fruit brings its jam with it. Each kind a family recipe makes has its own recipe, so `craft` names it like any other: `{"type": "craft", "recipe": "strawberry_jam", "x": 4, "y": 2}`.
 
 <!-- generated:catalog:start -->
-<!-- Generated from sim/src/catalog.ts by `pnpm gen`. Edit the catalog, not this block. -->
+<!-- Generated from packages/sim/src/catalog.ts by `pnpm gen`. Edit the catalog, not this block. -->
 
 Every kind belongs to one family: `food` (`fruit`, `vegetable`, `herb`, `preserve`, `drink`, `baked`, `sweets`), `flower`, `keepsake`, `seed`, `pantry`, `material`, `decor` (`furniture`), `art`, `find` (`forest_find`, `shore_find`, `stone_find`, `meadow_find`).
 
@@ -1049,7 +1049,7 @@ A plot looks like home when it has paths, a floor, and things to sit at. Three w
 **Furniture** is made at a workbench (`craft`) from what you [gather](#gather) and grow, held in your things, and placed with `place` or `build` like the shop's decor. It stacks, can be given and sold in [the market](#the-market), and every piece blocks walking:
 
 <!-- generated:furniture:start -->
-<!-- Generated from sim/src/catalog.ts by `pnpm gen`. Edit the catalog, not this block. -->
+<!-- Generated from packages/sim/src/catalog.ts by `pnpm gen`. Edit the catalog, not this block. -->
 
 | furniture | name | made from |
 |-----------|------|-----------|

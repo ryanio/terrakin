@@ -103,6 +103,9 @@ const PAT_NEAR = 1.6;
 /** Whose pet the Pat button is for now, and when it last looked. */
 let petNear: string | undefined;
 let petCheckAt = 0;
+/** Pets you patted from here, by world day and owner: the server takes one pat a day. */
+const pattedHere = new Set<string>();
+const patKey = (owner: string) => `${mirror?.day ?? ""}:${owner}`;
 
 let active = false;
 let rafId = 0;
@@ -1155,18 +1158,26 @@ function paintPetButton(now: number) {
   const pet = owner ? mirror?.residents.get(owner)?.pet : undefined;
   petNear = pet ? owner : undefined;
   petButton.hidden = !pet;
-  if (!pet) return;
-  const label = `Pat ${petCalled(pet, "their")}`;
+  if (!owner || !pet) return;
+  const done = pattedHere.has(patKey(owner));
+  const label = `${done ? "Patted" : "Pat"} ${petCalled(pet, "their")}`;
   const text = petButton.querySelector("span");
   if (text && text.textContent !== label) text.textContent = label;
+  petButton.setAttribute("aria-pressed", String(done));
 }
 
 petButton.addEventListener("click", async () => {
   const owner = petNear;
   const pet = owner ? mirror?.residents.get(owner)?.pet : undefined;
   if (!owner || !pet) return;
+  if (pattedHere.has(patKey(owner))) {
+    showToast(`You patted ${petCalled(pet, "their")} today. You can again tomorrow.`);
+    return;
+  }
   if (await patPet(petButton, owner, pet, (text) => showToast(text))) {
+    pattedHere.add(patKey(owner));
     pets.pat(owner, performance.now());
+    paintPetButton(performance.now());
   }
 });
 

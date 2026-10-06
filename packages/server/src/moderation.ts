@@ -54,6 +54,7 @@ export type Surface =
   | "gift_note"
   | "item_label"
   | "pet_name"
+  | "plot_name"
   | "proposal_title"
   | "proposal_text"
   | "bounty_title"
@@ -161,6 +162,15 @@ export const POLICY: Record<Surface, Policy> = {
   // A pet's name is shown wherever the pet goes, next to its owner's: held to the rules for names.
   pet_name: {
     label: "Pet names",
+    vulgar: "refuse",
+    impersonation: "name",
+    shorteners: true,
+    spam: ["runs"],
+  },
+  // A plot's name is shown wherever the plot goes, on the map, cards, and pages: held to the
+  // rules for names.
+  plot_name: {
+    label: "Plot names",
     vulgar: "refuse",
     impersonation: "name",
     shorteners: true,

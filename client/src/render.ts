@@ -44,7 +44,7 @@ import { type Camera, tileToScreen } from "./camera";
 import { type Feelings, idPhase, pose, restingPose } from "./feelings";
 import type { DisplayView, Mirror } from "./mirror";
 import type { Motion, Pose as MotionPose } from "./motion";
-import { drawBubble, drawPoof } from "./overhead";
+import { type Box, bubbleBox, drawBubble, drawDust, drawPoof, stackBubbles } from "./overhead";
 import { nightAmount } from "./time";
 
 export { RESIDENT_COLOR_HEX } from "@terrakin/ui/looks";
@@ -1087,6 +1087,10 @@ export function render(
     ctx.ellipse(sx, feet, scale * 0.27 * shade, scale * 0.085 * shade, 0, 0, Math.PI * 2);
     ctx.fill();
     if (m.poof !== undefined) drawPoof(ctx, sx, feet, scale, m.poof);
+    if (m.dust) {
+      const at = tileToScreen(cam, m.dust.x, m.dust.y);
+      drawDust(ctx, at.sx, at.sy + scale * 0.38, scale, m.dust.t);
+    }
     // The face of the moment: a feeling, a blink, a wave, a bounce (RFC 0013). Dozing is `sleepy`.
     const p = pose(feelings?.get(r.id, now) ?? m.doze, now, idPhase(r.id), still, posed);
     face.feeling = p.feeling;
@@ -1187,6 +1191,7 @@ export function render(
   // Nudge a tag up when it would sit on top of a neighbor's, so names next to each other stay legible.
   labels.sort((a, b) => b.y - a.y || a.x - b.x);
   const placed: { left: number; right: number; top: number }[] = [];
+  const widths: number[] = [];
   for (const l of labels) {
     const w = labelWidth(ctx, font, l.text) + padX * 2;
     let top = l.y - tagH;
@@ -1202,7 +1207,44 @@ export function render(
       top -= tagH + 3;
     }
     placed.push({ left: l.x - w / 2, right: l.x + w / 2, top });
+    widths.push(w);
     l.top = top;
+  }
+
+  // ---- what people are saying, as text, in bubbles over their tags and signs ----
+  // Bubbles stack clear of every tag and sign and of each other, the nearest speaker lowest. They
+  // go down first, so a tag or sign sits on top of a raised bubble's tail.
+  const sign = signPx(scale);
+  const avoid: Box[] = placed.map((t) => ({ ...t, bottom: t.top + tagH }));
+  const bubbles: { x: number; tip: number; lines: string[]; alpha: number; box: Box }[] = [];
+  for (const l of labels) {
+    if (l.top === undefined) continue;
+    // A bubble goes over the sign, so both show.
+    const over = l.icon ? sign + 1 + (l.rise ?? 0) * scale : 0;
+    if (l.icon)
+      avoid.push({ left: l.x - sign / 2, right: l.x + sign / 2, top: l.top - over, bottom: l.top });
+    const said = l.who && motion.bubble(l.who, now);
+    if (!said) continue;
+    const tip = l.top - 4 - over;
+    const box = bubbleBox(ctx, l.x, tip, said.lines, fontSize, font, width);
+    bubbles.push({ x: l.x, tip, lines: said.lines, alpha: said.alpha, box });
+  }
+  const raises = stackBubbles(
+    bubbles.map((b) => b.box),
+    avoid,
+  );
+  // Highest first, so a raised bubble's tail passes behind the bubbles below it.
+  for (let i = bubbles.length - 1; i >= 0; i--) {
+    const b = bubbles[i];
+    if (b) drawBubble(ctx, b.x, b.tip, b.lines, b.alpha, fontSize, font, width, raises[i]);
+  }
+
+  ctx.font = font;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  for (const [i, l] of labels.entries()) {
+    const top = l.top ?? l.y - tagH;
+    const w = widths[i] ?? 0;
     ctx.fillStyle = "rgba(74, 52, 28, 0.16)";
     ctx.beginPath();
     ctx.roundRect(l.x - w / 2, top + 1.5, w, tagH, tagH / 2);
@@ -1218,9 +1260,8 @@ export function render(
     ctx.fillText(l.text, l.x, top + tagH / 2 + 0.5);
   }
 
-  // ---- over the name tags: feelings' signs, then what people are saying, as text ----
+  // ---- feelings' signs over the tags ----
   // Drawn after every tag and the night, so a neighbor's tag never covers a sign.
-  const sign = signPx(scale);
   for (const l of labels) {
     if (!l.icon || l.top === undefined) continue;
     ctx.globalAlpha = l.fade ?? 1;
@@ -1232,13 +1273,6 @@ export function render(
       sign,
     );
     ctx.globalAlpha = 1;
-  }
-  for (const l of labels) {
-    if (!l.who || l.top === undefined) continue;
-    const said = motion.bubble(l.who, now);
-    // A bubble goes over the sign, so both show.
-    const over = l.icon ? sign + 1 + (l.rise ?? 0) * scale : 0;
-    if (said) drawBubble(ctx, l.x, l.top - 4 - over, said.lines, said.alpha, fontSize, font, width);
   }
   ctx.textBaseline = "alphabetic";
 }

@@ -38,7 +38,7 @@ import {
 import type { Feelings, Shown } from "../feelings";
 import type { Mirror } from "../mirror";
 import type { Motion } from "../motion";
-import { bubbleSize, drawBubble } from "../overhead";
+import { bubbleSize, drawBubble, stackBubbles } from "../overhead";
 import {
   canvasTexture,
   createStage,
@@ -142,12 +142,13 @@ interface Fig {
   look: number;
   /** While they doze, the `sleepy` feeling from `motion.ts`. */
   doze: Shown | undefined;
-  /** What they're saying, in the scene so a hop or squash doesn't bend it. */
-  bubble?: { text: string; sprite: Sprite; height: number };
+  /** What they're saying, in the scene so a hop or squash doesn't bend it; its canvas size. */
+  bubble?: { text: string; sprite: Sprite; w: number; h: number };
 }
 
-/** World units per pixel of an overhead canvas, the same scale as the name tags. */
-const OVER_PX = 0.3 / 78;
+/** A bubble's text is drawn this big on its canvas, and shown this many CSS pixels tall on screen. */
+const BUBBLE_FONT_PX = 45;
+const BUBBLE_SCREEN_PX = 14;
 
 interface Building {
   group: Group;
@@ -446,6 +447,54 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
     delete f.bubble;
   }
 
+  /**
+   * World units per pixel of a bubble's canvas, so a bubble's text stays `BUBBLE_SCREEN_PX` tall on
+   * screen at any zoom, like the map's. Set each frame from the camera.
+   */
+  let bubblePx = 0;
+
+  const onScreen = new Vector3();
+  const raisedOnScreen = new Vector3();
+  /**
+   * Raise bubbles so neighbors' don't cover each other, as on the map: worked out on screen, the
+   * nearest speaker kept lowest, then lifted in the world by however far that is on screen.
+   */
+  function stackBubbles3d() {
+    const speaking = [...figures.values()].filter((f) => f.bubble);
+    if (speaking.length < 2) return;
+    speaking.sort(
+      (a, b) =>
+        a.group.position.distanceToSquared(camera.position) -
+        b.group.position.distanceToSquared(camera.position),
+    );
+    const w = host.clientWidth;
+    const h = host.clientHeight;
+    const cssPx = BUBBLE_SCREEN_PX / BUBBLE_FONT_PX;
+    const boxes = speaking.map((f) => {
+      const b = f.bubble as NonNullable<Fig["bubble"]>;
+      onScreen.copy(b.sprite.position).project(camera);
+      const x = ((onScreen.x + 1) / 2) * w;
+      const y = ((1 - onScreen.y) / 2) * h;
+      const bw = b.w * cssPx;
+      const bh = b.h * cssPx;
+      return { left: x - bw / 2, right: x + bw / 2, top: y - bh / 2, bottom: y + bh / 2 };
+    });
+    const raises = stackBubbles(boxes, []);
+    for (const [i, f] of speaking.entries()) {
+      const raise = raises[i] ?? 0;
+      const sprite = f.bubble?.sprite;
+      if (!raise || !sprite) continue;
+      // How many screen pixels one unit up is, here: the camera looks down at an angle.
+      onScreen.copy(sprite.position).project(camera);
+      raisedOnScreen
+        .copy(sprite.position)
+        .setY(sprite.position.y + 1)
+        .project(camera);
+      const perUnit = ((raisedOnScreen.y - onScreen.y) / 2) * h;
+      if (perUnit > 0) sprite.position.y += raise / perUnit;
+    }
+  }
+
   /** Put what they're saying over a figure's name tag. True if it changed. */
   function placeBubble(f: Fig, said: { lines: string[]; alpha: number } | undefined): boolean {
     const text = said?.lines.join("\n");
@@ -455,15 +504,16 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       const { texture, w, h } = bubbleTexture(said.lines);
       const sprite = new Sprite(overheadMaterial(texture));
       sprite.renderOrder = OVERHEAD_ORDER.bubble;
-      sprite.scale.set(w * OVER_PX, h * OVER_PX, 1);
       scene.add(sprite);
-      f.bubble = { text, sprite, height: h * OVER_PX };
+      f.bubble = { text, sprite, w, h };
     }
+    const { sprite, w, h } = f.bubble;
+    sprite.scale.set(w * bubblePx, h * bubblePx, 1);
     const p = f.group.position;
     // Over the name tag, and over the feeling's sign when one shows.
     const over = overheadTop(f.group) * FIGURE_SCALE + 0.03;
-    f.bubble.sprite.position.set(p.x, over + f.bubble.height / 2, p.z);
-    f.bubble.sprite.material.opacity = said.alpha;
+    sprite.position.set(p.x, over + (h * bubblePx) / 2, p.z);
+    sprite.material.opacity = said.alpha;
     return true;
   }
 
@@ -765,7 +815,12 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
           seeThrough(b.group, inside);
         }
       }
+      const distance = camera.position.distanceTo(controls.target);
+      const viewHeight = 2 * distance * Math.tan((camera.fov * Math.PI) / 360);
+      bubblePx =
+        (viewHeight / Math.max(1, host.clientHeight)) * (BUBBLE_SCREEN_PX / BUBBLE_FONT_PX);
       let moved = moveFigures(mirror, motion, dt, feelings?.speaker(now));
+      stackBubbles3d();
       // A feeling from what happened to them wins; otherwise a doze shows as `sleepy`.
       for (const [id, f] of figures)
         if (showFeeling(f.group, feelings?.get(id, now) ?? f.doze, now)) moved = true;
@@ -801,9 +856,9 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
   };
 }
 
-/** A chat bubble on its own canvas, drawn the way the map draws it, at three times the tag's size. */
+/** A chat bubble on its own canvas, drawn the way the map draws it. */
 function bubbleTexture(lines: string[]): { texture: CanvasTexture; w: number; h: number } {
-  const fontSize = 15 * 3;
+  const fontSize = BUBBLE_FONT_PX;
   const font = `600 ${fontSize}px "Figtree Variable", system-ui, sans-serif`;
   const c = document.createElement("canvas");
   const g = c.getContext("2d") as CanvasRenderingContext2D;

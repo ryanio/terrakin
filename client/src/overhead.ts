@@ -32,6 +32,75 @@ export function drawPoof(
   ctx.fill();
 }
 
+/** A little kick of dust at someone's feet as a step pushes off, `t` from 0 to 1. */
+export function drawDust(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  scale: number,
+  t: number,
+) {
+  ctx.fillStyle = `rgba(196, 168, 124, ${(0.75 * (1 - t)).toFixed(3)})`;
+  ctx.beginPath();
+  for (const side of [-1, 1]) {
+    const px = x + side * scale * (0.16 + t * 0.14);
+    const py = y - scale * (0.03 + t * 0.05);
+    const r = scale * (0.05 + t * 0.03);
+    ctx.moveTo(px + r, py);
+    ctx.arc(px, py, r, 0, Math.PI * 2);
+  }
+  ctx.fill();
+}
+
+/** A box on screen, in CSS pixels. */
+export interface Box {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+}
+
+/**
+ * How far to raise each bubble, in order, so it clears `avoid` (name tags and signs) and the
+ * bubbles placed before it. Put the nearest first: it keeps the spot right over its speaker.
+ */
+export function stackBubbles(bubbles: readonly Box[], avoid: readonly Box[], gap = 3): number[] {
+  const placed = [...avoid];
+  return bubbles.map((b) => {
+    let raise = 0;
+    for (let tries = 0; tries < 12; tries++) {
+      const top = b.top - raise;
+      const bottom = b.bottom - raise;
+      const hit = placed.find(
+        (o) =>
+          b.left < o.right + gap &&
+          b.right > o.left - gap &&
+          top < o.bottom + gap &&
+          bottom > o.top - gap,
+      );
+      if (!hit) break;
+      raise = b.bottom - (hit.top - gap);
+    }
+    placed.push({ ...b, top: b.top - raise, bottom: b.bottom - raise });
+    return raise;
+  });
+}
+
+/** Where a bubble with its tail's tip at (x, bottom) sits, before any raise. */
+export function bubbleBox(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  bottom: number,
+  lines: string[],
+  fontSize: number,
+  font: string,
+  right: number,
+): Box {
+  const { w, h } = bubbleSize(ctx, lines, fontSize, font);
+  const left = Math.min(Math.max(x - w / 2, 4), right - w - 4);
+  return { left, right: left + w, top: bottom - h, bottom };
+}
+
 /** The size of a bubble holding `lines`, its tail included. */
 export function bubbleSize(
   ctx: CanvasRenderingContext2D,
@@ -46,7 +115,8 @@ export function bubbleSize(
 
 /**
  * What someone said, on a paper bubble with its tail's tip at (x, bottom), kept between 4 and
- * `right - 4` across. Their words, drawn as text.
+ * `right - 4` across. `raise` lifts the bubble clear of others, and its tail stretches down to
+ * the tip. Their words, drawn as text.
  */
 export function drawBubble(
   ctx: CanvasRenderingContext2D,
@@ -57,12 +127,13 @@ export function drawBubble(
   fontSize: number,
   font: string,
   right: number,
+  raise = 0,
 ) {
   const lineH = fontSize * 1.25;
   const tail = fontSize * 0.45;
   const { w, h: whole } = bubbleSize(ctx, lines, fontSize, font);
   const h = whole - tail;
-  const top = bottom - tail - h;
+  const top = bottom - raise - tail - h;
   const left = Math.min(Math.max(x - w / 2, 4), right - w - 4);
   ctx.globalAlpha = alpha;
   ctx.fillStyle = "rgba(74, 52, 28, 0.16)";

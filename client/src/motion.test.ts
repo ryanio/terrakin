@@ -1,6 +1,17 @@
 import { facingFrom, facingToward } from "@terrakin/protocol";
 import { describe, expect, it } from "vitest";
-import { bubbleMs, DOZE_MS, Motion, POOF_MS, STEP_MS, wrapWords } from "./motion";
+import {
+  bubbleMs,
+  DOZE_MS,
+  DUST_MS,
+  MAX_STEP_MS,
+  MIN_STEP_MS,
+  Motion,
+  POOF_MS,
+  STEP_MS,
+  wrapWords,
+} from "./motion";
+import { stackBubbles } from "./overhead";
 
 const at = (x: number, y: number) => ({ id: "a", x, y });
 
@@ -25,6 +36,45 @@ describe("walking", () => {
     const turned = m.pose(at(6, 6), 1000 + STEP_MS / 2, false);
     expect(turned.x).toBeCloseTo(5.5);
     expect(turned.y).toBe(5);
+  });
+
+  it("paces each slide by the gap since their last step, so a walk looks even", () => {
+    const m = new Motion();
+    m.pose(at(5, 5), 0, false);
+    // Steps every 300ms, the way a slow connection spaces them out.
+    let x = 5;
+    for (let t = 1000; t <= 2500; t += 300) m.pose(at(++x, 5), t, false);
+    // Most of the way through the slide, not parked on the tile waiting for the next step.
+    const mid = m.pose(at(x, 5), 2500 + 200, false);
+    expect(mid.x).toBeGreaterThan(x - 0.5);
+    expect(mid.x).toBeLessThan(x);
+    expect(mid.lift).toBeGreaterThan(0);
+    // A long pause and a new step starts at the first step's pace again; the pace stays in bounds.
+    const fresh = m.pose(at(x + 1, 5), 9000, false);
+    expect(fresh.x).toBe(x);
+    expect(m.pose(at(x + 1, 5), 9000 + STEP_MS, false).x).toBe(x + 1);
+  });
+
+  it("keeps the pace within bounds", () => {
+    const m = new Motion();
+    m.pose(at(0, 5), 0, false);
+    // Slow steps, 600ms apart: each slide stretches, but never past MAX_STEP_MS.
+    let x = 0;
+    for (let t = 1000; t <= 4000; t += 600) m.pose(at(++x, 5), t, false);
+    expect(m.pose(at(x, 5), 4000 + MAX_STEP_MS - 20, false).x).toBeLessThan(x);
+    expect(m.pose(at(x, 5), 4000 + MAX_STEP_MS, false).x).toBe(x);
+    // Quick steps, 20ms apart: each slide shrinks, but never under MIN_STEP_MS.
+    for (let t = 5000; t <= 5200; t += 20) m.pose(at(++x, 5), t, false);
+    expect(m.pose(at(x, 5), 5200 + MIN_STEP_MS - 10, false).x).toBeLessThan(x);
+    expect(m.pose(at(x, 5), 5200 + MIN_STEP_MS, false).x).toBe(x);
+  });
+
+  it("kicks up a little dust where each step pushes off", () => {
+    const m = new Motion();
+    m.pose(at(5, 5), 0, false);
+    expect(m.pose(at(6, 5), 1000, false).dust).toEqual({ x: 5, y: 5, t: 0 });
+    expect(m.pose(at(6, 5), 1000 + DUST_MS, false).dust).toBeUndefined();
+    expect(m.pose(at(7, 5), 2000, true).dust).toBeUndefined();
   });
 
   it("jumps home without a slide, landing in a puff", () => {
@@ -54,6 +104,13 @@ describe("dozing and waking", () => {
     // The same feeling while it lasts, so its sign drifts on rather than starting over.
     expect(m.pose(at(5, 5), DOZE_MS + 500, true).doze).toBe(asleep);
     expect(m.pose(at(5, 6), DOZE_MS + 600, true).doze).toBeUndefined();
+  });
+
+  it("never dozes you off", () => {
+    const m = new Motion();
+    m.self = "a";
+    m.pose(at(5, 5), 0, true);
+    expect(m.pose(at(5, 5), 3 * DOZE_MS, true).doze).toBeUndefined();
   });
 
   it("wakes when they talk", () => {
@@ -87,6 +144,24 @@ describe("speech bubbles", () => {
     ]);
     expect(wrapWords("short")).toEqual(["short"]);
     expect(wrapWords("a".repeat(30))).toEqual(["a".repeat(22), "a".repeat(8)]);
+  });
+
+  it("stack clear of name tags and of each other, the nearest kept lowest", () => {
+    const box = (left: number, top: number, w = 40, h = 20) => ({
+      left,
+      right: left + w,
+      top,
+      bottom: top + h,
+    });
+    // Two speakers side by side, and a building's tag above them.
+    const raises = stackBubbles([box(100, 100), box(120, 100)], [box(90, 60, 80, 18)]);
+    expect(raises[0]).toBe(0);
+    const second = raises[1] ?? 0;
+    expect(second).toBeGreaterThan(20);
+    // Raised past the first bubble, it would have hit the tag, so it goes over that too.
+    expect(100 - second + 20).toBeLessThanOrEqual(60 - 3);
+    // Bubbles apart don't move.
+    expect(stackBubbles([box(0, 100), box(200, 100)], [])).toEqual([0, 0]);
   });
 
   it("forget residents who are gone", () => {

@@ -10,14 +10,22 @@
  */
 import type { Shown } from "./feelings";
 
-/** One step's slide. A little over the walk's step, so a held key reads as one smooth walk. */
+/**
+ * One step's slide when they set off. After that each slide takes about as long as the gap since
+ * their last step, within `MIN_STEP_MS` and `MAX_STEP_MS`, so a walk looks even however the
+ * network spaces the steps out.
+ */
 export const STEP_MS = 160;
+export const MIN_STEP_MS = 110;
+export const MAX_STEP_MS = 420;
 /** Standing still this long, a resident dozes until they move or talk. */
 export const DOZE_MS = 2 * 60_000;
 /** The puff where someone lands after a jump (going home). */
 export const POOF_MS = 450;
+/** The little kick of dust where a step pushes off. */
+export const DUST_MS = 260;
 const LAND_MS = 140;
-const HOP = 0.1;
+const HOP = 0.14;
 
 export interface Pose {
   /** Where to draw them, in tiles; between tiles while they step. */
@@ -35,6 +43,8 @@ export interface Pose {
   doze: Shown | undefined;
   /** 0 to 1 through the puff after a jump, or undefined. */
   poof: number | undefined;
+  /** Where a step pushed off, in tiles, and 0 to 1 through its kick of dust; or undefined. */
+  dust: { x: number; y: number; t: number } | undefined;
 }
 
 interface Track {
@@ -43,6 +53,10 @@ interface Track {
   toX: number;
   toY: number;
   stepAt: number;
+  /** Where this step pushed off, for its dust. */
+  kick: { x: number; y: number; t: number };
+  /** How long this step's slide takes. */
+  stepMs: number;
   activeAt: number;
   jumpAt: number;
   phase: number;
@@ -100,6 +114,8 @@ export function wrapWords(text: string, width = 22, lines = 3): string[] {
 }
 
 export class Motion {
+  /** You: your own figure never dozes while you're here to see it. */
+  self: string | undefined;
   private readonly tracks = new Map<string, Track>();
   private readonly said = new Map<string, Said>();
   /** Wake-ups for residents not drawn yet, picked up when they first are. */
@@ -134,6 +150,8 @@ export class Motion {
         toX: r.x,
         toY: r.y,
         stepAt: Number.NEGATIVE_INFINITY,
+        kick: { x: r.x, y: r.y, t: 0 },
+        stepMs: STEP_MS,
         activeAt: this.woke.get(r.id) ?? now,
         jumpAt: Number.NEGATIVE_INFINITY,
         phase: phaseOf(r.id),
@@ -145,9 +163,18 @@ export class Motion {
       const step = Math.abs(r.x - t.toX) + Math.abs(r.y - t.toY) === 1;
       if (step && !still) {
         // Start from wherever the last slide had got to, so quick steps chain smoothly.
-        const p = ease(clamp01((now - t.stepAt) / STEP_MS));
+        const p = ease(clamp01((now - t.stepAt) / t.stepMs));
         t.fromX += (t.toX - t.fromX) * p;
         t.fromY += (t.toY - t.fromY) * p;
+        t.kick.x = t.fromX;
+        t.kick.y = t.fromY;
+        // Pace the slide by their own rhythm: a step soon after the last one takes about as long
+        // as the gap between them, so the next one arrives as this one lands.
+        const gap = now - t.stepAt;
+        t.stepMs =
+          gap < MAX_STEP_MS * 1.5
+            ? Math.min(MAX_STEP_MS, Math.max(MIN_STEP_MS, (t.stepMs + gap) / 2))
+            : STEP_MS;
         t.stepAt = now;
       } else {
         t.fromX = r.x;
@@ -160,7 +187,7 @@ export class Motion {
       t.activeAt = now;
     }
 
-    const asleep = now - t.activeAt > DOZE_MS;
+    const asleep = r.id !== this.self && now - t.activeAt > DOZE_MS;
     if (!asleep) delete t.doze;
     else
       t.doze ??= {
@@ -178,10 +205,11 @@ export class Motion {
       sway: 0,
       doze: t.doze,
       poof: undefined,
+      dust: undefined,
     };
     if (still) return pose;
 
-    const p = clamp01((now - t.stepAt) / STEP_MS);
+    const p = clamp01((now - t.stepAt) / t.stepMs);
     const e = ease(p);
     pose.x = t.fromX + (t.toX - t.fromX) * e;
     pose.y = t.fromY + (t.toY - t.fromY) * e;
@@ -193,7 +221,7 @@ export class Motion {
       pose.squash = 1 - arc * 0.07;
       pose.lean = arc * 0.14;
     } else {
-      const landed = now - (t.stepAt + STEP_MS);
+      const landed = now - (t.stepAt + t.stepMs);
       if (landed >= 0 && landed < LAND_MS)
         pose.squash = 1 + Math.sin((Math.PI * landed) / LAND_MS) * 0.09;
       // Breathing: slow and deep asleep, a gentle shift of weight awake.
@@ -202,6 +230,10 @@ export class Motion {
         : Math.sin(secs * 1.7 + phase) * 0.03;
     }
     if (now - t.jumpAt < POOF_MS) pose.poof = (now - t.jumpAt) / POOF_MS;
+    if (now - t.stepAt < DUST_MS) {
+      t.kick.t = (now - t.stepAt) / DUST_MS;
+      pose.dust = t.kick;
+    }
     return pose;
   }
 

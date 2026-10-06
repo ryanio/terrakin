@@ -857,6 +857,7 @@ function frame(t: number) {
   paintPad(world3d?.heading() ?? 0, world3d !== undefined);
   const now = performance.now();
   const still = motionQuery.matches;
+  motion.self = me;
   if (world3d && mirror && me) world3d.sync({ mirror, me, buildMode, feelings, motion });
   else if (mirror)
     render(ctx, {

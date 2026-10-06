@@ -31,6 +31,12 @@ export interface KarmaFacts {
   bounties?: { from: string; to: string; bounty: string }[];
   /** A resident whose post, profile, letter, notice, or proposal staff acted on after a report. */
   upheld: string[];
+  /**
+   * Each host's best event on a day (RFC 0010), with the guests who counted, and each day a guest
+   * counted at one. The town's events are in `attended` only.
+   */
+  hosted?: { host: string; event: string; day: number; guests: string[] }[];
+  attended?: { from: string; day: number }[];
 }
 
 export interface KarmaRules {
@@ -68,6 +74,14 @@ export function scoreKarma(facts: KarmaFacts, rules: KarmaRules): Map<string, Ka
     const town = b.from === TOWN_ACTOR;
     const key = town ? `bounty ${b.bounty}` : `bounty ${b.from} ${b.to}`;
     if ((town || from(b.from, b.to)) && first(key)) add(rest, b.to, KARMA.bounty);
+  }
+  for (const h of facts.hosted ?? []) {
+    if (h.host === TOWN_ACTOR || !first(`hosted ${h.host} ${h.day}`)) continue;
+    const guests = new Set(h.guests.filter((g) => from(g, h.host))).size;
+    add(rest, h.host, Math.min(guests, KARMA.hostedGuestsMax) * KARMA.hostedGuest);
+  }
+  for (const a of facts.attended ?? []) {
+    if (first(`attended ${a.from} ${a.day}`)) add(rest, a.from, KARMA.attended);
   }
   for (const id of facts.upheld) add(rest, id, -KARMA.upheldReport);
   const reactions = facts.reactions.filter(
@@ -110,6 +124,8 @@ export interface KarmaOptions {
   resident: (id: string) => Resident | undefined;
   /** Whole UTC days since a resident joined (`WorldService.residentAgeDays`). */
   ageDays: (id: string) => number;
+  /** Hosted events and the guests who counted, for days `[from, to)` (RFC 0010). Default: none. */
+  hosting?: (fromDay: number, toDay: number) => Pick<KarmaFacts, "hosted" | "attended"> | undefined;
 }
 
 const NEWCOMER: KarmaView = { score: 0, tier: "newcomer" };
@@ -200,6 +216,7 @@ export class KarmaService {
       votes: credits.flatMap((c) => (c.kind === "vote" ? [c] : [])),
       bounties: credits.flatMap((c) => (c.kind === "bounty" ? [c] : [])),
       upheld: this.o.upheldAgainst(fromDay * DAY_MS, toDay * DAY_MS),
+      ...this.o.hosting?.(fromDay, toDay),
     };
   }
 

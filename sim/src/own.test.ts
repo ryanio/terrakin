@@ -15,7 +15,10 @@ import { type Command, TOWN_ACTOR, type WorldState } from "./types";
 
 const DANGEROUS = ["__proto__", "constructor", "prototype", "toString", "hasOwnProperty"];
 
-/** The bounties world, with gifts open, a listing, a running bounty, a gift, and a vote open. */
+/**
+ * The bounties world, with gifts open, a listing, a running bounty, a gift, a vote open, and an
+ * event on the calendar.
+ */
 function world(): WorldState {
   const state = replay(BOUNTIES_CONFIG, BOUNTIES_LOG);
   const ok = (actor: string, command: Command) =>
@@ -31,6 +34,16 @@ function world(): WorldState {
   ok("dee", { type: "post_bounty", title: "Paint the fence", reward: 5 });
   ok("ada", { type: "give", item: "lemon", to: "bob" });
   ok("cy", { type: "propose", kind: "advisory", title: "More lemons", text: "" });
+  const day = state.day ?? 0;
+  ok("ada", {
+    type: "schedule_event",
+    kind: "listening",
+    title: "Records",
+    px: 0,
+    py: 0,
+    startsAt: (day + 1) * 86_400_000,
+    minutes: 60,
+  });
   return state;
 }
 
@@ -80,6 +93,30 @@ function inputs(id: string, day: number): [string, Command][] {
     town({ type: "routine_step", resident: id, routine: "walk_home", step: { type: "home" } }),
     town({ type: "routine_step", resident: "ada", routine: id, step: { type: "home" } } as Command),
     ada({ type: "set_routines", routines: [{ kind: id, hour: 1 }] } as Command),
+    ada({ type: "cancel_event", event: id }),
+    ada({ type: "join_event", event: id }),
+    ada({
+      type: "schedule_event",
+      kind: id,
+      title: "t",
+      px: 0,
+      py: 0,
+      startsAt: 0,
+      minutes: 60,
+    } as Command),
+    town({ type: "event_start", event: id }),
+    town({ type: "event_tick", event: id, slot: 1 }),
+    town({ type: "event_end", event: id }),
+    town({ type: "void_event", event: id, by: "staff_0123456789ab" }),
+    town({
+      type: "schedule_town_event",
+      key: "harvest-night",
+      kind: "gathering",
+      title: "Harvest night",
+      startsAt: (day + 1) * 86_400_000,
+      minutes: 60,
+      faces: [id],
+    }),
     town({
       type: "daily_awards",
       day: day - 1,

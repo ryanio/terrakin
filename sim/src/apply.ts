@@ -37,6 +37,19 @@ import {
   welcomeDue,
 } from "./economy";
 import { checkSetEntitlements, unentitled } from "./entitlements";
+import {
+  checkCancelEvent,
+  checkEventEnd,
+  checkEventStart,
+  checkEventTick,
+  checkJoinEvent,
+  checkScheduleEvent,
+  checkScheduleTownEvent,
+  checkVoidEvent,
+  type EventsChecked,
+  eventsLeavingPlot,
+  eventsNewDay,
+} from "./events";
 import { checkGather, checkOwnPlotPickups } from "./gather";
 import { checkLay, checkLift } from "./ground";
 import { canonicalJson, fnv1a } from "./hash";
@@ -307,7 +320,7 @@ export function prepare(state: WorldState, input: Input): Prepared {
   let welcome: ReturnType<typeof welcomeDue>;
   let newcomer: boolean;
   try {
-    checked = check(state, actor, command);
+    checked = check(state, actor, command, back !== undefined);
     // Coin bookkeeping worked out against the state as it is now (RFC 0008). All of it is a no-op
     // until the economy opens.
     welcome = "ok" in checked ? null : welcomeDue(state, actor, command);
@@ -579,6 +592,7 @@ function town(
     | BountiesChecked
     | PresenceChecked
     | RoutinesChecked
+    | EventsChecked
     | Mutation
     | Rejection,
 ): Mutation | Prepared {
@@ -588,7 +602,11 @@ function town(
 /** `{ claimedDay }` once the world counts days, else nothing, so older worlds hash as before. */
 const stampDay = (state: WorldState) => (state.day === undefined ? {} : { claimedDay: state.day });
 
-function check(state: WorldState, actor: string, command: Command): Checked {
+/**
+ * One input's rules. `rejoining` says the input brings its actor back online (implicit presence),
+ * for the few rules that read it.
+ */
+function check(state: WorldState, actor: string, command: Command, rejoining: boolean): Checked {
   const { config } = state;
   const me = state.residents[actor];
 
@@ -637,6 +655,16 @@ function check(state: WorldState, actor: string, command: Command): Checked {
         return town(checkLeaveIdle(state, command));
       case "routine_step":
         return town(checkRoutineStep(state, command));
+      case "schedule_town_event":
+        return town(checkScheduleTownEvent(state, command));
+      case "event_start":
+        return town(checkEventStart(state, command));
+      case "event_tick":
+        return town(checkEventTick(state, command));
+      case "event_end":
+        return town(checkEventEnd(state, command));
+      case "void_event":
+        return town(checkVoidEvent(state, command));
       case "new_day":
       case "set_townsfolk": {
         const checked = checkTown(state, actor, command);
@@ -648,13 +676,15 @@ function check(state: WorldState, actor: string, command: Command): Checked {
         const items = command.type === "new_day" ? itemsNewDay(state) : null;
         const shop = command.type === "new_day" ? shopNewDay(state) : null;
         const bounties = command.type === "new_day" ? bountiesNewDay(state, command.day) : null;
-        if (!coins && !items && !shop && !bounties) return checked;
+        const events = command.type === "new_day" ? eventsNewDay(state, command.day) : null;
+        if (!coins && !items && !shop && !bounties && !events) return checked;
         return () => [
           ...checked(),
           ...(coins ? coins() : []),
           ...(items ? items() : []),
           ...(shop ? shop() : []),
           ...(bounties ? bounties() : []),
+          ...(events ? events() : []),
         ];
       }
       default:
@@ -786,8 +816,10 @@ function check(state: WorldState, actor: string, command: Command): Checked {
         return { id, clear: hearthHere(resident) ? resident : undefined };
       });
       const clearMyHearth = hearthHere(me);
+      // Events on the plot are called off: it's about to be nobody's (RFC 0010).
+      const calledOff = eventsLeavingPlot(state, px, py);
       return () => {
-        const events: WorldEvent[] = [];
+        const events: WorldEvent[] = calledOff ? calledOff() : [];
         for (const { id, clear } of coOwners) {
           events.push({ type: "plot_unshared", px, py, residentId: id });
           if (clear) {
@@ -1049,6 +1081,8 @@ function check(state: WorldState, actor: string, command: Command): Checked {
         const hearth = them?.hearth;
         const hearthPlot = hearth ? plotOf(config, hearth.x, hearth.y) : null;
         const hearthHere = hearthPlot?.px === px && hearthPlot.py === py;
+        // Their events here are called off with their share (RFC 0010).
+        const calledOff = eventsLeavingPlot(state, px, py, target);
         return () => {
           const rest = coOwners.filter((id) => id !== target);
           if (rest.length > 0) plot.coOwners = rest;
@@ -1057,7 +1091,10 @@ function check(state: WorldState, actor: string, command: Command): Checked {
             delete plot.sharedDay[target];
             if (Object.keys(plot.sharedDay).length === 0) delete plot.sharedDay;
           }
-          const events: WorldEvent[] = [{ type: "plot_unshared", px, py, residentId: target }];
+          const events: WorldEvent[] = [
+            ...(calledOff ? calledOff() : []),
+            { type: "plot_unshared", px, py, residentId: target },
+          ];
           if (them && hearthHere) {
             them.hearth = null;
             events.push({ type: "hearth_cleared", residentId: target });
@@ -1146,5 +1183,12 @@ function check(state: WorldState, actor: string, command: Command): Checked {
       return town(checkConfirmBounty(state, actor, command));
     case "cancel_bounty":
       return town(checkCancelBounty(state, actor, command));
+
+    case "schedule_event":
+      return town(checkScheduleEvent(state, actor, command));
+    case "cancel_event":
+      return town(checkCancelEvent(state, actor, command));
+    case "join_event":
+      return town(checkJoinEvent(state, actor, command, rejoining));
   }
 }

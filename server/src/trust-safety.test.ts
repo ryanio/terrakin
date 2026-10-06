@@ -145,6 +145,15 @@ describe("the edge filters on every surface", () => {
     );
 
     // World actions answer 200 with ok: false, like any rule the world turns down.
+    const event = {
+      type: "schedule_event",
+      kind: "show",
+      title: "Puppets",
+      px: 0,
+      py: 0,
+      startsAt: "2030-10-11T19:00:00Z",
+      minutes: 60,
+    };
     for (const action of [
       { type: "chat", text: bad },
       { type: "profile", note: bad },
@@ -154,6 +163,8 @@ describe("the edge filters on every surface", () => {
       { type: "craft", recipe: "bouquet", x: 0, y: 0, label: bad },
       { type: "post_bounty", title: bad, reward: 5 },
       { type: "post_bounty", title: "Water my lemons", text: bad, reward: 5 },
+      { ...event, title: bad },
+      { ...event, text: bad },
     ]) {
       const res = await t.call("POST", "/v1/actions", action, await fresh());
       expect(res.body, action.type).toMatchObject({

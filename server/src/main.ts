@@ -6,6 +6,7 @@ import { createApp } from "./app";
 import { bountyWords } from "./bounties";
 import { parseRpcUrls, rpcReader } from "./chain";
 import { ChatterService, chatterConfig } from "./chatter";
+import { eventWords } from "./events";
 import { FileMediaStore } from "./file-media-store";
 import { MemoryMediaStore } from "./media";
 import { Moderation } from "./moderation";
@@ -15,6 +16,7 @@ import { httpArtReader } from "./partner-art";
 import { PARTNERS } from "./partners";
 import { parseMaintainers, parseTownsfolk, SocialService } from "./social-service";
 import { JsonlStore, MemoryStore } from "./store";
+import { TOWN_EVENTS } from "./town-events";
 import { TownsfolkTips, tipsMode } from "./townsfolk-tips";
 import { TriageClient, triageConfig } from "./triage";
 import { DAY_LENGTH_MS, DAY_MS, WorldService } from "./world-service";
@@ -38,8 +40,9 @@ if (!Number.isInteger(trustedProxies) || trustedProxies < 0) {
 
 // New sessions per minute per IP. Only the e2e suite raises it, since all its browsers share one IP.
 const sessionsPerMinute = Number(process.env.TERRAKIN_SESSIONS_PER_MINUTE ?? 0) || undefined;
-// Tests only: a clock that `POST /v1/test/advance-day` moves forward a day at a time, so the e2e
-// suite can watch a proposal open, pass, and build. Never in production.
+// Tests only: a clock that `POST /v1/test/advance-day` moves forward a day at a time (or by
+// `minutes`), so the e2e suite can watch a proposal open, pass, and build, and an event start.
+// Never in production.
 const testClock = process.env.TERRAKIN_TEST_CLOCK === "1";
 if (testClock && process.env.NODE_ENV === "production") {
   console.error("TERRAKIN_TEST_CLOCK is for tests and can't be set when NODE_ENV=production.");
@@ -75,6 +78,7 @@ const service = new WorldService({
   market: true,
   bounties: true,
   presence: true,
+  townEvents: TOWN_EVENTS,
   townsfolk,
   maintainers,
   moderation,
@@ -96,6 +100,7 @@ const social = new SocialService({
   residentAgeDays: (id) => service.residentAgeDays(id),
   proposal: (id) => findProposal(service.state, id),
   bounty: (id) => bountyWords(service.state, id),
+  event: (id) => eventWords(service.state, id),
   moderators,
   // AI triage only with ANTHROPIC_API_KEY set; otherwise reports wait for people (decision 0040).
   triage: new TriageClient(triageConfig(process.env), socialSql, undefined, now),
@@ -196,9 +201,11 @@ const server = createApp({
   ...(testClock
     ? {
         testClock: {
-          advanceDay: (days: number) => {
-            offset += days * DAY_MS;
+          advanceDay: (days: number, minutes?: number) => {
+            offset += minutes === undefined ? days * DAY_MS : minutes * 60_000;
             service.tick();
+            // Hosted events (RFC 0010): the town's calendar and attendance samples, as the sweep would.
+            service.sweepEvents();
             return service.state.day ?? null;
           },
           // The e2e suite needs a maintainer, and resident ids are random, so it names one here.

@@ -495,10 +495,15 @@ describe("routes and links", () => {
     expect(a({}, "moderator")).toEqual([]);
   });
 
-  it("offers maintainers a cancel on a reported bounty, and moderators only dismiss", () => {
-    const bounty = item({ kind: "bounty", id: "b_2" });
-    expect(itemActions(bounty, "maintainer").map((a) => a.kind)).toContain("void_bounty");
-    expect(itemActions(bounty, "moderator").map((a) => a.kind)).not.toContain("void_bounty");
+  it("offers maintainers a cancel on a reported bounty or event, and moderators only dismiss", () => {
+    for (const [kind, id, action] of [
+      ["bounty", "b_2", "void_bounty"],
+      ["event", "e_2", "void_event"],
+    ] as const) {
+      const reported = item({ kind, id });
+      expect(itemActions(reported, "maintainer").map((a) => a.kind)).toContain(action);
+      expect(itemActions(reported, "moderator").map((a) => a.kind)).not.toContain(action);
+    }
   });
 
   it("links to the public site from the admin host", () => {

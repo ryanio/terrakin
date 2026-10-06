@@ -91,13 +91,14 @@ export interface AppOptions {
   tips?: TownsfolkTips;
   /**
    * Tests only (`TERRAKIN_TEST_CLOCK=1`): answers `POST /v1/test/advance-day` by moving the clock
-   * a day on, or `?days=N` days (1 to 400) in one jump, which the world takes as one `new_day`, and
-   * `POST /v1/test/sweep` by running the minute sweep now (idle residents, routines, snapshots).
-   * It's deliberately outside the route table, so it never appears in the API docs, and the
-   * Cloudflare adapter has no way to turn it on.
+   * a day on, or `?days=N` days (1 to 400) in one jump, which the world takes as one `new_day`, or
+   * `?minutes=N` minutes on (1 to 1,440), for an event's start, and `POST /v1/test/sweep` by
+   * running the minute sweep now (idle residents, routines, snapshots). It's deliberately outside
+   * the route table, so it never appears in the API docs, and the Cloudflare adapter has no way to
+   * turn it on.
    */
   testClock?: {
-    advanceDay(days: number): number | null;
+    advanceDay(days: number, minutes?: number): number | null;
     grantMaintainer?(residentId: string): void;
   };
 }
@@ -244,7 +245,9 @@ export function createApp(options: AppOptions): Server {
         400,
         Math.max(1, Math.trunc(Number(url.searchParams.get("days"))) || 1),
       );
-      const day = options.testClock.advanceDay(days);
+      const asked = Math.trunc(Number(url.searchParams.get("minutes")));
+      const minutes = asked >= 1 ? Math.min(1_440, asked) : undefined;
+      const day = options.testClock.advanceDay(days, minutes);
       return send(res, {
         status: 200,
         headers: { "content-type": "application/json", "cache-control": "no-store" },

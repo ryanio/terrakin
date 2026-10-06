@@ -14,6 +14,7 @@ import {
   HANDLE_HOLD_DAYS,
   HANDLE_PATTERN,
   HANDLE_RENAME_DAYS,
+  type HostingView,
   isReservedHandle,
   type KeptCharacter,
   type LookView,
@@ -49,6 +50,7 @@ import { isExclusiveWear, isOwnableKey, lookOf, type Resident } from "@terrakin/
 import { type AgentLinkOptions, AgentLinkService } from "./agent-links";
 import { AwayLog } from "./away-log";
 import { CheckinLog } from "./checkin-log";
+import { type EventContext, EventsSocial } from "./events";
 import { imageSize, sizeFields } from "./image-size";
 import { aimedAtReader, readerMessage } from "./injection";
 import { KarmaService } from "./karma";
@@ -184,6 +186,8 @@ export interface SocialServiceOptions {
   proposal?: (id: string) => { author: string; title: string; text: string } | undefined;
   /** A bounty, for reports on one; `author` is who posted it. Default: none exist. */
   bounty?: (id: string) => { author: string; title: string; text: string } | undefined;
+  /** A hosted event, for reports on one; `author` is its host. Default: none exist. */
+  event?: (id: string) => { author: string; title: string; text: string } | undefined;
   /**
    * Residents who can work the review queue but hold no other maintainer powers
    * (`TERRAKIN_MODERATORS`, RFC 0006). A server grant, like maintainers.
@@ -513,6 +517,7 @@ export class SocialService {
       residentAgeDays: options.residentAgeDays ?? (() => Number.POSITIVE_INFINITY),
       proposal: options.proposal ?? (() => undefined),
       bounty: options.bounty,
+      event: options.event,
       postMedia: (postId) => this.mediaFor([postId]).get(postId) ?? [],
       profileMedia: (residentId) => this.profileMedia(residentId),
       uploadMedia: (mediaId) => this.uploadMedia(mediaId),
@@ -527,6 +532,7 @@ export class SocialService {
       moderation: () => [this.moderation],
       triage: options.triage,
     });
+    this.events = new EventsSocial({ sql: this.sql, now: this.now });
     this.karma = new KarmaService({
       sql: this.sql,
       now: this.now,
@@ -534,6 +540,7 @@ export class SocialService {
       suspended: (id) => this.safety.suspendedUntil(id) !== undefined,
       ownerPairs: () => this.ownerPairs(),
       credits: options.credits,
+      hosting: (from, to) => this.events.karmaFacts(from, to),
       upheldAgainst: (from, to) => this.safety.upheldAgainst(from, to),
       resident: this.resident,
       ageDays: options.residentAgeDays ?? (() => Number.POSITIVE_INFINITY),
@@ -605,6 +612,32 @@ export class SocialService {
   readonly away: AwayLog;
   /** Karma (decision 0055): standing over 90 days, on profiles, and the daily appreciation coins. */
   readonly karma: KarmaService;
+  /** Hosted events' social side (RFC 0010): who's going, and each host's record. */
+  readonly events: EventsSocial;
+
+  /**
+   * What the event views need for one viewer, read once: going counts, the viewer's own, and the
+   * hosts they shouldn't see (blocked either way, or suspended).
+   */
+  eventContext(viewer: string | undefined): EventContext {
+    const blocked = viewer === undefined ? new Set<string>() : this.blockedWith(viewer);
+    const suspended = new Map<string, boolean>();
+    return {
+      now: this.now(),
+      author: (id) => this.authorView(id),
+      going: (event) => this.events.going(event),
+      mine: viewer === undefined ? new Set() : this.events.goingOf(viewer),
+      hidden: (host) => {
+        if (blocked.has(host)) return true;
+        let shut = suspended.get(host);
+        if (shut === undefined) {
+          shut = this.safety.suspendedUntil(host) !== undefined;
+          suspended.set(host, shut);
+        }
+        return shut;
+      },
+    };
+  }
 
   /** Review text with the edge filters as one resident. */
   review(surface: Surface, text: string, context: ReviewContext) {
@@ -1142,6 +1175,7 @@ export class SocialService {
       karma: this.karma.of(r.id),
       ...(viewerId && this.blocks(viewerId, r.id) ? { blocked: true } : {}),
       ...(this.votesCast ? { votes: this.votesCast(r.id) } : {}),
+      ...this.hostingField(r.id),
       ...this.ownerFields(r.id),
       ...this.keeperField(r),
       ...(this.safety.suspendedUntil(r.id) === undefined ? {} : { suspended: true }),
@@ -1149,6 +1183,12 @@ export class SocialService {
       ...this.agentLinkField(r.id),
       ...this.entitledField(r.id),
     };
+  }
+
+  /** Events they hosted in the last 90 days and the guests who counted (RFC 0010). */
+  private hostingField(id: string): { hosting?: HostingView } {
+    const hosting = this.events.hostingOf(id);
+    return hosting ? { hosting } : {};
   }
 
   /** Partner wear they may put on now (RFC 0007 phase 3), from the world's own list. */
@@ -2038,6 +2078,7 @@ export class SocialService {
     this.sql.exec("DELETE FROM notification_log WHERE created_at < ?", this.now() - 2 * DAY_MS);
     this.sql.exec("DELETE FROM x_codes WHERE expires_at < ?", this.now());
     this.together.sweep();
+    this.events.sweep();
     const old = this.now() - NOTIFICATION_KEEP_MS;
     this.sql.exec(
       "DELETE FROM notification_actors WHERE notification_id IN (SELECT id FROM notifications WHERE created_at < ?)",

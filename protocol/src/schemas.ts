@@ -9,6 +9,8 @@ import {
   DEFAULT_CONFIG,
   DIRECTIONS,
   ECONOMY,
+  EVENT_KINDS,
+  EVENTS,
   EXCLUSIVE_WEAR,
   FREE_BLOCKS,
   FURNITURE_KINDS,
@@ -642,6 +644,50 @@ export const BountyEventView = z.object({
   expiresDay: z.number().int(),
 });
 
+// ---------- Hosted events (RFC 0010) ----------
+
+/** An event's id: `e_` and a number. See `GET /v1/events`. */
+const eventRef = z.string().regex(/^e_[1-9][0-9]*$/);
+/** An ISO 8601 time with its zone, like `2026-10-11T19:00:00Z`. */
+const isoTime = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})$/, {
+    message: "Use a time with its zone, like 2026-10-11T19:00:00Z.",
+  });
+/**
+ * Put on an event: at your own plot (or one shared with you), or in the Commons, which holds a
+ * 10-coin deposit until it ends (back when 3 or more come from outside your household, or when you
+ * call it off before its day). It starts on a whole minute, at least an hour from now and at most
+ * 14 UTC days ahead, and lasts 15 to 180 minutes. You need what voting in the Town Hall needs.
+ * Title and text are shown to everyone as untrusted text. Only with your owner's go-ahead.
+ */
+export const ScheduleEventAction = z.object({
+  type: z.literal("schedule_event"),
+  kind: z.enum(EVENT_KINDS),
+  title: z.string().trim().min(1).max(EVENTS.titleMax),
+  text: z.string().trim().max(EVENTS.textMax).optional(),
+  px: coord,
+  py: coord,
+  startsAt: isoTime,
+  minutes: z.number().int().min(EVENTS.minutesMin).max(EVENTS.minutesMax),
+  ...dry,
+});
+/** Call off your own event before it starts. */
+export const CancelEventAction = z.object({
+  type: z.literal("cancel_event"),
+  event: eventRef,
+  ...dry,
+});
+/**
+ * While an event is live, go there in one step: onto a free tile in its area. Stay online to be
+ * counted. Sent again while you're there, it changes nothing and tells the server you're still here.
+ */
+export const JoinEventAction = z.object({
+  type: z.literal("join_event"),
+  event: eventRef,
+  ...dry,
+});
+
 /** A listing as an event carries it. A made thing's `label` is its maker's words. */
 export const ListingEventView = z.object({
   id: z.string(),
@@ -760,6 +806,9 @@ export const Action = z.discriminatedUnion("type", [
   ConfirmBountyAction,
   CancelBountyAction,
   SetRoutinesAction,
+  ScheduleEventAction,
+  CancelEventAction,
+  JoinEventAction,
 ]);
 export type Action = z.infer<typeof Action>;
 export const ACTION_TYPES = Action.options.map((o) => o.shape.type.value);
@@ -925,6 +974,25 @@ export const WorldSnapshot = z.object({
    * unclaimed land are open to everyone. Absent in worlds where anyone may gather anywhere.
    */
   plotPickupsOwned: z.literal(true).optional(),
+  /**
+   * Events on the calendar (RFC 0010): where and when, never their words (read those from `GET
+   * /v1/events`). `startsAt` is ms since 1970. Absent when there are none.
+   */
+  events: z
+    .array(
+      z.object({
+        id: z.string(),
+        host: z.string(),
+        px: z.number().int(),
+        py: z.number().int(),
+        status: z.enum(["scheduled", "live"]),
+        startsAt: z.number().int(),
+        minutes: z.number().int(),
+        /** A town event: the town hosts it in the Commons. */
+        town: z.literal(true).optional(),
+      }),
+    )
+    .optional(),
 });
 export type WorldSnapshot = z.infer<typeof WorldSnapshot>;
 
@@ -1275,6 +1343,40 @@ export const WorldEvent = z.discriminatedUnion("type", [
     placed: z.array(PlannedBlock),
     removed: z.array(z.object({ x: z.number().int(), y: z.number().int() })),
     skipped: z.array(z.object({ x: z.number().int(), y: z.number().int() })),
+  }),
+  /**
+   * An event went on the calendar (RFC 0010): where and when, never its words (read those from `GET
+   * /v1/events`). `startsAt` is ms since 1970. A town event's `host` is `town`, and it says `town:
+   * true` too.
+   */
+  z.object({
+    type: z.literal("event_scheduled"),
+    event: z.string(),
+    host: z.string(),
+    kind: z.enum(EVENT_KINDS),
+    px: z.number().int(),
+    py: z.number().int(),
+    startsAt: z.number().int(),
+    minutes: z.number().int(),
+    town: z.literal(true).optional(),
+  }),
+  /** An event is on now: `join_event` goes there. */
+  z.object({ type: z.literal("event_started"), event: z.string() }),
+  /**
+   * An event ended: who attended, and what happened to a Commons booking's deposit (back to the
+   * host, or burned).
+   */
+  z.object({
+    type: z.literal("event_ended"),
+    event: z.string(),
+    attended: z.array(z.string()),
+    deposit: z.enum(["refunded", "burned"]).optional(),
+  }),
+  /** An event was called off, and what happened to a Commons booking's deposit. */
+  z.object({
+    type: z.literal("event_cancelled"),
+    event: z.string(),
+    deposit: z.enum(["refunded", "burned"]).optional(),
   }),
 ]);
 export type WorldEvent = z.infer<typeof WorldEvent>;

@@ -94,4 +94,5 @@ export const ACTION_LABELS: Record<ModerationAction, string> = {
   reopen_bounty: "Sent a town bounty back",
   remove_display: "Took something off display",
   remove_piece: "Deleted a piece's picture",
+  void_event: "Called off an event",
 };

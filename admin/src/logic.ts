@@ -90,14 +90,15 @@ export type ActionKind =
   | "remove_display"
   | "remove_piece"
   | "void_bounty"
+  | "void_event"
   | "dismiss";
 
 export interface ItemAction {
   kind: ActionKind;
   label: string;
   /**
-   * The post, resident, listing, bounty, or made thing id the action goes to. Dismiss uses the
-   * item's own kind and id.
+   * The post, resident, listing, bounty, event, or made thing id the action goes to. Dismiss uses
+   * the item's own kind and id.
    */
   target: string;
   primary: boolean;
@@ -224,6 +225,16 @@ export function itemActions(item: ReportQueueItem, role: StaffRole = "maintainer
       confirm: "Tap again to cancel it",
     });
   }
+  // A reported event (RFC 0010): a maintainer can call it off, which sends a deposit back.
+  if (item.kind === "event" && target.exists && maintainer) {
+    out.push({
+      kind: "void_event",
+      label: "Call off event",
+      target: item.id,
+      primary: true,
+      confirm: "Tap again to call it off",
+    });
+  }
   out.push({ kind: "dismiss", label: "Dismiss reports", target: item.id, primary: false });
   return out;
 }
@@ -300,6 +311,7 @@ const KIND_WORDS: Record<ReportKind, string> = {
   bounty: "Bounty",
   display: "On display",
   piece: "Piece of art",
+  event: "Event",
 };
 
 /** The eyebrow over an item: "Post · 3 reports". */

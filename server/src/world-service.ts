@@ -11,6 +11,7 @@ import type {
 } from "@terrakin/protocol";
 import {
   BUILD_LIMITS,
+  EVENT_LEAD_MINUTES,
   facingFrom,
   fourWayFacing,
   KARMA,
@@ -28,15 +29,23 @@ import {
   type DailyAward,
   DEFAULT_CONFIG,
   type Direction,
+  EVENTS,
   entitledTo,
+  eventEndsAt,
+  eventOpen,
   everyGood,
   exactWearStyles,
   findBounty,
+  findEvent,
+  type HostedEvent,
   hashWorld,
   type Input,
+  inEventArea,
+  isTownEvent,
   LOOK_MEDIA_KEYS,
   type LookMediaKey,
   type LooseWearStyles,
+  lastSlot,
   listingById,
   ownerPaired,
   type ProfileFields,
@@ -85,6 +94,7 @@ import {
 import type { Store } from "./store";
 import { count, crumb, gauge, report, span } from "./telemetry";
 import { cleanMultiline, cleanText } from "./text";
+import type { TownEvent } from "./town-events";
 
 export type ActResult =
   | {
@@ -182,6 +192,12 @@ export interface WorldServiceOptions {
   presence?: boolean;
   /** Inputs one minute's sweep replays while verifying a snapshot. Tests make it small. */
   verifySlice?: number;
+  /**
+   * The town's own events (RFC 0010, `TOWN_EVENTS` in town-events.ts): each is logged once as
+   * `schedule_town_event` when its day comes inside the booking window. Both adapters pass the
+   * calendar. Default: none, so a test world's log holds only what the test sent.
+   */
+  townEvents?: readonly TownEvent[];
 }
 
 /**
@@ -198,7 +214,8 @@ function toWire(events: WorldEvent[], townsfolk: readonly string[] = []): WireEv
       e.type === "owner_pair_added" ||
       e.type === "owner_pair_removed" ||
       e.type === "maintainers_set" ||
-      e.type === "implicit_presence_on"
+      e.type === "implicit_presence_on" ||
+      e.type === "event_ticked"
     ) {
       continue;
     }
@@ -290,6 +307,9 @@ export const DAY_MS = 86_400_000;
 export const utcDay = (ms: number) => Math.floor(ms / DAY_MS);
 
 export type { WorldCredit } from "./snapshots";
+
+/** Minutes between an event's attendance samples, in ms. */
+const TICK_MS = EVENTS.tickMinutes * 60_000;
 
 /** The most ended days `tick` pays appreciation for at once, after a stretch with no requests. */
 const AWARD_CATCH_UP = 7;
@@ -420,6 +440,9 @@ export class WorldService {
   private readonly market: boolean;
   private readonly bounties: boolean;
   private readonly presence: boolean;
+  private readonly townEvents: readonly TownEvent[];
+  /** Town events whose refusal was already reported this boot, so the sweep reports each once. */
+  private readonly townEventsReported = new Set<string>();
   /** The edge filters for names, notes, chat, and proposals. */
   readonly moderation: Moderation;
   /**
@@ -489,6 +512,7 @@ export class WorldService {
     this.market = options.market ?? false;
     this.bounties = options.bounties ?? false;
     this.presence = options.presence ?? false;
+    this.townEvents = options.townEvents ?? [];
     // A day may have started (and proposals come due) while the server was down.
     this.tick();
   }
@@ -611,6 +635,15 @@ export class WorldService {
    */
   dailyAwards: ((day: number) => DailyAward[]) | undefined;
 
+  /** A resident's id from their handle, from the social layer, for a town event's faces. */
+  residentByHandle: ((handle: string) => string | undefined) | undefined;
+
+  /**
+   * Hears each event that ended (RFC 0010), with the day it ended on, for the hosting record and
+   * karma. The world keeps who attended; the social layer decides who counts.
+   */
+  onEventEnded: ((event: HostedEvent, day: number) => void) | undefined;
+
   /** Gifts and votes from `sinceDay` on, for karma. */
   credits(sinceDay: number): WorldCredit[] {
     return this.facts.credits.filter((c) => c.day >= sinceDay);
@@ -698,6 +731,112 @@ export class WorldService {
       });
       if (!closed.ok) console.error(`Couldn't close ${p.id}: ${closed.error.message}`);
     }
+    this.runEvents();
+  }
+
+  // ---------- hosted events (RFC 0010) ----------
+
+  /**
+   * Start every event whose time has come, and end every one whose time is up. An event whose whole
+   * time passed while the server slept starts and ends at once, with nobody sampled. Samples and the
+   * town's calendar are the minute sweep's (`sweepEvents`), never a boot's or a request's: right
+   * after a boot everyone is offline, so a sample then would count nobody.
+   */
+  private runEvents() {
+    const now = this.now();
+    for (const e of [...(this.state.events?.list ?? [])]) {
+      if (e.status === "scheduled" && now >= e.startsAt) {
+        this.eventInput({ type: "event_start", event: e.id });
+      }
+      if (e.status === "live" && now >= eventEndsAt(e)) {
+        this.eventInput({ type: "event_end", event: e.id });
+      }
+    }
+  }
+
+  /** Log one of an event's own inputs, and report a refusal: the event would be stuck. */
+  private eventInput(command: Command) {
+    const done = this.run({ actor: TOWN_ACTOR, command });
+    if (!done.ok) {
+      report(new Error(`${command.type} refused: ${done.error.code}`), "world.events", {
+        command: command.type,
+      });
+    }
+  }
+
+  /**
+   * Log each town event from config once its day is inside the booking window and while it's still
+   * to come. The sim refuses one whose `key` it already has, so this is safe to run every minute.
+   */
+  private scheduleTownEvents(now: number) {
+    const today = this.state.day;
+    if (today === undefined) return;
+    for (const t of this.townEvents) {
+      if (this.state.events?.list.some((e) => e.key === t.key)) continue;
+      const startsAt = Date.parse(t.startsAt);
+      if (!(startsAt > now) || utcDay(startsAt) > today + EVENTS.aheadDays) continue;
+      const faces = (t.faces ?? []).flatMap((handle) => {
+        const id = this.residentByHandle?.(handle);
+        return id && this.state.townsfolk?.includes(id) ? [id] : [];
+      });
+      const done = this.run({
+        actor: TOWN_ACTOR,
+        command: {
+          type: "schedule_town_event",
+          key: t.key,
+          kind: t.kind,
+          title: t.title,
+          text: t.text,
+          startsAt,
+          minutes: t.minutes,
+          ...(faces.length > 0 ? { faces } : {}),
+        },
+      });
+      if (!done.ok && !this.townEventsReported.has(t.key)) {
+        this.townEventsReported.add(t.key);
+        report(new Error(`schedule_town_event refused: ${done.error.code}`), "world.events", {
+          command: "schedule_town_event",
+        });
+      }
+    }
+  }
+
+  /**
+   * The minute sweep's part in events: log the town's events that are due on the calendar, then
+   * sample attendance at every live event whose next 5-minute mark has come. A mark the server
+   * missed (asleep, or down) is skipped, never made up.
+   */
+  sweepEvents() {
+    const now = this.now();
+    this.scheduleTownEvents(now);
+    for (const e of [...(this.state.events?.list ?? [])]) {
+      if (e.status !== "live" || now >= eventEndsAt(e)) continue;
+      const slot = Math.min(Math.floor((now - e.startsAt) / TICK_MS), lastSlot(e.minutes));
+      if (slot >= 1 && slot > (e.slot ?? 0)) {
+        this.eventInput({ type: "event_tick", event: e.id, slot });
+      }
+    }
+  }
+
+  /**
+   * When the world should next be awake for its events, or undefined: in a minute while one is
+   * live (so samples land on time and REST guests stay online between calls), else when the next
+   * one starts. The Worker sets its alarm from this.
+   */
+  nextEventWake(): number | undefined {
+    const now = this.now();
+    let next: number | undefined;
+    for (const e of this.state.events?.list ?? []) {
+      const at =
+        e.status === "live" ? now + 60_000 : e.status === "scheduled" ? e.startsAt : undefined;
+      if (at !== undefined && (next === undefined || at < next)) next = at;
+    }
+    return next === undefined ? undefined : Math.max(next, now + 60_000);
+  }
+
+  /** A maintainer calls off an event that hasn't ended. Logged as a world input naming them. */
+  voidEvent(event: string, by: string): ActResult {
+    return this.run({ actor: TOWN_ACTOR, command: { type: "void_event", event, by } });
   }
 
   /**
@@ -1032,6 +1171,14 @@ export class WorldService {
     return { ok: true, seq: this.state.seq, events: [] };
   }
 
+  /**
+   * A signed-in read that keeps an online resident from going idle, without logging anything: a
+   * live event's guest reading it (RFC 0010).
+   */
+  stillHere(residentId: string) {
+    if (this.state.residents[residentId]?.online) this.touch(residentId);
+  }
+
   /** Bring a known resident back online if they went idle or the server restarted. */
   ensureOnline(residentId: string): ActResult {
     this.touch(residentId);
@@ -1242,6 +1389,34 @@ export class WorldService {
       };
       return this.run({ actor: residentId, command }, dry);
     }
+    if (action.type === "schedule_event") return this.scheduleEvent(residentId, action, dry);
+    if (action.type === "join_event") {
+      const e = findEvent(this.state, action.event);
+      const host = e && !isTownEvent(e) ? e.host : undefined;
+      // Like a gift, going to an event can't cross a block, and a suspended host's are shut.
+      if (host && this.blockedEither(residentId, host)) {
+        return {
+          ok: false,
+          error: { code: "forbidden", message: "You can't go to this resident's events." },
+        };
+      }
+      if (host && this.suspended(host)) {
+        return {
+          ok: false,
+          error: { code: "forbidden", message: "That event is closed for now." },
+        };
+      }
+      // Already there and online: nothing to log. The call itself says they're still here.
+      const me = residentById(this.state, residentId);
+      if (
+        e?.status === "live" &&
+        me &&
+        (me.online || dry) &&
+        inEventArea(this.state.config, e, me.x, me.y)
+      ) {
+        return { ok: true, seq: this.state.seq, events: [] };
+      }
+    }
     if (action.type === "claim_bounty") {
       // Like a sale, a bounty can't cross a block either way, and a suspended poster's are shut.
       const b = findBounty(this.state, action.bounty);
@@ -1308,6 +1483,56 @@ export class WorldService {
       return this.run({ actor: residentId, command }, dry);
     }
     return this.run({ actor: residentId, command: action satisfies Command }, dry);
+  }
+
+  /**
+   * `schedule_event`: the words are cleaned and filtered like a bounty's before they're logged
+   * (decision 0004), and the start, sent as an ISO time, is checked against the clock (at least
+   * `EVENT_LEAD_MINUTES` ahead). The sim checks the rest.
+   */
+  private scheduleEvent(
+    residentId: string,
+    action: Extract<Action, { type: "schedule_event" }>,
+    dry: boolean,
+  ): ActResult {
+    const context = { resident: residentId };
+    const title = cleanText(action.title);
+    const text = cleanMultiline(action.text ?? "");
+    const refused =
+      filtered(this.moderation, "event_title", title, context) ??
+      filtered(this.moderation, "event_text", text, context);
+    if (refused) return refused;
+    const startsAt = Date.parse(action.startsAt);
+    if (!Number.isSafeInteger(startsAt) || startsAt % 60_000 !== 0) {
+      return {
+        ok: false,
+        error: {
+          code: "invalid_event",
+          message: "Start on a whole minute, like 2026-10-11T19:00:00Z.",
+        },
+      };
+    }
+    const now = this.now();
+    if (startsAt < now + EVENT_LEAD_MINUTES * 60_000) {
+      return {
+        ok: false,
+        error: {
+          code: "invalid_event",
+          message: `An event starts at least an hour from now, so guests can plan. It's ${new Date(now).toISOString()} here.`,
+        },
+      };
+    }
+    const command: Command = {
+      type: "schedule_event",
+      kind: action.kind,
+      title,
+      ...(text ? { text } : {}),
+      px: action.px,
+      py: action.py,
+      startsAt,
+      minutes: action.minutes,
+    };
+    return this.run({ actor: residentId, command }, dry);
   }
 
   // ---------- build (RFC 0016) ----------
@@ -1541,6 +1766,15 @@ export class WorldService {
     this.facts.note(input, this.state.day ?? 0);
     for (const e of events) {
       if (e.type === "admired") this.onAdmired?.(e.by, e.maker, this.state.day ?? 0);
+      if (e.type === "event_ended") {
+        const ended = findEvent(this.state, e.event);
+        try {
+          if (ended) this.onEventEnded?.(ended, this.state.day ?? 0);
+        } catch (err) {
+          // The world already moved on; the hosting record misses this one.
+          report(err, "world.event_ended", { command: input.command.type });
+        }
+      }
     }
     const wire = toWire(events, this.state.townsfolk);
     for (const event of publicEvents(wire)) this.broadcast({ type: "event", seq, event });
@@ -1850,6 +2084,20 @@ export class WorldService {
         : {}),
       ...(state.items && state.day !== undefined ? { pickups: pickupsToday(state) } : {}),
       ...(plotPickupsOwned(state) ? { plotPickupsOwned: true as const } : {}),
+      ...(state.events?.list.some(eventOpen)
+        ? {
+            events: state.events.list.filter(eventOpen).map((e) => ({
+              id: e.id,
+              host: e.host,
+              px: e.px,
+              py: e.py,
+              status: e.status as "scheduled" | "live",
+              startsAt: e.startsAt,
+              minutes: e.minutes,
+              ...(isTownEvent(e) ? { town: true as const } : {}),
+            })),
+          }
+        : {}),
     };
   }
 }

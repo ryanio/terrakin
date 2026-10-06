@@ -11,6 +11,7 @@ import { Api, ipKey, isApiPath, MAX_BODY_BYTES } from "../src/api";
 import { bountyWords } from "../src/bounties";
 import { parseRpcUrls } from "../src/chain";
 import { ChatterService, chatterConfig } from "../src/chatter";
+import { eventWords } from "../src/events";
 import {
   MEDIA_ID,
   type MediaBucket,
@@ -44,6 +45,7 @@ import { materializePlot, type PlotPhotoSpec } from "../src/plot-photo";
 import { parseMaintainers, parseTownsfolk, SocialService } from "../src/social-service";
 import { SqlStore } from "../src/sql-store";
 import { report, sentryOptions, span } from "../src/telemetry";
+import { TOWN_EVENTS } from "../src/town-events";
 import { TIPS_CRON, TownsfolkTips, tipsMode } from "../src/townsfolk-tips";
 import { TriageClient, triageConfig } from "../src/triage";
 import { WorldService } from "../src/world-service";
@@ -358,6 +360,7 @@ class WorldObject extends DurableObject<Env> {
       market: true,
       bounties: true,
       presence: true,
+      townEvents: TOWN_EVENTS,
       townsfolk,
       maintainers,
       moderation,
@@ -385,6 +388,7 @@ class WorldObject extends DurableObject<Env> {
       residentAgeDays: (id) => service.residentAgeDays(id),
       proposal: (id) => findProposal(service.state, id),
       bounty: (id) => bountyWords(service.state, id),
+      event: (id) => eventWords(service.state, id),
       moderators,
       triage: new TriageClient(triageConfig(env), ctx.storage.sql),
       agentLinks: {
@@ -421,18 +425,27 @@ class WorldObject extends DurableObject<Env> {
     // Runs while the object is in memory: idle sweeps, the Town Hall's clock, and snapshot
     // verification. If it's evicted, nobody is connected; the next boot marks everyone offline,
     // and boot and every request catch the day up and close what's due.
-    setInterval(() => this.api.sweep(), 60_000);
+    // Each sweep also keeps the alarm set for the next event to start (RFC 0010).
+    setInterval(() => {
+      this.api.sweep();
+      void this.armRecheck();
+    }, 60_000);
     // A link made before a restart still needs its rechecks.
     void this.armRecheck();
   }
 
   /**
-   * Agent links are rechecked from the object's alarm (RFC 0007), which wakes it even when nobody
-   * is connected. The alarm is set only while links exist, for when the next one is due, and never
-   * sooner than AGENT_RECHECK_EVERY_MS from now.
+   * The object's alarm wakes it even when nobody is connected, for two things. Agent links are
+   * rechecked (RFC 0007): only while links exist, for when the next one is due, and never sooner
+   * than AGENT_RECHECK_EVERY_MS from now. And events (RFC 0010): every minute while one is live, so
+   * the object stays in memory, samples land on time, and guests calling over REST stay online
+   * between calls; else when the next one starts.
    */
   private nextRecheck(): number | undefined {
-    return nextRecheckAt(Date.now(), this.api.nextAgentRecheckAt());
+    const recheck = nextRecheckAt(Date.now(), this.api.nextAgentRecheckAt());
+    const events = this.api.nextEventWakeAt();
+    if (recheck === undefined) return events;
+    return events === undefined ? recheck : Math.min(recheck, events);
   }
 
   private async armRecheck(): Promise<void> {
@@ -454,6 +467,13 @@ class WorldObject extends DurableObject<Env> {
   }
 
   override async alarm(): Promise<void> {
+    try {
+      // Events' starts, ends, and samples are due on the minute.
+      this.api.sweep();
+    } catch (err) {
+      console.error(err);
+      report(err, "world.sweep");
+    }
     try {
       await this.api.recheckAgentLinks();
     } catch (err) {

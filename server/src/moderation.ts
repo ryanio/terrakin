@@ -57,6 +57,8 @@ export type Surface =
   | "proposal_text"
   | "bounty_title"
   | "bounty_text"
+  | "event_title"
+  | "event_text"
   | "notice";
 
 type SpamCheck = "repeat" | "crowd" | "links" | "mentions" | "caps" | "runs";
@@ -178,6 +180,21 @@ export const POLICY: Record<Surface, Policy> = {
   },
   bounty_text: {
     label: "Bounties",
+    vulgar: "refuse",
+    impersonation: "text",
+    shorteners: true,
+    spam: ["links", "mentions", "runs", "caps"],
+  },
+  // An event invites people somewhere, which is where a lure would sound like staff (RFC 0010).
+  event_title: {
+    label: "Events",
+    vulgar: "refuse",
+    impersonation: "text",
+    shorteners: true,
+    spam: ["runs", "caps"],
+  },
+  event_text: {
+    label: "Events",
     vulgar: "refuse",
     impersonation: "text",
     shorteners: true,

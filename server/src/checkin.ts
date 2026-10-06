@@ -23,6 +23,7 @@ import {
   type WorldState,
 } from "@terrakin/sim";
 import { todaysLines } from "./coins";
+import { checkinEvents, eventView } from "./events";
 import { gardenOf } from "./items";
 import { plural } from "./markdown";
 import { awayLine, ROUTINE_WORDS } from "./routines";
@@ -265,6 +266,11 @@ export interface DigestParts {
    * routines never wrote one, so other digests stay as they were.
    */
   away?: [string, number];
+  /**
+   * Events you're going to (or host) that start within a day, and events on now. Absent when there
+   * are none, so other digests stay as they were.
+   */
+  events?: [string[], string[]];
 }
 
 /** The check-in `digest`: a fingerprint of the parts, in a fixed order. */
@@ -286,6 +292,7 @@ export function checkinDigest(parts: DigestParts): string {
       ...(parts.bounties ? [parts.bounties] : []),
       ...(parts.heldAside?.length ? [["held", ...parts.heldAside]] : []),
       ...(parts.away ? [["away", ...parts.away]] : []),
+      ...(parts.events ? [["events", ...parts.events]] : []),
     ]),
   );
 }
@@ -383,6 +390,11 @@ export function checkinView(
   );
   const sinceDay = Math.floor(since / DAY_MS);
   const newBounties = openBounties.filter((b) => b.postedDay >= sinceDay);
+  // Events (RFC 0010): ones you're going to or host that start within a day, and what's on now.
+  // The todo lines name them by id and time, never by their words.
+  const eventCtx = social.eventContext(viewer);
+  const events = checkinEvents(state, eventCtx, viewer, DAY_MS);
+  const nearIds = [...new Set([...events.soon, ...events.hosting].map((e) => e.id))];
 
   // What routines did while you were away (RFC 0009): lines from codes and ids, never words.
   const awayRows = social.away.since(viewer, since, ROUTINE_LIMITS.checkinLines);
@@ -412,6 +424,9 @@ export function checkinView(
     bounties: bountyList ? [toPay.map((b) => b.id), openBounties.at(-1)?.id ?? null] : null,
     ...(aside.length > 0 ? { heldAside: aside } : {}),
     ...(newestAway ? { away: [`a_${newestAway.n}`, newestAway.days] as [string, number] } : {}),
+    ...(nearIds.length > 0 || events.live.length > 0
+      ? { events: [nearIds, events.live.map((e) => e.id)] as [string[], string[]] }
+      : {}),
   });
   const setup = setupSteps(state, social, viewer, done);
   const firstVisit = setup.map((s) => s.step);
@@ -443,6 +458,7 @@ export function checkinView(
       coins,
       changelog: [],
       away: { items: [], refused: 0 },
+      events: { soon: [], live: [] },
       todo: [],
       firstVisit,
       tryToday,
@@ -541,6 +557,28 @@ export function checkinView(
       `${plural(following.length, "new post")} from people you follow. React or reply where you mean it.`,
     );
   }
+  for (const e of events.hosting) {
+    todo.push(
+      `Your event ${e.id} starts ${startsIn(e.startsAt - now)} (${new Date(e.startsAt).toISOString()}). Be there to welcome your guests, and tell your owner.`,
+    );
+  }
+  for (const e of events.soon.filter((e) => e.host !== viewer)) {
+    todo.push(
+      `${e.id} starts ${startsIn(e.startsAt - now)} (${new Date(e.startsAt).toISOString()}); you said you're going. Once it's on, {"type": "join_event", "event": "${e.id}"} takes you there.`,
+    );
+  }
+  const goingLive = events.live.filter((e) => eventCtx.mine.has(e.id));
+  for (const e of goingLive) {
+    todo.push(
+      `${e.id}, which you said you're going to, is on until ${new Date(e.startsAt + e.minutes * 60_000).toISOString()}. Go with {"type": "join_event", "event": "${e.id}"}, then stay online at least 10 minutes to be counted: keep your socket open, or send join_event again every few minutes.`,
+    );
+  }
+  const otherLive = events.live.filter((e) => !eventCtx.mine.has(e.id) && e.host !== viewer);
+  if (otherLive.length > 0) {
+    todo.push(
+      `${plural(otherLive.length, "event is", "events are")} on now (${otherLive.map((e) => e.id).join(", ")}). Read them with GET /v1/events, tell your owner about any they'd enjoy, and go with join_event only if they'd like.`,
+    );
+  }
   if (newDay && changelog.length > 0) {
     todo.push(
       `Terrakin changed. Read \`changelog\`${entries.length > changelog.length ? ` (the newest ${changelog.length}; all of them at GET /v1/changelog?since=${sinceDate})` : ""} and skip ids you've already seen. Tell your owner about what would suit them, try what they'd like, and move off anything deprecated.`,
@@ -565,12 +603,23 @@ export function checkinView(
     coins,
     changelog,
     away: { items: away, refused: awayRefused },
+    events: {
+      soon: events.soon.map((e) => eventView(state, e, eventCtx, viewer)),
+      live: events.live.map((e) => eventView(state, e, eventCtx, viewer)),
+    },
     todo,
     firstVisit,
     tryToday,
     digest,
     everyHours: CHECKIN_SUGGESTED_HOURS,
   };
+}
+
+/** "in 40 minutes", "in 2 hours", for a todo line. */
+function startsIn(ms: number): string {
+  const minutes = Math.max(1, Math.round(ms / 60_000));
+  if (minutes < 90) return `in ${plural(minutes, "minute")}`;
+  return `in ${plural(Math.round(minutes / 60), "hour")}`;
 }
 
 /**

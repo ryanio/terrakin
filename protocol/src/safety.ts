@@ -23,6 +23,8 @@ export const REPORT_KINDS = [
   "display",
   /** A piece of art, by its id (`i_7`), wherever it is: its picture and its title. */
   "piece",
+  /** A hosted event, by its id (`e_7`): its title and text (RFC 0010). */
+  "event",
 ] as const;
 export const ReportKind = z.enum(REPORT_KINDS);
 export type ReportKind = z.infer<typeof ReportKind>;
@@ -235,6 +237,8 @@ export const MODERATION_ACTIONS = [
   "remove_display",
   /** Staff deleted a piece's picture, from every piece showing that upload and from storage. */
   "remove_piece",
+  /** A maintainer called off an event; a Commons booking's deposit went back to its host. */
+  "void_event",
 ] as const;
 export const ModerationAction = z.enum(MODERATION_ACTIONS);
 export type ModerationAction = z.infer<typeof ModerationAction>;

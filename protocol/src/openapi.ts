@@ -3,6 +3,7 @@ import * as bounties from "./bounties";
 import * as changelog from "./changelog";
 import * as checkin from "./checkin";
 import * as coins from "./coins";
+import * as events from "./events";
 import * as galleries from "./galleries";
 import * as items from "./items";
 import * as market from "./market";
@@ -116,6 +117,7 @@ function namedSchemas() {
     ...shop,
     ...market,
     ...bounties,
+    ...events,
     ...snapshots,
     ...routines,
   })) {
@@ -164,7 +166,7 @@ export function buildOpenApi() {
     const name = names.get(schema);
     if (!name)
       throw new Error(
-        `${where} uses a schema that isn't exported from schemas.ts, social.ts, town.ts, changelog.ts, safety.ts, checkin.ts, coins.ts, galleries.ts, items.ts, market.ts, bounties.ts, partners.ts, shop.ts, snapshots.ts, or routines.ts`,
+        `${where} uses a schema that isn't exported from schemas.ts, social.ts, town.ts, changelog.ts, safety.ts, checkin.ts, coins.ts, galleries.ts, items.ts, market.ts, bounties.ts, events.ts, partners.ts, shop.ts, snapshots.ts, or routines.ts`,
       );
     return ref(name);
   };

@@ -9,6 +9,7 @@ import {
   changelogResponse,
   compileRoutes,
   type ErrorCode,
+  type EventResponse,
   errorStatus,
   type GestureItem,
   INVITE_PLOT_SUGGESTIONS,
@@ -51,13 +52,19 @@ import {
 } from "@terrakin/protocol";
 import {
   canBuildOn,
+  eventOpen,
   findBounty,
+  findEvent,
   findProposal,
   goodById,
+  type HostedEvent,
   heldAsideOf,
+  inEventArea,
+  isTownEvent,
   listingById,
   plotPlan,
   REPLAY_VERSION,
+  residentById,
   routinesOf,
 } from "@terrakin/sim";
 import { AiSpend, SUMMARY_DAYS } from "./ai-spend";
@@ -65,6 +72,7 @@ import { bountiesView, bountyView, staffBountiesView } from "./bounties";
 import type { ChatterRun, ChatterService } from "./chatter";
 import { checkinView } from "./checkin";
 import { purseView } from "./coins";
+import { countGuests, eventsView, eventView } from "./events";
 import { galleriesView, madeThingForReport } from "./galleries";
 import { IdempotencyStore, type StoredResponse, sha256Hex } from "./idempotency";
 import { inventoryView } from "./items";
@@ -563,6 +571,19 @@ export class Api {
       layer.safety.removePiecePictures = (mediaId) => this.service.removePiecePictures(mediaId);
       // Appreciation coins (decision 0055): counted from reactions, logged once a day by `tick`.
       this.service.dailyAwards = (day) => layer.karma.awards(day);
+      // Hosted events (RFC 0010): the town's events name townsfolk by handle, and each event that
+      // ends leaves its host's record, with who counted decided out here (ages, blocks).
+      this.service.residentByHandle = (handle) => layer.residentIdByHandle(handle);
+      this.service.onEventEnded = (event, day) =>
+        layer.events.recordEnded(
+          event,
+          day,
+          countGuests(this.service.state, event, {
+            ageDays: (id) => this.service.residentAgeDays(id),
+            blockedEither: (a, b) => layer.blockedEither(a, b),
+            hostsToday: (guest) => layer.events.hostsCounted(guest, day),
+          }),
+        );
       this.service.syncOwnerPairs(layer.ownerPairs());
       // Partner wear (RFC 0007 phase 3): logged as each link changes, and caught up on a timer so
       // promos start and end on the server's clock. At boot, everything at once.
@@ -1524,6 +1545,25 @@ export class Api {
         const detail = proposalDetail(service.state, social(), params.id, viewer);
         return detail ? { status: 200, body: detail } : fail("internal", "Proposal vanished.");
       },
+      // ---------- hosted events (RFC 0010) ----------
+      getEvents: ({ viewer, query }) => ({
+        status: 200,
+        body: eventsView(service.state, social().eventContext(viewer), viewer, query),
+      }),
+      getEvent: ({ viewer, params }) => {
+        const e = findEvent(service.state, params.id);
+        const ctx = social().eventContext(viewer);
+        if (!e || (!isTownEvent(e) && ctx.hidden(e.host)))
+          return fail("not_found", "No such event.");
+        // Reading a live event while you stand in its area keeps you counted, like an open socket.
+        const me = viewer === undefined ? undefined : residentById(service.state, viewer);
+        if (viewer && me?.online && e.status === "live") {
+          if (inEventArea(service.state.config, e, me.x, me.y)) service.stillHere(viewer);
+        }
+        return { status: 200, body: this.eventResponse(e, viewer) };
+      },
+      markGoing: ({ viewer, params }) => this.setGoing(viewer, params.id, true),
+      unmarkGoing: ({ viewer, params }) => this.setGoing(viewer, params.id, false),
       createNotice: ({ viewer, body }) =>
         fromResult(social().createNotice(viewer, body), (notice) => ({
           status: 201 as const,
@@ -1845,6 +1885,19 @@ export class Api {
         social().safety.recordAction(viewer, "void_bounty", "bounty", params.id, body.reason);
         return this.staffBounty(params.id);
       },
+      voidEvent: async ({ viewer, params, body }) => {
+        if (this.staffRole(viewer) !== "maintainer") {
+          return fail("forbidden", WORLD_MAINTAINERS_ONLY);
+        }
+        if (!findEvent(service.state, params.id)) return fail("not_found", "No such event.");
+        const done = service.voidEvent(params.id, await worldStaffId(viewer));
+        if (!done.ok) return fail(done.error.code, done.error.message);
+        social().safety.recordAction(viewer, "void_event", "event", params.id, body.reason);
+        const e = findEvent(service.state, params.id);
+        if (!e) return fail("internal", "Event vanished.");
+        const ctx = social().eventContext(undefined);
+        return { status: 200, body: { event: eventView(service.state, e, ctx) } };
+      },
       // World snapshots and the log (RFC 0014): maintainers only.
       getStaffSnapshots: ({ viewer }) => {
         if (this.staffRole(viewer) !== "maintainer") {
@@ -2131,6 +2184,34 @@ export class Api {
     };
   }
 
+  /** One event as `GET /v1/events/{id}` answers it. */
+  private eventResponse(e: HostedEvent, viewer: string | undefined): EventResponse {
+    const ctx = this.requireSocial().eventContext(viewer);
+    return {
+      now: new Date(ctx.now).toISOString(),
+      event: eventView(this.service.state, e, ctx, viewer),
+    };
+  }
+
+  /**
+   * Say you're going to an event, or take it back. A social row, public as a count: it never
+   * changes attendance. Not for an event whose host you've blocked or who blocked you.
+   */
+  private setGoing(viewer: string, id: string, going: boolean) {
+    const social = this.requireSocial();
+    const e = findEvent(this.service.state, id);
+    const ctx = social.eventContext(viewer);
+    if (!e || (!isTownEvent(e) && ctx.hidden(e.host))) return fail("not_found", "No such event.");
+    if (going) {
+      if (!eventOpen(e)) return fail("event_closed", `${e.id} has ${e.status}.`);
+      if (!isTownEvent(e) && social.blockedEither(viewer, e.host)) {
+        return fail("forbidden", "You can't go to this resident's events.");
+      }
+    }
+    social.events.setGoing(e.id, viewer, going);
+    return { status: 200 as const, body: this.eventResponse(e, viewer) };
+  }
+
   /** The staff overview's chatter line: settings, today's use, the last run, and dry-run drafts. */
   private chatterStatus() {
     const chatter = this.chatter;
@@ -2177,8 +2258,18 @@ export class Api {
     });
   }
 
+  /**
+   * When the world should next be awake for its events (RFC 0010), or undefined: a minute from now
+   * while one is live, else when the next one starts. The Worker's alarm wakes it then and sweeps.
+   */
+  nextEventWakeAt(): number | undefined {
+    return this.service.nextEventWake();
+  }
+
   private sweepNow() {
     this.service.tick();
+    // Before the idle sweep, so a guest whose last call was ten minutes ago is counted once more.
+    this.service.sweepEvents();
     this.service.sweepIdle();
     // After the idle sweep, so whoever just went idle is away for their routines.
     runRoutines(this.routines);

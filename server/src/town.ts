@@ -19,6 +19,7 @@ import {
   type WorldState,
 } from "@terrakin/sim";
 import { treasuryView } from "./coins";
+import { boardEvents } from "./events";
 import { townShopView } from "./shop";
 import type { SocialService } from "./social-service";
 import { DAY_MS } from "./world-service";
@@ -109,6 +110,7 @@ export function townView(state: WorldState, social: SocialService, viewer?: stri
     limits: { ...TOWN_VIEW_LIMITS },
     treasury: treasuryView(state, (id) => social.authorView(id)),
     shop: townShopView(state),
+    events: boardEvents(state, social.eventContext(viewer), viewer),
   };
 }
 

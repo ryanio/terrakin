@@ -58,6 +58,8 @@ export interface SafetyOptions {
   bounty?:
     | ((id: string) => { author: string; title: string; text: string } | undefined)
     | undefined;
+  /** A hosted event from the world, for reports on one. Its author is its host. Default: none. */
+  event?: ((id: string) => { author: string; title: string; text: string } | undefined) | undefined;
   /** A post's files, as its view shows them. */
   postMedia: (postId: string) => MediaView[];
   /** A resident's avatar and banner files, so a profile report shows its pictures. */
@@ -146,6 +148,7 @@ const AGREES: Record<TriageAction, ReadonlySet<ModerationAction> | "any"> = {
     "void_bounty",
     "remove_display",
     "remove_piece",
+    "void_event",
     "suspend",
   ]),
   suspend: new Set(["suspend"]),
@@ -375,6 +378,7 @@ export class SafetyService {
     if (kind === "listing") return this.listing(id)?.seller;
     if (kind === "display" || kind === "piece") return this.madeThing(kind, id)?.owner;
     if (kind === "bounty") return this.o.bounty?.(id)?.author;
+    if (kind === "event") return this.o.event?.(id)?.author;
     if (kind === "post") {
       const row = this.rows("SELECT author FROM posts WHERE id = ?", id)[0];
       return row ? String(row.author) : undefined;
@@ -843,7 +847,12 @@ export class SafetyService {
         onDisplay: t.onDisplay,
       });
     }
-    const p = kind === "bounty" ? this.o.bounty?.(id) : this.o.proposal(id);
+    const p =
+      kind === "bounty"
+        ? this.o.bounty?.(id)
+        : kind === "event"
+          ? this.o.event?.(id)
+          : this.o.proposal(id);
     return p ? base(p.author, [p.title, p.text].filter(Boolean).join("\n")) : gone;
   }
 
@@ -1046,7 +1055,9 @@ export class SafetyService {
             ? this.o.proposal(String(row.target))?.author
             : row.kind === "bounty"
               ? this.o.bounty?.(String(row.target))?.author
-              : row.against;
+              : row.kind === "event"
+                ? this.o.event?.(String(row.target))?.author
+                : row.against;
         return typeof against === "string" && against !== "" ? [against] : [];
       })
       .concat(made);
@@ -1365,6 +1376,7 @@ const NOT_FOUND: Record<ReportKind, string> = {
   bounty: "No such bounty.",
   display: "That isn't on display.",
   piece: "No piece with that id shows a picture.",
+  event: "No such event.",
 };
 
 function reportView(row: Row): ReportView {

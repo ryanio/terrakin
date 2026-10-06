@@ -16,6 +16,7 @@ import {
   type ReportReason,
   StaffBountiesResponse,
   StaffBountyResponse,
+  StaffEventResponse,
 } from "@terrakin/protocol";
 import { makeRequest, query, type Result } from "@terrakin/ui/http";
 
@@ -106,6 +107,8 @@ export const api = {
     request("POST", path("/v1/admin/bounties/{id}/reopen", id), StaffBountyResponse, { reason }),
   voidBounty: (id: string, reason: string) =>
     request("POST", path("/v1/admin/bounties/{id}/void", id), StaffBountyResponse, { reason }),
+  voidEvent: (id: string, reason: string) =>
+    request("POST", path("/v1/admin/events/{id}/void", id), StaffEventResponse, { reason }),
   dismiss: (kind: ReportKind, id: string, reason: string) =>
     request("POST", "/v1/admin/reports/dismiss", ModerationResponse, { kind, id, reason }),
 };

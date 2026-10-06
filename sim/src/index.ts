@@ -57,6 +57,28 @@ export {
 } from "./economy";
 export * from "./entitlements";
 export {
+  type Area,
+  attendedOf,
+  attendNeeded,
+  EVENT_MOVES,
+  EVENTS,
+  type EventMove,
+  eventArea,
+  eventDayOf,
+  eventEndsAt,
+  eventHeld,
+  eventMoves,
+  eventOpen,
+  eventsAt,
+  findEvent,
+  hostingProblem,
+  inArea,
+  inCommons,
+  inEventArea,
+  isTownEvent,
+  lastSlot,
+} from "./events";
+export {
   FURNITURE_INFO,
   FURNITURE_KINDS,
   FURNITURE_RECIPES,

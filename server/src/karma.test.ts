@@ -174,6 +174,34 @@ describe("scoreKarma", () => {
     expect(KARMA.bounty).toBe(5);
   });
 
+  it("gives a host 1 a counted guest, up to 10 an event, and a guest 1 a day they counted", () => {
+    const guests = (n: number) => Array.from({ length: n }, (_, i) => `g${i}`);
+    const scores = score(
+      {
+        hosted: [
+          // Twelve guests count as ten; the town earns nothing for its own events.
+          { host: "ash", event: "e_1", day: 1, guests: guests(12) },
+          { host: "ash", event: "e_2", day: 2, guests: ["g0", "ai", "clem"] },
+          { host: "town", event: "e_3", day: 2, guests: guests(5) },
+        ],
+        attended: [
+          { from: "g0", day: 1 },
+          { from: "g0", day: 2 },
+          { from: "g1", day: 1 },
+        ],
+      },
+      {
+        counts: (id) => id !== "clem",
+        paired: (a, b) => [a, b].sort().join() === "ai,ash",
+      },
+    );
+    // Day 2's event counts only g0: Ash's own AI and the townsfolk don't count for Ash.
+    expect(scores.get("ash")?.score).toBe(10 + 1);
+    expect(scores.get("g0")?.score).toBe(2);
+    expect(scores.get("g1")?.score).toBe(1);
+    expect(scores.get("town")).toBeUndefined();
+  });
+
   it("takes points off for each upheld report, never below 0", () => {
     const scores = score({ praise: many(12, "ash"), upheld: ["ash", "bee"] });
     expect(scores.get("ash")?.score).toBe(12 - KARMA.upheldReport);

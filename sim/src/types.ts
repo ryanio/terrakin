@@ -389,6 +389,72 @@ export interface WorldState {
    * no event of its own: the step's `moved` events show what happened.
    */
   routineRuns?: Record<ResidentId, RoutineRuns>;
+  /**
+   * Hosted events (RFC 0010): shows, classes, markets, listening sessions, and gatherings at a
+   * place and a time, with attendance counted from logged samples. Absent until the first event is
+   * scheduled, so worlds from before events hash as they always have.
+   */
+  events?: EventsState;
+}
+
+/** What kind of event a host puts on (RFC 0010). */
+export const EVENT_KINDS = ["show", "class", "market", "listening", "gathering"] as const;
+export type EventKind = (typeof EVENT_KINDS)[number];
+
+/** `scheduled` waits for its start, `live` is on now, and `ended` and `cancelled` are final. */
+export const EVENT_STATUSES = ["scheduled", "live", "ended", "cancelled"] as const;
+export type EventStatus = (typeof EVENT_STATUSES)[number];
+
+/** An event at a place and a time (RFC 0010). */
+export interface HostedEvent {
+  /** `e_1`, `e_2`, ... from the counter. */
+  id: string;
+  /** Who hosts it: a resident, or TOWN_ACTOR for a town event. */
+  host: ResidentId;
+  kind: EventKind;
+  /** Untrusted text, cleaned by the server before it was logged. */
+  title: string;
+  /** Untrusted text, cleaned by the server before it was logged. May be empty. */
+  text: string;
+  /** The plot it's on, in plot coordinates: the host's own or shared plot, or the Commons. */
+  px: number;
+  py: number;
+  /** The UTC day it starts on, from `startsAt`. */
+  day: number;
+  /**
+   * When it starts, in ms since 1970-01-01 UTC, on a whole minute. The sim compares it only with
+   * other events' times, never with a clock: the server logs the start, the samples, and the end.
+   */
+  startsAt: number;
+  minutes: number;
+  status: EventStatus;
+  /** The day it was scheduled. */
+  scheduledDay: number;
+  /** Attendance samples taken while it was live. */
+  ticks: number;
+  /** The last 5-minute mark sampled (1 is 5 minutes in). Absent before the first sample. */
+  slot?: number;
+  /** How many samples each resident was there for. Dropped once it ends. */
+  seen?: Record<ResidentId, number>;
+  /** Coins a Commons booking holds until it ends or is cancelled. Absent when none. */
+  deposit?: number;
+  /** A town event's key from the server's config, so it's logged once. */
+  key?: string;
+  /** Townsfolk a town event names as its face. Sorted. Absent when none. */
+  faces?: ResidentId[];
+  /** Who attended, sorted, once it ended. */
+  attended?: ResidentId[];
+  /** The day it ended or was cancelled. */
+  closedDay?: number;
+  /** The maintainer who called it off (`void_event`), as the log names them. */
+  voidedBy?: string;
+}
+
+export interface EventsState {
+  /** The number in the next event's id. */
+  nextId: number;
+  /** Events in the order they were scheduled: every one still to come or live, and recent finished ones. */
+  list: HostedEvent[];
 }
 
 /**
@@ -718,6 +784,10 @@ export const COIN_REASONS = [
   "bounty",
   /** From the treasury, by a passed Town Hall grant. */
   "grant",
+  /** Out of a purse and held while an event in the Commons is booked (RFC 0010). */
+  "event_deposit",
+  /** A Commons booking's deposit back: enough people came, or it was cancelled in time. */
+  "event_refund",
 ] as const;
 export type CoinReason = (typeof COIN_REASONS)[number];
 
@@ -865,6 +935,21 @@ export type Command =
   /** The poster pays `to`, who must be the claimant. */
   | { type: "confirm_bounty"; bounty: string; to: ResidentId }
   | { type: "cancel_bounty"; bounty: string }
+  // Hosted events (RFC 0010). `title` and `text` are untrusted text the server cleaned. `startsAt`
+  // is ms since 1970-01-01 UTC, on a whole minute.
+  | {
+      type: "schedule_event";
+      kind: EventKind;
+      title: string;
+      text?: string;
+      px: number;
+      py: number;
+      startsAt: number;
+      minutes: number;
+    }
+  | { type: "cancel_event"; event: string }
+  /** While it's live: a free tile in the event's area. */
+  | { type: "join_event"; event: string }
   // Only the server sends these, as TOWN_ACTOR.
   | { type: "new_day"; day: number }
   | { type: "set_townsfolk"; ids: ResidentId[] }
@@ -930,7 +1015,29 @@ export type Command =
    * 0009). The sim checks that they turned it on, are offline, and haven't used it up today, then
    * runs `step` as them, with every check their own command would meet.
    */
-  | { type: "routine_step"; resident: ResidentId; routine: StepRoutine; step: RoutineStep };
+  | { type: "routine_step"; resident: ResidentId; routine: StepRoutine; step: RoutineStep }
+  /**
+   * The town hosts an event in the Commons (RFC 0010): from the server's own calendar, once, by
+   * `key`. No deposit, no host limits, and `faces` may name townsfolk as its face.
+   */
+  | {
+      type: "schedule_town_event";
+      key: string;
+      kind: EventKind;
+      title: string;
+      text?: string;
+      startsAt: number;
+      minutes: number;
+      faces?: ResidentId[];
+    }
+  /** An event's start time came. */
+  | { type: "event_start"; event: string }
+  /** An attendance sample at the event's `slot`th 5-minute mark. Marks the server missed are skipped. */
+  | { type: "event_tick"; event: string; slot: number }
+  /** An event's end time came: attendance and the deposit are settled. */
+  | { type: "event_end"; event: string }
+  /** A maintainer calls off an event that hasn't ended. A Commons deposit goes back. */
+  | { type: "void_event"; event: string; by: string };
 
 /** One resident's award in `daily_awards`. */
 export interface DailyAward {
@@ -976,6 +1083,11 @@ export const SERVER_COMMANDS = [
   "implicit_presence",
   "leave_idle",
   "routine_step",
+  "schedule_town_event",
+  "event_start",
+  "event_tick",
+  "event_end",
+  "void_event",
 ] as const satisfies readonly CommandType[];
 
 /** A command plus who issued it. This is the unit the server logs and replays. */
@@ -1165,6 +1277,34 @@ export type WorldEvent =
       by: ResidentId;
       admired: number;
     }
+  /**
+   * An event went on the calendar (RFC 0010): where and when, never its words (read those from
+   * `GET /v1/events`). `host` is TOWN_ACTOR for a town event, which says `town: true` too. Public.
+   */
+  | {
+      type: "event_scheduled";
+      event: string;
+      host: ResidentId;
+      kind: EventKind;
+      px: number;
+      py: number;
+      startsAt: number;
+      minutes: number;
+      town?: true;
+    }
+  /** An event is on now. Public. */
+  | { type: "event_started"; event: string }
+  /** An attendance sample: who was there this time. Stays on the server: clients draw nothing from it. */
+  | { type: "event_ticked"; event: string; ticks: number; present: ResidentId[] }
+  /** An event ended: who attended (sorted), and what happened to a Commons deposit. Public. */
+  | {
+      type: "event_ended";
+      event: string;
+      attended: ResidentId[];
+      deposit?: "refunded" | "burned";
+    }
+  /** An event was called off before it ended, and what happened to a Commons deposit. Public. */
+  | { type: "event_cancelled"; event: string; deposit?: "refunded" | "burned" }
 
   /**
    * One resident's things changed. Private: it belongs to `residentId` alone, and the server sends
@@ -1274,6 +1414,16 @@ export const REJECTION_CODES = [
   "ran_today",
   /** A routine list or a routine step that doesn't fit the menu. */
   "invalid_routine",
+  "unknown_event",
+  "invalid_event",
+  /** Another event is at that place then, or within 15 minutes of it. */
+  "event_clash",
+  /** A host's limits: events booked at once, or Commons events a week. */
+  "event_limit",
+  "event_not_live",
+  /** It has already started, ended, or been called off. */
+  "event_closed",
+  "not_your_event",
 ] as const;
 export type RejectionCode = (typeof REJECTION_CODES)[number];
 

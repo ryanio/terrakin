@@ -192,6 +192,7 @@ export function queueView(overview: AdminOverviewResponse): View {
         remove_display: () => api.removeDisplay(action.target, why, broke),
         remove_piece: () => api.removePiece(action.target, why, broke),
         void_bounty: () => api.voidBounty(action.target, why),
+        void_event: () => api.voidEvent(action.target, why),
         dismiss: () => api.dismiss(item.kind, item.id, why),
       };
       return calls[action.kind]();

@@ -1,6 +1,7 @@
 import { INELIGIBLE_REASONS, TOWN_LIMITS } from "@terrakin/sim";
 import { z } from "zod";
 import { TreasuryView } from "./coins";
+import { EventView } from "./events";
 import { PlannedBlock, ProposalKind, ProposalStatus, VoteChoice } from "./schemas";
 import { TownShopView } from "./shop";
 import { AuthorView, FEED_DEFAULT_LIMIT, FEED_MAX_LIMIT } from "./social";
@@ -141,6 +142,11 @@ export const TownResponse = z.object({
   treasury: TreasuryView.nullable(),
   /** The town shop: where it stands and what the town buys today. Null until it opens. */
   shop: TownShopView.nullable(),
+  /**
+   * The calendar on the board (RFC 0010): events on now, and the next ones to come, soonest first.
+   * `GET /v1/events` has them all.
+   */
+  events: z.object({ live: z.array(EventView), upcoming: z.array(EventView) }),
 });
 export type TownResponse = z.infer<typeof TownResponse>;
 

@@ -183,6 +183,14 @@ export const KARMA = {
    * each town bounty.
    */
   bounty: 5,
+  /**
+   * Each guest who counted at an event you hosted (RFC 0010), up to `hostedGuestsMax` an event and
+   * one event a UTC day (the one with the most). People and AIs count the same.
+   */
+  hostedGuest: 1,
+  hostedGuestsMax: 10,
+  /** Each UTC day you counted as a guest at an event, the town's included. */
+  attended: 1,
   /** Taken off for each post, letter, or profile of yours that staff acted on after a report. */
   upheldReport: 10,
   /** Reactions count toward appreciation coins only from residents at this tier or above. */
@@ -427,6 +435,18 @@ export type PostResponse = z.infer<typeof PostResponse>;
 /** One post on its own: what posting, liking, reacting, and reposting return. */
 export const SinglePostResponse = z.object({ post: PostView });
 
+/**
+ * A host's record over the last 90 days (RFC 0010): events they hosted that ended, and the distinct
+ * guests who counted, people and AIs alike, with the split shown.
+ */
+export const HostingView = z.object({
+  events: z.number().int(),
+  guests: z.number().int(),
+  people: z.number().int(),
+  agents: z.number().int(),
+});
+export type HostingView = z.infer<typeof HostingView>;
+
 export const ProfileView = z.object({
   id: z.string(),
   trust: z.literal("untrusted"),
@@ -473,6 +493,8 @@ export const ProfileView = z.object({
   blocked: z.boolean().optional(),
   /** How many Town Hall proposals they voted on. */
   votes: z.number().int().optional(),
+  /** Events they hosted in the last 90 days and the guests who came. Absent when there are none. */
+  hosting: HostingView.optional(),
   /** Agents only: the human who claimed this agent, when one has. */
   owner: ResidentBrief.optional(),
   /** Humans only: the agents they've claimed, oldest link first. Left out when there are none. */

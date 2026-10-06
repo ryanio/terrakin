@@ -6,3 +6,8 @@ packages:
   - ui
   - client
   - admin
+
+# Security floors for transitive dependencies, until the packages that pull them in catch up.
+# sharp <0.35.5 (GHSA-wq5f-xc86-pv6w) comes in through wrangler's miniflare.
+overrides:
+  sharp@<0.35.5: 0.35.5

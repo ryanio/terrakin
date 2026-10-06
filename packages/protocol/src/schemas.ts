@@ -40,6 +40,7 @@ import {
   PATTERNS,
   PET_KINDS,
   PETS,
+  PLOT_NAME_MAX_LENGTH,
   PROPOSAL_KINDS,
   PROPOSAL_STATUSES,
   REJECTION_CODES,
@@ -316,6 +317,19 @@ export const SharePlotAction = z.object({
 export const UnsharePlotAction = z.object({
   type: z.literal("unshare_plot"),
   with: residentRef,
+  ...dry,
+});
+/** A plot's name: its owner's words, up to `PLOT_NAME_MAX_LENGTH` characters. Empty clears it. Untrusted text. */
+export const PlotName = z.string().trim().max(PLOT_NAME_MAX_LENGTH);
+export type PlotName = z.infer<typeof PlotName>;
+/**
+ * Name your plot: the one you stand on, else your first plot. Only its owner can name it. An
+ * empty name clears it. The name is filtered like a resident's before it's logged, shows wherever
+ * the plot does, and can be reported as `plot_name`.
+ */
+export const NamePlotAction = z.object({
+  type: z.literal("name_plot"),
+  name: PlotName,
   ...dry,
 });
 // ---------- Town Hall (RFC 0004) ----------
@@ -955,6 +969,7 @@ export const Action = z.discriminatedUnion("type", [
   BuildStarterHomeAction,
   SharePlotAction,
   UnsharePlotAction,
+  NamePlotAction,
   VisitAction,
   ProposeAction,
   VoteAction,
@@ -1277,6 +1292,14 @@ export const WorldEvent = z.discriminatedUnion("type", [
     px: z.number().int(),
     py: z.number().int(),
     ownerId: z.string(),
+  }),
+  z.object({
+    type: z.literal("plot_named"),
+    px: z.number().int(),
+    py: z.number().int(),
+    /** The plot's new name, empty when cleared. Its owner's words. */
+    name: z.string(),
+    trust: z.literal("untrusted").optional(),
   }),
   z.object({
     type: z.literal("hearth_set"),

@@ -304,6 +304,19 @@ function bodyPath(ctx: CanvasRenderingContext2D, shape: ResidentShape, u: number
 
 const HEAD_Y = -0.66;
 const HEAD_R = 0.21;
+/** In profile, where the eye sits and the nose that pokes past the head, as a multiple of `side`. */
+const PROFILE_EYE = 0.1;
+const NOSE = { x: 0.2, y: -0.62, r: 0.045 };
+
+/** The head, plus the nose in profile so the outline points the way they face. */
+function headPath(ctx: CanvasRenderingContext2D, u: number, side: number) {
+  ctx.beginPath();
+  ctx.arc(0, HEAD_Y * u, HEAD_R * u, 0, Math.PI * 2);
+  if (side) {
+    ctx.moveTo((NOSE.x * side + NOSE.r) * u, NOSE.y * u);
+    ctx.arc(NOSE.x * side * u, NOSE.y * u, NOSE.r * u, 0, Math.PI * 2);
+  }
+}
 
 /** Where the two feet sit, in tiles from the middle, for the way the figure faces. */
 const feetAt = (side: number): [number, number] =>
@@ -312,7 +325,8 @@ const feetAt = (side: number): [number, number] =>
 /**
  * Draw a figure with its feet at (0, 0) of the current transform. `u` is one tile in pixels.
  * `pattern` fills the clothes over the main color (null for plain). `facing` is the way they look:
- * south (the default) shows the face, north their back, east and west a three-quarter turn.
+ * south (the default) shows the face, north their back, east and west a profile with one eye and
+ * a nose pointing that way.
  * `patterns` makes the tiles for garments with a pattern of their own.
  */
 export function drawFigure(
@@ -343,8 +357,7 @@ export function drawFigure(
   ctx.lineWidth = rim * 2;
   bodyPath(ctx, look.shape, u);
   ctx.stroke();
-  ctx.beginPath();
-  ctx.arc(0, HEAD_Y * u, HEAD_R * u, 0, Math.PI * 2);
+  headPath(ctx, u, back ? 0 : side);
   ctx.stroke();
   if (flared) {
     flarePath(ctx, u);
@@ -399,8 +412,7 @@ export function drawFigure(
 
   // Head and face.
   ctx.fillStyle = head;
-  ctx.beginPath();
-  ctx.arc(0, HEAD_Y * u, HEAD_R * u, 0, Math.PI * 2);
+  headPath(ctx, u, back ? 0 : side);
   ctx.fill();
   ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
   ctx.beginPath();
@@ -408,8 +420,8 @@ export function drawFigure(
   ctx.fill();
   if (!back) {
     const eye = look.color === "coal" ? BRAND_HEX.paper : INK;
-    drawFace(ctx, u, eye, side * 0.07);
-    if (wear.has("glasses")) drawGlasses(ctx, u, side * 0.07, garb("glasses"));
+    drawFace(ctx, u, eye, side);
+    if (wear.has("glasses")) drawGlasses(ctx, u, side, garb("glasses"));
   }
 
   drawHat(ctx, u, wear, p, garb);
@@ -421,17 +433,23 @@ export function drawFigure(
 }
 
 /** Eyes and cheeks, slid `turn` tiles sideways when the figure faces east or west. */
-function drawFace(ctx: CanvasRenderingContext2D, u: number, eye: string, turn: number) {
-  const t = turn * u;
+/** Two eyes and two cheeks from the front; in profile (`side` 1 east, -1 west) one of each. */
+function drawFace(ctx: CanvasRenderingContext2D, u: number, eye: string, side: number) {
+  const eyes = side ? [PROFILE_EYE * side] : [-0.075, 0.075];
+  const cheeks = side ? [0.03 * side] : [-0.13, 0.13];
   ctx.fillStyle = eye;
   ctx.beginPath();
-  ctx.arc(t - 0.075 * u, -0.64 * u, 0.026 * u, 0, Math.PI * 2);
-  ctx.arc(t + 0.075 * u, -0.64 * u, 0.026 * u, 0, Math.PI * 2);
+  for (const x of eyes) {
+    ctx.moveTo((x + 0.026) * u, -0.64 * u);
+    ctx.ellipse(x * u, -0.64 * u, 0.026 * u, (side ? 0.032 : 0.026) * u, 0, 0, Math.PI * 2);
+  }
   ctx.fill();
   ctx.fillStyle = "rgba(234, 110, 120, 0.4)";
   ctx.beginPath();
-  ctx.ellipse(t * 0.5 - 0.13 * u, -0.585 * u, 0.04 * u, 0.025 * u, 0, 0, Math.PI * 2);
-  ctx.ellipse(t * 0.5 + 0.13 * u, -0.585 * u, 0.04 * u, 0.025 * u, 0, 0, Math.PI * 2);
+  for (const x of cheeks) {
+    ctx.moveTo((x + 0.04) * u, -0.585 * u);
+    ctx.ellipse(x * u, -0.585 * u, 0.04 * u, 0.025 * u, 0, 0, Math.PI * 2);
+  }
   ctx.fill();
 }
 
@@ -1048,28 +1066,39 @@ function drawSatchel(ctx: CanvasRenderingContext2D, u: number, hand: number, g: 
   ctx.fillRect(bag * u, -0.22 * u, 0.17 * u, 0.04 * u);
 }
 
-function lensesPath(ctx: CanvasRenderingContext2D, u: number, t: number) {
+/** Where the lenses sit: both eyes from the front, the one eye in profile. */
+const lensesAt = (side: number) => (side ? [PROFILE_EYE * side] : [-0.075, 0.075]);
+
+function lensesPath(ctx: CanvasRenderingContext2D, u: number, side: number) {
   ctx.beginPath();
-  ctx.arc(t - 0.075 * u, -0.64 * u, 0.055 * u, 0, Math.PI * 2);
-  ctx.moveTo(t + 0.13 * u, -0.64 * u);
-  ctx.arc(t + 0.075 * u, -0.64 * u, 0.055 * u, 0, Math.PI * 2);
+  for (const x of lensesAt(side)) {
+    ctx.moveTo((x + 0.055) * u, -0.64 * u);
+    ctx.arc(x * u, -0.64 * u, 0.055 * u, 0, Math.PI * 2);
+  }
 }
 
-/** Round glasses: frames in its color, and with a pattern, tinted lenses in it. */
-function drawGlasses(ctx: CanvasRenderingContext2D, u: number, turn: number, g: Garb) {
-  const t = turn * u;
+/**
+ * Round glasses: frames in its color, and with a pattern, tinted lenses in it. From the front a
+ * bridge joins the lenses; in profile the arm runs back toward the ear.
+ */
+function drawGlasses(ctx: CanvasRenderingContext2D, u: number, side: number, g: Garb) {
   const motif = g.fill();
   if (motif) {
     ctx.save();
     ctx.globalAlpha = 0.75;
-    paintCloth(ctx, u, () => lensesPath(ctx, u, t), "#eaf4f6", motif);
+    paintCloth(ctx, u, () => lensesPath(ctx, u, side), "#eaf4f6", motif);
     ctx.restore();
   }
   ctx.strokeStyle = g.color(INK);
   ctx.lineWidth = Math.max(1, 0.022 * u);
-  lensesPath(ctx, u, t);
-  ctx.moveTo(t - 0.02 * u, -0.645 * u);
-  ctx.lineTo(t + 0.02 * u, -0.645 * u);
+  lensesPath(ctx, u, side);
+  if (side) {
+    ctx.moveTo((PROFILE_EYE - 0.055) * side * u, -0.645 * u);
+    ctx.lineTo(-0.08 * side * u, -0.66 * u);
+  } else {
+    ctx.moveTo(-0.02 * u, -0.645 * u);
+    ctx.lineTo(0.02 * u, -0.645 * u);
+  }
   ctx.stroke();
 }
 

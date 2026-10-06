@@ -19,6 +19,7 @@ import { confirmTwice, holdFocus, stateCard, toast, whileBusy } from "@terrakin/
 import { api, type Result } from "./api";
 import {
   type ActionKind,
+  checkinLine,
   daysProblem,
   defaultRule,
   type ItemAction,
@@ -61,6 +62,7 @@ export function queueView(overview: AdminOverviewResponse): View {
       h("div", { class: "hero-row" }, title, count),
       h("p", { class: "hero-order", text: "Urgent first, then most severe, then oldest." }),
       h("p", { class: "triage-status", text: triageLine(overview.triage, Date.now()) }),
+      h("p", { class: "triage-status", text: checkinLine(overview.checkins) }),
     ),
     list,
   );

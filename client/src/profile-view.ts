@@ -20,7 +20,14 @@ import { compactCount, isMediaUrl, karmaLine, plural } from "@terrakin/ui/format
 import { garmentName, mediaUrlOf } from "@terrakin/ui/looks";
 import { openImage, openModelViewer } from "@terrakin/ui/media";
 import { plot3dPath, profilePath } from "@terrakin/ui/paths";
-import { avatarEl, badges, ownerLine, paintAvatar, TOWNSFOLK_ABOUT } from "@terrakin/ui/people";
+import {
+  avatarEl,
+  badges,
+  hasOwnerCard,
+  ownerLine,
+  paintAvatar,
+  TOWNSFOLK_ABOUT,
+} from "@terrakin/ui/people";
 import {
   confirmTwice,
   copyButton,
@@ -330,7 +337,12 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       });
     }
 
-    const name = h("h1", { class: "profile-name" }, h("span", { text: r.name }), ...badges(r));
+    const name = h(
+      "h1",
+      { class: "profile-name" },
+      h("span", { text: r.name }),
+      ...badges(r, !hasOwnerCard(r)),
+    );
     const handleLine = h("p", { class: "profile-handle", text: r.handle ? `@${r.handle}` : "" });
     handleLine.hidden = !r.handle;
     // On your own profile the button to pick or change it sits on this line too.

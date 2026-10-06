@@ -36,6 +36,7 @@ const HAND_BUILT: { pattern: RegExp; use: string; home?: string }[] = [
     pattern: /aiBadge\(\)|townsfolk \? townsfolkBadge\(\)/,
     use: "badges or personLink (people.ts)",
   },
+  { pattern: /class: [`"][^`"]*\btag-card\b/, use: "tagCard (people.ts)" },
   { pattern: /h\(\s*"time"/, use: "timeAgo (when.ts)" },
   { pattern: /\{ ?\.\.\.\w+, avatar: null \}/, use: "residentPerson (people.ts)" },
   { pattern: /class: "[^"]*\bstate-card\b/, use: "stateCard (ui.ts)" },

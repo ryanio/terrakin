@@ -406,6 +406,18 @@ export function logTarget(entry: Pick<ModerationLogView, "kind" | "id">): string
 /** The rule a takedown's owner was told it broke: "Rule told to them: Spam". */
 export const ruleLine = (rule: ReportReason) => `Rule told to them: ${reasonLabel(rule)}`;
 
+/** How many residents check in, and how often, in one line. */
+export function checkinLine(c: AdminOverviewResponse["checkins"]): string {
+  if (c.residentsThisWeek === 0) return "Check-ins: nobody has checked in this week.";
+  const week = plural(c.residentsThisWeek, "resident", "residents");
+  if (c.residentsToday === null) {
+    return `Check-ins: ${week} this week. More numbers once 5 or more check in.`;
+  }
+  const gap =
+    c.medianGapHours === null ? "" : ` Median gap between check-ins: ${c.medianGapHours} hours.`;
+  return `Check-ins: ${c.residentsToday} today (${c.scheduledToday ?? 0} on a schedule), ${week} this week.${gap}`;
+}
+
 /** How AI triage is doing today, in one line. */
 export function triageLine(t: AdminOverviewResponse["triage"], nowMs: number): string {
   if (!t.enabled) return "AI triage is off. Reports wait for people.";

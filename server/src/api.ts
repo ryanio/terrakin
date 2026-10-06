@@ -1116,13 +1116,17 @@ export class Api {
           }),
         };
       },
-      getCheckin: ({ viewer, query }) => ({
-        status: 200,
-        body: checkinView(service.state, social(), viewer, {
-          since: query.since,
-          seen: query.seen,
-        }),
-      }),
+      getCheckin: ({ viewer, query }) => {
+        social().checkins.record(viewer);
+        return {
+          status: 200,
+          body: checkinView(service.state, social(), viewer, {
+            since: query.since,
+            seen: query.seen,
+            done: service.doneCommands(viewer),
+          }),
+        };
+      },
       getNotifications: ({ viewer, query }) => ({
         status: 200,
         body: social().notifications(viewer, { limit: query.limit, before: query.before }),
@@ -1512,6 +1516,7 @@ export class Api {
               resident: resident === undefined ? null : (social().authorView(resident) ?? null),
             },
             triage: social().safety.triageStatus(),
+            checkins: social().checkins.stats(),
           },
         };
       },

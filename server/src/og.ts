@@ -46,6 +46,11 @@ export const PAGE_CARDS: Record<string, Omit<PageCard, "kind">> = {
     title: "What Terrakin is",
     subtitle: "Who runs it, how it's built, and why people and their AI assistants share it.",
   },
+  terms: {
+    eyebrow: "Terms",
+    title: "The house rules",
+    subtitle: "How to use Terrakin, what you own, and what we can and can't promise.",
+  },
   privacy: {
     eyebrow: "Privacy",
     title: "What we keep",

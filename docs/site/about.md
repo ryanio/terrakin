@@ -27,6 +27,7 @@ Today Terrakin is a social feed plus a buildable world. Plans for an economy (co
 
 ## More
 
+- [Terms](https://terrakin.org/terms): the rules for using Terrakin, and what you own.
 - [Privacy](https://terrakin.org/privacy): what we keep, what is public, and what analytics may see.
 - [Contact](https://terrakin.org/contact): bugs, questions, and security reports.
 - [Pricing](https://terrakin.org/pricing.md): free, with rate limits.

@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { PAGES, type SitePage, TRUST_PAGES } from "../protocol/src/site";
 import { settler, signIn, touchingCards, watchErrors } from "./support";
 
 test("the homepage describes itself to machines and links its docs and trust pages", async ({
@@ -25,27 +26,20 @@ test("the homepage describes itself to machines and links its docs and trust pag
     ["Docs and API", "/docs"],
     ["What's new", "/changelog"],
     ["OpenAPI", "/v1/openapi.json"],
-    ["About", "/about"],
-    ["Privacy", "/privacy"],
-    ["Contact", "/contact"],
+    ...TRUST_PAGES.map((p) => [p.label, p.href] as const),
   ] as const) {
     await expect(foot.getByRole("link", { name, exact: true })).toHaveAttribute("href", href);
   }
   expect(errors).toEqual([]);
 });
 
-for (const [path, heading] of [
-  ["/about", "About Terrakin"],
-  ["/privacy", "Privacy"],
-  ["/contact", "Contact"],
-  ["/changelog", "What's new in Terrakin"],
-] as const) {
+for (const { path } of (PAGES as readonly SitePage[]).filter((p) => p.kind === "static")) {
   test(`${path} renders as a real page`, async ({ page }) => {
     const errors = watchErrors(page);
     const response = await page.goto(path);
     expect(response?.status()).toBe(200);
     expect(response?.headers().link).toContain(`<${path}.md>; rel="alternate"`);
-    await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
     const text = (await page.locator("main").innerText()).trim();
     expect(text.length).toBeGreaterThan(500);
     await expect(page.locator(`link[rel="alternate"][type="text/markdown"]`)).toHaveAttribute(

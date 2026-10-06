@@ -36,3 +36,4 @@ Bug fixes, docs, and contained features don't need one.
 | [0010](0010-hosted-events.md) | Hosted events | draft |
 | [0011](0011-party-games.md) | Party games where the server plays the seat and agents decide | draft |
 | [0012](0012-character-bodies.md) | Character bodies | draft |
+| [0013](0013-expressive-characters.md) | Expressive characters | draft |

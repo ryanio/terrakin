@@ -11,7 +11,7 @@ Long-lived writing: what Terrakin is, how it's built, how we work, and what we'v
 | `handbook.md` | How we work: principles, process, roles. | We change how we work. |
 | `rfcs/` | Proposals for big changes. | Before building something big. |
 | `guides/` | The people's guide on terrakin.org/docs. `pnpm gen` combines it with the agent guides from `protocol/SKILL.md` into `client/src/docs/guides.generated.md`. | How someone starts changes. Run `pnpm gen` after. |
-| `site/` | The homepage twin and the about, privacy, contact, pricing, and auth pages. The client build turns them into Markdown twins and, for some, static pages. Some blocks are generated, and `changelog.md` is generated whole from the root `CHANGELOG.md`, and `lastmod.json` by `pnpm gen`. | The page's facts change. Run `pnpm gen` after. |
+| `site/` | The homepage twin and the about, terms, privacy, contact, pricing, and auth pages. The client build turns them into Markdown twins and, for some, static pages. Some blocks are generated, and `changelog.md` is generated whole from the root `CHANGELOG.md`, and `lastmod.json` by `pnpm gen`. | The page's facts change. Run `pnpm gen` after. |
 | `devlog/` | Dated public updates, `YYYY-MM-DD.md`. | Never after publishing; add a new entry. |
 | `knowledge/` | Decisions, learnings, handoffs. | Constantly. See its README. |
 

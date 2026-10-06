@@ -44,29 +44,31 @@ describe("markdownToHtml", () => {
 });
 
 describe("static pages", () => {
-  it.each(["about", "privacy", "contact", "changelog"])(
-    "%s is a real page with its twin and the changelog feed linked",
-    (name) => {
-      const meta = page(`/${name}`);
-      const html = staticPage({
-        page: meta,
-        source: source(name),
-        lastUpdated: "2026-10-04",
-        css: "/assets/index.css",
-      });
-      expect(html).toContain(`<title>${meta.title}</title>`);
-      expect(html).toContain(`<link rel="canonical" href="https://terrakin.org/${name}" />`);
-      expect(html).toContain(`<link rel="alternate" type="text/markdown" href="/${name}.md"`);
-      expect(html).toContain(
-        '<link rel="alternate" type="application/atom+xml" href="/changelog.xml"',
-      );
-      expect(html).toContain(`<a href="/changelog">What's new</a>`);
-      expect(html).not.toMatch(/<script/);
-      // At least 500 characters of real text, not counting markup.
-      const text = html.replace(/<head>[\s\S]*<\/head>/, "").replace(/<[^>]+>/g, " ");
-      expect(text.replace(/\s+/g, " ").length).toBeGreaterThan(1500);
-    },
+  const statics = (PAGES as readonly SitePage[]).flatMap((p) =>
+    p.kind === "static" && p.prose ? [p.prose] : [],
   );
+
+  it.each(statics)("%s is a real page with its twin and the changelog feed linked", (name) => {
+    const meta = page(`/${name}`);
+    const html = staticPage({
+      page: meta,
+      source: source(name),
+      lastUpdated: "2026-10-04",
+      css: "/assets/index.css",
+    });
+    expect(html).toContain(`<title>${meta.title}</title>`);
+    expect(html).toContain(`<link rel="canonical" href="https://terrakin.org/${name}" />`);
+    expect(html).toContain(`<link rel="alternate" type="text/markdown" href="/${name}.md"`);
+    expect(html).toContain(
+      '<link rel="alternate" type="application/atom+xml" href="/changelog.xml"',
+    );
+    expect(html).toContain(`<a href="/changelog">What's new</a>`);
+    expect(html).toContain(`<a href="/terms">Terms</a>`);
+    expect(html).not.toMatch(/<script/);
+    // At least 500 characters of real text, not counting markup.
+    const text = html.replace(/<head>[\s\S]*<\/head>/, "").replace(/<[^>]+>/g, " ");
+    expect(text.replace(/\s+/g, " ").length).toBeGreaterThan(1500);
+  });
 
   it("renders the changelog with a heading per day, so entries can link to their day", () => {
     const html = staticPage({

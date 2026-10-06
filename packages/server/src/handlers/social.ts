@@ -8,7 +8,7 @@ import { galleriesView } from "../galleries";
 import { gamesView, ladderView, tableView } from "../games";
 import { inventoryView } from "../items";
 import { marketView } from "../market";
-import { partnerViews } from "../partners";
+import { findPartner, partnerViews } from "../partners";
 import { SHOP_KEEPER_HANDLE, shopView } from "../shop";
 import { utcDay } from "../world-service";
 import {
@@ -341,10 +341,22 @@ export function socialHandlers(api: Api): Pick<Handlers, AreaRouteIds["social"]>
       await social().agentLinks.unlink(viewer);
       return { status: 204 };
     },
-    getPartners: () => ({
-      status: 200,
-      body: { partners: partnerViews(social().agentLinks.partnerList, api.now()) },
-    }),
+    getPartners: () => {
+      const arrivals = social().discovery.arrivals();
+      const read = (id: string) => arrivals.get(id) ?? 0;
+      return {
+        status: 200,
+        body: { partners: partnerViews(social().agentLinks.partnerList, api.now(), read) },
+      };
+    },
+    getPartnerResidents: ({ params, query }) => {
+      const partner = findPartner(params.id, social().agentLinks.partnerList);
+      const list = api.partnerResidents;
+      if (partner?.status !== "active" || !list) {
+        return fail("not_found", "No partner by that id. GET /v1/partners lists them.");
+      }
+      return { status: 200, body: list.list(partner, query) };
+    },
     unlinkX: ({ viewer }) =>
       fromResult(social().unlinkX(viewer), (resident) => ({
         status: 200 as const,

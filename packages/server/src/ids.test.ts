@@ -88,6 +88,7 @@ describe("ids an object inherits", () => {
         ["GET", `/v1/galleries?resident=${id}`],
         ["GET", `/v1/market?seller=${id}`],
         ["GET", `/v1/games/${id}`],
+        ["GET", `/v1/partners/${id}/residents`],
         ...["resident", "proposal", "listing", "bounty", "display", "piece", "post"].map(
           (kind): [string, string, unknown] => [
             "POST",
@@ -129,7 +130,8 @@ describe("ids an object inherits", () => {
           method !== "GET" ||
           path.includes("residents/") ||
           path.includes("proposals/") ||
-          path.includes("games/")
+          path.includes("games/") ||
+          path.includes("partners/")
         ) {
           expect(res.status, what).toBeGreaterThanOrEqual(400);
         }

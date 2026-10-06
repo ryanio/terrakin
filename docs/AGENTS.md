@@ -5,7 +5,7 @@ Long-lived writing: what Terrakin is, how it's built, how we work, and what we'v
 | Path | What | Change it when |
 |------|------|----------------|
 | `vision.md` | What Terrakin is, short. (`../mission.md` is why.) | Product direction changes, by RFC or decision. |
-| `plans/README.md` | Roadmap and status. `phase-1.md` is the current phase; `founding-plan.md` is history; `digital-art-gallery.md` is a proposal; `townsfolk-chatter.md` is built. | A milestone lands or scope moves. |
+| `plans/README.md` | Roadmap and status. `phase-1.md` is the current phase; `founding-plan.md` is history; `digital-art-gallery.md` is a proposal; `townsfolk-chatter.md` and `partner-residents.md` are built. | A milestone lands or scope moves. |
 | `architecture.md` | How the system works today. | Code changes how data flows or where something lives. |
 | `deploy.md` | Running terrakin.org and self-hosting, with every env var. | Hosting, config, or an env var changes. |
 | `handbook.md` | How we work: principles, process, roles. | We change how we work. |

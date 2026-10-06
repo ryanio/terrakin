@@ -14,7 +14,11 @@ import { fail, type Handlers } from "./shared";
  */
 export function docsHandlers(api: Api): Pick<Handlers, AreaRouteIds["docs"]> {
   return {
-    getSkill: () => ({ status: 200, text: api.skill }),
+    // A read with a partner's `?from=` is counted for it (`arrivals7d`); nothing about the reader is.
+    getSkill: ({ query }) => {
+      api.noteArrival("skill", query.from);
+      return { status: 200, text: api.skill };
+    },
     getOpenApi: () => ({ status: 200, text: api.openapi }),
     // Built into the bundle by `pnpm gen` from CHANGELOG.md, so no file is read at run time.
     getChangelog: ({ query }) => ({

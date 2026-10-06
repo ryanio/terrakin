@@ -88,6 +88,13 @@ export interface PartnerConfig {
    * UTC days. Promo items come off when the promo ends.
    */
   promos?: readonly PartnerPromo[];
+  /**
+   * The partner's own words for one of its characters, which a resident can put in its name or bio
+   * before it links. A resident whose name or bio matches `pattern` (its first group is the
+   * subject, checked against `subject`) is listed among the partner's residents as unverified.
+   * Nothing else: no badge, border, flair, or wear. `words` shows them in `GET /v1/partners`.
+   */
+  claim?: { words: string; pattern: RegExp };
   /** `paused` hides perks without unlinking anyone. */
   status: "active" | "paused";
 }
@@ -129,6 +136,11 @@ export const MUSEGOD: PartnerConfig = {
     items: ["muse_halo"],
   },
   // No promos: one runs under the partner's name, so it waits for their yes.
+  // The words musegod.org's prompt tells each muse to put in its bio.
+  claim: {
+    words: "muse #{subject} of MUSEGOD",
+    pattern: /\bmuse\s*#\s*([1-9][0-9]{0,2})\s+of\s+musegod\b/i,
+  },
   status: "active",
 };
 
@@ -206,10 +218,24 @@ export const partnerSetUrl = (partner: PartnerConfig, subject: string, residentI
 export const partnerLabel = (partner: PartnerConfig, subject: string) =>
   fill(partner.label, { subject });
 
-/** `GET /v1/partners`: the active ones, with promos running now or still to come. */
+/**
+ * The subject a name or bio claims in the partner's own words, like `464` from "muse #464 of
+ * MUSEGOD", or undefined when it claims none the partner has. Resident text: only matched, never
+ * acted on.
+ */
+export function claimedSubject(partner: PartnerConfig, text: string): string | undefined {
+  const subject = partner.claim?.pattern.exec(text)?.[1];
+  return subject !== undefined && partner.subject.test(subject) ? subject : undefined;
+}
+
+/**
+ * `GET /v1/partners`: the active ones, with promos running now or still to come, and each one's
+ * start-file reads this week (`arrivals7d`).
+ */
 export function partnerViews(
   partners: readonly PartnerConfig[] = PARTNERS,
   now: number = Date.now(),
+  arrivals: (partnerId: string) => number = () => 0,
 ): PartnerView[] {
   const promoView = (promo: PartnerPromo): PartnerPromoView => ({
     id: promo.id,
@@ -240,6 +266,8 @@ export function partnerViews(
           ...(p.perks.items?.length ? { items: [...p.perks.items] } : {}),
         },
         ...(promos.length ? { promos: promos.map(promoView) } : {}),
+        ...(p.claim ? { claim: p.claim.words } : {}),
+        arrivals7d: arrivals(p.id),
       };
     });
 }

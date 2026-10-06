@@ -11,6 +11,7 @@ import { Api, isApiPath, MAX_BODY_BYTES } from "../src/api";
 import { bountyWords } from "../src/bounties";
 import { parseRpcUrls } from "../src/chain";
 import { ChatterService, chatterConfig } from "../src/chatter";
+import { type StartFile, staticArrival } from "../src/discovery-log";
 import { eventWords } from "../src/events";
 import { ipKey } from "../src/handlers/shared";
 import {
@@ -42,6 +43,7 @@ import {
   toWorld,
   twinHeaders,
 } from "../src/pages";
+import { findPartner } from "../src/partners";
 import { materializePlot, type PlotPhotoSpec } from "../src/plot-photo";
 import { parseMaintainers, parseTownsfolk, SocialService } from "../src/social-service";
 import { SqlStore } from "../src/sql-store";
@@ -285,6 +287,17 @@ const handler = {
     }
     const route = reading ? matchCardPath(url.pathname) : undefined;
     if (route) return card(request, env, ctx, route);
+    // llms.txt is a static file: a read with a partner's `?from=` is counted in the world's
+    // discovery log, without holding up the file. Only a partner's id wakes the world.
+    const arrival =
+      request.method === "GET" ? staticArrival(url.pathname, url.searchParams) : undefined;
+    if (arrival && findPartner(arrival.from)?.status === "active") {
+      ctx.waitUntil(
+        world()
+          .arrival(arrival.file, arrival.from)
+          .catch((err: unknown) => report(err, "discovery.arrival")),
+      );
+    }
     // Page paths have no extension. Their HTML is rewritten per request, so ask the assets for
     // the whole file rather than a 304 against an ETag the rewritten page never carries.
     const pagePath = reading && !/\.[a-z0-9]+$/i.test(url.pathname);
@@ -473,6 +486,11 @@ class WorldObject extends DurableObject<Env> {
   /** The day's coin tips, from the Worker's daily cron. Answers with counts and codes only. */
   async tips(): Promise<{ skipped?: string }> {
     return this.api.runTips();
+  }
+
+  /** A read of a static start file with a partner's `?from=`, from the Worker in front. */
+  async arrival(file: StartFile, from: string): Promise<void> {
+    this.api.noteArrival(file, from);
   }
 
   override async alarm(): Promise<void> {

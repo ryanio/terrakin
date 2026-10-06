@@ -1157,6 +1157,11 @@ export class WorldService {
     return joined === undefined ? 0 : onDay - joined;
   }
 
+  /** The UTC day a resident first joined, or undefined when the log doesn't say. */
+  joinedDay(residentId: string): number | undefined {
+    return this.facts.joinedDay.get(residentId);
+  }
+
   // ---------- identity ----------
 
   createSession(

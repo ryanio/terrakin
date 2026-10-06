@@ -9,6 +9,7 @@ import { adminAssetPath } from "./admin-host";
 import { AGENT_RECHECK_EVERY_MS } from "./agent-links";
 import { Api, type ApiOptions, type ApiResponse, MAX_BODY_BYTES } from "./api";
 import { CHATTER_EVERY_MS, type ChatterService } from "./chatter";
+import { staticArrival } from "./discovery-log";
 import { ipKey } from "./handlers/shared";
 import { MEDIA_ID, mediaHeaders, type ReadableMediaStore, sniffMediaType } from "./media";
 import { applyEdits } from "./meta-html";
@@ -324,6 +325,10 @@ export function createApp(options: AppOptions): Server {
     if (req.method === "GET" && mediaId !== undefined && options.media) {
       return serveMedia(options.media, mediaId, req, res);
     }
+    // llms.txt is a static file: a read with a partner's `?from=` is counted, as on the Worker.
+    const arrival =
+      req.method === "GET" ? staticArrival(url.pathname, url.searchParams) : undefined;
+    if (arrival) api.noteArrival(arrival.file, arrival.from);
     if (options.staticDir) {
       return serveStatic(options.staticDir, url.pathname, res, {}, reading ? decorate : undefined);
     }

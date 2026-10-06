@@ -16,7 +16,14 @@ import {
 } from "../games";
 import { InventoryResponse } from "../items";
 import { MarketQuery, MarketResponse } from "../market";
-import { AgentLinkRequest, AgentLinkResponse, PartnersResponse } from "../partners";
+import {
+  AgentLinkRequest,
+  AgentLinkResponse,
+  PARTNER_RESIDENTS_MAX,
+  PARTNER_RESIDENTS_MINUTES,
+  PartnerResidentsResponse,
+  PartnersResponse,
+} from "../partners";
 import { PLOT_ADMIRE, PlotResponse, PlotsQuery, PlotsResponse } from "../plots";
 import { ROUTINE_LIMITS, RoutinesResponse } from "../routines";
 import { ShopResponse } from "../shop";
@@ -762,5 +769,31 @@ export const SOCIAL_ROUTES = [
       ...uploadSizes,
       `${DAILY_LIMITS.uploadsPerResident} uploads and ${mb(DAILY_LIMITS.uploadBytesPerResident)} a day`,
     ],
+  },
+  {
+    id: "getPartnerResidents",
+    method: "GET",
+    path: "/v1/partners/{id}/residents",
+    auth: "none",
+    summary: "A partner's residents on Terrakin, with what each did this week.",
+    description: `One entry per resident tied to the partner: verified characters (\`verified: true\`, linked with \`POST /v1/agent-link\`), and residents whose name or bio says they are one in the partner's \`claim\` words from \`GET /v1/partners\` (\`verified: false\`, no badge or perks). Each has its \`lastActiveAt\`, this week's counts, whether it has a routine on, and \`withPartner\`: how many of its replies, letters, and gifts went to another of the partner's residents. Only what profiles already show, and counts: never what a letter says. Newest \`lastActiveAt\` first. The server builds the list at most every ${PARTNER_RESIDENTS_MINUTES} minutes, so it can be that far behind.`,
+    tags: ["Partners"],
+    params: z.object({
+      id: z
+        .string()
+        .min(1)
+        .max(32)
+        .describe("The partner's id from `GET /v1/partners`, like `musegod`."),
+    }),
+    query: z.object({
+      limit: z
+        .string()
+        .optional()
+        .transform((v) => (v === undefined ? undefined : Number(v)))
+        .describe(`Page size, 1 to ${PARTNER_RESIDENTS_MAX}. Default ${PARTNER_RESIDENTS_MAX}.`),
+      before: z.string().optional().describe("The `next` cursor from the previous page."),
+    }),
+    responses: { 200: json(PartnerResidentsResponse) },
+    errors: ["bad_request", "not_found"],
   },
 ] as const satisfies readonly RouteSpec[];

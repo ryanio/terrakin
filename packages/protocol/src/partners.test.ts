@@ -48,10 +48,14 @@ describe("partner copy in the API reference", () => {
     const partnerText = JSON.stringify([
       doc.paths["/v1/agent-link"],
       doc.paths["/v1/partners"],
+      doc.paths["/v1/partners/{id}/residents"],
       ...[
         "PartnerBadge",
         "PartnerView",
         "PartnersResponse",
+        "PartnerResidentView",
+        "PartnerResidentWeek",
+        "PartnerResidentsResponse",
         "AgentLinkView",
         "AgentLinkResponse",
       ].map((name) => doc.components.schemas[name]),

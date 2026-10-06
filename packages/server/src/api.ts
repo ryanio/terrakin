@@ -40,10 +40,12 @@ import {
   findEvent,
   type HostedEvent,
   isTownEvent,
+  routinesOf,
 } from "@terrakin/sim";
 import { AiSpend, SUMMARY_DAYS } from "./ai-spend";
 import { bountyView } from "./bounties";
 import type { ChatterRun, ChatterService } from "./chatter";
+import { fromParam, type StartFile } from "./discovery-log";
 import { countGuests, eventView } from "./events";
 import { madeThingForReport } from "./galleries";
 import { gameRatings } from "./games";
@@ -77,6 +79,8 @@ import { BAD_LINK_KEY, DEFAULT_ORIGIN, linkHandlers, linkHelp, REPEAT_NOTE } fro
 import { type ListerFacts, listingForReport, listingRefusal } from "./market";
 import { COOL_DOWN_MESSAGE, type Moderation } from "./moderation";
 import { OwnerService } from "./owner-service";
+import { PartnerResidents } from "./partner-residents";
+import { findPartner } from "./partners";
 import { type PlotPhotoRenderer, plotPhotoSpec } from "./plot-photo";
 import type { PlotViewer } from "./plots";
 import { RateLimiters, type Take } from "./rate-limit";
@@ -365,6 +369,8 @@ export class Api {
   private readonly tips: TownsfolkTips | undefined;
   /** Offline routines' runner (RFC 0009). Needs the social layer, where the away log lives. */
   readonly routines: Routines | undefined;
+  /** Each partner's residents (`GET /v1/partners/{id}/residents`), read from both layers. */
+  readonly partnerResidents: PartnerResidents | undefined;
   /** The AI spend ledger, read for the staff overview. Triage and chatter write to it. */
   readonly spendLedger: AiSpend | undefined;
 
@@ -397,6 +403,19 @@ export class Api {
       // away neighbor's hearth may get a wave, and every call keeps a resident's routines going.
       const routines = new Routines({ world: this.service, social: layer });
       this.routines = routines;
+      // A partner's residents: who is tied to it from the social tables, and what they did from
+      // both the world and the social tables.
+      this.partnerResidents = new PartnerResidents({
+        sql: layer.sql,
+        now: layer.now,
+        residents: () => Object.values(this.service.state.residents),
+        resident: (id) => layer.resident(id),
+        joinedDay: (id) => this.service.joinedDay(id),
+        hasRoutine: (id) => routinesOf(this.service.state, id).length > 0,
+        suspended: (id) => layer.safety.suspendedUntil(id) !== undefined,
+        quarantined: (id) => layer.safety.isQuarantined(id),
+        credits: (sinceDay) => this.service.credits(sinceDay),
+      });
       this.service.onWalked = (id) => {
         routines.greetFor(id);
       };
@@ -798,6 +817,24 @@ export class Api {
     // Unreachable: social routes aren't matched without a social service.
     if (!this.social) throw new Error("Social routes need a SocialService.");
     return this.social;
+  }
+
+  /**
+   * Count a read of a start file that came with `?from=`, when `from` is an active partner's id
+   * (the discovery log). Anything else, and a server without the social layer, counts nothing.
+   * A failed write is reported and never turns the read away.
+   */
+  noteArrival(file: StartFile, from: string | undefined): void {
+    const social = this.social;
+    const id = fromParam(from);
+    if (!social || id === undefined) return;
+    const partner = findPartner(id, social.agentLinks.partnerList);
+    if (partner?.status !== "active") return;
+    try {
+      social.discovery.note(file, partner.id);
+    } catch (err) {
+      report(err, "discovery.note");
+    }
   }
 
   requireOwners(): OwnerService {

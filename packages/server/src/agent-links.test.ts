@@ -18,6 +18,7 @@ import { jpegWithExif } from "./media-fixtures";
 import { Moderation } from "./moderation";
 import { nodeSql } from "./node-sql";
 import { ART_RETRY_MS, type ArtRead } from "./partner-art";
+import { PARTNER_RESIDENTS_MS } from "./partner-residents";
 import { MUSEGOD } from "./partners";
 import { type SocialLimits, SocialService } from "./social-service";
 import { MemoryStore } from "./store";
@@ -446,6 +447,8 @@ describe("linking a muse", () => {
             perks: { items: ["muse_lantern"], flair: "Lantern night" },
           },
         ],
+        claim: "muse #{subject} of MUSEGOD",
+        arrivals7d: 0,
       },
     ]);
     expect(res.text).not.toMatch(/\b(?:nft|wallet|token|holder|chain|onchain|buy)\b/i);
@@ -1350,5 +1353,169 @@ describe("the first cut of the tables", () => {
     expect(() => sql.exec("SELECT owner FROM agent_links")).toThrow();
     expect([...sql.exec("SELECT COUNT(*) AS c FROM agent_links")][0]?.c).toBe(0);
     expect(() => sql.exec("SELECT * FROM chain_reads")).toThrow();
+  });
+});
+
+describe("a partner's residents (docs/plans/partner-residents.md)", () => {
+  const DAY = 24 * 60 * 60_000;
+  const residentsOf = async (call: Awaited<ReturnType<typeof start>>["call"], query = "") =>
+    (await call("GET", `/v1/partners/musegod/residents${query}`)).body;
+
+  /** A resident linked as muse `n`, verified. */
+  async function linkedMuse(t: Awaited<ReturnType<typeof start>>, n: number, name: string) {
+    const r = t.join(name);
+    t.chain.addMuse(n, [r.residentId]);
+    expect((await t.link(muse(n), r.token)).status).toBe(201);
+    return r;
+  }
+
+  it("lists verified muses and residents who claim one in MUSEGOD's words, and nobody else", async () => {
+    const t = await start();
+    const wren = await linkedMuse(t, 464, "Wren");
+    const ada = t.join("Ada");
+    await t.call(
+      "PUT",
+      "/v1/profile",
+      { bio: "Hi! I'm Muse #12 of musegod. I like tea." },
+      ada.token,
+    );
+    const named = t.join("muse #7 of MUSEGOD");
+    const pip = t.join("Pip");
+    await t.call(
+      "PUT",
+      "/v1/profile",
+      { bio: "muse #1000 of MUSEGOD, amuse #5 of musegodly" },
+      pip.token,
+    );
+    t.join("Moss");
+
+    const list = await residentsOf(t.call);
+    const byId = new Map(list.residents.map((r: { id: string }) => [r.id, r]));
+    expect([...byId.keys()].sort()).toEqual(
+      [wren.residentId, ada.residentId, named.residentId].sort(),
+    );
+    expect(byId.get(wren.residentId)).toMatchObject({
+      displayName: "Wren",
+      subject: "464",
+      verified: true,
+    });
+    expect(byId.get(ada.residentId)).toMatchObject({ subject: "12", verified: false });
+    expect(byId.get(named.residentId)).toMatchObject({ subject: "7", verified: false });
+    // A claim only puts a resident on the list: no badge, border, or partner wear.
+    const claimed = await t.profile(ada.residentId);
+    expect(claimed.partner).toBeUndefined();
+    expect(claimed.entitled ?? []).toEqual([]);
+    expect((await t.call("GET", "/v1/partners/nobody/residents")).status).toBe(404);
+  });
+
+  it("dates each by its newest action, a post or not, and lists the newest first", async () => {
+    const t = await start();
+    const idle = await linkedMuse(t, 3, "Idle");
+    const wren = await linkedMuse(t, 464, "Wren");
+    const post = await t.call("POST", "/v1/posts", { text: "morning from the plush" }, wren.token);
+    t.advance(60_000);
+    const ada = t.join("Ada");
+    await t.call("PUT", "/v1/profile", { bio: "muse #12 of MUSEGOD" }, ada.token);
+    await t.call("GET", "/v1/checkin", undefined, ada.token);
+
+    const list = await residentsOf(t.call);
+    expect(list.residents.map((r: { id: string }) => r.id)).toEqual([
+      ada.residentId,
+      wren.residentId,
+      idle.residentId,
+    ]);
+    const [checkedIn, posted, quiet] = list.residents;
+    expect(checkedIn.lastActiveAt).toBe(
+      new Date(Date.parse(post.body.post.createdAt) + 60_000).toISOString(),
+    );
+    expect(checkedIn.week).toMatchObject({ posts: 0, checkins: 1 });
+    expect(posted.lastActiveAt).toBe(post.body.post.createdAt);
+    expect(posted.week).toMatchObject({ posts: 1, checkins: 0 });
+    expect(quiet).toMatchObject({
+      lastActiveAt: null,
+      joinedAt: "2026-10-04T00:00:00.000Z",
+      routine: false,
+      withPartner: 0,
+    });
+  });
+
+  it("counts the replies, letters, and gifts that went to another of the partner's residents", async () => {
+    const t = await start();
+    const wren = await linkedMuse(t, 464, "Wren");
+    const ada = t.join("Ada");
+    await t.call("PUT", "/v1/profile", { bio: "muse #12 of MUSEGOD" }, ada.token);
+    const pip = t.join("Pip");
+    const toAda = await t.call("POST", "/v1/posts", { text: "tea at mine" }, ada.token);
+    const toPip = await t.call("POST", "/v1/posts", { text: "anyone up?" }, pip.token);
+    for (const [post, text] of [
+      [toAda, "on my way"],
+      [toPip, "me"],
+    ] as const) {
+      const reply = { text, replyTo: post.body.post.id };
+      expect((await t.call("POST", "/v1/posts", reply, wren.token)).status).toBe(201);
+    }
+    for (const to of [ada, pip]) {
+      const letter = { to: to.residentId, text: "see you soon" };
+      expect((await t.call("POST", "/v1/letters", letter, wren.token)).status).toBe(201);
+    }
+    const gift = { kind: "gift", note: "a jar of honey" };
+    const gave = await t.call("POST", `/v1/residents/${ada.residentId}/gesture`, gift, wren.token);
+    expect(gave.status).toBeLessThan(300);
+
+    const byId = new Map(
+      (await residentsOf(t.call)).residents.map((r: { id: string }) => [r.id, r]),
+    );
+    expect(byId.get(wren.residentId)).toMatchObject({
+      week: { posts: 0, replies: 2, letters: 2, giftsGiven: 1, giftsReceived: 0 },
+      // The reply, the letter, and the gift to Ada; not the reply and letter to Pip.
+      withPartner: 3,
+    });
+    expect(byId.get(ada.residentId)).toMatchObject({
+      week: { posts: 1, giftsReceived: 1 },
+      withPartner: 0,
+    });
+  });
+
+  it("pages newest first with before, and is built again after a few minutes", async () => {
+    const t = await start();
+    const muses = [];
+    for (const n of [1, 2, 3]) {
+      const r = await linkedMuse(t, n, `Muse ${n}`);
+      await t.call("POST", "/v1/posts", { text: `hello from ${n}` }, r.token);
+      t.advance(1_000);
+      muses.push(r.residentId);
+    }
+    const first = await residentsOf(t.call, "?limit=2");
+    expect(first.residents.map((r: { id: string }) => r.id)).toEqual([muses[2], muses[1]]);
+    expect(first.next).toEqual(expect.any(String));
+    const second = await residentsOf(t.call, `?limit=2&before=${first.next}`);
+    expect(second.residents.map((r: { id: string }) => r.id)).toEqual([muses[0]]);
+    expect(second.next).toBeNull();
+
+    const late = t.join("Late");
+    await t.call("PUT", "/v1/profile", { bio: "muse #9 of MUSEGOD" }, late.token);
+    expect((await residentsOf(t.call)).residents).toHaveLength(3);
+    t.advance(PARTNER_RESIDENTS_MS);
+    expect((await residentsOf(t.call)).residents).toHaveLength(4);
+  });
+
+  it("counts reads of the start files that came with a partner's from, for a week", async () => {
+    const t = await start();
+    for (const path of [
+      "/skill.md?from=musegod",
+      "/v1/skill?from=musegod",
+      "/llms.txt?from=MuseGod",
+      "/skill.md?from=nobody",
+      "/skill.md",
+      "/llms.txt",
+    ]) {
+      await fetch(`${t.base}${path}`);
+    }
+    const arrivals = async () => (await t.call("GET", "/v1/partners")).body.partners[0].arrivals7d;
+    expect(await arrivals()).toBe(3);
+    t.advance(6 * DAY);
+    expect(await arrivals()).toBe(3);
+    t.advance(DAY);
+    expect(await arrivals()).toBe(0);
   });
 });

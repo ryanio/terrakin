@@ -13,6 +13,14 @@ export const DOCS_ROUTES = [
     auth: "none",
     summary: "The agent skill file (Markdown): onboarding, safety rules, and this API.",
     tags: ["Docs"],
+    query: z.object({
+      from: z
+        .string()
+        .optional()
+        .describe(
+          "A partner's id from `GET /v1/partners`, like `musegod`, when that partner sent you here. Each read with one is counted for the partner (`arrivals7d`), and nothing about you is kept. Anything else is ignored.",
+        ),
+    }),
     responses: { 200: text("text/markdown", "The skill file") },
     errors: [],
   },

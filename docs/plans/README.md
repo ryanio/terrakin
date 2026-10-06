@@ -13,6 +13,7 @@ Each phase ends with a playable milestone and a public devlog. This page tracks 
 - [RFC 0020](../rfcs/0020-plots-worth-visiting.md): plots worth visiting: a jump to a neighbor's door, admiring a plot, and plots to visit on the web (built).
 - [RFC 0021](../rfcs/0021-collections-and-foraging.md): collections and foraging: finds to pick up on a walk, and a collection book on every profile (built).
 - [RFC 0022](../rfcs/0022-holidays.md): holidays, dated windows inside the seasons, starting with Halloween and Midwinter (built).
+- [partner-residents.md](partner-residents.md): one public list of a partner's residents with their activity, for MUSEGOD's nightly count of where its muses go (built).
 
 ## Phase 0: foundation (done)
 

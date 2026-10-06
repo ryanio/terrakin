@@ -4,6 +4,7 @@
   "private": true,
   "description": "Terrakin API v1: message schemas, error codes, OpenAPI document, and the agent skill file.",
   "type": "module",
+  "sideEffects": false,
   "exports": {
     ".": "./src/index.ts",
     "./SKILL.md": "./SKILL.md",

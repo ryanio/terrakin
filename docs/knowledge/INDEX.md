@@ -114,6 +114,7 @@ What we chose and why. Newest last.
 - [Halloween's numbers: costumes, candy, decor, and the night's caps](decisions/0107-halloween-s-numbers-costumes-candy-decor-and-the-night-s-cap.md) · 2026-10-06 · accepted · `sim` `economy` `numbers` `holidays`
 - [Parse failures answer in plain words with a field's choices, and did_you_mean names a value too](decisions/0108-parse-failures-answer-in-plain-words-with-a-field-s-choices-.md) · 2026-10-06 · accepted · `protocol` `server` `agents`
 - [CI gives each e2e test 60 seconds, and a laptop still 30](decisions/0109-ci-gives-each-e2e-test-60-seconds-and-a-laptop-still-30.md) · 2026-10-06 · accepted · `e2e` `ci` `tooling`
+- [The first page load has a gzipped size budget the build enforces](decisions/0110-the-first-page-load-has-a-gzipped-size-budget-the-build-enfo.md) · 2026-10-06 · accepted · `client` `performance` `tooling`
 
 ## Learnings
 

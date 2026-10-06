@@ -210,6 +210,24 @@ describe("happy", () => {
   });
 });
 
+describe("a tap on a pet", () => {
+  const world = { hearthAt: (x: number, y: number) => x === HEARTH.x && y === HEARTH.y };
+
+  it("is for someone else's pet on its own tile, never your own, and never the hearth's tile", () => {
+    const m = new PetMotion();
+    // Asleep for the night beside the hearth, east of it, leaning toward it.
+    const last = film(m, owner(), scene({ night: true }), 3_000).at(-1);
+    expect(last?.x).toBeGreaterThan(3.5);
+    const bed = { x: 4, y: 3 };
+    expect(m.tapped(bed, undefined, world)).toBe(owner().id);
+    // A tap on the hearth walks there, and is too far from the pet even where hearths aren't known.
+    expect(m.tapped(HEARTH, undefined, world)).toBeUndefined();
+    expect(m.tapped(HEARTH, undefined, { hearthAt: () => false })).toBeUndefined();
+    // Your own pet sits at your heel, on the tiles you tap to walk.
+    expect(m.tapped(bed, owner().id, world)).toBeUndefined();
+  });
+});
+
 describe("words", () => {
   it("calls a pet by its name, or by its kind while its name is held back", () => {
     expect(petCalled(PET)).toBe("Biscuit");

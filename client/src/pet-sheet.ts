@@ -453,17 +453,14 @@ export function petCard(o: PetCardOptions): HTMLElement | undefined {
 export interface WorldPetOptions {
   owner: { id: string; name: string };
   pet: Pick<Pet, "kind" | "coat" | "name">;
-  /** It's your own pet. */
-  mine: boolean;
   /** After a pat went through: the pet looks happy in the world. */
   patted?: () => void;
   /** The world's own toast, since the site's isn't shown there. */
   say: Say;
 }
 
-/** The sheet a pet opens when you tap it in the world. */
+/** The sheet someone else's pet opens when you tap it in the world. */
 export function openWorldPetSheet(o: WorldPetOptions) {
-  if (o.mine) return openOwnPetSheet(o.pet, undefined, o.say);
   const called = petCalled(o.pet, "their");
   const pat = h("button", {
     class: "btn-primary small pet-pat",

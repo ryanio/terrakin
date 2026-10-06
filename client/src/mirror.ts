@@ -461,6 +461,12 @@ export class Mirror {
     return mayGatherOn(plot, residentId, this.plotPickupsOwned);
   }
 
+  /** Whether someone's hearth is on this tile. */
+  hearthAt(x: number, y: number): boolean {
+    for (const r of this.residents.values()) if (r.hearth?.x === x && r.hearth.y === y) return true;
+    return false;
+  }
+
   ownerAt(x: number, y: number): string | undefined {
     const { plotSize } = this.config;
     return this.plots.get(plotKey(Math.floor(x / plotSize), Math.floor(y / plotSize)));

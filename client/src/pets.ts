@@ -95,6 +95,11 @@ export const DOZE_OFF_MS = 8_000;
 /** How far toward the hearth a pet curled up beside it leans, in tiles. */
 const SNUGGLE = 0.32;
 const HOP = 0.1;
+/**
+ * How near a tap lands to a pet to be for it, in tiles: its own tile. A pet curled up against a
+ * hearth leans `SNUGGLE` toward it, and stays out of reach of a tap on the hearth.
+ */
+export const PET_TAP = 0.45;
 
 /** What a pet is doing. */
 export type PetDoing = "follow" | "potter" | "nap" | "sleep";
@@ -455,6 +460,14 @@ export class PetMotion {
       }
     }
     return best;
+  }
+
+  /**
+   * Whose pet a tap on `tile` is for: someone else's, drawn on that tile, and never on a hearth,
+   * where a tap walks home. `me`'s own pet sits at their heel, on the tiles they tap to walk.
+   */
+  tapped(tile: Tile, me: string | undefined, world: { hearthAt(x: number, y: number): boolean }) {
+    return world.hearthAt(tile.x, tile.y) ? undefined : this.nearest(tile.x, tile.y, PET_TAP, me);
   }
 
   /** Forget pets no longer drawn, so the map stays the size of what's on screen. */

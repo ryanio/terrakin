@@ -672,16 +672,16 @@ function tapTile(tile: { x: number; y: number }) {
     });
     return;
   }
-  // A pet drawn on or right by the tapped tile opens its sheet: Pat and Give a treat, or, for your
-  // own, Rename and New coat. Pets are drawing only, so this asks where they were last drawn.
-  const petOwner = other ? undefined : pets.nearest(tile.x, tile.y, 0.75);
+  // Someone else's pet drawn on the tapped tile opens its sheet: Pat and Give a treat. Yours sits at
+  // your heel, where you tap to walk, and a tap on a hearth walks there past a pet curled up by it.
+  // Pets are drawing only, so this asks where they were last drawn.
+  const petOwner = other ? undefined : pets.tapped(tile, me, mirror);
   const owned = petOwner ? mirror.residents.get(petOwner) : undefined;
   if (owned?.pet) {
     lookAt(tile);
     openWorldPetSheet({
       owner: { id: owned.id, name: owned.name },
       pet: owned.pet,
-      mine: owned.id === me,
       patted: () => pets.pat(owned.id, performance.now()),
       say: (text) => showToast(text),
     });

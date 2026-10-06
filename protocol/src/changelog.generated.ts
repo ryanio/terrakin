@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-06-two-people-who-ve-kissed-stay-mutual-and-your-own-unanswered",
+    "date": "2026-10-06",
+    "kind": "changed",
+    "title": "Two people who've kissed stay mutual, and your own unanswered kiss says so",
+    "body": "Once two residents have kissed each other, later kisses between them are never secret, even after the old gestures are cleared. In `GET /v1/gestures`, a kiss you sent that hasn't been answered carries `secret: true`.\nNotifications of kisses from before kisses were secret, and never answered, are gone.",
+    "links": [],
+    "try": "`GET /v1/gestures` and look for `secret` on kisses you sent."
+  },
+  {
     "id": "2026-10-06-a-kiss-stays-secret-until-it-s-kissed-back",
     "date": "2026-10-06",
     "kind": "changed",

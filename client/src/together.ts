@@ -63,7 +63,7 @@ export const GESTURES: readonly GestureInfo[] = [
   { kind: "kiss", label: "Kiss", emoji: "😘", noun: "a kiss", close: true },
   { kind: "wave", label: "Wave", emoji: "👋", noun: "a wave" },
   { kind: "high_five", label: "High five", emoji: "🙌", noun: "a high five" },
-  { kind: "comfort", label: "Comfort", emoji: "🫂", noun: "some comfort" },
+  { kind: "comfort", label: "Comfort", emoji: "💛", noun: "some comfort" },
   { kind: "gift", label: "Gift", emoji: "🎁", noun: "a gift" },
 ];
 

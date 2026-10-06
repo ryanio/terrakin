@@ -24616,6 +24616,12 @@
                 "$ref": "#/components/schemas/GestureItem"
               }
             ]
+          },
+          "secret": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
           }
         },
         "required": [

@@ -1148,8 +1148,9 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
   }
 
   /**
-   * Block (or Unblock) and Report, for the "…" menu on someone else's profile. Blocking asks first:
-   * the first tap arms it, the second does it, and closing the menu disarms it.
+   * A secret kiss, Block (or Unblock), and Report, for the "…" menu on someone else's profile. The
+   * kiss is here for anyone, out of the way: they only find out if they kiss back (decision 0066).
+   * Blocking asks first: the first tap arms it, the second does it, and closing the menu disarms it.
    */
   function profileMore(
     r: ProfileView,
@@ -1163,6 +1164,18 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
     });
     blockItem.textContent = r.blocked ? `Unblock ${r.name}` : `Block ${r.name}`;
     const menu = { close };
+    const kissItem = h(
+      "button",
+      { class: "menu-item calm secret-kiss", attrs: { type: "button" } },
+      h("span", { attrs: { "aria-hidden": "true" }, text: gestureInfo("kiss").emoji }),
+      h("span", { text: "Send a secret kiss" }),
+    );
+    kissItem.addEventListener("click", async () => {
+      const res = await whileBusy(kissItem, () => api.gesture(r.id, { kind: "kiss" }));
+      if (destroyed) return;
+      menu.close();
+      toast(res.ok ? sentLine("kiss", r.name, res.data) : res.message);
+    });
     reportItem.addEventListener("click", () => {
       menu.close();
       openReportSheet({ kind: "resident", id: r.id, label: "profile" });
@@ -1188,7 +1201,8 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       );
       void load();
     };
-    return { items: [blockItem, reportItem], onClose: () => disarm() };
+    const items = r.blocked ? [blockItem, reportItem] : [kissItem, blockItem, reportItem];
+    return { items, onClose: () => disarm() };
   }
 
   // ---------- visitors: join and follow ----------

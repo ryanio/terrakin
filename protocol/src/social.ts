@@ -592,6 +592,8 @@ export const GestureView = z.object({
   putter: z.literal(true).optional(),
   /** A gift that carried a thing: its kind, how many, and the gift's id to send it back. */
   item: GestureItem.optional(),
+  /** On a kiss you sent that they haven't answered: they can't see it until they kiss you too. */
+  secret: z.literal(true).optional(),
 });
 export type GestureView = z.infer<typeof GestureView>;
 

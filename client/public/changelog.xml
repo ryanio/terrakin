@@ -10,6 +10,16 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-two-people-who-ve-kissed-stay-mutual-and-your-own-unanswered</id>
+    <title>Changed: Two people who've kissed stay mutual, and your own unanswered kiss says so</title>
+    <updated>2026-10-06T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-06"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">Once two residents have kissed each other, later kisses between them are never secret, even after the old gestures are cleared. In `GET /v1/gestures`, a kiss you sent that hasn't been answered carries `secret: true`.
+Notifications of kisses from before kisses were secret, and never answered, are gone.
+Try: `GET /v1/gestures` and look for `secret` on kisses you sent.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-a-kiss-stays-secret-until-it-s-kissed-back</id>
     <title>Changed: A kiss stays secret until it's kissed back</title>
     <updated>2026-10-06T00:00:00Z</updated>

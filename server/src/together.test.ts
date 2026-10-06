@@ -93,6 +93,8 @@ async function start(limits: Partial<SocialLimits> = {}) {
     service,
     social,
     media,
+    sql,
+    clock,
     advance: (ms: number) => {
       now += ms;
     },
@@ -678,6 +680,79 @@ describe("gestures", () => {
     expect((await send(ada, cog, { kind: "kiss" })).body.secret).toBe(true);
     expect(await notified(cog)).toEqual([]);
     expect(await seen(cog)).toEqual([]);
+  });
+});
+
+describe("kisses", () => {
+  it("marks your own unanswered kiss secret, and keeps a pair mutual after the gestures are swept", async () => {
+    const { call, join, social, advance } = await start();
+    const ada = await join("Ada");
+    const bo = await join("Bo");
+    const send = (from: { token: string }, to: { id: string }) =>
+      call("POST", `/v1/residents/${to.id}/gesture`, { kind: "kiss" }, from.token);
+    const listed = async (who: { token: string }) =>
+      (await call("GET", "/v1/gestures", undefined, who.token)).body.gestures.map(
+        (g: { from: { name: string }; secret?: true }) =>
+          `${g.from.name}${g.secret ? " secret" : ""}`,
+      );
+
+    expect((await send(ada, bo)).body.gesture.secret).toBe(true);
+    expect(await listed(ada)).toEqual(["Ada secret"]);
+    await send(bo, ada);
+    expect(await listed(ada)).toEqual(["Bo", "Ada"]);
+
+    // A month on, the gestures are gone, but the two of them still see each other's kisses.
+    advance(31 * DAY_MS);
+    social.sweep();
+    expect(await listed(ada)).toEqual([]);
+    const again = await send(ada, bo);
+    expect(again.body.secret).toBeUndefined();
+    expect(await listed(bo)).toEqual(["Ada"]);
+  });
+
+  it("fills the kiss record once from the gestures kept, and clears notifications of unanswered kisses", async () => {
+    const t = await start();
+    const ada = await t.join("Ada");
+    const bo = await t.join("Bo");
+    const cleo = await t.join("Cleo");
+    const dan = await t.join("Dan");
+    const send = (from: { token: string }, to: { id: string }, kind = "kiss") =>
+      t.call("POST", `/v1/residents/${to.id}/gesture`, { kind }, from.token);
+    await send(ada, bo);
+    await send(cleo, dan);
+    await send(dan, cleo);
+    await send(ada, bo, "hug");
+
+    // As it was before the record: no table, and every kiss notified its recipient.
+    t.sql.exec("DROP TABLE intimate_sent");
+    t.sql.exec(
+      `INSERT INTO notifications (id, recipient, type, actor, detail, seq, created_at)
+        VALUES ('n_old', ?, 'gesture', ?, 'kiss', 1000, 0)`,
+      bo.id,
+      ada.id,
+    );
+    const kinds = (who: string) =>
+      [
+        ...t.sql.exec(
+          "SELECT actor, detail FROM notifications WHERE recipient = ? AND type = 'gesture'",
+          who,
+        ),
+      ].map((r) => r.detail);
+    expect(kinds(bo.id)).toEqual(["hug", "kiss"]);
+
+    // The next start makes the record from the kisses still kept, and clears the stale notice.
+    new SocialService({
+      sql: t.sql,
+      media: t.media,
+      limits: {},
+      resident: (id) => t.service.state.residents[id],
+      now: t.clock,
+    });
+    expect(kinds(bo.id)).toEqual(["hug"]);
+    expect(kinds(cleo.id)).toEqual(["kiss"]);
+    expect(kinds(dan.id)).toEqual(["kiss"]);
+    const dans = await t.call("GET", "/v1/gestures", undefined, dan.token);
+    expect(dans.body.gestures.map((g: { kind: string }) => g.kind)).toEqual(["kiss", "kiss"]);
   });
 });
 

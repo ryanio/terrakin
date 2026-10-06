@@ -111,13 +111,16 @@ const FROM_SOMEONE_OK = `sender NOT IN (SELECT blocked FROM blocks WHERE blocker
   AND sender NOT IN (SELECT blocker FROM blocks WHERE blocked = ?)
   AND ${NOT_SUSPENDED("sender")}`;
 
+const INTIMATE_SQL = INTIMATE_GESTURES.map((k) => `'${k}'`).join(", ");
+
 /**
  * A gesture the viewer may see: one they sent, any kind but a kiss (`INTIMATE_GESTURES`), or a kiss
- * answered with one the other way. Takes the viewer's id as its one parameter.
+ * answered with one the other way, ever (`intimate_sent`). Takes the viewer's id as its one
+ * parameter.
  */
 const SEEN_BY = `(gestures.sender = ?
-  OR gestures.kind NOT IN (${INTIMATE_GESTURES.map((k) => `'${k}'`).join(", ")})
-  OR EXISTS (SELECT 1 FROM gestures m WHERE m.sender = gestures.recipient
+  OR gestures.kind NOT IN (${INTIMATE_SQL})
+  OR EXISTS (SELECT 1 FROM intimate_sent m WHERE m.sender = gestures.recipient
     AND m.recipient = gestures.sender AND m.kind = gestures.kind))`;
 
 export class TogetherService {
@@ -175,6 +178,7 @@ export class TogetherService {
     ]) {
       this.o.sql.exec(statement);
     }
+    this.createIntimateSent();
     // Added with putter (decision 0049): 1 on a wave `putter` sent by itself. Older rows are 0.
     try {
       this.o.sql.exec("ALTER TABLE gestures ADD COLUMN putter INTEGER NOT NULL DEFAULT 0");
@@ -194,6 +198,52 @@ export class TogetherService {
         // Already there.
       }
     }
+  }
+
+  /**
+   * Who has ever sent whom a kiss (each of `INTIMATE_GESTURES`), kept after the gestures themselves
+   * are swept, so two people who kissed stay mutual (decision 0066). The first time it's made, it's
+   * filled from the gestures still kept, and notifications of kisses nobody answered are cleared:
+   * they were sent before kisses were secret.
+   */
+  private createIntimateSent() {
+    try {
+      this.rows("SELECT 1 FROM intimate_sent LIMIT 1");
+      return;
+    } catch {
+      // Not made yet: make it and fill it below.
+    }
+    this.o.sql.exec(
+      `CREATE TABLE intimate_sent (
+        sender TEXT NOT NULL, recipient TEXT NOT NULL, kind TEXT NOT NULL,
+        PRIMARY KEY (sender, recipient, kind)
+      )`,
+    );
+    this.o.sql.exec(
+      `INSERT OR IGNORE INTO intimate_sent (sender, recipient, kind)
+        SELECT sender, recipient, kind FROM gestures WHERE kind IN (${INTIMATE_SQL})`,
+    );
+    try {
+      this.o.sql.exec(
+        `DELETE FROM notifications WHERE type = 'gesture' AND detail IN (${INTIMATE_SQL})
+          AND NOT EXISTS (SELECT 1 FROM intimate_sent m WHERE m.sender = notifications.recipient
+            AND m.recipient = notifications.actor AND m.kind = notifications.detail)`,
+      );
+    } catch {
+      // No notifications table: this service is running without the social layer's tables.
+    }
+  }
+
+  /** Whether `from` has ever sent `to` this kind of kiss. */
+  private sentIntimate(from: string, to: string, kind: GestureKind): boolean {
+    return (
+      this.rows(
+        "SELECT 1 FROM intimate_sent WHERE sender = ? AND recipient = ? AND kind = ?",
+        from,
+        to,
+        kind,
+      ).length > 0
+    );
   }
 
   private rows(query: string, ...bindings: (string | number)[]): Row[] {
@@ -618,15 +668,16 @@ export class TogetherService {
     const today = utcDay(now);
     // A kiss stays secret until they've sent you one too; the one that answers theirs tells you both.
     const intimate = isIntimateGesture(request.kind);
-    const sentBefore = (from: string, toWhom: string) =>
-      this.rows(
-        "SELECT 1 FROM gestures WHERE sender = ? AND recipient = ? AND kind = ? LIMIT 1",
-        from,
-        toWhom,
+    const secret = intimate && !this.sentIntimate(to, sender, request.kind);
+    const answered = intimate && !secret && !this.sentIntimate(sender, to, request.kind);
+    if (intimate) {
+      this.o.sql.exec(
+        "INSERT OR IGNORE INTO intimate_sent (sender, recipient, kind) VALUES (?, ?, ?)",
+        sender,
+        to,
         request.kind,
-      ).length > 0;
-    const secret = intimate && !sentBefore(to, sender);
-    const answered = intimate && !secret && !sentBefore(sender, to);
+      );
+    }
 
     const id = randomId("g");
     this.o.sql.exec(
@@ -756,15 +807,19 @@ export class TogetherService {
       const from = this.o.author(String(row.sender));
       const to = this.o.author(String(row.recipient));
       if (!from || !to) return [];
+      const kind = String(row.kind) as GestureKind;
+      // Only its sender ever sees a kiss nobody answered (`SEEN_BY`), so this marks their own.
+      const secret = isIntimateGesture(kind) && !this.sentIntimate(to.id, from.id, kind);
       return [
         {
           id: String(row.id),
           trust: "untrusted" as const,
-          kind: String(row.kind) as GestureKind,
+          kind,
           from,
           to,
           note: String(row.note),
           createdAt: iso(Number(row.created_at)),
+          ...(secret ? { secret: true as const } : {}),
           ...(Number(row.putter) === 1 ? { putter: true as const } : {}),
           ...(row.item_kind ? { item: gestureItem(row) } : {}),
         },

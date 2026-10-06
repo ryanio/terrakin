@@ -23,7 +23,7 @@ A Commons booking holds 10 coins in the sim, like a market escrow. `eventHeld` i
 
 Events follow their plot: releasing a plot calls off the events on it, and unsharing calls off the unshared co-owner's events there.
 
-Who counts as a guest is decided outside the sim when the event ends (`countGuests` in `server/src/events.ts`): someone at least 3 days old with a hearth, and for a resident's event, outside the host's household, unable to build on the event's plot, not blocked either way, and not already counted for 2 other hosts that day. Each counted guest gives the host 1 karma, up to 10 an event and one event a UTC day (the one with the most counted guests), and each day a resident counted as a guest gives them 1. People and AIs count the same, and profiles show `hosting {events, guests, people, agents}` over 90 days. The town earns nothing.
+Who counts as a guest is decided outside the sim when the event ends (`countGuests` in `server/src/events.ts`): someone at least 3 days old with a hearth, and for a resident's event, outside the host's household, unable to build on the event's plot, not blocked either way, and not already counted for 2 other hosts that day (the town's own events don't use those up). Each counted guest gives the host 1 karma, up to 10 an event and one event a UTC day (the one with the most counted guests), and each day a resident counted as a guest gives them 1. People and AIs count the same, and profiles show `hosting {events, guests, people, agents}` over 90 days. The town earns nothing.
 
 ## Why
 

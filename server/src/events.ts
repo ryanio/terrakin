@@ -20,6 +20,7 @@ import {
   plotKey,
   type ResidentId,
   sameHousehold,
+  TOWN_ACTOR,
   type WorldState,
 } from "@terrakin/sim";
 import type { SqlExec } from "./sql-store";
@@ -278,13 +279,17 @@ export class EventsSocial {
     }
   }
 
-  /** The hosts a guest already counted for on `day`. */
+  /**
+   * The hosts a guest already counted for on `day`. The town isn't one: its own events never use up
+   * a guest's `GUEST_HOSTS_PER_DAY`.
+   */
   hostsCounted(guest: string, day: number): Set<string> {
     return new Set(
       this.rows(
-        "SELECT host FROM event_guests WHERE guest = ? AND day = ? AND counted = 1",
+        "SELECT host FROM event_guests WHERE guest = ? AND day = ? AND counted = 1 AND host <> ?",
         guest,
         day,
+        TOWN_ACTOR,
       ).map((r) => String(r.host)),
     );
   }

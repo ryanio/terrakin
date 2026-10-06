@@ -2,7 +2,7 @@ import type { ServerMessage, WorldEvent } from "@terrakin/protocol";
 import { apply, createWorld, TOWN_ACTOR, type WorldConfig, type WorldState } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
-import { countGuests, eventWords } from "./events";
+import { countGuests, EventsSocial, eventWords } from "./events";
 import { MemoryMediaStore } from "./media";
 import { nodeSql } from "./node-sql";
 import { supplyHolds } from "./snapshots";
@@ -459,6 +459,20 @@ describe("staff", () => {
 });
 
 describe("who counts as a guest", () => {
+  it("lets the town's own events use up none of a guest's two hosts a day", () => {
+    const sql = nodeSql();
+    cleanups.push(() => sql.close());
+    const social = new EventsSocial({ sql, now: () => 20_003 * DAY_MS });
+    const ended = (id: string, host: string) =>
+      ({ id, host, attended: ["gus"] }) as unknown as Parameters<typeof social.recordEnded>[0];
+    const counted = [{ id: "gus", kind: "human", counted: true }] as const;
+    social.recordEnded(ended("e_1", TOWN_ACTOR), 20_003, counted);
+    social.recordEnded(ended("e_2", "ada"), 20_003, counted);
+    expect(social.hostsCounted("gus", 20_003)).toEqual(new Set(["ada"]));
+    social.recordEnded(ended("e_3", "bob"), 20_003, counted);
+    expect(social.hostsCounted("gus", 20_003)).toEqual(new Set(["ada", "bob"]));
+  });
+
   /** A world where Ada hosted e_1 on her plot, shared with Fay, and everyone listed attended. */
   function ended(): WorldState {
     const state = createWorld(CONFIG);

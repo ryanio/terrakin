@@ -90,6 +90,29 @@ test("a visitor reads the feed, a profile, a post and its picture, with post tex
     await expect(page.locator("#feed")).toBeFocused();
   });
 
+  await test.step("the newest devlog post sits on the wall cut short, and Show more opens the rest", async () => {
+    const devlog = page.locator("#devlog-card");
+    await expect(devlog.locator(".eyebrow")).toContainText("From the devlog");
+    await expect(devlog.locator(".devlog-lead p")).toHaveCount(1);
+    const rest = devlog.locator(".devlog-rest");
+    await expect(rest).toBeHidden();
+    const more = devlog.getByRole("button", { name: "Show more" });
+    await expect(more).toHaveAttribute("aria-expanded", "false");
+    await more.click();
+    await expect(rest).toBeVisible();
+    await expect(rest.locator("h3").first()).toBeVisible();
+    await expect(devlog.getByRole("button", { name: "Show less" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    // Read on this device, so it stays out of the way until there's a newer post.
+    const listed = page.waitForResponse((r) => new URL(r.url()).pathname === "/v1/devlog");
+    await page.reload();
+    await listed;
+    await expect(card).toBeVisible();
+    await expect(page.locator("#devlog-card")).toHaveCount(0);
+  });
+
   await test.step("the feed shows the post as text, its picture, and its counts", async () => {
     // The feed shows the post text literally, with no element made from it.
     await expect(card).toBeVisible();

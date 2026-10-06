@@ -19,6 +19,7 @@ import { copyButton, emptyNote, linkTabs, moreButton, pickTab } from "@terrakin/
 import { refreshTimes } from "@terrakin/ui/when";
 import { api, myProfile } from "./api";
 import { type Composer, composer } from "./composer";
+import { newestDevlogCard } from "./devlog-card";
 import { happeningCard } from "./event-cards";
 import { whenWords } from "./event-format";
 import {
@@ -454,15 +455,18 @@ export function feedView(ctx: ViewContext): View {
 
   // Composer, once we know who you are.
   const composerSlot = h("div", { class: "composer-slot" });
-  main.append(
-    h(
-      "div",
-      { class: "stack wall-top" },
-      h(hero ? "h2" : "h1", { class: "wall-title", text: "Fresh from the town" }),
-      wallHead,
-      composerSlot,
-    ),
+  const wallTop = h(
+    "div",
+    { class: "stack wall-top" },
+    h(hero ? "h2" : "h1", { class: "wall-title", text: "Fresh from the town" }),
+    wallHead,
+    composerSlot,
   );
+  main.append(wallTop);
+  // The newest devlog post, cut short, for everyone until they've read or hidden it (decision 0105).
+  void newestDevlogCard().then((card) => {
+    if (card && !destroyed) wallTop.append(card);
+  });
   let writer: Composer | undefined;
   void myProfile().then((me) => {
     if (!me || destroyed) return;

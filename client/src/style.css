@@ -5487,6 +5487,38 @@ dialog.look-editor {
   color: var(--ink-soft);
 }
 
+/* ---------- the devlog card on the home wall (decision 0105) ---------- */
+
+.devlog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.devlog-title-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.devlog-title-link:hover {
+  text-decoration: underline;
+}
+
+.devlog-card .prose {
+  gap: var(--space-sm);
+  font-size: var(--text-base);
+  color: var(--ink-soft);
+}
+
+.devlog-card .prose h3 {
+  font-size: var(--text-lg);
+}
+
+.devlog-card .prose[hidden] {
+  display: none;
+}
+
 /* ---------- town hall (/town) ---------- */
 
 .town-title {

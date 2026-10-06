@@ -15,6 +15,8 @@ import {
   type CreateReportRequest,
   type CreateSessionRequest,
   CreateSessionResponse,
+  DevlogPostResponse,
+  DevlogResponse,
   EventResponse,
   EventsResponse,
   FeedResponse,
@@ -214,6 +216,10 @@ export const api = {
   /** Plots to visit (RFC 0020): every plot someone lives on, newest change or most admired first. */
   plots: (sort?: PlotSort) => request("GET", `/v1/plots${query({ sort })}`, PlotsResponse),
   plot: (px: number, py: number) => request("GET", `/v1/plots/${px}/${py}`, PlotResponse),
+  /** The devlog (decision 0105): posts for people, newest first, and one whole. */
+  devlog: () => request("GET", "/v1/devlog", DevlogResponse),
+  devlogPost: (date: string) =>
+    request("GET", `/v1/devlog/${encodeURIComponent(date)}`, DevlogPostResponse),
   /** Admire a plot you're on (or beside, after a visit this week), once a UTC day. */
   admirePlot: (px: number, py: number) =>
     request("POST", `/v1/plots/${px}/${py}/admire`, PlotResponse),

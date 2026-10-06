@@ -402,7 +402,7 @@ describe("takedown notices", () => {
     // The maker hears it once, about the reported piece.
     const makerNotices = await t.notices(ash);
     expect(makerNotices).toHaveLength(1);
-    expect(makerNotices[0].takedown).toEqual({
+    expect((makerNotices[0] as Json).takedown).toEqual({
       what: "piece",
       rule: "sexual",
       outcome: "removed",

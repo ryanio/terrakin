@@ -292,6 +292,13 @@ export class SafetyService {
   ) => { owner: string; text: string; media?: string; onDisplay: boolean } | undefined = () =>
     undefined;
 
+  /**
+   * Clear the picture from every piece made from an upload, through the world log (decision 0065).
+   * `Api` wires it to the world; without it, purged uploads leave pieces pointing at a deleted
+   * file. Resolves to the affected piece ids, or undefined when the log refused.
+   */
+  removePiecePictures: ((mediaId: string) => { removed: string[] } | undefined) | undefined;
+
   private rows(query: string, ...bindings: (string | number)[]): Row[] {
     return [...this.o.sql.exec(query, ...bindings)];
   }

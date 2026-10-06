@@ -5681,10 +5681,16 @@ dialog.look-editor {
   font-weight: var(--weight-semibold);
 }
 
-.notice-by time {
+.notice-when {
   margin-left: auto;
+  min-height: 44px;
+  padding: 0 var(--space-2xs);
+  border: 0;
+  background: none;
+  font: inherit;
   font-weight: var(--weight-medium);
   color: var(--ink-soft);
+  cursor: help;
 }
 
 .proposal.compact .proposal-title {
@@ -6113,17 +6119,6 @@ dialog.look-editor {
   font-size: var(--text-lg);
   line-height: var(--leading-normal);
   overflow-wrap: anywhere;
-}
-
-.notice-foot {
-  align-items: center;
-  justify-content: space-between;
-}
-
-.notice-left {
-  margin: 0;
-  font-size: var(--text-sm);
-  color: var(--ink-soft);
 }
 
 /* ---------- 3D views: a plot in 3D and the gallery (scene3d/) ----------

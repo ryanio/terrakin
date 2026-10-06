@@ -23,7 +23,7 @@ import { timeAgo } from "@terrakin/ui/when";
 import { plotThumb } from "./plot-thumb";
 import { type PulseStats, phaseName, type WallItem } from "./pulse";
 import { dayPhase, nightAmount } from "./time";
-import { closesIn, comesDownIn, tallyBar } from "./town-format";
+import { closesIn, tallyBar } from "./town-format";
 import { visitButton } from "./visit-view";
 import { plotName, stripPlots, weekLine } from "./visits";
 
@@ -363,10 +363,7 @@ export function townCard() {
         body.replaceChildren(
           h("p", { class: "town-pulse-kicker", text: "On the notice board" }),
           h("p", { class: "town-pulse-notice", text: notice.text }),
-          h("p", {
-            class: "pulse-foot",
-            text: `Pinned by ${notice.author.name}. ${comesDownIn(notice.expiresAt, Date.now())}`,
-          }),
+          h("p", { class: "pulse-foot", text: `Pinned by ${notice.author.name}` }),
         );
       }
     },

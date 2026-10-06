@@ -1004,26 +1004,34 @@ export function townView(ctx: ViewContext): View {
     return h(
       "li",
       { class: "notice", attrs: { "data-notice": n.id } },
-      h("p", { class: "notice-by" }, personLink(n.author), timeAgo(n.createdAt)),
+      h("p", { class: "notice-by" }, personLink(n.author), noticeWhen(n)),
       h("p", { class: "notice-text", text: n.text }),
-      h(
-        "div",
-        { class: "cluster notice-foot" },
-        h("p", {
-          class: "notice-left",
-          attrs: { "data-expires": n.expiresAt },
-          text: comesDownIn(n.expiresAt, serverNow()),
-        }),
-        takeDown,
-      ),
+      takeDown,
     );
+  }
+
+  /**
+   * When a notice went up ("3h"), as a button: hovering it shows when it comes down, and a tap
+   * says so in a toast, since a phone has no hover.
+   */
+  function noticeWhen(n: NoticeView): HTMLElement {
+    const when = timeAgo(n.createdAt);
+    when.title = comesDownIn(n.expiresAt, serverNow());
+    const button = h(
+      "button",
+      { class: "notice-when", attrs: { type: "button", "data-expires": n.expiresAt } },
+      when,
+    );
+    button.addEventListener("click", () => toast(comesDownIn(n.expiresAt, serverNow())));
+    return button;
   }
 
   /** Bring each notice's "Comes down in" up to date without drawing the board again. */
   function refreshComesDown() {
-    for (const p of board.querySelectorAll<HTMLElement>(".notice-left[data-expires]")) {
-      const at = p.dataset.expires;
-      if (at) p.textContent = comesDownIn(at, serverNow());
+    for (const b of board.querySelectorAll<HTMLElement>(".notice-when[data-expires]")) {
+      const at = b.dataset.expires;
+      const when = b.querySelector("time");
+      if (at && when) when.title = comesDownIn(at, serverNow());
     }
   }
 

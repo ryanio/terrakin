@@ -197,7 +197,12 @@ test("an eligible resident proposes a fountain, a path, and a bench, the town vo
     await page.fill("#notice-text", "Lantern walk at dusk, meet by the hall.");
     await page.click("#notice-pin");
     const notice = board.locator(".notice", { hasText: "Lantern walk at dusk" });
-    await expect(notice.locator(".notice-left")).toHaveText("Comes down in 2 days");
+    // When it went up, with when it comes down on hover, and in a toast on a tap.
+    const when = notice.locator(".notice-when");
+    await expect(when).toHaveText("now");
+    await expect(when.locator("time")).toHaveAttribute("title", "Comes down in 2 days");
+    await when.click();
+    await expect(page.locator("#site-toast")).toContainText("Comes down in 2 days");
     await expect(notice.getByRole("button", { name: "Take down" })).toBeVisible();
     expect(await overflowsSideways(page)).toBe(false);
     await notice.screenshot({ path: "test-results/town-notice.png" });

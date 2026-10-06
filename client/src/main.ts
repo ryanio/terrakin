@@ -35,6 +35,7 @@ import { initErrorReporting, pageView, startAnalytics } from "./telemetry";
 import { townView } from "./town-view";
 import { notFoundView, type View, type ViewContext } from "./view";
 import { view3d } from "./view-3d";
+import { createWorldLoader } from "./world-loader";
 import "./style.css";
 
 // Models open in the three.js viewer, its own chunk, loaded only when someone opens one.
@@ -56,6 +57,7 @@ document.querySelector(".skip-link")?.addEventListener("click", (e) => {
   page.focus();
 });
 const worldView = $("world-view");
+const worldLoader = createWorldLoader($("world-loader"));
 const root = document.documentElement;
 
 initBrandMarks(site);
@@ -81,6 +83,7 @@ const loadWorld = () => {
       return w;
     },
     (err: unknown) => {
+      worldLoader.hide();
       showWorldReload();
       throw err;
     },
@@ -259,11 +262,14 @@ function onNavigate(nav: Navigation) {
     document.title = "World · Terrakin";
     setMode("world");
     page.replaceChildren();
+    // Coming back with a saved character skips the landing: the loader shows on the tap, while
+    // the world's code is still on its way.
+    if (savedToken()) worldLoader.show();
     loadWorld().then(
       (w) => {
         // Still here? Someone may have tapped away while it loaded.
         if (root.classList.contains("mode-world"))
-          w.startWorld({ navigate: (p) => router.navigate(p) });
+          w.startWorld({ navigate: (p) => router.navigate(p), loader: worldLoader });
       },
       () => {
         // showWorldReload already put up the notice.
@@ -272,6 +278,7 @@ function onNavigate(nav: Navigation) {
     return;
   }
 
+  worldLoader.hide();
   void world?.then(
     (w) => w.stopWorld(),
     () => {},

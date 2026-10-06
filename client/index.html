@@ -311,6 +311,27 @@
 
         <div id="toast" class="toast" role="status"></div>
       </div>
+
+      <!-- Between a tap on World and the world on screen, for someone coming back (world-loader.ts). -->
+      <div id="world-loader" class="world-loader" hidden>
+        <span class="world-loader-cloud" aria-hidden="true"></span>
+        <span class="world-loader-cloud" aria-hidden="true"></span>
+        <span class="world-loader-cloud" aria-hidden="true"></span>
+        <div class="world-loader-body">
+          <div class="mascot" aria-hidden="true">
+            <span class="mark">
+              <img src="/brand/mark.svg" alt="" width="72" height="72" decoding="async" />
+              <svg class="mark-fallback" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="4" width="56" height="56" rx="18" fill="#8fb36a" /><path d="M20 46V31l12-10 12 10v15z" fill="#fffaf0" /><path d="M16 32 32 18l16 14" fill="none" stroke="#b4532f" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" /><rect x="28" y="35" width="8" height="11" rx="3" fill="#f2b84b" /></svg>
+            </span>
+            <span class="mascot-shadow"></span>
+          </div>
+          <p class="world-loader-line" aria-hidden="true"></p>
+          <div class="world-loader-path" role="progressbar" aria-label="Loading the world" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <span class="world-loader-track"><span class="world-loader-fill" data-progress></span></span>
+            <span class="world-loader-walk" data-progress><span class="world-loader-walker"></span></span>
+          </div>
+        </div>
+      </div>
     </div>
 
     <script type="module" src="/src/main.ts"></script>

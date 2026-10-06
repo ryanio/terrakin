@@ -44,6 +44,9 @@ html.overlay-open body {
   position: fixed;
   inset: 0;
   touch-action: none;
+  transition:
+    filter 0.7s ease,
+    transform 0.9s ease;
 }
 
 .world-3d canvas {
@@ -3376,6 +3379,247 @@ dialog.model-viewer {
   text-align: center;
   color: var(--ink);
   pointer-events: none;
+}
+
+/* ---------- world loader: from a tap on World until the world is drawn (world-loader.ts) ---------- */
+
+.world-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
+  background:
+    radial-gradient(120% 60% at 50% 0%, rgba(255, 250, 240, 0.9), rgba(255, 250, 240, 0) 70%),
+    radial-gradient(140% 50% at 50% 118%, var(--moss-light) 0 52%, rgba(143, 179, 106, 0) 53%),
+    var(--grain), linear-gradient(180deg, #f9efdc 0%, #efdfbf 64%, #e6d3ad 100%);
+  transition:
+    opacity 0.5s ease,
+    transform 0.6s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+/* On its way out: taps reach the world while the bar fills and the loader fades. */
+.world-loader.leaving {
+  pointer-events: none;
+}
+
+.world-loader.lifted {
+  opacity: 0;
+  transform: scale(1.04);
+}
+
+/* The world waits behind it out of focus, and sharpens as the loader lifts. The HUD slides in after. */
+.world-loading #world,
+.world-loading .world-3d {
+  filter: blur(6px) saturate(1.08);
+  transform: scale(1.06);
+}
+
+.world-loading .hud {
+  opacity: 0;
+  animation: none;
+}
+
+.world-loader-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-lg);
+  width: min(300px, calc(100% - 2 * var(--space-2xl)));
+  text-align: center;
+}
+
+.world-loader .mascot {
+  width: 76px;
+  height: 90px;
+}
+
+.world-loader .mascot .mark {
+  width: 72px;
+  height: 72px;
+  animation-duration: 1.6s;
+}
+
+.world-loader .mascot-shadow {
+  left: 10px;
+  right: 14px;
+  height: 10px;
+  animation-duration: 1.6s;
+}
+
+/* One line at a time: the new one rises into place as the old one rises out. */
+.world-loader-line {
+  position: relative;
+  width: 100%;
+  height: calc(var(--text-2xl) * var(--leading-snug));
+  margin: 0;
+  overflow: hidden;
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-style: italic;
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-snug);
+  color: var(--ink);
+}
+
+.world-loader-line > span {
+  position: absolute;
+  inset: 0;
+  white-space: nowrap;
+  animation: loader-line-in 0.42s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+/* Gone at rest, so with reduced motion (no animation) the old line simply disappears. */
+.world-loader-line > span.out {
+  opacity: 0;
+  animation: loader-line-out 0.36s ease-in;
+}
+
+@keyframes loader-line-in {
+  from {
+    opacity: 0;
+    transform: translateY(70%);
+  }
+}
+
+@keyframes loader-line-out {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    transform: translateY(-70%);
+  }
+}
+
+/* A dirt path that fills with grass, and a resident hopping along its leading edge. */
+.world-loader-path {
+  position: relative;
+  width: 100%;
+  padding-top: var(--space-lg);
+}
+
+.world-loader-track {
+  display: block;
+  height: 14px;
+  overflow: hidden;
+  border-radius: var(--r-pill);
+  background: rgba(92, 60, 30, 0.14);
+  box-shadow: inset 0 1px 2px rgba(92, 60, 30, 0.18);
+}
+
+.world-loader-fill,
+.world-loader-walk {
+  display: block;
+  width: 100%;
+  transform: translateX(-100%);
+}
+
+.world-loader-fill {
+  height: 100%;
+  border-radius: var(--r-pill);
+  background: linear-gradient(90deg, var(--moss-light), var(--moss));
+}
+
+.world-loader-walk {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.world-loader-walker {
+  position: absolute;
+  right: -11px;
+  top: 5px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 36% 42%, var(--ink) 0 1.8px, transparent 2.3px),
+    radial-gradient(circle at 64% 42%, var(--ink) 0 1.8px, transparent 2.3px),
+    radial-gradient(circle at 50% 30%, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0) 55%),
+    var(--resident-sun);
+  box-shadow:
+    0 0 0 2px var(--paper),
+    0 3px 6px -2px rgba(92, 60, 30, 0.4);
+  transform-origin: 50% 100%;
+  animation: loader-hop 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes loader-hop {
+  from {
+    transform: translateY(0) scale(1.08, 0.92);
+  }
+  to {
+    transform: translateY(-9px) scale(0.96, 1.04);
+  }
+}
+
+/* Clouds drifting across the sky, already partway over when the loader appears. */
+.world-loader-cloud {
+  position: absolute;
+  left: 0;
+  width: 112px;
+  height: 30px;
+  border-radius: var(--r-pill);
+  background: #fffcf5;
+  opacity: 0.85;
+  animation: loader-drift 26s linear infinite;
+}
+
+.world-loader-cloud::before,
+.world-loader-cloud::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  background: inherit;
+}
+
+.world-loader-cloud::before {
+  left: 16px;
+  bottom: 10px;
+  width: 40px;
+  height: 40px;
+}
+
+.world-loader-cloud::after {
+  left: 46px;
+  bottom: 6px;
+  width: 52px;
+  height: 52px;
+}
+
+.world-loader-cloud:nth-child(1) {
+  top: 12%;
+  animation-delay: -9s;
+}
+
+.world-loader-cloud:nth-child(2) {
+  top: 26%;
+  scale: 0.7;
+  opacity: 0.7;
+  animation-duration: 34s;
+  animation-delay: -26s;
+}
+
+.world-loader-cloud:nth-child(3) {
+  top: 72%;
+  scale: 0.55;
+  opacity: 0.55;
+  animation-duration: 40s;
+  animation-delay: -6s;
+}
+
+@keyframes loader-drift {
+  from {
+    transform: translateX(-160px);
+  }
+  to {
+    transform: translateX(100vw);
+  }
 }
 
 .status {

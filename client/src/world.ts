@@ -48,6 +48,7 @@ import { NO_PLOT_LINE, newsLine, othersPickupLine, toastMs, worldProblem } from 
 import { dayPhase } from "./time";
 import { ARRIVAL_KEY, gestureLine } from "./together";
 import { Walker } from "./walk";
+import type { WorldLoader } from "./world-loader";
 import { offer3d, readSignals, savedMode, saveMode, startMode, type WorldMode } from "./world-mode";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -82,6 +83,11 @@ let mirror: Mirror | undefined;
 let me: string | undefined;
 /** How the world asks the site router to go to another page (the Town Hall, your plot in 3D). */
 let navigate: ((path: string) => void) | undefined;
+/** The loader a returning resident sees until the world is drawn (world-loader.ts). */
+let loader: WorldLoader | undefined;
+/** How long the loader waits on the 3D scene before lifting onto the map in the meantime. */
+const SCENE_WAIT_MS = 8000;
+let sceneWait = 0;
 let buildMode = false;
 /** Selected build tool: a block, or the hearth marker. */
 let block: BlockKind | "hearth" = "wood";
@@ -150,6 +156,7 @@ function enterWorld(instant = false) {
 
 /** Back to the landing, with the world soft and drifting behind it. */
 function leaveWorld() {
+  loader?.hide();
   close3d();
   joiningFresh = false;
   worldWait.hidden = true;
@@ -186,7 +193,10 @@ function connect(identity: Identity) {
     if (s === "offline" && joiningFresh && !me)
       landing.setError("Can't reach the world right now. Still trying…");
     // Coming back with a saved key and no answer yet: say so, rather than show an empty world.
-    if (s === "offline" && !me && !hud.hidden) worldWait.hidden = false;
+    if (s === "offline" && !me && !hud.hidden) {
+      loader?.hide();
+      worldWait.hidden = false;
+    }
     if (s !== "online") stopWalking();
   });
 }
@@ -250,6 +260,7 @@ async function resync() {
       walker.reset();
       dayAnchor = anchor(parsed.data.time);
       updatePopulation();
+      if (!wasIn) loader?.reach("world");
     } else console.warn("Bad snapshot from server", parsed.error);
   } catch (err) {
     console.warn("Resync failed", err);
@@ -274,6 +285,7 @@ function onMessage(msg: ServerMessage) {
       worldWait.hidden = true;
       snapCamera();
       if (mode === "3d") open3d();
+      revealWhenDrawn();
       showArrival();
       void loadDecor();
       break;
@@ -623,6 +635,15 @@ modeButton.addEventListener("click", () => {
   else close3d();
 });
 
+/** Lift the loader once the world is on screen: now on the map, or when the 3D scene first draws. */
+function revealWhenDrawn() {
+  if (!loader?.isUp()) return;
+  if (!loading3d) return loader.finish();
+  loader.reach("welcome");
+  clearTimeout(sceneWait);
+  sceneWait = window.setTimeout(() => loader?.finish(), SCENE_WAIT_MS);
+}
+
 /** Show the world in 3D, fetching the scene code (three.js included) the first time. */
 function open3d() {
   if (world3d || loading3d || !active || !me) return;
@@ -632,10 +653,12 @@ function open3d() {
     .then((m) => {
       loading3d = false;
       modeButton.removeAttribute("aria-busy");
-      if (mode !== "3d" || !active || !me) return;
+      if (mode !== "3d" || !active || !me) return loader?.finish();
       host3d.hidden = false;
       world3d = m.createWorld3d(host3d, { onTap: tapTile, onFail: fallBack });
       canvas.hidden = true;
+      // Two frames on, the scene has drawn once, so the loader lifts onto it rather than onto nothing.
+      requestAnimationFrame(() => requestAnimationFrame(() => loader?.finish()));
     })
     .catch(() => {
       loading3d = false;
@@ -657,6 +680,7 @@ function close3d() {
  * for this device; a lost GPU (a phone reclaiming it in the background) is for this visit only.
  */
 function fallBack(reason: "slow" | "lost" | "failed") {
+  loader?.finish();
   mode = "2d";
   if (reason !== "lost") saveMode("2d");
   paintMode();
@@ -970,10 +994,13 @@ window.addEventListener("resize", () => {
 });
 
 /** Show the world: start drawing, and connect if we have a token. */
-export function startWorld(options: { navigate?: (path: string) => void } = {}) {
+export function startWorld(
+  options: { navigate?: (path: string) => void; loader?: WorldLoader } = {},
+) {
   if (active) return;
   active = true;
   navigate = options.navigate;
+  loader = options.loader;
   mode = startMode(savedMode(), signals);
   paintMode();
   resize();
@@ -982,6 +1009,9 @@ export function startWorld(options: { navigate?: (path: string) => void } = {}) 
   if (token) {
     // Returning resident: skip the landing and go straight in. The snapshot draws the world while
     // the socket says hello, and if the server is down, "Can't reach the world" says why it's empty.
+    // The loader covers all of that until the world is drawn.
+    loader?.show();
+    loader?.reach("code");
     enterWorld(true);
     hud.hidden = false;
     connect({ token });
@@ -997,6 +1027,8 @@ export function stopWorld() {
   if (!active) return;
   active = false;
   cancelAnimationFrame(rafId);
+  clearTimeout(sceneWait);
+  loader?.hide();
   close3d();
   stopPopulation?.();
   stopPopulation = undefined;

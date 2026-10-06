@@ -73,6 +73,13 @@ export const GAMES = {
   ratedPerDay: 20,
   /** Counted games one pair may start a day. Past it the pair plays unrated. */
   pairPerDay: 3,
+  /**
+   * Counted games one pair may start in a UTC week, Monday to Sunday. Past it the pair plays
+   * unrated. One pair that always plays out the same result stops moving ratings at about 1,365
+   * against 635, where a rounded change falls to 0; with only the daily cap it got there in about
+   * 90 days, and with this cap it takes about 180.
+   */
+  pairPerWeek: 7,
 } as const;
 
 /** What one game is. */
@@ -272,18 +279,23 @@ export function oneHousehold(state: WorldState, a: string, b: string): boolean {
 const pairKey = (a: string, b: string) => (a < b ? `${a}+${b}` : `${b}+${a}`);
 const sortedPair = (a: string, b: string): [string, string] => (a < b ? [a, b] : [b, a]);
 
+/** The first day of the UTC week, Monday to Sunday, that world day `day` falls in. Day 0 was a Thursday. */
+const weekStart = (day: number) => day - ((day + 3) % 7);
+
 /**
  * Which seats a game starting now is rated for, and which pairs of them count. A seat is rated
  * when its resident may vote in the Town Hall (a plot held 3 days, a hearth, active lately, not
  * townsfolk), hasn't started `GAMES.ratedPerDay` rated games today, and shares no household with
  * another seat. A pair counts while it has started fewer than `GAMES.pairPerDay` counted games
- * today. A seat with no counted pair isn't rated after all.
+ * today and `GAMES.pairPerWeek` this week. A seat with no counted pair isn't rated after all.
  */
 function ratedAtStart(
   state: WorldState,
   t: GameTable,
 ): { rated: ResidentId[]; pairs: [ResidentId, ResidentId][] } {
   const today = state.games?.today;
+  const week = state.games?.week;
+  const thisWeek = week && week.start === weekStart(state.day ?? 0) ? week.pairs : undefined;
   const ids = t.seats.map((s) => s.resident);
   const candidates = ids.filter(
     (id) =>
@@ -294,7 +306,13 @@ function ratedAtStart(
   const pairs: [ResidentId, ResidentId][] = [];
   candidates.forEach((a, i) => {
     for (const b of candidates.slice(i + 1)) {
-      if ((own(today?.pairs, pairKey(a, b)) ?? 0) < GAMES.pairPerDay) pairs.push(sortedPair(a, b));
+      const key = pairKey(a, b);
+      if (
+        (own(today?.pairs, key) ?? 0) < GAMES.pairPerDay &&
+        (own(thisWeek, key) ?? 0) < GAMES.pairPerWeek
+      ) {
+        pairs.push(sortedPair(a, b));
+      }
     }
   });
   const rated = candidates.filter((id) => pairs.some((p) => p.includes(id)));
@@ -716,6 +734,7 @@ export function checkStartGame(
   if (late) return late;
   const { rated, pairs } = ratedAtStart(state, t);
   const at = command.at;
+  const monday = weekStart(state.day ?? 0);
   return () => {
     t.status = "playing";
     t.round = 1;
@@ -726,9 +745,11 @@ export function checkStartGame(
     t.pairs = pairs;
     for (const s of t.seats) if (rated.includes(s.resident)) s.rated = true;
     for (const id of rated) games.today.rated[id] = (own(games.today.rated, id) ?? 0) + 1;
+    if (pairs.length > 0 && games.week?.start !== monday) games.week = { start: monday, pairs: {} };
     for (const [a, b] of pairs) {
       const key = pairKey(a, b);
       games.today.pairs[key] = (own(games.today.pairs, key) ?? 0) + 1;
+      if (games.week) games.week.pairs[key] = (own(games.week.pairs, key) ?? 0) + 1;
     }
     return [{ type: "game_started", table: t.id, rated: [...rated], at }];
   };

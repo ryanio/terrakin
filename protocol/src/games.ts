@@ -164,6 +164,8 @@ export const GamesRules = z.object({
   ratedPerDay: z.number().int(),
   /** Counted games one pair may start a day; past it the pair plays unrated. */
   pairPerDay: z.number().int(),
+  /** Counted games one pair may start in a UTC week, Monday to Sunday; past it the pair plays unrated. */
+  pairPerWeek: z.number().int(),
 });
 
 export const GAMES_RULES: z.infer<typeof GamesRules> = {
@@ -189,6 +191,7 @@ export const GAMES_RULES: z.infer<typeof GamesRules> = {
   ratingStart: GAMES.ratingStart,
   ratedPerDay: GAMES.ratedPerDay,
   pairPerDay: GAMES.pairPerDay,
+  pairPerWeek: GAMES.pairPerWeek,
 };
 
 /** People against AIs: in each counted pair of one person and one agent, a win to whoever finished higher. */

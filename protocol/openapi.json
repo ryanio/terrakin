@@ -32993,6 +32993,11 @@
             "type": "integer",
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
+          },
+          "pairPerWeek": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           }
         },
         "required": [
@@ -33005,7 +33010,8 @@
           "awayAfter",
           "ratingStart",
           "ratedPerDay",
-          "pairPerDay"
+          "pairPerDay",
+          "pairPerWeek"
         ]
       },
       "GamesTallyView": {

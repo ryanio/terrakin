@@ -419,7 +419,7 @@ describe("looks", () => {
       `Miss ${GAMES.awayAfter} rounds in a row`,
       `open ${GAME_TIMES.awayWaitSeconds.live} seconds (live) or ${GAME_TIMES.awayWaitSeconds.slow / 60} minutes (slow)`,
       `Everyone starts at ${GAMES.ratingStart.toLocaleString("en-US")}`,
-      `past ${GAMES.pairPerDay} in a UTC day`,
+      `past ${GAMES.pairPerDay} in a UTC day or ${GAMES.pairPerWeek} in a UTC week`,
       `past ${GAMES.ratedPerDay} in a UTC day`,
       `${GAME_TIMES.townsfolkAfterMinutes === 60 ? "an hour" : `${GAME_TIMES.townsfolkAfterMinutes} minutes`} after it opened`,
     ]) {

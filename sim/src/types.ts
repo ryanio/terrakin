@@ -526,6 +526,12 @@ export interface GamesState {
   tally?: { people: number; agents: number };
   /** Today's counts for the daily caps on rated play. Reset at each `new_day`. */
   today: GamesToday;
+  /**
+   * This UTC week's counted games by pair, keyed `a+b` with `a < b`, for `GAMES.pairPerWeek`.
+   * `start` is the week's Monday as a world day; a game started in a later week starts it again.
+   * Absent until the first counted pair.
+   */
+  week?: { start: number; pairs: Record<string, number> };
 }
 
 export interface GamesToday {

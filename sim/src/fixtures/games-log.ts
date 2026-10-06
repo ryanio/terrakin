@@ -201,4 +201,4 @@ export const GAMES_LOG: Input[] = [
 ];
 
 /** `hashWorld(replay(GAMES_CONFIG, GAMES_LOG))`, pinned when party games landed. */
-export const GAMES_HASH = "09501f16";
+export const GAMES_HASH = "55a000f1";

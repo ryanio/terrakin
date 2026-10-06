@@ -553,4 +553,25 @@ describe("ratings", () => {
     w.town({ type: "new_day", day: DAY + 4 });
     expect(rated(w.race("ada", "bob").started)).toEqual(["ada", "bob"]);
   });
+
+  it(`stop counting a pair after ${GAMES.pairPerWeek} games in a UTC week, until the next Monday`, () => {
+    const w = games();
+    // The world's day is a Monday.
+    const monday = DAY + 3;
+    let day = monday;
+    for (let n = 0; n < GAMES.pairPerWeek; n++) {
+      if (n > 0 && n % GAMES.pairPerDay === 0) {
+        day += 1;
+        w.town({ type: "new_day", day });
+      }
+      expect(rated(w.race("ada", "bob").started)).toEqual(["ada", "bob"]);
+    }
+    // A new day in the same week: the day's cap has room, the week's doesn't.
+    day += 1;
+    w.town({ type: "new_day", day });
+    expect(rated(w.race("ada", "bob").started)).toEqual([]);
+    expect(rated(w.race("ada", "cy").started)).toEqual(["ada", "cy"]);
+    w.town({ type: "new_day", day: monday + 7 });
+    expect(rated(w.race("ada", "bob").started)).toEqual(["ada", "bob"]);
+  });
 });

@@ -44,3 +44,4 @@ Bug fixes, docs, and contained features don't need one.
 | [0018](0018-one-catalog-of-things.md) | One catalog of things, sorted into families, with recipes that take a family | accepted (built) |
 | [0019](0019-pets.md) | Pets | accepted (built) |
 | [0020](0020-plots-worth-visiting.md) | Plots worth visiting | accepted (built) |
+| [0021](0021-collections-and-foraging.md) | Collections and foraging | accepted (built) |

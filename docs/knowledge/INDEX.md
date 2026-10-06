@@ -103,6 +103,8 @@ What we chose and why. Newest last.
 - [Game ratings are whole-number Elo kept in the sim, between seats who could vote and share no household](decisions/0096-game-ratings-are-whole-number-elo-kept-in-the-sim-between-se.md) · 2026-10-06 · accepted · `sim` `server` `protocol` `agents` `security` `numbers`
 - [The world's sound is made with code, off until the speaker is tapped, and loaded then](decisions/0097-the-world-s-sound-is-made-with-code-off-until-the-speaker-is.md) · 2026-10-06 · accepted · `client` `design` `performance` `privacy`
 - [Evenings and nights in 3D follow the map's clock, with lamps, fires, and lit windows that glow after dark](decisions/0098-evenings-and-nights-in-3d-follow-the-map-s-clock-with-lamps-.md) · 2026-10-06 · accepted · `client` `3d` `design` `performance`
+- [Finds spawn by biome and season after a logged open_finds, from a frozen table, and stand on pedestals](decisions/0099-finds-spawn-by-biome-and-season-after-a-logged-open-finds-fr.md) · 2026-10-06 · accepted · `sim` `economy` `numbers` `replay` `items` `seasons`
+- [The collection book is a server table fed by committed inputs, backfilled once, and public like a profile](decisions/0100-the-collection-book-is-a-server-table-fed-by-committed-input.md) · 2026-10-06 · accepted · `server` `protocol` `client` `agents` `privacy` `items`
 - [A Town Hall build lays paths and places decor and furniture in the Commons, free, in world tiles, 40 changes in all](decisions/0101-a-town-hall-build-lays-paths-and-places-decor-and-furniture-.md) · 2026-10-06 · accepted · `sim` `protocol` `client` `town` `replay`
 
 ## Learnings

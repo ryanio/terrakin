@@ -21,29 +21,31 @@ Every kind of thing in Terrakin (seeds, produce, staples, materials, decor, furn
 
 ### Entries
 
-The catalog is plain data in `sim/src/catalog.ts`, one entry per kind, keyed by its id. Ids never change, since logs hold them.
+The catalog is plain data in `sim/src/catalog.ts`, one entry per kind, keyed by its id. Ids never change, since logs hold them, and new entries go on the end.
 
 ```ts
 interface KindEntry {
   name: string;            // "Pomegranate"
   plural: string;          // "Pomegranates"
-  family: string[];        // ["food", "fruit"], general to specific
-  role: "seed" | "produce" | "staple" | "resource" | "decor" | "good" | "piece"; // today's category, kept for the API
-  grows?: string;          // a seed: the produce it grows
-  crop?: { days: number; yield: number; seedsBack: number }; // produce you grow
+  family: Family;          // "fruit", its most specific family; the path (food › fruit) comes from the tree
+  role: "seed" | "produce" | "staple" | "resource" | "decor" | "good" | "piece"; // what rules read; the API shows today's category, where a piece is a good
+  grows?: string;          // a seed: the crop it grows
+  crop?: { days: number; yield: number; seedsBack: number }; // a crop
   shop?: { price: number; seasons?: Season[] };              // sold at the town shop
-  place?: { solid: boolean };                                // decor that places as a block
+  recipe?: { station: Station; needs: Record<string, number> }; // a made thing, its needs in order
   look: KindLook;          // a template and colors (see Pictures)
 }
 ```
 
-Helpers keep entries short. `fruit("pomegranate", { days, yield, seedsBack, price, colors })` makes the fruit and its seed. A family recipe makes its outputs (below).
+Decor needs no field of its own: every decor kind places as a block, and every block is solid.
 
-The sim's existing names (`ITEM_KINDS`, `STACK_KINDS`, `GOOD_KINDS`, `CROPS`, `SEED_KINDS`, `ITEM_INFO`, `CROP_INFO`, `RECIPES`, the shop's SKUs) stay, derived from the catalog, so the rest of the code and the protocol's enums keep working.
+Helpers keep entries short. `fruit("pomegranate", { name, plural, days, yield, seedsBack, seedPrice, look })` makes the fruit and its seed, and `crop(...)` does the same for a crop in another family. A family recipe makes its outputs (below).
+
+The sim's existing names (`ITEM_KINDS`, `STACK_KINDS`, `GOOD_KINDS`, `CROPS`, `SEED_KINDS`, `ITEM_INFO`, `CROP_INFO`, `RECIPES`, the shop's SKUs) stay, derived from the catalog, so the rest of the code and the protocol's enums keep working. Each list groups kinds by role in catalog order, as today's lists do, so a new kind joins the end of its lists and every kind already listed keeps its place. The kind types (`ItemKind`, `SeedKind`, `Crop`, ...) are derived too, so tables keyed by kind still have to cover every kind to typecheck.
 
 ### Families
 
-A family is a path from general to specific. A kind belongs to exactly one. The starting tree:
+A family names the family it sits in, if any, so each family has a path from general to specific: food › fruit. A kind belongs to exactly one, and its entry names only the most specific. The starting tree:
 
 | Family | Kinds |
 |---|---|
@@ -70,13 +72,20 @@ Two shapes:
 - A fixed recipe names its kinds. Lemonade is 2 lemons, 1 sugar and 1 jar.
 - A family recipe names a family for one input, and what it makes is named after the kind used. Jam is 3 of one kind from food › fruit, 1 sugar and 1 jar, and it makes `<fruit>_jam`. `lemon_jam` and `strawberry_jam` are already exactly that, so they become instances of it, with the same ids, names and needs.
 
-`craft` keeps its shape: `{"type": "craft", "recipe": "pomegranate_jam", ...}`. A family recipe adds one concrete entry per member when the catalog loads, so `pomegranate_jam` is an ordinary kind and an ordinary recipe in every list and in the API. Agents never need to understand patterns to cook. Adding a fruit adds its jam.
+`craft` keeps its shape: `{"type": "craft", "recipe": "pomegranate_jam", ...}`. A family recipe adds one concrete entry per member when the catalog loads, right after the member, so `pomegranate_jam` is an ordinary kind and an ordinary recipe in every list and in the API, and it joins the end of the lists like any new kind. Agents never need to understand patterns to cook. Adding a fruit adds its jam.
 
 This RFC builds jam only. A second family recipe (juice, pie) adds a kind for every member, so each one is its own decision.
 
 ### Pictures
 
-Each entry has a `look`: a template and its colors, for example `{ template: "fruit", body: "#b8323f", leaf: "#6b9a4a", top: "crown" }`. Templates cover the families with many members: fruit, vegetable, seed packet (drawn from what it grows), jar (filled with its fruit's color), drink, baked. `ui/src/item-art.ts` draws from the template; the 2D map and the 3D garden draw a growing crop from its entry; plot photos read the same colors. Things that need their own drawing (decor, furniture, wear) keep it, as `{ template: "drawn" }` pointing at the existing function. A test draws every entry and fails on any kind without a picture.
+Each entry has a `look`: a template and its colors, for example a pomegranate's `{ template: "produce", shape: "round", top: "crown", body: "#b8323f", detail: "#7a1f2b", jam: { fill: "#9e1b32", cloth: "#ea8a9d" } }`. Templates cover the families with many members:
+
+- produce, for fruit and vegetables: an outline (an oval like a lemon, a berry, or round), what grows on top (a leaf, a leafy cap, a star of sepals, or a crown), its skin, and the color of its speckles, seeds, or ribs. A fruit also gives its jam's colors.
+- sprig, for herbs, and bloom, for flowers.
+- seed packet, drawn from what it grows.
+- jar, filled with its color and labelled with what's in it, under a cloth like a jam or a lid like a sauce.
+
+`body` is the one color that stands for a kind where it shows small: a ripe crop on the map and in 3D, a plot photo, a seed packet's band. `ui/src/item-art.ts` draws from the template; the 2D map and the 3D garden draw a growing crop from its entry; plot photos read the same colors. Things that need their own drawing (decor, furniture, wear, and drinks and dishes until two of them share a shape) keep it, as `{ template: "drawn" }`, drawn by the existing function for their id. A test draws every entry and fails on any kind without a picture.
 
 ### The API
 
@@ -90,11 +99,11 @@ Things you hold are grouped by family (Food › Fruit, Food › Preserves, Seeds
 
 ### Adding a kind
 
-`sim/AGENTS.md` gets "Adding a kind": one entry (or one `fruit(...)` call), its look, and a shop price if it's sold. The tests that run over every entry cover the rest. A new family recipe, template, role or family is bigger and needs a decision record.
+`sim/AGENTS.md` gets "Adding a kind": one entry (or one `fruit(...)` call) on the end of the catalog, its look, and a shop price if it's sold. The tests that run over every entry cover the rest. A new family recipe, template, role or family is bigger and needs a decision record.
 
 ## Invariants
 
-- **Replay.** Ids never change, and old logs never name a new kind. Lists that existing rules walk keep their exact contents and order, frozen by name in the code: the first pantry's starter seeds, the town's daily rotation (`townBuys`), and anything RFC 0016 or RFC 0017 froze. A test pins each frozen list. A new kind joins rules like those only through a new logged input, never just by being added to the catalog. A parity test checks that the catalog gives exactly today's `ITEM_INFO`, `CROP_INFO` and `RECIPES` for every existing kind, and `replay.test.ts` with every fixture passes unchanged.
+- **Replay.** Ids never change, and old logs never name a new kind. Lists that existing rules walk keep their exact contents and order, frozen by name in the code: the first pantry's starter seeds (`STARTER_SEEDS`), the staples the daily pantry tops up (`PANTRY_STAPLES`), the town's daily rotation (`ROTATION_GOODS` and `ROTATION_CROPS`, for `townBuys`), and anything RFC 0016 or RFC 0017 froze. A test pins each frozen list. A new kind joins rules like those only through a new logged input, never just by being added to the catalog. A parity test checks that the catalog gives exactly today's `ITEM_INFO`, `CROP_INFO` and `RECIPES` for every existing kind, and `replay.test.ts` with every fixture passes unchanged.
 - **Server authority.** The catalog is code in the sim. Nothing in it comes from residents.
 - **Untrusted text.** Entries hold no resident text.
 - **Protocol.** Additive: a new route and new fields. Enums grow when kinds are added, as they already do.

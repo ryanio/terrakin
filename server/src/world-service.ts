@@ -1174,14 +1174,6 @@ export class WorldService {
     return { ok: true, seq: this.state.seq, events: [] };
   }
 
-  /**
-   * A signed-in read that keeps an online resident from going idle, without logging anything: a
-   * live event's guest reading it (RFC 0010).
-   */
-  stillHere(residentId: string) {
-    if (this.state.residents[residentId]?.online) this.touch(residentId);
-  }
-
   /** Bring a known resident back online if they went idle or the server restarted. */
   ensureOnline(residentId: string): ActResult {
     this.touch(residentId);
@@ -1409,7 +1401,8 @@ export class WorldService {
           error: { code: "forbidden", message: "That event is closed for now." },
         };
       }
-      // Already there and online: nothing to log. The call itself says they're still here.
+      // Already there and online: nothing to log. The call itself keeps them from going idle,
+      // which is how a guest on REST stays counted.
       const me = residentById(this.state, residentId);
       if (
         e?.status === "live" &&

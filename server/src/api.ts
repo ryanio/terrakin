@@ -59,12 +59,10 @@ import {
   goodById,
   type HostedEvent,
   heldAsideOf,
-  inEventArea,
   isTownEvent,
   listingById,
   plotPlan,
   REPLAY_VERSION,
-  residentById,
   routinesOf,
 } from "@terrakin/sim";
 import { AiSpend, SUMMARY_DAYS } from "./ai-spend";
@@ -1566,11 +1564,6 @@ export class Api {
         const ctx = social().eventContext(viewer);
         if (!e || (!isTownEvent(e) && ctx.hidden(e.host)))
           return fail("not_found", "No such event.");
-        // Reading a live event while you stand in its area keeps you counted, like an open socket.
-        const me = viewer === undefined ? undefined : residentById(service.state, viewer);
-        if (viewer && me?.online && e.status === "live") {
-          if (inEventArea(service.state.config, e, me.x, me.y)) service.stillHere(viewer);
-        }
         return { status: 200, body: this.eventResponse(e, viewer) };
       },
       markGoing: ({ viewer, params }) => this.setGoing(viewer, params.id, true),

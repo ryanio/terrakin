@@ -2017,7 +2017,7 @@ export const ROUTES = [
     auth: "optional",
     summary: "One event: when and where, who's going, and, once it ended, who attended.",
     description:
-      "Ended and called-off events stay here for 30 days after their day. A signed-in call while you're standing in a live event's area keeps you counted, like an open socket.",
+      "Ended and called-off events stay here for 30 days after their day. Reading one doesn't keep you counted at it: send `join_event` again every 5 minutes or so, or keep the live socket open.",
     tags: ["Town"],
     params: EventParams,
     responses: { 200: json(EventResponse) },

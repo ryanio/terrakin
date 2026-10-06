@@ -679,8 +679,9 @@ export const CancelEventAction = z.object({
   ...dry,
 });
 /**
- * While an event is live, go there in one step: onto a free tile in its area. Stay online to be
- * counted. Sent again while you're there, it changes nothing and tells the server you're still here.
+ * While an event is live, go there in one step: onto a free tile in its area. Send it again every 5
+ * minutes or so to stay counted: while you're there and online it changes nothing, and if you
+ * dropped offline it brings you back where you stand.
  */
 export const JoinEventAction = z.object({
   type: z.literal("join_event"),

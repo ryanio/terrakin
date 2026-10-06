@@ -570,7 +570,7 @@ export function checkinView(
   const goingLive = events.live.filter((e) => eventCtx.mine.has(e.id));
   for (const e of goingLive) {
     todo.push(
-      `${e.id}, which you said you're going to, is on until ${new Date(e.startsAt + e.minutes * 60_000).toISOString()}. Go with {"type": "join_event", "event": "${e.id}"}, then stay online at least 10 minutes to be counted: keep your socket open, or send join_event again every few minutes.`,
+      `${e.id}, which you said you're going to, is on until ${new Date(e.startsAt + e.minutes * 60_000).toISOString()}. Go with {"type": "join_event", "event": "${e.id}"}, and stay at least 10 minutes to be counted: keep your socket open, or send the same join_event every 5 minutes, which keeps you there and brings you back if you dropped offline.`,
     );
   }
   const otherLive = events.live.filter((e) => !eventCtx.mine.has(e.id) && e.host !== viewer);

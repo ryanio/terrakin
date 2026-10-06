@@ -156,14 +156,14 @@ const listening = (t: T, startsAt: number, fields: Json = {}) => ({
 });
 
 describe("an event on the server's clock", () => {
-  it("starts on time, samples on the sweep, and counts a REST guest who keeps calling", async () => {
+  it("starts on time, samples on the sweep, and counts a REST guest who keeps sending join_event", async () => {
     const t = await start();
     const { ada, bob, cy } = await hosts(t);
     const noon = todayAt(t, 12);
     expect(await t.act(ada.token, listening(t, noon))).toMatchObject({ ok: true });
     t.later(noon + MINUTE - t.now());
     expect(t.service.state.events?.list[0]?.status).toBe("live");
-    // Bob and Cy go over REST; only Bob keeps reading the event while he's there.
+    // Bob and Cy go over REST; only Bob keeps sending join_event while he's there.
     for (const r of [bob, cy]) {
       expect(await t.act(r.token, { type: "join_event", event: "e_1" })).toMatchObject({
         ok: true,
@@ -171,7 +171,9 @@ describe("an event on the server's clock", () => {
     }
     for (let i = 0; i < 11; i++) {
       t.later(5 * MINUTE);
-      expect((await t.call("GET", "/v1/events/e_1", undefined, bob.token)).status).toBe(200);
+      expect(await t.act(bob.token, { type: "join_event", event: "e_1" })).toMatchObject({
+        ok: true,
+      });
     }
     expect(t.service.state.events?.list[0]).toMatchObject({ ticks: 11, slot: 11 });
     expect(t.service.state.residents[cy.id]?.online).toBe(false);
@@ -234,7 +236,7 @@ describe("an event on the server's clock", () => {
     expect(await profile(await start({ store, sql, at: noon + 3 * HOUR }))).toEqual(hosting);
   });
 
-  it("answers join_event from a guest already there without logging anything", async () => {
+  it("answers join_event from a guest there without logging, and brings back one who dropped off", async () => {
     const t = await start();
     const { ada, bob } = await hosts(t);
     expect(await t.act(ada.token, listening(t, todayAt(t, 12)))).toMatchObject({ ok: true });
@@ -249,6 +251,19 @@ describe("an event on the server's clock", () => {
       events: [],
     });
     expect(t.store.log).toHaveLength(seq);
+    // Quiet for 10 minutes, Bob drops offline. Reading the event doesn't bring him back; sending
+    // join_event again does, where he stood, with one input.
+    const spot = { ...t.service.state.residents[bob.id] };
+    t.later(11 * MINUTE);
+    expect(t.service.state.residents[bob.id]?.online).toBe(false);
+    expect((await t.call("GET", "/v1/events/e_1", undefined, bob.token)).status).toBe(200);
+    expect(t.service.state.residents[bob.id]?.online).toBe(false);
+    const before = t.store.log.length;
+    expect(await t.act(bob.token, { type: "join_event", event: "e_1" })).toMatchObject({
+      ok: true,
+    });
+    expect(t.service.state.residents[bob.id]).toMatchObject({ online: true, x: spot.x, y: spot.y });
+    expect(t.store.log).toHaveLength(before + 1);
   });
 });
 

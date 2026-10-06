@@ -15,6 +15,7 @@ import { httpArtReader } from "./partner-art";
 import { PARTNERS } from "./partners";
 import { parseMaintainers, parseTownsfolk, SocialService } from "./social-service";
 import { JsonlStore, MemoryStore } from "./store";
+import { TownsfolkTips, tipsMode } from "./townsfolk-tips";
 import { TriageClient, triageConfig } from "./triage";
 import { DAY_LENGTH_MS, DAY_MS, WorldService } from "./world-service";
 import { oembedReader } from "./x-link";
@@ -173,11 +174,21 @@ const chatter = new ChatterService({
   residentAgeDays: (id) => service.residentAgeDays(id),
 });
 
+// The townsfolk's daily coin tips: off unless TERRAKIN_TIPS is `dry` or `on`.
+const tips = new TownsfolkTips({
+  mode: tipsMode(process.env),
+  world: service,
+  social,
+  townsfolk,
+  now,
+});
+
 const server = createApp({
   service,
   social,
   media,
   chatter,
+  tips,
   trustedProxies,
   ...(sessionsPerMinute ? { sessionsPerMinute } : {}),
   ...(staticDir ? { staticDir: fromCwd(staticDir) } : {}),

@@ -33,4 +33,4 @@ The founding townsfolk ([decision 0019](0019-founding-townsfolk-are-ordinary-res
 
 - Staff read cost, participation, and the dry run's drafts on the admin queue page (`spendLine`, `chatterLine`, `participationLine`).
 - A new model needs a `PRICES` row in `server/src/ai-spend.ts`; an unknown one is priced as the dearest.
-- Moving the daily coin tips into the same cron is still to do ([plan](../../plans/townsfolk-chatter.md#coins)).
+- The daily coin tips run from a second cron in the same World object, with no model call; the sim's caps are their guard ([plan](../../plans/townsfolk-chatter.md#coins)).

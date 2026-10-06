@@ -23,6 +23,7 @@ import {
   spendLine,
   suspendLimits,
   TAKEDOWN_ACTIONS,
+  tipsLine,
   triageLine,
   triageSummary,
 } from "./logic";
@@ -398,6 +399,42 @@ describe("AI spend and chatter", () => {
     );
     expect(draftLabel({ ...draft, outcome: "invalid" })).toBe("a post, turned away by the rules");
     expect(chatterLine({ ...base, pausedUntil: "2026-10-04T01:00:00.000Z" }, 0)).toMatch(/paused/);
+  });
+});
+
+describe("townsfolk tips", () => {
+  it("say how tips are set up and what the last run gave", () => {
+    const run = {
+      at: "2026-10-06T00:07:00.000Z",
+      day: 20732,
+      mode: "on" as const,
+      welcomed: 3,
+      refused: 1,
+      skippedNewcomers: 0,
+      waiting: 0,
+      welcomeCoins: 30,
+      post: "tipped" as const,
+      postCoins: 15,
+      gap: false,
+      stopped: false,
+      codes: ["invalid_gift"],
+    };
+    expect(tipsLine({ mode: "off", lastRun: null })).toBe("Townsfolk tips are off here.");
+    expect(tipsLine({ mode: "on", lastRun: null })).toBe("Townsfolk tips are on. No run yet.");
+    expect(tipsLine({ mode: "on", lastRun: { ...run, skipped: "nobody" } })).toMatch(
+      /no townsfolk had coins to give/,
+    );
+    expect(tipsLine({ mode: "on", lastRun: run })).toBe(
+      "Townsfolk tips are on. Day 20732: welcomed 3 newcomers (30 coins), 1 refused by the world, tipped the best post 15 coins.",
+    );
+    expect(
+      tipsLine({
+        mode: "dry",
+        lastRun: { ...run, mode: "dry", refused: 0, post: "none", waiting: 2, gap: true },
+      }),
+    ).toBe(
+      "Townsfolk tips are a dry run: checked, never given. Day 20732: would welcome 3 newcomers (30 coins), 2 waiting for budget, no post to tip. Some newcomers may have been missed (the treasury's history ran out).",
+    );
   });
 });
 

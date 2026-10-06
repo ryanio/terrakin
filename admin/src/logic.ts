@@ -507,3 +507,34 @@ export function draftLabel(d: AdminOverviewResponse["chatter"]["drafts"][number]
   if (d.outcome === "filtered") return `${action}, turned away by the filters`;
   return `${action}, turned away by the rules`;
 }
+
+/** How the townsfolk's daily coin tips are set up and what the last run gave, in one line. */
+export function tipsLine(t: AdminOverviewResponse["tips"]): string {
+  if (t.mode === "off") return "Townsfolk tips are off here.";
+  const what =
+    t.mode === "dry"
+      ? "Townsfolk tips are a dry run: checked, never given."
+      : "Townsfolk tips are on.";
+  const last = t.lastRun;
+  if (!last) return `${what} No run yet.`;
+  if (last.skipped === "nobody") {
+    return `${what} Day ${last.day}: no townsfolk had coins to give (their budgets come from what the treasury holds above its reserve).`;
+  }
+  if (last.skipped) return `${what} Day ${last.day}: nothing to do (${last.skipped}).`;
+  const would = last.mode === "dry" ? "would welcome" : "welcomed";
+  const parts = [
+    `${would} ${plural(last.welcomed, "newcomer", "newcomers")} (${plural(last.welcomeCoins, "coin", "coins")})`,
+    ...(last.refused ? [`${last.refused} refused by the world`] : []),
+    ...(last.waiting ? [`${last.waiting} waiting for budget`] : []),
+    last.post === "tipped"
+      ? `${last.mode === "dry" ? "would tip" : "tipped"} the best post ${plural(last.postCoins, "coin", "coins")}`
+      : last.post === "refused"
+        ? "the best post's tip was refused"
+        : "no post to tip",
+  ];
+  const flags = [
+    ...(last.stopped ? [" It stopped partway; tomorrow's run picks up."] : []),
+    ...(last.gap ? [" Some newcomers may have been missed (the treasury's history ran out)."] : []),
+  ].join("");
+  return `${what} Day ${last.day}: ${parts.join(", ")}.${flags}`;
+}

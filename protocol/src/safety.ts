@@ -351,6 +351,33 @@ export const AdminOverviewResponse = z.object({
       microUsd: z.number().int(),
     }),
   }),
+  /**
+   * The townsfolk's daily coin tips (docs/plans/townsfolk-chatter.md, "Coins"): the mode, and what
+   * the last run came to, in counts. `dry` checks each gift with the sim and gives nothing.
+   */
+  tips: z.object({
+    mode: z.enum(["off", "dry", "on"]),
+    lastRun: z
+      .object({
+        at: z.string(),
+        /** The world's day it ran for. */
+        day: z.number().int(),
+        mode: z.enum(["off", "dry", "on"]),
+        skipped: z.enum(["off", "closed", "done", "nobody"]).optional(),
+        welcomed: z.number().int(),
+        refused: z.number().int(),
+        skippedNewcomers: z.number().int(),
+        waiting: z.number().int(),
+        welcomeCoins: z.number().int(),
+        post: z.enum(["tipped", "refused", "none"]),
+        postCoins: z.number().int(),
+        gap: z.boolean(),
+        stopped: z.boolean(),
+        /** The sim's refusal codes. */
+        codes: z.array(z.string()),
+      })
+      .nullable(),
+  }),
   /** Townsfolk chatter (docs/plans/townsfolk-chatter.md): its settings, today's use, and drafts. */
   chatter: z.object({
     /** `off` without a key or with no calls a day; `dry` stores drafts and posts nothing. */

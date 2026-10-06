@@ -32,6 +32,7 @@ import {
 import { materializePlot } from "./plot-photo";
 import type { SocialService } from "./social-service";
 import { report } from "./telemetry";
+import { TIPS_CHECK_MS, type TownsfolkTips } from "./townsfolk-tips";
 import type { WorldService } from "./world-service";
 
 const require = createRequire(import.meta.url);
@@ -86,6 +87,8 @@ export interface AppOptions {
   photos?: ApiOptions["photos"] | false;
   /** Townsfolk chatter, run every `CHATTER_EVERY_MS` like the Worker's cron. Default: none. */
   chatter?: ChatterService;
+  /** The townsfolk's daily coin tips, asked every `TIPS_CHECK_MS`; they run once a day. Default: none. */
+  tips?: TownsfolkTips;
   /**
    * Tests only (`TERRAKIN_TEST_CLOCK=1`): answers `POST /v1/test/advance-day` by moving the clock
    * a day on. It's deliberately outside the route table, so it never appears in the API docs, and
@@ -151,6 +154,7 @@ export function createApp(options: AppOptions): Server {
       : { ipUploadBytesPerDay: options.ipUploadBytesPerDay }),
     ...(options.onResponse ? { onResponse: options.onResponse } : {}),
     ...(options.chatter ? { chatter: options.chatter } : {}),
+    ...(options.tips ? { tips: options.tips } : {}),
     ...(options.staff ? { staff: options.staff } : {}),
     ...(options.now ? { now: options.now } : {}),
     ...(options.maxWatchers === undefined ? {} : { maxWatchers: options.maxWatchers }),
@@ -371,10 +375,24 @@ export function createApp(options: AppOptions): Server {
       }, CHATTER_EVERY_MS)
     : undefined;
   chatter?.unref();
+  // The coin tips, on the hour; they give once a UTC day, like the Worker's daily cron.
+  const tips =
+    options.tips && options.tips.mode !== "off"
+      ? setInterval(() => {
+          try {
+            api.runTips();
+          } catch (err) {
+            console.error("Townsfolk tips failed", err);
+            report(err, "tips.run");
+          }
+        }, TIPS_CHECK_MS)
+      : undefined;
+  tips?.unref();
   server.on("close", () => {
     clearInterval(sweep);
     clearInterval(recheck);
     if (chatter) clearInterval(chatter);
+    if (tips) clearInterval(tips);
     for (const client of wss.clients) client.terminate();
     wss.close();
   });

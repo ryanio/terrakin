@@ -1,15 +1,19 @@
+import { ECONOMY } from "@terrakin/sim";
 import { describe, expect, it } from "vitest";
-import { ECONOMY } from "../../sim/src/economy";
-import { PERSONAS } from "./personas.ts";
+import { Moderation } from "./moderation";
 import {
+  ALL_TIP_NOTES,
+  DEFAULT_TIP_NOTES,
   type FeedPost,
   type Giver,
   nextState,
   planTips,
+  TIP_NOTES,
   TIPS,
   type TipInput,
+  tipNotesFor,
   type WelcomeLine,
-} from "./tip-plan.ts";
+} from "./tip-plan";
 
 const DAY = 20_400;
 const NOW = DAY * 86_400_000 + 15 * 3_600_000;
@@ -60,9 +64,19 @@ describe("townsfolk tips", () => {
     expect(TIPS.post).toBeLessThanOrEqual(ECONOMY.townsfolkPerResident);
     expect(TIPS.welcome).toBeLessThanOrEqual(ECONOMY.townsfolkBudget);
     // Every note is different, so a ledger line says which kind of gift it was.
-    const notes = PERSONAS.flatMap((p) => [p.tips.welcome, p.tips.post]);
+    const notes = [...Object.values(TIP_NOTES), DEFAULT_TIP_NOTES].flatMap((n) => [
+      n.welcome,
+      n.post,
+    ]);
     expect(new Set(notes).size).toBe(notes.length);
-    for (const note of notes) expect(note.length).toBeLessThanOrEqual(ECONOMY.noteMax);
+    const filters = new Moderation();
+    for (const note of notes) {
+      expect(note.length).toBeLessThanOrEqual(ECONOMY.noteMax);
+      expect(filters.review("gift_note", note).ok, note).toBe(true);
+    }
+    expect(tipNotesFor("clem")).toBe(TIP_NOTES.clem);
+    expect(tipNotesFor("toString")).toBe(DEFAULT_TIP_NOTES);
+    expect(tipNotesFor(undefined)).toBe(DEFAULT_TIP_NOTES);
   });
 
   it("welcome each newcomer since the last run with 10, taking turns between townsfolk", () => {
@@ -238,6 +252,33 @@ describe("townsfolk tips", () => {
     expect(gifts(plan)).toEqual([]);
     expect(plan.unfunded).toBe(1);
     expect(plan.noPostTip).toBe("no budget left");
+  });
+
+  it("count every townsfolk purse and every known note, whoever gives today", () => {
+    // Bram, suspended today, welcomed Ash yesterday with his own note, and Clem's handle changed,
+    // so Clem gives with the shared notes now. Neither hides Bram's welcome.
+    const bram = { ...giver("bram"), ledger: [] as Giver["ledger"] };
+    bram.ledger.push({
+      day: DAY,
+      amount: -10,
+      reason: "gift_out",
+      with: "ash",
+      note: TIP_NOTES.bram.welcome,
+    });
+    const clem = { ...giver("clem"), notes: DEFAULT_TIP_NOTES };
+    const plan = planTips(
+      input({
+        givers: [clem],
+        welcomes: [welcome(5, "ash")],
+        otherLedgers: [bram.ledger],
+        knownNotes: ALL_TIP_NOTES,
+      }),
+    );
+    expect(plan.welcomes).toEqual([{ seq: 5, skip: "already welcomed", name: "ash" }]);
+    // Without them, Ash would be welcomed again.
+    expect(gifts(planTips(input({ givers: [clem], welcomes: [welcome(5, "ash")] })))).toHaveLength(
+      1,
+    );
   });
 
   it("remember the newcomers handled and the posts tipped", () => {

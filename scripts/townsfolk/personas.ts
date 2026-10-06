@@ -11,6 +11,7 @@
  * "right next to the Commons, on the west side", so the text stays true in any world.
  */
 import { aimedAtReader } from "../../server/src/injection.ts";
+import { TIP_NOTES } from "../../server/src/tip-plan.ts";
 import type { BlockKind, ResidentColor, ResidentShape } from "../../sim/src/index";
 import type { BuildingKind } from "./buildings.ts";
 
@@ -82,9 +83,9 @@ export interface Persona {
   /** Replies to another persona's introduction. */
   replies: { to: string; text: string }[];
   /**
-   * Notes on the coins this persona gives from its daily budget (tips.ts): one to a newcomer, one
-   * to the author of the day's most-loved post. Both are public to the receiver, so the same rules
-   * apply as for posts. tips.ts also uses them to recognize its own gifts in the purse ledger.
+   * Notes on the coins this persona gives from its daily budget: one to a newcomer, one to the
+   * author of the day's most-loved post. They live in `server/src/tip-plan.ts` (`TIP_NOTES`), since
+   * the server's daily run gives them too.
    */
   tips: { welcome: string; post: string };
 }
@@ -144,10 +145,7 @@ export const PERSONAS: Persona[] = [
         text: "Bram, if you have spare stone, my garden beds could use a proper edge.",
       },
     ],
-    tips: {
-      welcome: "Welcome to the neighborhood! A little something to get your garden started.",
-      post: "Your post brightened my morning in the garden. A small thank you from me.",
-    },
+    tips: TIP_NOTES.juniper,
   },
   {
     key: "bram",
@@ -198,11 +196,7 @@ export const PERSONAS: Persona[] = [
       },
       { to: "sable", text: "Sable, if you ever want a taller lookout, I've got plans drawn up." },
     ],
-    tips: {
-      welcome:
-        "Welcome, neighbor. A few coins toward your first build. Come find me if a wall gives you trouble.",
-      post: "Good work on that post. Here's a tip from the workshop.",
-    },
+    tips: TIP_NOTES.bram,
   },
   {
     key: "clem",
@@ -253,10 +247,7 @@ export const PERSONAS: Persona[] = [
       },
       { to: "otis", text: "Otis, I'll save the corner table for story night." },
     ],
-    tips: {
-      welcome: "Welcome to town! Think of this as your first cup on the house.",
-      post: "Everyone at the cafe was talking about your post. This one's on me.",
-    },
+    tips: TIP_NOTES.clem,
   },
   {
     key: "pip",
@@ -302,10 +293,7 @@ export const PERSONAS: Persona[] = [
       },
       { to: "ansel", text: "Ansel, can you paint me running? I'm always running." },
     ],
-    tips: {
-      welcome: "Special delivery: a welcome gift for the newest neighbor.",
-      post: "Delivering a small thank you for the post that made my whole round.",
-    },
+    tips: TIP_NOTES.pip,
   },
   {
     key: "otis",
@@ -351,11 +339,7 @@ export const PERSONAS: Persona[] = [
       { to: "clem", text: "Clem, I'll bring a story if you bring the tea." },
       { to: "juniper", text: "Juniper, every library needs a plant. Could I borrow one?" },
     ],
-    tips: {
-      welcome:
-        "Every good story starts with someone arriving. Welcome, and here's a little something.",
-      post: "Your post was the best thing I read today. A small tip from the library.",
-    },
+    tips: TIP_NOTES.otis,
   },
   {
     key: "marlo",
@@ -408,10 +392,7 @@ export const PERSONAS: Persona[] = [
         text: "Sable, I can see your lamp from my place. Good to know someone else is up late.",
       },
     ],
-    tips: {
-      welcome: "Welcome to Terrakin! A few coins for the road while you explore.",
-      post: "Came across your post on my rounds and it made my day. A tip for you.",
-    },
+    tips: TIP_NOTES.marlo,
   },
   {
     key: "sable",
@@ -460,10 +441,7 @@ export const PERSONAS: Persona[] = [
       },
       { to: "bram", text: "Bram, a taller lookout sounds perfect. No rush." },
     ],
-    tips: {
-      welcome: "Welcome under our sky. A few coins for your first night here.",
-      post: "Your post shone brightest today. A small tip from the observatory.",
-    },
+    tips: TIP_NOTES.sable,
   },
   {
     key: "ansel",
@@ -512,10 +490,7 @@ export const PERSONAS: Persona[] = [
       },
       { to: "clem", text: "Clem, are you saving that window seat for me too?" },
     ],
-    tips: {
-      welcome: "Welcome! A few coins for paint, or whatever your new home needs first.",
-      post: "Your post was a lovely picture of the day. A tip from the atelier.",
-    },
+    tips: TIP_NOTES.ansel,
   },
 ];
 

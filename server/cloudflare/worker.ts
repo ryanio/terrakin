@@ -44,6 +44,7 @@ import { materializePlot, type PlotPhotoSpec } from "../src/plot-photo";
 import { parseMaintainers, parseTownsfolk, SocialService } from "../src/social-service";
 import { SqlStore } from "../src/sql-store";
 import { report, sentryOptions, span } from "../src/telemetry";
+import { TIPS_CRON, TownsfolkTips, tipsMode } from "../src/townsfolk-tips";
 import { TriageClient, triageConfig } from "../src/triage";
 import { WorldService } from "../src/world-service";
 import { rewritePage } from "./meta-rewriter";
@@ -94,6 +95,8 @@ interface Env {
   TERRAKIN_CHATTER_DAILY_TOKENS?: string;
   /** `dry` (the default) stores drafts and posts nothing; `posts` posts and likes; `all` replies too. */
   TERRAKIN_CHATTER_MODE?: string;
+  /** The townsfolk's daily coin tips: `off` (the default), `dry`, or `on`. */
+  TERRAKIN_TIPS?: string;
   /** Agent links (RFC 0007): RPC URLs per network, like `4663=https://...`. Default: public endpoints. */
   TERRAKIN_CHAIN_RPC?: string;
   /** Reads (network calls and card fetches) per UTC day for agent links. Default 20,000. */
@@ -296,19 +299,34 @@ const handler = {
   },
 
   /**
-   * The cron in wrangler.jsonc: a round of townsfolk chatter in the World object, over RPC, so
-   * there's no public route for it. Chatter checks its own gate and spend guard.
+   * The crons in wrangler.jsonc, run in the World object over RPC, so there's no public route for
+   * either: the daily coin tips at `TIPS_CRON`, and a round of townsfolk chatter at the other. Each
+   * checks its own gate. While one is off, its cron doesn't wake the world (a cold object replays
+   * its log to boot).
    */
-  async scheduled(_controller, env, ctx) {
-    // While chatter is off, don't wake the world (a cold object replays its log to boot).
+  async scheduled(controller, env, ctx) {
+    const world = () => env.WORLD.get(env.WORLD.idFromName("world"));
+    if (controller.cron === TIPS_CRON) {
+      if (tipsMode(env) === "off") return;
+      ctx.waitUntil(
+        world()
+          .tips()
+          .catch((err: unknown) => {
+            console.error(err);
+            report(err, "tips.run");
+          }),
+      );
+      return;
+    }
     const config = chatterConfig(env);
     if (config.apiKey === undefined || config.callsPerDay === 0) return;
-    const world = env.WORLD.get(env.WORLD.idFromName("world"));
     ctx.waitUntil(
-      world.chatter().catch((err: unknown) => {
-        console.error(err);
-        report(err, "chatter.run");
-      }),
+      world()
+        .chatter()
+        .catch((err: unknown) => {
+          console.error(err);
+          report(err, "chatter.run");
+        }),
     );
   },
 } satisfies ExportedHandler<Env>;
@@ -387,6 +405,7 @@ class WorldObject extends DurableObject<Env> {
         townsfolk,
         residentAgeDays: (id) => service.residentAgeDays(id),
       }),
+      tips: new TownsfolkTips({ mode: tipsMode(env), world: service, social, townsfolk }),
       // Plot photos are drawn by the Worker (PlotPhotos), never in this object.
       photos: (spec) => env.PHOTOS.draw(spec),
       staff: {
@@ -426,6 +445,11 @@ class WorldObject extends DurableObject<Env> {
   /** A round of townsfolk chatter, from the Worker's cron. Answers with counts and codes only. */
   async chatter(): Promise<{ skipped?: string; outcomes: string[] }> {
     return this.api.runChatter();
+  }
+
+  /** The day's coin tips, from the Worker's daily cron. Answers with counts and codes only. */
+  async tips(): Promise<{ skipped?: string }> {
+    return this.api.runTips();
   }
 
   override async alarm(): Promise<void> {

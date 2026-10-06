@@ -1,6 +1,8 @@
 /**
- * Who the townsfolk give coins to today, worked out from what the API shows (tips.ts reads it).
- * Pure: no network, no clock, no files, so the tests can feed it fixtures.
+ * Who the townsfolk give coins to today. The server's daily run (`townsfolk-tips.ts`) reads the world
+ * for it, and so does `scripts/townsfolk/tips.ts` through the public API, for self-hosting and local
+ * runs. Pure: no imports, no network, no clock, no files, so the tests can feed it fixtures and the
+ * script can load it as it is.
  *
  * Two kinds of gift, both from a townsfolk resident's daily budget:
  * - A welcome of 10 to each resident who got a welcome gift from the treasury since the last run.
@@ -8,7 +10,8 @@
  *   townsfolk.
  *
  * The sim has the final say (25 a resident a day from all townsfolk together, never to townsfolk or
- * maintainers), and tips.ts treats its refusals as normal. This only plans gifts that should fit.
+ * maintainers, never across a block), and both runners treat its refusals as normal. This only plans
+ * gifts that should fit.
  */
 
 /** The amounts. `perResident` must match the sim's `ECONOMY.townsfolkPerResident` (a test checks). */
@@ -26,6 +29,71 @@ export const TIPS = {
   /** Posts remembered as tipped, so one that stays on top isn't tipped two days running. */
   rememberPosts: 50,
 } as const;
+
+/**
+ * The note on each kind of gift, by persona key (the townsfolk's handle). Both are public to the
+ * receiver, so they follow the rules for posts. The planner also uses them to recognize its own gifts
+ * in the purse ledgers, so every note is different, and changing one makes its old gifts look like
+ * someone else's. `scripts/townsfolk/personas.ts` reads them from here.
+ */
+export const TIP_NOTES = {
+  juniper: {
+    welcome: "Welcome to the neighborhood! A little something to get your garden started.",
+    post: "Your post brightened my morning in the garden. A small thank you from me.",
+  },
+  bram: {
+    welcome:
+      "Welcome, neighbor. A few coins toward your first build. Come find me if a wall gives you trouble.",
+    post: "Good work on that post. Here's a tip from the workshop.",
+  },
+  clem: {
+    welcome: "Welcome to town! Think of this as your first cup on the house.",
+    post: "Everyone at the cafe was talking about your post. This one's on me.",
+  },
+  pip: {
+    welcome: "Special delivery: a welcome gift for the newest neighbor.",
+    post: "Delivering a small thank you for the post that made my whole round.",
+  },
+  otis: {
+    welcome:
+      "Every good story starts with someone arriving. Welcome, and here's a little something.",
+    post: "Your post was the best thing I read today. A small tip from the library.",
+  },
+  marlo: {
+    welcome: "Welcome to Terrakin! A few coins for the road while you explore.",
+    post: "Came across your post on my rounds and it made my day. A tip for you.",
+  },
+  sable: {
+    welcome: "Welcome under our sky. A few coins for your first night here.",
+    post: "Your post shone brightest today. A small tip from the observatory.",
+  },
+  ansel: {
+    welcome: "Welcome! A few coins for paint, or whatever your new home needs first.",
+    post: "Your post was a lovely picture of the day. A tip from the atelier.",
+  },
+} as const satisfies Record<string, { welcome: string; post: string }>;
+
+/** A townsfolk resident's notes, by its handle, or the shared ones when it has none of its own. */
+export function tipNotesFor(handle: string | undefined): { welcome: string; post: string } {
+  return handle !== undefined && Object.hasOwn(TIP_NOTES, handle)
+    ? TIP_NOTES[handle as keyof typeof TIP_NOTES]
+    : DEFAULT_TIP_NOTES;
+}
+
+/** For a townsfolk resident with no notes of its own above. */
+export const DEFAULT_TIP_NOTES = {
+  welcome: "Welcome to Terrakin! A little something from the townsfolk to get you started.",
+  post: "Your post was one of the best in town today. A small thank you from the townsfolk.",
+} as const;
+
+/**
+ * Every note any townsfolk gives with, by kind. A runner passes these as `knownNotes`, so a gift is
+ * recognized whoever gave it and whatever notes its giver has now (a handle can change).
+ */
+export const ALL_TIP_NOTES = {
+  welcome: [...Object.values(TIP_NOTES).map((n) => n.welcome), DEFAULT_TIP_NOTES.welcome],
+  post: [...Object.values(TIP_NOTES).map((n) => n.post), DEFAULT_TIP_NOTES.post],
+};
 
 /** A townsfolk resident who can give, with today's purse. */
 export interface Giver {
@@ -66,7 +134,7 @@ export interface FeedPost {
   reactions: number;
 }
 
-/** What tips.ts remembers between runs. */
+/** What a runner remembers between runs. */
 export interface TipState {
   /** Treasury welcome lines up to this seq are done with: given, skipped, or refused. */
   welcomedThrough?: number;
@@ -89,6 +157,13 @@ export interface TipInput {
   oldestTreasurySeq?: number;
   posts: FeedPost[];
   state: TipState;
+  /**
+   * Purse ledgers of townsfolk who aren't giving today (suspended, say). Their gifts still count
+   * toward who was welcomed, the day's post tip, and each resident's 25.
+   */
+  otherLedgers?: LedgerEntry[][];
+  /** Notes to recognize besides the givers' own (`ALL_TIP_NOTES`). */
+  knownNotes?: { welcome: readonly string[]; post: readonly string[] };
 }
 
 export interface PlannedGift {
@@ -131,7 +206,10 @@ export interface TipPlan {
 }
 
 /** What all townsfolk gave each resident today, from their ledgers. */
-export function givenToday(givers: Giver[], today: number): Map<string, number> {
+export function givenToday(
+  givers: readonly { ledger: LedgerEntry[] }[],
+  today: number,
+): Map<string, number> {
   const given = new Map<string, number>();
   for (const g of givers) {
     for (const line of g.ledger) {
@@ -143,7 +221,11 @@ export function givenToday(givers: Giver[], today: number): Map<string, number> 
 }
 
 /** Residents a townsfolk gift with one of these notes went to, on `day` or (without it) ever. */
-function giftedWith(givers: Giver[], notes: Set<string>, day?: number): Set<string> {
+function giftedWith(
+  givers: readonly { ledger: LedgerEntry[] }[],
+  notes: Set<string>,
+  day?: number,
+): Set<string> {
   const to = new Set<string>();
   for (const g of givers) {
     for (const line of g.ledger) {
@@ -159,12 +241,20 @@ function giftedWith(givers: Giver[], notes: Set<string>, day?: number): Set<stri
 export function planTips(input: TipInput): TipPlan {
   const { today, givers, state } = input;
   const townsfolk = new Set([...input.townsfolk, ...givers.map((g) => g.residentId)]);
-  const given = givenToday(givers, today);
+  // Every townsfolk purse counts toward what was given, not only today's givers'.
+  const ledgers = [...givers, ...(input.otherLedgers ?? []).map((ledger) => ({ ledger }))];
+  const given = givenToday(ledgers, today);
   const balance = new Map(givers.map((g) => [g.key, g.balance]));
   const giveTo = (id: string) => TIPS.perResident - (given.get(id) ?? 0);
-  const welcomeNotes = new Set(givers.map((g) => g.notes.welcome));
-  const postNotes = new Set(givers.map((g) => g.notes.post));
-  const welcomedBefore = giftedWith(givers, welcomeNotes);
+  const welcomeNotes = new Set([
+    ...givers.map((g) => g.notes.welcome),
+    ...(input.knownNotes?.welcome ?? []),
+  ]);
+  const postNotes = new Set([
+    ...givers.map((g) => g.notes.post),
+    ...(input.knownNotes?.post ?? []),
+  ]);
+  const welcomedBefore = giftedWith(ledgers, welcomeNotes);
 
   // Newcomers since the last run. On the first run, only today's and yesterday's.
   const lines = [...input.welcomes].sort((a, b) => a.seq - b.seq);
@@ -237,7 +327,7 @@ export function planTips(input: TipInput): TipPlan {
   }
 
   // The day's best post.
-  if (state.postTipDay === today || giftedWith(givers, postNotes, today).size > 0) {
+  if (state.postTipDay === today || giftedWith(ledgers, postNotes, today).size > 0) {
     plan.noPostTip = "already tipped a post today";
     return plan;
   }

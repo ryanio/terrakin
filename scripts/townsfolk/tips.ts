@@ -1,8 +1,11 @@
 /**
  * Spend the townsfolk's daily coin budgets through the public API, like any resident would: 10 to
  * each newcomer since the last run, and a tip for the day's most-reacted post that isn't by
- * townsfolk. The choosing is in tip-plan.ts; this reads the server, prints the plan, and with
- * `--send` gives the coins.
+ * townsfolk. The choosing is in server/src/tip-plan.ts; this reads the server, prints the plan, and
+ * with `--send` gives the coins.
+ *
+ * terrakin.org runs the same plan inside the Worker once a day (server/src/townsfolk-tips.ts), so
+ * this is for self-hosting and local runs. Don't `--send` against a server whose own tips are on.
  *
  *   pnpm townsfolk:tips -- --base http://localhost:8787            # dry run: print what it would give
  *   pnpm townsfolk:tips -- --base http://localhost:8787 --send     # give it
@@ -27,9 +30,8 @@ import type {
   TownResponse,
   WorldSnapshot,
 } from "../../protocol/src/index";
-import { type Creds, defaultCredsPath, tipsStatePath, writePrivateJson } from "./creds.ts";
-import { PERSONAS } from "./personas.ts";
 import {
+  ALL_TIP_NOTES,
   type FeedPost,
   type Giver,
   nextState,
@@ -38,7 +40,9 @@ import {
   TIPS,
   type TipState,
   type WelcomeLine,
-} from "./tip-plan.ts";
+} from "../../server/src/tip-plan.ts";
+import { type Creds, defaultCredsPath, tipsStatePath, writePrivateJson } from "./creds.ts";
+import { PERSONAS } from "./personas.ts";
 
 const { values: args } = parseArgs({
   args: process.argv.slice(2).filter((arg, i) => !(i === 0 && arg === "--")),
@@ -234,6 +238,8 @@ async function main(): Promise<void> {
       : {}),
     posts,
     state,
+    // The server's daily run gives with the same notes; recognize all of them.
+    knownNotes: ALL_TIP_NOTES,
   });
 
   console.log(`Day ${today}. Budgets left:`);

@@ -1,6 +1,6 @@
 # Townsfolk chatter
 
-Status: chatter and the spend ledger are built and ship off (`TERRAKIN_CHATTER_DAILY_CALLS=0`). Moving the coin tips into the Worker is not built yet. Runs on the server, not from anyone's machine.
+Status: built. terrakin.org runs chatter as a dry run (12 calls a day) and the coin tips as a dry run (`TERRAKIN_TIPS=dry`). Runs on the server, not from anyone's machine.
 
 ## Why
 
@@ -10,7 +10,7 @@ The goal: while real activity is low, a few townsfolk post, reply and like in th
 
 Success is participation, not volume: real residents replying to and reacting to what the townsfolk write. The prompt steers that way (welcome newcomers, answer real residents first, and write notes that leave an easy way in, like a light question or an invitation to try something in the world), and posts from a real resident in their first 3 days carry a `newcomer` mark. Every post and reply chatter puts up is kept in `chatter_posts`, and the staff overview counts, over 30 days, how many drew a reply or reaction from a real resident, and how many replies and reactions in all.
 
-The same cron also takes over the townsfolk's daily coin tips from `scripts/townsfolk/tips.ts`, which no longer runs on anyone's machine (see [Coins](#coins)).
+A second cron also takes over the townsfolk's daily coin tips from `scripts/townsfolk/tips.ts`, which no longer runs on anyone's machine (see [Coins](#coins)).
 
 Out of scope: votes and proposals (townsfolk never take part, [decision 0027](../knowledge/decisions/0027-townsfolk-reach-the-sim-as-a-logged-input-and-never-vote.md)), follows (the seed script handles those), and any change to `sim/` or `protocol/`.
 
@@ -30,11 +30,12 @@ The model call is a plain `fetch` to the Messages API, as triage does, so there 
 
 The daily tips move into the Worker with no change to what they do: 10 coins to each newcomer since the last run, and a tip for the day's most-reacted post that isn't by townsfolk. No model call, so no spend guard; the sim's own caps (25 coins a day to one resident, none to townsfolk, maintainers or blocked residents) stay the guard, and a test shows each one refusing.
 
-- The pure planner moves from `scripts/townsfolk/tip-plan.ts` to `server/src/townsfolk-tips.ts`, and the script imports it from there, so the server still imports nothing from `scripts/`.
-- A second cron entry runs it once a day just after midnight UTC. It gives through the same action path `/v1/actions` uses, as each townsfolk resident, so the sim validates every gift exactly as before.
-- The state the script kept in `townsfolk.<host>.tips.json` (last newcomer handled, posts tipped) moves to a small table in the social database. The purse ledgers still back it up, so a lost row never welcomes anyone twice.
-- A refusal is logged by code and the run moves on, never retried. A server error stops the run; the next day's run picks up.
-- `TERRAKIN_TIPS_ON` gates it (off by default), with a dry-run mode that plans and logs counts but gives nothing. The script keeps working for self-hosting and local runs.
+- The pure planner and the gift notes live in `server/src/tip-plan.ts` (`planTips`, `TIP_NOTES`), with no imports, so the script and `personas.ts` load it as it is and the server imports nothing from `scripts/`. Both runners use the same notes, so each recognizes the other's gifts in the purse ledgers.
+- `server/src/townsfolk-tips.ts` is the daily run. A cron entry (`"7 0 * * *"`, `TIPS_CRON` in the Worker) calls the World object's `tips()` RPC method just after midnight UTC; Node asks every hour. `Api.runTips()` catches the world's day up first, so the day's budgets are paid, and the run goes at most once a UTC day per mode.
+- It reads purses, the treasury ledger, and the feed straight from the world. Newcomers come from each resident's own welcome line as well as the treasury's last 50 lines, so a busy day can't push one out of view before the run. It gives through `WorldService.act`, the action path `/v1/actions` uses, as each townsfolk resident, so the sim validates every gift exactly as before. Like the route, it calls `WorldService.arrive` before each gift, so with implicit presence ([decision 0071](../knowledge/decisions/0071-presence-comes-with-acting-once-implicit-presence-is-logged.md)) a giver who was away comes back with the gift itself, and the idle sweep takes them out again.
+- The state the script kept in `townsfolk.<host>.tips.json` (last newcomer handled, posts tipped) lives in the `townsfolk_tips` table, saved after each gift. The purse ledgers still back it up, so a lost row never welcomes anyone twice.
+- A refusal is counted by its code and the run moves on, never retried. A thrown error stops the run; the next day's run picks up.
+- `TERRAKIN_TIPS` gates it: `off` (the default), `dry` (plans and checks each gift with the sim's own dry run, gives nothing), or `on`. Each run's counts go in `townsfolk_tips_runs` and on the admin queue page. The script keeps working for self-hosting and local runs.
 
 ## Spend ledger
 
@@ -91,7 +92,8 @@ Telemetry carries counts and codes only. The text and the key are never logged (
 - `docs/deploy.md`: the `TERRAKIN_CHATTER_*` settings in the env table (daily calls, where `0` is off; daily tokens; mode; model).
 - `server/AGENTS.md`: a line under "Where things are" and under the rules ("chatter spends money, so it goes through the guard").
 - A decision record (`pnpm kb new decision`): why a model, why Sonnet 5.5, why enumerated actions only, why the quiet gate, why the server and not a script.
-- `server/src/townsfolk-tips.ts` and `server/src/townsfolk-tips.test.ts`: the planner moved from `scripts/`, the daily run, the state table, and a refusal test for each sim cap.
+- `server/src/tip-plan.ts` and `server/src/tip-plan.test.ts`: the planner and the notes, moved from `scripts/`.
+- `server/src/townsfolk-tips.ts` and `server/src/townsfolk-tips.test.ts`: the daily run, its tables, and a refusal test for each sim cap.
 - `scripts/townsfolk/tips.ts` and `scripts/townsfolk/README.md`: import the planner from `server/`, and say the server runs it for terrakin.org.
 - `server/src/ai-spend.ts` and `server/src/ai-spend.test.ts`: the `ai_spend` table, the price table, `record()`, and the day summary. Tests show a row per call with the right cost, no row for a refused call, and no text or ids in any row.
 - `server/src/triage.ts`: writes a ledger row after each call. The staff overview carries the ledger's summary and chatter's status and drafts (`protocol/src/safety.ts`, `server/src/api.ts`); it is an internal route, so no `CHANGELOG.md` entry.
@@ -107,7 +109,7 @@ Chatter and tips add no public API, so they need no `CHANGELOG.md` entry.
 2. Now: `TERRAKIN_CHATTER_DAILY_CALLS` is `12` in `wrangler.jsonc`, with `TERRAKIN_CHATTER_MODE` left at `dry`. A dry run makes the calls and keeps the newest 30 answers as drafts, posting nothing; logs carry counts and codes only. It rests after a draft post, never drafts the same reply or like twice, and counts its drafts as said, so the drafts show what live chatter would do. Read the drafts and the cost line on the admin queue page for a few days.
 3. Then `TERRAKIN_CHATTER_MODE=posts` (posts and likes), and `all` (replies too) after a few days of clean output. From here the participation line says whether it's working.
 4. Raise the caps only if the wall still looks empty.
-5. Tips: ship off, run the dry run for two days and compare its plan with what the script would have given, then turn `TERRAKIN_TIPS_ON` on.
+5. Tips: now `TERRAKIN_TIPS=dry` in `wrangler.jsonc`. Read its line on the admin queue page for two days, then set `on`. To compare with the script, move the laptop's old `townsfolk.terrakin.org.tips.json` aside first (a dry run saves no state, so each one plans like a first run: today's and yesterday's newcomers) and run `pnpm townsfolk:tips -- --base https://terrakin.org`, which only prints.
 
 ## Verification
 

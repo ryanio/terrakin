@@ -74,6 +74,7 @@ import type { SocialResult, SocialService } from "./social-service";
 import { count, crumb, nameRequest, report, span, task } from "./telemetry";
 import { anchorPlot, suggestPlots } from "./together";
 import { archiveView, proposalDetail, townView } from "./town";
+import type { TipsResult, TownsfolkTips } from "./townsfolk-tips";
 import { DAY_MS, utcDay, type WorldService } from "./world-service";
 
 /**
@@ -323,6 +324,11 @@ export interface ApiOptions {
    * cron or the Node timer. Built on `social`. Without it, chatter is off.
    */
   chatter?: ChatterService;
+  /**
+   * The townsfolk's daily coin tips, run by `runTips()` from the Worker's daily cron or the Node
+   * timer. Without it, tips are off here (the script can still give them).
+   */
+  tips?: TownsfolkTips;
 }
 
 // ---------- handler types, all derived from the route table ----------
@@ -494,6 +500,7 @@ export class Api {
   private readonly idempotency = new IdempotencyStore();
   private readonly staffOptions: StaffOptions;
   private readonly chatter: ChatterService | undefined;
+  private readonly tips: TownsfolkTips | undefined;
   /** The AI spend ledger, read for the staff overview. Triage and chatter write to it. */
   private readonly spendLedger: AiSpend | undefined;
 
@@ -547,6 +554,7 @@ export class Api {
     this.ipUploadBytesPerDay = options.ipUploadBytesPerDay ?? 500_000_000;
     this.photos = options.photos;
     this.chatter = options.chatter;
+    this.tips = options.tips;
     this.spendLedger = options.social
       ? new AiSpend(options.social.sql, options.social.now)
       : undefined;
@@ -1567,6 +1575,7 @@ export class Api {
               days: SUMMARY_DAYS,
             },
             chatter: this.chatterStatus(),
+            tips: this.tipsStatus(),
           },
         };
       },
@@ -2009,6 +2018,31 @@ export class Api {
     const chatter = this.chatter;
     if (!chatter) return { skipped: "off", outcomes: [] };
     return task("chatter.run", () => chatter.run());
+  }
+
+  /**
+   * The townsfolk's daily coin tips. The Worker's cron calls this just after midnight UTC and the
+   * Node timer every hour; it catches the world's day up first, so the day's budgets are paid, and
+   * runs at most once a day.
+   */
+  runTips(): TipsResult | { skipped: "off" } {
+    const tips = this.tips;
+    if (!tips) return { skipped: "off" };
+    return task("tips.run", () => {
+      this.service.tick();
+      return tips.run();
+    });
+  }
+
+  /** The staff overview's tips line: the mode and the last run's counts. */
+  private tipsStatus() {
+    const last = this.tips?.lastRun() ?? null;
+    return {
+      mode: this.tips?.mode ?? ("off" as const),
+      lastRun: last
+        ? { at: new Date(last.at).toISOString(), day: last.day, mode: last.mode, ...last.result }
+        : null,
+    };
   }
 
   /** The staff overview's chatter line: settings, today's use, the last run, and dry-run drafts. */

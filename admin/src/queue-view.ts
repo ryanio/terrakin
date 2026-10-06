@@ -36,6 +36,7 @@ import {
   spendLine,
   suspendLimits,
   TAKEDOWN_ACTIONS,
+  tipsLine,
   triageLine,
   triageSummary,
 } from "./logic";
@@ -72,6 +73,7 @@ export function queueView(overview: AdminOverviewResponse): View {
       ...[participationLine(overview.chatter.participation, overview.spend.days)].map((line) =>
         line ? h("p", { class: "triage-status", text: line }) : null,
       ),
+      h("p", { class: "triage-status", text: tipsLine(overview.tips) }),
       chatterDrafts(overview.chatter.drafts),
     ),
     list,

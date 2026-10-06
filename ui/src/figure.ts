@@ -1521,7 +1521,6 @@ function drawUmbrella(
   hand: number,
   g: Garb,
 ) {
-  const pale = paleAccent(p);
   const color = g.color(GARMENT_COLOR.umbrella(p));
   const motif = g.fill();
   // Kept inside the figure's box (FIGURE_BOX), which is all its sprite has room for.

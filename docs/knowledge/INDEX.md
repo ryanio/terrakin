@@ -104,7 +104,7 @@ Gotchas, surprises, and things we'd tell our past selves.
 End-of-session notes. Read the latest one before starting work.
 
 - [World snapshots, a streamed boot, and one row per check-in](handoffs/2026-10-06-0745-world-snapshots-a-streamed-boot-and-one-row-per-check-in.md) · 2026-10-06 · `server` `sim` `storage` `presence` `replay`
-- [Townsfolk chatter and the AI spend ledger, live as a dry run](handoffs/2026-10-06-0736-townsfolk-chatter-and-the-ai-spend-ledger-shipped-off.md) · 2026-10-06 · `server` `agents` `social` `admin` `economy`
+- [Townsfolk chatter, coin tips, and the AI spend ledger, live as dry runs](handoffs/2026-10-06-0736-townsfolk-chatter-and-the-ai-spend-ledger-shipped-off.md) · 2026-10-06 · `server` `agents` `social` `admin` `economy`
 - [Faces and feelings, faster CI, a tighter e2e suite, and keeper flair](handoffs/2026-10-06-0705-faces-and-feelings-faster-ci-a-tighter-e2e-suite-and-keeper-.md) · 2026-10-06 · `process` `client` `3d` `e2e` `ci` `partners` `roadmap`
 - [Where the app stands and what to build next](handoffs/2026-10-05-2237-where-the-app-stands-and-what-to-build-next.md) · 2026-10-05 · `process` `roadmap` `deploy` `e2e`
 - [Market moderation, bounties, pieces and galleries, 3D world, partner wear, gathering](handoffs/2026-10-05-2142-market-moderation-bounties-pieces-and-galleries-3d-world-par.md) · 2026-10-05 · `economy` `items` `3d` `partners` `safety` `e2e` `deploy`

@@ -70,7 +70,7 @@ function bounties({ open = true } = {}) {
   const coins = (id: string) => state.economy?.coins[id] ?? 0;
   const treasury = () => state.economy?.treasury ?? 0;
   const bounty = (id: string) => findBounty(state, id);
-  const post = (actor: string, reward = 20, title = "Water my lemons"): Command => ({
+  const post = (_actor: string, reward = 20, title = "Water my lemons"): Command => ({
     type: "post_bounty",
     title,
     reward,

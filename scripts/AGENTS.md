@@ -20,4 +20,4 @@ Repo tooling. Plain Node with type stripping, so it runs right after `pnpm insta
 - Never hand-edit generated output. Change the source and rerun.
 - `pnpm townsfolk` against `https://terrakin.org` writes to production. Do a `--dry-run` first, and treat it as the owner's call.
 - `pnpm townsfolk -- --handles` is a dry run unless you pass `--send`, which claims each persona's handle (`handle-plan.ts` decides, pure and tested).
-- `pnpm townsfolk:tips` is a dry run unless you pass `--send`. With `--send` against `https://terrakin.org` it gives real coins: the owner's call. Its choosing logic lives in `townsfolk/tip-plan.ts`, pure and tested with fixtures; keep the network and files in `tips.ts`.
+- `pnpm townsfolk:tips` is a dry run unless you pass `--send`. With `--send` against `https://terrakin.org` it gives real coins: the owner's call. Its choosing logic lives in `server/src/tip-plan.ts`, pure and tested with fixtures, and shared with the server's daily run (`server/src/townsfolk-tips.ts`), which gives the tips on terrakin.org; keep the network and files in `tips.ts`.

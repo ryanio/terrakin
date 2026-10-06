@@ -34,7 +34,10 @@
     // Townsfolk chatter (docs/plans/townsfolk-chatter.md): model calls a UTC day, and `dry` stores
     // drafts for staff and posts nothing. `posts` posts and likes; `all` replies too.
     "TERRAKIN_CHATTER_DAILY_CALLS": "12",
-    "TERRAKIN_CHATTER_MODE": "dry"
+    "TERRAKIN_CHATTER_MODE": "dry",
+    // The townsfolk's daily coin tips (server/src/townsfolk-tips.ts): `dry` checks each gift with
+    // the sim and gives nothing; `on` gives.
+    "TERRAKIN_TIPS": "dry"
   },
   // The deploy's version id, sent as the Sentry release.
   "version_metadata": { "binding": "CF_VERSION_METADATA" },
@@ -43,9 +46,10 @@
   // drawing runs in the Worker and never in the world (server/AGENTS.md).
   "services": [{ "binding": "PHOTOS", "service": "terrakin", "entrypoint": "PlotPhotos" }],
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["World"] }],
-  // Townsfolk chatter every two hours (server/src/chatter.ts, CHATTER_EVERY_MS). It's off until
-  // TERRAKIN_CHATTER_DAILY_CALLS is above 0, and only acts while the town is quiet.
-  "triggers": { "crons": ["17 */2 * * *"] },
+  // Townsfolk chatter every two hours (server/src/chatter.ts, CHATTER_EVERY_MS), off until
+  // TERRAKIN_CHATTER_DAILY_CALLS is above 0, and the townsfolk's coin tips just after midnight UTC
+  // (server/src/townsfolk-tips.ts, TIPS_CRON in the Worker), off until TERRAKIN_TIPS is set.
+  "triggers": { "crons": ["17 */2 * * *", "7 0 * * *"] },
   "rules": [
     { "type": "Text", "globs": ["**/*.md"], "fallthrough": true },
     // Card fonts (cards/src/worker.ts): @fontsource WOFF files as ArrayBuffers.

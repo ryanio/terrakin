@@ -10,10 +10,9 @@ import type {
 } from "@terrakin/protocol";
 import { facingFrom, KARMA, PROTOCOL_VERSION, PUTTER_LIMITS } from "@terrakin/protocol";
 import {
-  apply,
+  asJoined,
   type Command,
   chebyshev,
-  cloneWorld,
   commonsPlot,
   type DailyAward,
   DEFAULT_CONFIG,
@@ -39,7 +38,7 @@ import {
   prepare,
   type ResidentKind,
   type ResourceKind,
-  replay,
+  residentById,
   SHOP,
   shopTiles,
   TOWN_ACTOR,
@@ -52,8 +51,20 @@ import {
 } from "@terrakin/sim";
 import { listingRefusal } from "./market";
 import { Moderation, type ReviewContext, type Surface } from "./moderation";
+import {
+  boot,
+  encodeSnapshot,
+  type LogFacts,
+  newestVerified,
+  prunable,
+  reportable,
+  SNAPSHOT_TAIL,
+  SnapshotVerifier,
+  supplyHolds,
+  type WorldCredit,
+} from "./snapshots";
 import type { Store } from "./store";
-import { count, crumb, report, span } from "./telemetry";
+import { count, crumb, gauge, report, span } from "./telemetry";
 import { cleanMultiline, cleanText } from "./text";
 
 export type ActResult =
@@ -135,6 +146,15 @@ export interface WorldServiceOptions {
    * log, so the sim keeps townsfolk budgets away from them.
    */
   maintainers?: ReadonlySet<string>;
+  /**
+   * Presence that comes with acting (RFC 0014): append `implicit_presence` if the world never has.
+   * From then on a REST or link call logs no `join` of its own, and the idle sweep logs one
+   * `leave_idle`. Both adapters turn this on. Off by default so a test world's log holds only what
+   * the test sent.
+   */
+  presence?: boolean;
+  /** Inputs one minute's sweep replays while verifying a snapshot. Tests make it small. */
+  verifySlice?: number;
 }
 
 /**
@@ -150,7 +170,8 @@ function toWire(events: WorldEvent[], townsfolk: readonly string[] = []): WireEv
       e.type === "owner_pairs_set" ||
       e.type === "owner_pair_added" ||
       e.type === "owner_pair_removed" ||
-      e.type === "maintainers_set"
+      e.type === "maintainers_set" ||
+      e.type === "implicit_presence_on"
     ) {
       continue;
     }
@@ -231,33 +252,12 @@ export const DAY_MS = 86_400_000;
 /** UTC days since 1970-01-01. */
 export const utcDay = (ms: number) => Math.floor(ms / DAY_MS);
 
-/**
- * A gift, a Town Hall vote, or a bounty paid, read from the log for karma (decisions 0055 and
- * 0062). `to` is who got a gift or a bounty's pay; `proposal` is what a vote was on.
- */
-export type WorldCredit =
-  | { kind: "gift"; from: string; to: string; day: number }
-  | { kind: "vote"; from: string; proposal: string; day: number }
-  /** A bounty paid `to`. `from` is its poster, or `town` for a town bounty a maintainer confirmed. */
-  | { kind: "bounty"; from: string; to: string; bounty: string; day: number };
+export type { WorldCredit } from "./snapshots";
 
 /** The most ended days `tick` pays appreciation for at once, after a stretch with no requests. */
 const AWARD_CATCH_UP = 7;
 /** How often `tick` compares every resident's partner wear with the social layer's (RFC 0007). */
 export const ENTITLEMENT_CHECK_MS = 5 * 60_000;
-
-/** The credit an accepted input earns, if any, on `day`. */
-function creditFor(actor: string, command: Command, day: number): WorldCredit | undefined {
-  if (command.type === "give_coins" || command.type === "give") {
-    return { kind: "gift", from: actor, to: command.to, day };
-  }
-  if (command.type === "vote")
-    return { kind: "vote", from: actor, proposal: command.proposal, day };
-  if (command.type === "confirm_bounty" || command.type === "confirm_town_bounty") {
-    return { kind: "bounty", from: actor, to: command.to, bounty: command.bounty, day };
-  }
-  return undefined;
-}
 
 const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
 
@@ -372,24 +372,27 @@ export class WorldService {
   private readonly shop: boolean;
   private readonly market: boolean;
   private readonly bounties: boolean;
+  private readonly presence: boolean;
   /** The edge filters for names, notes, chat, and proposals. */
   readonly moderation: Moderation;
   /**
-   * The UTC day each resident first joined, read from the log (the last `new_day` before their
-   * first `join`; 0 if the world wasn't counting days yet). For report weight, never for the sim.
+   * What the server reads from the log besides the world (`LogFacts`): the UTC day each resident
+   * first joined (for report weight, never for the sim), the command kinds each has had accepted,
+   * today's putters (decision 0049; a restart doesn't reset the daily cap), and karma's credits.
+   * Built by the boot's replay, or loaded from a snapshot, and kept up as inputs commit.
    */
-  private readonly joinedDay = new Map<string, number>();
-  /**
-   * Each resident's last accepted putter and how many they've had today (decision 0049). Today's
-   * count is read back from the log at boot, so a restart doesn't reset the daily cap.
-   */
-  private readonly putters = new Map<string, { at: number; day: number; count: number }>();
-  /** Gifts and votes over karma's window, oldest first (`credits`). Read from the log at boot. */
-  private creditLog: WorldCredit[] = [];
-  /** The command types each resident has had accepted, ever. Read from the log at boot. */
-  private readonly done = new Map<string, Set<string>>();
+  private readonly facts: LogFacts;
   /** The last day `tick` counted awards up to, so it counts each day once per boot. */
   private awardsChecked: number | undefined;
+  /** `hashWorld` at one `seq`. Only `run` changes the world, and each change moves `seq`. */
+  private hashed = { seq: -1, hash: "" };
+  /** Whether `world_log` rows line up with the world's `seq`, which snapshots rely on. */
+  private readonly aligned: boolean;
+  /** The `seq` of the newest snapshot written, or 0. */
+  private snapshotAt = 0;
+  /** The newest verified snapshot, for `GET /v1/health`. */
+  private verified: { seq: number; hash: string } | undefined;
+  private readonly verifier: SnapshotVerifier | undefined;
 
   constructor(options: WorldServiceOptions) {
     this.store = options.store;
@@ -400,28 +403,34 @@ export class WorldService {
     this.moderation =
       options.moderation ??
       new Moderation({ now: this.now, privileged: (id) => grant?.has(id) === true });
-    const log = this.store.loadLog();
-    this.state = replay(options.config ?? DEFAULT_CONFIG, log);
-    let day = 0;
-    const today = utcDay(this.now());
-    const creditsFrom = today - KARMA.windowDays;
-    for (const { actor, command } of log) {
-      if (command.type === "new_day") day = command.day;
-      if (command.type === "join" && !this.joinedDay.has(actor)) this.joinedDay.set(actor, day);
-      const credit = day >= creditsFrom ? creditFor(actor, command, day) : undefined;
-      if (credit) this.creditLog.push(credit);
-      this.markDone(actor, command.type);
-      if (command.type === "putter" && day === today) {
-        const count = (this.putters.get(actor)?.count ?? 0) + 1;
-        this.putters.set(actor, { at: 0, day, count });
-      }
+    // One input at a time, from the newest verified snapshot when there is one (RFC 0014), so the
+    // boot holds the world and never the whole log.
+    const config = options.config ?? DEFAULT_CONFIG;
+    const booted = span("world.boot", "world.boot", () =>
+      boot(this.store, config, utcDay(this.now())),
+    );
+    gauge("world.boot_inputs", booted.inputs, { from: booted.snapshot ? "snapshot" : "log" });
+    // Snapshots refuse a world whose coins don't add up, so say so where it shows.
+    gauge("world.supply_holds", supplyHolds(booted.state) ? 1 : 0);
+    this.state = booted.state;
+    this.facts = booted.facts;
+    this.aligned = booted.aligned;
+    const snapshots = this.store.snapshots;
+    if (snapshots) {
+      const headers = snapshots.list();
+      this.snapshotAt = headers[0]?.seq ?? 0;
+      const newest = newestVerified(headers);
+      if (newest) this.verified = { seq: newest.seq, hash: newest.hash };
+      this.verifier = new SnapshotVerifier(this.store, snapshots, config, options.verifySlice);
     }
     for (const s of this.store.loadSessions()) this.sessions.set(s.tokenHash, s.residentId);
     for (const k of this.store.loadLinkKeys()) this.rememberLinkKey(k.residentId, k.keyHash);
     // Nobody is connected right after a restart. Mark everyone offline so presence is honest.
-    for (const r of Object.values(this.state.residents)) {
-      if (r.online) this.run({ actor: r.id, command: { type: "leave" } });
-    }
+    this.takeOffline(
+      Object.values(this.state.residents)
+        .filter((r) => r.online)
+        .map((r) => r.id),
+    );
     if (options.townsfolk) this.syncTownsfolk(options.townsfolk);
     if (options.maintainers) this.syncMaintainers(options.maintainers);
     this.economy = options.economy ?? false;
@@ -431,19 +440,14 @@ export class WorldService {
     this.shop = options.shop ?? false;
     this.market = options.market ?? false;
     this.bounties = options.bounties ?? false;
+    this.presence = options.presence ?? false;
     // A day may have started (and proposals come due) while the server was down.
     this.tick();
   }
 
-  private markDone(actor: string, command: string) {
-    const kinds = this.done.get(actor);
-    if (kinds) kinds.add(command);
-    else this.done.set(actor, new Set([command]));
-  }
-
   /** The command types a resident has had accepted, ever (for the check-in's suggestions). */
   doneCommands(residentId: string): ReadonlySet<string> {
-    return this.done.get(residentId) ?? new Set();
+    return this.facts.done.get(residentId) ?? new Set();
   }
 
   /** Log the maintainers list when config changed it. */
@@ -561,7 +565,7 @@ export class WorldService {
 
   /** Gifts and votes from `sinceDay` on, for karma. */
   credits(sinceDay: number): WorldCredit[] {
-    return this.creditLog.filter((c) => c.day >= sinceDay);
+    return this.facts.credits.filter((c) => c.day >= sinceDay);
   }
 
   // ---------- the town's clock ----------
@@ -580,10 +584,16 @@ export class WorldService {
    */
   tick() {
     this.reconcileEntitlements();
+    if (this.presence && !this.state.implicitPresence) {
+      const on = this.run({ actor: TOWN_ACTOR, command: { type: "implicit_presence" } });
+      if (!on.ok) console.error(`Couldn't turn on implicit presence: ${on.error.message}`);
+    }
     if (!this.days) return;
     const today = utcDay(this.now());
     if (this.state.day === undefined || today > this.state.day) {
-      this.run({ actor: TOWN_ACTOR, command: { type: "new_day", day: today } });
+      const started = this.run({ actor: TOWN_ACTOR, command: { type: "new_day", day: today } });
+      // A new day is the snapshot's natural boundary: the next boot replays at most a day.
+      if (started.ok) this.takeSnapshot();
     }
     const day = this.state.day;
     if (day === undefined) return;
@@ -746,7 +756,7 @@ export class WorldService {
 
   /** Whole UTC days since a resident first joined. Residents from before days were counted are old. */
   residentAgeDays(residentId: string): number {
-    const joined = this.joinedDay.get(residentId);
+    const joined = this.facts.joinedDay.get(residentId);
     return joined === undefined ? 0 : utcDay(this.now()) - joined;
   }
 
@@ -780,7 +790,9 @@ export class WorldService {
       command: { type: "join", name: cleanText(name), kind, ...cleanProfile(profile) },
     });
     if (!result.ok) return result;
-    this.joinedDay.set(residentId, utcDay(this.now()));
+    // `run` noted the world's day. A world that doesn't count days uses the clock's, which a
+    // restart forgets.
+    if (this.state.day === undefined) this.facts.joinedDay.set(residentId, utcDay(this.now()));
     this.touch(residentId);
     return { ...result, residentId };
   }
@@ -929,6 +941,22 @@ export class WorldService {
   /** Resolve a bearer token to a resident id, or undefined if unknown. */
   authenticate(token: string): string | undefined {
     return this.sessions.get(hashToken(token));
+  }
+
+  /**
+   * A REST or link caller is about to do `action`. Once the world has `implicit_presence`, the
+   * action itself brings them back online if it's accepted, so this only notes they're here.
+   * Before that, or to chat (only residents online speak and hear), they come online now with a
+   * logged `join` (`ensureOnline`). Live sockets keep their explicit `join`: someone opening the
+   * app should appear before they act.
+   */
+  arrive(residentId: string, action: Action["type"]): ActResult {
+    if (action === "chat" || !this.state.implicitPresence) return this.ensureOnline(residentId);
+    this.touch(residentId);
+    if (!residentById(this.state, residentId)) {
+      return { ok: false, error: { code: "unauthorized", message: "Unknown resident." } };
+    }
+    return { ok: true, seq: this.state.seq, events: [] };
   }
 
   /** Bring a known resident back online if they went idle or the server restarted. */
@@ -1193,14 +1221,9 @@ export class WorldService {
   private putter(residentId: string, dry: boolean): ActResult {
     const limited = this.putterLimited(residentId);
     if (limited) return limited;
-    // Plan from where the resident would be: a dry run for someone marked offline checks them as
-    // if they had come back, like `check()` does.
-    let state = this.state;
-    const me = state.residents[residentId];
-    if (me && !me.online) {
-      state = cloneWorld(state);
-      apply(state, { actor: me.id, command: { type: "join", name: me.name, kind: me.kind } });
-    }
+    // Plan from where the resident will be: someone offline comes back with the putter itself
+    // (implicit presence), and a dry run checks them as if they had, like `check()` does.
+    const state = asJoined(this.state, residentId);
     // Never walk up to someone blocked either way: the wave would be refused, and the walk alone
     // would follow them around.
     const avoid = new Set(
@@ -1213,15 +1236,15 @@ export class WorldService {
     if (!result.ok || dry) return result;
     const now = this.now();
     const today = utcDay(now);
-    const used = this.putters.get(residentId);
+    const used = this.facts.putters.get(residentId);
     const count = used?.day === today ? used.count + 1 : 1;
-    this.putters.set(residentId, { at: now, day: today, count });
+    this.facts.putters.set(residentId, { at: now, day: today, count });
     return { ...result, greeted: this.greetNearby(residentId) };
   }
 
   /** The refusal when a resident has puttered too recently or too often today. */
   private putterLimited(residentId: string): ActResult | undefined {
-    const used = this.putters.get(residentId);
+    const used = this.facts.putters.get(residentId);
     if (!used) return undefined;
     const now = this.now();
     if (used.day === utcDay(now) && used.count >= PUTTER_LIMITS.perDay) {
@@ -1324,17 +1347,11 @@ export class WorldService {
 
   /**
    * A dry run: the sim's checks and nothing else. A resident marked offline (idle, or signed out
-   * elsewhere) is checked as if they had come back, the way a real call would bring them back
-   * first, against a copy of the world so this one stays untouched.
+   * elsewhere) is checked as if they had come back, the way a real call would bring them back,
+   * against a view of the world (`asJoined`) that leaves this one untouched.
    */
   private check(input: Input): ActResult {
-    let state = this.state;
-    const me = state.residents[input.actor];
-    if (me && !me.online) {
-      state = cloneWorld(state);
-      apply(state, { actor: me.id, command: { type: "join", name: me.name, kind: me.kind } });
-    }
-    const prepared = prepare(state, input);
+    const prepared = prepare(asJoined(this.state, input.actor), input);
     if (!prepared.ok) return { ok: false, error: prepared.rejection };
     return { ok: true, seq: this.state.seq, events: [] };
   }
@@ -1353,14 +1370,17 @@ export class WorldService {
     let at = was && { x: was.x, y: was.y };
     const { seq, events } = prepared.commit();
     for (const e of events) {
+      // Coming back with the action can move them first (their spot was built on).
+      if (e.type === "joined" && e.resident.id === input.actor) {
+        at = { x: e.resident.x, y: e.resident.y };
+        continue;
+      }
       if (e.type !== "moved" || e.residentId !== input.actor || !at) continue;
       const dir = facingFrom(e.x - at.x, e.y - at.y);
       if (dir) this.facing.set(e.residentId, dir);
       at = { x: e.x, y: e.y };
     }
-    const credit = creditFor(input.actor, input.command, this.state.day ?? 0);
-    if (credit) this.creditLog.push(credit);
-    this.markDone(input.actor, input.command.type);
+    this.facts.note(input, this.state.day ?? 0);
     for (const e of events) {
       if (e.type === "admired") this.onAdmired?.(e.by, e.maker, this.state.day ?? 0);
     }
@@ -1394,22 +1414,99 @@ export class WorldService {
   /** Mark residents offline if they have no socket and haven't called the API recently. */
   sweepIdle() {
     const cutoff = this.now() - this.idleTimeoutMs;
-    for (const r of Object.values(this.state.residents)) {
-      if (!r.online || this.sockets.has(r.id)) continue;
-      if ((this.lastSeen.get(r.id) ?? 0) < cutoff) this.leave(r.id);
-    }
+    this.takeOffline(
+      Object.values(this.state.residents)
+        .filter((r) => r.online && !this.sockets.has(r.id))
+        .filter((r) => (this.lastSeen.get(r.id) ?? 0) < cutoff)
+        .map((r) => r.id),
+    );
     // Forget offline residents so this map stays the size of the online population.
     for (const id of this.lastSeen.keys()) {
       if (!this.state.residents[id]?.online) this.lastSeen.delete(id);
     }
     // Putters from before today no longer limit anything.
     const today = utcDay(this.now());
-    for (const [id, used] of this.putters) if (used.day < today) this.putters.delete(id);
+    const { facts } = this;
+    for (const [id, used] of facts.putters) if (used.day < today) facts.putters.delete(id);
     // Gifts and votes older than karma's window no longer count.
     const from = today - KARMA.windowDays;
-    if ((this.creditLog[0]?.day ?? from) < from) {
-      this.creditLog = this.creditLog.filter((c) => c.day >= from);
+    if ((facts.credits[0]?.day ?? from) < from) {
+      facts.credits = facts.credits.filter((c) => c.day >= from);
     }
+  }
+
+  /**
+   * Take residents offline: one `leave_idle` for them all once the world has implicit presence
+   * (RFC 0014), else a `leave` each.
+   */
+  private takeOffline(ids: string[]) {
+    if (ids.length === 0) return;
+    if (!this.state.implicitPresence) {
+      for (const id of ids) this.leave(id);
+      return;
+    }
+    const done = this.run({ actor: TOWN_ACTOR, command: { type: "leave_idle", ids: ids.sort() } });
+    if (!done.ok) {
+      report(new Error(`leave_idle refused: ${done.error.code}`), "world.leave_idle", {
+        command: "leave_idle",
+      });
+    }
+  }
+
+  // ---------- snapshots (RFC 0014) ----------
+
+  /**
+   * Save the world as it is now, with the server's facts, when the store keeps snapshots. Only for
+   * a world that counts days, whose join days come from the log alone, and whose log rows line up
+   * with its `seq`. A failure is reported and changes nothing.
+   */
+  private takeSnapshot() {
+    const snapshots = this.store.snapshots;
+    if (!snapshots || !this.days || !this.aligned || this.snapshotAt === this.state.seq) return;
+    if (!supplyHolds(this.state)) {
+      // It would never pass a boot's checks. Say so instead of writing it.
+      report(new Error("Coin supply doesn't add up; no snapshot taken"), "world.snapshot");
+      return;
+    }
+    try {
+      span(
+        "world.snapshot",
+        "world.snapshot",
+        () => {
+          const today = utcDay(this.now());
+          const server = this.facts.section(today, today - KARMA.windowDays);
+          const { header, parts } = encodeSnapshot(this.state, this.hash(), server);
+          snapshots.save(header, parts, prunable([header, ...snapshots.list()]));
+          this.snapshotAt = header.seq;
+          gauge("world.snapshot_bytes", header.bytes);
+        },
+        { seq: this.state.seq },
+      );
+    } catch (err) {
+      report(reportable(err), "world.snapshot");
+    }
+  }
+
+  /**
+   * The minute sweep's snapshot work: take one when the log has grown `SNAPSHOT_TAIL` inputs past
+   * the newest, then replay one slice toward verifying the oldest unverified one.
+   */
+  keepSnapshots() {
+    if (this.state.seq - this.snapshotAt >= SNAPSHOT_TAIL) this.takeSnapshot();
+    if (!this.verifier || !this.aligned) return;
+    try {
+      const passed = this.verifier.step();
+      if (passed && passed.seq > (this.verified?.seq ?? -1)) {
+        this.verified = { seq: passed.seq, hash: passed.hash };
+      }
+    } catch (err) {
+      report(reportable(err), "world.snapshot_verify");
+    }
+  }
+
+  /** The newest verified snapshot's `seq` and world hash, if there is one. */
+  snapshotInfo(): { seq: number; hash: string } | undefined {
+    return this.verified;
   }
 
   private touch(residentId: string) {
@@ -1447,7 +1544,10 @@ export class WorldService {
   noteHidden: (residentId: string) => boolean = () => false;
 
   hash(): string {
-    return hashWorld(this.state);
+    if (this.hashed.seq !== this.state.seq) {
+      this.hashed = { seq: this.state.seq, hash: hashWorld(this.state) };
+    }
+    return this.hashed.hash;
   }
 
   onlineCount(): number {

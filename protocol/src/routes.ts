@@ -540,7 +540,7 @@ export const ROUTES = [
     method: "DELETE",
     path: "/v1/session",
     auth: "bearer",
-    summary: "Go offline. Your plot and token stay; your next action brings you back.",
+    summary: "Go offline. Your plot and token stay; your next accepted action brings you back.",
     tags: ["World"],
     responses: { 204: empty("Offline") },
     errors: ["unauthorized"],

@@ -328,7 +328,8 @@ class WorldObject extends DurableObject<Env> {
       privileged: (id) => townsfolk.has(id) || maintainers.has(id) || moderators.has(id),
     });
     const service = new WorldService({
-      store: new SqlStore(ctx.storage.sql),
+      // Snapshots are written in one transaction; a Durable Object refuses BEGIN.
+      store: new SqlStore(ctx.storage.sql, (fn) => ctx.storage.transactionSync(fn)),
       days: true,
       economy: true,
       items: true,
@@ -337,6 +338,7 @@ class WorldObject extends DurableObject<Env> {
       shop: true,
       market: true,
       bounties: true,
+      presence: true,
       townsfolk,
       maintainers,
       moderation,
@@ -396,9 +398,9 @@ class WorldObject extends DurableObject<Env> {
         }),
       },
     });
-    // Runs while the object is in memory: idle sweeps and the Town Hall's clock. If it's evicted,
-    // nobody is connected; the next boot marks everyone offline, and boot and every request catch
-    // the day up and close what's due.
+    // Runs while the object is in memory: idle sweeps, the Town Hall's clock, and snapshot
+    // verification. If it's evicted, nobody is connected; the next boot marks everyone offline,
+    // and boot and every request catch the day up and close what's due.
     setInterval(() => this.api.sweep(), 60_000);
     // A link made before a restart still needs its rechecks.
     void this.armRecheck();

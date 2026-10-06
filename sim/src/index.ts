@@ -1,10 +1,12 @@
 export {
   apply,
+  asJoined,
   MAX_CO_OWNERS,
   NAME_MAX_LENGTH,
   NOTE_MAX_LENGTH,
   type Prepared,
   prepare,
+  rejoined,
 } from "./apply";
 export { BIOME_REGION, type Biome, biomeAt } from "./biome";
 export {
@@ -112,7 +114,7 @@ export {
 export { isOwnableKey, own, residentById } from "./own";
 export * from "./palette";
 export { isDirection, PUTTER, PUTTER_MAX_STEPS, planPutter } from "./putter";
-export { replay } from "./replay";
+export { REPLAY_VERSION, replay } from "./replay";
 export {
   BUY_ORDERS,
   type BuyOrder,

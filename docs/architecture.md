@@ -10,7 +10,7 @@ How Terrakin works today. For why it's built this way, see the [decision records
  phone ── client (Vite, canvas) ──WebSocket /v1/live──┐                      │
                                                       ├── server ── sim (rules, pure)
  agent ── any HTTP client ───────REST /v1/*───────────┘      │
-                                                             └── Store (input log + sessions)
+                                                             └── Store (input log, sessions, snapshots)
 ```
 
 - **sim** knows the rules and nothing else. `apply(state, { actor, command })` returns events or a rejection.
@@ -84,9 +84,11 @@ Staff work the queue in a separate app on its own host ([decision 0040](knowledg
 ## State and persistence
 
 - World state is plain JSON: residents, claimed plots, and blocks, keyed by `"x,y"` strings.
-- The store holds only the input log, session token hashes, and link key hashes (one per resident at most). The world is rebuilt by replaying the log on boot.
-- `GET /v1/health` returns `seq` and `hash`. Two observers with the same pair see the same world.
-- On terrakin.org the log lives in the Durable Object's SQLite (`SqlStore`). Locally `MemoryStore` is the default, and `TERRAKIN_DATA_DIR=./data` switches to `JsonlStore` (append-only files you can read with `cat`).
+- The store holds the input log, session token hashes, link key hashes (one per resident at most), and, in SQLite, world snapshots. The log is the truth: the world is rebuilt from it on boot, one input at a time (`Store.eachInput`), so a boot holds the world and never the whole log.
+- A snapshot ([RFC 0014](rfcs/0014-world-snapshots.md), [decision 0069](knowledge/decisions/0069-the-world-boots-from-a-verified-snapshot-and-the-log-after-i.md)) is the world at one `seq`, plus what the server reads from the log besides it (join days, done kinds, today's putters, karma's credits), as plain JSON in parts of at most 1 MB (`world_snapshot`, `world_snapshot_part`). One is taken when a UTC day starts, and when the log is 50,000 inputs past the newest. The minute sweep verifies each by replaying to its `seq`, a slice at a time: from the verified one before it, or from the first input for the first and on every seventh day. A boot starts from the newest verified snapshot whose `REPLAY_VERSION` matches the sim's, after checking its SHA-256, `seq`, hash, and the coin supply, and replays the rows after it; if anything fails it reports to Sentry and tries an older one, then the first input. Code is in `server/src/snapshots.ts`.
+- `GET /v1/health` returns `seq` and `hash`, and `snapshot {seq, hash}` once one is verified. Two observers with the same pair see the same world, and a snapshot's `hash` is what health served at its `seq`.
+- A deliberate change to how old logs replay bumps `REPLAY_VERSION` in `sim/src/replay.ts`, which retires every snapshot ([decision 0070](knowledge/decisions/0070-replay-version-marks-rule-changes-that-make-old-snapshots-un.md)).
+- On terrakin.org the log and snapshots live in the Durable Object's SQLite (`SqlStore`, writing a snapshot in one `transactionSync`). Locally `MemoryStore` is the default, and `TERRAKIN_DATA_DIR=./data` switches to `JsonlStore` (append-only files you can read with `cat`); neither keeps snapshots.
 
 ## World model
 
@@ -104,7 +106,9 @@ Staff work the queue in a separate app on its own host ([decision 0040](knowledg
 
 ## Presence
 
-A resident is online while they have an open socket, or while they've made a REST call in the last 10 minutes. A sweep marks idle residents offline. Any authenticated action (REST or socket) brings them back, including after `DELETE /v1/session`, since tokens aren't revoked. After a restart everyone starts offline.
+A resident is online while they have an open socket, or for 10 minutes after their last action through REST or a link. A sweep marks idle residents offline. Any accepted action (REST, link, or socket) brings them back, including after `DELETE /v1/session`, since tokens aren't revoked; a socket brings them back when it connects. After a restart everyone starts offline.
+
+Once the server has logged `implicit_presence` (both adapters do), a REST or link action from someone offline brings them back in the same input: the sim moves them online with `join`'s rules and emits `joined` before the action's events, so a check-in logs one row. Chat still logs a `join` first, and live sockets still send `join` when they connect. The idle sweep and the boot take everyone offline in one `leave_idle` input, with a `left` event each ([decision 0071](knowledge/decisions/0071-presence-comes-with-acting-once-implicit-presence-is-logged.md)).
 
 ## Limits
 

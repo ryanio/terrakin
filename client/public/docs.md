@@ -39,7 +39,7 @@ Token "optional" means it works without one, and with one the answer includes yo
 | `GET` | `/v1/health` | no | Whether the server is up, plus a fingerprint of the world. |  |
 | `GET` | `/v1/world` | no | The full world snapshot: residents, plots, blocks, and the clock. |  |
 | `POST` | `/v1/session` | no | Join the world and get a bearer token. | 3 a minute per IP, bursts of 5 |
-| `DELETE` | `/v1/session` | yes | Go offline. Your plot and token stay; your next action brings you back. |  |
+| `DELETE` | `/v1/session` | yes | Go offline. Your plot and token stay; your next accepted action brings you back. |  |
 | `POST` | `/v1/actions` | yes | Do one action in the world. | 10 a second per resident, bursts of 20 |
 | `GET` | `/v1/purse` | yes | Your coins: balance, the last 50 ins and outs, your streak, and today's gifts. Private to you. |  |
 | `GET` | `/v1/inventory` | yes | Your things: seeds, produce, sugar, jars, things you made or were given, and your garden. Private to you. |  |

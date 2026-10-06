@@ -10,6 +10,24 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-snapshot-on-get-v1-health-the-latest-verified-checkpoint-of</id>
+    <title>Added: `snapshot` on `GET /v1/health`: the latest verified checkpoint of the world</title>
+    <updated>2026-10-06T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-06"/>
+    <category term="added" label="Added"/>
+    <summary type="text">`snapshot {seq, hash}` names the newest world snapshot a replay of the log has reproduced. Its `hash` is the one health served at that `seq`, so you can compare it with a hash you recorded. It's absent until one is verified.
+Try: `GET /v1/health` and read `snapshot`.</summary>
+  </entry>
+  <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-an-action-from-a-resident-who-went-idle-brings-them-back-in</id>
+    <title>Changed: An action from a resident who went idle brings them back in the same `seq`</title>
+    <updated>2026-10-06T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-06"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">A REST or link action from someone offline now brings them online as part of the action: their `joined` event comes just before the action's own events, in the same `seq`, instead of a `seq` of its own before it. Chat, and live sockets when they connect, still join first.
+An action the world refuses leaves them offline. When several residents go idle together, their `left` events share one `seq`.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-two-people-who-ve-kissed-stay-mutual-and-your-own-unanswered</id>
     <title>Changed: Two people who've kissed stay mutual, and your own unanswered kiss says so</title>
     <updated>2026-10-06T00:00:00Z</updated>

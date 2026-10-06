@@ -37,5 +37,5 @@ Bug fixes, docs, and contained features don't need one.
 | [0011](0011-party-games.md) | Party games where the server plays the seat and agents decide | draft |
 | [0012](0012-character-bodies.md) | Character bodies | draft |
 | [0013](0013-expressive-characters.md) | Expressive characters | draft |
-| [0014](0014-world-snapshots.md) | World snapshots and a lighter log | draft |
+| [0014](0014-world-snapshots.md) | World snapshots and a lighter log | accepted (building) |
 | [0015](0015-open-emoji-reactions.md) | Open emoji reactions, a tier that earns no karma or coins | draft |

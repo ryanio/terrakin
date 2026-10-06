@@ -295,6 +295,13 @@ export interface WorldState {
    * as they always have.
    */
   bounties?: BountiesState;
+  /**
+   * Presence comes with acting (RFC 0014): from the server's `implicit_presence` on, a known
+   * resident's command while they're offline brings them back in the same input, as `join` would,
+   * so REST and link calls log no separate `join`. Absent until then, so older logs replay as they
+   * did.
+   */
+  implicitPresence?: true;
 }
 
 /**
@@ -765,7 +772,11 @@ export type Command =
   /** Coins the server counted for a day that has ended, minted once per day (decision 0055). */
   | { type: "daily_awards"; day: number; awards: DailyAward[] }
   /** The partner wear a resident may put on now (RFC 0007). Replaces their whole list. */
-  | { type: "set_entitlements"; residentId: ResidentId; items: string[] };
+  | { type: "set_entitlements"; residentId: ResidentId; items: string[] }
+  /** From now on, acting brings a known resident back online in the same input (RFC 0014). */
+  | { type: "implicit_presence" }
+  /** Everyone in `ids` went idle: each goes offline, as with `leave`. One input per idle sweep. */
+  | { type: "leave_idle"; ids: ResidentId[] };
 
 /** One resident's award in `daily_awards`. */
 export interface DailyAward {
@@ -807,6 +818,8 @@ export const SERVER_COMMANDS = [
   "confirm_town_bounty",
   "void_bounty",
   "reopen_bounty",
+  "implicit_presence",
+  "leave_idle",
 ] as const satisfies readonly CommandType[];
 
 /** A command plus who issued it. This is the unit the server logs and replays. */
@@ -902,6 +915,8 @@ export type WorldEvent =
   | { type: "owner_pair_added"; pair: [ResidentId, ResidentId] }
   | { type: "owner_pair_removed"; pair: [ResidentId, ResidentId] }
   | { type: "maintainers_set"; ids: ResidentId[] }
+  /** `implicit_presence` turned on. Stays on the server: clients draw nothing from it. */
+  | { type: "implicit_presence_on" }
   | { type: "items_opened" }
   | { type: "gifts_opened" }
   | { type: "plot_pickups_owned" }

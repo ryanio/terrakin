@@ -72,6 +72,7 @@ const service = new WorldService({
   shop: true,
   market: true,
   bounties: true,
+  presence: true,
   townsfolk,
   maintainers,
   moderation,

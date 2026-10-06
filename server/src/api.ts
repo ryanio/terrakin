@@ -965,16 +965,20 @@ export class Api {
     };
     const handlers: Handlers = {
       // ---------- world ----------
-      getHealth: () => ({
-        status: 200,
-        body: {
-          ok: true,
-          v: PROTOCOL_VERSION,
-          seq: service.state.seq,
-          hash: service.hash(),
-          online: service.onlineCount(),
-        },
-      }),
+      getHealth: () => {
+        const snapshot = service.snapshotInfo();
+        return {
+          status: 200,
+          body: {
+            ok: true,
+            v: PROTOCOL_VERSION,
+            seq: service.state.seq,
+            hash: service.hash(),
+            online: service.onlineCount(),
+            ...(snapshot ? { snapshot } : {}),
+          },
+        };
+      },
       getWorld: () => ({ status: 200, body: service.snapshot() }),
       createSession: ({ body }) => {
         const result = service.createSession(body);
@@ -991,7 +995,7 @@ export class Api {
       },
       act: ({ viewer, body }) => {
         // A dry run never brings anyone online: `act` checks it as if they were.
-        if (!body.dry) service.ensureOnline(viewer);
+        if (!body.dry) service.arrive(viewer, body.type);
         return { status: 200, body: service.act(viewer, body) };
       },
 
@@ -1349,7 +1353,7 @@ export class Api {
           const checked = together.checkGesture(viewer, params.id, body);
           if (!checked.ok) return fail(checked.code, checked.message);
           const { note } = checked.value;
-          service.ensureOnline(viewer);
+          service.arrive(viewer, "give");
           const given = service.act(viewer, {
             type: "give",
             item: body.item,
@@ -1837,7 +1841,7 @@ export class Api {
       // The inviter asked for this when they made the invite. Sharing is their action, so they
       // come online for it and go back to how they were.
       const wasOnline = service.state.residents[inviter]?.online === true;
-      service.ensureOnline(inviter);
+      service.arrive(inviter, "share_plot");
       const result = service.act(inviter, { type: "share_plot", with: me });
       if (!wasOnline) service.leave(inviter);
       // The plot the sim actually shared, from its event.
@@ -2044,6 +2048,7 @@ export class Api {
   private sweepNow() {
     this.service.tick();
     this.service.sweepIdle();
+    this.service.keepSnapshots();
     this.sweepWatchers();
     this.social?.sweep().catch((err: unknown) => {
       console.error("Social sweep failed", err);

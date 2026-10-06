@@ -75,6 +75,8 @@ function inputs(id: string, day: number): [string, Command][] {
     town({ type: "void_bounty", bounty: id, by: "staff_0123456789ab" }),
     town({ type: "reopen_bounty", bounty: id, by: "staff_0123456789ab" }),
     town({ type: "set_entitlements", residentId: id, items: [] }),
+    town({ type: "leave_idle", ids: [id] }),
+    town({ type: "leave_idle", ids: ["ada", id] }),
     town({
       type: "daily_awards",
       day: day - 1,
@@ -108,6 +110,24 @@ describe("ids an object inherits", () => {
       // Nothing reached what every object shares.
       expect(Object.keys(Object.prototype)).toEqual([]);
       expect(({} as Record<string, unknown>).takenDown).toBeUndefined();
+    }
+  });
+
+  it("are refused the same while acting would bring the resident back", () => {
+    for (const id of DANGEROUS) {
+      const state = world();
+      const town = (command: Command) => apply(state, { actor: TOWN_ACTOR, command });
+      expect(town({ type: "implicit_presence" }).ok).toBe(true);
+      const online = Object.values(state.residents).filter((r) => r.online);
+      expect(town({ type: "leave_idle", ids: online.map((r) => r.id).sort() }).ok).toBe(true);
+      for (const [actor, command] of inputs(id, state.day ?? 0)) {
+        const before = hashWorld(state);
+        const result = apply(state, { actor, command });
+        expect(result.ok, `${actor} ${JSON.stringify(command)}`).toBe(false);
+        expect(hashWorld(state), `${actor} ${JSON.stringify(command)}`).toBe(before);
+      }
+      expect(Object.values(state.residents).some((r) => r.online)).toBe(false);
+      expect(Object.keys(Object.prototype)).toEqual([]);
     }
   });
 });

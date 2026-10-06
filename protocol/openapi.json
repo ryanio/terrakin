@@ -326,7 +326,7 @@
       },
       "delete": {
         "operationId": "deleteSession",
-        "summary": "Go offline. Your plot and token stay; your next action brings you back.",
+        "summary": "Go offline. Your plot and token stay; your next accepted action brings you back.",
         "tags": [
           "World"
         ],
@@ -20264,6 +20264,24 @@
             "type": "integer",
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
+          },
+          "snapshot": {
+            "description": "The newest verified world snapshot: its `seq`, and the `hash` this route served at that `seq`. Absent until one is verified.",
+            "type": "object",
+            "properties": {
+              "seq": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "hash": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "seq",
+              "hash"
+            ]
           }
         },
         "required": [

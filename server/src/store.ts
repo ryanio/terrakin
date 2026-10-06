@@ -1,6 +1,7 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Input } from "@terrakin/sim";
+import type { SnapshotStore } from "./snapshots";
 
 export interface SessionRecord {
   /** sha256 of the bearer token. The raw token is never stored. */
@@ -16,12 +17,18 @@ export interface LinkKeyRecord {
 }
 
 /**
- * Durable storage for the world. The world itself is never stored, only the log of accepted
- * inputs: on boot the server replays the log through the sim. That keeps one source of truth
- * and makes every state auditable.
+ * Durable storage for the world. The log of accepted inputs is the truth: on boot the server
+ * replays it through the sim, from the first input or from a verified snapshot (RFC 0014). That
+ * keeps one source of truth and makes every state auditable.
  */
 export interface Store {
   loadLog(): Input[];
+  /**
+   * Call `visit` with each logged input whose `seq` is above `after` and at most `until`, oldest
+   * first, holding as few as the store can. An input's `seq` is its place in the log, from 1. The
+   * boot replays through this, so its memory is the world's size, not the log's.
+   */
+  eachInput(after: number, visit: (input: Input, seq: number) => void, until?: number): void;
   appendInput(input: Input): void;
   loadSessions(): SessionRecord[];
   appendSession(session: SessionRecord): void;
@@ -30,6 +37,8 @@ export interface Store {
   saveLinkKey(record: LinkKeyRecord): void;
   /** Forget every session of one resident, so none of their tokens work again (owner revoke). */
   revokeSessions(residentId: string): void;
+  /** Where world snapshots are kept (RFC 0014). Stores without one always boot from the first input. */
+  readonly snapshots?: SnapshotStore;
 }
 
 /** A line in sessions.jsonl that ends every earlier session of `residentId`. */
@@ -42,6 +51,10 @@ export class MemoryStore implements Store {
   readonly sessions: SessionRecord[] = [];
   loadLog() {
     return [...this.log];
+  }
+  eachInput(after: number, visit: (input: Input, seq: number) => void, until = Infinity) {
+    const end = Math.min(this.log.length, until);
+    for (let i = Math.max(0, after); i < end; i++) visit(this.log[i] as Input, i + 1);
   }
   appendInput(input: Input) {
     this.log.push(input);
@@ -84,6 +97,13 @@ export class JsonlStore implements Store {
   loadLog(): Input[] {
     return readJsonl<Input>(this.logPath);
   }
+  eachInput(after: number, visit: (input: Input, seq: number) => void, until = Infinity) {
+    let seq = 0;
+    eachJsonl<Input>(this.logPath, (input) => {
+      seq++;
+      if (seq > after && seq <= until) visit(input, seq);
+    });
+  }
   appendInput(input: Input) {
     appendFileSync(this.logPath, `${JSON.stringify(input)}\n`);
   }
@@ -116,19 +136,28 @@ export class JsonlStore implements Store {
  * with a warning, since its input was never acknowledged. Corruption anywhere else is fatal.
  */
 export function readJsonl<T>(path: string): T[] {
-  if (!existsSync(path)) return [];
+  const out: T[] = [];
+  eachJsonl<T>(path, (value) => out.push(value));
+  return out;
+}
+
+/** `readJsonl` one parsed line at a time, so only the file's text is held, never every value. */
+function eachJsonl<T>(path: string, visit: (value: T) => void) {
+  if (!existsSync(path)) return;
   const lines = readFileSync(path, "utf8")
     .split("\n")
     .filter((line) => line.trim() !== "");
-  return lines.flatMap((line, i) => {
+  for (const [i, line] of lines.entries()) {
+    let value: T;
     try {
-      return [JSON.parse(line) as T];
+      value = JSON.parse(line) as T;
     } catch (err) {
       if (i === lines.length - 1) {
         console.warn(`Skipping truncated last line of ${path}`);
-        return [];
+        return;
       }
       throw new Error(`Corrupt line ${i + 1} in ${path}`, { cause: err });
     }
-  });
+    visit(value);
+  }
 }

@@ -29,6 +29,7 @@ import {
   RESIDENT_COLORS,
   RESIDENT_SHAPES,
   type Resident,
+  rejoined,
   starterHutGardenTiles,
   tileKey,
   type WorldState,
@@ -411,7 +412,7 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
 
     linkSettle: ({ viewer, params, query, origin }) => {
       const l = linksFor(origin, params.key);
-      service.ensureOnline(viewer);
+      service.arrive(viewer, "settle");
       const result = service.act(viewer, { type: "settle", px: query.px, py: query.py });
       if (!result.ok) return turnedDown(result, `Free plots near you: ${l.world}`);
       const r = resident(viewer);
@@ -427,7 +428,7 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
 
     linkBuildHome: ({ viewer, params, query, origin }) => {
       const l = linksFor(origin, params.key);
-      service.ensureOnline(viewer);
+      service.arrive(viewer, "build_starter_home");
       const result = service.act(viewer, {
         type: "build_starter_home",
         walls: query.walls,
@@ -448,7 +449,7 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
 
     linkHome: ({ viewer, params, origin }) => {
       const l = linksFor(origin, params.key);
-      service.ensureOnline(viewer);
+      service.arrive(viewer, "home");
       const result = service.act(viewer, { type: "home" });
       if (!result.ok) {
         return turnedDown(
@@ -466,7 +467,7 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
     linkMove: ({ viewer, params, query, origin }) => {
       const l = linksFor(origin, params.key);
       const steps = query.steps ?? 1;
-      service.ensureOnline(viewer);
+      service.arrive(viewer, "move");
       let moved = 0;
       let stop: { code: ErrorCode; message: string } | undefined;
       for (let i = 0; i < steps; i++) {
@@ -501,10 +502,12 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
 
     linkPutter: ({ viewer, params, origin }) => {
       const l = linksFor(origin, params.key);
-      service.ensureOnline(viewer);
+      service.arrive(viewer, "putter");
       const before = resident(viewer);
       if ("error" in before) return before;
-      const from = { x: before.x, y: before.y };
+      // Where the walk starts: someone offline comes back with the putter itself.
+      const start = rejoined(state, viewer) ?? before;
+      const from = { x: start.x, y: start.y };
       const result = service.act(viewer, { type: "putter" });
       if (!result.ok) return turnedDown(result, linkHelp(origin, params.key));
       const r = resident(viewer);
@@ -527,7 +530,7 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
     linkSay: ({ viewer, params, query, origin }) => {
       if (PLACEHOLDER.test(query.text)) return placeholderRefusal("text");
       const l = linksFor(origin, params.key);
-      service.ensureOnline(viewer);
+      service.arrive(viewer, "chat");
       const result = service.act(viewer, { type: "chat", text: query.text });
       if (!result.ok) return turnedDown(result, linkHelp(origin, params.key));
       const r = resident(viewer);
@@ -665,7 +668,7 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
           "Say what to change: color, shape, note, theme, pattern, or wear (comma-separated).",
         );
       }
-      service.ensureOnline(viewer);
+      service.arrive(viewer, "profile");
       const result = service.act(viewer, { type: "profile", ...changes });
       if (!result.ok) return turnedDown(result, `The choices are in ${origin}/skill.md#your-look`);
       const r = resident(viewer);
@@ -719,7 +722,10 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
         );
       }
       // Checks done: from here on the visit acts, so it brings you online.
-      service.ensureOnline(viewer);
+      service.arrive(viewer, "home");
+      // Where you'll stand once back: someone offline comes back with the first action.
+      const here = rejoined(state, viewer) ?? resident(viewer);
+      if ("error" in here) return here;
       // The dispatcher paid for the first action; each one after it is one more.
       let acted = 0;
       const act = (command: Action): ActResult => {
@@ -729,7 +735,7 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
         return service.act(viewer, command);
       };
       // Home first: away from the hearth, or standing on it with today's pantry still to collect.
-      if (start.x !== hearth.x || start.y !== hearth.y || pantryDue(state, viewer)) {
+      if (here.x !== hearth.x || here.y !== hearth.y || pantryDue(state, viewer)) {
         const went = act({ type: "home" });
         if (!went.ok) return turnedDown(went, linkHelp(origin, params.key));
       }

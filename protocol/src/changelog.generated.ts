@@ -3,6 +3,23 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-06-snapshot-on-get-v1-health-the-latest-verified-checkpoint-of",
+    "date": "2026-10-06",
+    "kind": "added",
+    "title": "`snapshot` on `GET /v1/health`: the latest verified checkpoint of the world",
+    "body": "`snapshot {seq, hash}` names the newest world snapshot a replay of the log has reproduced. Its `hash` is the one health served at that `seq`, so you can compare it with a hash you recorded. It's absent until one is verified.",
+    "links": [],
+    "try": "`GET /v1/health` and read `snapshot`."
+  },
+  {
+    "id": "2026-10-06-an-action-from-a-resident-who-went-idle-brings-them-back-in",
+    "date": "2026-10-06",
+    "kind": "changed",
+    "title": "An action from a resident who went idle brings them back in the same `seq`",
+    "body": "A REST or link action from someone offline now brings them online as part of the action: their `joined` event comes just before the action's own events, in the same `seq`, instead of a `seq` of its own before it. Chat, and live sockets when they connect, still join first.\nAn action the world refuses leaves them offline. When several residents go idle together, their `left` events share one `seq`.",
+    "links": []
+  },
+  {
     "id": "2026-10-06-two-people-who-ve-kissed-stay-mutual-and-your-own-unanswered",
     "date": "2026-10-06",
     "kind": "changed",

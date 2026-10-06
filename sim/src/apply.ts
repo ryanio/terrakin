@@ -80,6 +80,7 @@ import {
   type MarketChecked,
 } from "./market";
 import { residentById } from "./own";
+import { checkImplicitPresence, checkLeaveIdle, type PresenceChecked } from "./presence";
 import { isDirection, PUTTER_MAX_STEPS } from "./putter";
 import {
   checkOpenShop,
@@ -279,20 +280,39 @@ const sameProfile = (a: Profile, b: Profile) =>
  */
 export function prepare(state: WorldState, input: Input): Prepared {
   const { actor, command } = input;
-  const mutate = check(state, actor, command);
+  // Once presence comes with acting (RFC 0014), a known resident acting while offline comes back
+  // first, in the same input. The checks run with them back in place, then everything is put back
+  // as it was, so nothing changes until commit.
+  const back = state.implicitPresence && isActivity(command) ? rejoined(state, actor) : undefined;
+  const away = back && residentById(state, actor);
+  if (back) state.residents[actor] = back;
+  let mutate: Mutation | Prepared;
+  let welcome: ReturnType<typeof welcomeDue>;
+  let newcomer: boolean;
+  try {
+    mutate = check(state, actor, command);
+    // Coin bookkeeping worked out against the state as it is now (RFC 0008). All of it is a no-op
+    // until the economy opens.
+    welcome = typeof mutate === "function" ? welcomeDue(state, actor, command) : null;
+    newcomer = command.type === "join" && !state.residents[actor];
+  } finally {
+    if (back && away) state.residents[actor] = away;
+  }
   if (typeof mutate !== "function") return mutate;
-  // Coin bookkeeping worked out against the state as it is now (RFC 0008). All of it is a no-op
-  // until the economy opens.
   const seq = state.seq + 1;
-  const welcome = welcomeDue(state, actor, command);
-  const newcomer = command.type === "join" && !state.residents[actor];
+  const act = mutate;
   let done = false;
   return {
     ok: true,
     commit: () => {
       if (done) throw new Error("Prepared input committed twice");
       done = true;
-      const events = mutate();
+      const events: WorldEvent[] = [];
+      if (back) {
+        state.residents[actor] = back;
+        events.push(joinedEvent(back));
+      }
+      events.push(...act());
       if (newcomer) markNewcomer(state, actor);
       if (welcome !== null) events.push(...payWelcome(state, actor, welcome, seq));
       // The allowance: whatever the resident did, if it leaves them on their own hearth.
@@ -465,6 +485,64 @@ function buildHint(state: WorldState, me: Resident): string {
   return ` You can build on x ${x} to ${x + plotSize - 1}, y ${y} to ${y + plotSize - 1}.`;
 }
 
+/** The resident `join` makes, or why it can't. Reads only; the caller puts them in the world. */
+function joining(
+  state: WorldState,
+  actor: string,
+  command: Extract<Command, { type: "join" }>,
+): Resident | Prepared {
+  const me = state.residents[actor];
+  const name = command.name.trim();
+  if (name.length < 1 || name.length > NAME_MAX_LENGTH) {
+    return reject("invalid_name", `Names must be 1 to ${NAME_MAX_LENGTH} characters.`);
+  }
+  // Returning residents keep their spot. If someone built on it while they were away, they go
+  // to their hearth, or to the Commons if they have none.
+  const keepSpot = me !== undefined && !isSolid(state, me.x, me.y);
+  const spawn = me?.hearth ?? spawnTile(state.config);
+  const unowned = unownedWear(state, actor, command);
+  if (unowned) return unowned;
+  const look = mergeProfile(me ?? { ...defaultLook(actor), note: "" }, command);
+  if ("ok" in look) return look;
+  return {
+    id: actor,
+    name,
+    kind: command.kind,
+    ...look,
+    x: keepSpot ? me.x : spawn.x,
+    y: keepSpot ? me.y : spawn.y,
+    online: true,
+    hearth: me?.hearth ?? null,
+  };
+}
+
+const joinedEvent = (resident: Resident): WorldEvent => ({
+  type: "joined",
+  resident: { ...resident, ...lookOf(resident) },
+});
+
+/**
+ * Who a known, offline resident would be if they came back now, as `join` with their own name and
+ * kind would make them: where they stand (moved to their hearth or the Commons if their spot was
+ * built on) and online. Undefined for anyone else. The implicit join uses it (RFC 0014), and the
+ * server plans walks and dry runs from it.
+ */
+export function rejoined(state: WorldState, actor: string): Resident | undefined {
+  const me = residentById(state, actor);
+  if (!me || me.online) return undefined;
+  const back = joining(state, actor, { type: "join", name: me.name, kind: me.kind });
+  return "ok" in back ? undefined : back;
+}
+
+/**
+ * A view of the world with `actor` back online (`rejoined`), sharing everything else with
+ * `state`. For reading only: planning a walk, or checking an input without committing it.
+ */
+export function asJoined(state: WorldState, actor: string): WorldState {
+  const back = rejoined(state, actor);
+  return back ? { ...state, residents: { ...state.residents, [actor]: back } } : state;
+}
+
 /** A Town Hall or coins check's answer in this file's shape. */
 function town(
   checked:
@@ -474,6 +552,7 @@ function town(
     | ShopChecked
     | MarketChecked
     | BountiesChecked
+    | PresenceChecked
     | Mutation
     | Rejection,
 ): Mutation | Prepared {
@@ -524,6 +603,10 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
         return town(checkVoidBounty(state, command));
       case "reopen_bounty":
         return town(checkReopenBounty(state, command));
+      case "implicit_presence":
+        return town(checkImplicitPresence(state));
+      case "leave_idle":
+        return town(checkLeaveIdle(state, command));
       case "new_day":
       case "set_townsfolk": {
         const checked = checkTown(state, actor, command);
@@ -551,31 +634,11 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
 
   if (command.type === "join") {
     if (me?.online) return reject("already_joined", "You are already in the world.");
-    const name = command.name.trim();
-    if (name.length < 1 || name.length > NAME_MAX_LENGTH) {
-      return reject("invalid_name", `Names must be 1 to ${NAME_MAX_LENGTH} characters.`);
-    }
-    // Returning residents keep their spot. If someone built on it while they were away, they go
-    // to their hearth, or to the Commons if they have none.
-    const keepSpot = me !== undefined && !isSolid(state, me.x, me.y);
-    const spawn = me?.hearth ?? spawnTile(config);
-    const unowned = unownedWear(state, actor, command);
-    if (unowned) return unowned;
-    const look = mergeProfile(me ?? { ...defaultLook(actor), note: "" }, command);
-    if ("ok" in look) return look;
-    const resident: Resident = {
-      id: actor,
-      name,
-      kind: command.kind,
-      ...look,
-      x: keepSpot ? me.x : spawn.x,
-      y: keepSpot ? me.y : spawn.y,
-      online: true,
-      hearth: me?.hearth ?? null,
-    };
+    const resident = joining(state, actor, command);
+    if ("ok" in resident) return resident;
     return () => {
       state.residents[actor] = resident;
-      return [{ type: "joined", resident: { ...resident, ...lookOf(resident) } }];
+      return [joinedEvent(resident)];
     };
   }
 

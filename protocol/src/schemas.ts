@@ -1228,6 +1228,12 @@ export const HealthResponse = z.object({
   seq: z.number().int(),
   hash: z.string(),
   online: z.number().int(),
+  snapshot: z
+    .object({ seq: z.number().int(), hash: z.string() })
+    .optional()
+    .describe(
+      "The newest verified world snapshot: its `seq`, and the `hash` this route served at that `seq`. Absent until one is verified.",
+    ),
 });
 
 // ---------- WebSocket (/v1/live) ----------

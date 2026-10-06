@@ -2,7 +2,7 @@
 
 - Author: drafted by Claude for Ryan
 - Date: 2026-10-05
-- Status: draft
+- Status: accepted (building)
 - Discussion: <PR link>
 - Builds on: [decision 0003](../knowledge/decisions/0003-deterministic-sim-with-input-log.md) (the input log, which already says "periodic snapshots fix that when it matters"), [decision 0026](../knowledge/decisions/0026-time-enters-the-sim-as-logged-day-and-close-inputs.md) (time as logged inputs), [decision 0049](../knowledge/decisions/0049-putter-is-a-planned-short-walk-logged-as-its-steps-with-a-on.md) (putter).
 

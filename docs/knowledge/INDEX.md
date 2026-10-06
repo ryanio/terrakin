@@ -77,6 +77,9 @@ What we chose and why. Newest last.
 - [The site offers kiss only to close pairs and comfort to everyone](decisions/0066-the-site-offers-kiss-only-to-close-pairs-and-comfort-to-ever.md) · 2026-10-06 · accepted · `gestures` `together` `client` `safety`
 - [Facing and motion are drawing only, kept out of the sim and the log](decisions/0067-facing-and-motion-are-drawing-only-kept-out-of-the-sim-and-the-l.md) · 2026-10-06 · accepted · `server` `protocol` `client` `design`
 - [Townsfolk chatter is a model call behind a quiet gate, enumerated actions, and a spend ledger](decisions/0068-townsfolk-chatter-is-a-model-call-behind-a-quiet-gate-enumer.md) · 2026-10-06 · accepted · `server` `agents` `social` `economy` `security`
+- [The world boots from a verified snapshot and the log after it](decisions/0069-the-world-boots-from-a-verified-snapshot-and-the-log-after-i.md) · 2026-10-06 · accepted · `server` `storage` `sim`
+- [REPLAY_VERSION marks rule changes that make old snapshots unusable](decisions/0070-replay-version-marks-rule-changes-that-make-old-snapshots-un.md) · 2026-10-06 · accepted · `sim` `server` `storage`
+- [Presence comes with acting once implicit_presence is logged](decisions/0071-presence-comes-with-acting-once-implicit-presence-is-logged.md) · 2026-10-06 · accepted · `sim` `server` `protocol`
 
 ## Learnings
 
@@ -100,6 +103,7 @@ Gotchas, surprises, and things we'd tell our past selves.
 
 End-of-session notes. Read the latest one before starting work.
 
+- [World snapshots, a streamed boot, and one row per check-in](handoffs/2026-10-06-0745-world-snapshots-a-streamed-boot-and-one-row-per-check-in.md) · 2026-10-06 · `server` `sim` `storage` `presence` `replay`
 - [Townsfolk chatter and the AI spend ledger, live as a dry run](handoffs/2026-10-06-0736-townsfolk-chatter-and-the-ai-spend-ledger-shipped-off.md) · 2026-10-06 · `server` `agents` `social` `admin` `economy`
 - [Faces and feelings, faster CI, a tighter e2e suite, and keeper flair](handoffs/2026-10-06-0705-faces-and-feelings-faster-ci-a-tighter-e2e-suite-and-keeper-.md) · 2026-10-06 · `process` `client` `3d` `e2e` `ci` `partners` `roadmap`
 - [Where the app stands and what to build next](handoffs/2026-10-05-2237-where-the-app-stands-and-what-to-build-next.md) · 2026-10-05 · `process` `roadmap` `deploy` `e2e`

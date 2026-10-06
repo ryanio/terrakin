@@ -1169,6 +1169,43 @@ a.menu-item {
 }
 
 /*
+ * linkTabs (ui.ts): links between sibling pages as a switch, the current one raised on paper.
+ * Each tab takes an equal share of the row.
+ */
+.link-tabs {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 3px;
+  padding: 3px;
+  border-radius: var(--r-pill);
+  background: rgba(236, 220, 192, 0.42);
+  border: 1px solid rgba(220, 200, 165, 0.6);
+}
+
+.link-tab {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  min-height: 44px;
+  padding: var(--space-2xs) var(--space-lg);
+  border-radius: var(--r-pill);
+  font-size: var(--text-base);
+  font-weight: var(--weight-bold);
+  color: var(--ink-soft);
+  text-decoration: none;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.link-tab[aria-current="page"] {
+  background: var(--paper-fill);
+  color: var(--ink);
+  box-shadow: var(--shadow-pill);
+}
+
+/*
  * kindPill (ui.ts): what kind of thing a card or row is, in a tinted pill. Its words show as
  * written, not uppercased, so a hint that quotes a pill ("This autumn") reads the same as the pill.
  * Inline-block, so in a line of text its padding takes room instead of overlapping the lines

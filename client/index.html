@@ -324,6 +324,22 @@
           </form>
         </section>
 
+        <!-- On someone else's plot (RFC 0020): whose it is, this week's visitors and admirers, Admire, and Next plot. Filled by visit-card.ts. -->
+        <section id="visit-card" class="paper visit-card" aria-labelledby="visit-card-owner" hidden>
+          <a id="visit-card-owner" class="visit-card-owner" href="/">A neighbor's plot</a>
+          <p id="visit-card-week" class="visit-card-week"></p>
+          <div class="visit-card-actions">
+            <button type="button" id="visit-admire" class="pill-button small">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 3.5c.6 4.3 2.4 6.1 6.5 6.6-4.1.6-5.9 2.4-6.5 6.6-.6-4.2-2.4-6-6.5-6.6 4.1-.5 5.9-2.3 6.5-6.6z" /><path d="M18.5 15v5M16 17.5h5" /></svg>
+              <span>Admire</span>
+            </button>
+            <button type="button" id="visit-next" class="pill-button small">
+              <span>Next plot</span>
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13" /><path d="M13 6l6 6-6 6" /></svg>
+            </button>
+          </div>
+        </section>
+
         <div id="toast" class="toast" role="status"></div>
       </div>
 

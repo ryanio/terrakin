@@ -141,6 +141,7 @@ export function townView(ctx: ViewContext): View {
       board,
       ...(town.shop ? [shopCard(town.shop)] : []),
       ...(town.treasury ? [bountiesCard()] : []),
+      visitCard(),
       galleriesCard(),
       h("h2", { class: "section-title", text: "Past results" }),
       archiveList,
@@ -775,6 +776,17 @@ export function townView(ctx: ViewContext): View {
       href: "/bounties",
       link: "See the bounties",
       className: "town-bounties",
+    });
+  }
+
+  /** The way to plots to visit (RFC 0020): every home in town, newest change first. */
+  function visitCard(): HTMLElement {
+    return wayCard({
+      title: "Plots to visit",
+      text: "Every home in town, drawn from above, newest change first. Visit one, look around, and admire it.",
+      href: "/visit",
+      link: "See the plots",
+      className: "town-visit",
     });
   }
 

@@ -4,7 +4,13 @@
  * and the Town Hall, laid out full width. New posts arrive over a light socket while you're here
  * (`feed-live.ts`), with polling as the fallback, and live notices announce what's new. Townsfolk fill in while real activity is thin (see `pulse.ts`).
  */
-import type { PostMessage, PostView, TownResponse, WorldSnapshot } from "@terrakin/protocol";
+import type {
+  PlotView,
+  PostMessage,
+  PostView,
+  TownResponse,
+  WorldSnapshot,
+} from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { REDUCED_MOTION, reducedMotion } from "@terrakin/ui/motion";
 import { postPath, profilePath } from "@terrakin/ui/paths";
@@ -49,6 +55,7 @@ import {
   activityCard,
   aroundCard,
   burstCard,
+  plotsCard,
   skyCard,
   statsCard,
   townCard,
@@ -77,10 +84,15 @@ interface FeedState {
 }
 
 /**
- * The last world and Town Hall we saw, so coming back paints the pulse at once, and when the world
- * answered (`Date.now()`), so the server's clock can be read forward from its snapshot.
+ * The last world, Town Hall, and plots we saw, so coming back paints the pulse at once, and when the
+ * world answered (`Date.now()`), so the server's clock can be read forward from its snapshot.
  */
-const pulse: { world?: WorldSnapshot; town?: TownResponse; worldAt?: number } = {};
+const pulse: {
+  world?: WorldSnapshot;
+  town?: TownResponse;
+  plots?: PlotView[];
+  worldAt?: number;
+} = {};
 
 /** The server's time now, read forward from the last snapshot's; this device's when there's none. */
 function serverNow(): number {
@@ -524,7 +536,11 @@ export function feedView(ctx: ViewContext): View {
     (path) => ctx.navigate(path),
     () => savedResidentId() ?? undefined,
   );
-  const pulseEls = [happening.el, stats.el, activity.el, around.el, town.el, sky.el];
+  const plots = plotsCard({
+    me: hasToken ? savedResidentId() : null,
+    navigate: (path) => ctx.navigate(path),
+  });
+  const pulseEls = [happening.el, stats.el, activity.el, plots.el, around.el, town.el, sky.el];
   const wide = window.matchMedia("(min-width: 1000px)");
 
   /**
@@ -598,6 +614,7 @@ export function feedView(ctx: ViewContext): View {
       town.update(pulse.town);
       happening.update(pulse.town.events, serverNow());
     }
+    if (pulse.plots) plots.update(pulse.plots, world);
   }
 
   let pulseBusy = false;
@@ -605,7 +622,7 @@ export function feedView(ctx: ViewContext): View {
     if (destroyed || pulseBusy || (!first && document.visibilityState !== "visible")) return;
     // One at a time, so an older snapshot never lands after a newer one and repeats its news.
     pulseBusy = true;
-    const [w, t] = await Promise.all([api.world(), api.town()]);
+    const [w, t, p] = await Promise.all([api.world(), api.town(), api.plots()]);
     pulseBusy = false;
     if (destroyed) return;
     const before = { world: pulse.world, town: pulse.town };
@@ -614,6 +631,7 @@ export function feedView(ctx: ViewContext): View {
       pulse.worldAt = Date.now();
     }
     if (t.ok) pulse.town = t.data;
+    if (p.ok) pulse.plots = p.data.plots;
     keepPlace(() => {
       paintPulse();
       if (!first) announceWorld(before.world, before.town);

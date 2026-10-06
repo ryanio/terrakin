@@ -1,9 +1,10 @@
 /**
  * The cards that make the home wall feel lived in: the town's numbers, who's around, the sky over
- * the world, the Town Hall, recent pictures, and the two rollups (one resident's run of posts, and
- * the townsfolk's notes). Every number comes from the server; names and words go in as text.
+ * the world, the Town Hall, plots to visit, recent pictures, and the two rollups (one resident's
+ * run of posts, and the townsfolk's notes). Every number comes from the server; names and words
+ * go in as text.
  */
-import type { PostView, TownResponse, WorldSnapshot } from "@terrakin/protocol";
+import type { PlotView, PostView, TownResponse, WorldSnapshot } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { compactCount, plural } from "@terrakin/ui/format";
 import { countTo, replay } from "@terrakin/ui/motion";
@@ -19,9 +20,12 @@ import {
 } from "@terrakin/ui/people";
 import { everyVisible } from "@terrakin/ui/poll";
 import { timeAgo } from "@terrakin/ui/when";
+import { plotThumb } from "./plot-thumb";
 import { type PulseStats, phaseName, type WallItem } from "./pulse";
 import { dayPhase, nightAmount } from "./time";
 import { closesIn, tallyBar } from "./town-format";
+import { visitButton } from "./visit-view";
+import { plotName, stripPlots, weekLine } from "./visits";
 
 type Resident = WorldSnapshot["residents"][number];
 type CardFn = (post: PostView, variant?: "compact") => HTMLElement;
@@ -487,6 +491,58 @@ export function townsfolkCard(item: Extract<WallItem, { kind: "townsfolk" }>, ca
       for (const p of posts) names.add(p.author.name);
       paintNames();
       list.prepend(posts);
+    },
+  };
+}
+
+// ---------- plots to visit (RFC 0020) ----------
+
+/**
+ * "Plots to visit": a few neighbors' plots worth a look, each drawn from above with a Visit button,
+ * and a way to every plot. It stays hidden until `stripPlots` finds enough to show, so a quiet town
+ * shows nothing here.
+ */
+export function plotsCard(o: { me: string | null; navigate: (path: string) => void }) {
+  const list = h("ul", { class: "plain-list plots-strip" });
+  const el = pulseShell(
+    "pulse-plots",
+    "Plots to visit",
+    h("p", { class: "eyebrow pulse-eyebrow" }, icon("world", "icon pulse-icon"), "Around town"),
+    h("h2", { class: "pulse-title", text: "Plots to visit" }),
+    list,
+    h(
+      "a",
+      { class: "text-link", attrs: { href: "/visit" } },
+      h("span", { text: "See every plot" }),
+      icon("arrow"),
+    ),
+  );
+  let painted = "";
+  return {
+    el,
+    update(plots: readonly PlotView[], world: WorldSnapshot | undefined) {
+      const picks = stripPlots(plots, o.me, Date.now());
+      el.hidden = picks.length === 0;
+      // Repaint only when what's shown changed, so a poll doesn't redraw the same drawings.
+      const key = JSON.stringify([
+        world?.seq ?? null,
+        picks.map((p) => [p.px, p.py, p.owner.name, p.admirers, p.visitors]),
+      ]);
+      if (key === painted) return;
+      painted = key;
+      list.replaceChildren(
+        ...picks.map((p) => {
+          const name = plotName([p.owner.name, ...p.coOwners.map((c) => c.name)]);
+          return h(
+            "li",
+            { class: "plots-strip-item", attrs: { "data-plot": `${p.px},${p.py}` } },
+            world ? plotThumb(world, p, `${name}, from above`, 112) : null,
+            h("span", { class: "plots-strip-name", text: name }),
+            h("span", { class: "plots-strip-week", text: weekLine(p) }),
+            visitButton(p, o.me, o.navigate),
+          );
+        }),
+      );
     },
   };
 }

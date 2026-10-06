@@ -1066,27 +1066,16 @@ body.in-world .veil {
   gap: var(--space-lg);
 }
 
+/* The link tabs (ui.ts) with a count over each label. */
 .people-tabs {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 3px;
-  padding: 3px;
   border-radius: var(--r-card);
-  background: rgba(236, 220, 192, 0.42);
-  border: 1px solid rgba(220, 200, 165, 0.6);
 }
 
 .people-tab {
-  display: grid;
-  justify-items: center;
-  align-content: center;
   min-height: 56px;
   padding: var(--space-2xs) var(--space-xs);
   border-radius: var(--r-note);
   font-size: var(--text-md);
-  font-weight: var(--weight-bold);
-  color: var(--ink-soft);
-  text-decoration: none;
 }
 
 .people-tab-n {
@@ -1096,12 +1085,6 @@ body.in-world .veil {
   line-height: var(--leading-tight);
   font-variant-numeric: tabular-nums;
   color: var(--ink);
-}
-
-.people-tab[aria-current="page"] {
-  background: var(--paper-fill);
-  color: var(--ink);
-  box-shadow: var(--shadow-pill);
 }
 
 .people-list {
@@ -3164,6 +3147,116 @@ dialog.model-viewer {
   text-decoration: none;
 }
 
+/* A gallery's Visit button (RFC 0020) ends the row of whose gallery it is. */
+.gallery-visit {
+  margin-left: auto;
+}
+
+/* ---------- plots to visit (RFC 0020) ---------- */
+
+/* Which order the plots come in: a switch the width of its words, under the page's tabs. */
+.visit-sorts {
+  justify-self: start;
+  grid-auto-columns: auto;
+}
+
+.visit-sorts .link-tab {
+  font-size: var(--text-md);
+}
+
+/* A plot drawn from above (plot-thumb.ts), sized by its card. */
+.plot-thumb {
+  display: block;
+  width: 96px;
+  height: 96px;
+  border-radius: var(--r-md);
+  border: 2px solid var(--paper-edge);
+  background: var(--field);
+  box-shadow: var(--shadow-pill);
+}
+
+/* One plot to visit: its drawing beside whose it is and how lately it changed, Visit below. */
+.plot-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-md) var(--space-lg);
+  align-items: start;
+}
+
+.plot-card-body {
+  min-width: 0;
+  justify-items: start;
+}
+
+.plot-card-changed,
+.plot-card-week {
+  font-size: var(--text-md);
+  line-height: var(--leading-snug);
+  color: var(--ink-soft);
+}
+
+.plot-card-foot {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.visit-button .icon {
+  color: var(--moss);
+}
+
+/* The home wall's few plots to visit: side by side on a phone, scrolling sideways when they don't fit. */
+.plots-strip {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(136px, 1fr);
+  gap: var(--space-md);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  padding-bottom: var(--space-2xs);
+}
+
+/* Each plot in a column of its own, its Visit button lined up with the others' at the bottom. */
+.plots-strip-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  min-width: 0;
+  scroll-snap-align: start;
+}
+
+.plots-strip-item .visit-button {
+  margin-top: auto;
+}
+
+.plots-strip-item .plot-thumb {
+  width: 112px;
+  height: 112px;
+}
+
+.plots-strip-name {
+  max-width: 100%;
+  font-weight: var(--weight-bold);
+  font-size: var(--text-md);
+  line-height: var(--leading-snug);
+  overflow-wrap: anywhere;
+}
+
+.plots-strip-week {
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+  color: var(--ink-soft);
+}
+
+/* In the sidebar on a wide screen the card is narrow: two plots a row, no sideways scroll. */
+.wall-side .plots-strip {
+  grid-auto-flow: row;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  overflow-x: visible;
+}
+
 /* Make a piece of art on your things page: the picture you chose, before it has a title. */
 .piece-preview .thing-picture {
   border-width: 3px;
@@ -3903,6 +3996,65 @@ dialog.model-viewer {
   transform: translateY(-1px) scale(1.05);
 }
 
+/*
+ * On someone else's plot (RFC 0020): whose it is and this week's visitors and admirers, with
+ * Admire and Next plot. Under the top pills, clear of the d-pad and the actions; it steps aside
+ * while chat is open, which takes the same place.
+ */
+.visit-card {
+  position: absolute;
+  top: calc(60px + env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(380px, calc(100% - 24px));
+  display: grid;
+  gap: var(--space-2xs);
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--r-card);
+  touch-action: none;
+}
+
+.chat:not([hidden]) ~ .visit-card {
+  display: none;
+}
+
+.visit-card-owner {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+  color: var(--ink);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.visit-card-week {
+  margin: 0;
+  font-size: var(--text-md);
+  line-height: var(--leading-snug);
+  color: var(--ink-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.visit-card-week:empty::before {
+  content: "\00a0";
+}
+
+.visit-card-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-sm);
+  margin-top: var(--space-xs);
+}
+
+.visit-card-actions .pill-button .icon {
+  color: var(--clay);
+}
+
 /* Back to the feed, top left. Chat opens below it so it never covers the way out. */
 .hud-feed {
   position: absolute;
@@ -4012,6 +4164,11 @@ dialog.model-viewer {
 
 .chat:not([hidden]) ~ .toast {
   top: calc(42vh + 76px + env(safe-area-inset-top));
+}
+
+/* Under the card on someone's plot, so a toast never covers Admire or Next plot. */
+.visit-card:not([hidden]) ~ .toast {
+  top: calc(192px + env(safe-area-inset-top));
 }
 
 /* While building, notices show under the build bar instead of over its tabs. */

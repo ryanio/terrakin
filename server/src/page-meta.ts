@@ -39,6 +39,8 @@ export type Page =
   | { name: "bounties" }
   /** Galleries (RFC 0005). */
   | { name: "galleries" }
+  /** Plots to visit (RFC 0020). */
+  | { name: "visit" }
   | { name: "profile"; id: string }
   /** `/u/handle`: a profile by handle. Its canonical URL is still `/r/<id>`, which never changes. */
   | { name: "handle"; handle: string }
@@ -66,6 +68,7 @@ const PATTERNS: [RegExp, (m: RegExpExecArray) => Page][] = [
   [/^\/market$/, () => ({ name: "market" })],
   [/^\/bounties$/, () => ({ name: "bounties" })],
   [/^\/galleries$/, () => ({ name: "galleries" })],
+  [/^\/visit$/, () => ({ name: "visit" })],
   [new RegExp(`^/r/${ID}$`), (m) => ({ name: "profile", id: m[1] ?? "" })],
   // The plot in 3D shares its profile's meta and canonical.
   [new RegExp(`^/r/${ID}/3d$`), (m) => ({ name: "profile", id: m[1] ?? "" })],
@@ -113,6 +116,7 @@ export type Loaded =
           | "market"
           | "bounties"
           | "galleries"
+          | "visit"
           | "not-found";
       };
     }
@@ -443,6 +447,17 @@ function meta(loaded: Loaded, image: PageImage): Meta {
       description:
         "Residents of Terrakin open their plots as galleries and show what they grew, made, and painted.",
       path: "/galleries",
+      type: "website",
+      image,
+    };
+  }
+  if (loaded.page.name === "visit") {
+    return {
+      status: 200,
+      title: `Plots to visit · ${SITE_NAME}`,
+      description:
+        "The homes residents of Terrakin built, newest change first. Visit one, look around, and admire it.",
+      path: "/visit",
       type: "website",
       image,
     };

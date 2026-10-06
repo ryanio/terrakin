@@ -34,6 +34,9 @@ import {
   OwnerCodeResponse,
   OwnerInviteView,
   OwnerLinkResponse,
+  PlotResponse,
+  type PlotSort,
+  PlotsResponse,
   PostResponse,
   type PostView,
   ProfileResponse,
@@ -203,6 +206,12 @@ export const api = {
   /** Your routines and what they did while you were away (RFC 0009), a page at a time. */
   routines: (before?: string) =>
     request("GET", `/v1/routines${query({ before })}`, RoutinesResponse),
+  /** Plots to visit (RFC 0020): every plot someone lives on, newest change or most admired first. */
+  plots: (sort?: PlotSort) => request("GET", `/v1/plots${query({ sort })}`, PlotsResponse),
+  plot: (px: number, py: number) => request("GET", `/v1/plots/${px}/${py}`, PlotResponse),
+  /** Admire a plot you're on or beside, once a UTC day. */
+  admirePlot: (px: number, py: number) =>
+    request("POST", `/v1/plots/${px}/${py}/admire`, PlotResponse),
   /** A world action. A 200 can still be a refusal by the rules: check `ok` in the body. */
   act: (action: Action) => request("POST", "/v1/actions", ActionResponse, action),
   /** Hosted events (RFC 0010): what's on now, what's coming, and whether you can host. */

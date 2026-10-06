@@ -59,6 +59,7 @@ import { track } from "./telemetry";
 import { NO_PLOT_LINE, newsLine, othersPickupLine, toastMs, worldProblem } from "./things";
 import { dayPhase } from "./time";
 import { ARRIVAL_KEY, type FoldedWaves, foldWaves, gestureLine, wavesLine } from "./together";
+import { visitCard } from "./visit-card";
 import { Walker } from "./walk";
 import { Sky, skyNow } from "./weather";
 import type { WorldLoader } from "./world-loader";
@@ -151,6 +152,16 @@ const walker = new Walker({
   bumped: (dir) => {
     if (me) motion.bump(me, dir, performance.now());
   },
+});
+/** The card on someone else's plot: Admire and Next plot (RFC 0020). */
+const visiting = visitCard({
+  visit(px, py) {
+    // Like Home: no more steps, and none until the jump lands.
+    walker.stop();
+    const id = tryAct({ type: "visit", px, py });
+    if (id) walker.awaiting(id, performance.now());
+  },
+  toast: (text) => showToast(text),
 });
 /** How quickly the map's camera catches up with your figure, per second. */
 const CAMERA_RATE = 10;
@@ -1085,6 +1096,7 @@ function frame() {
   // The 3D camera decides which way "up" walks, so turn the d-pad before the next step.
   paintPad(world3d?.heading() ?? 0, world3d !== undefined);
   const r = self();
+  visiting.update(mirror, me, r);
   if (r) {
     // While the world reloads, the mirror is behind the server: no steps checked against it.
     if (!resyncing) walker.tick(now);
@@ -1237,6 +1249,7 @@ export function stopWorld() {
   paintPalette();
   pendingChat = undefined;
   stopWalking();
+  visiting.hide();
   hud.hidden = true;
   worldWait.hidden = true;
   petButton.hidden = true;

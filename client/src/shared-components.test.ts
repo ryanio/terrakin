@@ -91,6 +91,7 @@ const HAND_BUILT: { pattern: RegExp; use: string; home?: string }[] = [
   },
   { pattern: /class: "[^"]*-(row|line|good|order)-body\b/, use: "itemRow and itemRows (ui.ts)" },
   { pattern: /class: [`"][^`"]*\b(proposal-kind|kind-pill)\b/, use: "kindPill (ui.ts)" },
+  { pattern: /class: [`"][^`"]*\blink-tabs?\b/, use: "linkTabs (ui.ts)" },
   {
     pattern: /class: [`"]pulse paper card\b/,
     use: "pulseShell (pulse-cards.ts)",

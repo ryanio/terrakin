@@ -9,7 +9,7 @@ import { h, icon } from "@terrakin/ui/dom";
 import { compactCount } from "@terrakin/ui/format";
 import { profilePath } from "@terrakin/ui/paths";
 import { personLink } from "@terrakin/ui/people";
-import { emptyNote } from "@terrakin/ui/ui";
+import { emptyNote, linkTabs } from "@terrakin/ui/ui";
 import { api } from "./api";
 import { savedResidentId } from "./net";
 import { errorCard, notFoundCard, type View, type ViewContext } from "./view";
@@ -87,31 +87,21 @@ export function peopleView(id: string, tab: PeopleTab, ctx: ViewContext): View {
     ctx.setTitle(`${r.name}'s ${LABELS[tab].toLowerCase()} · Terrakin`);
 
     // Tabs are links, so each list has its own address; switching swaps this history entry.
-    const tabs = h(
-      "nav",
-      { class: "people-tabs", attrs: { "aria-label": "People" } },
-      ...PEOPLE_TABS.map((t) =>
-        h(
-          "a",
-          {
-            class: "people-tab",
-            attrs: {
-              href: peoplePath(r.id, t),
-              "aria-current": t === tab ? "page" : null,
-            },
-            on: {
-              click: (e) => {
-                // A modified click opens the tab in a new browser tab, as links do.
-                if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-                e.preventDefault();
-                if (t !== tab) ctx.navigate(peoplePath(r.id, t), { replace: true });
-              },
-            },
-          },
+    const tabs = linkTabs(
+      PEOPLE_TABS.map((t) => ({
+        href: peoplePath(r.id, t),
+        current: t === tab,
+        content: [
           h("span", { class: "people-tab-n", text: compactCount(tabCount(r, t)) }),
           h("span", { text: LABELS[t] }),
-        ),
-      ),
+        ],
+      })),
+      {
+        label: "People",
+        className: "people-tabs",
+        tabClass: "people-tab",
+        go: (href) => ctx.navigate(href, { replace: true }),
+      },
     );
 
     const residents = people.data.residents;

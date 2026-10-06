@@ -160,7 +160,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
     void stallCard(resident).then((card) => {
       if (card && !destroyed && postsTitle.isConnected) postsTitle.before(card);
     });
-    void profileGalleries(resident).then((section) => {
+    void profileGalleries(resident, ctx.navigate).then((section) => {
       if (section && !destroyed && postsTitle.isConnected) postsTitle.before(section);
     });
     const list = h("div", {

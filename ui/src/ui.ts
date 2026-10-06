@@ -176,6 +176,53 @@ export function kindPill(text: string, tone: PillTone, className?: string): HTML
   return h("span", { class: ["kind-pill", tone, className].filter(Boolean).join(" "), text });
 }
 
+// ---------- link tabs ----------
+
+/** One page in a `linkTabs` row. */
+export interface LinkTab {
+  href: string;
+  /** The page you're on. */
+  current: boolean;
+  /** What the tab shows: a label, or a count and a label. */
+  content: readonly (string | Node)[];
+}
+
+/**
+ * Links between sibling pages, drawn as a switch: plots and galleries, or someone's followers,
+ * following, and friends. The current one carries `aria-current="page"`. With `go` (the router's
+ * navigate, say), a tap swaps the page in place; a modified click opens a new browser tab, as a
+ * link does. `className` and `tabClass` are added to `link-tabs` and `link-tab`.
+ */
+export function linkTabs(
+  tabs: readonly LinkTab[],
+  o: { label: string; className?: string; tabClass?: string; go?: (href: string) => void },
+): HTMLElement {
+  return h(
+    "nav",
+    {
+      class: ["link-tabs", o.className].filter(Boolean).join(" "),
+      attrs: { "aria-label": o.label },
+    },
+    ...tabs.map((t) =>
+      h(
+        "a",
+        {
+          class: ["link-tab", o.tabClass].filter(Boolean).join(" "),
+          attrs: { href: t.href, "aria-current": t.current ? "page" : null },
+          on: {
+            click: (e) => {
+              if (!o.go || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+              e.preventDefault();
+              if (!t.current) o.go(t.href);
+            },
+          },
+        },
+        ...t.content,
+      ),
+    ),
+  );
+}
+
 // ---------- chips ----------
 
 /**

@@ -35,6 +35,7 @@ import { initErrorReporting, pageView, startAnalytics } from "./telemetry";
 import { townView } from "./town-view";
 import { notFoundView, type View, type ViewContext } from "./view";
 import { view3d } from "./view-3d";
+import { visitView } from "./visit-view";
 import { createWorldLoader } from "./world-loader";
 import "./style.css";
 
@@ -326,13 +327,15 @@ function onNavigate(nav: Navigation) {
                                 ? bountiesView(ctx)
                                 : route.name === "galleries"
                                   ? galleriesView(ctx)
-                                  : route.name === "people"
-                                    ? peopleView(route.id, route.tab, ctx)
-                                    : route.name === "plot3d" || route.name === "gallery3d"
-                                      ? view3d(route, ctx)
-                                      : route.name === "claim"
-                                        ? claimView(route.code, ctx)
-                                        : notFoundView(ctx);
+                                  : route.name === "visit"
+                                    ? visitView(ctx)
+                                    : route.name === "people"
+                                      ? peopleView(route.id, route.tab, ctx)
+                                      : route.name === "plot3d" || route.name === "gallery3d"
+                                        ? view3d(route, ctx)
+                                        : route.name === "claim"
+                                          ? claimView(route.code, ctx)
+                                          : notFoundView(ctx);
   view = next;
   page.replaceChildren(next.el);
 

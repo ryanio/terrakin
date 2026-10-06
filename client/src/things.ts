@@ -266,6 +266,12 @@ export function worldProblem(
       if (message.includes("Try home")) return "That's already your hearth. Tap Home to go there.";
       if (message.includes("starter home")) return "Your home is already built.";
       return message;
+    case "own_plot":
+      return "That's your own plot. Tap Home to go there.";
+    case "already_there":
+      return "You're already on that plot.";
+    case "plot_unclaimed":
+      return "Nobody lives on that plot yet.";
     case "not_ready":
       return "It isn't ready to pick yet.";
     case "no_planter":

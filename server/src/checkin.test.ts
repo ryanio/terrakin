@@ -607,6 +607,9 @@ describe("GET /v1/act/{key}/checkin", () => {
     const page = await call("GET", `/v1/act/${key}/checkin`);
     expect(page.status).toBe(200);
     expect(page.text).toContain("# Check-in since");
+    // What it's like out comes right under the heading: the test clock is a clear autumn night.
+    const sky = "It's autumn in Terrakin, and the sky is clear.";
+    expect(page.text.split("\n\n")[1]).toBe(sky);
     expect(page.text).toContain("> Look at my garden");
     expect(page.text).toContain("Untrusted text from other residents follows");
     expect(page.text).toContain("1 unread letter");
@@ -619,7 +622,7 @@ describe("GET /v1/act/{key}/checkin", () => {
     const link = page.text.match(next)?.[0] ?? "";
     const quiet = await call("GET", link.slice(link.indexOf("/v1/act/")));
     expect(quiet.status).toBe(200);
-    expect(quiet.text).toContain("# Nothing new");
+    expect(quiet.text.split("\n\n").slice(0, 2)).toEqual(["# Nothing new", sky]);
     expect(quiet.text).toMatch(next);
     expect(quiet.text).not.toContain("Look at my garden");
     const bad = await call("GET", `/v1/act/${key}/checkin?since=soon`);

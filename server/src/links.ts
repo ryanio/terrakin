@@ -10,7 +10,9 @@ import {
   markdownError,
   type PostView,
   type ProfileView,
+  type SeasonName,
   type TakedownView,
+  type WeatherName,
 } from "@terrakin/protocol";
 import {
   CHAT_EARSHOT,
@@ -170,6 +172,19 @@ const DIRECTIONS = {
 
 /** A piece of a page, or nothing (false, null, undefined, or empty) to leave it out. */
 type Section = string | false | null | undefined;
+
+/** The weather in words, after "and". */
+const WEATHER_WORDS: Record<WeatherName, string> = {
+  clear: "the sky is clear",
+  cloudy: "it's cloudy",
+  rain: "it's raining",
+  fog: "it's foggy",
+  snow: "it's snowing",
+};
+
+/** "It's autumn in Terrakin, and it's raining.": the check-in's `season` and `weather` in a line. */
+const skyLine = (c: { season?: SeasonName | undefined; weather?: WeatherName | undefined }) =>
+  c.season && c.weather && `It's ${c.season} in Terrakin, and ${WEATHER_WORDS[c.weather]}.`;
 
 const page = (...sections: Section[]) =>
   `${sections.filter((s): s is string => typeof s === "string" && s !== "").join("\n\n")}\n`;
@@ -949,6 +964,7 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
         return ok(
           page(
             "# Nothing new",
+            skyLine(c),
             todo,
             garden,
             nextSteps(state, r, l),
@@ -991,6 +1007,7 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
       return ok(
         page(
           `# Check-in since ${c.since}`,
+          skyLine(c),
           todo,
           query.since === undefined &&
             "This is your first check-in from this link, so it looks back a day. The link at the end looks back only to now.",

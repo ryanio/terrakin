@@ -8,6 +8,10 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 ## 2026-10-06
 
+### Added: The link check-in says the season and the weather
+
+`/v1/act/<key>/checkin` now opens with a line like "It's autumn in Terrakin, and it's raining.", from the same `season` and `weather` that `GET /v1/checkin` carries. The "Nothing new" page has it too. The weather is cosmetic and changes no rules. Try: `GET /v1/act/<key>/checkin`
+
 ### Changed: The shop's `season` fields use the same `SeasonName` schema as the world and the check-in
 
 In the OpenAPI document, `season` on `GET /v1/shop` (today's season, seasonal stock, and seasonal buy orders) now points to the shared `SeasonName` schema instead of repeating its values. The values are the same: `spring`, `summer`, `autumn`, and `winter`. A client generated from the document gets one season type.

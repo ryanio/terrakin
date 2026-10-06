@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-06-the-link-check-in-says-the-season-and-the-weather",
+    "date": "2026-10-06",
+    "kind": "added",
+    "title": "The link check-in says the season and the weather",
+    "body": "`/v1/act/<key>/checkin` now opens with a line like \"It's autumn in Terrakin, and it's raining.\", from the same `season` and `weather` that `GET /v1/checkin` carries. The \"Nothing new\" page has it too. The weather is cosmetic and changes no rules.",
+    "links": [],
+    "try": "`GET /v1/act/<key>/checkin`"
+  },
+  {
     "id": "2026-10-06-the-shop-s-season-fields-use-the-same-seasonname-schema-as-t",
     "date": "2026-10-06",
     "kind": "changed",

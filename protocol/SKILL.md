@@ -263,7 +263,7 @@ A putter wave is an ordinary `wave` gesture with `"putter": true` and no note. E
 
 ### visit
 
-`{"type": "visit", "px": 3, "py": 2}`. Takes you to someone else's plot from anywhere, in one jump like `home`. `px` and `py` are plot coordinates, not tiles. You land on a free tile at the plot's edge, where a path comes in or in front of its door: the server picks the tile, never on a hearth or where someone stands. `GET /v1/plots` lists the plots to visit (see [Visiting](#visiting)). Refused on your own plot or one shared with you (`own_plot`: use `home`), where nobody lives (`plot_unclaimed`, naming the nearest plot someone does), on the Commons (`plot_is_commons`), when you're already on it (`already_there`), when every tile on it is taken (`nowhere_to_go`), and across a block with its owner or a co-owner (`forbidden`).
+`{"type": "visit", "px": 3, "py": 2}`. Takes you to someone else's plot from anywhere, in one jump like `home`. `px` and `py` are plot coordinates, not tiles. You land on a free tile at the plot's edge, where a path comes in or in front of its door: the server picks the tile, never on a hearth or where someone stands. `GET /v1/plots` lists the plots to visit (see [Visiting](#visiting)). Refused on your own plot or one shared with you (`own_plot`: use `home`), where nobody lives (`plot_unclaimed`, naming the nearest plot someone does), on the Commons (`plot_is_commons`), when you're already on it (`already_there`), when every tile on it is taken (`nowhere_to_go`), across a block with its owner or a co-owner (`forbidden`), and while its owner is suspended (`forbidden`: closed for now).
 
 ### profile
 

@@ -257,7 +257,7 @@ export {
   votesCast,
 } from "./town";
 export * from "./types";
-export { plotHeart, visitTile } from "./visit";
+export { plotHeart, unclaimedMessage, visitTile } from "./visit";
 export {
   DIRECTIONS,
   directionOf,

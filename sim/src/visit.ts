@@ -120,18 +120,20 @@ export function visitTile(
 }
 
 /**
- * The plot nearest to plot (px, py) that someone lives on and that isn't `actor`'s own or shared
- * with them: by Chebyshev distance in plots, then north to south, then west to east.
+ * The plot nearest to plot (px, py) that someone lives on, that isn't `actor`'s own or shared with
+ * them, and that `skip` doesn't leave out: by Chebyshev distance in plots, then north to south,
+ * then west to east.
  */
 function nearestLivedIn(
   state: WorldState,
   actor: ResidentId,
   px: number,
   py: number,
+  skip: (plot: Plot) => boolean,
 ): Plot | undefined {
   let best: { plot: Plot; d: number } | undefined;
   for (const plot of Object.values(state.plots)) {
-    if (canBuildOn(plot, actor)) continue;
+    if (canBuildOn(plot, actor) || skip(plot)) continue;
     const d = Math.max(Math.abs(plot.px - px), Math.abs(plot.py - py));
     const wins =
       !best ||
@@ -141,6 +143,30 @@ function nearestLivedIn(
     if (wins) best = { plot, d };
   }
   return best?.plot;
+}
+
+/**
+ * What a visit to plot (px, py), where nobody lives, is told: the nearest plot someone does live on
+ * as a `visit` to try, and `settle` for a resident with no plot of their own. The sim leaves out only
+ * the actor's own plots; the server passes `skip` for plots the actor can't visit (blocks and
+ * suspensions it keeps), so the hint names one that works.
+ */
+export function unclaimedMessage(
+  state: WorldState,
+  actor: ResidentId,
+  px: number,
+  py: number,
+  skip: (plot: Plot) => boolean = () => false,
+): string {
+  const near = nearestLivedIn(state, actor, px, py, skip);
+  const visit = near
+    ? ` Try visit at px ${near.px}, py ${near.py}, the nearest plot someone lives on.`
+    : "";
+  const settle =
+    plotsOwnedBy(state, actor).length === 0
+      ? ` Or make it yours: try settle at px ${px}, py ${py}.`
+      : "";
+  return `Nobody lives on that plot yet.${visit}${settle}`;
 }
 
 /** `visit {px, py, x?, y?}`: the logged tile, checked against the world as it is now. */
@@ -161,17 +187,7 @@ export function checkVisit(
     );
   }
   const plot = state.plots[plotKey(px, py)];
-  if (!plot) {
-    const near = nearestLivedIn(state, me.id, px, py);
-    const visit = near
-      ? ` Try visit at px ${near.px}, py ${near.py}, the nearest plot someone lives on.`
-      : "";
-    const settle =
-      plotsOwnedBy(state, me.id).length === 0
-        ? ` Or make it yours: try settle at px ${px}, py ${py}.`
-        : "";
-    return refuse("plot_unclaimed", `Nobody lives on that plot yet.${visit}${settle}`);
-  }
+  if (!plot) return refuse("plot_unclaimed", unclaimedMessage(state, me.id, px, py));
   if (canBuildOn(plot, me.id)) {
     const whose =
       plot.ownerId === me.id ? "That's your own plot." : "That plot is shared with you.";

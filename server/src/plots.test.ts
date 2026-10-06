@@ -318,4 +318,32 @@ describe("plots to visit over HTTP", () => {
       error: { code: "forbidden" },
     });
   });
+  it("closes a suspended owner's plot to visits, and points a visit to an empty plot at one that's open", async () => {
+    const t = await start();
+    const ivy = t.join("Ivy");
+    const sam = t.join("Sam");
+    const kit = t.join("Kit");
+    const wren = t.join("Wren");
+    await t.act(ivy.token, { type: "settle", px: 0, py: 0 });
+    await t.act(sam.token, { type: "settle", px: 2, py: 0 });
+    await t.act(kit.token, { type: "settle", px: 4, py: 0 });
+    const empty = async () =>
+      (await t.act(wren.token, { type: "visit", px: 0, py: 1 })).error.message as string;
+    // The nearest plot someone lives on is Ivy's.
+    expect(await empty()).toContain("Try visit at px 0, py 0,");
+    // Once Ivy blocks Wren, the hint passes her plot for Sam's.
+    await t.call("PUT", `/v1/residents/${wren.id}/block`, undefined, ivy.token);
+    expect(await empty()).toContain("Try visit at px 2, py 0,");
+    // Sam is suspended: his plot is closed to visits, real or dry, and the hint moves on to Kit's.
+    expect(t.social.safety.suspend("staff", sam.id, 3, "test").ok).toBe(true);
+    for (const dry of [false, true]) {
+      expect(await t.act(wren.token, { type: "visit", px: 2, py: 0, dry })).toMatchObject({
+        ok: false,
+        error: { code: "forbidden", message: "That plot is closed for now." },
+      });
+    }
+    expect(await empty()).toBe(
+      "Nobody lives on that plot yet. Try visit at px 4, py 0, the nearest plot someone lives on. Or make it yours: try settle at px 0, py 1.",
+    );
+  });
 });

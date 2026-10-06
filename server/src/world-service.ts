@@ -25,6 +25,7 @@ import {
   buildSummary,
   type Command,
   type Crop,
+  canBuildOn,
   chebyshev,
   commonsPlot,
   type DailyAward,
@@ -50,6 +51,7 @@ import {
   listingById,
   own,
   ownerPaired,
+  type Plot,
   type ProfileFields,
   parseKey,
   pickupLeft,
@@ -74,6 +76,7 @@ import {
   TOWN_ACTOR,
   townHallTiles,
   treasuryShareOf,
+  unclaimedMessage,
   visitTile,
   type WorldConfig,
   type WorldEvent,
@@ -1623,21 +1626,31 @@ export class WorldService {
    * A jump to someone else's plot. The sim's planner picks the tile, from where the resident will
    * be (an offline one comes back with the visit itself, and a dry run checks them as if they had),
    * and the logged command carries it, so replay never runs the planner. Never onto the plot of
-   * anyone blocked either way, owner or co-owner.
+   * anyone blocked either way, owner or co-owner, nor of a suspended owner, whose plot is closed for
+   * now like their stall. A plot nobody lives on gets a hint that names one the resident can visit.
    */
   private visit(residentId: string, px: number, py: number, dry: boolean): ActResult {
     const plot = plotInBounds(this.state.config, px, py)
       ? own(this.state.plots, plotKey(px, py))
       : undefined;
-    if (
-      plot &&
-      [plot.ownerId, ...(plot.coOwners ?? [])].some((id) => this.blockedEither(residentId, id))
-    ) {
-      return { ok: false, error: { code: "forbidden", message: "You can't visit this plot." } };
+    const blocked = (p: Plot) =>
+      [p.ownerId, ...(p.coOwners ?? [])].some((id) => this.blockedEither(residentId, id));
+    if (plot && !canBuildOn(plot, residentId)) {
+      if (this.suspended(plot.ownerId)) {
+        return { ok: false, error: { code: "forbidden", message: "That plot is closed for now." } };
+      }
+      if (blocked(plot)) {
+        return { ok: false, error: { code: "forbidden", message: "You can't visit this plot." } };
+      }
     }
-    const tile = visitTile(asJoined(this.state, residentId), residentId, px, py);
+    const view = asJoined(this.state, residentId);
+    const tile = visitTile(view, residentId, px, py);
     const command: Command = { type: "visit", px, py, ...(tile ? { x: tile.x, y: tile.y } : {}) };
-    return this.run({ actor: residentId, command }, dry);
+    const result = this.run({ actor: residentId, command }, dry);
+    if (result.ok || result.error.code !== "plot_unclaimed") return result;
+    const closed = (p: Plot) => this.suspended(p.ownerId) || blocked(p);
+    const message = unclaimedMessage(view, residentId, px, py, closed);
+    return { ...result, error: { ...result.error, message } };
   }
 
   // ---------- putter (decision 0049) ----------

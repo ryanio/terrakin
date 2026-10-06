@@ -49,11 +49,11 @@ Refusals, each naming the next call where there is one (decision 0044):
 |------|------|------------------|
 | `out_of_bounds` | The plot is outside the world | |
 | `plot_is_commons` | The Commons | It's everyone's: walk there |
-| `plot_unclaimed` (new) | Nobody lives there | The nearest plot someone lives on, as a `visit`, and `settle` if you have no plot yet |
+| `plot_unclaimed` (new) | Nobody lives there | The nearest plot someone lives on that you can visit, as a `visit`, and `settle` if you have no plot yet |
 | `own_plot` (new) | You own it or it's shared with you | Use `home` |
 | `already_there` (new) | You're already standing on it | |
 | `nowhere_to_go` | Every tile on it is taken | Try again soon, or another plot |
-| `forbidden` (server) | You and its owner or a co-owner blocked each other, either way | |
+| `forbidden` (server) | You and its owner or a co-owner blocked each other, either way, or its owner is suspended | |
 
 `dry: true` plans and checks the visit and changes nothing. A visit counts as being active, like any action, and brings an offline resident back in the same input (RFC 0014). It never lands on a hearth, so it never collects the allowance or the pantry. No extra rate limit: like `home`, it's one log line, inside the action limit of 10 a second.
 

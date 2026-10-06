@@ -1,5 +1,12 @@
 import { isWhole, refuse } from "./check";
 import { isTownsfolk, pairSkipsCaps } from "./economy";
+import {
+  FURNITURE_INFO,
+  FURNITURE_KINDS,
+  FURNITURE_RECIPES,
+  type FurnitureKind,
+  isFurnitureKind,
+} from "./furniture";
 import { tileKey } from "./keys";
 import { own, residentById } from "./own";
 import {
@@ -73,13 +80,14 @@ export type ResourceKind = (typeof RESOURCE_KINDS)[number];
 export const DECOR_KINDS = DECOR_BLOCKS;
 export type DecorKind = DecorBlock;
 
-/** Things that stack: you hold a count of each, not separate items. */
+/** Things that stack: you hold a count of each, not separate items. New kinds go on the end. */
 export const STACK_KINDS = [
   ...SEED_KINDS,
   ...CROPS,
   ...STAPLE_KINDS,
   ...RESOURCE_KINDS,
   ...DECOR_KINDS,
+  ...FURNITURE_KINDS,
 ] as const;
 export type StackKind = (typeof STACK_KINDS)[number];
 
@@ -116,7 +124,14 @@ export type MadeKind = (typeof MADE_KINDS)[number];
 export const ITEM_KINDS = [...STACK_KINDS, ...MADE_KINDS] as const;
 export type ItemKind = (typeof ITEM_KINDS)[number];
 
-export type ItemCategory = "seed" | "produce" | "staple" | "resource" | "good" | "decor";
+export type ItemCategory =
+  | "seed"
+  | "produce"
+  | "staple"
+  | "resource"
+  | "good"
+  | "decor"
+  | "furniture";
 
 export interface ItemInfo {
   /** One of it, in plain words. */
@@ -161,6 +176,7 @@ export const ITEM_INFO: Record<ItemKind, ItemInfo> = {
   pumpkin_soup: { name: "Pumpkin soup", plural: "Jars of pumpkin soup", category: "good" },
   hay_bale: { name: "Hay bale", plural: "Hay bales", category: "decor" },
   scarecrow: { name: "Scarecrow", plural: "Scarecrows", category: "decor" },
+  ...FURNITURE_INFO,
 };
 
 export interface CropInfo {
@@ -262,6 +278,12 @@ export const isMadeKind = (k: unknown): k is MadeKind =>
   typeof k === "string" && (MADE_KINDS as readonly string[]).includes(k);
 export const isDecorKind = (k: unknown): k is DecorKind =>
   typeof k === "string" && (DECOR_KINDS as readonly string[]).includes(k);
+/**
+ * A block you hold before you place it: decor from the town shop, or furniture from a workbench.
+ * `place` takes one from your things and `remove` gives it back.
+ */
+export const isHeldBlock = (k: unknown): k is DecorKind | FurnitureKind =>
+  isDecorKind(k) || isFurnitureKind(k);
 export const isCrop = (k: unknown): k is Crop =>
   typeof k === "string" && (CROPS as readonly string[]).includes(k);
 export const isResourceKind = (k: unknown): k is ResourceKind =>
@@ -593,7 +615,14 @@ export const cropAt = (state: WorldState, x: number, y: number) =>
 
 // ---------- crafting ----------
 
-/** `craft {recipe, x, y, label?}` at the right station within reach. */
+/** Where wood and stone come from, for a refusal that's short of them. */
+export const GATHER_HINT =
+  "Fallen branches (wood) lie in forests and loose stones on stone ground: pick them up with gather.";
+
+/**
+ * `craft {recipe, x, y, label?}` at the right station within reach. A good is a made thing with an
+ * id and its maker; a piece of furniture (RFC 0016) stacks, so it takes no label.
+ */
 export function checkCraft(
   state: WorldState,
   actor: ResidentId,
@@ -606,10 +635,17 @@ export function checkCraft(
   const me = state.residents[actor];
   if (!me) return refuse("not_joined", "Join the world first.");
   const { recipe, x, y, label } = command;
-  if (!isGoodKind(recipe)) {
+  const furniture = isFurnitureKind(recipe);
+  if (!furniture && !isGoodKind(recipe)) {
     return refuse(
       "unknown_item",
-      `There's no recipe for that. Try one of: ${GOOD_KINDS.join(", ")}.`,
+      `There's no recipe for that. Try one of: ${GOOD_KINDS.join(", ")}, or furniture: ${FURNITURE_KINDS.join(", ")}.`,
+    );
+  }
+  if (furniture && label !== undefined) {
+    return refuse(
+      "invalid_label",
+      "Furniture stacks with others like it, so it takes no label. Leave out label.",
     );
   }
   if (label !== undefined && (typeof label !== "string" || label.length > ITEMS.labelMax)) {
@@ -617,7 +653,7 @@ export function checkCraft(
   }
   const far = reachProblem(state, me, { x, y });
   if (far) return far;
-  const { station, needs } = RECIPES[recipe];
+  const { station, needs } = furniture ? FURNITURE_RECIPES[recipe] : RECIPES[recipe];
   if (state.blocks[tileKey(x, y)] !== station) {
     return refuse(
       "no_station",
@@ -629,11 +665,24 @@ export function checkCraft(
     return refuse("craft_limit", `You can make ${ITEMS.craftPerDay} things a day. Try tomorrow.`);
   }
   const inv = items.inventories[actor];
-  const missing = (Object.entries(needs) as [StackKind, number][])
-    .filter(([kind, n]) => held(inv, kind) < n)
-    .map(([kind, n]) => countOf(kind, n - held(inv, kind)));
-  if (missing.length > 0) {
-    return refuse("not_enough_items", `You need ${missing.join(", ")} more.`);
+  const short = (Object.entries(needs) as [StackKind, number][]).filter(
+    ([kind, n]) => held(inv, kind) < n,
+  );
+  if (short.length > 0) {
+    const missing = short.map(([kind, n]) => countOf(kind, n - held(inv, kind)));
+    const gather = short.some(([kind]) => isResourceKind(kind)) ? ` ${GATHER_HINT}` : "";
+    return refuse("not_enough_items", `You need ${missing.join(", ")} more.${gather}`);
+  }
+  if (furniture) {
+    return () => {
+      items.today.crafted[actor] = crafted + 1;
+      const mine = inventory(items, actor);
+      const changes = (Object.entries(needs) as [StackKind, number][]).map(([kind, n]) =>
+        addStack(mine, kind, -n),
+      );
+      changes.push(addStack(mine, recipe, 1));
+      return [inventoryEvent(actor, "craft", changes)];
+    };
   }
   const id = `i_${items.nextId}`;
   const good: Good = {
@@ -896,36 +945,43 @@ export function payPantry(state: WorldState, id: ResidentId): WorldEvent[] {
   return [inventoryEvent(id, first ? "starter" : "pantry", changes)];
 }
 
-// ---------- decor from the town shop ----------
+// ---------- held blocks: decor from the town shop, furniture from a workbench ----------
+
+/** Where to get one more of a held block, for a refusal. */
+export function heldBlockHint(kind: DecorKind | FurnitureKind): string {
+  return isFurnitureKind(kind)
+    ? `Make one at a workbench with craft {"recipe": "${kind}"}.`
+    : "Buy one at the town shop with shop_buy.";
+}
 
 /**
- * Whether `actor` can place a decor block: items open and one in their things. A free block is
- * always fine here. Read in `place`'s check.
+ * Whether `actor` can place a held block (decor or furniture): items open and one in their things.
+ * A free block is always fine here. Read in `place`'s check.
  */
 export function decorPlaceProblem(
   state: WorldState,
   actor: ResidentId,
   block: string,
 ): Rejection | null {
-  if (!isDecorKind(block)) return null;
+  if (!isHeldBlock(block)) return null;
   const shut = closed(state);
   if (shut) return shut;
   if (held(state.items?.inventories[actor], block) < 1) {
     return refuse(
       "not_enough_items",
-      `You have no ${ITEM_INFO[block].plural.toLowerCase()}. Buy one at the town shop with shop_buy.`,
+      `You have no ${ITEM_INFO[block].plural.toLowerCase()}. ${heldBlockHint(block)}`,
     );
   }
   return null;
 }
 
-/** Whether `actor` has room to take a decor block back up. Read in `remove`'s check. */
+/** Whether `actor` has room to take a held block back up. Read in `remove`'s check. */
 export function decorRemoveProblem(
   state: WorldState,
   actor: ResidentId,
   block: string | undefined,
 ): Rejection | null {
-  if (!isDecorKind(block)) return null;
+  if (!isHeldBlock(block)) return null;
   if (inventorySize(state.items?.inventories[actor]) + 1 > ITEMS.inventoryMax) {
     return refuse(
       "inventory_full",
@@ -936,8 +992,8 @@ export function decorRemoveProblem(
 }
 
 /**
- * Commit side of placing or removing a block: a decor block leaves (`-1`) or comes back to (`+1`)
- * the actor's things, with its private event. Free blocks change nothing.
+ * Commit side of placing or removing a block: a held block (decor or furniture) leaves (`-1`) or
+ * comes back to (`+1`) the actor's things, with its private event. Free blocks change nothing.
  */
 export function moveDecor(
   state: WorldState,
@@ -946,7 +1002,7 @@ export function moveDecor(
   amount: 1 | -1,
 ): WorldEvent[] {
   const items = state.items;
-  if (!items || !isDecorKind(block)) return [];
+  if (!items || !isHeldBlock(block)) return [];
   const change = addStack(inventory(items, actor), block, amount);
   return [inventoryEvent(actor, amount < 0 ? "placed" : "picked_up", [change])];
 }

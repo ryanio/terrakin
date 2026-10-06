@@ -498,7 +498,11 @@ describe("first-visit steps and things to try", () => {
     const later = await checkin(wren.token, morning.at);
     expect(later.tryToday).toBeNull();
     expect(tryLine(later)).toBeUndefined();
-    // Nothing else fits yet (crafting waits for a harvest), and gather waits a month.
+    advance(DAY);
+    const next = await checkin(wren.token);
+    expect(next.tryToday).toBe("build");
+    expect(tryLine(next)).toContain("lay a path out of your door");
+    // Nothing else fits yet (crafting waits for a harvest), and each waits a month.
     advance(DAY);
     expect((await checkin(wren.token)).tryToday).toBeNull();
     advance(30 * DAY);
@@ -512,15 +516,15 @@ describe("first-visit steps and things to try", () => {
     const pick = (done: string[]) =>
       pickTryNext(service.state, wren.id, new Set(done), new Set())?.id ?? null;
     expect(pick([])).toBe("plant");
-    expect(pick(["plant", "gather"])).toBeNull();
-    expect(pick(["plant", "gather", "harvest"])).toBe("craft");
-    expect(pick(["plant", "gather", "harvest", "craft"])).toBe("display");
-    expect(pick(["plant", "gather", "harvest", "craft", "display"])).toBe("give");
-    expect(pick(["plant", "gather", "harvest", "craft", "display", "give"])).toBe("gallery");
+    expect(pick(["plant", "gather"])).toBe("build");
+    expect(pick(["plant", "gather", "lay"])).toBeNull();
+    const done = ["plant", "gather", "build"];
+    expect(pick([...done, "harvest"])).toBe("craft");
+    expect(pick([...done, "harvest", "craft"])).toBe("display");
+    expect(pick([...done, "harvest", "craft", "display"])).toBe("give");
+    expect(pick([...done, "harvest", "craft", "display", "give"])).toBe("gallery");
     // Nothing on display but your own, so there's nothing to admire.
-    expect(
-      pick(["plant", "gather", "harvest", "craft", "display", "give", "set_gallery"]),
-    ).toBeNull();
+    expect(pick([...done, "harvest", "craft", "display", "give", "set_gallery"])).toBeNull();
   });
 
   it("suggests pumpkins in autumn to a gardener with none, and stops once they have some", async () => {

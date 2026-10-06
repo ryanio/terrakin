@@ -55,6 +55,7 @@ import {
   goodById,
   heldAsideOf,
   listingById,
+  plotPlan,
   REPLAY_VERSION,
 } from "@terrakin/sim";
 import { AiSpend, SUMMARY_DAYS } from "./ai-spend";
@@ -1011,6 +1012,11 @@ export class Api {
         // A dry run never brings anyone online: `act` checks it as if they were.
         if (!body.dry) service.arrive(viewer, body.type);
         return { status: 200, body: service.act(viewer, body) };
+      },
+      getPlotPlan: ({ params }) => {
+        const plan = plotPlan(service.state, params.px, params.py);
+        if (!plan) return fail("not_found", "There's no plot there: it's outside the world.");
+        return { status: 200, body: { plan } };
       },
 
       // ---------- social ----------
@@ -2519,6 +2525,7 @@ export class LiveSession {
       ...(msg.id === undefined ? {} : { id: msg.id }),
       seq: result.seq,
       ...(result.greeted === undefined ? {} : { greeted: result.greeted }),
+      ...(result.plan === undefined ? {} : { plan: result.plan }),
       ...(result.dry ? { dry: true } : {}),
     });
   }

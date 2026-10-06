@@ -10,6 +10,36 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-build-a-whole-plan-of-blocks-and-paths-on-your-plot-in-one</id>
+    <title>Added: `build`: a whole plan of blocks and paths on your plot in one call, from anywhere</title>
+    <updated>2026-10-06T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-06"/>
+    <category term="added" label="Added"/>
+    <summary type="text">`{&quot;type&quot;: &quot;build&quot;, &quot;px&quot;, &quot;py&quot;, &quot;blocks&quot;, &quot;ground&quot;, &quot;remove&quot;, &quot;lift&quot;}` builds on a plot you own or share, without walking. Tiles count from the plot's north-west corner (0 to 7), so a plan builds the same on any plot.
+Add `&quot;dry&quot;: true` to price it: `plan` says what it would place, what it `uses` and `returns`, and which tiles it skips and why. One real build every 5 seconds. `GET /v1/plots/{px}/{py}/plan` reads a plot back as a plan.
+Try: `POST /v1/actions {&quot;type&quot;: &quot;build&quot;, &quot;px&quot;: &lt;px&gt;, &quot;py&quot;: &lt;py&gt;, &quot;ground&quot;: [{&quot;x&quot;: 3, &quot;y&quot;: 6, &quot;ground&quot;: &quot;dirt&quot;}], &quot;dry&quot;: true}`</summary>
+  </entry>
+  <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-paths-and-floors-lay-lift-and-ground-in-the-world</id>
+    <title>Added: Paths and floors: `lay`, `lift`, and `ground` in the world</title>
+    <updated>2026-10-06T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-06"/>
+    <category term="added" label="Added"/>
+    <summary type="text">A tile can hold one path or floor under any block: `dirt`, `sand`, `moss`, `leaves` are free; `cobble`, `stepping_stones`, `brick`, `planks`, `flower_bed`, `rug` take stone, wood, or what you grow. Ground never stops anyone walking.
+`lay {x, y, ground}` and `lift {x, y}` work within reach, and lifting gives back what laying took. `GET /v1/world` has `ground`; events `ground_laid` and `ground_lifted`; codes `no_ground` and `invalid_plan`.
+Try: `POST /v1/actions {&quot;type&quot;: &quot;lay&quot;, &quot;x&quot;: &lt;x by your door&gt;, &quot;y&quot;: &lt;y&gt;, &quot;ground&quot;: &quot;moss&quot;}`</summary>
+  </entry>
+  <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-furniture-made-at-a-workbench-from-wood-and-stone-you-gather</id>
+    <title>Added: Furniture made at a workbench from wood and stone you gather</title>
+    <updated>2026-10-06T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-06"/>
+    <category term="added" label="Added"/>
+    <summary type="text">`craft` makes `table`, `chair`, `bookshelf`, `barrel`, `signpost`, `lamp_post`, `well`, `stone_wall`, `campfire`, and `flower_box` (recipes in `GET /v1/inventory`, marked `furniture: true`). It stacks, takes no label, and places like decor.
+Every piece blocks walking. It can be given and sold in the market. A plot with paths can't be released until they're lifted, and the daily suggestion can now be `build`.
+Try: `POST /v1/actions {&quot;type&quot;: &quot;craft&quot;, &quot;recipe&quot;: &quot;stone_wall&quot;, &quot;x&quot;: &lt;workbench x&gt;, &quot;y&quot;: &lt;y&gt;}`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-weather-and-season-in-the-world-snapshot-and-the-check-in</id>
     <title>Added: `weather` and `season` in the world snapshot and the check-in</title>
     <updated>2026-10-06T00:00:00Z</updated>

@@ -1,7 +1,7 @@
 /**
  * Little storybook pictures of things: every item you can hold (seeds as packets with their crop
- * on the front, produce, sugar, a jar, each made good, and the town shop's decor) and every piece
- * of wear. Drawn with code (decision 0035): `itemShapes` is pure data, so tests can check it, and
+ * on the front, produce, sugar, a jar, each made good, the town shop's decor, and furniture from
+ * the workbench) and every piece of wear. Drawn with code (decision 0035): `itemShapes` is pure data, so tests can check it, and
  * `itemArt` builds it into an SVG with `createElementNS`, never markup from a string.
  *
  * Each picture sits in a 48 by 48 box on a soft ground shadow. Colors come from the brand tokens
@@ -631,6 +631,191 @@ function scarecrow(): ArtShape[] {
   ];
 }
 
+// ---------- furniture from the workbench (RFC 0016) ----------
+
+const STONE_HI = "#c4beb2";
+const STONE_LO = "#8f887c";
+const IRON = "#5d5a55";
+
+function table(): ArtShape[] {
+  const top = BLOCK_COLORS.table;
+  return [
+    shadow(18, 43),
+    rect(11, 25, 4, 17, 1, WOOD_DARK, out({ "stroke-width": 1 })),
+    rect(33, 25, 4, 17, 1, WOOD_DARK, out({ "stroke-width": 1 })),
+    rect(9, 23, 30, 5, 1.2, WOOD, out({ "stroke-width": 1 })),
+    rect(5, 16, 38, 8, 2, top, out()),
+    line("M8 18.5h32", "#ffffff", 1, { opacity: 0.35 }),
+    line("M18 16.5v7M31 16.5v7", WOOD_DARK, 0.8, { opacity: 0.45 }),
+  ];
+}
+
+function chair(): ArtShape[] {
+  const wood = BLOCK_COLORS.chair;
+  return [
+    shadow(12, 43),
+    rect(14, 6, 4, 25, 1.2, wood, out({ "stroke-width": 1 })),
+    rect(30, 6, 4, 25, 1.2, wood, out({ "stroke-width": 1 })),
+    rect(14, 8, 20, 4, 1.2, wood, out({ "stroke-width": 1 })),
+    rect(14, 15.5, 20, 3, 1, wood, out({ "stroke-width": 1 })),
+    rect(14, 32, 3.5, 11, 1, WOOD_DARK, out({ "stroke-width": 1 })),
+    rect(30.5, 32, 3.5, 11, 1, WOOD_DARK, out({ "stroke-width": 1 })),
+    rect(11, 27, 26, 6, 1.8, wood, out()),
+    line("M13 28.8h22", "#ffffff", 1, { opacity: 0.35 }),
+  ];
+}
+
+function bookshelf(): ArtShape[] {
+  const frame = BLOCK_COLORS.bookshelf;
+  const book = (x: number, y: number, w: number, h: number, fill: string): ArtShape =>
+    rect(x, y, w, h, 0.6, fill, out({ "stroke-width": 0.8 }));
+  return [
+    shadow(16, 44),
+    rect(9, 4, 30, 39, 2, frame, out()),
+    rect(12, 7, 24, 33, 1, WOOD_DARK),
+    book(13, 9, 3, 8, ROSE),
+    book(16.5, 10, 3, 7, SKY),
+    book(20, 9, 2.5, 8, SUN),
+    book(23, 11, 3, 6, MOSS_LIGHT),
+    path("M27 17l2.5-7 2.6 1-2.5 7z", PLUM, out({ "stroke-width": 0.8 })),
+    rect(12, 17, 24, 2.5, 0.5, frame),
+    book(13, 21, 3, 8, CLAY),
+    book(16.5, 22, 2.5, 7, PAPER),
+    book(19.5, 21, 3, 8, MOSS),
+    book(28, 21.5, 3, 7.5, SKY),
+    book(31.5, 22.5, 3, 6.5, SUN),
+    rect(12, 29, 24, 2.5, 0.5, frame),
+    book(13, 33, 2.5, 7, SUN),
+    book(16, 32.5, 3, 7.5, PLUM),
+    book(19.5, 33.5, 3, 6.5, ROSE),
+    ellipse(30, 37.5, 4, 2.5, LEAF, out({ "stroke-width": 0.8 })),
+    line("M10.5 6v35", "#ffffff", 1, { opacity: 0.3 }),
+  ];
+}
+
+function barrel(): ArtShape[] {
+  const wood = BLOCK_COLORS.barrel;
+  return [
+    shadow(13, 43),
+    path("M14 9c-3.5 6-3.5 26 0 32h20c3.5-6 3.5-26 0-32z", wood, out()),
+    line("M19 9.5c-1.5 8-1.5 23 0 31M24 9.5v31M29 9.5c1.5 8 1.5 23 0 31", WOOD_DARK, 0.9, {
+      opacity: 0.45,
+    }),
+    line("M12.6 16.5h22.8M12.6 33.5h22.8", IRON, 2.2),
+    ellipse(24, 9.5, 10, 2.6, "#b98a5a", out({ "stroke-width": 1.1 })),
+    shine(17, 24, 1.6, 6, 0),
+  ];
+}
+
+function signpost(): ArtShape[] {
+  const board = BLOCK_COLORS.signpost;
+  return [
+    shadow(9, 44),
+    rect(22, 8, 4, 35, 1, WOOD_DARK, out({ "stroke-width": 1 })),
+    path("M9 11h24l5 5-5 5H9z", board, out()),
+    path("M39 23H15l-5 5 5 5h24z", board, out()),
+    line("M12 16h18M16 28h19", WOOD_DARK, 0.9, { opacity: 0.35 }),
+    circle(24, 16, 1, WOOD_DARK),
+    circle(24, 28, 1, WOOD_DARK),
+  ];
+}
+
+function lampPost(): ArtShape[] {
+  const iron = BLOCK_COLORS.lamp_post;
+  const glow = BLOCK_COLORS.lantern;
+  return [
+    shadow(9, 44),
+    circle(24, 13, 11, glow, { opacity: 0.2 }),
+    rect(22.5, 18, 3, 23, 1, iron, out({ "stroke-width": 1 })),
+    rect(18.5, 39, 11, 4, 1.4, iron, out({ "stroke-width": 1 })),
+    path("M18.5 9h11l-2 9h-7z", "#f9d27a", out()),
+    path("M17 9.5 24 4l7 5.5z", iron, out({ "stroke-width": 1 })),
+    rect(19.5, 17.5, 9, 2.5, 1, iron),
+    shine(21.5, 12, 1, 2.5, 10),
+  ];
+}
+
+function well(): ArtShape[] {
+  const stone = BLOCK_COLORS.well;
+  return [
+    shadow(18, 44),
+    rect(11.5, 10, 3, 21, 1, WOOD_DARK, out({ "stroke-width": 1 })),
+    rect(33.5, 10, 3, 21, 1, WOOD_DARK, out({ "stroke-width": 1 })),
+    line("M13 14h22", WOOD_DARK, 1.6),
+    line("M24 14v8", LINE, 1),
+    rect(21.5, 21, 5, 4, 1, WOOD, out({ "stroke-width": 0.9 })),
+    path("M7 13 24 3l17 10z", CLAY, out()),
+    path("M10 29h28v11c0 2.4-6.3 4-14 4s-14-1.6-14-4z", stone, out()),
+    line("M10 35c4 1.5 9 2 14 2s10-.5 14-2M17 29.5v6M31 29.5v6M24 37v6.5", STONE_LO, 1),
+    ellipse(24, 29, 14, 4, STONE_HI, out()),
+    ellipse(24, 29, 10, 2.4, "#3f5f6f"),
+  ];
+}
+
+function stoneWall(): ArtShape[] {
+  const stone = BLOCK_COLORS.stone_wall;
+  return [
+    shadow(20, 43),
+    rect(4, 23, 40, 18, 3, stone, out()),
+    path(
+      "M4.5 32h39M15 23.5V32M30 23.5V32M9 32v8.5M23 32v8.5M37 32v8.5",
+      "none",
+      out({ stroke: STONE_LO, "stroke-width": 1 }),
+    ),
+    rect(3, 19, 42, 6, 3, STONE_HI, out()),
+    line("M7 20.8h34", "#ffffff", 1, { opacity: 0.4 }),
+  ];
+}
+
+function campfire(): ArtShape[] {
+  const flame = BLOCK_COLORS.campfire;
+  const stone = (cx: number, cy: number) => ellipse(cx, cy, 4, 2.8, BLOCK_COLORS.stone, out());
+  return [
+    shadow(17, 43),
+    circle(24, 30, 15, BLOCK_COLORS.lantern, { opacity: 0.16 }),
+    line("M12 38 34 31", WOOD, 4),
+    line("M14 31 36 38", WOOD_DARK, 4),
+    path(
+      "M24 9c5 6 9 10 9 16 0 5-4 9-9 9s-9-4-9-9c0-4 3-6 4-9 1 3 3 4 3 4 0-5 0-8 2-11z",
+      flame,
+      out(),
+    ),
+    path(
+      "M24 19c3 3.5 5 6 5 9.5 0 3-2.2 5-5 5s-5-2-5-5c0-2.5 2-3.5 2.5-5.5 1.2 1.8 2 2 2 2 0-2 .2-4 .5-6z",
+      SUN,
+    ),
+    stone(10, 39),
+    stone(17, 41.5),
+    stone(24, 42.5),
+    stone(31, 41.5),
+    stone(38, 39),
+  ];
+}
+
+function flowerBox(): ArtShape[] {
+  const box = BLOCK_COLORS.flower_box;
+  const bloom = (x: number, y: number, fill: string): ArtShape[] => [
+    circle(x, y, 3.4, fill, out({ "stroke-width": 1 })),
+    circle(x, y, 1.2, SUN),
+  ];
+  return [
+    shadow(18, 43),
+    line("M13 26v-8M21 26v-11M28 26v-9M35 26v-7", STEM, 1.4),
+    leaf(21, 21, 7, -150),
+    leaf(28, 22, 7, -30),
+    leaf(13, 23, 6, -150),
+    leaf(35, 23, 6, -30),
+    ...bloom(13, 16, CROP_HEX.flower),
+    ...bloom(21, 13, PAPER),
+    ...bloom(28, 15, PLUM),
+    ...bloom(35, 17, SUN),
+    rect(8, 24.5, 32, 4, 1, "#6a4a33"),
+    rect(6, 27, 36, 14, 2, box, out()),
+    line("M9 33.5h30", WOOD_DARK, 0.9, { opacity: 0.45 }),
+    line("M9 29h30", "#ffffff", 1, { opacity: 0.35 }),
+  ];
+}
+
 // ---------- wear ----------
 
 function strawHat(): ArtShape[] {
@@ -1014,6 +1199,16 @@ const ART: Record<ArtKind, () => ArtShape[]> = {
   pumpkin_soup: pumpkinSoup,
   hay_bale: hayBale,
   scarecrow,
+  table,
+  chair,
+  bookshelf,
+  barrel,
+  signpost,
+  lamp_post: lampPost,
+  well,
+  stone_wall: stoneWall,
+  campfire,
+  flower_box: flowerBox,
   lemon_jam: jam("lemon", "#f2c53d", "#e2b23a"),
   strawberry_jam: jam("strawberry", "#c8344a", ROSE),
   lemonade,

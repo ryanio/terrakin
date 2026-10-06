@@ -7,9 +7,12 @@ import type { WorldEvent } from "@terrakin/protocol";
 import {
   CROP_INFO,
   type Crop,
+  FURNITURE_RECIPES,
+  type FurnitureKind,
   type GoodKind,
   ITEM_INFO,
   type ItemKind,
+  isFurnitureKind,
   OTHERS_PLOT_GATHER,
   RECIPES,
 } from "@terrakin/sim";
@@ -28,9 +31,10 @@ export function thingCount(kind: ItemKind, n: number): string {
   return `${n} ${(n === 1 ? info.name : info.plural).toLowerCase()}`;
 }
 
-/** What a recipe uses, as one line: "3 lemons, 1 bag of sugar, 1 jar". */
-export function needsLine(recipe: GoodKind): string {
-  return Object.entries(RECIPES[recipe].needs)
+/** What a recipe uses, as one line: "3 lemons, 1 bag of sugar, 1 jar", or "3 wood" for a table. */
+export function needsLine(recipe: GoodKind | FurnitureKind): string {
+  const needs = isFurnitureKind(recipe) ? FURNITURE_RECIPES[recipe].needs : RECIPES[recipe].needs;
+  return Object.entries(needs)
     .map(([kind, n]) => thingCount(kind as ItemKind, n ?? 0))
     .join(", ");
 }

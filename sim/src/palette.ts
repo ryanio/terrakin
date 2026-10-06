@@ -1,12 +1,14 @@
 /**
- * The world's palette: ground tones per biome, blocks, and the hearth, plus the per-tile scenery
- * (tufts, flowers, and autumn's fallen leaves) the ground grows, and how each season dresses it.
- * Presentation only, like the looks catalog: no rule reads any of it. It lives here so the
- * client's world renderer (`client/src/render.ts`) and the plot photos drawn at the edge (`cards/`,
- * through `server/src/plot-photo.ts`) use the same colors and put the same tuft on the same tile.
+ * The world's palette: ground tones per biome, blocks, the hearth, and paths and floors, plus the
+ * per-tile scenery (tufts, flowers, and autumn's fallen leaves) the ground grows, and how each
+ * season dresses it. Presentation only, like the looks catalog: no rule reads any of it. It lives
+ * here so the client's world renderer (`client/src/render.ts`) and the plot photos drawn at the edge
+ * (`cards/`, through `server/src/plot-photo.ts`) use the same colors and put the same tuft on the
+ * same tile.
  */
 
 import { type Biome, biomeAt } from "./biome";
+import type { GroundKind } from "./ground";
 import type { ThemePalette } from "./looks";
 import type { Season } from "./season";
 import { type BlockKind, BUILDING_BLOCKS, type WorldConfig } from "./types";
@@ -43,6 +45,230 @@ export const BLOCK_COLORS: Readonly<Record<BlockKind, string>> = {
   // Autumn decor (RFC 0017): golden straw, and the scarecrow's red shirt.
   hay_bale: "#e2bf62",
   scarecrow: "#c4573c",
+  // Furniture from the workbench (RFC 0016): the main color each is drawn around.
+  table: "#b88552",
+  chair: "#a8744a",
+  bookshelf: "#8c5a36",
+  barrel: "#9e6a3c",
+  signpost: "#a87c4f",
+  lamp_post: "#4a5a48",
+  well: "#a39d93",
+  stone_wall: "#a8a196",
+  campfire: "#e2703a",
+  flower_box: "#b8834f",
+};
+
+/**
+ * One shape of a path or floor's picture, in tile units: (0, 0) is the tile's top left and (1, 1)
+ * its bottom right. Colors are `#rrggbb` or `rgba(r, g, b, a)`. `turn` is in degrees.
+ */
+export type GroundMark =
+  | { shape: "rect"; x: number; y: number; w: number; h: number; r: number; fill: string }
+  | { shape: "circle"; cx: number; cy: number; r: number; fill: string }
+  | {
+      shape: "ellipse";
+      cx: number;
+      cy: number;
+      rx: number;
+      ry: number;
+      turn: number;
+      fill: string;
+    }
+  | {
+      shape: "line";
+      x1: number;
+      y1: number;
+      x2: number;
+      y2: number;
+      width: number;
+      stroke: string;
+    };
+
+export interface GroundLook {
+  /** The whole tile's color, or none where the ground beneath shows through (stepping stones). */
+  fill?: string;
+  /** Shapes over it, back to front. */
+  marks: readonly GroundMark[];
+  /** One color for it where there's no room for the picture: a swatch's edge, a far tile. */
+  tone: string;
+}
+
+const rect = (x: number, y: number, w: number, h: number, r: number, fill: string): GroundMark => ({
+  shape: "rect",
+  x,
+  y,
+  w,
+  h,
+  r,
+  fill,
+});
+const dot = (cx: number, cy: number, r: number, fill: string): GroundMark => ({
+  shape: "circle",
+  cx,
+  cy,
+  r,
+  fill,
+});
+const leafMark = (cx: number, cy: number, turn: number, fill: string): GroundMark => ({
+  shape: "ellipse",
+  cx,
+  cy,
+  rx: 0.13,
+  ry: 0.06,
+  turn,
+  fill,
+});
+const seam = (
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  width: number,
+  stroke: string,
+): GroundMark => ({ shape: "line", x1, y1, x2, y2, width, stroke });
+
+/**
+ * What each path and floor looks like (RFC 0016), as data. The map (`client/src/render.ts`), the
+ * build palette's swatches, the 3D views' ground, and the plot photos (`cards/`) all draw from it,
+ * so a cobble path is the same cobble path everywhere. Every tile of a kind looks the same, so
+ * neighbors join into one path.
+ */
+export const GROUND_LOOK: Readonly<Record<GroundKind, GroundLook>> = {
+  dirt: {
+    fill: "#bf9461",
+    marks: [
+      dot(0.22, 0.28, 0.045, "#a67c4c"),
+      dot(0.68, 0.22, 0.035, "#a67c4c"),
+      dot(0.5, 0.62, 0.05, "#a67c4c"),
+      dot(0.84, 0.76, 0.04, "#a67c4c"),
+      dot(0.3, 0.84, 0.03, "#cfa776"),
+      dot(0.8, 0.45, 0.03, "#cfa776"),
+    ],
+    tone: "#bf9461",
+  },
+  sand: {
+    fill: "#ecd9a4",
+    marks: [
+      dot(0.2, 0.25, 0.025, "#d6c088"),
+      dot(0.55, 0.18, 0.025, "#d6c088"),
+      dot(0.8, 0.42, 0.025, "#d6c088"),
+      dot(0.35, 0.6, 0.025, "#d6c088"),
+      dot(0.7, 0.78, 0.025, "#d6c088"),
+      dot(0.15, 0.82, 0.025, "#d6c088"),
+      dot(0.45, 0.4, 0.03, "#f6e8c0"),
+      dot(0.86, 0.14, 0.03, "#f6e8c0"),
+    ],
+    tone: "#ecd9a4",
+  },
+  moss: {
+    fill: "#6e9a4c",
+    marks: [
+      dot(0.3, 0.3, 0.17, "#82ae5d"),
+      dot(0.72, 0.64, 0.14, "#82ae5d"),
+      dot(0.78, 0.2, 0.1, "#7aa656"),
+      dot(0.2, 0.74, 0.04, "#5a8440"),
+      dot(0.5, 0.5, 0.035, "#5a8440"),
+      dot(0.88, 0.88, 0.04, "#5a8440"),
+    ],
+    tone: "#6e9a4c",
+  },
+  leaves: {
+    fill: "#ad8a59",
+    marks: [
+      leafMark(0.24, 0.24, 30, "#e08a3c"),
+      leafMark(0.7, 0.3, -40, "#c8553a"),
+      leafMark(0.46, 0.58, 70, "#e8b84a"),
+      leafMark(0.8, 0.76, 15, "#e08a3c"),
+      leafMark(0.18, 0.74, -20, "#c8553a"),
+      leafMark(0.56, 0.9, 45, "#d9773a"),
+    ],
+    tone: "#c98a46",
+  },
+  cobble: {
+    fill: "#857e73",
+    marks: [
+      rect(0.05, 0.06, 0.42, 0.38, 0.12, "#b0a99c"),
+      rect(0.53, 0.05, 0.42, 0.4, 0.12, "#a69f92"),
+      rect(0.04, 0.5, 0.3, 0.45, 0.12, "#a69f92"),
+      rect(0.39, 0.51, 0.57, 0.43, 0.12, "#b0a99c"),
+      rect(0.1, 0.09, 0.2, 0.06, 0.03, "#c4beb2"),
+      rect(0.58, 0.08, 0.2, 0.06, 0.03, "#bdb7aa"),
+      rect(0.08, 0.54, 0.14, 0.06, 0.03, "#bdb7aa"),
+      rect(0.45, 0.55, 0.26, 0.06, 0.03, "#c4beb2"),
+    ],
+    tone: "#a39d91",
+  },
+  stepping_stones: {
+    marks: [
+      dot(0.34, 0.39, 0.2, "rgba(70, 52, 30, 0.2)"),
+      dot(0.72, 0.74, 0.18, "rgba(70, 52, 30, 0.2)"),
+      dot(0.32, 0.35, 0.2, "#b7b0a3"),
+      dot(0.7, 0.7, 0.18, "#aba497"),
+      dot(0.27, 0.3, 0.08, "#ccc6ba"),
+      dot(0.65, 0.65, 0.07, "#c2bcaf"),
+    ],
+    tone: "#b7b0a3",
+  },
+  brick: {
+    fill: "#d9c7ab",
+    marks: [
+      rect(0.03, 0.04, 0.45, 0.27, 0.03, "#b5573a"),
+      rect(0.52, 0.04, 0.45, 0.27, 0.03, "#a84e33"),
+      rect(0, 0.365, 0.21, 0.27, 0.03, "#a84e33"),
+      rect(0.26, 0.365, 0.47, 0.27, 0.03, "#b5573a"),
+      rect(0.78, 0.365, 0.22, 0.27, 0.03, "#b5573a"),
+      rect(0.03, 0.69, 0.45, 0.27, 0.03, "#b5573a"),
+      rect(0.52, 0.69, 0.45, 0.27, 0.03, "#a84e33"),
+    ],
+    tone: "#b5573a",
+  },
+  planks: {
+    fill: "#c08a55",
+    marks: [
+      seam(0, 0.335, 1, 0.335, 0.03, "#93633b"),
+      seam(0, 0.665, 1, 0.665, 0.03, "#93633b"),
+      seam(0.4, 0, 0.4, 0.335, 0.025, "#93633b"),
+      seam(0.75, 0.335, 0.75, 0.665, 0.025, "#93633b"),
+      seam(0.25, 0.665, 0.25, 1, 0.025, "#93633b"),
+      seam(0.1, 0.17, 0.33, 0.17, 0.015, "#a9764a"),
+      seam(0.5, 0.5, 0.88, 0.5, 0.015, "#a9764a"),
+      seam(0.4, 0.84, 0.8, 0.84, 0.015, "#a9764a"),
+      dot(0.45, 0.06, 0.02, "#7a5232"),
+      dot(0.7, 0.39, 0.02, "#7a5232"),
+      dot(0.3, 0.72, 0.02, "#7a5232"),
+    ],
+    tone: "#c08a55",
+  },
+  flower_bed: {
+    fill: "#6a4a33",
+    marks: [
+      leafMark(0.36, 0.42, -30, "#5f9a43"),
+      leafMark(0.62, 0.5, 40, "#5f9a43"),
+      leafMark(0.3, 0.9, 10, "#5f9a43"),
+      dot(0.25, 0.28, 0.1, "#e58fb6"),
+      dot(0.7, 0.24, 0.09, "#f2d04b"),
+      dot(0.46, 0.66, 0.1, "#fff4d6"),
+      dot(0.82, 0.72, 0.09, "#a98bd8"),
+      dot(0.18, 0.8, 0.08, "#e58fb6"),
+      dot(0.25, 0.28, 0.035, "#f2b84b"),
+      dot(0.46, 0.66, 0.035, "#f2b84b"),
+      dot(0.82, 0.72, 0.03, "#fff4d6"),
+    ],
+    tone: "#8a6a4a",
+  },
+  rug: {
+    fill: "#c8674a",
+    marks: [
+      rect(0.07, 0.07, 0.86, 0.86, 0.05, "#e9b85a"),
+      rect(0.13, 0.13, 0.74, 0.74, 0.03, "#c8674a"),
+      rect(0.13, 0.44, 0.74, 0.12, 0, "#f3e3c3"),
+      dot(0.3, 0.27, 0.05, "#f3e3c3"),
+      dot(0.7, 0.27, 0.05, "#f3e3c3"),
+      dot(0.3, 0.73, 0.05, "#f3e3c3"),
+      dot(0.7, 0.73, 0.05, "#f3e3c3"),
+    ],
+    tone: "#c8674a",
+  },
 };
 
 /** The hearth's roof (and the Town Hall's). */

@@ -1,7 +1,11 @@
 import {
   CROP_INFO,
   CROPS,
+  FURNITURE_KINDS,
+  FURNITURE_RECIPES,
   GOOD_KINDS,
+  GROUND_INFO,
+  GROUND_KINDS,
   ITEM_INFO,
   ITEM_KINDS,
   ITEMS,
@@ -13,9 +17,10 @@ import { z } from "zod";
 import {
   CropKind,
   GiftId,
-  GoodKind,
+  GroundKind,
   ItemKind,
   MadeKind,
+  RecipeKind,
   StackKind as StackKindSchema,
 } from "./schemas";
 import { AuthorView } from "./social";
@@ -70,7 +75,7 @@ export const CatalogItem = z.object({
   kind: ItemKind,
   name: z.string(),
   plural: z.string(),
-  category: z.enum(["seed", "produce", "staple", "resource", "good", "decor"]),
+  category: z.enum(["seed", "produce", "staple", "resource", "good", "decor", "furniture"]),
 });
 
 export const CatalogCrop = z.object({
@@ -84,32 +89,60 @@ export const CatalogCrop = z.object({
   seeds: z.number().int(),
 });
 
+const needsList = z.array(z.object({ kind: StackKindSchema, count: z.number().int() }));
+
 export const CatalogRecipe = z.object({
   /** Send this as `recipe` in `craft`. It's also the kind of what it makes. */
-  recipe: GoodKind,
+  recipe: RecipeKind,
   name: z.string(),
   station: z.enum(STATIONS),
-  needs: z.array(z.object({ kind: StackKindSchema, count: z.number().int() })),
+  needs: needsList,
+  /** Present on furniture (RFC 0016): it stacks in your things, places like decor, and takes no label. */
+  furniture: z.literal(true).optional(),
+});
+
+/** A path or floor (RFC 0016): what one tile of it takes from your things. Empty `needs` is free. */
+export const CatalogGround = z.object({
+  /** Send this as `ground` in `lay` and `build`. */
+  kind: GroundKind,
+  name: z.string(),
+  needs: needsList,
 });
 
 export const ItemCatalog = z.object({
   items: z.array(CatalogItem),
   crops: z.array(CatalogCrop),
   recipes: z.array(CatalogRecipe),
+  ground: z.array(CatalogGround),
 });
 export type ItemCatalog = z.infer<typeof ItemCatalog>;
+
+const needsOf = (needs: Partial<Record<StackKind, number>>) =>
+  (Object.entries(needs) as [StackKind, number][]).map(([kind, count]) => ({ kind, count }));
 
 /** The whole catalog, from the sim's data. */
 export const ITEM_CATALOG: ItemCatalog = {
   items: ITEM_KINDS.map((kind) => ({ kind, ...ITEM_INFO[kind] })),
   crops: CROPS.map((crop) => ({ crop, ...CROP_INFO[crop] })),
-  recipes: GOOD_KINDS.map((recipe) => ({
-    recipe,
-    name: ITEM_INFO[recipe].name,
-    station: RECIPES[recipe].station,
-    needs: (Object.entries(RECIPES[recipe].needs) as [StackKind, number][]).map(
-      ([kind, count]) => ({ kind, count }),
-    ),
+  recipes: [
+    ...GOOD_KINDS.map((recipe) => ({
+      recipe,
+      name: ITEM_INFO[recipe].name,
+      station: RECIPES[recipe].station,
+      needs: needsOf(RECIPES[recipe].needs),
+    })),
+    ...FURNITURE_KINDS.map((recipe) => ({
+      recipe,
+      name: ITEM_INFO[recipe].name,
+      station: FURNITURE_RECIPES[recipe].station,
+      needs: needsOf(FURNITURE_RECIPES[recipe].needs),
+      furniture: true as const,
+    })),
+  ],
+  ground: GROUND_KINDS.map((kind) => ({
+    kind,
+    name: GROUND_INFO[kind].name,
+    needs: needsOf(GROUND_INFO[kind].needs),
   })),
 };
 
@@ -166,7 +199,7 @@ export type GiftView = z.infer<typeof GiftView>;
 export const InventoryView = z.object({
   /** Today, in UTC days since 1970-01-01, as the world counts it. Compare with `readyDay`. */
   day: z.number().int(),
-  /** Seeds, produce, sugar, and jars you hold, in catalog order. */
+  /** Seeds, produce, sugar, jars, wood, stone, decor, and furniture you hold, in catalog order. */
   stacks: z.array(z.object({ kind: StackKindSchema, count: z.number().int() })),
   /** Made things you hold, oldest first. */
   goods: z.array(GoodView),

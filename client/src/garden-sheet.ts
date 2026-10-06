@@ -1,13 +1,15 @@
 /**
  * The sheet a planter, kitchen, or workbench opens in the world (RFC 0005): plant a seed you
- * hold, pick a ready crop, or make something. It only sends actions; the server decides, and its
- * answer shows as a toast in the world. A button your things already show the server would turn
- * down (an unripe crop, missing ingredients, today's making done) is off, with the reason in its
- * row. Labels are your own words, sent as text.
+ * hold, pick a ready crop, or make something. A workbench also makes furniture (RFC 0016), listed
+ * under its own heading: it stacks and takes no label. It only sends actions; the server decides,
+ * and its answer shows as a toast in the world. A button your things already show the server
+ * would turn down (an unripe crop, missing ingredients, today's making done) is off, with the
+ * reason in its row. Labels are your own words, sent as text.
  */
 import { type Action, type InventoryResponse, ITEM_CATALOG, ITEM_RULES } from "@terrakin/protocol";
 import { type BlockKind, type Crop, harvestFits, isReady } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
+import { itemArt } from "@terrakin/ui/item-art";
 import { closeOverlay, errorLine, itemRow, itemRows, openOverlay, sheet } from "@terrakin/ui/ui";
 import { api } from "./api";
 import {
@@ -39,8 +41,20 @@ const title = (block: BlockKind) =>
   block === "planter" ? "Planter" : block === "kitchen" ? "Kitchen" : "Workbench";
 
 /** A row with a name, a line under it, and one button (none on someone else's planter). */
-function row(name: string, line: string, button: HTMLButtonElement | null): HTMLLIElement {
-  return itemRow({ className: "workshop-row", plain: true, name, lines: [line], trail: button });
+function row(
+  name: string,
+  line: string,
+  button: HTMLButtonElement | null,
+  lead: Element | null = null,
+): HTMLLIElement {
+  return itemRow({
+    className: "workshop-row",
+    plain: true,
+    name,
+    lines: [line],
+    trail: button,
+    lead,
+  });
 }
 
 export function openTileSheet(o: TileSheetOptions) {
@@ -77,6 +91,19 @@ export function openTileSheet(o: TileSheetOptions) {
       )
     : null;
   const problem = errorLine("workshop-error");
+  // Furniture (RFC 0016): its own list, under the goods, at a workbench only.
+  const furnitureList = itemRows([], { className: "workshop-list" });
+  const furniture = h(
+    "section",
+    { class: "stack tight workshop-furniture", attrs: { "aria-labelledby": "workshop-furniture" } },
+    h("h3", { class: "section-title", attrs: { id: "workshop-furniture" }, text: "Furniture" }),
+    h("p", {
+      class: "sheet-lede",
+      text: "Made from wood and stone you gather. It stacks in your things; place it from Build, on the Furniture tab.",
+    }),
+    furnitureList,
+  );
+  furniture.hidden = true;
   const s = sheet(
     {
       id: "workshop-title",
@@ -87,6 +114,7 @@ export function openTileSheet(o: TileSheetOptions) {
     hint,
     labelField,
     list,
+    furniture,
     problem,
     things,
   );
@@ -166,32 +194,36 @@ export function openTileSheet(o: TileSheetOptions) {
     hint.textContent = doneToday
       ? `You've made ${inv.craftedToday} things today, the most for one day. Come back tomorrow.`
       : `What you make here keeps your name. Up to ${rules.craftPerDay} a day.`;
-    list.replaceChildren(
-      ...recipes.map((r) => {
-        const short = missingLine(r.needs, (kind) => held.get(kind) ?? 0);
-        const enough = short === null && !doneToday;
-        return row(
-          r.name,
-          doneToday
-            ? `You've made ${inv.craftedToday} today`
-            : (short ?? `Uses ${needsLine(r.recipe)}`),
-          button(
-            "Make",
-            () => {
-              const text = label.value.trim();
-              return {
-                type: "craft",
-                recipe: r.recipe,
-                x: o.x,
-                y: o.y,
-                ...(text ? { label: text } : {}),
-              };
-            },
-            enough,
-          ),
-        );
-      }),
-    );
+    const recipeRow = (r: (typeof recipes)[number]) => {
+      const short = missingLine(r.needs, (kind) => held.get(kind) ?? 0);
+      const enough = short === null && !doneToday;
+      return row(
+        r.name,
+        doneToday
+          ? `You've made ${inv.craftedToday} today`
+          : (short ?? `Uses ${needsLine(r.recipe)}`),
+        button(
+          "Make",
+          () => {
+            // Furniture stacks, so it takes no label.
+            const text = r.furniture ? "" : label.value.trim();
+            return {
+              type: "craft",
+              recipe: r.recipe,
+              x: o.x,
+              y: o.y,
+              ...(text ? { label: text } : {}),
+            };
+          },
+          enough,
+        ),
+        itemArt(r.recipe, { size: 32 }),
+      );
+    };
+    list.replaceChildren(...recipes.filter((r) => !r.furniture).map(recipeRow));
+    const pieces = recipes.filter((r) => r.furniture).map(recipeRow);
+    furnitureList.replaceChildren(...pieces);
+    furniture.hidden = pieces.length === 0;
   }
 
   openOverlay(s.dialog);

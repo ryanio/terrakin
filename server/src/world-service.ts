@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type {
   Action,
+  BuildPlanSummary,
   ChatChannel,
   ErrorCode,
   MediaType,
@@ -9,6 +10,7 @@ import type {
   WorldSnapshot,
 } from "@terrakin/protocol";
 import {
+  BUILD_LIMITS,
   facingFrom,
   fourWayFacing,
   KARMA,
@@ -17,6 +19,7 @@ import {
 } from "@terrakin/protocol";
 import {
   asJoined,
+  buildSummary,
   type Command,
   chebyshev,
   commonsPlot,
@@ -38,6 +41,7 @@ import {
   parseKey,
   pickupLeft,
   pieceShowingMedia,
+  planBuild,
   planPutter,
   plotAtTile,
   plotPickupsOwned,
@@ -85,6 +89,8 @@ export type ActResult =
       heard?: number;
       /** `putter` only: who it waved at, or null. */
       greeted?: string | null;
+      /** `build` only: what the plan did, or would do. */
+      plan?: BuildPlanSummary;
       dry?: true;
     }
   | { ok: false; error: { code: ErrorCode; message: string }; dry?: true };
@@ -376,6 +382,8 @@ export class WorldService {
   private readonly listeners = new Map<string, Set<Listener>>();
   /** Which way each resident last stepped, for drawing only. Kept in memory: a restart forgets it. */
   private readonly facing = new Map<string, Direction>();
+  /** When each resident last built a plan for real, for `BUILD_LIMITS`. In memory only. */
+  private readonly builds = new Map<string, number>();
   private readonly lastSeen = new Map<string, number>();
   private readonly sockets = new Map<string, number>(); // residentId -> open socket count
   /** residentId -> callbacks that close their live connections when their tokens are revoked. */
@@ -1039,6 +1047,20 @@ export class WorldService {
       if (result.ok && !dry) this.onLookMedia?.(residentId, this.lookMedia(residentId));
       return result;
     }
+    if (action.type === "build") {
+      // Drop absent lists: the sim's types forbid explicit undefined.
+      const { px, py, blocks, ground, remove, lift } = action;
+      const command: Command = {
+        type: "build",
+        px,
+        py,
+        ...(blocks ? { blocks } : {}),
+        ...(ground ? { ground } : {}),
+        ...(remove ? { remove } : {}),
+        ...(lift ? { lift } : {}),
+      };
+      return this.build(residentId, command, dry);
+    }
     if (action.type === "build_starter_home") {
       // Drop absent fields: the sim's types forbid explicit undefined.
       const { walls, windows } = action;
@@ -1233,6 +1255,37 @@ export class WorldService {
       return this.run({ actor: residentId, command }, dry);
     }
     return this.run({ actor: residentId, command: action satisfies Command }, dry);
+  }
+
+  // ---------- build (RFC 0016) ----------
+
+  /**
+   * A plan built in one input, spaced `BUILD_LIMITS.secondsBetween` apart per resident since one
+   * can broadcast an event for every tile of a plot. The answer carries the sim's own plan
+   * (`planBuild`), worked out against the same world the input is checked against, with the
+   * builder back online if acting brings them back. A dry run plans and checks, and counts nothing.
+   */
+  private build(residentId: string, command: Command, dry: boolean): ActResult {
+    if (command.type !== "build") throw new Error("build takes a build");
+    if (!dry) {
+      const last = this.builds.get(residentId);
+      const wait = last === undefined ? 0 : last + BUILD_LIMITS.secondsBetween * 1000 - this.now();
+      if (wait > 0) {
+        const seconds = Math.ceil(wait / 1000);
+        return {
+          ok: false,
+          error: {
+            code: "rate_limited",
+            message: `You built a moment ago. Try again in ${seconds} ${seconds === 1 ? "second" : "seconds"}.`,
+          },
+        };
+      }
+    }
+    const planned = planBuild(asJoined(this.state, residentId), residentId, command);
+    const result = this.run({ actor: residentId, command }, dry);
+    if (!result.ok) return result;
+    if (!dry) this.builds.set(residentId, this.now());
+    return "code" in planned ? result : { ...result, plan: buildSummary(planned) };
   }
 
   // ---------- putter (decision 0049) ----------
@@ -1654,6 +1707,14 @@ export class WorldService {
         const [x, y] = parseKey(key);
         return { x, y, block };
       }),
+      ...(state.ground && Object.keys(state.ground).length > 0
+        ? {
+            ground: Object.entries(state.ground).map(([key, ground]) => {
+              const [x, y] = parseKey(key);
+              return { x, y, ground };
+            }),
+          }
+        : {}),
       ...(state.day === undefined ? {} : { day: state.day }),
       townHall: townHallTiles(state.config),
       ...(state.shop ? { shop: shopTiles(state.config) } : {}),

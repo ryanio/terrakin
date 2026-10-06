@@ -1,16 +1,21 @@
 import {
   BLOCK_KINDS,
   BOUNTIES,
+  BUILD_PARTS,
+  BUILD_SKIPS,
   BUILDING_BLOCKS,
   COIN_REASONS,
   CROPS,
+  DEFAULT_CONFIG,
   DIRECTIONS,
   ECONOMY,
   EXCLUSIVE_WEAR,
   FREE_BLOCKS,
+  FURNITURE_KINDS,
   GARMENT_PATTERNS,
   GIFT_ID_PATTERN,
   GOOD_KINDS,
+  GROUND_KINDS,
   HAIR_COLORS,
   HAIR_STYLES,
   INVENTORY_REASONS,
@@ -209,6 +214,54 @@ export const PlaceAction = z.object({
   ...dry,
 });
 export const RemoveAction = z.object({ type: z.literal("remove"), x: coord, y: coord, ...dry });
+
+/** A path or floor (RFC 0016): one per tile, under any block, and never in anyone's way. */
+export const GroundKind = z.enum(GROUND_KINDS);
+export type GroundKind = z.infer<typeof GroundKind>;
+/**
+ * Lay a path or floor on a tile of your plot (or one shared with you), within reach. It can go
+ * under a block, a hearth, or someone standing there. A kind with a cost takes it from your things.
+ */
+export const LayAction = z.object({
+  type: z.literal("lay"),
+  x: coord,
+  y: coord,
+  ground: GroundKind,
+  ...dry,
+});
+/** Lift the path or floor off a tile, within reach. What it took comes back to you. */
+export const LiftAction = z.object({ type: z.literal("lift"), x: coord, y: coord, ...dry });
+
+/** A plot's tiles counted from its north-west corner: 0 to `config.plotSize - 1` each way. */
+const planCoord = z
+  .number()
+  .int()
+  .min(0)
+  .max(DEFAULT_CONFIG.plotSize - 1);
+const planTile = z.object({ x: planCoord, y: planCoord });
+/** The most entries in each of a plan's lists: a whole plot. */
+export const PLAN_MAX = DEFAULT_CONFIG.plotSize * DEFAULT_CONFIG.plotSize;
+/**
+ * Build a plan on plot (`px`, `py`), one you own or share, in one action from anywhere (RFC 0016).
+ * Tiles count from the plot's north-west corner, so a plan builds the same thing on any plot.
+ * `remove` and `lift` go first, then `blocks`, then `ground`.
+ */
+export const BuildAction = z.object({
+  type: z.literal("build"),
+  px: coord,
+  py: coord,
+  blocks: z
+    .array(z.object({ x: planCoord, y: planCoord, block: z.enum(BLOCK_KINDS) }))
+    .max(PLAN_MAX)
+    .optional(),
+  ground: z
+    .array(z.object({ x: planCoord, y: planCoord, ground: GroundKind }))
+    .max(PLAN_MAX)
+    .optional(),
+  remove: z.array(planTile).max(PLAN_MAX).optional(),
+  lift: z.array(planTile).max(PLAN_MAX).optional(),
+  ...dry,
+});
 export const SetHearthAction = z.object({
   type: z.literal("set_hearth"),
   x: coord,
@@ -342,13 +395,17 @@ export const GatherAction = z.object({
   y: coord,
   ...dry,
 });
+/** Furniture (RFC 0016): made at a workbench, held, and placed like decor. */
+export const FurnitureKind = z.enum(FURNITURE_KINDS);
+/** What `craft` makes: a good, signed with your name, or a piece of furniture, which stacks. */
+export const RecipeKind = z.enum([...GOOD_KINDS, ...FURNITURE_KINDS]);
 /**
  * Make something at the station on (x, y), within reach: a `kitchen` or a `workbench`. `label` is
- * your own name for it, untrusted text that travels with it.
+ * your own name for a good, untrusted text that travels with it. Furniture takes no label.
  */
 export const CraftAction = z.object({
   type: z.literal("craft"),
-  recipe: GoodKind,
+  recipe: RecipeKind,
   x: coord,
   y: coord,
   label: z.string().trim().max(ITEMS.labelMax).optional(),
@@ -610,6 +667,9 @@ export const Action = z.discriminatedUnion("type", [
   ReleaseAction,
   PlaceAction,
   RemoveAction,
+  LayAction,
+  LiftAction,
+  BuildAction,
   SetHearthAction,
   HomeAction,
   ProfileAction,
@@ -726,6 +786,13 @@ export const WorldSnapshot = z.object({
   blocks: z.array(
     z.object({ x: z.number().int(), y: z.number().int(), block: z.enum(BLOCK_KINDS) }),
   ),
+  /**
+   * Paths and floors (RFC 0016), one per tile, under whatever block stands there. Nobody walks
+   * differently for them. Absent when no tile has one.
+   */
+  ground: z
+    .array(z.object({ x: z.number().int(), y: z.number().int(), ground: GroundKind }))
+    .optional(),
   /** Today in UTC days since 1970-01-01, as the world counts it. Absent before the first day. */
   day: z.number().int().optional(),
   /** The tiles the Town Hall stands on, in the Commons. Nothing is built there; tap it for /town. */
@@ -845,6 +912,21 @@ export const WorldEvent = z.discriminatedUnion("type", [
   }),
   z.object({
     type: z.literal("block_removed"),
+    x: z.number().int(),
+    y: z.number().int(),
+    by: z.string(),
+  }),
+  /** A path or floor went down on a tile (RFC 0016). */
+  z.object({
+    type: z.literal("ground_laid"),
+    x: z.number().int(),
+    y: z.number().int(),
+    ground: GroundKind,
+    by: z.string(),
+  }),
+  /** The path or floor on a tile was lifted. */
+  z.object({
+    type: z.literal("ground_lifted"),
     x: z.number().int(),
     y: z.number().int(),
     by: z.string(),
@@ -1232,6 +1314,58 @@ export const CreateSessionResponse = z.object({
   token: z.string(),
   world: WorldSnapshot,
 });
+/** Things by kind and count, in a build's answer. */
+const kindCounts = z.array(z.object({ kind: StackKind, count: z.number().int() }));
+/**
+ * What a `build` did, or on a dry run would do: how many tiles changed, its net change to your
+ * things, and the tiles it left alone with why, as the plan gave them (from the plot's corner).
+ */
+export const BuildPlanSummary = z.object({
+  px: z.number().int(),
+  py: z.number().int(),
+  placed: z.number().int(),
+  removed: z.number().int(),
+  laid: z.number().int(),
+  lifted: z.number().int(),
+  /** What it takes from your things, net of what its removals and lifts give back. */
+  uses: kindCounts,
+  /** What it gives back to your things, net. */
+  returns: kindCounts,
+  skipped: z.array(
+    z.object({
+      x: z.number().int(),
+      y: z.number().int(),
+      /** Which list the tile came from. */
+      what: z.enum(BUILD_PARTS),
+      /** `same` it's already that; `occupied` something else is there; `standing` someone is; `hearth`; `empty` nothing to take away; `growing` a crop; `on_display` a display. */
+      why: z.enum(BUILD_SKIPS),
+    }),
+  ),
+});
+export type BuildPlanSummary = z.infer<typeof BuildPlanSummary>;
+
+/**
+ * A plot's layout as a plan for `build` (RFC 0016): its blocks and ground at tiles counted from its
+ * north-west corner, so they can go straight into a `build` on any plot. `hearths` are tiles a
+ * build leaves alone.
+ */
+export const PlotPlanResponse = z.object({
+  plan: z.object({
+    px: z.number().int(),
+    py: z.number().int(),
+    /** Tiles per side. */
+    size: z.number().int(),
+    /** Who owns it. Absent for an unclaimed plot and the Commons. */
+    ownerId: z.string().optional(),
+    blocks: z.array(
+      z.object({ x: z.number().int(), y: z.number().int(), block: z.enum(BLOCK_KINDS) }),
+    ),
+    ground: z.array(z.object({ x: z.number().int(), y: z.number().int(), ground: GroundKind })),
+    hearths: z.array(z.object({ x: z.number().int(), y: z.number().int() })),
+  }),
+});
+export type PlotPlanResponse = z.infer<typeof PlotPlanResponse>;
+
 export const ActionResponse = z.discriminatedUnion("ok", [
   z.object({
     ok: z.literal(true),
@@ -1252,6 +1386,9 @@ export const ActionResponse = z.discriminatedUnion("ok", [
       .literal(true)
       .optional()
       .describe("Present on a dry run: the action would be accepted, but nothing changed."),
+    plan: BuildPlanSummary.optional().describe(
+      "`build` only: what the plan did, or on a dry run would do, and the tiles it left alone.",
+    ),
   }),
   z.object({
     ok: z.literal(false),
@@ -1326,6 +1463,8 @@ export const ServerMessage = z.union([
     greeted: z.string().nullable().optional(),
     /** A dry run: the action would be accepted, but nothing changed. */
     dry: z.literal(true).optional(),
+    /** `build` only: what the plan did, or would do. */
+    plan: BuildPlanSummary.optional(),
   }),
   z.object({
     type: z.literal("error"),

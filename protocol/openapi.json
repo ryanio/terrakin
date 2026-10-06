@@ -697,6 +697,125 @@
           "perSecond": 10,
           "burst": 20,
           "description": "10 a second per resident, bursts of 20"
+        },
+        "x-limits": [
+          "`build`: one every 5 seconds (dry runs don't count)"
+        ]
+      }
+    },
+    "/v1/plots/{px}/{py}/plan": {
+      "get": {
+        "operationId": "getPlotPlan",
+        "summary": "A plot's blocks and paths as a plan for build, to copy a design onto your own plot.",
+        "description": "Tiles count from the plot's north-west corner, the way `build` takes them, so `blocks` and `ground` can go straight into a `build` for any plot you own or share. Copying costs you the decor, furniture, and materials it uses; price it first with `dry`. `hearths` are tiles a build leaves alone.",
+        "tags": [
+          "World"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "px",
+            "in": "path",
+            "required": true,
+            "description": "The plot's `px`: plot coordinates, not tiles. Plot (px, py) covers tiles px*plotSize to px*plotSize+plotSize-1 across, and the same down.",
+            "schema": {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]{0,4})$"
+            }
+          },
+          {
+            "name": "py",
+            "in": "path",
+            "required": true,
+            "description": "The plot's `py`: plot coordinates, not tiles. Plot (px, py) covers tiles px*plotSize to px*plotSize+plotSize-1 across, and the same down.",
+            "schema": {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]{0,4})$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlotPlanResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error: bad_request",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "bad_request"
+            ]
+          },
+          "404": {
+            "description": "Error: not_found",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "not_found"
+            ]
+          },
+          "500": {
+            "description": "Error: internal",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "internal"
+            ]
+          }
         }
       }
     },
@@ -5159,6 +5278,16 @@
                 "bench",
                 "hay_bale",
                 "scarecrow",
+                "table",
+                "chair",
+                "bookshelf",
+                "barrel",
+                "signpost",
+                "lamp_post",
+                "well",
+                "stone_wall",
+                "campfire",
+                "flower_box",
                 "lemon_jam",
                 "strawberry_jam",
                 "lemonade",
@@ -18969,6 +19098,15 @@
             "$ref": "#/components/schemas/RemoveAction"
           },
           {
+            "$ref": "#/components/schemas/LayAction"
+          },
+          {
+            "$ref": "#/components/schemas/LiftAction"
+          },
+          {
+            "$ref": "#/components/schemas/BuildAction"
+          },
+          {
             "$ref": "#/components/schemas/SetHearthAction"
           },
           {
@@ -19110,6 +19248,14 @@
                 "enum": [
                   true
                 ]
+              },
+              "plan": {
+                "description": "`build` only: what the plan did, or on a dry run would do, and the tiles it left alone.",
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/BuildPlanSummary"
+                  }
+                ]
               }
             },
             "required": [
@@ -19220,6 +19366,293 @@
       "BountyId": {
         "type": "string",
         "pattern": "^b_[1-9][0-9]*$"
+      },
+      "BuildAction": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "build"
+            ]
+          },
+          "px": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "py": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "blocks": {
+            "maxItems": 64,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 7
+                },
+                "y": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 7
+                },
+                "block": {
+                  "type": "string",
+                  "enum": [
+                    "wood",
+                    "stone",
+                    "glass",
+                    "leaf",
+                    "planter",
+                    "kitchen",
+                    "workbench",
+                    "lantern",
+                    "frame",
+                    "fence",
+                    "bench",
+                    "pedestal",
+                    "hay_bale",
+                    "scarecrow",
+                    "table",
+                    "chair",
+                    "bookshelf",
+                    "barrel",
+                    "signpost",
+                    "lamp_post",
+                    "well",
+                    "stone_wall",
+                    "campfire",
+                    "flower_box"
+                  ]
+                }
+              },
+              "required": [
+                "x",
+                "y",
+                "block"
+              ]
+            }
+          },
+          "ground": {
+            "maxItems": 64,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 7
+                },
+                "y": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 7
+                },
+                "ground": {
+                  "$ref": "#/components/schemas/GroundKind"
+                }
+              },
+              "required": [
+                "x",
+                "y",
+                "ground"
+              ]
+            }
+          },
+          "remove": {
+            "maxItems": 64,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 7
+                },
+                "y": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 7
+                }
+              },
+              "required": [
+                "x",
+                "y"
+              ]
+            }
+          },
+          "lift": {
+            "maxItems": 64,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 7
+                },
+                "y": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 7
+                }
+              },
+              "required": [
+                "x",
+                "y"
+              ]
+            }
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "px",
+          "py"
+        ]
+      },
+      "BuildPlanSummary": {
+        "type": "object",
+        "properties": {
+          "px": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "py": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "placed": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "removed": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "laid": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "lifted": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "uses": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "$ref": "#/components/schemas/StackKind"
+                },
+                "count": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "kind",
+                "count"
+              ]
+            }
+          },
+          "returns": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "$ref": "#/components/schemas/StackKind"
+                },
+                "count": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "kind",
+                "count"
+              ]
+            }
+          },
+          "skipped": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "y": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "what": {
+                  "type": "string",
+                  "enum": [
+                    "remove",
+                    "lift",
+                    "block",
+                    "ground"
+                  ]
+                },
+                "why": {
+                  "type": "string",
+                  "enum": [
+                    "same",
+                    "occupied",
+                    "standing",
+                    "hearth",
+                    "empty",
+                    "growing",
+                    "on_display"
+                  ]
+                }
+              },
+              "required": [
+                "x",
+                "y",
+                "what",
+                "why"
+              ]
+            }
+          }
+        },
+        "required": [
+          "px",
+          "py",
+          "placed",
+          "removed",
+          "laid",
+          "lifted",
+          "uses",
+          "returns",
+          "skipped"
+        ]
       },
       "BuildStarterHomeAction": {
         "type": "object",
@@ -19699,7 +20132,7 @@
             ]
           },
           "recipe": {
-            "$ref": "#/components/schemas/GoodKind"
+            "$ref": "#/components/schemas/RecipeKind"
           },
           "x": {
             "type": "integer",
@@ -20013,6 +20446,8 @@
           "bounty_limit",
           "already_set",
           "out_of_season",
+          "no_ground",
+          "invalid_plan",
           "bad_request",
           "unauthorized",
           "forbidden",
@@ -20036,6 +20471,21 @@
         },
         "required": [
           "error"
+        ]
+      },
+      "FurnitureKind": {
+        "type": "string",
+        "enum": [
+          "table",
+          "chair",
+          "bookshelf",
+          "barrel",
+          "signpost",
+          "lamp_post",
+          "well",
+          "stone_wall",
+          "campfire",
+          "flower_box"
         ]
       },
       "GatherAction": {
@@ -20318,6 +20768,21 @@
           "pumpkin_soup"
         ]
       },
+      "GroundKind": {
+        "type": "string",
+        "enum": [
+          "dirt",
+          "sand",
+          "moss",
+          "leaves",
+          "cobble",
+          "stepping_stones",
+          "brick",
+          "planks",
+          "flower_bed",
+          "rug"
+        ]
+      },
       "HairColor": {
         "type": "string",
         "enum": [
@@ -20477,7 +20942,10 @@
           "returned",
           "displayed",
           "off_display",
-          "held"
+          "held",
+          "laid",
+          "lifted",
+          "built"
         ]
       },
       "ItemId": {
@@ -20509,6 +20977,16 @@
           "bench",
           "hay_bale",
           "scarecrow",
+          "table",
+          "chair",
+          "bookshelf",
+          "barrel",
+          "signpost",
+          "lamp_post",
+          "well",
+          "stone_wall",
+          "campfire",
+          "flower_box",
           "lemon_jam",
           "strawberry_jam",
           "lemonade",
@@ -20520,6 +20998,70 @@
           "pumpkin_pie",
           "pumpkin_soup",
           "piece"
+        ]
+      },
+      "LayAction": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "lay"
+            ]
+          },
+          "x": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "y": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "ground": {
+            "$ref": "#/components/schemas/GroundKind"
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "x",
+          "y",
+          "ground"
+        ]
+      },
+      "LiftAction": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "lift"
+            ]
+          },
+          "x": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "y": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "x",
+          "y"
         ]
       },
       "LinkKeyResponse": {
@@ -20824,7 +21366,17 @@
               "bench",
               "pedestal",
               "hay_bale",
-              "scarecrow"
+              "scarecrow",
+              "table",
+              "chair",
+              "bookshelf",
+              "barrel",
+              "signpost",
+              "lamp_post",
+              "well",
+              "stone_wall",
+              "campfire",
+              "flower_box"
             ]
           },
           "dry": {
@@ -20900,6 +21452,145 @@
           "x",
           "y",
           "seed"
+        ]
+      },
+      "PlotPlanResponse": {
+        "type": "object",
+        "properties": {
+          "plan": {
+            "type": "object",
+            "properties": {
+              "px": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "py": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "size": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "ownerId": {
+                "type": "string"
+              },
+              "blocks": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "y": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "block": {
+                      "type": "string",
+                      "enum": [
+                        "wood",
+                        "stone",
+                        "glass",
+                        "leaf",
+                        "planter",
+                        "kitchen",
+                        "workbench",
+                        "lantern",
+                        "frame",
+                        "fence",
+                        "bench",
+                        "pedestal",
+                        "hay_bale",
+                        "scarecrow",
+                        "table",
+                        "chair",
+                        "bookshelf",
+                        "barrel",
+                        "signpost",
+                        "lamp_post",
+                        "well",
+                        "stone_wall",
+                        "campfire",
+                        "flower_box"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "x",
+                    "y",
+                    "block"
+                  ]
+                }
+              },
+              "ground": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "y": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "ground": {
+                      "$ref": "#/components/schemas/GroundKind"
+                    }
+                  },
+                  "required": [
+                    "x",
+                    "y",
+                    "ground"
+                  ]
+                }
+              },
+              "hearths": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "y": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "x",
+                    "y"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "px",
+              "py",
+              "size",
+              "blocks",
+              "ground",
+              "hearths"
+            ]
+          }
+        },
+        "required": [
+          "plan"
         ]
       },
       "PostBountyAction": {
@@ -21181,6 +21872,31 @@
         },
         "required": [
           "type"
+        ]
+      },
+      "RecipeKind": {
+        "type": "string",
+        "enum": [
+          "lemon_jam",
+          "strawberry_jam",
+          "lemonade",
+          "tomato_sauce",
+          "herb_tea",
+          "bouquet",
+          "herb_sachet",
+          "flower_wreath",
+          "pumpkin_pie",
+          "pumpkin_soup",
+          "table",
+          "chair",
+          "bookshelf",
+          "barrel",
+          "signpost",
+          "lamp_post",
+          "well",
+          "stone_wall",
+          "campfire",
+          "flower_box"
         ]
       },
       "ReleaseAction": {
@@ -21492,6 +22208,13 @@
                 "enum": [
                   true
                 ]
+              },
+              "plan": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/BuildPlanSummary"
+                  }
+                ]
               }
             },
             "required": [
@@ -21783,7 +22506,17 @@
           "fence",
           "bench",
           "hay_bale",
-          "scarecrow"
+          "scarecrow",
+          "table",
+          "chair",
+          "bookshelf",
+          "barrel",
+          "signpost",
+          "lamp_post",
+          "well",
+          "stone_wall",
+          "campfire",
+          "flower_box"
         ]
       },
       "TakeDownAction": {
@@ -22662,7 +23395,17 @@
                   "bench",
                   "pedestal",
                   "hay_bale",
-                  "scarecrow"
+                  "scarecrow",
+                  "table",
+                  "chair",
+                  "bookshelf",
+                  "barrel",
+                  "signpost",
+                  "lamp_post",
+                  "well",
+                  "stone_wall",
+                  "campfire",
+                  "flower_box"
                 ]
               },
               "by": {
@@ -22684,6 +23427,70 @@
                 "type": "string",
                 "enum": [
                   "block_removed"
+                ]
+              },
+              "x": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "y": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "by": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "x",
+              "y",
+              "by"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "ground_laid"
+                ]
+              },
+              "x": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "y": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "ground": {
+                "$ref": "#/components/schemas/GroundKind"
+              },
+              "by": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "x",
+              "y",
+              "ground",
+              "by"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "ground_lifted"
                 ]
               },
               "x": {
@@ -24290,7 +25097,17 @@
                     "bench",
                     "pedestal",
                     "hay_bale",
-                    "scarecrow"
+                    "scarecrow",
+                    "table",
+                    "chair",
+                    "bookshelf",
+                    "barrel",
+                    "signpost",
+                    "lamp_post",
+                    "well",
+                    "stone_wall",
+                    "campfire",
+                    "flower_box"
                   ]
                 }
               },
@@ -24298,6 +25115,32 @@
                 "x",
                 "y",
                 "block"
+              ]
+            }
+          },
+          "ground": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "y": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "ground": {
+                  "$ref": "#/components/schemas/GroundKind"
+                }
+              },
+              "required": [
+                "x",
+                "y",
+                "ground"
               ]
             }
           },
@@ -27768,6 +28611,42 @@
           "seeds"
         ]
       },
+      "CatalogGround": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/GroundKind"
+          },
+          "name": {
+            "type": "string"
+          },
+          "needs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "$ref": "#/components/schemas/StackKind"
+                },
+                "count": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "kind",
+                "count"
+              ]
+            }
+          }
+        },
+        "required": [
+          "kind",
+          "name",
+          "needs"
+        ]
+      },
       "CatalogItem": {
         "type": "object",
         "properties": {
@@ -27788,7 +28667,8 @@
               "staple",
               "resource",
               "good",
-              "decor"
+              "decor",
+              "furniture"
             ]
           }
         },
@@ -27803,7 +28683,7 @@
         "type": "object",
         "properties": {
           "recipe": {
-            "$ref": "#/components/schemas/GoodKind"
+            "$ref": "#/components/schemas/RecipeKind"
           },
           "name": {
             "type": "string"
@@ -27834,6 +28714,12 @@
                 "count"
               ]
             }
+          },
+          "furniture": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
           }
         },
         "required": [
@@ -28125,12 +29011,19 @@
             "items": {
               "$ref": "#/components/schemas/CatalogRecipe"
             }
+          },
+          "ground": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CatalogGround"
+            }
           }
         },
         "required": [
           "items",
           "crops",
-          "recipes"
+          "recipes",
+          "ground"
         ]
       },
       "ItemRules": {

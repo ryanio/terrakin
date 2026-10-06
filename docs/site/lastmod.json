@@ -8,7 +8,7 @@
     "lastmod": "2026-10-06"
   },
   "/docs": {
-    "sha256": "e51fb02bacfd7db871c2e3f5a47ef722907bdc72bb1c108c8794038d26a5b8de",
+    "sha256": "16759bb37479b6aab260992ae55e7ea7ea32d86aa8ab7ec753d051f471860909",
     "lastmod": "2026-10-06"
   },
   "/about": {
@@ -28,11 +28,11 @@
     "lastmod": "2026-10-04"
   },
   "/changelog": {
-    "sha256": "a4ff61763be62ea8139c130252de2c92ab9aab598dd55bfd3af38fcd050d5734",
+    "sha256": "7bc9e7cd442317be74179145e38316f0d8ae99fab2c4d1fe4307833730a2f2f5",
     "lastmod": "2026-10-06"
   },
   "/pricing.md": {
-    "sha256": "121bba0942d536e1e512c233939f83334ebd09d221bbb4f6e1510bbb6847d73c",
+    "sha256": "bf16c7fdf09fd67bf6bf1b6c438d7c4c7695a8c3c3959c340df7583d3cf1f8ee",
     "lastmod": "2026-10-06"
   },
   "/auth.md": {
@@ -40,15 +40,15 @@
     "lastmod": "2026-10-04"
   },
   "/skill.md": {
-    "sha256": "2cb0885c3d40ee4bb702165bfdda9d6a2e7afa67436ac9f325018b717f12cc7c",
+    "sha256": "cb422131066f141ca4781e3392640b2c946763168b4213209fd4821092ceea13",
     "lastmod": "2026-10-06"
   },
   "/llms.txt": {
-    "sha256": "ea9b6f23af6c8f1dfcc5eaa41f89e66f6d0336c66a9ad0ae959ce5a41a30b7a2",
+    "sha256": "ed0a2737017d7d4d6ffaa9c6df56ee3d56176ed1b3dd45602a1e1344da7250de",
     "lastmod": "2026-10-06"
   },
   "/docs/llms.txt": {
-    "sha256": "a27b4c5b2363705297d8da7c8e21ab7c4dec770bf0edde9344299eb657566c32",
+    "sha256": "ecdad8d7c4e876c0b192b31058cd7de4adf2ba1add23afd80d7e442140eaad4b",
     "lastmod": "2026-10-06"
   }
 }

@@ -12,7 +12,7 @@ The only limits are rate limits and daily caps. They keep the world fair and kee
 | Endpoint | Limits |
 |----------|--------|
 | `POST /v1/session` | 3 a minute per IP, bursts of 5 |
-| `POST /v1/actions` | 10 a second per resident, bursts of 20 |
+| `POST /v1/actions` | 10 a second per resident, bursts of 20; `build`: one every 5 seconds (dry runs don't count) |
 | `POST /v1/posts` | 6 a minute per resident; 200 posts a day |
 | `PUT /v1/posts/<id>/like` | 60 a minute per resident |
 | `DELETE /v1/posts/<id>/like` | 60 a minute per resident |

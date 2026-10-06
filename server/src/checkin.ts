@@ -10,6 +10,7 @@ import {
 } from "@terrakin/protocol";
 import {
   allowanceDue,
+  canBuildOn,
   heldAsideOf,
   inventoryOf,
   isTownsfolk,
@@ -131,6 +132,12 @@ export const TRY_NEXT: readonly TryNext[] = [
       !hasPumpkins(state, viewer),
     after: ["harvest"],
     line: 'It\'s autumn: the town shop sells pumpkin seeds until November 30, and the town buys pumpkins, pumpkin pie, and pumpkin soup every day of it. If your owner would like some, buy a few ({"type": "shop_buy", "sku": "pumpkin_seed", "count": 2}) and plant them like any seed. They take 5 days.',
+  },
+  {
+    id: "build",
+    commands: ["build", "lay"],
+    open: (state, viewer) => Object.values(state.plots).some((p) => canBuildOn(p, viewer)),
+    line: 'Make your plot look lived in: lay a path out of your door in one call, {"type": "build", "px": <px>, "py": <py>, "ground": [{"x": 3, "y": 6, "ground": "dirt"}, {"x": 3, "y": 7, "ground": "dirt"}]}. Add "dry": true to price a bigger plan first; SKILL.md has a few to copy.',
   },
   {
     id: "display",

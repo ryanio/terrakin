@@ -3,15 +3,23 @@ import {
   apply,
   CHAT_EARSHOT,
   type Command,
+  countOf,
   createWorld,
   DEFAULT_CONFIG,
+  FURNITURE_KINDS,
+  FURNITURE_RECIPES,
+  GROUND_INFO,
+  GROUND_KINDS,
+  groundCostWords,
   HAIR_COLORS,
   HAIR_STYLES,
+  ITEM_INFO,
   PATTERNS,
   PUTTER,
   SEASONS,
   SHOP_CATALOG,
   type ShopSku,
+  type StackKind,
   spawnTile,
   THEMES,
   TOWN_ACTOR,
@@ -630,6 +638,62 @@ describe("SKILL.md starter home", () => {
     expect(world.residents.muse).toMatchObject({ x: x0 + 2, y: y0 + 4 });
     act({ type: "home" });
     expect(world.residents.muse).toMatchObject({ x: x0 + 2, y: y0 + 2 });
+  });
+});
+
+describe("SKILL.md building", () => {
+  it("names what each path and floor takes, as the sim has it", () => {
+    for (const kind of GROUND_KINDS) {
+      expect(skill).toContain(
+        `| \`${kind}\` | ${GROUND_INFO[kind].name} | ${groundCostWords(kind)} |`,
+      );
+    }
+  });
+
+  it("names what each piece of furniture is made from, as the sim has it", () => {
+    for (const kind of FURNITURE_KINDS) {
+      const made = (Object.entries(FURNITURE_RECIPES[kind].needs) as [StackKind, number][])
+        .map(([need, n]) => countOf(need, n))
+        .join(" and ");
+      expect(skill).toContain(`| \`${kind}\` | ${ITEM_INFO[kind].name} | ${made} |`);
+    }
+  });
+
+  it("has plans that build whole on a starter-home plot with a first planter", () => {
+    const section = skill.slice(skill.indexOf("## Build: paths, furniture, and plans"));
+    const plans = [...section.matchAll(/```json\n(\{"type": "build"[\s\S]*?)\n```/g)].map(
+      ([, json]) => JSON.parse(json as string) as Extract<Command, { type: "build" }>,
+    );
+    expect(plans.length).toBe(3);
+    for (const plan of plans) {
+      const world = createWorld(DEFAULT_CONFIG);
+      const act = (actor: string, command: Command) => {
+        const result = apply(world, { actor, command });
+        expect(result, JSON.stringify(command)).toMatchObject({ ok: true });
+      };
+      act(TOWN_ACTOR, { type: "new_day", day: 20_000 });
+      act(TOWN_ACTOR, { type: "open_items" });
+      act("muse", { type: "join", name: "Wren", kind: "agent" });
+      act("muse", { type: "settle", px: plan.px, py: plan.py });
+      act("muse", { type: "build_starter_home" });
+      const S = DEFAULT_CONFIG.plotSize;
+      act("muse", { type: "place", x: plan.px * S + 2, y: plan.py * S + 2, block: "planter" });
+      // Hand her plenty of everything a plan could use.
+      const inv = world.items?.inventories.muse;
+      if (!inv) throw new Error("the first pantry fills her things");
+      for (const kind of ["wood", "stone", "herb", "flower", ...FURNITURE_KINDS] as StackKind[]) {
+        inv.stacks[kind] = 10;
+      }
+      // Off the hearth, so nothing is skipped for her standing on a tile.
+      const muse = world.residents.muse;
+      if (!muse) throw new Error("she joined");
+      Object.assign(muse, { x: 0, y: 0 });
+      const built = apply(world, { actor: "muse", command: plan });
+      expect(built, JSON.stringify(plan)).toMatchObject({ ok: true });
+      const placed = built.ok ? built.events.filter((e) => e.type === "block_placed").length : 0;
+      const laid = built.ok ? built.events.filter((e) => e.type === "ground_laid").length : 0;
+      expect(placed + laid).toBe((plan.blocks?.length ?? 0) + (plan.ground?.length ?? 0));
+    }
   });
 });
 

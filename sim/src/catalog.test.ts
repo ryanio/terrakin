@@ -8,6 +8,8 @@ import {
   DECOR_KINDS,
   FAMILIES,
   type FamilyInfo,
+  FURNITURE_KINDS,
+  FURNITURE_RECIPES,
   familyPath,
   GOOD_KINDS,
   ITEM_INFO,
@@ -28,6 +30,7 @@ import {
   STARTER_SEEDS,
   STATIONS,
 } from "./catalog";
+import * as furniture from "./furniture";
 import * as items from "./items";
 import { isShopWear, WEAR_ITEMS } from "./looks";
 import * as shop from "./shop";
@@ -54,6 +57,7 @@ describe("the catalog's views", () => {
       STAPLE_KINDS: [STAPLE_KINDS, items.STAPLE_KINDS],
       RESOURCE_KINDS: [RESOURCE_KINDS, items.RESOURCE_KINDS],
       DECOR_KINDS: [DECOR_KINDS, items.DECOR_KINDS],
+      FURNITURE_KINDS: [FURNITURE_KINDS, furniture.FURNITURE_KINDS],
       GOOD_KINDS: [GOOD_KINDS, items.GOOD_KINDS],
       PIECE_KINDS: [PIECE_KINDS, items.PIECE_KINDS],
       MADE_KINDS: [MADE_KINDS, items.MADE_KINDS],
@@ -63,6 +67,9 @@ describe("the catalog's views", () => {
     expect(rows(ITEM_INFO, ITEM_KINDS)).toBe(rows(items.ITEM_INFO, ITEM_KINDS));
     expect(rows(CROP_INFO, CROPS)).toBe(rows(items.CROP_INFO, CROPS));
     expect(rows(RECIPES, GOOD_KINDS)).toBe(rows(items.RECIPES, GOOD_KINDS));
+    expect(rows(FURNITURE_RECIPES, FURNITURE_KINDS)).toBe(
+      rows(furniture.FURNITURE_RECIPES, FURNITURE_KINDS),
+    );
   });
 
   it("sell what the town shop sells, at its prices and in its seasons", () => {
@@ -171,8 +178,8 @@ describe("seeds and crops", () => {
 });
 
 describe("recipes", () => {
-  it("make every good from things that stack and that the catalog has, never from nothing", () => {
-    for (const kind of GOOD_KINDS) {
+  it("make every good and piece of furniture from things that stack, never from nothing", () => {
+    for (const kind of [...GOOD_KINDS, ...FURNITURE_KINDS]) {
       const needs = Object.entries(CATALOG[kind].recipe?.needs ?? {});
       expect(needs.length, kind).toBeGreaterThan(0);
       for (const [need, n] of needs) {

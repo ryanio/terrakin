@@ -20,6 +20,19 @@ export {
   postBountyProblem,
 } from "./bounties";
 export {
+  BUILD_PARTS,
+  BUILD_SKIPS,
+  type BuildPart,
+  type BuildPlan,
+  type BuildSkip,
+  type BuildSkipped,
+  type BuildSummary,
+  buildSummary,
+  planBuild,
+  planMax,
+  plotPlan,
+} from "./build";
+export {
   DISPLAY_BLOCKS,
   displayAt,
   displayOfItem,
@@ -44,6 +57,14 @@ export {
 } from "./economy";
 export * from "./entitlements";
 export {
+  FURNITURE_INFO,
+  FURNITURE_KINDS,
+  FURNITURE_RECIPES,
+  type FurnitureKind,
+  type FurnitureRecipe,
+  isFurnitureKind,
+} from "./furniture";
+export {
   checkGather,
   GATHER,
   gatherableAt,
@@ -53,6 +74,17 @@ export {
   pickupOn,
   plotPickupsOwned,
 } from "./gather";
+export {
+  GROUND_INFO,
+  GROUND_KINDS,
+  type GroundInfo,
+  type GroundKind,
+  groundAt,
+  groundCostWords,
+  groundNeeds,
+  groundShort,
+  isGroundKind,
+} from "./ground";
 export { canonicalJson, fnv1a, hashWorld } from "./hash";
 export {
   CROP_INFO,
@@ -78,6 +110,7 @@ export {
   inventorySize,
   isDecorKind,
   isGoodKind,
+  isHeldBlock,
   isMadeKind,
   isReady,
   isResourceKind,

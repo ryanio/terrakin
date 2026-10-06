@@ -1,7 +1,7 @@
 /**
  * The catalog of things (RFC 0018): every kind of thing a resident can hold, one entry each, sorted
- * into families such as food › fruit. Seeds, produce, staples, materials, decor, made goods, and
- * pieces of art are all entries here, as plain data like the looks catalog.
+ * into families such as food › fruit. Seeds, produce, staples, materials, decor, furniture, made
+ * goods, and pieces of art are all entries here, as plain data like the looks catalog.
  *
  * Ids never change, since logs hold them, and new entries go on the end. The lists and tables below
  * the entries are views of it: each list groups kinds by role, in catalog order, so a new kind
@@ -61,10 +61,19 @@ export function familyPath(family: Family): Family[] {
 
 /**
  * What a kind is to the rules, which read this and never the family: something to plant, produce
- * from a planter, a kitchen staple, a gathered material, decor that places as a block, a made good,
- * or a piece of art. It's the category the API shows, where a piece shows as a good.
+ * from a planter, a kitchen staple, a gathered material, decor that places as a block, furniture
+ * made at a workbench that stacks and places like decor (RFC 0016), a made good, or a piece of art.
+ * It's the category the API shows, where a piece shows as a good.
  */
-export type Role = "seed" | "produce" | "staple" | "resource" | "decor" | "good" | "piece";
+export type Role =
+  | "seed"
+  | "produce"
+  | "staple"
+  | "resource"
+  | "decor"
+  | "furniture"
+  | "good"
+  | "piece";
 
 /** Block kinds you craft at. `craft` names the station's tile. */
 export const STATIONS = ["kitchen", "workbench"] as const;
@@ -447,6 +456,88 @@ const WRITTEN = {
     shop: { price: 35, seasons: ["autumn"] },
     look: { template: "drawn" },
   }),
+  // Furniture from the workbench (RFC 0016): made from what you gather and grow, held and placed
+  // like decor.
+  table: entry({
+    name: "Table",
+    plural: "Tables",
+    family: "decor",
+    role: "furniture",
+    recipe: { station: "workbench", needs: { wood: 3 } },
+    look: { template: "drawn" },
+  }),
+  chair: entry({
+    name: "Chair",
+    plural: "Chairs",
+    family: "decor",
+    role: "furniture",
+    recipe: { station: "workbench", needs: { wood: 2 } },
+    look: { template: "drawn" },
+  }),
+  bookshelf: entry({
+    name: "Bookshelf",
+    plural: "Bookshelves",
+    family: "decor",
+    role: "furniture",
+    recipe: { station: "workbench", needs: { wood: 4 } },
+    look: { template: "drawn" },
+  }),
+  barrel: entry({
+    name: "Barrel",
+    plural: "Barrels",
+    family: "decor",
+    role: "furniture",
+    recipe: { station: "workbench", needs: { wood: 3 } },
+    look: { template: "drawn" },
+  }),
+  signpost: entry({
+    name: "Signpost",
+    plural: "Signposts",
+    family: "decor",
+    role: "furniture",
+    recipe: { station: "workbench", needs: { wood: 2 } },
+    look: { template: "drawn" },
+  }),
+  lamp_post: entry({
+    name: "Lamp post",
+    plural: "Lamp posts",
+    family: "decor",
+    role: "furniture",
+    recipe: { station: "workbench", needs: { wood: 1, stone: 2 } },
+    look: { template: "drawn" },
+  }),
+  well: entry({
+    name: "Well",
+    plural: "Wells",
+    family: "decor",
+    role: "furniture",
+    recipe: { station: "workbench", needs: { wood: 2, stone: 6 } },
+    look: { template: "drawn" },
+  }),
+  stone_wall: entry({
+    name: "Low stone wall",
+    plural: "Low stone walls",
+    family: "decor",
+    role: "furniture",
+    recipe: { station: "workbench", needs: { stone: 1 } },
+    look: { template: "drawn" },
+  }),
+  campfire: entry({
+    name: "Campfire",
+    plural: "Campfires",
+    family: "decor",
+    role: "furniture",
+    recipe: { station: "workbench", needs: { wood: 2, stone: 3 } },
+    look: { template: "drawn" },
+  }),
+  flower_box: entry({
+    name: "Flower box",
+    plural: "Flower boxes",
+    family: "decor",
+    role: "furniture",
+    recipe: { station: "workbench", needs: { wood: 1, flower: 3 } },
+    look: { template: "drawn" },
+  }),
 };
 
 // ---------- family recipes ----------
@@ -513,9 +604,16 @@ export type Crop = With<{ crop: CropNumbers }>;
 export type StapleKind = With<{ role: "staple" }>;
 export type ResourceKind = With<{ role: "resource" }>;
 export type DecorKind = With<{ role: "decor" }>;
+export type FurnitureKind = With<{ role: "furniture" }>;
 export type GoodKind = With<{ role: "good" }> | FamilyMade;
 export type PieceKind = With<{ role: "piece" }>;
-export type StackKind = SeedKind | ProduceKind | StapleKind | ResourceKind | DecorKind;
+export type StackKind =
+  | SeedKind
+  | ProduceKind
+  | StapleKind
+  | ResourceKind
+  | DecorKind
+  | FurnitureKind;
 export type MadeKind = GoodKind | PieceKind;
 
 /** What a family recipe makes from one kind in its family. */
@@ -561,6 +659,7 @@ export const CROPS = KINDS.filter((kind) => CATALOG[kind].crop) as readonly Crop
 export const STAPLE_KINDS = withRole("staple") as readonly StapleKind[];
 export const RESOURCE_KINDS = withRole("resource") as readonly ResourceKind[];
 export const DECOR_KINDS = withRole("decor") as readonly DecorKind[];
+export const FURNITURE_KINDS = withRole("furniture") as readonly FurnitureKind[];
 /** Things that stack: you hold a count of each, not separate items. */
 export const STACK_KINDS: readonly StackKind[] = [
   ...SEED_KINDS,
@@ -568,6 +667,7 @@ export const STACK_KINDS: readonly StackKind[] = [
   ...STAPLE_KINDS,
   ...RESOURCE_KINDS,
   ...DECOR_KINDS,
+  ...FURNITURE_KINDS,
 ];
 /** Made things with a recipe. Each one is its own item with an id, its maker, and its made day. */
 export const GOOD_KINDS = withRole("good") as readonly GoodKind[];
@@ -576,7 +676,14 @@ export const PIECE_KINDS = withRole("piece") as readonly PieceKind[];
 export const MADE_KINDS: readonly MadeKind[] = [...GOOD_KINDS, ...PIECE_KINDS];
 export const ITEM_KINDS: readonly ItemKind[] = [...STACK_KINDS, ...MADE_KINDS];
 
-export type ItemCategory = "seed" | "produce" | "staple" | "resource" | "good" | "decor";
+export type ItemCategory =
+  | "seed"
+  | "produce"
+  | "staple"
+  | "resource"
+  | "good"
+  | "decor"
+  | "furniture";
 
 export interface ItemInfo {
   /** One of it, in plain words. */
@@ -615,6 +722,11 @@ export const CROP_INFO = Object.fromEntries(
 export const RECIPES = Object.fromEntries(
   GOOD_KINDS.map((kind) => [kind, CATALOG[kind].recipe]),
 ) as Readonly<Record<GoodKind, Recipe>>;
+
+/** One recipe per piece of furniture, named after what it makes. */
+export const FURNITURE_RECIPES = Object.fromEntries(
+  FURNITURE_KINDS.map((kind) => [kind, CATALOG[kind].recipe]),
+) as Readonly<Record<FurnitureKind, Recipe>>;
 
 /**
  * What the town shop sells in one season only, every day of it. Everything else it sells, it sells

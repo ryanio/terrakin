@@ -61,9 +61,10 @@ export interface BlockLook {
   opacity: number;
   /**
    * "voxel" is a rounded box; "clump" is a leafy cluster that sways; "decor" is one of the town
-   * shop's models in `decor.ts`, and `height` is how tall it stands.
+   * shop's models in `decor.ts`, and "furniture" one of the workbench's in `furniture.ts`, where
+   * `height` is how tall it stands.
    */
-  form: "voxel" | "clump" | "decor";
+  form: "voxel" | "clump" | "decor" | "furniture";
 }
 
 /** Same base colors as the 2D renderer (render.ts BLOCK_COLORS). */
@@ -83,6 +84,17 @@ const BLOCK_LOOKS: Record<BlockKind, BlockLook> = {
   // Autumn's decor (RFC 0017), modelled in decor.ts.
   hay_bale: { color: hex(BLOCK_COLORS.hay_bale), height: 0.62, opacity: 1, form: "decor" },
   scarecrow: { color: hex(BLOCK_COLORS.scarecrow), height: 1.55, opacity: 1, form: "decor" },
+  // Furniture from the workbench (RFC 0016).
+  table: { color: hex(BLOCK_COLORS.table), height: 0.8, opacity: 1, form: "furniture" },
+  chair: { color: hex(BLOCK_COLORS.chair), height: 1.05, opacity: 1, form: "furniture" },
+  bookshelf: { color: hex(BLOCK_COLORS.bookshelf), height: 1.5, opacity: 1, form: "furniture" },
+  barrel: { color: hex(BLOCK_COLORS.barrel), height: 0.9, opacity: 1, form: "furniture" },
+  signpost: { color: hex(BLOCK_COLORS.signpost), height: 1.35, opacity: 1, form: "furniture" },
+  lamp_post: { color: hex(BLOCK_COLORS.lamp_post), height: 1.75, opacity: 1, form: "furniture" },
+  well: { color: hex(BLOCK_COLORS.well), height: 1.6, opacity: 1, form: "furniture" },
+  stone_wall: { color: hex(BLOCK_COLORS.stone_wall), height: 0.6, opacity: 1, form: "furniture" },
+  campfire: { color: hex(BLOCK_COLORS.campfire), height: 0.7, opacity: 1, form: "furniture" },
+  flower_box: { color: hex(BLOCK_COLORS.flower_box), height: 0.75, opacity: 1, form: "furniture" },
 };
 
 export function blockLook(block: BlockKind): BlockLook {

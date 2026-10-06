@@ -12,6 +12,7 @@ import {
   checkReopenBounty,
   checkVoidBounty,
 } from "./bounties";
+import { checkBuild } from "./build";
 import {
   checkAdmire,
   checkDisplay,
@@ -37,6 +38,7 @@ import {
 } from "./economy";
 import { checkSetEntitlements, unentitled } from "./entitlements";
 import { checkGather, checkOwnPlotPickups } from "./gather";
+import { checkLay, checkLift } from "./ground";
 import { canonicalJson, fnv1a } from "./hash";
 import {
   checkCraft,
@@ -50,7 +52,7 @@ import {
   decorPlaceProblem,
   decorRemoveProblem,
   type ItemsChecked,
-  isDecorKind,
+  isHeldBlock,
   itemsNewDay,
   moveDecor,
   pantryDue,
@@ -752,12 +754,19 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
         return reject("not_your_plot", "You can only release a plot you own.");
       }
       // Releasing never demolishes: clear the blocks first. That keeps release a single,
-      // honest change instead of a silent teardown (see decision 0018).
+      // honest change instead of a silent teardown (see decision 0018). Paths and floors too
+      // (RFC 0016), so nobody inherits a stranger's.
       const { plotSize } = config;
       for (let y = py * plotSize; y < (py + 1) * plotSize; y++) {
         for (let x = px * plotSize; x < (px + 1) * plotSize; x++) {
           if (state.blocks[tileKey(x, y)] !== undefined) {
             return reject("plot_has_blocks", "Remove every block on the plot first.");
+          }
+          if (state.ground?.[tileKey(x, y)] !== undefined) {
+            return reject(
+              "plot_has_blocks",
+              "Lift every path and floor on the plot first. One build with a lift list clears them all.",
+            );
           }
         }
       }
@@ -853,7 +862,9 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
     }
 
     case "place":
-    case "remove": {
+    case "remove":
+    case "lay":
+    case "lift": {
       const { x, y } = command;
       if (!inBounds(config, x, y)) return reject("out_of_bounds", "That's outside the world.");
       if (chebyshev(me, { x, y }) > config.reach) {
@@ -868,6 +879,9 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
           `You can only build on your own plot.${buildHint(state, me)}`,
         );
       }
+      // Paths and floors (RFC 0016) keep the same where-rules, and their own checks.
+      if (command.type === "lay") return town(checkLay(state, actor, command));
+      if (command.type === "lift") return town(checkLift(state, actor, command));
       const key = tileKey(x, y);
       if (command.type === "remove") {
         if (state.blocks[key] === undefined) return reject("no_block", "Nothing to remove there.");
@@ -953,10 +967,10 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
         const p = plotOf(config, t.x, t.y);
         return inBounds(config, t.x, t.y) && p.px === plot.px && p.py === plot.py;
       };
-      if (isDecorKind(command.walls) || isDecorKind(command.windows)) {
+      if (isHeldBlock(command.walls) || isHeldBlock(command.windows)) {
         return reject(
           "unknown_item",
-          "A starter home is built from free blocks. Place decor yourself with place.",
+          "A starter home is built from free blocks. Place decor and furniture yourself with place.",
         );
       }
       const home = starterHome(
@@ -1005,6 +1019,9 @@ function check(state: WorldState, actor: string, command: Command): Mutation | P
         return events;
       };
     }
+
+    case "build":
+      return town(checkBuild(state, actor, command));
 
     case "share_plot":
     case "unshare_plot": {

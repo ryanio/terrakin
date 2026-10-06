@@ -1,3 +1,5 @@
+import type { FurnitureKind } from "./furniture";
+import type { GroundKind } from "./ground";
 import type { Crop, GoodKind, ItemKind, MadeKind, ResourceKind, StackKind } from "./items";
 import type {
   ExclusiveWear,
@@ -23,7 +25,8 @@ export type Direction = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
  * and `workbench` are stations to craft at (RFC 0005). Those are placed for free. The next four are
  * decor from the town shop (RFC 0008): placing one uses one from your things, and removing it puts
  * it back. `pedestal` (free) and `frame` hold a made thing on display (RFC 0005 step 3). `hay_bale`
- * and `scarecrow` are decor the shop sells in autumn (RFC 0017).
+ * and `scarecrow` are decor the shop sells in autumn (RFC 0017). The rest are furniture made at a
+ * workbench (RFC 0016), held and placed like decor. New kinds go on the end.
  */
 export const BLOCK_KINDS = [
   "wood",
@@ -40,6 +43,16 @@ export const BLOCK_KINDS = [
   "pedestal",
   "hay_bale",
   "scarecrow",
+  "table",
+  "chair",
+  "bookshelf",
+  "barrel",
+  "signpost",
+  "lamp_post",
+  "well",
+  "stone_wall",
+  "campfire",
+  "flower_box",
 ] as const;
 
 /** Blocks bought at the town shop. Each one placed is one fewer in your things. */
@@ -53,7 +66,27 @@ export const DECOR_BLOCKS = [
 ] as const satisfies readonly (typeof BLOCK_KINDS)[number][];
 export type DecorBlock = (typeof DECOR_BLOCKS)[number];
 
-/** The blocks anyone can place without holding one: everything but decor. */
+/**
+ * Furniture (RFC 0016): made at a workbench from what residents gather and grow
+ * (`FURNITURE_RECIPES` in `furniture.ts`), held in your things, and placed and taken up like decor.
+ * Every piece blocks walking, like every block. New pieces go on the end, and on the end of
+ * `BLOCK_KINDS`.
+ */
+export const FURNITURE_BLOCKS = [
+  "table",
+  "chair",
+  "bookshelf",
+  "barrel",
+  "signpost",
+  "lamp_post",
+  "well",
+  "stone_wall",
+  "campfire",
+  "flower_box",
+] as const satisfies readonly (typeof BLOCK_KINDS)[number][];
+export type FurnitureBlock = (typeof FURNITURE_BLOCKS)[number];
+
+/** The blocks anyone can place without holding one: everything but decor and furniture. */
 export const FREE_BLOCKS = [
   "wood",
   "stone",
@@ -203,6 +236,20 @@ export interface PlannedBlock {
   block: BuildingBlock;
 }
 
+/** One block a `build` places, at a tile counted from its plot's north-west corner. */
+export interface PlanBlock {
+  x: number;
+  y: number;
+  block: BlockKind;
+}
+
+/** One path or floor a `build` lays, at a tile counted from its plot's north-west corner. */
+export interface PlanGround {
+  x: number;
+  y: number;
+  ground: GroundKind;
+}
+
 export interface Proposal {
   /** `t_1`, `t_2`, ... in filing order. */
   id: string;
@@ -262,6 +309,11 @@ export interface WorldState {
    * then, so older logs replay as they were made, when residents walked across both.
    */
   solidBuildings?: true;
+  /**
+   * Paths and floors (RFC 0016), keyed by tileKey(x, y): one per tile, under whatever block stands
+   * there. Nobody walks differently for it. Absent until the first `lay` or `build` lays one.
+   */
+  ground?: Record<string, GroundKind>;
   /**
    * Today, in UTC days since 1970-01-01, from the server's last `new_day`. Absent until the first
    * one, like every Town Hall field below, so a world that never saw a day hashes as it always has.
@@ -550,9 +602,9 @@ export const INVENTORY_REASONS = [
   "bought",
   /** Sold to the town. */
   "sold",
-  /** A decor block placed in the world. */
+  /** A decor or furniture block placed in the world. */
   "placed",
-  /** A decor block taken back up. */
+  /** A decor or furniture block taken back up. */
   "picked_up",
   /** Put up for sale in the market, so held there until it sells or is taken back. */
   "listed",
@@ -572,6 +624,12 @@ export const INVENTORY_REASONS = [
   "off_display",
   /** Held aside for you while your things were full, and back now that they have room. */
   "held",
+  /** What a path or floor took, laid with `lay` (RFC 0016). */
+  "laid",
+  /** What a lifted path or floor gave back. */
+  "lifted",
+  /** A plan built with `build`: what it used and gave back, net. */
+  "built",
 ] as const;
 export type InventoryReason = (typeof INVENTORY_REASONS)[number];
 
@@ -690,6 +748,23 @@ export type Command =
   | { type: "home" }
   | { type: "place"; x: number; y: number; block: BlockKind }
   | { type: "remove"; x: number; y: number }
+  /** Lay a path or floor on a tile, within reach (RFC 0016). */
+  | { type: "lay"; x: number; y: number; ground: GroundKind }
+  /** Lift the path or floor off a tile, within reach. What it took comes back. */
+  | { type: "lift"; x: number; y: number }
+  /**
+   * A plan built on plot (px, py) in one input, from anywhere (RFC 0016): `remove` and `lift` go
+   * first, then `blocks`, then `ground`. Tiles count from the plot's north-west corner.
+   */
+  | {
+      type: "build";
+      px: number;
+      py: number;
+      blocks?: PlanBlock[];
+      ground?: PlanGround[];
+      remove?: Tile[];
+      lift?: Tile[];
+    }
   | { type: "settle"; px: number; py: number }
   | { type: "build_starter_home"; walls?: BlockKind; windows?: BlockKind }
   | { type: "share_plot"; with: ResidentId }
@@ -716,7 +791,8 @@ export type Command =
   | { type: "harvest"; x: number; y: number }
   /** Pick up a fallen branch or a loose stone on the tile, within reach. */
   | { type: "gather"; x: number; y: number }
-  | { type: "craft"; recipe: GoodKind; x: number; y: number; label?: string }
+  /** A good (signed, with an id) or a piece of furniture (it stacks, and takes no label). */
+  | { type: "craft"; recipe: GoodKind | FurnitureKind; x: number; y: number; label?: string }
   | { type: "give"; item: string; to: ResidentId; count?: number; note?: string }
   /** Send a gift back to whoever gave it, within `ITEMS.declineDays` days. */
   | { type: "decline_gift"; gift: string }
@@ -871,6 +947,10 @@ export type WorldEvent =
   | { type: "hearth_set"; residentId: ResidentId; x: number; y: number }
   | { type: "block_placed"; x: number; y: number; block: BlockKind; by: ResidentId }
   | { type: "block_removed"; x: number; y: number; by: ResidentId }
+  /** A path or floor went down on a tile (RFC 0016). Public. */
+  | { type: "ground_laid"; x: number; y: number; ground: GroundKind; by: ResidentId }
+  /** The path or floor on a tile was lifted. Public. */
+  | { type: "ground_lifted"; x: number; y: number; by: ResidentId }
   | { type: "plot_shared"; px: number; py: number; residentId: ResidentId }
   | { type: "plot_unshared"; px: number; py: number; residentId: ResidentId }
   | { type: "hearth_cleared"; residentId: ResidentId }
@@ -1125,6 +1205,10 @@ export const REJECTION_CODES = [
   "already_set",
   /** The shop sells that only in another season (RFC 0017). */
   "out_of_season",
+  /** No path or floor on that tile to lift (RFC 0016). */
+  "no_ground",
+  /** A `build` plan that doesn't fit: empty, too long, a tile off the plot, or one listed twice. */
+  "invalid_plan",
 ] as const;
 export type RejectionCode = (typeof REJECTION_CODES)[number];
 

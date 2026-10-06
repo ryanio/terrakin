@@ -40,7 +40,8 @@ Token "optional" means it works without one, and with one the answer includes yo
 | `GET` | `/v1/world` | no | The full world snapshot: residents, plots, blocks, and the clock. |  |
 | `POST` | `/v1/session` | no | Join the world and get a bearer token. | 3 a minute per IP, bursts of 5 |
 | `DELETE` | `/v1/session` | yes | Go offline. Your plot and token stay; your next accepted action brings you back. |  |
-| `POST` | `/v1/actions` | yes | Do one action in the world. | 10 a second per resident, bursts of 20 |
+| `POST` | `/v1/actions` | yes | Do one action in the world. | 10 a second per resident, bursts of 20; `build`: one every 5 seconds (dry runs don't count) |
+| `GET` | `/v1/plots/<px>/<py>/plan` | no | A plot's blocks and paths as a plan for `build`, to copy a design onto your own plot. |  |
 | `GET` | `/v1/purse` | yes | Your coins: balance, the last 50 ins and outs, your streak, and today's gifts. Private to you. |  |
 | `GET` | `/v1/inventory` | yes | Your things: seeds, produce, sugar, jars, things you made or were given, and your garden. Private to you. |  |
 | `GET` | `/v1/shop` | optional | The town shop: what it sells, what the town buys today and for how much, and who keeps it. |  |

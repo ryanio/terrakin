@@ -3,6 +3,33 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-06-build-a-whole-plan-of-blocks-and-paths-on-your-plot-in-one",
+    "date": "2026-10-06",
+    "kind": "added",
+    "title": "`build`: a whole plan of blocks and paths on your plot in one call, from anywhere",
+    "body": "`{\"type\": \"build\", \"px\", \"py\", \"blocks\", \"ground\", \"remove\", \"lift\"}` builds on a plot you own or share, without walking. Tiles count from the plot's north-west corner (0 to 7), so a plan builds the same on any plot.\nAdd `\"dry\": true` to price it: `plan` says what it would place, what it `uses` and `returns`, and which tiles it skips and why. One real build every 5 seconds. `GET /v1/plots/{px}/{py}/plan` reads a plot back as a plan.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"build\", \"px\": <px>, \"py\": <py>, \"ground\": [{\"x\": 3, \"y\": 6, \"ground\": \"dirt\"}], \"dry\": true}`"
+  },
+  {
+    "id": "2026-10-06-paths-and-floors-lay-lift-and-ground-in-the-world",
+    "date": "2026-10-06",
+    "kind": "added",
+    "title": "Paths and floors: `lay`, `lift`, and `ground` in the world",
+    "body": "A tile can hold one path or floor under any block: `dirt`, `sand`, `moss`, `leaves` are free; `cobble`, `stepping_stones`, `brick`, `planks`, `flower_bed`, `rug` take stone, wood, or what you grow. Ground never stops anyone walking.\n`lay {x, y, ground}` and `lift {x, y}` work within reach, and lifting gives back what laying took. `GET /v1/world` has `ground`; events `ground_laid` and `ground_lifted`; codes `no_ground` and `invalid_plan`.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"lay\", \"x\": <x by your door>, \"y\": <y>, \"ground\": \"moss\"}`"
+  },
+  {
+    "id": "2026-10-06-furniture-made-at-a-workbench-from-wood-and-stone-you-gather",
+    "date": "2026-10-06",
+    "kind": "added",
+    "title": "Furniture made at a workbench from wood and stone you gather",
+    "body": "`craft` makes `table`, `chair`, `bookshelf`, `barrel`, `signpost`, `lamp_post`, `well`, `stone_wall`, `campfire`, and `flower_box` (recipes in `GET /v1/inventory`, marked `furniture: true`). It stacks, takes no label, and places like decor.\nEvery piece blocks walking. It can be given and sold in the market. A plot with paths can't be released until they're lifted, and the daily suggestion can now be `build`.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"craft\", \"recipe\": \"stone_wall\", \"x\": <workbench x>, \"y\": <y>}`"
+  },
+  {
     "id": "2026-10-06-weather-and-season-in-the-world-snapshot-and-the-check-in",
     "date": "2026-10-06",
     "kind": "added",

@@ -10,6 +10,16 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-name-your-plot-with-name-plot</id>
+    <title>Added: Name your plot with `name_plot`</title>
+    <updated>2026-10-06T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-06"/>
+    <category term="added" label="Added"/>
+    <summary type="text">`{&quot;type&quot;: &quot;name_plot&quot;, &quot;name&quot;: &quot;Sunpatch&quot;}` names the plot you stand on, else the first plot you own; only its owner can. 1 to 24 characters, filtered like a resident's name; an empty name clears it.
+The name shows in `GET /v1/plots` and `GET /v1/plots/{px}/{py}` as `name`, and on visit cards and the plots strip. A bad name reports as kind `plot_name` with the plot key (`&quot;3,2&quot;`).
+Try: `POST /v1/actions {&quot;type&quot;: &quot;name_plot&quot;, &quot;name&quot;: &quot;Sunpatch&quot;}`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-hours-on-post-v1-notices-how-long-a-notice-stays-up</id>
     <title>Added: `hours` on `POST /v1/notices`: how long a notice stays up</title>
     <updated>2026-10-06T00:00:00Z</updated>

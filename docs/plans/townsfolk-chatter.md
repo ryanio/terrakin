@@ -34,6 +34,27 @@ The daily tips move into the Worker with no change to what they do: 10 coins to 
 - A refusal is logged by code and the run moves on, never retried. A server error stops the run; the next day's run picks up.
 - `TERRAKIN_TIPS_ON` gates it (off by default), with a dry-run mode that plans and logs counts but gives nothing. The script keeps working for self-hosting and local runs.
 
+## Spend ledger
+
+Triage's `triage_usage` keeps one row a day with combined tokens, and prunes after 30 days. That is enough for the cap and not enough to analyze spend later. So every model call, from triage and from chatter, also appends one row to an `ai_spend` table in the social database. The table is never pruned (a few rows a day), and the caps keep reading their own counters, so the guard never depends on the ledger.
+
+Columns:
+
+- `at` and `day`: the time series.
+- `purpose`: `triage` or `chatter`.
+- `trigger`: for triage, a report or a filter; for chatter, the persona key.
+- `model`: so Sonnet 5.5 can be compared with a cheaper or stronger model later.
+- `input_tokens`, `output_tokens`, `cache_read_tokens`, `cache_write_tokens`: exact cost and cache hit rate, taken from the response's `usage`.
+- `cost_micro_usd`: worked out from a price table in code at the time of the call, so a later price change never rewrites history.
+- `outcome`: for chatter, posted, replied, liked, nothing, refused by the filters, refused by the validator, a refusal stop, or an error; for triage, the verdict's action or an error. This is what gives cost per posted note.
+- `action`: post, reply, like, or none.
+
+It holds no resident text and no resident ids, only the persona key, so it follows the telemetry rule of codes and counts ([server/AGENTS.md](../../server/AGENTS.md)). A call the guard refuses before fetching spends nothing and writes no row.
+
+Staff read it on the admin app: spend per day by purpose and model, cost per posted note, cache hit rate, and the share of answers refused. A line in the staff check-in numbers carries the day's total.
+
+It goes in first, with triage writing to it, so triage spend is recorded before chatter exists.
+
 ## When it acts
 
 All of these are constants in `server/src/chatter.ts`, with the numbers below as starting points.
@@ -70,13 +91,17 @@ Telemetry carries counts and codes only. The text and the key are never logged (
 - A decision record (`pnpm kb new decision`): why a model, why Sonnet 5.5, why enumerated actions only, why the quiet gate, why the server and not a script.
 - `server/src/townsfolk-tips.ts` and `server/src/townsfolk-tips.test.ts`: the planner moved from `scripts/`, the daily run, the state table, and a refusal test for each sim cap.
 - `scripts/townsfolk/tips.ts` and `scripts/townsfolk/README.md`: import the planner from `server/`, and say the server runs it for terrakin.org.
+- `server/src/ai-spend.ts` and `server/src/ai-spend.test.ts`: the `ai_spend` table, the price table, `record()`, and the day summary. Tests show a row per call with the right cost, no row for a refused call, and no text or ids in any row.
+- `server/src/triage.ts`: writes a ledger row after each call. `server/src/safety-service.ts` and the staff route behind the admin spend view, with its `protocol/` route entry and `pnpm gen` (an additive v1 route, so it also gets a `CHANGELOG.md` entry).
+- `admin/`: the spend view, built from `ui/` pieces.
 - `docs/plans/README.md`: a link to this page.
 
-Not needed: a `CHANGELOG.md` entry, since no API changes.
+Chatter and tips add no API, so they need no `CHANGELOG.md` entry. The staff spend route is a staff route, so check whether `pnpm gen:check` asks for one.
 
 ## Rollout
 
-1. Ship with `TERRAKIN_CHATTER_DAILY_CALLS` at `0` (off), so the deploy changes nothing.
+0. Ship the spend ledger first, with triage writing to it. After a few days it shows what triage costs today.
+1. Ship chatter with `TERRAKIN_CHATTER_DAILY_CALLS` at `0` (off), so the deploy changes nothing.
 2. Add a dry-run mode that runs the planner and the model but stores and posts nothing, and logs only counts. Run it a few times on production and read the answers through a staff-only summary.
 3. Turn posts and likes on first, replies after a few days of clean output.
 4. Raise the caps only if the wall still looks empty.
@@ -86,7 +111,8 @@ Not needed: a `CHANGELOG.md` entry, since no API changes.
 
 - `pnpm vitest run --project server` for the new tests, then `pnpm verify`, then the `reviewer` subagent (this spends money and writes resident text).
 - Local run on Node or `wrangler dev` with a fake model injected: one run posts as a townsfolk, a second run the same hour posts nothing, and the day's call cap stops further runs.
-- On production with the dry run on: the cost estimate per run matches the budget (well under $0.50 a day), and no answer is refused for the same reason twice in a row.
+- On production with the dry run on: the ledger's cost per run matches the budget (well under $0.50 a day), and no answer is refused for the same reason twice in a row.
+- The ledger's day total matches the provider's usage page for the same day, to within rounding.
 
 ## Open question
 

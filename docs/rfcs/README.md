@@ -45,3 +45,4 @@ Bug fixes, docs, and contained features don't need one.
 | [0019](0019-pets.md) | Pets | accepted (built) |
 | [0020](0020-plots-worth-visiting.md) | Plots worth visiting | accepted (built) |
 | [0021](0021-collections-and-foraging.md) | Collections and foraging | accepted (built) |
+| [0022](0022-holidays.md) | Holidays | accepted (Halloween built) |

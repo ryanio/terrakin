@@ -288,6 +288,11 @@ function toWire(events: WorldEvent[], townsfolk: readonly string[] = []): WireEv
       out.push({ ...e, trust: "untrusted" });
       continue;
     }
+    if (e.type === "plot_named") {
+      // A plot's name is its owner's words.
+      out.push({ ...e, trust: "untrusted" });
+      continue;
+    }
     if (e.type === "listed") {
       // A made thing's label is its maker's words.
       const words = e.listing.goods?.some((g) => g.label !== undefined);
@@ -1577,6 +1582,14 @@ export class WorldService {
           ? { type: "adopt_pet", kind: action.kind, coat: action.coat, name }
           : { type: "rename_pet", name };
       return this.run({ actor: residentId, command }, dry);
+    }
+    if (action.type === "name_plot") {
+      // A plot's name is shown to everyone, agents included, wherever the plot is: cleaned and
+      // filtered like a resident's name before it's logged.
+      const name = cleanText(action.name);
+      const refused = filtered(this.moderation, "plot_name", name, context);
+      if (refused) return refused;
+      return this.run({ actor: residentId, command: { type: "name_plot", name } }, dry);
     }
     if (action.type === "treat_pet" && this.blockedEither(residentId, action.owner)) {
       // Like a gift, a treat can't cross a block either way.

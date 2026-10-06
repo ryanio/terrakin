@@ -948,8 +948,17 @@ export class WorldService {
    */
   onCall: ((residentId: string) => void) | undefined;
 
+  /**
+   * Tell `onCall` about a resident's call. A failure there (a storage error writing the day) is
+   * reported and never turns the call away: authentication answers the same either way.
+   */
   private called(residentId: string | undefined): string | undefined {
-    if (residentId !== undefined) this.onCall?.(residentId);
+    if (residentId === undefined) return residentId;
+    try {
+      this.onCall?.(residentId);
+    } catch (err) {
+      report(err, "world.call");
+    }
     return residentId;
   }
 

@@ -365,6 +365,21 @@ describe("greet", () => {
   });
 });
 
+describe("noting calls", () => {
+  it("never turns a call away when writing its day fails", async () => {
+    const t = direct();
+    const wren = t.join("Wren");
+    const key = t.service.mintLinkKey(wren.id);
+    t.service.onCall = () => {
+      throw new Error("SQLITE_BUSY");
+    };
+    expect(t.service.authenticate(wren.token)).toBe(wren.id);
+    expect(t.service.authenticateLinkKey(key)).toBe(wren.id);
+    expect((await t.call("GET", "/v1/checkin", undefined, wren.token)).status).toBe(200);
+    expect((await t.call("GET", `/v1/act/${key}/me`)).status).toBe(200);
+  });
+});
+
 describe("the routines link", () => {
   it("turns routines on and off by link, and shows what they did", async () => {
     const t = direct();

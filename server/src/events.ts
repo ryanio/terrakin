@@ -289,14 +289,12 @@ export class EventsSocial {
     );
   }
 
-  /** Keep what an ended event left: one row for it, and one for each guest. Once per event. */
+  /**
+   * Keep what an ended event left: one row for each guest, then one for the event. Once per event:
+   * the event's row goes last, so a record a crash cut short has none, and recording it again
+   * fills in only what's missing.
+   */
   recordEnded(e: HostedEvent, day: number, guests: readonly Guest[]) {
-    this.o.sql.exec(
-      "INSERT OR IGNORE INTO hosted_events (event_id, host, day) VALUES (?, ?, ?)",
-      e.id,
-      e.host,
-      day,
-    );
     for (const g of guests) {
       this.o.sql.exec(
         `INSERT OR IGNORE INTO event_guests (event_id, host, guest, kind, day, counted)
@@ -309,6 +307,28 @@ export class EventsSocial {
         g.counted ? 1 : 0,
       );
     }
+    this.o.sql.exec(
+      "INSERT OR IGNORE INTO hosted_events (event_id, host, day) VALUES (?, ?, ?)",
+      e.id,
+      e.host,
+      day,
+    );
+  }
+
+  /**
+   * The ended events still in the world without a record, in the order they ended: one that ended
+   * before anything was listening (a boot's own catch-up), or whose record a crash cut short.
+   */
+  unrecorded(state: WorldState): HostedEvent[] {
+    const ended = (state.events?.list ?? []).filter((e) => e.status === "ended");
+    if (ended.length === 0) return [];
+    const kept = new Set(
+      this.rows(
+        "SELECT event_id FROM hosted_events WHERE day >= ?",
+        Math.min(...ended.map((e) => e.closedDay ?? 0)),
+      ).map((r) => String(r.event_id)),
+    );
+    return ended.filter((e) => !kept.has(e.id)).sort(endingFirst);
   }
 
   /** A host's record over the last `HOSTING_WINDOW_DAYS` days, or undefined when there's none. */

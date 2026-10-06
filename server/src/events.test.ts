@@ -38,9 +38,17 @@ afterEach(async () => {
 // biome-ignore lint/suspicious/noExplicitAny: the response checker already holds every body to its schema.
 type Json = Record<string, any>;
 
-/** The world on Tuesday 6 October 2026, 09:00 UTC, with presence coming from acting. */
+/**
+ * The world on Tuesday 6 October 2026, 09:00 UTC, with presence coming from acting. A boot after
+ * another passes the same `store`, and `sql` for the same social database.
+ */
 async function start(
-  options: { store?: MemoryStore; townEvents?: readonly TownEvent[]; at?: number } = {},
+  options: {
+    store?: MemoryStore;
+    sql?: ReturnType<typeof nodeSql>;
+    townEvents?: readonly TownEvent[];
+    at?: number;
+  } = {},
 ) {
   let now = options.at ?? Date.UTC(2026, 9, 6, 9);
   const store = options.store ?? new MemoryStore();
@@ -53,7 +61,7 @@ async function start(
     presence: true,
     townEvents: options.townEvents ?? [],
   });
-  const sql = nodeSql();
+  const sql = options.sql ?? nodeSql();
   const maintainers = new Set<string>();
   const social = new SocialService({
     sql,
@@ -73,7 +81,7 @@ async function start(
     sessionsPerMinute: 1000,
     onResponse,
   });
-  cleanups.push(() => sql.close());
+  if (!options.sql) cleanups.push(() => sql.close());
   const call = jsonCaller(await listenOnFreePort(server, cleanups));
   const act = async (token: string, action: Json) =>
     (await call("POST", "/v1/actions", action, token)).body;
@@ -193,6 +201,37 @@ describe("an event on the server's clock", () => {
     expect(second).toMatchObject({ ticks: 1, slot: 4 });
     t.later(5 * MINUTE);
     expect(second).toMatchObject({ ticks: 2, slot: 5 });
+  });
+
+  it("keeps the host's record of an event the next boot ended, once", async () => {
+    const store = new MemoryStore();
+    const sql = nodeSql();
+    cleanups.push(() => sql.close());
+    const t = await start({ store, sql });
+    const { ada, bob } = await hosts(t);
+    const noon = todayAt(t, 12);
+    expect(await t.act(ada.token, listening(t, noon))).toMatchObject({ ok: true });
+    t.later(noon + MINUTE - t.now());
+    // Bob stays half an hour, then the server is down until the event is over.
+    for (let i = 0; i < 7; i++) {
+      expect(await t.act(bob.token, { type: "join_event", event: "e_1" })).toMatchObject({
+        ok: true,
+      });
+      t.later(5 * MINUTE);
+    }
+    expect(t.service.state.events?.list[0]).toMatchObject({ status: "live", ticks: 7 });
+    // The next boot's own catch-up ends it before the social layer is listening.
+    const hosting = { events: 1, guests: 1, people: 0, agents: 1 };
+    const next = await start({ store, sql, at: noon + 2 * HOUR });
+    expect(next.service.state.events?.list[0]).toMatchObject({
+      status: "ended",
+      attended: [bob.id],
+    });
+    const profile = async (s: T) =>
+      (await s.call("GET", `/v1/residents/${ada.id}`)).body.resident.hosting;
+    expect(await profile(next)).toEqual(hosting);
+    // A boot after that finds it recorded, and counts it once.
+    expect(await profile(await start({ store, sql, at: noon + 3 * HOUR }))).toEqual(hosting);
   });
 
   it("answers join_event from a guest already there without logging anything", async () => {

@@ -572,18 +572,29 @@ export class Api {
       // Appreciation coins (decision 0055): counted from reactions, logged once a day by `tick`.
       this.service.dailyAwards = (day) => layer.karma.awards(day);
       // Hosted events (RFC 0010): the town's events name townsfolk by handle, and each event that
-      // ends leaves its host's record, with who counted decided out here (ages, blocks).
+      // ends leaves its host's record, with who counted decided out here (ages on the day it
+      // ended, blocks).
       this.service.residentByHandle = (handle) => layer.residentIdByHandle(handle);
-      this.service.onEventEnded = (event, day) =>
+      const recordEnded = (event: HostedEvent, day: number) =>
         layer.events.recordEnded(
           event,
           day,
           countGuests(this.service.state, event, {
-            ageDays: (id) => this.service.residentAgeDays(id),
+            ageDays: (id) => this.service.residentAgeDays(id, day),
             blockedEither: (a, b) => layer.blockedEither(a, b),
             hostsToday: (guest) => layer.events.hostsCounted(guest, day),
           }),
         );
+      this.service.onEventEnded = recordEnded;
+      // The boot's own catch-up can end events before this hook is set, and a crash can come
+      // between the world's commit and the record: record each ended event that has none.
+      for (const e of layer.events.unrecorded(this.service.state)) {
+        try {
+          recordEnded(e, e.closedDay ?? 0);
+        } catch (err) {
+          report(err, "world.event_ended");
+        }
+      }
       this.service.syncOwnerPairs(layer.ownerPairs());
       // Partner wear (RFC 0007 phase 3): logged as each link changes, and caught up on a timer so
       // promos start and end on the server's clock. At boot, everything at once.

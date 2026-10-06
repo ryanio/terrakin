@@ -946,10 +946,13 @@ export class WorldService {
     return { removed: [...new Set([piece, ...removed])] };
   }
 
-  /** Whole UTC days since a resident first joined. Residents from before days were counted are old. */
-  residentAgeDays(residentId: string): number {
+  /**
+   * Whole UTC days since a resident first joined, as of today or as of `onDay`. Residents from
+   * before days were counted are old.
+   */
+  residentAgeDays(residentId: string, onDay = utcDay(this.now())): number {
     const joined = this.facts.joinedDay.get(residentId);
-    return joined === undefined ? 0 : utcDay(this.now()) - joined;
+    return joined === undefined ? 0 : onDay - joined;
   }
 
   // ---------- identity ----------

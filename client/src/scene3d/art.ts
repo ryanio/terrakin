@@ -12,6 +12,7 @@
  *
  * Loaded only through `import()` (decision 0013): nothing in the main bundle imports this file.
  */
+import type { Holiday } from "@terrakin/sim";
 import { BRAND_HEX } from "@terrakin/ui/brand";
 import { reducedMotion } from "@terrakin/ui/motion";
 import {
@@ -114,6 +115,11 @@ export interface Stage {
    * 0.5 dusk, 0.75 midnight), or full day without one. Cheap to call every frame.
    */
   timeOfDay(phase: number | undefined): void;
+  /**
+   * Tint the evenings for a holiday that has its own (RFC 0022: Halloween), from the world's day,
+   * or none. Cheap to call every frame.
+   */
+  holiday(holiday: Holiday | undefined): void;
   /** The light now, for this time of day and this weather (`lightAt`). */
   lightNow(): Readonly<StageLight>;
   /** Make something glow after dark, from now until the function this returns is called. */
@@ -234,6 +240,8 @@ export function createStage(host: HTMLElement, options: StageOptions = {}): Stag
   // ---- the time of day and the weather light the stage together (`lightAt`) ----
   let phase: number | undefined;
   let weather: SkyAmounts = CLEAR;
+  /** A holiday with evenings of its own, tinting the light (RFC 0022). */
+  let festive: Holiday | undefined;
   let light = day;
   let lightSeen = "";
   /** What glows after dark, each with its own flicker so no two lamps waver together. */
@@ -256,7 +264,7 @@ export function createStage(host: HTMLElement, options: StageOptions = {}): Stag
     for (const [g, seed] of glowing) shine(g, time === undefined ? 1 : flicker(time, seed));
   };
   const relight = () => {
-    const key = `${phase === undefined ? "day" : phase.toFixed(3)}|${[
+    const key = `${phase === undefined ? "day" : phase.toFixed(3)}|${festive ?? ""}|${[
       weather.cloud,
       weather.rain,
       weather.snow,
@@ -266,7 +274,7 @@ export function createStage(host: HTMLElement, options: StageOptions = {}): Stag
       .join()}`;
     if (key === lightSeen) return;
     lightSeen = key;
-    light = lightAt(phase, weather);
+    light = lightAt(phase, weather, festive);
     sun.color.set(light.sun.color);
     sun.intensity = light.sun.intensity;
     hemi.color.set(light.hemi.sky);
@@ -469,6 +477,11 @@ export function createStage(host: HTMLElement, options: StageOptions = {}): Stag
     },
     timeOfDay(at) {
       phase = at;
+      relight();
+    },
+    holiday(h) {
+      if (h === festive) return;
+      festive = h;
       relight();
     },
     lightNow() {

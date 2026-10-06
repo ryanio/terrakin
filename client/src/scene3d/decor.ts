@@ -1,16 +1,20 @@
 /**
  * The town shop's decor in 3D (RFC 0008): a paper lantern on a shepherd's hook, a picture on an
- * easel, a white fence post whose rails reach the fences beside it, a garden bench, and autumn's
- * hay bale and scarecrow (RFC 0017). Each model is a few merged, shade-baked parts, so a plot full
- * of fence posts is one instanced draw per part (decision 0030). After dark a lantern's shade is
- * lit from inside and a pool of light lies under it (decision 0098), never a light of its own.
+ * easel, a white fence post whose rails reach the fences beside it, a garden bench, autumn's hay
+ * bale and scarecrow (RFC 0017), and Halloween's bat bunting, cauldron, and candy bowl (RFC 0022).
+ * Each model is a few merged, shade-baked parts, so a plot full of fence posts is one instanced draw
+ * per part (decision 0030). After dark a lantern's shade and a cauldron's brew are lit from inside
+ * and a pool of light lies under each (decision 0098), never a light of its own.
  */
 import type { DecorKind } from "@terrakin/sim";
 import { WOOD_DARK as WOOD_BRAND } from "@terrakin/ui/brand";
+import { BAT_POINTS, HALLOWEEN_HEX } from "@terrakin/ui/looks";
 import {
   type BufferGeometry,
+  CircleGeometry,
   ConeGeometry,
   CylinderGeometry,
+  DoubleSide,
   Group,
   InstancedMesh,
   type Material,
@@ -20,8 +24,11 @@ import {
   type Object3D,
   PlaneGeometry,
   Quaternion,
+  Shape,
+  ShapeGeometry,
   SphereGeometry,
   type Texture,
+  TorusGeometry,
   Vector3,
 } from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
@@ -269,12 +276,177 @@ function scarecrowParts(grain: Texture): Part[] {
   ];
 }
 
+// ---------- Halloween's decor (RFC 0022) ----------
+
+/** A flat shape from points, both sides drawn, in the x-y plane facing +z. */
+function flat(points: readonly (readonly [number, number])[]): BufferGeometry {
+  const shape = new Shape();
+  points.forEach(([x, y], i) => {
+    if (i === 0) shape.moveTo(x, y);
+    else shape.lineTo(x, y);
+  });
+  return new ShapeGeometry(shape).toNonIndexed();
+}
+
+/** Where the bunting's string hangs at `t` along it, 0 at the west post and 1 at the east. */
+const string = (t: number): [number, number] => [-0.42 + 0.84 * t, 0.95 - 0.68 * t * (1 - t)];
+
+/** Two little posts with a string of paper bats and orange pennants between them. */
+function batBuntingParts(grain: Texture): Part[] {
+  const posts = merged([
+    box(0.06, 1.0, 0.06, [-0.42, 0.5, 0], [0, 0, 0], 0.02),
+    box(0.06, 1.0, 0.06, [0.42, 0.5, 0], [0, 0, 0], 0.02),
+    box(0.12, 0.04, 0.12, [-0.42, 0.02, 0]),
+    box(0.12, 0.04, 0.12, [0.42, 0.02, 0]),
+  ]);
+  // The string sags in the middle: two lengths meeting there.
+  const [mx, my] = string(0.5);
+  const half = Math.hypot(mx + 0.42, 0.95 - my);
+  const sag = Math.atan2(0.95 - my, mx + 0.42);
+  const line = merged(
+    [
+      box(half, 0.015, 0.015, [(-0.42 + mx) / 2, (0.95 + my) / 2, 0], [0, 0, -sag], 0.005),
+      box(half, 0.015, 0.015, [(0.42 + mx) / 2, (0.95 + my) / 2, 0], [0, 0, sag], 0.005),
+    ],
+    0.9,
+  );
+  const bat = (t: number) => {
+    const [x, y] = string(t);
+    const span = 0.27;
+    return flat(
+      BAT_POINTS.map(([bx, by]): [number, number] => [
+        x + bx * span * 0.5,
+        y - 0.08 - by * span * 0.5,
+      ]),
+    );
+  };
+  const pennant = (t: number) => {
+    const [x, y] = string(t);
+    return flat([
+      [x - 0.06, y],
+      [x + 0.06, y],
+      [x, y - 0.14],
+    ]);
+  };
+  const sided = (color: number) => paper(color, grain, { side: DoubleSide });
+  return [
+    { geometry: posts, material: paper(WOOD_DARK, grain), cast: true },
+    { geometry: line, material: paper(hex("#5a4f60"), grain), cast: false },
+    {
+      geometry: noShade(mergeGeometries([bat(0.2), bat(0.5), bat(0.8)])),
+      material: sided(hex(HALLOWEEN_HEX.bat)),
+      cast: true,
+    },
+    {
+      geometry: noShade(mergeGeometries([pennant(0.35), pennant(0.65)])),
+      material: sided(hex(HALLOWEEN_HEX.witchBand)),
+      cast: false,
+    },
+  ];
+}
+
+/**
+ * An iron cauldron on three feet with a green brew in it and bubbles rising. The brew is lit a
+ * little by day and glows after dark, with a pool of light under it from its look's `glow` mark.
+ */
+function cauldronParts(stage: Stage, grain: Texture): Part[] {
+  const r = 0.33;
+  const cy = 0.38;
+  // The pot: a sphere open from its rim down.
+  const potGeo = new SphereGeometry(r, 18, 12, 0, Math.PI * 2, Math.PI * 0.35, Math.PI * 0.65);
+  potGeo.translate(0, cy, 0);
+  const rimY = cy + r * Math.cos(Math.PI * 0.35);
+  const rimR = r * Math.sin(Math.PI * 0.35);
+  const rim = new TorusGeometry(rimR, 0.035, 8, 24);
+  rim.rotateX(Math.PI / 2);
+  rim.translate(0, rimY, 0);
+  const feet = [0, 1, 2].map((i) => {
+    const a = (i / 3) * Math.PI * 2 + Math.PI / 2;
+    return box(0.07, 0.14, 0.07, [Math.cos(a) * 0.19, 0.07, Math.sin(a) * 0.19], [0, 0, 0], 0.02);
+  });
+  const iron = merged([potGeo.toNonIndexed(), rim.toNonIndexed(), ...feet], 0.6);
+  const brewColor = hex(HALLOWEEN_HEX.brew);
+  const brew = new MeshLambertMaterial({
+    color: brewColor,
+    emissive: brewColor,
+    flatShading: true,
+  });
+  stage.glow({ kind: "lamp", material: brew, day: 0.25, night: 0.95, flicker: true });
+  const surface = new CircleGeometry(rimR - 0.02, 20);
+  surface.rotateX(-Math.PI / 2);
+  surface.translate(0, rimY - 0.03, 0);
+  const bubbles = [
+    [0.08, 0.06, 0.05],
+    [-0.1, 0.12, -0.04],
+    [0.02, 0.2, 0.03],
+  ].map(([x, dy, z], i) => {
+    const b = new SphereGeometry(0.04 - i * 0.008, 8, 6);
+    b.translate(x as number, rimY + (dy as number), z as number);
+    return b.toNonIndexed();
+  });
+  return [
+    { geometry: iron, material: paper(hex(HALLOWEEN_HEX.iron), grain), cast: true },
+    { geometry: noShade(surface.toNonIndexed()), material: brew, cast: false },
+    {
+      geometry: noShade(mergeGeometries(bubbles)),
+      material: paper(hex(HALLOWEEN_HEX.brewLight), grain),
+      cast: false,
+    },
+  ];
+}
+
+/** An orange bowl on a short stand, heaped with wrapped candy in four colors. */
+function candyBowlParts(grain: Texture): Part[] {
+  const r = 0.29;
+  const cy = 0.5;
+  const bowl = new SphereGeometry(r, 18, 10, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2);
+  bowl.translate(0, cy, 0);
+  const stand = merged([
+    new CylinderGeometry(0.07, 0.12, 0.24, 12).translate(0, 0.12, 0).toNonIndexed(),
+    new CylinderGeometry(0.16, 0.16, 0.03, 14).translate(0, 0.015, 0).toNonIndexed(),
+  ]);
+  // Candy heaped over the rim, in rings, each color its own part.
+  const spots: [number, number, number][] = [
+    [0, 0.6, 0],
+    [0.14, 0.55, 0.06],
+    [-0.12, 0.55, 0.1],
+    [0.05, 0.55, -0.15],
+    [-0.15, 0.53, -0.08],
+    [0.18, 0.52, -0.09],
+    [-0.02, 0.54, 0.18],
+    [0.11, 0.6, -0.04],
+  ];
+  const candy = HALLOWEEN_HEX.candy;
+  const sweets = candy.slice(0, 4).map((color, c) => {
+    const pieces = spots
+      .filter((_, i) => i % 4 === c)
+      .map(([x, y, z]) => new SphereGeometry(0.065, 8, 6).translate(x, y, z).toNonIndexed());
+    return {
+      geometry: noShade(mergeGeometries(pieces)),
+      material: paper(hex(color), grain),
+      cast: false,
+    };
+  });
+  return [
+    {
+      geometry: noShade(bowl.toNonIndexed()),
+      material: paper(blockLook("candy_bowl").color, grain, { side: DoubleSide }),
+      cast: true,
+    },
+    { geometry: stand, material: paper(hex(HALLOWEEN_HEX.pumpkinRib), grain), cast: true },
+    ...sweets,
+  ];
+}
+
 function partsOf(stage: Stage, kind: DecorKind, grain: Texture): Part[] {
   if (kind === "lantern") return lanternParts(stage, grain);
   if (kind === "frame") return frameParts(stage, grain);
   if (kind === "fence") return fenceParts(grain);
   if (kind === "hay_bale") return hayBaleParts(grain);
   if (kind === "scarecrow") return scarecrowParts(grain);
+  if (kind === "bat_bunting") return batBuntingParts(grain);
+  if (kind === "cauldron") return cauldronParts(stage, grain);
+  if (kind === "candy_bowl") return candyBowlParts(grain);
   return benchParts(grain);
 }
 

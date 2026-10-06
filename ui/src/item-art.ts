@@ -27,7 +27,7 @@ import {
 } from "@terrakin/sim";
 
 import { BRAND_HEX, WOOD_DARK } from "./brand";
-import { mediaUrlOf, RESIDENT_COLOR_HEX } from "./looks";
+import { batPath, HALLOWEEN_HEX, mediaUrlOf, RESIDENT_COLOR_HEX } from "./looks";
 
 /** Anything `itemArt` can draw: an item kind or a piece of wear. */
 export type ArtKind = ItemKind | WearItem;
@@ -1505,6 +1505,176 @@ function sneakers(): ArtShape[] {
   ];
 }
 
+// ---------- Halloween (RFC 0022) ----------
+
+const H = HALLOWEEN_HEX;
+
+/** A witch hat: a tall felt cone with a crooked tip over a wide brim, banded, with a buckle. */
+function witchHat(): ArtShape[] {
+  const edge = out({ stroke: "#221a30" });
+  return [
+    shadow(16, 42),
+    ellipse(24, 36, 19.5, 5, H.witch, edge),
+    path(
+      "M14.5 35c1.5-9 4.5-18 7.5-24 2-4 5-6 9.5-6.5-1.5 2-2.5 4.5-2 7.5 1 8 3 16 4.5 23-6.5 2-13 2-19.5 0z",
+      H.witch,
+      edge,
+    ),
+    path("M15.4 30c5.9 1.8 12.3 1.8 17.6 0l.6 4.2c-6 1.9-12.6 1.9-18.8 0z", H.witchBand, out()),
+    rect(21.6, 30.4, 5.2, 4.6, 0.8, "none", { stroke: H.buckle, "stroke-width": 1.3 }),
+    line("M19.6 27c1.4-6.5 3.4-12 6-16", "#ffffff", 1.2, { opacity: 0.22 }),
+  ];
+}
+
+/** Cat ears on a headband: two pointed ears with pink insides. */
+function catEars(): ArtShape[] {
+  return [
+    shadow(13, 40),
+    line("M9.5 36c0-12 6.5-20 14.5-20s14.5 8 14.5 20", H.catEars, 3.4),
+    path("M12 25 12.5 7 21.5 17z", H.catEars, out()),
+    path("M14.2 21.5 14.6 11.5 19.4 17z", H.catInner),
+    path("M36 25 35.5 7 26.5 17z", H.catEars, out()),
+    path("M33.8 21.5 33.4 11.5 28.6 17z", H.catInner),
+    line("M15 30c1-5 4-9.5 8-11", "#ffffff", 1, { opacity: 0.25 }),
+  ];
+}
+
+/** A pumpkin to wear over your head: a carved, candle-lit face, a stem, and room for a neck. */
+function pumpkinHead(): ArtShape[] {
+  const cut = out({ stroke: H.carved, "stroke-width": 0.9 });
+  return [
+    shadow(15),
+    ellipse(15.5, 28, 9, 11, H.pumpkin, out()),
+    ellipse(32.5, 28, 9, 11, H.pumpkin, out()),
+    ellipse(24, 28, 10.5, 12.5, H.pumpkin, out()),
+    line("M19.5 18.5c-1.4 5-1.4 14 0 19M28.5 18.5c1.4 5 1.4 14 0 19", H.pumpkinRib, 1.1, {
+      opacity: 0.5,
+    }),
+    path("M22.6 16.5c-.4-3 .3-5.8 2.2-7.6l2.2 1.1c-1.6 1.7-2.1 3.9-1.8 6.5z", H.pumpkinStem, out()),
+    path("M16.2 26.5 19.4 21l3.2 5.5z", H.lit, cut),
+    path("M25.4 26.5 28.6 21l3.2 5.5z", H.lit, cut),
+    path("M22.6 30.2 24 28l1.4 2.2z", H.lit, cut),
+    path("M15.5 32c3 5 14 5 17 0l-2.4 1-1.6 2-2-1.6-2.5 1.9-2.5-1.9-2 1.6-1.6-2z", H.lit, cut),
+    ellipse(24, 39.6, 5.5, 1.4, H.carved, { opacity: 0.55 }),
+  ];
+}
+
+/** A ghost sheet: a white sheet with eye holes and a wavy hem. */
+function ghostSheet(): ArtShape[] {
+  return [
+    shadow(15, 43),
+    path("M10 40C10 24 12 7.5 24 7.5S38 24 38 40q-3.5 4-7 0t-7 0-7 0-7 0z", H.sheet, out()),
+    line("M17 23c-1 6-.5 11 .8 15.5M31 23c1 6 .5 11-.8 15.5", H.sheetShade, 1.3),
+    ellipse(19.5, 19, 2.5, 3.4, INK),
+    ellipse(28.5, 19, 2.5, 3.4, INK),
+    shine(18, 12.5, 4, 1.8),
+  ];
+}
+
+/** Bat wings: two scalloped wings spread from a strap across the back. */
+function batWings(): ArtShape[] {
+  const wing =
+    "M24 17C18 12 10 10 3.5 12c2 4 2.2 8.5.5 13 3.2-1 6 0 7.2 3 2-2 5-1.4 6.2 1.8 2-1.8 4.6-1.4 6.6 1.2z";
+  const ribs = "M24 18 11 27.6M24 18 17.4 29.4M24 18 5.5 13.5";
+  const mirror = "translate(48 0) scale(-1 1)";
+  return [
+    shadow(18, 41),
+    path(wing, H.bat, out()),
+    group(mirror, [path(wing, H.bat, out())]),
+    line(ribs, H.batInner, 1),
+    group(mirror, [line(ribs, H.batInner, 1)]),
+    rect(21.5, 15.5, 5, 16, 2.5, H.batInner, out({ "stroke-width": 1 })),
+  ];
+}
+
+/** Candy: a wrapped sweet with an orange swirl, and a candy corn in front of it. */
+function candy(): ArtShape[] {
+  const [orange, plum] = H.candy;
+  return [
+    shadow(15, 41),
+    path("M12.5 22 4.5 16l1.6 6-1.6 6z", plum, out()),
+    path("M35.5 22l8-6-1.6 6 1.6 6z", plum, out()),
+    circle(24, 22, 11.5, orange, out()),
+    path("M16.5 22a7.5 7.5 0 0 1 15 0 5.5 5.5 0 0 1-11 0 3.5 3.5 0 0 1 7 0", "none", {
+      stroke: PAPER,
+      "stroke-width": 2,
+      "stroke-linecap": "round",
+    }),
+    shine(19, 16.5, 3.4, 1.5),
+    path("M13 41.5 17.5 28l4.5 13.5c-3 .9-6 .9-9 0z", PAPER, out()),
+    path("M14.2 38c2.2.7 4.4.7 6.6 0l1.2 3.5c-3 .9-6 .9-9 0z", SUN),
+    path("M15.4 34.4c1.4.4 2.8.4 4.2 0l1.2 3.6c-2.2.7-4.4.7-6.6 0z", orange),
+  ];
+}
+
+/** Bat bunting: paper bats and orange pennants on a string between two little posts. */
+function batBunting(): ArtShape[] {
+  const at = (t: number) => ({ x: 7 + 34 * t, y: 15 + 30 * t * (1 - t) });
+  const pennant = (t: number) => {
+    const { x, y } = at(t);
+    return path(`M${x - 3} ${y - 0.4}h6l-3 7z`, H.witchBand, out({ "stroke-width": 1 }));
+  };
+  const bat = (t: number) => {
+    const { x, y } = at(t);
+    return path(batPath(x, y + 3.6, 12), H.bat, out({ "stroke-width": 0.9 }));
+  };
+  return [
+    shadow(20, 43),
+    line("M7 14v28M41 14v28", WOOD_DARK, 2.4),
+    circle(7, 13.5, 1.9, WOOD_DARK),
+    circle(41, 13.5, 1.9, WOOD_DARK),
+    line("M7 15q17 15 34 0", LINE, 1),
+    pennant(0.375),
+    pennant(0.625),
+    bat(0.22),
+    bat(0.5),
+    bat(0.78),
+  ];
+}
+
+/** A cauldron on three feet, a green brew glowing in it, bubbles rising. */
+function cauldron(): ArtShape[] {
+  const iron = out({ stroke: "#26252b" });
+  return [
+    shadow(16, 43),
+    circle(24, 18, 14, H.brew, { opacity: 0.18 }),
+    rect(12, 35.5, 3.2, 6.5, 1.2, H.iron, iron),
+    rect(32.8, 35.5, 3.2, 6.5, 1.2, H.iron, iron),
+    rect(22.4, 37.5, 3.2, 5.5, 1.2, H.iron, iron),
+    path("M8 22c0 12 7 18.5 16 18.5S40 34 40 22z", H.iron, iron),
+    ellipse(24, 22, 17.5, 4.6, H.ironRim, iron),
+    ellipse(24, 22, 14.5, 3.1, H.brew, out({ "stroke-width": 1 })),
+    circle(18.5, 16.5, 2.4, H.brewLight, out({ "stroke-width": 0.8 })),
+    circle(27.5, 13, 1.8, H.brewLight, out({ "stroke-width": 0.8 })),
+    circle(31.5, 19, 1.4, H.brewLight, out({ "stroke-width": 0.8 })),
+    line("M12 27c1 5 3.5 9 7 11", "#ffffff", 1.4, { opacity: 0.18 }),
+  ];
+}
+
+/** A candy bowl: an orange bowl on a foot, heaped with wrapped candy. */
+function candyBowl(): ArtShape[] {
+  const [orange, plum, rose, mint, yellow] = H.candy;
+  const bowl = BLOCK_COLORS.candy_bowl;
+  const sweet = (cx: number, cy: number, r: number, fill: string) =>
+    circle(cx, cy, r, fill, out({ "stroke-width": 1 }));
+  return [
+    shadow(16, 43),
+    path("M18.5 41.5h11l-2-5.5h-7z", H.pumpkinRib, out()),
+    sweet(16.5, 22.5, 4.2, rose),
+    sweet(31.5, 22.5, 4.2, plum),
+    sweet(24, 19.5, 4.6, yellow),
+    sweet(20, 25.5, 3.8, mint),
+    sweet(28, 25.5, 3.8, orange),
+    path("M11 18.5l-2.4-1.6.4 3z", plum, out({ "stroke-width": 0.8 })),
+    path("M36.5 18.5l2.4-1.6-.4 3z", rose, out({ "stroke-width": 0.8 })),
+    path("M6 25.5h36c0 8-8 12.5-18 12.5S6 33.5 6 25.5z", bowl, out()),
+    path("M7.5 30h33c-1 1.4-2.2 2.6-3.6 3.6h-25.8c-1.4-1-2.6-2.2-3.6-3.6z", plum, {
+      opacity: 0.85,
+    }),
+    line("M9 26.4h30", "#ffffff", 1, { opacity: 0.4 }),
+  ];
+}
+
 // ---------- the catalog ----------
 
 /**
@@ -1556,6 +1726,10 @@ const DRAWN: Readonly<Partial<Record<ItemKind, () => ArtShape[]>>> = {
   four_leaf_clover: fourLeafClover,
   maple_leaf: mapleLeaf,
   cherry_blossom: cherryBlossom,
+  candy,
+  bat_bunting: batBunting,
+  cauldron,
+  candy_bowl: candyBowl,
 };
 
 /** Every piece of wear's drawing. */
@@ -1584,6 +1758,11 @@ const WEAR_ART: Readonly<Record<WearItem, () => ArtShape[]>> = {
   socks,
   boots,
   sneakers,
+  witch_hat: witchHat,
+  cat_ears: catEars,
+  pumpkin_head: pumpkinHead,
+  ghost_sheet: ghostSheet,
+  bat_wings: batWings,
 };
 
 /** An item's picture from its look in the catalog, or its own drawing. */

@@ -139,6 +139,16 @@ const BLOCK_LOOKS: Record<BlockKind, BlockLook> = {
     form: "furniture",
     glow: { pool: 1.8, at: [0, 0.2] },
   },
+  // Halloween's decor (RFC 0022), modelled in decor.ts. The cauldron's brew glows after dark.
+  bat_bunting: { color: hex(BLOCK_COLORS.bat_bunting), height: 1.05, opacity: 1, form: "decor" },
+  cauldron: {
+    color: hex(BLOCK_COLORS.cauldron),
+    height: 0.62,
+    opacity: 1,
+    form: "decor",
+    glow: { pool: 1.6 },
+  },
+  candy_bowl: { color: hex(BLOCK_COLORS.candy_bowl), height: 0.6, opacity: 1, form: "decor" },
 };
 
 export function blockLook(block: BlockKind): BlockLook {

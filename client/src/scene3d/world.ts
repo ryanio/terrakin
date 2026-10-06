@@ -11,6 +11,7 @@
 
 import {
   groundTile,
+  holidayOf,
   isFindKind,
   isResourceKind,
   OUTSIDE_GROUND,
@@ -1146,7 +1147,9 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
         moved = true;
       }
       placeReach(mirror, self, buildMode);
-      // The map's time of day, then the weather on top of it (decision 0098).
+      // The map's time of day, then the weather on top of it (decision 0098), with a holiday's
+      // evenings tinted (RFC 0022).
+      stage.holiday(mirror.day === undefined ? undefined : holidayOf(mirror.day));
       stage.timeOfDay(dayPhase);
       weather.set(sky ?? CLEAR);
       const up = (sky?.rain ?? 0) >= UMBRELLA_RAIN;

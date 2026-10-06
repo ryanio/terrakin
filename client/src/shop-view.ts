@@ -10,6 +10,7 @@ import type {
   ShopItemView,
   ShopResponse,
 } from "@terrakin/protocol";
+import { dayName, HOLIDAY_INFO } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
 import { itemArt } from "@terrakin/ui/item-art";
 import { personLink } from "@terrakin/ui/people";
@@ -68,6 +69,22 @@ function seasonTag(season: Season): HTMLElement {
   return kindPill(seasonWords(season), "sun", "shop-season");
 }
 
+type Holiday = NonNullable<ShopItemView["holiday"]>;
+
+/**
+ * The small "Halloween" tag on holiday stock (RFC 0022). The server lists it only while its
+ * holiday runs. A holiday this client doesn't know yet is still tagged, by its id.
+ */
+function holidayTag(holiday: Holiday): HTMLElement {
+  const name = Object.hasOwn(HOLIDAY_INFO, holiday) ? HOLIDAY_INFO[holiday].name : holiday;
+  return kindPill(name, "moss", "shop-holiday");
+}
+
+/** What the holiday shelf says: when its stock goes, and that what you buy stays yours. Pure. */
+export function holidayHint(lastDay: number): string {
+  return `Sold until ${dayName(lastDay)} (UTC). Costumes and decor are yours for good, and a kitchen makes candy any day.`;
+}
+
 /** How many of a kind you hold: a stack's count, or how many made things of that kind. */
 function heldOf(inv: InventoryResponse["inventory"], kind: string): number {
   if (!inv) return 0;
@@ -106,7 +123,7 @@ export function shopView(ctx: ViewContext): View {
       "li",
       { class: "paper shop-item", attrs: { "data-sku": item.sku } },
       itemArt(item.sku, { size: 56 }),
-      item.season ? seasonTag(item.season) : null,
+      item.season ? seasonTag(item.season) : item.holiday ? holidayTag(item.holiday) : null,
       h("span", { class: "shop-item-name", text: item.name }),
       h("span", {
         class: "shop-item-meta",
@@ -213,18 +230,49 @@ export function shopView(ctx: ViewContext): View {
           ".",
         ),
       ),
+      // A holiday's stock on a shelf of its own, first, while it runs (RFC 0022).
+      ...(shop.holiday
+        ? [
+            shelf(
+              "holiday",
+              `For ${Object.hasOwn(HOLIDAY_INFO, shop.holiday.id) ? HOLIDAY_INFO[shop.holiday.id].name : shop.holiday.id}`,
+              holidayHint(shop.holiday.lastDay),
+              shop.items.filter((i) => i.holiday),
+              data,
+              inv,
+            ),
+          ]
+        : []),
       ...SHELVES.map(({ section, title, hint }) =>
-        h(
-          "section",
-          { class: "stack shop-section", attrs: { "aria-labelledby": `shop-${section}-title` } },
-          h("h2", { class: "section-title", attrs: { id: `shop-${section}-title` }, text: title }),
-          h("p", { class: "purse-hint", text: hint }),
-          h(
-            "ul",
-            { class: "stack plain-list shop-shelf" },
-            ...shop.items.filter((i) => i.section === section).map((i) => shelfItem(i, data, inv)),
-          ),
+        shelf(
+          section,
+          title,
+          hint,
+          shop.items.filter((i) => i.section === section && !i.holiday),
+          data,
+          inv,
         ),
+      ),
+    );
+  }
+
+  function shelf(
+    id: string,
+    title: string,
+    hint: string,
+    items: ShopItemView[],
+    data: ShopResponse,
+    inv: InventoryResponse | null,
+  ) {
+    return h(
+      "section",
+      { class: "stack shop-section", attrs: { "aria-labelledby": `shop-${id}-title` } },
+      h("h2", { class: "section-title", attrs: { id: `shop-${id}-title` }, text: title }),
+      h("p", { class: "purse-hint", text: hint }),
+      h(
+        "ul",
+        { class: "stack plain-list shop-shelf" },
+        ...items.map((i) => shelfItem(i, data, inv)),
       ),
     );
   }

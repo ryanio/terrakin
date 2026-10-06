@@ -5,7 +5,7 @@
  * dark together, and the weather greys it all the way it always has (decision 0073). Plain numbers
  * and no three.js, so tests pin them.
  */
-import type { BlockKind } from "@terrakin/sim";
+import type { BlockKind, Holiday } from "@terrakin/sim";
 import { nightAmount } from "../time";
 import type { SkyAmounts } from "../weather";
 import { blockLook, mix, OVERCAST, SKY } from "./palette";
@@ -141,8 +141,15 @@ export interface StageLight {
 }
 
 /**
+ * Halloween's evenings (RFC 0022): a pumpkin glow low on the horizon through dusk, and a sky that
+ * deepens to violet overhead as night falls. Presentation only, from the world's day.
+ */
+const HALLOWEEN_SKY = { horizon: 0xe58a52, top: 0x4a2a6a, fill: 0xa06ad0 } as const;
+
+/**
  * The light at a moment of the day (`phase`, the map's: 0 dawn, 0.25 noon, 0.5 dusk, 0.75
- * midnight) in some weather. Without a phase (a server with no clock, or the gallery), it's full day.
+ * midnight) in some weather, tinted for a `holiday` that has evenings of its own (Halloween). Without
+ * a phase (a server with no clock, or the gallery), it's full day.
  *
  * Darkness follows the map's `nightAmount`: day eases into dusk (or dawn) as it reaches one half,
  * and dusk into night as it reaches one, each with an S-curve. Dusk and dawn trade places at noon
@@ -150,7 +157,11 @@ export interface StageLight {
  * dims the sun and greys the sky, fog pales the haze and pulls it in, rain and snow pull it in a
  * little (decision 0073).
  */
-export function lightAt(phase: number | undefined, weather: SkyAmounts): StageLight {
+export function lightAt(
+  phase: number | undefined,
+  weather: SkyAmounts,
+  holiday?: Holiday,
+): StageLight {
   const night = phase === undefined ? 0 : nightAmount(phase);
   // Between noon and midnight the twilight is dusk; between midnight and noon, dawn.
   const p = phase === undefined ? 0.25 : ((phase % 1) + 1) % 1;
@@ -159,6 +170,16 @@ export function lightAt(phase: number | undefined, weather: SkyAmounts): StageLi
     night <= 0.5
       ? blend(DAY, twilight, smooth(0, 0.5, night))
       : blend(twilight, NIGHT, smooth(0.5, 1, night));
+  if (holiday === "halloween") {
+    // The pumpkin glow is the evening's, never the dawn's; the violet stays all night.
+    const evening = twilight === DUSK ? 1 : 0;
+    const dusk =
+      evening * Math.sin(Math.PI * Math.min(1, night)) * (1 - smooth(0.5, 1, night) * 0.5);
+    const deep = smooth(0.45, 1, night);
+    t.horizon = mix(t.horizon, HALLOWEEN_SKY.horizon, 0.38 * dusk);
+    t.top = mix(t.top, HALLOWEEN_SKY.top, 0.5 * deep);
+    t.fill = mix(t.fill, HALLOWEEN_SKY.fill, 0.35 * deep);
+  }
   const grey = Math.min(1, weather.cloud * 0.75 + weather.rain * 0.25);
   const mist = weather.fog;
   const tone = (clear: number, overcast: number) =>

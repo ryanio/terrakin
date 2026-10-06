@@ -4,8 +4,11 @@ import { act, advanceDay, overflowsSideways, read, settler, signIn, watchErrors 
 /**
  * The town shop (RFC 0008) on a phone: a resident grows herbs, waits for a day the town buys
  * them, sells them from /shop, and buys a lantern with what they have. A visitor sees the same
- * shop with a way to join. Then autumn's stock (RFC 0017): tagged and bought in autumn, and gone
- * from the shelves once autumn ends. Moves its server's clock on, by months if it has to.
+ * shop with a way to join. Then autumn's stock (RFC 0017): tagged and bought in autumn. Then
+ * Halloween (RFC 0022): a newcomer buys a costume from the Halloween shelf on October 31, knocks
+ * at the first resident's door from the card on her plot, and she hears about it. Last, autumn's
+ * stock is gone from the shelves once autumn ends. Moves its server's clock on, by months if it has
+ * to.
  */
 
 const DAY_MS = 86_400_000;
@@ -22,6 +25,13 @@ function daysToAutumn(day: number): number {
 /** Days from an autumn world day to December 1, when winter starts. */
 const daysToWinter = (day: number) =>
   Date.UTC(new Date(day * DAY_MS).getUTCFullYear(), 11, 1) / DAY_MS - day;
+
+/** Days from world day `day` to the next October 31 (UTC), trick-or-treat night: 0 on it. */
+function daysToHalloweenNight(day: number): number {
+  const year = new Date(day * DAY_MS).getUTCFullYear();
+  const night = Date.UTC(year, 9, 31) / DAY_MS;
+  return night >= day ? night - day : Date.UTC(year + 1, 9, 31) / DAY_MS - day;
+}
 
 test("a visitor sees the shop; a resident sells herbs to the town and buys a lantern", async ({
   page,
@@ -110,7 +120,7 @@ test("a visitor sees the shop; a resident sells herbs to the town and buys a lan
   expect(await overflowsSideways(page)).toBe(false);
   await page.screenshot({ path: "test-results/shop-bought.png", fullPage: true });
 
-  await test.step("autumn's stock is tagged and sold in autumn, and gone once it ends", async () => {
+  await test.step("autumn's stock is tagged and sold in autumn", async () => {
     const shopDay = async () => (await read(page.request, hazel.token, "/v1/shop")).shop.day;
     // One jump each way, so the step takes as long in December as it does in October.
     const toAutumn = daysToAutumn(await shopDay());
@@ -124,7 +134,59 @@ test("a visitor sees the shop; a resident sells herbs to the town and buys a lan
     await expect(seeds).toContainText("You have 1");
     expect(await overflowsSideways(page)).toBe(false);
     await page.screenshot({ path: "test-results/shop-autumn.png", fullPage: true });
+  });
 
+  await test.step("Halloween: a costume from its shelf, and a knock at a neighbor's door on October 31", async () => {
+    const shopDay = async () => (await read(page.request, hazel.token, "/v1/shop")).shop.day;
+    const toNight = daysToHalloweenNight(await shopDay());
+    if (toNight > 0) await advanceDay(page.request, toNight);
+    // A newcomer's welcome gift and first allowance buy cat ears from the Halloween shelf.
+    const rowan = await settler(page.request, "Rowan");
+    await signIn(page, rowan);
+    await page.goto("/shop");
+    await expect(page.locator("#shop-holiday-title")).toHaveText("For Halloween");
+    const ears = page.locator('.shop-item[data-sku="cat_ears"]');
+    await expect(ears.locator(".shop-holiday")).toHaveText("Halloween");
+    await ears.getByRole("button", { name: /Buy for 40 coins/ }).click();
+    await expect(page.locator("#site-toast")).toContainText("You bought cat ears");
+    await expect(ears.getByRole("button")).toHaveText("Yours");
+    expect(await overflowsSideways(page)).toBe(false);
+    await page.screenshot({ path: "test-results/shop-halloween.png", fullPage: true });
+    expect((await act(page.request, rowan.token, { type: "profile", wear: ["cat_ears"] })).ok).toBe(
+      true,
+    );
+
+    // To Hazel's door, then Trick or treat from the card on her plot.
+    const world = await (await page.request.get("/v1/world")).json();
+    const door = world.plots.find((p: { ownerId: string }) => p.ownerId === hazel.id);
+    expect(
+      (await act(page.request, rowan.token, { type: "visit", px: door.px, py: door.py })).ok,
+    ).toBe(true);
+    await page.goto("/world");
+    const knock = page.locator("#visit-knock");
+    await expect(knock).toBeVisible();
+    await expect(knock).toHaveText("Trick or treat");
+    const box = await knock.boundingBox();
+    expect(box?.height).toBeGreaterThanOrEqual(36);
+    await knock.click();
+    await expect(page.locator("#toast")).toContainText("Trick or treat!");
+    await expect(knock).toHaveText("Knocked");
+    await expect(knock).toBeDisabled();
+    const things = (await read(page.request, rowan.token, "/v1/inventory")).inventory;
+    expect(things.stacks).toContainEqual({ kind: "candy", count: 1 });
+    await page.screenshot({ path: "test-results/trick-or-treat.png" });
+
+    // Hazel hears a trick-or-treater came by.
+    await signIn(page, hazel);
+    await page.goto("/notifications");
+    await expect(page.locator('.notif[data-type="trick_or_treat"]')).toContainText(
+      "Rowan came trick-or-treating at your door",
+    );
+    await page.screenshot({ path: "test-results/trick-or-treat-notice.png" });
+  });
+
+  await test.step("autumn's stock is gone once autumn ends", async () => {
+    const shopDay = async () => (await read(page.request, hazel.token, "/v1/shop")).shop.day;
     await advanceDay(page.request, daysToWinter(await shopDay()));
     await page.goto("/shop");
     await expect(page.locator('.shop-item[data-sku="lantern"]')).toBeVisible();

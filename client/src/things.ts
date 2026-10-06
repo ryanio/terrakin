@@ -14,12 +14,17 @@ import {
   type FurnitureKind,
   familyPath,
   type GoodKind,
+  HOLIDAY_INFO,
+  type Holiday,
   ITEM_INFO,
   type ItemKind,
   isFindKind,
   isFurnitureKind,
+  isSweetKind,
   OTHERS_PLOT_GATHER,
   RECIPES,
+  SWEET_RECIPES,
+  type SweetKind,
 } from "@terrakin/sim";
 import { coins } from "./purse";
 
@@ -80,6 +85,11 @@ export function seasonsLine(seasons: readonly string[]): string {
   return `In ${names}`;
 }
 
+/** When holiday stock turns up, for a book's silhouette: "At Halloween" (RFC 0022). */
+export function holidayLine(holiday: string): string {
+  return `At ${Object.hasOwn(HOLIDAY_INFO, holiday) ? HOLIDAY_INFO[holiday as Holiday].name : holiday}`;
+}
+
 /** How many of a stack kind are in a list of stacks: 0 when it's absent. */
 export const stackCount = (stacks: readonly { kind: string; count: number }[], kind: string) =>
   stacks.find((s) => s.kind === kind)?.count ?? 0;
@@ -91,8 +101,12 @@ export function thingCount(kind: ItemKind, n: number): string {
 }
 
 /** What a recipe uses, as one line: "3 lemons, 1 bag of sugar, 1 jar", or "3 wood" for a table. */
-export function needsLine(recipe: GoodKind | FurnitureKind): string {
-  const needs = isFurnitureKind(recipe) ? FURNITURE_RECIPES[recipe].needs : RECIPES[recipe].needs;
+export function needsLine(recipe: GoodKind | FurnitureKind | SweetKind): string {
+  const needs = isFurnitureKind(recipe)
+    ? FURNITURE_RECIPES[recipe].needs
+    : isSweetKind(recipe)
+      ? SWEET_RECIPES[recipe].needs
+      : RECIPES[recipe].needs;
   return Object.entries(needs)
     .map(([kind, n]) => thingCount(kind as ItemKind, n ?? 0))
     .join(", ");
@@ -152,12 +166,18 @@ export function inventoryLine(e: InventoryEvent): string | null {
       const made = e.gained?.[0];
       if (made?.kind === "piece") return "You made a piece of art.";
       if (made) return `You made ${thingName(made.kind).toLowerCase()}.`;
-      // Furniture stacks: it arrives as a change, not a made thing.
+      // Furniture and sweets stack: they arrive as a change, not a made thing.
       const piece = gained.find((c) => isFurnitureKind(c.kind));
-      return piece
-        ? `You made ${thingCount(piece.kind, piece.amount)}. Place it from Build, on the Furniture tab.`
-        : null;
+      if (piece) {
+        return `You made ${thingCount(piece.kind, piece.amount)}. Place it from Build, on the Furniture tab.`;
+      }
+      const sweet = gained.find((c) => isSweetKind(c.kind));
+      return sweet ? `You made ${thingCount(sweet.kind, sweet.amount)}.` : null;
     }
+    // Halloween night (RFC 0022): the knock itself says where the candy came from (`newsLine`).
+    case "trick_or_treat":
+    case "handed_out":
+      return null;
     case "gift_in": {
       const goods = e.gained ?? [];
       const what =
@@ -272,9 +292,30 @@ export function newsLine(event: WorldEvent, me: string): string | null {
     case "admired":
       if (event.by === me) return "You admired it. Its maker will be glad.";
       return event.maker === me ? "Someone admired something you made." : null;
+    case "trick_or_treated":
+      return knockLine(event, me);
     default:
       return null;
   }
+}
+
+/**
+ * A knock on Halloween night (RFC 0022) in plain words, for the knocker or whoever handed out the
+ * candy: where it came from, never a name. Null for anyone else.
+ */
+export function knockLine(
+  e: Pick<Extract<WorldEvent, { type: "trick_or_treated" }>, "by" | "from" | "giver">,
+  me: string,
+): string | null {
+  if (e.by === me) {
+    if (e.from === "resident") return "Trick or treat! Someone was home and gave you a candy.";
+    if (e.from === "bowl") return "Trick or treat! You took a candy from the bowl by the door.";
+    return "Trick or treat! Nobody had candy for you, so the town gave you one.";
+  }
+  if (e.giver !== me) return null;
+  return e.from === "bowl"
+    ? "A trick-or-treater took a candy from your bowl."
+    : "A trick-or-treater came by, and you gave them a candy.";
 }
 
 /** The line for having no plot, wherever the HUD needs it. */

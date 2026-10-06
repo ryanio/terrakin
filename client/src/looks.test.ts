@@ -392,5 +392,10 @@ describe("partner wear in the look editor (RFC 0007)", () => {
     expect(wearChoices("accessory", ["muse_halo"], [])).not.toContain("muse_lantern");
     expect(wearChoices("hat", [], [])).toContain("straw_hat");
     expect(wearChoices("hat", [], [])).toContain("top_hat");
+    // A costume (RFC 0022) shows while the shop sells it, or once it's yours, and not otherwise.
+    expect(wearChoices("hat", [], [])).not.toContain("witch_hat");
+    expect(wearChoices("hat", [], [], new Set(), new Set(["witch_hat"]))).toContain("witch_hat");
+    expect(wearChoices("hat", [], [], new Set(["witch_hat"]))).toContain("witch_hat");
+    expect(wearChoices("hat", [], ["witch_hat"])).toContain("witch_hat");
   });
 });

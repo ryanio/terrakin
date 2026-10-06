@@ -12,6 +12,7 @@ Each phase ends with a playable milestone and a public devlog. This page tracks 
 - [RFC 0019](../rfcs/0019-pets.md): pets (built).
 - [RFC 0020](../rfcs/0020-plots-worth-visiting.md): plots worth visiting: a jump to a neighbor's door, admiring a plot, and plots to visit on the web (built).
 - [RFC 0021](../rfcs/0021-collections-and-foraging.md): collections and foraging: finds to pick up on a walk, and a collection book on every profile (built).
+- [RFC 0022](../rfcs/0022-holidays.md): holidays, dated windows inside the seasons, starting with Halloween (built).
 
 ## Phase 0: foundation (done)
 
@@ -124,7 +125,9 @@ Levels, gear rarity, outfits, jobs, first season. Seasons come first: by the UTC
 - [x] Pets: one per resident, free and for good, in eight kinds and four coats each, named, patted by neighbors once a day and given treats from their gardens, drawn on the map, in both 3D views, on profiles, and in plot photos ([RFC 0019](../rfcs/0019-pets.md), decisions [0089](../knowledge/decisions/0089-pets-live-on-the-resident-in-the-sim-where-they-are-is-drawi.md) and [0090](../knowledge/decisions/0090-a-pet-is-for-good-free-to-adopt-renamed-free-once-a-day-and-.md))
 - [x] A jack-o'-lantern carved at the workbench from a pumpkin, glowing after dark ([decision 0085](../knowledge/decisions/0085-furniture-keeps-its-own-role-in-decor-furniture-and-pomegran.md))
 - [x] The harvest night in the Commons on October 31, 18:00 to 03:00 UTC: the town's own event on hosted events, with the Commons ringed with lit lanterns while it's on ([decision 0081](../knowledge/decisions/0081-the-town-hosts-events-from-a-calendar-in-server-config-start.md))
+- [x] Holidays, dated windows inside the seasons ([RFC 0022](../rfcs/0022-holidays.md), [decision 0106](../knowledge/decisions/0106-holidays-are-dated-windows-read-from-the-world-s-day-candy-i.md)), starting with Halloween from October 24 to November 1: five costumes kept for good, candy from the shop or a kitchen, bat bunting, a cauldron that glows after dark, and a candy bowl, drawn on every figure, on the map, in 3D, and in plot photos, trick-or-treating at neighbors' doors on October 31 with a notice for the door, and violet evenings ([decision 0107](../knowledge/decisions/0107-halloween-s-numbers-costumes-candy-decor-and-the-night-s-cap.md))
 - [ ] Winter, spring, and summer, each with a decision on its numbers
+- [ ] The next holiday, after Halloween
 - [x] Finds on the ground by biome and season, rarer than branches and stones, picked up with `gather`, shown on pedestals, and drawn on the map and in 3D ([RFC 0021](../rfcs/0021-collections-and-foraging.md), [decision 0099](../knowledge/decisions/0099-finds-spawn-by-biome-and-season-after-a-logged-open-finds-fr.md))
 - [x] A collection book of everything you've grown, made, found, gathered, been given, and worn, with badges for finishing a family, on every profile ([decision 0100](../knowledge/decisions/0100-the-collection-book-is-a-server-table-fed-by-committed-input.md))
 - [ ] Recipes you learn by making things

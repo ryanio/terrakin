@@ -13,6 +13,7 @@ import {
   HAIR_STYLES,
   type HairColor,
   type HairStyle,
+  isCostume,
   isExclusiveWear,
   isShopWear,
   PATTERN_LABELS,
@@ -71,17 +72,22 @@ export interface LookOwner {
 
 /**
  * The wear one slot offers: everything, except partner wear (RFC 0007) the resident may not put on
- * and isn't wearing. Partner wear can't be bought, so it is never shown locked.
+ * and isn't wearing, and a holiday's costumes (RFC 0022) they don't own while the shop isn't
+ * selling them. Partner wear can't be bought, so it is never shown locked. `owned` is the shop wear
+ * they own, and `onSale` what the shop sells today, both from the shop's answer.
  */
 export function wearChoices(
   slot: WearSlot,
   entitled: readonly string[],
   wearing: readonly WearItem[],
+  owned: ReadonlySet<string> = new Set(),
+  onSale: ReadonlySet<string> = new Set(),
 ): WearItem[] {
   return WEAR_ITEMS.filter(
     (w) =>
       WEAR_INFO[w].slot === slot &&
-      (!isExclusiveWear(w) || entitled.includes(w) || wearing.includes(w)),
+      (!isExclusiveWear(w) || entitled.includes(w) || wearing.includes(w)) &&
+      (!isCostume(w) || owned.has(w) || wearing.includes(w) || onSale.has(w)),
   );
 }
 
@@ -472,7 +478,15 @@ export function openLookEditor(owner: LookOwner, onSaved: (look: LookView) => vo
     });
     wearButtons.set(`none-${slot}`, none);
     row.append(none);
-    for (const item of wearChoices(slot, owner.entitled ?? [], owner.look?.wear ?? [])) {
+    const sold = new Set(wardrobe.prices.keys());
+    const choices = wearChoices(
+      slot,
+      owner.entitled ?? [],
+      owner.look?.wear ?? [],
+      wardrobe.owned,
+      sold,
+    );
+    for (const item of choices) {
       const art = itemArt(item, { size: 28, className: "look-chip-art" });
       const name = h("span", { text: WEAR_INFO[item].label });
       if (isShopWear(item) && !wardrobe.owned.has(item)) {

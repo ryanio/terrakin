@@ -14,7 +14,7 @@ import { profilePath } from "@terrakin/ui/paths";
 import { kindPill } from "@terrakin/ui/ui";
 import { api } from "./api";
 import { savedResidentId } from "./net";
-import { collectedLine, dayLabel, familyLabel, seasonsLine } from "./things";
+import { collectedLine, dayLabel, familyLabel, holidayLine, seasonsLine } from "./things";
 import { errorCard, notFoundCard, type View, type ViewContext } from "./view";
 
 /** One kind in a family's grid: its picture and name once collected, else its outline and "?". */
@@ -32,7 +32,9 @@ function kindTile(k: CollectionKind, now: number): HTMLElement {
       ? dayLabel(k.firstDay, now)
       : k.seasons
         ? seasonsLine(k.seasons)
-        : null;
+        : k.holiday
+          ? holidayLine(k.holiday)
+          : null;
   return h(
     "li",
     { class: got ? "collection-kind got" : "collection-kind", attrs: { "data-kind": k.kind } },

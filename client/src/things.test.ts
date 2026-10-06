@@ -191,6 +191,32 @@ describe("things", () => {
       by: "r_3",
       admired: 2,
     };
+    // Halloween night (RFC 0022): the knocker and whoever handed out the candy, never anyone else.
+    const knock = { type: "trick_or_treated", by: "r_1", px: 2, py: 2 } as const;
+    expect(newsLine({ ...knock, from: "town" }, "r_1")).toBe(
+      "Trick or treat! Nobody had candy for you, so the town gave you one.",
+    );
+    expect(newsLine({ ...knock, from: "resident", giver: "r_2" }, "r_1")).toContain(
+      "Someone was home",
+    );
+    expect(newsLine({ ...knock, from: "bowl", giver: "r_2" }, "r_2")).toBe(
+      "A trick-or-treater took a candy from your bowl.",
+    );
+    expect(newsLine({ ...knock, from: "resident", giver: "r_2" }, "r_2")).toBe(
+      "A trick-or-treater came by, and you gave them a candy.",
+    );
+    expect(newsLine({ ...knock, from: "town" }, "r_2")).toBeNull();
+    expect(
+      newsLine(
+        {
+          type: "inventory",
+          residentId: "r_1",
+          reason: "trick_or_treat",
+          changes: [{ kind: "candy", amount: 1, count: 1 }],
+        },
+        "r_1",
+      ),
+    ).toBeNull();
     expect(newsLine(admired, "r_3")).toBe("You admired it. Its maker will be glad.");
     expect(newsLine(admired, "r_2")).toBe("Someone admired something you made.");
     expect(newsLine(admired, "r_1")).toBeNull();

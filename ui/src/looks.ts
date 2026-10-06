@@ -35,6 +35,102 @@ export const RESIDENT_COLOR_HEX: Record<ResidentColor, string> = {
   snow: "#fbf7ee",
 };
 
+/**
+ * Halloween's colors (RFC 0022): the costumes and the decor, as the 2D figure, the item pictures,
+ * the map, and the 3D views draw them. A costume with a color of its own (`wearStyle`) uses that
+ * instead of its main color here.
+ */
+export const HALLOWEEN_HEX = {
+  /** The witch hat's felt, and its band and buckle. */
+  witch: "#3b2f52",
+  witchBand: "#e8862f",
+  buckle: "#f2c94c",
+  /** Cat ears, and their pink insides. */
+  catEars: "#3a3340",
+  catInner: "#f2a7b8",
+  /** A pumpkin, its ribs and stem, and a carved face lit from inside. */
+  pumpkin: "#e8862f",
+  pumpkinRib: "#c4661c",
+  pumpkinStem: "#76703a",
+  lit: "#ffd36b",
+  carved: "#5a2c12",
+  /** The ghost sheet, and the shade in its folds. */
+  sheet: "#f7f4ee",
+  sheetShade: "#ddd5c8",
+  /** Bats: wings, and the paler skin between their ribs. */
+  bat: "#3a2f4a",
+  batInner: "#5b4a6e",
+  /** The cauldron's iron, its rim, and the green brew in it. */
+  iron: "#3b3a40",
+  ironRim: "#56545e",
+  brew: "#8fd16a",
+  brewLight: "#c8f0a8",
+  /** Candy wrappers. */
+  candy: ["#f08a3c", "#a98bd8", "#ea8a9d", "#7fd1b0", "#f2b84b"],
+} as const;
+
+/**
+ * A bat with its wings spread, as a polygon in units of half its wingspan around its middle: x
+ * from -1 to 1, y down. Bunting, bat wings, and the item pictures all draw this one bat.
+ */
+export const BAT_POINTS: readonly (readonly [number, number])[] = [
+  [0, -0.2],
+  [-0.12, -0.42],
+  [-0.2, -0.18],
+  [-0.55, -0.36],
+  [-1, -0.08],
+  [-0.78, 0.06],
+  [-0.66, 0],
+  [-0.52, 0.2],
+  [-0.36, 0.1],
+  [-0.2, 0.32],
+  [0, 0.18],
+  [0.2, 0.32],
+  [0.36, 0.1],
+  [0.52, 0.2],
+  [0.66, 0],
+  [0.78, 0.06],
+  [1, -0.08],
+  [0.55, -0.36],
+  [0.2, -0.18],
+  [0.12, -0.42],
+];
+
+/**
+ * One bat wing worn as a costume, the left one, in tiles from the figure's feet (y up is negative):
+ * from the shoulder out to the tip, then back along its scallops. The right wing is its mirror. The
+ * 2D figure and the 3D peg figures both draw it.
+ */
+export const BAT_WING: readonly (readonly [number, number])[] = [
+  [-0.07, -0.47],
+  [-0.2, -0.56],
+  [-0.34, -0.61],
+  [-0.48, -0.58],
+  [-0.45, -0.5],
+  [-0.43, -0.4],
+  [-0.36, -0.43],
+  [-0.32, -0.33],
+  [-0.25, -0.37],
+  [-0.2, -0.27],
+  [-0.12, -0.33],
+  [-0.06, -0.3],
+];
+
+/** Costumes that cover the whole head, so no hair shows under them (RFC 0022). */
+export const HIDES_HAIR: readonly WearItem[] = ["pumpkin_head", "ghost_sheet"];
+
+/** Whether something worn hides the hair: a pumpkin head or a ghost sheet. */
+export const hidesHair = (wear: readonly WearItem[] | undefined): boolean =>
+  (wear ?? []).some((w) => HIDES_HAIR.includes(w));
+
+/** A bat centered on (cx, cy), `span` wide, as SVG path data. */
+export function batPath(cx: number, cy: number, span: number): string {
+  const k = span / 2;
+  const at = ([x, y]: readonly [number, number]) =>
+    `${Math.round((cx + x * k) * 100) / 100} ${Math.round((cy + y * k) * 100) / 100}`;
+  return `M${BAT_POINTS.map(at).join("L")}z`;
+}
+
 const PAPER = BRAND_HEX.paper;
 const INK = BRAND_HEX.ink;
 

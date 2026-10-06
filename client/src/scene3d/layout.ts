@@ -9,6 +9,7 @@ import {
   type Crop,
   type FindKind,
   type GroundKind,
+  type Holiday,
   type MadeKind,
   type Pattern,
   type PetCoat,
@@ -29,6 +30,7 @@ import type { Feeling } from "@terrakin/ui/feelings";
 import { type FigureLook, garmentColor, garmentLook } from "@terrakin/ui/figure";
 import { isMediaUrl } from "@terrakin/ui/format";
 import { growth } from "@terrakin/ui/item-art";
+import { hidesHair } from "@terrakin/ui/looks";
 import { dayPhase, nightAmount } from "../time";
 import { skyNow } from "../weather";
 
@@ -146,6 +148,7 @@ export const HAT_BAND: Partial<Record<WearItem, number>> = {
   beret: 0.11,
   beanie: 0.015,
   top_hat: 0.13,
+  witch_hat: 0.13,
 };
 
 /** Hair styles that stand up past the head: a puff, spikes, a bun on top. */
@@ -158,9 +161,11 @@ const TALL_HAIR: readonly string[] = ["afro", "spiky", "bun"];
 export function tagHeight(f: Pick<LayoutFigure, "kind" | "look">, umbrellaUp = false): number {
   const wear = f.look.wear ?? [];
   if (umbrellaUp && wear.includes("umbrella")) return 1.32;
+  if (wear.includes("witch_hat")) return 1.26;
   if (wear.includes("top_hat") || wear.includes("muse_halo")) return 1.2;
   if (f.kind === "agent") return 1.2;
-  const tall = f.look.hair !== undefined && TALL_HAIR.includes(f.look.hair);
+  // A pumpkin head or a ghost sheet hides the hair (RFC 0022).
+  const tall = f.look.hair !== undefined && TALL_HAIR.includes(f.look.hair) && !hidesHair(wear);
   // Under a hat, the tall part of the hair is tucked away.
   return tall && !wear.some((w) => Object.hasOwn(HAT_BAND, w)) ? 1.15 : 1.08;
 }
@@ -345,6 +350,8 @@ export interface PlotLayout {
   /** The world's season, for the ground, and the weather when the snapshot was taken. */
   season: Season | undefined;
   weather: Weather;
+  /** The holiday the world's day falls in (RFC 0022), for its evenings' light. */
+  holiday?: Holiday;
   /** The owner's pet, by the hearth (RFC 0019). Absent when they have none, or no hearth here. */
   pet?: LayoutPet;
   /** The server's clock when the snapshot was taken, for the time of day (decision 0011). */
@@ -542,6 +549,7 @@ export function plotLayout(
     crops,
     season,
     weather,
+    ...(snapshot.holiday ? { holiday: snapshot.holiday } : {}),
     ...(owner.pet && pet
       ? {
           pet: {

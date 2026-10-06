@@ -197,16 +197,18 @@ export function openTileSheet(o: TileSheetOptions) {
     const recipeRow = (r: (typeof recipes)[number]) => {
       const short = missingLine(r.needs, (kind) => held.get(kind) ?? 0);
       const enough = short === null && !doneToday;
+      // A sweet makes more than one: candy makes five (RFC 0022).
+      const makes = r.makes ? `, and makes ${r.makes}` : "";
       return row(
         r.name,
         doneToday
           ? `You've made ${inv.craftedToday} today`
-          : (short ?? `Uses ${needsLine(r.recipe)}`),
+          : (short ?? `Uses ${needsLine(r.recipe)}${makes}`),
         button(
           "Make",
           () => {
-            // Furniture stacks, so it takes no label.
-            const text = r.furniture ? "" : label.value.trim();
+            // Furniture and sweets stack, so they take no label.
+            const text = r.furniture || r.sweet ? "" : label.value.trim();
             return {
               type: "craft",
               recipe: r.recipe,

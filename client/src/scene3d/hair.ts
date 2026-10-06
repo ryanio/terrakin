@@ -7,7 +7,7 @@
  */
 import type { WearItem } from "@terrakin/sim";
 import { type FigureLook, hairOf, hairTieColor } from "@terrakin/ui/figure";
-import { lookPalette } from "@terrakin/ui/looks";
+import { hidesHair, lookPalette } from "@terrakin/ui/looks";
 import {
   BufferAttribute,
   type BufferGeometry,
@@ -228,7 +228,8 @@ function painted(geo: BufferGeometry, color: Color): BufferGeometry {
 /** The figure's hair as one mesh, ready to add to its head, or undefined when it has none. */
 export function hairMesh(look: FigureLook, wear: readonly WearItem[] = []): Mesh | undefined {
   const hair = hairOf(look);
-  if (!hair) return undefined;
+  // Nothing shows under a pumpkin head or a ghost sheet (RFC 0022).
+  if (!hair || hidesHair(wear)) return undefined;
   const hat = wear.find((w) => Object.hasOwn(HAT_BAND, w));
   const pieces = hairPieces(hair.style, hat ? HAT_BAND[hat] : undefined);
   const strands = new Color(hair.hex);

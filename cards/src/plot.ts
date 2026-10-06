@@ -54,7 +54,17 @@ export interface PlotGround {
 }
 
 /** Decor from the town shop, drawn as itself rather than a square. Same names as the sim's. */
-export const PLOT_DECOR = ["lantern", "frame", "fence", "bench", "hay_bale", "scarecrow"] as const;
+export const PLOT_DECOR = [
+  "lantern",
+  "frame",
+  "fence",
+  "bench",
+  "hay_bale",
+  "scarecrow",
+  "bat_bunting",
+  "cauldron",
+  "candy_bowl",
+] as const;
 export type PlotDecor = (typeof PLOT_DECOR)[number];
 
 /** Furniture from the workbench (RFC 0016), drawn as itself. Same names as the sim's. */
@@ -336,12 +346,42 @@ const WOOD_DARK = "#6e4a2c";
 const EDGE = "rgba(70, 40, 18, 0.5)";
 const STRAW = "#e8c878";
 const BURLAP = "#d9bf8f";
+/** Halloween's colors (RFC 0022), as `ui/src/looks.ts` has them. Bunting's bats are its `fill`. */
+const PENNANT = "#e8862f";
+const IRON_RIM = "#56545e";
+const BREW = "#8fd16a";
+const BREW_LIGHT = "#c8f0a8";
+const STAND = "#c4661c";
+const CANDY = ["#f08a3c", "#a98bd8", "#ea8a9d", "#7fd1b0", "#f2b84b"] as const;
+/** A bat with its wings spread, as `BAT_POINTS` in `ui/src/looks.ts`: half its span is 1. */
+const BAT_POINTS: readonly (readonly [number, number])[] = [
+  [0, -0.2],
+  [-0.12, -0.42],
+  [-0.2, -0.18],
+  [-0.55, -0.36],
+  [-1, -0.08],
+  [-0.78, 0.06],
+  [-0.66, 0],
+  [-0.52, 0.2],
+  [-0.36, 0.1],
+  [-0.2, 0.32],
+  [0, 0.18],
+  [0.2, 0.32],
+  [0.36, 0.1],
+  [0.52, 0.2],
+  [0.66, 0],
+  [0.78, 0.06],
+  [1, -0.08],
+  [0.55, -0.36],
+  [0.2, -0.18],
+  [0.12, -0.42],
+];
 
 /**
  * One decor block on tile (x, y), following `client/src/render.ts`: a paper lantern on a hook, a
  * picture on an easel, a fence post with rails to the fences beside it, a garden bench, a hay bale,
- * or a scarecrow. Only numbers and checked colors go in. No ellipses, so the tests can tell the
- * hearth's shadow apart.
+ * a scarecrow, bat bunting, a cauldron, or a candy bowl. Only numbers and checked colors go in. No
+ * ellipses, so the tests can tell the hearth's shadow apart.
  */
 function decorSvg(
   kind: PlotDecor,
@@ -410,6 +450,64 @@ function decorSvg(
       `<rect x="${X(0.14)}" y="${Y(0.37)}" width="0.72" height="0.14" rx="0.06" fill="rgba(255, 250, 235, 0.4)"/>`,
       `<path d="M${X(0.33)} ${Y(0.35)}V${Y(0.89)}M${X(0.67)} ${Y(0.35)}V${Y(0.89)}" stroke="${WOOD_DARK}" stroke-width="0.035"/>`,
       `<path d="M${X(0.17)} ${Y(0.64)}h0.09M${X(0.43)} ${Y(0.74)}h0.12M${X(0.74)} ${Y(0.6)}h0.08" stroke="${EDGE}" stroke-width="0.03" stroke-linecap="round"/>`,
+    ];
+  }
+  if (kind === "bat_bunting") {
+    const at = (t: number) => ({ x: 0.12 + 0.76 * t, y: 0.26 + 0.52 * t * (1 - t) });
+    const bat = (t: number) => {
+      const p = at(t);
+      const k = 0.135;
+      const d = BAT_POINTS.map(
+        ([bx, by], i) => `${i ? "L" : "M"}${X(p.x + bx * k)} ${Y(p.y + 0.07 + by * k)}`,
+      );
+      return `<path d="${d.join("")}z" fill="${fill}"/>`;
+    };
+    const pennant = (t: number) => {
+      const p = at(t);
+      return `<path d="M${X(p.x - 0.06)} ${Y(p.y)}H${X(p.x + 0.06)}L${X(p.x)} ${Y(p.y + 0.14)}z" fill="${PENNANT}"/>`;
+    };
+    return [
+      shade,
+      `<path d="M${X(0.12)} ${Y(0.92)}V${Y(0.22)}M${X(0.88)} ${Y(0.92)}V${Y(0.22)}" stroke="${WOOD_DARK}" stroke-width="0.06" stroke-linecap="round"/>`,
+      `<path d="M${X(0.12)} ${Y(0.26)}Q${X(0.5)} ${Y(0.52)} ${X(0.88)} ${Y(0.26)}" fill="none" stroke="#5a4f60" stroke-width="0.02"/>`,
+      pennant(0.35),
+      pennant(0.65),
+      bat(0.18),
+      bat(0.5),
+      bat(0.82),
+    ];
+  }
+  if (kind === "cauldron") {
+    return [
+      shade,
+      `<rect x="${X(0.26)}" y="${Y(0.78)}" width="0.08" height="0.14" fill="${fill}"/>`,
+      `<rect x="${X(0.66)}" y="${Y(0.78)}" width="0.08" height="0.14" fill="${fill}"/>`,
+      `<path d="M${X(0.16)} ${Y(0.42)}C${X(0.16)} ${Y(0.86)} ${X(0.84)} ${Y(0.86)} ${X(0.84)} ${Y(0.42)}z" fill="${fill}" ${stroke}/>`,
+      `<path d="M${X(0.14)} ${Y(0.42)}a0.36 0.09 0 1 0 0.72 0a0.36 0.09 0 1 0 -0.72 0z" fill="${IRON_RIM}" ${stroke}/>`,
+      `<path d="M${X(0.22)} ${Y(0.42)}a0.28 0.055 0 1 0 0.56 0a0.28 0.055 0 1 0 -0.56 0z" fill="${BREW}"/>`,
+      `<circle cx="${X(0.42)}" cy="${Y(0.32)}" r="0.045" fill="${BREW_LIGHT}"/>`,
+      `<circle cx="${X(0.57)}" cy="${Y(0.24)}" r="0.032" fill="${BREW_LIGHT}"/>`,
+    ];
+  }
+  if (kind === "candy_bowl") {
+    const sweets = (
+      [
+        [0.32, 0.44, 0],
+        [0.67, 0.44, 1],
+        [0.5, 0.37, 4],
+        [0.42, 0.47, 3],
+        [0.58, 0.47, 2],
+      ] as const
+    ).map(
+      ([cx, cy, c]) =>
+        `<circle cx="${X(cx)}" cy="${Y(cy)}" r="0.085" fill="${CANDY[c]}" ${stroke}/>`,
+    );
+    return [
+      shade,
+      `<path d="M${X(0.38)} ${Y(0.9)}H${X(0.62)}L${X(0.57)} ${Y(0.74)}H${X(0.43)}z" fill="${STAND}"/>`,
+      ...sweets,
+      `<path d="M${X(0.12)} ${Y(0.5)}H${X(0.88)}C${X(0.88)} ${Y(0.82)} ${X(0.12)} ${Y(0.82)} ${X(0.12)} ${Y(0.5)}z" fill="${fill}" ${stroke}/>`,
+      `<rect x="${X(0.16)}" y="${Y(0.58)}" width="0.68" height="0.05" fill="${CANDY[1]}"/>`,
     ];
   }
   if (kind === "scarecrow") {

@@ -191,6 +191,7 @@ const visiting = visitCard({
     if (id) walker.awaiting(id, performance.now());
     return id;
   },
+  knock: (px, py) => tryAct({ type: "trick_or_treat", px, py }),
   toast: (text) => showToast(text),
 });
 /** How quickly the map's camera catches up with your figure, per second. */
@@ -404,6 +405,10 @@ function onMessage(msg: ServerMessage) {
       }
       // A knock for a block you placed, a chime for someone admiring what you made: yours only.
       if (applied === "applied" && me) sound.event(msg.event, me);
+      // Halloween night (RFC 0022): the card on a neighbor's plot marks a door you knocked at.
+      if (msg.event.type === "trick_or_treated" && msg.event.by === me) {
+        visiting.knocked(msg.event.px, msg.event.py);
+      }
       // Your own news, in plain words. Notes, labels, and names stay out of it.
       const line = me ? newsLine(msg.event, me) : null;
       if (line) showToast(line);
@@ -445,7 +450,7 @@ function onMessage(msg: ServerMessage) {
       // walker stops and goes back to where the server says you are.
       if (msg.id !== undefined) {
         walker.answered(msg.id, false);
-        visiting.refused(msg.id);
+        visiting.refused(msg.id, code);
       }
       // Before the welcome, any refusal is about joining: the form says why.
       if (joiningFresh && !me) return joinRefused(code, message);

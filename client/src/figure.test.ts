@@ -1,4 +1,5 @@
 import {
+  COSTUMES,
   type Direction,
   HAIR_COLOR_INFO,
   HAIR_STYLES,
@@ -18,7 +19,13 @@ import {
   garmentLook,
   hairOf,
 } from "@terrakin/ui/figure";
-import { lookPalette, type MakeCanvas, PatternCache, RESIDENT_COLOR_HEX } from "@terrakin/ui/looks";
+import {
+  HIDES_HAIR,
+  lookPalette,
+  type MakeCanvas,
+  PatternCache,
+  RESIDENT_COLOR_HEX,
+} from "@terrakin/ui/looks";
 import { describe, expect, it } from "vitest";
 import {
   Feelings,
@@ -231,11 +238,15 @@ describe("hair", () => {
     expect(draw({ ...base, hair: "mullet" as never })).toEqual(draw(base));
   });
 
-  it("paints every hat over the hair, from every side", () => {
+  it("paints every hat over the hair, from every side, and a pumpkin head hides it", () => {
     for (const hat of WEAR_ITEMS.filter((w) => WEAR_INFO[w].slot === "hat")) {
       for (const facing of ["s", "n", "e"] as const) {
         const calls = draw({ ...base, wear: [hat], hair: "long", hairColor: "pink" }, facing);
         const lastHair = calls.lastIndexOf(pink);
+        if (HIDES_HAIR.includes(hat)) {
+          expect(lastHair, `${hat} ${facing}`).toBe(-1);
+          continue;
+        }
         expect(lastHair, `${hat} ${facing}`).toBeGreaterThan(-1);
         // The hat is painted after the hair, so it sits on top.
         const hatOnly = draw({ ...base, wear: [hat] }, facing);
@@ -243,6 +254,28 @@ describe("hair", () => {
         expect(lastHair, `${hat} ${facing}`).toBeLessThan(hatStart);
       }
     }
+  });
+});
+
+describe("Halloween's costumes (RFC 0022)", () => {
+  const pink = `fillStyle=${HAIR_COLOR_INFO.pink.hex}`;
+
+  it("hide the hair under a pumpkin head or a ghost sheet, and nowhere else, from every side", () => {
+    for (const item of COSTUMES) {
+      for (const facing of ["s", "n", "e", "w"] as const) {
+        const calls = draw({ ...base, wear: [item], hair: "long", hairColor: "pink" }, facing);
+        expect(calls.includes(pink), `${item} ${facing}`).toBe(!HIDES_HAIR.includes(item));
+      }
+    }
+  });
+
+  it("show the face through a ghost sheet, and carve one into a pumpkin head", () => {
+    const ghost: FigureLook = { ...base, wear: ["ghost_sheet"] };
+    expect(draw(ghost, "s", { feeling: "happy" })).not.toEqual(draw(ghost));
+    const pumpkin: FigureLook = { ...base, wear: ["pumpkin_head"] };
+    expect(draw(pumpkin, "s", { feeling: "happy" })).toEqual(draw(pumpkin));
+    // From the back there's no face to carve, and the pumpkin still turns with them.
+    expect(draw(pumpkin, "n")).not.toEqual(draw(pumpkin, "s"));
   });
 });
 

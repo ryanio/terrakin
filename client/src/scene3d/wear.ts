@@ -6,17 +6,22 @@
  */
 import { WEAR_INFO, type WearItem } from "@terrakin/sim";
 import { BRAND_HEX, WOOD_DARK } from "@terrakin/ui/brand";
-import { PatternCache } from "@terrakin/ui/looks";
+import { BAT_WING, HALLOWEEN_HEX, PatternCache } from "@terrakin/ui/looks";
 import {
   BoxGeometry,
   type BufferGeometry,
+  CircleGeometry,
   ConeGeometry,
   CylinderGeometry,
+  DoubleSide,
   Group,
   type Material,
   Mesh,
   MeshLambertMaterial,
   OctahedronGeometry,
+  RingGeometry,
+  Shape,
+  ShapeGeometry,
   SphereGeometry,
   TorusGeometry,
 } from "three";
@@ -86,6 +91,41 @@ function feet(make: () => Mesh, y: number): Mesh[] {
   });
 }
 
+/** A carved pumpkin's face, lit from inside: the warm candle color, glowing day and night. */
+const candle = () =>
+  new MeshLambertMaterial({
+    color: HALLOWEEN_HEX.lit,
+    emissive: HALLOWEEN_HEX.lit,
+    emissiveIntensity: 0.85,
+    side: DoubleSide,
+  });
+
+/** The pumpkin head's middle lobe, which the face is carved into: its radii and where it sits. */
+const PUMPKIN = { y: 0.66, rx: 0.165, ry: 0.19, rz: 0.205 };
+
+/** A flat part laid on the pumpkin's front at (x, y), facing out. */
+function onPumpkin(m: Mesh, x: number, y: number): Mesh {
+  const { rx, ry, rz } = PUMPKIN;
+  const dy = y - PUMPKIN.y;
+  const z = rz * Math.sqrt(Math.max(0, 1 - (x / rx) ** 2 - (dy / ry) ** 2)) + 0.004;
+  m.position.set(x, y, z);
+  m.rotation.set(-Math.atan2(dy, z) * 0.6, Math.atan2(x, z), 0, "YXZ");
+  return m;
+}
+
+/** A bat wing, spread from the back to `dir` (1 to the right, -1 to the left), swept back. */
+function wing(mat: Material, dir: 1 | -1): Mesh {
+  const shape = new Shape();
+  BAT_WING.forEach(([x, y], i) => {
+    if (i === 0) shape.moveTo(-x * dir, -y);
+    else shape.lineTo(-x * dir, -y);
+  });
+  const m = new Mesh(new ShapeGeometry(shape), mat);
+  m.position.set(0, 0, -0.16);
+  m.rotation.y = dir * 0.45;
+  return m;
+}
+
 /** The meshes for one worn item. */
 function piece(item: WearItem, mat: Material): Mesh[] {
   switch (item) {
@@ -135,6 +175,71 @@ function piece(item: WearItem, mat: Material): Mesh[] {
         return m;
       });
       return [ring, ...studs];
+    }
+
+    // Halloween's costumes (RFC 0022).
+    case "witch_hat": {
+      // A brim, a cone, and a tip that bends back over, banded in orange with a buckle in front.
+      const tip = at(new ConeGeometry(0.036, 0.13, 10).translate(0, 0.065, 0), mat, 0, 1.03);
+      tip.rotation.set(-0.95, 0, -0.3);
+      return [
+        at(new CylinderGeometry(0.29, 0.29, 0.02, 24), mat, 0, 0.79),
+        at(new CylinderGeometry(0.038, 0.135, 0.24, 16), mat, 0, 0.91),
+        tip,
+        at(new CylinderGeometry(0.13, 0.134, 0.035, 16), solid(HALLOWEEN_HEX.witchBand), 0, 0.815),
+        at(new BoxGeometry(0.05, 0.034, 0.012), solid(HALLOWEEN_HEX.buckle), 0, 0.815, 0.132),
+      ];
+    }
+    case "cat_ears": {
+      // A headband over the top of the head, and two pointed ears with pink insides.
+      const band = at(new TorusGeometry(0.172, 0.011, 6, 20, Math.PI), mat, 0, 0.66);
+      const pink = solid(HALLOWEEN_HEX.catInner);
+      const ear = (x: number) => {
+        const lean = -Math.sign(x) * 0.35;
+        const outer = at(new ConeGeometry(0.058, 0.13, 4), mat, x, 0.83, -0.01);
+        outer.rotation.set(0, Math.PI / 4, lean);
+        const inner = at(new ConeGeometry(0.03, 0.08, 3), pink, x * 1.04, 0.815, 0.03);
+        inner.rotation.z = lean;
+        return [outer, inner];
+      };
+      return [band, ...ear(-0.1), ...ear(0.1)];
+    }
+    case "pumpkin_head": {
+      // Three lobes round the head, a stem, and a face carved in and lit from inside.
+      const { y, rx, ry, rz } = PUMPKIN;
+      const lobe = (x: number, k: number) => {
+        const m = at(new SphereGeometry(1, 18, 12), mat, x, y);
+        m.scale.set(rx * k, ry * k, rz * k);
+        return m;
+      };
+      const lit = candle();
+      const eye = (x: number) => {
+        const m = onPumpkin(new Mesh(new CircleGeometry(0.038, 3), lit), x, y + 0.035);
+        m.rotateZ(Math.PI / 2);
+        return m;
+      };
+      const grin = onPumpkin(
+        new Mesh(new RingGeometry(0.03, 0.065, 10, 1, Math.PI * 1.08, Math.PI * 0.84), lit),
+        0,
+        y - 0.02,
+      );
+      return [
+        lobe(-0.072, 0.93),
+        lobe(0.072, 0.93),
+        lobe(0, 1),
+        eye(-0.06),
+        eye(0.06),
+        grin,
+        at(new CylinderGeometry(0.017, 0.025, 0.08, 6), solid(HALLOWEEN_HEX.pumpkinStem), 0, 0.88),
+      ];
+    }
+    case "ghost_sheet":
+      // A sheet from the head to the ground. The head under it takes the sheet's color
+      // (`figure` in plot.ts), and its face shows through.
+      return [at(new CylinderGeometry(0.15, 0.33, 0.6, 24, 1, true), mat, 0, 0.3)];
+    case "bat_wings": {
+      if (mat instanceof MeshLambertMaterial) mat.side = DoubleSide;
+      return [wing(mat, 1), wing(mat, -1)];
     }
 
     // ---------- tops ----------

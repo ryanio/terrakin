@@ -28,7 +28,17 @@ import {
 } from "@terrakin/sim";
 import { BRAND_HEX, WOOD_DARK } from "./brand";
 import type { Feeling } from "./feelings";
-import { lookImage, lookPalette, luminance, mix, PatternCache, RESIDENT_COLOR_HEX } from "./looks";
+import {
+  BAT_WING,
+  HALLOWEEN_HEX,
+  hidesHair,
+  lookImage,
+  lookPalette,
+  luminance,
+  mix,
+  PatternCache,
+  RESIDENT_COLOR_HEX,
+} from "./looks";
 
 /** A color and pattern per garment, as the sim keeps them or as the wire carries them. */
 export type GarmentStyles = Partial<
@@ -165,6 +175,11 @@ export const GARMENT_COLOR: Record<WearItem, (p: ThemePalette) => string> = {
   umbrella: (p) => (paleAccent(p) ? CANOPY : p.accent),
   muse_halo: () => HALO,
   muse_lantern: () => LANTERN,
+  witch_hat: () => HALLOWEEN_HEX.witch,
+  cat_ears: () => HALLOWEEN_HEX.catEars,
+  pumpkin_head: () => HALLOWEEN_HEX.pumpkin,
+  ghost_sheet: () => HALLOWEEN_HEX.sheet,
+  bat_wings: () => HALLOWEEN_HEX.bat,
 };
 
 /** A worn garment's main color: its own, else its usual one in the outfit's palette. Pure. */
@@ -431,17 +446,32 @@ export function drawFigure(
   const shoes = wear.has("socks") || wear.has("boots") || wear.has("sneakers");
   // A wave raises the arm on the carrying side up beside the head.
   const waving = face.wave ? raisedArm(side, hand, face.wave) : undefined;
-  const hair = hairOf(look);
+  // Halloween's costumes (RFC 0022): a ghost sheet is the whole figure but its face, a pumpkin is
+  // the whole head, and under either there's no hair to see.
+  const ghost = wear.has("ghost_sheet");
+  const pumpkin = wear.has("pumpkin_head");
+  const wings = wear.has("bat_wings");
+  const hair = hidesHair(look.wear) ? undefined : hairOf(look);
   const hairView: HairView = { side, back, hat: coveringHat(wear) };
 
   // White rim behind everything, so the figure reads on any ground.
   ctx.lineJoin = "round";
   ctx.strokeStyle = RIM;
   ctx.lineWidth = rim * 2;
-  bodyPath(ctx, look.shape, u);
+  if (wings) {
+    batWingsPath(ctx, u, side, back);
+    ctx.stroke();
+  }
+  if (ghost) ghostPath(ctx, u, side);
+  else bodyPath(ctx, look.shape, u);
   ctx.stroke();
-  headPath(ctx, u, back ? 0 : side);
-  ctx.stroke();
+  if (pumpkin) {
+    pumpkinPath(ctx, u, side);
+    ctx.stroke();
+  } else if (!ghost) {
+    headPath(ctx, u, back ? 0 : side);
+    ctx.stroke();
+  }
   if (waving) {
     raisedArmPath(ctx, u, waving);
     ctx.stroke();
@@ -454,6 +484,9 @@ export function drawFigure(
 
   // Hair that hangs behind the head and body: a bob's back, a ponytail, an afro's puff.
   if (hair) drawHair(ctx, u, hair, "behind", hairView, p);
+
+  // Bat wings spread behind the shoulders, or over the back when it's turned to us.
+  if (wings && !back) drawBatWings(ctx, u, side, back, garb("bat_wings"));
 
   // A skirt's flare sits behind the body, so a coat over it leaves only the hem showing.
   if (wear.has("dress")) drawFlare(ctx, u, garb("dress"), GARMENT_COLOR.dress(p), pattern);
@@ -469,17 +502,20 @@ export function drawFigure(
     ctx.fill();
   }
 
-  // Clothes: main color, then the pattern, clipped to the body.
-  paintCloth(ctx, u, () => bodyPath(ctx, look.shape, u), p.main, pattern);
-  ctx.save();
-  bodyPath(ctx, look.shape, u);
-  ctx.clip();
-  drawBottom(ctx, u, wear, p, garb, side);
-  drawTop(ctx, u, wear, p, back, side, garb, look.shape, pattern);
-  // Soft shade at the hem so the body feels round.
-  ctx.fillStyle = "rgba(70, 40, 18, 0.14)";
-  ctx.fillRect(-0.5 * u, -0.12 * u, u, 0.12 * u);
-  ctx.restore();
+  // Clothes: main color, then the pattern, clipped to the body. Under a ghost sheet, the sheet.
+  if (ghost) drawGhostSheet(ctx, u, side, back, garb("ghost_sheet"));
+  else {
+    paintCloth(ctx, u, () => bodyPath(ctx, look.shape, u), p.main, pattern);
+    ctx.save();
+    bodyPath(ctx, look.shape, u);
+    ctx.clip();
+    drawBottom(ctx, u, wear, p, garb, side);
+    drawTop(ctx, u, wear, p, back, side, garb, look.shape, pattern);
+    // Soft shade at the hem so the body feels round.
+    ctx.fillStyle = "rgba(70, 40, 18, 0.14)";
+    ctx.fillRect(-0.5 * u, -0.12 * u, u, 0.12 * u);
+    ctx.restore();
+  }
 
   // Legs and feet in front of the hem: socks go under trousers, boots and sneakers over them.
   if (wear.has("socks")) drawSocks(ctx, u, feet, side, p, garb("socks"));
@@ -489,8 +525,10 @@ export function drawFigure(
   else if (wear.has("sneakers")) drawSneakers(ctx, u, feet, side, p, garb("sneakers"));
 
   // Little arms. Sideways, the near arm hangs over the body and the far one is hidden. A raised
-  // arm takes the place of the one on its side.
-  const arm = mix(p.main, p.deep, 0.18);
+  // arm takes the place of the one on its side. Under a ghost sheet they're the sheet's.
+  const arm = ghost
+    ? mix(garb("ghost_sheet").color(HALLOWEEN_HEX.sheet), HALLOWEEN_HEX.sheetShade, 0.5)
+    : mix(p.main, p.deep, 0.18);
   ctx.fillStyle = arm;
   ctx.beginPath();
   if (side) {
@@ -511,24 +549,31 @@ export function drawFigure(
   }
 
   if (wear.has("satchel")) drawSatchel(ctx, u, hand, garb("satchel"));
+  if (wings && back) drawBatWings(ctx, u, side, back, garb("bat_wings"));
 
-  // Head and face.
-  ctx.fillStyle = head;
-  headPath(ctx, u, back ? 0 : side);
-  ctx.fill();
-  ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
-  ctx.beginPath();
-  ctx.ellipse(-0.08 * u, -0.74 * u, 0.06 * u, 0.035 * u, -0.6, 0, Math.PI * 2);
-  ctx.fill();
-  if (!back) {
-    const eye = look.color === "coal" ? BRAND_HEX.paper : INK;
-    drawFace(ctx, u, eye, side, face.feeling ?? "neutral", Boolean(face.blink));
+  // Head and face: a ghost's head is the sheet's, so only its face goes on, and a pumpkin head has
+  // the face carved into it.
+  if (pumpkin) drawPumpkinHead(ctx, u, side, back, garb("pumpkin_head"));
+  else {
+    if (!ghost) {
+      ctx.fillStyle = head;
+      headPath(ctx, u, back ? 0 : side);
+      ctx.fill();
+    }
+    ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
+    ctx.beginPath();
+    ctx.ellipse(-0.08 * u, -0.74 * u, 0.06 * u, 0.035 * u, -0.6, 0, Math.PI * 2);
+    ctx.fill();
+    if (!back) {
+      const eye = look.color === "coal" && !ghost ? BRAND_HEX.paper : INK;
+      drawFace(ctx, u, eye, side, face.feeling ?? "neutral", Boolean(face.blink));
+    }
   }
   // Hair on the head, over the face's edges, and under glasses and any hat.
   if (hair) drawHair(ctx, u, hair, "over", hairView, p);
-  if (!back && wear.has("glasses")) drawGlasses(ctx, u, side, garb("glasses"));
+  if (!back && !pumpkin && wear.has("glasses")) drawGlasses(ctx, u, side, garb("glasses"));
 
-  drawHat(ctx, u, wear, p, garb);
+  drawHat(ctx, u, wear, p, garb, side, back);
 
   if (wear.has("bow")) drawBow(ctx, u, side, back, p, garb("bow"));
   if (wear.has("basket")) drawBasket(ctx, u, hand, p, garb("basket"));
@@ -828,6 +873,8 @@ function drawHat(
   wear: Set<WearItem>,
   p: ThemePalette,
   garb: (item: WearItem) => Garb,
+  side: number,
+  back: boolean,
 ) {
   if (wear.has("straw_hat")) drawStrawHat(ctx, u, p, garb("straw_hat"));
   else if (wear.has("beret")) drawBeret(ctx, u, p, garb("beret"));
@@ -835,6 +882,8 @@ function drawHat(
   else if (wear.has("top_hat")) drawTopHat(ctx, u, p, garb("top_hat"));
   else if (wear.has("flower_crown")) drawFlowerCrown(ctx, u, p, garb("flower_crown"));
   else if (wear.has("muse_halo")) drawMuseHalo(ctx, u, p, garb("muse_halo"));
+  else if (wear.has("witch_hat")) drawWitchHat(ctx, u, side, back, garb("witch_hat"));
+  else if (wear.has("cat_ears")) drawCatEars(ctx, u, side, back, garb("cat_ears"));
 }
 
 const HAT_TOP = HEAD_Y - HEAD_R;
@@ -982,6 +1031,332 @@ function drawMuseHalo(ctx: CanvasRenderingContext2D, u: number, p: ThemePalette,
   ctx.stroke();
 }
 
+// ---------- Halloween's costumes (RFC 0022) ----------
+
+const H = HALLOWEEN_HEX;
+
+/**
+ * A witch hat: a tall felt cone whose tip bends over, on a wide brim. `lean` is which way the tip
+ * bends: away from the way they face, so in profile it trails behind.
+ */
+function witchHatPath(ctx: CanvasRenderingContext2D, u: number, lean: number) {
+  const x = (f: number) => f * lean * u;
+  const y = (f: number) => f * u;
+  ctx.beginPath();
+  ctx.ellipse(0, y(HAT_TOP + 0.1), 0.34 * u, 0.075 * u, 0, 0, Math.PI * 2);
+  ctx.moveTo(x(-0.16), y(-0.775));
+  ctx.bezierCurveTo(x(-0.12), y(-0.88), x(-0.06), y(-0.96), x(0), y(-1.0));
+  ctx.quadraticCurveTo(x(0.07), y(-1.05), x(0.18), y(-1.03));
+  ctx.quadraticCurveTo(x(0.08), y(-0.99), x(0.06), y(-0.94));
+  ctx.bezierCurveTo(x(0.08), y(-0.87), x(0.12), y(-0.82), x(0.16), y(-0.775));
+  ctx.closePath();
+}
+
+function drawWitchHat(
+  ctx: CanvasRenderingContext2D,
+  u: number,
+  side: number,
+  back: boolean,
+  g: Garb,
+) {
+  const lean = side ? -side : back ? -1 : 1;
+  const felt = g.color(H.witch);
+  paintCloth(ctx, u, () => witchHatPath(ctx, u, lean), felt, g.fill());
+  ctx.strokeStyle = g.trim(mix(H.witch, INK, 0.4));
+  ctx.lineWidth = Math.max(0.8, 0.015 * u);
+  witchHatPath(ctx, u, lean);
+  ctx.stroke();
+  // A band round the base of the cone, and a buckle at the front.
+  ctx.fillStyle = H.witchBand;
+  ctx.beginPath();
+  ctx.moveTo(-0.158 * u, -0.79 * u);
+  ctx.lineTo(0.158 * u, -0.79 * u);
+  ctx.lineTo(0.146 * u, -0.84 * u);
+  ctx.lineTo(-0.146 * u, -0.84 * u);
+  ctx.closePath();
+  ctx.fill();
+  if (!back) {
+    ctx.strokeStyle = H.buckle;
+    ctx.lineWidth = Math.max(0.8, 0.014 * u);
+    ctx.strokeRect((side * 0.06 - 0.03) * u, -0.836 * u, 0.06 * u, 0.042 * u);
+  }
+  ctx.fillStyle = "rgba(255, 255, 255, 0.14)";
+  ctx.beginPath();
+  ctx.moveTo(-0.1 * lean * u, -0.84 * u);
+  ctx.quadraticCurveTo(-0.07 * lean * u, -0.92 * u, -0.02 * lean * u, -0.97 * u);
+  ctx.lineTo(-0.05 * lean * u, -0.86 * u);
+  ctx.closePath();
+  ctx.fill();
+}
+
+/** A point on a circle around the head's middle: `a` radians from straight up, clockwise. */
+const onHead = (a: number, r: number): [number, number] => [
+  r * Math.sin(a),
+  HEAD_Y - r * Math.cos(a),
+];
+
+/** One cat ear standing at angle `a` on the head: two corners on the head and a soft tip. */
+function earPath(ctx: CanvasRenderingContext2D, u: number, a: number, size: number) {
+  const [ax, ay] = onHead(a - 0.36 * size, HEAD_R * 0.98);
+  const [bx, by] = onHead(a + 0.36 * size, HEAD_R * 0.98);
+  const [tx, ty] = onHead(a * 1.12, HEAD_R + 0.13 * size);
+  ctx.beginPath();
+  ctx.moveTo(ax * u, ay * u);
+  ctx.quadraticCurveTo(((ax + tx) / 2) * u, ((ay + ty) / 2 - 0.02) * u, tx * u, ty * u);
+  ctx.quadraticCurveTo(((bx + tx) / 2) * u, ((by + ty) / 2 - 0.02) * u, bx * u, by * u);
+  ctx.closePath();
+}
+
+/**
+ * Cat ears on a headband: two pointed ears with pink insides, which hide no hair. In profile both
+ * ears show toward the back of the head, the far one darker; from the back, no pink.
+ */
+function drawCatEars(
+  ctx: CanvasRenderingContext2D,
+  u: number,
+  side: number,
+  back: boolean,
+  g: Garb,
+) {
+  const fur = g.color(H.catEars);
+  ctx.strokeStyle = fur;
+  ctx.lineWidth = Math.max(1, 0.035 * u);
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.arc(0, HEAD_Y * u, HEAD_R * 1.02 * u, Math.PI + 0.55, Math.PI * 2 - 0.55);
+  ctx.stroke();
+  // Far ear first. Sideways the ears sit toward the back of the head.
+  const ears = side
+    ? [
+        { a: -side * 0.62, far: true },
+        { a: -side * 0.12, far: false },
+      ]
+    : [
+        { a: -0.55, far: false },
+        { a: 0.55, far: false },
+      ];
+  for (const { a, far } of ears) {
+    paintCloth(ctx, u, () => earPath(ctx, u, a, 1), far ? mix(fur, INK, 0.25) : fur, g.fill());
+    if (back || far) continue;
+    ctx.fillStyle = H.catInner;
+    earPath(ctx, u, a, 0.55);
+    ctx.fill();
+  }
+}
+
+/** A pumpkin's three lobes, centered where the head would be and a little bigger than it. */
+const PUMPKIN = { y: HEAD_Y + 0.005, rx: 0.155, ry: 0.225, lobe: 0.105 };
+
+/** The pumpkin's outline: its three lobes as one path, for the rim. */
+function pumpkinPath(ctx: CanvasRenderingContext2D, u: number, side: number) {
+  const { y, rx, ry, lobe } = PUMPKIN;
+  const turn = side * 0.02;
+  ctx.beginPath();
+  for (const dx of [-lobe, lobe, 0]) {
+    const x = (dx + turn) * u;
+    ctx.moveTo(x + rx * u, y * u);
+    ctx.ellipse(x, y * u, rx * u, (dx === 0 ? ry : ry * 0.94) * u, 0, 0, Math.PI * 2);
+  }
+}
+
+/**
+ * A pumpkin worn as a head: three lobes with ribs between them, a curled stem, and a carved face
+ * lit from inside. Sideways the face slides toward the way they face; from the back there's none.
+ */
+function drawPumpkinHead(
+  ctx: CanvasRenderingContext2D,
+  u: number,
+  side: number,
+  back: boolean,
+  g: Garb,
+) {
+  const { y, rx, ry, lobe } = PUMPKIN;
+  const skin = g.color(H.pumpkin);
+  const rib = g.trim(H.pumpkinRib);
+  const turn = side * 0.02;
+  // The stem first, so the lobes cover its foot.
+  ctx.fillStyle = H.pumpkinStem;
+  ctx.beginPath();
+  ctx.roundRect((turn - 0.025) * u, (y - ry - 0.06) * u, 0.05 * u, 0.09 * u, 0.02 * u);
+  ctx.fill();
+  ctx.strokeStyle = rib;
+  ctx.lineWidth = Math.max(0.8, 0.016 * u);
+  for (const dx of [-lobe, lobe, 0]) {
+    const lobePath = () => {
+      ctx.beginPath();
+      ctx.ellipse(
+        (dx + turn) * u,
+        y * u,
+        rx * u,
+        (dx === 0 ? ry : ry * 0.94) * u,
+        0,
+        0,
+        Math.PI * 2,
+      );
+    };
+    paintCloth(ctx, u, lobePath, skin, g.fill());
+    lobePath();
+    ctx.stroke();
+  }
+  // A highlight on the front lobe.
+  ctx.fillStyle = "rgba(255, 255, 255, 0.28)";
+  ctx.beginPath();
+  ctx.ellipse((turn - 0.06) * u, (y - 0.12) * u, 0.05 * u, 0.025 * u, -0.5, 0, Math.PI * 2);
+  ctx.fill();
+  if (back) return;
+  // The carved face, lit from inside.
+  const fx = (f: number) => (turn + side * 0.07 + f) * u;
+  const fy = (f: number) => (y + f) * u;
+  ctx.fillStyle = H.lit;
+  ctx.strokeStyle = H.carved;
+  ctx.lineWidth = Math.max(0.6, 0.01 * u);
+  ctx.beginPath();
+  const eyes = side ? [side * 0.035] : [-0.075, 0.075];
+  for (const ex of eyes) {
+    ctx.moveTo(fx(ex - 0.042), fy(-0.025));
+    ctx.lineTo(fx(ex), fy(-0.095));
+    ctx.lineTo(fx(ex + 0.042), fy(-0.025));
+    ctx.closePath();
+  }
+  // The grin, with two teeth.
+  const half = side ? 0.07 : 0.115;
+  const mid = side ? side * 0.03 : 0;
+  ctx.moveTo(fx(mid - half), fy(0.04));
+  ctx.quadraticCurveTo(fx(mid), fy(0.15), fx(mid + half), fy(0.04));
+  ctx.lineTo(fx(mid + half * 0.45), fy(0.065));
+  ctx.lineTo(fx(mid + half * 0.3), fy(0.04 + 0.04));
+  ctx.lineTo(fx(mid - half * 0.3), fy(0.065));
+  ctx.lineTo(fx(mid - half * 0.45), fy(0.04 + 0.04));
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+}
+
+/**
+ * A ghost sheet over the head and body: a dome where the head is, falling to a wavy hem just above
+ * the feet. Its face is drawn on it, so a ghost still smiles and blinks.
+ */
+function ghostPath(ctx: CanvasRenderingContext2D, u: number, side: number) {
+  const r = HEAD_R + 0.025;
+  const sway = side * 0.025;
+  ctx.beginPath();
+  ctx.arc(0, HEAD_Y * u, r * u, Math.PI, 0);
+  ctx.bezierCurveTo(
+    0.26 * u,
+    -0.48 * u,
+    (0.34 + sway) * u,
+    -0.32 * u,
+    (0.35 - sway) * u,
+    -0.05 * u,
+  );
+  // A wavy hem, four scallops wide.
+  const hem = 4;
+  const from = 0.35 - sway;
+  const to = -0.35 - sway;
+  for (let i = 0; i < hem; i++) {
+    const a = from + ((to - from) * i) / hem;
+    const b = from + ((to - from) * (i + 1)) / hem;
+    ctx.quadraticCurveTo(((a + b) / 2) * u, 0.035 * u, b * u, -0.05 * u);
+  }
+  ctx.bezierCurveTo((-0.34 + sway) * u, -0.32 * u, -0.26 * u, -0.48 * u, -r * u, HEAD_Y * u);
+  ctx.closePath();
+}
+
+function drawGhostSheet(
+  ctx: CanvasRenderingContext2D,
+  u: number,
+  side: number,
+  back: boolean,
+  g: Garb,
+) {
+  const white = g.color(H.sheet);
+  paintCloth(ctx, u, () => ghostPath(ctx, u, side), white, g.fill());
+  ctx.save();
+  ghostPath(ctx, u, side);
+  ctx.clip();
+  // Folds falling from the shoulders, and a shade along the hem so it hangs.
+  ctx.strokeStyle = g.trim(H.sheetShade);
+  ctx.lineWidth = Math.max(1, 0.03 * u);
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  for (const x of side || back ? [-0.08 * (side || 1), 0.16 * (side || 1)] : [-0.15, 0.15]) {
+    ctx.moveTo(x * u, -0.42 * u);
+    ctx.quadraticCurveTo((x * 1.18 + 0.01) * u, -0.24 * u, x * 1.05 * u, -0.07 * u);
+  }
+  ctx.stroke();
+  ctx.fillStyle = "rgba(70, 40, 18, 0.1)";
+  ctx.fillRect(-0.5 * u, -0.1 * u, u, 0.14 * u);
+  ctx.restore();
+  ctx.strokeStyle = g.trim(mix(H.sheetShade, INK, 0.25));
+  ctx.lineWidth = Math.max(0.8, 0.012 * u);
+  ghostPath(ctx, u, side);
+  ctx.stroke();
+}
+
+/** Where each of a wing's ribs ends, from the shoulder out to a scallop's point. */
+const WING_RIBS = [3, 5, 7, 9] as const;
+
+/**
+ * Which wings show and how: both spread from the shoulders from the front and the back, and in
+ * profile one, trailing behind, a little narrower. `out` is which side each spreads to.
+ */
+function wingSet(side: number): { out: number; squeeze: number; dx: number }[] {
+  if (side) return [{ out: -side, squeeze: 0.8, dx: -side * 0.06 }];
+  return [
+    { out: -1, squeeze: 1, dx: 0 },
+    { out: 1, squeeze: 1, dx: 0 },
+  ];
+}
+
+function wingPoint(
+  [x, y]: readonly [number, number],
+  w: { out: number; squeeze: number; dx: number },
+  u: number,
+): [number, number] {
+  return [(-x * w.out * w.squeeze + w.dx) * u, y * u];
+}
+
+function batWingsPath(ctx: CanvasRenderingContext2D, u: number, side: number, _back: boolean) {
+  ctx.beginPath();
+  for (const w of wingSet(side)) {
+    for (const [i, point] of BAT_WING.entries()) {
+      const [x, y] = wingPoint(point, w, u);
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+  }
+}
+
+/** Bat wings: scalloped and ribbed, spread from the shoulders. */
+function drawBatWings(
+  ctx: CanvasRenderingContext2D,
+  u: number,
+  side: number,
+  back: boolean,
+  g: Garb,
+) {
+  const skin = g.color(H.bat);
+  paintCloth(ctx, u, () => batWingsPath(ctx, u, side, back), skin, g.fill());
+  ctx.strokeStyle = g.trim(H.batInner);
+  ctx.lineWidth = Math.max(0.8, 0.014 * u);
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  for (const w of wingSet(side)) {
+    const [sx, sy] = wingPoint(BAT_WING[0] as readonly [number, number], w, u);
+    for (const rib of WING_RIBS) {
+      const [x, y] = wingPoint(BAT_WING[rib] as readonly [number, number], w, u);
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(x, y);
+    }
+  }
+  ctx.stroke();
+  ctx.strokeStyle = mix(skin, INK, 0.35);
+  ctx.lineWidth = Math.max(0.8, 0.012 * u);
+  batWingsPath(ctx, u, side, back);
+  ctx.stroke();
+}
+
 // ---------- hair ----------
 // Hair is drawn in two layers: what hangs behind the head and body (a bob's back, a ponytail, an
 // afro's puff) before the body, and what sits on the head (the crown, the fringe, braids) after the
@@ -1014,6 +1389,7 @@ const HAT_COVER: Partial<Record<WearItem, { line: number; half: number }>> = {
   beret: { line: -0.79, half: 0.22 },
   beanie: { line: -0.7, half: 0.235 },
   top_hat: { line: -0.82, half: 0.27 },
+  witch_hat: { line: -0.78, half: 0.34 },
 };
 
 /** The hat worn that covers the crown, if any. */

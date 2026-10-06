@@ -140,6 +140,24 @@ describe("the light in 3D through the day", () => {
   });
 });
 
+describe("Halloween's evenings (RFC 0022)", () => {
+  it("leave the day as it is, and tint dusk toward pumpkin and the night sky toward violet", () => {
+    expect(lightAt(NOON, CLEAR, "halloween")).toEqual(lightAt(NOON, CLEAR));
+    const warmth = (c: number) => channels(c)[0] - channels(c)[1];
+    const violet = (c: number) => channels(c)[0] + channels(c)[2] - 2 * channels(c)[1];
+    expect(warmth(lightAt(DUSK, CLEAR, "halloween").horizon)).toBeGreaterThan(
+      warmth(lightAt(DUSK, CLEAR).horizon),
+    );
+    expect(violet(lightAt(MIDNIGHT, CLEAR, "halloween").top)).toBeGreaterThan(
+      violet(lightAt(MIDNIGHT, CLEAR).top),
+    );
+    // The light on the ground, and how lamps glow, are the night's own.
+    const night = lightAt(MIDNIGHT, CLEAR, "halloween");
+    expect(night.sun).toEqual(lightAt(MIDNIGHT, CLEAR).sun);
+    expect(night.glow).toBe(lightAt(MIDNIGHT, CLEAR).glow);
+  });
+});
+
 describe("what glows after dark", () => {
   it("lights the kinds marked to glow, and a window only in a home someone's in", () => {
     for (const kind of ["lantern", "lamp_post", "campfire"] as const)

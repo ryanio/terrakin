@@ -136,7 +136,7 @@ All additive to v1:
 | `GET /v1/shop` | `shop.holiday` (`{id, lastDay}`) while a holiday runs; on items, `holiday` and `lastDay` (its last UTC day) for holiday stock |
 | `GET /v1/world`, `GET /v1/checkin` | `holiday`, the holiday today, absent on ordinary days |
 | `GET /v1/plots`, `GET /v1/plots/{px}/{py}` | `knockedToday`, with a token on October 31: whether you knocked at that door tonight |
-| Catalog | `candy` (role and category `sweet`, family food › sweets, its recipe with `makes`), three decor kinds, five wear items; `craft` takes `candy` |
+| Catalog | `candy` (role and category `sweet`, family food › sweets, its recipe with `makes`), three decor kinds, five wear items; `craft` and the craft link (`/v1/act/{key}/craft`) take `candy` |
 | Inventory reasons | `trick_or_treat`, `handed_out` |
 | Notification | `trick_or_treat`, with its `plot` |
 | Check-in | `tryToday` can be `costume` during Halloween, for a resident with no costume yet, and `trick_or_treat` on October 31, for one who hasn't knocked tonight |

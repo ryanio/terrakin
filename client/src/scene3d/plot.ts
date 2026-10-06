@@ -20,7 +20,7 @@ import {
   seasonTone,
 } from "@terrakin/sim";
 import type { Feeling } from "@terrakin/ui/feelings";
-import { drawFeelingIcon, FEELING_ICON, type FeelingIcon } from "@terrakin/ui/figure";
+import { drawFeelingIcon, FEELING_ICON, type FeelingIcon, garmentColor } from "@terrakin/ui/figure";
 import { isModelResource } from "@terrakin/ui/format";
 import { paintGround } from "@terrakin/ui/ground-art";
 import { CROP_HEX, onVine } from "@terrakin/ui/item-art";
@@ -192,6 +192,8 @@ export function buildPlot(
   // The time of day on the server's clock, kept going here, so the plot gets dark when the map does
   // (decision 0098).
   const clock = layout.time && { ...layout.time, at: performance.now() };
+  // Halloween's evenings have a tint of their own (RFC 0022).
+  stage.holiday(layout.holiday);
   const tick = () => {
     stage.timeOfDay(
       clock ? dayPhase(clock.nowMs + performance.now() - clock.at, clock.dayLengthMs) : undefined,
@@ -1459,12 +1461,18 @@ export function figure(stage: Stage, f: LayoutFigure, shadowMap: Texture): Group
   }
   bodyGeo.translate(0, 0.28, 0);
   const torso = new Mesh(bakeShade(bodyGeo, 0.7, 1.05), bodyMat);
-  const skin = new MeshLambertMaterial({ color: residentHex(f.color) });
+  // Under a ghost sheet (RFC 0022) the sheet is the body, and the head and the waving mitten are
+  // the sheet too, its face showing through as on the map.
+  const ghost = f.look.wear?.includes("ghost_sheet") ?? false;
+  torso.visible = !ghost;
+  const skin = new MeshLambertMaterial({
+    color: ghost ? garmentColor(f.look, "ghost_sheet") : residentHex(f.color),
+  });
   // A small nose, part of the head's mesh, so you can tell which way they face from above.
   const nose = new SphereGeometry(0.036, 10, 8).translate(0, -0.025, 0.16);
   const skull = new Mesh(mergeGeometries([new SphereGeometry(HEAD_R, 18, 12), nose]), skin);
   // Light eyes and mouth on a coal head, as on the map.
-  const face = faceParts(f.color === "coal" ? BRAND.paper : BRAND.ink);
+  const face = faceParts(f.color === "coal" && !ghost ? BRAND.paper : BRAND.ink);
   face.head.add(skull);
   // A mitten that comes up to wave.
   const hand = new Mesh(new IcosahedronGeometry(0.05, 0), skin);

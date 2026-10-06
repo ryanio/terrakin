@@ -58,6 +58,8 @@ import {
 } from "./items";
 import { plotKey, tileKey } from "./keys";
 import {
+  HAIR_COLORS,
+  HAIR_STYLES,
   isShopWear,
   LOOK_KEYS,
   LOOK_MEDIA_KEYS,
@@ -225,6 +227,16 @@ function mergeLook(base: Look, fields: ProfileFields): Look | Prepared {
   const own = Object.values(out.wearStyle ?? {}).some((s) => s.pattern === "own");
   if (own && !out.patternMedia) {
     return reject("invalid_profile", "A garment in your own pattern needs patternMedia set.");
+  }
+  const hair = pick("hair");
+  if (hair !== null && hair !== undefined) {
+    if (!HAIR_STYLES.includes(hair)) return reject("invalid_profile", "Unknown hair style.");
+    out.hair = hair;
+  }
+  const hairColor = pick("hairColor");
+  if (hairColor !== null && hairColor !== undefined) {
+    if (!HAIR_COLORS.includes(hairColor)) return reject("invalid_profile", "Unknown hair color.");
+    out.hairColor = hairColor;
   }
   return out;
 }

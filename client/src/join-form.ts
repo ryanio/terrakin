@@ -6,6 +6,9 @@
 
 import type { LookView } from "@terrakin/protocol";
 import {
+  HAIR_COLOR_INFO,
+  HAIR_COLORS,
+  type HairColor,
   NAME_MAX_LENGTH,
   NOTE_MAX_LENGTH,
   RESIDENT_COLORS,
@@ -72,6 +75,22 @@ export function colorChips<N extends string = never>(
     row,
   );
   picker.row.setAttribute("aria-label", "Colors");
+  return picker;
+}
+
+/** The hair colors as chips, like `colorChips`: a dot in the color and its name. */
+export function hairColorChips(first: HairColor, onPick?: (c: HairColor) => void) {
+  const picker = chips(
+    HAIR_COLORS,
+    first,
+    (c) => {
+      const dot = h("span", { class: "swatch-dot", attrs: { "aria-hidden": "true" } });
+      dot.style.background = HAIR_COLOR_INFO[c].hex;
+      return [dot, h("span", { class: "swatch-name", text: c })];
+    },
+    onPick,
+  );
+  picker.row.setAttribute("aria-label", "Hair colors");
   return picker;
 }
 

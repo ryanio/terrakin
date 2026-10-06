@@ -1,4 +1,13 @@
-import { RESIDENT_COLORS, THEME_INFO, WEAR_INFO, WEAR_ITEMS, type WearItem } from "@terrakin/sim";
+import {
+  type Direction,
+  HAIR_COLOR_INFO,
+  HAIR_STYLES,
+  RESIDENT_COLORS,
+  THEME_INFO,
+  WEAR_INFO,
+  WEAR_ITEMS,
+  type WearItem,
+} from "@terrakin/sim";
 import { FEELINGS, isFeeling } from "@terrakin/ui/feelings";
 import {
   drawFeelingIcon,
@@ -7,6 +16,7 @@ import {
   type FigureFace,
   type FigureLook,
   garmentLook,
+  hairOf,
 } from "@terrakin/ui/figure";
 import { lookPalette, type MakeCanvas, PatternCache, RESIDENT_COLOR_HEX } from "@terrakin/ui/looks";
 import { describe, expect, it } from "vitest";
@@ -58,7 +68,7 @@ const fakeTiles: MakeCanvas = () => ({
 });
 
 /** Everything drawing one figure does, in order. */
-function draw(look: FigureLook, facing: "s" | "n" | "e" = "s", face: FigureFace = {}): string[] {
+function draw(look: FigureLook, facing: Direction = "s", face: FigureFace = {}): string[] {
   const { ctx, calls } = recorder();
   drawFigure(ctx, 40, look, null, facing, new PatternCache(fakeTiles), face);
   return calls;
@@ -173,6 +183,49 @@ describe("drawn garments", () => {
     expect(calls.filter((c) => c.startsWith("clip(")).length).toBeGreaterThan(2);
     expect(calls).toContain(`fillStyle=${RESIDENT_COLOR_HEX.sun}`);
     expect(new Set(WEAR_ITEMS.map((w) => WEAR_INFO[w].slot)).size).toBe(5);
+  });
+});
+
+describe("hair", () => {
+  const pink = `fillStyle=${HAIR_COLOR_INFO.pink.hex}`;
+
+  it("draws every style from every side in its color, and nothing for a color alone", () => {
+    for (const facing of ["s", "n", "e", "w"] as const) {
+      const bald = draw(base, facing).join("\n");
+      expect(draw({ ...base, hairColor: "pink" }, facing).join("\n"), facing).toBe(bald);
+      const drawn = HAIR_STYLES.map((hair) =>
+        draw({ ...base, hair, hairColor: "pink" }, facing).join("\n"),
+      );
+      for (const [i, calls] of drawn.entries()) {
+        expect(calls, `${HAIR_STYLES[i]} ${facing}`).toContain(pink);
+        expect(calls, `${HAIR_STYLES[i]} ${facing}`).not.toMatch(/NaN|undefined/);
+      }
+      // Each style is its own drawing, from every side.
+      expect(new Set(drawn).size, facing).toBe(HAIR_STYLES.length);
+    }
+  });
+
+  it("is brown until a color is picked, and none for a style or color this client doesn't know", () => {
+    expect(hairOf({ hair: "bob" })).toEqual({ style: "bob", hex: HAIR_COLOR_INFO.brown.hex });
+    expect(hairOf({ hair: "bob", hairColor: "teal" as never })?.hex).toBe(
+      HAIR_COLOR_INFO.brown.hex,
+    );
+    expect(hairOf({ hair: "mullet" as never, hairColor: "pink" })).toBeUndefined();
+    expect(draw({ ...base, hair: "mullet" as never })).toEqual(draw(base));
+  });
+
+  it("paints every hat over the hair, from every side", () => {
+    for (const hat of WEAR_ITEMS.filter((w) => WEAR_INFO[w].slot === "hat")) {
+      for (const facing of ["s", "n", "e"] as const) {
+        const calls = draw({ ...base, wear: [hat], hair: "long", hairColor: "pink" }, facing);
+        const lastHair = calls.lastIndexOf(pink);
+        expect(lastHair, `${hat} ${facing}`).toBeGreaterThan(-1);
+        // The hat is painted after the hair, so it sits on top.
+        const hatOnly = draw({ ...base, wear: [hat] }, facing);
+        const hatStart = calls.length - (hatOnly.length - draw(base, facing).length);
+        expect(lastHair, `${hat} ${facing}`).toBeLessThan(hatStart);
+      }
+    }
   });
 });
 

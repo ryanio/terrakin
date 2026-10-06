@@ -1,13 +1,18 @@
 /**
- * "Your look": pick a theme, a pattern, and one thing to wear in each slot (hat, top, carry,
- * bottom, feet), give any of them its own color and pattern, with a live preview, or bring your
- * own pattern, home picture, and home model as uploads. Saves with the `profile` action; the
- * server checks every choice and every upload.
+ * "Your look": pick a theme, a hair style and color, a pattern, and one thing to wear in each slot
+ * (hat, top, carry, bottom, feet), give any of them its own color and pattern, with a live preview,
+ * or bring your own pattern, home picture, and home model as uploads. Saves with the `profile`
+ * action; the server checks every choice and every upload.
  */
 import type { LookView, MediaView } from "@terrakin/protocol";
 import {
+  DEFAULT_HAIR_COLOR,
   FULL_LENGTH,
   type GarmentPattern,
+  HAIR_LABELS,
+  HAIR_STYLES,
+  type HairColor,
+  type HairStyle,
   isExclusiveWear,
   isShopWear,
   PATTERN_LABELS,
@@ -31,6 +36,7 @@ import { type FullLook, garmentLook, paintFigure } from "@terrakin/ui/figure";
 import { itemArt } from "@terrakin/ui/item-art";
 import {
   garmentName,
+  hairName,
   lookImage,
   lookPalette,
   mediaUrlOf,
@@ -47,7 +53,7 @@ import {
   whileBusy,
 } from "@terrakin/ui/ui";
 import { actProblem, api, uploadMedia } from "./api";
-import { colorChips } from "./join-form";
+import { colorChips, hairColorChips } from "./join-form";
 import { coins } from "./purse";
 
 export interface LookOwner {
@@ -98,6 +104,9 @@ type Draft = {
   homeModel: string | null;
   /** A style per garment, kept for pieces not worn too, as the world keeps them. */
   wearStyle: WearStyles;
+  hair: HairStyle | null;
+  /** Kept while there's no style, as the world keeps it. */
+  hairColor: HairColor | null;
 };
 
 /** The profile action's fields for a look: garment styles go as a partial map, null to clear. */
@@ -151,6 +160,8 @@ function draftOf(look: LookView | undefined): Draft {
     homeArt: look?.homeArt ?? null,
     homeModel: look?.homeModel ?? null,
     wearStyle: stylesOf(look?.wearStyle),
+    hair: look?.hair ?? null,
+    hairColor: look?.hairColor ?? null,
   };
 }
 
@@ -167,6 +178,8 @@ export function lookChanges(before: LookView | undefined, after: Draft): LookCha
   for (const key of ["patternMedia", "homeArt", "homeModel"] as const) {
     if (old[key] !== after[key]) out[key] = after[key];
   }
+  if (old.hair !== after.hair) out.hair = after.hair;
+  if (old.hairColor !== after.hairColor) out.hairColor = after.hairColor;
   const styles: Partial<Record<WearItem, WearStyle | null>> = {};
   for (const item of WEAR_ITEMS) {
     const next = cleanStyle(after.wearStyle[item]);
@@ -203,6 +216,8 @@ function viewOf(d: Draft): LookView {
     ...(d.homeArt ? { homeArt: d.homeArt } : {}),
     ...(d.homeModel ? { homeModel: d.homeModel } : {}),
     ...(Object.keys(styles).length ? { wearStyle: styles } : {}),
+    ...(d.hair ? { hair: d.hair } : {}),
+    ...(d.hairColor ? { hairColor: d.hairColor } : {}),
   };
 }
 
@@ -223,6 +238,8 @@ export function openLookEditor(owner: LookOwner, onSaved: (look: LookView) => vo
     wear: draft.wear,
     ...(draft.patternMedia ? { patternMedia: draft.patternMedia } : {}),
     wearStyle: draft.wearStyle,
+    ...(draft.hair ? { hair: draft.hair } : {}),
+    ...(draft.hairColor ? { hairColor: draft.hairColor } : {}),
   });
   // Shop wear you have on is yours; the rest waits for the shop to say.
   let wardrobe: Wardrobe = {
@@ -270,6 +287,53 @@ export function openLookEditor(owner: LookOwner, onSaved: (look: LookView) => vo
     return b;
   };
   themeRow.append(themeButton(null), ...THEMES.map(themeButton));
+
+  // ---- hair: a style, each chip showing you in it, then its color ----
+  const hairRow = h("div", {
+    class: "cluster look-chips",
+    attrs: { role: "group", "aria-label": "Hair styles" },
+  });
+  const hairButtons = new Map<HairStyle | null, HTMLButtonElement>();
+  const hairThumbs: { canvas: HTMLCanvasElement; style: HairStyle }[] = [];
+  const pickHair = (style: HairStyle | null) => {
+    draft.hair = style;
+    paint();
+  };
+  const noHair = h("button", {
+    class: "look-chip text",
+    attrs: { type: "button", "data-hair": "none" },
+    text: "None",
+    on: { click: () => pickHair(null) },
+  });
+  hairButtons.set(null, noHair);
+  hairRow.append(noHair);
+  for (const style of HAIR_STYLES) {
+    const canvas = h("canvas", { class: "look-chip-thumb", attrs: { "aria-hidden": "true" } });
+    hairThumbs.push({ canvas, style });
+    const b = h(
+      "button",
+      {
+        class: "look-chip",
+        attrs: { type: "button", "data-hair": style },
+        on: { click: () => pickHair(style) },
+      },
+      canvas,
+      h("span", { text: HAIR_LABELS[style] }),
+    );
+    hairButtons.set(style, b);
+    hairRow.append(b);
+  }
+  const hairColors = hairColorChips(draft.hairColor ?? DEFAULT_HAIR_COLOR, (c) => {
+    draft.hairColor = c;
+    paint();
+  });
+  // The color waits for a style; it's kept while there's none.
+  const hairColorBox = h(
+    "div",
+    { class: "look-hair-colors" },
+    h("p", { class: "look-sub", text: "Color" }),
+    hairColors.row,
+  );
 
   // ---- pattern chips, for the outfit and for one garment ----
   type Thumb = { canvas: HTMLCanvasElement; pattern: Pattern | "own" };
@@ -735,6 +799,16 @@ export function openLookEditor(owner: LookOwner, onSaved: (look: LookView) => vo
   // ---- paint everything from the draft ----
   function paint() {
     paintFigure(preview, figureLook(), 150, "full");
+    for (const [style, b] of hairButtons)
+      b.setAttribute("aria-pressed", String(style === draft.hair));
+    // Each style on you, without a hat over it.
+    for (const t of hairThumbs) {
+      paintFigure(t.canvas, { ...figureLook(), wear: [], hair: t.style }, 28, "bust");
+    }
+    hairColorBox.hidden = draft.hair === null;
+    const color = draft.hairColor ?? DEFAULT_HAIR_COLOR;
+    for (const b of hairColors.row.querySelectorAll<HTMLElement>("[data-value]"))
+      b.setAttribute("aria-pressed", String(b.dataset.value === color));
     const palette = lookPalette(draft.theme ?? undefined, owner.color);
     for (const [theme, b] of themeButtons)
       b.setAttribute("aria-pressed", String(theme === draft.theme));
@@ -784,6 +858,7 @@ export function openLookEditor(owner: LookOwner, onSaved: (look: LookView) => vo
     "form",
     { class: "look-form", attrs: { novalidate: true } },
     section("Theme", "Colors for your clothes, your plot, and your blocks.", themeRow),
+    section("Hair", "A style, then its color. A hat sits on top.", hairRow, hairColorBox),
     section("Pattern", null, patternRow),
     section(
       "Wear",
@@ -864,10 +939,15 @@ export function openLookEditor(owner: LookOwner, onSaved: (look: LookView) => vo
   closeBtn.focus();
 }
 
-/** The look in a line under the preview: "Lemon, citrus slices, citrus dress in sun yellow". */
+/**
+ * The look in a line under the preview: "Lemon, auburn bob, citrus slices, citrus dress in sun
+ * yellow".
+ */
 function lookSummary(d: Draft): string {
+  const hair = d.hair ? hairName(d.hair, d.hairColor ?? undefined)?.toLowerCase() : undefined;
   const parts = [
     d.theme ? THEME_INFO[d.theme].label : "Your color",
+    ...(hair ? [hair] : []),
     d.patternMedia ? "your own pattern" : PATTERN_LABELS[d.pattern ?? "plain"].toLowerCase(),
     ...d.wear.map((w) => garmentName(w, d.wearStyle[w]).toLowerCase()),
   ];

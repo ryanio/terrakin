@@ -129,12 +129,29 @@ export function wornPieces(look: FigureLook): WornPiece[] {
   });
 }
 
-/** How high a figure's name tag floats: higher over a top hat, a halo, or an umbrella. */
+/**
+ * Where each hat that covers the crown has its band, in the head's own y (the head is a sphere of
+ * 0.17 around its middle). Hair above the band is under the hat (`scene3d/hair.ts`).
+ */
+export const HAT_BAND: Partial<Record<WearItem, number>> = {
+  straw_hat: 0.13,
+  beret: 0.11,
+  beanie: 0.015,
+  top_hat: 0.13,
+};
+
+/** Hair styles that stand up past the head: a puff, spikes, a bun on top. */
+const TALL_HAIR: readonly string[] = ["afro", "spiky", "bun"];
+
+/** How high a figure's name tag floats: higher over a top hat, a halo, an umbrella, or tall hair. */
 export function tagHeight(f: Pick<LayoutFigure, "kind" | "look">): number {
   const wear = f.look.wear ?? [];
   if (wear.includes("umbrella")) return 1.32;
   if (wear.includes("top_hat") || wear.includes("muse_halo")) return 1.2;
-  return f.kind === "agent" ? 1.2 : 1.08;
+  if (f.kind === "agent") return 1.2;
+  const tall = f.look.hair !== undefined && TALL_HAIR.includes(f.look.hair);
+  // Under a hat, the tall part of the hair is tucked away.
+  return tall && !wear.some((w) => Object.hasOwn(HAT_BAND, w)) ? 1.15 : 1.08;
 }
 
 /** How big a figure is drawn, and its feeling's sign up close, in the figure's own units. */
@@ -276,6 +293,8 @@ export function plotLayout(
         patternMedia: r.patternMedia,
         wear: r.wear,
         wearStyle: r.wearStyle,
+        hair: r.hair,
+        hairColor: r.hairColor,
       },
       ...(asleep ? { feeling: "sleepy" as const } : {}),
     });

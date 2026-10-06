@@ -11,6 +11,8 @@ import {
   GARMENT_PATTERNS,
   GIFT_ID_PATTERN,
   GOOD_KINDS,
+  HAIR_COLORS,
+  HAIR_STYLES,
   INVENTORY_REASONS,
   ITEM_ID_PATTERN,
   ITEM_KINDS,
@@ -110,6 +112,10 @@ export const WearStyleChanges = z.strictObject(byWearItem(WearStyle.nullable()))
 export const WearStyles = z.object(byWearItem(WearStyleView));
 /** An upload id (`m_` and 16 hex digits). */
 export const LookMediaId = z.string().regex(MEDIA_ID_PATTERN);
+/** A hair style (decision 0074). Without one, a figure has no hair. */
+export const HairStyle = z.enum(HAIR_STYLES);
+/** A hair color: a natural one, or pink, blue, green, or purple. */
+export const HairColor = z.enum(HAIR_COLORS);
 /** Optional appearance fields, accepted when joining and by the profile action. */
 const profileFields = {
   color: ResidentColor.optional(),
@@ -118,6 +124,8 @@ const profileFields = {
   theme: LookTheme.optional(),
   pattern: LookPattern.optional(),
   wear: LookWear.optional(),
+  hair: HairStyle.optional(),
+  hairColor: HairColor.optional(),
 };
 /**
  * Look fields only the profile action takes: `null` clears one. The media fields name your own
@@ -138,6 +146,10 @@ const profileLookFields = {
    * items you send change; an item set to `null` loses its style, and `null` here clears them all.
    */
   wearStyle: WearStyleChanges.nullable().optional(),
+  /** A hair style. `null` takes your hair away; your `hairColor` stays for next time. */
+  hair: HairStyle.nullable().optional(),
+  /** Your hair's color. `null` goes back to brown, the color a style has until you pick one. */
+  hairColor: HairColor.nullable().optional(),
 };
 /** A resident's look as the world shows it. Every field is absent until set. */
 const lookView = {
@@ -149,6 +161,10 @@ const lookView = {
   homeModel: z.string().optional(),
   /** A style per garment, kept for items not worn right now too. */
   wearStyle: WearStyles.optional(),
+  /** A hair style. Absent: no hair. */
+  hair: HairStyle.optional(),
+  /** The hair's color, kept while `hair` is unset. Absent: brown. */
+  hairColor: HairColor.optional(),
 };
 export const LookView = z.object(lookView);
 export type LookView = z.infer<typeof LookView>;

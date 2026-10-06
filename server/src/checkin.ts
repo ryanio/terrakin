@@ -575,12 +575,13 @@ export function setupSteps(
     ["bio", !profile.bio, 'write a short bio: PUT /v1/profile {"bio": "<a few words>"}.'],
     [
       "look",
-      // Any change of look counts: color and shape by link, or a theme, pattern, or wear.
+      // Any change of look counts: color and shape by link, or a theme, pattern, wear, or hair.
       !done.has("profile") &&
         me.theme === undefined &&
         me.pattern === undefined &&
-        me.wear === undefined,
-      'choose a look from what your owner loves: {"type": "profile", "theme": "<theme>", "wear": ["<item>"]} (choices in SKILL.md\'s Your look).',
+        me.wear === undefined &&
+        me.hair === undefined,
+      'choose a look from what your owner loves: {"type": "profile", "theme": "<theme>", "hair": "<style>", "hairColor": "<color>", "wear": ["<item>"]} (choices in SKILL.md\'s Your look).',
     ],
     [
       "garden",

@@ -1,9 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { apply } from "./apply";
+import { HAIR_CONFIG, HAIR_HASH, HAIR_LOG } from "./fixtures/hair-log";
 import { LOOKS_CONFIG, LOOKS_HASH, LOOKS_LOG } from "./fixtures/looks-log";
 import { hashWorld } from "./hash";
 import {
   exactWearStyles,
+  HAIR_COLOR_INFO,
+  HAIR_COLORS,
+  HAIR_LABELS,
+  HAIR_STYLES,
   LOOK_KEYS,
   lookOf,
   MAX_WEAR,
@@ -187,6 +192,46 @@ describe("garment styles", () => {
   });
 });
 
+describe("hair", () => {
+  it("names every style and every color, and draws each color in its own hex", () => {
+    expect(HAIR_STYLES.length).toBeGreaterThanOrEqual(10);
+    for (const style of HAIR_STYLES) expect(HAIR_LABELS[style].length).toBeGreaterThan(0);
+    const hexes = HAIR_COLORS.map((c) => HAIR_COLOR_INFO[c].hex);
+    for (const hex of hexes) expect(hex).toMatch(/^#[0-9a-f]{6}$/);
+    expect(new Set(hexes).size).toBe(HAIR_COLORS.length);
+  });
+
+  it("replays the hair log to its pinned hash", () => {
+    const state = replay(HAIR_CONFIG, HAIR_LOG);
+    expect(hashWorld(state)).toBe(HAIR_HASH);
+    // Ada's bun lost its auburn, and her halo came off when her entitlement went.
+    expect(state.residents.ada).toMatchObject({ hair: "bun", wear: ["dress", "socks"] });
+    expect(state.residents.ada).not.toHaveProperty("hairColor");
+    expect(state.residents.bob).toMatchObject({ hair: "spiky", hairColor: "blue" });
+    expect(state.residents.fay).toMatchObject({ theme: "candy", hair: "afro", hairColor: "pink" });
+  });
+
+  it("sets a style and a color, keeps each while the other changes, and clears with null", () => {
+    const state = joined();
+    // A color with no style draws nothing yet, and waits for one.
+    expect(profile(state, { hairColor: "blonde" }).ok).toBe(true);
+    expect(profile(state, { hair: "long" })).toMatchObject({
+      ok: true,
+      events: [{ type: "profile_changed", hair: "long", hairColor: "blonde" }],
+    });
+    expect(profile(state, { hair: "afro" }).ok).toBe(true);
+    expect(state.residents.capri).toMatchObject({ hair: "afro", hairColor: "blonde" });
+    // No hair is no `hair` at all: the event leaves it out, and the color stays for next time.
+    const bald = profile(state, { hair: null });
+    expect(bald.ok && bald.events[0]).not.toHaveProperty("hair");
+    expect(state.residents.capri).not.toHaveProperty("hair");
+    expect(state.residents.capri?.hairColor).toBe("blonde");
+    expect(profile(state, { hair: "bun", hairColor: null }).ok).toBe(true);
+    expect(state.residents.capri).toMatchObject({ hair: "bun" });
+    expect(state.residents.capri).not.toHaveProperty("hairColor");
+  });
+});
+
 describe("profile looks", () => {
   it("sets a theme, pattern, and wear, and reports the whole look", () => {
     const state = joined();
@@ -252,7 +297,7 @@ describe("profile looks", () => {
 
   it("refuses unknown choices and bad media ids without changing anything", () => {
     const state = joined();
-    profile(state, { theme: "lemon" });
+    profile(state, { theme: "lemon", hair: "bob", hairColor: "auburn" });
     const before = hashWorld(state);
     const bad = [
       { theme: "pizza" },
@@ -263,18 +308,31 @@ describe("profile looks", () => {
       { patternMedia: "https://example.com/a.png" },
       { homeArt: "m_XYZ" },
       { homeModel: "../m_0123456789abcdef" },
+      { hair: "mullet" },
+      { hair: "none" },
+      { hair: "toString" },
+      { hair: 3 },
+      { hair: ["bob"] },
+      { hairColor: "teal" },
+      { hairColor: "sun" },
+      { hairColor: "#ff0000" },
+      { hairColor: { hex: "#ff0000" } },
+      // One bad field refuses the whole change, good ones with it included.
+      { hair: "long", hairColor: "neon" },
     ];
     for (const fields of bad) {
-      expect(code(profile(state, fields as never))).toBe("invalid_profile");
+      expect(code(profile(state, fields as never)), JSON.stringify(fields)).toBe("invalid_profile");
     }
     expect(hashWorld(state)).toBe(before);
   });
 
   it("calls an unchanged look a no-op, including wear in another order", () => {
     const state = joined();
-    profile(state, { theme: "ocean", wear: ["scarf", "beanie"] });
+    profile(state, { theme: "ocean", wear: ["scarf", "beanie"], hair: "curly" });
     expect(code(profile(state, { theme: "ocean" }))).toBe("invalid_profile");
     expect(code(profile(state, { wear: ["beanie", "scarf"] }))).toBe("invalid_profile");
+    expect(code(profile(state, { hair: "curly" }))).toBe("invalid_profile");
+    expect(code(profile(state, { hairColor: null }))).toBe("invalid_profile");
     expect(code(profile(state, { theme: null, pattern: null }))).toBeNull();
     expect(code(profile(state, { theme: null }))).toBe("invalid_profile");
   });
@@ -283,15 +341,43 @@ describe("profile looks", () => {
     const state = createWorld(CONFIG);
     const joinedEvent = apply(state, {
       actor: "capri",
-      command: { type: "join", name: "Capri", kind: "human", theme: "lemon", wear: ["straw_hat"] },
+      command: {
+        type: "join",
+        name: "Capri",
+        kind: "human",
+        theme: "lemon",
+        wear: ["straw_hat"],
+        hair: "ponytail",
+        hairColor: "ginger",
+      },
     });
     expect(joinedEvent).toMatchObject({
       ok: true,
-      events: [{ type: "joined", resident: { theme: "lemon", wear: ["straw_hat"] } }],
+      events: [
+        {
+          type: "joined",
+          resident: { theme: "lemon", wear: ["straw_hat"], hair: "ponytail", hairColor: "ginger" },
+        },
+      ],
     });
     apply(state, { actor: "capri", command: { type: "leave" } });
     apply(state, { actor: "capri", command: { type: "join", name: "Capri", kind: "human" } });
-    expect(state.residents.capri).toMatchObject({ theme: "lemon", wear: ["straw_hat"] });
+    expect(state.residents.capri).toMatchObject({
+      theme: "lemon",
+      wear: ["straw_hat"],
+      hair: "ponytail",
+      hairColor: "ginger",
+    });
+    // A join that names a hair style the catalog doesn't have is refused, and nobody joins.
+    const fresh = createWorld(CONFIG);
+    const join = { type: "join", name: "Wren", kind: "agent" } as const;
+    expect(
+      code(apply(fresh, { actor: "wren", command: { ...join, hair: "mohawk" as never } })),
+    ).toBe("invalid_profile");
+    expect(
+      code(apply(fresh, { actor: "wren", command: { ...join, hairColor: "neon" as never } })),
+    ).toBe("invalid_profile");
+    expect(fresh.residents.wren).toBeUndefined();
   });
 
   it("replays a log with looks to the same hash", () => {

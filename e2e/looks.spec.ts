@@ -4,8 +4,8 @@ import { act, join, overflowsSideways, signIn, watchErrors } from "./support";
 /**
  * RFC 0005 looks: Capri loves lemons. She opens the look editor from her profile, picks the lemon
  * theme, citrus slices, and a straw hat, saves, and sees it on her profile and in the world. Then
- * someone at 390x844 picks a color on the card, waits on an upload, and styles single garments: a
- * citrus dress in sun yellow and striped socks.
+ * someone at 390x844 picks a color on the card, waits on an upload, puts their hair in a ginger
+ * bun, and styles single garments: a citrus dress in sun yellow and striped socks.
  */
 
 test("pick lemon, citrus, and a straw hat, and see it on the profile and in the world", async ({
@@ -133,13 +133,20 @@ test("style a garment: a citrus dress in sun yellow and striped socks, keeping a
   await dress.getByRole("button", { name: "Done" }).click();
   await expect(dress).toBeHidden();
 
+  // Hair: a style, then its color, which waits until there's a style to color.
+  const hairColors = editor.locator(".look-hair-colors");
+  await expect(hairColors).toBeHidden();
+  await editor.locator('[data-hair="bun"]').click();
+  await expect(editor.locator('[data-hair="bun"]')).toHaveAttribute("aria-pressed", "true");
+  await hairColors.locator('[data-value="ginger"]').click();
+
   // Socks, then tap them again to style them: stripes.
   await editor.locator('[data-wear="socks"]').click();
   await editor.locator('[data-wear="socks"]').click();
   const socks = editor.getByRole("group", { name: "Style your socks" });
   await socks.locator('[data-garment-pattern="stripes"]').click();
   await expect(editor.locator(".look-summary")).toHaveText(
-    "Your color, plain, citrus dress in sun yellow, striped socks",
+    "Your color, ginger bun, plain, citrus dress in sun yellow, striped socks",
   );
 
   // Nothing scrolls sideways, in the page or in the sheet.
@@ -154,18 +161,20 @@ test("style a garment: a citrus dress in sun yellow and striped socks, keeping a
   await editor.getByRole("button", { name: "Save my look" }).click();
   await expect(editor).toBeHidden();
 
-  // The world has the styles, as the profile action sent them.
+  // The world has the styles and the hair, as the profile action sent them.
   const world = await (await page.request.get("/v1/world")).json();
   const me = world.residents.find((r: { id: string }) => r.id === who.id);
   expect(me).toMatchObject({
     color: "leaf",
     wear: ["dress", "socks"],
     wearStyle: { dress: { pattern: "citrus", color: "sun" }, socks: { pattern: "stripes" } },
+    hair: "bun",
+    hairColor: "ginger",
   });
 
   // The profile says it in words and draws the figure.
   await expect(page.locator(".profile [data-look]")).toHaveText(
-    "Citrus dress in sun yellow, Striped socks",
+    "Ginger bun · Citrus dress in sun yellow, Striped socks",
   );
   await expect(page.locator(".profile .avatar.has-figure canvas")).toBeVisible();
   expect(await overflowsSideways(page)).toBe(false);

@@ -81,6 +81,7 @@ What we chose and why. Newest last.
 - [REPLAY_VERSION marks rule changes that make old snapshots unusable](decisions/0070-replay-version-marks-rule-changes-that-make-old-snapshots-un.md) · 2026-10-06 · accepted · `sim` `server` `storage`
 - [Presence comes with acting once implicit_presence is logged](decisions/0071-presence-comes-with-acting-once-implicit-presence-is-logged.md) · 2026-10-06 · accepted · `sim` `server` `protocol`
 - [Walking is eight ways around solid buildings, paced by your figure and drawn before the server answers](decisions/0072-walking-is-eight-ways-around-solid-buildings-paced-by-your-f.md) · 2026-10-06 · accepted · `sim` `protocol` `server` `client` `design`
+- [Hair is a style and a color on the look, drawn under hats in 2D and 3D](decisions/0074-hair-is-a-style-and-a-color-on-the-look-drawn-under-hats-in-.md) · 2026-10-06 · accepted · `sim` `protocol` `client` `design` `agents` `3d`
 - [Seasons follow the UTC calendar and add stock, crops, recipes, and buys without changing how old logs replay](decisions/0078-seasons-follow-the-utc-calendar-and-add-stock-crops-recipes-.md) · 2026-10-06 · accepted · `sim` `economy` `protocol` `replay` `seasons`
 - [Autumn's numbers: pumpkins, pumpkin pie and soup, hay bales, and scarecrows](decisions/0079-autumn-s-numbers-pumpkins-pumpkin-pie-and-soup-hay-bales-and.md) · 2026-10-06 · accepted · `sim` `economy` `numbers` `seasons`
 

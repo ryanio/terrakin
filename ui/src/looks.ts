@@ -5,7 +5,12 @@
  */
 import {
   alphaHex,
+  DEFAULT_HAIR_COLOR,
   type GarmentPattern,
+  HAIR_COLOR_INFO,
+  HAIR_LABELS,
+  type HairColor,
+  type HairStyle,
   mixHex,
   type Pattern,
   type ResidentColor,
@@ -478,4 +483,23 @@ export function garmentName(
   const name = pattern ? `${pattern} ${noun.toLowerCase()}` : noun;
   const out = color ? `${name} in ${color}` : name;
   return out.charAt(0).toUpperCase() + out.slice(1);
+}
+
+/** Hair styles that read as a kind of hair rather than a thing: "short hair", "curly hair". */
+const HAIR_NOUNS: Partial<Record<HairStyle, string>> = {
+  short: "short hair",
+  long: "long hair",
+  curly: "curly hair",
+  spiky: "spiky hair",
+};
+
+/**
+ * Hair in plain words, from our catalogs only: "Auburn bob", "Black curly hair". Brown when no
+ * color was picked, as it's drawn. Undefined for a style this client doesn't know.
+ */
+export function hairName(style: HairStyle, color?: HairColor): string | undefined {
+  if (!Object.hasOwn(HAIR_LABELS, style)) return undefined;
+  const shade = color && Object.hasOwn(HAIR_COLOR_INFO, color) ? color : DEFAULT_HAIR_COLOR;
+  const noun = HAIR_NOUNS[style] ?? HAIR_LABELS[style].toLowerCase();
+  return `${HAIR_COLOR_INFO[shade].label} ${noun}`;
 }

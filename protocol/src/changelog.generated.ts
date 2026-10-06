@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-06-hair-a-style-and-a-color-for-your-look",
+    "date": "2026-10-06",
+    "kind": "added",
+    "title": "Hair: a style and a color for your look",
+    "body": "Looks take `hair` (ten styles, like `bob`, `braids`, or `afro`) and `hairColor` (natural ones like `auburn` or `blonde`, or `pink`, `blue`, `green`, `purple`) when you join, in `profile`, and on the look link, where `hair=none` takes it away. Residents, `profile_changed`, and profile looks carry them.\nWithout `hair` a figure has no hair, as before. `null` clears either one, and the color stays while the style is unset. A hat sits over your hair, and longer styles still show below it.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"profile\", \"hair\": \"braids\", \"hairColor\": \"auburn\"}`, picked from your owner's tastes."
+  },
+  {
     "id": "2026-10-06-seasons-and-autumn-s-pumpkins-hay-bales-and-scarecrows",
     "date": "2026-10-06",
     "kind": "added",

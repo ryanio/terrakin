@@ -1,7 +1,7 @@
 /**
- * The looks catalog (RFC 0005, section 1): themes, patterns, and things to wear. Plain data shared
- * by the sim (which validates a look), the protocol (which lists the choices), and the client
- * (which draws them). Colors here are presentation only: no rule ever reads them.
+ * The looks catalog (RFC 0005, section 1): themes, patterns, things to wear, and hair. Plain data
+ * shared by the sim (which validates a look), the protocol (which lists the choices), and the
+ * client (which draws them). Colors here are presentation only: no rule ever reads them.
  */
 
 import type { ResidentColor } from "./types";
@@ -103,6 +103,75 @@ export const isExclusiveWear = (w: unknown): w is ExclusiveWear =>
 
 /** One item per slot, so at most this many at once. */
 export const MAX_WEAR = WEAR_SLOTS.length;
+
+/**
+ * Hair styles (decision 0074). A look without `hair` has none, which is how every figure looked
+ * before hair, so there is no `none` value: `null` clears it.
+ */
+export const HAIR_STYLES = [
+  "short",
+  "bob",
+  "long",
+  "curly",
+  "bun",
+  "ponytail",
+  "braids",
+  "spiky",
+  "afro",
+  "pigtails",
+] as const;
+export type HairStyle = (typeof HAIR_STYLES)[number];
+
+export const HAIR_LABELS: Record<HairStyle, string> = {
+  short: "Short",
+  bob: "Bob",
+  long: "Long",
+  curly: "Curly",
+  bun: "Bun",
+  ponytail: "Ponytail",
+  braids: "Braids",
+  spiky: "Spiky",
+  afro: "Afro",
+  pigtails: "Pigtails",
+};
+
+/** Hair colors: the natural ones, then a few fun ones. */
+export const HAIR_COLORS = [
+  "black",
+  "brown",
+  "chestnut",
+  "auburn",
+  "ginger",
+  "blonde",
+  "platinum",
+  "gray",
+  "white",
+  "pink",
+  "blue",
+  "green",
+  "purple",
+] as const;
+export type HairColor = (typeof HAIR_COLORS)[number];
+
+/** Each hair color's name and the color it's drawn in. Presentation only, like the palettes. */
+export const HAIR_COLOR_INFO: Record<HairColor, { label: string; hex: string }> = {
+  black: { label: "Black", hex: "#33292a" },
+  brown: { label: "Brown", hex: "#6e4a30" },
+  chestnut: { label: "Chestnut", hex: "#8c4a26" },
+  auburn: { label: "Auburn", hex: "#a33f2c" },
+  ginger: { label: "Ginger", hex: "#d9772e" },
+  blonde: { label: "Blonde", hex: "#ebc463" },
+  platinum: { label: "Platinum", hex: "#efe3c4" },
+  gray: { label: "Gray", hex: "#a29d95" },
+  white: { label: "White", hex: "#f6f2ea" },
+  pink: { label: "Pink", hex: "#f08cb4" },
+  blue: { label: "Blue", hex: "#5b8ed8" },
+  green: { label: "Green", hex: "#5aae68" },
+  purple: { label: "Purple", hex: "#9468cf" },
+};
+
+/** The color a style is drawn in when its resident hasn't picked one. */
+export const DEFAULT_HAIR_COLOR: HairColor = "brown";
 
 export interface ThemeInfo {
   label: string;
@@ -326,6 +395,10 @@ export interface Look {
   homeModel?: string;
   /** A pattern or color per garment ("a lemon dress"). Absent until set, and when empty. */
   wearStyle?: WearStyles;
+  /** A hair style. Absent is no hair. */
+  hair?: HairStyle;
+  /** The hair's color. Kept while `hair` is unset, so a style put back comes back in it. */
+  hairColor?: HairColor;
 }
 
 export const LOOK_KEYS = [
@@ -336,6 +409,8 @@ export const LOOK_KEYS = [
   "homeArt",
   "homeModel",
   "wearStyle",
+  "hair",
+  "hairColor",
 ] as const satisfies readonly (keyof Look)[];
 
 /** The look media fields, which hold upload ids. */
@@ -460,5 +535,7 @@ export function lookOf(
     const copy = mergeWearStyles(undefined, exactWearStyles(source.wearStyle));
     if (copy) out.wearStyle = copy;
   }
+  if (source.hair !== undefined) out.hair = source.hair;
+  if (source.hairColor !== undefined) out.hairColor = source.hairColor;
   return out;
 }

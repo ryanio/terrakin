@@ -124,7 +124,15 @@ export function faceKey(face: FigureFace): string {
 export function figureSprite(
   r: Pick<
     Resident,
-    "color" | "shape" | "theme" | "pattern" | "patternMedia" | "wear" | "wearStyle"
+    | "color"
+    | "shape"
+    | "theme"
+    | "pattern"
+    | "patternMedia"
+    | "wear"
+    | "wearStyle"
+    | "hair"
+    | "hairColor"
   >,
   scale: number,
   dpr: number,
@@ -140,7 +148,8 @@ export function figureSprite(
     const s = r.wearStyle?.[w];
     return s ? `${w}:${s.pattern ?? ""}:${s.color ?? ""}` : "";
   });
-  const key = `fig|${r.color}|${r.shape}|${r.theme ?? ""}|${probe}|${(r.wear ?? []).join(",")}|${styles.join(",")}|${fourWayFacing(facing)}|${faceKey(face)}|${u.toFixed(2)}`;
+  const hair = r.hair ? `${r.hair}:${r.hairColor ?? ""}` : "";
+  const key = `fig|${r.color}|${r.shape}|${r.theme ?? ""}|${probe}|${(r.wear ?? []).join(",")}|${styles.join(",")}|${hair}|${fourWayFacing(facing)}|${faceKey(face)}|${u.toFixed(2)}`;
   const canvas = sprite(key, w, h, (ctx) => {
     ctx.translate(-FIGURE_BOX.left * u, -FIGURE_BOX.top * u);
     drawFigure(ctx, u, r, clothesPattern(ctx, r, u).pattern, facing, patterns, face);

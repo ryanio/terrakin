@@ -30,9 +30,30 @@ export type DisplayView = Omit<NonNullable<WorldSnapshot["displays"]>[number], "
 /** A resident from the wire, with unset look fields left out rather than undefined. */
 export function residentFrom(view: ResidentView): Resident {
   // `facing` is for drawing; the mirror keeps it in `facing`, outside the resident.
-  const { theme, pattern, wear, patternMedia, homeArt, homeModel, wearStyle, facing, ...rest } =
-    view;
-  const look = { theme, pattern, wear, patternMedia, homeArt, homeModel, wearStyle };
+  const {
+    theme,
+    pattern,
+    wear,
+    patternMedia,
+    homeArt,
+    homeModel,
+    wearStyle,
+    hair,
+    hairColor,
+    facing,
+    ...rest
+  } = view;
+  const look = {
+    theme,
+    pattern,
+    wear,
+    patternMedia,
+    homeArt,
+    homeModel,
+    wearStyle,
+    hair,
+    hairColor,
+  };
   return { ...rest, ...lookOf(look) };
 }
 

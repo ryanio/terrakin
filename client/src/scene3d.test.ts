@@ -1,19 +1,28 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { WorldSnapshot } from "@terrakin/protocol";
-import { BLOCK_KINDS, RESIDENT_COLORS, THEME_INFO, type WearItem } from "@terrakin/sim";
+import {
+  BLOCK_KINDS,
+  HAIR_COLOR_INFO,
+  HAIR_STYLES,
+  RESIDENT_COLORS,
+  THEME_INFO,
+  type WearItem,
+} from "@terrakin/sim";
 import { BRAND_HEX } from "@terrakin/ui/brand";
 import { GARMENT_COLOR, garmentColor } from "@terrakin/ui/figure";
-import { type BufferGeometry, IcosahedronGeometry, Mesh, SphereGeometry } from "three";
+import { type BufferGeometry, Color, IcosahedronGeometry, Mesh, SphereGeometry } from "three";
 import { describe, expect, it } from "vitest";
 import { blockColor, RESIDENT_COLOR_HEX } from "./render";
 import { parseGallery } from "./scene3d/catalog";
+import { hairMesh, hairPieces } from "./scene3d/hair";
 import {
   cornerLight,
   distanceOutside,
   FIGURE_SCALE,
   fitModel,
   groundDecor,
+  HAT_BAND,
   hearthPull,
   hearthStand,
   homeExtras,
@@ -295,13 +304,63 @@ describe("wear on 3D figures", () => {
     expect(boots?.color).toBe(garmentColor({ color: "sky", theme: "lemon" }, "boots"));
   });
 
-  it("lifts the name tag over a top hat, a halo, or an umbrella", () => {
+  it("lifts the name tag over a top hat, a halo, an umbrella, or tall hair", () => {
     const look = (wear: WearItem[]) => ({ color: "sky" as const, shape: "round" as const, wear });
     expect(tagHeight({ kind: "human", look: look([]) })).toBe(1.08);
     expect(tagHeight({ kind: "agent", look: look([]) })).toBe(1.2);
     expect(tagHeight({ kind: "human", look: look(["top_hat"]) })).toBeGreaterThan(1.08);
     expect(tagHeight({ kind: "human", look: look(["muse_halo"]) })).toBeGreaterThan(1.08);
     expect(tagHeight({ kind: "agent", look: look(["umbrella"]) })).toBeGreaterThan(1.2);
+    expect(tagHeight({ kind: "human", look: { ...look([]), hair: "afro" } })).toBeGreaterThan(1.08);
+    // Short hair, or tall hair tucked under a beanie, leaves the tag where it was.
+    expect(tagHeight({ kind: "human", look: { ...look([]), hair: "short" } })).toBe(1.08);
+    expect(tagHeight({ kind: "human", look: { ...look(["beanie"]), hair: "afro" } })).toBe(1.08);
+  });
+});
+
+describe("hair on 3D figures", () => {
+  const triangles = (g: BufferGeometry) =>
+    (g.index ? g.index.count : (g.getAttribute("position")?.count ?? 0)) / 3;
+  /** The highest point of any piece, in the head's own y. */
+  const topOf = (pieces: readonly { geo: BufferGeometry }[]) => {
+    let top = Number.NEGATIVE_INFINITY;
+    for (const { geo } of pieces) {
+      const at = geo.getAttribute("position");
+      for (let i = 0; i < (at?.count ?? 0); i++) top = Math.max(top, at?.getY(i) ?? top);
+    }
+    return top;
+  };
+
+  it("is one mesh per figure, in the hair's color, and none without a style", () => {
+    const bare = { color: "sky" as const, shape: "round" as const };
+    expect(hairMesh(bare)).toBeUndefined();
+    expect(hairMesh({ ...bare, hairColor: "pink" })).toBeUndefined();
+    expect(hairMesh({ ...bare, hair: "mullet" as never })).toBeUndefined();
+    const pink = new Color(HAIR_COLOR_INFO.pink.hex);
+    for (const hair of HAIR_STYLES) {
+      const mesh = hairMesh({ ...bare, hair, hairColor: "pink" });
+      const colors = mesh?.geometry.getAttribute("color");
+      expect(colors, hair).toBeDefined();
+      expect([colors?.getX(0), colors?.getY(0), colors?.getZ(0)], hair).toEqual(
+        [pink.r, pink.g, pink.b].map((c) => expect.closeTo(c, 5)),
+      );
+      // One draw call each, inside decision 0060's frame budget with 24 figures in view.
+      expect(triangles(mesh?.geometry as BufferGeometry), hair).toBeLessThan(1300);
+    }
+  });
+
+  it("keeps every style under a hat's band, so nothing pokes through the hat", () => {
+    for (const [hat, band] of Object.entries(HAT_BAND)) {
+      for (const hair of HAIR_STYLES) {
+        // Positions are 32-bit floats, so allow for their rounding.
+        expect(topOf(hairPieces(hair, band)), `${hair} under ${hat}`).toBeLessThanOrEqual(
+          (band ?? 0) + 1e-4,
+        );
+      }
+    }
+    // Without a hat, the bun and the spikes stand well above that.
+    expect(topOf(hairPieces("bun"))).toBeGreaterThan(0.2);
+    expect(topOf(hairPieces("spiky"))).toBeGreaterThan(0.25);
   });
 });
 
@@ -448,6 +507,7 @@ describe("three.js stays out of the main bundle", () => {
     "scene3d/gallery.ts",
     "scene3d/page.ts",
     "scene3d/wear.ts",
+    "scene3d/hair.ts",
     "scene3d/buildings.ts",
     "scene3d/world.ts",
   ]);

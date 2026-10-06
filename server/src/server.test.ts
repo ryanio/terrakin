@@ -204,6 +204,35 @@ describe("REST", () => {
     expect(service.state.residents[body.residentId]?.wearStyle?.dress?.pattern).toBe("citrus");
   });
 
+  it("takes hair on join and by profile, and shows it in the snapshot", async () => {
+    const { base, service } = await start();
+    const { body } = await api(base, "POST", "/v1/session", {
+      name: "Rue",
+      kind: "agent",
+      hair: "bob",
+      hairColor: "auburn",
+    });
+    const id = body.residentId;
+    expect(service.state.residents[id]).toMatchObject({ hair: "bob", hairColor: "auburn" });
+    const restyle = (fields: Record<string, unknown>) =>
+      api(base, "POST", "/v1/actions", { type: "profile", ...fields }, body.token);
+    expect((await restyle({ hair: "braids" })).body.events[0]).toMatchObject({
+      type: "profile_changed",
+      hair: "braids",
+      hairColor: "auburn",
+    });
+    const world = (await api(base, "GET", "/v1/world")).body;
+    const rue = world.residents.find((r: { id: string }) => r.id === id);
+    expect(rue).toMatchObject({ hair: "braids", hairColor: "auburn" });
+    // null takes the hair away and keeps its color for next time.
+    expect((await restyle({ hair: null })).body.ok).toBe(true);
+    expect(service.state.residents[id]).not.toHaveProperty("hair");
+    expect(service.state.residents[id]?.hairColor).toBe("auburn");
+    // The schema refuses what the catalog doesn't have, before the sim.
+    expect((await restyle({ hair: "mullet" })).status).toBe(400);
+    expect((await restyle({ hairColor: "teal" })).status).toBe(400);
+  });
+
   it("anchors day/night time in the world snapshot", async () => {
     const { base } = await start(new MemoryStore(), { now: () => 1_700_000_000_000 });
     const world = (await api(base, "GET", "/v1/world")).body;

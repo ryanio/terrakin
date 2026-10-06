@@ -68,6 +68,7 @@ import {
 } from "./art";
 import { decorInstances } from "./decor";
 import { createPictures, displayedThings } from "./displays";
+import { hairMesh } from "./hair";
 import { painting } from "./items";
 import {
   type Bounds,
@@ -1170,6 +1171,9 @@ export function figure(stage: Stage, f: LayoutFigure, shadowMap: Texture): Group
     bulb.position.y = 0.97 - HEAD_Y;
     face.head.add(stalk, bulb);
   }
+  // Hair sits on the head and turns with it; a hat that covers the crown hides the top of it.
+  const hair = hairMesh(f.look, f.look.wear);
+  if (hair) face.head.add(hair);
   const wear = wearGroup(f);
   // Hats, glasses and bows turn with the head.
   for (const piece of wear.children.filter((o) => o.userData.onHead)) {

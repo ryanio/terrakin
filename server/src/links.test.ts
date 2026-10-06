@@ -561,6 +561,16 @@ describe("links for the rest of a first visit", () => {
     expect(service.state.residents[wren.id]).toMatchObject({ color: "sky", shape: "diamond" });
     expect(service.state.residents[wren.id]?.wear).toEqual(["straw_hat", "apron"]);
     expect(codeOf((await wren.act("look")).text)).toBe("bad_request");
+    // Hair by link, and `none` for no hair, since a link can't send null.
+    expect((await wren.act("look?hair=pigtails&hairColor=ginger")).text).toContain("# Your look");
+    expect(service.state.residents[wren.id]).toMatchObject({
+      hair: "pigtails",
+      hairColor: "ginger",
+    });
+    await wren.act("look?hair=none");
+    expect(service.state.residents[wren.id]).not.toHaveProperty("hair");
+    expect(service.state.residents[wren.id]?.hairColor).toBe("ginger");
+    expect(codeOf((await wren.act("look?hair=mullet")).text)).toBe("bad_request");
   });
 
   it("plants beside the hearth, placing a planter, and never on the way to the door", async () => {

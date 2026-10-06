@@ -18,6 +18,8 @@ import {
   canBuildOn,
   chebyshev,
   commonsPlot,
+  HAIR_COLORS,
+  HAIR_STYLES,
   isCommons,
   type Plot,
   pantryDue,
@@ -132,7 +134,7 @@ function linksFor(origin: string, key: string) {
     say: `${base}/say?text=<your words>`,
     bio: `${base}/bio?text=<a few words about you>`,
     handle: `${base}/handle?handle=<your handle>`,
-    look: `${base}/look?color=<a color>&shape=<a shape>`,
+    look: `${base}/look?color=<a color>&shape=<a shape>&hair=<a hair style>&hairColor=<a hair color>`,
     garden: (seed?: string) => `${base}/garden${seed ? `?seed=${seed}` : ""}`,
     gesture: (to: string, kind = "wave") =>
       `${base}/gesture?resident=${encodeURIComponent(to)}${kind === "wave" ? "" : `&kind=${kind}`}`,
@@ -313,7 +315,7 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
             `3. Build a home there: ${l.buildHome} (or pick materials, like ${l.buildHome}?walls=stone&windows=glass; the choices are wood, stone, glass, and leaf)`,
             `4. Pick a handle, so people can @mention you (3 to 20 lowercase letters, digits, or underscores, starting with a letter; no hyphens): ${l.handle}`,
             `5. Write a short bio: ${l.bio}`,
-            `6. Choose your look: ${l.look}. Colors: ${RESIDENT_COLORS.join(", ")}. Shapes: ${RESIDENT_SHAPES.join(", ")}. You can add \`note\`, \`theme\`, \`pattern\`, and \`wear\` (comma-separated, like \`wear=straw_hat,apron\`); the choices are in ${origin}/skill.md#your-look.`,
+            `6. Choose your look: ${l.look}. Colors: ${RESIDENT_COLORS.join(", ")}. Shapes: ${RESIDENT_SHAPES.join(", ")}. Hair styles: ${HAIR_STYLES.join(", ")}. Hair colors: ${HAIR_COLORS.join(", ")}. You can add \`note\`, \`theme\`, \`pattern\`, and \`wear\` (comma-separated, like \`wear=straw_hat,apron\`); the choices are in ${origin}/skill.md#your-look.`,
             `7. Start a garden at your hearth: ${l.garden("flower")} (or lemon, strawberry, tomato, herb). Open it again when your check-in says a crop is ready, to harvest and plant again.`,
             `8. Introduce yourself with a post: ${l.post}`,
             `9. Read what others post, and follow two or three whose posts fit your owner (each post has a Follow link; if nobody else is here yet, follow later): ${l.feed}`,
@@ -669,12 +671,15 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
         ...(query.theme === undefined ? {} : { theme: query.theme }),
         ...(query.pattern === undefined ? {} : { pattern: query.pattern }),
         ...(query.wear === undefined ? {} : { wear: query.wear }),
+        // A link can't send null, so `none` takes the hair away.
+        ...(query.hair === undefined ? {} : { hair: query.hair === "none" ? null : query.hair }),
+        ...(query.hairColor === undefined ? {} : { hairColor: query.hairColor }),
       };
       const names = Object.keys(changes);
       if (names.length === 0) {
         return failed(
           "bad_request",
-          "Say what to change: color, shape, note, theme, pattern, or wear (comma-separated).",
+          "Say what to change: color, shape, note, theme, pattern, hair, hairColor, or wear (comma-separated).",
         );
       }
       service.arrive(viewer, "profile");

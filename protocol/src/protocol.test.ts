@@ -5,6 +5,8 @@ import {
   type Command,
   createWorld,
   DEFAULT_CONFIG,
+  HAIR_COLORS,
+  HAIR_STYLES,
   PATTERNS,
   PUTTER,
   SHOP_CATALOG,
@@ -273,9 +275,14 @@ describe("looks", () => {
       patternMedia: "m_0123456789abcdef",
       homeArt: null,
       homeModel: "m_00000000000000bb",
+      hair: "bun",
+      hairColor: "blonde",
     };
     expect(Action.parse(capri)).toEqual(capri);
-    expect(Action.safeParse({ type: "profile", theme: null, wear: [] }).success).toBe(true);
+    expect(
+      Action.safeParse({ type: "profile", theme: null, wear: [], hair: null, hairColor: null })
+        .success,
+    ).toBe(true);
   });
 
   it("takes garment styles, a null to clear one, and a null to clear them all", () => {
@@ -304,6 +311,10 @@ describe("looks", () => {
       { patternMedia: "/media/m_0123456789abcdef" },
       { homeArt: "https://example.com/home.png" },
       { homeModel: "m_0123" },
+      { hair: "mullet" },
+      { hair: "none" },
+      { hairColor: "sun" },
+      { hairColor: "#ff0000" },
     ];
     for (const fields of bad) {
       expect(Action.safeParse({ type: "profile", ...fields }).success, JSON.stringify(fields)).toBe(
@@ -312,15 +323,24 @@ describe("looks", () => {
     }
   });
 
-  it("takes theme, pattern, and wear (not media) when joining", () => {
+  it("takes theme, pattern, wear, and hair (not media) when joining", () => {
     const joined = CreateSessionRequest.parse({
       name: "Capri",
       kind: "human",
       theme: "lemon",
       wear: ["straw_hat"],
+      hair: "curly",
+      hairColor: "auburn",
       homeArt: "m_0123456789abcdef",
     });
-    expect(joined).toEqual({ name: "Capri", kind: "human", theme: "lemon", wear: ["straw_hat"] });
+    expect(joined).toEqual({
+      name: "Capri",
+      kind: "human",
+      theme: "lemon",
+      wear: ["straw_hat"],
+      hair: "curly",
+      hairColor: "auburn",
+    });
   });
 
   it("parses residents and profile_changed with or without a look", () => {
@@ -354,8 +374,10 @@ describe("looks", () => {
     expect(skill).toContain(`${PUTTER_LIMITS.perDay} times a UTC day`);
   });
 
-  it("documents every theme, pattern, and wear item in SKILL.md", () => {
-    for (const id of [...THEMES, ...PATTERNS, ...WEAR_ITEMS]) expect(skill).toContain(`\`${id}\``);
+  it("documents every theme, pattern, wear item, hair style, and hair color in SKILL.md", () => {
+    for (const id of [...THEMES, ...PATTERNS, ...WEAR_ITEMS, ...HAIR_STYLES, ...HAIR_COLORS]) {
+      expect(skill).toContain(`\`${id}\``);
+    }
   });
 });
 

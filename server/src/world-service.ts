@@ -304,6 +304,8 @@ function cleanProfile(fields: LooseProfile): ProfileFields {
   if (fields.wearStyle !== undefined) {
     out.wearStyle = fields.wearStyle === null ? null : exactWearStyles(fields.wearStyle);
   }
+  if (fields.hair !== undefined) out.hair = fields.hair;
+  if (fields.hairColor !== undefined) out.hairColor = fields.hairColor;
   for (const key of LOOK_MEDIA_KEYS) {
     const value = fields[key];
     if (value !== undefined) out[key] = value;

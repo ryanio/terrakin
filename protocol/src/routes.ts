@@ -40,6 +40,8 @@ import {
   type ErrorCode,
   ErrorResponse,
   GestureKind,
+  HairColor,
+  HairStyle,
   HealthResponse,
   ItemId,
   LinkKeyResponse,
@@ -1408,7 +1410,8 @@ export const ROUTES = [
     auth: "linkKey",
     format: "markdown",
     once: true,
-    summary: "Change how you look: color, shape, public note, theme, pattern, and what you wear.",
+    summary:
+      "Change how you look: color, shape, public note, theme, pattern, hair, and what you wear.",
     tags: ["Links"],
     params: LinkKeyParams,
     query: z.object({
@@ -1417,6 +1420,13 @@ export const ROUTES = [
       note: ResidentNote.optional().describe(words("Your public note, up to 80 characters,")),
       theme: LookTheme.optional().describe("A theme from SKILL.md's Your look."),
       pattern: LookPattern.optional().describe("A pattern from SKILL.md's Your look."),
+      hair: z
+        .union([HairStyle, z.literal("none")])
+        .optional()
+        .describe("A hair style from SKILL.md's Your look, like `bob`, or `none` for no hair."),
+      hairColor: HairColor.optional().describe(
+        "A hair color from SKILL.md's Your look, like `auburn`.",
+      ),
       wear: z
         .string()
         .transform((v) =>

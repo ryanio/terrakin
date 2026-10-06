@@ -17,7 +17,7 @@ import {
 import { NOTE_MAX_LENGTH, PATTERN_LABELS, THEME_INFO } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
 import { compactCount, isMediaUrl, karmaLine, plural } from "@terrakin/ui/format";
-import { garmentName, mediaUrlOf } from "@terrakin/ui/looks";
+import { garmentName, hairName, mediaUrlOf } from "@terrakin/ui/looks";
 import { openImage, openModelViewer } from "@terrakin/ui/media";
 import { plot3dPath, profilePath } from "@terrakin/ui/paths";
 import {
@@ -647,11 +647,15 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
     return { el, editable };
   }
 
-  /** "Lemon · Citrus slices · Straw hat, Basket". Names are ours (the catalog), not player text. */
+  /**
+   * "Lemon · Auburn bob · Citrus slices · Straw hat, Basket". Names are ours (the catalog), not
+   * player text.
+   */
   function lookLine(look: ProfileView["look"]): HTMLElement | null {
     if (!look) return null;
     const parts = [
       look.theme ? THEME_INFO[look.theme].label : null,
+      (look.hair && hairName(look.hair, look.hairColor)) || null,
       look.patternMedia ? "Own pattern" : look.pattern ? PATTERN_LABELS[look.pattern] : null,
       look.wear?.length
         ? look.wear.map((w) => garmentName(w, look.wearStyle?.[w])).join(", ")
@@ -1442,10 +1446,12 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
         h(
           "p",
           { class: "look-dress-text" },
-          h("span", { class: "field-label", text: "Theme, pattern, and things to wear" }),
+          h("span", { class: "field-label", text: "Theme, hair, pattern, and things to wear" }),
           h("span", {
             class: "look-dress-now",
-            text: lookLine(r.look)?.textContent || "Pick a theme like Lemon or Ocean, and a hat.",
+            text:
+              lookLine(r.look)?.textContent ||
+              "Pick a theme like Lemon or Ocean, a hair style, and a hat.",
           }),
         ),
         h(

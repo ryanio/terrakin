@@ -11,6 +11,7 @@ import {
 import {
   COLOR_WORDS,
   garmentName,
+  hairName,
   lookPalette,
   luminance,
   type MakeCanvas,
@@ -50,12 +51,19 @@ describe("mirror looks", () => {
           hearth: null,
           theme: "lemon",
           wear: ["straw_hat"],
+          hair: "bob",
+          hairColor: "auburn",
         },
       ],
       plots: [],
       blocks: [],
     });
-    expect(mirror.residents.get("a")).toMatchObject({ theme: "lemon", wear: ["straw_hat"] });
+    expect(mirror.residents.get("a")).toMatchObject({
+      theme: "lemon",
+      wear: ["straw_hat"],
+      hair: "bob",
+      hairColor: "auburn",
+    });
     mirror.apply({
       seq: 2,
       event: {
@@ -71,6 +79,7 @@ describe("mirror looks", () => {
     expect(after?.pattern).toBe("citrus");
     expect(after && "theme" in after).toBe(false);
     expect(after && "wear" in after).toBe(false);
+    expect(after && "hair" in after).toBe(false);
   });
 
   it("keeps garment styles from the snapshot and from profile_changed", () => {
@@ -272,7 +281,12 @@ describe("look media", () => {
   });
 
   it("sends only what changed, with null to clear", () => {
-    const before = { theme: "lemon", wear: ["straw_hat", "basket"] } as const;
+    const before = {
+      theme: "lemon",
+      wear: ["straw_hat", "basket"],
+      hair: "bob",
+      hairColor: "auburn",
+    } as const;
     const same = {
       theme: "lemon",
       pattern: null,
@@ -281,6 +295,8 @@ describe("look media", () => {
       homeArt: null,
       homeModel: null,
       wearStyle: {},
+      hair: "bob",
+      hairColor: "auburn",
     } as const;
     expect(
       lookChanges({ ...before, wear: [...before.wear] }, { ...same, wear: [...same.wear] }),
@@ -288,9 +304,9 @@ describe("look media", () => {
     expect(
       lookChanges(
         { ...before, wear: [...before.wear] },
-        { ...same, theme: null, wear: [], pattern: "citrus" },
+        { ...same, theme: null, wear: [], pattern: "citrus", hair: null, hairColor: "pink" },
       ),
-    ).toEqual({ theme: null, wear: [], pattern: "citrus" });
+    ).toEqual({ theme: null, wear: [], pattern: "citrus", hair: null, hairColor: "pink" });
   });
 
   it("sends garment styles item by item: the new style for a change, null for a cleared one", () => {
@@ -306,6 +322,8 @@ describe("look media", () => {
       homeArt: null,
       homeModel: null,
       wearStyle,
+      hair: null,
+      hairColor: null,
     });
     const kept: WearStyles = {
       dress: { pattern: "citrus", color: "sun" },
@@ -344,6 +362,13 @@ describe("look media", () => {
     expect(garmentName("skirt", { pattern: "own" })).toBe("Own pattern skirt");
     expect(garmentName("boots")).toBe("Boots");
     for (const color of RESIDENT_COLORS) expect(COLOR_WORDS[color]).toMatch(/^[a-z ]+$/);
+  });
+
+  it("names hair in plain words, brown until a color is picked", () => {
+    expect(hairName("bob", "auburn")).toBe("Auburn bob");
+    expect(hairName("curly", "black")).toBe("Black curly hair");
+    expect(hairName("pigtails")).toBe("Brown pigtails");
+    expect(hairName("mullet" as never, "pink")).toBeUndefined();
   });
 });
 

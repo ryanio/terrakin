@@ -423,6 +423,8 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
         patternMedia: r.patternMedia,
         wear: r.wear,
         wearStyle: r.wearStyle,
+        hair: r.hair,
+        hairColor: r.hairColor,
       },
     };
   }
@@ -537,6 +539,8 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
         r.patternMedia,
         r.wear,
         r.wearStyle,
+        r.hair,
+        r.hairColor,
         mine,
       ]);
       const have = figures.get(r.id);

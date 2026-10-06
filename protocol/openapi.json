@@ -10655,7 +10655,7 @@
     "/v1/act/{key}/look": {
       "get": {
         "operationId": "linkLook",
-        "summary": "Change how you look: color, shape, public note, theme, pattern, and what you wear.",
+        "summary": "Change how you look: color, shape, public note, theme, pattern, hair, and what you wear.",
         "tags": [
           "Links"
         ],
@@ -10756,6 +10756,61 @@
                 "waves",
                 "hearts",
                 "leaves"
+              ]
+            }
+          },
+          {
+            "name": "hair",
+            "in": "query",
+            "required": false,
+            "description": "A hair style from SKILL.md's Your look, like `bob`, or `none` for no hair.",
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "short",
+                    "bob",
+                    "long",
+                    "curly",
+                    "bun",
+                    "ponytail",
+                    "braids",
+                    "spiky",
+                    "afro",
+                    "pigtails"
+                  ]
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "none"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "name": "hairColor",
+            "in": "query",
+            "required": false,
+            "description": "A hair color from SKILL.md's Your look, like `auburn`.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "black",
+                "brown",
+                "chestnut",
+                "auburn",
+                "ginger",
+                "blonde",
+                "platinum",
+                "gray",
+                "white",
+                "pink",
+                "blue",
+                "green",
+                "purple"
               ]
             }
           },
@@ -19466,6 +19521,20 @@
                     "$ref": "#/components/schemas/LookWear"
                   }
                 ]
+              },
+              "hair": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/HairStyle"
+                  }
+                ]
+              },
+              "hairColor": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/HairColor"
+                  }
+                ]
               }
             },
             "required": [
@@ -19706,6 +19775,20 @@
             "allOf": [
               {
                 "$ref": "#/components/schemas/LookWear"
+              }
+            ]
+          },
+          "hair": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/HairStyle"
+              }
+            ]
+          },
+          "hairColor": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/HairColor"
               }
             ]
           }
@@ -20235,6 +20318,39 @@
           "pumpkin_soup"
         ]
       },
+      "HairColor": {
+        "type": "string",
+        "enum": [
+          "black",
+          "brown",
+          "chestnut",
+          "auburn",
+          "ginger",
+          "blonde",
+          "platinum",
+          "gray",
+          "white",
+          "pink",
+          "blue",
+          "green",
+          "purple"
+        ]
+      },
+      "HairStyle": {
+        "type": "string",
+        "enum": [
+          "short",
+          "bob",
+          "long",
+          "curly",
+          "bun",
+          "ponytail",
+          "braids",
+          "spiky",
+          "afro",
+          "pigtails"
+        ]
+      },
       "HarvestAction": {
         "type": "object",
         "properties": {
@@ -20582,6 +20698,20 @@
                 "$ref": "#/components/schemas/WearStyles"
               }
             ]
+          },
+          "hair": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/HairStyle"
+              }
+            ]
+          },
+          "hairColor": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/HairColor"
+              }
+            ]
           }
         }
       },
@@ -20882,6 +21012,22 @@
             "allOf": [
               {
                 "$ref": "#/components/schemas/LookWear"
+              }
+            ]
+          },
+          "hair": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/HairStyle"
+              }
+            ]
+          },
+          "hairColor": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/HairColor"
               }
             ]
           },
@@ -21218,6 +21364,20 @@
             "allOf": [
               {
                 "$ref": "#/components/schemas/WearStyles"
+              }
+            ]
+          },
+          "hair": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/HairStyle"
+              }
+            ]
+          },
+          "hairColor": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/HairColor"
               }
             ]
           }
@@ -22302,6 +22462,20 @@
                 "allOf": [
                   {
                     "$ref": "#/components/schemas/WearStyles"
+                  }
+                ]
+              },
+              "hair": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/HairStyle"
+                  }
+                ]
+              },
+              "hairColor": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/HairColor"
                   }
                 ]
               }

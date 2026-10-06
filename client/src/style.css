@@ -7581,6 +7581,11 @@ html.view3d-open body {
   margin-bottom: var(--space-2xs);
 }
 
+/* Hair colors have longer names ("Chestnut", "Platinum"), so three to a row on a phone. */
+.look-hair-colors .swatch-row {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .look-styler-actions {
   display: flex;
   flex-wrap: wrap;

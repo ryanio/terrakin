@@ -8,8 +8,13 @@
 import { fourWayFacing } from "@terrakin/protocol";
 import {
   BLOCK_COLORS,
+  DEFAULT_HAIR_COLOR,
   type Direction,
   type GarmentPattern,
+  HAIR_COLOR_INFO,
+  HAIR_LABELS,
+  type HairColor,
+  type HairStyle,
   PATTERNS,
   type Pattern,
   type ResidentColor,
@@ -23,7 +28,7 @@ import {
 } from "@terrakin/sim";
 import { BRAND_HEX, WOOD_DARK } from "./brand";
 import type { Feeling } from "./feelings";
-import { lookImage, lookPalette, mix, PatternCache, RESIDENT_COLOR_HEX } from "./looks";
+import { lookImage, lookPalette, luminance, mix, PatternCache, RESIDENT_COLOR_HEX } from "./looks";
 
 /** A color and pattern per garment, as the sim keeps them or as the wire carries them. */
 export type GarmentStyles = Partial<
@@ -44,6 +49,10 @@ export interface FigureLook {
   patternMedia?: string | undefined;
   /** A color and pattern per garment. A garment without one looks as it always has. */
   wearStyle?: GarmentStyles | undefined;
+  /** A hair style. Without one, no hair. */
+  hair?: HairStyle | undefined;
+  /** The hair's color, brown until picked. */
+  hairColor?: HairColor | undefined;
 }
 
 /** Everything a figure picture needs, including the pattern. */
@@ -53,7 +62,9 @@ const pagePatterns = new PatternCache();
 
 /** True when a look has anything to draw beyond the plain color token. */
 export function hasLook(look: Partial<FullLook> | undefined): boolean {
-  return Boolean(look?.theme || look?.pattern || look?.wear?.length || look?.patternMedia);
+  return Boolean(
+    look?.theme || look?.pattern || look?.wear?.length || look?.patternMedia || hairOf(look ?? {}),
+  );
 }
 
 /**
@@ -412,6 +423,8 @@ export function drawFigure(
   const shoes = wear.has("socks") || wear.has("boots") || wear.has("sneakers");
   // A wave raises the arm on the carrying side up beside the head.
   const waving = face.wave ? raisedArm(side, hand, face.wave) : undefined;
+  const hair = hairOf(look);
+  const hairView: HairView = { side, back, hat: coveringHat(wear) };
 
   // White rim behind everything, so the figure reads on any ground.
   ctx.lineJoin = "round";
@@ -429,6 +442,10 @@ export function drawFigure(
     flarePath(ctx, u);
     ctx.stroke();
   }
+  if (hair) rimHair(ctx, u, hair.style, hairView);
+
+  // Hair that hangs behind the head and body: a bob's back, a ponytail, an afro's puff.
+  if (hair) drawHair(ctx, u, hair, "behind", hairView, p);
 
   // A skirt's flare sits behind the body, so a coat over it leaves only the hem showing.
   if (wear.has("dress")) drawFlare(ctx, u, garb("dress"), GARMENT_COLOR.dress(p), pattern);
@@ -498,8 +515,10 @@ export function drawFigure(
   if (!back) {
     const eye = look.color === "coal" ? BRAND_HEX.paper : INK;
     drawFace(ctx, u, eye, side, face.feeling ?? "neutral", Boolean(face.blink));
-    if (wear.has("glasses")) drawGlasses(ctx, u, side, garb("glasses"));
   }
+  // Hair on the head, over the face's edges, and under glasses and any hat.
+  if (hair) drawHair(ctx, u, hair, "over", hairView, p);
+  if (!back && wear.has("glasses")) drawGlasses(ctx, u, side, garb("glasses"));
 
   drawHat(ctx, u, wear, p, garb);
 
@@ -935,6 +954,738 @@ function drawMuseHalo(ctx: CanvasRenderingContext2D, u: number, p: ThemePalette,
   }
   ctx.fill();
   ctx.stroke();
+}
+
+// ---------- hair ----------
+// Hair is drawn in two layers: what hangs behind the head and body (a bob's back, a ponytail, an
+// afro's puff) before the body, and what sits on the head (the crown, the fringe, braids) after the
+// face. A hat drawn after both hides the hair above its band, so longer styles show below it.
+
+/** A look's hair: its style and the color to draw it in, or undefined for none. Pure. */
+export function hairOf(
+  look: Pick<FigureLook, "hair" | "hairColor">,
+): { style: HairStyle; hex: string } | undefined {
+  const style = look.hair;
+  // A style this client doesn't know draws no hair, like none.
+  if (!style || !Object.hasOwn(HAIR_LABELS, style)) return undefined;
+  const color =
+    look.hairColor && Object.hasOwn(HAIR_COLOR_INFO, look.hairColor)
+      ? look.hairColor
+      : DEFAULT_HAIR_COLOR;
+  return { style, hex: HAIR_COLOR_INFO[color].hex };
+}
+
+/** The color of the bands that tie a ponytail, pigtails, or braids: the outfit's accent. */
+export const hairTieColor = (p: ThemePalette): string => (paleAccent(p) ? p.deep : p.accent);
+
+/**
+ * Hats that cover the crown: the height of their band (`line`) and how far out from the middle
+ * they reach (`half`), both in tiles. Hair above the band and inside that reach is under the hat.
+ * A flower crown and a halo cover nothing.
+ */
+const HAT_COVER: Partial<Record<WearItem, { line: number; half: number }>> = {
+  straw_hat: { line: -0.77, half: 0.33 },
+  beret: { line: -0.79, half: 0.22 },
+  beanie: { line: -0.7, half: 0.235 },
+  top_hat: { line: -0.82, half: 0.27 },
+};
+
+/** The hat worn that covers the crown, if any. */
+const coveringHat = (wear: ReadonlySet<WearItem>) =>
+  [...wear].find((w) => Object.hasOwn(HAT_COVER, w));
+
+/** Which way the figure faces, and the hat over the hair. */
+interface HairView {
+  side: number;
+  back: boolean;
+  hat: WearItem | undefined;
+}
+
+/** Draws in tiles from the feet, mirrored for a figure facing west. */
+interface Pen {
+  move(x: number, y: number): void;
+  line(x: number, y: number): void;
+  quad(cx: number, cy: number, x: number, y: number): void;
+  arc(x: number, y: number, r: number, from: number, to: number, ccw?: boolean): void;
+  /** An oval as a path of its own. */
+  oval(x: number, y: number, rx: number, ry: number): void;
+}
+
+function pen(ctx: CanvasRenderingContext2D, u: number, m: number): Pen {
+  return {
+    move: (x, y) => ctx.moveTo(x * m * u, y * u),
+    line: (x, y) => ctx.lineTo(x * m * u, y * u),
+    quad: (cx, cy, x, y) => ctx.quadraticCurveTo(cx * m * u, cy * u, x * m * u, y * u),
+    // Mirroring turns an angle a into pi - a, and runs the arc the other way.
+    arc: (x, y, r, from, to, ccw = false) =>
+      m > 0
+        ? ctx.arc(x * u, y * u, r * u, from, to, ccw)
+        : ctx.arc(-x * u, y * u, r * u, Math.PI - from, Math.PI - to, !ccw),
+    oval: (x, y, rx, ry) => {
+      ctx.moveTo((x * m + rx) * u, y * u);
+      ctx.ellipse(x * m * u, y * u, rx * u, ry * u, 0, 0, Math.PI * 2);
+    },
+  };
+}
+
+/** One closed piece of hair, drawn with a pen. */
+type Lock = (k: Pen) => void;
+
+interface HairParts {
+  /** Behind the head and body. */
+  behind: Lock[];
+  /** On the head, and from behind, down the back. */
+  over: Lock[];
+  /**
+   * The only edge of `over` to line, when the rest of it sits inside the hair behind (an afro's
+   * hairline). Otherwise every outer edge is lined.
+   */
+  hairline?: Lock;
+  /** Lines drawn on the hair: a part, the plaits of a braid. */
+  marks?: Lock;
+  /** Where a tail or braid is tied, in tiles. */
+  ties?: readonly (readonly [number, number])[];
+  /** Pieces on top of the rest, each with an outline of its own: a bun seen from behind. */
+  knots?: Lock[];
+}
+
+/** The crown's dome: a little wider than the head (radius 0.21 at y -0.66), and a little higher. */
+const DOME = { y: -0.665, r: 0.232 };
+
+/** Curls: overlapping circles around an arc of the head, over a crown that fills the middle. */
+function curls(k: Pen, from: number, to: number, count: number, r: number) {
+  for (let i = 0; i < count; i++) {
+    const a = from + ((to - from) * i) / (count - 1);
+    const end = i === 0 || i === count - 1;
+    const cr = end ? r * 0.8 : r;
+    k.oval(Math.cos(a) * 0.205, -0.67 + Math.sin(a) * 0.205, cr, cr);
+  }
+}
+
+/** Spikes standing up from the crown, `lean` turning them toward the back of the head. */
+function spikes(k: Pen, angles: readonly number[], lean = 0) {
+  for (const a of angles) {
+    const at = (angle: number, r: number) =>
+      [Math.cos(angle) * r, DOME.y + Math.sin(angle) * r] as const;
+    k.move(...at(a - 0.2, 0.2));
+    k.line(...at(a + lean, 0.335));
+    k.line(...at(a + 0.2, 0.2));
+  }
+}
+
+/** An afro's puff, centered at `x`: a round of curls with a full middle. */
+function puff(k: Pen, x: number) {
+  k.oval(x, -0.7, 0.26, 0.26);
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2;
+    k.oval(x + Math.cos(a) * 0.235, -0.7 + Math.sin(a) * 0.235, 0.068, 0.068);
+  }
+}
+
+/** A braid hanging from (x, y): plaits down to `end`, then a tuft under the tie. */
+function braid(k: Pen, x: number, y: number, end: number) {
+  const n = 4;
+  for (let i = 0; i < n; i++) {
+    const t = i / (n - 1);
+    k.oval(x - 0.008 * t, y + (end - y) * t, 0.042, 0.046);
+  }
+  k.oval(x - 0.01, end + 0.075, 0.03, 0.04);
+}
+
+/** The lines between a braid's plaits. */
+function plaits(k: Pen, x: number, y: number, end: number) {
+  const n = 4;
+  for (let i = 0; i < n - 1; i++) {
+    const t = (i + 0.5) / (n - 1);
+    const cx = x - 0.008 * t;
+    const cy = y + (end - y) * t;
+    k.move(cx - 0.035, cy - 0.012);
+    k.quad(cx, cy + 0.02, cx + 0.035, cy - 0.012);
+  }
+}
+
+// Crowns from the front. Each runs over the head from its left side to its right, then back along
+// the hairline across the face.
+
+/** Short: a side-swept fringe and short sideburns. */
+const frontShort: Lock = (k) => {
+  k.arc(0, DOME.y, DOME.r, Math.PI - 0.22, 0.22);
+  k.line(0.19, -0.6);
+  k.quad(0.205, -0.72, 0.12, -0.78);
+  k.quad(0, -0.775, -0.13, -0.712);
+  k.quad(-0.185, -0.69, -0.19, -0.6);
+};
+
+/** A center part: the hair falls away from it to each side of the face, down to `low`. */
+const frontParted =
+  (low: number): Lock =>
+  (k) => {
+    const a = Math.asin(Math.min(1, (low - DOME.y) / DOME.r));
+    k.arc(0, DOME.y, DOME.r, Math.PI - a, a);
+    k.line(0.185, low + 0.01);
+    k.quad(0.19, -0.74, 0.025, -0.79);
+    k.line(0, -0.77);
+    k.line(-0.025, -0.79);
+    k.quad(-0.19, -0.74, -0.185, low + 0.01);
+  };
+
+/** Pulled back from the face, for a bun or a ponytail. */
+const frontPulled: Lock = (k) => {
+  k.arc(0, DOME.y, DOME.r, Math.PI - 0.12, 0.12);
+  k.line(0.2, -0.63);
+  k.quad(0.19, -0.785, 0, -0.795);
+  k.quad(-0.19, -0.785, -0.2, -0.63);
+};
+
+/** A bob: a blunt fringe, and sides down to the jaw. */
+const frontBob: Lock = (k) => {
+  k.move(-0.21, -0.462);
+  k.quad(-0.252, -0.462, -0.252, -0.5);
+  k.line(-0.255, -0.64);
+  k.quad(-0.26, -0.905, 0, -0.905);
+  k.quad(0.26, -0.905, 0.255, -0.64);
+  k.line(0.252, -0.5);
+  k.quad(0.252, -0.462, 0.21, -0.462);
+  k.line(0.17, -0.47);
+  k.quad(0.185, -0.62, 0.165, -0.725);
+  k.line(-0.165, -0.725);
+  k.quad(-0.185, -0.62, -0.17, -0.47);
+};
+
+/** Long hair: parted, falling past the face to curl at the shoulders. */
+const frontLong: Lock = (k) => {
+  k.move(0.17, -0.47);
+  k.quad(0.2, -0.62, 0.16, -0.72);
+  k.quad(0.1, -0.78, 0.025, -0.79);
+  k.line(0, -0.77);
+  k.line(-0.025, -0.79);
+  k.quad(-0.1, -0.78, -0.16, -0.72);
+  k.quad(-0.2, -0.62, -0.17, -0.47);
+  k.quad(-0.22, -0.43, -0.27, -0.455);
+  k.quad(-0.255, -0.56, -0.25, -0.665);
+  k.arc(0, -0.665, 0.25, Math.PI, 0);
+  k.quad(0.255, -0.56, 0.27, -0.455);
+  k.quad(0.22, -0.43, 0.17, -0.47);
+};
+
+/** An afro's soft round hairline, from the right temple to the left. */
+function afroFringe(k: Pen) {
+  k.quad(0.19, -0.775, 0, -0.78);
+  k.quad(-0.19, -0.775, -0.205, -0.64);
+}
+
+/** The afro's crown over the forehead. It sits inside the puff, so only its hairline is lined. */
+const frontAfro: Lock = (k) => {
+  k.arc(0, DOME.y, DOME.r, Math.PI - 0.1, 0.1);
+  k.line(0.205, -0.64);
+  afroFringe(k);
+};
+
+const frontAfroHairline: Lock = (k) => {
+  k.move(0.205, -0.64);
+  afroFringe(k);
+};
+
+/** Spiky: a zigzag fringe under the spikes. */
+const frontSpikyCrown: Lock = (k) => {
+  k.arc(0, DOME.y, DOME.r, Math.PI - 0.2, 0.2);
+  k.line(0.195, -0.62);
+  k.line(0.19, -0.7);
+  k.line(0.15, -0.71);
+  k.line(0.12, -0.775);
+  k.line(0.06, -0.715);
+  k.line(0.02, -0.775);
+  k.line(-0.03, -0.72);
+  k.line(-0.07, -0.775);
+  k.line(-0.12, -0.715);
+  k.line(-0.16, -0.765);
+  k.line(-0.19, -0.7);
+  k.line(-0.195, -0.62);
+};
+
+/** A pigtail standing out from the side of the head, toward `s` (-1 left, 1 right). */
+const pigtail =
+  (s: number): Lock =>
+  (k) => {
+    k.move(0.14 * s, -0.83);
+    k.quad(0.37 * s, -0.88, 0.385 * s, -0.69);
+    k.quad(0.39 * s, -0.56, 0.33 * s, -0.49);
+    k.quad(0.33 * s, -0.63, 0.19 * s, -0.72);
+  };
+
+// Crowns in profile, facing east (the pen mirrors them for west). Each runs from the fringe at
+// the front over the top and down the back of the head, then back along the hairline.
+
+/** The front of the crown, from the fringe's tip up and over to the top. */
+function profileTop(k: Pen, tip: readonly [number, number], back: number) {
+  k.move(...tip);
+  k.quad(tip[0] - 0.015, -0.86, 0.05, -0.895);
+  k.arc(0, DOME.y, DOME.r, -1.35, back, true);
+}
+
+/** Short in profile: down the back to the nape, the ear clear, the fringe forward. */
+const sideShort: Lock = (k) => {
+  profileTop(k, [0.215, -0.755], Math.PI - 0.6);
+  k.quad(-0.12, -0.52, -0.075, -0.56);
+  k.quad(-0.02, -0.62, -0.03, -0.69);
+  k.quad(0.02, -0.745, 0.13, -0.735);
+  k.quad(0.19, -0.73, 0.215, -0.755);
+};
+
+/** Hair pulled back in profile: from behind the ear up past the temple to the forehead. */
+function pulledHairline(k: Pen) {
+  k.quad(-0.02, -0.62, -0.03, -0.69);
+  k.quad(0.06, -0.775, 0.17, -0.8);
+}
+
+/** Pulled back in profile, for a bun, a ponytail, braids, pigtails, or under an afro's puff. */
+const sidePulled: Lock = (k) => {
+  profileTop(k, [0.17, -0.8], Math.PI - 0.6);
+  k.quad(-0.12, -0.52, -0.075, -0.56);
+  pulledHairline(k);
+};
+
+/** A bob in profile: down to the jaw, with its front edge just behind the cheek. */
+const sideBob: Lock = (k) => {
+  profileTop(k, [0.215, -0.75], Math.PI - 0.12);
+  k.line(-0.255, -0.5);
+  k.quad(-0.255, -0.46, -0.205, -0.46);
+  k.line(-0.06, -0.47);
+  k.quad(-0.025, -0.475, -0.03, -0.52);
+  k.quad(-0.055, -0.62, -0.015, -0.7);
+  k.quad(0.06, -0.745, 0.15, -0.735);
+  k.quad(0.2, -0.73, 0.215, -0.75);
+};
+
+/** Long hair in profile: down the back, past the shoulders. */
+const sideLong: Lock = (k) => {
+  profileTop(k, [0.215, -0.75], Math.PI - 0.12);
+  k.quad(-0.29, -0.5, -0.275, -0.37);
+  k.quad(-0.25, -0.33, -0.2, -0.345);
+  k.quad(-0.15, -0.42, -0.12, -0.52);
+  k.quad(-0.06, -0.56, -0.035, -0.6);
+  k.quad(-0.045, -0.66, -0.015, -0.7);
+  k.quad(0.06, -0.745, 0.15, -0.735);
+  k.quad(0.2, -0.73, 0.215, -0.75);
+};
+
+const sideAfroHairline: Lock = (k) => {
+  k.move(-0.075, -0.56);
+  pulledHairline(k);
+};
+
+const sideSpikyCrown: Lock = (k) => {
+  profileTop(k, [0.2, -0.76], Math.PI - 0.6);
+  k.quad(-0.12, -0.52, -0.075, -0.56);
+  k.quad(-0.02, -0.62, -0.03, -0.69);
+  k.line(0.03, -0.73);
+  k.line(0.08, -0.715);
+  k.line(0.12, -0.75);
+  k.line(0.2, -0.76);
+};
+
+// From behind, the hair covers the head down to the nape.
+
+/** The back of the head down to `nape`, dipping a little at the middle. */
+const backCap =
+  (nape: number): Lock =>
+  (k) => {
+    const a = Math.asin(Math.min(1, (nape - DOME.y) / DOME.r));
+    k.arc(0, DOME.y, DOME.r, Math.PI - a, a);
+    k.quad(0, nape + 0.035, -Math.cos(a) * DOME.r, nape);
+  };
+
+const backBob: Lock = (k) => {
+  k.move(-0.25, -0.47);
+  k.line(-0.255, -0.64);
+  k.quad(-0.26, -0.905, 0, -0.905);
+  k.quad(0.26, -0.905, 0.255, -0.64);
+  k.line(0.25, -0.47);
+  k.quad(0, -0.445, -0.25, -0.47);
+};
+
+const backLong: Lock = (k) => {
+  k.move(-0.235, -0.35);
+  k.quad(-0.27, -0.5, -0.255, -0.64);
+  k.quad(-0.26, -0.905, 0, -0.905);
+  k.quad(0.26, -0.905, 0.255, -0.64);
+  k.quad(0.27, -0.5, 0.235, -0.35);
+  k.quad(0.12, -0.3, 0, -0.33);
+  k.quad(-0.12, -0.3, -0.235, -0.35);
+};
+
+/** A ponytail hanging down the back of the head from its tie. */
+const backTail: Lock = (k) => {
+  k.move(0, -0.8);
+  k.quad(0.15, -0.72, 0.1, -0.5);
+  k.quad(0.075, -0.4, 0.02, -0.38);
+  k.quad(-0.03, -0.37, -0.06, -0.42);
+  k.quad(-0.12, -0.52, -0.1, -0.62);
+  k.quad(-0.08, -0.74, 0, -0.8);
+};
+
+/** The part from the forehead up over the crown. */
+const partFront: Lock = (k) => {
+  k.move(0, -0.775);
+  k.line(0, -0.86);
+};
+
+/**
+ * The parts each style is drawn with, facing `side` (0 front or back, 1 east, -1 west). Under a
+ * hat that covers the crown (`hatted`), a bun's knot is tucked away.
+ */
+function hairParts(style: HairStyle, side: number, back: boolean, hatted: boolean): HairParts {
+  if (back) {
+    switch (style) {
+      case "short":
+        return { behind: [], over: [backCap(-0.535)] };
+      case "bob":
+        return { behind: [], over: [backBob] };
+      case "long":
+        return { behind: [], over: [backLong] };
+      case "curly":
+        return {
+          behind: [],
+          over: [(k) => curls(k, Math.PI - 0.45, Math.PI * 2 + 0.45, 11, 0.07), backCap(-0.55)],
+        };
+      case "bun":
+        return {
+          behind: [],
+          over: [backCap(-0.55)],
+          knots: hatted ? [] : [(k) => k.oval(0, -0.8, 0.1, 0.095)],
+        };
+      case "ponytail":
+        return { behind: [], over: [backCap(-0.55), backTail], ties: [[0, -0.79]] };
+      case "braids":
+        return {
+          behind: [],
+          over: [
+            backCap(-0.55),
+            (k) => braid(k, 0.1, -0.56, -0.33),
+            (k) => braid(k, -0.1, -0.56, -0.33),
+          ],
+          marks: (k) => {
+            k.move(0, -0.88);
+            k.line(0, -0.56);
+            plaits(k, 0.1, -0.56, -0.33);
+            plaits(k, -0.1, -0.56, -0.33);
+          },
+          ties: [
+            [0.092, -0.29],
+            [-0.108, -0.29],
+          ],
+        };
+      case "spiky":
+        return {
+          behind: [],
+          over: [backCap(-0.535), (k) => spikes(k, [-2.47, -2.03, -1.57, -1.11, -0.67])],
+        };
+      case "afro":
+        return { behind: [], over: [(k) => puff(k, 0)] };
+      case "pigtails":
+        return {
+          behind: [],
+          over: [backCap(-0.55), pigtail(-1), pigtail(1)],
+          marks: (k) => {
+            k.move(0, -0.88);
+            k.line(0, -0.56);
+          },
+          ties: [
+            [-0.215, -0.775],
+            [0.215, -0.775],
+          ],
+        };
+    }
+  }
+  if (side) {
+    switch (style) {
+      case "short":
+        return { behind: [], over: [sideShort] };
+      case "bob":
+        return { behind: [], over: [sideBob] };
+      case "long":
+        return { behind: [], over: [sideLong] };
+      case "curly":
+        return {
+          behind: [],
+          over: [
+            (k) => curls(k, Math.PI * 2 - 1.15, Math.PI - 0.5, 9, 0.07),
+            sideShort,
+            (k) => {
+              k.oval(0.13, -0.765, 0.05, 0.05);
+              k.oval(0.06, -0.79, 0.05, 0.05);
+            },
+          ],
+        };
+      case "bun":
+        if (hatted) return { behind: [], over: [sidePulled] };
+        return {
+          behind: [],
+          over: [(k) => k.oval(-0.15, -0.85, 0.09, 0.09), sidePulled],
+          marks: (k) => {
+            k.move(-0.2, -0.79);
+            k.quad(-0.13, -0.77, -0.09, -0.82);
+          },
+        };
+      case "ponytail":
+        return {
+          behind: [
+            (k) => {
+              k.move(-0.15, -0.83);
+              k.quad(-0.38, -0.86, -0.37, -0.66);
+              k.quad(-0.36, -0.52, -0.3, -0.44);
+              k.quad(-0.3, -0.58, -0.2, -0.7);
+            },
+          ],
+          over: [sidePulled],
+          ties: [[-0.215, -0.785]],
+        };
+      case "braids":
+        return {
+          behind: [],
+          over: [sidePulled, (k) => braid(k, -0.06, -0.54, -0.31)],
+          marks: (k) => plaits(k, -0.06, -0.54, -0.31),
+          ties: [[-0.068, -0.27]],
+        };
+      case "spiky":
+        return {
+          behind: [],
+          over: [sideSpikyCrown, (k) => spikes(k, [-1.35, -1.8, -2.25, -2.65], -0.15)],
+        };
+      case "afro":
+        return {
+          behind: [(k) => puff(k, -0.045)],
+          over: [sidePulled],
+          hairline: sideAfroHairline,
+        };
+      case "pigtails":
+        return {
+          behind: [
+            (k) => {
+              k.move(-0.12, -0.84);
+              k.quad(-0.33, -0.88, -0.34, -0.7);
+              k.quad(-0.34, -0.6, -0.3, -0.55);
+              k.quad(-0.28, -0.66, -0.17, -0.74);
+            },
+          ],
+          over: [
+            sidePulled,
+            (k) => {
+              k.move(-0.06, -0.8);
+              k.quad(-0.17, -0.74, -0.15, -0.6);
+              k.quad(-0.14, -0.52, -0.1, -0.47);
+              k.quad(-0.09, -0.6, -0.02, -0.71);
+            },
+          ],
+          ties: [[-0.07, -0.775]],
+        };
+    }
+  }
+  switch (style) {
+    case "short":
+      return { behind: [], over: [frontShort] };
+    case "bob":
+      return {
+        behind: [
+          (k) => {
+            k.move(-0.25, -0.47);
+            k.line(-0.255, -0.64);
+            k.quad(-0.26, -0.9, 0, -0.9);
+            k.quad(0.26, -0.9, 0.255, -0.64);
+            k.line(0.25, -0.47);
+            k.quad(0, -0.455, -0.25, -0.47);
+          },
+        ],
+        over: [frontBob],
+      };
+    case "long":
+      return {
+        behind: [
+          (k) => {
+            k.move(-0.27, -0.34);
+            k.quad(-0.31, -0.5, -0.255, -0.665);
+            k.arc(0, -0.665, 0.255, Math.PI, 0);
+            k.quad(0.31, -0.5, 0.27, -0.34);
+            k.quad(0, -0.3, -0.27, -0.34);
+          },
+        ],
+        over: [frontLong],
+      };
+    case "curly":
+      return {
+        behind: [],
+        over: [
+          (k) => curls(k, Math.PI - 0.3, Math.PI * 2 + 0.3, 11, 0.068),
+          frontParted(-0.6),
+          (k) => {
+            for (const x of [-0.12, -0.04, 0.04, 0.12]) k.oval(x, -0.755, 0.052, 0.05);
+          },
+        ],
+      };
+    case "bun":
+      return {
+        behind: hatted ? [] : [(k) => k.oval(0, -0.915, 0.088, 0.085)],
+        over: [frontPulled],
+      };
+    case "ponytail":
+      return {
+        behind: [
+          (k) => {
+            k.move(-0.12, -0.85);
+            k.quad(-0.34, -0.88, -0.345, -0.68);
+            k.quad(-0.35, -0.54, -0.29, -0.45);
+            k.quad(-0.3, -0.6, -0.19, -0.72);
+          },
+        ],
+        over: [frontPulled],
+        ties: [[-0.225, -0.795]],
+      };
+    case "braids":
+      return {
+        behind: [],
+        over: [
+          frontParted(-0.6),
+          (k) => braid(k, 0.205, -0.56, -0.33),
+          (k) => braid(k, -0.205, -0.56, -0.33),
+        ],
+        marks: (k) => {
+          partFront(k);
+          plaits(k, 0.205, -0.56, -0.33);
+          plaits(k, -0.205, -0.56, -0.33);
+        },
+        ties: [
+          [0.197, -0.29],
+          [-0.213, -0.29],
+        ],
+      };
+    case "spiky":
+      return {
+        behind: [],
+        over: [frontSpikyCrown, (k) => spikes(k, [-2.47, -2.03, -1.57, -1.11, -0.67])],
+      };
+    case "afro":
+      return { behind: [(k) => puff(k, 0)], over: [frontAfro], hairline: frontAfroHairline };
+    case "pigtails":
+      return {
+        behind: [pigtail(-1), pigtail(1)],
+        over: [frontParted(-0.6)],
+        marks: partFront,
+        ties: [
+          [-0.215, -0.775],
+          [0.215, -0.775],
+        ],
+      };
+  }
+}
+
+/** Keep what follows to where a covering hat doesn't reach: below its band, or out past it. */
+function underHat(ctx: CanvasRenderingContext2D, u: number, hat: WearItem | undefined) {
+  const cover = hat ? HAT_COVER[hat] : undefined;
+  if (!cover) return;
+  ctx.beginPath();
+  ctx.rect(-u, cover.line * u, 2 * u, 2 * u);
+  ctx.rect(-u, -2 * u, (1 - cover.half) * u, 3 * u);
+  ctx.rect(cover.half * u, -2 * u, (1 - cover.half) * u, 3 * u);
+  ctx.clip();
+}
+
+/** Trace each lock as its own path and `then` it. */
+function eachLock(
+  ctx: CanvasRenderingContext2D,
+  u: number,
+  m: number,
+  locks: readonly Lock[],
+  then: () => void,
+) {
+  const k = pen(ctx, u, m);
+  for (const lock of locks) {
+    ctx.beginPath();
+    lock(k);
+    ctx.closePath();
+    then();
+  }
+}
+
+/** The hair's part of the white rim, in the stroke the caller set, so it reads on any ground. */
+function rimHair(ctx: CanvasRenderingContext2D, u: number, style: HairStyle, view: HairView) {
+  const parts = hairParts(style, view.side, view.back, view.hat !== undefined);
+  ctx.save();
+  underHat(ctx, u, view.hat);
+  const locks = [...parts.behind, ...parts.over, ...(parts.knots ?? [])];
+  eachLock(ctx, u, view.side || 1, locks, () => ctx.stroke());
+  ctx.restore();
+}
+
+/**
+ * One layer of hair: lined in a darker shade, then filled, so the pieces of a style read as one
+ * shape with one outline. On top of the crown go a sheen, the part or plaits, and the ties.
+ */
+function drawHair(
+  ctx: CanvasRenderingContext2D,
+  u: number,
+  hair: { style: HairStyle; hex: string },
+  layer: "behind" | "over",
+  view: HairView,
+  p: ThemePalette,
+) {
+  const parts = hairParts(hair.style, view.side, view.back, view.hat !== undefined);
+  const locks = parts[layer];
+  if (locks.length === 0) return;
+  const m = view.side || 1;
+  const edge = mix(hair.hex, INK, 0.45);
+  // Lines on the hair itself (a part, plaits, a bun's edge) show lighter on very dark hair.
+  const mark = luminance(hair.hex) < 0.05 ? mix(hair.hex, PAPER, 0.3) : edge;
+  ctx.save();
+  underHat(ctx, u, view.hat);
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  ctx.strokeStyle = edge;
+  ctx.lineWidth = Math.max(1, 0.035 * u);
+  if (layer === "over" && parts.hairline) {
+    ctx.beginPath();
+    parts.hairline(pen(ctx, u, m));
+    ctx.stroke();
+  } else {
+    eachLock(ctx, u, m, locks, () => ctx.stroke());
+  }
+  ctx.fillStyle = hair.hex;
+  eachLock(ctx, u, m, locks, () => ctx.fill());
+  if (layer === "over") {
+    // A soft shine across the crown, toward the light.
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.32)";
+    ctx.lineWidth = Math.max(1, 0.028 * u);
+    ctx.beginPath();
+    if (view.side) pen(ctx, u, m).arc(0, -0.67, 0.165, Math.PI + 0.55, Math.PI + 1.05);
+    else ctx.arc(-0.01 * u, -0.67 * u, 0.165 * u, Math.PI + 0.75, Math.PI + 1.25);
+    ctx.stroke();
+    if (parts.marks) {
+      ctx.strokeStyle = mark;
+      ctx.lineWidth = Math.max(0.8, 0.016 * u);
+      ctx.beginPath();
+      parts.marks(pen(ctx, u, m));
+      ctx.stroke();
+    }
+    ctx.fillStyle = hair.hex;
+    ctx.strokeStyle = mark;
+    ctx.lineWidth = Math.max(1, 0.025 * u);
+    eachLock(ctx, u, m, parts.knots ?? [], () => {
+      ctx.fill();
+      ctx.stroke();
+    });
+    if (parts.ties?.length) {
+      const band = hairTieColor(p);
+      ctx.fillStyle = band;
+      ctx.strokeStyle = mix(band, INK, 0.35);
+      ctx.lineWidth = Math.max(0.6, 0.01 * u);
+      for (const [x, y] of parts.ties) {
+        ctx.beginPath();
+        ctx.ellipse(x * m * u, y * u, 0.034 * u, 0.024 * u, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      }
+    }
+  }
+  ctx.restore();
 }
 
 // ---------- tops ----------

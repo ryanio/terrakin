@@ -103,19 +103,45 @@ export function townPaintKey(
   return JSON.stringify([town.open, town.queued, town.you, town.nextClose, clocks, extra]);
 }
 
-/** "Closes in 1 day, 4 hours", "Closes in 35 minutes", or "Closing now". */
-export function closesIn(closesAt: string, now: number): string {
-  const ms = Date.parse(closesAt) - now;
-  if (!Number.isFinite(ms) || ms <= 60_000) return "Closing now";
-  const minutes = Math.floor(ms / 60_000);
+/**
+ * How long until `iso`, to the nearest minute: "1 day, 4 hours", "35 minutes". Null within the
+ * last minute, or for a time that doesn't parse.
+ */
+function timeUntil(iso: string, now: number): string | null {
+  const ms = Date.parse(iso) - now;
+  if (!Number.isFinite(ms) || ms <= 60_000) return null;
+  const minutes = Math.round(ms / 60_000);
   const days = Math.floor(minutes / 1440);
   const hours = Math.floor((minutes % 1440) / 60);
   const mins = minutes % 60;
   const unit = (n: number, word: string) => plural(n, word, `${word}s`);
-  if (days > 0) return `Closes in ${unit(days, "day")}${hours ? `, ${unit(hours, "hour")}` : ""}`;
-  if (hours > 0)
-    return `Closes in ${unit(hours, "hour")}${mins ? `, ${unit(mins, "minute")}` : ""}`;
-  return `Closes in ${unit(mins, "minute")}`;
+  if (days > 0) return `${unit(days, "day")}${hours ? `, ${unit(hours, "hour")}` : ""}`;
+  if (hours > 0) return `${unit(hours, "hour")}${mins ? `, ${unit(mins, "minute")}` : ""}`;
+  return unit(mins, "minute");
+}
+
+/** "Closes in 1 day, 4 hours", "Closes in 35 minutes", or "Closing now". */
+export function closesIn(closesAt: string, now: number): string {
+  const left = timeUntil(closesAt, now);
+  return left ? `Closes in ${left}` : "Closing now";
+}
+
+/** When a notice leaves the board: "Comes down in 1 day, 4 hours", or "Coming down now". */
+export function comesDownIn(expiresAt: string, now: number): string {
+  const left = timeUntil(expiresAt, now);
+  return left ? `Comes down in ${left}` : "Coming down now";
+}
+
+/**
+ * The board's limits in words: "Notices stay up for 2 days.", and to someone who can pin, how
+ * many they can have up.
+ */
+export function boardWords(
+  limits: { days: number; perResident: number },
+  signedIn: boolean,
+): string {
+  const stay = `Notices stay up for ${plural(limits.days, "day", "days")}.`;
+  return signedIn ? `${stay} You can have ${limits.perResident} up at once.` : stay;
 }
 
 /** What a Commons build can put on a tile: a block, decor, furniture, or a path or floor. */

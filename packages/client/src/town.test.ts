@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  boardWords,
   closedQuorum,
   closesIn,
+  comesDownIn,
   type PlanTile,
   planChanges,
   planLists,
@@ -65,6 +67,27 @@ describe("closesIn", () => {
     expect(closesIn("2026-10-04T15:02:00.000Z", now)).toBe("Closes in 2 minutes");
     expect(closesIn("2026-10-04T15:00:30.000Z", now)).toBe("Closing now");
     expect(closesIn("nonsense", now)).toBe("Closing now");
+  });
+
+  it("rounds to the nearest minute, so a time just short of a day says a day", () => {
+    expect(closesIn("2026-10-05T14:59:55.000Z", now)).toBe("Closes in 1 day");
+  });
+});
+
+describe("comesDownIn", () => {
+  const now = Date.UTC(2026, 9, 4, 15, 0);
+  it("says when a notice leaves the board", () => {
+    expect(comesDownIn("2026-10-06T15:00:00.000Z", now)).toBe("Comes down in 2 days");
+    expect(comesDownIn("2026-10-05T00:00:00.000Z", now)).toBe("Comes down in 9 hours");
+    expect(comesDownIn("2026-10-04T15:00:30.000Z", now)).toBe("Coming down now");
+  });
+});
+
+describe("boardWords", () => {
+  const limits = { days: 2, perResident: 3 };
+  it("says how long notices stay up, and how many someone who can pin may have", () => {
+    expect(boardWords(limits, false)).toBe("Notices stay up for 2 days.");
+    expect(boardWords(limits, true)).toBe("Notices stay up for 2 days. You can have 3 up at once.");
   });
 });
 

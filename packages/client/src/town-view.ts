@@ -6,12 +6,13 @@
  * residents' words: textContent only. The server decides who may vote and what passes; this page
  * shows its answers and its reasons.
  */
-import type {
-  Action,
-  NoticeView,
-  ProposalView,
-  TownResponse,
-  WorldSnapshot,
+import {
+  type Action,
+  BOARD_LIMITS,
+  type NoticeView,
+  type ProposalView,
+  type TownResponse,
+  type WorldSnapshot,
 } from "@terrakin/protocol";
 import {
   BLOCK_COLORS,
@@ -58,9 +59,11 @@ import { savedResidentId, savedToken } from "./net";
 import { skeletonCards } from "./post-card";
 import { coins } from "./purse";
 import {
+  boardWords,
   type CommonsPick,
   closedQuorum,
   closesIn,
+  comesDownIn,
   grantHandle,
   kindLabel,
   type PlanTile,
@@ -200,6 +203,7 @@ export function townView(ctx: ViewContext): View {
     paintEvents();
     const board = JSON.stringify(town.board);
     if (board !== paintedBoard) paintBoard(false);
+    else refreshComesDown();
   }
 
   // ---------- the calendar (RFC 0010) ----------
@@ -910,7 +914,15 @@ export function townView(ctx: ViewContext): View {
     let list = board.querySelector<HTMLElement>(".notice-list");
     if (withComposer || !list) {
       list = h("ol", { class: "stack plain-list notice-list" });
-      board.replaceChildren(savedToken() ? noticeComposer() : boardHint(), list);
+      board.replaceChildren(
+        ...(savedToken()
+          ? [
+              noticeComposer(),
+              h("p", { class: "board-hint", text: boardWords(BOARD_LIMITS, true) }),
+            ]
+          : [boardHint()]),
+        list,
+      );
     }
     const notices = town.board;
     paintedBoard = JSON.stringify(notices);
@@ -930,7 +942,7 @@ export function townView(ctx: ViewContext): View {
     return h(
       "p",
       { class: "board-hint" },
-      "Notices stay up for two days. ",
+      `${boardWords(BOARD_LIMITS, false)} `,
       h("a", { attrs: { href: "/world" }, text: "Join the world" }),
       " to pin one.",
     );
@@ -994,8 +1006,25 @@ export function townView(ctx: ViewContext): View {
       { class: "notice", attrs: { "data-notice": n.id } },
       h("p", { class: "notice-by" }, personLink(n.author), timeAgo(n.createdAt)),
       h("p", { class: "notice-text", text: n.text }),
-      takeDown,
+      h(
+        "div",
+        { class: "cluster notice-foot" },
+        h("p", {
+          class: "notice-left",
+          attrs: { "data-expires": n.expiresAt },
+          text: comesDownIn(n.expiresAt, serverNow()),
+        }),
+        takeDown,
+      ),
     );
+  }
+
+  /** Bring each notice's "Comes down in" up to date without drawing the board again. */
+  function refreshComesDown() {
+    for (const p of board.querySelectorAll<HTMLElement>(".notice-left[data-expires]")) {
+      const at = p.dataset.expires;
+      if (at) p.textContent = comesDownIn(at, serverNow());
+    }
   }
 
   // ---------- archive ----------

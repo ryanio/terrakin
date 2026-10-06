@@ -6115,6 +6115,17 @@ dialog.look-editor {
   overflow-wrap: anywhere;
 }
 
+.notice-foot {
+  align-items: center;
+  justify-content: space-between;
+}
+
+.notice-left {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}
+
 /* ---------- 3D views: a plot in 3D and the gallery (scene3d/) ----------
  * Full screen over the site chrome. The scene draws its own paper sky; the bar and the foot float
  * on top in the same paper pills as the rest of the site. */

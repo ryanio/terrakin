@@ -188,5 +188,20 @@ test("an eligible resident proposes a fountain, a path, and a bench, the town vo
     await birchPage.close();
   });
 
+  await test.step("Fern pins a notice, and the board says when it comes down", async () => {
+    await page.goto("/town");
+    const board = page.locator("section.board");
+    await expect(board.locator(".board-hint")).toHaveText(
+      "Notices stay up for 2 days. You can have 3 up at once.",
+    );
+    await page.fill("#notice-text", "Lantern walk at dusk, meet by the hall.");
+    await page.click("#notice-pin");
+    const notice = board.locator(".notice", { hasText: "Lantern walk at dusk" });
+    await expect(notice.locator(".notice-left")).toHaveText("Comes down in 2 days");
+    await expect(notice.getByRole("button", { name: "Take down" })).toBeVisible();
+    expect(await overflowsSideways(page)).toBe(false);
+    await notice.screenshot({ path: "test-results/town-notice.png" });
+  });
+
   expect(errors).toEqual([]);
 });

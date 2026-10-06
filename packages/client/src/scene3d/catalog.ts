@@ -25,6 +25,11 @@ export const ITEM_TEMPLATES = [
   "bat_bunting",
   "cauldron",
   "candy_bowl",
+  // Winter's decor (RFC 0017).
+  "snowman",
+  "string_lights",
+  "little_fir",
+  "sled",
 ] as const;
 export type ItemTemplate = (typeof ITEM_TEMPLATES)[number];
 

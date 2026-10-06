@@ -27,7 +27,7 @@ import {
 } from "@terrakin/sim";
 
 import { BRAND_HEX, WOOD_DARK } from "./brand";
-import { batPath, HALLOWEEN_HEX, mediaUrlOf, RESIDENT_COLOR_HEX } from "./looks";
+import { batPath, HALLOWEEN_HEX, mediaUrlOf, RESIDENT_COLOR_HEX, WINTER_HEX } from "./looks";
 
 /** Anything `itemArt` can draw: an item kind or a piece of wear. */
 export type ArtKind = ItemKind | WearItem;
@@ -1675,6 +1675,156 @@ function candyBowl(): ArtShape[] {
   ];
 }
 
+// ---------- winter (RFC 0017) and Midwinter (RFC 0022) ----------
+
+const W = WINTER_HEX;
+
+/** Hot cranberry punch in a cream mug, steaming, with cranberries and a slice of lemon. */
+function cranberryPunch(): ArtShape[] {
+  return [
+    shadow(15, 43),
+    line("M17.5 14c-2-2.2 2-4 0-6.5M23.5 13c-2-2.2 2-4 0-6.5M29.5 14c-2-2.2 2-4 0-6.5", LINE, 1.2, {
+      opacity: 0.5,
+    }),
+    path("M34 23.5h2.5a5.5 5.5 0 0 1 0 11H33", "none", out({ "stroke-width": 2.4 })),
+    path("M34 23.5h2.5a5.5 5.5 0 0 1 0 11H33", "none", {
+      stroke: W.mug,
+      "stroke-width": 1.2,
+      "stroke-linecap": "round",
+    }),
+    path("M9.5 18h25v18.5a5.5 5.5 0 0 1-5.5 5.5H15a5.5 5.5 0 0 1-5.5-5.5z", W.mug, out()),
+    line("M10 31h24", W.punch, 2.4, { opacity: 0.85 }),
+    line("M13 21.5v15", "#ffffff", 1.6, { opacity: 0.6 }),
+    ellipse(22, 18, 12.5, 3, W.punch, out({ "stroke-width": 1.1 })),
+    circle(17.5, 18, 1.5, CROP_HEX.cranberry, out({ "stroke-width": 0.7 })),
+    circle(22, 17.4, 1.5, CROP_HEX.cranberry, out({ "stroke-width": 0.7 })),
+    circle(26, 18.4, 1.5, CROP_HEX.cranberry, out({ "stroke-width": 0.7 })),
+    circle(31, 16.5, 4.5, CROP_HEX.lemon, out()),
+    circle(31, 16.5, 3, "#fff1a8"),
+    line("M31 13.5v6M28 16.5h6", CROP_HEX.lemon, 0.8),
+  ];
+}
+
+/** A snowman: three balls of snow, coal eyes and buttons, a carrot nose, a red scarf, a hat. */
+function snowman(): ArtShape[] {
+  const snow = out({ stroke: "#8ea3ba" });
+  return [
+    shadow(14, 43.5),
+    line("M17.5 21.5 10 16M11 16.8 8.6 14.6M30.5 21.5 38 16M37 16.8l2.4-2.2", WOOD, 1.5),
+    circle(24, 34, 9.5, W.snow, snow),
+    path("M30.6 27.2a9.5 9.5 0 0 1-12.4 14.2 9.5 9.5 0 0 0 12.4-14.2z", W.snowShade, {
+      opacity: 0.7,
+    }),
+    circle(24, 21.5, 6.8, W.snow, snow),
+    path("M28.8 16.7a6.8 6.8 0 0 1-8.9 10.2 6.8 6.8 0 0 0 8.9-10.2z", W.snowShade, {
+      opacity: 0.7,
+    }),
+    circle(24, 11.5, 5, W.snow, snow),
+    circle(22.2, 10.8, 0.9, W.coal),
+    circle(25.8, 10.8, 0.9, W.coal),
+    path("M24 12.2l5.2 1.3-5.2 1z", W.carrot, out({ "stroke-width": 0.7 })),
+    circle(24, 20.5, 0.95, W.coal),
+    circle(24, 24, 0.95, W.coal),
+    circle(24, 30.5, 1, W.coal),
+    rect(18.2, 15.3, 11.6, 3.2, 1.6, W.scarf, out({ "stroke-width": 1 })),
+    path("M26 17.6l3 6.8-2.8.6-1.8-6.4z", W.scarf, out({ "stroke-width": 1 })),
+    line("M27.3 20.3l1.4-.4M28.2 22.4l1.3-.4", W.scarfStripe, 0.9),
+    ellipse(24, 6.8, 6.2, 1.3, W.hat, out({ "stroke-width": 1 })),
+    rect(20.6, 1.8, 6.8, 5.2, 1, W.hat, out({ "stroke-width": 1 })),
+    line("M20.8 5.6h6.4", W.scarf, 1.1),
+    shine(20.5, 30, 2.6, 1.3, -50),
+  ];
+}
+
+/** Where a string of lights hangs at `t` along it, 0 at the west post and 1 at the east. */
+const lightsAt = (t: number) => ({ x: 7 + 34 * t, y: 15 + 26 * t * (1 - t) });
+
+/** A string of colored bulbs between two little posts, each bulb glowing. */
+function stringLights(): ArtShape[] {
+  const bulbs = [0.14, 0.32, 0.5, 0.68, 0.86].flatMap((t, i) => {
+    const { x, y } = lightsAt(t);
+    const color = W.bulbs[i % W.bulbs.length] as string;
+    return [
+      circle(x, y + 3.6, 4.6, color, { opacity: 0.28 }),
+      rect(x - 0.9, y - 0.2, 1.8, 1.8, 0.4, W.wire),
+      ellipse(x, y + 3.6, 1.9, 2.7, color, out({ "stroke-width": 0.8 })),
+      circle(x - 0.5, y + 2.6, 0.6, "#ffffff", { opacity: 0.8 }),
+    ];
+  });
+  return [
+    shadow(20, 43),
+    line("M7 14v28M41 14v28", WOOD_DARK, 2.4),
+    circle(7, 13.5, 1.9, WOOD_DARK),
+    circle(41, 13.5, 1.9, WOOD_DARK),
+    line("M7 15q17 13 34 0", W.wire, 1.1),
+    ...bulbs,
+  ];
+}
+
+/** A little fir in a clay pot: three tiers of needles dusted with snow, and a star on top. */
+function littleFir(): ArtShape[] {
+  const tier = (top: number, half: number, base: number) =>
+    path(
+      `M24 ${top} ${24 - half} ${base}q${half} 2.6 ${half * 2} 0z`,
+      W.needles,
+      out({ "stroke-width": 1.2 }),
+    );
+  return [
+    shadow(12, 43.5),
+    rect(22.5, 31, 3, 4, 0.6, WOOD_DARK),
+    tier(16, 12.5, 32),
+    tier(10, 9.5, 24.5),
+    tier(5.5, 6.5, 16.5),
+    path("M24 16 17 30.5q-2 .3-3 0z", W.needlesLight, { opacity: 0.55 }),
+    path("M24 10 19 23.5q-1.6.3-2.5 0z", W.needlesLight, { opacity: 0.55 }),
+    ellipse(15.5, 31.6, 2.6, 1, W.snow),
+    ellipse(31.5, 31.4, 3, 1.1, W.snow),
+    ellipse(17.6, 24, 2.2, 0.9, W.snow),
+    ellipse(30, 24.2, 2.3, 0.9, W.snow),
+    ellipse(24, 16.4, 2, 0.8, W.snow),
+    path("M15.5 34.5h17l-2 8.5h-13z", W.pot, out()),
+    rect(14.5, 33, 19, 3.6, 1.2, W.potRim, out({ "stroke-width": 1 })),
+    path(
+      "M24 1.2l1.3 2.7 3 .4-2.2 2.1.5 3-2.6-1.4-2.6 1.4.5-3-2.2-2.1 3-.4z",
+      W.star,
+      out({ "stroke-width": 0.8 }),
+    ),
+  ];
+}
+
+/** A sled in three-quarter view: red slats on two iron runners that curl up in front, and a rope. */
+function sled(): ArtShape[] {
+  const runner = (dy: number) =>
+    line(`M5 ${36 + dy}h29c5 0 8-3 8-7.5 0-2.4-1.6-3.6-3.2-3.2`, W.runner, 2);
+  return [
+    shadow(19, 43),
+    runner(4),
+    line("M10 40v-6M18 40v-6M28 40v-6", W.runner, 1.4),
+    runner(0),
+    line("M12 36v-6M20 36v-6M30 36v-6", W.runner, 1.4),
+    path("M8 30.5 12 26h27l-4 4.5z", W.slat, out()),
+    path("M8 30.5h27v3H8z", "#9e3428", out({ "stroke-width": 1 })),
+    path("M35 30.5 39 26v3l-4 4.5z", "#9e3428", out({ "stroke-width": 1 })),
+    line("M13.5 27.5h23M11.5 29h23", "#ffffff", 0.9, { opacity: 0.35 }),
+    line("M39 27c3.5-1 6 1.5 5 4.5s-4 3.5-6.5 2.4", W.rope, 1.4),
+  ];
+}
+
+/** A candy cane striped red and white, and a little one striped green leaning on it. */
+function candyCane(): ArtShape[] {
+  const cane = (d: string, width: number, stripe: string, dash: string) => [
+    line(d, LINE, width + 1.8),
+    line(d, "#ffffff", width),
+    line(d, stripe, width, { "stroke-dasharray": dash, "stroke-linecap": "butt" }),
+  ];
+  return [
+    shadow(13, 43),
+    ...cane("M31 41V18.5a4.5 4.5 0 0 0-9 0V21", 3.4, W.caneGreen, "2.2 2.4"),
+    ...cane("M18.5 42V14a7 7 0 0 1 14 0v3.5", 5, W.caneRed, "2.8 3.2"),
+    line("M20 16.5V39", "#ffffff", 1, { opacity: 0.5 }),
+  ];
+}
+
 // ---------- the catalog ----------
 
 /**
@@ -1730,6 +1880,12 @@ const DRAWN: Readonly<Partial<Record<ItemKind, () => ArtShape[]>>> = {
   bat_bunting: batBunting,
   cauldron,
   candy_bowl: candyBowl,
+  cranberry_punch: cranberryPunch,
+  snowman,
+  string_lights: stringLights,
+  little_fir: littleFir,
+  sled,
+  candy_cane: candyCane,
 };
 
 /** Every piece of wear's drawing. */

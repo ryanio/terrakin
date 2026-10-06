@@ -130,7 +130,7 @@ describe("the town shop", () => {
     expect(town.shop.buying.map((b: Json) => b.kind)).toEqual(townBuys(w.today()));
   });
 
-  it("lists autumn's stock and buying with their season while it lasts, and not after", async () => {
+  it("lists each season's stock and buying with its season while it lasts, and not after", async () => {
     // The clock starts on 2026-10-05, in autumn.
     const w = await start();
     w.service.tick();
@@ -148,13 +148,36 @@ describe("the town shop", () => {
     const lantern = autumn.items.find((i: Json) => i.sku === "lantern");
     expect(lantern.season).toBeUndefined();
     expect(lantern.lastDay).toBeUndefined();
+    // December 1: autumn's stock and buying are gone, and winter's take their place until
+    // February ends.
     while (w.today() < dayOfDate(2026, 12, 1)) w.nextDay();
     const winter = (await w.call("GET", "/v1/shop")).body.shop;
     expect(winter.season).toBe("winter");
-    expect(winter.items.some((i: Json) => i.season)).toBe(false);
-    expect(winter.items).toHaveLength(autumn.items.length - SEASON_STOCK.autumn.length);
-    expect(winter.buying.some((b: Json) => b.season)).toBe(false);
+    const wintry = winter.items.filter((i: Json) => i.season);
+    expect(wintry.map((i: Json) => i.sku).sort()).toEqual([...SEASON_STOCK.winter].sort());
+    for (const item of wintry) {
+      expect(item).toMatchObject({ season: "winter", lastDay: dayOfDate(2027, 2, 28) });
+    }
+    expect(winter.items).toHaveLength(
+      autumn.items.length - SEASON_STOCK.autumn.length + SEASON_STOCK.winter.length,
+    );
+    expect(winter.buying.filter((b: Json) => b.season).map((b: Json) => b.kind)).toEqual(
+      SEASON_BUYS.winter,
+    );
     expect(winter.buying.map((b: Json) => b.kind)).toEqual(townBuys(w.today()));
+    // Midwinter, December 21 to 31: candy canes on the shelf, with the holiday and its last day.
+    while (w.today() < dayOfDate(2026, 12, 21)) w.nextDay();
+    const midwinter = (await w.call("GET", "/v1/shop")).body.shop;
+    const lastDay = dayOfDate(2026, 12, 31);
+    expect(midwinter.holiday).toEqual({ id: "midwinter", lastDay });
+    const canes = midwinter.items.filter((i: Json) => i.holiday);
+    expect(canes).toEqual([
+      expect.objectContaining({ sku: "candy_cane", price: 2, holiday: "midwinter", lastDay }),
+    ]);
+    while (w.today() < dayOfDate(2027, 1, 1)) w.nextDay();
+    const after = (await w.call("GET", "/v1/shop")).body.shop;
+    expect(after.holiday).toBeUndefined();
+    expect(after.items.some((i: Json) => i.holiday)).toBe(false);
   });
 
   it("stays shut where the adapter leaves it off", async () => {

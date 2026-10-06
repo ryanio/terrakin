@@ -12,7 +12,7 @@
 import { dateOfDay, dayOfDate } from "./season";
 
 /** Every holiday, in calendar order. New ones go on the end. */
-export const HOLIDAYS = ["halloween"] as const;
+export const HOLIDAYS = ["halloween", "midwinter"] as const;
 export type Holiday = (typeof HOLIDAYS)[number];
 
 /** A day of the year: `month` is 1 to 12 and `date` is 1 to 31. */
@@ -33,10 +33,12 @@ export interface HolidayInfo {
 /**
  * Each holiday's dates. Halloween runs from October 24 to November 1: a week to dress up and get
  * ready, October 31 itself, and the morning after, which is still the evening of October 31 in the
- * Americas.
+ * Americas. Midwinter runs from December 21, the longest night in the north, to December 31, the
+ * last night of the year, and stops there, since a holiday never runs into the next year.
  */
 export const HOLIDAY_INFO: Readonly<Record<Holiday, HolidayInfo>> = {
   halloween: { name: "Halloween", first: { month: 10, date: 24 }, last: { month: 11, date: 1 } },
+  midwinter: { name: "Midwinter", first: { month: 12, date: 21 }, last: { month: 12, date: 31 } },
 };
 
 /** The world day of `on` in `year`. */

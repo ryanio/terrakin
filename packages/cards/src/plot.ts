@@ -65,6 +65,10 @@ export const PLOT_DECOR = [
   "bat_bunting",
   "cauldron",
   "candy_bowl",
+  "snowman",
+  "string_lights",
+  "little_fir",
+  "sled",
 ] as const;
 export type PlotDecor = (typeof PLOT_DECOR)[number];
 
@@ -358,6 +362,27 @@ const BREW_LIGHT = "#c8f0a8";
 const STAND = "#c4661c";
 const CANDY = ["#f08a3c", "#a98bd8", "#ea8a9d", "#7fd1b0", "#f2b84b"] as const;
 /**
+ * Winter's colors (RFC 0017), as `WINTER_HEX` in `packages/ui/src/looks.ts` has them. Each decor's
+ * main color is its `fill`: the snowman's snow, the string's warm bulb, the fir's needles, the
+ * sled's slats.
+ */
+const SNOW_SHADE = "#c4d2e2";
+const SNOW_EDGE = "rgba(84, 104, 128, 0.7)";
+const COAL = "#2f2c33";
+const CARROT = "#ec7a2c";
+const SCARF = "#c8344a";
+const SNOW_HAT = "#3a3946";
+const SNOW = "#f4f7fb";
+const WIRE = "#3f5a3c";
+const BULBS = ["#f2564c", "#5ec0ea", "#7fd17a", "#c38df0"] as const;
+const NEEDLES_LIGHT = "#4a8f5c";
+const POT = "#c8674a";
+const POT_RIM = "#a9533a";
+const STAR = "#f2c94c";
+const RUNNER = "#4a4542";
+const SLAT_SIDE = "#9e3428";
+const ROPE = "#e3cf9c";
+/**
  * A bat with its wings spread, as `BAT_POINTS` in `packages/ui/src/looks.ts`: half its span is 1.
  */
 const BAT_POINTS: readonly (readonly [number, number])[] = [
@@ -386,8 +411,9 @@ const BAT_POINTS: readonly (readonly [number, number])[] = [
 /**
  * One decor block on tile (x, y), following `packages/client/src/render.ts`: a paper lantern on a
  * hook, a picture on an easel, a fence post with rails to the fences beside it, a garden bench, a
- * hay bale, a scarecrow, bat bunting, a cauldron, or a candy bowl. Only numbers and checked colors
- * go in. No ellipses, so the tests can tell the hearth's shadow apart.
+ * hay bale, a scarecrow, bat bunting, a cauldron, a candy bowl, a snowman, a string of lights, a
+ * little fir, or a sled. Only numbers and checked colors go in. No ellipses, so the tests can tell
+ * the hearth's shadow apart.
  */
 function decorSvg(
   kind: PlotDecor,
@@ -514,6 +540,84 @@ function decorSvg(
       ...sweets,
       `<path d="M${X(0.12)} ${Y(0.5)}H${X(0.88)}C${X(0.88)} ${Y(0.82)} ${X(0.12)} ${Y(0.82)} ${X(0.12)} ${Y(0.5)}z" fill="${fill}" ${stroke}/>`,
       `<rect x="${X(0.16)}" y="${Y(0.58)}" width="0.68" height="0.05" fill="${CANDY[1]}"/>`,
+    ];
+  }
+  if (kind === "snowman") {
+    const snow = `stroke="${SNOW_EDGE}" stroke-width="0.035"`;
+    const ball = (cy: number, r: number) => [
+      `<circle cx="${X(0.5)}" cy="${Y(cy)}" r="${r}" fill="${SNOW_SHADE}"/>`,
+      `<circle cx="${X(0.5 - r * 0.2)}" cy="${Y(cy - r * 0.2)}" r="${n(r * 0.94)}" fill="${fill}"/>`,
+      `<circle cx="${X(0.5)}" cy="${Y(cy)}" r="${r}" fill="none" ${snow}/>`,
+    ];
+    return [
+      shade,
+      `<path d="M${X(0.4)} ${Y(0.46)}L${X(0.14)} ${Y(0.3)}M${X(0.6)} ${Y(0.46)}L${X(0.86)} ${Y(0.3)}" stroke="${WOOD_DARK}" stroke-width="0.035" stroke-linecap="round"/>`,
+      ...ball(0.74, 0.2),
+      ...ball(0.47, 0.145),
+      ...ball(0.25, 0.105),
+      `<circle cx="${X(0.46)}" cy="${Y(0.235)}" r="0.018" fill="${COAL}"/>`,
+      `<circle cx="${X(0.54)}" cy="${Y(0.235)}" r="0.018" fill="${COAL}"/>`,
+      `<circle cx="${X(0.5)}" cy="${Y(0.44)}" r="0.02" fill="${COAL}"/>`,
+      `<circle cx="${X(0.5)}" cy="${Y(0.51)}" r="0.02" fill="${COAL}"/>`,
+      `<path d="M${X(0.5)} ${Y(0.255)}L${X(0.61)} ${Y(0.272)}L${X(0.5)} ${Y(0.29)}z" fill="${CARROT}"/>`,
+      `<rect x="${X(0.37)}" y="${Y(0.335)}" width="0.26" height="0.06" rx="0.03" fill="${SCARF}" ${stroke}/>`,
+      `<rect x="${X(0.54)}" y="${Y(0.36)}" width="0.06" height="0.13" rx="0.02" fill="${SCARF}" ${stroke}/>`,
+      `<rect x="${X(0.37)}" y="${Y(0.14)}" width="0.26" height="0.035" rx="0.015" fill="${SNOW_HAT}"/>`,
+      `<rect x="${X(0.425)}" y="${Y(0.03)}" width="0.15" height="0.12" rx="0.02" fill="${SNOW_HAT}"/>`,
+    ];
+  }
+  if (kind === "string_lights") {
+    const at = (t: number) => ({ x: 0.1 + 0.8 * t, y: 0.32 + 0.48 * t * (1 - t) + 0.07 });
+    const bulbs = [0.12, 0.31, 0.5, 0.69, 0.88].map((t, i) => {
+      const p = at(t);
+      const color = i === 1 ? fill : (BULBS[i % BULBS.length] as string);
+      return `<rect x="${X(p.x - 0.036)}" y="${Y(p.y - 0.052)}" width="0.072" height="0.104" rx="0.036" fill="${color}" ${stroke}/>`;
+    });
+    return [
+      shade,
+      `<path d="M${X(0.1)} ${Y(0.92)}V${Y(0.28)}M${X(0.9)} ${Y(0.92)}V${Y(0.28)}" stroke="${WOOD_DARK}" stroke-width="0.06" stroke-linecap="round"/>`,
+      `<path d="M${X(0.1)} ${Y(0.32)}Q${X(0.5)} ${Y(0.56)} ${X(0.9)} ${Y(0.32)}" fill="none" stroke="${WIRE}" stroke-width="0.025"/>`,
+      ...bulbs,
+    ];
+  }
+  if (kind === "little_fir") {
+    const tiers = (
+      [
+        [0.36, 0.7, 0.3],
+        [0.2, 0.53, 0.23],
+        [0.06, 0.35, 0.16],
+      ] as const
+    ).flatMap(([apex, base, half]) => [
+      `<path d="M${X(0.5)} ${Y(apex)}L${X(0.5 + half)} ${Y(base)}Q${X(0.5)} ${Y(base + 0.05)} ${X(0.5 - half)} ${Y(base)}z" fill="${fill}" ${stroke}/>`,
+      `<path d="M${X(0.5)} ${Y(apex)}L${X(0.5 - half * 0.75)} ${Y(base - 0.02)}L${X(0.5 - half * 0.45)} ${Y(base - 0.01)}z" fill="${NEEDLES_LIGHT}"/>`,
+      `<rect x="${X(0.5 - half * 0.7 - 0.06)}" y="${Y(base - 0.022)}" width="0.12" height="0.044" rx="0.022" fill="${SNOW}"/>`,
+      `<rect x="${X(0.5 + half * 0.65 - 0.07)}" y="${Y(base - 0.024)}" width="0.14" height="0.048" rx="0.024" fill="${SNOW}"/>`,
+    ]);
+    const star: string[] = [];
+    for (let i = 0; i < 10; i++) {
+      const a = -Math.PI / 2 + (i * Math.PI) / 5;
+      const r = i % 2 === 0 ? 0.07 : 0.03;
+      star.push(`${i ? "L" : "M"}${X(0.5 + Math.cos(a) * r)} ${Y(0.07 + Math.sin(a) * r)}`);
+    }
+    return [
+      shade,
+      `<rect x="${X(0.465)}" y="${Y(0.64)}" width="0.07" height="0.1" fill="${WOOD_DARK}"/>`,
+      ...tiers,
+      `<path d="M${X(0.33)} ${Y(0.75)}H${X(0.67)}L${X(0.63)} ${Y(0.93)}H${X(0.37)}z" fill="${POT}" ${stroke}/>`,
+      `<rect x="${X(0.3)}" y="${Y(0.7)}" width="0.4" height="0.07" rx="0.02" fill="${POT_RIM}" ${stroke}/>`,
+      `<path d="${star.join("")}z" fill="${STAR}" ${stroke}/>`,
+    ];
+  }
+  if (kind === "sled") {
+    const runner = (dx: number, dy: number, color: string) =>
+      `<path d="M${X(0.08 + dx)} ${Y(0.86 + dy)}H${X(0.74 + dx)}Q${X(0.92 + dx)} ${Y(0.86 + dy)} ${X(0.9 + dx)} ${Y(0.68 + dy)}M${X(0.18 + dx)} ${Y(0.86 + dy)}V${Y(0.72 + dy)}M${X(0.44 + dx)} ${Y(0.86 + dy)}V${Y(0.72 + dy)}M${X(0.68 + dx)} ${Y(0.86 + dy)}V${Y(0.72 + dy)}" fill="none" stroke="${color}" stroke-width="0.045" stroke-linecap="round"/>`;
+    return [
+      shade,
+      runner(0.05, -0.07, "#6e6a66"),
+      runner(0, 0, RUNNER),
+      `<path d="M${X(0.1)} ${Y(0.66)}H${X(0.78)}V${Y(0.74)}H${X(0.1)}z" fill="${SLAT_SIDE}" ${stroke}/>`,
+      `<path d="M${X(0.1)} ${Y(0.66)}L${X(0.17)} ${Y(0.58)}H${X(0.85)}L${X(0.78)} ${Y(0.66)}z" fill="${fill}" ${stroke}/>`,
+      `<path d="M${X(0.88)} ${Y(0.62)}Q${X(1)} ${Y(0.6)} ${X(0.96)} ${Y(0.78)}" fill="none" stroke="${ROPE}" stroke-width="0.03" stroke-linecap="round"/>`,
     ];
   }
   if (kind === "scarecrow") {

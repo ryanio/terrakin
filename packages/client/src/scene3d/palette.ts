@@ -149,6 +149,17 @@ const BLOCK_LOOKS: Record<BlockKind, BlockLook> = {
     glow: { pool: 1.6 },
   },
   candy_bowl: { color: hex(BLOCK_COLORS.candy_bowl), height: 0.6, opacity: 1, form: "decor" },
+  // Winter's decor (RFC 0017), modelled in decor.ts. A string of lights glows after dark.
+  snowman: { color: hex(BLOCK_COLORS.snowman), height: 1.35, opacity: 1, form: "decor" },
+  string_lights: {
+    color: hex(BLOCK_COLORS.string_lights),
+    height: 1.02,
+    opacity: 1,
+    form: "decor",
+    glow: { pool: 1.5, at: [0, 0.05] },
+  },
+  little_fir: { color: hex(BLOCK_COLORS.little_fir), height: 1.3, opacity: 1, form: "decor" },
+  sled: { color: hex(BLOCK_COLORS.sled), height: 0.3, opacity: 1, form: "decor" },
 };
 
 export function blockLook(block: BlockKind): BlockLook {

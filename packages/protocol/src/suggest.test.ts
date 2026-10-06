@@ -152,7 +152,7 @@ describe("plainProblem", () => {
     const plant = words(Action, { type: "plant", x: 1, y: 1, seed: "pumpkin_seed" });
     expect(plant).toEqual({
       lines: [
-        "`seed` must be one of: lemon, strawberry, tomato, herb, flower, pumpkin, pomegranate. Did you mean 'pumpkin'?",
+        "`seed` must be one of: lemon, strawberry, tomato, herb, flower, pumpkin, pomegranate, cranberry. Did you mean 'pumpkin'?",
       ],
       didYouMean: "pumpkin",
     });

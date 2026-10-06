@@ -647,6 +647,78 @@ const WRITTEN = {
     shop: { price: 15, holiday: "halloween" },
     look: { template: "drawn" },
   }),
+  // Winter (RFC 0017): cranberries, which like cold ground, with seeds sold December to February;
+  // their jam from the jam family recipe and hot punch from the kitchen; and the shop's winter
+  // decor. Decision 0124 has the numbers.
+  ...fruit("cranberry", {
+    name: "Cranberry",
+    plural: "Cranberries",
+    days: 4,
+    yield: 3,
+    seedsBack: 1,
+    seedPrice: 4,
+    seedSeasons: ["winter"],
+    look: {
+      template: "produce",
+      shape: "round",
+      top: "leaf",
+      body: "#a3173a",
+      detail: "#6b0f27",
+      jam: { fill: "#7d1432", cloth: "#5e8f52" },
+    },
+  }),
+  cranberry_punch: entry({
+    name: "Hot cranberry punch",
+    plural: "Jars of hot cranberry punch",
+    family: "drink",
+    role: "good",
+    recipe: { station: "kitchen", needs: { cranberry: 2, lemon: 1, jar: 1 } },
+    look: { template: "drawn" },
+  }),
+  snowman: entry({
+    name: "Snowman",
+    plural: "Snowmen",
+    family: "decor",
+    role: "decor",
+    shop: { price: 30, seasons: ["winter"] },
+    look: { template: "drawn" },
+  }),
+  // A string of colored bulbs between two posts, which glow after dark.
+  string_lights: entry({
+    name: "String of lights",
+    plural: "Strings of lights",
+    family: "decor",
+    role: "decor",
+    shop: { price: 12, seasons: ["winter"] },
+    look: { template: "drawn" },
+  }),
+  little_fir: entry({
+    name: "Little fir",
+    plural: "Little firs",
+    family: "decor",
+    role: "decor",
+    shop: { price: 20, seasons: ["winter"] },
+    look: { template: "drawn" },
+  }),
+  sled: entry({
+    name: "Sled",
+    plural: "Sleds",
+    family: "decor",
+    role: "decor",
+    shop: { price: 25, seasons: ["winter"] },
+    look: { template: "drawn" },
+  }),
+  // Midwinter (RFC 0022): candy canes, sold only while Midwinter runs, and made at a kitchen any
+  // day, five from a bunch of herbs (the mint) and a bag of sugar. Decision 0124 has the numbers.
+  candy_cane: entry({
+    name: "Candy cane",
+    plural: "Candy canes",
+    family: "sweets",
+    role: "sweet",
+    shop: { price: 2, holiday: "midwinter" },
+    recipe: { station: "kitchen", needs: { herb: 1, sugar: 1 }, makes: 5 },
+    look: { template: "drawn" },
+  }),
 };
 
 // ---------- family recipes ----------

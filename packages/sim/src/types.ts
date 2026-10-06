@@ -39,9 +39,9 @@ export type Direction = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
  * decor from the town shop (RFC 0008): placing one uses one from your things, and removing it puts
  * it back. `pedestal` (free) and `frame` hold a made thing on display (RFC 0005 step 3). `hay_bale`
  * and `scarecrow` are decor the shop sells in autumn (RFC 0017). The next eleven are furniture made
- * at a workbench (RFC 0016), held and placed like decor, and the last three Halloween's decor (RFC
- * 0022). New kinds go on the end, and a held one (decor or furniture) is an entry in the catalog
- * too.
+ * at a workbench (RFC 0016), held and placed like decor, then three of Halloween's decor (RFC 0022),
+ * and the last four winter's decor (RFC 0017). New kinds go on the end, and a held one (decor or
+ * furniture) is an entry in the catalog too.
  */
 export const BLOCK_KINDS = [
   "wood",
@@ -72,6 +72,10 @@ export const BLOCK_KINDS = [
   "bat_bunting",
   "cauldron",
   "candy_bowl",
+  "snowman",
+  "string_lights",
+  "little_fir",
+  "sled",
 ] as const;
 
 /**

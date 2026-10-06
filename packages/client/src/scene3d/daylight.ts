@@ -147,9 +147,15 @@ export interface StageLight {
 const HALLOWEEN_SKY = { horizon: 0xe58a52, top: 0x4a2a6a, fill: 0xa06ad0 } as const;
 
 /**
+ * Midwinter's evenings (RFC 0022): a gold glow low on the horizon through dusk, a clear deep blue
+ * overhead at night, and lamps, fires, and strings of lights a little brighter after dark.
+ */
+const MIDWINTER_SKY = { horizon: 0xf2c46e, top: 0x1d2a5c, glow: 1.2 } as const;
+
+/**
  * The light at a moment of the day (`phase`, the map's: 0 dawn, 0.25 noon, 0.5 dusk, 0.75
- * midnight) in some weather, tinted for a `holiday` that has evenings of its own (Halloween). Without
- * a phase (a server with no clock, or the gallery), it's full day.
+ * midnight) in some weather, tinted for a `holiday` that has evenings of its own (Halloween and
+ * Midwinter). Without a phase (a server with no clock, or the gallery), it's full day.
  *
  * Darkness follows the map's `nightAmount`: day eases into dusk (or dawn) as it reaches one half,
  * and dusk into night as it reaches one, each with an S-curve. Dusk and dawn trade places at noon
@@ -180,6 +186,13 @@ export function lightAt(
     t.top = mix(t.top, HALLOWEEN_SKY.top, 0.5 * deep);
     t.fill = mix(t.fill, HALLOWEEN_SKY.fill, 0.35 * deep);
   }
+  if (holiday === "midwinter") {
+    const evening = twilight === DUSK ? 1 : 0;
+    const dusk =
+      evening * Math.sin(Math.PI * Math.min(1, night)) * (1 - smooth(0.5, 1, night) * 0.5);
+    t.horizon = mix(t.horizon, MIDWINTER_SKY.horizon, 0.5 * dusk);
+    t.top = mix(t.top, MIDWINTER_SKY.top, 0.4 * smooth(0.45, 1, night));
+  }
   const grey = Math.min(1, weather.cloud * 0.75 + weather.rain * 0.25);
   const mist = weather.fog;
   const tone = (clear: number, overcast: number) =>
@@ -198,8 +211,9 @@ export function lightAt(
     top: tone(t.top, t.overTop),
     horizon: tone(t.horizon, t.overHorizon),
     reach: 1 - 0.5 * mist - 0.12 * weather.rain - 0.08 * weather.snow,
-    // The map's lanterns come on from 0.15 and are full by 0.75; these follow the same ramp.
-    glow: smooth(0.15, 0.75, night),
+    // The map's lanterns come on from 0.15 and are full by 0.75; these follow the same ramp, a
+    // little brighter at Midwinter, as on the map.
+    glow: smooth(0.15, 0.75, night) * (holiday === "midwinter" ? MIDWINTER_SKY.glow : 1),
     stars: smooth(0.6, 0.9, night) * (1 - grey) * (1 - mist),
     falling: t.falling,
   };

@@ -158,6 +158,20 @@ describe("Halloween's evenings (RFC 0022)", () => {
   });
 });
 
+describe("Midwinter's evenings (RFC 0022)", () => {
+  it("leave the day as it is, warm the dusk toward gold, and light lamps a little brighter", () => {
+    expect(lightAt(NOON, CLEAR, "midwinter")).toEqual(lightAt(NOON, CLEAR));
+    const gold = (c: number) => channels(c)[0] + channels(c)[1] - 2 * channels(c)[2];
+    expect(gold(lightAt(DUSK, CLEAR, "midwinter").horizon)).toBeGreaterThan(
+      gold(lightAt(DUSK, CLEAR).horizon),
+    );
+    const night = lightAt(MIDNIGHT, CLEAR, "midwinter");
+    expect(night.sun).toEqual(lightAt(MIDNIGHT, CLEAR).sun);
+    expect(night.glow).toBeCloseTo(1.2);
+    expect(lightAt(DUSK, CLEAR, "midwinter").glow).toBeGreaterThan(lightAt(DUSK, CLEAR).glow);
+  });
+});
+
 describe("what glows after dark", () => {
   it("lights the kinds marked to glow, and a window only in a home someone's in", () => {
     for (const kind of ["lantern", "lamp_post", "campfire"] as const)
@@ -166,8 +180,12 @@ describe("what glows after dark", () => {
     expect(glowsAfterDark("glass", true)).toBe(true);
     for (const kind of ["wood", "stone", "table", "bench", "fence", "frame"] as const)
       expect(glowsAfterDark(kind, true), kind).toBe(false);
-    // The catalog's jack-o'-lantern is marked too, so it needs nothing else.
+    // The catalog's jack-o'-lantern is marked too, so it needs nothing else, and so is winter's
+    // string of lights.
     expect(glowsAfterDark("jack_o_lantern")).toBe(true);
+    expect(glowsAfterDark("string_lights")).toBe(true);
+    for (const kind of ["snowman", "little_fir", "sled"] as const)
+      expect(glowsAfterDark(kind, true), kind).toBe(false);
   });
 
   it("raises a lamp from its day strength to its night one, wavering a little", () => {

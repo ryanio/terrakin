@@ -61,6 +61,7 @@ import {
   PatternCache,
   paintMotif,
   patternMotifs as patternMotifsFor,
+  WINTER_HEX,
   withAlpha,
 } from "@terrakin/ui/looks";
 import { drawPet } from "@terrakin/ui/pet-art";
@@ -473,7 +474,8 @@ interface Joins {
 /**
  * A decor block on its tile, drawn as itself rather than a square: a paper lantern on a hook, a
  * picture on an easel, a fence post with rails out to the fences beside it, a garden bench,
- * autumn's hay bale and scarecrow, or Halloween's bat bunting, cauldron, and candy bowl.
+ * autumn's hay bale and scarecrow, Halloween's bat bunting, cauldron, and candy bowl, or winter's
+ * snowman, string of lights, little fir, and sled.
  * `left`, `top`, and `size` are the block's box; `edge` is the gap to the tile's edge, so fence
  * rails reach their neighbors' rails.
  */
@@ -509,6 +511,10 @@ function paintDecor(
   else if (kind === "bat_bunting") paintBatBunting(ctx, left, top, size);
   else if (kind === "cauldron") paintCauldron(ctx, left, top, size);
   else if (kind === "candy_bowl") paintCandyBowl(ctx, left, top, size);
+  else if (kind === "snowman") paintSnowman(ctx, left, top, size, outline);
+  else if (kind === "string_lights") paintStringLights(ctx, left, top, size);
+  else if (kind === "little_fir") paintLittleFir(ctx, left, top, size);
+  else if (kind === "sled") paintSled(ctx, left, top, size);
   else paintBench(ctx, left, top, size);
   ctx.restore();
 }
@@ -1108,6 +1114,240 @@ function paintCandyBowl(ctx: CanvasRenderingContext2D, left: number, top: number
   ctx.fillRect(cx - size * 0.34, rimY + size * 0.08, size * 0.68, size * 0.05);
 }
 
+// ---------- winter's decor (RFC 0017) ----------
+
+const W = WINTER_HEX;
+/** A cool edge for snow, so a snowman reads against snowy ground. */
+const SNOW_EDGE = "rgba(84, 104, 128, 0.7)";
+
+/** A ball of snow with a cool shade on its far side, outlined. */
+function snowBall(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.clip();
+  ctx.fillStyle = W.snowShade;
+  ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+  ctx.fillStyle = W.snow;
+  ctx.beginPath();
+  ctx.arc(cx - r * 0.2, cy - r * 0.2, r * 0.96, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+  ctx.strokeStyle = SNOW_EDGE;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.stroke();
+}
+
+/** A snowman: three balls of snow, twig arms, coal eyes, a carrot nose, a red scarf, a hat. */
+function paintSnowman(
+  ctx: CanvasRenderingContext2D,
+  left: number,
+  top: number,
+  size: number,
+  outline: number,
+) {
+  const cx = left + size / 2;
+  const y = (f: number) => top + size * f;
+  ctx.strokeStyle = WOOD_DARK;
+  ctx.lineWidth = Math.max(1, size * 0.035);
+  ctx.beginPath();
+  ctx.moveTo(cx - size * 0.1, y(0.46));
+  ctx.lineTo(cx - size * 0.36, y(0.3));
+  ctx.moveTo(cx + size * 0.1, y(0.46));
+  ctx.lineTo(cx + size * 0.36, y(0.3));
+  ctx.stroke();
+  ctx.lineWidth = outline;
+  snowBall(ctx, cx, y(0.74), size * 0.2);
+  snowBall(ctx, cx, y(0.47), size * 0.145);
+  snowBall(ctx, cx, y(0.25), size * 0.105);
+  ctx.fillStyle = W.coal;
+  ctx.beginPath();
+  for (const [dx, fy, r] of [
+    [-0.04, 0.235, 0.018],
+    [0.04, 0.235, 0.018],
+    [0, 0.44, 0.02],
+    [0, 0.51, 0.02],
+  ] as const) {
+    ctx.moveTo(cx + dx * size + r * size, y(fy));
+    ctx.arc(cx + dx * size, y(fy), r * size, 0, Math.PI * 2);
+  }
+  ctx.fill();
+  ctx.fillStyle = W.carrot;
+  ctx.beginPath();
+  ctx.moveTo(cx, y(0.255));
+  ctx.lineTo(cx + size * 0.11, y(0.272));
+  ctx.lineTo(cx, y(0.29));
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = W.scarf;
+  ctx.strokeStyle = "rgba(70, 40, 18, 0.55)";
+  ctx.beginPath();
+  ctx.roundRect(cx - size * 0.13, y(0.335), size * 0.26, size * 0.06, size * 0.03);
+  ctx.roundRect(cx + size * 0.04, y(0.36), size * 0.06, size * 0.13, size * 0.02);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = W.hat;
+  ctx.beginPath();
+  ctx.roundRect(cx - size * 0.13, y(0.14), size * 0.26, size * 0.035, size * 0.015);
+  ctx.roundRect(cx - size * 0.075, y(0.03), size * 0.15, size * 0.12, size * 0.02);
+  ctx.fill();
+  ctx.stroke();
+}
+
+/** Where each bulb of a string of lights hangs in its block's box, and its color. */
+function lightBulbs(left: number, top: number, size: number) {
+  const x0 = left + size * 0.1;
+  const x1 = left + size * 0.9;
+  const y0 = top + size * 0.32;
+  const dip = top + size * 0.56;
+  return [0.12, 0.31, 0.5, 0.69, 0.88].map((t, i) => ({
+    x: x0 + (x1 - x0) * t,
+    y: (1 - t) * (1 - t) * y0 + 2 * t * (1 - t) * dip + t * t * y0 + size * 0.07,
+    color: W.bulbs[i % W.bulbs.length] as string,
+  }));
+}
+
+/** A string of colored bulbs between two little posts. After dark, each bulb glows its color. */
+function paintStringLights(ctx: CanvasRenderingContext2D, left: number, top: number, size: number) {
+  const x0 = left + size * 0.1;
+  const x1 = left + size * 0.9;
+  const y0 = top + size * 0.32;
+  const base = top + size * 0.92;
+  ctx.strokeStyle = WOOD_DARK;
+  ctx.lineWidth = Math.max(1.5, size * 0.06);
+  ctx.beginPath();
+  ctx.moveTo(x0, base);
+  ctx.lineTo(x0, y0 - size * 0.04);
+  ctx.moveTo(x1, base);
+  ctx.lineTo(x1, y0 - size * 0.04);
+  ctx.stroke();
+  ctx.strokeStyle = W.wire;
+  ctx.lineWidth = Math.max(1, size * 0.025);
+  ctx.beginPath();
+  ctx.moveTo(x0, y0);
+  ctx.quadraticCurveTo((x0 + x1) / 2, top + size * 0.56, x1, y0);
+  ctx.stroke();
+  ctx.strokeStyle = "rgba(70, 40, 18, 0.55)";
+  ctx.lineWidth = Math.max(1, size / 40);
+  for (const b of lightBulbs(left, top, size)) {
+    ctx.fillStyle = b.color;
+    ctx.beginPath();
+    ctx.ellipse(b.x, b.y, size * 0.036, size * 0.052, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
+}
+
+/** A little fir in a clay pot: three tiers of needles dusted with snow, and a gold star. */
+function paintLittleFir(ctx: CanvasRenderingContext2D, left: number, top: number, size: number) {
+  const cx = left + size / 2;
+  const y = (f: number) => top + size * f;
+  ctx.fillStyle = WOOD_DARK;
+  ctx.fillRect(cx - size * 0.035, y(0.64), size * 0.07, size * 0.1);
+  for (const [apex, base, half] of [
+    [0.36, 0.7, 0.3],
+    [0.2, 0.53, 0.23],
+    [0.06, 0.35, 0.16],
+  ] as const) {
+    ctx.fillStyle = W.needles;
+    ctx.beginPath();
+    ctx.moveTo(cx, y(apex));
+    ctx.lineTo(cx + size * half, y(base));
+    ctx.quadraticCurveTo(cx, y(base + 0.05), cx - size * half, y(base));
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = W.needlesLight;
+    ctx.beginPath();
+    ctx.moveTo(cx, y(apex));
+    ctx.lineTo(cx - size * half * 0.75, y(base - 0.02));
+    ctx.lineTo(cx - size * half * 0.45, y(base - 0.01));
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = W.snow;
+    ctx.beginPath();
+    ctx.ellipse(cx - size * half * 0.7, y(base), size * 0.06, size * 0.022, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx + size * half * 0.65, y(base), size * 0.07, size * 0.024, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.fillStyle = W.pot;
+  ctx.beginPath();
+  ctx.moveTo(cx - size * 0.17, y(0.75));
+  ctx.lineTo(cx + size * 0.17, y(0.75));
+  ctx.lineTo(cx + size * 0.13, y(0.93));
+  ctx.lineTo(cx - size * 0.13, y(0.93));
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = W.potRim;
+  ctx.beginPath();
+  ctx.roundRect(cx - size * 0.2, y(0.7), size * 0.4, size * 0.07, size * 0.02);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = W.star;
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI / 2 + (i * Math.PI) / 5;
+    const r = size * (i % 2 === 0 ? 0.07 : 0.03);
+    const px = cx + Math.cos(a) * r;
+    const py = y(0.07) + Math.sin(a) * r;
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+}
+
+/** A sled from the side: red slats on two iron runners that curl up in front, and its rope. */
+function paintSled(ctx: CanvasRenderingContext2D, left: number, top: number, size: number) {
+  const x = (f: number) => left + size * f;
+  const y = (f: number) => top + size * f;
+  const edge = ctx.strokeStyle;
+  const runner = (dx: number, dy: number, color: string) => {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = Math.max(1.5, size * 0.045);
+    ctx.beginPath();
+    ctx.moveTo(x(0.08 + dx), y(0.86 + dy));
+    ctx.lineTo(x(0.74 + dx), y(0.86 + dy));
+    ctx.quadraticCurveTo(x(0.92 + dx), y(0.86 + dy), x(0.9 + dx), y(0.68 + dy));
+    for (const f of [0.18, 0.44, 0.68]) {
+      ctx.moveTo(x(f + dx), y(0.86 + dy));
+      ctx.lineTo(x(f + dx), y(0.72 + dy));
+    }
+    ctx.stroke();
+  };
+  runner(0.05, -0.07, "#6e6a66");
+  runner(0, 0, W.runner);
+  ctx.strokeStyle = edge;
+  ctx.lineWidth = Math.max(1, size / 30);
+  ctx.fillStyle = "#9e3428";
+  ctx.beginPath();
+  ctx.moveTo(x(0.1), y(0.66));
+  ctx.lineTo(x(0.78), y(0.66));
+  ctx.lineTo(x(0.78), y(0.74));
+  ctx.lineTo(x(0.1), y(0.74));
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = W.slat;
+  ctx.beginPath();
+  ctx.moveTo(x(0.1), y(0.66));
+  ctx.lineTo(x(0.17), y(0.58));
+  ctx.lineTo(x(0.85), y(0.58));
+  ctx.lineTo(x(0.78), y(0.66));
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.strokeStyle = W.rope;
+  ctx.lineWidth = Math.max(1, size * 0.03);
+  ctx.beginPath();
+  ctx.moveTo(x(0.88), y(0.62));
+  ctx.quadraticCurveTo(x(1), y(0.6), x(0.96), y(0.78));
+  ctx.stroke();
+}
+
 // ---------- paths, floors, and furniture (RFC 0016) ----------
 
 /** One tile of a path or floor, `w` by `h` CSS pixels, drawn once from the sim's look. */
@@ -1525,6 +1765,8 @@ export function render(
   };
   /** Lanterns on screen, which glow after dark. */
   const lanterns: { sx: number; sy: number }[] = [];
+  /** The bulbs of strings of lights on screen, which glow their own colors after dark. */
+  const bulbs: { x: number; y: number; color: string }[] = [];
   const isFence = (x: number, y: number) => mirror.blocks.get(tileKey(x, y)) === "fence";
   const isWall = (x: number, y: number) => mirror.blocks.get(tileKey(x, y)) === "stone_wall";
   for (const [key, block] of mirror.blocks) {
@@ -1575,6 +1817,7 @@ export function render(
       if (shown) paintShown(ctx, shown, left, top, size, "frame");
       if (mirror.townBuilt.has(key)) paintTownMark(ctx, left, top, size, scale);
       if (block === "lantern") lanterns.push({ sx: left + size * 0.64, sy: top + size * 0.42 });
+      if (block === "string_lights") bulbs.push(...lightBulbs(left, top, size));
       continue;
     }
     const skin = block === "glass" ? null : skinOf(mirror.ownerAt(x, y));
@@ -1916,14 +2159,18 @@ export function render(
     const night = nightAmount(dayPhase);
     const golden = Math.sin(Math.PI * night);
     // Halloween's evenings (RFC 0022): a deeper pumpkin glow at dusk, never at dawn, and a violet
-    // night.
-    const halloween = mirror.day !== undefined && holidayOf(mirror.day) === "halloween";
+    // night. Midwinter's: a gold dusk, and lights that shine a little brighter after dark.
+    const holiday = mirror.day === undefined ? undefined : holidayOf(mirror.day);
+    const halloween = holiday === "halloween";
+    const midwinter = holiday === "midwinter";
     const evening = dayPhase > 0.25 && dayPhase < 0.75;
     if (golden > 0.02) {
       ctx.fillStyle =
         halloween && evening
           ? `rgba(236, 120, 44, ${(0.17 * golden).toFixed(3)})`
-          : `rgba(242, 146, 82, ${(0.13 * golden).toFixed(3)})`;
+          : midwinter && evening
+            ? `rgba(250, 196, 90, ${(0.22 * golden).toFixed(3)})`
+            : `rgba(242, 146, 82, ${(0.13 * golden).toFixed(3)})`;
       ctx.fillRect(0, 0, width, height);
     }
     if (night > 0.02) {
@@ -1972,13 +2219,39 @@ export function render(
         ctx.fillStyle = g;
         ctx.fillRect(sx - reach, sy - reach, reach * 2, reach * 2);
       };
-      for (const l of lanterns) glow(l.sx, l.sy, scale * 2, 0.62);
+      const bright = midwinter ? 1.2 : 1;
+      for (const l of lanterns) glow(l.sx, l.sy, scale * 2 * bright, 0.62 * bright);
       const box = tilesBox(mirror.shop, cam);
       if (box) {
         for (const f of [0.255, 0.745])
           glow(box.left + box.w * f, box.top + box.h * 0.7, scale * 1.1, 0.4);
       }
+      // Strings of lights: a soft warm pool on the snow under each string, then each bulb.
+      for (let i = 0; i + 4 < bulbs.length; i += 5) {
+        const mid = bulbs[i + 2];
+        if (mid) glow(mid.x, mid.y + scale * 0.2, scale * 1.3 * bright, 0.32 * bright);
+      }
       ctx.globalCompositeOperation = "source-over";
+      // Each bulb lit in its own color with a small halo of it, twinkling unless motion is
+      // reduced. Drawn over the night, not added to it, so neighbors' colors never wash to white.
+      const lit = Math.min(1, strength * bright);
+      bulbs.forEach((b, i) => {
+        const twinkle = still ? 1 : 0.75 + 0.25 * Math.sin(now / 480 + i * 1.9);
+        const reach = scale * 0.24 * bright;
+        const g = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, reach);
+        g.addColorStop(0, withAlpha(b.color, 0.6 * lit * twinkle));
+        g.addColorStop(1, withAlpha(b.color, 0));
+        ctx.fillStyle = g;
+        ctx.fillRect(b.x - reach, b.y - reach, reach * 2, reach * 2);
+        ctx.fillStyle = withAlpha(b.color, lit);
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, scale * 0.045, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = withAlpha(PAPER, 0.75 * lit * twinkle);
+        ctx.beginPath();
+        ctx.arc(b.x, b.y - scale * 0.01, scale * 0.02, 0, Math.PI * 2);
+        ctx.fill();
+      });
     }
   }
 

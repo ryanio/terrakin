@@ -5783,6 +5783,7 @@
                 "flower_seed",
                 "pumpkin_seed",
                 "pomegranate_seed",
+                "cranberry_seed",
                 "lemon",
                 "strawberry",
                 "tomato",
@@ -5790,6 +5791,7 @@
                 "flower",
                 "pumpkin",
                 "pomegranate",
+                "cranberry",
                 "sugar",
                 "jar",
                 "wood",
@@ -5803,6 +5805,10 @@
                 "bat_bunting",
                 "cauldron",
                 "candy_bowl",
+                "snowman",
+                "string_lights",
+                "little_fir",
+                "sled",
                 "table",
                 "chair",
                 "bookshelf",
@@ -5831,6 +5837,7 @@
                 "maple_leaf",
                 "cherry_blossom",
                 "candy",
+                "candy_cane",
                 "lemon_jam",
                 "strawberry_jam",
                 "lemonade",
@@ -5842,6 +5849,8 @@
                 "pumpkin_pie",
                 "pumpkin_soup",
                 "pomegranate_jam",
+                "cranberry_jam",
+                "cranberry_punch",
                 "piece"
               ]
             }
@@ -12599,7 +12608,8 @@
                 "herb",
                 "flower",
                 "pumpkin",
-                "pomegranate"
+                "pomegranate",
+                "cranberry"
               ]
             }
           }
@@ -13877,6 +13887,8 @@
                 "pumpkin_pie",
                 "pumpkin_soup",
                 "pomegranate_jam",
+                "cranberry_jam",
+                "cranberry_punch",
                 "table",
                 "chair",
                 "bookshelf",
@@ -13888,7 +13900,8 @@
                 "campfire",
                 "flower_box",
                 "jack_o_lantern",
-                "candy"
+                "candy",
+                "candy_cane"
               ]
             }
           },
@@ -23407,7 +23420,11 @@
                     "jack_o_lantern",
                     "bat_bunting",
                     "cauldron",
-                    "candy_bowl"
+                    "candy_bowl",
+                    "snowman",
+                    "string_lights",
+                    "little_fir",
+                    "sled"
                   ]
                 }
               },
@@ -24272,7 +24289,8 @@
           "herb",
           "flower",
           "pumpkin",
-          "pomegranate"
+          "pomegranate",
+          "cranberry"
         ]
       },
       "DecideAction": {
@@ -24931,7 +24949,9 @@
           "flower_wreath",
           "pumpkin_pie",
           "pumpkin_soup",
-          "pomegranate_jam"
+          "pomegranate_jam",
+          "cranberry_jam",
+          "cranberry_punch"
         ]
       },
       "GroomPetAction": {
@@ -25092,7 +25112,8 @@
       "HolidayName": {
         "type": "string",
         "enum": [
-          "halloween"
+          "halloween",
+          "midwinter"
         ]
       },
       "HomeAction": {
@@ -25159,6 +25180,7 @@
           "flower_seed",
           "pumpkin_seed",
           "pomegranate_seed",
+          "cranberry_seed",
           "lemon",
           "strawberry",
           "tomato",
@@ -25166,6 +25188,7 @@
           "flower",
           "pumpkin",
           "pomegranate",
+          "cranberry",
           "sugar",
           "jar",
           "wood",
@@ -25179,6 +25202,10 @@
           "bat_bunting",
           "cauldron",
           "candy_bowl",
+          "snowman",
+          "string_lights",
+          "little_fir",
+          "sled",
           "table",
           "chair",
           "bookshelf",
@@ -25207,6 +25234,7 @@
           "maple_leaf",
           "cherry_blossom",
           "candy",
+          "candy_cane",
           "lemon_jam",
           "strawberry_jam",
           "lemonade",
@@ -25218,6 +25246,8 @@
           "pumpkin_pie",
           "pumpkin_soup",
           "pomegranate_jam",
+          "cranberry_jam",
+          "cranberry_punch",
           "piece"
         ]
       },
@@ -25531,6 +25561,8 @@
           "pumpkin_pie",
           "pumpkin_soup",
           "pomegranate_jam",
+          "cranberry_jam",
+          "cranberry_punch",
           "piece"
         ]
       },
@@ -25800,7 +25832,11 @@
               "jack_o_lantern",
               "bat_bunting",
               "cauldron",
-              "candy_bowl"
+              "candy_bowl",
+              "snowman",
+              "string_lights",
+              "little_fir",
+              "sled"
             ]
           },
           "dry": {
@@ -25854,7 +25890,11 @@
               "jack_o_lantern",
               "bat_bunting",
               "cauldron",
-              "candy_bowl"
+              "candy_bowl",
+              "snowman",
+              "string_lights",
+              "little_fir",
+              "sled"
             ]
           }
         },
@@ -25990,7 +26030,11 @@
                         "jack_o_lantern",
                         "bat_bunting",
                         "cauldron",
-                        "candy_bowl"
+                        "candy_bowl",
+                        "snowman",
+                        "string_lights",
+                        "little_fir",
+                        "sled"
                       ]
                     }
                   },
@@ -26416,6 +26460,8 @@
           "pumpkin_pie",
           "pumpkin_soup",
           "pomegranate_jam",
+          "cranberry_jam",
+          "cranberry_punch",
           "table",
           "chair",
           "bookshelf",
@@ -26427,7 +26473,8 @@
           "campfire",
           "flower_box",
           "jack_o_lantern",
-          "candy"
+          "candy",
+          "candy_cane"
         ]
       },
       "ReleaseAction": {
@@ -27266,6 +27313,10 @@
           "bat_bunting",
           "cauldron",
           "candy_bowl",
+          "snowman",
+          "string_lights",
+          "little_fir",
+          "sled",
           "top_hat",
           "raincoat",
           "umbrella",
@@ -27281,9 +27332,11 @@
           "flower_seed",
           "pumpkin_seed",
           "pomegranate_seed",
+          "cranberry_seed",
           "sugar",
           "jar",
-          "candy"
+          "candy",
+          "candy_cane"
         ]
       },
       "SitAction": {
@@ -27318,6 +27371,7 @@
           "flower_seed",
           "pumpkin_seed",
           "pomegranate_seed",
+          "cranberry_seed",
           "lemon",
           "strawberry",
           "tomato",
@@ -27325,6 +27379,7 @@
           "flower",
           "pumpkin",
           "pomegranate",
+          "cranberry",
           "sugar",
           "jar",
           "wood",
@@ -27338,6 +27393,10 @@
           "bat_bunting",
           "cauldron",
           "candy_bowl",
+          "snowman",
+          "string_lights",
+          "little_fir",
+          "sled",
           "table",
           "chair",
           "bookshelf",
@@ -27365,7 +27424,8 @@
           "four_leaf_clover",
           "maple_leaf",
           "cherry_blossom",
-          "candy"
+          "candy",
+          "candy_cane"
         ]
       },
       "StandAction": {
@@ -27422,7 +27482,8 @@
       "SweetKind": {
         "type": "string",
         "enum": [
-          "candy"
+          "candy",
+          "candy_cane"
         ]
       },
       "TableId": {
@@ -28502,7 +28563,11 @@
                   "jack_o_lantern",
                   "bat_bunting",
                   "cauldron",
-                  "candy_bowl"
+                  "candy_bowl",
+                  "snowman",
+                  "string_lights",
+                  "little_fir",
+                  "sled"
                 ]
               },
               "by": {
@@ -30901,7 +30966,11 @@
                     "jack_o_lantern",
                     "bat_bunting",
                     "cauldron",
-                    "candy_bowl"
+                    "candy_bowl",
+                    "snowman",
+                    "string_lights",
+                    "little_fir",
+                    "sled"
                   ]
                 }
               },

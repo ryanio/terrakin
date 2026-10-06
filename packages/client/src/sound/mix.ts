@@ -101,6 +101,8 @@ const BLOCK_MATERIAL: Partial<Record<BlockKind, Material>> = {
   lamp_post: "metal",
   well: "stone",
   stone_wall: "stone",
+  snowman: "soft",
+  little_fir: "leaf",
 };
 
 /** A block's material. Most things are wood. */

@@ -62,8 +62,8 @@ type Season = NonNullable<ShopItemView["season"]>;
 const seasonWords = (season: Season) => `This ${season}`;
 
 /**
- * The small "This autumn" tag on seasonal stock and buying (RFC 0017). The server lists them only
- * in their season, so the tag never names another one.
+ * The small "This autumn" or "This winter" tag on seasonal stock and buying (RFC 0017). The server
+ * lists them only in their season, so the tag never names another one.
  */
 function seasonTag(season: Season): HTMLElement {
   return kindPill(seasonWords(season), "sun", "shop-season");
@@ -80,9 +80,19 @@ function holidayTag(holiday: Holiday): HTMLElement {
   return kindPill(name, "moss", "shop-holiday");
 }
 
-/** What the holiday shelf says: when its stock goes, and that what you buy stays yours. Pure. */
-export function holidayHint(lastDay: number): string {
-  return `Sold until ${dayName(lastDay)} (UTC). Costumes and decor are yours for good, and a kitchen makes candy any day.`;
+/** What each holiday's shelf adds: that what you buy stays yours, and what a kitchen makes. */
+const HOLIDAY_SHELF: Readonly<Record<string, string>> = {
+  halloween: "Costumes and decor are yours for good, and a kitchen makes candy any day.",
+  midwinter: "A kitchen makes candy canes any day, five from a bunch of herbs and a bag of sugar.",
+};
+
+/**
+ * What a holiday's shelf says: when its stock goes, and what stays yours or a kitchen makes. A
+ * holiday this client doesn't know yet gets the first part. Pure.
+ */
+export function holidayHint(holiday: string, lastDay: number): string {
+  const more = Object.hasOwn(HOLIDAY_SHELF, holiday) ? ` ${HOLIDAY_SHELF[holiday]}` : "";
+  return `Sold until ${dayName(lastDay)} (UTC).${more}`;
 }
 
 /** How many of a kind you hold: a stack's count, or how many made things of that kind. */
@@ -236,7 +246,7 @@ export function shopView(ctx: ViewContext): View {
             shelf(
               "holiday",
               `For ${Object.hasOwn(HOLIDAY_INFO, shop.holiday.id) ? HOLIDAY_INFO[shop.holiday.id].name : shop.holiday.id}`,
-              holidayHint(shop.holiday.lastDay),
+              holidayHint(shop.holiday.id, shop.holiday.lastDay),
               shop.items.filter((i) => i.holiday),
               data,
               inv,

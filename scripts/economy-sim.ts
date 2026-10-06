@@ -8,7 +8,8 @@
  *   --seed       PRNG seed, so a run repeats exactly (default 1)
  *   --days       days to play (default 30)
  *   --start      the UTC date the month starts on (default 2024-10-04, an autumn month, so the
- *                shop's autumn stock and the town's autumn buying are in it; RFC 0017)
+ *                shop's autumn stock and the town's autumn buying are in it; RFC 0017).
+ *                `--start 2024-12-04` plays a winter month (decision 0124).
  *   --residents  residents who arrive over those days, not counting the townsfolk (default 300)
  *   --no-shop    play phase 1 only: coins, no gardens, no shop (the decision 0039 baseline)
  *   --no-appreciation  no posts, reactions, or appreciation coins (the decision 0052 baseline)
@@ -255,9 +256,12 @@ interface Habits {
   wants: ShopSku[];
 }
 
-/** Autumn's decor (RFC 0017) is skipped by anyone shopping in another season. */
+/**
+ * Autumn's decor (RFC 0017) and winter's are skipped by anyone shopping in another season, without
+ * a draw, so adding a season's wishes never changes another season's month.
+ */
 const WISHES: ShopSku[][] = [
-  ["lantern", "scarecrow", "bench", "top_hat"],
+  ["lantern", "scarecrow", "snowman", "bench", "top_hat"],
   [
     "fence",
     "fence",
@@ -267,11 +271,13 @@ const WISHES: ShopSku[][] = [
     "fence",
     "hay_bale",
     "hay_bale",
+    "string_lights",
+    "string_lights",
     "frame",
     "lantern",
   ],
   ["umbrella", "lantern", "lantern", "frame"],
-  ["bench", "raincoat", "hay_bale", "scarecrow", "lantern"],
+  ["bench", "raincoat", "hay_bale", "scarecrow", "little_fir", "sled", "lantern"],
   ["frame", "frame", "top_hat", "bench"],
 ];
 

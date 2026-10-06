@@ -1670,7 +1670,7 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
         return ok(
           page(
             "# Make something",
-            `Made at a kitchen or a workbench by your hearth, ${ITEMS.craftPerDay} things a day at most. A good is signed with your name; furniture and candy stack, and placing furniture needs the API.`,
+            `Made at a kitchen or a workbench by your hearth, ${ITEMS.craftPerDay} things a day at most. A good is signed with your name; furniture and sweets (candy, candy canes) stack, and placing furniture needs the API.`,
             ready.length > 0
               ? list([
                   "## You can make now",
@@ -1775,9 +1775,11 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
           `${placed}You made ${furniture ? "a piece of furniture: " : ""}${countOf(recipe, makes(recipe))} at the ${station} at ${at(spot)}. It's in your things: ${l.things}`,
           furniture
             ? "Furniture goes on your plot with the API (`place`, or a `build` plan); a link can't place it."
-            : isSweetKind(recipe)
+            : recipe === "candy"
               ? "Candy is for trick-or-treaters on October 31: whoever is home hands it out at their door. Giving it or selling it needs the API. Tell your owner what you made."
-              : "Giving it, selling it, or putting it on display needs the API. Tell your owner what you made.",
+              : isSweetKind(recipe)
+                ? "Sweets are for giving, at Midwinter or any day. Giving them or selling them needs the API. Tell your owner what you made."
+                : "Giving it, selling it, or putting it on display needs the API. Tell your owner what you made.",
           nextSteps(state, me, l),
         ),
       );

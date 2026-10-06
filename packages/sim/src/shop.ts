@@ -174,6 +174,10 @@ const ORDERS = {
   pumpkin: { price: 2, perDay: 2 },
   pumpkin_pie: { price: 6, perDay: 1 },
   pumpkin_soup: { price: 5, perDay: 1 },
+  // Bought every day of winter. Decision 0124 has the reasoning.
+  cranberry: { price: 1, perDay: 3 },
+  cranberry_jam: { price: 5, perDay: 1 },
+  cranberry_punch: { price: 5, perDay: 1 },
 } satisfies Partial<Record<GoodKind | Crop, BuyOrder>>;
 
 /**
@@ -230,7 +234,7 @@ export const SEASON_BUYS: Readonly<Record<Season, readonly SellKind[]>> = {
   spring: [],
   summer: [],
   autumn: ["pumpkin", "pumpkin_pie", "pumpkin_soup"],
-  winter: [],
+  winter: ["cranberry", "cranberry_jam", "cranberry_punch"],
 };
 
 /** The season `sku` is sold in, or undefined when the shop sells it all year. */
@@ -258,11 +262,13 @@ export const seasonLastDay = (day: number) => seasonSpan(day).end - 1;
 
 /**
  * Shop stock sold only while a holiday runs, every day of it, and refused (`out_of_holiday`) the
- * rest of the year: the catalog's kinds with that holiday (candy and its decor), then its wear (the
- * costumes). What you bought stays yours, to use and wear any day.
+ * rest of the year: the catalog's kinds with that holiday (Halloween's candy and decor, Midwinter's
+ * candy canes), then its wear (Halloween's costumes). What you bought stays yours, to use and wear
+ * any day.
  */
 export const HOLIDAY_STOCK: Readonly<Record<Holiday, readonly ShopSku[]>> = {
   halloween: [...holidayKinds("halloween"), ...COSTUMES] as ShopSku[],
+  midwinter: holidayKinds("midwinter") as ShopSku[],
 };
 
 /** The holiday `sku` is sold for, or undefined when no holiday holds it back. */

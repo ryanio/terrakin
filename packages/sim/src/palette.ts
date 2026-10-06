@@ -64,6 +64,12 @@ export const BLOCK_COLORS: Readonly<Record<BlockKind, string>> = {
   bat_bunting: "#3a2f4a",
   cauldron: "#3b3a40",
   candy_bowl: "#e8862f",
+  // Winter decor (RFC 0017): snow a shade bluer than the snowy ground, a warm bulb, a fir's green,
+  // and a sled's red slats.
+  snowman: "#f4f7fb",
+  string_lights: "#f5c451",
+  little_fir: "#2f6e45",
+  sled: "#c4473a",
 };
 
 /**

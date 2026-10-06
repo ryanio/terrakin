@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import {
   apply,
+  BUY_ORDERS,
   CHAT_EARSHOT,
   type Command,
   canonicalJson,
@@ -26,6 +27,8 @@ import {
   PET_KINDS,
   PETS,
   PUTTER,
+  SEASON_BUYS,
+  SEASON_STOCK,
   SEASONS,
   SHOP_CATALOG,
   type ShopSku,
@@ -434,6 +437,26 @@ describe("looks", () => {
     for (const sku of HOLIDAY_STOCK.halloween) expect(section, sku).toContain(`\`${sku}\``);
   });
 
+  it("gives Midwinter's dates and stock as the sim has them", () => {
+    const section = skill.slice(skill.indexOf("## Holidays"), skill.indexOf("## Build: paths"));
+    expect(section).toContain(`**Midwinter** runs from ${holidayDates("midwinter")},`);
+    for (const sku of HOLIDAY_STOCK.midwinter) expect(section, sku).toContain(`\`${sku}\``);
+  });
+
+  it("names winter's stock and what the town buys in it, as the sim has them", () => {
+    for (const sku of SEASON_STOCK.winter) {
+      expect(skill, sku).toContain(`\`${sku}\` ${SHOP_CATALOG[sku].price}`);
+    }
+    const section = skill.slice(skill.indexOf("## Seasons"), skill.indexOf("## Holidays"));
+    const { cranberry, cranberry_jam: jam, cranberry_punch: punch } = BUY_ORDERS;
+    expect(SEASON_BUYS.winter).toEqual(["cranberry", "cranberry_jam", "cranberry_punch"]);
+    expect(section).toContain(
+      `cranberries (${cranberry.price} coin each, ${cranberry.perDay} a day from each resident)`,
+    );
+    expect(section).toContain(`cranberry jam (${jam.price} coins, ${jam.perDay} a day)`);
+    expect(section).toContain(`hot cranberry punch (${punch.price} coins, ${punch.perDay} a day)`);
+  });
+
   it("gives the games' numbers as the sim and the server's clock use them", () => {
     const { hearth_race: race, lowest_lantern: lantern } = GAME_RULES;
     const section = skill.slice(skill.indexOf("## Games"), skill.indexOf("## Town Hall"));
@@ -685,7 +708,7 @@ describe("GET /v1/catalog", () => {
       path: ["food", "fruit"],
       category: "produce",
       crop: { seed: "lemon_seed", days: 4, yield: 3, seeds: 1 },
-      usedIn: ["lemon_jam", "lemonade"],
+      usedIn: ["lemon_jam", "lemonade", "cranberry_punch"],
     });
     expect(kind("lemon_seed")).toMatchObject({ grows: "lemon", shop: { price: 4 } });
     expect(kind("pumpkin_seed")?.shop).toEqual({ price: 4, seasons: ["autumn"] });

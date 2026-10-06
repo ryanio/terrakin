@@ -70,6 +70,40 @@ export const HALLOWEEN_HEX = {
 } as const;
 
 /**
+ * Winter's decor and sweets (RFC 0017 and RFC 0022), as the item pictures, the map, and the 3D views
+ * draw them; plot photos repeat them in `packages/cards/`. The snowman's snow is a shade bluer than
+ * snowy ground, with a cool shade on its far side, so it stands out on a winter plot.
+ */
+export const WINTER_HEX = {
+  /** The snowman: snow and its shade, coal eyes and buttons, a carrot nose, a scarf, a hat. */
+  snow: "#f4f7fb",
+  snowShade: "#c4d2e2",
+  coal: "#2f2c33",
+  carrot: "#ec7a2c",
+  scarf: "#c8344a",
+  scarfStripe: "#f6e7c8",
+  hat: "#3a3946",
+  /** A string of lights: its wire, and its bulbs from one end to the other. */
+  wire: "#3f5a3c",
+  bulbs: ["#f2564c", "#f5c451", "#5ec0ea", "#7fd17a", "#c38df0"],
+  /** The little fir: its needles, a lighter side, its clay pot and rim, and a gold star. */
+  needles: "#2f6e45",
+  needlesLight: "#4a8f5c",
+  pot: "#c8674a",
+  potRim: "#a9533a",
+  star: "#f2c94c",
+  /** The sled: iron runners, red slats, and its rope. */
+  runner: "#4a4542",
+  slat: "#c4473a",
+  rope: "#e3cf9c",
+  /** Hot cranberry punch, and a candy cane's stripes. */
+  punch: "#a3173a",
+  mug: "#f3ead9",
+  caneRed: "#d63a3a",
+  caneGreen: "#4f9a5a",
+} as const;
+
+/**
  * A bat with its wings spread, as a polygon in units of half its wingspan around its middle: x
  * from -1 to 1, y down. Bunting, bat wings, and the item pictures all draw this one bat.
  */

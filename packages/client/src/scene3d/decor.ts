@@ -1,14 +1,15 @@
 /**
  * The town shop's decor in 3D (RFC 0008): a paper lantern on a shepherd's hook, a picture on an
  * easel, a white fence post whose rails reach the fences beside it, a garden bench, autumn's hay
- * bale and scarecrow (RFC 0017), and Halloween's bat bunting, cauldron, and candy bowl (RFC 0022).
- * Each model is a few merged, shade-baked parts, so a plot full of fence posts is one instanced draw
- * per part (decision 0030). After dark a lantern's shade and a cauldron's brew are lit from inside
- * and a pool of light lies under each (decision 0098), never a light of its own.
+ * bale and scarecrow (RFC 0017), Halloween's bat bunting, cauldron, and candy bowl (RFC 0022), and
+ * winter's snowman, string of lights, little fir, and sled. Each model is a few merged, shade-baked
+ * parts, so a plot full of fence posts is one instanced draw per part (decision 0030). After dark a
+ * lantern's shade, a cauldron's brew, and a string's bulbs are lit from inside and a pool of light
+ * lies under each (decision 0098), never a light of its own.
  */
 import type { DecorKind } from "@terrakin/sim";
 import { WOOD_DARK as WOOD_BRAND } from "@terrakin/ui/brand";
-import { BAT_POINTS, HALLOWEEN_HEX } from "@terrakin/ui/looks";
+import { BAT_POINTS, HALLOWEEN_HEX, WINTER_HEX } from "@terrakin/ui/looks";
 import {
   type BufferGeometry,
   CircleGeometry,
@@ -438,6 +439,210 @@ function candyBowlParts(grain: Texture): Part[] {
   ];
 }
 
+// ---------- winter's decor (RFC 0017) ----------
+
+const W = WINTER_HEX;
+
+/**
+ * A snowman: three balls of snow, coal eyes and buttons, a carrot nose, a red scarf with a tail,
+ * twig arms, and a little hat. Its face looks south, toward the camera.
+ */
+function snowmanParts(grain: Texture): Part[] {
+  const ball = (r: number, y: number) => {
+    const g = new SphereGeometry(r, 16, 12);
+    g.scale(1, 0.94, 1);
+    return g.translate(0, y, 0).toNonIndexed();
+  };
+  const snow = merged([ball(0.29, 0.28), ball(0.205, 0.71), ball(0.145, 1.02)], 0.62);
+  const spots: [number, number, number][] = [
+    [-0.05, 1.05, 0.13],
+    [0.05, 1.05, 0.13],
+    [0, 0.76, 0.2],
+    [0, 0.66, 0.2],
+    [0, 0.36, 0.28],
+  ];
+  const coal = mergeGeometries(
+    spots.map(([x, y, z]) => new SphereGeometry(0.024, 6, 4).translate(x, y, z).toNonIndexed()),
+  );
+  const nose = new ConeGeometry(0.032, 0.15, 8);
+  nose.rotateX(Math.PI / 2);
+  nose.translate(0, 1.0, 0.2);
+  const scarf = merged(
+    [
+      new TorusGeometry(0.155, 0.045, 8, 18)
+        .rotateX(Math.PI / 2)
+        .translate(0, 0.885, 0)
+        .toNonIndexed(),
+      box(0.08, 0.2, 0.04, [0.08, 0.77, 0.17], [0.2, 0, 0.15], 0.015),
+    ],
+    0.85,
+  );
+  const arms = merged(
+    [-1, 1].flatMap((side) => [
+      box(0.38, 0.028, 0.028, [side * 0.34, 0.82, 0], [0, 0, side * 0.5], 0.01),
+      box(0.12, 0.022, 0.022, [side * 0.5, 0.95, 0], [0, 0, side * 1.2], 0.008),
+    ]),
+  );
+  const hat = merged(
+    [
+      new CylinderGeometry(0.17, 0.17, 0.03, 16).translate(0, 1.155, 0).toNonIndexed(),
+      new CylinderGeometry(0.1, 0.11, 0.17, 14).translate(0, 1.25, 0).toNonIndexed(),
+    ],
+    0.8,
+  );
+  return [
+    { geometry: snow, material: paper(hex(W.snow), grain), cast: true },
+    { geometry: noShade(coal), material: paper(hex(W.coal), grain), cast: false },
+    { geometry: noShade(nose.toNonIndexed()), material: paper(hex(W.carrot), grain), cast: false },
+    { geometry: scarf, material: paper(hex(W.scarf), grain), cast: true },
+    { geometry: arms, material: paper(WOOD_DARK, grain), cast: true },
+    { geometry: hat, material: paper(hex(W.hat), grain), cast: true },
+  ];
+}
+
+/** The string of lights' wire: points along its sag, from the west post's top to the east's. */
+const WIRE: readonly (readonly [number, number])[] = [0, 0.25, 0.5, 0.75, 1].map((t) => [
+  -0.42 + 0.84 * t,
+  0.98 - 0.6 * t * (1 - t),
+]);
+
+/** Where the wire hangs at `t` along it, 0 at the west post and 1 at the east, on its segments. */
+function wireAt(t: number): [number, number] {
+  const k = Math.min(WIRE.length - 2, Math.floor(t * (WIRE.length - 1)));
+  const [x0, y0] = WIRE[k] as readonly [number, number];
+  const [x1, y1] = WIRE[k + 1] as readonly [number, number];
+  const f = t * (WIRE.length - 1) - k;
+  return [x0 + (x1 - x0) * f, y0 + (y1 - y0) * f];
+}
+
+/**
+ * Two little posts with a string of colored bulbs hanging from a sagging wire between them. Each
+ * color is one part, lit a little by day and glowing after dark, twinkling while motion is
+ * allowed, with a pool of light under the string from its look's `glow` mark (decision 0098).
+ */
+function stringLightsParts(stage: Stage, grain: Texture): Part[] {
+  const posts = merged([
+    box(0.06, 1.02, 0.06, [-0.42, 0.51, 0], [0, 0, 0], 0.02),
+    box(0.06, 1.02, 0.06, [0.42, 0.51, 0], [0, 0, 0], 0.02),
+    box(0.12, 0.04, 0.12, [-0.42, 0.02, 0]),
+    box(0.12, 0.04, 0.12, [0.42, 0.02, 0]),
+  ]);
+  const spots = [0.12, 0.31, 0.5, 0.69, 0.88];
+  const wire = merged(
+    [
+      ...WIRE.slice(1).map(([x1, y1], i) => {
+        const [x0, y0] = WIRE[i] as readonly [number, number];
+        const length = Math.hypot(x1 - x0, y1 - y0);
+        const turn = Math.atan2(y1 - y0, x1 - x0);
+        return box(
+          length + 0.01,
+          0.014,
+          0.014,
+          [(x0 + x1) / 2, (y0 + y1) / 2, 0],
+          [0, 0, turn],
+          0.005,
+        );
+      }),
+      // A little socket under the wire for each bulb.
+      ...spots.map((t) => {
+        const [x, y] = wireAt(t);
+        return box(0.035, 0.04, 0.035, [x, y - 0.02, 0], [0, 0, 0], 0.01);
+      }),
+    ],
+    0.9,
+  );
+  const bulbs = W.bulbs.map((color, c) => {
+    const pieces = spots
+      .filter((_, i) => i % W.bulbs.length === c)
+      .map((t) => {
+        const [x, y] = wireAt(t);
+        const b = new SphereGeometry(0.045, 8, 6);
+        b.scale(1, 1.35, 1);
+        return b.translate(x, y - 0.085, 0).toNonIndexed();
+      });
+    const lit = new MeshLambertMaterial({ color: hex(color), emissive: hex(color) });
+    stage.glow({ kind: "lamp", material: lit, day: 0.3, night: 1.1, flicker: true });
+    return { geometry: noShade(mergeGeometries(pieces)), material: lit, cast: false };
+  });
+  return [
+    { geometry: posts, material: paper(WOOD_DARK, grain), cast: true },
+    { geometry: wire, material: paper(hex(W.wire), grain), cast: false },
+    ...bulbs,
+  ];
+}
+
+/** A little fir in a clay pot: three tiers of needles with snow on them, and a gold star on top. */
+function littleFirParts(grain: Texture): Part[] {
+  const pot = merged([
+    new CylinderGeometry(0.2, 0.15, 0.26, 14).translate(0, 0.13, 0).toNonIndexed(),
+    new CylinderGeometry(0.23, 0.23, 0.06, 14).translate(0, 0.27, 0).toNonIndexed(),
+  ]);
+  const tiers: [number, number, number][] = [
+    [0.4, 0.42, 0.5],
+    [0.3, 0.36, 0.75],
+    [0.2, 0.3, 0.98],
+  ];
+  const needles = merged(
+    [
+      new CylinderGeometry(0.05, 0.05, 0.16, 8).translate(0, 0.36, 0).toNonIndexed(),
+      ...tiers.map(([r, h, y]) => new ConeGeometry(r, h, 10).translate(0, y, 0).toNonIndexed()),
+    ],
+    0.55,
+  );
+  // A dusting of snow: a flat cap a little smaller than each tier, just under its tip.
+  const snow = merged(
+    tiers.map(([r, h, y]) =>
+      new ConeGeometry(r * 0.55, h * 0.4, 10).translate(0, y + h * 0.18, 0).toNonIndexed(),
+    ),
+    0.9,
+  );
+  const points: [number, number][] = [];
+  for (let i = 0; i < 10; i++) {
+    const a = Math.PI / 2 + (i * Math.PI) / 5;
+    const r = i % 2 === 0 ? 0.1 : 0.045;
+    points.push([Math.cos(a) * r, 1.22 + Math.sin(a) * r]);
+  }
+  return [
+    { geometry: pot, material: paper(hex(W.pot), grain), cast: true },
+    { geometry: needles, material: paper(hex(W.needles), grain), cast: true },
+    { geometry: snow, material: paper(hex(W.snow), grain), cast: false },
+    {
+      geometry: noShade(flat(points)),
+      material: paper(hex(W.star), grain, { side: DoubleSide }),
+      cast: false,
+    },
+  ];
+}
+
+/** A sled: red slats on two iron runners that curl up in front, east, and a loop of rope. */
+function sledParts(grain: Texture): Part[] {
+  const runners = merged(
+    [-0.2, 0.2].flatMap((z) => {
+      const curl = new TorusGeometry(0.1, 0.022, 6, 10, Math.PI);
+      curl.rotateZ(-Math.PI / 2);
+      curl.translate(0.32, 0.12, z);
+      return [
+        box(0.66, 0.035, 0.04, [-0.01, 0.02, z], [0, 0, 0], 0.012),
+        curl.toNonIndexed(),
+        box(0.03, 0.14, 0.03, [-0.24, 0.1, z]),
+        box(0.03, 0.14, 0.03, [0.04, 0.1, z]),
+      ];
+    }),
+  );
+  const slats = merged(
+    [-0.13, 0, 0.13].map((z) => box(0.62, 0.035, 0.11, [-0.02, 0.19, z], [0, 0, 0], 0.012)),
+    0.85,
+  );
+  const rope = new TorusGeometry(0.11, 0.012, 5, 14, Math.PI * 1.3);
+  rope.rotateY(Math.PI / 2);
+  rope.translate(0.42, 0.2, 0);
+  return [
+    { geometry: runners, material: paper(hex(W.runner), grain), cast: true },
+    { geometry: slats, material: paper(hex(W.slat), grain), cast: true },
+    { geometry: noShade(rope.toNonIndexed()), material: paper(hex(W.rope), grain), cast: false },
+  ];
+}
+
 function partsOf(stage: Stage, kind: DecorKind, grain: Texture): Part[] {
   if (kind === "lantern") return lanternParts(stage, grain);
   if (kind === "frame") return frameParts(stage, grain);
@@ -447,6 +652,10 @@ function partsOf(stage: Stage, kind: DecorKind, grain: Texture): Part[] {
   if (kind === "bat_bunting") return batBuntingParts(grain);
   if (kind === "cauldron") return cauldronParts(stage, grain);
   if (kind === "candy_bowl") return candyBowlParts(grain);
+  if (kind === "snowman") return snowmanParts(grain);
+  if (kind === "string_lights") return stringLightsParts(stage, grain);
+  if (kind === "little_fir") return littleFirParts(grain);
+  if (kind === "sled") return sledParts(grain);
   return benchParts(grain);
 }
 

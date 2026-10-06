@@ -1,7 +1,8 @@
 import { SHOP_ITEMS } from "@terrakin/protocol";
+import { dayOfDate } from "@terrakin/sim";
 import { listOf } from "@terrakin/ui/format";
 import { describe, expect, it } from "vitest";
-import { buyLabel, SHELVES, sellable } from "./shop-view";
+import { buyLabel, holidayHint, SHELVES, sellable } from "./shop-view";
 
 const lantern = { sku: "lantern", price: 40, section: "decor" } as const;
 const hat = { sku: "top_hat", price: 80, section: "wear" } as const;
@@ -28,6 +29,17 @@ describe("the shop page", () => {
     expect(sellable({ ...order, left: 0 }, 5)).toBe(0);
     // Without a token there's no `left`, and nothing to sell.
     expect(sellable(order, 5)).toBe(0);
+  });
+
+  it("says when a holiday's shelf goes, and what a kitchen makes for it any day", () => {
+    expect(holidayHint("halloween", dayOfDate(2026, 11, 1))).toBe(
+      "Sold until November 1 (UTC). Costumes and decor are yours for good, and a kitchen makes candy any day.",
+    );
+    expect(holidayHint("midwinter", dayOfDate(2026, 12, 31))).toBe(
+      "Sold until December 31 (UTC). A kitchen makes candy canes any day, five from a bunch of herbs and a bag of sugar.",
+    );
+    // A holiday this client doesn't know yet still says when.
+    expect(holidayHint("spring_fair", dayOfDate(2027, 4, 2))).toBe("Sold until April 2 (UTC).");
   });
 });
 

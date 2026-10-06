@@ -192,7 +192,7 @@ export function buildPlot(
   // The time of day on the server's clock, kept going here, so the plot gets dark when the map does
   // (decision 0098).
   const clock = layout.time && { ...layout.time, at: performance.now() };
-  // Halloween's evenings have a tint of their own (RFC 0022).
+  // Halloween's evenings and Midwinter's have a tint of their own (RFC 0022).
   stage.holiday(layout.holiday);
   const tick = () => {
     stage.timeOfDay(

@@ -39,6 +39,7 @@ import {
   knockedToday,
   ownsWear,
   plotsOwnedBy,
+  type Season,
   SHOP_CATALOG,
   seasonOf,
   skyAt,
@@ -124,15 +125,43 @@ const PUMPKIN_KINDS: ReadonlySet<string> = new Set([
   "pumpkin_soup",
 ]);
 
-/** Whether a resident has anything pumpkin, held or growing: they've found autumn's crop. */
-function hasPumpkins(state: WorldState, viewer: string): boolean {
+/** Everything cranberry: winter's seeds, its crop, and what the kitchen makes from it. */
+const CRANBERRY_KINDS: ReadonlySet<string> = new Set([
+  "cranberry_seed",
+  "cranberry",
+  "cranberry_jam",
+  "cranberry_punch",
+]);
+
+/**
+ * Whether a resident has any of a season's crop, held or growing (`kinds`, its seeds, the crop,
+ * and what's made from it): they've found it.
+ */
+function hasCrop(
+  state: WorldState,
+  viewer: string,
+  crop: string,
+  kinds: ReadonlySet<string>,
+): boolean {
   const inv = state.items?.inventories[viewer];
-  if (Object.keys(inv?.stacks ?? {}).some((k) => PUMPKIN_KINDS.has(k))) return true;
-  if (inv?.goods.some((g) => PUMPKIN_KINDS.has(g.kind))) return true;
-  return Object.values(state.items?.crops ?? {}).some(
-    (c) => c.by === viewer && c.crop === "pumpkin",
-  );
+  if (Object.keys(inv?.stacks ?? {}).some((k) => kinds.has(k))) return true;
+  if (inv?.goods.some((g) => kinds.has(g.kind))) return true;
+  return Object.values(state.items?.crops ?? {}).some((c) => c.by === viewer && c.crop === crop);
 }
+
+/** Whether a season's crop is one to suggest: its seeds on sale today, to a gardener with none. */
+const seasonCropOpen = (
+  state: WorldState,
+  viewer: string,
+  season: Season,
+  crop: string,
+  kinds: ReadonlySet<string>,
+) =>
+  state.shop !== undefined &&
+  state.day !== undefined &&
+  seasonOf(state.day) === season &&
+  !isTownsfolk(state, viewer) &&
+  !hasCrop(state, viewer, crop, kinds);
 /** Something someone else put on display, to admire: a made thing, since a find has no maker. */
 const othersDisplay = (state: WorldState, viewer: string) =>
   Object.values(displaysOf(state)).some((d) => d.by !== viewer);
@@ -257,14 +286,17 @@ export const TRY_NEXT: readonly TryNext[] = [
     // month later while autumn lasts, and never once they have pumpkin seeds, pumpkins, or either.
     id: "pumpkins",
     commands: [],
-    open: (state, viewer) =>
-      state.shop !== undefined &&
-      state.day !== undefined &&
-      seasonOf(state.day) === "autumn" &&
-      !isTownsfolk(state, viewer) &&
-      !hasPumpkins(state, viewer),
+    open: (state, viewer) => seasonCropOpen(state, viewer, "autumn", "pumpkin", PUMPKIN_KINDS),
     after: ["harvest"],
     line: 'It\'s autumn: the town shop sells pumpkin seeds until November 30, and the town buys pumpkins, pumpkin pie, and pumpkin soup every day of it. If your owner would like some, buy a few ({"type": "shop_buy", "sku": "pumpkin_seed", "count": 2}) and plant them like any seed. They take 5 days.',
+  },
+  {
+    // Winter's crop, the same way: back a month later while winter lasts, until they have some.
+    id: "cranberries",
+    commands: [],
+    open: (state, viewer) => seasonCropOpen(state, viewer, "winter", "cranberry", CRANBERRY_KINDS),
+    after: ["harvest"],
+    line: 'It\'s winter: the town shop sells cranberry seeds until the last day of February, and the town buys cranberries, cranberry jam, and hot cranberry punch every day of it. If your owner would like some, buy a few ({"type": "shop_buy", "sku": "cranberry_seed", "count": 2}) and plant them like any seed. They take 4 days, and a kitchen makes jam from 3 of them, a bag of sugar, and a jar.',
   },
   {
     id: "build",

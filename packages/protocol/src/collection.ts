@@ -28,7 +28,7 @@ export const COLLECTION_WORDS: Readonly<
   preserve: { hint: "Made at a kitchen", badge: "Every preserve" },
   drink: { hint: "Made at a kitchen", badge: "Every drink" },
   baked: { hint: "Made at a kitchen" },
-  sweets: { hint: "Made at a kitchen, or sold at the shop for Halloween" },
+  sweets: { hint: "Made at a kitchen, or sold at the shop for a holiday", badge: "Every sweet" },
   flower: { hint: "Grown from seed in a planter" },
   keepsake: { hint: "Made at a workbench", badge: "Every keepsake" },
   seed: { hint: "From the pantry, the town shop, or a harvest", badge: "Every seed" },

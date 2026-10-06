@@ -26,6 +26,7 @@ import {
   openTableProblem,
   own,
   residentById,
+  roundBoards,
   seatOf,
   seatsHeld,
   sitProblem,
@@ -52,11 +53,19 @@ export const closesAt = (t: GameTable) =>
 /** When an open table closes if nobody starts it, in ms. */
 export const startBy = (t: GameTable) => t.openedAt + GAME_TIMES.waitMinutes[t.pace] * 60_000;
 
-/** A round as views carry it. */
-const roundView = (round: number, moves: GameTable["rounds"][number]): RoundView => ({
-  round,
-  moves: { ...moves },
-});
+/** Every closed round as views carry it, with what each seat gained, oldest first. */
+function roundViews(t: GameTable): RoundView[] {
+  const boards = roundBoards(t);
+  return t.rounds.map((moves, i) => {
+    const before = boards[i - 1];
+    const after = boards[i] ?? {};
+    const gained: Record<string, number> = {};
+    for (const s of t.seats) {
+      gained[s.resident] = (after[s.resident] ?? 0) - (before?.[s.resident] ?? 0);
+    }
+    return { round: i + 1, moves: { ...moves }, gained };
+  });
+}
 
 export function tableView(
   state: WorldState,
@@ -67,12 +76,21 @@ export function tableView(
 ): TableView {
   const playing = t.status === "playing";
   const over = t.status === "over";
+  const kinds = new Map(t.seats.map((s) => [s.resident, s.kind]));
+  /** Whether a seat is in a counted pair with a seat of its own kind (`same`) or of the other. */
+  const counted = (id: string, same: boolean) =>
+    t.status !== "open" &&
+    (t.pairs ?? []).some(([a, b]) => {
+      const other = a === id ? b : b === id ? a : null;
+      return other !== null && (kinds.get(other) === kinds.get(id)) === same;
+    });
   const seats = t.seats.map((s) => {
     const change = t.changes?.find((c) => c.resident === s.resident);
     return {
       resident: author(s.resident) ?? unknownAuthor(s.resident),
       kind: s.kind,
-      rated: t.status === "open" ? null : s.rated === true,
+      rated: t.status === "open" ? null : counted(s.resident, true),
+      tally: t.status === "open" ? null : counted(s.resident, false),
       away: isAway(s),
       decided: playing && hasDecided(t, s.resident),
       score: own(t.board, s.resident) ?? 0,
@@ -82,7 +100,7 @@ export function tableView(
         : null,
     };
   });
-  const lastMoves = t.rounds.at(-1);
+  const rounds = roundViews(t);
   let you: TableView["you"] = null;
   if (viewer && residentById(state, viewer)) {
     const seated = seatOf(t, viewer) !== undefined;
@@ -109,8 +127,8 @@ export function tableView(
     openedAt: iso(t.openedAt),
     closesAt: playing ? iso(closesAt(t)) : null,
     startBy: t.status === "open" ? iso(startBy(t)) : null,
-    last: lastMoves ? roundView(t.rounds.length, lastMoves) : null,
-    ...(options.history ? { history: t.rounds.map((m, i) => roundView(i + 1, m)) } : {}),
+    last: rounds.at(-1) ?? null,
+    ...(options.history ? { history: rounds } : {}),
     // The salt guards the world's hash while choices are sealed; once it's over there are none.
     salt: over ? t.salt : null,
     you,

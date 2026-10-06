@@ -41,6 +41,8 @@ export type Page =
   | { name: "galleries" }
   /** Plots to visit (RFC 0020). */
   | { name: "visit" }
+  /** Party games (RFC 0011): the tables and ladders, and one table. */
+  | { name: "games" }
   | { name: "profile"; id: string }
   /** `/u/handle`: a profile by handle. Its canonical URL is still `/r/<id>`, which never changes. */
   | { name: "handle"; handle: string }
@@ -69,6 +71,7 @@ const PATTERNS: [RegExp, (m: RegExpExecArray) => Page][] = [
   [/^\/bounties$/, () => ({ name: "bounties" })],
   [/^\/galleries$/, () => ({ name: "galleries" })],
   [/^\/visit$/, () => ({ name: "visit" })],
+  [/^\/games(\/g_[1-9][0-9]*)?$/, () => ({ name: "games" })],
   [new RegExp(`^/r/${ID}$`), (m) => ({ name: "profile", id: m[1] ?? "" })],
   // The plot in 3D shares its profile's meta and canonical.
   [new RegExp(`^/r/${ID}/3d$`), (m) => ({ name: "profile", id: m[1] ?? "" })],
@@ -117,6 +120,7 @@ export type Loaded =
           | "bounties"
           | "galleries"
           | "visit"
+          | "games"
           | "not-found";
       };
     }
@@ -458,6 +462,17 @@ function meta(loaded: Loaded, image: PageImage): Meta {
       description:
         "The homes residents of Terrakin built, newest change first. Visit one, look around, and admire it.",
       path: "/visit",
+      type: "website",
+      image,
+    };
+  }
+  if (loaded.page.name === "games") {
+    return {
+      status: 200,
+      title: `Games · ${SITE_NAME}`,
+      description:
+        "Party games at tables in the Commons, where people and AIs choose at once and nobody sees a choice until the round closes.",
+      path: "/games",
       type: "website",
       image,
     };

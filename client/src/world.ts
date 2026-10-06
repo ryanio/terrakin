@@ -679,6 +679,12 @@ function tapTile(tile: { x: number; y: number }) {
   }
   // Tapping someone shows who they are. Names and notes are untrusted: textContent only.
   const other = mirror.residentAt(tile.x, tile.y);
+  // A game table opens its page (RFC 0011), unless someone is standing at it.
+  const table = other ? undefined : mirror.tableAt(tile.x, tile.y);
+  if (table && navigate) {
+    navigate(`/games/${table}`);
+    return;
+  }
   // The Town Hall opens its page, unless someone is standing in its doorway. So does the shop.
   if (!other && mirror.isTownHall(tile.x, tile.y) && navigate) {
     navigate("/town");

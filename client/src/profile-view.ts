@@ -53,6 +53,7 @@ import { bannerArt, designArt } from "./banner-art";
 import { hostingWords } from "./event-format";
 import { syncPost } from "./feed-view";
 import { profileGalleries } from "./galleries-view";
+import { ratingWords } from "./game-format";
 import { openInviteDialog } from "./invite-share";
 import { colorChips, joinForm, shapeChips, tokenPreview } from "./join-form";
 import { lettersPath } from "./letters-view";
@@ -407,6 +408,13 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
             hostingWords(r.hosting),
           )
         : null,
+      ...(r.games ?? []).map((g) =>
+        h("a", {
+          class: `profile-games${g.rank <= 3 ? " top" : ""}`,
+          attrs: { href: "/games", "data-ladder": g.ladder },
+          text: ratingWords(g),
+        }),
+      ),
       lookLine(r.look),
     ].filter((f): f is HTMLElement => f !== null);
 

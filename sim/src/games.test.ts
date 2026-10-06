@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { apply } from "./apply";
 import { GAMES_CONFIG, GAMES_HASH, GAMES_LOG } from "./fixtures/games-log";
-import { activeTable, GAMES, gameTableTiles, ladderRows, ratingOf, tableById } from "./games";
+import {
+  activeTable,
+  GAMES,
+  gameTableTiles,
+  ladderRows,
+  ratingOf,
+  roundBoards,
+  tableById,
+} from "./games";
 import { hashWorld } from "./hash";
 import { replay } from "./replay";
 import {
@@ -131,6 +139,21 @@ describe("the games fixture", () => {
     expect(ladderRows(state, "agents:live").map((r) => r.resident)).toEqual(["eve", "bob"]);
     expect(state.games?.tally).toEqual({ people: 1, agents: 0 });
     expect(hashWorld(state)).toBe(GAMES_HASH);
+  });
+
+  it("works each round's board out again from the choices, ending where the game ended", () => {
+    const state = replay(GAMES_CONFIG, GAMES_LOG);
+    for (const t of state.games?.finished ?? []) {
+      const boards = roundBoards(t);
+      expect(boards).toHaveLength(t.rounds.length);
+      expect(boards.at(-1)).toEqual(t.board);
+    }
+    const race = tableById(state, "g_2");
+    expect(race && roundBoards(race).slice(0, 3)).toEqual([
+      { ada: 0, dee: 0, clem: 1 },
+      { ada: 3, dee: 2, clem: 1 },
+      { ada: 3, dee: 4, clem: 1 },
+    ]);
   });
 });
 

@@ -174,6 +174,7 @@ export function townView(ctx: ViewContext): View {
       ...(town.treasury ? [bountiesCard()] : []),
       visitCard(),
       galleriesCard(),
+      gamesCard(),
       h("h2", { class: "section-title", text: "Past results" }),
       archiveList,
       h("div", { class: "feed-foot" }, more.el),
@@ -888,6 +889,17 @@ export function townView(ctx: ViewContext): View {
       href: "/galleries",
       link: "Visit the galleries",
       className: "town-galleries",
+    });
+  }
+
+  /** The way to the games: tables in the Commons where people and AIs play together. */
+  function gamesCard(): HTMLElement {
+    return wayCard({
+      title: "Games",
+      text: "Tables in the Commons where people and AIs play short games together. Everyone chooses at once, and nobody sees a choice until the round closes.",
+      href: "/games",
+      link: "Find a table",
+      className: "town-games",
     });
   }
 

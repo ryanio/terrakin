@@ -8206,3 +8206,216 @@ html.view3d-open body {
   text-overflow: ellipsis;
   box-shadow: 0 4px 14px rgba(74, 52, 28, 0.18);
 }
+
+/* Party games (RFC 0011): the tables, the ladders, one table, and the decide sheet. */
+.game-head {
+  align-items: center;
+}
+
+.game-where {
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  color: var(--ink-soft);
+}
+
+.game-card-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-height: 44px;
+  font-weight: var(--weight-semibold);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.game-card-arrow {
+  display: inline-flex;
+  margin-left: auto;
+  color: var(--clay);
+}
+
+.game-faces {
+  display: inline-flex;
+}
+
+.game-faces > .avatar + .avatar {
+  margin-left: calc(-1 * var(--space-sm));
+}
+
+.game-your-move {
+  justify-self: start;
+  margin: 0;
+  padding: var(--space-2xs) var(--space-md);
+  border-radius: var(--r-pill);
+  background: var(--sun);
+  font-size: var(--text-md);
+  font-weight: var(--weight-bold);
+  color: var(--ink);
+}
+
+.games-rules {
+  font-size: var(--text-base);
+  color: var(--ink-soft);
+}
+
+.games-intro > .btn-primary,
+.game-card > .btn-primary {
+  justify-self: start;
+}
+
+.games-tally {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+}
+
+/* The ladders' tabs (linkTabs in ui.ts): who plays on each ladder over its pace. */
+.ladder-tabs {
+  margin-top: var(--space-xs);
+  border-radius: var(--r-card);
+}
+
+.ladder-tab {
+  min-height: 56px;
+  padding: var(--space-2xs) var(--space-xs);
+  border-radius: var(--r-note);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+
+.ladder-tab-who {
+  font-size: var(--text-base);
+  font-weight: var(--weight-bold);
+}
+
+.ladder-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  min-height: 44px;
+}
+
+.ladder-rank {
+  flex: none;
+  min-width: var(--space-4xl);
+  font-weight: var(--weight-bold);
+  color: var(--clay-deep);
+}
+
+.ladder-rating {
+  margin-left: auto;
+  font-size: var(--text-md);
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.game-round {
+  margin: 0;
+  font-size: var(--text-xl);
+}
+
+.game-clock {
+  color: var(--clay-deep);
+  font-weight: var(--weight-semibold);
+}
+
+.game-line {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+/* The big button a phone player reaches for each round. */
+.game-actions > .game-decide {
+  min-height: calc(var(--tap) + var(--space-sm));
+  padding: 0 var(--space-3xl);
+  font-size: var(--text-xl);
+}
+
+.game-seat {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--r-md);
+  background: var(--paper-fill);
+}
+
+.game-seat.decided {
+  background: var(--pressed);
+}
+
+.game-seat.away {
+  opacity: 0.6;
+}
+
+.game-seat-facts {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--text-md);
+  color: var(--ink-soft);
+}
+
+.game-seat-state.counts {
+  color: var(--moss-deep);
+  font-weight: var(--weight-bold);
+}
+
+.game-score {
+  font-weight: var(--weight-bold);
+  color: var(--ink);
+}
+
+.game-pick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.game-pick-name {
+  font-weight: var(--weight-bold);
+}
+
+.game-salt {
+  overflow-wrap: anywhere;
+}
+
+/* The decide sheet: one big button per legal move, easy to hit with a thumb. */
+.decide-grid.few {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.decide-grid.many {
+  grid-template-columns: repeat(5, 1fr);
+}
+
+.decide-move {
+  min-height: calc(var(--tap) * 1.5);
+  border: 1.5px solid var(--paper-edge);
+  border-radius: var(--r-card);
+  background: var(--paper-fill);
+  font-family: var(--font-display);
+  font-size: var(--text-3xl);
+  font-weight: var(--weight-heavy);
+  color: var(--ink);
+}
+
+.decide-grid.few > .decide-move {
+  font-size: var(--text-2xl);
+}
+
+.decide-move:active {
+  background: var(--sun);
+}
+
+.profile-facts > .profile-games::before {
+  content: "🎲";
+  margin-right: var(--space-xs);
+}
+
+.profile-facts > .profile-games.top {
+  color: var(--clay-deep);
+}

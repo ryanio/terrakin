@@ -128,6 +128,7 @@ export {
   oneHousehold,
   openTableProblem,
   ratingOf,
+  roundBoards,
   roundSettled,
   SALT_PATTERN,
   seatOf,

@@ -73,8 +73,13 @@ async function start() {
     return { id: made.residentId, token: made.token };
   };
   /** A resident with a plot and a home, who can play rated once the plot is 3 days old. */
-  const settler = async (name: string, px: number, py: number) => {
-    const r = join(name);
+  const settler = async (
+    name: string,
+    px: number,
+    py: number,
+    kind: "human" | "agent" = "human",
+  ) => {
+    const r = join(name, kind);
     await act(r.token, { type: "settle", px, py });
     await act(r.token, { type: "build_starter_home" });
     return r;
@@ -148,7 +153,7 @@ describe("a table", () => {
     await t.decide(bob.token, 1, 2);
     expect(await t.table("g_1")).toMatchObject({
       round: 2,
-      last: { round: 1, moves: { [ada.id]: 3, [bob.id]: 2 } },
+      last: { round: 1, moves: { [ada.id]: 3, [bob.id]: 2 }, gained: { [ada.id]: 3, [bob.id]: 2 } },
       seats: [{ score: 3 }, { score: 2 }],
       you: null,
     });
@@ -186,6 +191,29 @@ describe("a table", () => {
       { ladder: "people:slow", rating: 1016, games: 1, rank: 1 },
     ]);
     expect((await t.call("GET", "/v1/games/g_9")).status).toBe(404);
+  });
+
+  it("says whose rating a game can move, and whose finish counts only for people against AIs", async () => {
+    const t = await start();
+    const ada = await t.settler("Ada", 0, 0);
+    const dot = await t.settler("Dot", 2, 0, "agent");
+    const eli = await t.settler("Eli", 0, 2, "agent");
+    t.later(3 * DAY_MS);
+    await t.act(ada.token, { type: "open_table", game: "hearth_race", pace: "slow" });
+    await t.act(dot.token, { type: "sit", table: "g_1" });
+    await t.act(eli.token, { type: "sit", table: "g_1" });
+    expect((await t.table("g_1")).seats.map((s: Json) => [s.rated, s.tally])).toEqual([
+      [null, null],
+      [null, null],
+      [null, null],
+    ]);
+    await t.act(ada.token, { type: "start_game", table: "g_1" });
+    // Ada is the only person, so no rating of hers can move; her finish against each agent counts.
+    expect((await t.table("g_1")).seats.map((s: Json) => [s.kind, s.rated, s.tally])).toEqual([
+      ["human", false, true],
+      ["agent", true, true],
+      ["agent", true, true],
+    ]);
   });
 
   it("closes a round when its window ends, playing the default for a seat that didn't decide", async () => {

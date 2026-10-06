@@ -46,8 +46,10 @@ export const SeatView = z.object({
   resident: AuthorView,
   /** Their kind when they sat, which picks their ladder. */
   kind: ResidentKind,
-  /** Whether this game moves their rating or the tally. Null until it starts. */
+  /** Whether this game can move their rating: another seat of their kind counts with them. Null until it starts. */
   rated: z.boolean().nullable(),
+  /** Whether their finish against the other kind counts for the people-against-AIs tally. Null until it starts. */
+  tally: z.boolean().nullable(),
   /** Missed the last rounds in a row: the server plays the default for them until they decide. */
   away: z.boolean(),
   /** Has chosen this round. What they chose stays hidden until the round closes. */
@@ -61,10 +63,14 @@ export const SeatView = z.object({
 });
 export type SeatView = z.infer<typeof SeatView>;
 
-/** One closed round: what each seat chose, by resident id. `null` played the default. */
+/**
+ * One closed round: what each seat chose, by resident id (`null` played the default), and what it
+ * gained by it: spaces in Hearth race, a point in Lowest lantern.
+ */
 export const RoundView = z.object({
   round: z.number().int(),
   moves: z.record(z.string(), z.number().int().nullable()),
+  gained: z.record(z.string(), z.number().int()),
 });
 export type RoundView = z.infer<typeof RoundView>;
 
@@ -193,7 +199,11 @@ export const GamesResponse = z.object({
 });
 export type GamesResponse = z.infer<typeof GamesResponse>;
 
-export const GameResponse = z.object({ table: TableView });
+export const GameResponse = z.object({
+  table: TableView,
+  /** The server's clock as it answered, which `closesAt` and `startBy` are on. */
+  now: z.string(),
+});
 export type GameResponse = z.infer<typeof GameResponse>;
 
 export const GameParams = z.object({ table: TableId.describe("The table id, like `g_3`.") });

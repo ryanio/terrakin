@@ -126,6 +126,8 @@ export class Mirror {
   #dozing: { me: string | undefined; list: readonly Dozer<Resident>[] } | undefined;
   /** Events on the calendar (RFC 0010): where and when, never their words. By id. */
   events = new Map<string, EventMark>();
+  /** Game tables standing in the Commons (RFC 0011), by id. Tapping one opens its page. */
+  tables = new Map<string, { x: number; y: number; playing: boolean }>();
   /**
    * Away residents out on a routine (decision 0083): the routine, and when its last step reached
    * this copy, on `clock`. They're drawn where they are, awake, until `OUT_MS` after it.
@@ -168,6 +170,9 @@ export class Mirror {
     for (const t of snapshot.gathered ?? []) this.gathered.add(tileKey(t.x, t.y));
     this.plotPickupsOwned = snapshot.plotPickupsOwned === true;
     this.day = snapshot.day;
+    for (const t of snapshot.tables ?? []) {
+      this.tables.set(t.id, { x: t.x, y: t.y, playing: t.status === "playing" });
+    }
     for (const e of snapshot.events ?? []) {
       this.events.set(e.id, {
         id: e.id,
@@ -380,6 +385,18 @@ export class Mirror {
       case "event_cancelled":
         this.events.delete(event.event);
         break;
+      case "table_opened":
+        this.tables.set(event.table, { x: event.x, y: event.y, playing: false });
+        break;
+      case "game_started": {
+        const t = this.tables.get(event.table);
+        if (t) t.playing = true;
+        break;
+      }
+      case "game_over":
+      case "table_closed":
+        this.tables.delete(event.table);
+        break;
       // The blocks themselves arrive as block_placed and block_removed just before this.
       case "town_built":
         for (const b of event.placed) this.townBuilt.set(tileKey(b.x, b.y), event.proposal);
@@ -387,6 +404,12 @@ export class Mirror {
         break;
     }
     return "applied";
+  }
+
+  /** The game table standing on a tile, if any, by id. */
+  tableAt(x: number, y: number): string | undefined {
+    for (const [id, t] of this.tables) if (t.x === x && t.y === y) return id;
+    return undefined;
   }
 
   /** The online resident standing on a tile, if any. */

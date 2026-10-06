@@ -1246,6 +1246,7 @@ export class Api {
             table: tableView(service.state, t, (id) => this.social?.authorView(id), viewer, {
               history: true,
             }),
+            now: new Date(service.now()).toISOString(),
           },
         };
       },

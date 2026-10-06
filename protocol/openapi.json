@@ -32778,10 +32778,14 @@
         "properties": {
           "table": {
             "$ref": "#/components/schemas/TableView"
+          },
+          "now": {
+            "type": "string"
           }
         },
         "required": [
-          "table"
+          "table",
+          "now"
         ]
       },
       "GameRulesView": {
@@ -33097,11 +33101,20 @@
               "minimum": -9007199254740991,
               "maximum": 9007199254740991
             }
+          },
+          "gained": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            }
           }
         },
         "required": [
           "round",
-          "moves"
+          "moves",
+          "gained"
         ]
       },
       "SeatRatingView": {
@@ -33140,6 +33153,10 @@
             "nullable": true,
             "type": "boolean"
           },
+          "tally": {
+            "nullable": true,
+            "type": "boolean"
+          },
           "away": {
             "type": "boolean"
           },
@@ -33170,6 +33187,7 @@
           "resident",
           "kind",
           "rated",
+          "tally",
           "away",
           "decided",
           "score",

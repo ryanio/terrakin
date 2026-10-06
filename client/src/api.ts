@@ -18,12 +18,16 @@ import {
   EventsResponse,
   FeedResponse,
   GalleriesResponse,
+  GameResponse,
+  GamesResponse,
   type GestureRequest,
   GestureResponse,
   GesturesResponse,
   InventoryResponse,
   InviteDetailsResponse,
   InviteResponse,
+  type Ladder,
+  LadderResponse,
   LetterResponse,
   LettersResponse,
   MarketResponse,
@@ -214,6 +218,13 @@ export const api = {
     request("POST", `/v1/plots/${px}/${py}/admire`, PlotResponse),
   /** A world action. A 200 can still be a refusal by the rules: check `ok` in the body. */
   act: (action: Action) => request("POST", "/v1/actions", ActionResponse, action),
+  /** Party games (RFC 0011): tables taking seats, games being played, and recent ones. */
+  games: () => request("GET", "/v1/games", GamesResponse),
+  /** One table, with every closed round and, with a token, your legal moves. */
+  game: (id: string) => request("GET", `/v1/games/${encodeURIComponent(id)}`, GameResponse),
+  /** One ladder of game ratings, best first. */
+  ladder: (ladder: Ladder) =>
+    request("GET", `/v1/games/ladders${query({ ladder })}`, LadderResponse),
   /** Hosted events (RFC 0010): what's on now, what's coming, and whether you can host. */
   events: () => request("GET", "/v1/events", EventsResponse),
   /** Say you're going to an event, or take it back. */

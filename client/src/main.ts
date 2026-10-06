@@ -18,6 +18,7 @@ import { initBrandMarks } from "./chrome";
 import { claimView } from "./claim-view";
 import { feedView } from "./feed-view";
 import { galleriesView } from "./galleries-view";
+import { gamesView, tableView } from "./games-view";
 import { inventoryView } from "./inventory-view";
 import { inviteView } from "./invite-view";
 import { lettersView, letterThreadView, UNREAD_EVENT } from "./letters-view";
@@ -329,13 +330,17 @@ function onNavigate(nav: Navigation) {
                                   ? galleriesView(ctx)
                                   : route.name === "visit"
                                     ? visitView(ctx)
-                                    : route.name === "people"
-                                      ? peopleView(route.id, route.tab, ctx)
-                                      : route.name === "plot3d" || route.name === "gallery3d"
-                                        ? view3d(route, ctx)
-                                        : route.name === "claim"
-                                          ? claimView(route.code, ctx)
-                                          : notFoundView(ctx);
+                                    : route.name === "games"
+                                      ? gamesView(ctx)
+                                      : route.name === "game"
+                                        ? tableView(route.id, ctx)
+                                        : route.name === "people"
+                                          ? peopleView(route.id, route.tab, ctx)
+                                          : route.name === "plot3d" || route.name === "gallery3d"
+                                            ? view3d(route, ctx)
+                                            : route.name === "claim"
+                                              ? claimView(route.code, ctx)
+                                              : notFoundView(ctx);
   view = next;
   page.replaceChildren(next.el);
 

@@ -453,6 +453,26 @@ function placesOf(
   return places;
 }
 
+/**
+ * The board after each closed round, worked out again from the choices with the game's own rule,
+ * so a view can say what each round gave each seat without a rule of its own. Reads only.
+ */
+export function roundBoards(t: GameTable): Record<ResidentId, number>[] {
+  const board: Record<ResidentId, number> = {};
+  for (const s of t.seats) board[s.resident] = 0;
+  return t.rounds.map((moves) => {
+    switch (t.game) {
+      case "hearth_race":
+        raceStep(t, GAME_RULES.hearth_race.goal ?? 0, moves, board);
+        break;
+      case "lowest_lantern":
+        lanternStep(t, moves, board);
+        break;
+    }
+    return { ...board };
+  });
+}
+
 /** How a round closes, worked out against the table as it stands, changing nothing. */
 function outcome(state: WorldState, t: GameTable): RoundOutcome {
   const rules = GAME_RULES[t.game];

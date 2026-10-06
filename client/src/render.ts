@@ -959,6 +959,54 @@ function paintFurniture(
   ctx.drawImage(art, left + (size - side) / 2, top + size - side * 0.95, side, side);
 }
 
+/**
+ * A game table in the Commons (RFC 0011): the workbench's table with a die on it, and a warm glow
+ * under it while a game is being played.
+ */
+function paintGameTable(
+  ctx: CanvasRenderingContext2D,
+  left: number,
+  top: number,
+  size: number,
+  scale: number,
+  edge: number,
+  playing: boolean,
+) {
+  if (playing) {
+    const cx = left + size / 2;
+    const cy = top + size * 0.6;
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, scale * 0.9);
+    g.addColorStop(0, "rgba(242, 184, 75, 0.5)");
+    g.addColorStop(1, "rgba(242, 184, 75, 0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(cx - scale, cy - scale, scale * 2, scale * 2);
+  }
+  paintFurniture(ctx, "table", left, top, size, scale, edge, {
+    n: false,
+    e: false,
+    s: false,
+    w: false,
+  });
+  // The die sits on the table top, a third of a tile across, showing three.
+  const side = Math.max(5, size * 0.32);
+  const dx = left + size * 0.5 - side / 2;
+  const dy = top + size * 0.18;
+  ctx.fillStyle = PAPER;
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = Math.max(1, scale / 32);
+  ctx.beginPath();
+  ctx.roundRect(dx, dy, side, side, side * 0.22);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = playing ? CLAY : INK;
+  const pip = Math.max(0.8, side * 0.09);
+  for (const f of [0.28, 0.5, 0.72]) {
+    ctx.beginPath();
+    ctx.arc(dx + side * f, dy + side * f, pip, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
 /** A low stone wall, with a cap, running on to the walls beside it. */
 function paintStoneWall(
   ctx: CanvasRenderingContext2D,
@@ -1389,6 +1437,16 @@ export function render(
       lanterns.push(shade);
     }
     paintLantern(ctx, left, top, size);
+  }
+
+  // ---- game tables (RFC 0011): a table with a die on it, glowing while a game plays ----
+  for (const t of mirror.tables.values()) {
+    if (t.x < x0 || t.x > x1 || t.y < y0 || t.y > y1) continue;
+    const { sx, sy } = tileToScreen(cam, t.x, t.y);
+    const left = Math.round(sx - half) + inset;
+    const top = Math.round(sy - half) + inset;
+    const size = Math.round(scale) - inset * 2;
+    paintGameTable(ctx, left, top, size, scale, inset, t.playing);
   }
 
   // ---- hearths: a little house, drawn under residents ----

@@ -151,7 +151,7 @@ test("an eligible resident proposes a fountain, the town votes it in, and it's b
     const happening = birchPage.locator("#happening-now");
     await expect(happening).toContainText("Sunday records");
     await birchPage.screenshot({ path: "test-results/town-happening-now.png" });
-    await happening.locator(".event-go").click();
+    await happening.locator(`[data-event="${id}"] .event-go`).click();
     await expect(birchPage).toHaveURL(/\/world$/);
     const area = event.area as { x0: number; y0: number; x1: number; y1: number };
     const at = (await (await page.request.get("/v1/world")).json()).residents.find(

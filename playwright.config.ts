@@ -14,7 +14,8 @@ const FAKE_CHAIN = `http://127.0.0.1:${FAKE_CHAIN_PORT}`;
 
 /**
  * Test-only server settings. Every browser here shares one IP, so allow more joins a minute than
- * the real server does. The test clock lets specs move days on.
+ * the real server does. The test clock lets specs move days on, and with the town's own events off
+ * the calendar, a spec's moved clock never lands in the harvest night.
  */
 const SERVER_ENV = {
   TERRAKIN_SESSIONS_PER_MINUTE: "60",
@@ -22,6 +23,7 @@ const SERVER_ENV = {
   TERRAKIN_TEST_X_OEMBED: FAKE_X,
   TERRAKIN_TEST_CHAIN: FAKE_CHAIN,
   TERRAKIN_TEST_CLOCK: "1",
+  TERRAKIN_TOWN_EVENTS: "off",
 };
 
 const phone = { ...devices["iPhone 13"], browserName: "chromium" as const };

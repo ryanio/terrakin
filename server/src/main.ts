@@ -55,6 +55,9 @@ let offset = testClock
   ? (((MORNING * DAY_LENGTH_MS - Date.now()) % DAY_LENGTH_MS) + DAY_LENGTH_MS) % DAY_LENGTH_MS
   : 0;
 const now = testClock ? () => Date.now() + offset : Date.now;
+// The town's own events (decision 0081). `off` leaves them off the calendar, as the e2e suite
+// does, so a spec that moves the clock never lands in one.
+const townEvents = process.env.TERRAKIN_TOWN_EVENTS?.trim() === "off" ? [] : TOWN_EVENTS;
 const townsfolk = parseTownsfolk(process.env.TERRAKIN_TOWNSFOLK);
 const maintainers = parseMaintainers(process.env.TERRAKIN_MAINTAINERS);
 const moderators = parseMaintainers(process.env.TERRAKIN_MODERATORS);
@@ -78,7 +81,7 @@ const service = new WorldService({
   market: true,
   bounties: true,
   presence: true,
-  townEvents: TOWN_EVENTS,
+  townEvents,
   townsfolk,
   maintainers,
   moderation,

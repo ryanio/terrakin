@@ -223,10 +223,10 @@ function sitePages(): Plugin {
 
 /**
  * The most the app's first load may weigh, gzipped: the entry script with every chunk it imports
- * up front, and their stylesheets. The build fails past it (decision 0110). Lazy chunks (3D, the
- * API reference, Markdown) don't count; they load when someone opens them.
+ * up front, and their stylesheets. The build fails past it (decision 0110). Lazy chunks (every
+ * page but the feed, the world, 3D, sound) don't count; they load when someone opens them.
  */
-export const FIRST_LOAD_BUDGET = { js: 215_000, css: 32_000 } as const;
+export const FIRST_LOAD_BUDGET = { js: 140_000, css: 32_000 } as const;
 
 function firstLoadBudget(): Plugin {
   return {

@@ -16,14 +16,12 @@ import { profilePath } from "@terrakin/ui/paths";
 import { avatarEl, badges } from "@terrakin/ui/people";
 import { confirmTwice, emptyNote, errorLine, stateCard, toast } from "@terrakin/ui/ui";
 import { timeAgo } from "@terrakin/ui/when";
-import { api, letterImage, myProfile, uploadMedia } from "./api";
+import { api, letterImage, myProfile, UNREAD_EVENT, uploadMedia } from "./api";
 import { clearDraft, type DraftFor, loadDraft, saveDraft } from "./drafts";
 import { savedToken } from "./net";
 import { conversations } from "./together";
 import { errorCard, notFoundCard, type View, type ViewContext } from "./view";
 
-/** Tell the top bar the unread count may have changed. main.ts listens. */
-export const UNREAD_EVENT = "terrakin:unread";
 const unreadChanged = () => window.dispatchEvent(new Event(UNREAD_EVENT));
 
 const lettersPath = (id?: string) => (id ? `/letters/${encodeURIComponent(id)}` : "/letters");

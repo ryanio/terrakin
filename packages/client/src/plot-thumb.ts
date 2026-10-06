@@ -10,6 +10,7 @@ import type { WorldSnapshot } from "@terrakin/protocol";
 import {
   alphaHex,
   blockFill,
+  CROP_HEX,
   type GroundKind,
   groundTile,
   HEARTH_COLOR,
@@ -21,7 +22,6 @@ import {
 } from "@terrakin/sim";
 import { h } from "@terrakin/ui/dom";
 import { paintGround } from "@terrakin/ui/ground-art";
-import { CROP_HEX } from "@terrakin/ui/item-art";
 
 /** One tile's worth of a plot drawing, in tiles from the plot's north-west corner. */
 export type PlotMark =

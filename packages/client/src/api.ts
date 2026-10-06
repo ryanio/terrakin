@@ -95,6 +95,9 @@ const PostOnly = PostResponse.pick({ post: true });
  */
 export const SUSPENDED_EVENT = "terrakin:suspended";
 
+/** Fired on `window` when the unread letter count may have changed. main.ts listens. */
+export const UNREAD_EVENT = "terrakin:unread";
+
 function authHeaders(): Record<string, string> {
   const token = savedToken();
   return token ? { authorization: `Bearer ${token}` } : {};

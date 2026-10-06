@@ -11,33 +11,16 @@ import { useModelViewer } from "@terrakin/ui/media";
 import { profilePath } from "@terrakin/ui/paths";
 import { avatarEl, avatarPlaceholder } from "@terrakin/ui/people";
 import { interceptPop, leaveOverlay } from "@terrakin/ui/ui";
-import { api, MY_PROFILE_EVENT, myProfile, SUSPENDED_EVENT } from "./api";
+import { api, MY_PROFILE_EVENT, myProfile, SUSPENDED_EVENT, UNREAD_EVENT } from "./api";
 import { initBell, makeBell, refreshBell } from "./bell";
-import { bountiesView } from "./bounties-view";
 import { initBrandMarks } from "./chrome";
-import { claimView } from "./claim-view";
-import { collectionView } from "./collection-view";
 import { feedView } from "./feed-view";
-import { galleriesView } from "./galleries-view";
-import { gamesView, tableView } from "./games-view";
-import { inventoryView } from "./inventory-view";
-import { inviteView } from "./invite-view";
-import { lettersView, letterThreadView, UNREAD_EVENT } from "./letters-view";
-import { marketView } from "./market-view";
+import { lazyView } from "./lazy-view";
 import { SESSION_EVENT, savedResidentId, savedToken } from "./net";
-import { notificationsView } from "./notifications-view";
-import { peopleView } from "./people-view";
-import { postView } from "./post-view";
-import { profileView } from "./profile-view";
 import { initPurse, makePurse, refreshPurse } from "./purse";
-import { purseView } from "./purse-view";
 import { createRouter, matchRoute, type Navigation, type Route, routeTemplate } from "./router";
-import { shopView } from "./shop-view";
 import { initErrorReporting, pageView, startAnalytics } from "./telemetry";
-import { townView } from "./town-view";
 import { notFoundView, type View, type ViewContext } from "./view";
-import { view3d } from "./view-3d";
-import { visitView } from "./visit-view";
 import { createWorldLoader } from "./world-loader";
 import "./style.css";
 
@@ -298,52 +281,7 @@ function onNavigate(nav: Navigation) {
     canGoBack: () => router.canGoBack(),
     navigate: (path, options) => router.navigate(path, options),
   };
-  const next =
-    route.name === "feed"
-      ? feedView(ctx)
-      : route.name === "profile"
-        ? profileView({ id: route.id }, ctx)
-        : route.name === "handle"
-          ? profileView({ handle: route.handle }, ctx)
-          : route.name === "notifications"
-            ? notificationsView(ctx)
-            : route.name === "purse"
-              ? purseView(ctx)
-              : route.name === "inventory"
-                ? inventoryView(ctx)
-                : route.name === "post"
-                  ? postView(route.id, ctx)
-                  : route.name === "letters"
-                    ? lettersView(ctx)
-                    : route.name === "letters-with"
-                      ? letterThreadView(route.id, ctx)
-                      : route.name === "invite"
-                        ? inviteView(route.code, ctx)
-                        : route.name === "town"
-                          ? townView(ctx)
-                          : route.name === "shop"
-                            ? shopView(ctx)
-                            : route.name === "market"
-                              ? marketView(ctx)
-                              : route.name === "bounties"
-                                ? bountiesView(ctx)
-                                : route.name === "galleries"
-                                  ? galleriesView(ctx)
-                                  : route.name === "visit"
-                                    ? visitView(ctx)
-                                    : route.name === "games"
-                                      ? gamesView(ctx)
-                                      : route.name === "game"
-                                        ? tableView(route.id, ctx)
-                                        : route.name === "people"
-                                          ? peopleView(route.id, route.tab, ctx)
-                                          : route.name === "collection"
-                                            ? collectionView(route.id, ctx)
-                                            : route.name === "plot3d" || route.name === "gallery3d"
-                                              ? view3d(route, ctx)
-                                              : route.name === "claim"
-                                                ? claimView(route.code, ctx)
-                                                : notFoundView(ctx);
+  const next = pageFor(route, ctx);
   view = next;
   page.replaceChildren(next.el);
 
@@ -358,6 +296,64 @@ function onNavigate(nav: Navigation) {
     if (!firstRun) page.focus({ preventScroll: true });
   }
   firstRun = false;
+}
+
+/**
+ * The page for a route. The feed is the home page, so its code comes with the first load; every
+ * other page loads its own when it's opened (decision 0110).
+ */
+function pageFor(route: Route, ctx: ViewContext): View {
+  switch (route.name) {
+    case "feed":
+      return feedView(ctx);
+    case "profile":
+      return lazyView(import("./profile-view"), (m) => m.profileView({ id: route.id }, ctx));
+    case "handle":
+      return lazyView(import("./profile-view"), (m) =>
+        m.profileView({ handle: route.handle }, ctx),
+      );
+    case "notifications":
+      return lazyView(import("./notifications-view"), (m) => m.notificationsView(ctx));
+    case "purse":
+      return lazyView(import("./purse-view"), (m) => m.purseView(ctx));
+    case "inventory":
+      return lazyView(import("./inventory-view"), (m) => m.inventoryView(ctx));
+    case "post":
+      return lazyView(import("./post-view"), (m) => m.postView(route.id, ctx));
+    case "letters":
+      return lazyView(import("./letters-view"), (m) => m.lettersView(ctx));
+    case "letters-with":
+      return lazyView(import("./letters-view"), (m) => m.letterThreadView(route.id, ctx));
+    case "invite":
+      return lazyView(import("./invite-view"), (m) => m.inviteView(route.code, ctx));
+    case "town":
+      return lazyView(import("./town-view"), (m) => m.townView(ctx));
+    case "shop":
+      return lazyView(import("./shop-view"), (m) => m.shopView(ctx));
+    case "market":
+      return lazyView(import("./market-view"), (m) => m.marketView(ctx));
+    case "bounties":
+      return lazyView(import("./bounties-view"), (m) => m.bountiesView(ctx));
+    case "galleries":
+      return lazyView(import("./galleries-view"), (m) => m.galleriesView(ctx));
+    case "visit":
+      return lazyView(import("./visit-view"), (m) => m.visitView(ctx));
+    case "games":
+      return lazyView(import("./games-view"), (m) => m.gamesView(ctx));
+    case "game":
+      return lazyView(import("./games-view"), (m) => m.tableView(route.id, ctx));
+    case "people":
+      return lazyView(import("./people-view"), (m) => m.peopleView(route.id, route.tab, ctx));
+    case "collection":
+      return lazyView(import("./collection-view"), (m) => m.collectionView(route.id, ctx));
+    case "plot3d":
+    case "gallery3d":
+      return lazyView(import("./view-3d"), (m) => m.view3d(route, ctx));
+    case "claim":
+      return lazyView(import("./claim-view"), (m) => m.claimView(route.code, ctx));
+    default:
+      return notFoundView(ctx);
+  }
 }
 
 let firstRun = true;

@@ -499,6 +499,24 @@ function paintDecor(
   ctx.restore();
 }
 
+/** Built by the town: a little sun-gold rosette in a block's corner, whatever the block. */
+function paintTownMark(
+  ctx: CanvasRenderingContext2D,
+  left: number,
+  top: number,
+  size: number,
+  scale: number,
+) {
+  const r = Math.max(2.5, scale * 0.11);
+  ctx.fillStyle = BRAND_HEX.sun;
+  ctx.strokeStyle = PAPER;
+  ctx.lineWidth = Math.max(1, scale / 28);
+  ctx.beginPath();
+  ctx.arc(left + size - r * 1.3, top + r * 1.3, r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+}
+
 /** A pale stone plinth for something on display. */
 function paintPedestal(
   ctx: CanvasRenderingContext2D,
@@ -1290,6 +1308,7 @@ export function render(
         w: isWall(x - 1, y),
       };
       paintFurniture(ctx, block, left, top, size, scale, inset, joins);
+      if (mirror.townBuilt.has(key)) paintTownMark(ctx, left, top, size, scale);
       if (block === "lamp_post") lanterns.push({ sx: left + size * 0.5, sy: top + size * 0.25 });
       if (block === "campfire") lanterns.push({ sx: left + size * 0.5, sy: top + size * 0.62 });
       // A jack-o'-lantern's face lights up after dark.
@@ -1309,6 +1328,7 @@ export function render(
       // A frame shows what hangs in it in place of its own little landscape.
       const shown = block === "frame" ? mirror.displays.get(key) : undefined;
       if (shown) paintShown(ctx, shown.good, left, top, size, "frame");
+      if (mirror.townBuilt.has(key)) paintTownMark(ctx, left, top, size, scale);
       if (block === "lantern") lanterns.push({ sx: left + size * 0.64, sy: top + size * 0.42 });
       continue;
     }
@@ -1340,17 +1360,7 @@ export function render(
         size,
       );
     }
-    // Built by the town: a little sun-gold rosette in the corner.
-    if (mirror.townBuilt.has(key)) {
-      const r = Math.max(2.5, scale * 0.11);
-      ctx.fillStyle = BRAND_HEX.sun;
-      ctx.strokeStyle = PAPER;
-      ctx.lineWidth = Math.max(1, scale / 28);
-      ctx.beginPath();
-      ctx.arc(left + size - r * 1.3, top + r * 1.3, r, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-    }
+    if (mirror.townBuilt.has(key)) paintTownMark(ctx, left, top, size, scale);
   }
 
   drawTownHall(ctx, mirror, cam);

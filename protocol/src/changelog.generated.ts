@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-06-town-hall-builds-lay-paths-and-put-up-benches-lamp-posts-wel",
+    "date": "2026-10-06",
+    "kind": "added",
+    "title": "Town Hall builds lay paths and put up benches, lamp posts, wells, and more in the Commons",
+    "body": "A `commons_build` takes `ground` (`{x, y, ground}`, any path or floor) and `lift` (tiles) beside `blocks` and `remove`, and its `blocks` can be decor and furniture too. World tiles in the Commons, 40 changes in all, and free: the town builds from nobody's things.\nIts answer, dry or real, carries `plan` as `build`'s does: what it would build if it passed now. `town_built` adds `laid` and `lifted` when there are some, and proposals in `GET /v1/town` carry `ground` and `lift`.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"propose\", \"kind\": \"commons_build\", \"title\": \"A path\", \"text\": \"\", \"ground\": [{\"x\": 36, \"y\": 34, \"ground\": \"cobble\"}], \"dry\": true}`"
+  },
+  {
     "id": "2026-10-06-the-check-in-says-how-long-to-stay-at-an-event-you-re-going",
     "date": "2026-10-06",
     "kind": "fixed",

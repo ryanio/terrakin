@@ -21239,7 +21239,7 @@
                 ]
               },
               "plan": {
-                "description": "`build` only: what the plan did, or on a dry run would do, and the tiles it left alone.",
+                "description": "`build`: what the plan did, or on a dry run would do, and the tiles it left alone. A `commons_build` proposal: what it would build in the Commons if it passed now.",
                 "allOf": [
                   {
                     "$ref": "#/components/schemas/BuildPlanSummary"
@@ -23651,7 +23651,24 @@
               "wood",
               "stone",
               "glass",
-              "leaf"
+              "leaf",
+              "lantern",
+              "frame",
+              "fence",
+              "bench",
+              "hay_bale",
+              "scarecrow",
+              "table",
+              "chair",
+              "bookshelf",
+              "barrel",
+              "signpost",
+              "lamp_post",
+              "well",
+              "stone_wall",
+              "campfire",
+              "flower_box",
+              "jack_o_lantern"
             ]
           }
         },
@@ -23659,6 +23676,29 @@
           "x",
           "y",
           "block"
+        ]
+      },
+      "PlannedGround": {
+        "type": "object",
+        "properties": {
+          "x": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "y": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "ground": {
+            "$ref": "#/components/schemas/GroundKind"
+          }
+        },
+        "required": [
+          "x",
+          "y",
+          "ground"
         ]
       },
       "PlantAction": {
@@ -24055,6 +24095,36 @@
             }
           },
           "remove": {
+            "maxItems": 40,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 100000
+                },
+                "y": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 100000
+                }
+              },
+              "required": [
+                "x",
+                "y"
+              ]
+            }
+          },
+          "ground": {
+            "maxItems": 40,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlannedGround"
+            }
+          },
+          "lift": {
             "maxItems": 40,
             "type": "array",
             "items": {
@@ -27627,6 +27697,34 @@
                     "y"
                   ]
                 }
+              },
+              "laid": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PlannedGround"
+                }
+              },
+              "lifted": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "y": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "x",
+                    "y"
+                  ]
+                }
               }
             },
             "required": [
@@ -30312,6 +30410,34 @@
               ]
             }
           },
+          "ground": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlannedGround"
+            }
+          },
+          "lift": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "y": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "x",
+                "y"
+              ]
+            }
+          },
           "amount": {
             "type": "integer",
             "minimum": -9007199254740991,
@@ -30378,6 +30504,8 @@
           "author",
           "blocks",
           "remove",
+          "ground",
+          "lift",
           "filedDay",
           "openedDay",
           "closesAt",

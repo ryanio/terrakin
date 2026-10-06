@@ -65,6 +65,8 @@ export function proposalView(
     author: social.authorView(p.author) ?? unknownAuthor(p.author),
     blocks: voided ? [] : (p.blocks ?? []).map((b) => ({ ...b })),
     remove: voided ? [] : (p.remove ?? []).map((t) => ({ ...t })),
+    ground: voided ? [] : (p.ground ?? []).map((g) => ({ ...g })),
+    lift: voided ? [] : (p.lift ?? []).map((t) => ({ ...t })),
     ...(p.amount === undefined ? {} : { amount: p.amount }),
     ...(p.to === undefined ? {} : { to: social.authorView(p.to) ?? unknownAuthor(p.to) }),
     filedDay: p.filedDay,

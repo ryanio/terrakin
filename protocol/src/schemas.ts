@@ -4,8 +4,8 @@ import {
   BOUNTIES,
   BUILD_PARTS,
   BUILD_SKIPS,
-  BUILDING_BLOCKS,
   COIN_REASONS,
+  COMMONS_BLOCKS,
   CROPS,
   DEFAULT_CONFIG,
   DIRECTIONS,
@@ -316,15 +316,20 @@ export const VoteChoice = z.enum(VOTE_CHOICES);
 export const ProposalStatus = z.enum(PROPOSAL_STATUSES);
 const proposalRef = z.string().min(1).max(32);
 const tile = z.object({ x: coord, y: coord });
-/** One block a build places in the Commons. */
-/** One block a build places in the Commons: wood, stone, glass, or leaf. */
-export const PlannedBlock = z.object({ x: coord, y: coord, block: z.enum(BUILDING_BLOCKS) });
 /**
- * Put something to the town. An `advisory` is words only; a `commons_build` places `blocks` (and
- * takes away `remove`) in the Commons if it passes. A `grant` pays `amount` coins from the
- * treasury to the resident `to` if it passes, and a `bounty` puts up `amount` coins from the
- * treasury for a job (the title and text) that a maintainer confirms is done. Title and text are
- * untrusted text.
+ * One block a build places in the Commons, at a world tile: wood, stone, glass, or leaf, or the
+ * shop's decor or the workbench's furniture.
+ */
+export const PlannedBlock = z.object({ x: coord, y: coord, block: z.enum(COMMONS_BLOCKS) });
+/** One path or floor a build lays in the Commons, at a world tile. */
+export const PlannedGround = z.object({ x: coord, y: coord, ground: GroundKind });
+/**
+ * Put something to the town. An `advisory` is words only. A `commons_build` is a plan for the
+ * Commons in `build`'s four lists, at world tiles: if it passes, the town takes away `remove` and
+ * lifts `lift`, then places `blocks` and lays `ground`, from nobody's things, at most 40 changes in
+ * all. A `grant` pays `amount` coins from the treasury to the resident `to` if it passes, and a
+ * `bounty` puts up `amount` coins from the treasury for a job (the title and text) that a
+ * maintainer confirms is done. Title and text are untrusted text.
  */
 export const ProposeAction = z.object({
   type: z.literal("propose"),
@@ -333,6 +338,8 @@ export const ProposeAction = z.object({
   text: z.string().trim().max(TOWN_LIMITS.textMax).optional(),
   blocks: z.array(PlannedBlock).max(TOWN_LIMITS.buildMax).optional(),
   remove: z.array(tile).max(TOWN_LIMITS.buildMax).optional(),
+  ground: z.array(PlannedGround).max(TOWN_LIMITS.buildMax).optional(),
+  lift: z.array(tile).max(TOWN_LIMITS.buildMax).optional(),
   /** `grant` and `bounty`: coins from the treasury, 1 to 1,000. */
   amount: z.number().int().min(1).max(BOUNTIES.townMax).optional(),
   /** `grant`: the resident it pays. Not you or your own AI or person. */
@@ -1444,12 +1451,20 @@ export const WorldEvent = z.discriminatedUnion("type", [
     /** Present with a `note` or a label: it's another resident's words. */
     trust: z.literal("untrusted").optional(),
   }),
+  /**
+   * A passed `commons_build` was built. The blocks and paths came just before as `block_removed`,
+   * `ground_lifted`, `block_placed`, and `ground_laid` with the proposal as `by`. `skipped` lists a
+   * tile once for each part of the plan that didn't happen there, because the tile changed since
+   * the proposal was filed. `laid` and `lifted` are there only when it laid or lifted paths.
+   */
   z.object({
     type: z.literal("town_built"),
     proposal: z.string(),
     placed: z.array(PlannedBlock),
     removed: z.array(z.object({ x: z.number().int(), y: z.number().int() })),
     skipped: z.array(z.object({ x: z.number().int(), y: z.number().int() })),
+    laid: z.array(PlannedGround).optional(),
+    lifted: z.array(z.object({ x: z.number().int(), y: z.number().int() })).optional(),
   }),
   /**
    * An event went on the calendar (RFC 0010): where and when, never its words (read those from `GET
@@ -1608,7 +1623,9 @@ export const CreateSessionResponse = z.object({
 const kindCounts = z.array(z.object({ kind: StackKind, count: z.number().int() }));
 /**
  * What a `build` did, or on a dry run would do: how many tiles changed, its net change to your
- * things, and the tiles it left alone with why, as the plan gave them (from the plot's corner).
+ * things, and the tiles it left alone with why, as the plan gave them (from the plot's corner). On
+ * a `commons_build` proposal, what it would build in the Commons if it passed now: the town pays
+ * nothing, so `uses` and `returns` are empty, and nothing is skipped when it's filed.
  */
 export const BuildPlanSummary = z.object({
   px: z.number().int(),
@@ -1677,7 +1694,7 @@ export const ActionResponse = z.discriminatedUnion("ok", [
       .optional()
       .describe("Present on a dry run: the action would be accepted, but nothing changed."),
     plan: BuildPlanSummary.optional().describe(
-      "`build` only: what the plan did, or on a dry run would do, and the tiles it left alone.",
+      "`build`: what the plan did, or on a dry run would do, and the tiles it left alone. A `commons_build` proposal: what it would build in the Commons if it passed now.",
     ),
   }),
   z.object({
@@ -1753,7 +1770,7 @@ export const ServerMessage = z.union([
     greeted: z.string().nullable().optional(),
     /** A dry run: the action would be accepted, but nothing changed. */
     dry: z.literal(true).optional(),
-    /** `build` only: what the plan did, or would do. */
+    /** `build`: what the plan did, or would do. A `commons_build` proposal: what it would build. */
     plan: BuildPlanSummary.optional(),
   }),
   z.object({

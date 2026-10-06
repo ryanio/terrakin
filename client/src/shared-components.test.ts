@@ -95,6 +95,11 @@ const HAND_BUILT: { pattern: RegExp; use: string; home?: string }[] = [
   { pattern: /class: "[^"]*-(row|line|good|order)-body\b/, use: "itemRow and itemRows (ui.ts)" },
   { pattern: /class: [`"][^`"]*\b(proposal-kind|kind-pill)\b/, use: "kindPill (ui.ts)" },
   { pattern: /class: [`"][^`"]*\blink-tabs?\b/, use: "linkTabs (ui.ts)" },
+  {
+    pattern: /["'`]palette-(choice|chip)\b/,
+    use: "paintBlockRow, paintGroundRow, or paintHeldRow (build-palette.ts)",
+    home: "client/src/build-palette.ts",
+  },
   { pattern: TAB_ROW, use: "linkTabs with pick, and pickTab (ui.ts)" },
   {
     pattern: /class: [`"]pulse paper card\b/,

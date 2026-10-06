@@ -112,7 +112,7 @@ export type ActResult =
       heard?: number;
       /** `putter` only: who it waved at, or null. */
       greeted?: string | null;
-      /** `build` only: what the plan did, or would do. */
+      /** `build`: what the plan did, or would do. A `commons_build` proposal: what it would build. */
       plan?: BuildPlanSummary;
       dry?: true;
     }
@@ -322,7 +322,10 @@ export function eventsFor(events: WireEvent[], viewer: string): WireEvent[] {
   return events.filter((e) => !isPrivate(e) || e.residentId === viewer);
 }
 
-/** A `build`'s answer: the plan the sim prepared, the one its commit makes (decision 0076). */
+/**
+ * A `build`'s answer: the plan the sim prepared, the one its commit makes (decision 0076). A
+ * `commons_build` proposal's: what it would build if it passed now (decision 0101).
+ */
 const planOf = (prepared: { plan?: BuildPlan }): { plan?: BuildPlanSummary } =>
   prepared.plan ? { plan: buildSummary(prepared.plan) } : {};
 
@@ -1313,7 +1316,7 @@ export class WorldService {
         filtered(this.moderation, "proposal_title", title, context) ??
         filtered(this.moderation, "proposal_text", text, context);
       if (refused) return refused;
-      const { blocks, remove, amount, to } = action;
+      const { blocks, remove, ground, lift, amount, to } = action;
       const command: Command = {
         type: "propose",
         kind: action.kind,
@@ -1321,6 +1324,8 @@ export class WorldService {
         text,
         ...(blocks?.length ? { blocks } : {}),
         ...(remove?.length ? { remove } : {}),
+        ...(ground?.length ? { ground } : {}),
+        ...(lift?.length ? { lift } : {}),
         ...(amount === undefined ? {} : { amount }),
         ...(to === undefined ? {} : { to }),
       };

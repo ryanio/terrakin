@@ -1,11 +1,22 @@
 /**
  * Pure helpers for the Town Hall page: tally bars, quorum lines, closing times, and the build
- * editor's tap cycle. The server decides every result; these only describe its numbers.
+ * editor's taps and plan. The server decides every result; these only describe its numbers.
  */
 
 import type { ProposalView, TallyView, TownResponse } from "@terrakin/protocol";
-import { BUILDING_BLOCKS, type BuildingBlock } from "@terrakin/sim";
-import { plural } from "@terrakin/ui/format";
+import {
+  type BlockKind,
+  type CommonsBlock,
+  GROUND_INFO,
+  type GroundKind,
+  ITEM_INFO,
+  isGroundKind,
+  isHeldBlock,
+  type PlannedBlock,
+  type PlannedGround,
+  type Tile,
+} from "@terrakin/sim";
+import { listOf, plural } from "@terrakin/ui/format";
 
 export interface TallyBar {
   /** Percent of the bar for yes, no, and abstain. They add up to 100, or are all 0 with no votes. */
@@ -107,18 +118,145 @@ export function closesIn(closesAt: string, now: number): string {
   return `Closes in ${unit(mins, "minute")}`;
 }
 
-/** What one tile of the build editor holds. */
-export type PlanCell = BuildingBlock | "remove" | null;
+/** What a Commons build can put on a tile: a block, decor, furniture, or a path or floor. */
+export type CommonsPick = CommonsBlock | GroundKind;
 
 /**
- * Tapping a tile in the build editor. An empty tile cycles through the block kinds and back to
- * empty. A tile with a block toggles between keeping it and taking it away.
+ * What the build editor plans for one tile: a block placed or the block there taken away, and a
+ * path laid or the path there lifted. A tile with nothing planned is `{}`.
  */
-export function nextCell(current: PlanCell, hasBlock: boolean): PlanCell {
-  if (hasBlock) return current === "remove" ? null : "remove";
-  if (current === null || current === "remove") return BUILDING_BLOCKS[0];
-  const i = BUILDING_BLOCKS.indexOf(current);
-  return i + 1 < BUILDING_BLOCKS.length ? (BUILDING_BLOCKS[i + 1] ?? null) : null;
+export interface PlanTile {
+  block?: CommonsBlock | "remove";
+  ground?: GroundKind | "lift";
+}
+
+/** What stands on a tile of the Commons now. */
+export interface TileNow {
+  block?: BlockKind | undefined;
+  ground?: GroundKind | undefined;
+}
+
+/**
+ * A tap on a tile with a pick, as the world's build bar does it: a path lays on bare ground, or
+ * lifts the path that's there; a block goes up on an empty tile, or takes away the block that's
+ * there. Tapping again with the same pick takes it back, and another pick replaces it.
+ */
+export function tapPlan(plan: PlanTile, pick: CommonsPick, now: TileNow): PlanTile {
+  const next: PlanTile = { ...plan };
+  if (isGroundKind(pick)) {
+    const ground =
+      now.ground !== undefined
+        ? plan.ground === "lift"
+          ? undefined
+          : "lift"
+        : plan.ground === pick
+          ? undefined
+          : pick;
+    if (ground === undefined) delete next.ground;
+    else next.ground = ground;
+  } else {
+    const block =
+      now.block !== undefined
+        ? plan.block === "remove"
+          ? undefined
+          : "remove"
+        : plan.block === pick
+          ? undefined
+          : pick;
+    if (block === undefined) delete next.block;
+    else next.block = block;
+  }
+  return next;
+}
+
+/** How many changes a plan makes: a block and a path on one tile are two. */
+export function planChanges(plan: ReadonlyMap<string, PlanTile>): number {
+  let n = 0;
+  for (const t of plan.values()) n += (t.block ? 1 : 0) + (t.ground ? 1 : 0);
+  return n;
+}
+
+const tileOf = (key: string): Tile => {
+  const [x, y] = key.split(",").map(Number) as [number, number];
+  return { x, y };
+};
+
+/** A plan as `propose` takes it, tiles north to south and west to east. */
+export function planLists(plan: ReadonlyMap<string, PlanTile>): {
+  blocks: PlannedBlock[];
+  remove: Tile[];
+  ground: PlannedGround[];
+  lift: Tile[];
+} {
+  const out = {
+    blocks: [] as PlannedBlock[],
+    remove: [] as Tile[],
+    ground: [] as PlannedGround[],
+    lift: [] as Tile[],
+  };
+  const keys = [...plan.keys()].sort((a, b) => {
+    const p = tileOf(a);
+    const q = tileOf(b);
+    return p.y - q.y || p.x - q.x;
+  });
+  for (const key of keys) {
+    const t = plan.get(key) ?? {};
+    const tile = tileOf(key);
+    if (t.block === "remove") out.remove.push(tile);
+    else if (t.block) out.blocks.push({ ...tile, block: t.block });
+    if (t.ground === "lift") out.lift.push(tile);
+    else if (t.ground) out.ground.push({ ...tile, ground: t.ground });
+  }
+  return out;
+}
+
+/** A proposal's plan, tile by tile, to draw on a map of the Commons. */
+export function proposalPlan(
+  p: Pick<ProposalView, "blocks" | "remove" | "ground" | "lift">,
+): Map<string, PlanTile> {
+  const plan = new Map<string, PlanTile>();
+  const at = (t: Tile) => {
+    const key = `${t.x},${t.y}`;
+    const tile = plan.get(key) ?? {};
+    plan.set(key, tile);
+    return tile;
+  };
+  for (const t of p.remove) at(t).block = "remove";
+  for (const b of p.blocks) at(b).block = b.block;
+  for (const t of p.lift) at(t).ground = "lift";
+  for (const g of p.ground) at(g).ground = g.ground;
+  return plan;
+}
+
+/** A block's or a path's name, lowercase: "wood", "garden bench", "cobblestones". */
+export function pickName(kind: BlockKind | GroundKind): string {
+  if (isGroundKind(kind)) return GROUND_INFO[kind].name.toLowerCase();
+  return isHeldBlock(kind) ? ITEM_INFO[kind].name.toLowerCase() : kind.replaceAll("_", " ");
+}
+
+/** The line under the build editor's tabs: what a tap with the pick does. */
+export function pickLine(pick: CommonsPick): string {
+  const name = pickName(pick);
+  const Name = name.charAt(0).toUpperCase() + name.slice(1);
+  return isGroundKind(pick)
+    ? `${Name}: tap a tile to lay it, or a path to lift it.`
+    : `${Name}: tap a tile to put it up, or a block to take it away.`;
+}
+
+/** What a build changes, in words: "2 blocks and 4 paths", "1 block taken away". */
+export function planWords(lists: {
+  blocks: readonly unknown[];
+  remove: readonly unknown[];
+  ground: readonly unknown[];
+  lift: readonly unknown[];
+}): string {
+  const parts = [
+    lists.blocks.length > 0 ? plural(lists.blocks.length, "block", "blocks") : "",
+    lists.ground.length > 0 ? plural(lists.ground.length, "path", "paths") : "",
+    lists.remove.length > 0 ? `${plural(lists.remove.length, "block", "blocks")} taken away` : "",
+    lists.lift.length > 0 ? `${plural(lists.lift.length, "path", "paths")} lifted` : "",
+  ].filter(Boolean);
+  return parts.length > 0 ? listOf(parts) : "Nothing";
 }
 
 const STATUS_WORDS = {

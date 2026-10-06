@@ -8,8 +8,13 @@
  * A pick the server would refuse (furniture you hold none of, a path you can't pay for) stays
  * pickable so its line can say why, and the world holds back the tap; the checks are the sim's own
  * (`groundShort`), never a copy (decision 0052). The counting is pure, so tests pin it.
+ *
+ * The Town Hall's build editor paints the same rows with no holdings (`null`): the town builds
+ * from nobody's things, so nothing there is dimmed or counted (decision 0101).
  */
 import {
+  BLOCK_COLORS,
+  type BlockKind,
   DECOR_KINDS,
   type DecorKind,
   FURNITURE_KINDS,
@@ -124,16 +129,18 @@ export function tabOf(pick: string): PaletteTab {
 // ---------- painting ----------
 
 /**
- * One choice in a row: a chip with a picture, and a count badge when it has one. A dimmed one
- * still picks, so the line under the tabs can say why the world would refuse it; its label says
- * so too.
+ * One choice in a row: a chip with a picture (or in a block's color), and a count badge when it
+ * has one. A dimmed one still picks, so the line under the tabs can say why the world would refuse
+ * it; its label says so too.
  */
 function choice(
   attrs: Record<string, string>,
   label: string,
-  picture: Element,
-  opts: { count?: number; dim: boolean; picked: boolean },
+  picture: Element | null,
+  opts: { count?: number; dim: boolean; picked: boolean; color?: string },
 ): HTMLButtonElement {
+  const chip = h("span", { class: "chip palette-chip" }, picture);
+  if (opts.color) chip.style.background = opts.color;
   return h(
     "button",
     {
@@ -145,7 +152,7 @@ function choice(
         "aria-pressed": String(opts.picked),
       },
     },
-    h("span", { class: "chip palette-chip" }, picture),
+    chip,
     opts.count === undefined
       ? null
       : h("span", {
@@ -156,26 +163,56 @@ function choice(
   );
 }
 
-/** Fill the Paths row: every kind, dimmed where you can't pay for a tile. */
-export function paintGroundRow(row: HTMLElement, holdings: Holdings, picked: string): void {
+/** Fill a row of plain blocks, each a chip in its color. Placing one costs nothing. */
+export function paintBlockRow(row: HTMLElement, kinds: readonly BlockKind[], picked: string): void {
   row.replaceChildren(
-    ...GROUND_KINDS.map((kind) =>
-      choice(
-        { "data-ground": kind },
-        `${GROUND_INFO[kind].name}, ${groundCostWords(kind)}${canLay(kind, holdings) ? "" : ", not enough"}`,
-        groundArt(kind, { size: 32 }),
-        { dim: !canLay(kind, holdings), picked: kind === picked },
-      ),
+    ...kinds.map((kind) =>
+      choice({ "data-block": kind }, kind.charAt(0).toUpperCase() + kind.slice(1), null, {
+        dim: false,
+        picked: kind === picked,
+        color: BLOCK_COLORS[kind],
+      }),
     ),
   );
 }
 
-/** Fill the Furniture row: every held block in catalog order, with how many you hold. */
-export function paintHeldRow(row: HTMLElement, holdings: Holdings, picked: string): void {
+/**
+ * Fill the Paths row: every kind, dimmed where you can't pay for a tile. With no holdings (a Town
+ * Hall build) nothing is dimmed.
+ */
+export function paintGroundRow(row: HTMLElement, holdings: Holdings | null, picked: string): void {
+  row.replaceChildren(
+    ...GROUND_KINDS.map((kind) => {
+      const { name } = GROUND_INFO[kind];
+      const short = holdings !== null && !canLay(kind, holdings);
+      const label =
+        holdings === null
+          ? name
+          : `${name}, ${groundCostWords(kind)}${short ? ", not enough" : ""}`;
+      return choice({ "data-ground": kind }, label, groundArt(kind, { size: 32 }), {
+        dim: short,
+        picked: kind === picked,
+      });
+    }),
+  );
+}
+
+/**
+ * Fill the Furniture row: every held block in catalog order, with how many you hold. With no
+ * holdings (a Town Hall build) there are no counts and nothing is dimmed.
+ */
+export function paintHeldRow(row: HTMLElement, holdings: Holdings | null, picked: string): void {
   row.replaceChildren(
     ...HELD_KINDS.map((kind) => {
+      const picture = itemArt(kind, { size: 30 });
+      if (holdings === null) {
+        return choice({ "data-block": kind }, ITEM_INFO[kind].name, picture, {
+          dim: false,
+          picked: kind === picked,
+        });
+      }
       const n = heldOf(holdings, kind);
-      return choice({ "data-block": kind }, heldLabel(kind, n), itemArt(kind, { size: 30 }), {
+      return choice({ "data-block": kind }, heldLabel(kind, n), picture, {
         ...(n > 0 ? { count: n } : {}),
         dim: n === 0,
         picked: kind === picked,

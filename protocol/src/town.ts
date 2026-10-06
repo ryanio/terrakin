@@ -2,7 +2,7 @@ import { INELIGIBLE_REASONS, TOWN_LIMITS } from "@terrakin/sim";
 import { z } from "zod";
 import { TreasuryView } from "./coins";
 import { EventView } from "./events";
-import { PlannedBlock, ProposalKind, ProposalStatus, VoteChoice } from "./schemas";
+import { PlannedBlock, PlannedGround, ProposalKind, ProposalStatus, VoteChoice } from "./schemas";
 import { TownShopView } from "./shop";
 import { AuthorView, FEED_DEFAULT_LIMIT, FEED_MAX_LIMIT } from "./social";
 
@@ -65,6 +65,10 @@ export const ProposalView = z.object({
   blocks: z.array(PlannedBlock),
   /** `commons_build`: Commons blocks it takes away if it passes. */
   remove: z.array(tile),
+  /** `commons_build`: paths and floors it lays if it passes. */
+  ground: z.array(PlannedGround),
+  /** `commons_build`: Commons paths and floors it lifts if it passes. */
+  lift: z.array(tile),
   /** `grant` and `bounty`: the coins it pays from the treasury if it passes. */
   amount: z.number().int().optional(),
   /** `grant`: who it pays. */
@@ -117,6 +121,7 @@ export const YouView = z.object({
 export const TownLimits = z.object({
   titleMax: z.number().int(),
   textMax: z.number().int(),
+  /** Changes one build may make: blocks placed and taken away and paths laid and lifted, together. */
   buildMax: z.number().int(),
   openMax: z.number().int(),
   noticeMax: z.number().int(),

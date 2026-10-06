@@ -262,6 +262,47 @@ describe("GET /v1/town", () => {
     const logged = t.store.log.find((i) => i.command.type === "propose")?.command;
     expect(logged).toMatchObject({ title: "Bench seS", text: "line one\n\nline two" });
   });
+
+  it("previews a Commons build of a path and furniture with dry, then files and shows it", async () => {
+    const t = await start();
+    const ada = await t.resident("Ada");
+    t.days(3);
+    const ground = [
+      { x: 12, y: 10, ground: "cobble" },
+      { x: 12, y: 11, ground: "cobble" },
+    ];
+    const blocks = [
+      { x: 10, y: 11, block: "bench" },
+      { x: 14, y: 12, block: "well" },
+    ];
+    const build = { type: "propose", kind: "commons_build", title: "A square", ground, blocks };
+    const logged = t.store.log.length;
+    expect(await t.act(ada.token, { ...build, dry: true })).toEqual({
+      ok: true,
+      dry: true,
+      seq: t.service.state.seq,
+      events: [],
+      plan: {
+        px: 1,
+        py: 1,
+        placed: 2,
+        removed: 0,
+        laid: 2,
+        lifted: 0,
+        uses: [],
+        returns: [],
+        skipped: [],
+      },
+    });
+    expect(t.store.log.length).toBe(logged);
+
+    expect(await t.act(ada.token, build)).toMatchObject({ ok: true, plan: { placed: 2, laid: 2 } });
+    expect(t.store.log.at(-1)?.command).toMatchObject({ ground, blocks });
+    const town = (await t.call("GET", "/v1/town")).body;
+    expect(town.open).toEqual([
+      expect.objectContaining({ id: "t_1", blocks, ground, remove: [], lift: [] }),
+    ]);
+  });
 });
 
 describe("proposal detail, archive, void, and petitions", () => {

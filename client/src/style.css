@@ -3947,7 +3947,7 @@ dialog.model-viewer {
   background: transparent;
 }
 
-.palette .chip {
+.palette-row .chip {
   display: grid;
   place-items: center;
   width: 32px;
@@ -3961,7 +3961,7 @@ dialog.model-viewer {
   transition: transform 0.12s ease;
 }
 
-.palette .chip .icon {
+.palette-row .chip .icon {
   width: 18px;
   height: 18px;
   stroke-width: 2;
@@ -5705,7 +5705,11 @@ dialog.look-editor {
   color: var(--ink-soft);
 }
 
-/* A map of the Commons: one cell per tile. */
+/*
+ * A map of the Commons: one cell per tile, its path or floor under its block, drawn with the same
+ * pictures as the build bar. What a plan adds is ringed in clay; what it takes away is faded and
+ * ringed in red.
+ */
 .commons-map {
   --n: 8;
   display: grid;
@@ -5722,11 +5726,15 @@ dialog.look-editor {
 }
 
 .commons-map .tile {
+  position: relative;
+  display: grid;
+  place-items: center;
   aspect-ratio: 1;
   min-width: 0;
   padding: 0;
   border: 0;
   border-radius: var(--r-xs);
+  overflow: hidden;
   background: #f2e1b3;
 }
 
@@ -5740,31 +5748,56 @@ dialog.look-editor {
   cursor: not-allowed;
 }
 
-.commons-map .tile[data-block="wood"] {
-  background: #b8834f;
+.commons-map .tile.shop {
+  background: repeating-linear-gradient(135deg, #f3e3c0 0 4px, rgba(201, 150, 62, 0.45) 4px 8px);
+  cursor: not-allowed;
 }
 
-.commons-map .tile[data-block="stone"] {
-  background: #a39d93;
+/* The tile's path or floor fills it; a block stands on top, in its color or its own picture. */
+.commons-map .tile .ground-art,
+.commons-map .tile-block {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
 
-.commons-map .tile[data-block="glass"] {
-  background: #bfe0ea;
+.commons-map .tile .item-art {
+  position: relative;
+  width: 82%;
+  height: 82%;
 }
 
-.commons-map .tile[data-block="leaf"] {
-  background: #6b9a4a;
+/* A plan's rings go over the tile's pictures, so a path, a block, and a bench all show theirs. */
+.commons-map .tile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
 }
 
 .commons-map .tile.planned {
-  box-shadow:
-    inset 0 0 0 2px var(--paper),
-    0 0 0 2px var(--clay);
+  box-shadow: 0 0 0 2px var(--clay);
 }
 
-.commons-map .tile.removing {
-  opacity: 0.45;
+.commons-map .tile.planned::after {
+  box-shadow: inset 0 0 0 2px var(--paper);
+}
+
+.commons-map .tile.removing::after,
+.commons-map .tile.lifting::after {
   box-shadow: inset 0 0 0 2px var(--danger);
+}
+
+.commons-map .tile.removing :is(.tile-block, .item-art),
+.commons-map .tile.lifting .ground-art {
+  opacity: 0.4;
+}
+
+/* The build bar's tabs and rows, in the Propose sheet instead of over the world. */
+.commons-palette {
+  min-width: 0;
 }
 
 .kind-row {
@@ -7692,21 +7725,21 @@ html.view3d-open body {
   padding: var(--space-2xs) var(--space-md) var(--space-2xs) var(--space-xs);
 }
 
-.palette .palette-choice {
+.palette-row .palette-choice {
   position: relative;
 }
 
 /* The server would refuse it now: still pickable, so the line under the tabs can say why. */
-.palette .palette-choice.dim {
+.palette-row .palette-choice.dim {
   opacity: 0.45;
 }
 
-.palette .palette-chip {
+.palette-row .palette-chip {
   overflow: hidden;
   background: var(--paper-2);
 }
 
-.palette .decor-count {
+.palette-row .decor-count {
   position: absolute;
   right: 0;
   bottom: 0;

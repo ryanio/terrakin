@@ -759,6 +759,56 @@ describe("SKILL.md building", () => {
   });
 });
 
+describe("SKILL.md Town Hall", () => {
+  it("has a Commons build that files on the default world and builds whole when it passes", () => {
+    const section = skill.slice(skill.indexOf("## Town Hall"));
+    const [json] = [...section.matchAll(/```json\n(\{"type": "propose"[\s\S]*?)\n```/g)].map(
+      ([, text]) => text as string,
+    );
+    if (!json) throw new Error("SKILL.md's Town Hall has no example build");
+    const parsed = Action.parse(JSON.parse(json));
+    if (parsed.type !== "propose") throw new Error("the example isn't a proposal");
+    const { dry, ...command } = parsed;
+    expect(dry).toBe(true);
+    const world = createWorld(DEFAULT_CONFIG);
+    const act = (actor: string, command: Command) => {
+      const result = apply(world, { actor, command });
+      expect(result, JSON.stringify(command)).toMatchObject({ ok: true });
+      return result.ok ? result.events : [];
+    };
+    act(TOWN_ACTOR, { type: "new_day", day: 20_000 });
+    const plots: [number, number][] = [
+      [2, 1],
+      [3, 1],
+      [5, 1],
+    ];
+    for (const [i, [px, py]] of plots.entries()) {
+      act(`r${i}`, { type: "join", name: `R${i}`, kind: "agent" });
+      act(`r${i}`, { type: "settle", px, py });
+      act(`r${i}`, { type: "build_starter_home" });
+    }
+    // The shop is open, and a newcomer stands where everyone arrives, on the path's tile.
+    act(TOWN_ACTOR, { type: "open_economy" });
+    act(TOWN_ACTOR, { type: "open_items" });
+    act(TOWN_ACTOR, { type: "open_shop" });
+    act("newcomer", { type: "join", name: "Wren", kind: "human" });
+    expect(world.residents.newcomer).toMatchObject(spawnTile(DEFAULT_CONFIG));
+    act(TOWN_ACTOR, { type: "new_day", day: 20_003 });
+    act("r0", command as Command);
+    for (const voter of ["r0", "r1", "r2"]) {
+      act(voter, { type: "vote", proposal: "t_1", choice: "yes" });
+    }
+    act(TOWN_ACTOR, { type: "new_day", day: 20_005 });
+    const built = act(TOWN_ACTOR, { type: "close_proposal", proposal: "t_1" }).at(-1);
+    expect(built).toMatchObject({
+      type: "town_built",
+      placed: command.blocks,
+      laid: command.ground,
+      skipped: [],
+    });
+  });
+});
+
 describe("SKILL.md first visit garden", () => {
   it("places a planter and plants from the hearth, as written", () => {
     expect(skill).toContain("that corner is `x = px*S + 2`, `y = py*S + 2`");

@@ -2,9 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   closedQuorum,
   closesIn,
-  nextCell,
+  type PlanTile,
+  planChanges,
+  planLists,
+  planWords,
   statusWord,
   tallyBar,
+  tapPlan,
   townPaintKey,
 } from "./town-format";
 
@@ -64,20 +68,42 @@ describe("closesIn", () => {
   });
 });
 
-describe("nextCell", () => {
-  it("cycles an empty tile through the block kinds and back to empty", () => {
-    const seen: (string | null)[] = [];
-    let cell = nextCell(null, false);
-    while (cell !== null) {
-      seen.push(cell);
-      cell = nextCell(cell, false);
-    }
-    expect(seen).toEqual(["wood", "stone", "glass", "leaf"]);
+describe("the build editor", () => {
+  it("puts a pick on an empty tile, takes it back on a second tap, and swaps in another pick", () => {
+    const empty = {};
+    const bench = tapPlan({}, "bench", empty);
+    expect(bench).toEqual({ block: "bench" });
+    expect(tapPlan(bench, "well", empty)).toEqual({ block: "well" });
+    expect(tapPlan(bench, "bench", empty)).toEqual({});
+    // A path goes under the bench on the same tile, and comes back up the same way.
+    const paved = tapPlan(bench, "cobble", empty);
+    expect(paved).toEqual({ block: "bench", ground: "cobble" });
+    expect(tapPlan(paved, "cobble", empty)).toEqual({ block: "bench" });
   });
 
-  it("toggles a tile that has a block between keeping it and taking it away", () => {
-    expect(nextCell(null, true)).toBe("remove");
-    expect(nextCell("remove", true)).toBeNull();
+  it("takes away a block that's there, and lifts a path that's there, until tapped again", () => {
+    const now = { block: "stone" as const, ground: "dirt" as const };
+    const gone = tapPlan({}, "wood", now);
+    expect(gone).toEqual({ block: "remove" });
+    expect(tapPlan(gone, "wood", now)).toEqual({});
+    expect(tapPlan(gone, "moss", now)).toEqual({ block: "remove", ground: "lift" });
+  });
+
+  it("counts each change and lists them as propose takes them, north to south", () => {
+    const plan = new Map<string, PlanTile>([
+      ["36,35", { block: "bench", ground: "cobble" }],
+      ["35,34", { ground: "lift" }],
+      ["34,34", { block: "remove" }],
+    ]);
+    expect(planChanges(plan)).toBe(4);
+    const lists = planLists(plan);
+    expect(lists).toEqual({
+      blocks: [{ x: 36, y: 35, block: "bench" }],
+      remove: [{ x: 34, y: 34 }],
+      ground: [{ x: 36, y: 35, ground: "cobble" }],
+      lift: [{ x: 35, y: 34 }],
+    });
+    expect(planWords(lists)).toBe("1 block, 1 path, 1 block taken away, and 1 path lifted");
   });
 });
 

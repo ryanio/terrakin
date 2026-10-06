@@ -12,10 +12,10 @@ import {
 
 /**
  * The Town Hall, end to end on a phone: three residents who have held their plots for three days
- * propose a fountain for the Commons, vote it through, and see it built. Then Fern hosts an event
- * at her plot from the Town Hall's calendar, and Birch goes from the home wall's On now card
- * once it's on. The e2e server runs with TERRAKIN_TEST_CLOCK=1, so `POST /v1/test/advance-day`
- * moves its clock a day on, or some minutes.
+ * propose a fountain, a cobble path, and a bench for the Commons, vote it through, and see it
+ * built. Then Fern hosts an event at her plot from the Town Hall's calendar, and Birch goes from
+ * the home wall's On now card once it's on. The e2e server runs with TERRAKIN_TEST_CLOCK=1, so
+ * `POST /v1/test/advance-day` moves its clock a day on, or some minutes.
  */
 
 /** An agent who settles `plot` and builds the starter home, with `act` bound to it. */
@@ -31,15 +31,22 @@ async function advanceDays(request: APIRequestContext, n: number) {
   for (let i = 0; i < n; i++) await advanceDay(request);
 }
 
-// Tiles of the default Commons (32..39), clear of the hall (35..37, 32..33) and of spawn (36, 36).
+// Tiles of the default Commons (32..39), clear of the hall (35..37, 32..33), the shop (35..37,
+// 38..39), and spawn (36, 36).
 const FOUNTAIN = [
   [33, 38],
   [34, 38],
   [33, 39],
   [34, 39],
 ] as const;
+// A cobble path south from the hall's door, and a bench beside it.
+const PATH = [
+  [36, 34],
+  [36, 35],
+] as const;
+const BENCH = [34, 35] as const;
 
-test("an eligible resident proposes a fountain, the town votes it in, and it's built", async ({
+test("an eligible resident proposes a fountain, a path, and a bench, the town votes them in, and they're built", async ({
   page,
   browser,
 }) => {
@@ -58,15 +65,22 @@ test("an eligible resident proposes a fountain, the town votes it in, and it's b
   // Phone first: nothing on the page scrolls sideways.
   expect(await overflowsSideways(page)).toBe(false);
 
-  // Draw a glass fountain on the map of the Commons: three taps go wood, stone, glass.
+  // Draw it on the map of the Commons with the build bar's tabs: a glass fountain from Blocks, a
+  // cobble path from Paths, and a bench from Furniture.
   await page.click("#town-propose");
   await page.click('.kind-row [data-value="commons_build"]');
   await page.fill("#propose-title", "A fountain");
   await page.fill("#propose-text", "Glass water by the south path, for <b>everyone</b>.");
-  for (const [x, y] of FOUNTAIN) {
-    for (let i = 0; i < 3; i++) await page.click(`.commons-map.editor [data-tile="${x},${y}"]`);
-  }
-  await expect(page.locator(".plan-count")).toContainText("4 of 40 blocks");
+  const tap = (x: number, y: number) => page.click(`.commons-map.editor [data-tile="${x},${y}"]`);
+  await page.click('#commons-blocks [data-block="glass"]');
+  for (const [x, y] of FOUNTAIN) await tap(x, y);
+  await page.click("#commons-tab-ground");
+  await page.click('#commons-ground [data-ground="cobble"]');
+  for (const [x, y] of PATH) await tap(x, y);
+  await page.click("#commons-tab-furniture");
+  await page.click('#commons-furniture [data-block="bench"]');
+  await tap(...BENCH);
+  await expect(page.locator(".plan-count")).toContainText("7 of 40 changes");
   await page.screenshot({ path: "test-results/town-propose.png" });
   await page.click("#propose-submit");
 
@@ -93,16 +107,26 @@ test("an eligible resident proposes a fountain, the town votes it in, and it's b
   // Two nights later the vote closes and the town builds it.
   await advanceDays(page.request, 2);
   const world = await (await page.request.get("/v1/world")).json();
-  for (const [x, y] of FOUNTAIN) {
-    expect(world.blocks).toContainEqual({ x, y, block: "glass" });
+  for (const [x, y] of [...FOUNTAIN, BENCH]) {
     expect(world.townBuilt).toContainEqual({ x, y, proposal: id });
   }
+  for (const [x, y] of FOUNTAIN) expect(world.blocks).toContainEqual({ x, y, block: "glass" });
+  expect(world.blocks).toContainEqual({ x: BENCH[0], y: BENCH[1], block: "bench" });
+  for (const [x, y] of PATH) expect(world.ground).toContainEqual({ x, y, ground: "cobble" });
   await page.reload();
-  await expect(page.locator(`.archive-list [data-proposal="${id}"] .proposal-status`)).toHaveText(
-    "Passed",
+  const passed = page.locator(`.archive-list [data-proposal="${id}"]`);
+  await expect(passed.locator(".proposal-status")).toHaveText("Passed");
+  // Its card draws the plan on the Commons: the bench, and the path.
+  await expect(passed.locator(`[data-tile="${BENCH.join(",")}"]`)).toHaveAttribute(
+    "data-block",
+    "bench",
+  );
+  await expect(passed.locator(`[data-tile="${PATH[0].join(",")}"]`)).toHaveAttribute(
+    "data-ground",
+    "cobble",
   );
 
-  // The fountain and the hall in the world. Tapping the hall opens the Town Hall.
+  // The fountain, the path, the bench, and the hall in the world. Tapping the hall opens it.
   await page.goto("/world");
   await expect(page.locator("#hud")).toBeVisible();
   await page.waitForTimeout(800);

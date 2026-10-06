@@ -1,9 +1,10 @@
 /**
  * `/town` the Town Hall: open proposals with live tallies and vote buttons, the Propose sheet (an
- * advisory, a build drawn on a map of the Commons, a grant, or a town bounty), the town's calendar
- * of events with the Schedule sheet, the notice board, a way to the bounties, and past results.
- * Titles, texts, notices, and names are other residents' words: textContent only. The server
- * decides who may vote and what passes; this page shows its answers and its reasons.
+ * advisory, a build drawn on a map of the Commons with the build bar's blocks, paths, and furniture,
+ * a grant, or a town bounty), the town's calendar of events with the Schedule sheet, the notice
+ * board, a way to the bounties, and past results. Titles, texts, notices, and names are other
+ * residents' words: textContent only. The server decides who may vote and what passes; this page
+ * shows its answers and its reasons.
  */
 import type {
   Action,
@@ -12,9 +13,17 @@ import type {
   TownResponse,
   WorldSnapshot,
 } from "@terrakin/protocol";
-import type { BlockKind, BuildingBlock } from "@terrakin/sim";
+import {
+  BLOCK_COLORS,
+  type BlockKind,
+  BUILDING_BLOCKS,
+  type GroundKind,
+  isHeldBlock,
+} from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
 import { listOf, plural } from "@terrakin/ui/format";
+import { groundArt } from "@terrakin/ui/ground-art";
+import { itemArt } from "@terrakin/ui/item-art";
 import { personLink } from "@terrakin/ui/people";
 import { everyVisible } from "@terrakin/ui/poll";
 import {
@@ -24,6 +33,7 @@ import {
   emptyNote,
   errorLine,
   kindPill,
+  linkTabs,
   moreButton,
   openOverlay,
   overlayShowing,
@@ -33,19 +43,36 @@ import {
 } from "@terrakin/ui/ui";
 import { timeAgo } from "@terrakin/ui/when";
 import { actProblem, api } from "./api";
+import {
+  HELD_KINDS,
+  PALETTE_TAB_WORDS,
+  PALETTE_TABS,
+  type PaletteTab,
+  paintBlockRow,
+  paintGroundRow,
+  paintHeldRow,
+  tabOf,
+} from "./build-palette";
 import { eventRow, openScheduleSheet } from "./event-cards";
 import { savedResidentId, savedToken } from "./net";
 import { skeletonCards } from "./post-card";
 import { coins } from "./purse";
 import {
+  type CommonsPick,
   closedQuorum,
   closesIn,
   grantHandle,
   kindLabel,
-  nextCell,
-  type PlanCell,
+  type PlanTile,
+  pickLine,
+  pickName,
+  planChanges,
+  planLists,
+  planWords,
+  proposalPlan,
   statusWord,
   tallyBar,
+  tapPlan,
   townPaintKey,
 } from "./town-format";
 import { errorCard, type View, type ViewContext } from "./view";
@@ -58,7 +85,9 @@ interface Commons {
   y0: number;
   size: number;
   hall: Set<string>;
+  shop: Set<string>;
   blocks: Map<string, BlockKind>;
+  ground: Map<string, GroundKind>;
 }
 
 const key = (x: number, y: number) => `${x},${y}`;
@@ -70,7 +99,9 @@ function commonsOf(world: WorldSnapshot): Commons {
     y0: world.commons.py * size,
     size,
     hall: new Set((world.townHall ?? []).map((t) => key(t.x, t.y))),
+    shop: new Set((world.shop ?? []).map((t) => key(t.x, t.y))),
     blocks: new Map(world.blocks.map((b) => [key(b.x, b.y), b.block])),
+    ground: new Map((world.ground ?? []).map((g) => [key(g.x, g.y), g.ground])),
   };
 }
 
@@ -243,7 +274,14 @@ export function townView(ctx: ViewContext): View {
   function paint() {
     if (!town) return;
     const mapKey = commons
-      ? JSON.stringify([commons.x0, commons.y0, commons.size, [...commons.blocks]])
+      ? JSON.stringify([
+          commons.x0,
+          commons.y0,
+          commons.size,
+          [...commons.blocks],
+          [...commons.ground],
+          [...commons.shop],
+        ])
       : "";
     const next = townPaintKey(town, Date.now(), mapKey);
     if (next === painted) return;
@@ -284,7 +322,7 @@ export function townView(ctx: ViewContext): View {
       }),
       h("p", {
         class: "town-lede",
-        text: "Residents propose changes to the shared land and vote on them. A passed build goes up in the Commons, block by block.",
+        text: "Residents propose changes to the shared land and vote on them. A passed build goes up in the Commons: paths, benches, lamp posts, and blocks.",
       }),
       status,
       ...(action ? [action] : []),
@@ -338,9 +376,7 @@ export function townView(ctx: ViewContext): View {
       head,
       h("h3", { class: "proposal-title", text: p.title }),
       p.text && !compact ? h("p", { class: "proposal-text", text: p.text }) : null,
-      p.kind === "commons_build" && commons && (p.blocks.length > 0 || p.remove.length > 0)
-        ? planMap(p)
-        : null,
+      p.kind === "commons_build" && commons && planChanges(proposalPlan(p)) > 0 ? planMap(p) : null,
       p.amount !== undefined
         ? h(
             "p",
@@ -456,23 +492,18 @@ export function townView(ctx: ViewContext): View {
     return row;
   }
 
-  /** A small map of the Commons with a build's blocks on it. */
+  /** A small map of the Commons with a build's plan drawn on it. */
   function planMap(p: ProposalView): HTMLElement {
     const c = commons as Commons;
-    const plan = new Map<string, PlanCell>();
-    for (const b of p.blocks) plan.set(key(b.x, b.y), b.block);
-    for (const t of p.remove) plan.set(key(t.x, t.y), "remove");
+    const plan = proposalPlan(p);
     const grid = h("div", {
       class: "commons-map small",
-      attrs: {
-        role: "img",
-        "aria-label": `${plural(p.blocks.length, "block", "blocks")} in the Commons`,
-      },
+      attrs: { role: "img", "aria-label": `${planWords(p)} in the Commons` },
     });
     grid.style.setProperty("--n", String(c.size));
     for (let y = c.y0; y < c.y0 + c.size; y++) {
       for (let x = c.x0; x < c.x0 + c.size; x++) {
-        grid.append(tileEl(c, x, y, plan.get(key(x, y)) ?? null, "span"));
+        grid.append(tileEl(c, x, y, plan.get(key(x, y)) ?? {}, "span"));
       }
     }
     return grid;
@@ -501,7 +532,7 @@ export function townView(ctx: ViewContext): View {
     const limits = town.limits;
     type Kind = "advisory" | "commons_build" | "grant" | "bounty";
     let kind: Kind = "advisory";
-    const plan = new Map<string, PlanCell>();
+    const plan = new Map<string, PlanTile>();
 
     const titleInput = h("input", {
       class: "sheet-input",
@@ -524,29 +555,94 @@ export function townView(ctx: ViewContext): View {
     });
     const count = h("p", { class: "plan-count", attrs: { "aria-live": "polite" } });
     const error = errorLine();
+    const paintCount = () => {
+      count.textContent = `${planChanges(plan)} of ${limits.buildMax} changes. It costs nobody anything: the town builds it.`;
+    };
+
+    // The build bar's tabs and rows, with nothing dimmed: the town pays for nothing.
+    let pick: CommonsPick = "wood";
+    const row = (tab: PaletteTab) =>
+      h("div", {
+        class: "palette-row",
+        attrs: {
+          id: `commons-${tab}`,
+          role: "tabpanel",
+          "aria-labelledby": `commons-tab-${tab}`,
+          hidden: tab !== "blocks",
+        },
+      });
+    const rows: Record<PaletteTab, HTMLElement> = {
+      blocks: row("blocks"),
+      ground: row("ground"),
+      furniture: row("furniture"),
+    };
+    const pickWords = h("p", { class: "palette-line", attrs: { "aria-live": "polite" } });
+    const paintPicks = () => {
+      paintBlockRow(rows.blocks, BUILDING_BLOCKS, pick);
+      paintGroundRow(rows.ground, null, pick);
+      paintHeldRow(rows.furniture, null, pick);
+      pickWords.textContent = pickLine(pick);
+    };
+    const tabs = linkTabs(
+      PALETTE_TABS.map((tab) => ({
+        current: tab === "blocks",
+        content: [PALETTE_TAB_WORDS[tab]],
+        id: `commons-tab-${tab}`,
+        panel: `commons-${tab}`,
+      })),
+      {
+        label: "What to build",
+        className: "palette-tabs",
+        pick: (i) => {
+          const tab = PALETTE_TABS[i] ?? "blocks";
+          for (const [name, el] of Object.entries(rows)) el.hidden = name !== tab;
+          if (tabOf(pick) !== tab) {
+            pick =
+              tab === "blocks" ? "wood" : tab === "ground" ? "cobble" : (HELD_KINDS[0] ?? "bench");
+          }
+          paintPicks();
+        },
+      },
+    );
+    const palette = h(
+      "div",
+      { class: "stack tight commons-palette", attrs: { "aria-label": "Pick what to build" } },
+      tabs,
+      ...PALETTE_TABS.map((tab) => rows[tab]),
+      pickWords,
+    );
+    palette.addEventListener("click", (e) => {
+      const button = (e.target as Element).closest<HTMLButtonElement>(
+        "button[data-block], button[data-ground]",
+      );
+      if (!button) return;
+      pick = (button.dataset.ground ?? button.dataset.block) as CommonsPick;
+      paintPicks();
+    });
+    paintPicks();
+
     const grid = h("div", {
       class: "commons-map editor",
       attrs: { "aria-label": "Map of the Commons" },
     });
-    const paintCount = () => {
-      count.textContent = `${plan.size} of ${limits.buildMax} blocks. Tap a tile to cycle wood, stone, glass, leaf. Tap a block to take it away.`;
-    };
     if (c) {
       grid.style.setProperty("--n", String(c.size));
       for (let y = c.y0; y < c.y0 + c.size; y++) {
         for (let x = c.x0; x < c.x0 + c.size; x++) {
           const k = key(x, y);
-          const cell = tileEl(c, x, y, null, "button");
-          if (c.hall.has(k)) cell.setAttribute("disabled", "");
+          const cell = tileEl(c, x, y, {}, "button");
+          if (c.hall.has(k) || c.shop.has(k)) cell.setAttribute("disabled", "");
           cell.addEventListener("click", () => {
-            const next = nextCell(plan.get(k) ?? null, c.blocks.has(k));
-            if (next !== null && !plan.has(k) && plan.size >= limits.buildMax) {
-              error.textContent = `A build can change at most ${limits.buildMax} blocks.`;
+            const was = plan.get(k) ?? {};
+            const next = tapPlan(was, pick, { block: c.blocks.get(k), ground: c.ground.get(k) });
+            const parts = (t: PlanTile) => (t.block ? 1 : 0) + (t.ground ? 1 : 0);
+            if (parts(next) > parts(was) && planChanges(plan) >= limits.buildMax) {
+              error.textContent = `A build can make at most ${limits.buildMax} changes.`;
               return;
             }
             error.textContent = "";
-            if (next === null) plan.delete(k);
-            else plan.set(k, next);
+            if (parts(next) > 0) plan.set(k, next);
+            else plan.delete(k);
             retile(c, x, y, next, cell);
             paintCount();
           });
@@ -559,6 +655,7 @@ export function townView(ctx: ViewContext): View {
       "div",
       { class: "stack tight plan-part" },
       h("p", { class: "field-label", text: "Draw it on the Commons" }),
+      palette,
       grid,
       count,
     );
@@ -663,14 +760,7 @@ export function townView(ctx: ViewContext): View {
         titleInput.focus();
         return;
       }
-      const blocks: { x: number; y: number; block: BuildingBlock }[] = [];
-      const remove: { x: number; y: number }[] = [];
-      for (const [k, cell] of plan) {
-        const [x, y] = k.split(",").map(Number) as [number, number];
-        if (cell === "remove") remove.push({ x, y });
-        else if (cell) blocks.push({ x, y, block: cell });
-      }
-      if (kind === "commons_build" && blocks.length + remove.length === 0) {
+      if (kind === "commons_build" && planChanges(plan) === 0) {
         error.textContent = "Tap some tiles on the map first.";
         return;
       }
@@ -698,7 +788,7 @@ export function townView(ctx: ViewContext): View {
           kind,
           title,
           text: textInput.value.trim(),
-          ...(kind === "commons_build" ? { blocks, remove } : {}),
+          ...(kind === "commons_build" ? planLists(plan) : {}),
           ...(money ? { amount } : {}),
           ...(to ? { to } : {}),
         }),
@@ -919,8 +1009,11 @@ export function townView(ctx: ViewContext): View {
   };
 }
 
-/** One tile of a Commons map: the hall, a block, a planned block, or a block marked to go. */
-function tileEl(c: Commons, x: number, y: number, planned: PlanCell, tag: "span" | "button") {
+/**
+ * One tile of a Commons map: the hall or the shop, or the path and the block on it as they are, or
+ * as the plan leaves them, with what the plan adds ringed and what it takes away faded.
+ */
+function tileEl(c: Commons, x: number, y: number, planned: PlanTile, tag: "span" | "button") {
   const el = h(tag, { class: "tile", attrs: { "data-tile": key(x, y) } });
   if (tag === "button") el.setAttribute("type", "button");
   return retile(c, x, y, planned, el);
@@ -930,27 +1023,52 @@ function retile<T extends HTMLElement>(
   c: Commons,
   x: number,
   y: number,
-  planned: PlanCell,
+  planned: PlanTile,
   el: T,
 ): T {
   const k = key(x, y);
-  const existing = c.blocks.get(k);
+  const now = { block: c.blocks.get(k), ground: c.ground.get(k) };
+  const adds = {
+    block: planned.block === "remove" ? undefined : planned.block,
+    ground: planned.ground === "lift" ? undefined : planned.ground,
+  };
+  const block = adds.block ?? now.block;
+  const ground = adds.ground ?? now.ground;
+  const building = c.hall.has(k) ? "Town Hall" : c.shop.has(k) ? "the shop" : null;
   el.className = "tile";
   el.removeAttribute("data-block");
-  if (c.hall.has(k)) el.classList.add("hall");
-  if (existing) el.dataset.block = existing;
-  if (planned === "remove") el.classList.add("removing");
-  else if (planned) {
-    el.dataset.block = planned;
-    el.classList.add("planned");
+  el.removeAttribute("data-ground");
+  el.classList.toggle("hall", c.hall.has(k));
+  el.classList.toggle("shop", !c.hall.has(k) && c.shop.has(k));
+  el.classList.toggle("planned", adds.block !== undefined || adds.ground !== undefined);
+  el.classList.toggle("removing", planned.block === "remove");
+  el.classList.toggle("lifting", planned.ground === "lift");
+  if (block) el.dataset.block = block;
+  if (ground) el.dataset.ground = ground;
+  const layers: Element[] = [];
+  if (!building && ground) layers.push(groundArt(ground, { size: 40 }));
+  if (!building && block) {
+    if (isHeldBlock(block)) layers.push(itemArt(block, { size: 28 }));
+    else {
+      const face = h("span", { class: "tile-block" });
+      face.style.background = BLOCK_COLORS[block];
+      layers.push(face);
+    }
   }
-  const what = c.hall.has(k)
-    ? "Town Hall"
-    : planned === "remove"
-      ? `${existing ?? "block"}, taken away`
-      : planned
-        ? `${planned}, planned`
-        : (existing ?? "empty");
+  el.replaceChildren(...layers);
+  const words = (kind: BlockKind | GroundKind | undefined, change: string) =>
+    kind ? [`${pickName(kind)}${change}`] : [];
+  const what =
+    building ??
+    ([
+      ...(planned.block === "remove"
+        ? words(now.block, ", taken away")
+        : words(block, adds.block ? ", planned" : "")),
+      ...(planned.ground === "lift"
+        ? words(now.ground, ", lifted")
+        : words(ground, adds.ground ? ", planned" : "")),
+    ].join("; ") ||
+      "empty");
   el.setAttribute("aria-label", `(${x}, ${y}) ${what}`);
   el.title = what;
   return el;

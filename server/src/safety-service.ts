@@ -1004,6 +1004,8 @@ export class SafetyService {
     this.close("resident", residentId, "actioned", by);
     // Told once, when every file is gone: a retry after a refusal is the call that tells them.
     this.o.takedown?.(residentId, { what: "pictures", rule: cited, outcome: "removed" });
+    // Decision 0065: pieces made from the avatar or banner stop pointing at the deleted file.
+    for (const id of files) this.clearPiecePictures(by, id, reason);
     return ok(entry);
   }
 

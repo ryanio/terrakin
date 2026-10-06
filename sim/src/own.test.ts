@@ -45,7 +45,7 @@ function world(): WorldState {
     minutes: 60,
   });
   ok("ada", { type: "open_table", game: "hearth_race", pace: "slow", salt: "0".repeat(32), at: 1 });
-  ok("bob", { type: "sit", table: "g_1" });
+  ok("bob", { type: "sit", table: "g_1", at: 1 });
   return state;
 }
 
@@ -89,7 +89,7 @@ function inputs(id: string, day: number): [string, Command][] {
       "cy",
       { type: "open_table", game: "hearth_race", pace: id, salt: "0".repeat(32), at: 1 } as Command,
     ],
-    ["cy", { type: "sit", table: id }],
+    ["cy", { type: "sit", table: id, at: 1 }],
     ada({ type: "stand", table: id }),
     ada({ type: "start_game", table: id, at: 2 }),
     ada({ type: "decide", table: id, round: 1, move: 1 }),

@@ -1229,7 +1229,7 @@ export class Api {
       },
       getGames: ({ viewer }) => ({
         status: 200,
-        body: gamesView(service.state, viewer, (id) => this.social?.authorView(id)),
+        body: gamesView(service.state, viewer, (id) => this.social?.authorView(id), service.now()),
       }),
       getGameLadder: ({ viewer, query }) => ({
         status: 200,
@@ -1244,6 +1244,7 @@ export class Api {
           status: 200,
           body: {
             table: tableView(service.state, t, (id) => this.social?.authorView(id), viewer, {
+              now: service.now(),
               history: true,
             }),
             now: new Date(service.now()).toISOString(),

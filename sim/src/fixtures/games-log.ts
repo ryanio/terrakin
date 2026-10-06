@@ -52,10 +52,10 @@ export const GAMES_LOG: Input[] = [
     actor: "ada",
     command: { type: "open_table", game: "hearth_race", pace: "slow", salt: SALT_1, at: T + 1 },
   },
-  { actor: "clem", command: { type: "sit", table: "g_2" } },
-  { actor: "dee", command: { type: "sit", table: "g_2" } },
+  { actor: "clem", command: { type: "sit", table: "g_2", at: T + 10_000 } },
+  { actor: "dee", command: { type: "sit", table: "g_2", at: T + 20_000 } },
   { actor: "clem", command: { type: "stand", table: "g_2" } },
-  { actor: "clem", command: { type: "sit", table: "g_2" } },
+  { actor: "clem", command: { type: "sit", table: "g_2", at: T + 40_000 } },
   { actor: "ada", command: { type: "start_game", table: "g_2", at: T + 60_000 } },
   // A live Lowest lantern opens at the next free spot while the race plays.
   {
@@ -68,9 +68,9 @@ export const GAMES_LOG: Input[] = [
       at: T + 90_000,
     },
   },
-  { actor: "eve", command: { type: "sit", table: "g_3" } },
-  { actor: "dee", command: { type: "sit", table: "g_3" } },
-  { actor: "clem", command: { type: "sit", table: "g_3" } },
+  { actor: "eve", command: { type: "sit", table: "g_3", at: T + 100_000 } },
+  { actor: "dee", command: { type: "sit", table: "g_3", at: T + 110_000 } },
+  { actor: "clem", command: { type: "sit", table: "g_3", at: T + 120_000 } },
   ...round(
     "g_2",
     1,

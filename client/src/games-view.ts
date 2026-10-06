@@ -5,15 +5,16 @@
  * decides everything: a table's `you.moves` says which buttons to show, and nobody's choice shows
  * until its round closes. Names are other residents' words: text nodes only.
  */
-import type {
-  Action,
-  GameKind,
-  GamePace,
-  GamesResponse,
-  Ladder,
-  LadderResponse,
-  SeatView,
-  TableView,
+import {
+  type Action,
+  GAME_TIMES,
+  type GameKind,
+  type GamePace,
+  type GamesResponse,
+  type Ladder,
+  type LadderResponse,
+  type SeatView,
+  type TableView,
 } from "@terrakin/protocol";
 import { GAME_KINDS, GAME_PACES, LADDERS } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
@@ -523,7 +524,7 @@ export function tableView(id: string, ctx: ViewContext): View {
           : you?.seated
             ? "Choose before the round closes, or the server plays the default for you."
             : "Watching. Choices show when each round closes."
-        : `${t.seats.length} sat so far. The first seat starts it once enough have sat.${you?.why ? ` ${you.why}` : ""}`;
+        : `${t.seats.length} sat so far. The first seat starts it once enough have sat, and ${plural(GAME_TIMES.startGraceMinutes[t.pace], "minute", "minutes")} later anyone seated can.${you?.why ? ` ${you.why}` : ""}`;
     return h(
       "section",
       { class: "stack paper card game-panel", attrs: { "aria-label": "Your seat" } },

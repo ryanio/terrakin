@@ -1,5 +1,5 @@
 import { isWhole, refuse } from "./check";
-import { sameHousehold } from "./economy";
+import { isTownsfolk, sameHousehold } from "./economy";
 import { tileKey } from "./keys";
 import { own, residentById } from "./own";
 import { townEligibility } from "./town";
@@ -226,9 +226,13 @@ export const legalMoves = (game: GameKind): readonly number[] => GAME_RULES[game
 export const seatsHeld = (state: WorldState, id: string) =>
   activeTables(state).filter((t) => seatOf(t, id) !== undefined).length;
 
-/** The open table where `id` sits first, waiting to start, if any. */
+/** Who starts a table: its first seat that isn't townsfolk. */
+export const starterOf = (state: WorldState, t: GameTable): ResidentId | undefined =>
+  t.seats.find((s) => !isTownsfolk(state, s.resident))?.resident;
+
+/** The open table `id` would start, waiting to, if any. */
 export const waitingTable = (state: WorldState, id: string) =>
-  activeTables(state).find((t) => t.status === "open" && t.seats[0]?.resident === id);
+  activeTables(state).find((t) => t.status === "open" && starterOf(state, t) === id);
 
 /** The ladder a seat of `kind` plays on at `pace`. */
 export const ladderOf = (kind: ResidentKind, pace: GamePace): Ladder =>
@@ -522,8 +526,8 @@ function tableFor(state: WorldState, id: unknown): { games: GamesState; t: GameT
 
 /**
  * `open_table {game, pace, salt, at}`: open a table at the first free spot in the Commons and take
- * its first seat. The server fills in the salt and the time. One waiting table per resident, seats
- * at no more than `GAMES.seatsMax` tables at once.
+ * its first seat. The server fills in the salt and the time. Only from a resident with a hearth,
+ * one waiting table each, and seats at no more than `GAMES.seatsMax` tables at once.
  */
 export function checkOpenTable(
   state: WorldState,
@@ -543,6 +547,12 @@ export function checkOpenTable(
   }
   const late = timeProblem(at);
   if (late) return late;
+  if (!me.hearth) {
+    return refuse(
+      "no_hearth",
+      "Tables are opened from home, so set a hearth first. build_starter_home sets one for you. You can sit at anyone's table without one.",
+    );
+  }
   const waiting = waitingTable(state, actor);
   if (waiting) {
     return refuse(
@@ -593,7 +603,10 @@ export function checkOpenTable(
   };
 }
 
-/** `sit {table}`: take a seat at an open table, from anywhere. It puts you beside the table. */
+/**
+ * `sit {table, at}`: take a seat at an open table, from anywhere. It puts you beside the table. The
+ * server stamps `at`; the seat that gives the table enough players to start sets its `readyAt`.
+ */
 export function checkSit(
   state: WorldState,
   actor: string,
@@ -615,9 +628,13 @@ export function checkSit(
   if (seatsHeld(state, actor) >= GAMES.seatsMax) {
     return refuse("table_limit", `You can sit at ${GAMES.seatsMax} tables at once.`);
   }
+  const late = timeProblem(command.at);
+  if (late) return late;
+  const ready = t.seats.length + 1 >= rules.minSeats && t.readyAt === undefined;
   const to = besideTable(state, me, t.place);
   return () => {
     t.seats.push({ resident: actor, kind: me.kind, missed: 0 });
+    if (ready) t.readyAt = command.at;
     const events: WorldEvent[] = [{ type: "seated", table: t.id, resident: actor, kind: me.kind }];
     if (to) {
       me.x = to.x;
@@ -628,7 +645,10 @@ export function checkSit(
   };
 }
 
-/** `stand {table}`: give up a seat before the game starts. A table nobody sits at closes. */
+/**
+ * `stand {table}`: give up a seat before the game starts. A table with nobody left but townsfolk
+ * closes, so townsfolk never hold a spot on their own.
+ */
 export function checkStand(
   state: WorldState,
   actor: string,
@@ -644,18 +664,27 @@ export function checkStand(
       "The game has started. Your seat plays out: a round you miss plays the default.",
     );
   }
+  const rest = t.seats.filter((s) => s.resident !== actor);
+  const closes = !rest.some((s) => !isTownsfolk(state, s.resident));
+  const short = rest.length < GAME_RULES[t.game].minSeats;
   return () => {
-    t.seats = t.seats.filter((s) => s.resident !== actor);
+    t.seats = rest;
     const events: WorldEvent[] = [{ type: "stood", table: t.id, resident: actor }];
-    if (t.seats.length === 0) {
+    if (closes) {
       delete games.tables[t.id];
       events.push({ type: "table_closed", table: t.id });
+    } else if (short) {
+      delete t.readyAt;
     }
     return events;
   };
 }
 
-/** `start_game {table, at}`: the first seat starts the game once enough have sat. Round 1 opens. */
+/**
+ * `start_game {table, at, free?}`: the first seat that isn't townsfolk starts the game once enough
+ * have sat, and round 1 opens. `free`, which only the server sets, lets any other seat start it,
+ * once the first has let the start grace pass.
+ */
 export function checkStartGame(
   state: WorldState,
   actor: string,
@@ -666,9 +695,15 @@ export function checkStartGame(
   const { games, t } = found;
   if (t.status !== "open") return refuse("table_not_open", "That game has already started.");
   if (!seatOf(t, actor)) return refuse("not_seated", "You don't have a seat there.");
-  const first = t.seats[0]?.resident;
-  if (first !== actor) {
-    return refuse("not_your_table", `Only the first seat starts the game, and that's ${first}.`);
+  if (command.free !== undefined && command.free !== true) {
+    return refuse("invalid_game", "Only the server lets anyone seated start a table.");
+  }
+  const starter = starterOf(state, t);
+  if (isTownsfolk(state, actor) || (actor !== starter && command.free !== true)) {
+    return refuse(
+      "not_your_table",
+      `The first seat starts the game, and that's ${starter}. A few minutes after enough have sat, anyone seated can.`,
+    );
   }
   const rules = GAME_RULES[t.game];
   if (t.seats.length < rules.minSeats) {
@@ -685,6 +720,7 @@ export function checkStartGame(
     t.status = "playing";
     t.round = 1;
     t.roundAt = at;
+    delete t.readyAt;
     t.sealed = {};
     t.board = Object.fromEntries(t.seats.map((s) => [s.resident, 0]));
     t.pairs = pairs;
@@ -852,17 +888,23 @@ export type TableMove = (typeof TABLE_MOVES)[number];
 
 /**
  * What `viewer` can send about a table now, from the commands' own checks, so views offer only
- * what the world would accept. Reads only. Like a real command, it treats an offline resident as
- * back, since acting brings them back.
+ * what the world would accept. `free` is the server's word that anyone seated may start it. Reads
+ * only. Like a real command, it treats an offline resident as back, since acting brings them back.
  */
-export function tableMoves(state: WorldState, viewer: string, t: GameTable): TableMove[] {
+export function tableMoves(
+  state: WorldState,
+  viewer: string,
+  t: GameTable,
+  options: { free?: boolean } = {},
+): TableMove[] {
   if (!residentById(state, viewer)) return [];
   const can = (checked: GamesChecked) => typeof checked === "function";
   const table = t.id;
   const moves: TableMove[] = [];
-  if (can(checkSit(state, viewer, { type: "sit", table }))) moves.push("sit");
+  if (can(checkSit(state, viewer, { type: "sit", table, at: 0 }))) moves.push("sit");
   if (can(checkStand(state, viewer, { type: "stand", table }))) moves.push("stand");
-  if (can(checkStartGame(state, viewer, { type: "start_game", table, at: 0 }))) {
+  const free = options.free ? { free: true as const } : {};
+  if (can(checkStartGame(state, viewer, { type: "start_game", table, at: 0, ...free }))) {
     moves.push("start_game");
   }
   const move = legalMoves(t.game)[0] ?? 1;
@@ -874,7 +916,7 @@ export function tableMoves(state: WorldState, viewer: string, t: GameTable): Tab
 
 /** Why `viewer` can't sit at a table, or null. For views. */
 export function sitProblem(state: WorldState, viewer: string, t: GameTable): Rejection | null {
-  const checked = checkSit(state, viewer, { type: "sit", table: t.id });
+  const checked = checkSit(state, viewer, { type: "sit", table: t.id, at: 0 });
   return typeof checked === "function" ? null : checked;
 }
 

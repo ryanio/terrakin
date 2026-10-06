@@ -32931,6 +32931,25 @@
               "slow"
             ]
           },
+          "startGraceMinutes": {
+            "type": "object",
+            "properties": {
+              "live": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "slow": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "live",
+              "slow"
+            ]
+          },
           "seatsMax": {
             "type": "integer",
             "minimum": -9007199254740991,
@@ -32961,6 +32980,7 @@
           "games",
           "roundSeconds",
           "waitMinutes",
+          "startGraceMinutes",
           "seatsMax",
           "awayAfter",
           "ratingStart",

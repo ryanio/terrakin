@@ -460,7 +460,7 @@ export interface GameTable {
   pace: GamePace;
   /** Where it stands: one of `gameTableTiles`. */
   place: Tile;
-  /** In the order residents sat. The first seat starts the game. */
+  /** In the order residents sat. The first seat that isn't townsfolk starts the game. */
   seats: GameSeat[];
   status: TableStatus;
   openedDay: number;
@@ -473,6 +473,12 @@ export interface GameTable {
   round: number;
   /** When the current round opened, in ms on the server's clock, logged like `openedAt`. */
   roundAt?: number;
+  /**
+   * When it last came to have enough seats to start, in ms, from the `sit` that did it; absent
+   * while it's short. For the server's runner, which lets anyone seated start once the first seat
+   * has let the start grace pass.
+   */
+  readyAt?: number;
   /**
    * This round's choices, by resident. Hidden from every view and event until the round closes,
    * and empty between rounds.
@@ -1102,11 +1108,12 @@ export type Command =
   | { type: "groom_pet"; coat: PetCoat }
   /** One of the actor's produce to `owner`'s pet, which is happy until the day ends. */
   | { type: "treat_pet"; owner: ResidentId; item: Crop }
-  // Party games (RFC 0011). The server fills in `salt` and `at` (its clock, in ms) before logging.
+  // Party games (RFC 0011). The server fills in `salt` and `at` (its clock, in ms) before logging,
+  // and `free` on a start once the first seat has let the start grace pass.
   | { type: "open_table"; game: GameKind; pace: GamePace; salt: string; at: number }
-  | { type: "sit"; table: string }
+  | { type: "sit"; table: string; at: number }
   | { type: "stand"; table: string }
-  | { type: "start_game"; table: string; at: number }
+  | { type: "start_game"; table: string; at: number; free?: true }
   | { type: "decide"; table: string; round: number; move: number }
   // Only the server sends these, as TOWN_ACTOR.
   | { type: "new_day"; day: number }

@@ -410,6 +410,7 @@ describe("looks", () => {
       `${GAME_TIMES.roundSeconds.live} seconds a round`,
       `${GAME_TIMES.roundSeconds.slow / 3600} hours a round`,
       `${GAME_TIMES.waitMinutes.live} minutes (live) or ${GAME_TIMES.waitMinutes.slow / 60} hours (slow)`,
+      `${GAME_TIMES.startGraceMinutes.live} minutes (live) or ${GAME_TIMES.startGraceMinutes.slow} minutes (slow) after the table had enough`,
       `(${race.minSeats} to ${race.maxSeats} seats). A track of ${race.goal} spaces`,
       `in ${race.roundsMax} rounds`,
       `(${lantern.minSeats} to ${lantern.maxSeats} seats)`,

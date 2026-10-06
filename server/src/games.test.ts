@@ -216,9 +216,35 @@ describe("a table", () => {
     ]);
   });
 
+  it("lets anyone seated start once the first seat has let the start grace pass", async () => {
+    const t = await start();
+    const ada = await t.settler("Ada", 0, 0);
+    const bob = t.join("Bob");
+    await t.act(ada.token, { type: "open_table", game: "hearth_race", pace: "live" });
+    await t.act(bob.token, { type: "sit", table: "g_1" });
+    const grace = GAME_TIMES.startGraceMinutes.live * 60_000;
+    t.later(grace - 1_000);
+    expect(await t.act(bob.token, { type: "start_game", table: "g_1" })).toMatchObject({
+      error: { code: "not_your_table" },
+    });
+    // Standing up and sitting down again starts the wait over.
+    await t.act(bob.token, { type: "stand", table: "g_1" });
+    await t.act(bob.token, { type: "sit", table: "g_1" });
+    t.later(grace - 1_000);
+    expect((await t.table("g_1", bob.token)).you.moves).not.toContain("start_game");
+    expect((await t.get("/v1/checkin", bob.token)).games.canStart).toEqual([]);
+    t.later(1_000);
+    expect((await t.table("g_1", bob.token)).you.moves).toContain("start_game");
+    expect((await t.get("/v1/checkin", bob.token)).games.canStart).toEqual(["g_1"]);
+    expect(await t.act(bob.token, { type: "start_game", table: "g_1" })).toMatchObject({
+      ok: true,
+      events: [{ type: "game_started", table: "g_1" }],
+    });
+  });
+
   it("closes a round when its window ends, playing the default for a seat that didn't decide", async () => {
     const t = await start();
-    const ada = t.join("Ada");
+    const ada = await t.settler("Ada", 0, 0);
     const bob = t.join("Bob", "agent");
     await t.act(ada.token, { type: "open_table", game: "hearth_race", pace: "live" });
     await t.act(bob.token, { type: "sit", table: "g_1" });
@@ -248,7 +274,7 @@ describe("a table", () => {
 describe("townsfolk", () => {
   it("fill a slow table short of players after an hour, unrated, by a rule anyone can check", async () => {
     const t = await start();
-    const ada = t.join("Ada");
+    const ada = await t.settler("Ada", 0, 0);
     const folk = ["Clem", "Juniper", "Sage"].map((name) => t.join(name));
     t.service.syncTownsfolk(new Set(folk.map((f) => f.id)));
     await t.act(ada.token, { type: "open_table", game: "lowest_lantern", pace: "slow" });
@@ -282,9 +308,31 @@ describe("townsfolk", () => {
     }
   });
 
+  it("leave with the last player, so they never hold a table's spot on their own", async () => {
+    const t = await start();
+    const ada = await t.settler("Ada", 0, 0);
+    const folk = ["Clem", "Juniper"].map((name) => t.join(name).id);
+    t.service.syncTownsfolk(new Set(folk));
+    const hour = GAME_TIMES.townsfolkAfterMinutes * 60_000;
+    await t.act(ada.token, { type: "open_table", game: "lowest_lantern", pace: "slow" });
+    t.later(hour);
+    expect((await t.table("g_1")).seats).toHaveLength(3);
+    expect(await t.act(ada.token, { type: "stand", table: "g_1" })).toMatchObject({
+      ok: true,
+      events: [{ type: "stood" }, { type: "table_closed", table: "g_1" }],
+    });
+    // Someone made townsfolk while seated leaves only townsfolk too, and the server closes it.
+    await t.act(ada.token, { type: "open_table", game: "lowest_lantern", pace: "slow" });
+    t.later(hour);
+    expect((await t.table("g_2")).seats).toHaveLength(3);
+    t.service.syncTownsfolk(new Set([...folk, ada.id]));
+    t.later(1_000);
+    expect((await t.call("GET", "/v1/games/g_2")).status).toBe(404);
+  });
+
   it("never sit at a live table, which closes if nobody starts it", async () => {
     const t = await start();
-    const bob = t.join("Bob");
+    const bob = await t.settler("Bob", 0, 0);
     const clem = t.join("Clem");
     t.service.syncTownsfolk(new Set([clem.id]));
     await t.act(bob.token, { type: "open_table", game: "hearth_race", pace: "live" });
@@ -371,7 +419,7 @@ describe("a sealed choice", () => {
 describe("the check-in", () => {
   it("says whose move it is and how long is left, which table can start, and how a game ended", async () => {
     const t = await start();
-    const ada = t.join("Ada");
+    const ada = await t.settler("Ada", 0, 0);
     const bob = t.join("Bob", "agent");
     expect((await t.get("/v1/checkin", ada.token)).games).toBeUndefined();
     await t.act(ada.token, { type: "open_table", game: "hearth_race", pace: "slow" });
@@ -379,7 +427,7 @@ describe("the check-in", () => {
     const ready = await t.get("/v1/checkin", ada.token);
     expect(ready.games).toEqual({ yourMove: [], canStart: ["g_1"], ended: [] });
     expect(ready.todo).toContain(
-      'Your table g_1 has enough players to start: {"type": "start_game", "table": "g_1"}, or wait for more.',
+      'Table g_1 has enough players, and you can start it: {"type": "start_game", "table": "g_1"}, or wait for more.',
     );
 
     await t.act(ada.token, { type: "start_game", table: "g_1" });

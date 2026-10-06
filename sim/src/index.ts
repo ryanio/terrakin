@@ -134,6 +134,7 @@ export {
   seatOf,
   seatsHeld,
   sitProblem,
+  starterOf,
   TABLE_ID_PATTERN,
   TABLE_MOVES,
   type TableMove,

@@ -97,7 +97,7 @@ function games() {
   /** A table with these seats, started. The first one opens it. */
   const table = (game: GameKind, seats: string[], pace: GamePace = "slow") => {
     const id = open(seats[0] ?? "", game, pace);
-    for (const s of seats.slice(1)) ok(s, { type: "sit", table: id });
+    for (const s of seats.slice(1)) ok(s, { type: "sit", table: id, at: tick() });
     return { id, started: start(seats[0] ?? "", id) };
   };
   const round = (id: string) => tableById(state, id)?.round ?? 0;
@@ -198,10 +198,15 @@ describe("opening a table", () => {
     // Seats at three tables, one of them your own, are the most.
     w.open("bob");
     w.open("cy");
-    w.ok("ada", { type: "sit", table: "g_2" });
-    w.ok("ada", { type: "sit", table: "g_3" });
+    w.ok("ada", { type: "sit", table: "g_2", at: 1 });
+    w.ok("ada", { type: "sit", table: "g_3", at: 1 });
     w.open("gus");
-    expect(w.code("ada", { type: "sit", table: "g_4" })).toBe("table_limit");
+    expect(w.code("ada", { type: "sit", table: "g_4", at: 1 })).toBe("table_limit");
+
+    // Tables are opened from home; anyone may sit at one.
+    w.ok("ivy", { type: "join", name: "Ivy", kind: "human" });
+    expect(w.code("ivy", w.opening())).toBe("no_hearth");
+    w.ok("ivy", { type: "sit", table: "g_1", at: 1 });
 
     const days = createWorld(CONFIG);
     apply(days, { actor: "ada", command: { type: "join", name: "Ada", kind: "human" } });
@@ -215,12 +220,12 @@ describe("seats", () => {
   it("are taken from anywhere and given up before the start, and a table nobody sits at closes", () => {
     const w = games();
     const id = w.open("ada");
-    const events = w.ok("bob", { type: "sit", table: id });
+    const events = w.ok("bob", { type: "sit", table: id, at: 1 });
     expect(events).toMatchObject([
       { type: "seated", table: id, resident: "bob", kind: "human" },
       { type: "moved", residentId: "bob" },
     ]);
-    expect(w.code("bob", { type: "sit", table: id })).toBe("already_seated");
+    expect(w.code("bob", { type: "sit", table: id, at: 1 })).toBe("already_seated");
     expect(w.code("cy", { type: "stand", table: id })).toBe("not_seated");
     // The first seat passes on when its resident stands.
     w.ok("ada", { type: "stand", table: id });
@@ -229,31 +234,56 @@ describe("seats", () => {
       { type: "stood", table: id, resident: "bob" },
       { type: "table_closed", table: id },
     ]);
-    expect(w.code("cy", { type: "sit", table: id })).toBe("unknown_table");
-    expect(w.code("cy", { type: "sit", table: "g_9" })).toBe("unknown_table");
+    expect(w.code("cy", { type: "sit", table: id, at: 1 })).toBe("unknown_table");
+    expect(w.code("cy", { type: "sit", table: "g_9", at: 1 })).toBe("unknown_table");
   });
 
   it("fill up, and stay put once the game starts", () => {
     const w = games();
     const id = w.open("ada");
-    for (const s of ["bob", "cy", "gus", "dee", "eve"]) w.ok(s, { type: "sit", table: id });
-    expect(w.code("fay", { type: "sit", table: id })).toBe("table_full");
+    for (const s of ["bob", "cy", "gus", "dee", "eve"]) w.ok(s, { type: "sit", table: id, at: 1 });
+    expect(w.code("fay", { type: "sit", table: id, at: 1 })).toBe("table_full");
     w.start("ada", id);
-    expect(w.code("fay", { type: "sit", table: id })).toBe("table_not_open");
+    expect(w.code("fay", { type: "sit", table: id, at: 1 })).toBe("table_not_open");
     expect(w.code("bob", { type: "stand", table: id })).toBe("table_not_open");
   });
 
-  it("start only from the first seat, with enough players, once", () => {
+  it("start from the first seat, or anyone seated once the server says, with enough players, once", () => {
     const w = games();
     const id = w.open("ada", "lowest_lantern");
-    w.ok("bob", { type: "sit", table: id });
+    w.ok("bob", { type: "sit", table: id, at: 1 });
     expect(w.code("bob", { type: "start_game", table: id, at: 5 })).toBe("not_your_table");
     expect(w.code("cy", { type: "start_game", table: id, at: 5 })).toBe("not_seated");
     expect(w.code("ada", { type: "start_game", table: id, at: 5 })).toBe("not_enough_players");
-    w.ok("cy", { type: "sit", table: id });
+    w.ok("cy", { type: "sit", table: id, at: 1 });
     expect(w.code("ada", { type: "start_game", table: id, at: -5 })).toBe("invalid_game");
-    w.start("ada", id);
+    const late = { type: "start_game", table: id, at: 5, free: "yes" } as unknown as Command;
+    expect(w.code("bob", late)).toBe("invalid_game");
+    // The server's `free` lets another seat start it, but never a townsfolk seat.
+    w.town({ type: "set_townsfolk", ids: ["cy"] });
+    expect(w.code("cy", { type: "start_game", table: id, at: 5, free: true })).toBe(
+      "not_your_table",
+    );
+    w.ok("bob", { type: "start_game", table: id, at: 5, free: true });
     expect(w.code("ada", { type: "start_game", table: id, at: 5 })).toBe("table_not_open");
+  });
+
+  it("close once nobody but townsfolk is left, and never let townsfolk start", () => {
+    const w = games();
+    w.town({ type: "set_townsfolk", ids: ["cy", "gus"] });
+    const id = w.open("ada", "lowest_lantern");
+    for (const s of ["cy", "bob", "gus"]) w.ok(s, { type: "sit", table: id, at: 1 });
+    // Ada stands: Bob is the first seat that isn't townsfolk, so he starts it now.
+    w.ok("ada", { type: "stand", table: id });
+    expect(w.code("cy", { type: "start_game", table: id, at: 5 })).toBe("not_your_table");
+    expect(w.code("ada", w.opening())).toBeNull();
+    expect(w.code("bob", w.opening())).toBe("table_limit");
+    // Bob stands too, and a table only townsfolk sit at closes.
+    expect(w.ok("bob", { type: "stand", table: id })).toEqual([
+      { type: "stood", table: id, resident: "bob" },
+      { type: "table_closed", table: id },
+    ]);
+    expect(activeTable(w.state, id)).toBeUndefined();
   });
 });
 
@@ -261,7 +291,7 @@ describe("sealed rounds", () => {
   it("take one legal choice from each seat for the round being played", () => {
     const w = games();
     const id = w.open("ada");
-    w.ok("bob", { type: "sit", table: id });
+    w.ok("bob", { type: "sit", table: id, at: 1 });
     const decide = (actor: string, round: number, move: number) =>
       w.code(actor, { type: "decide", table: id, round, move });
     expect(decide("ada", 1, 2)).toBe("wrong_round");
@@ -362,7 +392,7 @@ describe("Hearth race", () => {
     expect(activeTable(w.state, id)).toBeUndefined();
     expect(tableById(w.state, id)).toMatchObject({ status: "over", endedDay: DAY + 3 });
     expect(w.code("ada", { type: "decide", table: id, round: 6, move: 1 })).toBe("wrong_round");
-    expect(w.code("ada", { type: "sit", table: id })).toBe("table_not_open");
+    expect(w.code("ada", { type: "sit", table: id, at: 1 })).toBe("table_not_open");
   });
 
   it("ends after its last round with the furthest along first and equal places shared", () => {
@@ -491,7 +521,7 @@ describe("ratings", () => {
     const w2 = games();
     w2.ok("ivy", { type: "join", name: "Ivy", kind: "human" });
     w2.town({ type: "set_townsfolk", ids: ["cy"] });
-    expect(rated(w2.table("lowest_lantern", ["ivy", "ada", "bob", "cy"]).started)).toEqual([
+    expect(rated(w2.table("lowest_lantern", ["ada", "ivy", "bob", "cy"]).started)).toEqual([
       "ada",
       "bob",
     ]);

@@ -1,16 +1,16 @@
 import { expect, test } from "@playwright/test";
-import { act, join, overflowsSideways, read, signIn, watchErrors } from "./support";
+import { act, join, overflowsSideways, read, settler, signIn, watchErrors } from "./support";
 
 /**
- * Party games (RFC 0011) on a phone: a person opens a live Hearth race on /games, an agent sits
- * over the API, she starts it and decides with the big buttons in the decide sheet, the agent's
- * choice closes the round at once, and every choice comes out together on her page.
+ * Party games (RFC 0011) on a phone: a person with a home opens a live Hearth race on /games, an
+ * agent sits over the API, she starts it and decides with the big buttons in the decide sheet,
+ * the agent's choice closes the round at once, and every choice comes out together on her page.
  */
 
 test("open a table, decide on a phone, and see the round close", async ({ page }) => {
   const errors = watchErrors(page);
   await page.setViewportSize({ width: 390, height: 844 });
-  const wren = await join(page.request, "Wren");
+  const wren = await settler(page.request, "Wren");
   const dot = await join(page.request, "Dot", { kind: "agent" });
 
   await test.step("open a live Hearth race from /games", async () => {

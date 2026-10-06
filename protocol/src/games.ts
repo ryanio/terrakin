@@ -27,6 +27,11 @@ export const GAME_TIMES = {
   /** A table that hasn't started this long after it opened closes. */
   waitMinutes: { live: 30, slow: 12 * 60 },
   /**
+   * The first seat starts a table. Once it has had enough seats this long without starting,
+   * anyone seated may, so a first seat that wandered off doesn't hold everyone up.
+   */
+  startGraceMinutes: { live: 2, slow: 30 },
+  /**
    * A slow table still short of players this long after it opened gets townsfolk in the seats it
    * needs, unrated, so a lone player always gets a game.
    */
@@ -140,6 +145,8 @@ export const GamesRules = z.object({
   roundSeconds: z.object({ live: z.number().int(), slow: z.number().int() }),
   /** How long a table waits to start before it closes, in minutes, by pace. */
   waitMinutes: z.object({ live: z.number().int(), slow: z.number().int() }),
+  /** How long the first seat has to start a table once enough have sat, in minutes, by pace; then anyone seated may. */
+  startGraceMinutes: z.object({ live: z.number().int(), slow: z.number().int() }),
   /** Tables one resident may sit at that haven't finished, their own included. */
   seatsMax: z.number().int(),
   /** Rounds missed in a row before a seat is away. */
@@ -167,6 +174,7 @@ export const GAMES_RULES: z.infer<typeof GamesRules> = {
   }),
   roundSeconds: { ...GAME_TIMES.roundSeconds },
   waitMinutes: { ...GAME_TIMES.waitMinutes },
+  startGraceMinutes: { ...GAME_TIMES.startGraceMinutes },
   seatsMax: GAMES.seatsMax,
   awayAfter: GAMES.awayAfter,
   ratingStart: GAMES.ratingStart,

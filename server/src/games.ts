@@ -30,6 +30,7 @@ import {
   seatOf,
   seatsHeld,
   sitProblem,
+  starterOf,
   tableMoves,
   type WorldState,
 } from "@terrakin/sim";
@@ -53,6 +54,15 @@ export const closesAt = (t: GameTable) =>
 /** When an open table closes if nobody starts it, in ms. */
 export const startBy = (t: GameTable) => t.openedAt + GAME_TIMES.waitMinutes[t.pace] * 60_000;
 
+/**
+ * Whether anyone seated may start an open table now: it has had enough seats for the start grace
+ * and its first seat hasn't started it. The server says so in the `start_game` it logs.
+ */
+export const startFree = (t: GameTable, now: number) =>
+  t.status === "open" &&
+  t.readyAt !== undefined &&
+  now >= t.readyAt + GAME_TIMES.startGraceMinutes[t.pace] * 60_000;
+
 /** Every closed round as views carry it, with what each seat gained, oldest first. */
 function roundViews(t: GameTable): RoundView[] {
   const boards = roundBoards(t);
@@ -72,7 +82,7 @@ export function tableView(
   t: GameTable,
   author: Authors,
   viewer: string | undefined,
-  options: { history?: boolean } = {},
+  options: { now: number; history?: boolean },
 ): TableView {
   const playing = t.status === "playing";
   const over = t.status === "over";
@@ -104,7 +114,7 @@ export function tableView(
   let you: TableView["you"] = null;
   if (viewer && residentById(state, viewer)) {
     const seated = seatOf(t, viewer) !== undefined;
-    const moves = over ? [] : tableMoves(state, viewer, t);
+    const moves = over ? [] : tableMoves(state, viewer, t, { free: startFree(t, options.now) });
     const why = !seated && t.status === "open" ? sitProblem(state, viewer, t) : null;
     you = {
       seated,
@@ -140,9 +150,10 @@ export function gamesView(
   state: WorldState,
   viewer: string | undefined,
   author: Authors,
+  now: number,
 ): GamesResponse {
   const tables = activeTables(state);
-  const view = (t: GameTable) => tableView(state, t, author, viewer);
+  const view = (t: GameTable) => tableView(state, t, author, viewer, { now });
   let you: GamesResponse["you"] = null;
   if (viewer && residentById(state, viewer)) {
     const problem = openTableProblem(state, viewer);
@@ -233,6 +244,7 @@ export function gamesCheckin(
   state: WorldState,
   viewer: string,
   sinceDay: number,
+  now: number,
 ): {
   yourMove: { table: string; game: GameKind; pace: GamePace; round: number; closesAt: string }[];
   canStart: string[];
@@ -253,8 +265,8 @@ export function gamesCheckin(
     .filter(
       (t) =>
         t.status === "open" &&
-        t.seats[0]?.resident === viewer &&
-        t.seats.length >= GAME_RULES[t.game].minSeats,
+        t.seats.length >= GAME_RULES[t.game].minSeats &&
+        (starterOf(state, t) === viewer || startFree(t, now)),
     )
     .map((t) => t.id);
   const ended = [...(state.games?.finished ?? [])]

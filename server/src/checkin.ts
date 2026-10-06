@@ -435,7 +435,7 @@ export function checkinView(
   const awayRefused = social.away.refusedSince(viewer, since);
   const newestAway = social.away.newest(viewer);
   // Party games (RFC 0011): tables and rounds by id, never a name or anyone's choice.
-  const games = gamesCheckin(state, viewer, sinceDay);
+  const games = gamesCheckin(state, viewer, sinceDay, now);
 
   const newestFollowed = followed.find((p) => (p.repostedBy ?? p.author).id !== viewer);
   const newestGesture = together.receivedSince(
@@ -518,7 +518,7 @@ export function checkinView(
   }
   for (const id of games?.canStart ?? []) {
     todo.push(
-      `Your table ${id} has enough players to start: {"type": "start_game", "table": "${id}"}, or wait for more.`,
+      `Table ${id} has enough players, and you can start it: {"type": "start_game", "table": "${id}"}, or wait for more.`,
     );
   }
   for (const e of games?.ended ?? []) {

@@ -84,6 +84,7 @@ import {
   seatsHeld,
   shopTiles,
   skyAt,
+  starterOf,
   TOWN_ACTOR,
   townHallTiles,
   treasuryShareOf,
@@ -94,7 +95,7 @@ import {
   type WorldState,
   withinEarshot,
 } from "@terrakin/sim";
-import { closesAt, startBy, townsfolkMove } from "./games";
+import { closesAt, startBy, startFree, townsfolkMove } from "./games";
 import { listingRefusal } from "./market";
 import { Moderation, type ReviewContext, type Surface } from "./moderation";
 import {
@@ -969,9 +970,13 @@ export class WorldService {
     }
   }
 
-  /** An open table closes once it has waited `GAME_TIMES.waitMinutes`, and a slow one gets townsfolk. */
+  /**
+   * An open table closes once it has waited `GAME_TIMES.waitMinutes`, or once nobody but townsfolk
+   * sits there (the sim closes it when the last player stands; this catches someone made townsfolk
+   * while seated). A slow one short of players gets townsfolk.
+   */
   private tendOpenTable(t: GameTable, now: number) {
-    if (now >= startBy(t)) {
+    if (now >= startBy(t) || starterOf(this.state, t) === undefined) {
       const closed = this.run({ actor: TOWN_ACTOR, command: { type: "close_table", table: t.id } });
       if (!closed.ok) gameRefused(closed.error.code, "close_table");
       return;
@@ -996,7 +1001,7 @@ export class WorldService {
     );
     for (const id of free.slice(0, need)) {
       if (!this.arrive(id, "sit").ok) continue;
-      const sat = this.run({ actor: id, command: { type: "sit", table: t.id } });
+      const sat = this.run({ actor: id, command: { type: "sit", table: t.id, at: this.now() } });
       if (!sat.ok) gameRefused(sat.error.code, "sit");
     }
   }
@@ -1677,11 +1682,20 @@ export class WorldService {
           error: { code: "forbidden", message: "You can't sit at this table." },
         };
       }
+      const command: Command = { type: "sit", table: action.table, at: this.now() };
+      return this.run({ actor: residentId, command }, dry);
     }
     if (action.type === "start_game" || action.type === "decide") {
+      // Once the first seat has let the start grace pass, anyone seated may start it.
+      const t = activeTable(this.state, action.table);
+      const now = this.now();
+      const free =
+        t !== undefined && startFree(t, now) && starterOf(this.state, t) !== residentId
+          ? { free: true as const }
+          : {};
       const command: Command =
         action.type === "start_game"
-          ? { type: "start_game", table: action.table, at: this.now() }
+          ? { type: "start_game", table: action.table, at: now, ...free }
           : { type: "decide", table: action.table, round: action.round, move: action.move };
       const result = this.run({ actor: residentId, command }, dry);
       // Townsfolk take their turn, and a round everyone has settled closes now, not at its end.

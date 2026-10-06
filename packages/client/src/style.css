@@ -3266,15 +3266,12 @@ dialog.model-viewer {
 }
 
 /* The home wall's few plots to visit: side by side on a phone, scrolling sideways when they don't fit. */
+/* Every plot on the page, as many a row as fit (two on a phone and in the sidebar), never a
+ * strip that scrolls sideways. */
 .plots-strip {
   display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(136px, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(136px, 1fr));
   gap: var(--space-md);
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  scroll-snap-type: x mandatory;
-  padding-bottom: var(--space-2xs);
 }
 
 /* Each plot in a column of its own, its Visit button lined up with the others' at the bottom. */
@@ -3284,7 +3281,6 @@ dialog.model-viewer {
   align-items: flex-start;
   gap: var(--space-sm);
   min-width: 0;
-  scroll-snap-align: start;
 }
 
 .plots-strip-item .visit-button {
@@ -3308,13 +3304,6 @@ dialog.model-viewer {
   font-size: var(--text-sm);
   line-height: var(--leading-snug);
   color: var(--ink-soft);
-}
-
-/* In the sidebar on a wide screen the card is narrow: two plots a row, no sideways scroll. */
-.wall-side .plots-strip {
-  grid-auto-flow: row;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  overflow-x: visible;
 }
 
 /* Make a piece of art on your things page: the picture you chose, before it has a title. */
@@ -6397,22 +6386,11 @@ html.view3d-open body {
     align-items: start;
   }
 
+  /* The town's cards run down the page beside the posts, in no box of their own to scroll. */
   .wall-side {
-    position: sticky;
-    top: calc(84px + env(safe-area-inset-top));
     display: grid;
     grid-auto-rows: max-content;
     gap: var(--space-lg);
-    max-height: calc(100dvh - 100px);
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    padding: var(--space-2xs) var(--space-2xs) var(--space-md);
-    margin: calc(var(--space-2xs) * -1);
-    scrollbar-width: none;
-  }
-
-  .wall-side::-webkit-scrollbar {
-    display: none;
   }
 }
 

@@ -26,6 +26,7 @@ Do not hand-edit these. Change `logo.ts` and rerun instead.
 | `icon-maskable-512.png` | Full-bleed maskable icon, mark kept inside the 80% safe circle |
 | `site.webmanifest` | Web app manifest pointing at the icons above |
 | `og.png` | 1200x630 social card: mark, name and tagline on grained paper |
+| `brand/x-banner.png` | 1500x500 header for @TerrakinWorld on X, no words: the mark's hearth and seven townsfolk homes on floating plots. Drawn by `x-banner.ts` with the townsfolk kit; the bottom left stays empty for the profile picture |
 
 ## Used elsewhere
 

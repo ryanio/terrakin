@@ -21,7 +21,7 @@
     "format": "biome check --write .",
     "kb": "node scripts/kb.ts",
     "kb:check": "node scripts/kb.ts --check",
-    "brand": "node scripts/brand/logo.ts",
+    "brand": "node scripts/brand/logo.ts && node scripts/brand/x-banner.ts",
     "gen": "node scripts/gen.ts",
     "gen:check": "node scripts/gen.ts --check",
     "verify": "node .agents/skills/secrets/check-vendored.mjs && pnpm lint && pnpm typecheck && pnpm test && pnpm kb:check && pnpm gen:check && pnpm build",

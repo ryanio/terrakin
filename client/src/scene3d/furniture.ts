@@ -1,7 +1,7 @@
 /**
  * Furniture from the workbench in 3D (RFC 0016): a table, a chair, a bookshelf of colored books, a
  * hooped barrel, a signpost, a lamp post that glows, a stone well with a roof, a low stone wall that
- * runs on to the walls beside it, a campfire, and a flower box. Each model is a few merged,
+ * runs on to the walls beside it, a campfire, a flower box, and a jack-o'-lantern lit from inside. Each model is a few merged,
  * shade-baked parts, placed with decor's `placeParts`, so a plot full of chairs is one instanced draw
  * per part (decision 0030). Glows are an emissive shade and a soft pool of light on the ground,
  * never a light of their own, like the shop's lantern (decision 0060).
@@ -384,6 +384,37 @@ function flowerBoxParts(grain: Texture): Part[] {
   ];
 }
 
+/**
+ * A jack-o'-lantern: three ribbed lobes and a stubby stem, with eyes and a grin cut in the side
+ * that faces you, lit warm from inside and pooling light on the ground.
+ */
+function jackOLanternParts(stage: Stage, grain: Texture): Part[] {
+  const lobes = [-0.13, 0.13, 0].map((x, i) => {
+    const g = new DodecahedronGeometry(0.2, 0);
+    g.scale(0.8, 0.75, i === 2 ? 1.05 : 0.95);
+    g.translate(x, 0.17, 0);
+    return g.toNonIndexed();
+  });
+  const stem = new CylinderGeometry(0.025, 0.04, 0.12, 5);
+  stem.rotateZ(0.25);
+  stem.translate(0.02, 0.38, 0);
+  const face = [
+    box(0.07, 0.07, 0.03, [-0.08, 0.22, 0.2], [0, 0, Math.PI / 4], 0),
+    box(0.07, 0.07, 0.03, [0.08, 0.22, 0.2], [0, 0, Math.PI / 4], 0),
+    box(0.2, 0.05, 0.03, [0, 0.11, 0.21], [0, 0, 0], 0.01),
+  ];
+  return [
+    {
+      geometry: merged(lobes, 0.8),
+      material: paper(hex(BLOCK_COLORS.jack_o_lantern), grain),
+      cast: true,
+    },
+    { geometry: merged([stem.toNonIndexed()], 0.8), material: paper(0x6a6136, grain), cast: true },
+    { geometry: merged(face, 1), material: flicker(stage, 0xffc45a, grain, 0.9), cast: false },
+    glow(stage, 0xffffff, [0, 0.2], 1.8),
+  ];
+}
+
 function partsOf(stage: Stage, kind: FurnitureKind, grain: Texture): Part[] {
   switch (kind) {
     case "table":
@@ -406,6 +437,8 @@ function partsOf(stage: Stage, kind: FurnitureKind, grain: Texture): Part[] {
       return campfireParts(stage, grain);
     case "flower_box":
       return flowerBoxParts(grain);
+    case "jack_o_lantern":
+      return jackOLanternParts(stage, grain);
   }
 }
 

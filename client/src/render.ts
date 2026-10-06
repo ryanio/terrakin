@@ -1292,6 +1292,10 @@ export function render(
       paintFurniture(ctx, block, left, top, size, scale, inset, joins);
       if (block === "lamp_post") lanterns.push({ sx: left + size * 0.5, sy: top + size * 0.25 });
       if (block === "campfire") lanterns.push({ sx: left + size * 0.5, sy: top + size * 0.62 });
+      // A jack-o'-lantern's face lights up after dark.
+      if (block === "jack_o_lantern") {
+        lanterns.push({ sx: left + size * 0.5, sy: top + size * 0.62 });
+      }
       continue;
     }
     if (isDecorKind(block)) {

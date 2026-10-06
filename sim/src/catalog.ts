@@ -102,15 +102,15 @@ export interface CropNumbers {
 /**
  * A crop drawn from the produce template: its outline (an oval with pointed ends like a lemon, a
  * berry, round, or three ribbed lobes like a pumpkin), what grows on top (a leaf, a leafy cap, a
- * star of sepals with a stem, or a stubby stem with a curl of vine and a leaf), its skin, and the
- * color of its speckles, seeds, or ribs. A crop with a vine on
+ * star of sepals with a stem, a stubby stem with a curl of vine and a leaf, or a small crown like a
+ * pomegranate's), its skin, and the color of its speckles, seeds, or ribs. A crop with a vine on
  * top grows along the soil in a planter. A fruit also gives the colors of its jam: what fills the
  * jar the jam family recipe makes, and the cloth tied over it.
  */
 export interface ProduceLook {
   template: "produce";
   shape: "oval" | "berry" | "round" | "lobed";
-  top: "leaf" | "cap" | "star" | "vine";
+  top: "leaf" | "cap" | "star" | "vine" | "crown";
   body: string;
   detail: string;
   jam?: { fill: string; cloth: string };
@@ -541,6 +541,32 @@ const WRITTEN = {
     role: "furniture",
     recipe: { station: "workbench", needs: { wood: 1, flower: 3 } },
     look: { template: "drawn" },
+  }),
+  // Carved from a pumpkin at a workbench, and lit after dark.
+  jack_o_lantern: entry({
+    name: "Jack-o'-lantern",
+    plural: "Jack-o'-lanterns",
+    family: "furniture",
+    role: "furniture",
+    recipe: { station: "workbench", needs: { pumpkin: 1 } },
+    look: { template: "drawn" },
+  }),
+  // Pomegranates: seeds sold all year, and jam from the jam family recipe.
+  ...fruit("pomegranate", {
+    name: "Pomegranate",
+    plural: "Pomegranates",
+    days: 4,
+    yield: 3,
+    seedsBack: 1,
+    seedPrice: 4,
+    look: {
+      template: "produce",
+      shape: "round",
+      top: "crown",
+      body: "#b8323f",
+      detail: "#7a1f2b",
+      jam: { fill: "#8f1d36", cloth: "#a98bd8" },
+    },
   }),
 };
 

@@ -95,6 +95,12 @@ const BLOCK_LOOKS: Record<BlockKind, BlockLook> = {
   stone_wall: { color: hex(BLOCK_COLORS.stone_wall), height: 0.6, opacity: 1, form: "furniture" },
   campfire: { color: hex(BLOCK_COLORS.campfire), height: 0.7, opacity: 1, form: "furniture" },
   flower_box: { color: hex(BLOCK_COLORS.flower_box), height: 0.75, opacity: 1, form: "furniture" },
+  jack_o_lantern: {
+    color: hex(BLOCK_COLORS.jack_o_lantern),
+    height: 0.5,
+    opacity: 1,
+    form: "furniture",
+  },
 };
 
 export function blockLook(block: BlockKind): BlockLook {

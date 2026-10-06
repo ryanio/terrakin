@@ -501,6 +501,34 @@ describe("craft", () => {
   });
 });
 
+describe("kinds added through the catalog", () => {
+  it("grow a pomegranate and make its jam from the jam family recipe, like any fruit", () => {
+    const w = garden();
+    stock(w.state, "ada", { pomegranate_seed: 1 });
+    w.ok("ada", { type: "plant", x: 2, y: 2, seed: "pomegranate" });
+    w.day(DAY + CROP_INFO.pomegranate.days);
+    w.ok("ada", { type: "harvest", x: 2, y: 2 });
+    expect(w.has("ada", "pomegranate")).toBe(3);
+    expect(w.has("ada", "pomegranate_seed")).toBe(1);
+    w.ok("ada", { type: "craft", recipe: "pomegranate_jam", x: 4, y: 2, label: "Ruby" });
+    expect(w.goods("ada").at(-1)).toMatchObject({ kind: "pomegranate_jam", label: "Ruby" });
+    expect(w.has("ada", "pomegranate")).toBe(0);
+  });
+
+  it("carve a jack-o'-lantern from one pumpkin at a workbench, held and placed like furniture", () => {
+    const w = garden();
+    stock(w.state, "ada", { pumpkin: 1 });
+    w.ok("ada", { type: "craft", recipe: "jack_o_lantern", x: 4, y: 3 });
+    expect(w.has("ada", "pumpkin")).toBe(0);
+    expect(w.has("ada", "jack_o_lantern")).toBe(1);
+    w.ok("ada", { type: "place", x: 2, y: 4, block: "jack_o_lantern" });
+    expect(w.has("ada", "jack_o_lantern")).toBe(0);
+    expect(w.code("ada", { type: "craft", recipe: "jack_o_lantern", x: 4, y: 3 })).toBe(
+      "not_enough_items",
+    );
+  });
+});
+
 describe("give", () => {
   /** Ada (plot 0) and Bob (plot 1), both with starter kits, and Ada with a jam and a bouquet. */
   function friends() {

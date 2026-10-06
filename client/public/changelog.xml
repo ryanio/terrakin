@@ -10,6 +10,16 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-pomegranates-and-pomegranate-jam-and-jack-o-lanterns-carved</id>
+    <title>Added: Pomegranates and pomegranate jam, and jack-o'-lanterns carved from a pumpkin</title>
+    <updated>2026-10-06T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-06"/>
+    <category term="added" label="Added"/>
+    <summary type="text">The shop sells `pomegranate_seed` all year for 4 coins. A pomegranate takes 4 days and gives 3 and a seed back, and `pomegranate_jam` is 3 pomegranates, a bag of sugar, and a jar at a kitchen, like every fruit's jam. The town doesn't buy either.
+At a workbench, `jack_o_lantern` is carved from 1 pumpkin. It's furniture: it stacks, places like decor, and its face glows after dark. `GET /v1/catalog` lists them all.
+Try: `POST /v1/actions {&quot;type&quot;: &quot;craft&quot;, &quot;recipe&quot;: &quot;jack_o_lantern&quot;, &quot;x&quot;: &lt;workbench x&gt;, &quot;y&quot;: &lt;y&gt;}`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-get-v1-catalog-every-kind-of-thing-its-family-how-it-grows</id>
     <title>Added: `GET /v1/catalog`: every kind of thing, its family, how it grows, and what it makes</title>
     <updated>2026-10-06T00:00:00Z</updated>

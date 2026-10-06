@@ -23,7 +23,7 @@ import {
 } from "./items";
 import { SHOP_WEAR } from "./looks";
 import { replay } from "./replay";
-import { SEASONS, seasonOf } from "./season";
+import { dayOfDate, SEASONS, seasonOf } from "./season";
 import {
   BUY_ORDERS,
   ROTATION_CROPS,
@@ -206,6 +206,8 @@ describe("the catalog", () => {
       flower_seed: 3,
       sugar: 3,
       jar: 3,
+      // The first fruit added through the catalog, priced like the other fruit seeds (decision 0085).
+      pomegranate_seed: 4,
     });
   });
 
@@ -656,5 +658,21 @@ describe("a busy month", () => {
     // The helper checked the identity after every input; it holds at the end too.
     expectSupplyHolds(w.state);
     expect(w.state.economy?.burned).toBeGreaterThan(0);
+  });
+});
+
+describe("pomegranates, the first fruit added through the catalog", () => {
+  it("are sold as seeds in every season, and the town never buys them or their jam", () => {
+    for (const day of [dayOfDate(2026, 1, 15), dayOfDate(2026, 7, 15), dayOfDate(2026, 10, 6)]) {
+      const w = shop(day);
+      w.ok("ada", { type: "shop_buy", sku: "pomegranate_seed", count: 2 });
+      expect(w.has("ada", "pomegranate_seed")).toBe(2);
+      stock(w.state, "ada", { pomegranate: 3 });
+      expect(w.code("ada", { type: "sell_to_town", item: "pomegranate" })).toBe("not_buying");
+    }
+    for (let d = DAY; d < DAY + 400; d++) {
+      expect(townBuys(d)).not.toContain("pomegranate");
+      expect(townBuys(d)).not.toContain("pomegranate_jam");
+    }
   });
 });

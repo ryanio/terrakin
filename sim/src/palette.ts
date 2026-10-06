@@ -57,6 +57,8 @@ export const BLOCK_COLORS: Readonly<Record<BlockKind, string>> = {
   stone_wall: "#a8a196",
   campfire: "#e2703a",
   flower_box: "#b8834f",
+  // A carved pumpkin with a candle in it.
+  jack_o_lantern: "#e8862f",
 };
 
 /**

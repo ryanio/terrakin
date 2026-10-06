@@ -65,6 +65,7 @@ export const BLOCK_KINDS = [
   "stone_wall",
   "campfire",
   "flower_box",
+  "jack_o_lantern",
 ] as const;
 
 /**

@@ -203,10 +203,11 @@ const SHAPES: Readonly<Record<ProduceLook["shape"], Paint>> = {
   ],
 };
 
-/** What grows on top of produce: drawn behind its outline (`back`) or in front (`front`). */
-const TOPS: Readonly<
-  Record<ProduceLook["top"], { back?: () => ArtShape[]; front?: () => ArtShape[] }>
-> = {
+/**
+ * What grows on top of produce, drawn behind its outline (`back`) or in front (`front`), in the
+ * produce's own colors where it has them.
+ */
+const TOPS: Readonly<Record<ProduceLook["top"], { back?: Paint; front?: Paint }>> = {
   leaf: { back: () => [leaf(25, 15, 11, -40)] },
   cap: {
     front: () => [
@@ -233,6 +234,13 @@ const TOPS: Readonly<
       path("M22.6 20.5c-.4-3 .3-5.8 2.2-7.6l2.2 1.1c-1.6 1.7-2.1 3.9-1.8 6.5z", "#76703a", out()),
       line("M27 14.5c2.5-3 6.5-2.6 6.8 0 .3 2.3-3.4 2.9-3.6.6", STEM, 1.1),
       leaf(25, 14, 9, -160),
+    ],
+  },
+  // A short neck that opens into a little crown of points, like a pomegranate's.
+  crown: {
+    front: (body, detail) => [
+      path("M20.6 18.4 19.4 12.6l2.2 1.9 2.4-3.6 2.4 3.6 2.2-1.9-1.2 5.8z", body, out()),
+      line("M21.3 17.5c1.8.6 3.6.6 5.4 0", detail, 1, { opacity: 0.7 }),
     ],
   },
 };
@@ -274,9 +282,9 @@ function cropArt(kind: ItemKind): ArtShape[] {
   if (look.template === "produce") {
     const top = TOPS[look.top];
     return [
-      ...(top.back?.() ?? []),
+      ...(top.back?.(look.body, look.detail) ?? []),
       ...SHAPES[look.shape](look.body, look.detail),
-      ...(top.front?.() ?? []),
+      ...(top.front?.(look.body, look.detail) ?? []),
     ];
   }
   if (look.template === "sprig") return sprig();
@@ -823,6 +831,31 @@ function flowerBox(): ArtShape[] {
   ];
 }
 
+/** A jack-o'-lantern: a carved pumpkin with a candle in it, its face lit from inside. */
+function jackOLantern(): ArtShape[] {
+  const skin = BLOCK_COLORS.jack_o_lantern;
+  const lit = "#ffd36b";
+  const cut = out({ stroke: CLAY_DEEP, "stroke-width": 0.9 });
+  return [
+    shadow(15),
+    circle(24, 30, 18, lit, { opacity: 0.2 }),
+    ellipse(15.5, 31, 9, 10.5, skin, out()),
+    ellipse(32.5, 31, 9, 10.5, skin, out()),
+    ellipse(24, 31, 10, 11.5, skin, out()),
+    line("M19.5 22.5c-1.4 5-1.4 12 0 17M28.5 22.5c1.4 5 1.4 12 0 17", "#c4661c", 1.1, {
+      opacity: 0.5,
+    }),
+    path("M22.6 20.5c-.4-3 .3-5.8 2.2-7.6l2.2 1.1c-1.6 1.7-2.1 3.9-1.8 6.5z", "#76703a", out()),
+    path("M16.5 29.5 19.5 24.5l3 5z", lit, cut),
+    path("M25.5 29.5 28.5 24.5l3 5z", lit, cut),
+    path(
+      "M15.5 33.5c3 4.5 14 4.5 17 0l-2.3.8-1.6 1.9-1.9-1.5-2.7 1.8-2.7-1.8-1.9 1.5-1.6-1.9z",
+      lit,
+      cut,
+    ),
+  ];
+}
+
 // ---------- wear ----------
 
 function strawHat(): ArtShape[] {
@@ -1206,6 +1239,7 @@ const DRAWN: Readonly<Partial<Record<ItemKind, () => ArtShape[]>>> = {
   stone_wall: stoneWall,
   campfire,
   flower_box: flowerBox,
+  jack_o_lantern: jackOLantern,
   lemonade,
   herb_tea: herbTea,
   bouquet,

@@ -5595,12 +5595,14 @@
                 "herb_seed",
                 "flower_seed",
                 "pumpkin_seed",
+                "pomegranate_seed",
                 "lemon",
                 "strawberry",
                 "tomato",
                 "herb",
                 "flower",
                 "pumpkin",
+                "pomegranate",
                 "sugar",
                 "jar",
                 "wood",
@@ -5621,6 +5623,7 @@
                 "stone_wall",
                 "campfire",
                 "flower_box",
+                "jack_o_lantern",
                 "lemon_jam",
                 "strawberry_jam",
                 "lemonade",
@@ -5631,6 +5634,7 @@
                 "flower_wreath",
                 "pumpkin_pie",
                 "pumpkin_soup",
+                "pomegranate_jam",
                 "piece"
               ]
             }
@@ -12124,7 +12128,8 @@
                 "tomato",
                 "herb",
                 "flower",
-                "pumpkin"
+                "pumpkin",
+                "pomegranate"
               ]
             }
           }
@@ -21405,7 +21410,8 @@
                     "well",
                     "stone_wall",
                     "campfire",
-                    "flower_box"
+                    "flower_box",
+                    "jack_o_lantern"
                   ]
                 }
               },
@@ -22261,7 +22267,8 @@
           "tomato",
           "herb",
           "flower",
-          "pumpkin"
+          "pumpkin",
+          "pomegranate"
         ]
       },
       "DeclineGiftAction": {
@@ -22505,7 +22512,8 @@
           "well",
           "stone_wall",
           "campfire",
-          "flower_box"
+          "flower_box",
+          "jack_o_lantern"
         ]
       },
       "GatherAction": {
@@ -22791,7 +22799,8 @@
           "herb_sachet",
           "flower_wreath",
           "pumpkin_pie",
-          "pumpkin_soup"
+          "pumpkin_soup",
+          "pomegranate_jam"
         ]
       },
       "GroomPetAction": {
@@ -23010,12 +23019,14 @@
           "herb_seed",
           "flower_seed",
           "pumpkin_seed",
+          "pomegranate_seed",
           "lemon",
           "strawberry",
           "tomato",
           "herb",
           "flower",
           "pumpkin",
+          "pomegranate",
           "sugar",
           "jar",
           "wood",
@@ -23036,6 +23047,7 @@
           "stone_wall",
           "campfire",
           "flower_box",
+          "jack_o_lantern",
           "lemon_jam",
           "strawberry_jam",
           "lemonade",
@@ -23046,6 +23058,7 @@
           "flower_wreath",
           "pumpkin_pie",
           "pumpkin_soup",
+          "pomegranate_jam",
           "piece"
         ]
       },
@@ -23349,6 +23362,7 @@
           "flower_wreath",
           "pumpkin_pie",
           "pumpkin_soup",
+          "pomegranate_jam",
           "piece"
         ]
       },
@@ -23565,7 +23579,8 @@
               "well",
               "stone_wall",
               "campfire",
-              "flower_box"
+              "flower_box",
+              "jack_o_lantern"
             ]
           },
           "dry": {
@@ -23708,7 +23723,8 @@
                         "well",
                         "stone_wall",
                         "campfire",
-                        "flower_box"
+                        "flower_box",
+                        "jack_o_lantern"
                       ]
                     }
                   },
@@ -24076,6 +24092,7 @@
           "flower_wreath",
           "pumpkin_pie",
           "pumpkin_soup",
+          "pomegranate_jam",
           "table",
           "chair",
           "bookshelf",
@@ -24085,7 +24102,8 @@
           "well",
           "stone_wall",
           "campfire",
-          "flower_box"
+          "flower_box",
+          "jack_o_lantern"
         ]
       },
       "ReleaseAction": {
@@ -24930,6 +24948,7 @@
           "herb_seed",
           "flower_seed",
           "pumpkin_seed",
+          "pomegranate_seed",
           "sugar",
           "jar"
         ]
@@ -24943,12 +24962,14 @@
           "herb_seed",
           "flower_seed",
           "pumpkin_seed",
+          "pomegranate_seed",
           "lemon",
           "strawberry",
           "tomato",
           "herb",
           "flower",
           "pumpkin",
+          "pomegranate",
           "sugar",
           "jar",
           "wood",
@@ -24968,7 +24989,8 @@
           "well",
           "stone_wall",
           "campfire",
-          "flower_box"
+          "flower_box",
+          "jack_o_lantern"
         ]
       },
       "StepRoutine": {
@@ -25929,7 +25951,8 @@
                   "well",
                   "stone_wall",
                   "campfire",
-                  "flower_box"
+                  "flower_box",
+                  "jack_o_lantern"
                 ]
               },
               "by": {
@@ -27903,7 +27926,8 @@
                     "well",
                     "stone_wall",
                     "campfire",
-                    "flower_box"
+                    "flower_box",
+                    "jack_o_lantern"
                   ]
                 }
               },

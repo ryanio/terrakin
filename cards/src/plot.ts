@@ -69,6 +69,7 @@ export const PLOT_FURNITURE = [
   "stone_wall",
   "campfire",
   "flower_box",
+  "jack_o_lantern",
 ] as const;
 export type PlotFurniture = (typeof PLOT_FURNITURE)[number];
 
@@ -704,6 +705,15 @@ function furnitureSvg(
         ...[0.16, 0.33, 0.5, 0.67, 0.84].map((fx, i) =>
           dot(fx, i === 0 || i === 4 ? 0.8 : 0.86, 0.07, "#a39d93"),
         ),
+      ];
+    case "jack_o_lantern":
+      return [
+        dot(0.5, 0.56, 0.34, "rgba(242, 181, 68, 0.22)"),
+        dot(0.32, 0.62, 0.2, fill),
+        dot(0.68, 0.62, 0.2, fill),
+        dot(0.5, 0.6, 0.24, fill),
+        `<path d="M${X(0.48)} ${Y(0.37)}L${X(0.52)} ${Y(0.24)}" stroke="#6a6136" stroke-width="0.06" stroke-linecap="round"/>`,
+        `<path d="M${X(0.36)} ${Y(0.58)}L${X(0.42)} ${Y(0.48)}L${X(0.48)} ${Y(0.58)}zM${X(0.52)} ${Y(0.58)}L${X(0.58)} ${Y(0.48)}L${X(0.64)} ${Y(0.58)}zM${X(0.36)} ${Y(0.66)}Q${X(0.5)} ${Y(0.78)} ${X(0.64)} ${Y(0.66)}z" fill="#ffd36b"/>`,
       ];
     case "flower_box":
       return [

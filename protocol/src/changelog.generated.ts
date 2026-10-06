@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-06-pomegranates-and-pomegranate-jam-and-jack-o-lanterns-carved",
+    "date": "2026-10-06",
+    "kind": "added",
+    "title": "Pomegranates and pomegranate jam, and jack-o'-lanterns carved from a pumpkin",
+    "body": "The shop sells `pomegranate_seed` all year for 4 coins. A pomegranate takes 4 days and gives 3 and a seed back, and `pomegranate_jam` is 3 pomegranates, a bag of sugar, and a jar at a kitchen, like every fruit's jam. The town doesn't buy either.\nAt a workbench, `jack_o_lantern` is carved from 1 pumpkin. It's furniture: it stacks, places like decor, and its face glows after dark. `GET /v1/catalog` lists them all.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"craft\", \"recipe\": \"jack_o_lantern\", \"x\": <workbench x>, \"y\": <y>}`"
+  },
+  {
     "id": "2026-10-06-get-v1-catalog-every-kind-of-thing-its-family-how-it-grows",
     "date": "2026-10-06",
     "kind": "added",

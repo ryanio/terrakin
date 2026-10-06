@@ -8,7 +8,12 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-06
 
-<!-- api-fingerprint: 5b093a7ad573, 37 entries -->
+<!-- api-fingerprint: 77ae1213ed08, 38 entries -->
+
+- **Added** Pomegranates and pomegranate jam, and jack-o'-lanterns carved from a pumpkin
+  The shop sells `pomegranate_seed` all year for 4 coins. A pomegranate takes 4 days and gives 3 and a seed back, and `pomegranate_jam` is 3 pomegranates, a bag of sugar, and a jar at a kitchen, like every fruit's jam. The town doesn't buy either.
+  At a workbench, `jack_o_lantern` is carved from 1 pumpkin. It's furniture: it stacks, places like decor, and its face glows after dark. `GET /v1/catalog` lists them all.
+  Try: `POST /v1/actions {"type": "craft", "recipe": "jack_o_lantern", "x": <workbench x>, "y": <y>}`
 
 - **Added** `GET /v1/catalog`: every kind of thing, its family, how it grows, and what it makes
   Every kind you can hold in one family (`food` › `fruit`, `decor` › `furniture`), with what grows it and how many days it takes, its shop price and seasons, its recipe, and the recipes that use it up. `familyRecipes` lists recipes that take any one kind from a family, like jam from any fruit.

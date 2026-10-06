@@ -340,8 +340,11 @@ function tendGarden(rules: Rules, id: string, habits: Habits, planters: Map<stri
   }
   // Grow: buy seeds for a new planter while short of the plan and the purse allows.
   if (SHOP_OPEN && mine.size >= 10 && mine.size < habits.planters && taste.chance(0.5)) {
-    // Only seeds the shop sells today: pumpkin seeds are autumn's.
-    const crop = taste.pick(CROPS.filter((c) => onSale(CROP_INFO[c].seed, day))) as Crop;
+    // Only seeds the shop sells today (pumpkin seeds are autumn's), for crops the town buys: these
+    // gardeners grow to sell.
+    const crop = taste.pick(
+      CROPS.filter((c) => Object.hasOwn(BUY_ORDERS, c) && onSale(CROP_INFO[c].seed, day)),
+    ) as Crop;
     const seed = CROP_INFO[crop].seed;
     if (coinsOf(state, id) >= SHOP_CATALOG[seed].price * 2 + 20) buy(rules, id, seed, 2);
   }

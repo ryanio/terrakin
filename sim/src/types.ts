@@ -485,11 +485,13 @@ export interface GameTable {
    */
   sealed: Record<ResidentId, number>;
   /**
-   * 128 random bits from the server, as 32 hex characters, logged with `open_table`. It's part of
-   * the hashed world, so a guess at the sealed choices can't be checked against `/v1/health`, and
-   * nothing shows it until the game is over.
+   * 128 random bits from the server, as 32 hex characters, logged as `open_table`'s `salt`. It's
+   * part of the hashed world, so a guess at the sealed choices can't be checked against
+   * `/v1/health`, and nothing shows it until the game is over. Its key sorts after `sealed` on
+   * purpose: FNV-1a can be run backwards over bytes anyone knows, so the secret has to sit between
+   * the choices and everything hashed after them.
    */
-  salt: string;
+  secret: string;
   /** Places on the track (Hearth race) or points (Lowest lantern), by resident. Set at the start. */
   board: Record<ResidentId, number>;
   /** Every closed round's choices in order, by resident: `null` where the seat played the default. */

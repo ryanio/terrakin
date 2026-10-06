@@ -10,7 +10,7 @@ import {
   roundBoards,
   tableById,
 } from "./games";
-import { hashWorld } from "./hash";
+import { canonicalJson, hashWorld } from "./hash";
 import { replay } from "./replay";
 import {
   type Command,
@@ -349,6 +349,17 @@ describe("sealed rounds", () => {
       ["ada", 1],
     ]);
     expect(last).toEqual(first);
+  });
+
+  it("hash with the table's secret after the choices, so the hash can't give one away", () => {
+    // FNV-1a steps can be undone. With the secret before the choices, anyone could run the hash
+    // back over the bytes they know and try each move against the hash after a decide.
+    const w = games();
+    const { id } = w.table("hearth_race", ["ada", "bob"]);
+    w.ok("ada", { type: "decide", table: id, round: 1, move: 3 });
+    const json = canonicalJson(activeTable(w.state, id));
+    expect(json).toContain('"sealed":{"ada":3}');
+    expect(json.indexOf(`"secret":"${SALT}"`)).toBeGreaterThan(json.indexOf('"sealed":'));
   });
 
   it("close only from the server, and only the round being played", () => {

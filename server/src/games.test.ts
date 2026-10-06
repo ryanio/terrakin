@@ -122,7 +122,7 @@ describe("a table", () => {
       ok: true,
       events: [{ type: "table_opened", table: "g_1", at: t.now() }, { type: "seated" }, {}],
     });
-    const salt = t.service.state.games?.tables.g_1?.salt;
+    const salt = t.service.state.games?.tables.g_1?.secret;
     expect(salt).toMatch(SALT_PATTERN);
     expect(salt).not.toBe(zeros);
     // Nobody sits across a block.
@@ -418,7 +418,7 @@ describe("a sealed choice", () => {
       resident: one.ada.id,
     });
     // Nor does anything anyone was sent carry the salt that keeps the hash from giving it away.
-    const salt = one.t.service.state.games?.tables.g_1?.salt ?? "";
+    const salt = one.t.service.state.games?.tables.g_1?.secret ?? "";
     expect(salt).toMatch(SALT_PATTERN);
     expect(JSON.stringify([one.reads, one.answers])).not.toContain(salt);
 

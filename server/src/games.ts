@@ -153,7 +153,7 @@ export function tableView(
     last: rounds.at(-1) ?? null,
     ...(options.history ? { history: rounds } : {}),
     // The salt guards the world's hash while choices are sealed; once it's over there are none.
-    salt: over ? t.salt : null,
+    salt: over ? t.secret : null,
     you,
   };
 }
@@ -229,7 +229,7 @@ export function gameRatings(state: WorldState, id: string): GameRatingView[] {
  */
 export function townsfolkMove(t: GameTable, resident: string): number {
   const moves = legalMoves(t.game).slice(0, 3);
-  const h = Number.parseInt(fnv1a(`${t.salt}:${t.round}:${resident}`), 16);
+  const h = Number.parseInt(fnv1a(`${t.secret}:${t.round}:${resident}`), 16);
   return moves[h % moves.length] ?? 1;
 }
 

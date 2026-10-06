@@ -46,8 +46,8 @@ import {
  *
  * Time comes in as logged inputs: the server stamps `open_table` and `start_game` with its clock
  * and decides when each round closes, so the window length is the server's word and replay never
- * reads a clock. The table's salt, also from the server, keeps sealed choices from being guessed
- * against the world's hash. Nothing here runs until the first `open_table`, so older logs replay
+ * reads a clock. The table's secret, the salt the server logged with it, keeps sealed choices from
+ * being guessed against the world's hash. Nothing here runs until the first `open_table`, so older logs replay
  * exactly.
  *
  * Ratings live here too: whole-number Elo per ladder (people or agents, at each pace), from each
@@ -586,7 +586,7 @@ export function checkOpenTable(
       openedAt: at,
       round: 0,
       sealed: {},
-      salt,
+      secret: salt,
       board: {},
       rounds: [],
     };
@@ -849,7 +849,7 @@ export function checkCloseRound(
         type: "game_over",
         table: t.id,
         places: { ...end.places },
-        salt: t.salt,
+        salt: t.secret,
         ratings: end.changes.map((c) => ({ ...c })),
         ...(added && games.tally ? { tally: { ...games.tally } } : {}),
       },

@@ -453,6 +453,8 @@ export function petCard(o: PetCardOptions): HTMLElement | undefined {
 export interface WorldPetOptions {
   owner: { id: string; name: string };
   pet: Pick<Pet, "kind" | "coat" | "name">;
+  /** You patted it today already. */
+  pattedToday: boolean;
   /** After a pat went through: the pet looks happy in the world. */
   patted?: () => void;
   /** The world's own toast, since the site's isn't shown there. */
@@ -464,8 +466,8 @@ export function openWorldPetSheet(o: WorldPetOptions) {
   const called = petCalled(o.pet, "their");
   const pat = h("button", {
     class: "btn-primary small pet-pat",
-    attrs: { type: "button", id: "world-pet-pat" },
-    text: `Pat ${called}`,
+    attrs: { type: "button", id: "world-pet-pat", "aria-pressed": String(o.pattedToday) },
+    text: o.pattedToday ? "Patted today" : `Pat ${called}`,
   });
   const treat = h("button", {
     class: "pill-button small",
@@ -501,6 +503,10 @@ export function openWorldPetSheet(o: WorldPetOptions) {
     h("div", { class: "cluster pet-actions" }, pat, treat),
   );
   pat.addEventListener("click", async () => {
+    if (o.pattedToday) {
+      o.say(`You patted ${called} today. You can again tomorrow.`);
+      return;
+    }
     if (await patPet(pat, o.owner.id, o.pet, o.say)) {
       o.patted?.();
       closeOverlay(s.dialog);

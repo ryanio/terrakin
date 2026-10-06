@@ -77,6 +77,47 @@ export function aThing(kind: ItemKind): string {
 /** The produce a treat can be, in the order the garden lists it. */
 export const TREATS: readonly Crop[] = CROPS;
 
+// ---------- pats ----------
+
+/**
+ * The pets you've patted today, by the world's day (pats count by the UTC day, as the world's day
+ * does): one patted on this page, or one the server says you patted from a profile or before a
+ * reload. `ask` reads that from the server once a day for each pet, and `changed` repaints when it
+ * says yes, so the world's Pat button never offers a pat the server would refuse.
+ */
+export class PatsToday {
+  private readonly done = new Set<string>();
+  private readonly asked = new Set<string>();
+
+  constructor(
+    private readonly ask: (owner: string) => Promise<boolean>,
+    private readonly changed: () => void,
+  ) {}
+
+  /** Whether you patted `owner`'s pet on `day`, asking the server the first time. */
+  has(owner: string, day: number | undefined): boolean {
+    const key = `${day ?? ""}:${owner}`;
+    if (this.done.has(key)) return true;
+    if (!this.asked.has(key)) {
+      this.asked.add(key);
+      this.ask(owner).then(
+        (yes) => {
+          if (!yes) return;
+          this.done.add(key);
+          this.changed();
+        },
+        () => {},
+      );
+    }
+    return false;
+  }
+
+  /** You patted `owner`'s pet on `day`. */
+  add(owner: string, day: number | undefined) {
+    this.done.add(`${day ?? ""}:${owner}`);
+  }
+}
+
 // ---------- where it is ----------
 
 /** How fast a pet walks, in tiles a second: keeping up with its owner, or pottering about. */

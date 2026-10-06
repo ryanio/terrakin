@@ -50,7 +50,7 @@ import { Mirror } from "./mirror";
 import { Motion } from "./motion";
 import { Connection, type Identity, savedToken, saveToken } from "./net";
 import { openWorldPetSheet, patPet } from "./pet-sheet";
-import { PetMotion, petCalled } from "./pets";
+import { PatsToday, PetMotion, petCalled } from "./pets";
 import { blockColor, HEARTH_COLOR, render } from "./render";
 import { dozerAt } from "./scene3d/layout";
 import type { World3d } from "./scene3d/world";
@@ -103,9 +103,14 @@ const PAT_NEAR = 1.6;
 /** Whose pet the Pat button is for now, and when it last looked. */
 let petNear: string | undefined;
 let petCheckAt = 0;
-/** Pets you patted from here, by world day and owner: the server takes one pat a day. */
-const pattedHere = new Set<string>();
-const patKey = (owner: string) => `${mirror?.day ?? ""}:${owner}`;
+/** The pets you've patted today, from here or anywhere else: the server takes one pat a day. */
+const patsToday = new PatsToday(
+  async (owner) => {
+    const r = await api.profile(owner);
+    return r.ok && r.data.resident.pet?.pattedToday === true;
+  },
+  () => paintPetButton(performance.now()),
+);
 
 let active = false;
 let rafId = 0;
@@ -682,7 +687,11 @@ function tapTile(tile: { x: number; y: number }) {
     openWorldPetSheet({
       owner: { id: owned.id, name: owned.name },
       pet: owned.pet,
-      patted: () => pets.pat(owned.id, performance.now()),
+      pattedToday: patsToday.has(owned.id, mirror.day),
+      patted: () => {
+        patsToday.add(owned.id, mirror?.day);
+        pets.pat(owned.id, performance.now());
+      },
       say: (text) => showToast(text),
     });
     return;
@@ -1159,7 +1168,7 @@ function paintPetButton(now: number) {
   petNear = pet ? owner : undefined;
   petButton.hidden = !pet;
   if (!owner || !pet) return;
-  const done = pattedHere.has(patKey(owner));
+  const done = patsToday.has(owner, mirror?.day);
   const label = `${done ? "Patted" : "Pat"} ${petCalled(pet, "their")}`;
   const text = petButton.querySelector("span");
   if (text && text.textContent !== label) text.textContent = label;
@@ -1170,12 +1179,12 @@ petButton.addEventListener("click", async () => {
   const owner = petNear;
   const pet = owner ? mirror?.residents.get(owner)?.pet : undefined;
   if (!owner || !pet) return;
-  if (pattedHere.has(patKey(owner))) {
+  if (patsToday.has(owner, mirror?.day)) {
     showToast(`You patted ${petCalled(pet, "their")} today. You can again tomorrow.`);
     return;
   }
   if (await patPet(petButton, owner, pet, (text) => showToast(text))) {
-    pattedHere.add(patKey(owner));
+    patsToday.add(owner, mirror?.day);
     pets.pat(owner, performance.now());
     paintPetButton(performance.now());
   }

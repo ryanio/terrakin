@@ -8,6 +8,7 @@ import {
   HAPPY_MS,
   homePlan,
   lyingOn,
+  PatsToday,
   PetMotion,
   type PetScene,
   petCalled,
@@ -225,6 +226,33 @@ describe("a tap on a pet", () => {
     expect(m.tapped(HEARTH, undefined, { hearthAt: () => false })).toBeUndefined();
     // Your own pet sits at your heel, on the tiles you tap to walk.
     expect(m.tapped(bed, owner().id, world)).toBeUndefined();
+  });
+});
+
+describe("pats today", () => {
+  it("asks the server once a day for each pet, and remembers its yes or a pat from here", async () => {
+    const asked: string[] = [];
+    let repaints = 0;
+    const pats = new PatsToday(
+      async (owner) => {
+        asked.push(owner);
+        return owner === "r_tam";
+      },
+      () => repaints++,
+    );
+    // Patted from Tam's profile earlier: unknown until the server answers.
+    expect(pats.has("r_tam", 5)).toBe(false);
+    expect(pats.has("r_tam", 5)).toBe(false);
+    await new Promise((done) => setTimeout(done, 0));
+    expect(pats.has("r_tam", 5)).toBe(true);
+    expect(repaints).toBe(1);
+    // Not patted yet, until a pat from here.
+    expect(pats.has("r_ivy", 5)).toBe(false);
+    pats.add("r_ivy", 5);
+    expect(pats.has("r_ivy", 5)).toBe(true);
+    // A new day asks again.
+    expect(pats.has("r_tam", 6)).toBe(false);
+    expect(asked).toEqual(["r_tam", "r_ivy", "r_tam"]);
   });
 });
 

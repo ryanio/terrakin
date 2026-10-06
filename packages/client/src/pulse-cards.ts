@@ -24,8 +24,8 @@ import { plotThumb } from "./plot-thumb";
 import { type PulseStats, phaseName, type WallItem } from "./pulse";
 import { dayPhase, nightAmount } from "./time";
 import { closesIn, tallyBar } from "./town-format";
-import { visitButton } from "./visit-view";
-import { plotName, stripPlots, weekLine } from "./visits";
+import { visitTap } from "./visit-view";
+import { plotName, stripPlots } from "./visits";
 
 type Resident = WorldSnapshot["residents"][number];
 type CardFn = (post: PostView, variant?: "compact") => HTMLElement;
@@ -498,9 +498,9 @@ export function townsfolkCard(item: Extract<WallItem, { kind: "townsfolk" }>, ca
 // ---------- plots to visit (RFC 0020) ----------
 
 /**
- * "Plots to visit": a few neighbors' plots worth a look, each drawn from above with a Visit button,
- * and a way to every plot. It stays hidden until `stripPlots` finds enough to show, so a quiet town
- * shows nothing here.
+ * "Plots to visit": a few neighbors' plots worth a look, each drawn from above with its name, a tap
+ * on either visiting it, and a way to every plot. It stays hidden until `stripPlots` finds enough
+ * to show, so a quiet town shows nothing here.
  */
 export function plotsCard(o: { me: string | null; navigate: (path: string) => void }) {
   const list = h("ul", { class: "plain-list plots-strip" });
@@ -526,7 +526,7 @@ export function plotsCard(o: { me: string | null; navigate: (path: string) => vo
       // Repaint only when what's shown changed, so a poll doesn't redraw the same drawings.
       const key = JSON.stringify([
         world?.seq ?? null,
-        picks.map((p) => [p.px, p.py, p.owner.name, p.admirers, p.visitors]),
+        picks.map((p) => [p.px, p.py, p.owner.name, ...p.coOwners.map((c) => c.name)]),
       ]);
       if (key === painted) return;
       painted = key;
@@ -536,10 +536,15 @@ export function plotsCard(o: { me: string | null; navigate: (path: string) => vo
           return h(
             "li",
             { class: "plots-strip-item", attrs: { "data-plot": `${p.px},${p.py}` } },
-            world ? plotThumb(world, p, `${name}, from above`, 112) : null,
-            h("span", { class: "plots-strip-name", text: name }),
-            h("span", { class: "plots-strip-week", text: weekLine(p) }),
-            visitButton(p, o.me, o.navigate),
+            visitTap(
+              p,
+              name,
+              o.me,
+              o.navigate,
+              "plots-strip-visit",
+              world ? plotThumb(world, p, `${name}, from above`, 112) : null,
+              h("span", { class: "plots-strip-name", text: name }),
+            ),
           );
         }),
       );

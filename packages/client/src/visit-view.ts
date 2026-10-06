@@ -79,6 +79,35 @@ export function visitButton(
   return button;
 }
 
+/**
+ * A plot's picture and name as one tap that visits it, as Visit does, or a link into the world for
+ * someone who hasn't joined. For other people's plots: the home wall's strip never shows your own.
+ */
+export function visitTap(
+  plot: Pick<PlotView, "px" | "py">,
+  name: string,
+  me: string | null,
+  navigate: (path: string) => void,
+  className: string,
+  ...children: (Node | null)[]
+): HTMLElement {
+  const label = `Visit ${name}`;
+  if (me === null) {
+    return h(
+      "a",
+      { class: className, attrs: { href: "/world", "aria-label": label } },
+      ...children,
+    );
+  }
+  const button = h(
+    "button",
+    { class: className, attrs: { type: "button", "aria-label": label } },
+    ...children,
+  );
+  button.addEventListener("click", () => void visit(button, plot, navigate));
+  return button;
+}
+
 /** "Changed 2h", from when something on the plot last changed. Null when that's unknown. */
 function changedLine(plot: PlotView): HTMLElement | null {
   if (!plot.changedAt) return null;

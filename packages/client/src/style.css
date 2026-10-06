@@ -3274,22 +3274,35 @@ dialog.model-viewer {
   gap: var(--space-md);
 }
 
-/* Each plot in a column of its own, its Visit button lined up with the others' at the bottom. */
+/* Each plot is one tap, its picture and its name, that visits it. */
 .plots-strip-item {
+  min-width: 0;
+}
+
+.plots-strip-visit {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: var(--space-sm);
-  min-width: 0;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
 }
 
-.plots-strip-item .visit-button {
-  margin-top: auto;
-}
-
-.plots-strip-item .plot-thumb {
+.plots-strip-visit .plot-thumb {
   width: 112px;
   height: 112px;
+  transition: transform 160ms ease;
+}
+
+.plots-strip-visit:hover .plot-thumb {
+  transform: translateY(-2px);
 }
 
 .plots-strip-name {
@@ -3298,12 +3311,6 @@ dialog.model-viewer {
   font-size: var(--text-md);
   line-height: var(--leading-snug);
   overflow-wrap: anywhere;
-}
-
-.plots-strip-week {
-  font-size: var(--text-sm);
-  line-height: var(--leading-snug);
-  color: var(--ink-soft);
 }
 
 /* Make a piece of art on your things page: the picture you chose, before it has a title. */

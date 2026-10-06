@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { apply } from "./apply";
-import { eventHeld, findEvent } from "./events";
+import { eventHeld, findEvent, joinTile } from "./events";
 import { EVENTS_CONFIG, EVENTS_HASH, EVENTS_LOG } from "./fixtures/events-log";
 import { hashWorld } from "./hash";
 import { replay } from "./replay";
 import { expectSupplyHolds } from "./test-support";
 import { type Command, TOWN_ACTOR, type WorldConfig, type WorldState } from "./types";
+import { visitTile } from "./visit";
 import { createWorld } from "./world";
 
 // 3x3 plots of 8 tiles. The Commons is plot (1, 1), tiles 8 to 15; the Town Hall stands on x 11
@@ -498,6 +499,44 @@ describe("join_event", () => {
     ]);
     expect(back).toHaveLength(1);
     expect(state.residents.bob).toMatchObject({ online: true, x: there?.x, y: there?.y });
+  });
+});
+
+describe("where join_event lands a guest", () => {
+  it("is the logged tile, checked against the world, and the planner picks the plot's edge", () => {
+    const state = world();
+    ok(act(state, "ada", schedule()));
+    ok(town(state, { type: "event_start", event: "e_1" }));
+    const e = findEvent(state, "e_1");
+    if (!e) throw new Error("no event");
+    // Ada's hut fills (1, 1) to (5, 5) around her hearth at (3, 3), its door at (3, 5): a guest
+    // lands where a visitor would, at the plot's edge in front of the door, never inside.
+    const tile = joinTile(state, "bob", e);
+    expect(tile).toEqual(visitTile(state, "bob", 0, 0));
+    expect(tile).toEqual({ x: 3, y: 7 });
+    const join = (who: string, x: number, y: number) =>
+      act(state, who, { type: "join_event", event: "e_1", x, y });
+    expect(code(join("bob", 20, 20))).toBe("out_of_bounds");
+    expect(code(join("bob", 1.5, 7))).toBe("out_of_bounds");
+    expect(code(join("bob", 1, 1))).toBe("blocked");
+    expect(code(join("bob", 3, 3))).toBe("tile_occupied");
+    expect(code(join("bob", 3, 2))).toBe("tile_occupied");
+    expect(ok(join("bob", 3, 7))).toEqual([{ type: "moved", residentId: "bob", x: 3, y: 7 }]);
+    expect(code(join("cy", 3, 7))).toBe("tile_occupied");
+  });
+
+  it("in the Commons, which has no door, is the free tile nearest the middle of the square", () => {
+    const state = world();
+    ok(act(state, "bob", schedule(COMMONS)));
+    ok(town(state, { type: "event_start", event: "e_1" }));
+    const e = findEvent(state, "e_1");
+    if (!e) throw new Error("no event");
+    const tile = joinTile(state, "cy", e);
+    expect(tile).toEqual({ x: 11, y: 11 });
+    // An input without a tile, as older logs have, lands by the same rule.
+    expect(ok(act(state, "cy", { type: "join_event", event: "e_1" }))).toEqual([
+      { type: "moved", residentId: "cy", ...tile },
+    ]);
   });
 });
 

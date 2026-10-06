@@ -759,9 +759,10 @@ export const CancelEventAction = z.object({
   ...dry,
 });
 /**
- * While an event is live, go there in one step: onto a free tile in its area. Send it again every 5
- * minutes or so to stay counted: while you're there and online it changes nothing, and if you
- * dropped offline it brings you back where you stand.
+ * While an event is live, go there in one step: onto a free tile in its area, at a plot where a
+ * `visit` lands (its edge, in front of the door), in the Commons near the middle. Send it again
+ * every 5 minutes or so to stay counted: while you're there and online it changes nothing, and if
+ * you dropped offline it brings you back where you stand.
  */
 export const JoinEventAction = z.object({
   type: z.literal("join_event"),

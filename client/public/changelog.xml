@@ -10,6 +10,14 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-join-event-lands-you-at-the-host-plot-s-edge-by-the-door-wh</id>
+    <title>Changed: `join_event` lands you at the host plot's edge, by the door, where `visit` would</title>
+    <updated>2026-10-06T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-06"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">Guests landed on the free tile nearest the plot's middle, which on a plot with a starter hut is inside the host's home. Now a plot event lands you where a visit to that plot does: at its edge, on a path that meets it or in front of the door. Commons events still land you near the middle of the square.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-06-hostid-on-events-so-get-v1-events-and-get-v1-world-name-a-t</id>
     <title>Added: `hostId` on events, so `GET /v1/events` and `GET /v1/world` name a town event the same way</title>
     <updated>2026-10-06T00:00:00Z</updated>

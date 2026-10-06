@@ -16,6 +16,7 @@ import type {
   WorldState,
 } from "./types";
 import { EVENT_KINDS, TOWN_ACTOR } from "./types";
+import { visitTile } from "./visit";
 import { worldGround } from "./walk";
 import { canBuildOn, chebyshev, commonsPlot, isCommons, plotCenter, plotInBounds } from "./world";
 
@@ -460,20 +461,28 @@ export function checkCancelEvent(
   return () => callOff(state, e, refund);
 }
 
-/**
- * Where `join_event` puts a resident: the free tile nearest the plot's middle, inside the area, by
- * distance, then north to south, then west to east. Free means nothing stands there (a block, the
- * Town Hall, the shop), no other online resident does, and it isn't a hearth.
- */
-function landingFor(state: WorldState, e: HostedEvent, actor: ResidentId): Tile | undefined {
-  const area = eventArea(state.config, e.px, e.py);
-  const middle = plotCenter(state.config, e.px, e.py);
-  const ground = worldGround(state);
+/** Tiles nobody may land on: hearths, and where another online resident stands. */
+function takenTiles(state: WorldState, actor: ResidentId): Set<string> {
   const taken = new Set<string>();
   for (const r of Object.values(state.residents)) {
     if (r.online && r.id !== actor) taken.add(tileKey(r.x, r.y));
     if (r.hearth) taken.add(tileKey(r.hearth.x, r.hearth.y));
   }
+  return taken;
+}
+
+/**
+ * Where `join_event` put a resident before inputs carried their tile, and still does when one
+ * comes without it: the free tile nearest the plot's middle, inside the area, by distance, then
+ * north to south, then west to east. Free means nothing stands there (a block, the Town Hall, the
+ * shop), no other online resident does, and it isn't a hearth. On a plot with a starter hut, that's
+ * inside the hut, by the hearth.
+ */
+function landingFor(state: WorldState, e: HostedEvent, actor: ResidentId): Tile | undefined {
+  const area = eventArea(state.config, e.px, e.py);
+  const middle = plotCenter(state.config, e.px, e.py);
+  const ground = worldGround(state);
+  const taken = takenTiles(state, actor);
   const tiles: Tile[] = [];
   for (let y = area.y0; y <= area.y1; y++) {
     for (let x = area.x0; x <= area.x1; x++) tiles.push({ x, y });
@@ -483,9 +492,21 @@ function landingFor(state: WorldState, e: HostedEvent, actor: ResidentId): Tile 
 }
 
 /**
- * `join_event {event}`: while it's live, go there in one step, onto a free tile in its area. A
- * resident already there is refused (`already_joined`), unless this input brings them back online
- * (`rejoining`): then they stay where they stand.
+ * Where the server lands a guest at `e`, to log with their `join_event`: on a plot someone lives
+ * on, where `visit` lands a visitor (`visitTile`: the plot's edge, by a path or in front of the
+ * door), never inside the host's hut; in the Commons, which has no door, the free tile nearest the
+ * middle of the square. Replay never runs it: the sim checks the logged tile.
+ */
+export function joinTile(state: WorldState, actor: ResidentId, e: HostedEvent): Tile | undefined {
+  const onPlot = state.plots[plotKey(e.px, e.py)] ? visitTile(state, actor, e.px, e.py) : undefined;
+  return onPlot ?? landingFor(state, e, actor);
+}
+
+/**
+ * `join_event {event, x?, y?}`: while it's live, go there in one step, onto a free tile in its area:
+ * the logged one (`joinTile`'s), or in older logs the one `landingFor` picks. A resident already
+ * there is refused (`already_joined`), unless this input brings them back online (`rejoining`):
+ * then they stay where they stand.
  */
 export function checkJoinEvent(
   state: WorldState,
@@ -510,7 +531,20 @@ export function checkJoinEvent(
       `You're already at ${e.id}. Stay online to be counted: keep your socket open, or call again every few minutes.`,
     );
   }
-  const to = landingFor(state, e, actor);
+  const { x, y } = command;
+  let to: Tile | undefined;
+  if (x === undefined && y === undefined) {
+    to = landingFor(state, e, actor);
+  } else {
+    if (!isWhole(x) || !isWhole(y) || !inEventArea(state.config, e, x, y)) {
+      return refuse("out_of_bounds", `That tile isn't at ${e.id}.`);
+    }
+    if (worldGround(state).obstacle(x, y)) return refuse("blocked", "Something is in the way.");
+    if (takenTiles(state, actor).has(tileKey(x, y))) {
+      return refuse("tile_occupied", "Someone is standing there, or it's someone's hearth.");
+    }
+    to = { x, y };
+  }
   if (!to) return refuse("nowhere_to_go", `There's no free spot at ${e.id} right now.`);
   return () => {
     me.x = to.x;

@@ -108,6 +108,7 @@ What we chose and why. Newest last.
 - [A Town Hall build lays paths and places decor and furniture in the Commons, free, in world tiles, 40 changes in all](decisions/0101-a-town-hall-build-lays-paths-and-places-decor-and-furniture-.md) · 2026-10-06 · accepted · `sim` `protocol` `client` `town` `replay`
 - [Icons come from Lucide through one map in ui](decisions/0102-icons-come-from-lucide-through-one-map-in-ui.md) · 2026-10-06 · accepted · `client` `ui` `design`
 - [Parse failures answer in plain words with a field's choices, and did_you_mean names a value too](decisions/0102-parse-failures-answer-in-plain-words-with-a-field-s-choices-.md) · 2026-10-06 · accepted · `protocol` `server` `agents`
+- [join_event lands a guest where visit lands a visitor, logged with the tile](decisions/0103-join-event-lands-a-guest-where-visit-lands-a-visitor-logged-.md) · 2026-10-06 · accepted · `sim` `server` `events` `replay`
 
 ## Learnings
 

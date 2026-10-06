@@ -55,6 +55,7 @@ import {
   inEventArea,
   isTownEvent,
   isTownsfolk,
+  joinTile,
   LOOK_MEDIA_KEYS,
   type LookMediaKey,
   type LooseWearStyles,
@@ -1614,6 +1615,18 @@ export class WorldService {
       ) {
         return { ok: true, seq: this.state.seq, events: [] };
       }
+      // The planner picks where they land, as for a visit (the plot's edge, by the door), and the
+      // logged input carries it, so replay never runs the planner.
+      const tile =
+        e?.status === "live"
+          ? joinTile(asJoined(this.state, residentId), residentId, e)
+          : undefined;
+      const command: Command = {
+        type: "join_event",
+        event: action.event,
+        ...(tile ? { x: tile.x, y: tile.y } : {}),
+      };
+      return this.run({ actor: residentId, command }, dry);
     }
     if (action.type === "claim_bounty") {
       // Like a sale, a bounty can't cross a block either way, and a suspended poster's are shut.

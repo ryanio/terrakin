@@ -236,6 +236,22 @@ describe("an event on the server's clock", () => {
     expect(await profile(await start({ store, sql, at: noon + 3 * HOUR }))).toEqual(hosting);
   });
 
+  it("lands a guest where a visit would, at the edge of the host's plot by the door, and logs the tile", async () => {
+    const t = await start();
+    const { ada, bob } = await hosts(t);
+    expect(await t.act(ada.token, listening(t, todayAt(t, 12)))).toMatchObject({ ok: true });
+    t.later(todayAt(t, 12) - t.now());
+    // Bob dropped off while the clock moved on, so he comes back online with the join.
+    const joined = await t.act(bob.token, { type: "join_event", event: "e_1" });
+    expect(joined.events.at(-1)).toEqual({ type: "moved", residentId: bob.id, x: 3, y: 7 });
+    // Ada's hut fills (1, 1) to (5, 5) with its door at (3, 5): Bob is outside it, in front of
+    // the door, and the input carries the tile the planner picked.
+    expect(t.store.log.at(-1)).toEqual({
+      actor: bob.id,
+      command: { type: "join_event", event: "e_1", x: 3, y: 7 },
+    });
+  });
+
   it("answers join_event from a guest there without logging, and brings back one who dropped off", async () => {
     const t = await start();
     const { ada, bob } = await hosts(t);

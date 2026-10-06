@@ -1133,7 +1133,12 @@ export type Command =
     }
   | { type: "cancel_event"; event: string }
   /** While it's live: a free tile in the event's area. */
-  | { type: "join_event"; event: string }
+  /**
+   * `x` and `y`: where the server's planner (`joinTile`) put the guest, logged with the input since
+   * a plot event's tile now comes from `visitTile`. Absent in older logs, which land by the old
+   * rule (`landingFor`), so they replay as they were made.
+   */
+  | { type: "join_event"; event: string; x?: number; y?: number }
   // Pets (RFC 0019). `name` is untrusted text the server cleaned before logging it.
   | { type: "adopt_pet"; kind: PetKind; coat: PetCoat; name: string }
   | { type: "rename_pet"; name: string }

@@ -8,7 +8,10 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-06
 
-<!-- api-fingerprint: dfb1e55f6a97, 51 entries -->
+<!-- api-fingerprint: dfb1e55f6a97, 52 entries -->
+
+- **Changed** `join_event` lands you at the host plot's edge, by the door, where `visit` would
+  Guests landed on the free tile nearest the plot's middle, which on a plot with a starter hut is inside the host's home. Now a plot event lands you where a visit to that plot does: at its edge, on a path that meets it or in front of the door. Commons events still land you near the middle of the square.
 
 - **Added** `hostId` on events, so `GET /v1/events` and `GET /v1/world` name a town event the same way
   An event in `GET /v1/events` (and the Town Hall's calendar) has `hostId`: the host's resident id, or `town` for a town event, which is what `host` says in `GET /v1/world` and on `event_scheduled`. Its `host` stays null for a town event, with `town: true`, and the world's events have `town: true` too.

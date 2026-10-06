@@ -104,6 +104,7 @@ export {
   inCommons,
   inEventArea,
   isTownEvent,
+  joinTile,
   lastSlot,
 } from "./events";
 export {

@@ -8,6 +8,38 @@
  * The shapes follow `client/src/render.ts`, so a photo looks like the plot does in the world.
  */
 
+/**
+ * One shape of a path or floor, in tile units from the tile's top left, as the sim's palette gives
+ * it (`GROUND_LOOK`). Colors are checked by `safeColor`; numbers are kept to the tile.
+ */
+export type PlotMark =
+  | { shape: "rect"; x: number; y: number; w: number; h: number; r: number; fill: string }
+  | { shape: "circle"; cx: number; cy: number; r: number; fill: string }
+  | {
+      shape: "ellipse";
+      cx: number;
+      cy: number;
+      rx: number;
+      ry: number;
+      turn: number;
+      fill: string;
+    }
+  | {
+      shape: "line";
+      x1: number;
+      y1: number;
+      x2: number;
+      y2: number;
+      width: number;
+      stroke: string;
+    };
+
+/** A path or floor on a tile (RFC 0016): its color, if it covers the tile, and its shapes. */
+export interface PlotPaving {
+  fill?: string | undefined;
+  marks: readonly PlotMark[];
+}
+
 /** One tile of ground: its tone, and the tuft, flower, or fallen leaf on it. */
 export interface PlotGround {
   fill: string;
@@ -17,11 +49,28 @@ export interface PlotGround {
   flower?: { fx: number; fy: number; fill: string } | undefined;
   /** An autumn leaf: where it lies in the tile, its turn in radians from east, and its color. */
   leaf?: { fx: number; fy: number; turn: number; fill: string } | undefined;
+  /** A path or floor laid on the tile. Nothing grows through it. */
+  paving?: PlotPaving | undefined;
 }
 
 /** Decor from the town shop, drawn as itself rather than a square. Same names as the sim's. */
 export const PLOT_DECOR = ["lantern", "frame", "fence", "bench", "hay_bale", "scarecrow"] as const;
 export type PlotDecor = (typeof PLOT_DECOR)[number];
+
+/** Furniture from the workbench (RFC 0016), drawn as itself. Same names as the sim's. */
+export const PLOT_FURNITURE = [
+  "table",
+  "chair",
+  "bookshelf",
+  "barrel",
+  "signpost",
+  "lamp_post",
+  "well",
+  "stone_wall",
+  "campfire",
+  "flower_box",
+] as const;
+export type PlotFurniture = (typeof PLOT_FURNITURE)[number];
 
 export interface PlotBlock {
   /** Tiles from the plot's top left corner. */
@@ -31,6 +80,8 @@ export interface PlotBlock {
   fill: string;
   /** Set for decor from the town shop; `fill` is then its main color. */
   decor?: PlotDecor | undefined;
+  /** Set for a piece of furniture; `fill` is then its main color. */
+  furniture?: PlotFurniture | undefined;
 }
 
 /** The colors the drawing needs beyond the ground and blocks, from the sim's palette. */
@@ -87,6 +138,10 @@ export function plotSvg(c: PlotCard, px: number): string {
       parts.push(
         `<rect x="${x}" y="${y}" width="1.02" height="1.02" fill="${safeColor(g.fill)}"/>`,
       );
+      if (g.paving) {
+        parts.push(...pavingSvg(g.paving, x, y));
+        continue;
+      }
       if (g.tuft !== undefined && Number.isFinite(g.tuft)) {
         const bx = x + g.tuft;
         const by = y + 0.72;
@@ -113,8 +168,23 @@ export function plotSvg(c: PlotCard, px: number): string {
 
   // Blocks: a ground shadow, the block, a bottom shade, and a top highlight, as in the world.
   const fences = new Set(c.blocks.filter((b) => b.decor === "fence").map((b) => `${b.x},${b.y}`));
+  const walls = new Set(
+    c.blocks.filter((b) => b.furniture === "stone_wall").map((b) => `${b.x},${b.y}`),
+  );
   for (const b of c.blocks) {
     if (!inPlot(b.x, S) || !inPlot(b.y, S)) continue;
+    if (b.furniture && (PLOT_FURNITURE as readonly string[]).includes(b.furniture)) {
+      const at = (dx: number, dy: number) => walls.has(`${b.x + dx},${b.y + dy}`);
+      parts.push(
+        ...furnitureSvg(b.furniture, b.x, b.y, safeColor(b.fill), {
+          n: at(0, -1),
+          e: at(1, 0),
+          s: at(0, 1),
+          w: at(-1, 0),
+        }),
+      );
+      continue;
+    }
     if (b.decor && (PLOT_DECOR as readonly string[]).includes(b.decor)) {
       const at = (dx: number, dy: number) => fences.has(`${b.x + dx},${b.y + dy}`);
       parts.push(
@@ -274,6 +344,179 @@ function decorSvg(
     `<rect x="${X(0.11)}" y="${Y(0.33)}" width="0.78" height="0.12" rx="0.03" fill="${fill}" ${stroke}/>`,
     `<rect x="${X(0.06)}" y="${Y(0.52)}" width="0.88" height="0.14" rx="0.04" fill="${fill}" ${stroke}/>`,
   ];
+}
+
+/** A number kept to a tile's own small range, or 0. */
+const unit = (v: number, max = 1.5) =>
+  Number.isFinite(v) ? n(Math.max(-0.5, Math.min(max, v))) : 0;
+
+/** A path or floor's shapes on tile (x, y), from the sim's look: numbers and checked colors only. */
+function pavingSvg(p: PlotPaving, x: number, y: number): string[] {
+  const out: string[] = [];
+  if (p.fill) {
+    out.push(`<rect x="${x}" y="${y}" width="1.02" height="1.02" fill="${safeColor(p.fill)}"/>`);
+  }
+  for (const m of p.marks) {
+    if (m.shape === "rect") {
+      out.push(
+        `<rect x="${n(x + unit(m.x))}" y="${n(y + unit(m.y))}" width="${unit(m.w)}" height="${unit(m.h)}" rx="${unit(m.r)}" fill="${safeColor(m.fill)}"/>`,
+      );
+    } else if (m.shape === "circle") {
+      out.push(
+        `<circle cx="${n(x + unit(m.cx))}" cy="${n(y + unit(m.cy))}" r="${unit(m.r)}" fill="${safeColor(m.fill)}"/>`,
+      );
+    } else if (m.shape === "ellipse") {
+      // A leaf: a turned oval, as a path, so the hearth's shadow stays the photo's only ellipse.
+      const cx = n(x + unit(m.cx));
+      const cy = n(y + unit(m.cy));
+      const rx = unit(m.rx);
+      const ry = unit(m.ry);
+      const turn = Number.isFinite(m.turn) ? Math.round(m.turn) % 360 : 0;
+      out.push(
+        `<path d="M${n(cx - rx)} ${cy}a${rx} ${ry} 0 1 0 ${n(rx * 2)} 0a${rx} ${ry} 0 1 0 -${n(rx * 2)} 0z" transform="rotate(${turn} ${cx} ${cy})" fill="${safeColor(m.fill)}"/>`,
+      );
+    } else if (m.shape === "line") {
+      out.push(
+        `<path d="M${n(x + unit(m.x1))} ${n(y + unit(m.y1))}L${n(x + unit(m.x2))} ${n(y + unit(m.y2))}" stroke="${safeColor(m.stroke)}" stroke-width="${unit(m.width)}" stroke-linecap="round" fill="none"/>`,
+      );
+    }
+  }
+  return out;
+}
+
+const STONE_LO = "#8f887c";
+const STONE_HI = "#c4beb2";
+const FLOWERS = ["#e58fb6", "#f2b84b", "#fff4d6", "#a98bd8"];
+const BOOKS = ["#b4532f", "#7cb9dd", "#f2b84b", "#5e7f45", "#a98bd8"];
+
+/**
+ * One piece of furniture on tile (x, y), following its picture in the world: a table, a chair, a
+ * bookshelf, a barrel, a signpost, a lamp post, a well, a low stone wall that joins the walls
+ * beside it, a campfire, or a flower box. Only numbers and checked colors go in, and no ellipses.
+ */
+function furnitureSvg(
+  kind: PlotFurniture,
+  x: number,
+  y: number,
+  fill: string,
+  joins: { n: boolean; e: boolean; s: boolean; w: boolean },
+): string[] {
+  const X = (f: number) => n(x + f);
+  const Y = (f: number) => n(y + f);
+  const stroke = `stroke="${EDGE}" stroke-width="0.035" stroke-linejoin="round"`;
+  const shade = `<rect x="${X(0.14)}" y="${Y(0.86)}" width="0.72" height="0.1" rx="0.05" fill="rgba(74, 52, 28, 0.2)"/>`;
+  const rect = (
+    fx: number,
+    fy: number,
+    w: number,
+    h: number,
+    color: string,
+    r = 0.03,
+    edge = true,
+  ) =>
+    `<rect x="${X(fx)}" y="${Y(fy)}" width="${w}" height="${h}" rx="${r}" fill="${color}"${edge ? ` ${stroke}` : ""}/>`;
+  const dot = (fx: number, fy: number, r: number, color: string) =>
+    `<circle cx="${X(fx)}" cy="${Y(fy)}" r="${r}" fill="${color}"/>`;
+  switch (kind) {
+    case "table":
+      return [
+        shade,
+        rect(0.2, 0.5, 0.08, 0.38, WOOD_DARK, 0.02, false),
+        rect(0.72, 0.5, 0.08, 0.38, WOOD_DARK, 0.02, false),
+        rect(0.08, 0.32, 0.84, 0.2, fill, 0.05),
+      ];
+    case "chair":
+      return [
+        shade,
+        rect(0.27, 0.12, 0.08, 0.5, fill, 0.02),
+        rect(0.65, 0.12, 0.08, 0.5, fill, 0.02),
+        rect(0.27, 0.16, 0.46, 0.09, fill, 0.02),
+        rect(0.29, 0.66, 0.07, 0.24, WOOD_DARK, 0.02, false),
+        rect(0.64, 0.66, 0.07, 0.24, WOOD_DARK, 0.02, false),
+        rect(0.2, 0.56, 0.6, 0.12, fill, 0.03),
+      ];
+    case "bookshelf":
+      return [
+        shade,
+        rect(0.16, 0.06, 0.68, 0.84, fill, 0.04),
+        rect(0.22, 0.12, 0.56, 0.72, WOOD_DARK, 0.02, false),
+        ...[0.14, 0.4, 0.64].flatMap((fy, row) =>
+          [0, 1, 2, 3].map((i) =>
+            rect(
+              0.24 + i * 0.13,
+              fy,
+              0.1,
+              0.2,
+              BOOKS[(i + row) % BOOKS.length] as string,
+              0.01,
+              false,
+            ),
+          ),
+        ),
+      ];
+    case "barrel":
+      return [
+        shade,
+        rect(0.22, 0.14, 0.56, 0.74, fill, 0.18),
+        `<path d="M${X(0.21)} ${Y(0.32)}h0.58M${X(0.21)} ${Y(0.7)}h0.58" stroke="#5d5a55" stroke-width="0.05" fill="none"/>`,
+      ];
+    case "signpost":
+      return [
+        shade,
+        rect(0.46, 0.18, 0.08, 0.72, WOOD_DARK, 0.02, false),
+        `<path d="M${X(0.16)} ${Y(0.2)}h0.56l0.12 0.1-0.12 0.1h-0.56z" fill="${fill}" ${stroke}/>`,
+        `<path d="M${X(0.84)} ${Y(0.48)}h-0.56l-0.12 0.1 0.12 0.1h0.56z" fill="${fill}" ${stroke}/>`,
+      ];
+    case "lamp_post":
+      return [
+        shade,
+        dot(0.5, 0.24, 0.24, "rgba(242, 181, 68, 0.28)"),
+        rect(0.46, 0.3, 0.08, 0.6, fill, 0.02, false),
+        rect(0.38, 0.84, 0.24, 0.07, fill, 0.02, false),
+        rect(0.38, 0.14, 0.24, 0.2, "#f9d27a", 0.04),
+        `<path d="M${X(0.34)} ${Y(0.15)}L${X(0.5)} ${Y(0.04)}L${X(0.66)} ${Y(0.15)}z" fill="${fill}"/>`,
+      ];
+    case "well":
+      return [
+        shade,
+        rect(0.2, 0.22, 0.06, 0.46, WOOD_DARK, 0.02, false),
+        rect(0.74, 0.22, 0.06, 0.46, WOOD_DARK, 0.02, false),
+        `<path d="M${X(0.1)} ${Y(0.26)}L${X(0.5)} ${Y(0.04)}L${X(0.9)} ${Y(0.26)}z" fill="#b4532f" ${stroke}/>`,
+        rect(0.16, 0.56, 0.68, 0.34, fill, 0.08),
+        rect(0.16, 0.54, 0.68, 0.1, STONE_HI, 0.05),
+        rect(0.24, 0.56, 0.52, 0.06, "#3f5f6f", 0.03, false),
+      ];
+    case "stone_wall": {
+      const x0 = joins.w ? 0 : 0.2;
+      const x1 = joins.e ? 1 : 0.8;
+      return [
+        ...(joins.n ? [rect(0.2, 0, 0.6, 0.45, fill, 0, false)] : []),
+        ...(joins.s ? [rect(0.2, 0.85, 0.6, 0.15, fill, 0, false)] : []),
+        rect(x0, 0.42, n(x1 - x0), 0.48, fill, 0.04),
+        `<path d="M${X(x0)} ${Y(0.66)}H${X(x1)}" stroke="${STONE_LO}" stroke-width="0.03" fill="none"/>`,
+        rect(x0, 0.36, n(x1 - x0), 0.1, STONE_HI, 0.04, false),
+      ];
+    }
+    case "campfire":
+      return [
+        dot(0.5, 0.58, 0.32, "rgba(242, 181, 68, 0.22)"),
+        `<path d="M${X(0.22)} ${Y(0.8)}L${X(0.78)} ${Y(0.66)}M${X(0.26)} ${Y(0.66)}L${X(0.76)} ${Y(0.8)}" stroke="${WOOD_DARK}" stroke-width="0.09" stroke-linecap="round" fill="none"/>`,
+        `<path d="M${X(0.5)} ${Y(0.18)}C${X(0.66)} ${Y(0.36)} ${X(0.72)} ${Y(0.5)} ${X(0.66)} ${Y(0.64)}C${X(0.6)} ${Y(0.76)} ${X(0.4)} ${Y(0.76)} ${X(0.34)} ${Y(0.64)}C${X(0.28)} ${Y(0.5)} ${X(0.4)} ${Y(0.4)} ${X(0.5)} ${Y(0.18)}z" fill="${fill}" ${stroke}/>`,
+        `<path d="M${X(0.5)} ${Y(0.42)}C${X(0.58)} ${Y(0.52)} ${X(0.6)} ${Y(0.6)} ${X(0.56)} ${Y(0.66)}C${X(0.53)} ${Y(0.71)} ${X(0.47)} ${Y(0.71)} ${X(0.44)} ${Y(0.66)}C${X(0.4)} ${Y(0.6)} ${X(0.44)} ${Y(0.52)} ${X(0.5)} ${Y(0.42)}z" fill="#f2b84b"/>`,
+        ...[0.16, 0.33, 0.5, 0.67, 0.84].map((fx, i) =>
+          dot(fx, i === 0 || i === 4 ? 0.8 : 0.86, 0.07, "#a39d93"),
+        ),
+      ];
+    case "flower_box":
+      return [
+        shade,
+        ...[0.24, 0.42, 0.6, 0.78].map((fx, i) =>
+          dot(fx, 0.34 + (i % 2) * 0.06, 0.08, FLOWERS[i] as string),
+        ),
+        rect(0.1, 0.5, 0.8, 0.36, fill, 0.05),
+        rect(0.14, 0.46, 0.72, 0.07, "#6a4a33", 0.02, false),
+      ];
+  }
 }
 
 /**

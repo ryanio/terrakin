@@ -1,4 +1,4 @@
-import type { BlockKind, ResourceKind, WorldConfig } from "@terrakin/sim";
+import type { BlockKind, GroundKind, ResourceKind, WorldConfig } from "@terrakin/sim";
 import { describe, expect, it } from "vitest";
 import {
   approach,
@@ -132,6 +132,18 @@ describe("one plot of the world, read from the mirror", () => {
     expect(chunkSignature(source([["8,8", "wood"]]), 1, 1, none)).toBe(a);
     expect(chunkSignature(source([["8,8", "stone"]]), 1, 1, none)).not.toBe(a);
     expect(chunkSignature(source([["8,8", "wood"]], "capri"), 1, 1, none)).not.toBe(a);
+    // A path laid, or swapped for another, changes it; its tile grows no grass in 3D.
+    const paved = (ground: GroundKind) => ({
+      ...source([["8,8", "wood"]]),
+      paving: new Map<string, GroundKind>([["10,10", ground]]),
+    });
+    const path = readChunk(paved("cobble"), 1, 1, none);
+    expect(path.ground).toEqual([{ x: 10, y: 10, ground: "cobble" }]);
+    expect(path.signature).not.toBe(a);
+    expect(chunkSignature(paved("planks"), 1, 1, none)).not.toBe(path.signature);
+    for (const t of [...path.tufts, ...path.flowers]) {
+      expect(tileAtPoint(t.x, t.y)).not.toEqual({ x: 10, y: 10 });
+    }
     // A branch on the ground shows, and so does someone picking it up.
     const branch = new Map<string, ResourceKind>([["10,10", "wood"]]);
     const lying = readChunk(source([["8,8", "wood"]], undefined, branch), 1, 1, none);

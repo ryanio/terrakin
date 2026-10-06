@@ -14,11 +14,12 @@ import {
 import {
   type BlockKind,
   canBuildOn,
-  type DecorKind,
   type Direction,
   directionOf,
+  type GroundKind,
   ITEM_INFO,
-  isDecorKind,
+  isGroundKind,
+  isHeldBlock,
   route,
   STEP,
   type Tile,
@@ -28,11 +29,19 @@ import { plot3dPath } from "@terrakin/ui/paths";
 import { everyVisible } from "@terrakin/ui/poll";
 import { api, whoseKey } from "./api";
 import {
-  type DecorCounts,
-  decorChoices,
-  decorFromStacks,
-  paintDecorChoices,
-  withDecorChanges,
+  blockLine,
+  canLay,
+  groundLine,
+  HELD_KINDS,
+  type Holdings,
+  heldLine,
+  heldOf,
+  holdingsFromStacks,
+  type PaletteTab,
+  paintGroundRow,
+  paintHeldRow,
+  tabOf,
+  withChanges,
 } from "./build-palette";
 import { type Camera, fitScale, screenToTile } from "./camera";
 import { Feelings, gestureReaction } from "./feelings";
@@ -68,6 +77,12 @@ const chatInput = $<HTMLInputElement>("chat-input");
 const chatToggle = $("chat-toggle");
 const buildButton = $("build");
 const palette = $("palette");
+const paletteRows: Record<PaletteTab, HTMLElement> = {
+  blocks: $("palette-blocks"),
+  ground: $("palette-ground"),
+  furniture: $("palette-furniture"),
+};
+const paletteLine = $("palette-line");
 const modeButton = $<HTMLButtonElement>("world-mode");
 const host3d = $("world-3d");
 
@@ -93,12 +108,13 @@ let loader: WorldLoader | undefined;
 const SCENE_WAIT_MS = 8000;
 let sceneWait = 0;
 let buildMode = false;
-/** Selected build tool: a block, or the hearth marker. */
-let block: BlockKind | "hearth" = "wood";
-/** Decor from the town shop you hold, shown in the palette while you have some. */
-let decor: DecorCounts = new Map();
-/** Decor shown since the palette opened, kept (greyed out) when you run out. */
-let decorShown = new Set<DecorKind>();
+/**
+ * The build bar's pick (RFC 0016): a block or the hearth marker on the Blocks tab, a path or floor
+ * on the Paths tab, or decor or furniture you hold on the Furniture tab.
+ */
+let pick: BlockKind | GroundKind | "hearth" = "wood";
+/** What you hold that the build bar shows: decor and furniture counts, and what paths take. */
+let holdings: Holdings = new Map();
 /** The chat line waiting for the server's answer: its text leaves the input only once accepted. */
 let pendingChat: { id: string; text: string } | undefined;
 /**
@@ -291,7 +307,7 @@ function onMessage(msg: ServerMessage) {
       if (mode === "3d") open3d();
       revealWhenDrawn();
       showArrival();
-      void loadDecor();
+      void loadHoldings();
       break;
     case "gesture":
       // Someone sent you a hug or a wave. Their name and note are their words: shown as text.
@@ -312,14 +328,14 @@ function onMessage(msg: ServerMessage) {
       // Your own news, in plain words. Notes, labels, and names stay out of it.
       const line = me ? newsLine(msg.event, me) : null;
       if (line) showToast(line);
-      // Decor from the town shop you hold changes the palette.
+      // What you hold changes the build bar: decor and furniture counts, and what paths take.
       if (msg.event.type === "inventory" && msg.event.residentId === me) {
-        const next = withDecorChanges(decor, msg.event.changes);
-        if (next !== decor) {
-          decor = next;
-          if (isDecorKind(block) && !decor.has(block)) {
-            showToast(`That was your last ${ITEM_INFO[block].name.toLowerCase()}.`);
-            selectBlock("wood");
+        const next = withChanges(holdings, msg.event.changes);
+        if (next !== holdings) {
+          const wasHeld = isHeldBlock(pick) ? heldOf(holdings, pick) : 0;
+          holdings = next;
+          if (isHeldBlock(pick) && wasHeld > 0 && heldOf(holdings, pick) === 0) {
+            showToast(`That was your last ${ITEM_INFO[pick].name.toLowerCase()}.`);
           }
           paintPalette();
         }
@@ -557,9 +573,17 @@ function tapTile(tile: { x: number; y: number }) {
   const at = here();
   if (!mirror || !r || !at) return;
   if (buildMode) {
-    const hasBlock = mirror.blocks.has(`${tile.x},${tile.y}`);
-    if (block === "hearth") tryAct({ type: "set_hearth", ...tile });
-    else tryAct(hasBlock ? { type: "remove", ...tile } : { type: "place", ...tile, block });
+    const key = `${tile.x},${tile.y}`;
+    const hasBlock = mirror.blocks.has(key);
+    if (pick === "hearth") tryAct({ type: "set_hearth", ...tile });
+    else if (isGroundKind(pick)) {
+      // Paths and floors: a tap lifts what's there, or lays the pick if you can pay for it.
+      if (mirror.paving.has(key)) tryAct({ type: "lift", ...tile });
+      else if (canLay(pick, holdings)) tryAct({ type: "lay", ...tile, ground: pick });
+      else showToast(groundLine(pick, holdings));
+    } else if (hasBlock) tryAct({ type: "remove", ...tile });
+    else if (isHeldBlock(pick) && heldOf(holdings, pick) === 0) showToast(heldLine(pick, 0));
+    else tryAct({ type: "place", ...tile, block: pick });
     return;
   }
   // Tapping yourself while you stand on your own plot opens it in 3D.
@@ -840,46 +864,85 @@ buildButton.addEventListener("click", () => {
     showToast(NO_PLOT_LINE);
     return;
   }
-  buildMode = !buildMode;
-  buildButton.setAttribute("aria-pressed", String(buildMode));
-  palette.hidden = !buildMode;
-  if (buildMode) showToast("Tap a tile to build. Tap a block to remove it.");
-  // A fresh start: only the decor you hold now.
-  decorShown = new Set(decor.keys());
-  paintPalette();
+  setBuildMode(!buildMode);
 });
 
-for (const button of palette.querySelectorAll<HTMLButtonElement>("button")) {
+/**
+ * Build mode on or off. The build bar sits where chat opens, so building closes chat (and opening
+ * chat ends building), and notices move under the bar while it shows.
+ */
+function setBuildMode(on: boolean) {
+  buildMode = on;
+  buildButton.setAttribute("aria-pressed", String(on));
+  palette.hidden = !on;
+  hud.classList.toggle("building", on);
+  if (on && !chatPanel.hidden) toggleChat(false);
+  paintPalette();
+  if (on) hud.style.setProperty("--palette-bottom", `${palette.getBoundingClientRect().bottom}px`);
+}
+
+for (const button of paletteRows.blocks.querySelectorAll<HTMLButtonElement>("button")) {
   const kind = button.dataset.block as BlockKind | "hearth";
   const chip = button.querySelector<HTMLElement>(".chip");
   if (chip) chip.style.background = kind === "hearth" ? HEARTH_COLOR : blockColor(kind);
-  button.setAttribute("aria-pressed", String(kind === block));
+  button.setAttribute("aria-pressed", String(kind === pick));
 }
 
-// One listener for every choice, including the decor buttons painted in and out as counts change.
+// One listener for the tabs and every choice, including the rows painted as what you hold changes.
 palette.addEventListener("click", (e) => {
-  const button = (e.target as Element).closest<HTMLButtonElement>("button[data-block]");
-  if (button && !button.disabled) selectBlock(button.dataset.block as BlockKind | "hearth");
+  const target = e.target as Element;
+  const tabButton = target.closest<HTMLButtonElement>("button[data-tab]");
+  if (tabButton) {
+    showTab(tabButton.dataset.tab as PaletteTab);
+    return;
+  }
+  const button = target.closest<HTMLButtonElement>("button[data-block], button[data-ground]");
+  if (!button) return;
+  selectPick((button.dataset.ground ?? button.dataset.block) as BlockKind | GroundKind | "hearth");
 });
 
-function selectBlock(kind: BlockKind | "hearth") {
-  block = kind;
-  for (const b of palette.querySelectorAll<HTMLButtonElement>("button"))
-    b.setAttribute("aria-pressed", String(b.dataset.block === kind));
+/** Show one tab's row. A pick from another tab gives way to this tab's first choice. */
+function showTab(next: PaletteTab) {
+  for (const button of palette.querySelectorAll<HTMLButtonElement>("button[data-tab]")) {
+    button.setAttribute("aria-selected", String(button.dataset.tab === next));
+  }
+  for (const [name, row] of Object.entries(paletteRows)) row.hidden = name !== next;
+  if (tabOf(pick) !== next) {
+    pick =
+      next === "blocks"
+        ? "wood"
+        : next === "ground"
+          ? "dirt"
+          : (HELD_KINDS.find((k) => heldOf(holdings, k) > 0) ?? "table");
+  }
+  paintPalette();
 }
 
-/** Redraw the decor choices. A decor you no longer hold can't stay picked: back to wood. */
+function selectPick(next: BlockKind | GroundKind | "hearth") {
+  pick = next;
+  paintPalette();
+}
+
+/** Redraw the rows that follow what you hold, mark the pick, and say what it costs. */
 function paintPalette() {
-  if (isDecorKind(block) && !decor.has(block)) selectBlock("wood");
-  for (const kind of decor.keys()) decorShown.add(kind);
-  paintDecorChoices(palette, decorChoices(decor, decorShown), block);
+  paintGroundRow(paletteRows.ground, holdings, pick);
+  paintHeldRow(paletteRows.furniture, holdings, pick);
+  for (const b of paletteRows.blocks.querySelectorAll<HTMLButtonElement>("button"))
+    b.setAttribute("aria-pressed", String(b.dataset.block === pick));
+  paletteLine.textContent = isGroundKind(pick)
+    ? groundLine(pick, holdings)
+    : isHeldBlock(pick)
+      ? heldLine(pick, heldOf(holdings, pick))
+      : blockLine(pick);
+  if (buildMode)
+    hud.style.setProperty("--palette-bottom", `${palette.getBoundingClientRect().bottom}px`);
 }
 
-/** Ask what decor you hold. Quietly nothing when items aren't open or the request fails. */
-async function loadDecor() {
+/** Ask what you hold. Quietly nothing when items aren't open or the request fails. */
+async function loadHoldings() {
   const r = await api.inventory();
   if (!active || !r.ok) return;
-  decor = decorFromStacks(r.data.inventory?.stacks ?? []);
+  holdings = holdingsFromStacks(r.data.inventory?.stacks ?? []);
   paintPalette();
 }
 
@@ -896,14 +959,16 @@ $("home").addEventListener("click", () => {
   if (id) walker.awaiting(id, performance.now());
 });
 
-chatToggle.addEventListener("click", () => {
-  chatPanel.hidden = !chatPanel.hidden;
-  chatToggle.setAttribute("aria-pressed", String(!chatPanel.hidden));
-  if (!chatPanel.hidden) {
-    chatLog.scrollTop = chatLog.scrollHeight;
-    chatInput.focus();
-  }
-});
+chatToggle.addEventListener("click", () => toggleChat(chatPanel.hidden !== false));
+
+function toggleChat(open: boolean) {
+  chatPanel.hidden = !open;
+  chatToggle.setAttribute("aria-pressed", String(open));
+  if (!open) return;
+  if (buildMode) setBuildMode(false);
+  chatLog.scrollTop = chatLog.scrollHeight;
+  chatInput.focus();
+}
 
 // Nearby by default; tap to switch to everyone online.
 let channel: ChatChannel = "nearby";
@@ -1055,8 +1120,7 @@ export function stopWorld() {
   conn = undefined;
   me = undefined;
   joiningFresh = false;
-  decor = new Map();
-  decorShown = new Set();
+  holdings = new Map();
   paintPalette();
   pendingChat = undefined;
   stopWalking();

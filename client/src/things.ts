@@ -89,7 +89,12 @@ export function inventoryLine(e: InventoryEvent): string | null {
     case "craft": {
       const made = e.gained?.[0];
       if (made?.kind === "piece") return "You made a piece of art.";
-      return made ? `You made ${thingName(made.kind).toLowerCase()}.` : null;
+      if (made) return `You made ${thingName(made.kind).toLowerCase()}.`;
+      // Furniture stacks: it arrives as a change, not a made thing.
+      const piece = gained.find((c) => isFurnitureKind(c.kind));
+      return piece
+        ? `You made ${thingCount(piece.kind, piece.amount)}. Place it from Build, on the Furniture tab.`
+        : null;
     }
     case "gift_in": {
       const goods = e.gained ?? [];

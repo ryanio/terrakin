@@ -5,6 +5,7 @@ import {
   BLOCK_COLORS,
   blockFill,
   dayOfDate,
+  GROUND_LOOK,
   groundTile,
   THEME_INFO,
   THEME_TINT_ALPHA,
@@ -163,6 +164,27 @@ describe("plot photo data", () => {
       decor: "lantern",
       fill: BLOCK_COLORS.lantern,
     });
+  });
+
+  it("names furniture and lays paths and floors in the world's own look", async () => {
+    const { settled, service } = await start();
+    const wren = await settled("Wren");
+    // Set straight into the world for this read-model test: making, laying, and building are
+    // tested in the sim.
+    service.state.blocks["6,6"] = "well";
+    service.state.ground = { "3,6": "cobble", "3,7": "stepping_stones" };
+    const spec = plotPhotoSpec(service.state, wren.residentId);
+    if (!spec) throw new Error("no spec");
+    expect(spec.blocks.find((b) => b.x === 6 && b.y === 6)).toMatchObject({
+      furniture: "well",
+      fill: BLOCK_COLORS.well,
+    });
+    expect(spec.ground[6 * 8 + 3]?.paving).toEqual({
+      fill: GROUND_LOOK.cobble.fill,
+      marks: GROUND_LOOK.cobble.marks,
+    });
+    // Stepping stones let the grass under them show: no fill of their own.
+    expect(spec.ground[7 * 8 + 3]?.paving).toEqual({ marks: GROUND_LOOK.stepping_stones.marks });
   });
 
   it("is undefined without a plot", async () => {

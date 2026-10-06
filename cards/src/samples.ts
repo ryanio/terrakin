@@ -53,7 +53,86 @@ export function samplePlot(name: string, homeArt?: PlotCard["homeArt"]): PlotCar
     { x: 7, y: 3, glass: false, fill: "#c4573c", decor: "scarecrow" },
     { x: 6, y: 7, glass: false, fill: "#e2bf62", decor: "hay_bale" },
     { x: 7, y: 7, glass: false, fill: "#e2bf62", decor: "hay_bale" },
+    // Furniture from the workbench (RFC 0016): a well, a table and chair, a wall, a flower box, and
+    // a lamp post by the path.
+    { x: 7, y: 6, glass: false, fill: "#a39d93", furniture: "well" },
+    { x: 7, y: 4, glass: false, fill: "#b88552", furniture: "table" },
+    { x: 7, y: 5, glass: false, fill: "#a8744a", furniture: "chair" },
+    { x: 4, y: 7, glass: false, fill: "#a8a196", furniture: "stone_wall" },
+    { x: 5, y: 6, glass: false, fill: "#b8834f", furniture: "flower_box" },
+    { x: 2, y: 6, glass: false, fill: "#4a5a48", furniture: "lamp_post" },
   );
+  // A cobble path out of the door, a plank floor inside, and fallen leaves by the well.
+  const cobble = {
+    fill: "#857e73",
+    marks: [
+      { shape: "rect" as const, x: 0.05, y: 0.06, w: 0.42, h: 0.38, r: 0.12, fill: "#b0a99c" },
+      { shape: "rect" as const, x: 0.53, y: 0.05, w: 0.42, h: 0.4, r: 0.12, fill: "#a69f92" },
+      { shape: "rect" as const, x: 0.04, y: 0.5, w: 0.3, h: 0.45, r: 0.12, fill: "#a69f92" },
+      { shape: "rect" as const, x: 0.39, y: 0.51, w: 0.57, h: 0.43, r: 0.12, fill: "#b0a99c" },
+    ],
+  };
+  const planks = {
+    fill: "#c08a55",
+    marks: [
+      {
+        shape: "line" as const,
+        x1: 0,
+        y1: 0.335,
+        x2: 1,
+        y2: 0.335,
+        width: 0.03,
+        stroke: "#93633b",
+      },
+      {
+        shape: "line" as const,
+        x1: 0,
+        y1: 0.665,
+        x2: 1,
+        y2: 0.665,
+        width: 0.03,
+        stroke: "#93633b",
+      },
+    ],
+  };
+  const leaves = {
+    fill: "#ad8a59",
+    marks: [
+      {
+        shape: "ellipse" as const,
+        cx: 0.3,
+        cy: 0.3,
+        rx: 0.13,
+        ry: 0.06,
+        turn: 30,
+        fill: "#e08a3c",
+      },
+      {
+        shape: "ellipse" as const,
+        cx: 0.7,
+        cy: 0.6,
+        rx: 0.13,
+        ry: 0.06,
+        turn: -40,
+        fill: "#c8553a",
+      },
+    ],
+  };
+  const pave = (x: number, y: number, paving: PlotGround["paving"]) => {
+    const g = ground[y * size + x];
+    if (g) ground[y * size + x] = { fill: g.fill, paving };
+  };
+  pave(3, 6, cobble);
+  pave(3, 7, cobble);
+  for (const [x, y] of [
+    [2, 2],
+    [3, 2],
+    [2, 4],
+    [4, 4],
+  ] as const)
+    pave(x, y, planks);
+  pave(6, 7, leaves);
+  pave(6, 5, leaves);
   return {
     kind: "plot",
     name,

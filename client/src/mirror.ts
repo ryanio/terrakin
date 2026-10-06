@@ -9,6 +9,7 @@ import {
   type Crop,
   type Direction,
   type Ground,
+  type GroundKind,
   groundOf,
   LOOK_KEYS,
   lookOf,
@@ -70,6 +71,8 @@ export class Mirror {
   plots = new Map<string, string>(); // plotKey -> ownerId
   coOwners = new Map<string, string[]>(); // plotKey -> residents the owner shares it with
   blocks = new Map<string, BlockKind>(); // tileKey -> block
+  /** Paths and floors under the blocks (RFC 0016), by tileKey. Nobody walks differently for them. */
+  paving = new Map<string, GroundKind>();
   /** The tiles the Town Hall stands on. Tapping one opens /town. */
   townHall: { x: number; y: number }[];
   /** The tiles the town shop stands on, once it's open (RFC 0008). Tapping one opens /shop. */
@@ -109,6 +112,7 @@ export class Mirror {
       if (p.gallery) this.galleries.add(plotKey(p.px, p.py));
     }
     for (const b of snapshot.blocks) this.blocks.set(tileKey(b.x, b.y), b.block);
+    for (const g of snapshot.ground ?? []) this.paving.set(tileKey(g.x, g.y), g.ground);
     this.townHall = (snapshot.townHall ?? []).map((t) => ({ ...t }));
     this.shop = (snapshot.shop ?? []).map((t) => ({ ...t }));
     this.solidBuildings = snapshot.solidBuildings === true;
@@ -212,6 +216,12 @@ export class Mirror {
         break;
       case "block_removed":
         this.blocks.delete(tileKey(event.x, event.y));
+        break;
+      case "ground_laid":
+        this.paving.set(tileKey(event.x, event.y), event.ground);
+        break;
+      case "ground_lifted":
+        this.paving.delete(tileKey(event.x, event.y));
         break;
       case "plot_shared": {
         const key = plotKey(event.px, event.py);

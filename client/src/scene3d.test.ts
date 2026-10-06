@@ -604,6 +604,7 @@ describe("three.js stays out of the main bundle", () => {
     "scene3d/art.ts",
     "scene3d/items.ts",
     "scene3d/decor.ts",
+    "scene3d/furniture.ts",
     "scene3d/displays.ts",
     "scene3d/plot.ts",
     "scene3d/gallery.ts",

@@ -7,10 +7,13 @@ import {
   type DecorKind,
   type Direction,
   FLOWER_TONES,
+  type FurnitureKind,
+  type GroundKind,
   groundTile,
   HEARTH_COLOR,
   HEARTH_DOOR,
   isDecorKind,
+  isFurnitureKind,
   LEAF_TONES,
   mixHex,
   OUTSIDE_GROUND,
@@ -35,6 +38,7 @@ import {
   type FigureFace,
   signPx,
 } from "@terrakin/ui/figure";
+import { paintGround } from "@terrakin/ui/ground-art";
 import { CROP_HEX, growth, itemArtImage } from "@terrakin/ui/item-art";
 import {
   lookImage,
@@ -887,6 +891,102 @@ function paintScarecrow(
   ctx.stroke();
 }
 
+// ---------- paths, floors, and furniture (RFC 0016) ----------
+
+/** One tile of a path or floor, `w` by `h` CSS pixels, drawn once from the sim's look. */
+function groundSprite(kind: GroundKind, w: number, h: number, dpr: number): HTMLCanvasElement {
+  return sprite(`gnd|${kind}|${w}x${h}|${dpr}`, w * dpr, h * dpr, (c) => {
+    c.scale(dpr, dpr);
+    paintGround(c, kind, 0, 0, w, h);
+  });
+}
+
+/**
+ * A piece of furniture on its tile, drawn as its own picture (the one lists show), so the map and
+ * your things agree. A low stone wall joins the walls beside it, like a fence. Until the picture
+ * has loaded, a plain block in its color holds the tile.
+ */
+function paintFurniture(
+  ctx: CanvasRenderingContext2D,
+  kind: FurnitureKind,
+  left: number,
+  top: number,
+  size: number,
+  scale: number,
+  edge: number,
+  joins: Joins,
+) {
+  if (kind === "stone_wall") {
+    paintStoneWall(ctx, left, top, size, edge, joins);
+    return;
+  }
+  const art = itemArtImage(kind);
+  if (!art) {
+    paintBlock(ctx, kind, left, top, size, scale);
+    return;
+  }
+  // Pictures sit in a 48 box with their shadow at the bottom; a little larger than the tile reads
+  // as furniture standing on it rather than an icon.
+  const side = size * 1.12;
+  ctx.drawImage(art, left + (size - side) / 2, top + size - side * 0.95, side, side);
+}
+
+/** A low stone wall, with a cap, running on to the walls beside it. */
+function paintStoneWall(
+  ctx: CanvasRenderingContext2D,
+  left: number,
+  top: number,
+  size: number,
+  edge: number,
+  joins: Joins,
+) {
+  const cx = left + size / 2;
+  const half = size * 0.3;
+  const wallTop = top + size * 0.42;
+  const wallBottom = top + size * 0.9;
+  const x0 = joins.w ? left - edge : cx - half;
+  const x1 = joins.e ? left + size + edge : cx + half;
+  const face = BLOCK_COLORS.stone_wall;
+  ctx.save();
+  ctx.fillStyle = "rgba(74, 52, 28, 0.2)";
+  ctx.fillRect(x0, wallBottom - size * 0.02, x1 - x0, size * 0.07);
+  ctx.fillStyle = face;
+  ctx.strokeStyle = "rgba(70, 40, 18, 0.45)";
+  ctx.lineWidth = Math.max(1, size / 30);
+  // Runs north and south: a strip of wall top toward each joined neighbor.
+  if (joins.n) ctx.fillRect(cx - half, top - edge, half * 2, wallTop - top + edge);
+  if (joins.s) ctx.fillRect(cx - half, wallBottom, half * 2, top + size + edge - wallBottom);
+  ctx.beginPath();
+  ctx.rect(x0, wallTop, x1 - x0, wallBottom - wallTop);
+  ctx.fill();
+  ctx.stroke();
+  // Mortar: one course line and staggered joints.
+  ctx.strokeStyle = "rgba(70, 40, 18, 0.3)";
+  ctx.beginPath();
+  const mid = (wallTop + wallBottom) / 2 + size * 0.04;
+  ctx.moveTo(x0, mid);
+  ctx.lineTo(x1, mid);
+  for (let x = x0 + size * 0.22; x < x1 - size * 0.05; x += size * 0.34) {
+    ctx.moveTo(x, wallTop + size * 0.06);
+    ctx.lineTo(x, mid);
+    ctx.moveTo(x + size * 0.17, mid);
+    ctx.lineTo(x + size * 0.17, wallBottom);
+  }
+  ctx.stroke();
+  // The cap: a lighter band along the top.
+  ctx.fillStyle = "#c4beb2";
+  ctx.beginPath();
+  ctx.roundRect(
+    x0 - (joins.w ? 0 : size * 0.03),
+    wallTop - size * 0.08,
+    x1 - x0 + (joins.w ? 0 : size * 0.03) + (joins.e ? 0 : size * 0.03),
+    size * 0.12,
+    size * 0.04,
+  );
+  ctx.fill();
+  ctx.restore();
+}
+
 // Stable hue per owner so neighbors' plots are easy to tell apart.
 function ownerHue(id: string): number {
   let h = 0;
@@ -957,6 +1057,8 @@ export function render(
   const half = scale / 2;
 
   // ---- ground: one fillRect per tile, edges rounded so neighbors share pixels (no seams) ----
+  const dpr = ctx.getTransform().a || 1;
+  const paved = mirror.paving.size > 0;
   const tufts = new Path2D();
   const flowers: [Path2D, Path2D] = [new Path2D(), new Path2D()];
   const leaves: [Path2D, Path2D, Path2D] = [new Path2D(), new Path2D(), new Path2D()];
@@ -975,7 +1077,10 @@ export function render(
       const ground = groundTile(config, x, y, inCommons, season);
       ctx.fillStyle = ground.fill;
       ctx.fillRect(left, top, w, h);
-      const deco = ground.scenery;
+      // A path or floor (RFC 0016) covers the tile's own grass: drawn once per size, then stamped.
+      const laid = paved ? mirror.paving.get(tileKey(x, y)) : undefined;
+      if (laid) ctx.drawImage(groundSprite(laid, w, h, dpr), left, top, w, h);
+      const deco = laid ? null : ground.scenery;
       if (deco?.kind === "tuft") {
         // A little tuft of grass.
         const bx = left + w * deco.fx;
@@ -1084,7 +1189,6 @@ export function render(
 
   // ---- blocks: raised tiles with a ground shadow, top highlight and bottom shade ----
   // Blocks on a themed plot (or one with its owner's own pattern) are drawn once into a sprite.
-  const dpr = ctx.getTransform().a || 1;
   const inset = Math.max(1, Math.round(scale * 0.05));
   const lip = Math.max(2, Math.round(scale * 0.16));
   const skins = new Map<string, BlockSkin | null>();
@@ -1108,6 +1212,7 @@ export function render(
   /** Lanterns on screen, which glow after dark. */
   const lanterns: { sx: number; sy: number }[] = [];
   const isFence = (x: number, y: number) => mirror.blocks.get(tileKey(x, y)) === "fence";
+  const isWall = (x: number, y: number) => mirror.blocks.get(tileKey(x, y)) === "stone_wall";
   for (const [key, block] of mirror.blocks) {
     const [x, y] = key.split(",").map(Number) as [number, number];
     if (x < x0 || x > x1 || y < y0 || y > y1) continue;
@@ -1120,6 +1225,19 @@ export function render(
       paintPedestal(ctx, left, top, size, scale);
       const shown = mirror.displays.get(key);
       if (shown) paintShown(ctx, shown.good, left, top, size, "pedestal");
+      continue;
+    }
+    // Furniture from the workbench (RFC 0016): its own picture, standing on the tile.
+    if (isFurnitureKind(block)) {
+      const joins = {
+        n: isWall(x, y - 1),
+        e: isWall(x + 1, y),
+        s: isWall(x, y + 1),
+        w: isWall(x - 1, y),
+      };
+      paintFurniture(ctx, block, left, top, size, scale, inset, joins);
+      if (block === "lamp_post") lanterns.push({ sx: left + size * 0.5, sy: top + size * 0.25 });
+      if (block === "campfire") lanterns.push({ sx: left + size * 0.5, sy: top + size * 0.62 });
       continue;
     }
     if (isDecorKind(block)) {

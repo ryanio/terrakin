@@ -1,93 +1,179 @@
 /**
- * The town shop's decor in the world's build palette (RFC 0008). A lantern, frame, fence post, or
- * bench shows up as a choice only while you hold one, with how many you have. Placing one is a
- * plain `place`; the server takes it from your things and says so in an `inventory` event, whose
- * counts keep these buttons current without asking again. The counting is pure, so tests pin it.
+ * The world's build bar (RFC 0016): three tabs. Blocks are the free blocks and the hearth, always
+ * there. Paths lists every path and floor with what a tile takes. Furniture lists the workbench's
+ * furniture, then the shop's decor, with how many you hold. A line under the tabs names the pick
+ * and what it costs or how many you have.
+ *
+ * What you hold comes from your things once, then from the counts each `inventory` event carries.
+ * A pick the server would refuse (furniture you hold none of, a path you can't pay for) stays
+ * pickable so its line can say why, and the world holds back the tap; the checks are the sim's own
+ * (`groundShort`), never a copy (decision 0052). The counting is pure, so tests pin it.
  */
-import { DECOR_KINDS, type DecorKind, ITEM_INFO, isDecorKind } from "@terrakin/sim";
+import {
+  DECOR_KINDS,
+  type DecorKind,
+  FURNITURE_KINDS,
+  type FurnitureKind,
+  GROUND_INFO,
+  GROUND_KINDS,
+  type GroundKind,
+  groundCostWords,
+  groundShort,
+  ITEM_INFO,
+  isDecorKind,
+  isFurnitureKind,
+  type StackKind,
+} from "@terrakin/sim";
 import { h } from "@terrakin/ui/dom";
+import { groundArt } from "@terrakin/ui/ground-art";
 import { itemArt } from "@terrakin/ui/item-art";
-import { stackCount } from "./things";
+import { needsLine, thingCount } from "./things";
 
-/** How many of each decor kind you hold. Kinds you hold none of are left out. */
-export type DecorCounts = ReadonlyMap<DecorKind, number>;
+export const PALETTE_TABS = ["blocks", "ground", "furniture"] as const;
+export type PaletteTab = (typeof PALETTE_TABS)[number];
 
-/** Decor counts from your things' stacks, in catalog order. */
-export function decorFromStacks(stacks: readonly { kind: string; count: number }[]): DecorCounts {
-  const out = new Map<DecorKind, number>();
-  for (const kind of DECOR_KINDS) {
-    const n = stackCount(stacks, kind);
-    if (n > 0) out.set(kind, n);
-  }
+/** A block you hold before you place it: decor from the shop, or furniture from a workbench. */
+export type HeldKind = DecorKind | FurnitureKind;
+/** Every held block, in the Furniture tab's order: furniture, then the shop's decor. */
+export const HELD_KINDS: readonly HeldKind[] = [...FURNITURE_KINDS, ...DECOR_KINDS];
+
+/** What you hold, by kind, as far as the build bar needs: kinds at 0 are left out. */
+export type Holdings = ReadonlyMap<string, number>;
+
+/** Holdings from your things' stacks. */
+export function holdingsFromStacks(stacks: readonly { kind: string; count: number }[]): Holdings {
+  const out = new Map<string, number>();
+  for (const s of stacks) if (s.count > 0) out.set(s.kind, s.count);
   return out;
 }
 
 /**
- * The counts after an inventory event's changes, each of which carries the count held after it.
- * The same map back when no decor changed.
+ * The holdings after an inventory event's changes, each of which carries the count held after
+ * it. The same map back when nothing changed, so the bar isn't redrawn.
  */
-export function withDecorChanges(
-  counts: DecorCounts,
+export function withChanges(
+  holdings: Holdings,
   changes: readonly { kind: string; count: number }[] | undefined,
-): DecorCounts {
-  const decor = (changes ?? []).filter((c) => isDecorKind(c.kind));
-  if (decor.length === 0) return counts;
-  const next = new Map(counts);
-  for (const c of decor) next.set(c.kind as DecorKind, c.count);
-  return decorFromStacks([...next].map(([kind, count]) => ({ kind, count })));
+): Holdings {
+  const moved = (changes ?? []).filter((c) => (holdings.get(c.kind) ?? 0) !== c.count);
+  if (moved.length === 0) return holdings;
+  const next = new Map(holdings);
+  for (const c of moved) {
+    if (c.count > 0) next.set(c.kind, c.count);
+    else next.delete(c.kind);
+  }
+  return next;
 }
 
-/** "Paper lantern, 3 left", or "Paper lantern, none left". */
-export function decorLabel(kind: DecorKind, n: number): string {
+/** How many of a kind you hold. */
+export const heldOf = (holdings: Holdings, kind: string) => holdings.get(kind) ?? 0;
+
+/** "Paper lantern, 3 left", or "Table, none left". */
+export function heldLabel(kind: HeldKind, n: number): string {
   return `${ITEM_INFO[kind].name}, ${n > 0 ? n : "none"} left`;
 }
 
-/**
- * The decor buttons to show, in catalog order: what you hold, plus any in `keep` you've run out
- * of, at 0. Keeping those until the palette closes stops the other buttons from sliding under
- * your finger when you place your last one.
- */
-export function decorChoices(
-  counts: DecorCounts,
-  keep: ReadonlySet<DecorKind>,
-): [DecorKind, number][] {
-  return DECOR_KINDS.flatMap((kind): [DecorKind, number][] => {
-    const n = counts.get(kind) ?? 0;
-    return n > 0 || keep.has(kind) ? [[kind, n]] : [];
-  });
+/** Where to get one more of a held block, in plain words. */
+export function heldSource(kind: HeldKind): string {
+  if (isDecorKind(kind)) return "Buy one at the town shop.";
+  return `Make one at a workbench from ${needsLine(kind)}.`;
 }
 
+/** The line under the tabs for a held block. */
+export function heldLine(kind: HeldKind, n: number): string {
+  const name = ITEM_INFO[kind].name;
+  return n > 0 ? `${name}: ${n} left.` : `${name}: none yet. ${heldSource(kind)}`;
+}
+
+/** Whether you can lay one more tile of a kind, by the sim's own check. */
+export function canLay(kind: GroundKind, holdings: Holdings): boolean {
+  return groundShort(kind, (k: StackKind) => heldOf(holdings, k)).length === 0;
+}
+
+/** The line under the tabs for a path or floor: what a tile takes, and what you're short of. */
+export function groundLine(kind: GroundKind, holdings: Holdings): string {
+  const { name } = GROUND_INFO[kind];
+  const cost = groundCostWords(kind);
+  if (cost === "free") return `${name}: free. Tap a tile to lay it, tap it again to lift it.`;
+  const short = groundShort(kind, (k: StackKind) => heldOf(holdings, k));
+  if (short.length === 0) return `${name}: ${cost} a tile. You have enough.`;
+  const missing = short.map((s) => thingCount(s.kind, s.count)).join(" and ");
+  return `${name}: ${cost} a tile. You need ${missing} more.`;
+}
+
+/** The line under the tabs for a free block or the hearth. */
+export function blockLine(kind: string): string {
+  if (kind === "hearth") return "Hearth: your home tile, where Home brings you.";
+  const name = kind.charAt(0).toUpperCase() + kind.slice(1);
+  return `${name}: free. Tap a tile to place it, tap a block to remove it.`;
+}
+
+/** Which tab a pick lives on. */
+export function tabOf(pick: string): PaletteTab {
+  if ((GROUND_KINDS as readonly string[]).includes(pick)) return "ground";
+  if (isDecorKind(pick) || isFurnitureKind(pick)) return "furniture";
+  return "blocks";
+}
+
+// ---------- painting ----------
+
 /**
- * Put one button per decor choice at the start of the palette, before the free blocks, so what
- * you bought is in reach without scrolling on a phone. Replaces the ones from last time. One you
- * have none of is shown greyed out and can't be picked.
+ * One choice in a row: a chip with a picture, and a count badge when it has one. A dimmed one
+ * still picks, so the line under the tabs can say why the world would refuse it; its label says
+ * so too.
  */
-export function paintDecorChoices(
-  palette: HTMLElement,
-  choices: readonly [DecorKind, number][],
-  selected: string,
-): void {
-  for (const old of palette.querySelectorAll(".decor-choice, .palette-divider")) old.remove();
-  if (choices.length === 0) return;
-  const buttons = choices.map(([kind, n]) =>
-    h(
-      "button",
-      {
-        class: "decor-choice",
-        attrs: {
-          type: "button",
-          "data-block": kind,
-          "aria-label": decorLabel(kind, n),
-          "aria-pressed": String(kind === selected),
-          disabled: n === 0,
-        },
+function choice(
+  attrs: Record<string, string>,
+  label: string,
+  picture: Element,
+  opts: { count?: number; dim: boolean; picked: boolean },
+): HTMLButtonElement {
+  return h(
+    "button",
+    {
+      class: opts.dim ? "palette-choice dim" : "palette-choice",
+      attrs: {
+        type: "button",
+        ...attrs,
+        "aria-label": label,
+        "aria-pressed": String(opts.picked),
       },
-      h("span", { class: "chip decor-chip" }, itemArt(kind, { size: 28 })),
-      h("span", { class: "decor-count", attrs: { "aria-hidden": "true" }, text: String(n) }),
+    },
+    h("span", { class: "chip palette-chip" }, picture),
+    opts.count === undefined
+      ? null
+      : h("span", {
+          class: "decor-count",
+          attrs: { "aria-hidden": "true" },
+          text: String(opts.count),
+        }),
+  );
+}
+
+/** Fill the Paths row: every kind, dimmed where you can't pay for a tile. */
+export function paintGroundRow(row: HTMLElement, holdings: Holdings, picked: string): void {
+  row.replaceChildren(
+    ...GROUND_KINDS.map((kind) =>
+      choice(
+        { "data-ground": kind },
+        `${GROUND_INFO[kind].name}, ${groundCostWords(kind)}${canLay(kind, holdings) ? "" : ", not enough"}`,
+        groundArt(kind, { size: 32 }),
+        { dim: !canLay(kind, holdings), picked: kind === picked },
+      ),
     ),
   );
-  palette.prepend(
-    ...buttons,
-    h("span", { class: "palette-divider", attrs: { "aria-hidden": "true" } }),
+}
+
+/** Fill the Furniture row: every held block in catalog order, with how many you hold. */
+export function paintHeldRow(row: HTMLElement, holdings: Holdings, picked: string): void {
+  row.replaceChildren(
+    ...HELD_KINDS.map((kind) => {
+      const n = heldOf(holdings, kind);
+      return choice({ "data-block": kind }, heldLabel(kind, n), itemArt(kind, { size: 30 }), {
+        ...(n > 0 ? { count: n } : {}),
+        dim: n === 0,
+        picked: kind === picked,
+      });
+    }),
   );
 }

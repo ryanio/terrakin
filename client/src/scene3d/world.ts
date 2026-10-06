@@ -69,7 +69,9 @@ import {
   border,
   cropPlants,
   figure,
+  groundAtlas,
   groundGrid,
+  groundTiles,
   hearth,
   ICON_TEXTURES,
   OVERHEAD_ORDER,
@@ -209,6 +211,15 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
     surfaces.stone,
     hearthLook.glow,
   ]);
+  /** Every path and floor in one texture (RFC 0016), drawn the first time a plot has any. */
+  let atlas: Texture | undefined;
+  const groundAtlasOnce = () => {
+    if (!atlas) {
+      atlas = stage.keep(groundAtlas());
+      shared.add(atlas);
+    }
+    return atlas;
+  };
   const fog = scene.fog as Fog;
   // What's on display shares its pictures across plots, and frees each with its last display.
   const pictures = createPictures(shared);
@@ -278,6 +289,10 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
     const blocks = data.blocks.map((b) => ({ ...b, own: true, fade: 0 }));
     const parts = blockMeshes(scope, origin, blocks, grain, surfaces);
     if (parts.length) group.add(...parts);
+    if (data.ground.length) {
+      const paved = groundTiles(origin, data.ground, groundAtlasOnce());
+      if (paved) group.add(paved);
+    }
     if (data.owner) group.add(border(data.bounds, origin, grain));
     group.add(scenery(scope, origin, data.tufts, data.flowers, data.leaves, season));
     if (data.pickups.length) group.add(pickups(origin, data.pickups));

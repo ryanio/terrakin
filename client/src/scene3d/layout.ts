@@ -7,6 +7,7 @@ import type { WorldSnapshot } from "@terrakin/protocol";
 import {
   type BlockKind,
   type Crop,
+  type GroundKind,
   type MadeKind,
   type Pattern,
   type ResidentColor,
@@ -285,6 +286,15 @@ export function dozerAt<R extends { hearth: Tile | null }>(
   return best ?? list.find((d) => d.r.hearth?.x === x && d.r.hearth.y === y);
 }
 
+/** A path or floor on a tile (RFC 0016), and how far into the haze it is, like a block. */
+export interface LayoutGround {
+  x: number;
+  y: number;
+  ground: GroundKind;
+  own: boolean;
+  fade: number;
+}
+
 export interface PlotLayout {
   ownerId: string;
   ownerName: string;
@@ -296,6 +306,8 @@ export interface PlotLayout {
   /** Neighbor tiles shown around the plot. */
   margin: number;
   blocks: LayoutBlock[];
+  /** Paths and floors on the plot and in the margin. */
+  ground: LayoutGround[];
   hearth: { x: number; y: number } | null;
   figures: LayoutFigure[];
   /** What's on display on the plot's pedestals and frames. */
@@ -339,6 +351,12 @@ export function plotLayout(
     blocks.push({ x: b.x, y: b.y, block: b.block, own: d === 0, fade: d / (margin + 1) });
   }
   blocks.sort((a, b) => a.y - b.y || a.x - b.x);
+  const ground: LayoutGround[] = [];
+  for (const g of snapshot.ground ?? []) {
+    if (!inBounds(outer, g.x, g.y)) continue;
+    const d = distanceOutside(bounds, g.x, g.y);
+    ground.push({ x: g.x, y: g.y, ground: g.ground, own: d === 0, fade: d / (margin + 1) });
+  }
 
   const shown = new Map((snapshot.displays ?? []).map((d) => [tileKey(d.x, d.y), d]));
   const planted = new Map((snapshot.crops ?? []).map((c) => [tileKey(c.x, c.y), c]));
@@ -416,6 +434,7 @@ export function plotLayout(
     center: { x: (bounds.x0 + bounds.x1) / 2, y: (bounds.y0 + bounds.y1) / 2 },
     margin,
     blocks,
+    ground,
     hearth,
     figures,
     displays,

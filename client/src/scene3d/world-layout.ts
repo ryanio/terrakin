@@ -7,6 +7,7 @@ import {
   type BlockKind,
   type Crop,
   type Direction,
+  type GroundKind,
   groundTile,
   type Resident,
   type ResourceKind,
@@ -121,6 +122,8 @@ export interface PlotChunk {
   bounds: Bounds;
   owner: string | undefined;
   blocks: { x: number; y: number; block: BlockKind }[];
+  /** Paths and floors (RFC 0016), under whatever stands on them. */
+  ground: { x: number; y: number; ground: GroundKind }[];
   hearths: Tile[];
   /** What's on display on its pedestals and frames, and what grows in its planters. */
   displays: LayoutDisplay[];
@@ -140,6 +143,8 @@ export interface ChunkSource {
   config: WorldConfig;
   commons: { px: number; py: number };
   blocks: ReadonlyMap<string, BlockKind>;
+  /** Paths and floors by tile key. Absent reads as none. */
+  paving?: ReadonlyMap<string, GroundKind>;
   plots: ReadonlyMap<string, string>;
   displays?: ReadonlyMap<string, { good: ShownGood }>;
   crops?: ReadonlyMap<string, { crop: Crop; plantedDay: number; readyDay: number }>;
@@ -152,11 +157,13 @@ export interface ChunkSource {
 function tileThings(source: ChunkSource, x: number, y: number, hearths: ReadonlySet<string>) {
   const key = tileKey(x, y);
   const block = source.blocks.get(key);
+  const ground = source.paving?.get(key);
   const hearth = hearths.has(key);
   const display = displayOn(block, x, y, source.displays?.get(key));
   const crop = cropIn(block, x, y, source.crops?.get(key), source.day);
   const parts: string[] = [];
   if (block) parts.push(`${key}:${block}`);
+  if (ground) parts.push(`${key}:on:${ground}`);
   if (hearth) parts.push(`${key}:hearth`);
   // The picture too: staff can remove a piece's picture while it stays up (picture_removed).
   if (display) parts.push(`${key}:shows:${display.good.id}:${display.good.media ?? ""}`);
@@ -164,7 +171,7 @@ function tileThings(source: ChunkSource, x: number, y: number, hearths: Readonly
   // Same rule as the map and the sim: a pickup lies anywhere not built on, hearths too.
   const pickup = source.pickupAt?.(x, y) ?? null;
   if (pickup) parts.push(`${key}:${pickup}`);
-  return { block, hearth, display, crop, pickup, parts };
+  return { block, ground, hearth, display, crop, pickup, parts };
 }
 
 /**
@@ -182,6 +189,7 @@ export function readChunk(
   const owner = source.plots.get(`${px},${py}`);
   const inCommons = px === source.commons.px && py === source.commons.py;
   const blocks: PlotChunk["blocks"] = [];
+  const ground: PlotChunk["ground"] = [];
   const homes: Tile[] = [];
   const displays: LayoutDisplay[] = [];
   const crops: LayoutCrop[] = [];
@@ -195,11 +203,12 @@ export function readChunk(
       const at = tileThings(source, x, y, hearths);
       parts.push(...at.parts);
       if (at.block) blocks.push({ x, y, block: at.block });
+      if (at.ground) ground.push({ x, y, ground: at.ground });
       if (at.hearth) homes.push({ x, y });
       if (at.display) displays.push(at.display);
       if (at.crop) crops.push(at.crop);
       if (at.pickup) pickups.push({ x, y, kind: at.pickup });
-      if (at.block || at.hearth) continue;
+      if (at.block || at.hearth || at.ground) continue;
       const scenery: Scenery | null = groundTile(source.config, x, y, inCommons, season).scenery;
       if (scenery?.kind === "tuft")
         tufts.push({ x: x + scenery.fx - 0.5, y: y + 0.2, turn: ((x * 7 + y * 13) % 63) / 10 });
@@ -224,6 +233,7 @@ export function readChunk(
     bounds,
     owner,
     blocks,
+    ground,
     hearths: homes,
     displays,
     crops,

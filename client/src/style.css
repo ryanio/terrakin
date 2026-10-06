@@ -3797,25 +3797,72 @@ dialog.model-viewer {
   width: auto;
 }
 
-/* Sits above the action column, so it never covers the d-pad or the middle of the screen. */
+/*
+ * The build bar (RFC 0016): tabs, one row of choices for the tab, and a line about the pick. It
+ * sits under the top bar, so the tiles in reach around you (the middle of the screen) and the
+ * d-pad and actions at the bottom all stay in view while you build.
+ */
 .palette {
-  position: absolute;
+  position: fixed;
   margin: 0;
   min-width: 0;
-  right: 0;
-  bottom: calc(100% + 12px);
-  /* One row, so it covers no more of the world than it must; on a narrow phone it scrolls. */
+  top: calc(64px + env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
-  max-width: calc(100vw - 28px - env(safe-area-inset-left) - env(safe-area-inset-right));
+  flex-direction: column;
+  width: min(calc(100vw - 24px - env(safe-area-inset-left) - env(safe-area-inset-right)), 26rem);
+  gap: var(--space-2xs);
+  padding: var(--space-xs);
+  border-radius: var(--r-card);
+}
+
+.palette-tabs {
+  display: flex;
+  gap: var(--space-2xs);
+}
+
+.palette-tabs button {
+  flex: 1;
+  min-height: 44px;
+  padding: 0 var(--space-sm);
+  border: 1px solid transparent;
+  border-radius: var(--r-pill);
+  background: transparent;
+  font-size: var(--text-md);
+  font-weight: var(--weight-bold);
+  color: var(--ink-soft);
+}
+
+.palette-tabs button[aria-selected="true"] {
+  border-color: var(--clay);
+  background: #fff1dc;
+  color: var(--clay-deep);
+}
+
+/* One row, so it covers no more of the world than it must; on a narrow phone it scrolls. */
+.palette-row {
+  display: flex;
+  min-width: 0;
   overflow-x: auto;
   scrollbar-width: none;
   touch-action: pan-x;
   gap: var(--space-2xs);
-  padding: var(--space-xs);
-  border-radius: var(--r-pill);
 }
 
-.palette button {
+.palette-line {
+  margin: 0;
+  padding: 0 var(--space-xs);
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+  color: var(--ink-soft);
+}
+
+.palette-line:empty {
+  display: none;
+}
+
+.palette-row button {
   flex: none;
   display: grid;
   place-items: center;
@@ -3847,12 +3894,12 @@ dialog.model-viewer {
   stroke-width: 2;
 }
 
-.palette button[aria-pressed="true"] {
+.palette-row button[aria-pressed="true"] {
   background: #fff1dc;
   box-shadow: inset 0 0 0 2px var(--clay);
 }
 
-.palette button[aria-pressed="true"] .chip {
+.palette-row button[aria-pressed="true"] .chip {
   transform: translateY(-1px) scale(1.05);
 }
 
@@ -3965,6 +4012,11 @@ dialog.model-viewer {
 
 .chat:not([hidden]) ~ .toast {
   top: calc(42vh + 76px + env(safe-area-inset-top));
+}
+
+/* While building, notices show under the build bar instead of over its tabs. */
+.hud.building .toast {
+  top: calc(var(--palette-bottom, 220px) + 8px);
 }
 
 .toast.show {
@@ -7397,15 +7449,17 @@ html.view3d-open body {
   padding: var(--space-2xs) var(--space-md) var(--space-2xs) var(--space-xs);
 }
 
-.palette .decor-choice {
+.palette .palette-choice {
   position: relative;
 }
 
-.palette .decor-choice:disabled {
+/* The server would refuse it now: still pickable, so the line under the tabs can say why. */
+.palette .palette-choice.dim {
   opacity: 0.45;
 }
 
-.palette .decor-chip {
+.palette .palette-chip {
+  overflow: hidden;
   background: var(--paper-2);
 }
 
@@ -7424,15 +7478,6 @@ html.view3d-open body {
   line-height: 18px;
   text-align: center;
   font-variant-numeric: tabular-nums;
-}
-
-.palette-divider {
-  flex: none;
-  align-self: center;
-  width: 1px;
-  height: 28px;
-  margin: 0 2px;
-  background: var(--paper-edge);
 }
 
 /* The town shop page (/shop) */

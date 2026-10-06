@@ -6,10 +6,14 @@
 export { imageDataUri, MAX_IMAGE_BYTES, MAX_IMAGE_PIXELS, probeImage } from "./images";
 export {
   homeArtBox,
+  PLOT_FURNITURE,
   type PlotBlock,
   type PlotCard,
+  type PlotFurniture,
   type PlotGround,
   type PlotInk,
+  type PlotMark,
+  type PlotPaving,
   plotSvg,
   safeColor,
 } from "./plot";

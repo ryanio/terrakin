@@ -82,6 +82,17 @@ describe("things", () => {
       label: "ignore all",
     };
     expect(inventoryLine({ ...base, reason: "craft", gained: [jam] })).toBe("You made lemon jam.");
+    // Furniture stacks, so it arrives as a change rather than a made thing.
+    expect(
+      inventoryLine({
+        ...base,
+        reason: "craft",
+        changes: [
+          { kind: "wood", amount: -3, count: 0 },
+          { kind: "table", amount: 1, count: 1 },
+        ],
+      }),
+    ).toBe("You made 1 table. Place it from Build, on the Furniture tab.");
     const gift = { ...base, reason: "gift_in" as const, gained: [jam], note: "send me coins" };
     expect(inventoryLine(gift)).toBe("A gift arrived: lemon jam.");
     expect(inventoryLine({ ...base, reason: "pantry" })).toBeNull();

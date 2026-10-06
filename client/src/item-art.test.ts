@@ -1,7 +1,6 @@
 import { ITEM_INFO, ITEM_KINDS, SHOP_WEAR, WEAR_ITEMS } from "@terrakin/sim";
 import { ART_KINDS, type ArtShape, isArtKind, itemArt, itemShapes } from "@terrakin/ui/item-art";
 import { afterEach, describe, expect, it } from "vitest";
-import { decorChoices, decorFromStacks, decorLabel, withDecorChanges } from "./build-palette";
 
 /** Just enough of the DOM for `createElementNS`. Setting innerHTML anywhere fails the test. */
 class FakeNode {
@@ -94,49 +93,5 @@ describe("item pictures", () => {
     expect(svg.attrs["aria-hidden"]).toBeUndefined();
     expect(svg.attrs).toMatchObject({ width: "64", class: "item-art shop-art" });
     expect(svg.children[0]).toMatchObject({ tag: "title", textContent: name });
-  });
-});
-
-describe("decor in the build palette", () => {
-  it("counts the decor you hold, in catalog order, and leaves out what you don't", () => {
-    const counts = decorFromStacks([
-      { kind: "bench", count: 1 },
-      { kind: "lemon", count: 4 },
-      { kind: "lantern", count: 3 },
-      { kind: "fence", count: 0 },
-    ]);
-    expect([...counts]).toEqual([
-      ["lantern", 3],
-      ["bench", 1],
-    ]);
-  });
-
-  it("follows the counts an inventory event carries", () => {
-    const start = decorFromStacks([{ kind: "lantern", count: 1 }]);
-    // Nothing about decor: the same counts back, so the palette isn't redrawn.
-    expect(withDecorChanges(start, [{ kind: "sugar", count: 2 }])).toBe(start);
-    expect(withDecorChanges(start, undefined)).toBe(start);
-    // Bought fence posts, then placed the last lantern.
-    const bought = withDecorChanges(start, [{ kind: "fence", count: 12 }]);
-    expect([...bought]).toEqual([
-      ["lantern", 1],
-      ["fence", 12],
-    ]);
-    expect([...withDecorChanges(bought, [{ kind: "lantern", count: 0 }])]).toEqual([["fence", 12]]);
-  });
-
-  it("labels each choice with its count in plain words", () => {
-    expect(decorLabel("lantern", 3)).toBe("Paper lantern, 3 left");
-    expect(decorLabel("fence", 1)).toBe("Fence post, 1 left");
-    expect(decorLabel("bench", 0)).toBe("Garden bench, none left");
-  });
-
-  it("keeps a choice you ran out of in its place until the palette closes", () => {
-    const held = decorFromStacks([{ kind: "bench", count: 2 }]);
-    expect(decorChoices(held, new Set())).toEqual([["bench", 2]]);
-    expect(decorChoices(held, new Set(["lantern", "bench"]))).toEqual([
-      ["lantern", 0],
-      ["bench", 2],
-    ]);
   });
 });

@@ -10,10 +10,12 @@ import {
   type Biome,
   blockFill,
   FLOWER_TONES,
+  GROUND_LOOK,
   groundTile,
   HEARTH_COLOR,
   HEARTH_DOOR,
   isDecorKind,
+  isFurnitureKind,
   LEAF_TONES,
   PAPER,
   seasonOf,
@@ -92,8 +94,14 @@ export function plotPhotoSpec(state: WorldState, residentId: string): PlotPhotoS
       const tile = groundTile(config, x0 + x, y0 + y, false, season);
       biomeCounts.set(tile.biome, (biomeCounts.get(tile.biome) ?? 0) + 1);
       const s = tile.scenery;
+      // A path or floor (RFC 0016), in the same look the map draws.
+      const laid = state.ground?.[tileKey(x0 + x, y0 + y)];
+      const look = laid ? GROUND_LOOK[laid] : undefined;
       ground.push({
         fill: tile.fill,
+        ...(look
+          ? { paving: { ...(look.fill ? { fill: look.fill } : {}), marks: look.marks } }
+          : {}),
         ...(s?.kind === "tuft" ? { tuft: s.fx } : {}),
         ...(s?.kind === "flower"
           ? { flower: { fx: s.fx, fy: s.fy, fill: FLOWER_TONES[s.tone] } }
@@ -118,6 +126,7 @@ export function plotPhotoSpec(state: WorldState, residentId: string): PlotPhotoS
         glass: block === "glass",
         fill: blockFill(block, block === "glass" ? undefined : palette),
         ...(isDecorKind(block) ? { decor: block } : {}),
+        ...(isFurnitureKind(block) ? { furniture: block } : {}),
       });
     }
   }

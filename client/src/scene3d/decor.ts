@@ -52,7 +52,7 @@ export interface DecorPlace {
 }
 
 /** One piece of a model, already in place: drawn once, or once per decor block. */
-interface Part {
+export interface Part {
   geometry: BufferGeometry;
   material: Material;
   /** Casts a shadow. Glows and see-through bits don't. */
@@ -68,7 +68,7 @@ const GOLD = hex("#d8b45a");
 const STRAW = hex("#e8c878");
 
 /** A rounded box, moved and turned into place, shade baked in. */
-function box(
+export function box(
   w: number,
   h: number,
   d: number,
@@ -85,7 +85,7 @@ function box(
 }
 
 /** Merge pieces into one geometry with a soft shade from bottom to top. */
-function merged(pieces: BufferGeometry[], bottom = 0.7): BufferGeometry {
+export function merged(pieces: BufferGeometry[], bottom = 0.7): BufferGeometry {
   const g = bakeShade(mergeGeometries(pieces), bottom, 1);
   for (const p of pieces) p.dispose();
   return g;
@@ -321,11 +321,19 @@ export function decorInstances(
   places: readonly DecorPlace[],
 ): Object3D[] {
   if (places.length === 0) return [];
+  return placeParts(partsOf(stage, kind, grain), places);
+}
+
+/**
+ * Parts of one model at every place, as instanced meshes: one draw per part. A `rail` part goes
+ * out once per joined side, turned to face it. Shared by decor and furniture (`furniture.ts`).
+ */
+export function placeParts(parts: readonly Part[], places: readonly DecorPlace[]): Object3D[] {
   const out: Object3D[] = [];
   const m = new Matrix4();
   const q = new Quaternion();
   const one = new Vector3(1, 1, 1);
-  for (const part of partsOf(stage, kind, grain)) {
+  for (const part of parts) {
     const spots: { x: number; z: number; turn: number; tint: number }[] = [];
     for (const p of places) {
       if (!part.rail) spots.push({ x: p.x, z: p.z, turn: 0, tint: p.tint });

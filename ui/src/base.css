@@ -42,6 +42,12 @@ a {
   overflow: visible;
 }
 
+/* A path or floor's swatch (ground-art.ts): one tile, squared off; its holder rounds the corners. */
+.ground-art {
+  flex: none;
+  display: block;
+}
+
 /* A piece of art's own picture, in a thin gold frame like the world's frames. */
 .thing-picture {
   flex: none;

@@ -5,7 +5,15 @@ import { describe, expect, it } from "vitest";
 import { FONTS } from "./fonts";
 import { imageDataUri, MAX_IMAGE_PIXELS, probeImage } from "./images";
 import { cards } from "./node";
-import { PLOT_DECOR, type PlotDecor, plotSvg, safeColor } from "./plot";
+import {
+  PLOT_DECOR,
+  PLOT_FURNITURE,
+  type PlotDecor,
+  type PlotFurniture,
+  type PlotGround,
+  plotSvg,
+  safeColor,
+} from "./plot";
 import { unmask } from "./render";
 import { samplePlot, samples } from "./samples";
 import { type Card, element, H, W } from "./templates";
@@ -274,6 +282,63 @@ describe("renderer", () => {
     // No hearth off the plot: its roof is the only path that closes with "z" and a fill.
     expect(svg).not.toMatch(/<ellipse/);
     expect(svg.match(/<svg/g)).toHaveLength(1);
+  });
+
+  it("draws paths and floors from their marks, and keeps them on the tile and in the palette", () => {
+    const hostile = '"/><script>x</script>';
+    const base = samplePlot("Wren");
+    const paved = (paving: PlotGround["paving"]) =>
+      plotSvg({ ...base, ground: base.ground.map((g) => ({ fill: g.fill, paving })) }, 420);
+    const svg = paved({
+      fill: hostile,
+      marks: [
+        { shape: "rect", x: 0.1, y: 0.1, w: 0.4, h: 0.4, r: 0.1, fill: hostile },
+        { shape: "circle", cx: Number.NaN, cy: 0.5, r: 99, fill: "#b0a99c" },
+        { shape: "ellipse", cx: 0.5, cy: 0.5, rx: 0.1, ry: 0.05, turn: 30, fill: "#e08a3c" },
+        { shape: "line", x1: 0, y1: 0.3, x2: 1, y2: 0.3, width: 0.03, stroke: hostile },
+      ],
+    });
+    expect(svg).not.toMatch(/<script|NaN|r="99"/);
+    // Leaves are drawn as paths, so the hearth's shadow stays the only ellipse.
+    expect(svg.match(/<ellipse/g)).toHaveLength(1);
+    // A paved tile grows no tufts or flowers.
+    expect(svg).not.toContain('stroke-width="0.045" stroke-linecap="round" fill="none"/>');
+  });
+
+  it("draws furniture as itself, with low walls joining only other walls", () => {
+    const one = (furniture: PlotFurniture, x = 1) =>
+      plotSvg(
+        {
+          ...samplePlot("Wren"),
+          blocks: [{ x, y: 1, glass: false, fill: "#a8a196", furniture }],
+        },
+        420,
+      );
+    const square = plotSvg(
+      { ...samplePlot("Wren"), blocks: [{ x: 1, y: 1, glass: false, fill: "#a8a196" }] },
+      420,
+    );
+    const drawn = new Set<string>();
+    for (const kind of PLOT_FURNITURE) {
+      const svg = one(kind);
+      expect(svg, kind).not.toBe(square);
+      expect(svg, kind).toContain('fill="#a8a196"');
+      drawn.add(svg);
+    }
+    expect(drawn.size).toBe(PLOT_FURNITURE.length);
+    const pair = plotSvg(
+      {
+        ...samplePlot("Wren"),
+        blocks: [
+          { x: 1, y: 1, glass: false, fill: "#a8a196", furniture: "stone_wall" },
+          { x: 2, y: 1, glass: false, fill: "#a8a196", furniture: "stone_wall" },
+        ],
+      },
+      420,
+    );
+    // Joined, the walls run edge to edge: the first reaches the tile's east side.
+    expect(pair).toContain('width="0.8" height="0.48"');
+    expect(one("stone_wall")).not.toContain('width="0.8" height="0.48"');
   });
 
   it("draws the shop's decor as itself, with fence rails only toward other fences", () => {

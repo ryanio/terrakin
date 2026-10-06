@@ -15,7 +15,7 @@ Depends on nothing in the repo. The server turns API data into a `Card` (`server
 
 ## Layout
 
-- `src/templates.ts` the card types (`site`, `page`, `profile`, `post`, `plot`) and their element trees. `src/plot.ts` the plot photo's drawing (issue #34): our own SVG of a plot from data the server builds with the sim's palette; colors are checked by `safeColor`, and the owner's name is drawn as text by the template. `src/h.ts` the element builder. `src/text.ts` cleaning, clipping, counts and dates.
+- `src/templates.ts` the card types (`site`, `page`, `profile`, `post`, `plot`) and their element trees. `src/plot.ts` the plot photo's drawing (issue #34): our own SVG of a plot from data the server builds with the sim's palette, paths and floors from their marks (`PlotPaving`) and furniture as itself (`PLOT_FURNITURE`, RFC 0016); colors are checked by `safeColor`, every number is kept to its tile, and the owner's name is drawn as text by the template. `src/h.ts` the element builder. `src/text.ts` cleaning, clipping, counts and dates.
 - `src/render.ts` `createCards()`: boots the wasm once, rasterizes the paper, renders a card to PNG.
 - `src/node.ts` and `src/worker.ts` the two engines, and `src/fonts.ts` the font files for Node. `src/index.ts` the types and pure helpers, with no wasm.
 - `src/images.ts` reads a picture's type and size from its header; `imageDataUri()` refuses formats resvg can't draw and pictures too big to decode in a Worker's memory.

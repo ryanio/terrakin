@@ -1,6 +1,7 @@
 import { Severity, TriageAction, TriageCategory } from "@terrakin/protocol";
 import { z } from "zod";
 import { AiSpend, NO_TOKENS, type TokenCounts, tokensOf } from "./ai-spend";
+import { capabilitiesOf, MODELS } from "./models";
 import type { SqlExec } from "./sql-store";
 
 /**
@@ -44,10 +45,8 @@ export interface TriageConfig {
   breaker: { failures: number; pauseMs: number };
 }
 
-const DEFAULT_TRIAGE_MODEL = "claude-haiku-4-5";
-
 export const DEFAULT_TRIAGE: Omit<TriageConfig, "apiKey"> = {
-  model: DEFAULT_TRIAGE_MODEL,
+  model: MODELS.haiku,
   callsPerDay: 200,
   tokensPerDay: 600_000,
   maxChars: 4_000,
@@ -104,13 +103,13 @@ export type RawVerdict = z.infer<typeof Verdict>;
 
 export type TriageResult =
   | { ok: true; verdict: RawVerdict; model: string }
-  | { ok: false; reason: "off" | "cap" | "paused" | "error" | "invalid" };
+  | { ok: false; reason: "off" | "cap" | "paused" | "error" | "invalid" | "refusal" };
 
 /** What caused a call: a resident's report, or a filter's borderline signal with no report. */
 export type TriageSource = "report" | "filter";
 
 const DAY_MS = 86_400_000;
-const MAX_OUTPUT_TOKENS = 600;
+const MAX_OUTPUT_TOKENS = 800;
 const API_URL = "https://api.anthropic.com/v1/messages";
 
 const SYSTEM = `You help the volunteer staff of Terrakin, a small public world where people and AI agents post, chat, and build homes. You read one reported or flagged piece of text and suggest what staff should do with it, following Terrakin's trust and safety rubric (RFC 0006).
@@ -154,13 +153,6 @@ const TOOL = {
     },
   },
 } as const;
-
-/**
- * Forcing a tool call is the surest way to get structured output from the models we use here, but
- * some newer models refuse a forced `tool_choice`; those get `auto` and the instruction instead.
- */
-export const forcesTool = (model: string) =>
-  !/^claude-(?:fable-5-1|opus-5-5|sonnet-5-5|mythos)/.test(model);
 
 const encoder = new TextEncoder();
 
@@ -267,6 +259,7 @@ export class TriageClient {
 
   async classify(input: TriageInput, source: TriageSource = "report"): Promise<TriageResult> {
     const { apiKey, model, maxChars } = this.config;
+    const caps = capabilitiesOf(model);
     if (!apiKey || !this.enabled) return { ok: false, reason: "off" };
     if (this.pausedUntil() !== null) return { ok: false, reason: "paused" };
     const prompt = triagePrompt(input, maxChars);
@@ -296,8 +289,12 @@ export class TriageClient {
           model,
           max_tokens: MAX_OUTPUT_TOKENS,
           system: SYSTEM,
+          // One verdict needs no reasoning, and thinking tokens would count against max_tokens.
+          ...(caps.thinkingOff ? { thinking: caps.thinkingOff } : {}),
           tools: [TOOL],
-          tool_choice: forcesTool(model) ? { type: "tool", name: TOOL.name } : { type: "auto" },
+          // A forced tool call is the surest way to get the verdict's shape. A model that refuses
+          // one gets `auto` and the instruction to answer only through the tool.
+          tool_choice: caps.forcedTool ? { type: "tool", name: TOOL.name } : { type: "auto" },
           messages: [{ role: "user", content: prompt }],
         }),
       });
@@ -316,6 +313,7 @@ export class TriageClient {
 
     const message = body as {
       model?: unknown;
+      stop_reason?: unknown;
       content?: { type?: string; name?: string; input?: unknown }[];
       usage?: unknown;
     };
@@ -323,6 +321,11 @@ export class TriageClient {
     const actual = tokens.input + tokens.output + tokens.cacheRead + tokens.cacheWrite;
     if (actual > 0) this.spend(day, 0, actual - estimate);
     const answered = typeof message.model === "string" ? message.model : model;
+    if (message.stop_reason === "refusal") {
+      // The model declined, so nothing it sent is a verdict. Not a fault: the breaker stays as it is.
+      this.record(source, answered, tokens, "refusal");
+      return { ok: false, reason: "refusal" };
+    }
     const call = message.content?.find((b) => b.type === "tool_use" && b.name === TOOL.name);
     const parsed = Verdict.safeParse(call?.input);
     if (!parsed.success) {

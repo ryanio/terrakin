@@ -13,6 +13,8 @@ describe("prices", () => {
     expect(priceOf("claude-opus-5-5").input).toBe(4);
     expect(priceOf("claude-opus-5").input).toBe(5);
     expect(priceOf("claude-haiku-4-5").output).toBe(5);
+    // Haiku 5.5 has its own row and never borrows Haiku 4's or the dearest.
+    expect(priceOf("claude-haiku-5-5").input).toBe(0.1);
     expect(priceOf("claude-opus-4-8").output).toBe(25);
     // Opus 4 and 4.1 cost more than the Opus models after them.
     expect(priceOf("claude-opus-4-1").output).toBe(75);
@@ -27,6 +29,21 @@ describe("prices", () => {
     // Sonnet 5.5: $2 in, $10 out, $0.20 cache read, $2.50 cache write per million tokens.
     expect(costMicroUsd("claude-sonnet-5-5", tokens)).toBe(2_000 + 2_000 + 600 + 2_500);
     expect(costMicroUsd("claude-haiku-4-5", tokens)).toBe(1_000 + 1_000 + 300 + 1_250);
+  });
+
+  it("cost Haiku 5.5 by prompt size: every token at the long rates once the prompt is over 100,000", () => {
+    // The prompt is input plus cache reads and writes: 100,000 here, the most at the short rates.
+    const short = { input: 40_000, output: 2_000, cacheRead: 50_000, cacheWrite: 10_000 };
+    // $0.10 in, $0.50 out, $0.01 cache read, $0.125 cache write per million tokens.
+    expect(costMicroUsd("claude-haiku-5-5", short)).toBe(4_000 + 1_000 + 500 + 1_250);
+    // One more cache read: $0.50 in, $2.50 out, $0.05 cache read, $0.625 cache write.
+    const long = { ...short, cacheRead: 50_001 };
+    expect(costMicroUsd("claude-haiku-5-5", long)).toBe(
+      Math.round(20_000 + 5_000 + 50_001 * 0.05 + 6_250),
+    );
+    expect(costMicroUsd("claude-haiku-5-5-20261007", long)).toBe(
+      costMicroUsd("claude-haiku-5-5", long),
+    );
   });
 
   it("read token counts from a response's usage, with anything odd as zero", () => {
@@ -106,7 +123,7 @@ describe("triage in the ledger", () => {
       const next = script[Math.min(n++, script.length - 1)];
       if (typeof next === "number") return new Response("nope", { status: next });
       return Response.json({
-        model: "claude-haiku-4-5",
+        model: "claude-haiku-5-5",
         content: [{ type: "tool_use", id: "t1", name: "record_verdict", input: next }],
         usage: { input_tokens: 900, output_tokens: 120 },
       });
@@ -131,8 +148,9 @@ describe("triage in the ledger", () => {
     expect(api.calls()).toBe(2);
     const rows = [...sql.exec("SELECT * FROM ai_spend ORDER BY n")];
     expect(rows.map((r) => [r.purpose, r.trigger, r.model, r.outcome, r.cost_micro_usd])).toEqual([
-      ["triage", "report", "claude-haiku-4-5", "dismiss", 900 * 1 + 120 * 5],
-      ["triage", "report", "claude-haiku-4-5", "error", 0],
+      // Haiku 5.5 under 100,000 prompt tokens: $0.10 in, $0.50 out per million.
+      ["triage", "report", "claude-haiku-5-5", "dismiss", 900 * 0.1 + 120 * 0.5],
+      ["triage", "report", "claude-haiku-5-5", "error", 0],
     ]);
     const everything = JSON.stringify(rows);
     for (const secret of ["secret words", "r_abc123", "test-key-not-real"]) {

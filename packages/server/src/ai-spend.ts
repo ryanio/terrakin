@@ -1,3 +1,4 @@
+import { byPrefix } from "./models";
 import type { SqlExec } from "./sql-store";
 
 /**
@@ -26,11 +27,19 @@ export interface TokenCounts {
 export const NO_TOKENS: TokenCounts = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
 
 /** US dollars per million tokens. A cache write is the 5-minute one (1.25 times input). */
-interface Price {
+interface Rates {
   input: number;
   output: number;
   cacheRead: number;
   cacheWrite: number;
+}
+
+interface Price extends Rates {
+  /**
+   * Rates for every token of a call whose prompt (input plus cache reads and writes) is over
+   * `promptOver` tokens, for a model priced by prompt size.
+   */
+  long?: Rates & { promptOver: number };
 }
 
 /**
@@ -51,6 +60,16 @@ const PRICES: readonly (readonly [prefix: string, price: Price])[] = [
   ["claude-sonnet-5-5", { input: 2, output: 10, cacheRead: 0.2, cacheWrite: 2.5 }],
   ["claude-sonnet-5", { input: 2, output: 10, cacheRead: 0.2, cacheWrite: 2.5 }],
   ["claude-sonnet-4", { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 3.75 }],
+  [
+    "claude-haiku-5-5",
+    {
+      input: 0.1,
+      output: 0.5,
+      cacheRead: 0.01,
+      cacheWrite: 0.125,
+      long: { promptOver: 100_000, input: 0.5, output: 2.5, cacheRead: 0.05, cacheWrite: 0.625 },
+    },
+  ],
   ["claude-haiku-4", { input: 1, output: 5, cacheRead: 0.1, cacheWrite: 1.25 }],
 ];
 
@@ -63,15 +82,14 @@ const DEAREST = PRICES.reduce<Price>((most, [, p]) => (p.output > most.output ? 
 });
 
 export function priceOf(model: string): Price {
-  const match = [...PRICES]
-    .sort((a, b) => b[0].length - a[0].length)
-    .find(([prefix]) => model === prefix || model.startsWith(`${prefix}-`));
-  return match?.[1] ?? DEAREST;
+  return byPrefix(PRICES, model) ?? DEAREST;
 }
 
 /** What a call cost, in millionths of a US dollar. A price per million tokens is micro-dollars per token. */
 export function costMicroUsd(model: string, tokens: TokenCounts): number {
-  const p = priceOf(model);
+  const price = priceOf(model);
+  const prompt = tokens.input + tokens.cacheRead + tokens.cacheWrite;
+  const p = price.long && prompt > price.long.promptOver ? price.long : price;
   return Math.round(
     tokens.input * p.input +
       tokens.output * p.output +
@@ -101,7 +119,7 @@ export interface SpendEntry {
   /** The model that answered (the response's `model`), else the one asked for. */
   model: string;
   tokens: TokenCounts;
-  /** For triage, the suggested action or `invalid` or `error`; for chatter, see `ChatterOutcome`. */
+  /** For triage, the suggested action, `invalid`, `refusal`, or `error`; for chatter, see `ChatterOutcome`. */
   outcome: string;
   /** For chatter: `post`, `reply`, `like`, or `none`. */
   action?: string;

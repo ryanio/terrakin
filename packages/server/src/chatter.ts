@@ -9,6 +9,7 @@ import {
 } from "@terrakin/protocol";
 import { z } from "zod";
 import { AiSpend, NO_TOKENS, type TokenCounts, tokensOf } from "./ai-spend";
+import { capabilitiesOf, MODELS } from "./models";
 import { findLinks, Moderation, normalize } from "./moderation";
 import type { SocialResult, SocialService } from "./social-service";
 import type { SqlExec } from "./sql-store";
@@ -69,10 +70,8 @@ export interface ChatterConfig {
   breaker: { failures: number; pauseMs: number };
 }
 
-const DEFAULT_CHATTER_MODEL = "claude-sonnet-5-5";
-
 export const DEFAULT_CHATTER: Omit<ChatterConfig, "apiKey"> = {
-  model: DEFAULT_CHATTER_MODEL,
+  model: MODELS.sonnet,
   callsPerDay: 0,
   tokensPerDay: 100_000,
   mode: "dry",
@@ -147,20 +146,6 @@ const MAX_OUTPUT_TOKENS = 400;
 const CALL_TIMEOUT_MS = 30_000;
 const API_URL = "https://api.anthropic.com/v1/messages";
 const FALLBACK_BETA = "server-side-fallback-2026-07-01";
-
-/** Models that take `fallbacks: "default"`, which reruns a refused request on Anthropic's pick. */
-const takesFallbacks = (model: string) =>
-  /^claude-(?:fable-5-1|opus-5-5|opus-5|sonnet-5-5)(?:$|-)/.test(model);
-/**
- * Thinking off for Sonnet 5.5, which refuses `disabled` and takes `between_tools` instead; with no
- * tools, that's no thinking at all. Other models get their default, so a setting never sends one a
- * value it refuses. The token budget assumes Sonnet 5.5.
- */
-const thinkingFor = (model: string) =>
-  /^claude-sonnet-5-5(?:$|-)/.test(model) ? { type: "between_tools" } : undefined;
-/** Models that take `effort`; Haiku 4.5, Sonnet 4.5 and older, and Opus 4.1 and older refuse it. */
-const takesEffort = (model: string) =>
-  /^claude-(?:fable|mythos|opus-5|opus-4-[5-9]|sonnet-5|sonnet-4-6)/.test(model);
 
 const CHATTER_ACTIONS = TOWNSFOLK_ACTIONS;
 export type ChatterAction = (typeof CHATTER_ACTIONS)[number];
@@ -1123,7 +1108,7 @@ export class ChatterService {
           "content-type": "application/json",
           "x-api-key": apiKey,
           "anthropic-version": "2023-06-01",
-          ...(takesFallbacks(model) ? { "anthropic-beta": FALLBACK_BETA } : {}),
+          ...(capabilitiesOf(model).fallbacks ? { "anthropic-beta": FALLBACK_BETA } : {}),
         },
         body: request,
         signal: AbortSignal.timeout(CALL_TIMEOUT_MS),
@@ -1305,20 +1290,25 @@ export class ChatterService {
     );
   }
 
-  /** The request body. Only the user message changes between calls. */
+  /**
+   * The request body. Only the user message changes between calls. Thinking is off where the model
+   * can turn it off (`between_tools` on Sonnet 5.5 is none at all with no tools in the request),
+   * and each field goes only to a model that takes it (`models.ts`). The token budget assumes
+   * Sonnet 5.5.
+   */
   private request(prompt: string): string {
     const { model } = this.config;
-    const thinking = thinkingFor(model);
+    const caps = capabilitiesOf(model);
     return JSON.stringify({
       model,
       max_tokens: MAX_OUTPUT_TOKENS,
       system: [{ type: "text", text: SYSTEM, cache_control: { type: "ephemeral" } }],
-      ...(thinking ? { thinking } : {}),
+      ...(caps.thinkingOff ? { thinking: caps.thinkingOff } : {}),
       output_config: {
-        ...(takesEffort(model) ? { effort: "low" } : {}),
+        ...(caps.effort ? { effort: "low" } : {}),
         format: { type: "json_schema", schema: ANSWER_SCHEMA },
       },
-      ...(takesFallbacks(model) ? { fallbacks: "default" } : {}),
+      ...(caps.fallbacks ? { fallbacks: "default" } : {}),
       messages: [{ role: "user", content: prompt }],
     });
   }

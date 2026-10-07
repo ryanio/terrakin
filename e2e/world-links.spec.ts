@@ -71,7 +71,7 @@ test("someone with no character looks at a plot from a link, steps inside, and g
   page,
 }) => {
   const errors = watchErrors(page);
-  const wren = await persona(page.request, "settled", { name: "Wren" });
+  const wren = await persona(page.request, "settled", { name: "Wynn" });
   const [px, py] = wren.plot ?? [0, 0];
   const card = page.locator("#look-card");
 

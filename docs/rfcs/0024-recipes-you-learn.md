@@ -2,7 +2,7 @@
 
 - Author: Ryan Ghods
 - Date: 2026-10-07
-- Status: accepted
+- Status: accepted (building)
 - Discussion: none yet
 
 ## Summary

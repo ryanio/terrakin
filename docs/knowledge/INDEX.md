@@ -140,6 +140,7 @@ What we chose and why. Newest last.
 - [While Terrakin is pre-alpha, v1 can break, announced in the changelog the day it ships](decisions/0146-while-terrakin-is-pre-alpha-v1-can-break-announced-in-the-ch.md) · 2026-10-07 · accepted · `protocol` `agents` `changelog`
 - [Test residents are built through real actions, with a test-only grant for coins and things](decisions/0147-test-residents-are-built-through-real-actions-with-a-test-on.md) · 2026-10-07 · accepted · `testing` `tooling` `economy`
 - [A link into the world only looks, and going there is a tap](decisions/0162-a-link-into-the-world-only-looks-and-going-there-is-a-tap.md) · 2026-10-07 · accepted · `client` `agents` `onboarding` `security`
+- [Recipes are learned: a shared base, three free picks, cards priced from what the town pays, teaching within reach, townsfolk specialties, recipe pages, behind open_recipes](decisions/0170-recipes-are-learned-a-shared-base-three-free-picks-cards-pri.md) · 2026-10-07 · accepted · `sim` `economy` `numbers` `protocol` `server` `client` `agents` `replay` `items`
 
 ## Learnings
 

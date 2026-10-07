@@ -21,6 +21,7 @@ import {
   isGroundKind,
   isHeldBlock,
   pickupsInReach,
+  type Resident,
   route,
   STEP,
   type Tile,
@@ -681,6 +682,15 @@ canvas.addEventListener("pointerdown", (e) => {
   tapTile(screenToTile(cam, e.clientX, e.clientY));
 });
 
+/** Where a mouse rests over the map. Each frame rings what a click there would act on. */
+let pointer: { x: number; y: number } | undefined;
+canvas.addEventListener("pointermove", (e) => {
+  pointer = e.pointerType === "mouse" ? { x: e.clientX, y: e.clientY } : undefined;
+});
+canvas.addEventListener("pointerleave", () => {
+  pointer = undefined;
+});
+
 /** A tap on the world, as a tile: from the 2D map, or picked in the 3D view. Both act the same. */
 /** Turn to look at something you tapped or are using. Only how you're drawn; the server moves you. */
 function lookAt(tile: { x: number; y: number }) {
@@ -689,6 +699,56 @@ function lookAt(tile: { x: number; y: number }) {
   if (!dir || !me) return;
   mirror?.facing.set(me, dir);
   motion.face(me, dir);
+}
+
+/** What a tap on a tile does besides walking there. `tapTile` acts on it; a mouse over it shows it. */
+type TapTarget =
+  | { kind: "plot" }
+  | { kind: "page"; path: string; tiles: readonly Tile[] }
+  | { kind: "pond" }
+  | { kind: "station" }
+  | { kind: "pickup" }
+  | { kind: "pet"; owner: Resident }
+  | { kind: "resident"; other: Resident };
+
+function tapTarget(tile: Tile): TapTarget | undefined {
+  const r = self();
+  const at = here();
+  if (!mirror || !r || !at) return undefined;
+  // Tapping yourself while you stand on your own plot opens it in 3D.
+  if (tile.x === at.x && tile.y === at.y && mirror.ownerAt(at.x, at.y) === r.id && navigate)
+    return { kind: "plot" };
+  // Someone standing on a tile takes the tap, over whatever they stand on.
+  const other = mirror.residentAt(tile.x, tile.y);
+  if (other) return other.id === me ? undefined : { kind: "resident", other };
+  // A game table opens its page (RFC 0011), and so do the Town Hall and the shop.
+  const table = mirror.tableAt(tile.x, tile.y);
+  if (table && navigate) return { kind: "page", path: `/games/${table}`, tiles: [tile] };
+  if (mirror.isTownHall(tile.x, tile.y) && navigate)
+    return { kind: "page", path: "/town", tiles: mirror.townHall };
+  if (mirror.isShop(tile.x, tile.y) && navigate)
+    return { kind: "page", path: "/shop", tiles: mirror.shop };
+  const block = mirror.blocks.get(tileKey(tile.x, tile.y));
+  if (block === "pond") return { kind: "pond" };
+  if (block && STATIONS.includes(block)) return { kind: "station" };
+  if (mirror.pickupAt(tile.x, tile.y)) return { kind: "pickup" };
+  // Someone else's pet drawn on the tile. Pets are drawing only, so this asks where they were last
+  // drawn; yours sits at your heel, where you tap to walk.
+  const petOwner = pets.tapped(tile, me, mirror);
+  const owner = petOwner ? mirror.residents.get(petOwner) : undefined;
+  return owner?.pet ? { kind: "pet", owner } : undefined;
+}
+
+/** The tiles a click would act on, ringed under a mouse: in build mode, any tile a block goes on. */
+function hoverTiles(tile: Tile): readonly Tile[] | undefined {
+  if (!mirror || tile.x < 0 || tile.y < 0) return undefined;
+  if (tile.x >= mirror.config.width || tile.y >= mirror.config.height) return undefined;
+  if (buildMode) return [tile];
+  const target = tapTarget(tile);
+  if (!target) return undefined;
+  if (target.kind === "page") return target.tiles;
+  if (target.kind === "resident") return [{ x: target.other.x, y: target.other.y }];
+  return [tile];
 }
 
 function tapTile(tile: { x: number; y: number }) {
@@ -710,26 +770,13 @@ function tapTile(tile: { x: number; y: number }) {
     else tryAct({ type: "place", ...tile, block: pick });
     return;
   }
-  // Tapping yourself while you stand on your own plot opens it in 3D.
-  if (tile.x === at.x && tile.y === at.y && mirror.ownerAt(at.x, at.y) === r.id && navigate) {
-    navigate(plot3dPath(r.id));
+  const target = tapTarget(tile);
+  if (target?.kind === "plot") {
+    navigate?.(plot3dPath(r.id));
     return;
   }
-  // Tapping someone shows who they are. Names and notes are untrusted: textContent only.
-  const other = mirror.residentAt(tile.x, tile.y);
-  // A game table opens its page (RFC 0011), unless someone is standing at it.
-  const table = other ? undefined : mirror.tableAt(tile.x, tile.y);
-  if (table && navigate) {
-    navigate(`/games/${table}`);
-    return;
-  }
-  // The Town Hall opens its page, unless someone is standing in its doorway. So does the shop.
-  if (!other && mirror.isTownHall(tile.x, tile.y) && navigate) {
-    navigate("/town");
-    return;
-  }
-  if (!other && mirror.isShop(tile.x, tile.y) && navigate) {
-    navigate("/shop");
+  if (target?.kind === "page") {
+    navigate?.(target.path);
     return;
   }
   /** Do `then` here if it's in reach, or walk until it is and do it there. */
@@ -742,15 +789,14 @@ function tapTile(tile: { x: number; y: number }) {
     });
   };
   // Water (RFC 0023): cast a line into it from beside it, walking there first when it's farther.
-  if (!other && mirror.blocks.get(tileKey(tile.x, tile.y)) === "pond") {
+  if (target?.kind === "pond") {
     if (Math.max(Math.abs(tile.x - at.x), Math.abs(tile.y - at.y)) <= 1) castLine();
     else walkToward(tile, 1, castLine);
     return;
   }
   // A planter, kitchen, or workbench opens what you can do there (RFC 0005). One farther off is
   // somewhere to walk to: you stop once it's in reach, and it opens then.
-  const station = mirror.blocks.get(`${tile.x},${tile.y}`);
-  if (!other && station && STATIONS.includes(station)) {
+  if (target?.kind === "station") {
     reachThen(() => {
       lookAt(tile);
       openStation(tile.x, tile.y);
@@ -761,7 +807,7 @@ function tapTile(tile: { x: number; y: number }) {
   // somewhere to walk to: you stop once it's in reach and pick it up then. The sim has the last
   // word; its `nothing_to_gather` says someone got there first. One on someone else's plot is
   // theirs: say so rather than walk there for nothing.
-  if (!other && mirror.pickupAt(tile.x, tile.y)) {
+  if (target?.kind === "pickup") {
     if (!mirror.mayGatherAt(tile.x, tile.y, r.id)) {
       const owner = mirror.ownerAt(tile.x, tile.y);
       showToast(othersPickupLine(owner ? mirror.residents.get(owner)?.name : undefined));
@@ -776,11 +822,9 @@ function tapTile(tile: { x: number; y: number }) {
     });
     return;
   }
-  // Someone else's pet drawn on the tapped tile opens its sheet: Pat and Give a treat. Yours sits at
-  // your heel, where you tap to walk, and a tap on a hearth walks there past a pet curled up by it.
-  // Pets are drawing only, so this asks where they were last drawn.
-  const petOwner = other ? undefined : pets.tapped(tile, me, mirror);
-  const owned = petOwner ? mirror.residents.get(petOwner) : undefined;
+  // Someone else's pet opens its sheet: Pat and Give a treat. A tap on a hearth walks there past a
+  // pet curled up by it.
+  const owned = target?.kind === "pet" ? target.owner : undefined;
   if (owned?.pet) {
     lookAt(tile);
     openWorldPetSheet({
@@ -795,7 +839,9 @@ function tapTile(tile: { x: number; y: number }) {
     });
     return;
   }
-  if (other && other.id !== me) {
+  // Tapping someone shows who they are. Names and notes are untrusted: textContent only.
+  if (target?.kind === "resident") {
+    const other = target.other;
     lookAt(other);
     const name = other.kind === "agent" ? `${other.name} ⚙` : other.name;
     showToast(other.note ? `${name}: ${other.note}` : name, "player");
@@ -803,6 +849,7 @@ function tapTile(tile: { x: number; y: number }) {
   }
   // Someone away is not here: asleep at home, or out on a routine (decision 0083). Say so, and
   // walk on as if the tile were empty.
+  const other = mirror.residentAt(tile.x, tile.y);
   const out = other
     ? undefined
     : mirror.outOnRoutine(me).find((o) => o.r.x === tile.x && o.r.y === tile.y);
@@ -876,7 +923,11 @@ function open3d() {
       showOpening(false);
       if (mode !== "3d" || !active || !me) return loader?.finish();
       host3d.hidden = false;
-      world3d = m.createWorld3d(host3d, { onTap: tapTile, onFail: fallBack });
+      world3d = m.createWorld3d(host3d, {
+        onTap: tapTile,
+        tappable: (tile) => !!hoverTiles(tile),
+        onFail: fallBack,
+      });
       canvas.hidden = true;
       // Two frames on, the scene has drawn once, so the loader lifts onto it rather than onto nothing.
       requestAnimationFrame(() => requestAnimationFrame(() => loader?.finish()));
@@ -1255,7 +1306,11 @@ function frame() {
       clock,
       ...(phase === undefined ? {} : { dayPhase: phase }),
     });
-  else if (mirror)
+  else if (mirror) {
+    // Worked out every frame: people walk under a still pointer, and the map follows you.
+    const hover = pointer ? hoverTiles(screenToTile(cam, pointer.x, pointer.y)) : undefined;
+    const cursor = hover ? "pointer" : "";
+    if (canvas.style.cursor !== cursor) canvas.style.cursor = cursor;
     render(ctx, {
       mirror,
       me,
@@ -1272,8 +1327,10 @@ function frame() {
       // Plots' names keep clear of the top bar and the visit card (decision 0121).
       labelTop: Math.max(TOP_BAR_PX, visiting.bottom()),
       casts,
+      hover,
       ...(phase === undefined ? {} : { dayPhase: phase }),
     });
+  }
   if (casts.length > 0 && now - (casts[0]?.at ?? now) > CAST_MS) {
     casts = casts.filter((c) => now - c.at <= CAST_MS);
   }

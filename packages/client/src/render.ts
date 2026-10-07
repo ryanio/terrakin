@@ -44,6 +44,7 @@ import {
 } from "./render/decor";
 import { lightBulbs } from "./render/decor-winter";
 import { paintFurniture, paintGameTable } from "./render/furniture";
+import { paintHover } from "./render/hover";
 import { labelWidth, ownerHue, paintPlotLabels } from "./render/labels";
 import { CLAY, CLAY_DEEP, INK, PAPER, PAPER_EDGE } from "./render/palette";
 import {
@@ -95,6 +96,8 @@ export interface RenderState {
   labelTop?: number;
   /** Casts made lately (RFC 0023), drawn on the water for a moment. */
   casts?: readonly CastMark[];
+  /** The tiles a click would act on, under a mouse pointer, ringed. Absent: nothing is. */
+  hover?: readonly { x: number; y: number }[] | undefined;
 }
 
 /** A pet's box across, in tiles: about half a resident's height. */
@@ -124,6 +127,7 @@ export function render(
     clock,
     labelTop = 0,
     casts,
+    hover,
   }: RenderState,
 ) {
   const { width, height, scale } = cam;
@@ -533,6 +537,8 @@ export function render(
     ctx.stroke();
     ctx.setLineDash([]);
   }
+
+  if (hover) paintHover(ctx, cam, hover);
 
   // ---- pets: beside their owners, or at home by the hearth (RFC 0019), under the residents ----
   if (pets) {

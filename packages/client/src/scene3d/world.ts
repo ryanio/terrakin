@@ -132,6 +132,8 @@ import {
 export interface World3dOptions {
   /** A tap on the world, as the tile it landed on. Walking, building, and opening things follow. */
   onTap(tile: Tile): void;
+  /** Whether a tap on a tile does more than walk there: a mouse over it shows a pointer. */
+  tappable?(tile: Tile): boolean;
   /** The 3D view can't go on here: too slow even after stepping down, or the GPU went away. */
   onFail(reason: "slow" | "lost"): void;
 }
@@ -1024,6 +1026,31 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
   canvas.addEventListener("pointerup", onUp);
   canvas.addEventListener("pointercancel", onCancel);
 
+  // A mouse resting over something a tap acts on shows a pointer. Picking casts rays through the
+  // scene, so it runs a few times a second, not on every move, and not while a drag turns the camera.
+  const HOVER_MS = 150;
+  let mouse: { x: number; y: number } | undefined;
+  let hoverAt = 0;
+  const onMove = (e: PointerEvent) => {
+    mouse =
+      e.pointerType === "mouse" && e.buttons === 0 ? { x: e.clientX, y: e.clientY } : undefined;
+    if (!mouse) canvas.style.cursor = "";
+  };
+  const onLeave = () => {
+    mouse = undefined;
+    canvas.style.cursor = "";
+  };
+  canvas.addEventListener("pointermove", onMove);
+  canvas.addEventListener("pointerleave", onLeave);
+
+  function hover(now: number) {
+    if (!mouse || !opts.tappable || now - hoverAt < HOVER_MS) return;
+    hoverAt = now;
+    const tile = pick(mouse.x, mouse.y);
+    const cursor = tile && opts.tappable(tile) ? "pointer" : "";
+    if (canvas.style.cursor !== cursor) canvas.style.cursor = cursor;
+  }
+
   /** The tile under a point on screen: a figure first, then a block or building, then the ground. */
   function pick(clientX: number, clientY: number): Tile | undefined {
     const rect = canvas.getBoundingClientRect();
@@ -1084,6 +1111,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       const dt = Math.min(0.1, (now - lastSync) / 1000);
       lastSync = now;
       if (!self || failed) return;
+      hover(now);
       // A new season dresses the ground again, plot by plot, like any change to the world.
       const newSeason = seasonNow !== season;
       season = seasonNow;
@@ -1169,6 +1197,8 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       canvas.removeEventListener("pointerdown", onDown);
       canvas.removeEventListener("pointerup", onUp);
       canvas.removeEventListener("pointercancel", onCancel);
+      canvas.removeEventListener("pointermove", onMove);
+      canvas.removeEventListener("pointerleave", onLeave);
       for (const key of [...chunks.keys()]) dropChunk(key);
       for (const id of [...figures.keys()]) dropFigure(id);
       for (const id of [...petFigs.keys()]) dropPet(id);

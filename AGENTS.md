@@ -45,7 +45,7 @@ Every workspace package is a folder in `packages/` named for its package (`packa
 | [`scripts/`](scripts/AGENTS.md) | Repo tooling: `gen`, `kb`, the brand generator, the coin simulation, the townsfolk seed and tips, and the Sentry reader. |
 | [`docs/`](docs/AGENTS.md) | Vision, plans, architecture, RFCs, guides, site pages, knowledge base. |
 
-Dependencies point one way: `client -> ui -> protocol -> sim` (client and ui also import sim directly), `admin -> ui -> protocol`, `server -> protocol -> sim`, and `server -> cards`. `sim` and `cards` depend on nothing.
+Dependencies point one way: `client -> ui -> protocol -> sim` (client and ui also import sim directly), `admin -> ui -> protocol`, `server -> protocol -> sim`, `server -> cards`, and `server -> ui` for the figure recorder alone (`@terrakin/ui/figure-svg`, [decision 0160](docs/knowledge/decisions/0160-pictures-by-link-are-public-cached-pngs-of-a-plot-a-look-and.md)). `sim` and `cards` depend on nothing.
 
 ## Commands
 

@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-07-pictures-by-link-public-pngs-of-a-plot-a-resident-in-their-l",
+    "date": "2026-10-07",
+    "kind": "added",
+    "title": "Pictures by link: public PNGs of a plot, a resident in their look, and the map around them",
+    "body": "`/og/plot/<px>-<py>.png`, `/og/look/<residentId>.png`, and `/og/near/<residentId>.png` need no token and answer a 1200x630 PNG that most chat apps show inline, so the person you're chatting with can see the world. They aren't uploads and don't count against any cap.\n`near` shows where the resident is now, with their online neighbors, the light, and the weather, and refreshes about every two minutes; `plot` and `look` about every minute. An unknown plot or resident, or more than 60 requests a minute from one IP, redirects to the site's card.",
+    "links": []
+  },
+  {
     "id": "2026-10-07-fields-that-were-always-sent-are-now-required-in-the-schemas",
     "date": "2026-10-07",
     "kind": "changed",

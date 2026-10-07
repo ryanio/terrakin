@@ -9,6 +9,11 @@
  * world.
  */
 
+import { safeColor } from "./color";
+import { type Drawing, drawingBox, drawingSvg } from "./drawing";
+
+export { safeColor };
+
 /**
  * One shape of a path or floor, in tile units from the tile's top left, as the sim's palette gives
  * it (`GROUND_LOOK`). Colors are checked by `safeColor`; numbers are kept to the tile.
@@ -193,28 +198,78 @@ export interface PlotCard {
   homeArt?: { src: string; width: number; height: number } | undefined;
   /** The owner's pet, curled up by the hearth. */
   pet?: PlotPet | undefined;
+  /** Residents standing on the plot (pictures by link, decision 0160). */
+  figures?: PlacedFigure[] | undefined;
   ink: PlotInk;
 }
 
-const COLOR = /^(#[0-9a-f]{6}|rgba\(\d{1,3}, \d{1,3}, \d{1,3}, (0|1|0?\.\d{1,4})\))$/i;
+/** A resident's figure standing with their feet at `x`, `y`, in tiles from the area's top left. */
+export interface PlacedFigure {
+  x: number;
+  y: number;
+  drawing: Drawing;
+}
 
-/** A color from the palette, or a plain grey if anything else ever arrives. */
-export function safeColor(value: string): string {
-  return COLOR.test(value) ? value : "#b3ab9b";
+/**
+ * A piece of the world from above: `cols` by `rows` tiles and what stands on them, in the same
+ * shapes as a plot photo. A plot photo is one plot's area; the picture of where someone is
+ * (decision 0160) is a wider one.
+ */
+export interface PlotArea {
+  cols: number;
+  rows: number;
+  /** `cols * rows` tiles, row by row from the top left. */
+  ground: PlotGround[];
+  /** Theme tints laid over parts of the area: each plot's owner's, over that plot. */
+  tints?: { x: number; y: number; w: number; h: number; fill: string }[] | undefined;
+  blocks: PlotBlock[];
+  crops?: PlotCrop[] | undefined;
+  hearths?: { x: number; y: number }[] | undefined;
+  pets?: PlotPet[] | undefined;
+  figures?: PlacedFigure[] | undefined;
+  ink: PlotInk;
 }
 
 const n = (v: number) => Number(v.toFixed(3));
-const inPlot = (v: number, size: number) => Number.isFinite(v) && v >= 0 && v < size;
 
 /** The plot as SVG markup, `px` pixels square. Our own markup only: numbers and checked colors. */
 export function plotSvg(c: PlotCard, px: number): string {
   const S = Math.max(1, Math.min(32, Math.floor(c.size)));
+  const parts = areaParts({
+    cols: S,
+    rows: S,
+    ground: c.ground,
+    ...(c.tint ? { tints: [{ x: 0, y: 0, w: S, h: S, fill: c.tint }] } : {}),
+    blocks: c.blocks,
+    crops: c.crops,
+    hearths: c.hearth ? [c.hearth] : [],
+    pets: c.pet ? [c.pet] : [],
+    figures: c.figures,
+    ink: c.ink,
+  });
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="0 0 ${S} ${S}" shape-rendering="geometricPrecision">${parts.join("")}</svg>`;
+}
+
+/** Most tiles an area may be across or down, and most figures and pets it draws. */
+const MAX_SIDE = 64;
+const MAX_FIGURES = 24;
+const MAX_PETS = 24;
+
+/**
+ * An area's markup, in tile units from its top left: the ground and what lies on it, ponds, blocks,
+ * decor and furniture, crops, hearths, pets, and figures, back to front. Our own markup only.
+ */
+export function areaParts(a: PlotArea): string[] {
+  const cols = Math.max(1, Math.min(MAX_SIDE, Math.floor(a.cols)));
+  const rows = Math.max(1, Math.min(MAX_SIDE, Math.floor(a.rows)));
+  const inX = (v: number) => Number.isFinite(v) && v >= 0 && v < cols;
+  const inY = (v: number) => Number.isFinite(v) && v >= 0 && v < rows;
   const parts: string[] = [];
   const tufts: string[] = [];
   const flowers: string[] = [];
-  for (let y = 0; y < S; y++) {
-    for (let x = 0; x < S; x++) {
-      const g = c.ground[y * S + x];
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      const g = a.ground[y * cols + x];
       if (!g) continue;
       // A hair wider than the tile, so neighbors share pixels and no seams show.
       parts.push(
@@ -242,19 +297,24 @@ export function plotSvg(c: PlotCard, px: number): string {
   }
   if (tufts.length) {
     parts.push(
-      `<path d="${tufts.join("")}" stroke="${safeColor(c.ink.tuft)}" stroke-width="0.045" stroke-linecap="round" fill="none"/>`,
+      `<path d="${tufts.join("")}" stroke="${safeColor(a.ink.tuft)}" stroke-width="0.045" stroke-linecap="round" fill="none"/>`,
     );
   }
   parts.push(...flowers);
-  if (c.tint) parts.push(`<rect width="${S}" height="${S}" fill="${safeColor(c.tint)}"/>`);
+  for (const t of (a.tints ?? []).slice(0, 64)) {
+    if (![t.x, t.y, t.w, t.h].every(Number.isFinite) || t.w <= 0 || t.h <= 0) continue;
+    parts.push(
+      `<rect x="${n(t.x)}" y="${n(t.y)}" width="${n(t.w)}" height="${n(t.h)}" fill="${safeColor(t.fill)}"/>`,
+    );
+  }
 
   // Ponds (RFC 0023) lie flat in the ground, under everything standing.
-  const ponds = new Set(c.blocks.filter((b) => b.water).map((b) => `${b.x},${b.y}`));
-  for (const b of c.blocks) {
-    if (!b.water || !inPlot(b.x, S) || !inPlot(b.y, S)) continue;
+  const ponds = new Set(a.blocks.filter((b) => b.water).map((b) => `${b.x},${b.y}`));
+  for (const b of a.blocks) {
+    if (!b.water || !inX(b.x) || !inY(b.y)) continue;
     const at = (dx: number, dy: number) => ponds.has(`${b.x + dx},${b.y + dy}`);
     parts.push(
-      ...pondSvg(b, safeColor(b.fill), c.ink.pond ?? POND_INK, {
+      ...pondSvg(b, safeColor(b.fill), a.ink.pond ?? POND_INK, {
         n: !at(0, -1),
         e: !at(1, 0),
         s: !at(0, 1),
@@ -264,12 +324,12 @@ export function plotSvg(c: PlotCard, px: number): string {
   }
 
   // Blocks: a ground shadow, the block, a bottom shade, and a top highlight, as in the world.
-  const fences = new Set(c.blocks.filter((b) => b.decor === "fence").map((b) => `${b.x},${b.y}`));
+  const fences = new Set(a.blocks.filter((b) => b.decor === "fence").map((b) => `${b.x},${b.y}`));
   const walls = new Set(
-    c.blocks.filter((b) => b.furniture === "stone_wall").map((b) => `${b.x},${b.y}`),
+    a.blocks.filter((b) => b.furniture === "stone_wall").map((b) => `${b.x},${b.y}`),
   );
-  for (const b of c.blocks) {
-    if (b.water || !inPlot(b.x, S) || !inPlot(b.y, S)) continue;
+  for (const b of a.blocks) {
+    if (b.water || !inX(b.x) || !inY(b.y)) continue;
     if (b.furniture && (PLOT_FURNITURE as readonly string[]).includes(b.furniture)) {
       const at = (dx: number, dy: number) => walls.has(`${b.x + dx},${b.y + dy}`);
       parts.push(
@@ -313,25 +373,47 @@ export function plotSvg(c: PlotCard, px: number): string {
   }
 
   // What's growing, over its planter.
-  for (const crop of c.crops ?? []) {
-    if (inPlot(crop.x, S) && inPlot(crop.y, S)) parts.push(...cropSvg(crop));
+  for (const crop of a.crops ?? []) {
+    if (inX(crop.x) && inY(crop.y)) parts.push(...cropSvg(crop));
   }
 
-  // The hearth: a little house with a door and a clay roof.
-  const h = c.hearth;
-  if (h && inPlot(h.x, S) && inPlot(h.y, S)) {
+  // Hearths: a little house with a door and a clay roof.
+  for (const h of (a.hearths ?? []).slice(0, 64)) {
+    if (!inX(h.x) || !inY(h.y)) continue;
     const sx = h.x + 0.5;
     const sy = h.y + 0.5;
     const half = 0.5;
     parts.push(
       `<ellipse cx="${n(sx)}" cy="${n(sy + half * 0.62)}" rx="${n(half * 0.62)}" ry="${n(half * 0.16)}" fill="rgba(74, 52, 28, 0.2)"/>`,
-      `<rect x="${n(sx - half * 0.52)}" y="${n(sy - half * 0.2)}" width="${n(half * 1.04)}" height="${n(half * 0.78)}" fill="${safeColor(c.ink.walls)}"/>`,
-      `<rect x="${n(sx - half * 0.14)}" y="${n(sy + half * 0.12)}" width="${n(half * 0.28)}" height="${n(half * 0.46)}" rx="0.04" fill="${safeColor(c.ink.door)}"/>`,
-      `<path d="M${n(sx - half * 0.72)} ${n(sy - half * 0.12)}L${n(sx)} ${n(sy - half * 0.78)}L${n(sx + half * 0.72)} ${n(sy - half * 0.12)}z" fill="${safeColor(c.ink.roof)}"/>`,
+      `<rect x="${n(sx - half * 0.52)}" y="${n(sy - half * 0.2)}" width="${n(half * 1.04)}" height="${n(half * 0.78)}" fill="${safeColor(a.ink.walls)}"/>`,
+      `<rect x="${n(sx - half * 0.14)}" y="${n(sy + half * 0.12)}" width="${n(half * 0.28)}" height="${n(half * 0.46)}" rx="0.04" fill="${safeColor(a.ink.door)}"/>`,
+      `<path d="M${n(sx - half * 0.72)} ${n(sy - half * 0.12)}L${n(sx)} ${n(sy - half * 0.78)}L${n(sx + half * 0.72)} ${n(sy - half * 0.12)}z" fill="${safeColor(a.ink.roof)}"/>`,
     );
   }
-  if (c.pet) parts.push(...petSvg(c.pet, S));
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="0 0 ${S} ${S}" shape-rendering="geometricPrecision">${parts.join("")}</svg>`;
+  for (const pet of (a.pets ?? []).slice(0, MAX_PETS)) parts.push(...petSvg(pet, cols, rows));
+  // Figures back to front, so someone further south stands in front.
+  const figures = (a.figures ?? [])
+    .slice(0, MAX_FIGURES)
+    .filter((f) => inX(f.x) && Number.isFinite(f.y) && f.y > 0 && f.y <= rows + 1)
+    .sort((p, q) => p.y - q.y);
+  figures.forEach((f, i) => {
+    parts.push(...figureSvg(f, `f${i}`));
+  });
+  return parts;
+}
+
+/**
+ * A resident's figure with its feet at (x, y): a soft shadow on the ground, then the figure at a
+ * tile's height, as the map stands it (100 of the drawing's units to a tile).
+ */
+function figureSvg(f: PlacedFigure, id: string): string[] {
+  if (!drawingBox(f.drawing)) return [];
+  const body = drawingSvg(f.drawing, id);
+  if (!body) return [];
+  return [
+    `<ellipse cx="${n(f.x)}" cy="${n(f.y)}" rx="0.27" ry="0.085" fill="rgba(60, 40, 20, 0.22)"/>`,
+    `<g transform="translate(${n(f.x)} ${n(f.y)}) scale(0.01)">${body}</g>`,
+  ];
 }
 
 /**
@@ -427,10 +509,12 @@ function petAttr(name: string, value: string | number): string {
 }
 
 /** A pet on the plot, its picture scaled into its box and flipped to face left when it does. */
-function petSvg(p: PlotPet, S: number): string[] {
+export function petSvg(p: PlotPet, cols: number, rows = cols): string[] {
   const { x, y, size } = p;
   const ok = [x, y, size].every(Number.isFinite) && size > 0 && size <= 4;
-  if (!ok || x < -size || y < -size || x > S || y > S || !Array.isArray(p.shapes)) return [];
+  if (!ok || x < -size || y < -size || x > cols || y > rows || !Array.isArray(p.shapes)) {
+    return [];
+  }
   const k = size / PET_BOX;
   const place = p.flip
     ? `translate(${n(x + size)} ${n(y)}) scale(${n(-k)} ${n(k)})`

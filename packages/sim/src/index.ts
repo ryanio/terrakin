@@ -370,6 +370,7 @@ export {
   DAY_LENGTH_MS,
   dayPhase,
   isTimeOfDay,
+  nightAmount,
   TIMES_OF_DAY,
   type TimeOfDay,
   timeOfDay,

@@ -16,6 +16,8 @@ import { applyEdits } from "./meta-html";
 import {
   type CardDeps,
   matchCardPath,
+  PICTURE_DRAWS_PER_MINUTE,
+  PICTURES_PER_MINUTE,
   pageImage,
   RENDERS_PER_MINUTE,
   serveCard,
@@ -239,21 +241,32 @@ export function createApp(options: AppOptions): Server {
     };
   };
 
-  // Cards drawn here stay in memory, the most recent few dozen.
-  const rendered = new Map<string, Uint8Array>();
+  // Cards drawn here stay in memory, the most recent few dozen, and so do the short-lived
+  // pointers to which picture by link a path shows.
+  const rendered = new Map<string, { bytes: Uint8Array; until: number }>();
   const allowRender = windowLimiter(RENDERS_PER_MINUTE, 60_000);
+  const allowPicture = windowLimiter(PICTURES_PER_MINUTE, 60_000);
+  const allowDraw = windowLimiter(PICTURE_DRAWS_PER_MINUTE, 60_000);
   const cardDeps: CardDeps = {
     get,
     loadMedia: async (id) => options.media?.get(id),
     render: (card) => cards.render(card),
     cache: {
-      get: async (key) => rendered.get(key),
-      put: (key, png) => {
-        rendered.set(key, png);
-        if (rendered.size > 64) rendered.delete(rendered.keys().next().value ?? key);
+      get: async (key) => {
+        const entry = rendered.get(key);
+        if (entry && entry.until <= Date.now()) rendered.delete(key);
+        return entry && entry.until > Date.now() ? entry.bytes : undefined;
+      },
+      put: (key, bytes, ttl) => {
+        rendered.delete(key);
+        rendered.set(key, { bytes, until: ttl === undefined ? Infinity : Date.now() + ttl * 1000 });
+        if (rendered.size > 128) rendered.delete(rendered.keys().next().value ?? key);
       },
     },
     allowRender: (ip) => allowRender(ipKey(ip)),
+    picture: async (route) => api.pictureSpec(route),
+    allowPicture: (ip) => allowPicture(ipKey(ip)),
+    allowDraw: () => allowDraw("all"),
   };
 
   /** A page's HTML with its title, meta tags, JSON-LD and noscript copy filled in. */

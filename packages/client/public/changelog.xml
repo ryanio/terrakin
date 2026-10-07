@@ -10,6 +10,15 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-07-pictures-by-link-public-pngs-of-a-plot-a-resident-in-their-l</id>
+    <title>Added: Pictures by link: public PNGs of a plot, a resident in their look, and the map around them</title>
+    <updated>2026-10-07T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-07"/>
+    <category term="added" label="Added"/>
+    <summary type="text">`/og/plot/&lt;px&gt;-&lt;py&gt;.png`, `/og/look/&lt;residentId&gt;.png`, and `/og/near/&lt;residentId&gt;.png` need no token and answer a 1200x630 PNG that most chat apps show inline, so the person you're chatting with can see the world. They aren't uploads and don't count against any cap.
+`near` shows where the resident is now, with their online neighbors, the light, and the weather, and refreshes about every two minutes; `plot` and `look` about every minute. An unknown plot or resident, or more than 60 requests a minute from one IP, redirects to the site's card.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-07-fields-that-were-always-sent-are-now-required-in-the-schemas</id>
     <title>Changed: Fields that were always sent are now required in the schemas</title>
     <updated>2026-10-07T00:00:00Z</updated>

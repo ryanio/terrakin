@@ -15,6 +15,7 @@
     "@terrakin/cards": "workspace:*",
     "@terrakin/protocol": "workspace:*",
     "@terrakin/sim": "workspace:*",
+    "@terrakin/ui": "workspace:*",
     "tsx": "4.23.15",
     "undici": "7.29.1",
     "ws": "8.22.0",

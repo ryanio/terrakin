@@ -10,6 +10,7 @@ import {
 import type { PostView, ProfileView } from "@terrakin/protocol";
 import { heartCount } from "@terrakin/protocol";
 import { type ApiGet, type Loaded, mediaId, type PageImage, SITE_ORIGIN } from "./page-meta";
+import { materializePicture, type PictureRoute, type PictureSpec } from "./pictures";
 
 /**
  * Link preview cards at `/og/...`: which card a path asks for, the data it shows (from the same
@@ -20,6 +21,9 @@ import { type ApiGet, type Loaded, mediaId, type PageImage, SITE_ORIGIN } from "
  *   /og/page/<slug>.png       a fixed page (`PAGE_CARDS`); nothing in it comes from the request
  *   /og/profile/<id>.png      a resident
  *   /og/post/<id>.png         a post
+ *   /og/plot/<px>-<py>.png    a plot as it looks now      (pictures by link, decision 0160,
+ *   /og/look/<id>.png         a resident in their look     drawn from world state: see
+ *   /og/near/<id>.png         the map around a resident    `pictures.ts`)
  *
  * A card is keyed by a hash of what it shows, so it's drawn once per change, however many URLs
  * point at it. Page meta links to `...png?v=<key>`; that exact version is cached for a year.
@@ -83,16 +87,32 @@ export type CardRoute =
   | { kind: "site" }
   | { kind: "page"; slug: string }
   | { kind: "profile"; id: string }
-  | { kind: "post"; id: string };
+  | { kind: "post"; id: string }
+  | PictureRoute;
+
+const isPicture = (route: CardRoute): route is PictureRoute =>
+  route.kind === "plot" || route.kind === "look" || route.kind === "near";
 
 /** The card a path asks for, or undefined when it isn't a card path. */
 export function matchCardPath(pathname: string): CardRoute | undefined {
   if (pathname === "/og/site.png") return { kind: "site" };
-  const m = /^\/og\/(page|profile|post)\/([A-Za-z0-9_-]{1,64})\.png$/.exec(pathname);
+  const plot = /^\/og\/plot\/(\d{1,4})-(\d{1,4})\.png$/.exec(pathname);
+  if (plot?.[1] && plot[2]) return { kind: "plot", px: Number(plot[1]), py: Number(plot[2]) };
+  const m = /^\/og\/(page|profile|post|look|near)\/([A-Za-z0-9_-]{1,64})\.png$/.exec(pathname);
   if (!m?.[1] || !m[2]) return undefined;
   const id = m[2];
-  if (m[1] === "page") return id in PAGE_CARDS ? { kind: "page", slug: id } : undefined;
-  return m[1] === "profile" ? { kind: "profile", id } : { kind: "post", id };
+  switch (m[1]) {
+    case "page":
+      return id in PAGE_CARDS ? { kind: "page", slug: id } : undefined;
+    case "profile":
+      return { kind: "profile", id };
+    case "post":
+      return { kind: "post", id };
+    case "look":
+      return { kind: "look", id };
+    default:
+      return { kind: "near", id };
+  }
 }
 
 /**
@@ -147,7 +167,7 @@ function postSpec(p: PostView): CardSpec {
 }
 
 /** A short hash of what a card shows and the template version. Changes when the card would. */
-async function cardKey(spec: CardSpec): Promise<string> {
+async function cardKey(spec: CardSpec | PictureSpec): Promise<string> {
   const data = new TextEncoder().encode(`${CARDS_VERSION}:${JSON.stringify(spec)}`);
   const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", data));
   return [...digest.slice(0, 8)].map((b) => b.toString(16).padStart(2, "0")).join("");
@@ -164,6 +184,12 @@ function cardPath(route: CardRoute): string {
       return `/og/profile/${encodeURIComponent(route.id)}.png`;
     case "post":
       return `/og/post/${encodeURIComponent(route.id)}.png`;
+    case "plot":
+      return `/og/plot/${route.px}-${route.py}.png`;
+    case "look":
+      return `/og/look/${encodeURIComponent(route.id)}.png`;
+    case "near":
+      return `/og/near/${encodeURIComponent(route.id)}.png`;
   }
 }
 
@@ -201,13 +227,26 @@ export interface CardDeps {
   /** An upload's bytes by media id, or undefined. */
   loadMedia(id: string): Promise<Uint8Array | undefined>;
   render(card: Card): Promise<Rendered>;
-  /** Cached PNGs by key. The Worker uses the Cache API; Node a small map. */
+  /**
+   * Cached bytes by key: PNGs, and for pictures by link which PNG a path shows right now. An entry
+   * with `ttlSeconds` is gone after that long. The Worker uses the Cache API; Node a small map.
+   */
   cache: {
     get(key: string): Promise<Uint8Array | undefined>;
-    put(key: string, png: Uint8Array): Promise<void> | void;
+    put(key: string, bytes: Uint8Array, ttlSeconds?: number): Promise<void> | void;
   };
   /** Whether this client may cause another render right now (cache misses per IP per minute). */
   allowRender(ip: string): boolean;
+  /**
+   * A picture by link's data, read from the world (decision 0160): undefined when there's no such
+   * plot or resident. It throws when the world can't answer. Without it, those paths get the
+   * static card.
+   */
+  picture?(route: PictureRoute): Promise<PictureSpec | undefined>;
+  /** Whether this client may ask for another picture by link right now (per IP per minute). */
+  allowPicture?(ip: string): boolean;
+  /** Whether another picture by link may be drawn right now, counting every client. */
+  allowDraw?(): boolean;
 }
 
 export interface CardRequest {
@@ -235,7 +274,8 @@ const redirect = (cacheControl: string): CardResponse => ({
 
 /** Answer a card request: from cache when possible, rendering at most once per change. */
 export async function serveCard(req: CardRequest, deps: CardDeps): Promise<CardResponse> {
-  const spec = await specFor(req.route, deps.get);
+  if (isPicture(req.route)) return servePicture(req, req.route, deps);
+  const spec = await specFor(req.route as Exclude<CardRoute, PictureRoute>, deps.get);
   // Unknown ids get the static card for a few minutes; a failed lookup isn't cached at all.
   if (spec === "missing") return redirect("public, max-age=300");
   if (spec === "unavailable") return redirect("no-store");
@@ -266,8 +306,96 @@ export async function serveCard(req: CardRequest, deps: CardDeps): Promise<CardR
   }
 }
 
+/**
+ * How long each picture by link is answered without asking the world again, and how long caches
+ * downstream keep it. The map around someone changes as people walk, so it's two minutes; a plot
+ * and a look change rarely, so a minute between asks and five in downstream caches. A request for
+ * the exact current version (`?v=<etag>`) is kept a year, like the cards.
+ */
+export const PICTURE_TTL: Record<PictureRoute["kind"], { ask: number; keep: number }> = {
+  near: { ask: 120, keep: 120 },
+  plot: { ask: 60, keep: 300 },
+  look: { ask: 60, keep: 300 },
+};
+
+/** Picture requests one client may make per minute, and draws the whole server may make. */
+export const PICTURES_PER_MINUTE = 60;
+export const PICTURE_DRAWS_PER_MINUTE = 60;
+
+/** Which picture a path shows right now: the version key, kept `PICTURE_TTL.ask` seconds. */
+export const pictureAtKey = (route: PictureRoute) => `at${cardPath(route)}`;
+
+/**
+ * Answer a picture by link (decision 0160). The version key comes from a short-lived pointer in the
+ * cache, else from the world's data for it, hashed like a card's, so a picture is drawn once per
+ * change and the world is asked at most once a `PICTURE_TTL.ask` per path. A client over
+ * `PICTURES_PER_MINUTE` gets the static card before the world is asked; a draw needs both the
+ * client's render allowance and the server's `allowDraw`.
+ */
+async function servePicture(
+  req: CardRequest,
+  route: PictureRoute,
+  deps: CardDeps,
+): Promise<CardResponse> {
+  if (!deps.picture) return redirect("no-store");
+  if (deps.allowPicture && !deps.allowPicture(req.ip)) return redirect("no-store");
+  const ttl = PICTURE_TTL[route.kind];
+  const at = pictureAtKey(route);
+  const ask = async (): Promise<PictureSpec | "missing" | "unavailable"> => {
+    try {
+      return (await deps.picture?.(route)) ?? "missing";
+    } catch (err) {
+      console.error("picture read failed", route.kind, err);
+      return "unavailable";
+    }
+  };
+  const pointer = await deps.cache.get(at);
+  let key = pointer ? new TextDecoder().decode(pointer) : undefined;
+  let spec: PictureSpec | undefined;
+  if (!key || !/^[0-9a-f]{16}$/.test(key)) {
+    const read = await ask();
+    if (read === "missing") return redirect("public, max-age=300");
+    if (read === "unavailable") return redirect("no-store");
+    spec = read;
+    key = await cardKey(spec);
+    await deps.cache.put(at, new TextEncoder().encode(key), ttl.ask);
+  }
+  const headers = (k: string) => ({
+    "content-type": "image/png",
+    "cache-control": req.version === k ? YEAR : `public, max-age=${ttl.keep}`,
+    etag: `"${k}"`,
+    "x-content-type-options": "nosniff",
+  });
+  if (req.ifNoneMatch?.split(",").some((t) => t.trim().replace(/^W\//, "") === `"${key}"`)) {
+    return { status: 304, headers: headers(key) };
+  }
+  const pngKey = `${route.kind}/${key}`;
+  const hit = await deps.cache.get(pngKey);
+  if (hit) return { status: 200, headers: headers(key), body: hit };
+  // The pointer outlived its PNG: read the world again for what to draw.
+  if (!spec) {
+    const read = await ask();
+    if (read === "missing") return redirect("public, max-age=300");
+    if (read === "unavailable") return redirect("no-store");
+    spec = read;
+    key = await cardKey(spec);
+  }
+  // Each draw costs CPU: one client can cause only a few a minute, and the server a few dozen.
+  if (!deps.allowRender(req.ip)) return redirect("no-store");
+  if (deps.allowDraw && !deps.allowDraw()) return redirect("no-store");
+  try {
+    const card = await materializePicture(spec, deps.loadMedia);
+    const { bytes } = await deps.render(card);
+    await deps.cache.put(`${route.kind}/${key}`, bytes);
+    return { status: 200, headers: headers(key), body: bytes };
+  } catch (err) {
+    console.error("picture render failed", route.kind, err);
+    return redirect("no-store");
+  }
+}
+
 async function specFor(
-  route: CardRoute,
+  route: Exclude<CardRoute, PictureRoute>,
   get: ApiGet,
 ): Promise<CardSpec | "missing" | "unavailable"> {
   if (route.kind === "site") return { kind: "site" };

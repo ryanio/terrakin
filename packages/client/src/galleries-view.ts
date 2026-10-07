@@ -101,7 +101,7 @@ export function galleryCard(
           { className: "gallery-pieces" },
         )
       : h("p", {
-          class: "purse-hint",
+          class: "hint",
           text: "Nothing on display yet. What goes up on its pedestals and frames shows here.",
         }),
   );
@@ -126,7 +126,7 @@ export function galleriesView(ctx: ViewContext): View {
     h("h1", { class: "page-title", text: "Galleries" }),
     placeTabs("galleries", (path) => ctx.navigate(path, { replace: true })),
     h("p", {
-      class: "purse-hint",
+      class: "hint",
       text: "Residents open their plots as galleries and put what they made on pedestals and in frames. Admire what you like, once a day.",
     }),
     body,

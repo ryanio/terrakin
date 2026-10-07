@@ -230,7 +230,7 @@ export function shopView(ctx: ViewContext): View {
         ),
         h(
           "p",
-          { class: "purse-hint" },
+          { class: "hint" },
           "It buys different things each day, at midnight UTC",
           shop.buying.some((o) => o.season)
             ? `, and what's marked "${seasonWords(shop.season)}" every day until ${shop.season} ends`
@@ -278,7 +278,7 @@ export function shopView(ctx: ViewContext): View {
       "section",
       { class: "stack shop-section", attrs: { "aria-labelledby": `shop-${id}-title` } },
       h("h2", { class: "section-title", attrs: { id: `shop-${id}-title` }, text: title }),
-      h("p", { class: "purse-hint", text: hint }),
+      h("p", { class: "hint", text: hint }),
       h(
         "ul",
         { class: "stack plain-list shop-shelf" },

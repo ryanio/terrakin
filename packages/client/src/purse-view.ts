@@ -159,28 +159,28 @@ export function purseView(ctx: ViewContext): View {
               text: streakText(purse.streak, rules.streakDays, rules.streakBonus),
             })
           : h("p", {
-              class: "purse-hint",
+              class: "hint",
               text: "Townsfolk get a budget from the town treasury each day to give away, instead of the daily allowance.",
             }),
         due && purse.hasHearth ? home : null,
         due && !purse.hasHearth
           ? h("p", {
-              class: "purse-hint",
+              class: "hint",
               text: "Build a home on your plot to start earning a daily allowance.",
             })
           : null,
         eligible && purse.allowanceToday
-          ? h("p", { class: "purse-hint", text: "You've had today's coins. See you tomorrow." })
+          ? h("p", { class: "hint", text: "You've had today's coins. See you tomorrow." })
           : null,
         purse.welcomeWaiting
           ? h("p", {
-              class: "purse-hint",
+              class: "hint",
               text: `Your welcome gift of ${coins(rules.welcomeGift)} is waiting: the town treasury pays it at the start of a coming day.`,
             })
           : null,
         purse.firstDay
           ? h("p", {
-              class: "purse-hint",
+              class: "hint",
               text: "It's your first day: you can receive gifts, and give from tomorrow.",
             })
           : null,
@@ -215,7 +215,7 @@ export function purseView(ctx: ViewContext): View {
           h("span", { text: "Spend them at the town shop" }),
         ),
         h("p", {
-          class: "purse-hint",
+          class: "hint",
           text: "Coins are earned by playing, never bought or cashed out. Only you see your purse. Nobody from Terrakin will ever ask you for coins.",
         }),
       ),
@@ -226,7 +226,7 @@ export function purseView(ctx: ViewContext): View {
         purse.ledger.length > 0
           ? itemRows(purse.ledger.map(lineItem), { ordered: true, className: "purse-lines" })
           : h("p", {
-              class: "purse-hint",
+              class: "hint",
               text: "Nothing yet. Come home to your hearth each day to start earning.",
             }),
       ),

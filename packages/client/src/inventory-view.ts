@@ -230,7 +230,7 @@ function pieceCard(labelMax: number, made: () => void): HTMLElement {
       text: "Make a piece of art",
     }),
     h("p", {
-      class: "purse-hint",
+      class: "hint",
       text: "Turn one of your own pictures into a piece, signed by you. Hang it in a frame or stand it on a pedestal on your plot for everyone to see.",
     }),
     form,
@@ -306,11 +306,11 @@ export function inventoryView(ctx: ViewContext): View {
               ),
             )
           : h("p", {
-              class: "purse-hint",
+              class: "hint",
               text: "Nothing growing. Place a planter on your plot in the world, then tap it to plant.",
             }),
         h("p", {
-          class: "purse-hint",
+          class: "hint",
           text: inv.pantryToday
             ? "You've had today's pantry. See you tomorrow."
             : staplesFull
@@ -344,7 +344,7 @@ export function inventoryView(ctx: ViewContext): View {
                 { className: "things-gifts" },
               ),
               h("p", {
-                class: "purse-hint",
+                class: "hint",
                 text: `Don't want one? Send it back within ${rules.declineDays} days, while you still have all of it. Only the two of you see it.`,
               }),
             ),
@@ -364,7 +364,7 @@ export function inventoryView(ctx: ViewContext): View {
               }),
               itemRows(inv.heldAside.map(goodItem), { className: "things-held" }),
               h("p", {
-                class: "purse-hint",
+                class: "hint",
                 text: "These came off display while your things were full. Make room, and they come back with the next thing you do.",
               }),
             ),
@@ -391,7 +391,7 @@ export function inventoryView(ctx: ViewContext): View {
               ).map((group) => familyGroup(group)),
             )
           : h("p", {
-              class: "purse-hint",
+              class: "hint",
               text: !inv.hasHearth
                 ? "Empty. Build a home on your plot, then come home to it for the pantry."
                 : inv.pantryToday
@@ -400,12 +400,12 @@ export function inventoryView(ctx: ViewContext): View {
             }),
         inv.goods.length === 0
           ? h("p", {
-              class: "purse-hint",
+              class: "hint",
               text: "Nothing made yet. Tap a kitchen or a workbench in the world to make something.",
             })
           : null,
         h("p", {
-          class: "purse-hint",
+          class: "hint",
           text: `${inv.size} of ${rules.inventoryMax} things. Give from someone's profile: up to ${rules.giveCap} a day. Only you see this page.`,
         }),
         h(

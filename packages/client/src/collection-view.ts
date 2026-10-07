@@ -62,7 +62,7 @@ function groupCard(g: CollectionGroup, now: number): HTMLElement {
     ),
     g.done && g.badge
       ? kindPill(g.badge, "sun", "collection-badge")
-      : h("p", { class: "purse-hint collection-hint", text: g.hint }),
+      : h("p", { class: "hint collection-hint", text: g.hint }),
     h("ul", { class: "plain-list collection-kinds" }, ...g.kinds.map((k) => kindTile(k, now))),
   );
 }
@@ -107,7 +107,7 @@ function headCard(c: CollectionView, name: string, mine: boolean): HTMLElement {
           ...c.badges.map((b) => h("li", {}, kindPill(b, "sun"))),
         )
       : h("p", {
-          class: "purse-hint",
+          class: "hint",
           text: mine
             ? "Have every kind in a family to earn its badge."
             : `${name} hasn't finished a family yet.`,
@@ -115,7 +115,7 @@ function headCard(c: CollectionView, name: string, mine: boolean): HTMLElement {
     mine
       ? h(
           "p",
-          { class: "purse-hint" },
+          { class: "hint" },
           "Finds lie on the ground now and then: acorns and mushrooms in forests, seashells on the sand, crystals on stony ground, a clover in a meadow, a few only in their season. Tap one in the world to pick it up.",
         )
       : null,

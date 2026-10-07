@@ -787,6 +787,12 @@ a.tag-card:focus-visible {
   color: var(--ink-soft);
 }
 
+/* A muted line under or beside what it explains, in the size of the text around it. */
+.hint {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
 .check-group {
   display: grid;
   gap: var(--space-sm);

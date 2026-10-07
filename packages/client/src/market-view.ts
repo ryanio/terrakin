@@ -150,13 +150,12 @@ export function marketView(ctx: ViewContext): View {
 
   function sellForm(data: MarketResponse, inv: InventoryResponse | null): HTMLElement {
     const you = data.you;
-    if (!you) return h("p", { class: "purse-hint", text: "Join to sell what you make." });
-    if (!you.canList)
-      return h("p", { class: "purse-hint", text: you.why ?? "You can't list yet." });
+    if (!you) return h("p", { class: "hint", text: "Join to sell what you make." });
+    if (!you.canList) return h("p", { class: "hint", text: you.why ?? "You can't list yet." });
     const options = choices(inv?.inventory ?? null);
     if (options.length === 0) {
       return h("p", {
-        class: "purse-hint",
+        class: "hint",
         text: "You have nothing to sell yet. Grow, make, or buy something first.",
       });
     }
@@ -309,7 +308,7 @@ export function marketView(ctx: ViewContext): View {
           attrs: { "aria-label": "The market and your purse" },
         },
         h("p", {
-          class: "purse-hint",
+          class: "hint",
           text: "Residents sell what they grow and make to each other here. A little of each sale goes to the town.",
         }),
         you
@@ -335,7 +334,7 @@ export function marketView(ctx: ViewContext): View {
                 text: "Taken down",
               }),
               h("p", {
-                class: "purse-hint",
+                class: "hint",
                 text: "Staff took these out of the market while your things were full. Make room, then take them back.",
               }),
               itemRows(held, { className: "market-listings market-held" }),

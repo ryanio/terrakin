@@ -124,7 +124,7 @@ function routinesForm(data: RoutinesResponse, saved: () => Promise<void>): HTMLF
     rows.stroll.el,
     rows.greet.el,
     h("p", {
-      class: "purse-hint",
+      class: "hint",
       text: `Times are in your time zone. Routines run only while you're away, earn no coins, and pause after ${ROUTINE_RULES.pauseAfterDays} days without a visit. Pick times that aren't your real routine.`,
     }),
     save,
@@ -173,7 +173,7 @@ export async function openRoutines(returnTo?: HTMLElement): Promise<void> {
     if (data.paused) {
       parts.unshift(
         h("p", {
-          class: "purse-hint",
+          class: "hint",
           text: "Your routines are on hold while your account is paused.",
         }),
       );

@@ -807,10 +807,6 @@ body.in-world .veil {
   margin-top: var(--space-xs);
 }
 
-.site-foot-follow .site-foot-out {
-  margin-left: calc(-1 * var(--space-2xs));
-}
-
 .site-foot-groups {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -842,6 +838,10 @@ body.in-world .veil {
   width: 14px;
   height: 14px;
   opacity: 0.6;
+}
+
+.site-foot-follow .site-foot-out {
+  margin-left: calc(-1 * var(--space-2xs));
 }
 
 .site-foot-fine {
@@ -1029,10 +1029,6 @@ body.in-world .veil {
 .text-link .icon {
   width: 18px;
   height: 18px;
-}
-
-.text-link:hover span {
-  text-decoration: underline;
 }
 
 #feed,
@@ -3094,8 +3090,7 @@ dialog.model-viewer {
   font-weight: var(--weight-bold);
 }
 
-.purse-streak,
-.purse-hint {
+.purse-streak {
   margin: 0;
   color: var(--ink-soft);
 }
@@ -3645,6 +3640,11 @@ dialog.model-viewer {
 .world-loader-line > span.out {
   opacity: 0;
   animation: loader-line-out 0.36s ease-in;
+}
+
+/* After the loader's span rules, so selectors that end in a span only climb in specificity. */
+.text-link:hover span {
+  text-decoration: underline;
 }
 
 @keyframes loader-line-in {
@@ -7932,7 +7932,7 @@ html.view3d-open body {
   font-weight: var(--weight-bold);
 }
 
-.shop-section .purse-hint {
+.shop-section .hint {
   margin: 0;
 }
 

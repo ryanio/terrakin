@@ -186,9 +186,8 @@ export function bountiesView(ctx: ViewContext): View {
 
   function postForm(data: BountiesResponse): HTMLElement {
     const you = data.you;
-    if (!you) return h("p", { class: "purse-hint", text: "Join to post a bounty." });
-    if (!you.canPost)
-      return h("p", { class: "purse-hint", text: you.why ?? "You can't post one yet." });
+    if (!you) return h("p", { class: "hint", text: "Join to post a bounty." });
+    if (!you.canPost) return h("p", { class: "hint", text: you.why ?? "You can't post one yet." });
     const { rules } = data;
     const title = h("input", {
       class: "field-input",
@@ -287,7 +286,7 @@ export function bountiesView(ctx: ViewContext): View {
           attrs: { "aria-label": "Bounties and your purse" },
         },
         h("p", {
-          class: "purse-hint",
+          class: "hint",
           text: "Jobs neighbors and the town will pay coins for. Take one on, do it, mark it done, and get paid.",
         }),
         you

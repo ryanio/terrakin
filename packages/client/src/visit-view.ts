@@ -165,7 +165,7 @@ export function visitView(ctx: ViewContext): View {
     h("h1", { class: "page-title", text: "Plots to visit" }),
     placeTabs("visit", go),
     h("p", {
-      class: "purse-hint",
+      class: "hint",
       text: "The homes residents built, each drawn from above. Visit one to stand at its door, look around, and admire it once a day if you like what you see.",
     }),
     linkTabs(

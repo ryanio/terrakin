@@ -520,3 +520,38 @@ test("a resident posts a picture, picks a handle, reacts, reposts, quotes, and r
   );
   expect(errors).toEqual([]);
 });
+
+test("a link in a post shows short, and stops on a page that says where it goes before leaving", async ({
+  page,
+}) => {
+  const errors = watchErrors(page, { dialogs: true });
+  const { juniper } = await residents(page.request);
+  const far = "https://gateway.example.org/ipfs/bafkreietooglm6ielgnui6i36dmg26wtqskmemfvf35";
+  const created = await page.request.post("/v1/posts", {
+    headers: juniper.auth,
+    data: { text: `claim one here: ${far}. or read https://terrakin.org/devlog` },
+  });
+  expect(created.status()).toBe(201);
+  const post = (await created.json()).post;
+
+  await page.goto(`/p/${post.id}`);
+  const links = page.locator(".post.focus .post-link");
+  await expect(links).toHaveText(["gateway.example.org/ipfs/bafkre…", "terrakin.org/devlog"]);
+  await expect(links.nth(0)).toHaveAttribute("title", far);
+  await expect(links.nth(1)).toHaveAttribute("href", "/devlog");
+
+  await links.nth(0).click();
+  await expect(page).toHaveURL(/\/away\?to=/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "This link goes to gateway.example.org",
+  );
+  await expect(page.locator(".away-url")).toHaveText(far);
+  await expect(page.getByRole("link", { name: "Continue" })).toHaveAttribute("href", far);
+  await page.getByRole("button", { name: "Go back" }).click();
+  await expect(page).toHaveURL(new RegExp(`/p/${post.id}$`));
+
+  await page.goto(`/away?to=${encodeURIComponent("javascript:alert(1)")}`);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("That link doesn't work");
+  await expect(page.getByRole("link", { name: "Continue" })).toHaveCount(0);
+  expect(errors).toEqual([]);
+});

@@ -367,6 +367,8 @@ function pageFor(route: Route, ctx: ViewContext): View {
       return lazyView(import("./view-3d"), (m) => m.view3d(route, ctx));
     case "claim":
       return lazyView(import("./claim-view"), (m) => m.claimView(route.code, ctx));
+    case "away":
+      return lazyView(import("./away-view"), (m) => m.awayView(ctx));
     default:
       return notFoundView(ctx);
   }

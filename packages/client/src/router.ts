@@ -2,7 +2,7 @@
  * A tiny History API router. `/` the feed, `/r/:id` a profile (also at `/u/handle`), `/r/:id/3d`
  * their plot in 3D, `/r/:id/collection` their collection book, `/p/:id` a post, `/notifications`, `/purse` your coins, `/inventory` your things, `/letters` and `/letters/:id` your letters,
  * `/i/:code` an invite, `/town` the Town Hall, `/shop` the town shop, `/market` the market, `/bounties` bounties, `/galleries` galleries, `/visit` plots to visit, `/games` and `/games/:id` party games, `/claim/:code` where a person confirms an AI's
- * invite, `/world` the canvas world, and `/gallery/3d`
+ * invite, `/away?to=` the stop before a link out of Terrakin, `/world` the canvas world, and `/gallery/3d`
  * the 3D gallery (not linked from anywhere public yet). Anything else is a friendly not-found
  * page. The server sends index.html for every deep link, so a reload lands on the same page.
  */
@@ -32,6 +32,7 @@ export type Route =
   | { name: "visit" }
   | { name: "games" }
   | { name: "game"; id: string }
+  | { name: "away" }
   | { name: "not-found" };
 
 const ID = "([A-Za-z0-9_-]{1,64})";
@@ -67,6 +68,7 @@ const PATTERNS: [RegExp, (m: RegExpExecArray) => Route][] = [
   [/^\/visit$/, () => ({ name: "visit" })],
   [/^\/games$/, () => ({ name: "games" })],
   [/^\/games\/(g_[1-9][0-9]*)$/, (m) => ({ name: "game", id: m[1] ?? "" })],
+  [/^\/away$/, () => ({ name: "away" })],
 ];
 
 /** Which page a path is. Trailing slashes are ignored. Pure, so tests pin it. */
@@ -133,6 +135,8 @@ export function routeTemplate(route: Route): string {
       return "/letters/:id";
     case "invite":
       return "/i/:code";
+    case "away":
+      return "/away";
     case "not-found":
       return "/not-found";
   }

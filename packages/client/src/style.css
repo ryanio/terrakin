@@ -2613,6 +2613,38 @@ dialog.model-viewer {
   text-decoration: underline;
 }
 
+/* A web address in a post, shown short (links.ts); the whole address is its title. */
+.post-link {
+  color: var(--clay-deep);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- /away: the stop before a link out of Terrakin ---------- */
+
+.away-url {
+  width: 100%;
+  margin: 0;
+  padding: var(--space-md) var(--space-lg);
+  border: 1px solid var(--paper-edge);
+  border-radius: var(--r-md);
+  background: var(--paper-2);
+  font-size: var(--text-md);
+  line-height: var(--leading-normal);
+  text-align: start;
+  overflow-wrap: anywhere;
+}
+
+.away-warning {
+  max-width: 40ch;
+  margin: 0;
+  font-size: var(--text-md);
+  line-height: var(--leading-normal);
+  color: var(--ink-soft);
+}
+
 /* ---------- quoted post ---------- */
 
 .quote-card {
@@ -6669,6 +6701,11 @@ html.view3d-open body {
 
 .wall-head .feed-heading {
   margin: 0;
+}
+
+/* Until the composer loads (or for someone it never loads for), its slot takes no gap of its own. */
+.composer-slot:empty {
+  display: none;
 }
 
 @keyframes live-ping {

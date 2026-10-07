@@ -1,48 +1,83 @@
 /**
- * Mentions in post text: split cleaned text into plain pieces and `@handle` links, and suggest
- * handles while someone types. The text is another resident's words, so it only ever becomes text
- * nodes; a link is an anchor whose label is set with textContent.
+ * Mentions and web addresses in post text: split cleaned text into plain pieces, `@handle` links,
+ * and links (`links.ts`), and suggest handles while someone types. The text is another resident's
+ * words, so it only ever becomes text nodes; a link is an anchor whose label is set with
+ * textContent.
  */
 import { type AuthorView, findMentions, type MentionView } from "@terrakin/protocol";
 import { h } from "./dom";
+import { findLinks, linkHref, linkLabel } from "./links";
 import { profilePath } from "./paths";
 
 export type Segment =
   | { kind: "text"; text: string }
-  | { kind: "mention"; text: string; handle: string; id: string };
+  | { kind: "mention"; text: string; handle: string; id: string }
+  | { kind: "link"; text: string };
 
 /**
- * The text in order, with each `@handle` the server linked (in `mentions`) as its own piece.
- * Handles the server didn't link stay plain text. Joining every piece's `text` gives back the
- * original exactly.
+ * The text in order, with each web address and each `@handle` the server linked (in `mentions`)
+ * as its own piece. Handles the server didn't link, and any inside an address, stay as they are.
+ * Joining every piece's `text` gives back the original exactly.
  */
 export function textSegments(text: string, mentions: readonly MentionView[] = []): Segment[] {
   const known = new Map(mentions.map((m) => [m.handle.toLowerCase(), m.id]));
-  const out: Segment[] = [];
-  let at = 0;
+  const links = findLinks(text);
+  const pieces: (Segment & { start: number; end: number })[] = links.map((l) => ({
+    kind: "link",
+    text: l.url,
+    start: l.start,
+    end: l.end,
+  }));
   for (const m of findMentions(text)) {
     const id = known.get(m.handle);
-    if (!id) continue;
-    if (m.start > at) out.push({ kind: "text", text: text.slice(at, m.start) });
-    out.push({ kind: "mention", text: text.slice(m.start, m.end), handle: m.handle, id });
-    at = m.end;
+    if (!id || links.some((l) => m.start < l.end && l.start < m.end)) continue;
+    const mention = text.slice(m.start, m.end);
+    pieces.push({
+      kind: "mention",
+      text: mention,
+      handle: m.handle,
+      id,
+      start: m.start,
+      end: m.end,
+    });
+  }
+  pieces.sort((a, b) => a.start - b.start);
+  const out: Segment[] = [];
+  let at = 0;
+  for (const { start, end, ...piece } of pieces) {
+    if (start > at) out.push({ kind: "text", text: text.slice(at, start) });
+    out.push(piece);
+    at = end;
   }
   if (at < text.length || out.length === 0) out.push({ kind: "text", text: text.slice(at) });
   return out;
 }
 
-/** Fill `parent` with the text, mentions as links. Text nodes and textContent only. */
+/**
+ * Fill `parent` with the text, mentions and web addresses as links. An address shows its short
+ * label (the whole address on hover) and leaves Terrakin through `/away`. Text nodes and
+ * textContent only.
+ */
 export function appendRichText(
   parent: HTMLElement,
   text: string,
   mentions?: readonly MentionView[],
 ): HTMLElement {
   for (const seg of textSegments(text, mentions)) {
-    parent.append(
-      seg.kind === "text"
-        ? document.createTextNode(seg.text)
-        : h("a", { class: "mention", attrs: { href: profilePath(seg.id) }, text: seg.text }),
-    );
+    if (seg.kind === "text") parent.append(document.createTextNode(seg.text));
+    else if (seg.kind === "mention") {
+      parent.append(
+        h("a", { class: "mention", attrs: { href: profilePath(seg.id) }, text: seg.text }),
+      );
+    } else {
+      parent.append(
+        h("a", {
+          class: "post-link",
+          attrs: { href: linkHref(seg.text), title: seg.text, rel: "nofollow ugc" },
+          text: linkLabel(seg.text),
+        }),
+      );
+    }
   }
   return parent;
 }

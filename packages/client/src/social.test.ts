@@ -4,6 +4,7 @@ import {
   type PostView,
   TERRAKIN_ACTOR,
 } from "@terrakin/protocol";
+import { findLinks, LINK_LABEL_MAX, linkHref, linkLabel } from "@terrakin/ui/links";
 import { singleAspect } from "@terrakin/ui/media";
 import {
   activeMention,
@@ -13,6 +14,7 @@ import {
   textSegments,
 } from "@terrakin/ui/mentions";
 import { afterEach, describe, expect, it } from "vitest";
+import { awayTarget } from "./away-view";
 import { BANNER_MOTIFS, bannerShapes } from "./banner-art";
 import { notificationItem, notificationLine, takedownLine } from "./notifications-view";
 import {
@@ -53,6 +55,81 @@ describe("mention segments", () => {
     const segs = textSegments(text, [WREN]);
     expect(segs.map((s) => s.kind)).toEqual(["text", "mention", "text"]);
     expect(segs[0]?.text).toBe("<img src=x onerror=alert(1)>");
+  });
+});
+
+describe("web addresses in posts", () => {
+  const PINATA =
+    "https://gateway.pinata.cloud/ipfs/bafkreietooglm6ielgnui6i36dmg26wtqskmemfvf35vmh6l4qwv6543ci";
+
+  it("splits an address out of the text without the full stop after it", () => {
+    const text = `claim it here: ${PINATA}. or ask @wren`;
+    const segs = textSegments(text, [WREN]);
+    expect(segs.map((s) => s.kind)).toEqual(["text", "link", "text", "mention"]);
+    expect(segs[1]?.text).toBe(PINATA);
+    expect(segs.map((s) => s.text).join("")).toBe(text);
+  });
+
+  it("keeps a handle inside an address part of the address", () => {
+    expect(textSegments("see https://x.com/@wren ok", [WREN]).map((s) => s.kind)).toEqual([
+      "text",
+      "link",
+      "text",
+    ]);
+  });
+
+  it("finds only http and https addresses, with no login before the host", () => {
+    expect(findLinks("javascript:alert(1) ftp://a.b https://terrakin.org@evil.example x")).toEqual(
+      [],
+    );
+    expect(findLinks("(see https://en.wikipedia.org/wiki/Fern_(plant))")[0]?.url).toBe(
+      "https://en.wikipedia.org/wiki/Fern_(plant)",
+    );
+  });
+
+  it("labels a link by its host, and shortens a long one with an ellipsis", () => {
+    expect(linkLabel("https://www.example.com/")).toBe("example.com");
+    expect(linkLabel("https://example.com/garden?x=1")).toBe("example.com/garden?x=1");
+    const long = linkLabel(PINATA);
+    expect(long).toBe("gateway.pinata.cloud/ipfs/bafkr…");
+    expect(long.length).toBe(LINK_LABEL_MAX);
+  });
+
+  it("sends a link off Terrakin through the away page, and our own straight to the page", () => {
+    expect(linkHref(PINATA)).toBe(`/away?to=${encodeURIComponent(PINATA)}`);
+    expect(linkHref("https://terrakin.org/devlog/2026-10-06#pets")).toBe("/devlog/2026-10-06#pets");
+    for (const sneaky of [
+      "https://terrakin.org.evil.example/",
+      "https://terrakin.org//evil.example/login",
+      "https://terrakin.org/\\evil.example",
+      "HTTPS://WWW.TERRAKIN.ORG//x",
+      "https://terrakin.org/v1/act/k_abc/visit",
+      "https://terrakin.org/V1/join?confirm=1",
+    ]) {
+      expect(linkHref(sneaky), sneaky).toMatch(/^\/away\?to=/);
+    }
+  });
+});
+
+describe("the away page's address", () => {
+  it("takes a plain http or https address from ?to=", () => {
+    const to = "https://example.com/a?b=1#c";
+    expect(awayTarget(`?to=${encodeURIComponent(to)}`)?.href).toBe(to);
+  });
+
+  it("refuses script, data, logins before the host, relative addresses, and nothing", () => {
+    for (const to of [
+      "javascript:alert(1)",
+      "JaVaScRiPt%3Aalert(1)",
+      "data:text/html,<b>hi</b>",
+      "https://user:pw@example.com/",
+      "//evil.example/",
+      "/p/p_abc",
+      "",
+    ]) {
+      expect(awayTarget(`?to=${encodeURIComponent(to)}`), to).toBeNull();
+    }
+    expect(awayTarget("")).toBeNull();
   });
 });
 
@@ -109,6 +186,24 @@ describe("rich text", () => {
       attrs: { href: "/r/r_wren" },
     });
     expect(p.children[2]?.textContent).toBe(" <script>x</script>");
+  });
+
+  it("draws an address as a short label that goes through the away page", () => {
+    const { FakeNode, doc } = fakeDocument();
+    (globalThis as { document?: unknown }).document = doc;
+    const p = new FakeNode("p");
+    appendRichText(p as unknown as HTMLElement, "look https://example.com/<b>hi</b>", []);
+    expect(p.children.map((c) => c.tag)).toEqual(["#text", "a", "#text"]);
+    expect(p.children[1]).toMatchObject({
+      className: "post-link",
+      textContent: "example.com",
+      attrs: {
+        href: `/away?to=${encodeURIComponent("https://example.com/")}`,
+        title: "https://example.com/",
+        rel: "nofollow ugc",
+      },
+    });
+    expect(p.children[2]?.textContent).toBe("<b>hi</b>");
   });
 });
 

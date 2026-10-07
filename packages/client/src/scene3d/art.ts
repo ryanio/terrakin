@@ -101,6 +101,11 @@ export interface Stage {
   keep<T extends { dispose(): void }>(thing: T): T;
   /** Point the camera at a sphere so it fills the view, from a direction (from the target). */
   frame(center: Vector3, radius: number, from?: Vector3): void;
+  /**
+   * Put the camera back on the view `frame()` set: the whole scene framed from its clean angle,
+   * whatever the visitor dragged it to since (issue #48). Does nothing until `frame()` runs.
+   */
+  reframe(): void;
   /** Light and shadow sized to a scene of this radius around `center`. */
   light(center: Vector3, radius: number): void;
   /** Ask for one more frame (reduced motion renders only when something changes). */
@@ -176,6 +181,20 @@ export function scoped(stage: Stage): Scope {
       for (const k of kept.splice(0)) k.dispose();
     },
   };
+}
+
+/**
+ * How far the camera stands from the center it looks at, so a sphere of `radius` fills the view
+ * without being cut through (issue #48): a bigger scene stands further back rather than cropping.
+ * Portrait phones crop the sides a little rather than shrinking the scene to a speck; wide
+ * screens show a little more around it. Pure, so `scene3d.test.ts` can pin it.
+ */
+export function frameDistance(radius: number, fovDeg: number, aspect: number): number {
+  const vHalf = (fovDeg * Math.PI) / 360;
+  const hHalf = Math.atan(Math.tan(vHalf) * aspect);
+  const portrait = aspect < 1;
+  const fitHalf = portrait ? Math.max(Math.min(vHalf, hHalf), vHalf * 0.62) : vHalf;
+  return ((radius * (portrait ? 1 : 1.18)) / Math.sin(fitHalf)) * 1.02;
 }
 
 export function createStage(host: HTMLElement, options: StageOptions = {}): Stage {
@@ -320,13 +339,7 @@ export function createStage(host: HTMLElement, options: StageOptions = {}): Stag
   const fit = () => {
     if (!framing) return;
     const { center, radius, from } = framing;
-    const vHalf = (camera.fov * Math.PI) / 360;
-    const hHalf = Math.atan(Math.tan(vHalf) * camera.aspect);
-    // Portrait phones crop the sides a little rather than shrinking the scene to a speck.
-    // Wide screens have room to show a little more around the scene.
-    const portrait = camera.aspect < 1;
-    const fitHalf = portrait ? Math.max(Math.min(vHalf, hHalf), vHalf * 0.62) : vHalf;
-    const distance = ((radius * (portrait ? 1 : 1.18)) / Math.sin(fitHalf)) * 1.02;
+    const distance = frameDistance(radius, camera.fov, camera.aspect);
     camera.position.copy(center).addScaledVector(from.clone().normalize(), distance);
     controls.target.copy(center);
     controls.minDistance = distance * 0.35;
@@ -450,6 +463,10 @@ export function createStage(host: HTMLElement, options: StageOptions = {}): Stag
     keep,
     frame(center, radius, from = new Vector3(0.62, 0.62, 1)) {
       framing = { center: center.clone(), radius, from: from.clone() };
+      fit();
+      dirty = true;
+    },
+    reframe() {
       fit();
       dirty = true;
     },

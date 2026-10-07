@@ -14,7 +14,7 @@ import {
   type ProfileView,
   type ResidentBrief,
 } from "@terrakin/protocol";
-import { NOTE_MAX_LENGTH, PATTERN_LABELS, THEME_INFO } from "@terrakin/sim";
+import { NOTE_MAX_LENGTH, PATTERN_LABELS, THEME_INFO, plotOf } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
 import { compactCount, isMediaUrl, karmaLine, plural, pluralWord } from "@terrakin/ui/format";
 import { garmentName, hairName, mediaUrlOf } from "@terrakin/ui/looks";
@@ -73,6 +73,7 @@ import { openRoutines } from "./routines-view";
 import { collectedLine, thingCount, thingName } from "./things";
 import { type GestureInfo, gestureChoices, gestureInfo, sentLine, streakLine } from "./together";
 import { errorCard, notFoundCard, type View, type ViewContext } from "./view";
+import { visitPlot } from "./visit-view";
 import { xRow } from "./x-connect";
 
 /** A little emoji that floats up from a button and fades: the gesture leaving your hands. */
@@ -302,6 +303,45 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       icon("cube"),
       h("span", { text: "Visit in 3D" }),
     );
+    // Jump into their plot in 3D, right on the lead row instead of only behind the "…" menu.
+    const jump3d = h(
+      "a",
+      {
+        class: "pill-button small jump3d",
+        attrs: { href: plot3dPath(r.id), "aria-label": "Jump into their plot in 3D" },
+      },
+      icon("cube"),
+      h("span", { text: "Jump in" }),
+    );
+
+    /** Teleport to where they stand right now: visit the plot under them and open the world. */
+    async function teleport(button: HTMLButtonElement): Promise<void> {
+      const w = await whileBusy(button, () => api.world());
+      if (!w.ok) {
+        toast(w.message);
+        return;
+      }
+      const there = w.data.residents.find((p) => p.id === r.id);
+      if (!there || !there.online) {
+        toast("They just stepped away.");
+        return;
+      }
+      await visitPlot(button, plotOf(w.data.config, there.x, there.y), ctx.navigate);
+    }
+
+    /** The teleport button, offered only while they're in the world. */
+    function teleportButton(): HTMLElement | null {
+      if (!r.online) return null;
+      const b = h(
+        "button",
+        { class: "pill-button small teleport-them", attrs: { type: "button" } },
+        icon("sparkle"),
+        h("span", { text: "Teleport to them" }),
+      );
+      b.addEventListener("click", () => void teleport(b));
+      return b;
+    }
+
     let current: { close(): void } | undefined;
     const mount = (lead: HTMLElement[], items: HTMLElement[], onClose?: () => void) => {
       current?.close();
@@ -315,7 +355,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       cleanups.push(menu.close);
       actions.replaceChildren(...lead, menu.el);
     };
-    mount([], [copyItem, visitItem]);
+    mount([jump3d], [copyItem, visitItem]);
 
     const x = xRow(r);
     const banner = profileBanner(r);
@@ -363,12 +403,15 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
             handleWrap.append(handle);
           }
           items.push(remove);
-          mount([invite], items);
+          mount([invite, jump3d], items);
           return;
         }
         // The server never takes praise across a block, so don't offer it.
         const lead = [followButton(r, paintCounts)];
         if (!r.blocked) lead.push(praiseButton(r, paintCounts));
+        lead.push(jump3d);
+        const teleport = teleportButton();
+        if (teleport) lead.push(teleport);
         const more = profileMore(r, () => current?.close());
         mount(lead, [copyItem, visitItem, ...more.items], more.onClose);
       });

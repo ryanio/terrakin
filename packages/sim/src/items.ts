@@ -28,7 +28,7 @@ import {
   SWEET_RECIPES,
   type SweetKind,
 } from "./catalog";
-import { isWhole, refuse } from "./check";
+import { isWhole, oneTimeSwitch, refuse } from "./check";
 import { isTownsfolk, pairSkipsCaps } from "./economy";
 import {
   FURNITURE_KINDS,
@@ -349,24 +349,21 @@ export function reachProblem(state: WorldState, me: Tile, at: Tile): Rejection |
 
 /** `open_items`, which only TOWN_ACTOR sends. */
 export function checkOpenItems(state: WorldState): ItemsChecked {
-  if (state.items)
-    return refuse("already_open", "Growing, making, and gathering are already open.");
-  if (state.day === undefined) {
-    return refuse(
-      "not_due",
-      "Growing, making, and gathering open once the world starts counting days.",
-    );
-  }
-  return () => {
-    state.items = {
-      nextId: 1,
-      inventories: {},
-      crops: {},
-      pantry: {},
-      today: emptyToday(),
-    };
-    return [{ type: "items_opened" }];
-  };
+  return oneTimeSwitch({
+    on: state.items,
+    already: "Growing, making, and gathering are already open.",
+    notYet: () =>
+      state.day === undefined
+        ? refuse(
+            "not_due",
+            "Growing, making, and gathering open once the world starts counting days.",
+          )
+        : null,
+    turnOn: () => {
+      state.items = { nextId: 1, inventories: {}, crops: {}, pantry: {}, today: emptyToday() };
+    },
+    event: { type: "items_opened" },
+  });
 }
 
 /**
@@ -403,12 +400,15 @@ export function checkOpenGifts(state: WorldState): ItemsChecked {
       "items_closed",
       "Growing, making, and gathering haven't opened in this world yet.",
     );
-  if (items.gifts) return refuse("already_open", "Gifts can already be sent back.");
-  return () => {
-    items.gifts = {};
-    items.nextGift = 1;
-    return [{ type: "gifts_opened" }];
-  };
+  return oneTimeSwitch({
+    on: items.gifts,
+    already: "Gifts can already be sent back.",
+    turnOn: () => {
+      items.gifts = {};
+      items.nextGift = 1;
+    },
+    event: { type: "gifts_opened" },
+  });
 }
 
 // ---------- planting and harvesting ----------

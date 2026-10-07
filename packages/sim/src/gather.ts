@@ -1,5 +1,5 @@
 import { type Biome, biomeAt } from "./biome";
-import { refuse } from "./check";
+import { oneTimeSwitch, refuse } from "./check";
 import {
   addStack,
   closed,
@@ -404,13 +404,14 @@ export function checkOwnPlotPickups(state: WorldState): ItemsChecked {
   const shut = closed(state);
   if (shut) return shut;
   const items = state.items as ItemsState;
-  if (items.plotPickupsOwned) {
-    return refuse("already_open", "Pickups on a plot are already for its owners only.");
-  }
-  return () => {
-    items.plotPickupsOwned = true;
-    return [{ type: "plot_pickups_owned" }];
-  };
+  return oneTimeSwitch({
+    on: items.plotPickupsOwned,
+    already: "Pickups on a plot are already for its owners only.",
+    turnOn: () => {
+      items.plotPickupsOwned = true;
+    },
+    event: { type: "plot_pickups_owned" },
+  });
 }
 
 /**
@@ -421,9 +422,12 @@ export function checkOpenFinds(state: WorldState): ItemsChecked {
   const shut = closed(state);
   if (shut) return shut;
   const items = state.items as ItemsState;
-  if (items.findsOpen) return refuse("already_open", "Finds are already out.");
-  return () => {
-    items.findsOpen = true;
-    return [{ type: "finds_opened" }];
-  };
+  return oneTimeSwitch({
+    on: items.findsOpen,
+    already: "Finds are already out.",
+    turnOn: () => {
+      items.findsOpen = true;
+    },
+    event: { type: "finds_opened" },
+  });
 }

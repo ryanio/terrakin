@@ -1,4 +1,4 @@
-import { refuse } from "./check";
+import { oneTimeSwitch, refuse } from "./check";
 import { residentById } from "./own";
 import type { Command, Rejection, Resident, WorldEvent, WorldState } from "./types";
 
@@ -15,13 +15,14 @@ export type PresenceChecked = Mutation | Rejection;
 
 /** `implicit_presence`, from TOWN_ACTOR: turn the rule on, once. */
 export function checkImplicitPresence(state: WorldState): PresenceChecked {
-  if (state.implicitPresence) {
-    return refuse("already_open", "Acting already brings residents back online.");
-  }
-  return () => {
-    state.implicitPresence = true;
-    return [{ type: "implicit_presence_on" }];
-  };
+  return oneTimeSwitch({
+    on: state.implicitPresence,
+    already: "Acting already brings residents back online.",
+    turnOn: () => {
+      state.implicitPresence = true;
+    },
+    event: { type: "implicit_presence_on" },
+  });
 }
 
 /**

@@ -498,6 +498,98 @@ function filtered(
 /** One full day/night cycle, from the sim, where the time of day a cast logs is worked out. */
 export { DAY_LENGTH_MS };
 
+/** A logged switch `tick()` turns on once, from the town, when its option is set. */
+interface TownSwitch {
+  option: keyof Pick<
+    WorldServiceOptions,
+    | "presence"
+    | "economy"
+    | "items"
+    | "gifts"
+    | "plotPickups"
+    | "finds"
+    | "shop"
+    | "solidBuildings"
+    | "tableSpots"
+    | "market"
+    | "bounties"
+  >;
+  /** Whether the world doesn't have it yet and has what it needs first. */
+  due: (state: WorldState) => boolean;
+  /** Always a bare `{type}`, copied for each run. */
+  command: Command;
+  /** For the error line when the sim refuses it: "Couldn't <label>: <why>". */
+  label: string;
+}
+
+/** Comes before the day moves, and without days. */
+const PRESENCE_SWITCH: TownSwitch = {
+  option: "presence",
+  due: (s) => !s.implicitPresence,
+  command: { type: "implicit_presence" },
+  label: "turn on implicit presence",
+};
+
+/** The switches `tick()` turns on once the world counts days, in this order. */
+const DAY_SWITCHES: readonly TownSwitch[] = [
+  {
+    option: "economy",
+    due: (s) => !s.economy,
+    command: { type: "open_economy" },
+    label: "open coins",
+  },
+  { option: "items", due: (s) => !s.items, command: { type: "open_items" }, label: "open items" },
+  {
+    option: "gifts",
+    due: (s) => !!s.items && !s.items.gifts,
+    command: { type: "open_gifts" },
+    label: "open gift returns",
+  },
+  {
+    option: "plotPickups",
+    due: (s) => !!s.items && !s.items.plotPickupsOwned,
+    command: { type: "own_plot_pickups" },
+    label: "keep plot pickups for owners",
+  },
+  {
+    option: "finds",
+    due: (s) => !!s.items && !findsOpen(s),
+    command: { type: "open_finds" },
+    label: "put finds out",
+  },
+  {
+    option: "shop",
+    due: (s) => !s.shop && !!s.economy && !!s.items,
+    command: { type: "open_shop" },
+    label: "open the shop",
+  },
+  // After the shop's chance to open, so a new world's hall and shop turn solid together.
+  {
+    option: "solidBuildings",
+    due: (s) => !s.solidBuildings,
+    command: { type: "solid_buildings" },
+    label: "make the buildings solid",
+  },
+  {
+    option: "tableSpots",
+    due: (s) => !s.tableSpotsKept,
+    command: { type: "keep_table_spots" },
+    label: "keep the table spots clear",
+  },
+  {
+    option: "market",
+    due: (s) => !s.market && !!s.shop,
+    command: { type: "open_market" },
+    label: "open the market",
+  },
+  {
+    option: "bounties",
+    due: (s) => !s.bounties && !!s.economy,
+    command: { type: "open_bounties" },
+    label: "open bounties",
+  },
+];
+
 /**
  * Owns the one authoritative world. Every change goes through `act` or `join`/`leave`,
  * which run the sim, persist the accepted input, and broadcast the resulting events.
@@ -785,12 +877,16 @@ export class WorldService {
     this.runGames();
   }
 
+  /** Log `sw` from the town when its option is on and the world is due it. */
+  private switchOn(sw: TownSwitch) {
+    if (!this[sw.option] || !sw.due(this.state)) return;
+    const on = this.run({ actor: TOWN_ACTOR, command: { ...sw.command } });
+    if (!on.ok) console.error(`Couldn't ${sw.label}: ${on.error.message}`);
+  }
+
   private tickDays() {
     this.reconcileEntitlements();
-    if (this.presence && !this.state.implicitPresence) {
-      const on = this.run({ actor: TOWN_ACTOR, command: { type: "implicit_presence" } });
-      if (!on.ok) console.error(`Couldn't turn on implicit presence: ${on.error.message}`);
-    }
+    this.switchOn(PRESENCE_SWITCH);
     if (!this.days) return;
     const today = utcDay(this.now());
     if (this.state.day === undefined || today > this.state.day) {
@@ -800,47 +896,7 @@ export class WorldService {
     }
     const day = this.state.day;
     if (day === undefined) return;
-    if (this.economy && !this.state.economy) {
-      const opened = this.run({ actor: TOWN_ACTOR, command: { type: "open_economy" } });
-      if (!opened.ok) console.error(`Couldn't open coins: ${opened.error.message}`);
-    }
-    if (this.items && !this.state.items) {
-      const opened = this.run({ actor: TOWN_ACTOR, command: { type: "open_items" } });
-      if (!opened.ok) console.error(`Couldn't open items: ${opened.error.message}`);
-    }
-    if (this.gifts && this.state.items && !this.state.items.gifts) {
-      const opened = this.run({ actor: TOWN_ACTOR, command: { type: "open_gifts" } });
-      if (!opened.ok) console.error(`Couldn't open gift returns: ${opened.error.message}`);
-    }
-    if (this.plotPickups && this.state.items && !this.state.items.plotPickupsOwned) {
-      const owned = this.run({ actor: TOWN_ACTOR, command: { type: "own_plot_pickups" } });
-      if (!owned.ok) console.error(`Couldn't keep plot pickups for owners: ${owned.error.message}`);
-    }
-    if (this.finds && this.state.items && !findsOpen(this.state)) {
-      const opened = this.run({ actor: TOWN_ACTOR, command: { type: "open_finds" } });
-      if (!opened.ok) console.error(`Couldn't put finds out: ${opened.error.message}`);
-    }
-    if (this.shop && !this.state.shop && this.state.economy && this.state.items) {
-      const opened = this.run({ actor: TOWN_ACTOR, command: { type: "open_shop" } });
-      if (!opened.ok) console.error(`Couldn't open the shop: ${opened.error.message}`);
-    }
-    // After the shop's chance to open, so a new world's hall and shop turn solid together.
-    if (this.solidBuildings && !this.state.solidBuildings) {
-      const solid = this.run({ actor: TOWN_ACTOR, command: { type: "solid_buildings" } });
-      if (!solid.ok) console.error(`Couldn't make the buildings solid: ${solid.error.message}`);
-    }
-    if (this.tableSpots && !this.state.tableSpotsKept) {
-      const kept = this.run({ actor: TOWN_ACTOR, command: { type: "keep_table_spots" } });
-      if (!kept.ok) console.error(`Couldn't keep the table spots clear: ${kept.error.message}`);
-    }
-    if (this.market && !this.state.market && this.state.shop) {
-      const opened = this.run({ actor: TOWN_ACTOR, command: { type: "open_market" } });
-      if (!opened.ok) console.error(`Couldn't open the market: ${opened.error.message}`);
-    }
-    if (this.bounties && !this.state.bounties && this.state.economy) {
-      const opened = this.run({ actor: TOWN_ACTOR, command: { type: "open_bounties" } });
-      if (!opened.ok) console.error(`Couldn't open bounties: ${opened.error.message}`);
-    }
+    for (const sw of DAY_SWITCHES) this.switchOn(sw);
     // The treasury's share of shop spending follows the sim's number, logged when it changes so
     // earlier purchases replay at the share they were made at.
     if (this.shop && this.state.shop && treasuryShareOf(this.state) !== SHOP.treasuryShare) {

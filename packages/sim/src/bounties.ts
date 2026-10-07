@@ -1,4 +1,4 @@
-import { coinCount as coins, isWhole, refuse } from "./check";
+import { coinCount as coins, isWhole, oneTimeSwitch, refuse } from "./check";
 import {
   ECONOMY,
   isTownsfolk,
@@ -162,14 +162,18 @@ const clearClaim = (b: Bounty) => {
 
 /** `open_bounties`, which only TOWN_ACTOR sends. Needs coins open. */
 export function checkOpenBounties(state: WorldState): BountiesChecked {
-  if (state.bounties) return refuse("already_open", "Bounties are already open.");
-  if (!state.economy || state.day === undefined) {
-    return refuse("not_due", "Bounties open once coins have.");
-  }
-  return () => {
-    state.bounties = { nextId: 1, list: [] };
-    return [{ type: "bounties_opened" }];
-  };
+  return oneTimeSwitch({
+    on: state.bounties,
+    already: "Bounties are already open.",
+    notYet: () =>
+      !state.economy || state.day === undefined
+        ? refuse("not_due", "Bounties open once coins have.")
+        : null,
+    turnOn: () => {
+      state.bounties = { nextId: 1, list: [] };
+    },
+    event: { type: "bounties_opened" },
+  });
 }
 
 /**

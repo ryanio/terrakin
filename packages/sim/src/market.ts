@@ -1,4 +1,4 @@
-import { coinCount as coins, isWhole, refuse } from "./check";
+import { coinCount as coins, isWhole, oneTimeSwitch, refuse } from "./check";
 import { ECONOMY, isTownsfolk, movePurse, moveTreasury, pairSkipsCaps } from "./economy";
 import {
   addStack,
@@ -129,12 +129,16 @@ const copyListing = (l: Listing): Listing => ({
 
 /** `open_market`, which only TOWN_ACTOR sends. Needs the town shop open. */
 export function checkOpenMarket(state: WorldState): MarketChecked {
-  if (state.market) return refuse("already_open", "The market is already open.");
-  if (!state.shop) return refuse("not_due", "The market opens once the town shop has.");
-  return () => {
-    state.market = { nextId: 1, listings: {} };
-    return [{ type: "market_opened" }];
-  };
+  return oneTimeSwitch({
+    on: state.market,
+    already: "The market is already open.",
+    notYet: () =>
+      state.shop ? null : refuse("not_due", "The market opens once the town shop has."),
+    turnOn: () => {
+      state.market = { nextId: 1, listings: {} };
+    },
+    event: { type: "market_opened" },
+  });
 }
 
 // ---------- listing ----------

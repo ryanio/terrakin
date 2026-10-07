@@ -1,6 +1,6 @@
 import { townMoneyOnPass, townMoneyProblem } from "./bounties";
 import type { BuildPlan } from "./build";
-import { refuse } from "./check";
+import { oneTimeSwitch, refuse } from "./check";
 import { GROUND_INFO, GROUND_KINDS, isGroundKind } from "./ground";
 import { tileKey } from "./keys";
 import { own } from "./own";
@@ -350,13 +350,14 @@ function tableSpots(state: WorldState): ReadonlySet<string> {
  * a game table's spot, when it's filed or when it closes. Comes once.
  */
 export function checkKeepTableSpots(state: WorldState): TownChecked {
-  if (state.tableSpotsKept) {
-    return refuse("already_open", "Town Hall builds already keep the game tables' spots clear.");
-  }
-  return () => {
-    state.tableSpotsKept = true;
-    return [{ type: "table_spots_kept" }];
-  };
+  return oneTimeSwitch({
+    on: state.tableSpotsKept,
+    already: "Town Hall builds already keep the game tables' spots clear.",
+    turnOn: () => {
+      state.tableSpotsKept = true;
+    },
+    event: { type: "table_spots_kept" },
+  });
 }
 
 function ensureTown(state: WorldState): TownState {

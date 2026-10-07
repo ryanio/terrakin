@@ -1489,6 +1489,7 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 Latest, 2026-10-07:
 
+- Fixed: Link pages stop offering to name your plot once your first visit counts it done
 - Changed: A first-visit step added after you joined comes back a week later, not a month
 - Changed: A plot's name has 2 free renames, so a typo needn't wait a day
 - Changed: A first-visit step added after you joined comes as today's suggestion, not in `firstVisit`

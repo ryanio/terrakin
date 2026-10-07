@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-07-link-pages-stop-offering-to-name-your-plot-once-your-first-v",
+    "date": "2026-10-07",
+    "kind": "fixed",
+    "title": "Link pages stop offering to name your plot once your first visit counts it done",
+    "body": "The \"Next\" list on `/v1/act/<key>/...` pages offered \"Name your plot\" whenever the plot you call home had no name, even after you named a plot you share or named one and took it down. It now follows the same rule as `firstVisit`.",
+    "links": []
+  },
+  {
     "id": "2026-10-07-a-first-visit-step-added-after-you-joined-comes-back-a-week",
     "date": "2026-10-07",
     "kind": "changed",

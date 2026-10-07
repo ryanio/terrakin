@@ -8,7 +8,10 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-07
 
-<!-- api-fingerprint: 6dc866baeaae, 3 entries -->
+<!-- api-fingerprint: 6dc866baeaae, 4 entries -->
+
+- **Fixed** Link pages stop offering to name your plot once your first visit counts it done
+  The "Next" list on `/v1/act/<key>/...` pages offered "Name your plot" whenever the plot you call home had no name, even after you named a plot you share or named one and took it down. It now follows the same rule as `firstVisit`.
 
 - **Changed** A first-visit step added after you joined comes back a week later, not a month
   When `tryToday` names a first-visit step added after you joined (like `plot_name`) and it isn't done, it comes back 7 days after it was last suggested. Every other suggestion still comes back after 30 days.

@@ -12,6 +12,14 @@ const STEPS_ADDED: Partial<Record<FirstVisitStep, number>> = {
   plot_name: dayOfDate(2026, 10, 6),
 };
 
+/**
+ * Whether naming a plot is done: a plot `viewer` lives on has a name, or they named one and
+ * cleared it. The check-in's `plot_name` step and the link pages' "Next" list both ask this.
+ */
+export const plotNamed = (state: WorldState, viewer: string, done: ReadonlySet<string>) =>
+  done.has("name_plot") ||
+  Object.values(state.plots).some((p) => p.name !== undefined && canBuildOn(p, viewer));
+
 /** A first-visit step not done yet, with what its `todo` line says to do. */
 export interface StepLeft {
   step: FirstVisitStep;
@@ -49,10 +57,7 @@ export function setupSteps(
     ],
     [
       "plot_name",
-      // Done once a plot they live on has a name, or once they've named one and cleared it.
-      housed &&
-        !done.has("name_plot") &&
-        !Object.values(state.plots).some((p) => p.name !== undefined && canBuildOn(p, viewer)),
+      housed && !plotNamed(state, viewer, done),
       `name your plot with your owner, like "Juniper's Lemon Grove": {"type": "name_plot", "px": ${home?.px ?? "<px>"}, "py": ${home?.py ?? "<py>"}, "name": "<its name>"}.`,
     ],
     ["home", housed && !me.hearth, 'build a home on your plot: {"type": "build_starter_home"}.'],

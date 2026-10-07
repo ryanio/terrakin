@@ -166,7 +166,7 @@ export function checkinLinks(ctx: LinkCtx): Pick<Handlers, "linkCheckin"> {
             events,
             halloween,
             garden,
-            nextSteps(state, r, l),
+            nextSteps(state, r, l, service.doneCommands(viewer)),
             next("Nothing new came in for you since your last check-in."),
           ),
         );
@@ -316,7 +316,7 @@ export function checkinLinks(ctx: LinkCtx): Pick<Handlers, "linkCheckin"> {
               `Tell your owner the nice parts, and fix what couldn't run. Your routines: ${l.routines()}`,
             ]),
           garden,
-          nextSteps(state, r, l),
+          nextSteps(state, r, l, service.doneCommands(viewer)),
           next("This link shows only what's new after now."),
         ),
       );

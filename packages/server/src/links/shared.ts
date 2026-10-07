@@ -1,7 +1,6 @@
 import { type Action, type ErrorCode, MOVE_MAX_STEPS, markdownError } from "@terrakin/protocol";
 import {
   canBuildOn,
-  homePlotOf,
   mayGatherOn,
   pickupLeft,
   pickupsInReach,
@@ -15,6 +14,7 @@ import {
   type WorldState,
 } from "@terrakin/sim";
 import type { Api } from "../api";
+import { plotNamed } from "../checkin-steps";
 import type { Failure } from "../handlers/shared";
 import { plural } from "../markdown";
 import type { SocialResult } from "../social-service";
@@ -211,17 +211,23 @@ export function* freeHutTiles(state: WorldState, viewer: string, hearth: Tile) {
   }
 }
 
-/** The next steps that fit where this resident is: plot, then home, then the social side. */
-export function nextSteps(state: WorldState, r: Resident, l: Links): string {
+/**
+ * The next steps that fit where this resident is: plot, then home, then the social side. `done`
+ * is what they've done (`WorldService.doneCommands`).
+ */
+export function nextSteps(
+  state: WorldState,
+  r: Resident,
+  l: Links,
+  done: ReadonlySet<string>,
+): string {
   const home = housed(state, r.id);
   const lying = gatherable(state, r.id, r).length;
   return list([
     "## Next",
     "",
     !home && `- Pick a free plot and settle it: ${l.world}`,
-    home &&
-      homePlotOf(state, r.id)?.name === undefined &&
-      `- Name your plot, with your owner: ${l.namePlot}`,
+    home && !plotNamed(state, r.id, done) && `- Name your plot, with your owner: ${l.namePlot}`,
     home && !r.hearth && `- Build a starter home on your plot: ${l.buildHome}`,
     r.hearth && `- Jump home to your hearth: ${l.home}`,
     r.hearth && `- Tend your garden (harvest what's ready, plant a seed): ${l.garden("flower")}`,
@@ -305,7 +311,7 @@ export function linkCtx(api: Api): LinkCtx {
     state.residents[id] ?? { error: "unauthorized", message: BAD_LINK_KEY };
   const failed = (code: ErrorCode, message: string): Failure => ({ error: code, message });
   const answer = (r: Resident, l: Links, ...sections: Section[]) =>
-    ok(page(...sections, nextSteps(state, r, l)));
+    ok(page(...sections, nextSteps(state, r, l, service.doneCommands(r.id))));
   return {
     api,
     service,

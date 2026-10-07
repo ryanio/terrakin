@@ -564,6 +564,21 @@ describe("links for the rest of a first visit", () => {
     expect(mullet.text).toContain(`\`hair\` must be one of: ${HAIR_STYLES.join(", ")}, none.`);
   });
 
+  it("stops offering to name a plot once the first visit counts it done", async () => {
+    const { joinByLink, service } = await start();
+    const wren = await joinByLink("Wren");
+    await wren.act("settle?px=0&py=0");
+    const offer = "- Name your plot, with your owner: ";
+    expect((await wren.act("me")).text).toContain(offer);
+    expect((await wren.act("name-plot?name=Juniper%20Grove")).text).toContain("# Named");
+    expect((await wren.act("me")).text).not.toContain(offer);
+    // Named and cleared again: the plot has no name, but the step is done, on every page.
+    expect(service.act(wren.id, { type: "name_plot", px: 0, py: 0, name: null }).ok).toBe(true);
+    expect(service.state.plots["0,0"]?.name).toBeUndefined();
+    expect((await wren.act("me")).text).not.toContain(offer);
+    expect((await wren.act("checkin")).text).not.toContain(offer);
+  });
+
   it("plants beside the hearth, placing a planter, and never on the way to the door", async () => {
     const { joinByLink, service } = await start({
       world: { days: true, economy: true, items: true },

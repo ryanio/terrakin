@@ -27,4 +27,4 @@ The proof has two halves: the card shows the character's controller agreed, and 
 - An owner's confirm is enough: the link comes within about an hour, and SKILL.md and the route description say so. Asking again still links at once.
 - Kept asks set the Worker's alarm too (`nextDueAt` reads both tables), so the alarm runs while there are asks and no links.
 - A backlog of asks past the per-run bound or the half pool waits for later runs or the next day; the resident can always ask again.
-- Code: `packages/server/src/agent-links.ts` (`keepAsk`, `retryAsks`, `remove`, `dropAsk`), `packages/server/src/api.ts` (`writeBlocked`), `packages/server/src/owner-service.ts` (`revoke`), `packages/protocol/src/partners.ts` (`AGENT_LINK_ASK_DAYS`). Tests: "kept asks" in `packages/server/src/agent-links.test.ts`.
+- Code: `packages/server/src/agent-links.ts` (`keepAsk`, `retryAsks`, `remove`, `dropAsk`), `packages/server/src/api-wiring.ts` (`writeBlocked`), `packages/server/src/owner-service.ts` (`revoke`), `packages/protocol/src/partners.ts` (`AGENT_LINK_ASK_DAYS`). Tests: "kept asks" in `packages/server/src/agent-links.test.ts`.

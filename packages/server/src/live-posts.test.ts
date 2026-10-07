@@ -2,16 +2,16 @@ import type { ServerMessage } from "@terrakin/protocol";
 import type { WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import WebSocket from "ws";
+import { Api } from "./api";
+import { createApp } from "./app";
+import { ipKey } from "./handlers/shared";
 import {
-  Api,
   type LiveSocket,
   MAX_WATCHERS,
   MAX_WATCHERS_PER_NETWORK,
   WATCH_MAX_MS,
   WATCH_SILENT_MS,
-} from "./api";
-import { createApp } from "./app";
-import { ipKey } from "./handlers/shared";
+} from "./live";
 import { MemoryMediaStore } from "./media";
 import { nodeSql } from "./node-sql";
 import { SocialService } from "./social-service";

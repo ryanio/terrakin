@@ -2,55 +2,54 @@ import {
   type AcceptInviteRequest,
   Action,
   acceptsIdempotencyKey,
-  ClientMessage,
   compileRoutes,
   type ErrorCode,
   type EventResponse,
-  errorStatus,
   INVITE_PLOT_SUGGESTIONS,
   type Issue,
   isBinaryBody,
   isWriteRoute,
-  linkHeader,
   MAX_BODY_BYTES,
   MODERATOR_SUSPEND_MAX_DAYS,
-  markdownError,
   markdownErrorCode,
-  type PostView,
-  PROTOCOL_VERSION,
   type ProfileView,
   plainProblem,
   RATE_LIMITS,
   type RateLimitName,
-  REACTION_KEYS,
   REPEAT_WINDOW_MS,
-  type ReactionKey,
   ROUTES,
   type RouteId,
   type RouteMatch,
   type RouteSpec,
-  type ServerMessage,
   type StaffRole,
   suggestFor,
   type TownsfolkActivityResponse,
 } from "@terrakin/protocol";
 import {
   eventOpen,
-  familyRecipeMiss,
   findBounty,
   findEvent,
   type HostedEvent,
   homePlotOf,
   isTownEvent,
-  routinesOf,
 } from "@terrakin/sim";
-import { AiSpend, SUMMARY_DAYS } from "./ai-spend";
+import { AiSpend } from "./ai-spend";
+import {
+  API_HEADERS,
+  type ApiResponse,
+  error,
+  errorCode,
+  keepable,
+  rateLimitHeaders,
+  render,
+  stored,
+  withHeaders,
+} from "./api-response";
+import { wireSocial } from "./api-wiring";
 import { bountyView } from "./bounties";
 import type { ChatterRun, ChatterService } from "./chatter";
 import { fromParam, type StartFile } from "./discovery-log";
-import { countGuests, eventView } from "./events";
-import { madeThingForReport } from "./galleries";
-import { gameRatings } from "./games";
+import { eventView } from "./events";
 import { docsHandlers } from "./handlers/docs";
 import { eventHandlers } from "./handlers/events";
 import { ownerHandlers } from "./handlers/owners";
@@ -61,7 +60,6 @@ import {
   type Failure,
   fail,
   fromResult,
-  type HandlerReply,
   type Handlers,
   INVITE_GONE,
   ipKey,
@@ -76,27 +74,38 @@ import { socialHandlers } from "./handlers/social";
 import { togetherHandlers } from "./handlers/together";
 import { townHallHandlers } from "./handlers/town-hall";
 import { worldHandlers } from "./handlers/world";
-import { IdempotencyStore, type StoredResponse, sha256Hex } from "./idempotency";
+import { IdempotencyStore, sha256Hex } from "./idempotency";
 import { BAD_LINK_KEY, DEFAULT_ORIGIN, linkHandlers, linkHelp, REPEAT_NOTE } from "./links";
-import { type ListerFacts, listingForReport, listingRefusal } from "./market";
+import {
+  familyMiss,
+  LiveSession,
+  type LiveSocket,
+  MAX_WATCHERS,
+  MAX_WATCHERS_PER_NETWORK,
+  PostListeners,
+} from "./live";
+import type { ListerFacts } from "./market";
 import { COOL_DOWN_MESSAGE, type Moderation } from "./moderation";
 import { OwnerService } from "./owner-service";
-import { PartnerResidents } from "./partner-residents";
+import type { PartnerResidents } from "./partner-residents";
 import { findPartner } from "./partners";
 import { type PlotPhotoRenderer, plotPhotoSpec } from "./plot-photo";
 import { type PlotViewer, shownPlotName } from "./plots";
-import { RateLimiters, type Take } from "./rate-limit";
-import { Routines, type RoutinesRun, runRoutines } from "./routines";
+import { RateLimiters } from "./rate-limit";
+import { type Routines, type RoutinesRun, runRoutines } from "./routines";
 import type { SocialService } from "./social-service";
 import { count, crumb, nameRequest, report, span, task } from "./telemetry";
 import { anchorPlot, suggestPlots } from "./together";
+import { chatterStatus, tipsStatus, townsfolkActivity } from "./townsfolk-status";
 import type { TipsResult, TownsfolkTips } from "./townsfolk-tips";
-import { type ActResult, DAY_MS, utcDay, type WorldService } from "./world-service";
+import { DAY_MS, utcDay, type WorldService } from "./world-service";
 
 /**
- * The runtime-neutral front door: routes, auth, rate limits, and the `/v1/live` message protocol.
- * The Node server (`app.ts`) and the Cloudflare Durable Object (`cloudflare/worker.ts`) are thin adapters
- * around this, so both speak exactly the same API.
+ * The runtime-neutral front door: routes, auth, rate limits, and the `/v1/live` message protocol
+ * (its sessions are in `live.ts`). The Node server (`app.ts`) and the Cloudflare Durable Object
+ * (`cloudflare/worker.ts`) are thin adapters around this, so both speak exactly the same API.
+ * Replies become HTTP in `api-response.ts`, and the world and the social layer are wired together
+ * in `api-wiring.ts`.
  *
  * REST routes come from the table in `@terrakin/protocol` (routes.ts). For each request the
  * dispatcher matches the table, authenticates, rate limits, and parses params, query, and body
@@ -106,53 +115,8 @@ import { type ActResult, DAY_MS, utcDay, type WorldService } from "./world-servi
  * error.
  */
 
+export type { ApiResponse } from "./api-response";
 export { MAX_BODY_BYTES };
-
-const HELLO_TIMEOUT_MS = 5_000;
-
-/**
- * Sockets watching for new posts (`watch`), at most, in all and from one network. Every one is held
- * by the one World object, so a crowd past this gets `rate_limited` and polls instead. The
- * per-network cap is loose because a mobile carrier can put thousands of phones behind one address
- * (decision 0046). Networks are counted by IPv6 /48, since one home or office can hold many /64s.
- */
-export const MAX_WATCHERS = 2_000;
-export const MAX_WATCHERS_PER_NETWORK = 50;
-/** A watch socket closes this long after it opened; the page opens another on the next interaction. */
-export const WATCH_MAX_MS = 20 * 60_000;
-/** A watch socket that hasn't sent anything (a ping) for this long is dropped. Pages ping every 45 s. */
-export const WATCH_SILENT_MS = 2 * 60_000;
-
-/**
- * One socket that hears about new posts: a `watch` socket, or a `hello` socket that asked for
- * `posts`. Who it is if it sent a token, and which posts it wants.
- */
-interface PostListener {
-  residentId: string | undefined;
-  /** Only posts by residents this one follows, and their own. Needs a token. */
-  following: boolean;
-  network: string;
-  openedAt: number;
-  /** When the socket last sent anything. */
-  heardAt: number;
-  send(text: string): void;
-  /** Close it from the server's side. */
-  end(code: number, reason: string): void;
-}
-
-/**
- * One JSON frame per message object, so a message sent to many sockets is stringified once.
- * Messages are never changed after they're sent.
- */
-const frames = new WeakMap<ServerMessage, string>();
-function frame(message: ServerMessage): string {
-  let text = frames.get(message);
-  if (text === undefined) {
-    text = JSON.stringify(message);
-    frames.set(message, text);
-  }
-  return text;
-}
 
 /** Most `once` answers kept in memory: a short Markdown page each, keyed by a URL up to a few KB. */
 const MAX_REPEATS = 2_000;
@@ -255,13 +219,6 @@ export function isAdminOrigin(browserOrigin: string, requestOrigin: string | und
   }
 }
 
-export interface ApiResponse {
-  status: number;
-  headers: Record<string, string>;
-  /** Text, or raw bytes for a binary reply (letter images). */
-  body: string | Uint8Array;
-}
-
 export interface ApiOptions {
   service: WorldService;
   /** Served at `GET /v1/skill`. */
@@ -315,21 +272,6 @@ const secondsToTomorrow = (now: number) => Math.ceil((DAY_MS - (now % DAY_MS)) /
 /** A valid Idempotency-Key: 1 to 255 visible ASCII characters (a UUID is typical). */
 const IDEMPOTENCY_KEY = /^[\x21-\x7e]{1,255}$/;
 
-/** Headers every API response carries. */
-const API_HEADERS = {
-  "api-version": String(PROTOCOL_VERSION),
-  link: linkHeader(),
-} as const;
-
-/** `RateLimit-Policy` and `RateLimit` (IETF httpapi-ratelimit-headers), from one bucket's take. */
-function rateLimitHeaders(name: RateLimitName, limiter: RateLimiters, take: Take) {
-  const window = Math.ceil(limiter.capacity / limiter.perSecond);
-  return {
-    "ratelimit-policy": `"${name}";q=${limiter.capacity};w=${window}`,
-    ratelimit: `"${name}";r=${take.remaining};t=${take.reset}`,
-  };
-}
-
 /** The first value of each query key, as the route's query schema expects. */
 function firstValues(query: URLSearchParams): Record<string, string> {
   const values: Record<string, string> = {};
@@ -351,13 +293,8 @@ export class Api {
   private photosInFlight = 0;
   private readonly photos: PlotPhotoRenderer | undefined;
   letterReadsInFlight = 0;
-  /** `watch` sockets, capped in all and per network. */
-  private readonly watchers = new Set<PostListener>();
-  /** `hello` sockets that asked for `posts`. They're sessions already, so no cap here. */
-  private readonly helloPosts = new Set<PostListener>();
-  private readonly watchersByNetwork = new Map<string, number>();
-  private readonly maxWatchers: number;
-  private readonly maxWatchersPerNetwork: number;
+  /** Sockets that hear about new posts. @internal Used by LiveSession and the wiring. */
+  readonly postListeners: PostListeners;
   private readonly ipUploadBytesPerDay: number;
   private readonly match: (method: string, pathname: string) => RouteMatch<RouteSpec> | undefined;
   readonly handlers: Handlers;
@@ -381,118 +318,22 @@ export class Api {
     this.skill = options.skill;
     this.openapi = options.openapi;
     this.social = options.social;
+    this.now = options.now ?? Date.now;
+    this.postListeners = new PostListeners({
+      social: options.social,
+      maxWatchers: options.maxWatchers ?? MAX_WATCHERS,
+      maxWatchersPerNetwork: options.maxWatchersPerNetwork ?? MAX_WATCHERS_PER_NETWORK,
+      now: this.now,
+    });
     this.owners = options.social
       ? new OwnerService({ social: options.social, credentials: options.service })
       : undefined;
-    // Coins (RFC 0008): gifts can't cross a block, and a person and their AI give each other coins
-    // without the daily caps. Both facts live in the social layer, so the world asks it.
+    // The world and the social layer hear each other through hooks (api-wiring.ts).
     const layer = options.social;
     if (layer) {
-      this.service.blockedEither = (a, b) => layer.blockedEither(a, b);
-      layer.onOwnerLink = (change, agentId, ownerId) =>
-        change === "link"
-          ? this.service.addOwnerPair(agentId, ownerId)
-          : this.service.removeOwnerPair(agentId, ownerId);
-      layer.onPost = (post) => this.announcePost(post);
-      // Putter's wave (decision 0049) is an ordinary gesture, with a putter mark and its own limits.
-      this.service.greet = (from, to) => {
-        const sent = layer.together.sendGesture(from, to, { kind: "wave" }, { putter: true });
-        if (!sent.ok) return false;
-        this.service.notify(to, layer.together.liveGesture(sent.value.gesture, sent.value.streak));
-        return true;
-      };
-      // Offline routines (RFC 0009): the sweep takes their steps, a resident here walking past an
-      // away neighbor's hearth may get a wave, and every call keeps a resident's routines going.
-      const routines = new Routines({ world: this.service, social: layer });
-      this.routines = routines;
-      // A partner's residents: who is tied to it from the social tables, and what they did from
-      // both the world and the social tables.
-      this.partnerResidents = new PartnerResidents({
-        sql: layer.sql,
-        now: layer.now,
-        residents: () => Object.values(this.service.state.residents),
-        resident: (id) => layer.resident(id),
-        joinedDay: (id) => this.service.joinedDay(id),
-        hasRoutine: (id) => routinesOf(this.service.state, id).length > 0,
-        suspended: (id) => layer.safety.suspendedUntil(id) !== undefined,
-        quarantined: (id) => layer.safety.isQuarantined(id),
-        credits: (sinceDay) => this.service.credits(sinceDay),
-      });
-      this.service.onWalked = (id) => {
-        routines.greetFor(id);
-      };
-      this.service.onCall = (id) => layer.away.called(id);
-      // Who may list in the market (decision 0056): time in Terrakin and karma live out here.
-      this.service.listingRefusal = (id) =>
-        listingRefusal(this.service.state, id, this.listerFacts(id));
-      this.service.suspended = (id) => layer.safety.suspendedUntil(id) !== undefined;
-      this.service.onAdmired = (admirer, maker, day) =>
-        layer.karma.recordAdmire(admirer, maker, day);
-      // Pets (RFC 0019): a treat logged in the world tells its owner, and a pat (a social row)
-      // makes the pet look happy on every screen that shows it.
-      this.service.onPetTreated = (owner, by, kind) => layer.petTreated(owner, by, kind);
-      // Halloween (RFC 0022): a knock logged in the world tells everyone who lives at the door.
-      this.service.onTrickOrTreated = (knocker, plot, residents) =>
-        layer.trickOrTreated(knocker, plot, residents);
-      layer.onPetPatted = (owner) => this.service.announce({ type: "pet_patted", owner });
-      // Plots to visit (RFC 0020): when each plot last changed, and who visited it. The collection
-      // book (RFC 0021): what each input brought anyone, filled in once from the world as it is.
-      this.service.onCommitted = (input, events) => {
-        try {
-          layer.plots.noteCommitted(this.service.state, input, events);
-        } finally {
-          layer.collection.noteCommitted(this.service.state, input, events);
-        }
-      };
-      try {
-        layer.collection.backfill(this.service.state);
-      } catch (err) {
-        report(err, "world.collection_backfill");
-      }
-      // Reports on a listing (decision 0056) read it from the world.
-      layer.safety.listing = (id) => listingForReport(this.service.state, id);
-      // Reports on a thing on display, or a piece (decision 0059), read it from the world too.
-      layer.safety.madeThing = (kind, id) => madeThingForReport(this.service.state, kind, id);
-      // Purged uploads clear every piece made from them (decision 0065): the world logs it.
-      layer.safety.removePiecePictures = (mediaId) => this.service.removePiecePictures(mediaId);
-      // Appreciation coins (decision 0055): counted from reactions, logged once a day by `tick`.
-      this.service.dailyAwards = (day) => layer.karma.awards(day);
-      // Hosted events (RFC 0010): the town's events name townsfolk by handle, and each event that
-      // ends leaves its host's record, with who counted decided out here (ages on the day it
-      // ended, blocks).
-      this.service.residentByHandle = (handle) => layer.residentIdByHandle(handle);
-      const recordEnded = (event: HostedEvent, day: number) =>
-        layer.events.recordEnded(
-          event,
-          day,
-          countGuests(this.service.state, event, {
-            ageDays: (id) => this.service.residentAgeDays(id, day),
-            blockedEither: (a, b) => layer.blockedEither(a, b),
-            hostsToday: (guest) => layer.events.hostsCounted(guest, day),
-          }),
-        );
-      this.service.onEventEnded = recordEnded;
-      // The boot's own catch-up can end events before this hook is set, and a crash can come
-      // between the world's commit and the record: record each ended event that has none.
-      for (const e of layer.events.unrecorded(this.service.state)) {
-        try {
-          recordEnded(e, e.closedDay ?? 0);
-        } catch (err) {
-          report(err, "world.event_ended");
-        }
-      }
-      // Party-game ladders (RFC 0011) live in the world; profiles show them.
-      layer.gameRatings = (id) => gameRatings(this.service.state, id);
-      this.service.syncOwnerPairs(layer.ownerPairs());
-      // Partner wear (RFC 0007 phase 3): logged as each link changes, and caught up on a timer so
-      // promos start and end on the server's clock. At boot, everything at once.
-      layer.onPartnerPerks = (id) =>
-        this.service.syncEntitlements(id, layer.agentLinks.entitled(id));
-      // A kept agent link ask finishes only while the resident's own call would get through
-      // (decision 0128). Not a request, so a pause isn't counted.
-      layer.agentLinks.writeBlocked = (id) => this.writeBlock(id, false) !== undefined;
-      this.service.entitlements = () => layer.agentLinks.allEntitled();
-      this.service.reconcileEntitlements(true);
+      const wired = wireSocial(this, layer);
+      this.routines = wired.routines;
+      this.partnerResidents = wired.partnerResidents;
     }
     this.ipUploadBytesPerDay = options.ipUploadBytesPerDay ?? 500_000_000;
     this.photos = options.photos;
@@ -501,10 +342,7 @@ export class Api {
     this.spendLedger = options.social
       ? new AiSpend(options.social.sql, options.social.now)
       : undefined;
-    this.maxWatchers = options.maxWatchers ?? MAX_WATCHERS;
-    this.maxWatchersPerNetwork = options.maxWatchersPerNetwork ?? MAX_WATCHERS_PER_NETWORK;
     this.onResponse = options.onResponse;
-    this.now = options.now ?? Date.now;
     const bucket = (name: RateLimitName) =>
       new RateLimiters(RATE_LIMITS[name].burst, RATE_LIMITS[name].perSecond, this.now);
     const actions = options.actionsPerSecond;
@@ -1021,12 +859,6 @@ export class Api {
     return new LiveSession(this, ip, socket);
   }
 
-  /**
-   * A new top-level post: tell every open socket, world or watching, except residents blocked
-   * either way with its author, and watchers of the following feed who don't follow them. Ids
-   * only, so a signed-out watcher learns nothing a visitor to the feed couldn't see (decision
-   * 0046). One read for the blocks and one for the followers, whatever the number of sockets.
-   */
   /** A bounty as staff see it after acting on it. */
   staffBounty(id: string): Reply<"confirmTownBounty"> {
     const b = findBounty(this.service.state, id);
@@ -1086,73 +918,6 @@ export class Api {
       ageDays: this.service.residentAgeDays(id),
       tier: this.social?.karma.of(id).tier ?? "newcomer",
     };
-  }
-
-  private announcePost(post: PostView) {
-    try {
-      const author = post.author.id;
-      const social = this.social;
-      const blocked = social?.blockedWith(author) ?? new Set<string>();
-      const text = frame({
-        type: "post",
-        id: post.id,
-        authorId: author,
-        createdAt: post.createdAt,
-      });
-      let followers: Set<string> | undefined;
-      const tell = (l: PostListener) => {
-        const id = l.residentId;
-        if (id !== undefined && blocked.has(id)) return;
-        if (l.following && id !== author) {
-          followers ??= social?.followersOf(author) ?? new Set<string>();
-          if (id === undefined || !followers.has(id)) return;
-        }
-        l.send(text);
-      };
-      for (const l of this.watchers) tell(l);
-      for (const l of this.helloPosts) tell(l);
-    } catch (err) {
-      // The post is stored either way; feeds still poll.
-      console.error(err);
-      report(err, "live.post");
-    }
-  }
-
-  /** @internal Used by LiveSession. Why not, when too many sockets are watching already. */
-  addWatcher(watcher: PostListener): string | undefined {
-    if (this.watchers.size >= this.maxWatchers) {
-      return "Lots of people are watching right now. Poll GET /v1/feed and try again in a few minutes.";
-    }
-    const mine = this.watchersByNetwork.get(watcher.network) ?? 0;
-    if (mine >= this.maxWatchersPerNetwork) {
-      return "Too many sockets from your network are watching. Close one, or poll GET /v1/feed.";
-    }
-    this.watchers.add(watcher);
-    this.watchersByNetwork.set(watcher.network, mine + 1);
-    return undefined;
-  }
-
-  /** @internal Used by LiveSession: a hello socket that asked for posts. */
-  addHelloPosts(listener: PostListener) {
-    this.helloPosts.add(listener);
-  }
-
-  /** @internal Used by LiveSession. */
-  removePostListener(listener: PostListener) {
-    this.helloPosts.delete(listener);
-    if (!this.watchers.delete(listener)) return;
-    const left = (this.watchersByNetwork.get(listener.network) ?? 1) - 1;
-    if (left > 0) this.watchersByNetwork.set(listener.network, left);
-    else this.watchersByNetwork.delete(listener.network);
-  }
-
-  /** Close watch sockets past WATCH_MAX_MS, and ones silent for WATCH_SILENT_MS. */
-  private sweepWatchers() {
-    const now = this.now();
-    for (const w of [...this.watchers]) {
-      if (now - w.openedAt >= WATCH_MAX_MS) w.end(4008, "watch ended");
-      else if (now - w.heardAt >= WATCH_SILENT_MS) w.end(4009, "silent");
-    }
   }
 
   /** @internal Used by LiveSession. */
@@ -1217,13 +982,7 @@ export class Api {
 
   /** The staff overview's tips line: the mode and the last run's counts. */
   tipsStatus() {
-    const last = this.tips?.lastRun() ?? null;
-    return {
-      mode: this.tips?.mode ?? ("off" as const),
-      lastRun: last
-        ? { at: new Date(last.at).toISOString(), day: last.day, mode: last.mode, ...last.result }
-        : null,
-    };
+    return tipsStatus(this.tips);
   }
 
   /** One event as `GET /v1/events/{id}` answers it. */
@@ -1256,30 +1015,7 @@ export class Api {
 
   /** The staff overview's chatter line: settings, today's use, the last run, and dry-run drafts. */
   chatterStatus() {
-    const chatter = this.chatter;
-    const usage = chatter?.usage() ?? { calls: 0, tokens: 0 };
-    const paused = chatter?.pausedUntil() ?? null;
-    const last = chatter?.lastRun() ?? null;
-    const iso = (ms: number) => new Date(ms).toISOString();
-    return {
-      mode: chatter?.mode ?? ("off" as const),
-      gate: chatter?.config.gate ?? ("quiet" as const),
-      perRun: chatter?.config.perRun ?? 0,
-      model: chatter?.config.model ?? "",
-      callsToday: usage.calls,
-      callsPerDay: chatter?.config.callsPerDay ?? 0,
-      tokensToday: usage.tokens,
-      tokensPerDay: chatter?.config.tokensPerDay ?? 0,
-      pausedUntil: paused === null ? null : iso(paused),
-      lastRun: last ? { at: iso(last.at), result: last.result } : null,
-      participation: chatter?.participation(SUMMARY_DAYS) ?? {
-        notes: 0,
-        answered: 0,
-        replies: 0,
-        reactions: 0,
-      },
-      drafts: (chatter?.drafts() ?? []).map((d) => ({ ...d, at: iso(d.at) })),
-    };
+    return chatterStatus(this.chatter);
   }
 
   /**
@@ -1288,56 +1024,7 @@ export class Api {
    * touched, and the last coin tips.
    */
   townsfolkActivity(): TownsfolkActivityResponse {
-    const social = this.requireSocial();
-    const chatter = this.chatter;
-    const status = this.chatterStatus();
-    const iso = (ms: number) => new Date(ms).toISOString();
-    const log = chatter?.activity() ?? [];
-    const lastAt = new Map<string, number>();
-    for (const e of log) if (!lastAt.has(e.residentId)) lastAt.set(e.residentId, e.at);
-    const postOf = (id: string) => {
-      const post = id ? social.post(id) : undefined;
-      return post ? { id: post.id, author: post.author, text: post.text.slice(0, 280) } : null;
-    };
-    const reactions: readonly string[] = REACTION_KEYS;
-    return {
-      chatter: {
-        mode: status.mode,
-        gate: status.gate,
-        perRun: status.perRun,
-        model: status.model,
-        callsToday: status.callsToday,
-        callsPerDay: status.callsPerDay,
-        pausedUntil: status.pausedUntil,
-        lastRun: status.lastRun,
-        participation: status.participation,
-      },
-      tips: this.tipsStatus(),
-      townsfolk: (chatter?.roster() ?? []).flatMap((id) => {
-        const resident = social.authorView(id);
-        if (!resident || !chatter) return [];
-        const at = lastAt.get(id);
-        return [
-          { resident, today: chatter.doneToday(id), lastAt: at === undefined ? null : iso(at) },
-        ];
-      }),
-      activity: log.flatMap((e) => {
-        const by = social.authorView(e.residentId);
-        if (!by) return [];
-        return [
-          {
-            at: iso(e.at),
-            by,
-            action: e.action,
-            live: e.live,
-            text: e.text,
-            post: postOf(e.postId),
-            resident: e.targetId ? (social.authorView(e.targetId) ?? null) : null,
-            reaction: reactions.includes(e.reaction) ? (e.reaction as ReactionKey) : null,
-          },
-        ];
-      }),
-    };
+    return townsfolkActivity(this.requireSocial(), this.chatter, this.tips);
   }
 
   /**
@@ -1376,7 +1063,7 @@ export class Api {
     // After the idle sweep, so whoever just went idle is away for their routines.
     runRoutines(this.routines);
     this.service.keepSnapshots();
-    this.sweepWatchers();
+    this.postListeners.sweep();
     this.social?.sweep().catch((err: unknown) => {
       console.error("Social sweep failed", err);
       report(err, "social.sweep");
@@ -1534,433 +1221,5 @@ export class Api {
   }
 }
 
-export interface LiveSocket {
-  /** Send one text frame. Must not throw if the socket already closed. */
-  send(text: string): void;
-  close(code: number, reason: string): void;
-}
-
-/**
- * One `/v1/live` connection: hello, then actions, or watch, then only new posts. Never throws out
- * of `onMessage`.
- */
-export class LiveSession {
-  private residentId: string | undefined;
-  /** Set when this socket hears about new posts: a watch, or a hello that asked for them. */
-  private posts: PostListener | undefined;
-  private watching = false;
-  private unsubscribe: (() => void) | undefined;
-  private unwatch: (() => void) | undefined;
-  private readonly helloTimer: ReturnType<typeof setTimeout>;
-
-  constructor(
-    private readonly api: Api,
-    private readonly ip: string,
-    private readonly socket: LiveSocket,
-  ) {
-    this.helloTimer = setTimeout(() => socket.close(4000, "hello timeout"), HELLO_TIMEOUT_MS);
-  }
-
-  private send(message: ServerMessage) {
-    this.socket.send(frame(message));
-  }
-
-  private listener(residentId: string | undefined, following: boolean): PostListener {
-    const now = this.api.clock();
-    return {
-      residentId,
-      following,
-      network: this.api.watchNetworkOf(this.ip),
-      openedAt: now,
-      heardAt: now,
-      send: (text) => this.socket.send(text),
-      end: (code, reason) => {
-        this.onClose();
-        this.socket.close(code, reason);
-      },
-    };
-  }
-
-  private fail(
-    code: ErrorCode,
-    message: string,
-    id?: string,
-    didYouMean?: string,
-    dry?: true,
-    retryAfter?: number,
-  ) {
-    const error = {
-      code,
-      message,
-      ...(didYouMean ? { did_you_mean: didYouMean } : {}),
-      ...(retryAfter === undefined ? {} : { retryAfter }),
-    };
-    this.send({
-      type: "error",
-      ...(id === undefined ? {} : { id }),
-      error,
-      ...(dry ? { dry } : {}),
-    });
-  }
-
-  onMessage(text: string) {
-    try {
-      this.handle(text);
-    } catch (err) {
-      console.error(err);
-      report(err, "live.message");
-      this.fail("internal", "Something broke on our side.");
-    }
-  }
-
-  onClose() {
-    clearTimeout(this.helloTimer);
-    this.unsubscribe?.();
-    this.unsubscribe = undefined;
-    this.unwatch?.();
-    this.unwatch = undefined;
-    if (this.posts) this.api.removePostListener(this.posts);
-    this.posts = undefined;
-    if (this.residentId) this.api.service.socketClosed(this.residentId);
-    this.residentId = undefined;
-  }
-
-  private handle(text: string) {
-    const { service } = this.api;
-    if (text.length > MAX_BODY_BYTES) return this.fail("bad_request", "Message too large.");
-    let raw: unknown;
-    try {
-      raw = JSON.parse(text);
-    } catch {
-      return this.fail("bad_request", "Messages must be JSON.");
-    }
-    const parsed = ClientMessage.safeParse(raw);
-    // An answer before the world waits for hello and takes an action slot, in the same order as REST.
-    const hint = actionHint(raw, parsed.success);
-    if (hint) {
-      if (!this.residentId) return this.fail("bad_request", "Say hello first.");
-      if (!this.api.takeAction(this.residentId)) {
-        return this.fail("rate_limited", "Slow down.", hint.id);
-      }
-      return this.fail(hint.code, hint.message, hint.id, hint.didYouMean, hint.dry);
-    }
-    if (!parsed.success) return this.fail("bad_request", parsed.error.message);
-    const msg = parsed.data;
-    if (this.posts) this.posts.heardAt = this.api.clock();
-
-    if (msg.type === "watch") {
-      if (this.residentId || this.watching) {
-        return this.fail(
-          "bad_request",
-          this.residentId
-            ? "Already said hello. Send posts: true with hello for new posts there."
-            : "Already watching.",
-        );
-      }
-      if (msg.v !== PROTOCOL_VERSION) {
-        this.fail("version_mismatch", `This server speaks v${PROTOCOL_VERSION}.`);
-        return this.socket.close(4001, "version mismatch");
-      }
-      const viewer = msg.token ? service.authenticate(msg.token) : undefined;
-      if (msg.token && !viewer) return this.fail("unauthorized", "Unknown token.");
-      if (msg.following && !viewer) {
-        return this.fail("bad_request", "Watching the following feed needs your token.");
-      }
-      const watcher = this.listener(viewer, msg.following === true);
-      const refused = this.api.addWatcher(watcher);
-      if (refused) {
-        this.fail("rate_limited", refused);
-        return this.socket.close(4029, "too many watchers");
-      }
-      this.posts = watcher;
-      this.watching = true;
-      clearTimeout(this.helloTimer);
-      this.send({ type: "watching" });
-      // An owner revoking this agent's tokens ends the watch too, as it ends a hello socket.
-      if (viewer) {
-        this.unwatch = service.watchRevocation(viewer, () => {
-          this.fail(
-            "unauthorized",
-            "Your owner revoked this token. The Terrakin team can help you back in.",
-          );
-          this.onClose();
-          this.socket.close(4003, "token revoked");
-        });
-      }
-      return;
-    }
-
-    if (msg.type === "hello") {
-      if (this.watching) {
-        return this.fail("bad_request", "This socket is watching posts. Say hello on another.");
-      }
-      if (this.residentId) return this.fail("bad_request", "Already said hello.");
-      if (msg.v !== PROTOCOL_VERSION) {
-        this.fail("version_mismatch", `This server speaks v${PROTOCOL_VERSION}.`);
-        return this.socket.close(4001, "version mismatch");
-      }
-      let id: string;
-      let token: string;
-      if (msg.token) {
-        const known = service.authenticate(msg.token);
-        if (!known) return this.fail("unauthorized", "Unknown token.");
-        const online = service.ensureOnline(known);
-        if (!online.ok) return this.fail(online.error.code, online.error.message);
-        id = known;
-        token = msg.token;
-      } else {
-        if (!msg.name || !msg.kind)
-          return this.fail("bad_request", "Send a token, or a name and kind.");
-        if (!this.api.takeSession(this.ip)) {
-          return this.fail("rate_limited", "Too many new sessions. Try again in a minute.");
-        }
-        const created = service.createSession({ ...msg, name: msg.name, kind: msg.kind });
-        if (!created.ok) return this.fail(created.error.code, created.error.message);
-        if (!created.residentId || !created.token) return this.fail("internal", "No session.");
-        id = created.residentId;
-        token = created.token;
-      }
-      // Only now is this socket bound to a resident.
-      this.residentId = id;
-      clearTimeout(this.helloTimer);
-      service.socketOpened(id);
-      this.send({ type: "welcome", residentId: id, token, world: service.snapshot() });
-      this.unsubscribe = service.subscribe(id, (m) => this.send(m));
-      if (msg.posts) {
-        this.posts = this.listener(id, false);
-        this.api.addHelloPosts(this.posts);
-      }
-      // An owner revoking this agent's tokens ends every connection one of them opened.
-      this.unwatch = service.watchRevocation(id, () => {
-        this.fail(
-          "unauthorized",
-          "Your owner revoked this token. The Terrakin team can help you back in.",
-        );
-        this.onClose();
-        this.socket.close(4003, "token revoked");
-      });
-      return;
-    }
-
-    if (msg.type === "ping" && (this.residentId || this.watching))
-      return this.send({ type: "pong", ...(msg.id === undefined ? {} : { id: msg.id }) });
-    if (this.watching) {
-      return this.fail(
-        "bad_request",
-        "This socket only watches posts. Say hello on another to act.",
-        msg.id,
-      );
-    }
-    const residentId = this.residentId;
-    if (!residentId || msg.type === "ping") return this.fail("bad_request", "Say hello first.");
-    if (!this.api.takeAction(residentId)) return this.fail("rate_limited", "Slow down.", msg.id);
-    const blocked = this.api.writeBlock(residentId);
-    if (blocked) return this.fail(blocked.error, blocked.message, msg.id);
-    // The resident may have been marked offline (DELETE /v1/session from another client).
-    // An open socket means they're here, so bring them back. A dry run changes nothing.
-    if (!msg.action.dry) service.ensureOnline(residentId);
-    const result = service.act(residentId, msg.action);
-    if (!result.ok) {
-      const { code, message, retryAfter } = result.error;
-      return this.fail(code, message, msg.id, undefined, result.dry, retryAfter);
-    }
-    this.send({
-      type: "ack",
-      ...(msg.id === undefined ? {} : { id: msg.id }),
-      seq: result.seq,
-      ...(result.greeted === undefined ? {} : { greeted: result.greeted }),
-      ...(result.plan === undefined ? {} : { plan: result.plan }),
-      ...(result.dry ? { dry: true } : {}),
-    });
-  }
-}
-
-/**
- * What a socket action gets before it reaches the world, with the message's `id` when it has a
- * usable one: a typo in its type or field names (like `POST /v1/actions`, a near-miss field is
- * refused even when the rest parses), or, when it didn't parse, a family recipe's thing for a kind
- * outside its family ({@link familyMiss}), else what's wrong in plain words.
- */
-function actionHint(
-  raw: unknown,
-  parsed: boolean,
-): { code: ErrorCode; message: string; didYouMean?: string; id?: string; dry?: true } | undefined {
-  if (typeof raw !== "object" || raw === null) return undefined;
-  const { type, id, action } = raw as Record<string, unknown>;
-  if (type !== "action") return undefined;
-  const usableId = typeof id === "string" && id.length >= 1 && id.length <= 64 ? id : undefined;
-  const withId = usableId === undefined ? {} : { id: usableId };
-  const hint = suggestFor(Action, action);
-  if (hint) return { code: "bad_request", ...hint, ...withId };
-  if (parsed) return undefined;
-  const missed = familyMiss(action);
-  if (missed) return { ...missed.error, ...withId, ...(missed.dry ? { dry: missed.dry } : {}) };
-  // The same words as POST /v1/actions, with the choices a field takes and what a near miss meant.
-  const checked = Action.safeParse(action);
-  if (checked.success) return undefined;
-  const plain = plainProblem(Action, action, checked.error.issues);
-  return {
-    code: "bad_request",
-    message: plain.lines.join(" "),
-    ...(plain.didYouMean ? { didYouMean: plain.didYouMean } : {}),
-    ...withId,
-  };
-}
-
 /** A schema the dispatcher parses with. */
 type Schema = Parameters<typeof plainProblem>[0];
-
-/**
- * A `craft` of a family recipe's thing for a kind outside its family, like `tomato_jam`. It isn't a
- * recipe, so the schema turns it down before the world sees it; this gives the world's answer
- * instead, a refusal that names the kinds the recipe takes.
- */
-function familyMiss(action: unknown): Extract<ActResult, { ok: false }> | undefined {
-  if (typeof action !== "object" || action === null) return undefined;
-  const { type, recipe, dry } = action as Record<string, unknown>;
-  if (type !== "craft" || typeof recipe !== "string") return undefined;
-  const message = familyRecipeMiss(recipe);
-  if (message === undefined) return undefined;
-  return { ok: false, error: { code: "unknown_item", message }, ...(dry === true ? { dry } : {}) };
-}
-
-function json(status: number, body: unknown): ApiResponse {
-  return {
-    status,
-    headers: { "content-type": "application/json", "cache-control": "no-store" },
-    body: JSON.stringify(body),
-  };
-}
-
-/** How long a 429 tells the client to wait when nothing more precise is known. */
-const DEFAULT_RETRY_SECONDS = 60;
-
-/** The headers every error carries: how to authenticate on a 401, when to come back on a 429. */
-function errorHeaders(code: ErrorCode, retryAfter?: number): Record<string, string> {
-  const status = errorStatus(code);
-  if (status === 401) return { "www-authenticate": 'Bearer realm="terrakin"' };
-  if (status === 429) {
-    return { "retry-after": String(Math.max(1, retryAfter ?? DEFAULT_RETRY_SECONDS)) };
-  }
-  return {};
-}
-
-function error(
-  code: ErrorCode,
-  message: string,
-  retryAfter?: number,
-  didYouMean?: string,
-): ApiResponse {
-  const body = { code, message, ...(didYouMean ? { did_you_mean: didYouMean } : {}) };
-  return withHeaders(json(errorStatus(code), { error: body }), errorHeaders(code, retryAfter));
-}
-
-function withHeaders(response: ApiResponse, headers: Record<string, string>): ApiResponse {
-  return { ...response, headers: { ...response.headers, ...headers } };
-}
-
-/** The `error.code` of a JSON error reply, for traces and metrics. Markdown errors carry none. */
-function errorCode(response: ApiResponse): string | undefined {
-  if (response.status < 400 || typeof response.body !== "string") return undefined;
-  if (!response.headers["content-type"]?.startsWith("application/json")) return undefined;
-  try {
-    const code = (JSON.parse(response.body) as { error?: { code?: unknown } }).error?.code;
-    return typeof code === "string" ? code : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-/** Replay a first response, unless it's one the client should be free to simply retry. */
-const keepable = (response: ApiResponse) => response.status < 500 && response.status !== 429;
-
-const stored = (response: ApiResponse): StoredResponse => ({
-  status: response.status,
-  contentType: response.headers["content-type"],
-  // Only JSON and text replies are stored: idempotency keys apply to writes, never to file reads.
-  body: typeof response.body === "string" ? response.body : "",
-});
-
-/**
- * Headers on every answer of a Markdown link route. These pages can hold a link key, so nothing
- * may cache them, index them, or pass their URL on as a referrer.
- */
-const PRIVATE_PAGE = {
-  "content-type": "text/markdown; charset=utf-8",
-  "cache-control": "no-store",
-  "x-robots-tag": "noindex, nofollow",
-  "referrer-policy": "no-referrer",
-};
-
-/**
- * Whether an `If-None-Match` header names `tag`: any one of its tags, weak or strong (a proxy that
- * compresses the answer may weaken the `ETag` it saw), or `*`.
- */
-function etagMatches(header: string | undefined, tag: string): boolean {
-  if (!header) return false;
-  return header.split(",").some((t) => {
-    const one = t.trim();
-    return one === "*" || one.replace(/^W\//, "") === tag;
-  });
-}
-
-/**
- * Turn a handler's reply into HTTP, using the route's declared response for that status. A JSON
- * reply with an `etag` gets one, and a 304 when `ifNoneMatch` already names it.
- */
-function render(
-  route: RouteSpec,
-  reply: HandlerReply | Failure,
-  help?: string,
-  ifNoneMatch?: string,
-): ApiResponse {
-  if ("error" in reply) {
-    if (route.format !== "markdown") return error(reply.error, reply.message, reply.retryAfter);
-    return {
-      status: errorStatus(reply.error),
-      headers: { ...PRIVATE_PAGE, ...errorHeaders(reply.error, reply.retryAfter) },
-      body: markdownError(reply.error, reply.message, help),
-    };
-  }
-  const spec = route.responses[reply.status];
-  if (!spec) throw new Error(`Route ${route.id} declares no ${reply.status} response.`);
-  if (spec.kind === "json") {
-    if (!spec.etag) return json(reply.status, reply.body);
-    // Public data that's the same for everyone, like the catalog: a cache keeps it, and asks each
-    // time whether it's still current.
-    const headers = { etag: `"${spec.etag(reply.body)}"`, "cache-control": "public, no-cache" };
-    if (etagMatches(ifNoneMatch, headers.etag)) return { status: 304, headers, body: "" };
-    const out = json(reply.status, reply.body);
-    return { ...out, headers: { ...out.headers, ...headers } };
-  }
-  if (spec.kind === "empty") return { status: reply.status, headers: {}, body: "" };
-  if (route.format === "markdown") {
-    return { status: reply.status, headers: PRIVATE_PAGE, body: reply.text ?? "" };
-  }
-  if (spec.kind === "binary") {
-    // Private to the two residents: never cached (a shared browser must not hand it to the next
-    // person), and inert if opened directly.
-    return {
-      status: reply.status,
-      headers: {
-        "content-type": reply.contentType ?? "application/octet-stream",
-        "x-content-type-options": "nosniff",
-        "content-security-policy": "default-src 'none'; sandbox",
-        // no-store: a shared browser must not hand one person's letter picture to the next.
-        "cache-control": "no-store",
-      },
-      body: reply.bytes ?? new Uint8Array(0),
-    };
-  }
-  const type =
-    spec.contentType.startsWith("text/") || spec.contentType.endsWith("/xml")
-      ? `${spec.contentType}; charset=utf-8`
-      : spec.contentType;
-  const cache =
-    spec.maxAge === undefined ? {} : { "cache-control": `public, max-age=${spec.maxAge}` };
-  return {
-    status: reply.status,
-    headers: { "content-type": type, ...cache },
-    body: reply.text ?? "",
-  };
-}

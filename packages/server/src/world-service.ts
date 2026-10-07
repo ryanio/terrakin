@@ -1,22 +1,17 @@
-import { createHash } from "node:crypto";
 import type {
   Action,
   BuildPlanSummary,
   ChatChannel,
   ErrorCode,
-  MediaType,
   ServerMessage,
   WorldEvent as WireEvent,
   WorldSnapshot,
 } from "@terrakin/protocol";
 import {
   BUILD_LIMITS,
-  EVENT_LEAD_MINUTES,
   facingFrom,
-  fourWayFacing,
   GAME_TIMES,
   KARMA,
-  PROTOCOL_VERSION,
   PUTTER_LIMITS,
   ROUTINE_LIMITS,
 } from "@terrakin/protocol";
@@ -28,24 +23,16 @@ import {
   buildSummary,
   type Command,
   type Crop,
-  canBuildOn,
   chebyshev,
-  commonsPlot,
   DAY_LENGTH_MS,
   type DailyAward,
   DEFAULT_CONFIG,
   type Direction,
-  displaysOf,
   EVENTS,
   entitledTo,
   eventEndsAt,
-  eventOpen,
   everyGood,
-  exactWearStyles,
-  FISHING,
-  findBounty,
   findEvent,
-  findsOnDisplay,
   findsOpen,
   GAME_RULES,
   GAMES,
@@ -53,61 +40,35 @@ import {
   type HostedEvent,
   hasDecided,
   hashWorld,
-  holidayField,
   type Input,
-  inEventArea,
-  isTownEvent,
   isTownsfolk,
-  isWater,
-  joinTile,
   LOOK_MEDIA_KEYS,
-  type LookMediaKey,
-  type LooseWearStyles,
   lastSlot,
-  listingById,
   own,
   ownerPaired,
-  type PickupKind,
-  type Plot,
-  type ProfileFields,
-  parseKey,
-  pickupLeft,
   pieceShowingMedia,
   planPutter,
-  plotAtTile,
-  plotInBounds,
   plotKey,
-  plotPickupsOwned,
   prepare,
   REPLAY_VERSION,
   type ResidentKind,
-  ROUTINES,
-  type Routine,
   type RoutineStep,
   residentById,
   SHOP,
   type StepRoutine,
   seatOf,
   seatsHeld,
-  shopTiles,
-  skyAt,
   starterOf,
   TOWN_ACTOR,
-  timeOfDayAt,
-  townHallTiles,
   treasuryShareOf,
-  unclaimedMessage,
-  visitTile,
   type WorldConfig,
   type WorldEvent,
   type WorldState,
-  waterBeside,
   withinEarshot,
 } from "@terrakin/sim";
-import { closeDue, startBy, startFree, townsfolkMove } from "./games";
+import { closeDue, startBy, townsfolkMove } from "./games";
 import { listingRefusal } from "./market";
-import { Moderation, type ReviewContext, type Surface } from "./moderation";
-import { shownPlotName } from "./plots";
+import { Moderation } from "./moderation";
 import {
   boot,
   encodeSnapshot,
@@ -124,8 +85,26 @@ import {
 } from "./snapshots";
 import type { Store } from "./store";
 import { count, crumb, gauge, report, span } from "./telemetry";
-import { cleanMultiline, cleanText } from "./text";
+import { cleanText } from "./text";
 import type { TownEvent } from "./town-events";
+import {
+  type ActionContext,
+  checkLookMedia,
+  cleanProfile,
+  filtered,
+  type LooseProfile,
+  type OwnedMediaType,
+  performAction,
+} from "./world-actions";
+import { randomBytes, toHex, WorldCredentials } from "./world-credentials";
+import {
+  eventsFor,
+  holdBackNames,
+  isPrivate,
+  publicEvents,
+  toWire,
+  worldSnapshot,
+} from "./world-wire";
 
 export type ActResult =
   | {
@@ -248,135 +227,10 @@ export interface WorldServiceOptions {
   townEvents?: readonly TownEvent[];
 }
 
-/**
- * What an input's sim events look like on the wire. Owner-pair and maintainer lists stay on the
- * server. A gift also shows as a public `gift` event, without the amount or note, unless
- * townsfolk are on either side: their purses reset to the budget each day, so the public
- * treasury lines would give the amount away.
- */
-function toWire(events: WorldEvent[], townsfolk: readonly string[] = []): WireEvent[] {
-  const out: WireEvent[] = [];
-  for (const e of events) {
-    if (
-      e.type === "owner_pairs_set" ||
-      e.type === "owner_pair_added" ||
-      e.type === "owner_pair_removed" ||
-      e.type === "maintainers_set" ||
-      e.type === "implicit_presence_on" ||
-      e.type === "event_ticked"
-    ) {
-      continue;
-    }
-    if (e.type === "inventory") {
-      // A gift's note and a made thing's label are another resident's words.
-      const words = e.note !== undefined || e.gained?.some((g) => g.label !== undefined);
-      out.push(words ? { ...e, trust: "untrusted" } : e);
-      continue;
-    }
-    if (e.type === "displayed") {
-      // A made thing's label, or a piece's title, is its maker's words.
-      out.push(e.good.label !== undefined ? { ...e, trust: "untrusted" } : e);
-      continue;
-    }
-    if (e.type === "bounty_posted") {
-      // Like proposals, the words stay out of events: they're read from GET /v1/bounties.
-      const { id, poster, proposal, grant, reward, postedDay, expiresDay } = e.bounty;
-      out.push({
-        type: "bounty_posted",
-        bounty: {
-          id,
-          poster,
-          ...(proposal ? { proposal } : {}),
-          ...(grant ? { grant } : {}),
-          reward,
-          postedDay,
-          expiresDay,
-        },
-      });
-      continue;
-    }
-    if (e.type === "pet_adopted" || e.type === "pet_renamed") {
-      // A pet's name is its owner's words.
-      out.push({ ...e, trust: "untrusted" });
-      continue;
-    }
-    if (e.type === "plot_named") {
-      // A plot's name is the words of whoever named it (decision 0121). A clear carries none.
-      out.push(e.name === null ? e : { ...e, trust: "untrusted" });
-      continue;
-    }
-    if (e.type === "listed") {
-      // A made thing's label is its maker's words.
-      const words = e.listing.goods?.some((g) => g.label !== undefined);
-      out.push(words ? { ...e, trust: "untrusted" } : e);
-      continue;
-    }
-    out.push(e.type === "coins" && e.note ? { ...e, trust: "untrusted" } : e);
-    if (
-      e.type === "coins" &&
-      e.reason === "gift_out" &&
-      e.with &&
-      !townsfolk.includes(e.residentId) &&
-      !townsfolk.includes(e.with)
-    ) {
-      out.push({ type: "gift", from: e.residentId, to: e.with });
-    }
-  }
-  return out;
-}
-
 /** A game input the server meant to log was refused. Reported by its code, never an id. */
 function gameRefused(code: string, command: string) {
   report(new Error(`${command} refused: ${code}`), "world.games", { command });
 }
-
-/**
- * While staff hold a resident's words back (a quarantine, RFC 0006), their pet's name, and a plot
- * name they write (decision 0121), stay out of the events everyone gets too, as they do out of the
- * snapshot. A held-back plot name goes out as no name.
- */
-function holdBackNames(events: WireEvent[], hidden: (id: string) => boolean): WireEvent[] {
-  return events.map((e) => {
-    if ((e.type === "pet_adopted" || e.type === "pet_renamed") && hidden(e.residentId)) {
-      return e.type === "pet_adopted" ? { ...e, pet: { ...e.pet, name: "" } } : { ...e, name: "" };
-    }
-    if (e.type === "joined" && e.resident.pet && hidden(e.resident.id)) {
-      return { ...e, resident: { ...e.resident, pet: { ...e.resident.pet, name: "" } } };
-    }
-    if (e.type === "plot_named" && e.name !== null && hidden(e.by)) {
-      const { trust: _words, ...rest } = e;
-      return { ...rest, name: null };
-    }
-    return e;
-  });
-}
-
-/**
- * Purse moves, inventory changes, wear bought at the shop, and routines turned on or off: each
- * belongs to one resident alone.
- */
-const isPrivate = (
-  e: WireEvent,
-): e is Extract<WireEvent, { type: "coins" | "inventory" | "wear_bought" | "routines_set" }> =>
-  e.type === "coins" ||
-  e.type === "inventory" ||
-  e.type === "wear_bought" ||
-  e.type === "routines_set";
-
-/**
- * What everyone may see: no purse moves and no inventory changes. Never empty, so every client's
- * `seq` keeps counting.
- */
-function publicEvents(events: WireEvent[]): WireEvent[] {
-  const shown = events.filter((e) => !isPrivate(e));
-  return shown.length > 0 ? shown : [{ type: "quiet" }];
-}
-
-/** What one resident may see: everything public, plus their own purse and inventory changes. */
-export function eventsFor(events: WireEvent[], viewer: string): WireEvent[] {
-  return events.filter((e) => !isPrivate(e) || e.residentId === viewer);
-}
-
 /**
  * A `build`'s answer: the plan the sim prepared, the one its commit makes (decision 0076). A
  * `commons_build` proposal's: what it would build if it passed now (decision 0101).
@@ -402,98 +256,6 @@ const TICK_MS = EVENTS.tickMinutes * 60_000;
 const AWARD_CATCH_UP = 7;
 /** How often `tick` compares every resident's partner wear with the social layer's (RFC 0007). */
 export const ENTITLEMENT_CHECK_MS = 5 * 60_000;
-
-const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
-
-/** Web Crypto randomness, so this file runs the same on Node and Cloudflare Workers. */
-const randomBytes = (n: number) => crypto.getRandomValues(new Uint8Array(n));
-
-/**
- * A cast's roll (RFC 0023): a whole number from 0 to `FISHING.outOf - 1`, every one as likely, from
- * Web Crypto. Draws past the last whole multiple of `outOf` are drawn again, so none is favored.
- */
-function castRoll(): number {
-  const span = 2 ** 32;
-  const fair = span - (span % FISHING.outOf);
-  for (;;) {
-    const n = crypto.getRandomValues(new Uint32Array(1))[0] ?? 0;
-    if (n < fair) return n % FISHING.outOf;
-  }
-}
-const toHex = (bytes: Uint8Array) =>
-  Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
-const toBase64Url = (bytes: Uint8Array) =>
-  btoa(String.fromCharCode(...bytes))
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
-
-/** Drop absent fields (the sim's types forbid explicit undefined) and clean the note text. */
-type LooseProfile = {
-  [K in Exclude<keyof ProfileFields, "wearStyle">]?: ProfileFields[K] | undefined;
-} & { wearStyle?: LooseWearStyles | null | undefined };
-
-function cleanProfile(fields: LooseProfile): ProfileFields {
-  const out: ProfileFields = {
-    ...(fields.color ? { color: fields.color } : {}),
-    ...(fields.shape ? { shape: fields.shape } : {}),
-    ...(fields.note !== undefined ? { note: cleanText(fields.note) } : {}),
-  };
-  // Look fields: absent stays absent, null (clear) is kept.
-  if (fields.theme !== undefined) out.theme = fields.theme;
-  if (fields.pattern !== undefined) out.pattern = fields.pattern;
-  if (fields.wear !== undefined) out.wear = [...fields.wear];
-  if (fields.wearStyle !== undefined) {
-    out.wearStyle = fields.wearStyle === null ? null : exactWearStyles(fields.wearStyle);
-  }
-  if (fields.hair !== undefined) out.hair = fields.hair;
-  if (fields.hairColor !== undefined) out.hairColor = fields.hairColor;
-  for (const key of LOOK_MEDIA_KEYS) {
-    const value = fields[key];
-    if (value !== undefined) out[key] = value;
-  }
-  return out;
-}
-
-/** What each look media field may be: still images for art and patterns, `.glb` for models. */
-const LOOK_MEDIA_TYPES: Record<LookMediaKey, { types: readonly MediaType[]; what: string }> = {
-  patternMedia: {
-    types: ["image/png", "image/jpeg", "image/webp"],
-    what: "Your pattern must be one of your PNG, JPEG, or WebP uploads.",
-  },
-  homeArt: {
-    types: ["image/png", "image/jpeg", "image/webp"],
-    what: "Your home picture must be one of your PNG, JPEG, or WebP uploads.",
-  },
-  homeModel: {
-    types: ["model/gltf-binary"],
-    what: "Your home model must be one of your .glb uploads.",
-  },
-};
-
-/** What a piece of art may show: a still picture, or a `.glb` model. */
-const PIECE_MEDIA_TYPES: readonly MediaType[] = [
-  "image/png",
-  "image/jpeg",
-  "image/webp",
-  "model/gltf-binary",
-];
-
-/** Look up the type of an upload `owner` made, or undefined if it isn't theirs (or doesn't exist). */
-export type OwnedMediaType = (owner: string, mediaId: string) => MediaType | undefined;
-
-/** Run text through the edge filters (moderation.ts). Undefined when it may go ahead. */
-function filtered(
-  moderation: Moderation,
-  surface: Surface,
-  text: string | undefined,
-  context: ReviewContext,
-): ActResult | undefined {
-  if (text === undefined || text === "") return undefined;
-  const verdict = moderation.review(surface, text, context);
-  if (verdict.ok) return undefined;
-  return { ok: false, error: { code: verdict.code, message: verdict.message } };
-}
 
 /** One full day/night cycle, from the sim, where the time of day a cast logs is worked out. */
 export { DAY_LENGTH_MS };
@@ -592,15 +354,17 @@ const DAY_SWITCHES: readonly TownSwitch[] = [
 
 /**
  * Owns the one authoritative world. Every change goes through `act` or `join`/`leave`,
- * which run the sim, persist the accepted input, and broadcast the resulting events.
+ * which run the sim, persist the accepted input, and broadcast the resulting events. Most actions'
+ * checks are in `world-actions.ts`, what goes on the wire in `world-wire.ts`, and tokens and
+ * link keys in `world-credentials.ts`.
  */
 export class WorldService {
   readonly state: WorldState;
   private readonly store: Store;
-  private readonly sessions = new Map<string, string>(); // tokenHash -> residentId
-  /** Link keys (decision 0020): at most one per resident. keyHash -> residentId, and back. */
-  private readonly linkKeys = new Map<string, string>();
-  private readonly linkKeyOf = new Map<string, string>();
+  /** Bearer tokens and link keys, kept as hashes. */
+  private readonly credentials: WorldCredentials;
+  /** What `performAction` (world-actions.ts) reads and calls. */
+  private readonly actions: ActionContext;
   /** residentId -> their live listeners. Chat goes only to residents within earshot. */
   private readonly listeners = new Map<string, Set<Listener>>();
   /** Which way each resident last stepped, for drawing only. Kept in memory: a restart forgets it. */
@@ -614,8 +378,6 @@ export class WorldService {
   private readonly routineSteps = new Map<string, { routine: StepRoutine; at: number }>();
   private readonly lastSeen = new Map<string, number>();
   private readonly sockets = new Map<string, number>(); // residentId -> open socket count
-  /** residentId -> callbacks that close their live connections when their tokens are revoked. */
-  private readonly revocationWatchers = new Map<string, Set<() => void>>();
   private readonly idleTimeoutMs: number;
   readonly now: () => number;
   private readonly days: boolean;
@@ -683,8 +445,20 @@ export class WorldService {
       if (newest) this.verified = { seq: newest.seq, hash: newest.hash };
       this.verifier = new SnapshotVerifier(this.store, snapshots, config, options.verifySlice);
     }
-    for (const s of this.store.loadSessions()) this.sessions.set(s.tokenHash, s.residentId);
-    for (const k of this.store.loadLinkKeys()) this.rememberLinkKey(k.residentId, k.keyHash);
+    this.credentials = new WorldCredentials(this.store);
+    this.actions = {
+      state: this.state,
+      moderation: this.moderation,
+      now: () => this.now(),
+      run: (input, dry) => this.run(input, dry),
+      blockedEither: (a, b) => this.blockedEither(a, b),
+      suspended: (id) => this.suspended(id),
+      listingRefusal: (id) => this.listingRefusal(id),
+      mediaType: (owner, id) => this.mediaType?.(owner, id),
+      pinLookMedia: (id) => this.onLookMedia?.(id, this.lookMedia(id)),
+      pinPieceMedia: (item, media) => this.onPieceMedia?.(item, media),
+      runGames: () => this.runGames(),
+    };
     // Nobody is connected right after a restart. Mark everyone offline so presence is honest.
     this.takeOffline(
       Object.values(this.state.residents)
@@ -1274,7 +1048,7 @@ export class WorldService {
       filtered(this.moderation, "note", profile.note && cleanText(profile.note), {});
     if (refused) return refused;
     // A brand-new resident owns no uploads, so any media here is refused.
-    const media = this.checkLookMedia(residentId, profile);
+    const media = checkLookMedia(this.actions.mediaType, residentId, profile);
     if (media) return media;
     const result = this.run({
       actor: residentId,
@@ -1337,20 +1111,6 @@ export class WorldService {
     return all;
   }
 
-  /** Refuse look media that aren't the resident's own uploads of the right kind. */
-  private checkLookMedia(residentId: string, fields: LooseProfile): ActResult | undefined {
-    for (const key of LOOK_MEDIA_KEYS) {
-      const id = fields[key];
-      if (id === undefined || id === null) continue;
-      const rule = LOOK_MEDIA_TYPES[key];
-      const type = this.mediaType?.(residentId, id);
-      if (!type || !rule.types.includes(type)) {
-        return { ok: false, error: { code: "bad_request", message: rule.what } };
-      }
-    }
-    return undefined;
-  }
-
   // ---------- link keys (decision 0020) ----------
 
   /**
@@ -1358,26 +1118,17 @@ export class WorldService {
    * shown once and never stored or logged; only its hash is kept.
    */
   mintLinkKey(residentId: string): string {
-    const key = `k_${toBase64Url(randomBytes(32))}`;
-    const keyHash = hashToken(key);
-    // Save first: a key that isn't saved must not work, or it would stop working on restart.
-    this.store.saveLinkKey({ residentId, keyHash });
-    this.rememberLinkKey(residentId, keyHash);
-    return key;
+    return this.credentials.mintLinkKey(residentId);
   }
 
   /** Turn off a resident's link key. Returns whether there was one. */
   revokeLinkKey(residentId: string): boolean {
-    if (!this.linkKeyOf.has(residentId)) return false;
-    this.store.saveLinkKey({ residentId, keyHash: null });
-    this.rememberLinkKey(residentId, null);
-    return true;
+    return this.credentials.revokeLinkKey(residentId);
   }
 
   /** Resolve a link key to a resident id, or undefined if it's unknown or turned off. */
   authenticateLinkKey(key: string): string | undefined {
-    if (!key.startsWith("k_")) return undefined;
-    return this.called(this.linkKeys.get(hashToken(key)));
+    return this.called(this.credentials.linkKeyResident(key));
   }
 
   /**
@@ -1400,24 +1151,9 @@ export class WorldService {
     return residentId;
   }
 
-  private rememberLinkKey(residentId: string, keyHash: string | null) {
-    const old = this.linkKeyOf.get(residentId);
-    if (old !== undefined) this.linkKeys.delete(old);
-    if (keyHash === null) {
-      this.linkKeyOf.delete(residentId);
-      return;
-    }
-    this.linkKeys.set(keyHash, residentId);
-    this.linkKeyOf.set(residentId, keyHash);
-  }
-
   /** A new bearer token for an existing resident. Only its hash is kept. */
   issueToken(residentId: string): string {
-    const token = toBase64Url(randomBytes(32));
-    const tokenHash = hashToken(token);
-    this.store.appendSession({ tokenHash, residentId });
-    this.sessions.set(tokenHash, residentId);
-    return token;
+    return this.credentials.issueToken(residentId);
   }
 
   /**
@@ -1426,32 +1162,17 @@ export class WorldService {
    * than half revoked.
    */
   revokeTokens(residentId: string) {
-    this.store.revokeSessions(residentId);
-    for (const [tokenHash, id] of this.sessions) {
-      if (id === residentId) this.sessions.delete(tokenHash);
-    }
-    for (const close of [...(this.revocationWatchers.get(residentId) ?? [])]) close();
+    this.credentials.revokeTokens(residentId);
   }
 
   /** Run `close` if this resident's tokens are revoked. Returns a function that stops watching. */
   watchRevocation(residentId: string, close: () => void): () => void {
-    let set = this.revocationWatchers.get(residentId);
-    if (!set) {
-      set = new Set();
-      this.revocationWatchers.set(residentId, set);
-    }
-    set.add(close);
-    return () => {
-      set.delete(close);
-      if (set.size === 0 && this.revocationWatchers.get(residentId) === set) {
-        this.revocationWatchers.delete(residentId);
-      }
-    };
+    return this.credentials.watchRevocation(residentId, close);
   }
 
   /** Resolve a bearer token to a resident id, or undefined if unknown. */
   authenticate(token: string): string | undefined {
-    return this.called(this.sessions.get(hashToken(token)));
+    return this.called(this.credentials.tokenResident(token));
   }
 
   /**
@@ -1510,21 +1231,8 @@ export class WorldService {
 
   private perform(residentId: string, action: Action, dry: boolean): ActResult {
     this.touch(residentId);
-    const context = { resident: residentId };
     if (action.type === "chat") return this.chat(residentId, action.text, action.channel);
     if (action.type === "putter") return this.putter(residentId, dry);
-    if (action.type === "profile") {
-      const { type, ...profile } = action;
-      const note = profile.note && cleanText(profile.note);
-      const refused = filtered(this.moderation, "note", note, context);
-      if (refused) return refused;
-      const media = this.checkLookMedia(residentId, profile);
-      if (media) return media;
-      const command: Command = { type, ...cleanProfile(profile) };
-      const result = this.run({ actor: residentId, command }, dry);
-      if (result.ok && !dry) this.onLookMedia?.(residentId, this.lookMedia(residentId));
-      return result;
-    }
     if (action.type === "build") {
       // Drop absent lists: the sim's types forbid explicit undefined.
       const { px, py, blocks, ground, remove, lift } = action;
@@ -1539,427 +1247,7 @@ export class WorldService {
       };
       return this.build(residentId, command, dry);
     }
-    if (action.type === "visit") return this.visit(residentId, action.px, action.py, dry);
-    if (action.type === "trick_or_treat") {
-      const { px, py } = action;
-      const refused = this.closedDoor(residentId, px, py, "You can't knock at this door.");
-      if (refused) return refused;
-      return this.run({ actor: residentId, command: { type: "trick_or_treat", px, py } }, dry);
-    }
-    if (action.type === "build_starter_home") {
-      // Drop absent fields: the sim's types forbid explicit undefined.
-      const { walls, windows } = action;
-      const command: Command = {
-        type: "build_starter_home",
-        ...(walls ? { walls } : {}),
-        ...(windows ? { windows } : {}),
-      };
-      return this.run({ actor: residentId, command }, dry);
-    }
-    if (action.type === "propose" && action.kind === "grant" && action.to) {
-      // Like a gift, a grant can't name someone across a block either way.
-      if (this.blockedEither(residentId, action.to)) {
-        return {
-          ok: false,
-          error: { code: "forbidden", message: "You can't propose a grant for this resident." },
-        };
-      }
-    }
-    if (action.type === "propose") {
-      // Proposal text is read by everyone, agents included: clean it and turn away text written
-      // as orders to AI readers before it's logged. The sim stores what's logged.
-      const title = cleanText(action.title);
-      const text = cleanMultiline(action.text ?? "");
-      const refused =
-        filtered(this.moderation, "proposal_title", title, context) ??
-        filtered(this.moderation, "proposal_text", text, context);
-      if (refused) return refused;
-      const { blocks, remove, ground, lift, amount, to } = action;
-      const command: Command = {
-        type: "propose",
-        kind: action.kind,
-        title,
-        text,
-        ...(blocks?.length ? { blocks } : {}),
-        ...(remove?.length ? { remove } : {}),
-        ...(ground?.length ? { ground } : {}),
-        ...(lift?.length ? { lift } : {}),
-        ...(amount === undefined ? {} : { amount }),
-        ...(to === undefined ? {} : { to }),
-      };
-      return this.run({ actor: residentId, command }, dry);
-    }
-    if (action.type === "give_coins") {
-      // Blocks live in the social layer; a gift can't cross one either way (decision 0024).
-      if (this.blockedEither(residentId, action.to)) {
-        return {
-          ok: false,
-          error: { code: "forbidden", message: "You can't send coins to this resident." },
-        };
-      }
-      const note = action.note === undefined ? "" : cleanText(action.note);
-      const refused = filtered(this.moderation, "gift_note", note, context);
-      if (refused) return refused;
-      const command: Command = {
-        type: "give_coins",
-        to: action.to,
-        amount: action.amount,
-        ...(note ? { note } : {}),
-      };
-      return this.run({ actor: residentId, command }, dry);
-    }
-    if (action.type === "give") {
-      // Like coins, a gift can't cross a block either way (decision 0024).
-      if (this.blockedEither(residentId, action.to)) {
-        return {
-          ok: false,
-          error: { code: "forbidden", message: "You can't give things to this resident." },
-        };
-      }
-      const note = action.note === undefined ? "" : cleanText(action.note);
-      const refused = filtered(this.moderation, "gift_note", note, context);
-      if (refused) return refused;
-      const command: Command = {
-        type: "give",
-        item: action.item,
-        to: action.to,
-        ...(action.count === undefined ? {} : { count: action.count }),
-        ...(note ? { note } : {}),
-      };
-      return this.run({ actor: residentId, command }, dry);
-    }
-    if (action.type === "gather") {
-      // Without a tile it gathers everything within reach. Drop absent fields: the sim's types
-      // forbid explicit undefined.
-      const { x, y } = action;
-      const command: Command = {
-        type: "gather",
-        ...(x === undefined ? {} : { x }),
-        ...(y === undefined ? {} : { y }),
-      };
-      return this.run({ actor: residentId, command }, dry);
-    }
-    if (action.type === "craft") {
-      // A label travels with the thing to everyone who holds it: clean it and filter it first.
-      const label = action.label === undefined ? "" : cleanText(action.label);
-      const refused = filtered(this.moderation, "item_label", label, context);
-      if (refused) return refused;
-      const command: Command = {
-        type: "craft",
-        recipe: action.recipe,
-        x: action.x,
-        y: action.y,
-        ...(label ? { label } : {}),
-      };
-      return this.run({ actor: residentId, command }, dry);
-    }
-    if (action.type === "make_piece") {
-      // A title travels with the piece to everyone who sees it: clean it and filter it first.
-      const title = cleanText(action.title);
-      const refused = filtered(this.moderation, "item_label", title, context);
-      if (refused) return refused;
-      const type = this.mediaType?.(residentId, action.media);
-      if (!type || !PIECE_MEDIA_TYPES.includes(type)) {
-        return {
-          ok: false,
-          error: {
-            code: "invalid_piece",
-            message: "A piece shows one of your PNG, JPEG, or WebP uploads, or a .glb model.",
-          },
-        };
-      }
-      const command: Command = {
-        type: "make_piece",
-        media: action.media,
-        title,
-        ...(type === "model/gltf-binary" ? { model: true as const } : {}),
-      };
-      const result = this.run({ actor: residentId, command }, dry);
-      if (result.ok && !dry) {
-        for (const e of result.events) {
-          if (e.type !== "inventory") continue;
-          for (const g of e.gained ?? []) if (g.media) this.onPieceMedia?.(g.id, g.media);
-        }
-      }
-      return result;
-    }
-    if (action.type === "adopt_pet" || action.type === "rename_pet") {
-      // A pet's name is shown to everyone, agents included, wherever the pet is: cleaned and
-      // filtered like a resident's name before it's logged (RFC 0019).
-      const name = cleanText(action.name);
-      const refused = filtered(this.moderation, "pet_name", name, context);
-      if (refused) return refused;
-      const command: Command =
-        action.type === "adopt_pet"
-          ? { type: "adopt_pet", kind: action.kind, coat: action.coat, name }
-          : { type: "rename_pet", name };
-      return this.run({ actor: residentId, command }, dry);
-    }
-    if (action.type === "name_plot") {
-      // A plot's name is shown to everyone, agents included, on the map and wherever the plot is:
-      // cleaned and filtered like a resident's name before it's logged (decision 0121). A clear
-      // carries no words.
-      const name = action.name === null ? null : cleanText(action.name);
-      if (name !== null) {
-        const refused = filtered(this.moderation, "plot_name", name, context);
-        if (refused) return refused;
-      }
-      const command: Command = { type: "name_plot", px: action.px, py: action.py, name };
-      return this.run({ actor: residentId, command }, dry);
-    }
-    if (action.type === "treat_pet" && this.blockedEither(residentId, action.owner)) {
-      // Like a gift, a treat can't cross a block either way.
-      return {
-        ok: false,
-        error: { code: "forbidden", message: "You can't give this resident's pet a treat." },
-      };
-    }
-    if (action.type === "post_bounty") {
-      // A bounty's words are read by everyone, agents included: cleaned and filtered like a
-      // proposal's before they're logged (decision 0004).
-      const title = cleanText(action.title);
-      const text = cleanMultiline(action.text ?? "");
-      const refused =
-        filtered(this.moderation, "bounty_title", title, context) ??
-        filtered(this.moderation, "bounty_text", text, context);
-      if (refused) return refused;
-      const command: Command = {
-        type: "post_bounty",
-        title,
-        reward: action.reward,
-        ...(text ? { text } : {}),
-      };
-      return this.run({ actor: residentId, command }, dry);
-    }
-    if (action.type === "schedule_event") return this.scheduleEvent(residentId, action, dry);
-    if (action.type === "join_event") {
-      const e = findEvent(this.state, action.event);
-      const host = e && !isTownEvent(e) ? e.host : undefined;
-      // Like a gift, going to an event can't cross a block, and a suspended host's are shut.
-      if (host && this.blockedEither(residentId, host)) {
-        return {
-          ok: false,
-          error: { code: "forbidden", message: "You can't go to this resident's events." },
-        };
-      }
-      if (host && this.suspended(host)) {
-        return {
-          ok: false,
-          error: { code: "forbidden", message: "That event is closed for now." },
-        };
-      }
-      // Already there and online: nothing to log. The call itself keeps them from going idle,
-      // which is how a guest on REST stays counted.
-      const me = residentById(this.state, residentId);
-      if (
-        e?.status === "live" &&
-        me &&
-        (me.online || dry) &&
-        inEventArea(this.state.config, e, me.x, me.y)
-      ) {
-        return { ok: true, seq: this.state.seq, events: [] };
-      }
-      // The planner picks where they land, as for a visit (the plot's edge, by the door), and the
-      // logged input carries it, so replay never runs the planner.
-      const tile =
-        e?.status === "live"
-          ? joinTile(asJoined(this.state, residentId), residentId, e)
-          : undefined;
-      const command: Command = {
-        type: "join_event",
-        event: action.event,
-        ...(tile ? { x: tile.x, y: tile.y } : {}),
-      };
-      return this.run({ actor: residentId, command }, dry);
-    }
-    if (action.type === "claim_bounty") {
-      // Like a sale, a bounty can't cross a block either way, and a suspended poster's are shut.
-      const b = findBounty(this.state, action.bounty);
-      const poster = b && b.proposal === undefined ? b.poster : undefined;
-      if (poster && this.blockedEither(residentId, poster)) {
-        return {
-          ok: false,
-          error: { code: "forbidden", message: "You can't take this resident's bounties." },
-        };
-      }
-      if (poster && this.suspended(poster)) {
-        return {
-          ok: false,
-          error: { code: "forbidden", message: "That bounty is closed for now." },
-        };
-      }
-    }
-    if (action.type === "list_item") {
-      const why = this.listingRefusal(residentId);
-      if (why) return { ok: false, error: { code: "not_eligible", message: why } };
-      const command: Command = {
-        type: "list_item",
-        item: action.item,
-        price: action.price,
-        ...(action.count === undefined ? {} : { count: action.count }),
-      };
-      return this.run({ actor: residentId, command }, dry);
-    }
-    if (action.type === "buy_listing") {
-      // Like a gift, a sale can't cross a block either way.
-      const seller = listingById(this.state, action.listing)?.seller;
-      if (seller && this.blockedEither(residentId, seller)) {
-        return {
-          ok: false,
-          error: { code: "forbidden", message: "You can't buy from this resident." },
-        };
-      }
-      if (seller && this.suspended(seller)) {
-        return {
-          ok: false,
-          error: { code: "forbidden", message: "That stall is closed for now." },
-        };
-      }
-    }
-    if (action.type === "set_routines") {
-      // Defaults go in before it's logged, so the log holds the hour each routine runs at.
-      const command: Command = {
-        type: "set_routines",
-        routines: action.routines.map((r): Routine => {
-          if (r.kind === "greet") return { kind: r.kind, max: r.max ?? ROUTINES.greetMax };
-          const hour =
-            r.hour ?? (r.kind === "walk_home" ? ROUTINES.walkHomeHour : ROUTINES.strollHour);
-          return { kind: r.kind, hour };
-        }),
-      };
-      return this.run({ actor: residentId, command }, dry);
-    }
-    if (action.type === "fish") return this.fish(residentId, dry);
-    if (action.type === "shop_buy" || action.type === "sell_to_town") {
-      const count = action.count === undefined ? {} : { count: action.count };
-      const command: Command =
-        action.type === "shop_buy"
-          ? { type: "shop_buy", sku: action.sku, ...count }
-          : { type: "sell_to_town", item: action.item, ...count };
-      return this.run({ actor: residentId, command }, dry);
-    }
-    // Party games (RFC 0011). The server stamps tables with its salt and clock before logging.
-    if (action.type === "open_table") {
-      const command: Command = {
-        type: "open_table",
-        game: action.game,
-        pace: action.pace,
-        salt: toHex(randomBytes(16)),
-        at: this.now(),
-      };
-      return this.run({ actor: residentId, command }, dry);
-    }
-    if (action.type === "sit") {
-      // Like a gift, a seat can't cross a block either way.
-      const t = activeTable(this.state, action.table);
-      if (t?.seats.some((s) => this.blockedEither(residentId, s.resident))) {
-        return {
-          ok: false,
-          error: { code: "forbidden", message: "You can't sit at this table." },
-        };
-      }
-      const command: Command = { type: "sit", table: action.table, at: this.now() };
-      return this.run({ actor: residentId, command }, dry);
-    }
-    if (action.type === "start_game" || action.type === "decide") {
-      // Once the first seat has let the start grace pass, anyone seated may start it.
-      const t = activeTable(this.state, action.table);
-      const now = this.now();
-      const free =
-        t !== undefined && startFree(t, now) && starterOf(this.state, t) !== residentId
-          ? { free: true as const }
-          : {};
-      const command: Command =
-        action.type === "start_game"
-          ? { type: "start_game", table: action.table, at: now, ...free }
-          : { type: "decide", table: action.table, round: action.round, move: action.move };
-      const result = this.run({ actor: residentId, command }, dry);
-      // Townsfolk take their turn, and a round everyone has settled closes now, not at its end.
-      if (result.ok && !dry) this.runGames();
-      return result;
-    }
-    return this.run({ actor: residentId, command: action satisfies Command }, dry);
-  }
-
-  /**
-   * `schedule_event`: the words are cleaned and filtered like a bounty's before they're logged
-   * (decision 0004), and the start, sent as an ISO time, is checked against the clock (at least
-   * `EVENT_LEAD_MINUTES` ahead). The sim checks the rest.
-   */
-  private scheduleEvent(
-    residentId: string,
-    action: Extract<Action, { type: "schedule_event" }>,
-    dry: boolean,
-  ): ActResult {
-    const context = { resident: residentId };
-    const title = cleanText(action.title);
-    const text = cleanMultiline(action.text ?? "");
-    const refused =
-      filtered(this.moderation, "event_title", title, context) ??
-      filtered(this.moderation, "event_text", text, context);
-    if (refused) return refused;
-    const startsAt = Date.parse(action.startsAt);
-    if (!Number.isSafeInteger(startsAt) || startsAt % 60_000 !== 0) {
-      return {
-        ok: false,
-        error: {
-          code: "invalid_event",
-          message: "Start on a whole minute, like 2026-10-11T19:00:00Z.",
-        },
-      };
-    }
-    const now = this.now();
-    if (startsAt < now + EVENT_LEAD_MINUTES * 60_000) {
-      return {
-        ok: false,
-        error: {
-          code: "invalid_event",
-          message: `An event starts at least an hour from now, so guests can plan. It's ${new Date(now).toISOString()} here.`,
-        },
-      };
-    }
-    const command: Command = {
-      type: "schedule_event",
-      kind: action.kind,
-      title,
-      ...(text ? { text } : {}),
-      px: action.px,
-      py: action.py,
-      startsAt,
-      minutes: action.minutes,
-    };
-    return this.run({ actor: residentId, command }, dry);
-  }
-
-  // ---------- fishing (RFC 0023) ----------
-
-  /**
-   * A cast. The server rolls it and notes the weather and the map's time of day on its own clock,
-   * and the logged command carries all three, so replay never reads a clock or the weather and
-   * nobody can pick a rainy night or a lucky roll. Never into the pond of anyone blocked either way,
-   * nor of a suspended owner, whose plot is closed for now, as for a visit.
-   */
-  private fish(residentId: string, dry: boolean): ActResult {
-    const me = asJoined(this.state, residentId).residents[residentId];
-    const water = me ? waterBeside(me, (x, y) => isWater(this.state, x, y)) : undefined;
-    const plot = water ? plotAtTile(this.state, water.x, water.y) : undefined;
-    if (plot) {
-      const refused = this.closedDoor(
-        residentId,
-        plot.px,
-        plot.py,
-        "You can't fish in this resident's pond.",
-      );
-      if (refused) return refused;
-    }
-    const now = this.now();
-    const command: Command = {
-      type: "fish",
-      roll: castRoll(),
-      weather: skyAt(now, this.state.day).weather,
-      timeOfDay: timeOfDayAt(now, DAY_LENGTH_MS),
-    };
-    return this.run({ actor: residentId, command }, dry);
+    return performAction(this.actions, residentId, action, dry);
   }
 
   // ---------- build (RFC 0016) ----------
@@ -1989,55 +1277,6 @@ export class WorldService {
     const result = this.run({ actor: residentId, command }, dry);
     if (result.ok && !dry) this.builds.set(residentId, this.now());
     return result;
-  }
-
-  // ---------- visit (RFC 0020) ----------
-
-  /**
-   * A jump to someone else's plot. The sim's planner picks the tile, from where the resident will
-   * be (an offline one comes back with the visit itself, and a dry run checks them as if they had),
-   * and the logged command carries it, so replay never runs the planner. Never onto the plot of
-   * anyone blocked either way, owner or co-owner, nor of a suspended owner, whose plot is closed for
-   * now like their stall. A plot nobody lives on gets a hint that names one the resident can visit.
-   */
-  private visit(residentId: string, px: number, py: number, dry: boolean): ActResult {
-    const refused = this.closedDoor(residentId, px, py, "You can't visit this plot.");
-    if (refused) return refused;
-    const blocked = (p: Plot) =>
-      [p.ownerId, ...(p.coOwners ?? [])].some((id) => this.blockedEither(residentId, id));
-    const view = asJoined(this.state, residentId);
-    const tile = visitTile(view, residentId, px, py);
-    const command: Command = { type: "visit", px, py, ...(tile ? { x: tile.x, y: tile.y } : {}) };
-    const result = this.run({ actor: residentId, command }, dry);
-    if (result.ok || result.error.code !== "plot_unclaimed") return result;
-    const closed = (p: Plot) => this.suspended(p.ownerId) || blocked(p);
-    const message = unclaimedMessage(view, residentId, px, py, closed);
-    return { ...result, error: { ...result.error, message } };
-  }
-
-  /**
-   * Why a resident can't come to the door of plot (px, py), from what the sim can't see: a
-   * suspended owner's plot is closed for now, and nobody comes to the door of anyone blocked either
-   * way, owner or co-owner. A visit (RFC 0020) and a trick-or-treater's knock (RFC 0022) both ask.
-   * Undefined when nothing out here stands in the way.
-   */
-  private closedDoor(
-    residentId: string,
-    px: number,
-    py: number,
-    blockedLine: string,
-  ): ActResult | undefined {
-    const plot = plotInBounds(this.state.config, px, py)
-      ? own(this.state.plots, plotKey(px, py))
-      : undefined;
-    if (!plot || canBuildOn(plot, residentId)) return undefined;
-    if (this.suspended(plot.ownerId)) {
-      return { ok: false, error: { code: "forbidden", message: "That plot is closed for now." } };
-    }
-    if ([plot.ownerId, ...(plot.coOwners ?? [])].some((id) => this.blockedEither(residentId, id))) {
-      return { ok: false, error: { code: "forbidden", message: blockedLine } };
-    }
-    return undefined;
   }
 
   // ---------- putter (decision 0049) ----------
@@ -2496,162 +1735,12 @@ export class WorldService {
   }
 
   snapshot(): WorldSnapshot {
-    const { state } = this;
-    const nowMs = this.now();
-    // Made things on display, and finds on display (RFC 0021), each in their own list.
-    const shown = displaysOf(state);
-    const finds = findsOnDisplay(state);
-    return {
-      v: PROTOCOL_VERSION,
-      seq: state.seq,
+    return worldSnapshot(this.state, {
+      nowMs: this.now(),
       hash: this.hash(),
-      // The sim never sees a clock; this is presentation state, anchored by the server. So are the
-      // weather and the season it reads off the same clock (decision 0073).
-      time: { nowMs, dayLengthMs: DAY_LENGTH_MS },
-      ...skyAt(nowMs, state.day),
-      // The time of day on the same clock, which a cast logs (RFC 0023).
-      timeOfDay: timeOfDayAt(nowMs, DAY_LENGTH_MS),
-      ...holidayField(state.day),
-      config: {
-        width: state.config.width,
-        height: state.config.height,
-        plotSize: state.config.plotSize,
-        maxPlotsPerResident: state.config.maxPlotsPerResident,
-        reach: state.config.reach,
-      },
-      commons: commonsPlot(state.config),
-      residents: Object.values(state.residents).map((r) => {
-        const facing = this.facing.get(r.id);
-        // Away and out on a routine for a few minutes after its last step (RFC 0009).
-        const step = r.online ? undefined : this.routineSteps.get(r.id);
-        const out = step && nowMs - step.at < ROUTINE_LIMITS.awakeMinutes * 60_000;
-        const hidden = this.noteHidden(r.id);
-        return {
-          ...r,
-          ...(hidden ? { note: "" } : {}),
-          // A quarantined owner's pet keeps its name out of view too (RFC 0019).
-          ...(hidden && r.pet ? { pet: { ...r.pet, name: "" } } : {}),
-          // Kept any of eight ways, sent as one of the four `facing` has always been.
-          ...(facing ? { facing: fourWayFacing(facing) } : {}),
-          ...(out ? { routine: step.routine } : {}),
-        };
-      }),
-      plots: Object.values(state.plots).map((p) => {
-        const name = shownPlotName(p, this.noteHidden);
-        return {
-          px: p.px,
-          py: p.py,
-          ownerId: p.ownerId,
-          ...(p.coOwners ? { coOwners: [...p.coOwners] } : {}),
-          ...(p.claimedDay === undefined ? {} : { claimedDay: p.claimedDay }),
-          ...(p.gallery ? { gallery: true as const } : {}),
-          // Its residents' words (decision 0121).
-          ...(name === undefined ? {} : { name, trust: "untrusted" as const }),
-        };
-      }),
-      blocks: Object.entries(state.blocks).map(([key, block]) => {
-        const [x, y] = parseKey(key);
-        return { x, y, block };
-      }),
-      ...(state.ground && Object.keys(state.ground).length > 0
-        ? {
-            ground: Object.entries(state.ground).map(([key, ground]) => {
-              const [x, y] = parseKey(key);
-              return { x, y, ground };
-            }),
-          }
-        : {}),
-      ...(state.day === undefined ? {} : { day: state.day }),
-      townHall: townHallTiles(state.config),
-      ...(state.shop ? { shop: shopTiles(state.config) } : {}),
-      ...(state.solidBuildings ? { solidBuildings: true as const } : {}),
-      ...(state.tableSpotsKept ? { tableSpotsKept: true as const } : {}),
-      ...(state.town
-        ? {
-            townBuilt: Object.entries(state.town.built).map(([key, proposal]) => {
-              const [x, y] = parseKey(key);
-              return { x, y, proposal };
-            }),
-          }
-        : {}),
-      ...(state.townsfolk?.length ? { townsfolk: [...state.townsfolk] } : {}),
-      ...(Object.keys(shown).length > 0
-        ? {
-            displays: Object.entries(shown).map(([key, d]) => {
-              const [x, y] = parseKey(key);
-              const words = d.good.label !== undefined ? { trust: "untrusted" as const } : {};
-              return { x, y, good: { ...d.good }, by: d.by, day: d.day, ...words };
-            }),
-          }
-        : {}),
-      ...(finds.length > 0 ? { displayedFinds: finds } : {}),
-      ...(state.items && Object.keys(state.items.crops).length > 0
-        ? {
-            crops: Object.entries(state.items.crops).map(([key, c]) => {
-              const [x, y] = parseKey(key);
-              return { x, y, crop: c.crop, plantedDay: c.plantedDay, readyDay: c.readyDay };
-            }),
-          }
-        : {}),
-      ...(state.items?.gathered && Object.keys(state.items.gathered).length > 0
-        ? {
-            gathered: Object.keys(state.items.gathered).map((key) => {
-              const [x, y] = parseKey(key);
-              return { x, y };
-            }),
-          }
-        : {}),
-      ...(state.items && state.day !== undefined ? { pickups: pickupsToday(state) } : {}),
-      ...(plotPickupsOwned(state) ? { plotPickupsOwned: true as const } : {}),
-      ...(findsOpen(state) ? { findsOpen: true as const } : {}),
-      ...(state.events?.list.some(eventOpen)
-        ? {
-            events: state.events.list.filter(eventOpen).map((e) => ({
-              id: e.id,
-              host: e.host,
-              px: e.px,
-              py: e.py,
-              status: e.status as "scheduled" | "live",
-              startsAt: e.startsAt,
-              minutes: e.minutes,
-              ...(isTownEvent(e) ? { town: true as const } : {}),
-            })),
-          }
-        : {}),
-      // Where tables stand, and nothing about the play: choices stay sealed (RFC 0011).
-      ...(state.games && Object.keys(state.games.tables).length > 0
-        ? {
-            tables: activeTables(state).map((t) => ({
-              id: t.id,
-              game: t.game,
-              pace: t.pace,
-              status: t.status,
-              x: t.place.x,
-              y: t.place.y,
-            })),
-          }
-        : {}),
-    };
+      facing: this.facing,
+      routineSteps: this.routineSteps,
+      noteHidden: (id) => this.noteHidden(id),
+    });
   }
-}
-
-/**
- * Every fallen branch, loose stone, and find still lying in the world today, row by row. Once the
- * owners-only rule is on, one on a claimed plot says so.
- */
-function pickupsToday(
-  state: WorldState,
-): { x: number; y: number; kind: PickupKind; ownersOnly?: true }[] {
-  const owned = plotPickupsOwned(state);
-  const out: { x: number; y: number; kind: PickupKind; ownersOnly?: true }[] = [];
-  for (let y = 0; y < state.config.height; y++) {
-    for (let x = 0; x < state.config.width; x++) {
-      const kind = pickupLeft(state, x, y);
-      if (!kind) continue;
-      out.push(
-        owned && plotAtTile(state, x, y) ? { x, y, kind, ownersOnly: true } : { x, y, kind },
-      );
-    }
-  }
-  return out;
 }

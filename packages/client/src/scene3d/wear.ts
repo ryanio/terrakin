@@ -235,7 +235,7 @@ function piece(item: WearItem, mat: Material): Mesh[] {
     }
     case "ghost_sheet":
       // A sheet from the head to the ground. The head under it takes the sheet's color
-      // (`figure` in plot.ts), and its face shows through.
+      // (`figure` in figure.ts), and its face shows through.
       return [at(new CylinderGeometry(0.15, 0.33, 0.6, 24, 1, true), mat, 0, 0.3)];
     case "bat_wings": {
       if (mat instanceof MeshLambertMaterial) mat.side = DoubleSide;
@@ -309,7 +309,7 @@ function piece(item: WearItem, mat: Material): Mesh[] {
       return [at(new CylinderGeometry(0.08, 0.06, 0.08, 14), mat, 0.31, 0.22), handle];
     }
     case "umbrella": {
-      // Held up over the head in the rain (`setUmbrella` in plot.ts), and otherwise rolled up and
+      // Held up over the head in the rain (`setUmbrella` in figure.ts), and otherwise rolled up and
       // carried like a walking stick, its hooked handle in the hand and its tip on the ground.
       const wood = solid("#5a4632");
       const open = [

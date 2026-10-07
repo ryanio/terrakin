@@ -63,7 +63,7 @@ export interface BlockLook {
    * "voxel" is a rounded box; "clump" is a leafy cluster that sways; "decor" is one of the town
    * shop's models in `decor.ts`, and "furniture" one of the workbench's in `furniture.ts`, where
    * `height` is how tall it stands; "water" is a pond tile (RFC 0023), flat in the ground with a
-   * stone rim along its banks (`pondMeshes` in `plot.ts`), where `height` is the rim's.
+   * stone rim along its banks (`pondMeshes` in `blocks.ts`), where `height` is the rim's.
    */
   form: "voxel" | "clump" | "decor" | "furniture" | "water";
   /**

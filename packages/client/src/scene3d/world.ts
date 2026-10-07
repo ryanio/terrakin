@@ -5,8 +5,9 @@
  *
  * Plots load as chunks within `VIEW_RADIUS` of you (fog hides the edge), at most two built per
  * frame, and each is freed when you walk away. Blocks, plot borders, grass, hearths, and figures
- * come from the plot view's builders (`plot.ts`), and the Town Hall and the shop from
- * `buildings.ts`. Loaded only through `import()` (decision 0013).
+ * come from the builders the plot view uses (`blocks.ts`, `ground.ts`, `scenery.ts`, `hearth.ts`,
+ * `figure.ts`), and the Town Hall and the shop from `buildings.ts`. Loaded only through `import()`
+ * (decision 0013).
  */
 
 import {
@@ -63,6 +64,7 @@ import {
   spotTexture,
   stoneTexture,
 } from "./art";
+import { blockMeshes, POOL_LIGHT } from "./blocks";
 import {
   buildingGlows,
   type Footprint,
@@ -71,7 +73,22 @@ import {
   shop,
   townHall,
 } from "./buildings";
+import { cropPlants } from "./crops";
 import { createPictures, displayedThings, foundThings } from "./displays";
+import {
+  figure,
+  ICON_TEXTURES,
+  iconTexture,
+  OVERHEAD_ORDER,
+  overheadMaterial,
+  overheadTop,
+  setUmbrella,
+  showFeeling,
+  sizeSign,
+  turnHead,
+} from "./figure";
+import { border, groundGrid } from "./ground";
+import { HEARTH_LIGHT, hearth } from "./hearth";
 import {
   cornerLight,
   FIGURE_SCALE,
@@ -82,30 +99,9 @@ import {
   signSize,
 } from "./layout";
 import { hex, SKY } from "./palette";
+import { groundAtlas, groundTiles } from "./paths";
 import { petGeometries, petMaterial } from "./pets";
-import {
-  blockMeshes,
-  border,
-  cropPlants,
-  figure,
-  groundAtlas,
-  groundGrid,
-  groundTiles,
-  HEARTH_LIGHT,
-  hearth,
-  ICON_TEXTURES,
-  iconTexture,
-  OVERHEAD_ORDER,
-  overheadMaterial,
-  overheadTop,
-  POOL_LIGHT,
-  pickups,
-  scenery,
-  setUmbrella,
-  showFeeling,
-  sizeSign,
-  turnHead,
-} from "./plot";
+import { pickups, scenery } from "./scenery";
 import { createWeather } from "./weather";
 import {
   approach,

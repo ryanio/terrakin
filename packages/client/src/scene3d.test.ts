@@ -23,6 +23,7 @@ import { describe, expect, it, vi } from "vitest";
 import { blockColor, RESIDENT_COLOR_HEX } from "./render";
 import { addAll } from "./scene3d/art";
 import { parseGallery } from "./scene3d/catalog";
+import { faceParts, OVERHEAD_ORDER, overheadMaterial } from "./scene3d/figure";
 import { hairMesh, hairPieces } from "./scene3d/hair";
 import {
   cornerLight,
@@ -51,7 +52,6 @@ import {
   wornPieces,
 } from "./scene3d/layout";
 import { BRAND, blockLook, hex, mix, residentHex, shade } from "./scene3d/palette";
-import { faceParts, OVERHEAD_ORDER, overheadMaterial } from "./scene3d/plot";
 import { onHead } from "./scene3d/wear";
 
 type ResidentView = WorldSnapshot["residents"][number];
@@ -694,6 +694,14 @@ describe("three.js stays out of the main bundle", () => {
     "scene3d/furniture.ts",
     "scene3d/displays.ts",
     "scene3d/plot.ts",
+    "scene3d/blocks.ts",
+    "scene3d/ground.ts",
+    "scene3d/paths.ts",
+    "scene3d/scenery.ts",
+    "scene3d/crops.ts",
+    "scene3d/hearth.ts",
+    "scene3d/figure.ts",
+    "scene3d/home.ts",
     "scene3d/gallery.ts",
     "scene3d/page.ts",
     "scene3d/wear.ts",

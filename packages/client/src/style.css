@@ -1149,11 +1149,10 @@ body.in-world .veil {
 .prompt {
   position: relative;
   margin: 2px 0 0;
-  padding: var(--space-lg) var(--space-lg) var(--space-lg) var(--space-xl);
+  padding: var(--space-lg);
   border-radius: var(--r-note);
-  background: var(--field);
-  border: 1.5px dashed #e2cba3;
-  border-left: 4px solid var(--sun);
+  background: color-mix(in oklab, var(--sun) 12%, var(--field));
+  border: 1.5px dashed color-mix(in oklab, var(--sun) 55%, #e2cba3);
   box-shadow: inset 0 1px 3px rgba(92, 60, 30, 0.07);
 }
 
@@ -2276,9 +2275,9 @@ button.profile-avatar.editable:disabled {
   display: flex;
   gap: var(--space-md);
   margin: var(--space-lg) 0 0;
-  padding: var(--space-md) var(--space-lg) var(--space-md) var(--space-md);
-  border-left: 3px solid var(--moss-light);
-  border-radius: 0 var(--r-md) var(--r-md) 0;
+  padding: var(--space-md) var(--space-lg);
+  border: 1px solid rgba(143, 179, 106, 0.35);
+  border-radius: var(--r-md);
   background: rgba(143, 179, 106, 0.1);
   font-size: var(--text-base);
   font-style: italic;
@@ -4476,7 +4475,7 @@ a.action {
 .toast.player {
   padding-left: var(--space-4xl);
   border-radius: var(--r-note);
-  border-left: 4px solid var(--moss-light);
+  border: 1.5px solid rgba(143, 179, 106, 0.45);
   background: var(--grain), linear-gradient(180deg, #fbfdf5, #f1f5e6);
   font-style: italic;
   font-weight: var(--weight-medium);
@@ -4578,10 +4577,6 @@ a.action {
     radial-gradient(circle, var(--design-dot) 1.5px, transparent 2px) 0 0 / var(--space-lg)
     var(--space-lg),
     var(--paper-fill);
-}
-
-.profile[data-design] .profile-banner {
-  border-bottom: 3px solid var(--design-accent);
 }
 
 .profile[data-design] .verified-chip {
@@ -6064,8 +6059,8 @@ dialog.look-editor {
 
 .proposal-answer {
   padding: var(--space-md) var(--space-lg);
-  border-left: 3px solid var(--sun);
-  border-radius: 0 var(--r-md) var(--r-md) 0;
+  border: 1px solid rgba(242, 184, 75, 0.45);
+  border-radius: var(--r-md);
   background: rgba(242, 184, 75, 0.12);
 }
 
@@ -6658,8 +6653,7 @@ html.view3d-open body {
   left: 13px;
   width: 2px;
   border-radius: 2px;
-  background: linear-gradient(180deg, var(--sun), var(--dusk) 60%, transparent);
-  opacity: 0.6;
+  background: var(--paper-edge);
 }
 
 .activity-row {
@@ -6912,16 +6906,11 @@ html.view3d-open body {
   color: var(--ink-soft);
 }
 
-.burst::before {
-  content: "";
-  position: absolute;
-  inset: 0 0 auto;
-  height: 5px;
-  background: linear-gradient(
-    90deg,
-    var(--avatar),
-    color-mix(in oklab, var(--avatar) 40%, var(--sun))
-  );
+.burst {
+  border-color: color-mix(in oklab, var(--avatar) 35%, var(--paper-edge));
+  background:
+    linear-gradient(180deg, color-mix(in oklab, var(--avatar) 10%, transparent), transparent 120px),
+    var(--paper-fill);
 }
 
 .townsfolk-roll {
@@ -7772,9 +7761,8 @@ html.view3d-open body {
   gap: var(--space-md);
   padding: var(--space-lg);
   border-radius: var(--r-note);
-  background: var(--field);
-  border: 1.5px dashed #e2cba3;
-  border-left: 4px solid var(--sun);
+  background: color-mix(in oklab, var(--sun) 12%, var(--field));
+  border: 1.5px dashed color-mix(in oklab, var(--sun) 55%, #e2cba3);
 }
 
 .code-lede {

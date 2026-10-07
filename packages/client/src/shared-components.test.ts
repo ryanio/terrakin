@@ -294,6 +294,23 @@ describe("one definition per rule", () => {
     expect(spelled).toEqual([]);
   });
 
+  it("no one-sided accent strokes: a callout or card marks itself with color and a soft fill", () => {
+    // A bar down one side (or under a banner) of 2px or more. Thin dividers between rows and the
+    // dashed thread line beside replies are structure, not accents, and stay under 2px or dashed.
+    const bars = [
+      "packages/ui/src/base.css",
+      "packages/client/src/style.css",
+      "packages/admin/src/style.css",
+    ].flatMap((path) =>
+      [
+        ...read(path).matchAll(
+          /border-(?:left|right|top|bottom|inline-start|inline-end|block-start|block-end)\s*:\s*([2-9]|\d{2,})px\s+solid[^;]*;/g,
+        ),
+      ].map((m) => `${path}: ${m[0]}`),
+    );
+    expect(bars).toEqual([]);
+  });
+
   it("spacing, type and corners come from the token scales", () => {
     // 4px and up in a gap, padding, margin, font-size or radius is a token. Under 4px is a
     // hairline or a nudge. A calc() is geometry tied to a fixed size, and a clamp() font-size is a

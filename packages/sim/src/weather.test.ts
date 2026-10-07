@@ -54,18 +54,26 @@ describe("the weather", () => {
   });
 
   it("comes in spells of three hours or more that cover the day, so it never flickers", () => {
+    // Problems are collected and checked once: an expect per hour over four years is most of
+    // this file's run time.
+    const problems: string[] = [];
     for (const day of days(...FOUR_YEARS)) {
       const spells = weatherSpells(day);
-      expect(spells[0]?.start).toBe(0);
-      expect(spells.at(-1)?.end).toBe(24);
+      if (spells.at(-1)?.end !== 24) problems.push(`${day} ends at ${spells.at(-1)?.end}`);
       for (const [i, spell] of spells.entries()) {
-        expect(spell.start).toBe(i === 0 ? 0 : spells[i - 1]?.end);
-        expect(spell.end - spell.start).toBeGreaterThanOrEqual(SPELL_HOURS.min);
-        expect(spell.end - spell.start).toBeLessThanOrEqual(SPELL_HOURS.max + SPELL_HOURS.min - 1);
-        for (let hour = spell.start; hour < spell.end; hour++)
-          expect(weatherAt(day, hour)).toBe(spell.weather);
+        const length = spell.end - spell.start;
+        if (spell.start !== (i === 0 ? 0 : spells[i - 1]?.end))
+          problems.push(`${day} spell ${i} starts at ${spell.start}`);
+        if (length < SPELL_HOURS.min || length > SPELL_HOURS.max + SPELL_HOURS.min - 1)
+          problems.push(`${day} spell ${i} lasts ${length} hours`);
+        for (let hour = spell.start; hour < spell.end; hour++) {
+          const at = weatherAt(day, hour);
+          if (at !== spell.weather)
+            problems.push(`${day} ${hour}:00 is ${at}, not ${spell.weather}`);
+        }
       }
     }
+    expect(problems).toEqual([]);
   });
 
   it("comes about as often as its season's chances say", () => {

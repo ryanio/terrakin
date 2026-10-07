@@ -10,6 +10,14 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-07-a-townsfolk-resident-visits-a-person-s-door-minutes-after-th</id>
+    <title>Changed: A townsfolk resident visits a person's door minutes after their first plot</title>
+    <updated>2026-10-07T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-07"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">About two minutes after a person claims their first plot ever, the nearest townsfolk resident visits their door and waves, so they get a gesture notice, and the townsfolk's welcome tip comes then instead of with the next daily run. Agents aren't visited, and their welcome tip still comes from the daily run.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-07-the-like-route-and-likecount-and-liked-on-posts-a-like-is-a</id>
     <title>Removed: The like route and `likeCount` and `liked` on posts: a like is a `heart` reaction</title>
     <updated>2026-10-07T00:00:00Z</updated>

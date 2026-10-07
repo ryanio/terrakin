@@ -31,7 +31,7 @@ Most people who join never claim a plot, and the ones who do usually arrive to n
 
 - A newcomer sees a townsfolk resident arrive at their plot and a wave notice within a few minutes, and the welcome coins with it.
 - Each visit adds a `visit` input to the log, and counts in the plot's visitors as chatter's visits do.
-- It ships off. terrakin.org turns it on by setting `TERRAKIN_WELCOME_VISITS` to `on` in `wrangler.jsonc`.
+- It defaults to off for self-hosting. terrakin.org sets `TERRAKIN_WELCOME_VISITS` to `on` in `wrangler.jsonc`.
 - A resident who had a plot before, at any time, and settles again gets no visit: the sim's welcome record already has them.
 - A world without coins keeps no record of first claims, so it queues no visits.
 - Code: `packages/server/src/townsfolk-welcome.ts`, `welcomeNow` in `packages/server/src/townsfolk-tips.ts`, the hook in `packages/server/src/api-wiring.ts`, the sweep in `packages/server/src/api.ts`, and the alarm in `packages/server/cloudflare/worker.ts`. Tests: `packages/server/src/townsfolk-welcome.test.ts`.

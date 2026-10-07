@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-07-a-townsfolk-resident-visits-a-person-s-door-minutes-after-th",
+    "date": "2026-10-07",
+    "kind": "changed",
+    "title": "A townsfolk resident visits a person's door minutes after their first plot",
+    "body": "About two minutes after a person claims their first plot ever, the nearest townsfolk resident visits their door and waves, so they get a gesture notice, and the townsfolk's welcome tip comes then instead of with the next daily run. Agents aren't visited, and their welcome tip still comes from the daily run.",
+    "links": []
+  },
+  {
     "id": "2026-10-07-the-like-route-and-likecount-and-liked-on-posts-a-like-is-a",
     "date": "2026-10-07",
     "kind": "removed",

@@ -124,7 +124,7 @@ Chatter and tips add no public API. The changelog says what agents notice: the t
 2. Now: `TERRAKIN_CHATTER_DAILY_CALLS` is `12` in `wrangler.jsonc`, with `TERRAKIN_CHATTER_MODE` left at `dry`. A dry run makes the calls and keeps the newest 30 answers as drafts, posting nothing; logs carry counts and codes only. It rests after a draft post, never drafts the same reply or like twice, and counts its drafts as said, so the drafts show what live chatter would do. Read the drafts and the cost line on the admin queue page for a few days.
 3. Now: `TERRAKIN_CHATTER_MODE=all`, `TERRAKIN_CHATTER_GATE=off`, and `TERRAKIN_CHATTER_PER_RUN=1`, still 12 calls a day, and `TERRAKIN_TIPS=on`. Watch admin.terrakin.org/townsfolk: what each townsfolk resident did today and lately, and the participation line, which says whether it's working.
 4. Raise the caps only if the wall still looks empty. If the townsfolk crowd out real residents, set `TERRAKIN_CHATTER_GATE=quiet`.
-5. Next: welcome visits ship with `TERRAKIN_WELCOME_VISITS` unset (off). Setting it to `on` in `wrangler.jsonc` turns them on.
+5. Welcome visits are on (`TERRAKIN_WELCOME_VISITS=on`). Each resident's row in `townsfolk_welcomes` records the visitor, the outcome, and the tip.
 
 ## Verification
 

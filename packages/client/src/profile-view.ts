@@ -15,7 +15,7 @@ import {
   type ProfileView,
   type ResidentBrief,
 } from "@terrakin/protocol";
-import { NOTE_MAX_LENGTH, PATTERN_LABELS, THEME_INFO, plotOf } from "@terrakin/sim";
+import { NOTE_MAX_LENGTH, PATTERN_LABELS, plotOf, THEME_INFO } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
 import { compactCount, isMediaUrl, karmaLine, plural, pluralWord } from "@terrakin/ui/format";
 import { garmentName, hairName, mediaUrlOf } from "@terrakin/ui/looks";
@@ -284,7 +284,8 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
     };
     paintCounts();
 
-    // One row beside the avatar: the main action or two, and everything else in the "…" menu.
+    // One row beside the avatar: the main actions (Invite someone on your own; Follow, Praise, and
+    // Go to them on someone else's; Jump in on both), and everything else in the "…" menu.
     const actions = h("div", { class: "profile-actions" });
     const copyLabel = h("span", { text: "Copy link" });
     const copyItem = h(
@@ -298,13 +299,6 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       failed: "Couldn't copy the link",
     });
     // Their plot in 3D. The page says so kindly if they haven't settled one yet.
-    const visitItem = h(
-      "a",
-      { class: "menu-item calm", attrs: { href: plot3dPath(r.id) } },
-      icon("cube"),
-      h("span", { text: "Visit in 3D" }),
-    );
-    // Jump into their plot in 3D, right on the lead row instead of only behind the "…" menu.
     const jump3d = h(
       "a",
       {
@@ -315,31 +309,28 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       h("span", { text: "Jump in" }),
     );
 
-    /** Teleport to where they stand right now: visit the plot under them and open the world. */
-    async function teleport(button: HTMLButtonElement): Promise<void> {
-      const w = await whileBusy(button, () => api.world());
-      if (!w.ok) {
-        toast(w.message);
-        return;
-      }
+    /**
+     * The plot they stand on right now, or why there's nowhere to go. No lighter read carries a
+     * resident's position, so this reads the world snapshot.
+     */
+    async function plotUnderThem(): Promise<{ px: number; py: number } | string> {
+      const w = await api.world();
+      if (!w.ok) return w.message;
       const there = w.data.residents.find((p) => p.id === r.id);
-      if (!there || !there.online) {
-        toast("They just stepped away.");
-        return;
-      }
-      await visitPlot(button, plotOf(w.data.config, there.x, there.y), ctx.navigate);
+      if (!there?.online) return "They just stepped away.";
+      return plotOf(w.data.config, there.x, there.y);
     }
 
-    /** The teleport button, offered only while they're in the world. */
-    function teleportButton(): HTMLElement | null {
+    /** Go to them: visit the plot under them and open the world, offered while they're in it. */
+    function goToButton(): HTMLElement | null {
       if (!r.online) return null;
       const b = h(
         "button",
-        { class: "pill-button small teleport-them", attrs: { type: "button" } },
-        icon("sparkle"),
-        h("span", { text: "Teleport to them" }),
+        { class: "pill-button small go-to-them", attrs: { type: "button" } },
+        icon("world"),
+        h("span", { text: "Go to them" }),
       );
-      b.addEventListener("click", () => void teleport(b));
+      b.addEventListener("click", () => void visitPlot(b, plotUnderThem, ctx.navigate));
       return b;
     }
 
@@ -354,9 +345,12 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       menu.el.querySelector(".more-button")?.setAttribute("aria-label", "More for this profile");
       current = menu;
       cleanups.push(menu.close);
-      actions.replaceChildren(...lead, menu.el);
+      // The "…" stays beside the last action, so a row that wraps on a phone never leaves it alone.
+      const last = lead.at(-1);
+      const tail = h("div", { class: "cluster profile-actions-tail" }, last ?? null, menu.el);
+      actions.replaceChildren(...lead.slice(0, -1), tail);
     };
-    mount([jump3d], [copyItem, visitItem]);
+    mount([jump3d], [copyItem]);
 
     const x = xRow(r);
     const banner = profileBanner(r);
@@ -395,7 +389,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
             current?.close();
             void openRoutines(actions.querySelector<HTMLElement>(".more-button") ?? undefined);
           });
-          const items: HTMLElement[] = [copyItem, visitItem, photo, routines];
+          const items: HTMLElement[] = [copyItem, photo, routines];
           if (r.handle) {
             handle.className = "menu-item calm handle-edit";
             handle.addEventListener("click", () => current?.close());
@@ -413,17 +407,19 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
             handleWrap.append(bio);
           }
           items.push(remove);
+          jump3d.setAttribute("aria-label", "Jump into your plot in 3D");
           mount([invite, jump3d], items);
           return;
         }
-        // The server never takes praise across a block, so don't offer it.
+        // The server never takes praise across a block, so don't offer it. Someone you blocked
+        // gets no Go to them either.
         const lead = [followButton(r, paintCounts)];
         if (!r.blocked) lead.push(praiseButton(r, paintCounts));
         lead.push(jump3d);
-        const teleport = teleportButton();
-        if (teleport) lead.push(teleport);
+        const goTo = r.blocked ? null : goToButton();
+        if (goTo) lead.push(goTo);
         const more = profileMore(r, () => current?.close());
-        mount(lead, [copyItem, visitItem, ...more.items], more.onClose);
+        mount(lead, [copyItem, ...more.items], more.onClose);
       });
     }
 

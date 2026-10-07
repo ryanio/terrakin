@@ -33,18 +33,26 @@ export function placeTabs(current: "visit" | "galleries", go?: (path: string) =>
   );
 }
 
+type PlotAt = { px: number; py: number };
+
 /**
- * Jump to plot (px, py) and open the world there. Already standing on it is where you wanted to
- * be too. Any other refusal is said in a toast.
+ * Jump to plot (px, py) and open the world there. `plot` is the plot, or a read that finds it and
+ * otherwise says in words why there's nowhere to go. The button stays busy through the read and
+ * the jump, so a second tap can't send a second visit. Already standing on it is where you wanted
+ * to be too. Any other refusal is said in a toast.
  */
 export async function visitPlot(
   button: HTMLButtonElement,
-  plot: { px: number; py: number },
+  plot: PlotAt | (() => Promise<PlotAt | string>),
   navigate: (path: string) => void,
 ) {
-  const r = await whileBusy(button, () => api.act({ type: "visit", px: plot.px, py: plot.py }));
-  const there = r.ok && !r.data.ok && r.data.error.code === "already_there";
-  const problem = there ? null : actProblem(r);
+  const problem = await whileBusy(button, async () => {
+    const at = typeof plot === "function" ? await plot() : plot;
+    if (typeof at === "string") return at;
+    const r = await api.act({ type: "visit", px: at.px, py: at.py });
+    const there = r.ok && !r.data.ok && r.data.error.code === "already_there";
+    return there ? null : actProblem(r);
+  });
   if (problem) return toast(problem);
   navigate("/world");
 }

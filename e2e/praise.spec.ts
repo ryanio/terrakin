@@ -6,8 +6,9 @@ import { act, advanceDay, freePlots, join, read, settleFree, signIn, watchErrors
  * resident praises a neighbor from their profile, the count goes up, the button says it's done for
  * today, and the neighbor gets a notification. She names her own plot from the card in the world
  * and sees the name on the card and over the plot on the map. Then she visits the neighbor's named
- * plot from /visit, lands at its door in the world, and admires it from the card there. Praise and
- * admiring start on a resident's second UTC day, so this moves its server's clock a day on.
+ * plot from /visit, lands at its door in the world, and admires it from the card there. Last, his
+ * profile's Jump in and Go to them, and no Go to them once she blocks him. Praise and admiring
+ * start on a resident's second UTC day, so this moves its server's clock a day on.
  */
 
 /**
@@ -149,6 +150,38 @@ test("a resident praises a neighbor, then visits their plot and admires it", asy
       actor: { id: iris.id },
       plot: { px, py },
     });
+  });
+
+  await test.step("jumps into Tam's plot in 3D or goes to him from his profile, and not once she blocks him", async () => {
+    // Iris goes home, and Tam, just back from his own calls, is in the world.
+    expect((await act(page.request, iris.token, { type: "home" })).ok).toBe(true);
+    await act(page.request, tam.token, { type: "home" });
+    await page.goto(`/r/${tam.id}`);
+    await expect(page.getByRole("link", { name: "Jump into their plot in 3D" })).toHaveAttribute(
+      "href",
+      `/r/${tam.id}/3d`,
+    );
+    const goTo = page.locator(".profile-actions .go-to-them");
+    await expect(goTo).toHaveText("Go to them");
+    await page.screenshot({ path: "test-results/profile-go-to.png" });
+    await goTo.click();
+    await expect(page).toHaveURL(/\/world$/);
+    // She stands on the plot he's on.
+    const world = await read(page.request, iris.token, "/v1/world");
+    const plotOf = (id: string) => {
+      const r = world.residents.find((p: { id: string }) => p.id === id);
+      const size = world.config.plotSize;
+      return [Math.floor(r.x / size), Math.floor(r.y / size)];
+    };
+    expect(plotOf(iris.id)).toEqual(plotOf(tam.id));
+
+    // Once she blocks him, his profile offers no way to go to him.
+    const block = await page.request.put(`/v1/residents/${tam.id}/block`, { headers: iris.auth });
+    expect(block.ok()).toBe(true);
+    await page.goto(`/r/${tam.id}`);
+    await expect(page.locator(".profile-actions .follow")).toBeVisible();
+    await expect(page.locator(".profile-actions .jump3d")).toBeVisible();
+    await expect(goTo).toHaveCount(0);
   });
   expect(errors).toEqual([]);
 });

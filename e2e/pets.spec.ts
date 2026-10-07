@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { act, read, settler, signIn, watchErrors } from "./support";
+import { persona, read, settler, signIn, watchErrors } from "./support";
 
 /**
  * Pets (RFC 0019) at 390x844: a resident adopts a fox from the Adopt sheet on her own profile,
@@ -10,15 +10,8 @@ import { act, read, settler, signIn, watchErrors } from "./support";
 test("a resident adopts a pet and pats a neighbor's", async ({ page }) => {
   const errors = watchErrors(page);
   const iris = await settler(page.request, "Iris");
-  const tam = await settler(page.request, "Tam");
-  expect(
-    await act(page.request, tam.token, {
-      type: "adopt_pet",
-      kind: "dog",
-      coat: "golden",
-      name: "Rex",
-    }),
-  ).toMatchObject({ ok: true });
+  // Tam is settled with a golden dog called Rex.
+  const tam = await persona(page.request, "pet", { name: "Tam" });
 
   await signIn(page, iris);
 

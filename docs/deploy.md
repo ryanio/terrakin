@@ -88,7 +88,8 @@ Without Docker: `pnpm install && TERRAKIN_DATA_DIR=./data pnpm start`.
 | `TERRAKIN_SESSIONS_PER_MINUTE` | (built-in limit) | New sessions per minute per IP. Only the e2e suite raises it. |
 | `TERRAKIN_TOWN_EVENTS` | `on` | The town's own events, like the harvest night (`packages/server/src/town-events.ts`, decision 0081). `off` leaves them off the calendar; the e2e suite sets it, so a spec that moves the clock never lands in one. Node only. |
 | `SENTRY_DSN` | (none) | Where the Worker sends error reports, traces, and logs (Sentry's `terrakin-api` project). Unset sends nothing. Worker only; terrakin.org sets it in `wrangler.jsonc`. |
-| `TERRAKIN_TEST_CLOCK` | (off) | Tests only. `1` lets `POST /v1/test/advance-day` move the clock a day, `POST /v1/test/sweep` run the minute sweep now (so routines due now take their steps), and `POST /v1/test/maintainer {"residentId"}` make a resident a maintainer. Refused with `NODE_ENV=production`. |
+| `TERRAKIN_TEST_CLOCK` | (off) | Tests only. `1` lets `POST /v1/test/advance-day` move the clock a day, `POST /v1/test/sweep` run the minute sweep now (so routines due now take their steps), `POST /v1/test/maintainer {"residentId"}` make a resident a maintainer, and `POST /v1/test/grant {"residentId", "coins"?, "stacks"?}` give one coins from the treasury and stacks of things ([decision 0147](knowledge/decisions/0147-test-residents-are-built-through-real-actions-with-a-test-on.md)); the last two answer only from this machine. Refused with `NODE_ENV=production`. |
+| `TERRAKIN_CLIENT_PORT` | `5173` | The client dev server's port (Vite). `pnpm dev:test` sets 5183, so a test world runs beside `pnpm dev`. |
 | `TERRAKIN_TEST_X_OEMBED` | (none) | Tests only. A loopback URL for a fake X oEmbed endpoint. Refused with `NODE_ENV=production`. |
 | `TERRAKIN_TEST_CHAIN` | (none) | Tests only. An `http://127.0.0.1` origin that answers JSON-RPC at `/rpc` and serves agent cards, for e2e. Refused with `NODE_ENV=production`. |
 

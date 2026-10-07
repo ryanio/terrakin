@@ -16,3 +16,4 @@ test-results/
 playwright-report/
 .wrangler/
 .claude/worktrees/
+.dev-test-world/

@@ -51,6 +51,8 @@ Dependencies point one way: `client -> ui -> protocol -> sim` (client and ui als
 
 ```sh
 pnpm dev          # server :8787 + client :5173 + staff app :5174 (proxied), hot reload
+pnpm dev:test     # a test world beside it: server :8797 + client :5183, test routes on, kept in .dev-test-world/
+pnpm persona settled   # a resident at a stage on the test world (visitor, settled, stocked, pet, staff, owner), with a line to sign a tab in
 pnpm verify       # vendored secrets check, lint, knip (unused files, exports, deps), typecheck, test, kb:check, gen:check, build. Same as CI.
 pnpm vitest run --project sim   # one package's tests
 pnpm e2e          # Playwright on a phone viewport against the real build
@@ -62,7 +64,7 @@ pnpm cf:deploy    # deploy to terrakin.org by hand; main also deploys itself onc
 
 ## Definition of done
 
-1. `pnpm verify` passes (and `pnpm e2e` for client changes).
+1. `pnpm verify` passes (and `pnpm e2e` for client changes). A change you can see gets seen: run `pnpm dev:test`, make the resident it needs with `pnpm persona`, and look in the browser.
 2. New behavior has a test at the lowest level that catches the bug: sim rule in `packages/sim/`, wire format in `packages/protocol/`, routing and auth in `packages/server/`, a user flow in `e2e/`.
 3. Docs that describe the behavior change in the same commit: the folder `AGENTS.md`, `SKILL.md`, `docs/architecture.md`, `docs/plans/README.md`.
 4. Notable changes (new routes, fields, actions, behavior agents would notice, deprecations, removals, security fixes) get a `CHANGELOG.md` entry in the same push. A breaking change is a Changed or Removed entry that says what to do instead; no deprecation period is needed while pre-alpha. `pnpm gen:check` fails when the API changed and the changelog didn't ([decision 0036](docs/knowledge/decisions/0036-the-agent-changelog-is-one-file-published-as-a-page-a-feed-a.md)).

@@ -1,5 +1,16 @@
 import { crc32, deflateSync } from "node:zlib";
 import { type APIRequestContext, expect, type Page } from "@playwright/test";
+import {
+  freePlotsOver,
+  type Http,
+  isPreset,
+  makePersona,
+  type Persona,
+  type PersonaSpec,
+  type PresetName,
+  settleFreeOver,
+  stage,
+} from "./personas";
 
 /**
  * Helpers specs share: joining and acting over the REST API, signing a page in, finding free
@@ -89,21 +100,7 @@ export async function freePlots(
   n: number,
   corner: "bottom-right" | "bottom-left" | "top-right" = "bottom-right",
 ): Promise<[number, number][]> {
-  const world = await (await request.get("/v1/world")).json();
-  const { width, height, plotSize } = world.config;
-  const taken = new Set(world.plots.map((p: { px: number; py: number }) => `${p.px},${p.py}`));
-  taken.add(`${world.commons.px},${world.commons.py}`);
-  const span = (size: number, backwards: boolean) => {
-    const all = Array.from({ length: size / plotSize }, (_, i) => i);
-    return backwards ? all.reverse() : all;
-  };
-  const out: [number, number][] = [];
-  for (const py of span(height, corner !== "top-right")) {
-    for (const px of span(width, corner !== "bottom-left")) {
-      if (out.length < n && !taken.has(`${px},${py}`)) out.push([px, py]);
-    }
-  }
-  return out;
+  return freePlotsOver(httpOf(request), n, corner);
 }
 
 /**
@@ -116,12 +113,39 @@ export async function settleFree(
   token: string,
   plots: readonly (readonly [number, number])[],
 ): Promise<[number, number]> {
-  let last: unknown;
-  for (const [px, py] of plots.slice(0, 5)) {
-    last = await act(request, token, { type: "settle", px, py });
-    if ((last as { ok?: boolean }).ok) return [px, py];
-  }
-  throw new Error(`Couldn't settle any of ${plots.length} free plots: ${JSON.stringify(last)}`);
+  return settleFreeOver(httpOf(request), token, plots);
+}
+
+/** Playwright's request context as the `Http` that `personas.ts` builds residents over. */
+export function httpOf(request: APIRequestContext): Http {
+  return {
+    async call(method, path, { token, data } = {}) {
+      const headers = token ? { authorization: `Bearer ${token}` } : {};
+      const res =
+        method === "GET"
+          ? await request.get(path, { headers })
+          : await request.post(path, { headers, ...(data === undefined ? {} : { data }) });
+      const text = await res.text();
+      return { status: res.status(), body: text ? JSON.parse(text) : null };
+    },
+  };
+}
+
+/**
+ * A resident at a stage, built over the API (`personas.ts`): a preset by name with `spec` on top,
+ * or a spec of its own. `persona(request, "stocked", { name: "Ivy" })` is settled on a free plot
+ * with coins and things; coins, things, and staff need the test clock, which every e2e server has.
+ */
+export async function persona(
+  request: APIRequestContext,
+  preset: PresetName | PersonaSpec,
+  spec?: PersonaSpec,
+): Promise<Persona & { auth: { authorization: string } }> {
+  if (typeof preset === "string" && !isPreset(preset)) throw new Error(`no preset ${preset}`);
+  const full =
+    typeof preset === "string" ? stage(preset, spec ?? { name: preset }) : { ...preset, ...spec };
+  const made = await makePersona(httpOf(request), full);
+  return { ...made, auth: { authorization: `Bearer ${made.token}` } };
 }
 
 /** Join, settle a free plot, and build the starter home, which puts you on your hearth. */

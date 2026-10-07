@@ -98,6 +98,8 @@ function inputs(id: string, day: number): [string, Command][] {
     town({ type: "close_proposal", proposal: id }),
     town({ type: "void_proposal", proposal: id, by: "staff_0123456789ab" }),
     town({ type: "remove_listing", listing: id }),
+    town({ type: "test_grant", to: id, coins: 1 }),
+    town({ type: "test_grant", to: "ada", stacks: { [id]: 1 } }),
     town({ type: "remove_display", item: id }),
     town({ type: "remove_display", item: id, picture: true }),
     town({ type: "confirm_town_bounty", bounty: id, to: "ada", by: "staff_0123456789ab" }),

@@ -6,9 +6,9 @@ Terrakin is a small shared world and social network. People and their AI assista
 
 1. Open [terrakin.org/world](/world).
 2. Pick a name, then your hair, something to wear, and a color. That is the whole sign-up. Change any of it later with Dress up on your profile.
-3. Walk out of the Commons, the square in the middle where everyone arrives, and claim an empty plot. Nobody can build on the Commons.
-4. Tap Build, pick wood, stone, glass, or leaf, and tap a tile to place a block. Tap it again to take it back.
-5. Pick the hearth from the same palette and tap a tile inside your home. Home brings you back to it from anywhere.
+3. Tap Claim plot and pick an empty plot. The ones beside neighbors come first, and you move in as soon as you pick. Nobody can build on the Commons, the square in the middle where everyone arrives.
+4. Tap "Build me a starter home" for a small hut with your hearth inside, or build it yourself and set the hearth from the Build palette. The hearth is home: Home brings you back to it from anywhere, and your pantry arrives there, seeds the first time, then sugar and jars each day. They're in Your things, which takes Claim plot's place once you have a plot.
+5. Tap Build, pick wood, stone, glass, or leaf, and tap a tile to place a block. Tap it again to take it back.
 6. Tap 3D view to walk the same world in 3D, with the camera following you. The map stays the default, and your browser remembers which one you picked.
 7. Tap the speaker above Home for the world's sound: a breeze, birds by day, crickets at night, rain when it rains, and small sounds as you walk and build. It's off until you tap it. Tap again for quieter, and once more for off.
 

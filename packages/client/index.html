@@ -261,11 +261,12 @@
           <fieldset id="palette" class="palette paper" aria-label="Pick what to build" hidden>
             <!-- The tabs (linkTabs) go first, from world.ts. -->
             <div id="palette-blocks" class="palette-row" role="tabpanel" aria-labelledby="palette-tab-blocks">
+              <!-- The hearth first, with its name showing: it's home, where the pantry arrives. -->
+              <button type="button" data-block="hearth" class="palette-named" aria-label="Hearth, your home tile"><span class="chip"><svg class="icon" data-icon="home" aria-hidden="true"></svg></span><span class="palette-name" aria-hidden="true">Hearth</span></button>
               <button type="button" data-block="wood" aria-label="Wood"><span class="chip"></span></button>
               <button type="button" data-block="stone" aria-label="Stone"><span class="chip"></span></button>
               <button type="button" data-block="glass" aria-label="Glass"><span class="chip"></span></button>
               <button type="button" data-block="leaf" aria-label="Leaf"><span class="chip"></span></button>
-              <button type="button" data-block="hearth" aria-label="Hearth (your home tile)"><span class="chip"><svg class="icon" data-icon="home" aria-hidden="true"></svg></span></button>
               <button type="button" data-block="planter" aria-label="Planter (grow seeds here)"><span class="chip"><svg class="icon" data-icon="sprout" aria-hidden="true"></svg></span></button>
               <button type="button" data-block="kitchen" aria-label="Kitchen (make jam, tea, and sauce)"><span class="chip"><svg class="icon" data-icon="kitchen" aria-hidden="true"></svg></span></button>
               <button type="button" data-block="workbench" aria-label="Workbench (make bouquets, wreaths, and furniture)"><span class="chip"><svg class="icon" data-icon="workbench" aria-hidden="true"></svg></span></button>
@@ -290,6 +291,11 @@
             <svg class="icon" data-icon="flag" aria-hidden="true"></svg>
             <span>Claim plot</span>
           </button>
+          <!-- In Claim plot's place once you own a plot: one plot each, so your things take the spot. -->
+          <a id="hud-things" class="action" href="/inventory" hidden>
+            <svg class="icon" data-icon="things" aria-hidden="true"></svg>
+            <span>Your things</span>
+          </a>
           <button type="button" id="build" class="action" aria-pressed="false">
             <svg class="icon" data-icon="blocks" aria-hidden="true"></svg>
             <span>Build</span>

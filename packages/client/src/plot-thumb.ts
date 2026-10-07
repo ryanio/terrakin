@@ -187,15 +187,73 @@ export function plotThumb(
   canvas.height = Math.round(px * dpr);
   const ctx = canvas.getContext("2d");
   if (!ctx) return canvas;
+  paintPlot(ctx, world, plot, 0, 0, canvas.width / world.config.plotSize);
+  return canvas;
+}
+
+/** Paint plot (px, py) with its north-west corner at (left, top), `t` pixels a tile. */
+function paintPlot(
+  ctx: CanvasRenderingContext2D,
+  world: WorldSnapshot,
+  plot: { px: number; py: number },
+  left: number,
+  top: number,
+  t: number,
+) {
   const { size, tint, marks } = plotMarks(world, plot.px, plot.py);
-  const t = canvas.width / size;
   for (const mark of marks) {
-    paint(ctx, mark, mark.x * t, mark.y * t, t);
+    paint(ctx, mark, left + mark.x * t, top + mark.y * t, t);
     if (mark.kind === "ground" && tint && mark.x === size - 1 && mark.y === size - 1) {
       // The theme's tint goes over the whole ground once it's down, under everything else.
       ctx.fillStyle = tint;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillRect(left, top, size * t, size * t);
     }
   }
+}
+
+/**
+ * A plot drawn with the plots around it, for the "Claim plot" picker: the neighbors under a wash
+ * of paper and the plot itself ringed, so you see who you'd live beside. Past the world's edge is
+ * plain paper.
+ */
+export function plotArea(
+  world: WorldSnapshot,
+  plot: { px: number; py: number },
+  label: string,
+  px: number,
+): HTMLCanvasElement {
+  const canvas = h("canvas", {
+    class: "plot-thumb plot-area",
+    attrs: { role: "img", "aria-label": label, width: px, height: px },
+  });
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width = Math.round(px * dpr);
+  canvas.height = Math.round(px * dpr);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return canvas;
+  const { plotSize, width, height } = world.config;
+  const side = canvas.width / 3;
+  const t = side / plotSize;
+  ctx.fillStyle = PAPER;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      const at = { px: plot.px + dx, py: plot.py + dy };
+      if (at.px < 0 || at.py < 0 || at.px >= width / plotSize || at.py >= height / plotSize) {
+        continue;
+      }
+      const left = (dx + 1) * side;
+      const top = (dy + 1) * side;
+      paintPlot(ctx, world, at, left, top, t);
+      if (dx !== 0 || dy !== 0) {
+        ctx.fillStyle = alphaHex(PAPER, 0.45);
+        ctx.fillRect(left, top, side, side);
+      }
+    }
+  }
+  const ring = Math.max(2, side * 0.06);
+  ctx.strokeStyle = HEARTH_COLOR;
+  ctx.lineWidth = ring;
+  ctx.strokeRect(side + ring / 2, side + ring / 2, side - ring, side - ring);
   return canvas;
 }

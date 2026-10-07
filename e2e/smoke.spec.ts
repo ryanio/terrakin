@@ -114,19 +114,27 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
       (await world()).plots.some((p: { ownerId: string }) => p.ownerId === start.id),
     )
     .toBe(true);
-  // The world says so, once the claim reaches this page too. Build waits for that.
-  await expect(page.locator("#toast")).toContainText("This plot is yours");
-
-  await test.step("names the plot when the world asks, right after the claim", async () => {
+  await test.step("building it herself opens the build bar on the hearth, then names the plot", async () => {
+    // The world offers a home once the claim reaches this page too.
+    const home = page.getByRole("dialog", { name: "This plot is yours" });
+    await expect(home).toBeVisible();
+    await home.getByRole("button", { name: "I'll build it myself" }).click();
     const ask = page.getByRole("dialog", { name: "Name your new plot" });
     await expect(ask).toBeVisible();
     await ask.locator("#plot-name-input").fill("Ada's Stone Garden");
     await ask.locator("#plot-name-save").click();
     await expect(ask).toBeHidden();
+    await expect(page.locator("#build")).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator('[data-block="hearth"]')).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator("#palette-line")).toContainText("your pantry arrives here");
+    // One plot each: Your things takes Claim plot's place.
+    await expect(page.locator("#claim")).toBeHidden();
+    await expect(page.locator("#hud-things")).toBeVisible();
+    await page.click("#build");
     await expect(page.locator("#visit-card-owner")).toHaveText("Ada's Stone Garden");
+    await page.click("#build");
   });
 
-  await page.click("#build");
   await page.click('[data-block="stone"]');
   await tapTile(page, -1, -1);
   // Only our own plot: earlier tests may have built homes on the plots next door.

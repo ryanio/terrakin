@@ -25,6 +25,7 @@ function world(
   let at: Tile = opts.at ?? { x: 5, y: 5 };
   const sent: { id: string; dir: Direction; t: number }[] = [];
   const bumps: Direction[] = [];
+  const whys: string[] = [];
   const pending: { id: string; dir: Direction; due: number }[] = [];
   let now = 0;
   let n = 0;
@@ -39,8 +40,9 @@ function world(
       pending.push({ id, dir, due: now + (opts.lag ?? 40) });
       return id;
     },
-    bumped: (dir) => {
+    bumped: (dir, why) => {
       bumps.push(dir);
+      whys.push(why);
       motion.bump("me", dir, now);
     },
   });
@@ -75,6 +77,7 @@ function world(
     sent,
     dirs,
     bumps,
+    whys,
     pending,
     answer,
     wall,
@@ -209,6 +212,20 @@ describe("a held key", () => {
     expect(w.dirs()).toEqual(["n", "n"]);
     expect(w.at()).toEqual({ x: 12, y: 10 });
     expect(w.bumps).toEqual(["n"]);
+  });
+
+  it("takes the one open step south from spawn, then says the shop is in the way at each tap", () => {
+    // Spawn is (12, 12); the shop stands on x 11 to 13, y 14 and 15.
+    const w = world({ at: { x: 12, y: 12 } });
+    for (let i = 0; i < 6; i++) {
+      w.walker.padDown("s", i * 600);
+      w.walker.padUp();
+      w.run(i * 600 + 590);
+    }
+    expect(w.dirs()).toEqual(["s"]);
+    expect(w.at()).toEqual({ x: 12, y: 13 });
+    expect(w.bumps).toEqual(["s", "s", "s", "s", "s"]);
+    expect(new Set(w.whys)).toEqual(new Set(["The shop is in the way."]));
   });
 
   it("walks the way the camera looks", () => {

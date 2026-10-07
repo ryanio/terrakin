@@ -868,7 +868,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
     if (!savedToken()) return [joinAndFollow(r)];
     const me = await myProfile();
     if (!me) return [];
-    if (me.id === r.id) return [identityCard(), lookCard(r)];
+    if (me.id === r.id) return [identityCard(), thingsCard(), lookCard(r)];
     return r.blocked ? [] : [togetherCard(r, me)];
   }
 
@@ -1348,7 +1348,30 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
     return card;
   }
 
-  // ---------- you: your key and your look ----------
+  // ---------- you: your key, your things, and your look ----------
+
+  /** A way to your things (`/inventory`), which is private, so only on your own profile. */
+  function thingsCard(): HTMLElement {
+    return h(
+      "section",
+      { class: "stack paper card things-link", attrs: { "aria-labelledby": "things-link-title" } },
+      h("h2", { class: "card-title", attrs: { id: "things-link-title" }, text: "Your things" }),
+      h("p", {
+        class: "card-body",
+        text: "Your seeds, what you grow and make, and gifts you got. Only you see them.",
+      }),
+      h(
+        "div",
+        { class: "card-actions" },
+        h(
+          "a",
+          { class: "pill-button small", attrs: { href: "/inventory", id: "profile-things" } },
+          icon("things"),
+          h("span", { text: "Open your things" }),
+        ),
+      ),
+    );
+  }
 
   function identityCard(): HTMLElement {
     const token = savedToken() ?? "";

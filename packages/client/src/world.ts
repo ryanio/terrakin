@@ -21,9 +21,11 @@ import {
   isGroundKind,
   isHeldBlock,
   pickupsInReach,
+  plotOf,
   type Resident,
   route,
   STEP,
+  settleProblem,
   type Tile,
   tileKey,
   waterBeside,
@@ -31,7 +33,7 @@ import {
 import { REDUCED_MOTION } from "@terrakin/ui/motion";
 import { plot3dPath } from "@terrakin/ui/paths";
 import { everyVisible } from "@terrakin/ui/poll";
-import { linkTabs, whileBusy } from "@terrakin/ui/ui";
+import { linkTabs, pickTab, whileBusy } from "@terrakin/ui/ui";
 import { api, whoseKey } from "./api";
 import {
   blockLine,
@@ -53,13 +55,13 @@ import {
 import { type Camera, fitScale, screenToTile } from "./camera";
 import { Feelings, gestureReaction } from "./feelings";
 import { canDig, noRodLine, pondLine, rodsAfter, rodsIn } from "./fishing";
+import { openHomeSheet } from "./home-sheet";
 import { createLanding } from "./landing";
 import { Mirror } from "./mirror";
 import { Motion } from "./motion";
 import { Connection, type Identity, savedToken, saveToken } from "./net";
 import { openWorldPetSheet, patPet } from "./pet-sheet";
 import { PatsToday, PetMotion, petCalled } from "./pets";
-import { openPlotNameSheet } from "./plot-name-sheet";
 import { blockColor, CAST_MS, type CastMark, HEARTH_COLOR, render } from "./render";
 import { dozerAt } from "./scene3d/layout";
 import type { World3d } from "./scene3d/world";
@@ -98,26 +100,28 @@ const paletteRows: Record<PaletteTab, HTMLElement> = {
 };
 const paletteLine = $("palette-line");
 // The build bar's tabs, over the rows they show.
-palette.prepend(
-  linkTabs(
-    PALETTE_TABS.map((tab) => ({
-      current: tab === "blocks",
-      content: [PALETTE_TAB_WORDS[tab]],
-      id: `palette-tab-${tab}`,
-      panel: `palette-${tab}`,
-    })),
-    {
-      label: "What to build",
-      className: "palette-tabs",
-      pick: (i) => showTab(PALETTE_TABS[i] ?? "blocks"),
-    },
-  ),
+const paletteTabs = linkTabs(
+  PALETTE_TABS.map((tab) => ({
+    current: tab === "blocks",
+    content: [PALETTE_TAB_WORDS[tab]],
+    id: `palette-tab-${tab}`,
+    panel: `palette-${tab}`,
+  })),
+  {
+    label: "What to build",
+    className: "palette-tabs",
+    pick: (i) => showTab(PALETTE_TABS[i] ?? "blocks"),
+  },
 );
+palette.prepend(paletteTabs);
 const modeButton = $<HTMLButtonElement>("world-mode");
 const petButton = $<HTMLButtonElement>("world-pet");
 const gatherButton = $<HTMLButtonElement>("world-gather");
 /** Shown while you stand beside water (RFC 0023): cast a line. */
 const fishButton = $<HTMLButtonElement>("world-fish");
+const claimButton = $<HTMLButtonElement>("claim");
+/** Takes Claim plot's place once you own all the plots you may: your things are a tap away. */
+const thingsLink = $<HTMLAnchorElement>("hud-things");
 const host3d = $("world-3d");
 /** The speaker button: sound is off until it's tapped, and its code loads then (decision 0097). */
 const sound = new SoundSwitch($<HTMLButtonElement>("sound"));
@@ -196,8 +200,9 @@ const walker = new Walker({
       sound.step(mirror?.paving.get(`${from.x + STEP[dir][0]},${from.y + STEP[dir][1]}`));
     return id;
   },
-  bumped: (dir) => {
+  bumped: (dir, why) => {
     if (me) motion.bump(me, dir, performance.now());
+    showToast(why);
   },
 });
 /** The card on someone else's plot: Admire and Next plot (RFC 0020). */
@@ -428,10 +433,10 @@ function onMessage(msg: ServerMessage) {
       if (msg.event.type === "trick_or_treated" && msg.event.by === me) {
         visiting.knocked(msg.event.px, msg.event.py);
       }
-      // A plot you just claimed asks for a name (decision 0121); it can wait for your profile.
+      // A plot you just claimed offers a home, then asks for a name (decisions 0144 and 0121).
       if (applied === "applied" && msg.event.type === "plot_claimed" && msg.event.ownerId === me) {
         const { px, py } = msg.event;
-        openPlotNameSheet({ px, py }, { say: showToast, claimed: true });
+        openHomeSheet({ plot: { px, py }, say: showToast, buildMyself: buildFromHearth });
       }
       // A cast (RFC 0023), anyone's: its float, its rings, and what it brought up, on the water.
       if (applied === "applied" && msg.event.type === "fished") {
@@ -1085,15 +1090,39 @@ window.addEventListener("blur", () => {
   paintHeld(undefined);
 });
 
-$("claim").addEventListener("click", () => {
+claimButton.addEventListener("click", () => {
   // The claim lands after any steps still on their way, on the plot they end in.
   const r = here();
-  if (r && mirror?.ownerAt(r.x, r.y) === me) {
+  const m = mirror;
+  if (!r || !m) return;
+  if (m.ownerAt(r.x, r.y) === me) {
     showToast("This plot is already yours. Tap Build to start.");
+    return;
+  }
+  // With no plot yet, a plot `settle` wouldn't take where you stand (the Commons, or someone's)
+  // opens the picker of ones it would (decision 0143).
+  const { px, py } = plotOf(m.config, r.x, r.y);
+  const claimed = m.plots.has(`${px},${py}`);
+  if (ownedPlots() === 0 && settleProblem(m.config, px, py, { claimed, ownsAPlot: false })) {
+    void import("./claim-sheet").then((c) => c.openClaimSheet());
     return;
   }
   tryAct({ type: "claim" });
 });
+
+/** How many plots you own, as far as the mirror shows. */
+function ownedPlots(): number {
+  let n = 0;
+  if (mirror && me) for (const owner of mirror.plots.values()) if (owner === me) n++;
+  return n;
+}
+
+/** Claim plot while you may claim one, else Your things in its place (one plot per resident). */
+function paintClaim() {
+  const full = !!mirror && !!me && ownedPlots() >= mirror.config.maxPlotsPerResident;
+  claimButton.hidden = full;
+  thingsLink.hidden = !full;
+}
 
 $("hud-invite").addEventListener("click", () => {
   void import("./invite-share").then((m) => m.openInviteDialog());
@@ -1136,6 +1165,17 @@ palette.addEventListener("click", (e) => {
   if (!button) return;
   selectPick((button.dataset.ground ?? button.dataset.block) as BlockKind | GroundKind | "hearth");
 });
+
+/**
+ * Build it yourself, after a claim: the build bar open on Blocks with the hearth picked, and its
+ * line saying what a hearth is for.
+ */
+function buildFromHearth() {
+  if (!buildMode) setBuildMode(true);
+  pickTab(paletteTabs, PALETTE_TABS.indexOf("blocks"));
+  pick = "hearth";
+  showTab("blocks");
+}
 
 /** Show one tab's row. A pick from another tab gives way to this tab's first choice. */
 function showTab(next: PaletteTab) {
@@ -1340,6 +1380,7 @@ function frame() {
     paintPetButton(now);
     paintGatherButton();
     paintFishButton();
+    paintClaim();
   }
   // Your own figure's feeling, a name from a fixed list, once you're in: for tests and tools.
   const mine = me ? feelings.feeling(me, now) : "";

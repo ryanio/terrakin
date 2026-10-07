@@ -3391,6 +3391,17 @@ dialog.model-viewer {
   cursor: pointer;
 }
 
+/* The Claim plot picker (decision 0143): each empty plot drawn with the plots around it. */
+.claim-pick .plot-area {
+  flex: none;
+  width: 72px;
+  height: 72px;
+}
+
+.claim-pick .btn-primary {
+  flex: none;
+}
+
 .plots-strip-visit .plot-thumb {
   width: 112px;
   height: 112px;
@@ -4027,6 +4038,11 @@ dialog.model-viewer {
   color: var(--clay);
 }
 
+/* Your things, in Claim plot's place once you have a plot: a link that looks like its neighbors. */
+a.action {
+  text-decoration: none;
+}
+
 .action:active {
   transform: translateY(1px) scale(var(--press));
 }
@@ -4181,6 +4197,21 @@ dialog.model-viewer {
 .palette-row button[aria-pressed="true"] {
   background: var(--pressed);
   box-shadow: inset 0 0 0 2px var(--clay);
+}
+
+/* The hearth shows its name: it's home, and where the pantry arrives. */
+.palette-row .palette-named {
+  grid-auto-flow: column;
+  gap: var(--space-xs);
+  width: auto;
+  padding: 0 var(--space-md) 0 var(--space-xs);
+  border-radius: var(--r-pill);
+}
+
+.palette-name {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--ink);
 }
 
 .palette-row button[aria-pressed="true"] .chip {

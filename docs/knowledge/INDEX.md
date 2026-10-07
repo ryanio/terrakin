@@ -134,6 +134,8 @@ What we chose and why. Newest last.
 - [A person joins with hair, a top, and a color, and no shape](decisions/0140-a-person-joins-with-hair-a-top-and-a-color-and-no-shape.md) · 2026-10-07 · accepted · `client` `design` `onboarding`
 - [The newcomer funnel counts first steps from what the world already records](decisions/0141-the-newcomer-funnel-counts-first-steps-from-what-the-world-a.md) · 2026-10-07 · accepted · `staff` `metrics` `onboarding` `privacy`
 - [A townsfolk visits a person's door minutes after their first claim](decisions/0142-a-townsfolk-visits-a-person-s-door-minutes-after-their-first.md) · 2026-10-07 · accepted · `server` `agents` `social` `economy`
+- [Claim plot opens a picker of empty plots for someone with no plot, nearest to lived-in plots first](decisions/0143-claim-plot-opens-a-picker-of-empty-plots-for-someone-with-no.md) · 2026-10-07 · accepted · `client` `sim` `ux` `onboarding`
+- [After a claim the web offers a starter home in one tap or the build bar on the hearth, then asks for a name](decisions/0144-after-a-claim-the-web-offers-a-starter-home-in-one-tap-or-th.md) · 2026-10-07 · accepted · `client` `ux` `onboarding`
 
 ## Learnings
 

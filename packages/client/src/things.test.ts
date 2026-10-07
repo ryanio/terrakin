@@ -16,6 +16,7 @@ import {
   newsLine,
   noSeedsHint,
   othersPickupLine,
+  pantryWords,
   sendBackLine,
   thingCount,
   toastMs,
@@ -248,9 +249,7 @@ describe("things", () => {
     expect(newsLine(opened, "r_1")).toContain("Galleries page");
     expect(newsLine({ ...opened, open: false }, "r_1")).toBe("Your plot isn't a gallery anymore.");
     expect(newsLine(opened, "r_2")).toBeNull();
-    expect(newsLine({ type: "plot_claimed", px: 3, py: 3, ownerId: "r_1" }, "r_1")).toBe(
-      "This plot is yours. Tap Build to start.",
-    );
+    expect(newsLine({ type: "plot_claimed", px: 3, py: 3, ownerId: "r_1" }, "r_1")).toBeNull();
     expect(newsLine({ type: "plot_claimed", px: 3, py: 3, ownerId: "r_2" }, "r_1")).toBeNull();
     expect(newsLine({ type: "hearth_set", residentId: "r_1", x: 1, y: 1 }, "r_1")).toContain(
       "Tap Home",
@@ -337,10 +336,27 @@ describe("things", () => {
     ).toBe("Nothing left to pick up there: someone got there first.");
   });
 
+  it("counts a pantry's seeds together and names the rest", () => {
+    const first = [
+      { kind: "lemon_seed" as const, amount: 2 },
+      { kind: "strawberry_seed" as const, amount: 2 },
+      { kind: "tomato_seed" as const, amount: 2 },
+      { kind: "herb_seed" as const, amount: 2 },
+      { kind: "flower_seed" as const, amount: 2 },
+      { kind: "sugar" as const, amount: 1 },
+      { kind: "jar" as const, amount: 1 },
+    ];
+    expect(pantryWords(first)).toBe("10 seeds of 5 kinds, 1 bag of sugar, and 1 jar");
+    expect(pantryWords([{ kind: "herb_seed", amount: 2 }])).toBe("2 herb seeds");
+    expect(pantryWords([{ kind: "jar", amount: 1 }])).toBe("1 jar");
+    expect(pantryWords([{ kind: "jar", amount: -1 }])).toBeNull();
+    expect(pantryWords([])).toBeNull();
+  });
+
   it("keeps a toast up longer for a longer line, within limits", () => {
     expect(toastMs("Hi")).toBe(2680);
     expect(toastMs("Hi", "player")).toBe(4000);
-    expect(toastMs(NO_PLOT_LINE)).toBeGreaterThan(5000);
+    expect(toastMs("x".repeat(80))).toBe(5800);
     expect(toastMs("x".repeat(400))).toBe(7000);
   });
 });

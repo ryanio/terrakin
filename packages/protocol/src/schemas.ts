@@ -90,6 +90,8 @@ const PROTOCOL_ERROR_CODES = [
   "owner_limit",
   /** A maintainer suspended you: you can read, but not write, until the suspension ends. */
   "suspended",
+  /** A join with a name another resident already has. Names are unique (decision 0130). */
+  "name_taken",
 ] as const;
 
 export const ERROR_CODES = [...REJECTION_CODES, ...PROTOCOL_ERROR_CODES] as const;

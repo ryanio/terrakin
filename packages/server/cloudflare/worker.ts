@@ -338,7 +338,10 @@ const handler = {
     if (pagePath && response.status === 200 && type?.startsWith("text/html")) {
       response = await page(request, env, response);
     }
-    return withHeaders(response, response.ok ? pageHeaders(url.pathname, type) : {});
+    // A 304 carries the headers too, so a browser holding a hashed file from before learns it
+    // can keep it.
+    const fresh = response.ok || response.status === 304;
+    return withHeaders(response, fresh ? pageHeaders(url.pathname, type) : {});
   },
 
   /**

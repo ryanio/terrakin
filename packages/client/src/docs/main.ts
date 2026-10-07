@@ -26,6 +26,7 @@ import("./reference").then(
   () => {
     // Usually a new version went out since this page opened. Point at the plain files meanwhile.
     status?.setAttribute("role", "alert");
+    status?.classList.remove("docs-loading");
     status?.replaceChildren(
       h("p", { text: "The docs didn't load. Reload to try again, or read the plain files:" }),
       h(

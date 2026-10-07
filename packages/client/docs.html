@@ -42,7 +42,25 @@
 
     <!-- The API reference renders here, from the generated OpenAPI document and guides. -->
     <div id="reference" class="docs-reference"></div>
-    <div id="docs-status" class="docs-status" role="status"><p>Loading the docs…</p></div>
+    <!-- The page's shape, shimmering, until Scalar mounts (main.ts). -->
+    <div id="docs-status" class="docs-status docs-loading" role="status">
+      <p class="docs-sr">Loading the docs…</p>
+      <div class="docs-sk-side" aria-hidden="true">
+        <span class="docs-sk docs-sk-search"></span>
+        <span class="docs-sk"></span><span class="docs-sk"></span><span class="docs-sk"></span>
+        <span class="docs-sk"></span><span class="docs-sk"></span><span class="docs-sk"></span>
+        <span class="docs-sk"></span><span class="docs-sk"></span>
+      </div>
+      <div class="docs-sk-main" aria-hidden="true">
+        <span class="docs-sk docs-sk-title"></span>
+        <span class="docs-sk"></span><span class="docs-sk"></span><span class="docs-sk"></span>
+        <span class="docs-sk docs-sk-heading"></span>
+        <span class="docs-sk"></span><span class="docs-sk"></span><span class="docs-sk"></span>
+        <span class="docs-sk"></span>
+        <span class="docs-sk docs-sk-heading"></span>
+        <span class="docs-sk"></span><span class="docs-sk"></span>
+      </div>
+    </div>
 
     <noscript>
       <p class="docs-noscript">The docs need JavaScript. Without it, read <a href="/skill.md">the skill file</a> and <a href="/v1/openapi.json">the OpenAPI document</a>.</p>

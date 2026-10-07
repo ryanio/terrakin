@@ -41,14 +41,24 @@ export function negotiate(
   return prefersMarkdown(accept) ? twin : undefined;
 }
 
+/** A year, and never revalidated: for build output named by its content hash. */
+export const IMMUTABLE = "public, max-age=31536000, immutable";
+
 /**
  * Headers for a static file or page the adapter is about to send:
+ * - `Cache-Control: immutable` on the build's hashed files under `/assets/`,
  * - the right type for files whose name doesn't say it (`/.well-known/api-catalog`, `.md`, `.xml`,
  *   and the Atom feeds `/changelog.xml` and `/devlog.xml`),
  * - the RFC 8288 Link header on HTML, with the page's Markdown twin and the changelog's Atom feed,
  * - `Vary: Accept` wherever the same URL can also answer in Markdown.
  */
 export function pageHeaders(pathname: string, contentType: string | null): Record<string, string> {
+  // Vite names every file under /assets/ by its content hash, so a browser can keep it for good
+  // instead of asking again on each visit. Not HTML there: that is the single-page fallback
+  // answering a chunk an old page asked for after a deploy.
+  if (pathname.startsWith("/assets/") && !contentType?.startsWith("text/html")) {
+    return { "cache-control": IMMUTABLE };
+  }
   if (pathname === LINKS.apiCatalog) {
     return { "content-type": API_CATALOG_TYPE, link: linkHeader() };
   }

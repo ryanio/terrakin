@@ -1,0 +1,51 @@
+name: Nightly
+
+# The e2e checks that don't run on every push (decision 0200): the deeper 3D specs, one at a time
+# with one worker, and the whole 2D suite, which catches a sim-only push that broke something a
+# spec sees (CI skips e2e on those). Deploys nothing. A red night gets a line in e2e/AGENTS.md's
+# red-run ledger like any other.
+on:
+  schedule:
+    - cron: "17 9 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: e2e (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: 3D, only: nightly, args: --workers=1 }
+          - { name: 2D, only: 2d, args: "" }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+      - run: pnpm exec playwright install --with-deps --only-shell chromium
+      - run: pnpm e2e ${{ matrix.args }}
+        env:
+          TERRAKIN_E2E_ONLY: ${{ matrix.only }}
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-traces-nightly-${{ strategy.job-index }}
+          path: test-results/
+          retention-days: 7

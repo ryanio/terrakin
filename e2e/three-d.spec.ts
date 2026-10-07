@@ -12,7 +12,7 @@ import {
 /**
  * The 3D views at phone size: a plot seeded over REST opens in 3D, draws real pixels through
  * WebGL (Chromium's SwiftShader in CI), takes a photo, gets dark at night, and leaves nothing
- * running behind it.
+ * running behind it. Runs nightly (e2e/suite.ts); every push runs the 3D smoke in `smoke-3d.spec.ts`.
  */
 
 /**

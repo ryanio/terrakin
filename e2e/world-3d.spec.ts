@@ -13,7 +13,8 @@ import {
 /**
  * The world in 3D at phone size (decision 0060): the toggle, a neighbor drawn nearby, walking by
  * tapping the 3D ground, the d-pad following the camera, the choice remembered, back to the map,
- * and nothing left drawing after leaving. WebGL runs on Chromium's SwiftShader here.
+ * and nothing left drawing after leaving. WebGL runs on Chromium's SwiftShader here. Runs nightly
+ * (e2e/suite.ts); every push runs the 3D smoke in `smoke-3d.spec.ts`.
  */
 test("the world switches to 3D, walks by tapping, and stops drawing when you leave", async ({
   page,
@@ -116,31 +117,19 @@ test("the world switches to 3D, walks by tapping, and stops drawing when you lea
 });
 
 /**
- * A link with `view=3d` (decision 0162) opens the 3D view looking at its place: for someone with no
- * character yet, read only with a way in, and for a resident with Go there. The link doesn't change
- * the mode this device remembers.
+ * A link with `view=3d` (decision 0162) opens the 3D view looking at its place: for a resident, with
+ * Go there. The link doesn't change the mode this device remembers. The same link for someone with
+ * no character is in the 3D smoke.
  */
 test("a link with view=3d opens the world in 3D looking at its place", async ({ page }) => {
   test.slow();
   const errors = watchErrors(page, { console: "all" });
   const fern = await persona(page.request, "settled", { name: "Fern3d" });
-  const [px, py] = fern.plot ?? [0, 0];
   const scene = page.locator("#world-3d");
-  const card = page.locator("#look-card");
-
-  await test.step("someone with no character looks at her plot in 3D", async () => {
-    await page.goto(`/world?at=${px},${py}&view=3d`);
-    await expect(scene.locator("canvas")).toHaveCount(1, { timeout: 20_000 });
-    await expect(card).toBeVisible();
-    await expect(page.locator("#look-card-title")).toHaveText(`${fern.name}'s plot`);
-    await expect(page.getByRole("button", { name: "Step inside to go there" })).toBeVisible();
-    await expect(scene).toHaveAttribute("aria-label", new RegExp(fern.name));
-    await page.screenshot({ path: "test-results/world-link-3d.png" });
-  });
 
   await test.step("a resident's link to her opens 3D with Go there, and the map stays the default", async () => {
     const moss = await persona(page.request, "visitor", { name: "Moss3d" });
-    await signIn(page, moss, { now: true });
+    await signIn(page, moss);
     await page.goto(`/world?at=${fern.id}&view=3d`);
     await expect(scene.locator("canvas")).toHaveCount(1, { timeout: 20_000 });
     await expect(page.locator("#look-card-title")).toHaveText(fern.name);

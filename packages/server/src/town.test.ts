@@ -506,8 +506,10 @@ describe("notice board", () => {
   });
 
   it("shows only the newest 40", async () => {
+    // 42 notices, three each (the most one resident can have up), seeded in-process: the route
+    // hands back `board()` as it is, which the tests above read over HTTP.
     const t = await start();
-    const ids = Array.from({ length: 15 }, (_, i) => {
+    const ids = Array.from({ length: 14 }, (_, i) => {
       const r = t.service.createSession({ name: `N${i}`, kind: "agent" });
       return r.residentId ?? "";
     });
@@ -515,10 +517,10 @@ describe("notice board", () => {
       for (const id of ids)
         expect(t.social.createNotice(id, { text: `n${n} ${id}` }).ok).toBe(true);
     }
-    const board = (await t.call("GET", "/v1/town")).body.board;
+    const board = t.social.board();
     expect(board).toHaveLength(40);
-    expect(board[0].text).toBe(`n2 ${ids.at(-1)}`);
-    expect(board.at(-1).text).toBe(`n0 ${ids[5]}`);
+    expect(board[0]?.text).toBe(`n2 ${ids.at(-1)}`);
+    expect(board.at(-1)?.text).toBe(`n0 ${ids[2]}`);
   });
 
   it("lets the author or a maintainer take a notice down, and records who did", async () => {

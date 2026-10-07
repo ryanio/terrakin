@@ -216,6 +216,13 @@ export interface WorldServiceOptions {
    */
   recipes?: boolean;
   /**
+   * Cheaper holiday stock (decision 0210): once the shop is open, append `lower_holiday_prices` if
+   * it never has, so purchases before it replay at decision 0107's prices. The Worker turns it on;
+   * the Node server leaves it off, so a self-hosted world, `pnpm dev`, and the e2e servers keep the
+   * old prices unless set.
+   */
+  holidayPrices?: boolean;
+  /**
    * Maintainers' resident ids from config. Logged as `set_maintainers` when they differ from the
    * log, so the sim keeps townsfolk budgets away from them.
    */
@@ -292,6 +299,7 @@ interface TownSwitch {
     | "market"
     | "bounties"
     | "recipes"
+    | "holidayPrices"
   >;
   /** Whether the world doesn't have it yet and has what it needs first. */
   due: (state: WorldState) => boolean;
@@ -373,6 +381,12 @@ const DAY_SWITCHES: readonly TownSwitch[] = [
     command: { type: "open_recipes" },
     label: "open recipes",
   },
+  {
+    option: "holidayPrices",
+    due: (s) => !!s.shop && !s.shop.holidayPricesLowered,
+    command: { type: "lower_holiday_prices" },
+    label: "lower the holiday prices",
+  },
 ];
 
 /**
@@ -415,6 +429,7 @@ export class WorldService {
   private readonly market: boolean;
   private readonly bounties: boolean;
   private readonly recipes: boolean;
+  private readonly holidayPrices: boolean;
   private readonly presence: boolean;
   private readonly townEvents: readonly TownEvent[];
   /** Town events whose refusal was already reported this boot, so the sweep reports each once. */
@@ -502,6 +517,7 @@ export class WorldService {
     this.market = options.market ?? false;
     this.bounties = options.bounties ?? false;
     this.recipes = options.recipes ?? false;
+    this.holidayPrices = options.holidayPrices ?? false;
     this.presence = options.presence ?? false;
     this.townEvents = options.townEvents ?? [];
     // A day may have started (and proposals come due) while the server was down.

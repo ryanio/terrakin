@@ -781,6 +781,11 @@ export interface ShopState {
    * until one, meaning the share the shop opened with (50).
    */
   treasuryShare?: number;
+  /**
+   * Set by `lower_holiday_prices`: Halloween's costumes and decor cost the catalog's prices. Absent
+   * until then, and they cost `HOLIDAY_PRICES_BEFORE` (decision 0210).
+   */
+  holidayPricesLowered?: true;
 }
 
 /**
@@ -1325,6 +1330,8 @@ export type Command =
   | { type: "open_shop" }
   /** The treasury's share of shop spending from now on, in percent; the rest is burned. */
   | { type: "set_shop_share"; percent: number }
+  /** From now on, Halloween's costumes and decor cost the catalog's lower prices (decision 0210). */
+  | { type: "lower_holiday_prices" }
   | { type: "open_market" }
   /**
    * From now on, recipes are learned (RFC 0024): everyone here now knows every recipe, and anyone
@@ -1461,6 +1468,7 @@ export const SERVER_COMMANDS = [
   "keep_table_spots",
   "test_grant",
   "open_recipes",
+  "lower_holiday_prices",
 ] as const satisfies readonly CommandType[];
 
 /** A command plus who issued it. This is the unit the server logs and replays. */
@@ -1631,6 +1639,8 @@ export type WorldEvent =
   | { type: "proposal_unpaid"; proposal: string; amount: number }
   /** The treasury's share of shop spending changed. Public, like the treasury. */
   | { type: "shop_share_set"; percent: number }
+  /** `lower_holiday_prices`: holiday stock costs the catalog's lower prices from now on. Public. */
+  | { type: "holiday_prices_lowered" }
   /** Shop wear a resident bought. Private, like their purse. */
   | { type: "wear_bought"; residentId: ResidentId; wear: WearItem }
   /** The partner wear a resident may put on now. Public: it's a cosmetic their profile shows. */

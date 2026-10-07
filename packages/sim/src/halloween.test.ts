@@ -9,10 +9,11 @@ import { plotKey } from "./keys";
 import { COSTUMES, wearProblem } from "./looks";
 import { replay } from "./replay";
 import { dayOfDate } from "./season";
-import { HOLIDAY_STOCK, SHOP_CATALOG, stockHoliday } from "./shop";
+import { HOLIDAY_PRICES_BEFORE, HOLIDAY_STOCK, priceOf, SHOP_CATALOG, stockHoliday } from "./shop";
 import { expectSupplyHolds, fund, stock } from "./test-support";
 import {
   type Command,
+  type Input,
   type RejectionCode,
   TOWN_ACTOR,
   type WorldConfig,
@@ -116,20 +117,32 @@ describe("the Halloween log", () => {
 });
 
 describe("Halloween's numbers", () => {
-  it("are the ones decision 0107 records", () => {
+  it("are the ones decisions 0107 and 0210 record", () => {
     const priced = Object.fromEntries(
       HOLIDAY_STOCK.halloween.map((sku) => [sku, SHOP_CATALOG[sku]]),
     );
+    // Decision 0210's prices, from `lower_holiday_prices` on.
     expect(priced).toEqual({
       candy: { price: 2, section: "pantry" },
-      bat_bunting: { price: 12, section: "decor" },
-      cauldron: { price: 30, section: "decor" },
-      candy_bowl: { price: 15, section: "decor" },
-      witch_hat: { price: 60, section: "wear" },
-      cat_ears: { price: 40, section: "wear" },
-      pumpkin_head: { price: 70, section: "wear" },
-      ghost_sheet: { price: 50, section: "wear" },
-      bat_wings: { price: 70, section: "wear" },
+      bat_bunting: { price: 6, section: "decor" },
+      cauldron: { price: 15, section: "decor" },
+      candy_bowl: { price: 8, section: "decor" },
+      witch_hat: { price: 30, section: "wear" },
+      cat_ears: { price: 20, section: "wear" },
+      pumpkin_head: { price: 35, section: "wear" },
+      ghost_sheet: { price: 25, section: "wear" },
+      bat_wings: { price: 35, section: "wear" },
+    });
+    // Decision 0107's, before it. Frozen: logged purchases replay at these.
+    expect(HOLIDAY_PRICES_BEFORE).toEqual({
+      bat_bunting: 12,
+      cauldron: 30,
+      candy_bowl: 15,
+      witch_hat: 60,
+      cat_ears: 40,
+      pumpkin_head: 70,
+      ghost_sheet: 50,
+      bat_wings: 70,
     });
     expect(CATALOG.candy.recipe).toEqual({
       station: "kitchen",
@@ -161,7 +174,7 @@ describe("Halloween's stock", () => {
         fund(state, "ada", 200);
         const before = coins(state, "ada");
         ok(state, "ada", { type: "shop_buy", sku });
-        expect(coins(state, "ada")).toBe(before - SHOP_CATALOG[sku].price);
+        expect(coins(state, "ada")).toBe(before - priceOf(state, sku));
       }
       for (const day of [FIRST - 1, LAST + 1, dayOfDate(2027, 6, 1)]) {
         const state = town(day);
@@ -198,6 +211,96 @@ describe("Halloween's stock", () => {
   it("has a ghost sheet that covers the bottom half, like a dress", () => {
     expect(wearProblem(["ghost_sheet", "skirt"])).toContain("A ghost sheet covers the bottom half");
     expect(wearProblem(["ghost_sheet", "witch_hat", "bat_wings", "boots"])).toBeNull();
+  });
+});
+
+describe("lower_holiday_prices (decision 0210)", () => {
+  /** What each of Halloween's costumes and decor cost Ada in a world on Halloween night. */
+  function paid(lowered: boolean): Record<string, number> {
+    const state = town(NIGHT);
+    if (lowered) ok(state, TOWN_ACTOR, { type: "lower_holiday_prices" });
+    fund(state, "ada", 1_000);
+    const out: Record<string, number> = {};
+    for (const sku of HOLIDAY_STOCK.halloween) {
+      const before = coins(state, "ada");
+      ok(state, "ada", { type: "shop_buy", sku });
+      out[sku] = before - coins(state, "ada");
+    }
+    return out;
+  }
+
+  it("charges decision 0107's prices before it and the catalog's after, and candy's never moves", () => {
+    const before = paid(false);
+    const after = paid(true);
+    for (const sku of HOLIDAY_STOCK.halloween) {
+      expect(before[sku], sku).toBe(HOLIDAY_PRICES_BEFORE[sku] ?? SHOP_CATALOG[sku].price);
+      expect(after[sku], sku).toBe(SHOP_CATALOG[sku].price);
+    }
+    expect(before.candy).toBe(2);
+    expect(after.candy).toBe(2);
+    expect(before.witch_hat).toBe(60);
+    expect(after.witch_hat).toBe(30);
+    // A newcomer's welcome gift buys the dearest costume and the dearest decor, with 10 to spare.
+    const dearest = (skus: readonly string[]) => Math.max(...skus.map((s) => after[s] ?? 0));
+    expect(dearest(COSTUMES) + dearest(["bat_bunting", "cauldron", "candy_bowl"]) + 10).toBe(60);
+  });
+
+  it("leaves purchases before it at the price they were made at, and replays to the same world", () => {
+    const state = town(NIGHT);
+    fund(state, "ada", 200);
+    fund(state, "bob", 200);
+    const log: Input[] = [
+      { actor: "ada", command: { type: "shop_buy", sku: "cauldron" } },
+      { actor: TOWN_ACTOR, command: { type: "lower_holiday_prices" } },
+      { actor: "bob", command: { type: "shop_buy", sku: "cauldron" } },
+      { actor: "ada", command: { type: "shop_buy", sku: "pumpkin_head" } },
+    ];
+    const start = structuredClone(state);
+    const adaBefore = coins(state, "ada");
+    const bobBefore = coins(state, "bob");
+    for (const { actor, command } of log) ok(state, actor, command);
+    expect(adaBefore - coins(state, "ada")).toBe(30 + 35);
+    expect(bobBefore - coins(state, "bob")).toBe(15);
+    expect(state.shop?.holidayPricesLowered).toBe(true);
+    for (const input of log) expect(apply(start, input).ok).toBe(true);
+    expect(hashWorld(start)).toBe(hashWorld(state));
+  });
+
+  it("moves the Halloween log's purchases only when it's logged before them", () => {
+    const plain = replay(HALLOWEEN_CONFIG, HALLOWEEN_LOG);
+    // Logged after the log, it changes no coin the log moved.
+    const after = replay(HALLOWEEN_CONFIG, [
+      ...HALLOWEEN_LOG,
+      { actor: TOWN_ACTOR, command: { type: "lower_holiday_prices" } },
+    ]);
+    expect(after.economy?.coins).toEqual(plain.economy?.coins);
+    expect(after.economy?.burned).toBe(plain.economy?.burned);
+    // Logged on Halloween's first morning, before anyone shops, cat ears cost Ada 20, not 40, and
+    // the candy bowl and bunting cost Dee 8 and 6, not 15 and 12. Her candy costs what it did.
+    const at = HALLOWEEN_LOG.findIndex(
+      (i) => i.command.type === "new_day" && i.command.day === 20_385,
+    );
+    const early = replay(HALLOWEEN_CONFIG, [
+      ...HALLOWEEN_LOG.slice(0, at + 1),
+      { actor: TOWN_ACTOR, command: { type: "lower_holiday_prices" } },
+      ...HALLOWEEN_LOG.slice(at + 1),
+    ]);
+    const saved = (id: string) => (early.economy?.coins[id] ?? 0) - (plain.economy?.coins[id] ?? 0);
+    expect(saved("ada")).toBe(40 - 20);
+    expect(saved("dee")).toBe(15 - 8 + (12 - 6));
+    expect(saved("bob")).toBe(0);
+  });
+
+  it("is taken only from the server, once the shop is open, and only once", () => {
+    const closed = createWorld(CONFIG);
+    ok(closed, TOWN_ACTOR, { type: "new_day", day: NIGHT });
+    refused(closed, TOWN_ACTOR, { type: "lower_holiday_prices" }, "shop_closed");
+    const state = town(NIGHT);
+    refused(state, "ada", { type: "lower_holiday_prices" }, "server_only");
+    expect(ok(state, TOWN_ACTOR, { type: "lower_holiday_prices" })).toEqual([
+      { type: "holiday_prices_lowered" },
+    ]);
+    refused(state, TOWN_ACTOR, { type: "lower_holiday_prices" }, "already_open");
   });
 });
 

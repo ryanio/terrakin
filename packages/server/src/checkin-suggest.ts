@@ -25,9 +25,9 @@ import {
   knockedToday,
   ownsWear,
   POND,
+  priceOf,
   RECIPES,
   type Season,
-  SHOP_CATALOG,
   seasonOf,
   TRICK_OR_TREAT,
   trickOrTreatDay,
@@ -60,9 +60,9 @@ interface TryNext {
 
 const itemsOpen = (state: WorldState) => state.items !== undefined;
 
-/** What the check-in says about Halloween's costumes: what they are and what they cost. */
-function costumeLine(): string {
-  const prices = COSTUMES.map((c) => SHOP_CATALOG[c].price);
+/** What the check-in says about Halloween's costumes: what they are and what they cost here. */
+function costumeLine(state: WorldState): string {
+  const prices = COSTUMES.map((c) => priceOf(state, c));
   return `It's Halloween until November 1: the town shop sells costumes (a witch hat, cat ears, a pumpkin head, a ghost sheet, and bat wings, ${Math.min(...prices)} to ${Math.max(...prices)} coins, yours for good). Ask your owner which one they'd like you to wear, then buy it ({"type": "shop_buy", "sku": "witch_hat"}) and put it on with {"type": "profile", "wear": ["witch_hat"]}. On ${trickOrTreatNights()} (UTC), go trick-or-treating.`;
 }
 
@@ -192,7 +192,7 @@ export const TRY_NEXT: readonly TryNext[] = [
       holidayOf(state.day) === "halloween" &&
       !isTownsfolk(state, viewer) &&
       !COSTUMES.some((c) => ownsWear(state, viewer, c)),
-    line: costumeLine(),
+    line: (state) => costumeLine(state),
   },
   {
     id: "plant",

@@ -652,7 +652,8 @@ const WRITTEN = {
   cherry_blossom: find("Cherry blossom", "Cherry blossoms", "meadow_find"),
   // Halloween (RFC 0022): candy to hand out at your door, and spooky, cozy decor, all sold only
   // while Halloween runs. Candy is made at a kitchen any day, five from a pumpkin and a bag of
-  // sugar. Decision 0107 has the numbers.
+  // sugar. Decision 0107 has the numbers, and decision 0210 the decor's prices from
+  // `lower_holiday_prices` on (before it, `HOLIDAY_PRICES_BEFORE` in `shop.ts`).
   candy: entry({
     name: "Candy",
     plural: "Candies",
@@ -667,7 +668,7 @@ const WRITTEN = {
     plural: "Strings of bat bunting",
     family: "decor",
     role: "decor",
-    shop: { price: 12, holiday: "halloween" },
+    shop: { price: 6, holiday: "halloween" },
     look: { template: "drawn" },
   }),
   cauldron: entry({
@@ -675,7 +676,7 @@ const WRITTEN = {
     plural: "Cauldrons",
     family: "decor",
     role: "decor",
-    shop: { price: 30, holiday: "halloween" },
+    shop: { price: 15, holiday: "halloween" },
     look: { template: "drawn" },
   }),
   // Left by the door, it hands out its owner's candy to trick-or-treaters while they're away.
@@ -684,7 +685,7 @@ const WRITTEN = {
     plural: "Candy bowls",
     family: "decor",
     role: "decor",
-    shop: { price: 15, holiday: "halloween" },
+    shop: { price: 8, holiday: "halloween" },
     look: { template: "drawn" },
   }),
   // Winter (RFC 0017): cranberries, which like cold ground, with seeds sold December to February;

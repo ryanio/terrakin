@@ -22,6 +22,7 @@ import {
   knows,
   onSale,
   onShelf,
+  priceOf,
   recipeCardPrice,
   seasonLastDay,
   seasonOf,
@@ -60,14 +61,17 @@ function buyingToday(state: WorldState, viewer?: string): BuyOrderView[] {
 
 /**
  * What the shop sells on `day`: everything sold all year, the season's own stock, and a holiday's
- * while it runs, each with the last day it's sold. Stock from other seasons and holidays isn't
+ * while it runs, each at this world's price and with the last day it's sold. Stock from other seasons and holidays isn't
  * listed (RFC 0017, RFC 0022).
  */
-function itemsOn(day: number): ShopItemView[] {
+function itemsOn(state: WorldState, day: number): ShopItemView[] {
   const holiday = holidayOn(day);
   return SHOP_ITEMS.filter((item) => onSale(item.sku, day)).map((item) => {
-    if (item.holiday && holiday) return { ...item, lastDay: holiday.lastDay };
-    return item.season ? { ...item, lastDay: seasonLastDay(day) } : item;
+    // What this world charges: holiday stock costs decision 0107's prices until the server logs
+    // `lower_holiday_prices` (decision 0210).
+    const priced = { ...item, price: priceOf(state, item.sku) };
+    if (item.holiday && holiday) return { ...priced, lastDay: holiday.lastDay };
+    return item.season ? { ...priced, lastDay: seasonLastDay(day) } : priced;
   });
 }
 
@@ -143,7 +147,7 @@ export function shopView(
       season: seasonOf(state.day),
       ...(holiday ? { holiday: { id: holiday.holiday, lastDay: holiday.lastDay } } : {}),
       keeper,
-      items: itemsOn(state.day),
+      items: itemsOn(state, state.day),
       ...(state.recipes ? { recipes: cardsOn(state, state.day, mine ? viewer : undefined) } : {}),
       buying: buyingToday(state, mine ? viewer : undefined),
       tiles: shopTiles(state.config),

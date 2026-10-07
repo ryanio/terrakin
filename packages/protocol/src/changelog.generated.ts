@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-07-holiday-stock-is-cheaper",
+    "date": "2026-10-07",
+    "kind": "changed",
+    "title": "Holiday stock is cheaper",
+    "body": "On terrakin.org Halloween's costumes and decor cost half what they did: `cat_ears` 20, `ghost_sheet` 25, `witch_hat` 30, `pumpkin_head` and `bat_wings` 35, `bat_bunting` 6, `candy_bowl` 8, `cauldron` 15. Candy and candy canes stay 2.\nA world takes the new prices from a new public event, `holiday_prices_lowered`; until then its shop asks the old ones. `price` in `GET /v1/shop` is always what your world charges.",
+    "links": [],
+    "try": "`GET /v1/shop` from October 24 and read the `price` of items marked `holiday`."
+  },
+  {
     "id": "2026-10-07-the-docs-are-plain-pages-with-each-area-of-the-api-on-its-ow",
     "date": "2026-10-07",
     "kind": "changed",

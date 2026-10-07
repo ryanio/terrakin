@@ -17,7 +17,7 @@ import {
   SWEET_KINDS,
   type SweetKind,
 } from "./catalog";
-import { coinCount as coins, isWhole, refuse } from "./check";
+import { coinCount as coins, isWhole, oneTimeSwitch, refuse } from "./check";
 import { allowanceDue, isTownsfolk, movePurse, moveTreasury } from "./economy";
 import {
   dayName,
@@ -74,17 +74,17 @@ import { moveOff, offBuildings } from "./walk";
 
 /**
  * Wear the shop sells, and its price. Every other price is in the catalog (`catalog.ts`).
- * Halloween's costumes are decision 0107's.
+ * Halloween's costumes are decision 0210's, from `lower_holiday_prices` on (`priceOf`).
  */
 const WEAR_PRICES: Readonly<Record<ShopWear, number>> = {
   top_hat: 80,
   raincoat: 90,
   umbrella: 60,
-  witch_hat: 60,
-  cat_ears: 40,
-  pumpkin_head: 70,
-  ghost_sheet: 50,
-  bat_wings: 70,
+  witch_hat: 30,
+  cat_ears: 20,
+  pumpkin_head: 35,
+  ghost_sheet: 25,
+  bat_wings: 35,
 };
 
 /** The catalog's kinds the shop sells: those with a shop price, in catalog order. */
@@ -136,6 +136,23 @@ const SECTION: Partial<Record<Role, ShopSection>> = {
   seed: "garden",
   staple: "pantry",
   sweet: "pantry",
+};
+
+/**
+ * What Halloween's costumes and decor cost before the server logged `lower_holiday_prices`
+ * (decision 0107's prices). A world that hasn't logged it still charges these, so every purchase
+ * replays at the price it was made at; from the switch on, the shop charges `SHOP_CATALOG`'s
+ * (decision 0210). Frozen: a later price change is a new list behind a new switch.
+ */
+export const HOLIDAY_PRICES_BEFORE: Readonly<Partial<Record<ShopSku, number>>> = {
+  bat_bunting: 12,
+  cauldron: 30,
+  candy_bowl: 15,
+  witch_hat: 60,
+  cat_ears: 40,
+  pumpkin_head: 70,
+  ghost_sheet: 50,
+  bat_wings: 70,
 };
 
 /** Every sku's price and section: wear's from `WEAR_PRICES`, everything else's from the catalog. */
@@ -397,6 +414,17 @@ export function shopFor(
 export const ownsWear = (state: WorldState, id: ResidentId, wear: ShopWear) =>
   state.shop?.wardrobe[id]?.includes(wear) ?? false;
 
+/**
+ * What the shop asks for one `sku` in this world: `SHOP_CATALOG`'s price, or for holiday stock
+ * before `lower_holiday_prices`, the price in `HOLIDAY_PRICES_BEFORE`.
+ */
+export function priceOf(state: WorldState, sku: ShopSku): number {
+  const before = HOLIDAY_PRICES_BEFORE[sku];
+  return before !== undefined && !state.shop?.holidayPricesLowered
+    ? before
+    : SHOP_CATALOG[sku].price;
+}
+
 /** The share the shop opened with, before any `set_shop_share` (decision 0052). */
 export const SHOP_SHARE_BEFORE = 50;
 
@@ -443,6 +471,23 @@ export function checkSetShopShare(
     shop.treasuryShare = percent;
     return [{ type: "shop_share_set", percent }];
   };
+}
+
+/**
+ * `lower_holiday_prices`, which only TOWN_ACTOR sends once the shop is open: Halloween's costumes
+ * and decor cost `SHOP_CATALOG`'s prices from now on, not `HOLIDAY_PRICES_BEFORE` (decision 0210).
+ */
+export function checkLowerHolidayPrices(state: WorldState): ShopChecked {
+  const shop = state.shop;
+  if (!shop) return refuse("shop_closed", "The town shop hasn't opened in this world yet.");
+  return oneTimeSwitch({
+    on: shop.holidayPricesLowered,
+    already: "Holiday stock is already at its lower prices.",
+    turnOn: () => {
+      shop.holidayPricesLowered = true;
+    },
+    event: { type: "holiday_prices_lowered" },
+  });
 }
 
 /** What `new_day` does to the shop, or null before it opens: today's sales start over. */
@@ -504,7 +549,7 @@ export function checkShopBuy(
       return refuse("already_have", `You already have the ${WEAR_INFO[wear].label.toLowerCase()}.`);
     }
   }
-  const total = SHOP_CATALOG[sku].price * count;
+  const total = priceOf(state, sku) * count;
   const have = econ.coins[actor] ?? 0;
   if (have < total) {
     // The allowance pays after a command commits, so a purchase can't count on it: say so.

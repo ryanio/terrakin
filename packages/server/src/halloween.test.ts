@@ -35,16 +35,18 @@ afterEach(async () => {
 // biome-ignore lint/suspicious/noExplicitAny: the response checker already holds every body to its schema.
 type Json = Record<string, any>;
 
-async function start(at = NIGHT) {
+async function start(at = NIGHT, holidayPrices = false) {
   let now = at;
+  const store = new MemoryStore();
   const service = new WorldService({
-    store: new MemoryStore(),
+    store,
     config: CONFIG,
     now: () => now,
     days: true,
     economy: true,
     items: true,
     shop: true,
+    holidayPrices,
   });
   service.tick();
   const sql = nodeSql();
@@ -86,7 +88,7 @@ async function start(at = NIGHT) {
       service.tick();
     }
   };
-  return { call, join, act, settler, toDay, service, social };
+  return { call, join, act, settler, toDay, service, social, store };
 }
 
 describe("Halloween in the shop and the world", () => {
@@ -114,6 +116,50 @@ describe("Halloween in the shop and the world", () => {
     expect(after.holiday).toBeUndefined();
     expect(after.items).toHaveLength(during.items.length - HOLIDAY_STOCK.halloween.length);
     expect((await world()).holiday).toBeUndefined();
+  });
+});
+
+describe("Halloween's prices (decision 0210)", () => {
+  const priced = (shop: Json) =>
+    Object.fromEntries(
+      shop.items.filter((i: Json) => i.holiday).map((i: Json) => [i.sku, i.price] as const),
+    );
+
+  it("are decision 0107's in a world that hasn't logged lower_holiday_prices", async () => {
+    const w = await start();
+    expect(w.store.log.some((i) => i.command.type === "lower_holiday_prices")).toBe(false);
+    const shop = (await w.call("GET", "/v1/shop")).body.shop as Json;
+    expect(priced(shop)).toMatchObject({ witch_hat: 60, cat_ears: 40, cauldron: 30 });
+    const wren = await w.settler("Wren", 2, 0);
+    const line = pickTryNext(w.service.state, wren.id, new Set(), new Set())?.line;
+    expect(line).toContain("40 to 70 coins");
+  });
+
+  it("are the catalog's once holidayPrices logs the switch, once, and the shop charges them", async () => {
+    const w = await start(NIGHT, true);
+    w.toDay(utcDay(NIGHT) + 1);
+    const logged = w.store.log.filter((i) => i.command.type === "lower_holiday_prices");
+    expect(logged).toHaveLength(1);
+    const shop = (await w.call("GET", "/v1/shop")).body.shop as Json;
+    expect(priced(shop)).toEqual({
+      candy: 2,
+      bat_bunting: 6,
+      cauldron: 15,
+      candy_bowl: 8,
+      witch_hat: 30,
+      cat_ears: 20,
+      pumpkin_head: 35,
+      ghost_sheet: 25,
+      bat_wings: 35,
+    });
+    const wren = await w.settler("Wren", 2, 0);
+    const line = pickTryNext(w.service.state, wren.id, new Set(), new Set())?.line;
+    expect(line).toContain("20 to 35 coins");
+    const bought = await w.act(wren.token, { type: "shop_buy", sku: "witch_hat" });
+    expect(bought.ok).toBe(true);
+    const balance = (await w.call("GET", "/v1/shop", undefined, wren.token)).body.you.balance;
+    // The welcome gift and a day's allowance, less the hat.
+    expect(balance).toBe(50 + 10 - 30);
   });
 });
 

@@ -3,7 +3,7 @@
  * world whose economy, items, and town shop have just opened, and prints supply per active
  * resident each day.
  *
- *   node scripts/economy-sim.ts [--seed 1] [--days 30] [--residents 300] [--start 2024-10-04] [--no-shop] [--no-appreciation] [--no-fishing] [--no-recipes] [--picks sell] [--set key=value ...]
+ *   node scripts/economy-sim.ts [--seed 1] [--days 30] [--residents 300] [--start 2024-10-04] [--no-shop] [--no-appreciation] [--no-fishing] [--no-recipes] [--picks sell] [--no-holidays] [--holiday-prices lower] [--set key=value ...]
  *
  *   --seed       PRNG seed, so a run repeats exactly (default 1)
  *   --days       days to play (default 30)
@@ -17,6 +17,11 @@
  *                decision 0123 baseline)
  *   --no-recipes everyone knows every recipe, as before `open_recipes` (RFC 0024), so the month
  *                plays as it did before recipes were learned (the decision 0186 baseline)
+ *   --no-holidays nobody buys a holiday's costumes or decor (RFC 0022), so the month plays as it
+ *                did before holiday shopping (the decision 0210 baseline)
+ *   --holiday-prices  `lower` (the default) logs `lower_holiday_prices` when the shop opens, as
+ *                terrakin.org does; `before` leaves it out, so holiday stock costs decision 0107's
+ *                prices (decision 0210)
  *   --picks      how gardeners use their free picks: `sell` (the default) picks the goods they'd
  *                sell, best paid first; `shelf` picks any three cards off the shelf, as someone
  *                picking what they like might, and leaves the goods to cards and lessons
@@ -31,7 +36,7 @@
  * packages/sim/src/shop.ts, RECIPES_RULES in packages/sim/src/recipes.ts), so the script and the
  * rules can't drift. Karma is scored by the server's own `scoreKarma` with `KARMA` from the
  * protocol, and the townsfolk teach the server's own specialties (`SPECIALTIES`). Change a number
- * there, rerun this, and record why in a decision (decisions 0039, 0052, 0055, and 0186).
+ * there, rerun this, and record why in a decision (decisions 0039, 0052, 0055, 0186, and 0210).
  */
 import { registerHooks } from "node:module";
 import { parseArgs } from "node:util";
@@ -54,6 +59,7 @@ import type {
   Crop,
   DailyAward,
   GoodKind,
+  Holiday,
   RecipeName,
   SellKind,
   ShopSku,
@@ -78,12 +84,16 @@ const {
   FISH_KINDS,
   FISHING,
   FISHING_ROD,
+  HOLIDAY_STOCK,
   holdsRod,
+  holidayOf,
+  holidaySpan,
   ITEMS,
   inventorySize,
   isCommons,
   isDecorKind,
   isGoodKind,
+  isShopWear,
   isReady,
   isWater,
   knows,
@@ -94,6 +104,7 @@ const {
   picksLeft,
   plotOf,
   POND,
+  priceOf,
   RECIPE_PAGE,
   RECIPES,
   RECIPES_RULES,
@@ -105,6 +116,7 @@ const {
   shelfOn,
   TIMES_OF_DAY,
   TOWN_ACTOR,
+  dateOfDay,
   dayOfDate,
   taughtToday,
   teachingToday,
@@ -133,6 +145,8 @@ const { values: args } = parseArgs({
     "no-appreciation": { type: "boolean", default: false },
     "no-fishing": { type: "boolean", default: false },
     "no-recipes": { type: "boolean", default: false },
+    "no-holidays": { type: "boolean", default: false },
+    "holiday-prices": { type: "string", default: "lower" },
     picks: { type: "string", default: "sell" },
     set: { type: "string", multiple: true, default: [] },
   },
@@ -170,6 +184,13 @@ const APPRECIATION = !args["no-appreciation"];
 const FISHING_ON = SHOP_OPEN && !args["no-fishing"];
 /** Recipes are learned once the shop is open (`open_recipes` needs it). */
 const RECIPES_ON = SHOP_OPEN && !args["no-recipes"];
+/** Residents buy a holiday's costumes and decor while it runs (RFC 0022). */
+const HOLIDAYS_ON = SHOP_OPEN && !args["no-holidays"];
+if (args["holiday-prices"] !== "lower" && args["holiday-prices"] !== "before") {
+  throw new Error("--holiday-prices is lower or before");
+}
+/** Whether the world logs `lower_holiday_prices` when the shop opens, as terrakin.org does. */
+const LOWER_HOLIDAY_PRICES = SHOP_OPEN && args["holiday-prices"] === "lower";
 if (args.picks !== "sell" && args.picks !== "shelf") throw new Error("--picks is sell or shelf");
 /** Whether gardeners pick the goods they'd sell (`--picks sell`) or any cards (`--picks shelf`). */
 const PICK_TO_SELL = args.picks === "sell";
@@ -214,6 +235,9 @@ const social = draws(mulberry32(SEED ^ 0xa11ce));
 const angling = draws(mulberry32(SEED ^ 0xf15));
 // Picks, lessons, and who meets a townsfolk: `--no-recipes` draws none of them.
 const lore = draws(mulberry32(SEED ^ 0x7ec1));
+// Who keeps a holiday and what they'd buy for it: `--no-holidays` draws none of them, and nothing
+// is drawn outside a holiday, so a month without one plays as it did before.
+const festive = draws(mulberry32(SEED ^ 0xb00));
 
 // ---------- the rules ----------
 
@@ -278,6 +302,7 @@ function simRules(): Rules {
         if ((SHOP.treasuryShare as number) !== SHOP_SHARE_BEFORE) {
           must(TOWN_ACTOR, { type: "set_shop_share", percent: SHOP.treasuryShare });
         }
+        if (LOWER_HOLIDAY_PRICES) must(TOWN_ACTOR, { type: "lower_holiday_prices" });
       }
       if (RECIPES_ON) {
         // Finds are out on terrakin.org, and recipe pages lie only where a find would. Nobody here
@@ -387,8 +412,22 @@ const holds = (state: WorldState, id: string, kind: StackKind) =>
 const goodsOf = (state: WorldState, id: string, kind: GoodKind) =>
   (state.items?.inventories[id]?.goods ?? []).filter((g) => g.kind === kind).length;
 
-/** Counts for the report, kept per day. `cards` is the part of `spent` that bought recipe cards. */
-const tally = { sold: 0, spent: 0, fish: 0, casts: 0, cards: 0 };
+/**
+ * Counts for the report, kept per day. `cards` is the part of `spent` that bought recipe cards, and
+ * `holiday` the part that bought a holiday's stock.
+ */
+const tally = { sold: 0, spent: 0, fish: 0, casts: 0, cards: 0, holiday: 0, holidayBurned: 0 };
+
+/** Coins each resident has spent at the shop, for what they had to spend in their first week. */
+const spentBy = new Map<string, number>();
+/** What each settled resident had to spend by the end of their seventh day: purse plus shop spending. */
+const firstWeek = new Map<string, number>();
+
+/** Count a purchase the sim took: what it cost, read from the purse, so any price list counts. */
+function spend(id: string, coins: number) {
+  tally.spent += coins;
+  spentBy.set(id, (spentBy.get(id) ?? 0) + coins);
+}
 
 /** The month's day (0 is the first) the world is on now. */
 const today = (state: WorldState) => (state.day ?? DAY0) - DAY0;
@@ -486,8 +525,9 @@ function tendGarden(rules: Rules, id: string, habits: Habits, planters: Map<stri
 
 /** Buy at the shop, counting what was spent. True when the sim took it. */
 function buy(rules: Rules, id: string, sku: ShopSku, count = 1): boolean {
+  const before = coinsOf(rules.state, id);
   const ok = rules.send(id, { type: "shop_buy", sku, count });
-  if (ok) tally.spent += SHOP_CATALOG[sku].price * count;
+  if (ok) spend(id, before - coinsOf(rules.state, id));
   return ok;
 }
 
@@ -515,6 +555,69 @@ function goShopping(rules: Rules, id: string, habits: Habits) {
   if (isDecorKind(next)) {
     const tile = gardenTiles(state, id)[0];
     if (tile) rules.send(id, { type: "place", ...tile, block: next });
+  }
+}
+
+// ---------- holidays (RFC 0022) ----------
+
+/**
+ * Who keeps a holiday: wants a costume and a piece of its decor, and buys them while it runs. A
+ * guess, not a measurement: most regulars, fewer of those who come by less.
+ */
+const KEEPS: Record<Kind, number> = { regular: 0.6, visitor: 0.5, drifter: 0.4, oneday: 0.3 };
+
+/** What each resident wants for a holiday this year, drawn on their first day home in it. */
+const holidayWants = new Map<string, ShopSku[]>();
+/** Residents who kept a holiday, and who bought a costume or decor for it, by holiday and year. */
+const holidayKept = new Map<string, Set<string>>();
+const costumeBought = new Map<string, Set<string>>();
+const decorBought = new Map<string, Set<string>>();
+const addTo = (sets: Map<string, Set<string>>, key: string, id: string) =>
+  sets.set(key, (sets.get(key) ?? new Set()).add(id));
+
+/**
+ * A resident at home while a holiday runs: on their first day home in it, whether they keep it,
+ * and if so one of its costumes and one piece of its decor, each at random; then they buy what they
+ * want once they can afford it with 10 coins to spare, as they do everything else, and place the
+ * decor. A holiday with no costume or decor (Midwinter's candy canes are all it sells) draws nothing.
+ */
+function keepHoliday(rules: Rules, p: Person) {
+  const { state } = rules;
+  const day = state.day ?? 0;
+  const holiday = holidayOf(day);
+  if (!holiday) return;
+  const stock = HOLIDAY_STOCK[holiday];
+  const costumes = stock.filter((sku) => isShopWear(sku));
+  const decor = stock.filter((sku) => isDecorKind(sku));
+  if (costumes.length === 0 && decor.length === 0) return;
+  const key = `${holiday}:${dateOfDay(day).year}`;
+  const mine = `${p.id}:${key}`;
+  let wants = holidayWants.get(mine);
+  if (!wants) {
+    wants = [];
+    if (festive.chance(KEEPS[p.kind])) {
+      addTo(holidayKept, key, p.id);
+      const costume = festive.pick(costumes);
+      const piece = festive.pick(decor);
+      if (costume) wants.push(costume);
+      if (piece) wants.push(piece);
+    }
+    holidayWants.set(mine, wants);
+  }
+  while (wants[0]) {
+    const next = wants[0];
+    const before = coinsOf(state, p.id);
+    const burned = state.economy?.burned ?? 0;
+    if (before < priceOf(state, next) + 10 || !buy(rules, p.id, next)) return;
+    tally.holiday += before - coinsOf(state, p.id);
+    tally.holidayBurned += (state.economy?.burned ?? 0) - burned;
+    wants.shift();
+    if (isShopWear(next)) addTo(costumeBought, key, p.id);
+    else if (isDecorKind(next)) {
+      addTo(decorBought, key, p.id);
+      const tile = gardenTiles(state, p.id)[0];
+      if (tile) rules.send(p.id, { type: "place", ...tile, block: next });
+    }
   }
 }
 
@@ -591,7 +694,7 @@ function learnAtHome(rules: Rules, id: string, habits: Habits, planters: Map<str
       const price = recipeCardPrice(recipe);
       if (coinsOf(state, id) < price + 10) continue;
       if (!rules.send(id, { type: "shop_buy", sku: cardSku(recipe) })) continue;
-      tally.spent += price;
+      spend(id, price);
       tally.cards += price;
       learned.bought++;
       learned.cardCoins += price;
@@ -897,6 +1000,9 @@ interface Row {
   spent: number;
   /** Coins spent on recipe cards (part of `spent`). */
   cards: number;
+  /** Coins spent on a holiday's costumes and decor (part of `spent`), and the part burned. */
+  holiday: number;
+  holidayBurned: number;
   burned: number;
   day: number;
   arrived: number;
@@ -944,6 +1050,8 @@ function play(rules: Rules) {
     if (RECIPES_ON) learnAtHome(rules, p.id, p.habits, planters);
     if (p.habits.gardens) tendGarden(rules, p.id, p.habits, planters);
     if (p.habits.casts > 0) goFishing(rules, p.id, p.habits);
+    // A holiday's things sell only while it runs, so they come before the rest of the wish list.
+    if (HOLIDAYS_ON) keepHoliday(rules, p);
     goShopping(rules, p.id, p.habits);
   };
   rules.open();
@@ -958,6 +1066,8 @@ function play(rules: Rules) {
     tally.fish = 0;
     tally.casts = 0;
     tally.cards = 0;
+    tally.holiday = 0;
+    tally.holidayBurned = 0;
     // The economy opens partway through day 0, so day 0 has no new_day of its own.
     if (day > 0) rules.newDay(day);
     // Yesterday's appreciation, paid early today.
@@ -1058,6 +1168,8 @@ function play(rules: Rules) {
       casts: tally.casts,
       spent: tally.spent,
       cards: tally.cards,
+      holiday: tally.holiday,
+      holidayBurned: tally.holidayBurned,
       burned: rules.burned() - burnedBefore,
       day,
       arrived: arrived.length,
@@ -1077,6 +1189,13 @@ function play(rules: Rules) {
       throw new Error(
         `Day ${day}: purses + treasury = ${inPurses + rules.treasury()}, supply ${supply}`,
       );
+    }
+    // What each newcomer had to spend by the end of their seventh day: their purse and what they
+    // spent at the shop.
+    for (const p of people) {
+      if (p.arrives + 6 === day && settled.has(p.id)) {
+        firstWeek.set(p.id, rules.balance(p.id) + (spentBy.get(p.id) ?? 0));
+      }
     }
   }
   return { rows, people, shortWelcomes, facts, paired };
@@ -1113,6 +1232,46 @@ function newcomerLines(people: Person[], rows: Row[]) {
   console.log(
     `Last 7 days: cards ${Math.round(cards / 7)} coins a day, ${(cards / Math.max(1, active)).toFixed(1)} a week per active resident. Gardeners who know every year-round good they sell (${YEAR_ROUND.join(", ")}): ${days(knewThem)}.`,
   );
+}
+
+/**
+ * What newcomers had to spend in their first week, by kind, and how each holiday in the month went:
+ * who kept it, who bought a costume and decor for it (newcomers too: residents who arrived in the
+ * week before it or during it), and what its stock took in and burned.
+ */
+function holidayLines(people: Person[], rows: Row[]) {
+  console.log(
+    "Newcomers' first 7 days (settled, arrived with 7 days left), purse plus shop spending:",
+  );
+  for (const kind of Object.keys(KINDS) as Kind[]) {
+    const list = people
+      .filter((p) => p.kind === kind && firstWeek.has(p.id))
+      .map((p) => firstWeek.get(p.id) ?? 0)
+      .sort((a, b) => a - b);
+    if (list.length === 0) continue;
+    console.log(
+      `  ${kind.padEnd(8)} n=${pad(list.length, 3)}  p25 ${pad(percentile(list, 0.25), 4)}  median ${pad(percentile(list, 0.5), 4)}  p90 ${pad(percentile(list, 0.9), 4)}`,
+    );
+  }
+  if (!HOLIDAYS_ON) return;
+  const spent = rows.reduce((s, r) => s + r.holiday, 0);
+  const burned = rows.reduce((s, r) => s + r.holidayBurned, 0);
+  const arrives = new Map(people.map((p) => [p.id, p.arrives]));
+  for (const [key, kept] of holidayKept) {
+    const [holiday = "", year = "0"] = key.split(":");
+    const { first, last } = holidaySpan(holiday as Holiday, Number(year));
+    const days = rows.filter((r) => r.day >= first - DAY0 && r.day <= last - DAY0);
+    const active = days.reduce((s, r) => s + r.active, 0) / Math.max(1, days.length);
+    const newcomers = [...kept].filter((id) => (arrives.get(id) ?? -99) >= first - DAY0 - 7);
+    const costumes = costumeBought.get(key) ?? new Set();
+    const decor = decorBought.get(key) ?? new Set();
+    const share = (n: number, of: number) =>
+      `${n} of ${of} (${Math.round((100 * n) / Math.max(1, of))}%)`;
+    console.log(
+      `${holiday} ${year} (days ${first - DAY0} to ${last - DAY0}, ${Math.round(active)} active a day): ${kept.size} kept it; a costume ${share(costumes.size, kept.size)}, decor ${share(decor.size, kept.size)}. Newcomers (arrived from 7 days before it): a costume ${share(newcomers.filter((id) => costumes.has(id)).length, newcomers.length)}, decor ${share(newcomers.filter((id) => decor.has(id)).length, newcomers.length)}.`,
+    );
+  }
+  console.log(`Holiday stock in the month: ${spent} coins spent, ${burned} burned.`);
 }
 
 const pad = (v: string | number, n: number) => String(v).padStart(n);
@@ -1199,6 +1358,7 @@ function report(rules: Rules) {
       }
     }
     if (SHOP_OPEN) newcomerLines(people, rows);
+    if (SHOP_OPEN) holidayLines(people, rows);
     if (APPRECIATION) {
       console.log(
         `Last 7 days: appreciation minted ${avg((r) => r.appreciation)} a day, ${(

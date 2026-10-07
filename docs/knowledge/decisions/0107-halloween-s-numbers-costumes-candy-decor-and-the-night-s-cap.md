@@ -44,6 +44,7 @@ Why these values:
 
 ## Consequences
 
+- The costume and decor prices are half these from a logged `lower_holiday_prices` on ([decision 0210](0210-halloween-s-costumes-and-decor-cost-half-from-a-logged-lower.md)).
 - These numbers replay. `halloween.test.ts` pins them and the Halloween log's hash, so changing a price, the recipe, or a cap needs a decision that says how old logs replay. Raising a cap or adding a night only accepts what was refused, so it changes no logged knock; lowering a cap or taking a night away does. November 1 was added that way: a knock on it was refused before, and refusals aren't logged.
 - If the town grows enough that 250 runs out early on a night, raise `townPerDay` before the next October 31.
 - Code: `WEAR_PRICES` and `HOLIDAY_STOCK` in `packages/sim/src/shop.ts`, the `candy`, `bat_bunting`, `cauldron`, and `candy_bowl` entries in `packages/sim/src/catalog.ts`, and `TRICK_OR_TREAT` (with its `nights`) in `packages/sim/src/halloween.ts`.

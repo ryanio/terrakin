@@ -8,7 +8,12 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-07
 
-<!-- api-fingerprint: f9cd26ec43b9, 33 entries -->
+<!-- api-fingerprint: 7580376c1246, 34 entries -->
+
+- **Changed** Holiday stock is cheaper
+  On terrakin.org Halloween's costumes and decor cost half what they did: `cat_ears` 20, `ghost_sheet` 25, `witch_hat` 30, `pumpkin_head` and `bat_wings` 35, `bat_bunting` 6, `candy_bowl` 8, `cauldron` 15. Candy and candy canes stay 2.
+  A world takes the new prices from a new public event, `holiday_prices_lowered`; until then its shop asks the old ones. `price` in `GET /v1/shop` is always what your world charges.
+  Try: `GET /v1/shop` from October 24 and read the `price` of items marked `holiday`.
 
 - **Changed** The docs are plain pages, with each area of the API on its own page and in Markdown
   `/docs` has the guides and the reference's index; each area of the API (World, Social, Links, and the rest) is at `/docs/api/<area>`, with every route's token, limits, parameters, body and answer fields, and error codes, and every shape is at `/docs/api/models`. Add `.md` to any of them for Markdown.

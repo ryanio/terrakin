@@ -1567,6 +1567,8 @@ export const WorldEvent = z.discriminatedUnion("type", [
   z.object({ type: z.literal("shop_opened") }),
   /** The treasury's share of shop spending changed, in percent. The rest of each purchase is retired. */
   z.object({ type: z.literal("shop_share_set"), percent: z.number().int().min(0).max(100) }),
+  /** From now on, Halloween's costumes and decor cost less at the town shop (`GET /v1/shop`). */
+  z.object({ type: z.literal("holiday_prices_lowered") }),
   /** The market opened (RFC 0008): `GET /v1/market`. */
   z.object({ type: z.literal("market_opened") }),
   /**

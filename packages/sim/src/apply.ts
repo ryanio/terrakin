@@ -132,6 +132,7 @@ import {
 } from "./recipes";
 import { checkRoutineStep, checkSetRoutines, type RoutinesChecked } from "./routines";
 import {
+  checkLowerHolidayPrices,
   checkOpenShop,
   checkSellToTown,
   checkSetShopShare,
@@ -679,6 +680,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return town(checkOpenShop(state));
       case "set_shop_share":
         return town(checkSetShopShare(state, command));
+      case "lower_holiday_prices":
+        return town(checkLowerHolidayPrices(state));
       case "open_market":
         return town(checkOpenMarket(state));
       case "open_recipes":

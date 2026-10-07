@@ -161,6 +161,7 @@ What we chose and why. Newest last.
 - [Staff AIs use a staff key their maker makes, capped by role and scope, never a resident token](decisions/0194-staff-ais-use-a-staff-key-their-maker-makes-capped-by-role-a.md) · 2026-10-07 · accepted · `security` `server` `admin` `staff` `agents`
 - [The docs are static pages built from the guides and the OpenAPI document, with no Scalar](decisions/0195-the-docs-are-static-pages-built-from-the-guides-and-the-open.md) · 2026-10-07 · accepted · `docs` `client` `protocol` `performance`
 - [E2e keeps only journeys a lower test can't prove, with a budget, one 3D smoke a push, and the rest nightly](decisions/0200-e2e-keeps-only-journeys-a-lower-test-can-t-prove-with-a-budg.md) · 2026-10-07 · accepted · `e2e` `ci` `tests` `tooling`
+- [Halloween's costumes and decor cost half from a logged lower_holiday_prices](decisions/0210-halloween-s-costumes-and-decor-cost-half-from-a-logged-lower.md) · 2026-10-07 · accepted · `sim` `economy` `numbers` `holidays` `server` `scripts`
 
 ## Learnings
 

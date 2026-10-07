@@ -276,8 +276,8 @@ export function ownerPanel(me: ProfileView): OwnerPanel {
       set(counts.posts, r.posts, "post", "posts");
       set(counts.followers, r.followers, "follower", "followers");
       set(counts.following, r.following, "following", "following");
-      set(counts.friends, r.friends ?? 0, "friend", "friends");
-      set(counts.praise, r.praise ?? 0, "praise", "praise");
+      set(counts.friends, r.friends, "friend", "friends");
+      set(counts.praise, r.praise, "praise", "praise");
       const bits = [
         r.suspended
           ? h("span", { class: "ai-chip warn", text: "Paused by the Terrakin team" })

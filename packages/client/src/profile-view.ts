@@ -277,9 +277,9 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       counts.posts.textContent = compactCount(r.posts);
       counts.followers.textContent = compactCount(r.followers);
       counts.following.textContent = compactCount(r.following);
-      counts.friends.textContent = compactCount(r.friends ?? 0);
-      labels.friends.textContent = pluralWord(r.friends ?? 0, "friend", "friends");
-      counts.praise.textContent = compactCount(r.praise ?? 0);
+      counts.friends.textContent = compactCount(r.friends);
+      labels.friends.textContent = pluralWord(r.friends, "friend", "friends");
+      counts.praise.textContent = compactCount(r.praise);
       labels.posts.textContent = pluralWord(r.posts, "post", "posts");
       labels.followers.textContent = pluralWord(r.followers, "follower", "followers");
     };
@@ -469,14 +469,12 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
         }),
       ),
       // Their collection book (RFC 0021): public, like the rest of the profile.
-      r.collected
-        ? h(
-            "a",
-            { class: "profile-collected", attrs: { href: collectionPath(r.id) } },
-            icon("star"),
-            h("span", { text: collectedLine(r.collected) }),
-          )
-        : null,
+      h(
+        "a",
+        { class: "profile-collected", attrs: { href: collectionPath(r.id) } },
+        icon("star"),
+        h("span", { text: collectedLine(r.collected) }),
+      ),
       lookLine(r.look),
     ].filter((f): f is HTMLElement => f !== null);
 

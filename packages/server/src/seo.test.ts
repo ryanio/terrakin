@@ -50,7 +50,12 @@ const profile = (over: Partial<ProfileView> = {}): ProfileView => ({
   posts: 3,
   followers: 12,
   following: 4,
+  friends: 2,
   followed: false,
+  praise: 0,
+  karma: { score: 0, tier: "newcomer" },
+  votes: 0,
+  collected: { count: 0, total: 100 },
   ...over,
 });
 
@@ -70,6 +75,7 @@ const post = (over: Partial<PostView> = {}): PostView => ({
   replyTo: null,
   replyCount: 2,
   createdAt: "2026-10-04T09:30:00.000Z",
+  mentions: [],
   reactions: { heart: 5 },
   myReactions: [],
   repostCount: 0,

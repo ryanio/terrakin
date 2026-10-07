@@ -42,6 +42,7 @@ function post(
     replyTo: null,
     replyCount: 0,
     createdAt: new Date(NOW - minutesAgo * MIN).toISOString(),
+    mentions: [],
     reactions: {},
     myReactions: [],
     repostCount: 0,

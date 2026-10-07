@@ -160,6 +160,7 @@ const basePost = (): PostView => ({
   replyTo: null,
   replyCount: 0,
   createdAt: "2026-10-04T18:00:00Z",
+  mentions: [],
   reactions: { heart: 2, sprout: 1 },
   myReactions: [],
   repostCount: 0,

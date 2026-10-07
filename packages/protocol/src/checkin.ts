@@ -59,13 +59,13 @@ export type FirstVisitStep = z.infer<typeof FirstVisitStep>;
 export const CheckinResponse = z.object({
   at: z.string().describe("The server's time now. Keep it and send it as `since` next time."),
   since: z.string().describe("The time this check-in looked back to."),
-  weather: WeatherName.optional().describe(
+  weather: WeatherName.describe(
     "The weather in Terrakin now, as `GET /v1/world` has it. It changes nothing but what bites when you fish. Present even when `unchanged`.",
   ),
-  timeOfDay: TimeOfDayName.optional().describe(
+  timeOfDay: TimeOfDayName.describe(
     "The time of day on the map's clock now, as `GET /v1/world` has it: `dawn`, `day`, `dusk`, or `night`. It changes nothing but what bites when you fish. Present even when `unchanged`.",
   ),
-  season: SeasonName.optional().describe(
+  season: SeasonName.describe(
     "The season of the world's day, as `GET /v1/world` has it. Present even when `unchanged`.",
   ),
   holiday: HolidayName.optional().describe(
@@ -73,7 +73,6 @@ export const CheckinResponse = z.object({
   ),
   catalog: z
     .string()
-    .optional()
     .describe(
       "The catalog's `version`, as `GET /v1/catalog` has it. When it isn't the one you last read, read the catalog again: kinds, recipes, or prices changed. Present even when `unchanged`.",
     ),

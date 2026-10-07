@@ -1252,7 +1252,7 @@ export class SocialService {
         : {}),
       karma: this.karma.of(r.id),
       ...(viewerId && this.blocks(viewerId, r.id) ? { blocked: true } : {}),
-      ...(this.votesCast ? { votes: this.votesCast(r.id) } : {}),
+      votes: this.votesCast?.(r.id) ?? 0,
       ...this.hostingField(r.id),
       ...this.gamesField(r.id),
       ...this.ownerFields(r.id),
@@ -2584,7 +2584,7 @@ export class SocialService {
         text: String(row.text),
         media: media.get(id) ?? [],
         replyTo: row.reply_to ? String(row.reply_to) : null,
-        ...(named?.length ? { mentions: named } : {}),
+        mentions: named ?? [],
         createdAt: new Date(Number(row.created_at)).toISOString(),
         ...this.warning(String(row.text)),
       });

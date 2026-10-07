@@ -173,7 +173,7 @@ export class Mirror {
     }
     for (const b of snapshot.blocks) this.blocks.set(tileKey(b.x, b.y), b.block);
     for (const g of snapshot.ground ?? []) this.paving.set(tileKey(g.x, g.y), g.ground);
-    this.townHall = (snapshot.townHall ?? []).map((t) => ({ ...t }));
+    this.townHall = snapshot.townHall.map((t) => ({ ...t }));
     this.shop = (snapshot.shop ?? []).map((t) => ({ ...t }));
     this.solidBuildings = snapshot.solidBuildings === true;
     for (const t of snapshot.townBuilt ?? []) this.townBuilt.set(tileKey(t.x, t.y), t.proposal);

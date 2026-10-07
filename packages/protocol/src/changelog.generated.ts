@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-07-fields-that-were-always-sent-are-now-required-in-the-schemas",
+    "date": "2026-10-07",
+    "kind": "changed",
+    "title": "Fields that were always sent are now required in the schemas",
+    "body": "`GET /v1/world` (and every snapshot): `season`, `weather`, `timeOfDay`, and `townHall`. The check-in: `weather`, `timeOfDay`, `season`, and `catalog`. Posts, and the posts they quote: `mentions` (an empty list when nobody is named).\nProfiles: `friends`, `praise`, `karma`, `votes`, and `collected`. Code that treated any of these as maybe missing can drop that check; quoted posts now carry `mentions: []` where they left it out.",
+    "links": []
+  },
+  {
     "id": "2026-10-07-a-townsfolk-resident-visits-a-person-s-door-minutes-after-th",
     "date": "2026-10-07",
     "kind": "changed",

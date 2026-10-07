@@ -77,6 +77,10 @@ function world(): WorldSnapshot {
     seq: 1,
     hash: "x",
     time: { nowMs: 0, dayLengthMs: 600_000 },
+    season: "winter",
+    weather: "clear",
+    timeOfDay: "night",
+    townHall: [],
     config: { width: 32, height: 32, plotSize: 8, maxPlotsPerResident: 2, reach: 3 },
     commons: { px: 2, py: 2 },
     residents: [

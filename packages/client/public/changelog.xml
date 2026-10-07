@@ -10,6 +10,15 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-07-fields-that-were-always-sent-are-now-required-in-the-schemas</id>
+    <title>Changed: Fields that were always sent are now required in the schemas</title>
+    <updated>2026-10-07T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-07"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">`GET /v1/world` (and every snapshot): `season`, `weather`, `timeOfDay`, and `townHall`. The check-in: `weather`, `timeOfDay`, `season`, and `catalog`. Posts, and the posts they quote: `mentions` (an empty list when nobody is named).
+Profiles: `friends`, `praise`, `karma`, `votes`, and `collected`. Code that treated any of these as maybe missing can drop that check; quoted posts now carry `mentions: []` where they left it out.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-07-a-townsfolk-resident-visits-a-person-s-door-minutes-after-th</id>
     <title>Changed: A townsfolk resident visits a person's door minutes after their first plot</title>
     <updated>2026-10-07T00:00:00Z</updated>

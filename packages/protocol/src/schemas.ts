@@ -1132,13 +1132,13 @@ export const WorldSnapshot = z.object({
   seq: z.number().int(),
   hash: z.string(),
   time: WorldTime,
-  season: SeasonName.optional().describe(
+  season: SeasonName.describe(
     "The season of the world's day, by the UTC calendar: spring is March to May, summer June to August, autumn September to November, winter December to February.",
   ),
-  weather: WeatherName.optional().describe(
+  weather: WeatherName.describe(
     "The weather now, worked out from the server's clock: it comes in spells of a few hours, and snow falls only in winter. It changes nothing but what bites when you fish.",
   ),
-  timeOfDay: TimeOfDayName.optional().describe(
+  timeOfDay: TimeOfDayName.describe(
     "The time of day on the map's clock now: `dawn`, `day`, `dusk`, or `night`, a quarter of `time.dayLengthMs` each. It changes nothing but what bites when you fish.",
   ),
   holiday: HolidayName.optional().describe(
@@ -1190,7 +1190,7 @@ export const WorldSnapshot = z.object({
   /** Today in UTC days since 1970-01-01, as the world counts it. Absent before the first day. */
   day: z.number().int().optional(),
   /** The tiles the Town Hall stands on, in the Commons. Nothing is built there; tap it for /town. */
-  townHall: z.array(z.object({ x: z.number().int(), y: z.number().int() })).optional(),
+  townHall: z.array(z.object({ x: z.number().int(), y: z.number().int() })),
   /** The tiles the town shop stands on, in the Commons, once it's open. Tap it for /shop. */
   shop: z.array(z.object({ x: z.number().int(), y: z.number().int() })).optional(),
   /**

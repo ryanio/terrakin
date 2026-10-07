@@ -2,8 +2,8 @@ name: Nightly
 
 # The e2e checks that don't run on every push (decision 0200): the deeper 3D specs, one at a time
 # with one worker, and the whole 2D suite, which catches a sim-only push that broke something a
-# spec sees (CI skips e2e on those). Deploys nothing. A red night gets a line in e2e/AGENTS.md's
-# red-run ledger like any other.
+# spec sees (CI skips e2e on those). Deploys nothing. A red night gets a line in e2e/red-runs.md,
+# like any other red run.
 on:
   schedule:
     - cron: "17 9 * * *"

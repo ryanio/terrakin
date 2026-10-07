@@ -41,9 +41,15 @@ const rows = new Map(
     }),
 );
 
-/** How many tests a spec declares: each `test(` call, inside a describe or not. */
-const testsIn = (spec: string) =>
-  readFileSync(join(E2E, `${spec}.spec.ts`), "utf8").match(/^\s*test\(\s*["'`]/gm)?.length ?? 0;
+/**
+ * How many tests a source declares: each `test("title", ...)` inside a describe or not, including
+ * `test.only`, `test.fixme`, `test.skip`, and `test.fail` with a title, which Playwright lists too.
+ * A bare `test.skip()` inside a test skips that test and declares none.
+ */
+const countTests = (source: string) =>
+  source.match(/^\s*test(?:\.(?:only|fixme|skip|fail))?\(\s*["'`]/gm)?.length ?? 0;
+
+const testsIn = (spec: string) => countTests(readFileSync(join(E2E, `${spec}.spec.ts`), "utf8"));
 
 describe("the e2e suite", () => {
   it("finds the specs", () => {
@@ -85,5 +91,18 @@ describe("the e2e suite", () => {
   it("counts tests the way Playwright lists them", () => {
     expect(testsIn("shop")).toBe(2);
     expect(testsIn("smoke-3d")).toBe(2);
+    const source = [
+      'test("one", async () => {',
+      "  test.skip();",
+      "});",
+      'test.only("two", async () => {});',
+      "test.fixme('three', async () => {});",
+      'test.describe("a group", () => {',
+      '  test.skip("four", async () => {});',
+      "  test.fail(`five`, async () => {});",
+      '  test.step("not a test", async () => {});',
+      "});",
+    ].join("\n");
+    expect(countTests(source)).toBe(5);
   });
 });

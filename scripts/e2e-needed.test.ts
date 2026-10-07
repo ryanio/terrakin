@@ -7,7 +7,7 @@ describe("needsE2e", () => {
     expect(needsE2e(["scripts/kb.ts", "docs/knowledge/INDEX.md", "docs/rfcs/0024-x.md"])).toBe(
       false,
     );
-    expect(needsE2e(["AGENTS.md", "e2e/AGENTS.md", "packages/client/AGENTS.md"])).toBe(false);
+    expect(needsE2e(["AGENTS.md", "e2e/AGENTS.md", "packages/server/AGENTS.md"])).toBe(false);
     expect(needsE2e([])).toBe(false);
   });
 
@@ -37,9 +37,16 @@ describe("needsE2e", () => {
       expect(needsE2e([path]), path).toBe(true);
   });
 
-  it("runs for the site pages and devlog posts the client is built from, though they're docs", () => {
-    expect(needsE2e(["docs/site/about.md"])).toBe(true);
-    expect(needsE2e(["docs/devlog/2026-10-07-recipes.md"])).toBe(true);
+  it("runs for the Markdown the client is built from or the server serves", () => {
+    for (const path of [
+      "docs/site/about.md",
+      "docs/devlog/2026-10-07-recipes.md",
+      "docs/guides/people.md",
+      "packages/protocol/SKILL.md",
+      "packages/client/src/docs/guides.generated.md",
+      "packages/client/public/docs.md",
+    ])
+      expect(needsE2e([path]), path).toBe(true);
   });
 
   it("runs when one file of many needs it", () => {

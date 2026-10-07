@@ -1,9 +1,9 @@
 /**
  * Whether CI runs the e2e jobs for this run (decision 0200). They run unless every file changed
- * since the last green run is one e2e can't see: the sim, scripts, docs, and Markdown. Anything
- * the browser loads or the e2e servers run (the client, ui, server, protocol, cards, the site pages
- * in docs/site and the devlog posts in docs/devlog), the specs and their config, the dependencies,
- * and the workflows always run them, and so does anything not named here.
+ * since the last green run is in the sim, scripts, docs, or Markdown, and none of it is Markdown
+ * the client or server uses (`SEEN`). Anything else the browser loads or the e2e servers run (the
+ * client, ui, server, protocol, cards, admin), the specs and their config, the dependencies, and
+ * the workflows always run them, and so does anything not named here.
  *
  * On a push, the files compared are everything since the newest green CI run on main whose commit
  * this one contains, so a run cancelled by a newer push (or a `[skip ci]` commit) never lets its
@@ -15,10 +15,27 @@
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-/** Paths e2e can see even though they sit under a folder it otherwise can't. */
-const SEEN = [/^docs\/site\//, /^docs\/devlog\//];
+/**
+ * Paths e2e always runs for, though a rule below would skip them: Markdown the client is built
+ * from or the server serves. The site pages (`docs/site/`), the devlog posts (`docs/devlog/`), the
+ * people's guide (`docs/guides/`), `SKILL.md` (served at /skill.md, and in the docs page's guides),
+ * and anything in the client's source or public files, Markdown included.
+ */
+const SEEN = [
+  /^docs\/site\//,
+  /^docs\/devlog\//,
+  /^docs\/guides\//,
+  /^packages\/protocol\/SKILL\.md$/,
+  /^packages\/client\/(src|public)\//,
+];
 
-/** Paths e2e can't see: no spec loads them, and no server or page is built from them. */
+/**
+ * Paths a change to which skips e2e. Scripts, the other docs, and the other Markdown (folder
+ * `AGENTS.md` files, RFCs, the knowledge base) never reach a page or a server. The sim does: the
+ * server runs it and the client imports it. Skipping a sim-only push is a trade-off (decision
+ * 0200): its unit tests own the rules, and the nightly run of the whole 2D suite catches a sim
+ * change that breaks a spec, at worst a day later.
+ */
 const UNSEEN = [/^packages\/sim\//, /^scripts\//, /^docs\//, /\.md$/];
 
 /** Whether a change to these paths needs e2e. An empty list (nothing changed) doesn't. */

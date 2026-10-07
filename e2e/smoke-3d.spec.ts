@@ -21,6 +21,7 @@ test("a view=3d link opens the world in 3D, and a tap on the ground walks", asyn
     await expect(scene.locator("canvas")).toHaveCount(1, { timeout: 20_000 });
     await expect(page.locator("canvas#world")).toBeHidden();
     await expect(page.locator("#look-card-title")).toHaveText(`${fennel.name}'s plot`);
+    await expect(page.getByRole("button", { name: "Step inside to go there" })).toBeVisible();
     await expect(scene).toHaveAttribute("aria-label", new RegExp(fennel.name));
   });
 

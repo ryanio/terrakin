@@ -2,6 +2,30 @@
 
 Playwright tests that drive the real production build on an iPhone 13 viewport. They are the contract for the client: if you change element ids, controls, or a flow they cover, update the spec in the same commit and run `pnpm e2e`.
 
+## Before you add a test
+
+E2e is the slowest and flakiest layer, so it holds only journeys a person takes end to end that no lower test can prove: layout on a phone, a real browser, a flow across pages, the client and server together ([decision 0200](../docs/knowledge/decisions/0200-e2e-keeps-only-journeys-a-lower-test-can-t-prove-with-a-budg.md)). Before you add a spec or grow one, answer three questions in the commit message:
+
+1. What journey does it prove?
+2. Why can't a `sim`, `protocol`, `server`, or `client` unit test catch the same failure? A rule, a refusal, a price, a count, copy, a format, or which rows a list shows belongs there; pull the logic into a pure function if you have to.
+3. Which existing spec could take it as a `test.step` instead? A new feature extends a journey spec before it adds a file.
+
+The suite every push runs has a budget, measured on 2026-10-07:
+
+| Measure | Budget | Now |
+|---------|--------|-----|
+| Spec files every push runs | 32 | 31 |
+| Tests every push runs | 58 | 54 |
+| `pnpm e2e` on a laptop, build included | 80 s | 63 to 66 s |
+| One CI shard alone on a laptop (`TERRAKIN_E2E_ONLY=2d TERRAKIN_E2E_SHARD=1 pnpm e2e`) | 60 s | 25 to 42 s |
+| One test, on a laptop | 20 s | 16 s (smoke) |
+
+Going over means moving checks down a layer or cutting a test before adding one, never raising the number. `scripts/e2e-budget.test.ts` (in `pnpm verify`) enforces the counts, a row below for every spec saying where it runs, and no new fixed waits; the times are yours to check when you run `pnpm e2e`.
+
+- Every push runs one 3D smoke (`smoke-3d.spec.ts`). Other 3D checks run nightly (`three-d.spec.ts`, `world-3d.spec.ts`); add to those, not to the smoke.
+- Wait for what the page shows (`expect`, `expect.poll`, `toPass`), never a fixed time. `waitForTimeout` fails the budget test outside the one place it's allowed.
+- Every red e2e run on `main` or the nightly gets a line in [red-runs.md](red-runs.md) with its cause: a real bug, a flake, or a test out of date. A flake gets fixed in the test (or the check moved down) in the same push that records it.
+
 ## Rules
 
 - **E2e owns flows only it can see.** A test here walks a person through the real UI against the real server: a flow that crosses client and server, the live socket, sign-in and keys, uploads, the staff app, and the 3D views loading. An API rule, a refusal, a count, copy, or an edge case belongs in the `server`, `sim`, `protocol`, or `client` tests, which are faster and say what broke; check there before adding it here. Grow an existing test with a `test.step` rather than adding a test that repeats its setup (join, sign in, settle, move the clock), and keep about one test per flow.
@@ -15,7 +39,6 @@ Playwright tests that drive the real production build on an iPhone 13 viewport. 
 - **A test has 30 seconds on a laptop and 60 on CI** ([decision 0109](../docs/knowledge/decisions/0109-ci-gives-each-e2e-test-60-seconds-and-a-laptop-still-30.md)). One that needs more than 30 locally is too slow: split it into serial tests that share what the first one sets up, as `three-d.spec.ts`, `shop.spec.ts`, and `town.spec.ts` do, rather than raising its timeout.
 - **Where each spec runs is `suite.ts`.** CI runs the 2D specs in three shards (`TERRAKIN_E2E_ONLY=2d` with `TERRAKIN_E2E_SHARD=1` to `3`), balanced by how long each takes alone rather than Playwright's `--shard`, which splits by test count in file order. Specs on the main server slow each other down, so each shard mixes them with clock specs; a new spec goes in the fastest shard. The 3D smoke runs in a job of its own with one worker (`TERRAKIN_E2E_ONLY=3d`): software WebGL draws every frame on the CPU, and next to other specs a small CI runner queues its taps past the timeout. Locally, `pnpm e2e` runs what a push runs, the 3D smoke last. `TERRAKIN_E2E_ONLY=nightly` runs the nightly 3D specs (`.github/workflows/nightly.yml` runs them each night with one worker, beside the whole 2D suite), and `all` runs everything.
 - **CI skips e2e when it can't see the change.** When every file changed since the last green run on `main` is in `packages/sim/`, `scripts/`, `docs/` (but not `docs/site/` or `docs/devlog/`, which the client is built from), or a `.md` file, the e2e jobs are skipped and the deploy goes ahead without them (`scripts/e2e-needed.ts`). The nightly 2D run catches a sim change that broke a spec.
-- **Every red run gets a line.** Each red e2e run on `main` or the nightly is recorded in [red-runs.md](red-runs.md) with its cause: a real bug, a flake, or a test out of date.
 - **Fail on what users would hit.** Page errors and Content-Security-Policy refusals fail a test; `docs.spec.ts` also fails on any request to another host.
 - **No outside network.** Seed data over the local REST API; `connect-x.spec.ts` runs its own fake X, and `partners.spec.ts` its own fake network.
 

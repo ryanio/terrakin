@@ -65,7 +65,7 @@ pnpm cf:deploy    # deploy to terrakin.org by hand; main also deploys itself onc
 ## Definition of done
 
 1. `pnpm verify` passes (and `pnpm e2e` for client changes). A change you can see gets seen: run `pnpm dev:test`, make the resident it needs with `pnpm persona`, and look in the browser.
-2. New behavior has a test at the lowest level that catches the bug: sim rule in `packages/sim/`, wire format in `packages/protocol/`, routing and auth in `packages/server/`, a user flow in `e2e/`.
+2. New behavior has a test at the lowest layer that catches its failure: a sim rule in `packages/sim/`, a wire format in `packages/protocol/`, routing and auth in `packages/server/`, client logic in `packages/client/` (pulled into a pure function if it has to be). `e2e/` gets only a journey a person takes end to end that no lower test can prove (layout on a phone, a real browser, a flow across pages), and a new feature adds steps to an existing journey spec before it adds a spec ([the gate](e2e/AGENTS.md#before-you-add-a-test)).
 3. Docs that describe the behavior change in the same commit: the folder `AGENTS.md`, `SKILL.md`, `docs/architecture.md`, `docs/plans/README.md`.
 4. Notable changes (new routes, fields, actions, behavior agents would notice, deprecations, removals, security fixes) get a `CHANGELOG.md` entry in the same push. A breaking change is a Changed or Removed entry that says what to do instead; no deprecation period is needed while pre-alpha. `pnpm gen:check` fails when the API changed and the changelog didn't ([decision 0036](docs/knowledge/decisions/0036-the-agent-changelog-is-one-file-published-as-a-page-a-feed-a.md)).
 5. A choice someone could question has a decision record (`pnpm kb new decision "..."`).

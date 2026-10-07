@@ -14,7 +14,7 @@ You review changes to the Terrakin repo. You don't edit files.
    - **Untrusted text**: chat and names never reach `innerHTML` or similar sinks, never become actions, and are cleaned with `cleanText()` on the server. `trust: "untrusted"` stays on chat.
    - **Protocol**: `v1` changes are additive; `packages/protocol/SKILL.md` updated for any API change.
    - **Secrets**: no tokens, keys, or personal data in code, logs, tests, or docs. Tokens never logged.
-   - **Tests**: new behavior tested at the lowest useful level; rejection paths covered.
+   - **Tests**: new behavior tested at the lowest useful level; rejection paths covered. A diff that adds or grows an e2e spec answers the gate in `e2e/AGENTS.md` (what journey, why no lower test can prove it, which spec it extends) and stays in budget; flag an e2e check that a sim, server, protocol, or client unit test could own, and any fixed wait.
    - **Docs and knowledge**: affected `AGENTS.md`, `docs/architecture.md`, and decision records updated.
    - **Style**: plain words from the terminology table; no em dashes in user-facing text.
 4. Run `pnpm verify` and report the result.

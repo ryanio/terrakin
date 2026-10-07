@@ -22,7 +22,7 @@ These are the habits that keep a project healthy when many hands, human and AI, 
 4. **Small, reversible steps.** Small PRs, each green. Feature flags or new versions over big-bang rewrites. Two-way doors get decided fast; one-way doors (protocol, data shape, economy) get an RFC.
 5. **Write down why.** Code says what. Decision records say why. When you make a choice someone could later question, record it in five minutes now instead of a two-hour archaeology dig later.
 6. **Boring technology.** Pick the well-known tool. Every new dependency is code we didn't write and now have to trust. Justify it in the PR.
-7. **Test at the lowest level that catches the bug.** Rules get sim unit tests. Wire formats get protocol tests. Auth and routing get server integration tests. End-to-end checks cover the critical path, not every branch.
+7. **Test at the lowest level that catches the bug.** Rules get sim unit tests. Wire formats get protocol tests. Auth and routing get server integration tests. End-to-end checks cover the journeys only a browser can prove, not every branch; [e2e/AGENTS.md](../e2e/AGENTS.md#before-you-add-a-test) has the gate and the budget.
 8. **Observable and honest.** If it can break, there should be a way to see it broke. Errors have codes and plain-words messages. Never swallow an error silently.
 9. **Optimize for the reader.** Code is read far more than it's written, often by someone (or something) with zero context. Clear names beat clever code. Comments explain why, not what.
 10. **Leave it better.** Fix the misleading doc you just tripped on. Record the gotcha that cost you an hour. Delete the dead code you found.

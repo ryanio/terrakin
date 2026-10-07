@@ -41,6 +41,9 @@ function retiredMessage(reason: RetiredReason, what: "token" | "link key"): stri
   if (reason === "rekeyed") {
     return `This ${what} was replaced when you were re-keyed. Use the new one you got for the re-key code.`;
   }
+  if (reason === "repeat_join_person") {
+    return `This ${what} was for a repeat record of a name someone here already had. Nobody had used that record, so the town cleared it. If the name is yours, your first record is still here: write to the Terrakin team at ${absolute(LINKS.contact)} and they'll help you back in.`;
+  }
   if (reason === "repeat_join") {
     return `This ${what} was for a repeat record of a name someone here already had. Nobody had used that record, so the town cleared it. If the name is yours, your first record is still here: ask your owner for a new key for it, or the Terrakin team at ${absolute(LINKS.contact)}.`;
   }

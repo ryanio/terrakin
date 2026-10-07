@@ -329,13 +329,22 @@ const PRESENCE_SWITCH: TownSwitch = {
   label: "turn on implicit presence",
 };
 
-/** Comes without days too, once the social layer is wired (decision 0230). */
+/**
+ * Comes without days too, once the social layer is wired (decision 0230). It reads the social
+ * tables on a request's `tick()`, so a read that throws is reported and leaves it for a later tick
+ * instead of failing the request.
+ */
 const RETIRE_SWITCH: TownSwitch = {
   option: "retireRepeatJoins",
   due: (s) => !s.retiredRepeatJoins,
   command: (service) => {
-    const ids = service.repeatJoinsToRetire();
-    return ids && { type: "retire_repeat_joins", ids };
+    try {
+      const ids = service.repeatJoinsToRetire();
+      return ids && { type: "retire_repeat_joins", ids };
+    } catch (err) {
+      report(err, "world.retire");
+      return undefined;
+    }
   },
   label: "retire the repeat joins",
 };
@@ -1598,6 +1607,12 @@ export class WorldService {
     const command = input.command;
     const walker = command.type === "routine_step" ? command.resident : input.actor;
     const was = this.state.residents[walker];
+    // Who a retirement takes out that was a person, read before the commit forgets them.
+    const people = new Set(
+      command.type === "retire_repeat_joins"
+        ? command.ids.filter((id) => residentById(this.state, id)?.kind === "human")
+        : [],
+    );
     let at = was && { x: was.x, y: was.y };
     const { seq, events } = prepared.commit();
     let walked = false;
@@ -1630,7 +1645,7 @@ export class WorldService {
         }
       }
       if (e.type === "pet_treated") this.onPetTreated?.(e.residentId, e.by, e.kind);
-      if (e.type === "repeat_joins_retired") this.forgetRetired(e.ids);
+      if (e.type === "repeat_joins_retired") this.forgetRetired(e.ids, people);
       if (e.type === "recipe_learned" && e.how === "taught" && e.from) {
         try {
           this.onRecipeTaught?.(e.residentId, e.from, e.recipe);
@@ -1906,9 +1921,10 @@ export class WorldService {
 
   /**
    * Hears each record `retire_repeat_joins` took out of the world, and again at every start, so
-   * the social layer forgets it (decision 0230). `Api` wires it.
+   * the social layer forgets it (decision 0230), with the ones that were people, when known (a
+   * person's credentials say so in their own words). `Api` wires it.
    */
-  onRetired: ((ids: readonly string[]) => void) | undefined;
+  onRetired: ((ids: readonly string[], people: ReadonlySet<string>) => void) | undefined;
 
   /**
    * The records `retire_repeat_joins` should take out now (issue #46, decision 0230): the
@@ -1920,19 +1936,25 @@ export class WorldService {
   repeatJoinsToRetire(): string[] | undefined {
     const used = this.socialUsers?.();
     if (!used) return undefined;
-    const listed = repeatJoins(this.state, (r) => this.untouched(r) && !used.has(r.id));
-    const refused = new Set(retireProblems(this.state, listed).map((p) => p.id));
-    return listed.filter((id) => !refused.has(id)).sort();
+    let ids = repeatJoins(this.state, (r) => this.untouched(r) && !used.has(r.id));
+    // Leaving an id out only keeps more namesakes, but check the shorter list again until the sim
+    // would take it whole, so the logged input is never refused.
+    for (;;) {
+      const refused = new Set(retireProblems(this.state, ids).map((p) => p.id));
+      if (refused.size === 0) return ids.sort();
+      ids = ids.filter((id) => !refused.has(id));
+    }
   }
 
   /**
    * Everything outside the world a retired record held (decision 0230): what `onRetired` clears
    * in the social layer, then its tokens and link key, and what this service keeps about it in
    * memory. Running it again changes nothing, so `Api` runs it at start for every retired id.
+   * `people` are the ones that were people: the world no longer knows them after the commit.
    */
-  forgetRetired(ids: readonly string[]) {
+  forgetRetired(ids: readonly string[], people: ReadonlySet<string> = new Set()) {
     try {
-      this.onRetired?.(ids);
+      this.onRetired?.(ids, people);
     } catch (err) {
       report(err, "world.retired");
     }

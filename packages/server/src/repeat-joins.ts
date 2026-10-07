@@ -12,9 +12,11 @@ import type { SqlExec } from "./sql-store";
  * social (posts, reactions, reposts, follows, gestures they chose to send, praise, letters,
  * notices), and a handle, a bio or picture, an upload, an owner link either way, an agent link, an
  * X account, a block, a report, a pat, an admire, or saying they're going to an event. And any
- * authenticated call with the record's token or link key, reads like a check-in included: every
- * one writes the day to `last_calls` (`AwayLog.called`), and any row there, however old, keeps the
- * record. A record in here is never retired.
+ * sign that its token or link key was used, reads included: a `last_calls` row (every
+ * authenticated call writes one, `AwayLog.called`, since 2026-10-06), and the rows that show use
+ * from before then: a check-in (`checkin_log`, kept 7 days, and `checkin_suggestions`), an invite,
+ * an agent link ask or attempt, an owner or re-key code (`owner_codes`, `owner_rekeys` either
+ * way), or an X code. A record in here is never retired.
  */
 export function socialUsers(sql: SqlExec): Set<string> {
   const used = socialActors(sql);
@@ -32,7 +34,16 @@ export function socialUsers(sql: SqlExec): Set<string> {
      UNION SELECT patter FROM pet_pats
      UNION SELECT admirer FROM plot_admires
      UNION SELECT resident_id FROM event_going
-     UNION SELECT resident FROM last_calls`,
+     UNION SELECT resident FROM last_calls
+     UNION SELECT resident_id FROM checkin_log
+     UNION SELECT resident_id FROM checkin_suggestions
+     UNION SELECT inviter FROM invites
+     UNION SELECT resident_id FROM agent_link_asks
+     UNION SELECT resident_id FROM agent_link_attempts
+     UNION SELECT resident_id FROM owner_codes
+     UNION SELECT agent_id FROM owner_rekeys
+     UNION SELECT owner_id FROM owner_rekeys
+     UNION SELECT resident_id FROM x_codes`,
   );
   for (const row of rows) used.add(String(row.id));
   return used;

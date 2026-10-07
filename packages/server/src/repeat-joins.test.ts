@@ -51,14 +51,16 @@ const LOG: Input[] = [
   town({ type: "open_economy" }),
   town({ type: "open_items" }),
   ...used("r_ada", "Ada"),
-  // Pip used the first record. Of the six after it, three were used out of the world (a follow, a
-  // post, a block), two hold something, and one nobody touched.
+  // Pip used the first record. Of the seven after it, four were used out of the world (a follow,
+  // a post, a block, a check-in from before calls were noted), two hold something, and one nobody
+  // touched.
   ...used("r_pip", "Pip"),
   ...unused("r_pip_follows", "Pip"),
   ...unused("r_pip_posted", "Pip"),
   ...unused("r_pip_coins", "pip"),
   ...unused("r_pip_things", "Pip"),
   ...unused("r_pip_blocks", "Pip"),
+  ...unused("r_pip_checked", "Pip"),
   ...unused("r_pip_unused", "Pip"),
   town({ type: "test_grant", to: "r_pip_coins", coins: 5 }),
   town({ type: "test_grant", to: "r_pip_things", stacks: { lemon: 1 } }),
@@ -70,6 +72,9 @@ const LOG: Input[] = [
   // A person and an AI with one name are never repeats: the unused person "hal" stays.
   ...used("r_hal", "Hal"),
   ...unused("r_hal_person", "hal", "human"),
+  // Two people called Kit, neither used: the first stays.
+  ...unused("r_kit", "Kit", "human"),
+  ...unused("r_kit2", "Kit", "human"),
 ];
 
 /**
@@ -103,6 +108,7 @@ async function start(
   if (!restart) {
     expect(social.setFollow("r_pip_follows", "r_ada", true).ok).toBe(true);
     expect(social.setBlock("r_pip_blocks", "r_wren", true).ok).toBe(true);
+    social.checkins.record("r_pip_checked");
     expect(social.createPost("r_pip_posted", { text: "Hello from the garden" }).ok).toBe(true);
     for (const id of ["r_pip_unused", "r_blaze2", "r_blaze", "r_pip"]) {
       expect(social.setFollow("r_ada", id, true).ok).toBe(true);
@@ -132,7 +138,7 @@ describe("clearing the old repeat joins", () => {
     const world = await call("GET", "/v1/world");
     expect(world.status).toBe(200);
     expect(retireInputs(store)).toEqual([
-      town({ type: "retire_repeat_joins", ids: ["r_blaze2", "r_pip_unused"] }),
+      town({ type: "retire_repeat_joins", ids: ["r_blaze2", "r_kit2", "r_pip_unused"] }),
     ]);
     const ids = world.body.residents.map((r: { id: string }) => r.id);
     expect(ids).not.toContain("r_pip_unused");
@@ -145,10 +151,12 @@ describe("clearing the old repeat joins", () => {
       "r_pip_coins",
       "r_pip_things",
       "r_pip_blocks",
+      "r_pip_checked",
       "r_blaze",
       "r_wren",
       "r_hal",
       "r_hal_person",
+      "r_kit",
     ]) {
       expect(ids).toContain(kept);
     }
@@ -159,6 +167,7 @@ describe("clearing the old repeat joins", () => {
       "r_pip_coins",
       "r_pip_things",
       "r_pip_blocks",
+      "r_pip_checked",
     ]);
 
     // Once: another request, and a restart on the same log, log nothing more.
@@ -186,7 +195,7 @@ describe("clearing the old repeat joins", () => {
     const world = await after.call("GET", "/v1/world");
     // Both are kept. Blaze's second record is now the one in use, so the unused first goes.
     expect(retireInputs(after.store)).toEqual([
-      town({ type: "retire_repeat_joins", ids: ["r_blaze"] }),
+      town({ type: "retire_repeat_joins", ids: ["r_blaze", "r_kit2"] }),
     ]);
     const ids = world.body.residents.map((r: { id: string }) => r.id);
     expect(ids).toContain("r_pip_unused");
@@ -199,6 +208,7 @@ describe("clearing the old repeat joins", () => {
     const token = service.issueToken("r_pip_unused");
     const key = service.mintLinkKey("r_pip_unused");
     const ada = service.issueToken("r_ada");
+    const kit = service.issueToken("r_kit2");
 
     const profile = await call("GET", "/v1/residents/r_pip_unused");
     expect(profile.status).toBe(404);
@@ -211,6 +221,12 @@ describe("clearing the old repeat joins", () => {
     const link = await call("GET", `/v1/act/${key}/checkin`);
     expect(link.status).toBe(401);
     expect(JSON.stringify(link.body)).toContain("repeat record");
+    // An AI is pointed to its owner; a person, who has none, to the team.
+    expect(checkin.body.error.message).toContain("ask your owner");
+    const person = await call("GET", "/v1/checkin", undefined, kit);
+    expect(person.body.error.code).toBe("revoked");
+    expect(person.body.error.message).toContain("write to the Terrakin team");
+    expect(person.body.error.message).not.toContain("owner");
 
     // Ada followed four records; the two retired ones leave her list and her count.
     const following = await call("GET", "/v1/residents/r_ada/following", undefined, ada);
@@ -227,6 +243,16 @@ describe("clearing the old repeat joins", () => {
       ),
     ];
     expect(left).toEqual([]);
+  });
+
+  it("leaves requests working and logs nothing while the social tables can't be read", async () => {
+    const { call, service, store } = await start();
+    service.socialUsers = () => {
+      throw new Error("the social database is unreachable");
+    };
+    expect((await call("GET", "/v1/world")).status).toBe(200);
+    expect((await call("GET", "/v1/residents/r_pip_unused")).status).toBe(200);
+    expect(retireInputs(store)).toEqual([]);
   });
 
   it("never runs in a world that doesn't turn it on", async () => {

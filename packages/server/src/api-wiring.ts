@@ -140,8 +140,8 @@ export function wireSocial(
   // here, and each retired record's credentials are kept as retired before they're turned off,
   // so a caller who sends one hears why. At start, whatever a crash left is cleared again.
   service.socialUsers = () => socialUsers(layer.sql);
-  service.onRetired = (ids) => {
-    for (const id of ids) api.owners?.retireRepeatJoin(id);
+  service.onRetired = (ids, people) => {
+    for (const id of ids) api.owners?.retireRepeatJoin(id, people.has(id));
     forgetRetired(layer.sql, ids);
   };
   service.forgetRetired(service.state.retiredRepeatJoins ?? []);

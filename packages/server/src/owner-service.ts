@@ -96,9 +96,17 @@ const STILL_CONNECTED =
 
 /**
  * Why a credential stopped working, for the `revoked` answer: an owner's revoke, a re-key, or a
- * repeat record of a name the town cleared (`repeat_join`, decision 0230).
+ * repeat record of a name the town cleared (decision 0230), an AI's (`repeat_join`) or a
+ * person's (`repeat_join_person`).
  */
-export type RetiredReason = "revoked" | "rekeyed" | "repeat_join";
+export type RetiredReason = "revoked" | "rekeyed" | "repeat_join" | "repeat_join_person";
+
+const RETIRED_REASONS: readonly RetiredReason[] = [
+  "revoked",
+  "rekeyed",
+  "repeat_join",
+  "repeat_join_person",
+];
 
 interface RekeyRow {
   ownerId: string;
@@ -537,8 +545,7 @@ export class OwnerService {
       ),
     ][0];
     if (!row) return undefined;
-    const reason =
-      row.reason === "rekeyed" || row.reason === "repeat_join" ? row.reason : "revoked";
+    const reason = RETIRED_REASONS.find((r) => r === row.reason) ?? "revoked";
     return { residentId: String(row.resident_id), reason, at: Number(row.at) };
   }
 
@@ -546,8 +553,8 @@ export class OwnerService {
    * Remember the credentials of a repeat record the town retired (decision 0230), so a caller who
    * sends one hears what happened. `WorldService` turns them off right after.
    */
-  retireRepeatJoin(residentId: string) {
-    this.retire(residentId, "repeat_join");
+  retireRepeatJoin(residentId: string, person: boolean) {
+    this.retire(residentId, person ? "repeat_join_person" : "repeat_join");
   }
 
   private retire(residentId: string, reason: RetiredReason) {

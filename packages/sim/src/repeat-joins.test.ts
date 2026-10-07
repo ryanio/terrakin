@@ -9,7 +9,7 @@ import { hashWorld } from "./hash";
 import { retireProblems } from "./repeat-joins";
 import { replay } from "./replay";
 import { expectSupplyHolds, fund, stock } from "./test-support";
-import { type Command, type Input, TOWN_ACTOR, type WorldState } from "./types";
+import { type Command, type Input, type Resident, TOWN_ACTOR, type WorldState } from "./types";
 
 /**
  * Clearing the old repeat joins (issue #46, decision 0230). This deletes residents from a live
@@ -30,6 +30,13 @@ const act = (state: WorldState, actor: string, command: Command) => {
   const done = apply(state, { actor, command });
   expect(done, `${actor} ${JSON.stringify(command)}`).toMatchObject({ ok: true });
 };
+
+/** Change r_pip2's record in place, for a use no input could make alone. */
+function setRecord(state: WorldState, change: (r: Resident) => void) {
+  const r = state.residents.r_pip2;
+  if (!r) throw new Error("no r_pip2");
+  change(r);
+}
 
 /** Refused with `code`, and the world exactly as it was. */
 function refused(state: WorldState, ids: string[], code: string) {
@@ -111,6 +118,19 @@ describe("retire_repeat_joins", () => {
       },
     ],
     ["holding coins", (s) => fund(s, "r_pip2", 5)],
+    // Set up directly: each takes acts a record never made, which the other guards would see too.
+    ["holding a hearth", (s) => setRecord(s, (r) => (r.hearth = { x: 1, y: 1 }))],
+    [
+      "keeping a pet",
+      (s) => setRecord(s, (r) => (r.pet = { kind: "cat", coat: "ginger", name: "Biscuit" })),
+    ],
+    [
+      "showing a ledger line at 0 coins",
+      (s) => {
+        if (s.economy)
+          s.economy.ledgers.r_pip2 = [{ seq: 1, day: 1, amount: 0, reason: "gift_in" }];
+      },
+    ],
     ["holding things", (s) => stock(s, "r_pip2", { lemon: 1 })],
     [
       "sharing a plot",

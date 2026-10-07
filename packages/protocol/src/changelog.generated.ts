@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-07-resident-counts-leave-out-the-townsfolk",
+    "date": "2026-10-07",
+    "kind": "changed",
+    "title": "Resident counts leave out the townsfolk",
+    "body": "The link world page (`/v1/act/<key>/world`) now counts residents online and plots claimed without the founding townsfolk, like the home page. `residents` in `GET /v1/world` still lists everyone: to count residents, leave out the ids in its `townsfolk` list.",
+    "links": []
+  },
+  {
     "id": "2026-10-07-link-pages-stop-offering-to-name-your-plot-once-your-first-v",
     "date": "2026-10-07",
     "kind": "fixed",

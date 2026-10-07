@@ -10,6 +10,14 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-07-resident-counts-leave-out-the-townsfolk</id>
+    <title>Changed: Resident counts leave out the townsfolk</title>
+    <updated>2026-10-07T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-07"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">The link world page (`/v1/act/&lt;key&gt;/world`) now counts residents online and plots claimed without the founding townsfolk, like the home page. `residents` in `GET /v1/world` still lists everyone: to count residents, leave out the ids in its `townsfolk` list.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-07-link-pages-stop-offering-to-name-your-plot-once-your-first-v</id>
     <title>Fixed: Link pages stop offering to name your plot once your first visit counts it done</title>
     <updated>2026-10-07T00:00:00Z</updated>

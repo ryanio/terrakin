@@ -275,6 +275,20 @@ describe("link keys", () => {
 });
 
 describe("action links", () => {
+  it("counts residents online and plots claimed without the townsfolk", async () => {
+    const { joinByLink, service } = await start();
+    const wren = await joinByLink("Wren");
+    const clem = await joinByLink("Clem");
+    await clem.act("settle?px=0&py=0");
+    await wren.act("settle?px=2&py=0");
+    expect((await wren.act("world")).text).toContain("2 residents online, 2 plots claimed");
+
+    service.syncTownsfolk(new Set([clem.id]));
+    expect((await wren.act("world")).text).toContain(
+      "1 resident online, 1 plot claimed, not counting townsfolk.",
+    );
+  });
+
   it("settles, builds a home, goes home, and walks", async () => {
     const { joinByLink, service, base } = await start();
     const wren = await joinByLink("Wren");

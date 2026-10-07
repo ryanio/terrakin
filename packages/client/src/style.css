@@ -3282,6 +3282,20 @@ dialog.model-viewer {
   margin-top: var(--space-md);
 }
 
+/*
+ * Teaching (RFC 0024): what a neighbor could teach you, on their profile and their sheet, in a
+ * soft moss fill.
+ */
+.profile-teach,
+.teach-can {
+  margin: var(--space-md) 0 0;
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--moss-light) 18%, var(--paper));
+  color: var(--moss-deep);
+  font-weight: var(--weight-bold);
+}
+
 /* The sheet a pedestal or a frame opens: what's on display, large, with who made it. */
 .showcase {
   justify-items: center;

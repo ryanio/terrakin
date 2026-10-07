@@ -12,6 +12,7 @@
  */
 import type { RoutineView } from "../../packages/protocol/src/index";
 import { aimedAtReader } from "../../packages/server/src/injection.ts";
+import { SPECIALTIES } from "../../packages/server/src/lesson-plan.ts";
 import { cleanText } from "../../packages/server/src/text.ts";
 import { TIP_NOTES } from "../../packages/server/src/tip-plan.ts";
 import type { BlockKind, ResidentColor, ResidentShape } from "../../packages/sim/src/index";
@@ -100,6 +101,12 @@ export interface Persona {
    * (`TIP_NOTES`), since the server's daily run gives them too.
    */
   tips: { welcome: string; post: string };
+  /**
+   * The recipes this persona teaches (RFC 0024): once recipes are learned, the server's lessons
+   * run teaches one to a resident standing near them, once a week each. They live in
+   * `packages/server/src/lesson-plan.ts` (`SPECIALTIES`), since the server teaches them.
+   */
+  specialties: readonly string[];
 }
 
 export const PERSONAS: Persona[] = [
@@ -158,6 +165,7 @@ export const PERSONAS: Persona[] = [
       },
     ],
     tips: TIP_NOTES.juniper,
+    specialties: SPECIALTIES.juniper,
     // Out in the garden first thing, home at dusk, and a wave for whoever passes the greenhouse.
     routines: [
       { kind: "walk_home", hour: 18 },
@@ -217,6 +225,7 @@ export const PERSONAS: Persona[] = [
       { to: "sable", text: "Sable, if you ever want a taller lookout, I've got plans drawn up." },
     ],
     tips: TIP_NOTES.bram,
+    specialties: SPECIALTIES.bram,
     // A turn round the yard at midday to check the lumber, and home when the tools go down.
     routines: [
       { kind: "walk_home", hour: 17 },
@@ -275,6 +284,7 @@ export const PERSONAS: Persona[] = [
       { to: "otis", text: "Otis, I'll save the corner table for story night." },
     ],
     tips: TIP_NOTES.clem,
+    specialties: SPECIALTIES.clem,
     // Sets out the terrace tables in the morning, waves at everyone who passes, and walks home
     // once the cafe closes in the evening.
     routines: [
@@ -330,6 +340,7 @@ export const PERSONAS: Persona[] = [
       { to: "ansel", text: "Ansel, can you paint me running? I'm always running." },
     ],
     tips: TIP_NOTES.pip,
+    specialties: SPECIALTIES.pip,
     // No time for strolls: waves at everyone on the round, and home after the last delivery.
     routines: [
       { kind: "walk_home", hour: 21 },
@@ -383,6 +394,7 @@ export const PERSONAS: Persona[] = [
       { to: "juniper", text: "Juniper, every library needs a plant. Could I borrow one?" },
     ],
     tips: TIP_NOTES.otis,
+    specialties: SPECIALTIES.otis,
     // Home at dusk, then out to the reading bench.
     routines: [
       { kind: "walk_home", hour: 18 },
@@ -443,6 +455,7 @@ export const PERSONAS: Persona[] = [
       },
     ],
     tips: TIP_NOTES.marlo,
+    specialties: SPECIALTIES.marlo,
     // Up the lookout at dawn, home late from the edges, and, as his introduction says, a wave for
     // anyone who gets lost out there.
     routines: [
@@ -501,6 +514,7 @@ export const PERSONAS: Persona[] = [
       { to: "bram", text: "Bram, a taller lookout sounds perfect. No rush." },
     ],
     tips: TIP_NOTES.sable,
+    specialties: SPECIALTIES.sable,
     // Home by midnight and out on the deck in the small hours.
     routines: [
       { kind: "walk_home", hour: 0 },
@@ -557,6 +571,7 @@ export const PERSONAS: Persona[] = [
       { to: "clem", text: "Clem, are you saving that window seat for me too?" },
     ],
     tips: TIP_NOTES.ansel,
+    specialties: SPECIALTIES.ansel,
     // Out in the afternoon light, and home in the evening.
     routines: [
       { kind: "walk_home", hour: 19 },

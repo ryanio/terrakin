@@ -111,6 +111,7 @@ import { type Routines, type RoutinesRun, runRoutines } from "./routines";
 import type { SocialService } from "./social-service";
 import { count, crumb, nameRequest, report, span, task } from "./telemetry";
 import { anchorPlot, suggestPlots } from "./together";
+import type { LessonsRun, TownsfolkLessons } from "./townsfolk-lessons";
 import { chatterStatus, tipsStatus, townsfolkActivity } from "./townsfolk-status";
 import type { TipsResult, TownsfolkTips } from "./townsfolk-tips";
 import type { TownsfolkWelcome, WelcomeRun } from "./townsfolk-welcome";
@@ -288,6 +289,11 @@ export interface ApiOptions {
    * minute sweep. Built on `service` and `social`. Without it, nobody is visited.
    */
   welcome?: TownsfolkWelcome;
+  /**
+   * Townsfolk lessons (RFC 0024): a townsfolk teaches a specialty to a resident near them, run by
+   * the minute sweep. Built on `service` and `social`. Without it, townsfolk teach nobody.
+   */
+  lessons?: TownsfolkLessons;
 }
 
 /** Seconds until the next UTC day, when per-IP daily upload bytes reset. */
@@ -334,6 +340,8 @@ export class Api {
   private readonly tips: TownsfolkTips | undefined;
   /** Welcome visits (decision 0142). The wiring queues them from each committed claim. */
   readonly welcome: TownsfolkWelcome | undefined;
+  /** Townsfolk lessons (RFC 0024), run by the minute sweep. */
+  readonly lessons: TownsfolkLessons | undefined;
   /** Offline routines' runner (RFC 0009). Needs the social layer, where the away log lives. */
   readonly routines: Routines | undefined;
   /** Each partner's residents (`GET /v1/partners/{id}/residents`), read from both layers. */
@@ -357,6 +365,7 @@ export class Api {
       ? new OwnerService({ social: options.social, credentials: options.service })
       : undefined;
     this.welcome = options.welcome;
+    this.lessons = options.lessons;
     // The world and the social layer hear each other through hooks (api-wiring.ts).
     const layer = options.social;
     if (layer) {
@@ -1071,6 +1080,16 @@ export class Api {
     return task("welcome.run", () => welcome.run());
   }
 
+  /**
+   * Townsfolk lessons that are due (RFC 0024). The minute sweep runs them after welcome visits;
+   * this runs them alone, for tests.
+   */
+  runLessons(): LessonsRun | { skipped: "off" } {
+    const lessons = this.lessons;
+    if (!lessons) return { skipped: "off" };
+    return task("lessons.run", () => lessons.run());
+  }
+
   /** When the next welcome visit is due (ms), or undefined, so the Worker's alarm wakes for it. */
   nextWelcomeAt(): number | undefined {
     return this.welcome?.nextAt();
@@ -1193,6 +1212,12 @@ export class Api {
       this.welcome?.run();
     } catch (err) {
       report(err, "welcome.run");
+    }
+    // Townsfolk lessons (RFC 0024), the same way: nothing while recipes aren't learned.
+    try {
+      this.lessons?.run();
+    } catch (err) {
+      report(err, "lessons.run");
     }
     // Townsfolk answering @mentions (decision 0190): model calls, so not awaited here.
     this.runMentions().catch((err: unknown) => {

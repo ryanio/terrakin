@@ -43,7 +43,9 @@ describe("item pictures", () => {
     for (const kind of [...ITEM_KINDS, ...WEAR_ITEMS, ...SHOP_WEAR]) {
       expect(isArtKind(kind), kind).toBe(true);
     }
-    expect(ART_KINDS).toHaveLength(ITEM_KINDS.length + WEAR_ITEMS.length);
+    // And the recipe page lying on the ground (RFC 0024), which isn't a thing you hold.
+    expect(isArtKind("recipe_page")).toBe(true);
+    expect(ART_KINDS).toHaveLength(ITEM_KINDS.length + WEAR_ITEMS.length + 1);
     expect(isArtKind("rocket")).toBe(false);
   });
 

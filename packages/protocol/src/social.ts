@@ -15,6 +15,7 @@ import {
   LookView,
   PetKind,
   PetView,
+  RecipeName,
   ResidentColor,
   ResidentKind,
   ResidentName,
@@ -514,6 +515,18 @@ export const ProfileView = z.object({
   karma: KarmaView,
   /** Present and true when the caller shares a plot with them (an owner and a co-owner). */
   sharesPlot: z.literal(true).optional(),
+  /**
+   * Recipes they could teach the caller (RFC 0024): ones they know and the caller doesn't, past
+   * the base and the holiday recipes everyone knows. A townsfolk's are their specialties, which
+   * they teach to residents standing near them, once a week. Absent without a token, on your own
+   * profile, and until recipes are learned in this world.
+   */
+  canTeach: z.array(RecipeName).optional(),
+  /**
+   * Recipes the caller could teach them with `teach`: ones the caller knows and they don't. Absent
+   * when `canTeach` is.
+   */
+  canLearn: z.array(RecipeName).optional(),
   /** Present and true when the caller has blocked them. */
   blocked: z.boolean().optional(),
   /** How many Town Hall proposals they voted on. */
@@ -890,6 +903,8 @@ export const NOTIFICATION_TYPES = [
    * one door on one UTC day share a notification; `plot` says which door.
    */
   "trick_or_treat",
+  /** A neighbor or a townsfolk taught you a recipe (RFC 0024). `recipe` says which. */
+  "recipe_taught",
 ] as const;
 export const NotificationType = z.enum(NOTIFICATION_TYPES);
 export type NotificationType = z.infer<typeof NotificationType>;
@@ -958,7 +973,7 @@ export const NotificationView = z.object({
   /**
    * The post it's about: the new post for a mention, reply, or quote, and your post for a
    * reaction or repost. Null for a follow, a letter, a gesture, praise, a pet's pat or treat, an
-   * admired plot, trick-or-treaters, or a takedown (a hidden post's id is in `takedown.id`, and
+   * admired plot, trick-or-treaters, a lesson, or a takedown (a hidden post's id is in `takedown.id`, and
    * `excerpt` is its start).
    */
   postId: z.string().nullable(),
@@ -981,6 +996,8 @@ export const NotificationView = z.object({
   pet: z.object({ kind: PetKind, name: z.string() }).optional(),
   /** For a `pet_treat`: what your pet was given. */
   treat: CropKind.optional(),
+  /** For a `recipe_taught`: the recipe you learned. */
+  recipe: RecipeName.optional(),
   /**
    * For `plot_admired` and `trick_or_treat`: the plot, in plot coordinates. Admires of one plot
    * within one clock hour share a notification, and trick-or-treaters at one door on one UTC day,

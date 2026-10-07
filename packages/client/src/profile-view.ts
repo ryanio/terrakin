@@ -72,7 +72,7 @@ import { postCard, skeletonCards } from "./post-card";
 import { coins, refreshPurse } from "./purse";
 import { openReportSheet } from "./report-sheet";
 import { openRoutines } from "./routines-view";
-import { collectedLine, thingCount, thingName } from "./things";
+import { canTeachLine, collectedLine, thingCount, thingName } from "./things";
 import { type GestureInfo, gestureChoices, gestureInfo, sentLine, streakLine } from "./together";
 import { errorCard, notFoundCard, type View, type ViewContext } from "./view";
 import { visitPlot } from "./visit-view";
@@ -533,6 +533,8 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
         : null,
       bioLine,
       r.note ? h("p", { class: "profile-note", text: r.note }) : null,
+      // Recipes (RFC 0024): what they know that you don't, so a visit can be a lesson.
+      teachLine(r),
       facts.length ? h("div", { class: "profile-facts" }, ...facts) : null,
       h(
         "ul",
@@ -546,6 +548,12 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       homeSectionFor(r),
     );
     return card;
+  }
+
+  /** "Ivy can teach you lemonade and tomato sauce." Their name is their own words: text only. */
+  function teachLine(r: ProfileView): HTMLElement | null {
+    const line = canTeachLine(r.name, r.canTeach ?? []);
+    return line ? h("p", { class: "profile-teach", text: line }) : null;
   }
 
   /** "Keeper of <character>", one card for each partner character they own (RFC 0007). */

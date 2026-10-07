@@ -361,9 +361,14 @@ export function coinsLine(e: CoinsEvent): string | null {
 /**
  * A toast line for one of your own events in the world: a hearth set, coins, or things. Null for
  * everyone else's events and for ones that go without saying, like a plot claimed, which the
- * sheet that offers a home says (`home-sheet.ts`).
+ * sheet that offers a home says (`home-sheet.ts`). `nameOf` gives a neighbor's name for a lesson
+ * (RFC 0024), their own words, which a toast shows only as text.
  */
-export function newsLine(event: WorldEvent, me: string): string | null {
+export function newsLine(
+  event: WorldEvent,
+  me: string,
+  nameOf: (id: string) => string | undefined = () => undefined,
+): string | null {
   switch (event.type) {
     case "hearth_set":
       return event.residentId === me
@@ -386,22 +391,43 @@ export function newsLine(event: WorldEvent, me: string): string | null {
     case "fished":
       return event.by === me ? catchLine(event.caught) : null;
     case "recipe_learned":
-      return event.residentId === me ? learnedLine(event.recipe, event.how) : null;
+      if (event.residentId === me) {
+        return learnedLine(event.recipe, event.how, event.from && nameOf(event.from));
+      }
+      return event.from === me ? taughtLine(event.recipe, nameOf(event.residentId)) : null;
     default:
       return null;
   }
 }
 
 /**
- * A recipe you learned (RFC 0024), however you learned it: "You learned lemonade." Who taught you
- * is a neighbor's name, so a lesson leaves it out here.
+ * A recipe you learned (RFC 0024), however you learned it: "You learned lemonade.", "Ivy taught
+ * you lemonade." with the teacher's name when the world has it, or "You found a recipe page for
+ * lemonade."
  */
 export function learnedLine(
   recipe: RecipeName,
   how: Extract<WorldEvent, { type: "recipe_learned" }>["how"],
+  teacher?: string,
 ): string {
   const what = recipeWords(recipe).toLowerCase();
-  return how === "taught" ? `A neighbor taught you ${what}.` : `You learned ${what}.`;
+  if (how === "taught") return `${teacher || "A neighbor"} taught you ${what}.`;
+  if (how === "found") return `You found a recipe page for ${what}. You know it now.`;
+  return `You learned ${what}.`;
+}
+
+/**
+ * What a neighbor could teach you (RFC 0024), from their profile's `canTeach`: "Ivy can teach you
+ * lemonade and tomato sauce." Null when they can't teach you anything. `name` is their own words.
+ */
+export function canTeachLine(name: string, recipes: readonly RecipeName[]): string | null {
+  if (recipes.length === 0) return null;
+  return `${name} can teach you ${listOf(recipes.map((r) => recipeWords(r).toLowerCase()))}.`;
+}
+
+/** A lesson you gave (RFC 0024): "You taught Wren lemonade." */
+export function taughtLine(recipe: RecipeName, learner?: string): string {
+  return `You taught ${learner || "your neighbor"} ${recipeWords(recipe).toLowerCase()}.`;
 }
 
 /**

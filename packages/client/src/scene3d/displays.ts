@@ -8,7 +8,7 @@
  * pictures are held at a time (past that a piece shows its drawn picture), and a texture is freed
  * as soon as the last display using it leaves. Pictures come only from our own `/media/`.
  */
-import type { FindKind } from "@terrakin/sim";
+import type { FindKind, RECIPE_PAGE } from "@terrakin/sim";
 import { BRAND_HEX } from "@terrakin/ui/brand";
 import { itemArtLoaded, piecePictureUrl } from "@terrakin/ui/item-art";
 import {
@@ -147,7 +147,7 @@ async function pictureCanvas(url: string): Promise<HTMLCanvasElement | undefined
 }
 
 /** A thing's drawn picture: on paper to hang in a frame, or cut out to stand on a pedestal. */
-async function artCanvas(kind: ShownGood["kind"], onPaper: boolean) {
+async function artCanvas(kind: ShownGood["kind"] | typeof RECIPE_PAGE, onPaper: boolean) {
   const img = await itemArtLoaded(kind);
   if (!img) return undefined;
   const out = onPaper ? blank(CARD.width, CARD.height) : blank(ART, ART);
@@ -304,7 +304,7 @@ export function displayedThings(
 export function foundThings(
   stage: Stage,
   origin: { x: number; y: number },
-  list: readonly { x: number; y: number; kind: FindKind }[],
+  list: readonly { x: number; y: number; kind: FindKind | typeof RECIPE_PAGE }[],
   pictures: Pictures,
 ): Group {
   const group = new Group();

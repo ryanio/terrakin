@@ -52,8 +52,10 @@ import {
   type Crop,
   isExclusiveWear,
   isOwnableKey,
+  isRecipeName,
   lookOf,
   petView,
+  type RecipeName,
   type Resident,
 } from "@terrakin/sim";
 import { type AgentLinkOptions, AgentLinkService } from "./agent-links";
@@ -1523,6 +1525,14 @@ export class SocialService {
   }
 
   /**
+   * Tell a resident someone taught them a recipe (RFC 0024). The world logged the lesson; this is
+   * the notification, through `notify()` with its caps and block check.
+   */
+  recipeTaught(learner: string, teacher: string, recipe: RecipeName) {
+    this.notify(learner, teacher, "recipe_taught", "", recipe);
+  }
+
+  /**
    * Tell everyone who lives at a door that a trick-or-treater knocked there (RFC 0022). The world
    * logged the knock; this is the notification, one per door per UTC day with every knocker in it,
    * through `notify()` with its caps and block check.
@@ -2085,6 +2095,7 @@ export class SocialService {
           ...(type === "gesture" && isGestureKind(detail) ? { gesture: detail } : {}),
           ...(type === "pet_pat" || type === "pet_treat" ? petNotice(detail) : {}),
           ...(type === "plot_admired" || type === "trick_or_treat" ? plotDetail(detail) : {}),
+          ...(type === "recipe_taught" && isRecipeName(detail) ? { recipe: detail } : {}),
           read: Number(row.read) > 0,
           createdAt: new Date(Number(row.created_at)).toISOString(),
         },

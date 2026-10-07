@@ -18,10 +18,13 @@ import {
   isTownEvent,
   isTownsfolk,
   type PickupKind,
+  pageOn,
   parseKey,
   pickupLeft,
   plotAtTile,
   plotPickupsOwned,
+  RECIPE_PAGE,
+  type RecipeName,
   type Resident,
   residentById,
   type StepRoutine,
@@ -163,9 +166,17 @@ export function publicEvents(events: WireEvent[]): WireEvent[] {
   return shown.length > 0 ? shown : [{ type: "quiet" }];
 }
 
-/** What one resident may see: everything public, plus their own purse and inventory changes. */
+/**
+ * What one resident may see: everything public, plus their own purse and inventory changes. A
+ * lesson's `recipe_learned` goes to its teacher too (RFC 0024): both of them were there.
+ */
 export function eventsFor(events: WireEvent[], viewer: string): WireEvent[] {
-  return events.filter((e) => !isPrivate(e) || e.residentId === viewer);
+  return events.filter(
+    (e) =>
+      !isPrivate(e) ||
+      e.residentId === viewer ||
+      (e.type === "recipe_learned" && e.from === viewer),
+  );
 }
 
 /** What the snapshot draws from the server's memory besides the world: never logged. */
@@ -324,6 +335,7 @@ export function worldSnapshot(state: WorldState, extras: SnapshotExtras): WorldS
     ...(state.items && state.day !== undefined ? { pickups: pickupsToday(state) } : {}),
     ...(plotPickupsOwned(state) ? { plotPickupsOwned: true as const } : {}),
     ...(findsOpen(state) ? { findsOpen: true as const } : {}),
+    ...(state.recipes ? { recipesOpen: true as const } : {}),
     ...(state.events?.list.some(eventOpen)
       ? {
           events: state.events.list.filter(eventOpen).map((e) => ({
@@ -354,22 +366,35 @@ export function worldSnapshot(state: WorldState, extras: SnapshotExtras): WorldS
   };
 }
 
+/** One thing lying on the ground today, as the snapshot lists it. */
+interface PickupView {
+  x: number;
+  y: number;
+  kind: PickupKind;
+  recipe?: RecipeName;
+  ownersOnly?: true;
+}
+
 /**
- * Every fallen branch, loose stone, and find still lying in the world today, row by row. Once the
- * owners-only rule is on, one on a claimed plot says so.
+ * Every fallen branch, loose stone, find, and recipe page (with the recipe it teaches) still lying
+ * in the world today, row by row. Once the owners-only rule is on, one on a claimed plot says so.
  */
-function pickupsToday(
-  state: WorldState,
-): { x: number; y: number; kind: PickupKind; ownersOnly?: true }[] {
+function pickupsToday(state: WorldState): PickupView[] {
   const owned = plotPickupsOwned(state);
-  const out: { x: number; y: number; kind: PickupKind; ownersOnly?: true }[] = [];
+  const day = state.day ?? 0;
+  const out: PickupView[] = [];
   for (let y = 0; y < state.config.height; y++) {
     for (let x = 0; x < state.config.width; x++) {
       const kind = pickupLeft(state, x, y);
       if (!kind) continue;
-      out.push(
-        owned && plotAtTile(state, x, y) ? { x, y, kind, ownersOnly: true } : { x, y, kind },
-      );
+      const recipe = kind === RECIPE_PAGE ? pageOn(x, y, day) : null;
+      out.push({
+        x,
+        y,
+        kind,
+        ...(recipe ? { recipe } : {}),
+        ...(owned && plotAtTile(state, x, y) ? { ownersOnly: true as const } : {}),
+      });
     }
   }
   return out;

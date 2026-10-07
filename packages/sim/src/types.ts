@@ -877,6 +877,13 @@ export interface ItemsToday {
   admired?: Record<ResidentId, string[]>;
   /** Times each resident cast a line today (RFC 0023). Absent until the day's first cast. */
   casts?: Record<ResidentId, number>;
+  /**
+   * Recipes each resident taught a neighbor today (RFC 0024). Absent until the day's first lesson.
+   * A townsfolk's lessons aren't counted.
+   */
+  teaching?: Record<ResidentId, number>;
+  /** Recipes each resident was taught today (RFC 0024). Absent until the day's first lesson. */
+  taught?: Record<ResidentId, number>;
 }
 
 /**
@@ -1208,6 +1215,8 @@ export type Command =
   | { type: "shop_buy"; sku: string; count?: number }
   /** Learn a recipe from the shop's Recipes shelf with one of your free picks (RFC 0024). */
   | { type: "pick_recipe"; recipe: string }
+  /** Teach a recipe you know to a resident within reach who doesn't know it (RFC 0024). */
+  | { type: "teach"; recipe: string; to: ResidentId }
   | { type: "sell_to_town"; item: string; count?: number }
   /** Turn routines on and off (RFC 0009): the whole list, `[]` for all off. */
   | { type: "set_routines"; routines: Routine[] }
@@ -1959,9 +1968,12 @@ export const REJECTION_CODES = [
   "already_known",
   /** You've used every free pick. */
   "no_picks_left",
-  /** You've taught a recipe today, or been taught one: one a day each way (teaching, coming later). */
+  /**
+   * You've taught a recipe today, or they've been taught one: one a day each way. A townsfolk
+   * teaches each resident once a week.
+   */
   "taught_today",
-  /** The two of you aren't within reach of each other to teach (teaching, coming later). */
+  /** The two of you aren't within reach of each other to teach. */
   "not_near",
 ] as const;
 export type RejectionCode = (typeof REJECTION_CODES)[number];

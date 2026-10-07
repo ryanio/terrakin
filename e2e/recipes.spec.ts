@@ -1,12 +1,24 @@
 import { expect, type Page, test } from "@playwright/test";
-import { act, openRecipes, persona, read, signIn, tapTile, watchErrors } from "./support";
+import {
+  act,
+  freePlots,
+  openRecipes,
+  persona,
+  read,
+  settleFree,
+  signIn,
+  tapTile,
+  watchErrors,
+} from "./support";
 
 /**
  * Recipes you learn (RFC 0024) on a phone. Hazel lives here before recipes open and keeps her full
  * kitchen. Juniper joins after: her first kitchen asks her to pick 3 recipes, the kitchen then
  * lists what she knows with how many more there are to learn, and that link opens the shop's
  * Recipes shelf, where she takes a free pick, buys a card, and is turned down for one she can no
- * longer afford, in the server's words. Opening recipes changes the world for everyone, so this
+ * longer afford, in the server's words. Then Ivy, standing by Wren on the Commons, taps her and
+ * teaches her lemonade: both hear it, and Wren finds it at her own kitchen and sees on Ivy's
+ * profile what else Ivy can teach her. Opening recipes changes the world for everyone, so this
  * spec borrows the bounties spec's server (`SWITCH_SPECS` in `ports.ts`).
  */
 
@@ -142,4 +154,83 @@ test("a resident from before recipes opened still sees her full kitchen", async 
   await expect(kitchen.locator(".workshop-learn")).toBeHidden();
   await expect(page.locator(".picks-sheet")).toHaveCount(0);
   expect(errors).toEqual([]);
+});
+
+test("a neighbor standing by teaches a newcomer, who hears it and finds it at her kitchen", async ({
+  page,
+  browser,
+}) => {
+  const errors = watchErrors(page);
+  // Two newcomers on the Commons. Wren steps off the spawn tile, so a tap on her is a tap on her.
+  const ivy = await persona(page.request, "visitor", { name: "Ivy" });
+  const wren = await persona(page.request, "visitor", { name: "Wren" });
+  expect((await act(page.request, ivy.token, { type: "pick_recipe", recipe: "lemonade" })).ok).toBe(
+    true,
+  );
+  let step: { dx: number; dy: number } | undefined;
+  for (const [dir, dx, dy] of [
+    ["e", 1, 0],
+    ["w", -1, 0],
+    ["s", 0, 1],
+    ["n", 0, -1],
+  ] as const) {
+    if ((await act(page.request, wren.token, { type: "move", dir })).ok) {
+      step = { dx, dy };
+      break;
+    }
+  }
+  if (!step) throw new Error("Wren couldn't step off the spawn tile");
+  // Ivy's own profile of Wren says what she could teach her.
+  const seen = (await read(page.request, ivy.token, `/v1/residents/${wren.id}`)).resident;
+  expect(seen.canLearn).toEqual(["lemonade"]);
+
+  // Wren watches the world on her own phone.
+  const wrenSide = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const wrenPage = await wrenSide.newPage();
+  const wrenErrors = watchErrors(wrenPage);
+  await signIn(wrenPage, wren);
+  await wrenPage.goto("/world");
+  await expect(wrenPage.locator("#hud")).toBeVisible();
+
+  // Ivy taps Wren: her sheet lists what Ivy could teach her, with Teach.
+  await signIn(page, ivy);
+  await page.goto("/world");
+  await expect(page.locator("#hud")).toBeVisible();
+  await tapTile(page, step.dx, step.dy);
+  const sheet = page.locator(".teach-sheet");
+  await expect(sheet.getByRole("heading", { name: "Wren", exact: true })).toBeVisible();
+  const lemonade = sheet.locator('[data-recipe="lemonade"]');
+  await expect(lemonade.locator("svg.item-art")).toBeVisible();
+  await page.screenshot({ path: "test-results/recipes-teach.png" });
+  await lemonade.getByRole("button", { name: "Teach Wren lemonade" }).click();
+  await expect(sheet).toBeHidden();
+  await expect(page.locator("#toast")).toContainText("You taught Wren lemonade.");
+  // Wren hears it with Ivy's name, and the notification says so too.
+  await expect(wrenPage.locator("#toast")).toContainText("Ivy taught you lemonade.");
+  const notes = (await read(page.request, wren.token, "/v1/notifications")).notifications;
+  expect(notes[0]).toMatchObject({ type: "recipe_taught", recipe: "lemonade" });
+
+  // Wren settles a plot of her own, uses her picks, and puts a kitchen up: lemonade is there.
+  await settleFree(page.request, wren.token, await freePlots(page.request, 5, "top-right"));
+  for (const recipe of ["well", "barrel", "signpost"]) {
+    expect((await act(page.request, wren.token, { type: "pick_recipe", recipe })).ok).toBe(true);
+  }
+  await kitchenBy(wrenPage, wren);
+  await wrenPage.reload();
+  await expect(wrenPage.locator("#hud")).toBeVisible();
+  await tapTile(wrenPage, 1, -1);
+  const kitchen = wrenPage.locator(".workshop-sheet");
+  await expect(kitchen.locator(".workshop-row", { hasText: "Lemonade" })).toHaveCount(1);
+  await expect(kitchen.locator(".workshop-row", { hasText: "Tomato sauce" })).toHaveCount(0);
+
+  // Ivy picks the bookshelf, and her profile tells Wren she can teach it.
+  expect(
+    (await act(page.request, ivy.token, { type: "pick_recipe", recipe: "bookshelf" })).ok,
+  ).toBe(true);
+  await wrenPage.goto(`/r/${ivy.id}`);
+  await expect(wrenPage.locator(".profile-teach")).toHaveText("Ivy can teach you bookshelf.");
+  await wrenPage.screenshot({ path: "test-results/recipes-can-teach.png" });
+  expect(errors).toEqual([]);
+  expect(wrenErrors).toEqual([]);
+  await wrenSide.close();
 });

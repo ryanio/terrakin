@@ -17,6 +17,7 @@ import {
   isResourceKind,
   OUTSIDE_GROUND,
   plotKey,
+  RECIPE_PAGE,
   type Resident,
   type Season,
   seasonTone,
@@ -391,7 +392,10 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
     const lying = data.pickups.flatMap((p) =>
       isResourceKind(p.kind) ? [{ ...p, kind: p.kind }] : [],
     );
-    const found = data.pickups.flatMap((p) => (isFindKind(p.kind) ? [{ ...p, kind: p.kind }] : []));
+    // A recipe page (RFC 0024) stands the same way, as its scroll.
+    const found = data.pickups.flatMap((p) =>
+      isFindKind(p.kind) || p.kind === RECIPE_PAGE ? [{ ...p, kind: p.kind }] : [],
+    );
     if (lying.length) group.add(pickups(origin, lying));
     if (found.length) group.add(foundThings(scope, origin, found, pictures));
     for (const h of data.hearths) {

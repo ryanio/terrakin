@@ -11,7 +11,7 @@ import {
 import { coinCount as coins, oneTimeSwitch, refuse } from "./check";
 import { allowanceDue, isTownsfolk, movePurse, moveTreasury } from "./economy";
 import { dayName } from "./holiday";
-import { own } from "./own";
+import { own, residentById } from "./own";
 import { type Season, seasonOf } from "./season";
 import {
   BUY_ORDERS,
@@ -22,7 +22,16 @@ import {
   seasonLastDay,
   treasuryShareOf,
 } from "./shop";
-import type { Command, RecipesState, Rejection, ResidentId, WorldEvent, WorldState } from "./types";
+import type {
+  Command,
+  ItemsState,
+  RecipesState,
+  Rejection,
+  ResidentId,
+  WorldEvent,
+  WorldState,
+} from "./types";
+import { chebyshev, walkHint } from "./world";
 
 /**
  * Recipes you learn (RFC 0024, decision 0170). A resident knows the base, every holiday recipe, and
@@ -52,6 +61,14 @@ export const RECIPES_RULES = {
   perThing: 3,
   /** Every card's price is rounded to the nearest this many coins. */
   roundTo: 5,
+  /** Recipes each resident may teach a UTC day. A townsfolk's lessons aren't counted. */
+  teachPerDay: 1,
+  /** Recipes each resident may be taught a UTC day, by neighbors and townsfolk together. */
+  taughtPerDay: 1,
+  /** A townsfolk teaches each resident at most once in this many world days. */
+  townsfolkEveryDays: 7,
+  /** About one find in this many is a recipe page (`pageOn`). */
+  pageOneIn: 20,
 } as const;
 
 /**
@@ -91,6 +108,55 @@ export const knownByAll = (recipe: RecipeName): boolean =>
 
 /** Every recipe the shop sells a card for: all but the base and the holiday recipes. */
 export const CARD_RECIPES: readonly RecipeName[] = RECIPE_NAMES.filter((r) => !knownByAll(r));
+
+/**
+ * The recipes a page on the ground can teach, frozen by name in the order `pageOn` counts them: a
+ * logged `gather` of a page replays only while this list stays exactly as it is. Today it's every
+ * card. A recipe added later is no page until a new list starts at a logged switch.
+ */
+export const PAGE_RECIPES = [
+  "lemonade",
+  "tomato_sauce",
+  "herb_sachet",
+  "flower_wreath",
+  "pumpkin_pie",
+  "pumpkin_soup",
+  "bookshelf",
+  "barrel",
+  "signpost",
+  "lamp_post",
+  "well",
+  "campfire",
+  "flower_box",
+  "cranberry_punch",
+  "fried_minnows",
+  "fish_stew",
+] as const satisfies readonly RecipeName[];
+
+/**
+ * The roll for a recipe page on a tile and a day, a whole number below 2^32. Its own constants and
+ * finalizer, so it never follows a tile's other rolls.
+ */
+function pageRoll(x: number, y: number, day: number): number {
+  let h = (Math.imul(x, 0x5bd1e995) + Math.imul(y, 0x1b873593) + Math.imul(day, 0xcc9e2d51)) | 0;
+  h ^= h >>> 15;
+  h = Math.imul(h, 0x2c1b3c6d);
+  h ^= h >>> 12;
+  h = Math.imul(h, 0x297a2d39);
+  h ^= h >>> 15;
+  return h >>> 0;
+}
+
+/**
+ * The recipe a find on (x, y) on `day` would be a page for, or null when it would stay a find:
+ * about one in `RECIPES_RULES.pageOneIn`, each page recipe as likely. Pure, like the find itself,
+ * so every client draws the same page and replay never needs it logged. Only asked once recipes
+ * are learned and a find lies there.
+ */
+export function pageOn(x: number, y: number, day: number): RecipeName | null {
+  const n = pageRoll(x, y, day) % (RECIPES_RULES.pageOneIn * PAGE_RECIPES.length);
+  return n < PAGE_RECIPES.length ? (PAGE_RECIPES[n] as RecipeName) : null;
+}
 
 /** A card's sku in `shop_buy` and `GET /v1/shop`: `recipe:lemonade`. */
 export const cardSku = (recipe: RecipeName) => `recipe:${recipe}` as const;
@@ -180,7 +246,7 @@ export function picksLeft(state: WorldState, id: ResidentId): number {
 }
 
 /** `how to make wells`, for messages. */
-const howToMake = (recipe: RecipeName) =>
+export const howToMake = (recipe: RecipeName) =>
   Object.hasOwn(CATALOG, recipe)
     ? `how to make ${ITEM_INFO[recipe as CraftKind].plural.toLowerCase()}`
     : `the ${recipe} recipe`;
@@ -202,14 +268,24 @@ function waysToLearn(state: WorldState, id: ResidentId, recipe: RecipeName, day:
   const price = coins(recipeCardPrice(recipe));
   const card = `buy its card at the town shop (${price}, shop_buy with sku ${sku})`;
   const left = picksLeft(state, id);
+  const others = otherWays(state, recipe);
   if (!onShelf(recipe, day)) {
-    return `${shelfWhen(recipe, day)}Then you can ${left > 0 ? `pick it with a free pick (pick_recipe), or ` : ""}${card}.`;
+    return `${shelfWhen(recipe, day)}Then you can ${left > 0 ? `pick it with a free pick (pick_recipe), or ` : ""}${card}.${others}`;
   }
   if (left > 0) {
     const pick = left === 1 ? "your last free pick" : `one of your ${left} free picks`;
-    return `Pick it with ${pick} (pick_recipe with recipe ${recipe}), or ${card}.`;
+    return `Pick it with ${pick} (pick_recipe with recipe ${recipe}), or ${card}.${others}`;
   }
-  return `${card.charAt(0).toUpperCase()}${card.slice(1)}.`;
+  return `${card.charAt(0).toUpperCase()}${card.slice(1)}.${others}`;
+}
+
+/** The ways to learn that cost nothing and wait on someone or something: a lesson, and a page. */
+function otherWays(state: WorldState, recipe: RecipeName): string {
+  const reach = state.config.reach;
+  const page = (PAGE_RECIPES as readonly string[]).includes(recipe)
+    ? " Now and then a find on the ground is its recipe page, which teaches it when you gather it."
+    : "";
+  return ` Or ask a neighbor who knows it to teach you while you stand within ${reach} tiles of each other (they send teach).${page}`;
 }
 
 /**
@@ -254,7 +330,7 @@ export function checkOpenRecipes(state: WorldState): RecipesChecked {
 }
 
 /** Add `recipe` to what `id` learned, keeping the list sorted. Call only when committing. */
-function learn(recipes: RecipesState, id: ResidentId, recipe: RecipeName) {
+export function learn(recipes: RecipesState, id: ResidentId, recipe: RecipeName) {
   recipes.learned[id] = [...(own(recipes.learned, id) ?? []), recipe].sort();
 }
 
@@ -305,6 +381,137 @@ export function checkPickRecipe(
     learn(recipes, actor, recipe);
     recipes.picks[actor] = used + 1;
     return [{ type: "recipe_learned", residentId: actor, recipe, how: "picked" }];
+  };
+}
+
+/** Lessons `id` gave today, and lessons they were taught today. */
+export const teachingToday = (state: WorldState, id: ResidentId): number =>
+  own(state.items?.today.teaching, id) ?? 0;
+export const taughtToday = (state: WorldState, id: ResidentId): number =>
+  own(state.items?.today.taught, id) ?? 0;
+
+/**
+ * Whether a townsfolk may teach `id` on `day`: their last townsfolk lesson, if any, was at least
+ * `RECIPES_RULES.townsfolkEveryDays` world days ago.
+ */
+export function townsfolkLessonDue(state: WorldState, id: ResidentId, day: number): boolean {
+  const last = own(state.recipes?.townsfolkTaught, id);
+  return last === undefined || day - last >= RECIPES_RULES.townsfolkEveryDays;
+}
+
+/**
+ * What `teacher` could teach `learner` right now as far as knowing goes: every recipe the teacher
+ * knows that the learner doesn't, past the base and the holiday recipes, in `RECIPE_NAMES` order.
+ * Empty before recipes are learned, when everyone knows everything. Distance, being online, and
+ * today's lessons are `teach`'s own checks.
+ */
+export function teachable(
+  state: WorldState,
+  teacher: ResidentId,
+  learner: ResidentId,
+): RecipeName[] {
+  if (!state.recipes || teacher === learner) return [];
+  return RECIPE_NAMES.filter(
+    (r) => !knownByAll(r) && knows(state, teacher, r) && !knows(state, learner, r),
+  );
+}
+
+/**
+ * `teach {recipe, to}`: teach a recipe you know to a resident within reach who doesn't (RFC 0024).
+ * Both must be online and within `config.reach` of each other. Each resident teaches
+ * `RECIPES_RULES.teachPerDay` a day and is taught `taughtPerDay` a day. A townsfolk's lesson (the
+ * server's townsfolk run sends them) isn't counted against the townsfolk, and comes to each
+ * resident at most once in `townsfolkEveryDays` days.
+ */
+export function checkTeach(
+  state: WorldState,
+  actor: ResidentId,
+  command: Extract<Command, { type: "teach" }>,
+): RecipesChecked {
+  const { recipes, day } = state;
+  const items = state.items as ItemsState | undefined;
+  if (!recipes || !items || day === undefined) {
+    return refuse(
+      "already_known",
+      "Everyone knows every recipe in this world for now, so there's nothing to teach. GET /v1/inventory lists them.",
+    );
+  }
+  const me = state.residents[actor];
+  if (!me) return refuse("not_joined", "Join the world first.");
+  const { recipe, to } = command;
+  const reach = state.config.reach;
+  if (!isRecipeName(recipe)) {
+    return refuse(
+      "unknown_item",
+      "There's no recipe by that name. GET /v1/inventory lists the recipes you know.",
+    );
+  }
+  if (knownByAll(recipe)) {
+    return refuse(
+      "already_known",
+      `Everyone knows ${howToMake(recipe)} already, so there's nothing to teach.`,
+    );
+  }
+  if (!knows(state, actor, recipe)) {
+    return refuse(
+      "recipe_unknown",
+      `You don't know ${howToMake(recipe)} yet, so you can't teach it. GET /v1/inventory lists the recipes you know.`,
+    );
+  }
+  if (to === actor) {
+    return refuse(
+      "already_known",
+      `You already know ${howToMake(recipe)}. Teach a neighbor standing within ${reach} tiles of you: send teach with to set to their id.`,
+    );
+  }
+  const them = residentById(state, to);
+  if (!them) return refuse("unknown_resident", "Nobody in the world has that id.");
+  if (!them.online) {
+    return refuse(
+      "not_joined",
+      `${them.id} isn't in the world right now. You can teach someone only while you both stand within ${reach} tiles of each other.`,
+    );
+  }
+  if (knows(state, them.id, recipe)) {
+    return refuse("already_known", `${them.id} already knows ${howToMake(recipe)}.`);
+  }
+  if (chebyshev(me, them) > reach) {
+    return refuse(
+      "not_near",
+      `${them.id} is more than ${reach} tiles away. Stand within ${reach} tiles of each other to teach.${walkHint(me, them, reach)}`,
+    );
+  }
+  const townsfolk = isTownsfolk(state, actor);
+  if (!townsfolk && teachingToday(state, actor) >= RECIPES_RULES.teachPerDay) {
+    return refuse(
+      "taught_today",
+      `You've taught ${RECIPES_RULES.teachPerDay === 1 ? "a recipe" : `${RECIPES_RULES.teachPerDay} recipes`} today, all one day has. Teach again after midnight UTC.`,
+    );
+  }
+  if (taughtToday(state, them.id) >= RECIPES_RULES.taughtPerDay) {
+    return refuse(
+      "taught_today",
+      `${them.id} has learned a recipe from someone today already. Teach them after midnight UTC.`,
+    );
+  }
+  if (townsfolk && !townsfolkLessonDue(state, them.id, day)) {
+    return refuse(
+      "taught_today",
+      `${them.id} had a townsfolk's lesson in the last ${RECIPES_RULES.townsfolkEveryDays} days. A townsfolk teaches each resident once a week.`,
+    );
+  }
+  const learner = them.id;
+  return () => {
+    learn(recipes, learner, recipe);
+    items.today.taught ??= {};
+    items.today.taught[learner] = taughtToday(state, learner) + 1;
+    if (townsfolk) {
+      recipes.townsfolkTaught[learner] = day;
+    } else {
+      items.today.teaching ??= {};
+      items.today.teaching[actor] = teachingToday(state, actor) + 1;
+    }
+    return [{ type: "recipe_learned", residentId: learner, recipe, how: "taught", from: actor }];
   };
 }
 

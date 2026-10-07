@@ -69,6 +69,9 @@ export function wireSocial(
   // Pets (RFC 0019): a treat logged in the world tells its owner, and a pat (a social row)
   // makes the pet look happy on every screen that shows it.
   service.onPetTreated = (owner, by, kind) => layer.petTreated(owner, by, kind);
+  // Recipes (RFC 0024): a lesson logged in the world tells its learner who taught them.
+  service.onRecipeTaught = (learner, teacher, recipe) =>
+    layer.recipeTaught(learner, teacher, recipe);
   // Halloween (RFC 0022): a knock logged in the world tells everyone who lives at the door.
   service.onTrickOrTreated = (knocker, plot, residents) =>
     layer.trickOrTreated(knocker, plot, residents);

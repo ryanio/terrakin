@@ -17,6 +17,7 @@ import { PARTNERS } from "./partners";
 import { parseMaintainers, parseTownsfolk, SocialService } from "./social-service";
 import { JsonlStore, MemoryStore } from "./store";
 import { TOWN_EVENTS } from "./town-events";
+import { lessonsMode, TownsfolkLessons } from "./townsfolk-lessons";
 import { TownsfolkTips, tipsMode } from "./townsfolk-tips";
 import { TownsfolkWelcome, welcomeMode } from "./townsfolk-welcome";
 import { TriageClient, triageConfig } from "./triage";
@@ -208,6 +209,15 @@ const welcome = new TownsfolkWelcome({
   now,
 });
 
+// Townsfolk lessons (RFC 0024): off unless TERRAKIN_TOWNSFOLK_LESSONS is `dry` or `on`, and
+// nothing until recipes are learned in the world.
+const lessons = new TownsfolkLessons({
+  mode: lessonsMode(process.env),
+  world: service,
+  social,
+  townsfolk,
+});
+
 const server = createApp({
   service,
   social,
@@ -215,6 +225,7 @@ const server = createApp({
   chatter,
   tips,
   welcome,
+  lessons,
   trustedProxies,
   ...(sessionsPerMinute ? { sessionsPerMinute } : {}),
   ...(staticDir ? { staticDir: fromCwd(staticDir) } : {}),

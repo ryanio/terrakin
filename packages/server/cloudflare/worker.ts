@@ -52,6 +52,7 @@ import { parseMaintainers, parseTownsfolk, SocialService } from "../src/social-s
 import { SqlStore } from "../src/sql-store";
 import { report, sentryOptions, span } from "../src/telemetry";
 import { TOWN_EVENTS } from "../src/town-events";
+import { lessonsMode, TownsfolkLessons } from "../src/townsfolk-lessons";
 import { TIPS_CRON, TownsfolkTips, tipsMode } from "../src/townsfolk-tips";
 import { TownsfolkWelcome, welcomeMode } from "../src/townsfolk-welcome";
 import { TriageClient, triageConfig } from "../src/triage";
@@ -116,6 +117,8 @@ interface Env {
   TERRAKIN_TIPS?: string;
   /** Welcome visits (decision 0142): `off` (the default), `dry`, or `on`. */
   TERRAKIN_WELCOME_VISITS?: string;
+  /** Townsfolk lessons (RFC 0024): `off` (the default), `dry`, or `on`. */
+  TERRAKIN_TOWNSFOLK_LESSONS?: string;
   /** Agent links (RFC 0007): RPC URLs per network, like `4663=https://...`. Default: public endpoints. */
   TERRAKIN_CHAIN_RPC?: string;
   /** Reads (network calls and card fetches) per UTC day for agent links. Default 20,000. */
@@ -474,6 +477,13 @@ class WorldObject extends DurableObject<Env> {
         onQueued: () => {
           void this.armRecheck();
         },
+      }),
+      // Townsfolk lessons (RFC 0024), run by the minute sweep; nothing until recipes are learned.
+      lessons: new TownsfolkLessons({
+        mode: lessonsMode(env),
+        world: service,
+        social,
+        townsfolk,
       }),
       // Plot photos are drawn by the Worker (PlotPhotos), never in this object.
       photos: (spec) => env.PHOTOS.draw(spec),

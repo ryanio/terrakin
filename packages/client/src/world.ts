@@ -509,9 +509,11 @@ function onMessage(msg: ServerMessage) {
         const { x, y, caught } = msg.event;
         casts = [...casts, { x, y, caught, at: performance.now() }];
       }
-      // Your own news, in plain words. Notes, labels, and names stay out of it.
-      const line = me ? newsLine(msg.event, me) : null;
-      if (line) showToast(line);
+      // Your own news, in plain words. Notes and labels stay out of it; a lesson names its teacher
+      // or learner (RFC 0024), shown as text.
+      const line = me ? newsLine(msg.event, me, (id) => mirror?.residents.get(id)?.name) : null;
+      const named = msg.event.type === "recipe_learned" && msg.event.from !== undefined;
+      if (line) showToast(line, named ? "player" : "system");
       // What you hold changes the build bar: decor and furniture counts, and what paths take.
       if (msg.event.type === "inventory" && msg.event.residentId === me) {
         rods = rodsAfter(rods, msg.event);
@@ -736,6 +738,20 @@ function openStation(x: number, y: number) {
     );
     return;
   }
+  // Once recipes are learned (RFC 0024), whoever stands within reach of you, nearest first, so
+  // the sheet can offer to teach them. Townsfolk know every recipe already.
+  const at = here();
+  const neighbors =
+    m.recipesOpen && at && (kind === "kitchen" || kind === "workbench")
+      ? [...m.residents.values()]
+          .filter((r) => r.online && r.id !== me && !m.townsfolk.has(r.id) && inReach(at, r))
+          .sort(
+            (a, b) =>
+              Math.max(Math.abs(a.x - at.x), Math.abs(a.y - at.y)) -
+              Math.max(Math.abs(b.x - at.x), Math.abs(b.y - at.y)),
+          )
+          .map((r) => ({ id: r.id, name: r.name, kind: r.kind, note: r.note }))
+      : [];
   void import("./garden-sheet").then((g) =>
     g.openTileSheet({
       block: kind,
@@ -746,6 +762,7 @@ function openStation(x: number, y: number) {
       yours,
       ...(ownerName ? { ownerName } : {}),
       act: (action) => act(action),
+      ...(neighbors.length > 0 ? { neighbors, reach: m.config.reach } : {}),
     }),
   );
 }
@@ -916,7 +933,24 @@ function tapTile(tile: { x: number; y: number }) {
     const other = target.other;
     lookAt(other);
     const name = other.kind === "agent" ? `${other.name} ⚙` : other.name;
-    showToast(other.note ? `${name}: ${other.note}` : name, "player");
+    const who = () => showToast(other.note ? `${name}: ${other.note}` : name, "player");
+    // Once recipes are learned (RFC 0024), their sheet says what they could teach you and lists
+    // what you could teach them. With nothing to say either way, the toast as before.
+    if (!mirror.recipesOpen || !me) return who();
+    const near = inReach(at, other);
+    const { reach } = mirror.config;
+    void import("./teach-sheet")
+      .then((t) =>
+        t.openTeachSheet({
+          who: { id: other.id, name: other.name, kind: other.kind, note: other.note },
+          near,
+          reach,
+        }),
+      )
+      .then((opened) => {
+        if (!opened) who();
+      })
+      .catch(who);
     return;
   }
   // Someone away is not here: asleep at home, or out on a routine (decision 0083). Say so, and

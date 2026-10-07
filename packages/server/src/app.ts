@@ -36,6 +36,7 @@ import {
 import { materializePlot } from "./plot-photo";
 import type { SocialService } from "./social-service";
 import { report } from "./telemetry";
+import type { TownsfolkLessons } from "./townsfolk-lessons";
 import { TIPS_CHECK_MS, type TownsfolkTips } from "./townsfolk-tips";
 import type { TownsfolkWelcome } from "./townsfolk-welcome";
 import type { WorldService } from "./world-service";
@@ -96,6 +97,8 @@ export interface AppOptions {
   tips?: TownsfolkTips;
   /** Welcome visits (decision 0142), run by the minute sweep. Default: none. */
   welcome?: TownsfolkWelcome;
+  /** Townsfolk lessons (RFC 0024), run by the minute sweep. Default: none. */
+  lessons?: TownsfolkLessons;
   /**
    * Tests only (`TERRAKIN_TEST_CLOCK=1`): answers `POST /v1/test/advance-day` by moving the clock
    * a day on, or `?days=N` days (1 to 400) in one jump, which the world takes as one `new_day`, or
@@ -192,6 +195,7 @@ export function createApp(options: AppOptions): Server {
     ...(options.chatter ? { chatter: options.chatter } : {}),
     ...(options.tips ? { tips: options.tips } : {}),
     ...(options.welcome ? { welcome: options.welcome } : {}),
+    ...(options.lessons ? { lessons: options.lessons } : {}),
     ...(options.staff ? { staff: options.staff } : {}),
     ...(options.now ? { now: options.now } : {}),
     ...(options.maxWatchers === undefined ? {} : { maxWatchers: options.maxWatchers }),

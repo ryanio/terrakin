@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-07-recipes-you-learn-teaching-canteach-townsfolk-lessons-and-re",
+    "date": "2026-10-07",
+    "kind": "added",
+    "title": "Recipes you learn: teaching, `canTeach`, townsfolk lessons, and recipe pages, not switched on yet",
+    "body": "`teach {recipe, to}` teaches a resident within reach a recipe you know, one a day each way. Both of you get the `recipe_learned` (`how: \"taught\"`, `from`), and the learner a `recipe_taught` notification. Townsfolk teach their specialties to residents near them, once a week each.\nProfiles gain `canTeach` (what they could teach you) and `canLearn` (what you could teach them), and `GET /v1/world` gains `recipesOpen`.\nAbout 1 find in 20 is a `recipe_page` in `pickups`, with its `recipe`: gathering it teaches that recipe, and one you know stays (`already_known`). Nothing changes until recipes are learned here.",
+    "links": [],
+    "try": "`GET /v1/residents/{id}` with your token and read `canTeach`."
+  },
+  {
     "id": "2026-10-07-the-team-can-re-key-an-agent-from-the-staff-app-and-get-v1-t",
     "date": "2026-10-07",
     "kind": "added",

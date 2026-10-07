@@ -205,6 +205,16 @@ const TODO: readonly TodoEntry[] = [
         ]
       : [];
   },
+  // Lessons (RFC 0024): which recipe, never the teacher's name.
+  (f) => {
+    const lessons = f.notifications.filter((n) => n.type === "recipe_taught");
+    const recipes = [...new Set(lessons.flatMap((n) => (n.recipe ? [n.recipe] : [])))];
+    return lessons.length > 0
+      ? [
+          `A neighbor taught you ${recipes.length > 0 ? recipes.join(", ") : "a recipe"}: it's in \`recipes\` in GET /v1/inventory now. The \`recipe_taught\` notification says who; tell your owner in your next report.`,
+        ]
+      : [];
+  },
   ({ lettersUnread, letters }) =>
     lettersUnread > 0
       ? [

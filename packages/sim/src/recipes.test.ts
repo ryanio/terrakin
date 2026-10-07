@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { apply } from "./apply";
 import { RECIPE_NAMES, type RecipeName } from "./catalog";
+import { LESSONS_CONFIG, LESSONS_HASH, LESSONS_LOG } from "./fixtures/lessons-log";
 import { RECIPES_CONFIG, RECIPES_HASH, RECIPES_LOG } from "./fixtures/recipes-log";
 import { SHOP_CONFIG, SHOP_LOG } from "./fixtures/shop-log";
+import { gatherableAt, pickupLeft } from "./gather";
 import { hashWorld } from "./hash";
+import { ITEMS, inventorySize } from "./items";
 import {
   BASE_RECIPES,
   CARD_RECIPES,
@@ -13,10 +16,15 @@ import {
   knownRecipes,
   knows,
   onShelf,
+  PAGE_RECIPES,
+  pageOn,
   picksLeft,
   RECIPES_RULES,
   recipeCardPrice,
   shelfOn,
+  taughtToday,
+  teachable,
+  teachingToday,
 } from "./recipes";
 import { replay } from "./replay";
 import { dayOfDate, seasonOf, seasonSpan } from "./season";
@@ -118,6 +126,22 @@ describe("old logs", () => {
   });
 });
 
+describe("the lessons log", () => {
+  it("replays lessons, a townsfolk's lesson, and a recipe page to its pinned hash", () => {
+    const state = replay(LESSONS_CONFIG, LESSONS_LOG);
+    expect(hashWorld(state)).toBe(LESSONS_HASH);
+    expectSupplyHolds(state);
+    expect(state.recipes?.learned).toMatchObject({
+      fran: ["lemonade", "pumpkin_pie", "well"],
+      gus: ["lemonade", "tomato_sauce"],
+    });
+    expect(state.recipes?.townsfolkTaught).toEqual({ gus: DAY + 18 });
+    // The page went into nobody's things, and the day after, nothing is counted.
+    expect(state.items?.inventories.fran?.stacks ?? {}).not.toHaveProperty("recipe_page");
+    expect(state.items?.today.taught).toBeUndefined();
+  });
+});
+
 describe("the recipe lists", () => {
   it("names a family recipe once, by its id", () => {
     expect(RECIPE_NAMES).toContain("jam");
@@ -202,6 +226,10 @@ describe("recipeCardPrice", () => {
       plainCoins: 10,
       perThing: 3,
       roundTo: 5,
+      teachPerDay: 1,
+      taughtPerDay: 1,
+      townsfolkEveryDays: 7,
+      pageOneIn: 20,
     });
   });
 
@@ -308,6 +336,8 @@ describe("craft", () => {
     expect(code).toBe("recipe_unknown");
     expect(message).toContain("pick_recipe");
     expect(message).toContain("20 coins, shop_buy with sku recipe:lemonade");
+    expect(message).toContain("ask a neighbor who knows it to teach you");
+    expect(message).toContain("recipe page");
     expect(w.state.items?.inventories.cy?.stacks).toEqual(held);
     expect(w.state.items?.today.crafted.cy).toBeUndefined();
   });
@@ -484,5 +514,294 @@ describe("recipe cards", () => {
     w.settle("ada", 0);
     fund(w.state, "ada", 100);
     expect(w.code("ada", { type: "shop_buy", sku: "recipe:well" })).toBe("unknown_item");
+  });
+});
+
+/** A teach command. */
+const teach = (recipe: string, to: string): Command => ({ type: "teach", recipe, to });
+
+/**
+ * Recipes open, and Dee and Eve join after: both land on the Commons' spawn tile, so they stand
+ * within reach of each other. Dee picks lemonade and the well.
+ */
+function lesson(day = DAY) {
+  const w = opened(day);
+  w.ok("dee", { type: "join", name: "Dee", kind: "human" });
+  w.ok("eve", { type: "join", name: "Eve", kind: "human" });
+  w.ok("dee", { type: "pick_recipe", recipe: "lemonade" });
+  w.ok("dee", { type: "pick_recipe", recipe: "well" });
+  return w;
+}
+
+describe("teach", () => {
+  it("teaches a neighbor within reach a recipe you know, in one private event", () => {
+    const w = lesson();
+    expect(teachable(w.state, "dee", "eve")).toEqual(["lemonade", "well"]);
+    expect(w.ok("dee", teach("lemonade", "eve"))).toEqual([
+      { type: "recipe_learned", residentId: "eve", recipe: "lemonade", how: "taught", from: "dee" },
+    ]);
+    expect(knows(w.state, "eve", "lemonade")).toBe(true);
+    expect(w.state.recipes?.learned.eve).toEqual(["lemonade"]);
+    expect(teachingToday(w.state, "dee")).toBe(1);
+    expect(taughtToday(w.state, "eve")).toBe(1);
+    // A lesson costs nobody a pick, a coin, or a thing.
+    expect(picksLeft(w.state, "eve")).toBe(3);
+    expect(picksLeft(w.state, "dee")).toBe(1);
+    expect(teachable(w.state, "dee", "eve")).toEqual(["well"]);
+  });
+
+  it("lets anyone who knows everything teach, and teaches nobody who knows it already", () => {
+    const w = lesson();
+    w.ok("ada", { type: "move", dir: "s" });
+    expect(w.code("ada", teach("well", "eve"))).toBe("not_near");
+    expect(w.code("dee", teach("lemonade", "ada"))).toBe("already_known");
+    expect(teachable(w.state, "dee", "ada")).toEqual([]);
+    expect(teachable(w.state, "ada", "eve")).toHaveLength(CARD_RECIPES.length);
+  });
+
+  it("is one a day each way: one lesson given, one taught, and both come back at new_day", () => {
+    const w = lesson();
+    w.ok("fay", { type: "join", name: "Fay", kind: "human" });
+    w.ok("fay", { type: "pick_recipe", recipe: "barrel" });
+    w.ok("dee", teach("lemonade", "eve"));
+    // Dee has taught today, and Eve has been taught today.
+    expect(w.refused("dee", teach("well", "fay"))).toMatchObject({ code: "taught_today" });
+    expect(w.refused("fay", teach("barrel", "eve"))).toMatchObject({ code: "taught_today" });
+    w.town({ type: "new_day", day: DAY + 1 });
+    expect(w.state.items?.today.teaching).toBeUndefined();
+    expect(w.state.items?.today.taught).toBeUndefined();
+    // Coming back the next day brings each of them back online where they were.
+    w.ok("fay", teach("barrel", "eve"));
+    w.ok("dee", teach("well", "fay"));
+    expect(w.state.recipes?.learned).toMatchObject({
+      eve: ["barrel", "lemonade"],
+      fay: ["barrel", "well"],
+    });
+  });
+
+  it("needs both of you online and within reach of each other", () => {
+    const w = lesson();
+    for (const _ of [1, 2, 3, 4]) w.ok("eve", { type: "move", dir: "e" });
+    const far = w.refused("dee", teach("lemonade", "eve"));
+    expect(far.code).toBe("not_near");
+    expect(far.message).toContain("move e once");
+    w.ok("eve", { type: "move", dir: "w" });
+    w.ok("eve", { type: "leave" });
+    expect(w.code("dee", teach("lemonade", "eve"))).toBe("not_joined");
+    w.ok("eve", { type: "join", name: "Eve", kind: "human" });
+    w.ok("dee", teach("lemonade", "eve"));
+  });
+
+  it("refuses what you don't know, what everyone knows, yourself, and nobody", () => {
+    const w = lesson();
+    expect(w.code("dee", teach("barrel", "eve"))).toBe("recipe_unknown");
+    expect(w.refused("dee", teach("barrel", "eve")).message).toContain("can't teach it");
+    expect(w.code("dee", teach("herb_tea", "eve"))).toBe("already_known");
+    expect(w.code("dee", teach("candy", "eve"))).toBe("already_known");
+    expect(w.code("dee", teach("lemon_jam", "eve"))).toBe("unknown_item");
+    expect(w.code("dee", teach("__proto__", "eve"))).toBe("unknown_item");
+    expect(w.code("dee", teach("lemonade", "dee"))).toBe("already_known");
+    expect(w.code("dee", teach("lemonade", "nobody"))).toBe("unknown_resident");
+    expect(w.code("dee", teach("lemonade", "__proto__"))).toBe("unknown_resident");
+    expect(w.code("dee", teach("lemonade", "toString"))).toBe("unknown_resident");
+    expect(teachingToday(w.state, "dee")).toBe(0);
+    expect(w.state.recipes?.learned.eve).toBeUndefined();
+  });
+
+  it("has nothing to teach before recipes open, when everyone knows everything", () => {
+    const w = world();
+    w.town({ type: "new_day", day: DAY });
+    w.town({ type: "open_economy" });
+    w.town({ type: "open_items" });
+    w.town({ type: "open_shop" });
+    w.ok("dee", { type: "join", name: "Dee", kind: "human" });
+    w.ok("eve", { type: "join", name: "Eve", kind: "human" });
+    expect(w.code("dee", teach("lemonade", "eve"))).toBe("already_known");
+    expect(teachable(w.state, "dee", "eve")).toEqual([]);
+  });
+
+  it("from a townsfolk, doesn't count against them, and comes to each resident once a week", () => {
+    const w = lesson();
+    w.ok("clem", { type: "join", name: "Clem", kind: "human" });
+    w.town({ type: "set_townsfolk", ids: ["clem"] });
+    w.ok("fay", { type: "join", name: "Fay", kind: "human" });
+    expect(w.ok("clem", teach("tomato_sauce", "eve"))).toEqual([
+      {
+        type: "recipe_learned",
+        residentId: "eve",
+        recipe: "tomato_sauce",
+        how: "taught",
+        from: "clem",
+      },
+    ]);
+    // Clem can teach someone else today, and Eve's lesson counts toward her day like any.
+    w.ok("clem", teach("tomato_sauce", "fay"));
+    expect(teachingToday(w.state, "clem")).toBe(0);
+    expect(w.code("dee", teach("lemonade", "eve"))).toBe("taught_today");
+    expect(w.state.recipes?.townsfolkTaught).toEqual({ eve: DAY, fay: DAY });
+    // A neighbor can teach her the next day, but a townsfolk only a week after the last one.
+    w.town({ type: "new_day", day: DAY + 1 });
+    w.ok("dee", teach("lemonade", "eve"));
+    w.town({ type: "new_day", day: DAY + 6 });
+    const soon = w.refused("clem", teach("lemonade", "fay"));
+    expect(soon).toMatchObject({ code: "taught_today" });
+    expect(soon.message).toContain("once a week");
+    w.town({ type: "new_day", day: DAY + 7 });
+    w.ok("clem", teach("lemonade", "fay"));
+    expect(w.state.recipes?.townsfolkTaught).toEqual({ eve: DAY, fay: DAY + 7 });
+  });
+});
+
+describe("recipe pages", () => {
+  it("are about one find in 20, every page recipe about as often, and pinned", () => {
+    const counts: Record<string, number> = {};
+    let pages = 0;
+    let rolls = 0;
+    for (let day = DAY; day < DAY + 28; day++) {
+      for (let y = 0; y < 72; y++) {
+        for (let x = 0; x < 72; x++) {
+          rolls++;
+          const recipe = pageOn(x, y, day);
+          if (!recipe) continue;
+          pages++;
+          counts[recipe] = (counts[recipe] ?? 0) + 1;
+        }
+      }
+    }
+    const share = pages / rolls;
+    expect(share).toBeGreaterThan(0.045);
+    expect(share).toBeLessThan(0.055);
+    expect(Object.keys(counts).sort()).toEqual([...PAGE_RECIPES].sort());
+    for (const recipe of PAGE_RECIPES) {
+      const want = pages / PAGE_RECIPES.length;
+      expect(Math.abs((counts[recipe] ?? 0) - want), recipe).toBeLessThan(4 * Math.sqrt(want));
+    }
+    // The same tile and day always give the same page: a logged gather of one replays.
+    expect([pageOn(5, 7, DAY), pageOn(12, 40, DAY + 3), pageOn(0, 0, DAY)]).toEqual([
+      pageOn(5, 7, DAY),
+      pageOn(12, 40, DAY + 3),
+      pageOn(0, 0, DAY),
+    ]);
+    expect(pages).toBe(7286);
+  });
+
+  it("are frozen to today's cards, never the base or a holiday's", () => {
+    expect([...PAGE_RECIPES].sort()).toEqual([...CARD_RECIPES].sort());
+    for (const recipe of PAGE_RECIPES) {
+      expect((BASE_RECIPES as readonly string[]).includes(recipe), recipe).toBe(false);
+      expect(HOLIDAY_RECIPES.includes(recipe), recipe).toBe(false);
+    }
+  });
+});
+
+/**
+ * The first day from `DAY` with a recipe page lying east of the starter homes (x 8 and on, so a
+ * walk from the Commons there meets no wall), where, and the find it would be without pages.
+ */
+function firstPage() {
+  for (let day = DAY; day < DAY + 400; day++) {
+    for (let y = 0; y < CONFIG.height; y++) {
+      for (let x = 8; x < CONFIG.width; x++) {
+        if (gatherableAt(CONFIG, x, y, day, true, true) !== "recipe_page") continue;
+        const find = gatherableAt(CONFIG, x, y, day, true, false);
+        return { day, x, y, find, recipe: pageOn(x, y, day) as RecipeName };
+      }
+    }
+  }
+  throw new Error("no recipe page in 400 days");
+}
+
+/** Walk `id` one tile at a time, east or west and then north or south, onto (x, y). */
+function walkOnto(w: ReturnType<typeof world>, id: string, to: { x: number; y: number }) {
+  const at = () => w.state.residents[id] as { x: number; y: number };
+  while (at().x !== to.x) w.ok(id, { type: "move", dir: at().x < to.x ? "e" : "w" });
+  while (at().y !== to.y) w.ok(id, { type: "move", dir: at().y < to.y ? "s" : "n" });
+}
+
+describe("gathering a recipe page", () => {
+  const page = firstPage();
+  const at = { x: page.x, y: page.y };
+
+  /** Recipes and finds open on the page's day, with Clem (townsfolk) and Eve standing on it. */
+  function onPage() {
+    const w = lesson(page.day);
+    w.town({ type: "open_finds" });
+    w.ok("clem", { type: "join", name: "Clem", kind: "human" });
+    w.town({ type: "set_townsfolk", ids: ["clem"] });
+    walkOnto(w, "clem", at);
+    walkOnto(w, "eve", at);
+    return w;
+  }
+
+  it("teaches its recipe, puts nothing in your things, and is gone for the day", () => {
+    const w = onPage();
+    expect(pickupLeft(w.state, page.x, page.y)).toBe("recipe_page");
+    const things = { ...w.state.items?.inventories.eve?.stacks };
+    expect(w.ok("eve", { type: "gather", ...at })).toEqual([
+      { type: "gathered", ...at, kind: "recipe_page", by: "eve" },
+      { type: "recipe_learned", residentId: "eve", recipe: page.recipe, how: "found" },
+    ]);
+    expect(knows(w.state, "eve", page.recipe)).toBe(true);
+    expect({ ...w.state.items?.inventories.eve?.stacks }).toEqual(things);
+    expect(pickupLeft(w.state, page.x, page.y)).toBeNull();
+    expect(w.code("dee", { type: "gather", ...at })).toBe("out_of_reach");
+  });
+
+  it("is refused as already_known to someone who knows it, and stays for someone else", () => {
+    const w = onPage();
+    const known = w.refused("clem", { type: "gather", ...at });
+    expect(known.code).toBe("already_known");
+    expect(known.message).toContain("stays for someone else");
+    // Gathering everything within reach leaves it too, and says so when it's all there is.
+    const all = w.refused("clem", { type: "gather" });
+    expect(all.code === "already_known" || all.code === null).toBe(true);
+    expect(pickupLeft(w.state, page.x, page.y)).toBe("recipe_page");
+    w.ok("eve", { type: "gather", ...at });
+  });
+
+  it("comes with everything else within reach, and takes no room in full things", () => {
+    const w = onPage();
+    stock(w.state, "eve", {
+      stone: ITEMS.inventoryMax - inventorySize(w.state.items?.inventories.eve),
+    });
+    const events = w.ok("eve", { type: "gather" });
+    expect(events).toContainEqual({ type: "gathered", ...at, kind: "recipe_page", by: "eve" });
+    expect(events.at(-1)).toEqual({
+      type: "recipe_learned",
+      residentId: "eve",
+      recipe: page.recipe,
+      how: "found",
+    });
+    expect(events.some((e) => e.type === "inventory")).toBe(false);
+  });
+
+  it("lies only once recipes are learned: before, the same tile holds the find it always did", () => {
+    expect(page.find).not.toBeNull();
+    expect(page.find).not.toBe("recipe_page");
+    const w = world();
+    w.town({ type: "new_day", day: page.day });
+    w.town({ type: "open_economy" });
+    w.town({ type: "open_items" });
+    w.town({ type: "open_shop" });
+    w.town({ type: "open_finds" });
+    expect(pickupLeft(w.state, page.x, page.y)).toBe(page.find);
+    w.town({ type: "open_recipes" });
+    expect(pickupLeft(w.state, page.x, page.y)).toBe("recipe_page");
+  });
+
+  it("only ever stand where a find would, so pages never move a branch, a stone, or a find", () => {
+    for (let day = page.day; day < page.day + 30; day++) {
+      for (let y = 0; y < CONFIG.height; y++) {
+        for (let x = 0; x < CONFIG.width; x++) {
+          const before = gatherableAt(CONFIG, x, y, day, true, false);
+          const after = gatherableAt(CONFIG, x, y, day, true, true);
+          if (after === "recipe_page") {
+            expect(before && before !== "wood" && before !== "stone", `${x},${y}`).toBeTruthy();
+          } else {
+            expect(after, `${x},${y} on ${day}`).toBe(before);
+          }
+        }
+      }
+    }
   });
 });

@@ -17,7 +17,7 @@ import { setUnread } from "./bell";
 import { savedToken } from "./net";
 import { aThing, petCalled } from "./pets";
 import { REACTIONS } from "./reactions";
-import { thingCount, thingName } from "./things";
+import { recipeWords, thingCount, thingName } from "./things";
 import { gestureInfo } from "./together";
 import { errorCard, type View, type ViewContext } from "./view";
 
@@ -36,11 +36,15 @@ const ICONS: Record<NotificationView["type"], IconName> = {
   pet_treat: "paw",
   plot_admired: "sparkle",
   trick_or_treat: "candy",
+  recipe_taught: "kitchen",
 };
 
 /** "Moss and 2 others reacted 🌱 to your post". Pure, so tests pin it. */
 export function notificationLine(
-  n: Pick<NotificationView, "type" | "count" | "reaction" | "gesture" | "pet" | "treat"> & {
+  n: Pick<
+    NotificationView,
+    "type" | "count" | "reaction" | "gesture" | "pet" | "treat" | "recipe"
+  > & {
     actor: { name: string };
   },
 ): { who: string; what: string } {
@@ -66,6 +70,7 @@ export function notificationLine(
     pet_treat: `gave ${petCalled(n.pet)} ${n.treat ? aThing(n.treat) : "a treat"}`,
     plot_admired: "admired your plot",
     trick_or_treat: "came trick-or-treating at your door",
+    recipe_taught: `taught you ${n.recipe ? recipeWords(n.recipe).toLowerCase() : "a recipe"}`,
   };
   return { who, what: what[n.type] };
 }

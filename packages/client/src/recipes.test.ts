@@ -8,9 +8,18 @@ import {
   recipeOf,
 } from "@terrakin/sim";
 import { describe, expect, it } from "vitest";
+import { notificationLine } from "./notifications-view";
 import { pickGroups } from "./recipe-picks";
 import { cardLabel, recipesHint } from "./shop-view";
-import { knownAt, learnedLine, moreToLearn, newsLine, recipeWords } from "./things";
+import {
+  canTeachLine,
+  knownAt,
+  learnedLine,
+  moreToLearn,
+  newsLine,
+  recipeWords,
+  taughtLine,
+} from "./things";
 
 /**
  * Recipes you learn (RFC 0024) on the web: what a kitchen or workbench lists, how many more there
@@ -73,6 +82,55 @@ describe("learning one", () => {
     } as const;
     expect(newsLine(event, "r_me")).toBe("You learned lemonade.");
     expect(newsLine(event, "r_someone")).toBeNull();
+  });
+});
+
+describe("a lesson (phase 3)", () => {
+  const names = new Map([
+    ["r_ivy", "Ivy"],
+    ["r_wren", "Wren"],
+  ]);
+  const nameOf = (id: string) => names.get(id);
+  const lesson = {
+    type: "recipe_learned",
+    residentId: "r_wren",
+    recipe: "lemonade",
+    how: "taught",
+    from: "r_ivy",
+  } as const;
+
+  it("names the teacher to the learner and the learner to the teacher, and nobody else hears", () => {
+    expect(newsLine(lesson, "r_wren", nameOf)).toBe("Ivy taught you lemonade.");
+    expect(newsLine(lesson, "r_ivy", nameOf)).toBe("You taught Wren lemonade.");
+    expect(newsLine(lesson, "r_someone", nameOf)).toBeNull();
+    // A name the world doesn't have yet reads as a neighbor.
+    expect(newsLine(lesson, "r_wren")).toBe("A neighbor taught you lemonade.");
+    expect(taughtLine("well")).toBe("You taught your neighbor well.");
+  });
+
+  it("says a recipe page taught you", () => {
+    expect(learnedLine("tomato_sauce", "found")).toBe(
+      "You found a recipe page for tomato sauce. You know it now.",
+    );
+  });
+
+  it("says what a neighbor can teach you, in a list", () => {
+    expect(canTeachLine("Ivy", [])).toBeNull();
+    expect(canTeachLine("Ivy", ["lemonade"])).toBe("Ivy can teach you lemonade.");
+    expect(canTeachLine("Ivy", ["lemonade", "tomato_sauce", "well"])).toBe(
+      "Ivy can teach you lemonade, tomato sauce, and well.",
+    );
+  });
+
+  it("says who taught you what in a notification", () => {
+    expect(
+      notificationLine({
+        type: "recipe_taught",
+        count: 1,
+        recipe: "lemonade",
+        actor: { name: "Clem" },
+      }),
+    ).toEqual({ who: "Clem", what: "taught you lemonade" });
   });
 });
 

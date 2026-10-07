@@ -9,12 +9,14 @@
  *
  * Once recipes are learned (RFC 0024), a kitchen or workbench lists only the recipes you know
  * (`inventory.recipes`), with how many more there are to learn and a link to the shop's Recipes
- * shelf. While you have free picks, the picks sheet (`recipe-picks.ts`) comes first.
+ * shelf. While you have free picks, the picks sheet (`recipe-picks.ts`) comes first. Neighbors
+ * standing within reach who don't know a recipe you do get a Teach button each, which opens their
+ * teach sheet (`teach-sheet.ts`).
  */
 import { type Action, type InventoryResponse, ITEM_CATALOG, ITEM_RULES } from "@terrakin/protocol";
 import { type BlockKind, type Crop, harvestFits, isReady, type Station } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
-import { plural } from "@terrakin/ui/format";
+import { listOf, plural } from "@terrakin/ui/format";
 import { itemArt } from "@terrakin/ui/item-art";
 import {
   closeOverlay,
@@ -36,6 +38,7 @@ import {
   needsLine,
   noSeedsHint,
   recipeShelf,
+  recipeWords,
   thingCount,
   thingName,
 } from "./things";
@@ -53,7 +56,17 @@ export interface TileSheetOptions {
   ownerName?: string;
   /** Send an action. Undefined means it wasn't sent: the world isn't connected. */
   act: (action: Action) => string | undefined;
+  /**
+   * Once recipes are learned (RFC 0024): residents in the world within reach of you, as the world
+   * shows them, nearest first. Their names and notes are their own words.
+   */
+  neighbors?: { id: string; name: string; kind: "human" | "agent"; note?: string }[];
+  /** The world's reach, for the teach sheet. */
+  reach?: number;
 }
+
+/** Neighbors a station sheet asks about, at most: one profile read each. */
+const NEIGHBORS_ASKED = 4;
 
 const title = (block: BlockKind) =>
   block === "planter" ? "Planter" : block === "kitchen" ? "Kitchen" : "Workbench";
@@ -155,6 +168,15 @@ export function openTileSheet(o: TileSheetOptions) {
     furnitureList.el,
   );
   furniture.hidden = true;
+  // Neighbors within reach you could teach (RFC 0024): a row each, filled once their profiles say.
+  const pupils = itemRows([], { className: "workshop-list" });
+  const teach = h(
+    "section",
+    { class: "stack tight workshop-teach", attrs: { "aria-labelledby": "workshop-teach" } },
+    h("h3", { class: "section-title", attrs: { id: "workshop-teach" }, text: "Teach a neighbor" }),
+    pupils,
+  );
+  teach.hidden = true;
   // Recipes you don't know yet (RFC 0024): how many, and the way to the shop's Recipes shelf.
   const learnWords = h("span");
   const learn = h(
@@ -179,6 +201,7 @@ export function openTileSheet(o: TileSheetOptions) {
     goods.el,
     furniture,
     learn,
+    teach,
     problem,
     things,
   );
@@ -331,6 +354,40 @@ export function openTileSheet(o: TileSheetOptions) {
       if (asked) return;
     }
     paint(r.data);
+    if (station) void askNeighbors();
+  }
+
+  /** Who within reach doesn't know a recipe you do, read from their profiles. */
+  async function askNeighbors() {
+    const near = (o.neighbors ?? []).slice(0, NEIGHBORS_ASKED);
+    if (near.length === 0) return;
+    const { lessonsWith, openTeachSheet } = await import("./teach-sheet");
+    const asked = await Promise.all(near.map(async (n) => ({ n, l: await lessonsWith(n.id) })));
+    const rows = asked.flatMap(({ n, l }) => {
+      if (!l || l.canLearn.length === 0) return [];
+      const button = h("button", {
+        class: "btn-primary small",
+        attrs: { type: "button", "aria-label": `Teach ${n.name}` },
+        text: "Teach",
+        on: {
+          click: () => {
+            void openTeachSheet({ who: n, near: true, reach: o.reach ?? 0, lessons: l });
+          },
+        },
+      });
+      return [
+        itemRow({
+          className: "workshop-row",
+          plain: true,
+          attrs: { "data-pupil": n.id },
+          name: n.kind === "agent" ? `${n.name} ⚙` : n.name,
+          lines: [`Doesn't know ${listOf(l.canLearn.map((r) => recipeWords(r).toLowerCase()))}`],
+          trail: button,
+        }),
+      ];
+    });
+    pupils.replaceChildren(...rows);
+    teach.hidden = rows.length === 0;
   }
 
   openOverlay(s.dialog);

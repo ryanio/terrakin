@@ -218,3 +218,85 @@ describe("once recipes are learned", () => {
     expect((await w.act(ada.token, { type: "craft", recipe: "table", x: 4, y: 3 })).ok).toBe(true);
   });
 });
+
+describe("teaching", () => {
+  /** Two newcomers who joined without settling, so both stand on the spawn tile together. */
+  async function neighbors(w: Awaited<ReturnType<typeof start>>) {
+    const join = (name: string) => {
+      const made = w.service.createSession({ name, kind: "agent" });
+      if (!made.ok || !made.residentId || !made.token) throw new Error(`Couldn't join ${name}`);
+      return { id: made.residentId, token: made.token };
+    };
+    const ada = join("Ada");
+    const bea = join("Bea");
+    expect((await w.act(ada.token, { type: "pick_recipe", recipe: "lemonade" })).ok).toBe(true);
+    return { ada, bea, join };
+  }
+  const profile = async (w: Awaited<ReturnType<typeof start>>, id: string, token?: string) =>
+    (await w.call("GET", `/v1/residents/${id}`, undefined, token)).body.resident;
+
+  it("shows on a profile what they could teach you, and you them", async () => {
+    const w = await start();
+    const { ada, bea } = await neighbors(w);
+    expect(await profile(w, ada.id, bea.token)).toMatchObject({
+      canTeach: ["lemonade"],
+      canLearn: [],
+    });
+    expect(await profile(w, bea.id, ada.token)).toMatchObject({
+      canTeach: [],
+      canLearn: ["lemonade"],
+    });
+    // Not on your own profile, and not without a token.
+    expect(await profile(w, ada.id, ada.token)).not.toHaveProperty("canTeach");
+    expect(await profile(w, ada.id)).not.toHaveProperty("canTeach");
+    expect(await profile(w, ada.id)).not.toHaveProperty("canLearn");
+  });
+
+  it("is absent from profiles before recipes are learned", async () => {
+    const w = await start({ recipes: false });
+    const ada = await w.settler("Ada", 0, 0);
+    const bob = await w.settler("Bob", 2, 0);
+    expect(await profile(w, ada.id, bob.token)).not.toHaveProperty("canTeach");
+    expect(await profile(w, ada.id, bob.token)).not.toHaveProperty("canLearn");
+  });
+
+  it("tells the learner and the teacher, nobody else, and notifies the learner", async () => {
+    const w = await start();
+    const { ada, bea, join } = await neighbors(w);
+    const cy = join("Cy");
+    const beaHears = w.listen(bea.id);
+    const cyHears = w.listen(cy.id);
+    const taught = await w.act(ada.token, { type: "teach", recipe: "lemonade", to: bea.id });
+    const event = {
+      type: "recipe_learned",
+      residentId: bea.id,
+      recipe: "lemonade",
+      how: "taught",
+      from: ada.id,
+    };
+    expect(taught.ok).toBe(true);
+    expect(taught.events).toContainEqual(event);
+    expect(beaHears()).toContainEqual(event);
+    expect(cyHears().some((e) => e.type === "recipe_learned")).toBe(false);
+    expect((await w.inventory(bea.token)).recipes).toContain("lemonade");
+    const notes = (await w.call("GET", "/v1/notifications", undefined, bea.token)).body;
+    expect(notes.notifications[0]).toMatchObject({
+      type: "recipe_taught",
+      actor: { id: ada.id },
+      recipe: "lemonade",
+      postId: null,
+    });
+    expect(await profile(w, ada.id, bea.token)).toMatchObject({ canTeach: [] });
+  });
+
+  it("can't cross a block either way", async () => {
+    const w = await start();
+    const { ada, bea } = await neighbors(w);
+    expect(
+      (await w.call("PUT", `/v1/residents/${ada.id}/block`, undefined, bea.token)).status,
+    ).toBe(200);
+    const refused = await w.act(ada.token, { type: "teach", recipe: "lemonade", to: bea.id });
+    expect(refused.error.code).toBe("forbidden");
+    expect((await w.inventory(bea.token)).recipes).not.toContain("lemonade");
+  });
+});

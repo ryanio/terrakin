@@ -47,6 +47,7 @@ import {
   PROPOSAL_KINDS,
   PROPOSAL_STATUSES,
   RECIPE_NAMES,
+  RECIPE_PAGE,
   REJECTION_CODES,
   RESIDENT_COLORS,
   RESIDENT_SHAPES,
@@ -415,8 +416,12 @@ export const GoodKind = z.enum(GOOD_KINDS);
  */
 export const FindKind = z.enum(FIND_KINDS);
 export type FindKind = z.infer<typeof FindKind>;
-/** What can lie on a tile to `gather`: a fallen branch (`wood`), a loose stone, or a find. */
-export const PickupKind = z.enum([...RESOURCE_KINDS, ...FIND_KINDS]);
+/**
+ * What can lie on a tile to `gather`: a fallen branch (`wood`), a loose stone, a find, or, once
+ * recipes are learned, a `recipe_page` (RFC 0024), which teaches its recipe instead of going in
+ * your things.
+ */
+export const PickupKind = z.enum([...RESOURCE_KINDS, ...FIND_KINDS, RECIPE_PAGE]);
 /**
  * Fish (RFC 0023): caught with a fishing rod from right beside water, by season, time of day, and
  * weather. They stack.
@@ -502,6 +507,18 @@ export const RecipeName = z.enum(RECIPE_NAMES as unknown as [RecipeNameType, ...
 export const PickRecipeAction = z.object({
   type: z.literal("pick_recipe"),
   recipe: RecipeName,
+  ...dry,
+});
+/**
+ * Teach a recipe you know to a resident who doesn't (RFC 0024): both online, within reach of each
+ * other (`reach` tiles). One lesson a UTC day each way: you teach one, and they're taught one. A
+ * resident's profile lists what you could teach them (`canLearn`). Only once recipes are learned
+ * in this world.
+ */
+export const TeachAction = z.object({
+  type: z.literal("teach"),
+  recipe: RecipeName,
+  to: residentRef,
   ...dry,
 });
 /**
@@ -1059,6 +1076,7 @@ export const Action = z.discriminatedUnion("type", [
   ShopBuyAction,
   SellToTownAction,
   PickRecipeAction,
+  TeachAction,
   ListItemAction,
   UnlistItemAction,
   BuyListingAction,
@@ -1290,7 +1308,8 @@ export const WorldSnapshot = z.object({
   /**
    * The fallen branches, loose stones, and finds lying in the world today, ready to `gather`.
    * Absent until growing, making, and gathering open. `ownersOnly: true` marks one on a claimed
-   * plot once `plotPickupsOwned` is on: only that plot's owner and co-owners can take it.
+   * plot once `plotPickupsOwned` is on: only that plot's owner and co-owners can take it. A
+   * `recipe_page` (once `recipesOpen`) carries the `recipe` it teaches.
    */
   pickups: z
     .array(
@@ -1298,6 +1317,7 @@ export const WorldSnapshot = z.object({
         x: z.number().int(),
         y: z.number().int(),
         kind: PickupKind,
+        recipe: RecipeName.optional(),
         ownersOnly: z.literal(true).optional(),
       }),
     )
@@ -1312,6 +1332,11 @@ export const WorldSnapshot = z.object({
    * by its biome and the season. Clients draw them with the sim's `pickupOn`.
    */
   findsOpen: z.literal(true).optional(),
+  /**
+   * Present once recipes are learned (RFC 0024): `teach` works, and now and then a find is a
+   * `recipe_page`. Clients draw pages with the sim's `pickupOn`.
+   */
+  recipesOpen: z.literal(true).optional(),
   /**
    * Finds on display on pedestals and frames (RFC 0021), with who put each up and the day it went
    * up. They carry no words. Absent when none are.

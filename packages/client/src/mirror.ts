@@ -138,6 +138,11 @@ export class Mirror {
   plotPickupsOwned = false;
   /** Whether finds lie on the ground (`finds_opened`, RFC 0021), so `pickupAt` draws them too. */
   findsOpen = false;
+  /**
+   * Whether recipes are learned (`recipes_opened`, RFC 0024): `teach` works, and `pickupAt` draws
+   * recipe pages. What anyone knows isn't here; `inventory.recipes` and profiles say that.
+   */
+  recipesOpen = false;
   /** Today, as the world counts it. A crop is ready once this reaches its `readyDay`. */
   day: number | undefined;
   /** Which way each resident last walked. Only for drawing; nobody faces anywhere in the sim. */
@@ -196,6 +201,7 @@ export class Mirror {
     for (const t of snapshot.gathered ?? []) this.gathered.add(tileKey(t.x, t.y));
     this.plotPickupsOwned = snapshot.plotPickupsOwned === true;
     this.findsOpen = snapshot.findsOpen === true;
+    this.recipesOpen = snapshot.recipesOpen === true;
     this.day = snapshot.day;
     for (const t of snapshot.tables ?? []) {
       this.tables.set(t.id, { x: t.x, y: t.y, playing: t.status === "playing" });
@@ -415,6 +421,9 @@ export class Mirror {
       case "finds_opened":
         this.findsOpen = true;
         break;
+      case "recipes_opened":
+        this.recipesOpen = true;
+        break;
       case "event_scheduled":
         this.events.set(event.event, {
           id: event.event,
@@ -518,7 +527,10 @@ export class Mirror {
     return list;
   }
 
-  /** The fallen branch, loose stone, or find lying on a tile today, from the sim's own spawn. */
+  /**
+   * The fallen branch, loose stone, find, or recipe page lying on a tile today, from the sim's own
+   * spawn.
+   */
   pickupAt(x: number, y: number): PickupKind | null {
     if (this.day === undefined) return null;
     const key = tileKey(x, y);
@@ -526,6 +538,7 @@ export class Mirror {
       built: this.blocks.has(key),
       picked: this.gathered.has(key),
       finds: this.findsOpen,
+      pages: this.recipesOpen,
     });
   }
 

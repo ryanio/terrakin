@@ -23,6 +23,7 @@ import {
   type KindLook,
   onVine,
   type ProduceLook,
+  RECIPE_PAGE,
   WEAR_ITEMS,
   type WearItem,
 } from "@terrakin/sim";
@@ -30,11 +31,14 @@ import {
 import { BRAND_HEX, WOOD_DARK } from "./brand";
 import { batPath, HALLOWEEN_HEX, mediaUrlOf, RESIDENT_COLOR_HEX, WINTER_HEX } from "./looks";
 
-/** Anything `itemArt` can draw: an item kind or a piece of wear. */
-export type ArtKind = ItemKind | WearItem;
+/**
+ * Anything `itemArt` can draw: an item kind, a piece of wear, or a recipe page lying on the ground
+ * (RFC 0024), which isn't a thing you hold.
+ */
+export type ArtKind = ItemKind | WearItem | typeof RECIPE_PAGE;
 
-/** Every kind `itemArt` draws, items first. */
-export const ART_KINDS: readonly ArtKind[] = [...ITEM_KINDS, ...WEAR_ITEMS];
+/** Every kind `itemArt` draws, items first, then wear, then the recipe page. */
+export const ART_KINDS: readonly ArtKind[] = [...ITEM_KINDS, ...WEAR_ITEMS, RECIPE_PAGE];
 
 export function isArtKind(value: unknown): value is ArtKind {
   return typeof value === "string" && (ART_KINDS as readonly string[]).includes(value);
@@ -2168,8 +2172,27 @@ function lookShapes(kind: ItemKind, look: KindLook): ArtShape[] {
   }
 }
 
+/**
+ * A recipe page (RFC 0024): a small paper scroll, rolled at both ends, tied with a clay ribbon,
+ * with a few lines of writing and a little leaf in the corner.
+ */
+function recipePage(): ArtShape[] {
+  return [
+    shadow(14, 42),
+    rect(13, 12, 22, 25, 1, PAPER, out()),
+    line("M17 18h14M17 22h12M17 26h14M17 30h9", LINE, 1.2, { opacity: 0.55 }),
+    ellipse(31, 31, 2.4, 1.5, LEAF, out({ "stroke-width": 0.8 })),
+    rect(10, 8, 28, 6, 3, PAPER2, out()),
+    rect(10, 35, 28, 6, 3, PAPER2, out()),
+    line("M12 11h24M12 38h24", "#ffffff", 1, { opacity: 0.45 }),
+    rect(22, 34, 4, 8, 1, CLAY, out({ "stroke-width": 0.8 })),
+    line("M24 41l-3 4M24 41l3 4", CLAY_DEEP, 1.4),
+  ];
+}
+
 /** The shapes of one picture, back to front, in a 48 by 48 box. Pure. */
 export function itemShapes(kind: ArtKind): ArtShape[] {
+  if (kind === RECIPE_PAGE) return recipePage();
   if (Object.hasOwn(CATALOG, kind))
     return lookShapes(kind as ItemKind, CATALOG[kind as ItemKind].look);
   return WEAR_ART[kind as WearItem]();

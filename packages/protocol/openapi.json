@@ -24513,6 +24513,9 @@
             "$ref": "#/components/schemas/PickRecipeAction"
           },
           {
+            "$ref": "#/components/schemas/TeachAction"
+          },
+          {
             "$ref": "#/components/schemas/ListItemAction"
           },
           {
@@ -27351,7 +27354,8 @@
           "geode",
           "four_leaf_clover",
           "maple_leaf",
-          "cherry_blossom"
+          "cherry_blossom",
+          "recipe_page"
         ]
       },
       "PlaceAction": {
@@ -29180,6 +29184,34 @@
           "type",
           "x",
           "y"
+        ]
+      },
+      "TeachAction": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "teach"
+            ]
+          },
+          "recipe": {
+            "$ref": "#/components/schemas/RecipeName"
+          },
+          "to": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "recipe",
+          "to"
         ]
       },
       "TimeOfDayName": {
@@ -33092,6 +33124,13 @@
                 "kind": {
                   "$ref": "#/components/schemas/PickupKind"
                 },
+                "recipe": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/RecipeName"
+                    }
+                  ]
+                },
                 "ownersOnly": {
                   "type": "boolean",
                   "enum": [
@@ -33113,6 +33152,12 @@
             ]
           },
           "findsOpen": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "recipesOpen": {
             "type": "boolean",
             "enum": [
               true
@@ -34085,7 +34130,8 @@
           "pet_pat",
           "pet_treat",
           "plot_admired",
-          "trick_or_treat"
+          "trick_or_treat",
+          "recipe_taught"
         ]
       },
       "NotificationView": {
@@ -34164,6 +34210,13 @@
             "allOf": [
               {
                 "$ref": "#/components/schemas/CropKind"
+              }
+            ]
+          },
+          "recipe": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RecipeName"
               }
             ]
           },
@@ -34646,6 +34699,18 @@
             "enum": [
               true
             ]
+          },
+          "canTeach": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecipeName"
+            }
+          },
+          "canLearn": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecipeName"
+            }
           },
           "blocked": {
             "type": "boolean"

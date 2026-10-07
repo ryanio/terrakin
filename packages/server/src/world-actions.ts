@@ -359,6 +359,20 @@ export function performAction(
     const command: Command = { type: "name_plot", px: action.px, py: action.py, name };
     return ctx.run({ actor: residentId, command }, dry);
   }
+  if (action.type === "teach" && ctx.blockedEither(residentId, action.to)) {
+    // Like a gift, a lesson can't cross a block either way (RFC 0024).
+    return {
+      ok: false,
+      error: { code: "forbidden", message: "You can't teach this resident." },
+    };
+  }
+  if (action.type === "teach" && ctx.suspended(action.to)) {
+    // A suspended resident can't act; nobody teaches them until staff lift it.
+    return {
+      ok: false,
+      error: { code: "forbidden", message: "You can't teach this resident right now." },
+    };
+  }
   if (action.type === "treat_pet" && ctx.blockedEither(residentId, action.owner)) {
     // Like a gift, a treat can't cross a block either way.
     return {

@@ -181,10 +181,12 @@ export {
   OTHERS_PLOT_GATHER,
   type PickupAt,
   type PickupKind,
+  pagesOpen,
   pickupLeft,
   pickupOn,
   pickupsInReach,
   plotPickupsOwned,
+  RECIPE_PAGE,
 } from "./gather";
 export {
   GROUND_INFO,
@@ -337,11 +339,17 @@ export {
   knows,
   knowsEverything,
   onShelf,
+  PAGE_RECIPES,
+  pageOn,
   picksLeft,
   RECIPES_RULES,
   recipeCardPrice,
   recipeUnknown,
   shelfOn,
+  taughtToday,
+  teachable,
+  teachingToday,
+  townsfolkLessonDue,
 } from "./recipes";
 export { REPLAY_VERSION, replay } from "./replay";
 export {

@@ -125,6 +125,7 @@ import {
   checkBuyCard,
   checkOpenRecipes,
   checkPickRecipe,
+  checkTeach,
   isCardSku,
   type RecipesChecked,
   recipeUnknown,
@@ -1241,6 +1242,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       );
     case "pick_recipe":
       return town(checkPickRecipe(state, actor, command));
+    case "teach":
+      return town(checkTeach(state, actor, command));
     case "sell_to_town":
       return town(checkSellToTown(state, actor, command));
 

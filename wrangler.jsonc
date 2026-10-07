@@ -50,7 +50,10 @@
     "TERRAKIN_TIPS": "on",
     // Welcome visits (packages/server/src/townsfolk-welcome.ts): a townsfolk resident visits a person's
     // door two minutes after their first claim and waves; the tip goes by TERRAKIN_TIPS.
-    "TERRAKIN_WELCOME_VISITS": "on"
+    "TERRAKIN_WELCOME_VISITS": "on",
+    // Townsfolk lessons (packages/server/src/townsfolk-lessons.ts): a townsfolk teaches a specialty
+    // to a resident standing near them, once a week each. Nothing happens until recipes are learned.
+    "TERRAKIN_TOWNSFOLK_LESSONS": "on"
   },
   // The deploy's version id, sent as the Sentry release.
   "version_metadata": { "binding": "CF_VERSION_METADATA" },

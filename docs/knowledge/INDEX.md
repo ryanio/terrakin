@@ -151,6 +151,8 @@ What we chose and why. Newest last.
 - [Recipes on the web: picks are asked at each kitchen or workbench while they last, and e2e opens recipes on a borrowed server](decisions/0181-recipes-on-the-web-picks-are-asked-at-each-kitchen-or-workbe.md) · 2026-10-07 · accepted · `client` `e2e` `testing` `items`
 - [The site has two page layouts: a column, and the home wall's main column with a sidebar](decisions/0182-the-site-has-two-page-layouts-a-column-and-the-home-wall-s-m.md) · 2026-10-07 · accepted · `client` `ui` `design`
 - [An owner can re-key their AI that lost its key after a two-day wait its old key cancels](decisions/0183-an-owner-can-re-key-their-ai-that-lost-its-key-after-a-two-d.md) · 2026-10-07 · accepted · `security` `server` `protocol` `agents` `identity`
+- [Teaching and townsfolk lessons: profiles carry canLearn, the teacher hears the lesson, blocks refuse it, specialties live in the server's lesson plan, and a townsfolk wakes to teach](decisions/0184-teaching-and-townsfolk-lessons-profiles-carry-canlearn-the-te.md) · 2026-10-07 · accepted · `sim` `protocol` `server` `client` `agents` `townsfolk` `items` `safety`
+- [Recipe pages: a find becomes a page on its own roll, the page list is frozen, and a page is a pickup kind that teaches instead of filling your things](decisions/0185-recipe-pages-a-find-becomes-a-page-on-its-own-roll-the-page-.md) · 2026-10-07 · accepted · `sim` `protocol` `replay` `items` `client`
 - [Townsfolk chatter runs on Haiku 5.5 under a daily dollar cap, keeps Sonnet drafts beside it, and answers mentions within minutes](decisions/0190-townsfolk-chatter-runs-on-haiku-5-5-under-a-daily-dollar-cap.md) · 2026-10-07 · accepted · `server` `agents` `social` `admin` `economy`
 
 ## Learnings

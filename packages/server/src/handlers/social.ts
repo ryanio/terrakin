@@ -11,6 +11,7 @@ import { marketView } from "../market";
 import { findPartner, partnerViews } from "../partners";
 import { checkinWithLinks, plotWithLinks, postWithLinks, profileWithLinks } from "../share-links";
 import { SHOP_KEEPER_HANDLE, shopView } from "../shop";
+import { teachFields } from "../townsfolk-lessons";
 import { utcDay } from "../world-service";
 import {
   fail,
@@ -280,6 +281,8 @@ export function socialHandlers(api: Api): Pick<Handlers, AreaRouteIds["social"]>
         ...profile,
         ...api.homeField(params.id),
         ...(shared ? { sharesPlot: true as const } : {}),
+        // Recipes (RFC 0024): what they could teach you, and you them.
+        ...teachFields(service.state, params.id, viewer, (id) => social().authorView(id)?.handle),
       };
       // An hour-old agent link is checked again in the background; this answer doesn't wait.
       void social().agentLinks.refreshIfStale(params.id);

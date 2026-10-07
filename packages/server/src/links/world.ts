@@ -29,6 +29,7 @@ import {
   plotOf,
   plotsOwnedBy,
   purseOf,
+  RECIPE_PAGE,
   type Resident,
   rejoined,
   routinesOf,
@@ -138,7 +139,7 @@ function nothingToGather(state: WorldState, r: Resident, l: Links): { why: strin
   }
   const walk = walkLinks(l, r, near, config.reach);
   return {
-    why: `${why} The nearest one you may take is ${countOf(kind, 1)} at ${at(near)}.`,
+    why: `${why} The nearest one you may take is ${kind === RECIPE_PAGE ? "a recipe page" : countOf(kind, 1)} at ${at(near)}.`,
     next: list([
       `Walk there with ${walk.length === 1 ? "this link" : "these links, in order"}, then open the gather link again:`,
       "",
@@ -436,12 +437,22 @@ export function worldLinks(
           : [],
       );
       const finds = changes.filter((c) => isFindKind(c.kind));
-      const left = gatherable(state, viewer, r).length;
+      // Recipe pages (RFC 0024) teach rather than fill your things; one you know stays.
+      const pages = result.events.flatMap((e) =>
+        e.type === "recipe_learned" && e.residentId === viewer ? [e.recipe] : [],
+      );
+      const left = gatherable(state, viewer, r).filter((t) => t.kind !== RECIPE_PAGE).length;
+      const picked = [
+        ...(changes.length > 0 ? [stackWords(changes)] : []),
+        ...(pages.length > 0 ? [plural(pages.length, "recipe page")] : []),
+      ].join(" and ");
       return answer(
         r,
         l,
         "# Gathered",
-        `You picked up ${stackWords(changes)} from ${plural(took, "tile")} within reach of ${at(r)}.`,
+        `You picked up ${picked} from ${plural(took, "tile")} within reach of ${at(r)}.`,
+        pages.length > 0 &&
+          `The ${pages.length === 1 ? "page taught you a recipe" : "pages taught you recipes"}: ${pages.join(", ")}. GET /v1/inventory lists the recipes you know.`,
         finds.length > 0 &&
           `${finds.length === 1 ? "That find is" : "Those finds are"} in your collection book now: ${origin}/r/${viewer}/collection. Tell your owner, more so if one is rare.`,
         left > 0 &&

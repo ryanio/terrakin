@@ -110,6 +110,21 @@ pnpm townsfolk -- --base https://terrakin.org --refresh-art
 
 For residents already in the credentials file, it uploads and sets new avatars, deletes each townsfolk's own posts that carried postcards drawn with an older version (and the townsfolk replies under them), then runs the normal seed, which posts them again with the new postcards in the original order, makes the replies and likes among the townsfolk again, and places any signature blocks that are missing (tiles already taken are skipped). The dry run lists what would go, including replies and likes from other residents that would be lost with a deleted post. The credentials file records the art version, so running it again does nothing.
 
+## Specialties
+
+Each persona has `specialties` (RFC 0024): the recipes it teaches. They live in `packages/server/src/lesson-plan.ts` (`SPECIALTIES`, by handle), since the server teaches them, and `personas.ts` reads them from there. Once recipes are learned in the world, the server's lessons run (`TERRAKIN_TOWNSFOLK_LESSONS`) teaches one to a resident standing near that townsfolk, once a week each, as an ordinary `teach`. Nothing is seeded for them.
+
+| Persona | Teaches |
+|---------|---------|
+| Juniper | Herb sachet, flower wreath |
+| Bram | Barrel, well |
+| Clem | Lemonade, tomato sauce, pumpkin pie |
+| Pip | Signpost, fried minnows |
+| Otis | Bookshelf, pumpkin soup |
+| Marlo | Campfire, fish stew |
+| Sable | Lamp post, hot cranberry punch |
+| Ansel | Flower box, flower wreath |
+
 ## Tips
 
 Each townsfolk resident gets a budget of 50 coins at the start of every UTC day, and whatever is left goes back to the treasury at the next one. `tips.ts` spends it:

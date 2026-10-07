@@ -1,4 +1,5 @@
 import { type Biome, biomeAt } from "./biome";
+import type { RecipeName } from "./catalog";
 import { oneTimeSwitch, refuse } from "./check";
 import {
   addStack,
@@ -13,11 +14,13 @@ import {
   reachProblem,
 } from "./items";
 import { tileKey } from "./keys";
+import { howToMake, knows, learn, pageOn } from "./recipes";
 import { type Season, seasonOf } from "./season";
 import type {
   Command,
   ItemsState,
   Plot,
+  RecipesState,
   ResidentId,
   Tile,
   WorldConfig,
@@ -45,6 +48,10 @@ import { canBuildOn, inBounds, plotAtTile, walkHint } from "./world";
  * instead: an acorn, a seashell, a geode, by its biome and the season (`FIND_SPAWNS`). Branches
  * and stones lie exactly where they did, and before the switch nothing else does, so gathers
  * logged before it replay as they were made.
+ *
+ * Once recipes are learned too (`open_recipes`, RFC 0024), about one find in 20 is a recipe page
+ * instead (`pageOn`): gathering it teaches its recipe and puts nothing in your things, and a page
+ * you already know stays where it lies. Before that switch finds lie exactly as they did.
  */
 
 /** The numbers. Every count is a whole number of pickups. */
@@ -57,8 +64,17 @@ export const GATHER = {
   perPickup: 1,
 } as const;
 
-/** What can lie on a tile to pick up: a branch, a stone, or (once finds are out) a find. */
-export type PickupKind = ResourceKind | FindKind;
+/**
+ * A recipe page lying on the ground (RFC 0024). It isn't a thing you hold: gathering it teaches
+ * its recipe (`pageOn` says which).
+ */
+export const RECIPE_PAGE = "recipe_page";
+
+/**
+ * What can lie on a tile to pick up: a branch, a stone, or (once finds are out) a find, or (once
+ * recipes are learned too) a recipe page.
+ */
+export type PickupKind = ResourceKind | FindKind | typeof RECIPE_PAGE;
 
 /** One find's place in the spawn: its biome, its chance per tile a day, and its seasons if any. */
 export interface FindSpawn {
@@ -140,9 +156,10 @@ function findAt(biome: Biome, x: number, y: number, day: number): FindKind | nul
 
 /**
  * What lies on tile (x, y) on `day`, if anything: a fallen branch in a forest, a loose stone on
- * stone ground, and, with `finds` on (`open_finds` was logged), a find on a tile with neither.
- * Pure: the same tile, day, and switch always answer the same, on every client and replay. With
- * `finds` off it answers exactly as it did before finds.
+ * stone ground, and, with `finds` on (`open_finds` was logged), a find on a tile with neither,
+ * which with `pages` on too (`open_recipes` was logged) is now and then a recipe page. Pure: the
+ * same tile, day, and switches always answer the same, on every client and replay. With `finds`
+ * off it answers exactly as it did before finds, and with `pages` off as it did before pages.
  */
 export function gatherableAt(
   config: WorldConfig,
@@ -150,6 +167,7 @@ export function gatherableAt(
   y: number,
   day: number,
   finds = false,
+  pages = false,
 ): PickupKind | null {
   const biome = biomeAt(config, x, y);
   const kind: ResourceKind | null =
@@ -163,28 +181,36 @@ export function gatherableAt(
     const chance = kind === "wood" ? GATHER.woodChance : GATHER.stoneChance;
     if (roll < chance) return kind;
   }
-  return finds ? findAt(biome, x, y, day) : null;
+  if (!finds) return null;
+  const find = findAt(biome, x, y, day);
+  return find && pages && pageOn(x, y, day) ? RECIPE_PAGE : find;
 }
 
 /**
  * What still lies on (x, y) on `day`: its spawn, unless the tile is built on or was picked clean
- * today. `finds` says whether finds are out (`findsOpen` in the world). Pure, so a client draws
- * exactly what `gather` would take from its own copy of the world.
+ * today. `finds` says whether finds are out (`findsOpen` in the world), and `pages` whether
+ * recipes are learned (`recipesOpen`). Pure, so a client draws exactly what `gather` would take
+ * from its own copy of the world.
  */
 export function pickupOn(
   config: WorldConfig,
   x: number,
   y: number,
   day: number,
-  tile: { built: boolean; picked: boolean; finds?: boolean },
+  tile: { built: boolean; picked: boolean; finds?: boolean; pages?: boolean },
 ): PickupKind | null {
   if (tile.built || tile.picked) return null;
-  return gatherableAt(config, x, y, day, tile.finds === true);
+  return gatherableAt(config, x, y, day, tile.finds === true, tile.pages === true);
 }
 
 /** Whether finds lie on the ground in this world (`open_finds` was logged). */
 export function findsOpen(state: WorldState): boolean {
   return state.items?.findsOpen === true;
+}
+
+/** Whether some finds are recipe pages: finds are out and recipes are learned (RFC 0024). */
+export function pagesOpen(state: WorldState): boolean {
+  return findsOpen(state) && state.recipes !== undefined;
 }
 
 /** Whether the pickup on a tile is still lying there today. */
@@ -196,6 +222,7 @@ export function pickupLeft(state: WorldState, x: number, y: number): PickupKind 
     built: state.blocks[key] !== undefined,
     picked: state.items?.gathered?.[key] === day,
     finds: findsOpen(state),
+    pages: pagesOpen(state),
   });
 }
 
@@ -280,7 +307,9 @@ export function pickupsInReach(
 /**
  * `gather` with no tile: everything within reach the resident may take, in `pickupsInReach`'s
  * order, as far as there's room in their things. One `gathered` for each tile, then one `inventory`
- * with each kind's total, in the order the kinds came up.
+ * with each kind's total, in the order the kinds came up. A recipe page takes no room: each one for
+ * a recipe the resident doesn't know is gathered and ends in a `recipe_learned` after the
+ * `inventory`, and the rest (known, or a second page for the same recipe) stay where they lie.
  */
 function checkGatherAll(
   state: WorldState,
@@ -307,33 +336,61 @@ function checkGatherAll(
       : ` Fallen branches lie in forests, loose stones on stone ground, and each tile grows one back a day.${finds} pickups in GET /v1/world lists what's lying today.`;
     return refuse("nothing_to_gather", `${why}${next}`);
   }
+  // Pages teach rather than fill your things (RFC 0024). Before recipes are learned there are none.
+  const stacks = mine.filter((t) => t.kind !== RECIPE_PAGE);
+  const pages: { at: PickupAt; recipe: RecipeName }[] = [];
+  let knownPage: RecipeName | undefined;
+  for (const at of mine) {
+    if (at.kind !== RECIPE_PAGE) continue;
+    const recipe = pageOn(at.x, at.y, day) as RecipeName;
+    if (knows(state, actor, recipe) || pages.some((p) => p.recipe === recipe)) knownPage ??= recipe;
+    else pages.push({ at, recipe });
+  }
   const room = ITEMS.inventoryMax - inventorySize(items.inventories[actor]);
   const fits = Math.floor(room / GATHER.perPickup);
-  if (fits < 1) {
+  if (pages.length === 0 && stacks.length === 0 && knownPage) {
+    return refuse(
+      "already_known",
+      `The recipe page within reach teaches ${howToMake(knownPage)}, which you already know, so it stays for someone else.`,
+    );
+  }
+  if (fits < 1 && pages.length === 0) {
     return refuse(
       "inventory_full",
       `You can hold ${ITEMS.inventoryMax} things. Make or give something first.`,
     );
   }
-  const take = mine.slice(0, fits);
+  const kept = new Set(stacks.slice(0, Math.max(0, fits)));
+  const take = mine.filter((t) => kept.has(t) || pages.some((p) => p.at === t));
+  const recipes = state.recipes as RecipesState;
   return () => {
     if (!items.gathered) items.gathered = {};
     const gathered = items.gathered;
     const events: WorldEvent[] = [];
-    const totals: { kind: PickupKind; amount: number }[] = [];
+    const totals: { kind: StackPickup; amount: number }[] = [];
     for (const t of take) {
       gathered[tileKey(t.x, t.y)] = day;
       events.push({ type: "gathered", x: t.x, y: t.y, kind: t.kind, by: actor });
+      if (t.kind === RECIPE_PAGE) continue;
       const total = totals.find((c) => c.kind === t.kind);
       if (total) total.amount += GATHER.perPickup;
       else totals.push({ kind: t.kind, amount: GATHER.perPickup });
     }
-    const inv = inventory(items, actor);
-    const changes = totals.map((c) => addStack(inv, c.kind, c.amount));
-    events.push(inventoryEvent(actor, "gather", changes));
+    if (totals.length > 0) {
+      const inv = inventory(items, actor);
+      const changes = totals.map((c) => addStack(inv, c.kind, c.amount));
+      events.push(inventoryEvent(actor, "gather", changes));
+    }
+    for (const { recipe } of pages) {
+      learn(recipes, actor, recipe);
+      events.push({ type: "recipe_learned", residentId: actor, recipe, how: "found" });
+    }
     return events;
   };
 }
+
+/** A pickup that goes in your things: anything but a recipe page. */
+type StackPickup = Exclude<PickupKind, typeof RECIPE_PAGE>;
 
 /**
  * `gather {x, y}`: pick up the fallen branch, loose stone, or find on a tile within reach. With
@@ -380,13 +437,33 @@ export function checkGather(
       `That's ${plot?.ownerId}'s plot: ${OTHERS_PLOT_GATHER}. The Commons and unclaimed land are free to gather, and so is your own plot.${hint}`,
     );
   }
+  const key = tileKey(x, y);
+  if (kind === RECIPE_PAGE) {
+    // A page teaches its recipe and takes no room (RFC 0024). One you know stays for someone else.
+    const recipe = pageOn(x, y, day) as RecipeName;
+    if (knows(state, actor, recipe)) {
+      return refuse(
+        "already_known",
+        `That recipe page teaches ${howToMake(recipe)}, which you already know, so it stays for someone else.`,
+      );
+    }
+    const recipes = state.recipes as RecipesState;
+    return () => {
+      if (!items.gathered) items.gathered = {};
+      items.gathered[key] = day;
+      learn(recipes, actor, recipe);
+      return [
+        { type: "gathered", x, y, kind, by: actor },
+        { type: "recipe_learned", residentId: actor, recipe, how: "found" },
+      ];
+    };
+  }
   if (inventorySize(items.inventories[actor]) + GATHER.perPickup > ITEMS.inventoryMax) {
     return refuse(
       "inventory_full",
       `You can hold ${ITEMS.inventoryMax} things. Make or give something first.`,
     );
   }
-  const key = tileKey(x, y);
   return () => {
     if (!items.gathered) items.gathered = {};
     items.gathered[key] = day;

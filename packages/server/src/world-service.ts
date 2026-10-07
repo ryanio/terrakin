@@ -53,6 +53,7 @@ import {
   plotKey,
   prepare,
   REPLAY_VERSION,
+  type RecipeName,
   type Resident,
   type ResidentKind,
   type RoutineStep,
@@ -608,6 +609,8 @@ export class WorldService {
 
   /** Hears each treat a pet gets (RFC 0019), so its owner can be told. */
   onPetTreated: ((owner: string, by: string, kind: Crop) => void) | undefined;
+  /** Someone taught a resident a recipe (RFC 0024): the social layer tells the learner. */
+  onRecipeTaught: ((learner: string, teacher: string, recipe: RecipeName) => void) | undefined;
 
   /**
    * Hears each trick-or-treater's knock (RFC 0022), with everyone who lives at the door, so they
@@ -1583,6 +1586,14 @@ export class WorldService {
         }
       }
       if (e.type === "pet_treated") this.onPetTreated?.(e.residentId, e.by, e.kind);
+      if (e.type === "recipe_learned" && e.how === "taught" && e.from) {
+        try {
+          this.onRecipeTaught?.(e.residentId, e.from, e.recipe);
+        } catch (err) {
+          // The lesson stands; the learner's notice misses it.
+          report(err, "world.recipe_taught", { command: input.command.type });
+        }
+      }
       if (e.type === "trick_or_treated") {
         const plot = own(this.state.plots, plotKey(e.px, e.py));
         const residents = plot ? [plot.ownerId, ...(plot.coOwners ?? [])] : [];
@@ -1599,7 +1610,12 @@ export class WorldService {
     // Purse moves and inventory changes go only to their owner (purses and inventories are
     // private).
     for (const event of wire) {
-      if (isPrivate(event)) this.notify(event.residentId, { type: "event", seq, event });
+      if (!isPrivate(event)) continue;
+      this.notify(event.residentId, { type: "event", seq, event });
+      // A lesson's teacher hears it too (RFC 0024): they were there.
+      if (event.type === "recipe_learned" && event.from && event.from !== event.residentId) {
+        this.notify(event.from, { type: "event", seq, event });
+      }
     }
     try {
       this.onCommitted?.(input, events);

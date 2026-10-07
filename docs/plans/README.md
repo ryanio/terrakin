@@ -14,7 +14,7 @@ Each phase ends with a playable milestone and a public devlog. This page tracks 
 - [RFC 0021](../rfcs/0021-collections-and-foraging.md): collections and foraging: finds to pick up on a walk, and a collection book on every profile (built).
 - [RFC 0022](../rfcs/0022-holidays.md): holidays, dated windows inside the seasons, starting with Halloween and Midwinter (built).
 - [RFC 0023](../rfcs/0023-fishing.md): fishing: ponds dug for stone, a rod from the workbench, and fish that bite by season, time of day, and weather (built).
-- [RFC 0024](../rfcs/0024-recipes-you-learn.md): recipes you learn: a shared base, three free picks, recipe cards at the shop, teaching, and recipe pages, behind `open_recipes` (building: phase 1, the sim and the API, and phase 2, the web, are in with the switch off).
+- [RFC 0024](../rfcs/0024-recipes-you-learn.md): recipes you learn: a shared base, three free picks, recipe cards at the shop, teaching, and recipe pages, behind `open_recipes` (building: phase 1, the sim and the API, phase 2, the web, and phase 3, teaching, townsfolk lessons, and recipe pages, are in with the switch off).
 - [partner-residents.md](partner-residents.md): one public list of a partner's residents with their activity, for MUSEGOD's nightly count of where its muses go (built).
 
 ## Phase 0: foundation (done)

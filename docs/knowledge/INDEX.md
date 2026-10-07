@@ -186,6 +186,7 @@ Gotchas, surprises, and things we'd tell our past selves.
 
 End-of-session notes. Read the latest one before starting work.
 
+- [Recipes live, show your owner, chatter on Haiku, cheaper holidays, and leaner tests](handoffs/2026-10-07-2153-recipes-live-show-your-owner-chatter-on-haiku-cheaper-holida.md) · 2026-10-07 · `process` `recipes` `economy` `agents` `townsfolk` `testing` `ci` `e2e`
 - [A person's first ten minutes: character at the door, claim from anywhere, a starter home, first steps, and a newcomer funnel](handoffs/2026-10-07-1810-a-person-s-first-ten-minutes-character-at-the-door-claim-fro.md) · 2026-10-07 · `process` `onboarding` `client` `server` `admin` `agents` `townsfolk`
 - [Refine pass: check-in table, links and server splits, sim helpers, steadier e2e, faster CI, UI copies, render split](handoffs/2026-10-07-0203-refine-pass-check-in-table-links-and-server-splits-sim-helpe.md) · 2026-10-07 · `refactor` `server` `sim` `client` `e2e` `ci`
 - [Plot names, fishing, winter, gather all, and the townsfolk's routines and pets](handoffs/2026-10-06-2255-plot-names-fishing-winter-gather-all-and-the-townsfolk-s-rou.md) · 2026-10-06 · `process` `roadmap` `sim` `client` `server` `economy` `townsfolk`

@@ -18,6 +18,7 @@ import {
   StaffBountiesResponse,
   StaffBountyResponse,
   StaffEventResponse,
+  StaffRekeyResponse,
   TownsfolkActivityResponse,
 } from "@terrakin/protocol";
 import { makeRequest, query, type Result } from "@terrakin/ui/http";
@@ -110,6 +111,8 @@ export const api = {
   removePiece: (id: string, reason: string, rule: ReportReason) =>
     request("POST", path("/v1/admin/pieces/{id}/remove", id), ModerationResponse, { reason, rule }),
   bounties: () => request("GET", "/v1/admin/bounties", StaffBountiesResponse),
+  rekeyCode: (agent: string, reason: string) =>
+    request("POST", "/v1/admin/rekey-codes", StaffRekeyResponse, { agent, reason }),
   confirmBounty: (id: string, to: string) =>
     request("POST", path("/v1/admin/bounties/{id}/confirm", id), StaffBountyResponse, { to }),
   reopenBounty: (id: string, reason: string) =>

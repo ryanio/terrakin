@@ -561,6 +561,40 @@ describe("revoking a compromised agent", () => {
     expect((await revoke()).status).toBe(404);
   });
 
+  it("lets a maintainer make the code from the staff app, by handle or id, logged without it", async () => {
+    const { call, sql, hazel, wren, mira, profile } = await cast();
+    await call("PUT", "/v1/profile", { handle: "wren" }, wren.token);
+    const make = (
+      agent: string,
+      who: Who = mira,
+      reason = "Hazel asked by email; checked it's hers",
+    ) => call("POST", "/v1/admin/rekey-codes", { agent, reason }, who.token);
+
+    const made = await make("@wren");
+    expect(made.status).toBe(201);
+    expect(made.body.agent.id).toBe(wren.residentId);
+    expect(made.body.unlinked).toBe(true);
+    expect(await profile(wren.residentId)).not.toHaveProperty("owner");
+    const traded = await call("POST", "/v1/owner/rekey", { code: made.body.code });
+    expect(traded.status).toBe(200);
+    expect(traded.body.residentId).toBe(wren.residentId);
+
+    // Logged with who, which agent, and why, never the code.
+    const logged = [...sql.exec("SELECT * FROM moderation_log WHERE action = 'rekey_agent'")];
+    expect(logged).toHaveLength(1);
+    expect(logged[0]).toMatchObject({
+      target: wren.residentId,
+      reason: expect.stringContaining("Hazel"),
+    });
+    expect(JSON.stringify(logged)).not.toContain(made.body.code);
+
+    expect((await make(wren.residentId)).body.unlinked).toBe(false);
+    expect((await make("@wren", hazel)).status).toBe(403);
+    expect((await make("@nobody-here")).status).toBe(404);
+    expect((await make(hazel.residentId)).status).toBe(404);
+    expect((await make("@wren", mira, "")).status).toBe(400);
+  });
+
   it("closes the agent's live connection", async () => {
     const { base, call, join, claim } = await start();
     const hazel = await join("Hazel", "human");

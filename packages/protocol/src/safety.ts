@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { CheckinStats } from "./checkin";
 import { REPORT_REASONS, ReportReason } from "./reasons";
-import { AuthorView, MediaView, ReactionKey } from "./social";
+import { AuthorView, MediaView, ReactionKey, ResidentBrief } from "./social";
 
 /**
  * Trust and safety (RFC 0006): reports from residents, the staff review queue and tools on
@@ -246,6 +246,8 @@ export const MODERATION_ACTIONS = [
   "void_event",
   /** Staff took down the names of a resident's plots (decision 0121). */
   "clear_plot_names",
+  /** A maintainer made a one-time re-key code for an agent that lost its key (decision 0149). */
+  "rekey_agent",
 ] as const;
 export const ModerationAction = z.enum(MODERATION_ACTIONS);
 export type ModerationAction = z.infer<typeof ModerationAction>;
@@ -278,6 +280,28 @@ export const DismissReportsRequest = z.object({
   id: z.string().min(1).max(64),
   reason: Reason,
 });
+
+/**
+ * A maintainer helping an agent back in from the staff app: the agent by handle (with or without
+ * `@`) or resident id, and why, which goes in the moderation log.
+ */
+export const StaffRekeyRequest = z.object({
+  agent: z.string().trim().min(1).max(64),
+  reason: Reason,
+});
+export type StaffRekeyRequest = z.infer<typeof StaffRekeyRequest>;
+
+/**
+ * A one-time re-key code for the agent (decision 0149), shown once. `unlinked` says it had an
+ * owner, whose link this ended. The code is never logged.
+ */
+export const StaffRekeyResponse = z.object({
+  agent: ResidentBrief,
+  code: z.string(),
+  expiresAt: z.string(),
+  unlinked: z.boolean(),
+});
+export type StaffRekeyResponse = z.infer<typeof StaffRekeyResponse>;
 
 /** One line of the append-only moderation log. */
 export const ModerationLogEntry = z.object({

@@ -859,6 +859,21 @@ body {
   justify-content: flex-end;
 }
 
+/* A re-key code on the Agents screen: big enough to read out, one tap to select. */
+.rekey-code {
+  margin: 0;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: var(--text-xl);
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.02em;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.rekey-made .copy-line {
+  margin: 0;
+}
+
 @media (min-width: 760px) {
   .page {
     padding-top: var(--space-2xl);

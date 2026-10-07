@@ -327,13 +327,30 @@ export class OwnerService {
     if (!this.social.isMaintainer(callerId)) {
       return fail("forbidden", "Only Terrakin maintainers can make a re-key code.");
     }
+    const made = this.teamRekey(agentId, callerId);
+    return made.ok ? { ok: true, value: made.value.code } : made;
+  }
+
+  /**
+   * The team's re-key for an agent, by a maintainer checked by the caller: from the resident
+   * route above, or from the staff app (`issuer` is then the Access sign-in). Ends the owner link,
+   * and says whether there was one.
+   */
+  teamRekey(
+    agentId: string,
+    issuer: string,
+  ): SocialResult<{ code: OwnerCodeResponse; unlinked: boolean }> {
     if (this.social.resident(agentId)?.kind !== "agent" || this.social.isTownsfolk(agentId)) {
       return fail("not_found", "No AI agent has that id.");
     }
+    const unlinked = this.social.ownerOf(agentId) !== undefined;
     this.cancelRekey(agentId, "unlink");
     this.social.unlink(agentId);
     this.drop("rekey", agentId);
-    return { ok: true, value: this.issue("rekey", agentId, callerId, REKEY_CODE_TTL_MS) };
+    return {
+      ok: true,
+      value: { code: this.issue("rekey", agentId, issuer, REKEY_CODE_TTL_MS), unlinked },
+    };
   }
 
   /**

@@ -96,4 +96,5 @@ export const ACTION_LABELS: Record<ModerationAction, string> = {
   remove_piece: "Deleted a piece's picture",
   void_event: "Called off an event",
   clear_plot_names: "Took down plot names",
+  rekey_agent: "Made a re-key code for an agent",
 };

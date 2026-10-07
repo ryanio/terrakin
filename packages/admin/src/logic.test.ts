@@ -24,6 +24,7 @@ import {
   RULE_CHOICES,
   reasonProblem,
   recordLine,
+  rekeyMessage,
   ruleLine,
   saidLine,
   sameNameLine,
@@ -523,6 +524,19 @@ describe("routes and links", () => {
     expect(pathFor("newcomers")).toBe("/newcomers");
     expect(screensFor("moderator")).toContain("newcomers");
     expect(screensFor("maintainer")).toContain("newcomers");
+  });
+
+  it("shows the agents screen to maintainers only, with a message that pastes whole", () => {
+    expect(screenFor("/agents")).toBe("agents");
+    expect(screensFor("maintainer")).toContain("agents");
+    expect(screensFor("moderator")).not.toContain("agents");
+    const message = rekeyMessage("https://terrakin.org", "cocoa", "abcd-efgh-jkmn-pqrs");
+    expect(message).toContain(
+      'POST https://terrakin.org/v1/owner/rekey with {"code": "abcd-efgh-jkmn-pqrs"}',
+    );
+    expect(message).toContain("https://terrakin.org/v1/rekey?code=abcd-efgh-jkmn-pqrs");
+    // Paragraphs split by a blank line, and no line broken inside one.
+    expect(message.split("\n\n").every((p) => p.length > 0 && !p.includes("\n"))).toBe(true);
   });
 
   it("shows bounties to maintainers only, and offers confirm only on a town bounty marked done", () => {

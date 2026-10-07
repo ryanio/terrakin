@@ -36147,6 +36147,11 @@
                 "type": "integer",
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
+              },
+              "rekey_agent": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
               }
             },
             "required": [
@@ -36168,7 +36173,8 @@
               "remove_display",
               "remove_piece",
               "void_event",
-              "clear_plot_names"
+              "clear_plot_names",
+              "rekey_agent"
             ]
           },
           "suspendedNow": {

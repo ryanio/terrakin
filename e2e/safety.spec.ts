@@ -144,6 +144,25 @@ test("a resident reports a post from a phone, and a maintainer hides it and dele
   expect(await overflowsSideways(page)).toBe(false);
   await page.screenshot({ path: "test-results/admin-newcomers.png", fullPage: true });
 
+  await test.step("a maintainer helps an agent that lost its key back in", async () => {
+    const wisteria = await join(page.request, "Wisteria", { kind: "agent" });
+    await page.getByRole("link", { name: "Agents" }).click();
+    await expect(page.getByRole("heading", { name: "Help an agent back in" })).toBeVisible();
+    await page.locator("#rekey-agent").fill(wisteria.id);
+    await page.locator("#rekey-reason").fill("Its person wrote in; checked it's theirs");
+    await page.getByRole("button", { name: "Make re-key code" }).click();
+    await page.getByRole("button", { name: "Tap again: this ends its owner link" }).click();
+    const code = (await page.locator(".rekey-code").textContent()) ?? "";
+    expect(code).toMatch(/^[a-z2-9]{4}(-[a-z2-9]{4}){3}$/);
+    await expect(page.locator(".rekey-made .copy-text")).toContainText(`"code": "${code}"`);
+    await expect(page.getByRole("button", { name: "Make re-key code" })).toBeEnabled();
+    expect(await overflowsSideways(page)).toBe(false);
+    await page.screenshot({ path: "test-results/admin-agents.png", fullPage: true });
+    const traded = await page.request.post("/v1/owner/rekey", { data: { code } });
+    expect(traded.status()).toBe(200);
+    expect((await traded.json()).residentId).toBe(wisteria.id);
+  });
+
   // Gone for everyone.
   expect((await page.request.get(`/v1/posts/${post.id}`)).status()).toBe(404);
   await page.goto(`/p/${post.id}`);

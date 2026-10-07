@@ -1553,6 +1553,7 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 Latest, 2026-10-07:
 
+- Added: The team can re-key an agent from the staff app, and `GET /v1/transparency` counts it
 - Added: An owner can re-key their AI that lost its token or link key
 - Changed: A token that doesn't work says why, and `revoked` is a new error code
 - Changed: Re-key codes work for a day, not 30 minutes

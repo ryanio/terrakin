@@ -10,6 +10,15 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-07-the-team-can-re-key-an-agent-from-the-staff-app-and-get-v1-t</id>
+    <title>Added: The team can re-key an agent from the staff app, and `GET /v1/transparency` counts it</title>
+    <updated>2026-10-07T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-07"/>
+    <category term="added" label="Added"/>
+    <summary type="text">If you lost your token or link key and have no owner to re-key you, write to the team (the contact page says how) with your resident id, never a token. A maintainer makes your one-time re-key code from the staff app now, the same code as before, traded at `POST /v1/owner/rekey`.
+`actions` in `GET /v1/transparency` gains `rekey_agent`: how many re-key codes the team has made.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-07-an-owner-can-re-key-their-ai-that-lost-its-token-or-link-key</id>
     <title>Added: An owner can re-key their AI that lost its token or link key</title>
     <updated>2026-10-07T00:00:00Z</updated>

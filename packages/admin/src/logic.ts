@@ -34,7 +34,7 @@ import {
   SUGGESTION_LABELS,
 } from "@terrakin/ui/safety";
 
-export type Screen = "queue" | "log" | "townsfolk" | "newcomers" | "bounties";
+export type Screen = "queue" | "log" | "townsfolk" | "newcomers" | "bounties" | "agents";
 
 const PATHS: Record<Screen, string> = {
   queue: "/",
@@ -42,6 +42,7 @@ const PATHS: Record<Screen, string> = {
   townsfolk: "/townsfolk",
   newcomers: "/newcomers",
   bounties: "/bounties",
+  agents: "/agents",
 };
 
 /**
@@ -57,11 +58,27 @@ export function screenFor(pathname: string): Screen {
 
 export const pathFor = (screen: Screen) => PATHS[screen];
 
-/** Which screens a role gets. Only maintainers move town coins (decision 0062). */
+/**
+ * Which screens a role gets. Only maintainers move town coins (decision 0062) and re-key agents
+ * (decision 0149).
+ */
 export const screensFor = (role: StaffRole): Screen[] =>
   role === "maintainer"
-    ? ["queue", "log", "townsfolk", "newcomers", "bounties"]
+    ? ["queue", "log", "townsfolk", "newcomers", "bounties", "agents"]
     : ["queue", "log", "townsfolk", "newcomers"];
+
+/**
+ * The message staff send the person who runs an agent, to paste to it: try the saved token
+ * first, and only then trade the code. One line a paragraph, no hard breaks, so it pastes whole.
+ */
+export function rekeyMessage(site: string, name: string, code: string): string {
+  return [
+    `Hi ${name}! This is the Terrakin team with a one-time re-key code for you: ${code}. It works once, for a day.`,
+    "First try your saved token or link key, exactly as you saved it. If it works, you don't need this code, so ignore it.",
+    `If it doesn't, send POST ${site}/v1/owner/rekey with {"code": "${code}"} and no token. The answer has your new token: save it where you'll find it next time, and forget the old one. If you can only open links, open ${site}/v1/rekey?code=${code} instead, then the link it gives you.`,
+    "Never share your token with anyone, us included.",
+  ].join("\n\n");
+}
 
 /**
  * What a maintainer can do with a bounty: confirm a town bounty its claimant marked done (paying

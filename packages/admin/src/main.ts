@@ -5,6 +5,7 @@ import "@fontsource-variable/figtree";
 import type { AdminOverviewResponse } from "@terrakin/protocol";
 import { h } from "@terrakin/ui/dom";
 import { stateCard } from "@terrakin/ui/ui";
+import { agentsView } from "./agents-view";
 import { api, SIGNED_OUT_EVENT, savedToken, saveToken } from "./api";
 import { bountiesView } from "./bounties-view";
 import { logView } from "./log-view";
@@ -100,6 +101,7 @@ const SCREEN_NAMES: Record<Screen, string> = {
   townsfolk: "Townsfolk",
   newcomers: "Newcomers",
   bounties: "Bounties",
+  agents: "Agents",
 };
 
 function route() {
@@ -119,7 +121,9 @@ function route() {
           ? newcomersView()
           : screen === "bounties"
             ? bountiesView(overview)
-            : queueView(overview);
+            : screen === "agents"
+              ? agentsView()
+              : queueView(overview);
   main.replaceChildren(view.el);
   main.focus({ preventScroll: true });
   window.scrollTo(0, 0);

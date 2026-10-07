@@ -295,6 +295,22 @@ export function safetyHandlers(api: Api): Pick<Handlers, AreaRouteIds["safety"]>
       }
       return { status: 200, body: { logged: entry } };
     },
+    // An agent that lost its key, or was revoked, back in through the team (decision 0149). The
+    // log keeps who, which agent, and why, never the code.
+    createStaffRekeyCode: ({ viewer, body }) => {
+      if (api.staffRole(viewer) !== "maintainer") return fail("forbidden", MAINTAINERS_ONLY);
+      const asked = body.agent.replace(/^@/, "");
+      const agentId = /^r_[0-9a-f]+$/.test(asked) ? asked : social().residentIdByHandle(asked);
+      const agent = agentId ? social().ref(agentId) : undefined;
+      if (!agentId || !agent) return fail("not_found", "Nobody has that handle or id.");
+      const made = api.requireOwners().teamRekey(agentId, viewer);
+      if (!made.ok) return fail(made.code, made.message);
+      social().safety.recordNote(viewer, "rekey_agent", "resident", agentId, body.reason);
+      return {
+        status: 201,
+        body: { agent, ...made.value.code, unlinked: made.value.unlinked },
+      };
+    },
     // Bounties (decision 0062): town coins move only on a maintainer's word.
     getStaffBounties: ({ viewer }) => {
       if (api.staffRole(viewer) !== "maintainer") return fail("forbidden", MAINTAINERS_ONLY);

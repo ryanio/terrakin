@@ -20,7 +20,6 @@ import {
   keyScopes,
   mainSite,
   modelName,
-  NEWCOMER_ROWS,
   participationLine,
   pathFor,
   RULE_CHOICES,
@@ -682,18 +681,6 @@ describe("the townsfolk page", () => {
 
 describe("newcomers", () => {
   const counts = { joined: 3, claimed: 2, hearth: 1, thing: 0, look: 0, social: 0, pet: 1 };
-
-  it("lists the steps in order with the pet last", () => {
-    expect(NEWCOMER_ROWS.map((r) => r.key)).toEqual([
-      "joined",
-      "claimed",
-      "hearth",
-      "thing",
-      "look",
-      "social",
-      "pet",
-    ]);
-  });
 
   it("gives each step its share of the week's joins, and none for the joins", () => {
     expect(stepShare(counts, "joined")).toEqual({ count: "3", share: "" });

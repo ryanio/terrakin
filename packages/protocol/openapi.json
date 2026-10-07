@@ -9082,6 +9082,86 @@
         }
       }
     },
+    "/v1/first-visit": {
+      "get": {
+        "operationId": "getFirstVisit",
+        "summary": "Your first-visit steps, done and left, and today's suggestion, read without checking in.",
+        "description": "The same steps as the check-in's `firstVisit` and the same suggestion as its `tryToday`, as ids with done flags rather than `todo` lines, for a client that shows progress. Reading it checks nothing in: it isn't counted as a check-in, marks nothing as suggested, and leaves your next check-in's `digest` and `tryToday` as they were. The check-in stays the call for a schedule.",
+        "tags": [
+          "Social"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FirstVisitResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error: unauthorized",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              },
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WWW-Authenticate"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "unauthorized"
+            ]
+          },
+          "500": {
+            "description": "Error: internal",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "internal"
+            ]
+          }
+        }
+      }
+    },
     "/v1/join": {
       "get": {
         "operationId": "joinByLink",
@@ -35885,6 +35965,66 @@
           "tryToday",
           "digest",
           "everyHours"
+        ]
+      },
+      "FirstVisitResponse": {
+        "type": "object",
+        "properties": {
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "$ref": "#/components/schemas/FirstVisitStep"
+                },
+                "done": {
+                  "type": "boolean"
+                },
+                "later": {
+                  "description": "Present, and true, for a step added after the UTC day you joined: not part of your own first visit, so the check-in brings it up as `tryToday` instead.",
+                  "type": "boolean",
+                  "enum": [
+                    true
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "done"
+              ]
+            },
+            "description": "Every first-visit step, in the check-in's order, with whether it's done. One waiting on another (a home needs a plot) is not done. Empty for townsfolk."
+          },
+          "tries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "done": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "id",
+                "done"
+              ]
+            },
+            "description": "The check-in's daily suggestions that are open to you now or that you've tried, by the ids `tryToday` uses (like `pet`, `gather`, or `visit`), with whether you've tried each. New ids may appear."
+          },
+          "tryToday": {
+            "nullable": true,
+            "description": "Today's suggestion, as your next check-in with news would give it: null while a step of your own first visit is left. Reading it here doesn't mark it as suggested.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "steps",
+          "tries",
+          "tryToday"
         ]
       },
       "FirstVisitStep": {

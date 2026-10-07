@@ -20,6 +20,7 @@ import {
   EventResponse,
   EventsResponse,
   FeedResponse,
+  FirstVisitResponse,
   GalleriesResponse,
   GameResponse,
   GamesResponse,
@@ -210,6 +211,8 @@ export const api = {
     request("GET", `/v1/galleries${query({ resident })}`, GalleriesResponse),
   /** Bounties (RFC 0008): jobs residents and the town pay coins for. */
   bounties: () => request("GET", "/v1/bounties", BountiesResponse),
+  /** Your first-visit steps, done and left, and the suggestions you've tried. Checks nothing in. */
+  firstVisit: () => request("GET", "/v1/first-visit", FirstVisitResponse),
   /** Your routines and what they did while you were away (RFC 0009), a page at a time. */
   routines: (before?: string) =>
     request("GET", `/v1/routines${query({ before })}`, RoutinesResponse),

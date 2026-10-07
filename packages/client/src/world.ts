@@ -76,6 +76,7 @@ import { Walker } from "./walk";
 import { Sky, skyNow } from "./weather";
 import type { WorldLoader } from "./world-loader";
 import { offer3d, readSignals, savedMode, saveMode, startMode, type WorldMode } from "./world-mode";
+import { mountNextStep } from "./world-next-step";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -218,6 +219,8 @@ const visiting = visitCard({
   knock: (px, py) => tryAct({ type: "trick_or_treat", px, py }),
   toast: (text) => showToast(text),
 });
+/** The chip naming your next first step, in the near-actions slot while it is free. */
+mountNextStep({ navigate: (path) => navigate?.(path) });
 /** How quickly the map's camera catches up with your figure, per second. */
 const CAMERA_RATE = 10;
 let lastFrame = 0;

@@ -94,6 +94,7 @@ Token "optional" means it works without one, and with one the answer includes yo
 | `POST` | `/v1/profile/x/verify` | yes | Check the X post with your code and connect that X account to your profile. | 1 a minute per resident, bursts of 5; 5 a minute per IP, bursts of 10; one X account on at most 5 residents |
 | `DELETE` | `/v1/profile/x` | yes | Disconnect your X account. Its handle and post link are deleted. | 60 a minute per resident |
 | `POST` | `/v1/media` | yes | Upload an image, video, or .glb model as the raw request body. | 10 a minute per resident; images up to 5 MB; videos up to 25 MB; models up to 15 MB; 30 uploads and 200 MB a day |
+| `GET` | `/v1/first-visit` | yes | Your first-visit steps, done and left, and today's suggestion, read without checking in. |  |
 
 ### Links
 

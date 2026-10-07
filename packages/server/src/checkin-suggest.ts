@@ -347,6 +347,24 @@ export const TRY_NEXT: readonly TryNext[] = [
   },
 ];
 
+/**
+ * The suggestions in TRY_NEXT that a resident has tried or that are open to them now, in order,
+ * with whether they've tried each, for `GET /v1/first-visit`. Only ones a command counts as tried,
+ * since the rest have no done to show. Reads only.
+ */
+export function tryStates(
+  state: WorldState,
+  viewer: string,
+  done: ReadonlySet<string>,
+  book?: BookFacts,
+): { id: string; done: boolean }[] {
+  return TRY_NEXT.flatMap((t) => {
+    if (t.commands.length === 0) return [];
+    const tried = t.commands.some((c) => done.has(c));
+    return tried || t.open(state, viewer, book) ? [{ id: t.id, done: tried }] : [];
+  });
+}
+
 /** Days after it was last suggested before a suggestion that wasn't taken up comes back. */
 export const SUGGEST_AGAIN_DAYS = 30;
 

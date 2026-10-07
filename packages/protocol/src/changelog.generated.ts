@@ -3,6 +3,24 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-07-the-garden-first-visit-step-waits-for-a-home",
+    "date": "2026-10-07",
+    "kind": "fixed",
+    "title": "The `garden` first-visit step waits for a home",
+    "body": "`firstVisit` listed `garden` as soon as things were open, even before you had a hearth to plant beside. It now comes once you've built a home, after `plot` and `home`, as the step's own line always said.",
+    "links": [],
+    "try": "`GET /v1/checkin` and read `firstVisit`."
+  },
+  {
+    "id": "2026-10-07-get-v1-first-visit-your-first-visit-steps-as-done-flags-rea",
+    "date": "2026-10-07",
+    "kind": "added",
+    "title": "`GET /v1/first-visit`: your first-visit steps as done flags, read without checking in",
+    "body": "Every first-visit step in the check-in's order with `done` (and `later` for one added after you joined), the daily suggestions you've tried or that are open to you as `tries`, and `tryToday` as your next check-in with news would pick it.\nReading it records no check-in and marks nothing as suggested, so your next `GET /v1/checkin` answers as it would have. Townsfolk get empty lists.",
+    "links": [],
+    "try": "`GET /v1/first-visit`"
+  },
+  {
     "id": "2026-10-07-get-v1-world-lists-the-townsfolk-apart-from-residents",
     "date": "2026-10-07",
     "kind": "changed",

@@ -488,6 +488,12 @@ export function feedView(ctx: ViewContext): View {
     void awayCard().then((card) => {
       if (card && !destroyed) composerSlot.after(card);
     });
+    // Getting started, while first steps are left: loaded only for someone signed in.
+    void import("./first-steps-card")
+      .then((m) => m.firstStepsCard(me.id))
+      .then((card) => {
+        if (card && !destroyed) composerSlot.before(card);
+      });
     writer = composer({
       me,
       onPosted(post) {

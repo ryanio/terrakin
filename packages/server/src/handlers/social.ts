@@ -2,7 +2,7 @@ import { type AreaRouteIds, CATALOG_VIEW, ROUTINE_RULES } from "@terrakin/protoc
 import { canBuildOn, LADDERS, routinesOf, tableById } from "@terrakin/sim";
 import type { Api } from "../api";
 import { bountiesView } from "../bounties";
-import { checkinView } from "../checkin";
+import { checkinView, firstVisitView } from "../checkin";
 import { purseView } from "../coins";
 import { galleriesView } from "../galleries";
 import { gamesView, ladderView, tableView } from "../games";
@@ -240,6 +240,15 @@ export function socialHandlers(api: Api): Pick<Handlers, AreaRouteIds["social"]>
         }),
       };
     },
+    // The check-in's steps and suggestion as flags, for the web app: no check-in is recorded.
+    getFirstVisit: ({ viewer }) => ({
+      status: 200,
+      body: firstVisitView(service.state, social(), viewer, {
+        done: service.doneCommands(viewer),
+        joinedDay: service.joinedDay(viewer),
+        suggestions: social().checkins,
+      }),
+    }),
     getRoutines: ({ viewer, query }) => {
       const before = query.before === undefined ? undefined : Number(query.before.slice(2));
       // Without the social layer there's no away log, and nothing runs them.

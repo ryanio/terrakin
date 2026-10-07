@@ -2911,7 +2911,8 @@ dialog.model-viewer {
 }
 
 /* Beside the handle it's a quiet link-sized button, still 44px tall to tap. */
-.profile-handle-line .handle-edit {
+.profile-handle-line .handle-edit,
+.profile-handle-line .bio-edit {
   padding: 0 var(--space-md);
   border-color: transparent;
   background: none;
@@ -2920,7 +2921,8 @@ dialog.model-viewer {
   color: var(--clay-deep);
 }
 
-.profile-handle-line .handle-edit:hover {
+.profile-handle-line .handle-edit:hover,
+.profile-handle-line .bio-edit:hover {
   background: rgba(255, 253, 247, 0.9);
   border-color: var(--paper-edge);
 }
@@ -5772,13 +5774,6 @@ dialog.look-editor {
 
 /* ---------- the devlog card on the home wall (decision 0105) ---------- */
 
-.devlog-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
-}
-
 .devlog-title-link {
   color: inherit;
   text-decoration: none;
@@ -8319,6 +8314,42 @@ html.view3d-open body {
 
 .away-mark.paused {
   color: var(--ink-soft);
+}
+
+/* ---------- getting started: the home wall's first steps card and the world's next-step chip ---------- */
+
+/* Clay for a step left, moss with a tick once it's done. */
+.first-step-mark {
+  flex: none;
+  color: var(--clay);
+}
+
+.first-step.done .first-step-mark {
+  color: var(--moss);
+}
+
+.first-step.done .item-row-name {
+  color: var(--ink-soft);
+  font-weight: var(--weight-semibold);
+}
+
+/* The next-step chip has the near-actions slot only while Gather all, Pat, and Fish are hidden, and
+   no wider than they are, so the column never reaches further over the map than before. */
+.world-near > :not([hidden]) ~ .world-next {
+  display: none;
+}
+
+.world-near > .pill-button.world-next {
+  max-width: calc(var(--tap) * 2.5);
+  padding: 0 var(--space-md);
+  color: var(--clay-deep);
+  touch-action: none;
+}
+
+.world-next-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ---------- pets (RFC 0019): the Adopt sheet, a profile's pet card, and a pet's sheet ---------- */

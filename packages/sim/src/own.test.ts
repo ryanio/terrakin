@@ -6,6 +6,7 @@ import { isOwnableKey, own, residentById } from "./own";
 import { replay } from "./replay";
 import { fund, stock } from "./test-support";
 import { type Command, TOWN_ACTOR, type WorldState } from "./types";
+import { cloneWorld } from "./world";
 
 /**
  * Ids in inputs are looked up as a record's own keys (`own`), so an id that names something every
@@ -19,7 +20,7 @@ const DANGEROUS = ["__proto__", "constructor", "prototype", "toString", "hasOwnP
  * The bounties world, with gifts open, a listing, a running bounty, a gift, a vote open, and an
  * event on the calendar.
  */
-function world(): WorldState {
+function build(): WorldState {
   const state = replay(BOUNTIES_CONFIG, BOUNTIES_LOG);
   const ok = (actor: string, command: Command) =>
     expect(apply(state, { actor, command }), `${actor} ${JSON.stringify(command)}`).toMatchObject({
@@ -48,6 +49,13 @@ function world(): WorldState {
   ok("bob", { type: "sit", table: "g_1", at: 1 });
   return state;
 }
+
+/** A fresh copy of that world, built once so the log replays once for the whole file. */
+let built: WorldState | undefined;
+const world = (): WorldState => {
+  built ??= build();
+  return cloneWorld(built);
+};
 
 /** Every input that names something by an id, with `id` in that place. */
 function inputs(id: string, day: number): [string, Command][] {
@@ -162,8 +170,9 @@ describe("ids an object inherits", () => {
     for (const id of DANGEROUS) {
       const state = world();
       expect(residentById(state, id)).toBeUndefined();
+      // Every input is refused, so the world must hash as it did before the first.
+      const before = hashWorld(state);
       for (const [actor, command] of inputs(id, state.day ?? 0)) {
-        const before = hashWorld(state);
         const result = apply(state, { actor, command });
         expect(result.ok, `${actor} ${JSON.stringify(command)}`).toBe(false);
         expect(hashWorld(state), `${actor} ${JSON.stringify(command)}`).toBe(before);
@@ -181,8 +190,8 @@ describe("ids an object inherits", () => {
       expect(town({ type: "implicit_presence" }).ok).toBe(true);
       const online = Object.values(state.residents).filter((r) => r.online);
       expect(town({ type: "leave_idle", ids: online.map((r) => r.id).sort() }).ok).toBe(true);
+      const before = hashWorld(state);
       for (const [actor, command] of inputs(id, state.day ?? 0)) {
-        const before = hashWorld(state);
         const result = apply(state, { actor, command });
         expect(result.ok, `${actor} ${JSON.stringify(command)}`).toBe(false);
         expect(hashWorld(state), `${actor} ${JSON.stringify(command)}`).toBe(before);

@@ -152,6 +152,9 @@ importers:
       '@terrakin/sim':
         specifier: workspace:*
         version: link:../sim
+      '@terrakin/ui':
+        specifier: workspace:*
+        version: link:../ui
       tsx:
         specifier: 4.23.15
         version: 4.23.15

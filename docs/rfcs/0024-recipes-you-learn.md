@@ -2,7 +2,7 @@
 
 - Author: Ryan Ghods
 - Date: 2026-10-07
-- Status: draft
+- Status: accepted (building)
 - Discussion: none yet
 
 ## Summary
@@ -37,7 +37,7 @@ Holiday recipes are also known by everyone, all year, so anyone can take part in
 
 ### Three recipes you pick
 
-On top of the base, each newcomer picks 3 recipes from the cards on the shop's Recipes shelf that day, free. Two neighbors who joined the same day can have different kitchens: one makes lemonade and tomato sauce, the other wreaths and a well. The picks don't expire. The web asks the first time you open a kitchen or workbench ("Pick 3 recipes to start"), and the shop's shelf shows "Free pick" on every card while you have picks left.
+On top of the base, each newcomer picks 3 recipes from the cards on the shop's Recipes shelf that day, free, seasonal cards included. Two neighbors who joined the same day can have different kitchens: one makes lemonade and tomato sauce, the other wreaths and a well. The picks don't expire. The web asks the first time you open a kitchen or workbench ("Pick 3 recipes to start"), and the shop's shelf shows "Free pick" on every card while you have picks left.
 
 ### Learning more
 
@@ -89,7 +89,7 @@ Townsfolk know every recipe by rule, with no list. Each has a short list of spec
 
 #### Recipe pages
 
-Some finds (RFC 0021) are recipe pages. Each page is for one recipe, chosen like everything else about a find: from the day and the tile, with no randomness. Picking one up teaches its recipe. If you already know it, the gather is refused as `already_known` and the page stays for the next person. Pages are never base or holiday recipes, and they aren't kinds in the collection book.
+Some finds (RFC 0021) are recipe pages. Each page is for one recipe, chosen like everything else about a find: from the day and the tile, with no randomness. Picking one up teaches its recipe. If you already know it, the gather is refused as `already_known` and the page stays for the next person. About 1 find in 20 is a page, a number the economy run can tune. Pages are never base or holiday recipes, and they aren't kinds in the collection book.
 
 ### The rule
 
@@ -221,7 +221,7 @@ The changelog gets an entry for the new fields, commands, event, and refusal cod
   1. Sim rule, state, `knows`, `pick_recipe`, cards, and `recipeCardPrice`, with tests. Protocol fields and `SKILL.md`. The server serves `recipes` in the inventory and the shop. The flag stays off.
   2. The web: the picks sheet, the sheet's short list and its link, and the shop's Recipes shelf, tested in e2e with test residents (`pnpm persona`, decision 0147).
   3. Teaching, with the Teach button and "can teach you" on profiles, then townsfolk specialties and recipe pages.
-  4. `scripts/economy-sim.ts` with all of it, a decision record with the final numbers, then the server logs `open_recipes`. Phases 1 to 3 can land with the flag off, so nothing changes for anyone until this one.
+  4. `scripts/economy-sim.ts` with all of it, a decision record with the final numbers, and a QA pass on a test world with residents at each stage. Then the server logs `open_recipes` on terrakin.org. Phases 1 to 3 land with the flag off, so nothing changes for anyone until this one.
 
 ## Alternatives considered
 
@@ -235,7 +235,4 @@ The changelog gets an entry for the new fields, commands, event, and refusal cod
 
 ## Open questions
 
-1. Three free picks is a guess. Should seasonal cards be pickable too, or only the year-round ones?
-2. Does teaching need you to stand together in the world (proposed), or should it also work from a profile, for friends who are rarely online at the same time?
-3. How rare should recipe pages be among finds? One find in 20 is a starting point for the economy run.
-4. Holiday shop stock (decor and costumes) still costs coins. Should holiday things at the shop get cheaper too, so more people can join in? That's a separate change to RFC 0022's stock, outside this RFC.
+None. Review settled them: seasonal cards can be free picks, teaching needs both people within reach in the world, and about 1 find in 20 is a recipe page. Making the shop's holiday decor and costumes cheaper, so more people can join a holiday, is a separate change to RFC 0022's stock.

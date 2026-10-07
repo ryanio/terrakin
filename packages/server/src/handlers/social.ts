@@ -9,6 +9,7 @@ import { gamesView, ladderView, tableView } from "../games";
 import { inventoryView } from "../items";
 import { marketView } from "../market";
 import { findPartner, partnerViews } from "../partners";
+import { checkinWithLinks, plotWithLinks, postWithLinks, profileWithLinks } from "../share-links";
 import { SHOP_KEEPER_HANDLE, shopView } from "../shop";
 import { utcDay } from "../world-service";
 import {
@@ -43,15 +44,18 @@ export function socialHandlers(api: Api): Pick<Handlers, AreaRouteIds["social"]>
         }),
       };
     },
-    createPost: ({ viewer, body, ip }) =>
+    createPost: ({ viewer, body, ip, origin }) =>
       fromResult(social().createPost(viewer, body, ipKey(ip)), (post) => ({
         status: 201 as const,
-        body: { post },
+        body: { post: postWithLinks(origin, post) },
       })),
-    getPost: ({ viewer, params }) => {
+    getPost: ({ viewer, params, origin }) => {
       const post = social().post(params.id, viewer, true);
       if (!post) return fail("not_found", "No such post.");
-      return { status: 200, body: { post, replies: social().replies(params.id, viewer) } };
+      return {
+        status: 200,
+        body: { post: postWithLinks(origin, post), replies: social().replies(params.id, viewer) },
+      };
     },
     deletePost: async ({ viewer, params }) =>
       fromResult(await social().deletePost(viewer, params.id), () => ({ status: 204 as const })),
@@ -75,11 +79,11 @@ export function socialHandlers(api: Api): Pick<Handlers, AreaRouteIds["social"]>
         status: 200 as const,
         body: { post },
       })),
-    getResidentByHandle: ({ viewer, params }) => {
+    getResidentByHandle: ({ viewer, params, origin }) => {
       const resident = social().profileByHandle(params.handle, viewer);
       if (!resident) return fail("not_found", "Nobody has that handle.");
       void social().agentLinks.refreshIfStale(resident.id);
-      return { status: 200, body: { resident } };
+      return { status: 200, body: { resident: profileWithLinks(origin, resident) } };
     },
     getResidentFollowing: ({ params }) =>
       fromResult(social().following(params.id), (residents) => ({
@@ -187,48 +191,50 @@ export function socialHandlers(api: Api): Pick<Handlers, AreaRouteIds["social"]>
         },
       };
     },
-    getGalleries: ({ query }) => {
+    getGalleries: ({ query, origin }) => {
       const layer = api.social;
-      return {
-        status: 200,
-        body: galleriesView(service.state, (id) => layer?.authorView(id), {
-          resident: query.resident,
-          // A suspended resident's gallery is closed for now, like their market stall.
-          hidden: (id) => layer?.safety.suspendedUntil(id) !== undefined,
-        }),
-      };
+      const { galleries } = galleriesView(service.state, (id) => layer?.authorView(id), {
+        resident: query.resident,
+        // A suspended resident's gallery is closed for now, like their market stall.
+        hidden: (id) => layer?.safety.suspendedUntil(id) !== undefined,
+      });
+      return { status: 200, body: { galleries: galleries.map((g) => plotWithLinks(origin, g)) } };
     },
-    getPlots: ({ viewer, query }) => {
+    getPlots: ({ viewer, query, origin }) => {
       const layer = social();
       const author = (id: string) => layer.authorView(id);
       const sort = query.sort ?? "recent";
       const plots = layer.plots.list(service.state, author, sort, api.plotViewer(viewer));
-      return { status: 200, body: { plots: plots.slice(0, query.limit) } };
+      return {
+        status: 200,
+        body: { plots: plots.slice(0, query.limit).map((p) => plotWithLinks(origin, p)) },
+      };
     },
-    getPlot: ({ viewer, params }) => {
+    getPlot: ({ viewer, params, origin }) => {
       const plot = api.plotFor(viewer, params);
-      return plot ? { status: 200, body: { plot } } : fail("not_found", NO_PLOT_TO_VISIT);
+      return plot
+        ? { status: 200, body: { plot: plotWithLinks(origin, plot) } }
+        : fail("not_found", NO_PLOT_TO_VISIT);
     },
-    admirePlot: ({ viewer, params }) =>
+    admirePlot: ({ viewer, params, origin }) =>
       fromResult(social().plots.admire(service.state, viewer, params.px, params.py), () => {
         const plot = api.plotFor(viewer, params);
         return plot
-          ? { status: 201 as const, body: { plot } }
+          ? { status: 201 as const, body: { plot: plotWithLinks(origin, plot) } }
           : fail("not_found", NO_PLOT_TO_VISIT);
       }),
-    getCheckin: ({ viewer, query }) => {
+    getCheckin: ({ viewer, query, origin }) => {
       social().checkins.record(viewer);
-      return {
-        status: 200,
-        body: checkinView(service.state, social(), viewer, {
-          since: query.since,
-          seen: query.seen,
-          done: service.doneCommands(viewer),
-          joinedDay: service.joinedDay(viewer),
-          suggestions: social().checkins,
-          devlogAt: (date) => social().checkins.published(date),
-        }),
-      };
+      const view = checkinView(service.state, social(), viewer, {
+        since: query.since,
+        seen: query.seen,
+        done: service.doneCommands(viewer),
+        joinedDay: service.joinedDay(viewer),
+        suggestions: social().checkins,
+        devlogAt: (date) => social().checkins.published(date),
+      });
+      const home = api.homeField(viewer).home;
+      return { status: 200, body: checkinWithLinks(origin, viewer, home, view) };
     },
     // The check-in's steps and suggestion as flags, for the web app: no check-in is recorded.
     getFirstVisit: ({ viewer }) => ({
@@ -259,7 +265,7 @@ export function socialHandlers(api: Api): Pick<Handlers, AreaRouteIds["social"]>
         status: 200 as const,
         body: { unread },
       })),
-    getResident: ({ viewer, params }) => {
+    getResident: ({ viewer, params, origin }) => {
       const profile = social().profile(params.id, viewer);
       if (!profile) return fail("not_found", "No such resident.");
       // Whether you share a plot with them: the site offers a kiss to the people you live with.
@@ -276,12 +282,13 @@ export function socialHandlers(api: Api): Pick<Handlers, AreaRouteIds["social"]>
       };
       // An hour-old agent link is checked again in the background; this answer doesn't wait.
       void social().agentLinks.refreshIfStale(params.id);
-      return { status: 200, body: { resident } };
+      return { status: 200, body: { resident: profileWithLinks(origin, resident) } };
     },
-    getMe: ({ viewer }) => {
+    getMe: ({ viewer, origin }) => {
       const resident = social().profile(viewer, viewer);
       if (!resident) return fail("unauthorized", "That token doesn't belong to anyone here.");
-      return { status: 200, body: { resident: { ...resident, ...api.homeField(viewer) } } };
+      const me = { ...resident, ...api.homeField(viewer) };
+      return { status: 200, body: { resident: profileWithLinks(origin, me) } };
     },
     getResidentPosts: ({ viewer, params, query }) => {
       if (!social().profile(params.id)) return fail("not_found", "No such resident.");
@@ -295,34 +302,34 @@ export function socialHandlers(api: Api): Pick<Handlers, AreaRouteIds["social"]>
         }),
       };
     },
-    followResident: ({ viewer, params }) =>
+    followResident: ({ viewer, params, origin }) =>
       fromResult(social().setFollow(viewer, params.id, true), (resident) => ({
         status: 200 as const,
-        body: { resident },
+        body: { resident: profileWithLinks(origin, resident) },
       })),
-    unfollowResident: ({ viewer, params }) =>
+    unfollowResident: ({ viewer, params, origin }) =>
       fromResult(social().setFollow(viewer, params.id, false), (resident) => ({
         status: 200 as const,
-        body: { resident },
+        body: { resident: profileWithLinks(origin, resident) },
       })),
-    praiseResident: ({ viewer, params }) =>
+    praiseResident: ({ viewer, params, origin }) =>
       fromResult(social().givePraise(viewer, params.id), (resident) => ({
         status: 201 as const,
-        body: { resident },
+        body: { resident: profileWithLinks(origin, resident) },
       })),
-    patResidentPet: ({ viewer, params }) =>
+    patResidentPet: ({ viewer, params, origin }) =>
       fromResult(social().patPet(viewer, params.id), (resident) => ({
         status: 201 as const,
-        body: { resident },
+        body: { resident: profileWithLinks(origin, resident) },
       })),
-    updateProfile: async ({ viewer, body }) =>
+    updateProfile: async ({ viewer, body, origin }) =>
       fromResult(await social().updateProfile(viewer, body), (resident) => ({
         status: 200 as const,
-        body: { resident },
+        body: { resident: profileWithLinks(origin, resident) },
       })),
     startXLink: ({ viewer }) =>
       fromResult(social().startXLink(viewer), (start) => ({ status: 200 as const, body: start })),
-    verifyXLink: async ({ viewer, body, ip }) => {
+    verifyXLink: async ({ viewer, body, ip, origin }) => {
       // The route's own limit is per resident. Each check reads from X, so one network is
       // limited too, or a crowd of fresh residents could make us hammer X.
       if (!api.limiters.xVerifyIp.take(ipKey(ip))) {
@@ -330,7 +337,7 @@ export function socialHandlers(api: Api): Pick<Handlers, AreaRouteIds["social"]>
       }
       return fromResult(await social().verifyXLink(viewer, body.url), (resident) => ({
         status: 200 as const,
-        body: { resident },
+        body: { resident: profileWithLinks(origin, resident) },
       }));
     },
     linkAgent: async ({ viewer, body, ip }) => {
@@ -361,10 +368,10 @@ export function socialHandlers(api: Api): Pick<Handlers, AreaRouteIds["social"]>
       }
       return { status: 200, body: list.list(partner, query) };
     },
-    unlinkX: ({ viewer }) =>
+    unlinkX: ({ viewer, origin }) =>
       fromResult(social().unlinkX(viewer), (resident) => ({
         status: 200 as const,
-        body: { resident },
+        body: { resident: profileWithLinks(origin, resident) },
       })),
     takePlotPhoto: ({ viewer, ip }) => api.takePlotPhoto(viewer, ip),
     uploadMedia: async ({ viewer, body, ip }) => {

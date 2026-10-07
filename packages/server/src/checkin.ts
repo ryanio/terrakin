@@ -232,6 +232,8 @@ export function firstVisitView(
  * letters, the newest gesture, followed post, and notice, open votes, the purse, and the newest
  * changelog entry and devlog post. With `seen` equal to it, the answer is the same shape with
  * `unchanged: true`, the unread counts and purse, and every list empty.
+ *
+ * It has no `links`: `GET /v1/checkin` adds them on the request's origin (`checkinWithLinks`).
  */
 export function checkinView(
   state: WorldState,
@@ -260,7 +262,7 @@ export function checkinView(
      */
     devlogAt?: (date: string) => number;
   },
-): CheckinResponse {
+): Omit<CheckinResponse, "links"> {
   const now = social.now();
   const since = checkinSince(options.since, now);
   // What it's like out, read off the same clock as `GET /v1/world` (decision 0073), and the

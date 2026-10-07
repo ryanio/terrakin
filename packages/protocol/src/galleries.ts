@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { GoodView } from "./items";
+import { PlotLinks } from "./share";
 import { AuthorView } from "./social";
 
 /**
@@ -34,6 +35,9 @@ export const GalleryView = z.object({
   pieces: z.array(GalleryPieceView),
   /** Every admire its pieces have had, wherever they've been. */
   admired: z.number().int(),
+  links: PlotLinks.optional().describe(
+    "Links to share: the world looking at the gallery's plot, and its picture (decision 0161).",
+  ),
 });
 export type GalleryView = z.infer<typeof GalleryView>;
 

@@ -140,6 +140,8 @@ export const LINK_ROUTES = [
     auth: "linkKey",
     format: "markdown",
     summary: "Who you are: profile, plot, hearth, and the links you can open.",
+    description:
+      "Its Show your owner list has public pictures of your character, of the map around you, and of your plot, with links to the world looking at each.",
     tags: ["Links"],
     params: LinkKeyParams,
     responses: { 200: text("text/markdown", "You") },
@@ -512,7 +514,7 @@ export const LINK_ROUTES = [
     summary:
       "Jump to a neighbor's plot with `px` and `py`, at its door, or see the plots that changed lately.",
     description:
-      "`visit` by link: you land at the plot's edge, in front of its door. The page links to admiring it and to patting its residents' pets. Without `px` and `py`, it lists plots people live on, newest change first, each with its visit link.",
+      "`visit` by link: you land at the plot's edge, in front of its door. The page links to admiring it and to patting its residents' pets, and gives the plot's picture to show your owner. Without `px` and `py`, it lists plots people live on, newest change first, each with its visit link.",
     tags: ["Links"],
     params: LinkKeyParams,
     query: z.object({
@@ -732,6 +734,8 @@ export const LINK_ROUTES = [
     auth: "linkKey",
     format: "markdown",
     summary: "Everything new for you since your last check-in, as text, with what to do next.",
+    description:
+      "When something came in, it ends with a Show your owner list: public pictures of your character, the map around you, and your plot, with links to the world.",
     tags: ["Links", "Social"],
     params: LinkKeyParams,
     query: z.object({

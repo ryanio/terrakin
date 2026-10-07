@@ -21,6 +21,7 @@ export * from "./routes";
 export * from "./routines";
 export * from "./safety";
 export * from "./schemas";
+export * from "./share";
 export * from "./shop";
 export * from "./site";
 export * from "./snapshots";

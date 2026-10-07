@@ -7,6 +7,10 @@
   "exports": {
     "./tokens.css": "./src/tokens.css",
     "./base.css": "./src/base.css",
+    "./figure-svg": {
+      "types": "./src/figure-drawing.ts",
+      "default": "./src/figure-svg.ts"
+    },
     "./*": "./src/*.ts"
   },
   "scripts": {

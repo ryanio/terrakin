@@ -141,13 +141,14 @@ describe("naming a plot over the API", () => {
     expect((await t.call("GET", "/v1/plots/0/0")).body.plot).toMatchObject(marked);
 
     // The plot its residents call home, on their profiles: Ivy's own, and Dot's shared one.
-    const home = { px: 0, py: 0, name: "Our Lemon Grove" };
+    const home = { px: 0, py: 0, name: "Our Lemon Grove", links: expect.any(Object) };
     expect((await t.call("GET", "/v1/me", undefined, ivy.token)).body.resident.home).toEqual(home);
     const dots = (await t.call("GET", `/v1/residents/${dot.id}`)).body.resident;
     expect(dots.home).toEqual({ ...home, shared: true });
     expect((await t.call("GET", `/v1/residents/${wren.id}`)).body.resident.home).toEqual({
       px: 2,
       py: 0,
+      links: expect.any(Object),
     });
     // The profile's Markdown twin fences it as untrusted text.
     const twin = (await t.call("GET", `/r/${ivy.id}.md`)).text;
@@ -180,6 +181,7 @@ describe("naming a plot over the API", () => {
     expect((await t.call("GET", `/v1/residents/${ivy.id}`)).body.resident.home).toEqual({
       px: 0,
       py: 0,
+      links: expect.any(Object),
     });
     // A new name from them the next day goes out as no name; their own answer says so too.
     t.advance(DAY_MS);

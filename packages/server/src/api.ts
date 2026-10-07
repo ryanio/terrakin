@@ -98,6 +98,7 @@ import { COOL_DOWN_MESSAGE, type Moderation } from "./moderation";
 import { OwnerService } from "./owner-service";
 import type { PartnerResidents } from "./partner-residents";
 import { findPartner } from "./partners";
+import { type PictureRoute, type PictureSpec, pictureSpec } from "./pictures";
 import { type PlotPhotoRenderer, plotPhotoSpec } from "./plot-photo";
 import { type PlotViewer, shownPlotName } from "./plots";
 import { RateLimiters } from "./rate-limit";
@@ -759,6 +760,24 @@ export class Api {
     const latest = this.ipUploads.get(key);
     const before = latest?.day === day ? latest.bytes : 0;
     this.ipUploads.set(key, { day, bytes: before + bytes });
+  }
+
+  /**
+   * A picture by link's data (decision 0160), from world state alone: nothing is drawn here. A
+   * resident's upload shows only while they aren't suspended, staff never removed their pictures,
+   * and the upload is still stored as theirs.
+   */
+  pictureSpec(route: PictureRoute): PictureSpec | undefined {
+    const social = this.social;
+    return pictureSpec(this.service.state, route, {
+      nowMs: this.now(),
+      held: this.service.noteHidden,
+      artShown: (id, mediaId) =>
+        !social ||
+        (social.safety.suspendedUntil(id) === undefined &&
+          !social.safety.picturesRemoved(id) &&
+          social.mediaType(id, mediaId) !== undefined),
+    });
   }
 
   /**

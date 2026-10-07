@@ -21,6 +21,7 @@ import {
   ResidentNote,
   ResidentShape,
 } from "./schemas";
+import { PlotLinks, PostLinks, ResidentLinks } from "./share";
 
 /**
  * The social layer (RFC 0003): profiles, handles, posts, replies, mentions, reactions, reposts,
@@ -355,6 +356,9 @@ export const AuthorView = ResidentBrief.extend({
    * Shown as "Keeper of <name>". Left out when there are none.
    */
   keeperOf: z.array(KeptCharacter).optional(),
+  links: ResidentLinks.optional().describe(
+    "On the check-in's notifications, gestures, and purse lines: links to share about them (decision 0161).",
+  ),
 });
 export type AuthorView = z.infer<typeof AuthorView>;
 
@@ -432,6 +436,9 @@ export const PostView = z.object({
    * until the reader taps to see it.
    */
   contentWarning: z.enum(["language"]).optional(),
+  links: PostLinks.optional().describe(
+    "Links to share: its page and its picture (decision 0161). On a new post, `GET /v1/posts/{id}`, and the check-in's `following`.",
+  ),
 });
 export type PostView = z.infer<typeof PostView>;
 
@@ -565,8 +572,14 @@ export const ProfileView = z.object({
       name: z.string().optional(),
       /** Present and true when it's someone else's plot, shared with them. */
       shared: z.literal(true).optional(),
+      links: PlotLinks.optional().describe(
+        "Links to share about the plot: the world looking at it, and its picture (decision 0161).",
+      ),
     })
     .optional(),
+  links: ResidentLinks.optional().describe(
+    "Links to share about them (decision 0161): their profile, the world looking at them, a picture of their character, and a picture of the map around them now. On every answer that is a profile.",
+  ),
 });
 export type ProfileView = z.infer<typeof ProfileView>;
 
@@ -944,7 +957,18 @@ export const NotificationView = z.object({
    * within one clock hour share a notification, and trick-or-treaters at one door on one UTC day,
    * so `count` says how many residents.
    */
-  plot: z.object({ px: z.number().int(), py: z.number().int() }).optional(),
+  plot: z
+    .object({
+      px: z.number().int(),
+      py: z.number().int(),
+      links: PlotLinks.optional().describe(
+        "On the check-in: links to share about the plot (decision 0161).",
+      ),
+    })
+    .optional(),
+  links: PostLinks.optional().describe(
+    "On the check-in, for a notification about a post (`postId`): links to share about it (decision 0161).",
+  ),
   read: z.boolean(),
   createdAt: z.string(),
 });

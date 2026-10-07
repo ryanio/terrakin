@@ -26,6 +26,8 @@ import {
   type CardDeps,
   type CardRoute,
   matchCardPath,
+  PICTURE_DRAWS_PER_MINUTE,
+  PICTURES_PER_MINUTE,
   pageImage,
   RENDERS_PER_MINUTE,
   serveCard,
@@ -44,6 +46,7 @@ import {
   twinHeaders,
 } from "../src/pages";
 import { findPartner } from "../src/partners";
+import type { PictureRoute, PictureSpec } from "../src/pictures";
 import { materializePlot, type PlotPhotoSpec } from "../src/plot-photo";
 import { parseMaintainers, parseTownsfolk, SocialService } from "../src/social-service";
 import { SqlStore } from "../src/sql-store";
@@ -181,6 +184,9 @@ function withHeaders(response: Response, headers: Record<string, string>): Respo
 
 /** Card renders one IP (or IPv6 /64) may cause per minute, counted per isolate. */
 const allowRender = windowLimiter(RENDERS_PER_MINUTE, 60_000);
+/** Pictures by link (decision 0160): asks per IP a minute, and draws per isolate a minute. */
+const allowPicture = windowLimiter(PICTURES_PER_MINUTE, 60_000);
+const allowDraw = windowLimiter(PICTURE_DRAWS_PER_MINUTE, 60_000);
 
 /** A GET against the world's API from inside the Worker: the same data every client sees. */
 function apiGet(env: Env, origin: string): ApiGet {
@@ -193,7 +199,10 @@ function apiGet(env: Env, origin: string): ApiGet {
   };
 }
 
-/** `/og/...png`: a link preview card, from the edge cache or drawn here (never in the world object). */
+/**
+ * `/og/...png`: a link preview card or a picture by link, from the edge cache or drawn here (never in
+ * the world object, which only answers with the data a picture shows).
+ */
 async function card(
   request: Request,
   env: Env,
@@ -216,14 +225,21 @@ async function card(
         const hit = await cache.match(cacheUrl(key)).catch(() => undefined);
         return hit ? new Uint8Array(await hit.arrayBuffer()) : undefined;
       },
-      put: (key, png) => {
-        const stored = new Response(png.slice(), {
-          headers: { "content-type": "image/png", "cache-control": "public, max-age=31536000" },
+      put: (key, bytes, ttl) => {
+        const stored = new Response(bytes.slice(), {
+          headers: {
+            "content-type": ttl === undefined ? "image/png" : "text/plain",
+            "cache-control": `public, max-age=${ttl ?? 31536000}`,
+          },
         });
         ctx.waitUntil(cache.put(cacheUrl(key), stored).catch(() => {}));
       },
     },
-    allowRender: (ip) => allowRender(ipKey(ip)),
+    allowRender: (ip, take) => allowRender(ipKey(ip), take),
+    picture: async (route) =>
+      (await env.WORLD.get(env.WORLD.idFromName("world")).picture(route)) ?? undefined,
+    allowPicture: (ip) => allowPicture(ipKey(ip)),
+    allowDraw: () => allowDraw("all"),
   };
   const out = await span("card", "card.serve", () =>
     serveCard(
@@ -504,6 +520,14 @@ class WorldObject extends DurableObject<Env> {
   /** The day's coin tips, from the Worker's daily cron. Answers with counts and codes only. */
   async tips(): Promise<{ skipped?: string }> {
     return this.api.runTips();
+  }
+
+  /**
+   * A picture by link's data (decision 0160), for the Worker in front to draw. Plain data from the
+   * world's state; nothing is drawn in this object.
+   */
+  async picture(route: PictureRoute): Promise<PictureSpec | null> {
+    return this.api.pictureSpec(route) ?? null;
   }
 
   /** A read of a static start file with a partner's `?from=`, from the Worker in front. */

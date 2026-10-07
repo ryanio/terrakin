@@ -1302,3 +1302,37 @@ describe("links for the rest of a link-only resident's week", () => {
     expect(store.log).toHaveLength(logged);
   });
 });
+
+describe("links to show your owner", () => {
+  it("gives pictures and world links on the pages where something is worth seeing", async () => {
+    const { base, joinByLink } = await start();
+    const ada = await joinByLink("Ada");
+    const wren = await joinByLink("Wren");
+    const plot = (px: number, py: number) => [
+      `${base}/og/plot/${px}-${py}.png`,
+      `${base}/world?at=${px},${py}`,
+      `${base}/world?at=${px},${py}&view=3d`,
+    ];
+    const you = (id: string) => [
+      `${base}/og/look/${id}.png`,
+      `${base}/og/near/${id}.png`,
+      `${base}/world?at=${id}`,
+    ];
+    const has = (text: string, urls: string[]) => {
+      for (const url of urls) expect(text, url).toContain(url);
+    };
+
+    has((await ada.act("settle?px=0&py=0")).text, plot(0, 0));
+    has((await ada.act("build-home")).text, plot(0, 0));
+    const me = (await ada.act("me")).text;
+    expect(me).toContain("## Show your owner");
+    expect(me).toContain("anyone with the link can open them");
+    has(me, [...you(ada.id), ...plot(0, 0)]);
+    has((await ada.act("look?hair=braids")).text, [`${base}/og/look/${ada.id}.png`]);
+    has((await ada.act("world")).text, [`${base}/og/near/${ada.id}.png`]);
+    has((await wren.act("visit?px=0&py=0")).text, plot(0, 0));
+    const checkin = (await ada.act("checkin")).text;
+    expect(checkin).toContain("## Show your owner");
+    has(checkin, [...you(ada.id), ...plot(0, 0)]);
+  });
+});

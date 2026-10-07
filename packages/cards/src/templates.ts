@@ -12,6 +12,7 @@
 import { Heart, type IconNode, MessageCircle } from "lucide";
 import { GRAIN_FILTER, MARK_SIZE, MARK_SVG, PALETTE } from "./brand";
 import { div, type El, img, type Style, svg, text } from "./h";
+import { type LookCard, lookSvg, type NearCard, nearSvg } from "./pictures";
 import { homeArtBox, type PlotCard, plotSvg } from "./plot";
 import { clip, count, day, drawable, fit, plural } from "./text";
 
@@ -19,7 +20,7 @@ export const W = 1200;
 export const H = 630;
 
 /** Bump when a template's look changes, so cached cards are drawn again. Part of every cache key. */
-export const CARDS_VERSION = 5;
+export const CARDS_VERSION = 6;
 
 /** Same values as the `--resident-*` colors in packages/client/src/style.css. */
 export const RESIDENT_HEX: Record<string, string> = {
@@ -82,7 +83,7 @@ export interface PostCard {
   reply?: boolean | undefined;
 }
 
-export type Card = SiteCard | PageCard | ProfileCard | PostCard | PlotCard;
+export type Card = SiteCard | PageCard | ProfileCard | PostCard | PlotCard | NearCard | LookCard;
 
 /** Pictures the renderer prepares once per process: the grained paper as a PNG data URI. */
 export interface Art {
@@ -633,6 +634,154 @@ function plot(c: PlotCard, art: Art): El {
   );
 }
 
+/**
+ * Where a resident is right now (decision 0160): the map around them in a wide photo, with their
+ * name and the time and sky under it.
+ */
+function near(c: NearCard, art: Art): El {
+  const photoW = 1040;
+  const photoH = 430;
+  const pad = 16;
+  const frameW = photoW + pad * 2;
+  const caption = 88;
+  const frameH = pad + photoH + caption;
+  const drawn = drawable(c.name, 28);
+  const title = drawn ? `${drawn} is here` : "A resident is here";
+  return stage(
+    art,
+    div(
+      abs({
+        left: (W - frameW) / 2,
+        top: 38,
+        width: frameW,
+        height: frameH,
+      }),
+      div(
+        abs({
+          left: 5,
+          top: 9,
+          width: frameW,
+          height: frameH,
+          borderRadius: 10,
+          backgroundColor: SHADOW,
+        }),
+      ),
+      div(
+        abs({
+          left: 0,
+          top: 0,
+          width: frameW,
+          height: frameH,
+          borderRadius: 10,
+          backgroundColor: "#ffffff",
+          flexDirection: "column",
+          alignItems: "center",
+        }),
+        div(
+          {
+            position: "relative",
+            width: photoW,
+            height: photoH,
+            marginTop: pad,
+            overflow: "hidden",
+          },
+          svg(nearSvg(c, photoW, photoH), photoW, photoH, abs({ left: 0, top: 0 })),
+        ),
+        div(
+          { width: photoW, alignItems: "baseline", justifyContent: "space-between", marginTop: 14 },
+          text(
+            {
+              fontFamily: SERIF,
+              fontWeight: 600,
+              fontSize: fit(title, 560, 40, SERIF_ADVANCE, 26),
+              lineHeight: 1.1,
+            },
+            title,
+          ),
+          text(
+            { fontSize: 22, fontWeight: 600, color: INK_SOFT },
+            clip([c.place, ...c.facts].join("  ·  "), 64),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+/** A resident in their look (decision 0160): the figure large on the right, their name and look in words. */
+function look(c: LookCard, art: Art): El {
+  const drawn = drawable(c.name, 28);
+  const name = drawn ?? "A resident";
+  const eyebrow = c.agent ? "AI resident of Terrakin" : "Resident of Terrakin";
+  const person: Person = {
+    name,
+    kind: c.agent ? "agent" : "human",
+    color: "sun",
+    shape: "round",
+    townsfolk: c.townsfolk === true,
+  };
+  const pictureW = 500;
+  const pictureH = 470;
+  return stage(
+    art,
+    div(
+      abs({
+        left: 88,
+        top: 0,
+        width: 560,
+        height: H,
+        flexDirection: "column",
+        justifyContent: "center",
+      }),
+      text(
+        {
+          fontSize: 22,
+          fontWeight: 700,
+          letterSpacing: 2.6,
+          textTransform: "uppercase",
+          color: C.clay,
+        },
+        eyebrow,
+      ),
+      text(
+        {
+          fontFamily: SERIF,
+          fontWeight: 600,
+          fontSize: fit(name, 560, 84, SERIF_ADVANCE, 52),
+          lineHeight: 1.08,
+          letterSpacing: -0.8,
+          marginTop: 10,
+        },
+        name,
+      ),
+      div({ marginTop: 14 }, badges(person)),
+      ...c.facts
+        .slice(0, 4)
+        .map((line) =>
+          text(
+            { fontFamily: SERIF, fontSize: 30, lineHeight: 1.3, marginTop: 12, color: INK_SOFT },
+            clip(line, 40),
+          ),
+        ),
+    ),
+    div(
+      abs({
+        right: 70,
+        top: (H - pictureH) / 2 - 10,
+        width: pictureW,
+        height: pictureH,
+        borderRadius: 28,
+        backgroundColor: "rgba(255,255,255,0.55)",
+        border: `3px solid ${C.paperEdge}`,
+        alignItems: "center",
+        justifyContent: "center",
+      }),
+      svg(lookSvg(c, pictureW - 40, pictureH - 40), pictureW - 40, pictureH - 40),
+    ),
+    signature(),
+  );
+}
+
 /** The element tree for a card. */
 export function element(card: Card, art: Art = {}): El {
   switch (card.kind) {
@@ -646,5 +795,9 @@ export function element(card: Card, art: Art = {}): El {
       return post(card, art);
     case "plot":
       return plot(card, art);
+    case "near":
+      return near(card, art);
+    case "look":
+      return look(card, art);
   }
 }

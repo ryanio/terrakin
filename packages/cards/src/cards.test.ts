@@ -2,9 +2,11 @@ import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import satori from "satori";
 import { describe, expect, it } from "vitest";
+import { type Drawing, drawingSvg } from "./drawing";
 import { FONTS } from "./fonts";
 import { imageDataUri, MAX_IMAGE_PIXELS, probeImage } from "./images";
 import { cards } from "./node";
+import { nearSvg } from "./pictures";
 import {
   PLOT_DECOR,
   PLOT_FURNITURE,
@@ -15,7 +17,7 @@ import {
   safeColor,
 } from "./plot";
 import { unmask } from "./render";
-import { samplePlot, samples } from "./samples";
+import { sampleFigure, sampleNear, samplePlot, samples } from "./samples";
 import { type Card, element, H, W } from "./templates";
 import { cardText, clip, count, drawable } from "./text";
 
@@ -428,6 +430,46 @@ describe("renderer", () => {
     // A pet off the plot, or a box too big, draws nothing.
     expect(plotSvg({ ...samplePlot("Wren"), pet: { ...pet, x: 99 } }, 420)).not.toContain("<g ");
     expect(plotSvg({ ...samplePlot("Wren"), pet: { ...pet, size: 40 } }, 420)).not.toContain("<g ");
+  });
+
+  it("draws a recorded figure only from parts that check out: path data, colors, and its own clips and tiles", () => {
+    const hostile = {
+      box: [-62, -120, 124, 138],
+      shapes: [
+        { d: "M0 0L10 10Z", fill: "#df7a3c", clip: [0, 7] },
+        { d: 'M0 0"/><script>x</script>', fill: "#ffffff" },
+        { d: "M1 1L2 2", stroke: 'red" onload="x()', width: Number.NaN, cap: "url(#x)" },
+        { d: "M2 2L3 3Z", tile: 5, alpha: 7 },
+        { d: "M3 3L4 4Z", tile: 0, alpha: 0.5 },
+      ],
+      clips: ['M0 0"/><image href="x'],
+      tiles: [{ size: 18, at: [1, 0, 0, 1, "x"], shapes: [{ d: "M0 0L1 1Z", fill: "#ffffff" }] }],
+    } as unknown as Drawing;
+    const svg = drawingSvg(hostile, "f0");
+    expect(svg).not.toMatch(/<script|<image|href|onload|NaN|url\(#x\)|red"/);
+    expect(svg).toContain('<clipPath id="f0c0"><path d="M0 0Z"/></clipPath>');
+    // A clip it doesn't have is dropped; one it has wraps the shape.
+    expect(svg).toContain('<g clip-path="url(#f0c0)"><path d="M0 0L10 10Z" fill="#df7a3c"/></g>');
+    expect(svg).toContain('stroke="#b3ab9b"');
+    expect(svg).toContain('<path d="M2 2L3 3Z" fill="none"/>');
+    expect(svg).toContain('<path d="M3 3L4 4Z" fill="url(#f0t0)" opacity="0.5"/>');
+    expect(svg).not.toContain("patternTransform");
+    // Ids are ours alone.
+    expect(drawingSvg(sampleFigure(), '"><script>')).toBe("");
+  });
+
+  it("keeps the map around someone our own markup, whatever the light and sky say", () => {
+    const odd = nearSvg(
+      sampleNear("Wren", { night: Number.NaN, weather: "<script>" as never }),
+      1040,
+      430,
+    );
+    expect(odd).not.toMatch(/<script|NaN|radialGradient/);
+    const night = nearSvg(sampleNear("Wren", { night: 1, weather: "snow" }), 1040, 430);
+    expect(night).toContain("radialGradient");
+    expect(night).toContain('fill="rgba(255, 255, 255, 0.9)"');
+    // Figures are scaled from the figure's units, a tile to a hundred, and stand where they're put.
+    expect(night).toContain('<g transform="translate(11.5 6.88) scale(0.01)">');
   });
 
   it("draws the shop's decor as itself, with fence rails only toward other fences", () => {

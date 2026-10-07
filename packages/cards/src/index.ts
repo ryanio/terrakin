@@ -3,10 +3,22 @@
  * `@terrakin/cards/worker`; this entry has the types and pure helpers, and loads no wasm.
  */
 
+export { type Drawing, type DrawShape, type DrawTile, drawingSvg } from "./drawing";
 export { imageDataUri, MAX_IMAGE_BYTES, MAX_IMAGE_PIXELS, probeImage } from "./images";
 export {
+  type LookCard,
+  lookSvg,
+  type NearCard,
+  nearSvg,
+  type PictureWeather,
+  WEATHERS,
+} from "./pictures";
+export {
+  areaParts,
   homeArtBox,
   PLOT_FURNITURE,
+  type PlacedFigure,
+  type PlotArea,
   type PlotBlock,
   type PlotCard,
   type PlotCrop,

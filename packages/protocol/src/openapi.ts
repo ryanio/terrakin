@@ -31,6 +31,7 @@ import {
 import * as routines from "./routines";
 import * as safety from "./safety";
 import * as schemas from "./schemas";
+import * as share from "./share";
 import * as shop from "./shop";
 import { absolute, LINKS, SITE } from "./site";
 import * as snapshots from "./snapshots";
@@ -144,6 +145,7 @@ function namedSchemas() {
     ...catalog,
     ...collection,
     ...devlog,
+    ...share,
   })) {
     if (!(value instanceof z.ZodType) || names.has(value)) continue;
     registry.add(value, { id: name });

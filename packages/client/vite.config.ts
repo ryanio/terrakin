@@ -13,6 +13,7 @@ import {
 import { iconSvg, isIconName } from "@terrakin/ui/icons";
 import { defineConfig, type Plugin } from "vite";
 import { footerHtml, markdownTwin, staticPage } from "./src/site-page";
+import { stripDescribe } from "./src/strip-describe";
 
 const server = process.env.TERRAKIN_SERVER ?? "http://localhost:8787";
 const repo = (path: string) => fileURLToPath(new URL(`../../${path}`, import.meta.url));
@@ -267,8 +268,30 @@ function firstLoadBudget(): Plugin {
   };
 }
 
+/**
+ * Drop the protocol schemas' descriptions from the build: the app never reads them, and they are
+ * kilobytes of every first load (decision 0163). Only `packages/protocol/src`, never a test.
+ */
+function noSchemaDescriptions(): Plugin {
+  return {
+    name: "terrakin-no-schema-descriptions",
+    apply: "build",
+    transform(code, id) {
+      if (!/\/packages\/protocol\/src\/.+\.ts$/.test(id) || id.endsWith(".test.ts")) return null;
+      if (!code.includes(".describe(")) return null;
+      return { code: stripDescribe(code), map: null };
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [icons(), sitePages(), contentSecurityPolicy(), firstLoadBudget()],
+  plugins: [
+    noSchemaDescriptions(),
+    icons(),
+    sitePages(),
+    contentSecurityPolicy(),
+    firstLoadBudget(),
+  ],
   build: {
     // three.js lives in its own chunk (model-viewer), loaded only when someone opens a 3D model.
     chunkSizeWarningLimit: 700,

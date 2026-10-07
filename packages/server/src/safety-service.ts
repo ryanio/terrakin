@@ -1207,6 +1207,19 @@ export class SafetyService {
     this.log(by, action, kind, id, reason);
   }
 
+  /**
+   * Whether staff ever removed this resident's pictures. Pictures by link (decision 0160) then never
+   * show their uploads again, even ones set later.
+   */
+  picturesRemoved(residentId: string): boolean {
+    return (
+      this.rows(
+        "SELECT 1 AS hit FROM moderation_log WHERE action = 'remove_pictures' AND kind = 'resident' AND target = ? LIMIT 1",
+        residentId,
+      ).length > 0
+    );
+  }
+
   /** When a resident's suspension ends (ms), or undefined if they aren't suspended. */
   suspendedUntil(residentId: string): number | undefined {
     const row = this.rows(

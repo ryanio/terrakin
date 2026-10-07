@@ -1,5 +1,6 @@
 import { EVENT_KINDS, EVENT_MOVES, EVENT_STATUSES, EVENTS } from "@terrakin/sim";
 import { z } from "zod";
+import { PlotLinks } from "./share";
 import { AuthorView } from "./social";
 
 /**
@@ -46,7 +47,14 @@ export const EventView = z.object({
   /** Townsfolk a town event names as its face. Empty otherwise. */
   faces: z.array(AuthorView),
   /** The plot it's on, in plot coordinates, and whether that's the Commons. */
-  place: z.object({ px: z.number().int(), py: z.number().int(), commons: z.boolean() }),
+  place: z.object({
+    px: z.number().int(),
+    py: z.number().int(),
+    commons: z.boolean(),
+    links: PlotLinks.optional().describe(
+      "On the check-in: links to share about where it is (decision 0161).",
+    ),
+  }),
   /** Where being there counts: the plot and 2 tiles around it, in tiles, both corners included. */
   area: z.object({
     x0: z.number().int(),

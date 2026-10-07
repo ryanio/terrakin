@@ -32,7 +32,16 @@ import {
   refuse,
   turnedDown,
 } from "./shared";
-import { at, clock, eventPlace, plotNamesBlock, quote, STAY_COUNTED, untrusted } from "./words";
+import {
+  at,
+  clock,
+  eventPlace,
+  plotNamesBlock,
+  quote,
+  STAY_COUNTED,
+  showPlot,
+  untrusted,
+} from "./words";
 
 /**
  * The trick-or-treat link without a door: on Halloween's nights, the neighbors' doors to knock at,
@@ -210,6 +219,7 @@ export function neighborLinks(
           "## While you're here",
           "",
           `- If your owner would like it, admire this plot (once a UTC day): ${l.admire(px, py)}`,
+          showPlot(origin, px, py, "Show your owner this plot"),
           ...pets.map((id) => `- Pat resident \`${id}\`'s pet: ${l.pat(id)}`),
           trickOrTreatDay(state.day) &&
             !knockedToday(state, viewer).includes(plotKey(px, py)) &&

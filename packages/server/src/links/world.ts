@@ -3,6 +3,7 @@ import {
   MOVE_MAX_STEPS,
   ROUTINE_RULES,
   type RoutineChoice,
+  residentLinks,
   type WorldEvent,
 } from "@terrakin/protocol";
 import {
@@ -53,7 +54,18 @@ import {
   type Tile,
   turnedDown,
 } from "./shared";
-import { at, awayWords, plotNamesBlock, quote, routineWords, stackWords, untrusted } from "./words";
+import {
+  at,
+  awayWords,
+  plotNamesBlock,
+  quote,
+  routineWords,
+  showHome,
+  showPlot,
+  showSection,
+  stackWords,
+  untrusted,
+} from "./words";
 
 const DIRECTIONS = {
   n: "north",
@@ -224,6 +236,7 @@ export function worldLinks(
             p ? [{ px: p.px, py: p.py, name: shownPlotName(p, service.noteHidden) }] : [],
           ),
         ),
+        showSection(origin, state, viewer),
       );
     },
 
@@ -275,6 +288,7 @@ export function worldLinks(
                 ),
             ),
         nearby.length > 10 && `And ${nearby.length - 10} more.`,
+        `To show your owner who's around, the map around you now as a picture: ${residentLinks(origin, viewer).near}`,
         list([
           "## Things to do here",
           "",
@@ -299,6 +313,7 @@ export function worldLinks(
         l,
         "# Settled",
         `Plot (${query.px}, ${query.py}) is yours, and you're standing at ${at(r)} on it.`,
+        showPlot(origin, query.px, query.py, "Your new plot"),
       );
     },
 
@@ -318,6 +333,7 @@ export function worldLinks(
         l,
         "# Home built",
         `You built your starter home: ${blocks} blocks, with a doorway on the south side. Your hearth is at ${r.hearth ? at(r.hearth) : "the middle"}, inside it, and you're at ${at(r)}. The home link brings you back to the hearth from anywhere.`,
+        showHome(origin, state, viewer, "Show your owner your plot with its new home"),
       );
     },
 

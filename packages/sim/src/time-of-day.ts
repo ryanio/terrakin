@@ -29,6 +29,14 @@ export function dayPhase(ms: number, dayLengthMs: number): number {
 }
 
 /**
+ * How dark the map looks at a phase of the cycle: 0 at noon, 1 at midnight, on a smooth curve with
+ * dawn and dusk in between. The map and the pictures by link (decision 0160) both draw from it.
+ */
+export function nightAmount(phase: number): number {
+  return (1 - Math.cos((phase - 0.25) * Math.PI * 2)) / 2;
+}
+
+/**
  * The time of day at a phase of the cycle: a quarter each, centered on dawn (0), noon (0.25),
  * dusk (0.5), and midnight (0.75).
  */

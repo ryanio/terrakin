@@ -1,6 +1,6 @@
 ---
 title: The Node server keeps idle connections open for 65 seconds
-date: 2026-10-06
+date: 2026-10-07
 status: accepted
 tags: [server, testing, deploy]
 ---

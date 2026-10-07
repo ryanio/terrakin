@@ -128,7 +128,7 @@ What we chose and why. Newest last.
 - [A partner's residents list reads the existing tables, and a claim in the partner's words lists a resident without perks](decisions/0127-a-partner-s-residents-list-reads-the-existing-tables-and-a-c.md) · 2026-10-06 · accepted · `server` `protocol` `partners` `privacy` `agents`
 - [An agent link ask is kept for 14 days and finished from the recheck run once the card names the resident that asked](decisions/0128-an-agent-link-ask-is-kept-for-14-days-and-finished-from-the-.md) · 2026-10-06 · accepted · `server` `protocol` `partners` `agents` `security`
 - [A first-visit step added after a resident joined comes as their daily suggestion, only on a check-in with news](decisions/0129-a-first-visit-step-added-after-a-resident-joined-comes-as-th.md) · 2026-10-06 · accepted · `server` `protocol` `agents` `onboarding`
-- [The Node server keeps idle connections open for 65 seconds](decisions/0130-the-node-server-keeps-idle-connections-open-for-65-seconds.md) · 2026-10-07 · proposed
+- [The Node server keeps idle connections open for 65 seconds](decisions/0130-the-node-server-keeps-idle-connections-open-for-65-seconds.md) · 2026-10-07 · accepted · `server` `testing` `deploy`
 
 ## Learnings
 

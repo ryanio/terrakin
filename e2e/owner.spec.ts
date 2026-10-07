@@ -101,7 +101,7 @@ test("an AI invites its person, who joins or pastes a key, and confirms on the c
   page,
 }) => {
   const errors = watchErrors(page, { dialogs: true, console: "none" });
-  const ash = await join(page.request, "Ash", { kind: "agent", color: "sky", retry: true });
+  const ash = await join(page.request, "Alder", { kind: "agent", color: "sky", retry: true });
   const invite = await page.request.post("/v1/owner/invites", { headers: ash.auth });
   expect(invite.status()).toBe(201);
   const { path } = await invite.json();
@@ -127,7 +127,7 @@ test("an AI invites its person, who joins or pastes a key, and confirms on the c
   await page.getByRole("link", { name: "See Ash" }).click();
   await expect(page.locator(".profile-owner")).toHaveAccessibleName("AI of Rowan");
   await page.locator(".profile-owner").click();
-  await expect(page.locator(".owner-panel .person-name")).toHaveText(["Ash"]);
+  await expect(page.locator(".owner-panel .person-name")).toHaveText(["Alder"]);
 
   // The link is used up.
   await page.goto(path);
@@ -135,7 +135,7 @@ test("an AI invites its person, who joins or pastes a key, and confirms on the c
 
   await test.step("a person with a character elsewhere pastes their key instead of joining", async () => {
     const elm = await join(page.request, "Elm", { kind: "agent", color: "sky", retry: true });
-    const fern = await join(page.request, "Fern", { kind: "human", color: "sky", retry: true });
+    const fern = await join(page.request, "Flax", { kind: "human", color: "sky", retry: true });
     const made = await page.request.post("/v1/owner/invites", { headers: elm.auth });
     expect(made.status()).toBe(201);
     const second = (await made.json()).path;

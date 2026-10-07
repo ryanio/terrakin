@@ -57,6 +57,7 @@ import { Feelings, gestureReaction } from "./feelings";
 import { canDig, noRodLine, pondLine, rodsAfter, rodsIn } from "./fishing";
 import { openHomeSheet } from "./home-sheet";
 import { createLanding } from "./landing";
+import { lookCard, type Place, placeOf, wayThere } from "./look-card";
 import { Mirror } from "./mirror";
 import { Motion } from "./motion";
 import { Connection, type Identity, savedToken, saveToken } from "./net";
@@ -75,6 +76,7 @@ import { ARRIVAL_KEY, type FoldedWaves, foldWaves, gestureLine, wavesLine } from
 import { visitCard } from "./visit-card";
 import { Walker } from "./walk";
 import { Sky, skyNow } from "./weather";
+import type { LookTarget, WorldLink } from "./world-link";
 import type { WorldLoader } from "./world-loader";
 import { offer3d, readSignals, savedMode, saveMode, startMode, type WorldMode } from "./world-mode";
 import { mountNextStep } from "./world-next-step";
@@ -196,6 +198,8 @@ const walker = new Walker({
   behind: () => (me ? motion.behind(me) : 0),
   steer,
   send: (dir) => {
+    // A step of your own: the camera is yours again.
+    stopLooking();
     const id = act({ type: "move", dir });
     // A footstep for each step your figure takes, on the path or floor it steps onto.
     const from = walker.ahead;
@@ -213,6 +217,7 @@ const walker = new Walker({
 const visiting = visitCard({
   visit(px, py) {
     // Like Home: no more steps, and none until the jump lands.
+    stopLooking();
     walker.stop();
     const id = tryAct({ type: "visit", px, py });
     if (id) walker.awaiting(id, performance.now());
@@ -220,6 +225,36 @@ const visiting = visitCard({
   },
   knock: (px, py) => tryAct({ type: "trick_or_treat", px, py }),
   toast: (text) => showToast(text),
+});
+/**
+ * A place a link named (decision 0162): the camera looks at it, not at you, until you move, tap
+ * Home, Back to me, or Go there. Someone with no character looks around it before joining.
+ */
+let looking: LookTarget | undefined;
+/** Where that place is this frame, once the world is in. */
+let lookingAt: Place | undefined;
+/** The camera has been put on the place once: from then on it glides along with it. */
+let lookSnapped = false;
+/** A link named a place that isn't there: say so once the world is in. */
+let goneNote = false;
+/** No character in this browser: a link's place shows without waiting for a welcome. */
+let visitor = false;
+/**
+ * Someone with no character and a link's place: looking around it with the world's controls put
+ * away ("on"), or gone to the join form from there ("joining"), the place kept for after.
+ */
+let peek: "off" | "on" | "joining" = "off";
+const GONE_LINE = "That place isn't on the map anymore.";
+const look = lookCard({
+  go: goThere,
+  back: () => stopLooking(),
+  join() {
+    peek = "joining";
+    look.hide();
+    delete hud.dataset.peek;
+    hud.hidden = true;
+    leaveWorld();
+  },
 });
 /** The chip naming your next first step, in the near-actions slot while it is free. */
 mountNextStep({ navigate: (path) => navigate?.(path) });
@@ -243,6 +278,7 @@ modeButton.hidden = !offer3d(signals);
 
 const landing = createLanding(curtain, {
   onJoin(choice) {
+    visitor = false;
     joiningFresh = true;
     landing.setJoining(true);
     connect({ ...choice, kind: "human" });
@@ -251,6 +287,7 @@ const landing = createLanding(curtain, {
     const who = await whoseKey(key);
     if (!who.ok) return who.message;
     saveToken(key, who.data.id);
+    visitor = false;
     enterWorld();
     hud.hidden = false;
     connect({ token: key });
@@ -292,7 +329,7 @@ function updatePopulation() {
 /** Keep the "online now" line fresh while someone reads the landing page. */
 function watchPopulation() {
   stopPopulation ??= everyVisible(20_000, () => {
-    if (landing.isUp()) void resync();
+    if (landing.isUp() || peek === "on") void resync();
   });
 }
 
@@ -330,6 +367,8 @@ function keyNotFound() {
   conn?.close();
   conn = undefined;
   me = undefined;
+  visitor = true;
+  stopLooking();
   hud.hidden = true;
   leaveWorld();
   landing.setError(
@@ -389,6 +428,8 @@ async function resync() {
     }
   } catch (err) {
     console.warn("Resync failed", err);
+    // No world to show a link's place in: the landing, as usual.
+    if (!wasIn && visitor) loader?.hide();
   } finally {
     resyncing = false;
   }
@@ -406,6 +447,9 @@ function onMessage(msg: ServerMessage) {
       landing.setJoining(false);
       landing.setError("");
       enterWorld();
+      visitor = false;
+      peek = "off";
+      delete hud.dataset.peek;
       hud.hidden = false;
       worldWait.hidden = true;
       snapCamera();
@@ -919,18 +963,23 @@ function showOpening(on: boolean) {
   opening3d.hidden = !shown;
 }
 
+/** The loader fades into the world, greeting someone coming back, or someone new looking around. */
+function liftLoader() {
+  loader?.finish(me ? "Welcome back!" : "Welcome!");
+}
+
 /** Lift the loader once the world is on screen: now on the map, or when the 3D scene first draws. */
 function revealWhenDrawn() {
   if (!loader?.isUp()) return;
-  if (!loading3d) return loader.finish();
+  if (!loading3d) return liftLoader();
   loader.reach("welcome");
   clearTimeout(sceneWait);
-  sceneWait = window.setTimeout(() => loader?.finish(), SCENE_WAIT_MS);
+  sceneWait = window.setTimeout(liftLoader, SCENE_WAIT_MS);
 }
 
 /** Show the world in 3D, fetching the scene code (three.js included) the first time. */
 function open3d() {
-  if (world3d || !active || !me) return;
+  if (world3d || !active || !(me || lookingAt)) return;
   if (loading3d) return showOpening(true);
   loading3d = true;
   modeButton.setAttribute("aria-busy", "true");
@@ -945,7 +994,7 @@ function open3d() {
       loading3d = false;
       modeButton.removeAttribute("aria-busy");
       showOpening(false);
-      if (mode !== "3d" || !active || !me) return loader?.finish();
+      if (mode !== "3d" || !active || !(me || lookingAt)) return liftLoader();
       host3d.hidden = false;
       world3d = m.createWorld3d(host3d, {
         onTap: tapTile,
@@ -954,7 +1003,7 @@ function open3d() {
       });
       canvas.hidden = true;
       // Two frames on, the scene has drawn once, so the loader lifts onto it rather than onto nothing.
-      requestAnimationFrame(() => requestAnimationFrame(() => loader?.finish()));
+      requestAnimationFrame(() => requestAnimationFrame(liftLoader));
     })
     .catch(() => {
       loading3d = false;
@@ -978,7 +1027,7 @@ function close3d() {
  * for this device; a lost GPU (a phone reclaiming it in the background) is for this visit only.
  */
 function fallBack(reason: "slow" | "lost" | "failed") {
-  loader?.finish();
+  liftLoader();
   mode = "2d";
   if (reason !== "lost") saveMode("2d");
   paintMode();
@@ -1156,6 +1205,8 @@ buildButton.addEventListener("click", () => {
  * chat ends building), and notices move under the bar while it shows.
  */
 function setBuildMode(on: boolean) {
+  // You build where you stand: the camera comes back to you.
+  if (on) stopLooking();
   buildMode = on;
   buildButton.setAttribute("aria-pressed", String(on));
   palette.hidden = !on;
@@ -1236,7 +1287,10 @@ async function loadHoldings() {
   paintPalette();
 }
 
-$("home").addEventListener("click", () => {
+$("home").addEventListener("click", () => goHome());
+
+function goHome() {
+  stopLooking();
   walker.stop();
   // No hearth is nowhere to go: say how to set one now, rather than after a round trip.
   const r = self();
@@ -1247,7 +1301,120 @@ $("home").addEventListener("click", () => {
   // The jump lands after any steps still on their way; walk no further until it does.
   const id = tryAct({ type: "home" });
   if (id) walker.awaiting(id, performance.now());
-});
+}
+
+// ---------- looking at a place a link named (decision 0162) ----------
+
+/** Look at a link's place: from `startWorld`, or a link opened while the world is up. */
+function lookFrom(link: WorldLink) {
+  if (link.view3d && offer3d(signals) && mode !== "3d") {
+    // For this visit only: the toggle is what remembers a choice.
+    mode = "3d";
+    paintMode();
+    if (me) open3d();
+  }
+  if (link.at) {
+    stopLooking();
+    looking = link.at;
+  }
+  if (link.badAt) goneNote = true;
+}
+
+/** The camera is yours again, and the card goes. The place is forgotten. */
+function stopLooking() {
+  looking = undefined;
+  lookingAt = undefined;
+  lookSnapped = false;
+  look.hide();
+}
+
+/** The place isn't on the map: say so. Someone with no character sees it over the landing. */
+function sayGone() {
+  if (!me && landing.isUp()) {
+    loader?.hide();
+    hud.dataset.peek = "note";
+    hud.hidden = false;
+  }
+  showToast(GONE_LINE);
+}
+
+/**
+ * Once the world is in (for someone coming back, once the welcome lands, so the loader isn't over
+ * it), find the link's place on the map, put the camera on it the first time, and keep the card
+ * saying what's there. A place that leaves the map ends the look.
+ */
+function settleLook() {
+  const m = mirror;
+  if (!m || (!me && !visitor)) return;
+  if (goneNote) {
+    goneNote = false;
+    sayGone();
+  }
+  if (!looking) return;
+  // A link to yourself is where the camera already is.
+  const place =
+    looking.kind === "resident" && looking.id === me ? undefined : placeOf(m, looking, me);
+  if (!place) {
+    const yourself = looking.kind === "resident" && looking.id === me;
+    stopLooking();
+    if (!yourself) {
+      if (peek === "on") stopPeeking();
+      sayGone();
+    }
+    return;
+  }
+  lookingAt = place;
+  if (!me && peek === "off") startPeeking();
+  if (me || peek === "on") look.show(place, me !== undefined);
+  if (lookSnapped) return;
+  lookSnapped = true;
+  Object.assign(cam, { cx: place.x, cy: place.y, scale: targetScale() });
+  if (me) return;
+  // Someone with no character: the loader lifts onto the place, in 3D when the link asked.
+  if (mode === "3d") open3d();
+  revealWhenDrawn();
+}
+
+/** Someone with no character looks around a link's place: the landing lifts, the controls stay away. */
+function startPeeking() {
+  peek = "on";
+  enterWorld(true);
+  hud.dataset.peek = "look";
+  hud.hidden = false;
+}
+
+/** Back to the landing from looking around. */
+function stopPeeking() {
+  peek = "off";
+  delete hud.dataset.peek;
+  hud.hidden = true;
+  leaveWorld();
+}
+
+/** Where the camera looks while looking: the resident's figure as it's drawn, or the place. */
+function lookFocus(now: number, still: boolean): { x: number; y: number } | undefined {
+  const place = lookingAt;
+  if (!place) return undefined;
+  const who = place.follow ? mirror?.residents.get(place.follow) : undefined;
+  return who ? motion.pose(who, now, still) : place;
+}
+
+/**
+ * Go there: a visit to a neighbor's plot lands at its door (decision 0091), your own plot is Home,
+ * and anywhere else is a walk. The server decides each, and says why when it won't.
+ */
+function goThere() {
+  const place = lookingAt;
+  const m = mirror;
+  if (!place || !m || !me) return;
+  const way = wayThere(m, place, me);
+  stopLooking();
+  if (way.type === "home") return goHome();
+  if (way.type === "walk") return walkToward(way.to, 1);
+  walker.stop();
+  const id = tryAct({ type: "visit", px: way.px, py: way.py });
+  if (id) walker.awaiting(id, performance.now());
+}
 
 chatToggle.addEventListener("click", () => toggleChat(chatPanel.hidden !== false));
 
@@ -1292,14 +1459,17 @@ function resize() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 
-/** In the world we show ~13 tiles across; behind the curtain we pull back to show more of it. */
+/**
+ * In the world, or looking at a link's place, we show ~13 tiles across; behind the curtain we pull
+ * back to show more of it.
+ */
 function targetScale() {
-  return me ? fitScale(cam.width, cam.height) : fitScale(cam.width, cam.height, 17);
+  return me || lookingAt ? fitScale(cam.width, cam.height) : fitScale(cam.width, cam.height, 17);
 }
 
 function snapCamera() {
-  const r = self();
-  if (r) Object.assign(cam, { cx: r.x, cy: r.y });
+  const at = lookingAt ?? self();
+  if (at) Object.assign(cam, { cx: at.x, cy: at.y });
   cam.scale = targetScale();
 }
 
@@ -1314,16 +1484,24 @@ function frame() {
   motion.self = me;
   // The 3D camera decides which way "up" walks, so turn the d-pad before the next step.
   paintPad(world3d?.heading() ?? 0, world3d !== undefined);
+  settleLook();
   const r = self();
-  visiting.update(mirror, me, r);
+  // While you look at a link's place, its card takes the visit card's spot.
+  visiting.update(mirror, me, lookingAt ? undefined : r);
+  const focus = lookFocus(now, still);
   if (r) {
     // While the world reloads, the mirror is behind the server: no steps checked against it.
     if (!resyncing) walker.tick(now);
     motion.ahead = walker.ahead;
-    // The map's camera follows your figure as it's drawn, so the world glides under a walk.
-    const p = motion.pose(r, now, still);
-    cam.cx = approach(cam.cx, p.x, dt, CAMERA_RATE);
-    cam.cy = approach(cam.cy, p.y, dt, CAMERA_RATE);
+  }
+  if (focus || r) {
+    // The map's camera follows your figure as it's drawn, so the world glides under a walk, or
+    // the place a link named.
+    const p = focus ?? (r && motion.pose(r, now, still));
+    if (p) {
+      cam.cx = approach(cam.cx, p.x, dt, CAMERA_RATE);
+      cam.cy = approach(cam.cy, p.y, dt, CAMERA_RATE);
+    }
   } else if (mirror) {
     // Behind the curtain: a slow drift around the Commons.
     const { plotSize } = mirror.config;
@@ -1348,10 +1526,15 @@ function frame() {
   sound.frame({ phase, season, sky: sky.amounts });
   // Pets plan their days by the server's clock, so every screen tells the same story.
   const clock = serverMs ?? Date.now();
-  if (world3d && mirror && me)
+  if (world3d && mirror && (me || focus))
     world3d.sync({
       mirror,
       me,
+      look: focus && {
+        x: focus.x,
+        y: focus.y,
+        ...(lookingAt?.follow ? { id: lookingAt.follow } : {}),
+      },
       buildMode,
       feelings,
       motion,
@@ -1380,7 +1563,7 @@ function frame() {
       pets,
       clock,
       // Plots' names keep clear of the top bar and the visit card (decision 0121).
-      labelTop: Math.max(TOP_BAR_PX, visiting.bottom()),
+      labelTop: Math.max(TOP_BAR_PX, visiting.bottom(), look.bottom()),
       casts,
       hover,
       ...(phase === undefined ? {} : { dayPhase: phase }),
@@ -1541,13 +1724,19 @@ petButton.addEventListener("click", async () => {
 
 /** Show the world: start drawing, and connect if we have a token. */
 export function startWorld(
-  options: { navigate?: (path: string) => void; loader?: WorldLoader } = {},
+  options: { navigate?: (path: string) => void; loader?: WorldLoader; link?: WorldLink } = {},
 ) {
-  if (active) return;
+  if (active) {
+    // A link opened while the world is up: look there from here, with nothing to load.
+    if (options.link) lookFrom(options.link);
+    if (me) options.loader?.hide();
+    return;
+  }
   active = true;
   navigate = options.navigate;
   loader = options.loader;
   mode = startMode(savedMode(), signals);
+  if (options.link) lookFrom(options.link);
   paintMode();
   resize();
   rafId = requestAnimationFrame(frame);
@@ -1563,6 +1752,12 @@ export function startWorld(
     connect({ token });
     void resync();
   } else {
+    visitor = true;
+    // A link's place: the loader covers the landing until the place is drawn, or isn't there.
+    if (looking) {
+      loader?.show();
+      loader?.reach("code");
+    }
     void resync();
     watchPopulation();
   }
@@ -1588,6 +1783,11 @@ export function stopWorld() {
   pendingChat = undefined;
   stopWalking();
   visiting.hide();
+  stopLooking();
+  goneNote = false;
+  visitor = false;
+  peek = "off";
+  delete hud.dataset.peek;
   hud.hidden = true;
   worldWait.hidden = true;
   petButton.hidden = true;

@@ -85,6 +85,11 @@ describe("error reports carry nothing private", () => {
     expect(templateIds("/i/x7y8z9")).toBe("/i/:id");
   });
 
+  it("templates the place a link into the world names", () => {
+    expect(templateIds("/world?at=t_ivy&view=3d")).toBe("/world?at=:at&view=3d");
+    expect(templateIds("/world?view=3d&at=12,4")).toBe("/world?view=3d&at=:at");
+  });
+
   it("names spans by template and drops query strings from them", () => {
     const span = {
       name: "GET /v1/residents/r_0123456789abcdef?with=r_fedcba9876543210",

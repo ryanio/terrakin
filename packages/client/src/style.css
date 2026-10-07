@@ -3359,7 +3359,6 @@ dialog.model-viewer {
 
 .plot-card-foot {
   grid-column: 1 / -1;
-  display: flex;
   justify-content: flex-end;
 }
 
@@ -4299,6 +4298,24 @@ a.action {
 
 .visit-card-actions .pill-button .icon {
   color: var(--clay);
+}
+
+/* Looking at a place a link named (decision 0162): the visit card's look, with a way in across it. */
+.look-join {
+  grid-column: 1 / -1;
+}
+
+/*
+ * Someone with no character looking around a link's place: the way back to the feed, the card,
+ * and notices, with the world's controls put away. "note" is a notice over the landing alone.
+ */
+.hud[data-peek="look"] > :not(.hud-feed, .look-card, .toast),
+.hud[data-peek="note"] > :not(.toast) {
+  display: none;
+}
+
+.hud[data-peek="note"] {
+  z-index: 11;
 }
 
 /* Back to the feed, top left. Chat opens below it so it never covers the way out. */

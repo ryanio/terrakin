@@ -44,8 +44,8 @@ export interface WorldLoader {
   isUp(): boolean;
   /** A stage has landed: move the bar on toward the next one. Never moves it back. */
   reach(stage: LoadStage): void;
-  /** The world is drawn: fill the bar and fade into the world, which comes into focus. */
-  finish(): void;
+  /** The world is drawn: fill the bar, say `line`, and fade into the world, which comes into focus. */
+  finish(line?: string): void;
   /** Take it down at once: you left, the server can't be reached, or it's back to the landing. */
   hide(): void;
 }
@@ -123,11 +123,11 @@ export function createWorldLoader(root: HTMLElement): WorldLoader {
       if (!up || leaving || CEILING[stage] <= level) return;
       move(CEILING[stage], CREEP_MS[stage], CREEP_EASE);
     },
-    finish() {
+    finish(words = "Welcome back!") {
       if (!up || leaving) return;
       leaving = true;
       clearInterval(lineTimer);
-      say("Welcome back!");
+      say(words);
       move(1, FILL_MS, "ease-out");
       // Taps go through to the world from here on, while the bar fills and the loader fades.
       root.classList.add("leaving");

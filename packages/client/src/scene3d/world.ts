@@ -140,7 +140,13 @@ export interface World3dOptions {
 
 export interface World3dFrame {
   mirror: Mirror;
-  me: string;
+  /** You, or nobody yet: someone with no character looks around a link's place (decision 0162). */
+  me: string | undefined;
+  /**
+   * A place a link named (decision 0162): the view draws around it and the camera looks at it
+   * instead of you, following the figure of the resident `id` while they're drawn.
+   */
+  look?: { x: number; y: number; id?: string } | undefined;
   buildMode: boolean;
   /** What each figure feels and who just spoke (RFC 0013). */
   feelings?: Feelings;
@@ -656,7 +662,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
   }
 
   /** Who is drawn, and in what look. Runs when the mirror changes. */
-  function updateCast(mirror: Mirror, me: string, tile: Tile) {
+  function updateCast(mirror: Mirror, me: string | undefined, tile: Tile) {
     const shown = figuresAround(mirror.residents.values(), tile, me);
     // Anyone away out on a routine walks where they are, then anyone asleep at home lies there,
     // in the places the online leave free (decisions 0083 and 0086).
@@ -951,6 +957,8 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
   // ---------- the camera ----------
 
   const focus = new Vector3();
+  /** A link's place with no figure to follow there (decision 0162). */
+  const lookSpot = new Vector3();
   const lastFocus = new Vector3(Number.NaN, 0, 0);
 
   function follow(at: Vector3) {
@@ -1104,13 +1112,23 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
 
   return {
     sync(frame) {
-      const { mirror, me, buildMode, feelings, motion, season: seasonNow, sky, dayPhase } = frame;
-      const self = mirror.residents.get(me);
+      const {
+        mirror,
+        me,
+        look,
+        buildMode,
+        feelings,
+        motion,
+        season: seasonNow,
+        sky,
+        dayPhase,
+      } = frame;
+      const self = me === undefined ? undefined : mirror.residents.get(me);
       lastMirror = mirror;
       const now = performance.now();
       const dt = Math.min(0.1, (now - lastSync) / 1000);
       lastSync = now;
-      if (!self || failed) return;
+      if ((!self && !look) || failed) return;
       hover(now);
       // A new season dresses the ground again, plot by plot, like any change to the world.
       const newSeason = seasonNow !== season;
@@ -1125,7 +1143,9 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
         .join(",");
       const outChanged = outNow !== outSeen;
       outSeen = outNow;
-      const tile = { x: self.x, y: self.y };
+      const tile = look
+        ? { x: Math.round(look.x), y: Math.round(look.y) }
+        : { x: self?.x ?? 0, y: self?.y ?? 0 };
       const walked = !lastTile || lastTile.x !== tile.x || lastTile.y !== tile.y;
       lastTile = tile;
       if (changed) {
@@ -1161,8 +1181,10 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       // A feeling from what happened to them wins; otherwise a doze shows as `sleepy`.
       for (const [id, f] of figures)
         if (showFeeling(f.group, feelings?.get(id, now) ?? f.doze, now)) moved = true;
-      const mine = figures.get(me);
-      if (mine) follow(mine.group.position);
+      const followed = look?.id ?? (look ? undefined : me);
+      const fig = followed === undefined ? undefined : figures.get(followed);
+      if (fig) follow(fig.group.position);
+      else if (look) follow(lookSpot.set(look.x, 0, look.y));
       // Signs keep a readable size as the camera pulls back. Only a zoom changes it.
       const sign = signSize(camera.position.distanceTo(controls.target), camera.fov);
       if (Math.abs(sign - signAt) > 0.005) {
@@ -1170,7 +1192,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
         for (const f of figures.values()) sizeSign(f.group, sign);
         moved = true;
       }
-      placeReach(mirror, self, buildMode);
+      if (self) placeReach(mirror, self, buildMode && !look);
       // The map's time of day, then the weather on top of it (decision 0098), with a holiday's
       // evenings tinted (RFC 0022).
       stage.holiday(mirror.day === undefined ? undefined : holidayOf(mirror.day));

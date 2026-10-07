@@ -159,6 +159,17 @@ function siteSideHtml(path: string): string {
           </article>`;
 }
 
+/**
+ * The /devlog list with each post (its heading to the next one) in a `devlog-entry`, so the whole
+ * entry opens the post. Pages without level-two headings come back unchanged.
+ */
+function devlogEntries(html: string): string {
+  return html.replace(
+    /<h2[\s\S]*?(?=<h2|$)/g,
+    (entry) => `<section class="devlog-entry">${entry}</section>`,
+  );
+}
+
 /** One static page: the site bar, the rendered Markdown in a paper card beside the sidebar, and the footer. */
 export function staticPage(options: {
   page: SitePage;
@@ -218,7 +229,7 @@ ${nav.map((l) => `            <a class="nav-link" href="${l.href}">${l.label}</a
         <div class="layout">
           <article class="layout-main">
             <div class="paper card prose">
-${markdownToHtml(source)}
+${page.path === LINKS.devlog ? devlogEntries(markdownToHtml(source)) : markdownToHtml(source)}
               <p class="prose-meta">Last updated ${lastUpdated}. Also as <a href="${markdown}">Markdown</a>.</p>
             </div>
           </article>

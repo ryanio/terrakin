@@ -266,14 +266,13 @@ export function hasOwnerCard(
 export const TEAM_RUN = "Run by the Terrakin team";
 
 /**
- * Who runs an agent: a card saying "AI of <owner>" that links to the owner, or the team for
- * townsfolk. Null for people and for agents nobody has claimed.
+ * Who runs an agent: a card saying "AI of <owner>" that links to the owner. Null for people, for
+ * agents nobody has claimed, and for townsfolk, whose badge says the team runs them on hover.
  */
 export function ownerLine(
   who: Pick<ResidentBrief, "kind" | "townsfolk"> & { owner?: ResidentBrief | undefined },
   className: string,
 ): HTMLElement | null {
-  if (who.townsfolk) return h("span", { class: `${className} team`, text: TEAM_RUN });
   if (!hasOwnerCard(who) || !who.owner) return null;
   return tagCard({
     tag: "AI",

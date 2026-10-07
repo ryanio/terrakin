@@ -212,6 +212,19 @@ describe("static pages", () => {
     expect(text.replace(/\s+/g, " ").length).toBeGreaterThan(1500);
   });
 
+  it("makes each post on /devlog one block that opens it, and leaves other pages alone", () => {
+    const at = (path: string, md: string) =>
+      staticPage({ page: page(path), source: md, lastUpdated: "2026-10-07", css: "/a.css" });
+    const devlog = at(
+      "/devlog",
+      "# Devlog\n\nIntro.\n\n## Autumn\n\nLeaves.\n\n[Read more](/devlog/2026-10-06)\n\n## Pets\n\nA cat.\n\n[Read more](/devlog/2026-10-05)",
+    );
+    expect(devlog).toContain('<p>Intro.</p>\n<section class="devlog-entry"><h2 id="autumn">');
+    expect(devlog.match(/<section class="devlog-entry">/g)).toHaveLength(2);
+    expect(devlog).toContain('<a href="/devlog/2026-10-05">Read more</a></p></section>');
+    expect(at("/about", "# About\n\n## Who\n\nUs.")).not.toContain("devlog-entry");
+  });
+
   it("renders the changelog with a heading per day, so entries can link to their day", () => {
     const html = staticPage({
       page: page("/changelog"),

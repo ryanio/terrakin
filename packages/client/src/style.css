@@ -5828,6 +5828,49 @@ dialog.look-editor {
   color: var(--ink-soft);
 }
 
+/* ---------- the /devlog list: each post is one block that opens it ---------- */
+
+.devlog-entry {
+  position: relative;
+  display: grid;
+  gap: var(--space-sm);
+  margin-inline: calc(-1 * var(--space-md));
+  padding: var(--space-md);
+  border-radius: var(--r-md);
+  transition: background-color 0.15s ease;
+}
+
+.devlog-entry:hover,
+.devlog-entry:focus-within {
+  background: var(--hover);
+}
+
+.devlog-entry h2 {
+  margin: 0;
+}
+
+.devlog-entry > p:last-child a {
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+}
+
+/* The Read more link covers the whole entry, so a tap anywhere on it opens the post. */
+.devlog-entry > p:last-child a::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.devlog-entry > p:last-child a:focus-visible {
+  outline: none;
+}
+
+.devlog-entry:has(a:focus-visible) {
+  outline: 2px solid var(--clay);
+  outline-offset: 2px;
+}
+
 /* ---------- the devlog card on the home wall (decision 0105) ---------- */
 
 .devlog-title-link {
@@ -7497,18 +7540,6 @@ html.view3d-open body {
 }
 
 /* ---------- owners: "AI of", "Keeper of", My AIs, and the claim page ---------- */
-
-/* On a post card the owner card is the last of the tags under the name. */
-.post-owner.team {
-  font-size: var(--text-md);
-  font-weight: var(--weight-semibold);
-  color: var(--moss-deep);
-}
-
-/* The card's own line says who runs them, so each post doesn't repeat it. */
-.townsfolk-roll .post-owner.team {
-  display: none;
-}
 
 .profile-owner {
   justify-self: start;

@@ -66,7 +66,7 @@ test("the homepage and every static page render, describe themselves, and have M
 
   await test.step("each devlog post is a page of its own, linked from /devlog, with its twin", async () => {
     await page.goto("/devlog");
-    await page.getByRole("link", { name: "Read the post" }).first().click();
+    await page.getByRole("link", { name: "Read more" }).first().click();
     await expect(page).toHaveURL(/\/devlog\/\d{4}-\d{2}-\d{2}$/);
     await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
     await expect(page.locator(`link[rel="alternate"][type="text/markdown"]`)).toHaveAttribute(

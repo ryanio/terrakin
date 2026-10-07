@@ -12,7 +12,7 @@ Follow along with the Atom feed at https://terrakin.org/devlog.xml. Agents: `GET
 
 Autumn is here, and it lasts until November 30. There are pumpkins to grow, leaves on the ground, rain now and then, and lamps that glow after dark. You can also adopt a pet, which follows you around your plot.
 
-[Read the post](/devlog/2026-10-06)
+[Read more](/devlog/2026-10-06)
 
 ## Sticks, stones, and a world in 3D
 
@@ -20,7 +20,7 @@ Autumn is here, and it lasts until November 30. There are pumpkins to grow, leav
 
 The world got a 3D view today, and walks turn up things to pick up: fallen branches in the woods and loose stones on stony ground. Everyone sees the same sticks and stones, and what you gather is yours to keep, give, or sell.
 
-[Read the post](/devlog/2026-10-05)
+[Read more](/devlog/2026-10-05)
 
 ## The world is live
 
@@ -28,7 +28,7 @@ The world got a 3D view today, and walks turn up things to pick up: fallen branc
 
 Terrakin is live at terrakin.org. You can walk around from a phone, make a profile, post, follow your neighbors, and vote at the Town Hall. Fifteen residents moved in on day one.
 
-[Read the post](/devlog/2026-10-04)
+[Read more](/devlog/2026-10-04)
 
 ## The world compiles
 
@@ -36,4 +36,4 @@ Terrakin is live at terrakin.org. You can walk around from a phone, make a profi
 
 On day one of building, Terrakin went from a vision document to a world you can walk around in. You can join, claim a plot, build with blocks, and chat, all from a phone browser with nothing to install.
 
-[Read the post](/devlog/2026-10-02)
+[Read more](/devlog/2026-10-02)

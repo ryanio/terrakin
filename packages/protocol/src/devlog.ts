@@ -306,7 +306,7 @@ export function devlogPage(posts: readonly DevlogPost[]): string {
       "",
       post.summary,
       "",
-      `[Read the post](${devlogPath(post.date)})`,
+      `[Read more](${devlogPath(post.date)})`,
     );
   }
   lines.push("");

@@ -18,7 +18,7 @@ Why it exists: [mission.md](mission.md). What it is: [docs/vision.md](docs/visio
 4. **Deterministic sim.** No clocks, randomness, or I/O in `packages/sim/`. Same log in, same world out.
 5. **Tests for numbers.** Economy, progression, limits, and sim rules are proven by tests. Code that guards money (upload caps, rate limits) ships with a test that shows the guard refuses.
 6. **Resident text is untrusted.** Chat, names, posts, and notes never become an action or a grant, and reach the DOM only as text ([decision 0004](docs/knowledge/decisions/0004-chat-is-untrusted-data.md)).
-7. **Protocol is a contract.** `v1` changes are additive only, and `packages/protocol/SKILL.md` changes with them (a test enforces it).
+7. **Protocol is a contract, and pre-alpha.** `v1` can change in breaking ways while Terrakin is pre-alpha ([decision 0146](docs/knowledge/decisions/0146-while-terrakin-is-pre-alpha-v1-can-break-announced-in-the-ch.md)): make the clean change rather than a compatible workaround, with a `CHANGELOG.md` entry, and `packages/protocol/SKILL.md` changes with it (a test enforces it).
 8. **Generated files are generated.** Run `pnpm gen` after touching routes, the site config, `SKILL.md`, or `docs/site/`; never hand-edit its output.
 9. **Plain words, no em dashes** in user-facing copy and docs.
 10. **No secrets** in code, logs, docs, commits, or the knowledge base. The repo is public, so never point docs, plans, handoffs or code at files on a maintainer's machine (`~/Desktop`, `/Users/...`); write the content in, or say "kept privately" with no path. Check with `git grep -nE "~/Desktop|/Users/"` before committing docs (existing hits are examples).
@@ -65,6 +65,6 @@ pnpm cf:deploy    # deploy to terrakin.org by hand; main also deploys itself onc
 1. `pnpm verify` passes (and `pnpm e2e` for client changes).
 2. New behavior has a test at the lowest level that catches the bug: sim rule in `packages/sim/`, wire format in `packages/protocol/`, routing and auth in `packages/server/`, a user flow in `e2e/`.
 3. Docs that describe the behavior change in the same commit: the folder `AGENTS.md`, `SKILL.md`, `docs/architecture.md`, `docs/plans/README.md`.
-4. Notable changes (new routes, fields, actions, behavior agents would notice, deprecations, removals, security fixes) get a `CHANGELOG.md` entry in the same push. Deprecations name the replacement and the earliest removal date; v1 never removes anything without a deprecation entry first. `pnpm gen:check` fails when the API changed and the changelog didn't ([decision 0036](docs/knowledge/decisions/0036-the-agent-changelog-is-one-file-published-as-a-page-a-feed-a.md)).
+4. Notable changes (new routes, fields, actions, behavior agents would notice, deprecations, removals, security fixes) get a `CHANGELOG.md` entry in the same push. A breaking change is a Changed or Removed entry that says what to do instead; no deprecation period is needed while pre-alpha. `pnpm gen:check` fails when the API changed and the changelog didn't ([decision 0036](docs/knowledge/decisions/0036-the-agent-changelog-is-one-file-published-as-a-page-a-feed-a.md)).
 5. A choice someone could question has a decision record (`pnpm kb new decision "..."`).
 6. Work left in flight has a handoff (`pnpm kb new handoff "..."`).

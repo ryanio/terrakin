@@ -37,6 +37,7 @@ describe("mirror looks", () => {
     const mirror = new Mirror({
       v: 1,
       seq: 1,
+      time: { nowMs: 0, dayLengthMs: 600_000 },
       hash: "x",
       config: { width: 8, height: 8, plotSize: 4, maxPlotsPerResident: 1, reach: 2 },
       commons: { px: 1, py: 1 },
@@ -89,6 +90,7 @@ describe("mirror looks", () => {
     const mirror = new Mirror({
       v: 1,
       seq: 1,
+      time: { nowMs: 0, dayLengthMs: 600_000 },
       hash: "x",
       config: { width: 8, height: 8, plotSize: 4, maxPlotsPerResident: 1, reach: 2 },
       commons: { px: 1, py: 1 },

@@ -8,6 +8,7 @@ const world: WorldSnapshot = {
   v: 1,
   seq: 9,
   hash: "0",
+  time: { nowMs: 0, dayLengthMs: 600_000 },
   day: 20_000,
   config: { width: 12, height: 12, plotSize: 4, maxPlotsPerResident: 1, reach: 2 },
   commons: { px: 1, py: 1 },

@@ -517,7 +517,7 @@ export function plotLayout(
       ...(dozing ? { feeling: "sleepy" as const, away: true as const } : {}),
     });
   }
-  const { season, weather } = skyNow(snapshot.time?.nowMs, snapshot.day);
+  const { season, weather } = skyNow(snapshot.time.nowMs, snapshot.day);
 
   // The owner's pet, beside the hearth and clear of everyone drawn there, sleepers too: they lie
   // between tiles, so each takes the tile they're nearest.

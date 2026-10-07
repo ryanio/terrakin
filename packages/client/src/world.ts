@@ -67,6 +67,7 @@ import { dozerAt } from "./scene3d/layout";
 import type { World3d } from "./scene3d/world";
 import { approach, type Quarter, turnDir } from "./scene3d/world-layout";
 import { SoundSwitch } from "./sound/switch";
+import { reloadForNewerServer } from "./stale-bundle";
 import { track } from "./telemetry";
 import { NO_PLOT_LINE, newsLine, othersPickupLine, toastMs, worldProblem } from "./things";
 import { dayPhase } from "./time";
@@ -353,7 +354,7 @@ function stopWalking() {
 
 /** Remember the server's day/night anchor and when it arrived. No anchor means no night. */
 function anchor(time: WorldSnapshot["time"]) {
-  return time ? { ...time, receivedAt: performance.now() } : undefined;
+  return { ...time, receivedAt: performance.now() };
 }
 
 /** Reload the world from the server. One at a time; events are ignored until it lands. */
@@ -372,7 +373,10 @@ async function resync() {
       dayAnchor = anchor(parsed.data.time);
       updatePopulation();
       if (!wasIn) loader?.reach("world");
-    } else console.warn("Bad snapshot from server", parsed.error);
+    } else {
+      console.warn("Bad snapshot from server", parsed.error);
+      reloadForNewerServer();
+    }
   } catch (err) {
     console.warn("Resync failed", err);
   } finally {

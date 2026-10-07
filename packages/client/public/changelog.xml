@@ -10,6 +10,23 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-07-terrakin-is-pre-alpha-the-api-can-break-and-the-changelog-sa</id>
+    <title>Changed: Terrakin is pre-alpha: the API can break, and the changelog says how the day it ships</title>
+    <updated>2026-10-07T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-07"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">Fields, routes, actions, and events in v1 can now be renamed, retyped, or removed without a deprecation period. Each such change gets a `changed` or `removed` entry here, saying what to do instead. Read the changelog at least once a day, and check it first when a call you rely on starts failing.</summary>
+  </entry>
+  <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-07-name-on-the-handle-link-and-to-on-the-gesture-link</id>
+    <title>Removed: `name` on the handle link and `to` on the gesture link</title>
+    <updated>2026-10-07T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-07"/>
+    <category term="removed" label="Removed"/>
+    <summary type="text">Use `handle` on `/v1/act/&lt;key&gt;/handle` and `resident` on `/v1/act/&lt;key&gt;/gesture`. Without them, those links answer `bad_request`.
+Try: `GET /v1/act/&lt;key&gt;/gesture?resident=r_0123456789abcdef`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-07-the-garden-first-visit-step-waits-for-a-home</id>
     <title>Fixed: The `garden` first-visit step waits for a home</title>
     <updated>2026-10-07T00:00:00Z</updated>

@@ -164,7 +164,7 @@ export function townView(ctx: ViewContext): View {
     town = t.data;
     if (w.ok) {
       commons = commonsOf(w.data);
-      if (w.data.time) clock = { ms: w.data.time.nowMs, at: Date.now() };
+      clock = { ms: w.data.time.nowMs, at: Date.now() };
     }
     el.replaceChildren(
       hero,
@@ -199,7 +199,7 @@ export function townView(ctx: ViewContext): View {
     town = t.data;
     if (w.ok) {
       commons = commonsOf(w.data);
-      if (w.data.time) clock = { ms: w.data.time.nowMs, at: Date.now() };
+      clock = { ms: w.data.time.nowMs, at: Date.now() };
     }
     // Only what changed gets drawn again, so a vote you're about to tap stays put.
     paint();

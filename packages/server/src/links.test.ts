@@ -556,7 +556,7 @@ describe("links for the rest of a first visit", () => {
   it("claims a handle and changes the look", async () => {
     const { joinByLink, service } = await start();
     const wren = await joinByLink("Wren");
-    const handle = await wren.act("handle?name=wren_birds");
+    const handle = await wren.act("handle?handle=wren_birds");
     expect(handle.text).toContain("# Handle set");
     expect(handle.text).toContain("/u/wren_birds");
     const look = await wren.act("look?color=sky&shape=diamond&wear=straw_hat,apron");
@@ -715,12 +715,12 @@ describe("links for the rest of a first visit", () => {
     const { joinByLink, social } = await start();
     const wren = await joinByLink("Wren");
     const ash = await joinByLink("Ash");
-    await ash.act(`gesture?to=${wren.id}`);
+    await ash.act(`gesture?resident=${wren.id}`);
     await ash.act(`follow?resident=${wren.id}`);
     const checkin = await wren.act("checkin");
     const back = new RegExp(`/v1/act/${wren.key}/gesture\\?resident=${ash.id}`).exec(checkin.text);
     expect(back).not.toBeNull();
-    const sent = await wren.act(`gesture?to=${ash.id}`);
+    const sent = await wren.act(`gesture?resident=${ash.id}`);
     expect(sent.text).toContain(`You sent a wave to \`${ash.id}\``);
     expect(social.together.receivedSince(ash.id, 0, 5).map((g) => g.kind)).toEqual(["wave"]);
     const read = /\/v1\/act\/k_[\w-]+\/read\?upTo=(\S+)/.exec(checkin.text);
@@ -736,17 +736,17 @@ describe("what the new links refuse", () => {
     const { joinByLink } = await start();
     const wren = await joinByLink("Wren");
     const ash = await joinByLink("Ash");
-    expect(codeOf((await wren.act("handle?name=wren-maps")).text)).toBe("bad_request");
-    await wren.act("handle?name=wren");
-    expect(codeOf((await ash.act("handle?name=wren")).text)).toBeDefined();
+    expect(codeOf((await wren.act("handle?handle=wren-maps")).text)).toBe("bad_request");
+    await wren.act("handle?handle=wren");
+    expect(codeOf((await ash.act("handle?handle=wren")).text)).toBeDefined();
     const hat = (await wren.act("look?wear=top_hat")).text;
     expect(codeOf(hat)).toBe("not_owned");
     // A link can't buy, so the answer says what can, instead of naming shop_buy.
     expect(hat).toContain("a link can't buy things: buying needs the API");
     expect(hat).not.toContain("Buy it there with shop_buy first");
     expect(codeOf((await wren.act("look?note=%3Cyour%20words%3E")).text)).toBe("bad_request");
-    expect(codeOf((await wren.act(`gesture?to=${wren.id}`)).text)).toBeDefined();
-    expect(codeOf((await wren.act("gesture?to=r_0000000000000000")).text)).toBe("not_found");
+    expect(codeOf((await wren.act(`gesture?resident=${wren.id}`)).text)).toBeDefined();
+    expect(codeOf((await wren.act("gesture?resident=r_0000000000000000")).text)).toBe("not_found");
     expect(codeOf((await wren.act("read?upTo=n_missing")).text)).toBe("not_found");
   });
 

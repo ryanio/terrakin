@@ -124,7 +124,7 @@ export function socialLinks(
 
     linkHandle: async ({ viewer, params, query, origin }) => {
       const l = linksFor(origin, params.key);
-      const asked = query.handle ?? query.name ?? "";
+      const asked = query.handle;
       const outcome = await social().updateProfile(viewer, { handle: asked });
       return fromOutcome(outcome, (profile) => {
         const handle = profile.handle ?? asked;
@@ -184,7 +184,7 @@ export function socialLinks(
       const l = linksFor(origin, params.key);
       const kind = query.kind ?? "wave";
       const together = social().together;
-      const to = query.resident ?? query.to ?? "";
+      const to = query.resident;
       return fromOutcome(together.sendGesture(viewer, to, { kind }), (sent) => {
         if (!sent.secret) service.notify(to, together.liveGesture(sent.gesture, sent.streak));
         return reply(

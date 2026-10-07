@@ -8,7 +8,7 @@ import { act, freePlots, join, signIn, watchErrors } from "./support";
 
 test("a resident takes a photo of their home and posts it", async ({ page }) => {
   const errors = watchErrors(page);
-  const rue = await join(page.request, "Rue");
+  const rue = await join(page.request, "Roux");
   const [plot] = await freePlots(page.request, 1, "top-right");
   if (!plot) throw new Error("No free plots left in the test world");
   const [px, py] = plot;

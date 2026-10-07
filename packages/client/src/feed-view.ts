@@ -16,6 +16,7 @@ import { formatCount } from "@terrakin/ui/format";
 import { REDUCED_MOTION, reducedMotion } from "@terrakin/ui/motion";
 import { postPath, profilePath } from "@terrakin/ui/paths";
 import { residentPerson } from "@terrakin/ui/people";
+import { everyVisible } from "@terrakin/ui/poll";
 import { copyButton, emptyNote, linkTabs, moreButton, pickTab } from "@terrakin/ui/ui";
 import { refreshTimes } from "@terrakin/ui/when";
 import { api, myProfile } from "./api";
@@ -1026,10 +1027,10 @@ export function feedView(ctx: ViewContext): View {
 
   const live = liveFeed(onPush);
   live.follow(state.tab === "following");
-  const timer = setInterval(() => {
+  const stopPoll = everyVisible(POLL_MS, () => {
     if (pollDue(live.live(), lastPoll, Date.now())) void poll();
-  }, POLL_MS);
-  const pulseTimer = setInterval(() => void pollPulse(), PULSE_MS);
+  });
+  const stopPulse = everyVisible(PULSE_MS, () => void pollPulse());
   const onVisible = () => {
     if (document.visibilityState !== "visible") return;
     void poll();
@@ -1069,8 +1070,8 @@ export function feedView(ctx: ViewContext): View {
       clearLiveToasts();
       live.destroy();
       clearTimeout(pendingPoll);
-      clearInterval(timer);
-      clearInterval(pulseTimer);
+      stopPoll();
+      stopPulse();
       document.removeEventListener("visibilitychange", onVisible);
       observer.disconnect();
     },

@@ -58,6 +58,7 @@ const HAND_BUILT: { pattern: RegExp; use: string; home?: string }[] = [
     pattern: /Intl\.DateTimeFormat\("en-US"/,
     use: "shortDate, relativeTime, or fullDate (format.ts)",
   },
+  { pattern: /for \(const \w+ of \w+\) \w+\.disabled = true/, use: "whileBusyAll (ui.ts)" },
   { pattern: /dataset\.confirm/, use: "confirmTwice (ui.ts)" },
   { pattern: /"0 0 24 24"/, use: "icon (dom.ts), with a Lucide glyph added to icons.ts" },
   {

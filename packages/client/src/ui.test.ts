@@ -1,6 +1,7 @@
+import type { Result } from "@terrakin/ui/http";
 import { makeRequest } from "@terrakin/ui/http";
-import { confirmTwice, toastMs } from "@terrakin/ui/ui";
-import { describe, expect, it, vi } from "vitest";
+import { confirmTwice, toastMs, whileBusyAll } from "@terrakin/ui/ui";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 /** A button with a label and click listeners, and nothing else. */
 function fakeButton(label: string) {
@@ -74,5 +75,49 @@ describe("request errors", () => {
     const r = await request("GET", "/v1/purse", { safeParse: () => ({ success: true }) } as never);
     expect(r).toMatchObject({ ok: false, status: 401, message: "Restore your key." });
     vi.unstubAllGlobals();
+  });
+});
+
+describe("a busy button group", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  /** Buttons and a status line with only what the helper touches, and a page with no focus. */
+  function group() {
+    vi.stubGlobal("document", { activeElement: null, body: {} });
+    const buttons = [0, 1].map(
+      () =>
+        ({ disabled: false, isConnected: true, focus: vi.fn() }) as unknown as HTMLButtonElement,
+    );
+    const status = { textContent: "" } as HTMLElement;
+    return { buttons, status };
+  }
+
+  it("turns every button off and says Saving while it works, and keeps them off when it worked", async () => {
+    const { buttons, status } = group();
+    let finish: (r: Result<null>) => void = () => {};
+    const running = whileBusyAll(buttons, buttons[0] as HTMLButtonElement, status, () => {
+      return new Promise<Result<null>>((resolve) => {
+        finish = resolve;
+      });
+    });
+    expect(buttons.map((b) => b.disabled)).toEqual([true, true]);
+    expect(status.textContent).toBe("Saving…");
+    finish({ ok: true, data: null });
+    expect((await running).ok).toBe(true);
+    expect(buttons.map((b) => b.disabled)).toEqual([true, true]);
+    expect(status.textContent).toBe("Saving…");
+  });
+
+  it("turns them back on and says why when it failed", async () => {
+    const { buttons, status } = group();
+    const res = await whileBusyAll(buttons, buttons[1] as HTMLButtonElement, status, async () => ({
+      ok: false,
+      status: 409,
+      code: "conflict",
+      message: "Someone else already decided this one.",
+    }));
+    expect(res.ok).toBe(false);
+    expect(buttons.map((b) => b.disabled)).toEqual([false, false]);
+    expect(status.textContent).toBe("Someone else already decided this one.");
   });
 });

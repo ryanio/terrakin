@@ -5,6 +5,7 @@
  */
 import { xIntentUrl } from "@terrakin/protocol";
 import { h, icon } from "./dom";
+import type { Result } from "./http";
 import { reducedMotion } from "./motion";
 
 // ---------- toast ----------
@@ -386,6 +387,29 @@ export async function whileBusy<T>(
     if (busyText) label.textContent = idle;
     refocus();
   }
+}
+
+/**
+ * Run `work` with every button in a group off and `status` saying "Saving…", for a card whose
+ * buttons all act on one thing. If it fails, the buttons come back on, `status` says why, and focus
+ * goes back to `pressed`. If it works they stay off, so a second tap can't send it again.
+ */
+export async function whileBusyAll<T>(
+  buttons: readonly HTMLButtonElement[],
+  pressed: HTMLButtonElement,
+  status: HTMLElement,
+  work: () => Promise<Result<T>>,
+): Promise<Result<T>> {
+  const refocus = holdFocus(pressed);
+  for (const b of buttons) b.disabled = true;
+  status.textContent = "Saving…";
+  const res = await work();
+  if (!res.ok) {
+    for (const b of buttons) b.disabled = false;
+    status.textContent = res.message;
+    refocus();
+  }
+  return res;
 }
 
 // ---------- show more ----------

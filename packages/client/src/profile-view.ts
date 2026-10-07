@@ -562,12 +562,11 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
         const file = input.files?.[0];
         input.value = "";
         if (!file) return;
-        button.disabled = true;
-        button.setAttribute("aria-busy", "true");
         showProgress("0%");
-        const up = await uploadMedia(file, (f) => showProgress(`${Math.round(f * 100)}%`)).promise;
-        button.disabled = false;
-        button.removeAttribute("aria-busy");
+        const up = await whileBusy(
+          button,
+          () => uploadMedia(file, (f) => showProgress(`${Math.round(f * 100)}%`)).promise,
+        );
         if (destroyed) return;
         if (!up.ok) {
           showProgress(null);

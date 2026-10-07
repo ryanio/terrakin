@@ -15,7 +15,7 @@ import { fullDate, isMediaUrl, plural, relativeTime } from "@terrakin/ui/format"
 import { postPath, profilePath } from "@terrakin/ui/paths";
 import { personLink } from "@terrakin/ui/people";
 import { reasonLabel } from "@terrakin/ui/safety";
-import { confirmTwice, holdFocus, stateCard, toast, whileBusy } from "@terrakin/ui/ui";
+import { confirmTwice, stateCard, toast, whileBusy, whileBusyAll } from "@terrakin/ui/ui";
 import { api, type Result } from "./api";
 import {
   type ActionKind,
@@ -210,17 +210,8 @@ export function queueView(overview: AdminOverviewResponse): View {
         reason.focus();
         return;
       }
-      const refocus = holdFocus(pressed);
-      for (const b of buttons) b.disabled = true;
-      status.textContent = "Saving…";
-      const res = await call(action);
-      if (destroyed) return;
-      if (!res.ok) {
-        for (const b of buttons) b.disabled = false;
-        status.textContent = res.message;
-        refocus();
-        return;
-      }
+      const res = await whileBusyAll(buttons, pressed, status, () => call(action));
+      if (destroyed || !res.ok) return;
       // It went through. The buttons stay off so a second tap can't send it again, and the card
       // goes now instead of when the list reloads. Focus moves to the next card.
       drafts.delete(key);

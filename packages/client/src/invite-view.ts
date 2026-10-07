@@ -9,7 +9,7 @@ import { profilePath } from "@terrakin/ui/paths";
 import { avatarEl } from "@terrakin/ui/people";
 import { checkRow, stateCard, toast } from "@terrakin/ui/ui";
 import { api, myProfile } from "./api";
-import { joinForm } from "./join-form";
+import { joinForm, joinProblem } from "./join-form";
 import { savedToken, saveToken } from "./net";
 import { ARRIVAL_KEY, arrivalLine } from "./together";
 import { errorCard, type View, type ViewContext } from "./view";
@@ -126,7 +126,7 @@ export function inviteView(code: string, ctx: ViewContext): View {
             el.replaceChildren(expiredCard());
             return null;
           }
-          return r.message;
+          return joinProblem(r.code, r.message);
         }
         saveToken(r.data.token, r.data.residentId);
         // If the world turns the look down, she's in all the same, in her color.

@@ -72,7 +72,14 @@ export const TOGETHER_ROUTES = [
     params: InviteParams,
     body: AcceptInviteRequest,
     responses: { 201: json(AcceptInviteResponse, "Joined") },
-    errors: ["bad_request", "invalid_name", "invalid_profile", "not_found", "rate_limited"],
+    errors: [
+      "bad_request",
+      "invalid_name",
+      "name_taken",
+      "invalid_profile",
+      "not_found",
+      "rate_limited",
+    ],
     rateLimit: "sessions",
   },
   {

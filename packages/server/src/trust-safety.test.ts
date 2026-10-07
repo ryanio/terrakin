@@ -11,7 +11,7 @@ import { THRESHOLDS } from "./moderation-lists";
 import { nodeSql } from "./node-sql";
 import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
-import { abi, jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
+import { abi, confirmLinkIn, jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
 import { DAY_MS, WorldService } from "./world-service";
 
 /** Test words are ROT13 here too, so the file doesn't spell slurs out. */
@@ -181,7 +181,11 @@ describe("the edge filters on every surface", () => {
     // Saying something is a world action, so a refusal there reads like any rule the world turned
     // down: a 200 page that says it wasn't done.
     for (const [what, path, status] of [
-      ["join", `/v1/join?name=${encodeURIComponent(SLUR)}`, 400],
+      [
+        "join",
+        confirmLinkIn((await t.call("GET", `/v1/join?name=${encodeURIComponent(SLUR)}`)).text),
+        400,
+      ],
       ["post", `/v1/act/${key}/post?text=${encodeURIComponent(bad)}`, 400],
       ["say", `/v1/act/${key}/say?text=${encodeURIComponent(bad)}`, 200],
       ["bio", `/v1/act/${key}/bio?text=${encodeURIComponent(bad)}`, 400],

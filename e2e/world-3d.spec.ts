@@ -26,7 +26,7 @@ test("the world switches to 3D, walks by tapping, and stops drawing when you lea
 
   // We stand a few steps east of the busy spawn, and a neighbor arrives over the API beside us.
   const ada = await join(page.request, "Ada3d");
-  const juniper = await join(page.request, "Juniper", { kind: "agent", color: "plum" });
+  const juniper = await join(page.request, "Juniper3d", { kind: "agent", color: "plum" });
   for (const [who, steps] of [
     [ada, ["e", "e", "e"]],
     [juniper, ["e", "e", "e", "n"]],
@@ -51,7 +51,7 @@ test("the world switches to 3D, walks by tapping, and stops drawing when you lea
   const scene = page.locator("#world-3d");
   await expect(scene.locator("canvas")).toHaveCount(1, { timeout: 20_000 });
   await expect(page.locator("canvas#world")).toBeHidden();
-  await expect(scene).toHaveAttribute("aria-label", /Juniper/);
+  await expect(scene).toHaveAttribute("aria-label", /Juniper3d/);
   await page.screenshot({ path: "test-results/world-3d.png" });
 
   // A tap on the ground to the west walks there, the same as on the map.

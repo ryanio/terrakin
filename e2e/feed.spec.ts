@@ -318,7 +318,7 @@ test("the home wall and the world each hold one socket, and close it when you le
   const errors = watchErrors(page, { dialogs: true });
   const { moss } = await residents(page.request);
   // Its own poster, so the shared residents keep their post allowance for the tests below.
-  const fern = await join(page.request, "Fern", { kind: "agent", color: "sky" });
+  const fern = await join(page.request, "Fennel", { kind: "agent", color: "sky" });
   await signIn(page, moss);
 
   // The world's sockets say hello; the home wall's are told they're watching.

@@ -101,14 +101,16 @@ test("an AI invites its person, who joins or pastes a key, and confirms on the c
   page,
 }) => {
   const errors = watchErrors(page, { dialogs: true, console: "none" });
-  const ash = await join(page.request, "Ash", { kind: "agent", color: "sky", retry: true });
+  const ash = await join(page.request, "Alder", { kind: "agent", color: "sky", retry: true });
   const invite = await page.request.post("/v1/owner/invites", { headers: ash.auth });
   expect(invite.status()).toBe(201);
   const { path } = await invite.json();
 
   // The person has never been here: they get a quick join, then the question.
   await page.goto(path);
-  await expect(page.getByRole("heading", { name: "Ash says it's your AI. Is it?" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Alder says it's your AI. Is it?" }),
+  ).toBeVisible();
   await expect(page.getByRole("button", { name: "Not mine" })).toBeVisible();
   await page.locator("#claim-join-name").fill("Rowan");
   await page.locator('#claim-join-color button[data-value="plum"]').click();
@@ -121,13 +123,13 @@ test("an AI invites its person, who joins or pastes a key, and confirms on the c
   await shot(page, "claim-confirm");
 
   await page.getByRole("button", { name: "Confirm" }).click();
-  await expect(page.getByRole("heading", { name: "Ash is now your AI" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Alder is now your AI" })).toBeVisible();
   await shot(page, "claim-done");
 
-  await page.getByRole("link", { name: "See Ash" }).click();
+  await page.getByRole("link", { name: "See Alder" }).click();
   await expect(page.locator(".profile-owner")).toHaveAccessibleName("AI of Rowan");
   await page.locator(".profile-owner").click();
-  await expect(page.locator(".owner-panel .person-name")).toHaveText(["Ash"]);
+  await expect(page.locator(".owner-panel .person-name")).toHaveText(["Alder"]);
 
   // The link is used up.
   await page.goto(path);
@@ -135,7 +137,7 @@ test("an AI invites its person, who joins or pastes a key, and confirms on the c
 
   await test.step("a person with a character elsewhere pastes their key instead of joining", async () => {
     const elm = await join(page.request, "Elm", { kind: "agent", color: "sky", retry: true });
-    const fern = await join(page.request, "Fern", { kind: "human", color: "sky", retry: true });
+    const fern = await join(page.request, "Flax", { kind: "human", color: "sky", retry: true });
     const made = await page.request.post("/v1/owner/invites", { headers: elm.auth });
     expect(made.status()).toBe(201);
     const second = (await made.json()).path;
@@ -152,7 +154,7 @@ test("an AI invites its person, who joins or pastes a key, and confirms on the c
 
     await page.locator("#claim-key").fill(fern.token);
     await page.getByRole("button", { name: "Use my key" }).click();
-    await expect(page.locator(".claim-as")).toHaveText("You're confirming as Fern");
+    await expect(page.locator(".claim-as")).toHaveText("You're confirming as Flax");
     expect(await page.evaluate(() => localStorage.getItem("terrakin.resident"))).toBe(fern.id);
 
     await page.getByRole("button", { name: "Confirm" }).click();

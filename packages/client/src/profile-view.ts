@@ -57,7 +57,7 @@ import { syncPost } from "./feed-view";
 import { profileGalleries } from "./galleries-view";
 import { ratingWords } from "./game-format";
 import { openInviteDialog } from "./invite-share";
-import { colorChips, joinForm, shapeChips, tokenPreview } from "./join-form";
+import { colorChips, joinForm, joinProblem, shapeChips, tokenPreview } from "./join-form";
 import { lettersPath } from "./letters-view";
 import { openLookEditor } from "./look-editor";
 import { stallCard } from "./market-view";
@@ -1439,7 +1439,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
             ...choice.look,
             ...(choice.note ? { note: choice.note } : {}),
           });
-          if (!made.ok) return made.message;
+          if (!made.ok) return joinProblem(made.code, made.message);
           saveToken(made.data.token, made.data.residentId);
           const followed = await api.follow(r.id, true);
           if (destroyed) return null;

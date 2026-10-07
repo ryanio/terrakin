@@ -6,7 +6,13 @@ import { MemoryMediaStore } from "./media";
 import { nodeSql } from "./node-sql";
 import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
-import { type Cleanup, jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
+import {
+  type Cleanup,
+  confirmLinkIn,
+  jsonCaller,
+  listenOnFreePort,
+  responseChecker,
+} from "./test-support";
 import { DAY_MS, WorldService } from "./world-service";
 
 /**
@@ -330,7 +336,8 @@ describe("takedown notices", () => {
 
   it("reach a reader that can only open links, in the link check-in", async () => {
     const t = await start();
-    const joined = await t.call("GET", "/v1/join?name=Bo");
+    const first = await t.call("GET", "/v1/join?name=Bo");
+    const joined = await t.call("GET", confirmLinkIn(first.text));
     const key = /k_[A-Za-z0-9_-]{43}/.exec(joined.text)?.[0];
     const id = /`(r_[0-9a-f]{16})`/.exec(joined.text)?.[1];
     if (!key || !id) throw new Error(`No key in:\n${joined.text}`);

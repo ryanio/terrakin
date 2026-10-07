@@ -10,7 +10,7 @@ import { profilePath } from "@terrakin/ui/paths";
 import { personLink } from "@terrakin/ui/people";
 import { errorLine } from "@terrakin/ui/ui";
 import { api, forgetMe, myProfile, whoseKey } from "./api";
-import { joinForm } from "./join-form";
+import { joinForm, joinProblem } from "./join-form";
 import { savedToken, saveToken } from "./net";
 import { errorCard, notFoundCard, type View, type ViewContext } from "./view";
 
@@ -282,7 +282,7 @@ export function claimView(code: string, ctx: ViewContext): View {
           ...(choice.note ? { note: choice.note } : {}),
         });
         if (destroyed) return null;
-        if (!made.ok) return made.message;
+        if (!made.ok) return joinProblem(made.code, made.message);
         saveToken(made.data.token, made.data.residentId);
         then({ id: made.data.residentId, name: choice.name });
         return null;

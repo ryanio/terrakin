@@ -74,7 +74,7 @@ test("dig a pond, make a rod, fish, and find the catch in your collection book",
     return home;
   };
 
-  const wren = await join(page.request, "Wren");
+  const wren = await join(page.request, "Kestrel");
   const ash = await join(page.request, "Ash");
   let home: { px: number; py: number } | undefined;
   let water: Tile & { dx: number; dy: number };

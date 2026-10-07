@@ -8,7 +8,13 @@ import { MemoryMediaStore } from "./media";
 import { nodeSql } from "./node-sql";
 import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
-import { type Cleanup, jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
+import {
+  type Cleanup,
+  confirmLinkIn,
+  jsonCaller,
+  listenOnFreePort,
+  responseChecker,
+} from "./test-support";
 import { DAY_MS, utcDay, WorldService } from "./world-service";
 
 // 6x6 plots of 8 tiles. The Commons is plot (3,3); everyone joins at (24,24).
@@ -318,7 +324,7 @@ describe("the putter link", () => {
       const res = await fetch(t.base + path);
       return { status: res.status, text: await res.text() };
     };
-    const joined = await open("/v1/join?name=Wren");
+    const joined = await open(confirmLinkIn((await open("/v1/join?name=Wren")).text));
     const key = KEY.exec(joined.text)?.[0];
     if (!key) throw new Error(`No key in:\n${joined.text}`);
     const ada = await t.join("Ada");

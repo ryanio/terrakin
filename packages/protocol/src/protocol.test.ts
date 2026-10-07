@@ -579,8 +579,12 @@ describe("route table", () => {
       expect(declared[0]).toBe("key");
       expect(route.format).toBe("markdown");
     }
-    // Repeats are recognized by resident, so a `once` route needs to know who's calling.
-    if (route.once) expect(route.auth).toBe("linkKey");
+    // Repeats are recognized by who's calling: a link key's resident, or on a route with no auth,
+    // the `confirm` code only the opener saw (the join link, decision 0148).
+    if (route.once && route.auth !== "linkKey") {
+      expect(route.auth).toBe("none");
+      expect(Object.keys(route.query?.shape ?? {})).toContain("confirm");
+    }
     if (route.format === "markdown") {
       expect(route.method).toBe("GET");
       for (const spec of Object.values(route.responses)) {

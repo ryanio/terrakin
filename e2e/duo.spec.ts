@@ -300,7 +300,7 @@ test("Back from the world after accepting skips the invite, and a used invite of
   browser,
 }) => {
   const errors = watchErrors(page, { dialogs: true });
-  const host = await join(page.request, "Odile", { color: "sand" });
+  const host = await join(page.request, "Oriel", { color: "sand" });
   const invite = async () => {
     const made = await page.request.post("/v1/invites", { headers: host.auth, data: {} });
     expect(made.status()).toBe(201);
@@ -321,9 +321,9 @@ test("Back from the world after accepting skips the invite, and a used invite of
   const other = await browser.newPage();
   const second = await invite();
   await other.goto(second.path);
-  await other.fill("#invite-name", "Quill");
+  await other.fill("#invite-name", "Quince");
   const used = await page.request.post(`/v1/invites/${second.code}/accept`, {
-    data: { name: "Rue", kind: "human" },
+    data: { name: "Rhea", kind: "human" },
   });
   expect(used.ok()).toBe(true);
   await other.getByRole("button", { name: "Move in" }).click();

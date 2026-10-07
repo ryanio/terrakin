@@ -90,6 +90,8 @@ const PROTOCOL_ERROR_CODES = [
   "owner_limit",
   /** A maintainer suspended you: you can read, but not write, until the suspension ends. */
   "suspended",
+  /** A join with a name another resident already has. Names are unique (decision 0148). */
+  "name_taken",
 ] as const;
 
 export const ERROR_CODES = [...REJECTION_CODES, ...PROTOCOL_ERROR_CODES] as const;
@@ -1155,7 +1157,7 @@ export const WorldSnapshot = z.object({
   residents: z
     .array(ResidentView)
     .describe(
-      "Everyone who lives here except the founding townsfolk, who are in `townsfolkResidents`. Its length is the town's resident count.",
+      "Everyone who lives here except the founding townsfolk, who are in `townsfolkResidents`. Its length less `repeatJoins` is the town's resident count.",
     ),
   plots: z.array(
     z.object({
@@ -1215,6 +1217,12 @@ export const WorldSnapshot = z.object({
     .optional()
     .describe(
       "The founding townsfolk, in the same shape as `residents`, which leaves them out so a count of it never includes them. Absent when there are none.",
+    ),
+  repeatJoins: z
+    .array(z.string())
+    .optional()
+    .describe(
+      "Ids in `residents` a resident count leaves out: records with the name of another resident that nobody has used (offline, no hearth, nothing done since joining), almost always the same person joining again before names were unique. Absent when there are none.",
     ),
   /**
    * Made things on display on pedestals and frames, with who put each up. A `label` is its maker's

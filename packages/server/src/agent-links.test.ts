@@ -213,10 +213,12 @@ async function start(options: AgentLinkOptions = {}, limits: Partial<SocialLimit
   const service = new WorldService({ store: new MemoryStore(), config: CONFIG, now: () => now });
   const sql = nodeSql();
   const media = new MemoryMediaStore();
+  const maintainers = new Set<string>();
   const social = new SocialService({
     sql,
     media,
     limits,
+    maintainers,
     resident: (id) => service.state.residents[id],
     entitledTo: (id) => entitledTo(service.state, id),
     now: () => now,
@@ -252,6 +254,7 @@ async function start(options: AgentLinkOptions = {}, limits: Partial<SocialLimit
     links,
     media,
     service,
+    maintainers,
     act: async (token: string, action: unknown) =>
       (await call("POST", "/v1/actions", action, token)).body,
     profile,
@@ -1058,8 +1061,8 @@ describe("kept asks (decision 0128)", () => {
     expect((await views()).filter((p) => p.agentLink)).toHaveLength(3);
   });
 
-  it("holds an ask while the resident is suspended, and drops it on DELETE or its owner's revoke", async () => {
-    const { call, link, join, chain, links, social, profile, advance } = await start();
+  it("holds an ask while the resident is suspended, and drops it on DELETE, its owner's revoke, or a re-key", async () => {
+    const { call, link, join, chain, links, social, profile, advance, maintainers } = await start();
     const named = (n: number, r: { residentId: string }) => {
       const { uri } = chain.addMuse(n);
       return () => chain.setNames(uri, [r.residentId]);
@@ -1072,8 +1075,11 @@ describe("kept asks (decision 0128)", () => {
     expect(
       (await call("POST", "/v1/owner/accept", { code: issued.body.code }, fern.token)).status,
     ).toBe(200);
-    const confirms = [named(50, wren), named(51, moss), named(52, fern)];
-    for (const [i, r] of [wren, moss, fern].entries()) {
+    const ivy = join("Ivy");
+    const mira = join("Mira", "human");
+    maintainers.add(mira.residentId);
+    const confirms = [named(50, wren), named(51, moss), named(52, fern), named(53, ivy)];
+    for (const [i, r] of [wren, moss, fern, ivy].entries()) {
       expect((await link(muse(50 + i), r.token)).status).toBe(200);
     }
     for (const confirm of confirms) confirm();
@@ -1083,10 +1089,18 @@ describe("kept asks (decision 0128)", () => {
       (await call("POST", `/v1/owner/link/${fern.residentId}/revoke`, undefined, hazel.token))
         .status,
     ).toBe(204);
+    // A re-key is a fresh start too: the ask made with the old credentials goes (decision 0149).
+    const rekey = await call(
+      "POST",
+      `/v1/owner/rekey-codes/${ivy.residentId}`,
+      undefined,
+      mira.token,
+    );
+    expect((await call("POST", "/v1/owner/rekey", { code: rekey.body.code })).status).toBe(200);
 
     advance(RECHECK_MS);
     await links.recheckDue();
-    for (const r of [wren, moss, fern]) {
+    for (const r of [wren, moss, fern, ivy]) {
       expect((await profile(r.residentId)).agentLink).toBeUndefined();
     }
 
@@ -1096,6 +1110,7 @@ describe("kept asks (decision 0128)", () => {
     expect((await profile(wren.residentId)).partner?.label).toBe("Muse #50");
     expect((await profile(moss.residentId)).agentLink).toBeUndefined();
     expect((await profile(fern.residentId)).agentLink).toBeUndefined();
+    expect((await profile(ivy.residentId)).agentLink).toBeUndefined();
   });
 });
 

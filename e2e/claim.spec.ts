@@ -12,7 +12,7 @@ test("a newcomer claims a plot from the Commons, takes a starter home, and finds
 }) => {
   const errors = watchErrors(page, { console: "none" });
   await page.goto("/world");
-  await page.fill("#join-name", "Juniper");
+  await page.fill("#join-name", "Linden");
   await page.click("#join-color button[data-value=sun]");
   await page.click("#world-join button[type=submit]");
   await expect(page.locator("#hud")).toBeVisible();
@@ -93,7 +93,7 @@ test("a newcomer claims a plot from the Commons, takes a starter home, and finds
     await page.screenshot({ path: "test-results/claim-home.png" });
     const r = await me();
     expect(r.hearth).toEqual({ x: r.x, y: r.y });
-    await name.locator("#plot-name-input").fill("Juniper's Lemon Grove");
+    await name.locator("#plot-name-input").fill("Linden's Lemon Grove");
     await name.locator("#plot-name-save").click();
     await expect(name).toBeHidden();
   });

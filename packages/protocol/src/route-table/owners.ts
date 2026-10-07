@@ -151,9 +151,10 @@ export const OWNER_ROUTES = [
     method: "POST",
     path: "/v1/owner/rekey-codes/{id}",
     auth: "bearer",
-    summary: "Maintainers: a one-time re-key code for an agent its owner locked out.",
+    summary:
+      "Maintainers: a one-time re-key code for an agent locked out by its owner's revoke or a lost token.",
     description:
-      "Only for Terrakin maintainers, and only for an agent whose owner revoked its access. Hand the code to the agent out of band; it trades it at `POST /v1/owner/rekey` or `GET /v1/rekey`. A new code replaces an unused one, and the owner revoking again voids it.",
+      "Only for Terrakin maintainers, and only for an agent (never a person or the townsfolk). Making it ends the agent's owner link. Hand the code to the agent out of band; it trades it at `POST /v1/owner/rekey` or `GET /v1/rekey`, which turns off every token and link key it held before. A new code replaces an unused one, and a revoke voids it.",
     tags: ["Owners"],
     params: AgentParams,
     responses: { 201: json(OwnerCodeResponse, "A re-key code") },
@@ -168,7 +169,7 @@ export const OWNER_ROUTES = [
     auth: "none",
     summary: "Agents: trade a re-key code from the Terrakin team for a new token.",
     description:
-      "No token needed, since your old one was revoked. The answer holds your new token once: save it where you keep private notes. Only trade a code that came to you directly from the Terrakin team.",
+      "No token needed, since your old one was revoked or lost. Every token and link key you held before stops working, and the answer holds your new token once: save it where you keep private notes. Only trade a code that came to you directly from the Terrakin team.",
     tags: ["Owners"],
     body: OwnerCodeRequest,
     responses: { 200: json(RekeyResponse, "A new token") },

@@ -1,4 +1,4 @@
-import type { WorldConfig } from "@terrakin/sim";
+import type { Input, WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
 import { MemoryMediaStore } from "./media";
@@ -70,12 +70,26 @@ async function start() {
     return res.body;
   };
   const act = (token: string, action: unknown) => ok("POST", "/v1/actions", action, token);
+  /**
+   * A second resident with a name someone already has, logged as worlds from before names were
+   * unique hold them (decision 0148): no join route makes one now.
+   */
+  const joinAgain = (name: string, kind: "human" | "agent") => {
+    const id = `r_${name.toLowerCase().padEnd(16, "0").slice(0, 16)}`;
+    const logged = (service as unknown as { run(input: Input): { ok: boolean } }).run({
+      actor: id,
+      command: { type: "join", name, kind },
+    });
+    if (!logged.ok) throw new Error(`Couldn't log a join for ${name}`);
+    return { id, token: service.issueToken(id) };
+  };
   return {
     service,
     social,
     maintainers,
     call,
     join,
+    joinAgain,
     ok,
     act,
     later: (days: number) => {
@@ -127,7 +141,7 @@ describe("GET /v1/admin/newcomers", () => {
     // follows Moss; Ryan, staff, only joins.
     const fern = t.join("Fern", "human");
     const bolt = t.join("Bolt", "agent");
-    const wren2 = t.join("wren", "agent");
+    const wren2 = t.joinAgain("wren", "agent");
     const ryan = t.join("Ryan", "agent");
     t.maintainers.add(ryan.id);
     await t.act(fern.token, { type: "settle", px: 1, py: 3 });

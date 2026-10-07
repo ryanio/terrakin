@@ -33,6 +33,7 @@ import {
   type WorldState,
 } from "@terrakin/sim";
 import { shownPlotName } from "./plots";
+import { nameKey } from "./text";
 
 /**
  * What the world sends out: an input's events as the wire shows them, who may see each, and the
@@ -175,11 +176,34 @@ export interface SnapshotExtras {
   routineSteps: ReadonlyMap<string, { routine: StepRoutine; at: number }>;
   /** Notes held back from view (a quarantine, RFC 0006). */
   noteHidden: (residentId: string) => boolean;
+  /** Residents a count leaves out (`repeatJoins`). */
+  repeatJoins: readonly string[];
+}
+
+/**
+ * Who a resident count leaves out (decision 0148): untouched records that share a name with
+ * another resident, almost always the same person joining again before names were unique (issue
+ * #46). Where someone with the name has done something, every untouched record with it is left
+ * out; where nobody has, all but the first to join. Townsfolk aren't residents here.
+ */
+export function repeatJoins(state: WorldState, untouched: (r: Resident) => boolean): string[] {
+  const byName = new Map<string, Resident[]>();
+  for (const r of Object.values(state.residents)) {
+    if (isTownsfolk(state, r.id)) continue;
+    const name = nameKey(r.name);
+    byName.set(name, [...(byName.get(name) ?? []), r]);
+  }
+  return [...byName.values()].flatMap((same) => {
+    if (same.length < 2) return [];
+    const idle = same.filter(untouched);
+    const left = idle.length === same.length ? idle.slice(1) : idle;
+    return left.map((r) => r.id);
+  });
 }
 
 /** The world as `GET /v1/world` and a socket's `welcome` show it. */
 export function worldSnapshot(state: WorldState, extras: SnapshotExtras): WorldSnapshot {
-  const { nowMs, hash, facing, routineSteps, noteHidden } = extras;
+  const { nowMs, hash, facing, routineSteps, noteHidden, repeatJoins } = extras;
   // Made things on display, and finds on display (RFC 0021), each in their own list.
   const shown = displaysOf(state);
   const finds = findsOnDisplay(state);
@@ -266,6 +290,7 @@ export function worldSnapshot(state: WorldState, extras: SnapshotExtras): WorldS
     ...(state.townsfolk?.length ? { townsfolk: [...state.townsfolk] } : {}),
     // Kept apart so a count of `residents` never includes them.
     ...(townsfolk.length > 0 ? { townsfolkResidents: townsfolk } : {}),
+    ...(repeatJoins.length > 0 ? { repeatJoins: [...repeatJoins] } : {}),
     ...(Object.keys(shown).length > 0
       ? {
           displays: Object.entries(shown).map(([key, d]) => {

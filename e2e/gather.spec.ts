@@ -35,7 +35,7 @@ test("tap a pickup within reach and find it in your things; on someone else's pl
     .sort((a, b) => b.n - a.n);
 
   await test.step("tap a fallen branch or a loose stone and find it in your things", async () => {
-    const ash = await join(page.request, "Ash");
+    const ash = await join(page.request, "Aspen");
     let home: { px: number; py: number } | undefined;
     for (const p of plots.slice(0, 5)) {
       if ((await act(page.request, ash.token, { type: "settle", px: p.px, py: p.py })).ok) {
@@ -87,7 +87,7 @@ test("tap a pickup within reach and find it in your things; on someone else's pl
   await test.step("a pickup on someone else's plot says whose it is instead of walking there", async () => {
     // Ash settles a plot with pickups and gives it up again, standing in the middle of it; Bo
     // settles it. Ash now stands on Bo's plot, with Bo's pickups all around.
-    const ash = await join(page.request, "Ash");
+    const ash = await join(page.request, "Heather");
     const bo = await join(page.request, "Bo");
     let plot: { px: number; py: number } | undefined;
     for (const p of plots.slice(0, 8)) {
@@ -214,7 +214,7 @@ test("tap a pickup within reach and find it in your things; on someone else's pl
       (p) => finds.has(p.kind) && !claimed.has(plotOf(p)),
     );
     expect(now.findsOpen).toBe(true);
-    const fern = await join(page.request, "Fern");
+    const fern = await join(page.request, "Frond");
     let target: Pickup | undefined;
     for (const p of lying) {
       const [px, py] = plotOf(p).split(",").map(Number);

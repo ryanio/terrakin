@@ -61,13 +61,18 @@ const stacks = values.stacks
       }),
     )
   : undefined;
-const name = values.name ?? `${preset[0]?.toUpperCase()}${preset.slice(1)} ${Date.now() % 1000}`;
+// Names are unique on a server (decision 0148), so a default name carries a number, and so does
+// the AI a preset brings along, so a second run on the same dev server still works.
+const suffix = Date.now() % 1000;
+const name = values.name ?? `${preset[0]?.toUpperCase()}${preset.slice(1)} ${suffix}`;
+const presetAgent = (PRESETS[preset] as { agent?: string }).agent;
+const agent = values.agent ?? (presetAgent ? `${presetAgent} ${suffix}` : undefined);
 const spec: PersonaSpec = {
   name,
   ...(values.coins ? { coins: Number(values.coins) } : {}),
   ...(stacks ? { stacks } : {}),
   ...(values.staff ? { staff: true } : {}),
-  ...(values.agent ? { agent: values.agent } : {}),
+  ...(agent ? { agent } : {}),
   ...(values.kind === "agent" || values.kind === "human" ? { kind: values.kind } : {}),
 };
 

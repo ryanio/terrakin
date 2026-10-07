@@ -29,7 +29,7 @@ test("lay a path and place a table you made, from the build bar's tabs", async (
     .map(([px, py]) => ({ px, py, wood: branches(px, py) }))
     .filter((p) => p.wood.length >= 3)
     .sort((a, b) => b.wood.length - a.wood.length);
-  const wren = await join(page.request, "Wren");
+  const wren = await join(page.request, "Bracken");
   let home: (typeof plots)[number] | undefined;
   for (const p of plots.slice(0, 5)) {
     if ((await act(page.request, wren.token, { type: "settle", px: p.px, py: p.py })).ok) {

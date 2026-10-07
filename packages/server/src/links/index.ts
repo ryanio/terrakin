@@ -8,6 +8,7 @@ import { type LinkRouteId, linkCtx } from "./shared";
 import { socialLinks } from "./social";
 import { worldLinks } from "./world";
 
+export { joinFields } from "./keys";
 export {
   BAD_LINK_KEY,
   DEFAULT_ORIGIN,

@@ -18,7 +18,7 @@ test("a resident reports a post from a phone, and a maintainer hides it and dele
 
   const author = await join(page.request, "Pebble");
   const reporter = await join(page.request, "Quill");
-  const maintainer = await join(page.request, "Marlo");
+  const maintainer = await join(page.request, "Marlow");
   // The test server's hook: resident ids are random, so the suite names its maintainer here.
   const grant = await page.request.post("/v1/test/maintainer", {
     data: { residentId: maintainer.id },
@@ -81,11 +81,11 @@ test("a resident reports a post from a phone, and a maintainer hides it and dele
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page.locator(".state-card")).toContainText("Only Terrakin's maintainers");
 
-  // Marlo is, and hides the post with a reason.
+  // Marlow is, and hides the post with a reason.
   await page.getByRole("button", { name: "Use another token" }).click();
   await tokenField.fill(maintainer.token);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(page.locator(".who")).toHaveText("Marlo, maintainer");
+  await expect(page.locator(".who")).toHaveText("Marlow, maintainer");
   const item = page.locator(`article.item[data-id="${post.id}"]`);
   await expect(item).toContainText("Cheap lanterns, ask me how");
   await expect(item).toContainText("Spam · from Quill");
@@ -121,7 +121,7 @@ test("a resident reports a post from a phone, and a maintainer hides it and dele
   const entry = page.locator(".log-entry").filter({ hasText: post.id }).first();
   await expect(entry).toContainText("Hid a post");
   await expect(entry).toContainText("Spam ad");
-  await expect(entry).toContainText("Marlo");
+  await expect(entry).toContainText("Marlow");
 
   // What the townsfolk are doing: chatter's state, today, and the latest. Chatter has no key here,
   // so it says it's off and shows nothing yet.

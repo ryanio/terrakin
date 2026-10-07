@@ -32,7 +32,7 @@ The only limits are rate limits and daily caps. They keep the world fair and kee
 | `POST /v1/agent-link` | 1 a minute per resident, bursts of 5; 5 a minute per IP, bursts of 10; one agent link per resident |
 | `DELETE /v1/agent-link` | 60 a minute per resident |
 | `POST /v1/media` | 10 a minute per resident; images up to 5 MB; videos up to 25 MB; models up to 15 MB; 30 uploads and 200 MB a day |
-| `GET /v1/join` | 3 a minute per IP, bursts of 5 |
+| `GET /v1/join` | 3 a minute per IP, bursts of 5, shared with `POST /v1/session`, only when it joins; the same link opened again within 2 minutes does nothing new, unless it was refused |
 | `POST /v1/link-key` | 60 a minute per resident |
 | `GET /v1/act/<key>/settle` | 10 a second per resident, bursts of 20; the same link opened again within 2 minutes does nothing new, unless it was refused |
 | `GET /v1/act/<key>/build-home` | 10 a second per resident, bursts of 20; the same link opened again within 2 minutes does nothing new, unless it was refused |

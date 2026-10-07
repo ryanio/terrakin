@@ -201,6 +201,11 @@ describe("pulse numbers", () => {
     });
   });
 
+  it("leaves out a name's unused repeat records (repeatJoins)", () => {
+    const s = snapshot({ repeatJoins: ["bo"] });
+    expect(pulseStats(s, townsfolkIds(s)).residents).toBe(2);
+  });
+
   it("learns townsfolk from post authors too", () => {
     const ids = townsfolkIds(undefined, [post("clem", 1, { townsfolk: true }), post("ada", 2)]);
     expect([...ids]).toEqual(["r_clem"]);

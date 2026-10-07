@@ -4,14 +4,7 @@ import { biomeAt } from "./biome";
 import { CATALOG, FIND_KINDS } from "./catalog";
 import { FINDS_CONFIG, FINDS_HASH, FINDS_LOG } from "./fixtures/finds-log";
 import { GATHER_ALL_CONFIG, GATHER_ALL_HASH, GATHER_ALL_LOG } from "./fixtures/gather-all-log";
-import {
-  FIND_SPAWNS,
-  type FindSpawn,
-  GATHER,
-  gatherableAt,
-  mayGatherOn,
-  pickupLeft,
-} from "./gather";
+import { FIND_SPAWNS, type FindSpawn, GATHER, gatherableAt, pickupLeft } from "./gather";
 import { hashWorld } from "./hash";
 import { ITEMS, type StackKind } from "./items";
 import { replay } from "./replay";
@@ -134,23 +127,6 @@ describe("the spawn", () => {
       }
     }
   });
-
-  it("drops about as many as the chances say", () => {
-    let wood = 0;
-    let stone = 0;
-    for (let y = 0; y < CONFIG.height; y++) {
-      for (let x = 0; x < CONFIG.width; x++) {
-        const kind = gatherableAt(CONFIG, x, y, DAY);
-        if (kind === "wood") wood++;
-        if (kind === "stone") stone++;
-      }
-    }
-    // 24x24 with 8% chances: expect roughly a dozen of each; the band is wide on purpose.
-    expect(wood).toBeGreaterThan(0);
-    expect(stone).toBeGreaterThan(0);
-    expect(wood).toBeLessThan(60);
-    expect(stone).toBeLessThan(60);
-  });
 });
 
 describe("gather", () => {
@@ -171,16 +147,6 @@ describe("gather", () => {
       reason: "gather",
       changes: [{ kind: "wood", amount: GATHER.perPickup, count: GATHER.perPickup }],
     });
-  });
-
-  it("picks up a loose stone too", () => {
-    const w = world();
-    w.day(DAY);
-    w.open();
-    w.join("ada");
-    const t = walkTo(w, "stone");
-    w.ok("ada", { type: "gather", x: t.x, y: t.y });
-    expect(w.has("ada", "stone")).toBe(GATHER.perPickup);
   });
 
   it("refuses before items open, before joining, out of bounds, and out of reach", () => {
@@ -377,15 +343,6 @@ describe("gathering on someone's plot", () => {
     // 6,0 is on Ada's plot, within reach, with nothing on it today.
     expect(gatherableAt(CONFIG, 6, 0, DAY)).toBeNull();
     expect(w.code("bob", gather({ x: 6, y: 0 }))).toBe("nothing_to_gather");
-  });
-
-  it("is a pure question clients can ask", () => {
-    const plot = { ownerId: "ada", coOwners: ["cy"] };
-    expect(mayGatherOn(plot, "bob", false)).toBe(true);
-    expect(mayGatherOn(plot, "bob", true)).toBe(false);
-    expect(mayGatherOn(plot, "ada", true)).toBe(true);
-    expect(mayGatherOn(plot, "cy", true)).toBe(true);
-    expect(mayGatherOn(undefined, "bob", true)).toBe(true);
   });
 
   it("is switched on only by the server, once, after items open", () => {

@@ -109,6 +109,7 @@ import { type PlotViewer, shownPlotName } from "./plots";
 import { RateLimiters } from "./rate-limit";
 import { type Routines, type RoutinesRun, runRoutines } from "./routines";
 import type { SocialService } from "./social-service";
+import { keyAllows, keyedActor, STAFF_KEY_PREFIX, staffOwner } from "./staff-keys";
 import { count, crumb, nameRequest, report, span, task } from "./telemetry";
 import { anchorPlot, suggestPlots } from "./together";
 import type { LessonsRun, TownsfolkLessons } from "./townsfolk-lessons";
@@ -499,7 +500,7 @@ export class Api {
       return render(route, fail(why.code, why.message));
     }
     if (route.auth === "staff") {
-      const staff = this.staffFor(req);
+      const staff = this.staffFor(req, route);
       if ("error" in staff) return render(route, staff);
       return this.run(match, req, staff.actor, origin);
     }
@@ -538,7 +539,8 @@ export class Api {
 
     // Suspended residents can read but not write; a resident whose writes the filters paused waits.
     if (viewer && isWriteRoute(route)) {
-      const blocked = this.writeBlock(viewer);
+      // A staff key writes as its maker, so their suspension or cool-down holds it too.
+      const blocked = this.writeBlock(staffOwner(viewer));
       if (blocked) return reject(blocked.error, blocked.message, blocked.retryAfter);
     }
 
@@ -1290,7 +1292,7 @@ export class Api {
    * Cloudflare Access set up, only a verified Access sign-in counts; without it, a maintainer's or
    * moderator's token.
    */
-  private staffFor(req: ApiRequest): { actor: string } | Failure {
+  private staffFor(req: ApiRequest, route: RouteSpec): { actor: string } | Failure {
     // Cross-site request forgery: Access signs staff in with a cookie, which a browser would send
     // along from any page. Refuse anything a browser marks cross-site, any Origin but the admin
     // site's own, and writes that aren't JSON (a form can't send JSON without a preflight).
@@ -1306,6 +1308,36 @@ export class Api {
         "bad_request",
         "Send staff actions as JSON, with Content-Type: application/json.",
       );
+    }
+    // A staff key (RFC 0026): its maker, within the key's scope and their role now. It works on
+    // any host, Access or not, since an AI can't sign in through Access.
+    const sent = bearerToken(req.authorization);
+    if (sent?.startsWith(STAFF_KEY_PREFIX)) {
+      const key = this.social?.staffKeys.find(sent);
+      if (!key) {
+        return fail(
+          "unauthorized",
+          "That staff key doesn't work: it's unknown, expired, or revoked. Its maker can make a new one in the staff app.",
+        );
+      }
+      // With Access on, a resident token never counts as staff (decision 0040), so neither does a
+      // key one made.
+      if (this.staffOptions.access && !key.owner.startsWith("access:")) {
+        return fail(
+          "forbidden",
+          "This key was made without a Cloudflare Access sign-in. Make a new one signed in through Access.",
+        );
+      }
+      if (!this.staffRole(key.owner)) {
+        return fail("forbidden", "Whoever made this key isn't Terrakin staff anymore.");
+      }
+      if (!keyAllows(key.scope, route)) {
+        return fail(
+          "forbidden",
+          `This key's scope (${key.scope}) doesn't cover that. Its maker can make one that does.`,
+        );
+      }
+      return { actor: keyedActor(key.owner, key.id) };
     }
     const actor = this.staffOptions.access
       ? req.staffEmail
@@ -1348,7 +1380,8 @@ export class Api {
   }
 
   /** A staff member's role: by Access email, or by resident id from the server's grants. */
-  staffRole(actor: string): StaffRole | undefined {
+  staffRole(keyed: string): StaffRole | undefined {
+    const actor = staffOwner(keyed);
     if (actor.startsWith("access:")) {
       const email = actor.slice("access:".length);
       if (this.staffOptions.maintainerEmails?.has(email)) return "maintainer";
@@ -1365,7 +1398,8 @@ export class Api {
    * id when they signed in with a resident token, else the one `TERRAKIN_STAFF_RESIDENTS` maps
    * their Access email to, else none.
    */
-  staffResident(actor: string): string | undefined {
+  staffResident(keyed: string): string | undefined {
+    const actor = staffOwner(keyed);
     if (!actor.startsWith("access:")) return actor;
     return this.staffOptions.staffResidents?.get(actor.slice("access:".length));
   }

@@ -55,6 +55,13 @@ export function tokenFailure(
         "Missing token. Send the token you got when you joined, as Authorization: Bearer <token>.",
     };
   }
+  if (token.startsWith("tks_")) {
+    return {
+      code: "unauthorized",
+      message:
+        "That's a staff key. It works only on the staff routes, /v1/admin/..., never as a resident's token.",
+    };
+  }
   if (look.peek(token)?.as === "linkKey") {
     return {
       code: "unauthorized",

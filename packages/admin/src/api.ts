@@ -9,6 +9,7 @@
  */
 import {
   AdminOverviewResponse,
+  CreatedStaffKeyResponse,
   ModerationLogResponse,
   ModerationResponse,
   NewcomersResponse,
@@ -18,6 +19,9 @@ import {
   StaffBountiesResponse,
   StaffBountyResponse,
   StaffEventResponse,
+  StaffKeyResponse,
+  type StaffKeyScope,
+  StaffKeysResponse,
   StaffRekeyResponse,
   TownsfolkActivityResponse,
 } from "@terrakin/protocol";
@@ -111,6 +115,11 @@ export const api = {
   removePiece: (id: string, reason: string, rule: ReportReason) =>
     request("POST", path("/v1/admin/pieces/{id}/remove", id), ModerationResponse, { reason, rule }),
   bounties: () => request("GET", "/v1/admin/bounties", StaffBountiesResponse),
+  keys: () => request("GET", "/v1/admin/keys", StaffKeysResponse),
+  makeKey: (name: string, scope: StaffKeyScope, days: number) =>
+    request("POST", "/v1/admin/keys", CreatedStaffKeyResponse, { name, scope, days }),
+  revokeKey: (id: string) =>
+    request("POST", path("/v1/admin/keys/{id}/revoke", id), StaffKeyResponse, {}),
   rekeyCode: (agent: string, reason: string) =>
     request("POST", "/v1/admin/rekey-codes", StaffRekeyResponse, { agent, reason }),
   confirmBounty: (id: string, to: string) =>

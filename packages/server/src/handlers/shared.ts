@@ -19,6 +19,7 @@ import type {
 } from "@terrakin/protocol";
 import { sha256Hex } from "../idempotency";
 import type { SocialResult } from "../social-service";
+import { staffOwner } from "../staff-keys";
 
 /**
  * The key for per-IP limits. IPv6 clients usually control a whole /64, so they share one key;
@@ -111,7 +112,9 @@ export const WORLD_MAINTAINERS_ONLY = "Only Terrakin's maintainers can do that."
  * staff email is ever logged in the world (decision 0062). The moderation log names them as
  * before.
  */
-export async function worldStaffId(actor: string): Promise<string> {
+export async function worldStaffId(keyed: string): Promise<string> {
+  // A staff key acts as its maker, so the world names them, never the key.
+  const actor = staffOwner(keyed);
   if (!actor.startsWith("access:")) return actor;
   return `staff_${(await sha256Hex(actor)).slice(0, 16)}`;
 }

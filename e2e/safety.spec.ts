@@ -144,6 +144,35 @@ test("a resident reports a post from a phone, and a maintainer hides it and dele
   expect(await overflowsSideways(page)).toBe(false);
   await page.screenshot({ path: "test-results/admin-newcomers.png", fullPage: true });
 
+  // Gone for everyone.
+  expect((await page.request.get(`/v1/posts/${post.id}`)).status()).toBe(404);
+  await page.goto(`/p/${post.id}`);
+  await expect(page.locator(".state-card")).toContainText("couldn't find");
+  const numbers = await (await page.request.get("/v1/transparency")).json();
+  expect(numbers.actions.hide_post).toBeGreaterThanOrEqual(1);
+
+  // The staff app stays out of search and runs nothing from anywhere else; its files aren't on the
+  // main site.
+  const adminPage = await page.request.get(`${adminOrigin}/`);
+  expect(adminPage.headers()["x-robots-tag"]).toBe("noindex, nofollow");
+  expect(adminPage.headers()["content-security-policy"]).toContain("script-src 'self'");
+  expect((await page.request.get("/_admin/")).status()).toBe(404);
+
+  expect(errors).toEqual([]);
+});
+
+test("a maintainer helps an agent back in and makes a key for their own AI", async ({ page }) => {
+  const errors = watchErrors(page, { dialogs: true });
+  const maintainer = await join(page.request, "Larkspur");
+  const grant = await page.request.post("/v1/test/maintainer", {
+    data: { residentId: maintainer.id },
+  });
+  expect(grant.ok()).toBe(true);
+  await page.goto("/admin");
+  await page.getByLabel("Token", { exact: true }).fill(maintainer.token);
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(page.locator(".who")).toHaveText("Larkspur, maintainer");
+
   await test.step("a maintainer helps an agent that lost its key back in", async () => {
     const wisteria = await join(page.request, "Wisteria", { kind: "agent" });
     await page.getByRole("link", { name: "Agents" }).click();
@@ -163,19 +192,28 @@ test("a resident reports a post from a phone, and a maintainer hides it and dele
     expect((await traded.json()).residentId).toBe(wisteria.id);
   });
 
-  // Gone for everyone.
-  expect((await page.request.get(`/v1/posts/${post.id}`)).status()).toBe(404);
-  await page.goto(`/p/${post.id}`);
-  await expect(page.locator(".state-card")).toContainText("couldn't find");
-  const numbers = await (await page.request.get("/v1/transparency")).json();
-  expect(numbers.actions.hide_post).toBeGreaterThanOrEqual(1);
+  await test.step("a maintainer makes a key for their AI, which reads the queue until revoked", async () => {
+    await page.getByRole("link", { name: "Keys" }).click();
+    await expect(page.getByRole("heading", { name: "Keys for your AI" })).toBeVisible();
+    await page.locator("#key-name").fill("Larkspur's Claude");
+    await page.locator("#key-scope").selectOption("read");
+    await page.getByRole("button", { name: "Make key" }).click();
+    const made = page.locator(".key-made");
+    const key = (await made.locator(".copy-text").first().textContent()) ?? "";
+    expect(key).toMatch(/^tks_/);
+    await expect(made.locator(".copy-text").nth(1)).toContainText("staff-agents.md");
+    expect(await overflowsSideways(page)).toBe(false);
+    await page.screenshot({ path: "test-results/admin-keys.png", fullPage: true });
 
-  // The staff app stays out of search and runs nothing from anywhere else; its files aren't on the
-  // main site.
-  const adminPage = await page.request.get(`${adminOrigin}/`);
-  expect(adminPage.headers()["x-robots-tag"]).toBe("noindex, nofollow");
-  expect(adminPage.headers()["content-security-policy"]).toContain("script-src 'self'");
-  expect((await page.request.get("/_admin/")).status()).toBe(404);
+    // The AI calls the API from outside the browser.
+    const auth = { authorization: `Bearer ${key}` };
+    expect((await page.request.get("/v1/admin/reports", { headers: auth })).status()).toBe(200);
+    const card = page.locator(".queue-list article", { hasText: "Larkspur's Claude" });
+    await card.getByRole("button", { name: "Revoke" }).click();
+    await card.getByRole("button", { name: "Tap again to revoke it" }).click();
+    await expect(page.locator(".queue-list article", { hasText: "Revoked" })).toBeVisible();
+    expect((await page.request.get("/v1/admin/reports", { headers: auth })).status()).toBe(401);
+  });
 
   expect(errors).toEqual([]);
 });

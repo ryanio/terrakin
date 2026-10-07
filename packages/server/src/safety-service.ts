@@ -31,6 +31,7 @@ import { aimedAtReader, readerMessage } from "./injection";
 import type { Moderation } from "./moderation";
 import type { SocialResult } from "./social-service";
 import type { SqlExec } from "./sql-store";
+import { staffKeyId, staffOwner } from "./staff-keys";
 import { cleanMultiline } from "./text";
 import type { RawVerdict, TriageClient } from "./triage";
 
@@ -44,6 +45,8 @@ import type { RawVerdict, TriageClient } from "./triage";
 export interface SafetyOptions {
   sql: SqlExec;
   now: () => number;
+  /** A staff key's name by id, for log lines its maker's AI wrote with it (RFC 0026). */
+  staffKeyName?: (id: string) => string | undefined;
   resident: (id: string) => Resident | undefined;
   author: (id: string) => AuthorView | undefined;
   /** Maintainers and moderators: they can't be suspended or quarantined through the API. */
@@ -934,7 +937,7 @@ export class SafetyService {
     reason: string,
   ): SocialResult<ModerationLogEntry> {
     if (!this.o.resident(residentId)) return fail("not_found", "No such resident.");
-    if (residentId === by) return fail("bad_request", "You can't suspend yourself.");
+    if (residentId === staffOwner(by)) return fail("bad_request", "You can't suspend yourself.");
     if (this.o.cannotBeSuspended(residentId)) {
       return fail(
         "bad_request",
@@ -1328,7 +1331,9 @@ export class SafetyService {
     const page = rows.slice(0, size);
     const entries: ModerationLogView[] = page.map((row) => {
       const until = row.until === null || row.until === undefined ? undefined : Number(row.until);
-      const actor = String(row.actor);
+      // A staff key's line names its maker as the actor and the key as `via`.
+      const actor = staffOwner(String(row.actor));
+      const keyId = staffKeyId(String(row.actor));
       return {
         action: String(row.action) as ModerationAction,
         kind: String(row.kind) as ReportKind,
@@ -1339,6 +1344,7 @@ export class SafetyService {
         ...(isReason(row.rule) ? { rule: row.rule } : {}),
         actor,
         actorView: this.o.author(actor) ?? null,
+        ...(keyId === undefined ? {} : { via: this.o.staffKeyName?.(keyId) ?? "a staff key" }),
       };
     });
     const last = page.at(-1);

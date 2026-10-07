@@ -4,10 +4,11 @@ import "@fontsource-variable/fraunces";
 import "@fontsource-variable/figtree";
 import type { AdminOverviewResponse } from "@terrakin/protocol";
 import { h } from "@terrakin/ui/dom";
-import { stateCard } from "@terrakin/ui/ui";
+import { moreMenu, stateCard } from "@terrakin/ui/ui";
 import { agentsView } from "./agents-view";
 import { api, SIGNED_OUT_EVENT, savedToken, saveToken } from "./api";
 import { bountiesView } from "./bounties-view";
+import { keysView } from "./keys-view";
 import { logView } from "./log-view";
 import { pathFor, type Screen, screenFor, screensFor } from "./logic";
 import { newcomersView } from "./newcomers-view";
@@ -63,18 +64,28 @@ function paintTop(screen: Screen | undefined) {
     return;
   }
   const { me } = overview;
+  // Signing out is rare, so it waits in a small "…" menu instead of a big button in the bar.
   const signOut =
     me.via === "access"
       ? h("a", {
-          class: "pill-button small",
+          class: "menu-item calm",
           attrs: { href: "/cdn-cgi/access/logout" },
           text: "Sign out",
         })
-      : button("Forget token", () => {
-          saveToken(undefined);
-          overview = undefined;
-          signIn();
+      : h("button", {
+          class: "menu-item calm",
+          attrs: { type: "button" },
+          text: "Forget token",
+          on: {
+            click: () => {
+              saveToken(undefined);
+              overview = undefined;
+              signIn();
+            },
+          },
         });
+  const account = moreMenu({ id: "staff-account", items: [signOut], className: "top-more" });
+  account.el.querySelector("button")?.setAttribute("aria-label", "Account");
   top.replaceChildren(
     h(
       "div",
@@ -86,7 +97,7 @@ function paintTop(screen: Screen | undefined) {
         actorName({ actor: me.actor, actorView: me.resident ?? null }),
         `, ${me.role}`,
       ),
-      signOut,
+      account.el,
     ),
     h(
       "nav",
@@ -103,6 +114,7 @@ const SCREEN_NAMES: Record<Screen, string> = {
   newcomers: "Newcomers",
   bounties: "Bounties",
   agents: "Agents",
+  keys: "Keys",
 };
 
 function route() {
@@ -124,7 +136,9 @@ function route() {
             ? bountiesView(overview)
             : screen === "agents"
               ? agentsView()
-              : queueView(overview);
+              : screen === "keys"
+                ? keysView(overview)
+                : queueView(overview);
   main.replaceChildren(view.el);
   main.focus({ preventScroll: true });
   window.scrollTo(0, 0);

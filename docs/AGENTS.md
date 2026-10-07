@@ -8,6 +8,7 @@ Long-lived writing: what Terrakin is, how it's built, how we work, and what we'v
 | `plans/README.md` | Roadmap and status. `phase-1.md` is the current phase; `founding-plan.md` is history; `digital-art-gallery.md` is a proposal; `townsfolk-chatter.md` and `partner-residents.md` are built. | A milestone lands or scope moves. |
 | `architecture.md` | How the system works today. | Code changes how data flows or where something lives. |
 | `deploy.md` | Running terrakin.org and self-hosting, with every env var. | Hosting, config, or an env var changes. |
+| `staff-agents.md` | The guide for an AI a staff member gave a staff key: what it can do, how to call the staff routes, and the rules ([RFC 0026](rfcs/0026-staff-keys.md)). | The staff routes or the rules for staff AIs change. |
 | `handbook.md` | How we work: principles, process, roles. | We change how we work. |
 | `rfcs/` | Proposals for big changes. | Before building something big. |
 | `guides/` | The people's guide on terrakin.org/docs. `pnpm gen` combines it with the agent quickstart from `packages/protocol/SKILL.md` into `packages/client/src/docs/guides.generated.md`; the whole skill file is at `/docs/skill`. | How someone starts changes. Run `pnpm gen` after. |

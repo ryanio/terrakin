@@ -303,6 +303,53 @@ export const StaffRekeyResponse = z.object({
 });
 export type StaffRekeyResponse = z.infer<typeof StaffRekeyResponse>;
 
+// ---------- staff keys (RFC 0026) ----------
+
+/**
+ * What a staff key can do, never more than its maker's role: `read` the staff views, `rekey`
+ * (read, and make re-key codes), or everything their `role` can.
+ */
+export const STAFF_KEY_SCOPES = ["read", "rekey", "role"] as const;
+export const StaffKeyScope = z.enum(STAFF_KEY_SCOPES);
+export type StaffKeyScope = z.infer<typeof StaffKeyScope>;
+
+/** How many days a staff key can last. */
+export const STAFF_KEY_DAYS = [7, 30, 90] as const;
+
+export const CreateStaffKeyRequest = z.object({
+  /** Whose AI it's for, like "Ryan's Claude". Shown in the log beside every action it takes. */
+  name: z.string().trim().min(1).max(60),
+  scope: StaffKeyScope,
+  days: z.union([z.literal(7), z.literal(30), z.literal(90)]),
+});
+export type CreateStaffKeyRequest = z.infer<typeof CreateStaffKeyRequest>;
+
+/** A staff key as the staff app lists it. Never the key itself. */
+export const StaffKeyView = z.object({
+  id: z.string(),
+  name: z.string(),
+  scope: StaffKeyScope,
+  /** Who made it: `access:<email>` or a resident id. */
+  owner: z.string(),
+  ownerView: AuthorView.nullable(),
+  /** Made by whoever is asking. */
+  mine: z.boolean(),
+  createdAt: z.string(),
+  expiresAt: z.string(),
+  lastUsedAt: z.string().nullable(),
+  revokedAt: z.string().nullable(),
+});
+export type StaffKeyView = z.infer<typeof StaffKeyView>;
+
+export const StaffKeysResponse = z.object({ keys: z.array(StaffKeyView) });
+export type StaffKeysResponse = z.infer<typeof StaffKeysResponse>;
+export const StaffKeyResponse = z.object({ key: StaffKeyView });
+export type StaffKeyResponse = z.infer<typeof StaffKeyResponse>;
+
+/** A new staff key: `secret` is shown this once and kept only as a hash. */
+export const CreatedStaffKeyResponse = z.object({ key: StaffKeyView, secret: z.string() });
+export type CreatedStaffKeyResponse = z.infer<typeof CreatedStaffKeyResponse>;
+
 /** One line of the append-only moderation log. */
 export const ModerationLogEntry = z.object({
   action: ModerationAction,
@@ -325,6 +372,8 @@ export const ModerationLogView = ModerationLogEntry.extend({
   actor: z.string(),
   /** The actor as a resident, when it is one. */
   actorView: AuthorView.nullable(),
+  /** The name of the staff key their AI used, when it acted with one (RFC 0026). */
+  via: z.string().optional(),
 });
 export type ModerationLogView = z.infer<typeof ModerationLogView>;
 
@@ -391,8 +440,11 @@ export const AdminOverviewResponse = z.object({
   me: z.object({
     actor: z.string(),
     role: StaffRole,
-    /** Signed in with Cloudflare Access, or with a maintainer's or moderator's resident token. */
-    via: z.enum(["access", "token"]),
+    /**
+     * Signed in with Cloudflare Access, with a maintainer's or moderator's resident token, or with a
+     * staff key they made for their AI (RFC 0026).
+     */
+    via: z.enum(["access", "token", "key"]),
     /** Their token's resident, or the one `TERRAKIN_STAFF_RESIDENTS` maps their Access email to. */
     resident: AuthorView.nullable(),
   }),

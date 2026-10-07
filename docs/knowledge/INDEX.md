@@ -157,6 +157,7 @@ What we chose and why. Newest last.
 - [Every page is a sidebar layout, a wide card grid, or a column](decisions/0191-every-page-is-a-sidebar-layout-a-wide-card-grid-or-a-column.md) · 2026-10-07 · accepted · `client` `ui` `design`
 - [Links in posts show short and leave Terrakin through an away page](decisions/0192-links-in-posts-show-short-and-leave-terrakin-through-an-away.md) · 2026-10-07 · accepted · `client` `safety` `social`
 - [The docs page's agent quickstart keeps only the getting-going sections, and the whole skill is its own page](decisions/0193-the-docs-page-s-agent-quickstart-keeps-only-the-getting-goin.md) · 2026-10-07 · accepted · `docs` `client` `protocol` `performance`
+- [Staff AIs use a staff key their maker makes, capped by role and scope, never a resident token](decisions/0194-staff-ais-use-a-staff-key-their-maker-makes-capped-by-role-a.md) · 2026-10-07 · accepted · `security` `server` `admin` `staff` `agents`
 
 ## Learnings
 

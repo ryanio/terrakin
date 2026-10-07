@@ -913,8 +913,14 @@ body {
   user-select: all;
 }
 
-.rekey-made .copy-line {
+.rekey-made .copy-line,
+.key-made .copy-line {
   margin: 0;
+}
+
+/* A revoked or expired key stays listed, quieter. */
+.key-over {
+  opacity: 0.6;
 }
 
 @media (min-width: 760px) {

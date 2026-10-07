@@ -75,6 +75,7 @@ import { PlotVisits } from "./plots";
 import { PraiseService } from "./praise";
 import { NOT_SUSPENDED, SafetyService } from "./safety-service";
 import type { SqlExec } from "./sql-store";
+import { StaffKeys } from "./staff-keys";
 import { stripMetadata } from "./strip-metadata";
 import { report } from "./telemetry";
 import { cleanMultiline, cleanText } from "./text";
@@ -561,9 +562,11 @@ export class SocialService {
       notify: (owner, patter, pet) => this.notify(owner, patter, "pet_pat", "", petDetail(pet)),
       patted: (owner) => this.onPetPatted?.(owner),
     });
+    this.staffKeys = new StaffKeys(this.sql, this.now);
     this.safety = new SafetyService({
       sql: this.sql,
       now: this.now,
+      staffKeyName: (id) => this.staffKeys.name(id),
       resident: this.resident,
       author: (id) => this.authorView(id),
       cannotBeSuspended: (id) => this.isMaintainer(id) || this.isModerator(id),
@@ -676,6 +679,8 @@ export class SocialService {
   readonly together: TogetherService;
   /** Reports, hiding, suspensions, and the moderation log (RFC 0006). Shares this service's tables. */
   readonly safety: SafetyService;
+  /** Keys staff make for their AIs to call the staff routes (RFC 0026). */
+  readonly staffKeys: StaffKeys;
   /** Praise (issue #36): once a UTC day per pair, a count on profiles, no economy. */
   readonly praise: PraiseService;
   /** Pats (RFC 0019): once a UTC day per pet, a count on its owner's profile, no economy. */

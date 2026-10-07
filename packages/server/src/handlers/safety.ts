@@ -22,7 +22,9 @@ import { madeThingForReport } from "../galleries";
 import { DEFAULT_ORIGIN } from "../links";
 import { newcomerFunnel, socialActors, thingHolders } from "../newcomers";
 import { reportable, type SnapshotHeader } from "../snapshots";
+import { staffKeyId, staffKeyView, staffOwner } from "../staff-keys";
 import { report } from "../telemetry";
+import { cleanText } from "../text";
 import { utcDay } from "../world-service";
 import {
   DAILY_CAP_RETRY_SECONDS,
@@ -61,14 +63,20 @@ export function safetyHandlers(api: Api): Pick<Handlers, AreaRouteIds["safety"]>
     getAdminOverview: ({ viewer }) => {
       const role = api.staffRole(viewer);
       if (!role) return fail("forbidden", STAFF_ONLY);
-      const via = viewer.startsWith("access:") ? ("access" as const) : ("token" as const);
+      const owner = staffOwner(viewer);
+      const via =
+        staffKeyId(viewer) !== undefined
+          ? ("key" as const)
+          : owner.startsWith("access:")
+            ? ("access" as const)
+            : ("token" as const);
       // An Access sign-in shows the resident it's mapped to, so staff can see the mapping took.
       const resident = api.staffResident(viewer);
       return {
         status: 200,
         body: {
           me: {
-            actor: viewer,
+            actor: owner,
             role,
             via,
             resident: resident === undefined ? null : (social().authorView(resident) ?? null),
@@ -294,6 +302,43 @@ export function safetyHandlers(api: Api): Pick<Handlers, AreaRouteIds["safety"]>
         });
       }
       return { status: 200, body: { logged: entry } };
+    },
+    // Staff keys (RFC 0026): a staff member's own, made and revoked signed in as themselves.
+    getStaffKeys: ({ viewer }) => {
+      const keys = social().staffKeys;
+      const rows = api.staffRole(viewer) === "maintainer" ? keys.list() : keys.list(viewer);
+      return {
+        status: 200,
+        body: {
+          keys: rows.map((r) => staffKeyView(r, viewer, social().authorView(r.owner) ?? null)),
+        },
+      };
+    },
+    createStaffKey: ({ viewer, body }) => {
+      // Its name shows in the log beside everything it does, so it's cleaned like residents' text.
+      const name = cleanText(body.name);
+      if (!name) return fail("bad_request", "Give the key a name, like Ryan's Claude.");
+      const { row, secret } = social().staffKeys.mint(viewer, name, body.scope, body.days);
+      return {
+        status: 201,
+        body: {
+          key: staffKeyView(row, viewer, social().authorView(row.owner) ?? null),
+          secret,
+        },
+      };
+    },
+    revokeStaffKey: ({ viewer, params }) => {
+      const keys = social().staffKeys;
+      const row = keys.row(params.id);
+      if (!row) return fail("not_found", "No staff key has that id.");
+      if (row.owner !== viewer && api.staffRole(viewer) !== "maintainer") {
+        return fail("forbidden", "Only its maker or a maintainer can revoke a staff key.");
+      }
+      const revoked = keys.revoke(params.id) ?? row;
+      return {
+        status: 200,
+        body: { key: staffKeyView(revoked, viewer, social().authorView(revoked.owner) ?? null) },
+      };
     },
     // An agent that lost its key, or was revoked, back in through the team (decision 0149). The
     // log keeps who, which agent, and why, never the code.

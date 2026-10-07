@@ -117,7 +117,14 @@ function entryRow(entry: ModerationLogView): HTMLElement {
         attrs: { title: fullDate(entry.at) },
       }),
     ),
-    h("p", { class: "log-meta" }, `${logTarget(entry)} · by `, actorName(entry)),
+    h(
+      "p",
+      { class: "log-meta" },
+      `${logTarget(entry)} · by `,
+      actorName(entry),
+      // Their AI acted, with the staff key they made for it (RFC 0026).
+      entry.via ? ` via ${entry.via}` : "",
+    ),
     entry.reason ? h("p", { class: "log-reason", text: entry.reason }) : null,
     notes.length
       ? h(

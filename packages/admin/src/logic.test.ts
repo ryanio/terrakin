@@ -16,6 +16,8 @@ import {
   gateWords,
   itemActions,
   itemTags,
+  keyMessage,
+  keyScopes,
   mainSite,
   modelName,
   NEWCOMER_ROWS,
@@ -525,6 +527,19 @@ describe("routes and links", () => {
     expect(pathFor("newcomers")).toBe("/newcomers");
     expect(screensFor("moderator")).toContain("newcomers");
     expect(screensFor("maintainer")).toContain("newcomers");
+  });
+
+  it("gives every staff role keys, offers only scopes within the role, and a message that pastes whole", () => {
+    expect(screenFor("/keys")).toBe("keys");
+    expect(screensFor("moderator")).toContain("keys");
+    expect(screensFor("maintainer")).toContain("keys");
+    expect(keyScopes("maintainer").map((s) => s.scope)).toEqual(["read", "rekey", "role"]);
+    // Only maintainers re-key agents, so a moderator's key isn't offered it.
+    expect(keyScopes("moderator").map((s) => s.scope)).toEqual(["read", "role"]);
+    const message = keyMessage("https://terrakin.org", "tks_abc", "read");
+    expect(message).toContain("Authorization: Bearer <the key>");
+    expect(message).toContain("tks_abc");
+    expect(message.split("\n\n").every((p) => p.length > 0 && !p.includes("\n"))).toBe(true);
   });
 
   it("shows the agents screen to maintainers only, with a message that pastes whole", () => {

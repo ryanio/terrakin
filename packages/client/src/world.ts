@@ -231,10 +231,10 @@ modeButton.hidden = !offer3d(signals);
 // ---------- landing ----------
 
 const landing = createLanding(curtain, {
-  onJoin({ name, color, shape, note }) {
+  onJoin(choice) {
     joiningFresh = true;
     landing.setJoining(true);
-    connect({ name, kind: "human", color, shape, ...(note ? { note } : {}) });
+    connect({ ...choice, kind: "human" });
   },
   async onRestore(key) {
     const who = await whoseKey(key);

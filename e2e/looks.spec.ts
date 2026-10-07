@@ -2,11 +2,55 @@ import { expect, test } from "@playwright/test";
 import { freePlots, join, overflowsSideways, settleFree, signIn, watchErrors } from "./support";
 
 /**
- * RFC 0005 looks: Capri loves lemons. She opens the look editor from her profile, picks the lemon
+ * RFC 0005 looks: a newcomer picks hair and a top at the door of the world (decision 0140) and
+ * wears them on the profile. Capri loves lemons. She opens the look editor from her profile, picks the lemon
  * theme, citrus slices, and a straw hat, saves, and sees it on her profile and in the world. Then
  * someone at 390x844 picks a color on the card, waits on an upload, puts their hair in a ginger
  * bun, and styles single garments: a citrus dress in sun yellow and striped socks.
  */
+
+test("a newcomer picks a ginger bun and a cardigan at the door, and wears them on the profile", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const errors = watchErrors(page);
+  await page.goto("/world");
+  await page.fill("#join-name", "Juniper");
+
+  // One screen on a phone: each row scrolls sideways rather than the page.
+  const hair = page.locator("#join-hair");
+  await hair.locator('[data-value="bun"]').click();
+  await expect(hair.locator('[data-value="bun"]')).toHaveAttribute("aria-pressed", "true");
+  await page.locator('#join-hair-color [data-value="ginger"]').click();
+  await page.locator('#join-top [data-value="cardigan"]').click();
+  await page.locator('#join-color [data-value="sky"]').click();
+  // The picture and its words follow every pick.
+  await expect(page.locator(".character-words")).toHaveText("Ginger bun, cardigan, in sky blue");
+  expect(await overflowsSideways(page)).toBe(false);
+  await page.locator(".character").screenshot({ path: "test-results/join-character.png" });
+
+  await page.click("#world-join button[type=submit]");
+  await expect(page.locator("#hud")).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => localStorage.getItem("terrakin.resident")))
+    .toMatch(/^r_/);
+  const id = await page.evaluate(() => localStorage.getItem("terrakin.resident"));
+
+  // The join carried the look: the world has it, and the profile draws and says it.
+  const world = await (await page.request.get("/v1/world")).json();
+  const me = world.residents.find((r: { id: string }) => r.id === id);
+  expect(me).toMatchObject({
+    color: "sky",
+    shape: "round",
+    hair: "bun",
+    hairColor: "ginger",
+    wear: ["cardigan"],
+  });
+  await page.goto(`/r/${id}`);
+  await expect(page.locator(".profile [data-look]")).toHaveText("Ginger bun · Cardigan");
+  await expect(page.locator(".profile .avatar.has-figure canvas")).toBeVisible();
+  expect(errors).toEqual([]);
+});
 
 test("pick lemon, citrus, and a straw hat, and see it on the profile and in the world", async ({
   page,
@@ -136,8 +180,9 @@ test("style a garment: a citrus dress in sun yellow and striped socks, keeping a
   // Hair: a style, then its color, which waits until there's a style to color.
   const hairColors = editor.locator(".look-hair-colors");
   await expect(hairColors).toBeHidden();
-  await editor.locator('[data-hair="bun"]').click();
-  await expect(editor.locator('[data-hair="bun"]')).toHaveAttribute("aria-pressed", "true");
+  const bun = editor.getByRole("group", { name: "Hair styles" }).locator('[data-value="bun"]');
+  await bun.click();
+  await expect(bun).toHaveAttribute("aria-pressed", "true");
   await hairColors.locator('[data-value="ginger"]').click();
 
   // Socks, then tap them again to style them: stripes.

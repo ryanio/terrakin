@@ -1327,10 +1327,8 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
           const made = await api.createSession({
             name: choice.name,
             kind: "human",
-            color: choice.color,
-            shape: choice.shape,
+            ...choice.look,
             ...(choice.note ? { note: choice.note } : {}),
-            ...(choice.theme ? { theme: choice.theme } : {}),
           });
           if (!made.ok) return made.message;
           saveToken(made.data.token, made.data.residentId);

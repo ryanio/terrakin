@@ -9,8 +9,6 @@ import {
   DEFAULT_HAIR_COLOR,
   FULL_LENGTH,
   type GarmentPattern,
-  HAIR_LABELS,
-  HAIR_STYLES,
   type HairColor,
   type HairStyle,
   isCostume,
@@ -54,7 +52,7 @@ import {
   whileBusy,
 } from "@terrakin/ui/ui";
 import { actProblem, api, uploadMedia } from "./api";
-import { colorChips, hairColorChips } from "./join-form";
+import { colorChips, hairChips, hairColorChips } from "./join-form";
 import { coins } from "./purse";
 
 export interface LookOwner {
@@ -295,40 +293,15 @@ export function openLookEditor(owner: LookOwner, onSaved: (look: LookView) => vo
   themeRow.append(themeButton(null), ...THEMES.map(themeButton));
 
   // ---- hair: a style, each chip showing you in it, then its color ----
-  const hairRow = h("div", {
-    class: "cluster look-chips",
-    attrs: { role: "group", "aria-label": "Hair styles" },
-  });
-  const hairButtons = new Map<HairStyle | null, HTMLButtonElement>();
-  const hairThumbs: { canvas: HTMLCanvasElement; style: HairStyle }[] = [];
-  const pickHair = (style: HairStyle | null) => {
-    draft.hair = style;
-    paint();
-  };
-  const noHair = h("button", {
-    class: "look-chip text",
-    attrs: { type: "button", "data-hair": "none" },
-    text: "None",
-    on: { click: () => pickHair(null) },
-  });
-  hairButtons.set(null, noHair);
-  hairRow.append(noHair);
-  for (const style of HAIR_STYLES) {
-    const canvas = h("canvas", { class: "look-chip-thumb", attrs: { "aria-hidden": "true" } });
-    hairThumbs.push({ canvas, style });
-    const b = h(
-      "button",
-      {
-        class: "look-chip",
-        attrs: { type: "button", "data-hair": style },
-        on: { click: () => pickHair(style) },
-      },
-      canvas,
-      h("span", { text: HAIR_LABELS[style] }),
-    );
-    hairButtons.set(style, b);
-    hairRow.append(b);
-  }
+  const hair = hairChips(
+    draft.hair,
+    (style) => {
+      draft.hair = style;
+      paint();
+    },
+    h("div", { class: "cluster look-chips" }),
+    { chip: "look-chip", none: "look-chip text" },
+  );
   const hairColors = hairColorChips(draft.hairColor ?? DEFAULT_HAIR_COLOR, (c) => {
     draft.hairColor = c;
     paint();
@@ -813,12 +786,8 @@ export function openLookEditor(owner: LookOwner, onSaved: (look: LookView) => vo
   // ---- paint everything from the draft ----
   function paint() {
     paintFigure(preview, figureLook(), 150, "full");
-    for (const [style, b] of hairButtons)
-      b.setAttribute("aria-pressed", String(style === draft.hair));
     // Each style on you, without a hat over it.
-    for (const t of hairThumbs) {
-      paintFigure(t.canvas, { ...figureLook(), wear: [], hair: t.style }, 28, "bust");
-    }
+    hair.paint(figureLook());
     hairColorBox.hidden = draft.hair === null;
     const color = draft.hairColor ?? DEFAULT_HAIR_COLOR;
     for (const b of hairColors.row.querySelectorAll<HTMLElement>("[data-value]"))
@@ -872,7 +841,7 @@ export function openLookEditor(owner: LookOwner, onSaved: (look: LookView) => vo
     "form",
     { class: "look-form", attrs: { novalidate: true } },
     section("Theme", "Colors for your clothes, your plot, and your blocks.", themeRow),
-    section("Hair", "A style, then its color. A hat sits on top.", hairRow, hairColorBox),
+    section("Hair", "A style, then its color. A hat sits on top.", hair.row, hairColorBox),
     section("Pattern", null, patternRow),
     section(
       "Wear",

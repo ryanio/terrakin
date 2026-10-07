@@ -422,7 +422,8 @@ body.in-world .veil {
   gap: var(--space-sm);
 }
 
-.swatch-row button {
+.swatch-row button,
+.pick-row button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -451,11 +452,71 @@ body.in-world .veil {
     inset 0 2px 3px rgba(255, 255, 255, 0.45);
 }
 
-.swatch-row button[aria-pressed="true"] {
+.swatch-row button[aria-pressed="true"],
+.pick-row button[aria-pressed="true"] {
   border-color: var(--clay);
   background: var(--pressed);
   color: var(--clay-deep);
   box-shadow: 0 0 0 3px rgba(242, 184, 75, 0.28);
+}
+
+/*
+ * The join form's character (join-form.ts): a picture of you and a line in words, over rows of
+ * chips. On a phone each row scrolls sideways, so the whole picker fits one screen.
+ */
+.character-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+}
+
+.character-figure {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 96px;
+  height: 96px;
+  border-radius: var(--r-card);
+  background: var(--paper-2);
+}
+
+.character-figure canvas {
+  width: 96px;
+  height: 96px;
+}
+
+.character-words {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  color: var(--ink-soft);
+}
+
+.character .swatches {
+  margin: 0;
+}
+
+/* Room around the chips for the picked one's ring, which the scrolling row would clip. */
+.pick-row {
+  display: flex;
+  gap: var(--space-sm);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  padding: var(--space-2xs);
+  margin: calc(var(--space-2xs) * -1);
+}
+
+.pick-row::-webkit-scrollbar {
+  display: none;
+}
+
+.pick-row button {
+  flex: none;
+  min-width: 44px;
+  padding: 0 var(--space-md);
+  scroll-snap-align: start;
 }
 
 /* Stays reachable on a phone: the button rides the bottom of the screen until the form scrolls into view. */
@@ -596,9 +657,14 @@ body.in-world .veil {
     margin-top: var(--space-sm);
   }
 
-  .join .swatches {
-    order: 1;
+  .join .character {
     margin-top: var(--space-lg);
+  }
+
+  /* Room enough to see every choice: the rows wrap instead of scrolling. */
+  .pick-row {
+    flex-wrap: wrap;
+    overflow: visible;
   }
 
   .join .form-error {
@@ -1066,6 +1132,17 @@ body.in-world .veil {
 
 .hero-title em {
   color: var(--clay);
+}
+
+/* A person's way in, on the first screen of a phone, above the agents card. */
+.hero-self {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm) var(--space-md);
+  margin: calc(var(--space-sm) * -1) 0 0;
+  font-weight: var(--weight-semibold);
+  color: var(--ink-soft);
 }
 
 /* The prompt: a quote block you copy. One line of text that wraps on screen. */
@@ -3500,6 +3577,10 @@ dialog.model-viewer {
   .home-cards {
     grid-template-columns: 1fr 1fr;
     gap: var(--space-3xl);
+  }
+
+  .hero-self {
+    display: none;
   }
 
   .home-steps {

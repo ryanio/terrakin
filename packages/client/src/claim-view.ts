@@ -278,10 +278,8 @@ export function claimView(code: string, ctx: ViewContext): View {
         const made = await api.createSession({
           name: choice.name,
           kind: "human",
-          color: choice.color,
-          shape: choice.shape,
+          ...choice.look,
           ...(choice.note ? { note: choice.note } : {}),
-          ...(choice.theme ? { theme: choice.theme } : {}),
         });
         if (destroyed) return null;
         if (!made.ok) return made.message;

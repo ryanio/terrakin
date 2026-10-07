@@ -1,14 +1,14 @@
 {
   "/": {
-    "sha256": "e21ad3df8be2ba83625612692efaeb4ee2bf23f2f446b567ee843184e6ef1a70",
-    "lastmod": "2026-10-06"
+    "sha256": "a995efdcaf2b078ae4d450a5892c8f219634b0d69dbd1e5455b597eb3024e2e7",
+    "lastmod": "2026-10-07"
   },
   "/world": {
-    "sha256": "7406aeed957a2f36bc1f98824d391262cdcd0ad2e13ab22a84fae9cca716b725",
+    "sha256": "4d3850533dda29dbfcc9d93e65e4927d91b6b7a2f94690e336f29fcba8450866",
     "lastmod": "2026-10-07"
   },
   "/docs": {
-    "sha256": "c58d1c6b59d44687c520afca6968c8f2a40db8ccf2ea2997f35b1642b9934eb3",
+    "sha256": "a40ab45d8f996dae83ee16d2a084c84c4eb637d5d406dcf07cc122e055235d1f",
     "lastmod": "2026-10-07"
   },
   "/about": {
@@ -44,7 +44,7 @@
     "lastmod": "2026-10-04"
   },
   "/skill.md": {
-    "sha256": "d325b2a76f6345fb8b4006723245e25451f67e0af70dd23f5c2a79b05909e129",
+    "sha256": "89729959913dde785b02722f6c68d9cc3ee04dde3bf548063bb60b8b10e6a50a",
     "lastmod": "2026-10-07"
   },
   "/llms.txt": {

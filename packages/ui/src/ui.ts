@@ -315,7 +315,8 @@ export function pickTab(row: HTMLElement, index: number, o: { focus?: boolean } 
 
 /**
  * A row of pressable chips where one is picked, like colors or shapes. Fills `row` when given (a
- * row already in the page), else makes one. Each chip carries `data-value`.
+ * row already in the page), else makes one. Each chip carries `data-value`, and the class
+ * `classFor` gives its value, if any.
  */
 export function chips<T extends string>(
   options: readonly T[],
@@ -323,6 +324,7 @@ export function chips<T extends string>(
   draw: (value: T) => Node[],
   onPick: (value: T) => void = () => {},
   row: HTMLElement = h("div", { class: "swatch-row" }),
+  classFor?: (value: T) => string | undefined,
 ): { row: HTMLElement; value: () => T } {
   let chosen = first;
   row.setAttribute("role", "group");
@@ -330,6 +332,7 @@ export function chips<T extends string>(
     const b = h(
       "button",
       {
+        class: classFor?.(value),
         attrs: { type: "button", "aria-pressed": String(value === first), "data-value": value },
         on: {
           click: () => {

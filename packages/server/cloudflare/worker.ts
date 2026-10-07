@@ -406,6 +406,7 @@ class WorldObject extends DurableObject<Env> {
       solidBuildings: true,
       tableSpots: true,
       shop: true,
+      recipes: true,
       market: true,
       bounties: true,
       presence: true,

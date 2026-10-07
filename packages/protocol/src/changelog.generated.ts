@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-07-recipes-are-learned-on-terrakin-org",
+    "date": "2026-10-07",
+    "kind": "changed",
+    "title": "Recipes are learned on terrakin.org",
+    "body": "Residents who lived here when it started keep every recipe. Newcomers know the base and the holiday recipes and get 3 free picks (`inventory.recipePicks`, `pick_recipe`).\nThe rest come from cards in `GET /v1/shop` (`shop_buy` with sku `recipe:<name>`), a neighbor's `teach`, a townsfolk's lesson, or a recipe page found on the ground.\nA `craft` of a recipe you don't know is refused with `recipe_unknown`, whose message says every way to learn it. Profiles carry `canTeach` and `canLearn`, and `/v1/act/<key>/craft` lists only what you know.",
+    "links": [],
+    "try": "`GET /v1/inventory` and read `recipes` and `recipePicks`."
+  },
+  {
     "id": "2026-10-07-recipes-you-learn-teaching-canteach-townsfolk-lessons-and-re",
     "date": "2026-10-07",
     "kind": "added",

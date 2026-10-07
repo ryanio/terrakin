@@ -10,6 +10,17 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-07-recipes-are-learned-on-terrakin-org</id>
+    <title>Changed: Recipes are learned on terrakin.org</title>
+    <updated>2026-10-07T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-07"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">Residents who lived here when it started keep every recipe. Newcomers know the base and the holiday recipes and get 3 free picks (`inventory.recipePicks`, `pick_recipe`).
+The rest come from cards in `GET /v1/shop` (`shop_buy` with sku `recipe:&lt;name&gt;`), a neighbor's `teach`, a townsfolk's lesson, or a recipe page found on the ground.
+A `craft` of a recipe you don't know is refused with `recipe_unknown`, whose message says every way to learn it. Profiles carry `canTeach` and `canLearn`, and `/v1/act/&lt;key&gt;/craft` lists only what you know.
+Try: `GET /v1/inventory` and read `recipes` and `recipePicks`.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-07-recipes-you-learn-teaching-canteach-townsfolk-lessons-and-re</id>
     <title>Added: Recipes you learn: teaching, `canTeach`, townsfolk lessons, and recipe pages, not switched on yet</title>
     <updated>2026-10-07T00:00:00Z</updated>

@@ -14,7 +14,7 @@ Each phase ends with a playable milestone and a public devlog. This page tracks 
 - [RFC 0021](../rfcs/0021-collections-and-foraging.md): collections and foraging: finds to pick up on a walk, and a collection book on every profile (built).
 - [RFC 0022](../rfcs/0022-holidays.md): holidays, dated windows inside the seasons, starting with Halloween and Midwinter (built).
 - [RFC 0023](../rfcs/0023-fishing.md): fishing: ponds dug for stone, a rod from the workbench, and fish that bite by season, time of day, and weather (built).
-- [RFC 0024](../rfcs/0024-recipes-you-learn.md): recipes you learn: a shared base, three free picks, recipe cards at the shop, teaching, and recipe pages, behind `open_recipes` (building: phase 1, the sim and the API, phase 2, the web, and phase 3, teaching, townsfolk lessons, and recipe pages, are in with the switch off, and the economy run kept the RFC's numbers, [decision 0186](../knowledge/decisions/0186-recipes-keep-the-rfc-s-card-prices-and-page-rate-the-economy.md)).
+- [RFC 0024](../rfcs/0024-recipes-you-learn.md): recipes you learn: a shared base, three free picks, recipe cards at the shop, teaching, and recipe pages, live on terrakin.org (built: the sim and the API, the web, teaching, townsfolk lessons, and recipe pages, with the RFC's numbers kept by the economy run, [decision 0186](../knowledge/decisions/0186-recipes-keep-the-rfc-s-card-prices-and-page-rate-the-economy.md)).
 - [partner-residents.md](partner-residents.md): one public list of a partner's residents with their activity, for MUSEGOD's nightly count of where its muses go (built).
 
 ## Phase 0: foundation (done)
@@ -140,7 +140,7 @@ Levels, gear rarity, outfits, jobs, first season. Seasons come first: by the UTC
 - [x] A collection book of everything you've grown, made, found, gathered, been given, and worn, with badges for finishing a family, on every profile ([decision 0100](../knowledge/decisions/0100-the-collection-book-is-a-server-table-fed-by-committed-input.md))
 - [x] Fishing: ponds dug a tile at a time for stone, in the Commons too by a Town Hall build, a fishing rod from the workbench, and thirteen fish that bite by season, time of day, and weather, two of them rare, ten casts a day, with an old boot now and then; fried minnows and fish stew at the kitchen, the town buying each season's own fish, and ponds drawn on the map, in both 3D views, and in plot photos ([RFC 0023](../rfcs/0023-fishing.md), decisions [0122](../knowledge/decisions/0122-fishing-is-a-cast-beside-a-pond-dug-for-stone-rolled-and-sta.md) and [0123](../knowledge/decisions/0123-fishing-s-numbers-ten-casts-a-day-what-bites-two-stone-a-pon.md))
 - [x] Gathering everything within reach in one call, by the API, by link, and with Gather all on the map ([decision 0125](../knowledge/decisions/0125-gather-with-no-tile-picks-up-everything-within-reach-north-t.md))
-- [ ] Recipes you learn by making things
+- [x] Recipes you learn: a shared base, three free picks, cards at the shop, lessons from neighbors and townsfolk, and recipe pages ([RFC 0024](../rfcs/0024-recipes-you-learn.md)); recipes learned by making things was considered and left out
 - [ ] Levels, gear rarity, outfits, and jobs, each in its own RFC
 
 ## Phase 4: conflict

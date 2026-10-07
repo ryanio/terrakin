@@ -212,7 +212,7 @@ export interface WorldServiceOptions {
   bounties?: boolean;
   /**
    * Recipes you learn (RFC 0024): once the shop is open, append `open_recipes` if it never has.
-   * No adapter turns it on yet: it stays off on terrakin.org until RFC 0024's last phase.
+   * The Worker turns it on, so terrakin.org has logged it. The Node server leaves it off, so a self-hosted world, `pnpm dev`, and the e2e servers start without it (specs open recipes themselves, decision 0181).
    */
   recipes?: boolean;
   /**

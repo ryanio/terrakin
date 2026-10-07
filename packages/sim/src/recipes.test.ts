@@ -4,7 +4,7 @@ import { RECIPE_NAMES, type RecipeName } from "./catalog";
 import { LESSONS_CONFIG, LESSONS_HASH, LESSONS_LOG } from "./fixtures/lessons-log";
 import { RECIPES_CONFIG, RECIPES_HASH, RECIPES_LOG } from "./fixtures/recipes-log";
 import { SHOP_CONFIG, SHOP_LOG } from "./fixtures/shop-log";
-import { gatherableAt, pickupLeft } from "./gather";
+import { gatherableAt, nearestOpenPickup, pickupLeft } from "./gather";
 import { hashWorld } from "./hash";
 import { ITEMS, inventorySize } from "./items";
 import {
@@ -753,10 +753,47 @@ describe("gathering a recipe page", () => {
     expect(known.code).toBe("already_known");
     expect(known.message).toContain("stays for someone else");
     // Gathering everything within reach leaves it too, and says so when it's all there is.
+    const { reach } = CONFIG;
+    const gathered = w.state.items?.gathered ?? {};
+    for (let y = page.y - reach; y <= page.y + reach; y++) {
+      for (let x = page.x - reach; x <= page.x + reach; x++) {
+        if (x !== page.x || y !== page.y) gathered[`${x},${y}`] = page.day;
+      }
+    }
+    if (w.state.items) w.state.items.gathered = gathered;
     const all = w.refused("clem", { type: "gather" });
-    expect(all.code === "already_known" || all.code === null).toBe(true);
+    expect(all.code).toBe("already_known");
+    expect(all.message).toContain("which you already know, so it stays for someone else");
     expect(pickupLeft(w.state, page.x, page.y)).toBe("recipe_page");
+    // The next step a refusal names is never a page they know; for Eve it's this one.
+    expect(nearestOpenPickup(w.state, "clem", at)).not.toEqual(at);
+    expect(nearestOpenPickup(w.state, "eve", at)).toEqual(at);
     w.ok("eve", { type: "gather", ...at });
+  });
+
+  it("takes one page a recipe in a gather of everything: a second for the same recipe stays", () => {
+    // The first day from DAY with two pages for one recipe within reach of one tile (found by
+    // searching): fried minnows at (8, 7) and (7, 9), both reached from (8, 8).
+    const day = 22_612;
+    const first = { x: 8, y: 7 };
+    const second = { x: 7, y: 9 };
+    for (const t of [first, second]) {
+      expect(gatherableAt(CONFIG, t.x, t.y, day, true, true)).toBe("recipe_page");
+      expect(pageOn(t.x, t.y, day)).toBe("fried_minnows");
+    }
+    const w = lesson(day);
+    w.town({ type: "open_finds" });
+    walkOnto(w, "eve", { x: 8, y: 8 });
+    const events = w.ok("eve", { type: "gather" });
+    expect(events.filter((e) => e.type === "recipe_learned")).toEqual([
+      { type: "recipe_learned", residentId: "eve", recipe: "fried_minnows", how: "found" },
+    ]);
+    expect(events).toContainEqual({ type: "gathered", ...first, kind: "recipe_page", by: "eve" });
+    expect(events.some((e) => e.type === "gathered" && e.x === second.x && e.y === second.y)).toBe(
+      false,
+    );
+    expect(pickupLeft(w.state, second.x, second.y)).toBe("recipe_page");
+    expect(w.code("eve", { type: "gather", ...second })).toBe("already_known");
   });
 
   it("comes with everything else within reach, and takes no room in full things", () => {

@@ -230,6 +230,20 @@ describe("townsfolk lessons", () => {
     expect(dry.learned(bea)).toEqual([]);
   });
 
+  it("check each learner once a day in a dry run, so the townsfolk can go idle", () => {
+    const t = town({ mode: "dry" });
+    t.newcomer("Bea");
+    expect(t.api.runLessons()).toEqual({ taught: 1, codes: [] });
+    // The next minute's run has nothing new to check, and doesn't act as Clem.
+    expect(t.api.runLessons()).toEqual({ taught: 0, codes: [] });
+    // Someone new still gets checked the same day, and Bea again the next day.
+    t.newcomer("Cy");
+    expect(t.api.runLessons()).toEqual({ taught: 1, codes: [] });
+    expect(t.api.runLessons()).toEqual({ taught: 0, codes: [] });
+    t.nextDay();
+    expect(t.api.runLessons()).toMatchObject({ taught: 1 });
+  });
+
   it("run from the minute sweep", () => {
     const t = town();
     const ada = t.newcomer("Ada");

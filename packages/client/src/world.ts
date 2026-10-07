@@ -20,6 +20,7 @@ import {
   ITEM_INFO,
   isGroundKind,
   isHeldBlock,
+  pageKnown,
   pickupsInReach,
   plotOf,
   type Resident,
@@ -182,6 +183,11 @@ let pick: BlockKind | GroundKind | "hearth" = "wood";
 let holdings: Holdings = new Map();
 /** The fishing rods you hold, by id (RFC 0023): with none, Fish says how to make one. */
 let rods: ReadonlySet<string> = new Set();
+/**
+ * The recipes you know (RFC 0024), from your things and each lesson since: Gather all leaves out
+ * the pages for them, as `gather` does.
+ */
+let knownRecipes: ReadonlySet<string> = new Set();
 /** Casts made lately, anyone's, drawn on the water for a moment. */
 let casts: CastMark[] = [];
 /** The chat line waiting for the server's answer: its text leaves the input only once accepted. */
@@ -514,6 +520,9 @@ function onMessage(msg: ServerMessage) {
       const line = me ? newsLine(msg.event, me, (id) => mirror?.residents.get(id)?.name) : null;
       const named = msg.event.type === "recipe_learned" && msg.event.from !== undefined;
       if (line) showToast(line, named ? "player" : "system");
+      if (msg.event.type === "recipe_learned" && msg.event.residentId === me) {
+        knownRecipes = new Set([...knownRecipes, msg.event.recipe]);
+      }
       // What you hold changes the build bar: decor and furniture counts, and what paths take.
       if (msg.event.type === "inventory" && msg.event.residentId === me) {
         rods = rodsAfter(rods, msg.event);
@@ -1322,6 +1331,7 @@ async function loadHoldings() {
   if (!active || !r.ok) return;
   holdings = holdingsFromStacks(r.data.inventory?.stacks ?? []);
   rods = rodsIn(r.data.inventory?.goods ?? []);
+  knownRecipes = new Set(r.data.inventory?.recipes ?? []);
   paintPalette();
 }
 
@@ -1646,7 +1656,8 @@ function paintPetButton(now: number) {
 
 /**
  * Show "Gather all" while something lies within reach that you may pick up (decision 0125): the
- * sim's own list, from where your steps will have taken you, so a tap gathers what it says.
+ * sim's own list, from where your steps will have taken you, so a tap gathers what it says. A
+ * recipe page you know stays where it lies, so it doesn't count.
  */
 function paintGatherButton() {
   const m = mirror;
@@ -1659,7 +1670,7 @@ function paintGatherButton() {
           at,
           (x, y) => m.pickupAt(x, y),
           (x, y) => m.mayGatherAt(x, y, you),
-        ).length
+        ).filter((t) => !pageKnown(t.kind, t.x, t.y, m.day ?? 0, (r) => knownRecipes.has(r))).length
       : 0;
   gatherButton.hidden = lying === 0 && !gathering;
 }
@@ -1835,6 +1846,7 @@ export function stopWorld() {
   fishButton.hidden = true;
   enterButton.hidden = true;
   rods = new Set();
+  knownRecipes = new Set();
   casts = [];
   landing.setJoining(false);
 }

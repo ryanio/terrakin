@@ -30,7 +30,8 @@ import type { WorldService } from "./world-service";
  * reach of where that townsfolk stands, never a suspended resident or one blocked either way, never
  * someone taught today or by a townsfolk in the last week, nothing while recipes aren't learned in
  * the world, at most `LESSONS.perRun` lessons a run, and `TERRAKIN_TOWNSFOLK_LESSONS` (`off` by
- * default) turns it all off. Logs carry counts and codes only.
+ * default) turns it all off. A dry run checks each learner's lesson once a world day. Logs carry
+ * counts and codes only.
  */
 
 export type LessonsMode = "off" | "dry" | "on";
@@ -87,17 +88,23 @@ function townsfolkCanTeach(state: WorldState, handle: string | undefined, viewer
 
 /**
  * A profile's `canTeach` and `canLearn` (RFC 0024): what `subject` could teach `viewer`, and what
- * `viewer` could teach them. Absent without a viewer, on your own profile, and before recipes are
- * learned. A townsfolk teaches only their specialties, so theirs lists those.
+ * `viewer` could teach them. Absent without a viewer, on your own profile, across a block either
+ * way (a lesson can't cross one), and before recipes are learned. A townsfolk teaches only their
+ * specialties, so theirs lists those.
  */
 export function teachFields(
   state: WorldState,
   subject: string,
   viewer: string | undefined,
-  handleOf: (id: string) => string | undefined,
+  checks: {
+    handleOf: (id: string) => string | undefined;
+    blockedEither: (a: string, b: string) => boolean;
+  },
 ): { canTeach?: RecipeName[]; canLearn?: RecipeName[] } {
   if (!state.recipes || viewer === undefined || viewer === subject) return {};
   if (!residentById(state, viewer) || !residentById(state, subject)) return {};
+  if (checks.blockedEither(viewer, subject)) return {};
+  const { handleOf } = checks;
   const canTeach = isTownsfolk(state, subject)
     ? townsfolkCanTeach(state, handleOf(subject), viewer)
     : teachable(state, subject, viewer);
@@ -116,6 +123,8 @@ function planLessons(
     handleOf: (id: string) => string | undefined;
     suspended: (id: string) => boolean;
     blockedEither: (a: string, b: string) => boolean;
+    /** A learner to pass over this run. */
+    skip?: (id: string) => boolean;
   },
 ): Lesson[] {
   const day = state.day;
@@ -140,7 +149,7 @@ function planLessons(
       )
       .sort((a, b) => chebyshev(a, at) - chebyshev(b, at) || (a.id < b.id ? -1 : 1));
     for (const r of near) {
-      if (checks.suspended(r.id) || checks.blockedEither(by, r.id)) continue;
+      if (checks.skip?.(r.id) || checks.suspended(r.id) || checks.blockedEither(by, r.id)) continue;
       if (taughtToday(state, r.id) > 0 || !townsfolkLessonDue(state, r.id, day)) continue;
       const recipe = specialties.find((s) => !knows(state, r.id, s));
       if (!recipe) continue;
@@ -157,6 +166,12 @@ export class TownsfolkLessons {
   private readonly world: WorldService;
   private readonly social: SocialService;
   private readonly townsfolk: ReadonlySet<string>;
+  /**
+   * In a dry run, each learner already checked, with the world's day it was checked on. A dry run
+   * teaches nothing, so without this it would check the same lesson every minute, and each check
+   * counts as the townsfolk acting, which keeps an online townsfolk from going idle.
+   */
+  private readonly dryChecked = new Map<string, number>();
 
   constructor(options: TownsfolkLessonsOptions) {
     this.mode = options.mode;
@@ -167,10 +182,12 @@ export class TownsfolkLessons {
 
   /** The lessons due now, as `planLessons` reads them from the world and the social layer. */
   plan(): Lesson[] {
+    const day = this.world.state.day;
     return planLessons(this.world.state, [...this.townsfolk], {
       handleOf: (id) => this.social.authorView(id)?.handle,
       suspended: (id) => this.social.safety.suspendedUntil(id) !== undefined,
       blockedEither: (a, b) => this.social.blockedEither(a, b),
+      skip: (id) => this.mode === "dry" && this.dryChecked.get(id) === day,
     });
   }
 
@@ -180,7 +197,11 @@ export class TownsfolkLessons {
     if (this.mode === "off") return { ...result, skipped: "off" };
     if (!this.world.state.recipes) return { ...result, skipped: "closed" };
     const dry = this.mode === "dry";
+    const day = this.world.state.day;
+    for (const [id, on] of this.dryChecked) if (on !== day) this.dryChecked.delete(id);
     for (const lesson of this.plan()) {
+      // Checked once a day: a dry run's answer won't change until the learner does something.
+      if (dry && day !== undefined) this.dryChecked.set(lesson.to, day);
       try {
         if (!dry && !this.world.arrive(lesson.by, "teach").ok) {
           result.codes.push("arrive");

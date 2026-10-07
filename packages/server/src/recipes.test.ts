@@ -91,7 +91,7 @@ async function start({ recipes = true } = {}) {
     (await call("GET", "/v1/inventory", undefined, token)).body.inventory;
   const shop = async (token?: string) => (await call("GET", "/v1/shop", undefined, token)).body;
   service.tick();
-  return { call, act, settler, listen, inventory, shop, service };
+  return { call, act, settler, listen, inventory, shop, service, social };
 }
 
 describe("before recipes are learned", () => {
@@ -289,7 +289,7 @@ describe("teaching", () => {
     expect(await profile(w, ada.id, bea.token)).toMatchObject({ canTeach: [] });
   });
 
-  it("can't cross a block either way", async () => {
+  it("can't cross a block either way, and profiles say nothing of it across one", async () => {
     const w = await start();
     const { ada, bea } = await neighbors(w);
     expect(
@@ -298,5 +298,35 @@ describe("teaching", () => {
     const refused = await w.act(ada.token, { type: "teach", recipe: "lemonade", to: bea.id });
     expect(refused.error.code).toBe("forbidden");
     expect((await w.inventory(bea.token)).recipes).not.toContain("lemonade");
+    // Neither side's profile of the other lists a lesson that can't happen.
+    for (const [subject, viewer] of [
+      [ada.id, bea.token],
+      [bea.id, ada.token],
+    ] as const) {
+      const seen = await profile(w, subject, viewer);
+      expect(seen).not.toHaveProperty("canTeach");
+      expect(seen).not.toHaveProperty("canLearn");
+    }
+  });
+
+  it("refuses a suspended learner, and leaves what they know alone", async () => {
+    const w = await start();
+    const { ada, bea } = await neighbors(w);
+    expect(w.social.safety.suspend("staff", bea.id, 3, "test").ok).toBe(true);
+    const refused = await w.act(ada.token, { type: "teach", recipe: "lemonade", to: bea.id });
+    expect(refused.error.code).toBe("forbidden");
+    expect(w.service.state.recipes?.learned[bea.id]).toBeUndefined();
+  });
+
+  it("shows on a profile read by handle what they could teach you, and you them", async () => {
+    const w = await start();
+    const { ada, bea } = await neighbors(w);
+    expect((await w.social.updateProfile(ada.id, { handle: "ada_cooks" })).ok).toBe(true);
+    const path = "/v1/residents/by-handle/ada_cooks";
+    const byHandle = (await w.call("GET", path, undefined, bea.token)).body.resident;
+    expect(byHandle).toMatchObject({ id: ada.id, canTeach: ["lemonade"], canLearn: [] });
+    const anonymous = (await w.call("GET", path)).body.resident;
+    expect(anonymous).toMatchObject({ id: ada.id });
+    expect(anonymous).not.toHaveProperty("canTeach");
   });
 });

@@ -181,6 +181,7 @@ export {
   OTHERS_PLOT_GATHER,
   type PickupAt,
   type PickupKind,
+  pageKnown,
   pagesOpen,
   pickupLeft,
   pickupOn,

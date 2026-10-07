@@ -354,8 +354,14 @@ export function openTileSheet(o: TileSheetOptions) {
       if (asked) return;
     }
     paint(r.data);
-    if (station) void askNeighbors();
+    if (station && !neighborsAsked) {
+      neighborsAsked = true;
+      void askNeighbors();
+    }
   }
+
+  /** Whether this sheet has read its neighbors' profiles: once while it's open, not every paint. */
+  let neighborsAsked = false;
 
   /** Who within reach doesn't know a recipe you do, read from their profiles. */
   async function askNeighbors() {

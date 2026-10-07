@@ -519,7 +519,7 @@ export const ProfileView = z.object({
    * Recipes they could teach the caller (RFC 0024): ones they know and the caller doesn't, past
    * the base and the holiday recipes everyone knows. A townsfolk's are their specialties, which
    * they teach to residents standing near them, once a week. Absent without a token, on your own
-   * profile, and until recipes are learned in this world.
+   * profile, across a block either way, and until recipes are learned in this world.
    */
   canTeach: z.array(RecipeName).optional(),
   /**

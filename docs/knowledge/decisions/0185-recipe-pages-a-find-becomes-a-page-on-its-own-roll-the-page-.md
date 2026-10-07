@@ -15,8 +15,8 @@ tags: [sim, protocol, replay, items, client]
 
 - A page only ever stands where a find would. Once finds are out and recipes are learned, a tile whose find roll lands on a find is a page instead when `pageOn(x, y, day)` says so: a roll of its own (its own constants and finalizer), one in `RECIPES_RULES.pageOneIn` (20), with every recipe in `PAGE_RECIPES` as likely. No branch, stone, or other find moves.
 - `PAGE_RECIPES` is frozen by name, like `FIND_SPAWNS`: today it's every card. A recipe added later is no page until a new list starts at a logged switch, since a longer list would change the page on every past day.
-- A page is the pickup kind `recipe_page`. The snapshot's `pickups` carry its `recipe`, the `gathered` event doesn't (who learned what is private; `recipe_learned` with `how: "found"` says it to the learner). It takes no room, so a full bag still gathers one.
-- `gather` with no tile takes each page for a recipe you don't know, one page a recipe, after its stacks; a page you know, or a second one for the same recipe, stays where it lies. When a known page is all that's within reach, it's refused `already_known`.
+- A page is the pickup kind `recipe_page`. The snapshot's `pickups` carry its `recipe`, and the `gathered` event doesn't; `recipe_learned` with `how: "found"` goes to the learner alone. That doesn't keep it private: anyone watching sees a `gathered` of a `recipe_page` with `by`, and the page's recipe was public in `pickups`, so who learned what from a page is public. It takes no room, so a full bag still gathers one.
+- `gather` with no tile takes each page for a recipe you don't know, one page a recipe, after its stacks; a page you know, or a second one for the same recipe, stays where it lies. When a known page is all that's within reach, it's refused `already_known`. The web's Gather all button, the gather link's count, and the nearest pickup a refusal names leave out pages you know (`pageKnown`).
 - The map and the 3D world draw a page like a find, from its own picture (a small scroll, `recipe_page` in `item-art.ts`).
 
 ## Consequences

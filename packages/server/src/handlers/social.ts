@@ -32,6 +32,11 @@ import {
 export function socialHandlers(api: Api): Pick<Handlers, AreaRouteIds["social"]> {
   const { service } = api;
   const social = () => api.requireSocial();
+  /** What a profile's `canTeach` and `canLearn` read beyond the world (`teachFields`). */
+  const teachChecks = () => ({
+    handleOf: (id: string) => social().authorView(id)?.handle,
+    blockedEither: (a: string, b: string) => social().blockedEither(a, b),
+  });
   return {
     getFeed: ({ viewer, query }) => {
       if (query.following && !viewer) return unauthorized();
@@ -81,8 +86,13 @@ export function socialHandlers(api: Api): Pick<Handlers, AreaRouteIds["social"]>
         body: { post },
       })),
     getResidentByHandle: ({ viewer, params, origin }) => {
-      const resident = social().profileByHandle(params.handle, viewer);
-      if (!resident) return fail("not_found", "Nobody has that handle.");
+      const profile = social().profileByHandle(params.handle, viewer);
+      if (!profile) return fail("not_found", "Nobody has that handle.");
+      // Recipes (RFC 0024), as on `getResident`.
+      const resident = {
+        ...profile,
+        ...teachFields(service.state, profile.id, viewer, teachChecks()),
+      };
       void social().agentLinks.refreshIfStale(resident.id);
       return { status: 200, body: { resident: profileWithLinks(origin, resident) } };
     },
@@ -282,7 +292,7 @@ export function socialHandlers(api: Api): Pick<Handlers, AreaRouteIds["social"]>
         ...api.homeField(params.id),
         ...(shared ? { sharesPlot: true as const } : {}),
         // Recipes (RFC 0024): what they could teach you, and you them.
-        ...teachFields(service.state, params.id, viewer, (id) => social().authorView(id)?.handle),
+        ...teachFields(service.state, params.id, viewer, teachChecks()),
       };
       // An hour-old agent link is checked again in the background; this answer doesn't wait.
       void social().agentLinks.refreshIfStale(params.id);

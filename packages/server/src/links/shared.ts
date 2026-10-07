@@ -1,7 +1,9 @@
 import { type Action, type ErrorCode, MOVE_MAX_STEPS, markdownError } from "@terrakin/protocol";
 import {
   canBuildOn,
+  knows,
   mayGatherOn,
+  pageKnown,
   pickupLeft,
   pickupsInReach,
   plotAtTile,
@@ -184,7 +186,7 @@ export const homeStep = (state: WorldState, id: string, l: Links) =>
 
 /**
  * What `gather` with no tile would pick up for `id` standing at `at`: everything within reach that
- * they may take, from the sim's own rules. Empty until items open.
+ * they may take, from the sim's own rules, less recipe pages they know. Empty until items open.
  */
 export const gatherable = (state: WorldState, id: string, at: Tile) =>
   state.items === undefined
@@ -194,6 +196,8 @@ export const gatherable = (state: WorldState, id: string, at: Tile) =>
         at,
         (x, y) => pickupLeft(state, x, y),
         (x, y) => mayGatherOn(plotAtTile(state, x, y), id, plotPickupsOwned(state)),
+      ).filter(
+        (t) => !pageKnown(t.kind, t.x, t.y, state.day ?? 0, (recipe) => knows(state, id, recipe)),
       );
 
 /**

@@ -255,9 +255,23 @@ export const OTHERS_PLOT_GATHER =
 const HINT_RADIUS = 12;
 
 /**
+ * Whether `gather` leaves this pickup where it lies for this resident: a recipe page for a recipe
+ * they know (`known`). Pure, so a client asks it with the recipes the server says they know.
+ */
+export function pageKnown(
+  kind: PickupKind | null,
+  x: number,
+  y: number,
+  day: number,
+  known: (recipe: RecipeName) => boolean,
+): boolean {
+  return kind === RECIPE_PAGE && known(pageOn(x, y, day) as RecipeName);
+}
+
+/**
  * The nearest pickup lying today that `actor` may take, within `radius` of `from`: nearest by
- * Chebyshev distance, then north to south, then west to east. For a refusal's next step, and the
- * gather link's walk there.
+ * Chebyshev distance, then north to south, then west to east, passing over recipe pages they
+ * already know. For a refusal's next step, and the gather link's walk there.
  */
 export function nearestOpenPickup(
   state: WorldState,
@@ -266,11 +280,15 @@ export function nearestOpenPickup(
   radius = HINT_RADIUS,
 ): Tile | null {
   const ownersOnly = plotPickupsOwned(state);
+  const day = state.day ?? 0;
+  const known = (recipe: RecipeName) => knows(state, actor, recipe);
   for (let d = 0; d <= radius; d++) {
     for (let y = from.y - d; y <= from.y + d; y++) {
       for (let x = from.x - d; x <= from.x + d; x++) {
         if (Math.max(Math.abs(x - from.x), Math.abs(y - from.y)) !== d) continue;
-        if (!inBounds(state.config, x, y) || !pickupLeft(state, x, y)) continue;
+        if (!inBounds(state.config, x, y)) continue;
+        const kind = pickupLeft(state, x, y);
+        if (!kind || pageKnown(kind, x, y, day, known)) continue;
         if (mayGatherOn(plotAtTile(state, x, y), actor, ownersOnly)) return { x, y };
       }
     }

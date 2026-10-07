@@ -349,6 +349,26 @@
           </div>
         </section>
 
+        <!-- Looking at a place a link named (decision 0162): what's there, with Go there and Back to me, or Step inside for someone with no character yet. Filled by look-card.ts. -->
+        <section id="look-card" class="paper visit-card look-card" aria-labelledby="look-card-title" hidden>
+          <a id="look-card-title" class="visit-card-owner" href="/">A place in the world</a>
+          <p id="look-card-line" class="visit-card-whose" hidden></p>
+          <div class="visit-card-actions">
+            <button type="button" id="look-go" class="pill-button small">
+              <svg class="icon" data-icon="world" aria-hidden="true"></svg>
+              <span>Go there</span>
+            </button>
+            <button type="button" id="look-back" class="pill-button small">
+              <svg class="icon" data-icon="back" aria-hidden="true"></svg>
+              <span>Back to me</span>
+            </button>
+            <button type="button" id="look-join" class="btn-primary small look-join" hidden>
+              <span>Step inside to go there</span>
+              <svg class="icon" data-icon="arrow" aria-hidden="true"></svg>
+            </button>
+          </div>
+        </section>
+
         <div id="toast" class="toast" role="status"></div>
       </div>
 

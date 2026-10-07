@@ -21,6 +21,7 @@ import { initPurse, makePurse, refreshPurse } from "./purse";
 import { createRouter, matchRoute, type Navigation, type Route, routeTemplate } from "./router";
 import { initErrorReporting, pageView, startAnalytics } from "./telemetry";
 import { notFoundView, type View, type ViewContext } from "./view";
+import { readWorldLink, type WorldLink } from "./world-link";
 import { createWorldLoader } from "./world-loader";
 import "./style.css";
 
@@ -248,14 +249,19 @@ function onNavigate(nav: Navigation) {
     document.title = "World · Terrakin";
     setMode("world");
     page.replaceChildren();
-    // Coming back with a saved character skips the landing: the loader shows on the tap, while
-    // the world's code is still on its way.
-    if (savedToken()) worldLoader.show();
+    const link = takeWorldLink();
+    // Coming back with a saved character skips the landing, and so does a link to a place: the
+    // loader shows on the tap, while the world's code is still on its way.
+    if (savedToken() || link?.at) worldLoader.show();
     loadWorld().then(
       (w) => {
         // Still here? Someone may have tapped away while it loaded.
         if (root.classList.contains("mode-world"))
-          w.startWorld({ navigate: (p) => router.navigate(p), loader: worldLoader });
+          w.startWorld({
+            navigate: (p) => router.navigate(p),
+            loader: worldLoader,
+            ...(link ? { link } : {}),
+          });
       },
       () => {
         // showWorldReload already put up the notice.
@@ -296,6 +302,16 @@ function onNavigate(nav: Navigation) {
     if (!firstRun) page.focus({ preventScroll: true });
   }
   firstRun = false;
+}
+
+/**
+ * A link into the world (`/world?at=...&view=3d`, decision 0162), read once and taken out of the
+ * address bar, so a reload opens the world as usual and the place's id goes no further.
+ */
+function takeWorldLink(): WorldLink | undefined {
+  const link = readWorldLink(location.search);
+  if (location.search) history.replaceState(history.state, "", location.pathname + location.hash);
+  return link;
 }
 
 /**

@@ -130,6 +130,8 @@ export function templateIds(text: string): string {
         "$1:id",
       )
       .replace(/([?&]with=)[A-Za-z0-9_-]+/g, "$1:id")
+      // A link into the world names a resident or a plot (decision 0162).
+      .replace(/([?&]at=)[A-Za-z0-9_%,-]+/g, "$1:at")
       .replace(/\/u\/[A-Za-z0-9_%]+/g, "/u/:handle")
       // Any server id left (r_, p_, n_, m_, l_, g_), wherever it sits, like /v1/owner/link/r_....
       .replace(/\b[a-z]_[0-9a-f]{16}\b/g, ":id")

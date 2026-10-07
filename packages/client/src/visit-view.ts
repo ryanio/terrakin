@@ -8,7 +8,7 @@
 import { PLOT_SORTS, type PlotSort, type PlotView, type WorldSnapshot } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { personLink } from "@terrakin/ui/people";
-import { kindPill, linkTabs, stateCard, toast, whileBusy } from "@terrakin/ui/ui";
+import { copyButton, kindPill, linkTabs, stateCard, toast, whileBusy } from "@terrakin/ui/ui";
 import { timeAgo } from "@terrakin/ui/when";
 import { actProblem, api } from "./api";
 import { savedResidentId, savedToken } from "./net";
@@ -16,6 +16,7 @@ import { plotThumb } from "./plot-thumb";
 import { skeletonCards } from "./post-card";
 import { errorCard, type View, type ViewContext } from "./view";
 import { isMine, plotTitles, weekLine } from "./visits";
+import { worldLinkPath } from "./world-link";
 
 const SORT_WORDS: Record<PlotSort, string> = {
   recent: "Recently changed",
@@ -68,9 +69,13 @@ export function visitButton(
   className = "",
 ): HTMLElement {
   if (me === null) {
+    // The world opens looking at the plot, with a way to step inside from there (decision 0162).
     return h(
       "a",
-      { class: `pill-button small visit-button ${className}`.trim(), attrs: { href: "/world" } },
+      {
+        class: `pill-button small visit-button ${className}`.trim(),
+        attrs: { href: worldLinkPath({ kind: "plot", px: plot.px, py: plot.py }) },
+      },
       h("span", { text: "Step in to visit" }),
     );
   }
@@ -102,11 +107,8 @@ export function visitTap(
 ): HTMLElement {
   const label = `Visit ${name}`;
   if (me === null) {
-    return h(
-      "a",
-      { class: className, attrs: { href: "/world", "aria-label": label } },
-      ...children,
-    );
+    const href = worldLinkPath({ kind: "plot", px: plot.px, py: plot.py });
+    return h("a", { class: className, attrs: { href, "aria-label": label } }, ...children);
   }
   const button = h(
     "button",
@@ -114,6 +116,25 @@ export function visitTap(
     ...children,
   );
   button.addEventListener("click", () => void visitPlot(button, plot, navigate));
+  return button;
+}
+
+/** Copy link: the world opening on this plot (decision 0162), to send to someone. */
+function copyPlaceLink(plot: Pick<PlotView, "px" | "py">, title: string): HTMLElement {
+  const label = h("span", { text: "Copy link" });
+  // The plot's name is in the button's name as hidden words, so the name follows "Copied".
+  const button = h(
+    "button",
+    { class: "pill-button small", attrs: { type: "button" } },
+    icon("link"),
+    label,
+    h("span", { class: "visually-hidden", text: ` to ${title}` }),
+  );
+  const path = worldLinkPath({ kind: "plot", px: plot.px, py: plot.py });
+  copyButton(button, label, () => new URL(path, location.origin).href, {
+    idle: "Copy link",
+    failed: "Couldn't copy the link",
+  });
   return button;
 }
 
@@ -156,7 +177,12 @@ export function plotCard(
       h("span", { class: "plot-card-week", text: weekLine(plot) }),
       plot.gallery ? kindPill("Gallery", "sun", "plot-card-gallery") : null,
     ),
-    h("div", { class: "plot-card-foot" }, visitButton(plot, me, navigate)),
+    h(
+      "div",
+      { class: "cluster plot-card-foot" },
+      copyPlaceLink(plot, title),
+      visitButton(plot, me, navigate),
+    ),
   );
 }
 

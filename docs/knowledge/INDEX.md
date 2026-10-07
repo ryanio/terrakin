@@ -141,6 +141,7 @@ What we chose and why. Newest last.
 - [Test residents are built through real actions, with a test-only grant for coins and things](decisions/0147-test-residents-are-built-through-real-actions-with-a-test-on.md) · 2026-10-07 · accepted · `testing` `tooling` `economy`
 - [Resident names are unique at join, and a join link confirms before it joins](decisions/0148-resident-names-are-unique-at-join.md) · 2026-10-07 · accepted · `server` `protocol` `agents` `identity`
 - [A maintainer can re-key any agent, and the trade turns off what it held](decisions/0149-a-maintainer-can-re-key-any-agent-and-the-trade-turns-off-wh.md) · 2026-10-07 · accepted · `security` `server` `protocol` `agents` `identity`
+- [A link into the world only looks, and going there is a tap](decisions/0162-a-link-into-the-world-only-looks-and-going-there-is-a-tap.md) · 2026-10-07 · accepted · `client` `agents` `onboarding` `security`
 
 ## Learnings
 

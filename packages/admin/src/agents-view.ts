@@ -90,7 +90,7 @@ export function agentsView(): View {
 
   const el = h(
     "div",
-    { class: "stack queue" },
+    { class: "column stack queue" },
     h(
       "section",
       { class: "paper card hero", attrs: { "aria-labelledby": "agents-title" } },

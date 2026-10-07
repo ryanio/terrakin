@@ -10,17 +10,25 @@ import type {
   ReportQueueItem,
   ReportReason,
 } from "@terrakin/protocol";
-import { h } from "@terrakin/ui/dom";
+import { h, icon } from "@terrakin/ui/dom";
 import { fullDate, isMediaUrl, plural, relativeTime } from "@terrakin/ui/format";
+import type { IconName } from "@terrakin/ui/icons";
 import { postPath, profilePath } from "@terrakin/ui/paths";
 import { personLink } from "@terrakin/ui/people";
 import { reasonLabel } from "@terrakin/ui/safety";
-import { confirmTwice, stateCard, toast, whileBusy, whileBusyAll } from "@terrakin/ui/ui";
+import {
+  confirmTwice,
+  itemRow,
+  itemRows,
+  pageLayout,
+  stateCard,
+  toast,
+  whileBusy,
+  whileBusyAll,
+} from "@terrakin/ui/ui";
 import { api, type Result } from "./api";
 import {
   type ActionKind,
-  chatterLine,
-  checkinLine,
   daysProblem,
   defaultRule,
   draftLabel,
@@ -29,15 +37,13 @@ import {
   itemHeading,
   itemTags,
   mainSite,
-  participationLine,
   RULE_CHOICES,
   reasonProblem,
   recordLine,
-  spendLine,
   suspendLimits,
   TAKEDOWN_ACTIONS,
-  tipsLine,
-  triageLine,
+  type TodayRow,
+  todayRows,
   triageSummary,
 } from "./logic";
 import { button, outLink, quoted, type View } from "./view";
@@ -58,26 +64,21 @@ export function queueView(overview: AdminOverviewResponse): View {
   );
   /** Reasons, lengths, and rules picked so far, by item, so a reload of the list keeps them. */
   const drafts = new Map<string, { reason: string; days: string; rule: string }>();
-  const el = h(
-    "div",
-    { class: "stack queue" },
+  // The reports in the main column; how triage, check-ins, spend, chatter, and tips are doing
+  // beside them (after them on a phone, where the reports come first).
+  const { el, head, main, side } = pageLayout("queue", "Around the town today", {
+    sideLast: true,
+  });
+  head.append(
     h(
       "section",
       { class: "paper card hero", attrs: { "aria-labelledby": "queue-title" } },
       h("div", { class: "hero-row" }, title, count),
       h("p", { class: "hero-order", text: "Urgent first, then most severe, then oldest." }),
-      h("p", { class: "triage-status", text: triageLine(overview.triage, Date.now()) }),
-      h("p", { class: "triage-status", text: checkinLine(overview.checkins) }),
-      h("p", { class: "triage-status", text: spendLine(overview.spend) }),
-      h("p", { class: "triage-status", text: chatterLine(overview.chatter, Date.now()) }),
-      ...[participationLine(overview.chatter.participation, overview.spend.days)].map((line) =>
-        line ? h("p", { class: "triage-status", text: line }) : null,
-      ),
-      h("p", { class: "triage-status", text: tipsLine(overview.tips) }),
-      chatterDrafts(overview.chatter.drafts),
     ),
-    list,
   );
+  main.append(list);
+  side.append(todayCard(overview, Date.now()));
   let destroyed = false;
 
   async function load() {
@@ -464,6 +465,51 @@ function reportRow(rep: ReportQueueItem["reports"][number]): HTMLElement {
  * A dry run's answers, folded under the chatter line, so staff can read the townsfolk's voice before
  * posts go live. A model wrote them and they can quote residents, so they go in as text.
  */
+/** Each row's mark: what that part of the town is about. */
+const TODAY_ICONS: Record<TodayRow["key"], IconName> = {
+  triage: "sparkle",
+  checkins: "calendar",
+  spend: "coin",
+  chatter: "chat",
+  notes: "heart",
+  tips: "gift",
+};
+
+/**
+ * The queue's Today card: a row for each part of the town (`todayRows`), with its mark, where it
+ * stands as a chip, and its numbers a sentence a line, then any chatter drafts folded under it.
+ */
+function todayCard(overview: AdminOverviewResponse, nowMs: number): HTMLElement {
+  return h(
+    "section",
+    { class: "paper card stack queue-today", attrs: { "aria-labelledby": "today-title" } },
+    h("h2", { class: "card-title", attrs: { id: "today-title" }, text: "Today" }),
+    itemRows(
+      todayRows(overview, nowMs).map((row) =>
+        itemRow({
+          plain: true,
+          className: `today-row today-${row.key}`,
+          lead: h(
+            "span",
+            { class: "today-mark", attrs: { "aria-hidden": "true" } },
+            icon(TODAY_ICONS[row.key]),
+          ),
+          name: row.label,
+          lines: row.lines,
+          trail: row.state
+            ? h("span", {
+                class: `state-chip state-${row.state.toLowerCase().replace(" ", "-")}`,
+                text: row.state,
+              })
+            : null,
+        }),
+      ),
+      { className: "today-rows" },
+    ),
+    chatterDrafts(overview.chatter.drafts),
+  );
+}
+
 function chatterDrafts(drafts: AdminOverviewResponse["chatter"]["drafts"]): HTMLElement | null {
   if (drafts.length === 0) return null;
   const now = Date.now();

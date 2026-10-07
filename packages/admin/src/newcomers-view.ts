@@ -5,17 +5,16 @@
 import type { NewcomerCohort, NewcomersResponse } from "@terrakin/protocol";
 import { h } from "@terrakin/ui/dom";
 import { formatCount, plural } from "@terrakin/ui/format";
-import { disclosure, stateCard, whileBusy } from "@terrakin/ui/ui";
+import { disclosure, stateCard, whileBusy, wideLayout } from "@terrakin/ui/ui";
 import { api } from "./api";
 import { cohortTitle, NEWCOMER_ROWS, sameNameLine, stepShare } from "./logic";
 import { button, type View } from "./view";
 
 export function newcomersView(): View {
-  const body = h("div", { class: "stack newcomers" });
+  // A wide page: all time across the top, then each week's card side by side as the room allows.
+  const { el, head, main: body } = wideLayout("newcomers-page");
   const how = howCounted();
-  const el = h(
-    "div",
-    { class: "stack newcomers-page" },
+  head.append(
     h(
       "section",
       { class: "paper card hero", attrs: { "aria-labelledby": "newcomers-title" } },
@@ -27,7 +26,6 @@ export function newcomersView(): View {
       how.toggle,
       how.panel,
     ),
-    body,
   );
   let destroyed = false;
 
@@ -91,7 +89,9 @@ function paint(data: NewcomersResponse, reload: () => Promise<void>): HTMLElemen
     { class: "newcomers-refresh" },
     button("Refresh", (b) => void whileBusy(b, reload, "Counting…")),
   );
-  const out: HTMLElement[] = [cohortCard(data.allTime, data.today)];
+  const out: HTMLElement[] = [
+    h("div", { class: "card-grid" }, cohortCard(data.allTime, data.today)),
+  ];
   if (data.undated > 0) {
     out.push(
       h("p", {
@@ -102,7 +102,7 @@ function paint(data: NewcomersResponse, reload: () => Promise<void>): HTMLElemen
   }
   out.push(
     h("h2", { class: "section-title", text: "By the week they joined" }),
-    ...data.weeks.map((w) => cohortCard(w, data.today)),
+    h("div", { class: "card-grid" }, ...data.weeks.map((w) => cohortCard(w, data.today))),
     refresh,
   );
   return out;

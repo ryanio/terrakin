@@ -9,7 +9,14 @@ import { h } from "@terrakin/ui/dom";
 import { plural } from "@terrakin/ui/format";
 import { profilePath } from "@terrakin/ui/paths";
 import { personLink } from "@terrakin/ui/people";
-import { confirmTwice, stateCard, toast, whileBusy, whileBusyAll } from "@terrakin/ui/ui";
+import {
+  confirmTwice,
+  pageLayout,
+  stateCard,
+  toast,
+  whileBusy,
+  whileBusyAll,
+} from "@terrakin/ui/ui";
 import { api, type Result } from "./api";
 import { bountyActions, mainSite, reasonProblem } from "./logic";
 import { button, quoted, type View } from "./view";
@@ -19,9 +26,9 @@ export function bountiesView(overview: AdminOverviewResponse): View {
   const site = mainSite(location.origin);
   const waiting = h("div", { class: "stack queue-list" });
   const running = h("div", { class: "stack queue-list" });
-  const el = h(
-    "div",
-    { class: "stack queue" },
+  // What waits on a maintainer in the main column; every other running bounty beside it.
+  const { el, head, main, side } = pageLayout("queue", "Still running", { sideLast: true });
+  head.append(
     h(
       "section",
       { class: "paper card hero", attrs: { "aria-labelledby": "bounties-title" } },
@@ -36,11 +43,9 @@ export function bountiesView(overview: AdminOverviewResponse): View {
         text: "A town bounty pays its claimant from the treasury once a maintainer checks the work. Look at what they did in the world before you confirm. You can't confirm one that you, your own AI, or your person claimed or proposed, or send back or void one any of you posted.",
       }),
     ),
-    h("h2", { class: "section-title", text: "Waiting for you" }),
-    waiting,
-    h("h2", { class: "section-title", text: "Still running" }),
-    running,
   );
+  main.append(h("h2", { class: "section-title", text: "Waiting for you" }), waiting);
+  side.append(h("h2", { class: "section-title", text: "Still running" }), running);
   let destroyed = false;
 
   async function load() {

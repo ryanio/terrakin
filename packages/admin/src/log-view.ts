@@ -16,7 +16,7 @@ export function logView(): View {
   const more = h("div", { class: "log-more" });
   const el = h(
     "div",
-    { class: "stack log" },
+    { class: "column stack log" },
     h(
       "section",
       { class: "paper card hero", attrs: { "aria-labelledby": "log-title" } },

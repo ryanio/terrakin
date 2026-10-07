@@ -29,10 +29,11 @@ const main = document.getElementById("main") as HTMLElement;
 let overview: AdminOverviewResponse | undefined;
 let view: View | undefined;
 
+/** A sign-in or state screen: one card in a column. Each staff screen brings its own layout. */
 function show(el: HTMLElement) {
   view?.destroy();
   view = undefined;
-  main.replaceChildren(el);
+  main.replaceChildren(h("div", { class: "column stack" }, el));
 }
 
 function navLink(screen: Screen, label: string, current: Screen): HTMLAnchorElement {
@@ -58,7 +59,7 @@ function paintTop(screen: Screen | undefined) {
     h("span", { class: "brand-tag", text: "staff" }),
   );
   if (!overview || !screen) {
-    top.replaceChildren(h("div", { class: "column top-row" }, brand));
+    top.replaceChildren(h("div", { class: "column wide top-row" }, brand));
     return;
   }
   const { me } = overview;
@@ -77,7 +78,7 @@ function paintTop(screen: Screen | undefined) {
   top.replaceChildren(
     h(
       "div",
-      { class: "column top-row" },
+      { class: "column wide top-row" },
       brand,
       h(
         "p",
@@ -89,7 +90,7 @@ function paintTop(screen: Screen | undefined) {
     ),
     h(
       "nav",
-      { class: "column nav", attrs: { "aria-label": "Staff" } },
+      { class: "column wide nav", attrs: { "aria-label": "Staff" } },
       ...screensFor(me.role).map((s) => navLink(s, SCREEN_NAMES[s], screen)),
     ),
   );

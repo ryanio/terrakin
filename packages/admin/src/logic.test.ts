@@ -1,4 +1,4 @@
-import type { ReportQueueItem, TriageVerdictView } from "@terrakin/protocol";
+import type { AdminOverviewResponse, ReportQueueItem, TriageVerdictView } from "@terrakin/protocol";
 import { describe, expect, it } from "vitest";
 import {
   activityLine,
@@ -37,6 +37,7 @@ import {
   suspendLimits,
   TAKEDOWN_ACTIONS,
   tipsLine,
+  todayRows,
   todayWords,
   triageLine,
   triageSummary,
@@ -699,5 +700,100 @@ describe("newcomers", () => {
     expect(sameNameLine(0)).toBeNull();
     expect(sameNameLine(1)).toMatch(/^1 of them has the name/);
     expect(sameNameLine(2)).toMatch(/^2 of them have the name/);
+  });
+});
+
+describe("the queue's Today card", () => {
+  const overview = {
+    triage: {
+      enabled: true,
+      model: "claude-haiku-4-5",
+      callsToday: 12,
+      callsPerDay: 200,
+      tokensToday: 34000,
+      tokensPerDay: 600000,
+      pausedUntil: null,
+      agreement: { decided: 10, agreed: 8 },
+    },
+    checkins: {
+      residentsThisWeek: 0,
+      residentsToday: null,
+      scheduledToday: null,
+      medianGapHours: null,
+    },
+    spend: {
+      todayMicroUsd: 42_000,
+      windowMicroUsd: 1_204_000,
+      days: 30,
+      lines: [],
+      chatter: { calls: 0, notes: 0, drafts: 0, refused: 0, microUsd: 0 },
+    },
+    chatter: {
+      mode: "dry",
+      gate: "quiet",
+      perRun: 3,
+      model: "claude-sonnet-5-5",
+      callsToday: 3,
+      callsPerDay: 24,
+      tokensToday: 9000,
+      tokensPerDay: 100000,
+      microUsdToday: 1200,
+      microUsdPerDay: 280000,
+      pausedUntil: null,
+      lastRun: null,
+      participation: { notes: 0, answered: 0, replies: 0, reactions: 0 },
+      drafts: [],
+    },
+    tips: { mode: "off", lastRun: null },
+  } as unknown as AdminOverviewResponse;
+
+  it("gives each part of the town a row with where it stands and its numbers a sentence a line", () => {
+    expect(todayRows(overview, 0)).toEqual([
+      {
+        key: "triage",
+        label: "AI triage",
+        state: "Live",
+        lines: [
+          "12 of 200 calls, 34,000 of 600,000 tokens.",
+          "Staff agreed with it on 8 of 10 decisions.",
+        ],
+      },
+      { key: "checkins", label: "Check-ins", lines: ["Nobody has checked in this week."] },
+      { key: "spend", label: "AI spend", lines: ["$0.04 today, $1.20 in the last 30 days."] },
+      {
+        key: "chatter",
+        label: "Townsfolk chatter",
+        state: "Dry run",
+        lines: ["Writes drafts and does nothing.", "Today: 3 of 24 calls."],
+      },
+      {
+        key: "tips",
+        label: "Townsfolk tips",
+        state: "Off",
+        lines: ["The townsfolk don't give coins here."],
+      },
+    ]);
+  });
+
+  it("says when triage is off or paused, and adds notes once chatter has put one up", () => {
+    const off = todayRows({ ...overview, triage: { ...overview.triage, enabled: false } }, 0);
+    expect(off[0]).toMatchObject({ state: "Off", lines: ["Reports wait for people."] });
+    const paused = todayRows(
+      { ...overview, triage: { ...overview.triage, pausedUntil: "2026-10-04T01:00:00.000Z" } },
+      0,
+    );
+    expect(paused[0]?.state).toBe("Paused");
+    const chatty = todayRows(
+      {
+        ...overview,
+        chatter: {
+          ...overview.chatter,
+          participation: { notes: 5, answered: 3, replies: 4, reactions: 2 },
+        },
+      },
+      0,
+    );
+    expect(chatty.map((r) => r.key)).toContain("notes");
+    expect(chatty.find((r) => r.key === "notes")?.lines[0]).toMatch(/^In the last 30 days: 3 of 5/);
   });
 });

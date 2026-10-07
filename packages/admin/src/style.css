@@ -118,14 +118,14 @@ body {
 
 /* ---------- pages ---------- */
 
-.page {
+.admin-main {
   display: grid;
   gap: var(--space-md);
   padding-top: var(--space-lg);
   padding-bottom: calc(96px + env(safe-area-inset-bottom));
 }
 
-.page:focus {
+.admin-main:focus {
   outline: none;
 }
 
@@ -164,6 +164,49 @@ body {
 
 .triage-status {
   font-size: var(--text-sm);
+}
+
+/* ---------- the queue's Today card ---------- */
+
+/* Each part of the town a row: its mark in a soft disc, its name and numbers, where it stands. */
+.today-rows {
+  gap: 0;
+}
+
+.today-row {
+  align-items: flex-start;
+  padding-block: var(--space-sm);
+}
+
+.today-row + .today-row {
+  border-top: 1px solid var(--paper-edge);
+}
+
+.today-mark {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--moss-light) 22%, var(--paper));
+  color: var(--moss-deep);
+}
+
+.today-spend .today-mark,
+.today-tips .today-mark {
+  background: color-mix(in srgb, var(--sun) 30%, var(--paper));
+  color: var(--clay-deep);
+}
+
+.today-chatter .today-mark,
+.today-notes .today-mark {
+  background: color-mix(in srgb, var(--dusk) 35%, var(--paper));
+  color: var(--ink);
+}
+
+.today-row .state-chip {
+  flex: none;
 }
 
 /* ---------- fields ---------- */
@@ -505,11 +548,11 @@ body {
 
 /* ---------- townsfolk ---------- */
 
-.townsfolk-chips {
+.state-chips {
   gap: var(--space-xs);
 }
 
-.townsfolk-chip {
+.state-chip {
   padding: var(--space-2xs) var(--space-md);
   border-radius: var(--r-pill);
   background: var(--paper-2);
@@ -519,19 +562,19 @@ body {
   color: var(--ink-soft);
 }
 
-.townsfolk-chip.state-live {
+.state-chip.state-live {
   background: var(--moss-deep);
   box-shadow: none;
   color: var(--paper);
 }
 
-.townsfolk-chip.state-dry-run {
+.state-chip.state-dry-run {
   background: color-mix(in srgb, var(--sun) 45%, var(--paper));
   box-shadow: none;
   color: var(--ink);
 }
 
-.townsfolk-chip.state-paused {
+.state-chip.state-paused {
   background: var(--clay-deep);
   box-shadow: none;
   color: var(--paper);
@@ -875,7 +918,7 @@ body {
 }
 
 @media (min-width: 760px) {
-  .page {
+  .admin-main {
     padding-top: var(--space-2xl);
   }
 }

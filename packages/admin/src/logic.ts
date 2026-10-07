@@ -554,6 +554,105 @@ export function chatterLine(c: AdminOverviewResponse["chatter"], nowMs: number):
   return `Townsfolk chatter ${what}.${used}${last}`;
 }
 
+/** Where a part of the town stands: running, off, a dry run, or paused after errors. */
+type TodayState = "Live" | "Off" | "Dry run" | "Paused";
+
+/** One row of the queue's Today card: a part of the town, where it stands, and its numbers. */
+export interface TodayRow {
+  key: "triage" | "checkins" | "spend" | "chatter" | "notes" | "tips";
+  label: string;
+  /** Left out for what's only ever numbers (check-ins, spend). */
+  state?: TodayState;
+  /** The line's sentences, one a line, without the label it opened with. */
+  lines: string[];
+}
+
+/** A one-line summary as its sentences, without `prefix`, each starting with a capital. */
+function sentences(line: string, prefix: string): string[] {
+  const rest = line.startsWith(prefix) ? line.slice(prefix.length) : line;
+  return rest
+    .split(/(?<=[.!?])\s+(?=[A-Z$0-9])/)
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .map((x) => `${x[0]?.toUpperCase() ?? ""}${x.slice(1)}`);
+}
+
+/**
+ * The queue's Today card, row by row: AI triage, check-ins, AI spend, townsfolk chatter, whether its
+ * notes draw residents in (once it has put one up), and the townsfolk's coin tips.
+ */
+export function todayRows(o: AdminOverviewResponse, nowMs: number): TodayRow[] {
+  const { triage, chatter, tips } = o;
+  const triagePaused = triage.pausedUntil !== null && Date.parse(triage.pausedUntil) > nowMs;
+  const chatterPaused = chatter.pausedUntil !== null && Date.parse(chatter.pausedUntil) > nowMs;
+  const notes = participationLine(chatter.participation, o.spend.days);
+  return [
+    {
+      key: "triage",
+      label: "AI triage",
+      state: !triage.enabled ? "Off" : triagePaused ? "Paused" : "Live",
+      lines: !triage.enabled
+        ? ["Reports wait for people."]
+        : triagePaused
+          ? ["Paused after repeated errors. Reports wait for people until it's back."]
+          : sentences(triageLine(triage, nowMs), "AI triage today: "),
+    },
+    {
+      key: "checkins",
+      label: "Check-ins",
+      lines: sentences(checkinLine(o.checkins), "Check-ins: "),
+    },
+    { key: "spend", label: "AI spend", lines: sentences(spendLine(o.spend), "AI spend: ") },
+    {
+      key: "chatter",
+      label: "Townsfolk chatter",
+      state:
+        chatter.mode === "off"
+          ? "Off"
+          : chatterPaused
+            ? "Paused"
+            : chatter.mode === "dry"
+              ? "Dry run"
+              : "Live",
+      lines:
+        chatter.mode === "off"
+          ? ["The townsfolk don't post or answer."]
+          : chatterPaused
+            ? ["Paused after repeated errors."]
+            : sentences(
+                chatterLine(chatter, nowMs).replace("is a dry run: it writes", "writes"),
+                "Townsfolk chatter ",
+              ),
+    },
+    ...(notes
+      ? [
+          {
+            key: "notes" as const,
+            label: "Townsfolk notes",
+            lines: sentences(notes.replace("Townsfolk notes in the last", "In the last"), ""),
+          },
+        ]
+      : []),
+    {
+      key: "tips",
+      label: "Townsfolk tips",
+      state: tips.mode === "off" ? "Off" : tips.mode === "dry" ? "Dry run" : "Live",
+      lines:
+        tips.mode === "off"
+          ? ["The townsfolk don't give coins here."]
+          : sentences(
+              tipsLine(tips)
+                .replace(
+                  "Townsfolk tips are a dry run: checked, never given. ",
+                  "Checked, never given. ",
+                )
+                .replace("Townsfolk tips are on. ", ""),
+              "",
+            ),
+    },
+  ];
+}
+
 /** What a dry-run draft was: "would post", or why it was turned away. */
 export function draftLabel(d: AdminOverviewResponse["chatter"]["drafts"][number]): string {
   const action =

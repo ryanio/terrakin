@@ -128,7 +128,7 @@ test("a resident reports a post from a phone, and a maintainer hides it and dele
   await page.getByRole("link", { name: "Townsfolk" }).click();
   await expect(page).toHaveURL(`${adminOrigin}/townsfolk`);
   await expect(page.getByRole("heading", { level: 1, name: "Townsfolk" })).toBeVisible();
-  await expect(page.locator(".townsfolk-chip").first()).toHaveText("Off");
+  await expect(page.locator(".state-chip").first()).toHaveText("Off");
   await expect(page.getByRole("heading", { name: "Latest" })).toBeVisible();
   expect(await overflowsSideways(page)).toBe(false);
   await page.screenshot({ path: "test-results/admin-townsfolk.png", fullPage: true });
@@ -140,7 +140,7 @@ test("a resident reports a post from a phone, and a maintainer hides it and dele
   const allTime = page.locator(".newcomers-cohort").first();
   await expect(allTime.getByRole("heading", { name: "All time" })).toBeVisible();
   await expect(allTime.getByRole("rowheader", { name: "Claimed a plot" })).toBeVisible();
-  await expect(page.locator(".newcomers")).not.toContainText("Pebble");
+  await expect(page.locator(".newcomers-page")).not.toContainText("Pebble");
   expect(await overflowsSideways(page)).toBe(false);
   await page.screenshot({ path: "test-results/admin-newcomers.png", fullPage: true });
 

@@ -9,7 +9,7 @@ import { h, icon } from "@terrakin/ui/dom";
 import { plural } from "@terrakin/ui/format";
 import { postPath, profilePath } from "@terrakin/ui/paths";
 import { personLink } from "@terrakin/ui/people";
-import { stateCard, whileBusy } from "@terrakin/ui/ui";
+import { pageLayout, stateCard, whileBusy } from "@terrakin/ui/ui";
 import { timeAgo } from "@terrakin/ui/when";
 import { api } from "./api";
 import {
@@ -32,10 +32,9 @@ import { button, outLink, quoted, type View } from "./view";
 type Data = TownsfolkActivityResponse;
 
 export function townsfolkView(): View {
-  const body = h("div", { class: "stack townsfolk" });
-  const el = h(
-    "div",
-    { class: "stack townsfolk-page" },
+  // How chatter is doing and each townsfolk resident beside what they said and did lately.
+  const { el, head, main, side } = pageLayout("townsfolk-page", "Chatter today and the townsfolk");
+  head.append(
     h(
       "section",
       { class: "paper card hero", attrs: { "aria-labelledby": "townsfolk-title" } },
@@ -45,7 +44,6 @@ export function townsfolkView(): View {
         text: "The founding townsfolk post, answer, react, praise, admire plots, and wave on their own a few times a day. Their words are the model's; the posts they answer are residents' own.",
       }),
     ),
-    body,
   );
   let destroyed = false;
   const site = mainSite(location.origin);
@@ -56,7 +54,8 @@ export function townsfolkView(): View {
     if (!res.ok) {
       // A missing sign-in is handled app-wide (SIGNED_OUT_EVENT).
       if (res.code === "unauthorized") return;
-      body.replaceChildren(
+      side.replaceChildren();
+      main.replaceChildren(
         stateCard({
           title: "Couldn't load the townsfolk",
           body: res.message,
@@ -65,10 +64,12 @@ export function townsfolkView(): View {
       );
       return;
     }
-    body.replaceChildren(...paint(res.data, site, load));
+    const painted = paint(res.data, site, load);
+    side.replaceChildren(...painted.side);
+    main.replaceChildren(...painted.main);
   }
 
-  body.replaceChildren(
+  main.replaceChildren(
     h("p", { class: "field-hint", attrs: { role: "status" }, text: "Loading the townsfolk…" }),
   );
   void load();
@@ -80,7 +81,11 @@ export function townsfolkView(): View {
   };
 }
 
-function paint(data: Data, site: string, reload: () => Promise<void>): HTMLElement[] {
+function paint(
+  data: Data,
+  site: string,
+  reload: () => Promise<void>,
+): { side: HTMLElement[]; main: HTMLElement[] } {
   const now = Date.now();
   const { chatter } = data;
   const state = chatterState(chatter, now);
@@ -91,23 +96,21 @@ function paint(data: Data, site: string, reload: () => Promise<void>): HTMLEleme
     { class: "paper card stack tight townsfolk-status", attrs: { "aria-label": "Chatter today" } },
     h(
       "ul",
-      { class: "cluster plain-list townsfolk-chips" },
+      { class: "cluster plain-list state-chips" },
       h("li", {
-        class: `townsfolk-chip state-${state.toLowerCase().replace(" ", "-")}`,
+        class: `state-chip state-${state.toLowerCase().replace(" ", "-")}`,
         text: state,
       }),
-      chatter.mode === "off"
-        ? null
-        : h("li", { class: "townsfolk-chip", text: gateWords(chatter) }),
+      chatter.mode === "off" ? null : h("li", { class: "state-chip", text: gateWords(chatter) }),
       chatter.mode !== "off" && chatter.mentions
-        ? h("li", { class: "townsfolk-chip", text: "Answers mentions" })
+        ? h("li", { class: "state-chip", text: "Answers mentions" })
         : null,
       chatter.mode === "off"
         ? null
-        : h("li", { class: "townsfolk-chip", text: modelName(chatter.model) }),
+        : h("li", { class: "state-chip", text: modelName(chatter.model) }),
       chatter.lastRun
         ? h("li", {
-            class: "townsfolk-chip",
+            class: "state-chip",
             text: `Last run ${sinceWords(chatter.lastRun.at, now)}`,
             attrs: { title: chatter.lastRun.result },
           })
@@ -208,7 +211,7 @@ function paint(data: Data, site: string, reload: () => Promise<void>): HTMLEleme
         )),
   );
   const compare = compareSection(data, site, now);
-  return compare ? [status, people, compare, latest] : [status, people, latest];
+  return { side: [status, people], main: compare ? [compare, latest] : [latest] };
 }
 
 /**

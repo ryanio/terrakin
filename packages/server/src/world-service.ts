@@ -1730,8 +1730,11 @@ export class WorldService {
     return this.hashed.hash;
   }
 
+  /** Residents online, leaving out the townsfolk like `residents` in the snapshot. */
   onlineCount(): number {
-    return Object.values(this.state.residents).filter((r) => r.online).length;
+    return Object.values(this.state.residents).filter(
+      (r) => r.online && !isTownsfolk(this.state, r.id),
+    ).length;
   }
 
   snapshot(): WorldSnapshot {

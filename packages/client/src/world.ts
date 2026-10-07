@@ -271,6 +271,7 @@ function updatePopulation() {
   let total = 0;
   let online = 0;
   for (const r of mirror.residents.values()) {
+    if (mirror.townsfolk.has(r.id)) continue;
     total++;
     if (r.online) online++;
   }

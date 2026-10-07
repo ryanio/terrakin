@@ -31,6 +31,14 @@ const snapshot: WorldSnapshot = {
 };
 
 describe("Mirror", () => {
+  it("holds the townsfolk with the residents, and knows which they are", () => {
+    const pips = snapshot.residents.map((r) => ({ ...r, id: "t", name: "Pip", x: 2, y: 2 }));
+    const m = new Mirror({ ...snapshot, townsfolk: ["t"], townsfolkResidents: pips });
+    expect(m.residents.get("t")).toMatchObject({ name: "Pip", x: 2, y: 2 });
+    expect(m.residents.get("a")).toMatchObject({ name: "Ada" });
+    expect([...m.townsfolk]).toEqual(["t"]);
+  });
+
   it("applies events in order", () => {
     const m = new Mirror(snapshot);
     const events = [

@@ -3,7 +3,7 @@
  * ground corner is, and how to fit a resident's own model onto their plot. No three.js here, so
  * the math is tested without a GPU.
  */
-import type { WorldSnapshot } from "@terrakin/protocol";
+import { everyoneIn, type WorldSnapshot } from "@terrakin/protocol";
 import {
   type BlockKind,
   type Crop,
@@ -73,7 +73,7 @@ export function homePlot(
   const owned = snapshot.plots
     .filter((p) => p.ownerId === residentId)
     .sort((a, b) => a.py - b.py || a.px - b.px);
-  const resident = snapshot.residents.find((r) => r.id === residentId);
+  const resident = everyoneIn(snapshot).find((r) => r.id === residentId);
   const S = snapshot.config.plotSize;
   const hearth = resident?.hearth;
   const withHearth = hearth
@@ -413,7 +413,8 @@ export function plotLayout(
   residentId: string,
   margin = 4,
 ): PlotLayout | undefined {
-  const owner = snapshot.residents.find((r) => r.id === residentId);
+  const everyone = everyoneIn(snapshot);
+  const owner = everyone.find((r) => r.id === residentId);
   const plot = homePlot(snapshot, residentId);
   if (!owner || !plot) return undefined;
   const { plotSize, width, height } = snapshot.config;
@@ -428,7 +429,7 @@ export function plotLayout(
   const hearth =
     owner.hearth && inBounds(bounds, owner.hearth.x, owner.hearth.y) ? owner.hearth : null;
   // The owner is always drawn at home here, so their windows light whenever their hearth is here.
-  const homes = litHomes(snapshot.residents, plotSize);
+  const homes = litHomes(everyone, plotSize);
   if (hearth) homes.add(plotKey(plot.px, plot.py));
   const blocks: LayoutBlock[] = [];
   for (const b of snapshot.blocks) {
@@ -470,12 +471,10 @@ export function plotLayout(
 
   const solid = new Set(blocks.map((b) => `${b.x},${b.y}`));
   const hearths = new Set(
-    snapshot.residents.flatMap((r) => (r.hearth ? [tileKey(r.hearth.x, r.hearth.y)] : [])),
+    everyone.flatMap((r) => (r.hearth ? [tileKey(r.hearth.x, r.hearth.y)] : [])),
   );
   // Everyone away whose hearth is on this plot, asleep at it (decision 0086, RFC 0013).
-  const homeHere = snapshot.residents.filter(
-    (r) => r.hearth && inBounds(bounds, r.hearth.x, r.hearth.y),
-  );
+  const homeHere = everyone.filter((r) => r.hearth && inBounds(bounds, r.hearth.x, r.hearth.y));
   const asleep = new Map(
     dozers(
       homeHere,
@@ -489,7 +488,7 @@ export function plotLayout(
     ).map((d) => [d.r.id, d]),
   );
   const figures: LayoutFigure[] = [];
-  for (const r of snapshot.residents) {
+  for (const r of everyone) {
     const isOwner = r.id === owner.id;
     const onPlot = inBounds(bounds, r.x, r.y);
     const dozing = asleep.get(r.id);
@@ -751,9 +750,13 @@ export function homeExtras(rawResident: unknown): HomeExtras {
 
 /** The raw resident with this id in an unparsed snapshot, if there is one. */
 export function rawResident(rawSnapshot: unknown, id: string): unknown {
-  const list = (rawSnapshot as { residents?: unknown } | null)?.residents;
-  if (!Array.isArray(list)) return undefined;
-  return list.find((r) => (r as { id?: unknown } | null)?.id === id);
+  const raw = rawSnapshot as { residents?: unknown; townsfolkResidents?: unknown } | null;
+  for (const list of [raw?.residents, raw?.townsfolkResidents]) {
+    if (!Array.isArray(list)) continue;
+    const found = list.find((r) => (r as { id?: unknown } | null)?.id === id);
+    if (found) return found;
+  }
+  return undefined;
 }
 
 export interface Footprint {

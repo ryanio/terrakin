@@ -1,4 +1,5 @@
 import {
+  everyoneIn,
   facingFrom,
   type PetView,
   type ResidentView,
@@ -102,7 +103,10 @@ export class Mirror {
   config: WorldConfig;
   commons: { px: number; py: number };
   seq: number;
+  /** Everyone on the map, the townsfolk included. */
   residents = new Map<string, Resident>();
+  /** The townsfolk among `residents`, never counted as residents. */
+  townsfolk: ReadonlySet<string>;
   plots = new Map<string, string>(); // plotKey -> ownerId
   coOwners = new Map<string, string[]>(); // plotKey -> residents the owner shares it with
   blocks = new Map<string, BlockKind>(); // tileKey -> block
@@ -155,7 +159,8 @@ export class Mirror {
     this.config = snapshot.config;
     this.commons = snapshot.commons;
     this.seq = snapshot.seq;
-    for (const r of snapshot.residents) {
+    this.townsfolk = new Set(snapshot.townsfolk ?? []);
+    for (const r of everyoneIn(snapshot)) {
       this.residents.set(r.id, residentFrom(r));
       if (r.facing) this.facing.set(r.id, r.facing);
       if (!r.online && r.routine) this.#out.set(r.id, { routine: r.routine, at: clock() });

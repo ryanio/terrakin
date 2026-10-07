@@ -6,7 +6,7 @@
  * A drawing costs no request and no upload, which is why the plot cards use it rather than plot
  * photos (RFC 0020).
  */
-import type { WorldSnapshot } from "@terrakin/protocol";
+import { everyoneIn, type WorldSnapshot } from "@terrakin/protocol";
 import {
   alphaHex,
   blockFill,
@@ -51,7 +51,7 @@ export function plotMarks(
   const here = (t: { x: number; y: number }) =>
     t.x >= x0 && t.x < x0 + size && t.y >= y0 && t.y < y0 + size;
   const plot = world.plots.find((p) => p.px === px && p.py === py);
-  const owner = plot ? world.residents.find((r) => r.id === plot.ownerId) : undefined;
+  const owner = plot ? everyoneIn(world).find((r) => r.id === plot.ownerId) : undefined;
   const palette = owner?.theme ? THEME_INFO[owner.theme]?.palette : undefined;
   const marks: PlotMark[] = [];
   for (let y = 0; y < size; y++) {
@@ -94,7 +94,7 @@ export function plotMarks(
   for (const d of world.displays ?? []) {
     if (here(d)) marks.push({ x: d.x - x0, y: d.y - y0, kind: "display" });
   }
-  for (const r of world.residents) {
+  for (const r of everyoneIn(world)) {
     if (r.hearth && here(r.hearth)) {
       marks.push({ x: r.hearth.x - x0, y: r.hearth.y - y0, kind: "hearth" });
     }

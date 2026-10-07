@@ -21,7 +21,7 @@ import {
 } from "three";
 import { describe, expect, it, vi } from "vitest";
 import { blockColor, RESIDENT_COLOR_HEX } from "./render";
-import { addAll } from "./scene3d/art";
+import { addAll, frameDistance } from "./scene3d/art";
 import { parseGallery } from "./scene3d/catalog";
 import { faceParts, OVERHEAD_ORDER, overheadMaterial } from "./scene3d/figure";
 import { hairMesh, hairPieces } from "./scene3d/hair";
@@ -749,5 +749,36 @@ describe("three.js stays out of the main bundle", () => {
         if (hit) expect(m[1], `${rel(f)} imports ${m[2]}`).toBe("type ");
       }
     }
+  });
+});
+
+describe("framing the scene for a photo", () => {
+  const WIDE = 16 / 9;
+
+  it("stands back in proportion to the scene, so a big house zooms out instead of cropping", () => {
+    const near = frameDistance(4, 34, WIDE);
+    const far = frameDistance(8, 34, WIDE);
+    expect(far).toBeCloseTo(near * 2, 10);
+  });
+
+  it("keeps the whole scene inside the view, with room to spare", () => {
+    const fov = 34;
+    const vHalf = (fov * Math.PI) / 360;
+    const d = frameDistance(4.5, fov, WIDE);
+    // The scene's angular radius is smaller than the view's half angle, so nothing is cut
+    // through; and the camera stands back with a real margin, not on the edge.
+    expect(Math.asin(4.5 / d)).toBeLessThan(vHalf);
+    expect(d).toBeGreaterThan((4.5 / Math.sin(vHalf)) * 1.1);
+  });
+
+  it("crops the sides on a portrait phone instead of shrinking the scene to a speck", () => {
+    const fov = 44;
+    const vHalf = (fov * Math.PI) / 360;
+    const hHalf = Math.atan(Math.tan(vHalf) * 0.5);
+    const d = frameDistance(4.5, fov, 0.5);
+    // Closer than fitting the whole width would put it...
+    expect(d).toBeLessThan((4.5 / Math.sin(hHalf)) * 1.02);
+    // ...but no closer than the vertical fit, so the scene stays readable.
+    expect(d).toBeGreaterThan((4.5 / Math.sin(vHalf)) * 1.02);
   });
 });

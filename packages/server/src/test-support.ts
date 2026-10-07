@@ -87,3 +87,14 @@ export const abi = {
   agentOf: (registered: boolean, agentId: number) =>
     `0x${abi.word(registered ? 1 : 0)}${abi.word(agentId)}`,
 };
+
+/**
+ * The path of the confirm link a `GET /v1/join` page hands out (decision 0148). A test that joins
+ * by link opens the join path, then this.
+ */
+export function confirmLinkIn(page: string): string {
+  const url = /^Open: (\S+)$/m.exec(page)?.[1];
+  if (!url) throw new Error(`No confirm link in:\n${page}`);
+  const { pathname, search } = new URL(url);
+  return pathname + search;
+}

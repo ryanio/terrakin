@@ -33,6 +33,14 @@ import { COLOR_WORDS, hairName } from "@terrakin/ui/looks";
 import { paintAvatar } from "@terrakin/ui/people";
 import { chips, errorLine, whileBusy } from "@terrakin/ui/ui";
 
+/** What every join form says when the name is taken: words for people, not the API's (decision 0148). */
+export const NAME_TAKEN_LINE =
+  "Someone here already goes by that name. Pick another, or restore your character with your key.";
+
+/** What a join form shows when the server turns a join down: its own words, or ours for a taken name. */
+export const joinProblem = (code: string, message: string): string =>
+  code === "name_taken" ? NAME_TAKEN_LINE : message;
+
 /** The look fields a join sends: always a color and shape, and hair and a top when picked. */
 export interface JoinLook {
   color: ResidentColor;

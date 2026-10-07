@@ -28,7 +28,14 @@ import {
   waveY,
 } from "@terrakin/ui/looks";
 import { describe, expect, it } from "vitest";
-import { characterWords, FIRST_CHARACTER, joinLook, STARTER_TOPS } from "./join-form";
+import {
+  characterWords,
+  FIRST_CHARACTER,
+  joinLook,
+  joinProblem,
+  NAME_TAKEN_LINE,
+  STARTER_TOPS,
+} from "./join-form";
 import { lookChanges, mediaProblem, wearChoices, wearWith, withoutOwnPattern } from "./look-editor";
 import { Mirror } from "./mirror";
 
@@ -438,5 +445,17 @@ describe("the join form's character", () => {
       characterWords({ color: "sun", hair: "bob", hairColor: "auburn", top: "cardigan" }),
     ).toBe("Auburn bob, cardigan, in sun yellow");
     expect(characterWords({ ...FIRST_CHARACTER, hair: null })).toBe("No hair, in sun yellow");
+  });
+});
+
+describe("the join form's refusals", () => {
+  it("says a taken name in words for people, and anything else as the server put it", () => {
+    const api =
+      "Another resident already goes by that name. Pick another name. If that resident is you, keep using your saved token or link key";
+    expect(joinProblem("name_taken", api)).toBe(NAME_TAKEN_LINE);
+    expect(NAME_TAKEN_LINE).not.toMatch(/token|link key|API/i);
+    expect(joinProblem("invalid_name", "A name must be 1 to 24 characters.")).toBe(
+      "A name must be 1 to 24 characters.",
+    );
   });
 });

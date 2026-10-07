@@ -163,7 +163,7 @@ export function townsfolkIds(
 }
 
 export interface PulseStats {
-  /** Residents, which never include the townsfolk. */
+  /** Residents, which never include the townsfolk or a name's unused repeat records. */
   residents: number;
   online: number;
   homes: number;
@@ -175,7 +175,7 @@ export interface PulseStats {
 export function pulseStats(snapshot: WorldSnapshot, townsfolk: ReadonlySet<string>): PulseStats {
   const { residents } = snapshot;
   return {
-    residents: residents.length,
+    residents: residents.length - (snapshot.repeatJoins?.length ?? 0),
     online: residents.filter((r) => r.online).length,
     homes: residents.filter((r) => r.hearth !== null).length,
     plots: snapshot.plots.filter((p) => !townsfolk.has(p.ownerId)).length,

@@ -8,10 +8,12 @@ import type {
   WorldSnapshot,
 } from "@terrakin/protocol";
 import {
+  absolute,
   BUILD_LIMITS,
   facingFrom,
   GAME_TIMES,
   KARMA,
+  LINKS,
   PUTTER_LIMITS,
   ROUTINE_LIMITS,
 } from "@terrakin/protocol";
@@ -51,6 +53,7 @@ import {
   plotKey,
   prepare,
   REPLAY_VERSION,
+  type Resident,
   type ResidentKind,
   type RoutineStep,
   residentById,
@@ -102,6 +105,7 @@ import {
   holdBackNames,
   isPrivate,
   publicEvents,
+  repeatJoins,
   toWire,
   worldSnapshot,
 } from "./world-wire";
@@ -237,6 +241,12 @@ function gameRefused(code: string, command: string) {
  */
 const planOf = (prepared: { plan?: BuildPlan }): { plan?: BuildPlanSummary } =>
   prepared.plan ? { plan: buildSummary(prepared.plan) } : {};
+
+/**
+ * A join refused for a taken name (decision 0148). For agents and their owners; the web says it
+ * in its own words.
+ */
+const NAME_TAKEN = `Another resident already goes by that name. Pick another name. If that resident is you, keep using your saved token or link key instead of joining again, and if you lost it, ask the Terrakin team at ${absolute(LINKS.contact)}.`;
 
 /** How many residents within earshot a putter tries to wave at before it gives up. */
 const PUTTER_GREET_TRIES = 5;
@@ -1068,23 +1078,14 @@ export class WorldService {
       filtered(this.moderation, "name", cleanText(name), {}) ??
       filtered(this.moderation, "note", profile.note && cleanText(profile.note), {});
     if (refused) return refused;
-    // Names are unique: a join with a taken name is refused, so one resident keeps one
-    // record even after losing their token or link key and joining again (issue #46,
-    // decision 0148). Compared case-insensitively on the cleaned name; the sim keeps the
-    // casing the joiner chose. Server-side, like the filters above, so old logs replay
-    // unchanged: their joins were each fine when they were logged.
-    const wanted = cleanText(name);
-    const taken = Object.values(this.state.residents).some(
-      (r) => r.name.toLowerCase() === wanted.toLowerCase(),
-    );
-    if (taken) {
-      return {
-        ok: false,
-        error: {
-          code: "name_taken",
-          message: `A resident named "${wanted}" is already here. If that's you, come back with your saved token or link key instead of joining again. Otherwise pick another name.`,
-        },
-      };
+    // Names are unique (decision 0148, issue #46): one resident keeps one record even after
+    // losing their token or link key and joining again. Compared case-insensitively on the
+    // cleaned name, townsfolk included; the sim keeps the casing the joiner chose. Server-side,
+    // like the filters above, so old logs replay unchanged: their joins were each fine when
+    // they were logged.
+    const wanted = cleanText(name).toLowerCase();
+    if (Object.values(this.state.residents).some((r) => r.name.toLowerCase() === wanted)) {
+      return { ok: false, error: { code: "name_taken", message: NAME_TAKEN } };
     }
     // A brand-new resident owns no uploads, so any media here is refused.
     const media = checkLookMedia(this.actions.mediaType, residentId, profile);
@@ -1783,6 +1784,17 @@ export class WorldService {
       facing: this.facing,
       routineSteps: this.routineSteps,
       noteHidden: (id) => this.noteHidden(id),
+      repeatJoins: repeatJoins(this.state, (r) => this.untouched(r)),
     });
+  }
+
+  /**
+   * Offline, with no hearth, and nothing accepted since joining but coming and going: a record
+   * someone made and never used (decision 0148).
+   */
+  private untouched(r: Resident): boolean {
+    if (r.online || r.hearth !== null) return false;
+    const done = this.facts.done.get(r.id) ?? new Set<string>();
+    return [...done].every((kind) => kind === "join" || kind === "leave");
   }
 }

@@ -43,8 +43,10 @@ import {
 } from "../social";
 import {
   DAILY_LIMITS,
+  describeRateLimit,
   empty,
   GESTURE_COOLDOWN_MINUTES,
+  JOIN_CONFIRM_CODE,
   json,
   LinkKeyParams,
   link,
@@ -53,6 +55,7 @@ import {
   PageQuery,
   PostParams,
   PUTTER_LIMITS,
+  RATE_LIMITS,
   ResidentParams,
   type RouteSpec,
   routineSwitch,
@@ -76,19 +79,36 @@ export const LINK_ROUTES = [
     auth: "none",
     format: "markdown",
     summary:
-      "Join by opening a link. Answers in Markdown with your secret link key and what to open next.",
+      "Join by opening a link. The first page gives you a confirm link; opening that one makes you and answers with your secret link key.",
     description:
-      "For assistants that can only open URLs. Creates an agent resident exactly like `POST /v1/session`, with the same checks, and answers with a link key instead of a token. Each successful open makes a new resident, so open it once, and a name another resident already has is refused with `name_taken`.",
+      "For assistants that can only open URLs. Opened as given, it makes nothing and only shows the same link with a fresh `confirm` code, so a link preview or a prefetch never joins. Opening that confirm link creates an agent resident exactly like `POST /v1/session`, with the same checks, and answers with a link key instead of a token. Opening the same confirm link again within 2 minutes (a retry) gets the same answer back, key included, instead of a second resident. A name another resident already has is refused with `name_taken`.",
     tags: ["Links"],
     query: z.object({
       name: ResidentName.describe("Your name in the world, 1 to 24 characters."),
       note: ResidentNote.optional().describe("A short public note about you, up to 80 characters."),
       color: ResidentColor.optional().describe("sun, sky, leaf, rose, plum, sand, coal, or snow."),
       shape: ResidentShape.optional().describe("round, square, or diamond."),
+      confirm: z
+        .string()
+        .optional()
+        .transform((v) => (v !== undefined && JOIN_CONFIRM_CODE.test(v) ? v : undefined))
+        .describe(
+          "The code from the page this link shows first. Without it, or with anything else, nothing is made.",
+        ),
     }),
-    responses: { 200: text("text/markdown", "Joined: who you are, your link key, and links") },
+    responses: {
+      200: text(
+        "text/markdown",
+        "The confirm link, or, with `confirm`, who you are, your link key, and links",
+      ),
+    },
     errors: ["bad_request", "invalid_name", "name_taken", "invalid_profile", "rate_limited"],
-    rateLimit: "sessions",
+    // The confirm link spends a join from the per-IP session limit; the first page makes nothing
+    // and spends nothing, so a join by link costs what a POST does.
+    limits: [
+      `${describeRateLimit(RATE_LIMITS.sessions)}, shared with \`POST /v1/session\`, only when it joins`,
+    ],
+    once: true,
   },
   {
     id: "createLinkKey",

@@ -1,6 +1,7 @@
-import { CHECKIN_SUGGESTED_HOURS } from "@terrakin/protocol";
+import { CHECKIN_SUGGESTED_HOURS, REPEAT_WINDOW_MS } from "@terrakin/protocol";
 import { HAIR_COLORS, HAIR_STYLES, RESIDENT_COLORS, RESIDENT_SHAPES } from "@terrakin/sim";
-import type { Handlers } from "../handlers/shared";
+import { type Handlers, ipKey, RATE_LIMITED } from "../handlers/shared";
+import { randomBytes, toHex } from "../world-credentials";
 import { type LinkCtx, linksFor, list, ok, PLACEHOLDER, page, placeholderRefusal } from "./shared";
 import { at, quote, untrusted } from "./words";
 
@@ -11,12 +12,35 @@ export function keyLinks(
   Handlers,
   "joinByLink" | "createLinkKey" | "deleteLinkKey" | "linkAcceptOwner" | "rekeyByLink"
 > {
-  const { service, state, owners, failed, reply, fromOutcome } = ctx;
+  const { api, service, state, owners, failed, reply, fromOutcome } = ctx;
   return {
-    joinByLink: ({ query, origin }) => {
+    joinByLink: ({ query, origin, ip }) => {
       if (PLACEHOLDER.test(query.name)) return placeholderRefusal("name");
       if (query.note !== undefined && PLACEHOLDER.test(query.note))
         return placeholderRefusal("note");
+      if (!query.confirm) {
+        // Link previews and prefetchers open URLs too, so this page makes nothing (decision
+        // 0148). The code it adds makes the confirm link safe to retry: the dispatcher answers a
+        // repeat within the window with the first answer, key and all.
+        const fields = [
+          ["name", query.name],
+          ["note", query.note],
+          ["color", query.color],
+          ["shape", query.shape],
+          ["confirm", toHex(randomBytes(10))],
+        ].flatMap(([k, v]) => (v === undefined ? [] : [`${k}=${encodeURIComponent(v)}`]));
+        return ok(
+          page(
+            "# One more link to join",
+            `Open the link below yourself to make your resident. If the answer doesn't reach you, open the same link again within ${REPEAT_WINDOW_MS / 60_000} minutes: you get the same answer back, not a second resident. Don't share it, since it shows your secret link key.`,
+            `Open: ${origin}/v1/join?${fields.join("&")}`,
+          ),
+        );
+      }
+      // Only a join spends from the per-IP session limit, the one `POST /v1/session` uses.
+      if (!api.limiters.sessions.take(ipKey(ip))) {
+        return failed("rate_limited", RATE_LIMITED.sessions);
+      }
       const result = service.createResident({
         name: query.name,
         kind: "agent",
@@ -106,7 +130,7 @@ export function keyLinks(
         ok(
           page(
             "# You have a new link key",
-            "Your owner turned off your old key, and the Terrakin team let you back in. This key replaces it. Your old links don't work anymore; use links with the new key from now on.",
+            "The Terrakin team let you back in. This key replaces any you had before, and so do the links with it: your old links and tokens don't work anymore.",
             list([`- Resident id: \`${residentId}\``, `- Link key (secret): \`${key}\``]),
             "Keep it private, like a password, and save it in your private notes. This is the only time it's shown.",
             `Your menu: ${linksFor(origin, key).me}`,

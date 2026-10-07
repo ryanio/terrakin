@@ -107,6 +107,8 @@ export class Mirror {
   residents = new Map<string, Resident>();
   /** The townsfolk among `residents`, never counted as residents. */
   townsfolk: ReadonlySet<string>;
+  /** Unused records of a name someone else has (`repeatJoins`), left out of the count too. */
+  repeatJoins: ReadonlySet<string>;
   plots = new Map<string, string>(); // plotKey -> ownerId
   coOwners = new Map<string, string[]>(); // plotKey -> residents the owner shares it with
   blocks = new Map<string, BlockKind>(); // tileKey -> block
@@ -160,6 +162,7 @@ export class Mirror {
     this.commons = snapshot.commons;
     this.seq = snapshot.seq;
     this.townsfolk = new Set(snapshot.townsfolk ?? []);
+    this.repeatJoins = new Set(snapshot.repeatJoins ?? []);
     for (const r of everyoneIn(snapshot)) {
       this.residents.set(r.id, residentFrom(r));
       if (r.facing) this.facing.set(r.id, r.facing);

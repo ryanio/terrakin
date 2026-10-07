@@ -12,7 +12,7 @@ import { normalizeCode } from "./owner-service";
 import { SocialService } from "./social-service";
 import { SqlStore } from "./sql-store";
 import { JsonlStore, MemoryStore, type Store } from "./store";
-import { jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
+import { confirmLinkIn, jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
 import { WorldService } from "./world-service";
 
 const CONFIG: WorldConfig = {
@@ -455,15 +455,46 @@ describe("revoking a compromised agent", () => {
     expect(fresh.body.post.author.id).toBe(wren.residentId);
     expect((await call("POST", "/v1/owner/rekey", { code: issued.body.code })).status).toBe(404);
     expect((await call("POST", "/v1/posts", { text: "x" }, wren.token)).status).toBe(401);
-    // Back in, it isn't locked out anymore, so no further codes.
-    expect((await rekeyCode()).status).toBe(404);
   });
 
-  it("keeps re-key codes for maintainers, and only for locked-out agents", async () => {
-    const { join, hazel, wren, revoke, rekeyCode, maintainers } = await cast();
+  it("re-keys an agent nobody revoked, cutting off what it held before (decision 0149)", async () => {
+    const { call, wren, rekeyCode, profile } = await cast();
+    const key = (await call("POST", "/v1/link-key", undefined, wren.token)).body.key as string;
+    // An agent that lost its token, not one its owner locked out.
+    const issued = await rekeyCode();
+    expect(issued.status).toBe(201);
+    expect(await profile(wren.residentId)).not.toHaveProperty("owner");
+    // Until the code is traded, the agent's own token still works.
+    expect((await call("POST", "/v1/posts", { text: "still me" }, wren.token)).status).toBe(201);
+
+    const back = await call("POST", "/v1/owner/rekey", { code: issued.body.code });
+    expect(back.status).toBe(200);
+    expect(back.body.residentId).toBe(wren.residentId);
+    // The token and link key from before stop working, so only whoever traded the code is in.
+    expect((await call("POST", "/v1/posts", { text: "x" }, wren.token)).status).toBe(401);
+    expect((await call("GET", `/v1/act/${key}/me`)).status).toBe(401);
+    expect((await call("POST", "/v1/posts", { text: "Back." }, back.body.token)).status).toBe(201);
+  });
+
+  it("keeps re-key codes for maintainers, for agents only", async () => {
+    const { call, join, hazel, wren, mira, revoke, rekeyCode, maintainers, townsfolk } =
+      await cast();
     const ivy = await join("Ivy", "human");
-    // Not locked out yet.
-    expect((await rekeyCode()).status).toBe(404);
+    const bram = await join("Bram", "agent");
+    townsfolk.add(bram.residentId);
+    const codeFor = (id: string, who: Who = mira) =>
+      call("POST", `/v1/owner/rekey-codes/${id}`, undefined, who.token);
+    // Not locked out, and still refused to anyone who isn't a maintainer, the owner included.
+    expect((await rekeyCode(hazel)).status).toBe(403);
+    expect((await rekeyCode(ivy)).status).toBe(403);
+    expect((await rekeyCode(wren)).status).toBe(403);
+    expect((await codeFor(wren.residentId, ivy)).body.error.code).toBe("forbidden");
+    // A person, the townsfolk, and an id nobody has get no code, even from a maintainer.
+    expect((await codeFor(ivy.residentId)).status).toBe(404);
+    expect((await codeFor(bram.residentId)).status).toBe(404);
+    expect((await codeFor("r_0000000000000000")).status).toBe(404);
+    // Nothing made by the refusals: the agent's token still works.
+    expect((await call("POST", "/v1/posts", { text: "fine" }, wren.token)).status).toBe(201);
     await revoke();
     expect((await rekeyCode(hazel)).status).toBe(403);
     expect((await rekeyCode(ivy)).status).toBe(403);
@@ -559,7 +590,7 @@ describe("agents that can only open links", () => {
     const mira = await join("Mira", "human");
     maintainers.add(mira.residentId);
 
-    const joined = await open("/v1/join?name=Moss");
+    const joined = await open(confirmLinkIn((await open("/v1/join?name=Moss")).text));
     const key = keyIn(joined.text);
     const mossId = /Resident id: `(r_[0-9a-f]+)`/.exec(joined.text)?.[1] ?? "";
     expect(key).toMatch(/^k_/);

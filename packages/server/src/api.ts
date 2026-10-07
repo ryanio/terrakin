@@ -9,6 +9,7 @@ import {
   type Issue,
   isBinaryBody,
   isWriteRoute,
+  JOIN_CONFIRM_CODE,
   MAX_BODY_BYTES,
   MODERATOR_SUSPEND_MAX_DAYS,
   markdownErrorCode,
@@ -470,10 +471,15 @@ export class Api {
       if ("error" in staff) return render(route, staff);
       return this.run(match, req, staff.actor, origin);
     }
-    if (route.once && viewer) {
+    // A join link has no resident yet: the code in its `confirm`, which only the reader who
+    // opened the page before it saw, stands in for one (decision 0148).
+    const confirm = req.query.get("confirm") ?? "";
+    const opener =
+      viewer ?? (route.auth === "none" && JOIN_CONFIRM_CODE.test(confirm) ? confirm : "");
+    if (route.once && opener) {
       const query = new URLSearchParams(req.query);
       query.sort();
-      return this.once(`${route.id} ${viewer} ${query}`, () =>
+      return this.once(`${route.id} ${opener} ${query}`, () =>
         this.run(match, req, viewer, origin),
       );
     }

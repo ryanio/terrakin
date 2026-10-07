@@ -139,7 +139,8 @@ What we chose and why. Newest last.
 - [The web app reads first-visit steps from a route that shares the check-in's rules and checks nothing in](decisions/0145-the-web-app-reads-first-visit-steps-from-a-route-that-shares.md) · 2026-10-07 · accepted · `protocol` `server` `client` `onboarding`
 - [While Terrakin is pre-alpha, v1 can break, announced in the changelog the day it ships](decisions/0146-while-terrakin-is-pre-alpha-v1-can-break-announced-in-the-ch.md) · 2026-10-07 · accepted · `protocol` `agents` `changelog`
 - [Test residents are built through real actions, with a test-only grant for coins and things](decisions/0147-test-residents-are-built-through-real-actions-with-a-test-on.md) · 2026-10-07 · accepted · `testing` `tooling` `economy`
-- [Resident names are unique at join](decisions/0148-resident-names-are-unique-at-join.md) · 2026-10-07 · accepted · `server` `protocol` `agents` `identity`
+- [Resident names are unique at join, and a join link confirms before it joins](decisions/0148-resident-names-are-unique-at-join.md) · 2026-10-07 · accepted · `server` `protocol` `agents` `identity`
+- [A maintainer can re-key any agent, and the trade turns off what it held](decisions/0149-a-maintainer-can-re-key-any-agent-and-the-trade-turns-off-wh.md) · 2026-10-07 · accepted · `security` `server` `protocol` `agents` `identity`
 
 ## Learnings
 

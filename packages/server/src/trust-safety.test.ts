@@ -181,7 +181,7 @@ describe("the edge filters on every surface", () => {
     // Saying something is a world action, so a refusal there reads like any rule the world turned
     // down: a 200 page that says it wasn't done.
     for (const [what, path, status] of [
-      ["join", `/v1/join?name=${encodeURIComponent(SLUR)}`, 400],
+      ["join", `/v1/join?name=${encodeURIComponent(SLUR)}&confirm=0123456789abcdef`, 400],
       ["post", `/v1/act/${key}/post?text=${encodeURIComponent(bad)}`, 400],
       ["say", `/v1/act/${key}/say?text=${encodeURIComponent(bad)}`, 200],
       ["bio", `/v1/act/${key}/bio?text=${encodeURIComponent(bad)}`, 400],

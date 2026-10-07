@@ -56,6 +56,7 @@ import { type Camera, fitScale, screenToTile } from "./camera";
 import { Feelings, gestureReaction } from "./feelings";
 import { canDig, noRodLine, pondLine, rodsAfter, rodsIn } from "./fishing";
 import { openHomeSheet } from "./home-sheet";
+import { joinProblem } from "./join-form";
 import { createLanding } from "./landing";
 import { Mirror } from "./mirror";
 import { Motion } from "./motion";
@@ -282,7 +283,8 @@ function updatePopulation() {
   let total = 0;
   let online = 0;
   for (const r of mirror.residents.values()) {
-    if (mirror.townsfolk.has(r.id)) continue;
+    // A repeat record that has come online since the snapshot is someone using it: count it.
+    if (mirror.townsfolk.has(r.id) || (mirror.repeatJoins.has(r.id) && !r.online)) continue;
     total++;
     if (r.online) online++;
   }
@@ -320,7 +322,9 @@ function joinRefused(code: string, message: string) {
   conn?.close();
   conn = undefined;
   landing.setJoining(false);
-  landing.setError(message);
+  landing.setError(joinProblem(code, message));
+  // A taken name may be your own character from another browser: the way back is the key.
+  if (code === "name_taken") landing.openRestore();
   if (code === "invalid_profile") landing.focusNote();
   else landing.focusName();
 }

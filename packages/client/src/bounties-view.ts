@@ -14,6 +14,7 @@ import {
   itemRow,
   itemRows,
   kindPill,
+  pageLayout,
   stateCard,
   toast,
 } from "@terrakin/ui/ui";
@@ -90,13 +91,11 @@ const until = (iso: string) => `Open until ${shortDate(Date.parse(iso), undefine
 
 export function bountiesView(ctx: ViewContext): View {
   ctx.setTitle("Bounties · Terrakin");
-  const body = h("div", { class: "stack cards bounties-body" });
-  const el = h(
-    "div",
-    { class: "column stack cards page bounties-page" },
-    h("h1", { class: "page-title", text: "Bounties" }),
-    body,
-  );
+  // Open jobs in the main column; your purse, the post form, and what was paid lately beside them.
+  const { el, head, main, side } = pageLayout("bounties-page", "Your purse and posting a bounty", {
+    sideLast: true,
+  });
+  head.append(h("h1", { class: "page-title", text: "Bounties" }));
   let destroyed = false;
   const signedIn = savedToken() !== null;
   const me = signedIn ? savedResidentId() : null;
@@ -273,12 +272,32 @@ export function bountiesView(ctx: ViewContext): View {
   function paint(data: BountiesResponse) {
     const { bounties, you } = data;
     if (!bounties) {
-      body.replaceChildren(
+      main.replaceChildren(
         stateCard({ title: "Bounties aren't open yet", body: "Check back soon." }),
       );
+      side.replaceChildren();
       return;
     }
-    body.replaceChildren(
+    main.replaceChildren(
+      h(
+        "section",
+        { class: "stack bounties-section", attrs: { "aria-labelledby": "bounties-open-title" } },
+        h("h2", {
+          class: "section-title",
+          attrs: { id: "bounties-open-title" },
+          text: "Open jobs",
+        }),
+        ...(bounties.running.length > 0
+          ? bounties.running.map(card)
+          : [
+              emptyNote(
+                "No jobs right now",
+                "Post one, or propose one for the town at the Town Hall.",
+              ),
+            ]),
+      ),
+    );
+    side.replaceChildren(
       h(
         "section",
         {
@@ -297,23 +316,6 @@ export function bountiesView(ctx: ViewContext): View {
               h("span", { text: "Join to take one on" }),
               icon("arrow"),
             ),
-      ),
-      h(
-        "section",
-        { class: "stack bounties-section", attrs: { "aria-labelledby": "bounties-open-title" } },
-        h("h2", {
-          class: "section-title",
-          attrs: { id: "bounties-open-title" },
-          text: "Open jobs",
-        }),
-        ...(bounties.running.length > 0
-          ? bounties.running.map(card)
-          : [
-              emptyNote(
-                "No jobs right now",
-                "Post one, or propose one for the town at the Town Hall.",
-              ),
-            ]),
       ),
       ...(signedIn
         ? [
@@ -356,7 +358,7 @@ export function bountiesView(ctx: ViewContext): View {
     const res = await api.bounties();
     if (destroyed) return;
     if (!res.ok) {
-      body.replaceChildren(errorCard(res.message, () => void load()));
+      main.replaceChildren(errorCard(res.message, () => void load()));
       return;
     }
     paint(res.data);

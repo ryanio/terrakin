@@ -39,6 +39,7 @@ import {
   errorLine,
   moreButton,
   moreMenu,
+  pageLayout,
   toast,
   whileBusy,
 } from "@terrakin/ui/ui";
@@ -107,7 +108,9 @@ const DEFAULT_CANONICAL = "https://terrakin.org/";
 
 export function profileView(target: { id: string } | { handle: string }, ctx: ViewContext): View {
   ctx.setTitle("Profile · Terrakin");
-  const el = h("div", { class: "cards page profile-page layout" });
+  // The header over the posts, and everything else about them in the sidebar (on a phone,
+  // between the two), each card in its slot however late it loads.
+  const { el, head, main, side } = pageLayout("profile-page", "More about them");
   let destroyed = false;
   const cleanups: (() => void)[] = [];
   let panel: OwnerPanel | undefined;
@@ -116,16 +119,11 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
   const ready = load();
 
   async function load(): Promise<void> {
-    el.replaceChildren(
-      h(
-        "div",
-        { class: "layout-main" },
-        h("div", {
-          class: "paper card profile skeleton-profile",
-          attrs: { "aria-hidden": "true" },
-        }),
-        ...skeletonCards(2),
-      ),
+    head.replaceChildren();
+    side.replaceChildren();
+    main.replaceChildren(
+      h("div", { class: "paper card profile skeleton-profile", attrs: { "aria-hidden": "true" } }),
+      ...skeletonCards(2),
     );
     const [profile, early] =
       "id" in target
@@ -135,25 +133,13 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
     if (!profile.ok) {
       if (profile.status === 404) {
         ctx.setTitle("Not found · Terrakin");
-        el.replaceChildren(
-          h(
-            "div",
-            { class: "layout-main" },
-            notFoundCard(
-              "We couldn't find that resident",
-              "They may have moved out, or the link has a typo. There's plenty to see on the feed.",
-            ),
+        main.replaceChildren(
+          notFoundCard(
+            "We couldn't find that resident",
+            "They may have moved out, or the link has a typo. There's plenty to see on the feed.",
           ),
         );
-      } else {
-        el.replaceChildren(
-          h(
-            "div",
-            { class: "layout-main" },
-            errorCard(profile.message, () => void load()),
-          ),
-        );
-      }
+      } else main.replaceChildren(errorCard(profile.message, () => void load()));
       return;
     }
     const resident = profile.data.resident;
@@ -163,15 +149,9 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
     const posts = early ?? (await api.residentPosts(id));
     if (destroyed) return;
     ctx.setTitle(`${resident.name} on Terrakin`);
-    // The header over the posts, and everything else about them in the sidebar (on a phone,
-    // between the two), each card in its place however late it loads.
     const top = header(resident);
-    const side = h("aside", {
-      class: "layout-side",
-      attrs: { "aria-label": `More about ${resident.name}` },
-    });
-    const main = h("div", { class: "layout-main" });
-    el.replaceChildren(h("div", { class: "layout-head" }, top), side, main);
+    head.replaceChildren(top);
+    side.setAttribute("aria-label", `More about ${resident.name}`);
     const slots = SIDE.map(() => h("div", { class: "slot" }));
     side.append(...slots);
     const place = (where: SideSlot, ...cards: HTMLElement[]) => {

@@ -9,7 +9,7 @@ import type { GalleryPieceView, GalleryView } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { thingPicture } from "@terrakin/ui/item-art";
 import { personLink } from "@terrakin/ui/people";
-import { itemRow, itemRows, stateCard, toast, whileBusy } from "@terrakin/ui/ui";
+import { itemRow, itemRows, stateCard, toast, whileBusy, wideLayout } from "@terrakin/ui/ui";
 import { actProblem, api } from "./api";
 import { displayReport, shownName } from "./display-sheet";
 import { savedResidentId, savedToken } from "./net";
@@ -119,17 +119,17 @@ export function galleryCards(
 /** `/galleries`: every gallery, most admired first. */
 export function galleriesView(ctx: ViewContext): View {
   ctx.setTitle("Galleries · Terrakin");
-  const body = h("div", { class: "stack cards galleries-body" });
-  const el = h(
-    "div",
-    { class: "column stack cards page galleries-page" },
+  // Every gallery as a card, side by side as the width allows.
+  const body = h("div", { class: "card-grid galleries-body" });
+  const { el, head, main } = wideLayout("galleries-page");
+  main.append(body);
+  head.append(
     h("h1", { class: "page-title", text: "Galleries" }),
     placeTabs("galleries", (path) => ctx.navigate(path, { replace: true })),
     h("p", {
       class: "hint",
       text: "Residents open their plots as galleries and put what they made on pedestals and in frames. Admire what you like, once a day.",
     }),
-    body,
   );
   let destroyed = false;
 

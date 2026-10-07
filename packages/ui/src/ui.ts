@@ -8,6 +8,49 @@ import { h, icon } from "./dom";
 import type { Result } from "./http";
 import { reducedMotion } from "./motion";
 
+// ---------- page layout ----------
+
+export interface PageLayout {
+  el: HTMLElement;
+  /** Over the main column: the page title, and anything that leads the page. */
+  head: HTMLElement;
+  main: HTMLElement;
+  /** Beside the head and main from 1000px, between them on a phone. Hidden while empty. */
+  side: HTMLElement;
+}
+
+/**
+ * A page in the shared `.layout` (base.css): a head over the main column, and a sidebar for what
+ * sits beside the page's main content (a balance, a form, a calendar, a ladder). `className` names
+ * the page, like `shop-page`; `sideLabel` names the sidebar for screen readers. On a phone the
+ * sidebar comes before the main column, or after it with `sideLast`, for a page whose main content
+ * is what someone came for (a post, the town's proposals, open jobs).
+ */
+export function pageLayout(
+  className: string,
+  sideLabel: string,
+  o: { sideLast?: boolean } = {},
+): PageLayout {
+  const head = h("div", { class: "layout-head" });
+  const main = h("div", { class: "layout-main" });
+  const side = h("aside", { class: "layout-side", attrs: { "aria-label": sideLabel } });
+  const el = h(
+    "div",
+    { class: `cards page layout ${className}` },
+    head,
+    ...(o.sideLast ? [main, side] : [side, main]),
+  );
+  return { el, head, main, side };
+}
+
+/** A page in `.layout` with no sidebar, for a page of cards that wants the whole width. */
+export function wideLayout(className: string): Omit<PageLayout, "side"> {
+  const head = h("div", { class: "layout-head" });
+  const main = h("div", { class: "layout-main" });
+  const el = h("div", { class: `cards page layout ${className}` }, head, main);
+  return { el, head, main };
+}
+
 // ---------- toast ----------
 
 let toastTimer: ReturnType<typeof setTimeout> | undefined;

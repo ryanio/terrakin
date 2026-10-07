@@ -30,6 +30,7 @@ import {
   linkTabs,
   openOverlay,
   overlayShowing,
+  pageLayout,
   sheet,
   whileBusy,
 } from "@terrakin/ui/ui";
@@ -74,13 +75,11 @@ function tableHead(t: TableView, named = true): HTMLElement {
 
 export function gamesView(ctx: ViewContext): View {
   ctx.setTitle("Games · Terrakin");
-  const body = h("div", { class: "stack cards games-body" });
-  const el = h(
-    "div",
-    { class: "column stack cards page games-page" },
-    h("h1", { class: "page-title", text: "Games" }),
-    body,
-  );
+  // The tables in the main column; how games go, Open a table, and the ladders beside them.
+  const { el, head, main, side } = pageLayout("games-page", "How games work, and the ladders", {
+    sideLast: true,
+  });
+  head.append(h("h1", { class: "page-title", text: "Games" }));
   let destroyed = false;
   let ladder: Ladder = LADDERS[0];
   /** The four ladders, read once when the page opens. */
@@ -260,12 +259,12 @@ export function gamesView(ctx: ViewContext): View {
     const [r] = await Promise.all([api.games(), first ? loadLadders() : undefined]);
     if (destroyed) return;
     if (!r.ok) {
-      body.replaceChildren(errorCard(r.message, () => void load()));
+      main.replaceChildren(errorCard(r.message, () => void load()));
       return;
     }
     const data = r.data;
-    body.replaceChildren(
-      intro(data),
+    side.replaceChildren(intro(data), laddersCard(data));
+    main.replaceChildren(
       ...list(
         "Taking seats",
         data.open,
@@ -273,7 +272,6 @@ export function gamesView(ctx: ViewContext): View {
       ),
       ...list("Playing now", data.playing, null),
       ...list("Finished lately", data.finished, null),
-      laddersCard(data),
     );
     paintLadder();
   }
@@ -365,8 +363,8 @@ function openTableSheet(navigate: (path: string) => void) {
 
 export function tableView(id: string, ctx: ViewContext): View {
   ctx.setTitle("Game · Terrakin");
-  const body = h("div", { class: "stack cards game-body" });
-  const el = h("div", { class: "column stack cards page game-page" }, body);
+  // Your move and the last round in the main column; the seats beside them.
+  const { el, head, main, side } = pageLayout("game-page", "Seats", { sideLast: true });
   let destroyed = false;
   let table: TableView | undefined;
   let busy = false;
@@ -580,7 +578,7 @@ export function tableView(id: string, ctx: ViewContext): View {
 
   function paint(t: TableView) {
     ctx.setTitle(`${gameName(t.game)} · Terrakin`);
-    const parts = [
+    head.replaceChildren(
       h(
         "section",
         { class: "stack paper card game-top", attrs: { "aria-labelledby": "game-title" } },
@@ -589,8 +587,18 @@ export function tableView(id: string, ctx: ViewContext): View {
         h("p", { class: "town-lede", text: GAME_ABOUT[t.game] }),
         h("p", { class: "hint", text: PACE_WORDS[t.pace] }),
       ),
+    );
+    const play = [
       controls(t),
       lastRound(t),
+      h(
+        "a",
+        { class: "pill-button", attrs: { href: "/games" } },
+        icon("back"),
+        h("span", { text: "All games" }),
+      ),
+    ];
+    const seats = [
       h("h2", { class: "section-title", text: "Seats" }),
       seatRows(t),
       t.status !== "open" && !t.seats.some((x) => x.rated)
@@ -607,14 +615,9 @@ export function tableView(id: string, ctx: ViewContext): View {
             text: `This table's salt was ${t.salt}. It kept the world's hash from giving choices away while they were sealed.`,
           })
         : null,
-      h(
-        "a",
-        { class: "pill-button", attrs: { href: "/games" } },
-        icon("back"),
-        h("span", { text: "All games" }),
-      ),
     ];
-    body.replaceChildren(...parts.filter((p): p is HTMLElement => p !== null));
+    main.replaceChildren(...play.filter((p): p is HTMLElement => p !== null));
+    side.replaceChildren(...seats.filter((p): p is HTMLElement => p !== null));
     tickClock();
   }
 
@@ -623,7 +626,7 @@ export function tableView(id: string, ctx: ViewContext): View {
     if (destroyed) return;
     if (!r.ok) {
       if (r.status === 404) {
-        body.replaceChildren(
+        main.replaceChildren(
           notFoundCard(
             "That table is gone",
             "It closed before it started, or it finished long enough ago that the town forgot it. GET /games has the tables now.",
@@ -631,7 +634,7 @@ export function tableView(id: string, ctx: ViewContext): View {
         );
         return;
       }
-      body.replaceChildren(errorCard(r.message, () => void load()));
+      main.replaceChildren(errorCard(r.message, () => void load()));
       return;
     }
     const was = table;

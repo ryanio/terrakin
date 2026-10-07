@@ -17,7 +17,7 @@ import { h, icon } from "@terrakin/ui/dom";
 import { plural } from "@terrakin/ui/format";
 import { itemArt } from "@terrakin/ui/item-art";
 import { personLink } from "@terrakin/ui/people";
-import { itemRow, itemRows, kindPill, stateCard } from "@terrakin/ui/ui";
+import { itemRow, itemRows, kindPill, pageLayout, stateCard } from "@terrakin/ui/ui";
 import { actFromButton } from "./act";
 import { api } from "./api";
 import { savedToken } from "./net";
@@ -135,13 +135,9 @@ function heldOf(inv: InventoryResponse["inventory"], kind: string): number {
 
 export function shopView(ctx: ViewContext): View {
   ctx.setTitle("The town shop · Terrakin");
-  const body = h("div", { class: "stack cards shop-body" });
-  const el = h(
-    "div",
-    { class: "column stack cards page shop-page" },
-    h("h1", { class: "page-title", text: "The town shop" }),
-    body,
-  );
+  // The shelves in the main column; your purse and what the town buys today beside them.
+  const { el, head, main, side } = pageLayout("shop-page", "Your purse and what the town buys");
+  head.append(h("h1", { class: "page-title", text: "The town shop" }));
   let destroyed = false;
   let landed = false;
   const signedIn = savedToken() !== null;
@@ -256,12 +252,13 @@ export function shopView(ctx: ViewContext): View {
   function paint(data: ShopResponse, inv: InventoryResponse | null) {
     const { shop, you } = data;
     if (!shop) {
-      body.replaceChildren(
+      main.replaceChildren(
         stateCard({ title: "The shop isn't open yet", body: "Check back soon." }),
       );
+      side.replaceChildren();
       return;
     }
-    body.replaceChildren(
+    side.replaceChildren(
       h(
         "section",
         { class: "stack paper card shop-card", attrs: { "aria-label": "The shop and your purse" } },
@@ -311,6 +308,8 @@ export function shopView(ctx: ViewContext): View {
           ".",
         ),
       ),
+    );
+    main.replaceChildren(
       // A holiday's stock on a shelf of its own, first, while it runs (RFC 0022).
       ...(shop.holiday
         ? [
@@ -380,7 +379,7 @@ export function shopView(ctx: ViewContext): View {
     ]);
     if (destroyed) return;
     if (!shop.ok) {
-      body.replaceChildren(errorCard(shop.message, () => void load()));
+      main.replaceChildren(errorCard(shop.message, () => void load()));
       return;
     }
     paint(shop.data, inv?.ok ? inv.data : null);

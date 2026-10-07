@@ -38,6 +38,7 @@ import {
   moreButton,
   openOverlay,
   overlayShowing,
+  pageLayout,
   sheet,
   toast,
   whileBusy,
@@ -113,7 +114,11 @@ function commonsOf(world: WorldSnapshot): Commons {
 
 export function townView(ctx: ViewContext): View {
   ctx.setTitle("Town Hall · Terrakin");
-  const el = h("div", { class: "column stack cards page town-page" });
+  // Proposals and past results in the main column; the calendar, the notice board, and the
+  // town's places beside them.
+  const { el, head, main, side } = pageLayout("town-page", "Coming up, notices, and around town", {
+    sideLast: true,
+  });
   let destroyed = false;
   let town: TownResponse | undefined;
   let commons: Commons | undefined;
@@ -154,11 +159,13 @@ export function townView(ctx: ViewContext): View {
   });
 
   async function load(): Promise<void> {
-    el.replaceChildren(...skeletonCards(2));
+    head.replaceChildren();
+    side.replaceChildren();
+    main.replaceChildren(...skeletonCards(2));
     const [t, w, past] = await Promise.all([api.town(), api.world(), api.archive()]);
     if (destroyed) return;
     if (!t.ok) {
-      el.replaceChildren(errorCard(t.message, () => void load()));
+      main.replaceChildren(errorCard(t.message, () => void load()));
       return;
     }
     town = t.data;
@@ -166,12 +173,17 @@ export function townView(ctx: ViewContext): View {
       commons = commonsOf(w.data);
       clock = { ms: w.data.time.nowMs, at: Date.now() };
     }
-    el.replaceChildren(
-      hero,
+    head.replaceChildren(hero);
+    main.replaceChildren(
       h("h2", { class: "section-title", text: "Open proposals" }),
       openList,
       queuedTitle,
       queuedList,
+      h("h2", { class: "section-title", text: "Past results" }),
+      archiveList,
+      h("div", { class: "feed-foot" }, more.el),
+    );
+    side.replaceChildren(
       h("h2", { class: "section-title", attrs: { id: "events-title" }, text: "Coming up" }),
       calendar,
       h("h2", { class: "section-title", attrs: { id: "board-title" }, text: "Notice board" }),
@@ -181,9 +193,6 @@ export function townView(ctx: ViewContext): View {
       visitCard(),
       galleriesCard(),
       gamesCard(),
-      h("h2", { class: "section-title", text: "Past results" }),
-      archiveList,
-      h("div", { class: "feed-foot" }, more.el),
     );
     paint();
     paintEvents();

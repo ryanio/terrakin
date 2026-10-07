@@ -17,6 +17,7 @@ import {
   itemRow,
   itemRows,
   moreButton,
+  pageLayout,
   stateCard,
   toast,
 } from "@terrakin/ui/ui";
@@ -134,13 +135,11 @@ function choices(
 
 export function marketView(ctx: ViewContext): View {
   ctx.setTitle("The market · Terrakin");
-  const body = h("div", { class: "stack cards market-body" });
-  const el = h(
-    "div",
-    { class: "column stack cards page market-page" },
-    h("h1", { class: "page-title", text: "The market" }),
-    body,
-  );
+  // What's for sale in the main column; your purse, the sell form, and anything taken down beside it.
+  const { el, head, main, side } = pageLayout("market-page", "Your purse and selling", {
+    sideLast: true,
+  });
+  head.append(h("h1", { class: "page-title", text: "The market" }));
   let destroyed = false;
   const signedIn = savedToken() !== null;
   const me = signedIn ? savedResidentId() : null;
@@ -261,9 +260,10 @@ export function marketView(ctx: ViewContext): View {
   function paint(data: MarketResponse, inv: InventoryResponse | null) {
     const { market, you } = data;
     if (!market) {
-      body.replaceChildren(
+      main.replaceChildren(
         stateCard({ title: "The market isn't open yet", body: "Check back soon." }),
       );
+      side.replaceChildren();
       return;
     }
     const balance = you?.balance ?? null;
@@ -300,7 +300,7 @@ export function marketView(ctx: ViewContext): View {
           void act(button, { type: "unlist_item", listing: l.id }, "It's back in your things."),
       ),
     );
-    body.replaceChildren(
+    side.replaceChildren(
       h(
         "section",
         {
@@ -341,14 +341,6 @@ export function marketView(ctx: ViewContext): View {
             ),
           ]
         : []),
-      h(
-        "section",
-        { class: "stack market-section", attrs: { "aria-labelledby": "market-sale-title" } },
-        h("h2", { class: "section-title", attrs: { id: "market-sale-title" }, text: "For sale" }),
-        ...(rows.length > 0
-          ? [list, h("div", { class: "feed-foot" }, more.el)]
-          : [emptyNote("Nothing for sale yet", "Be the first: list something you grew or made.")]),
-      ),
       ...(signedIn
         ? [
             h(
@@ -364,6 +356,16 @@ export function marketView(ctx: ViewContext): View {
           ]
         : []),
     );
+    main.replaceChildren(
+      h(
+        "section",
+        { class: "stack market-section", attrs: { "aria-labelledby": "market-sale-title" } },
+        h("h2", { class: "section-title", attrs: { id: "market-sale-title" }, text: "For sale" }),
+        ...(rows.length > 0
+          ? [list, h("div", { class: "feed-foot" }, more.el)]
+          : [emptyNote("Nothing for sale yet", "Be the first: list something you grew or made.")]),
+      ),
+    );
   }
 
   async function load(): Promise<void> {
@@ -373,7 +375,7 @@ export function marketView(ctx: ViewContext): View {
     ]);
     if (destroyed) return;
     if (!market.ok) {
-      body.replaceChildren(errorCard(market.message, () => void load()));
+      main.replaceChildren(errorCard(market.message, () => void load()));
       return;
     }
     paint(market.data, inv?.ok ? inv.data : null);

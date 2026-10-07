@@ -8,7 +8,15 @@
 import { PLOT_SORTS, type PlotSort, type PlotView, type WorldSnapshot } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { personLink } from "@terrakin/ui/people";
-import { copyButton, kindPill, linkTabs, stateCard, toast, whileBusy } from "@terrakin/ui/ui";
+import {
+  copyButton,
+  kindPill,
+  linkTabs,
+  stateCard,
+  toast,
+  whileBusy,
+  wideLayout,
+} from "@terrakin/ui/ui";
 import { timeAgo } from "@terrakin/ui/when";
 import { actProblem, api } from "./api";
 import { savedResidentId, savedToken } from "./net";
@@ -192,10 +200,11 @@ export function visitView(ctx: ViewContext): View {
   const sort: PlotSort = PLOT_SORTS.find((s) => s === asked) ?? "recent";
   const me = savedToken() ? savedResidentId() : null;
   const go = (path: string) => ctx.navigate(path, { replace: true });
-  const body = h("div", { class: "stack cards visit-body" }, ...skeletonCards(2));
-  const el = h(
-    "div",
-    { class: "column stack cards page visit-page" },
+  // Every plot as a card, side by side as the width allows.
+  const body = h("div", { class: "card-grid visit-body" }, ...skeletonCards(2));
+  const { el, head, main } = wideLayout("visit-page");
+  main.append(body);
+  head.append(
     h("h1", { class: "page-title", text: "Plots to visit" }),
     placeTabs("visit", go),
     h("p", {
@@ -210,7 +219,6 @@ export function visitView(ctx: ViewContext): View {
       })),
       { label: "Order", className: "visit-sorts", go },
     ),
-    body,
   );
   let destroyed = false;
 

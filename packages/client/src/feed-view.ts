@@ -19,7 +19,7 @@ import { REDUCED_MOTION, reducedMotion } from "@terrakin/ui/motion";
 import { postPath, profilePath } from "@terrakin/ui/paths";
 import { residentPerson } from "@terrakin/ui/people";
 import { everyVisible } from "@terrakin/ui/poll";
-import { copyButton, emptyNote, linkTabs, moreButton, pickTab } from "@terrakin/ui/ui";
+import { copyButton, emptyNote, linkTabs, moreButton, pageLayout, pickTab } from "@terrakin/ui/ui";
 import { refreshTimes } from "@terrakin/ui/when";
 import { api, myProfile } from "./api";
 import { awayCard } from "./away-card";
@@ -433,13 +433,9 @@ export function feedView(ctx: ViewContext): View {
   // The hero keeps its own width. Below it, the wall: posts in the main column, and the town's
   // pulse in a sidebar on wide screens (woven into the posts on a phone).
   const el = h("div", { class: "home" });
-  const feed = h("div", {
-    class: "cards page feed layout",
-    attrs: { id: "feed", tabindex: -1 },
-  });
-  const main = h("div", { class: "layout-main" });
-  const side = h("aside", { class: "layout-side", attrs: { "aria-label": "Around town" } });
-  feed.append(main, side);
+  const { el: feed, main, side } = pageLayout("feed", "Around town");
+  feed.id = "feed";
+  feed.tabIndex = -1;
   // Residents already joined: the pitch and the get-started cards are for visitors.
   const hero = hasToken ? undefined : homeHero(feed);
   if (hero) el.append(hero.el);

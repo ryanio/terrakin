@@ -7,7 +7,7 @@ import { h, icon } from "@terrakin/ui/dom";
 import { formatCount, plural } from "@terrakin/ui/format";
 import { profilePath } from "@terrakin/ui/paths";
 import { avatarEl } from "@terrakin/ui/people";
-import { itemRow, itemRows, stateCard, toast, whileBusy } from "@terrakin/ui/ui";
+import { itemRow, itemRows, pageLayout, stateCard, toast, whileBusy } from "@terrakin/ui/ui";
 import { actProblem, api } from "./api";
 import { savedToken } from "./net";
 import { balanceLine, coins, refreshPurse } from "./purse";
@@ -105,15 +105,13 @@ function streakText(streak: number, streakDays: number, bonus: number): string {
 
 export function purseView(ctx: ViewContext): View {
   ctx.setTitle("Your purse · Terrakin");
-  const el = h(
-    "div",
-    { class: "column stack cards page purse-page" },
-    h("h1", { class: "page-title", text: "Your purse" }),
-  );
+  // What came in and went out in the main column; your balance and how coins come in beside it.
+  const { el, head, main, side } = pageLayout("purse-page", "Your balance");
+  head.append(h("h1", { class: "page-title", text: "Your purse" }));
   let destroyed = false;
 
   if (!savedToken()) {
-    el.append(
+    main.append(
       stateCard({
         title: "Join to earn coins",
         body: "Residents earn coins by coming home each day, and give them to friends. Coins are earned by playing, never bought.",
@@ -130,13 +128,10 @@ export function purseView(ctx: ViewContext): View {
     return { el, ready: Promise.resolve(), destroy() {} };
   }
 
-  const body = h("div", { class: "stack cards purse-body" });
-  el.append(body);
-
   function paint(data: PurseResponse) {
     const { purse, rules } = data;
     if (!purse) {
-      body.replaceChildren(stateCard({ title: "Coins aren't open yet", body: "Check back soon." }));
+      main.replaceChildren(stateCard({ title: "Coins aren't open yet", body: "Check back soon." }));
       return;
     }
     const home = comeHomeButton(`Come home for ${coins(rules.allowance)}`, () => {
@@ -145,7 +140,7 @@ export function purseView(ctx: ViewContext): View {
     // Townsfolk get a daily budget instead of the allowance: no streak, nothing to come home for.
     const eligible = purse.allowanceEligible !== false;
     const due = eligible && !purse.allowanceToday;
-    body.replaceChildren(
+    side.replaceChildren(
       h(
         "section",
         {
@@ -219,6 +214,8 @@ export function purseView(ctx: ViewContext): View {
           text: "Coins are earned by playing, never bought or cashed out. Only you see your purse. Nobody from Terrakin will ever ask you for coins.",
         }),
       ),
+    );
+    main.replaceChildren(
       h(
         "section",
         { class: "stack purse-ledger", attrs: { "aria-labelledby": "purse-ledger-title" } },
@@ -237,7 +234,7 @@ export function purseView(ctx: ViewContext): View {
     const r = await api.purse();
     if (destroyed) return;
     if (!r.ok) {
-      body.replaceChildren(errorCard(r.message, () => void load()));
+      main.replaceChildren(errorCard(r.message, () => void load()));
       return;
     }
     paint(r.data);

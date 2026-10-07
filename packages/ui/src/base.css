@@ -162,7 +162,8 @@ a {
   text-wrap: balance;
 }
 
-.stack.cards > :is(.section-title, :has(> .section-title:first-child)):not(:first-child) {
+:is(.stack.cards, .layout-head, .layout-main, .layout-side)
+  > :is(.section-title, :has(> .section-title:first-child)):not(:first-child) {
   margin-top: var(--gap-section-head);
 }
 
@@ -234,8 +235,15 @@ a {
   min-width: 0;
 }
 
+.layout-head:empty,
 .layout-side:empty {
   display: none;
+}
+
+/* Tabs over a wide page keep a column's width rather than stretching across it. */
+.layout-head > .link-tabs {
+  width: 100%;
+  max-width: var(--page-narrow);
 }
 
 @media (min-width: 1000px) {
@@ -254,13 +262,31 @@ a {
     grid-area: 2 / 1;
   }
 
-  .layout:not(:has(> .layout-head)) > .layout-main {
+  .layout:not(:has(> .layout-head:not(:empty))) > .layout-main {
     grid-row: 1 / span 2;
   }
 
   .layout-side {
     grid-area: 1 / 2 / span 2;
   }
+
+  /* A wide page with nothing beside its main content: the main column takes the whole width. */
+  .layout:not(:has(> .layout-side)) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Cards side by side as the room allows: one a row on a phone, two or three on a wide page. */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr));
+  gap: var(--gap-page);
+  align-items: start;
+}
+
+/* A state card (empty, or an error) says one thing about the whole grid, so it spans it. */
+.card-grid > .state-card {
+  grid-column: 1 / -1;
 }
 
 /*

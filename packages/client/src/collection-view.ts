@@ -11,7 +11,7 @@ import type { Family } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
 import { isArtKind, itemArt } from "@terrakin/ui/item-art";
 import { profilePath } from "@terrakin/ui/paths";
-import { kindPill, progressBar } from "@terrakin/ui/ui";
+import { kindPill, pageLayout, progressBar } from "@terrakin/ui/ui";
 import { api } from "./api";
 import { savedResidentId } from "./net";
 import { collectedLine, dayLabel, familyLabel, holidayLine, seasonsLine } from "./things";
@@ -118,7 +118,8 @@ function headCard(c: CollectionView, name: string, mine: boolean): HTMLElement {
 export function collectionView(id: string, ctx: ViewContext): View {
   ctx.setTitle("Collection · Terrakin");
   let destroyed = false;
-  const el = h("div", { class: "column stack cards page collection-page" });
+  // The families in the main column; whose book it is, how far along, and the badges beside them.
+  const { el, head, main, side } = pageLayout("collection-page", "The book so far");
 
   async function load(): Promise<void> {
     const [profile, book] = await Promise.all([api.profile(id), api.collection(id)]);
@@ -126,10 +127,12 @@ export function collectionView(id: string, ctx: ViewContext): View {
     if (!profile.ok || !book.ok) {
       const failed = !profile.ok ? profile : book.ok ? undefined : book;
       if (failed?.status === 404) {
-        el.replaceChildren(notFoundCard("We couldn't find that resident"));
+        main.replaceChildren(notFoundCard("We couldn't find that resident"));
         return;
       }
-      el.replaceChildren(errorCard(failed?.message ?? "Something went wrong.", () => void load()));
+      main.replaceChildren(
+        errorCard(failed?.message ?? "Something went wrong.", () => void load()),
+      );
       return;
     }
     const r = profile.data.resident;
@@ -137,19 +140,25 @@ export function collectionView(id: string, ctx: ViewContext): View {
     const c = book.data.collection;
     const now = Date.now();
     ctx.setTitle(`${mine ? "Your" : `${r.name}'s`} collection · Terrakin`);
-    el.replaceChildren(
+    head.replaceChildren(
       h(
         "a",
         { class: "text-link back-link", attrs: { href: profilePath(r.id) } },
         icon("back"),
         h("span", { text: mine ? "Your profile" : r.name }),
       ),
-      headCard(c, r.name, mine),
-      // Finds first: they're what a walk adds to the book. The rest in the catalog's order.
-      ...[
-        ...c.groups.filter((g) => g.path[0] === "find"),
-        ...c.groups.filter((g) => g.path[0] !== "find"),
-      ].map((g) => groupCard(g, now)),
+    );
+    side.replaceChildren(headCard(c, r.name, mine));
+    main.replaceChildren(
+      h(
+        "div",
+        { class: "card-grid" },
+        // Finds first: they're what a walk adds to the book. The rest in the catalog's order.
+        ...[
+          ...c.groups.filter((g) => g.path[0] === "find"),
+          ...c.groups.filter((g) => g.path[0] !== "find"),
+        ].map((g) => groupCard(g, now)),
+      ),
     );
   }
 

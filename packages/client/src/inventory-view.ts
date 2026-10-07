@@ -8,7 +8,15 @@ import type { ItemKind } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
 import { itemArt, thingPicture } from "@terrakin/ui/item-art";
 import { personLink } from "@terrakin/ui/people";
-import { confirmTwice, itemRow, itemRows, stateCard, toast, whileBusy } from "@terrakin/ui/ui";
+import {
+  confirmTwice,
+  itemRow,
+  itemRows,
+  pageLayout,
+  stateCard,
+  toast,
+  whileBusy,
+} from "@terrakin/ui/ui";
 import { actProblem, api, uploadMedia } from "./api";
 import { savedToken } from "./net";
 import { comeHomeButton } from "./purse-view";
@@ -239,15 +247,13 @@ function pieceCard(labelMax: number, made: () => void): HTMLElement {
 
 export function inventoryView(ctx: ViewContext): View {
   ctx.setTitle("Your things · Terrakin");
-  const el = h(
-    "div",
-    { class: "column stack cards page things-page" },
-    h("h1", { class: "page-title", text: "Your things" }),
-  );
+  // What you hold in the main column; your garden, gifts, and making art beside it.
+  const { el, head, main, side } = pageLayout("things-page", "Your garden, gifts, and art");
+  head.append(h("h1", { class: "page-title", text: "Your things" }));
   let destroyed = false;
 
   if (!savedToken()) {
-    el.append(
+    main.append(
       stateCard({
         title: "Join to grow and make things",
         body: "Residents grow lemons and herbs on their plots, make jam and bouquets, and give them to friends.",
@@ -264,13 +270,11 @@ export function inventoryView(ctx: ViewContext): View {
     return { el, ready: Promise.resolve(), destroy() {} };
   }
 
-  const body = h("div", { class: "stack cards things-body" });
-  el.append(body);
-
   function paint(data: InventoryResponse) {
     const { inventory: inv, rules } = data;
     if (!inv) {
-      body.replaceChildren(
+      side.replaceChildren();
+      main.replaceChildren(
         stateCard({
           title: "Growing, making, and gathering aren't open yet",
           body: "Check back soon.",
@@ -283,7 +287,7 @@ export function inventoryView(ctx: ViewContext): View {
     const staplesFull = held("sugar") >= rules.stapleMax && held("jar") >= rules.stapleMax;
     // Today's pantry waits at home: the same "come home" the purse page has.
     const pantryDue = inv.hasHearth && !inv.pantryToday && !staplesFull;
-    body.replaceChildren(
+    side.replaceChildren(
       h(
         "section",
         {
@@ -370,6 +374,11 @@ export function inventoryView(ctx: ViewContext): View {
             ),
           ]
         : []),
+      pieceCard(rules.labelMax, () => {
+        if (!destroyed) void load();
+      }),
+    );
+    main.replaceChildren(
       h(
         "section",
         { class: "stack things-section", attrs: { "aria-labelledby": "things-hold-title" } },
@@ -414,9 +423,6 @@ export function inventoryView(ctx: ViewContext): View {
           "Sell in the market",
         ),
       ),
-      pieceCard(rules.labelMax, () => {
-        if (!destroyed) void load();
-      }),
     );
   }
 
@@ -424,7 +430,7 @@ export function inventoryView(ctx: ViewContext): View {
     const r = await api.inventory();
     if (destroyed) return;
     if (!r.ok) {
-      body.replaceChildren(errorCard(r.message, () => void load()));
+      main.replaceChildren(errorCard(r.message, () => void load()));
       return;
     }
     paint(r.data);

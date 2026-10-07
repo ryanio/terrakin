@@ -33,7 +33,7 @@ export const SHOP_KEEPER_HANDLE = "clem";
  * What the town buys today, and with a viewer, how many more of each they can sell. A season's
  * buys come after the rotation's and carry their `season` (RFC 0017).
  */
-export function buyingToday(state: WorldState, viewer?: string): BuyOrderView[] {
+function buyingToday(state: WorldState, viewer?: string): BuyOrderView[] {
   const shop = shopOf(state);
   if (!shop) return [];
   const sold = viewer ? shopFor(state, viewer)?.sold : undefined;
@@ -52,7 +52,7 @@ export function buyingToday(state: WorldState, viewer?: string): BuyOrderView[] 
  * while it runs, each with the last day it's sold. Stock from other seasons and holidays isn't
  * listed (RFC 0017, RFC 0022).
  */
-export function itemsOn(day: number): ShopItemView[] {
+function itemsOn(day: number): ShopItemView[] {
   const holiday = holidayOn(day);
   return SHOP_ITEMS.filter((item) => onSale(item.sku, day)).map((item) => {
     if (item.holiday && holiday) return { ...item, lastDay: holiday.lastDay };

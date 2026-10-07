@@ -4,6 +4,7 @@ import {
   CHECKIN_LIMITS,
   CHECKIN_SUGGESTED_HOURS,
   DEVLOG_POSTS,
+  FIRST_VISIT_STEPS,
 } from "@terrakin/protocol";
 import { dayOfDate, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
@@ -523,6 +524,7 @@ describe("the devlog in the check-in", () => {
 });
 
 type Ok = (method: string, path: string, body: unknown, token: string) => Promise<Json>;
+type Caller = ReturnType<typeof jsonCaller>;
 
 /**
  * Every first-visit step: a plot, a home, a plot name (unless `named` is false), a handle, a bio, a
@@ -566,6 +568,16 @@ describe("first-visit steps and things to try", () => {
     const done = await checkin(wren.token);
     expect(done.firstVisit).toEqual([]);
     expect(done.todo.some((t: string) => t.startsWith("First visit:"))).toBe(false);
+  });
+
+  it("asks for a garden only once there's a hearth to plant beside", async () => {
+    const { join, ok, checkin } = await start({ days: true, items: true });
+    const wren = join("Wren");
+    expect((await checkin(wren.token)).firstVisit).not.toContain("garden");
+    await ok("POST", "/v1/actions", { type: "settle", px: 1, py: 1 }, wren.token);
+    expect((await checkin(wren.token)).firstVisit).not.toContain("garden");
+    await ok("POST", "/v1/actions", { type: "build_starter_home" }, wren.token);
+    expect((await checkin(wren.token)).firstVisit).toContain("garden");
   });
 
   it("never answers unchanged while a first-visit step is left", async () => {
@@ -668,7 +680,10 @@ describe("first-visit steps and things to try", () => {
     // Nothing else fits yet (crafting waits for a harvest), and each waits a month.
     advance(DAY);
     expect((await checkin(wren.token)).tryToday).toBeNull();
-    advance(30 * DAY);
+    // Gather comes back 30 days after it was suggested, not a day sooner.
+    advance(26 * DAY);
+    expect((await checkin(wren.token)).tryToday).toBeNull();
+    advance(DAY);
     expect((await checkin(wren.token)).tryToday).toBe("gather");
   });
 
@@ -784,6 +799,83 @@ describe("first-visit steps and things to try", () => {
     expect(CRANBERRY_KINDS).toEqual(
       new Set(["cranberry_seed", "cranberry", "cranberry_jam", "cranberry_punch"]),
     );
+  });
+});
+
+describe("GET /v1/first-visit", () => {
+  const firstVisit = async (call: Caller, token?: string) => {
+    const res = await call("GET", "/v1/first-visit", undefined, token);
+    return { status: res.status, body: res.body as Json };
+  };
+  const doneSteps = (body: Json) =>
+    body.steps.filter((s: Json) => s.done).map((s: Json) => s.id as string);
+
+  it("lists every first-visit step, each flipping to done as it's done", async () => {
+    const { call, join, ok } = await start();
+    expect((await firstVisit(call)).status).toBe(401);
+    const wren = join("Wren");
+    const ash = join("Ash");
+    const fresh = (await firstVisit(call, wren.token)).body;
+    expect(fresh.steps.map((s: Json) => s.id)).toEqual([...FIRST_VISIT_STEPS]);
+    expect(doneSteps(fresh)).toEqual([]);
+    expect(fresh.tryToday).toBeNull();
+
+    await ok("POST", "/v1/actions", { type: "settle", px: 1, py: 1 }, wren.token);
+    expect(doneSteps((await firstVisit(call, wren.token)).body)).toEqual(["plot"]);
+    await ok("PUT", "/v1/profile", { bio: "Gardens at dawn" }, wren.token);
+    expect(doneSteps((await firstVisit(call, wren.token)).body)).toEqual(["plot", "bio"]);
+
+    await settleIn(ok, wren.token, ash.id);
+    // No items in this world, so the garden waits on nothing it can have; every other step is done.
+    const set = (await firstVisit(call, wren.token)).body;
+    expect(doneSteps(set)).toEqual(FIRST_VISIT_STEPS.filter((s) => s !== "garden"));
+  });
+
+  it("checks nothing in: the next check-in still gets today's suggestion", async () => {
+    const { call, join, ok, checkin, social } = await start({ days: true, items: true });
+    const wren = join("Wren");
+    const ash = join("Ash");
+    await settleIn(ok, wren.token, ash.id);
+    const pet = { type: "adopt_pet", kind: "dog", coat: "golden", name: "Rex" };
+    await ok("POST", "/v1/actions", pet, wren.token);
+    await ok("POST", "/v1/actions", { type: "place", x: 6, y: 6, block: "planter" }, wren.token);
+    await ok("POST", "/v1/actions", { type: "plant", x: 6, y: 6, seed: "flower" }, wren.token);
+
+    const read = (await firstVisit(call, wren.token)).body;
+    expect(doneSteps(read)).toEqual([...FIRST_VISIT_STEPS]);
+    expect(read.tryToday).toBe("gather");
+    expect(read.tries).toEqual(
+      expect.arrayContaining([
+        { id: "plant", done: true },
+        { id: "pet", done: true },
+        { id: "gather", done: false },
+      ]),
+    );
+    // Twice over, and still no check-in on record.
+    expect((await firstVisit(call, wren.token)).body.tryToday).toBe("gather");
+    expect(social.checkins.stats().residentsThisWeek).toBe(0);
+
+    // The check-in after it gets the same suggestion, as if nothing had read it.
+    expect((await checkin(wren.token)).tryToday).toBe("gather");
+    expect(social.checkins.stats().residentsThisWeek).toBe(1);
+    // Once given, it stays today's suggestion here, though the check-in won't give it twice.
+    expect((await firstVisit(call, wren.token)).body.tryToday).toBe("gather");
+    expect((await checkin(wren.token)).tryToday).toBeNull();
+
+    await ok("POST", "/v1/actions", { type: "gather" }, wren.token);
+    const gathered = (await firstVisit(call, wren.token)).body;
+    expect(gathered.tries).toContainEqual({ id: "gather", done: true });
+  });
+
+  it("gives townsfolk nothing", async () => {
+    const { call, join, service } = await start({ days: true, items: true });
+    const clem = join("Clem");
+    service.syncTownsfolk(new Set([clem.id]));
+    expect((await firstVisit(call, clem.token)).body).toEqual({
+      steps: [],
+      tries: [],
+      tryToday: null,
+    });
   });
 });
 

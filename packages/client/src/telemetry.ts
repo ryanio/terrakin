@@ -39,7 +39,7 @@ export function isProductionSite(host: string, prodBuild: boolean = import.meta.
  * ("/r/:id"), never a real path. The title is fixed per template, because page titles carry
  * resident names, and the referrer is always empty, because it can hold a real profile or post URL.
  */
-export function pageFields(origin: string, template: string) {
+function pageFields(origin: string, template: string) {
   return {
     page_location: `${origin}${template}`,
     page_title: PAGE_TITLES[template] ?? "Terrakin",
@@ -143,7 +143,7 @@ const SENTRY_DSN =
 const SAFE_BREADCRUMBS = new Set(["navigation", "fetch", "xhr", "ui.click", "api", "live"]);
 
 /** Share of page loads traced, with the API calls they make. */
-export const TRACES_SAMPLE_RATE = 0.2;
+const TRACES_SAMPLE_RATE = 0.2;
 
 let sentry: import("./sentry").SentryHandle | undefined;
 
@@ -251,7 +251,7 @@ interface ElementLike {
  * Describe a clicked element as `tag#id.class.class`, and nothing else. Sentry's own click message
  * adds attributes like aria-label and title, which hold resident names and file names.
  */
-export function describeElement(target: unknown): string | null {
+function describeElement(target: unknown): string | null {
   if (!target || typeof target !== "object") return null;
   const el = target as ElementLike;
   if (typeof el.tagName !== "string" || !el.tagName) return null;

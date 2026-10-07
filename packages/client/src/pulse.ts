@@ -14,7 +14,7 @@ import type {
   TreasuryView,
   WorldSnapshot,
 } from "@terrakin/protocol";
-import { REAL_ENOUGH } from "@terrakin/protocol";
+import { everyoneIn, heartCount, REAL_ENOUGH } from "@terrakin/protocol";
 import { isMediaUrl, plural } from "@terrakin/ui/format";
 
 export { REAL_ENOUGH };
@@ -22,16 +22,16 @@ export { REAL_ENOUGH };
 type Resident = WorldSnapshot["residents"][number];
 
 /** Real residents online before the roster stops padding with townsfolk. */
-export const ROSTER_FILL = 6;
+const ROSTER_FILL = 6;
 /** Consecutive posts by one author, each within this of the next, roll up into one card. */
-export const BURST_GAP_MS = 2 * 60 * 60 * 1000;
-export const BURST_MIN = 3;
+const BURST_GAP_MS = 2 * 60 * 60 * 1000;
+const BURST_MIN = 3;
 /** Likes plus twice the replies a post needs to be flagged as the most talked about. */
-export const HOT_MIN = 4;
+const HOT_MIN = 4;
 /** Text-only posts up to this long show large, as a quote. */
-export const QUOTE_MAX = 140;
+const QUOTE_MAX = 140;
 
-export type Format = "plain" | "spotlight" | "quote" | "hot";
+type Format = "plain" | "spotlight" | "quote" | "hot";
 
 export type WallItem =
   | { kind: "post"; post: PostView; format: Format }
@@ -41,7 +41,7 @@ export type WallItem =
 /** "fold" once a page has enough real posts; "fill" while townsfolk are still needed. */
 export type TownsfolkMode = "fill" | "fold";
 
-export function isTownsfolk(author: AuthorView, known?: ReadonlySet<string>): boolean {
+function isTownsfolk(author: AuthorView, known?: ReadonlySet<string>): boolean {
   return author.townsfolk === true || (known?.has(author.id) ?? false);
 }
 
@@ -54,7 +54,7 @@ export function townsfolkMode(
 }
 
 const hasImage = (p: PostView) => p.media.some((m) => m.kind === "image" && isMediaUrl(m.url));
-const score = (p: PostView) => p.likeCount + 2 * p.replyCount;
+const score = (p: PostView) => heartCount(p) + 2 * p.replyCount;
 
 /**
  * Turn posts (newest first) into wall items. Runs of `BURST_MIN` or more posts by one author roll
@@ -163,7 +163,7 @@ export function townsfolkIds(
 }
 
 export interface PulseStats {
-  /** Real residents, not counting townsfolk. */
+  /** Residents, which never include the townsfolk. */
   residents: number;
   online: number;
   homes: number;
@@ -173,14 +173,14 @@ export interface PulseStats {
 }
 
 export function pulseStats(snapshot: WorldSnapshot, townsfolk: ReadonlySet<string>): PulseStats {
-  const real = snapshot.residents.filter((r) => !townsfolk.has(r.id));
+  const { residents } = snapshot;
   return {
-    residents: real.length,
-    online: real.filter((r) => r.online).length,
-    homes: real.filter((r) => r.hearth !== null).length,
+    residents: residents.length,
+    online: residents.filter((r) => r.online).length,
+    homes: residents.filter((r) => r.hearth !== null).length,
     plots: snapshot.plots.filter((p) => !townsfolk.has(p.ownerId)).length,
     blocks: snapshot.blocks.length,
-    townsfolk: snapshot.residents.length - real.length,
+    townsfolk: snapshot.townsfolk?.length ?? 0,
   };
 }
 
@@ -193,7 +193,7 @@ export function aroundNow(
   townsfolk: ReadonlySet<string>,
   max = 10,
 ): { shown: Resident[]; more: number } {
-  const online = snapshot.residents.filter((r) => r.online);
+  const online = everyoneIn(snapshot).filter((r) => r.online);
   const real = online.filter((r) => !townsfolk.has(r.id)).reverse();
   const fill = online.filter((r) => townsfolk.has(r.id));
   const list = [...real, ...fill.slice(0, Math.max(0, ROSTER_FILL - real.length))];

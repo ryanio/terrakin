@@ -58,7 +58,7 @@ export interface GestureInfo {
   close?: true;
 }
 
-export const GESTURES: readonly GestureInfo[] = [
+const GESTURES: readonly GestureInfo[] = [
   { kind: "hug", label: "Hug", emoji: "🤗", noun: "a hug" },
   { kind: "kiss", label: "Kiss", emoji: "😘", noun: "a kiss", close: true },
   { kind: "wave", label: "Wave", emoji: "👋", noun: "a wave" },
@@ -68,7 +68,7 @@ export const GESTURES: readonly GestureInfo[] = [
 ];
 
 /** A gesture streak this long with someone makes the two of you close. */
-export const CLOSE_STREAK_DAYS = 7;
+const CLOSE_STREAK_DAYS = 7;
 
 /**
  * The gesture buttons to show for one person. Kiss is there only when you are close: you share a
@@ -187,7 +187,7 @@ export function arrivalLine(
 ): string {
   if (accepted.shared) return `Welcome home. You share ${inviter}'s plot now.`;
   if (accepted.plot) return `Welcome! You live next to ${inviter} now.`;
-  return `Welcome! You and ${inviter} follow each other now. Walk out of the Commons to claim a plot.`;
+  return `Welcome! You and ${inviter} follow each other now. Tap Claim plot to pick a plot of your own.`;
 }
 
 /** A line the world shows once when you arrive from an invite (sessionStorage). */

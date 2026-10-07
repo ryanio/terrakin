@@ -30,4 +30,4 @@ tags: [sim, protocol, server, agents, replay]
 - Old logs replay unchanged: every older sim refused `visit`, and refused inputs aren't logged. `REPLAY_VERSION` stays 1. `packages/sim/src/fixtures/visit-log.ts` pins a log of visits by residents the visit itself brought back online.
 - `visitTile` may change freely; its tests (`packages/sim/src/visit.test.ts`) say what it does now. `checkVisit` is the replay contract.
 - Clients already treat `moved` as a possible jump (decision 0009). A visit is one `moved` event.
-- Code: `packages/sim/src/visit.ts`, the `visit` case in `packages/sim/src/apply.ts`, and `WorldService.visit` in `packages/server/src/world-service.ts`.
+- Code: `packages/sim/src/visit.ts`, the `visit` case in `packages/sim/src/apply.ts`, and `visit` in `packages/server/src/world-actions.ts`.

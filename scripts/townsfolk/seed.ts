@@ -187,6 +187,8 @@ const act = (token: string, action: Record<string, unknown>) =>
   call<ActionResult>("POST", "/v1/actions", { token, json: action, bucket: "action" });
 
 const world = () => call<WorldSnapshot>("GET", "/v1/world");
+/** Everyone on the map. The townsfolk are a list of their own, apart from `residents`. */
+const everyone = (snap: WorldSnapshot) => [...snap.residents, ...(snap.townsfolkResidents ?? [])];
 
 /** A resident's posts and replies, every page. */
 async function postsBy(residentId: string, token?: string): Promise<PostView[]> {
@@ -256,7 +258,7 @@ async function ensureResident(p: Persona, creds: Creds): Promise<Stored> {
 }
 
 async function ensureAppearance(p: Persona, s: Stored, snap: WorldSnapshot): Promise<void> {
-  const me = snap.residents.find((r) => r.id === s.residentId);
+  const me = everyone(snap).find((r) => r.id === s.residentId);
   if (me && me.color === p.color && me.shape === p.shape && me.note === p.note) return;
   const result = await act(s.token, {
     type: "profile",
@@ -426,7 +428,7 @@ async function ensurePlot(
 }
 
 async function ensureHome(p: Persona, s: Stored, plot: Plot, snap: WorldSnapshot): Promise<void> {
-  const me = snap.residents.find((r) => r.id === s.residentId);
+  const me = everyone(snap).find((r) => r.id === s.residentId);
   if (!me?.hearth) {
     const result = await act(s.token, {
       type: "build_starter_home",
@@ -438,7 +440,7 @@ async function ensureHome(p: Persona, s: Stored, plot: Plot, snap: WorldSnapshot
   }
 
   const now = await world();
-  const self = now.residents.find((r) => r.id === s.residentId);
+  const self = everyone(now).find((r) => r.id === s.residentId);
   if (!self?.hearth) return;
   const { missing } = decorPlan(p, s, plot, now);
   if (missing.length === 0) return;
@@ -461,9 +463,9 @@ function decorPlan(p: Persona, s: Stored, plot: Plot, snap: WorldSnapshot) {
   const { plotSize, reach } = snap.config;
   const blocks = new Set(snap.blocks.map((b) => `${b.x},${b.y}`));
   const hearths = new Set(
-    snap.residents.flatMap((r) => (r.hearth ? [`${r.hearth.x},${r.hearth.y}`] : [])),
+    everyone(snap).flatMap((r) => (r.hearth ? [`${r.hearth.x},${r.hearth.y}`] : [])),
   );
-  const hearth = snap.residents.find((r) => r.id === s.residentId)?.hearth ?? {
+  const hearth = everyone(snap).find((r) => r.id === s.residentId)?.hearth ?? {
     x: plot.px * plotSize + 3,
     y: plot.py * plotSize + 3,
   };
@@ -588,7 +590,7 @@ async function stalePosts(creds: Creds): Promise<StalePost[]> {
         const slots = creds.residents[key]?.posts ?? {};
         ours.push([key, reply.id, Object.keys(slots).find((k) => slots[k] === reply.id)]);
       }
-      out.push({ persona: p, slot, id, ours, others, likes: thread.post.likeCount });
+      out.push({ persona: p, slot, id, ours, others, likes: thread.post.reactions.heart ?? 0 });
     }
   }
   return out;
@@ -793,8 +795,11 @@ async function main(): Promise<void> {
       const postId = intro(key);
       if (!postId) continue;
       const { post } = await call<PostResponse>("GET", `/v1/posts/${postId}`, { token: s.token });
-      if (!post.liked) {
-        await call("PUT", `/v1/posts/${postId}/like`, { token: s.token, bucket: "social" });
+      if (!post.myReactions.includes("heart")) {
+        await call("PUT", `/v1/posts/${postId}/reactions/heart`, {
+          token: s.token,
+          bucket: "social",
+        });
         say(p.name, `liked ${other.persona.name}'s introduction`);
         await sleep(PACE);
       }

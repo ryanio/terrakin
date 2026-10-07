@@ -172,7 +172,7 @@ export const refuse = (code: ErrorCode, message: string, help: string) =>
   turnedDown({ ok: false, error: { code, message } }, help);
 
 /** Whether a resident has a plot to build a home on: their own, or one shared with them. */
-export const housed = (state: WorldState, id: string) =>
+const housed = (state: WorldState, id: string) =>
   plotsOwnedBy(state, id).length > 0 ||
   Object.values(state.plots).some((p) => p.coOwners?.includes(id));
 

@@ -128,7 +128,18 @@ What we chose and why. Newest last.
 - [A partner's residents list reads the existing tables, and a claim in the partner's words lists a resident without perks](decisions/0127-a-partner-s-residents-list-reads-the-existing-tables-and-a-c.md) · 2026-10-06 · accepted · `server` `protocol` `partners` `privacy` `agents`
 - [An agent link ask is kept for 14 days and finished from the recheck run once the card names the resident that asked](decisions/0128-an-agent-link-ask-is-kept-for-14-days-and-finished-from-the-.md) · 2026-10-06 · accepted · `server` `protocol` `partners` `agents` `security`
 - [A first-visit step added after a resident joined comes as their daily suggestion, only on a check-in with news](decisions/0129-a-first-visit-step-added-after-a-resident-joined-comes-as-th.md) · 2026-10-06 · accepted · `server` `protocol` `agents` `onboarding`
-- [Resident names are unique at join](decisions/0130-resident-names-are-unique-at-join.md) · 2026-10-07 · accepted · `server` `protocol` `agents` `identity`
+- [The Node server keeps idle connections open for 65 seconds](decisions/0130-the-node-server-keeps-idle-connections-open-for-65-seconds.md) · 2026-10-07 · accepted · `server` `testing` `deploy`
+- [Unused files, exports, and dependencies fail the gate through knip](decisions/0131-unused-files-exports-and-dependencies-fail-the-gate-through-.md) · 2026-10-07 · accepted · `tooling` `ci`
+- [GET /v1/world lists the townsfolk apart from residents, a breaking change by the owner's call](decisions/0132-get-v1-world-lists-the-townsfolk-apart-from-residents-a-brea.md) · 2026-10-07 · accepted · `protocol` `townsfolk` `agents`
+- [A person joins with hair, a top, and a color, and no shape](decisions/0140-a-person-joins-with-hair-a-top-and-a-color-and-no-shape.md) · 2026-10-07 · accepted · `client` `design` `onboarding`
+- [The newcomer funnel counts first steps from what the world already records](decisions/0141-the-newcomer-funnel-counts-first-steps-from-what-the-world-a.md) · 2026-10-07 · accepted · `staff` `metrics` `onboarding` `privacy`
+- [A townsfolk visits a person's door minutes after their first claim](decisions/0142-a-townsfolk-visits-a-person-s-door-minutes-after-their-first.md) · 2026-10-07 · accepted · `server` `agents` `social` `economy`
+- [Claim plot opens a picker of empty plots for someone with no plot, nearest to lived-in plots first](decisions/0143-claim-plot-opens-a-picker-of-empty-plots-for-someone-with-no.md) · 2026-10-07 · accepted · `client` `sim` `ux` `onboarding`
+- [After a claim the web offers a starter home in one tap or the build bar on the hearth, then asks for a name](decisions/0144-after-a-claim-the-web-offers-a-starter-home-in-one-tap-or-th.md) · 2026-10-07 · accepted · `client` `ux` `onboarding`
+- [The web app reads first-visit steps from a route that shares the check-in's rules and checks nothing in](decisions/0145-the-web-app-reads-first-visit-steps-from-a-route-that-shares.md) · 2026-10-07 · accepted · `protocol` `server` `client` `onboarding`
+- [While Terrakin is pre-alpha, v1 can break, announced in the changelog the day it ships](decisions/0146-while-terrakin-is-pre-alpha-v1-can-break-announced-in-the-ch.md) · 2026-10-07 · accepted · `protocol` `agents` `changelog`
+- [Test residents are built through real actions, with a test-only grant for coins and things](decisions/0147-test-residents-are-built-through-real-actions-with-a-test-on.md) · 2026-10-07 · accepted · `testing` `tooling` `economy`
+- [Resident names are unique at join](decisions/0148-resident-names-are-unique-at-join.md) · 2026-10-07 · accepted · `server` `protocol` `agents` `identity`
 
 ## Learnings
 
@@ -153,6 +164,8 @@ Gotchas, surprises, and things we'd tell our past selves.
 
 End-of-session notes. Read the latest one before starting work.
 
+- [A person's first ten minutes: character at the door, claim from anywhere, a starter home, first steps, and a newcomer funnel](handoffs/2026-10-07-1810-a-person-s-first-ten-minutes-character-at-the-door-claim-fro.md) · 2026-10-07 · `process` `onboarding` `client` `server` `admin` `agents` `townsfolk`
+- [Refine pass: check-in table, links and server splits, sim helpers, steadier e2e, faster CI, UI copies, render split](handoffs/2026-10-07-0203-refine-pass-check-in-table-links-and-server-splits-sim-helpe.md) · 2026-10-07 · `refactor` `server` `sim` `client` `e2e` `ci`
 - [Plot names, fishing, winter, gather all, and the townsfolk's routines and pets](handoffs/2026-10-06-2255-plot-names-fishing-winter-gather-all-and-the-townsfolk-s-rou.md) · 2026-10-06 · `process` `roadmap` `sim` `client` `server` `economy` `townsfolk`
 - [Seasons, pets, building, events, games and more, and the move to packages](handoffs/2026-10-06-1847-seasons-pets-building-events-games-and-more-and-the-move-to-.md) · 2026-10-06 · `process` `roadmap` `sim` `client` `server` `economy` `agents` `deploy`
 - [e2e timeouts fixed, routes and handlers split by area, a first-load budget, agent-link diagnostics](handoffs/2026-10-06-1829-e2e-timeouts-fixed-routes-and-handlers-split-by-area-a-first-l.md) · 2026-10-06 · `ci` `e2e` `protocol` `server` `client` `performance` `agents`

@@ -11,57 +11,44 @@ export { REACTIONS };
 
 /** Each reaction with a count, in the fixed order, with whether the viewer left it. */
 export function reactionSummary(
-  post: Pick<PostView, "reactions" | "myReactions" | "likeCount" | "liked">,
+  post: Pick<PostView, "reactions" | "myReactions">,
   options: { skipHeart?: boolean } = {},
 ): { key: ReactionKey; count: number; mine: boolean }[] {
-  const counts = { ...post.reactions };
-  // Servers from before reactions only send likes.
-  if (counts.heart === undefined && post.likeCount > 0) counts.heart = post.likeCount;
-  const mine = new Set(post.myReactions ?? (post.liked ? ["heart"] : []));
+  const counts = post.reactions;
+  const mine = new Set(post.myReactions);
   return REACTION_KEYS.filter((key) => !(options.skipHeart && key === "heart"))
     .map((key) => ({ key, count: counts[key] ?? 0, mine: mine.has(key) }))
     .filter((r) => r.count > 0);
 }
 
 /** Whether the viewer has left this reaction. */
-export function hasReaction(post: PostView, key: ReactionKey): boolean {
-  if (post.myReactions) return post.myReactions.includes(key);
-  return key === "heart" && post.liked;
+export function hasReaction(post: Pick<PostView, "myReactions">, key: ReactionKey): boolean {
+  return post.myReactions.includes(key);
 }
 
-/**
- * Turn one of the viewer's reactions on or off in place, before the server answers. A heart moves
- * `likeCount` and `liked` with it, the same way the server counts them.
- */
+/** Turn one of the viewer's reactions on or off in place, before the server answers. */
 export function applyReaction(post: PostView, key: ReactionKey, on: boolean): void {
   if (hasReaction(post, key) === on) return;
   const counts = { ...post.reactions };
-  if (counts.heart === undefined && post.likeCount > 0) counts.heart = post.likeCount;
   const next = Math.max(0, (counts[key] ?? 0) + (on ? 1 : -1));
   if (next === 0) delete counts[key];
   else counts[key] = next;
   post.reactions = counts;
-  const mine = new Set(post.myReactions ?? (post.liked ? ["heart"] : []));
+  const mine = new Set(post.myReactions);
   if (on) mine.add(key);
   else mine.delete(key);
   post.myReactions = REACTION_KEYS.filter((k) => mine.has(k));
-  if (key === "heart") {
-    post.liked = on;
-    post.likeCount = counts.heart ?? 0;
-  }
 }
 
 /** Repost on or off in place, before the server answers. */
 export function applyRepost(post: PostView, on: boolean): void {
-  if ((post.reposted ?? false) === on) return;
+  if (post.reposted === on) return;
   post.reposted = on;
-  post.repostCount = Math.max(0, (post.repostCount ?? 0) + (on ? 1 : -1));
+  post.repostCount = Math.max(0, post.repostCount + (on ? 1 : -1));
 }
 
 /** The fields that change when people react, reply, or repost. Item fields like `repostedBy` stay. */
 const STATE_FIELDS = [
-  "likeCount",
-  "liked",
   "reactions",
   "myReactions",
   "replyCount",
@@ -79,7 +66,7 @@ export function copyPostState(from: PostView, to: PostView): void {
 }
 
 /** A snapshot of the state fields, to put back if the server says no. */
-export function postState(post: PostView): PostView {
+function postState(post: PostView): PostView {
   const copy = { ...post };
   if (post.reactions) copy.reactions = { ...post.reactions };
   if (post.myReactions) copy.myReactions = [...post.myReactions];

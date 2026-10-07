@@ -512,10 +512,18 @@ export interface TextPath {
   h: number;
 }
 
+/**
+ * Outlines are kept, so text drawn twice (a postcard's address line, say) is outlined once: resvg
+ * parses every font file on every outline, which is most of the time a drawing takes.
+ */
 function makeTypesetter(fontFiles: string[]) {
   const font = { loadSystemFonts: false, fontFiles, defaultFontFamily: "Fraunces" };
+  const outlined = new Map<string, TextPath>();
   /** Outline `text` with its baseline at y = 0, starting at x = 0. */
   return (text: string, weight: number, size: number, italic = false): TextPath => {
+    const key = JSON.stringify([text, weight, size, italic]);
+    const kept = outlined.get(key);
+    if (kept) return { ...kept };
     const spacing = BRAND.type.tracking * size;
     const style = italic ? ' font-style="italic"' : "";
     const src = `<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><text font-family="Fraunces" font-weight="${weight}"${style} font-size="${size}" letter-spacing="${fmt(spacing)}">${esc(text)}</text></svg>`;
@@ -527,7 +535,9 @@ function makeTypesetter(fontFiles: string[]) {
       `<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><path d="${d}"/></svg>`,
     ).getBBox();
     if (!bbox) throw new Error(`empty outline for "${text}"`);
-    return { d, x: bbox.x, y: bbox.y, w: bbox.width, h: bbox.height };
+    const path = { d, x: bbox.x, y: bbox.y, w: bbox.width, h: bbox.height };
+    outlined.set(key, path);
+    return { ...path };
   };
 }
 

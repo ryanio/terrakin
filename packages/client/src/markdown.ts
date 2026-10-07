@@ -19,7 +19,7 @@ const escapeHtml = (text: string) =>
 const safeHref = (href: string) => (/^(https?:\/\/|\/|#)/.test(href) ? href : "#");
 
 /** Make a heading's text into an id, like GitHub does. */
-export const slug = (text: string) =>
+const slug = (text: string) =>
   text
     .toLowerCase()
     .replace(/<[^>]+>/g, "")

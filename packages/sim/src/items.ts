@@ -12,7 +12,6 @@ import {
   GOOD_KINDS,
   type GoodKind,
   ITEM_INFO,
-  ITEM_KINDS,
   type ItemKind,
   MADE_KINDS,
   type MadeKind,
@@ -102,10 +101,7 @@ export {
   STARTER_SEEDS,
   STATIONS,
   type StackKind,
-  type StapleKind,
   type Station,
-  SWEET_KINDS,
-  SWEET_RECIPES,
   type SweetKind,
 } from "./catalog";
 
@@ -152,8 +148,6 @@ export const ITEM_ID_PATTERN = /^i_[1-9][0-9]*$/;
 /** A gift's id: `gift_` and a number from the gifts' counter. */
 export const GIFT_ID_PATTERN = /^gift_[1-9][0-9]*$/;
 
-export const isItemKind = (k: unknown): k is ItemKind =>
-  typeof k === "string" && (ITEM_KINDS as readonly string[]).includes(k);
 export const isStackKind = (k: unknown): k is StackKind =>
   typeof k === "string" && (STACK_KINDS as readonly string[]).includes(k);
 export const isGoodKind = (k: unknown): k is GoodKind =>
@@ -857,7 +851,7 @@ export function payPantry(state: WorldState, id: ResidentId): WorldEvent[] {
 // ---------- blocks that cost: decor, furniture, and ponds ----------
 
 /** Where to get one more of a held block, for a refusal. */
-export function heldBlockHint(kind: DecorKind | FurnitureKind): string {
+function heldBlockHint(kind: DecorKind | FurnitureKind): string {
   return isFurnitureKind(kind)
     ? `Make one at a workbench with craft {"recipe": "${kind}"}.`
     : "Buy one at the town shop with shop_buy.";

@@ -98,7 +98,7 @@ const CHANGES: ReadonlySet<WorldEvent["type"]> = new Set([
 ]);
 
 /** The claimed plots an input's events changed, each once. */
-export function plotsChangedBy(state: WorldState, events: readonly WorldEvent[]): Plot[] {
+function plotsChangedBy(state: WorldState, events: readonly WorldEvent[]): Plot[] {
   const size = state.config.plotSize;
   const keys = new Set<string>();
   for (const e of events) {
@@ -503,7 +503,7 @@ const ORDER: Record<PlotSort, (a: PlotView, b: PlotView) => number> = {
  * without the viewer's parts. Nothing here is private: the world snapshot already shows plots,
  * blocks, and displays, and the counts never say who.
  */
-export function plotViews(
+function plotViews(
   state: WorldState,
   facts: PlotFacts,
   author: PlotAuthor,

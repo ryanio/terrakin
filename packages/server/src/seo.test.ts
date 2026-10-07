@@ -69,9 +69,12 @@ const post = (over: Partial<PostView> = {}): PostView => ({
   media: [],
   replyTo: null,
   replyCount: 2,
-  likeCount: 5,
-  liked: false,
   createdAt: "2026-10-04T09:30:00.000Z",
+  reactions: { heart: 5 },
+  myReactions: [],
+  repostCount: 0,
+  quoteCount: 0,
+  reposted: false,
   ...over,
 });
 

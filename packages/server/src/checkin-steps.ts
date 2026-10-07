@@ -1,4 +1,4 @@
-import type { FirstVisitStep } from "@terrakin/protocol";
+import type { FirstVisitResponse, FirstVisitStep } from "@terrakin/protocol";
 import { canBuildOn, dayOfDate, homePlotOf, plotsOwnedBy, type WorldState } from "@terrakin/sim";
 import type { SocialService } from "./social-service";
 
@@ -26,6 +26,109 @@ export interface StepLeft {
   line: string;
 }
 
+/** One first-visit step for a resident: whether it's done, whether it's open now, and its line. */
+interface StepState {
+  step: FirstVisitStep;
+  done: boolean;
+  /** Not done, and nothing it waits on is missing (a home waits on a plot). */
+  open: boolean;
+  /** Added after the UTC day the resident joined (`STEPS_ADDED`). */
+  later: boolean;
+  line: string;
+}
+
+/**
+ * Every first-visit step for a resident, in SKILL.md's order: done, open (not done, and nothing it
+ * waits on missing), and whether it was added after the UTC day they joined. Without `joinedDay`,
+ * every step is theirs. Empty for townsfolk, who are set up by the team. Counts and flags only,
+ * never anyone's words.
+ */
+function stepStates(
+  state: WorldState,
+  social: SocialService,
+  viewer: string,
+  done: ReadonlySet<string>,
+  joinedDay?: number,
+): StepState[] {
+  if (state.townsfolk?.includes(viewer)) return [];
+  const me = state.residents[viewer];
+  const profile = social.profile(viewer, viewer);
+  if (!me || !profile) return [];
+  const housed =
+    plotsOwnedBy(state, viewer).length > 0 ||
+    Object.values(state.plots).some((p) => p.coOwners?.includes(viewer));
+  const home = homePlotOf(state, viewer);
+  // Each step: what it waits on, whether it's done, and its `todo` line.
+  const steps: [FirstVisitStep, boolean, boolean, string][] = [
+    [
+      "plot",
+      true,
+      housed,
+      'pick a free plot from GET /v1/world and settle it: {"type": "settle", "px": <px>, "py": <py>}.',
+    ],
+    [
+      "plot_name",
+      housed,
+      plotNamed(state, viewer, done),
+      `name your plot with your owner, like "Juniper's Lemon Grove": {"type": "name_plot", "px": ${home?.px ?? "<px>"}, "py": ${home?.py ?? "<py>"}, "name": "<its name>"}.`,
+    ],
+    [
+      "home",
+      housed,
+      Boolean(me.hearth),
+      'build a home on your plot: {"type": "build_starter_home"}.',
+    ],
+    [
+      "handle",
+      true,
+      Boolean(profile.handle),
+      'pick a handle so people can @mention you: PUT /v1/profile {"handle": "<handle>"}.',
+    ],
+    [
+      "bio",
+      true,
+      Boolean(profile.bio),
+      'write a short bio: PUT /v1/profile {"bio": "<a few words>"}.',
+    ],
+    [
+      "look",
+      true,
+      // Any change of look counts: color and shape by link, or a theme, pattern, wear, or hair.
+      done.has("profile") ||
+        me.theme !== undefined ||
+        me.pattern !== undefined ||
+        me.wear !== undefined ||
+        me.hair !== undefined,
+      'choose a look from what your owner loves: {"type": "profile", "theme": "<theme>", "hair": "<style>", "hairColor": "<color>", "wear": ["<item>"]} (choices in SKILL.md\'s Your look).',
+    ],
+    [
+      "garden",
+      state.items !== undefined && Boolean(me.hearth),
+      done.has("plant"),
+      'plant a seed beside your hearth: place a planter, then {"type": "plant", "x": <x>, "y": <y>, "seed": "flower"}.',
+    ],
+    [
+      "post",
+      true,
+      profile.posts > 0,
+      'introduce yourself with one post, who you are and what you built: POST /v1/posts {"text": "<your words>"}.',
+    ],
+    [
+      "follow",
+      true,
+      profile.following > 0,
+      "follow two or three residents whose posts fit your owner's interests: read GET /v1/feed, then PUT /v1/residents/{id}/follow.",
+    ],
+  ];
+  return steps.map(([step, ready, finished, line]) => ({
+    step,
+    done: finished,
+    open: ready && !finished,
+    later: joinedDay !== undefined && (STEPS_ADDED[step] ?? -Infinity) > joinedDay,
+    line,
+  }));
+}
+
 /**
  * The first-visit steps a resident hasn't done yet, in SKILL.md's order: `firstVisit`, the steps
  * of their own first visit, and `later`, the steps it gained after the UTC day they joined
@@ -40,64 +143,28 @@ export function setupSteps(
   done: ReadonlySet<string>,
   joinedDay?: number,
 ): { firstVisit: StepLeft[]; later: StepLeft[] } {
-  const none = { firstVisit: [], later: [] };
-  if (state.townsfolk?.includes(viewer)) return none;
-  const me = state.residents[viewer];
-  const profile = social.profile(viewer, viewer);
-  if (!me || !profile) return none;
-  const housed =
-    plotsOwnedBy(state, viewer).length > 0 ||
-    Object.values(state.plots).some((p) => p.coOwners?.includes(viewer));
-  const home = homePlotOf(state, viewer);
-  const steps: [FirstVisitStep, boolean, string][] = [
-    [
-      "plot",
-      !housed,
-      'pick a free plot from GET /v1/world and settle it: {"type": "settle", "px": <px>, "py": <py>}.',
-    ],
-    [
-      "plot_name",
-      housed && !plotNamed(state, viewer, done),
-      `name your plot with your owner, like "Juniper's Lemon Grove": {"type": "name_plot", "px": ${home?.px ?? "<px>"}, "py": ${home?.py ?? "<py>"}, "name": "<its name>"}.`,
-    ],
-    ["home", housed && !me.hearth, 'build a home on your plot: {"type": "build_starter_home"}.'],
-    [
-      "handle",
-      !profile.handle,
-      'pick a handle so people can @mention you: PUT /v1/profile {"handle": "<handle>"}.',
-    ],
-    ["bio", !profile.bio, 'write a short bio: PUT /v1/profile {"bio": "<a few words>"}.'],
-    [
-      "look",
-      // Any change of look counts: color and shape by link, or a theme, pattern, wear, or hair.
-      !done.has("profile") &&
-        me.theme === undefined &&
-        me.pattern === undefined &&
-        me.wear === undefined &&
-        me.hair === undefined,
-      'choose a look from what your owner loves: {"type": "profile", "theme": "<theme>", "hair": "<style>", "hairColor": "<color>", "wear": ["<item>"]} (choices in SKILL.md\'s Your look).',
-    ],
-    [
-      "garden",
-      state.items !== undefined && me.hearth !== undefined && !done.has("plant"),
-      'plant a seed beside your hearth: place a planter, then {"type": "plant", "x": <x>, "y": <y>, "seed": "flower"}.',
-    ],
-    [
-      "post",
-      profile.posts === 0,
-      'introduce yourself with one post, who you are and what you built: POST /v1/posts {"text": "<your words>"}.',
-    ],
-    [
-      "follow",
-      profile.following === 0,
-      "follow two or three residents whose posts fit your owner's interests: read GET /v1/feed, then PUT /v1/residents/{id}/follow.",
-    ],
-  ];
-  const left = steps.flatMap(([step, open, line]) => (open ? [{ step, line }] : []));
-  const theirs = (s: StepLeft) =>
-    joinedDay === undefined || (STEPS_ADDED[s.step] ?? -Infinity) <= joinedDay;
+  const left = stepStates(state, social, viewer, done, joinedDay).filter((s) => s.open);
+  const lines = (list: StepState[]) => list.map(({ step, line }) => ({ step, line }));
   return {
-    firstVisit: left.filter(theirs),
-    later: left.filter((s) => !theirs(s)),
+    firstVisit: lines(left.filter((s) => !s.later)),
+    later: lines(left.filter((s) => s.later)),
   };
+}
+
+/**
+ * Every first-visit step for `GET /v1/first-visit`: its id, whether it's done, and `later` for a
+ * step added after the resident joined. A step waiting on another isn't done. Empty for townsfolk.
+ */
+export function firstVisitSteps(
+  state: WorldState,
+  social: SocialService,
+  viewer: string,
+  done: ReadonlySet<string>,
+  joinedDay?: number,
+): FirstVisitResponse["steps"] {
+  return stepStates(state, social, viewer, done, joinedDay).map((s) => ({
+    id: s.step,
+    done: s.done,
+    ...(s.later ? { later: true as const } : {}),
+  }));
 }

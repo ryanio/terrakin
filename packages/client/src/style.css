@@ -62,6 +62,19 @@ html.overlay-open body {
   transform: scale(1.06);
 }
 
+/*
+ * A tap on "3D view": the map softens at once while the scene loads (world.ts). The words come a
+ * beat later, so a scene that loads at once doesn't flash them.
+ */
+#world.opening-3d {
+  filter: blur(3px) saturate(0.9);
+  transition: filter 0.2s ease;
+}
+
+.world-opening {
+  animation: fade-in 0.2s ease-out 0.15s both;
+}
+
 .veil {
   position: fixed;
   inset: 0;
@@ -409,7 +422,8 @@ body.in-world .veil {
   gap: var(--space-sm);
 }
 
-.swatch-row button {
+.swatch-row button,
+.pick-row button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -438,11 +452,71 @@ body.in-world .veil {
     inset 0 2px 3px rgba(255, 255, 255, 0.45);
 }
 
-.swatch-row button[aria-pressed="true"] {
+.swatch-row button[aria-pressed="true"],
+.pick-row button[aria-pressed="true"] {
   border-color: var(--clay);
   background: var(--pressed);
   color: var(--clay-deep);
   box-shadow: 0 0 0 3px rgba(242, 184, 75, 0.28);
+}
+
+/*
+ * The join form's character (join-form.ts): a picture of you and a line in words, over rows of
+ * chips. On a phone each row scrolls sideways, so the whole picker fits one screen.
+ */
+.character-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+}
+
+.character-figure {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 96px;
+  height: 96px;
+  border-radius: var(--r-card);
+  background: var(--paper-2);
+}
+
+.character-figure canvas {
+  width: 96px;
+  height: 96px;
+}
+
+.character-words {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  color: var(--ink-soft);
+}
+
+.character .swatches {
+  margin: 0;
+}
+
+/* Room around the chips for the picked one's ring, which the scrolling row would clip. */
+.pick-row {
+  display: flex;
+  gap: var(--space-sm);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  padding: var(--space-2xs);
+  margin: calc(var(--space-2xs) * -1);
+}
+
+.pick-row::-webkit-scrollbar {
+  display: none;
+}
+
+.pick-row button {
+  flex: none;
+  min-width: 44px;
+  padding: 0 var(--space-md);
+  scroll-snap-align: start;
 }
 
 /* Stays reachable on a phone: the button rides the bottom of the screen until the form scrolls into view. */
@@ -583,9 +657,14 @@ body.in-world .veil {
     margin-top: var(--space-sm);
   }
 
-  .join .swatches {
-    order: 1;
+  .join .character {
     margin-top: var(--space-lg);
+  }
+
+  /* Room enough to see every choice: the rows wrap instead of scrolling. */
+  .pick-row {
+    flex-wrap: wrap;
+    overflow: visible;
   }
 
   .join .form-error {
@@ -807,10 +886,6 @@ body.in-world .veil {
   margin-top: var(--space-xs);
 }
 
-.site-foot-follow .site-foot-out {
-  margin-left: calc(-1 * var(--space-2xs));
-}
-
 .site-foot-groups {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -842,6 +917,10 @@ body.in-world .veil {
   width: 14px;
   height: 14px;
   opacity: 0.6;
+}
+
+.site-foot-follow .site-foot-out {
+  margin-left: calc(-1 * var(--space-2xs));
 }
 
 .site-foot-fine {
@@ -1031,10 +1110,6 @@ body.in-world .veil {
   height: 18px;
 }
 
-.text-link:hover span {
-  text-decoration: underline;
-}
-
 #feed,
 #join {
   outline: none;
@@ -1057,6 +1132,17 @@ body.in-world .veil {
 
 .hero-title em {
   color: var(--clay);
+}
+
+/* A person's way in, on the first screen of a phone, above the agents card. */
+.hero-self {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm) var(--space-md);
+  margin: calc(var(--space-sm) * -1) 0 0;
+  font-weight: var(--weight-semibold);
+  color: var(--ink-soft);
 }
 
 /* The prompt: a quote block you copy. One line of text that wraps on screen. */
@@ -2068,6 +2154,10 @@ button.profile-avatar.editable:disabled {
   min-width: 110px;
 }
 
+.profile-actions-tail {
+  flex-wrap: nowrap;
+}
+
 .follow.on {
   color: var(--moss-deep);
 }
@@ -2825,7 +2915,8 @@ dialog.model-viewer {
 }
 
 /* Beside the handle it's a quiet link-sized button, still 44px tall to tap. */
-.profile-handle-line .handle-edit {
+.profile-handle-line .handle-edit,
+.profile-handle-line .bio-edit {
   padding: 0 var(--space-md);
   border-color: transparent;
   background: none;
@@ -2834,7 +2925,8 @@ dialog.model-viewer {
   color: var(--clay-deep);
 }
 
-.profile-handle-line .handle-edit:hover {
+.profile-handle-line .handle-edit:hover,
+.profile-handle-line .bio-edit:hover {
   background: rgba(255, 253, 247, 0.9);
   border-color: var(--paper-edge);
 }
@@ -3094,8 +3186,7 @@ dialog.model-viewer {
   font-weight: var(--weight-bold);
 }
 
-.purse-streak,
-.purse-hint {
+.purse-streak {
   margin: 0;
   color: var(--ink-soft);
 }
@@ -3306,6 +3397,17 @@ dialog.model-viewer {
   cursor: pointer;
 }
 
+/* The Claim plot picker (decision 0143): each empty plot drawn with the plots around it. */
+.claim-pick .plot-area {
+  flex: none;
+  width: 72px;
+  height: 72px;
+}
+
+.claim-pick .btn-primary {
+  flex: none;
+}
+
 .plots-strip-visit .plot-thumb {
   width: 112px;
   height: 112px;
@@ -3494,6 +3596,10 @@ dialog.model-viewer {
     gap: var(--space-3xl);
   }
 
+  .hero-self {
+    display: none;
+  }
+
   .home-steps {
     gap: var(--space-md);
   }
@@ -3645,6 +3751,11 @@ dialog.model-viewer {
 .world-loader-line > span.out {
   opacity: 0;
   animation: loader-line-out 0.36s ease-in;
+}
+
+/* After the loader's span rules, so selectors that end in a span only climb in specificity. */
+.text-link:hover span {
+  text-decoration: underline;
 }
 
 @keyframes loader-line-in {
@@ -3933,6 +4044,11 @@ dialog.model-viewer {
   color: var(--clay);
 }
 
+/* Your things, in Claim plot's place once you have a plot: a link that looks like its neighbors. */
+a.action {
+  text-decoration: none;
+}
+
 .action:active {
   transform: translateY(1px) scale(var(--press));
 }
@@ -3964,6 +4080,17 @@ dialog.model-viewer {
     var(--space-md)
   );
   width: auto;
+}
+
+/* The cube turns while the scene loads. */
+.world-mode[aria-busy="true"] .icon {
+  animation: cube-turn 0.9s ease-in-out infinite;
+}
+
+@keyframes cube-turn {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* The speaker (decision 0097): a round button on top of the actions. Its waves show the level. */
@@ -4076,6 +4203,26 @@ dialog.model-viewer {
 .palette-row button[aria-pressed="true"] {
   background: var(--pressed);
   box-shadow: inset 0 0 0 2px var(--clay);
+}
+
+/* The home sheet's status line takes no room until it has words. */
+.home-status:empty {
+  display: none;
+}
+
+/* The hearth shows its name: it's home, and where the pantry arrives. */
+.palette-row .palette-named {
+  grid-auto-flow: column;
+  gap: var(--space-xs);
+  width: auto;
+  padding: 0 var(--space-md) 0 var(--space-xs);
+  border-radius: var(--r-pill);
+}
+
+.palette-name {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--ink);
 }
 
 .palette-row button[aria-pressed="true"] .chip {
@@ -5635,13 +5782,6 @@ dialog.look-editor {
 }
 
 /* ---------- the devlog card on the home wall (decision 0105) ---------- */
-
-.devlog-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
-}
 
 .devlog-title-link {
   color: inherit;
@@ -7932,7 +8072,7 @@ html.view3d-open body {
   font-weight: var(--weight-bold);
 }
 
-.shop-section .purse-hint {
+.shop-section .hint {
   margin: 0;
 }
 
@@ -8139,7 +8279,7 @@ html.view3d-open body {
   align-items: center;
 }
 
-/* ---------- routines while you're away (routines-view.ts, RFC 0009) ---------- */
+/* ---------- routines while you're away (routines-view.ts and away-card.ts, RFC 0009) ---------- */
 
 /* A routine is one card: its switch, and under it the choice, lined up with the switch's words. */
 .routine {
@@ -8183,6 +8323,42 @@ html.view3d-open body {
 
 .away-mark.paused {
   color: var(--ink-soft);
+}
+
+/* ---------- getting started: the home wall's first steps card and the world's next-step chip ---------- */
+
+/* Clay for a step left, moss with a tick once it's done. */
+.first-step-mark {
+  flex: none;
+  color: var(--clay);
+}
+
+.first-step.done .first-step-mark {
+  color: var(--moss);
+}
+
+.first-step.done .item-row-name {
+  color: var(--ink-soft);
+  font-weight: var(--weight-semibold);
+}
+
+/* The next-step chip has the near-actions slot only while Gather all, Pat, and Fish are hidden, and
+   no wider than they are, so the column never reaches further over the map than before. */
+.world-near > :not([hidden]) ~ .world-next {
+  display: none;
+}
+
+.world-near > .pill-button.world-next {
+  max-width: calc(var(--tap) * 2.5);
+  padding: 0 var(--space-md);
+  color: var(--clay-deep);
+  touch-action: none;
+}
+
+.world-next-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ---------- pets (RFC 0019): the Adopt sheet, a profile's pet card, and a pet's sheet ---------- */
@@ -8377,6 +8553,12 @@ html.view3d-open body {
   text-overflow: ellipsis;
   box-shadow: 0 4px 14px rgba(74, 52, 28, 0.18);
   pointer-events: auto;
+}
+
+/* Into the Town Hall or the shop beside you: the button shows the one icon for where it goes. */
+#world-enter[data-place="/town"] .enter-shop,
+#world-enter[data-place="/shop"] .enter-town {
+  display: none;
 }
 
 /* Party games (RFC 0011): the tables, the ladders, one table, and the decide sheet. */

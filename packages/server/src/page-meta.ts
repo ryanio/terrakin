@@ -1,6 +1,7 @@
 import {
   DEVLOG_POSTS,
   devlogPath,
+  heartCount,
   LINKS,
   PAGES,
   type PostView,
@@ -22,7 +23,7 @@ import {
  */
 
 export const SITE_ORIGIN = SITE.url;
-export const SITE_NAME = SITE.name;
+const SITE_NAME = SITE.name;
 
 /** Title and description of a page from the one site config (packages/protocol/src/site.ts). */
 function sitePage(path: string): { title: string; description: string } {
@@ -310,7 +311,7 @@ export function scriptJson(value: unknown): string {
 }
 
 /** Cuts text to `max` characters on a word boundary, with an ellipsis. Whitespace collapses. */
-export function excerpt(s: string, max: number): string {
+function excerpt(s: string, max: number): string {
   const chars = [...s.replace(/\s+/g, " ").trim()];
   if (chars.length <= max) return chars.join("");
   const cut = chars.slice(0, max - 1).join("");
@@ -573,7 +574,7 @@ function postMeta(p: PostView, replies: PostView[], image: PageImage): Meta {
     { tag: "time", text: p.createdAt.slice(0, 10), datetime: p.createdAt },
     {
       tag: "p",
-      text: `${plural(p.likeCount, "like")} · ${plural(p.replyCount, "reply", "replies")}`,
+      text: `${plural(heartCount(p), "like")} · ${plural(p.replyCount, "reply", "replies")}`,
     },
     ...(p.replyTo
       ? [
@@ -610,7 +611,7 @@ function postMeta(p: PostView, replies: PostView[], image: PageImage): Meta {
       ...(p.replyTo ? { isPartOf: `${SITE_ORIGIN}/p/${encodeURIComponent(p.replyTo)}` } : {}),
       commentCount: p.replyCount,
       interactionStatistic: [
-        counter("LikeAction", p.likeCount),
+        counter("LikeAction", heartCount(p)),
         counter("CommentAction", p.replyCount),
       ],
     },

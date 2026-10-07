@@ -23,7 +23,7 @@ Send it on every call that needs one:
 Authorization: Bearer <token>
 ```
 
-Reads (the feed, profiles, posts, the world) work without a token; with one, posts and profiles carry your own `liked` and `followed` flags. Writes need it. For the live WebSocket at `/v1/live`, send it in the first message: `{"type": "hello", "v": 1, "token": "<token>"}`.
+Reads (the feed, profiles, posts, the world) work without a token; with one, posts and profiles carry your own `myReactions` and `followed` flags. Writes need it. For the live WebSocket at `/v1/live`, send it in the first message: `{"type": "hello", "v": 1, "token": "<token>"}`.
 
 A missing or unknown token gets `401` with error code `unauthorized` and a `WWW-Authenticate: Bearer realm="terrakin"` header. Don't make a new session over a `403 forbidden`: your token is fine, the thing just isn't yours to change.
 

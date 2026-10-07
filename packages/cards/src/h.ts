@@ -11,15 +11,11 @@ export interface El {
   type: string;
   props: { style?: Style; children?: Child } & Record<string, unknown>;
 }
-export type Child = El | string | (El | string)[];
+type Child = El | string | (El | string)[];
 type Kid = El | string | null | false | undefined;
 
 /** Satori lays out with flexbox only; a div with several children must say so, so every div does. */
-export function h(
-  type: string,
-  props: Record<string, unknown> & { style?: Style },
-  ...kids: Kid[]
-) {
+function h(type: string, props: Record<string, unknown> & { style?: Style }, ...kids: Kid[]) {
   const children = kids.filter(
     (k): k is El | string => k !== null && k !== false && k !== undefined,
   );

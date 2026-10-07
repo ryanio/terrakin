@@ -41,9 +41,12 @@ function post(
     media: [],
     replyTo: null,
     replyCount: 0,
-    likeCount: 0,
-    liked: false,
     createdAt: new Date(NOW - minutesAgo * MIN).toISOString(),
+    reactions: {},
+    myReactions: [],
+    repostCount: 0,
+    quoteCount: 0,
+    reposted: false,
     ...rest,
   };
 }
@@ -85,13 +88,13 @@ describe("arranging the wall", () => {
 
   it("flags only the busiest post, never a townsfolk one, and only past the bar", () => {
     const posts = [
-      post("ada", 1, { likeCount: 3 }),
-      post("bo", 60, { likeCount: 1, replyCount: 2 }),
-      post("clem", 120, { likeCount: 50, townsfolk: true }),
+      post("ada", 1, { reactions: { heart: 3 } }),
+      post("bo", 60, { reactions: { heart: 1 }, replyCount: 2 }),
+      post("clem", 120, { reactions: { heart: 50 }, townsfolk: true }),
     ];
     const items = arrangeWall(posts, "fill");
     expect(shape(items)).toEqual(["plain:ada", "hot:bo", "plain:clem"]);
-    expect(arrangeWall([post("ada", 1, { likeCount: 3 })], "fill")).toMatchObject([
+    expect(arrangeWall([post("ada", 1, { reactions: { heart: 3 } })], "fill")).toMatchObject([
       { format: "plain" },
     ]);
   });
@@ -172,19 +175,14 @@ function snapshot(over: Partial<WorldSnapshot> = {}): WorldSnapshot {
     hash: "0",
     config: { width: 8, height: 8, plotSize: 8, maxPlotsPerResident: 1, reach: 3 },
     commons: { px: 0, py: 0 },
-    residents: [
-      resident("pip", true, true),
-      resident("otis", true, true),
-      resident("ada", true, true),
-      resident("bo", false),
-      resident("cy", true),
-    ],
+    residents: [resident("ada", true, true), resident("bo", false), resident("cy", true)],
     plots: [
       { px: 0, py: 1, ownerId: "pip" },
       { px: 1, py: 1, ownerId: "ada" },
     ],
     blocks: [{ x: 1, y: 1, block: "wall" }],
     townsfolk: ["pip", "otis"],
+    townsfolkResidents: [resident("pip", true, true), resident("otis", true, true)],
     ...over,
   } as WorldSnapshot;
 }
@@ -213,7 +211,7 @@ describe("pulse numbers", () => {
     expect(few.shown.map((r) => r.id)).toEqual(["cy", "ada", "pip", "otis"]);
     const many = snapshot({
       residents: Array.from({ length: 7 }, (_, i) => ({
-        ...snapshot().residents[2],
+        ...snapshot().residents[0],
         id: `r${i}`,
       })) as WorldSnapshot["residents"],
     });
@@ -242,12 +240,12 @@ describe("world news", () => {
     after.residents = after.residents.map((r) =>
       r.id === "cy" ? { ...r, hearth: { x: 2, y: 2 } } : r,
     );
-    after.residents.push(
-      { ...after.residents[3], id: "dee", name: "dee" } as WorldSnapshot["residents"][number],
-      { ...after.residents[3], id: "tf", name: "tf" } as WorldSnapshot["residents"][number],
-    );
+    const like = (id: string) =>
+      ({ ...after.residents[1], id, name: id }) as WorldSnapshot["residents"][number];
+    after.residents.push(like("dee"));
+    after.townsfolk = [...(after.townsfolk ?? []), "tf"];
+    after.townsfolkResidents = [...(after.townsfolkResidents ?? []), like("tf")];
     after.plots = [...after.plots, { px: 2, py: 2, ownerId: "bo" }];
-    after.townsfolk = ["pip", "otis", "tf"];
     const news = worldNews(before, after, townsfolkIds(after));
     expect(news.map((n) => `${n.kind}:${n.resident.id}`)).toEqual([
       "claimed:bo",

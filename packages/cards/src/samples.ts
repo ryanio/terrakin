@@ -189,7 +189,7 @@ export function samples(images: SampleImages = {}): [string, Card][] {
         eyebrow: "The world",
         title: "Claim a plot. Build a home.",
         subtitle:
-          "Walk out of the Commons, pick a square of land, and say hello to whoever is nearby.",
+          "Pick a square of land beside your neighbors, build a home, and say hello to whoever is nearby.",
       },
     ],
     [

@@ -8,6 +8,12 @@
       "port": 5173
     },
     {
+      "name": "dev-test",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["dev:test"],
+      "port": 5183
+    },
+    {
       "name": "built",
       "runtimeExecutable": "env",
       "runtimeArgs": [

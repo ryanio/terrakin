@@ -105,10 +105,7 @@ function group(
  * kinds, in the catalog's order, then wear. Rows for kinds the catalog no longer has, or for
  * partner wear, show nowhere and count for nothing.
  */
-export function collectionView(
-  resident: string,
-  firsts: ReadonlyMap<string, number>,
-): CollectionView {
+function collectionView(resident: string, firsts: ReadonlyMap<string, number>): CollectionView {
   const groups: CollectionGroup[] = [];
   for (const [family, info] of Object.entries(FAMILIES) as [Family, FamilyInfo][]) {
     const kinds = kindsIn(family);

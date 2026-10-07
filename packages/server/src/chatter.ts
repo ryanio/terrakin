@@ -1,4 +1,6 @@
 import {
+  heartCount,
+  hearted,
   type PostView,
   REACTION_KEYS,
   REAL_ENOUGH,
@@ -42,11 +44,11 @@ import type { WorldService } from "./world-service";
  * praises, admires plots, and waves, everything that speaks to a resident directly.
  */
 export type ChatterMode = "dry" | "posts" | "all";
-export const CHATTER_MODES: readonly ChatterMode[] = ["dry", "posts", "all"];
+const CHATTER_MODES: readonly ChatterMode[] = ["dry", "posts", "all"];
 
 /** `quiet` runs only while real residents post little; `off` runs every time. */
-export type ChatterGate = "quiet" | "off";
-export const CHATTER_GATES: readonly ChatterGate[] = ["quiet", "off"];
+type ChatterGate = "quiet" | "off";
+const CHATTER_GATES: readonly ChatterGate[] = ["quiet", "off"];
 
 /** Townsfolk residents who act in one run, one model call each, unless the settings say otherwise. */
 const PER_RUN = 3;
@@ -67,7 +69,7 @@ export interface ChatterConfig {
   breaker: { failures: number; pauseMs: number };
 }
 
-export const DEFAULT_CHATTER_MODEL = "claude-sonnet-5-5";
+const DEFAULT_CHATTER_MODEL = "claude-sonnet-5-5";
 
 export const DEFAULT_CHATTER: Omit<ChatterConfig, "apiKey"> = {
   model: DEFAULT_CHATTER_MODEL,
@@ -147,7 +149,7 @@ const API_URL = "https://api.anthropic.com/v1/messages";
 const FALLBACK_BETA = "server-side-fallback-2026-07-01";
 
 /** Models that take `fallbacks: "default"`, which reruns a refused request on Anthropic's pick. */
-export const takesFallbacks = (model: string) =>
+const takesFallbacks = (model: string) =>
   /^claude-(?:fable-5-1|opus-5-5|opus-5|sonnet-5-5)(?:$|-)/.test(model);
 /**
  * Thinking off for Sonnet 5.5, which refuses `disabled` and takes `between_tools` instead; with no
@@ -160,7 +162,7 @@ const thinkingFor = (model: string) =>
 const takesEffort = (model: string) =>
   /^claude-(?:fable|mythos|opus-5|opus-4-[5-9]|sonnet-5|sonnet-4-6)/.test(model);
 
-export const CHATTER_ACTIONS = TOWNSFOLK_ACTIONS;
+const CHATTER_ACTIONS = TOWNSFOLK_ACTIONS;
 export type ChatterAction = (typeof CHATTER_ACTIONS)[number];
 const ACTIONS = [...CHATTER_ACTIONS, "nothing"] as const;
 /** Actions aimed at a post in the list, and at a resident in the list of people. */
@@ -193,9 +195,9 @@ export type ChatterOutcome =
   | "error";
 
 /** Why a run did nothing. */
-export type ChatterSkip = "off" | "paused" | "running" | "busy" | "rested" | "nobody";
+type ChatterSkip = "off" | "paused" | "running" | "busy" | "rested" | "nobody";
 /** Why a run stopped before every chosen townsfolk resident had a call. */
-export type ChatterStop = "capped" | "paused" | "idle";
+type ChatterStop = "capped" | "paused" | "idle";
 
 export interface ChatterRun {
   skipped?: ChatterSkip;
@@ -210,7 +212,7 @@ export interface ChatterRun {
 const ageOf = (post: PostView, now: number) => now - Date.parse(post.createdAt);
 
 /** Whether a townsfolk resident posted within `restMs`. `feed` is the newest top-level posts. */
-export function townsfolkPostedLately(
+function townsfolkPostedLately(
   feed: readonly PostView[],
   isTownsfolk: (id: string) => boolean,
   now: number,
@@ -302,7 +304,7 @@ export function candidatesFor(
     (p) =>
       p.author.id !== self &&
       p.replyTo === null &&
-      !p.liked &&
+      !hearted(p) &&
       ageOf(p, now) < CHATTER_LIMITS.candidateWindowMs &&
       !skip(p),
   );
@@ -318,7 +320,7 @@ export function candidatesFor(
     newcomer: !isTownsfolk(p.author.id) && isNewcomer(p.author.id),
     ageMs: ageOf(p, now),
     text: p.text.slice(0, CHATTER_LIMITS.maxChars),
-    likes: p.likeCount,
+    likes: heartCount(p),
     replies: p.replyCount,
   }));
 }
@@ -459,7 +461,7 @@ const age = (ms: number) =>
  * JSON with `<`, `>`, and `&` escaped, so text inside it can't close or open a tag around it (a post
  * that says `</untrusted_posts>` stays inside the block). It still parses as the same value.
  */
-export const fenceJson = (value: unknown) =>
+const fenceJson = (value: unknown) =>
   JSON.stringify(value).replace(
     /[<>&]/g,
     (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`,
@@ -515,7 +517,7 @@ export function chatterPrompt(
 // ---------- the answer check ----------
 
 /** Why an answer was turned away. Logged as a code, never with the text. */
-export type AnswerRefusal =
+type AnswerRefusal =
   | "shape"
   | "closed"
   | "empty"
@@ -631,10 +633,10 @@ export interface ChatterDraft {
 }
 
 /** How many dry-run drafts are kept, newest first. */
-export const DRAFTS_KEPT = 30;
+const DRAFTS_KEPT = 30;
 
 /** How many entries of what the townsfolk did are kept, newest first. */
-export const LOG_KEPT = 200;
+const LOG_KEPT = 200;
 
 /** One thing a townsfolk resident did, or drafted in a dry run. */
 export interface ChatterLogEntry {
@@ -670,7 +672,7 @@ export interface ChatterOptions {
 }
 
 /** A real resident counts as a newcomer for this many days after joining. */
-export const NEWCOMER_DAYS = 3;
+const NEWCOMER_DAYS = 3;
 
 /** Whether chatter is drawing real residents in: its notes, and the answers they got. */
 export interface Participation {
@@ -1254,7 +1256,7 @@ export class ChatterService {
           (p) => p.id,
         );
       case "like":
-        return done(this.social.setLike(me, answer.postId, true));
+        return done(this.social.setReaction(me, answer.postId, "heart", true));
       case "react":
         return done(this.social.setReaction(me, answer.postId, answer.reaction, true));
       case "praise":

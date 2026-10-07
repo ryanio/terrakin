@@ -365,6 +365,7 @@ export {
   townBuys,
   treasuryShareOf,
 } from "./shop";
+export { checkTestGrant, TEST_GRANT } from "./test-grant";
 export {
   DAY_LENGTH_MS,
   dayPhase,
@@ -435,7 +436,9 @@ export {
   plotInBounds,
   plotOf,
   plotsOwnedBy,
+  type SettleProblem,
   STEP,
+  settleProblem,
   shopTile,
   shopTiles,
   spawnTile,

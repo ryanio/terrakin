@@ -23,10 +23,11 @@ import {
   isSweetKind,
   OTHERS_PLOT_GATHER,
   RECIPES,
+  SEED_KINDS,
   SWEET_RECIPES,
   type SweetKind,
 } from "@terrakin/sim";
-import { listOf } from "@terrakin/ui/format";
+import { formatCount, listOf, shortDate } from "@terrakin/ui/format";
 import { coins } from "./purse";
 
 /** "Lemon", "Bunch of herbs". */
@@ -70,14 +71,7 @@ export const collectedLine = (c: { count: number; total: number }) =>
  * year's.
  */
 export function dayLabel(day: number, nowMs: number): string {
-  const ms = day * 86_400_000;
-  const year = (t: number) => new Date(t).getUTCFullYear();
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-    ...(year(ms) === year(nowMs) ? {} : { year: "numeric" }),
-  }).format(ms);
+  return shortDate(day * 86_400_000, nowMs, "UTC");
 }
 
 /** When something turns up only in some seasons: "In autumn", "In spring and summer". */
@@ -99,6 +93,26 @@ export const stackCount = (stacks: readonly { kind: string; count: number }[], k
 export function thingCount(kind: ItemKind, n: number): string {
   const info = ITEM_INFO[kind];
   return `${n} ${(n === 1 ? info.name : info.plural).toLowerCase()}`;
+}
+
+/**
+ * What a pantry brought, in a few words: "10 seeds of 5 kinds, 1 bag of sugar, and 1 jar". Seeds
+ * are counted together, since a first pantry brings a few of each. Null when it brought nothing.
+ */
+export function pantryWords(changes: readonly { kind: ItemKind; amount: number }[]): string | null {
+  const gained = changes.filter((c) => c.amount > 0);
+  const isSeed = (kind: ItemKind) => (SEED_KINDS as readonly string[]).includes(kind);
+  const seeds = gained.filter((c) => isSeed(c.kind));
+  const seedCount = seeds.reduce((n, c) => n + c.amount, 0);
+  const parts = [
+    seeds.length > 1
+      ? `${seedCount} seeds of ${seeds.length} kinds`
+      : seeds[0]
+        ? thingCount(seeds[0].kind, seeds[0].amount)
+        : null,
+    ...gained.filter((c) => !isSeed(c.kind)).map((c) => thingCount(c.kind, c.amount)),
+  ].filter((p): p is string => p !== null);
+  return parts.length > 0 ? listOf(parts) : null;
 }
 
 /** What a recipe uses, as one line: "3 lemons, 1 bag of sugar, 1 jar", or "3 wood" for a table. */
@@ -126,6 +140,26 @@ export function missingLine<K extends ItemKind>(
       return `${more} more ${(more === 1 ? info.name : info.plural).toLowerCase()}`;
     });
   return short.length > 0 ? `Needs ${short.join(", ")}` : null;
+}
+
+/**
+ * A station's recipes as its sheet lays them out: what you have everything for first, then the
+ * rest by how few things they're short, in catalog order otherwise. `shown` is everything you can
+ * make, topped up to `few` with the closest when that's fewer; `more` waits behind a "Show more".
+ */
+export function recipeShelf<R extends { needs: readonly { kind: K; count: number }[] }, K>(
+  recipes: readonly R[],
+  held: (kind: K) => number,
+  few = 3,
+): { shown: R[]; more: R[] } {
+  const short = (r: R) =>
+    r.needs.reduce((n, need) => n + Math.max(0, need.count - held(need.kind)), 0);
+  const sorted = recipes
+    .map((r, i) => ({ r, i, short: short(r) }))
+    .sort((a, b) => a.short - b.short || a.i - b.i);
+  const ready = sorted.filter((s) => s.short === 0).length;
+  const cut = Math.max(ready, few);
+  return { shown: sorted.slice(0, cut).map((s) => s.r), more: sorted.slice(cut).map((s) => s.r) };
 }
 
 /** The crop a seed kind grows, if it is one. */
@@ -231,7 +265,7 @@ export function inventoryLine(e: InventoryEvent): string | null {
 /** "Admired once", "Admired 4 times", or null for a thing nobody has admired yet. */
 export function admiredLine(n: number | undefined): string | null {
   if (!n || n <= 0) return null;
-  return n === 1 ? "Admired once" : `Admired ${n.toLocaleString("en-US")} times`;
+  return n === 1 ? "Admired once" : `Admired ${formatCount(n)} times`;
 }
 
 /** How long a gift can still be sent back, in plain words. */
@@ -282,13 +316,12 @@ export function coinsLine(e: CoinsEvent): string | null {
 }
 
 /**
- * A toast line for one of your own events in the world: a plot claimed, a hearth set, coins, or
- * things. Null for everyone else's events and for ones that go without saying.
+ * A toast line for one of your own events in the world: a hearth set, coins, or things. Null for
+ * everyone else's events and for ones that go without saying, like a plot claimed, which the
+ * sheet that offers a home says (`home-sheet.ts`).
  */
 export function newsLine(event: WorldEvent, me: string): string | null {
   switch (event.type) {
-    case "plot_claimed":
-      return event.ownerId === me ? "This plot is yours. Tap Build to start." : null;
     case "hearth_set":
       return event.residentId === me
         ? "Your hearth is set. Tap Home to come back here from anywhere."
@@ -347,8 +380,7 @@ function knockLine(
 }
 
 /** The line for having no plot, wherever the HUD needs it. */
-export const NO_PLOT_LINE =
-  "You don't have a plot yet. Walk out of the Commons onto an empty plot and tap Claim plot.";
+export const NO_PLOT_LINE = "You don't have a plot yet. Tap Claim plot to pick one.";
 
 /**
  * Why a pickup on someone else's plot isn't yours to take. `name` is the owner's, untrusted text:
@@ -380,9 +412,9 @@ export function worldProblem(
         ? NO_PLOT_LINE
         : "You don't have a hearth yet. Tap Build, pick the hearth, and tap a tile on your plot.";
     case "plot_owned":
-      return "Someone already lives on this plot. Walk to an empty one and tap Claim plot.";
+      return "Someone already lives on this plot. Tap Claim plot to pick an empty one.";
     case "plot_is_commons":
-      return "The Commons belongs to everyone. Walk out of it onto an empty plot to claim one.";
+      return "The Commons belongs to everyone. Tap Claim plot to pick an empty plot.";
     case "plot_limit":
       return "You already have as many plots as you can own.";
     case "not_your_plot":

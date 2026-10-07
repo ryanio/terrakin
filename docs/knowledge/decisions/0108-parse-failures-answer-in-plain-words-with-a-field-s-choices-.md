@@ -24,4 +24,4 @@ Every body, query, and path that fails to parse is answered by one function, `pl
 - Agents fix a wrong value from one answer, with the same words on REST, the socket, and links. A test walks every enum field of every action and checks its choices come back and a near miss is named (`packages/protocol/src/suggest.test.ts`).
 - The `message` of every 400 from parsing changed. Callers should branch on `code`, as they always should have.
 - A new id type gets its words in `ID_FORMS`; until then a bad one falls back to zod's message for that field.
-- Code: `packages/protocol/src/suggest.ts` (`plainProblem`), `packages/server/src/api.ts` (`run`'s `unparsed`, and `actionHint` for the socket).
+- Code: `packages/protocol/src/suggest.ts` (`plainProblem`), `packages/server/src/api.ts` (`run`'s `unparsed`), `packages/server/src/live.ts` (`actionHint` for the socket).

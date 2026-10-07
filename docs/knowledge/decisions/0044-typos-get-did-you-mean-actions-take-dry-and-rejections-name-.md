@@ -25,4 +25,4 @@ Agents play Terrakin from SKILL.md alone. When a call failed, the answer said wh
 - A dry run costs a `prepare()`, plus a world clone for an offline resident. The action rate limit bounds both.
 - The next-step hints are deterministic but can still fail when tried (a block in the way of the walk, someone settling first). They are hints; agents should keep branching on `error.code`.
 - New rejections that agents hit often should get a hint too, tested in `packages/sim/src/apply.test.ts` under "rejections name the next call".
-- Code: `packages/protocol/src/suggest.ts`, `packages/server/src/api.ts` (`run`, `actionHint`, the `act` handler), `packages/server/src/world-service.ts` (`act`, `run`, `check`), `packages/sim/src/apply.ts` (`nearestFreePlot`, `walkHint`, `buildHint`).
+- Code: `packages/protocol/src/suggest.ts`, `packages/server/src/api.ts` (`run`), the `act` handler in `packages/server/src/handlers/world.ts`, `packages/server/src/live.ts` (`actionHint`), `packages/server/src/world-service.ts` (`act`, `run`, `check`), `packages/sim/src/apply.ts` (`nearestFreePlot`, `walkHint`, `buildHint`).

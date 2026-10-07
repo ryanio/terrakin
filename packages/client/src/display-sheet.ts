@@ -67,7 +67,7 @@ export function openDisplaySheet(o: DisplaySheetOptions) {
           "div",
           { class: "stack tight display-gallery" },
           h("p", {
-            class: "purse-hint",
+            class: "hint",
             text: plot.gallery
               ? "Your plot is a gallery: what's on display here is listed on the Galleries page and your profile."
               : "Open your plot as a gallery, and what's on display here is listed on the Galleries page and your profile.",

@@ -48,16 +48,16 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { SkyAmounts } from "../weather";
 import { flicker, lampLevel, lightAt, type StageLight } from "./daylight";
 
-export type Quality = "high" | "phone";
+type Quality = "high" | "phone";
 
 /** Phones and small tablets get the cheaper light. Touch-first or a small screen counts. */
-export function pickQuality(): Quality {
+function pickQuality(): Quality {
   const coarse = window.matchMedia("(pointer: coarse)").matches;
   const small = Math.min(window.screen.width, window.screen.height) < 700;
   return coarse || small ? "phone" : "high";
 }
 
-export interface FrameInfo {
+interface FrameInfo {
   /** Seconds since the stage started (frozen when motion is reduced). */
   time: number;
   /** Seconds since the last frame, capped so a paused tab doesn't jump. */
@@ -576,7 +576,7 @@ export function disposeTree(root: Object3D, spare?: ReadonlySet<Texture>) {
   if (root instanceof Scene && root.background instanceof Texture) root.background.dispose();
 }
 
-export function disposeMaterial(m: Material, spare?: ReadonlySet<Texture>) {
+function disposeMaterial(m: Material, spare?: ReadonlySet<Texture>) {
   for (const value of Object.values(m))
     if (value instanceof Texture && !spare?.has(value)) value.dispose();
   m.dispose();

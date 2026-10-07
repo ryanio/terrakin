@@ -35,11 +35,11 @@ import { unknownAuthor } from "./town";
 const DAY_MS = 86_400_000;
 
 /** Days the hosting record and karma look back. */
-export const HOSTING_WINDOW_DAYS = 90;
+const HOSTING_WINDOW_DAYS = 90;
 /** A guest counts for at most this many hosts a UTC day. */
-export const GUEST_HOSTS_PER_DAY = 2;
+const GUEST_HOSTS_PER_DAY = 2;
 /** A guest counts once they're this many whole UTC days old, with a hearth. */
-export const GUEST_MIN_AGE_DAYS = 3;
+const GUEST_MIN_AGE_DAYS = 3;
 /** Upcoming events the Town Hall board shows. `GET /v1/events` has them all. */
 const BOARD_UPCOMING = 6;
 

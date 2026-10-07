@@ -3,7 +3,7 @@
  * ground corner is, and how to fit a resident's own model onto their plot. No three.js here, so
  * the math is tested without a GPU.
  */
-import type { WorldSnapshot } from "@terrakin/protocol";
+import { everyoneIn, type WorldSnapshot } from "@terrakin/protocol";
 import {
   type BlockKind,
   type Crop,
@@ -73,7 +73,7 @@ export function homePlot(
   const owned = snapshot.plots
     .filter((p) => p.ownerId === residentId)
     .sort((a, b) => a.py - b.py || a.px - b.px);
-  const resident = snapshot.residents.find((r) => r.id === residentId);
+  const resident = everyoneIn(snapshot).find((r) => r.id === residentId);
   const S = snapshot.config.plotSize;
   const hearth = resident?.hearth;
   const withHearth = hearth
@@ -320,7 +320,7 @@ export function litHomes(
 }
 
 /** A path or floor on a tile (RFC 0016), and how far into the haze it is, like a block. */
-export interface LayoutGround {
+interface LayoutGround {
   x: number;
   y: number;
   ground: GroundKind;
@@ -361,7 +361,7 @@ export interface PlotLayout {
 }
 
 /** A pet in the plot view: where it is, which way it faces, and whether it's curled up asleep. */
-export interface LayoutPet {
+interface LayoutPet {
   kind: PetKind;
   coat: PetCoat;
   x: number;
@@ -372,7 +372,7 @@ export interface LayoutPet {
 }
 
 /** Night enough for a pet to curl up by its hearth: past dusk and before dawn. */
-export function isNight(time: WorldSnapshot["time"]): boolean {
+function isNight(time: WorldSnapshot["time"]): boolean {
   return time ? nightAmount(dayPhase(time.nowMs, time.dayLengthMs)) > 0.5 : false;
 }
 
@@ -381,7 +381,7 @@ export function isNight(time: WorldSnapshot["time"]): boolean {
  * south, or north that no figure stands on, curled up and snuggled toward the hearth at night or
  * while its owner is away, and sitting up facing the camera otherwise.
  */
-export function petSpot(
+function petSpot(
   hearth: { x: number; y: number },
   free: (x: number, y: number) => boolean,
   asleep: boolean,
@@ -413,7 +413,8 @@ export function plotLayout(
   residentId: string,
   margin = 4,
 ): PlotLayout | undefined {
-  const owner = snapshot.residents.find((r) => r.id === residentId);
+  const everyone = everyoneIn(snapshot);
+  const owner = everyone.find((r) => r.id === residentId);
   const plot = homePlot(snapshot, residentId);
   if (!owner || !plot) return undefined;
   const { plotSize, width, height } = snapshot.config;
@@ -428,7 +429,7 @@ export function plotLayout(
   const hearth =
     owner.hearth && inBounds(bounds, owner.hearth.x, owner.hearth.y) ? owner.hearth : null;
   // The owner is always drawn at home here, so their windows light whenever their hearth is here.
-  const homes = litHomes(snapshot.residents, plotSize);
+  const homes = litHomes(everyone, plotSize);
   if (hearth) homes.add(plotKey(plot.px, plot.py));
   const blocks: LayoutBlock[] = [];
   for (const b of snapshot.blocks) {
@@ -470,12 +471,10 @@ export function plotLayout(
 
   const solid = new Set(blocks.map((b) => `${b.x},${b.y}`));
   const hearths = new Set(
-    snapshot.residents.flatMap((r) => (r.hearth ? [tileKey(r.hearth.x, r.hearth.y)] : [])),
+    everyone.flatMap((r) => (r.hearth ? [tileKey(r.hearth.x, r.hearth.y)] : [])),
   );
   // Everyone away whose hearth is on this plot, asleep at it (decision 0086, RFC 0013).
-  const homeHere = snapshot.residents.filter(
-    (r) => r.hearth && inBounds(bounds, r.hearth.x, r.hearth.y),
-  );
+  const homeHere = everyone.filter((r) => r.hearth && inBounds(bounds, r.hearth.x, r.hearth.y));
   const asleep = new Map(
     dozers(
       homeHere,
@@ -489,7 +488,7 @@ export function plotLayout(
     ).map((d) => [d.r.id, d]),
   );
   const figures: LayoutFigure[] = [];
-  for (const r of snapshot.residents) {
+  for (const r of everyone) {
     const isOwner = r.id === owner.id;
     const onPlot = inBounds(bounds, r.x, r.y);
     const dozing = asleep.get(r.id);
@@ -518,7 +517,7 @@ export function plotLayout(
       ...(dozing ? { feeling: "sleepy" as const, away: true as const } : {}),
     });
   }
-  const { season, weather } = skyNow(snapshot.time?.nowMs, snapshot.day);
+  const { season, weather } = skyNow(snapshot.time.nowMs, snapshot.day);
 
   // The owner's pet, beside the hearth and clear of everyone drawn there, sleepers too: they lie
   // between tiles, so each takes the tile they're nearest.
@@ -751,9 +750,13 @@ export function homeExtras(rawResident: unknown): HomeExtras {
 
 /** The raw resident with this id in an unparsed snapshot, if there is one. */
 export function rawResident(rawSnapshot: unknown, id: string): unknown {
-  const list = (rawSnapshot as { residents?: unknown } | null)?.residents;
-  if (!Array.isArray(list)) return undefined;
-  return list.find((r) => (r as { id?: unknown } | null)?.id === id);
+  const raw = rawSnapshot as { residents?: unknown; townsfolkResidents?: unknown } | null;
+  for (const list of [raw?.residents, raw?.townsfolkResidents]) {
+    if (!Array.isArray(list)) continue;
+    const found = list.find((r) => (r as { id?: unknown } | null)?.id === id);
+    if (found) return found;
+  }
+  return undefined;
 }
 
 export interface Footprint {
@@ -825,7 +828,7 @@ export function fitModel(
 }
 
 /** What a resident's own model may cost to draw. Bigger ones get a friendly note instead. */
-export const MODEL_BUDGET = {
+const MODEL_BUDGET = {
   triangles: 150_000,
   /** Total texture pixels, about four 2048 x 2048 textures. */
   texturePixels: 4 * 2048 * 2048,

@@ -1,7 +1,7 @@
 /**
  * The Commons buildings in 3D for the world view: the Town Hall and the town shop, drawn after the
- * 2D map's (`drawTownHall` and `drawShop` in render.ts) in the same colors. Each is a handful of
- * merged, shade-baked parts, one draw per material. Nobody walks onto either once buildings are
+ * 2D map's (`drawTownHall` and `drawShop` in render/buildings.ts) in the same colors. Each is a
+ * handful of merged, shade-baked parts, one draw per material. Nobody walks onto either once buildings are
  * solid; in a world from before that, a building turns see-through while you stand in it. After
  * dark the shop's windows light up, as on the map (`buildingGlows`, decision 0098).
  */

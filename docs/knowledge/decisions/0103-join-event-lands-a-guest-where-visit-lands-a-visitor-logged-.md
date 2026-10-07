@@ -21,4 +21,4 @@ tags: [sim, server, events, replay]
 
 - Old logs replay unchanged: their joins carry no tile and land by the old rule, which `src/fixtures/events-log.ts` pins. `REPLAY_VERSION` stays 1.
 - A better visit planner moves where later guests land too, and never a logged join.
-- Code: `packages/sim/src/events.ts` (`joinTile`, `checkJoinEvent`, `landingFor`), `packages/server/src/world-service.ts` (the `join_event` branch of `perform`).
+- Code: `packages/sim/src/events.ts` (`joinTile`, `checkJoinEvent`, `landingFor`), `packages/server/src/world-actions.ts` (the `join_event` branch of `performAction`).

@@ -67,18 +67,16 @@ const threeD = [
   { name: "world-3d", testMatch: specFile(["world-3d"]), dependencies: ["three-d"], use: phone },
 ];
 
-const mainServer = {
-  command: "pnpm build && pnpm --filter @terrakin/server start",
-  env: { ...SERVER_ENV, PORT: String(PORT) },
-  url: `http://localhost:${PORT}/v1/health`,
-  reuseExistingServer: false,
-  timeout: 120_000,
-};
-
-const clockServers = {
-  command: `node e2e/servers.ts ${CLOCK_SPECS.map(clockPort).join(" ")}`,
+/**
+ * The client's build and every server, started by `e2e/servers.ts`: the clock specs' servers boot
+ * while the client builds, and the main server, last, once both are done. The 3D specs need only
+ * the main server.
+ */
+const ports = only === "3d" ? [PORT] : [...CLOCK_SPECS.map(clockPort), PORT];
+const servers = {
+  command: `node e2e/servers.ts ${ports.join(" ")}`,
   env: SERVER_ENV,
-  url: `http://localhost:${Math.max(...CLOCK_SPECS.map(clockPort))}/v1/health`,
+  url: `http://localhost:${PORT}/v1/health`,
   reuseExistingServer: false,
   timeout: 120_000,
 };
@@ -94,5 +92,5 @@ export default defineConfig({
   reporter: process.env.CI ? "github" : "list",
   use: { baseURL: `http://localhost:${PORT}`, trace: "retain-on-failure" },
   projects: only === "2d" ? flat : only === "3d" ? threeD : [...flat, ...threeD],
-  webServer: only === "3d" ? [mainServer] : [mainServer, clockServers],
+  webServer: servers,
 });

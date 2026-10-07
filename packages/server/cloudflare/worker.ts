@@ -50,6 +50,7 @@ import { SqlStore } from "../src/sql-store";
 import { report, sentryOptions, span } from "../src/telemetry";
 import { TOWN_EVENTS } from "../src/town-events";
 import { TIPS_CRON, TownsfolkTips, tipsMode } from "../src/townsfolk-tips";
+import { TownsfolkWelcome, welcomeMode } from "../src/townsfolk-welcome";
 import { TriageClient, triageConfig } from "../src/triage";
 import { WorldService } from "../src/world-service";
 import { rewritePage } from "./meta-rewriter";
@@ -104,6 +105,8 @@ interface Env {
   TERRAKIN_CHATTER_PER_RUN?: string;
   /** The townsfolk's daily coin tips: `off` (the default), `dry`, or `on`. */
   TERRAKIN_TIPS?: string;
+  /** Welcome visits (decision 0142): `off` (the default), `dry`, or `on`. */
+  TERRAKIN_WELCOME_VISITS?: string;
   /** Agent links (RFC 0007): RPC URLs per network, like `4663=https://...`. Default: public endpoints. */
   TERRAKIN_CHAIN_RPC?: string;
   /** Reads (network calls and card fetches) per UTC day for agent links. Default 20,000. */
@@ -418,6 +421,7 @@ class WorldObject extends DurableObject<Env> {
         },
       },
     });
+    const tips = new TownsfolkTips({ mode: tipsMode(env), world: service, social, townsfolk });
     this.api = new Api({
       service,
       social,
@@ -430,7 +434,18 @@ class WorldObject extends DurableObject<Env> {
         residentAgeDays: (id) => service.residentAgeDays(id),
         world: service,
       }),
-      tips: new TownsfolkTips({ mode: tipsMode(env), world: service, social, townsfolk }),
+      tips,
+      // A visit is due a few minutes after the claim: the alarm wakes the object for it.
+      welcome: new TownsfolkWelcome({
+        mode: welcomeMode(env),
+        world: service,
+        social,
+        townsfolk,
+        tips,
+        onQueued: () => {
+          void this.armRecheck();
+        },
+      }),
       // Plot photos are drawn by the Worker (PlotPhotos), never in this object.
       photos: (spec) => env.PHOTOS.draw(spec),
       staff: {
@@ -458,17 +473,19 @@ class WorldObject extends DurableObject<Env> {
   }
 
   /**
-   * The object's alarm wakes it even when nobody is connected, for two things. Agent links are
+   * The object's alarm wakes it even when nobody is connected, for three things. Agent links are
    * rechecked (RFC 0007), and kept link asks tried again (decision 0128): only while either exists,
    * for when the next one is due, and never sooner than AGENT_RECHECK_EVERY_MS from now. And
    * events (RFC 0010): every minute while one is live, so the object stays in memory, samples land
    * on time, and guests calling over REST stay online between calls; else when the next one starts.
+   * And welcome visits (decision 0142), when the next one is due.
    */
   private nextRecheck(): number | undefined {
     const recheck = nextRecheckAt(Date.now(), this.api.nextAgentRecheckAt());
-    const events = this.api.nextEventWakeAt();
-    if (recheck === undefined) return events;
-    return events === undefined ? recheck : Math.min(recheck, events);
+    const times = [recheck, this.api.nextEventWakeAt(), this.api.nextWelcomeAt()].filter(
+      (t): t is number => t !== undefined,
+    );
+    return times.length === 0 ? undefined : Math.min(...times);
   }
 
   private async armRecheck(): Promise<void> {

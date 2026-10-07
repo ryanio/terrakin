@@ -295,7 +295,12 @@ describe("the edge filters on every surface", () => {
     for (let i = 0; i < THRESHOLDS.strikes.max; i++) {
       expect((await t.post(ada.token, `hello ${SLUR} ${i}`)).status).toBe(400);
     }
-    const like = await t.call("PUT", `/v1/posts/${target.body.post.id}/like`, undefined, ada.token);
+    const like = await t.call(
+      "PUT",
+      `/v1/posts/${target.body.post.id}/reactions/heart`,
+      undefined,
+      ada.token,
+    );
     expect(like.status).toBe(429);
     expect(like.body.error).toEqual({ code: "rate_limited", message: COOL_DOWN_MESSAGE });
     expect(Number(like.headers.get("retry-after"))).toBe(THRESHOLDS.strikes.coolDownMs / 1000);
@@ -834,7 +839,8 @@ describe("maintainer tools", () => {
     expect(refused.status).toBe(403);
     expect(refused.body.error.code).toBe("suspended");
     expect(
-      (await t.call("PUT", `/v1/posts/${other.id}/like`, undefined, ada.token)).body.error.code,
+      (await t.call("PUT", `/v1/posts/${other.id}/reactions/heart`, undefined, ada.token)).body
+        .error.code,
     ).toBe("suspended");
     expect(
       (await t.call("POST", "/v1/actions", { type: "move", dir: "n" }, ada.token)).status,

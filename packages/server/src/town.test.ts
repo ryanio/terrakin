@@ -4,7 +4,7 @@ import { hashWorld, replay, TOWN_ACTOR, votesCast, type WorldConfig } from "@ter
 import { afterEach, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import { Api } from "./api";
-import { createApp, TEST_ADVANCE_DAY_PATH, TEST_SWEEP_PATH } from "./app";
+import { createApp, TEST_ADVANCE_DAY_PATH, TEST_GRANT_PATH, TEST_SWEEP_PATH } from "./app";
 import { MemoryMediaStore } from "./media";
 import { nodeSql } from "./node-sql";
 import { SocialService } from "./social-service";
@@ -150,6 +150,22 @@ describe("the town's clock", () => {
     expect(boot(new Set()).state.townsfolk).toBeUndefined();
     expect(boot().snapshot().townsfolk).toBeUndefined();
     expect(sets()).toHaveLength(2);
+  });
+
+  it("lists the townsfolk apart from the residents, so a count of residents leaves them out", () => {
+    const world = new WorldService({ store: new MemoryStore(), config: CONFIG });
+    const ada = world.createSession({ name: "Ada", kind: "human" }).residentId as string;
+    const pip = world.createSession({ name: "Pip", kind: "agent" }).residentId as string;
+    expect(world.snapshot().residents.map((r) => r.id)).toEqual([ada, pip]);
+    expect(world.onlineCount()).toBe(2);
+
+    world.syncTownsfolk(new Set([pip]));
+    const snap = world.snapshot();
+    expect(snap.residents.map((r) => r.id)).toEqual([ada]);
+    expect(snap.townsfolk).toEqual([pip]);
+    expect(snap.townsfolkResidents).toMatchObject([{ id: pip, name: "Pip", kind: "agent" }]);
+    // GET /v1/health's `online` counts the same way.
+    expect(world.onlineCount()).toBe(1);
   });
 
   it("closes a proposal at midnight UTC two nights after it opened, and the log replays", async () => {
@@ -506,8 +522,10 @@ describe("notice board", () => {
   });
 
   it("shows only the newest 40", async () => {
+    // 42 notices, three each (the most one resident can have up), seeded in-process: the route
+    // hands back `board()` as it is, which the tests above read over HTTP.
     const t = await start();
-    const ids = Array.from({ length: 15 }, (_, i) => {
+    const ids = Array.from({ length: 14 }, (_, i) => {
       const r = t.service.createSession({ name: `N${i}`, kind: "agent" });
       return r.residentId ?? "";
     });
@@ -515,10 +533,10 @@ describe("notice board", () => {
       for (const id of ids)
         expect(t.social.createNotice(id, { text: `n${n} ${id}` }).ok).toBe(true);
     }
-    const board = (await t.call("GET", "/v1/town")).body.board;
+    const board = t.social.board();
     expect(board).toHaveLength(40);
-    expect(board[0].text).toBe(`n2 ${ids.at(-1)}`);
-    expect(board.at(-1).text).toBe(`n0 ${ids[5]}`);
+    expect(board[0]?.text).toBe(`n2 ${ids.at(-1)}`);
+    expect(board.at(-1)?.text).toBe(`n0 ${ids[2]}`);
   });
 
   it("lets the author or a maintainer take a notice down, and records who did", async () => {
@@ -623,6 +641,52 @@ describe("the test clock", () => {
     }
   });
 
+  it("grants coins and things only with the test clock on", async () => {
+    const service = new WorldService({
+      store: new MemoryStore(),
+      config: CONFIG,
+      now: clock().now,
+      days: true,
+      economy: true,
+      items: true,
+    });
+    const advanceDay = () => service.state.day ?? null;
+    const post = (base: string, data: unknown) =>
+      fetch(base + TEST_GRANT_PATH, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(data),
+      });
+    // Without the test clock the route isn't there, and nothing moves.
+    const off = await listenOnFreePort(createApp({ service, onResponse }), cleanups);
+    const joined = await fetch(`${off}/v1/session`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "Ada", kind: "human" }),
+    });
+    const ada = (await joined.json()) as { residentId: string };
+    expect((await post(off, { residentId: ada.residentId, coins: 50 })).status).toBe(404);
+    expect(service.state.economy?.coins[ada.residentId]).toBeUndefined();
+    const on = await listenOnFreePort(
+      createApp({ service, onResponse, testClock: { advanceDay } }),
+      cleanups,
+    );
+    const granted = await post(on, {
+      residentId: ada.residentId,
+      coins: 50,
+      stacks: { wood: 2 },
+    });
+    expect(await granted.json()).toEqual({ ok: true });
+    expect(service.state.economy?.coins[ada.residentId]).toBe(50);
+    expect(service.state.items?.inventories[ada.residentId]?.stacks.wood).toBe(2);
+    // The sim's refusals come back as they are, and a malformed body never reaches it.
+    const refused = await post(on, { residentId: ada.residentId, stacks: { dragon: 1 } });
+    expect(refused.status).toBe(400);
+    expect(await refused.json()).toMatchObject({ ok: false, error: { code: "unknown_item" } });
+    const malformed = await post(on, { residentId: ada.residentId, stacks: ["wood"] });
+    expect(await malformed.json()).toMatchObject({ error: { code: "invalid_body" } });
+  });
+
   it("doesn't exist in the Worker, which serves the API through Api alone", async () => {
     const service = new WorldService({ store: new MemoryStore(), config: CONFIG });
     const api = new Api({ service, skill: "", openapi: "{}" });
@@ -638,6 +702,8 @@ describe("the test clock", () => {
     });
     expect(res?.status).toBe(404);
     const worker = readFileSync(new URL("../cloudflare/worker.ts", import.meta.url), "utf8");
-    expect(worker).not.toMatch(/testClock|advance-day|test\/sweep|TEST_CLOCK/);
+    expect(worker).not.toMatch(
+      /testClock|advance-day|test\/sweep|test\/grant|testGrant|TEST_CLOCK/,
+    );
   });
 });

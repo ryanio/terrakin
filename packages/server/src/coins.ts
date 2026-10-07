@@ -25,7 +25,7 @@ import {
 type Authors = (id: string) => AuthorView | undefined;
 
 /** How many recent gifts the treasury view lists. */
-export const PUBLIC_GIFTS = 10;
+const PUBLIC_GIFTS = 10;
 
 function purseLine(line: LedgerLine, author: Authors): PurseLine {
   const other = line.with === undefined ? undefined : author(line.with);
@@ -82,11 +82,7 @@ export function todaysLines(state: WorldState, viewer: string, author: Authors) 
  * amount or the note, never a gift with townsfolk on either side, and never anyone the author
  * lookup hides (suspended, gone).
  */
-export function recentGifts(
-  state: WorldState,
-  author: Authors,
-  limit = PUBLIC_GIFTS,
-): PublicGift[] {
+function recentGifts(state: WorldState, author: Authors, limit = PUBLIC_GIFTS): PublicGift[] {
   const gifts: { seq: number; day: number; from: string; to: string }[] = [];
   // Gifts with townsfolk on either side stay private: townsfolk purses reset to the budget each
   // day, so the public treasury lines would give their amounts away.

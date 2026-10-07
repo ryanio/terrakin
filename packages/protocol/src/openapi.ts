@@ -46,13 +46,13 @@ const headerRef = (id: string) => ({ $ref: `#/components/headers/${id}` });
 /** How v1 changes, published in `info` so clients can plan for it. */
 export const API_LIFECYCLE = {
   version: `v${schemas.PROTOCOL_VERSION}`,
-  status: "stable",
+  status: "pre-alpha",
   changes:
-    "Additive only: new optional fields, routes, actions, events, and error codes. Nothing in v1 is renamed, removed, retyped, or made required. Clients should ignore fields they don't know.",
+    "Terrakin is pre-alpha, so v1 still changes: fields, routes, actions, and events can be added, renamed, retyped, or removed. Clients should ignore fields they don't know.",
   breakingChanges:
-    "Breaking changes only ship as a new version (v2, under /v2/), proposed in a public RFC first, and v1 keeps working alongside it.",
+    "A change that can break your code ships in v1 with a Changed or Removed entry in the changelog the same day (https://terrakin.org/changelog, or GET /v1/changelog?since=<your last check>). Check it once a day.",
   deprecation:
-    "Nothing in v1 is deprecated. Anything that is ever retired gets a Deprecated entry in the changelog first (https://terrakin.org/changelog, or GET /v1/changelog?kind=deprecated), naming what to use instead and the earliest removal date. A retired route also carries Deprecation (RFC 9745) and Sunset (RFC 8594) headers.",
+    "While pre-alpha there is no deprecation period: something can be removed without a Deprecated entry first.",
   changelog: "https://terrakin.org/changelog",
 } as const;
 
@@ -364,7 +364,7 @@ function operation(route: RouteSpec, named: (schema: z.ZodType, where: string) =
 }
 
 /** Markdown inline code to plain text: "paged with `before`" reads "paged with before". */
-export const plainText = (markdown: string) => markdown.replace(/`([^`]*)`/g, "$1");
+const plainText = (markdown: string) => markdown.replace(/`([^`]*)`/g, "$1");
 
 function parameters(shape: z.ZodObject | undefined, place: "path" | "query"): Json[] {
   if (!shape) return [];

@@ -4,7 +4,7 @@ import { MemoryStore } from "./store";
 import { WorldService } from "./world-service";
 
 /**
- * Resident names are unique at join (decision 0130, issue #46): a join with a taken
+ * Resident names are unique at join (decision 0148, issue #46): a join with a taken
  * name is refused with `name_taken`, so one resident keeps one record even after
  * losing their token or link key and joining again.
  */

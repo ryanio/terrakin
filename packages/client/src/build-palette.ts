@@ -85,7 +85,7 @@ export function heldLabel(kind: HeldKind, n: number): string {
 }
 
 /** Where to get one more of a held block, in plain words. */
-export function heldSource(kind: HeldKind): string {
+function heldSource(kind: HeldKind): string {
   if (isDecorKind(kind)) return "Buy one at the town shop.";
   return `Make one at a workbench from ${needsLine(kind)}.`;
 }
@@ -114,7 +114,9 @@ export function groundLine(kind: GroundKind, holdings: Holdings): string {
 
 /** The line under the tabs for a free block or the hearth. */
 export function blockLine(kind: string): string {
-  if (kind === "hearth") return "Hearth: your home tile, where Home brings you.";
+  if (kind === "hearth") {
+    return "Hearth: your home. Tap a tile on your plot to set it. Home brings you back here, and your pantry arrives here: seeds the first time, then sugar and jars each day.";
+  }
   const name = kind.charAt(0).toUpperCase() + kind.slice(1);
   return `${name}: free. Tap a tile to place it, tap a block to remove it.`;
 }

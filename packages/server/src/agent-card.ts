@@ -37,7 +37,7 @@ export type CardRead =
 /** Fetches a card. Injected, so tests never touch the network. */
 export type CardReader = (uri: string) => Promise<CardRead>;
 
-export const CARD_MAX_BYTES = 64 * 1024;
+const CARD_MAX_BYTES = 64 * 1024;
 const CARD_TIMEOUT_MS = 5_000;
 const MAX_REDIRECTS = 3;
 

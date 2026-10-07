@@ -21,8 +21,11 @@ import {
   isGroundKind,
   isHeldBlock,
   pickupsInReach,
+  plotOf,
+  type Resident,
   route,
   STEP,
+  settleProblem,
   type Tile,
   tileKey,
   waterBeside,
@@ -30,7 +33,7 @@ import {
 import { REDUCED_MOTION } from "@terrakin/ui/motion";
 import { plot3dPath } from "@terrakin/ui/paths";
 import { everyVisible } from "@terrakin/ui/poll";
-import { linkTabs, whileBusy } from "@terrakin/ui/ui";
+import { linkTabs, pickTab, whileBusy } from "@terrakin/ui/ui";
 import { api, whoseKey } from "./api";
 import {
   blockLine,
@@ -52,18 +55,19 @@ import {
 import { type Camera, fitScale, screenToTile } from "./camera";
 import { Feelings, gestureReaction } from "./feelings";
 import { canDig, noRodLine, pondLine, rodsAfter, rodsIn } from "./fishing";
+import { openHomeSheet } from "./home-sheet";
 import { createLanding } from "./landing";
 import { Mirror } from "./mirror";
 import { Motion } from "./motion";
 import { Connection, type Identity, savedToken, saveToken } from "./net";
 import { openWorldPetSheet, patPet } from "./pet-sheet";
 import { PatsToday, PetMotion, petCalled } from "./pets";
-import { openPlotNameSheet } from "./plot-name-sheet";
 import { blockColor, CAST_MS, type CastMark, HEARTH_COLOR, render } from "./render";
 import { dozerAt } from "./scene3d/layout";
 import type { World3d } from "./scene3d/world";
 import { approach, type Quarter, turnDir } from "./scene3d/world-layout";
 import { SoundSwitch } from "./sound/switch";
+import { reloadForNewerServer } from "./stale-bundle";
 import { track } from "./telemetry";
 import { NO_PLOT_LINE, newsLine, othersPickupLine, toastMs, worldProblem } from "./things";
 import { dayPhase } from "./time";
@@ -73,6 +77,7 @@ import { Walker } from "./walk";
 import { Sky, skyNow } from "./weather";
 import type { WorldLoader } from "./world-loader";
 import { offer3d, readSignals, savedMode, saveMode, startMode, type WorldMode } from "./world-mode";
+import { mountNextStep } from "./world-next-step";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -83,6 +88,7 @@ const hud = $("hud");
 const status = $("status");
 const toast = $("toast");
 const worldWait = $("world-wait");
+const opening3d = $("world-3d-wait");
 const chatPanel = $("chat");
 const chatLog = $<HTMLOListElement>("chat-log");
 const chatInput = $<HTMLInputElement>("chat-input");
@@ -96,26 +102,29 @@ const paletteRows: Record<PaletteTab, HTMLElement> = {
 };
 const paletteLine = $("palette-line");
 // The build bar's tabs, over the rows they show.
-palette.prepend(
-  linkTabs(
-    PALETTE_TABS.map((tab) => ({
-      current: tab === "blocks",
-      content: [PALETTE_TAB_WORDS[tab]],
-      id: `palette-tab-${tab}`,
-      panel: `palette-${tab}`,
-    })),
-    {
-      label: "What to build",
-      className: "palette-tabs",
-      pick: (i) => showTab(PALETTE_TABS[i] ?? "blocks"),
-    },
-  ),
+const paletteTabs = linkTabs(
+  PALETTE_TABS.map((tab) => ({
+    current: tab === "blocks",
+    content: [PALETTE_TAB_WORDS[tab]],
+    id: `palette-tab-${tab}`,
+    panel: `palette-${tab}`,
+  })),
+  {
+    label: "What to build",
+    className: "palette-tabs",
+    pick: (i) => showTab(PALETTE_TABS[i] ?? "blocks"),
+  },
 );
+palette.prepend(paletteTabs);
 const modeButton = $<HTMLButtonElement>("world-mode");
 const petButton = $<HTMLButtonElement>("world-pet");
 const gatherButton = $<HTMLButtonElement>("world-gather");
 /** Shown while you stand beside water (RFC 0023): cast a line. */
 const fishButton = $<HTMLButtonElement>("world-fish");
+const claimButton = $<HTMLButtonElement>("claim");
+/** Takes Claim plot's place once you own all the plots you may: your things are a tap away. */
+const thingsLink = $<HTMLAnchorElement>("hud-things");
+const enterButton = $<HTMLButtonElement>("world-enter");
 const host3d = $("world-3d");
 /** The speaker button: sound is off until it's tapped, and its code loads then (decision 0097). */
 const sound = new SoundSwitch($<HTMLButtonElement>("sound"));
@@ -194,8 +203,10 @@ const walker = new Walker({
       sound.step(mirror?.paving.get(`${from.x + STEP[dir][0]},${from.y + STEP[dir][1]}`));
     return id;
   },
-  bumped: (dir) => {
+  bumped: (dir, why) => {
     if (me) motion.bump(me, dir, performance.now());
+    // Never over a fresher notice, like a refusal that just came in: the bump shows it anyway.
+    if (!toast.classList.contains("show")) showToast(why);
   },
 });
 /** The card on someone else's plot: Admire and Next plot (RFC 0020). */
@@ -210,6 +221,8 @@ const visiting = visitCard({
   knock: (px, py) => tryAct({ type: "trick_or_treat", px, py }),
   toast: (text) => showToast(text),
 });
+/** The chip naming your next first step, in the near-actions slot while it is free. */
+mountNextStep({ navigate: (path) => navigate?.(path) });
 /** How quickly the map's camera catches up with your figure, per second. */
 const CAMERA_RATE = 10;
 let lastFrame = 0;
@@ -229,10 +242,10 @@ modeButton.hidden = !offer3d(signals);
 // ---------- landing ----------
 
 const landing = createLanding(curtain, {
-  onJoin({ name, color, shape, note }) {
+  onJoin(choice) {
     joiningFresh = true;
     landing.setJoining(true);
-    connect({ name, kind: "human", color, shape, ...(note ? { note } : {}) });
+    connect({ ...choice, kind: "human" });
   },
   async onRestore(key) {
     const who = await whoseKey(key);
@@ -269,6 +282,7 @@ function updatePopulation() {
   let total = 0;
   let online = 0;
   for (const r of mirror.residents.values()) {
+    if (mirror.townsfolk.has(r.id)) continue;
     total++;
     if (r.online) online++;
   }
@@ -326,12 +340,21 @@ function keyNotFound() {
   void resync();
 }
 
+/** Your plots as far as the mirror shows: how many you own, and whether one is shared with you. */
+function myPlots(): { owned: number; shared: boolean } {
+  let owned = 0;
+  let shared = false;
+  if (mirror && me) {
+    for (const owner of mirror.plots.values()) if (owner === me) owned++;
+    for (const list of mirror.coOwners.values()) if (list.includes(me)) shared = true;
+  }
+  return { owned, shared };
+}
+
 /** Whether you own a plot, or share one, as far as the mirror shows. */
 function hasPlot(): boolean {
-  if (!mirror || !me) return false;
-  for (const owner of mirror.plots.values()) if (owner === me) return true;
-  for (const shared of mirror.coOwners.values()) if (shared.includes(me)) return true;
-  return false;
+  const { owned, shared } = myPlots();
+  return owned > 0 || shared;
 }
 
 /** Nothing in flight and nothing to walk: a new connection, or leaving. */
@@ -341,7 +364,7 @@ function stopWalking() {
 
 /** Remember the server's day/night anchor and when it arrived. No anchor means no night. */
 function anchor(time: WorldSnapshot["time"]) {
-  return time ? { ...time, receivedAt: performance.now() } : undefined;
+  return { ...time, receivedAt: performance.now() };
 }
 
 /** Reload the world from the server. One at a time; events are ignored until it lands. */
@@ -360,7 +383,10 @@ async function resync() {
       dayAnchor = anchor(parsed.data.time);
       updatePopulation();
       if (!wasIn) loader?.reach("world");
-    } else console.warn("Bad snapshot from server", parsed.error);
+    } else {
+      console.warn("Bad snapshot from server", parsed.error);
+      reloadForNewerServer();
+    }
   } catch (err) {
     console.warn("Resync failed", err);
   } finally {
@@ -425,10 +451,10 @@ function onMessage(msg: ServerMessage) {
       if (msg.event.type === "trick_or_treated" && msg.event.by === me) {
         visiting.knocked(msg.event.px, msg.event.py);
       }
-      // A plot you just claimed asks for a name (decision 0121); it can wait for your profile.
+      // A plot you just claimed offers a home, then asks for a name (decisions 0144 and 0121).
       if (applied === "applied" && msg.event.type === "plot_claimed" && msg.event.ownerId === me) {
         const { px, py } = msg.event;
-        openPlotNameSheet({ px, py }, { say: showToast, claimed: true });
+        openHomeSheet({ plot: { px, py }, say: showToast, buildMyself: buildFromHearth });
       }
       // A cast (RFC 0023), anyone's: its float, its rings, and what it brought up, on the water.
       if (applied === "applied" && msg.event.type === "fished") {
@@ -680,6 +706,15 @@ canvas.addEventListener("pointerdown", (e) => {
   tapTile(screenToTile(cam, e.clientX, e.clientY));
 });
 
+/** Where a mouse rests over the map. Each frame rings what a click there would act on. */
+let pointer: { x: number; y: number } | undefined;
+canvas.addEventListener("pointermove", (e) => {
+  pointer = e.pointerType === "mouse" ? { x: e.clientX, y: e.clientY } : undefined;
+});
+canvas.addEventListener("pointerleave", () => {
+  pointer = undefined;
+});
+
 /** A tap on the world, as a tile: from the 2D map, or picked in the 3D view. Both act the same. */
 /** Turn to look at something you tapped or are using. Only how you're drawn; the server moves you. */
 function lookAt(tile: { x: number; y: number }) {
@@ -688,6 +723,56 @@ function lookAt(tile: { x: number; y: number }) {
   if (!dir || !me) return;
   mirror?.facing.set(me, dir);
   motion.face(me, dir);
+}
+
+/** What a tap on a tile does besides walking there. `tapTile` acts on it; a mouse over it shows it. */
+type TapTarget =
+  | { kind: "plot" }
+  | { kind: "page"; path: string; tiles: readonly Tile[] }
+  | { kind: "pond" }
+  | { kind: "station" }
+  | { kind: "pickup" }
+  | { kind: "pet"; owner: Resident }
+  | { kind: "resident"; other: Resident };
+
+function tapTarget(tile: Tile): TapTarget | undefined {
+  const r = self();
+  const at = here();
+  if (!mirror || !r || !at) return undefined;
+  // Tapping yourself while you stand on your own plot opens it in 3D.
+  if (tile.x === at.x && tile.y === at.y && mirror.ownerAt(at.x, at.y) === r.id && navigate)
+    return { kind: "plot" };
+  // Someone standing on a tile takes the tap, over whatever they stand on.
+  const other = mirror.residentAt(tile.x, tile.y);
+  if (other) return other.id === me ? undefined : { kind: "resident", other };
+  // A game table opens its page (RFC 0011), and so do the Town Hall and the shop.
+  const table = mirror.tableAt(tile.x, tile.y);
+  if (table && navigate) return { kind: "page", path: `/games/${table}`, tiles: [tile] };
+  if (mirror.isTownHall(tile.x, tile.y) && navigate)
+    return { kind: "page", path: "/town", tiles: mirror.townHall };
+  if (mirror.isShop(tile.x, tile.y) && navigate)
+    return { kind: "page", path: "/shop", tiles: mirror.shop };
+  const block = mirror.blocks.get(tileKey(tile.x, tile.y));
+  if (block === "pond") return { kind: "pond" };
+  if (block && STATIONS.includes(block)) return { kind: "station" };
+  if (mirror.pickupAt(tile.x, tile.y)) return { kind: "pickup" };
+  // Someone else's pet drawn on the tile. Pets are drawing only, so this asks where they were last
+  // drawn; yours sits at your heel, where you tap to walk.
+  const petOwner = pets.tapped(tile, me, mirror);
+  const owner = petOwner ? mirror.residents.get(petOwner) : undefined;
+  return owner?.pet ? { kind: "pet", owner } : undefined;
+}
+
+/** The tiles a click would act on, ringed under a mouse: in build mode, any tile a block goes on. */
+function hoverTiles(tile: Tile): readonly Tile[] | undefined {
+  if (!mirror || tile.x < 0 || tile.y < 0) return undefined;
+  if (tile.x >= mirror.config.width || tile.y >= mirror.config.height) return undefined;
+  if (buildMode) return [tile];
+  const target = tapTarget(tile);
+  if (!target) return undefined;
+  if (target.kind === "page") return target.tiles;
+  if (target.kind === "resident") return [{ x: target.other.x, y: target.other.y }];
+  return [tile];
 }
 
 function tapTile(tile: { x: number; y: number }) {
@@ -709,26 +794,13 @@ function tapTile(tile: { x: number; y: number }) {
     else tryAct({ type: "place", ...tile, block: pick });
     return;
   }
-  // Tapping yourself while you stand on your own plot opens it in 3D.
-  if (tile.x === at.x && tile.y === at.y && mirror.ownerAt(at.x, at.y) === r.id && navigate) {
-    navigate(plot3dPath(r.id));
+  const target = tapTarget(tile);
+  if (target?.kind === "plot") {
+    navigate?.(plot3dPath(r.id));
     return;
   }
-  // Tapping someone shows who they are. Names and notes are untrusted: textContent only.
-  const other = mirror.residentAt(tile.x, tile.y);
-  // A game table opens its page (RFC 0011), unless someone is standing at it.
-  const table = other ? undefined : mirror.tableAt(tile.x, tile.y);
-  if (table && navigate) {
-    navigate(`/games/${table}`);
-    return;
-  }
-  // The Town Hall opens its page, unless someone is standing in its doorway. So does the shop.
-  if (!other && mirror.isTownHall(tile.x, tile.y) && navigate) {
-    navigate("/town");
-    return;
-  }
-  if (!other && mirror.isShop(tile.x, tile.y) && navigate) {
-    navigate("/shop");
+  if (target?.kind === "page") {
+    navigate?.(target.path);
     return;
   }
   /** Do `then` here if it's in reach, or walk until it is and do it there. */
@@ -741,15 +813,14 @@ function tapTile(tile: { x: number; y: number }) {
     });
   };
   // Water (RFC 0023): cast a line into it from beside it, walking there first when it's farther.
-  if (!other && mirror.blocks.get(tileKey(tile.x, tile.y)) === "pond") {
+  if (target?.kind === "pond") {
     if (Math.max(Math.abs(tile.x - at.x), Math.abs(tile.y - at.y)) <= 1) castLine();
     else walkToward(tile, 1, castLine);
     return;
   }
   // A planter, kitchen, or workbench opens what you can do there (RFC 0005). One farther off is
   // somewhere to walk to: you stop once it's in reach, and it opens then.
-  const station = mirror.blocks.get(`${tile.x},${tile.y}`);
-  if (!other && station && STATIONS.includes(station)) {
+  if (target?.kind === "station") {
     reachThen(() => {
       lookAt(tile);
       openStation(tile.x, tile.y);
@@ -760,7 +831,7 @@ function tapTile(tile: { x: number; y: number }) {
   // somewhere to walk to: you stop once it's in reach and pick it up then. The sim has the last
   // word; its `nothing_to_gather` says someone got there first. One on someone else's plot is
   // theirs: say so rather than walk there for nothing.
-  if (!other && mirror.pickupAt(tile.x, tile.y)) {
+  if (target?.kind === "pickup") {
     if (!mirror.mayGatherAt(tile.x, tile.y, r.id)) {
       const owner = mirror.ownerAt(tile.x, tile.y);
       showToast(othersPickupLine(owner ? mirror.residents.get(owner)?.name : undefined));
@@ -775,11 +846,9 @@ function tapTile(tile: { x: number; y: number }) {
     });
     return;
   }
-  // Someone else's pet drawn on the tapped tile opens its sheet: Pat and Give a treat. Yours sits at
-  // your heel, where you tap to walk, and a tap on a hearth walks there past a pet curled up by it.
-  // Pets are drawing only, so this asks where they were last drawn.
-  const petOwner = other ? undefined : pets.tapped(tile, me, mirror);
-  const owned = petOwner ? mirror.residents.get(petOwner) : undefined;
+  // Someone else's pet opens its sheet: Pat and Give a treat. A tap on a hearth walks there past a
+  // pet curled up by it.
+  const owned = target?.kind === "pet" ? target.owner : undefined;
   if (owned?.pet) {
     lookAt(tile);
     openWorldPetSheet({
@@ -794,7 +863,9 @@ function tapTile(tile: { x: number; y: number }) {
     });
     return;
   }
-  if (other && other.id !== me) {
+  // Tapping someone shows who they are. Names and notes are untrusted: textContent only.
+  if (target?.kind === "resident") {
+    const other = target.other;
     lookAt(other);
     const name = other.kind === "agent" ? `${other.name} ⚙` : other.name;
     showToast(other.note ? `${name}: ${other.note}` : name, "player");
@@ -802,6 +873,7 @@ function tapTile(tile: { x: number; y: number }) {
   }
   // Someone away is not here: asleep at home, or out on a routine (decision 0083). Say so, and
   // walk on as if the tile were empty.
+  const other = mirror.residentAt(tile.x, tile.y);
   const out = other
     ? undefined
     : mirror.outOnRoutine(me).find((o) => o.r.x === tile.x && o.r.y === tile.y);
@@ -830,6 +902,23 @@ modeButton.addEventListener("click", () => {
   else close3d();
 });
 
+/** The scene's code (three.js included). The browser fetches it once and reuses it after. */
+const scene3d = () => import("./scene3d/world");
+
+// A finger on the toggle or a pointer over it starts the fetch, a beat before the click lands.
+const warm3d = () => {
+  if (mode === "2d" && !world3d) scene3d().catch(() => {});
+};
+modeButton.addEventListener("pointerenter", warm3d);
+modeButton.addEventListener("focus", warm3d);
+
+/** While the scene loads, the map softens and says so, so a tap on "3D view" shows at once. */
+function showOpening(on: boolean) {
+  const shown = on && !loader?.isUp();
+  canvas.classList.toggle("opening-3d", shown);
+  opening3d.hidden = !shown;
+}
+
 /** Lift the loader once the world is on screen: now on the map, or when the 3D scene first draws. */
 function revealWhenDrawn() {
   if (!loader?.isUp()) return;
@@ -841,16 +930,28 @@ function revealWhenDrawn() {
 
 /** Show the world in 3D, fetching the scene code (three.js included) the first time. */
 function open3d() {
-  if (world3d || loading3d || !active || !me) return;
+  if (world3d || !active || !me) return;
+  if (loading3d) return showOpening(true);
   loading3d = true;
   modeButton.setAttribute("aria-busy", "true");
-  import("./scene3d/world")
+  showOpening(true);
+  scene3d()
+    // Building the scene holds the page for a moment, so let the softened map paint first.
+    .then(
+      (m) =>
+        new Promise<typeof m>((done) => requestAnimationFrame(() => setTimeout(() => done(m)))),
+    )
     .then((m) => {
       loading3d = false;
       modeButton.removeAttribute("aria-busy");
+      showOpening(false);
       if (mode !== "3d" || !active || !me) return loader?.finish();
       host3d.hidden = false;
-      world3d = m.createWorld3d(host3d, { onTap: tapTile, onFail: fallBack });
+      world3d = m.createWorld3d(host3d, {
+        onTap: tapTile,
+        tappable: (tile) => !!hoverTiles(tile),
+        onFail: fallBack,
+      });
       canvas.hidden = true;
       // Two frames on, the scene has drawn once, so the loader lifts onto it rather than onto nothing.
       requestAnimationFrame(() => requestAnimationFrame(() => loader?.finish()));
@@ -858,12 +959,14 @@ function open3d() {
     .catch(() => {
       loading3d = false;
       modeButton.removeAttribute("aria-busy");
+      showOpening(false);
       fallBack("failed");
     });
 }
 
 /** Back to the 2D map, keeping the choice for next time. */
 function close3d() {
+  showOpening(false);
   world3d?.dispose();
   world3d = undefined;
   host3d.hidden = true;
@@ -1005,15 +1108,35 @@ window.addEventListener("blur", () => {
   paintHeld(undefined);
 });
 
-$("claim").addEventListener("click", () => {
+claimButton.addEventListener("click", () => {
   // The claim lands after any steps still on their way, on the plot they end in.
   const r = here();
-  if (r && mirror?.ownerAt(r.x, r.y) === me) {
+  const m = mirror;
+  if (!r || !m) {
+    showToast("The world is still loading. Try again in a moment.");
+    return;
+  }
+  if (m.ownerAt(r.x, r.y) === me) {
     showToast("This plot is already yours. Tap Build to start.");
+    return;
+  }
+  // With no plot yet, a plot `settle` wouldn't take where you stand (the Commons, or someone's)
+  // opens the picker of ones it would (decision 0143).
+  const { px, py } = plotOf(m.config, r.x, r.y);
+  const claimed = m.plots.has(`${px},${py}`);
+  if (myPlots().owned === 0 && settleProblem(m.config, px, py, { claimed, ownsAPlot: false })) {
+    void import("./claim-sheet").then((c) => c.openClaimSheet());
     return;
   }
   tryAct({ type: "claim" });
 });
+
+/** Claim plot while you may claim one, else Your things in its place (one plot per resident). */
+function paintClaim() {
+  const full = !!mirror && !!me && myPlots().owned >= mirror.config.maxPlotsPerResident;
+  claimButton.hidden = full;
+  thingsLink.hidden = !full;
+}
 
 $("hud-invite").addEventListener("click", () => {
   void import("./invite-share").then((m) => m.openInviteDialog());
@@ -1056,6 +1179,17 @@ palette.addEventListener("click", (e) => {
   if (!button) return;
   selectPick((button.dataset.ground ?? button.dataset.block) as BlockKind | GroundKind | "hearth");
 });
+
+/**
+ * Build it yourself, after a claim: the build bar open on Blocks with the hearth picked, and its
+ * line saying what a hearth is for.
+ */
+function buildFromHearth() {
+  if (!buildMode) setBuildMode(true);
+  pickTab(paletteTabs, PALETTE_TABS.indexOf("blocks"));
+  pick = "hearth";
+  showTab("blocks");
+}
 
 /** Show one tab's row. A pick from another tab gives way to this tab's first choice. */
 function showTab(next: PaletteTab) {
@@ -1227,7 +1361,11 @@ function frame() {
       clock,
       ...(phase === undefined ? {} : { dayPhase: phase }),
     });
-  else if (mirror)
+  else if (mirror) {
+    // Worked out every frame: people walk under a still pointer, and the map follows you.
+    const hover = pointer ? hoverTiles(screenToTile(cam, pointer.x, pointer.y)) : undefined;
+    const cursor = hover ? "pointer" : "";
+    if (canvas.style.cursor !== cursor) canvas.style.cursor = cursor;
     render(ctx, {
       mirror,
       me,
@@ -1244,8 +1382,10 @@ function frame() {
       // Plots' names keep clear of the top bar and the visit card (decision 0121).
       labelTop: Math.max(TOP_BAR_PX, visiting.bottom()),
       casts,
+      hover,
       ...(phase === undefined ? {} : { dayPhase: phase }),
     });
+  }
   if (casts.length > 0 && now - (casts[0]?.at ?? now) > CAST_MS) {
     casts = casts.filter((c) => now - c.at <= CAST_MS);
   }
@@ -1254,6 +1394,8 @@ function frame() {
     paintPetButton(now);
     paintGatherButton();
     paintFishButton();
+    paintClaim();
+    paintEnterButton();
   }
   // Your own figure's feeling, a name from a fixed list, once you're in: for tests and tools.
   const mine = me ? feelings.feeling(me, now) : "";
@@ -1350,6 +1492,38 @@ function castLine() {
 
 fishButton.addEventListener("click", () => castLine());
 
+/** The Town Hall or the shop, when one is right beside where you stand: where its button goes. */
+function placeNear(): "/town" | "/shop" | undefined {
+  const r = self();
+  const m = mirror;
+  if (!r || !m) return undefined;
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      if (m.isTownHall(r.x + dx, r.y + dy)) return "/town";
+      if (m.isShop(r.x + dx, r.y + dy)) return "/shop";
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Show "Town Hall" or "Shop" while you stand beside one, out of build mode. Walking up to a
+ * building only bumps into it, so this is the way in that doesn't depend on tapping the building.
+ */
+function paintEnterButton() {
+  const place = buildMode || !navigate ? undefined : placeNear();
+  enterButton.hidden = !place;
+  if (!place || enterButton.dataset.place === place) return;
+  enterButton.dataset.place = place;
+  const text = enterButton.querySelector("span");
+  if (text) text.textContent = place === "/shop" ? "Shop" : "Town Hall";
+}
+
+enterButton.addEventListener("click", () => {
+  const place = enterButton.dataset.place;
+  if (place && navigate) navigate(place);
+});
+
 petButton.addEventListener("click", async () => {
   const owner = petNear;
   const pet = owner ? mirror?.residents.get(owner)?.pet : undefined;
@@ -1421,6 +1595,7 @@ export function stopWorld() {
   gatherButton.hidden = true;
   gathering?.done();
   fishButton.hidden = true;
+  enterButton.hidden = true;
   rods = new Set();
   casts = [];
   landing.setJoining(false);

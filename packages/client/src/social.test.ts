@@ -159,8 +159,6 @@ const basePost = (): PostView => ({
   media: [],
   replyTo: null,
   replyCount: 0,
-  likeCount: 2,
-  liked: false,
   createdAt: "2026-10-04T18:00:00Z",
   reactions: { heart: 2, sprout: 1 },
   myReactions: [],
@@ -177,22 +175,21 @@ describe("reactions", () => {
     }
   });
 
-  it("keeps likes and hearts in step when toggled", () => {
+  it("counts a heart once however often it's toggled on", () => {
     const post = basePost();
     applyReaction(post, "heart", true);
-    expect(post).toMatchObject({ likeCount: 3, liked: true, myReactions: ["heart"] });
-    expect(post.reactions?.heart).toBe(3);
+    expect(post).toMatchObject({ reactions: { heart: 3 }, myReactions: ["heart"] });
     applyReaction(post, "heart", true);
-    expect(post.likeCount).toBe(3);
+    expect(post.reactions.heart).toBe(3);
     applyReaction(post, "wow", true);
     expect(post.myReactions).toEqual(["heart", "wow"]);
     applyReaction(post, "heart", false);
-    expect(post).toMatchObject({ likeCount: 2, liked: false, myReactions: ["wow"] });
+    expect(post).toMatchObject({ reactions: { heart: 2 }, myReactions: ["wow"] });
     applyReaction(post, "wow", false);
     expect(post.reactions).toEqual({ heart: 2, sprout: 1 });
   });
 
-  it("summarizes counts in a fixed order and reads old like-only posts", () => {
+  it("summarizes counts in a fixed order", () => {
     const post = basePost();
     post.myReactions = ["sprout"];
     expect(reactionSummary(post)).toEqual([
@@ -200,10 +197,6 @@ describe("reactions", () => {
       { key: "sprout", count: 1, mine: true },
     ]);
     expect(reactionSummary(post, { skipHeart: true }).map((r) => r.key)).toEqual(["sprout"]);
-    const old = { ...basePost(), liked: true } as PostView;
-    delete old.reactions;
-    delete old.myReactions;
-    expect(reactionSummary(old)).toEqual([{ key: "heart", count: 2, mine: true }]);
   });
 
   it("counts reposts and copies state without touching the repost header", () => {
@@ -248,8 +241,6 @@ describe("taps on a post", () => {
     toggles.set("heart", true);
     toggles.set("repost", true);
     expect(post).toMatchObject({
-      liked: true,
-      likeCount: 3,
       myReactions: ["heart", "sprout", "hug"],
       reactions: { heart: 3, sprout: 2, hug: 1 },
       reposted: true,
@@ -262,7 +253,6 @@ describe("taps on a post", () => {
       ok({ ...basePost(), reactions: { heart: 2, sprout: 2, wow: 1 }, myReactions: ["sprout"] }),
     );
     expect(post).toMatchObject({
-      liked: true,
       reactions: { heart: 3, sprout: 2, wow: 1, hug: 1 },
       reposted: true,
       repostCount: 1,
@@ -281,16 +271,12 @@ describe("taps on a post", () => {
     await server.answer(
       ok({
         ...basePost(),
-        liked: true,
-        likeCount: 3,
         reactions: { heart: 3, sprout: 2, wow: 1, hug: 1 },
         myReactions: ["heart", "sprout", "hug"],
       }),
     );
     const last = {
       ...basePost(),
-      liked: true,
-      likeCount: 3,
       reactions: { heart: 3, sprout: 2, wow: 1, hug: 1 },
       myReactions: ["heart", "sprout", "hug"] as PostView["myReactions"],
       reposted: true,
@@ -315,8 +301,6 @@ describe("taps on a post", () => {
     toggles.set("heart", true);
     const liked = {
       ...basePost(),
-      liked: true,
-      likeCount: 3,
       reactions: { heart: 3, sprout: 1 },
       myReactions: ["heart"] as PostView["myReactions"],
     };
@@ -326,10 +310,10 @@ describe("taps on a post", () => {
 
     toggles.set("heart", false);
     toggles.set("wow", true);
-    expect(post).toMatchObject({ liked: false, likeCount: 2, myReactions: ["wow"] });
+    expect(post).toMatchObject({ reactions: { heart: 2 }, myReactions: ["wow"] });
     await server.answer({ ok: false, status: 429, code: "rate_limited", message: "Slow down." });
     // The unlike is undone; the wow still waits its turn.
-    expect(post).toMatchObject({ liked: true, likeCount: 3, myReactions: ["heart", "wow"] });
+    expect(post).toMatchObject({ reactions: { heart: 3 }, myReactions: ["heart", "wow"] });
     expect(server.asked.at(-1)).toEqual(["wow", true]);
     expect(settled).toEqual(["heart true: ok", "heart false: Slow down."]);
   });
@@ -339,10 +323,7 @@ describe("taps on a post", () => {
     const server = slowServer();
     const toggles = new PostToggles(post, { send: server.send });
     // The same post further down the wall was liked, and its answer copied into this one.
-    copyPostState(
-      { ...basePost(), liked: true, likeCount: 3, reactions: { heart: 3 }, myReactions: ["heart"] },
-      post,
-    );
+    copyPostState({ ...basePost(), reactions: { heart: 3 }, myReactions: ["heart"] }, post);
     toggles.set("heart", false);
     expect(server.asked).toEqual([["heart", false]]);
   });

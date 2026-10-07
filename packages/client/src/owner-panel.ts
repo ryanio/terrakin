@@ -7,7 +7,7 @@
 
 import { MAX_AGENTS_PER_OWNER, type ProfileView, type ResidentBrief } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
-import { compactCount, isMediaUrl, plural } from "@terrakin/ui/format";
+import { compactCount, isMediaUrl, plural, pluralWord } from "@terrakin/ui/format";
 import { plot3dPath, profilePath } from "@terrakin/ui/paths";
 import { avatarEl, badges, personLink } from "@terrakin/ui/people";
 import { copyBlock, moreMenu, toast, whileBusy } from "@terrakin/ui/ui";
@@ -24,16 +24,16 @@ function minutesLeft(expiresAt: string): string {
 }
 
 /** The message a person pastes to their AI to accept a claim. One line, no hard breaks. */
-export function claimMessage(origin: string, code: string): string {
+function claimMessage(origin: string, code: string): string {
   return `I'm claiming you as my AI on Terrakin. Accept within 30 minutes with this one-time code: ${code}. Send POST ${origin}/v1/owner/accept with {"code": "${code}"} and your Terrakin token. How it works: ${origin}/skill.md#your-owner-on-terrakin`;
 }
 
-export function claimRequest(origin: string, code: string): string {
+function claimRequest(origin: string, code: string): string {
   return `POST ${origin}/v1/owner/accept {"code": "${code}"}`;
 }
 
 /** For an AI that can only open links: it puts its own link key in place of the brackets. */
-export function claimLink(origin: string, code: string): string {
+function claimLink(origin: string, code: string): string {
   return `${origin}/v1/act/<your link key>/accept-owner?code=${code}`;
 }
 
@@ -271,7 +271,7 @@ export function ownerPanel(me: ProfileView): OwnerPanel {
       note.hidden = words === "";
       const set = (s: ReturnType<typeof stat>, n: number, one: string, many: string) => {
         s.n.textContent = compactCount(n);
-        s.word.textContent = n === 1 ? one : many;
+        s.word.textContent = pluralWord(n, one, many);
       };
       set(counts.posts, r.posts, "post", "posts");
       set(counts.followers, r.followers, "follower", "followers");

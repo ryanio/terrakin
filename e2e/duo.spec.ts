@@ -10,7 +10,7 @@ import {
 } from "./support";
 
 /**
- * MuseFelipe's acceptance test: a partner opens an invite link, picks a name, color, and shape,
+ * MuseFelipe's acceptance test: a partner opens an invite link, picks a name and a look,
  * lands on a plot next to the inviter with a starter home, the two follow each other, and the
  * partner sends a hug and a private letter, all in well under two minutes with no docs.
  */
@@ -46,16 +46,21 @@ test("a partner accepts an invite, moves in next door, and sends a hug and a let
   // The partner opens the link: who invited them, then a short form.
   await page.goto(path);
   await expect(page.getByRole("heading", { name: "Felipe invited you to Terrakin" })).toBeVisible();
-  // The first color and shape are picked to start, every time.
+  // The first color and short hair are picked to start, every time.
   await expect(page.locator('#invite-color [aria-pressed="true"]')).toHaveAttribute(
     "data-value",
     "sun",
+  );
+  await expect(page.locator('#invite-hair [aria-pressed="true"]')).toHaveAttribute(
+    "data-value",
+    "short",
   );
   await page.screenshot({ path: `${SCREENSHOTS}/duo-invite.png` });
 
   await page.fill("#invite-name", "Lina");
   await page.click('#invite-color [data-value="rose"]');
-  await page.click('#invite-shape [data-value="diamond"]');
+  await page.click('#invite-hair [data-value="bob"]');
+  await page.click('#invite-top [data-value="scarf"]');
   await page.fill("#invite-note", "Felipe's partner, loves lemons");
   await expect(page.locator("#invite-build")).toBeChecked();
   await page.getByRole("button", { name: "Move in" }).click();
@@ -72,7 +77,8 @@ test("a partner accepts an invite, moves in next door, and sends a hug and a let
 
   const world = await (await page.request.get("/v1/world")).json();
   const me = world.residents.find((r: { id: string }) => r.id === lina.id);
-  expect(me).toMatchObject({ name: "Lina", color: "rose", shape: "diamond" });
+  // Accepting the invite takes no hair or wear, so they follow it as a profile change.
+  expect(me).toMatchObject({ name: "Lina", color: "rose", hair: "bob", wear: ["scarf"] });
   const plotOf = (owner: string) =>
     world.plots.find((p: { ownerId: string }) => p.ownerId === owner) as { px: number; py: number };
   const hers = plotOf(lina.id);
@@ -161,7 +167,7 @@ test("a visitor joins and follows from a profile, and its counts open followers 
   await expect(page.locator(".site-bar .join-pill")).toHaveAttribute("href", "/#join");
   await page.getByRole("button", { name: "Join and follow Marisol" }).click();
   await page.fill("#follow-join-name", "Teo");
-  await page.click('#follow-join-shape [data-value="square"]');
+  await page.click('#follow-join-top [data-value="apron"]');
   await page.locator("#follow-join-form").getByRole("button", { name: "Join and follow" }).click();
 
   await expect(page.locator("#site-toast")).toContainText("you follow Marisol");

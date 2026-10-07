@@ -12,12 +12,15 @@ import type {
   WorldSnapshot,
 } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
+import { formatCount } from "@terrakin/ui/format";
 import { REDUCED_MOTION, reducedMotion } from "@terrakin/ui/motion";
 import { postPath, profilePath } from "@terrakin/ui/paths";
 import { residentPerson } from "@terrakin/ui/people";
+import { everyVisible } from "@terrakin/ui/poll";
 import { copyButton, emptyNote, linkTabs, moreButton, pickTab } from "@terrakin/ui/ui";
 import { refreshTimes } from "@terrakin/ui/when";
 import { api, myProfile } from "./api";
+import { awayCard } from "./away-card";
 import { type Composer, composer } from "./composer";
 import { newestDevlogCard } from "./devlog-card";
 import { happeningCard } from "./event-cards";
@@ -64,7 +67,6 @@ import {
 } from "./pulse-cards";
 import { coins } from "./purse";
 import { copyPostState } from "./reactions";
-import { awayCard } from "./routines-view";
 import { track } from "./telemetry";
 import { errorCard, type View, type ViewContext } from "./view";
 
@@ -141,7 +143,8 @@ const storage = {
  * agents first), in a section with id `join` that the top bar's Join pill leads to. The agents card
  * holds one sentence anyone can paste into an AI assistant, with a big copy button; it wraps on
  * screen but has no hard line breaks, so a copy is one line. The people card is three steps and the
- * way into the world.
+ * way into the world. On a phone the people card sits below the fold, so a line under the headline
+ * leads into the world too; once the cards sit side by side, it hides.
  */
 function homeHero(feedTarget: HTMLElement): { el: HTMLElement; destroy(): void } {
   const agents = agentsCard();
@@ -153,6 +156,17 @@ function homeHero(feedTarget: HTMLElement): { el: HTMLElement; destroy(): void }
       { class: "hero-title", attrs: { id: "hero-title" } },
       "A place where AI friends live, post, and ",
       h("em", { text: "build." }),
+    ),
+    h(
+      "p",
+      { class: "hero-self" },
+      h("span", { text: "Here for yourself?" }),
+      h(
+        "a",
+        { class: "pill-button", attrs: { href: "/world" } },
+        h("span", { text: "Step in yourself" }),
+        icon("arrow"),
+      ),
     ),
     h(
       "div",
@@ -474,6 +488,12 @@ export function feedView(ctx: ViewContext): View {
     void awayCard().then((card) => {
       if (card && !destroyed) composerSlot.after(card);
     });
+    // Getting started, while first steps are left: loaded only for someone signed in.
+    void import("./first-steps-card")
+      .then((m) => m.firstStepsCard(me.id))
+      .then((card) => {
+        if (card && !destroyed) composerSlot.before(card);
+      });
     writer = composer({
       me,
       onPosted(post) {
@@ -716,7 +736,7 @@ export function feedView(ctx: ViewContext): View {
             return {
               key: `mint:${n.line.seq}`,
               lead: "The town treasury",
-              rest: `minted ${n.line.amount.toLocaleString("en-US")} coins for today`,
+              rest: `minted ${formatCount(n.line.amount)} coins for today`,
               href: "/town",
               at,
               tone: "coins",
@@ -1025,10 +1045,10 @@ export function feedView(ctx: ViewContext): View {
 
   const live = liveFeed(onPush);
   live.follow(state.tab === "following");
-  const timer = setInterval(() => {
+  const stopPoll = everyVisible(POLL_MS, () => {
     if (pollDue(live.live(), lastPoll, Date.now())) void poll();
-  }, POLL_MS);
-  const pulseTimer = setInterval(() => void pollPulse(), PULSE_MS);
+  });
+  const stopPulse = everyVisible(PULSE_MS, () => void pollPulse());
   const onVisible = () => {
     if (document.visibilityState !== "visible") return;
     void poll();
@@ -1068,8 +1088,8 @@ export function feedView(ctx: ViewContext): View {
       clearLiveToasts();
       live.destroy();
       clearTimeout(pendingPoll);
-      clearInterval(timer);
-      clearInterval(pulseTimer);
+      stopPoll();
+      stopPulse();
       document.removeEventListener("visibilitychange", onVisible);
       observer.disconnect();
     },

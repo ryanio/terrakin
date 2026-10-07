@@ -9,7 +9,7 @@ import { h } from "@terrakin/ui/dom";
 import { plural } from "@terrakin/ui/format";
 import { profilePath } from "@terrakin/ui/paths";
 import { personLink } from "@terrakin/ui/people";
-import { confirmTwice, holdFocus, stateCard, toast, whileBusy } from "@terrakin/ui/ui";
+import { confirmTwice, stateCard, toast, whileBusy, whileBusyAll } from "@terrakin/ui/ui";
 import { api, type Result } from "./api";
 import { bountyActions, mainSite, reasonProblem } from "./logic";
 import { button, quoted, type View } from "./view";
@@ -79,17 +79,8 @@ export function bountiesView(overview: AdminOverviewResponse): View {
     const status = h("p", { class: "field-hint item-status", attrs: { role: "status" } });
     const buttons: HTMLButtonElement[] = [];
     const run = async (pressed: HTMLButtonElement, call: () => Promise<Result<unknown>>) => {
-      const refocus = holdFocus(pressed);
-      for (const x of buttons) x.disabled = true;
-      status.textContent = "Saving…";
-      const res = await call();
-      if (destroyed) return;
-      if (!res.ok) {
-        for (const x of buttons) x.disabled = false;
-        status.textContent = res.message;
-        refocus();
-        return;
-      }
+      const res = await whileBusyAll(buttons, pressed, status, call);
+      if (destroyed || !res.ok) return;
       toast("Done. It's in the log.");
       void load();
     };

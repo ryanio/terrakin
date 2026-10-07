@@ -249,7 +249,7 @@ function burst(
 
 // ---------- birds, crickets, the owl, and rain ----------
 
-export type BirdKind = "whistle" | "warble" | "trill" | "chip";
+type BirdKind = "whistle" | "warble" | "trill" | "chip";
 
 /** One bird nearby: what it sings, how high, where it sits, and how far off (0 near, 1 far). */
 export interface Bird {

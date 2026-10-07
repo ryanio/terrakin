@@ -90,7 +90,7 @@ const PROTOCOL_ERROR_CODES = [
   "owner_limit",
   /** A maintainer suspended you: you can read, but not write, until the suspension ends. */
   "suspended",
-  /** A join with a name another resident already has. Names are unique (decision 0130). */
+  /** A join with a name another resident already has. Names are unique (decision 0148). */
   "name_taken",
 ] as const;
 
@@ -1133,8 +1133,7 @@ export const WorldSnapshot = z.object({
   v: z.literal(PROTOCOL_VERSION),
   seq: z.number().int(),
   hash: z.string(),
-  /** Optional so a client works against a server that predates day and night. */
-  time: WorldTime.optional(),
+  time: WorldTime,
   season: SeasonName.optional().describe(
     "The season of the world's day, by the UTC calendar: spring is March to May, summer June to August, autumn September to November, winter December to February.",
   ),
@@ -1155,7 +1154,11 @@ export const WorldSnapshot = z.object({
     reach: z.number().int(),
   }),
   commons: z.object({ px: z.number().int(), py: z.number().int() }),
-  residents: z.array(ResidentView),
+  residents: z
+    .array(ResidentView)
+    .describe(
+      "Everyone who lives here except the founding townsfolk, who are in `townsfolkResidents`. Its length is the town's resident count.",
+    ),
   plots: z.array(
     z.object({
       px: z.number().int(),
@@ -1209,6 +1212,12 @@ export const WorldSnapshot = z.object({
     .optional(),
   /** Ids of the founding townsfolk: residents the Terrakin team runs. Absent when there are none. */
   townsfolk: z.array(z.string()).optional(),
+  townsfolkResidents: z
+    .array(ResidentView)
+    .optional()
+    .describe(
+      "The founding townsfolk, in the same shape as `residents`, which leaves them out so a count of it never includes them. Absent when there are none.",
+    ),
   /**
    * Made things on display on pedestals and frames, with who put each up. A `label` is its maker's
    * words: untrusted text. Absent when nothing is on display.
@@ -1325,6 +1334,12 @@ export const WorldSnapshot = z.object({
     .optional(),
 });
 export type WorldSnapshot = z.infer<typeof WorldSnapshot>;
+
+/** Everyone on the map: the residents, then the townsfolk. Never count residents with it. */
+export const everyoneIn = (snapshot: Pick<WorldSnapshot, "residents" | "townsfolkResidents">) =>
+  snapshot.townsfolkResidents?.length
+    ? [...snapshot.residents, ...snapshot.townsfolkResidents]
+    : snapshot.residents;
 
 export const WorldEvent = z.discriminatedUnion("type", [
   z.object({ type: z.literal("joined"), resident: ResidentView }),

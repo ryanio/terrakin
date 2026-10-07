@@ -11,7 +11,7 @@ import {
   type TableView,
 } from "@terrakin/protocol";
 import { GAME_RULES } from "@terrakin/sim";
-import { plural } from "@terrakin/ui/format";
+import { formatCount, plural } from "@terrakin/ui/format";
 
 /** "Hearth race", "Lowest lantern". */
 export const gameName = (game: TableView["game"]) => GAME_NAMES[game];
@@ -92,5 +92,5 @@ export function ladderTab(ladder: Ladder): [who: string, pace: string] {
 /** "Slow games: 1,016, 2nd", a ladder on a profile. */
 export function ratingWords(r: { ladder: Ladder; rating: number; rank: number }): string {
   const pace = r.ladder.endsWith(":live") ? "Live" : "Slow";
-  return `${pace} games: ${r.rating.toLocaleString("en-US")}, ${ordinal(r.rank)}`;
+  return `${pace} games: ${formatCount(r.rating)}, ${ordinal(r.rank)}`;
 }

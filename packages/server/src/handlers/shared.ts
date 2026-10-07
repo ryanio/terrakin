@@ -73,7 +73,7 @@ export interface Upload {
   read(): Promise<Uint8Array | undefined>;
 }
 
-export interface HandlerInput<K extends RouteId> {
+interface HandlerInput<K extends RouteId> {
   params: RouteParams<K>;
   query: RouteQuery<K>;
   body: RouteBody<K> extends BinaryBody ? Upload : RouteBody<K>;
@@ -126,7 +126,7 @@ export const NO_PLOT_TO_VISIT = "There's no plot to visit there.";
 
 /** Unknown, used, and expired invites all answer the same. */
 export const INVITE_GONE = "This invite has expired or was already used. Ask for a fresh link.";
-export type Handler<K extends RouteId> = (input: HandlerInput<K>) => Reply<K> | Promise<Reply<K>>;
+type Handler<K extends RouteId> = (input: HandlerInput<K>) => Reply<K> | Promise<Reply<K>>;
 /** One handler per route id, no more and no fewer. */
 export type Handlers = { [K in RouteId]: Handler<K> };
 

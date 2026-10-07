@@ -46,7 +46,7 @@ const FINAL = new Set(["passed", "failed", "no_quorum", "withdrawn", "voided"]);
 
 const number = (id: string) => Number(/^t_(\d+)$/.exec(id)?.[1] ?? Number.NaN);
 
-export function proposalView(
+function proposalView(
   state: WorldState,
   social: SocialService,
   p: Proposal,

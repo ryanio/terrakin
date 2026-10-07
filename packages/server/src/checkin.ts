@@ -7,19 +7,27 @@ import {
   changelogResponse,
   DEVLOG_POSTS,
   devlogEntry,
+  type FirstVisitResponse,
   ROUTINE_LIMITS,
 } from "@terrakin/protocol";
 import {
   heldAsideOf,
   holidayField,
   inventoryOf,
+  isTownsfolk,
   skyAt,
   takenDownOf,
   timeOfDayAt,
   type WorldState,
 } from "@terrakin/sim";
-import { setupSteps } from "./checkin-steps";
-import { pickSuggestion, SUGGEST_AGAIN_DAYS, type Suggestions } from "./checkin-suggest";
+import { firstVisitSteps, setupSteps } from "./checkin-steps";
+import {
+  type BookFacts,
+  pickSuggestion,
+  SUGGEST_AGAIN_DAYS,
+  type Suggestions,
+  tryStates,
+} from "./checkin-suggest";
 import { todoLines } from "./checkin-todo";
 import { todaysLines } from "./coins";
 import { checkinEvents, eventView } from "./events";
@@ -158,6 +166,60 @@ export function checkinChangelog(sinceGiven: boolean, since: number, now: number
   const firstToday = !sinceGiven || since < Math.floor(now / DAY_MS) * DAY_MS;
   const news = changelog.length > 0 && (firstToday || entries.some((e) => e.date > sinceDate));
   return { sinceDate, entries, changelog, news };
+}
+
+/** A resident's collection book, as the suggestions that read it see it. */
+const bookOf = (social: SocialService, viewer: string): BookFacts => ({
+  has: (kind) => social.collection.has(viewer, kind),
+});
+
+/**
+ * `GET /v1/first-visit`: every first-visit step with whether it's done, the suggestions open to
+ * `viewer` or tried, and today's suggestion as their next check-in with news would pick it. Reads
+ * only: no check-in is recorded and nothing is marked as suggested, so the check-in that follows
+ * answers as it would have. Today's suggestion follows the check-in's rule: none while a step of
+ * their own first visit is left, the one they got today if they got one, else the pick. Townsfolk
+ * get nothing.
+ */
+export function firstVisitView(
+  state: WorldState,
+  social: SocialService,
+  viewer: string,
+  options: {
+    done: ReadonlySet<string>;
+    joinedDay?: number | undefined;
+    suggestions: Pick<Suggestions, "suggested">;
+  },
+): FirstVisitResponse {
+  if (!state.residents[viewer] || isTownsfolk(state, viewer)) {
+    return { steps: [], tries: [], tryToday: null };
+  }
+  const { done, joinedDay } = options;
+  const book = bookOf(social, viewer);
+  const setup = setupSteps(state, social, viewer, done, joinedDay);
+  const today = Math.floor(social.now() / DAY_MS);
+  let tryToday: string | null = null;
+  if (setup.firstVisit.length === 0) {
+    const asked = options.suggestions.suggested(viewer, today, today - SUGGEST_AGAIN_DAYS);
+    tryToday = asked.today
+      ? ([...asked.days].find(([, day]) => day === today)?.[0] ?? null)
+      : (pickSuggestion({
+          state,
+          viewer,
+          done,
+          book,
+          later: setup.later,
+          quiet: false,
+          stepsOnly: false,
+          today,
+          days: asked.days,
+        })?.id ?? null);
+  }
+  return {
+    steps: firstVisitSteps(state, social, viewer, done, joinedDay),
+    tries: tryStates(state, viewer, done, book),
+    tryToday,
+  };
 }
 
 /**
@@ -337,7 +399,7 @@ export function checkinView(
           state,
           viewer,
           done,
-          book: { has: (kind) => social.collection.has(viewer, kind) },
+          book: bookOf(social, viewer),
           later: setup.later,
           quiet,
           stepsOnly: options.stepsOnly ?? false,

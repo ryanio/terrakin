@@ -10,6 +10,9 @@ import {
   MODERATION_REASON_MAX_LENGTH,
   MODERATOR_SUSPEND_MAX_DAYS,
   type ModerationLogView,
+  NEWCOMER_STEPS,
+  type NewcomerCounts,
+  type NewcomerStep,
   type ReportKind,
   type ReportQueueItem,
   type ReportReason,
@@ -20,11 +23,10 @@ import {
   type TownsfolkActivityResponse,
   type TriageVerdictView,
 } from "@terrakin/protocol";
-import { plural, relativeTime } from "@terrakin/ui/format";
+import { formatCount, plural, pluralWord, relativeTime, shortDate } from "@terrakin/ui/format";
 import type { IconName } from "@terrakin/ui/icons";
 import { REACTIONS } from "@terrakin/ui/reactions";
 import {
-  ACTION_LABELS,
   CATEGORY_LABELS,
   REPORT_CHOICES,
   reasonLabel,
@@ -32,12 +34,13 @@ import {
   SUGGESTION_LABELS,
 } from "@terrakin/ui/safety";
 
-export type Screen = "queue" | "log" | "townsfolk" | "bounties";
+export type Screen = "queue" | "log" | "townsfolk" | "newcomers" | "bounties";
 
 const PATHS: Record<Screen, string> = {
   queue: "/",
   log: "/log",
   townsfolk: "/townsfolk",
+  newcomers: "/newcomers",
   bounties: "/bounties",
 };
 
@@ -56,7 +59,9 @@ export const pathFor = (screen: Screen) => PATHS[screen];
 
 /** Which screens a role gets. Only maintainers move town coins (decision 0062). */
 export const screensFor = (role: StaffRole): Screen[] =>
-  role === "maintainer" ? ["queue", "log", "townsfolk", "bounties"] : ["queue", "log", "townsfolk"];
+  role === "maintainer"
+    ? ["queue", "log", "townsfolk", "newcomers", "bounties"]
+    : ["queue", "log", "townsfolk", "newcomers"];
 
 /**
  * What a maintainer can do with a bounty: confirm a town bounty its claimant marked done (paying
@@ -124,7 +129,7 @@ export interface ItemAction {
 }
 
 /** The resident an item is about: the reported resident, or the author of what was reported. */
-export function personOf(item: ReportQueueItem): string | undefined {
+function personOf(item: ReportQueueItem): string | undefined {
   return item.kind === "resident" ? item.id : item.target.author?.id;
 }
 
@@ -232,7 +237,7 @@ export function itemActions(item: ReportQueueItem, role: StaffRole = "maintainer
     if (target.plotNames) {
       out.push({
         kind: "clear_plot_names",
-        label: target.plotNames === 1 ? "Take down plot name" : "Take down plot names",
+        label: `Take down ${pluralWord(target.plotNames, "plot name", "plot names")}`,
         target: item.id,
         primary: false,
         confirm: "Tap again to take it down",
@@ -401,7 +406,7 @@ export function triageSummary(verdict: TriageVerdictView): {
 }
 
 /** A staff sign-in's short name: the part of the email before the "@". */
-export const shortStaffName = (email: string) => email.split("@")[0] || email;
+const shortStaffName = (email: string) => email.split("@")[0] || email;
 
 /** The sign-in email behind a staff actor, for a tooltip. Undefined for everyone else. */
 export function actorEmail(entry: Pick<ModerationLogView, "actor">): string | undefined {
@@ -415,11 +420,6 @@ export function actorLabel(entry: Pick<ModerationLogView, "actor" | "actorView">
   const email = actorEmail(entry);
   if (email) return shortStaffName(email);
   return entry.actorView?.name ?? entry.actor;
-}
-
-/** "Hid a post · post p_1", with the end date for a suspension. */
-export function logHeadline(entry: ModerationLogView): string {
-  return `${ACTION_LABELS[entry.action]} · ${logTarget(entry)}`;
 }
 
 /** "Today", "Yesterday", or "Mon, Oct 5": the heading a day of log entries sits under. */
@@ -461,7 +461,7 @@ export function triageLine(t: AdminOverviewResponse["triage"], nowMs: number): s
   if (t.pausedUntil && Date.parse(t.pausedUntil) > nowMs) {
     return "AI triage is paused after repeated errors. Reports wait for people until it's back.";
   }
-  const n = (x: number) => x.toLocaleString("en-US");
+  const n = formatCount;
   const used = `AI triage today: ${n(t.callsToday)} of ${n(t.callsPerDay)} calls, ${n(t.tokensToday)} of ${n(t.tokensPerDay)} tokens.`;
   const agreed = t.agreement.decided
     ? ` Staff agreed with it on ${t.agreement.agreed} of ${plural(t.agreement.decided, "decision", "decisions")}.`
@@ -530,8 +530,7 @@ export function chatterLine(c: AdminOverviewResponse["chatter"], nowMs: number):
     posts: `posts, likes and reacts${when}`,
     all: `posts, replies, reacts, praises, admires plots and waves${when}`,
   }[c.mode];
-  const n = (x: number) => x.toLocaleString("en-US");
-  const used = ` Today: ${n(c.callsToday)} of ${n(c.callsPerDay)} calls.`;
+  const used = ` Today: ${formatCount(c.callsToday)} of ${formatCount(c.callsPerDay)} calls.`;
   const last = c.lastRun
     ? ` Last run: ${CHATTER_SKIPS[c.lastRun.result] ?? plural(c.lastRun.result.split(",").length, "call", "calls")}.`
     : "";
@@ -669,4 +668,44 @@ export const gateWords = (c: Pick<TownsfolkActivityResponse["chatter"], "gate" |
 export function sinceWords(iso: string, nowMs: number): string {
   const r = relativeTime(iso, nowMs);
   return r === "now" ? "just now" : /^\d+[mh]$/.test(r) ? `${r} ago` : r;
+}
+
+// ---------- newcomers (decision 0141) ----------
+
+const STEP_LABELS: Record<NewcomerStep, string> = {
+  joined: "Joined",
+  claimed: "Claimed a plot",
+  hearth: "Set a hearth",
+  thing: "Got a first thing",
+  look: "Changed their look",
+  social: "Did something social",
+};
+
+/** What each newcomer step is called on the page, the steps in order and the pet last. */
+export const NEWCOMER_ROWS: readonly { key: keyof NewcomerCounts; label: string }[] = [
+  ...NEWCOMER_STEPS.map((key) => ({ key, label: STEP_LABELS[key] })),
+  { key: "pet", label: "Adopted a pet" },
+];
+
+/** A step's count, and its share of the cohort's joins as a whole percent ("" for the joins). */
+export function stepShare(counts: NewcomerCounts, key: keyof NewcomerCounts) {
+  const n = counts[key];
+  const share =
+    key === "joined" || counts.joined === 0 ? "" : `${Math.round((100 * n) / counts.joined)}%`;
+  return { count: formatCount(n), share };
+}
+
+/** A cohort's heading: "All time", "This week", or "Week of Sep 28", read as UTC. */
+export function cohortTitle(week: string | null, today: string): string {
+  if (week === null) return "All time";
+  const start = Date.parse(`${week}T00:00:00Z`);
+  const now = Date.parse(`${today}T00:00:00Z`);
+  if (now - start < 7 * 86_400_000) return "This week";
+  return `Week of ${shortDate(start, now, "UTC")}`;
+}
+
+/** The footnote for residents whose name someone who joined earlier already had (issue #46). */
+export function sameNameLine(n: number): string | null {
+  if (n === 0) return null;
+  return `${n === 1 ? "1 of them has" : `${formatCount(n)} of them have`} the name of someone who joined earlier, often the same person joining again (issue #46).`;
 }

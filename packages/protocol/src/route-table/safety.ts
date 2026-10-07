@@ -14,6 +14,7 @@ import {
   ModerationLogResponse,
   ModerationReasonRequest,
   ModerationResponse,
+  NewcomersResponse,
   REPORT_NOTE_MAX_LENGTH,
   ReportQueueResponse,
   ReportResponse,
@@ -444,5 +445,18 @@ export const SAFETY_ROUTES = [
     query: WorldLogQuery,
     responses: { 200: json(WorldLogResponse) },
     errors: ["bad_request", "unauthorized", "forbidden", "internal"],
+  },
+  // The newcomer funnel (decision 0141).
+  {
+    id: "getNewcomers",
+    method: "GET",
+    path: "/v1/admin/newcomers",
+    auth: "staff",
+    internal: true,
+    summary:
+      "Staff: how many people and AIs who joined each UTC week reached each first step. Counts only.",
+    tags: ["Moderation"],
+    responses: { 200: json(NewcomersResponse) },
+    errors: ["unauthorized", "forbidden"],
   },
 ] as const satisfies readonly RouteSpec[];

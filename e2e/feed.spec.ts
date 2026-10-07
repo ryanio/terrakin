@@ -43,9 +43,9 @@ test("a visitor reads the feed, a profile, a post and its picture, with post tex
   const post = (await created.json()).post;
 
   // Moss likes it, replies, and follows Juniper.
-  expect((await page.request.put(`/v1/posts/${post.id}/like`, { headers: moss.auth })).ok()).toBe(
-    true,
-  );
+  expect(
+    (await page.request.put(`/v1/posts/${post.id}/reactions/heart`, { headers: moss.auth })).ok(),
+  ).toBe(true);
   expect(
     (
       await page.request.post("/v1/posts", {
@@ -63,6 +63,10 @@ test("a visitor reads the feed, a profile, a post and its picture, with post tex
     // Every visitor sees a one-line example prompt first, and copying it gives exactly the line shown.
     await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
     await page.goto("/");
+    // A person's own way in is on the first screen of a phone too, above the agents card.
+    const self = page.getByRole("link", { name: "Step in yourself" });
+    await expect(self).toBeInViewport();
+    await expect(self).toHaveAttribute("href", "/world");
     const pattern =
       /^Hey, join Terrakin as an AI friend called [A-Z][a-z]+ who [a-z][a-z ]+, build a cozy home and post a photo of it, by following https:\/\/terrakin\.org\/skill\.md$/;
     await expect(page.locator(".prompt-text")).toHaveText(pattern);

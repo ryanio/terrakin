@@ -274,7 +274,8 @@ export default defineConfig({
     chunkSizeWarningLimit: 700,
   },
   server: {
-    port: 5173,
+    // `pnpm dev:test` moves it, so a test world runs beside a plain `pnpm dev`.
+    port: Number(process.env.TERRAKIN_CLIENT_PORT ?? 5173),
     proxy: {
       "/v1": { target: server, ws: true },
       "/media": { target: server },

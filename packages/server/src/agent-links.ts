@@ -106,7 +106,7 @@ export interface AgentLinkOptions {
  * minutes of up to 100 links covers 1,200 links an hour. Kept asks are tried again 20 a run at most
  * (20 card fetches, 120 reads), from the link pool and only while it is less than half spent.
  */
-export const AGENT_LINK_DEFAULTS = {
+const AGENT_LINK_DEFAULTS = {
   readsPerDay: 150_000,
   recheckShare: 0.85,
   perRun: 100,
@@ -128,7 +128,7 @@ export const DOWN_BACKOFF_MS = [15 * 60_000, 60 * 60_000, 4 * 60 * 60_000] as co
 /** Checks in a row that couldn't reach the agent (about three days with the backoff) before the link goes. */
 export const DOWN_LIMIT = 20;
 /** The registry saying an agent doesn't exist this many checks in a row drops the link. */
-export const GONE_LIMIT = 2;
+const GONE_LIMIT = 2;
 /** A card that answers but can't be read this many checks in a row (a day) is treated as gone. */
 export const BAD_CARD_LIMIT = 24;
 /** How often the Worker's alarm and the Node timer run `recheckDue`, at the soonest. */
@@ -139,7 +139,7 @@ export const ASK_KEEP_MS = AGENT_LINK_ASK_DAYS * 86_400_000;
  * Kept asks are tried again only while the day's link pool is less than this share spent, so a
  * backlog of asks never takes the reads residents' own link attempts need.
  */
-export const ASK_SHARE = 0.5;
+const ASK_SHARE = 0.5;
 
 /** When the Worker's alarm should next fire: when the next link is due, never sooner than 5 minutes out. */
 export function nextRecheckAt(now: number, due: number | undefined): number | undefined {

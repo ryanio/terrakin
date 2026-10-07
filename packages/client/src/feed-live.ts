@@ -5,6 +5,7 @@
  * world's sockets.
  */
 import type { PostMessage, PostView } from "@terrakin/protocol";
+import { everyVisible } from "@terrakin/ui/poll";
 import { PostWatch } from "./net";
 
 /** With no taps, keys, or scrolling for this long, the socket closes until the next one. */
@@ -115,7 +116,7 @@ export function liveFeed(onPost: (message: PostMessage) => void): {
 
   document.addEventListener("visibilitychange", sync);
   for (const type of INPUTS) window.addEventListener(type, onInput, { passive: true });
-  const timer = setInterval(sync, 30_000);
+  const stopTimer = everyVisible(30_000, sync);
   sync();
 
   return {
@@ -127,7 +128,7 @@ export function liveFeed(onPost: (message: PostMessage) => void): {
       sync();
     },
     destroy() {
-      clearInterval(timer);
+      stopTimer();
       document.removeEventListener("visibilitychange", sync);
       for (const type of INPUTS) window.removeEventListener(type, onInput);
       stop();

@@ -278,8 +278,6 @@ describe("reactions", () => {
     expect(both.body.post).toMatchObject({
       reactions: { sprout: 1, wow: 1 },
       myReactions: ["wow", "sprout"],
-      likeCount: 0,
-      liked: false,
     });
     await call("PUT", `${path}/sprout`, undefined, wren.token);
     const anon = (await call("GET", `/v1/posts/${made.id}`)).body.post;
@@ -309,40 +307,6 @@ describe("reactions", () => {
     ).toBe(404);
   });
 
-  it("treats likes and hearts as the same thing, in every view", async () => {
-    const { call, join, post } = await start();
-    const wren = await join("Wren");
-    const ash = await join("Ash");
-    const made = await post(wren.token, { text: "one" });
-    const views = async (token?: string) => {
-      const single = (await call("GET", `/v1/posts/${made.id}`, undefined, token)).body.post;
-      const fromFeed = (await call("GET", "/v1/feed", undefined, token)).body.posts[0];
-      return [single, fromFeed].map((p: Json) => ({
-        likeCount: p.likeCount,
-        liked: p.liked,
-        heart: p.reactions.heart ?? 0,
-        mine: p.myReactions.includes("heart"),
-      }));
-    };
-
-    const liked = await call("PUT", `/v1/posts/${made.id}/like`, undefined, ash.token);
-    expect(liked.body.post).toMatchObject({ likeCount: 1, liked: true, reactions: { heart: 1 } });
-    for (const v of await views(ash.token)) {
-      expect(v).toEqual({ likeCount: 1, liked: true, heart: 1, mine: true });
-    }
-
-    // A heart through the new route is a like through the old one.
-    await call("PUT", `/v1/posts/${made.id}/reactions/heart`, undefined, wren.token);
-    for (const v of await views(wren.token)) {
-      expect(v).toEqual({ likeCount: 2, liked: true, heart: 2, mine: true });
-    }
-    await call("DELETE", `/v1/posts/${made.id}/like`, undefined, wren.token);
-    await call("DELETE", `/v1/posts/${made.id}/reactions/heart`, undefined, ash.token);
-    for (const v of await views(ash.token)) {
-      expect(v).toEqual({ likeCount: 0, liked: false, heart: 0, mine: false });
-    }
-  });
-
   it("moves likes saved before reactions existed into hearts", async () => {
     const { call, join, post, sql, options } = await start();
     const wren = await join("Wren");
@@ -352,13 +316,12 @@ describe("reactions", () => {
     // A restart runs the migration again.
     const restarted = new SocialService(options);
     expect(restarted.post(made.id, ash.id)).toMatchObject({
-      likeCount: 1,
-      liked: true,
       reactions: { heart: 1 },
+      myReactions: ["heart"],
     });
     expect([...sql.exec("SELECT COUNT(*) AS c FROM likes")][0]?.c).toBe(0);
     new SocialService(options);
-    expect((await call("GET", `/v1/posts/${made.id}`)).body.post.likeCount).toBe(1);
+    expect((await call("GET", `/v1/posts/${made.id}`)).body.post.reactions).toEqual({ heart: 1 });
   });
 
   it("shares one rate limit bucket with reposts", async () => {

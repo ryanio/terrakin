@@ -787,6 +787,12 @@ a.tag-card:focus-visible {
   color: var(--ink-soft);
 }
 
+/* A muted line under or beside what it explains, in the size of the text around it. */
+.hint {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
 .check-group {
   display: grid;
   gap: var(--space-sm);
@@ -1005,6 +1011,14 @@ dialog.fullscreen.closing {
   font-size: var(--text-3xl);
   font-weight: var(--weight-semibold);
   line-height: var(--leading-tight);
+}
+
+/* A card someone can put away: its eyebrow and a close button on one line (cardBar). */
+.card-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
 }
 
 .sheet-close {

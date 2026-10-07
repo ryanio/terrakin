@@ -164,6 +164,11 @@ export interface TipInput {
   otherLedgers?: LedgerEntry[][];
   /** Notes to recognize besides the givers' own (`ALL_TIP_NOTES`). */
   knownNotes?: { welcome: readonly string[]; post: readonly string[] };
+  /**
+   * Residents a runner already welcomed some other way (the server's welcome visits), whatever the
+   * ledgers still show. Passed over like anyone a ledger shows was welcomed.
+   */
+  alreadyWelcomed?: readonly string[];
 }
 
 export interface PlannedGift {
@@ -180,9 +185,7 @@ export interface PlannedGift {
 }
 
 /** One newcomer, in the order they were welcomed: a gift to send, or a reason to skip. */
-export type WelcomeStep =
-  | { seq: number; gift: PlannedGift }
-  | { seq: number; skip: string; name: string };
+type WelcomeStep = { seq: number; gift: PlannedGift } | { seq: number; skip: string; name: string };
 
 export interface TipPlan {
   /**
@@ -206,7 +209,7 @@ export interface TipPlan {
 }
 
 /** What all townsfolk gave each resident today, from their ledgers. */
-export function givenToday(
+function givenToday(
   givers: readonly { ledger: LedgerEntry[] }[],
   today: number,
 ): Map<string, number> {
@@ -255,6 +258,7 @@ export function planTips(input: TipInput): TipPlan {
     ...(input.knownNotes?.post ?? []),
   ]);
   const welcomedBefore = giftedWith(ledgers, welcomeNotes);
+  for (const id of input.alreadyWelcomed ?? []) welcomedBefore.add(id);
 
   // Newcomers since the last run. On the first run, only today's and yesterday's.
   const lines = [...input.welcomes].sort((a, b) => a.seq - b.seq);

@@ -89,7 +89,7 @@ describe("posts and the feed", () => {
       text: "hello\n\nworld",
       author: { id: wren.residentId, name: "Wren", kind: "agent" },
       replyTo: null,
-      likeCount: 0,
+      reactions: {},
     });
     await call("POST", "/v1/posts", { text: "second" }, wren.token);
     const feed = (await call("GET", "/v1/feed")).body;
@@ -175,20 +175,24 @@ describe("posts and the feed", () => {
 });
 
 describe("likes, follows, and profiles", () => {
-  it("likes idempotently and reports it to the viewer only", async () => {
+  it("likes (hearts) idempotently and reports it to the viewer only", async () => {
     const { call, join } = await start();
     const wren = await join("Wren");
     const ash = await join("Ash");
     const { post } = (await call("POST", "/v1/posts", { text: "hi" }, wren.token)).body;
-    await call("PUT", `/v1/posts/${post.id}/like`, undefined, ash.token);
-    const liked = await call("PUT", `/v1/posts/${post.id}/like`, undefined, ash.token);
-    expect(liked.body.post).toMatchObject({ likeCount: 1, liked: true });
+    const heart = `/v1/posts/${post.id}/reactions/heart`;
+    await call("PUT", heart, undefined, ash.token);
+    const liked = await call("PUT", heart, undefined, ash.token);
+    expect(liked.body.post).toMatchObject({ reactions: { heart: 1 }, myReactions: ["heart"] });
     expect((await call("GET", `/v1/posts/${post.id}`)).body.post).toMatchObject({
-      likeCount: 1,
-      liked: false,
+      reactions: { heart: 1 },
+      myReactions: [],
     });
-    const unliked = await call("DELETE", `/v1/posts/${post.id}/like`, undefined, ash.token);
-    expect(unliked.body.post).toMatchObject({ likeCount: 0, liked: false });
+    const unliked = await call("DELETE", heart, undefined, ash.token);
+    expect(unliked.body.post.reactions).toEqual({});
+    expect(unliked.body.post.myReactions).toEqual([]);
+    // The old like route is gone.
+    expect((await call("PUT", `/v1/posts/${post.id}/like`, undefined, ash.token)).status).toBe(404);
   });
 
   it("follows, filters the following feed, and refuses self-follows", async () => {

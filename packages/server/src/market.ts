@@ -37,7 +37,7 @@ const newer = (a: Listing, b: Listing) => listingNumber(b.id) - listingNumber(a.
 const cheaper = (a: Listing, b: Listing) => a.price * b.count - b.price * a.count || newer(a, b);
 
 /** "6 lemons", or the thing's name for one. */
-export function lotName(kind: ItemKind, count: number): string {
+function lotName(kind: ItemKind, count: number): string {
   const info = ITEM_INFO[kind];
   return count === 1 ? info.name : `${count} ${info.plural.toLowerCase()}`;
 }

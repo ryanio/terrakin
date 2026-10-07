@@ -27,28 +27,28 @@ import { actProblem, api } from "./api";
 import { aThing, coatWord, PET_WORDS, petCalled, petLine, TREATS } from "./pets";
 
 /** A pet on a profile, with its count of pats. */
-export type ProfilePet = NonNullable<ProfileView["pet"]>;
+type ProfilePet = NonNullable<ProfileView["pet"]>;
 
 /** "Patted by 12 residents", "No pats yet". */
-export function patsLine(pats: number): string {
+function patsLine(pats: number): string {
   return pats === 0 ? "No pats yet" : `Patted by ${plural(pats, "resident", "residents")}`;
 }
 
 /** "Your calico cat", "Tam's golden dog": whose it is and what it is. */
-export function whosePet(pet: Pick<Pet, "kind" | "coat">, owner: string | undefined): string {
+function whosePet(pet: Pick<Pet, "kind" | "coat">, owner: string | undefined): string {
   const what = petLine(pet).replace(/^an? /, "");
   return owner === undefined ? `Your ${what}` : `${owner}'s ${what}`;
 }
 
 // ---------- adopting ----------
 
-export interface AdoptOptions {
+interface AdoptOptions {
   /** After it came home: reload what the page shows. */
   adopted?: () => unknown;
 }
 
 /** Choose a kind, a coat, and a name, watching the pet as you go, and bring it home. */
-export function openAdoptSheet(o: AdoptOptions = {}) {
+function openAdoptSheet(o: AdoptOptions = {}) {
   let kind: PetKind = "cat";
   let coat: PetCoat = PET_COATS.cat[0];
   const preview = h("div", { class: "pet-preview", attrs: { "aria-live": "polite" } });
@@ -167,7 +167,7 @@ export function openAdoptSheet(o: AdoptOptions = {}) {
 type Say = (text: string) => void;
 
 /** Rename your pet (free, once a day) or give it a new coat (for coins). */
-export function openOwnPetSheet(
+function openOwnPetSheet(
   pet: Pick<Pet, "kind" | "coat" | "name">,
   after?: () => unknown,
   say: Say = toast,
@@ -269,7 +269,7 @@ export async function patPet(
 }
 
 /** Pick one of your produce to give a pet, from what you hold. */
-export async function openTreatSheet(
+async function openTreatSheet(
   owner: string,
   pet: Pick<Pet, "kind" | "name">,
   after?: () => unknown,

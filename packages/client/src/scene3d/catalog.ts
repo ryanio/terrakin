@@ -5,7 +5,7 @@
 import { mediaRef } from "./layout";
 import { type Flavor, isFlavor } from "./palette";
 
-export const ITEM_TEMPLATES = [
+const ITEM_TEMPLATES = [
   "jam-lemon",
   "jam-strawberry",
   "jam-berry",
@@ -33,7 +33,7 @@ export const ITEM_TEMPLATES = [
 ] as const;
 export type ItemTemplate = (typeof ITEM_TEMPLATES)[number];
 
-export function isItemTemplate(value: unknown): value is ItemTemplate {
+function isItemTemplate(value: unknown): value is ItemTemplate {
   return typeof value === "string" && (ITEM_TEMPLATES as readonly string[]).includes(value);
 }
 

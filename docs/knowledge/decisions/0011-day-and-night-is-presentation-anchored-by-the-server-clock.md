@@ -20,4 +20,4 @@ Day and night is cosmetic. The world snapshot carries an optional `time { nowMs,
 - Replay stays deterministic, and the world hash doesn't change with the time of day.
 - `time` is optional in the protocol, so a client still works against a server without it (it just never gets dark).
 - If a game rule ever depends on time of day, time must enter the sim as a logged input. Nothing may read the snapshot anchor to decide a rule.
-- Code: `packages/server/src/world-service.ts` (`DAY_LENGTH_MS`, `snapshot()`), `packages/client/src/time.ts`, `packages/client/src/render.ts`.
+- Code: `packages/server/src/world-service.ts` (`DAY_LENGTH_MS`, `snapshot()`), `packages/server/src/world-wire.ts` (`worldSnapshot`), `packages/client/src/time.ts`, `packages/client/src/render.ts`.

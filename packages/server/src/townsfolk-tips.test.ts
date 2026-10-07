@@ -153,7 +153,7 @@ describe("the townsfolk's daily tips", () => {
     const bo = t.settle("Bo", 5);
     const post = t.social.createPost(ash, { text: "My first hut is up!" });
     if (!post.ok) throw new Error(post.message);
-    t.social.setLike(bo, post.value.id, true);
+    t.social.setReaction(bo, post.value.id, "heart", true);
     const before = { ash: t.coins(ash), bo: t.coins(bo) };
 
     const result = t.tips().run();

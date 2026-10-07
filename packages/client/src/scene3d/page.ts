@@ -3,7 +3,7 @@
  * `/r/:id/3d` visits a resident's plot from the live world snapshot; `/gallery/3d` is the gallery
  * room (and `?item=` one item up close). Lazy: the main bundle reaches this only through import().
  */
-import { WorldSnapshot } from "@terrakin/protocol";
+import { everyoneIn, WorldSnapshot } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { plot3dPath, profilePath } from "@terrakin/ui/paths";
 import { openOverlay, shareOnX, sheet, stateCard, toast } from "@terrakin/ui/ui";
@@ -113,7 +113,7 @@ export function mount3d(
         const parsed = WorldSnapshot.safeParse(raw);
         if (!parsed.success) throw new Error("bad snapshot");
         const snapshot = parsed.data;
-        const resident = snapshot.residents.find((r) => r.id === route.id);
+        const resident = everyoneIn(snapshot).find((r) => r.id === route.id);
         if (!resident) {
           ctx.setTitle("Not found · Terrakin");
           el.replaceChildren(
@@ -275,7 +275,7 @@ function noPlot(name: string, id: string, yours: boolean): HTMLElement {
           eyebrow: "Visit in 3D",
           level: "h1",
           title: "You haven't claimed a plot yet",
-          body: "Walk out of the Commons onto an empty plot and tap Claim plot. Once you build on it, you can visit it here in 3D.",
+          body: "In the world, tap Claim plot and pick an empty plot. Once you build on it, you can visit it here in 3D.",
           actions: [
             h(
               "a",

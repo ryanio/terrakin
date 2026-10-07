@@ -20,6 +20,7 @@ import {
   EventResponse,
   EventsResponse,
   FeedResponse,
+  FirstVisitResponse,
   GalleriesResponse,
   GameResponse,
   GamesResponse,
@@ -45,7 +46,6 @@ import {
   type PlotSort,
   PlotsResponse,
   PostResponse,
-  type PostView,
   ProfileResponse,
   type ProfileView,
   PurseResponse,
@@ -71,6 +71,7 @@ import {
   type Result,
 } from "@terrakin/ui/http";
 import { savedResidentId, savedToken, saveResidentId } from "./net";
+import { reloadForNewerServer } from "./stale-bundle";
 import { appCrumb, reportBadResponse } from "./telemetry";
 import { isLetterMediaUrl } from "./together";
 
@@ -103,17 +104,19 @@ function authHeaders(): Record<string, string> {
   return token ? { authorization: `Bearer ${token}` } : {};
 }
 
-export { friendlyMessage };
-
 /** What a page says when this browser's saved key no longer opens a character. */
-export const UNKNOWN_KEY =
+const UNKNOWN_KEY =
   "This browser's key doesn't open a character anymore. Open the World and choose Restore with a key, or join again.";
 
 const request = makeRequest({
   headers: authHeaders,
   unauthorized: UNKNOWN_KEY,
   breadcrumb: (text) => appCrumb("api", text),
-  onBadResponse: reportBadResponse,
+  onBadResponse: (path, error) => {
+    reportBadResponse(path, error);
+    // Most likely the server changed shape since this page loaded: newer code can read it.
+    reloadForNewerServer();
+  },
   onError: (code, message) => {
     if (code === "suspended") {
       window.dispatchEvent(new CustomEvent(SUSPENDED_EVENT, { detail: message }));
@@ -137,8 +140,6 @@ export const api = {
   post: (id: string) => request("GET", `/v1/posts/${encodeURIComponent(id)}`, PostResponse),
   profile: (id: string) =>
     request("GET", `/v1/residents/${encodeURIComponent(id)}`, ProfileResponse),
-  like: (id: string, on: boolean) =>
-    request(on ? "PUT" : "DELETE", `/v1/posts/${encodeURIComponent(id)}/like`, PostOnly),
   follow: (id: string, on: boolean) =>
     request(
       on ? "PUT" : "DELETE",
@@ -213,6 +214,8 @@ export const api = {
     request("GET", `/v1/galleries${query({ resident })}`, GalleriesResponse),
   /** Bounties (RFC 0008): jobs residents and the town pay coins for. */
   bounties: () => request("GET", "/v1/bounties", BountiesResponse),
+  /** Your first-visit steps, done and left, and the suggestions you've tried. Checks nothing in. */
+  firstVisit: () => request("GET", "/v1/first-visit", FirstVisitResponse),
   /** Your routines and what they did while you were away (RFC 0009), a page at a time. */
   routines: (before?: string) =>
     request("GET", `/v1/routines${query({ before })}`, RoutinesResponse),
@@ -432,4 +435,4 @@ export function rememberMyProfile(profile: ProfileView) {
   window.dispatchEvent(new Event(MY_PROFILE_EVENT));
 }
 
-export type { PostView, ProfileView };
+export type { ProfileView };

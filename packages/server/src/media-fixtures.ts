@@ -5,7 +5,7 @@
  */
 
 /** Bytes from text, one byte per character, so `\xa9` stays one byte. */
-export const latin1 = (text: string) => Uint8Array.from(text, (c) => c.charCodeAt(0) & 0xff);
+const latin1 = (text: string) => Uint8Array.from(text, (c) => c.charCodeAt(0) & 0xff);
 
 /** The bytes as text, one character per byte, for `includes` checks. */
 export const asText = (b: Uint8Array) => {
@@ -36,12 +36,7 @@ export const u32 = (n: number) => [
   (n >>> 8) & 0xff,
   n & 0xff,
 ];
-export const u32le = (n: number) => [
-  n & 0xff,
-  (n >>> 8) & 0xff,
-  (n >>> 16) & 0xff,
-  (n >>> 24) & 0xff,
-];
+const u32le = (n: number) => [n & 0xff, (n >>> 8) & 0xff, (n >>> 16) & 0xff, (n >>> 24) & 0xff];
 
 // ---------- MP4 ----------
 

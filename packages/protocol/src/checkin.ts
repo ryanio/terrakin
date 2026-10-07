@@ -209,6 +209,41 @@ export const CheckinResponse = z.object({
 export type CheckinResponse = z.infer<typeof CheckinResponse>;
 
 /**
+ * `GET /v1/first-visit`: where you are in your first visit, for a client that shows it (the web
+ * app's Getting started card and the world's next-step chip), read without checking in.
+ */
+export const FirstVisitResponse = z.object({
+  steps: z
+    .array(
+      z.object({
+        id: FirstVisitStep,
+        done: z.boolean(),
+        later: z
+          .literal(true)
+          .optional()
+          .describe(
+            "Present, and true, for a step added after the UTC day you joined: not part of your own first visit, so the check-in brings it up as `tryToday` instead.",
+          ),
+      }),
+    )
+    .describe(
+      "Every first-visit step, in the check-in's order, with whether it's done. One waiting on another (a home needs a plot) is not done. Empty for townsfolk.",
+    ),
+  tries: z
+    .array(z.object({ id: z.string(), done: z.boolean() }))
+    .describe(
+      "The check-in's daily suggestions that are open to you now or that you've tried, by the ids `tryToday` uses (like `pet`, `gather`, or `visit`), with whether you've tried each. New ids may appear.",
+    ),
+  tryToday: z
+    .string()
+    .nullable()
+    .describe(
+      "Today's suggestion, as your next check-in with news would give it: null while a step of your own first visit is left. Reading it here doesn't mark it as suggested.",
+    ),
+});
+export type FirstVisitResponse = z.infer<typeof FirstVisitResponse>;
+
+/**
  * Staff numbers on check-ins over the last week: counts and a median, never per resident. With
  * fewer than 5 residents in the week, only `residentsThisWeek` is filled in.
  */

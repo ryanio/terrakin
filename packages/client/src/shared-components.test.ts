@@ -50,10 +50,16 @@ const HAND_BUILT: { pattern: RegExp; use: string; home?: string }[] = [
   { pattern: /class: "paper menu"/, use: "moreMenu (ui.ts)" },
   { pattern: /copyText\(/, use: "copyButton or copyBlock (ui.ts)" },
   {
-    pattern: /\} \$\{\w+ === 1 \? "\w+" : "\w+"\}|=== 1 \? "1 \w+"/,
-    use: "plural (format.ts), or coins (purse.ts) for money",
-    home: "packages/client/src/purse.ts",
+    pattern: /[\w.]+ === 1 \? (?:"[\w ]+" : "[\w ]+"|"1 \w+"|one : many)/,
+    use: "plural or pluralWord (format.ts), or coins (purse.ts) for money",
   },
+  { pattern: /toLocaleString\("en-US"\)/, use: "formatCount (format.ts)" },
+  {
+    pattern: /Intl\.DateTimeFormat\("en-US"/,
+    use: "shortDate, relativeTime, or fullDate (format.ts)",
+  },
+  { pattern: /for \(const \w+ of \w+\) \w+\.disabled = true/, use: "whileBusyAll (ui.ts)" },
+  { pattern: /\bpurse-hint\b/, use: "the hint class (base.css)" },
   { pattern: /dataset\.confirm/, use: "confirmTwice (ui.ts)" },
   { pattern: /"0 0 24 24"/, use: "icon (dom.ts), with a Lucide glyph added to icons.ts" },
   {
@@ -91,6 +97,8 @@ const HAND_BUILT: { pattern: RegExp; use: string; home?: string }[] = [
     pattern: /class: "sheet[ "]|class: "sheet-(card|head|title|close)"|role: "dialog"/,
     use: "sheet (ui.ts)",
   },
+  { pattern: /class: [`"]sheet-close\b/, use: "closeButton (ui.ts)" },
+  { pattern: /class: [`"][^`"]*\b(card-bar|devlog-head)\b/, use: "cardBar (ui.ts)" },
   { pattern: /"Share on X"|xIntentUrl\(/, use: "shareOnX (ui.ts)" },
   { pattern: /["'`]item-art\b|CROP_COLORS/, use: "itemArt or CROP_HEX (item-art.ts)" },
   { pattern: /GROUND_LOOK|["'`]ground-art\b/, use: "paintGround or groundArt (ground-art.ts)" },

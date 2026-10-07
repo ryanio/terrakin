@@ -42,7 +42,7 @@ export const HOLIDAY_INFO: Readonly<Record<Holiday, HolidayInfo>> = {
 };
 
 /** The world day of `on` in `year`. */
-export const dayOn = (year: number, on: MonthDate) => dayOfDate(year, on.month, on.date);
+const dayOn = (year: number, on: MonthDate) => dayOfDate(year, on.month, on.date);
 
 /** A holiday's first and last world day in `year`. */
 export function holidaySpan(holiday: Holiday, year: number): { first: number; last: number } {

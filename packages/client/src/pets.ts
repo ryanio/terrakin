@@ -121,8 +121,8 @@ export class PatsToday {
 // ---------- where it is ----------
 
 /** How fast a pet walks, in tiles a second: keeping up with its owner, or pottering about. */
-export const PET_TROT = 5.6;
-export const PET_POTTER = 2;
+const PET_TROT = 5.6;
+const PET_POTTER = 2;
 /** How long a pet looks happy after a pat. */
 export const HAPPY_MS = 4_500;
 /** How often a pet at home picks something new to do, from the server's clock. */
@@ -140,7 +140,7 @@ const HOP = 0.1;
  * How near a tap lands to a pet to be for it, in tiles: its own tile. A pet curled up against a
  * hearth leans `SNUGGLE` toward it, and stays out of reach of a tap on the hearth.
  */
-export const PET_TAP = 0.45;
+const PET_TAP = 0.45;
 
 /** What a pet is doing. */
 export type PetDoing = "follow" | "potter" | "nap" | "sleep";
@@ -203,7 +203,7 @@ interface Track {
 }
 
 /** A small stable hash for picking what a pet does. Not state: only for drawing. */
-export function petHash(id: string, n: number): number {
+function petHash(id: string, n: number): number {
   let h = 2166136261 ^ n;
   for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 16777619);
   h = Math.imul(h ^ (h >>> 15), 2246822507);
@@ -218,7 +218,7 @@ const open = (ground: Ground, t: Tile) =>
   !ground.obstacle(t.x, t.y);
 
 /** The open tiles a pet can walk to within `WANDER` of its hearth, the hearth itself left out. */
-export function potterSpots(ground: Ground, hearth: Tile): Tile[] {
+function potterSpots(ground: Ground, hearth: Tile): Tile[] {
   return walkTree(ground, hearth, WANDER)
     .slice(1)
     .map(({ x, y }) => ({ x, y }));

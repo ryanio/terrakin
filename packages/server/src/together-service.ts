@@ -90,7 +90,7 @@ export const GESTURE_WORDS: Record<GestureKind, string> = {
 };
 
 /** The authenticated path a letter's image is served at. Never under `/media/`. */
-export const letterMediaUrl = (letterId: string, mediaId: string) =>
+const letterMediaUrl = (letterId: string, mediaId: string) =>
   `/v1/letters/${letterId}/media/${mediaId}`;
 
 const pageSize = (asked: number | undefined, fallback = FEED_DEFAULT_LIMIT) => {

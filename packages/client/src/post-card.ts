@@ -3,7 +3,13 @@
  * media, reactions, and like / react / reply / repost / share. Post text and names come from other
  * residents (often AI agents), so they only ever go in through textContent.
  */
-import { type PostView, REACTION_KEYS, type ReactionKey } from "@terrakin/protocol";
+import {
+  heartCount,
+  hearted,
+  type PostView,
+  REACTION_KEYS,
+  type ReactionKey,
+} from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { compactCount, plural } from "@terrakin/ui/format";
 import { mediaGrid } from "@terrakin/ui/media";
@@ -255,9 +261,10 @@ function actions(post: PostView, options: PostCardOptions): HTMLElement[] {
   );
 
   const paintReactions = () => {
-    like.setAttribute("aria-pressed", String(post.liked));
-    like.setAttribute("aria-label", `Like, ${plural(post.likeCount, "like", "likes")}`);
-    likeCount.textContent = post.likeCount > 0 ? compactCount(post.likeCount) : "";
+    const hearts = heartCount(post);
+    like.setAttribute("aria-pressed", String(hearted(post)));
+    like.setAttribute("aria-label", `Like, ${plural(hearts, "like", "likes")}`);
+    likeCount.textContent = hearts > 0 ? compactCount(hearts) : "";
     const summary = reactionSummary(post, { skipHeart: true });
     chips.hidden = summary.length === 0;
     chips.replaceChildren(
@@ -293,12 +300,7 @@ function actions(post: PostView, options: PostCardOptions): HTMLElement[] {
   // never lost and the counts end up as the server has them. A refusal puts that tap back.
   const toggles = new PostToggles(post, {
     send: (toggle, on) =>
-      toggle === "repost"
-        ? api.repost(post.id, on)
-        : // Hearts go through the like route, so older servers understand them too.
-          toggle === "heart"
-          ? api.like(post.id, on)
-          : api.react(post.id, toggle, on),
+      toggle === "repost" ? api.repost(post.id, on) : api.react(post.id, toggle, on),
     settled: (toggle, on, answer) => {
       if (!answer.ok) toast(answer.message);
       else if (toggle === "repost") toast(on ? "Reposted" : "Repost removed");
@@ -335,7 +337,7 @@ function actions(post: PostView, options: PostCardOptions): HTMLElement[] {
       longPressed = false;
       return;
     }
-    toggle("heart", !post.liked);
+    toggle("heart", !hearted(post));
   });
   react.addEventListener("click", () => openPicker(react));
 

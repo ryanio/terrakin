@@ -9,7 +9,7 @@ import type { GestureKind } from "@terrakin/protocol";
 import type { Feeling } from "@terrakin/ui/feelings";
 
 /** Body language that plays once at the start of a reaction. */
-export type Cue = "wave" | "hop";
+type Cue = "wave" | "hop";
 
 export interface Reaction {
   feeling: Feeling;

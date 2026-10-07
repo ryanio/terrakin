@@ -301,6 +301,7 @@ describe("settle, starter home, and sharing actions", () => {
       v: 1,
       seq: 0,
       hash: "x",
+      time: { nowMs: 0, dayLengthMs: 600_000 },
       config: { width: 12, height: 12, plotSize: 4, maxPlotsPerResident: 1, reach: 2 },
       commons: { px: 1, py: 1 },
       residents: [],
@@ -1017,11 +1018,11 @@ describe("WorldSnapshot time anchor", () => {
     blocks: [],
   };
 
-  it("accepts a snapshot without a time anchor and rejects a non-positive day length", () => {
+  it("needs a time anchor and rejects a non-positive day length", () => {
     const good = { ...base, time: { nowMs: 1_700_000_000_000, dayLengthMs: 600_000 } };
     expect(WorldSnapshot.safeParse(good).success).toBe(true);
     const { time, ...noTime } = good;
-    expect(WorldSnapshot.safeParse(noTime).success).toBe(true);
+    expect(WorldSnapshot.safeParse(noTime).success).toBe(false);
     expect(WorldSnapshot.safeParse({ ...good, time: { nowMs: 1, dayLengthMs: 0 } }).success).toBe(
       false,
     );

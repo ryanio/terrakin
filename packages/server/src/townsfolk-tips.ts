@@ -37,7 +37,7 @@ import type { WorldService } from "./world-service";
  */
 
 export type TipsMode = "off" | "dry" | "on";
-export const TIPS_MODES: readonly TipsMode[] = ["off", "dry", "on"];
+const TIPS_MODES: readonly TipsMode[] = ["off", "dry", "on"];
 
 /** `TERRAKIN_TIPS`: `off` (the default), `dry`, or `on`. */
 export function tipsMode(env: { TERRAKIN_TIPS?: string | undefined }): TipsMode {
@@ -98,6 +98,17 @@ export interface TownsfolkTipsOptions {
 type Outcome = { kind: "sent" } | { kind: "refused"; code: string } | { kind: "stop" };
 
 /**
+ * A welcome visit's tip: given, checked by a dry run and not given, refused by the sim (`stopped` for a refusal
+ * about the giver or the server), or none: tips off, coins not open, the giver can't give today,
+ * not due, or no budget.
+ */
+export type WelcomeTip =
+  | { kind: "sent"; amount: number }
+  | { kind: "checked"; amount: number }
+  | { kind: "refused"; code: string }
+  | { kind: "none"; why: "off" | "closed" | "giver" | "not_due" | "no_budget" };
+
+/**
  * Refusals about the giver or the server, not the newcomer: a failed log write (`internal`), a giver
  * in a filter cool-down (`rate_limited`), or one the world doesn't know (`unauthorized`). These stop
  * the run, so the newcomer is tried again the next day instead of being passed over.
@@ -137,6 +148,10 @@ export class TownsfolkTips {
       // What the script kept in its state file: newcomers handled, the last post tip, posts tipped.
       `CREATE TABLE IF NOT EXISTS townsfolk_tips (
         id INTEGER PRIMARY KEY CHECK (id = 1), state TEXT NOT NULL
+      )`,
+      // Newcomers a welcome visit tipped (decision 0142), so the daily run never tips them again.
+      `CREATE TABLE IF NOT EXISTS townsfolk_tips_welcomed (
+        resident_id TEXT PRIMARY KEY, at INTEGER NOT NULL
       )`,
       `CREATE TABLE IF NOT EXISTS townsfolk_tips_runs (
         n INTEGER PRIMARY KEY AUTOINCREMENT, at INTEGER NOT NULL, day INTEGER NOT NULL,
@@ -253,6 +268,7 @@ export class TownsfolkTips {
     const now = this.now();
     const dry = this.mode === "dry";
     let state = this.state();
+    const welcomes = this.welcomes(treasuryLedger);
     const plan = planTips({
       today,
       now,
@@ -261,7 +277,8 @@ export class TownsfolkTips {
       knownNotes: ALL_TIP_NOTES,
       townsfolk: [...(world.townsfolk ?? [])],
       // Newcomers come from the purses too, so there's no `oldestTreasurySeq` and no gap to flag.
-      welcomes: this.welcomes(treasuryLedger),
+      welcomes,
+      alreadyWelcomed: this.welcomedNow(welcomes.map((l) => l.residentId)),
       posts: this.recentPosts(now),
       state,
     });
@@ -322,6 +339,72 @@ export class TownsfolkTips {
       result.post = "refused";
       result.codes.push(outcome.code);
     }
+  }
+
+  /**
+   * One newcomer's welcome tip now, from one townsfolk resident, for a welcome visit
+   * (`townsfolk-welcome.ts`). The same plan the daily run makes, with that giver alone and every
+   * other townsfolk purse counted, so it's given only when the daily run would give it: their
+   * treasury welcome is in a ledger, the daily run hasn't handled it, no townsfolk welcome went to
+   * them before, and today's 25 and the giver's purse have room. A gift given is kept in
+   * `townsfolk_tips_welcomed`, which the daily run and this read as well as the ledgers (a giver's
+   * ledger keeps only its newest lines), so nobody is welcomed twice. Writes no run row and leaves
+   * the daily state alone. A dry run checks the gift and gives nothing, and so does every call while
+   * `TERRAKIN_TIPS` is `dry`; while it's `off`, nothing is planned.
+   */
+  welcomeNow(residentId: string, giverId: string, dry: boolean): WelcomeTip {
+    if (this.mode === "off") return { kind: "none", why: "off" };
+    const world = this.world.state;
+    const today = world.day;
+    const treasury = treasuryOf(world);
+    if (today === undefined || !treasury) return { kind: "none", why: "closed" };
+    const { givers, others } = this.purses();
+    const giver = givers.find((g) => g.residentId === giverId);
+    if (!giver) return { kind: "none", why: "giver" };
+    const plan = planTips({
+      today,
+      now: this.now(),
+      givers: [giver],
+      otherLedgers: [...others, ...givers.filter((g) => g !== giver).map((g) => g.ledger)],
+      knownNotes: ALL_TIP_NOTES,
+      townsfolk: [...(world.townsfolk ?? [])],
+      welcomes: this.welcomes(treasury.ledger).filter((l) => l.residentId === residentId),
+      alreadyWelcomed: this.welcomedNow([residentId]),
+      posts: [],
+      state: this.state(),
+    });
+    const step = plan.welcomes[0];
+    if (!step) return { kind: "none", why: plan.unfunded > 0 ? "no_budget" : "not_due" };
+    if ("skip" in step) {
+      // The planner's words for a newcomer who already had all their townsfolk coins today.
+      const full = step.skip === "had their townsfolk coins for today";
+      return { kind: "none", why: full ? "no_budget" : "not_due" };
+    }
+    const checkOnly = dry || this.mode === "dry";
+    const outcome = this.send(step.gift, checkOnly);
+    if (outcome.kind === "sent" && checkOnly) return { kind: "checked", amount: step.gift.amount };
+    if (outcome.kind === "sent") {
+      this.sql.exec(
+        "INSERT OR IGNORE INTO townsfolk_tips_welcomed (resident_id, at) VALUES (?, ?)",
+        residentId,
+        this.now(),
+      );
+      return { kind: "sent", amount: step.gift.amount };
+    }
+    if (outcome.kind === "refused") return { kind: "refused", code: outcome.code };
+    return { kind: "refused", code: "stopped" };
+  }
+
+  /**
+   * Of these residents, the ones a welcome visit already gave a welcome tip. One lookup each: a
+   * Durable Object binds at most 100 values to a statement.
+   */
+  private welcomedNow(ids: readonly string[]): string[] {
+    return [...new Set(ids)].filter(
+      (id) =>
+        [...this.sql.exec("SELECT 1 FROM townsfolk_tips_welcomed WHERE resident_id = ?", id)]
+          .length > 0,
+    );
   }
 
   /**
@@ -400,17 +483,14 @@ export class TownsfolkTips {
       const feed = this.social.feed({ limit: 50, before });
       for (const p of feed.posts) {
         if (p.repostedBy) continue;
-        const reactions = Object.values(p.reactions ?? {}).reduce<number>(
-          (sum, n) => sum + (n ?? 0),
-          0,
-        );
+        const reactions = Object.values(p.reactions).reduce<number>((sum, n) => sum + (n ?? 0), 0);
         posts.push({
           id: p.id,
           authorId: p.author.id,
           authorName: p.author.name,
           authorTownsfolk: p.author.townsfolk === true,
           createdAt: p.createdAt,
-          reactions: Math.max(reactions, p.likeCount),
+          reactions,
         });
       }
       const oldest = feed.posts.at(-1);

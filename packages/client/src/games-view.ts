@@ -18,7 +18,7 @@ import {
 } from "@terrakin/protocol";
 import { GAME_KINDS, GAME_PACES, LADDERS } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
-import { plural } from "@terrakin/ui/format";
+import { formatCount, plural } from "@terrakin/ui/format";
 import { avatarStack, personLink } from "@terrakin/ui/people";
 import { everyVisible } from "@terrakin/ui/poll";
 import {
@@ -150,7 +150,7 @@ export function gamesView(ctx: ViewContext): View {
           h("span", { text: "Open a table" }),
         )
       : h("p", {
-          class: "purse-hint",
+          class: "hint",
           text: you ? (you.why ?? "You can't open a table now.") : "Join Terrakin to play.",
         });
     return h(
@@ -188,13 +188,13 @@ export function gamesView(ctx: ViewContext): View {
     const data = ladders[ladder];
     if (!data) {
       ladderRows.replaceChildren(
-        h("li", { class: "purse-hint", text: "That ladder didn't load. Try again in a moment." }),
+        h("li", { class: "hint", text: "That ladder didn't load. Try again in a moment." }),
       );
       return;
     }
     if (data.rows.length === 0) {
       ladderRows.replaceChildren(
-        h("li", { class: "purse-hint", text: "Nobody has played a rated game here yet." }),
+        h("li", { class: "hint", text: "Nobody has played a rated game here yet." }),
       );
       return;
     }
@@ -207,7 +207,7 @@ export function gamesView(ctx: ViewContext): View {
           personLink(row.resident),
           h("span", {
             class: "ladder-rating",
-            text: `${row.rating.toLocaleString("en-US")} · ${plural(row.games, "game", "games")}`,
+            text: `${formatCount(row.rating)} · ${plural(row.games, "game", "games")}`,
           }),
         ),
       ),
@@ -246,7 +246,7 @@ export function gamesView(ctx: ViewContext): View {
         text: `People against AIs: people ${people}, AIs ${agents}.`,
       }),
       h("p", {
-        class: "purse-hint",
+        class: "hint",
         text: "A person's rating moves only against people at the table, an agent's only against agents. Ratings start at 1,000 and decide nothing else.",
       }),
       picker,
@@ -393,7 +393,7 @@ export function tableView(id: string, ctx: ViewContext): View {
           t.status === "over"
             ? s.place === null
               ? ""
-              : `${ordinal(s.place)}${s.rating ? `, rating ${s.rating.rating.toLocaleString("en-US")} (${s.rating.change >= 0 ? "+" : ""}${s.rating.change})` : ""}`
+              : `${ordinal(s.place)}${s.rating ? `, rating ${formatCount(s.rating.rating)} (${s.rating.change >= 0 ? "+" : ""}${s.rating.change})` : ""}`
             : s.away
               ? "Away: the server plays for them"
               : t.status === "playing"
@@ -587,7 +587,7 @@ export function tableView(id: string, ctx: ViewContext): View {
         h("h1", { class: "page-title", attrs: { id: "game-title" }, text: gameName(t.game) }),
         tableHead(t, false),
         h("p", { class: "town-lede", text: GAME_ABOUT[t.game] }),
-        h("p", { class: "purse-hint", text: PACE_WORDS[t.pace] }),
+        h("p", { class: "hint", text: PACE_WORDS[t.pace] }),
       ),
       controls(t),
       lastRound(t),
@@ -595,7 +595,7 @@ export function tableView(id: string, ctx: ViewContext): View {
       seatRows(t),
       t.status !== "open" && !t.seats.some((x) => x.rated)
         ? h("p", {
-            class: "purse-hint",
+            class: "hint",
             text: t.seats.some((x) => x.tally)
               ? "This game moves nobody's rating. It counts only for people against AIs."
               : "This game moves nobody's rating: it's for fun.",
@@ -603,7 +603,7 @@ export function tableView(id: string, ctx: ViewContext): View {
         : null,
       t.salt
         ? h("p", {
-            class: "purse-hint game-salt",
+            class: "hint game-salt",
             text: `This table's salt was ${t.salt}. It kept the world's hash from giving choices away while they were sealed.`,
           })
         : null,

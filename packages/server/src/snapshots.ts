@@ -23,17 +23,17 @@ import { report } from "./telemetry";
  */
 
 /** The snapshot body's layout. A boot skips snapshots in any other format. */
-export const SNAPSHOT_FORMAT = 1;
+const SNAPSHOT_FORMAT = 1;
 /** The most UTF-8 bytes in one `world_snapshot_part` row. Durable Object rows cap at 2 MB. */
-export const PART_BYTES = 1_000_000;
+const PART_BYTES = 1_000_000;
 /** Take a snapshot once this many inputs have been logged since the newest one. */
 export const SNAPSHOT_TAIL = 50_000;
 /** How many verified snapshots to keep. Newer unverified ones are kept as well. */
-export const KEEP_VERIFIED = 3;
+const KEEP_VERIFIED = 3;
 /** The most inputs one minute's sweep replays while verifying a snapshot. */
-export const VERIFY_SLICE = 25_000;
+const VERIFY_SLICE = 25_000;
 /** About the most JSON one page of the staff log export holds, whatever its row count. */
-export const LOG_PAGE_BYTES = 4_000_000;
+const LOG_PAGE_BYTES = 4_000_000;
 
 /**
  * A gift, a Town Hall vote, or a bounty paid, read from the log for karma (decisions 0055 and

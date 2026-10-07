@@ -19,7 +19,7 @@ The Worker serves the built client from static assets and forwards `/v1/*` to a 
 
 - One Durable Object is exactly "one instance, scale up not out", enforced by the platform. No volume, VM, or proxy to run.
 - Routes and the live protocol exist once, in `Api` and `LiveSession`. `app.ts` and `cloudflare/worker.ts` are thin adapters, so a feature that works in `pnpm dev` works on terrakin.org.
-- `world-service.ts` must stay runnable on both: Web Crypto for randomness, `node:crypto` only for the sync SHA-256 (Workers provide it with `nodejs_compat`).
+- `world-service.ts` and the `world-*.ts` files beside it must stay runnable on both: Web Crypto for randomness, `node:crypto` only for the sync SHA-256 (in `world-credentials.ts`) (Workers provide it with `nodejs_compat`).
 - WebSockets use `accept()`, not the hibernation API, so the object stays in memory while anyone is connected. That's simple and cheap at playtest scale. Hibernation would need presence to survive an eviction; revisit if duration costs matter.
 - Client IPs come from `CF-Connecting-IP`, so the proxy-hop setting isn't needed there.
 - Replay time grows with the log. Fine for Phase 1; the Phase 2 storage RFC should add snapshots.

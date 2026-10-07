@@ -35,6 +35,7 @@ import { materializePlot } from "./plot-photo";
 import type { SocialService } from "./social-service";
 import { report } from "./telemetry";
 import { TIPS_CHECK_MS, type TownsfolkTips } from "./townsfolk-tips";
+import type { TownsfolkWelcome } from "./townsfolk-welcome";
 import type { WorldService } from "./world-service";
 
 const require = createRequire(import.meta.url);
@@ -91,11 +92,14 @@ export interface AppOptions {
   chatter?: ChatterService;
   /** The townsfolk's daily coin tips, asked every `TIPS_CHECK_MS`; they run once a day. Default: none. */
   tips?: TownsfolkTips;
+  /** Welcome visits (decision 0142), run by the minute sweep. Default: none. */
+  welcome?: TownsfolkWelcome;
   /**
    * Tests only (`TERRAKIN_TEST_CLOCK=1`): answers `POST /v1/test/advance-day` by moving the clock
    * a day on, or `?days=N` days (1 to 400) in one jump, which the world takes as one `new_day`, or
    * `?minutes=N` minutes on (1 to 1,440), for an event's start, and `POST /v1/test/sweep` by
-   * running the minute sweep now (idle residents, routines, snapshots). It's deliberately outside
+   * running the minute sweep now (idle residents, routines, snapshots), and `POST /v1/test/grant`
+   * (`TEST_GRANT_PATH`) from this machine. It's deliberately outside
    * the route table, so it never appears in the API docs, and the Cloudflare adapter has no way to
    * turn it on.
    */
@@ -108,9 +112,23 @@ export interface AppOptions {
 /** The test clock's route that moves the world to the next day. See `AppOptions.testClock`. */
 export const TEST_ADVANCE_DAY_PATH = "/v1/test/advance-day";
 /** Tests only, with the test clock: `POST {"residentId"}` makes that resident a maintainer. */
-export const TEST_MAINTAINER_PATH = "/v1/test/maintainer";
+const TEST_MAINTAINER_PATH = "/v1/test/maintainer";
 /** Tests only, with the test clock: runs the minute sweep now, so routines due now take their steps. */
 export const TEST_SWEEP_PATH = "/v1/test/sweep";
+/**
+ * Tests only, with the test clock, from this machine: `POST {"residentId", "coins"?, "stacks"?}`
+ * gives a resident coins from the treasury and stacks of things (decision 0147).
+ */
+export const TEST_GRANT_PATH = "/v1/test/grant";
+
+/**
+ * How long an idle keep-alive connection stays open (decision 0130). A client that reuses a
+ * connection just as the server closes it gets ECONNRESET, and clients that keep connections in a
+ * pool (Node's agent, Playwright's request context) don't retry. Node's default is 5 seconds, which
+ * pooled clients and the reverse proxies in front of a self-hosted server both outlast; 65 seconds
+ * is longer than the 60 that nginx and most load balancers keep an idle upstream connection.
+ */
+const KEEP_ALIVE_MS = 65_000;
 
 /** Whether a socket address is this machine (IPv4, IPv6, or IPv4 mapped into IPv6). */
 export const isLoopback = (address: string | undefined) =>
@@ -135,7 +153,7 @@ export function clientIp(req: IncomingMessage, trustedProxies = 0): string {
  * host[:port] is accepted, so a strange Host header can't put anything else into a page. Behind
  * trusted proxies, `X-Forwarded-Proto` says whether the client used https.
  */
-export function requestOrigin(req: IncomingMessage, trustedProxies = 0): { origin?: string } {
+function requestOrigin(req: IncomingMessage, trustedProxies = 0): { origin?: string } {
   const host = req.headers.host ?? "";
   if (!/^[a-z0-9.-]+(:\d{1,5})?$/i.test(host)) return {};
   const forwarded = trustedProxies > 0 ? req.headers["x-forwarded-proto"] : undefined;
@@ -165,6 +183,7 @@ export function createApp(options: AppOptions): Server {
     ...(options.onResponse ? { onResponse: options.onResponse } : {}),
     ...(options.chatter ? { chatter: options.chatter } : {}),
     ...(options.tips ? { tips: options.tips } : {}),
+    ...(options.welcome ? { welcome: options.welcome } : {}),
     ...(options.staff ? { staff: options.staff } : {}),
     ...(options.now ? { now: options.now } : {}),
     ...(options.maxWatchers === undefined ? {} : { maxWatchers: options.maxWatchers }),
@@ -192,6 +211,10 @@ export function createApp(options: AppOptions): Server {
       if (!res.headersSent) send(res, apiError("internal", "Something broke on our side."));
     });
   });
+  server.keepAliveTimeout = KEEP_ALIVE_MS;
+  // A request's headers on a reused connection must arrive within this, so it outlasts the idle
+  // wait, or Node can drop a connection the client was about to use.
+  server.headersTimeout = KEEP_ALIVE_MS + 1_000;
 
   /** A GET against our own API, for page meta and cards: the same data every client sees. */
   const get: ApiGet = async (path) => {
@@ -262,6 +285,50 @@ export function createApp(options: AppOptions): Server {
         status: 200,
         headers: { "content-type": "application/json", "cache-control": "no-store" },
         body: JSON.stringify({ ok: true }),
+      });
+    }
+    if (options.testClock && req.method === "POST" && url.pathname === TEST_GRANT_PATH) {
+      const json = { "content-type": "application/json", "cache-control": "no-store" };
+      // Coins and things: only from this machine, like the maintainer grant below.
+      if (!isLoopback(req.socket.remoteAddress)) {
+        return send(res, {
+          status: 404,
+          headers: json,
+          body: JSON.stringify({ error: { code: "not_found", message: "Not found." } }),
+        });
+      }
+      const body = (await readJson(req)) as
+        | { residentId?: unknown; coins?: unknown; stacks?: unknown }
+        | undefined;
+      const stacks = body?.stacks;
+      const counts =
+        stacks !== null &&
+        typeof stacks === "object" &&
+        !Array.isArray(stacks) &&
+        Object.values(stacks).every((n) => typeof n === "number");
+      if (
+        typeof body?.residentId !== "string" ||
+        (body.coins !== undefined && typeof body.coins !== "number") ||
+        (stacks !== undefined && !counts)
+      ) {
+        return send(res, {
+          status: 400,
+          headers: json,
+          body: JSON.stringify({
+            ok: false,
+            error: { code: "invalid_body", message: "Bad grant." },
+          }),
+        });
+      }
+      const result = options.service.testGrant(
+        body.residentId,
+        body.coins as number | undefined,
+        stacks as Record<string, number> | undefined,
+      );
+      return send(res, {
+        status: result.ok ? 200 : 400,
+        headers: json,
+        body: JSON.stringify(result.ok ? { ok: true } : { ok: false, error: result.error }),
       });
     }
     const grant = options.testClock?.grantMaintainer;

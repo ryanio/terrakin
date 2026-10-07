@@ -13,7 +13,7 @@ export const ACCESS_NOT_SET_UP =
   "The staff site isn't set up yet. It needs Cloudflare Access (TERRAKIN_ACCESS_TEAM and TERRAKIN_ACCESS_AUD).";
 
 /** A refusal on the admin host: JSON for the API, plain text for pages, strict headers on both. */
-export function adminRefusal(url: URL, status: 401 | 503, code: string, message: string) {
+function adminRefusal(url: URL, status: 401 | 503, code: string, message: string) {
   const api = isApiPath(url.pathname);
   return new Response(api ? JSON.stringify({ error: { code, message } }) : message, {
     status,

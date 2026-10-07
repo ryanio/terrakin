@@ -23,6 +23,7 @@ import { describe, expect, it, vi } from "vitest";
 import { blockColor, RESIDENT_COLOR_HEX } from "./render";
 import { addAll } from "./scene3d/art";
 import { parseGallery } from "./scene3d/catalog";
+import { faceParts, OVERHEAD_ORDER, overheadMaterial } from "./scene3d/figure";
 import { hairMesh, hairPieces } from "./scene3d/hair";
 import {
   cornerLight,
@@ -51,7 +52,6 @@ import {
   wornPieces,
 } from "./scene3d/layout";
 import { BRAND, blockLook, hex, mix, residentHex, shade } from "./scene3d/palette";
-import { faceParts, OVERHEAD_ORDER, overheadMaterial } from "./scene3d/plot";
 import { onHead } from "./scene3d/wear";
 
 type ResidentView = WorldSnapshot["residents"][number];
@@ -76,6 +76,7 @@ function world(): WorldSnapshot {
     v: 1,
     seq: 1,
     hash: "x",
+    time: { nowMs: 0, dayLengthMs: 600_000 },
     config: { width: 32, height: 32, plotSize: 8, maxPlotsPerResident: 2, reach: 3 },
     commons: { px: 2, py: 2 },
     residents: [
@@ -116,6 +117,20 @@ describe("plot layout", () => {
     expect(homePlot(noHearth, "capri")).toEqual({ px: 0, py: 0 });
     expect(homePlot(w, "nobody")).toBeUndefined();
     expect(plotLayout(w, "far")).toBeUndefined();
+  });
+
+  it("lays out a townsfolk's plot, with the townsfolk listed apart from the residents", () => {
+    const w = world();
+    const apart = {
+      ...w,
+      residents: w.residents.slice(1),
+      townsfolk: ["capri"],
+      townsfolkResidents: w.residents.slice(0, 1),
+    };
+    expect(homePlot(apart, "capri")).toEqual({ px: 1, py: 1 });
+    const layout = plotLayout(apart, "capri");
+    expect(layout?.hearth).toEqual({ x: 11, y: 11 });
+    expect(layout?.figures.map((f) => f.id)).toContain("capri");
   });
 
   it("keeps the plot's blocks, fades neighbors by distance, and drops what's past the margin", () => {
@@ -283,7 +298,8 @@ describe("plot layout", () => {
   it("reads the season off the world's day, and the weather off the snapshot's clock", () => {
     const w = { ...world(), day: 20732, time: { nowMs: Date.UTC(2026, 9, 6, 7), dayLengthMs: 1 } };
     expect(plotLayout(w, "capri")).toMatchObject({ season: "autumn", weather: "cloudy" });
-    expect(plotLayout(world(), "capri")).toMatchObject({ season: undefined, weather: "clear" });
+    // Without a world day, the season is the clock's: January 1970 is winter.
+    expect(plotLayout(world(), "capri")?.season).toBe("winter");
   });
 });
 
@@ -694,6 +710,14 @@ describe("three.js stays out of the main bundle", () => {
     "scene3d/furniture.ts",
     "scene3d/displays.ts",
     "scene3d/plot.ts",
+    "scene3d/blocks.ts",
+    "scene3d/ground.ts",
+    "scene3d/paths.ts",
+    "scene3d/scenery.ts",
+    "scene3d/crops.ts",
+    "scene3d/hearth.ts",
+    "scene3d/figure.ts",
+    "scene3d/home.ts",
     "scene3d/gallery.ts",
     "scene3d/page.ts",
     "scene3d/wear.ts",

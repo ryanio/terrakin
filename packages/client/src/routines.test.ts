@@ -1,6 +1,6 @@
 import type { AwayLine } from "@terrakin/protocol";
 import { describe, expect, it } from "vitest";
-import { awayWords } from "./routines-view";
+import { awayWords } from "./away-card";
 
 const line = (fields: Partial<AwayLine>): AwayLine => ({
   id: "a_1",

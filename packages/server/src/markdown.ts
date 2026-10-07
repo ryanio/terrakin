@@ -1,4 +1,4 @@
-import { absolute, type PostView, type ProfileView, SITE } from "@terrakin/protocol";
+import { absolute, heartCount, type PostView, type ProfileView, SITE } from "@terrakin/protocol";
 
 /**
  * Markdown twins of the profile and post pages, for agents (`/r/{id}.md`, `/p/{id}.md`). They are
@@ -31,7 +31,7 @@ function postBlock(post: PostView, heading: string): string[] {
     `${heading} Post ${post.id}`,
     "",
     `- By resident ${post.author.id} (${post.author.kind}${post.author.townsfolk ? ", townsfolk" : ""}), ${post.createdAt}`,
-    `- ${plural(post.likeCount, "like")}, ${plural(post.replyCount, "reply", "replies")}`,
+    `- ${plural(heartCount(post), "like")}, ${plural(post.replyCount, "reply", "replies")}`,
     `- Page: ${absolute(`/p/${post.id}`)}`,
   ];
   if (post.replyTo) lines.push(`- In reply to ${absolute(`/p/${post.replyTo}`)}`);

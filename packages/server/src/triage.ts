@@ -44,7 +44,7 @@ export interface TriageConfig {
   breaker: { failures: number; pauseMs: number };
 }
 
-export const DEFAULT_TRIAGE_MODEL = "claude-haiku-4-5";
+const DEFAULT_TRIAGE_MODEL = "claude-haiku-4-5";
 
 export const DEFAULT_TRIAGE: Omit<TriageConfig, "apiKey"> = {
   model: DEFAULT_TRIAGE_MODEL,
@@ -169,10 +169,10 @@ const encoder = new TextEncoder();
  * counts are lower (about 4 bytes a token in English, 2 to 3 in other scripts), so text in any
  * script can't push a day past its cap; the reservation is settled to the real count afterwards.
  */
-export const estimateTokens = (text: string) => encoder.encode(text).length + MAX_OUTPUT_TOKENS;
+const estimateTokens = (text: string) => encoder.encode(text).length + MAX_OUTPUT_TOKENS;
 
 /** The user message: trusted facts, then the untrusted text and notes as JSON strings in fences. */
-export function triagePrompt(input: TriageInput, maxChars: number): string {
+function triagePrompt(input: TriageInput, maxChars: number): string {
   const text = input.text.slice(0, maxChars);
   const notes = input.notes.map((n) => n.slice(0, 300)).slice(0, 10);
   return [

@@ -116,8 +116,7 @@ function finish(bounties: BountiesState, b: Bounty, status: BountyStatus, day: n
 }
 
 /** What the treasury can spare for a grant or a town bounty: what it holds above the reserve. */
-export const treasurySpare = (econ: EconomyState) =>
-  Math.max(0, econ.treasury - ECONOMY.budgetReserve);
+const treasurySpare = (econ: EconomyState) => Math.max(0, econ.treasury - ECONOMY.budgetReserve);
 
 /** Whether `who` is one of `ids`, or in one of their owner-linked households. */
 const inHousehold = (state: WorldState, who: string, ids: readonly (string | undefined)[]) =>

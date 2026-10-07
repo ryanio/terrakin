@@ -102,18 +102,18 @@ const isReason = (value: unknown): value is ReportReason =>
   (REPORT_REASONS as readonly unknown[]).includes(value);
 
 /** `posts.hidden`: 0 shown, 1 hidden by staff, 2 hidden automatically until reviewed. */
-export const HIDDEN = { no: 0, maintainer: 1, auto: 2 } as const;
+const HIDDEN = { no: 0, maintainer: 1, auto: 2 } as const;
 
 /** Posts by a suspended resident stay out of view. Bind `now` once for each use. */
 export const NOT_SUSPENDED = (column: string) =>
   `${column} NOT IN (SELECT resident_id FROM suspensions WHERE until > ?)`;
 
 /** How many report groups the queue reads at most, most urgent first. */
-export const QUEUE_WINDOW = 500;
+const QUEUE_WINDOW = 500;
 
 /** The actors that aren't people, in the moderation log and on triage-raised reports. */
-export const TRIAGE_ACTOR = "triage";
-export const SYSTEM_ACTOR = "system";
+const TRIAGE_ACTOR = "triage";
+const SYSTEM_ACTOR = "system";
 
 /** Categories triage acts on by itself, at high confidence and high or critical severity. */
 const AUTO_CATEGORIES: ReadonlySet<TriageCategory> = new Set(["spam", "scam", "hate", "sexual"]);

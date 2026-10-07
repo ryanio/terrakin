@@ -33,18 +33,26 @@ export function placeTabs(current: "visit" | "galleries", go?: (path: string) =>
   );
 }
 
+type PlotAt = { px: number; py: number };
+
 /**
- * Jump to plot (px, py) and open the world there. Already standing on it is where you wanted to
- * be too. Any other refusal is said in a toast.
+ * Jump to plot (px, py) and open the world there. `plot` is the plot, or a read that finds it and
+ * otherwise says in words why there's nowhere to go. The button stays busy through the read and
+ * the jump, so a second tap can't send a second visit. Already standing on it is where you wanted
+ * to be too. Any other refusal is said in a toast.
  */
-async function visit(
+export async function visitPlot(
   button: HTMLButtonElement,
-  plot: { px: number; py: number },
+  plot: PlotAt | (() => Promise<PlotAt | string>),
   navigate: (path: string) => void,
 ) {
-  const r = await whileBusy(button, () => api.act({ type: "visit", px: plot.px, py: plot.py }));
-  const there = r.ok && !r.data.ok && r.data.error.code === "already_there";
-  const problem = there ? null : actProblem(r);
+  const problem = await whileBusy(button, async () => {
+    const at = typeof plot === "function" ? await plot() : plot;
+    if (typeof at === "string") return at;
+    const r = await api.act({ type: "visit", px: at.px, py: at.py });
+    const there = r.ok && !r.data.ok && r.data.error.code === "already_there";
+    return there ? null : actProblem(r);
+  });
   if (problem) return toast(problem);
   navigate("/world");
 }
@@ -76,7 +84,7 @@ export function visitButton(
     icon("world"),
     h("span", { text: "Visit" }),
   );
-  button.addEventListener("click", () => void visit(button, plot, navigate));
+  button.addEventListener("click", () => void visitPlot(button, plot, navigate));
   return button;
 }
 
@@ -105,7 +113,7 @@ export function visitTap(
     { class: className, attrs: { type: "button", "aria-label": label } },
     ...children,
   );
-  button.addEventListener("click", () => void visit(button, plot, navigate));
+  button.addEventListener("click", () => void visitPlot(button, plot, navigate));
   return button;
 }
 
@@ -165,7 +173,7 @@ export function visitView(ctx: ViewContext): View {
     h("h1", { class: "page-title", text: "Plots to visit" }),
     placeTabs("visit", go),
     h("p", {
-      class: "purse-hint",
+      class: "hint",
       text: "The homes residents built, each drawn from above. Visit one to stand at its door, look around, and admire it once a day if you like what you see.",
     }),
     linkTabs(

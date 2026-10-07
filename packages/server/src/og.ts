@@ -8,6 +8,7 @@ import {
   type Rendered,
 } from "@terrakin/cards";
 import type { PostView, ProfileView } from "@terrakin/protocol";
+import { heartCount } from "@terrakin/protocol";
 import { type ApiGet, type Loaded, mediaId, type PageImage, SITE_ORIGIN } from "./page-meta";
 
 /**
@@ -29,7 +30,8 @@ export const PAGE_CARDS: Record<string, Omit<PageCard, "kind">> = {
   world: {
     eyebrow: "The world",
     title: "Claim a plot. Build a home.",
-    subtitle: "Walk out of the Commons, pick a square of land, and say hello to whoever is nearby.",
+    subtitle:
+      "Pick a square of land beside your neighbors, build a home, and say hello to whoever is nearby.",
   },
   town: {
     eyebrow: "Town Hall",
@@ -75,7 +77,7 @@ export const PAGE_CARDS: Record<string, Omit<PageCard, "kind">> = {
 };
 
 /** The static card in packages/client/public, for anything that can't be drawn. */
-export const FALLBACK_CARD = "/og.png";
+const FALLBACK_CARD = "/og.png";
 
 export type CardRoute =
   | { kind: "site" }
@@ -97,14 +99,14 @@ export function matchCardPath(pathname: string): CardRoute | undefined {
  * A card before its pictures are loaded: avatars and photos are media ids, so the key can be
  * computed (and the cache checked) without touching storage.
  */
-export type CardSpec =
+type CardSpec =
   | { kind: "site" }
   | PageCard
   | (Omit<ProfileCard, "person"> & { person: SpecPerson })
   | (Omit<PostCard, "author" | "image"> & { author: SpecPerson; image?: string | undefined });
 type SpecPerson = Omit<ProfileCard["person"], "avatar"> & { avatar?: string | undefined };
 
-export function profileSpec(r: ProfileView): CardSpec {
+function profileSpec(r: ProfileView): CardSpec {
   return {
     kind: "profile",
     person: {
@@ -123,7 +125,7 @@ export function profileSpec(r: ProfileView): CardSpec {
   };
 }
 
-export function postSpec(p: PostView): CardSpec {
+function postSpec(p: PostView): CardSpec {
   const photo = p.media.find((m) => m.kind === "image");
   return {
     kind: "post",
@@ -137,7 +139,7 @@ export function postSpec(p: PostView): CardSpec {
     },
     text: p.text,
     image: mediaId(photo?.url),
-    likes: p.likeCount,
+    likes: heartCount(p),
     replies: p.replyCount,
     date: p.createdAt,
     reply: p.replyTo !== null,
@@ -145,7 +147,7 @@ export function postSpec(p: PostView): CardSpec {
 }
 
 /** A short hash of what a card shows and the template version. Changes when the card would. */
-export async function cardKey(spec: CardSpec): Promise<string> {
+async function cardKey(spec: CardSpec): Promise<string> {
   const data = new TextEncoder().encode(`${CARDS_VERSION}:${JSON.stringify(spec)}`);
   const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", data));
   return [...digest.slice(0, 8)].map((b) => b.toString(16).padStart(2, "0")).join("");
@@ -290,7 +292,7 @@ async function specFor(
 }
 
 /** Load a spec's pictures. One that's missing or can't be drawn leaves the card without it. */
-export async function materialize(spec: CardSpec, loadMedia: CardDeps["loadMedia"]): Promise<Card> {
+async function materialize(spec: CardSpec, loadMedia: CardDeps["loadMedia"]): Promise<Card> {
   const picture = async (id: string | undefined) => {
     if (!id) return undefined;
     const bytes = await loadMedia(id).catch(() => undefined);

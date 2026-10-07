@@ -27,7 +27,7 @@ import type { ExclusiveWear } from "@terrakin/sim";
  * item's number is the subject (a muse's number). The collection's `ownerOf(subject)` says who
  * holds the character; a change there (a sale) ends the link.
  */
-export interface AgentOwnerMatch {
+interface AgentOwnerMatch {
   kind: "agentOwner";
   chainId: number;
   /** The binding contract that holds the partner's agents, lowercase. */

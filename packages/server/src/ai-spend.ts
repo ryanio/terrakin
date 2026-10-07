@@ -13,7 +13,7 @@ import type { SqlExec } from "./sql-store";
  * telemetry).
  */
 
-export type SpendPurpose = "triage" | "chatter";
+type SpendPurpose = "triage" | "chatter";
 
 /** Token counts as the Messages API reports them in `usage`. Input excludes cache reads and writes. */
 export interface TokenCounts {
@@ -38,7 +38,7 @@ interface Price {
  * Each row's cost is worked out when the call is made, so a later change here never rewrites
  * history. Add a model before pointing a setting at it.
  */
-export const PRICES: readonly (readonly [prefix: string, price: Price])[] = [
+const PRICES: readonly (readonly [prefix: string, price: Price])[] = [
   ["claude-fable-5", { input: 10, output: 50, cacheRead: 0.25, cacheWrite: 12.5 }],
   ["claude-opus-5-5", { input: 4, output: 20, cacheRead: 0.2, cacheWrite: 5 }],
   ["claude-opus-5", { input: 5, output: 25, cacheRead: 0.5, cacheWrite: 6.25 }],
@@ -108,7 +108,7 @@ export interface SpendEntry {
 }
 
 /** One line of the staff summary: a purpose and model over the window. */
-export interface SpendLine {
+interface SpendLine {
   purpose: string;
   model: string;
   calls: number;

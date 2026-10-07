@@ -18,7 +18,7 @@
 import { type Direction, directionOf, type Ground, STEP, stepFrom, type Tile } from "@terrakin/sim";
 
 /** How near the end of its last step your figure is when the next one goes, in tiles. */
-export const LEAD = 0.45;
+const LEAD = 0.45;
 /** Steps sent that the server hasn't answered yet, at most. */
 export const IN_FLIGHT = 2;
 /** A key pressed from standing waits this long for a second, so two pressed together go diagonally. */
@@ -50,8 +50,11 @@ export interface Walking {
   steer(dir: Direction): Direction;
   /** Send one step: the id the server will answer, or undefined if it couldn't go. */
   send(dir: Direction): string | undefined;
-  /** Nothing is open that way: turn to it and nudge toward it. */
-  bumped(dir: Direction): void;
+  /**
+   * Nothing is open that way: turn to it and nudge toward it. `why` is the sim's own words for
+   * what's in the way ("The shop is in the way.").
+   */
+  bumped(dir: Direction, why: string): void;
 }
 
 /** A walk to somewhere: `plan` finds the steps from where you are, `arrive` runs once there. */
@@ -242,9 +245,13 @@ export class Walker {
       return;
     }
     const { tries, routed } = ask;
+    let why = "";
     for (const dir of tries) {
       const step = stepFrom(ground, ahead, dir);
-      if (!step.ok) continue;
+      if (!step.ok) {
+        why ||= step.message;
+        continue;
+      }
       const id = this.world.send(dir);
       if (id === undefined) {
         this.stop();
@@ -264,7 +271,7 @@ export class Walker {
     if (routed) {
       if (!this.replan()) this.arrive();
     } else if (this.stuck !== way) {
-      this.world.bumped(way);
+      this.world.bumped(way, why);
       this.stuck = this.holding(now) ? way : undefined;
     }
   }

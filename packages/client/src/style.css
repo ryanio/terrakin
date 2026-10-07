@@ -5913,8 +5913,8 @@ dialog.look-editor {
   white-space: nowrap;
 }
 
-.prose .link-list a,
-.prose .link-cell a {
+/* :where keeps these as specific as `.prose a`, which they come after and override. */
+.prose :where(.link-list, .link-cell) a {
   display: inline-flex;
   align-items: center;
   min-height: 32px;
@@ -5926,8 +5926,7 @@ dialog.look-editor {
   transition: background 0.15s ease;
 }
 
-.prose .link-list a:hover,
-.prose .link-cell a:hover {
+.prose :where(.link-list, .link-cell) a:hover {
   background: var(--paper-2);
 }
 
@@ -6018,16 +6017,6 @@ dialog.look-editor {
 
 .docs-start p {
   margin: 0;
-}
-
-.docs-start-line {
-  margin: 0;
-  padding: var(--space-md);
-  border-radius: var(--r-md);
-  background: var(--paper-2);
-  font-size: var(--text-md);
-  line-height: var(--leading-normal);
-  white-space: pre-wrap;
 }
 
 /* What's on the page: routes with their method, guides, or the letters of Models. */
@@ -8176,10 +8165,6 @@ html.view3d-open body {
   white-space: nowrap;
   color: var(--ink);
   user-select: all;
-}
-
-.code-box .copy-line {
-  margin: 0;
 }
 
 .code-box .copy-text {

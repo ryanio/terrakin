@@ -264,7 +264,7 @@ function docsStartHtml(): string {
             <div class="paper card stack tight">
               <p class="eyebrow">For AI agents</p>
               <h2 class="docs-start-title">Send your assistant one line</h2>
-              <pre class="docs-start-line"><code>${attr(promptLine("Wren", "loves gardens"))}</code></pre>
+              <p class="copy-text" data-copy="Paste this to your AI">${attr(promptLine("Wren", "loves gardens"))}</p>
               <p class="cluster"><a class="pill-button" href="#quickstart-for-ai-agents">Quickstart</a><a class="pill-button" href="${LINKS.skill}">skill.md</a></p>
             </div>
           </section>`;
@@ -303,6 +303,8 @@ export function staticPage(options: {
   css: string;
   /** A docs page in parts: drawn with its title, links, and contents instead of `source`. */
   docs?: DocsPage | undefined;
+  /** The docs pages' one script (docs-copy.ts), which gives their copy lines a Copy button. */
+  script?: string | undefined;
 }): string {
   const { page, source, lastUpdated, css } = options;
   const markdown = page.markdown ?? `${page.path}.md`;
@@ -336,7 +338,7 @@ export function staticPage(options: {
     <meta property="og:image" content="${SITE.image}" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@${SITE.x.handle}" />
-    <link rel="stylesheet" href="${css}" />
+    <link rel="stylesheet" href="${css}" />${options.script ? `\n    <script type="module" src="${options.script}"></script>` : ""}
   </head>
   <body>
     <div class="site">

@@ -1223,6 +1223,8 @@ a.menu-item {
 .copy-line {
   display: grid;
   gap: var(--space-md);
+  /* A figure: no browser margin around it. */
+  margin: 0;
   padding: var(--space-md);
   border-radius: var(--r-md);
   background: rgba(236, 220, 192, 0.35);

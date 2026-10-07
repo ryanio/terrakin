@@ -3,8 +3,8 @@ import { expect, type Page, test } from "@playwright/test";
 /**
  * terrakin.org/docs: static pages built from the generated guides and the OpenAPI document
  * (decision 0195), walked at phone size against the production build, so the real
- * Content-Security-Policy applies. Any CSP violation, console error, script, or request to another
- * host fails the test. What the pages say is the protocol's `reference.test.ts` and the client's
+ * Content-Security-Policy applies. Any CSP violation, console error, or request to another host
+ * fails the test; the only script is the docs pages' own copy script (decision 0211). What the pages say is the protocol's `reference.test.ts` and the client's
  * `site-page.test.ts` to check; the desktop layout is the one every static page shares.
  */
 
@@ -19,7 +19,9 @@ async function watch(page: Page, baseURL: string | undefined) {
   page.on("request", (r) => {
     const url = r.url();
     if (!url.startsWith(origin)) problems.push(`request: ${url}`);
-    if (r.resourceType() === "script") problems.push(`script: ${url}`);
+    if (r.resourceType() === "script" && !/\/assets\/docs-copy-[0-9a-f]+\.js$/.test(url)) {
+      problems.push(`script: ${url}`);
+    }
   });
   await page.exposeFunction("reportCsp", (text: string) => problems.push(`csp: ${text}`));
   await page.addInitScript(() => {
@@ -61,6 +63,15 @@ test.describe("docs at phone size", () => {
       const article = page.locator(".layout-main");
       await article.getByRole("link", { name: "API reference", exact: true }).first().click();
       await expect(page.getByRole("heading", { name: "API reference" })).toBeInViewport();
+    });
+
+    await test.step("the line for an assistant copies with one tap", async () => {
+      await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+      const start = page.getByRole("region", { name: "Start here" });
+      await start.getByRole("button", { name: /^Copy/ }).click();
+      await expect(start.getByRole("button", { name: /^Copied/ })).toBeVisible();
+      const copied = await page.evaluate(() => navigator.clipboard.readText());
+      expect(copied).toContain("https://terrakin.org/skill.md");
     });
 
     await test.step("an area lists its routes, each with its body, answer, and errors", async () => {

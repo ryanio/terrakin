@@ -12,7 +12,7 @@ import {
 } from "@terrakin/protocol";
 import { apiPage, type DocsPage, docsPage, pageMarkdown } from "@terrakin/protocol/reference";
 import { iconSvg, isIconName } from "@terrakin/ui/icons";
-import { defineConfig, type Plugin } from "vite";
+import { build, defineConfig, type Plugin } from "vite";
 import { footerHtml, markdownTwin, skillPageMarkdown, staticPage } from "./src/site-page";
 import { stripDescribe } from "./src/strip-describe";
 
@@ -67,6 +67,18 @@ function contentSecurityPolicy(): Plugin {
 }
 
 /** The static pages run no scripts at all. */
+/** The docs pages: a static page's policy, but with our own scripts, for their copy buttons. */
+const DOCS_PAGE_POLICY = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self'",
+  "img-src 'self' data:",
+  "font-src 'self' data:",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'none'",
+].join("; ");
+
 const STATIC_PAGE_POLICY = [
   "default-src 'self'",
   "script-src 'none'",
@@ -129,6 +141,32 @@ function icons(): Plugin {
  *
  * Dates come from docs/site/lastmod.json, which `pnpm gen` keeps.
  */
+/**
+ * The docs pages' one script (src/docs-copy.ts), bundled on its own rather than as a second entry
+ * of the app, so the app's chunks and its first load never change for it. Named by its content.
+ */
+async function docsCopyScript(): Promise<{ fileName: string; code: string }> {
+  const out = await build({
+    configFile: false,
+    logLevel: "warn",
+    build: {
+      write: false,
+      lib: {
+        entry: fileURLToPath(new URL("./src/docs-copy.ts", import.meta.url)),
+        formats: ["es"],
+        fileName: "docs-copy",
+      },
+    },
+  });
+  const outputs = (Array.isArray(out) ? out : [out]).flatMap((o) =>
+    "output" in o ? o.output : [],
+  );
+  const chunk = outputs.find((c) => c.type === "chunk" && c.isEntry);
+  if (chunk?.type !== "chunk") throw new Error("terrakin-site: the docs script didn't build");
+  const hash = createHash("sha256").update(chunk.code).digest("hex").slice(0, 8);
+  return { fileName: `assets/docs-copy-${hash}.js`, code: chunk.code };
+}
+
 function sitePages(): Plugin {
   const prose = (PAGES as readonly SitePage[]).filter((p) => p.prose || p.built);
   const lastmod = () =>
@@ -185,8 +223,9 @@ function sitePages(): Plugin {
             res.setHeader("content-type", "text/html; charset=utf-8");
             const css = "/src/style.css";
             const docs = docsOf(page);
+            const script = docs ? "/src/docs-copy.ts" : undefined;
             return res.end(
-              staticPage({ page, source: read(page), lastUpdated: dated(page), css, docs }),
+              staticPage({ page, source: read(page), lastUpdated: dated(page), css, docs, script }),
             );
           }
         }
@@ -203,7 +242,7 @@ function sitePages(): Plugin {
         next();
       });
     },
-    generateBundle(_options, bundle) {
+    async generateBundle(_options, bundle) {
       const entry = Object.values(bundle).find(
         (c) => c.type === "chunk" && c.isEntry && c.facadeModuleId?.endsWith("/index.html"),
       );
@@ -211,6 +250,9 @@ function sitePages(): Plugin {
       const css =
         entry?.type === "chunk" ? [...(entry.viteMetadata?.importedCss ?? [])][0] : undefined;
       if (!css) throw new Error("terrakin-site: no stylesheet for the static pages");
+      const copy = await docsCopyScript();
+      this.emitFile({ type: "asset", fileName: copy.fileName, source: copy.code });
+      const docsScript = `/${copy.fileName}`;
       for (const page of prose) {
         const source = read(page);
         const lastUpdated = dated(page);
@@ -224,11 +266,12 @@ function sitePages(): Plugin {
         }
         if (page.kind !== "static") continue;
         const docs = docsOf(page);
-        const html = staticPage({ page, source, lastUpdated, css: `/${css}`, docs });
+        const script = docs ? docsScript : undefined;
+        const html = staticPage({ page, source, lastUpdated, css: `/${css}`, docs, script });
         this.emitFile({
           type: "asset",
           fileName: htmlFile(page),
-          source: withCsp(html, STATIC_PAGE_POLICY),
+          source: withCsp(html, script ? DOCS_PAGE_POLICY : STATIC_PAGE_POLICY),
         });
       }
       for (const { page, source, lastUpdated } of posts) {

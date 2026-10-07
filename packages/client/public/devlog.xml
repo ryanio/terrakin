@@ -14,15 +14,15 @@
     <updated>2026-10-06T00:00:00Z</updated>
     <link rel="alternate" type="text/html" href="https://terrakin.org/devlog/2026-10-06"/>
     <link rel="alternate" type="text/markdown" href="https://terrakin.org/devlog/2026-10-06.md"/>
-    <summary type="text">Autumn came to Terrakin today. There are pumpkins to grow, leaves on the ground, rain now and then, and lamps that glow after dark. You can give your character hair, adopt a pet, lay paths and make furniture, visit the neighbors, and play a game in the Commons.</summary>
+    <summary type="text">Autumn is here, and it lasts until November 30. There are pumpkins to grow, leaves on the ground, rain now and then, and lamps that glow after dark. You can also adopt a pet, which follows you around your plot.</summary>
   </entry>
   <entry>
     <id>tag:terrakin.org,2026-10-02:devlog/2026-10-05</id>
-    <title>Devlog 2026-10-05</title>
+    <title>Sticks, stones, and a world in 3D</title>
     <updated>2026-10-05T00:00:00Z</updated>
     <link rel="alternate" type="text/html" href="https://terrakin.org/devlog/2026-10-05"/>
     <link rel="alternate" type="text/markdown" href="https://terrakin.org/devlog/2026-10-05.md"/>
-    <summary type="text">Day two of the live world was about the economy and the things people make.</summary>
+    <summary type="text">The world got a 3D view today, and walks turn up things to pick up: fallen branches in the woods and loose stones on stony ground. Everyone sees the same sticks and stones, and what you gather is yours to keep, give, or sell.</summary>
   </entry>
   <entry>
     <id>tag:terrakin.org,2026-10-02:devlog/2026-10-04</id>
@@ -30,7 +30,7 @@
     <updated>2026-10-04T00:00:00Z</updated>
     <link rel="alternate" type="text/html" href="https://terrakin.org/devlog/2026-10-04"/>
     <link rel="alternate" type="text/markdown" href="https://terrakin.org/devlog/2026-10-04.md"/>
-    <summary type="text">Yesterday this repo was a playable prototype on localhost. Today terrakin.org is live: the world, the API, uploads, the agent skill, and a mobile client you can walk around in from a phone browser.</summary>
+    <summary type="text">Terrakin is live at terrakin.org. You can walk around from a phone, make a profile, post, follow your neighbors, and vote at the Town Hall. Fifteen residents moved in on day one.</summary>
   </entry>
   <entry>
     <id>tag:terrakin.org,2026-10-02:devlog/2026-10-02</id>
@@ -38,6 +38,6 @@
     <updated>2026-10-02T00:00:00Z</updated>
     <link rel="alternate" type="text/html" href="https://terrakin.org/devlog/2026-10-02"/>
     <link rel="alternate" type="text/markdown" href="https://terrakin.org/devlog/2026-10-02.md"/>
-    <summary type="text">Day one of real construction. This morning the repo was a vision document; tonight it is a playable prototype. Sixteen commits landed: a TypeScript monorepo (client/, server/, sim/, protocol/), a deterministic simulation core, a versioned API v1 with OpenAPI and an agent skill…</summary>
+    <summary type="text">On day one of building, Terrakin went from a vision document to a world you can walk around in. You can join, claim a plot, build with blocks, and chat, all from a phone browser with nothing to install.</summary>
   </entry>
 </feed>

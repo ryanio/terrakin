@@ -13,7 +13,7 @@ The first devlog posts ran 600 to 1,000 words of text. Ryan asked for shorter po
 
 ## Decision
 
-- From 2026-10-07 (`DEVLOG_SHORT_FROM` in `packages/protocol/src/devlog.ts`), a post has at most 250 words (`DEVLOG_WORDS_MAX`, headings counted, alt text not) and 1 to 3 screenshots. `parseDevlog` refuses a post that breaks either rule, so `pnpm gen` fails on it. Earlier posts are left as they are, because posts are never edited.
+- A post has at most 250 words (`DEVLOG_WORDS_MAX` in `packages/protocol/src/devlog.ts`, headings counted, alt text not) and 1 to 3 screenshots. `parseDevlog` refuses a post that breaks either rule, so `pnpm gen` fails on it. One screenshot is enough when it shows the day's highlight. The four posts written before this were rewritten to the same rules, with screenshots of today's game.
 - A screenshot is a Markdown image on a line of its own, `![alt](/devlog/images/<day>-<name>.jpg)`. The day must be the post's day, and alt text is required. The files live in `packages/client/public/devlog/images/` and ship as static assets. `pnpm gen` fails when a shown file is missing or over 400 KB, or when a file there isn't shown by any post.
 - `pnpm devlog:shot` (`scripts/devlog-shot.ts`) takes them. It makes a persona on the `pnpm dev:test` world, opens a page in a phone-sized Chromium at 2x, and saves a JPEG at quality 80, usually 40 to 100 KB. `--bare` hides the world's buttons.
 - `markdownToHtml` draws an image line as `<figure><img loading="lazy">`. It loads only paths under `/devlog/images/`, so a post can't pull from another host. `markdownNodes` keeps `src` and `alt` on images for the home wall card.

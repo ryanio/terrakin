@@ -17,8 +17,8 @@ import { absolute, LINKS, SITE, type SitePage } from "./site";
  *   ![What it shows](/devlog/images/2026-10-06-pets.jpg)   a screenshot, on a line of its own
  *   ## Headings, lists, more paragraphs        the rest, in Markdown
  *
- * Posts from `DEVLOG_SHORT_FROM` on are short (`DEVLOG_WORDS_MAX`) and show what changed in 1 to 3
- * screenshots of the game, taken with `pnpm devlog:shot` into packages/client/public/devlog/images.
+ * A post is short (`DEVLOG_WORDS_MAX`) and shows what changed in 1 to 3 screenshots of the game,
+ * taken with `pnpm devlog:shot` into packages/client/public/devlog/images.
  */
 
 /** The longest summary, in characters. Longer first paragraphs are cut at a sentence or a word. */
@@ -63,13 +63,10 @@ export class DevlogError extends Error {
   override name = "DevlogError";
 }
 
-/** Posts from this day on are held to the word cap and carry screenshots. */
-export const DEVLOG_SHORT_FROM = "2026-10-07";
-
-/** The most words a short post has, headings included and screenshots' alt text not. */
+/** The most words a post has, headings included and screenshots' alt text not. */
 export const DEVLOG_WORDS_MAX = 250;
 
-/** How many screenshots a short post has. */
+/** How many screenshots a post has. */
 export const DEVLOG_IMAGES_MIN = 1;
 export const DEVLOG_IMAGES_MAX = 3;
 
@@ -234,18 +231,16 @@ function parseDevlogPost(file: string, text: string): DevlogPost {
     }
     if (alt.trim() === "") fail(`${src} needs alt text that says what it shows.`);
   }
-  if (date >= DEVLOG_SHORT_FROM) {
-    const words = devlogWords(body);
-    if (words > DEVLOG_WORDS_MAX) {
-      fail(
-        `${words} words. A post is ${DEVLOG_WORDS_MAX} at most: keep what a resident would notice.`,
-      );
-    }
-    if (images.length < DEVLOG_IMAGES_MIN || images.length > DEVLOG_IMAGES_MAX) {
-      fail(
-        `${images.length} screenshots. A post shows what changed in ${DEVLOG_IMAGES_MIN} to ${DEVLOG_IMAGES_MAX}, taken with pnpm devlog:shot.`,
-      );
-    }
+  const words = devlogWords(body);
+  if (words > DEVLOG_WORDS_MAX) {
+    fail(
+      `${words} words. A post is ${DEVLOG_WORDS_MAX} at most: keep what a resident would notice.`,
+    );
+  }
+  if (images.length < DEVLOG_IMAGES_MIN || images.length > DEVLOG_IMAGES_MAX) {
+    fail(
+      `${images.length} screenshots. A post shows what changed in ${DEVLOG_IMAGES_MIN} to ${DEVLOG_IMAGES_MAX}, taken with pnpm devlog:shot.`,
+    );
   }
   return {
     date,

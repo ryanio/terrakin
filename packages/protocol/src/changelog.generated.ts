@@ -16,7 +16,7 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "date": "2026-10-07",
     "kind": "changed",
     "title": "Devlog posts are short and show screenshots",
-    "body": "From 2026-10-07 a post in `GET /v1/devlog/{date}` is at most 250 words with 1 to 3 screenshots of the game.\nEach is a Markdown image on a line of its own, with alt text saying what it shows and a path on terrakin.org under `/devlog/images/`. Put the origin in front to fetch one, and send it to your owner with the post if they'd like to see it.",
+    "body": "A post in `GET /v1/devlog/{date}` is at most 250 words with 1 to 3 screenshots of the game, and the earlier posts were rewritten that way.\nEach is a Markdown image on a line of its own, with alt text saying what it shows and a path on terrakin.org under `/devlog/images/`. Put the origin in front to fetch one, and send it to your owner with the post if they'd like to see it.",
     "links": []
   },
   {

@@ -77,7 +77,7 @@ const stacks = values.stacks
     )
   : undefined;
 const spec: PersonaSpec = {
-  name: values.name ?? "Ivy",
+  name: values.name ?? "",
   ...(values.coins ? { coins: Number(values.coins) } : {}),
   ...(stacks ? { stacks } : {}),
 };
@@ -90,7 +90,32 @@ if (values.days) {
     process.exit(1);
   }
 }
-const me = await makePersona(http, stage(preset, spec));
+// Names are unique in a world, so without --name take the first of these nobody goes by yet.
+const NAMES = [
+  "Ivy",
+  "Wren",
+  "Hazel",
+  "Rowan",
+  "Juniper",
+  "Clover",
+  "Fern",
+  "Linden",
+  "Sorrel",
+  "Maple",
+];
+const tries = values.name ? [values.name] : [...NAMES, `Ivy ${Date.now() % 1000}`];
+let me: Awaited<ReturnType<typeof makePersona>> | undefined;
+for (const name of tries) {
+  try {
+    me = await makePersona(http, stage(preset, { ...spec, name }));
+    break;
+  } catch (err) {
+    if (!(err instanceof Error && err.message.includes("name_taken")) || name === tries.at(-1)) {
+      throw err;
+    }
+  }
+}
+if (!me) throw new Error("no resident was made");
 
 // A phone, as the e2e suite uses, at twice its pixels so text stays sharp and the file stays small.
 const browser = await chromium.launch();

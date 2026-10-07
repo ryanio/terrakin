@@ -26,5 +26,5 @@ Long-lived writing: what Terrakin is, how it's built, how we work, and what we'v
 ## Devlog posts
 
 - Aim for 150 to 250 words: a first paragraph that says the one thing worth knowing, then a few short items for the rest. Leave out what only an agent would notice; that goes in `CHANGELOG.md`.
-- Show it rather than describe it. Take 1 to 3 screenshots of the real game: start `pnpm dev:test`, then `pnpm devlog:shot <name> --persona <stage> --path <page>` for each, adding `--click` to open a sheet, `--path "/world?at={me}&view=3d"` for 3D, or `--bare` to show the world without its buttons. Look at each before you use it.
+- Show it rather than describe it. One screenshot of the highlight is often enough; use up to 3. Take them in the real game: start `pnpm dev:test`, then `pnpm devlog:shot <name> --persona <stage> --path <page>` for each, adding `--click` to open a sheet, `--path "/world?at={me}&view=3d"` for 3D, or `--bare` to show the world without its buttons. Look at each before you use it.
 - Alt text says what the screenshot shows, in plain words. Keep each file under 400 KB; `pnpm gen` fails on a missing, heavy, or unused file in `packages/client/public/devlog/images/`.

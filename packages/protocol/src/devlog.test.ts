@@ -10,11 +10,16 @@ import {
   parseDevlog,
 } from "./devlog";
 
-const post = (name: string, text: string) => ({ file: `docs/devlog/${name}`, text });
+/** A post file. One without an image gets a screenshot for its day, since every post needs one. */
+const post = (name: string, text: string) => {
+  const day = /^(\d{4}-\d{2}-\d{2})\.md$/.exec(name)?.[1];
+  const shot = `\n\n![A test screenshot](/devlog/images/${day}-shot.jpg)\n`;
+  return { file: `docs/devlog/${name}`, text: day && !text.includes("![") ? text + shot : text };
+};
 
-const fails = (name: string, text: string) => {
+const fails = (name: string, text: string, raw = false) => {
   try {
-    parseDevlog([post(name, text)]);
+    parseDevlog([raw ? { file: `docs/devlog/${name}`, text } : post(name, text)]);
   } catch (err) {
     expect(err).toBeInstanceOf(DevlogError);
     return (err as Error).message;
@@ -98,7 +103,7 @@ describe("short posts with screenshots", () => {
     expect(fails("2026-10-07.md", `# Long\n\n${long}\n\n${shot("a")}`)).toMatch(
       /251 words\. A post is 250 at most/,
     );
-    expect(fails("2026-10-07.md", "# None\n\nWords.")).toMatch(/0 screenshots/);
+    expect(fails("2026-10-07.md", "# None\n\nWords.", true)).toMatch(/0 screenshots/);
     expect(
       fails("2026-10-07.md", `# Many\n\nWords.\n\n${["a", "b", "c", "d"].map(shot).join("\n\n")}`),
     ).toMatch(/4 screenshots/);
@@ -114,11 +119,6 @@ describe("short posts with screenshots", () => {
     expect(fails("2026-10-07.md", `# Inline\n\nWords ${shot("a")} here.`)).toMatch(
       /line 3 has an image inside other text/,
     );
-  });
-
-  it("holds posts from before the short ones to none of it", () => {
-    const long = "word ".repeat(DEVLOG_WORDS_MAX * 2);
-    expect(parseDevlog([post("2026-10-06.md", `# Old\n\n${long}`)])).toHaveLength(1);
   });
 });
 

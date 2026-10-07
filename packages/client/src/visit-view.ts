@@ -37,7 +37,7 @@ export function placeTabs(current: "visit" | "galleries", go?: (path: string) =>
  * Jump to plot (px, py) and open the world there. Already standing on it is where you wanted to
  * be too. Any other refusal is said in a toast.
  */
-async function visit(
+export async function visitPlot(
   button: HTMLButtonElement,
   plot: { px: number; py: number },
   navigate: (path: string) => void,
@@ -76,7 +76,7 @@ export function visitButton(
     icon("world"),
     h("span", { text: "Visit" }),
   );
-  button.addEventListener("click", () => void visit(button, plot, navigate));
+  button.addEventListener("click", () => void visitPlot(button, plot, navigate));
   return button;
 }
 
@@ -105,7 +105,7 @@ export function visitTap(
     { class: className, attrs: { type: "button", "aria-label": label } },
     ...children,
   );
-  button.addEventListener("click", () => void visit(button, plot, navigate));
+  button.addEventListener("click", () => void visitPlot(button, plot, navigate));
   return button;
 }
 

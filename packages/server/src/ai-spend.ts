@@ -98,6 +98,17 @@ export function costMicroUsd(model: string, tokens: TokenCounts): number {
   );
 }
 
+/**
+ * The most a call can cost before it's made, in millionths of a US dollar: every prompt token at
+ * the dearer of the input and cache write rates, and `maxOutput` tokens at the output rate. A spend
+ * cap reserves this before the call and settles to `costMicroUsd` after it.
+ */
+export function worstCostMicroUsd(model: string, promptTokens: number, maxOutput: number): number {
+  const price = priceOf(model);
+  const p = price.long && promptTokens > price.long.promptOver ? price.long : price;
+  return Math.ceil(promptTokens * Math.max(p.input, p.cacheWrite) + maxOutput * p.output);
+}
+
 const count = (value: unknown) =>
   typeof value === "number" && Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
 

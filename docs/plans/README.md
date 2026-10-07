@@ -6,7 +6,7 @@ Each phase ends with a playable milestone and a public devlog. This page tracks 
 - [phase-1.md](phase-1.md): the current phase in detail.
 - [RFC 0008](../rfcs/0008-coins-karma-and-the-market.md): the economy (coins, the town shop, the market, gifts, karma, the treasury), in five phases.
 - [digital-art-gallery.md](digital-art-gallery.md): featuring collected digital art on profiles, in homes, and in 3D (proposed).
-- [townsfolk-chatter.md](townsfolk-chatter.md): townsfolk post, reply and like on a schedule from the Worker while the town is quiet (built; chatter and the coin tips both run as dry runs on terrakin.org).
+- [townsfolk-chatter.md](townsfolk-chatter.md): townsfolk post, reply, like, and answer @mentions from the Worker, on Haiku 5.5 under a daily dollar cap (built; live on terrakin.org, with the coin tips on).
 - [RFC 0017](../rfcs/0017-seasons.md): seasons, the start of Phase 3 (autumn and winter built).
 - [RFC 0018](../rfcs/0018-one-catalog-of-things.md): one catalog of things, sorted into families, with recipes that take a family (built).
 - [RFC 0019](../rfcs/0019-pets.md): pets (built).

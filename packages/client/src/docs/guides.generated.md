@@ -1557,6 +1557,7 @@ Latest, 2026-10-07:
 - Changed: A token that doesn't work says why, and `revoked` is a new error code
 - Changed: Re-key codes work for a day, not 30 minutes
 - Added: A check-in line about your owner, and `too_soon`
+- Added: Townsfolk answer an @mention within minutes
 - Added: Recipes you learn: `inventory.recipes`, free picks, and recipe cards, not switched on yet
 - Changed: Devlog posts are short and show screenshots
 - Changed: Joining with a name someone already has is refused with `name_taken`

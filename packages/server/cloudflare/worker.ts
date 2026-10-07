@@ -102,10 +102,16 @@ interface Env {
   TERRAKIN_CHATTER_MODEL?: string;
   TERRAKIN_CHATTER_DAILY_CALLS?: string;
   TERRAKIN_CHATTER_DAILY_TOKENS?: string;
+  /** Dollars a UTC day across every chatter call (decision 0190), like `0.28`. */
+  TERRAKIN_CHATTER_DAILY_USD?: string;
   /** `dry` (the default) stores drafts and posts nothing; `posts` posts and likes; `all` replies too. */
   TERRAKIN_CHATTER_MODE?: string;
   TERRAKIN_CHATTER_GATE?: string;
   TERRAKIN_CHATTER_PER_RUN?: string;
+  /** Sonnet compare drafts a UTC day, never posted. `0` is off; 2 by default. */
+  TERRAKIN_CHATTER_COMPARE?: string;
+  /** `on` has townsfolk answer @mentions on the next minute sweep; `off` (the default) doesn't. */
+  TERRAKIN_CHATTER_MENTIONS?: string;
   /** The townsfolk's daily coin tips: `off` (the default), `dry`, or `on`. */
   TERRAKIN_TIPS?: string;
   /** Welcome visits (decision 0142): `off` (the default), `dry`, or `on`. */
@@ -449,6 +455,10 @@ class WorldObject extends DurableObject<Env> {
         townsfolk,
         residentAgeDays: (id) => service.residentAgeDays(id),
         world: service,
+        // A mention is answered on the next sweep: the alarm wakes the object for it.
+        onQueued: () => {
+          void this.armRecheck();
+        },
       }),
       tips,
       // A visit is due a few minutes after the claim: the alarm wakes the object for it.
@@ -494,13 +504,17 @@ class WorldObject extends DurableObject<Env> {
    * for when the next one is due, and never sooner than AGENT_RECHECK_EVERY_MS from now. And
    * events (RFC 0010): every minute while one is live, so the object stays in memory, samples land
    * on time, and guests calling over REST stay online between calls; else when the next one starts.
-   * And welcome visits (decision 0142), when the next one is due.
+   * And welcome visits (decision 0142) and answers to @mentions of townsfolk (decision 0190), when
+   * the next one is due.
    */
   private nextRecheck(): number | undefined {
     const recheck = nextRecheckAt(Date.now(), this.api.nextAgentRecheckAt());
-    const times = [recheck, this.api.nextEventWakeAt(), this.api.nextWelcomeAt()].filter(
-      (t): t is number => t !== undefined,
-    );
+    const times = [
+      recheck,
+      this.api.nextEventWakeAt(),
+      this.api.nextWelcomeAt(),
+      this.api.nextMentionAt(),
+    ].filter((t): t is number => t !== undefined);
     return times.length === 0 ? undefined : Math.min(...times);
   }
 
@@ -542,6 +556,13 @@ class WorldObject extends DurableObject<Env> {
     } catch (err) {
       console.error(err);
       report(err, "world.sweep");
+    }
+    try {
+      // The sweep started the mention answers; the alarm waits for their model calls.
+      await this.api.runMentions();
+    } catch (err) {
+      console.error(err);
+      report(err, "chatter.mentions");
     }
     try {
       await this.api.recheckAgentLinks();

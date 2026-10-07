@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AiSpend, costMicroUsd, NO_TOKENS, priceOf, tokensOf } from "./ai-spend";
+import { AiSpend, costMicroUsd, NO_TOKENS, priceOf, tokensOf, worstCostMicroUsd } from "./ai-spend";
 import { nodeSql } from "./node-sql";
 import { DEFAULT_TRIAGE, TriageClient } from "./triage";
 
@@ -44,6 +44,23 @@ describe("prices", () => {
     expect(costMicroUsd("claude-haiku-5-5-20261007", long)).toBe(
       costMicroUsd("claude-haiku-5-5", long),
     );
+  });
+
+  it("put the most a call can cost above anything its prompt and answer could really cost", () => {
+    // Every prompt token at the dearer of input and cache write, every answer token at output.
+    expect(worstCostMicroUsd("claude-haiku-5-5", 10_000, 520)).toBe(10_000 * 0.125 + 520 * 0.5);
+    expect(worstCostMicroUsd("claude-sonnet-5-5", 10_000, 520)).toBe(10_000 * 2.5 + 520 * 10);
+    // Haiku 5.5 past 100,000 prompt tokens is priced at its long rates.
+    expect(worstCostMicroUsd("claude-haiku-5-5", 200_000, 0)).toBe(200_000 * 0.625);
+    for (const tokens of [
+      { input: 10_000, output: 520, cacheRead: 0, cacheWrite: 0 },
+      { input: 0, output: 520, cacheRead: 0, cacheWrite: 10_000 },
+      { input: 2_000, output: 100, cacheRead: 8_000, cacheWrite: 0 },
+    ]) {
+      expect(costMicroUsd("claude-haiku-5-5", tokens)).toBeLessThanOrEqual(
+        worstCostMicroUsd("claude-haiku-5-5", 10_000, 520),
+      );
+    }
   });
 
   it("read token counts from a response's usage, with anything odd as zero", () => {

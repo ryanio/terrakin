@@ -825,8 +825,28 @@ export class SocialService {
     const post = this.post(id, authorId);
     if (!post) return fail("internal", "Post vanished.");
     if (!request.replyTo) this.onPost?.(post);
+    if (mentions.length > 0 && this.onMentioned) {
+      try {
+        this.onMentioned(
+          id,
+          authorId,
+          mentions.map((m) => m.id),
+        );
+      } catch (err) {
+        report(err, "social.mentioned");
+      }
+    }
     return { ok: true, value: post };
   }
+
+  /**
+   * Called with each new post or reply that @mentions residents, once it's stored: its id, its
+   * author, and who it mentions, in order. `Api` points it at townsfolk chatter (decision 0190).
+   * A failure is reported and the post stands.
+   */
+  onMentioned:
+    | ((postId: string, authorId: string, mentioned: readonly string[]) => void)
+    | undefined;
 
   /**
    * Called with each new top-level post (not replies) once it's stored and visible. `Api` points

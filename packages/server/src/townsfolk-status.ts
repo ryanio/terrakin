@@ -4,7 +4,7 @@ import {
   type TownsfolkActivityResponse,
 } from "@terrakin/protocol";
 import { SUMMARY_DAYS } from "./ai-spend";
-import type { ChatterService } from "./chatter";
+import type { ChatterService, Said } from "./chatter";
 import type { SocialService } from "./social-service";
 import type { TownsfolkTips } from "./townsfolk-tips";
 
@@ -26,7 +26,7 @@ export function tipsStatus(tips: TownsfolkTips | undefined) {
 
 /** The staff overview's chatter line: settings, today's use, the last run, and dry-run drafts. */
 export function chatterStatus(chatter: ChatterService | undefined) {
-  const usage = chatter?.usage() ?? { calls: 0, tokens: 0 };
+  const usage = chatter?.usage() ?? { calls: 0, tokens: 0, microUsd: 0 };
   const paused = chatter?.pausedUntil() ?? null;
   const last = chatter?.lastRun() ?? null;
   const iso = (ms: number) => new Date(ms).toISOString();
@@ -39,6 +39,8 @@ export function chatterStatus(chatter: ChatterService | undefined) {
     callsPerDay: chatter?.config.callsPerDay ?? 0,
     tokensToday: usage.tokens,
     tokensPerDay: chatter?.config.tokensPerDay ?? 0,
+    microUsdToday: usage.microUsd,
+    microUsdPerDay: chatter?.config.microUsdPerDay ?? 0,
     pausedUntil: paused === null ? null : iso(paused),
     lastRun: last ? { at: iso(last.at), result: last.result } : null,
     participation: chatter?.participation(SUMMARY_DAYS) ?? {
@@ -71,6 +73,16 @@ export function townsfolkActivity(
     return post ? { id: post.id, author: post.author, text: post.text.slice(0, 280) } : null;
   };
   const reactions: readonly string[] = REACTION_KEYS;
+  const reactionOf = (key: string) => (reactions.includes(key) ? (key as ReactionKey) : null);
+  const said = (s: Said) => ({
+    model: s.model,
+    action: s.action,
+    outcome: s.outcome,
+    text: s.text,
+    post: postOf(s.postId),
+    resident: s.residentId ? (social.authorView(s.residentId) ?? null) : null,
+    reaction: reactionOf(s.reaction),
+  });
   return {
     chatter: {
       mode: status.mode,
@@ -79,6 +91,11 @@ export function townsfolkActivity(
       model: status.model,
       callsToday: status.callsToday,
       callsPerDay: status.callsPerDay,
+      microUsdToday: status.microUsdToday,
+      microUsdPerDay: status.microUsdPerDay,
+      compare: chatter?.config.compare ?? 0,
+      comparedToday: chatter?.comparedToday() ?? 0,
+      mentions: chatter?.answersMentions ?? false,
       pausedUntil: status.pausedUntil,
       lastRun: status.lastRun,
       participation: status.participation,
@@ -104,9 +121,15 @@ export function townsfolkActivity(
           text: e.text,
           post: postOf(e.postId),
           resident: e.targetId ? (social.authorView(e.targetId) ?? null) : null,
-          reaction: reactions.includes(e.reaction) ? (e.reaction as ReactionKey) : null,
+          reaction: reactionOf(e.reaction),
+          mention: e.mention,
         },
       ];
+    }),
+    compare: (chatter?.comparisons() ?? []).flatMap((c) => {
+      const by = social.authorView(c.residentId);
+      if (!by) return [];
+      return [{ at: iso(c.at), by, kind: c.kind, first: said(c.first), second: said(c.second) }];
     }),
   };
 }

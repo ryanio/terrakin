@@ -19,8 +19,11 @@ import {
   dayLabel,
   gateWords,
   mainSite,
+  modelName,
   participationLine,
+  saidLine,
   sinceWords,
+  spendTodayWords,
   tipsLine,
   todayWords,
 } from "./logic";
@@ -96,6 +99,12 @@ function paint(data: Data, site: string, reload: () => Promise<void>): HTMLEleme
       chatter.mode === "off"
         ? null
         : h("li", { class: "townsfolk-chip", text: gateWords(chatter) }),
+      chatter.mode !== "off" && chatter.mentions
+        ? h("li", { class: "townsfolk-chip", text: "Answers mentions" })
+        : null,
+      chatter.mode === "off"
+        ? null
+        : h("li", { class: "townsfolk-chip", text: modelName(chatter.model) }),
       chatter.lastRun
         ? h("li", {
             class: "townsfolk-chip",
@@ -126,6 +135,7 @@ function paint(data: Data, site: string, reload: () => Promise<void>): HTMLEleme
         meterFill(share),
       ),
     ),
+    h("p", { class: "triage-status", text: `Spend: ${spendTodayWords(chatter)}.` }),
     h("p", { class: "triage-status", text: tipsLine(data.tips) }),
     ...[participationLine(chatter.participation, 30)].map((line) =>
       line ? h("p", { class: "triage-status", text: line }) : null,
@@ -197,7 +207,86 @@ function paint(data: Data, site: string, reload: () => Promise<void>): HTMLEleme
           ),
         )),
   );
-  return [status, people, latest];
+  const compare = compareSection(data, site, now);
+  return compare ? [status, people, compare, latest] : [status, people, latest];
+}
+
+/**
+ * The same prompt answered by the chatter model and the compare model, side by side, so staff can
+ * judge whether the townsfolk sound right. Both models' words go in as text.
+ */
+function compareSection(data: Data, site: string, now: number): HTMLElement | null {
+  const { chatter } = data;
+  if ((chatter.mode === "off" || chatter.compare === 0) && data.compare.length === 0) return null;
+  const first = data.compare[0];
+  const title = first
+    ? `${modelName(first.first.model)} and ${modelName(first.second.model)}`
+    : "Side by side";
+  return h(
+    "section",
+    { class: "stack townsfolk-section", attrs: { "aria-labelledby": "townsfolk-compare" } },
+    h("h2", { class: "section-title", attrs: { id: "townsfolk-compare" }, text: title }),
+    h("p", {
+      class: "field-hint",
+      text: `A few calls a day (${chatter.comparedToday} of ${chatter.compare} today) also ask a second model the same thing. Only the first one's answer goes out.`,
+    }),
+    data.compare.length === 0
+      ? h("p", { class: "field-hint", text: "No pairs yet." })
+      : h(
+          "ol",
+          { class: "plain-list stack townsfolk-feed" },
+          ...data.compare.map((pair) =>
+            h(
+              "li",
+              { class: "paper card stack tight townsfolk-pair-card" },
+              h(
+                "div",
+                { class: "townsfolk-pair-head" },
+                personLink(pair.by, {
+                  href: site + profilePath(pair.by.id),
+                  newTab: true,
+                  picture: false,
+                  badges: false,
+                  className: "townsfolk-by",
+                }),
+                pair.kind === "mention" ? h("span", { class: "item-chip", text: "Mention" }) : null,
+                h("span", { class: "townsfolk-time", text: sinceWords(pair.at, now) }),
+              ),
+              h(
+                "div",
+                { class: "townsfolk-pair" },
+                saidCard(pair.first, "Went out", site),
+                saidCard(pair.second, "Draft only", site),
+              ),
+            ),
+          ),
+        ),
+  );
+}
+
+function saidCard(
+  said: Data["compare"][number]["first"],
+  label: string,
+  site: string,
+): HTMLElement {
+  const named = said.post
+    ? outLink(`${site}${postPath(said.post.id)}`, "Open the post it named")
+    : said.resident
+      ? outLink(`${site}${profilePath(said.resident.id)}`, `Open ${said.resident.name}'s profile`)
+      : null;
+  return h(
+    "div",
+    { class: "stack tight townsfolk-said" },
+    h(
+      "p",
+      { class: "townsfolk-said-head" },
+      h("strong", { text: modelName(said.model) }),
+      h("span", { class: "townsfolk-said-label", text: label }),
+    ),
+    h("p", { class: "townsfolk-line", text: saidLine(said) }),
+    said.text ? h("p", { class: "townsfolk-words", text: said.text }) : null,
+    named ? h("p", { class: "townsfolk-link" }, named) : null,
+  );
 }
 
 /** The meter's fill, sized with a class per tenth, since the admin host allows no inline styles. */
@@ -248,6 +337,7 @@ function entry(e: Data["activity"][number], site: string): HTMLElement {
       ),
       timeAgo(e.at, { className: "townsfolk-time" }),
       e.live ? null : h("span", { class: "item-chip", text: "Draft" }),
+      e.mention ? h("span", { class: "item-chip", text: "Mention" }) : null,
     ),
     e.text ? h("p", { class: "townsfolk-words", text: e.text }) : null,
     answered ? quoted(answered.text) : null,

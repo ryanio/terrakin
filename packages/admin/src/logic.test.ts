@@ -17,6 +17,7 @@ import {
   itemActions,
   itemTags,
   mainSite,
+  modelName,
   NEWCOMER_ROWS,
   participationLine,
   pathFor,
@@ -24,11 +25,13 @@ import {
   reasonProblem,
   recordLine,
   ruleLine,
+  saidLine,
   sameNameLine,
   screenFor,
   screensFor,
   sinceWords,
   spendLine,
+  spendTodayWords,
   stepShare,
   suspendLimits,
   TAKEDOWN_ACTIONS,
@@ -400,6 +403,8 @@ describe("AI spend and chatter", () => {
       callsPerDay: 24,
       tokensToday: 9000,
       tokensPerDay: 100000,
+      microUsdToday: 1200,
+      microUsdPerDay: 280000,
       pausedUntil: null,
       lastRun: { at: "2026-10-06T14:17:00.000Z", result: "busy" },
       participation: { notes: 0, answered: 0, replies: 0, reactions: 0 },
@@ -589,6 +594,24 @@ describe("the townsfolk page", () => {
     expect(activityLine({ ...entry, action: "wave", resident: ryan })).toBe("waved to Ryan");
   });
 
+  it("names models as people say them, and what each side of a compare pair came to", () => {
+    expect(modelName("claude-haiku-5-5")).toBe("Haiku 5.5");
+    expect(modelName("claude-sonnet-5-5")).toBe("Sonnet 5.5");
+    expect(modelName("claude-opus-5")).toBe("Opus 5");
+    expect(modelName("something-else")).toBe("something-else");
+    const said = { ...entry, action: "reply", outcome: "posted" };
+    expect(saidLine({ ...said, post })).toBe("replied to Ryan");
+    expect(saidLine({ ...said, outcome: "draft_reply", post })).toBe("replied to Ryan");
+    expect(saidLine({ ...said, action: "none", outcome: "nothing" })).toBe("chose to do nothing");
+    expect(saidLine({ ...said, outcome: "invalid" })).toBe(
+      "answered outside the rules (chose reply)",
+    );
+    expect(saidLine({ ...said, action: "none", outcome: "refusal" })).toBe("declined");
+    expect(spendTodayWords({ microUsdToday: 30_000, microUsdPerDay: 280_000 })).toBe(
+      "$0.03 of $0.28 today",
+    );
+  });
+
   it("counts a townsfolk resident's day, and says when there's nothing yet", () => {
     const none = { post: 0, reply: 0, like: 0, react: 0, praise: 0, admire: 0, wave: 0 };
     expect(todayWords(none)).toBe("Nothing yet today");
@@ -605,6 +628,11 @@ describe("the townsfolk page", () => {
       model: "",
       callsToday: 0,
       callsPerDay: 12,
+      microUsdToday: 0,
+      microUsdPerDay: 280_000,
+      compare: 2,
+      comparedToday: 0,
+      mentions: true,
       pausedUntil: null,
       lastRun: null,
       participation: { notes: 0, answered: 0, replies: 0, reactions: 0 },

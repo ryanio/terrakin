@@ -49,7 +49,7 @@ import {
 } from "./api-response";
 import { wireSocial } from "./api-wiring";
 import { bountyView } from "./bounties";
-import type { ChatterRun, ChatterService } from "./chatter";
+import type { ChatterRun, ChatterService, MentionRun } from "./chatter";
 import {
   bearerToken,
   type CredentialLookups,
@@ -1076,6 +1076,31 @@ export class Api {
     return this.welcome?.nextAt();
   }
 
+  /** A resident's post or reply @mentioned residents: queue a townsfolk answer (decision 0190). */
+  noteMention(postId: string, authorId: string, mentioned: readonly string[]): void {
+    this.chatter?.noteMention(postId, authorId, mentioned);
+  }
+
+  private mentionsRun: Promise<MentionRun> | undefined;
+
+  /**
+   * Answer the @mentions of townsfolk that are queued (decision 0190). The minute sweep starts it
+   * without waiting; the Worker's alarm awaits it. A call while one is under way gets that one.
+   */
+  runMentions(): Promise<MentionRun> {
+    const chatter = this.chatter;
+    if (!chatter) return Promise.resolve({ skipped: "off", answered: 0, dropped: 0, codes: [] });
+    this.mentionsRun ??= task("chatter.mentions", () => chatter.answerMentions()).finally(() => {
+      this.mentionsRun = undefined;
+    });
+    return this.mentionsRun;
+  }
+
+  /** When the next mention answer is due (ms), or undefined, so the Worker's alarm wakes for it. */
+  nextMentionAt(): number | undefined {
+    return this.chatter?.nextMentionAt();
+  }
+
   /** The staff overview's tips line: the mode and the last run's counts. */
   tipsStatus() {
     return tipsStatus(this.tips);
@@ -1164,6 +1189,11 @@ export class Api {
     } catch (err) {
       report(err, "welcome.run");
     }
+    // Townsfolk answering @mentions (decision 0190): model calls, so not awaited here.
+    this.runMentions().catch((err: unknown) => {
+      console.error("Chatter mentions failed", err);
+      report(err, "chatter.mentions");
+    });
     this.service.keepSnapshots();
     this.postListeners.sweep();
     this.social?.sweep().catch((err: unknown) => {

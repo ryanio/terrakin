@@ -12,26 +12,27 @@ export const SMOKE_3D = ["smoke-3d"] as const;
 export const NIGHTLY = ["three-d", "world-3d"] as const;
 
 /**
- * The 2D specs in CI's three shards, balanced by how long each takes (seconds on a laptop, summed
- * over its tests; e2e/AGENTS.md has the numbers). Playwright's own `--shard` splits by test count
- * in file order, which left one shard half again as slow as the others. A new spec goes in the
- * shard with the least time.
+ * The 2D specs in CI's three shards, balanced by how long each shard takes alone (e2e/AGENTS.md has
+ * the numbers). Playwright's own `--shard` splits by test count in file order, which left one shard
+ * half again as slow as the others. Specs that share the main server slow each other down, so each
+ * shard also mixes them with clock specs, which have servers of their own. A new spec goes in the
+ * fastest shard.
  */
 export const SHARDS = [
   ["make", "praise", "feed", "duo", "world-links", "galleries", "coins", "routines", "first-steps"],
-  ["recipes", "gather", "town", "shop", "looks", "connect-x", "build", "fishing", "partners"],
   [
-    "smoke",
-    "docs",
-    "games",
+    "recipes",
+    "gather",
+    "town",
+    "shop",
+    "looks",
+    "connect-x",
+    "build",
+    "fishing",
+    "partners",
     "owner",
-    "claim",
-    "site",
-    "safety",
-    "sound",
-    "market",
-    "bounties",
     "pets",
     "plot-photo",
   ],
+  ["smoke", "docs", "games", "claim", "site", "safety", "sound", "market", "bounties"],
 ] as const;

@@ -446,7 +446,7 @@ describe("looks", () => {
     ]);
   });
 
-  it("gives Halloween's dates, stock, and trick-or-treating's numbers as the sim has them", () => {
+  it("gives Halloween's and Midwinter's dates and stock, and trick-or-treating's numbers, as the sim has them", () => {
     const section = skill.slice(skill.indexOf("## Holidays"), skill.indexOf("## Build: paths"));
     expect(section).toContain(`**Halloween** runs from ${holidayDates("halloween")}.`);
     expect(section).toContain(
@@ -455,10 +455,6 @@ describe("looks", () => {
     expect(section).toContain(`up to ${TRICK_OR_TREAT.doorsPerDay} doors`);
     expect(section).toContain(`**Trick-or-treating** on ${trickOrTreatNights()} (UTC)`);
     for (const sku of HOLIDAY_STOCK.halloween) expect(section, sku).toContain(`\`${sku}\``);
-  });
-
-  it("gives Midwinter's dates and stock as the sim has them", () => {
-    const section = skill.slice(skill.indexOf("## Holidays"), skill.indexOf("## Build: paths"));
     expect(section).toContain(`**Midwinter** runs from ${holidayDates("midwinter")},`);
     for (const sku of HOLIDAY_STOCK.midwinter) expect(section, sku).toContain(`\`${sku}\``);
   });

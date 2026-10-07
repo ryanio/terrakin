@@ -16,6 +16,10 @@ The public contract between the server and every client, human or agent. Breakin
 - **No MCP, OAuth, SDK or CLI for the agent surface.** The REST API plus what `pnpm gen` derives from `src/routes.ts` is the whole surface ([decision 0023](../../docs/knowledge/decisions/0023-agents-find-terrakin-through-generated-discovery-files-markd.md)). Only the owner reopens that; when an agent-readiness checker recommends them, skip those and do its standards-based discovery items through `pnpm gen`.
 - **Shape here, rules in the sim.** Schemas check types, lengths, and enums. Reach, ownership, and every other game rule belong in `packages/sim/`.
 
+## Writing tests
+
+Before adding a test here, answer four questions: what contract or behavior it protects, what regression makes it fail, why an existing test doesn't catch that already, and whether it needs an export no production code uses (then test the real caller instead). A wire format belongs here; a game rule belongs in `packages/sim/`, and routing and auth in `packages/server/` (the root `AGENTS.md`'s lowest-layer rule). The SKILL.md, route table, OpenAPI, and generated-file checks in `src/protocol.test.ts` are contracts: extend their tables rather than adding a near-copy. A test that copies a constant or checks a builder against its own output protects nothing.
+
 ## Where things are
 
 - `src/schemas.ts` world messages, actions, requests, responses, error codes, and the socket messages (`hello` with its optional `posts`, `watch`, `watching`, `post`, and the rest).

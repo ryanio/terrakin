@@ -18,6 +18,7 @@ import { parseMaintainers, parseTownsfolk, SocialService } from "./social-servic
 import { JsonlStore, MemoryStore } from "./store";
 import { TOWN_EVENTS } from "./town-events";
 import { TownsfolkTips, tipsMode } from "./townsfolk-tips";
+import { TownsfolkWelcome, welcomeMode } from "./townsfolk-welcome";
 import { TriageClient, triageConfig } from "./triage";
 import { DAY_LENGTH_MS, DAY_MS, WorldService } from "./world-service";
 import { oembedReader } from "./x-link";
@@ -196,12 +197,24 @@ const tips = new TownsfolkTips({
   now,
 });
 
+// Welcome visits (decision 0142): off unless TERRAKIN_WELCOME_VISITS is `dry` or `on`. Their tip
+// follows TERRAKIN_TIPS.
+const welcome = new TownsfolkWelcome({
+  mode: welcomeMode(process.env),
+  world: service,
+  social,
+  townsfolk,
+  tips,
+  now,
+});
+
 const server = createApp({
   service,
   social,
   media,
   chatter,
   tips,
+  welcome,
   trustedProxies,
   ...(sessionsPerMinute ? { sessionsPerMinute } : {}),
   ...(staticDir ? { staticDir: fromCwd(staticDir) } : {}),

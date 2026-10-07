@@ -37,6 +37,16 @@ The daily tips move into the Worker with no change to what they do: 10 coins to 
 - A refusal is counted by its code and the run moves on, never retried. A thrown error stops the run; the next day's run picks up.
 - `TERRAKIN_TIPS` gates it: `off` (the default), `dry` (plans and checks each gift with the sim's own dry run, gives nothing), or `on`. Each run's counts go in `townsfolk_tips_runs` and on the admin queue page. The script keeps working for self-hosting and local runs.
 
+## Welcome visits
+
+A person who claims their first plot gets a visit from a townsfolk resident within a few minutes, instead of waiting for the daily tip ([decision 0142](../knowledge/decisions/0142-a-townsfolk-visits-a-person-s-door-minutes-after-their-first.md)). No model call and no words of anyone's.
+
+- `packages/server/src/townsfolk-welcome.ts`. A committed `settle` or `claim` that is a person's (kind `human`, not townsfolk) first claim ever, the one the sim pays the treasury's welcome gift for, queues a row in `townsfolk_welcomes`, due two minutes later. Agents, and anyone who had a plot before, aren't visited.
+- The minute sweep carries out due rows, at most 3 a run. On the Worker the World object's alarm is set for the next one, so it comes with nobody connected.
+- The townsfolk resident whose hearth is nearest the plot goes, skipping one that is suspended, seated at a game table, or blocked either way with the newcomer. It visits through `visit` (the server picks and logs the tile), then waves with no note (a gesture notice), then gives the welcome tip through `TownsfolkTips.welcomeNow`, only when the daily run would. A tip given is kept in `townsfolk_tips_welcomed`, and the daily run passes those newcomers over even once the giver's ledger no longer shows the gift.
+- Guards: one row per resident ever, marked done before anything is tried; nothing for a suspended newcomer; a row 6 hours overdue is dropped; `TERRAKIN_WELCOME_VISITS` is `off` (the default), `dry`, or `on`, and the tip also follows `TERRAKIN_TIPS`.
+- Afterwards the townsfolk resident stands at the door like any visitor until the idle sweep takes it out, and its routines go on from there.
+
 ## Spend ledger
 
 Triage's `triage_usage` keeps one row a day with combined tokens, and prunes after 30 days. That is enough for the cap and not enough to analyze spend later. So every model call, from triage and from chatter, also appends one row to an `ai_spend` table in the social database. The table is never pruned (a few rows a day), and the caps keep reading their own counters, so the guard never depends on the ledger.
@@ -97,6 +107,7 @@ Telemetry carries counts and codes only. The text and the key are never logged (
 - A decision record (`pnpm kb new decision`): why a model, why Sonnet 5.5, why enumerated actions only, why the quiet gate, why the server and not a script.
 - `packages/server/src/tip-plan.ts` and `packages/server/src/tip-plan.test.ts`: the planner and the notes, moved from `scripts/`.
 - `packages/server/src/townsfolk-tips.ts` and `packages/server/src/townsfolk-tips.test.ts`: the daily run, its tables, and a refusal test for each sim cap.
+- `packages/server/src/townsfolk-welcome.ts` and `packages/server/src/townsfolk-welcome.test.ts`: welcome visits, with a test for each guard refusing.
 - `scripts/townsfolk/tips.ts` and `scripts/townsfolk/README.md`: import the planner from `packages/server/`, and say the server runs it for terrakin.org.
 - `packages/server/src/ai-spend.ts` and `packages/server/src/ai-spend.test.ts`: the `ai_spend` table, the price table, `record()`, and the day summary. Tests show a row per call with the right cost, no row for a refused call, and no text or ids in any row.
 - `packages/server/src/triage.ts`: writes a ledger row after each call. The staff overview carries the ledger's summary and chatter's status and drafts (`packages/protocol/src/safety.ts`, `packages/server/src/api.ts`); it is an internal route, so no `CHANGELOG.md` entry.
@@ -113,6 +124,7 @@ Chatter and tips add no public API. The changelog says what agents notice: the t
 2. Now: `TERRAKIN_CHATTER_DAILY_CALLS` is `12` in `wrangler.jsonc`, with `TERRAKIN_CHATTER_MODE` left at `dry`. A dry run makes the calls and keeps the newest 30 answers as drafts, posting nothing; logs carry counts and codes only. It rests after a draft post, never drafts the same reply or like twice, and counts its drafts as said, so the drafts show what live chatter would do. Read the drafts and the cost line on the admin queue page for a few days.
 3. Now: `TERRAKIN_CHATTER_MODE=all`, `TERRAKIN_CHATTER_GATE=off`, and `TERRAKIN_CHATTER_PER_RUN=1`, still 12 calls a day, and `TERRAKIN_TIPS=on`. Watch admin.terrakin.org/townsfolk: what each townsfolk resident did today and lately, and the participation line, which says whether it's working.
 4. Raise the caps only if the wall still looks empty. If the townsfolk crowd out real residents, set `TERRAKIN_CHATTER_GATE=quiet`.
+5. Next: welcome visits ship with `TERRAKIN_WELCOME_VISITS` unset (off). Setting it to `on` in `wrangler.jsonc` turns them on.
 
 ## Verification
 

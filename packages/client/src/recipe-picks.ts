@@ -83,7 +83,12 @@ export async function openRecipePicks(o: RecipePicksOptions): Promise<boolean> {
       button.textContent = "Picked";
       button.className = "pill-button small";
       button.disabled = true;
-      if (left === 0) return o.done();
+      if (left === 0) {
+        // The station's sheet comes back only while this one is still up: after a close, a pull
+        // down, or leaving the page, nothing reopens.
+        if (overlayShowing(s.dialog)) o.done();
+        return;
+      }
       say();
     });
     return itemRow({

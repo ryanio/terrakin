@@ -353,14 +353,21 @@ export function shopView(ctx: ViewContext): View {
     }
   }
 
-  function shelf(id: string, title: string, hint: string, items: HTMLLIElement[]) {
+  /**
+   * One shelf. Only the Recipes shelf takes an id of its own (`recipes`), since `/shop#recipes`
+   * lands on it; the rest have none to clash with anything else on the page.
+   */
+  function shelf(key: string, title: string, hint: string, items: HTMLLIElement[]) {
     return h(
       "section",
       {
         class: "stack shop-section",
-        attrs: { id, "aria-labelledby": `shop-${id}-title` },
+        attrs: {
+          ...(key === "recipes" ? { id: "recipes" } : {}),
+          "aria-labelledby": `shop-${key}-title`,
+        },
       },
-      h("h2", { class: "section-title", attrs: { id: `shop-${id}-title` }, text: title }),
+      h("h2", { class: "section-title", attrs: { id: `shop-${key}-title` }, text: title }),
       h("p", { class: "hint", text: hint }),
       h("ul", { class: "stack plain-list shop-shelf" }, ...items),
     );

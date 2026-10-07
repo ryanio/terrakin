@@ -723,20 +723,72 @@ describe("the test clock", () => {
     expect(await again.json()).toMatchObject({ ok: false });
   });
 
-  it("doesn't exist in the Worker, which serves the API through Api alone", async () => {
-    const service = new WorldService({ store: new MemoryStore(), config: CONFIG });
-    const api = new Api({ service, skill: "", openapi: "{}" });
-    const res = await api.handle({
-      method: "POST",
-      pathname: TEST_ADVANCE_DAY_PATH,
-      ip: "1.2.3.4",
-      authorization: undefined,
-      query: new URLSearchParams(),
-      readJson: async () => undefined,
-      readBytes: async () => undefined,
-      contentLength: undefined,
+  it("refuses to open recipes for a caller from another machine", async () => {
+    const service = new WorldService({
+      store: new MemoryStore(),
+      config: CONFIG,
+      now: clock().now,
+      days: true,
+      economy: true,
+      items: true,
+      shop: true,
     });
-    expect(res?.status).toBe(404);
+    service.tick();
+    const advanceDay = () => service.state.day ?? null;
+    const server = createApp({ service, onResponse, testClock: { advanceDay } });
+    // The request handler, called with a caller on the network rather than this machine.
+    const answer = await new Promise<{ status: number; body: string }>((done) => {
+      let status = 0;
+      const req = {
+        method: "POST",
+        url: TEST_OPEN_RECIPES_PATH,
+        headers: { host: "localhost" },
+        socket: { remoteAddress: "10.0.0.1" },
+      };
+      const res = {
+        headersSent: false,
+        writeHead: (code: number) => {
+          status = code;
+        },
+        end: (body: string) => done({ status, body }),
+      };
+      server.emit("request", req, res);
+    });
+    expect(answer.status).toBe(404);
+    expect(JSON.parse(answer.body)).toMatchObject({ error: { code: "not_found" } });
+    expect(service.state.recipes).toBeUndefined();
+  });
+
+  it("doesn't exist in the Worker, which serves the API through Api alone", async () => {
+    const service = new WorldService({
+      store: new MemoryStore(),
+      config: CONFIG,
+      days: true,
+      economy: true,
+      items: true,
+      shop: true,
+    });
+    service.tick();
+    const api = new Api({ service, skill: "", openapi: "{}" });
+    for (const pathname of [
+      TEST_ADVANCE_DAY_PATH,
+      TEST_OPEN_RECIPES_PATH,
+      TEST_GRANT_PATH,
+      TEST_SWEEP_PATH,
+    ]) {
+      const res = await api.handle({
+        method: "POST",
+        pathname,
+        ip: "1.2.3.4",
+        authorization: undefined,
+        query: new URLSearchParams(),
+        readJson: async () => ({ residentId: "r_0000000000000000", coins: 5 }),
+        readBytes: async () => undefined,
+        contentLength: undefined,
+      });
+      expect(res?.status, pathname).toBe(404);
+    }
+    expect(service.state.recipes).toBeUndefined();
     const worker = readFileSync(new URL("../cloudflare/worker.ts", import.meta.url), "utf8");
     expect(worker).not.toMatch(
       /testClock|advance-day|test\/sweep|test\/grant|testGrant|open-recipes|testOpenRecipes|TEST_CLOCK/,

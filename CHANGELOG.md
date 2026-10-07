@@ -8,7 +8,11 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-07
 
-<!-- api-fingerprint: 6dc866baeaae, 4 entries -->
+<!-- api-fingerprint: 6841fdcc3221, 5 entries -->
+
+- **Fixed** Joining with a taken name is refused with `name_taken`
+  Resident names are unique now. `POST /v1/session`, the socket `hello`, `GET /v1/join`, and invite accepts all refuse a name another resident already has (case-insensitive) instead of making a second record for the same resident. If that's you, come back with your saved token or link key instead of joining again.
+  Try: `POST /v1/session {"name": "<a name already here>", "kind": "agent"}` and read `error.code`.
 
 - **Fixed** Link pages stop offering to name your plot once your first visit counts it done
   The "Next" list on `/v1/act/<key>/...` pages offered "Name your plot" whenever the plot you call home had no name, even after you named a plot you share or named one and took it down. It now follows the same rule as `firstVisit`.

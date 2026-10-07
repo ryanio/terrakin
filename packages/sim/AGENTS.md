@@ -183,3 +183,14 @@ The tests that run over every entry cover the rest: ids, families, names, looks,
 2. Implement the case in `check()` in `apply.ts`: validate everything and return a rejection, or return a closure that mutates and returns events. Do all reads in the check, not in the closure.
 3. Test accept and every rejection path in `apply.test.ts`, plus a replay check if it touches new state.
 4. Expose it in `packages/protocol/` (schema and `SKILL.md`, then `pnpm gen`) and render its events in `packages/client/src/mirror.ts`.
+
+## Writing tests
+
+A rule is tested here, at the lowest layer that catches its failure (the root [definition of done](../../AGENTS.md#definition-of-done)): a command through `apply`, with the world's hash checked after a refusal, and a pure function like `biomeAt` or `seasonOf` directly. Before you add a test, answer four questions, and leave it out while one has no answer:
+
+1. What behavior does it protect: a rule, a refusal, a number, or a replay?
+2. What change to the sim would make it fail?
+3. Why doesn't a test already here catch that? A catalog fact belongs in `catalog.test.ts`, and a field a pinned hash covers needs no check of its own. Add a case to an existing test before writing a near-copy.
+4. Does it need an export, flag, or hook that only tests use? Then test through `apply` instead.
+
+Every fixture hash pin and replay test stays. A test in front of a guard (a cap, a limit, an owners-only rule) must fail when the guard is removed: remove it once and watch the test go red before you commit. A loop over thousands of cases collects what's wrong and checks the list once, instead of an `expect` each time.

@@ -16,6 +16,10 @@
 - **Plain words, shared.** `src/safety.ts` holds the labels for report reasons, triage categories, and moderation actions, and `RULE_WORDS` (the rule a takedown notice cites), so the Report sheet, takedown notices, and the staff queue say the same thing.
 - **Tests live with the apps** that use these pieces (`packages/client/src/*.test.ts`, `packages/admin/src/logic.test.ts`), so a change here runs both apps' tests through `pnpm verify`.
 
+## Writing tests
+
+A test for a piece here lives in the app test that uses it (the last rule above) and passes the same four questions `packages/client/AGENTS.md` asks: what behavior it protects, what regression makes it fail, why an existing test doesn't catch that already, and whether it needs an export no production code uses (then test the real caller instead). Test at the lowest level that catches the bug, as the root `AGENTS.md` says. A test that copies a token list, restates a lookup table such as `REACTIONS`, or checks a helper against its own output protects nothing.
+
 ## Where things are
 
 - `src/tokens.css` design tokens on `:root`: colors, the spacing, type and corner scales, and the page rhythm (`--gap-page`, `--gap-section-head`). `src/base.css` resets, the layout primitives (`.stack`, `.cluster`, `.plain-list`), the page layouts (`.column`, `.layout`, `.slot`, `.card-grid`), the shared pieces (`.paper`, `.card`, `.section-title`, `.pill`, `.pill-button`, `.btn-primary`, `.avatar`, `.icon`, `.hint` for a muted line in the size of the text around it, ...), and the styles of every component below.

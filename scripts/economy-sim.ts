@@ -3,7 +3,7 @@
  * world whose economy, items, and town shop have just opened, and prints supply per active
  * resident each day.
  *
- *   node scripts/economy-sim.ts [--seed 1] [--days 30] [--residents 300] [--start 2024-10-04] [--no-shop] [--no-appreciation] [--no-fishing] [--set key=value ...]
+ *   node scripts/economy-sim.ts [--seed 1] [--days 30] [--residents 300] [--start 2024-10-04] [--no-shop] [--no-appreciation] [--no-fishing] [--no-recipes] [--picks sell] [--set key=value ...]
  *
  *   --seed       PRNG seed, so a run repeats exactly (default 1)
  *   --days       days to play (default 30)
@@ -15,16 +15,23 @@
  *   --no-appreciation  no posts, reactions, or appreciation coins (the decision 0052 baseline)
  *   --no-fishing  nobody fishes (RFC 0023), so the month plays as it did before fishing (the
  *                decision 0123 baseline)
+ *   --no-recipes everyone knows every recipe, as before `open_recipes` (RFC 0024), so the month
+ *                plays as it did before recipes were learned (the decision 0186 baseline)
+ *   --picks      how gardeners use their free picks: `sell` (the default) picks the goods they'd
+ *                sell, best paid first; `shelf` picks any three cards off the shelf, as someone
+ *                picking what they like might, and leaves the goods to cards and lessons
  *   --set        try a different number without editing it: a key of ECONOMY (`allowance=8`), a
  *                shop price (`price.lantern=50`), what the town pays (`buy.lemon_jam=5`), its daily
  *                count (`perDay.lemon_jam=3`), a key of SHOP (`goodsPerDay=2`), or the pantry once
- *                the shop is open (`shopPantry.jar=2`, `shopStapleMax=8`)
+ *                the shop is open (`shopPantry.jar=2`, `shopStapleMax=8`), or a key of
+ *                RECIPES_RULES (`recipes.rotationTimes=4`, `recipes.pageOneIn=30`)
  *
  * Every step is an input to the real sim (apply), and the numbers are the sim's own (ECONOMY in
  * packages/sim/src/economy.ts, ITEMS in packages/sim/src/items.ts, the catalog and buy orders in
- * packages/sim/src/shop.ts), so the script and the rules can't drift. Karma is scored by the
- * server's own `scoreKarma` with `KARMA` from the protocol. Change a number there, rerun this, and
- * record why in a decision (decisions 0039, 0052, and 0055).
+ * packages/sim/src/shop.ts, RECIPES_RULES in packages/sim/src/recipes.ts), so the script and the
+ * rules can't drift. Karma is scored by the server's own `scoreKarma` with `KARMA` from the
+ * protocol, and the townsfolk teach the server's own specialties (`SPECIALTIES`). Change a number
+ * there, rerun this, and record why in a decision (decisions 0039, 0052, 0055, and 0186).
  */
 import { registerHooks } from "node:module";
 import { parseArgs } from "node:util";
@@ -47,6 +54,8 @@ import type {
   Crop,
   DailyAward,
   GoodKind,
+  RecipeName,
+  SellKind,
   ShopSku,
   StackKind,
   WorldState,
@@ -56,6 +65,10 @@ const {
   apply,
   biomeAt,
   BUY_ORDERS,
+  CARD_RECIPES,
+  cardSeason,
+  cardSku,
+  chebyshev,
   CROP_INFO,
   CROPS,
   castsToday,
@@ -73,21 +86,37 @@ const {
   isGoodKind,
   isReady,
   isWater,
+  knows,
   onSale,
+  onShelf,
+  pageOn,
   pickupLeft,
+  picksLeft,
+  plotOf,
   POND,
+  RECIPE_PAGE,
   RECIPES,
+  RECIPES_RULES,
+  recipeCardPrice,
+  route,
   SHOP,
   SHOP_CATALOG,
   SHOP_SHARE_BEFORE,
+  shelfOn,
   TIMES_OF_DAY,
   TOWN_ACTOR,
   dayOfDate,
+  taughtToday,
+  teachingToday,
   tileKey,
   townBuys,
+  townsfolkLessonDue,
+  visitTile,
   waterBeside,
   weatherAt,
+  worldGround,
 } = await import("../packages/sim/src/index.ts");
+const { SPECIALTIES } = await import("../packages/server/src/lesson-plan.ts");
 const { KARMA, KARMA_TIERS, tierAtLeast } = await import("../packages/protocol/src/social.ts");
 const { scoreKarma } = await import("../packages/server/src/karma.ts");
 
@@ -103,6 +132,8 @@ const { values: args } = parseArgs({
     "no-shop": { type: "boolean", default: false },
     "no-appreciation": { type: "boolean", default: false },
     "no-fishing": { type: "boolean", default: false },
+    "no-recipes": { type: "boolean", default: false },
+    picks: { type: "string", default: "sell" },
     set: { type: "string", multiple: true, default: [] },
   },
 });
@@ -122,7 +153,9 @@ for (const pair of args.set ?? []) {
   if (key in N) N[key as keyof Numbers] = n;
   else if (key in SHOP) (SHOP as unknown as Mutable)[key] = n;
   else if (key === "shopStapleMax") (ITEMS as unknown as Mutable).shopStapleMax = n;
-  else if (tail && head === "shopPantry" && tail in ITEMS.shopPantry) {
+  else if (tail && head === "recipes" && tail in RECIPES_RULES) {
+    (RECIPES_RULES as unknown as Mutable)[tail] = n;
+  } else if (tail && head === "shopPantry" && tail in ITEMS.shopPantry) {
     (ITEMS.shopPantry as Record<string, number>)[tail] = n;
   } else if (tail && (head === "price" || head === "buy" || head === "perDay")) {
     const entry = (where[head] as Record<string, Record<string, number>>)[tail];
@@ -135,6 +168,11 @@ const SHOP_OPEN = !args["no-shop"];
 const APPRECIATION = !args["no-appreciation"];
 /** Fishing needs items, and its coins need the shop. */
 const FISHING_ON = SHOP_OPEN && !args["no-fishing"];
+/** Recipes are learned once the shop is open (`open_recipes` needs it). */
+const RECIPES_ON = SHOP_OPEN && !args["no-recipes"];
+if (args.picks !== "sell" && args.picks !== "shelf") throw new Error("--picks is sell or shelf");
+/** Whether gardeners pick the goods they'd sell (`--picks sell`) or any cards (`--picks shelf`). */
+const PICK_TO_SELL = args.picks === "sell";
 const SEED = Number(args.seed);
 const DAYS = Number(args.days);
 const RESIDENTS = Number(args.residents);
@@ -174,6 +212,8 @@ const taste = draws(mulberry32(SEED ^ 0x5eed));
 const social = draws(mulberry32(SEED ^ 0xa11ce));
 // Who fishes, and every cast's roll and sky, so turning fishing off leaves the rest alone too.
 const angling = draws(mulberry32(SEED ^ 0xf15));
+// Picks, lessons, and who meets a townsfolk: `--no-recipes` draws none of them.
+const lore = draws(mulberry32(SEED ^ 0x7ec1));
 
 // ---------- the rules ----------
 
@@ -238,6 +278,12 @@ function simRules(): Rules {
         if ((SHOP.treasuryShare as number) !== SHOP_SHARE_BEFORE) {
           must(TOWN_ACTOR, { type: "set_shop_share", percent: SHOP.treasuryShare });
         }
+      }
+      if (RECIPES_ON) {
+        // Finds are out on terrakin.org, and recipe pages lie only where a find would. Nobody here
+        // gathers a find, so they change nothing else.
+        must(TOWN_ACTOR, { type: "open_finds" });
+        must(TOWN_ACTOR, { type: "open_recipes" });
       }
     },
     newDay: (d) => must(TOWN_ACTOR, { type: "new_day", day: DAY0 + d }),
@@ -341,8 +387,15 @@ const holds = (state: WorldState, id: string, kind: StackKind) =>
 const goodsOf = (state: WorldState, id: string, kind: GoodKind) =>
   (state.items?.inventories[id]?.goods ?? []).filter((g) => g.kind === kind).length;
 
-/** Counts for the report, kept per day. */
-const tally = { sold: 0, spent: 0, fish: 0, casts: 0 };
+/** Counts for the report, kept per day. `cards` is the part of `spent` that bought recipe cards. */
+const tally = { sold: 0, spent: 0, fish: 0, casts: 0, cards: 0 };
+
+/** The month's day (0 is the first) the world is on now. */
+const today = (state: WorldState) => (state.day ?? DAY0) - DAY0;
+
+/** The month's day each resident first sold the town anything, and first sold something they made. */
+const firstSale = new Map<string, number>();
+const firstMadeSale = new Map<string, number>();
 
 /** A gardener's day at home: harvest, replant, make and sell what the town buys, and grow. */
 function tendGarden(rules: Rules, id: string, habits: Habits, planters: Map<string, Set<string>>) {
@@ -442,6 +495,9 @@ function sell(rules: Rules, id: string, item: string, count: number) {
   const before = coinsOf(rules.state, id);
   if (rules.send(id, { type: "sell_to_town", item, count })) {
     tally.sold += coinsOf(rules.state, id) - before;
+    const day = today(rules.state);
+    if (!firstSale.has(id)) firstSale.set(id, day);
+    if (isGoodKind(item) && !firstMadeSale.has(id)) firstMadeSale.set(id, day);
   }
 }
 
@@ -459,6 +515,176 @@ function goShopping(rules: Rules, id: string, habits: Habits) {
   if (isDecorKind(next)) {
     const tile = gardenTiles(state, id)[0];
     if (tile) rules.send(id, { type: "place", ...tile, block: next });
+  }
+}
+
+// ---------- recipes you learn (RFC 0024) ----------
+
+/**
+ * How often a resident who's around asks a neighbor to teach them something they'd sell, and how
+ * often a townsfolk stands near a resident who's around. Neither is measured yet: they're modest
+ * guesses, and the sim's own limits (one lesson a day each way, a townsfolk's once a week) cap
+ * them whatever they are.
+ */
+const TEACH_ASK = 0.1;
+const NEAR_TOWNSFOLK = 0.1;
+/** Neighbors are residents whose hearths are within two plots of yours. */
+const NEIGHBORLY = 16;
+
+/** What learning came to over the month, by how. */
+const learned = { picked: 0, bought: 0, taught: 0, townsfolk: 0, found: 0, cardCoins: 0 };
+
+/** The crops a good uses, leaving out the pantry's staples. */
+const cropsIn = (good: GoodKind): Crop[] =>
+  Object.keys(RECIPES[good].needs).filter((k): k is Crop =>
+    (CROPS as readonly string[]).includes(k),
+  );
+
+/** A card for a good the town buys. */
+type SellingCard = RecipeName & GoodKind & SellKind;
+
+/** Cards for goods the town buys, best paid first: what a gardener makes to sell. */
+const SELLING_CARDS = (
+  CARD_RECIPES.filter((r) => isGoodKind(r) && Object.hasOwn(BUY_ORDERS, r)) as SellingCard[]
+).sort((a, b) => BUY_ORDERS[b].price - BUY_ORDERS[a].price);
+
+/** The goods the starter seeds make that are cards, on the shelf all year. */
+const YEAR_ROUND = SELLING_CARDS.filter((r) => cardSeason(r) === undefined);
+
+/** The month's day each gardener knew every one of `YEAR_ROUND`. */
+const knewThem = new Map<string, number>();
+
+/** Whether a resident grows a crop: holds its seed or the crop, or has it in a planter. */
+function grows(state: WorldState, id: string, crop: Crop, planters: Map<string, Set<string>>) {
+  if (holds(state, id, CROP_INFO[crop].seed) > 0 || holds(state, id, crop) > 0) return true;
+  return [...(planters.get(id) ?? [])].some((key) => state.items?.crops[key]?.crop === crop);
+}
+
+/** The cards on today's shelf for goods a gardener would sell from what they grow, best paid first. */
+function wantedCards(state: WorldState, id: string, planters: Map<string, Set<string>>) {
+  const day = state.day ?? 0;
+  return SELLING_CARDS.filter(
+    (r) => onShelf(r, day) && cropsIn(r).every((c) => grows(state, id, c, planters)),
+  );
+}
+
+/**
+ * A resident's recipes at home: free picks first (a gardener picks the goods they'd sell, best
+ * paid first, unless `--picks shelf`; anyone else three cards off today's shelf), then a gardener buys the card for each
+ * good they'd sell once they can afford it with 10 coins to spare, and anyone picks up a recipe
+ * page for something they don't know lying within reach.
+ */
+function learnAtHome(rules: Rules, id: string, habits: Habits, planters: Map<string, Set<string>>) {
+  const { state } = rules;
+  const day = state.day ?? 0;
+  const unknown = (r: RecipeName) => !knows(state, id, r);
+  while (picksLeft(state, id) > 0) {
+    const recipe =
+      habits.gardens && PICK_TO_SELL
+        ? wantedCards(state, id, planters).find(unknown)
+        : lore.pick(shelfOn(day).filter(unknown));
+    if (!recipe || !rules.send(id, { type: "pick_recipe", recipe })) break;
+    learned.picked++;
+  }
+  if (habits.gardens) {
+    for (const recipe of wantedCards(state, id, planters).filter(unknown)) {
+      const price = recipeCardPrice(recipe);
+      if (coinsOf(state, id) < price + 10) continue;
+      if (!rules.send(id, { type: "shop_buy", sku: cardSku(recipe) })) continue;
+      tally.spent += price;
+      tally.cards += price;
+      learned.bought++;
+      learned.cardCoins += price;
+    }
+    if (!knewThem.has(id) && YEAR_ROUND.every((r) => knows(state, id, r))) {
+      knewThem.set(id, today(state));
+    }
+  }
+  const me = state.residents[id];
+  if (!me) return;
+  const { reach } = state.config;
+  for (let y = me.y - reach; y <= me.y + reach; y++) {
+    for (let x = me.x - reach; x <= me.x + reach; x++) {
+      if (pickupLeft(state, x, y) !== RECIPE_PAGE) continue;
+      if (knows(state, id, pageOn(x, y, day) as RecipeName)) continue;
+      if (rules.send(id, { type: "gather", x, y })) learned.found++;
+    }
+  }
+}
+
+/**
+ * Bring `who` within reach of `to`, who stands at home: a visit to their plot, which lands at its
+ * edge in front of the door, then the fewest steps closer. True when they're within reach.
+ */
+function meet(rules: Rules, who: string, to: string): boolean {
+  const { state } = rules;
+  const near = () => {
+    const a = state.residents[who];
+    const b = state.residents[to];
+    return a !== undefined && b !== undefined && chebyshev(a, b) <= state.config.reach;
+  };
+  const target = state.residents[to];
+  if (!target || near()) return near();
+  const { px, py } = plotOf(state.config, target.x, target.y);
+  const tile = visitTile(state, who, px, py);
+  if (tile) rules.send(who, { type: "visit", px, py, x: tile.x, y: tile.y });
+  const from = state.residents[who];
+  if (!from) return false;
+  for (const dir of route(worldGround(state), from, target, state.config.reach, 8)) {
+    if (!rules.send(who, { type: "move", dir })) break;
+  }
+  return near();
+}
+
+/** What a townsfolk here teaches: the real townsfolk's lists (`SPECIALTIES`), one each, in order. */
+const teaches = (by: string): readonly RecipeName[] =>
+  Object.values(SPECIALTIES)[TOWNSFOLK.indexOf(by)] ?? [];
+
+/**
+ * The day's lessons, once everyone around has been home. A gardener who'd sell a good they don't
+ * know asks now and then (`TEACH_ASK`): the nearest neighbor around today who knows it and hasn't
+ * taught today walks over, teaches it, and goes home. And now and then (`NEAR_TOWNSFOLK`) a
+ * townsfolk stands near a resident who's around and teaches the first of their specialties the
+ * resident doesn't know, as the server's lessons run does. The sim checks every lesson.
+ */
+function teachingDay(
+  rules: Rules,
+  active: readonly string[],
+  byId: Map<string, Person>,
+  planters: Map<string, Set<string>>,
+) {
+  const { state } = rules;
+  const day = state.day ?? 0;
+  const housed = active.filter((id) => state.residents[id]?.hearth);
+  for (const id of housed) {
+    const learner = state.residents[id];
+    if (!learner?.hearth || !byId.get(id)?.habits.gardens) continue;
+    const want = wantedCards(state, id, planters).filter((r) => !knows(state, id, r));
+    if (want.length === 0 || taughtToday(state, id) > 0 || !lore.chance(TEACH_ASK)) continue;
+    const home = learner.hearth;
+    const teacher = housed
+      .flatMap((t) => {
+        const h = state.residents[t]?.hearth;
+        if (t === id || !h || teachingToday(state, t) > 0) return [];
+        const far = chebyshev(h, home);
+        return far <= NEIGHBORLY && want.some((r) => knows(state, t, r)) ? [{ t, far }] : [];
+      })
+      .sort((a, b) => a.far - b.far || (a.t < b.t ? -1 : 1))[0]?.t;
+    if (!teacher) continue;
+    const recipe = want.find((r) => knows(state, teacher, r)) as RecipeName;
+    if (meet(rules, teacher, id) && rules.send(teacher, { type: "teach", recipe, to: id })) {
+      learned.taught++;
+    }
+    rules.home(teacher);
+  }
+  for (const id of housed) {
+    if (!lore.chance(NEAR_TOWNSFOLK)) continue;
+    const by = lore.pick(TOWNSFOLK) ?? "";
+    const recipe = teaches(by).find((r) => !knows(state, id, r));
+    if (!recipe || taughtToday(state, id) > 0 || !townsfolkLessonDue(state, id, day)) continue;
+    if (meet(rules, by, id) && rules.send(by, { type: "teach", recipe, to: id })) {
+      learned.townsfolk++;
+    }
   }
 }
 
@@ -669,6 +895,8 @@ interface Row {
   fish: number;
   casts: number;
   spent: number;
+  /** Coins spent on recipe cards (part of `spent`). */
+  cards: number;
   burned: number;
   day: number;
   arrived: number;
@@ -713,6 +941,7 @@ function play(rules: Rules) {
   const settled = new Set<string>();
   const planters = new Map<string, Set<string>>();
   const atHome = (p: Person) => {
+    if (RECIPES_ON) learnAtHome(rules, p.id, p.habits, planters);
     if (p.habits.gardens) tendGarden(rules, p.id, p.habits, planters);
     if (p.habits.casts > 0) goFishing(rules, p.id, p.habits);
     goShopping(rules, p.id, p.habits);
@@ -728,6 +957,7 @@ function play(rules: Rules) {
     tally.spent = 0;
     tally.fish = 0;
     tally.casts = 0;
+    tally.cards = 0;
     // The economy opens partway through day 0, so day 0 has no new_day of its own.
     if (day > 0) rules.newDay(day);
     // Yesterday's appreciation, paid early today.
@@ -766,6 +996,8 @@ function play(rules: Rules) {
         }
       }
     }
+
+    if (RECIPES_ON) teachingDay(rules, active, byId, planters);
 
     // Residents tip each other now and then. Not on their first day: the rules refuse that.
     const veterans = active.filter((id) => !arrived.includes(id));
@@ -825,6 +1057,7 @@ function play(rules: Rules) {
       fish: tally.fish,
       casts: tally.casts,
       spent: tally.spent,
+      cards: tally.cards,
       burned: rules.burned() - burnedBefore,
       day,
       arrived: arrived.length,
@@ -850,6 +1083,37 @@ function play(rules: Rules) {
 }
 
 // ---------- report ----------
+
+/**
+ * How newcomers' first weeks went: gardeners who arrived with at least a week of the month left,
+ * how many days until their first sale and their first sale of something they made, and once
+ * recipes are learned, how they learned them, what cards cost them, and how many days until they
+ * knew every year-round good they'd sell.
+ */
+function newcomerLines(people: Person[], rows: Row[]) {
+  const gardeners = people.filter((p) => p.habits.gardens && p.settles && p.arrives <= DAYS - 8);
+  const days = (seen: Map<string, number>) => {
+    const list = gardeners.flatMap((p) => {
+      const d = seen.get(p.id);
+      return d === undefined ? [] : [d - p.arrives];
+    });
+    list.sort((a, b) => a - b);
+    return `median ${percentile(list, 0.5)} days, p90 ${percentile(list, 0.9)}, ${list.length} of ${gardeners.length}`;
+  };
+  console.log(
+    `Gardeners with a week or more left (n=${gardeners.length}): first sale ${days(firstSale)}; first sale of something they made ${days(firstMadeSale)}.`,
+  );
+  if (!RECIPES_ON) return;
+  const week = rows.slice(-7);
+  const cards = week.reduce((s, r) => s + r.cards, 0);
+  const active = week.reduce((s, r) => s + r.active, 0) / week.length;
+  console.log(
+    `Recipes learned in the month: ${learned.picked} picked, ${learned.bought} cards bought (${learned.cardCoins} coins), ${learned.taught} taught by neighbors, ${learned.townsfolk} by townsfolk, ${learned.found} from pages.`,
+  );
+  console.log(
+    `Last 7 days: cards ${Math.round(cards / 7)} coins a day, ${(cards / Math.max(1, active)).toFixed(1)} a week per active resident. Gardeners who know every year-round good they sell (${YEAR_ROUND.join(", ")}): ${days(knewThem)}.`,
+  );
+}
 
 const pad = (v: string | number, n: number) => String(v).padStart(n);
 const percentile = (sorted: number[], q: number) =>
@@ -934,6 +1198,7 @@ function report(rules: Rules) {
         );
       }
     }
+    if (SHOP_OPEN) newcomerLines(people, rows);
     if (APPRECIATION) {
       console.log(
         `Last 7 days: appreciation minted ${avg((r) => r.appreciation)} a day, ${(

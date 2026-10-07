@@ -9,6 +9,7 @@ import { api, SIGNED_OUT_EVENT, savedToken, saveToken } from "./api";
 import { bountiesView } from "./bounties-view";
 import { logView } from "./log-view";
 import { pathFor, type Screen, screenFor, screensFor } from "./logic";
+import { newcomersView } from "./newcomers-view";
 import { queueView } from "./queue-view";
 import { townsfolkView } from "./townsfolk-view";
 import { actorName, button, type View } from "./view";
@@ -16,8 +17,8 @@ import "./style.css";
 
 /**
  * The staff app at admin.terrakin.org (RFC 0006, decision 0040). It asks who's signed in, then
- * shows the review queue, the moderation log, what the townsfolk are doing, or (for maintainers) the
- * bounties to confirm. Everything it shows comes from the staff routes;
+ * shows the review queue, the moderation log, what the townsfolk are doing, the newcomer funnel, or
+ * (for maintainers) the bounties to confirm. Everything it shows comes from the staff routes;
  * the server checks every action, so this page only decides what to offer.
  */
 
@@ -97,6 +98,7 @@ const SCREEN_NAMES: Record<Screen, string> = {
   queue: "Queue",
   log: "Log",
   townsfolk: "Townsfolk",
+  newcomers: "Newcomers",
   bounties: "Bounties",
 };
 
@@ -113,9 +115,11 @@ function route() {
       ? logView()
       : screen === "townsfolk"
         ? townsfolkView()
-        : screen === "bounties"
-          ? bountiesView(overview)
-          : queueView(overview);
+        : screen === "newcomers"
+          ? newcomersView()
+          : screen === "bounties"
+            ? bountiesView(overview)
+            : queueView(overview);
   main.replaceChildren(view.el);
   main.focus({ preventScroll: true });
   window.scrollTo(0, 0);

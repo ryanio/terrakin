@@ -10,6 +10,9 @@ import {
   MODERATION_REASON_MAX_LENGTH,
   MODERATOR_SUSPEND_MAX_DAYS,
   type ModerationLogView,
+  NEWCOMER_STEPS,
+  type NewcomerCounts,
+  type NewcomerStep,
   type ReportKind,
   type ReportQueueItem,
   type ReportReason,
@@ -20,7 +23,7 @@ import {
   type TownsfolkActivityResponse,
   type TriageVerdictView,
 } from "@terrakin/protocol";
-import { formatCount, plural, pluralWord, relativeTime } from "@terrakin/ui/format";
+import { formatCount, plural, pluralWord, relativeTime, shortDate } from "@terrakin/ui/format";
 import type { IconName } from "@terrakin/ui/icons";
 import { REACTIONS } from "@terrakin/ui/reactions";
 import {
@@ -31,12 +34,13 @@ import {
   SUGGESTION_LABELS,
 } from "@terrakin/ui/safety";
 
-export type Screen = "queue" | "log" | "townsfolk" | "bounties";
+export type Screen = "queue" | "log" | "townsfolk" | "newcomers" | "bounties";
 
 const PATHS: Record<Screen, string> = {
   queue: "/",
   log: "/log",
   townsfolk: "/townsfolk",
+  newcomers: "/newcomers",
   bounties: "/bounties",
 };
 
@@ -55,7 +59,9 @@ export const pathFor = (screen: Screen) => PATHS[screen];
 
 /** Which screens a role gets. Only maintainers move town coins (decision 0062). */
 export const screensFor = (role: StaffRole): Screen[] =>
-  role === "maintainer" ? ["queue", "log", "townsfolk", "bounties"] : ["queue", "log", "townsfolk"];
+  role === "maintainer"
+    ? ["queue", "log", "townsfolk", "newcomers", "bounties"]
+    : ["queue", "log", "townsfolk", "newcomers"];
 
 /**
  * What a maintainer can do with a bounty: confirm a town bounty its claimant marked done (paying
@@ -662,4 +668,44 @@ export const gateWords = (c: Pick<TownsfolkActivityResponse["chatter"], "gate" |
 export function sinceWords(iso: string, nowMs: number): string {
   const r = relativeTime(iso, nowMs);
   return r === "now" ? "just now" : /^\d+[mh]$/.test(r) ? `${r} ago` : r;
+}
+
+// ---------- newcomers (decision 0141) ----------
+
+const STEP_LABELS: Record<NewcomerStep, string> = {
+  joined: "Joined",
+  claimed: "Claimed a plot",
+  hearth: "Set a hearth",
+  thing: "Got a first thing",
+  look: "Changed their look",
+  social: "Did something social",
+};
+
+/** What each newcomer step is called on the page, the steps in order and the pet last. */
+export const NEWCOMER_ROWS: readonly { key: keyof NewcomerCounts; label: string }[] = [
+  ...NEWCOMER_STEPS.map((key) => ({ key, label: STEP_LABELS[key] })),
+  { key: "pet", label: "Adopted a pet" },
+];
+
+/** A step's count, and its share of the cohort's joins as a whole percent ("" for the joins). */
+export function stepShare(counts: NewcomerCounts, key: keyof NewcomerCounts) {
+  const n = counts[key];
+  const share =
+    key === "joined" || counts.joined === 0 ? "" : `${Math.round((100 * n) / counts.joined)}%`;
+  return { count: formatCount(n), share };
+}
+
+/** A cohort's heading: "All time", "This week", or "Week of Sep 28", read as UTC. */
+export function cohortTitle(week: string | null, today: string): string {
+  if (week === null) return "All time";
+  const start = Date.parse(`${week}T00:00:00Z`);
+  const now = Date.parse(`${today}T00:00:00Z`);
+  if (now - start < 7 * 86_400_000) return "This week";
+  return `Week of ${shortDate(start, now, "UTC")}`;
+}
+
+/** The footnote for residents whose name someone who joined earlier already had (issue #46). */
+export function sameNameLine(n: number): string | null {
+  if (n === 0) return null;
+  return `${n === 1 ? "1 of them has" : `${formatCount(n)} of them have`} the name of someone who joined earlier, often the same person joining again (issue #46).`;
 }

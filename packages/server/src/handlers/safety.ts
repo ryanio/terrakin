@@ -20,8 +20,10 @@ import { staffBountiesView } from "../bounties";
 import { eventView } from "../events";
 import { madeThingForReport } from "../galleries";
 import { DEFAULT_ORIGIN } from "../links";
+import { newcomerFunnel, socialActors, thingHolders } from "../newcomers";
 import { reportable, type SnapshotHeader } from "../snapshots";
 import { report } from "../telemetry";
+import { utcDay } from "../world-service";
 import {
   DAILY_CAP_RETRY_SECONDS,
   fail,
@@ -411,6 +413,17 @@ export function safetyHandlers(api: Api): Pick<Handlers, AreaRouteIds["safety"]>
       // The sim's command types are interfaces, which the wire's open object type can't name.
       return { status: 200, body: { ...page, rows: page.rows as WorldLogResponse["rows"] } };
     },
+    getNewcomers: () => ({
+      status: 200,
+      body: newcomerFunnel({
+        state: service.state,
+        joinedDay: service.joinedDays(),
+        done: (id) => service.doneCommands(id),
+        social: socialActors(social().sql),
+        things: thingHolders(social().sql),
+        today: service.state.day ?? utcDay(api.now()),
+      }),
+    }),
   };
 }
 

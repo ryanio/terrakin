@@ -132,6 +132,7 @@ What we chose and why. Newest last.
 - [Unused files, exports, and dependencies fail the gate through knip](decisions/0131-unused-files-exports-and-dependencies-fail-the-gate-through-.md) · 2026-10-07 · accepted · `tooling` `ci`
 - [GET /v1/world lists the townsfolk apart from residents, a breaking change by the owner's call](decisions/0132-get-v1-world-lists-the-townsfolk-apart-from-residents-a-brea.md) · 2026-10-07 · accepted · `protocol` `townsfolk` `agents`
 - [A person joins with hair, a top, and a color, and no shape](decisions/0140-a-person-joins-with-hair-a-top-and-a-color-and-no-shape.md) · 2026-10-07 · accepted · `client` `design` `onboarding`
+- [The newcomer funnel counts first steps from what the world already records](decisions/0141-the-newcomer-funnel-counts-first-steps-from-what-the-world-a.md) · 2026-10-07 · accepted · `staff` `metrics` `onboarding` `privacy`
 
 ## Learnings
 

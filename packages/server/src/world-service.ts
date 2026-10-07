@@ -1025,6 +1025,11 @@ export class WorldService {
     return this.facts.joinedDay.get(residentId);
   }
 
+  /** Every resident's first join day, in the order they first joined (0: before days counted). */
+  joinedDays(): ReadonlyMap<string, number> {
+    return this.facts.joinedDay;
+  }
+
   // ---------- identity ----------
 
   createSession(

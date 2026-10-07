@@ -4,7 +4,7 @@ import { join, overflowsSideways, signIn, watchErrors } from "./support";
 /**
  * RFC 0006 on a phone: a resident reports a post, and a maintainer hides it from the staff app on
  * the admin host (admin.localhost here, admin.terrakin.org in production), then deletes a reported
- * resident's profile pictures.
+ * resident's profile pictures, then looks over the townsfolk and the newcomer funnel.
  */
 
 // The full iPhone 13 screen, 390 by 844.
@@ -132,6 +132,17 @@ test("a resident reports a post from a phone, and a maintainer hides it and dele
   await expect(page.getByRole("heading", { name: "Latest" })).toBeVisible();
   expect(await overflowsSideways(page)).toBe(false);
   await page.screenshot({ path: "test-results/admin-townsfolk.png", fullPage: true });
+
+  // The newcomer funnel: counts by the week residents joined, and never a name.
+  await page.getByRole("link", { name: "Newcomers" }).click();
+  await expect(page).toHaveURL(`${adminOrigin}/newcomers`);
+  await expect(page.getByRole("heading", { level: 1, name: "Newcomers" })).toBeVisible();
+  const allTime = page.locator(".newcomers-cohort").first();
+  await expect(allTime.getByRole("heading", { name: "All time" })).toBeVisible();
+  await expect(allTime.getByRole("rowheader", { name: "Claimed a plot" })).toBeVisible();
+  await expect(page.locator(".newcomers")).not.toContainText("Pebble");
+  expect(await overflowsSideways(page)).toBe(false);
+  await page.screenshot({ path: "test-results/admin-newcomers.png", fullPage: true });
 
   // Gone for everyone.
   expect((await page.request.get(`/v1/posts/${post.id}`)).status()).toBe(404);

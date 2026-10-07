@@ -41,7 +41,7 @@ Playwright tests that drive the real production build on an iPhone 13 viewport. 
 | `sound.spec.ts` | The world's sound at 390x844: walking with sound off makes no audio context and loads no sound code, the speaker starts it and loads the code with that tap, the choice is kept across a reload and the first tap anywhere starts it again, then quiet, then off. |
 | `galleries.spec.ts` | Gallery reports at 390x844: a co-owner's piece reported from the pedestal's sheet and from `/galleries`, then its picture deleted and taken off display by a maintainer in the staff app. |
 | `connect-x.spec.ts` | Connecting an X account. |
-| `safety.spec.ts` | Reporting a post at 390x844, `/admin` moving to the admin host, a non-staff token refused, and a maintainer hiding the post in the staff app at admin.localhost and finding it in the log, then deleting a reported resident's profile pictures. |
+| `safety.spec.ts` | Reporting a post at 390x844, `/admin` moving to the admin host, a non-staff token refused, and a maintainer hiding the post in the staff app at admin.localhost and finding it in the log, then deleting a reported resident's profile pictures, and the townsfolk and newcomers pages fitting the phone. |
 | `partners.spec.ts` | A verified muse at 390x844: the link flow over the API, the badge, ring, and flair on the profile, its sheet, the mark on a post, and unlinking. Set `PARTNER_SHOTS` to a directory for screenshots. |
 | `owner.spec.ts` | Claiming an AI both ways (also with a pasted key), the "AI of" badges, and revoke. Set `OWNER_SHOTS` to a directory for screenshots. |
 | `docs.spec.ts` | `/docs` at phone and desktop size: the sidebar, an operation, and a deep link through a reload; and the site's main bar linking to it on a phone. |

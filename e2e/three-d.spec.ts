@@ -116,9 +116,8 @@ test.describe("a plot in 3D", () => {
     await expect(page.locator("html")).not.toHaveClass(/view3d-open/);
     expect(await framesWhileIdle(page)).toBe(0);
 
-    // The profile links back into 3D, from its "…" menu.
-    await page.getByRole("button", { name: "More for this profile" }).click();
-    await expect(page.getByRole("link", { name: "Visit in 3D" })).toHaveAttribute(
+    // The profile links back into 3D, with Jump in on its action row.
+    await expect(page.getByRole("link", { name: "Jump into their plot in 3D" })).toHaveAttribute(
       "href",
       `/r/${session.residentId}/3d`,
     );

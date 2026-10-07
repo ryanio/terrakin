@@ -18,6 +18,7 @@ import { residentPerson } from "@terrakin/ui/people";
 import { copyButton, emptyNote, linkTabs, moreButton, pickTab } from "@terrakin/ui/ui";
 import { refreshTimes } from "@terrakin/ui/when";
 import { api, myProfile } from "./api";
+import { awayCard } from "./away-card";
 import { type Composer, composer } from "./composer";
 import { newestDevlogCard } from "./devlog-card";
 import { happeningCard } from "./event-cards";
@@ -64,7 +65,6 @@ import {
 } from "./pulse-cards";
 import { coins } from "./purse";
 import { copyPostState } from "./reactions";
-import { awayCard } from "./routines-view";
 import { track } from "./telemetry";
 import { errorCard, type View, type ViewContext } from "./view";
 

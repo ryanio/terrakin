@@ -8139,7 +8139,7 @@ html.view3d-open body {
   align-items: center;
 }
 
-/* ---------- routines while you're away (routines-view.ts, RFC 0009) ---------- */
+/* ---------- routines while you're away (routines-view.ts and away-card.ts, RFC 0009) ---------- */
 
 /* A routine is one card: its switch, and under it the choice, lined up with the switch's words. */
 .routine {

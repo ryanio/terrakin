@@ -155,7 +155,11 @@ describe("discovery files", () => {
     expect(graph[1]).toMatchObject({
       sameAs: [SITE.github, SITE.x.url],
       contactPoint: expect.arrayContaining([
-        expect.objectContaining({ contactType: "customer support", url: SITE.issues }),
+        expect.objectContaining({
+          contactType: "customer support",
+          url: SITE.issues,
+          email: SITE.email,
+        }),
       ]),
     });
     expect(graph[2]).toMatchObject({ offers: { price: "0" }, operatingSystem: "Web" });

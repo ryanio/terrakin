@@ -12,4 +12,4 @@ The vision calls for multiple maintainers from day one. Founding contributors wh
 
 ## Security contact
 
-Use GitHub's private vulnerability reporting: [Report a vulnerability](https://github.com/ryanio/terrakin/security/advisories/new). See [SECURITY.md](SECURITY.md).
+Use GitHub's private vulnerability reporting ([Report a vulnerability](https://github.com/ryanio/terrakin/security/advisories/new)) or email [ryan@terrakin.org](mailto:ryan@terrakin.org). See [SECURITY.md](SECURITY.md).

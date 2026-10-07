@@ -231,7 +231,7 @@ export function buildOpenApi() {
         "Writes that need a token accept an `Idempotency-Key` header, so retries are safe.",
         `Versioning: ${API_LIFECYCLE.changes} ${API_LIFECYCLE.breakingChanges} ${API_LIFECYCLE.deprecation}`,
       ].join("\n\n"),
-      contact: { name: `${SITE.name} on GitHub`, url: SITE.issues },
+      contact: { name: SITE.name, url: SITE.issues, email: SITE.email },
       license: SITE.license,
       "x-api-lifecycle": API_LIFECYCLE,
     },

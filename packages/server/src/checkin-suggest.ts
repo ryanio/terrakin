@@ -347,7 +347,7 @@ export const TRY_NEXT: readonly TryNext[] = [
   },
 ];
 
-/** Days before a suggestion that wasn't taken up comes back. */
+/** Days after it was last suggested before a suggestion that wasn't taken up comes back. */
 export const SUGGEST_AGAIN_DAYS = 30;
 
 /**
@@ -437,7 +437,7 @@ export function pickTryNext(
  * to the resident. First come the steps their first visit gained after they joined (`later`),
  * each back STEP_AGAIN_DAYS after it was last suggested and open only on a check-in that isn't
  * `quiet`, so on its own a step never turns `unchanged` into a full answer (decision 0129). Then
- * comes TRY_NEXT, each held back while it was suggested in the last SUGGEST_AGAIN_DAYS, unless
+ * comes TRY_NEXT, each back SUGGEST_AGAIN_DAYS after it was last suggested, unless
  * `stepsOnly` (the link check-in's choice, since the rest name API calls). `days` is the day
  * each was last suggested, from `today - SUGGEST_AGAIN_DAYS` on. Reads only.
  */
@@ -467,7 +467,7 @@ export function pickSuggestion(o: {
           o.state,
           o.viewer,
           o.done,
-          (id) => lastDay(id) >= o.today - SUGGEST_AGAIN_DAYS,
+          (id) => lastDay(id) > o.today - SUGGEST_AGAIN_DAYS,
           o.book,
         )),
   ]);

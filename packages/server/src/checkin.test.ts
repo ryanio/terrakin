@@ -668,7 +668,10 @@ describe("first-visit steps and things to try", () => {
     // Nothing else fits yet (crafting waits for a harvest), and each waits a month.
     advance(DAY);
     expect((await checkin(wren.token)).tryToday).toBeNull();
-    advance(30 * DAY);
+    // Gather comes back 30 days after it was suggested, not a day sooner.
+    advance(26 * DAY);
+    expect((await checkin(wren.token)).tryToday).toBeNull();
+    advance(DAY);
     expect((await checkin(wren.token)).tryToday).toBe("gather");
   });
 

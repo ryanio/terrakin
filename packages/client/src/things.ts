@@ -7,6 +7,7 @@ import type { WorldEvent } from "@terrakin/protocol";
 import {
   CATALOG,
   CROP_INFO,
+  type CraftKind,
   type Crop,
   FAMILIES,
   type Family,
@@ -23,7 +24,10 @@ import {
   isSweetKind,
   OTHERS_PLOT_GATHER,
   RECIPES,
+  type RecipeName,
+  recipeOf,
   SEED_KINDS,
+  type Station,
   SWEET_RECIPES,
   type SweetKind,
 } from "@terrakin/sim";
@@ -125,6 +129,45 @@ export function needsLine(recipe: GoodKind | FurnitureKind | SweetKind): string 
   return Object.entries(needs)
     .map(([kind, n]) => thingCount(kind as ItemKind, n ?? 0))
     .join(", ");
+}
+
+/** What a recipe card's craft uses, as one line: "2 lemons, 1 bag of sugar, 1 jar". */
+export const needsListLine = (needs: readonly { kind: ItemKind; count: number }[]) =>
+  needs.map((n) => thingCount(n.kind, n.count)).join(", ");
+
+/** A recipe by the name you learn it under (RFC 0024), in words: "Lemonade", or "Jam" for every jam. */
+export const recipeWords = (recipe: RecipeName): string =>
+  Object.hasOwn(ITEM_INFO, recipe)
+    ? ITEM_INFO[recipe as ItemKind].name
+    : `${recipe.charAt(0).toUpperCase()}${recipe.slice(1)}`;
+
+/**
+ * A station's recipes that you know (RFC 0024), in catalog order. `known` is `inventory.recipes`
+ * from the server: the client's mirror doesn't carry what each resident learned, so the server's
+ * list decides what a kitchen or workbench offers (decision 0052). `jam` covers every fruit's jam.
+ * Before recipes open the list holds every recipe, so nothing is held back.
+ */
+export function knownAt<R extends { recipe: CraftKind; station: Station }>(
+  recipes: readonly R[],
+  station: Station,
+  known: readonly RecipeName[],
+): R[] {
+  return recipes.filter((r) => r.station === station && known.includes(recipeOf(r.recipe)));
+}
+
+/**
+ * How many of a station's recipes you don't know yet, each family recipe once: what the sheet's
+ * "13 more recipes to learn" counts. 0 before recipes open, when everyone knows everything.
+ */
+export function moreToLearn(
+  recipes: readonly { recipe: CraftKind; station: Station }[],
+  station: Station,
+  known: readonly RecipeName[],
+): number {
+  const names = new Set(
+    recipes.filter((r) => r.station === station).map((r) => recipeOf(r.recipe)),
+  );
+  return [...names].filter((name) => !known.includes(name)).length;
 }
 
 /** What you still lack for a recipe, or null when you hold enough: "Needs 1 more lemon". */
@@ -342,9 +385,23 @@ export function newsLine(event: WorldEvent, me: string): string | null {
       return knockLine(event, me);
     case "fished":
       return event.by === me ? catchLine(event.caught) : null;
+    case "recipe_learned":
+      return event.residentId === me ? learnedLine(event.recipe, event.how) : null;
     default:
       return null;
   }
+}
+
+/**
+ * A recipe you learned (RFC 0024), however you learned it: "You learned lemonade." Who taught you
+ * is a neighbor's name, so a lesson leaves it out here.
+ */
+export function learnedLine(
+  recipe: RecipeName,
+  how: Extract<WorldEvent, { type: "recipe_learned" }>["how"],
+): string {
+  const what = recipeWords(recipe).toLowerCase();
+  return how === "taught" ? `A neighbor taught you ${what}.` : `You learned ${what}.`;
 }
 
 /**

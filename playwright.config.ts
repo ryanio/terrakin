@@ -5,6 +5,7 @@ import {
   FAKE_CHAIN_PORT,
   FAKE_X_PORT,
   E2E_PORT as PORT,
+  SWITCH_SPECS,
 } from "./e2e/ports";
 
 /** The fake X oEmbed endpoint that e2e/connect-x.spec.ts runs. Test servers only (decision 0022). */
@@ -42,7 +43,7 @@ const only = process.env.TERRAKIN_E2E_ONLY;
 const flat = [
   {
     name: "phone",
-    testIgnore: specFile([...CLOCK_SPECS, ...THREE_D]),
+    testIgnore: specFile([...CLOCK_SPECS, ...Object.keys(SWITCH_SPECS), ...THREE_D]),
     use: phone,
   },
   // Specs that move the clock a day on each have a server of their own (e2e/ports.ts), so they
@@ -51,6 +52,12 @@ const flat = [
     name: spec,
     testMatch: specFile([spec]),
     use: { ...phone, baseURL: `http://localhost:${clockPort(spec)}` },
+  })),
+  // Specs that switch something on for the whole world borrow a clock spec's server.
+  ...Object.entries(SWITCH_SPECS).map(([spec, host]) => ({
+    name: spec,
+    testMatch: specFile([spec]),
+    use: { ...phone, baseURL: `http://localhost:${clockPort(host)}` },
   })),
 ];
 

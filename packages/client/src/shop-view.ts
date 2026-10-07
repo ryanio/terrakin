@@ -1,17 +1,20 @@
 /**
  * `/shop`: the town shop (RFC 0008). What it sells, your purse, and what the town buys today.
  * Prices, counts, and refusals all come from the server; this page only shows them and sends
- * `shop_buy` and `sell_to_town`.
+ * `shop_buy` and `sell_to_town`. Once recipes are learned (RFC 0024), its Recipes shelf
+ * (`/shop#recipes`) sells recipe cards, and takes free picks with `pick_recipe`.
  */
 import type {
   Action,
   BuyOrderView,
   InventoryResponse,
+  RecipeCardView,
   ShopItemView,
   ShopResponse,
 } from "@terrakin/protocol";
-import { dayName, HOLIDAY_INFO } from "@terrakin/sim";
+import { cardOf, dayName, HOLIDAY_INFO } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
+import { plural } from "@terrakin/ui/format";
 import { itemArt } from "@terrakin/ui/item-art";
 import { personLink } from "@terrakin/ui/people";
 import { itemRow, itemRows, kindPill, stateCard } from "@terrakin/ui/ui";
@@ -19,7 +22,7 @@ import { actFromButton } from "./act";
 import { api } from "./api";
 import { savedToken } from "./net";
 import { balanceLine, coins } from "./purse";
-import { stackCount } from "./things";
+import { learnedLine, needsListLine, stackCount } from "./things";
 import { errorCard, type View, type ViewContext } from "./view";
 
 type Section = ShopItemView["section"];
@@ -40,6 +43,13 @@ export const SHELVES: { section: Section; title: string; hint: string }[] = [
   },
 ];
 
+/** What a Buy button says for `price`, from what you can afford: the price, short, or Buy. */
+function priceLabel(price: number, balance: number | null): { text: string; can: boolean } {
+  if (balance === null) return { text: coins(price), can: false };
+  if (balance < price) return { text: `${coins(price - balance)} short`, can: false };
+  return { text: `Buy for ${coins(price)}`, can: true };
+}
+
 /** What a shelf item's button says, from what you hold and can afford. Pure, so tests pin it. */
 export function buyLabel(
   item: Pick<ShopItemView, "price" | "section" | "sku">,
@@ -47,9 +57,31 @@ export function buyLabel(
   wardrobe: readonly string[],
 ): { text: string; can: boolean } {
   if (item.section === "wear" && wardrobe.includes(item.sku)) return { text: "Yours", can: false };
-  if (balance === null) return { text: coins(item.price), can: false };
-  if (balance < item.price) return { text: `${coins(item.price - balance)} short`, can: false };
-  return { text: `Buy for ${coins(item.price)}`, can: true };
+  return priceLabel(item.price, balance);
+}
+
+/**
+ * What a recipe card's button says and sends (RFC 0024): "You know this", a free pick while you
+ * have one, or Buy as for anything else. Pure, so tests pin it.
+ */
+export function cardLabel(
+  card: Pick<RecipeCardView, "price" | "known">,
+  balance: number | null,
+  picks: number,
+): { text: string; can: boolean; send?: "pick" | "buy" } {
+  if (card.known) return { text: "You know this", can: false };
+  if (picks > 0) return { text: "Free pick", can: true, send: "pick" };
+  const label = priceLabel(card.price, balance);
+  return label.can ? { ...label, send: "buy" } : label;
+}
+
+/** The Recipes shelf's hint: what a card is, and what a free pick is while you have one. */
+export function recipesHint(picks: number): string {
+  const what =
+    "Learn one and it's yours for good: make it at any kitchen or workbench, yours or a neighbor's.";
+  return picks > 0
+    ? `${what} You have ${plural(picks, "free pick", "free picks")} left, so any card here is free.`
+    : what;
 }
 
 /** How many the town would take from you now: what's left today, up to what you hold. */
@@ -111,6 +143,7 @@ export function shopView(ctx: ViewContext): View {
     body,
   );
   let destroyed = false;
+  let landed = false;
   const signedIn = savedToken() !== null;
 
   const act = (button: HTMLButtonElement, action: Action, done: string) =>
@@ -145,6 +178,44 @@ export function shopView(ctx: ViewContext): View {
             attrs: { href: `/gallery/3d?item=${item.sku}` },
             text: "See it in 3D",
           })
+        : null,
+      signedIn ? button : null,
+    );
+  }
+
+  /** A recipe card: what it makes, what that takes, where, and Buy, Free pick, or known. */
+  function cardItem(card: RecipeCardView, data: ShopResponse, inv: InventoryResponse | null) {
+    const picks = inv?.inventory?.recipePicks ?? 0;
+    const label = cardLabel(card, data.you?.balance ?? null, picks);
+    const button = h("button", {
+      class: "pill-button shop-buy",
+      attrs: { type: "button", "aria-label": `${label.text}: ${card.name}` },
+      text: label.text,
+    });
+    button.disabled = !label.can;
+    const recipe = cardOf(card.sku);
+    const learned = recipe ? learnedLine(recipe, "bought") : "";
+    button.addEventListener("click", () => {
+      if (label.send === "pick" && recipe) {
+        void act(button, { type: "pick_recipe", recipe }, learned);
+      } else if (label.send === "buy") {
+        void act(button, { type: "shop_buy", sku: card.sku, count: 1 }, learned);
+      }
+    });
+    const station = card.recipe.station === "kitchen" ? "a kitchen" : "a workbench";
+    return h(
+      "li",
+      { class: "paper shop-item shop-card-recipe", attrs: { "data-sku": card.sku } },
+      itemArt(card.recipe.makes, { size: 56 }),
+      card.season ? seasonTag(card.season) : null,
+      h("span", { class: "shop-item-name", text: card.name }),
+      h("span", { class: "shop-item-meta", text: `Uses ${needsListLine(card.recipe.needs)}` }),
+      h("span", {
+        class: "shop-item-meta",
+        text: `At ${station}${card.known ? "" : `, ${coins(card.price)}`}`,
+      }),
+      card.season && card.lastDay !== undefined
+        ? h("span", { class: "shop-item-meta", text: `Sold until ${dayName(card.lastDay)}` })
         : null,
       signedIn ? button : null,
     );
@@ -247,9 +318,18 @@ export function shopView(ctx: ViewContext): View {
               "holiday",
               `For ${Object.hasOwn(HOLIDAY_INFO, shop.holiday.id) ? HOLIDAY_INFO[shop.holiday.id].name : shop.holiday.id}`,
               holidayHint(shop.holiday.id, shop.holiday.lastDay),
-              shop.items.filter((i) => i.holiday),
-              data,
-              inv,
+              shop.items.filter((i) => i.holiday).map((i) => shelfItem(i, data, inv)),
+            ),
+          ]
+        : []),
+      // The Recipes shelf (RFC 0024), once recipes are learned here. `/shop#recipes` lands on it.
+      ...(shop.recipes && shop.recipes.length > 0
+        ? [
+            shelf(
+              "recipes",
+              "Recipes",
+              recipesHint(inv?.inventory?.recipePicks ?? 0),
+              shop.recipes.map((c) => cardItem(c, data, inv)),
             ),
           ]
         : []),
@@ -258,32 +338,31 @@ export function shopView(ctx: ViewContext): View {
           section,
           title,
           hint,
-          shop.items.filter((i) => i.section === section && !i.holiday),
-          data,
-          inv,
+          shop.items
+            .filter((i) => i.section === section && !i.holiday)
+            .map((i) => shelfItem(i, data, inv)),
         ),
       ),
     );
+    // A link to the Recipes shelf lands on it once, not again after every buy.
+    if (!landed && location.hash === "#recipes") {
+      landed = true;
+      requestAnimationFrame(() =>
+        el.querySelector<HTMLElement>("#recipes")?.scrollIntoView({ block: "start" }),
+      );
+    }
   }
 
-  function shelf(
-    id: string,
-    title: string,
-    hint: string,
-    items: ShopItemView[],
-    data: ShopResponse,
-    inv: InventoryResponse | null,
-  ) {
+  function shelf(id: string, title: string, hint: string, items: HTMLLIElement[]) {
     return h(
       "section",
-      { class: "stack shop-section", attrs: { "aria-labelledby": `shop-${id}-title` } },
+      {
+        class: "stack shop-section",
+        attrs: { id, "aria-labelledby": `shop-${id}-title` },
+      },
       h("h2", { class: "section-title", attrs: { id: `shop-${id}-title` }, text: title }),
       h("p", { class: "hint", text: hint }),
-      h(
-        "ul",
-        { class: "stack plain-list shop-shelf" },
-        ...items.map((i) => shelfItem(i, data, inv)),
-      ),
+      h("ul", { class: "stack plain-list shop-shelf" }, ...items),
     );
   }
 

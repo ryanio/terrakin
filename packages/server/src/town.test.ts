@@ -4,7 +4,13 @@ import { hashWorld, replay, TOWN_ACTOR, votesCast, type WorldConfig } from "@ter
 import { afterEach, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import { Api } from "./api";
-import { createApp, TEST_ADVANCE_DAY_PATH, TEST_GRANT_PATH, TEST_SWEEP_PATH } from "./app";
+import {
+  createApp,
+  TEST_ADVANCE_DAY_PATH,
+  TEST_GRANT_PATH,
+  TEST_OPEN_RECIPES_PATH,
+  TEST_SWEEP_PATH,
+} from "./app";
 import { MemoryMediaStore } from "./media";
 import { nodeSql } from "./node-sql";
 import { SocialService } from "./social-service";
@@ -687,6 +693,36 @@ describe("the test clock", () => {
     expect(await malformed.json()).toMatchObject({ error: { code: "invalid_body" } });
   });
 
+  it("opens recipes now only with the test clock on, keeping everyone already here", async () => {
+    const service = new WorldService({
+      store: new MemoryStore(),
+      config: CONFIG,
+      now: clock().now,
+      days: true,
+      economy: true,
+      items: true,
+      shop: true,
+    });
+    service.tick();
+    const advanceDay = () => service.state.day ?? null;
+    const open = (base: string) => fetch(base + TEST_OPEN_RECIPES_PATH, { method: "POST" });
+    const ada = service.createSession({ name: "Ada", kind: "human" });
+    // Without the test clock the route isn't there, and recipes stay closed.
+    const off = await listenOnFreePort(createApp({ service, onResponse }), cleanups);
+    expect((await open(off)).status).toBe(404);
+    expect(service.state.recipes).toBeUndefined();
+    const on = await listenOnFreePort(
+      createApp({ service, onResponse, testClock: { advanceDay } }),
+      cleanups,
+    );
+    expect(await (await open(on)).json()).toEqual({ ok: true });
+    expect(service.state.recipes?.everything).toEqual([ada.residentId]);
+    // It's a one-time switch: a second call is the sim's refusal.
+    const again = await open(on);
+    expect(again.status).toBe(400);
+    expect(await again.json()).toMatchObject({ ok: false });
+  });
+
   it("doesn't exist in the Worker, which serves the API through Api alone", async () => {
     const service = new WorldService({ store: new MemoryStore(), config: CONFIG });
     const api = new Api({ service, skill: "", openapi: "{}" });
@@ -703,7 +739,7 @@ describe("the test clock", () => {
     expect(res?.status).toBe(404);
     const worker = readFileSync(new URL("../cloudflare/worker.ts", import.meta.url), "utf8");
     expect(worker).not.toMatch(
-      /testClock|advance-day|test\/sweep|test\/grant|testGrant|TEST_CLOCK/,
+      /testClock|advance-day|test\/sweep|test\/grant|testGrant|open-recipes|testOpenRecipes|TEST_CLOCK/,
     );
   });
 });

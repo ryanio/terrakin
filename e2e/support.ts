@@ -5,6 +5,7 @@ import {
   type Http,
   isPreset,
   makePersona,
+  openRecipesOver,
   type Persona,
   type PersonaSpec,
   type PresetName,
@@ -146,6 +147,14 @@ export async function persona(
     typeof preset === "string" ? stage(preset, spec ?? { name: preset }) : { ...preset, ...spec };
   const made = await makePersona(httpOf(request), full);
   return { ...made, auth: { authorization: `Bearer ${made.token}` } };
+}
+
+/**
+ * Switch recipes you learn on now (RFC 0024): residents made before it know every recipe, and those
+ * made after start with free picks. Once per server, so only for a spec with a server of its own.
+ */
+export async function openRecipes(request: APIRequestContext) {
+  await openRecipesOver(httpOf(request));
 }
 
 /** Join, settle a free plot, and build the starter home, which puts you on your hearth. */

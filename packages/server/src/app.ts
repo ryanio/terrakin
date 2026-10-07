@@ -101,7 +101,8 @@ export interface AppOptions {
    * a day on, or `?days=N` days (1 to 400) in one jump, which the world takes as one `new_day`, or
    * `?minutes=N` minutes on (1 to 1,440), for an event's start, and `POST /v1/test/sweep` by
    * running the minute sweep now (idle residents, routines, snapshots), and `POST /v1/test/grant`
-   * (`TEST_GRANT_PATH`) from this machine. It's deliberately outside
+   * (`TEST_GRANT_PATH`) and `POST /v1/test/open-recipes` (`TEST_OPEN_RECIPES_PATH`) from this
+   * machine. It's deliberately outside
    * the route table, so it never appears in the API docs, and the Cloudflare adapter has no way to
    * turn it on.
    */
@@ -122,6 +123,11 @@ export const TEST_SWEEP_PATH = "/v1/test/sweep";
  * gives a resident coins from the treasury and stacks of things (decision 0147).
  */
 export const TEST_GRANT_PATH = "/v1/test/grant";
+/**
+ * Tests only, with the test clock, from this machine: logs `open_recipes` now (RFC 0024), so a spec
+ * can make residents before and after it. Answers the sim's refusal when recipes are already open.
+ */
+export const TEST_OPEN_RECIPES_PATH = "/v1/test/open-recipes";
 
 /**
  * How long an idle keep-alive connection stays open (decision 0130). A client that reuses a
@@ -338,6 +344,22 @@ export function createApp(options: AppOptions): Server {
         body.coins as number | undefined,
         stacks as Record<string, number> | undefined,
       );
+      return send(res, {
+        status: result.ok ? 200 : 400,
+        headers: json,
+        body: JSON.stringify(result.ok ? { ok: true } : { ok: false, error: result.error }),
+      });
+    }
+    if (options.testClock && req.method === "POST" && url.pathname === TEST_OPEN_RECIPES_PATH) {
+      const json = { "content-type": "application/json", "cache-control": "no-store" };
+      if (!isLoopback(req.socket.remoteAddress)) {
+        return send(res, {
+          status: 404,
+          headers: json,
+          body: JSON.stringify({ error: { code: "not_found", message: "Not found." } }),
+        });
+      }
+      const result = options.service.testOpenRecipes();
       return send(res, {
         status: result.ok ? 200 : 400,
         headers: json,

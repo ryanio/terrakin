@@ -6,10 +6,15 @@
  * would turn down (an unripe crop, missing ingredients, today's making done) is off, with the
  * reason in its row. What you can make leads the list and the rest waits behind "Show more", so
  * a long kitchen doesn't bury today's choice. Labels are your own words, sent as text.
+ *
+ * Once recipes are learned (RFC 0024), a kitchen or workbench lists only the recipes you know
+ * (`inventory.recipes`), with how many more there are to learn and a link to the shop's Recipes
+ * shelf. While you have free picks, the picks sheet (`recipe-picks.ts`) comes first.
  */
 import { type Action, type InventoryResponse, ITEM_CATALOG, ITEM_RULES } from "@terrakin/protocol";
-import { type BlockKind, type Crop, harvestFits, isReady } from "@terrakin/sim";
+import { type BlockKind, type Crop, harvestFits, isReady, type Station } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
+import { plural } from "@terrakin/ui/format";
 import { itemArt } from "@terrakin/ui/item-art";
 import {
   closeOverlay,
@@ -18,13 +23,16 @@ import {
   itemRow,
   itemRows,
   openOverlay,
+  overlayShowing,
   sheet,
 } from "@terrakin/ui/ui";
 import { api } from "./api";
 import {
   cropOfSeed,
   growthLine,
+  knownAt,
   missingLine,
+  moreToLearn,
   needsLine,
   noSeedsHint,
   recipeShelf,
@@ -117,10 +125,10 @@ export function openTileSheet(o: TileSheetOptions) {
       autocomplete: "off",
     },
   });
-  const station = o.block === "kitchen" || o.block === "workbench";
+  const station: Station | null = o.block === "kitchen" || o.block === "workbench" ? o.block : null;
   // A planter lists seeds or its crop; a station lists what it makes, a few at a time.
-  list.hidden = station;
-  goods.el.hidden = !station;
+  list.hidden = station !== null;
+  goods.el.hidden = station === null;
   const labelField = station
     ? h(
         "div",
@@ -147,6 +155,17 @@ export function openTileSheet(o: TileSheetOptions) {
     furnitureList.el,
   );
   furniture.hidden = true;
+  // Recipes you don't know yet (RFC 0024): how many, and the way to the shop's Recipes shelf.
+  const learnWords = h("span");
+  const learn = h(
+    "a",
+    {
+      class: "pill-button small workshop-learn",
+      attrs: { href: "/shop#recipes", hidden: true },
+    },
+    learnWords,
+    icon("arrow"),
+  );
   const s = sheet(
     {
       id: "workshop-title",
@@ -159,6 +178,7 @@ export function openTileSheet(o: TileSheetOptions) {
     list,
     goods.el,
     furniture,
+    learn,
     problem,
     things,
   );
@@ -233,7 +253,11 @@ export function openTileSheet(o: TileSheetOptions) {
       );
       return;
     }
-    const recipes = ITEM_CATALOG.recipes.filter((r) => r.station === o.block);
+    const at: Station = o.block === "kitchen" ? "kitchen" : "workbench";
+    const recipes = knownAt(ITEM_CATALOG.recipes, at, inv.recipes);
+    const more = moreToLearn(ITEM_CATALOG.recipes, at, inv.recipes);
+    learn.hidden = more === 0;
+    learnWords.textContent = `${plural(more, "more recipe", "more recipes")} to learn`;
     const doneToday = inv.craftedToday >= rules.craftPerDay;
     hint.textContent = doneToday
       ? `You've made ${inv.craftedToday} things today, the most for one day. Come back tomorrow.`
@@ -280,12 +304,35 @@ export function openTileSheet(o: TileSheetOptions) {
     furniture.hidden = pieces.shown.length === 0;
   }
 
-  openOverlay(s.dialog);
-  void api.inventory().then((r) => {
+  /**
+   * Read your things and fill the sheet. On opening, a resident with free picks at a kitchen or
+   * workbench (RFC 0024) is asked to pick first, if the sheet is still open; picking the last one,
+   * or Not now, brings this sheet back, read afresh.
+   */
+  async function load(askPicks: boolean) {
+    const r = await api.inventory();
     if (!r.ok) {
       hint.textContent = r.message;
       return;
     }
+    const picks = r.data.inventory?.recipePicks ?? 0;
+    if (askPicks && station && picks > 0 && overlayShowing(s.dialog)) {
+      const { openRecipePicks } = await import("./recipe-picks");
+      const asked = await openRecipePicks({
+        station,
+        picks,
+        over: s.dialog,
+        done: () => {
+          hint.textContent = "Looking in your things…";
+          openOverlay(s.dialog);
+          void load(false);
+        },
+      });
+      if (asked) return;
+    }
     paint(r.data);
-  });
+  }
+
+  openOverlay(s.dialog);
+  void load(true);
 }

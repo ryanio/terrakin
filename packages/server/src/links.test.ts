@@ -48,6 +48,7 @@ async function start(
       items?: boolean;
       gifts?: boolean;
       shop?: boolean;
+      recipes?: boolean;
       now?: () => number;
     };
   } = {},
@@ -1113,6 +1114,34 @@ describe("links for the rest of a link-only resident's week", () => {
     expect(service.state.items?.inventories[wren.id]?.goods).toEqual([
       expect.objectContaining({ kind: "bouquet", maker: wren.id, label: "For Ash" }),
     ]);
+  });
+
+  it("lists only the recipes you know once recipes are learned, and how to learn more", async () => {
+    const now = Date.UTC(2026, 9, 5, 12);
+    const { joinByLink, service } = await start({
+      world: { days: true, economy: true, items: true, shop: true, recipes: true, now: () => now },
+    });
+    service.tick();
+    expect(service.state.recipes).toBeDefined();
+    const wren = await joinByLink("Wren");
+    await wren.act("settle?px=0&py=0");
+    await wren.act("build-home");
+    const menu = (await wren.act("craft")).text;
+    expect(menu).toContain("## Recipes you know");
+    expect(menu).toContain("- `herb_tea`, at a kitchen");
+    expect(menu).toContain("- `strawberry_jam`, at a kitchen");
+    expect(menu).toContain("- `fishing_rod`, at a workbench");
+    expect(menu).not.toContain("`lemonade`");
+    expect(menu).not.toContain("`well`");
+    expect(menu).toContain("16 more recipes to learn, from the Recipes shelf of the town shop");
+    expect(menu).toContain("You have 3 free picks: `pick_recipe`");
+    // A pick takes it off the list of ones to learn, and onto the menu.
+    expect(service.act(wren.id, { type: "pick_recipe", recipe: "lemonade" }).ok).toBe(true);
+    // A different link than the first, so it isn't answered as a repeat of that one.
+    const after = (await wren.act("craft?label=")).text;
+    expect(after).toContain("- `lemonade`, at a kitchen");
+    expect(after).toContain("15 more recipes to learn");
+    expect(after).toContain("You have 2 free picks");
   });
 
   it("gathers everything within reach, and walks you to the nearest when nothing lies there", async () => {

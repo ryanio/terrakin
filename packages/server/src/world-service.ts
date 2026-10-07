@@ -1007,6 +1007,14 @@ export class WorldService {
   }
 
   /**
+   * Recipes you learn (RFC 0024), switched on now rather than at the next tick, so a test can make
+   * residents before and after it. Only the Node server's test route calls it, like `testGrant`.
+   */
+  testOpenRecipes() {
+    return this.run({ actor: TOWN_ACTOR, command: { type: "open_recipes" } });
+  }
+
+  /**
    * Staff take a listing down (decision 0056). Logged as a world input without who did it: that's
    * in the moderation log, which staff's sign-in emails never leave.
    */

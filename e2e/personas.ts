@@ -241,6 +241,18 @@ export async function makePersona(http: Http, spec: PersonaSpec): Promise<Person
   return out;
 }
 
+/**
+ * Switch recipes you learn on in this world now (RFC 0024): everyone already here keeps every
+ * recipe, and residents made after it start with the base and free picks. Once per world: a second
+ * call is refused. Test servers only (`POST /v1/test/open-recipes`).
+ */
+export async function openRecipesOver(http: Http): Promise<void> {
+  await expectOk(
+    "open recipes (is the server running with TERRAKIN_TEST_CLOCK=1?)",
+    http.call("POST", "/v1/test/open-recipes"),
+  );
+}
+
 /** A preset with a spec's own fields on top: `stage("stocked", { name: "Ivy", coins: 50 })`. */
 export function stage(preset: PresetName, spec: PersonaSpec): PersonaSpec {
   const base: Omit<PersonaSpec, "name"> = PRESETS[preset];

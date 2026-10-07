@@ -3263,6 +3263,26 @@ dialog.model-viewer {
   text-decoration: none;
 }
 
+/* "13 more recipes to learn": the way from a kitchen or workbench to the shop's Recipes shelf. */
+.workshop-learn {
+  justify-self: start;
+  margin-top: var(--space-md);
+  text-decoration: none;
+}
+
+/* The sheet that asks a newcomer to pick their first recipes (RFC 0024). */
+.picks-left {
+  margin: 0;
+  color: var(--moss-deep);
+  font-weight: var(--weight-bold);
+}
+
+.picks-later {
+  justify-self: start;
+  min-height: 44px;
+  margin-top: var(--space-md);
+}
+
 /* The sheet a pedestal or a frame opens: what's on display, large, with who made it. */
 .showcase {
   justify-items: center;

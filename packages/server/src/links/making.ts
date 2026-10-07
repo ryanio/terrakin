@@ -18,9 +18,12 @@ import {
   isFurnitureKind,
   isSweetKind,
   isWater,
+  knows,
+  recipeOf as learnedAs,
   POND,
   pantryDue,
   pantryWould,
+  picksLeft,
   plotAtTile,
   RECIPES,
   rejoined,
@@ -277,7 +280,12 @@ export function makingLinks(ctx: LinkCtx): Pick<Handlers, "linkGarden" | "linkCr
         });
       const recipe = query.recipe;
       if (!recipe) {
-        const all: RecipeName[] = [...GOOD_KINDS, ...FURNITURE_KINDS, ...SWEET_KINDS];
+        const every: RecipeName[] = [...GOOD_KINDS, ...FURNITURE_KINDS, ...SWEET_KINDS];
+        // Once recipes are learned (RFC 0024), only the ones you know; the rest are to learn.
+        const all = every.filter((k) => knows(state, viewer, learnedAs(k)));
+        const toLearn = new Set(every.filter((k) => !all.includes(k)).map((k) => learnedAs(k)))
+          .size;
+        const picks = picksLeft(state, viewer);
         const ready = all.filter((k) => short(k).length === 0);
         return answer(
           start,
@@ -292,13 +300,23 @@ export function makingLinks(ctx: LinkCtx): Pick<Handlers, "linkGarden" | "linkCr
               ])
             : "You don't have enough for anything yet: grow what recipes take with the garden link, and gather wood and stone with the API.",
           list([
-            "## Every recipe",
+            toLearn > 0 ? "## Recipes you know" : "## Every recipe",
             "",
             ...all.map(
               (k) =>
                 `- \`${k}\`, at a ${recipeOf(k).station}: ${needWords(k)}${makes(k) > 1 ? `, makes ${makes(k)}` : ""}`,
             ),
           ]),
+          toLearn > 0 &&
+            list([
+              "## Recipes to learn",
+              "",
+              `${plural(toLearn, "more recipe")} to learn, from the Recipes shelf of the town shop (\`GET /v1/shop\`, its \`recipes\`). ${
+                picks > 0
+                  ? `You have ${plural(picks, "free pick")}: \`pick_recipe\` with any card's recipe, free. `
+                  : ""
+              }A card is \`shop_buy\` with sku \`recipe:<name>\` and count 1, at the price on the shelf. Both need the API.`,
+            ]),
         );
       }
       const hearth = start.hearth;

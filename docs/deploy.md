@@ -104,7 +104,7 @@ Hosts that fit: a small VM (any provider) with Caddy or nginx in front, Fly.io (
 
 1. Pick a host from the list above and create one instance with a 1 GB volume at `/data`.
 2. Point your domain at it. Terminate TLS at the host's proxy.
-3. Set `TERRAKIN_TRUSTED_PROXIES=1` if the host puts one proxy in front (most do).
+3. Set `TERRAKIN_TRUSTED_PROXIES=1` if the host puts one proxy in front (most do). The server keeps an idle connection open for 65 seconds ([decision 0130](knowledge/decisions/0130-the-node-server-keeps-idle-connections-open-for-65-seconds.md)), so a proxy that keeps idle upstream connections for 60 seconds or less (nginx's default) closes them first. If yours keeps them longer, lower its idle timeout below 65 seconds.
 4. Check `/v1/health`, `/v1/skill`, and the client on a phone.
 5. Run the muse onboarding from `packages/protocol/SKILL.md` once by hand, with a real assistant if possible.
 6. Back up `/data` daily. It's small, append-only, and plain text, so `tar` works.

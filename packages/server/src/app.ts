@@ -112,6 +112,15 @@ export const TEST_MAINTAINER_PATH = "/v1/test/maintainer";
 /** Tests only, with the test clock: runs the minute sweep now, so routines due now take their steps. */
 export const TEST_SWEEP_PATH = "/v1/test/sweep";
 
+/**
+ * How long an idle keep-alive connection stays open (decision 0130). A client that reuses a
+ * connection just as the server closes it gets ECONNRESET, and clients that keep connections in a
+ * pool (Node's agent, Playwright's request context) don't retry. Node's default is 5 seconds, which
+ * pooled clients and the reverse proxies in front of a self-hosted server both outlast; 65 seconds
+ * is longer than the 60 that nginx and most load balancers keep an idle upstream connection.
+ */
+export const KEEP_ALIVE_MS = 65_000;
+
 /** Whether a socket address is this machine (IPv4, IPv6, or IPv4 mapped into IPv6). */
 export const isLoopback = (address: string | undefined) =>
   address === "::1" || /^(::ffff:)?127\./.test(address ?? "");
@@ -192,6 +201,10 @@ export function createApp(options: AppOptions): Server {
       if (!res.headersSent) send(res, apiError("internal", "Something broke on our side."));
     });
   });
+  server.keepAliveTimeout = KEEP_ALIVE_MS;
+  // A request's headers on a reused connection must arrive within this, so it outlasts the idle
+  // wait, or Node can drop a connection the client was about to use.
+  server.headersTimeout = KEEP_ALIVE_MS + 1_000;
 
   /** A GET against our own API, for page meta and cards: the same data every client sees. */
   const get: ApiGet = async (path) => {

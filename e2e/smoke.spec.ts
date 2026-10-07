@@ -36,9 +36,14 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
     await expect(toast).not.toContainText("settle");
   });
 
+  // Other specs may join an Ada too, so find ours by the id the page saved.
+  await expect
+    .poll(() => page.evaluate(() => localStorage.getItem("terrakin.resident")))
+    .toMatch(/^r_/);
+  const id = await page.evaluate(() => localStorage.getItem("terrakin.resident"));
   const me = async () => {
     const world = await page.request.get("/v1/world").then((r) => r.json());
-    return world.residents.find((r: { name: string }) => r.name === "Ada");
+    return world.residents.find((r: { id: string }) => r.id === id);
   };
   // Watch our own position rather than the world's event count: other tests may join meanwhile.
   // Everything below is relative to where we started, so a moved spawn doesn't break the test.
@@ -91,6 +96,7 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
     expect(seen.filter(onHall)).toEqual([]);
   });
 
+  const xy = (r: { x: number; y: number }) => [r.x, r.y];
   const start = await me();
   const x = start.x - 5;
   const y = start.y - 5;
@@ -98,7 +104,7 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
     await page.click('[data-dir="w"]');
     await page.click('[data-dir="n"]');
   }
-  await expect.poll(async () => [(await me()).x, (await me()).y]).toEqual([x, y]);
+  await expect.poll(async () => xy(await me())).toEqual([x, y]);
 
   // Other tests settle plots in the same world, so look for ours rather than counting.
   const world = () => page.request.get("/v1/world").then((r) => r.json());
@@ -143,7 +149,7 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
   await page.click('[data-dir="e"]');
   await expect.poll(async () => (await me()).x).toBe(x + 1);
   await page.click("#home");
-  await expect.poll(async () => [(await me()).x, (await me()).y]).toEqual([x, y]);
+  await expect.poll(async () => xy(await me())).toEqual([x, y]);
   await page.screenshot({ path: "test-results/hearth.png" });
 
   await test.step("two arrow keys held together walk diagonally", async () => {

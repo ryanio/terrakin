@@ -247,6 +247,28 @@ export function plotInBounds(config: WorldConfig, px: number, py: number): boole
   );
 }
 
+/** Why `settle` turns a plot down. */
+export type SettleProblem = "out_of_bounds" | "plot_is_commons" | "plot_owned" | "plot_limit";
+
+/**
+ * Why `settle` would turn down plot (px, py), in the order it checks, or undefined when it would
+ * take it: the plot is outside the world, is the Commons, is already someone's, or the resident
+ * already owns a plot (settle is only for a first one). `settle` checks with it, and the web's plot
+ * picker lists only the plots it passes (decision 0052).
+ */
+export function settleProblem(
+  config: WorldConfig,
+  px: number,
+  py: number,
+  facts: { claimed: boolean; ownsAPlot: boolean },
+): SettleProblem | undefined {
+  if (!plotInBounds(config, px, py)) return "out_of_bounds";
+  if (isCommons(config, px, py)) return "plot_is_commons";
+  if (facts.claimed) return "plot_owned";
+  if (facts.ownsAPlot) return "plot_limit";
+  return undefined;
+}
+
 /**
  * How far a tile is from plot (px, py), in tiles, counted like reach (Chebyshev): 0 on the plot,
  * 1 on a tile beside it (a corner's diagonal neighbor too), and so on.

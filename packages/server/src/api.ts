@@ -98,6 +98,7 @@ import { count, crumb, nameRequest, report, span, task } from "./telemetry";
 import { anchorPlot, suggestPlots } from "./together";
 import { chatterStatus, tipsStatus, townsfolkActivity } from "./townsfolk-status";
 import type { TipsResult, TownsfolkTips } from "./townsfolk-tips";
+import type { TownsfolkWelcome, WelcomeRun } from "./townsfolk-welcome";
 import { DAY_MS, utcDay, type WorldService } from "./world-service";
 
 /**
@@ -264,6 +265,11 @@ export interface ApiOptions {
    * timer. Without it, tips are off here (the script can still give them).
    */
   tips?: TownsfolkTips;
+  /**
+   * Welcome visits (decision 0142): queued as a person claims their first plot, carried out by the
+   * minute sweep. Built on `service` and `social`. Without it, nobody is visited.
+   */
+  welcome?: TownsfolkWelcome;
 }
 
 /** Seconds until the next UTC day, when per-IP daily upload bytes reset. */
@@ -306,6 +312,8 @@ export class Api {
   readonly staffOptions: StaffOptions;
   private readonly chatter: ChatterService | undefined;
   private readonly tips: TownsfolkTips | undefined;
+  /** Welcome visits (decision 0142). The wiring queues them from each committed claim. */
+  readonly welcome: TownsfolkWelcome | undefined;
   /** Offline routines' runner (RFC 0009). Needs the social layer, where the away log lives. */
   readonly routines: Routines | undefined;
   /** Each partner's residents (`GET /v1/partners/{id}/residents`), read from both layers. */
@@ -328,6 +336,7 @@ export class Api {
     this.owners = options.social
       ? new OwnerService({ social: options.social, credentials: options.service })
       : undefined;
+    this.welcome = options.welcome;
     // The world and the social layer hear each other through hooks (api-wiring.ts).
     const layer = options.social;
     if (layer) {
@@ -979,6 +988,21 @@ export class Api {
     });
   }
 
+  /**
+   * Welcome visits that are due (decision 0142). The minute sweep runs them after routines; this
+   * runs them alone, for tests.
+   */
+  runWelcomes(): WelcomeRun | { skipped: "off" } {
+    const welcome = this.welcome;
+    if (!welcome) return { skipped: "off" };
+    return task("welcome.run", () => welcome.run());
+  }
+
+  /** When the next welcome visit is due (ms), or undefined, so the Worker's alarm wakes for it. */
+  nextWelcomeAt(): number | undefined {
+    return this.welcome?.nextAt();
+  }
+
   /** The staff overview's tips line: the mode and the last run's counts. */
   tipsStatus() {
     return tipsStatus(this.tips);
@@ -1061,6 +1085,12 @@ export class Api {
     this.service.sweepIdle();
     // After the idle sweep, so whoever just went idle is away for their routines.
     runRoutines(this.routines);
+    // Welcome visits (decision 0142): a failure is reported and the rest of the sweep goes on.
+    try {
+      this.welcome?.run();
+    } catch (err) {
+      report(err, "welcome.run");
+    }
     this.service.keepSnapshots();
     this.postListeners.sweep();
     this.social?.sweep().catch((err: unknown) => {

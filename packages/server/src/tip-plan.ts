@@ -164,6 +164,11 @@ export interface TipInput {
   otherLedgers?: LedgerEntry[][];
   /** Notes to recognize besides the givers' own (`ALL_TIP_NOTES`). */
   knownNotes?: { welcome: readonly string[]; post: readonly string[] };
+  /**
+   * Residents a runner already welcomed some other way (the server's welcome visits), whatever the
+   * ledgers still show. Passed over like anyone a ledger shows was welcomed.
+   */
+  alreadyWelcomed?: readonly string[];
 }
 
 export interface PlannedGift {
@@ -253,6 +258,7 @@ export function planTips(input: TipInput): TipPlan {
     ...(input.knownNotes?.post ?? []),
   ]);
   const welcomedBefore = giftedWith(ledgers, welcomeNotes);
+  for (const id of input.alreadyWelcomed ?? []) welcomedBefore.add(id);
 
   // Newcomers since the last run. On the first run, only today's and yesterday's.
   const lines = [...input.welcomes].sort((a, b) => a.seq - b.seq);

@@ -18,6 +18,7 @@ import {
   inventoryOf,
   isCommons,
   isFindKind,
+  isTownsfolk,
   lastDeclineDay,
   nearestOpenPickup,
   type Plot,
@@ -234,6 +235,11 @@ export function worldLinks(
       const owned = plotsOwnedBy(state, viewer)[0];
       const commons = commonsPlot(config);
       const everyone = Object.values(state.residents);
+      // Counted like the home page: townsfolk and their plots are left out.
+      const onlineCount = everyone.filter((o) => o.online && !isTownsfolk(state, o.id)).length;
+      const plotCount = Object.values(state.plots).filter(
+        (p) => !isTownsfolk(state, p.ownerId),
+      ).length;
       const nearby = everyone
         .filter((o) => o.id !== viewer && o.online && chebyshev(o, r) <= CHAT_EARSHOT)
         .sort((a, b) => chebyshev(a, r) - chebyshev(b, r) || a.id.localeCompare(b.id));
@@ -246,7 +252,7 @@ export function worldLinks(
         owned
           ? `Your plot is (${owned.px}, ${owned.py}).`
           : "You don't have a plot yet. Settling one takes one link, from anywhere.",
-        `The world is ${config.width} by ${config.height} tiles, in plots of ${config.plotSize} by ${config.plotSize}. Plot (px, py) covers tiles px*${config.plotSize} to px*${config.plotSize}+${config.plotSize - 1} across, and the same down. The Commons is plot (${commons.px}, ${commons.py}). ${plural(everyone.filter((o) => o.online).length, "resident")} online, ${plural(Object.keys(state.plots).length, "plot")} claimed.`,
+        `The world is ${config.width} by ${config.height} tiles, in plots of ${config.plotSize} by ${config.plotSize}. Plot (px, py) covers tiles px*${config.plotSize} to px*${config.plotSize}+${config.plotSize - 1} across, and the same down. The Commons is plot (${commons.px}, ${commons.py}). ${plural(onlineCount, "resident")} online, ${plural(plotCount, "plot")} claimed, not counting townsfolk.`,
         free.length > 0 &&
           list([
             "## Free plots near you",

@@ -7,7 +7,7 @@
 import { type DevlogPost, devlogLead } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { shortDate } from "@terrakin/ui/format";
-import { announce, disclosure } from "@terrakin/ui/ui";
+import { announce, cardBar, closeButton, disclosure } from "@terrakin/ui/ui";
 import { api } from "./api";
 import { markdownNodes } from "./markdown";
 
@@ -49,14 +49,11 @@ function devlogCard(post: DevlogPost, done: (date: string) => void): HTMLElement
     done(post.date);
   };
   const page = post.url.replace(/^https?:\/\/[^/]+/, "");
-  const hide = h(
-    "button",
-    {
-      class: "sheet-close devlog-hide",
-      attrs: { type: "button", "aria-label": "Hide this devlog post" },
-    },
-    icon("close"),
-  );
+  const hide = closeButton("Hide this devlog post", () => {
+    finish();
+    card.remove();
+    announce("Hidden until the next devlog post.");
+  });
   const more = rest
     ? h("button", {
         class: "pill-button small devlog-more",
@@ -77,12 +74,7 @@ function devlogCard(post: DevlogPost, done: (date: string) => void): HTMLElement
       class: "paper card stack devlog-card",
       attrs: { id: "devlog-card", "aria-labelledby": "devlog-title" },
     },
-    h(
-      "div",
-      { class: "devlog-head" },
-      h("p", { class: "eyebrow", text: `From the devlog · ${shortDay(post.date)}` }),
-      hide,
-    ),
+    cardBar(`From the devlog · ${shortDay(post.date)}`, hide),
     h(
       "h2",
       { class: "card-title", attrs: { id: "devlog-title" } },
@@ -113,11 +105,6 @@ function devlogCard(post: DevlogPost, done: (date: string) => void): HTMLElement
       if (open) finish();
     });
   }
-  hide.addEventListener("click", () => {
-    finish();
-    card.remove();
-    announce("Hidden until the next devlog post.");
-  });
   return card;
 }
 

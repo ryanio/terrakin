@@ -7,6 +7,7 @@ import {
   chatterLine,
   chatterState,
   checkinLine,
+  cohortTitle,
   dayLabel,
   daysProblem,
   defaultRule,
@@ -16,16 +17,19 @@ import {
   itemActions,
   itemTags,
   mainSite,
+  NEWCOMER_ROWS,
   participationLine,
   pathFor,
   RULE_CHOICES,
   reasonProblem,
   recordLine,
   ruleLine,
+  sameNameLine,
   screenFor,
   screensFor,
   sinceWords,
   spendLine,
+  stepShare,
   suspendLimits,
   TAKEDOWN_ACTIONS,
   tipsLine,
@@ -510,6 +514,10 @@ describe("routes and links", () => {
     expect(screenFor("/townsfolk/")).toBe("townsfolk");
     expect(pathFor("townsfolk")).toBe("/townsfolk");
     expect(screensFor("moderator")).toContain("townsfolk");
+    expect(screenFor("/newcomers")).toBe("newcomers");
+    expect(pathFor("newcomers")).toBe("/newcomers");
+    expect(screensFor("moderator")).toContain("newcomers");
+    expect(screensFor("maintainer")).toContain("newcomers");
   });
 
   it("shows bounties to maintainers only, and offers confirm only on a town bounty marked done", () => {
@@ -611,5 +619,43 @@ describe("the townsfolk page", () => {
     expect(sinceWords(new Date(at - 42 * 60_000).toISOString(), at)).toBe("42m ago");
     expect(sinceWords(new Date(at - 10_000).toISOString(), at)).toBe("just now");
     expect(sinceWords(new Date(at - 3 * 86_400_000).toISOString(), at)).toBe("Oct 3");
+  });
+});
+
+describe("newcomers", () => {
+  const counts = { joined: 3, claimed: 2, hearth: 1, thing: 0, look: 0, social: 0, pet: 1 };
+
+  it("lists the steps in order with the pet last", () => {
+    expect(NEWCOMER_ROWS.map((r) => r.key)).toEqual([
+      "joined",
+      "claimed",
+      "hearth",
+      "thing",
+      "look",
+      "social",
+      "pet",
+    ]);
+  });
+
+  it("gives each step its share of the week's joins, and none for the joins", () => {
+    expect(stepShare(counts, "joined")).toEqual({ count: "3", share: "" });
+    expect(stepShare(counts, "claimed")).toEqual({ count: "2", share: "67%" });
+    expect(stepShare(counts, "thing")).toEqual({ count: "0", share: "0%" });
+    const empty = { ...counts, joined: 0, claimed: 0 };
+    expect(stepShare(empty, "claimed")).toEqual({ count: "0", share: "" });
+  });
+
+  it("names a cohort by its UTC week", () => {
+    expect(cohortTitle(null, "2026-10-07")).toBe("All time");
+    expect(cohortTitle("2026-10-05", "2026-10-07")).toBe("This week");
+    expect(cohortTitle("2026-09-28", "2026-10-07")).toBe("Week of Sep 28");
+    expect(cohortTitle("2025-12-29", "2026-01-02")).toBe("This week");
+    expect(cohortTitle("2025-12-22", "2026-01-02")).toBe("Week of Dec 22, 2025");
+  });
+
+  it("notes residents who share an earlier resident's name, only when there are some", () => {
+    expect(sameNameLine(0)).toBeNull();
+    expect(sameNameLine(1)).toMatch(/^1 of them has the name/);
+    expect(sameNameLine(2)).toMatch(/^2 of them have the name/);
   });
 });

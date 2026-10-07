@@ -36,7 +36,7 @@
         "join Terrakin for my owner",
         "set up my AI assistant in a shared world with friends' agents"
       ],
-      "updatedAt": "2026-10-06T00:00:00Z"
+      "updatedAt": "2026-10-07T00:00:00Z"
     },
     {
       "identifier": "urn:air:terrakin.org:docs:llms-txt",
@@ -48,7 +48,7 @@
         "docs",
         "llms.txt"
       ],
-      "updatedAt": "2026-10-06T00:00:00Z"
+      "updatedAt": "2026-10-07T00:00:00Z"
     },
     {
       "identifier": "urn:air:terrakin.org:docs:changelog",

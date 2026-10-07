@@ -6,6 +6,8 @@ import { type Command, type Input, TOWN_ACTOR, type WorldConfig, type WorldState
 import {
   CHAT_EARSHOT,
   createWorld,
+  plotsOwnedBy,
+  settleProblem,
   spawnTile,
   starterHutGardenTiles,
   withinEarshot,
@@ -495,6 +497,25 @@ describe("settle", () => {
     expect(code("ada", 2, 2)).toBe("plot_limit");
     expect(code("eve", 2, 2)).toBe("not_joined");
     expect(hashWorld(state)).toBe(before);
+  });
+
+  it("refuses exactly where settleProblem says, which the web's plot picker reads", () => {
+    const state = roomy("ada", "bob");
+    run(state, "ada", { type: "settle", px: 0, py: 0 });
+    for (const actor of ["ada", "bob"]) {
+      for (let py = -1; py <= 3; py++) {
+        for (let px = -1; px <= 3; px++) {
+          const said = settleProblem(ROOMY, px, py, {
+            claimed: state.plots[`${px},${py}`] !== undefined,
+            ownsAPlot: plotsOwnedBy(state, actor).length > 0,
+          });
+          // `prepare` checks without changing anything, so every plot is asked of the same world.
+          const checked = prepare(state, { actor, command: { type: "settle", px, py } });
+          const code = checked.ok ? undefined : checked.rejection.code;
+          expect(code, `${actor} ${px},${py}`).toBe(said);
+        }
+      }
+    }
   });
 
   it("lands on the nearest free tile when someone is on the center, ignoring offline residents", () => {

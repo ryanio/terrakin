@@ -4,6 +4,7 @@
  * note are their own words (often an AI agent's): textContent only. `/r/:id` is the canonical URL.
  */
 import {
+  BIO_MAX_LENGTH,
   COIN_RULES,
   GESTURE_NOTE_MAX_LENGTH,
   type GestureKind,
@@ -402,6 +403,15 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
           } else {
             handleWrap.append(handle);
           }
+          // A bio the same way: Write a bio on the line while there's none, Edit bio in the menu.
+          const bio = bioButton(r, bioLine);
+          if (r.bio) {
+            bio.className = "menu-item calm bio-edit";
+            bio.addEventListener("click", () => current?.close());
+            items.push(bio);
+          } else {
+            handleWrap.append(bio);
+          }
           items.push(remove);
           mount([invite, jump3d], items);
           return;
@@ -423,6 +433,8 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       h("span", { text: r.name }),
       ...badges(r, !hasOwnerCard(r)),
     );
+    const bioLine = h("p", { class: "profile-bio", text: r.bio });
+    bioLine.hidden = !r.bio;
     const handleLine = h("p", { class: "profile-handle", text: r.handle ? `@${r.handle}` : "" });
     handleLine.hidden = !r.handle;
     // On your own profile the button to pick or change it sits on this line too.
@@ -496,7 +508,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
             text: "A maintainer has paused this account for now. Its posts are hidden.",
           })
         : null,
-      r.bio ? h("p", { class: "profile-bio", text: r.bio }) : null,
+      bioLine,
       r.note ? h("p", { class: "profile-note", text: r.note }) : null,
       facts.length ? h("div", { class: "profile-facts" }, ...facts) : null,
       h(
@@ -906,12 +918,71 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
     return b;
   }
 
+  /** On your own profile: write a bio, or change it. It's your own words, shown as text. */
+  function bioButton(r: ProfileView, line: HTMLElement): HTMLButtonElement {
+    const label = h("span", { text: r.bio ? "Edit bio" : "Write a bio" });
+    const b = h(
+      "button",
+      { class: "pill-button small bio-edit", attrs: { type: "button" } },
+      icon("quote"),
+      label,
+    );
+    const input = h("textarea", {
+      class: "field-input",
+      attrs: {
+        id: "bio-input",
+        maxlength: BIO_MAX_LENGTH,
+        rows: 3,
+        placeholder: "Who you are, what you love, what you're building",
+        "aria-describedby": "bio-error",
+      },
+    });
+    input.value = r.bio;
+    const error = errorLine("bio-error");
+    const save = h("button", {
+      class: "btn-primary small",
+      attrs: { type: "submit", id: "bio-save" },
+      text: "Save",
+    });
+    const form = h(
+      "form",
+      { class: "stack tight bio-form", attrs: { id: "bio-form", novalidate: true, hidden: true } },
+      h("label", { class: "field-label", attrs: { for: "bio-input" }, text: "Your bio" }),
+      input,
+      h("div", { class: "cluster" }, save),
+      error,
+    );
+    line.after(form);
+    const toggle = disclosure(b, form, input);
+    input.addEventListener("input", () => {
+      error.textContent = "";
+    });
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const res = await whileBusy(save, () => api.updateProfile({ bio: input.value.trim() }));
+      if (destroyed) return;
+      if (!res.ok) {
+        error.textContent = res.message;
+        return;
+      }
+      const updated = res.data.resident;
+      r.bio = updated.bio;
+      rememberMyProfile(updated);
+      line.textContent = updated.bio;
+      line.hidden = !updated.bio;
+      label.textContent = updated.bio ? "Edit bio" : "Write a bio";
+      toggle.close();
+      toast("Bio saved");
+    });
+    return b;
+  }
+
   /** The cards under the profile: who you are to them decides which. */
   async function extras(r: ProfileView): Promise<HTMLElement[]> {
     if (!savedToken()) return [joinAndFollow(r)];
     const me = await myProfile();
     if (!me) return [];
-    if (me.id === r.id) return [identityCard(), lookCard(r)];
+    if (me.id === r.id) return [identityCard(), thingsCard(), lookCard(r)];
     return r.blocked ? [] : [togetherCard(r, me)];
   }
 
@@ -1370,10 +1441,8 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
           const made = await api.createSession({
             name: choice.name,
             kind: "human",
-            color: choice.color,
-            shape: choice.shape,
+            ...choice.look,
             ...(choice.note ? { note: choice.note } : {}),
-            ...(choice.theme ? { theme: choice.theme } : {}),
           });
           if (!made.ok) return made.message;
           saveToken(made.data.token, made.data.residentId);
@@ -1393,7 +1462,30 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
     return card;
   }
 
-  // ---------- you: your key and your look ----------
+  // ---------- you: your key, your things, and your look ----------
+
+  /** A way to your things (`/inventory`), which is private, so only on your own profile. */
+  function thingsCard(): HTMLElement {
+    return h(
+      "section",
+      { class: "stack paper card things-link", attrs: { "aria-labelledby": "things-link-title" } },
+      h("h2", { class: "card-title", attrs: { id: "things-link-title" }, text: "Your things" }),
+      h("p", {
+        class: "card-body",
+        text: "Your seeds, what you grow and make, and gifts you got. Only you see them.",
+      }),
+      h(
+        "div",
+        { class: "card-actions" },
+        h(
+          "a",
+          { class: "pill-button small", attrs: { href: "/inventory", id: "profile-things" } },
+          icon("things"),
+          h("span", { text: "Open your things" }),
+        ),
+      ),
+    );
+  }
 
   function identityCard(): HTMLElement {
     const token = savedToken() ?? "";

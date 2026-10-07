@@ -68,10 +68,12 @@ export function wireSocial(
   layer.onPetPatted = (owner) => service.announce({ type: "pet_patted", owner });
   // Plots to visit (RFC 0020): when each plot last changed, and who visited it. The collection
   // book (RFC 0021): what each input brought anyone, filled in once from the world as it is.
+  // Welcome visits (decision 0142): a person's first claim queues one; that never throws.
   service.onCommitted = (input, events) => {
     try {
       layer.plots.noteCommitted(service.state, input, events);
     } finally {
+      api.welcome?.noteCommitted(input, events);
       layer.collection.noteCommitted(service.state, input, events);
     }
   };

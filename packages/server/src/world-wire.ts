@@ -16,11 +16,14 @@ import {
   findsOpen,
   holidayField,
   isTownEvent,
+  isTownsfolk,
   type PickupKind,
   parseKey,
   pickupLeft,
   plotAtTile,
   plotPickupsOwned,
+  type Resident,
+  residentById,
   type StepRoutine,
   shopTiles,
   skyAt,
@@ -180,6 +183,26 @@ export function worldSnapshot(state: WorldState, extras: SnapshotExtras): WorldS
   // Made things on display, and finds on display (RFC 0021), each in their own list.
   const shown = displaysOf(state);
   const finds = findsOnDisplay(state);
+  const view = (r: Resident) => {
+    const faced = facing.get(r.id);
+    // Away and out on a routine for a few minutes after its last step (RFC 0009).
+    const step = r.online ? undefined : routineSteps.get(r.id);
+    const out = step && nowMs - step.at < ROUTINE_LIMITS.awakeMinutes * 60_000;
+    const hidden = noteHidden(r.id);
+    return {
+      ...r,
+      ...(hidden ? { note: "" } : {}),
+      // A quarantined owner's pet keeps its name out of view too (RFC 0019).
+      ...(hidden && r.pet ? { pet: { ...r.pet, name: "" } } : {}),
+      // Kept any of eight ways, sent as one of the four `facing` has always been.
+      ...(faced ? { facing: fourWayFacing(faced) } : {}),
+      ...(out ? { routine: step.routine } : {}),
+    };
+  };
+  const townsfolk = (state.townsfolk ?? []).flatMap((id) => {
+    const r = residentById(state, id);
+    return r ? [view(r)] : [];
+  });
   return {
     v: PROTOCOL_VERSION,
     seq: state.seq,
@@ -199,22 +222,9 @@ export function worldSnapshot(state: WorldState, extras: SnapshotExtras): WorldS
       reach: state.config.reach,
     },
     commons: commonsPlot(state.config),
-    residents: Object.values(state.residents).map((r) => {
-      const faced = facing.get(r.id);
-      // Away and out on a routine for a few minutes after its last step (RFC 0009).
-      const step = r.online ? undefined : routineSteps.get(r.id);
-      const out = step && nowMs - step.at < ROUTINE_LIMITS.awakeMinutes * 60_000;
-      const hidden = noteHidden(r.id);
-      return {
-        ...r,
-        ...(hidden ? { note: "" } : {}),
-        // A quarantined owner's pet keeps its name out of view too (RFC 0019).
-        ...(hidden && r.pet ? { pet: { ...r.pet, name: "" } } : {}),
-        // Kept any of eight ways, sent as one of the four `facing` has always been.
-        ...(faced ? { facing: fourWayFacing(faced) } : {}),
-        ...(out ? { routine: step.routine } : {}),
-      };
-    }),
+    residents: Object.values(state.residents).flatMap((r) =>
+      isTownsfolk(state, r.id) ? [] : [view(r)],
+    ),
     plots: Object.values(state.plots).map((p) => {
       const name = shownPlotName(p, noteHidden);
       return {
@@ -254,6 +264,8 @@ export function worldSnapshot(state: WorldState, extras: SnapshotExtras): WorldS
         }
       : {}),
     ...(state.townsfolk?.length ? { townsfolk: [...state.townsfolk] } : {}),
+    // Kept apart so a count of `residents` never includes them.
+    ...(townsfolk.length > 0 ? { townsfolkResidents: townsfolk } : {}),
     ...(Object.keys(shown).length > 0
       ? {
           displays: Object.entries(shown).map(([key, d]) => {

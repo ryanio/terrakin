@@ -3,7 +3,7 @@
  * `/r/:id/3d` visits a resident's plot from the live world snapshot; `/gallery/3d` is the gallery
  * room (and `?item=` one item up close). Lazy: the main bundle reaches this only through import().
  */
-import { WorldSnapshot } from "@terrakin/protocol";
+import { everyoneIn, WorldSnapshot } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { plot3dPath, profilePath } from "@terrakin/ui/paths";
 import { openOverlay, shareOnX, sheet, stateCard, toast } from "@terrakin/ui/ui";
@@ -113,7 +113,7 @@ export function mount3d(
         const parsed = WorldSnapshot.safeParse(raw);
         if (!parsed.success) throw new Error("bad snapshot");
         const snapshot = parsed.data;
-        const resident = snapshot.residents.find((r) => r.id === route.id);
+        const resident = everyoneIn(snapshot).find((r) => r.id === route.id);
         if (!resident) {
           ctx.setTitle("Not found · Terrakin");
           el.replaceChildren(

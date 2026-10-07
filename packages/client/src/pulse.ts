@@ -14,7 +14,7 @@ import type {
   TreasuryView,
   WorldSnapshot,
 } from "@terrakin/protocol";
-import { REAL_ENOUGH } from "@terrakin/protocol";
+import { everyoneIn, REAL_ENOUGH } from "@terrakin/protocol";
 import { isMediaUrl, plural } from "@terrakin/ui/format";
 
 export { REAL_ENOUGH };
@@ -163,7 +163,7 @@ export function townsfolkIds(
 }
 
 export interface PulseStats {
-  /** Real residents, not counting townsfolk. */
+  /** Residents, which never include the townsfolk. */
   residents: number;
   online: number;
   homes: number;
@@ -173,14 +173,14 @@ export interface PulseStats {
 }
 
 export function pulseStats(snapshot: WorldSnapshot, townsfolk: ReadonlySet<string>): PulseStats {
-  const real = snapshot.residents.filter((r) => !townsfolk.has(r.id));
+  const { residents } = snapshot;
   return {
-    residents: real.length,
-    online: real.filter((r) => r.online).length,
-    homes: real.filter((r) => r.hearth !== null).length,
+    residents: residents.length,
+    online: residents.filter((r) => r.online).length,
+    homes: residents.filter((r) => r.hearth !== null).length,
     plots: snapshot.plots.filter((p) => !townsfolk.has(p.ownerId)).length,
     blocks: snapshot.blocks.length,
-    townsfolk: snapshot.residents.length - real.length,
+    townsfolk: snapshot.townsfolk?.length ?? 0,
   };
 }
 
@@ -193,7 +193,7 @@ export function aroundNow(
   townsfolk: ReadonlySet<string>,
   max = 10,
 ): { shown: Resident[]; more: number } {
-  const online = snapshot.residents.filter((r) => r.online);
+  const online = everyoneIn(snapshot).filter((r) => r.online);
   const real = online.filter((r) => !townsfolk.has(r.id)).reverse();
   const fill = online.filter((r) => townsfolk.has(r.id));
   const list = [...real, ...fill.slice(0, Math.max(0, ROSTER_FILL - real.length))];

@@ -16,6 +16,8 @@ import {
   newsLine,
   noSeedsHint,
   othersPickupLine,
+  pantryWords,
+  recipeShelf,
   sendBackLine,
   thingCount,
   toastMs,
@@ -196,6 +198,37 @@ describe("things", () => {
     expect(missingLine(needs, held({ lemon: 5, jar: 1 }))).toBeNull();
   });
 
+  it("lists what you can make first and keeps the rest for Show more", () => {
+    const recipe = (name: string, needs: Record<string, number>) => ({
+      name,
+      needs: Object.entries(needs).map(([kind, count]) => ({ kind, count })),
+    });
+    const tea = recipe("tea", { herb: 2, jar: 1 });
+    const jam = recipe("jam", { lemon: 3, sugar: 1, jar: 1 });
+    const pie = recipe("pie", { pumpkin: 2, sugar: 1 });
+    const soup = recipe("soup", { pumpkin: 1, herb: 1, jar: 1 });
+    const stew = recipe("stew", { carp: 1, tomato: 1, herb: 1 });
+    const all = [jam, pie, soup, stew, tea];
+    const names = (s: { shown: { name: string }[]; more: { name: string }[] }) => [
+      s.shown.map((r) => r.name),
+      s.more.map((r) => r.name),
+    ];
+    const has = (counts: Record<string, number>) => (kind: string) => counts[kind] ?? 0;
+    // Tea and soup can be made: they lead, topped up to three with the closest, pie (1 short).
+    expect(names(recipeShelf(all, has({ herb: 2, jar: 1, pumpkin: 1, sugar: 1 })))).toEqual([
+      ["soup", "tea", "pie"],
+      ["stew", "jam"],
+    ]);
+    // Everything you can make is shown, however many.
+    const plenty = has({ herb: 9, jar: 9, pumpkin: 9, sugar: 9, lemon: 9 });
+    expect(recipeShelf(all, plenty).shown).toHaveLength(4);
+    // Nothing made yet: the three closest, in catalog order when they tie.
+    expect(names(recipeShelf(all, has({})))).toEqual([
+      ["pie", "soup", "stew"],
+      ["tea", "jam"],
+    ]);
+  });
+
   it("only promises seeds from the pantry when it could still bring them", () => {
     expect(noSeedsHint({ hasHearth: false, pantryToday: false })).toContain("Set a hearth");
     // Today's pantry is had: coming home brings nothing more, seeds or otherwise.
@@ -248,9 +281,7 @@ describe("things", () => {
     expect(newsLine(opened, "r_1")).toContain("Galleries page");
     expect(newsLine({ ...opened, open: false }, "r_1")).toBe("Your plot isn't a gallery anymore.");
     expect(newsLine(opened, "r_2")).toBeNull();
-    expect(newsLine({ type: "plot_claimed", px: 3, py: 3, ownerId: "r_1" }, "r_1")).toBe(
-      "This plot is yours. Tap Build to start.",
-    );
+    expect(newsLine({ type: "plot_claimed", px: 3, py: 3, ownerId: "r_1" }, "r_1")).toBeNull();
     expect(newsLine({ type: "plot_claimed", px: 3, py: 3, ownerId: "r_2" }, "r_1")).toBeNull();
     expect(newsLine({ type: "hearth_set", residentId: "r_1", x: 1, y: 1 }, "r_1")).toContain(
       "Tap Home",
@@ -337,10 +368,27 @@ describe("things", () => {
     ).toBe("Nothing left to pick up there: someone got there first.");
   });
 
+  it("counts a pantry's seeds together and names the rest", () => {
+    const first = [
+      { kind: "lemon_seed" as const, amount: 2 },
+      { kind: "strawberry_seed" as const, amount: 2 },
+      { kind: "tomato_seed" as const, amount: 2 },
+      { kind: "herb_seed" as const, amount: 2 },
+      { kind: "flower_seed" as const, amount: 2 },
+      { kind: "sugar" as const, amount: 1 },
+      { kind: "jar" as const, amount: 1 },
+    ];
+    expect(pantryWords(first)).toBe("10 seeds of 5 kinds, 1 bag of sugar, and 1 jar");
+    expect(pantryWords([{ kind: "herb_seed", amount: 2 }])).toBe("2 herb seeds");
+    expect(pantryWords([{ kind: "jar", amount: 1 }])).toBe("1 jar");
+    expect(pantryWords([{ kind: "jar", amount: -1 }])).toBeNull();
+    expect(pantryWords([])).toBeNull();
+  });
+
   it("keeps a toast up longer for a longer line, within limits", () => {
     expect(toastMs("Hi")).toBe(2680);
     expect(toastMs("Hi", "player")).toBe(4000);
-    expect(toastMs(NO_PLOT_LINE)).toBeGreaterThan(5000);
+    expect(toastMs("x".repeat(80))).toBe(5800);
     expect(toastMs("x".repeat(400))).toBe(7000);
   });
 });

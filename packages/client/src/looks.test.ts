@@ -1,10 +1,12 @@
 import type { LookView } from "@terrakin/protocol";
 import {
+  isShopWear,
   PATTERNS,
   RESIDENT_COLORS,
   THEME_INFO,
   THEMES,
   type ThemePalette,
+  WEAR_INFO,
   type WearItem,
   type WearStyles,
 } from "@terrakin/sim";
@@ -26,6 +28,7 @@ import {
   waveY,
 } from "@terrakin/ui/looks";
 import { describe, expect, it } from "vitest";
+import { characterWords, FIRST_CHARACTER, joinLook, STARTER_TOPS } from "./join-form";
 import { lookChanges, mediaProblem, wearChoices, wearWith, withoutOwnPattern } from "./look-editor";
 import { Mirror } from "./mirror";
 
@@ -397,5 +400,41 @@ describe("partner wear in the look editor (RFC 0007)", () => {
     expect(wearChoices("hat", [], [], new Set(), new Set(["witch_hat"]))).toContain("witch_hat");
     expect(wearChoices("hat", [], [], new Set(["witch_hat"]))).toContain("witch_hat");
     expect(wearChoices("hat", [], ["witch_hat"])).toContain("witch_hat");
+  });
+});
+
+describe("the join form's character", () => {
+  it("offers only free tops, so a newcomer never picks something they'd have to buy", () => {
+    expect(STARTER_TOPS).toEqual(["apron", "scarf", "cardigan", "overalls", "dress"]);
+    for (const top of STARTER_TOPS) {
+      expect(WEAR_INFO[top].slot).toBe("top");
+      expect(isShopWear(top)).toBe(false);
+    }
+  });
+
+  it("joins with the first shape, hair and its color together, and the top as the wear list", () => {
+    expect(joinLook({ color: "plum", hair: "bun", hairColor: "ginger", top: "cardigan" })).toEqual({
+      color: "plum",
+      shape: "round",
+      hair: "bun",
+      hairColor: "ginger",
+      wear: ["cardigan"],
+    });
+    // No hair sends no hair color, and no top sends no wear.
+    expect(joinLook({ ...FIRST_CHARACTER, hair: null, hairColor: "pink" })).toEqual({
+      color: FIRST_CHARACTER.color,
+      shape: "round",
+    });
+  });
+
+  it("starts with short brown hair and nothing extra to wear, the same every time", () => {
+    expect(FIRST_CHARACTER).toEqual({ color: "sun", hair: "short", hairColor: "brown", top: null });
+  });
+
+  it("says the character in words beside its picture", () => {
+    expect(
+      characterWords({ color: "sun", hair: "bob", hairColor: "auburn", top: "cardigan" }),
+    ).toBe("Auburn bob, cardigan, in sun yellow");
+    expect(characterWords({ ...FIRST_CHARACTER, hair: null })).toBe("No hair, in sun yellow");
   });
 });

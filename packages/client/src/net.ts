@@ -1,4 +1,10 @@
-import { type Action, type PostMessage, PROTOCOL_VERSION, ServerMessage } from "@terrakin/protocol";
+import {
+  type Action,
+  type CreateSessionRequest,
+  type PostMessage,
+  PROTOCOL_VERSION,
+  ServerMessage,
+} from "@terrakin/protocol";
 import { appCrumb } from "./telemetry";
 
 const TOKEN_KEY = "terrakin.token";
@@ -58,9 +64,13 @@ export function backoff(retry: number, base: number, max: number, random = Math.
   const full = Math.min(max, base * 2 ** retry);
   return full / 2 + random() * (full / 2);
 }
+/** A saved key, or a new person: a name and their look, sent with hello to join. */
 export type Identity =
   | { token: string }
-  | { name: string; kind: "human"; color?: string; shape?: string; note?: string };
+  | ({ name: string; kind: "human" } & Pick<
+      CreateSessionRequest,
+      "color" | "shape" | "note" | "hair" | "hairColor" | "wear"
+    >);
 
 /** One WebSocket to /v1/live with automatic reconnect and token resume. */
 export class Connection {

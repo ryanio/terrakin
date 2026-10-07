@@ -315,7 +315,8 @@ export function pickTab(row: HTMLElement, index: number, o: { focus?: boolean } 
 
 /**
  * A row of pressable chips where one is picked, like colors or shapes. Fills `row` when given (a
- * row already in the page), else makes one. Each chip carries `data-value`.
+ * row already in the page), else makes one. Each chip carries `data-value`, and the class
+ * `classFor` gives its value, if any.
  */
 export function chips<T extends string>(
   options: readonly T[],
@@ -323,6 +324,7 @@ export function chips<T extends string>(
   draw: (value: T) => Node[],
   onPick: (value: T) => void = () => {},
   row: HTMLElement = h("div", { class: "swatch-row" }),
+  classFor?: (value: T) => string | undefined,
 ): { row: HTMLElement; value: () => T } {
   let chosen = first;
   row.setAttribute("role", "group");
@@ -330,6 +332,7 @@ export function chips<T extends string>(
     const b = h(
       "button",
       {
+        class: classFor?.(value),
         attrs: { type: "button", "aria-pressed": String(value === first), "data-value": value },
         on: {
           click: () => {
@@ -627,6 +630,36 @@ export function interceptPop(): boolean {
   return true;
 }
 
+// ---------- close ----------
+
+/**
+ * A round button with an X, named by `label` for screen readers: a sheet's close, or putting away
+ * a card on the home wall (`cardBar`). `className` is added to `sheet-close`.
+ */
+export function closeButton(
+  label: string,
+  onClose: () => void,
+  className?: string,
+): HTMLButtonElement {
+  return h(
+    "button",
+    {
+      class: ["sheet-close", className].filter(Boolean).join(" "),
+      attrs: { type: "button", "aria-label": label },
+      on: { click: onClose },
+    },
+    icon("close"),
+  );
+}
+
+/**
+ * The top line of a card someone can put away: what it is, small, and a `closeButton` at the end.
+ * The devlog card and the Getting started card on the home wall have one.
+ */
+export function cardBar(eyebrow: string, close: HTMLButtonElement): HTMLElement {
+  return h("div", { class: "card-bar" }, h("p", { class: "eyebrow", text: eyebrow }), close);
+}
+
 // ---------- sheet ----------
 
 export interface SheetOptions {
@@ -650,15 +683,7 @@ const SHEET_AS_CARD = "(min-width: 640px)";
  * close it too, and it slides away as it goes.
  */
 export function sheet(o: SheetOptions, ...body: (Node | null)[]) {
-  const close = h(
-    "button",
-    {
-      class: "sheet-close",
-      attrs: { type: "button", "aria-label": "Close" },
-      on: { click: () => closeOverlay(dialog) },
-    },
-    icon("close"),
-  );
+  const close = closeButton("Close", () => closeOverlay(dialog));
   const title = h("h2", { class: "sheet-title", attrs: { id: o.id }, text: o.title });
   // Focusable, so a sheet whose buttons are all choices can open with focus on itself: focus on a
   // button draws the ring around it in Safari, and it looks picked before anyone has chosen.

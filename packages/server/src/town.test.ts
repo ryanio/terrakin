@@ -152,6 +152,22 @@ describe("the town's clock", () => {
     expect(sets()).toHaveLength(2);
   });
 
+  it("lists the townsfolk apart from the residents, so a count of residents leaves them out", () => {
+    const world = new WorldService({ store: new MemoryStore(), config: CONFIG });
+    const ada = world.createSession({ name: "Ada", kind: "human" }).residentId as string;
+    const pip = world.createSession({ name: "Pip", kind: "agent" }).residentId as string;
+    expect(world.snapshot().residents.map((r) => r.id)).toEqual([ada, pip]);
+    expect(world.onlineCount()).toBe(2);
+
+    world.syncTownsfolk(new Set([pip]));
+    const snap = world.snapshot();
+    expect(snap.residents.map((r) => r.id)).toEqual([ada]);
+    expect(snap.townsfolk).toEqual([pip]);
+    expect(snap.townsfolkResidents).toMatchObject([{ id: pip, name: "Pip", kind: "agent" }]);
+    // GET /v1/health's `online` counts the same way.
+    expect(world.onlineCount()).toBe(1);
+  });
+
   it("closes a proposal at midnight UTC two nights after it opened, and the log replays", async () => {
     const t = await start();
     const ada = await t.resident("Ada");

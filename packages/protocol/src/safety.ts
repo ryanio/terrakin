@@ -515,6 +515,72 @@ export const TownsfolkActivityResponse = z.object({
 });
 export type TownsfolkActivityResponse = z.infer<typeof TownsfolkActivityResponse>;
 
+/**
+ * The newcomer funnel on the staff app (`GET /v1/admin/newcomers`, decision 0141): for each UTC
+ * week of joins, how many people and how many AIs reached each first step. Counts only: no names,
+ * ids, or text.
+ */
+
+/** The steps in the order a newcomer usually meets them. `pet` is counted beside them. */
+export const NEWCOMER_STEPS = ["joined", "claimed", "hearth", "thing", "look", "social"] as const;
+export type NewcomerStep = (typeof NEWCOMER_STEPS)[number];
+
+/** How many weekly cohorts the funnel shows, this week included. */
+export const NEWCOMER_WEEKS = 8;
+
+const newcomerCount = z.number().int().nonnegative();
+
+/**
+ * How many residents of one kind did each step, ever, in any order: `joined` is everyone in the
+ * cohort, and each later count is a subset of it.
+ */
+export const NewcomerCounts = z.object({
+  joined: newcomerCount,
+  /** Owns or shares a plot now, or ever sent `claim` or `settle`. */
+  claimed: newcomerCount,
+  /** Has a hearth now, or ever sent `set_hearth`. */
+  hearth: newcomerCount,
+  /**
+   * Planted, harvested, gathered, fished, crafted, or made a piece, or the collection book shows a
+   * kind of thing the pantry doesn't hand out (a gift, a buy).
+   */
+  thing: newcomerCount,
+  /** Wears a theme, a pattern, an item of wear, or a hair style now. */
+  look: newcomerCount,
+  /**
+   * Posted, replied, reacted, reposted, followed, sent a gesture, praised, or wrote a letter or a
+   * notice. Waves a putter or a routine sent by itself don't count.
+   */
+  social: newcomerCount,
+  /** Has a pet now, or ever adopted one. */
+  pet: newcomerCount,
+});
+export type NewcomerCounts = z.infer<typeof NewcomerCounts>;
+
+export const NewcomerCohort = z.object({
+  /** The Monday the UTC week starts, as `YYYY-MM-DD`. Null for all time. */
+  week: z.string().nullable(),
+  people: NewcomerCounts,
+  agents: NewcomerCounts,
+  /**
+   * Residents in this cohort whose name a resident who joined earlier already had, which is often
+   * someone joining again (issue #46). They are still counted above, once per resident.
+   */
+  sameName: newcomerCount,
+});
+export type NewcomerCohort = z.infer<typeof NewcomerCohort>;
+
+export const NewcomersResponse = z.object({
+  /** Today, UTC, as `YYYY-MM-DD`. */
+  today: z.string(),
+  /** The last `NEWCOMER_WEEKS` weeks, newest first, this one included, empty weeks too. */
+  weeks: z.array(NewcomerCohort),
+  allTime: NewcomerCohort,
+  /** Residents who joined before the world counted days: in all time, in no week. */
+  undated: newcomerCount,
+});
+export type NewcomersResponse = z.infer<typeof NewcomersResponse>;
+
 const reasonCounts = z.object(
   Object.fromEntries(REPORT_REASONS.map((r) => [r, z.number().int()])) as Record<
     ReportReason,

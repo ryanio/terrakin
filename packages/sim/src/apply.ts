@@ -165,9 +165,9 @@ import {
   outOfReach,
   plotAtTile,
   plotCenter,
-  plotInBounds,
   plotOf,
   plotsOwnedBy,
+  settleProblem,
   spawnTile,
   starterHome,
 } from "./world";
@@ -1005,24 +1005,26 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
 
     case "settle": {
       const { px, py } = command;
-      if (!plotInBounds(config, px, py)) {
-        return reject("out_of_bounds", "That plot is outside the world.");
-      }
-      if (isCommons(config, px, py)) {
-        return reject("plot_is_commons", "The Commons belongs to everyone.");
-      }
       const key = plotKey(px, py);
-      if (state.plots[key]) {
-        return reject(
-          "plot_owned",
-          `This plot is already claimed.${freePlotHint(state, actor, px, py)}`,
-        );
-      }
-      if (plotsOwnedBy(state, actor).length > 0) {
-        return reject(
-          "plot_limit",
-          "You already have a plot. Settle is for your first one; walk to another and claim it.",
-        );
+      const problem = settleProblem(config, px, py, {
+        claimed: state.plots[key] !== undefined,
+        ownsAPlot: plotsOwnedBy(state, actor).length > 0,
+      });
+      switch (problem) {
+        case "out_of_bounds":
+          return reject(problem, "That plot is outside the world.");
+        case "plot_is_commons":
+          return reject(problem, "The Commons belongs to everyone.");
+        case "plot_owned":
+          return reject(
+            problem,
+            `This plot is already claimed.${freePlotHint(state, actor, px, py)}`,
+          );
+        case "plot_limit":
+          return reject(
+            problem,
+            "You already have a plot. Settle is for your first one; walk to another and claim it.",
+          );
       }
       const to = landingTile(state, actor, px, py);
       return () => {

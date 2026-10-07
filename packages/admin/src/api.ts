@@ -11,6 +11,7 @@ import {
   AdminOverviewResponse,
   ModerationLogResponse,
   ModerationResponse,
+  NewcomersResponse,
   type ReportKind,
   ReportQueueResponse,
   type ReportReason,
@@ -63,6 +64,7 @@ const path = (template: string, id: string) => template.replace("{id}", encodeUR
 export const api = {
   overview: () => request("GET", "/v1/admin/overview", AdminOverviewResponse),
   townsfolk: () => request("GET", "/v1/admin/townsfolk", TownsfolkActivityResponse),
+  newcomers: () => request("GET", "/v1/admin/newcomers", NewcomersResponse),
   reports: () => request("GET", `/v1/admin/reports${query({ limit: 50 })}`, ReportQueueResponse),
   log: (before?: string) =>
     request("GET", `/v1/admin/log${query({ limit: 30, before })}`, ModerationLogResponse),

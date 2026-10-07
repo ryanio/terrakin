@@ -118,6 +118,20 @@ describe("plot layout", () => {
     expect(plotLayout(w, "far")).toBeUndefined();
   });
 
+  it("lays out a townsfolk's plot, with the townsfolk listed apart from the residents", () => {
+    const w = world();
+    const apart = {
+      ...w,
+      residents: w.residents.slice(1),
+      townsfolk: ["capri"],
+      townsfolkResidents: w.residents.slice(0, 1),
+    };
+    expect(homePlot(apart, "capri")).toEqual({ px: 1, py: 1 });
+    const layout = plotLayout(apart, "capri");
+    expect(layout?.hearth).toEqual({ x: 11, y: 11 });
+    expect(layout?.figures.map((f) => f.id)).toContain("capri");
+  });
+
   it("keeps the plot's blocks, fades neighbors by distance, and drops what's past the margin", () => {
     const layout = plotLayout(world(), "capri", 4);
     if (!layout) throw new Error("no layout");

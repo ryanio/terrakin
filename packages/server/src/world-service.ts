@@ -1025,6 +1025,11 @@ export class WorldService {
     return this.facts.joinedDay.get(residentId);
   }
 
+  /** Every resident's first join day, in the order they first joined (0: before days counted). */
+  joinedDays(): ReadonlyMap<string, number> {
+    return this.facts.joinedDay;
+  }
+
   // ---------- identity ----------
 
   createSession(
@@ -1730,8 +1735,11 @@ export class WorldService {
     return this.hashed.hash;
   }
 
+  /** Residents online, leaving out the townsfolk like `residents` in the snapshot. */
   onlineCount(): number {
-    return Object.values(this.state.residents).filter((r) => r.online).length;
+    return Object.values(this.state.residents).filter(
+      (r) => r.online && !isTownsfolk(this.state, r.id),
+    ).length;
   }
 
   snapshot(): WorldSnapshot {

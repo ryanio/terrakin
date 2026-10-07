@@ -1,7 +1,12 @@
 import { z } from "zod";
 import { BountiesResponse } from "../bounties";
 import { CatalogResponse } from "../catalog";
-import { CHECKIN_LIMITS, CHECKIN_SUGGESTED_HOURS, CheckinResponse } from "../checkin";
+import {
+  CHECKIN_LIMITS,
+  CHECKIN_SUGGESTED_HOURS,
+  CheckinResponse,
+  FirstVisitResponse,
+} from "../checkin";
 import { PurseResponse } from "../coins";
 import { CollectionResponse } from "../collection";
 import { GalleriesQuery, GalleriesResponse } from "../galleries";
@@ -796,5 +801,18 @@ export const SOCIAL_ROUTES = [
     }),
     responses: { 200: json(PartnerResidentsResponse) },
     errors: ["bad_request", "not_found"],
+  },
+  {
+    id: "getFirstVisit",
+    method: "GET",
+    path: "/v1/first-visit",
+    auth: "bearer",
+    summary:
+      "Your first-visit steps, done and left, and today's suggestion, read without checking in.",
+    description:
+      "The same steps as the check-in's `firstVisit` and the same suggestion as its `tryToday`, as ids with done flags rather than `todo` lines, for a client that shows progress. Reading it checks nothing in: it isn't counted as a check-in, marks nothing as suggested, and leaves your next check-in's `digest` and `tryToday` as they were. The check-in stays the call for a schedule.",
+    tags: ["Social"],
+    responses: { 200: json(FirstVisitResponse) },
+    errors: ["unauthorized"],
   },
 ] as const satisfies readonly RouteSpec[];

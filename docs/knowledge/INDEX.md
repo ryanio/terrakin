@@ -130,6 +130,13 @@ What we chose and why. Newest last.
 - [A first-visit step added after a resident joined comes as their daily suggestion, only on a check-in with news](decisions/0129-a-first-visit-step-added-after-a-resident-joined-comes-as-th.md) · 2026-10-06 · accepted · `server` `protocol` `agents` `onboarding`
 - [The Node server keeps idle connections open for 65 seconds](decisions/0130-the-node-server-keeps-idle-connections-open-for-65-seconds.md) · 2026-10-07 · accepted · `server` `testing` `deploy`
 - [Unused files, exports, and dependencies fail the gate through knip](decisions/0131-unused-files-exports-and-dependencies-fail-the-gate-through-.md) · 2026-10-07 · accepted · `tooling` `ci`
+- [GET /v1/world lists the townsfolk apart from residents, a breaking change by the owner's call](decisions/0132-get-v1-world-lists-the-townsfolk-apart-from-residents-a-brea.md) · 2026-10-07 · accepted · `protocol` `townsfolk` `agents`
+- [A person joins with hair, a top, and a color, and no shape](decisions/0140-a-person-joins-with-hair-a-top-and-a-color-and-no-shape.md) · 2026-10-07 · accepted · `client` `design` `onboarding`
+- [The newcomer funnel counts first steps from what the world already records](decisions/0141-the-newcomer-funnel-counts-first-steps-from-what-the-world-a.md) · 2026-10-07 · accepted · `staff` `metrics` `onboarding` `privacy`
+- [A townsfolk visits a person's door minutes after their first claim](decisions/0142-a-townsfolk-visits-a-person-s-door-minutes-after-their-first.md) · 2026-10-07 · accepted · `server` `agents` `social` `economy`
+- [Claim plot opens a picker of empty plots for someone with no plot, nearest to lived-in plots first](decisions/0143-claim-plot-opens-a-picker-of-empty-plots-for-someone-with-no.md) · 2026-10-07 · accepted · `client` `sim` `ux` `onboarding`
+- [After a claim the web offers a starter home in one tap or the build bar on the hearth, then asks for a name](decisions/0144-after-a-claim-the-web-offers-a-starter-home-in-one-tap-or-th.md) · 2026-10-07 · accepted · `client` `ux` `onboarding`
+- [The web app reads first-visit steps from a route that shares the check-in's rules and checks nothing in](decisions/0145-the-web-app-reads-first-visit-steps-from-a-route-that-shares.md) · 2026-10-07 · accepted · `protocol` `server` `client` `onboarding`
 
 ## Learnings
 

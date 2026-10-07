@@ -1,35 +1,51 @@
 /**
- * The onboarding form the feed pages share: a name, a color, a shape, and a short note. Used by
- * the invite page and by "Join and follow" on a profile. The world's own landing has the same
- * fields in static markup (see landing.ts).
+ * The onboarding form the feed pages share: a name, a character (hair, a top, and a color), and a
+ * short note. Used by the invite page, the claim page, and "Join and follow" on a profile. The
+ * world's own landing has the name and note in static markup and the same character picker (see
+ * landing.ts). The chip rows here are shared with the look editor and the profile's look card.
  */
 
 import type { LookView } from "@terrakin/protocol";
 import {
+  DEFAULT_HAIR_COLOR,
   HAIR_COLOR_INFO,
   HAIR_COLORS,
+  HAIR_LABELS,
+  HAIR_STYLES,
   type HairColor,
+  type HairStyle,
+  isExclusiveWear,
+  isShopWear,
   NAME_MAX_LENGTH,
   NOTE_MAX_LENGTH,
   RESIDENT_COLORS,
   RESIDENT_SHAPES,
   type ResidentColor,
   type ResidentShape,
-  THEME_INFO,
-  THEMES,
-  type Theme,
+  WEAR_INFO,
+  WEAR_ITEMS,
+  type WearItem,
 } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
+import { type FullLook, paintFigure } from "@terrakin/ui/figure";
+import { itemArt } from "@terrakin/ui/item-art";
+import { COLOR_WORDS, hairName } from "@terrakin/ui/looks";
 import { paintAvatar } from "@terrakin/ui/people";
 import { chips, errorLine, whileBusy } from "@terrakin/ui/ui";
 
-interface JoinChoice {
-  name: string;
+/** The look fields a join sends: always a color and shape, and hair and a top when picked. */
+export interface JoinLook {
   color: ResidentColor;
   shape: ResidentShape;
+  hair?: HairStyle;
+  hairColor?: HairColor;
+  wear?: WearItem[];
+}
+
+interface JoinChoice {
+  name: string;
   note: string;
-  /** A look theme (RFC 0005). Absent for just your color. */
-  theme?: Theme;
+  look: JoinLook;
 }
 
 export interface JoinFormOptions {
@@ -79,7 +95,11 @@ export function colorChips<N extends string = never>(
 }
 
 /** The hair colors as chips, like `colorChips`: a dot in the color and its name. */
-export function hairColorChips(first: HairColor, onPick?: (c: HairColor) => void) {
+export function hairColorChips(
+  first: HairColor,
+  onPick?: (c: HairColor) => void,
+  row?: HTMLElement,
+) {
   const picker = chips(
     HAIR_COLORS,
     first,
@@ -89,9 +109,193 @@ export function hairColorChips(first: HairColor, onPick?: (c: HairColor) => void
       return [dot, h("span", { class: "swatch-name", text: c })];
     },
     onPick,
+    row,
   );
   picker.row.setAttribute("aria-label", "Hair colors");
   return picker;
+}
+
+/**
+ * The hair styles as chips, None first, each a small picture of you in that style. `paint` draws
+ * the pictures for a look (your color and hair color, without a hat). `chipClass` styles the chips
+ * for the row they sit in.
+ */
+export function hairChips(
+  first: HairStyle | null,
+  onPick?: (style: HairStyle | null) => void,
+  row?: HTMLElement,
+  chipClass?: { chip: string; none: string },
+) {
+  const thumbs: { canvas: HTMLCanvasElement; style: HairStyle }[] = [];
+  const picker = chips<HairStyle | "none">(
+    ["none", ...HAIR_STYLES],
+    first ?? "none",
+    (s) => {
+      if (s === "none") return [h("span", { text: "None" })];
+      const canvas = h("canvas", { class: "look-chip-thumb", attrs: { "aria-hidden": "true" } });
+      thumbs.push({ canvas, style: s });
+      return [canvas, h("span", { text: HAIR_LABELS[s] })];
+    },
+    (s) => onPick?.(s === "none" ? null : s),
+    row,
+    chipClass && ((s) => (s === "none" ? chipClass.none : chipClass.chip)),
+  );
+  picker.row.setAttribute("aria-label", "Hair styles");
+  return {
+    row: picker.row,
+    value: (): HairStyle | null => {
+      const v = picker.value();
+      return v === "none" ? null : v;
+    },
+    paint(look: FullLook) {
+      for (const t of thumbs) {
+        paintFigure(t.canvas, { ...look, wear: [], hair: t.style }, 28, "bust");
+      }
+    },
+  };
+}
+
+/** Tops anyone can wear from their first step: free ones, no shop or partner wear. */
+export const STARTER_TOPS: readonly WearItem[] = WEAR_ITEMS.filter(
+  (w) => WEAR_INFO[w].slot === "top" && !isShopWear(w) && !isExclusiveWear(w),
+);
+
+/** A new character as the join form holds it. */
+export interface Character {
+  color: ResidentColor;
+  hair: HairStyle | null;
+  hairColor: HairColor;
+  top: WearItem | null;
+}
+
+/**
+ * Where every new character starts: the first color, short brown hair, no top. The same every
+ * time, since a choice that changes on each load reads as a glitch.
+ */
+export const FIRST_CHARACTER: Character = {
+  color: RESIDENT_COLORS[0] ?? "sun",
+  hair: HAIR_STYLES[0] ?? "short",
+  hairColor: DEFAULT_HAIR_COLOR,
+  top: null,
+};
+
+/**
+ * The join's look fields for a character. The form doesn't ask for a shape, so it sends the first
+ * one, which the picture showed (decision 0140); the hair color goes only with a style.
+ */
+export function joinLook(c: Character): JoinLook {
+  return {
+    color: c.color,
+    shape: RESIDENT_SHAPES[0] ?? "round",
+    ...(c.hair ? { hair: c.hair, hairColor: c.hairColor } : {}),
+    ...(c.top ? { wear: [c.top] } : {}),
+  };
+}
+
+/** The figure a character's join look draws. */
+function figureOf(look: JoinLook): FullLook {
+  return {
+    color: look.color,
+    shape: look.shape,
+    ...(look.hair ? { hair: look.hair } : {}),
+    ...(look.hairColor ? { hairColor: look.hairColor } : {}),
+    wear: look.wear ?? [],
+  };
+}
+
+/** A row of chips that scrolls sideways on a phone, so the whole picker fits one screen. */
+const pickRow = () => h("div", { class: "pick-row" });
+
+/**
+ * The character picker: a picture of you and a line saying it in words, over rows for your hair
+ * style, its color, a top, and your color, all repainted as you pick. Ids start with `id`
+ * (`join-hair`, `join-hair-color`, `join-top`, `join-color`).
+ */
+export function characterPicker(id: string) {
+  const c: Character = { ...FIRST_CHARACTER };
+  const figure = h("canvas", { attrs: { "aria-hidden": "true" } });
+  const words = h("p", { class: "character-words", attrs: { "aria-live": "polite" } });
+
+  const hair = hairChips(
+    c.hair,
+    (s) => {
+      c.hair = s;
+      paint();
+    },
+    pickRow(),
+  );
+  const hairColor = hairColorChips(
+    c.hairColor,
+    (v) => {
+      c.hairColor = v;
+      paint();
+    },
+    pickRow(),
+  );
+  const top = chips<WearItem | "none">(
+    ["none", ...STARTER_TOPS],
+    c.top ?? "none",
+    (w) =>
+      w === "none"
+        ? [h("span", { text: "None" })]
+        : [
+            itemArt(w, { size: 28, className: "pick-art" }),
+            h("span", { text: WEAR_INFO[w].label }),
+          ],
+    (w) => {
+      c.top = w === "none" ? null : w;
+      paint();
+    },
+    pickRow(),
+  );
+  top.row.setAttribute("aria-label", "Tops");
+  const color = colorChips(
+    c.color,
+    (v) => {
+      c.color = v;
+      paint();
+    },
+    pickRow(),
+  );
+
+  const field = (key: string, legend: string, row: HTMLElement) =>
+    h(
+      "fieldset",
+      { class: "swatches", attrs: { id: `${id}-${key}` } },
+      h("legend", { class: "field-label", text: legend }),
+      row,
+    );
+  const hairColorField = field("hair-color", "Hair color", hairColor.row);
+
+  function paint() {
+    paintFigure(figure, figureOf(joinLook(c)), 96, "full");
+    hair.paint(figureOf(joinLook({ ...c, top: null })));
+    // The color waits for a style, as in the look editor.
+    hairColorField.hidden = c.hair === null;
+    words.textContent = characterWords(c);
+  }
+  paint();
+
+  const el = h(
+    "div",
+    { class: "stack character" },
+    h("div", { class: "character-head" }, h("div", { class: "character-figure" }, figure), words),
+    field("hair", "Hair", hair.row),
+    hairColorField,
+    field("top", "Something to wear", top.row),
+    field("color", "Your color", color.row),
+  );
+  return { el, value: () => joinLook(c) };
+}
+
+/** A character in words, beside its picture: "Auburn bob, cardigan, in sun yellow". */
+export function characterWords(c: Character): string {
+  const hair = c.hair ? hairName(c.hair, c.hairColor) : undefined;
+  return [
+    hair ?? "No hair",
+    ...(c.top ? [WEAR_INFO[c.top].label.toLowerCase()] : []),
+    `in ${COLOR_WORDS[c.color]}`,
+  ].join(", ");
 }
 
 /** The resident shapes as chips: a dot in the shape and its name. */
@@ -132,9 +336,6 @@ export function tokenPreview(
 
 export function joinForm(options: JoinFormOptions) {
   const { id } = options;
-  // The first color and shape, always: a choice that changes on every load reads as a glitch.
-  const firstColor = RESIDENT_COLORS[0] ?? "sun";
-  const firstShape = RESIDENT_SHAPES[0] ?? "round";
 
   const name = h("input", {
     class: "field-input",
@@ -160,40 +361,11 @@ export function joinForm(options: JoinFormOptions) {
       placeholder: "Loves gardens and rainy days",
     },
   });
-  const preview = tokenPreview(firstColor, firstShape, "");
-  const repaint = () => {
-    const t = theme.value();
-    preview.paint(
-      color.value(),
-      shape.value(),
-      name.value,
-      t === "none" ? undefined : { theme: t },
-    );
-  };
-
-  const color = colorChips(firstColor, repaint);
-  const shape = shapeChips(firstShape, repaint);
-  // Optional: a theme dresses you from the first step. Pattern, wear, and your own art come later.
-  const theme = chips<Theme | "none">(
-    ["none", ...THEMES],
-    "none",
-    (t) => {
-      const dot = h("span", { class: "swatch-dot" });
-      dot.style.background =
-        t === "none"
-          ? "var(--paper-2)"
-          : `linear-gradient(135deg, ${THEME_INFO[t].palette.main} 55%, ${THEME_INFO[t].palette.accent} 55%)`;
-      const label = t === "none" ? "None" : THEME_INFO[t].label;
-      return [dot, h("span", { class: "swatch-name", text: label })];
-    },
-    repaint,
-  );
-  theme.row.setAttribute("aria-label", "Themes");
+  const character = characterPicker(id);
   name.addEventListener("input", () => {
     error.textContent = "";
     nameError.textContent = "";
     name.removeAttribute("aria-invalid");
-    repaint();
   });
 
   // A missing name is said under the name field; anything the server says sits above the button,
@@ -214,34 +386,12 @@ export function joinForm(options: JoinFormOptions) {
     { class: "stack onboard", attrs: { novalidate: true, id: `${id}-form` } },
     h(
       "div",
-      { class: "onboard-name" },
-      preview.el,
-      h(
-        "div",
-        { class: "onboard-field" },
-        h("label", { class: "field-label", attrs: { for: `${id}-name` }, text: "Your name" }),
-        name,
-        nameError,
-      ),
+      { class: "onboard-field" },
+      h("label", { class: "field-label", attrs: { for: `${id}-name` }, text: "Your name" }),
+      name,
+      nameError,
     ),
-    h(
-      "fieldset",
-      { class: "swatches", attrs: { id: `${id}-color` } },
-      h("legend", { class: "field-label", text: "Your color" }),
-      color.row,
-    ),
-    h(
-      "fieldset",
-      { class: "swatches", attrs: { id: `${id}-shape` } },
-      h("legend", { class: "field-label", text: "Your shape" }),
-      shape.row,
-    ),
-    h(
-      "fieldset",
-      { class: "swatches", attrs: { id: `${id}-theme` } },
-      h("legend", { class: "field-label", text: "A theme (optional)" }),
-      theme.row,
-    ),
+    character.el,
     h(
       "div",
       { class: "onboard-field" },
@@ -271,19 +421,11 @@ export function joinForm(options: JoinFormOptions) {
       name.focus();
       return;
     }
-    const chosenTheme = theme.value();
     busy = true;
     error.textContent = "";
     const problem = await whileBusy(
       submit,
-      () =>
-        options.onSubmit({
-          name: value,
-          color: color.value(),
-          shape: shape.value(),
-          note: note.value.trim(),
-          ...(chosenTheme === "none" ? {} : { theme: chosenTheme }),
-        }),
+      () => options.onSubmit({ name: value, note: note.value.trim(), look: character.value() }),
       options.busyLabel,
       label,
     );

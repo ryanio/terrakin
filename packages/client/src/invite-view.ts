@@ -109,13 +109,14 @@ export function inviteView(code: string, ctx: ViewContext): View {
       busyLabel: "Moving in…",
       extras: [h("div", { class: "check-group" }, build.el, share?.el ?? null)],
       async onSubmit(choice) {
+        // Accepting takes a color and shape only; the hair and top follow as a profile change.
+        const { color, shape, ...dress } = choice.look;
         const r = await api.acceptInvite(code, {
           name: choice.name,
           kind: "human",
-          color: choice.color,
-          shape: choice.shape,
+          color,
+          shape,
           ...(choice.note ? { note: choice.note } : {}),
-          ...(choice.theme ? { theme: choice.theme } : {}),
           build: build.input.checked,
           ...(share ? { share: share.input.checked } : {}),
         });
@@ -128,6 +129,8 @@ export function inviteView(code: string, ctx: ViewContext): View {
           return r.message;
         }
         saveToken(r.data.token, r.data.residentId);
+        // If the world turns the look down, she's in all the same, in her color.
+        if (Object.keys(dress).length > 0) await api.act({ type: "profile", ...dress });
         try {
           sessionStorage.setItem(ARRIVAL_KEY, arrivalLine(invite.inviter.name, r.data));
         } catch {

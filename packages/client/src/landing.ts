@@ -1,19 +1,14 @@
 /**
- * The landing curtain: welcome card, join form, "Bring your AI" popover and the notes.
+ * The landing curtain: welcome card, join form (a name, a character, and a note), "Bring your AI"
+ * popover and the notes.
  * Self-contained, so a router can show it, skip it, or put it back. It never touches the world
  * or the connection; it reports a join through `onJoin` and the caller decides what happens next.
  */
 
-import {
-  RESIDENT_COLORS,
-  RESIDENT_SHAPES,
-  type ResidentColor,
-  type ResidentShape,
-} from "@terrakin/sim";
 import { plural } from "@terrakin/ui/format";
 import { reducedMotion } from "@terrakin/ui/motion";
 import { initBrandMarks, initBringAi } from "./chrome";
-import { colorChips, shapeChips } from "./join-form";
+import { characterPicker, type JoinLook } from "./join-form";
 
 export interface Landing {
   /** True while the curtain is showing (not lifted or hidden). */
@@ -33,7 +28,8 @@ export interface Landing {
 }
 
 export interface LandingOptions {
-  onJoin(choice: { name: string; color: ResidentColor; shape: ResidentShape; note: string }): void;
+  /** A new character: a name, its look, and a note when one was written. */
+  onJoin(choice: { name: string; note?: string } & JoinLook): void;
   /** Check a pasted key. Resolve with an error message, or null once it is saved. */
   onRestore(key: string): Promise<string | null>;
 }
@@ -54,22 +50,18 @@ function byId<T extends HTMLElement>(root: ParentNode, id: string): T {
 export function createLanding(root: HTMLElement, { onJoin, onRestore }: LandingOptions): Landing {
   const form = byId<HTMLFormElement>(root, "world-join");
   const note = byId<HTMLInputElement>(root, "join-note");
-  const shapeRow = byId(root, "shape-row");
   const name = byId<HTMLInputElement>(root, "join-name");
   const error = byId(root, "join-error");
   const submit = form.querySelector<HTMLButtonElement>('button[type="submit"]');
   const submitLabel = byId(root, "join-submit-label");
   const live = byId(root, "live");
   const liveText = byId(root, "live-text");
-  const swatchRow = byId(root, "swatch-row");
 
   initBrandMarks(root);
   initBringAi(byId(root, "bring-ai"), byId(root, "bring-pop"));
 
-  // The first color and shape are picked to start, every time: a choice that changes on each load
-  // reads as a glitch.
-  const colors = colorChips(RESIDENT_COLORS[0] ?? "sun", undefined, swatchRow);
-  const shapes = shapeChips(RESIDENT_SHAPES[0] ?? "round", undefined, shapeRow);
+  const character = characterPicker("join");
+  byId(root, "join-character").replaceWith(character.el);
 
   // On a phone the error line scrolls into view, since the sticky Step inside button can sit over
   // it. The field it's about (the one that gets focus) is marked invalid until the error clears.
@@ -129,7 +121,8 @@ export function createLanding(root: HTMLElement, { onJoin, onRestore }: LandingO
       return;
     }
     showError("");
-    onJoin({ name: value, color: colors.value(), shape: shapes.value(), note: note.value.trim() });
+    const words = note.value.trim();
+    onJoin({ name: value, ...character.value(), ...(words ? { note: words } : {}) });
   });
 
   let hideTimer: ReturnType<typeof setTimeout> | undefined;
